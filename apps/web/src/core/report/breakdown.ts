@@ -1,0 +1,114 @@
+import type { BalanceReport, MixedAmount } from "../../hledger/protocol/wire"
+import { parseIsoDate, type IsoDate } from "../calendar/calendar"
+import { ZERO, add, compare, negate, type Decimal } from "../decimal/decimal"
+import { collect, mapOk, type Result } from "../result/result"
+import { yenOf, type ReportError } from "./figures"
+
+/** What plays are grouped by, each a way of asking where the results came from. */
+export const DIMENSIONS = ["machine", "parlor", "weekday", "game", "maker", "year", "month", "day"] as const
+
+export type Dimension = (typeof DIMENSIONS)[number]
+
+export const isDimension = (text: string): text is Dimension => (DIMENSIONS as readonly string[]).includes(text)
+
+/** The key of the group whose plays do not say what a dimension asks: hledger's row for what carries no such tag. */
+export const UNSAID = ""
+
+/**
+ * The plays that share one answer to a dimension, together: what they made
+ * and what they were worth by their formulas. Both are hledger's sums — a
+ * row of a report pivoted on a tag, or a column of one with an interval.
+ */
+export interface Group {
+  readonly key: string
+  readonly actual: Decimal
+  readonly theoretical: Decimal
+}
+
+/** One figure a group, by key, as one report gives it. */
+type Figures = ReadonlyMap<string, Decimal>
+
+const figuresOf = (pairs: readonly (readonly [string, MixedAmount])[]): Result<Figures, ReportError> =>
+  mapOk(collect(pairs.map(([key, amount]) => mapOk(yenOf(amount), (yen) => [key, yen] as const))), (read) => new Map(read))
+
+/** A pivoted report's rows as figures by the tag's value: each row's total, the row for what carries no such tag under the empty key. */
+export const byRow = (report: BalanceReport): Result<Figures, ReportError> => figuresOf(report.prRows.map((row) => [typeof row.prrName === "string" ? row.prrName : UNSAID, row.prrTotal]))
+
+/** A day as the key of the period it begins, as long as the period is: a year, a month, or itself. */
+const PERIOD_KEYS = { yearly: (day: IsoDate) => day.slice(0, 4), monthly: (day: IsoDate) => day.slice(0, 7), daily: (day: IsoDate) => day as string } as const
+
+export type Period = keyof typeof PERIOD_KEYS
+
+/** A report's columns as figures by period: each column's total over every row, a column whose start does not read left out. */
+export const byColumn = (report: BalanceReport, period: Period): Result<Figures, ReportError> =>
+  figuresOf(
+    report.prDates.flatMap((span, index) => {
+      const began = parseIsoDate(span[0]?.contents ?? "")
+      return began.ok ? [[PERIOD_KEYS[period](began.value), report.prTotals.prrAmounts[index] ?? []] as const] : []
+    }),
+  )
+
+/**
+ * Groups from what an income statement and a balance of theoretical values,
+ * cut alike, each say of them. An income statement's total is turned over,
+ * as it is read: revenue is a credit. A group one report has and the other
+ * lacks stands at nothing in the other, and a group that comes to nothing
+ * in both is no group.
+ */
+export const groupsOf = (statement: Figures, theoretical: Figures): readonly Group[] =>
+  [...new Set([...statement.keys(), ...theoretical.keys()])]
+    .map((key) => ({ key, actual: negate(statement.get(key) ?? ZERO), theoretical: theoretical.get(key) ?? ZERO }))
+    .filter((group) => compare(group.actual, ZERO) !== 0 || compare(group.theoretical, ZERO) !== 0)
+
+const together = (key: string, groups: readonly Group[]): Group => groups.reduce((total, group) => ({ key, actual: add(total.actual, group.actual), theoretical: add(total.theoretical, group.theoretical) }), { key, actual: ZERO, theoretical: ZERO })
+
+/** The same groups from several books, each key's figures added: books are read one at a time, and several are one by adding what each says. */
+export const merged = (books: readonly (readonly Group[])[]): readonly Group[] => {
+  const all = books.flat()
+  return [...new Set(all.map((group) => group.key))].map((key) => together(key, all.filter((group) => group.key === key)))
+}
+
+/** The day of the week a day is, Monday as 0: the week as a parlor's regular counts it, the weekend last. */
+const weekdayOf = (date: string): number => {
+  const [year, month, day] = date.split("-").map(Number)
+  return (new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1)).getUTCDay() + 6) % 7
+}
+
+/**
+ * Days folded into the seven days of the week. hledger groups by tag and by
+ * period and has no grouping by weekday, so each day's figures are its own,
+ * from a daily report, and the seven are those added.
+ */
+export const byWeekday = (days: readonly Group[]): readonly Group[] => {
+  const weekdays = [...new Set(days.map((group) => weekdayOf(group.key)))]
+  return weekdays.map((weekday) => together(String(weekday), days.filter((group) => weekdayOf(group.key) === weekday)))
+}
+
+const byKey = (left: Group, right: Group): number => left.key.localeCompare(right.key)
+
+const byActual = (left: Group, right: Group): number => compare(right.actual, left.actual)
+
+/**
+ * How a dimension's groups are set in order. Time runs: the days of the
+ * week from Monday, and years, months and days newest first. Anything else
+ * is read for what made most, so the best comes first and the worst last.
+ */
+const ORDERS: Readonly<Record<Dimension, (left: Group, right: Group) => number>> = {
+  machine: byActual,
+  parlor: byActual,
+  game: byActual,
+  maker: byActual,
+  weekday: byKey,
+  year: (left, right) => byKey(right, left),
+  month: (left, right) => byKey(right, left),
+  day: (left, right) => byKey(right, left),
+}
+
+/** Groups in the order their dimension is read in. */
+export const inOrder = (groups: readonly Group[], dimension: Dimension): readonly Group[] => groups.toSorted(ORDERS[dimension])
+
+/** Groups best first: the order of anything that is not time. */
+export const bestFirst = (groups: readonly Group[]): readonly Group[] => groups.toSorted(byActual)
+
+/** Every group of a breakdown together: what they come to. */
+export const totalOf = (groups: readonly Group[]): Group => together(UNSAID, groups)

@@ -1,0 +1,40 @@
+import type { IsoDate } from "../calendar/calendar"
+import type { Decimal } from "../decimal/decimal"
+
+/**
+ * How amounts in tokens are turned into yen, and the two are never mixed:
+ *
+ * - `posting-date` values each posting at the exchange rate of its own day —
+ *   hledger's `--value=then`. What a period actually made or lost.
+ * - `period-end` values what is held at the rate in force at the end of the
+ *   period — `--value=end`. What savings are worth now, or were worth then.
+ */
+export type Valuation = { readonly at: "posting-date" } | { readonly at: "period-end" }
+
+/**
+ * One exchange rate, as a `P` directive states it: from this day on, one unit
+ * of the commodity is worth `rate` yen at its parlor.
+ *
+ * Rates are only ever added. A changed rate is a new point on a later day, so
+ * every past day keeps the rate it had.
+ */
+export interface PricePoint {
+  readonly date: IsoDate
+  readonly commodity: string
+  readonly rate: Decimal
+}
+
+/** Of points on the same day, the one written later wins, as in hledger. */
+const latestOf = (points: readonly PricePoint[]): PricePoint | undefined =>
+  points.reduce<PricePoint | undefined>(
+    (latest, point) => (latest === undefined || point.date >= latest.date ? point : latest),
+    undefined,
+  )
+
+/** The rate in force for a commodity on a day: the latest point on or before it. */
+export const rateOn = (points: readonly PricePoint[], commodity: string, date: IsoDate): PricePoint | undefined =>
+  latestOf(points.filter((point) => point.commodity === commodity && point.date <= date))
+
+/** The latest rate a commodity has at all. */
+export const latestRate = (points: readonly PricePoint[], commodity: string): PricePoint | undefined =>
+  latestOf(points.filter((point) => point.commodity === commodity))

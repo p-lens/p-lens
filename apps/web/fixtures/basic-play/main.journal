@@ -1,0 +1,19 @@
+; A P-Lens book: pachinko and pachislot play, kept as a plain-text hledger journal.
+; Made with P-Lens, open source at https://github.com/p-lens/p-lens
+; Read and checked by hledger, with thanks: https://github.com/simonmichael/hledger
+;
+; What is where:
+;   accounts.journal      commodities and accounts; a parlor is the savings accounts tagged parlor-id
+;   prices.journal        P directives: what a parlor's tokens exchange for, by day
+;   transactions.journal  one entry per play, tagged play-id, game-kind and machine
+;   pachinko-play/        a pachinko play's readings as JSON Lines, in a file named by its play-id
+;   pachislot-play/       a pachislot play's, the same
+; Parlors are named as the open list at https://parlors.p-lens.jp names them, machines as P-Lens's catalog does.
+; The layout, the accounts and every tag are described in ARCHITECTURE.md in the P-Lens repository.
+;
+; Point hledger at this file: hledger -f main.journal bal
+; book-title-p: サンプル帳簿
+
+include accounts.journal
+include prices.journal
+include transactions.journal

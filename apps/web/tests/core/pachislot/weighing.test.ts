@@ -1,0 +1,169 @@
+import { describe, expect, test } from "bun:test"
+
+import type { NormalizedSpecDto } from "@p-lens/contracts/pachislot"
+import normalized from "@p-lens/contracts/fixtures/pachislot/made-up/normalized.json"
+
+import type { FormulaListing } from "../../../src/core/formula/standing"
+import type { MachineId } from "../../../src/core/machine/machine"
+import type { FormulaId, SettingDistribution, SettingDistributionId } from "../../../src/core/pachislot/formula"
+import type { FormulaSnapshot } from "../../../src/core/pachislot/snapshot"
+import { priorFor, selectPrior, type Prior } from "../../../src/core/pachislot/prior"
+import {
+  checkpointForReading,
+  countCheckpoint,
+  countedGamesOf,
+  isCounting,
+  seatCheckpoint,
+  startCountingCheckpoint,
+  totalNowOf,
+} from "../../../src/core/pachislot/reading"
+import { counterBonusesOf, counterBonusOf, countablesOf, GAMES_PER_HOUR, playOf, settingLevelsOf } from "../../../src/core/pachislot/weighing"
+import type { PlayTerms } from "../../../src/core/parlor/terms"
+import type { Checkpoint } from "../../../src/core/play-log/checkpoint"
+
+const spec: NormalizedSpecDto = normalized as NormalizedSpecDto
+
+const formula: FormulaSnapshot = {
+  id: "f" as FormulaId,
+  machineId: "m" as MachineId,
+  kind: "simulated",
+  figures: [1, 6].map((settingLevel) => ({
+    settingLevel,
+    payoutRate: 1,
+    bonuses: [
+      { id: "big", label: "BIG", oneIn: 250 },
+      { id: "reg", label: "REG", oneIn: 400 },
+    ],
+    combinedOneIn: 153.8,
+  })),
+  normalized: spec,
+  conditions: { payoutRate: { type: "from-spec" } },
+  labels: { big: "BIG", reg: "REG", "reg-solo": "単独REG", "reg-cherry": "チェリー重複REG", grape: "ブドウ", cherry: "チェリー", replay: "リプレイ" },
+}
+
+const weekday: Prior = {
+  type: "distribution",
+  id: "d" as SettingDistributionId,
+  label: "平日",
+  shares: [
+    { settingLevel: 1, basisPoints: 4000 },
+    { settingLevel: 2, basisPoints: 3000 },
+    { settingLevel: 3, basisPoints: 1500 },
+    { settingLevel: 4, basisPoints: 1000 },
+    { settingLevel: 5, basisPoints: 400 },
+    { settingLevel: 6, basisPoints: 100 },
+  ],
+}
+
+describe("a pachislot prior", () => {
+  test("an even spread is left to the engine", () => {
+    expect(priorFor({ type: "even" }, [1, 6])).toEqual({ ok: true, value: undefined })
+  })
+
+  test("a 設定配分 is cut to the formula's setting levels and scaled back up to exactly 100%", () => {
+    expect(priorFor(weekday, [1, 6])).toEqual({
+      ok: true,
+      value: {
+        shares: [
+          { settingLevel: 1, value: 9756 },
+          { settingLevel: 6, value: 244 },
+        ],
+      },
+    })
+    expect(priorFor(weekday, [1, 2, 3, 4, 5, 6])).toEqual({
+      ok: true,
+      value: { shares: weekday.shares.map((share) => ({ settingLevel: share.settingLevel, value: share.basisPoints })) },
+    })
+  })
+
+  test("a level the 設定配分 does not name has no share, and one naming none of the formula's is refused", () => {
+    expect(priorFor(weekday, [1, 7])).toEqual({
+      ok: true,
+      value: {
+        shares: [
+          { settingLevel: 1, value: 10_000 },
+          { settingLevel: 7, value: 0 },
+        ],
+      },
+    })
+    expect(priorFor(weekday, [7, 8])).toEqual({ ok: false, error: { type: "prior-rules-out-every-setting-level", label: "平日" } })
+  })
+})
+
+describe("choosing a play's prior", () => {
+  const listing = (id: string, adoptions: number): FormulaListing<SettingDistribution> => ({
+    formula: { id: id as SettingDistributionId, machineId: "m" as MachineId, label: id, shares: [], derivedFrom: undefined, createdAt: "2026-10-05T00:00:00Z" },
+    standing: { verifications: 0, refutations: 0, adoptions, rejections: 0, favorites: 0, uses: 0 },
+  })
+
+  test("is even by default, however well a 設定配分 ranks", () => {
+    expect(selectPrior([listing("weekday", 12)], undefined, new Set())).toEqual({ prior: { type: "even" }, by: "default" })
+  })
+
+  test("is the favourite when one is kept, and what was chosen by hand over either", () => {
+    const listings = [listing("weekday", 12), listing("event", 0)]
+    const kept = new Set(["event"])
+    expect(selectPrior(listings, undefined, kept)).toMatchObject({ prior: { type: "distribution", id: "event" }, by: "favorite" })
+    expect(selectPrior(listings, { type: "distribution", id: "weekday" as SettingDistributionId }, kept)).toMatchObject({ prior: { id: "weekday" }, by: "person" })
+    expect(selectPrior(listings, { type: "even" }, kept)).toEqual({ prior: { type: "even" }, by: "person" })
+  })
+})
+
+describe("a pachislot formula at the cabinet", () => {
+  test("the counter shows a part as its bonus, and no small win at all", () => {
+    const shownAs = counterBonusOf(spec)
+    expect(["big", "reg", "reg-solo", "reg-cherry", "grape", "replay"].map(shownAs)).toEqual(["big", "reg", "reg", "reg", undefined, undefined])
+  })
+
+  test("everything a game comes to is a tile to count, a split bonus part by part", () => {
+    expect(countablesOf(formula).map((countable) => countable.label)).toEqual(["BIG", "単独REG", "チェリー重複REG", "ブドウ", "チェリー", "リプレイ"])
+    expect(counterBonusesOf(formula).map((bonus) => bonus.id)).toEqual(["big", "reg"])
+    expect(settingLevelsOf(formula)).toEqual([1, 6])
+  })
+
+  test("the share played from cash is the outlay in medals over the medals played, or what the machine leaves short before that is known", () => {
+    const terms: PlayTerms = { rental: { yen: 1000, tokens: 46 }, exchange: { tokens: 50, yen: 1000 }, replay: { paidOut: 1, deducted: 1 } }
+    const play = { bet: 3, games: 100, outlay: 1000, payoutRate: 0.97 }
+    expect(playOf(terms, play)).toEqual({ medalValue: 20, rentalPrice: 1000 / 46, cashShare: 46 / 300, gamesPerHour: GAMES_PER_HOUR })
+    expect(playOf(terms, { ...play, outlay: 10_000 })?.cashShare).toBe(1)
+    expect(playOf(terms, { ...play, games: 0 })?.cashShare).toBeCloseTo(0.03, 12)
+    expect(playOf(terms, { ...play, outlay: undefined, payoutRate: 1.05 })?.cashShare).toBe(0)
+    expect(playOf(undefined, play)).toBeUndefined()
+  })
+})
+
+describe("readings of a pachislot data counter", () => {
+  const at = "2026-10-05T10:00:00.000Z"
+  const seated: readonly Checkpoint[] = [seatCheckpoint({ total: 2400, bonuses: { big: 9, reg: 7 }, sinceBonus: 120 }, at)]
+
+  test("the play's games are the day's games less those at the seat", () => {
+    expect(seated).toEqual([{ spins: 0, outlay: 0, at, counter: { spins: 120, total: 2400, bonuses: { big: 9, reg: 7 } } }])
+    expect(checkpointForReading(seated, { total: 2650, bonuses: { big: 10, reg: 7 }, outlay: 2000, at })).toEqual({
+      ok: true,
+      value: { spins: 250, outlay: 2000, at, counter: { total: 2650, bonuses: { big: 10, reg: 7 } } },
+    })
+  })
+
+  test("the day's games and the outlay never go back", () => {
+    const played = [...seated, { spins: 300, outlay: 3000, at, counter: { total: 2700, bonuses: {} } }]
+    expect(totalNowOf(played)).toBe(2700)
+    expect(checkpointForReading(played, { total: 2650, bonuses: {}, outlay: undefined, at })).toEqual({
+      ok: false,
+      error: { type: "total-went-back", atLeast: 2700 },
+    })
+    expect(checkpointForReading(played, { total: 2800, bonuses: {}, outlay: 2000, at })).toEqual({ ok: false, error: { type: "outlay-went-back", atLeast: 3000 } })
+  })
+
+  test("counting starts at the games last known, and a tap adds to the running tally or takes one back", () => {
+    expect(isCounting(seated)).toBe(false)
+    const started = [...seated, { spins: 250, at, counter: { total: 2650 } }, startCountingCheckpoint([...seated, { spins: 250 }], at)]
+    expect(started.at(-1)).toEqual({ spins: 250, at, tally: {} })
+    const grape = countCheckpoint(started, "grape", 1, at)
+    expect(grape).toEqual({ spins: 250, at, tally: { grape: 1 } })
+    expect(countCheckpoint([...started, grape], "grape", -1, at).tally).toEqual({ grape: 0 })
+    expect(countCheckpoint(started, "cherry", -1, at).tally).toEqual({ cherry: 0 })
+    const later = [...started, grape, { spins: 400, at, counter: { total: 2800 } }]
+    expect(isCounting(later)).toBe(true)
+    expect(countedGamesOf(later)).toBe(150)
+  })
+})

@@ -1,0 +1,57 @@
+このフォルダについて / About this folder
+==========================================
+
+このフォルダにあるのは、P-Lens というソフトウェアではなく、それを app.p-lens.jp
+で配信している運営者（https://github.com/p-lens）のものです。ソフトウェア本体
+とは別のもので、GNU General Public License の対象ではありません。
+
+対象外のもの:
+
+- 名称「P-Lens」「Pレンズ」と、ロゴ・アイコン（icon.png、served/ の画像）
+- 利用規約とプライバシーポリシーの文章（terms.md、privacy.md）
+- 配信先のアドレスと、公式サイトのアドレス
+
+© P-Lens contributors. All rights reserved.
+
+名称とロゴは運営者の標章です。GPL 第 7 条 (e) にもとづき、これらを使う権利は
+許諾しません。
+
+このソフトウェアをフォークして配信するときは、このフォルダの中身を自分のもの
+に置き換えてください。名称と運営者は deployment.ts に、画像は icon.png に（`bun run
+icons` で served/ に描き出します）、文章は terms.md と privacy.md にあります。
+置き換えたあとのソフトウェア本体は、GPL-3.0-or-later のもとで自由に使い、
+変更し、再配布できます。
+
+このフォルダの TypeScript のファイル（deployment.ts、documents.ts）は、値を
+読み込むためのコードで、ソフトウェア本体と同じ GPL-3.0-or-later です。そこに
+書かれている名称とアドレスそのものは、上のとおり運営者のものです。
+
+------------------------------------------------------------------------
+
+What is in this folder is not the software P-Lens. It belongs to the operator
+who serves that software at app.p-lens.jp (https://github.com/p-lens). It is
+separate from the software and is not covered by the GNU General Public
+License.
+
+Not covered:
+
+- the names "P-Lens" and "Pレンズ", the logo and the icons (icon.png and the
+  images in served/)
+- the text of the terms of use and the privacy policy (terms.md, privacy.md)
+- the address the deployment is served at, and its landing page's
+
+© P-Lens contributors. All rights reserved.
+
+The names and the logo are the operator's marks. Under section 7(e) of the
+GPL, no right to use them is granted.
+
+To serve a fork of this software, replace what is in this folder with your
+own. The name and the operator are in deployment.ts, the drawing is icon.png (`bun run icons`
+renders it into served/), and the texts are terms.md and privacy.md. With
+those replaced, the software itself is yours to use, change and redistribute
+under GPL-3.0-or-later.
+
+The TypeScript files in this folder (deployment.ts, documents.ts) are code
+that reads those values, and are under GPL-3.0-or-later like the rest of the
+software. The names and addresses written in them are the operator's, as
+above.

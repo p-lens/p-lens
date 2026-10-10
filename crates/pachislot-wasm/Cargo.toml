@@ -1,0 +1,21 @@
+[package]
+name = "pachislot-wasm"
+description = "The pachislot engine's JavaScript boundary: JSON text in, JSON text out"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pachislot-domain = { path = "../pachislot-domain" }
+pachislot-engine = { path = "../pachislot-engine" }
+pachislot-simulator = { path = "../pachislot-simulator" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+wasm-bindgen = "=0.2.129"
+
+[lints]
+workspace = true

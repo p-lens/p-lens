@@ -1,0 +1,24 @@
+{
+  "settingLevels": [
+    {
+      "settingLevel": 1,
+      "netPerGame": -0.059,
+      "payoutRate": 0.9803333333333333,
+      "bonuses": [
+        { "id": "big", "chance": 0.004 },
+        { "id": "reg", "chance": 0.0025 }
+      ],
+      "combined": 0.0065
+    },
+    {
+      "settingLevel": 6,
+      "netPerGame": 0.405,
+      "payoutRate": 1.135,
+      "bonuses": [
+        { "id": "big", "chance": 0.005 },
+        { "id": "reg", "chance": 0.004 }
+      ],
+      "combined": 0.009
+    }
+  ]
+}

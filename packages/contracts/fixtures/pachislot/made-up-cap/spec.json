@@ -1,0 +1,26 @@
+{
+  "v": 1,
+  "entities": ["at"],
+  "components": {
+    "label": { "at": "AT" },
+    "at": ["at"],
+    "firstHit": {
+      "at": [
+        { "settingLevel": 1, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 50000 } },
+        { "settingLevel": 6, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 40000 } }
+      ]
+    },
+    "sets": { "at": { "first": 300, "set": 100 } },
+    "continuationRate": {
+      "at": [
+        { "settingLevel": 1, "value": 8000 },
+        { "settingLevel": 6, "value": 8500 }
+      ]
+    },
+    "ceiling": { "at": 1000 },
+    "resetCeiling": { "at": 600 },
+    "window": { "at": 32 },
+    "resetOnCap": ["at"]
+  },
+  "resources": { "settingLevels": [1, 6], "bet": 3, "base": 40, "cap": 2400 }
+}

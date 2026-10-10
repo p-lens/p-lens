@@ -1,0 +1,269 @@
+import type { PlayGameKind, PlayId } from "../play/play"
+import { Err, Ok, collect, type Result } from "../result/result"
+import { isHeadLine } from "./head"
+
+/**
+ * One line of a play log: the state of a play at some moment, as running
+ * totals since the play began.
+ *
+ * Totals rather than differences, so a line forgotten at the time can be
+ * appended later without touching any other line: order comes from `spins`,
+ * never from where a line sits in the file. The file is only ever appended to,
+ * which is also what keeps two edits of it merging cleanly in Git.
+ *
+ * Everything but `spins` may be missing — a jackpot remembered afterwards
+ * rarely comes with how much had been spent by then.
+ */
+export interface Checkpoint {
+  /** Spins (games, for pachislot) since the play began; the order of the log. */
+  readonly spins: number
+  /** Yen spent since the play began. */
+  readonly outlay?: number
+  /** When the line was written, as an ISO 8601 timestamp. */
+  readonly at?: string
+  /**
+   * The parlor's data counter as it was read. Kept beside the totals, not in
+   * place of them, because the counter starts over at every jackpot.
+   */
+  readonly counter?: Counter
+  /**
+   * Something that happened at this point. A jackpot marked `approximate` was
+   * found missing afterwards — the counter had started over — so it happened
+   * somewhere after the line before, not exactly here. On a pachislot AT
+   * machine a jackpot is an AT won, and `cz-missed` a CZ that did not win one.
+   * A pachinko jackpot says which of its machine's bonuses it was, where
+   * the machine lists them.
+   */
+  readonly event?: PlayEvent
+  /**
+   * What the player counted, small wins and bonuses alike, as running totals
+   * by their id in the formula's spec — `{ "grape": 412, "reg-solo": 2 }` —
+   * since counting began, at the first line that carries a tally. A count
+   * may go down: a tap taken back. Pachislot only.
+   */
+  readonly tally?: Tally
+  /**
+   * The cabinet's settings were changed before the play, so its ceiling is
+   * the shorter one until its first AT. On the first line only. Pachislot only.
+   */
+  readonly afterReset?: true  /**
+   * The state a pachinko cabinet was in over the spins since the line
+   * before. Absent, they were regular games. Pachinko only.
+   */
+  readonly phase?: Phase
+  /** Tokens drawn from the parlor's savings since the play began. */
+  readonly replay?: number
+  /**
+   * What the balls in hand gained or lost outside regular games and
+   * bonuses since the play began — the 電サポ's drift through 確変 and 時短 —
+   * below zero where they lost. Pachinko only.
+   */
+  readonly support?: number
+  /** The tokens in hand at this point, where they were counted. */
+  readonly held?: number
+}
+
+/**
+ * What a pachinko cabinet is doing: regular games, which are what balls
+ * buy and a formula weighs; 確変, or 時短, which run on the 電サポ and
+ * cost next to nothing.
+ */
+export type Phase = "regular" | "special" | "rapid"
+
+/**
+ * The bonus a jackpot was, as its machine lists it: what it paid out and
+ * what was spent winning it. Kept whole in the line, so the log still says
+ * what was won whatever the catalog says later.
+ */
+export interface BonusWon {
+  readonly name: string
+  readonly payout: number
+  readonly spent: number
+}
+
+/**
+ * A data counter's reading. Pachinko's shows the spins since the last jackpot
+ * and the jackpots of the day; a pachislot counter also shows the games of the
+ * whole day and each kind of bonus, by its id in the formula's spec. At the
+ * seat of a pachislot machine whose AT a CZ brings, it also gives the games
+ * since the last CZ and the CZs missed since the last AT, read off its
+ * history.
+ */
+export interface Counter {
+  readonly spins?: number
+  readonly jackpots?: number
+  readonly total?: number
+  readonly bonuses?: Tally
+  readonly sinceCz?: number
+  readonly misses?: number
+  /** What the 有利区間 held at the end of the last AT, where it carries on into the games since. */
+  readonly held?: number
+}
+
+/**
+ * On a pachislot AT machine, `at-ended` is what was seen of the AT last
+ * won, written when it ends — on the same games, since an AT's own games are
+ * not regular ones: whether it reached the 有利区間's cap, the sets it
+ * carried on to past its first, and the medals it gained, each where known.
+ * `ended` is the play's last line, written as the play is recorded: its
+ * `at` is when the play ended, as the person gave it, and it adds nothing
+ * to the totals.
+ */
+export type PlayEvent =
+  | { readonly kind: "jackpot"; readonly approximate?: true; readonly bonus?: BonusWon }
+  | { readonly kind: "cz-missed" }
+  | { readonly kind: "at-ended"; readonly completed?: boolean; readonly sets?: number; readonly medals?: number }
+  | { readonly kind: "ended" }
+
+/** Counts by name: bonuses on a counter, or small wins a player counted. */
+export type Tally = Readonly<Record<string, number>>
+
+export type PlayLogError =
+  | { readonly type: "unreadable-line"; readonly line: number }
+  | { readonly type: "invalid-field"; readonly line: number; readonly field: string }
+  | { readonly type: "non-monotonic"; readonly field: "outlay"; readonly spins: number }
+
+/** The folder each game's play logs are kept in: a game is a folder, here as everywhere. */
+const PLAY_LOG_FOLDERS: Readonly<Record<PlayGameKind, string>> = { pachinko: "pachinko-play", slot: "pachislot-play" }
+
+/**
+ * Where a play's log is kept beside the book's journal files: in its
+ * game's folder, under the play's id. The two games' lines carry different
+ * things, so their logs are kept apart, and a folder says which it holds.
+ */
+export const playLogPath = (gameKind: PlayGameKind, id: PlayId): string => `${PLAY_LOG_FOLDERS[gameKind]}/${id}.jsonl`
+
+type Fields = Readonly<Record<string, unknown>>
+
+const isFields = (value: unknown): value is Fields => typeof value === "object" && value !== null && !Array.isArray(value)
+
+const isCount = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value >= 0
+
+const optional = <T>(
+  fields: Fields,
+  name: string,
+  line: number,
+  accept: (value: unknown) => value is T,
+): Result<T | undefined, PlayLogError> => {
+  const value = fields[name]
+  return value === undefined ? Ok(undefined) : accept(value) ? Ok(value) : Err({ type: "invalid-field", line, field: name })
+}
+
+const isTrue = (value: unknown): value is true => value === true
+
+const isTimestamp = (value: unknown): value is string => typeof value === "string" && !Number.isNaN(Date.parse(value))
+
+const isTally = (value: unknown): value is Tally =>
+  isFields(value) && Object.entries(value).every(([name, count]) => name !== "" && isCount(count))
+
+const isCounter = (value: unknown): value is Counter =>
+  isFields(value) &&
+  (value["spins"] === undefined || isCount(value["spins"])) &&
+  (value["jackpots"] === undefined || isCount(value["jackpots"])) &&
+  (value["total"] === undefined || isCount(value["total"])) &&
+  (value["bonuses"] === undefined || isTally(value["bonuses"])) &&
+  (value["sinceCz"] === undefined || isCount(value["sinceCz"])) &&
+  (value["misses"] === undefined || isCount(value["misses"])) &&
+  (value["held"] === undefined || isCount(value["held"]))
+
+const isAtEnded = (value: Fields): boolean =>
+  value["kind"] === "at-ended" &&
+  (value["completed"] === undefined || typeof value["completed"] === "boolean") &&
+  (value["sets"] === undefined || isCount(value["sets"])) &&
+  (value["medals"] === undefined || isCount(value["medals"]))
+
+const isBonusWon = (value: unknown): value is BonusWon =>
+  isFields(value) && typeof value["name"] === "string" && value["name"] !== "" && isCount(value["payout"]) && isCount(value["spent"])
+
+const isPhase = (value: unknown): value is Phase => value === "regular" || value === "special" || value === "rapid"
+
+const isWhole = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value)
+
+const isEvent = (value: unknown): value is PlayEvent =>
+  isFields(value) &&
+  ((value["kind"] === "jackpot" && (value["approximate"] === undefined || value["approximate"] === true) && (value["bonus"] === undefined || isBonusWon(value["bonus"]))) ||
+    (value["kind"] === "cz-missed" && value["approximate"] === undefined) ||
+    value["kind"] === "ended" ||
+    isAtEnded(value))
+
+const parseJson = (text: string): unknown => {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return undefined
+  }
+}
+
+/** Every field named, each perhaps absent. */
+type Spelled<T> = { readonly [K in keyof T]-?: T[K] | undefined }
+
+/** Only the fields present, so a checkpoint carries no keys set to nothing. */
+const present = <T extends object>(fields: Spelled<T>): T =>
+  Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)) as T
+
+const decodeCheckpoint = (fields: Fields, line: number): Result<Checkpoint, PlayLogError> => {
+  if (!isCount(fields["spins"])) return Err({ type: "invalid-field", line, field: "spins" })
+  const spins = fields["spins"]
+  const outlay = optional(fields, "outlay", line, isCount)
+  const at = optional(fields, "at", line, isTimestamp)
+  const counter = optional(fields, "counter", line, isCounter)
+  const event = optional(fields, "event", line, isEvent)
+  const tally = optional(fields, "tally", line, isTally)
+  const afterReset = optional(fields, "afterReset", line, isTrue)
+  const phase = optional(fields, "phase", line, isPhase)
+  const replay = optional(fields, "replay", line, isCount)
+  const support = optional(fields, "support", line, isWhole)
+  const held = optional(fields, "held", line, isCount)
+  if (!outlay.ok) return outlay
+  if (!at.ok) return at
+  if (!counter.ok) return counter
+  if (!event.ok) return event
+  if (!tally.ok) return tally
+  if (!afterReset.ok) return afterReset
+  if (!phase.ok) return phase
+  if (!replay.ok) return replay
+  if (!support.ok) return support
+  if (!held.ok) return held
+  return Ok(
+    present<Checkpoint>({
+      spins,
+      outlay: outlay.value,
+      at: at.value,
+      counter: counter.value,
+      event: event.value,
+      tally: tally.value,
+      afterReset: afterReset.value,
+      phase: phase.value,
+      replay: replay.value,
+      support: support.value,
+      held: held.value,
+    }),
+  )
+}
+
+/** One line of a log; `line` counts from one, for saying where a fault is. */
+const parseCheckpoint = (text: string, line: number): Result<Checkpoint, PlayLogError> => {
+  const parsed = parseJson(text)
+  return isFields(parsed) ? decodeCheckpoint(parsed, line) : Err({ type: "unreadable-line", line })
+}
+
+/**
+ * Every checkpoint in a log, in the order written. Blank lines are skipped,
+ * and so is a first line that says it is the log's head: a recorded play's
+ * log has one, and a play still being played has none.
+ */
+export const parsePlayLog = (text: string): Result<readonly Checkpoint[], PlayLogError> =>
+  collect(
+    text
+      .split("\n")
+      .map((content, index) => ({ content, line: index + 1 }))
+      .filter(({ content }) => content.trim() !== "")
+      .filter(({ content }, index) => !(index === 0 && isHeadLine(content)))
+      .map(({ content, line }) => parseCheckpoint(content, line)),
+  )
+
+const serializeCheckpoint = (checkpoint: Checkpoint): string => JSON.stringify(checkpoint)
+
+/** A log with one more line at its end. */
+export const appendCheckpoint = (log: string, checkpoint: Checkpoint): string =>
+  `${log === "" || log.endsWith("\n") ? log : `${log}\n`}${serializeCheckpoint(checkpoint)}\n`

@@ -1,0 +1,38 @@
+{
+  "v": 1,
+  "entities": ["at", "heaven", "normal"],
+  "components": {
+    "label": { "at": "AT", "heaven": "天国", "normal": "通常" },
+    "payout": { "at": 600 },
+    "at": ["at"],
+    "firstHit": {
+      "at": [
+        { "settingLevel": 1, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 50000 } },
+        { "settingLevel": 6, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 40000 } }
+      ]
+    },
+    "ceiling": { "heaven": 100, "normal": 1000 },
+    "mode": ["heaven", "normal"],
+    "allotment": {
+      "heaven": [
+        { "settingLevel": 1, "value": 3000 },
+        { "settingLevel": 6, "value": 5000 }
+      ],
+      "normal": [
+        { "settingLevel": 1, "value": 7000 },
+        { "settingLevel": 6, "value": 5000 }
+      ]
+    },
+    "resetAllotment": {
+      "heaven": [
+        { "settingLevel": 1, "value": 10000 },
+        { "settingLevel": 6, "value": 10000 }
+      ],
+      "normal": [
+        { "settingLevel": 1, "value": 0 },
+        { "settingLevel": 6, "value": 0 }
+      ]
+    }
+  },
+  "resources": { "settingLevels": [1, 6], "bet": 3, "base": 40, "lcdRate": 1.25 }
+}

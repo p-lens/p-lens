@@ -1,0 +1,380 @@
+import { createMemo, createResource, createSignal, Match, Show, Switch, type JSX } from "solid-js"
+import { MainContent } from "solid-gathering-shell"
+
+import type { ApplicationError, Outcome } from "../../../application/errors"
+import { loadRecordingContext, recordTalliedPlay, type RecordingContext } from "../../../application/record-play"
+import { findMachines } from "../../../application/catalog"
+import { listSharedParlors } from "../../../application/shared-parlors"
+import { listSubmissions } from "../../../application/submissions"
+import type { BookId } from "../../../core/book/book"
+import { bookNameOf, type MachineSummary } from "../../../core/catalog/catalog"
+import { machineMatches } from "../../../core/catalog/description"
+import { identityKey } from "../../../core/parlor/parlor"
+import { EMPTY_PARLOR_LIST, type ParlorList } from "../../../core/parlor/shared"
+import { renderEntry } from "../../../core/journal/entry"
+import { composeTalliedEntry } from "../../../core/play/compose"
+import type { IsoDate } from "../../../core/calendar/calendar"
+import type { PlayGameKind, PlayId, TalliedPlay } from "../../../core/play/play"
+import { useApp } from "../../context"
+import { Button } from "../../primitives/button"
+import { createNudge, redText } from "../../primitives/nudge"
+import { Combobox, holdsTypedOnly } from "../../primitives/combobox"
+import { PlusIcon } from "../../primitives/icons"
+import { toast } from "../../primitives/toast"
+import { EmptyState, Loaded } from "../../primitives/states"
+import { settleTyping, TextField } from "../../primitives/text-field"
+import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
+import { useMoves } from "../../navigation/moves"
+import type { Place } from "../../navigation/place"
+import { describeError, describePlayError } from "../../wording/errors"
+import { LOCATE_REQUEST, typedMachineRefused, typedParlorRefused, type TypedNameRefused } from "../../wording/parlor"
+import type { Submission as KeptSubmission } from "../../../parlors/port/submission-store"
+import { locateAddress, submitAddress, type LeftFrom } from "../live/submission-return"
+import { offersByKey, parlorOffers } from "./parlor-offers"
+import { ViewHeader } from "../shell/ViewHeader"
+import { RECORDING, type FieldProblem, type FormField, type SubmitWords } from "./form"
+import { emptyTallyForm, readTallyForm, type TallyForm } from "./tally-form"
+
+/** Where a submission is: being typed, being written, or refused with why. */
+type Submission =
+  | { readonly type: "editing" }
+  | { readonly type: "saving" }
+  | { readonly type: "failed"; readonly error: ApplicationError }
+
+/** Words for a field typed wrong. A field left empty gets none: it is only nudged, when a press needed it. */
+const REASONS: Readonly<Record<Exclude<FieldProblem["reason"], "required">, string>> = {
+  "not-a-number": "数字で入力してください。",
+  "not-a-date": "日付を入力してください。",
+}
+
+const SUBMIT_PARLOR = "一覧にない店舗を申請する"
+
+const REGISTER_MACHINE = "一覧にない機種を登録する"
+
+const CATALOG_GAMES = { pachinko: "pachinko", slot: "pachislot" } as const
+
+const ROUND_BUTTON = "flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-border text-text-secondary hover:border-text-secondary hover:text-text-primary [&_svg]:size-5"
+
+const isGameKind = (value: string | null): value is PlayGameKind => value === "pachinko" || value === "slot"
+
+/**
+ * The form a play is added with by its totals, wherever it is added from:
+ * what it starts filled with, and what recording means, are the caller's.
+ * Its parlor is chosen as a play started live chooses one — from the
+ * parlor list, the book's own parlors and this device's submissions — and
+ * never typed: a name that chose none stays, in red, and nothing is
+ * recorded on it. Its machine is one of the catalog's, of the game chosen,
+ * or none; a machine the catalog lacks is registered there first, with a
+ * formula, like any other.
+ */
+export function TallyEditor(props: {
+  readonly context: RecordingContext
+  /** The parlor list and this device's submissions: with the book's own parlors, all a play may be said to be at. */
+  readonly list: ParlorList
+  readonly submissions: readonly KeptSubmission[]
+  /** The book the play is added to by hand, which the survey brings the person back to; none where a play followed live is being recorded. */
+  readonly bookId: BookId | undefined
+  readonly initial: TallyForm
+  /** The id of the play, given the day it is said to have been played. */
+  readonly playIdOn: (date: IsoDate) => PlayId
+  readonly words: SubmitWords
+  readonly submit: (play: TalliedPlay) => Promise<Outcome<unknown>>
+  readonly onRecorded: (play: TalliedPlay) => void
+}): JSX.Element {
+  const app = useApp()
+  const moves = useMoves()
+  const [form, setForm] = createSignal<TallyForm>(props.initial)
+  const [submission, setSubmission] = createSignal<Submission>({ type: "editing" })
+  const set =
+    <K extends keyof TallyForm>(key: K) =>
+    (value: TallyForm[K]): void => {
+      setForm((current) => ({ ...current, [key]: value }))
+    }
+
+  /** Where the device is, asked once: the parlors are offered nearest first where it says, and by prefecture where it does not. */
+  const [here] = createResource(() => app.services.locate())
+  const offers = createMemo(() => {
+    const found = here()
+    return parlorOffers(props.context.parlors, props.list, props.submissions, found?.ok === true ? found.value : undefined)
+  })
+  const offerOf = createMemo(() => offersByKey(offers()))
+  /** What a typed name stops here: a play being added to a book by hand, or one followed live being recorded. */
+  const doing = (): TypedNameRefused => (props.bookId === undefined ? "recording" : "adding")
+  /** What the parlor field holds, chosen or only typed: a name typed that chose no parlor stops the play being recorded. */
+  const [parlorTyped, setParlorTyped] = createSignal("")
+  const chosenName = (): string | undefined => offerOf().get(form().parlorKey)?.parlor.name
+  /** Where the survey brings the person back to: this form in its book, or — a play followed live being recorded — its game's start. */
+  const leftFrom = (): LeftFrom => (props.bookId === undefined ? { type: "start", game: form().gameKind } : { type: "entry", game: form().gameKind, bookId: props.bookId })
+  /** Where to report the chosen parlor's position, where the list has it without one and there is a survey to report it at. */
+  const locating = (): string | undefined => {
+    const unplaced = offerOf().get(form().parlorKey)?.unplaced
+    return unplaced === undefined || app.services.surveyUrl === undefined ? undefined : locateAddress(app.services.surveyUrl, window.location.origin, leftFrom(), unplaced)
+  }
+  const typedOnly = (): boolean => holdsTypedOnly(parlorTyped(), chosenName())
+  /** Off to survey.p-lens.jp to submit a parlor the list lacks; a build that names no survey says so instead of going nowhere. */
+  const submitParlor = (): void => {
+    if (app.services.surveyUrl === undefined) {
+      toast({ title: "店舗の申請はまだ準備中です", description: "一覧にない店舗は、店舗を指定せずに記録できます。" })
+      return
+    }
+    window.location.assign(submitAddress(app.services.surveyUrl, window.location.origin, leftFrom()))
+  }
+  /** The catalog's machines of the game chosen: all a play added by hand may name. */
+  const [catalogued] = createResource(
+    () => form().gameKind,
+    (gameKind) => findMachines(app.services.catalog, "", CATALOG_GAMES[gameKind]),
+  )
+  const machines = (): readonly MachineSummary[] => {
+    const found = catalogued()
+    return found?.ok === true && found.value.type === "found" ? found.value.machines : []
+  }
+  /** What the machine field holds, chosen or only typed: a name typed that chose no machine stops the play being recorded. */
+  const [machineTyped, setMachineTyped] = createSignal("")
+  /** What the machine field says of the machine chosen: the name the halls call it, though the play keeps its model name. */
+  const chosenMachineLabel = (): string | undefined => machines().find((machine) => bookNameOf(machine) === form().machine)?.name
+  const machineTypedOnly = (): boolean => holdsTypedOnly(machineTyped(), chosenMachineLabel())
+  const registerMachine = (): void => moves.go(form().gameKind === "pachinko" ? { kind: "pachinko-formula-new", tab: "manual" } : { kind: "pachislot-formula-new", tab: "manual" })
+  const offeredParlors = createMemo(() => offers().map((offer) => offer.parlor))
+  const read = createMemo(() => readTallyForm(form(), offeredParlors(), props.playIdOn))
+  const problemAt = (field: FormField): FieldProblem | undefined => {
+    const found = read()
+    return found.ok ? undefined : found.error.find((candidate) => candidate.field === field)
+  }
+  const problemOf = (field: FormField): string | undefined => {
+    const problem = problemAt(field)
+    return problem === undefined || problem.reason === "required" ? undefined : REASONS[problem.reason]
+  }
+  const preview = createMemo(() => {
+    const play = read()
+    return play.ok ? composeTalliedEntry(play.value) : undefined
+  })
+  const previewText = (): string | undefined => {
+    const entry = preview()
+    return entry?.ok === true ? renderEntry(entry.value) : undefined
+  }
+  const previewProblem = (): string | undefined => {
+    const entry = preview()
+    return entry?.ok === false ? describePlayError(entry.error) : undefined
+  }
+  const nudge = createNudge()
+  /** Red for a while after a press that a problem here stopped. */
+  const nudged = (field: FormField): boolean => nudge.red() && problemAt(field) !== undefined
+  const failure = (): ApplicationError | undefined => {
+    const current = submission()
+    return current.type === "failed" ? current.error : undefined
+  }
+
+  const submit = async (event: SubmitEvent): Promise<void> => {
+    event.preventDefault()
+    settleTyping()
+    const play = read()
+    if (submission().type === "saving") return
+    if (!play.ok || preview()?.ok !== true || typedOnly() || machineTypedOnly()) {
+      nudge.nudge()
+      return
+    }
+    setSubmission({ type: "saving" })
+    const recorded = await props.submit(play.value)
+    if (!recorded.ok) {
+      setSubmission({ type: "failed", error: recorded.error })
+      return
+    }
+    props.onRecorded(play.value)
+  }
+
+  return (
+    <form autocomplete="off" class="flex flex-col gap-5 p-4" noValidate onSubmit={(event) => void submit(event)}>
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <TextField label="日付" type="date" value={form().date} onChange={set("date")} error={problemOf("date")}
+          invalid={nudged("date")}
+          onFocus={nudge.settle} required />
+        <div class="flex flex-col gap-1.5">
+          <div class="flex min-w-0 items-end gap-2">
+            <div class="min-w-0 flex-1">
+              <Combobox
+                label="店舗"
+                placeholder="指定しない"
+                options={offers().map((offer) => ({ value: identityKey(offer.parlor.identity), label: offer.parlor.name, note: offer.note, foundFirst: offer.unplaced !== undefined }))}
+                value={form().parlorKey === "" ? undefined : form().parlorKey}
+                onChange={(key) => set("parlorKey")(key ?? "")}
+                matches={(key, typed) => offerOf().get(key)?.matches(typed) ?? false}
+                invalid={typedOnly() || nudged("parlor")}
+                onFocus={nudge.settle}
+                onTyped={setParlorTyped}
+              />
+            </div>
+            <button
+              type="button"
+              aria-label={SUBMIT_PARLOR}
+              title={SUBMIT_PARLOR}
+              tabIndex={-1}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={submitParlor}
+              class={ROUND_BUTTON}
+            >
+              <PlusIcon />
+            </button>
+          </div>
+          <Show when={locating()} keyed>
+            {(address) => (
+              <a href={address} class="animate-[emerge_1.6s_ease-out] text-xs text-text-secondary underline underline-offset-2 hover:text-text-primary">
+                {LOCATE_REQUEST}
+              </a>
+            )}
+          </Show>
+          <Show when={typedOnly()}>
+            <p role="alert" class="text-xs text-negative">
+              {typedParlorRefused(doing())}
+            </p>
+          </Show>
+        </div>
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <span class="text-xs font-bold uppercase tracking-wide text-text-secondary">種別</span>
+        <ToggleGroup
+          value={form().gameKind}
+          onChange={(value: string | null) => {
+            if (isGameKind(value) && value !== form().gameKind) setForm((current) => ({ ...current, gameKind: value, machine: "" }))
+          }}
+          aria-label="種別"
+        >
+          <ToggleGroupItem value="pachinko">パチンコ</ToggleGroupItem>
+          <ToggleGroupItem value="slot">スロット</ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div class="flex flex-col gap-1.5">
+          <div class="flex min-w-0 items-end gap-2">
+            <div class="min-w-0 flex-1">
+              <Combobox
+                label="機種"
+                placeholder="指定しない"
+                options={machines().map((machine) => ({ value: bookNameOf(machine), label: machine.name, ...(machine.hitChance === undefined ? {} : { note: machine.hitChance }) }))}
+                value={form().machine === "" ? undefined : form().machine}
+                onChange={(name) => set("machine")(name ?? "")}
+                matches={(name, typed) => machines().some((machine) => bookNameOf(machine) === name && machineMatches(machine, typed))}
+                invalid={machineTypedOnly()}
+                onFocus={nudge.settle}
+                onTyped={setMachineTyped}
+              />
+            </div>
+            <button type="button" aria-label={REGISTER_MACHINE} title={REGISTER_MACHINE} tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={registerMachine} class={ROUND_BUTTON}>
+              <PlusIcon />
+            </button>
+          </div>
+          <Show when={machineTypedOnly()}>
+            <p role="alert" class="text-xs text-negative">
+              {typedMachineRefused(doing())}
+            </p>
+          </Show>
+        </div>
+        <TextField label="台番号" value={form().cabinetNumber} onChange={set("cabinetNumber")} inputMode="numeric" />
+      </div>
+      <div class="grid grid-cols-2 gap-x-3 gap-y-4">
+        <TextField label="収支" value={form().result} onChange={set("result")} inputMode="decimal" suffix="円" error={problemOf("result")}
+          invalid={nudged("result")}
+          onFocus={nudge.settle} required />
+        <TextField
+          label="期待値"
+          value={form().theoreticalValue}
+          onChange={set("theoreticalValue")}
+          inputMode="decimal"
+          suffix="円"
+          error={problemOf("theoretical-value")}
+          invalid={nudged("theoretical-value")}
+          onFocus={nudge.settle}
+        />
+      </div>
+      <p class="text-xs text-text-muted">収支は負けならマイナスで入力します。貯玉・貯メダルの残高は動きません。</p>
+      <section class="flex flex-col gap-2">
+        <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">書き込まれる仕訳</h2>
+        <Switch fallback={<p class="text-sm text-text-muted">入力を直すと、ここに仕訳が表示されます。</p>}>
+          <Match when={previewText()}>
+            {(text) => <pre class="overflow-x-auto rounded-md bg-surface-0 p-3 font-mono text-xs leading-relaxed text-text-secondary">{text()}</pre>}
+          </Match>
+          <Match when={previewProblem()} keyed>
+            {(problem) => (
+              <p class="text-sm" classList={redText(nudge.red())}>
+                {problem}
+              </p>
+            )}
+          </Match>
+        </Switch>
+      </section>
+      <Show when={failure()} keyed>
+        {(error) => (
+          <div role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-text-primary">
+            {describeError(error)}
+          </div>
+        )}
+      </Show>
+      <div>
+        <Button type="submit">
+          {submission().type === "saving" ? props.words.busy : props.words.idle}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+/**
+ * The parlor list and this device's submissions, read for a form that
+ * offers them: an empty list where it could not be read, since a play may
+ * name no parlor.
+ */
+export const createOffered = (): { readonly list: () => ParlorList; readonly submissions: () => readonly KeptSubmission[] } => {
+  const app = useApp()
+  const [parlors] = createResource(() => app.revision(), () => listSharedParlors(app.services.parlors))
+  const [submissions] = createResource(() => app.revision(), () => listSubmissions(app.services.submissions))
+  return {
+    list: () => {
+      const found = parlors()
+      return found?.ok === true ? found.value : EMPTY_PARLOR_LIST
+    },
+    submissions: () => {
+      const found = submissions()
+      return found?.ok === true ? found.value : []
+    },
+  }
+}
+
+/**
+ * Adding a play to a book by hand, by its totals: what it made, what it was
+ * expected to be worth, and how much of that it earned.
+ */
+export function TallyPlayView(props: { readonly place: Place; readonly bookId: BookId }): JSX.Element {
+  const app = useApp()
+  const moves = useMoves()
+  const fresh = app.services.newPlayId()
+  const [context] = createResource(
+    () => ({ bookId: props.bookId, revision: app.revision() }),
+    (source) => loadRecordingContext(app.services.session, source.bookId, app.services.member),
+  )
+  const offered = createOffered()
+  return (
+    <MainContent header={<ViewHeader place={props.place} title="記録を追加" />}>
+      <div class="max-w-5xl">
+        <Loaded outcome={context()}>
+          {(found) => (
+            <Show when={found.canWrite} fallback={<EmptyState title="この帳簿は閲覧のみです">記録するには、帳簿の所有者から編集者の権限を受け取ってください。</EmptyState>}>
+              <TallyEditor
+                context={found}
+                list={offered.list()}
+                submissions={offered.submissions()}
+                bookId={props.bookId}
+                initial={emptyTallyForm(app.services.businessDay())}
+                playIdOn={(date) => app.services.playIdOn(fresh, date)}
+                words={RECORDING}
+                submit={(play) => recordTalliedPlay(app.services.session, props.bookId, play)}
+                onRecorded={(play) => {
+                  app.wrote()
+                  moves.go({ kind: "play", bookId: props.bookId, playId: play.id })
+                }}
+              />
+            </Show>
+          )}
+        </Loaded>
+      </div>
+    </MainContent>
+  )
+}

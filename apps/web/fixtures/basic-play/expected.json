@@ -1,0 +1,41 @@
+{
+  "overview": {
+    "date:2026-09": { "actual": "41142", "theoretical": "10500" },
+    "date:2026-10": { "actual": "-1998", "theoretical": "2700" },
+    "": { "actual": "39144", "theoretical": "13200" }
+  },
+  "savings": { "value": "68808", "valuedOn": "2026-10-03" },
+  "holdings": {
+    "": {
+      "valuedOn": "2026-10-03",
+      "total": "68808",
+      "parlors": [
+        { "parlor": "789松原店", "value": "52008", "tokens": [
+          { "commodity": "枚(20円・789松原店)", "quantity": "1650", "rate": "18.2", "value": "30030" },
+          { "commodity": "玉(4円・789松原店)", "quantity": "6600", "rate": "3.33", "value": "21978" }
+        ] },
+        { "parlor": "ホシゾラ梅田店", "value": "16800", "tokens": [
+          { "commodity": "玉(4円・ホシゾラ梅田店)", "quantity": "4800", "rate": "3.5", "value": "16800" },
+          { "commodity": "枚(20円・ホシゾラ梅田店)", "quantity": "0", "rate": "17.86", "value": "0" }
+        ] }
+      ]
+    },
+    "date:..2026-09-21": {
+      "valuedOn": "2026-09-20",
+      "total": "71142",
+      "parlors": [
+        { "parlor": "789松原店", "value": "54006", "tokens": [
+          { "commodity": "枚(20円・789松原店)", "quantity": "1650", "rate": "18.2", "value": "30030" },
+          { "commodity": "玉(4円・789松原店)", "quantity": "7200", "rate": "3.33", "value": "23976" }
+        ] },
+        { "parlor": "ホシゾラ梅田店", "value": "17136", "tokens": [
+          { "commodity": "玉(4円・ホシゾラ梅田店)", "quantity": "4800", "rate": "3.57", "value": "17136" },
+          { "commodity": "枚(20円・ホシゾラ梅田店)", "quantity": "0", "rate": "17.86", "value": "0" }
+        ] }
+      ]
+    }
+  },
+  "plays": {
+    "made-up-0905": { "actual": "5136", "theoretical": "5500" }
+  }
+}

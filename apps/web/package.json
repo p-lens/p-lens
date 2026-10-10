@@ -1,0 +1,44 @@
+{
+  "name": "@p-lens/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "licenses": "bun scripts/collect-licenses.mjs",
+    "dev": "bun run licenses && vite",
+    "build": "bun run licenses && tsc -b && vite build",
+    "preview": "vite preview",
+    "check": "tsc -b",
+    "test": "bun test tests",
+    "sync-hledger": "bun scripts/sync-hledger.ts",
+    "icons": "bun scripts/render-icons.ts",
+    "build-pachinko": "../../scripts/build-pachinko.sh"
+  },
+  "dependencies": {
+    "@bjorn3/browser_wasi_shim": "^0.4.2",
+    "@kobalte/core": "^0.13.7",
+    "@p-lens/contracts": "workspace:*",
+    "@p-lens/pachinko-engine": "workspace:*",
+    "@p-lens/pachislot-engine": "workspace:*",
+    "@p-lens/uuidv7": "workspace:*",
+    "@solidjs/router": "^0.15.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "fflate": "^0.8.3",
+    "solid-gathering-shell": "workspace:*",
+    "solid-js": "^1.9.14",
+    "tailwind-merge": "^3.6.0",
+    "trealla": "0.30.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/bun": "^1.3.14",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0",
+    "vite-plugin-pwa": "^1.3.0",
+    "vite-plugin-solid": "^2.11.13",
+    "workbox-window": "^7.4.1"
+  }
+}

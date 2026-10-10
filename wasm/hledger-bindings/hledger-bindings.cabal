@@ -1,0 +1,25 @@
+cabal-version:      2.4
+name:               hledger-bindings
+version:            0.1.0.0
+synopsis:           hledger reachable from JavaScript, for P-Lens
+description:
+  A reactor module exporting two functions: load a journal from the WASI
+  filesystem, and answer a report about it. hledger does the accounting.
+-- Linked against hledger-lib, which is GPL, so this is too.
+license:            GPL-3.0-or-later
+copyright:          choai contributors, P-Lens contributors
+build-type:         Simple
+
+executable hledger-bindings
+  hs-source-dirs:   src
+  main-is:          Bindings.hs
+  default-language: GHC2021
+  ghc-options:      -Wall -optl-mexec-model=reactor -optl-Wl,--export=hs_init
+  build-depends:
+    , aeson
+    , base
+    , containers
+    , directory
+    , ghc-experimental
+    , hledger-lib
+    , text

@@ -1,0 +1,20 @@
+{
+  "v": 1,
+  "entities": ["regular", "RUSH"],
+  "components": {
+    "regularGame": {
+      "regular": { "chance": { "type": "ratio", "numerator": 1, "denominatorHundredths": 10000 } }
+    },
+    "label": { "RUSH": "RUSH" },
+    "allotment": {
+      "regular": [
+        { "shareBasisPoints": 5000, "rounds": 10, "next": { "type": "regular" } },
+        { "shareBasisPoints": 5000, "rounds": 10, "next": { "type": "mode", "mode": "RUSH" } }
+      ],
+      "RUSH": [{ "shareBasisPoints": 10000, "rounds": 10, "next": { "type": "mode", "mode": "RUSH" } }]
+    },
+    "rushing": { "RUSH": { "continuationRate": { "type": "percent", "basisPoints": 8000 } } },
+    "onMiss": { "RUSH": { "type": "regular" } }
+  },
+  "resources": { "payout": { "prizeBalls": 15, "count": 10 } }
+}

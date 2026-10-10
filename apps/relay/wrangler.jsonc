@@ -1,0 +1,23 @@
+{
+  // The sync relay: a line of sealed commits for each book being synced,
+  // over D1. It can read none of them; it only keeps their order and hands
+  // them back to whoever holds the line's token. Anyone may run their own.
+  //
+  // This file is for local development (`bun --cwd=apps/relay run dev`), over
+  // wrangler's local database. A deployment uses wrangler.production.jsonc,
+  // made from wrangler.production.example.jsonc and kept out of git.
+  "name": "p-lens-relay",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "dev": { "port": 8788 },
+  // When lines left idle are let go, once a day (UTC).
+  "triggers": { "crons": ["17 18 * * *"] },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "p-lens-relay",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

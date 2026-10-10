@@ -1,0 +1,13 @@
+{
+  "name": "@p-lens/pachinko-engine",
+  "version": "0.1.0",
+  "description": "The pachinko engine built for JavaScript: crates/pachinko-wasm through wasm-bindgen. Generated; rebuilt by scripts/build-pachinko.sh",
+  "type": "module",
+  "license": "GPL-3.0-or-later",
+  "private": true,
+  "exports": {
+    "./pachinko.js": { "types": "./pachinko.d.ts", "default": "./pachinko.js" },
+    "./pachinko_bg.wasm": "./pachinko_bg.wasm"
+  },
+  "files": ["pachinko.js", "pachinko.d.ts", "pachinko_bg.wasm"]
+}

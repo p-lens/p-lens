@@ -1,0 +1,16 @@
+[package]
+name = "pachinko-engine"
+description = "Validates and normalises pachinko specs, and solves them analytically"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+pachinko-domain = { path = "../pachinko-domain" }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+proptest = "1"

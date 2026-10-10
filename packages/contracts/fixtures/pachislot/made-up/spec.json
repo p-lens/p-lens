@@ -1,0 +1,46 @@
+{
+  "v": 1,
+  "entities": ["big", "reg", "reg-solo", "reg-cherry", "grape", "cherry", "replay"],
+  "components": {
+    "label": {
+      "big": "BIG",
+      "reg": "REG",
+      "reg-solo": "単独REG",
+      "reg-cherry": "チェリー重複REG",
+      "grape": "ブドウ",
+      "cherry": "チェリー",
+      "replay": "リプレイ"
+    },
+    "chance": {
+      "big": [
+        { "settingLevel": 1, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 25000 } },
+        { "settingLevel": 6, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 20000 } }
+      ],
+      "reg-solo": [
+        { "settingLevel": 1, "value": { "type": "percent", "basisPoints": 20 } },
+        { "settingLevel": 6, "value": { "type": "percent", "basisPoints": 30 } }
+      ],
+      "reg-cherry": [
+        { "settingLevel": 1, "value": { "type": "percent", "basisPoints": 5 } },
+        { "settingLevel": 6, "value": { "type": "percent", "basisPoints": 10 } }
+      ],
+      "grape": [
+        { "settingLevel": 1, "value": { "type": "percent", "basisPoints": 1600 } },
+        { "settingLevel": 6, "value": { "type": "percent", "basisPoints": 1700 } }
+      ],
+      "cherry": [
+        { "settingLevel": 1, "value": { "type": "percent", "basisPoints": 250 } },
+        { "settingLevel": 6, "value": { "type": "percent", "basisPoints": 250 } }
+      ],
+      "replay": [
+        { "settingLevel": 1, "value": { "type": "percent", "basisPoints": 1370 } },
+        { "settingLevel": 6, "value": { "type": "percent", "basisPoints": 1370 } }
+      ]
+    },
+    "payout": { "big": 240, "reg": 96, "grape": 8, "cherry": 2 },
+    "bonus": ["big", "reg"],
+    "replay": ["replay"],
+    "partOf": { "reg-solo": "reg", "reg-cherry": "reg" }
+  },
+  "resources": { "settingLevels": [1, 6], "bet": 3 }
+}

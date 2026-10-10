@@ -1,0 +1,440 @@
+//! The boundary, driven with the JSON the web app sends: the fixture in
+//! `packages/contracts` normalises to the stored form and solves to the
+//! expected figures, refusals name their field, and runs resumed across the
+//! boundary come out as one run.
+
+#![allow(clippy::expect_used, clippy::indexing_slicing)]
+
+use pachislot_wasm::api::{
+    analyze, estimate_chunk, normalize, posterior, simulate_chunk, theoretical_value,
+};
+use pachislot_wasm::dto::NormalizedSpecDto;
+use serde_json::{Value, json};
+
+const SPEC: &str = include_str!("../../../packages/contracts/fixtures/pachislot/made-up/spec.json");
+const NORMALIZED: &str =
+    include_str!("../../../packages/contracts/fixtures/pachislot/made-up/normalized.json");
+const EXPECTED: &str =
+    include_str!("../../../packages/contracts/fixtures/pachislot/made-up/expected.json");
+
+fn value(text: &str) -> Value {
+    serde_json::from_str(text).expect("JSON")
+}
+
+fn close(left: &Value, right: &Value) -> bool {
+    (left.as_f64().expect("a number") - right.as_f64().expect("a number")).abs() < 1e-9
+}
+
+fn ok(text: &str) -> Value {
+    let reply = value(text);
+    assert_eq!(reply["ok"], json!(true), "{reply}");
+    reply["value"].clone()
+}
+
+fn error(text: &str) -> Value {
+    let reply = value(text);
+    assert_eq!(reply["ok"], json!(false), "{reply}");
+    reply["error"].clone()
+}
+
+fn source() -> Value {
+    json!({ "type": "spec", "spec": value(SPEC) })
+}
+
+fn from_spec() -> Value {
+    json!({ "payoutRate": { "type": "from-spec" } })
+}
+
+#[test]
+fn normalising_the_made_up_still_gives_the_stored_fixture() {
+    let normalized = ok(&normalize(&json!({ "spec": value(SPEC) }).to_string()));
+    let made: NormalizedSpecDto = serde_json::from_value(normalized).expect("a normalised spec");
+    let stored: NormalizedSpecDto = serde_json::from_str(NORMALIZED).expect("the fixture");
+    assert_eq!(made, stored);
+}
+
+#[test]
+fn the_made_up_solves_to_the_expected_figures_from_either_source() {
+    let expected = value(EXPECTED);
+    let stored = json!({ "type": "normalized", "normalized": value(NORMALIZED) });
+    for source in [source(), stored] {
+        let analysis = ok(&analyze(
+            &json!({ "source": source, "conditions": from_spec() }).to_string(),
+        ));
+        let pairs = expected["settingLevels"]
+            .as_array()
+            .expect("settingLevels")
+            .iter()
+            .zip(analysis["settingLevels"].as_array().expect("settingLevels"));
+        for (want, got) in pairs {
+            assert_eq!(want["settingLevel"], got["settingLevel"]);
+            for field in ["netPerGame", "payoutRate", "combined"] {
+                assert!(close(&want[field], &got[field]), "{field}: {got}");
+            }
+            assert!(close(
+                &want["bonuses"][1]["chance"],
+                &got["bonuses"][1]["chance"]
+            ));
+        }
+    }
+}
+
+#[test]
+fn a_refused_value_is_named_by_its_path() {
+    let mut spec = value(SPEC);
+    spec["components"]["chance"]["grape"][1]["value"] =
+        json!({ "type": "ratio", "numerator": 1, "denominatorHundredths": 0 });
+    assert_eq!(
+        error(&normalize(&json!({ "spec": spec }).to_string())),
+        json!({ "type": "invalid-value", "field": "spec.components.chance.grape[1].value.denominatorHundredths" })
+    );
+}
+
+#[test]
+fn a_spec_of_another_version_is_refused_by_its_number_and_one_that_says_none_is_no_spec() {
+    let mut later = value(SPEC);
+    later["v"] = json!(2);
+    assert_eq!(
+        error(&normalize(&json!({ "spec": later }).to_string())),
+        json!({ "type": "unsupported-spec-version", "version": 2, "known": 1 })
+    );
+    let mut unsaid = value(SPEC);
+    unsaid.as_object_mut().map(|fields| fields.remove("v"));
+    assert_eq!(
+        error(&normalize(&json!({ "spec": unsaid }).to_string()))["type"],
+        json!("malformed-request")
+    );
+}
+
+#[test]
+fn a_component_this_engine_does_not_know_is_refused_by_its_table() {
+    let mut spec = value(SPEC);
+    spec["components"]["zone"] = json!({ "big": [100, 200] });
+    assert_eq!(
+        error(&normalize(&json!({ "spec": spec }).to_string())),
+        json!({ "type": "unsupported-component", "field": "spec.components.zone" })
+    );
+}
+
+#[test]
+fn components_that_do_not_make_an_entity_are_named_with_it() {
+    let mut spec = value(SPEC);
+    spec["components"]["chance"]["reg"] = spec["components"]["chance"]["big"].clone();
+    assert_eq!(
+        error(&normalize(&json!({ "spec": spec }).to_string())),
+        json!({ "type": "conflicting-components", "entity": "reg", "first": "chance", "second": "partOf" })
+    );
+}
+
+#[test]
+fn malformed_json_comes_back_as_an_envelope() {
+    assert_eq!(error(&analyze("{"))["type"], json!("malformed-request"));
+}
+
+#[test]
+fn the_setting_is_inferred_across_the_boundary() {
+    let found = ok(&posterior(
+        &json!({
+            "source": source(),
+            "prior": { "shares": [{ "settingLevel": 1, "value": 8000 }, { "settingLevel": 6, "value": 2000 }] },
+            "segments": [
+                { "games": 1500, "counts": [{ "id": "big", "count": 5 }, { "id": "reg", "count": 3 }] },
+                { "games": 500, "counts": [{ "id": "big", "count": 2 }, { "id": "reg-solo", "count": 1 }, { "id": "grape", "count": 90 }] }
+            ]
+        })
+        .to_string(),
+    ));
+    let setting_levels = found["settingLevels"].as_array().expect("settingLevels");
+    let total: f64 = setting_levels
+        .iter()
+        .map(|each| each["probability"].as_f64().expect("a number"))
+        .sum();
+    assert!((total - 1.0).abs() < 1e-12);
+    assert_eq!(
+        error(&posterior(
+            &json!({ "source": source(), "segments": [{ "games": 10, "counts": [{ "id": "bell", "count": 1 }] }] })
+                .to_string()
+        )),
+        json!({ "type": "unknown-count", "segment": 0, "id": "bell" })
+    );
+}
+
+#[test]
+fn a_theoretical_value_weighs_settings_on_the_players_terms() {
+    let found = ok(&theoretical_value(
+        &json!({
+            "source": source(),
+            "conditions": from_spec(),
+            "weights": [{ "settingLevel": 6, "probability": 1.0 }],
+            "play": { "medalValue": 20, "rentalPrice": 20, "cashShare": 1, "gamesPerHour": 800 },
+            "played": { "type": "games", "games": 1000 }
+        })
+        .to_string(),
+    ));
+    assert!(close(&found["medals"], &json!(405.0)));
+    assert!(close(&found["yen"], &json!(8100.0)));
+    assert!(close(&found["yenPerHour"], &json!(6480.0)));
+}
+
+const AT_SPEC: &str =
+    include_str!("../../../packages/contracts/fixtures/pachislot/made-up-at/spec.json");
+
+fn at_source() -> Value {
+    json!({ "type": "spec", "spec": value(AT_SPEC) })
+}
+
+fn measured() -> Value {
+    json!({ "payoutRate": { "type": "measured", "bySettingLevel": [
+        { "settingLevel": 1, "value": 9700 }, { "settingLevel": 6, "value": 11000 }
+    ] } })
+}
+
+#[test]
+fn an_at_machine_is_read_with_its_rules_and_published_first_hit() {
+    let normalized = ok(&normalize(&json!({ "spec": value(AT_SPEC) }).to_string()));
+    assert_eq!(
+        normalized["atRules"],
+        json!({
+            "base": 40.0, "at": "at",
+            "modes": [{ "id": "at", "ceiling": 1000 }, { "id": "at:reset", "ceiling": 600 }]
+        })
+    );
+    assert_eq!(normalized["tables"][0]["events"], json!([]));
+    assert_eq!(normalized["tables"][0]["at"]["success"], json!(1.0));
+    assert_eq!(
+        normalized["tables"][0]["at"]["payout"],
+        json!({ "type": "fixed", "medals": 600.0 })
+    );
+    let analysis = ok(&analyze(
+        &json!({ "source": at_source(), "conditions": measured() }).to_string(),
+    ));
+    assert!(close(
+        &analysis["settingLevels"][0]["bonuses"][0]["chance"],
+        &json!(0.002)
+    ));
+}
+
+#[test]
+fn an_at_machine_is_weighed_by_its_path_and_never_by_a_count_of_games() {
+    let request = |played: Value| {
+        json!({
+            "source": at_source(),
+            "conditions": measured(),
+            "weights": [{ "settingLevel": 1, "probability": 1.0 }],
+            "play": { "medalValue": 20, "rentalPrice": 20, "cashShare": 0 },
+            "played": played
+        })
+        .to_string()
+    };
+    let found = ok(&theoretical_value(&request(
+        json!({ "type": "path", "path": {
+            "start": { "sinceTrigger": 0, "sinceAt": 0, "misses": 0, "afterReset": false },
+            "legs": [{ "games": 100, "end": "going" }]
+        } }),
+    )));
+    assert!(found["medals"].as_f64().expect("medals") < 0.0);
+    assert_eq!(
+        error(&theoretical_value(&request(
+            json!({ "type": "games", "games": 100 })
+        ))),
+        json!({ "type": "played-mismatch" })
+    );
+    let inferred = ok(&posterior(
+        &json!({
+            "source": at_source(),
+            "segments": [],
+            "path": {
+                "start": { "sinceTrigger": 0, "sinceAt": 0, "misses": 0, "afterReset": false },
+                "legs": [{ "games": 999, "end": "going" }]
+            }
+        })
+        .to_string(),
+    ));
+    let low = inferred["settingLevels"][0]["probability"]
+        .as_f64()
+        .expect("a share");
+    assert!(low > 0.5);
+}
+
+const MODES_SPEC: &str =
+    include_str!("../../../packages/contracts/fixtures/pachislot/made-up-modes/spec.json");
+
+#[test]
+fn a_machine_of_modes_is_read_with_its_ceilings_in_regular_games_and_its_allotments() {
+    let normalized = ok(&normalize(
+        &json!({ "spec": value(MODES_SPEC) }).to_string(),
+    ));
+    assert_eq!(
+        normalized["atRules"]["modes"],
+        json!([{ "id": "heaven", "ceiling": 80 }, { "id": "normal", "ceiling": 800 }])
+    );
+    assert_eq!(
+        normalized["tables"][1]["at"]["allotments"],
+        json!({ "afterAt": [0.5, 0.5], "afterReset": [1.0, 0.0] })
+    );
+}
+
+fn simulate(chunk: u64, progress: Option<&Value>) -> Value {
+    let mut request = json!({
+        "source": source(),
+        "conditions": from_spec(),
+        "weights": [{ "settingLevel": 1, "probability": 0.5 }, { "settingLevel": 6, "probability": 0.5 }],
+        "play": { "medalValue": 20, "rentalPrice": 20, "cashShare": 1 },
+        "plan": { "sessions": 40, "games": 300 },
+        "seed": "18446744073709551615",
+        "chunk": chunk
+    });
+    if let Some(progress) = progress {
+        request["progress"] = progress.clone();
+    }
+    ok(&simulate_chunk(&request.to_string()))
+}
+
+#[test]
+fn a_simulation_resumed_across_the_boundary_matches_one_run() {
+    let whole = simulate(40, None);
+    let first = simulate(15, None);
+    let second = simulate(15, Some(&first["progress"]));
+    let third = simulate(15, Some(&second["progress"]));
+    assert_eq!(third["summary"], whole["summary"]);
+    assert_eq!(whole["summary"]["finished"], json!(true));
+}
+
+fn estimate(chunk: u64, progress: Option<&Value>) -> Value {
+    let mut request = json!({
+        "source": source(),
+        "conditions": from_spec(),
+        "gamesPerSettingLevel": 500,
+        "seed": "7",
+        "chunk": chunk
+    });
+    if let Some(progress) = progress {
+        request["progress"] = progress.clone();
+    }
+    ok(&estimate_chunk(&request.to_string()))
+}
+
+#[test]
+fn an_estimate_resumed_across_the_boundary_matches_one_run() {
+    let whole = estimate(1_000, None);
+    let first = estimate(333, None);
+    let second = estimate(333, Some(&first["progress"]));
+    let third = estimate(334, Some(&second["progress"]));
+    assert_eq!(third["summary"], whole["summary"]);
+    assert_eq!(whole["summary"]["finished"], json!(true));
+    let mut stray = first["progress"].clone();
+    stray["tallies"][0]["settingLevel"] = json!(2);
+    let reply = estimate_chunk(
+        &json!({
+            "source": source(), "conditions": from_spec(), "gamesPerSettingLevel": 500,
+            "seed": "7", "chunk": 10, "progress": stray
+        })
+        .to_string(),
+    );
+    assert_eq!(
+        error(&reply),
+        json!({ "type": "invalid-value", "field": "progress.tallies" })
+    );
+}
+
+const CZ_SPEC: &str =
+    include_str!("../../../packages/contracts/fixtures/pachislot/made-up-cz/spec.json");
+
+#[test]
+fn a_cz_machine_is_read_with_its_trigger_its_ceilings_and_its_at_worked_out() {
+    let normalized = ok(&normalize(&json!({ "spec": value(CZ_SPEC) }).to_string()));
+    assert_eq!(
+        normalized["atRules"],
+        json!({
+            "base": 40.0, "at": "at", "trigger": "cz",
+            "modes": [{ "id": "cz", "ceiling": 600 }, { "id": "cz:reset", "ceiling": 300 }],
+            "atCeiling": 1000, "misses": 3
+        })
+    );
+    assert!(close(
+        &normalized["tables"][1]["at"]["success"],
+        &json!(0.4)
+    ));
+    let analysis = ok(&analyze(
+        &json!({ "source": { "type": "spec", "spec": value(CZ_SPEC) }, "conditions": measured() })
+            .to_string(),
+    ));
+    let bonuses = &analysis["settingLevels"][0]["bonuses"];
+    assert_eq!(bonuses[0]["id"], json!("cz"));
+    assert!(close(&bonuses[0]["chance"], &json!(1.0 / 150.0)));
+    assert_eq!(bonuses[1]["id"], json!("at"));
+    let inferred = ok(&posterior(
+        &json!({
+            "source": { "type": "normalized", "normalized": normalized },
+            "segments": [],
+            "path": {
+                "start": { "sinceTrigger": 120, "sinceAt": 300, "misses": 1, "afterReset": false },
+                "legs": [{ "games": 40, "end": "missed" }, { "games": 90, "end": "won-at" }]
+            }
+        })
+        .to_string(),
+    ));
+    assert_eq!(inferred["settingLevels"].as_array().map(Vec::len), Some(2));
+    assert_eq!(
+        error(&posterior(
+            &json!({
+                "source": source(),
+                "segments": [],
+                "path": { "start": { "sinceTrigger": 0, "sinceAt": 0, "misses": 0, "afterReset": false }, "legs": [] }
+            })
+            .to_string(),
+        )),
+        json!({ "type": "path-without-at" })
+    );
+}
+
+const CAP_SPEC: &str =
+    include_str!("../../../packages/contracts/fixtures/pachislot/made-up-cap/spec.json");
+
+#[test]
+fn a_capped_machine_is_read_with_its_sets_its_window_and_what_an_at_comes_to() {
+    let normalized = ok(&normalize(&json!({ "spec": value(CAP_SPEC) }).to_string()));
+    assert_eq!(normalized["atRules"]["cap"], json!(2400.0));
+    assert_eq!(normalized["atRules"]["window"], json!(32));
+    assert_eq!(normalized["atRules"]["resetOnCap"], json!(true));
+    assert_eq!(
+        normalized["tables"][1]["at"]["payout"],
+        json!({ "type": "sets", "first": 300.0, "set": 100.0, "continuationRate": 0.85 })
+    );
+    let analysis = ok(&analyze(
+        &json!({ "source": { "type": "spec", "spec": value(CAP_SPEC) }, "conditions": measured() })
+            .to_string(),
+    ));
+    let at = &analysis["settingLevels"][0]["at"];
+    assert!(at["completion"].as_f64().expect("a completion") > 0.0);
+    assert!(at["gain"].as_f64().expect("a gain") < 700.0);
+    assert!(close(
+        &analysis["settingLevels"][0]["bonuses"][0]["chance"],
+        &json!(0.002)
+    ));
+    let inferred = ok(&posterior(
+        &json!({
+            "source": { "type": "normalized", "normalized": normalized },
+            "segments": [],
+            "path": {
+                "start": { "sinceTrigger": 10, "sinceAt": 10, "misses": 0, "afterReset": false, "held": 1200 },
+                "legs": [
+                    { "games": 5, "end": "won-at", "at": { "completed": true } },
+                    { "games": 200, "end": "won-at", "at": { "completed": false, "sets": 4 } }
+                ]
+            }
+        })
+        .to_string(),
+    ));
+    assert_eq!(inferred["settingLevels"].as_array().map(Vec::len), Some(2));
+    assert_eq!(
+        error(&normalize(
+            &json!({ "spec": { "v": 1, "entities": ["at"], "components": { "at": ["at"], "payout": { "at": 600 },
+                "firstHit": { "at": [{ "settingLevel": 1, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 50000 } }] },
+                "window": { "at": 32 } },
+                "resources": { "settingLevels": [1], "bet": 3, "base": 40 } } })
+            .to_string(),
+        )),
+        json!({ "type": "needs-cap", "entity": "at", "component": "window" })
+    );
+}

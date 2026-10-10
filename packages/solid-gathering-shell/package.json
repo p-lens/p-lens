@@ -1,0 +1,34 @@
+{
+  "name": "solid-gathering-shell",
+  "version": "0.1.0",
+  "description": "A domain-free SolidJS shell for places where people, records and groups gather",
+  "type": "module",
+  "license": "MIT",
+  "author": "P-Lens contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/p-lens/p-lens.git",
+    "directory": "packages/solid-gathering-shell"
+  },
+  "homepage": "https://github.com/p-lens/p-lens/tree/main/packages/solid-gathering-shell",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "check": "tsc --noEmit -p .",
+    "test": "bun test tests"
+  },
+  "peerDependencies": {
+    "solid-js": "^1.9.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "solid-js": "^1.9.14",
+    "typescript": "~6.0.2"
+  }
+}

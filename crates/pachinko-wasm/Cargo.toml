@@ -1,0 +1,21 @@
+[package]
+name = "pachinko-wasm"
+description = "The JavaScript boundary of the pachinko engine: two coarse calls, DTOs in and out"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pachinko-domain = { path = "../pachinko-domain" }
+pachinko-engine = { path = "../pachinko-engine" }
+pachinko-simulator = { path = "../pachinko-simulator" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+wasm-bindgen = "=0.2.129"
+
+[lints]
+workspace = true

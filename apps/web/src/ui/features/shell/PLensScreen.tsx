@@ -1,0 +1,229 @@
+import { useLocation, useSearchParams } from "@solidjs/router"
+import { createMemo, createResource, Show, type JSX } from "solid-js"
+import { createArrangement, GatheringShell, MainContent, TopBar } from "solid-gathering-shell"
+
+import type { Outcome } from "../../../application/errors"
+import type { TitledBook } from "../../../core/book/book"
+import { useApp } from "../../context"
+import { bookOf, focusOf, inSettings, placeOf, type Place } from "../../navigation/place"
+import { EmptyState } from "../../primitives/states"
+import { ActivityView } from "../activity/ActivityView"
+import { HoldingsView } from "../holdings/HoldingsView"
+import { FinishPlayView } from "../live/FinishPlayView"
+import { LivePlayView } from "../live/LivePlayView"
+import { LiveSide } from "../live/LiveSide"
+import * as PachinkoViews from "../pachinko"
+import { FileDetail, FilesView } from "../files/FilesView"
+import { StartFormProvider } from "../live/start-form"
+import { StartPlayView } from "../live/StartPlayView"
+import { SubmissionReturnView } from "../live/SubmissionReturnView"
+import { DocumentView } from "../documents/DocumentView"
+import { NotFound } from "../not-found/NotFound"
+import * as PachislotViews from "../pachislot"
+import { PlayDetail } from "../plays/PlayDetail"
+import { PlaysView } from "../plays/PlaysView"
+import { RevisePlayView } from "../record-play/RevisePlayView"
+import { TallyPlayView } from "../record-play/TallyPlayView"
+import { AppearanceSettings } from "../settings/AppearanceSettings"
+import { BackupSettings } from "../settings/BackupSettings"
+import { BreakdownView } from "../breakdown/BreakdownView"
+import { ConsolidatedSide, ConsolidatedView } from "../consolidated/ConsolidatedView"
+import { ConsolidationSettings } from "../settings/ConsolidationSettings"
+import { ExportSettings } from "../settings/ExportSettings"
+import { ImportSettings } from "../settings/ImportSettings"
+import { BooksSettings } from "../settings/BooksSettings"
+import { BusinessDaySettings } from "../settings/BusinessDaySettings"
+import { LicensesView } from "../settings/LicensesView"
+import { SyncSettings } from "../settings/SyncSettings"
+import { AboutButton } from "./AboutButton"
+import { BackupNotice } from "./BackupNotice"
+import { BookSpaceSide } from "./BookSpaceSide"
+import { SettingsSide } from "./SettingsSide"
+import { SpacesRail } from "./SpacesRail"
+import { ToastRegion } from "../../primitives/toast"
+import { ViewHeader } from "./ViewHeader"
+import { RefreshButton } from "./RefreshButton"
+import { UpdateNotice } from "./UpdateNotice"
+
+/** Below this width the panes are shown one at a time. */
+const NARROW_BELOW = 768
+
+
+/** What the main pane shows for a place that is not itself a screen of its own. */
+function ChooseFromList(props: { readonly place: Place; readonly title: string; readonly hint: string }): JSX.Element {
+  return (
+    <MainContent header={<ViewHeader place={props.place} title={props.title} />}>
+      <div class="max-w-5xl">
+        <EmptyState title={props.hint} />
+      </div>
+    </MainContent>
+  )
+}
+
+/**
+ * The main pane for a place. Called once per place; the query is read through
+ * an accessor so a new query refreshes the view without rebuilding it.
+ */
+const mainFor = (place: Place, query: () => string): JSX.Element => {
+  switch (place.kind) {
+    case "live":
+      return <ChooseFromList place={place} title="稼働" hint="本日の稼働を選ぶか、新しく始めてください。" />
+    case "live-new":
+      return <StartPlayView place={place} game={place.game} />
+    case "live-play":
+      return <LivePlayView place={place} playId={place.playId} />
+    case "live-record":
+      return <FinishPlayView place={place} playId={place.playId} />
+    case "book":
+      return <ChooseFromList place={place} title="帳簿" hint="左のリストからビューを選んでください。" />
+    case "book-view":
+      return bookViewFor(place, query)
+    case "book-breakdown":
+      return <BreakdownView place={place} bookId={place.bookId} by={place.by} query={query()} />
+    case "play":
+      return <PlaysView place={place} bookId={place.bookId} query={query()} />
+    case "play-new":
+      return <TallyPlayView place={place} bookId={place.bookId} />
+    case "play-revise":
+      return <RevisePlayView place={place} bookId={place.bookId} playId={place.playId} />
+    case "book-file":
+      return <FilesView place={place} bookId={place.bookId} />
+    case "pachinko-machine-search":
+      return <PachinkoViews.MachineSearchView place={place} query={query()} />
+    case "parlor-submitted":
+      return <SubmissionReturnView place={place} />
+    case "pachinko-machine":
+      return <PachinkoViews.MachineView place={place} machineId={place.machineId} />
+    case "pachinko-formula":
+      return <PachinkoViews.FormulaView place={place} machineId={place.machineId} formulaId={place.formulaId} />
+    case "pachinko-formula-grounds":
+      return <PachinkoViews.GroundsView place={place} machineId={place.machineId} formulaId={place.formulaId} />
+    case "pachinko-formula-basis":
+      return <PachinkoViews.BasisView place={place} machineId={place.machineId} formulaId={place.formulaId} />
+    case "pachinko-formula-new":
+      return <PachinkoViews.FormulaEditorView place={place} />
+    case "pachislot-machine-search":
+      return <PachislotViews.MachineSearchView place={place} query={query()} />
+    case "pachislot-machine":
+      return <PachislotViews.MachineView place={place} machineId={place.machineId} />
+    case "pachislot-formula":
+      return <PachislotViews.FormulaView place={place} machineId={place.machineId} formulaId={place.formulaId} />
+    case "pachislot-formula-grounds":
+      return <PachislotViews.GroundsView place={place} machineId={place.machineId} formulaId={place.formulaId} />
+    case "pachislot-formula-basis":
+      return <PachislotViews.BasisView place={place} machineId={place.machineId} formulaId={place.formulaId} />
+    case "pachislot-formula-new":
+      return <PachislotViews.FormulaEditorView place={place} />
+    case "pachislot-distribution-new":
+      return <PachislotViews.SettingDistributionEditorView place={place} machineId={place.machineId} />
+    case "consolidated":
+      return <ChooseFromList place={place} title="連結" hint="左のリストからビューを選んでください。" />
+    case "consolidated-breakdown":
+      return <ConsolidatedView place={place} by={place.by} bookIds={place.bookIds} query={query()} />
+    case "settings":
+      return <ChooseFromList place={place} title="設定" hint="左のリストから項目を選んでください。" />
+    case "settings-section":
+      return settingsFor(place)
+    case "document":
+      return <DocumentView place={place} document={place.document} />
+    case "not-found":
+      return <NotFound place={place} path={place.path} />
+  }
+}
+
+const settingsFor = (place: Extract<Place, { kind: "settings-section" }>): JSX.Element => {
+  switch (place.section) {
+    case "appearance":
+      return <AppearanceSettings place={place} />
+    case "business-day":
+      return <BusinessDaySettings place={place} />
+    case "sync":
+      return <SyncSettings place={place} />
+    case "backup":
+      return <BackupSettings place={place} />
+    case "export":
+      return <ExportSettings place={place} />
+    case "import":
+      return <ImportSettings place={place} />
+    case "books":
+      return <BooksSettings place={place} />
+    case "consolidation":
+      return <ConsolidationSettings place={place} />
+    case "licenses":
+      return <LicensesView place={place} />
+  }
+}
+
+const bookViewFor = (place: Extract<Place, { kind: "book-view" }>, query: () => string): JSX.Element => {
+  switch (place.view) {
+    case "holdings":
+      return <HoldingsView place={place} bookId={place.bookId} query={query()} />
+    case "plays":
+      return <PlaysView place={place} bookId={place.bookId} query={query()} />
+    case "activity":
+      return <ActivityView place={place} bookId={place.bookId} />
+    case "files":
+      return <FilesView place={place} bookId={place.bookId} />
+  }
+}
+
+/** The side panel for a place: the live space's plays, a book's views, or settings. */
+const sideFor = (place: Place, books: Outcome<readonly TitledBook[]> | undefined): JSX.Element => {
+  if (inSettings(place)) return <SettingsSide place={place} />
+  if (place.kind === "consolidated" || place.kind === "consolidated-breakdown") return <ConsolidatedSide place={place} />
+  const bookId = bookOf(place)
+  if (bookId === undefined) return <LiveSide place={place} />
+  const book = books?.ok === true ? books.value.find((candidate) => candidate.id === bookId) : undefined
+  return <BookSpaceSide place={place} bookId={bookId} book={book} />
+}
+
+/** The detail pane: a play's, or a file's text. */
+const auxFor = (place: Place, query: () => string): JSX.Element | undefined => {
+  if (place.kind === "play") return <PlayDetail place={place} bookId={place.bookId} playId={place.playId} query={query()} />
+  return place.kind === "book-file" ? <FileDetail place={place} bookId={place.bookId} path={place.path} /> : undefined
+}
+
+/**
+ * The whole screen, read off the address: which place, which hledger query,
+ * and from those which panes show what. The books are asked for once here,
+ * since the rail and a book's side panel both name them.
+ */
+export function PLensScreen(): JSX.Element {
+  const location = useLocation()
+  const [search] = useSearchParams<{ q?: string }>()
+  const arrangement = createArrangement({ narrowBelow: NARROW_BELOW })
+  const place = createMemo(() => placeOf(location.pathname))
+  const query = (): string => search.q ?? ""
+  const app = useApp()
+  const [books] = createResource(() => app.revision(), () => app.services.session.books())
+
+  return (
+    <StartFormProvider>
+      <GatheringShell
+        arrangement={arrangement()}
+        focus={focusOf(place())}
+        topBar={
+          <TopBar
+            title={app.services.name}
+            trailing={
+              <div class="flex items-center gap-1">
+                <BackupNotice />
+                <UpdateNotice />
+                <RefreshButton />
+                <AboutButton />
+              </div>
+            }
+          />
+        }
+        rail={<SpacesRail place={place()} books={books()} />}
+        side={sideFor(place(), books())}
+        aux={auxFor(place(), query)}
+      >
+        <Show when={place()} keyed>
+          {(current) => mainFor(current, query)}
+        </Show>
+      </GatheringShell>
+      <ToastRegion />
+    </StartFormProvider>
+  )
+}

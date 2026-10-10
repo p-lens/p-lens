@@ -1,0 +1,41 @@
+{
+  // A deployment of the sync relay. Copy this file to
+  // wrangler.production.jsonc (ignored by git, so your account's ids and
+  // hosts never reach the repository), fill in what is marked <…>, then:
+  //
+  //   bun --cwd=apps/relay run migrate:remote
+  //   bun --cwd=apps/relay run deploy
+  //
+  // The relay has a host of its own, and its address is written into every
+  // book synced through it and every pairing code made for one: once books
+  // are synced, it is not an address to change.
+  "name": "p-lens-relay",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  "routes": [{ "pattern": "<relay.example.com>", "custom_domain": true }],
+  // When lines left idle are let go, once a day (UTC).
+  "triggers": { "crons": ["17 18 * * *"] },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "p-lens-relay",
+      // The id `wrangler d1 create p-lens-relay` printed.
+      "database_id": "<your D1 database id>",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // How much one address may ask, per minute: readings, sendings, and
+  // sendings with a large body — a book's first commits, and nothing after
+  // them. Pick any three namespace ids unique in your account.
+  "ratelimits": [
+    { "name": "READ_LIMIT", "namespace_id": "2001", "simple": { "limit": 120, "period": 60 } },
+    { "name": "WRITE_LIMIT", "namespace_id": "2002", "simple": { "limit": 30, "period": 60 } },
+    { "name": "BULK_LIMIT", "namespace_id": "2003", "simple": { "limit": 2, "period": 60 } }
+  ],
+  "vars": {
+    // The pages the app is served from, comma-separated. Only they may read
+    // a line or add to one from a browser. Left empty, any page may.
+    "ALLOWED_ORIGINS": "https://<app.example.com>"
+  }
+}

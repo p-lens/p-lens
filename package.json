@@ -1,0 +1,20 @@
+{
+  "name": "p-lens",
+  "version": "0.1.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun --cwd=apps/web run dev",
+    "build": "bun --cwd=apps/web run build",
+    "test": "bun run test:ts && bun run test:rust",
+    "test:ts": "bun --cwd=packages/solid-gathering-shell run test && bun --cwd=packages/contracts run test && bun --cwd=packages/uuidv7 run test && bun --cwd=apps/web run test && bun --cwd=apps/api run test && bun --cwd=apps/relay run test",
+    "test:rust": "cargo test --workspace && cargo clippy --workspace --all-targets -- -D warnings",
+    "check": "bun --cwd=packages/solid-gathering-shell run check && bun --cwd=packages/contracts run check && bun --cwd=packages/uuidv7 run check && bun --cwd=apps/web run check && bun --cwd=apps/api run check && bun --cwd=apps/relay run check",
+    "build:pachinko": "scripts/build-pachinko.sh",
+    "build:pachislot": "scripts/build-pachislot.sh"
+  }
+}

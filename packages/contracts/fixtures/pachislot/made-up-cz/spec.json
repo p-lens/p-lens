@@ -1,0 +1,26 @@
+{
+  "v": 1,
+  "entities": ["at", "cz"],
+  "components": {
+    "label": { "at": "AT", "cz": "CZ" },
+    "payout": { "at": 600 },
+    "at": ["at"],
+    "cz": ["cz"],
+    "firstHit": {
+      "cz": [
+        { "settingLevel": 1, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 15000 } },
+        { "settingLevel": 6, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 12000 } }
+      ]
+    },
+    "success": {
+      "cz": [
+        { "settingLevel": 1, "value": 3000 },
+        { "settingLevel": 6, "value": 4000 }
+      ]
+    },
+    "ceiling": { "cz": 600, "at": 1000 },
+    "resetCeiling": { "cz": 300 },
+    "misses": { "cz": 3 }
+  },
+  "resources": { "settingLevels": [1, 6], "bet": 3, "base": 40 }
+}

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 2,
+  "bet": 3,
+  "tables": [
+    {
+      "settingLevel": 1,
+      "events": [
+        { "id": "big", "kind": { "type": "bonus", "payout": 240 }, "chance": 0.004 },
+        { "id": "reg-solo", "group": "reg", "kind": { "type": "bonus", "payout": 96 }, "chance": 0.002 },
+        { "id": "reg-cherry", "group": "reg", "kind": { "type": "bonus", "payout": 96 }, "chance": 0.0005 },
+        { "id": "grape", "kind": { "type": "role", "payout": 8 }, "chance": 0.16 },
+        { "id": "cherry", "kind": { "type": "role", "payout": 2 }, "chance": 0.025 },
+        { "id": "replay", "kind": { "type": "replay" }, "chance": 0.137 }
+      ]
+    },
+    {
+      "settingLevel": 6,
+      "events": [
+        { "id": "big", "kind": { "type": "bonus", "payout": 240 }, "chance": 0.005 },
+        { "id": "reg-solo", "group": "reg", "kind": { "type": "bonus", "payout": 96 }, "chance": 0.003 },
+        { "id": "reg-cherry", "group": "reg", "kind": { "type": "bonus", "payout": 96 }, "chance": 0.001 },
+        { "id": "grape", "kind": { "type": "role", "payout": 8 }, "chance": 0.17 },
+        { "id": "cherry", "kind": { "type": "role", "payout": 2 }, "chance": 0.025 },
+        { "id": "replay", "kind": { "type": "replay" }, "chance": 0.137 }
+      ]
+    }
+  ]
+}

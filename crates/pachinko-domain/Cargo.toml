@@ -1,0 +1,10 @@
+[package]
+name = "pachinko-domain"
+description = "Pachinko machine specs and the state model they normalise to: types only, no I/O"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

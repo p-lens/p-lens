@@ -1,0 +1,225 @@
+@import "tailwindcss";
+
+@source "../../../../../packages/solid-gathering-shell/src";
+
+/*
+ * Every colour on screen is one of these tokens. Components name what a colour
+ * is for — a surface, a kind of text, a result being positive — never the
+ * colour itself, so the two themes are two sets of values and nothing else.
+ *
+ * Surfaces step from the rail outwards: 0 is the rail, 1 the side and detail
+ * panels, 2 the main content, 3 anything raised on it.
+ *
+ * Three colours say who a control is for, each asking more of a person
+ * than the one before, in the order a pachinko screen colours a held spin
+ * by its promise. `amateur` is everyone's — the app is for whoever plays —
+ * and using a formula is done in it; it is the accent's blue today, and a
+ * name of its own so that it need not stay so. `semipro` is for looking
+ * into a formula and making one — its grounds, a simulation, finding its
+ * basis right — in
+ * the yellow-green a pachinko screen holds a spin in. `nerdpro` is for
+ * finding a basis wrong, which only someone who has worked it through can
+ * say, in that screen's purple. Each has the shade it takes under a
+ * pointer and what is written on it (`on-…`). A button is filled with the
+ * colour itself, which is bright; what is written or drawn in it on a
+ * surface — a link, an icon, an outline — takes its `-ink`, which is the
+ * same colour kept low enough to read there. Changing who gets which
+ * colour is done here and nowhere else.
+ */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --surface-0: #e3e5e8;
+  --surface-1: #f2f3f5;
+  --surface-2: #ffffff;
+  --surface-3: #ebedef;
+  --surface-input: #e3e5e8;
+  --text-primary: #060607;
+  --text-secondary: #4e5058;
+  --text-muted: #5c5e66;
+  --border: #e1e2e4;
+  --accent: #5865f2;
+  --accent-hover: #4752c4;
+  --accent-contrast: #ffffff;
+  --positive: #1f9a55;
+  --negative: #e8383e;
+  --warning: #a8650a;
+  --focus-ring: #00a8fc;
+  --amateur: #5865f2;
+  --amateur-hover: #4752c4;
+  --on-amateur: #ffffff;
+  --semipro: #86d426;
+  --semipro-hover: #76bf1c;
+  --on-semipro: #0c1405;
+  --semipro-ink: #3f7d14;
+  --semipro-ink-hover: #33680f;
+  --nerdpro: #a985f2;
+  --nerdpro-hover: #9870e6;
+  --on-nerdpro: #100a1c;
+  --nerdpro-ink: #6f47bd;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-0: #1e1f22;
+  --surface-1: #2b2d31;
+  --surface-2: #313338;
+  --surface-3: #383a40;
+  --surface-input: #1e1f22;
+  --text-primary: #f2f3f5;
+  --text-secondary: #b5bac1;
+  --text-muted: #949ba4;
+  --border: #3f4147;
+  --accent: #5865f2;
+  --accent-hover: #4752c4;
+  --accent-contrast: #ffffff;
+  --positive: #23a55a;
+  --negative: #f23f43;
+  --warning: #f0b232;
+  --focus-ring: #00a8fc;
+  --amateur: #5865f2;
+  --amateur-hover: #4752c4;
+  --on-amateur: #ffffff;
+  --semipro: #9be22d;
+  --semipro-hover: #b0ee4f;
+  --on-semipro: #0c1405;
+  --semipro-ink: #7fb63c;
+  --semipro-ink-hover: #94cb4f;
+  --nerdpro: #b794f6;
+  --nerdpro-hover: #c8acf9;
+  --on-nerdpro: #100a1c;
+  --nerdpro-ink: #9a74dc;
+}
+
+@theme inline {
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-input: var(--surface-input);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --color-warning: var(--warning);
+  --color-focus-ring: var(--focus-ring);
+  --color-amateur: var(--amateur);
+  --color-amateur-hover: var(--amateur-hover);
+  --color-on-amateur: var(--on-amateur);
+  --color-semipro: var(--semipro);
+  --color-semipro-hover: var(--semipro-hover);
+  --color-on-semipro: var(--on-semipro);
+  --color-semipro-ink: var(--semipro-ink);
+  --color-semipro-ink-hover: var(--semipro-ink-hover);
+  --color-nerdpro: var(--nerdpro);
+  --color-nerdpro-hover: var(--nerdpro-hover);
+  --color-on-nerdpro: var(--on-nerdpro);
+  --color-nerdpro-ink: var(--nerdpro-ink);
+  /* The device's own interface font first: its digits and Latin letters are the same weight on every phone, and the page's language picks its Japanese. No font is shipped, so one named ahead of it would be met on some devices and not on others. */
+  --font-sans: system-ui, -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Menlo", "Consolas", "Noto Sans Mono CJK JP", monospace;
+}
+
+/* A toast rises into place, and leaves to the right — from wherever a swipe let go of it. */
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+}
+
+@keyframes toast-leave {
+  from {
+    transform: translateX(var(--kb-toast-swipe-end-x, 0));
+  }
+  to {
+    opacity: 0;
+    transform: translateX(calc(100% + 2rem));
+  }
+}
+
+/* An icon that has just been put in place: it arrives rather than appears. */
+@keyframes arrive {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* A request made quietly under a field: it comes into view slowly, never all at once. */
+@keyframes emerge {
+  from {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/*
+ * The focus ring anything focusable shows by default. In the base layer, so a
+ * component that draws its own ring — a field rings its whole box, not the
+ * input inside it — can turn this one off with a utility.
+ */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  /*
+   * Nothing in P-Lens shows the "not allowed" cursor: something that cannot
+   * be used yet looks dimmed, and the pointer stays the ordinary arrow, in
+   * every browser. tests/boundary.test.ts keeps that cursor out of the code.
+   */
+  :disabled,
+  [aria-disabled="true"],
+  [data-disabled] {
+    cursor: default;
+  }
+}
+
+/* A line that was not there a moment ago: it opens downwards as it fades in, so what is below it is eased away, not jolted. */
+@keyframes unfold {
+  from {
+    max-height: 0;
+    opacity: 0;
+  }
+  to {
+    max-height: 3rem;
+    opacity: 1;
+  }
+}
+
+/* A bubble growing out of what it speaks for: taller as it fades in. */
+@keyframes unfurl {
+  from {
+    opacity: 0;
+    transform: scaleY(0.6);
+  }
+}

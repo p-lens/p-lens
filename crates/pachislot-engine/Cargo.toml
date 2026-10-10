@@ -1,0 +1,16 @@
+[package]
+name = "pachislot-engine"
+description = "Validates and normalises pachislot specs, works out payout rates, and infers a cabinet's setting"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+pachislot-domain = { path = "../pachislot-domain" }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+proptest = "1"

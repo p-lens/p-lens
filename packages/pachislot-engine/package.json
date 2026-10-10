@@ -1,0 +1,13 @@
+{
+  "name": "@p-lens/pachislot-engine",
+  "version": "0.1.0",
+  "description": "The pachislot engine built for JavaScript: crates/pachislot-wasm through wasm-bindgen. Generated; rebuilt by scripts/build-pachislot.sh",
+  "type": "module",
+  "license": "GPL-3.0-or-later",
+  "private": true,
+  "exports": {
+    "./pachislot.js": { "types": "./pachislot.d.ts", "default": "./pachislot.js" },
+    "./pachislot_bg.wasm": "./pachislot_bg.wasm"
+  },
+  "files": ["pachislot.js", "pachislot.d.ts", "pachislot_bg.wasm"]
+}

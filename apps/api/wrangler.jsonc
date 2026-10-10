@@ -1,0 +1,22 @@
+{
+  // The shared catalog's API: pachinko and pachislot machines, formulas,
+  // pachislot 設定配分, their marks, and tags over D1. It never calculates for
+  // anyone; each engine runs only to check a formula being published, so what
+  // is stored is derived from its basis rather than taken on trust.
+  //
+  // This file is for local development (`bun --cwd=apps/api run dev`), over
+  // wrangler's local database. A deployment uses wrangler.production.jsonc,
+  // made from wrangler.production.example.jsonc and kept out of git.
+  "name": "p-lens-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "p-lens",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "../../db/migrations"
+    }
+  ],
+  "rules": [{ "type": "CompiledWasm", "globs": ["**/*.wasm"], "fallthrough": true }]
+}

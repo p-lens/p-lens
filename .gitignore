@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.tsbuildinfo
+wasm/vendor/
+wasm/dist-newstyle/
+wasm/out/
+target/
+.wrangler/
+.env
+.env.*
+!.env.example
+apps/api/.dev.vars
+apps/api/wrangler.production.jsonc
+apps/relay/wrangler.production.jsonc
+.claude/worktrees/
+apps/web/src/generated/

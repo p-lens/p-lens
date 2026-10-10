@@ -1,0 +1,108 @@
+import type { Capability } from "../core/access/role"
+import type { ArchiveFailure } from "../backup/port/archiver"
+import type { StoreFailure } from "../backup/port/backup-store"
+import type { DigestFailure } from "../backup/port/digest"
+import type { HandoverFailure } from "../backup/port/handover"
+import type { ArchiveProblem } from "../core/backup/archive"
+import type { BookId } from "../core/book/book"
+import type { PrecordProblem } from "../core/import/precord"
+import type { NameProblem } from "../core/names/known"
+import type { OpeningProblem } from "../core/parlor/opening"
+import type { PlayError } from "../core/play/play"
+import type { PrizeExchangeProblem } from "../core/savings/prize-exchange"
+import type { ReportError } from "../core/report/figures"
+import type { CodecProblem } from "../core/sync/codec"
+import type { PairingProblem } from "../core/sync/pairing"
+import type { RebaseProblem } from "../core/sync/rebase"
+import type { Result } from "../core/result/result"
+import type { Trouble } from "../hledger/protocol/wire"
+import type { HistoryError } from "../history/port/history-port"
+import type { StorageError } from "../storage/port/book-storage"
+import type { DraftError } from "../storage/port/draft-storage"
+import type { RelayFailure } from "../sync/port/relay"
+import type { SealFailure } from "../sync/port/sealer"
+import type { CatalogError } from "../catalog/port/catalog"
+import type { DirectoryError } from "../parlors/port/parlor-directory"
+import type { ProofError } from "../core/grounds/proof"
+import type { ReasonerFailure } from "../reasoning/protocol/messages"
+import type * as PachinkoEngine from "../pachinko-engine/protocol/messages"
+import type * as PachislotEngine from "../pachislot-engine/protocol/messages"
+import type * as Pachislot from "../core/pachislot"
+
+/**
+ * Everything a use case can fail with, each case carrying the failure it came
+ * from. The screen decides what to say; nothing here is a sentence.
+ */
+/**
+ * Why a book could not be synced, or joined.
+ *
+ * - `not-linked`: the book is not synced from this device.
+ * - `no-relay`: this build names no relay to start syncing through.
+ * - `nothing-to-join`: the pairing code's line has no commits yet.
+ * - `book-here`: the book the code is for is already on this device.
+ * - `unsettled`: the line kept moving while this device tried to catch up.
+ */
+export type SyncProblem =
+  | RelayFailure
+  | SealFailure
+  | RebaseProblem
+  | CodecProblem
+  | PairingProblem
+  | { readonly type: "links"; readonly detail: string }
+  | { readonly type: "not-linked" }
+  | { readonly type: "no-relay" }
+  | { readonly type: "nothing-to-join" }
+  | { readonly type: "book-here"; readonly bookId: BookId }
+  | { readonly type: "unsettled" }
+
+/**
+ * Why a book could not be backed up, or put back.
+ *
+ * - `book-here`: the book the backup is of is already on this device.
+ */
+export type BackupProblem =
+  | ArchiveFailure
+  | ArchiveProblem
+  | StoreFailure
+  | HandoverFailure
+  | DigestFailure
+  | { readonly type: "receipts"; readonly detail: string }
+  | { readonly type: "book-here"; readonly bookId: BookId }
+
+/**
+ * Why a file of another app's plays was not taken in.
+ *
+ * - `nothing-new`: the book already has every play the file holds.
+ */
+export type ImportProblem = PrecordProblem | { readonly type: "nothing-new"; readonly count: number }
+
+export type ApplicationError =
+  | { readonly type: "storage"; readonly error: StorageError }
+  | { readonly type: "draft"; readonly error: DraftError }
+  | { readonly type: "hledger"; readonly trouble: Trouble }
+  | { readonly type: "journal-rejected"; readonly trouble: Trouble }
+  | { readonly type: "unknown-names"; readonly problems: readonly NameProblem[] }
+  | { readonly type: "report"; readonly error: ReportError }
+  | { readonly type: "play"; readonly error: PlayError }
+  | { readonly type: "parlor"; readonly error: OpeningProblem }
+  | { readonly type: "history"; readonly error: HistoryError }
+  | { readonly type: "sync"; readonly problem: SyncProblem }
+  | { readonly type: "backup"; readonly problem: BackupProblem }
+  | { readonly type: "handover"; readonly failure: HandoverFailure }
+  | { readonly type: "archive"; readonly failure: ArchiveFailure }
+  | { readonly type: "forbidden"; readonly capability: Capability }
+  | { readonly type: "prize-exchange"; readonly problem: PrizeExchangeProblem }
+  | { readonly type: "import"; readonly problem: ImportProblem }
+  | { readonly type: "play-missing" }
+  | { readonly type: "play-unreadable" }
+  | { readonly type: "opening-balance-registered"; readonly parlor: string; readonly tier: string }
+  | { readonly type: "catalog"; readonly error: CatalogError }
+  | { readonly type: "directory"; readonly error: DirectoryError }
+  | { readonly type: "submissions"; readonly detail: string }
+  | { readonly type: "pachinko-engine"; readonly failure: PachinkoEngine.EngineFailure }
+  | { readonly type: "reasoner"; readonly failure: ReasonerFailure }
+  | { readonly type: "proof"; readonly error: ProofError }
+  | { readonly type: "pachislot-engine"; readonly failure: PachislotEngine.EngineFailure }
+  | { readonly type: "pachislot-play"; readonly problem: Pachislot.ObservationProblem | Pachislot.PriorProblem }
+
+export type Outcome<T> = Result<T, ApplicationError>

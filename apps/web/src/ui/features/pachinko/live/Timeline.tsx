@@ -1,0 +1,145 @@
+import { For, Show, type JSX } from "solid-js"
+
+import type { Checkpoint } from "../../../../core/play-log/checkpoint"
+import { formatMoment } from "../../../wording/dates"
+import { formatCount } from "../../../wording/numbers"
+import { PHASE_NAMES, signedBalls, UNTOLD_JACKPOT } from "../../../wording/pachinko/play"
+
+/**
+ * A line and the one before it, which says what the line added to the
+ * running totals; and, where the line is a reading, its place among the
+ * play's readings — the seat as it was found and a jackpot found missing
+ * are not readings, and have none.
+ */
+interface Step {
+  readonly checkpoint: Checkpoint
+  readonly reading: number | undefined
+  readonly rented: number
+  readonly replayed: number
+  readonly supported: number
+}
+
+const isEnd = (checkpoint: Checkpoint): boolean => checkpoint.event?.kind === "ended"
+
+const isReading = (checkpoint: Checkpoint, line: number): boolean => line > 0 && !isEnd(checkpoint) && !(checkpoint.event?.kind === "jackpot" && checkpoint.event.approximate === true)
+
+const stepsOf = (ordered: readonly Checkpoint[]): readonly Step[] =>
+  ordered.reduce<{ readonly steps: readonly Step[]; readonly outlay: number; readonly replay: number; readonly support: number; readonly readings: number }>(
+    (walked, checkpoint, line) => {
+      const outlay = checkpoint.outlay ?? walked.outlay
+      const replay = checkpoint.replay ?? walked.replay
+      const support = checkpoint.support ?? walked.support
+      const reading = isReading(checkpoint, line) ? walked.readings : undefined
+      const step: Step = { checkpoint, reading, rented: outlay - walked.outlay, replayed: replay - walked.replay, supported: support - walked.support }
+      return { steps: [...walked.steps, step], outlay, replay, support, readings: walked.readings + (reading === undefined ? 0 : 1) }
+    },
+    { steps: [], outlay: 0, replay: 0, support: 0, readings: 0 },
+  ).steps
+
+/** What a jackpot's line calls it: its bonus with what it added to the hand, or a jackpot whose bonus was not told — found missing, or on a machine that lists none. */
+const jackpotText = (checkpoint: Checkpoint): string | undefined => {
+  const event = checkpoint.event
+  if (event?.kind !== "jackpot") return undefined
+  if (event.bonus !== undefined) return `${event.bonus.name} ${signedBalls(event.bonus.payout - event.bonus.spent)}`
+  return event.approximate === true ? `${UNTOLD_JACKPOT}（推定）` : UNTOLD_JACKPOT
+}
+
+/** What a line did to the balls, each where it did anything: rented, drawn, drifted, counted. */
+const ballsText = (step: Step): string =>
+  [
+    step.rented > 0 ? `貸玉 ¥${formatCount(step.rented)}` : undefined,
+    step.replayed > 0 ? `貯玉 ${formatCount(step.replayed)}玉` : undefined,
+    step.supported !== 0 ? `その他 ${signedBalls(step.supported)}` : undefined,
+    step.checkpoint.held === undefined ? undefined : `持ち玉 ${formatCount(step.checkpoint.held)}玉`,
+  ]
+    .filter((text): text is string => text !== undefined)
+    .join("　")
+
+const ROW = "flex w-full flex-col gap-0.5 rounded px-2 py-1.5 text-left"
+
+/** What the line that ends a recorded play is called, where a reading says the state the cabinet was in. */
+const END_NAME = "終了"
+
+function Line(props: { readonly step: Step }): JSX.Element {
+  const checkpoint = (): Checkpoint => props.step.checkpoint
+  return (
+    <>
+      <div class="flex items-baseline gap-2">
+        <time class="w-10 shrink-0 text-xs tabular-nums text-text-muted">{checkpoint().at === undefined ? "--:--" : formatMoment(checkpoint().at ?? "").slice(-5)}</time>
+        <span class="w-8 shrink-0 text-xs text-text-secondary">{isEnd(checkpoint()) ? END_NAME : PHASE_NAMES[checkpoint().phase ?? "regular"]}</span>
+        <Show when={!isEnd(checkpoint()) || checkpoint().counter?.spins !== undefined}>
+          <span class="shrink-0 tabular-nums text-text-primary">{checkpoint().counter?.spins === undefined ? "--" : formatCount(checkpoint().counter?.spins ?? 0)} 回転</span>
+        </Show>
+        <Show when={jackpotText(checkpoint())} keyed>
+          {(won) => <span class="ml-auto shrink-0 rounded bg-accent px-1.5 py-0.5 text-xs font-semibold text-accent-contrast">{won}</span>}
+        </Show>
+      </div>
+      <Show when={ballsText(props.step)} keyed>
+        {(balls) => <p class="pl-12 text-xs tabular-nums text-text-muted">{balls}</p>}
+      </Show>
+    </>
+  )
+}
+
+/** What pressing a line takes up to be set right: a reading by its place among them, or the seat as it was found. */
+export type Revised = { readonly type: "reading"; readonly index: number } | { readonly type: "seat" }
+
+const pressedOf = (step: Step, line: number): Revised | undefined => (step.reading !== undefined ? { type: "reading", index: step.reading } : line === 0 ? { type: "seat" } : undefined)
+
+const samePressed = (left: Revised | undefined, right: Revised | undefined): boolean =>
+  left !== undefined && right !== undefined && left.type === right.type && (left.type !== "reading" || right.type !== "reading" || left.index === right.index)
+
+const pressLabel = (pressed: Revised): string => (pressed.type === "seat" ? "開始時データを修正" : `${pressed.index + 1}件目の記録を修正`)
+
+/** One line of the log. A reading, or the seat as it was found, is pressed to set it right; a jackpot found missing is only shown. */
+function Row(props: { readonly step: Step; readonly pressed: Revised | undefined; readonly revising: boolean; readonly onRevise: (pressed: Revised) => void }): JSX.Element {
+  const jackpot = (): boolean => props.step.checkpoint.event?.kind === "jackpot"
+  return (
+    <li>
+      <Show
+        when={props.pressed}
+        keyed
+        fallback={
+          <div class={ROW} classList={{ "bg-accent/10": jackpot() }}>
+            <Line step={props.step} />
+          </div>
+        }
+      >
+        {(found) => (
+          <button
+            type="button"
+            aria-label={pressLabel(found)}
+            onClick={() => props.onRevise(found)}
+            class={`${ROW} hover:bg-surface-3/40 focus-visible:outline-2 focus-visible:outline-focus-ring`}
+            classList={{ "bg-accent/10": jackpot() && !props.revising, "bg-warning/15": props.revising }}
+          >
+            <Line step={props.step} />
+          </button>
+        )}
+      </Show>
+    </li>
+  )
+}
+
+/**
+ * The play's log in play order, oldest first, as a conversation reads:
+ * each reading with the state the cabinet was in, the counter as it was
+ * read, the bonus where it was a jackpot, and under it what the reading
+ * did to the balls. Pressing a reading, or the seat as it was found, takes
+ * it up to be set right — in a play in progress. A recorded play's log is
+ * only read: given no way to revise, no line is pressed, and the line that
+ * ended the play is shown as its last.
+ */
+export function Timeline(props: { readonly checkpoints: readonly Checkpoint[]; readonly revising: Revised | undefined; readonly onRevise: ((pressed: Revised) => void) | undefined }): JSX.Element {
+  return (
+    <ol class="flex flex-col gap-0.5">
+      <For each={stepsOf(props.checkpoints)}>
+        {(step, line) => {
+          const revise = props.onRevise
+          const pressed = revise === undefined ? undefined : pressedOf(step, line())
+          return <Row step={step} pressed={pressed} revising={samePressed(pressed, props.revising)} onRevise={(found) => revise?.(found)} />
+        }}
+      </For>
+    </ol>
+  )
+}

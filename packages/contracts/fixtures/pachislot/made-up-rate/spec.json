@@ -1,0 +1,24 @@
+{
+  "v": 1,
+  "entities": ["at"],
+  "components": {
+    "label": { "at": "AT" },
+    "at": ["at"],
+    "firstHit": {
+      "at": [
+        { "settingLevel": 1, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 50000 } },
+        { "settingLevel": 6, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 40000 } }
+      ]
+    },
+    "ceiling": { "at": 1000 },
+    "resetCeiling": { "at": 600 },
+    "netPerGame": { "at": 4 },
+    "rate": {
+      "at": [
+        { "settingLevel": 1, "value": 9750 },
+        { "settingLevel": 6, "value": 11000 }
+      ]
+    }
+  },
+  "resources": { "settingLevels": [1, 6], "bet": 3, "base": 40 }
+}

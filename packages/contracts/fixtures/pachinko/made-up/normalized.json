@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 2,
+  "hitChance": 0.01,
+  "entry": [
+    {
+      "probability": 0.5,
+      "rounds": 10,
+      "hits": 1,
+      "next": {
+        "type": "end"
+      }
+    },
+    {
+      "probability": 0.5,
+      "rounds": 10,
+      "hits": 1,
+      "next": {
+        "type": "state",
+        "index": 0
+      }
+    }
+  ],
+  "states": [
+    {
+      "outcomes": [
+        {
+          "probability": 0.8,
+          "rounds": 10,
+          "hits": 1,
+          "next": {
+            "type": "state",
+            "index": 0
+          }
+        },
+        {
+          "probability": 0.19999999999999996,
+          "rounds": 0,
+          "hits": 0,
+          "next": {
+            "type": "end"
+          }
+        }
+      ]
+    }
+  ],
+  "origins": [
+    {
+      "mode": "RUSH",
+      "combo": 1
+    }
+  ],
+  "netBallsPerRound": 140
+}

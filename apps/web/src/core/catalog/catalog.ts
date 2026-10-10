@@ -1,0 +1,104 @@
+import type { IsoDate } from "../calendar/calendar"
+import type * as Pachinko from "../pachinko"
+import type { MachineId } from "../machine/machine"
+import type { FormulaListing } from "../formula/standing"
+import type * as Pachislot from "../pachislot"
+
+/**
+ * The shared catalog as the screens take it: one catalog for both games, a
+ * machine saying which game it is and everything hung on it in that game's
+ * shape.
+ */
+
+/** Which game a machine is: a component of the machine, deciding the shape of all hung on it. */
+export type GameKind = "pachinko" | "pachislot"
+
+/** One of a pachinko machine's bonuses, as a formula of it states them. */
+export type MachineBonus = Pachinko.Bonus
+
+/**
+ * A machine as a search finds it: the name it goes by in a parlor, the
+ * model name it was approved under where that is known, the other words it
+ * is searched by, and a pachinko machine's 大当り確率 as its spec sheet
+ * writes it.
+ */
+export interface MachineSummary {
+  readonly id: MachineId
+  readonly gameKind: GameKind
+  readonly name: string
+  readonly modelName: string | undefined
+  readonly keywords: readonly string[]
+  readonly hitChance: string | undefined
+  readonly releasedOn: IsoDate
+  readonly formulaCount: number
+}
+
+/**
+ * The name a machine goes into a book under: its model name, the one name
+ * it has that is nobody's choice of words and that a serious player would
+ * know it by — or, for a machine registered before one was asked of every
+ * machine, the name the halls call it. The halls' name is what a machine
+ * is found and chosen by; this is what is kept of the choice.
+ */
+export const bookNameOf = (machine: Pick<MachineSummary, "name" | "modelName">): string => machine.modelName ?? machine.name
+
+/** A pachinko machine and every formula of it, each with what people have done with it. */
+export interface PachinkoMachineDetail {
+  readonly machine: MachineSummary
+  readonly formulas: readonly FormulaListing<Pachinko.Formula>[]
+}
+
+/** A pachislot machine with every formula and every 設定配分 of it, each with what people have done with it. */
+export interface PachislotMachineDetail {
+  readonly machine: MachineSummary
+  readonly formulas: readonly FormulaListing<Pachislot.Formula>[]
+  readonly distributions: readonly FormulaListing<Pachislot.SettingDistribution>[]
+}
+
+/** A machine as the catalog holds it, in its game's shape. */
+export type MachineEntry = ({ readonly gameKind: "pachinko" } & PachinkoMachineDetail) | ({ readonly gameKind: "pachislot" } & PachislotMachineDetail)
+
+export interface PachinkoFormulaDetail {
+  readonly machine: MachineSummary
+  readonly listing: FormulaListing<Pachinko.Formula>
+}
+
+export interface PachislotFormulaDetail {
+  readonly machine: MachineSummary
+  readonly listing: FormulaListing<Pachislot.Formula>
+}
+
+/** A machine about to be registered, with its first formula. */
+export interface NewMachine {
+  readonly name: string
+  readonly modelName: string | undefined
+  readonly keywords: readonly string[]
+  readonly hitChance: string | undefined
+  readonly releasedOn: IsoDate
+}
+
+/** A pachinko formula about to be made: everything but its id, machine and time. */
+export type NewPachinkoFormula = {
+  readonly figures: Pachinko.Figures
+  readonly bonuses: readonly MachineBonus[]
+  readonly derivedFrom: Pachinko.FormulaId | undefined
+} & Pachinko.FormulaMaking
+
+/** A pachislot formula about to be made. */
+export type NewPachislotFormula = {
+  readonly figures: readonly Pachislot.SettingLevelFigures[]
+  readonly derivedFrom: Pachislot.FormulaId | undefined
+} & Pachislot.FormulaMaking
+
+/** A 設定配分 about to be registered. */
+export interface NewSettingDistribution {
+  readonly label: string
+  readonly shares: readonly Pachislot.SettingLevelShare[]
+  readonly derivedFrom: Pachislot.SettingDistributionId | undefined
+}
+
+/** A formula of a game, as sent: the machine it is for decides which. */
+export type NewFormula = { readonly gameKind: "pachinko"; readonly formula: NewPachinkoFormula } | { readonly gameKind: "pachislot"; readonly formula: NewPachislotFormula }
+
+/** What a mark or a use is on: a formula, or a 設定配分. */
+export type CatalogTarget = { readonly type: "formula"; readonly id: string } | { readonly type: "distribution"; readonly id: string }
