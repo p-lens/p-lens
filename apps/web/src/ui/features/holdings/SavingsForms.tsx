@@ -40,7 +40,7 @@ const whole = (count: number): Decimal => decimal(BigInt(count), 0)
 /** The rates a corner usually has, for each game, as tokens for ¥1,000: what the form opens with. */
 const USUAL: Readonly<Record<PlayGameKind, { readonly rental: string; readonly exchange: string; readonly unit: string }>> = {
   pachinko: { rental: "250", exchange: "280", unit: "玉" },
-  slot: { rental: "50", exchange: "56", unit: "枚" },
+  slot: { rental: "46", exchange: "52", unit: "枚" },
 }
 
 /** The terms a corner's rates make, as far as a pool needs them: its rate names the pool, its exchange values the savings. A replay is none of a balance's business. */

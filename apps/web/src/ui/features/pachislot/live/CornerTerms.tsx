@@ -74,7 +74,7 @@ export function CornerTerms(props: { readonly draft: PlayDraft }): JSX.Element {
         </button>
       }
     >
-      <div class="flex flex-col gap-2 rounded-md border border-border p-3">
+      <div class="flex flex-col gap-2 rounded-md border border-border p-2">
         <Terms form={form()} invalid={nudge.red() ? problems() : []} onFocus={nudge.settle} onChange={setForm} />
         <Show when={failure()} keyed>
           {(error) => (
