@@ -209,7 +209,7 @@ function StartHyenaHunt(props: { readonly basis: Basis; readonly figures: Figure
   return (
     <section class="flex flex-col gap-3" aria-label="遊タイム狙い">
       <h2 class="border-b border-border pb-1 text-sm font-bold text-text-primary">遊タイム狙い</h2>
-      <Show when={props.ballValue} keyed fallback={<p class="text-xs text-text-muted">換金レートを入れると、着席時データカウンターから打つボーダーが出ます。</p>}>
+      <Show when={props.ballValue} keyed fallback={<p class="text-xs text-text-muted">交換率を入れると、着席時データカウンターから打つボーダーが出ます。</p>}>
         {(ballValue) => <HyenaHuntByRate basis={props.basis} initialSpins={initialSpins()} ballValue={ballValue} usual={props.figures === undefined ? undefined : borderOf(props.figures, ballValue)} rate={spinPerformanceOf(rate())} />}
       </Show>
       <hr class="border-border" />
@@ -233,7 +233,7 @@ function StartHyenaHunt(props: { readonly basis: Basis; readonly figures: Figure
         }
       />
       <Show when={play() === undefined}>
-        <p class="text-xs text-text-muted">着席前の予想回転率と換金レートが分かると、その期待値が出て、シミュレーションできます。</p>
+        <p class="text-xs text-text-muted">着席前の予想回転率と交換率が分かると、その期待値が出て、シミュレーションできます。</p>
       </Show>
     </section>
   )

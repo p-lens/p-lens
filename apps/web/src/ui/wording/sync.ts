@@ -1,5 +1,6 @@
 import type { SyncProblem } from "../../application/errors"
 import type { Synced } from "../../application/sync"
+import type { Delivery } from "../../core/live-play/draft"
 import type { InvitedRole } from "../../core/sync/invitation"
 import type { Side } from "../../core/sync/merge"
 
@@ -51,11 +52,17 @@ export const describeSyncProblem = (problem: SyncProblem): string => {
 export const syncedText = (synced: Synced): string =>
   synced.received === 0 && synced.sent === 0 ? "最新です。" : `受け取り ${synced.received} 件・送信 ${synced.sent} 件。`
 
+/** A book this device may only send plays to, as the rail names it: its title, what it is, and how many of the day's plays wait to be sent there. */
+export const destinationLabel = (title: string, waiting: number): string => `${title}（稼働の送り先${waiting === 0 ? "" : `・未送信 ${waiting} 件`}）`
+
+/** How a play stands with a book it may be sent to, in a word. */
+export const deliveryText = (delivery: Delivery): string => ({ unsent: "未送信", sent: "送信済み", changed: "送信後に変更あり" })[delivery]
+
 /** Whose lines a side of a conflict is. */
 export const sideName = (side: Side): string => (side === "ours" ? "この端末" : "ほかの端末")
 
-/** What a person let into a book may do, as it is said in a line: on the owner's list, and to the person themselves. */
-export const roleText = (role: InvitedRole): string => ({ editor: "編集", viewer: "閲覧", sender: "送信だけ" })[role]
+/** What a person let into a book is there for, as the owner reads it in a line: one who only sends is, to the owner, plays received. */
+export const roleText = (role: InvitedRole): string => ({ editor: "編集", viewer: "閲覧", sender: "稼働の受信" })[role]
 
 const INVITED_AS: Readonly<Record<InvitedRole, string>> = { editor: "記録もできます", viewer: "見るだけです", sender: "稼働を送れます" }
 

@@ -431,7 +431,10 @@ says the app's name.
 
 The rail is shaped like a server list: the live space at the top, where direct
 messages would be; your own books below a divider, one icon each; the books
-others let you into below another; settings at the foot. A book's side panel
+others let you into below another; then the books you may only send plays
+to, each an outline with a paper plane, since nothing of such a book is on
+the device, wearing the number of the day's plays that wait to be sent
+there (`awaitsSending`); settings at the foot. A book's side panel
 lists its plays first, with a ＋ beside them to add one by hand.
 
 The place is read off the address (`ui/navigation/place.ts`):
@@ -448,6 +451,7 @@ The place is read off the address (`ui/navigation/place.ts`):
 | `/books/:book/files/:path` | one of the book's files as kept, beside the list | detail |
 | `/books/:book/plays/new` | adding a play by its totals (記録を追加) | content |
 | `/books/:book/plays/:play?q=` | a play beside its list | detail |
+| `/destinations/:line` | a book only sent to: the day's plays and how each stands with it (`deliveryOf`), in the side panel | selection |
 | `/pachinko/machines?q=` | choosing a machine: a search bar over every machine, newest first | content |
 | `/pachinko/machines/:machine` | a machine's formulas, ranked | content |
 | `/pachinko/machines/:machine/formulas/:formula` | 算出条件: figures, marks, adopt, remake | content |
@@ -484,7 +488,7 @@ files, which hold only what is the app's. The deployment's name is its own
 too: the page's title, the installed app's name, the top bar, the card and
 every sentence that names the app read it from `branding/deployment.ts`
 (`Services.name`), with who runs it, shown at the foot of the top bar's
-question mark (`Services.operator`), what the page says of itself, the address a shared
+question mark (`Services.operatorPage`), what the page says of itself, the address a shared
 link needs and the landing page the top bar's question mark links where
 there is one. A fork replaces the drawing and renders again, and gives its
 own name and address.
@@ -1291,7 +1295,9 @@ owner, and lets others in from there.
   its own (`Sealer.inboxKeysOf`); a sender's token may add to it and not
   read it, learning only where it ends. Their invitation carries the book's
   title, since they never see the book, and is kept on their device as a
-  destination (`DestinationStore`), with no book.
+  destination (`DestinationStore`), with no book. It has a place on the
+  rail all the same (`destination`, by its inbox line), which opens the
+  day's plays to send and nothing of the book.
 - **A sent play** (`core/sync/sent-draft`, `sendDraft`) is one of the
   sender's day, as their device keeps it: its readings, where and on what
   it was played, what it is weighed by, and its history. Recorded or not
@@ -1551,7 +1557,7 @@ is not written out here a second time.
 | 日本語 | Code |
 |---|---|
 | 店舗 | parlor (`parlor-id`); a listed parlor in the parlor list |
-| 貸玉レート / 換金レート / 再プレイ手数料 | rental / exchange / replay, a corner's `PlayTerms` |
+| 貸玉レート / 交換率（千円あたり） / 再プレイ手数料 | rental / exchange / replay, a corner's `PlayTerms` |
 | 4円・1円…（コーナーのレート） | tier; with the kind of token, a pool |
 | 稼働 | play (`play-id`) |
 | 営業日 | business day: the day a play belongs to, turning over at the hour set, 05:00 by default (`businessDayOf`) |
@@ -1562,7 +1568,7 @@ is not written out here a second time.
 | 再プレイ | savings withdrawal (`withdrawal`) |
 | 貸玉・貸メダル | rental |
 | 貸玉差額 | rental spread |
-| 交換率 | exchange rate (`P`, `PricePoint`) |
+| 交換率（1玉・1枚あたり） | exchange rate (`P`, `PricePoint`) |
 | 投資 / 獲得 | outlay / payout |
 | 期待値 | theoretical value |
 | 手入力の稼働記録 | tallied play |

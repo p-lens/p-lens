@@ -192,6 +192,15 @@ export const isPast = (draft: PlayDraft, businessDay: IsoDate): boolean => draft
 /** Whether a play was sent to an inbox as it now stands: sent, and not changed since. */
 export const isSentAsItStands = (draft: PlayDraft, lineId: string): boolean => draft.sent?.findLast((sending) => sending.lineId === lineId)?.log === draft.log
 
+/** Whether a play is this device's own and waits to be sent to an inbox: never sent there, or changed since it was. A play someone sent here is not sent on. */
+export const awaitsSending = (draft: PlayDraft, lineId: string): boolean => draft.received === undefined && !isSentAsItStands(draft, lineId)
+
+/** How a play stands with an inbox: never sent there, sent as it now is, or sent and changed since. */
+export type Delivery = "unsent" | "sent" | "changed"
+
+export const deliveryOf = (draft: PlayDraft, lineId: string): Delivery =>
+  isSentAsItStands(draft, lineId) ? "sent" : draft.sent?.some((sending) => sending.lineId === lineId) === true ? "changed" : "unsent"
+
 /**
  * The operations of a play made after it was said to have ended: what was
  * changed once the play was over. For a play someone sent, the end is the

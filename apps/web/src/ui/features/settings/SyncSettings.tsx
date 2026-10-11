@@ -128,7 +128,12 @@ function Destinations(props: { readonly changed: number; readonly onChanged: () 
                   size="small"
                   variant="outline"
                   class="shrink-0"
-                  onClick={() => void forgetDestination(app.services.destinations, destination).then(() => props.onChanged())}
+                  onClick={() =>
+                    void forgetDestination(app.services.destinations, destination).then(() => {
+                      props.onChanged()
+                      app.wrote()
+                    })
+                  }
                 >
                   外す
                 </Button>
@@ -136,7 +141,7 @@ function Destinations(props: { readonly changed: number; readonly onChanged: () 
             )}
           </For>
         </ul>
-        <p class="text-xs text-text-muted">「本日の稼働」の紙ヒコーキで送れます。相手の帳簿の中身は、この端末からは見えません。</p>
+        <p class="text-xs text-text-muted">左の列の送り先か、「本日の稼働」の紙ヒコーキで送れます。相手の帳簿の中身は、この端末からは見えません。</p>
       </section>
     </Show>
   )
@@ -162,7 +167,7 @@ function Join(props: { readonly onJoined: () => void }): JSX.Element {
     toast(
       joined.value.type === "book"
         ? { title: "帳簿を追加しました", description: "この端末でも同じ帳簿を使えます。" }
-        : { title: "送り先を追加しました", description: `「本日の稼働」から「${joined.value.title}」に送れます。` },
+        : { title: "送り先を追加しました", description: `左の列か「本日の稼働」から「${joined.value.title}」に送れます。` },
     )
     props.onJoined()
   }

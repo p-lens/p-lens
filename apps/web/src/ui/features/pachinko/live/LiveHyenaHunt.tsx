@@ -61,7 +61,7 @@ export function LiveHyenaHunt(props: {
             <Show when={props.ballValue} keyed>
               {(ballValue) => <HyenaHuntByRate basis={known()} initialSpins={props.counterNow} ballValue={ballValue} usual={borderOf(props.formula.figures, ballValue)} rate={props.spinPerformance} />}
             </Show>
-            <Show when={play()} fallback={<p class="text-xs text-text-muted">投資額と換金レートが分かると、今のデータカウンターから打ち続けた期待値が出ます。</p>}>
+            <Show when={play()} fallback={<p class="text-xs text-text-muted">投資額と交換率が分かると、今のデータカウンターから打ち続けた期待値が出ます。</p>}>
               {(conditions) => <HyenaHuntRun basis={known()} initialSpins={props.counterNow} play={conditions()} onUnready={() => undefined} />}
             </Show>
           </NoticeDialog>

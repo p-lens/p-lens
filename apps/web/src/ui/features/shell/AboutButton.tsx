@@ -87,18 +87,17 @@ export function AboutButton(): JSX.Element {
             <Show when={app.services.landingPage} keyed>
               {(page) => (
                 <a href={page} target="_blank" rel="noreferrer" class="text-accent hover:underline">
-                  公式サイト（{new URL(page).host}）
+                  公式サイト
                 </a>
               )}
             </Show>
           </div>
           <div class="flex flex-col gap-0.5 text-xs text-text-muted">
             <p>
-              運営：{app.services.operator.name}（
-              <a href={app.services.operator.page} target="_blank" rel="noreferrer" class="text-accent hover:underline">
-                {new URL(app.services.operator.page).host + new URL(app.services.operator.page).pathname}
+              運営者：
+              <a href={app.services.operatorPage} target="_blank" rel="noreferrer" class="text-accent hover:underline">
+                {new URL(app.services.operatorPage).host + new URL(app.services.operatorPage).pathname}
               </a>
-              ）
             </p>
             <p class="tabular-nums">バージョン {app.services.version}</p>
           </div>

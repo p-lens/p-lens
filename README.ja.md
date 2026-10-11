@@ -210,14 +210,14 @@ curl -X PUT -H "$AUTH" -d '{"name":"e星都幻鬼","modelName":"e星都幻鬼W",
 | `date` | 稼働の営業日（`YYYY-MM-DD`） |
 | `startedAt` | 打ち始めた時刻（ISO 8601） |
 | `parlor` | 店舗。`name` と、店舗リストの `id` か申請中の `submission`。店舗なしの稼働にはありません |
-| `terms` | レート。`rental`（貸し）と `exchange`（換金）はそれぞれ `yen` 円あたり `tokens` 玉・枚、`replay` は再プレイの払出 `paidOut` と貯玉から引く数 `deducted`。レートなしの稼働にはありません |
+| `terms` | レート。`rental`（貸し）と `exchange`（交換）はそれぞれ `yen` 円あたり `tokens` 玉・枚、`replay` は再プレイの払出 `paidOut` と貯玉から引く数 `deducted`。レートなしの稼働にはありません |
 | `machine` | 機種名 |
 | `cabinetNumber` | 台番号。ないときは項目ごとありません |
 | `formulaId` | 期待値の計算に使った算出条件の ID。使っていなければありません |
 | `prior` | パチスロのみ。設定配分で、`{"type":"even"}`（均等）か `{"type":"distribution","id":"…"}` |
 
 帳簿が持つレートは貯玉口座の名前（`4円` など）とその日の交換率だけなので、
-貸し・換金・再プレイがそろって残るのはこの見出し行だけです。
+貸し・交換・再プレイがそろって残るのはこの見出し行だけです。
 
 ### 2 行目以降: 計測
 

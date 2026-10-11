@@ -71,8 +71,8 @@ export interface Services {
   readonly documents: Documents
   /** What the deployment goes by: the name every screen and sentence that names the app writes. */
   readonly name: string
-  /** Who runs the deployment: what they are called, and a page of theirs where they can be found. */
-  readonly operator: { readonly name: string; readonly page: string }
+  /** Who runs the deployment, as a page of theirs where they can be found. */
+  readonly operatorPage: string
   /** Where the deployment's product is introduced at length, where it has such a page. */
   readonly landingPage: string | undefined
   /** The version of the app this copy was built from, as its package says it. */

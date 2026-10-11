@@ -63,7 +63,7 @@ const describeOpeningProblem = (problem: OpeningProblem): string => {
     case "name-taken":
       return `この帳簿には同じ名前の別の店舗「${problem.name}」があります。`
     case "rate-not-positive":
-      return "換金レートは0より大きい数で入力してください。"
+      return "交換率は0より大きい数で入力してください。"
   }
 }
 

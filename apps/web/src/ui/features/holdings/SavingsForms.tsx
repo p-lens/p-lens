@@ -171,7 +171,7 @@ export function OpeningBalanceForm(props: {
       </ToggleGroup>
       <div class="grid grid-cols-4 items-end gap-1.5">
         <TextField label="貸(千円)" value={rental()} onChange={setRental} inputMode="numeric" suffix={USUAL[game()].unit} invalid={missing("rental")} onFocus={nudge.settle} compact />
-        <TextField label="換金(千円)" value={exchange()} onChange={setExchange} inputMode="numeric" suffix={USUAL[game()].unit} invalid={missing("exchange")} onFocus={nudge.settle} compact />
+        <TextField label="交換(千円)" value={exchange()} onChange={setExchange} inputMode="numeric" suffix={USUAL[game()].unit} invalid={missing("exchange")} onFocus={nudge.settle} compact />
         <div class="col-span-2">
           <TextField label="残高" value={tokens()} onChange={setTokens} inputMode="numeric" suffix={USUAL[game()].unit} invalid={missing("tokens")} onFocus={nudge.settle} compact />
         </div>

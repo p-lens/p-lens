@@ -66,7 +66,7 @@ export function LiveFigures(props: {
         {(formula) => (
           <div class="flex flex-col gap-2">
             <div class="flex items-center gap-1">
-              <p class="min-w-0 text-xs text-text-muted">算出条件「{formulaText(formula.figures)}」{props.terms === undefined ? "（換金レートが入っていません）" : `／ 交換率 ${tokenValueOf(props.terms).toFixed(2)}円/玉`}</p>
+              <p class="min-w-0 text-xs text-text-muted">算出条件「{formulaText(formula.figures)}」{props.terms === undefined ? "（交換率が入っていません）" : `／ 交換率 ${tokenValueOf(props.terms).toFixed(2)}円/玉`}</p>
               {props.beside(formula)}
             </div>
             <Show when={theoretical()} keyed fallback={<p class="text-sm text-text-muted">貸玉か持ち玉を記録すると、回転率から期待値が出ます。</p>}>

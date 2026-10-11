@@ -19,6 +19,7 @@ const PLACES: readonly Place[] = [
   { kind: "document", document: "terms" },
   { kind: "document", document: "privacy" },
   { kind: "book-file", bookId: "made-up" as never, path: "logs/a b.jsonl" },
+  { kind: "destination", lineId: "line-1" },
 ]
 
 describe("places", () => {
@@ -36,7 +37,7 @@ describe("places", () => {
   })
 
   test("a narrow window goes selection, content, detail", () => {
-    expect(PLACES.map(focusOf)).toEqual(["selection", "content", "content", "content", "content", "selection", "content", "detail", "content", "content", "selection", "content", "content", "content", "content", "detail"])
+    expect(PLACES.map(focusOf)).toEqual(["selection", "content", "content", "content", "content", "selection", "content", "detail", "content", "content", "selection", "content", "content", "content", "content", "detail", "selection"])
   })
 
   test("one step up from a play is its list, then the book", () => {

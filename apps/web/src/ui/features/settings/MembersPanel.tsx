@@ -144,7 +144,7 @@ export function MembersPanel(props: { readonly bookId: BookId; readonly title: s
             {working() ? "作成中…" : "招待コードを作る"}
           </Button>
         </div>
-        <p class="text-xs text-text-muted">閲覧は見るだけ、編集は記録もできます。送信だけの人は帳簿を見られず、自分の稼働を送れます。作ると、手順つきの文面がコピーされます。</p>
+        <p class="text-xs text-text-muted">閲覧は見るだけ、編集は記録もできます。稼働の受信は、帳簿を見せずにその人の稼働を受け取ります。作ると、手順つきの文面がコピーされます。</p>
       </form>
       <Show when={failure()} keyed>
         {(error) => (

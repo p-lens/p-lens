@@ -10,13 +10,19 @@ export interface RailItem {
   /**
    * The colour the space is drawn in when chosen, and takes under the
    * pointer, each as the classes that draw it; the accent where none is
-   * given. For a space that is of another kind than its neighbours.
+   * given. `resting` is how it is drawn left alone, a filled shape where
+   * none is given. For a space that is of another kind than its neighbours.
    */
-  readonly colour?: { readonly chosen: string; readonly hovered: string }
+  readonly colour?: { readonly chosen: string; readonly hovered: string; readonly resting?: string }
+  /** What the space wears at its corner, outside its shape: a count of what waits there. */
+  readonly badge?: JSX.Element
 }
 
 /** A space in the accent: what one is drawn in unless it says otherwise. */
 const ACCENT = { chosen: "bg-accent text-accent-contrast", hovered: "hover:bg-accent hover:text-accent-contrast" } as const
+
+/** A space left alone: a filled shape, unless it says otherwise. */
+const RESTING = "bg-surface-2 text-text-primary"
 
 /**
  * The column of spaces down the left edge. Spaces come in groups, a divider
@@ -24,7 +30,8 @@ const ACCENT = { chosen: "bg-accent text-accent-contrast", hovered: "hover:bg-ac
  * however few spaces there are above them.
  *
  * The chosen space is marked by a pill on the edge and a squarer icon, so it
- * reads at a glance without a label. Labels surface through `renderTooltip`,
+ * reads at a glance without a label. A space's `badge` sits on its corner,
+ * over the shape and not cut by it. Labels surface through `renderTooltip`,
  * or the native `title` when none is given, because the shell does not pick a
  * tooltip library on the host's behalf.
  */
@@ -67,20 +74,25 @@ function RailButton(props: {
         class="absolute left-0 top-1/2 w-1 -translate-y-1/2 rounded-r-full bg-text-primary transition-all"
         classList={{ "h-10": props.item.selected, "h-0 group-hover:h-5": !props.item.selected }}
       />
-      <button
-        type="button"
-        aria-label={props.item.label}
-        aria-current={props.item.selected ? "page" : undefined}
-        title={props.renderTooltip === undefined ? props.item.label : undefined}
-        onClick={() => props.item.onSelect()}
-        class="flex size-12 items-center justify-center overflow-hidden transition-all"
-        classList={{
-          [`rounded-2xl ${(props.item.colour ?? ACCENT).chosen}`]: props.item.selected,
-          [`rounded-3xl bg-surface-2 text-text-primary hover:rounded-2xl ${(props.item.colour ?? ACCENT).hovered}`]: !props.item.selected,
-        }}
-      >
-        {props.item.icon}
-      </button>
+      <div class="relative">
+        <button
+          type="button"
+          aria-label={props.item.label}
+          aria-current={props.item.selected ? "page" : undefined}
+          title={props.renderTooltip === undefined ? props.item.label : undefined}
+          onClick={() => props.item.onSelect()}
+          class="flex size-12 items-center justify-center overflow-hidden transition-all"
+          classList={{
+            [`rounded-2xl ${(props.item.colour ?? ACCENT).chosen}`]: props.item.selected,
+            [`rounded-3xl hover:rounded-2xl ${props.item.colour?.resting ?? RESTING} ${(props.item.colour ?? ACCENT).hovered}`]: !props.item.selected,
+          }}
+        >
+          {props.item.icon}
+        </button>
+        <Show when={props.item.badge} keyed>
+          {(badge) => <span class="pointer-events-none absolute -right-1 -top-1 flex">{badge}</span>}
+        </Show>
+      </div>
     </div>
   )
   return props.renderTooltip === undefined ? button : props.renderTooltip(props.item.label, button)

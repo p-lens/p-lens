@@ -3,11 +3,14 @@ import { createMemo, createResource, Show, type JSX } from "solid-js"
 import { createArrangement, GatheringShell, MainContent, TopBar } from "solid-gathering-shell"
 
 import type { Outcome } from "../../../application/errors"
+import { destinationsOf } from "../../../application/sending"
 import type { TitledBook } from "../../../core/book/book"
+import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
 import { bookOf, focusOf, inSettings, placeOf, type Place } from "../../navigation/place"
 import { EmptyState } from "../../primitives/states"
 import { ActivityView } from "../activity/ActivityView"
+import { DestinationSide } from "../live/DestinationSide"
 import { HoldingsView } from "../holdings/HoldingsView"
 import { FinishPlayView } from "../live/FinishPlayView"
 import { LivePlayView } from "../live/LivePlayView"
@@ -116,6 +119,8 @@ const mainFor = (place: Place, query: () => string): JSX.Element => {
       return <PachislotViews.FormulaEditorView place={place} />
     case "pachislot-distribution-new":
       return <PachislotViews.SettingDistributionEditorView place={place} machineId={place.machineId} />
+    case "destination":
+      return <ChooseFromList place={place} title="稼働の送り先" hint="左のリストから、本日の稼働を送れます。" />
     case "consolidated":
       return <ChooseFromList place={place} title="連結" hint="左のリストからビューを選んでください。" />
     case "consolidated-breakdown":
@@ -167,9 +172,10 @@ const bookViewFor = (place: Extract<Place, { kind: "book-view" }>, query: () => 
   }
 }
 
-/** The side panel for a place: the live space's plays, a book's views, or settings. */
-const sideFor = (place: Place, books: Outcome<readonly TitledBook[]> | undefined): JSX.Element => {
+/** The side panel for a place: the live space's plays, a book's views, the plays to send to a book that is only sent to, or settings. */
+const sideFor = (place: Place, books: Outcome<readonly TitledBook[]> | undefined, destinations: Outcome<readonly Destination[]> | undefined): JSX.Element => {
   if (inSettings(place)) return <SettingsSide place={place} />
+  if (place.kind === "destination") return <DestinationSide lineId={place.lineId} destinations={destinations} />
   if (place.kind === "consolidated" || place.kind === "consolidated-breakdown") return <ConsolidatedSide place={place} />
   const bookId = bookOf(place)
   if (bookId === undefined) return <LiveSide place={place} />
@@ -186,7 +192,8 @@ const auxFor = (place: Place, query: () => string): JSX.Element | undefined => {
 /**
  * The whole screen, read off the address: which place, which hledger query,
  * and from those which panes show what. The books are asked for once here,
- * since the rail and a book's side panel both name them.
+ * since the rail and a book's side panel both name them, and the books that
+ * are only sent to likewise.
  */
 export function PLensScreen(): JSX.Element {
   const location = useLocation()
@@ -196,6 +203,7 @@ export function PLensScreen(): JSX.Element {
   const query = (): string => search.q ?? ""
   const app = useApp()
   const [books] = createResource(() => app.revision(), () => app.services.session.books())
+  const [destinations] = createResource(() => app.revision(), () => destinationsOf(app.services.destinations))
 
   return (
     <StartFormProvider>
@@ -215,8 +223,8 @@ export function PLensScreen(): JSX.Element {
             }
           />
         }
-        rail={<SpacesRail place={place()} books={books()} />}
-        side={sideFor(place(), books())}
+        rail={<SpacesRail place={place()} books={books()} destinations={destinations()} />}
+        side={sideFor(place(), books(), destinations())}
         aux={auxFor(place(), query)}
       >
         <Show when={place()} keyed>

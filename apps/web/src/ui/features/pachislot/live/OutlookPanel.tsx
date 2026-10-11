@@ -36,7 +36,7 @@ export function OutlookPanel(props: { readonly outlook: PlayOutlook; readonly pr
         </Show>
       </dl>
       <Show when={!props.outlook.priced}>
-        <p class="text-xs text-text-muted">貸枚と換金のレートを入れると、期待値が円で出ます。</p>
+        <p class="text-xs text-text-muted">貸枚のレートと交換率を入れると、期待値が円で出ます。</p>
       </Show>
     </div>
   )

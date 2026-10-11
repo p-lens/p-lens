@@ -44,6 +44,10 @@ const isFormulaTab = (segment: string): segment is FormulaTab => (FORMULA_TABS a
  * `live` lists them, `live-new` starts one of a game, `live-play` is one in progress and
  * `live-record` records it into its book.
  *
+ * `destination` is another person's book this device may only send plays
+ * to, named by the inbox line they are put on: its side panel is the day's
+ * plays and how each stands with it, and nothing of the book.
+ *
  * A machine and its formulas are reached from starting a play, one depth to
  * an address so a back step climbs one level: `pachinko-machine-search` finds a
  * machine to play, by the search in its `q`; `parlor-submitted` is where
@@ -82,6 +86,7 @@ export type Place =
   | { readonly kind: "pachislot-formula-basis"; readonly machineId: string; readonly formulaId: string }
   | { readonly kind: "pachislot-formula-new"; readonly tab: FormulaTab }
   | { readonly kind: "pachislot-distribution-new"; readonly machineId: string }
+  | { readonly kind: "destination"; readonly lineId: string }
   | { readonly kind: "consolidated" }
   | { readonly kind: "consolidated-breakdown"; readonly by: ConsolidatedBy; readonly bookIds: readonly BookId[] | undefined }
   | { readonly kind: "settings" }
@@ -162,6 +167,7 @@ const placeOfSegments = (segments: readonly string[], path: string): Place => {
   if (first === "books" && second !== undefined && third === "plays" && fourth !== undefined)
     return { kind: "play", bookId: second as BookId, playId: fourth as PlayId }
   if (first === "parlors" && second === "submitted" && third === undefined) return { kind: "parlor-submitted" }
+  if (first === "destinations" && second !== undefined && third === undefined) return { kind: "destination", lineId: second }
   if (first === "consolidated" && second === undefined) return { kind: "consolidated" }
   if (first === "consolidated" && second === "breakdown" && fifth === undefined && (third === undefined || isConsolidatedBy(third)))
     return { kind: "consolidated-breakdown", by: third === undefined ? "book" : third, bookIds: fourth === undefined ? undefined : (fourth.split(",").filter((id) => id !== "") as BookId[]) }
@@ -234,6 +240,8 @@ export const pathOf = (place: Place): string => {
       return `/pachislot/formulas/new/${place.tab}`
     case "pachislot-distribution-new":
       return `/pachislot/machines/${encode(place.machineId)}/distributions/new`
+    case "destination":
+      return `/destinations/${encode(place.lineId)}`
     case "consolidated":
       return "/consolidated"
     case "consolidated-breakdown":
@@ -254,6 +262,7 @@ export const focusOf = (place: Place): Focus => {
   switch (place.kind) {
     case "live":
     case "book":
+    case "destination":
     case "consolidated":
     case "settings":
       return "selection"
@@ -340,6 +349,7 @@ export const parentOf = (place: Place): Place | undefined => {
       return { kind: "consolidated" }
     case "live":
     case "book":
+    case "destination":
     case "consolidated":
     case "settings":
     case "not-found":

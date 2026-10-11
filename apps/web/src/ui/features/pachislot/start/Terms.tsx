@@ -68,7 +68,7 @@ export function Terms(props: {
             </ToggleGroup>
           </div>
           <TermField label="貸枚(千円)" field="rentalTokens" suffix="枚" form={props.form} invalid={props.invalid} onChange={change} onFocus={props.onFocus} />
-          <TermField label="換金(千円)" field="exchangeTokens" suffix="枚" form={props.form} invalid={props.invalid} onChange={change} onFocus={props.onFocus} />
+          <TermField label="交換(千円)" field="exchangeTokens" suffix="枚" form={props.form} invalid={props.invalid} onChange={change} onFocus={props.onFocus} />
           <TermField label="再プレイ払出" field="replayPaidOut" suffix="枚" form={props.form} invalid={props.invalid} onChange={change} onFocus={props.onFocus} />
           <TermField label="再プレイ減数" field="replayDeducted" suffix="枚" form={props.form} invalid={props.invalid} onChange={change} onFocus={props.onFocus} />
         </div>
@@ -79,7 +79,7 @@ export function Terms(props: {
           <Show when={tier()} keyed>
             {(found) => (
               <Show when={found === UNKNOWN_TIER} fallback={<p class="text-xs text-text-muted">{found}コーナーとして記録します。</p>}>
-                <CautionNote hint="貸枚と換金は、1,000円あたりの枚数に換算して入力してください。このままでも記録できます。">レート不明です。ご確認ください。</CautionNote>
+                <CautionNote hint="貸枚と交換は、1,000円あたりの枚数に換算して入力してください。このままでも記録できます。">レート不明です。ご確認ください。</CautionNote>
               </Show>
             )}
           </Show>

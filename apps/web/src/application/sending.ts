@@ -1,5 +1,5 @@
 import type { IsoDate } from "../core/calendar/calendar"
-import { isSentAsItStands, type PlayDraft } from "../core/live-play/draft"
+import { awaitsSending, type PlayDraft } from "../core/live-play/draft"
 import { Err, Ok, mapErr, type Result } from "../core/result/result"
 import { readInvitation } from "../core/sync/invitation"
 import { sentDraftOf, sentDraftText } from "../core/sync/sent-draft"
@@ -88,7 +88,7 @@ export const sendTodaysPlays = async (ports: SendingPorts, destination: Destinat
   const plays = await loadTodaysPlays(ports.drafts, businessDay)
   if (!plays.ok) return plays
   return plays.value
-    .filter((draft) => draft.received === undefined && !isSentAsItStands(draft, destination.lineId))
+    .filter((draft) => awaitsSending(draft, destination.lineId))
     .reduce<Promise<Outcome<number>>>(async (so, draft) => {
       const sent = await so
       if (!sent.ok) return sent

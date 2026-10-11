@@ -2,7 +2,7 @@ import { createResource, createSignal, For, Show, type JSX } from "solid-js"
 import { SidePanel } from "solid-gathering-shell"
 
 import { abandonPlay, loadTodaysPlays } from "../../../application/live-play"
-import { destinationsOf, sendDraft, sendTodaysPlays, type SendingPorts } from "../../../application/sending"
+import { destinationsOf, sendDraft, sendTodaysPlays } from "../../../application/sending"
 import { afterItEnded, isLeftOver, isSentAsItStands, parlorOf, type PlayDraft } from "../../../core/live-play/draft"
 import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
@@ -18,6 +18,7 @@ import type { Place } from "../../navigation/place"
 import { businessDayNote, formatMoment } from "../../wording/dates"
 import { describeError } from "../../wording/errors"
 import { parlorText } from "../../wording/parlor"
+import { sendingPortsOf } from "./sending-ports"
 
 const openPlay = (place: Place): string | undefined =>
   place.kind === "live-play" || place.kind === "live-record" ? place.playId : undefined
@@ -135,7 +136,6 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
   const [abandoning, setAbandoning] = createSignal<PlayDraft | undefined>(undefined)
   /** What a person asked to send, while they are asked where to. */
   const [choosing, setChoosing] = createSignal<Sending | undefined>(undefined)
-  const ports = (): SendingPorts => ({ drafts: app.services.drafts, relay: app.services.sync.relay, sealer: app.services.sync.sealer, now: app.services.now, newId: () => crypto.randomUUID() })
   const abandon = async (draft: PlayDraft): Promise<void> => {
     setAbandoning(undefined)
     const gone = await abandonPlay(app.services.drafts, draft.id)
@@ -148,7 +148,7 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
   }
   const sendTo = async (sending: Sending, destination: Destination): Promise<void> => {
     setChoosing(undefined)
-    const sent = sending.type === "one" ? await sendDraft(ports(), sending.draft, destination) : await sendTodaysPlays(ports(), destination, app.services.businessDay())
+    const sent = sending.type === "one" ? await sendDraft(sendingPortsOf(app.services), sending.draft, destination) : await sendTodaysPlays(sendingPortsOf(app.services), destination, app.services.businessDay())
     if (!sent.ok) {
       toast({ title: "送れませんでした", description: describeError(sent.error), tone: "error" })
       return

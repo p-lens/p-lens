@@ -249,7 +249,7 @@ export const BreakdownIcon = () => (
 )
 
 /** Sent on its way to someone: a paper plane. */
-export const SendIcon = (props: { readonly label: string }) => (
+export const SendIcon = (props: { readonly label?: string }) => (
   <Icon label={props.label}>
     <path d="M21 3L10 14" />
     <path d="M21 3l-7 18l-4-7l-7-4z" />
