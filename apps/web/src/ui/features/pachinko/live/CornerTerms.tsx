@@ -17,8 +17,8 @@ import { Terms } from "../start/Terms"
 const CHANGE_TERMS = "レートを変更する"
 
 /**
- * The corner a play is on, above everything counted from it, with a pencil
- * beside it and nothing of its terms: the terms typed as the play began were another corner's, or
+ * The corner a play is on, above everything counted from it, in a line no
+ * taller than its words, with a pencil beside it and nothing of its terms: the terms typed as the play began were another corner's, or
  * the person has moved, and nothing below reads right until they are set
  * right. Pressed, the terms are set out to be typed over as they are when a
  * play starts; applied, the play is counted anew on them, and they are the
@@ -62,16 +62,16 @@ export function CornerTerms(props: { readonly draft: PlayDraft }): JSX.Element {
     <Show
       when={look() === "changing"}
       fallback={
-        <div class="flex items-center gap-1 text-xs">
-          <span class="font-bold text-text-primary">{props.draft.venue.terms === undefined ? "レート指定なし" : `${tierOf("pachinko", props.draft.venue.terms)}コーナー`}</span>
-          <button
-            type="button"
-            onClick={open}
-            class="flex size-8 shrink-0 items-center justify-center rounded-[3px] text-text-secondary hover:bg-surface-3 hover:text-text-primary focus-visible:outline-2 focus-visible:outline-focus-ring [&_svg]:size-4"
-          >
+        <button
+          type="button"
+          onClick={open}
+          class="group flex h-5 items-center gap-1 self-start rounded-[3px] text-xs font-bold text-text-primary focus-visible:outline-2 focus-visible:outline-focus-ring [&_svg]:size-3.5"
+        >
+          {props.draft.venue.terms === undefined ? "レート指定なし" : `${tierOf("pachinko", props.draft.venue.terms)}コーナー`}
+          <span class="text-text-secondary group-hover:text-text-primary">
             <EditIcon label={CHANGE_TERMS} />
-          </button>
-        </div>
+          </span>
+        </button>
       }
     >
       <div class="flex flex-col gap-2 rounded-md border border-border p-3">
