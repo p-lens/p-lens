@@ -7,21 +7,45 @@ import { loadBookFiles, type BookFile } from "../../../application/files"
 import type { BookId } from "../../../core/book/book"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
-import { CloseIcon, EditIcon } from "../../primitives/icons"
+import { ChevronDownIcon, CloseIcon, EditIcon } from "../../primitives/icons"
 import { toast } from "../../primitives/toast"
 import { EmptyState, Loaded } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { describeError } from "../../wording/errors"
 import { ViewHeader } from "../shell/ViewHeader"
+import { entriesOf, folderOf, type Listed } from "./folders"
 
 const lineCount = (text: string): number => (text === "" ? 0 : text.replace(/\n$/, "").split("\n").length)
 
 const selectedPath = (place: Place): string | undefined => (place.kind === "book-file" ? place.path : undefined)
 
+/** One file of the list, under the name it goes by there: pressed, its text is shown beside. */
+function FileRow(props: { readonly listed: Listed<BookFile>; readonly selected: boolean; readonly nested: boolean; readonly onOpen: () => void }): JSX.Element {
+  return (
+    <li>
+      <button
+        type="button"
+        aria-current={props.selected ? "true" : undefined}
+        onClick={() => props.onOpen()}
+        class="flex w-full items-baseline justify-between gap-3 rounded py-2 pr-3 text-left transition-colors"
+        classList={{ "bg-surface-3": props.selected, "hover:bg-surface-3/60": !props.selected, "pl-3": !props.nested, "pl-7": props.nested }}
+      >
+        <span class="truncate font-mono text-sm text-text-primary">{props.listed.name}</span>
+        <span class="shrink-0 text-xs tabular-nums text-text-muted">{lineCount(props.listed.file.text)}行</span>
+      </button>
+    </li>
+  )
+}
+
 /**
- * Every file a book is made of — its journals and its play logs — as it is
- * kept and as an export would carry it. Choosing one shows its text beside.
+ * Every file a book is made of — its journals, its settings and its play
+ * logs — as it is kept and as an export would carry it. Choosing one shows
+ * its text beside. Files in a folder are gathered under it, shut until its
+ * row is pressed, with an arrow at the row's end that points down once it
+ * is open: a book that has followed many plays has as many logs, and
+ * they are not what a person comes here to read first. The folder of the
+ * file being shown is open whatever was pressed.
  */
 export function FilesView(props: { readonly place: Place; readonly bookId: BookId }): JSX.Element {
   const app = useApp()
@@ -30,6 +54,14 @@ export function FilesView(props: { readonly place: Place; readonly bookId: BookI
     () => ({ bookId: props.bookId, revision: app.revision() }),
     (source) => loadBookFiles(app.services.session, source.bookId),
   )
+  const [opened, setOpened] = createSignal<readonly string[]>([])
+  const isOpen = (folder: string): boolean => opened().includes(folder) || ((path) => path !== undefined && folderOf(path) === folder)(selectedPath(props.place))
+  const toggle = (folder: string): void => {
+    setOpened((now) => (now.includes(folder) ? now.filter((each) => each !== folder) : [...now, folder]))
+  }
+  const row = (listed: Listed<BookFile>, nested: boolean): JSX.Element => (
+    <FileRow listed={listed} nested={nested} selected={selectedPath(props.place) === listed.file.path} onOpen={() => moves.go({ kind: "book-file", bookId: props.bookId, path: listed.file.path })} />
+  )
   return (
     <MainContent header={<ViewHeader place={props.place} title="生ファイル" />}>
       <div class="max-w-5xl">
@@ -37,21 +69,32 @@ export function FilesView(props: { readonly place: Place; readonly bookId: BookI
           {(found) => (
             <Show when={found.length > 0} fallback={<EmptyState title="ファイルはありません" />}>
               <ul class="flex flex-col gap-0.5 p-2">
-                <For each={found}>
-                  {(file) => (
-                    <li>
-                      <button
-                        type="button"
-                        aria-current={selectedPath(props.place) === file.path ? "true" : undefined}
-                        onClick={() => moves.go({ kind: "book-file", bookId: props.bookId, path: file.path })}
-                        class="flex w-full items-baseline justify-between gap-3 rounded px-3 py-2 text-left transition-colors"
-                        classList={{ "bg-surface-3": selectedPath(props.place) === file.path, "hover:bg-surface-3/60": selectedPath(props.place) !== file.path }}
-                      >
-                        <span class="truncate font-mono text-sm text-text-primary">{file.path}</span>
-                        <span class="shrink-0 text-xs tabular-nums text-text-muted">{lineCount(file.text)}行</span>
-                      </button>
-                    </li>
-                  )}
+                <For each={entriesOf(found)}>
+                  {(entry) =>
+                    entry.type === "file" ? (
+                      row(entry.listed, false)
+                    ) : (
+                      <li>
+                        <button
+                          type="button"
+                          aria-expanded={isOpen(entry.name)}
+                          onClick={() => toggle(entry.name)}
+                          class="flex w-full items-center gap-2 rounded px-3 py-2 text-left transition-colors hover:bg-surface-3/60 [&_svg]:size-4"
+                        >
+                          <span class="min-w-0 flex-1 truncate font-mono text-sm text-text-primary">{entry.name}/</span>
+                          <span class="shrink-0 text-xs tabular-nums text-text-muted">{entry.files.length}件</span>
+                          <span class="shrink-0 text-text-secondary transition-transform" classList={{ "-rotate-90": !isOpen(entry.name) }}>
+                            <ChevronDownIcon />
+                          </span>
+                        </button>
+                        <Show when={isOpen(entry.name)}>
+                          <ul class="flex flex-col gap-0.5 pt-0.5">
+                            <For each={entry.files}>{(listed) => row(listed, true)}</For>
+                          </ul>
+                        </Show>
+                      </li>
+                    )
+                  }
                 </For>
               </ul>
             </Show>
