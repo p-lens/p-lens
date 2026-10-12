@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import { appendCheckpoint, parsePlayLog, playLogPath } from "../../src/core/play-log/checkpoint"
-import { carriedInOf } from "../../src/core/play-log/carried-in"
+import { carriedInOf, withCarriedIn } from "../../src/core/play-log/carried-in"
 import { endCounterOf, endedBy, lastWrittenAt, PLAYED_ON_FOR, withEnd } from "../../src/core/play-log/end"
 import { termsInHead, withHead } from "../../src/core/play-log/head"
 import { checkedPlayOrder, inPlayOrder, stretchPerformances } from "../../src/core/play-log/performance"
@@ -80,6 +80,14 @@ describe("the tokens a play was begun with in hand", () => {
     expect(carriedInOf([{ spins: 0, outlay: 0 }, { spins: 0, held: 900 }])).toBeUndefined()
     expect(carriedInOf([{ spins: 0, outlay: 0, held: 0 }])).toBeUndefined()
     expect(carriedInOf([])).toBeUndefined()
+  })
+
+  test("are set right on its first line alone, or taken off it", () => {
+    const log = [{ spins: 0, outlay: 0, held: 1500 }, { spins: 100, held: 900 }]
+    expect(withCarriedIn(log, 25)).toEqual([{ spins: 0, outlay: 0, held: 25 }, { spins: 100, held: 900 }])
+    expect(withCarriedIn(log, undefined)).toEqual([{ spins: 0, outlay: 0 }, { spins: 100, held: 900 }])
+    expect(withCarriedIn([{ spins: 0, outlay: 0 }], 25)).toEqual([{ spins: 0, outlay: 0, held: 25 }])
+    expect(withCarriedIn([], 25)).toEqual([])
   })
 })
 

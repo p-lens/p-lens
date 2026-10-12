@@ -85,6 +85,52 @@ const resultOf = (draft: PlayDraft, played: PlayedSoFar): number | undefined => 
 
 const yenText = (yen: number | undefined): string => (yen === undefined ? "" : String(Math.round(yen)))
 
+/**
+ * The tokens a play followed live at no parlor is counted by as it is
+ * recorded: those it was begun with in hand and those in hand as it
+ * ended, as typed, with what a token exchanges for and the cash spent. The
+ * book keeps such a play in yen alone; the counts are what its result is
+ * worked out from, and what it leaves for the day's next play.
+ */
+export interface TokenCounts {
+  readonly carriedIn: string
+  readonly held: string
+  readonly tokenValue: number
+  readonly outlay: number
+}
+
+const COUNT = /^\d+$/
+
+/** A count as typed: none where left empty, undefined where it does not read as one. */
+const readTokens = (typed: string): number | undefined => {
+  const plain = tidyTyped(typed).replaceAll(",", "")
+  if (plain === "") return 0
+  return COUNT.test(plain) ? Number(plain) : undefined
+}
+
+/** The tokens in hand as the play ended, as typed: none where left empty or unread. */
+export const heldIn = (counts: TokenCounts): number => readTokens(counts.held) ?? 0
+
+/**
+ * The result the counts come to, as the result field holds it: the tokens
+ * in hand at the end over those the play was begun with, at the exchange,
+ * less the cash spent. None while either count does not read, or while
+ * nothing is said of the end: a result is not made up from a field left
+ * empty.
+ */
+export const resultFromTokens = (counts: TokenCounts): string | undefined => {
+  const carriedIn = readTokens(counts.carriedIn)
+  const held = readTokens(counts.held)
+  return carriedIn === undefined || held === undefined || tidyTyped(counts.held) === "" ? undefined : yenText((held - carriedIn) * counts.tokenValue - counts.outlay)
+}
+
+/** The counts a play followed live opens its recording on: what its log says of each, with its terms' exchange and its outlay. None for a play with no terms, which counts no tokens. */
+export const tokenCountsFromDraft = (draft: PlayDraft, played: PlayedSoFar): TokenCounts | undefined => {
+  const tokenValue = tokenValueOfDraft(draft)
+  const said = (count: number | undefined): string => (count === undefined || count === 0 ? "" : String(count))
+  return tokenValue === undefined ? undefined : { carriedIn: said(played.carriedIn), held: said(played.held), tokenValue, outlay: played.outlay ?? 0 }
+}
+
 /** The tally form filled in from a play followed live with no parlor: its words, its result where its log counted what was in hand at the end, and its theoretical value where there is one. */
 export const tallyFormFromDraft = (draft: PlayDraft, played: PlayedSoFar): TallyForm => ({
   ...emptyTallyForm(draft.date),

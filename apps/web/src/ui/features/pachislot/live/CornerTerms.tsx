@@ -5,6 +5,7 @@ import { changeTerms } from "../../../../application/live-play"
 import type { PlayDraft } from "../../../../core/live-play/draft"
 import { tierOf } from "../../../../core/parlor/terms"
 import { useApp } from "../../../context"
+import { useMoves } from "../../../navigation/moves"
 import { Button } from "../../../primitives/button"
 import { CloseIcon, EditIcon } from "../../../primitives/icons"
 import { createNudge } from "../../../primitives/nudge"
@@ -16,6 +17,11 @@ import { Terms } from "../start/Terms"
 
 const CHANGE_TERMS = "レートを変更する"
 
+const CHANGE_CABINET = "台番号・機種を変更する"
+
+/** How a word with a pencil beside it is drawn, the two as one button no taller than the word. */
+const PENCILLED = "group flex h-5 items-center gap-1 rounded-[3px] text-xs font-bold text-text-primary focus-visible:outline-2 focus-visible:outline-focus-ring [&_svg]:size-3.5"
+
 /**
  * The corner a play is on, above everything counted from it, in a line no
  * taller than its words, with a pencil beside it and nothing of its terms: the terms typed as the play began were another corner's, or
@@ -23,10 +29,13 @@ const CHANGE_TERMS = "レートを変更する"
  * right. Pressed, the terms are set out to be typed over as they are when a
  * play starts, in a card that spreads open downwards, under a cross that puts them away unchanged; applied, the play is counted anew on them, and they are the
  * day's for the next play too. A play with no terms says so where its
- * corner would be, and is given some the same way.
+ * corner would be, and is given some the same way. Across from the corner
+ * is the cabinet's number, with its own pencil: it leads to where the
+ * cabinet and the machine the play is on are said anew.
  */
 export function CornerTerms(props: { readonly draft: PlayDraft }): JSX.Element {
   const app = useApp()
+  const moves = useMoves()
   const start = useStartForm()
   const [look, setLook] = createSignal<"standing" | "changing">("standing")
   const [form, setForm] = createSignal<TermsForm>(start.form().terms.slot)
@@ -62,16 +71,20 @@ export function CornerTerms(props: { readonly draft: PlayDraft }): JSX.Element {
     <Show
       when={look() === "changing"}
       fallback={
-        <button
-          type="button"
-          onClick={open}
-          class="group flex h-5 items-center gap-1 self-start rounded-[3px] text-xs font-bold text-text-primary focus-visible:outline-2 focus-visible:outline-focus-ring [&_svg]:size-3.5"
-        >
-          {props.draft.venue.terms === undefined ? "レート指定なし" : `${tierOf("slot", props.draft.venue.terms)}コーナー`}
-          <span class="text-text-secondary group-hover:text-text-primary">
-            <EditIcon label={CHANGE_TERMS} />
-          </span>
-        </button>
+        <div class="flex items-center justify-between gap-2">
+          <button type="button" onClick={open} class={PENCILLED}>
+            {props.draft.venue.terms === undefined ? "レート指定なし" : `${tierOf("slot", props.draft.venue.terms)}コーナー`}
+            <span class="text-text-secondary group-hover:text-text-primary">
+              <EditIcon label={CHANGE_TERMS} />
+            </span>
+          </button>
+          <button type="button" onClick={() => moves.go({ kind: "live-cabinet", playId: props.draft.id })} class={PENCILLED}>
+            {props.draft.cabinetNumber ?? "---"}番台
+            <span class="text-text-secondary group-hover:text-text-primary">
+              <EditIcon label={CHANGE_CABINET} />
+            </span>
+          </button>
+        </div>
       }
     >
       <div class="grid animate-[spread_260ms_ease-out]">

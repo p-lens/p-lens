@@ -295,8 +295,20 @@ rate for the day differs.
 What a recorded play left is kept on the device for its business day, its
 parlor and its pool (`ui/features/live/tokens-in-hand`, a preference): the
 day's next play started there is begun with them, written into its first
-line, and they are then no longer kept. A play recorded again changes
+line, and they are then no longer kept. The start screen shows them
+behind its small detail button (`DetailButton`, the sliders), marked while
+a count is there, where they may be typed over or taken out before the
+play begins. A play recorded again changes
 them only while they are still its own to say.
+
+No parlor is a place of its own for this: a play followed live with terms
+and no parlor is recorded with the same two counts — those it was begun
+with and those in hand as it ended — and leaves the latter for the day's
+next play at no parlor and of that pool. The book keeps such a play in
+yen alone, as ever, and no savings: its result is the tokens in hand at
+the end over those it was begun with, at its terms' exchange, less the
+cash spent (`resultFromTokens`), so the plays of a day at no parlor come
+together to what the last left, exchanged, less all that was spent.
 - **Theoretical value** (期待値) is the virtual posting, written only when
   given: what the play was worth by its formula, whatever it came to.
 
@@ -358,6 +370,15 @@ for the book it was sent to, and is as free to go into another. The terms a
 play is on — what the corner rents and exchanges at, and what a replay takes
 — are the play's until then too, and are set right while it is played
 (`changeTerms`): everything counted from its readings is counted anew. Its `log` is the JSONL text itself.
+Which cabinet it is at and which machine it is on are said anew the same
+way (`changeCabinet`, from the cabinet's number across from the corner): a
+play begun on the wrong model of a machine is put on the right one, not
+begun again. Its log is then read as that machine reads it — a pachinko
+play's jackpots left untold, since each named a bonus of the other
+machine (`withJackpotsUntold`), to be said again reading by reading; a
+pachislot play's counts kept where the new formula names them and let go
+of where it does not (`readableBy`), since the engine refuses a count it
+has no name for.
 
 The parlor's data counter is typed as it reads. Readings count from an anchor:
 the play's first point, whose counter still shows the previous player's spins,
@@ -464,6 +485,7 @@ The place is read off the address (`ui/navigation/place.ts`):
 | `/play/new/{pachinko,slot}` | starting a play of a game | content |
 | `/play/:play` | a play in progress | content |
 | `/play/:play/record` | recording it into its book | content |
+| `/play/:play/cabinet` | saying anew which cabinet and machine it is on | content |
 | `/books/:book` | a book, no view chosen | selection |
 | `/books/:book/{plays,holdings,activity,files}?q=` | a view | content |
 | `/books/:book/breakdown/:by?q=` | a book's results grouped | content |

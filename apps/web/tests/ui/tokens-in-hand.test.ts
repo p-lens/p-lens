@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import type { PlayVenue } from "../../src/core/live-play/draft"
 import type { PlayId, PlayRecord } from "../../src/core/play/play"
-import { recalledTokensInHand, tokensCarriedTo, tokensKeptAfter, tokensStillInHand, writtenTokensInHand, type TokensInHand } from "../../src/ui/features/live/tokens-in-hand"
+import { carriedInShown, leftAt, leftBy, readCarriedIn, recalledTokensInHand, tokensCarriedTo, tokensKeptAfter, tokensStillInHand, writtenTokensInHand, type TokensInHand } from "../../src/ui/features/live/tokens-in-hand"
 import { RENTED_PLAY, UMEDA, dec } from "../support/values"
 
 const DAY = "2026-10-12" as IsoDate
@@ -16,7 +16,9 @@ const KEPT = writtenTokensInHand(DAY, IN_HAND)
 
 const AT_UMEDA: PlayVenue = { type: "parlor", parlor: UMEDA, terms: TERMS }
 
-const LEFT: PlayRecord = { ...RENTED_PLAY, date: DAY, payout: dec("1500") }
+const PLAYED: PlayRecord = { ...RENTED_PLAY, date: DAY, payout: dec("1500") }
+
+const LEFT = leftBy(PLAYED)
 
 describe("the tokens in hand between two plays of a day", () => {
   test("are recalled as they were written, on the day they were left, and not the day after", () => {
@@ -44,14 +46,35 @@ describe("the tokens in hand between two plays of a day", () => {
 
   test("are what a play left as it is recorded, and nothing where it left none", () => {
     expect(tokensKeptAfter(undefined, DAY, { id: "a" as PlayId, recordedBefore: false }, LEFT)).toBe(KEPT)
-    expect(tokensKeptAfter(KEPT, DAY, { id: "b" as PlayId, recordedBefore: false }, { ...LEFT, payout: dec("0") })).toBeUndefined()
+    expect(tokensKeptAfter(KEPT, DAY, { id: "b" as PlayId, recordedBefore: false }, { ...LEFT, count: 0 })).toBeUndefined()
   })
 
   test("are changed by a play recorded again only while they are still that play's", () => {
-    const again = { ...LEFT, payout: dec("1800") }
+    const again = { ...LEFT, count: 1800 }
     expect(recalledTokensInHand(tokensKeptAfter(KEPT, DAY, { id: "a" as PlayId, recordedBefore: true }, again), DAY)?.count).toBe(1800)
     expect(tokensKeptAfter(undefined, DAY, { id: "a" as PlayId, recordedBefore: true }, again)).toBeUndefined()
     expect(tokensKeptAfter(KEPT, DAY, { id: "b" as PlayId, recordedBefore: true }, again)).toBe(KEPT)
+  })
+
+  test("are in hand at no parlor too, for the next play at none and of that pool, and at no parlor's", () => {
+    const nowhere: PlayVenue = { type: "none", terms: TERMS }
+    const left = leftAt(nowhere, "pachinko", DAY, 25)
+    const kept = tokensKeptAfter(undefined, DAY, { id: "n" as PlayId, recordedBefore: false }, left ?? LEFT)
+    expect(left).toEqual({ identity: undefined, pool: { kind: "ball", tier: "4円" }, date: DAY, count: 25 })
+    expect(recalledTokensInHand(kept, DAY)).toEqual({ identity: undefined, pool: { kind: "ball", tier: "4円" }, count: 25, from: "n" as PlayId })
+    expect(tokensCarriedTo(kept, DAY, nowhere, "pachinko")).toBe(25)
+    expect(tokensCarriedTo(kept, DAY, AT_UMEDA, "pachinko")).toBeUndefined()
+    expect(tokensCarriedTo(KEPT, DAY, nowhere, "pachinko")).toBeUndefined()
+    expect(tokensCarriedTo(kept, DAY, { type: "none", terms: undefined }, "pachinko")).toBeUndefined()
+    expect(leftAt({ type: "none", terms: undefined }, "pachinko", DAY, 25)).toBeUndefined()
+  })
+
+  test("are shown at the start as kept until typed over, and read as a count or as none", () => {
+    expect(carriedInShown(undefined, 1500)).toBe("1500")
+    expect(carriedInShown(undefined, undefined)).toBe("")
+    expect(carriedInShown("", 1500)).toBe("")
+    expect(carriedInShown("２５", 1500)).toBe("２５")
+    expect(["", "0", "２５", "1,500", "2.5", "abc"].map(readCarriedIn)).toEqual([{ type: "none" }, { type: "none" }, { type: "count", count: 25 }, { type: "count", count: 1500 }, { type: "unread" }, { type: "unread" }])
   })
 
   test("are not left by a play of another day", () => {

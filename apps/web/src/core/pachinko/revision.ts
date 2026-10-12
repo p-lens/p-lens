@@ -149,3 +149,16 @@ export const withSeatRevised = (ordered: readonly Checkpoint[], seat: Seat): Res
   const first = ordered.at(0)
   return first === undefined ? Ok(ordered) : madeFrom({ ...first, counter: { ...first.counter, ...seat } }, takenOf(ordered))
 }
+
+/**
+ * A log as another machine reads it. Each jackpot named one of the bonuses
+ * of the machine the play was begun on, with what that bonus paid; another
+ * machine lists its own, so every jackpot is left untold — still a
+ * jackpot, where it was — to be said again reading by reading.
+ */
+export const withJackpotsUntold = (checkpoints: readonly Checkpoint[]): readonly Checkpoint[] =>
+  checkpoints.map((checkpoint) =>
+    checkpoint.event?.kind === "jackpot" && checkpoint.event.bonus !== undefined
+      ? { ...checkpoint, event: { kind: "jackpot" as const, ...(checkpoint.event.approximate === true ? { approximate: true as const } : {}) } }
+      : checkpoint,
+  )

@@ -1,6 +1,7 @@
 import type { NormalizedSpecDto, PlayDto } from "@p-lens/contracts/pachislot"
 
 import { tokenValueOf, type PlayTerms } from "../parlor/terms"
+import type { Checkpoint, Tally } from "../play-log/checkpoint"
 import type { FormulaSnapshot } from "./snapshot"
 import type { Prior } from "./prior"
 
@@ -67,4 +68,25 @@ export const playOf = (
     cashShare: rented === undefined || played === 0 ? Math.min(1, Math.max(0, 1 - play.payoutRate)) : Math.min(1, rented / played),
     gamesPerHour: GAMES_PER_HOUR,
   }
+}
+
+/** Every name a formula counts by: each event, the bonus a part is part of, and the bonuses a data counter shows. */
+const namedBy = (formula: FormulaSnapshot): ReadonlySet<string> =>
+  new Set([...eventsOf(formula.normalized).flatMap((event) => (event.group === undefined ? [event.id] : [event.id, event.group])), ...counterBonusesOf(formula).map((bonus) => bonus.id)])
+
+const countsNamed = (counts: Tally, named: ReadonlySet<string>): Tally => Object.fromEntries(Object.entries(counts).filter(([id]) => named.has(id)))
+
+/**
+ * A log as another formula reads it. What a play counted, it counted under
+ * the names of the formula it was begun with; a count under a name this
+ * formula lacks is none of its to read — the engine refuses a play that
+ * carries one — so it is let go of, and every count the two share stands.
+ */
+export const readableBy = (formula: FormulaSnapshot, checkpoints: readonly Checkpoint[]): readonly Checkpoint[] => {
+  const named = namedBy(formula)
+  return checkpoints.map((checkpoint) => ({
+    ...checkpoint,
+    ...(checkpoint.counter?.bonuses === undefined ? {} : { counter: { ...checkpoint.counter, bonuses: countsNamed(checkpoint.counter.bonuses, named) } }),
+    ...(checkpoint.tally === undefined ? {} : { tally: countsNamed(checkpoint.tally, named) }),
+  }))
 }

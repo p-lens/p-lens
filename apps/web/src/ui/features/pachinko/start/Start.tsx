@@ -29,7 +29,9 @@ import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
 import { copyText } from "../../../primitives/clipboard"
 import { Combobox, holdsTypedOnly } from "../../../primitives/combobox"
+import { DetailButton } from "../../../primitives/detail-button"
 import { ChevronDownIcon, CopyIcon, PlusIcon, QuestionIcon } from "../../../primitives/icons"
+import { PencilledBubble } from "../../../primitives/pencilled-bubble"
 import { HintedIconButton } from "../../../primitives/popover"
 import { createNudge, redRing } from "../../../primitives/nudge"
 import { Loaded } from "../../../primitives/states"
@@ -47,7 +49,7 @@ import { useBookFavorites } from "../../live/book-favorites"
 import { EMPTY_PACHINKO_START, type PachinkoMachineChoice, type ParlorChoice, useStartBallValue, useStartForm } from "../../live/start-form"
 import { locateAddress, submitAddress } from "../../live/submission-return"
 import { readTerms, type TermsField } from "../../live/start-terms"
-import { tokensCarriedTo } from "../../live/tokens-in-hand"
+import { carriedInShown, readCarriedIn, tokensCarriedTo } from "../../live/tokens-in-hand"
 import { Terms } from "./Terms"
 
 /**
@@ -515,7 +517,11 @@ export function Start(props: {
     const read = readTerms(start.form().terms.pachinko)
     return read.ok ? [] : read.error
   }
+  /** The balls the play is begun with in hand: what the day's play before left at this place, unless typed over. */
+  const carriedShown = (): string => carriedInShown(start.form().carriedIn, tokensCarriedTo(app.services.preferences.tokensInHand(), app.services.businessDay(), venue(), "pachinko"))
+  const carriedUnread = (): boolean => readCarriedIn(carriedShown()).type === "unread"
   const textProblems = (): readonly (string | undefined)[] => [
+    carriedUnread() ? "整数で入力してください。" : undefined,
     unwritable(start.form().cabinetNumber),
     notACount(start.form().startCounter),
     notACount(start.form().pachinko.seatTotal),
@@ -536,7 +542,9 @@ export function Start(props: {
     const form = start.form()
     const formula = selection()?.listing.formula
     const startedAt = app.services.now()
-    const carriedIn = tokensCarriedTo(app.services.preferences.tokensInHand(), app.services.businessDay(), venue(), "pachinko")
+    const kept = tokensCarriedTo(app.services.preferences.tokensInHand(), app.services.businessDay(), venue(), "pachinko")
+    const said = readCarriedIn(carriedShown())
+    const carriedIn = said.type === "count" ? said.count : undefined
     const draft: PlayDraft = {
       id: app.services.newPlayId(),
       date: app.services.businessDay(),
@@ -555,9 +563,9 @@ export function Start(props: {
       setFailure(started.error)
       return
     }
-    if (carriedIn !== undefined) app.services.preferences.setTokensInHand(undefined)
+    if (kept !== undefined) app.services.preferences.setTokensInHand(undefined)
     if (formula !== undefined) await recordUse(app.services.catalog, { type: "formula", id: formula.id })
-    start.update({ cabinetNumber: "", startCounter: "", pachinko: { ...EMPTY_PACHINKO_START, remakeFrom: start.form().pachinko.remakeFrom } })
+    start.update({ cabinetNumber: "", startCounter: "", carriedIn: undefined, pachinko: { ...EMPTY_PACHINKO_START, remakeFrom: start.form().pachinko.remakeFrom } })
     app.wrote()
     moves.go({ kind: "live-play", playId: draft.id })
   }
@@ -584,7 +592,14 @@ export function Start(props: {
         />
       </section>
       <section class="flex flex-col gap-4" aria-labelledby="start-machine">
-        <h2 id="start-machine" class="border-b border-border pb-1 text-sm font-bold text-text-primary">機種設定</h2>
+        <div class="flex items-center justify-between gap-2 border-b border-border pb-1">
+          <h2 id="start-machine" class="text-sm font-bold text-text-primary">
+            機種設定
+          </h2>
+          <PencilledBubble text={`${start.form().cabinetNumber.trim() === "" ? "---" : start.form().cabinetNumber.trim()}番台`} says="台番号を入力する" invalid={unwritable(start.form().cabinetNumber) !== undefined}>
+            <TextField label="台番号" value={start.form().cabinetNumber} onChange={(cabinetNumber) => start.update({ cabinetNumber })} inputMode="numeric" error={unwritable(start.form().cabinetNumber)} compact />
+          </PencilledBubble>
+        </div>
         <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 sm:gap-2">
           <MachineField
             machine={start.form().pachinko.machine}
@@ -605,15 +620,7 @@ export function Start(props: {
       <section class="flex flex-col gap-4" aria-labelledby="start-seat">
         <h2 id="start-seat" class="border-b border-border pb-1 text-sm font-bold text-text-primary">開始時データ</h2>
         <div class="grid grid-cols-1 gap-x-2 sm:grid-cols-2">
-          <div class="grid grid-cols-4 items-start gap-1.5">
-            <TextField
-              label="台番号"
-              value={start.form().cabinetNumber}
-              onChange={(cabinetNumber) => start.update({ cabinetNumber })}
-              inputMode="numeric"
-              error={unwritable(start.form().cabinetNumber)}
-              compact
-            />
+          <div class="grid grid-cols-[repeat(3,minmax(0,1fr))_auto] items-start gap-1.5">
             <TextField
               label="総回転数"
               value={start.form().pachinko.seatTotal}
@@ -633,7 +640,7 @@ export function Start(props: {
               compact
             />
             <TextField
-              label="ボーナス数"
+              label="大当り数"
               value={start.form().pachinko.seatJackpots}
               onChange={(seatJackpots) => start.updatePachinko({ seatJackpots })}
               inputMode="numeric"
@@ -641,6 +648,11 @@ export function Start(props: {
               error={notACount(start.form().pachinko.seatJackpots)}
               compact
             />
+            <DetailButton label="詳細" says={carriedShown() === "" ? "詳細（開始時の持ち玉）" : `詳細（開始時の持ち玉 ${carriedShown()}玉）`} marked={carriedShown() !== ""} invalid={carriedUnread()} placement="bottom-end">
+              <div class="min-w-0 flex-1">
+                <TextField label="開始時の持ち玉" value={carriedShown()} onChange={(carriedIn) => start.update({ carriedIn })} inputMode="numeric" suffix="玉" invalid={carriedUnread()} compact />
+              </div>
+            </DetailButton>
           </div>
         </div>
       </section>

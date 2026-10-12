@@ -23,7 +23,7 @@ const REASONS: Readonly<Record<Exclude<Reason, "default">, { readonly icon: () =
 }
 
 /** Why a formula or a prior is the one chosen, as a small icon that arrives with it, set after the field's label; nothing for an even spread nobody chose. */
-function ChoiceReason(props: { readonly by: Reason }): JSX.Element {
+export function ChoiceReason(props: { readonly by: Reason }): JSX.Element {
   return (
     <Show when={props.by === "default" ? undefined : REASONS[props.by]} keyed>
       {(reason) => (

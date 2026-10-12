@@ -10,6 +10,7 @@ import { useApp } from "../../context"
 import { bookOf, focusOf, inSettings, placeOf, type Place } from "../../navigation/place"
 import { EmptyState } from "../../primitives/states"
 import { ActivityView } from "../activity/ActivityView"
+import { CabinetView } from "../live/CabinetView"
 import { DestinationSide } from "../live/DestinationSide"
 import { HoldingsView } from "../holdings/HoldingsView"
 import { FinishPlayView } from "../live/FinishPlayView"
@@ -77,6 +78,8 @@ const mainFor = (place: Place, query: () => string): JSX.Element => {
       return <LivePlayView place={place} playId={place.playId} />
     case "live-record":
       return <FinishPlayView place={place} playId={place.playId} />
+    case "live-cabinet":
+      return <CabinetView place={place} playId={place.playId} />
     case "book":
       return <ChooseFromList place={place} title="帳簿" hint="左のリストからビューを選んでください。" />
     case "book-view":

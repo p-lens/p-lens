@@ -6,7 +6,7 @@ import type { PlayDraft } from "../../src/core/live-play/draft"
 import type { PlayTerms } from "../../src/core/parlor/terms"
 import type { PlayId } from "../../src/core/play/play"
 import { formFromDraft, type PlayedSoFar } from "../../src/ui/features/record-play/form"
-import { tallyFormFromDraft } from "../../src/ui/features/record-play/tally-form"
+import { heldIn, resultFromTokens, tallyFormFromDraft, tokenCountsFromDraft } from "../../src/ui/features/record-play/tally-form"
 import { UMEDA } from "../support/values"
 
 const TERMS: PlayTerms = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 250 }, replay: { paidOut: 250, deducted: 250 } }
@@ -38,6 +38,17 @@ describe("a play followed live, as it is recorded", () => {
     expect(formFromDraft(DRAFT, { ...PLAYED, carriedIn: 1500 }).carriedIn).toBe("1500")
     expect(formFromDraft(DRAFT, PLAYED).carriedIn).toBe("")
     expect(tallyFormFromDraft(NOWHERE, { ...PLAYED, outlay: 0, carriedIn: 1500, held: 2900 }).result).toBe("5600")
+  })
+
+  test("with no parlor, is counted by the tokens typed as it is recorded, and its result follows them", () => {
+    const counts = tokenCountsFromDraft(NOWHERE, { ...PLAYED, outlay: 500, held: undefined })
+    expect(counts).toEqual({ carriedIn: "", held: "", tokenValue: 4, outlay: 500 })
+    expect(counts === undefined ? undefined : resultFromTokens(counts)).toBeUndefined()
+    expect(counts === undefined ? undefined : resultFromTokens({ ...counts, held: "25" })).toBe("-400")
+    expect(counts === undefined ? undefined : resultFromTokens({ ...counts, carriedIn: "25", held: "１２５" })).toBe("-100")
+    expect(counts === undefined ? undefined : resultFromTokens({ ...counts, held: "2.5" })).toBeUndefined()
+    expect(counts === undefined ? undefined : heldIn({ ...counts, held: "25" })).toBe(25)
+    expect(tokenCountsFromDraft({ ...DRAFT, venue: { type: "none", terms: undefined } }, PLAYED)).toBeUndefined()
   })
 
   test("with no parlor, comes to those tokens exchanged less the cash spent", () => {

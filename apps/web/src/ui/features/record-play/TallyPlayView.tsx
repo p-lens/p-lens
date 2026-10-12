@@ -14,7 +14,7 @@ import { EMPTY_PARLOR_LIST, type ParlorList } from "../../../core/parlor/shared"
 import { renderEntry } from "../../../core/journal/entry"
 import { composeTalliedEntry } from "../../../core/play/compose"
 import type { IsoDate } from "../../../core/calendar/calendar"
-import type { PlayGameKind, PlayId, TalliedPlay } from "../../../core/play/play"
+import { tokenKindOf, type PlayGameKind, type PlayId, type TalliedPlay } from "../../../core/play/play"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import { createNudge, redText } from "../../primitives/nudge"
@@ -27,13 +27,14 @@ import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { describeError, describePlayError } from "../../wording/errors"
+import { tokenUnit } from "../../wording/numbers"
 import { LOCATE_REQUEST, typedMachineRefused, typedParlorRefused, type TypedNameRefused } from "../../wording/parlor"
 import type { Submission as KeptSubmission } from "../../../parlors/port/submission-store"
 import { locateAddress, submitAddress, type LeftFrom } from "../live/submission-return"
 import { offersByKey, parlorOffers } from "./parlor-offers"
 import { ViewHeader } from "../shell/ViewHeader"
-import { RECORDING, type FieldProblem, type FormField, type SubmitWords } from "./form"
-import { emptyTallyForm, readTallyForm, type TallyForm } from "./tally-form"
+import { IN_HAND_LABELS, RECORDING, type FieldProblem, type FormField, type SubmitWords } from "./form"
+import { emptyTallyForm, heldIn, readTallyForm, resultFromTokens, type TallyForm, type TokenCounts } from "./tally-form"
 
 /** Where a submission is: being typed, being written, or refused with why. */
 type Submission =
@@ -78,12 +79,25 @@ export function TallyEditor(props: {
   /** The id of the play, given the day it is said to have been played. */
   readonly playIdOn: (date: IsoDate) => PlayId
   readonly words: SubmitWords
+  /** The tokens a play followed live is counted by, where it has terms to count them on: its result is worked out from them as they are typed, and may still be typed over. None for a play added by hand or set right, which has only its result. */
+  readonly tokens?: TokenCounts | undefined
   readonly submit: (play: TalliedPlay) => Promise<Outcome<unknown>>
-  readonly onRecorded: (play: TalliedPlay) => void
+  /** Told the tokens in hand as the play ended, where it was counted by them. */
+  readonly onRecorded: (play: TalliedPlay, held: number | undefined) => void
 }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   const [form, setForm] = createSignal<TallyForm>(props.initial)
+  const [counts, setCounts] = createSignal<TokenCounts | undefined>(props.tokens)
+  /** Types a count, and puts what the counts now come to in the result where they come to one. */
+  const count = (typed: Pick<TokenCounts, "carriedIn"> | Pick<TokenCounts, "held">): void => {
+    const before = counts()
+    if (before === undefined) return
+    const after = { ...before, ...typed }
+    setCounts(after)
+    const result = resultFromTokens(after)
+    if (result !== undefined) setForm((current) => ({ ...current, result }))
+  }
   const [submission, setSubmission] = createSignal<Submission>({ type: "editing" })
   const set =
     <K extends keyof TallyForm>(key: K) =>
@@ -179,7 +193,7 @@ export function TallyEditor(props: {
       setSubmission({ type: "failed", error: recorded.error })
       return
     }
-    props.onRecorded(play.value)
+    props.onRecorded(play.value, ((counted) => (counted === undefined ? undefined : heldIn(counted)))(counts()))
   }
 
   return (
@@ -271,6 +285,10 @@ export function TallyEditor(props: {
         <TextField label="台番号" value={form().cabinetNumber} onChange={set("cabinetNumber")} inputMode="numeric" />
       </div>
       <div class="grid grid-cols-2 gap-x-3 gap-y-4">
+        <Show when={counts()} keyed={false}>
+          <TextField label={IN_HAND_LABELS[tokenKindOf(form().gameKind)].carriedIn} value={counts()?.carriedIn ?? ""} onChange={(carriedIn) => count({ carriedIn })} inputMode="numeric" suffix={tokenUnit(tokenKindOf(form().gameKind))} onFocus={nudge.settle} />
+          <TextField label={IN_HAND_LABELS[tokenKindOf(form().gameKind)].left} value={counts()?.held ?? ""} onChange={(held) => count({ held })} inputMode="numeric" suffix={tokenUnit(tokenKindOf(form().gameKind))} onFocus={nudge.settle} />
+        </Show>
         <TextField label="収支" value={form().result} onChange={set("result")} inputMode="decimal" suffix="円" error={problemOf("result")}
           invalid={nudged("result")}
           onFocus={nudge.settle} required />

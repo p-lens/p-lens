@@ -19,19 +19,21 @@ import type { Submission } from "../../../../parlors/port/submission-store"
 import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
 import { Combobox, holdsTypedOnly } from "../../../primitives/combobox"
+import { DetailButton } from "../../../primitives/detail-button"
 import { ChevronDownIcon, PlusIcon } from "../../../primitives/icons"
 import { createNudge, redRing } from "../../../primitives/nudge"
+import { PencilledBubble } from "../../../primitives/pencilled-bubble"
 import { settleTyping, TextField } from "../../../primitives/text-field"
 import { toast } from "../../../primitives/toast"
 import { useMoves } from "../../../navigation/moves"
 import { describeError } from "../../../wording/errors"
 import { LOCATE_REQUEST, parlorNote, typedParlorRefused } from "../../../wording/parlor"
-import { FormulaPicker } from "./ChoiceFields"
+import { FormulaPicker, PriorPicker } from "./ChoiceFields"
 import { SeatFields, useSeat } from "./Seat"
 import { EMPTY_PACHISLOT_START, type PachislotMachineChoice, type ParlorChoice, useStartForm } from "../../live/start-form"
 import { locateAddress, submitAddress } from "../../live/submission-return"
 import { readTerms, type TermsField } from "../../live/start-terms"
-import { tokensCarriedTo } from "../../live/tokens-in-hand"
+import { carriedInShown, readCarriedIn, tokensCarriedTo } from "../../live/tokens-in-hand"
 import { Terms } from "./Terms"
 
 /**
@@ -311,7 +313,10 @@ export function Start(props: {
     const read = readTerms(start.form().terms.slot)
     return read.ok ? [] : read.error
   }
-  const textProblems = (): readonly (string | undefined)[] => [unwritable(start.form().cabinetNumber)]
+  /** The medals the play is begun with in hand: what the day's play before left at this place, unless typed over. */
+  const carriedShown = (): string => carriedInShown(start.form().carriedIn, tokensCarriedTo(app.services.preferences.tokensInHand(), app.services.businessDay(), venue(), "slot"))
+  const carriedUnread = (): boolean => readCarriedIn(carriedShown()).type === "unread"
+  const textProblems = (): readonly (string | undefined)[] => [carriedUnread() ? "整数で入力してください。" : undefined, unwritable(start.form().cabinetNumber)]
   /** The corner's terms as read, for weighing the seat: none until they read. */
   const terms = (): PlayTerms | undefined => {
     const read = readTerms(start.form().terms.slot)
@@ -342,7 +347,9 @@ export function Start(props: {
     const form = start.form()
     const weighing = seat.weighing()
     const startedAt = app.services.now()
-    const carriedIn = tokensCarriedTo(app.services.preferences.tokensInHand(), app.services.businessDay(), venue(), "slot")
+    const kept = tokensCarriedTo(app.services.preferences.tokensInHand(), app.services.businessDay(), venue(), "slot")
+    const said = readCarriedIn(carriedShown())
+    const carriedIn = said.type === "count" ? said.count : undefined
     const draft: PlayDraft = {
       id: app.services.newPlayId(),
       date: app.services.businessDay(),
@@ -361,9 +368,9 @@ export function Start(props: {
       setFailure(started.error)
       return
     }
-    if (carriedIn !== undefined) app.services.preferences.setTokensInHand(undefined)
+    if (kept !== undefined) app.services.preferences.setTokensInHand(undefined)
     if (weighing !== undefined) await recordUses(weighing)
-    start.update({ cabinetNumber: "", startCounter: "", pachislot: EMPTY_PACHISLOT_START })
+    start.update({ cabinetNumber: "", startCounter: "", carriedIn: undefined, pachislot: EMPTY_PACHISLOT_START })
     app.wrote()
     moves.go({ kind: "live-play", playId: draft.id })
   }
@@ -390,7 +397,14 @@ export function Start(props: {
         />
       </section>
       <section class="flex flex-col gap-4" aria-labelledby="start-machine">
-        <h2 id="start-machine" class="border-b border-border pb-1 text-sm font-bold text-text-primary">機種設定</h2>
+        <div class="flex items-center justify-between gap-2 border-b border-border pb-1">
+          <h2 id="start-machine" class="text-sm font-bold text-text-primary">
+            機種設定
+          </h2>
+          <PencilledBubble text={`${start.form().cabinetNumber.trim() === "" ? "---" : start.form().cabinetNumber.trim()}番台`} says="台番号を入力する" invalid={unwritable(start.form().cabinetNumber) !== undefined}>
+            <TextField label="台番号" value={start.form().cabinetNumber} onChange={(cabinetNumber) => start.update({ cabinetNumber })} inputMode="numeric" error={unwritable(start.form().cabinetNumber)} compact />
+          </PencilledBubble>
+        </div>
         <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 sm:gap-2">
           <MachineField
             machine={start.form().pachislot.machine}
@@ -405,20 +419,30 @@ export function Start(props: {
             onOpenMachine={(machineId) => moves.go({ kind: "pachislot-machine", machineId })}
             onWaitingOnMachine={machineNudge.nudge}
           />
+          <Show when={seat.detail()} keyed>
+            {(detail) => (
+              <Show when={seat.priorSelection()} keyed>
+                {(selection) => <PriorPicker detail={detail} selection={selection} onChoose={(prior) => start.updatePachislot({ prior })} />}
+              </Show>
+            )}
+          </Show>
         </div>
       </section>
       <section class="flex flex-col gap-4" aria-labelledby="start-seat">
         <h2 id="start-seat" class="border-b border-border pb-1 text-sm font-bold text-text-primary">開始時データ</h2>
-        <div class="w-16">
-          <TextField
-            label="台番号"
-            value={start.form().cabinetNumber}
-            onChange={(cabinetNumber) => start.update({ cabinetNumber })}
-            inputMode="numeric"
-            error={unwritable(start.form().cabinetNumber)}
-          />
-        </div>
-        <SeatFields state={seat} terms={terms()} nudged={seatNudge.red()} onFocus={seatNudge.settle} />
+        <SeatFields
+          state={seat}
+          terms={terms()}
+          nudged={seatNudge.red()}
+          onFocus={seatNudge.settle}
+          beside={
+            <DetailButton label="詳細" says={carriedShown() === "" ? "詳細（開始時の持ちメダル）" : `詳細（開始時の持ちメダル ${carriedShown()}枚）`} marked={carriedShown() !== ""} invalid={carriedUnread()} placement="bottom-end">
+              <div class="min-w-0 flex-1">
+                <TextField label="開始時の持ちメダル" value={carriedShown()} onChange={(carriedIn) => start.update({ carriedIn })} inputMode="numeric" suffix="枚" invalid={carriedUnread()} compact />
+              </div>
+            </DetailButton>
+          }
+        />
       </section>
       <Show when={failure()} keyed>
         {(error) => (

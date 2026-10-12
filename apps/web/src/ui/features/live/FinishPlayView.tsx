@@ -25,13 +25,13 @@ import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { formFromDraft, playedOnTerms, RECORDING, RECORDING_AGAIN, type PlayedSoFar } from "../record-play/form"
 import { RecordForm } from "../record-play/RecordForm"
-import { tallyFormFromDraft } from "../record-play/tally-form"
+import { tallyFormFromDraft, tokenCountsFromDraft } from "../record-play/tally-form"
 import { createOffered, TallyEditor } from "../record-play/TallyPlayView"
 import { bookTitle } from "../../wording/book"
 import { ViewHeader } from "../shell/ViewHeader"
 import { counterStands, endFormOf, readEndForm, type EndForm } from "./end-form"
 import { OperationHistory } from "./OperationHistory"
-import { tokensKeptAfter } from "./tokens-in-hand"
+import { leftAt, leftBy, tokensKeptAfter, type TokensLeft } from "./tokens-in-hand"
 
 /**
  * What a pachislot play's games are worth by its formula: the setting levels
@@ -179,6 +179,11 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
             const read = endCounterOf(draft.log, draft.gameKind)
             const [end, setEnd] = createSignal(endedAs(draft, app.services.now(), read))
             const words = draft.recorded === undefined ? RECORDING : RECORDING_AGAIN
+            /** Keeps what the play left in hand for the day's next at its place; a play someone sent left its tokens with them. */
+            const keepInHand = (left: TokensLeft | undefined): void => {
+              if (draft.received !== undefined || left === undefined) return
+              app.services.preferences.setTokensInHand(tokensKeptAfter(app.services.preferences.tokensInHand(), app.services.businessDay(), { id: draft.id, recordedBefore: draft.recorded !== undefined }, left))
+            }
             const recorded = (playId: PlayId): void => {
               app.wrote()
               moves.go({ kind: "play", bookId, playId })
@@ -202,8 +207,12 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
                     initial={tallyFormFromDraft(draft, played)}
                     playIdOn={() => draft.id}
                     words={words}
+                    tokens={tokenCountsFromDraft(draft, played)}
                     submit={(play) => finishTalliedPlay(app.services.session, app.services.drafts, draft, bookId, play, readEndForm(end(), draft.startedAt), app.services.now())}
-                    onRecorded={(play) => recorded(play.id)}
+                    onRecorded={(play, held) => {
+                      if (held !== undefined) keepInHand(leftAt(draft.venue, draft.gameKind, play.date, held))
+                      recorded(play.id)
+                    }}
                   />
                 }
               >
@@ -216,7 +225,7 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
                     words={words}
                     submit={(record) => finishPlay(app.services.session, app.services.drafts, draft, bookId, record, readEndForm(end(), draft.startedAt), app.services.now())}
                     onRecorded={(record) => {
-                      if (draft.received === undefined) app.services.preferences.setTokensInHand(tokensKeptAfter(app.services.preferences.tokensInHand(), app.services.businessDay(), { id: draft.id, recordedBefore: draft.recorded !== undefined }, record))
+                      keepInHand(leftBy(record))
                       recorded(record.id)
                     }}
                   />

@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test"
 
 import type { IsoDate } from "../../src/core/calendar/calendar"
-import { awaitsSending, deliveryOf, type PlayDraft } from "../../src/core/live-play/draft"
+import { awaitsSending, deliveryOf, withCabinetNumber, withMachine, type PlayDraft } from "../../src/core/live-play/draft"
+import { withJackpotsUntold } from "../../src/core/pachinko/revision"
+import { appendCheckpoint, parsePlayLog } from "../../src/core/play-log/checkpoint"
 import type { PlayId } from "../../src/core/play/play"
 
 const LINE = "line-1"
@@ -39,5 +41,40 @@ describe("how a play stands with an inbox", () => {
 
   test("a play someone sent here is not sent on", () => {
     expect(awaitsSending({ ...DRAFT, received: { sender: "made-up", log: DRAFT.log, ended: undefined } }, LINE)).toBe(false)
+  })
+})
+
+describe("a play said anew to be on another machine", () => {
+  const bonus = { name: "10R", payout: 1500, spent: 100 }
+  const lines = [
+    { spins: 0, outlay: 0, counter: { spins: 120 } },
+    { spins: 80, outlay: 2000, event: { kind: "jackpot" as const, bonus } },
+    { spins: 80, event: { kind: "jackpot" as const, approximate: true as const, bonus } },
+    { spins: 130, held: 900 },
+  ]
+  const log = lines.reduce(appendCheckpoint, "")
+  const formula = { id: "f-2", machineId: "m-2", kind: "official", figures: {} } as never
+  const moved = withMachine({ ...DRAFT, log }, { type: "pachinko", name: "made-up 199", formula, bonuses: [{ name: "4R", payout: 400, spent: 40 }] as never, readings: withJackpotsUntold(lines) })
+
+  test("is weighed by that machine's formula and chooses its jackpots from that machine's bonuses", () => {
+    expect([moved.machine, moved.pachinko, moved.bonuses]).toEqual(["made-up 199", formula, [{ name: "4R", payout: 400, spent: 40 }]] as never)
+  })
+
+  test("keeps every reading where it was, its jackpots no longer saying which bonus they were", () => {
+    const read = parsePlayLog(moved.log)
+    expect(read.ok && read.value).toEqual([
+      { spins: 0, outlay: 0, counter: { spins: 120 } },
+      { spins: 80, outlay: 2000, event: { kind: "jackpot" } },
+      { spins: 80, event: { kind: "jackpot", approximate: true } },
+      { spins: 130, held: 900 },
+    ])
+  })
+
+  test("a play whose log does not read keeps it as it is, and a cabinet's number is the play's alone", () => {
+    const weighing = { formula: { id: "s-2" }, prior: { type: "even" } } as never
+    const slot = withMachine({ ...DRAFT, gameKind: "slot", log }, { type: "pachislot", name: "made-up slot", weighing, readings: undefined })
+    expect([slot.machine, slot.pachislot, slot.log]).toEqual(["made-up slot", weighing, log] as never)
+    expect(withCabinetNumber(DRAFT, "123").cabinetNumber).toBe("123")
+    expect(withCabinetNumber({ ...DRAFT, cabinetNumber: "123" }, undefined).cabinetNumber).toBeUndefined()
   })
 })

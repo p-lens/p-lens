@@ -8,6 +8,7 @@ const PLACES: readonly Place[] = [
   { kind: "live-new", game: "slot" },
   { kind: "live-play", playId: "p-1" as never },
   { kind: "live-record", playId: "p-1" as never },
+  { kind: "live-cabinet", playId: "p-1" as never },
   { kind: "book", bookId: "made-up" as never },
   { kind: "book-view", bookId: "made-up" as never, view: "holdings" },
   { kind: "play", bookId: "made-up" as never, playId: "a b/c" as never },
@@ -37,11 +38,11 @@ describe("places", () => {
   })
 
   test("a narrow window goes selection, content, detail", () => {
-    expect(PLACES.map(focusOf)).toEqual(["selection", "content", "content", "content", "content", "selection", "content", "detail", "content", "content", "selection", "content", "content", "content", "content", "detail", "selection"])
+    expect(PLACES.map(focusOf)).toEqual(["selection", "content", "content", "content", "content", "content", "selection", "content", "detail", "content", "content", "selection", "content", "content", "content", "content", "detail", "selection"])
   })
 
   test("one step up from a play is its list, then the book", () => {
-    const play = PLACES[7] as Place
+    const play = PLACES[8] as Place
     const list = parentOf(play)
     expect(list).toEqual({ kind: "book-view", bookId: "made-up", view: "plays" } as never)
     expect(parentOf(list as Place)).toEqual({ kind: "book", bookId: "made-up" } as never)
@@ -50,6 +51,7 @@ describe("places", () => {
 
   test("recording a live play steps back to the play, then to the live space", () => {
     expect(parentOf({ kind: "live-record", playId: "p-1" as never })).toEqual({ kind: "live-play", playId: "p-1" } as never)
+    expect(parentOf({ kind: "live-cabinet", playId: "p-1" as never })).toEqual({ kind: "live-play", playId: "p-1" } as never)
     expect(parentOf({ kind: "live-play", playId: "p-1" as never })).toEqual({ kind: "live" })
     expect(parentOf({ kind: "live" })).toBeUndefined()
   })

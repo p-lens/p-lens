@@ -6,7 +6,7 @@ import type * as Pachislot from "../../../core/pachislot"
 import type { SubmissionId } from "../../../core/parlor/parlor"
 import type { SharedParlorId } from "../../../core/parlor/shared"
 import { tokenValueOf } from "../../../core/parlor/terms"
-import type { PlayGameKind } from "../../../core/play/play"
+import type { PlayGameKind, PlayId } from "../../../core/play/play"
 import { useApp } from "../../context"
 import * as PachislotChoice from "../pachislot/start/choice"
 import { recalledParlorSetting, writtenParlorSetting } from "./parlor-setting"
@@ -109,6 +109,19 @@ export const EMPTY_PACHISLOT_START: PachislotStart = {
 }
 
 /**
+ * A play in progress being said anew to be at another cabinet or on
+ * another machine, as chosen so far: the number typed, the machine and —
+ * chosen by hand — its formula. Kept here so that a look at a formula's
+ * grounds and back does not lose it, and let go of once it is saved.
+ */
+export interface CabinetChoice {
+  readonly playId: PlayId
+  readonly cabinetNumber: string
+  readonly machineId: string | undefined
+  readonly formulaId: string | undefined
+}
+
+/**
  * The form a play is started with, as filled in so far. Work in hand: it
  * outlives a trip into a formula's depths and back, and nothing else — but
  * for its parlor setting, which is the business day's.
@@ -122,6 +135,10 @@ export interface StartForm {
   readonly pachislot: PachislotStart
   readonly cabinetNumber: string
   readonly startCounter: string
+  /** The tokens the play is begun with in hand, where the person typed over what is kept for the place; left alone, what is kept stands. */
+  readonly carriedIn: string | undefined
+  /** A play in progress whose cabinet and machine are being said anew, where one is. */
+  readonly cabinet: CabinetChoice | undefined
 }
 
 /** What a corner usually has, for each game: for ¥1,000, 250玉 rented and 280玉 exchanged, or 46枚 rented — what a 20-yen corner gives with the tax on top — and 52枚 exchanged; and a replay stated for half the rental. */
@@ -137,6 +154,8 @@ const EMPTY_START_FORM: StartForm = {
   pachislot: EMPTY_PACHISLOT_START,
   cabinetNumber: "",
   startCounter: "",
+  carriedIn: undefined,
+  cabinet: undefined,
 }
 
 /** A game's terms as recalled, a count left empty opening as the usual one again: the form never opens on a blank. */

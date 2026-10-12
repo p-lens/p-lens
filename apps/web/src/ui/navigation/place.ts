@@ -42,7 +42,8 @@ const isFormulaTab = (segment: string): segment is FormulaTab => (FORMULA_TABS a
  *
  * The live space, at the top of the rail, holds plays still being played:
  * `live` lists them, `live-new` starts one of a game, `live-play` is one in progress and
- * `live-record` records it into its book.
+ * `live-record` records it into its book, and `live-cabinet` says anew
+ * which cabinet and machine it is on.
  *
  * `destination` is another person's book this device may only send plays
  * to, named by the inbox line they are put on: its side panel is the day's
@@ -65,6 +66,7 @@ export type Place =
   | { readonly kind: "live-new"; readonly game: PlayGameKind }
   | { readonly kind: "live-play"; readonly playId: PlayId }
   | { readonly kind: "live-record"; readonly playId: PlayId }
+  | { readonly kind: "live-cabinet"; readonly playId: PlayId }
   | { readonly kind: "book"; readonly bookId: BookId }
   | { readonly kind: "book-view"; readonly bookId: BookId; readonly view: BookView }
   | { readonly kind: "book-breakdown"; readonly bookId: BookId; readonly by: Dimension }
@@ -157,6 +159,8 @@ const placeOfSegments = (segments: readonly string[], path: string): Place => {
     return { kind: "live-play", playId: second as PlayId }
   if (first === "play" && second !== undefined && second !== "new" && third === "record" && fourth === undefined)
     return { kind: "live-record", playId: second as PlayId }
+  if (first === "play" && second !== undefined && second !== "new" && third === "cabinet" && fourth === undefined)
+    return { kind: "live-cabinet", playId: second as PlayId }
   if (first === "books" && second !== undefined && third === undefined) return { kind: "book", bookId: second as BookId }
   if (first === "books" && second !== undefined && third !== undefined && fourth === undefined && isBookView(third))
     return { kind: "book-view", bookId: second as BookId, view: third }
@@ -198,6 +202,8 @@ export const pathOf = (place: Place): string => {
       return `/play/${encode(place.playId)}`
     case "live-record":
       return `/play/${encode(place.playId)}/record`
+    case "live-cabinet":
+      return `/play/${encode(place.playId)}/cabinet`
     case "book":
       return `/books/${encode(place.bookId)}`
     case "book-view":
@@ -272,6 +278,7 @@ export const focusOf = (place: Place): Focus => {
     case "live-new":
     case "live-play":
     case "live-record":
+    case "live-cabinet":
     case "pachinko-machine-search":
     case "parlor-submitted":
     case "pachinko-machine":
@@ -322,6 +329,7 @@ export const parentOf = (place: Place): Place | undefined => {
     case "live-play":
       return { kind: "live" }
     case "live-record":
+    case "live-cabinet":
       return { kind: "live-play", playId: place.playId }
     case "pachinko-machine-search":
     case "parlor-submitted":
@@ -371,6 +379,7 @@ export const inLiveSpace = (place: Place): boolean =>
     "live-new",
     "live-play",
     "live-record",
+    "live-cabinet",
     "pachinko-machine-search",
     "parlor-submitted",
     "pachinko-machine",

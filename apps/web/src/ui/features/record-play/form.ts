@@ -1,5 +1,5 @@
 import { parseIsoDate, type IsoDate } from "../../../core/calendar/calendar"
-import { tokenCommodity } from "../../../core/commodity/commodity"
+import { tokenCommodity, type TokenKind } from "../../../core/commodity/commodity"
 import { ZERO, decimal, isZero, parseDecimal, toPlainString, type Decimal } from "../../../core/decimal/decimal"
 import type { PlayDraft } from "../../../core/live-play/draft"
 import { samePool, type Parlor, type SavingsPool } from "../../../core/parlor/parlor"
@@ -214,6 +214,12 @@ export const formOfRecord = (record: PlayRecord): PlayForm => ({
   payout: countText(record.payout),
   theoreticalValue: record.theoreticalValue === undefined ? "" : toPlainString(record.theoreticalValue),
 })
+
+/** What the tokens in hand are called where they are typed, for each kind of token: those a play was begun with — brought from the play before — and those in hand as it ended, which are what it leaves. */
+export const IN_HAND_LABELS: Readonly<Record<TokenKind, { readonly carriedIn: string; readonly left: string }>> = {
+  ball: { carriedIn: "開始時の持ち玉", left: "持ち玉" },
+  medal: { carriedIn: "開始時の持ちメダル", left: "持ちメダル" },
+}
 
 /** What a form's button says, and says while it is at work: a play being recorded, or a recorded one being set right. */
 export interface SubmitWords {

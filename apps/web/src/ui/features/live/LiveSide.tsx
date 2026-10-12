@@ -21,7 +21,7 @@ import { parlorText } from "../../wording/parlor"
 import { sendingPortsOf } from "./sending-ports"
 
 const openPlay = (place: Place): string | undefined =>
-  place.kind === "live-play" || place.kind === "live-record" ? place.playId : undefined
+  place.kind === "live-play" || place.kind === "live-record" || place.kind === "live-cabinet" ? place.playId : undefined
 
 /** What stands beside a play's place and time, each a word: where it is in its day, and whose it is where it came from someone else. */
 const marksOf = (draft: PlayDraft, destinations: readonly Destination[]): readonly string[] => [

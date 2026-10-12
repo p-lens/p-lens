@@ -1,7 +1,7 @@
 import type { BookId, MemberId, TitledBook } from "../core/book/book"
 import { memberCan } from "../core/book/book"
 import type { IsoDate } from "../core/calendar/calendar"
-import { bookOf, headOf, isPast, withCheckpoints, withLog, type PlayDraft } from "../core/live-play/draft"
+import { bookOf, headOf, isPast, withCabinetNumber, withCheckpoints, withLog, withMachine, type MachineChange, type PlayDraft } from "../core/live-play/draft"
 import { exchangeRateOf, poolOf, type PlayTerms } from "../core/parlor/terms"
 import type { PlayId, PlayRecord, TalliedPlay } from "../core/play/play"
 import type { Checkpoint } from "../core/play-log/checkpoint"
@@ -59,6 +59,18 @@ export const reviseCheckpoints = async (drafts: DraftStorage, draft: PlayDraft, 
  */
 export const changeTerms = async (drafts: DraftStorage, draft: PlayDraft, terms: PlayTerms): Promise<Outcome<PlayDraft>> => {
   const next: PlayDraft = { ...draft, venue: draft.venue.type === "parlor" ? { ...draft.venue, terms } : { type: "none", terms } }
+  return mapOk(fromDraft(await drafts.updateDraft(next, draft.log)), () => next)
+}
+
+/**
+ * Say anew which cabinet a play is at and, where it was begun on the wrong
+ * one, which machine it is on: only the play changes — it is still the
+ * device's — and everything weighed from its readings is weighed anew by
+ * the machine it now names. Written against the log as it was read.
+ */
+export const changeCabinet = async (drafts: DraftStorage, draft: PlayDraft, change: { readonly cabinetNumber: string | undefined; readonly machine: MachineChange | undefined }): Promise<Outcome<PlayDraft>> => {
+  const numbered = withCabinetNumber(draft, change.cabinetNumber)
+  const next = change.machine === undefined ? numbered : withMachine(numbered, change.machine)
   return mapOk(fromDraft(await drafts.updateDraft(next, draft.log)), () => next)
 }
 

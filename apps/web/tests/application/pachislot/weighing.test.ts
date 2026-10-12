@@ -10,7 +10,7 @@ import type { MachineId } from "../../../src/core/machine/machine"
 import type { FormulaId, SettingDistributionId } from "../../../src/core/pachislot/formula"
 import { seatCheckpoint } from "../../../src/core/pachislot/reading"
 import { atSeatCheckpoint } from "../../../src/core/pachislot/path"
-import { GAMES_PER_HOUR, type Weighing } from "../../../src/core/pachislot/weighing"
+import { GAMES_PER_HOUR, readableBy, type Weighing } from "../../../src/core/pachislot/weighing"
 import type { PlayTerms } from "../../../src/core/parlor/terms"
 import type { Checkpoint } from "../../../src/core/play-log/checkpoint"
 import { inProcessEngine } from "../../support/pachislot/engine"
@@ -72,6 +72,14 @@ describe("weighing a pachislot play", () => {
     expect(sixth?.probability ?? 0).toBeGreaterThan(first?.probability ?? 0)
     expect(outlook.value.grounded).toBe(true)
     expect(outlook.value.theoreticalValue).toBeCloseTo(1000 * (outlook.value.netPerGame ?? Number.NaN) * 20, 6)
+  })
+
+  test("what was counted under names the formula lacks is refused by the engine, and weighed once the log is read by the formula alone", async () => {
+    const played = [...seated, { spins: 0, at, tally: {} }, { spins: 1000, outlay: 10_000, at, counter: { total: 1000, bonuses: { big: 5, reg: 4, "another-machines-bonus": 3 } }, tally: { "another-machines-grape": 140 } }]
+    expect((await weighPlay(inProcessEngine, even, played, terms)).ok).toBe(false)
+    const read = readableBy(even.formula, played)
+    expect(read.at(-1)).toEqual({ spins: 1000, outlay: 10_000, at, counter: { total: 1000, bonuses: { big: 5, reg: 4 } }, tally: {} })
+    expect((await weighPlay(inProcessEngine, even, read, terms)).ok).toBe(true)
   })
 
   test("with no terms, the medals are weighed and no yen is given", async () => {

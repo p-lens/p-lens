@@ -20,7 +20,6 @@ import { priorName } from "../../../wording/pachislot/formula"
 import { useBookFavorites } from "../../live/book-favorites"
 import { useStartForm } from "../../live/start-form"
 import { OutlookPanel } from "../live/OutlookPanel"
-import { PriorPicker } from "./ChoiceFields"
 import { readSeat, type Seat, type SeatForm, type SeatProblem, seatLineOf } from "./seat-form"
 
 /** What the slot start form has come to for a machine from the catalog: what it is weighed by, and the seat's counter as read. */
@@ -138,7 +137,7 @@ const isField = (problem: SeatProblem, field: SeatProblem["field"]): boolean => 
  * shows, and the games since the last bonus. A count that cannot be read
  * says so; a bonus left empty is only nudged when starting is pressed.
  */
-function SeatCounter(props: { readonly state: SeatState; readonly nudged: boolean; readonly onFocus: () => void }): JSX.Element {
+function SeatCounter(props: { readonly state: SeatState; readonly nudged: boolean; readonly onFocus: () => void; readonly beside: JSX.Element }): JSX.Element {
   const start = useStartForm()
   const problems = (): readonly SeatProblem[] => {
     const read = props.state.seat()
@@ -149,89 +148,92 @@ function SeatCounter(props: { readonly state: SeatState; readonly nudged: boolea
   const invalid = (field: SeatProblem["field"]): boolean => props.nudged && problems().some((problem) => isField(problem, field))
   return (
     <fieldset class="flex flex-col gap-1.5">
-      <legend class="pb-1.5 text-xs font-bold uppercase tracking-wide text-text-secondary">着席時のデータカウンター</legend>
-      <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Show when={!props.state.atMachine()}>
-          <TextField
-            label="累計ゲーム数"
-            value={start.form().pachislot.seatTotal}
-            onChange={(seatTotal) => start.updatePachislot({ seatTotal })}
-            inputMode="numeric"
-            suffix="G"
-            placeholder="0"
-            error={errorOf("total")}
-            invalid={invalid("total")}
-            onFocus={props.onFocus}
-            compact
-          />
-        </Show>
-        <Index each={props.state.counterBonuses()}>
-          {(bonus) => (
+      <legend class="sr-only">着席時のデータ</legend>
+      <div class="flex items-start gap-1.5">
+        <div class="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-4">
+          <Show when={!props.state.atMachine()}>
             <TextField
-              label={bonus().label}
-              value={start.form().pachislot.seatBonuses[bonus().id] ?? ""}
-              onChange={(count) => start.updatePachislot({ seatBonuses: { ...start.form().pachislot.seatBonuses, [bonus().id]: count } })}
+              label="累計ゲーム数"
+              value={start.form().pachislot.seatTotal}
+              onChange={(seatTotal) => start.updatePachislot({ seatTotal })}
               inputMode="numeric"
-              suffix="回"
+              suffix="G"
               placeholder="0"
-              error={errorOf({ bonus: bonus().id })}
-              invalid={invalid({ bonus: bonus().id })}
+              error={errorOf("total")}
+              invalid={invalid("total")}
               onFocus={props.onFocus}
               compact
             />
-          )}
-        </Index>
-        <TextField
-          label={props.state.atMachine() ? "AT間のゲーム数" : "現在ゲーム数"}
-          value={start.form().startCounter}
-          onChange={(startCounter) => start.update({ startCounter })}
-          inputMode="numeric"
-          suffix="G"
-          placeholder="0"
-          error={errorOf("sinceBonus")}
-          onFocus={props.onFocus}
-          compact
-        />
-        <Show when={hasCz(props.state.weighing()?.formula.normalized ?? NO_MACHINE)}>
+          </Show>
+          <Index each={props.state.counterBonuses()}>
+            {(bonus) => (
+              <TextField
+                label={bonus().label}
+                value={start.form().pachislot.seatBonuses[bonus().id] ?? ""}
+                onChange={(count) => start.updatePachislot({ seatBonuses: { ...start.form().pachislot.seatBonuses, [bonus().id]: count } })}
+                inputMode="numeric"
+                suffix="回"
+                placeholder="0"
+                error={errorOf({ bonus: bonus().id })}
+                invalid={invalid({ bonus: bonus().id })}
+                onFocus={props.onFocus}
+                compact
+              />
+            )}
+          </Index>
           <TextField
-            label="CZ間のゲーム数"
-            value={start.form().pachislot.seatSinceCz}
-            onChange={(seatSinceCz) => start.updatePachislot({ seatSinceCz })}
+            label={props.state.atMachine() ? "AT間のゲーム数" : "現在ゲーム数"}
+            value={start.form().startCounter}
+            onChange={(startCounter) => start.update({ startCounter })}
             inputMode="numeric"
             suffix="G"
-            placeholder={start.form().startCounter === "" ? "AT間と同じ" : start.form().startCounter}
-            error={errorOf("sinceCz")}
-            invalid={invalid("sinceCz")}
-            onFocus={props.onFocus}
-            compact
-          />
-          <TextField
-            label="CZスルー回数"
-            value={start.form().pachislot.seatMisses}
-            onChange={(seatMisses) => start.updatePachislot({ seatMisses })}
-            inputMode="numeric"
-            suffix="回"
             placeholder="0"
-            error={errorOf("misses")}
-            invalid={invalid("misses")}
+            error={errorOf("sinceBonus")}
             onFocus={props.onFocus}
             compact
           />
-        </Show>
-        <Show when={props.state.weighing()?.formula.normalized.atRules?.window !== undefined}>
-          <TextField
-            label="引き戻し中の獲得"
-            value={start.form().pachislot.seatHeld}
-            onChange={(seatHeld) => start.updatePachislot({ seatHeld })}
-            inputMode="numeric"
-            suffix="枚"
-            placeholder="引き戻し外"
-            error={errorOf("held")}
-            invalid={invalid("held")}
-            onFocus={props.onFocus}
-            compact
-          />
-        </Show>
+          <Show when={hasCz(props.state.weighing()?.formula.normalized ?? NO_MACHINE)}>
+            <TextField
+              label="CZ間のゲーム数"
+              value={start.form().pachislot.seatSinceCz}
+              onChange={(seatSinceCz) => start.updatePachislot({ seatSinceCz })}
+              inputMode="numeric"
+              suffix="G"
+              placeholder={start.form().startCounter === "" ? "AT間と同じ" : start.form().startCounter}
+              error={errorOf("sinceCz")}
+              invalid={invalid("sinceCz")}
+              onFocus={props.onFocus}
+              compact
+            />
+            <TextField
+              label="CZスルー回数"
+              value={start.form().pachislot.seatMisses}
+              onChange={(seatMisses) => start.updatePachislot({ seatMisses })}
+              inputMode="numeric"
+              suffix="回"
+              placeholder="0"
+              error={errorOf("misses")}
+              invalid={invalid("misses")}
+              onFocus={props.onFocus}
+              compact
+            />
+          </Show>
+          <Show when={props.state.weighing()?.formula.normalized.atRules?.window !== undefined}>
+            <TextField
+              label="引き戻し中の獲得"
+              value={start.form().pachislot.seatHeld}
+              onChange={(seatHeld) => start.updatePachislot({ seatHeld })}
+              inputMode="numeric"
+              suffix="枚"
+              placeholder="引き戻し外"
+              error={errorOf("held")}
+              invalid={invalid("held")}
+              onFocus={props.onFocus}
+              compact
+            />
+          </Show>
+        </div>
+        {props.beside}
       </div>
       <Show when={props.state.atMachine() && resetMatters(props.state.weighing()?.formula.normalized ?? NO_MACHINE)}>
         <ResetChoice />
@@ -260,31 +262,24 @@ function SeatOutlook(props: { readonly weighing: Weighing; readonly line: Checkp
 }
 
 /**
- * The part of starting a pachislot play below its machine and formula: the
- * prior, the seat's counter, and what the seat looks like. Until a machine
- * is chosen the seat has its games alone.
+ * The part of starting a pachislot play below its machine, formula and
+ * prior — which are what it is weighed by, and stand together above: the
+ * seat's counter as it was read, and what the seat looks like. Until a
+ * machine is chosen the seat has its games alone.
  */
 export function SeatFields(props: {
   readonly state: SeatState
   readonly terms: PlayTerms | undefined
   readonly nudged: boolean
   readonly onFocus: () => void
+  /** What stands at the end of the seat's row, beside its counts: the small button for what few seats have. */
+  readonly beside: JSX.Element
 }): JSX.Element {
-  const start = useStartForm()
   const terms = createMemo(() => props.terms, undefined, { equals: sameJson })
   const line = createMemo(() => props.state.firstLine(""), undefined, { equals: sameJson })
   return (
     <div class="flex flex-col gap-4">
-      <Show when={props.state.detail()} keyed>
-        {(detail) => (
-          <div class="grid grid-cols-1 gap-x-2 gap-y-4 sm:grid-cols-2">
-            <Show when={props.state.priorSelection()} keyed>
-              {(selection) => <PriorPicker detail={detail} selection={selection} onChoose={(prior) => start.updatePachislot({ prior })} />}
-            </Show>
-          </div>
-        )}
-      </Show>
-      <SeatCounter state={props.state} nudged={props.nudged} onFocus={props.onFocus} />
+      <SeatCounter state={props.state} nudged={props.nudged} onFocus={props.onFocus} beside={props.beside} />
       <Show when={props.state.weighing()}>
         {(weighing) => <Show when={line()}>{(found) => <SeatOutlook weighing={weighing()} line={found()} terms={terms()} />}</Show>}
       </Show>

@@ -10,3 +10,15 @@ export const carriedInOf = (ordered: readonly Checkpoint[]): number | undefined 
   const first = ordered.at(0)
   return first === undefined || first.spins !== 0 || first.held === undefined || first.held === 0 ? undefined : first.held
 }
+
+/**
+ * A log with the tokens its play was begun with set right: its first line
+ * counting so many in hand, or none. Every later line stands as it is —
+ * what it counts in hand is the play's own.
+ */
+export const withCarriedIn = (ordered: readonly Checkpoint[], carriedIn: number | undefined): readonly Checkpoint[] => {
+  const [first, ...rest] = ordered
+  if (first === undefined) return ordered
+  const { held: _held, ...seat } = first
+  return [carriedIn === undefined || carriedIn === 0 ? seat : { ...seat, held: carriedIn }, ...rest]
+}

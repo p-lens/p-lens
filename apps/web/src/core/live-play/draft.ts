@@ -157,6 +157,27 @@ export const withCheckpoints = (draft: PlayDraft, checkpoints: readonly Checkpoi
 /** The draft with its log made of these checkpoints and no others: a reading set right or taken away. */
 export const withLog = (draft: PlayDraft, checkpoints: readonly Checkpoint[]): PlayDraft => ({ ...draft, log: checkpoints.reduce(appendCheckpoint, "") })
 
+/**
+ * The machine a play is said anew to be on, with what it is weighed by: a
+ * person finds the readings unlike what they feel at the cabinet, and sees
+ * that the play was begun on another model of the same name. `readings`
+ * is the play's log as that machine reads it — its game says how — and is
+ * none where the log does not read, which is then left as it is.
+ */
+export type MachineChange = (
+  | { readonly type: "pachinko"; readonly name: string; readonly formula: Pachinko.FormulaSnapshot; readonly bonuses: readonly MachineBonus[] }
+  | { readonly type: "pachislot"; readonly name: string; readonly weighing: Pachislot.Weighing }
+) & { readonly readings: readonly Checkpoint[] | undefined }
+
+/** The draft on another machine, its log as that machine reads it. */
+export const withMachine = (draft: PlayDraft, machine: MachineChange): PlayDraft => {
+  const read = machine.readings === undefined ? draft : withLog(draft, machine.readings)
+  return machine.type === "pachinko" ? { ...read, machine: machine.name, pachinko: machine.formula, bonuses: machine.bonuses } : { ...read, machine: machine.name, pachislot: machine.weighing }
+}
+
+/** The draft at a cabinet of another number, or of none. */
+export const withCabinetNumber = (draft: PlayDraft, cabinetNumber: string | undefined): PlayDraft => ({ ...draft, cabinetNumber })
+
 const linesOf = (log: string): readonly string[] => log.split("\n").filter((line) => line.trim() !== "")
 
 /** How close in time two changes of one line must be to count as one: a count tapped up and up is one change, not twenty. */
