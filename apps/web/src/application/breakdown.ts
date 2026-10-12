@@ -7,25 +7,27 @@ import { negate } from "../core/decimal/decimal"
 import { actualOf, statisticTotalOf } from "../core/report/figures"
 import { andThen, mapOk } from "../core/result/result"
 import type { JournalAccess } from "../hledger/client/client"
-import { accountsRequest, actualCutRequest, actualRequest, theoreticalCutRequest, theoreticalRequest } from "../hledger/query/requests"
+import { accountsRequest, actualCutRequest, actualRequest, inferredCutRequest, inferredRequest, theoreticalCutRequest, theoreticalRequest } from "../hledger/query/requests"
 import { combine, untaggedTerm } from "../hledger/query/terms"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
 import { fromHledger, fromReport } from "./lift"
 
-/** The plays of a query grouped by one tag's values, each group's figures hledger's: an income statement and a balance of theoretical values, both pivoted on the tag. */
+/** The plays of a query grouped by one tag's values, each group's figures hledger's: an income statement, a balance of theoretical values and a balance of the inferred among them, all pivoted on the tag. */
 const byTag = async (journal: JournalAccess, query: string, tag: string): Promise<Outcome<readonly Group[]>> => {
-  const [statement, theoretical] = await Promise.all([journal.ask(actualCutRequest(query, { pivot: tag })), journal.ask(theoreticalCutRequest(query, { pivot: tag }))])
+  const [statement, theoretical, inferred] = await Promise.all([journal.ask(actualCutRequest(query, { pivot: tag })), journal.ask(theoreticalCutRequest(query, { pivot: tag })), journal.ask(inferredCutRequest(query, { pivot: tag }))])
   return andThen(andThen(fromHledger(statement), (report) => fromReport(byRow(report))), (made) =>
-    mapOk(andThen(fromHledger(theoretical), (report) => fromReport(byRow(report))), (worth) => groupsOf(made, worth)),
+    andThen(andThen(fromHledger(theoretical), (report) => fromReport(byRow(report))), (worth) => mapOk(andThen(fromHledger(inferred), (report) => fromReport(byRow(report))), (taken) => groupsOf(made, worth, taken))),
   )
 }
 
-/** Everything a query matches as one group under a key: an income statement and a balance of theoretical values, neither cut. */
+/** Everything a query matches as one group under a key: an income statement, a balance of theoretical values and a balance of the inferred among them, none cut. */
 const whole = async (journal: JournalAccess, query: string, key: string): Promise<Outcome<readonly Group[]>> => {
-  const [statement, theoretical] = await Promise.all([journal.ask(actualRequest(query)), journal.ask(theoreticalRequest(query))])
+  const [statement, theoretical, inferred] = await Promise.all([journal.ask(actualRequest(query)), journal.ask(theoreticalRequest(query)), journal.ask(inferredRequest(query))])
   return andThen(andThen(fromHledger(statement), (report) => fromReport(actualOf(report))), (actual) =>
-    mapOk(andThen(fromHledger(theoretical), (report) => fromReport(statisticTotalOf(report))), (worth) => groupsOf(new Map([[key, negate(actual)]]), new Map([[key, worth]]))),
+    andThen(andThen(fromHledger(theoretical), (report) => fromReport(statisticTotalOf(report))), (worth) =>
+      mapOk(andThen(fromHledger(inferred), (report) => fromReport(statisticTotalOf(report))), (taken) => groupsOf(new Map([[key, negate(actual)]]), new Map([[key, worth]]), new Map([[key, taken]]))),
+    ),
   )
 }
 
@@ -45,11 +47,11 @@ const byTags = async (journal: JournalAccess, query: string, tags: readonly stri
   return mapOk(await byTags(journal, combine(query, untaggedTerm(tag)), rest), (further) => [...groups.value.filter((group) => group.key !== UNSAID), ...further])
 }
 
-/** The plays of a query grouped by period, each period's figures hledger's: the two reports, each with a column a period. */
+/** The plays of a query grouped by period, each period's figures hledger's: the three reports, each with a column a period. */
 const byPeriod = async (journal: JournalAccess, query: string, period: Period): Promise<Outcome<readonly Group[]>> => {
-  const [statement, theoretical] = await Promise.all([journal.ask(actualCutRequest(query, { interval: period })), journal.ask(theoreticalCutRequest(query, { interval: period }))])
+  const [statement, theoretical, inferred] = await Promise.all([journal.ask(actualCutRequest(query, { interval: period })), journal.ask(theoreticalCutRequest(query, { interval: period })), journal.ask(inferredCutRequest(query, { interval: period }))])
   return andThen(andThen(fromHledger(statement), (report) => fromReport(byColumn(report, period))), (made) =>
-    mapOk(andThen(fromHledger(theoretical), (report) => fromReport(byColumn(report, period))), (worth) => groupsOf(made, worth)),
+    andThen(andThen(fromHledger(theoretical), (report) => fromReport(byColumn(report, period))), (worth) => mapOk(andThen(fromHledger(inferred), (report) => fromReport(byColumn(report, period))), (taken) => groupsOf(made, worth, taken))),
   )
 }
 

@@ -6,6 +6,7 @@ pub mod aggregate;
 pub mod combo;
 pub mod estimate;
 pub mod hyena_hunt;
+pub mod inference;
 pub mod rng;
 pub mod session;
 pub mod simulation;

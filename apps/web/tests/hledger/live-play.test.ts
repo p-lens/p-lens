@@ -177,6 +177,7 @@ describe("a play with no parlor", () => {
       outlay: dec("5000"),
       takings: dec("0"),
       theoreticalValue: undefined,
+      told: undefined,
     }
     expect((await finishTalliedPlay(session, drafts, nowhere, BOOK, play, { at: undefined, counter: undefined }, NOW)).ok).toBe(true)
     const [head = "", ...readings] = (storage.peek(BOOK)?.files[`pachinko-play/${ID}.jsonl`] ?? "").split("\n")

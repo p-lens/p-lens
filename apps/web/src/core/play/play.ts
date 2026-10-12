@@ -76,6 +76,36 @@ export interface TalliedPlay extends PlayHead {
   readonly outlay: Decimal
   /** What came back, in yen (回収額). */
   readonly takings: Decimal
+  /** What else was told of it, where its hours were. */
+  readonly told: PlayTold | undefined
+}
+
+/**
+ * What a person tells of a play typed in afterwards, beside its two sides:
+ * how long it lasted (稼働時間) and, where they looked, the jackpots its
+ * counter showed (大当り回数) — and what the play was taken to be worth
+ * from them, where it was weighed.
+ */
+export interface PlayTold {
+  /** In hours, to the hundredth: five minutes at a time where a person chose them, and as another app said them where a play was taken in from one. */
+  readonly hours: Decimal
+  readonly jackpots: number | undefined
+  readonly inferred: InferredWorth | undefined
+}
+
+/**
+ * A theoretical value nobody measured (推定期待値): what a told play was
+ * taken to be worth, in yen, with what the taking stood on — the formula
+ * the machine was played out by, what a token rented for and what ¥100 of
+ * prizes took in tokens — so the same play is weighed the same again.
+ */
+export interface InferredWorth {
+  readonly value: Decimal
+  readonly formulaId: string
+  /** Yen a token rented for. */
+  readonly tokenRental: Decimal
+  /** Tokens ¥100 of prizes took. */
+  readonly tokenExchange: Decimal
 }
 
 export const PLAY_TAGS = {
@@ -84,6 +114,11 @@ export const PLAY_TAGS = {
   machine: "machine",
   cabinetNumber: "cabinet-number",
   carriedIn: "carried-in",
+  hours: "hours",
+  jackpots: "jackpots",
+  inferredFormula: "inferred-formula",
+  tokenRental: "token-rental",
+  tokenExchange: "token-exchange",
 } as const
 
 /** The parts of a record a person fills in with a number. */
@@ -96,6 +131,7 @@ export type NumericField =
   | "payout"
   | "takings"
   | "theoretical-value"
+  | "jackpots"
 
 /** The parts of a record a person fills in with words. */
 export type TextField = "machine" | "cabinet-number"

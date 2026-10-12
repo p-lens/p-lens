@@ -28,6 +28,7 @@ const NUMERIC_FIELDS: Readonly<Record<NumericField, string>> = {
   payout: "持ち玉・持ちメダル",
   takings: "回収額",
   "theoretical-value": "期待値",
+  jackpots: "大当り回数",
 }
 
 const TEXT_FIELDS: Readonly<Record<TextField, string>> = { machine: "機種", "cabinet-number": "台番号" }

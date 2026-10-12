@@ -391,6 +391,136 @@ pub struct HyenaHuntResponse {
     pub summary: HyenaHuntSummaryDto,
 }
 
+/// A play told of afterwards, weighed for the spin performance its cabinet
+/// had: the machine played out for its hours, so many times, from a seed.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct InferenceRequest {
+    pub source: SourceDto,
+    pub conditions: ConditionsDto,
+    pub told: ToldDto,
+    pub belief: BeliefDto,
+    /// Regular spins the cabinet plays in an hour.
+    pub spins_per_hour: f64,
+    /// Balls ¥1,000 rents.
+    pub rented_per_thousand: f64,
+    /// Yen a ball exchanges for.
+    pub ball_value: f64,
+    /// Balls a regular spin wins on average, by the play's formula.
+    pub balls_per_spin: f64,
+    pub trials: u64,
+    /// A 64-bit seed as a decimal string.
+    pub seed: String,
+    pub chunk: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub progress: Option<InferenceProgressDto>,
+}
+
+/// An inference in progress, carried across chunks. Opaque to JavaScript.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct InferenceProgressDto {
+    /// The generator's four words, as decimal strings.
+    pub rng: [String; 4],
+    pub trials: u64,
+    pub weighed: WeighedDto,
+    pub beyond: BeyondDto,
+}
+
+/// How many trials went at least as far as what was told, each way.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BeyondDto {
+    pub outlay_at_least: u64,
+    pub outlay_at_most: u64,
+    pub takings_at_least: u64,
+    pub takings_at_most: u64,
+    pub result_at_least: u64,
+    pub result_at_most: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct WeighedDto {
+    pub bins: Vec<f64>,
+    pub values: Vec<f64>,
+    pub weight: f64,
+    pub weight_squared: f64,
+    pub spins: f64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct InferenceSummaryDto {
+    pub trials: u64,
+    pub planned: u64,
+    pub finished: bool,
+    /// The reading so far; none until a trial has come near what was told.
+    pub reading: Option<ReadingDto>,
+    /// The fewest trials that went as far as the play any one way: out of
+    /// `trials`, how often a play as far out as this one came.
+    pub rarest: u64,
+    /// Which way that was.
+    pub rarest_way: WayDto,
+}
+
+/// A way a play can be out of the ordinary: in its cash, in what came
+/// back or in what the two came to, by as much as told or more, or by as
+/// little or less.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum WayDto {
+    OutlayAtLeast,
+    OutlayAtMost,
+    TakingsAtLeast,
+    TakingsAtMost,
+    ResultAtLeast,
+    ResultAtMost,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct InferenceResponse {
+    pub progress: InferenceProgressDto,
+    pub summary: InferenceSummaryDto,
+}
+
+/// What a person tells of a play afterwards: its hours, the cash it took
+/// and what came back, in yen, and the jackpots where they looked.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ToldDto {
+    pub hours: f64,
+    pub outlay: f64,
+    pub takings: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jackpots: Option<u64>,
+}
+
+/// What is believed of the spin performance before the play is told of.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BeliefDto {
+    pub mean: f64,
+    pub deviation: f64,
+}
+
+/// What a told play is taken to have been: the spin performance to go by,
+/// the middle of what it allows, with the quartiles either side of it,
+/// the regular spins it had, and how much the reading rests on.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadingDto {
+    pub lower: f64,
+    pub middle: f64,
+    pub upper: f64,
+    pub spins: f64,
+    /// The theoretical value half the trials' weight lies below, in yen:
+    /// each trial's own, and the middle of those.
+    pub value: f64,
+    pub effective_trials: f64,
+}
+
 /// 遊タイム狙い solved exactly, from each of several initial spins.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]

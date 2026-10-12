@@ -3,7 +3,8 @@
 #![allow(clippy::expect_used, clippy::indexing_slicing)]
 
 use pachinko_wasm::api::{
-    analyze, estimate_chunk, hyena_hunt_chunk, hyena_hunt_table, normalize, simulate_chunk,
+    analyze, estimate_chunk, hyena_hunt_chunk, hyena_hunt_table, inference_chunk, normalize,
+    simulate_chunk,
 };
 use serde_json::{Value, json};
 
@@ -276,4 +277,65 @@ const NORMALIZED: &str =
 fn normalising_the_made_up_still_gives_the_stored_fixture() {
     let reply = value(&normalize(&json!({ "spec": value(SPEC) }).to_string()));
     assert_eq!(reply["value"], value(NORMALIZED));
+}
+
+fn inferred(outlay: f64, hours: f64, progress: Option<&Value>, size: u64) -> Value {
+    value(&inference_chunk(
+        &json!({
+            "source": { "type": "spec", "spec": value(SPEC) },
+            "conditions": { "roundPayout": { "type": "from-spec" } },
+            "told": { "hours": hours, "outlay": outlay, "takings": 0.0 },
+            "belief": { "mean": 18.0, "deviation": 4.0 },
+            "spinsPerHour": 200.0,
+            "rentedPerThousand": 250.0,
+            "ballValue": 3.57,
+            "ballsPerSpin": 14.0,
+            "trials": 8000,
+            "seed": "5",
+            "chunk": size,
+            "progress": progress,
+        })
+        .to_string(),
+    ))
+}
+
+#[test]
+fn a_told_play_weighed_across_the_boundary_matches_one_run_and_is_worse_for_more_cash() {
+    let lean = inferred(20_000.0, 1.0, None, 8000);
+    let first = inferred(20_000.0, 1.0, None, 3000);
+    let second = inferred(20_000.0, 1.0, Some(&first["value"]["progress"]), 5000);
+    assert_eq!(second["value"]["summary"], lean["value"]["summary"]);
+    assert_eq!(first["value"]["summary"]["finished"], json!(false));
+    assert_eq!(lean["value"]["summary"]["finished"], json!(true));
+    let fat = inferred(8_000.0, 1.0, None, 8000);
+    let lower = |reply: &Value| {
+        reply["value"]["summary"]["reading"]["lower"]
+            .as_f64()
+            .expect("a reading")
+    };
+    assert!(lower(&lean) < lower(&fat));
+    let rarest = |reply: &Value| {
+        reply["value"]["summary"]["rarest"]
+            .as_u64()
+            .expect("a count")
+    };
+    assert!(rarest(&inferred(200_000.0, 1.0, None, 8000)) < rarest(&lean));
+    assert_eq!(
+        inferred(200_000.0, 1.0, None, 8000)["value"]["summary"]["rarestWay"],
+        json!("outlay-at-least")
+    );
+    assert!(
+        lean["value"]["summary"]["reading"]["value"]
+            .as_f64()
+            .expect("a value")
+            < 0.0
+    );
+}
+
+#[test]
+fn a_told_play_with_no_hours_is_refused_by_its_path() {
+    assert_eq!(
+        inferred(20_000.0, 0.0, None, 8000)["error"],
+        json!({ "type": "invalid-value", "field": "told.hours" })
+    );
 }

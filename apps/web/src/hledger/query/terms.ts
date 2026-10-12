@@ -34,7 +34,11 @@ export const savingsTerm = `^(${escapeRegex(savingsRoot("ball"))}|${escapeRegex(
 /** The entries that registered the savings a pool began with. */
 export const openingBalanceTerm = (kind: TokenKind, parlorName: string, tier: string): string => `tag:${SAVINGS_TAG}=^opening$ ^${escapeRegex(savingsAccount(kind, parlorName, tier))}$`
 
-export const theoreticalValueTerm = `^${escapeRegex(ACCOUNTS.theoreticalValue)}$`
+/** The theoretical value's account and what is kept under it: the measured and the inferred together. */
+export const theoreticalValueTerm = `^${escapeRegex(ACCOUNTS.theoreticalValue)}(:|$)`
+
+/** The inferred theoretical value's account alone: what nobody measured, apart from what was. */
+export const inferredValueTerm = `^${escapeRegex(ACCOUNTS.inferredTheoreticalValue)}$`
 
 export const playsTerm = `tag:${PLAY_TAGS.playId}`
 

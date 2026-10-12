@@ -15,7 +15,8 @@
  *
  * Taking it out is deleting this folder, `tests/ui/result-calendar`, those
  * lines and its section of `ARCHITECTURE.md`. It asks hledger nothing
- * of its own: its figures are the breakdown's, by day and by month, and
+ * of its own: its figures are the breakdown's, by day and by month —
+ * how much of the month's theoretical value was inferred among them — and
  * whether the book keeps theoretical values is asked as the breakdown asks.
  */
 export { ResultCalendarIcon } from "./icons"

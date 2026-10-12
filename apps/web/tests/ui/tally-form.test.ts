@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import type { PlayId } from "../../src/core/play/play"
-import { emptyTallyForm, readTallyForm, resultOfTally } from "../../src/ui/features/record-play/tally-form"
+import { emptyTallyForm, HOUR_CHOICES, hoursOfMinutes, MINUTE_CHOICES, minutesToldIn, readTallyForm, resultOfTally } from "../../src/ui/features/record-play/tally-form"
 import { UMEDA, dec } from "../support/values"
 
 const ID = "new" as PlayId
@@ -20,7 +20,7 @@ describe("the tally form", () => {
         cabinetNumber: undefined,
         outlay: dec("12000"),
         takings: dec("3000"),
-        theoreticalValue: dec("8000"),
+        theoreticalValue: dec("8000"), told: undefined,
       },
     })
   })
@@ -56,5 +56,14 @@ describe("the tally form", () => {
     const form = { ...emptyTallyForm("2026-09-30"), outlay: "1000" }
     const read = readTallyForm(form, [UMEDA], (date) => `play-on-${date}` as never)
     expect(read.ok && read.value.id).toBe("play-on-2026-09-30" as never)
+  })
+
+  test("holds a play's hours to the hundredth, as the hours and the minutes chosen five at a time come to, and reads them back as chosen", () => {
+    expect([145, 5, 55, 60, 1440].map(hoursOfMinutes)).toEqual(["2.42", "0.08", "0.92", "1", "24"])
+    expect([0, -5].map(hoursOfMinutes)).toEqual(["", ""])
+    expect(["2.42", "0.08", "0.92", "1", "24", "4.25"].map((hours) => minutesToldIn({ hours }))).toEqual([145, 5, 55, 60, 1440, 255])
+    expect(minutesToldIn({ hours: "" })).toBeUndefined()
+    expect(HOUR_CHOICES.every((hours) => MINUTE_CHOICES.every((minutes) => (minutesToldIn({ hours: hoursOfMinutes(hours * 60 + minutes) }) ?? 0) === hours * 60 + minutes))).toBe(true)
+    expect([HOUR_CHOICES.at(0), HOUR_CHOICES.at(-1), MINUTE_CHOICES.at(1), MINUTE_CHOICES.at(-1)]).toEqual([0, 24, 5, 55])
   })
 })

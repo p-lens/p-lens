@@ -8,6 +8,7 @@ import { playLogPath } from "../core/play-log/checkpoint"
 import { pricePointsOf } from "../core/report/holdings"
 import { andThen, mapOk, type Result } from "../core/result/result"
 import { withPrizesDeclaredFor } from "../core/savings/prize-exchange"
+import { withInferredDeclaredFor } from "../core/theoretical/theoretical"
 import { renderPricePoint, type PricePoint } from "../core/valuation/valuation"
 import { accountsRequest, pricesRequest } from "../hledger/query/requests"
 import type { CommitId } from "../history/port/history-port"
@@ -61,10 +62,10 @@ export const composedInYen =
   () =>
     mapOk(composeTalliedEntry(play), (entry) => ({ entry, price: undefined }))
 
-/** The book's files with the accounts an entry posts to declared, where the book lacks them: a gain in yen is written to the prize accounts, which a book made before they were has none of. */
+/** The book's files with the accounts an entry posts to declared, where the book lacks them: a gain in yen is written to the prize accounts, and a theoretical value nobody measured to an account of its own, and a book made before either was has neither. */
 export const withAccountsFor = (files: ProposedChange["files"], entry: Entry): ProposedChange["files"] => {
   const accounts = files[BOOK_FILES.accounts] ?? ""
-  const declared = withPrizesDeclaredFor(accounts, entry)
+  const declared = withInferredDeclaredFor(withPrizesDeclaredFor(accounts, entry), entry)
   return declared === accounts ? files : { ...files, [BOOK_FILES.accounts]: declared }
 }
 

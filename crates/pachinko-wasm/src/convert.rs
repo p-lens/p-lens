@@ -24,16 +24,20 @@ use pachinko_simulator::aggregate::{Aggregate, HISTOGRAM_BUCKET_YEN};
 use pachinko_simulator::combo::ReliefGauge;
 use pachinko_simulator::estimate::{Estimate, Tally};
 use pachinko_simulator::hyena_hunt::{HyenaHunt, HyenaHuntTally};
+use pachinko_simulator::inference::{
+    BINS, Belief, Beyond, Inference, InferenceSetup, InferenceTally, Told, VALUE_BINS, Way, Weighed,
+};
 use pachinko_simulator::rng::Rng;
 use pachinko_simulator::simulation::{Plan, Progress};
 
 use crate::dto::{
-    AllotmentDto, AnalysisDto, BucketDto, ComponentsDto, ConditionsDto, DerivationDto, ErrorDto,
-    EstimateProgressDto, EstimateSummaryDto, HyenaHuntProgressDto, HyenaHuntSummaryDto,
-    LocationDto, ModeEntryDto, NextDto, NormalizedReliefDriveDto, NormalizedSpecDto, OriginDto,
-    OtherRoundsDto, OutcomeDto, PlanDto, PlayDto, ProbabilityDto, ProgressDto,
-    ReliefDriveFiguresDto, RestartDto, RestartKindDto, RoundPayoutDto, SpecDto, StateDto,
-    SummaryDto, TargetDto, UnsupportedDto,
+    AllotmentDto, AnalysisDto, BeyondDto, BucketDto, ComponentsDto, ConditionsDto, DerivationDto,
+    ErrorDto, EstimateProgressDto, EstimateSummaryDto, HyenaHuntProgressDto, HyenaHuntSummaryDto,
+    InferenceProgressDto, InferenceRequest, InferenceSummaryDto, LocationDto, ModeEntryDto,
+    NextDto, NormalizedReliefDriveDto, NormalizedSpecDto, OriginDto, OtherRoundsDto, OutcomeDto,
+    PlanDto, PlayDto, ProbabilityDto, ProgressDto, ReadingDto, ReliefDriveFiguresDto, RestartDto,
+    RestartKindDto, RoundPayoutDto, SpecDto, StateDto, SummaryDto, TargetDto, UnsupportedDto,
+    WayDto, WeighedDto,
 };
 
 fn invalid(field: &str) -> ErrorDto {
@@ -723,6 +727,122 @@ pub fn estimate_summary_dto(
         rounds_per_first_hit: tally.rounds_per_cycle(),
         payout_per_round: payout_per_round.value(),
         truncated_combos: tally.truncated_combos,
+    }
+}
+
+fn amount(value: f64, field: &str) -> Result<f64, ErrorDto> {
+    (value.is_finite() && value >= 0.0)
+        .then_some(value)
+        .ok_or_else(|| invalid(field))
+}
+
+fn positive(value: f64, field: &str) -> Result<f64, ErrorDto> {
+    (value.is_finite() && value > 0.0)
+        .then_some(value)
+        .ok_or_else(|| invalid(field))
+}
+
+/// # Errors
+/// A figure that is not one a play can have, named by its path.
+pub fn inference_setup(
+    request: &InferenceRequest,
+    payout_scale: f64,
+) -> Result<InferenceSetup, ErrorDto> {
+    Ok(InferenceSetup {
+        told: Told {
+            hours: positive(request.told.hours, "told.hours")?,
+            outlay: amount(request.told.outlay, "told.outlay")?,
+            takings: amount(request.told.takings, "told.takings")?,
+            jackpots: request.told.jackpots,
+        },
+        belief: Belief {
+            mean: positive(request.belief.mean, "belief.mean")?,
+            deviation: amount(request.belief.deviation, "belief.deviation")?,
+        },
+        spins_per_hour: positive(request.spins_per_hour, "spinsPerHour")?,
+        rented_per_thousand: positive(request.rented_per_thousand, "rentedPerThousand")?,
+        ball_value: BallValue::new(request.ball_value).ok_or_else(|| invalid("ballValue"))?,
+        payout_scale,
+        balls_per_spin: positive(request.balls_per_spin, "ballsPerSpin")?,
+    })
+}
+
+/// # Errors
+/// When the carried generator or weights are not ones this adapter wrote.
+pub fn inference(dto: &InferenceProgressDto) -> Result<Inference, ErrorDto> {
+    if dto.weighed.bins.len() != BINS || dto.weighed.values.len() != VALUE_BINS {
+        return Err(invalid("progress.weighed"));
+    }
+    Ok(Inference {
+        rng: generator(&dto.rng)?,
+        tally: InferenceTally {
+            trials: dto.trials,
+            weighed: Weighed {
+                bins: dto.weighed.bins.clone(),
+                values: dto.weighed.values.clone(),
+                weight: dto.weighed.weight,
+                weight_squared: dto.weighed.weight_squared,
+                spins: dto.weighed.spins,
+            },
+            beyond: Beyond {
+                outlay_at_least: dto.beyond.outlay_at_least,
+                outlay_at_most: dto.beyond.outlay_at_most,
+                takings_at_least: dto.beyond.takings_at_least,
+                takings_at_most: dto.beyond.takings_at_most,
+                result_at_least: dto.beyond.result_at_least,
+                result_at_most: dto.beyond.result_at_most,
+            },
+        },
+    })
+}
+
+pub fn inference_progress_dto(inference: &Inference) -> InferenceProgressDto {
+    let [a, b, c, d] = inference.rng.state();
+    let (weighed, beyond) = (&inference.tally.weighed, &inference.tally.beyond);
+    InferenceProgressDto {
+        rng: [a.to_string(), b.to_string(), c.to_string(), d.to_string()],
+        trials: inference.tally.trials,
+        weighed: WeighedDto {
+            bins: weighed.bins.clone(),
+            values: weighed.values.clone(),
+            weight: weighed.weight,
+            weight_squared: weighed.weight_squared,
+            spins: weighed.spins,
+        },
+        beyond: BeyondDto {
+            outlay_at_least: beyond.outlay_at_least,
+            outlay_at_most: beyond.outlay_at_most,
+            takings_at_least: beyond.takings_at_least,
+            takings_at_most: beyond.takings_at_most,
+            result_at_least: beyond.result_at_least,
+            result_at_most: beyond.result_at_most,
+        },
+    }
+}
+
+pub fn inference_summary_dto(inference: &Inference, planned: NonZeroU64) -> InferenceSummaryDto {
+    let (rarest, way) = inference.tally.beyond.rarest();
+    InferenceSummaryDto {
+        trials: inference.tally.trials,
+        planned: planned.get(),
+        finished: inference.is_finished(planned),
+        reading: inference.tally.reading().map(|reading| ReadingDto {
+            lower: reading.lower,
+            middle: reading.middle,
+            upper: reading.upper,
+            spins: reading.spins,
+            value: reading.value,
+            effective_trials: reading.effective_trials,
+        }),
+        rarest,
+        rarest_way: match way {
+            Way::OutlayAtLeast => WayDto::OutlayAtLeast,
+            Way::OutlayAtMost => WayDto::OutlayAtMost,
+            Way::TakingsAtLeast => WayDto::TakingsAtLeast,
+            Way::TakingsAtMost => WayDto::TakingsAtMost,
+            Way::ResultAtLeast => WayDto::ResultAtLeast,
+            Way::ResultAtMost => WayDto::ResultAtMost,
+        },
     }
 }
 

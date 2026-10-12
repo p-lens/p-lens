@@ -131,7 +131,7 @@ const TALLIED: TalliedPlay = {
   cabinetNumber: undefined,
   outlay: dec("12000"),
   takings: dec("0"),
-  theoreticalValue: dec("8000"),
+  theoreticalValue: dec("8000"), told: undefined,
 }
 
 describe("composeTalliedEntry", () => {

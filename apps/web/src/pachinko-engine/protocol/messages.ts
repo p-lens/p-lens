@@ -1,16 +1,19 @@
 import type {
   AnalysisDto,
   AnalyzeRequest,
+  BeliefDto,
   ConditionsDto,
   EngineErrorDto,
   EstimateSummaryDto,
   HyenaHuntRowDto,
   HyenaHuntSummaryDto,
   HyenaHuntTableRequest,
+  InferenceSummaryDto,
   PlanDto,
   PlayDto,
   SourceDto,
   SummaryDto,
+  ToldDto,
 } from "@p-lens/contracts/pachinko"
 
 /** A Monte Carlo run as the screen asks for it; the worker decides the chunks. */
@@ -27,6 +30,20 @@ export interface EstimateOrder {
   readonly source: SourceDto
   readonly conditions: ConditionsDto
   readonly cycles: number
+  readonly seed: string
+}
+
+/** The weighing of a play told of afterwards as the screen asks for it: so many trials from a seed; the worker decides the chunks. */
+export interface InferenceOrder {
+  readonly source: SourceDto
+  readonly conditions: ConditionsDto
+  readonly told: ToldDto
+  readonly belief: BeliefDto
+  readonly spinsPerHour: number
+  readonly rentedPerThousand: number
+  readonly ballValue: number
+  readonly ballsPerSpin: number
+  readonly trials: number
   readonly seed: string
 }
 
@@ -60,6 +77,7 @@ export type ToWorker =
   | { readonly type: "simulate"; readonly id: number; readonly order: SimulationOrder }
   | { readonly type: "estimate"; readonly id: number; readonly order: EstimateOrder }
   | { readonly type: "hyena-hunt"; readonly id: number; readonly order: HyenaHuntOrder }
+  | { readonly type: "infer"; readonly id: number; readonly order: InferenceOrder }
   | { readonly type: "cancel"; readonly id: number }
 
 /** What a chunked run reports, in the order it happens. */
@@ -79,3 +97,4 @@ export type FromWorker =
   | { readonly type: "simulation"; readonly id: number; readonly event: SimulationEvent }
   | { readonly type: "estimate"; readonly id: number; readonly event: RunEvent<EstimateSummaryDto> }
   | { readonly type: "hyena-hunt"; readonly id: number; readonly event: RunEvent<HyenaHuntSummaryDto> }
+  | { readonly type: "inference"; readonly id: number; readonly event: RunEvent<InferenceSummaryDto> }

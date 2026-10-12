@@ -9,3 +9,4 @@ export function simulateChunk(request: string): string
 export function estimateChunk(request: string): string
 export function hyenaHuntChunk(request: string): string
 export function hyenaHuntTable(request: string): string
+export function inferenceChunk(request: string): string

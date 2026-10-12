@@ -1,5 +1,7 @@
 import type { IsoDate } from "../../core/calendar/calendar"
+import type { Decimal } from "../../core/decimal/decimal"
 import { UNSAID, type Dimension } from "../../core/report/breakdown"
+import { formatTheoreticalYen } from "./numbers"
 
 /** What each way of grouping plays is called, as the list of them offers it. */
 export const DIMENSION_NAMES: Readonly<Record<Dimension, string>> = {
@@ -25,6 +27,9 @@ export const BY_BOOK = "帳簿別"
 const WEEKDAYS = ["月曜", "火曜", "水曜", "木曜", "金曜", "土曜", "日曜"] as const
 
 const GAMES: Readonly<Record<string, string>> = { pachinko: "パチンコ", slot: "スロット" }
+
+/** What is said beside a sum of theoretical values where part of it was inferred: how much of it is not measurement. */
+export const inferredShareText = (inferred: Decimal): string => `うち推定 ${formatTheoreticalYen(inferred)}`
 
 /** What stands for a sum of theoretical values in a book that has none written in it: there is nothing to sum, which nought would not say. */
 export const NOT_TALLIED = "集計なし"

@@ -5,7 +5,7 @@ import { searchKeyOf } from "../text/search-key"
 import type { MachineSummary } from "./catalog"
 
 /** Text as a machine search compares it: as any search does, and without the stars a machine's name is written with — ひかり☆ルミエ is ひかりルミエ. */
-const machineKeyOf = (text: string): string => searchKeyOf(text).replace(/[☆★]/g, "")
+export const machineKeyOf = (text: string): string => searchKeyOf(text).replace(/[☆★]/g, "")
 
 /** Whether a machine is found by what was typed: by its name, its model name or any word it is searched by. */
 export const machineMatches = (machine: Pick<MachineSummary, "name" | "modelName" | "keywords">, typed: string): boolean => {

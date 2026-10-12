@@ -3,10 +3,10 @@ import { isZero, multiply, negate, subtract, toPlainString, type Decimal } from 
 import { ACCOUNTS, rentalSpreadAccount, savingsAccount } from "../journal/accounts"
 import type { Entry, Posting } from "../journal/entry"
 import { Err, Ok, andThen, mapOk, type Result } from "../result/result"
-import { theoreticalValuePosting } from "../theoretical/theoretical"
+import { inferredTheoreticalValuePosting, theoreticalValuePosting } from "../theoretical/theoretical"
 import { rateOn, rateReachingBack, type PricePoint } from "../valuation/valuation"
 import { identityTags, type Parlor } from "../parlor/parlor"
-import { PLAY_TAGS, type PlayError, type PlayHead, type PlayRecord, type Rental, type Replay, type TalliedPlay } from "./play"
+import { PLAY_TAGS, type PlayError, type PlayHead, type PlayRecord, type PlayTold, type Rental, type Replay, type TalliedPlay } from "./play"
 import { sidePostings } from "./sides"
 import { validatePlay, validateTalliedPlay } from "./validate"
 
@@ -145,11 +145,30 @@ export const composePlayEntry = (record: PlayRecord, prices: readonly PricePoint
     })),
   )
 
-/** One play kept in yen as one journal entry: its two sides and its theoretical value together. */
+/** What an entry says of what was told of its play: its hours, and each of the rest where it was told or taken. */
+export const toldTags = (told: PlayTold | undefined): Entry["tags"] =>
+  told === undefined
+    ? []
+    : [
+        [PLAY_TAGS.hours, toPlainString(told.hours)],
+        ...(told.jackpots === undefined ? [] : [[PLAY_TAGS.jackpots, String(told.jackpots)] as const]),
+        ...(told.inferred === undefined
+          ? []
+          : [
+              [PLAY_TAGS.inferredFormula, told.inferred.formulaId] as const,
+              [PLAY_TAGS.tokenRental, toPlainString(told.inferred.tokenRental)] as const,
+              [PLAY_TAGS.tokenExchange, toPlainString(told.inferred.tokenExchange)] as const,
+            ]),
+      ]
+
+/** What a told play was taken to be worth, where it was weighed and no theoretical value was given: one given is the play's, and nothing is inferred beside it. */
+const inferredPostings = (play: TalliedPlay): readonly Posting[] => (play.theoreticalValue !== undefined || play.told?.inferred === undefined ? [] : [inferredTheoreticalValuePosting(play.told.inferred.value)])
+
+/** One play kept in yen as one journal entry: its two sides and its theoretical value — given, or inferred from what was told of it — together. */
 export const composeTalliedEntry = (play: TalliedPlay): Result<Entry, PlayError> =>
   mapOk(validateTalliedPlay(play), (valid) => ({
     date: valid.date,
     description: describe(valid, valid.parlor),
-    tags: tagsOf(valid, valid.parlor),
-    postings: [...sidePostings(valid.outlay, valid.takings), ...statisticPostings(valid)],
+    tags: [...tagsOf(valid, valid.parlor), ...toldTags(valid.told)],
+    postings: [...sidePostings(valid.outlay, valid.takings), ...statisticPostings(valid), ...inferredPostings(valid)],
   }))

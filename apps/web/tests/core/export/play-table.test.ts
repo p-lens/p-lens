@@ -13,7 +13,7 @@ describe("plays as a table", () => {
     expect(
       playTableOf([
         {
-          play: { id: "one" as PlayId, date: "2026-10-08" as IsoDate, description: "", parlorId: undefined, gameKind: "slot", machine: "ピエロット", cabinetNumber: "45", importedFrom: undefined, theoreticalValue: yen(-800) },
+          play: { id: "one" as PlayId, date: "2026-10-08" as IsoDate, description: "", parlorId: undefined, gameKind: "slot", machine: "ピエロット", cabinetNumber: "45", importedFrom: undefined, theoreticalValue: yen(-800) , inferredValue: undefined},
           parlorName: "789松原店",
           machineName: "ピエロット",
           maker: undefined,
@@ -31,7 +31,7 @@ describe("plays as a table", () => {
     expect(
       playTableOf([
         {
-          play: { id: "one" as PlayId, date: "2026-10-08" as IsoDate, description: "", parlorId: undefined, gameKind: undefined, machine: undefined, cabinetNumber: undefined, importedFrom: undefined, theoreticalValue: undefined },
+          play: { id: "one" as PlayId, date: "2026-10-08" as IsoDate, description: "", parlorId: undefined, gameKind: undefined, machine: undefined, cabinetNumber: undefined, importedFrom: undefined, theoreticalValue: undefined , inferredValue: undefined},
           parlorName: undefined,
           machineName: undefined,
           maker: undefined,

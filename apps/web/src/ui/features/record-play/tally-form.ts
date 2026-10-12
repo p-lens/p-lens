@@ -2,7 +2,8 @@ import { parseIsoDate, type IsoDate } from "../../../core/calendar/calendar"
 import { ZERO, parseDecimal, subtract, toPlainString, type Decimal } from "../../../core/decimal/decimal"
 import { tokenValueOfDraft, type PlayDraft } from "../../../core/live-play/draft"
 import { identityKey, type Parlor } from "../../../core/parlor/parlor"
-import type { PlayGameKind, PlayId, TalliedPlay } from "../../../core/play/play"
+import * as Pachinko from "../../../core/pachinko"
+import type { InferredWorth, PlayGameKind, PlayId, PlayTold, TalliedPlay } from "../../../core/play/play"
 import { Err, Ok, type Result } from "../../../core/result/result"
 import { tidyTyped } from "../../../core/text/tidy"
 import { readOptionalYen, type FieldProblem, type PlayedSoFar } from "./form"
@@ -18,6 +19,11 @@ export interface TallyForm {
   readonly outlay: string
   readonly takings: string
   readonly theoreticalValue: string
+  /** How long the play lasted, in hours to the hundredth, as the hours and minutes chosen come to; empty when it is not said. */
+  readonly hours: string
+  readonly jackpots: string
+  /** What the play is weighed on, where it is: what a ball rented for and how balls were exchanged. */
+  readonly weighingTerms: Pachinko.WeighingTerms
 }
 
 export const emptyTallyForm = (date: string): TallyForm => ({
@@ -29,7 +35,26 @@ export const emptyTallyForm = (date: string): TallyForm => ({
   outlay: "",
   takings: "",
   theoreticalValue: "",
+  hours: "",
+  jackpots: "",
+  weighingTerms: Pachinko.TERMS_BY_DEFAULT,
 })
+
+/** The whole hours a play may be said to have lasted — up to a day and a night, some parlors being open the clock round at the turn of the year — and the minutes beside them, five at a time. */
+export const HOUR_CHOICES: readonly number[] = Array.from({ length: 25 }, (_, hours) => hours)
+
+const MINUTE_STEP = 5
+
+export const MINUTE_CHOICES: readonly number[] = Array.from({ length: 60 / MINUTE_STEP }, (_, step) => step * MINUTE_STEP)
+
+/** The minutes the hours a form holds come to, to the five minutes they are chosen by; none where no hours are said. */
+export const minutesToldIn = (form: Pick<TallyForm, "hours">): number | undefined => {
+  const hours = Number(form.hours)
+  return form.hours === "" || !Number.isFinite(hours) ? undefined : Math.round((hours * 60) / MINUTE_STEP) * MINUTE_STEP
+}
+
+/** So many minutes as the hours a form holds, to the hundredth of an hour; no time at all is hours not said. */
+export const hoursOfMinutes = (minutes: number): string => (minutes <= 0 ? "" : String(Math.round((minutes / 60) * 100) / 100))
 
 type Read<T> = Result<T, FieldProblem>
 
@@ -65,6 +90,23 @@ const readParlor = (key: string, parlors: readonly Parlor[]): Read<Parlor | unde
   return parlor === undefined ? Err({ field: "parlor", reason: "required" }) : Ok(parlor)
 }
 
+const WHOLE = /^\d+$/
+
+/** A count left empty was not looked at, which is not the same as none. */
+const readOptionalCount = (text: string, field: "jackpots"): Read<number | undefined> => {
+  const plain = tidyTyped(text).replaceAll(",", "")
+  if (plain === "") return Ok(undefined)
+  return WHOLE.test(plain) ? Ok(Number(plain)) : Err({ field, reason: "not-a-number" })
+}
+
+/** What was told of the play beside its two sides: nothing unless its hours are said, its jackpots being told of a play whose hours are known. */
+const readTold = (form: TallyForm): Read<PlayTold | undefined> => {
+  const hours = parseDecimal(form.hours)
+  const jackpots = readOptionalCount(form.jackpots, "jackpots")
+  if (!jackpots.ok) return jackpots
+  return Ok(form.hours === "" || !hours.ok ? undefined : { hours: hours.value, jackpots: jackpots.value, inferred: undefined })
+}
+
 const problemOf = (read: Read<unknown>): readonly FieldProblem[] => (read.ok ? [] : [read.error])
 
 /**
@@ -80,7 +122,8 @@ export const readTallyForm = (form: TallyForm, parlors: readonly Parlor[], idOn:
   const outlay = readOutlay(form.outlay)
   const takings = readTakings(form.takings)
   const theoreticalValue = readOptionalYen(form.theoreticalValue, "theoretical-value")
-  if (!dateRead.ok || !parlor.ok || !outlay.ok || !takings.ok || !theoreticalValue.ok) return Err([dateRead, parlor, outlay, takings, theoreticalValue].flatMap(problemOf))
+  const told = readTold(form)
+  if (!dateRead.ok || !parlor.ok || !outlay.ok || !takings.ok || !theoreticalValue.ok || !told.ok) return Err([dateRead, parlor, outlay, takings, theoreticalValue, told].flatMap(problemOf))
   return Ok({
     id: idOn(dateRead.value),
     date: dateRead.value,
@@ -91,8 +134,18 @@ export const readTallyForm = (form: TallyForm, parlors: readonly Parlor[], idOn:
     outlay: outlay.value,
     takings: takings.value,
     theoreticalValue: theoreticalValue.value,
+    told: told.value,
   })
 }
+
+/** What was told of a play, as the figures it is weighed from; none for a play whose hours are not said. */
+export const toldFiguresOf = (play: TalliedPlay): Pachinko.Told | undefined =>
+  play.told === undefined
+    ? undefined
+    : { hours: Number(toPlainString(play.told.hours)), outlay: Number(toPlainString(play.outlay)), takings: Number(toPlainString(play.takings)), jackpots: play.told.jackpots }
+
+/** A told play with what it was taken to be worth; a play nothing was told of is as it was. */
+export const withInferred = (play: TalliedPlay, inferred: InferredWorth | undefined): TalliedPlay => (play.told === undefined ? play : { ...play, told: { ...play.told, inferred } })
 
 const yenText = (yen: number | undefined): string => (yen === undefined ? "" : String(Math.round(yen)))
 
@@ -175,4 +228,7 @@ export const tallyFormOfPlay = (play: TalliedPlay): TallyForm => ({
   outlay: toPlainString(play.outlay),
   takings: toPlainString(play.takings),
   theoreticalValue: play.theoreticalValue === undefined ? "" : toPlainString(play.theoreticalValue),
+  hours: play.told === undefined ? "" : toPlainString(play.told.hours),
+  jackpots: play.told?.jackpots === undefined ? "" : String(play.told.jackpots),
+  weighingTerms: ((inferred) => (inferred === undefined ? undefined : Pachinko.termsOf(Number(toPlainString(inferred.tokenRental)), Number(toPlainString(inferred.tokenExchange)))))(play.told?.inferred) ?? Pachinko.TERMS_BY_DEFAULT,
 })

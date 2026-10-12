@@ -315,6 +315,72 @@ export interface HyenaHuntRowDto {
   readonly reliefDriveProbability: number
 }
 
+/** A play told of afterwards, weighed for the spin performance its cabinet had: the machine played out for its hours, so many times, from a seed. */
+export interface InferenceRequest {
+  readonly source: SourceDto
+  readonly conditions: ConditionsDto
+  readonly told: ToldDto
+  readonly belief: BeliefDto
+  /** Regular spins the cabinet plays in an hour. */
+  readonly spinsPerHour: number
+  /** Balls ¥1,000 rents. */
+  readonly rentedPerThousand: number
+  /** Yen a ball exchanges for. */
+  readonly ballValue: number
+  /** Balls a regular spin wins on average, by the play's formula. */
+  readonly ballsPerSpin: number
+  readonly trials: number
+  /** A 64-bit seed as a decimal string. */
+  readonly seed: string
+  readonly chunk: number
+  readonly progress?: ProgressDto
+}
+
+export interface InferenceSummaryDto {
+  readonly trials: number
+  readonly planned: number
+  readonly finished: boolean
+  /** The reading so far; none until a trial has come near what was told. */
+  readonly reading: ReadingDto | null
+  /** The fewest trials that went as far as the play any one way — in its cash, in what came back, in what the two came to: out of `trials`, how often a play as far out as this one came. */
+  readonly rarest: number
+  /** Which way that was. */
+  readonly rarestWay: WayDto
+}
+
+/** A way a play can be out of the ordinary: in its cash, in what came back or in what the two came to, by as much as told or more, or by as little or less. */
+export type WayDto = "outlay-at-least" | "outlay-at-most" | "takings-at-least" | "takings-at-most" | "result-at-least" | "result-at-most"
+
+export interface InferenceResponse {
+  readonly progress: ProgressDto
+  readonly summary: InferenceSummaryDto
+}
+
+/** What a person tells of a play afterwards: its hours, the cash it took and what came back, in yen, and the jackpots where they looked. */
+export interface ToldDto {
+  readonly hours: number
+  readonly outlay: number
+  readonly takings: number
+  readonly jackpots?: number
+}
+
+/** What is believed of the spin performance before the play is told of: about `mean`, give or take `deviation`, in spins per ¥1,000. */
+export interface BeliefDto {
+  readonly mean: number
+  readonly deviation: number
+}
+
+/** What the trials that came near a told play say: the spin performance to go by — the middle of what they allow — with the quartiles either side of it, the regular spins it had, and how many trials of equal weight the reading rests on, which is the caller's to judge. */
+export interface ReadingDto {
+  readonly lower: number
+  readonly middle: number
+  readonly upper: number
+  readonly spins: number
+  /** The theoretical value half the trials' weight lies below, in yen: each trial's own — its spins at its spin performance — and the middle of those. */
+  readonly value: number
+  readonly effectiveTrials: number
+}
+
 export type LocationDto = { readonly type: "regular" } | { readonly type: "mode"; readonly mode: string }
 
 export type EngineErrorDto =

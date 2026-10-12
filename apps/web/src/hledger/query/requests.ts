@@ -2,7 +2,7 @@ import { YEN, type TokenKind } from "../../core/commodity/commodity"
 import { PLAY_TAGS, type PlayId } from "../../core/play/play"
 import type { Valuation } from "../../core/valuation/valuation"
 import type { Cut, Request, ValuationRequest } from "../protocol/wire"
-import { combine, openingBalanceTerm, playsAmongTerm, playsTerm, savingsTerm, theoreticalValueTerm } from "./terms"
+import { combine, inferredValueTerm, openingBalanceTerm, playsAmongTerm, playsTerm, savingsTerm, theoreticalValueTerm } from "./terms"
 
 type RequestOf<K extends Request["kind"]> = Extract<Request, { kind: K }>
 
@@ -20,6 +20,15 @@ export const theoreticalRequest = (query: string): RequestOf<"balance"> => ({
   kind: "balance",
   query: combine(theoreticalValueTerm, query),
 })
+
+/** The part of the theoretical value of the plays in a query that was inferred, summed by hledger. */
+export const inferredRequest = (query: string): RequestOf<"balance"> => ({
+  kind: "balance",
+  query: combine(inferredValueTerm, query),
+})
+
+/** The inferred part of the theoretical value of the plays in a query, cut as the two reports beside it are. */
+export const inferredCutRequest = (query: string, cut: Cut): RequestOf<"balance"> => ({ ...inferredRequest(query), ...cut })
 
 /** What the plays in a query made or lost, cut by a tag's values or by period: an income statement whose rows, or columns, are the groups. */
 export const actualCutRequest = (query: string, cut: Cut): RequestOf<"incomestatement"> => ({ ...actualRequest(query), ...cut })

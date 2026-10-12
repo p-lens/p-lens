@@ -175,11 +175,35 @@
   }
 }
 
+/* A figure that was being worked out and now is: it swells into place, the wait before it having been the working. */
+@keyframes reveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
 /* A request made quietly under a field: it comes into view slowly, never all at once. */
 @keyframes emerge {
   from {
     opacity: 0;
     transform: translateY(-0.25rem);
+  }
+}
+
+/* A button that holds what was just asked for: its frame comes slowly red and goes again, pointing without stopping anyone. */
+@keyframes beckon {
+  0%,
+  100% {
+    outline: 2px solid transparent;
+  }
+  35%,
+  65% {
+    outline: 2px solid var(--color-negative);
   }
 }
 

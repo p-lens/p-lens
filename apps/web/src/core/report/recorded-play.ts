@@ -3,7 +3,7 @@ import { YEN, tokenCommodity } from "../commodity/commodity"
 import { ZERO, isNegative, isZero, negate, parseDecimal, subtract, sum, type Decimal } from "../decimal/decimal"
 import { ACCOUNTS, rentalSpreadAccount, savingsAccount } from "../journal/accounts"
 import { identityIn, sameIdentity, type Parlor } from "../parlor/parlor"
-import { PLAY_TAGS, tokenKindOf, type PlayHead, type PlayRecord, type TalliedPlay } from "../play/play"
+import { PLAY_TAGS, tokenKindOf, type InferredWorth, type PlayHead, type PlayRecord, type PlayTold, type TalliedPlay } from "../play/play"
 import { SOURCE_TAGS } from "../import/source-play"
 import { decimalOfQuantity } from "./figures"
 import { playSummaryOf } from "./plays"
@@ -36,7 +36,7 @@ const parlorOf = (transaction: Transaction, parlors: readonly Parlor[]): Parlor 
 
 /** The one statistic an entry may carry beside its money: its theoretical value, in yen. */
 const statisticsStand = (transaction: Transaction): boolean =>
-  keptTo(postedIn(transaction.tpostings.filter((posting) => posting.ptype !== "RegularPosting")), { [ACCOUNTS.theoreticalValue]: YEN })
+  keptTo(postedIn(transaction.tpostings.filter((posting) => posting.ptype !== "RegularPosting")), { [ACCOUNTS.theoreticalValue]: YEN, [ACCOUNTS.inferredTheoreticalValue]: YEN })
 
 /**
  * A play in yen, read from its two sides: what its entry put to the play's
@@ -46,11 +46,33 @@ const statisticsStand = (transaction: Transaction): boolean =>
  * written while a gain was put to cash. An entry with a side below nothing
  * was not written by a record, and is not read as one.
  */
-const talliedOf = (head: PlayHead, real: readonly Posted[], parlor: Parlor | "none"): RecordedPlay | undefined => {
+const tagged = (transaction: Transaction, name: string): string | undefined => transaction.ttags.find(([tag]) => tag === name)?.[1].trim()
+
+const countOf = (text: string | undefined): number | undefined => (text !== undefined && /^\d+$/.test(text) ? Number(text) : undefined)
+
+const amountOf = (text: string | undefined): Decimal | undefined => ((read) => (read?.ok === true ? read.value : undefined))(text === undefined ? undefined : parseDecimal(text))
+
+/** What an entry's tags say the play was taken to be worth, with what its inferred posting holds: none unless every part is there. */
+const inferredOf = (transaction: Transaction, value: Decimal | undefined): InferredWorth | undefined => {
+  const formulaId = tagged(transaction, PLAY_TAGS.inferredFormula)
+  const tokenRental = amountOf(tagged(transaction, PLAY_TAGS.tokenRental))
+  const tokenExchange = amountOf(tagged(transaction, PLAY_TAGS.tokenExchange))
+  return value === undefined || formulaId === undefined || tokenRental === undefined || tokenExchange === undefined ? undefined : { value, formulaId, tokenRental, tokenExchange }
+}
+
+/** What an entry's tags say was told of its play: nothing unless they say its hours. */
+const toldOf = (transaction: Transaction, inferredValue: Decimal | undefined): PlayTold | undefined => {
+  const hours = amountOf(tagged(transaction, PLAY_TAGS.hours))
+  return hours === undefined
+    ? undefined
+    : { hours, jackpots: countOf(tagged(transaction, PLAY_TAGS.jackpots)), inferred: inferredOf(transaction, inferredValue) }
+}
+
+const talliedOf = (head: PlayHead, real: readonly Posted[], parlor: Parlor | "none", told: PlayTold | undefined): RecordedPlay | undefined => {
   const outlay = at(real, ACCOUNTS.playExpense)
   const takings = negate(at(real, ACCOUNTS.playRevenue))
   return keptTo(real, { [ACCOUNTS.cash]: YEN, [ACCOUNTS.playExpense]: YEN, [ACCOUNTS.playRevenue]: YEN, [ACCOUNTS.specialPrizes]: YEN, [ACCOUNTS.translationAdjustment]: YEN }) && !isNegative(outlay) && !isNegative(takings)
-    ? { type: "tallied", play: { ...head, parlor: parlor === "none" ? undefined : parlor, outlay, takings } }
+    ? { type: "tallied", play: { ...head, parlor: parlor === "none" ? undefined : parlor, outlay, takings, told } }
     : undefined
 }
 
@@ -118,7 +140,7 @@ export const recordedPlayOf = (transaction: Transaction, parlors: readonly Parlo
   const head: PlayHead = { id: summary.id, date: summary.date, gameKind: summary.gameKind, machine: summary.machine ?? "", cabinetNumber: summary.cabinetNumber, theoreticalValue: summary.theoreticalValue }
   const real = postedIn(transaction.tpostings.filter((posting) => posting.ptype === "RegularPosting"))
   const [commodity, ...others] = [...new Set(real.map((each) => each.commodity).filter((each) => each !== YEN))]
-  if (commodity === undefined) return talliedOf(head, real, parlor)
+  if (commodity === undefined) return talliedOf(head, real, parlor, toldOf(transaction, summary.inferredValue))
   const carriedIn = carriedInOf(transaction)
   return others.length > 0 || parlor === "none" || carriedIn === undefined ? undefined : atParlorOf(head, real, commodity, parlor, carriedIn)
 }

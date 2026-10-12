@@ -4,14 +4,14 @@ import { MainContent } from "solid-gathering-shell"
 import { loadBreakdown } from "../../../application/breakdown"
 import { keepsTheoreticalValues } from "../../../application/theoretical"
 import type { BookId } from "../../../core/book/book"
-import type { Decimal } from "../../../core/decimal/decimal"
+import { isZero, type Decimal } from "../../../core/decimal/decimal"
 import { DIMENSIONS, isDimension, totalOf, type Dimension, type Group } from "../../../core/report/breakdown"
 import { useApp } from "../../context"
 import { Select } from "../../primitives/select"
 import { EmptyState, Loaded } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
-import { DIMENSION_NAMES, groupName, NOT_TALLIED } from "../../wording/breakdown"
+import { DIMENSION_NAMES, groupName, inferredShareText, NOT_TALLIED } from "../../wording/breakdown"
 import { formatSignedYen, formatTheoreticalYen, toneOf } from "../../wording/numbers"
 import { PeriodPicker } from "../period/PeriodPicker"
 import { queryFor } from "../period/periods"
@@ -27,7 +27,8 @@ function Yen(props: { readonly value: Decimal }): JSX.Element {
  * One group in two lines, so that a long name and its figures both fit a
  * phone: what the group is, then what its plays made and what they were
  * worth — or, in a book with no theoretical value written in it, that
- * there is none to sum.
+ * there is none to sum — and, where part of that worth was inferred, how
+ * much, so a figure nobody measured is not taken for one somebody did.
  */
 export function GroupRow(props: { readonly name: string; readonly group: Group; readonly strong: boolean; readonly theoreticalKept: boolean }): JSX.Element {
   return (
@@ -46,6 +47,9 @@ export function GroupRow(props: { readonly name: string; readonly group: Group; 
             <span class="tabular-nums text-text-primary">{formatTheoreticalYen(props.group.theoretical)}</span>
           </Show>
         </span>
+        <Show when={props.theoreticalKept && !isZero(props.group.inferred)}>
+          <span class="text-xs tabular-nums text-text-muted">{inferredShareText(props.group.inferred)}</span>
+        </Show>
       </div>
     </li>
   )

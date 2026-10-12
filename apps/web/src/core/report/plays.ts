@@ -21,6 +21,8 @@ export interface PlaySummary {
   readonly importedFrom: string | undefined
   /** The amount written on the entry's theoretical-value posting, as written. */
   readonly theoreticalValue: Decimal | undefined
+  /** The amount written on the entry's inferred theoretical value, where the play was weighed from what was told of it. */
+  readonly inferredValue: Decimal | undefined
 }
 
 const tagValue = (tags: readonly Tag[], name: string): string | undefined => tags.find(([tag]) => tag === name)?.[1]
@@ -53,6 +55,7 @@ export const playSummaryOf = (transaction: Transaction): PlaySummary | undefined
         cabinetNumber: tagValue(transaction.ttags, PLAY_TAGS.cabinetNumber),
         importedFrom: tagValue(transaction.ttags, SOURCE_TAGS.from),
         theoreticalValue: statisticOf(transaction, ACCOUNTS.theoreticalValue),
+        inferredValue: statisticOf(transaction, ACCOUNTS.inferredTheoreticalValue),
       }
 }
 

@@ -20,7 +20,7 @@ import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
 import { Combobox, holdsTypedOnly } from "../../../primitives/combobox"
 import { DetailButton } from "../../../primitives/detail-button"
-import { ChevronDownIcon, PlusIcon } from "../../../primitives/icons"
+import { PlusIcon } from "../../../primitives/icons"
 import { createNudge, redRing } from "../../../primitives/nudge"
 import { PencilledBubble } from "../../../primitives/pencilled-bubble"
 import { settleTyping, TextField } from "../../../primitives/text-field"
@@ -93,7 +93,6 @@ const choiceOf = (key: string | undefined): ParlorChoice => {
 }
 
 const SUBMIT_PARLOR = "一覧にない店舗を申請する"
-const CHANGE_PARLOR = "店舗を変更する"
 
 /** Where the device is, once it has answered: a place, or why it could not say. */
 type Located = Result<Coordinates, LocateError>
@@ -102,8 +101,7 @@ type Located = Result<Coordinates, LocateError>
  * The parlor: the listed parlors nearest first once the device says where it
  * is — worked out here, sent nowhere — or by prefecture and name until then,
  * searched by name, reading or any word they are known by; then this
- * device's submissions still waiting on the list. A parlor chosen stands by
- * its name with 「変更」 at its end, which brings the search up over it.
+ * device's submissions still waiting on the list.
  * Nothing is chosen for the person: where they are only orders the list.
  * Not listed, it is
  * submitted at survey.p-lens.jp with the plus — which never takes the
@@ -126,8 +124,6 @@ function ParlorField(props: {
   readonly onTyped: (typed: string) => void
 }): JSX.Element {
   const waiting = (): readonly Waiting[] => waitingOf(props.list, props.submissions)
-  /** Whether a parlor chosen stands by its name, or is being searched for again: 「変更」 was pressed. */
-  const [look, setLook] = createSignal<"standing" | "searched">("standing")
   /** The list's parlors by id: a search asks about every option in turn, and finding each among them all would be the list times itself. */
   const listedById = createMemo(() => new Map(props.list.parlors.map((parlor) => [parlor.id as string, parlor])))
   const listed = (): readonly { readonly parlor: SharedParlor; readonly note: string }[] => {
@@ -148,20 +144,6 @@ function ParlorField(props: {
     }
     const kept = choice.type === "submitted" ? props.submissions.find((candidate) => candidate.submission === choice.submission) : undefined
     return kept !== undefined && searchKeyOf(kept.name).includes(searchKeyOf(typed))
-  }
-  /** The chosen parlor's name while it stands: a value of its own, so typing elsewhere in the form rebuilds nothing here. */
-  const standing = createMemo((): string | undefined => {
-    if (look() === "searched") return undefined
-    const choice = props.choice
-    if (choice.type === "listed") return listedById().get(choice.id)?.name
-    return choice.type === "submitted" ? props.submissions.find((candidate) => candidate.submission === choice.submission)?.name : undefined
-  })
-  /** A parlor chosen stands again, and what was typed to find it is over with; the field emptied stays a search. */
-  const choose = (choice: ParlorChoice): void => {
-    props.onChoose(choice)
-    if (choice.type === "none") return
-    setLook("standing")
-    props.onTyped("")
   }
   /**
    * Off to survey.p-lens.jp to submit the parlor, coming back here with it.
@@ -192,41 +174,16 @@ function ParlorField(props: {
     <div class="grid grid-cols-1 gap-x-2 gap-y-1.5 sm:grid-cols-2">
       <div class="flex min-w-0 items-end gap-2">
         <div class="min-w-0 flex-1">
-          <Show
-            when={standing()}
-            keyed
-            fallback={
-              <Combobox
-                label="店舗"
-                options={options()}
-                value={choiceKey(props.choice)}
-                onChange={(key) => choose(choiceOf(key))}
-                matches={matches}
-                placeholder="店舗名なし"
-                invalid={props.typedOnly}
-                focusedAtOnce={look() === "searched"}
-                onTyped={props.onTyped}
-              />
-            }
-          >
-            {(name) => (
-              <div class="flex flex-col gap-1.5">
-                <span class="text-xs font-bold uppercase tracking-wide text-text-secondary">店舗</span>
-                <div class="flex h-10 items-center gap-2 rounded-[3px] bg-surface-input pl-3 pr-1">
-                  <span class="min-w-0 flex-1 truncate text-text-primary">{name}</span>
-                  <button
-                    type="button"
-                    aria-label={CHANGE_PARLOR}
-                    onClick={() => setLook("searched")}
-                    class="flex h-8 shrink-0 items-center gap-0.5 whitespace-nowrap rounded-[3px] px-2 text-xs font-bold text-text-secondary hover:text-text-primary focus-visible:outline-2 focus-visible:outline-focus-ring [&_svg]:size-4"
-                  >
-                    変更
-                    <ChevronDownIcon />
-                  </button>
-                </div>
-              </div>
-            )}
-          </Show>
+          <Combobox
+            label="店舗"
+            options={options()}
+            value={choiceKey(props.choice)}
+            onChange={(key) => props.onChoose(choiceOf(key))}
+            matches={matches}
+            placeholder="店舗名なし"
+            invalid={props.typedOnly}
+            onTyped={props.onTyped}
+          />
         </div>
         <button
           type="button"

@@ -16,13 +16,17 @@ export const UNSAID = ""
 
 /**
  * The plays that share one answer to a dimension, together: what they made
- * and what they were worth by their formulas. Both are hledger's sums — a
- * row of a report pivoted on a tag, or a column of one with an interval.
+ * and what they were worth by their formulas — and how much of that worth
+ * was inferred from what was told of them, not measured as they were
+ * played, which is in the worth and said beside it. Each is hledger's sum
+ * — a row of a report pivoted on a tag, or a column of one with an
+ * interval.
  */
 export interface Group {
   readonly key: string
   readonly actual: Decimal
   readonly theoretical: Decimal
+  readonly inferred: Decimal
 }
 
 /** One figure a group, by key, as one report gives it. */
@@ -49,18 +53,20 @@ export const byColumn = (report: BalanceReport, period: Period): Result<Figures,
   )
 
 /**
- * Groups from what an income statement and a balance of theoretical values,
- * cut alike, each say of them. An income statement's total is turned over,
- * as it is read: revenue is a credit. A group one report has and the other
- * lacks stands at nothing in the other, and a group that comes to nothing
- * in both is no group.
+ * Groups from what an income statement, a balance of theoretical values
+ * and a balance of the inferred among those, cut alike, each say of them.
+ * An income statement's total is turned over, as it is read: revenue is a
+ * credit. A group one report has and another lacks stands at nothing in
+ * the other, and a group that made nothing and was worth nothing is no
+ * group.
  */
-export const groupsOf = (statement: Figures, theoretical: Figures): readonly Group[] =>
+export const groupsOf = (statement: Figures, theoretical: Figures, inferred: Figures): readonly Group[] =>
   [...new Set([...statement.keys(), ...theoretical.keys()])]
-    .map((key) => ({ key, actual: negate(statement.get(key) ?? ZERO), theoretical: theoretical.get(key) ?? ZERO }))
+    .map((key) => ({ key, actual: negate(statement.get(key) ?? ZERO), theoretical: theoretical.get(key) ?? ZERO, inferred: inferred.get(key) ?? ZERO }))
     .filter((group) => compare(group.actual, ZERO) !== 0 || compare(group.theoretical, ZERO) !== 0)
 
-const together = (key: string, groups: readonly Group[]): Group => groups.reduce((total, group) => ({ key, actual: add(total.actual, group.actual), theoretical: add(total.theoretical, group.theoretical) }), { key, actual: ZERO, theoretical: ZERO })
+const together = (key: string, groups: readonly Group[]): Group =>
+  groups.reduce((total, group) => ({ key, actual: add(total.actual, group.actual), theoretical: add(total.theoretical, group.theoretical), inferred: add(total.inferred, group.inferred) }), { key, actual: ZERO, theoretical: ZERO, inferred: ZERO })
 
 /** The same groups from several books, each key's figures added: books are read one at a time, and several are one by adding what each says. */
 export const merged = (books: readonly (readonly Group[])[]): readonly Group[] => {

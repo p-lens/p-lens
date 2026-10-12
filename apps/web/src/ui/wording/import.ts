@@ -30,6 +30,9 @@ export const describeImportProblem = (problem: ImportProblem): string => {
   }
 }
 
-/** How a taking in went, in a line. */
+/** How a taking in went, in a line: the plays written, those already here, those given an inferred theoretical value where any were, and those weighed and not read where any were. */
 export const importedText = (imported: Imported): string =>
-  imported.alreadyHere === 0 ? `${formatCount(imported.written)}件を取り込みました。` : `${formatCount(imported.written)}件を取り込みました（${formatCount(imported.alreadyHere)}件は取り込み済み）。`
+  `${imported.alreadyHere === 0 ? `${formatCount(imported.written)}件を取り込みました。` : `${formatCount(imported.written)}件を取り込みました（${formatCount(imported.alreadyHere)}件は取り込み済み）。`}${imported.inferred === 0 ? "" : `うち${formatCount(imported.inferred)}件に推定期待値をつけました。`}${imported.unread === 0 ? "" : `推論できず${formatCount(imported.unread)}件。`}`
+
+/** How far the weighing of a file's plays has got, and that the one under way is being played out again, many more times, where it is. */
+export const weighedText = (done: number, of: number, beyond: boolean): string => `${beyond ? "通常に加え、追加の推論をしています…" : "推定中…"} ${formatCount(done)} / ${formatCount(of)}件`

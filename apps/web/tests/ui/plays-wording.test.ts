@@ -5,7 +5,7 @@ import type { PlayId } from "../../src/core/play/play"
 import type { PlaySummary } from "../../src/core/report/plays"
 import { playTitle } from "../../src/ui/wording/plays"
 
-const PLAY: PlaySummary = { id: "one" as PlayId, date: "2026-10-21" as IsoDate, description: "ホシゾラ梅田店", parlorId: undefined, gameKind: "pachinko", machine: undefined, cabinetNumber: undefined, importedFrom: undefined, theoreticalValue: undefined }
+const PLAY: PlaySummary = { id: "one" as PlayId, date: "2026-10-21" as IsoDate, description: "ホシゾラ梅田店", parlorId: undefined, gameKind: "pachinko", machine: undefined, cabinetNumber: undefined, importedFrom: undefined, theoreticalValue: undefined , inferredValue: undefined}
 
 describe("what a play is called in a list", () => {
   test("is its machine where it names one", () => {

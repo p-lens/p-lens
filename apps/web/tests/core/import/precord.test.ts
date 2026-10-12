@@ -20,9 +20,15 @@ describe("a pRecord CSV", () => {
   test("is read a row a play, its day whichever way it is written, its unread columns passed over", () => {
     const read = readPrecord(FILE)
     expect(read.ok && read.value).toEqual([
-      { date: "2019-01-02", parlor: { name: "ホシゾラ梅田店", code: "S123" }, machine: { name: "流星の剣", code: "M9", maker: "ミナト" }, cabinetNumber: "123", outlay: dec("12000"), takings: dec("20000"), memo: "朝イチ, 設定6: たぶん" },
-      { date: "2019-01-05", parlor: { name: "名もなき店", code: "" }, machine: { name: "", code: "", maker: "" }, cabinetNumber: "", outlay: dec("5000"), takings: dec("0"), memo: "" },
+      { date: "2019-01-02", parlor: { name: "ホシゾラ梅田店", code: "S123" }, machine: { name: "流星の剣", code: "M9", maker: "ミナト" }, cabinetNumber: "123", outlay: dec("12000"), takings: dec("20000"), memo: "朝イチ, 設定6: たぶん", hours: dec("5") },
+      { date: "2019-01-05", parlor: { name: "名もなき店", code: "" }, machine: { name: "", code: "", maker: "" }, cabinetNumber: "", outlay: dec("5000"), takings: dec("0"), memo: "", hours: undefined },
     ] as never)
+  })
+
+  test("reads how long a play lasted as pRecord writes it, hours with their minutes as a fraction, to the hundredth — and none where it says none", () => {
+    const hours = (cell: string) => ((read) => (read.ok ? read.value[0]?.hours : "unread"))(readPrecord(`日付,投資額,回収額,稼働時間\n2026/10/11,1000,0,${cell}\n`))
+    expect([hours("2.4166667"), hours("1.75"), hours("0.083333336"), hours("2:25")]).toEqual([dec("2.42"), dec("1.75"), dec("0.08"), dec("2.42")])
+    expect([hours(""), hours("0"), hours("0.001"), hours("長い")]).toEqual([undefined, undefined, undefined, undefined])
   })
 
   test("finds its columns by name, wherever they stand", () => {
@@ -46,9 +52,9 @@ describe("an imported play", () => {
 
   test("is one entry in yen with both its sides and its gain in the special prizes, never in cash, the source's names in tags of their own and its note under it", () => {
     const [id] = importedIdsOf("precord", [first as never])
-    expect(renderEntry(importedPlayEntry({ id: id as never, from: "precord", source: first as never, machine: undefined }))).toBe(
+    expect(renderEntry(importedPlayEntry({ id: id as never, from: "precord", source: first as never, machine: undefined, inferred: undefined }))).toBe(
       [
-        `2019-01-02 ホシゾラ梅田店 流星の剣 123番台  ; play-id: ${id}, cabinet-number: 123, imported-from: precord, source-parlor: ホシゾラ梅田店, source-parlor-code: S123, source-machine: 流星の剣, source-machine-code: M9, source-maker: ミナト`,
+        `2019-01-02 ホシゾラ梅田店 流星の剣 123番台  ; play-id: ${id}, cabinet-number: 123, imported-from: precord, source-parlor: ホシゾラ梅田店, source-parlor-code: S123, source-machine: 流星の剣, source-machine-code: M9, source-maker: ミナト, hours: 5`,
         "    費用:遊技                           12000 JPY",
         "    収益:遊技                           -20000 JPY",
         "    純資産:特殊景品                     8000 JPY",
@@ -59,9 +65,9 @@ describe("an imported play", () => {
   })
 
   test("names the catalog's machine and its game only where it was matched, and writes no posting that moves nothing", () => {
-    const text = renderEntry(importedPlayEntry({ id: "x" as never, from: "precord", source: second as never, machine: undefined }))
+    const text = renderEntry(importedPlayEntry({ id: "x" as never, from: "precord", source: second as never, machine: undefined, inferred: undefined }))
     expect(text).toBe("2019-01-05 名もなき店  ; play-id: x, imported-from: precord, source-parlor: 名もなき店\n    費用:遊技                           5000 JPY\n    資産:現金                           -5000 JPY\n")
-    expect(renderEntry(importedPlayEntry({ id: "x" as never, from: "precord", source: first as never, machine: { name: "流星の剣", gameKind: "slot" } }))).toContain("play-id: x, game-kind: slot, machine: 流星の剣, cabinet-number: 123, imported-from")
+    expect(renderEntry(importedPlayEntry({ id: "x" as never, from: "precord", source: first as never, machine: { name: "流星の剣", gameKind: "slot" }, inferred: undefined }))).toContain("play-id: x, game-kind: slot, machine: 流星の剣, cabinet-number: 123, imported-from")
   })
 
   test("goes by an id the same play always gets, twins told apart by their order", () => {

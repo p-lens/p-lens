@@ -9,7 +9,8 @@ import { SlidersIcon } from "./icons"
  * the button opens a bubble holding what is put away there; Enter, or a
  * press anywhere else, closes it, and what was typed stays typed. The
  * button is marked while something is set there, so that a figure put
- * away is not forgotten, and red where it stopped a press. The bubble does
+ * away is not forgotten, red where it stopped a press, and beckons with its frame
+ * where what a person was asked for is kept in it. The bubble does
  * not take the focus as it opens: a keyboard brought up unasked would
  * cover it, where a field the person presses is brought into view by the
  * browser itself.
@@ -21,6 +22,10 @@ export function DetailButton(props: {
   readonly says: string
   readonly marked: boolean
   readonly invalid: boolean
+  /** Its icon drawn in the colour of whom what it holds is for — the semipro colour, for those who work their figures out themselves — or in the text's colour where left out. The button itself is drawn and marked as any other. */
+  readonly tone?: "semipro"
+  /** What was just asked for is to be found here: the frame comes slowly red and goes again, once each time this becomes so. */
+  readonly beckoning?: boolean
   /** Where the bubble opens: above a button at the foot of the screen, below one further up. */
   readonly placement: "top-end" | "bottom-end"
   readonly onOpen?: () => void
@@ -44,9 +49,12 @@ export function DetailButton(props: {
           onClick={() => props.onOpen?.()}
           class="flex h-10 w-10 items-center justify-center rounded-[3px] hover:bg-surface-0 focus-visible:outline-2 focus-visible:outline-focus-ring [&_svg]:size-5"
           classList={{
-            "bg-surface-3 text-text-primary": !props.marked && !props.invalid,
-            "bg-accent/30 text-text-primary": props.marked && !props.invalid,
+            "bg-surface-3": !props.marked && !props.invalid,
+            "bg-accent/30": props.marked && !props.invalid,
+            "text-text-primary": props.tone === undefined && !props.invalid,
+            "text-semipro-ink": props.tone === "semipro" && !props.invalid,
             "bg-surface-3 text-negative outline outline-2 outline-negative": props.invalid,
+            "animate-[beckon_2.4s_ease-in-out]": props.beckoning === true && !props.invalid,
           }}
         >
           <SlidersIcon />

@@ -211,8 +211,8 @@ submission a device waits on never leaves the device.
 A play chooses a listed parlor, nearest first once the device says where it
 is (`nearestFirst`; the position is used on the device and sent nowhere), by
 prefecture and name until then, and searched by name, reading or search word
-with widths, case, spaces and marks set aside (`parlorMatches`). A parlor
-chosen stands by its name with 「変更」 to search for another; nothing is
+with widths, case, spaces and marks set aside (`parlorMatches`). The field
+is the one a play typed in afterwards chooses its parlor in; nothing is
 chosen for the person, where they are only ordering the list. Left empty,
 or when the list cannot be read, the play has no parlor and is recorded by
 its totals in yen; the start screen says so and carries on.
@@ -1587,7 +1587,10 @@ with plays is pressed to see them, the plays list asked for that day.
 - **hledger does every sum.** It has no report of its own: the days are the
   breakdown by day (`loadBreakdown(…, "day", …)`) and the month's two
   figures the breakdown by month, both asked with the one query that is the
-  month (`monthQuery`). Nothing in the folder adds one figure to another;
+  month (`monthQuery`). Where part of the month's theoretical value was
+  inferred, how much is said under it — the breakdown's own figure
+  (`Group.inferred`) — so a figure nobody measured is not taken for one
+  somebody did. Nothing in the folder adds one figure to another;
   what it works out is which weekday a month begins on (`weeksOf`).
 - **No theoretical values, no sum of them.** In a book with no theoretical
   value written anywhere in it (`keepsTheoreticalValues`, one entry asked
@@ -1761,6 +1764,136 @@ one book's breakdown groups them — and, first, book by book (集計).
 - **A book on the device, whoever keeps it**: one's own, or another
   person's that was joined by its code. Bringing another person's book onto
   a device is sync's doing; consolidation only reads what is there.
+
+## Inference
+
+A pachinko play typed in afterwards is weighed for what it was worth
+(推定期待値), from what a person can tell of it: how long it lasted, the
+cash it took and what came back.
+
+- **The machine is played out, not solved** (`pachinko-simulator`'s
+  `inference`, `inferenceChunk` at the boundary): each trial draws a spin
+  performance from what is believed before looking, plays the machine's
+  normalised spec for the play's hours at it — cash going in a lot at a
+  time when the tray is empty, a jackpot taking the time its rounds do —
+  and is weighed by how near its cash and its takings came to what was
+  told, and its jackpots where those were told too. The
+  spin performances of the trials that came near are the answer.
+- **The figure to go by is the middle** (`Reading.middle` and
+  `Reading.value`, the medians; `weighedOf`): one spin performance and one
+  worth are shown, each as likely to be over the truth as under it, and
+  each read from the trials themselves — the worth is the median of what
+  each trial's own spins were worth at its own spin performance, never a
+  figure worked out from the two beside it. One assumption is made about
+  a cabinet, and said with its reason: it is believed a spin under its
+  border beforehand, give or take a sixth of the border (`beliefOf`,
+  `BELIEVED_UNDER`). A cabinet at its border pays back all that is put
+  into it, and a parlor whose cabinets all did could not pay for its
+  electricity, its staff or its rent — so its cabinets stand under the
+  border by what keeping its doors open costs. One spin is that
+  allowance, a round figure and not a measured one. No side is taken
+  afterwards. The
+  quartiles either side (`lower`, `upper`) are kept only to tell how much
+  a play said. Played at fixed spin performances, the report shows a
+  reading following the play about half as far as the play goes, toward
+  the border: a cabinet four spins under is read as about two under, and
+  one four over as about two over. Of the plays that are read, the median
+  misses the true spin performance by about one spin and the true worth
+  by two or three thousand yen — on plays the simulator made up, not on
+  cabinets.
+- **A play it cannot read is not given a figure** (`verdictOf`). One far
+  out of the ordinary — fewer than one trial in a thousand went as far, in
+  its cash, in what came back or in what the two came to (`Beyond`,
+  `ANOMALY_ONE_IN`) — is reported as that, flatly, with how seldom a
+  play as far out that way comes and which way it is (`Way`), or, where no
+  trial went as far, only that it was not once played out; a trial that ran well past the hours told is no play of
+  those hours and is not counted. One that told too little — too few
+  trials came near it, or those that did say hardly more than was believed
+  already, their quartiles more than eight tenths as far apart
+  (`VAGUE_FROM`) — says so, and that its jackpots would help where they
+  were not told. Neither writes an inferred value. The simulator's report
+  (`inference::tests::report`, run by hand) is what the borders were read
+  from: of plays drawn as they are believed to be, two to four in ten are
+  read from their hours and two sides alone, and six to eight in ten with
+  their jackpots told.
+- **Played out again where the usual trials were not enough.** A play too
+  few trials came near is given five times as many by hand
+  (`TRIALS_BEYOND`), and a file's play as many as one typed in by hand,
+  before it is said to tell too little — and the screen says that is what
+  it is doing. Each run is a whole one from the play's seed, never one
+  carried on from where another stopped, so what a play comes to does not
+  depend on how a device happened to cut its chunks.
+- **Begun by a press, and by nothing else** (`createWeighing`, 推定期待値):
+  the button is always there on a pachinko play's form, beside what the
+  play came to, and a press that cannot begin shows in red what stands in
+  its way — the play's hours, its machine or the cash it took wanting, or
+  a theoretical value typed in, which is the play's own and leaves nothing
+  to infer — as a press to record shows what recording lacks. What was
+  weighed is what the form said as it was pressed: once the form says
+  anything else of the play, what the weighing came to is gone, and is
+  asked for again by another press. A play recorded without the press is
+  recorded without an inferred value. What a weighing may be told beside
+  the form's own fields — the jackpots, the terms — is
+  behind a button of its own beside the press (条件), its icon in the
+  amateur colour: it is for anyone. A theoretical value typed in is behind
+  another, beside the two sums, its icon in the semipro colour: it is for
+  those who work their figures out themselves, and is recorded in place of
+  an inference. The regular spins a counter shows are not asked for: a
+  counter counts whoever sat there before as well.
+- **The same play is weighed the same** (`seedOf`): the seed is the play's
+  id hashed, so no weighing can be asked again for a kinder answer. Two
+  million trials for a play typed in by hand (`TRIALS_BY_HAND`); the wait
+  on screen, after the press, is the weighing itself.
+- **Weighed by the best ranked formula made from a basis**
+  (`weighableOf`), whatever a person keeps as a favourite: a machine with
+  only typed figures has nothing to play out, and is not weighed. Where a
+  formula says no spins an hour, 200 are taken (`PACE_BY_DEFAULT`), and
+  the reading says that its pace was assumed.
+- **On ¥4 a ball exchanged at 28 until a person says otherwise**
+  (`TERMS_BY_DEFAULT`), every ball taken as rented: the harsher of the
+  common terms. A cheaper ball is the same play with its yen scaled.
+- **Said wherever it is summed.** A breakdown's groups each carry how much
+  of their theoretical value was inferred (`Group.inferred`, hledger's own
+  sum of `統計:期待値:推定` cut as the other two reports are —
+  `inferredCutRequest`), and a row of 集計, a month of the calendar and the
+  consolidation's of both say `うち推定` with that figure where it is not
+  nothing: a figure nobody measured is not taken for one somebody did.
+- **Kept apart in the book, summed with the rest.** The value is a virtual
+  posting to `統計:期待値:推定`, under the measured `統計:期待値`, so
+  hledger sums the two when asked about the one and can always tell them
+  apart; the account is declared the first time an entry needs it. What
+  was told — `hours`, `jackpots` — and what the weighing
+  stood on — `inferred-formula`, `token-rental`, `token-exchange` — are
+  the entry's tags, so the play is read back as it was typed. A
+  theoretical value typed in is the play's, and nothing is inferred
+  beside it.
+- **A file taken in may be weighed too** (`importPrecord` with a
+  `Weighing`; `hoursToldIn`): pRecord's 稼働時間 is read into a play's
+  `hours`, and where a file's plays say theirs the person is asked, once,
+  whether to weigh them. The pachinko plays of a machine the catalog has
+  are then weighed one after another, 200,000 trials each
+  (`TRIALS_ON_IMPORT`), on the usual terms, before the one commit that
+  writes the file. A play that cannot be weighed is taken in as it would
+  have been; the hours never enter a play's id, so a file taken in before
+  its hours were read is still known for the same file. The hours are kept
+  to the hundredth, as the other app said them — it writes two hours and
+  twenty-five minutes as `2.4166667`.
+- **A source's machine is the catalog's by what the machine goes by, or by
+  what a person says** (`catalogueOf`, `Named`, `previewPrecord`): its
+  name and its search words, as a search compares them, so one app's
+  `e 東京喰種` is the catalog's `e東京喰種`; what two machines both go by
+  names neither. A file is looked at before it is taken in, and the names
+  no machine alone goes by are shown, each for the person to say which
+  machine of the catalog it is — or to leave as written, which takes the
+  play in with the source's name in its own tag, as before. Nothing of the
+  other app's ids is matched on.
+- **A play that took no cash is not weighed** (`takesCash`): one played on
+  balls brought to it, carried from another cabinet or drawn from savings,
+  says nothing of what its spins cost. And a trial is counted as going as
+  far as a play give or take what counts as the same figure
+  (`outlay_tolerance`, `takings_tolerance`): a person who lost tells of
+  nothing coming back, where a trial ends with the last of a lot in its
+  tray — held to the yen, every plain loss would be out of the ordinary.
 
 ## Import
 

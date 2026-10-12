@@ -6,6 +6,7 @@ import { loadOverview } from "../../src/application/overview"
 import { loadPlay, loadPlays } from "../../src/application/plays"
 import { recordPlay, recordTalliedPlay } from "../../src/application/record-play"
 import { loadRecordedPlay, removePlay, revisePlay, reviseTalliedPlay } from "../../src/application/revise-play"
+import { loadBreakdown } from "../../src/application/breakdown"
 import type { BookId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { toPlainString } from "../../src/core/decimal/decimal"
@@ -31,7 +32,7 @@ const TODAY: PlayRecord = { ...RENTED_PLAY, id: "today" as PlayId, date: "2026-1
 /** A play that rented, replayed at a fee and left tokens: every sum a record can carry. */
 const FULL: PlayRecord = { ...TODAY, id: "full" as PlayId, rental: { outlay: dec("2000"), tokens: dec("500") }, replay: { paidOut: dec("1000"), deducted: dec("1100") }, payout: dec("2500"), cabinetNumber: undefined, theoreticalValue: undefined }
 
-const TALLIED: TalliedPlay = { id: "tally" as PlayId, date: "2026-10-04" as IsoDate, parlor: UMEDA, gameKind: "slot", machine: "スマスロ流星", cabinetNumber: "7", outlay: dec("15000"), takings: dec("3000"), theoreticalValue: dec("8000") }
+const TALLIED: TalliedPlay = { id: "tally" as PlayId, date: "2026-10-04" as IsoDate, parlor: UMEDA, gameKind: "slot", machine: "スマスロ流星", cabinetNumber: "7", outlay: dec("15000"), takings: dec("3000"), theoreticalValue: dec("8000") , told: undefined}
 
 const figures = async (session: Awaited<ReturnType<typeof setUp>>["session"], query: string) =>
   mapOk(await loadOverview(session, BOOK, query), (found) => [toPlainString(found.actual), toPlainString(found.theoretical)])
@@ -60,6 +61,28 @@ describe("a recorded play, read back from its entry", () => {
     const plays = await loadPlays(session, BOOK, "", 0)
     const madeBy = (id: string): string | undefined => ((actual) => (actual === undefined ? undefined : toPlainString(actual)))((plays.ok ? plays.value.plays : []).find((play) => play.id === id)?.actual)
     expect(["gain", "even"].map(madeBy)).toEqual(["3000", "0"])
+  })
+
+  test("keeps what was told of a play and what it was taken to be worth, apart from what was measured and summed with it", async () => {
+    const { session, storage } = await setUp()
+    const told = { ...TALLIED, id: "told" as PlayId, theoreticalValue: undefined, told: { hours: dec("4.25"), jackpots: 8, inferred: { value: dec("-5300"), formulaId: "formula-1", tokenRental: dec("4"), tokenExchange: dec("28") } } }
+    const before = await figures(session, "")
+    expect((await recordTalliedPlay(session, BOOK, told)).ok).toBe(true)
+    expect(await recordedOf(session, "told")).toEqual({ ok: true, value: { type: "tallied", play: told } })
+    const text = storage.peek(BOOK)?.files[BOOK_FILES.transactions] ?? ""
+    expect(text).toContain("hours: 4.25, jackpots: 8, inferred-formula: formula-1, token-rental: 4, token-exchange: 28")
+    expect(text).toContain("(統計:期待値:推定)")
+    const after = await figures(session, "")
+    expect(after.ok && before.ok && Number(after.value[1]) - Number(before.value[1])).toBe(-5300)
+    const inferredBy = async (dimension: "month" | "machine") => mapOk(await loadBreakdown(session, BOOK, dimension, ""), (groups) => groups.map((group) => [group.key, toPlainString(group.inferred)]))
+    expect(await inferredBy("month")).toEqual({ ok: true, value: [["2026-10", "-5300"], ["2026-09", "0"]] })
+    expect(mapOk(await inferredBy("machine"), (groups) => groups.filter(([, inferred]) => inferred !== "0"))).toEqual({ ok: true, value: [["スマスロ流星", "-5300"]] })
+    const listed = await loadPlays(session, BOOK, "", 0)
+    const row = listed.ok ? listed.value.plays.find((play) => play.id === "told") : undefined
+    expect([row?.theoreticalValue, row?.inferredValue === undefined ? undefined : toPlainString(row.inferredValue)]).toEqual([undefined, "-5300"])
+    const given = { ...told, id: "given" as PlayId, theoreticalValue: dec("1200") }
+    await recordTalliedPlay(session, BOOK, given)
+    expect(mapOk(await recordedOf(session, "given"), (found) => found.type === "tallied" && [found.play.theoreticalValue && toPlainString(found.play.theoreticalValue), found.play.told?.inferred])).toEqual({ ok: true, value: ["1200", undefined] })
   })
 
   test("lists every play of the made-up book with what it made, the figure its own page gives", async () => {

@@ -1,5 +1,5 @@
 import { parseIsoDate, type IsoDate } from "../calendar/calendar"
-import { parseDecimal, type Decimal } from "../decimal/decimal"
+import { decimal, parseDecimal, type Decimal } from "../decimal/decimal"
 import { Err, Ok, type Result } from "../result/result"
 import { rowsOfCsv } from "./csv-rows"
 import type { SourcePlay } from "./source-play"
@@ -9,9 +9,9 @@ export const PRECORD = "precord"
 
 /**
  * The columns pRecord's CSV names in its first row, as its own import
- * reads them. 収支, 稼働時間, 時給 and
- * 貯玉 are there too and are not read: the first follows from the two
- * sums, and the rest are no part of a play kept in yen.
+ * reads them. 収支, 時給 and 貯玉 are there too and are not read: the
+ * first two follow from what is, and savings are no part of a play kept
+ * in yen.
  */
 const COLUMNS = {
   date: "日付",
@@ -24,6 +24,7 @@ const COLUMNS = {
   outlay: "投資額",
   takings: "回収額",
   memo: "メモ",
+  hours: "稼働時間",
 } as const
 
 type Column = keyof typeof COLUMNS
@@ -63,6 +64,23 @@ const yenOf = (text: string): Decimal | undefined => {
   return parsed?.ok === true ? parsed.value : undefined
 }
 
+const CLOCK = /^(\d{1,2}):(\d{2})(?::\d{2})?$/
+
+/**
+ * How long a play lasted, in hours to the hundredth, as pRecord writes it:
+ * a number of hours — `2.4166667` is two hours and twenty-five minutes,
+ * its own 時給 the result over it — or, should a file have it so, a
+ * clock's `2:25`. None where the cell is empty, does not read, or comes to
+ * no time at all: a play is taken in without its hours rather than
+ * refused for them.
+ */
+const hoursOf = (text: string): Decimal | undefined => {
+  const clock = CLOCK.exec(text.trim())
+  const hours = clock === null ? Number(text.trim() === "" ? Number.NaN : text.trim()) : Number(clock[1]) + Number(clock[2]) / 60
+  const hundredths = Number.isFinite(hours) ? Math.round(hours * 100) : 0
+  return hundredths > 0 ? decimal(BigInt(hundredths), 2) : undefined
+}
+
 const playOf = (cell: (column: Column) => string): Result<SourcePlay, readonly RowField[]> => {
   const [date, outlay, takings] = [dayOf(cell("date")), yenOf(cell("outlay")), yenOf(cell("takings"))]
   if (date === undefined || outlay === undefined || takings === undefined)
@@ -75,6 +93,7 @@ const playOf = (cell: (column: Column) => string): Result<SourcePlay, readonly R
     outlay,
     takings,
     memo: cell("memo").trim(),
+    hours: hoursOf(cell("hours")),
   })
 }
 

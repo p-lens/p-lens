@@ -43,7 +43,7 @@ const ofChosen = async <T>(session: BookSession, chosen: readonly BookId[] | und
 
 /** A book's results for a period as one group, the book itself: what the period made and was worth, as hledger sums it. */
 const whole = async (session: BookSession, book: ListedBook, query: string): Promise<Outcome<readonly Group[]>> =>
-  mapOk(await loadOverview(session, book.id, query), (overview) => [{ key: book.id, actual: overview.actual, theoretical: overview.theoretical }])
+  mapOk(await loadOverview(session, book.id, query), (overview) => [{ key: book.id, actual: overview.actual, theoretical: overview.theoretical, inferred: overview.inferred }])
 
 /** The results of the books chosen, for a period, grouped, book by book. */
 export const loadConsolidation = (session: BookSession, chosen: readonly BookId[] | undefined, by: ConsolidatedBy, query: string): Promise<Outcome<readonly ConsolidatedBook<readonly Group[]>[]>> =>

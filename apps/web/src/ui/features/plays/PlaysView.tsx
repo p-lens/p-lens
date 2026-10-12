@@ -23,8 +23,9 @@ const selectedPlay = (place: Place): string | undefined => (place.kind === "play
 /**
  * One play of the list: what it is and its day, and at the row's end what
  * it made, in the colour of which way it went, over what it was worth by
- * its formula, which has none. A play hledger could not value, and one
- * with no theoretical value written, each keeps the
+ * its formula, which has none — said to be inferred where nobody measured
+ * it. A play hledger could not value, and one with no theoretical value
+ * written, each keeps the
  * figure's shape with nothing in it.
  */
 function PlayRow(props: { readonly play: ListedPlay; readonly selected: boolean; readonly onSelect: () => void }): JSX.Element {
@@ -45,7 +46,15 @@ function PlayRow(props: { readonly play: ListedPlay; readonly selected: boolean;
           <Show when={props.play.actual} keyed fallback={<span class="text-text-muted">実収支 {UNSEEN_ACTUAL}</span>}>
             {(actual) => <span class={TONES[toneOf(actual)]}>実収支 {formatSignedYen(actual)}</span>}
           </Show>
-          <Show when={props.play.theoreticalValue} keyed fallback={<span class="text-text-muted">期待値 {UNSEEN_THEORETICAL}</span>}>
+          <Show
+            when={props.play.theoreticalValue}
+            keyed
+            fallback={
+              <Show when={props.play.inferredValue} keyed fallback={<span class="text-text-muted">期待値 {UNSEEN_THEORETICAL}</span>}>
+                {(value) => <span>推定期待値 {formatTheoreticalYen(value)}</span>}
+              </Show>
+            }
+          >
             {(value) => <span>期待値 {formatTheoreticalYen(value)}</span>}
           </Show>
         </div>

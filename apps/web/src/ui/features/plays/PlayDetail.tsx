@@ -132,7 +132,12 @@ export function PlayDetail(props: { readonly place: Place; readonly bookId: Book
             <Facts play={found.summary} parlorName={found.names.parlorName} terms={found.terms} />
             <dl class="grid grid-cols-2 gap-2">
               <Figure label="実収支" value={found.actual} kind="actual" caption="稼働日の交換率で評価" />
-              <Figure label="期待値" value={found.summary.theoreticalValue === undefined ? undefined : found.theoretical} kind="theoretical" />
+              <Figure
+                label={found.summary.theoreticalValue === undefined && found.summary.inferredValue !== undefined ? "推定期待値" : "期待値"}
+                value={found.summary.theoreticalValue === undefined && found.summary.inferredValue === undefined ? undefined : found.theoretical}
+                kind="theoretical"
+                {...(found.summary.theoreticalValue === undefined && found.summary.inferredValue !== undefined ? { caption: "稼働時間と投資額・回収額から推定" } : {})}
+              />
             </dl>
             <Show when={found.log} keyed>
               {(log) => (
@@ -148,7 +153,7 @@ export function PlayDetail(props: { readonly place: Place; readonly bookId: Book
               <h3 class="text-xs font-bold uppercase tracking-wide text-text-muted">仕訳</h3>
               <Postings postings={found.transaction.tpostings} />
             </section>
-            <Show when={found.summary.theoreticalValue === undefined}>
+            <Show when={found.summary.theoreticalValue === undefined && found.summary.inferredValue === undefined}>
               <p class="text-xs text-text-muted">この稼働には期待値が記録されていません（{formatTheoreticalYen(found.theoretical)}として集計）。</p>
             </Show>
             <div class="flex justify-end gap-2">

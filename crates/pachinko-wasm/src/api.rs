@@ -9,6 +9,7 @@ use pachinko_engine::hyena_hunt::hyena_hunt_from;
 use pachinko_engine::normalize::normalize as normalise;
 use pachinko_simulator::estimate::{Estimate, advance_estimate};
 use pachinko_simulator::hyena_hunt::{HyenaHunt, HyenaHuntSetup, advance_hyena_hunt};
+use pachinko_simulator::inference::{Inference, advance_inference};
 use pachinko_simulator::simulation::{Progress, advance};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -16,8 +17,9 @@ use serde::de::DeserializeOwned;
 use crate::convert;
 use crate::dto::{
     AnalysisDto, AnalyzeRequest, Envelope, ErrorDto, EstimateRequest, EstimateResponse,
-    HyenaHuntRequest, HyenaHuntResponse, HyenaHuntRowDto, HyenaHuntTableRequest, NormalizeRequest,
-    NormalizedSpecDto, SimulateRequest, SimulateResponse, SourceDto,
+    HyenaHuntRequest, HyenaHuntResponse, HyenaHuntRowDto, HyenaHuntTableRequest, InferenceRequest,
+    InferenceResponse, NormalizeRequest, NormalizedSpecDto, SimulateRequest, SimulateResponse,
+    SourceDto,
 };
 
 fn parse<T: DeserializeOwned>(json: &str) -> Result<T, ErrorDto> {
@@ -139,6 +141,31 @@ fn hyena_hunting(request: &HyenaHuntRequest) -> Result<HyenaHuntResponse, ErrorD
     })
 }
 
+fn inferred(request: &InferenceRequest) -> Result<InferenceResponse, ErrorDto> {
+    let spec = source(&request.source)?;
+    let conditions = convert::conditions(&request.conditions)?;
+    let payout_scale = solve(&spec, &conditions)
+        .map_err(convert::solve_error_dto)?
+        .payout_scale;
+    let setup = convert::inference_setup(request, payout_scale)?;
+    let trials = positive_count(request.trials, "trials")?;
+    let inference = match &request.progress {
+        Some(carried) => convert::inference(carried)?,
+        None => Inference::start(convert::seed(&request.seed)?),
+    };
+    let advanced = advance_inference(
+        &spec,
+        &setup,
+        trials,
+        &inference,
+        positive_count(request.chunk, "chunk")?,
+    );
+    Ok(InferenceResponse {
+        progress: convert::inference_progress_dto(&advanced),
+        summary: convert::inference_summary_dto(&advanced, trials),
+    })
+}
+
 fn hyena_hunt_rows(request: &HyenaHuntTableRequest) -> Result<Vec<HyenaHuntRowDto>, ErrorDto> {
     let spec = source(&request.source)?;
     let conditions = convert::conditions(&request.conditions)?;
@@ -183,6 +210,11 @@ pub fn estimate_chunk(json: &str) -> String {
 /// One chunk of a sampled 遊タイム狙い, resumable from the progress it returns.
 pub fn hyena_hunt_chunk(json: &str) -> String {
     reply(parse::<HyenaHuntRequest>(json).and_then(|request| hyena_hunting(&request)))
+}
+
+/// One chunk of the weighing of a play told of afterwards, resumable from the progress it returns.
+pub fn inference_chunk(json: &str) -> String {
+    reply(parse::<InferenceRequest>(json).and_then(|request| inferred(&request)))
 }
 
 /// 遊タイム狙い solved exactly from each of several initial spins.

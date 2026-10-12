@@ -33,6 +33,11 @@ pub fn hyena_hunt_chunk(request: &str) -> String {
     api::hyena_hunt_chunk(request)
 }
 
+#[wasm_bindgen(js_name = inferenceChunk)]
+pub fn inference_chunk(request: &str) -> String {
+    api::inference_chunk(request)
+}
+
 #[wasm_bindgen(js_name = hyenaHuntTable)]
 pub fn hyena_hunt_table(request: &str) -> String {
     api::hyena_hunt_table(request)

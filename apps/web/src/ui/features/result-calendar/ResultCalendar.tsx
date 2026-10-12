@@ -3,11 +3,12 @@ import { MainContent } from "solid-gathering-shell"
 
 import type { Outcome } from "../../../application/errors"
 import { monthOf, type IsoDate, type IsoMonth } from "../../../core/calendar/calendar"
+import { isZero } from "../../../core/decimal/decimal"
 import { totalOf, type Group } from "../../../core/report/breakdown"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import type { Place } from "../../navigation/place"
-import { NOT_TALLIED } from "../../wording/breakdown"
+import { inferredShareText, NOT_TALLIED } from "../../wording/breakdown"
 import { describeError } from "../../wording/errors"
 import { toneOf } from "../../wording/numbers"
 import { Figure } from "../plays/Figure"
@@ -69,8 +70,10 @@ function Day(props: { readonly day: IsoDate; readonly figures: Group | undefined
  * Whose results they are — a book's, or several books' together — is the
  * caller's: it holds the month, asks for the month's days and for the
  * month as a whole, and says where a day pressed goes. Nothing here adds
- * a day to another. What the caller puts inside stands under the
- * calendar.
+ * a day to another. Where part of the month's theoretical value was
+ * inferred, how much is said under it, so a figure nobody measured is not
+ * taken for one somebody did. What the caller puts inside stands under
+ * the calendar.
  */
 export function ResultCalendar(props: {
   readonly place: Place
@@ -106,7 +109,13 @@ export function ResultCalendar(props: {
           </div>
           <dl class="grid grid-cols-2 gap-2">
             <Figure label="実収支" value={total().actual} kind="actual" />
-            <Figure label="期待値" value={total().theoretical} kind="theoretical" instead={props.theoreticalKept ? undefined : NOT_TALLIED} />
+            <Figure
+              label="期待値"
+              value={total().theoretical}
+              kind="theoretical"
+              instead={props.theoreticalKept ? undefined : NOT_TALLIED}
+              {...(props.theoreticalKept && !isZero(total().inferred) ? { caption: inferredShareText(total().inferred) } : {})}
+            />
           </dl>
           <Show when={failure()} keyed>
             {(words) => (

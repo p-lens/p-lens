@@ -9,6 +9,7 @@ export const ACCOUNTS = {
   playRevenue: "収益:遊技",
   playExpense: "費用:遊技",
   theoreticalValue: "統計:期待値",
+  inferredTheoreticalValue: "統計:期待値:推定",
   replayFee: "費用:再プレイ手数料",
   openingBalance: "純資産:開始残高",
   balanceAdjustment: "純資産:残高調整",

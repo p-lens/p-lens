@@ -1,8 +1,10 @@
 import type { IsoDate } from "../calendar/calendar"
 import type { Decimal } from "../decimal/decimal"
 import type { Entry } from "../journal/entry"
-import { PLAY_TAGS, type PlayGameKind, type PlayId } from "../play/play"
+import { toldTags } from "../play/compose"
+import { PLAY_TAGS, type InferredWorth, type PlayGameKind, type PlayId, type PlayTold } from "../play/play"
 import { sidePostings } from "../play/sides"
+import { inferredTheoreticalValuePosting } from "../theoretical/theoretical"
 
 /**
  * A play as another app kept it, read out of what that app wrote: the day,
@@ -19,6 +21,8 @@ export interface SourcePlay {
   readonly outlay: Decimal
   readonly takings: Decimal
   readonly memo: string
+  /** How long it lasted, in hours, where that app said. */
+  readonly hours: Decimal | undefined
 }
 
 /** A machine of the catalog that a source's machine is, where its name is one's and only one game's. */
@@ -34,7 +38,13 @@ export interface ImportedPlay {
   readonly from: string
   readonly source: SourcePlay
   readonly machine: MatchedMachine | undefined
+  /** What it was taken to be worth from its hours and its two sides, where it was weighed. */
+  readonly inferred: InferredWorth | undefined
 }
+
+/** What an imported play tells of itself beside its two sides: its hours, where the other app said them, and what it was taken to be worth from them. */
+const toldOf = (play: ImportedPlay): PlayTold | undefined =>
+  play.source.hours === undefined ? undefined : { hours: play.source.hours, jackpots: undefined, inferred: play.inferred }
 
 /**
  * The tags an imported play carries beside a play's own, saying where it
@@ -70,7 +80,9 @@ const describe = (source: SourcePlay): string =>
 /**
  * An imported play as one journal entry, in yen alone, its two sides as a
  * play typed in by hand has them (`sidePostings`): a loss out of cash, a
- * gain into the special prizes, never into cash. Its
+ * gain into the special prizes, never into cash — with its hours where
+ * the other app said them, and what it was taken to be worth from them
+ * where it was weighed, as a play typed in by hand has those too. Its
  * description is the play as the other app named it; `machine` and
  * `game-kind` are written only where the catalog has the machine, and no
  * parlor is named until one is tied to it.
@@ -88,8 +100,9 @@ export const importedPlayEntry = (play: ImportedPlay): Entry => ({
     ...tagged(SOURCE_TAGS.machine, play.source.machine.name),
     ...tagged(SOURCE_TAGS.machineCode, play.source.machine.code),
     ...tagged(SOURCE_TAGS.maker, play.source.machine.maker),
+    ...toldTags(toldOf(play)),
   ],
-  postings: sidePostings(play.source.outlay, play.source.takings),
+  postings: [...sidePostings(play.source.outlay, play.source.takings), ...(play.inferred === undefined || play.source.hours === undefined ? [] : [inferredTheoreticalValuePosting(play.inferred.value)])],
   notes: noteOf(play.source.memo) === "" ? [] : [noteOf(play.source.memo)],
 })
 

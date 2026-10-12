@@ -21,12 +21,13 @@ const figures = (report: BalanceReport) => ((found) => (found.ok ? found.value :
 
 describe("a report pivoted on a tag", () => {
   test("is a group a row, its income statement turned over, what carries no such tag under the empty key", () => {
-    const groups = groupsOf(figures(pivoted([["流星", -3000], ["", -1000], ["ピエロット", 8000]])), figures(pivoted([["流星", 4000]])))
+    const groups = groupsOf(figures(pivoted([["流星", -3000], ["", -1000], ["ピエロット", 8000]])), figures(pivoted([["流星", 4000]])), figures(pivoted([["流星", 1500], ["よその台", 900]])))
     expect(read(bestFirst(groups))).toEqual([["流星", "3000", "4000"], ["", "1000", "0"], ["ピエロット", "-8000", "0"]])
+    expect(bestFirst(groups).map((group) => toPlainString(group.inferred))).toEqual(["1500", "0", "0"])
   })
 
   test("has no group for what comes to nothing in both reports, and one for what only the theoretical values have", () => {
-    expect(read(groupsOf(figures(pivoted([["流星", 0]])), figures(pivoted([["森物語", 500]]))))).toEqual([["森物語", "0", "500"]])
+    expect(read(groupsOf(figures(pivoted([["流星", 0]])), figures(pivoted([["森物語", 500]])), figures(pivoted([]))))).toEqual([["森物語", "0", "500"]])
   })
 
   test("is refused where a figure was left in tokens no rate values", () => {
@@ -46,10 +47,10 @@ describe("a report with a column a period", () => {
 
 /** 2026-10-05 and 10-12 are Mondays; 10-10 a Saturday; 10-11 a Sunday. */
 const DAYS: readonly Group[] = [
-  { key: "2026-10-05", actual: dec("5000"), theoretical: dec("3000") },
-  { key: "2026-10-10", actual: dec("-2000"), theoretical: dec("1000") },
-  { key: "2026-10-11", actual: dec("-8000"), theoretical: dec("0") },
-  { key: "2026-10-12", actual: dec("1000"), theoretical: dec("0") },
+  { key: "2026-10-05", actual: dec("5000"), theoretical: dec("3000"), inferred: dec("0") },
+  { key: "2026-10-10", actual: dec("-2000"), theoretical: dec("1000"), inferred: dec("0") },
+  { key: "2026-10-11", actual: dec("-8000"), theoretical: dec("0"), inferred: dec("0") },
+  { key: "2026-10-12", actual: dec("1000"), theoretical: dec("0"), inferred: dec("0") },
 ]
 
 describe("groups set in order and brought together", () => {
@@ -63,7 +64,8 @@ describe("groups set in order and brought together", () => {
   })
 
   test("the same key from several books is one group, and every group comes to the total", () => {
-    expect(read(merged([[DAYS[0] as Group], [{ key: "2026-10-05", actual: dec("500"), theoretical: dec("100") }, DAYS[1] as Group]]))).toEqual([["2026-10-05", "5500", "3100"], ["2026-10-10", "-2000", "1000"]])
+    expect(read(merged([[DAYS[0] as Group], [{ key: "2026-10-05", actual: dec("500"), theoretical: dec("100"), inferred: dec("0") }, DAYS[1] as Group]]))).toEqual([["2026-10-05", "5500", "3100"], ["2026-10-10", "-2000", "1000"]])
     expect(read([totalOf(DAYS)])).toEqual([["", "-4000", "4000"]])
+    expect(toPlainString(totalOf([{ ...(DAYS[0] as Group), inferred: dec("700") }, { ...(DAYS[1] as Group), inferred: dec("-200") }]).inferred)).toBe("500")
   })
 })
