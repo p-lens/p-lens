@@ -126,14 +126,14 @@ const swapOf = (swapping: Swapping): Swap | undefined => (swapping.type === "res
  * the person's own and the row under it, where another of theirs comes
  * after, the arrows that swap the two: both swell while the swap is
  * written, and settle in each other's place once the list is read again.
- * The edge is kept clear for the arrows only where there are any, and
- * reaches into the screen's own margin, so the rows give up little. A
+ * The edge is kept clear for the arrows whether there are any or not, so
+ * a row is as wide with one book as with several, and reaches into the
+ * screen's own margin, so the rows give up little. A
  * second swap waits for the first to be written.
  */
 function BookList(props: { readonly rows: readonly Row[]; readonly onDeleted: () => Promise<void> }): JSX.Element {
   const app = useApp()
   const rows = createMemo(() => props.rows)
-  const swappable = (): boolean => rows().some((row) => row.swapsWith !== undefined)
   const [swapping, setSwapping] = createSignal<Swapping>({ type: "resting" })
   const swap = async (asked: Swap): Promise<void> => {
     if (swapping().type === "writing") return
@@ -144,10 +144,10 @@ function BookList(props: { readonly rows: readonly Row[]; readonly onDeleted: ()
     app.wrote()
   }
   return (
-    <ul class="flex flex-col gap-1" classList={{ "-mr-2": swappable() }}>
+    <ul class="-mr-2 flex flex-col gap-1">
       <For each={rows()}>
         {(row) => (
-          <li class="relative" classList={{ "pr-7": swappable() }}>
+          <li class="relative pr-7">
             <BookRow listed={row.standing} motion={motionOf(rows(), swapOf(swapping()), row.standing.book.id)} onSettled={() => setSwapping({ type: "resting" })} onDeleted={props.onDeleted} />
             <Show when={row.swapsWith} keyed>
               {(lower) => (
