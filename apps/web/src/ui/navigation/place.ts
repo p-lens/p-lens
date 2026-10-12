@@ -13,7 +13,7 @@ const BOOK_VIEWS = ["plays", "holdings", "activity", "files"] as const
 
 export type BookView = (typeof BOOK_VIEWS)[number]
 
-const SETTINGS_SECTIONS = ["appearance", "business-day", "sync", "backup", "export", "import", "books", "consolidation", "licenses"] as const
+const SETTINGS_SECTIONS = ["appearance", "business-day", "sync", "backup", "export", "import", "books", "sharing", "consolidation", "licenses"] as const
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]
 

@@ -316,6 +316,16 @@ export const ClosingIcon = () => (
   </Icon>
 )
 
+/** People a thing is shared with: one nearer, one behind their shoulder. */
+export const PeopleIcon = () => (
+  <Icon>
+    <circle cx="9" cy="8" r="3.5" />
+    <path d="M2.500 20c.5-4 3-6 6.500-6s6 2 6.500 6" />
+    <path d="M15.500 4.800a3.500 3.500 0 0 1 0 6.400" />
+    <path d="M17.500 14.300c2.300.7 3.700 2.600 4 5.700" />
+  </Icon>
+)
+
 export const PaletteIcon = () => (
   <Icon>
     <path d="M12 3a9 9 0 1 0 0 18c1 0 1.5-.8 1.5-1.5 0-.9-.7-1.3-.7-2.2 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4c0-4.7-4-8.5-9-8.5z" />

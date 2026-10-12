@@ -38,6 +38,7 @@ import { ImportSettings } from "../settings/ImportSettings"
 import { BooksSettings } from "../settings/BooksSettings"
 import { BusinessDaySettings } from "../settings/BusinessDaySettings"
 import { LicensesView } from "../settings/LicensesView"
+import { SharingSettings } from "../settings/SharingSettings"
 import { SyncSettings } from "../settings/SyncSettings"
 import { AboutButton } from "./AboutButton"
 import { BackupNotice } from "./BackupNotice"
@@ -147,6 +148,8 @@ const settingsFor = (place: Extract<Place, { kind: "settings-section" }>): JSX.E
       return <BusinessDaySettings place={place} />
     case "sync":
       return <SyncSettings place={place} />
+    case "sharing":
+      return <SharingSettings place={place} />
     case "backup":
       return <BackupSettings place={place} />
     case "export":

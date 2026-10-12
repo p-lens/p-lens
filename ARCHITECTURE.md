@@ -1237,7 +1237,7 @@ relay that can read none of them.
   journal are both kept, the line's first; the same line added by both is
   added once; a line both rewrote differently is a conflict, and the round
   stops with both books as they were. No conflict is settled by guessing.
-- **Settling a conflict** (設定 → 同期): the two texts are laid out as they
+- **Settling a conflict** (設定 → 端末の同期): the two texts are laid out as they
   come together (`mergeOutline`), each stretch both rewrote set apart with
   its two sides, and a person picks one for each. The line's commits are
   then taken in, this device's unsent commits made again on them with the
@@ -1252,7 +1252,7 @@ relay that can read none of them.
 - **Joining** reads the line whole, makes its commits in order from nothing,
   and puts the book they leave on the device.
 - A round runs when the app opens, a little after each write, when the
-  device comes back online, and when asked (設定 → 同期).
+  device comes back online, and when asked (設定 → 端末の同期).
 - **A commit is small.** A change keeps what it did to each file as a patch
   (`core/change/patch`): the lines it took away and the lines it put in,
   where — never the file whole, twice. A play recorded is its entry and its
@@ -1308,9 +1308,20 @@ after midnight, still today's.
 ## Letting others into a book
 
 A book's owner lets other people into it, each by a code of their own
-(設定 → 同期 → 仲間を招待; `core/sync/invitation`, `application/invitations`).
+(設定 → 共有 → 仲間を招待; `core/sync/invitation`, `application/invitations`).
 There is no account over the books: whoever holds a line's secret is its
 owner, and lets others in from there.
+
+To the person these are two things, whatever they share underneath, and
+they are two screens. 端末の同期 is one's own books between one's own
+devices: the book's own code, which is its key and is handed to nobody,
+and the whole of how the last round went, a conflict settled there. 共有
+is other people: who is let into each of one's books, the books one was
+let into, the books one may only send plays to — and never a book's own
+code. Each takes its own kind of code and turns the other's away with
+where it goes (`kindOfCode`). A book not yet on its way is started as its
+first invitation is opened, and 共有 says in a line how syncing stands,
+since it rides on it.
 
 - **An invitation** is a token made for one person, the line's id and the
   key its commits are sealed with, and what the token may do — write, or

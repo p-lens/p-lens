@@ -1,7 +1,7 @@
 import type { JSX } from "solid-js"
 import { SidePanel } from "solid-gathering-shell"
 
-import { BackupIcon, BooksIcon, ClosingIcon, ConsolidatedIcon, ExportIcon, FileIcon, ImportIcon, PaletteIcon, RefreshIcon } from "../../primitives/icons"
+import { BackupIcon, BooksIcon, ClosingIcon, ConsolidatedIcon, ExportIcon, FileIcon, ImportIcon, PaletteIcon, PeopleIcon, RefreshIcon } from "../../primitives/icons"
 import { DOCUMENT_KINDS } from "../../../core/document/document"
 import { useApp } from "../../context"
 import { useMoves } from "../../navigation/moves"
@@ -38,7 +38,7 @@ export function SettingsSide(props: { readonly place: Place }): JSX.Element {
           },
           {
             id: "sync",
-            label: "同期",
+            label: "端末の同期",
             icon: <RefreshIcon />,
             selected: props.place.kind === "settings-section" && props.place.section === "sync",
             onSelect: () => moves.go({ kind: "settings-section", section: "sync" }),
@@ -75,6 +75,13 @@ export function SettingsSide(props: { readonly place: Place }): JSX.Element {
             icon: <BooksIcon />,
             selected: props.place.kind === "settings-section" && props.place.section === "books",
             onSelect: () => moves.go({ kind: "settings-section", section: "books" }),
+          },
+          {
+            id: "sharing",
+            label: "共有",
+            icon: <PeopleIcon />,
+            selected: props.place.kind === "settings-section" && props.place.section === "sharing",
+            onSelect: () => moves.go({ kind: "settings-section", section: "sharing" }),
           },
           {
             id: "consolidation",

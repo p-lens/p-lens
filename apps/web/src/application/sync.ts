@@ -293,6 +293,13 @@ export const joinSync = async (ports: SyncPorts, code: string, relayUrl: string 
   return mapOk(linked, () => bookId)
 }
 
+/**
+ * What a code is for: a book's own secret, which puts it on another of its
+ * owner's devices, or an invitation, which lets someone else in. The two
+ * are typed into different places, and each place says so of the other's.
+ */
+export const kindOfCode = (code: string): "own" | "invitation" => (readInvitation(code) === undefined ? "own" : "invitation")
+
 /** What a code put on a device: a book, joined; or somewhere to send plays to, by what its book is called. */
 export type Joined = { readonly type: "book"; readonly bookId: BookId } | { readonly type: "destination"; readonly title: string }
 
