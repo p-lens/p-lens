@@ -27,24 +27,30 @@ type Opened = "none" | "prize-exchange" | "adjustment"
 
 const ROW_BUTTON = "shrink-0 rounded border border-border px-2 py-0.5 text-xs text-text-secondary hover:border-text-secondary hover:text-text-primary"
 
+/** One pool's savings on a line: how many, at what rate, worth what. */
+export function TokenFigures(props: { readonly token: TokenHolding }): JSX.Element {
+  return (
+    <div class="flex items-baseline justify-between gap-3">
+      <span class="w-12 shrink-0 text-xs text-text-muted">{props.token.tier}</span>
+      <span class="tabular-nums text-text-primary">{formatTokens(props.token.quantity, props.token.kind)}</span>
+      <span class="flex-1 text-sm text-text-muted">{props.token.rate === undefined ? "交換率なし" : `@ ${formatRate(props.token.rate.rate)}`}</span>
+      <span class="tabular-nums text-text-secondary">{formatYen(props.token.value)}</span>
+    </div>
+  )
+}
+
 /**
- * One pool's savings: how many, at what rate, worth what — and, where the
- * book knows whose they are, the ways to record a prize exchange and to put the
- * count right, each opened under the row. The figures keep a line of their
- * own and the two small buttons the end of the next, so neither is
- * squeezed on a phone.
+ * One pool's savings and, where the book knows whose they are, the ways
+ * to record a prize exchange and to put the count right, each opened
+ * under the row. The figures keep a line of their own and the two small
+ * buttons the end of the next, so neither is squeezed on a phone.
  */
 function TokenRow(props: { readonly bookId: BookId; readonly parlor: Parlor | undefined; readonly token: TokenHolding }): JSX.Element {
   const [opened, setOpened] = createSignal<Opened>("none")
   const pool = () => ({ kind: props.token.kind, tier: props.token.tier })
   return (
     <li class="flex flex-col gap-2 py-1.5">
-      <div class="flex items-baseline justify-between gap-3">
-        <span class="w-12 shrink-0 text-xs text-text-muted">{props.token.tier}</span>
-        <span class="tabular-nums text-text-primary">{formatTokens(props.token.quantity, props.token.kind)}</span>
-        <span class="flex-1 text-sm text-text-muted">{props.token.rate === undefined ? "交換率なし" : `@ ${formatRate(props.token.rate.rate)}`}</span>
-        <span class="tabular-nums text-text-secondary">{formatYen(props.token.value)}</span>
-      </div>
+      <TokenFigures token={props.token} />
       <Show when={props.parlor !== undefined && opened() === "none"}>
         <div class="flex justify-end gap-2">
           <button type="button" class={ROW_BUTTON} onClick={() => setOpened("prize-exchange")}>
@@ -65,7 +71,8 @@ function TokenRow(props: { readonly bookId: BookId; readonly parlor: Parlor | un
   )
 }
 
-function ParlorCard(props: { readonly bookId: BookId; readonly holding: ParlorHolding }): JSX.Element {
+/** One parlor's savings: its name and what they are worth, over its pools, each drawn as whoever shows the card draws a pool. */
+export function ParlorCard(props: { readonly holding: ParlorHolding; readonly children: (token: TokenHolding) => JSX.Element }): JSX.Element {
   return (
     <article class="rounded-lg bg-surface-1 px-4 py-3">
       <header class="flex items-baseline justify-between gap-3 border-b border-border pb-2">
@@ -73,7 +80,7 @@ function ParlorCard(props: { readonly bookId: BookId; readonly holding: ParlorHo
         <span class="text-lg font-bold tabular-nums text-text-primary">{formatYen(props.holding.value)}</span>
       </header>
       <ul>
-        <For each={props.holding.tokens}>{(token) => <TokenRow bookId={props.bookId} parlor={props.holding.parlor} token={token} />}</For>
+        <For each={props.holding.tokens}>{(token) => props.children(token)}</For>
       </ul>
     </article>
   )
@@ -147,7 +154,7 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
                   {found.valuedOn === undefined ? "" : `（${formatDay(found.valuedOn)}時点の交換率）`}
                 </p>
                 <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                  <For each={found.parlors}>{(holding) => <ParlorCard bookId={props.bookId} holding={holding} />}</For>
+                  <For each={found.parlors}>{(holding) => <ParlorCard holding={holding}>{(token) => <TokenRow bookId={props.bookId} parlor={holding.parlor} token={token} />}</ParlorCard>}</For>
                 </div>
               </Show>
             )}

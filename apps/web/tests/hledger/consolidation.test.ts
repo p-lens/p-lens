@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test"
 
 import { createBookSession } from "../../src/application/book-session"
-import { loadConsolidation, type ConsolidatedBy } from "../../src/application/consolidation"
+import { consolidationKeepsTheoreticalValues, loadConsolidatedHoldings, loadConsolidation, type ConsolidatedBy } from "../../src/application/consolidation"
+import { loadHoldings } from "../../src/application/holdings"
+import { latestValuedOn, totalAcross } from "../../src/core/report/holdings"
 import { merged } from "../../src/core/report/breakdown"
 import { firstBook } from "../../src/app/composition/first-book"
 import type { BookId } from "../../src/core/book/book"
@@ -21,7 +23,7 @@ const setUp = async () => {
 
 const read = async (session: Awaited<ReturnType<typeof setUp>>, chosen: readonly BookId[] | undefined, by: ConsolidatedBy, query: string) => {
   const found = await loadConsolidation(session, chosen, by, query)
-  return found.ok && found.value.map((each) => [each.book.id, each.groups.ok && each.groups.value.map((group) => [group.key, toPlainString(group.actual), toPlainString(group.theoretical)])])
+  return found.ok && found.value.map((each) => [each.book.id, each.read.ok && each.read.value.map((group) => [group.key, toPlainString(group.actual), toPlainString(group.theoretical)])])
 }
 
 describe("several books consolidated", () => {
@@ -34,8 +36,30 @@ describe("several books consolidated", () => {
     const session = await setUp()
     const both = await read(session, [MINE as BookId, THEIRS as BookId], "machine", "date:2026-09")
     expect(both).toEqual([[MINE, [["ピエロット", "20030", "1800"], ["森物語", "15976", "3200"], ["流星", "5136", "5500"]]], [THEIRS, [["ピエロット", "20030", "1800"], ["森物語", "15976", "3200"], ["流星", "5136", "5500"]]]] as never)
-    const merged_ = merged((await loadConsolidation(session, [MINE as BookId, THEIRS as BookId], "machine", "date:2026-09").then((found) => (found.ok ? found.value : []))).flatMap((each) => (each.groups.ok ? [each.groups.value] : [])))
+    const merged_ = merged((await loadConsolidation(session, [MINE as BookId, THEIRS as BookId], "machine", "date:2026-09").then((found) => (found.ok ? found.value : []))).flatMap((each) => (each.read.ok ? [each.read.value] : [])))
     expect(merged_.map((group) => [group.key, toPlainString(group.actual)])).toEqual([["ピエロット", "40060"], ["森物語", "31952"], ["流星", "10272"]])
     expect(await read(session, [EMPTY as BookId, "gone" as BookId], "month", "")).toEqual([[EMPTY, []]] as never)
+  })
+
+  test("hold what each book holds, book by book, and together the books' own totals added", async () => {
+    const session = await setUp()
+    const found = await loadConsolidatedHoldings(session, undefined, "")
+    const alone = await loadHoldings(session, MINE as BookId, "")
+    const books = found.ok ? found.value : []
+    expect(books.map((each) => each.book.id)).toEqual([MINE, THEIRS, EMPTY] as never)
+    expect(books[0]?.read).toEqual(alone)
+    const read = books.flatMap((each) => (each.read.ok ? [each.read.value] : []))
+    expect(read.length).toBe(3)
+    expect(alone.ok && toPlainString(totalAcross(read))).toBe(alone.ok ? toPlainString({ mantissa: alone.value.total.mantissa * 2n, places: alone.value.total.places }) : "")
+    expect(latestValuedOn(read)).toBe(alone.ok ? alone.value.valuedOn : undefined)
+    const one = await loadConsolidatedHoldings(session, [EMPTY as BookId], "")
+    expect(one.ok && one.value.map((each) => [each.book.id, each.read.ok && each.read.value.parlors.length])).toEqual([[EMPTY, 0]] as never)
+  })
+
+  test("keep theoretical values where any of the books chosen does", async () => {
+    const session = await setUp()
+    expect(await consolidationKeepsTheoreticalValues(session, undefined)).toEqual({ ok: true, value: true })
+    expect(await consolidationKeepsTheoreticalValues(session, [MINE as BookId, EMPTY as BookId])).toEqual({ ok: true, value: true })
+    expect(await consolidationKeepsTheoreticalValues(session, [EMPTY as BookId])).toEqual({ ok: true, value: false })
   })
 })

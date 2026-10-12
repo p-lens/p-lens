@@ -7,7 +7,7 @@ import { destinationsOf } from "../../../application/sending"
 import type { ListedBook } from "../../../core/book/book"
 import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
-import { bookOf, focusOf, inSettings, placeOf, type Place } from "../../navigation/place"
+import { bookOf, focusOf, inConsolidation, inSettings, placeOf, type Place } from "../../navigation/place"
 import { EmptyState } from "../../primitives/states"
 import { ActivityView } from "../activity/ActivityView"
 import { CabinetView } from "../live/CabinetView"
@@ -32,7 +32,10 @@ import { ResultCalendarView } from "../result-calendar"
 import { AppearanceSettings } from "../settings/AppearanceSettings"
 import { BackupSettings } from "../settings/BackupSettings"
 import { BreakdownView } from "../breakdown/BreakdownView"
-import { ConsolidatedSide, ConsolidatedView } from "../consolidated/ConsolidatedView"
+import { ConsolidatedBreakdownView } from "../consolidated/ConsolidatedBreakdownView"
+import { ConsolidatedHoldingsView } from "../consolidated/ConsolidatedHoldingsView"
+import { ConsolidatedResultCalendarView } from "../consolidated/ConsolidatedResultCalendarView"
+import { ConsolidatedSide } from "../consolidated/ConsolidatedSide"
 import { ConsolidationSettings } from "../settings/ConsolidationSettings"
 import { ExportSettings } from "../settings/ExportSettings"
 import { ImportSettings } from "../settings/ImportSettings"
@@ -128,8 +131,12 @@ const mainFor = (place: Place, query: () => string): JSX.Element => {
       return <ChooseFromList place={place} title="稼働の送り先" hint="左のリストから、本日の稼働を送れます。" />
     case "consolidated":
       return <ChooseFromList place={place} title="連結" hint="左のリストからビューを選んでください。" />
+    case "consolidated-holdings":
+      return <ConsolidatedHoldingsView place={place} bookIds={place.bookIds} query={query()} />
+    case "consolidated-result-calendar":
+      return <ConsolidatedResultCalendarView place={place} bookIds={place.bookIds} />
     case "consolidated-breakdown":
-      return <ConsolidatedView place={place} by={place.by} bookIds={place.bookIds} query={query()} />
+      return <ConsolidatedBreakdownView place={place} by={place.by} bookIds={place.bookIds} query={query()} />
     case "settings":
       return <ChooseFromList place={place} title="設定" hint="左のリストから項目を選んでください。" />
     case "settings-section":
@@ -185,7 +192,7 @@ const bookViewFor = (place: Extract<Place, { kind: "book-view" }>, query: () => 
 const sideFor = (place: Place, books: Outcome<readonly ListedBook[]> | undefined, destinations: Outcome<readonly Destination[]> | undefined): JSX.Element => {
   if (inSettings(place)) return <SettingsSide place={place} />
   if (place.kind === "destination") return <DestinationSide lineId={place.lineId} destinations={destinations} />
-  if (place.kind === "consolidated" || place.kind === "consolidated-breakdown") return <ConsolidatedSide place={place} />
+  if (inConsolidation(place)) return <ConsolidatedSide place={place} />
   const bookId = bookOf(place)
   if (bookId === undefined) return <LiveSide place={place} />
   const book = books?.ok === true ? books.value.find((candidate) => candidate.id === bookId) : undefined

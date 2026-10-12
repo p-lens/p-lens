@@ -11,7 +11,7 @@ import { createHourStruck } from "../../primitives/hour"
 import { ConsolidatedIcon, LiveIcon, SendIcon, SettingsIcon } from "../../primitives/icons"
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../primitives/tooltip"
 import { useMoves } from "../../navigation/moves"
-import { bookOf, inLiveSpace, inSettings, type Place } from "../../navigation/place"
+import { bookOf, inConsolidation, inLiveSpace, inSettings, type Place } from "../../navigation/place"
 import { bookTitle } from "../../wording/book"
 import { destinationLabel } from "../../wording/sync"
 import { consolidationShown } from "../consolidated/shown"
@@ -91,7 +91,7 @@ export function SpacesRail(props: {
     books().filter((book) => !ownedBy(app.services.member)(book)).map(bookItem),
     destinations().map(destinationItem),
     consolidationShown(app.services.preferences)
-      ? [{ id: "consolidated", label: "連結", icon: <ConsolidatedIcon />, colour: SEMIPRO, selected: props.place.kind === "consolidated" || props.place.kind === "consolidated-breakdown", onSelect: () => moves.go({ kind: "consolidated" }) }]
+      ? [{ id: "consolidated", label: "連結", icon: <ConsolidatedIcon />, colour: SEMIPRO, selected: inConsolidation(props.place), onSelect: () => moves.go({ kind: "consolidated" }) }]
       : [],
   ]
   const footer = (): readonly RailItem[] => [

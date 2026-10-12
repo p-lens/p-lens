@@ -1575,11 +1575,14 @@ with plays is pressed to see them, the plays list asked for that day.
 - **A guest, kept whole in one folder.** The view, the laying out of a
   month in weeks, its words and its icons are all in
   `ui/features/result-calendar`, and its tests in `tests/ui/result-calendar`.
-  Nothing imports it but three lines: `"result-calendar"` among `BOOK_VIEWS`
+  Nothing imports it but a book's three lines: `"result-calendar"` among `BOOK_VIEWS`
   (`ui/navigation/place.ts`), its case in `bookViewFor`
   (`ui/features/shell/PLensScreen.tsx`) and its line in `VIEWS`
-  (`ui/features/shell/BookSpaceSide.tsx`). Taking it out is deleting the
-  two folders, those three lines and this section. Unlike every other
+  (`ui/features/shell/BookSpaceSide.tsx`) — and the consolidation's own
+  calendar, which is this one given several books' results added
+  (`ConsolidatedResultCalendarView`, with its place, its case in
+  `PLensScreen` and its line in `ConsolidatedSide`). Taking it out is
+  deleting the two folders, those lines and this section. Unlike every other
   screen it keeps its own words and icons, for that reason alone.
 - **hledger does every sum.** It has no report of its own: the days are the
   breakdown by day (`loadBreakdown(…, "day", …)`) and the month's two
@@ -1719,20 +1722,38 @@ what its plays made and what they were worth.
 ## Consolidation
 
 Several books are read as one (連結, on the rail under the books, once
-turned on; `application/consolidation`): the results of the books ticked,
-for a period, grouped as one book's breakdown groups them — and, first,
-book by book.
+turned on; `application/consolidation`), in the views a book has for
+reading it: the savings of the books ticked (貯玉・貯メダル), their results
+a month at a time (カレンダー), and their results for a period grouped as
+one book's breakdown groups them — and, first, book by book (集計).
 
 - **Each book's groups are its own, from hledger; one key from several
   books is those added** (`merged`). hledger holds one journal at a time,
   and nothing is valued again across books: two people who kept the same
   parlor at different rates each keep their own, and the total is the sum
   of what each book says, never of a journal made of both.
+- **Each book is asked the same thing in turn** (`ConsolidatedBook<T>`):
+  its groups, its holdings, whether it keeps theoretical values. A book
+  that could not be read is said under its tick and left out of what is
+  shown; the others stand.
+- **Savings are book by book** (`loadConsolidatedHoldings`): each book's
+  pools at its own rates and worth what hledger says of that book, the
+  books' totals added above them (`totalAcross`). A parlor two books keep
+  is in each as that book keeps it. They are only read there: a count is
+  put right, and a prize exchange recorded, in the book whose it is.
+- **The calendar is a book's, given the books' days added**
+  (`ResultCalendar`, `mergedOf`): a day pressed goes to what each book
+  made that day, there being no one list of several books' plays.
+- **No sum of theoretical values where none of the books keeps any**
+  (`consolidationKeepsTheoreticalValues`), as in one book that keeps none.
 - **A space of its own**: `/consolidated` lists its views, as a book's
-  address lists a book's; 集計 is the one there is.
+  address lists a book's, and in a book's order.
 - **Which books, which grouping and which period are the address's**:
   `/consolidated/breakdown/book` is every book on the device,
-  `/consolidated/breakdown/machine/a,b` those named, `q` the period.
+  `/consolidated/breakdown/machine/a,b` those named, `q` the period;
+  `/consolidated/holdings/a,b` and `/consolidated/result-calendar/a,b`
+  name their books the same way. The books ticked go with a person from
+  one view to the next (`consolidatedBooksOf`).
 - **Out of sight until turned on** (設定 → 連結会計): most people keep one
   book, so the rail shows 連結 only on a device whose owner asked for it.
   The choice is a preference of the device; the address has its screen

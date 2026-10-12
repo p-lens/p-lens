@@ -141,3 +141,9 @@ export const holdingsOf = (
     }))
   })
 }
+
+/** What several books' savings come to together: each book's own total, hledger's, added — nothing valued again across books. */
+export const totalAcross = (books: readonly Holdings[]): Decimal => sum(books.map((book) => book.total))
+
+/** The latest day any of several books' savings are valued on: the day a valuation of them all together is said to be of. */
+export const latestValuedOn = (books: readonly Holdings[]): IsoDate | undefined => books.flatMap((book) => (book.valuedOn === undefined ? [] : [book.valuedOn])).toSorted().at(-1)

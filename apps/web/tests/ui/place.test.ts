@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { focusOf, parentOf, pathOf, placeOf, type Place } from "../../src/ui/navigation/place"
+import { consolidatedBooksOf, focusOf, inConsolidation, parentOf, pathOf, placeOf, type Place } from "../../src/ui/navigation/place"
 
 const PLACES: readonly Place[] = [
   { kind: "live" },
@@ -96,6 +96,24 @@ describe("the consolidation", () => {
     expect(parentOf({ kind: "consolidated-breakdown", by: "book", bookIds: undefined })).toEqual({ kind: "consolidated" })
     expect(focusOf({ kind: "consolidated-breakdown", by: "book", bookIds: undefined })).toBe("content")
     expect(placeOf("/consolidated/elsewhere")).toEqual({ kind: "not-found", path: "/consolidated/elsewhere" })
+  })
+
+  test("has the books' savings and their calendar beside it, each of every book or of the books its address names", () => {
+    expect(placeOf("/consolidated/holdings")).toEqual({ kind: "consolidated-holdings", bookIds: undefined })
+    expect(placeOf("/consolidated/holdings/a%2Cb")).toEqual({ kind: "consolidated-holdings", bookIds: ["a", "b"] } as never)
+    expect(pathOf({ kind: "consolidated-holdings", bookIds: ["a", "b"] as never })).toBe("/consolidated/holdings/a%2Cb")
+    expect(pathOf({ kind: "consolidated-holdings", bookIds: undefined })).toBe("/consolidated/holdings")
+    expect(placeOf("/consolidated/result-calendar")).toEqual({ kind: "consolidated-result-calendar", bookIds: undefined })
+    expect(placeOf("/consolidated/result-calendar/a")).toEqual({ kind: "consolidated-result-calendar", bookIds: ["a"] } as never)
+    expect(pathOf({ kind: "consolidated-result-calendar", bookIds: ["a"] as never })).toBe("/consolidated/result-calendar/a")
+    expect(placeOf("/consolidated/holdings/a/b")).toEqual({ kind: "not-found", path: "/consolidated/holdings/a/b" })
+    const views = [{ kind: "consolidated-holdings", bookIds: undefined }, { kind: "consolidated-result-calendar", bookIds: undefined }] as const
+    expect(views.map(parentOf)).toEqual([{ kind: "consolidated" }, { kind: "consolidated" }])
+    expect(views.map(focusOf)).toEqual(["content", "content"])
+    expect([...views, { kind: "consolidated" } as const].map(inConsolidation)).toEqual([true, true, true])
+    expect(inConsolidation({ kind: "settings" })).toBe(false)
+    expect(consolidatedBooksOf({ kind: "consolidated-holdings", bookIds: ["a"] as never })).toEqual(["a"] as never)
+    expect(consolidatedBooksOf({ kind: "consolidated" })).toBeUndefined()
   })
 })
 

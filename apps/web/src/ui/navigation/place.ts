@@ -36,9 +36,11 @@ const isFormulaTab = (segment: string): segment is FormulaTab => (FORMULA_TABS a
  * shows one of its files as it is kept, its path one encoded segment.
  *
  * `consolidated` is the space where several books are read as one, its
- * views listed as a book's are; `consolidated-breakdown` groups their plays
- * together by what its segment names — every book on the device, or those
- * its last segment names, comma between them.
+ * views listed as a book's are, each of every book on the device or of
+ * those its last segment names, comma between them:
+ * `consolidated-holdings` is their savings, `consolidated-result-calendar`
+ * their results a month at a time, and `consolidated-breakdown` groups
+ * their plays together by what its segment names.
  *
  * The live space, at the top of the rail, holds plays still being played:
  * `live` lists them, `live-new` starts one of a game, `live-play` is one in progress and
@@ -90,6 +92,8 @@ export type Place =
   | { readonly kind: "pachislot-distribution-new"; readonly machineId: string }
   | { readonly kind: "destination"; readonly lineId: string }
   | { readonly kind: "consolidated" }
+  | { readonly kind: "consolidated-holdings"; readonly bookIds: readonly BookId[] | undefined }
+  | { readonly kind: "consolidated-result-calendar"; readonly bookIds: readonly BookId[] | undefined }
   | { readonly kind: "consolidated-breakdown"; readonly by: ConsolidatedBy; readonly bookIds: readonly BookId[] | undefined }
   | { readonly kind: "settings" }
   | { readonly kind: "settings-section"; readonly section: SettingsSection }
@@ -101,6 +105,9 @@ const isBookView = (segment: string): segment is BookView => (BOOK_VIEWS as read
 
 const isSettingsSection = (segment: string): segment is SettingsSection =>
   (SETTINGS_SECTIONS as readonly string[]).includes(segment)
+
+/** The books a segment names, comma between them; every book on the device where there is no such segment. */
+const bookIdsIn = (segment: string | undefined): readonly BookId[] | undefined => (segment === undefined ? undefined : (segment.split(",").filter((id) => id !== "") as BookId[]))
 
 /** One path segment as it was meant, or undefined if it is not valid percent-encoding. */
 const decodeSegment = (segment: string): string | undefined => {
@@ -173,8 +180,10 @@ const placeOfSegments = (segments: readonly string[], path: string): Place => {
   if (first === "parlors" && second === "submitted" && third === undefined) return { kind: "parlor-submitted" }
   if (first === "destinations" && second !== undefined && third === undefined) return { kind: "destination", lineId: second }
   if (first === "consolidated" && second === undefined) return { kind: "consolidated" }
+  if (first === "consolidated" && second === "holdings" && fourth === undefined) return { kind: "consolidated-holdings", bookIds: bookIdsIn(third) }
+  if (first === "consolidated" && second === "result-calendar" && fourth === undefined) return { kind: "consolidated-result-calendar", bookIds: bookIdsIn(third) }
   if (first === "consolidated" && second === "breakdown" && fifth === undefined && (third === undefined || isConsolidatedBy(third)))
-    return { kind: "consolidated-breakdown", by: third === undefined ? "book" : third, bookIds: fourth === undefined ? undefined : (fourth.split(",").filter((id) => id !== "") as BookId[]) }
+    return { kind: "consolidated-breakdown", by: third === undefined ? "book" : third, bookIds: bookIdsIn(fourth) }
   if (first === "settings" && second === undefined) return { kind: "settings" }
   if (first === "settings" && second !== undefined && third === undefined && isSettingsSection(second))
     return { kind: "settings-section", section: second }
@@ -191,6 +200,9 @@ export const placeOf = (path: string): Place => {
 }
 
 const encode = encodeURIComponent
+
+/** The segment that names the books a consolidated view is of, or none for every book on the device. */
+const bookIdsSegment = (bookIds: readonly BookId[] | undefined): string => (bookIds === undefined ? "" : `/${encode(bookIds.join(","))}`)
 
 export const pathOf = (place: Place): string => {
   switch (place.kind) {
@@ -250,8 +262,12 @@ export const pathOf = (place: Place): string => {
       return `/destinations/${encode(place.lineId)}`
     case "consolidated":
       return "/consolidated"
+    case "consolidated-holdings":
+      return `/consolidated/holdings${bookIdsSegment(place.bookIds)}`
+    case "consolidated-result-calendar":
+      return `/consolidated/result-calendar${bookIdsSegment(place.bookIds)}`
     case "consolidated-breakdown":
-      return place.bookIds === undefined ? `/consolidated/breakdown/${place.by}` : `/consolidated/breakdown/${place.by}/${encode(place.bookIds.join(","))}`
+      return `/consolidated/breakdown/${place.by}${bookIdsSegment(place.bookIds)}`
     case "settings":
       return "/settings"
     case "settings-section":
@@ -297,6 +313,8 @@ export const focusOf = (place: Place): Focus => {
     case "book-breakdown":
     case "play-new":
     case "play-revise":
+    case "consolidated-holdings":
+    case "consolidated-result-calendar":
     case "consolidated-breakdown":
     case "settings-section":
     case "document":
@@ -353,6 +371,8 @@ export const parentOf = (place: Place): Place | undefined => {
       return { kind: "pachislot-formula", machineId: place.machineId, formulaId: place.formulaId }
     case "pachislot-formula-basis":
       return { kind: "pachislot-formula-grounds", machineId: place.machineId, formulaId: place.formulaId }
+    case "consolidated-holdings":
+    case "consolidated-result-calendar":
     case "consolidated-breakdown":
       return { kind: "consolidated" }
     case "live":
@@ -395,6 +415,14 @@ export const inLiveSpace = (place: Place): boolean =>
     "pachislot-formula-new",
     "pachislot-distribution-new",
   ].includes(place.kind)
+
+/** Whether a place is in the space where several books are read as one. */
+export const inConsolidation = (place: Place): boolean =>
+  place.kind === "consolidated" || place.kind === "consolidated-holdings" || place.kind === "consolidated-result-calendar" || place.kind === "consolidated-breakdown"
+
+/** The books a place of the consolidation is of: those its address names, or `undefined` for every book on the device — as it is anywhere else. */
+export const consolidatedBooksOf = (place: Place): readonly BookId[] | undefined =>
+  place.kind === "consolidated-holdings" || place.kind === "consolidated-result-calendar" || place.kind === "consolidated-breakdown" ? place.bookIds : undefined
 
 export const inSettings = (place: Place): boolean => place.kind === "settings" || place.kind === "settings-section" || place.kind === "document"
 
