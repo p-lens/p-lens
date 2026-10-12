@@ -14,7 +14,7 @@ import type { CommitId } from "../history/port/history-port"
 import type { BookSession, ProposedChange } from "./book-session"
 import type { Outcome } from "./errors"
 import { fromHledger, fromPlay } from "./lift"
-import { composedInYen, composedOnBookRates, withPrice, type ComposedPlay, type Composer, type RecordingContext } from "./record-play"
+import { composedInYen, composedOnBookRates, withAccountsFor, withPrice, type ComposedPlay, type Composer, type RecordingContext } from "./record-play"
 
 /** A recorded play as it is set right: what the book knows before anything is typed, and the play read back from its entry. */
 export interface Revising {
@@ -48,7 +48,7 @@ const revised = (files: ProposedChange["files"], head: PlayHead, { entry, price 
   const transactions = withPlayEntry(files[BOOK_FILES.transactions] ?? "", head.id, renderEntry(entry))
   return transactions === undefined
     ? Err({ type: "play-missing" })
-    : Ok({ files: { ...withPrice(files, price), [BOOK_FILES.transactions]: transactions, ...(log === undefined ? {} : { [playLogPath(head.gameKind, head.id)]: log }) }, intent: { type: "play-revised", playId: head.id, description: entry.description, theoreticalValue: head.theoreticalValue } })
+    : Ok({ files: { ...withPrice(withAccountsFor(files, entry), price), [BOOK_FILES.transactions]: transactions, ...(log === undefined ? {} : { [playLogPath(head.gameKind, head.id)]: log }) }, intent: { type: "play-revised", playId: head.id, description: entry.description, theoreticalValue: head.theoreticalValue } })
 }
 
 const revise = (session: BookSession, bookId: BookId, head: PlayHead, compose: Composer, log: string | undefined): Promise<Outcome<CommitId>> =>

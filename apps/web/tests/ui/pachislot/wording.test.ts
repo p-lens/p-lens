@@ -24,7 +24,7 @@ describe("pachislot wording", () => {
   test("odds read to one place, and to two below 1/10 so a 小役 is not rounded away", () => {
     expect(oddsText(273.14)).toBe("1/273.1")
     expect(oddsText(6.25)).toBe("1/6.25")
-    expect(oddsText(Number.POSITIVE_INFINITY)).toBe("—")
+    expect(oddsText(Number.POSITIVE_INFINITY)).toBe("--")
   })
 
   test("an average setting level reads to two places", () => {

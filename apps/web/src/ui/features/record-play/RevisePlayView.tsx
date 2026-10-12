@@ -17,7 +17,7 @@ import { createOffered, TallyEditor } from "./TallyPlayView"
 
 /**
  * Setting a recorded play right, in the form it was recorded with: in
- * tokens at its parlor, counted as its entry counts them, or by its result
+ * tokens at its parlor, counted as its entry counts them, or by its totals
  * in yen. Where it was played and at what rate are not the form's to
  * change; a play recorded at the wrong parlor is removed and recorded
  * again. Saved, its entry is written anew where it stands.

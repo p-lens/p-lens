@@ -42,7 +42,7 @@ export function FiguresTable(props: { readonly figures: readonly SettingLevelFig
                 <Index each={figures().bonuses}>{(bonus) => <td class="px-2 py-2 text-right text-text-primary">{oddsText(bonus().oneIn)}</td>}</Index>
                 <td class="px-2 py-2 text-right text-text-primary">{oddsText(figures().combinedOneIn)}</td>
                 <Show when={gains()}>
-                  <td class="px-2 py-2 text-right text-text-primary">{figures().at === undefined ? "—" : `${formatCount(Math.round(figures().at?.gain ?? 0))}枚`}</td>
+                  <td class="px-2 py-2 text-right text-text-primary">{figures().at === undefined ? "--" : `${formatCount(Math.round(figures().at?.gain ?? 0))}枚`}</td>
                 </Show>
                 <Show when={completes()}>
                   <td class="px-2 py-2 text-right text-text-primary">{shareText(figures().at?.completion ?? 0)}</td>

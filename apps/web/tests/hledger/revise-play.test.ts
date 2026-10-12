@@ -31,7 +31,7 @@ const TODAY: PlayRecord = { ...RENTED_PLAY, id: "today" as PlayId, date: "2026-1
 /** A play that rented, replayed at a fee and left tokens: every sum a record can carry. */
 const FULL: PlayRecord = { ...TODAY, id: "full" as PlayId, rental: { outlay: dec("2000"), tokens: dec("500") }, replay: { paidOut: dec("1000"), deducted: dec("1100") }, payout: dec("2500"), cabinetNumber: undefined, theoreticalValue: undefined }
 
-const TALLIED: TalliedPlay = { id: "tally" as PlayId, date: "2026-10-04" as IsoDate, parlor: UMEDA, gameKind: "slot", machine: "スマスロ流星", cabinetNumber: "7", result: dec("-12000"), theoreticalValue: dec("8000") }
+const TALLIED: TalliedPlay = { id: "tally" as PlayId, date: "2026-10-04" as IsoDate, parlor: UMEDA, gameKind: "slot", machine: "スマスロ流星", cabinetNumber: "7", outlay: dec("15000"), takings: dec("3000"), theoreticalValue: dec("8000") }
 
 const figures = async (session: Awaited<ReturnType<typeof setUp>>["session"], query: string) =>
   mapOk(await loadOverview(session, BOOK, query), (found) => [toPlainString(found.actual), toPlainString(found.theoretical)])
@@ -49,8 +49,8 @@ describe("a recorded play, read back from its entry", () => {
 
   test("is the play kept in yen it was written from, a gain, a loss or an even day", async () => {
     const { session } = await setUp()
-    const gain = { ...TALLIED, id: "gain" as PlayId, parlor: undefined, result: dec("3000"), theoreticalValue: undefined }
-    const even = { ...TALLIED, id: "even" as PlayId, result: dec("0") }
+    const gain = { ...TALLIED, id: "gain" as PlayId, parlor: undefined, outlay: dec("0"), takings: dec("3000"), theoreticalValue: undefined }
+    const even = { ...TALLIED, id: "even" as PlayId, outlay: dec("5000"), takings: dec("5000") }
     await recordTalliedPlay(session, BOOK, TALLIED)
     await recordTalliedPlay(session, BOOK, gain)
     await recordTalliedPlay(session, BOOK, even)
@@ -146,7 +146,7 @@ describe("setting a recorded play right", () => {
   test("sets a play kept in yen right the same way", async () => {
     const { session } = await setUp()
     await recordTalliedPlay(session, BOOK, TALLIED)
-    await reviseTalliedPlay(session, BOOK, { ...TALLIED, result: dec("4000"), theoreticalValue: undefined })
+    await reviseTalliedPlay(session, BOOK, { ...TALLIED, outlay: dec("1000"), takings: dec("5000"), theoreticalValue: undefined })
     expect(await figures(session, "date:2026-10-04")).toEqual({ ok: true, value: ["4000", "0"] })
   })
 

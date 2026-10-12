@@ -7,6 +7,7 @@ import type { PlayError, PlayHead, PlayRecord, TalliedPlay } from "../core/play/
 import { playLogPath } from "../core/play-log/checkpoint"
 import { pricePointsOf } from "../core/report/holdings"
 import { andThen, mapOk, type Result } from "../core/result/result"
+import { withPrizesDeclaredFor } from "../core/savings/prize-exchange"
 import { renderPricePoint, type PricePoint } from "../core/valuation/valuation"
 import { accountsRequest, pricesRequest } from "../hledger/query/requests"
 import type { CommitId } from "../history/port/history-port"
@@ -60,6 +61,13 @@ export const composedInYen =
   () =>
     mapOk(composeTalliedEntry(play), (entry) => ({ entry, price: undefined }))
 
+/** The book's files with the accounts an entry posts to declared, where the book lacks them: a gain in yen is written to the prize accounts, which a book made before they were has none of. */
+export const withAccountsFor = (files: ProposedChange["files"], entry: Entry): ProposedChange["files"] => {
+  const accounts = files[BOOK_FILES.accounts] ?? ""
+  const declared = withPrizesDeclaredFor(accounts, entry)
+  return declared === accounts ? files : { ...files, [BOOK_FILES.accounts]: declared }
+}
+
 /** The book's files with a rate added to its prices, where there is one to add. */
 export const withPrice = (files: ProposedChange["files"], price: PricePoint | undefined): ProposedChange["files"] =>
   price === undefined ? files : { ...files, [BOOK_FILES.prices]: appendEntry(files[BOOK_FILES.prices] ?? "", renderPricePoint(price)) }
@@ -69,7 +77,7 @@ const writePlay = (session: BookSession, bookId: BookId, head: PlayHead, compose
     andThen(fromHledger(await journal.ask(pricesRequest(""))), (directives) =>
       mapOk(fromPlay(compose(pricePointsOf(directives))), ({ entry, price }): ProposedChange => ({
         files: {
-          ...withPrice(stored.files, price),
+          ...withPrice(withAccountsFor(stored.files, entry), price),
           [BOOK_FILES.transactions]: appendEntry(stored.files[BOOK_FILES.transactions] ?? "", renderEntry(entry)),
           ...(log === undefined ? {} : { [playLogPath(head.gameKind, head.id)]: log }),
         },

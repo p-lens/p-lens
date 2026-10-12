@@ -112,9 +112,9 @@ export function BasisView(props: { readonly place: Place; readonly machineId: st
                                   {KIND_NAMES[row().kind]}
                                   <Show when={row().kind === "part"}>（{labelOf(row().partOf)}）</Show>
                                 </td>
-                                <td class="px-3 py-2 text-right text-text-primary">{row().payout === "" ? "—" : `${row().payout}枚`}</td>
+                                <td class="px-3 py-2 text-right text-text-primary">{row().payout === "" ? "--" : `${row().payout}枚`}</td>
                                 <Index each={world().settingLevels}>
-                                  {(level) => <td class="px-3 py-2 text-right text-text-primary">{row().chances[String(level())] ?? "—"}</td>}
+                                  {(level) => <td class="px-3 py-2 text-right text-text-primary">{row().chances[String(level())] ?? "--"}</td>}
                                 </Index>
                               </tr>
                             )}
@@ -137,7 +137,7 @@ export function BasisView(props: { readonly place: Place; readonly machineId: st
                               <td />
                               <td />
                               <Index each={world().settingLevels}>
-                                {(level) => <td class="px-3 py-2 text-right text-text-primary">{rates()[String(level())] ?? "—"}%</td>}
+                                {(level) => <td class="px-3 py-2 text-right text-text-primary">{rates()[String(level())] ?? "--"}%</td>}
                               </Index>
                             </tr>
                           </Show>

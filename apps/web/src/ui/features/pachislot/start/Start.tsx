@@ -112,7 +112,7 @@ type Located = Result<Coordinates, LocateError>
  * comes slowly into view under the field, leading to the survey. A name
  * typed that chose no parlor stays as typed, in red, with why no play is
  * started on it. Left empty, the play has no parlor and is
- * recorded by its result in yen.
+ * recorded by its totals in yen.
  */
 function ParlorField(props: {
   readonly list: ParlorList

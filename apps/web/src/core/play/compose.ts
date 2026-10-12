@@ -1,5 +1,5 @@
 import { YEN, tokenCommodity, type TokenKind } from "../commodity/commodity"
-import { isNegative, isZero, multiply, negate, subtract, toPlainString, type Decimal } from "../decimal/decimal"
+import { isZero, multiply, negate, subtract, toPlainString, type Decimal } from "../decimal/decimal"
 import { ACCOUNTS, rentalSpreadAccount, savingsAccount } from "../journal/accounts"
 import type { Entry, Posting } from "../journal/entry"
 import { Err, Ok, andThen, mapOk, type Result } from "../result/result"
@@ -7,6 +7,7 @@ import { theoreticalValuePosting } from "../theoretical/theoretical"
 import { rateOn, rateReachingBack, type PricePoint } from "../valuation/valuation"
 import { identityTags, type Parlor } from "../parlor/parlor"
 import { PLAY_TAGS, type PlayError, type PlayHead, type PlayRecord, type Rental, type Replay, type TalliedPlay } from "./play"
+import { sidePostings } from "./sides"
 import { validatePlay, validateTalliedPlay } from "./validate"
 
 const real = (account: string, quantity: Decimal, commodity: string): Posting => ({
@@ -144,21 +145,11 @@ export const composePlayEntry = (record: PlayRecord, prices: readonly PricePoint
     })),
   )
 
-/**
- * A result in yen, between cash and the play's revenue or expense: a gain is
- * revenue, a loss an expense, so the income statement counts it as it counts
- * any play. An even result moves no money and writes no real posting.
- */
-const resultPostings = (result: Decimal): readonly Posting[] =>
-  isNegative(result)
-    ? [real(ACCOUNTS.playExpense, negate(result), YEN), real(ACCOUNTS.cash, result, YEN)]
-    : unlessZero(result, [real(ACCOUNTS.cash, result, YEN), real(ACCOUNTS.playRevenue, negate(result), YEN)])
-
-/** One play kept in yen as one journal entry: its result and its theoretical value together. */
+/** One play kept in yen as one journal entry: its two sides and its theoretical value together. */
 export const composeTalliedEntry = (play: TalliedPlay): Result<Entry, PlayError> =>
   mapOk(validateTalliedPlay(play), (valid) => ({
     date: valid.date,
     description: describe(valid, valid.parlor),
     tags: tagsOf(valid, valid.parlor),
-    postings: [...resultPostings(valid.result), ...statisticPostings(valid)],
+    postings: [...sidePostings(valid.outlay, valid.takings), ...statisticPostings(valid)],
   }))

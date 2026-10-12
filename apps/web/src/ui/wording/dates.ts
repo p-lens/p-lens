@@ -9,6 +9,12 @@ export const formatDayOfYear = (date: IsoDate): string => {
   return `${month}月${day}日(${weekday})`
 }
 
+/** `2026-10-03` as `2026年10月3日`: the day alone, where its weekday is said beside it or not wanted. */
+export const formatDate = (date: IsoDate): string => {
+  const [year = 0, month = 0, day = 0] = date.split("-").map(Number)
+  return `${year}年${month}月${day}日`
+}
+
 /** `2026-10-03` as `2026年10月3日(土)`. */
 export const formatDay = (date: IsoDate): string => `${Number(date.slice(0, 4))}年${formatDayOfYear(date)}`
 

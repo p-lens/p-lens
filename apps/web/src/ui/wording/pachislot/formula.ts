@@ -12,7 +12,7 @@ const KIND_NAMES: Readonly<Record<FormulaKind, string>> = { manual: "手入力",
 export const kindName = (kind: FormulaKind): string => KIND_NAMES[kind]
 
 /** Odds as an analysis sheet prints them: `1/273.1`, and `1/6.25` where one decimal would round a 小役 away. */
-export const oddsText = (oneIn: number): string => (Number.isFinite(oneIn) ? `1/${oneIn.toFixed(oneIn < 10 ? 2 : 1)}` : "—")
+export const oddsText = (oneIn: number): string => (Number.isFinite(oneIn) ? `1/${oneIn.toFixed(oneIn < 10 ? 2 : 1)}` : "--")
 
 /**
  * What a pachislot formula is known by: its 機械割 from the lowest setting

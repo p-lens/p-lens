@@ -2,6 +2,7 @@ import type { Catalog } from "../catalog/port/catalog"
 import type { BookId } from "../core/book/book"
 import { bookNameOf } from "../core/catalog/catalog"
 import { PRECORD, readPrecord } from "../core/import/precord"
+import { withAccountsFor } from "./record-play"
 import { importedIdsOf, importedPlayEntry, type ImportedPlay, type MatchedMachine, type SourcePlay } from "../core/import/source-play"
 import { renderEntry } from "../core/journal/entry"
 import { appendEntry, BOOK_FILES } from "../core/journal/layout"
@@ -75,7 +76,7 @@ const importPlays = async (ports: ImportPorts, bookId: BookId, from: string, sou
       return fresh.length === 0
         ? Err({ type: "import", problem: { type: "nothing-new", count: plays.length } })
         : Ok({
-            files: { ...stored.files, [BOOK_FILES.transactions]: fresh.reduce((text, play) => appendEntry(text, renderEntry(importedPlayEntry(play))), stored.files[BOOK_FILES.transactions] ?? "") },
+            files: ((entries) => ({ ...entries.reduce(withAccountsFor, stored.files), [BOOK_FILES.transactions]: entries.reduce((text, entry) => appendEntry(text, renderEntry(entry)), stored.files[BOOK_FILES.transactions] ?? "") }))(fresh.map(importedPlayEntry)),
             intent: { type: "plays-imported", from, count: fresh.length },
           })
     }),

@@ -15,7 +15,7 @@ import { appendCheckpoint } from "../play-log/checkpoint"
  * A play still being played: work in hand on this device, not yet part of any
  * book, and nothing of it is written in one until it is recorded. Which book
  * it goes into is said only then, and its parlor's pool is opened there as
- * it is written — or it has no parlor, and is recorded by its result in yen
+ * it is written — or it has no parlor, and is recorded by its totals in yen
  * alone. It becomes the book's entry and its play log only when it is recorded.
  *
  * `log` is the play log's JSONL text itself, so what is recorded is exactly

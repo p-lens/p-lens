@@ -66,13 +66,16 @@ export interface PlayRecord extends PlayHead {
 }
 
 /**
- * One play kept by its result in yen alone, as typed in afterwards: no tokens,
- * so no savings move, and a parlor only if one is named.
+ * One play kept in yen alone, as typed in afterwards: what went in and what
+ * came back, whose difference is its result. No tokens, so no savings move,
+ * and a parlor only if one is named.
  */
 export interface TalliedPlay extends PlayHead {
   readonly parlor: Parlor | undefined
-  /** What the play made, or lost when negative. */
-  readonly result: Decimal
+  /** What was put in, in yen (投資額). */
+  readonly outlay: Decimal
+  /** What came back, in yen (回収額). */
+  readonly takings: Decimal
 }
 
 export const PLAY_TAGS = {
@@ -91,7 +94,7 @@ export type NumericField =
   | "replay-deducted"
   | "carried-in"
   | "payout"
-  | "result"
+  | "takings"
   | "theoretical-value"
 
 /** The parts of a record a person fills in with words. */

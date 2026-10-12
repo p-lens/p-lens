@@ -13,15 +13,15 @@ export interface GroundsLine {
 
 type Step = Proof & { readonly type: "step" }
 
-const rounds = (value: number | undefined): string => (value === undefined ? "—" : `${value.toFixed(2).replace(/\.?0+$/, "")}R`)
+const rounds = (value: number | undefined): string => (value === undefined ? "--" : `${value.toFixed(2).replace(/\.?0+$/, "")}R`)
 
-const balls = (value: number | undefined): string => (value === undefined ? "—" : `${value.toFixed(1).replace(/\.0$/, "")}玉`)
+const balls = (value: number | undefined): string => (value === undefined ? "--" : `${value.toFixed(1).replace(/\.0$/, "")}玉`)
 
-const percent = (value: number | undefined): string => (value === undefined ? "—" : `${(value * 100).toFixed(1)}%`)
+const percent = (value: number | undefined): string => (value === undefined ? "--" : `${(value * 100).toFixed(1)}%`)
 
-const oneIn = (value: number | undefined): string => (value === undefined ? "—" : oneInText(value))
+const oneIn = (value: number | undefined): string => (value === undefined ? "--" : oneInText(value))
 
-const spins = (value: number | undefined): string => (value === undefined ? "—" : `${value.toFixed(1)}回転`)
+const spins = (value: number | undefined): string => (value === undefined ? "--" : `${value.toFixed(1)}回転`)
 
 const arg = (step: Step | undefined, index: number): number | undefined => numberOf(step?.claim.args[index])
 
@@ -34,7 +34,7 @@ const destination = (target: Term | undefined, normalized: NormalizedSpecDto, la
   if (atomOf(target) === "end") return "通常へ"
   const index = numberOf(compoundOf(target, "state", 1)?.args[0])
   const origin = index === undefined ? undefined : normalized.origins[index]
-  if (origin === undefined) return "—"
+  if (origin === undefined) return "--"
   const label = labels.get(origin.mode) ?? origin.mode
   return origin.combo === 1 ? label : `${label}（${origin.combo}連目）`
 }
@@ -43,11 +43,11 @@ const destination = (target: Term | undefined, normalized: NormalizedSpecDto, la
 const restartText = (kind: Term | undefined): string => {
   if (atomOf(kind) === "spent") return "遊タイム消化済みで始まる（次の大当りまで発動なし）"
   const filled = numberOf(compoundOf(kind, "filled", 1)?.args[0])
-  return filled === undefined ? "—" : filled === 0 ? "0回転から始まる" : `時短・残保留の分 ${filled}回転たまって始まる`
+  return filled === undefined ? "--" : filled === 0 ? "0回転から始まる" : `時短・残保留の分 ${filled}回転たまって始まる`
 }
 
 const checkedFigure = (figure: string | undefined, engine: number | undefined): string =>
-  figure === "round_chance" ? oneIn(engine) : figure === "payout_per_round" ? balls(engine) : String(engine ?? "—")
+  figure === "round_chance" ? oneIn(engine) : figure === "payout_per_round" ? balls(engine) : String(engine ?? "--")
 
 /** What one step of the proof says, in the words of a spec sheet; none for steps the line above already says. */
 const lineOf = (step: Step, normalized: NormalizedSpecDto, labels: ReadonlyMap<string, string>): Omit<GroundsLine, "depth"> | undefined => {
@@ -71,7 +71,7 @@ const lineOf = (step: Step, normalized: NormalizedSpecDto, labels: ReadonlyMap<s
     case "cycle_filled": {
       const computed = step.premises.flatMap((premise) => (premise.type === "computed" ? [premise.value] : []))
       return {
-        text: `遊タイムまで残り ${computed.at(0) ?? "—"}回転：到達率 ${percent(computed.at(1))}（＝（1 − 1/${givenNumber(step, "regular_one_in", 0)?.toFixed(1) ?? "—"}）の ${computed.at(0) ?? "—"}乗）、通常回転 ${spins(arg(step, 1))}・ラウンド ${rounds(arg(step, 2))}`,
+        text: `遊タイムまで残り ${computed.at(0) ?? "--"}回転：到達率 ${percent(computed.at(1))}（＝（1 − 1/${givenNumber(step, "regular_one_in", 0)?.toFixed(1) ?? "--"}）の ${computed.at(0) ?? "--"}乗）、通常回転 ${spins(arg(step, 1))}・ラウンド ${rounds(arg(step, 2))}`,
         tone: "plain",
       }
     }
@@ -83,16 +83,16 @@ const lineOf = (step: Step, normalized: NormalizedSpecDto, labels: ReadonlyMap<s
       const entry = givenIn(step, "entry")
       const share = numberOf(entry?.args[0])
       const after = arg(sub(step, "into_mode"), 1) ?? 0
-      return { text: `${percent(share)}・${numberOf(entry?.args[1]) ?? "—"}R・${destination(entry?.args[2], normalized, labels)}：（${numberOf(entry?.args[1]) ?? "—"}R ＋ その後 ${rounds(after)}）× ${percent(share)} ＝ ${rounds(arg(step, 0))}`, tone: "plain" }
+      return { text: `${percent(share)}・${numberOf(entry?.args[1]) ?? "--"}R・${destination(entry?.args[2], normalized, labels)}：（${numberOf(entry?.args[1]) ?? "--"}R ＋ その後 ${rounds(after)}）× ${percent(share)} ＝ ${rounds(arg(step, 0))}`, tone: "plain" }
     }
     case "into_mode":
       return { text: `${destination(step.claim.args[0], normalized, labels)}以降の期待ラウンド ${rounds(arg(step, 1))}（計算エンジンが状態遷移を解いた値）`, tone: "plain" }
     case "payout_from_spec": {
       const count = givenNumber(step, "payout", 1)
-      return { text: `1R平均出玉 ${arg(step, 0) ?? "—"}玉 ＝ 賞球 ${givenNumber(step, "payout", 0) ?? "—"} × カウント ${count ?? "—"} − カウント ${count ?? "—"}`, tone: "plain" }
+      return { text: `1R平均出玉 ${arg(step, 0) ?? "--"}玉 ＝ 賞球 ${givenNumber(step, "payout", 0) ?? "--"} × カウント ${count ?? "--"} − カウント ${count ?? "--"}`, tone: "plain" }
     }
     case "payout_measured":
-      return { text: `1R平均出玉 ${arg(step, 0) ?? "—"}玉（実測）`, tone: "plain" }
+      return { text: `1R平均出玉 ${arg(step, 0) ?? "--"}玉（実測）`, tone: "plain" }
     case "payout_by_share": {
       const scale = givenNumber(step, "payout_scale", 0)
       return {
@@ -119,7 +119,7 @@ const lineOf = (step: Step, normalized: NormalizedSpecDto, labels: ReadonlyMap<s
     }
     case "check_sample": {
       const holds = atomOf(step.claim.args[3]) === "holds"
-      const sampled = `${oneIn(numberOf(step.claim.args[1]))}（±${numberOf(step.claim.args[2])?.toFixed(2) ?? "—"}）`
+      const sampled = `${oneIn(numberOf(step.claim.args[1]))}（±${numberOf(step.claim.args[2])?.toFixed(2) ?? "--"}）`
       return {
         text: holds ? `検算：保存された推定値 ${sampled}は厳密解の範囲内` : `検算：保存された推定値 ${sampled}は厳密解から外れています。数字が書き換えられているかもしれません`,
         tone: holds ? "holds" : "fails",

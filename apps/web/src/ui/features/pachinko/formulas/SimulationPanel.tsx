@@ -31,14 +31,14 @@ function Results(props: { readonly summary: SummaryDto; readonly exactRounds: nu
       <dl class="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
         <div><dt class="text-xs text-text-muted">試行</dt><dd class="tabular-nums">{formatMan(props.summary.sessions)} / {formatMan(props.summary.planned)}</dd></div>
         <div><dt class="text-xs text-text-muted">平均収支</dt><dd class="tabular-nums">{yenFigureText(props.summary.meanYen)}</dd></div>
-        <div><dt class="text-xs text-text-muted">標準偏差</dt><dd class="tabular-nums">{props.summary.standardDeviationYen === null ? "—" : `¥${formatCount(Math.round(props.summary.standardDeviationYen))}`}</dd></div>
-        <div><dt class="text-xs text-text-muted">勝率</dt><dd class="tabular-nums">{props.summary.winRate === null ? "—" : `${(props.summary.winRate * 100).toFixed(1)}%`}</dd></div>
+        <div><dt class="text-xs text-text-muted">標準偏差</dt><dd class="tabular-nums">{props.summary.standardDeviationYen === null ? "--" : `¥${formatCount(Math.round(props.summary.standardDeviationYen))}`}</dd></div>
+        <div><dt class="text-xs text-text-muted">勝率</dt><dd class="tabular-nums">{props.summary.winRate === null ? "--" : `${(props.summary.winRate * 100).toFixed(1)}%`}</dd></div>
         <div><dt class="text-xs text-text-muted">最大負け</dt><dd class="tabular-nums">{yenFigureText(props.summary.minYen)}</dd></div>
         <div><dt class="text-xs text-text-muted">最大勝ち</dt><dd class="tabular-nums">{yenFigureText(props.summary.maxYen)}</dd></div>
       </dl>
       <Histogram buckets={props.summary.histogram} />
       <p class="text-xs text-text-muted">
-        検算: 初当り1回あたり {props.summary.roundsPerFirstHit === null ? "—" : `${props.summary.roundsPerFirstHit.toFixed(2)}R`}（理論値 {props.exactRounds.toFixed(2)}R）
+        検算: 初当り1回あたり {props.summary.roundsPerFirstHit === null ? "--" : `${props.summary.roundsPerFirstHit.toFixed(2)}R`}（理論値 {props.exactRounds.toFixed(2)}R）
         <Show when={props.summary.truncatedCombos > 0}> ／ 打ち切った連チャン {props.summary.truncatedCombos}回</Show>
       </p>
     </div>

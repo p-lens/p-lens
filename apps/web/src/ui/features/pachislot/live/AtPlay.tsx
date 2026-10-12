@@ -55,7 +55,7 @@ export function AtFigures(props: { readonly ordered: readonly Checkpoint[]; read
       <Show when={cz()}>
         <Tile label="CZ間のゲーム数" value={formatCount(standing()?.sinceTrigger ?? 0)} note="G" />
       </Show>
-      <Tile label="投資" value={summary().outlay === undefined ? "—" : `¥${formatCount(summary().outlay ?? 0)}`} />
+      <Tile label="投資" value={summary().outlay === undefined ? "--" : `¥${formatCount(summary().outlay ?? 0)}`} />
       <Tile label="AT" value={formatCount(summary().jackpots)} note="回" />
       <Show when={cz()}>
         <Tile

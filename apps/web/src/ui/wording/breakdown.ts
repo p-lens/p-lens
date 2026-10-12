@@ -23,12 +23,12 @@ const GAMES: Readonly<Record<string, string>> = { pachinko: "パチンコ", slot
 const UNSAID_NAMES: Readonly<Record<Dimension, string>> = {
   machine: "機種の指定なし",
   parlor: "店舗の指定なし",
-  weekday: "—",
+  weekday: "--",
   game: "種別なし",
   maker: "メーカー不明",
-  year: "—",
-  month: "—",
-  day: "—",
+  year: "--",
+  month: "--",
+  day: "--",
 }
 
 /** A group's key as a person reads it: a weekday by its name, a game by its, a month as a year and a month, and anything else as it is written. */

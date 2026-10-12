@@ -6,7 +6,7 @@ import type { PlayDraft } from "../../src/core/live-play/draft"
 import type { PlayTerms } from "../../src/core/parlor/terms"
 import type { PlayId } from "../../src/core/play/play"
 import { formFromDraft, type PlayedSoFar } from "../../src/ui/features/record-play/form"
-import { heldIn, resultFromTokens, tallyFormFromDraft, tokenCountsFromDraft } from "../../src/ui/features/record-play/tally-form"
+import { heldIn, sidesFromTokens, tallyFormFromDraft, tokenCountsFromDraft, type TallyForm } from "../../src/ui/features/record-play/tally-form"
 import { UMEDA } from "../support/values"
 
 const TERMS: PlayTerms = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 250 }, replay: { paidOut: 250, deducted: 250 } }
@@ -28,6 +28,8 @@ const NOWHERE: PlayDraft = { ...DRAFT, venue: { type: "none", terms: TERMS } }
 
 const PLAYED: PlayedSoFar = { outlay: 12_000, replay: undefined, carriedIn: undefined, held: 4500, theoreticalValue: undefined }
 
+const sides = (form: TallyForm): readonly string[] => [form.outlay, form.takings]
+
 describe("a play followed live, as it is recorded", () => {
   test("leaves at its parlor the tokens counted in hand at its last line", () => {
     expect(formFromDraft(DRAFT, PLAYED).payout).toBe("4500")
@@ -37,27 +39,27 @@ describe("a play followed live, as it is recorded", () => {
   test("is begun with the tokens its first line counted in hand, which are not what it made", () => {
     expect(formFromDraft(DRAFT, { ...PLAYED, carriedIn: 1500 }).carriedIn).toBe("1500")
     expect(formFromDraft(DRAFT, PLAYED).carriedIn).toBe("")
-    expect(tallyFormFromDraft(NOWHERE, { ...PLAYED, outlay: 0, carriedIn: 1500, held: 2900 }).result).toBe("5600")
+    expect(sides(tallyFormFromDraft(NOWHERE, { ...PLAYED, outlay: 0, carriedIn: 1500, held: 2900 }))).toEqual(["6000", "11600"])
   })
 
-  test("with no parlor, is counted by the tokens typed as it is recorded, and its result follows them", () => {
+  test("with no parlor, is counted by the tokens typed as it is recorded, and its two sides follow them", () => {
     const counts = tokenCountsFromDraft(NOWHERE, { ...PLAYED, outlay: 500, held: undefined })
     expect(counts).toEqual({ carriedIn: "", held: "", tokenValue: 4, outlay: 500 })
-    expect(counts === undefined ? undefined : resultFromTokens(counts)).toBeUndefined()
-    expect(counts === undefined ? undefined : resultFromTokens({ ...counts, held: "25" })).toBe("-400")
-    expect(counts === undefined ? undefined : resultFromTokens({ ...counts, carriedIn: "25", held: "１２５" })).toBe("-100")
-    expect(counts === undefined ? undefined : resultFromTokens({ ...counts, held: "2.5" })).toBeUndefined()
+    expect(counts === undefined ? undefined : sidesFromTokens(counts)).toBeUndefined()
+    expect(counts === undefined ? undefined : sidesFromTokens({ ...counts, held: "25" })).toEqual({ outlay: "500", takings: "100" })
+    expect(counts === undefined ? undefined : sidesFromTokens({ ...counts, carriedIn: "25", held: "１２５" })).toEqual({ outlay: "600", takings: "500" })
+    expect(counts === undefined ? undefined : sidesFromTokens({ ...counts, held: "2.5" })).toBeUndefined()
     expect(counts === undefined ? undefined : heldIn({ ...counts, held: "25" })).toBe(25)
     expect(tokenCountsFromDraft({ ...DRAFT, venue: { type: "none", terms: undefined } }, PLAYED)).toBeUndefined()
   })
 
-  test("with no parlor, comes to those tokens exchanged less the cash spent", () => {
-    expect(tallyFormFromDraft(NOWHERE, PLAYED).result).toBe("6000")
-    expect(tallyFormFromDraft(NOWHERE, { ...PLAYED, held: 0 }).result).toBe("-12000")
+  test("with no parlor, put in the cash spent and took back those tokens exchanged", () => {
+    expect(sides(tallyFormFromDraft(NOWHERE, PLAYED))).toEqual(["12000", "18000"])
+    expect(sides(tallyFormFromDraft(NOWHERE, { ...PLAYED, held: 0 }))).toEqual(["12000", "0"])
   })
 
-  test("has no result worked out where nothing was counted at the end, or the play has no terms", () => {
-    expect(tallyFormFromDraft(NOWHERE, { ...PLAYED, held: undefined }).result).toBe("")
-    expect(tallyFormFromDraft({ ...DRAFT, venue: { type: "none", terms: undefined } }, PLAYED).result).toBe("")
+  test("has the cash spent alone where nothing was counted at the end, or the play has no terms", () => {
+    expect(sides(tallyFormFromDraft(NOWHERE, { ...PLAYED, held: undefined }))).toEqual(["12000", ""])
+    expect(sides(tallyFormFromDraft({ ...DRAFT, venue: { type: "none", terms: undefined } }, PLAYED))).toEqual(["12000", ""])
   })
 })

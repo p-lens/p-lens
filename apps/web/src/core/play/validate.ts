@@ -24,7 +24,7 @@ const checkWritable =
   }
 
 const checkNonNegative =
-  (field: NumericField, read: (record: PlayRecord) => Decimal | undefined): Check =>
+  <R = PlayRecord>(field: NumericField, read: (record: R) => Decimal | undefined): Check<R> =>
   (record) => {
     const value = read(record)
     return value !== undefined && isNegative(value) ? Err({ type: "negative-amount", field }) : Ok(record)
@@ -90,9 +90,18 @@ const passes = <R>(checks: readonly Check<R>[], record: R): Result<R, PlayError>
 export const validatePlay = (record: PlayRecord): Result<PlayRecord, PlayError> => passes(CHECKS, record)
 
 /**
- * A play kept in yen has only its words to check: any result, gain or loss,
- * can be written. It may name no machine — a day's result remembered with
- * nothing else — where a play at a parlor's rates always names its own.
+ * A play kept in yen has its words to check, and that neither side of it
+ * is below nothing: any result, gain or loss, can be written. It may name
+ * no machine — a day's result remembered with nothing else — where a play
+ * at a parlor's rates always names its own.
  */
 export const validateTalliedPlay = (play: TalliedPlay): Result<TalliedPlay, PlayError> =>
-  passes<TalliedPlay>([checkWritable<TalliedPlay>("machine", (record) => record.machine), checkWritable<TalliedPlay>("cabinet-number", (record) => record.cabinetNumber)], play)
+  passes<TalliedPlay>(
+    [
+      checkWritable<TalliedPlay>("machine", (record) => record.machine),
+      checkWritable<TalliedPlay>("cabinet-number", (record) => record.cabinetNumber),
+      checkNonNegative<TalliedPlay>("outlay", (record) => record.outlay),
+      checkNonNegative<TalliedPlay>("takings", (record) => record.takings),
+    ],
+    play,
+  )

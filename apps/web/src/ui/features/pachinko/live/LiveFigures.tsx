@@ -8,7 +8,7 @@ import { missingJackpots, type LiveSummary } from "../../../../core/play-log/liv
 import { formulaText } from "../../../wording/pachinko/formula"
 import { formatCount } from "../../../wording/numbers"
 
-const rateOf = (perThousand: number | undefined): string => (perThousand === undefined ? "—" : perThousand.toFixed(1))
+const rateOf = (perThousand: number | undefined): string => (perThousand === undefined ? "--" : perThousand.toFixed(1))
 
 /** One figure under its name, small enough that three sit side by side on a phone: the figures must leave room for the readings under them. */
 function Tile(props: { readonly label: string; readonly value: string; readonly unit?: string }): JSX.Element {
@@ -58,7 +58,7 @@ export function LiveFigures(props: {
         <Tile label="通常回転" value={formatCount(props.consumption?.regularSpins ?? props.summary.spins)} unit="回転" />
         <Tile label="カウンタ" value={formatCount(props.summary.counterNow)} unit="回転" />
         <Tile label="大当り" value={formatCount(props.summary.jackpots)} unit="回" />
-        <Tile label="現金投資" value={props.summary.outlay === undefined ? "—" : `¥${formatCount(props.summary.outlay)}`} />
+        <Tile label="現金投資" value={props.summary.outlay === undefined ? "--" : `¥${formatCount(props.summary.outlay)}`} />
         <Tile label="貯玉投資" value={formatCount(props.replayed)} unit="玉" />
         <Tile label="回転率" value={rateOf(spinPerformance())} unit="回転/千円" />
       </dl>

@@ -78,7 +78,7 @@ function PlayFigures(props: { readonly ordered: readonly Checkpoint[]; readonly 
     <dl class="grid grid-cols-2 gap-2 sm:grid-cols-4">
       <Tile label="打ったゲーム数" value={formatCount(props.ordered.at(-1)?.spins ?? 0)} note="G" />
       <Tile label="累計ゲーム数" value={formatCount(dayGames())} note="G" />
-      <Tile label="投資" value={outlay() === undefined ? "—" : `¥${formatCount(outlay() ?? 0)}`} />
+      <Tile label="投資" value={outlay() === undefined ? "--" : `¥${formatCount(outlay() ?? 0)}`} />
       <Index each={props.bonuses}>
         {(bonus) => (
           <Tile

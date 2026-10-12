@@ -129,7 +129,8 @@ const TALLIED: TalliedPlay = {
   gameKind: "pachinko",
   machine: "e風の剣豪",
   cabinetNumber: undefined,
-  result: dec("-12000"),
+  outlay: dec("12000"),
+  takings: dec("0"),
   theoreticalValue: dec("8000"),
 }
 
@@ -147,21 +148,58 @@ describe("composeTalliedEntry", () => {
     })
   })
 
-  test("a gain is revenue received in cash, and names the parlor when there is one", () => {
-    const entry = composeTalliedEntry({ ...TALLIED, parlor: UMEDA, result: dec("20000"), theoreticalValue: undefined })
+  test("keeps both sides, what went in and what came back, and puts a gain to the special prizes, never to cash", () => {
+    expect(mapOk(composeTalliedEntry({ ...TALLIED, takings: dec("30000"), theoreticalValue: undefined }), renderEntry)).toEqual({
+      ok: true,
+      value: [
+        "2026-10-04 e風の剣豪  ; play-id: tally-1004, game-kind: pachinko, machine: e風の剣豪",
+        "    費用:遊技                           12000 JPY",
+        "    収益:遊技                           -30000 JPY",
+        "    純資産:特殊景品                     18000 JPY",
+        "",
+      ].join("\n"),
+    })
+  })
+
+  test("is refused with a side below nothing", () => {
+    expect(composeTalliedEntry({ ...TALLIED, outlay: dec("-1") })).toEqual({ ok: false, error: { type: "negative-amount", field: "outlay" } })
+    expect(composeTalliedEntry({ ...TALLIED, takings: dec("-1") })).toEqual({ ok: false, error: { type: "negative-amount", field: "takings" } })
+  })
+
+  test("puts the part of a yen a gain leaves over to the translation adjustment, the prizes being whole yen", () => {
+    const entry = composeTalliedEntry({ ...TALLIED, outlay: dec("0"), takings: dec("100.4"), theoreticalValue: undefined })
+    expect(entry.ok && entry.value.postings.map((posting) => [posting.account, posting.amount.quantity])).toEqual([
+      ["収益:遊技", dec("-100.4")],
+      ["純資産:特殊景品", dec("100")],
+      ["純資産:換算調整勘定", dec("0.4")],
+    ])
+  })
+
+  test("never raises cash, whatever the two sides", () => {
+    const raised = [["0", "20000"], ["12000", "30000"], ["5000", "5000"], ["5000", "5000.5"], ["12000", "0"]].flatMap(([outlay = "0", takings = "0"]) => {
+      const entry = composeTalliedEntry({ ...TALLIED, outlay: dec(outlay), takings: dec(takings) })
+      return entry.ok ? entry.value.postings.filter((posting) => posting.account === "資産:現金" && posting.amount.quantity.mantissa > 0n) : []
+    })
+    expect(raised).toEqual([])
+  })
+
+  test("a gain with nothing put in is revenue taken as prizes, and names the parlor when there is one", () => {
+    const entry = composeTalliedEntry({ ...TALLIED, parlor: UMEDA, outlay: dec("0"), takings: dec("20000"), theoreticalValue: undefined })
     expect(entry.ok && [entry.value.description, entry.value.tags[1], entry.value.postings]).toEqual([
       "ホシゾラ梅田店 e風の剣豪",
       ["parlor-id", "hoshizora-umeda"],
       [
-        { account: "資産:現金", amount: { quantity: dec("20000"), commodity: "JPY" }, kind: "real" },
         { account: "収益:遊技", amount: { quantity: dec("-20000"), commodity: "JPY" }, kind: "real" },
+        { account: "純資産:特殊景品", amount: { quantity: dec("20000"), commodity: "JPY" }, kind: "real" },
       ],
     ])
   })
 
-  test("an even result moves no money", () => {
-    const entry = composeTalliedEntry({ ...TALLIED, result: dec("0") })
-    expect(entry.ok && entry.value.postings.map((posting) => posting.account)).toEqual(["統計:期待値"])
+  test("a play that came out even moves no cash, and one of nothing writes no real posting", () => {
+    const even = composeTalliedEntry({ ...TALLIED, takings: dec("12000") })
+    expect(even.ok && even.value.postings.map((posting) => posting.account)).toEqual(["費用:遊技", "収益:遊技", "統計:期待値"])
+    const nothing = composeTalliedEntry({ ...TALLIED, outlay: dec("0") })
+    expect(nothing.ok && nothing.value.postings.map((posting) => posting.account)).toEqual(["統計:期待値"])
   })
 
   test("may name no machine, and then writes none", () => {

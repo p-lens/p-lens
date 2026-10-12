@@ -10,6 +10,7 @@ import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { formatDay } from "../../wording/dates"
 import { formatCount, formatSignedYen } from "../../wording/numbers"
+import { playTitle } from "../../wording/plays"
 import { ViewHeader } from "../shell/ViewHeader"
 
 const selectedPlay = (place: Place): string | undefined => (place.kind === "play" ? place.playId : undefined)
@@ -25,7 +26,7 @@ function PlayRow(props: { readonly play: PlaySummary; readonly selected: boolean
         classList={{ "bg-surface-3": props.selected, "hover:bg-surface-3/60": !props.selected }}
       >
         <div class="flex min-w-0 flex-1 flex-col">
-          <span class="truncate text-text-primary">{props.play.machine ?? props.play.description}</span>
+          <span class="truncate text-text-primary">{playTitle(props.play)}</span>
           <span class="text-xs text-text-muted">{formatDay(props.play.date)}</span>
         </div>
         <div class="flex flex-col items-end text-sm tabular-nums text-text-secondary">

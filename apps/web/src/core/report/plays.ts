@@ -4,6 +4,7 @@ import { YEN } from "../commodity/commodity"
 import { sum, type Decimal } from "../decimal/decimal"
 import { ACCOUNTS } from "../journal/accounts"
 import { PARLOR_ID_TAG, type ParlorId } from "../parlor/parlor"
+import { SOURCE_TAGS } from "../import/source-play"
 import { PLAY_TAGS, type PlayGameKind, type PlayId } from "../play/play"
 import { quantityIn } from "./figures"
 
@@ -16,6 +17,8 @@ export interface PlaySummary {
   readonly gameKind: PlayGameKind | undefined
   readonly machine: string | undefined
   readonly cabinetNumber: string | undefined
+  /** The app it was taken in from, where it was: its description is then that app's names for it. */
+  readonly importedFrom: string | undefined
   /** The amount written on the entry's theoretical-value posting, as written. */
   readonly theoreticalValue: Decimal | undefined
 }
@@ -48,6 +51,7 @@ export const playSummaryOf = (transaction: Transaction): PlaySummary | undefined
         gameKind: gameKindOf(tagValue(transaction.ttags, PLAY_TAGS.gameKind)),
         machine: tagValue(transaction.ttags, PLAY_TAGS.machine),
         cabinetNumber: tagValue(transaction.ttags, PLAY_TAGS.cabinetNumber),
+        importedFrom: tagValue(transaction.ttags, SOURCE_TAGS.from),
         theoreticalValue: statisticOf(transaction, ACCOUNTS.theoreticalValue),
       }
 }

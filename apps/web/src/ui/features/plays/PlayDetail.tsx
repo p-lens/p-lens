@@ -23,6 +23,7 @@ import { formatDay } from "../../wording/dates"
 import { describeError } from "../../wording/errors"
 import { formatCommodityAmount, formatSignedYen } from "../../wording/numbers"
 import { rateText } from "../../wording/parlor"
+import { NO_MACHINE, NO_PARLOR } from "../../wording/plays"
 import { Figure } from "./Figure"
 import * as PachinkoViews from "../pachinko"
 import * as PachislotViews from "../pachislot"
@@ -31,14 +32,14 @@ const asRead = (account: string, quantity: Decimal): Decimal => (isWrittenRevers
 
 const GAME_KINDS = { pachinko: "パチンコ", slot: "スロット" } as const
 
-/** What a play was, under its machine's name: when, where and at which cabinet, then its game and the rate it was on, as its log's head says it. Each is said even where the play names none, as dashes. */
+/** What a play was, under its machine's name: when, where and at which cabinet, then its game and the rate it was on, as its log's head says it. Each is said even where the play names none: no parlor in words, the rest as dashes. */
 function Facts(props: { readonly play: PlaySummary; readonly parlorName: string | undefined; readonly terms: PlayTerms | undefined }): JSX.Element {
   const facts = (): readonly (readonly [string, string])[] => [
     ["日付", formatDay(props.play.date)],
-    ["店舗", props.parlorName ?? "—"],
-    ["台番号", props.play.cabinetNumber ?? "—"],
-    ["種別", props.play.gameKind === undefined ? "—" : GAME_KINDS[props.play.gameKind]],
-    ["レート", props.play.gameKind === undefined || props.terms === undefined ? "—" : rateText(props.play.gameKind, props.terms)],
+    ["店舗", props.parlorName ?? NO_PARLOR],
+    ["台番号", props.play.cabinetNumber ?? "--"],
+    ["種別", props.play.gameKind === undefined ? "--" : GAME_KINDS[props.play.gameKind]],
+    ["レート", props.play.gameKind === undefined || props.terms === undefined ? "--" : rateText(props.play.gameKind, props.terms)],
   ]
   return (
     <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
@@ -127,7 +128,7 @@ export function PlayDetail(props: { readonly place: Place; readonly bookId: Book
       <Loaded outcome={play()}>
         {(found) => (
           <div class="flex flex-col gap-4 p-4">
-            <p class="break-words text-lg font-semibold text-text-primary">{found.names.machineName ?? "—"}</p>
+            <p class="break-words text-lg font-semibold text-text-primary">{found.names.machineName ?? NO_MACHINE}</p>
             <Facts play={found.summary} parlorName={found.names.parlorName} terms={found.terms} />
             <dl class="grid grid-cols-2 gap-2">
               <Figure label="期待値" value={found.theoretical} kind="result" />

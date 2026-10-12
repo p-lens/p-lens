@@ -66,6 +66,8 @@ export function Combobox(props: {
   readonly focusedAtOnce?: boolean
   /** Told what the input holds as it changes: what was typed stays when the input is left, chosen or not, so whoever asks can tell text that chose nothing. */
   readonly onTyped?: (typed: string) => void
+  /** Set at the end of the label's row: something small that goes with what is chosen, as a cabinet's number goes with its machine. */
+  readonly beside?: JSX.Element
 }): JSX.Element {
   /** Kobalte takes `null` for nothing chosen; it goes no further than this call. */
   const selected = createMemo((): ComboboxOption | null => props.options.find((option) => option.value === props.value) ?? null)
@@ -129,7 +131,10 @@ export function Combobox(props: {
       )}
       class="flex flex-col gap-1.5"
     >
-      <ComboboxPrimitive.Label as="span" class="text-xs font-bold uppercase tracking-wide text-text-secondary">{props.label}</ComboboxPrimitive.Label>
+      <div class="flex items-center justify-between gap-2">
+        <ComboboxPrimitive.Label as="span" class="text-xs font-bold uppercase tracking-wide text-text-secondary">{props.label}</ComboboxPrimitive.Label>
+        {props.beside}
+      </div>
       <ComboboxPrimitive.Control
         class="flex h-10 items-center rounded-[3px] bg-surface-input focus-within:outline-2 focus-within:outline-focus-ring"
         classList={redRing(props.invalid === true)}

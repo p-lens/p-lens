@@ -43,7 +43,7 @@ const setUp = async () => {
 
 const make = (id: string) => () => firstBook(id as BookId, ME)
 
-const WON: TalliedPlay = { id: "first" as PlayId, parlor: undefined, date: "2026-10-08" as IsoDate, gameKind: "pachinko", machine: "森物語", cabinetNumber: undefined, result: dec("3000"), theoreticalValue: dec("1200") }
+const WON: TalliedPlay = { id: "first" as PlayId, parlor: undefined, date: "2026-10-08" as IsoDate, gameKind: "pachinko", machine: "森物語", cabinetNumber: undefined, outlay: dec("2000"), takings: dec("5000"), theoreticalValue: dec("1200") }
 
 describe("the book a first visit opens onto", () => {
   test("is put on a device that has none, named and empty, and hledger reads it", async () => {

@@ -66,7 +66,7 @@ function Estimates(props: { readonly summary: EstimateSummaryDto }): JSX.Element
         {(each) => (
           <li>
             <span class="text-xs text-text-muted">設定{each().settingLevel}</span>
-            <span class="ml-2 font-bold text-text-primary">{each().payoutRate === null ? "—" : payoutRateText(each().payoutRate ?? 0)}</span>
+            <span class="ml-2 font-bold text-text-primary">{each().payoutRate === null ? "--" : payoutRateText(each().payoutRate ?? 0)}</span>
             <Show when={each().payoutRateMargin} keyed>
               {(margin) => <span class="ml-1 text-xs text-text-muted">±{(margin * 100).toFixed(2)}</span>}
             </Show>

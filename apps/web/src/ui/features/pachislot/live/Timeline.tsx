@@ -42,7 +42,7 @@ function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly bonuses: 
       .join("・")
   return (
     <>
-      <time class="w-20 shrink-0 text-xs tabular-nums text-text-muted">{props.checkpoint.at === undefined ? "—" : formatMoment(props.checkpoint.at)}</time>
+      <time class="w-20 shrink-0 text-xs tabular-nums text-text-muted">{props.checkpoint.at === undefined ? "--" : formatMoment(props.checkpoint.at)}</time>
       <span class="w-20 shrink-0 tabular-nums text-text-primary">{formatCount(props.checkpoint.spins)} G</span>
       <span class="flex-1 text-sm tabular-nums text-text-secondary">
         {props.checkpoint.outlay === undefined ? "" : `¥${formatCount(props.checkpoint.outlay)}`}

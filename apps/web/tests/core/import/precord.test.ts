@@ -44,14 +44,14 @@ describe("a pRecord CSV", () => {
 describe("an imported play", () => {
   const [first, second] = ((read) => (read.ok ? read.value : []))(readPrecord(FILE))
 
-  test("is one entry in yen with both its sides, the source's names in tags of their own and its note under it", () => {
+  test("is one entry in yen with both its sides and its gain in the special prizes, never in cash, the source's names in tags of their own and its note under it", () => {
     const [id] = importedIdsOf("precord", [first as never])
     expect(renderEntry(importedPlayEntry({ id: id as never, from: "precord", source: first as never, machine: undefined }))).toBe(
       [
         `2019-01-02 ホシゾラ梅田店 流星の剣 123番台  ; play-id: ${id}, cabinet-number: 123, imported-from: precord, source-parlor: ホシゾラ梅田店, source-parlor-code: S123, source-machine: 流星の剣, source-machine-code: M9, source-maker: ミナト`,
         "    費用:遊技                           12000 JPY",
         "    収益:遊技                           -20000 JPY",
-        "    資産:現金                           8000 JPY",
+        "    純資産:特殊景品                     8000 JPY",
         "    ; 朝イチ， 設定6： たぶん",
         "",
       ].join("\n"),

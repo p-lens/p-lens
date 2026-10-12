@@ -12,13 +12,13 @@ type Step = Proof & { readonly type: "step" }
 
 const trimmed = (value: number, digits: number): string => value.toFixed(digits).replace(/\.?0+$/, "")
 
-const medals = (value: number | undefined): string => (value === undefined ? "—" : `${trimmed(value, 1)}枚`)
+const medals = (value: number | undefined): string => (value === undefined ? "--" : `${trimmed(value, 1)}枚`)
 
-const perGame = (value: number | undefined): string => (value === undefined ? "—" : `${trimmed(value, 3)}枚`)
+const perGame = (value: number | undefined): string => (value === undefined ? "--" : `${trimmed(value, 3)}枚`)
 
-const games = (value: number | undefined): string => (value === undefined ? "—" : `${trimmed(value, 1)}G`)
+const games = (value: number | undefined): string => (value === undefined ? "--" : `${trimmed(value, 1)}G`)
 
-const rate = (value: number | undefined): string => (value === undefined ? "—" : `${trimmed(value * 100, 2)}%`)
+const rate = (value: number | undefined): string => (value === undefined ? "--" : `${trimmed(value * 100, 2)}%`)
 
 const arg = (step: Step | undefined, index: number): number | undefined => numberOf(step?.claim.args[index])
 
@@ -46,12 +46,12 @@ const lineOf = (step: Step): Omit<GroundsLine, "depth"> | undefined => {
     case "grounds":
       return { text: "この算出条件の数字は、設定ごとに次のように導かれます。", tone: "plain" }
     case "level":
-      return { text: `設定${arg(step, 0) ?? "—"}`, tone: "plain" }
+      return { text: `設定${arg(step, 0) ?? "--"}`, tone: "plain" }
     case "gain_from_rate": {
       const bet = givenNumber(step, "bet", 0)
       const stated = rate(givenNumber(step, "stated_rate", 1))
       return {
-        text: `ATの平均獲得枚数 ${medals(arg(step, 1))} ＝ 通常 ${games(givenNumber(step, "cycle_games", 1))} ×（1G ${bet ?? "—"}枚 ×（機械割 ${stated} − 1）＋ 1Gの減り ${perGame(lossIn(step))}）÷（1 ＋ ${bet ?? "—"}枚 ×（1 − 機械割 ${stated}）÷ 純増 ${perGame(netIn(step))}）`,
+        text: `ATの平均獲得枚数 ${medals(arg(step, 1))} ＝ 通常 ${games(givenNumber(step, "cycle_games", 1))} ×（1G ${bet ?? "--"}枚 ×（機械割 ${stated} − 1）＋ 1Gの減り ${perGame(lossIn(step))}）÷（1 ＋ ${bet ?? "--"}枚 ×（1 − 機械割 ${stated}）÷ 純増 ${perGame(netIn(step))}）`,
         tone: "plain",
       }
     }
@@ -68,7 +68,7 @@ const lineOf = (step: Step): Omit<GroundsLine, "depth"> | undefined => {
     case "rate": {
       const [atGames, staked, out] = computedIn(step)
       return {
-        text: `機械割 ${rate(arg(step, 1))} ＝ 払い出し ${medals(out)} ÷ 投入 ${medals(staked)}（ATからATまで：通常 ${games(givenNumber(step, "cycle_games", 1))} ＋ AT ${games(atGames)}、どちらも1G ${givenNumber(step, "bet", 0) ?? "—"}枚）`,
+        text: `機械割 ${rate(arg(step, 1))} ＝ 払い出し ${medals(out)} ÷ 投入 ${medals(staked)}（ATからATまで：通常 ${games(givenNumber(step, "cycle_games", 1))} ＋ AT ${games(atGames)}、どちらも1G ${givenNumber(step, "bet", 0) ?? "--"}枚）`,
         tone: "plain",
       }
     }

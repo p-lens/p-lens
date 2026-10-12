@@ -62,6 +62,6 @@ export const formatMan = (value: number): string => {
 export const formatCommodityAmount = (value: Decimal, commodity: string): string =>
   commodity === "JPY" ? formatYen(value) : `${grouped(value)} ${commodity}`
 
-/** A yen figure worked out in floating point, signed and whole: `+¥12,340`, `-¥560`; a dash for none. */
+/** A yen figure worked out in floating point, signed and whole: `+¥12,340`, `-¥560`; dashes for none. */
 export const yenFigureText = (value: number | null | undefined): string =>
-  value === null || value === undefined ? "—" : `${value < 0 ? "-" : "+"}¥${formatCount(Math.round(Math.abs(value)))}`
+  value === null || value === undefined ? "--" : `${value < 0 ? "-" : "+"}¥${formatCount(Math.round(Math.abs(value)))}`

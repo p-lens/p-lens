@@ -26,7 +26,7 @@ const NUMERIC_FIELDS: Readonly<Record<NumericField, string>> = {
   "replay-deducted": "再プレイ減数",
   "carried-in": "開始時の持ち玉・持ちメダル",
   payout: "持ち玉・持ちメダル",
-  result: "収支",
+  takings: "回収額",
   "theoretical-value": "期待値",
 }
 

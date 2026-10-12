@@ -156,7 +156,7 @@ export const finishPlay = async (session: BookSession, drafts: DraftStorage, dra
   return keptRecorded(drafts, draft, bookId, end, at, draft.recorded === undefined ? await write() : await again(() => revisePlay(session, bookId, record, log), write))
 }
 
-/** Record a finished play with no parlor by its result in yen, as `finishPlay` records one at a parlor: its log beside the entry, and both replaced where the book already has the play. */
+/** Record a finished play with no parlor by its totals in yen, as `finishPlay` records one at a parlor: its log beside the entry, and both replaced where the book already has the play. */
 export const finishTalliedPlay = async (session: BookSession, drafts: DraftStorage, draft: PlayDraft, bookId: BookId, play: TalliedPlay, end: End, at: string): Promise<Outcome<CommitId>> => {
   const log = withHead(withEnd(draft.log, end, draft.gameKind), headOf(draft, play))
   const write = (): Promise<Outcome<CommitId>> => recordTalliedPlay(session, bookId, play, log)

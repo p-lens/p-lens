@@ -8,7 +8,7 @@ import { SOURCE_TAGS } from "../import/source-play"
 import { decimalOfQuantity } from "./figures"
 import { playSummaryOf } from "./plays"
 
-/** A play as the book holds it, read back into what it was recorded from: in tokens at a parlor, or by its result in yen. */
+/** A play as the book holds it, read back into what it was recorded from: in tokens at a parlor, or by its totals in yen. */
 export type RecordedPlay = { readonly type: "at-parlor"; readonly record: PlayRecord } | { readonly type: "tallied"; readonly play: TalliedPlay }
 
 /** One amount an entry posts: where, of what, and how much. */
@@ -38,10 +38,21 @@ const parlorOf = (transaction: Transaction, parlors: readonly Parlor[]): Parlor 
 const statisticsStand = (transaction: Transaction): boolean =>
   keptTo(postedIn(transaction.tpostings.filter((posting) => posting.ptype !== "RegularPosting")), { [ACCOUNTS.theoreticalValue]: YEN })
 
-const talliedOf = (head: PlayHead, real: readonly Posted[], parlor: Parlor | "none"): RecordedPlay | undefined =>
-  keptTo(real, { [ACCOUNTS.cash]: YEN, [ACCOUNTS.playExpense]: YEN, [ACCOUNTS.playRevenue]: YEN })
-    ? { type: "tallied", play: { ...head, parlor: parlor === "none" ? undefined : parlor, result: at(real, ACCOUNTS.cash) } }
+/**
+ * A play in yen, read from its two sides: what its entry put to the play's
+ * expense went in, and what it put to its revenue came back. An entry
+ * written while a play in yen kept only its result has one side alone — a
+ * loss all outlay, a gain all takings — and is read as that, as is one
+ * written while a gain was put to cash. An entry with a side below nothing
+ * was not written by a record, and is not read as one.
+ */
+const talliedOf = (head: PlayHead, real: readonly Posted[], parlor: Parlor | "none"): RecordedPlay | undefined => {
+  const outlay = at(real, ACCOUNTS.playExpense)
+  const takings = negate(at(real, ACCOUNTS.playRevenue))
+  return keptTo(real, { [ACCOUNTS.cash]: YEN, [ACCOUNTS.playExpense]: YEN, [ACCOUNTS.playRevenue]: YEN, [ACCOUNTS.specialPrizes]: YEN, [ACCOUNTS.translationAdjustment]: YEN }) && !isNegative(outlay) && !isNegative(takings)
+    ? { type: "tallied", play: { ...head, parlor: parlor === "none" ? undefined : parlor, outlay, takings } }
     : undefined
+}
 
 /**
  * A play in tokens, worked back from what its entry moved. Savings lose
@@ -90,7 +101,7 @@ const carriedInOf = (transaction: Transaction): Decimal | undefined => {
   return read.ok ? read.value : undefined
 }
 
-/** Whether an entry was taken in from another app: it keeps both sides of its result and what that app called things, none of which a form holds. */
+/** Whether an entry was taken in from another app: it keeps what that app called things, which no form holds. */
 const isImported = (transaction: Transaction): boolean => transaction.ttags.some(([name]) => name === SOURCE_TAGS.from)
 
 /**

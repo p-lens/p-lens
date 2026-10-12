@@ -1,9 +1,8 @@
 import type { IsoDate } from "../calendar/calendar"
-import { YEN } from "../commodity/commodity"
-import { isZero, negate, subtract, type Decimal } from "../decimal/decimal"
-import { ACCOUNTS } from "../journal/accounts"
-import type { Entry, Posting } from "../journal/entry"
+import type { Decimal } from "../decimal/decimal"
+import type { Entry } from "../journal/entry"
 import { PLAY_TAGS, type PlayGameKind, type PlayId } from "../play/play"
+import { sidePostings } from "../play/sides"
 
 /**
  * A play as another app kept it, read out of what that app wrote: the day,
@@ -68,12 +67,10 @@ const describe = (source: SourcePlay): string =>
     .filter((part) => part !== "")
     .join(" ")
 
-const real = (account: string, quantity: Decimal): readonly Posting[] => (isZero(quantity) ? [] : [{ account, amount: { quantity, commodity: YEN }, kind: "real" }])
-
 /**
- * An imported play as one journal entry, in yen alone: what went in as the
- * play's expense, what came back as its revenue, and cash for what lies
- * between, so the two sides are kept and not only their difference. Its
+ * An imported play as one journal entry, in yen alone, its two sides as a
+ * play typed in by hand has them (`sidePostings`): a loss out of cash, a
+ * gain into the special prizes, never into cash. Its
  * description is the play as the other app named it; `machine` and
  * `game-kind` are written only where the catalog has the machine, and no
  * parlor is named until one is tied to it.
@@ -92,7 +89,7 @@ export const importedPlayEntry = (play: ImportedPlay): Entry => ({
     ...tagged(SOURCE_TAGS.machineCode, play.source.machine.code),
     ...tagged(SOURCE_TAGS.maker, play.source.machine.maker),
   ],
-  postings: [...real(ACCOUNTS.playExpense, play.source.outlay), ...real(ACCOUNTS.playRevenue, negate(play.source.takings)), ...real(ACCOUNTS.cash, subtract(play.source.takings, play.source.outlay))],
+  postings: sidePostings(play.source.outlay, play.source.takings),
   notes: noteOf(play.source.memo) === "" ? [] : [noteOf(play.source.memo)],
 })
 

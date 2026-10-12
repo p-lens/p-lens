@@ -163,7 +163,7 @@ describe("a play followed live", () => {
 })
 
 describe("a play with no parlor", () => {
-  test("is recorded by its result in yen, its log beside it, and stays among the day's plays", async () => {
+  test("is recorded by its two sides in yen, its log beside it, and stays among the day's plays", async () => {
     const { storage, drafts, session } = await setUp()
     const nowhere: PlayDraft = { ...DRAFT, venue: { type: "none", terms: undefined } }
     await startPlay(drafts, nowhere)
@@ -174,7 +174,8 @@ describe("a play with no parlor", () => {
       gameKind: "pachinko" as const,
       machine: "流星",
       cabinetNumber: "123",
-      result: dec("-5000"),
+      outlay: dec("5000"),
+      takings: dec("0"),
       theoreticalValue: undefined,
     }
     expect((await finishTalliedPlay(session, drafts, nowhere, BOOK, play, { at: undefined, counter: undefined }, NOW)).ok).toBe(true)

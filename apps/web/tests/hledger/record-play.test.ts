@@ -99,7 +99,8 @@ const TALLIED: TalliedPlay = {
   gameKind: "slot",
   machine: "スマスロ流星",
   cabinetNumber: undefined,
-  result: dec("-12000"),
+  outlay: dec("15000"),
+  takings: dec("3000"),
   theoreticalValue: dec("8000"),
 }
 
@@ -119,9 +120,9 @@ describe("adding a play by its totals", () => {
     })
   })
 
-  test("an even result with nothing else written is still a play hledger reads", async () => {
+  test("a play of nothing, with nothing else written, is still a play hledger reads", async () => {
     const { session } = await setUp("owner")
-    const even = { ...TALLIED, result: dec("0"), theoreticalValue: undefined }
+    const even = { ...TALLIED, outlay: dec("0"), takings: dec("0"), theoreticalValue: undefined }
     expect((await recordTalliedPlay(session, BOOK, even)).ok).toBe(true)
     const play = await loadPlay(session, BOOK, "tally" as PlayId)
     expect(mapOk(play, (found) => toPlainString(found.actual))).toEqual({ ok: true, value: "0" })

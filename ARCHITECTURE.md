@@ -214,7 +214,7 @@ with widths, case, spaces and marks set aside (`parlorMatches`). A parlor
 chosen stands by its name with 「変更」 to search for another; nothing is
 chosen for the person, where they are only ordering the list. Left empty,
 or when the list cannot be read, the play has no parlor and is recorded by
-its result in yen; the start screen says so and carries on.
+its totals in yen; the start screen says so and carries on.
 
 A parlor not listed is submitted at survey.p-lens.jp (`VITE_SURVEY_URL`),
 which returns to `/parlors/submitted?submission=…&name=…&prefecture=…&game=…`.
@@ -308,24 +308,41 @@ No parlor is a place of its own for this: a play followed live with terms
 and no parlor is recorded with the same two counts — those it was begun
 with and those in hand as it ended — and leaves the latter for the day's
 next play at no parlor and of that pool. The book keeps such a play in
-yen alone, as ever, and no savings: its result is the tokens in hand at
-the end over those it was begun with, at its terms' exchange, less the
-cash spent (`resultFromTokens`), so the plays of a day at no parlor come
-together to what the last left, exchanged, less all that was spent.
+yen alone, as ever, and no savings: what went into it is the cash spent
+and the tokens it was begun with, at its terms' exchange, and what came
+back is the tokens in hand at the end (`sidesFromTokens`), so the plays of
+a day at no parlor hand their tokens on, each one's takings the next one's
+outlay, and come together to what the last left, exchanged, less all that
+was spent.
 - **Theoretical value** (期待値) is the virtual posting, written only when
   given: what the play was worth by its formula, whatever it came to.
 
 A play can also be added afterwards by its totals in yen alone (`TalliedPlay`,
-`composeTalliedEntry`): its result between `資産:現金` and `収益:遊技` or
-`費用:遊技`, so the income statement counts it like any play, and no savings
-move. A parlor is named only if chosen; an even result writes no real posting.
+`composeTalliedEntry`): what went in (投資額, `outlay`) to `費用:遊技`, what
+came back (回収額, `takings`) from `収益:遊技`, and what lies between: a
+loss out of `資産:現金`, a gain into `純資産:特殊景品` in whole yen, with the
+part of a yen left over in `純資産:換算調整勘定`. So the income statement
+counts it like any play, both sides are kept and no savings move.
+
+**Cash never rises.** Nothing the app writes puts a positive amount to
+`資産:現金`: a parlor gives prizes, never money, so cash is spent and a gain
+is prizes taken home, in equity. The prize accounts are declared in a book
+the first time an entry needs them (`withPrizesDeclaredFor`). The form asks for the two sides and shows their
+difference, the result, which nobody types (`resultOfTally`); the
+theoretical value is behind the form's detail button. A parlor is named
+only if chosen; a side of nothing writes no posting.
 
 ```hledger
 2026-10-04 e風の剣豪  ; play-id: …, game-kind: pachinko, machine: e風の剣豪
-    費用:遊技                          12000 JPY
+    費用:遊技                          15000 JPY
+    収益:遊技                          -3000 JPY
     資産:現金                         -12000 JPY
     (統計:期待値)                       8000 JPY
 ```
+
+An entry written while such a play kept only its result has one side — a
+loss all outlay, a gain all takings — and is read back as that; one that
+put a gain to cash, as they then did, stays as it was written.
 
 A whole play is one entry so that it is one `JournalChange` and one commit,
 and so that the play log of the same play sits beside exactly one entry.
@@ -546,7 +563,9 @@ named in — are the software's, and stay whatever a fork is called, so that
 what one copy writes another reads.
 
 Each step forward pushes an address, so a phone's back button walks detail →
-content → selection. `/` is rewritten to `/play`, the top of the rail.
+content → selection. `/` is only the way in (`entranceOf`): it is replaced
+by the first book on the rail, at its side panel with nothing of it opened,
+or by `/play` on a device with no book.
 
 ## Formulas and the engine
 
@@ -1574,7 +1593,9 @@ source read.
   row, as pRecord's own import reads them — and nothing of a file is taken
   in while any row of it does not read.
 - **One entry in yen, both sides kept**: 投資額 as `費用:遊技`, 回収額 as
-  `収益:遊技`, cash for what lies between. No savings move.
+  `収益:遊技`, and what lies between as a play typed in by hand has it
+  (`sidePostings`): a loss out of cash, a gain into `純資産:特殊景品`, never
+  into cash. No savings move.
 - **The lists' names and the source's are kept apart.** `parlor-id` and
   `machine` only ever hold a listed parlor and a catalogued machine, so an
   imported play carries tags of its own — `imported-from`, `source-parlor`,
@@ -1652,6 +1673,7 @@ is not written out here a second time.
 | 貸玉差額 | rental spread |
 | 交換率（1玉・1枚あたり） | exchange rate (`P`, `PricePoint`) |
 | 投資 / 獲得 | outlay / payout |
+| 投資額 / 回収額（円での稼働記録） | outlay / takings |
 | 期待値 | theoretical value |
 | 手入力の稼働記録 | tallied play |
 | 算出条件 / 計算根拠 / 期待値基礎値 | formula / grounds / basis |

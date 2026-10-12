@@ -56,6 +56,10 @@ const declares = (accounts: string, account: string): boolean => accounts.split(
 export const withPrizesDeclared = (accounts: string): string =>
   PRIZE_ACCOUNTS.filter((account) => !declares(accounts, account)).reduce((declared, account) => `${declared.replace(/\n*$/, "")}\naccount ${account}\n`, withEquityDeclared(accounts))
 
+/** A book's accounts as an entry needs them: with the prize accounts declared where it posts to one — a play in yen that gained does — and as they were where it does not. */
+export const withPrizesDeclaredFor = (accounts: string, entry: Entry): string =>
+  entry.postings.some((posting) => (PRIZE_ACCOUNTS as readonly string[]).includes(posting.account)) ? withPrizesDeclared(accounts) : accounts
+
 /**
  * A prize exchange as one journal entry. The tokens leave savings at the
  * book's exchange rate for the day — what they stood at in every figure

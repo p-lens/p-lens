@@ -153,7 +153,7 @@ function Arrived(props: { readonly draft: PlayDraft; readonly sender: string | u
 /**
  * Recording a play that was followed live into a book, which is when a book
  * first hears of it: the book asked for where there is more than one, the
- * form filled in from the play — in tokens at its parlor, or by its result
+ * form filled in from the play — in tokens at its parlor, or by its totals
  * in yen when it had none — its log written beside the entry and ended at the
  * moment given here, now unless the person says otherwise, the draft let go
  * of once the book has it.

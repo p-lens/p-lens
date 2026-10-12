@@ -127,7 +127,7 @@ export interface CabinetChoice {
  * for its parlor setting, which is the business day's.
  */
 export interface StartForm {
-  /** The parlor chosen; none means a play recorded by its result in yen. */
+  /** The parlor chosen; none means a play recorded by its totals in yen. */
   readonly parlor: ParlorChoice
   /** The corner's terms as typed, for each game; the button pressed says which is played. */
   readonly terms: Readonly<Record<PlayGameKind, TermsForm>>

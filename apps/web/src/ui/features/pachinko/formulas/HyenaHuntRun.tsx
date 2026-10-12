@@ -26,7 +26,7 @@ type Run =
   | { readonly type: "failed"; readonly failure: EngineFailure }
 
 
-const percentText = (value: number | null | undefined): string => (value === null || value === undefined ? "—" : `${(value * 100).toFixed(1)}%`)
+const percentText = (value: number | null | undefined): string => (value === null || value === undefined ? "--" : `${(value * 100).toFixed(1)}%`)
 
 function Figure(props: { readonly label: string; readonly children: JSX.Element }): JSX.Element {
   return (
@@ -49,7 +49,7 @@ function Sampled(props: { readonly summary: HyenaHuntSummaryDto }): JSX.Element 
         </Figure>
         <Figure label="勝率">{percentText(props.summary.winRate)}</Figure>
         <Figure label="遊タイム到達">{percentText(props.summary.reliefDriveRate)}</Figure>
-        <Figure label="平均投資">{props.summary.meanSpins === null ? "—" : `${formatCount(Math.round(props.summary.meanSpins))}回転`}</Figure>
+        <Figure label="平均投資">{props.summary.meanSpins === null ? "--" : `${formatCount(Math.round(props.summary.meanSpins))}回転`}</Figure>
         <Figure label="最大負け">{yenFigureText(props.summary.minYen)}</Figure>
         <Figure label="最大勝ち">{yenFigureText(props.summary.maxYen)}</Figure>
       </dl>

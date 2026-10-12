@@ -47,7 +47,7 @@ function Estimate(props: { readonly summary: EstimateSummaryDto }): JSX.Element 
       <div>
         <dt class="text-xs text-text-muted">1Rトータル確率</dt>
         <dd class="text-lg font-bold tabular-nums">
-          {props.summary.roundChanceOneIn === null ? "—" : oneInText(props.summary.roundChanceOneIn)}
+          {props.summary.roundChanceOneIn === null ? "--" : oneInText(props.summary.roundChanceOneIn)}
           <Show when={props.summary.roundChanceMargin} keyed>
             {(margin) => <span class="ml-1 text-xs font-normal text-text-muted">±{margin.toFixed(2)}</span>}
           </Show>
