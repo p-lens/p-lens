@@ -35,7 +35,8 @@ function Tile(props: { readonly label: string; readonly value: string; readonly 
   )
 }
 
-const signedYen = (value: number): string => `${value < 0 ? "-" : "+"}¥${formatCount(Math.round(Math.abs(value)))}`
+/** A sum of yen, always signed; where it is not known yet, its shape with nothing in it: `±¥--`. */
+const signedYen = (value: number | undefined): string => (value === undefined ? "±¥--" : `${value < 0 ? "-" : "+"}¥${formatCount(Math.round(Math.abs(value)))}`)
 
 /**
  * Where the play stands now, worked out from its log as it reads at this
@@ -51,7 +52,10 @@ const signedYen = (value: number): string => `${value < 0 ? "-" : "+"}¥${format
  * and the spin performance wears a dot that says where it stands against
  * the border, which is itself out of sight: green above it, red below,
  * grey level with it, none where there is no border to stand against.
- * Unfolded, the border is there to be read, and the dot is not.
+ * Unfolded, the border is there to be read, and the dot is not. What the
+ * play is worth has its tiles from the start, each holding the shape of
+ * its figure with nothing in it until a reading gives one: a figure
+ * arriving changes a tile, and never the lay of the screen.
  */
 export function LiveFigures(props: {
   readonly summary: LiveSummary
@@ -99,18 +103,14 @@ export function LiveFigures(props: {
               <p class="min-w-0 text-xs text-text-muted">算出条件「{formulaText(formula.figures)}」{props.terms === undefined ? "（交換率が入っていません）" : `／ 交換率 ${tokenValueOf(props.terms).toFixed(2)}円/玉`}</p>
               {props.beside(formula)}
             </div>
-            <Show when={theoretical()} keyed fallback={<p class="text-sm text-text-muted">貸玉か持ち玉を記録すると、回転率から期待値が出ます。</p>}>
-              {(found) => (
-                <dl class="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
-                  <Tile label="期待値（ここまで）" value={signedYen(found.theoreticalValue)} />
-                  <Tile label="期待値（1回転）" value={signedYen(found.yenPerSpin)} />
-                  <Tile label="実質ボーダー" value={rateOf(found.border)} unit="回転/千円" />
-                  <Show when={found.yenPerHour} keyed>
-                    {(hourly) => <Tile label="期待値（時給）" value={signedYen(hourly)} />}
-                  </Show>
-                </dl>
-              )}
-            </Show>
+            <dl class="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+              <Tile label="期待値（ここまで）" value={signedYen(theoretical()?.theoreticalValue)} />
+              <Tile label="期待値（1回転）" value={signedYen(theoretical()?.yenPerSpin)} />
+              <Tile label="実質ボーダー" value={rateOf(theoretical()?.border)} unit="回転/千円" />
+              <Show when={formula.figures.spinsPerHour !== undefined}>
+                <Tile label="期待値（時給）" value={signedYen(theoretical()?.yenPerHour)} />
+              </Show>
+            </dl>
           </div>
         )}
       </Show>
