@@ -17,8 +17,6 @@ import { SAVINGS_TAG } from "../../core/savings/balance"
 
 const escapeRegex = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
-export const dayTerm = (date: IsoDate): string => `date:${date}`
-
 /** Everything up to and including a day; hledger's end is exclusive. */
 export const untilTerm = (date: IsoDate): string => `date:..${nextDay(date)}`
 

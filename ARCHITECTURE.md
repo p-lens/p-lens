@@ -1616,13 +1616,20 @@ what its plays made and what they were worth.
   daily report, each day its own sum, folded into seven (`byWeekday`).
 - **Which grouping and which period are the address's**:
   `/books/:id/breakdown/weekday`, with `q` the period.
-- **A period is two days and nothing else** (`ui/features/breakdown/periods`,
+- **A period is two days and nothing else** (`ui/features/period`,
   `PeriodPicker`): the first and the last, both included, either left
   open, written into the address as hledger's `date:FROM..TO` with the day
   after the last (`rangeTerm`). 本日, 今月 and 今年 — counted from the
   business day — only fill the two fields in; one is marked while the
   fields say exactly its days, and pressed again it empties them, which is
   every day there is.
+- **The plays list is narrowed by the same two days** (稼働): a funnel at the
+  end of the count's row brings out a card above the list holding the same
+  picker, and the period is written into that address as the same query.
+  The card stays out until its cross is pressed, so the list is seen
+  narrowing under it. While the list is narrowed the funnel is filled in
+  and wears a dot. A day pressed in the result calendar goes to the plays
+  of that day by the same query, so the card shows it.
 - **By month, whole months; by year, whole years.** A grouping by month is
   asked about the days from the first of the month the period begins in to
   the last of the month it ends in, and by year from the first of January

@@ -7,7 +7,7 @@ import { keepsTheoreticalValues } from "../../../application/theoretical"
 import type { BookId } from "../../../core/book/book"
 import { monthOf, type IsoDate, type IsoMonth } from "../../../core/calendar/calendar"
 import { totalOf, type Group } from "../../../core/report/breakdown"
-import { dayTerm } from "../../../hledger/query/terms"
+import { rangeTerm } from "../../../hledger/query/terms"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import { useMoves } from "../../navigation/moves"
@@ -141,7 +141,7 @@ export function ResultCalendarView(props: { readonly place: Place; readonly book
                             day={day}
                             figures={figures().get(day)}
                             today={day === app.services.businessDay()}
-                            onOpen={() => moves.go({ kind: "book-view", bookId: props.bookId, view: "plays" }, dayTerm(day))}
+                            onOpen={() => moves.go({ kind: "book-view", bookId: props.bookId, view: "plays" }, rangeTerm(day, day))}
                           />
                         )}
                       </Show>

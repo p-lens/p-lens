@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import type { IsoDate } from "../../src/core/calendar/calendar"
-import { EVERY_DAY, queryFor, queryOf, rangeOf, sameRange, shortcutsOn, widened, widenedFor, type DateRange } from "../../src/ui/features/breakdown/periods"
+import { EVERY_DAY, queryFor, queryOf, rangeOf, sameRange, shortcutsOn, widened, widenedFor, type DateRange } from "../../src/ui/features/period/periods"
 
 const day = (text: string): IsoDate => text as IsoDate
 

@@ -31,20 +31,20 @@ export function PeriodPicker(props: {
   readonly onTyped: (query: string) => void
   /** A range pressed by name: a step of its own, which back undoes. */
   readonly onPressed: (query: string) => void
-  /** How the plays are grouped: by month or by year, the days summed are whole months or years, and are said where they are more than the days typed. */
-  readonly by: string
+  /** How the plays are grouped, where they are: by month or by year, the days summed are whole months or years, and are said where they are more than the days typed. */
+  readonly by?: string | undefined
 }): JSX.Element {
   const range = (): DateRange | undefined => rangeOf(props.query)
   const held = (): DateRange => range() ?? EVERY_DAY
   const pressed = (): string | null => ((now) => (now === undefined ? undefined : shortcutsOn(props.today).find((shortcut) => sameRange(shortcut.range, now))?.id))(range()) ?? null
-  const note = (): string | undefined => ((wide) => (wide === undefined ? undefined : widenedNote(wide.span, wide.range.from, wide.range.to)))(widenedFor(props.by, props.query))
+  const note = (): string | undefined => ((wide) => (wide === undefined ? undefined : widenedNote(wide.span, wide.range.from, wide.range.to)))(props.by === undefined ? undefined : widenedFor(props.by, props.query))
   return (
     <>
-      <div class="flex items-end gap-2">
-        <div class="w-40">
+      <div class="flex min-w-0 items-end gap-2">
+        <div class="w-40 min-w-0">
           <TextField label="開始日" type="date" value={held().from ?? ""} onChange={(text) => props.onTyped(queryOf({ ...held(), from: dayTyped(text) }))} />
         </div>
-        <div class="w-40">
+        <div class="w-40 min-w-0">
           <TextField label="終了日" type="date" value={held().to ?? ""} onChange={(text) => props.onTyped(queryOf({ ...held(), to: dayTyped(text) }))} />
         </div>
       </div>

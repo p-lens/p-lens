@@ -13,8 +13,8 @@ import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { DIMENSION_NAMES, groupName, NOT_TALLIED } from "../../wording/breakdown"
 import { formatSignedYen, toneOf } from "../../wording/numbers"
-import { PeriodPicker } from "./PeriodPicker"
-import { queryFor } from "./periods"
+import { PeriodPicker } from "../period/PeriodPicker"
+import { queryFor } from "../period/periods"
 import { ViewHeader } from "../shell/ViewHeader"
 
 const TONES = { positive: "text-positive", negative: "text-negative", neutral: "text-text-primary" } as const

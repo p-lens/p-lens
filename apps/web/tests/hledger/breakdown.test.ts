@@ -8,7 +8,7 @@ import { toPlainString } from "../../src/core/decimal/decimal"
 import { totalOf, type Dimension } from "../../src/core/report/breakdown"
 import { Ok } from "../../src/core/result/result"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
-import { queryOf } from "../../src/ui/features/breakdown/periods"
+import { queryOf } from "../../src/ui/features/period/periods"
 import { ME, fixtureBook, inProcessHledger, memoryStorage } from "../support/in-process"
 
 const BOOK = "basic-play" as BookId

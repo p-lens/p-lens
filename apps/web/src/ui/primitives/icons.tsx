@@ -249,6 +249,13 @@ export const BooksIcon = () => (
   </Icon>
 )
 
+/** A filter: a funnel, what is shown narrowed to what passes through — filled in while something is being held back by it. */
+export const FilterIcon = (props: { readonly filled: boolean }) => (
+  <Icon>
+    <path d="M4 5h16l-6 8v5l-4 2v-7z" fill={props.filled ? "currentColor" : "none"} />
+  </Icon>
+)
+
 /** A breakdown: results set out in rows of differing length, group by group. */
 export const BreakdownIcon = () => (
   <Icon>
