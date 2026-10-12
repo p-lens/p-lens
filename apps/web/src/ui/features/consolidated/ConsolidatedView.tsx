@@ -97,8 +97,8 @@ export function ConsolidatedView(props: { readonly place: Place; readonly by: Co
             {() => (
               <Show when={(groups() ?? []).length > 0} fallback={<EmptyState title="この期間の稼働はありません" />}>
                 <ul class="flex flex-col gap-1">
-                  <GroupRow name="合計" group={totalOf((groups() ?? []).map((each) => each.group))} strong />
-                  <For each={groups() ?? []}>{(each) => <GroupRow name={each.name} group={each.group} strong={false} />}</For>
+                  <GroupRow name="合計" group={totalOf((groups() ?? []).map((each) => each.group))} strong theoreticalKept />
+                  <For each={groups() ?? []}>{(each) => <GroupRow name={each.name} group={each.group} strong={false} theoreticalKept />}</For>
                 </ul>
               </Show>
             )}

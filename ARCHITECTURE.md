@@ -507,7 +507,7 @@ The place is read off the address (`ui/navigation/place.ts`):
 | `/play/:play/record` | recording it into its book | content |
 | `/play/:play/cabinet` | saying anew which cabinet and machine it is on | content |
 | `/books/:book` | a book, no view chosen | selection |
-| `/books/:book/{plays,holdings,activity,files}?q=` | a view | content |
+| `/books/:book/{plays,holdings,result-calendar,activity,files}?q=` | a view | content |
 | `/books/:book/breakdown/:by?q=` | a book's results grouped | content |
 | `/books/:book/files/:path` | one of the book's files as kept, beside the list | detail |
 | `/books/:book/plays/new` | adding a play by its totals (記録を追加) | content |
@@ -1491,6 +1491,34 @@ back are worth, and the day.
   keeps its fraction, being a cost as large as it is.
 - **Never more than the pool holds** by the end of the day said: that is
   refused before anything is written.
+
+## The result calendar
+
+A book's results a month at a time, as a calendar (カレンダー in a book's
+side panel, above 集計; `ui/features/result-calendar`): the month's 実収支
+and 期待値 above, and under them each day with what its plays made. A day
+with plays is pressed to see them, the plays list asked for that day.
+
+- **A guest, kept whole in one folder.** The view, the laying out of a
+  month in weeks, its words and its icons are all in
+  `ui/features/result-calendar`, and its tests in `tests/ui/result-calendar`.
+  Nothing imports it but three lines: `"result-calendar"` among `BOOK_VIEWS`
+  (`ui/navigation/place.ts`), its case in `bookViewFor`
+  (`ui/features/shell/PLensScreen.tsx`) and its line in `VIEWS`
+  (`ui/features/shell/BookSpaceSide.tsx`). Taking it out is deleting the
+  two folders, those three lines and this section. Unlike every other
+  screen it keeps its own words and icons, for that reason alone.
+- **hledger does every sum.** It has no report of its own: the days are the
+  breakdown by day (`loadBreakdown(…, "day", …)`) and the month's two
+  figures the breakdown by month, both asked with the one query that is the
+  month (`monthQuery`). Nothing in the folder adds one figure to another;
+  what it works out is which weekday a month begins on (`weeksOf`).
+- **No theoretical values, no sum of them.** In a book with no theoretical
+  value written anywhere in it (`keepsTheoreticalValues`, one entry asked
+  of hledger over the whole book) the month's 期待値 says 集計なし, as the
+  breakdown's rows do, never ¥0: nothing was said, which is not nought.
+- **The month shown is the screen's own**, in no address: it opens on the
+  month of the business day, whose cell wears a ring.
 
 ## Setting a recorded play right
 

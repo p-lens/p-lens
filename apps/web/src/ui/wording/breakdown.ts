@@ -19,6 +19,9 @@ const WEEKDAYS = ["月曜", "火曜", "水曜", "木曜", "金曜", "土曜", "�
 
 const GAMES: Readonly<Record<string, string>> = { pachinko: "パチンコ", slot: "スロット" }
 
+/** What stands for a sum of theoretical values in a book that has none written in it: there is nothing to sum, which nought would not say. */
+export const NOT_TALLIED = "集計なし"
+
 /** What plays that do not say what a dimension asks are called: a play with no machine named, an entry with no game. */
 const UNSAID_NAMES: Readonly<Record<Dimension, string>> = {
   machine: "機種の指定なし",

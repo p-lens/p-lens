@@ -10,6 +10,7 @@ import { toast } from "../../primitives/toast"
 import { createTypedOver } from "../../primitives/typed-over"
 import { useMoves } from "../../navigation/moves"
 import type { BookView, Place } from "../../navigation/place"
+import { RESULT_CALENDAR, ResultCalendarIcon } from "../result-calendar"
 import { SideList, type SideListItem } from "./SideList"
 import { bookTitle, describeTitleProblem } from "../../wording/book"
 import { describeError } from "../../wording/errors"
@@ -17,6 +18,7 @@ import { describeError } from "../../wording/errors"
 const VIEWS: readonly { readonly view: BookView; readonly label: string; readonly icon: () => JSX.Element }[] = [
   { view: "plays", label: "稼働", icon: PlaysIcon },
   { view: "holdings", label: "貯玉・貯メダル", icon: HoldingsIcon },
+  { view: "result-calendar", label: RESULT_CALENDAR, icon: ResultCalendarIcon },
   { view: "files", label: "生ファイル", icon: FileIcon },
   { view: "activity", label: "操作履歴", icon: ActivityIcon },
 ]
@@ -112,7 +114,7 @@ function BookTitle(props: { readonly bookId: BookId; readonly book: TitledBook }
   )
 }
 
-/** The side panel of one book: its title, renamed where it stands, and its views, plays first with the way to add one, and the breakdown of its results after what it holds. */
+/** The side panel of one book: its title, renamed where it stands, and its views, plays first with the way to add one, and the breakdown of its results before its files, after everything that shows what it holds and made. */
 export function BookSpaceSide(props: { readonly place: Place; readonly bookId: BookId; readonly book: TitledBook | undefined }): JSX.Element {
   const moves = useMoves()
   const breakdown = (): SideListItem => ({
@@ -124,6 +126,7 @@ export function BookSpaceSide(props: { readonly place: Place; readonly bookId: B
   })
   const items = (): readonly SideListItem[] =>
     VIEWS.flatMap(({ view, label, icon }): readonly SideListItem[] => [
+      ...(view === "files" ? [breakdown()] : []),
       {
         id: view,
         label,
@@ -134,7 +137,6 @@ export function BookSpaceSide(props: { readonly place: Place; readonly bookId: B
           ? { action: { label: ADD_PLAY, icon: <PlusIcon />, onSelect: () => moves.go({ kind: "play-new", bookId: props.bookId }) } }
           : {}),
       },
-      ...(view === "holdings" ? [breakdown()] : []),
     ])
   return (
     <SidePanel

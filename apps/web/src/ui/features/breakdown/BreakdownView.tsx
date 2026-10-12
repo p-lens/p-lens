@@ -2,6 +2,7 @@ import { createResource, For, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import { loadBreakdown } from "../../../application/breakdown"
+import { keepsTheoreticalValues } from "../../../application/theoretical"
 import type { BookId } from "../../../core/book/book"
 import type { Decimal } from "../../../core/decimal/decimal"
 import { DIMENSIONS, isDimension, totalOf, type Dimension, type Group } from "../../../core/report/breakdown"
@@ -11,7 +12,7 @@ import { EmptyState, Loaded } from "../../primitives/states"
 import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
-import { DIMENSION_NAMES, groupName } from "../../wording/breakdown"
+import { DIMENSION_NAMES, groupName, NOT_TALLIED } from "../../wording/breakdown"
 import { formatSignedYen, toneOf } from "../../wording/numbers"
 import { periodsOn, type Period } from "./periods"
 import { ViewHeader } from "../shell/ViewHeader"
@@ -25,9 +26,10 @@ function Yen(props: { readonly value: Decimal }): JSX.Element {
 /**
  * One group in two lines, so that a long name and its figures both fit a
  * phone: what the group is, then what its plays made and what they were
- * worth.
+ * worth — or, in a book with no theoretical value written in it, that
+ * there is none to sum.
  */
-export function GroupRow(props: { readonly name: string; readonly group: Group; readonly strong: boolean }): JSX.Element {
+export function GroupRow(props: { readonly name: string; readonly group: Group; readonly strong: boolean; readonly theoreticalKept: boolean }): JSX.Element {
   return (
     <li class="flex flex-col gap-0.5 rounded-md px-3 py-2" classList={{ "bg-surface-1": !props.strong, "border border-border": props.strong }}>
       <span class="min-w-0 break-words text-sm" classList={{ "font-semibold text-text-primary": props.strong, "text-text-primary": !props.strong }}>
@@ -40,7 +42,9 @@ export function GroupRow(props: { readonly name: string; readonly group: Group; 
         </span>
         <span class="flex items-baseline gap-1.5">
           <span class="text-xs text-text-muted">期待値</span>
-          <Yen value={props.group.theoretical} />
+          <Show when={props.theoreticalKept} fallback={<span class="text-text-muted">{NOT_TALLIED}</span>}>
+            <Yen value={props.group.theoretical} />
+          </Show>
         </span>
       </div>
     </li>
@@ -63,6 +67,9 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
     () => ({ bookId: props.bookId, by: props.by, query: props.query, revision: app.revision() }),
     (source) => loadBreakdown(app.services.session, source.bookId, source.by, source.query),
   )
+  const [kept] = createResource(() => ({ bookId: props.bookId, revision: app.revision() }), (source) => keepsTheoreticalValues(app.services.session, source.bookId))
+  /** Whether the book keeps theoretical values: taken to until hledger says it does not, so a book that does never flashes otherwise. */
+  const theoreticalKept = (): boolean => ((answer) => answer?.ok !== true || answer.value)(kept())
   return (
     <MainContent header={<ViewHeader place={props.place} title="集計" />}>
       <div class="max-w-5xl">
@@ -96,8 +103,8 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
             {(found) => (
               <Show when={found.length > 0} fallback={<EmptyState title="この期間の稼働はありません" />}>
                 <ul class="flex flex-col gap-1">
-                  <GroupRow name="合計" group={totalOf(found)} strong />
-                  <For each={found}>{(group) => <GroupRow name={groupName(props.by, group.key)} group={group} strong={false} />}</For>
+                  <GroupRow name="合計" group={totalOf(found)} strong theoreticalKept={theoreticalKept()} />
+                  <For each={found}>{(group) => <GroupRow name={groupName(props.by, group.key)} group={group} strong={false} theoreticalKept={theoreticalKept()} />}</For>
                 </ul>
               </Show>
             )}

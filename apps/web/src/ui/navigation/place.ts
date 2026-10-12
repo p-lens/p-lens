@@ -9,7 +9,7 @@ import { isDimension, type Dimension } from "../../core/report/breakdown"
 const isConsolidatedBy = (text: string): text is ConsolidatedBy => text === "book" || isDimension(text)
 
 /** The screens a book has, each at its own address under the book. */
-const BOOK_VIEWS = ["plays", "holdings", "activity", "files"] as const
+const BOOK_VIEWS = ["plays", "holdings", "result-calendar", "activity", "files"] as const
 
 export type BookView = (typeof BOOK_VIEWS)[number]
 

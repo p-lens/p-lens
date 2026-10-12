@@ -28,6 +28,7 @@ import { PlayDetail } from "../plays/PlayDetail"
 import { PlaysView } from "../plays/PlaysView"
 import { RevisePlayView } from "../record-play/RevisePlayView"
 import { TallyPlayView } from "../record-play/TallyPlayView"
+import { ResultCalendarView } from "../result-calendar"
 import { AppearanceSettings } from "../settings/AppearanceSettings"
 import { BackupSettings } from "../settings/BackupSettings"
 import { BreakdownView } from "../breakdown/BreakdownView"
@@ -171,6 +172,8 @@ const bookViewFor = (place: Extract<Place, { kind: "book-view" }>, query: () => 
       return <HoldingsView place={place} bookId={place.bookId} query={query()} />
     case "plays":
       return <PlaysView place={place} bookId={place.bookId} query={query()} />
+    case "result-calendar":
+      return <ResultCalendarView place={place} bookId={place.bookId} />
     case "activity":
       return <ActivityView place={place} bookId={place.bookId} />
     case "files":

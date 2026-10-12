@@ -55,4 +55,7 @@ export const openingBalanceRequest = (kind: TokenKind, parlorName: string, tier:
   offset: 0,
 })
 
+/** Whether a book has any theoretical value written in it at all: one entry is enough to say so. */
+export const theoreticalKeptRequest: RequestOf<"entries"> = { kind: "entries", query: theoreticalValueTerm, limit: 1, offset: 0 }
+
 export const accountsRequest: RequestOf<"accounts"> = { kind: "accounts" }
