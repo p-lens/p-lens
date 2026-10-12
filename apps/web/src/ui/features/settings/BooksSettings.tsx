@@ -1,17 +1,15 @@
-import { createResource, createSignal, For, Match, Show, Switch, type JSX } from "solid-js"
+import { createMemo, createResource, createSignal, For, Match, Show, Switch, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import { bookStandings, type BookStanding } from "../../../application/backup"
 import { addBook } from "../../../application/add-book"
 import { deleteBook } from "../../../application/delete-book"
 import type { ApplicationError } from "../../../application/errors"
-import { moveBook } from "../../../application/book-order"
+import { swapWithNext } from "../../../application/book-order"
 import { ensureFirstBook } from "../../../application/seed"
-import type { BookId } from "../../../core/book/book"
-import type { Direction } from "../../../core/book/order"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
-import { ChevronDownIcon } from "../../primitives/icons"
+import { SwapIcon } from "../../primitives/icons"
 import { Loaded } from "../../primitives/states"
 import { settleTyping, TextField } from "../../primitives/text-field"
 import { toast } from "../../primitives/toast"
@@ -22,11 +20,9 @@ import { bookTitle, describeTitleProblem } from "../../wording/book"
 import { describeError } from "../../wording/errors"
 import { BookTitle } from "../shell/BookTitle"
 import { ViewHeader } from "../shell/ViewHeader"
-import { rowsOf, type Row } from "./book-rows"
+import { motionOf, rowsOf, type Motion, type Row, type Swap } from "./book-rows"
 
-const DIRECTIONS: readonly Direction[] = ["earlier", "later"]
-
-const MOVE_LABELS: Readonly<Record<Direction, string>> = { earlier: "ひとつ上へ", later: "ひとつ下へ" }
+const SWAP_LABEL = "次の自分の帳簿と入れ替える"
 
 /** Where deleting a book is: not asked, asked and waiting to be sure, going, or failed. */
 type Deleting =
@@ -38,12 +34,12 @@ type Deleting =
 /**
  * One book, under its title, renamed where it stands by its owner, with
  * how it stands against its backups — what deleting it
- * would lose — the arrows that move it one place in the list, where it
- * is the person's own and has a place to move to, and the way to delete
- * it: a press asks, and a second, beside what will go, does it. Laid out
- * for a phone first.
+ * would lose — and the way to delete it: a press asks, and a second,
+ * beside what will go, does it. Changing places with another, it swells
+ * where it stands and settles where it comes to, and says when it has.
+ * Laid out for a phone first.
  */
-function BookRow(props: { readonly listed: BookStanding; readonly moves: readonly Direction[]; readonly onMove: (direction: Direction) => void; readonly onDeleted: () => Promise<void> }): JSX.Element {
+function BookRow(props: { readonly listed: BookStanding; readonly motion: Motion; readonly onSettled: () => void; readonly onDeleted: () => Promise<void> }): JSX.Element {
   const app = useApp()
   const [state, setState] = createSignal<Deleting>({ type: "resting" })
   const unsaved = (): boolean => props.listed.standing.type !== "kept"
@@ -59,7 +55,16 @@ function BookRow(props: { readonly listed: BookStanding; readonly moves: readonl
     await props.onDeleted()
   }
   return (
-    <li class="flex flex-col gap-3 rounded-md bg-surface-1 p-3">
+    <div
+      class="flex flex-col gap-3 rounded-md bg-surface-1 p-3"
+      classList={{
+        "relative z-10 animate-[swell_140ms_ease-out_forwards]": props.motion === "swelling",
+        "relative z-10 animate-[settle_240ms_ease-out]": props.motion === "settling",
+      }}
+      onAnimationEnd={() => {
+        if (props.motion === "settling") props.onSettled()
+      }}
+    >
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div class="flex min-w-0 flex-col gap-0.5 sm:flex-1">
           <div class="flex min-w-0">
@@ -72,19 +77,7 @@ function BookRow(props: { readonly listed: BookStanding; readonly moves: readonl
             {(last) => <span class="text-xs text-text-muted">{last}</span>}
           </Show>
         </div>
-        <div class="flex items-center gap-1 sm:shrink-0">
-          <For each={DIRECTIONS}>
-            {(direction) => (
-              <Show when={props.moves.includes(direction)} fallback={<span class="size-9" />}>
-                <Button variant="ghost" size="icon" aria-label={MOVE_LABELS[direction]} title={MOVE_LABELS[direction]} onClick={() => props.onMove(direction)}>
-                  <span classList={{ "rotate-180": direction === "earlier" }}>
-                    <ChevronDownIcon />
-                  </span>
-                </Button>
-              </Show>
-            )}
-          </For>
-          <div class="flex-1" />
+        <div class="flex items-center justify-end sm:shrink-0">
           <Show when={state().type === "resting" || state().type === "failed"}>
             <Button variant="secondary" class="text-negative" onClick={() => setState({ type: "asking" })}>
               削除
@@ -119,7 +112,61 @@ function BookRow(props: { readonly listed: BookStanding; readonly moves: readonl
           )}
         </Match>
       </Switch>
-    </li>
+    </div>
+  )
+}
+
+/** Where changing two books' places is: not asked, being written, or written and shown until the two have settled. */
+type Swapping = { readonly type: "resting" } | { readonly type: "writing"; readonly swap: Swap } | { readonly type: "written"; readonly swap: Swap }
+
+const swapOf = (swapping: Swapping): Swap | undefined => (swapping.type === "resting" ? undefined : swapping.swap)
+
+/**
+ * The books as a list, and at its right edge, on the line between each of
+ * the person's own and the row under it, where another of theirs comes
+ * after, the arrows that swap the two: both swell while the swap is
+ * written, and settle in each other's place once the list is read again.
+ * The edge is kept clear for the arrows only where there are any, and
+ * reaches into the screen's own margin, so the rows give up little. A
+ * second swap waits for the first to be written.
+ */
+function BookList(props: { readonly rows: readonly Row[]; readonly onDeleted: () => Promise<void> }): JSX.Element {
+  const app = useApp()
+  const rows = createMemo(() => props.rows)
+  const swappable = (): boolean => rows().some((row) => row.swapsWith !== undefined)
+  const [swapping, setSwapping] = createSignal<Swapping>({ type: "resting" })
+  const swap = async (asked: Swap): Promise<void> => {
+    if (swapping().type === "writing") return
+    setSwapping({ type: "writing", swap: asked })
+    const done = await swapWithNext(app.services.session, app.services.member, asked.upper)
+    if (!done.ok) toast({ title: "帳簿を並べ替えられませんでした", description: describeError(done.error), tone: "error" })
+    setSwapping(done.ok ? { type: "written", swap: asked } : { type: "resting" })
+    app.wrote()
+  }
+  return (
+    <ul class="flex flex-col gap-1" classList={{ "-mr-2": swappable() }}>
+      <For each={rows()}>
+        {(row) => (
+          <li class="relative" classList={{ "pr-7": swappable() }}>
+            <BookRow listed={row.standing} motion={motionOf(rows(), swapOf(swapping()), row.standing.book.id)} onSettled={() => setSwapping({ type: "resting" })} onDeleted={props.onDeleted} />
+            <Show when={row.swapsWith} keyed>
+              {(lower) => (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  class="absolute right-0 top-full z-20 mt-0.5 size-6 -translate-y-1/2"
+                  aria-label={SWAP_LABEL}
+                  title={SWAP_LABEL}
+                  onClick={() => void swap({ upper: row.standing.book.id, lower })}
+                >
+                  <SwapIcon />
+                </Button>
+              )}
+            </Show>
+          </li>
+        )}
+      </For>
+    </ul>
   )
 }
 
@@ -183,8 +230,8 @@ function AddBook(): JSX.Element {
 
 /**
  * The books this device keeps: one more added under a name, and each one
- * there in the order books stand in everywhere, moved a place at a time
- * where it is the person's own, with how it stands against its backups,
+ * there in the order books stand in everywhere, changing places with the
+ * next where both are the person's own, with how it stands against its backups,
  * taken off the device only
  * after a second press beside what will be lost. It is the device's copy
  * that goes — a backup of it, and the book on a device that syncs it, stay.
@@ -198,13 +245,8 @@ export function BooksSettings(props: { readonly place: Place }): JSX.Element {
     () => bookStandings(app.services.backup),
   )
   const [ordered] = createResource(() => app.revision(), () => app.services.session.books())
-  /** The device's books in the order they stand in everywhere, each with how it stands against its backups, and the ways it may move. */
+  /** The device's books in the order they stand in everywhere, each with how it stands against its backups, and the book it may change places with. */
   const rows = (standings: readonly BookStanding[]): readonly Row[] => ((books) => rowsOf(books?.ok === true ? books.value : [], standings, app.services.member))(ordered())
-  const move = async (bookId: BookId, direction: Direction): Promise<void> => {
-    const done = await moveBook(app.services.session, app.services.member, bookId, direction)
-    if (!done.ok) toast({ title: "帳簿を並べ替えられませんでした", description: describeError(done.error), tone: "error" })
-    app.wrote()
-  }
   const settle = async (): Promise<void> => {
     await ensureFirstBook(app.services.session, app.services.firstBook)
     app.wrote()
@@ -217,13 +259,9 @@ export function BooksSettings(props: { readonly place: Place }): JSX.Element {
           <section class="flex flex-col gap-2">
             <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">帳簿</h2>
             <Loaded outcome={listed()}>
-              {(books) => (
-                <ul class="flex flex-col gap-1">
-                  <For each={rows(books)}>{(row) => <BookRow listed={row.standing} moves={row.moves} onMove={(direction) => void move(row.standing.book.id, direction)} onDeleted={settle} />}</For>
-                </ul>
-              )}
+              {(books) => <BookList rows={rows(books)} onDeleted={settle} />}
             </Loaded>
-            <p class="text-xs text-text-muted">矢印で自分の帳簿を並べ替えられます。並びは帳簿と一緒に、同期しているほかの端末にも届きます。</p>
+            <p class="text-xs text-text-muted">右の矢印で、自分の帳簿を上下に入れ替えられます。並びは帳簿と一緒に、同期しているほかの端末にも届きます。</p>
             <p class="text-xs text-text-muted">削除はこの端末からだけで、元に戻せません。バックアップや、同期しているほかの端末の帳簿は消えません。最後の1冊を削除すると、空の帳簿が新しく作られます。</p>
           </section>
         </div>

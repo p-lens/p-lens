@@ -1537,8 +1537,9 @@ it is next written, whole.
   order and everything that lists books takes it from there — the rail,
   設定, the book in use (`bookInUse`, the first a person may write), the way
   in (`entranceOf`).
-- **Moved a place at a time** (設定 → 帳簿の管理, the arrows; `moveBook`,
-  `moved`): the books are numbered from one as they then stand and the
+- **Swapped two at a time** (設定 → 帳簿の管理, the arrows at the edge between two of a
+  person's own books; `swapWithNext`, `swappedWithNext`): a book changes
+  places with the next of its owner's, the books are numbered from one as they then stand and the
   places that changed are written, each into its own book as one change
   (`book-placed`) — all of them the first time, two after that. A book's
   activity says nothing of it: where a book stands in a list changes

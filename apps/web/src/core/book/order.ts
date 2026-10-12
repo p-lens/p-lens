@@ -16,31 +16,27 @@ export const inOrder = <B extends { readonly order: number | undefined }>(books:
   return [...placed, ...books.filter((book) => book.order === undefined)]
 }
 
-/** One place towards the head of the list, or one towards its foot. */
-export type Direction = "earlier" | "later"
-
 /** A place to be written into a book. */
 export interface Placing {
   readonly id: BookId
   readonly order: number
 }
 
-const swapped = <T>(items: readonly T[], from: number, to: number): readonly T[] => items.map((item, index) => (index === from ? (items[to] as T) : index === to ? (items[from] as T) : item))
+const exchanged = <T>(items: readonly T[], from: number, to: number): readonly T[] => items.map((item, index) => (index === from ? (items[to] as T) : index === to ? (items[from] as T) : item))
 
 /**
  * The places to write so that one book of a list, given as it now stands,
- * moves one place: none where it is already at that end, or is not in the
- * list. The books are simply numbered from one as they then stand, and
+ * changes places with the one after it: none where it is the last, or is
+ * not in the list. The books are simply numbered from one as they then stand, and
  * the places returned are those that differ from what the books have —
- * every book the first time any is moved, the two that changed places
+ * every book the first time any two are swapped, the two that changed places
  * after that. A person keeps a handful of books, so nothing cleverer is
  * wanted.
  */
-export const moved = (books: readonly Placed[], id: BookId, direction: Direction): readonly Placing[] => {
+export const swappedWithNext = (books: readonly Placed[], id: BookId): readonly Placing[] => {
   const from = books.findIndex((book) => book.id === id)
-  const to = direction === "earlier" ? from - 1 : from + 1
-  if (from === -1 || to < 0 || to >= books.length) return []
-  return swapped(books, from, to)
+  if (from === -1 || from + 1 >= books.length) return []
+  return exchanged(books, from, from + 1)
     .map((book, index): Placing => ({ id: book.id, order: index + 1 }))
     .filter((placing) => books.find((book) => book.id === placing.id)?.order !== placing.order)
 }

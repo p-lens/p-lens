@@ -195,6 +195,16 @@ export const PlusIcon = () => (
   </Icon>
 )
 
+/** Change places: an arrow up beside an arrow down, between the two rows that swap. */
+export const SwapIcon = () => (
+  <Icon>
+    <path d="M8 19V5" />
+    <path d="M4 9l4-4l4 4" />
+    <path d="M16 5v14" />
+    <path d="M12 15l4 4l4-4" />
+  </Icon>
+)
+
 /** Change: an arrow head pointing down, at what opens a list to choose again from. */
 export const ChevronDownIcon = () => (
   <Icon>

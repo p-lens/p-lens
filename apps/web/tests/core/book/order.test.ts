@@ -1,16 +1,16 @@
 import { describe, expect, test } from "bun:test"
 
 import type { BookId } from "../../../src/core/book/book"
-import { inOrder, moved, type Placed } from "../../../src/core/book/order"
+import { inOrder, swappedWithNext, type Placed } from "../../../src/core/book/order"
 import { BOOK_SETTINGS_FILE, bookSettingsOf, withBusinessDayTurn, withOrder } from "../../../src/core/book/settings"
 
 const book = (id: string, order?: number): Placed => ({ id: id as BookId, order })
 
 const ids = (books: readonly Placed[]): readonly string[] => books.map((each) => each.id)
 
-/** A list as it stands once the places a move gives have been written into its books. */
-const after = (books: readonly Placed[], id: string, direction: "earlier" | "later"): readonly Placed[] => {
-  const placings = moved(books, id as BookId, direction)
+/** A list as it stands once the places a swap gives have been written into its books. */
+const after = (books: readonly Placed[], id: string): readonly Placed[] => {
+  const placings = swappedWithNext(books, id as BookId)
   return inOrder(books.map((each) => ({ ...each, order: placings.find((placing) => placing.id === each.id)?.order ?? each.order })))
 }
 
@@ -22,37 +22,36 @@ describe("the order books are listed in", () => {
   })
 })
 
-describe("moving a book one place", () => {
+describe("swapping a book with the one after it", () => {
   const UNPLACED = [book("a"), book("b"), book("c")]
   const PLACED = [book("a", 1), book("b", 2), book("c", 3)]
 
-  test("numbers every book the first time any is moved", () => {
-    expect(moved(UNPLACED, "c" as BookId, "earlier")).toEqual([{ id: "a", order: 1 }, { id: "c", order: 2 }, { id: "b", order: 3 }] as never)
-    expect(ids(after(UNPLACED, "c", "earlier"))).toEqual(["a", "c", "b"])
+  test("numbers every book the first time any two are swapped", () => {
+    expect(swappedWithNext(UNPLACED, "b" as BookId)).toEqual([{ id: "a", order: 1 }, { id: "c", order: 2 }, { id: "b", order: 3 }] as never)
+    expect(ids(after(UNPLACED, "b"))).toEqual(["a", "c", "b"])
   })
 
   test("writes only the two that changed places once all are numbered", () => {
-    expect(moved(PLACED, "a" as BookId, "later")).toEqual([{ id: "b", order: 1 }, { id: "a", order: 2 }] as never)
-    expect(ids(after(PLACED, "a", "later"))).toEqual(["b", "a", "c"])
-    expect(ids(after(PLACED, "c", "earlier"))).toEqual(["a", "c", "b"])
+    expect(swappedWithNext(PLACED, "a" as BookId)).toEqual([{ id: "b", order: 1 }, { id: "a", order: 2 }] as never)
+    expect(ids(after(PLACED, "a"))).toEqual(["b", "a", "c"])
+    expect(ids(after(PLACED, "b"))).toEqual(["a", "c", "b"])
   })
 
-  test("writes nothing at the end it is already at, or for a book not in the list", () => {
-    expect(moved(PLACED, "a" as BookId, "earlier")).toEqual([])
-    expect(moved(PLACED, "c" as BookId, "later")).toEqual([])
-    expect(moved(PLACED, "z" as BookId, "later")).toEqual([])
-    expect(moved([book("only")], "only" as BookId, "later")).toEqual([])
+  test("writes nothing for the last book, or for a book not in the list", () => {
+    expect(swappedWithNext(PLACED, "c" as BookId)).toEqual([])
+    expect(swappedWithNext(PLACED, "z" as BookId)).toEqual([])
+    expect(swappedWithNext([book("only")], "only" as BookId)).toEqual([])
   })
 
   test("puts right whatever places the books had, gaps and twins and a book never placed", () => {
     const odd = inOrder([book("a", 5), book("b", 5), book("c", 900), book("d")])
-    expect(ids(after(odd, "d", "earlier"))).toEqual(["a", "b", "d", "c"])
-    expect(after(odd, "d", "earlier").map((each) => each.order)).toEqual([1, 2, 3, 4])
+    expect(ids(after(odd, "c"))).toEqual(["a", "b", "d", "c"])
+    expect(after(odd, "c").map((each) => each.order)).toEqual([1, 2, 3, 4])
   })
 
-  test("carried through every move of every book, always leaves the list as it was asked for", () => {
+  test("carried through swap after swap, always leaves the list as it was asked for", () => {
     const start = [book("a"), book("b"), book("c"), book("d")]
-    const walked = (["d", "d", "d", "a", "a", "b", "c", "c"] as const).reduce<readonly Placed[]>((books, id, step) => after(books, id, step % 3 === 0 ? "later" : "earlier"), start)
+    const walked = (["a", "a", "d", "b", "c", "c", "a", "b"] as const).reduce<readonly Placed[]>(after, start)
     expect(new Set(walked.map((each) => each.order)).size).toBe(4)
     expect(ids(walked).toSorted()).toEqual(["a", "b", "c", "d"])
     expect(walked.map((each) => each.order)).toEqual([1, 2, 3, 4])

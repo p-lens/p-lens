@@ -158,6 +158,23 @@
   }
 }
 
+/* A row about to change places with another: it swells for a moment and holds there… */
+@keyframes swell {
+  to {
+    transform: scale(1.04);
+  }
+}
+
+/* …and, in the other's place, snaps back to its size, a little past it first. */
+@keyframes settle {
+  0% {
+    transform: scale(1.04);
+  }
+  55% {
+    transform: scale(0.98);
+  }
+}
+
 /* A request made quietly under a field: it comes into view slowly, never all at once. */
 @keyframes emerge {
   from {
