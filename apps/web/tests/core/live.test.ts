@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import type { Checkpoint } from "../../src/core/play-log/checkpoint"
+import { parsePlayLog, type Checkpoint } from "../../src/core/play-log/checkpoint"
 import { afterMissedJackpot, checkpointsForReading, liveSummary, missingJackpots, readCounter } from "../../src/core/play-log/live"
 import { performanceAcross } from "../../src/core/play-log/performance"
 
@@ -105,5 +105,29 @@ describe("adding a reading", () => {
       ok: false,
       error: { type: "outlay-went-back", atLeast: 1000 },
     })
+  })
+})
+
+describe("the jackpots a log records", () => {
+  const TWICE = { name: "20R", payout: 3000, spent: 200, jackpots: 2 }
+
+  test("are as many as each bonus was won over, so a run a machine gives as one win is counted as the parlor's counter counts it", () => {
+    const log: readonly Checkpoint[] = [
+      { spins: 0, counter: { spins: 120, jackpots: 9 } },
+      { spins: 80, counter: { spins: 200 }, event: { kind: "jackpot", bonus: { name: "10R", payout: 1500, spent: 100 } } },
+      { spins: 110, counter: { spins: 30 }, event: { kind: "jackpot", bonus: TWICE } },
+      { spins: 150, counter: { spins: 40, jackpots: 12 }, event: { kind: "jackpot" } },
+    ]
+    const summary = liveSummary(log)
+    expect(summary.jackpots).toBe(4)
+    expect(summary.counterJackpots).toBe(3)
+    expect(missingJackpots(liveSummary(log.slice(0, 3).concat({ spins: 150, counter: { spins: 40, jackpots: 12 } })))).toBe(0)
+    expect(missingJackpots(liveSummary([log[0] as Checkpoint, { spins: 110, counter: { spins: 30, jackpots: 12 }, event: { kind: "jackpot", bonus: { ...TWICE, jackpots: 1 } } }]))).toBe(2)
+  })
+
+  test("are read back from a line as it was written, and a line that says none of a bonus is refused", () => {
+    const line = '{"spins":110,"event":{"kind":"jackpot","bonus":{"name":"20R","payout":3000,"spent":200,"jackpots":2}}}'
+    expect(parsePlayLog(line)).toEqual({ ok: true, value: [{ spins: 110, event: { kind: "jackpot", bonus: TWICE } }] })
+    expect(parsePlayLog(line.replace('"jackpots":2', '"jackpots":0')).ok).toBe(false)
   })
 })

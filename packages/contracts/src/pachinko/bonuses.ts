@@ -11,8 +11,11 @@ export interface BonusRounds {
  * A bonus a spec's jackpots pay, told by its rounds alone: two shares of
  * the same rounds through the same attackers are one bonus, whatever their
  * share and wherever they lead — that is what follows the bonus, not the
- * bonus. Two that only happen to pay out the same balls are two. `payout`
- * is the balls it pays out and `spent` the balls shot to get them.
+ * bonus. Two that only happen to pay out the same balls are two, and so
+ * are two of the same rounds won over a different number of jackpots.
+ * `payout` is the balls it pays out and `spent` the balls shot to get
+ * them; `jackpots` is how many jackpots it is won over, one unless its
+ * share says more.
  */
 export interface BonusShape {
   /** The rounds as one string, the same for the same bonus: what a name is kept under while it is typed. */
@@ -20,7 +23,11 @@ export interface BonusShape {
   readonly rounds: readonly BonusRounds[]
   readonly payout: number
   readonly spent: number
+  readonly jackpots: number
 }
+
+/** How many jackpots something is won over: one, unless it says more. */
+export const jackpotsOf = (won: { readonly jackpots?: number }): number => won.jackpots ?? 1
 
 const inFull = (rounds: OtherRoundsDto, payout: SpecDto["resources"]["payout"]): BonusRounds => ({
   rounds: rounds.rounds,
@@ -39,11 +46,13 @@ const joined = (rounds: readonly BonusRounds[]): readonly BonusRounds[] =>
 
 const shapeOf = (share: AllotmentDto, payout: SpecDto["resources"]["payout"]): BonusShape => {
   const rounds = joined([share, ...(share.otherRounds ?? [])].map((each) => inFull(each, payout)))
+  const jackpots = jackpotsOf(share)
   return {
-    key: rounds.map((each) => `${each.rounds}x${each.prizeBalls}x${each.count}`).join("+"),
+    key: `${rounds.map((each) => `${each.rounds}x${each.prizeBalls}x${each.count}`).join("+")}${jackpots === 1 ? "" : `/${jackpots}`}`,
     rounds,
     payout: rounds.reduce((sum, each) => sum + each.rounds * each.prizeBalls * each.count, 0),
     spent: rounds.reduce((sum, each) => sum + each.rounds * each.count, 0),
+    jackpots,
   }
 }
 

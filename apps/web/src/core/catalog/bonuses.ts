@@ -9,26 +9,28 @@ export interface BonusRow {
   readonly name: string
   readonly payout: string
   readonly spent: string
+  /** The jackpots the bonus is won over; empty, it is one. */
+  readonly jackpots: string
 }
 
 export type BonusField = keyof BonusRow
 
-export const EMPTY_BONUS_ROW: BonusRow = { name: "", payout: "", spent: "" }
+export const EMPTY_BONUS_ROW: BonusRow = { name: "", payout: "", spent: "", jackpots: "" }
 
 /**
  * What a row of bonuses, as typed, is wrong with: which row, which field.
  *
  * - `repeated`: another row above already has the name.
  * - `not-a-count`: not a whole number, or below what the field takes.
- * - `too-large`: more than the catalog takes a bonus to pay out.
+ * - `too-large`: more than the catalog takes a bonus to pay out, or to be won over.
  * - `not-below-payout`: as much is spent as is paid out, so nothing is won.
  */
 export type BonusProblem =
   | { readonly type: "missing"; readonly row: number; readonly field: BonusField }
   | { readonly type: "name-too-long"; readonly row: number; readonly field: "name"; readonly longest: number }
   | { readonly type: "repeated"; readonly row: number; readonly field: "name" }
-  | { readonly type: "not-a-count"; readonly row: number; readonly field: "payout" | "spent" }
-  | { readonly type: "too-large"; readonly row: number; readonly field: "payout"; readonly most: number }
+  | { readonly type: "not-a-count"; readonly row: number; readonly field: "payout" | "spent" | "jackpots" }
+  | { readonly type: "too-large"; readonly row: number; readonly field: "payout" | "jackpots"; readonly most: number }
   | { readonly type: "not-below-payout"; readonly row: number; readonly field: "spent" }
 
 const COUNT = /^\d+$/
@@ -38,7 +40,7 @@ const countOf = (text: string): number | undefined => {
   return COUNT.test(plain) ? Number(plain) : undefined
 }
 
-const blank = (row: BonusRow): boolean => row.name.trim() === "" && tidyTyped(row.payout) === "" && tidyTyped(row.spent) === ""
+const blank = (row: BonusRow): boolean => row.name.trim() === "" && tidyTyped(row.payout) === "" && tidyTyped(row.spent) === "" && tidyTyped(row.jackpots) === ""
 
 const nameProblem = (rows: readonly BonusRow[], row: number, name: string): BonusProblem | undefined => {
   if (name === "") return { type: "missing", row, field: "name" }
@@ -63,23 +65,33 @@ const spentProblem = (row: number, typed: string, payout: number | undefined): B
   return payout !== undefined && payout > 0 && spent >= payout ? { type: "not-below-payout", row, field: "spent" } : undefined
 }
 
+/** The jackpots a bonus is won over are one where none are typed. */
+const jackpotsOf = (typed: string): number | undefined => (tidyTyped(typed) === "" ? 1 : countOf(typed))
+
+const jackpotsProblem = (row: number, typed: string): BonusProblem | undefined => {
+  const jackpots = jackpotsOf(typed)
+  if (jackpots === undefined || jackpots === 0) return { type: "not-a-count", row, field: "jackpots" }
+  return jackpots > MACHINE_BONUSES.jackpots ? { type: "too-large", row, field: "jackpots", most: MACHINE_BONUSES.jackpots } : undefined
+}
+
 const rowProblems = (rows: readonly BonusRow[], row: number): readonly BonusProblem[] => {
   const typed = rows[row] ?? EMPTY_BONUS_ROW
   if (blank(typed)) return []
-  return [nameProblem(rows, row, typed.name.trim()), payoutProblem(row, typed.payout), spentProblem(row, typed.spent, countOf(typed.payout))].filter(
+  return [nameProblem(rows, row, typed.name.trim()), payoutProblem(row, typed.payout), spentProblem(row, typed.spent, countOf(typed.payout)), jackpotsProblem(row, typed.jackpots)].filter(
     (problem): problem is BonusProblem => problem !== undefined,
   )
 }
 
 /**
  * A machine's bonuses as typed, row by row: each named, with what it pays
- * out and what is spent winning it. A row left wholly empty is no bonus,
- * and none typed is none.
+ * out, what is spent winning it, and the jackpots it is won over where
+ * they are more than one. A row left wholly empty is no bonus, and none
+ * typed is none.
  */
 export const readBonuses = (rows: readonly BonusRow[]): Result<readonly MachineBonus[], readonly BonusProblem[]> => {
   const problems = rows.flatMap((_, row) => rowProblems(rows, row))
   if (problems.length > 0) return Err(problems)
-  return Ok(rows.filter((row) => !blank(row)).map((row) => ({ name: row.name.trim(), payout: countOf(row.payout) ?? 0, spent: spentOf(row.spent) ?? 0 })))
+  return Ok(rows.filter((row) => !blank(row)).map((row) => ((jackpots) => ({ name: row.name.trim(), payout: countOf(row.payout) ?? 0, spent: spentOf(row.spent) ?? 0, ...(jackpots === 1 ? {} : { jackpots }) }))(jackpotsOf(row.jackpots) ?? 1)))
 }
 
 /** Whether another bonus can be added to the rows: the catalog takes so many and no more. */

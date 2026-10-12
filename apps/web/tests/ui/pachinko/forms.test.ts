@@ -76,7 +76,7 @@ describe("the basis form", () => {
   })
 
   test("refuses a share above 100% and a fractional round count, by name", () => {
-    const read = readBasisForm({ ...STARTING_BASIS, firstHit: [{ share: "120", rounds: "2.5", next: "regular", prize: "", count: "", others: [] }] })
+    const read = readBasisForm({ ...STARTING_BASIS, firstHit: [{ share: "120", rounds: "2.5", next: "regular", prize: "", count: "", others: [], jackpots: "" }] })
     expect(read.ok ? [] : read.error).toEqual([
       { field: "初当り 1行目の振分", reason: "out-of-range" },
       { field: "初当り 1行目のR数", reason: "not-whole" },
@@ -84,8 +84,30 @@ describe("the basis form", () => {
   })
 })
 
+describe("a share won over several jackpots", () => {
+  const run = { share: "100", rounds: "20", next: "m1", prize: "", count: "", others: [], jackpots: "２" }
+  const form = { ...STARTING_BASIS, firstHit: [run] }
+
+  test("says how many in the spec, and one typed as one, or left empty, says nothing", () => {
+    const read = readBasisForm(form)
+    expect(read.ok && regularOf(read.value.spec)?.allotment).toEqual([{ shareBasisPoints: 10_000, rounds: 20, next: { type: "mode", mode: "m1" }, jackpots: 2 }])
+    const one = readBasisForm({ ...form, firstHit: [{ ...run, jackpots: "1" }] })
+    expect(one.ok && regularOf(one.value.spec)?.allotment).toEqual([{ shareBasisPoints: 10_000, rounds: 20, next: { type: "mode", mode: "m1" } }])
+  })
+
+  test("comes back as typed, and a number of jackpots that is none, or more than a bonus is taken to be won over, is refused by name", () => {
+    const read = readBasisForm(form)
+    if (!read.ok) throw new Error("the basis should read")
+    expect(basisFormOf(read.value.spec, read.value.conditions, undefined).firstHit).toEqual([{ ...run, jackpots: "2" }])
+    const refusal = (jackpots: string) => ((refused) => (refused.ok ? [] : refused.error))(readBasisForm({ ...form, firstHit: [{ ...run, jackpots }] }))
+    expect(refusal("0")).toEqual([{ field: "初当り 1行目の大当り回数", reason: "out-of-range" }])
+    expect(refusal("51")).toEqual([{ field: "初当り 1行目の大当り回数", reason: "out-of-range" }])
+    expect(refusal("2.5")).toEqual([{ field: "初当り 1行目の大当り回数", reason: "not-whole" }])
+  })
+})
+
 describe("a share that pays by a prize of its own", () => {
-  const form = { ...STARTING_BASIS, firstHit: [{ share: "100", rounds: "4", next: "m1", prize: "１０", count: "", others: [] }] }
+  const form = { ...STARTING_BASIS, firstHit: [{ share: "100", rounds: "4", next: "m1", prize: "１０", count: "", others: [], jackpots: "" }] }
 
   test("says its prize in the spec, and a share that names none says nothing", () => {
     const read = readBasisForm(form)
@@ -96,8 +118,8 @@ describe("a share that pays by a prize of its own", () => {
   test("comes back as typed, and a prize that is no count is refused by name", () => {
     const read = readBasisForm(form)
     if (!read.ok) throw new Error("the basis should read")
-    expect(basisFormOf(read.value.spec, read.value.conditions, undefined).firstHit).toEqual([{ share: "100", rounds: "4", next: "m1", prize: "10", count: "", others: [] }])
-    const refused = readBasisForm({ ...form, firstHit: [{ share: "100", rounds: "4", next: "m1", prize: "0", count: "", others: [] }] })
+    expect(basisFormOf(read.value.spec, read.value.conditions, undefined).firstHit).toEqual([{ share: "100", rounds: "4", next: "m1", prize: "10", count: "", others: [], jackpots: "" }])
+    const refused = readBasisForm({ ...form, firstHit: [{ share: "100", rounds: "4", next: "m1", prize: "0", count: "", others: [], jackpots: "" }] })
     expect(refused.ok ? [] : refused.error).toEqual([{ field: "初当り 1行目の賞球", reason: "out-of-range" }])
   })
 })
@@ -134,7 +156,7 @@ describe("a mode in a list of destinations", () => {
 
 describe("a jackpot through two attackers", () => {
   const vRound = { rounds: "1", prize: "1", count: "" }
-  const share = { share: "100", next: "m1", ...vRound, others: [{ rounds: "9", prize: "", count: "" }, { rounds: "2", prize: "12", count: "５" }] }
+  const share = { share: "100", next: "m1", jackpots: "", ...vRound, others: [{ rounds: "9", prize: "", count: "" }, { rounds: "2", prize: "12", count: "５" }] }
   const form = { ...STARTING_BASIS, firstHit: [share] }
 
   test("says each attacker's rounds in the spec, by its own prize and count where it names them", () => {

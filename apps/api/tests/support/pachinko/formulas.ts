@@ -6,7 +6,7 @@ import { api, pachinkoFixture } from "../harness"
 export const manual = (roundChanceOneIn = 13.9, payoutPerRound = 140): NewFormulaDto => ({ kind: "manual", figures: { roundChanceOneIn, payoutPerRound }, bonuses: [{ name: "10R", payout: 1500, spent: 100 }] })
 
 /** The bonuses a spec's jackpots pay, each named for its rounds: what a formula worked out from it states. */
-export const bonusesOf = (spec: SpecDto): NewFormulaDto["bonuses"] => bonusShapesOf(spec).map((shape) => ({ name: `${roundsOf(shape)}R ${shape.key}`, payout: shape.payout, spent: shape.spent }))
+export const bonusesOf = (spec: SpecDto): NewFormulaDto["bonuses"] => bonusShapesOf(spec).map((shape) => ({ name: `${roundsOf(shape)}R ${shape.key}`, payout: shape.payout, spent: shape.spent, ...(shape.jackpots === 1 ? {} : { jackpots: shape.jackpots }) }))
 
 /** The fixture spec as a simulated formula, its figures as the engine solves them. */
 export const simulated = async (): Promise<NewFormulaDto & { readonly basis: NonNullable<NewFormulaDto["basis"]> }> => {

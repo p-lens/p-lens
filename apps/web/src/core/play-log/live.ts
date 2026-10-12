@@ -12,7 +12,7 @@ export interface LiveSummary {
   /** What the parlor's counter should be showing now. */
   readonly counterNow: number
   readonly outlay: number | undefined
-  /** Jackpots this log records. */
+  /** Jackpots this log records: one for each line that says one, or as many as the bonus it names was won over. */
   readonly jackpots: number
   /**
    * Jackpots the parlor's counter has shown since the play began, where it
@@ -26,6 +26,9 @@ export interface LiveSummary {
 }
 
 const isJackpot = (checkpoint: Checkpoint): boolean => checkpoint.event?.kind === "jackpot"
+
+/** The jackpots a line records: none, one, or as many as the bonus it names was won over — a run of jackpots a machine gives as one win, which the parlor's counter counts each of. */
+const jackpotsAt = (checkpoint: Checkpoint): number => (checkpoint.event?.kind === "jackpot" ? (checkpoint.event.bonus?.jackpots ?? 1) : 0)
 
 /** A point the parlor's counter is read from: the play's spins there, and what the counter showed. */
 interface Anchor {
@@ -69,7 +72,7 @@ export const liveSummary = (ordered: readonly Checkpoint[]): LiveSummary => {
     spins,
     counterNow: counterNowOf(ordered),
     outlay: last?.outlay,
-    jackpots: ordered.filter(isJackpot).length,
+    jackpots: ordered.reduce((sum, checkpoint) => sum + jackpotsAt(checkpoint), 0),
     counterJackpots: jackpotsSinceSeat(ordered),
     overall: first === undefined || last === undefined ? undefined : performanceAcross(first, last),
     stretches: stretchPerformances(ordered),

@@ -1,3 +1,4 @@
+import type { BorderStanding } from "../../../core/pachinko/border-standing"
 import type { RevisionRefusal } from "../../../core/pachinko/revision"
 import type { Phase } from "../../../core/play-log/checkpoint"
 
@@ -37,3 +38,10 @@ export const UNMERGE_FAILED = "取り消せませんでした"
 
 /** Why a merging could not be taken back: the play's log is no longer as the merging left it. */
 export const CHANGED_SINCE_MERGED = "まとめたあとに記録が変わっています。"
+
+/** What the dot beside a play's spin performance says, for whoever cannot see its colour. */
+export const BORDER_STANDING_SAYS: Readonly<Record<BorderStanding, string>> = { above: "ボーダーを上回っています", below: "ボーダーを下回っています", level: "ちょうどボーダーです" }
+
+/** What the button that unfolds a play's figures, and folds them again, is called. */
+export const UNFOLD_FIGURES = "すべての数値を表示"
+export const FOLD_FIGURES = "数値をたたむ"

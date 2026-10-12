@@ -33,12 +33,16 @@ export interface Sampling {
  * One of the bonuses a machine's jackpots pay, as a formula of it states
  * them: what it goes by, the balls it pays out and the balls spent winning
  * it — 1,500 paid out for 100 shot is 1,400 won. A play records a jackpot
- * as one of the bonuses of the formula it is weighed against.
+ * as one of the bonuses of the formula it is weighed against. `jackpots`
+ * is how many jackpots the bonus is won over, left out where it is one: a
+ * machine may give a run of jackpots as one win — 3,000 balls as two
+ * jackpots of ten rounds — and a parlor's counter counts each of them.
  */
 export interface Bonus {
   readonly name: string
   readonly payout: number
   readonly spent: number
+  readonly jackpots?: number
 }
 
 /** How a formula's figures came to be: typed in, solved exactly from a basis, or sampled from one. */

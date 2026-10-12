@@ -31,9 +31,10 @@ const PENCILLED = "group flex h-5 items-center gap-1 rounded-[3px] text-xs font-
  * day's for the next play too. A play with no terms says so where its
  * corner would be, and is given some the same way. Across from the corner
  * is the cabinet's number, with its own pencil: it leads to where the
- * cabinet and the machine the play is on are said anew.
+ * cabinet and the machine the play is on are said anew. Between the two
+ * the line is empty, and holds what it is given to.
  */
-export function CornerTerms(props: { readonly draft: PlayDraft }): JSX.Element {
+export function CornerTerms(props: { readonly draft: PlayDraft; readonly between: JSX.Element }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   const start = useStartForm()
@@ -78,6 +79,7 @@ export function CornerTerms(props: { readonly draft: PlayDraft }): JSX.Element {
               <EditIcon label={CHANGE_TERMS} />
             </span>
           </button>
+          {props.between}
           <button type="button" onClick={() => moves.go({ kind: "live-cabinet", playId: props.draft.id })} class={PENCILLED}>
             {props.draft.cabinetNumber ?? "---"}番台
             <span class="text-text-secondary group-hover:text-text-primary">

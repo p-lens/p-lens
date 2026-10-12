@@ -256,7 +256,7 @@ fn allotment_outcomes(
                 probability: chance.and(share.share.probability()),
                 reward: Reward {
                     rounds: share.total_rounds(),
-                    hits: 1,
+                    hits: share.jackpots.get(),
                     balls: share.net_balls(payout),
                 },
                 next: target(&share.next)?,

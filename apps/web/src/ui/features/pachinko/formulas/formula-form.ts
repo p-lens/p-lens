@@ -1,3 +1,4 @@
+import { MACHINE_BONUSES } from "@p-lens/contracts"
 import type { AllotmentDto, NextDto, ConditionsDto, OtherRoundsDto, SpecDto, ProbabilityDto, ReliefDriveDto } from "@p-lens/contracts/pachinko"
 
 import type { Figures } from "../../../../core/pachinko/figures"
@@ -111,15 +112,17 @@ export const EMPTY_ROUNDS: RoundsRow = { rounds: "", prize: "", count: "" }
  * One share of an allotment, as text. `next` is `regular` or a mode's key.
  * Its own `rounds`, `prize` and `count` are the first attacker its jackpot
  * opens; `others` are the rounds of the same jackpot through another.
+ * `jackpots` is how many jackpots its rounds are won over; empty, one.
  */
 export interface AllotmentRow extends RoundsRow {
   readonly share: string
   readonly next: string
   readonly others: readonly RoundsRow[]
+  readonly jackpots: string
 }
 
 /** A row not filled in yet, leading back to the regular game. */
-export const EMPTY_ROW: AllotmentRow = { share: "", next: REGULAR, ...EMPTY_ROUNDS, others: [] }
+export const EMPTY_ROW: AllotmentRow = { share: "", next: REGULAR, ...EMPTY_ROUNDS, others: [], jackpots: "" }
 
 export type ModeKindName = ModeKind["type"]
 
@@ -212,13 +215,26 @@ const roundsOf = (row: RoundsRow, at: string): Result<OtherRoundsDto, readonly F
     : Err(problemsOf([rounds, prize, count]))
 }
 
+/** The jackpots a share's rounds are won over, where any are typed: no more than the catalog takes a bonus to be won over. */
+const jackpotsOf = (text: string, field: string): Read<number | undefined> => {
+  const read = ownCountOf(text, field)
+  return read.ok && read.value !== undefined && read.value > MACHINE_BONUSES.jackpots ? Err({ field, reason: "out-of-range" }) : read
+}
+
 const shareOf = (row: AllotmentRow, at: string): Result<AllotmentDto, readonly FormProblem[]> => {
   const share = percentOf(row.share, `${at}の振分`)
   const first = roundsOf(row, at)
   const others = row.others.map((other, index) => roundsOf(other, `${at}の別アタッカー${index + 1}`))
-  const problems = [...problemsOf([share]), ...(first.ok ? [] : first.error), ...others.flatMap((other) => (other.ok ? [] : other.error))]
-  return share.ok && first.ok && problems.length === 0
-    ? Ok({ shareBasisPoints: share.value, ...first.value, next: nextOf(row.next), ...(others.length === 0 ? {} : { otherRounds: others.flatMap((other) => (other.ok ? [other.value] : [])) }) })
+  const jackpots = jackpotsOf(row.jackpots, `${at}の大当り回数`)
+  const problems = [...problemsOf([share, jackpots]), ...(first.ok ? [] : first.error), ...others.flatMap((other) => (other.ok ? [] : other.error))]
+  return share.ok && first.ok && jackpots.ok && problems.length === 0
+    ? Ok({
+        shareBasisPoints: share.value,
+        ...first.value,
+        next: nextOf(row.next),
+        ...(others.length === 0 ? {} : { otherRounds: others.flatMap((other) => (other.ok ? [other.value] : [])) }),
+        ...(jackpots.value === undefined || jackpots.value === 1 ? {} : { jackpots: jackpots.value }),
+      })
     : Err(problems)
 }
 
@@ -332,6 +348,7 @@ const rowsOf = (allotment: readonly AllotmentDto[]): readonly AllotmentRow[] =>
     next: share.next.type === "regular" ? REGULAR : share.next.mode,
     ...roundsRowOf(share),
     others: (share.otherRounds ?? []).map(roundsRowOf),
+    jackpots: ownCountText(share.jackpots),
   }))
 
 /** A stored basis back as a form, for remaking a formula from it: its world read through the queries. */

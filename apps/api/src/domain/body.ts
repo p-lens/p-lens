@@ -86,18 +86,20 @@ const isCount = (value: unknown): value is number => typeof value === "number" &
 
 const bonusOf = (value: unknown, field: string): Result<MachineBonusDto, ApiError> => {
   if (!isBody(value)) return invalid(field, "not-json")
-  const { name, payout, spent } = value
+  const { name, payout, spent, jackpots } = value
   if (typeof name !== "string" || name.trim() === "") return invalid(field, "missing")
   if ([...name.trim()].length > MACHINE_BONUSES.nameLength) return invalid(field, "too-long")
   if (holdsForbiddenWord(name.trim())) return invalid(field, "forbidden")
   if (!isCount(payout) || !isCount(spent) || payout === 0 || payout > MACHINE_BONUSES.payout || spent > payout) return invalid(field, "not-positive")
-  return Ok({ name: name.trim(), payout, spent })
+  if (jackpots !== undefined && (!isCount(jackpots) || jackpots === 0 || jackpots > MACHINE_BONUSES.jackpots)) return invalid(field, "not-positive")
+  return Ok({ name: name.trim(), payout, spent, ...(jackpots === undefined || jackpots === 1 ? {} : { jackpots }) })
 }
 
 /**
  * A formula's bonuses: none where the field is left out, and otherwise a
  * list of named bonuses, none paying out less than is shot to get it, no
- * two under one name.
+ * two under one name. One won over a single jackpot is kept without the
+ * count, as every bonus was before any said one.
  */
 export const bonuses = (body: Body, field: string): Result<readonly MachineBonusDto[], ApiError> => {
   const value = body[field]

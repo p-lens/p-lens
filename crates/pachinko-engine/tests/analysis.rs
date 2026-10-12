@@ -128,6 +128,36 @@ fn a_jackpot_through_two_attackers_counts_every_round_and_pays_each_by_its_own()
     assert!(close(analysis.balls_per_round.value(), balls / rounds));
 }
 
+/// The made-up machine whose RUSH gives its jackpots two at a time: 1/100, a
+/// 10R first jackpot, half of them into a RUSH that continues at 80% with
+/// 20R won over two jackpots of ten.
+fn a_run_of_jackpots_as_one_win() -> pachinko_domain::spec::Spec {
+    machine(
+        one_in(100),
+        vec![share(5000, 10, to("RUSH")), share(5000, 10, Next::Regular)],
+        vec![mode(
+            "RUSH",
+            rushing(80),
+            vec![Allotment {
+                jackpots: nonzero(2),
+                ..share(10_000, 20, to("RUSH"))
+            }],
+            Next::Regular,
+        )],
+    )
+}
+
+#[test]
+fn a_share_won_over_several_jackpots_counts_each_and_pays_no_more_for_it() {
+    let analysis = solved(&a_run_of_jackpots_as_one_win());
+    let wins = 0.5 * 4.0;
+    assert!(close(analysis.average_rounds, 10.0 + wins * 20.0));
+    assert!(close(analysis.average_combo, 1.0 + wins * 2.0));
+    assert!(close(analysis.average_payout.value(), 50.0 * 140.0));
+    assert!(close(analysis.total_chance.value(), 100.0 / 5.0));
+    assert!(close(analysis.round_chance.value(), 100.0 / 50.0));
+}
+
 #[test]
 fn a_measured_round_scales_every_share_alike() {
     let conditions = CalculationConditions {

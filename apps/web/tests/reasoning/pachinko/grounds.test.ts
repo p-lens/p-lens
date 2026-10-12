@@ -90,7 +90,7 @@ describe("a formula's grounds, reasoned", () => {
   })
 
   test("a machine whose shares pay each their own comes to one payout a round, every round's gain over every round, and checks", async () => {
-    const twoAttackers = { ...STARTING_BASIS, regularOneIn: "100", firstHit: [{ share: "50", rounds: "4", next: "m1", prize: "10", count: "", others: [] }, { share: "50", rounds: "4", next: "regular", prize: "10", count: "", others: [] }] }
+    const twoAttackers = { ...STARTING_BASIS, regularOneIn: "100", firstHit: [{ share: "50", rounds: "4", next: "m1", prize: "10", count: "", others: [], jackpots: "" }, { share: "50", rounds: "4", next: "regular", prize: "10", count: "", others: [], jackpots: "" }] }
     const { proof, analysis, basis } = await reasoned(specOf(twoAttackers))
     const rounds = 4 + 0.5 * 40
     const balls = 4 * 90 + 0.5 * 40 * 140
@@ -104,7 +104,7 @@ describe("a formula's grounds, reasoned", () => {
   })
 
   test("a jackpot through two attackers counts every round and gains each by its own attacker, and checks", async () => {
-    const vRound = { share: "50", rounds: "1", prize: "1", count: "", others: [{ rounds: "3", prize: "", count: "" }] }
+    const vRound = { share: "50", rounds: "1", prize: "1", count: "", others: [{ rounds: "3", prize: "", count: "" }], jackpots: "" }
     const twoInOne = { ...STARTING_BASIS, regularOneIn: "100", firstHit: [{ ...vRound, next: "m1" }, { ...vRound, next: "regular" }] }
     const { proof, analysis } = await reasoned(specOf(twoInOne))
     const rounds = 4 + 0.5 * 40

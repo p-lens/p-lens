@@ -10,7 +10,7 @@ const NO_HIT_CHANCE = "--/--"
 export const hitChanceText = (hitChance: string | undefined): string => hitChance ?? NO_HIT_CHANCE
 
 /** A bonus's fields as its row heads them. */
-export const BONUS_FIELDS: Readonly<Record<BonusField, string>> = { name: "ボーナス名", payout: "払出", spent: "消費" }
+export const BONUS_FIELDS: Readonly<Record<BonusField, string>> = { name: "ボーナス名", payout: "払出", spent: "消費", jackpots: "大当り回数" }
 
 /** What a row of a formula's bonuses, as typed, is wrong with, under the rows. */
 export const describeBonusProblem = (problem: BonusProblem): string => {
@@ -25,7 +25,7 @@ export const describeBonusProblem = (problem: BonusProblem): string => {
     case "not-a-count":
       return `${where}は整数で入れてください。`
     case "too-large":
-      return `${where}は${problem.most.toLocaleString("ja-JP")}玉までです。`
+      return `${where}は${problem.most.toLocaleString("ja-JP")}${problem.field === "jackpots" ? "回" : "玉"}までです。`
     case "not-below-payout":
       return `${where}は払出より少なくしてください。`
   }
@@ -39,3 +39,6 @@ export const describeBonusNameProblem = (problem: BonusNameProblem): string => {
 
 /** The rounds a bonus is told by, as a spec sheet writes them: `10R×15個×10C`, one run of rounds after another. */
 export const bonusRoundsText = (shape: BonusShape): string => shape.rounds.map((each) => `${each.rounds}R×${each.prizeBalls}個×${each.count}C`).join(" ＋ ")
+
+/** How many jackpots a bonus is won over, said only where it is more than one: `大当り5回ぶん`. */
+export const jackpotsText = (won: { readonly jackpots?: number }): string | undefined => (won.jackpots === undefined || won.jackpots === 1 ? undefined : `大当り${String(won.jackpots)}回ぶん`)

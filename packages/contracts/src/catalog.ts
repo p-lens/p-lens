@@ -17,12 +17,15 @@ export type GameKindDto = "pachinko" | "pachislot"
  * them: the name a player knows it by, the balls it pays out, and the balls
  * shot to get them — `1500` paid out for `100` shot is a gain of 1400. A
  * play records which bonus was won, and takes its balls from the formula
- * it is weighed against.
+ * it is weighed against. `jackpots` is how many jackpots it is won over,
+ * left out where it is one: a parlor's counter counts each, so a play
+ * counts as many.
  */
 export interface MachineBonusDto {
   readonly name: string
   readonly payout: number
   readonly spent: number
+  readonly jackpots?: number
 }
 
 export interface MachineSummaryDto {

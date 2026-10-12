@@ -44,6 +44,9 @@ pub struct AllotmentDto {
     /// The rounds of the same jackpot that open another attacker.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub other_rounds: Vec<OtherRoundsDto>,
+    /// How many jackpots the share's rounds are won over, where it is more than one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jackpots: Option<u32>,
 }
 
 /// Rounds of a jackpot through another attacker than the share's first rounds.

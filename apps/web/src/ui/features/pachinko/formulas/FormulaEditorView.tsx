@@ -90,7 +90,7 @@ interface Start {
 
 /** A formula's bonuses as rows to type over, an empty one where it has none. */
 const rowsOf = (bonuses: readonly MachineBonus[]): readonly BonusRow[] =>
-  bonuses.length === 0 ? [EMPTY_BONUS_ROW] : bonuses.map((bonus) => ({ name: bonus.name, payout: String(bonus.payout), spent: String(bonus.spent) }))
+  bonuses.length === 0 ? [EMPTY_BONUS_ROW] : bonuses.map((bonus) => ({ name: bonus.name, payout: String(bonus.payout), spent: String(bonus.spent), jackpots: bonus.jackpots === undefined ? "" : String(bonus.jackpots) }))
 
 /** What a formula being made again states of its bonuses, as it is typed again: one with a basis its names, one typed in its rows. */
 const bonusesFrom = (made: (FormulaMaking & { readonly bonuses: readonly MachineBonus[] }) | undefined): Pick<Start, "bonusRows" | "bonusNames"> => {

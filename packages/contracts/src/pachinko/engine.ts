@@ -34,6 +34,15 @@ export interface AllotmentDto {
   readonly count?: number
   /** The rounds of the same jackpot that open another attacker: a V round through a one-ball attacker beside nine through the fifteen-ball one. */
   readonly otherRounds?: readonly OtherRoundsDto[]
+  /**
+   * How many jackpots the share's rounds are won over, where it is more
+   * than one: a machine that gives a run of jackpots as one win — its
+   * 3000 balls two jackpots of ten rounds, one after the other — is
+   * written with the run as one share, and a parlor's counter still counts
+   * each. Stated, never worked out from the rounds: a run of five may be
+   * ten rounds or fifty.
+   */
+  readonly jackpots?: number
 }
 
 /**
@@ -335,4 +344,4 @@ export type EngineErrorDto =
 export type Envelope<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: EngineErrorDto }
 
 export type * from "./catalog.ts"
-export { bonusShapesOf, roundsOf, type BonusRounds, type BonusShape } from "./bonuses.ts"
+export { bonusShapesOf, jackpotsOf, roundsOf, type BonusRounds, type BonusShape } from "./bonuses.ts"

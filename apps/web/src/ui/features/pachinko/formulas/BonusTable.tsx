@@ -1,22 +1,23 @@
-import type { BonusShape } from "@p-lens/contracts/pachinko"
+import { type BonusShape, jackpotsOf } from "@p-lens/contracts/pachinko"
 import { For, Show, type JSX } from "solid-js"
 
 import { bonusGain } from "../../../../core/catalog/bonuses"
 import type { Bonus } from "../../../../core/pachinko/formula"
-import { BONUS_FIELDS, bonusRoundsText } from "../../../wording/pachinko/machine"
+import { BONUS_FIELDS, bonusRoundsText, jackpotsText } from "../../../wording/pachinko/machine"
 import { signedBalls } from "../../../wording/pachinko/play"
 
-/** The rounds a bonus is told by, where the basis has exactly one bonus paying out and taking what it does; none where it has no such bonus, or several. */
+/** The rounds a bonus is told by, where the basis has exactly one bonus paying out and taking what it does over as many jackpots; none where it has no such bonus, or several. */
 const roundsOf = (bonus: Bonus, shapes: readonly BonusShape[]): BonusShape | undefined => {
-  const alike = shapes.filter((shape) => shape.payout === bonus.payout && shape.spent === bonus.spent)
+  const alike = shapes.filter((shape) => shape.payout === bonus.payout && shape.spent === bonus.spent && shape.jackpots === jackpotsOf(bonus))
   return alike.length === 1 ? alike[0] : undefined
 }
 
 /**
  * A formula's bonuses as a table to read: what each goes by, the balls it
  * pays out, the balls shot to get them and what that leaves in hand — and,
- * under its name, the rounds it is where the basis says which. A play
- * records a jackpot as one of these.
+ * under its name, the rounds it is where the basis says which, and the
+ * jackpots it is won over where they are more than one. A play records a
+ * jackpot as one of these.
  */
 export function BonusTable(props: { readonly bonuses: readonly Bonus[]; readonly shapes: readonly BonusShape[] }): JSX.Element {
   return (
@@ -37,6 +38,9 @@ export function BonusTable(props: { readonly bonuses: readonly Bonus[]; readonly
                 {bonus.name}
                 <Show when={roundsOf(bonus, props.shapes)} keyed>
                   {(shape) => <span class="block text-[11px] text-text-muted">{bonusRoundsText(shape)}</span>}
+                </Show>
+                <Show when={jackpotsText(bonus)} keyed>
+                  {(jackpots) => <span class="block text-[11px] text-text-muted">{jackpots}</span>}
                 </Show>
               </td>
               <td class="py-1 pl-3 text-right">{bonus.payout.toLocaleString("ja-JP")}玉</td>

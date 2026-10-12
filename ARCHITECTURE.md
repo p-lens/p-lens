@@ -995,7 +995,31 @@ basis to take them from and states at least one, whole. The editor lists
 a basis's bonuses under the figures to be named, each going by its rounds
 until it is; a play takes its bonuses from the formula it is weighed
 against as it begins. They are kept with the formula for good
-(`bonuses_json`); the formulas registered before took their machine's
+(`bonuses_json`);
+
+**A bonus may be several jackpots.** A jackpot may open ten rounds and no
+more, so a machine that pays 3,000 balls at a win gives two jackpots one
+after the other, and a spec is written with the run as one share: 20R,
+30R, or — where each jackpot of the run is drawn apart — every total from
+10R to 50R, each of them five jackpots. A parlor's counter counts each
+jackpot, so a share says how many its rounds are won over (`jackpots` on
+an allotment's share, one where it says nothing), and that is never
+worked out from the rounds: of the machines in the catalog a run of five
+is anything from ten rounds to fifty, and one of four is as few as eight.
+The engine counts them (`Reward.hits`), so the トータル確率 and the average
+combo are the machine's own, and the figures a play is weighed by — the
+rounds and their balls — are as they were. Two shares of the same rounds
+won over a different number of jackpots are two bonuses; a formula's
+bonus carries the number (`jackpots`, left out where it is one, so a
+formula stated before any said one hashes as it did), the API holds it to
+the basis with the rest, and a formula typed in types it. A play's line
+keeps it with the bonus it names, and the jackpots a play records
+(`liveSummary`) are their sum — which is what is set against the
+counter's to say a jackpot was not written down. A formula stated before
+this says one for every bonus, and its plays are warned as they were: it
+is set right by stating a new formula from its basis, as any is.
+
+Still of bonuses: the formulas registered before took their machine's
 list as it stood, and `machine_bonuses` is read no more. A machine's release date is checked here, not only on the
 screen: no earlier than 1960 and at most a year ahead of the day it is
 registered (`releaseDateProblem` in the contracts, which the screen uses

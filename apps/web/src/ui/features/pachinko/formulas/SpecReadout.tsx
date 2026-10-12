@@ -4,6 +4,7 @@ import { For, Show, type JSX } from "solid-js"
 import { bonusShapes } from "../../../../core/pachinko/bonuses"
 import type { Basis, Bonus } from "../../../../core/pachinko/formula"
 import { modesOf, regularOf, type ModeView } from "../../../../core/pachinko/world"
+import { jackpotsText } from "../../../wording/pachinko/machine"
 import { BonusTable } from "./BonusTable"
 import { kindText, nextText, ownAttackerText, probabilityText, roundPayoutText, shareText } from "./spec-text"
 
@@ -34,6 +35,9 @@ function AllotmentTable(props: { readonly allotment: readonly AllotmentDto[]; re
                     </span>
                   )}
                 </For>
+                <Show when={jackpotsText(share)} keyed>
+                  {(jackpots) => <span class="block text-[11px] text-text-muted">{jackpots}</span>}
+                </Show>
               </td>
               <td class="py-1">{nextText(share.next, props.modes)}</td>
             </tr>

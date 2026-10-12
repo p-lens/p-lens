@@ -1,5 +1,5 @@
 import type { MachineBonusDto } from "@p-lens/contracts"
-import { type AnalysisDto, bonusShapesOf, type ConditionsDto, type EngineErrorDto, type FiguresDto, type SpecDto, type NormalizedSpecDto, type SamplingDto } from "@p-lens/contracts/pachinko"
+import { type AnalysisDto, bonusShapesOf, jackpotsOf, type ConditionsDto, type EngineErrorDto, type FiguresDto, type SpecDto, type NormalizedSpecDto, type SamplingDto } from "@p-lens/contracts/pachinko"
 
 import { all, type Body, bonuses, isBody, object, oneOf, optionalId, optionalPositive, positive } from "../body"
 import type { ApiError } from "../errors"
@@ -110,12 +110,13 @@ const disagreement = (sent: SentFormula & FromBasis, analysis: AnalysisDto): str
 
 /**
  * Whether the bonuses a formula names are the ones its basis's jackpots
- * pay: one for each, in their order, paying out and taking what it does.
- * The names are the sender's; nothing else is.
+ * pay: one for each, in their order, paying out and taking what it does,
+ * won over as many jackpots as its share says. The names are the sender's;
+ * nothing else is.
  */
 const bonusesAgree = (sent: readonly MachineBonusDto[], spec: SpecDto): boolean => {
   const shapes = bonusShapesOf(spec)
-  return sent.length === shapes.length && shapes.every((shape, index) => sent[index]?.payout === shape.payout && sent[index]?.spent === shape.spent)
+  return sent.length === shapes.length && shapes.every((shape, index) => ((bonus) => bonus !== undefined && bonus.payout === shape.payout && bonus.spent === shape.spent && jackpotsOf(bonus) === shape.jackpots)(sent[index]))
 }
 
 /**

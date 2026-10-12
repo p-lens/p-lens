@@ -54,3 +54,31 @@ describe("a basis's bonuses, named", () => {
     expect(bonusNamesOf(SPEC, named.value)).toEqual({ "10x15x10": "10R確変", "3x15x10": "3R", "10x10x10": "10R(2)" })
   })
 })
+
+describe("a basis whose machine gives a run of jackpots as one win", () => {
+  const RUNS: SpecDto = {
+    ...SPEC,
+    components: {
+      allotment: {
+        regular: [{ shareBasisPoints: 10_000, rounds: 10, next: { type: "mode", mode: "rush" } }],
+        rush: [
+          { shareBasisPoints: 6000, rounds: 10, jackpots: 5, next: { type: "mode", mode: "rush" } },
+          { shareBasisPoints: 4000, rounds: 50, jackpots: 5, next: { type: "mode", mode: "rush" } },
+        ],
+      },
+    },
+  }
+
+  test("states each bonus with the jackpots it is won over, saying nothing of them where it is one", () => {
+    const shapes = bonusShapes(RUNS)
+    expect(shapes.map((_, index) => defaultBonusName(shapes, index))).toEqual(["10R", "10R(2)", "50R"])
+    expect(namedBonuses(shapes, {})).toEqual({
+      ok: true,
+      value: [
+        { name: "10R", payout: 1500, spent: 100 },
+        { name: "10R(2)", payout: 1500, spent: 100, jackpots: 5 },
+        { name: "50R", payout: 7500, spent: 500, jackpots: 5 },
+      ],
+    })
+  })
+})

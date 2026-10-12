@@ -17,7 +17,9 @@ impl StateIndex {
 }
 
 /// What one outcome yields: rounds won, the balls they gain as the spec's
-/// payout gives them, and whether it was a jackpot. The balls are kept beside
+/// payout gives them, and the jackpots they were won over — none where it
+/// was no jackpot, more than one where a machine gives a run of jackpots as
+/// one win. The balls are kept beside
 /// the rounds because a machine's jackpots need not all pay a round alike: a
 /// 4R through a ten-ball attacker and a 10R through a fifteen-ball one.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]

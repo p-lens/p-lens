@@ -73,12 +73,15 @@ export type Phase = "regular" | "special" | "rapid"
 /**
  * The bonus a jackpot was, as its machine lists it: what it paid out and
  * what was spent winning it. Kept whole in the line, so the log still says
- * what was won whatever the catalog says later.
+ * what was won whatever the catalog says later. `jackpots` is how many
+ * jackpots it was won over, left out where it was one: the parlor's counter
+ * counts each, and so does the play.
  */
 export interface BonusWon {
   readonly name: string
   readonly payout: number
   readonly spent: number
+  readonly jackpots?: number
 }
 
 /**
@@ -173,7 +176,12 @@ const isAtEnded = (value: Fields): boolean =>
   (value["medals"] === undefined || isCount(value["medals"]))
 
 const isBonusWon = (value: unknown): value is BonusWon =>
-  isFields(value) && typeof value["name"] === "string" && value["name"] !== "" && isCount(value["payout"]) && isCount(value["spent"])
+  isFields(value) &&
+  typeof value["name"] === "string" &&
+  value["name"] !== "" &&
+  isCount(value["payout"]) &&
+  isCount(value["spent"]) &&
+  (value["jackpots"] === undefined || (isCount(value["jackpots"]) && value["jackpots"] > 0))
 
 const isPhase = (value: unknown): value is Phase => value === "regular" || value === "special" || value === "rapid"
 

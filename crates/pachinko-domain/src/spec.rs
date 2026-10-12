@@ -149,7 +149,10 @@ pub struct ReliefDrive {
 /// `prize_balls` or `count`: the attacker its rounds open, where a machine
 /// has more than one. Where one jackpot opens more than one attacker — a V
 /// round through a one-ball attacker, then nine through the fifteen-ball
-/// one — the rounds that pay otherwise are its `other_rounds`.
+/// one — the rounds that pay otherwise are its `other_rounds`. `jackpots` is
+/// how many jackpots its rounds are won over: one, unless the machine gives
+/// a run of jackpots as one win, which a parlor's counter still counts each
+/// of. It is stated, never worked out from the rounds.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Allotment {
     pub share: BasisPoints,
@@ -158,6 +161,7 @@ pub struct Allotment {
     pub prize_balls: Option<NonZeroU32>,
     pub count: Option<NonZeroU32>,
     pub other_rounds: Vec<OtherRounds>,
+    pub jackpots: NonZeroU32,
 }
 
 /// Rounds of a jackpot that open another attacker than the share's first

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import { api, device, formulasOf, pachinkoFixture } from "../support/harness"
-import { manual, registered, simulated } from "../support/pachinko/formulas"
+import { bonusesOf, manual, registered, simulated } from "../support/pachinko/formulas"
 
 const ALICE = device(1_759_000_000_001)
 const BOB = device(1_759_000_000_002)
@@ -31,10 +31,26 @@ describe("a simulated formula", () => {
     expect((await send([])).body.error).toEqual(disagrees)
     expect((await send(sent.bonuses.slice(1))).body.error).toEqual(disagrees)
     expect((await send(sent.bonuses.map((bonus, index) => (index === 0 ? { ...bonus, payout: bonus.payout + 1 } : bonus)))).body.error).toEqual(disagrees)
+    expect((await send(sent.bonuses.map((bonus, index) => (index === 0 ? { ...bonus, jackpots: 2 } : bonus)))).body.error).toEqual(disagrees)
     const renamed = sent.bonuses.map((bonus, index) => ({ ...bonus, name: `大当り${index + 1}` }))
     const made = await send(renamed)
     expect(made.status).toBe(201)
     expect((await formulasOf(client, machineId)).find((formula) => formula.id === made.body.id)?.bonuses).toEqual(renamed)
+  })
+
+  test("states of a bonus won over several jackpots as many as its basis's share does, and comes to no other figures for it", async () => {
+    const { client, machineId } = await registered(ALICE)
+    const sent = await simulated()
+    const world = sent.basis.spec
+    const rush = (world.components.allotment?.["RUSH"] ?? []).map((share) => ({ ...share, jackpots: 2 }))
+    const spec = { ...world, components: { ...world.components, allotment: { ...world.components.allotment, RUSH: rush } } }
+    const send = (bonuses: unknown) => client.call("POST", `/machines/${machineId}/formulas`, { as: BOB, body: { ...sent, basis: { ...sent.basis, spec }, bonuses } })
+    expect((await send(sent.bonuses)).body.error).toEqual({ type: "figures-disagree-with-basis", field: "bonuses" })
+    const made = await send(bonusesOf(spec))
+    expect(made.status).toBe(201)
+    const kept = (await formulasOf(client, machineId)).find((formula) => formula.id === made.body.id)
+    expect(kept?.bonuses.map((bonus: { readonly jackpots?: number }) => bonus.jackpots)).toEqual([undefined, 2])
+    expect(kept?.basis.normalized.states[0].outcomes[0].hits).toBe(2)
   })
 
   test("is refused when the engine cannot read its basis, in the engine's own terms", async () => {

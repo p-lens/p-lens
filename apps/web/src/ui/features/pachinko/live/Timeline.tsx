@@ -6,6 +6,7 @@ import { ConfirmPopover } from "../../../primitives/popover"
 import { createSpanPress, inSpan, spanRow } from "../../../primitives/span-press"
 import { formatMoment } from "../../../wording/dates"
 import { formatCount } from "../../../wording/numbers"
+import { jackpotsText } from "../../../wording/pachinko/machine"
 import { MERGE_READINGS, mergeSays, PHASE_NAMES, signedBalls, UNTOLD_JACKPOT } from "../../../wording/pachinko/play"
 
 /**
@@ -39,11 +40,11 @@ const stepsOf = (ordered: readonly Checkpoint[]): readonly Step[] =>
     { steps: [], outlay: 0, replay: 0, support: 0, readings: 0 },
   ).steps
 
-/** What a jackpot's line calls it: its bonus with what it added to the hand, or a jackpot whose bonus was not told — found missing, or on a machine that lists none. */
+/** What a jackpot's line calls it: its bonus with what it added to the hand, and the jackpots it was won over where they were more than one; or a jackpot whose bonus was not told — found missing, or on a machine that lists none. */
 const jackpotText = (checkpoint: Checkpoint): string | undefined => {
   const event = checkpoint.event
   if (event?.kind !== "jackpot") return undefined
-  if (event.bonus !== undefined) return `${event.bonus.name} ${signedBalls(event.bonus.payout - event.bonus.spent)}`
+  if (event.bonus !== undefined) return [event.bonus.name, signedBalls(event.bonus.payout - event.bonus.spent), jackpotsText(event.bonus)].filter((part) => part !== undefined).join(" ")
   return event.approximate === true ? `${UNTOLD_JACKPOT}（推定）` : UNTOLD_JACKPOT
 }
 

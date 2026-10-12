@@ -56,4 +56,20 @@ describe("the bonuses a spec's jackpots pay", () => {
     expect([first?.payout, first?.spent, first === undefined ? 0 : roundsOf(first)]).toEqual([10 + 1350 + 120, 10 + 90 + 10, 12])
     expect(second?.key).toBe("10x15x10")
   })
+
+  test("are won over one jackpot unless their share says more, and two of the same rounds over a different number are two", () => {
+    const spec = specOf(
+      [{ shareBasisPoints: 10_000, rounds: 10, next }],
+      [
+        { shareBasisPoints: 5000, rounds: 10, jackpots: 5, next },
+        { shareBasisPoints: 3000, rounds: 50, jackpots: 5, next },
+        { shareBasisPoints: 2000, rounds: 10, next },
+      ],
+    )
+    expect(bonusShapesOf(spec).map((shape) => [shape.key, shape.payout, shape.jackpots])).toEqual([
+      ["10x15x10", 1500, 1],
+      ["10x15x10/5", 1500, 5],
+      ["50x15x10/5", 7500, 5],
+    ])
+  })
 })

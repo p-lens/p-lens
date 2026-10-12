@@ -11,11 +11,12 @@ import { liveSummary } from "../../../../core/play-log/live"
 import { inPlayOrder } from "../../../../core/play-log/performance"
 import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
+import { ChevronDownIcon } from "../../../primitives/icons"
 import { toast } from "../../../primitives/toast"
 import { useMoves } from "../../../navigation/moves"
 import type { Place } from "../../../navigation/place"
 import { describeError, describePlayLogError } from "../../../wording/errors"
-import { CHANGED_SINCE_MERGED, MERGE_FAILED, MERGED, UNMERGE, UNMERGE_FAILED, UNMERGED } from "../../../wording/pachinko/play"
+import { CHANGED_SINCE_MERGED, FOLD_FIGURES, MERGE_FAILED, MERGED, UNFOLD_FIGURES, UNMERGE, UNMERGE_FAILED, UNMERGED } from "../../../wording/pachinko/play"
 import { ViewHeader } from "../../shell/ViewHeader"
 import { CornerTerms } from "./CornerTerms"
 import { LiveFigures } from "./LiveFigures"
@@ -43,6 +44,13 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
   const app = useApp()
   const moves = useMoves()
   const parsed = createMemo(() => parsePlayLog(props.draft.log))
+  /** Whether the play's figures are all shown: they are folded to the few anyone reads first until a person unfolds them, and stay as the device was left. */
+  const [unfolded, setUnfolded] = createSignal(app.services.preferences.figuresUnfolded("pachinko"))
+  const fold = (): void => {
+    const next = !unfolded()
+    app.services.preferences.setFiguresUnfolded("pachinko", next)
+    setUnfolded(next)
+  }
   /** What the composer is doing beside taking the next reading: setting a line right, or putting a reading in before another. */
   const [work, setWork] = createSignal<Work | undefined>(undefined)
   const revised = (): Revised | undefined => {
@@ -136,13 +144,30 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
             return (
               <div class="flex flex-1 flex-col">
                 <div class="flex flex-1 flex-col gap-3 p-3">
-                  <CornerTerms draft={props.draft} />
+                  <CornerTerms
+                    draft={props.draft}
+                    between={
+                      <button
+                        type="button"
+                        aria-expanded={unfolded()}
+                        aria-label={unfolded() ? FOLD_FIGURES : UNFOLD_FIGURES}
+                        title={unfolded() ? FOLD_FIGURES : UNFOLD_FIGURES}
+                        onClick={fold}
+                        class="flex h-5 w-10 items-center justify-center rounded-[3px] text-text-secondary hover:bg-surface-3 hover:text-text-primary focus-visible:outline-2 focus-visible:outline-focus-ring [&_svg]:size-4"
+                      >
+                        <span classList={{ "rotate-180": unfolded() }}>
+                          <ChevronDownIcon />
+                        </span>
+                      </button>
+                    }
+                  />
                   <LiveFigures
                     summary={summary}
                     replayed={standingBefore(checkpoints, takenOf(checkpoints).length).replay}
                     consumption={consumption}
                     formula={props.draft.pachinko}
                     terms={terms}
+                    folded={!unfolded()}
                     beside={(formula) => (
                       <LiveHyenaHunt
                         formula={formula}

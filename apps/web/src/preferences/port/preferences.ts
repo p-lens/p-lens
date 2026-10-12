@@ -21,6 +21,9 @@ export interface Preferences {
   /** A formula of a game the shared catalog did not take, as it was written to be sent again, or none. */
   readonly formulaDraft: (gameKind: GameKind) => string | undefined
   readonly setFormulaDraft: (gameKind: GameKind, written: string | undefined) => void
+  /** Whether a game's play in progress shows all its figures, unfolded; not, until it is unfolded: a play shows the few figures anyone reads first. */
+  readonly figuresUnfolded: (gameKind: GameKind) => boolean
+  readonly setFiguresUnfolded: (gameKind: GameKind, unfolded: boolean) => void
   /** Whether the consolidation of several books is shown on the rail; not, until it is turned on. */
   readonly consolidationShown: () => boolean
   readonly setConsolidationShown: (shown: boolean) => void

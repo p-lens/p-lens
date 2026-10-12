@@ -40,6 +40,7 @@ pub fn share(points: u32, rounds: u32, next: Next) -> Allotment {
         prize_balls: None,
         count: None,
         other_rounds: Vec::new(),
+        jackpots: NonZeroU32::MIN,
     }
 }
 

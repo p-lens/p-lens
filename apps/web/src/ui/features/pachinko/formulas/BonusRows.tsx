@@ -6,7 +6,7 @@ import { CloseIcon } from "../../../primitives/icons"
 import { TextField } from "../../../primitives/text-field"
 import { BONUS_FIELDS, describeBonusProblem } from "../../../wording/pachinko/machine"
 
-const ROW = "grid grid-cols-[minmax(0,1fr)_4.75rem_4.75rem_1.75rem] items-end gap-1.5"
+const ROW = "grid grid-cols-[minmax(0,1fr)_4.25rem_4.25rem_3.25rem_1.75rem] items-end gap-1.5"
 
 const without = (rows: readonly BonusRow[], row: number): readonly BonusRow[] => {
   const left = rows.filter((_, index) => index !== row)
@@ -15,7 +15,8 @@ const without = (rows: readonly BonusRow[], row: number): readonly BonusRow[] =>
 
 /**
  * A typed-in formula's bonuses, a row each: what the bonus goes by, the
- * balls it pays out and the balls spent winning it. A formula with no
+ * balls it pays out, the balls spent winning it, and — where a machine
+ * gives a run of jackpots as one win — the jackpots it is won over. A formula with no
  * basis has nothing to take them from, so at least one is typed. The first row heads the
  * columns; a row is taken away with its cross, the last one emptying
  * instead, and another is added below until the catalog takes no more.
@@ -41,6 +42,7 @@ export function BonusRows(props: {
               <TextField label={BONUS_FIELDS.name} labelHidden={row > 0} value={typed().name} onChange={(text) => change(row, "name", text)} placeholder="10R確変" invalid={wrong(row, "name")} onFocus={props.onFocus} compact />
               <TextField label={BONUS_FIELDS.payout} labelHidden={row > 0} value={typed().payout} onChange={(text) => change(row, "payout", text)} inputMode="numeric" suffix="玉" invalid={wrong(row, "payout")} onFocus={props.onFocus} compact />
               <TextField label={BONUS_FIELDS.spent} labelHidden={row > 0} value={typed().spent} onChange={(text) => change(row, "spent", text)} inputMode="numeric" suffix="玉" invalid={wrong(row, "spent")} onFocus={props.onFocus} compact />
+              <TextField label="回数" labelHidden={row > 0} value={typed().jackpots} onChange={(text) => change(row, "jackpots", text)} inputMode="numeric" placeholder="1" suffix="回" invalid={!props.wanting && wrong(row, "jackpots")} onFocus={props.onFocus} compact />
               <button
                 type="button"
                 onClick={() => props.onChange(without(props.rows, row))}
@@ -55,7 +57,7 @@ export function BonusRows(props: {
       <Show when={props.problems.at(0)} keyed>
         {(problem) => <p class="text-xs text-negative">{describeBonusProblem(problem)}</p>}
       </Show>
-      <p class="text-xs text-text-muted">払出は獲得する玉、消費はそのために打ち込む玉です。</p>
+      <p class="text-xs text-text-muted">払出は獲得する玉、消費はそのために打ち込む玉です。回数は、データカウンタで大当り何回と数えられるかです。3000発を10R×2回で出す機種なら2、ふつうの大当りは空欄のままで1回です。</p>
       <Show when={takesAnotherBonus(props.rows)}>
         <div>
           <Button variant="secondary" size="small" onClick={() => props.onChange([...props.rows, EMPTY_BONUS_ROW])}>

@@ -41,5 +41,5 @@ export const isHitChanceText = (text: string): boolean => {
 /** The most words a machine is searched by beside its name, and the longest one may be. */
 export const MACHINE_KEYWORDS = { count: 10, length: 30 } as const
 
-/** The most bonuses a machine lists, the longest a bonus's name may be, and the most balls one may pay out. */
-export const MACHINE_BONUSES = { count: 20, nameLength: 20, payout: 100_000 } as const
+/** The most bonuses a machine lists, the longest a bonus's name may be, the most balls one may pay out, and the most jackpots one may be won over. */
+export const MACHINE_BONUSES = { count: 20, nameLength: 20, payout: 100_000, jackpots: 50 } as const

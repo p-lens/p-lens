@@ -61,9 +61,10 @@ function AllotmentEditor(props: {
       <Index each={props.rows}>
         {(row, index) => (
           <div class="flex flex-col gap-1.5">
-            <div class="grid grid-cols-[4.5rem_minmax(0,1fr)_2.25rem] items-end gap-1.5 [&>*]:min-w-0">
+            <div class="grid grid-cols-[4.5rem_minmax(0,1fr)_4.75rem_2.25rem] items-end gap-1.5 [&>*]:min-w-0">
               <TextField label="振分" labelHidden={index > 0} value={row().share} onChange={(share) => set(index, { ...row(), share })} inputMode="decimal" suffix="%" compact />
               <Select label="その後" labelHidden={index > 0} placeholder="行き先" options={destinations(props.modes, props.modes)} value={row().next} onChange={(next) => set(index, { ...row(), next })} />
+              <TextField label="大当り回数" labelHidden={index > 0} value={row().jackpots} onChange={(jackpots) => set(index, { ...row(), jackpots })} inputMode="numeric" placeholder="1" suffix="回" compact />
               <Show when={props.rows.length > 1} fallback={<span />}>
                 <Button variant="outline" size="icon" aria-label={`${index + 1}行目の振分を削除`} title="この振分を削除" onClick={() => props.onChange(props.rows.filter((_, at) => at !== index))}>
                   <TrashIcon />

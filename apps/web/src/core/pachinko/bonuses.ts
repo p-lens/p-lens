@@ -29,7 +29,8 @@ const namesOf = (shapes: readonly BonusShape[], typed: Readonly<Record<string, s
 /**
  * A spec's bonuses as a formula states them: each under the name typed
  * for its rounds, or what it goes by until it is named, with the balls its
- * rounds pay out and take. No two share a name.
+ * rounds pay out and take, and the jackpots it is won over where they are
+ * more than one. No two share a name.
  */
 export const namedBonuses = (shapes: readonly BonusShape[], typed: Readonly<Record<string, string>>): Result<readonly Bonus[], readonly BonusNameProblem[]> => {
   const names = namesOf(shapes, typed)
@@ -37,7 +38,7 @@ export const namedBonuses = (shapes: readonly BonusShape[], typed: Readonly<Reco
     if ([...name].length > MACHINE_BONUSES.nameLength) return [{ type: "name-too-long", index, longest: MACHINE_BONUSES.nameLength }]
     return names.findIndex((other) => comparableName(other) === comparableName(name)) === index ? [] : [{ type: "repeated", index }]
   })
-  return problems.length > 0 ? Err(problems) : Ok(shapes.map((shape, index) => ({ name: names[index] ?? "", payout: shape.payout, spent: shape.spent })))
+  return problems.length > 0 ? Err(problems) : Ok(shapes.map((shape, index) => ({ name: names[index] ?? "", payout: shape.payout, spent: shape.spent, ...(shape.jackpots === 1 ? {} : { jackpots: shape.jackpots }) })))
 }
 
 /** The names a formula gave its basis's bonuses, each under its rounds, so they are typed again as they stood. */

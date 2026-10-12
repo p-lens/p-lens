@@ -88,6 +88,8 @@ fn allotment(dtos: &[AllotmentDto], field: &str) -> Result<Vec<Allotment>, Error
                 prize_balls: optional_nonzero(dto.prize_balls, &format!("{at}.prizeBalls"))?,
                 count: optional_nonzero(dto.count, &format!("{at}.count"))?,
                 other_rounds: other_rounds(&dto.other_rounds, &format!("{at}.otherRounds"))?,
+                jackpots: optional_nonzero(dto.jackpots, &format!("{at}.jackpots"))?
+                    .unwrap_or(NonZeroU32::MIN),
             })
         })
         .collect()
