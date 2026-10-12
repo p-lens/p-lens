@@ -40,6 +40,9 @@ export const playsTerm = `tag:${PLAY_TAGS.playId}`
 
 export const playTerm = (id: PlayId): string => `tag:${PLAY_TAGS.playId}=^${escapeRegex(id)}$`
 
+/** The entries of several plays at once: any of their ids, each held to the whole of it. */
+export const playsAmongTerm = (ids: readonly PlayId[]): string => `tag:${PLAY_TAGS.playId}=^(${ids.map(escapeRegex).join("|")})$`
+
 /**
  * The postings of entries that carry no tag of a name: what a cut by that
  * tag leaves out. hledger reads a tag's name as a pattern, which `machine`

@@ -57,6 +57,18 @@ describe("a recorded play, read back from its entry", () => {
     expect(await recordedOf(session, "tally")).toEqual({ ok: true, value: { type: "tallied", play: TALLIED } })
     expect(await recordedOf(session, "gain")).toEqual({ ok: true, value: { type: "tallied", play: gain } })
     expect(await recordedOf(session, "even")).toEqual({ ok: true, value: { type: "tallied", play: even } })
+    const plays = await loadPlays(session, BOOK, "", 0)
+    const madeBy = (id: string): string | undefined => ((actual) => (actual === undefined ? undefined : toPlainString(actual)))((plays.ok ? plays.value.plays : []).find((play) => play.id === id)?.actual)
+    expect(["gain", "even"].map(madeBy)).toEqual(["3000", "0"])
+  })
+
+  test("lists every play of the made-up book with what it made, the figure its own page gives", async () => {
+    const { session } = await setUp()
+    const plays = await loadPlays(session, BOOK, "", 0)
+    const listed = (plays.ok ? plays.value.plays : []).map((play) => (play.actual === undefined ? undefined : toPlainString(play.actual)))
+    const alone = await Promise.all((plays.ok ? plays.value.plays : []).map((play) => loadPlay(session, BOOK, play.id)))
+    expect(listed.length).toBe(5)
+    expect(listed).toEqual(alone.map((each) => (each.ok ? toPlainString(each.value.actual) : undefined)))
   })
 
   test("reads every play of the made-up book", async () => {

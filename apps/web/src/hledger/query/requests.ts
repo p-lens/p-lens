@@ -1,7 +1,8 @@
 import { YEN, type TokenKind } from "../../core/commodity/commodity"
+import { PLAY_TAGS, type PlayId } from "../../core/play/play"
 import type { Valuation } from "../../core/valuation/valuation"
 import type { Cut, Request, ValuationRequest } from "../protocol/wire"
-import { combine, openingBalanceTerm, playsTerm, savingsTerm, theoreticalValueTerm } from "./terms"
+import { combine, openingBalanceTerm, playsAmongTerm, playsTerm, savingsTerm, theoreticalValueTerm } from "./terms"
 
 type RequestOf<K extends Request["kind"]> = Extract<Request, { kind: K }>
 
@@ -22,6 +23,9 @@ export const theoreticalRequest = (query: string): RequestOf<"balance"> => ({
 
 /** What the plays in a query made or lost, cut by a tag's values or by period: an income statement whose rows, or columns, are the groups. */
 export const actualCutRequest = (query: string, cut: Cut): RequestOf<"incomestatement"> => ({ ...actualRequest(query), ...cut })
+
+/** What each of several plays made or lost: an income statement of them alone, its rows the plays' ids. */
+export const actualByPlayRequest = (ids: readonly PlayId[]): RequestOf<"incomestatement"> => actualCutRequest(playsAmongTerm(ids), { pivot: PLAY_TAGS.playId })
 
 /** The theoretical value of the plays in a query, cut the same way. */
 export const theoreticalCutRequest = (query: string, cut: Cut): RequestOf<"balance"> => ({ ...theoreticalRequest(query), ...cut })

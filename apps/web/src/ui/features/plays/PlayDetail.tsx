@@ -21,7 +21,7 @@ import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { formatDay } from "../../wording/dates"
 import { describeError } from "../../wording/errors"
-import { formatCommodityAmount, formatSignedYen } from "../../wording/numbers"
+import { formatCommodityAmount, formatTheoreticalYen } from "../../wording/numbers"
 import { rateText } from "../../wording/parlor"
 import { NO_MACHINE, NO_PARLOR } from "../../wording/plays"
 import { Figure } from "./Figure"
@@ -131,8 +131,8 @@ export function PlayDetail(props: { readonly place: Place; readonly bookId: Book
             <p class="break-words text-lg font-semibold text-text-primary">{found.names.machineName ?? NO_MACHINE}</p>
             <Facts play={found.summary} parlorName={found.names.parlorName} terms={found.terms} />
             <dl class="grid grid-cols-2 gap-2">
-              <Figure label="期待値" value={found.theoretical} kind="result" />
-              <Figure label="実収支" value={found.actual} kind="result" caption="稼働日の交換率で評価" />
+              <Figure label="実収支" value={found.actual} kind="actual" caption="稼働日の交換率で評価" />
+              <Figure label="期待値" value={found.summary.theoreticalValue === undefined ? undefined : found.theoretical} kind="theoretical" />
             </dl>
             <Show when={found.log} keyed>
               {(log) => (
@@ -149,7 +149,7 @@ export function PlayDetail(props: { readonly place: Place; readonly bookId: Book
               <Postings postings={found.transaction.tpostings} />
             </section>
             <Show when={found.summary.theoreticalValue === undefined}>
-              <p class="text-xs text-text-muted">この稼働には期待値が記録されていません（{formatSignedYen(found.theoretical)}として集計）。</p>
+              <p class="text-xs text-text-muted">この稼働には期待値が記録されていません（{formatTheoreticalYen(found.theoretical)}として集計）。</p>
             </Show>
             <div class="flex justify-end gap-2">
               <Button variant="outline" size="small" class="gap-1.5" onClick={() => moves.go({ kind: "play-revise", bookId: props.bookId, playId: props.playId })}>

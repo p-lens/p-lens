@@ -11,7 +11,7 @@ import { Button } from "../../primitives/button"
 import { createNudge, redText } from "../../primitives/nudge"
 import { settleTyping, TextField } from "../../primitives/text-field"
 import { describeError, describePlayError } from "../../wording/errors"
-import { formatSignedYen, formatTokens, toneOf, tokenUnit } from "../../wording/numbers"
+import { formatSignedYen, formatTokens, toneOf, tokenUnit, UNSEEN_ACTUAL } from "../../wording/numbers"
 import { IN_HAND_LABELS, pricesPlayedAt, readPlayForm, type FieldProblem, type FormField, type PlayedAt, type PlayForm, type SubmitWords } from "./form"
 
 /** Where a submission is: being typed, being written, or refused with why. */
@@ -182,9 +182,9 @@ export function RecordForm(props: {
           invalid={nudged("payout")}
           onFocus={nudge.settle} />
         <div class="flex flex-col gap-1.5">
-          <span class="text-xs font-bold uppercase tracking-wide text-text-secondary">収支（自動計算）</span>
+          <span class="text-xs font-bold uppercase tracking-wide text-text-secondary">実収支（自動計算）</span>
           <span class="flex h-10 items-center text-lg font-bold tabular-nums" classList={{ "text-positive": resultTone() === "positive", "text-negative": resultTone() === "negative", "text-text-primary": resultTone() === "neutral", "text-text-muted": resultTone() === undefined }}>
-            <Show when={result()} keyed fallback="¥--,---">
+            <Show when={result()} keyed fallback={UNSEEN_ACTUAL}>
               {(yen) => formatSignedYen(yen)}
             </Show>
           </span>

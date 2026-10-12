@@ -3,7 +3,7 @@ import { MainContent } from "solid-gathering-shell"
 
 import { loadPlays } from "../../../application/plays"
 import type { BookId } from "../../../core/book/book"
-import type { PlaySummary } from "../../../core/report/plays"
+import type { ListedPlay } from "../../../core/report/plays"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import { CloseIcon, FilterIcon } from "../../primitives/icons"
@@ -11,14 +11,23 @@ import { EmptyState, Loaded } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { formatDay } from "../../wording/dates"
-import { formatCount, formatSignedYen } from "../../wording/numbers"
+import { formatCount, formatSignedYen, formatTheoreticalYen, toneOf, UNSEEN_ACTUAL, UNSEEN_THEORETICAL } from "../../wording/numbers"
 import { playTitle } from "../../wording/plays"
 import { PeriodPicker } from "../period/PeriodPicker"
 import { ViewHeader } from "../shell/ViewHeader"
 
+const TONES = { positive: "text-positive", negative: "text-negative", neutral: "text-text-primary" } as const
+
 const selectedPlay = (place: Place): string | undefined => (place.kind === "play" ? place.playId : undefined)
 
-function PlayRow(props: { readonly play: PlaySummary; readonly selected: boolean; readonly onSelect: () => void }): JSX.Element {
+/**
+ * One play of the list: what it is and its day, and at the row's end what
+ * it made, in the colour of which way it went, over what it was worth by
+ * its formula, which has none. A play hledger could not value, and one
+ * with no theoretical value written, each keeps the
+ * figure's shape with nothing in it.
+ */
+function PlayRow(props: { readonly play: ListedPlay; readonly selected: boolean; readonly onSelect: () => void }): JSX.Element {
   return (
     <li>
       <button
@@ -33,8 +42,11 @@ function PlayRow(props: { readonly play: PlaySummary; readonly selected: boolean
           <span class="text-xs text-text-muted">{formatDay(props.play.date)}</span>
         </div>
         <div class="flex flex-col items-end text-sm tabular-nums text-text-secondary">
-          <Show when={props.play.theoreticalValue} keyed>
-            {(value) => <span>期待値 {formatSignedYen(value)}</span>}
+          <Show when={props.play.actual} keyed fallback={<span class="text-text-muted">実収支 {UNSEEN_ACTUAL}</span>}>
+            {(actual) => <span class={TONES[toneOf(actual)]}>実収支 {formatSignedYen(actual)}</span>}
+          </Show>
+          <Show when={props.play.theoreticalValue} keyed fallback={<span class="text-text-muted">期待値 {UNSEEN_THEORETICAL}</span>}>
+            {(value) => <span>期待値 {formatTheoreticalYen(value)}</span>}
           </Show>
         </div>
       </button>

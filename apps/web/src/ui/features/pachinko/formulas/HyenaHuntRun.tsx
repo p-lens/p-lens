@@ -13,7 +13,7 @@ import { Loaded } from "../../../primitives/states"
 import { HelpPopover } from "../../../primitives/popover"
 import { TextField } from "../../../primitives/text-field"
 import { describeEngineFailure } from "../../../wording/pachinko/engine"
-import { formatCount, formatMan, yenFigureText } from "../../../wording/numbers"
+import { formatCount, formatMan, theoreticalFigureText, yenFigureText } from "../../../wording/numbers"
 import { Histogram } from "./Histogram"
 import { seedOf, trialsOf, TRIALS_BY_DEFAULT } from "./sampling-settings"
 
@@ -42,7 +42,7 @@ function Sampled(props: { readonly summary: HyenaHuntSummaryDto }): JSX.Element 
     <div class="flex flex-col gap-3">
       <dl class="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
         <Figure label="期待値">
-          <span class="text-lg font-bold">{yenFigureText(props.summary.meanYen)}</span>
+          <span class="text-lg font-bold">{theoreticalFigureText(props.summary.meanYen)}</span>
           <Show when={props.summary.marginYen} keyed>
             {(margin) => <span class="ml-1 text-xs text-text-muted">±¥{formatCount(Math.round(margin))}</span>}
           </Show>
@@ -199,7 +199,7 @@ export function HyenaHuntRun(props: {
             <Show when={row} keyed>
               {(found) => (
                 <p class="text-sm text-text-secondary">
-                  {formatCount(props.initialSpins)}回転から打つと 期待値 <span class="font-bold tabular-nums text-text-primary">{yenFigureText(found.yen)}</span>
+                  {formatCount(props.initialSpins)}回転から打つと 期待値 <span class="font-bold tabular-nums text-text-primary">{theoreticalFigureText(found.yen)}</span>
                   <span class="text-xs text-text-muted">（遊タイム到達 {percentText(found.reliefDriveProbability)}・平均投資 {formatCount(Math.round(found.spins))}回転）</span>
                 </p>
               )}

@@ -10,7 +10,7 @@ import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { describeActivity } from "../../wording/activity"
 import { formatMoment } from "../../wording/dates"
-import { formatSignedYen } from "../../wording/numbers"
+import { formatTheoreticalYen } from "../../wording/numbers"
 import { ViewHeader } from "../shell/ViewHeader"
 
 const authorName = (book: Book | undefined, line: ActivityLine): string => book?.members.find((member) => member.id === line.by)?.displayName ?? line.by
@@ -25,7 +25,7 @@ function ActivityRow(props: { readonly line: ActivityLine; readonly author: stri
         <span class="text-sm font-semibold text-text-primary">{props.author}</span>
         <span class="text-sm text-text-secondary">{describeActivity(props.line)}</span>
         <Show when={props.line.parts.theoretical} keyed>
-          {(theoretical) => <span class="text-xs text-text-muted">期待値 {formatSignedYen(theoretical.value)}</span>}
+          {(theoretical) => <span class="text-xs text-text-muted">期待値 {formatTheoreticalYen(theoretical.value)}</span>}
         </Show>
       </div>
       <Show when={props.onOpenPlay} keyed>

@@ -12,7 +12,7 @@ import { EmptyState, Loaded } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { DIMENSION_NAMES, groupName, NOT_TALLIED } from "../../wording/breakdown"
-import { formatSignedYen, toneOf } from "../../wording/numbers"
+import { formatSignedYen, formatTheoreticalYen, toneOf } from "../../wording/numbers"
 import { PeriodPicker } from "../period/PeriodPicker"
 import { queryFor } from "../period/periods"
 import { ViewHeader } from "../shell/ViewHeader"
@@ -43,7 +43,7 @@ export function GroupRow(props: { readonly name: string; readonly group: Group; 
         <span class="flex items-baseline gap-1.5">
           <span class="text-xs text-text-muted">期待値</span>
           <Show when={props.theoreticalKept} fallback={<span class="text-text-muted">{NOT_TALLIED}</span>}>
-            <Yen value={props.group.theoretical} />
+            <span class="tabular-nums text-text-primary">{formatTheoreticalYen(props.group.theoretical)}</span>
           </Show>
         </span>
       </div>

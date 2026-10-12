@@ -11,7 +11,6 @@ import {
   payoutRateText,
   priorName,
   shareText,
-  theoreticalYenText,
 } from "../../../src/ui/wording/pachislot/formula"
 
 describe("pachislot wording", () => {
@@ -31,11 +30,9 @@ describe("pachislot wording", () => {
     expect(averageSettingLevelText(3.2249)).toBe("設定3.22")
   })
 
-  test("theoretical medals a game and theoretical yen are always signed", () => {
+  test("theoretical medals a game are always signed", () => {
     expect(medalsPerGameText(0.0704)).toBe("+0.070枚")
     expect(medalsPerGameText(-0.059)).toBe("-0.059枚")
-    expect(theoreticalYenText(980.6)).toBe("+¥981")
-    expect(theoreticalYenText(-1234.4)).toBe("-¥1,234")
   })
 
   test("a prior is named by its 設定配分, or as even", () => {

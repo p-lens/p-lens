@@ -8,7 +8,7 @@ import { useApp } from "../../../context"
 import { createNudge } from "../../../primitives/nudge"
 import { Loaded } from "../../../primitives/states"
 import { TextField } from "../../../primitives/text-field"
-import { formatCount, yenFigureText } from "../../../wording/numbers"
+import { formatCount, theoreticalFigureText } from "../../../wording/numbers"
 import { useStartBallValue } from "../../live/start-form"
 import { HyenaHuntRun } from "./HyenaHuntRun"
 
@@ -77,8 +77,8 @@ export function HyenaHuntTable(props: { readonly basis: Basis; readonly reliefDr
                           {formatCount(row.initialSpins)}回転
                         </button>
                       </td>
-                      <td class="py-1.5 text-right font-semibold" classList={{ "text-positive": row.yen > 0, "text-negative": row.yen < 0 }}>
-                        {yenFigureText(row.yen)}
+                      <td class="py-1.5 text-right font-semibold">
+                        {theoreticalFigureText(row.yen)}
                       </td>
                       <td class="py-1.5 text-right">{(row.reliefDriveProbability * 100).toFixed(1)}%</td>
                       <td class="py-1.5 text-right">{formatCount(Math.round(row.spins))}回転</td>

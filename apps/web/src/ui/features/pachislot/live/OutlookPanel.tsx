@@ -1,7 +1,8 @@
 import { Show, type JSX } from "solid-js"
 
 import type { PlayOutlook } from "../../../../application/pachislot/weighing"
-import { theoreticalYenText, medalsPerGameText, payoutRateText, UNSEEN } from "../../../wording/pachislot/formula"
+import { theoreticalFigureText } from "../../../wording/numbers"
+import { medalsPerGameText, payoutRateText, UNSEEN } from "../../../wording/pachislot/formula"
 import { SettingLevelOdds } from "./SettingLevelOdds"
 
 function Tile(props: { readonly label: string; readonly value: string }): JSX.Element {
@@ -29,10 +30,10 @@ export function OutlookPanel(props: { readonly outlook: PlayOutlook; readonly pr
           <Tile label="1Gあたり" value={props.outlook.grounded ? medalsPerGameText(props.outlook.netPerGame ?? 0) : UNSEEN.medalsPerGame} />
         </Show>
         <Show when={props.outlook.theoreticalValuePerHour !== undefined}>
-          <Tile label="期待値（時給）" value={props.outlook.grounded ? theoreticalYenText(props.outlook.theoreticalValuePerHour ?? 0) : UNSEEN.yen} />
+          <Tile label="期待値（時給）" value={props.outlook.grounded ? theoreticalFigureText(props.outlook.theoreticalValuePerHour ?? 0) : UNSEEN.yen} />
         </Show>
         <Show when={props.outlook.theoreticalValue !== undefined}>
-          <Tile label="期待値（ここまで）" value={props.outlook.grounded ? theoreticalYenText(props.outlook.theoreticalValue ?? 0) : UNSEEN.yen} />
+          <Tile label="期待値（ここまで）" value={props.outlook.grounded ? theoreticalFigureText(props.outlook.theoreticalValue ?? 0) : UNSEEN.yen} />
         </Show>
       </dl>
       <Show when={!props.outlook.priced}>

@@ -5,7 +5,7 @@ import type { CounterRefusal } from "../../../core/pachislot/reading"
 import type { RevisionRefusal } from "../../../core/pachislot/revision"
 import type { ReadingRefusal } from "../../../core/play-log/live"
 import { formulaIdText } from "../catalog"
-import { formatCount } from "../numbers"
+import { formatCount, UNSEEN_THEORETICAL } from "../numbers"
 
 const KIND_NAMES: Readonly<Record<FormulaKind, string>> = { manual: "手入力", simulated: "解析値から計算", sampled: "シミュレータ" }
 
@@ -44,7 +44,7 @@ export const sharesText = (shares: readonly SettingLevelShare[]): string =>
     .join("・")
 
 /** Figures nothing is known of yet, each as dashes in the shape it would have. */
-export const UNSEEN = { share: "--.-%", averageSettingLevel: "設定-.--", settingLevel: "設定-", payoutRate: "---.-%", medalsPerGame: "-.---枚", yen: "¥-,---" } as const
+export const UNSEEN = { share: "--.-%", averageSettingLevel: "設定-.--", settingLevel: "設定-", payoutRate: "---.-%", medalsPerGame: "-.---枚", yen: UNSEEN_THEORETICAL } as const
 
 /** 機械割 as players write it: `1.055` is `105.5%`. */
 export const payoutRateText = (ratio: number): string => `${(ratio * 100).toFixed(1)}%`
@@ -80,9 +80,6 @@ export const priorName = (prior: Prior): string => {
   if (prior.type === "distribution") return prior.label
   return prior.type === "stock" ? STOCK_SPREAD_NAMES[prior.key] : EVEN_PRIOR_NAME
 }
-
-/** Theoretical yen, always signed: `+¥1,240`, `-¥380`. */
-export const theoreticalYenText = (yen: number): string => `${yen < 0 ? "-" : "+"}¥${formatCount(Math.round(Math.abs(yen)))}`
 
 /** Theoretical medals a game gains or loses, to three places: `+0.108枚`. */
 export const medalsPerGameText = (medals: number): string => `${medals < 0 ? "-" : "+"}${Math.abs(medals).toFixed(3)}枚`

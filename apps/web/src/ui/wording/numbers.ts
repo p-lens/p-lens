@@ -27,6 +27,12 @@ export const toneOf = (value: Decimal): "positive" | "negative" | "neutral" => {
   return isZero(whole) ? "neutral" : isNegative(whole) ? "negative" : "positive"
 }
 
+/** What plays made, where nothing is known of it yet: dashes in the shape the figure would have. */
+export const UNSEEN_ACTUAL = "¥-,---"
+
+/** What plays were worth, where nothing is known of it yet: a figure that goes either way, and for most plays stays in the hundreds. */
+export const UNSEEN_THEORETICAL = "±¥---"
+
 const TOKEN_UNITS: Readonly<Record<TokenKind, string>> = { ball: "玉", medal: "枚" }
 
 export const tokenUnit = (kind: TokenKind): string => TOKEN_UNITS[kind]
@@ -65,3 +71,14 @@ export const formatCommodityAmount = (value: Decimal, commodity: string): string
 /** A yen figure worked out in floating point, signed and whole: `+¥12,340`, `-¥560`; dashes for none. */
 export const yenFigureText = (value: number | null | undefined): string =>
   value === null || value === undefined ? "--" : `${value < 0 ? "-" : "+"}¥${formatCount(Math.round(Math.abs(value)))}`
+
+/**
+ * What plays were worth in yen, as a figure with no colour to say which
+ * way it went: always marked, a gain `+`, a loss `-`, and nothing at all
+ * `±¥0`.
+ */
+export const formatTheoreticalYen = (value: Decimal): string => (isZero(rounded(value, 0)) ? "±¥0" : formatSignedYen(value))
+
+/** A theoretical value worked out in floating point, marked the same way: `+¥1,240`, `-¥380`, `±¥0`; its empty shape for none. */
+export const theoreticalFigureText = (value: number | null | undefined): string =>
+  value === null || value === undefined ? UNSEEN_THEORETICAL : Math.round(value) === 0 ? "±¥0" : yenFigureText(value)

@@ -8,31 +8,36 @@ import { parsePlayLog, playLogPath, type Checkpoint } from "../core/play-log/che
 import { termsInHead } from "../core/play-log/head"
 import { inPlayOrder } from "../core/play-log/performance"
 import { actualOf, statisticTotalOf } from "../core/report/figures"
-import { playSummariesOf, playSummaryOf, type PlaySummary } from "../core/report/plays"
+import { listedPlaysOf, playSummariesOf, playSummaryOf, type ListedPlay, type PlaySummary } from "../core/report/plays"
 import { Err, Ok, andThen, mapOk } from "../core/result/result"
 import type { Page, Transaction } from "../hledger/protocol/wire"
 import { playTerm } from "../hledger/query/terms"
-import { accountsRequest, actualRequest, playsRequest, theoreticalRequest } from "../hledger/query/requests"
+import { accountsRequest, actualByPlayRequest, actualRequest, playsRequest, theoreticalRequest } from "../hledger/query/requests"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
 import { fromHledger, fromReport } from "./lift"
 import { playNamesOf, type PlayNames } from "./play-lines"
 
 export interface PlayList {
-  readonly plays: readonly PlaySummary[]
+  readonly plays: readonly ListedPlay[]
   readonly total: number
 }
 
 const PAGE_SIZE = 50
 
-/** The plays a query matches, newest first, one page at a time. */
+/**
+ * The plays a query matches, newest first, one page at a time, each with
+ * what it made: the page's entries, then one income statement of those
+ * plays alone, a row a play. A page of none asks for no statement.
+ */
 export const loadPlays = (session: BookSession, bookId: BookId, query: string, offset: number): Promise<Outcome<PlayList>> =>
-  session.read(bookId, async (journal) =>
-    mapOk(fromHledger(await journal.ask(playsRequest(query, { limit: PAGE_SIZE, offset }))), (page: Page<Transaction>) => ({
-      plays: playSummariesOf(page.items),
-      total: page.total,
-    })),
-  )
+  session.read(bookId, async (journal) => {
+    const page = fromHledger(await journal.ask(playsRequest(query, { limit: PAGE_SIZE, offset })))
+    if (!page.ok) return page
+    const plays = playSummariesOf(page.value.items)
+    if (plays.length === 0) return Ok({ plays: [], total: page.value.total })
+    return mapOk(fromHledger(await journal.ask(actualByPlayRequest(plays.map((play) => play.id)))), (statement) => ({ plays: listedPlaysOf(plays, statement), total: page.value.total }))
+  })
 
 export interface PlayDetail {
   readonly summary: PlaySummary

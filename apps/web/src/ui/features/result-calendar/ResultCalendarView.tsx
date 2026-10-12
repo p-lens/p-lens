@@ -116,8 +116,8 @@ export function ResultCalendarView(props: { readonly place: Place; readonly book
             </Button>
           </div>
           <dl class="grid grid-cols-2 gap-2">
-            <Figure label="実収支" value={total().actual} kind="result" />
-            <Figure label="期待値" value={total().theoretical} kind="result" instead={theoreticalKept() ? undefined : NOT_TALLIED} />
+            <Figure label="実収支" value={total().actual} kind="actual" />
+            <Figure label="期待値" value={total().theoretical} kind="theoretical" instead={theoreticalKept() ? undefined : NOT_TALLIED} />
           </dl>
           <Show when={failure()} keyed>
             {(words) => (

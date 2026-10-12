@@ -29,7 +29,7 @@ import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { describeError, describePlayError } from "../../wording/errors"
-import { formatSignedYen, tokenUnit } from "../../wording/numbers"
+import { formatSignedYen, toneOf, tokenUnit, UNSEEN_ACTUAL } from "../../wording/numbers"
 import { LOCATE_REQUEST, typedMachineRefused, typedParlorRefused, type TypedNameRefused } from "../../wording/parlor"
 import type { Submission as KeptSubmission } from "../../../parlors/port/submission-store"
 import { locateAddress, submitAddress, type LeftFrom } from "../live/submission-return"
@@ -169,7 +169,9 @@ export function TallyEditor(props: {
     return entry?.ok === false ? describePlayError(entry.error) : undefined
   }
   /** The result the two sides come to, or dashes in its shape while they do not read. */
-  const resultText = (): string => ((result) => (result === undefined ? "¥---" : formatSignedYen(result)))(resultOfTally(form()))
+  const resultText = (): string => ((result) => (result === undefined ? UNSEEN_ACTUAL : formatSignedYen(result)))(resultOfTally(form()))
+  /** Which way the result went, or no way while the two sides do not read. */
+  const resultTone = (): ReturnType<typeof toneOf> | undefined => ((result) => (result === undefined ? undefined : toneOf(result)))(resultOfTally(form()))
   const nudge = createNudge()
   /** Red for a while after a press that a problem here stopped. */
   const nudged = (field: FormField): boolean => nudge.red() && problemAt(field) !== undefined
@@ -295,8 +297,10 @@ export function TallyEditor(props: {
           invalid={nudged("takings")}
           onFocus={nudge.settle} />
         <div class="flex flex-col gap-1.5">
-          <span class="text-xs font-bold uppercase tracking-wide text-text-secondary">収支</span>
-          <output class="flex h-10 items-center text-lg font-bold tabular-nums text-text-primary">{resultText()}</output>
+          <span class="text-xs font-bold uppercase tracking-wide text-text-secondary">実収支</span>
+          <output class="flex h-10 items-center text-lg font-bold tabular-nums" classList={{ "text-positive": resultTone() === "positive", "text-negative": resultTone() === "negative", "text-text-primary": resultTone() === "neutral", "text-text-muted": resultTone() === undefined }}>
+            {resultText()}
+          </output>
         </div>
         <div class="justify-self-end">
           <DetailButton

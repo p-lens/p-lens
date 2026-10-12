@@ -7,7 +7,7 @@ import { tokenValueOf, type PlayTerms } from "../../../../core/parlor/terms"
 import type { FormulaSnapshot } from "../../../../core/pachinko/snapshot"
 import { missingJackpots, type LiveSummary } from "../../../../core/play-log/live"
 import { formulaText } from "../../../wording/pachinko/formula"
-import { formatCount } from "../../../wording/numbers"
+import { formatCount, theoreticalFigureText } from "../../../wording/numbers"
 import { BORDER_STANDING_SAYS } from "../../../wording/pachinko/play"
 
 const rateOf = (perThousand: number | undefined): string => (perThousand === undefined ? "--" : perThousand.toFixed(1))
@@ -35,8 +35,6 @@ function Tile(props: { readonly label: string; readonly value: string; readonly 
   )
 }
 
-/** A sum of yen, always signed; where it is not known yet, its shape with nothing in it: `±¥--`. */
-const signedYen = (value: number | undefined): string => (value === undefined ? "±¥--" : `${value < 0 ? "-" : "+"}¥${formatCount(Math.round(Math.abs(value)))}`)
 
 /**
  * Where the play stands now, worked out from its log as it reads at this
@@ -104,11 +102,11 @@ export function LiveFigures(props: {
               {props.beside(formula)}
             </div>
             <dl class="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
-              <Tile label="期待値（ここまで）" value={signedYen(theoretical()?.theoreticalValue)} />
-              <Tile label="期待値（1回転）" value={signedYen(theoretical()?.yenPerSpin)} />
+              <Tile label="期待値（ここまで）" value={theoreticalFigureText(theoretical()?.theoreticalValue)} />
+              <Tile label="期待値（1回転）" value={theoreticalFigureText(theoretical()?.yenPerSpin)} />
               <Tile label="実質ボーダー" value={rateOf(theoretical()?.border)} unit="回転/千円" />
               <Show when={formula.figures.spinsPerHour !== undefined}>
-                <Tile label="期待値（時給）" value={signedYen(theoretical()?.yenPerHour)} />
+                <Tile label="期待値（時給）" value={theoreticalFigureText(theoretical()?.yenPerHour)} />
               </Show>
             </dl>
           </div>

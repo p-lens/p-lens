@@ -1,12 +1,12 @@
-import type { Tag, Transaction } from "../../hledger/protocol/wire"
+import type { BalanceReport, Tag, Transaction } from "../../hledger/protocol/wire"
 import { parseIsoDate, type IsoDate } from "../calendar/calendar"
 import { YEN } from "../commodity/commodity"
-import { sum, type Decimal } from "../decimal/decimal"
+import { ZERO, negate, sum, type Decimal } from "../decimal/decimal"
 import { ACCOUNTS } from "../journal/accounts"
 import { PARLOR_ID_TAG, type ParlorId } from "../parlor/parlor"
 import { SOURCE_TAGS } from "../import/source-play"
 import { PLAY_TAGS, type PlayGameKind, type PlayId } from "../play/play"
-import { quantityIn } from "./figures"
+import { quantityIn, yenOf } from "./figures"
 
 /** A play as the journal holds it, read off its entry. */
 export interface PlaySummary {
@@ -58,3 +58,23 @@ export const playSummaryOf = (transaction: Transaction): PlaySummary | undefined
 
 export const playSummariesOf = (transactions: readonly Transaction[]): readonly PlaySummary[] =>
   transactions.map(playSummaryOf).filter((play): play is PlaySummary => play !== undefined)
+
+/** A play as a list shows it: what its entry says, and what it made where hledger could say — not where a token of it has no rate on its day. */
+export interface ListedPlay extends PlaySummary {
+  readonly actual: Decimal | undefined
+}
+
+/** What a row of an income statement comes to as a result, turned over as the statement is read; nothing where it is not all yen. */
+const resultOf = (row: BalanceReport["prRows"][number]): Decimal | undefined => ((yen) => (yen.ok ? negate(yen.value) : undefined))(yenOf(row.prrTotal))
+
+/**
+ * Plays with what each made, from an income statement of them pivoted on
+ * the play's id: each row is one play's, the figure hledger's. A play the
+ * statement has no row for came to nothing, hledger leaving out a row
+ * that does.
+ */
+export const listedPlaysOf = (plays: readonly PlaySummary[], statement: BalanceReport): readonly ListedPlay[] =>
+  plays.map((play) => {
+    const row = statement.prRows.find((each) => each.prrName === play.id)
+    return { ...play, actual: row === undefined ? ZERO : resultOf(row) }
+  })
