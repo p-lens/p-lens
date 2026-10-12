@@ -2,7 +2,7 @@ import { Show, type JSX } from "solid-js"
 
 import { ranked, sameWorth, type Selection } from "../../../../core/formula/standing"
 import type { Formula, FormulaId, SettingDistributionId } from "../../../../core/pachislot/formula"
-import type { ChosenPrior, PriorSelection } from "../../../../core/pachislot/prior"
+import { STOCK_SPREADS, type ChosenPrior, type PriorSelection, type StockSpreadKey } from "../../../../core/pachislot/prior"
 import type { PachislotMachineDetail } from "../../../../core/catalog/catalog"
 import { copyText } from "../../../primitives/clipboard"
 import { CopyIcon, HeartIcon, MedalIcon, PointerIcon, QuestionIcon } from "../../../primitives/icons"
@@ -11,7 +11,7 @@ import { HintedIconButton } from "../../../primitives/popover"
 import { Select, type SelectOption } from "../../../primitives/select"
 import { toast } from "../../../primitives/toast"
 import { useMoves } from "../../../navigation/moves"
-import { EVEN_PRIOR_NAME, formulaHandle, formulaNameAmong } from "../../../wording/pachislot/formula"
+import { EVEN_PRIOR_NAME, formulaHandle, formulaNameAmong, STOCK_SPREAD_NAMES } from "../../../wording/pachislot/formula"
 import { KindMark } from "../formulas/KindMark"
 
 type Reason = Selection<Formula>["by"] | PriorSelection["by"]
@@ -130,30 +130,58 @@ export function FormulaPicker(props: {
 
 const EVEN = "even"
 
+/** What a stock spread's value in the list begins with, so that it is told from a 設定配分's id. */
+const STOCK = "stock:"
+
+const stockValue = (key: StockSpreadKey): string => `${STOCK}${key}`
+
 /**
- * The prior a pachislot play's setting level is inferred from: an even spread
- * unless a 設定配分 is kept as the favourite or chosen here by hand.
+ * The prior a pachislot play's setting level is inferred from: the harshest
+ * stock spread unless a 設定配分 is kept as the favourite or one is chosen
+ * here by hand. It is there from the first, like the formula beside it:
+ * before a machine is chosen it waits, and pressing it nudges the machine.
  */
 export function PriorPicker(props: {
-  readonly detail: PachislotMachineDetail
-  readonly selection: PriorSelection
+  /** The machine chosen, with its 設定配分; none until one is, and the field then waits on it. */
+  readonly detail: PachislotMachineDetail | undefined
+  readonly selection: PriorSelection | undefined
   readonly onChoose: (prior: ChosenPrior) => void
+  readonly onWaitingOnMachine: () => void
 }): JSX.Element {
-  const options = (): readonly SelectOption[] => [
-    { value: EVEN, label: EVEN_PRIOR_NAME },
-    ...ranked(props.detail.distributions, sameWorth).map((listing) => ({ value: listing.formula.id, label: listing.formula.label })),
-  ]
-  const chosen = (): string => (props.selection.prior.type === "distribution" ? props.selection.prior.id : EVEN)
+  const options = (): readonly SelectOption[] => {
+    const detail = props.detail
+    if (detail === undefined || props.selection === undefined) return []
+    return [
+      ...STOCK_SPREADS.map((key) => ({ value: stockValue(key), label: STOCK_SPREAD_NAMES[key] })),
+      { value: EVEN, label: EVEN_PRIOR_NAME },
+      ...ranked(detail.distributions, sameWorth).map((listing) => ({ value: listing.formula.id, label: listing.formula.label })),
+    ]
+  }
+  const chosen = (): string | undefined => {
+    const prior = props.selection?.prior
+    if (prior === undefined) return undefined
+    if (prior.type === "distribution") return prior.id
+    return prior.type === "stock" ? stockValue(prior.key) : EVEN
+  }
+  const choose = (value: string): ChosenPrior => {
+    if (value === EVEN) return { type: "even" }
+    return value.startsWith(STOCK) ? { type: "stock", key: value.slice(STOCK.length) } : { type: "distribution", id: value as SettingDistributionId }
+  }
   return (
     <div class="flex items-end gap-1">
       <div class="min-w-0 flex-1">
         <Select
           label="設定配分"
-          placeholder={EVEN_PRIOR_NAME}
+          placeholder="先に機種を選んでください"
           options={options()}
           value={chosen()}
-          onChange={(value) => props.onChoose(value === EVEN ? { type: "even" } : { type: "distribution", id: value as SettingDistributionId })}
-          labelMark={() => <ChoiceReason by={props.selection.by} />}
+          onChange={(value) => props.onChoose(choose(value))}
+          onEmptyPress={props.onWaitingOnMachine}
+          labelMark={() => (
+            <Show when={props.selection} keyed>
+              {(selected) => <ChoiceReason by={selected.by} />}
+            </Show>
+          )}
         />
       </div>
     </div>

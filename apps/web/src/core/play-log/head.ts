@@ -28,8 +28,8 @@ export interface PlayLogHead {
   readonly cabinetNumber: string | undefined
   /** The formula the play was weighed by, by its id in the catalog; none for a play weighed by none. */
   readonly formulaId: string | undefined
-  /** The 設定配分 a pachislot play was weighed with, by its id, or an even spread; none for a pachinko play. */
-  readonly prior: { readonly type: "even" } | { readonly type: "distribution"; readonly id: string } | undefined
+  /** The 設定配分 a pachislot play was weighed with, by its id, a stock spread by its key, or an even spread; none for a pachinko play. */
+  readonly prior: { readonly type: "even" } | { readonly type: "distribution"; readonly id: string } | { readonly type: "stock"; readonly key: string } | undefined
 }
 
 const ABOUT = "P-Lens play log. This first line is its header and says what the play was; every line after it is one reading of the play. The format is described at https://github.com/p-lens/p-lens."

@@ -114,7 +114,7 @@ export const weighPlay = async (
   })
   const valued = play === undefined ? unpriced : await weigh(play)
   return mapOk(valued, (value) => ({
-    grounded: observed.value.seen || weighing.prior.type === "distribution",
+    grounded: observed.value.seen || weighing.prior.type !== "even",
     settingLevels: posterior.value.settingLevels,
     payoutRate: value.payoutRate,
     netPerGame: weighing.formula.normalized.atRules !== undefined && played === 0 ? undefined : value.netPerGame,

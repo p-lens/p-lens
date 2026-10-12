@@ -258,7 +258,7 @@ columns.
 | `machine` | The machine's name |
 | `cabinetNumber` | The cabinet number; the field is absent where there is none |
 | `formulaId` | The id of the formula the theoretical value was worked out by; absent where none was used |
-| `prior` | Pachislot only: the setting-level distribution, `{"type":"even"}` or `{"type":"distribution","id":"…"}` |
+| `prior` | Pachislot only: the setting-level distribution, `{"type":"even"}`, `{"type":"distribution","id":"…"}` for one of the catalog's, or `{"type":"stock","key":"…"}` for one of the app's own |
 
 A book keeps only the name of a savings account (`4円` and the like) and the
 day's exchange rate, so the header is the one place the rental, the exchange

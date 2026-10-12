@@ -7,7 +7,7 @@ import type { FormulaListing } from "../../../src/core/formula/standing"
 import type { MachineId } from "../../../src/core/machine/machine"
 import type { FormulaId, SettingDistribution, SettingDistributionId } from "../../../src/core/pachislot/formula"
 import type { FormulaSnapshot } from "../../../src/core/pachislot/snapshot"
-import { priorFor, selectPrior, type Prior } from "../../../src/core/pachislot/prior"
+import { priorFor, selectPrior, STOCK_SPREADS, stockSharesOf, type Prior } from "../../../src/core/pachislot/prior"
 import {
   checkpointForReading,
   countCheckpoint,
@@ -86,7 +86,7 @@ describe("a pachislot prior", () => {
         ],
       },
     })
-    expect(priorFor(weekday, [7, 8])).toEqual({ ok: false, error: { type: "prior-rules-out-every-setting-level", label: "平日" } })
+    expect(priorFor(weekday, [7, 8])).toEqual({ ok: false, error: { type: "prior-rules-out-every-setting-level", prior: weekday } })
   })
 })
 
@@ -96,8 +96,22 @@ describe("choosing a play's prior", () => {
     standing: { verifications: 0, refutations: 0, adoptions, rejections: 0, favorites: 0, uses: 0 },
   })
 
-  test("is even by default, however well a 設定配分 ranks", () => {
-    expect(selectPrior([listing("weekday", 12)], undefined, new Set())).toEqual({ prior: { type: "even" }, by: "default" })
+  test("has stock spreads for any machine, each a whole over levels 1 to 6 that rules none out, the harshest first", () => {
+    const spreads = STOCK_SPREADS.map((key) => stockSharesOf(key))
+    expect(STOCK_SPREADS.length).toBeGreaterThanOrEqual(10)
+    expect(spreads.map((shares) => shares.reduce((sum, share) => sum + share.basisPoints, 0))).toEqual(STOCK_SPREADS.map(() => 10_000))
+    expect(spreads.every((shares) => shares.map((share) => share.settingLevel).join() === "1,2,3,4,5,6" && shares.every((share) => share.basisPoints > 0))).toBe(true)
+    const average = (key: (typeof STOCK_SPREADS)[number]): number => stockSharesOf(key).reduce((sum, share) => sum + share.settingLevel * share.basisPoints, 0) / 10_000
+    expect(STOCK_SPREADS.every((key) => average(key) >= average("collecting"))).toBe(true)
+    expect(average("collecting")).toBeLessThan(1.3)
+    expect([average("ordinary-harsh"), average("ordinary")].every((level) => level > 1.2 && level < 1.7)).toBe(true)
+    expect(priorFor({ type: "stock", key: "collecting", shares: stockSharesOf("collecting") }, [1, 6])).toEqual({ ok: true, value: { shares: [{ settingLevel: 1, value: 9976 }, { settingLevel: 6, value: 24 }] } })
+    expect(selectPrior([], { type: "stock", key: "event" }, new Set())).toEqual({ prior: { type: "stock", key: "event", shares: stockSharesOf("event") }, by: "person" })
+    expect(selectPrior([], { type: "stock", key: "no such spread" }, new Set()).by).toBe("default")
+  })
+
+  test("is the harshest stock spread by default, however well a 設定配分 ranks", () => {
+    expect(selectPrior([listing("weekday", 12)], undefined, new Set())).toEqual({ prior: { type: "stock", key: "collecting", shares: stockSharesOf("collecting") }, by: "default" })
   })
 
   test("is the favourite when one is kept, and what was chosen by hand over either", () => {

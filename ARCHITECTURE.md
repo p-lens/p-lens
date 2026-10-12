@@ -1158,6 +1158,19 @@ only the primitives, the core and the application.
   are (`core/formula/standing`, which takes what it ranks as a parameter);
   adopting one lets go of the other adoption of its kind on the machine, and
   only what was worked out from 解析値 can be verified or refuted.
+- **Stock spreads.** Nobody registers a 設定配分 for most machines, and an
+  even spread — a sixth of the cabinets at each level — is no parlor's
+  day. So the app offers ten of its own for any machine
+  (`STOCK_SPREADS`, `core/pachislot/prior`), each a reading of a kind of
+  day — 回収日, three of 通常営業, three of イベント日, 新台導入週,
+  グランドオープン — and one of a cabinet's standing, 全台系・対象台. They
+  are made here, not taken from anywhere: an ordinary day mostly 1 with
+  some 2 and seldom above 4, a day that gives back averaging near 2 with
+  5 and 6 brought in, a day that collects nearly all 1. None gives a level
+  nothing, so what a cabinet does can always argue it out of them. A play
+  with no prior said starts on the harshest; a favourite 設定配分 or a
+  choice by hand comes before it, and a play keeps the spread whole, as
+  it keeps a 設定配分.
 - **Screens** live under `/pachislot` (`ui/features/pachislot`): the machine
   search, a machine's formulas and 設定配分, a formula with its 計算根拠 and
   解析値, making a formula three ways, and registering a 設定配分.

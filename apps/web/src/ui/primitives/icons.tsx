@@ -305,12 +305,14 @@ export const TrashIcon = () => (
 
 /**
  * Where a day is closed and the next begins: 〆, the mark a day's books are
- * closed with, as a brush writes it without lifting — the hook, the sweep
- * down, and round through a loop into the stroke that crosses it.
+ * closed with, in the two strokes type sets it in — a short stroke down
+ * that turns into a long sweep up to the right, and the stroke that
+ * crosses it — each with a brush's slight bow. Written in one looping
+ * line it reads as an α at this size, and as nothing in particular.
  */
 export const ClosingIcon = () => (
   <Icon>
-    <path d="M14.500 5.500c1.500-1.500 3.500-2 4.500-1c.5 4-5 11-12 14.500c-2.500 1-3.500-1-2.500-4c.6-1.800 1.500-3.800 2.500-5.500c4 1.500 8 5.500 10 10.500" />
+    <path d="M5 13.500c.3 2 .9 4 1.800 6C10 14 14.500 8 20 3.500M7.500 8c4.200 2.200 8.300 5.200 12 9.500" />
   </Icon>
 )
 

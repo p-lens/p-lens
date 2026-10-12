@@ -1,6 +1,6 @@
 import type { SettingLevelFigures } from "../../../core/pachislot/figures"
 import type { FormulaKind, SettingLevelShare } from "../../../core/pachislot/formula"
-import type { Prior } from "../../../core/pachislot/prior"
+import type { Prior, StockSpreadKey } from "../../../core/pachislot/prior"
 import type { CounterRefusal } from "../../../core/pachislot/reading"
 import type { RevisionRefusal } from "../../../core/pachislot/revision"
 import type { ReadingRefusal } from "../../../core/play-log/live"
@@ -61,8 +61,25 @@ export const observedOneInText = (games: number, count: number): string => (coun
 /** What an even prior is called wherever a 設定配分 would be named. */
 export const EVEN_PRIOR_NAME = "均等（全設定が同じ）"
 
-/** A play's prior by name: the 設定配分's label, or an even spread. */
-export const priorName = (prior: Prior): string => (prior.type === "distribution" ? prior.label : EVEN_PRIOR_NAME)
+/** What each stock spread is called: the kind of day it is a reading of, and how hard. */
+export const STOCK_SPREAD_NAMES: Readonly<Record<StockSpreadKey, string>> = {
+  collecting: "回収日（激辛）",
+  "ordinary-harsh": "通常営業（辛め）",
+  ordinary: "通常営業（標準）",
+  "ordinary-kind": "通常営業（甘め）",
+  "event-weak": "イベント日（弱め）",
+  event: "イベント日（標準）",
+  "event-strong": "イベント日（強め）",
+  "new-machine": "新台導入週",
+  "grand-opening": "グランドオープン",
+  featured: "全台系・対象台",
+}
+
+/** A play's prior by name: the 設定配分's label, a stock spread's name, or an even spread. */
+export const priorName = (prior: Prior): string => {
+  if (prior.type === "distribution") return prior.label
+  return prior.type === "stock" ? STOCK_SPREAD_NAMES[prior.key] : EVEN_PRIOR_NAME
+}
 
 /** Theoretical yen, always signed: `+¥1,240`, `-¥380`. */
 export const theoreticalYenText = (yen: number): string => `${yen < 0 ? "-" : "+"}¥${formatCount(Math.round(Math.abs(yen)))}`

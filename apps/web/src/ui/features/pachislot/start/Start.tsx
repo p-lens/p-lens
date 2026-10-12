@@ -419,13 +419,7 @@ export function Start(props: {
             onOpenMachine={(machineId) => moves.go({ kind: "pachislot-machine", machineId })}
             onWaitingOnMachine={machineNudge.nudge}
           />
-          <Show when={seat.detail()} keyed>
-            {(detail) => (
-              <Show when={seat.priorSelection()} keyed>
-                {(selection) => <PriorPicker detail={detail} selection={selection} onChoose={(prior) => start.updatePachislot({ prior })} />}
-              </Show>
-            )}
-          </Show>
+          <PriorPicker detail={seat.detail()} selection={seat.priorSelection()} onChoose={(prior) => start.updatePachislot({ prior })} onWaitingOnMachine={machineNudge.nudge} />
         </div>
       </section>
       <section class="flex flex-col gap-4" aria-labelledby="start-seat">

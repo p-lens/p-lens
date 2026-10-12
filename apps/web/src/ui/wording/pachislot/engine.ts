@@ -3,6 +3,7 @@ import type { EngineErrorDto } from "@p-lens/contracts/pachislot"
 import type { ObservationProblem } from "../../../core/pachislot/observation"
 import type { PriorProblem } from "../../../core/pachislot/prior"
 import type { EngineFailure } from "../../../pachislot-engine/protocol/messages"
+import { priorName } from "./formula"
 
 const settingLevel = (value: number): string => `設定${value}`
 
@@ -143,6 +144,6 @@ export const describePlayProblem = (problem: ObservationProblem | PriorProblem):
         ? "データカウンターの総ゲーム数が、小役を数えたゲーム数より少なくなっています。読み直してください。"
         : `データカウンターの ${problem.id} の回数が、数えた回数より少なくなっています。読み直してください。`
     case "prior-rules-out-every-setting-level":
-      return `設定配分「${problem.label}」は、この算出条件のどの設定にも割合がありません。別の設定配分を選んでください。`
+      return `設定配分「${priorName(problem.prior)}」は、この算出条件のどの設定にも割合がありません。別の設定配分を選んでください。`
   }
 }

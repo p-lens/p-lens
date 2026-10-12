@@ -138,7 +138,7 @@ export const headOf = (draft: PlayDraft, entry: PlayHead & { readonly parlor: Pa
   machine: entry.machine,
   cabinetNumber: entry.cabinetNumber,
   formulaId: draft.pachinko?.id ?? draft.pachislot?.formula.id,
-  prior: draft.pachislot === undefined ? undefined : draft.pachislot.prior.type === "even" ? { type: "even" } : { type: "distribution", id: draft.pachislot.prior.id },
+  prior: draft.pachislot === undefined ? undefined : priorSaid(draft.pachislot.prior),
 })
 
 /** The parlor a play is at, if it is at one. */
@@ -147,6 +147,12 @@ export const parlorOf = (draft: PlayDraft): Parlor | undefined => (draft.venue.t
 /** Yen a token of the play is worth by its terms, when it has terms. */
 export const tokenValueOfDraft = (draft: PlayDraft): number | undefined =>
   draft.venue.terms === undefined ? undefined : tokenValueOf(draft.venue.terms)
+
+/** A play's prior as its log's head says it: which one, never its shares. */
+const priorSaid = (prior: Pachislot.Weighing["prior"]): NonNullable<PlayLogHead["prior"]> => {
+  if (prior.type === "even") return { type: "even" }
+  return prior.type === "stock" ? { type: "stock", key: prior.key } : { type: "distribution", id: prior.id }
+}
 
 /** The draft with more lines at the end of its log. */
 export const withCheckpoints = (draft: PlayDraft, checkpoints: readonly Checkpoint[]): PlayDraft => ({

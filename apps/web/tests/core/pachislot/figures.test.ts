@@ -40,7 +40,10 @@ describe("reading a posterior over setting levels", () => {
 
   test("names the most likely setting level, the higher on a tie", () => {
     expect(readSettingLevels(posterior).mostLikely).toBe(1)
-    expect(readSettingLevels([{ settingLevel: 5, probability: 0.5 }, { settingLevel: 6, probability: 0.5 }]).mostLikely).toBe(6)
+    expect(readSettingLevels([{ settingLevel: 5, probability: 0.5 }, { settingLevel: 6, probability: 0.5 }]).mostLikely).toBe(5)
+    expect(readSettingLevels([1, 2, 3, 4, 5, 6].map((settingLevel) => ({ settingLevel, probability: 1 / 6 }))).mostLikely).toBe(3)
+    expect(readSettingLevels([1, 2, 5, 6].map((settingLevel) => ({ settingLevel, probability: 0.25 }))).mostLikely).toBe(2)
+    expect(readSettingLevels([{ settingLevel: 1, probability: 0.2 }, { settingLevel: 4, probability: 0.3 }, { settingLevel: 5, probability: 0.2 }, { settingLevel: 6, probability: 0.3 }]).mostLikely).toBe(4)
     expect(readSettingLevels([]).mostLikely).toBeUndefined()
   })
 })
