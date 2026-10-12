@@ -1,8 +1,8 @@
 import type { TitleProblem } from "../../core/journal/title"
-import type { TitledBook } from "../../core/book/book"
+import type { ListedBook } from "../../core/book/book"
 
 /** A book's name on screen: the title its journal gives, or a plain stand-in when it gives none. */
-export const bookTitle = (book: TitledBook): string => book.title ?? "名前のない帳簿"
+export const bookTitle = (book: Pick<ListedBook, "title">): string => book.title ?? "名前のない帳簿"
 
 /** What is wrong with a title typed for a book. */
 export const describeTitleProblem = (problem: TitleProblem): string => {

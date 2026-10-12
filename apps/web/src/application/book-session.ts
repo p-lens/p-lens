@@ -1,6 +1,8 @@
 import { ACTIVITY_LOG, activityLineOf, activityLinesOf, withActivity, type ActivityLine } from "../core/activity/activity"
 import type { Capability } from "../core/access/role"
-import { memberCan, type Book, type BookId, type MemberId, type TitledBook } from "../core/book/book"
+import { memberCan, roleIn, type Book, type BookId, type ListedBook, type MemberId } from "../core/book/book"
+import { inOrder } from "../core/book/order"
+import { BOOK_SETTINGS_FILE, bookSettingsOf } from "../core/book/settings"
 import { fileChangesBetween, patchesOf, type ChangeIntent, type FileChange, type JournalChange } from "../core/change/journal-change"
 import { BOOK_FILES, ENTRY_FILE, type BookFiles } from "../core/journal/layout"
 import { titleOfMain } from "../core/journal/title"
@@ -55,7 +57,8 @@ export interface Folded {
  * interleave with anything else.
  */
 export interface BookSession {
-  readonly books: () => Promise<Outcome<readonly TitledBook[]>>
+  /** Every book on the device as it is listed, in the order books stand in everywhere: this member's own as they placed them, then the rest as they came. */
+  readonly books: () => Promise<Outcome<readonly ListedBook[]>>
   readonly createBook: (stored: StoredBook) => Promise<Outcome<CommitId>>
   readonly read: <T>(bookId: BookId, work: (journal: JournalAccess, stored: StoredBook) => Promise<Outcome<T>>) => Promise<Outcome<T>>
   readonly write: (
@@ -104,9 +107,13 @@ export const createBookSession = (ports: SessionPorts): BookSession => {
     return holding.ok ? Ok(stored.value) : holding
   }
 
-  /** A cover with the title its main journal gives, read from storage: the journal is where a book is named. */
-  const titled = async (book: Book): Promise<Outcome<TitledBook>> =>
-    mapOk(fromStorage(await ports.storage.readBook(book.id)), (stored) => ({ ...book, title: titleOfMain(stored.files[BOOK_FILES.main] ?? "") }))
+  /** A cover with the title its main journal gives and the place its settings give, read from storage: the book's files are where it is named and placed. The place is read only for this member's own books. */
+  const listed = async (book: Book): Promise<Outcome<ListedBook>> =>
+    mapOk(fromStorage(await ports.storage.readBook(book.id)), (stored) => ({
+      ...book,
+      title: titleOfMain(stored.files[BOOK_FILES.main] ?? ""),
+      order: roleIn(book, ports.member) === "owner" ? bookSettingsOf(stored.files[BOOK_SETTINGS_FILE]).order : undefined,
+    }))
 
   /** A change being made now by this device's member: who, when and why, before what it does to any file is known. */
   const beginning = (intent: ChangeIntent): Begun => ({ at: ports.clock().toISOString(), author: ports.member, intent })
@@ -165,7 +172,7 @@ export const createBookSession = (ports: SessionPorts): BookSession => {
     books: async () => {
       const covers = fromStorage(await ports.storage.listBooks())
       if (!covers.ok) return covers
-      return collect(await Promise.all(covers.value.map(titled)))
+      return mapOk(collect(await Promise.all(covers.value.map(listed))), inOrder)
     },
 
     createBook: async (stored) => {

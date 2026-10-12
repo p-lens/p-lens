@@ -3,7 +3,7 @@ import { RailBar, type RailItem } from "solid-gathering-shell"
 
 import type { Outcome } from "../../../application/errors"
 import { loadTodaysPlays } from "../../../application/live-play"
-import { roleIn, type Book, type MemberId, type TitledBook } from "../../../core/book/book"
+import { roleIn, type Book, type MemberId, type ListedBook } from "../../../core/book/book"
 import { awaitsSending } from "../../../core/live-play/draft"
 import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
@@ -46,12 +46,12 @@ const ownedBy = (member: MemberId) => (book: Book): boolean => roleIn(book, memb
  */
 export function SpacesRail(props: {
   readonly place: Place
-  readonly books: Outcome<readonly TitledBook[]> | undefined
+  readonly books: Outcome<readonly ListedBook[]> | undefined
   readonly destinations: Outcome<readonly Destination[]> | undefined
 }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
-  const books = (): readonly TitledBook[] => (props.books?.ok === true ? props.books.value : [])
+  const books = (): readonly ListedBook[] => (props.books?.ok === true ? props.books.value : [])
   const destinations = (): readonly Destination[] => (props.destinations?.ok === true ? props.destinations.value : [])
   /** The hours as they strike: the day whose plays are counted may turn on any of them. */
   const hour = createHourStruck()
@@ -78,7 +78,7 @@ export function SpacesRail(props: {
     selected: props.place.kind === "destination" && props.place.lineId === destination.lineId,
     onSelect: () => moves.go({ kind: "destination", lineId: destination.lineId }),
   })
-  const bookItem = (book: TitledBook): RailItem => ({
+  const bookItem = (book: ListedBook): RailItem => ({
     id: book.id,
     label: bookTitle(book),
     icon: <span class="text-base font-semibold">{initialOf(bookTitle(book))}</span>,

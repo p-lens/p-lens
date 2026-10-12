@@ -4,7 +4,7 @@ import { createArrangement, GatheringShell, MainContent, TopBar } from "solid-ga
 
 import type { Outcome } from "../../../application/errors"
 import { destinationsOf } from "../../../application/sending"
-import type { TitledBook } from "../../../core/book/book"
+import type { ListedBook } from "../../../core/book/book"
 import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
 import { bookOf, focusOf, inSettings, placeOf, type Place } from "../../navigation/place"
@@ -182,7 +182,7 @@ const bookViewFor = (place: Extract<Place, { kind: "book-view" }>, query: () => 
 }
 
 /** The side panel for a place: the live space's plays, a book's views, the plays to send to a book that is only sent to, or settings. */
-const sideFor = (place: Place, books: Outcome<readonly TitledBook[]> | undefined, destinations: Outcome<readonly Destination[]> | undefined): JSX.Element => {
+const sideFor = (place: Place, books: Outcome<readonly ListedBook[]> | undefined, destinations: Outcome<readonly Destination[]> | undefined): JSX.Element => {
   if (inSettings(place)) return <SettingsSide place={place} />
   if (place.kind === "destination") return <DestinationSide lineId={place.lineId} destinations={destinations} />
   if (place.kind === "consolidated" || place.kind === "consolidated-breakdown") return <ConsolidatedSide place={place} />

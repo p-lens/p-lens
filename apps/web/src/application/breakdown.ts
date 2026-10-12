@@ -75,8 +75,6 @@ const grouped = async (journal: JournalAccess, dimension: Dimension, query: stri
       return byParlor(journal, query)
     case "game":
       return byTags(journal, query, [PLAY_TAGS.gameKind])
-    case "maker":
-      return byTags(journal, query, [SOURCE_TAGS.maker])
     case "year":
       return byPeriod(journal, query, "yearly")
     case "month":
@@ -91,7 +89,7 @@ const grouped = async (journal: JournalAccess, dimension: Dimension, query: stri
 /**
  * A book's results for a period, grouped by a dimension, in the order the
  * dimension is read in. hledger does the grouping and the sums: by a tag's
- * values (`--pivot`) for a machine, a parlor, a game or a maker, and by
+ * values (`--pivot`) for a machine, a parlor or a game, and by
  * period (`-Y`, `-M`, `-D`) for a year, a month or a day. It has no
  * grouping by the day of the week, so that one is its daily report folded
  * into seven.

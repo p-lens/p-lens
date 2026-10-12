@@ -2,7 +2,7 @@ import { createSignal, Show, type JSX } from "solid-js"
 import { SidePanel } from "solid-gathering-shell"
 
 import { renameBook } from "../../../application/rename-book"
-import { memberCan, type BookId, type TitledBook } from "../../../core/book/book"
+import { memberCan, type BookId, type ListedBook } from "../../../core/book/book"
 import { LONGEST_TITLE, readTitle } from "../../../core/journal/title"
 import { useApp } from "../../context"
 import { ActivityIcon, BreakdownIcon, CloseIcon, EditIcon, FileIcon, HoldingsIcon, PlaysIcon, PlusIcon } from "../../primitives/icons"
@@ -37,7 +37,7 @@ const ICON_BUTTON = "flex size-7 shrink-0 items-center justify-center rounded te
  * place, given up with Escape or the cross. A title that cannot be one is
  * said and the typing stays; nothing is written until it can.
  */
-function BookTitle(props: { readonly bookId: BookId; readonly book: TitledBook }): JSX.Element {
+function BookTitle(props: { readonly bookId: BookId; readonly book: ListedBook }): JSX.Element {
   const app = useApp()
   const [typed, setTyped] = createSignal<string | undefined>(undefined)
   const over = createTypedOver(() => true)
@@ -115,7 +115,7 @@ function BookTitle(props: { readonly bookId: BookId; readonly book: TitledBook }
 }
 
 /** The side panel of one book: its title, renamed where it stands, and its views, plays first with the way to add one, and the breakdown of its results before its files, after everything that shows what it holds and made. */
-export function BookSpaceSide(props: { readonly place: Place; readonly bookId: BookId; readonly book: TitledBook | undefined }): JSX.Element {
+export function BookSpaceSide(props: { readonly place: Place; readonly bookId: BookId; readonly book: ListedBook | undefined }): JSX.Element {
   const moves = useMoves()
   const breakdown = (): SideListItem => ({
     id: "breakdown",

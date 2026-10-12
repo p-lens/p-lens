@@ -1,5 +1,5 @@
 import { activityLinesOf, activityOf, type ActivityLine } from "../core/activity/activity"
-import type { BookId, TitledBook } from "../core/book/book"
+import type { BookId, ListedBook } from "../core/book/book"
 import { Ok, andThen, mapOk } from "../core/result/result"
 import type { HistoryPort } from "../history/port/history-port"
 import type { BookSession } from "./book-session"
@@ -10,7 +10,7 @@ export interface Activity {
   /** Newest first. */
   readonly lines: readonly ActivityLine[]
   /** The book's cover, for naming the members who made each change. */
-  readonly book: TitledBook | undefined
+  readonly book: ListedBook | undefined
 }
 
 /**

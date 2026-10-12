@@ -53,7 +53,7 @@ export function GroupRow(props: { readonly name: string; readonly group: Group; 
 
 /**
  * A book's results by where they came from: its plays grouped by machine,
- * parlor, day of the week, game, maker, year, month or day, each group with
+ * parlor, day of the week, game, year, month or day, each group with
  * what its plays made and were worth. Which grouping and which period are
  * the address's. hledger does the grouping and the sums; this lays out what
  * it answers.

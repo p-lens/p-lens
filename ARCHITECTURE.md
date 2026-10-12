@@ -1492,6 +1492,40 @@ back are worth, and the day.
 - **Never more than the pool holds** by the end of the day said: that is
   refused before anything is written.
 
+## A book's settings, and the order of books
+
+What a book says of itself to the app, beside its journal, is one JSON file
+among its files: `settings.json` (`core/book/settings`). No journal includes
+it, so hledger never opens it; it is a file of the book's like any other, so
+it is backed up with the book and synced with it, and nothing else has to
+be. A field is written to a line. What a version of the app does not know
+in it, it leaves as it found it; a file that does not read as one object —
+two devices each made it before hearing of the other — says nothing until
+it is next written, whole.
+
+- **A book's place is its own.** Books are synced one at a time, each under
+  its own key, so there is no file every book shares to hold a list of
+  them. Each book instead holds `order`, its place among its owner's books,
+  and the list is the books sorted by it (`inOrder`): those with a place,
+  lowest first, then those with none as they came.
+- **One order everywhere.** `BookSession.books` gives the books in that
+  order and everything that lists books takes it from there — the rail,
+  設定, the book in use (`bookInUse`, the first a person may write), the way
+  in (`entranceOf`).
+- **Moved a place at a time** (設定 → 帳簿の管理, the arrows; `moveBook`,
+  `moved`): the books are numbered from one as they then stand and the
+  places that changed are written, each into its own book as one change
+  (`book-placed`) — all of them the first time, two after that. A book's
+  activity says nothing of it: where a book stands in a list changes
+  nothing it records.
+- **The owner's alone.** Only a person's own books are placed. On the
+  device of someone let into a book its `order` is not read: where a book
+  stands among another person's books says nothing of where it stands
+  among one's own.
+- **Two devices moving the same book** before they hear of each other have
+  rewritten one line each their own way, which sync does not guess at: the
+  round stops and the person picks, as for any such line.
+
 ## The result calendar
 
 A book's results a month at a time, as a calendar (カレンダー in a book's
@@ -1559,13 +1593,13 @@ A play in the book is set right, or taken out, from its detail
 
 A book's results by where they came from (集計, in a book's list;
 `core/report/breakdown`, `application/breakdown`): grouped by machine,
-parlor, day of the week, game, maker, year, month or day, each group with
+parlor, day of the week, game, year, month or day, each group with
 what its plays made and what they were worth.
 
 - **hledger groups and sums.** By a tag's values it is `--pivot`
   (`pivot` on a request): an income statement and a balance of theoretical
-  values, each pivoted on `machine`, `parlor-id`, `game-kind` or
-  `source-maker`, whose rows are the groups. By period it is the report
+  values, each pivoted on `machine`, `parlor-id` or `game-kind`, whose
+  rows are the groups. By period it is the report
   interval (`interval`: `-Y`, `-M`, `-D`), whose columns are. Nothing is
   added up on the device but what hledger has no grouping for, below.
 - **A pivot asks about accounts first.** `--pivot` puts a tag's value where

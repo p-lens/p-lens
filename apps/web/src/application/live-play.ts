@@ -1,4 +1,4 @@
-import type { BookId, MemberId, TitledBook } from "../core/book/book"
+import type { BookId, MemberId, ListedBook } from "../core/book/book"
 import { memberCan } from "../core/book/book"
 import type { IsoDate } from "../core/calendar/calendar"
 import { bookOf, headOf, isPast, withCabinetNumber, withCheckpoints, withLog, withMachine, type MachineChange, type PlayDraft } from "../core/live-play/draft"
@@ -106,7 +106,7 @@ const again = async (revise: () => Promise<Outcome<CommitId>>, record: () => Pro
 export interface Finishing {
   readonly draft: PlayDraft
   readonly bookId: BookId
-  readonly books: readonly TitledBook[]
+  readonly books: readonly ListedBook[]
   readonly context: RecordingContext
 }
 

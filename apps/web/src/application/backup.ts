@@ -5,7 +5,7 @@ import type { Handover } from "../backup/port/handover"
 import type { ReceiptStore, ReceiptStoreError } from "../backup/port/receipt-store"
 import { archiveName, archiveOf, backupOf } from "../core/backup/archive"
 import { type Destination, fingerprintText, type Receipt, type Standing, standingOf } from "../core/backup/standing"
-import type { Book, BookId, Member, TitledBook } from "../core/book/book"
+import type { Book, BookId, Member, ListedBook } from "../core/book/book"
 import type { IsoDate } from "../core/calendar/calendar"
 import { BOOK_FILES, type BookFiles } from "../core/journal/layout"
 import { titleOfMain } from "../core/journal/title"
@@ -92,9 +92,9 @@ export const backUpToFile = async (ports: BackupPorts, bookId: BookId): Promise<
   return receipted(ports, { bookId, destination: "file", at: made.value.madeAt, fingerprint: made.value.fingerprint })
 }
 
-/** A book and where it stands against its backups. */
+/** A book, under its title, and where it stands against its backups. */
 export interface BookStanding {
-  readonly book: TitledBook
+  readonly book: Book & Pick<ListedBook, "title">
   readonly standing: Standing
 }
 

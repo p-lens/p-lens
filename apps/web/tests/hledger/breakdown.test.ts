@@ -45,12 +45,10 @@ describe("the basic-play book, broken down by the real hledger module", () => {
     expect(totals).toEqual([["39144", "13200"], ["39144", "13200"], ["39144", "13200"], ["39144", "13200"], ["39144", "13200"]])
   })
 
-  test("with plays taken in from another app under what that app called their parlor, machine and maker", async () => {
+  test("with plays taken in from another app under what that app called their parlor and machine", async () => {
     const file = ["日付,店舗コード,店舗,メーカー,機種コード,機種,台番号,投資額,回収額,収支,メモ,稼働時間,時給,貯玉", "2019/01/05,S1,駅前ホール,メーカーA,M1,昔の台,45,10000,0,-10000,,,,", "2019/01/06,S1,駅前ホール,メーカーA,M1,昔の台,46,1000,4000,3000,,,,", ""].join("\r\n")
     await importPrecord({ session: session(), catalog: { search: async () => Ok([]) } as never }, BOOK, file)
     expect(await read("machine", "date:2019")).toEqual([["昔の台", "-7000", "0"]])
     expect(await read("parlor", "date:2019")).toEqual([["駅前ホール", "-7000", "0"]])
-    expect(await read("maker", "date:2019")).toEqual([["メーカーA", "-7000", "0"]])
-    expect(((groups) => Array.isArray(groups) && groups.find(([key]) => key === ""))(await read("maker"))).toEqual(["", "39144", "13200"])
   })
 })

@@ -4,7 +4,7 @@ import { MainContent } from "solid-gathering-shell"
 import type { ApplicationError, Outcome } from "../../../application/errors"
 import { destinationsOf, forgetDestination } from "../../../application/sending"
 import { startSync, syncedBooks } from "../../../application/sync"
-import { roleIn, type TitledBook } from "../../../core/book/book"
+import { roleIn, type ListedBook } from "../../../core/book/book"
 import { Ok } from "../../../core/result/result"
 import { useApp } from "../../context"
 import { useMoves } from "../../navigation/moves"
@@ -20,7 +20,7 @@ import { MembersPanel } from "./MembersPanel"
 
 /** A book as the sharing screen lists it: its cover, and whether it is on its way anywhere yet. */
 interface Listed {
-  readonly book: TitledBook
+  readonly book: ListedBook
   readonly synced: boolean
 }
 

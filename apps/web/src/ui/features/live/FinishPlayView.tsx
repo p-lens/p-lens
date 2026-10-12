@@ -5,7 +5,7 @@ import { keepOwn, takeSentAgain } from "../../../application/inbox"
 import { chooseBook, finishPlay, finishTalliedPlay, loadFinishing } from "../../../application/live-play"
 import * as PachislotUseCases from "../../../application/pachislot/weighing"
 import type * as PachislotEngine from "../../../pachislot-engine/client/client"
-import type { BookId, TitledBook } from "../../../core/book/book"
+import type { BookId, ListedBook } from "../../../core/book/book"
 import type { PlayId } from "../../../core/play/play"
 import * as Pachinko from "../../../core/pachinko"
 import { type PlayDraft } from "../../../core/live-play/draft"
@@ -96,7 +96,7 @@ const endedAs = (draft: PlayDraft, now: string, read: EndCounter | undefined): E
  * the book in use. Asked only of a person with more than one to write, and
  * fixed once the play is recorded.
  */
-function BookField(props: { readonly draft: PlayDraft; readonly bookId: BookId; readonly books: readonly TitledBook[] }): JSX.Element {
+function BookField(props: { readonly draft: PlayDraft; readonly bookId: BookId; readonly books: readonly ListedBook[] }): JSX.Element {
   const app = useApp()
   const choose = async (bookId: BookId): Promise<void> => {
     const chosen = await chooseBook(app.services.drafts, props.draft, bookId)

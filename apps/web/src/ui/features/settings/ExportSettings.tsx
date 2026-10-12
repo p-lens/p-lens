@@ -3,7 +3,7 @@ import { MainContent } from "solid-gathering-shell"
 
 import type { ApplicationError, Outcome } from "../../../application/errors"
 import { exportPlayTable, exportSingleJournal, exportTogether } from "../../../application/export"
-import type { BookId, TitledBook } from "../../../core/book/book"
+import type { BookId, ListedBook } from "../../../core/book/book"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import { createNudge, redText } from "../../primitives/nudge"
@@ -65,7 +65,7 @@ function Failure(props: { readonly working: Working }): JSX.Element {
  * its word wide. However many books there are, the ticks stand in a column
  * down the left and the buttons in one down the right.
  */
-function BookRow(props: { readonly book: TitledBook; readonly ticked: boolean; readonly onTick: (ticked: boolean) => void }): JSX.Element {
+function BookRow(props: { readonly book: ListedBook; readonly ticked: boolean; readonly onTick: (ticked: boolean) => void }): JSX.Element {
   const app = useApp()
   const writing = createWriting()
   return (
@@ -99,7 +99,7 @@ function BookRow(props: { readonly book: TitledBook; readonly ticked: boolean; r
  * ticks or unticks them all. A press for the zip with none ticked makes
  * nothing, and turns the count red for a while.
  */
-function Books(props: { readonly books: readonly TitledBook[] }): JSX.Element {
+function Books(props: { readonly books: readonly ListedBook[] }): JSX.Element {
   const app = useApp()
   const together = createWriting()
   /** The books unticked: kept as those left out, so a book that appears later is ticked like the rest. */

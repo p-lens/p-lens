@@ -18,6 +18,8 @@ export interface FileChange {
 export type ChangeIntent =
   | { readonly type: "book-created" }
   | { readonly type: "book-renamed"; readonly title: string }
+  /** A book given its place among its owner's books: written in the book's settings, and no change to what the book records. */
+  | { readonly type: "book-placed"; readonly order: number }
   | { readonly type: "file-edited"; readonly path: string }
   | { readonly type: "savings-opened"; readonly parlor: string; readonly tier: string }
   | { readonly type: "savings-adjusted"; readonly parlor: string; readonly tier: string }

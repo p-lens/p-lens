@@ -5,7 +5,7 @@ import type { ApplicationError } from "../../../application/errors"
 import { linkSubmissionsInBooks } from "../../../application/parlors"
 import { listSharedParlors } from "../../../application/shared-parlors"
 import { listSubmissions } from "../../../application/submissions"
-import { memberCan, type TitledBook } from "../../../core/book/book"
+import { memberCan, type ListedBook } from "../../../core/book/book"
 import { EMPTY_PARLOR_LIST, type ParlorList } from "../../../core/parlor/shared"
 import type { PlayGameKind } from "../../../core/play/play"
 import type { Submission } from "../../../parlors/port/submission-store"
@@ -34,7 +34,7 @@ export function StartPlayView(props: { readonly place: Place; readonly game: Pla
   const [books] = createResource(() => app.revision(), () => app.services.session.books())
   const [parlors] = createResource(() => app.revision(), () => listSharedParlors(app.services.parlors))
   const [submissions] = createResource(() => app.revision(), () => listSubmissions(app.services.submissions))
-  const writable = (all: readonly TitledBook[]): readonly TitledBook[] => all.filter((book) => memberCan(book, app.services.member, "write"))
+  const writable = (all: readonly ListedBook[]): readonly ListedBook[] => all.filter((book) => memberCan(book, app.services.member, "write"))
   /** The parlor list to choose from; an empty one when it could not be read, since a play may have no parlor. */
   const list = (): ParlorList => {
     const found = parlors()

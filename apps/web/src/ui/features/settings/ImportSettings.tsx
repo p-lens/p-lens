@@ -3,7 +3,7 @@ import { MainContent } from "solid-gathering-shell"
 
 import type { ApplicationError } from "../../../application/errors"
 import { importPrecord, type Imported } from "../../../application/import"
-import type { TitledBook } from "../../../core/book/book"
+import type { ListedBook } from "../../../core/book/book"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import { Loaded } from "../../primitives/states"
@@ -25,7 +25,7 @@ type Taking =
  * asks for a pRecord file to take into it. What the taking in came to, or
  * why nothing was taken in, is said under the line.
  */
-function BookRow(props: { readonly book: TitledBook }): JSX.Element {
+function BookRow(props: { readonly book: ListedBook }): JSX.Element {
   const app = useApp()
   const picker: { input: HTMLInputElement | undefined } = { input: undefined }
   const [taking, setTaking] = createSignal<Taking>({ type: "idle" })

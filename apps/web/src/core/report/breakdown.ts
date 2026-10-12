@@ -5,7 +5,7 @@ import { collect, mapOk, type Result } from "../result/result"
 import { yenOf, type ReportError } from "./figures"
 
 /** What plays are grouped by, each a way of asking where the results came from. */
-export const DIMENSIONS = ["machine", "parlor", "weekday", "game", "maker", "year", "month", "day"] as const
+export const DIMENSIONS = ["machine", "parlor", "weekday", "game", "year", "month", "day"] as const
 
 export type Dimension = (typeof DIMENSIONS)[number]
 
@@ -97,7 +97,6 @@ const ORDERS: Readonly<Record<Dimension, (left: Group, right: Group) => number>>
   machine: byActual,
   parlor: byActual,
   game: byActual,
-  maker: byActual,
   weekday: byKey,
   year: (left, right) => byKey(right, left),
   month: (left, right) => byKey(right, left),

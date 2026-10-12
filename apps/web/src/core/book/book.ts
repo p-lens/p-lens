@@ -21,9 +21,17 @@ export interface Book {
   readonly members: readonly Member[]
 }
 
-/** A book as it is listed: its cover, and the title its main journal gives it, if it gives one. */
-export interface TitledBook extends Book {
+/**
+ * A book as it is listed: its cover, the title its main journal gives it,
+ * if it gives one, and the place its owner gave it among their books
+ * (`core/book/settings`), if they gave one. The place is the owner's
+ * alone: on the device of someone let into the book it is not read, since
+ * where a book stands among another person's books says nothing of where
+ * it stands among one's own.
+ */
+export interface ListedBook extends Book {
   readonly title: string | undefined
+  readonly order: number | undefined
 }
 
 export const roleIn = (book: Book, member: MemberId): Role | undefined =>
