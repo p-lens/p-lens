@@ -40,8 +40,8 @@ const CELL = "flex min-h-14 min-w-0 flex-col gap-0.5 rounded-[3px] px-0.5 py-1 t
  * One day of the month: its number, and what its plays made where it had
  * any. A day with plays is pressed to see them; a day without is only its
  * number. The business day it now is wears a ring. The result is written
- * as small as its cell asks (`fittedSize`), so a great win is in smaller
- * figures and never cut short.
+ * as small as its cell asks (`fittedSize`), in one size up to six digits,
+ * so only a great win is in smaller figures, and none is cut short.
  */
 function Day(props: { readonly day: IsoDate; readonly figures: Group | undefined; readonly today: boolean; readonly onOpen: () => void }): JSX.Element {
   const number = (): JSX.Element => <span class="text-xs tabular-nums text-text-muted">{dayNumber(props.day)}</span>

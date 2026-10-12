@@ -1,4 +1,5 @@
 import { can, type Capability, type Role } from "../access/role"
+import type { BusinessDayTurn } from "../calendar/calendar"
 
 export type BookId = string & { readonly __brand: "BookId" }
 
@@ -32,6 +33,7 @@ export interface Book {
 export interface ListedBook extends Book {
   readonly title: string | undefined
   readonly order: number | undefined
+  readonly businessDayTurn: BusinessDayTurn | undefined
 }
 
 export const roleIn = (book: Book, member: MemberId): Role | undefined =>

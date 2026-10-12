@@ -142,19 +142,19 @@ export function SimulationPanel(props: {
             <p class="text-sm text-text-muted">回転率と交換率を入れると、その条件でシミュレーションできます。</p>
           </div>
         </Match>
-        <Match when={running()} keyed>
+        <Match when={running()}>
           {(current) => (
             <div class="flex flex-col gap-3">
               <div class="flex items-center gap-3">
-                <progress class="h-2 flex-1 accent-accent" max={current.planned} value={current.summary?.sessions ?? 0} />
+                <progress class="h-2 flex-1 accent-accent" max={current().planned} value={current().summary?.sessions ?? 0} />
                 <span class="shrink-0 text-sm tabular-nums text-text-secondary">
-                  {formatMan(current.summary?.sessions ?? 0)}回目 / {formatMan(current.planned)}回
+                  {formatMan(current().summary?.sessions ?? 0)}回目 / {formatMan(current().planned)}回
                 </span>
-                <Button variant="secondary" size="small" onClick={() => current.handle.cancel()}>
+                <Button variant="secondary" size="small" onClick={() => current().handle.cancel()}>
                   中止
                 </Button>
               </div>
-              <Show when={current.summary} keyed>
+              <Show when={current().summary} keyed>
                 {(summary) => <Results summary={summary} exactRounds={props.exactRounds} />}
               </Show>
             </div>

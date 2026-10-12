@@ -1,5 +1,6 @@
-import { createContext, createSignal, onCleanup, onMount, useContext, type Accessor, type JSX } from "solid-js"
+import { createContext, createEffect, createSignal, on, onCleanup, onMount, useContext, type Accessor, type JSX } from "solid-js"
 
+import { adoptBusinessDayTurn } from "../application/business-day-turn"
 import { refreshCatalog } from "../application/catalog"
 import type { ApplicationError } from "../application/errors"
 import type { Services } from "../application/services"
@@ -89,6 +90,7 @@ export function AppProvider(props: {
   const wrote = (): void => {
     setRevision((count) => count + 1)
   }
+  createEffect(on(revision, () => void adoptBusinessDayTurn(props.services.session, props.services.preferences)))
   const [state, setState] = createSignal<DeliveryState>({ type: "idle" })
   const timers: { pending: readonly ReturnType<typeof setTimeout>[] } = { pending: [] }
   const refresh = (): void => {

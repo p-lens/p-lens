@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import type { BookId } from "../../../src/core/book/book"
 import { inOrder, moved, type Placed } from "../../../src/core/book/order"
-import { BOOK_SETTINGS_FILE, bookSettingsOf, withOrder } from "../../../src/core/book/settings"
+import { BOOK_SETTINGS_FILE, bookSettingsOf, withBusinessDayTurn, withOrder } from "../../../src/core/book/settings"
 
 const book = (id: string, order?: number): Placed => ({ id: id as BookId, order })
 
@@ -62,16 +62,25 @@ describe("moving a book one place", () => {
 describe("a book's settings", () => {
   test("are a file of the book's, read for the place it was given", () => {
     expect(BOOK_SETTINGS_FILE).toBe("settings.json")
-    expect(bookSettingsOf('{\n  "order": 3\n}\n')).toEqual({ order: 3 })
+    expect(bookSettingsOf('{\n  "order": 3\n}\n')).toEqual({ order: 3, businessDayTurn: undefined })
   })
 
   test("say nothing where there is no file, or it does not read, or the place is no whole number", () => {
-    expect(bookSettingsOf(undefined)).toEqual({ order: undefined })
-    expect(bookSettingsOf("")).toEqual({ order: undefined })
-    expect(bookSettingsOf('{\n  "order": 1\n}\n{\n  "order": 2\n}\n')).toEqual({ order: undefined })
-    expect(bookSettingsOf('{"order":"1"}')).toEqual({ order: undefined })
-    expect(bookSettingsOf('{"order":1.5}')).toEqual({ order: undefined })
-    expect(bookSettingsOf("[1]")).toEqual({ order: undefined })
+    expect(bookSettingsOf(undefined)).toEqual({ order: undefined, businessDayTurn: undefined })
+    expect(bookSettingsOf("")).toEqual({ order: undefined, businessDayTurn: undefined })
+    expect(bookSettingsOf('{\n  "order": 1\n}\n{\n  "order": 2\n}\n')).toEqual({ order: undefined, businessDayTurn: undefined })
+    expect(bookSettingsOf('{"order":"1"}')).toEqual({ order: undefined, businessDayTurn: undefined })
+    expect(bookSettingsOf('{"order":1.5}')).toEqual({ order: undefined, businessDayTurn: undefined })
+    expect(bookSettingsOf("[1]")).toEqual({ order: undefined, businessDayTurn: undefined })
+  })
+
+  test("say the hour a business day turns over at where one that can be is written, beside the place", () => {
+    expect(bookSettingsOf('{"order":3,"businessDayTurn":7}')).toEqual({ order: 3, businessDayTurn: 7 })
+    expect(bookSettingsOf('{"businessDayTurn":0}').businessDayTurn).toBe(0)
+    expect(bookSettingsOf('{"businessDayTurn":10}').businessDayTurn).toBeUndefined()
+    expect(bookSettingsOf('{"businessDayTurn":"5"}').businessDayTurn).toBeUndefined()
+    expect(withBusinessDayTurn('{"order":3}', 7)).toBe('{\n  "order": 3,\n  "businessDayTurn": 7\n}\n')
+    expect(withOrder('{"order":3,"businessDayTurn":7}', 1)).toBe('{\n  "order": 1,\n  "businessDayTurn": 7\n}\n')
   })
 
   test("are written a field to a line, keeping what a later version put there, and whole again over a file that did not read", () => {

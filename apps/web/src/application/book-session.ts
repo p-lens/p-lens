@@ -107,13 +107,16 @@ export const createBookSession = (ports: SessionPorts): BookSession => {
     return holding.ok ? Ok(stored.value) : holding
   }
 
-  /** A cover with the title its main journal gives and the place its settings give, read from storage: the book's files are where it is named and placed. The place is read only for this member's own books. */
+  /** A cover with the title its main journal gives and what its settings give — its place, and the hour a business day turns over at — read from storage: the book's files are where it is named and placed. Its settings are read only for this member's own books. */
   const listed = async (book: Book): Promise<Outcome<ListedBook>> =>
-    mapOk(fromStorage(await ports.storage.readBook(book.id)), (stored) => ({
-      ...book,
-      title: titleOfMain(stored.files[BOOK_FILES.main] ?? ""),
-      order: roleIn(book, ports.member) === "owner" ? bookSettingsOf(stored.files[BOOK_SETTINGS_FILE]).order : undefined,
-    }))
+    mapOk(fromStorage(await ports.storage.readBook(book.id)), (stored) =>
+      ((settings) => ({
+        ...book,
+        title: titleOfMain(stored.files[BOOK_FILES.main] ?? ""),
+        order: settings?.order,
+        businessDayTurn: settings?.businessDayTurn,
+      }))(roleIn(book, ports.member) === "owner" ? bookSettingsOf(stored.files[BOOK_SETTINGS_FILE]) : undefined),
+    )
 
   /** A change being made now by this device's member: who, when and why, before what it does to any file is known. */
   const beginning = (intent: ChangeIntent): Begun => ({ at: ports.clock().toISOString(), author: ports.member, intent })

@@ -162,14 +162,14 @@ export function SamplingRun(props: {
           </div>
         }
       >
-        <Match when={running()} keyed>
+        <Match when={running()}>
           {(current) => (
             <div class="flex items-center gap-3">
-              <progress class="h-2 flex-1 accent-accent" max={current.planned} value={done(current.summary)} />
+              <progress class="h-2 flex-1 accent-accent" max={current().planned} value={done(current().summary)} />
               <span class="shrink-0 text-sm tabular-nums text-text-secondary">
-                {formatMan(done(current.summary))}G / {formatMan(current.planned)}G
+                {formatMan(done(current().summary))}G / {formatMan(current().planned)}G
               </span>
-              <Button variant="secondary" size="small" onClick={() => current.handle.cancel()}>
+              <Button variant="secondary" size="small" onClick={() => current().handle.cancel()}>
                 中止
               </Button>
             </div>

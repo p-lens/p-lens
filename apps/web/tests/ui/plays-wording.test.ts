@@ -12,13 +12,13 @@ describe("what a play is called in a list", () => {
     expect(playTitle({ ...PLAY, machine: "e風の剣豪" })).toBe("e風の剣豪")
   })
 
-  test("is the day it was typed in for where it names none, a parlor named or not", () => {
-    expect(playTitle(PLAY)).toBe("2026年10月21日分の手入力した稼働")
-    expect(playTitle({ ...PLAY, description: "" })).toBe("2026年10月21日分の手入力した稼働")
+  test("is a play typed in by hand where it names none, a parlor named or not", () => {
+    expect(playTitle(PLAY)).toBe("手入力した稼働")
+    expect(playTitle({ ...PLAY, description: "" })).toBe("手入力した稼働")
   })
 
   test("is what another app called it where it was taken in from one", () => {
     expect(playTitle({ ...PLAY, description: "梅田 流星 12番台", importedFrom: "precord" })).toBe("梅田 流星 12番台")
-    expect(playTitle({ ...PLAY, description: " ", importedFrom: "precord" })).toBe("2026年10月21日分の手入力した稼働")
+    expect(playTitle({ ...PLAY, description: " ", importedFrom: "precord" })).toBe("手入力した稼働")
   })
 })

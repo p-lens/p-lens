@@ -57,6 +57,11 @@ describe("a line of a book's activity", () => {
     expect(lines.map(describeActivity)).toEqual(["流星 の稼働を追加", "帳簿を変更", "帳簿を変更"])
   })
 
+  test("says of a play written under nothing that it names no machine", () => {
+    const line = activityOfText('{"v":1,"id":"c1","at":"2026-10-12T00:00:00.000Z","by":"me","did":"play-recorded","play":{"id":"p3","description":""}}')
+    expect(line.map(describeActivity)).toEqual(["機種の指定なしの稼働を追加"])
+  })
+
   test("is asked about a play, or a parlor, by that part alone, whatever was done", () => {
     const lines = activityOfText(logOf(CREATED, PLAYED, UNWEIGHED, RENAMED, OPENED))
     expect<unknown>(lines.filter((line) => line.parts.play?.id === "p1").map((line) => line.id)).toEqual(["a2"])

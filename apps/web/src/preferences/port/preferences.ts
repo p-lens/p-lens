@@ -4,7 +4,9 @@ import type { GameKind } from "../../core/catalog/catalog"
 /**
  * What a person has set for this device, beyond how it looks: kept on the
  * device and read whenever it is needed, so a change takes hold at once.
- * It is this device's alone, and is not carried to a person's others.
+ * It is this device's alone, and is not carried to a person's others —
+ * but the hour a business day turns over at, which their own books carry
+ * (`application/business-day-turn`) and this only holds as last known.
  */
 export interface Preferences {
   /** The hour of the morning a business day turns over at. */

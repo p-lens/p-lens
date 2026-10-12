@@ -66,8 +66,9 @@ export interface ActivityLine {
  * What a change did, as the word and the parts an activity line says it
  * in; nothing for a change the activity does not tell of — a press of the
  * heart or of a mark, which the book's favourites and marks record line by
- * line themselves, or a book moved in its owner's list, which changes
- * nothing the book records.
+ * line themselves, or a book moved in its owner's list or told the hour
+ * its owner's business day turns over at, which change nothing the book
+ * records.
  */
 const saidOf = (intent: ChangeIntent): Pick<ActivityLine, "did" | "parts"> | undefined => {
   switch (intent.type) {
@@ -75,6 +76,7 @@ const saidOf = (intent: ChangeIntent): Pick<ActivityLine, "did" | "parts"> | und
     case "favorite-let-go":
     case "mark-pressed":
     case "book-placed":
+    case "business-day-turn-set":
       return undefined
     case "book-created":
       return { did: intent.type, parts: {} }

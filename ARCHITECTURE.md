@@ -128,8 +128,9 @@ the morning rather than at midnight (`businessDayOf`): a play started at two
 is the day before's, and 今日 and 今月 on a breakdown count the same way.
 The hour is five (`DEFAULT_BUSINESS_DAY_TURN`) until a person sets another,
 from midnight to nine (`BUSINESS_DAY_TURNS`; 設定 → 日付の区切り) — no later
-than nine, where a play added by hand is placed. It is kept on the device
-(`preferences/`) and changes no play already recorded. Only the calendar's
+than nine, where a play added by hand is placed. It is written into the
+settings of each of the person's own books (below), the device holding it
+as last known (`preferences/`), and changes no play already recorded. Only the calendar's
 own questions — whether a machine's release date can be — ask for the
 calendar day.
 
@@ -1518,6 +1519,19 @@ it is next written, whole.
   (`book-placed`) — all of them the first time, two after that. A book's
   activity says nothing of it: where a book stands in a list changes
   nothing it records.
+- **The hour a business day turns over at** is the person's, and their
+  books carry it (`businessDayTurn`; `application/business-day-turn`): set
+  in 設定 → 日付の区切り, it holds on the device at once and is written into
+  each of their own books that does not say it already, as one change to
+  each (`business-day-turn-set`) of which the activity says nothing. A
+  device takes the hour from the first of the person's own books, in their
+  order, that says one — as it opens, and whenever its books change — so a
+  book put back from a backup or synced brings it along; where none says
+  one the device keeps the hour it had. A book a person adds (`addBook`)
+  says the device's hour from the start; the book a device with none is
+  given does not, an hour nobody chose there being nothing to overrule the
+  one a book put back later brings. Another person's book is neither
+  written nor read for it.
 - **The owner's alone.** Only a person's own books are placed. On the
   device of someone let into a book its `order` is not read: where a book
   stands among another person's books says nothing of where it stands

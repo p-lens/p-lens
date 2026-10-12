@@ -20,6 +20,7 @@ import { lastBackupText, standingText } from "../../wording/backup"
 import { LONGEST_TITLE } from "../../../core/journal/title"
 import { bookTitle, describeTitleProblem } from "../../wording/book"
 import { describeError } from "../../wording/errors"
+import { BookTitle } from "../shell/BookTitle"
 import { ViewHeader } from "../shell/ViewHeader"
 import { rowsOf, type Row } from "./book-rows"
 
@@ -35,7 +36,8 @@ type Deleting =
   | { readonly type: "failed"; readonly error: ApplicationError }
 
 /**
- * One book, with how it stands against its backups — what deleting it
+ * One book, under its title, renamed where it stands by its owner, with
+ * how it stands against its backups — what deleting it
  * would lose — the arrows that move it one place in the list, where it
  * is the person's own and has a place to move to, and the way to delete
  * it: a press asks, and a second, beside what will go, does it. Laid out
@@ -60,7 +62,9 @@ function BookRow(props: { readonly listed: BookStanding; readonly moves: readonl
     <li class="flex flex-col gap-3 rounded-md bg-surface-1 p-3">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div class="flex min-w-0 flex-col gap-0.5 sm:flex-1">
-          <span class="break-words text-sm font-medium text-text-primary">{bookTitle(props.listed.book)}</span>
+          <div class="flex min-w-0">
+            <BookTitle book={props.listed.book} nameClass="min-w-0 break-words text-sm font-medium" />
+          </div>
           <span class="text-xs" classList={{ "text-warning": unsaved(), "text-text-secondary": !unsaved() }}>
             {standingText(props.listed.standing)}
           </span>
@@ -135,7 +139,7 @@ function AddBook(): JSX.Element {
     settleTyping()
     if (adding().type === "adding") return
     setAdding({ type: "adding" })
-    const added = await addBook(app.services.session, app.services.firstBook(), title())
+    const added = await addBook(app.services.session, app.services.firstBook(), title(), app.services.preferences.businessDayTurn())
     if (!added.ok) {
       setAdding({ type: "refused", reason: describeError(added.error) })
       return

@@ -178,14 +178,14 @@ export function HyenaHuntRun(props: {
             </div>
           }
         >
-          <Match when={running()} keyed>
+          <Match when={running()}>
             {(current) => (
               <div class="flex min-w-0 flex-1 items-center gap-3">
-                <progress class="h-2 flex-1 accent-accent" max={current.planned} value={current.summary?.trials ?? 0} />
+                <progress class="h-2 flex-1 accent-accent" max={current().planned} value={current().summary?.trials ?? 0} />
                 <span class="shrink-0 text-sm tabular-nums text-text-secondary">
-                  {formatMan(current.summary?.trials ?? 0)}回目 / {formatMan(current.planned)}回
+                  {formatMan(current().summary?.trials ?? 0)}回目 / {formatMan(current().planned)}回
                 </span>
-                <Button variant="secondary" size="small" onClick={() => current.handle.cancel()}>
+                <Button variant="secondary" size="small" onClick={() => current().handle.cancel()}>
                   中止
                 </Button>
               </div>

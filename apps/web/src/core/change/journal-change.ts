@@ -1,4 +1,5 @@
 import type { BookId, MemberId } from "../book/book"
+import type { BusinessDayTurn } from "../calendar/calendar"
 import type { Decimal } from "../decimal/decimal"
 import type { BookFiles } from "../journal/layout"
 import type { PlayId } from "../play/play"
@@ -20,6 +21,8 @@ export type ChangeIntent =
   | { readonly type: "book-renamed"; readonly title: string }
   /** A book given its place among its owner's books: written in the book's settings, and no change to what the book records. */
   | { readonly type: "book-placed"; readonly order: number }
+  /** The hour its owner's business day turns over at, written in the book's settings: no change to what the book records, a play already written keeping its day. */
+  | { readonly type: "business-day-turn-set"; readonly turn: BusinessDayTurn }
   | { readonly type: "file-edited"; readonly path: string }
   | { readonly type: "savings-opened"; readonly parlor: string; readonly tier: string }
   | { readonly type: "savings-adjusted"; readonly parlor: string; readonly tier: string }

@@ -48,11 +48,12 @@ describe("the result calendar's words", () => {
     expect(cellResult(dec("0"))).toBe("0")
   })
 
-  test("are written smaller the longer a result is, so that a great win still fits its cell", () => {
-    expect(fittedSize(cellResult(dec("12340")))).toBe("min(0.75rem, calc(100cqw / 4.48))")
+  test("are written in one size up to six digits, and smaller only for a great win, which still fits its cell", () => {
+    expect(fittedSize(cellResult(dec("1234")))).toBe("min(0.75rem, calc(100cqw / 5.12))")
+    expect(fittedSize(cellResult(dec("12340")))).toBe("min(0.75rem, calc(100cqw / 5.12))")
     expect(fittedSize(cellResult(dec("360000")))).toBe("min(0.75rem, calc(100cqw / 5.12))")
     expect(fittedSize(cellResult(dec("-1360000")))).toBe("min(0.75rem, calc(100cqw / 6.40))")
-    expect(fittedSize("")).toBe("min(0.75rem, calc(100cqw / 0.64))")
+    expect(fittedSize("")).toBe("min(0.75rem, calc(100cqw / 5.12))")
   })
 
   test("say a day aloud, with what it made or that it had no plays", () => {

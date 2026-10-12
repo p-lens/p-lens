@@ -64,7 +64,8 @@ export type BusinessDayTurn = (typeof BUSINESS_DAY_TURNS)[number]
 /** Five in the morning, until a person says otherwise: after the last parlor has closed, before the first opens. */
 export const DEFAULT_BUSINESS_DAY_TURN: BusinessDayTurn = 5
 
-const isBusinessDayTurn = (hour: number): hour is BusinessDayTurn => (BUSINESS_DAY_TURNS as readonly number[]).includes(hour)
+/** Whether an hour is one a business day may turn over at. */
+export const isBusinessDayTurn = (hour: number): hour is BusinessDayTurn => (BUSINESS_DAY_TURNS as readonly number[]).includes(hour)
 
 /** The hour a person chose, as it was kept; anything else kept there is the default. */
 export const readBusinessDayTurn = (stored: string | undefined): BusinessDayTurn => {

@@ -1,3 +1,5 @@
+import { isBusinessDayTurn, type BusinessDayTurn } from "../calendar/calendar"
+
 /**
  * What a book says of itself to the app that keeps it, beside its journal:
  * one JSON file among the book's files, so it is backed up and synced with
@@ -10,6 +12,8 @@ export const BOOK_SETTINGS_FILE = "settings.json"
 export interface BookSettings {
   /** Where the book stands among its owner's books, lowest first; none where it was never placed. */
   readonly order: number | undefined
+  /** The hour its owner's business day turns over at; none where it was never written. */
+  readonly businessDayTurn: BusinessDayTurn | undefined
 }
 
 type Fields = Readonly<Record<string, unknown>>
@@ -34,7 +38,12 @@ const fieldsOf = (text: string | undefined): Fields => {
 
 const orderOf = (value: unknown): number | undefined => (typeof value === "number" && Number.isSafeInteger(value) ? value : undefined)
 
-export const bookSettingsOf = (text: string | undefined): BookSettings => ({ order: orderOf(fieldsOf(text)["order"]) })
+const businessDayTurnOf = (value: unknown): BusinessDayTurn | undefined => (typeof value === "number" && isBusinessDayTurn(value) ? value : undefined)
+
+export const bookSettingsOf = (text: string | undefined): BookSettings => ((fields) => ({ order: orderOf(fields["order"]), businessDayTurn: businessDayTurnOf(fields["businessDayTurn"]) }))(fieldsOf(text))
 
 /** The file with the book's place written in it, every other field as it was, a field to a line so that two devices changing different ones do not meet. */
 export const withOrder = (text: string | undefined, order: number): string => `${JSON.stringify({ ...fieldsOf(text), order }, undefined, 2)}\n`
+
+/** The file with the hour a business day turns over at written in it, every other field as it was. */
+export const withBusinessDayTurn = (text: string | undefined, businessDayTurn: BusinessDayTurn): string => `${JSON.stringify({ ...fieldsOf(text), businessDayTurn }, undefined, 2)}\n`
