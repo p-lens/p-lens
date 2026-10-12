@@ -74,13 +74,13 @@ export const readTallyForm = (form: TallyForm, parlors: readonly Parlor[], idOn:
 
 /**
  * What a play followed live came to in yen by its log, where the log says
- * enough: the tokens counted in hand at its last line, at what its terms
- * exchange them for, less the cash spent. A play that drew from savings
+ * enough: the tokens counted in hand at its last line over those it was
+ * begun with, at what its terms exchange them for, less the cash spent. A play that drew from savings
  * has a parlor, and is not recorded by its result.
  */
 const resultOf = (draft: PlayDraft, played: PlayedSoFar): number | undefined => {
   const value = tokenValueOfDraft(draft)
-  return value === undefined || played.held === undefined ? undefined : Math.round(played.held * value - (played.outlay ?? 0))
+  return value === undefined || played.held === undefined ? undefined : Math.round((played.held - (played.carriedIn ?? 0)) * value - (played.outlay ?? 0))
 }
 
 const yenText = (yen: number | undefined): string => (yen === undefined ? "" : String(Math.round(yen)))

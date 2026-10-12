@@ -72,7 +72,8 @@ export const takenOf = (ordered: readonly Checkpoint[]): readonly Taken[] =>
 /**
  * Where a play stood before one of its readings: the counter as it then
  * showed — none where a jackpot had just started it over — the balls in
- * hand as last counted, and what had been spent and drawn in all.
+ * hand as last counted, or as the play was begun with them, and what had
+ * been spent and drawn in all.
  */
 export interface Before {
   readonly counter: number
@@ -88,7 +89,7 @@ export const standingBefore = (ordered: readonly Checkpoint[], index: number): B
   const last = earlier.at(-1)?.reading
   return {
     counter: last === undefined ? (seat?.counter?.spins ?? 0) : last.jackpot.type === "none" ? last.counterSpins : 0,
-    held: earlier.findLast((each) => each.reading.held !== undefined)?.reading.held,
+    held: earlier.findLast((each) => each.reading.held !== undefined)?.reading.held ?? seat?.held,
     outlay: earlier.reduce((sum, each) => sum + each.reading.rented, seat?.outlay ?? 0),
     replay: earlier.reduce((sum, each) => sum + each.reading.replayed, seat?.replay ?? 0),
   }

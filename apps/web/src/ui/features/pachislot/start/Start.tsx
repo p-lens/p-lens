@@ -31,6 +31,7 @@ import { SeatFields, useSeat } from "./Seat"
 import { EMPTY_PACHISLOT_START, type PachislotMachineChoice, type ParlorChoice, useStartForm } from "../../live/start-form"
 import { locateAddress, submitAddress } from "../../live/submission-return"
 import { readTerms, type TermsField } from "../../live/start-terms"
+import { tokensCarriedTo } from "../../live/tokens-in-hand"
 import { Terms } from "./Terms"
 
 /**
@@ -341,6 +342,7 @@ export function Start(props: {
     const form = start.form()
     const weighing = seat.weighing()
     const startedAt = app.services.now()
+    const carriedIn = tokensCarriedTo(app.services.preferences.tokensInHand(), app.services.businessDay(), venue(), "slot")
     const draft: PlayDraft = {
       id: app.services.newPlayId(),
       date: app.services.businessDay(),
@@ -351,7 +353,7 @@ export function Start(props: {
       ...(weighing === undefined ? {} : { pachislot: weighing }),
       cabinetNumber: form.cabinetNumber.trim() === "" ? undefined : form.cabinetNumber.trim(),
       startedAt,
-      log: appendCheckpoint("", { ...first, at: startedAt }),
+      log: appendCheckpoint("", { ...first, at: startedAt, ...(carriedIn === undefined ? {} : { held: carriedIn }) }),
     }
     const started = await startPlay(app.services.drafts, draft)
     setStarting(false)
@@ -359,6 +361,7 @@ export function Start(props: {
       setFailure(started.error)
       return
     }
+    if (carriedIn !== undefined) app.services.preferences.setTokensInHand(undefined)
     if (weighing !== undefined) await recordUses(weighing)
     start.update({ cabinetNumber: "", startCounter: "", pachislot: EMPTY_PACHISLOT_START })
     app.wrote()

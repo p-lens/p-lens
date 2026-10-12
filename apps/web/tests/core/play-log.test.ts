@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test"
 
 import { appendCheckpoint, parsePlayLog, playLogPath } from "../../src/core/play-log/checkpoint"
-import { endCounterOf, withEnd } from "../../src/core/play-log/end"
+import { carriedInOf } from "../../src/core/play-log/carried-in"
+import { endCounterOf, endedBy, lastWrittenAt, PLAYED_ON_FOR, withEnd } from "../../src/core/play-log/end"
 import { termsInHead, withHead } from "../../src/core/play-log/head"
 import { checkedPlayOrder, inPlayOrder, stretchPerformances } from "../../src/core/play-log/performance"
 import type { PlayId } from "../../src/core/play/play"
@@ -70,6 +71,36 @@ describe("play log", () => {
       ok: false,
       error: { type: "invalid-field", line: 1, field: "outlay" },
     })
+  })
+})
+
+describe("the tokens a play was begun with in hand", () => {
+  test("are what its first line counted, and no later line's", () => {
+    expect(carriedInOf([{ spins: 0, outlay: 0, held: 1500 }, { spins: 100, held: 900 }])).toBe(1500)
+    expect(carriedInOf([{ spins: 0, outlay: 0 }, { spins: 0, held: 900 }])).toBeUndefined()
+    expect(carriedInOf([{ spins: 0, outlay: 0, held: 0 }])).toBeUndefined()
+    expect(carriedInOf([])).toBeUndefined()
+  })
+})
+
+describe("when a play is taken to have ended", () => {
+  const log = [{ spins: 0, outlay: 0, at: "2026-10-12T10:00:00.000Z" }, { spins: 120, outlay: 5000, at: "2026-10-12T10:40:00.000Z" }, { spins: 60, at: "2026-10-12T10:20:00.000Z" }].reduce(appendCheckpoint, "")
+
+  test("is now while its log was written to lately", () => {
+    expect(lastWrittenAt(log)).toBe("2026-10-12T10:40:00.000Z")
+    expect(endedBy("2026-10-12T10:48:00.000Z", lastWrittenAt(log), PLAYED_ON_FOR.own)).toBe("2026-10-12T10:48:00.000Z")
+    expect(endedBy("2026-10-12T10:55:00.000Z", lastWrittenAt(log), PLAYED_ON_FOR.own)).toBe("2026-10-12T10:55:00.000Z")
+  })
+
+  test("is so long after its last line and no later, less for a play someone sent", () => {
+    expect(endedBy("2026-10-13T09:00:00.000Z", lastWrittenAt(log), PLAYED_ON_FOR.own)).toBe("2026-10-12T10:55:00.000Z")
+    expect(endedBy("2026-10-12T10:48:00.000Z", lastWrittenAt(log), PLAYED_ON_FOR.received)).toBe("2026-10-12T10:45:00.000Z")
+  })
+
+  test("is not counted from the line that ended it before, and is now for a log that says no moment", () => {
+    expect(lastWrittenAt(withEnd(log, { at: "2026-10-12T12:00:00.000Z", counter: undefined }, "pachinko"))).toBe("2026-10-12T10:40:00.000Z")
+    expect(endedBy("2026-10-13T09:00:00.000Z", lastWrittenAt(appendCheckpoint("", { spins: 0 })), PLAYED_ON_FOR.own)).toBe("2026-10-13T09:00:00.000Z")
+    expect(lastWrittenAt("not a log")).toBeUndefined()
   })
 })
 

@@ -115,7 +115,9 @@ type Sending = { readonly type: "one"; readonly draft: PlayDraft } | { readonly 
  * The day's plays on this device, newest begun first, and the way to start
  * another of either game: every play still to be recorded, and those
  * recorded since the business day turned, which stay to be set right and
- * recorded again. Where the device may send plays to someone, each has its
+ * recorded again. A play left over from a day before is marked red, and
+ * the list ends by saying what the mark is and what to do about it — a
+ * mark alone tells a person seeing it for the first time nothing. Where the device may send plays to someone, each has its
  * paper plane and the list has one for all of them; with more than one
  * place to send to, the person is asked which, and only then.
  */
@@ -219,6 +221,12 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
                   )}
                 </For>
               </ul>
+              <Show when={found.some((draft) => isLeftOver(draft, app.services.businessDay()))}>
+                <p class="mt-2 flex items-start gap-1.5 px-2 text-xs leading-5 text-text-muted">
+                  <span aria-hidden="true" class="mt-1.5 size-2 shrink-0 rounded-full bg-negative" />
+                  <span>前の日の、まだ記帳していない稼働です。開いて「遊技を終了」から記帳するか、長押しで削除してください。</span>
+                </p>
+              </Show>
             </Show>
           )}
         </Loaded>

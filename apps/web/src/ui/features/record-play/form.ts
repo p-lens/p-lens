@@ -25,6 +25,8 @@ export interface PlayForm {
   readonly replayPaidOut: string
   /** The savings the replay took, read only where the play's replay is not known; left empty, a replay took what it paid out. */
   readonly replayDeducted: string
+  /** The tokens in hand as the play began, brought from the play before. */
+  readonly carriedIn: string
   readonly payout: string
   readonly theoreticalValue: string
 }
@@ -143,12 +145,13 @@ export const readPlayForm = (form: PlayForm, at: PlayedAt, id: PlayId): Result<P
   const dateRead: Read<IsoDate> = date.ok ? date : Err({ field: "date", reason: "not-a-date" })
   const outlay = readCount(form.outlay, "outlay")
   const paidOut = readCount(form.replayPaidOut, "replay-paid-out")
+  const carriedIn = readCount(form.carriedIn, "carried-in")
   const payout = readCount(form.payout, "payout")
   const theoreticalValue = readOptionalYen(form.theoreticalValue, "theoretical-value")
   const rented = outlay.ok ? readRented(form, at, outlay.value) : Ok(ZERO)
   const deducted = paidOut.ok ? readDeducted(form, at, paidOut.value) : Ok(ZERO)
-  if (!dateRead.ok || !outlay.ok || !rented.ok || !paidOut.ok || !deducted.ok || !payout.ok || !theoreticalValue.ok)
-    return Err([dateRead, outlay, rented, paidOut, deducted, payout, theoreticalValue].flatMap(problemOf))
+  if (!dateRead.ok || !outlay.ok || !rented.ok || !paidOut.ok || !deducted.ok || !carriedIn.ok || !payout.ok || !theoreticalValue.ok)
+    return Err([dateRead, outlay, rented, paidOut, deducted, carriedIn, payout, theoreticalValue].flatMap(problemOf))
   return Ok({
     id,
     date: dateRead.value,
@@ -159,15 +162,17 @@ export const readPlayForm = (form: PlayForm, at: PlayedAt, id: PlayId): Result<P
     cabinetNumber: form.cabinetNumber.trim() === "" ? undefined : form.cabinetNumber,
     rental: isZero(outlay.value) && isZero(rented.value) ? undefined : { outlay: outlay.value, tokens: rented.value },
     replay: { paidOut: paidOut.value, deducted: deducted.value },
+    carriedIn: carriedIn.value,
     payout: payout.value,
     theoreticalValue: theoreticalValue.value,
   })
 }
 
-/** What a play followed live comes to by its log, for recording it: yen spent, tokens drawn from savings, the tokens in hand at its last line, and its theoretical value, each where the log says. */
+/** What a play followed live comes to by its log, for recording it: yen spent, tokens drawn from savings, the tokens it was begun with in hand, the tokens in hand at its last line, and its theoretical value, each where the log says. */
 export interface PlayedSoFar {
   readonly outlay: number | undefined
   readonly replay: number | undefined
+  readonly carriedIn: number | undefined
   readonly held: number | undefined
   readonly theoreticalValue: number | undefined
 }
@@ -177,7 +182,7 @@ const filled = (count: number | undefined): string => (count === undefined || co
 /**
  * The form filled in from a play followed live at a parlor, for recording it:
  * its outlay, what it drew from savings — the fee that took follows from the
- * corner's terms, as ever — the tokens counted in hand at its last line as
+ * corner's terms, as ever — the tokens it was begun with in hand, the tokens counted in hand at its last line as
  * what it leaves, and the theoretical value its formula comes to
  * at the spin performance measured, where there is one.
  */
@@ -189,6 +194,7 @@ export const formFromDraft = (draft: PlayDraft, played: PlayedSoFar): PlayForm =
   rentalTokens: "",
   replayPaidOut: filled(played.replay),
   replayDeducted: "",
+  carriedIn: filled(played.carriedIn),
   payout: filled(played.held),
   theoreticalValue: played.theoreticalValue === undefined ? "" : String(Math.round(played.theoreticalValue)),
 })
@@ -204,6 +210,7 @@ export const formOfRecord = (record: PlayRecord): PlayForm => ({
   rentalTokens: countText(record.rental?.tokens ?? ZERO),
   replayPaidOut: countText(record.replay.paidOut),
   replayDeducted: countText(record.replay.deducted),
+  carriedIn: countText(record.carriedIn),
   payout: countText(record.payout),
   theoreticalValue: record.theoreticalValue === undefined ? "" : toPlainString(record.theoreticalValue),
 })

@@ -6,7 +6,7 @@ import type { PlayDraft } from "../../../../core/live-play/draft"
 import { tierOf } from "../../../../core/parlor/terms"
 import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
-import { EditIcon } from "../../../primitives/icons"
+import { CloseIcon, EditIcon } from "../../../primitives/icons"
 import { createNudge } from "../../../primitives/nudge"
 import { settleTyping } from "../../../primitives/text-field"
 import { describeError } from "../../../wording/errors"
@@ -21,7 +21,7 @@ const CHANGE_TERMS = "レートを変更する"
  * taller than its words, with a pencil beside it and nothing of its terms: the terms typed as the play began were another corner's, or
  * the person has moved, and nothing below reads right until they are set
  * right. Pressed, the terms are set out to be typed over as they are when a
- * play starts; applied, the play is counted anew on them, and they are the
+ * play starts, in a card that spreads open downwards, under a cross that puts them away unchanged; applied, the play is counted anew on them, and they are the
  * day's for the next play too. A play with no terms says so where its
  * corner would be, and is given some the same way.
  */
@@ -74,22 +74,29 @@ export function CornerTerms(props: { readonly draft: PlayDraft }): JSX.Element {
         </button>
       }
     >
-      <div class="flex flex-col gap-2 rounded-md border border-border p-2">
-        <Terms form={form()} invalid={nudge.red() ? problems() : []} onFocus={nudge.settle} onChange={setForm} />
-        <Show when={failure()} keyed>
-          {(error) => (
-            <p role="alert" class="text-xs text-negative">
-              {describeError(error)}
-            </p>
-          )}
-        </Show>
-        <div class="flex justify-end gap-2">
-          <Button variant="ghost" size="small" onClick={() => setLook("standing")}>
-            やめる
-          </Button>
-          <Button size="small" onClick={() => void apply()}>
-            このレートで計算し直す
-          </Button>
+      <div class="grid animate-[spread_260ms_ease-out]">
+        <div class="min-h-0 overflow-hidden">
+          <div class="flex flex-col gap-2 rounded-md border border-border p-2">
+            <div class="flex items-center justify-between gap-2">
+              <p class="text-xs font-bold text-text-primary">レートを変更</p>
+              <button type="button" onClick={() => setLook("standing")} class="flex size-6 items-center justify-center rounded-[3px] text-text-secondary hover:bg-surface-3 hover:text-text-primary focus-visible:outline-2 focus-visible:outline-focus-ring [&_svg]:size-4">
+                <CloseIcon label="レートの変更をやめる" />
+              </button>
+            </div>
+            <Terms form={form()} invalid={nudge.red() ? problems() : []} onFocus={nudge.settle} onChange={setForm} />
+            <Show when={failure()} keyed>
+              {(error) => (
+                <p role="alert" class="text-xs text-negative">
+                  {describeError(error)}
+                </p>
+              )}
+            </Show>
+            <div class="flex justify-end">
+              <Button size="small" onClick={() => void apply()}>
+                このレートで計算し直す
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </Show>

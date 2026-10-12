@@ -17,10 +17,12 @@ import { Button } from "../../../primitives/button"
 import { createNudge } from "../../../primitives/nudge"
 import { Select, type SelectOption } from "../../../primitives/select"
 import { settleTyping, TextField } from "../../../primitives/text-field"
+import { toast } from "../../../primitives/toast"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
 import { describeError, describeReadingRefusal } from "../../../wording/errors"
 import { formatCount } from "../../../wording/numbers"
 import { describeRevisionRefusal, PHASE_NAMES, signedBalls, UNTOLD_JACKPOT } from "../../../wording/pachinko/play"
+import { DriftButton } from "./DriftButton"
 import { PressButton } from "./PressButton"
 import { bonusKey, formOfReading, NO_JACKPOT, readingFrom, readReadingForm, saysNothingNew, UNTOLD, withMore, type ReadingField, type ReadingForm } from "./reading-form"
 
@@ -34,6 +36,14 @@ type Sending =
 
 const PHASES: readonly Phase[] = ["regular", "special", "rapid"]
 
+/**
+ * Whether a reading is a jackpot won in regular games: the balls in hand
+ * are then about to change by what the bonus pays and what follows it, so
+ * the person is asked to count them once things have settled — a count
+ * the play is measured by, and the one most often forgotten.
+ */
+const wonInRegularGames = (reading: { readonly phase: Phase; readonly jackpot: { readonly type: string } }): boolean => reading.phase === "regular" && reading.jackpot.type !== "none"
+
 /** Tokens a press of the savings button draws where the play has no terms to say: half of what ¥1,000 rents at the dearest rate. */
 const USUAL_DRAW = 125
 
@@ -46,7 +56,8 @@ const jackpotOptions = (bonuses: readonly MachineBonus[]): readonly SelectOption
 /**
  * Where readings are typed at the cabinet, one press keeping each: the
  * state the cabinet has been in, the counter as the parlor shows it, the
- * balls in hand where they were counted, what the 電サポ gained or lost,
+ * balls in hand where they were counted, what the 電サポ gained or lost —
+ * behind a small button, since few readings have any —
  * and what was rented or drawn from savings since the reading before —
  * each of those two with a button that puts one press's worth in its
  * field, typed over for more at once: a rental press is the cabinet's own,
@@ -161,11 +172,12 @@ export function ReadingComposer(props: {
     }
     setForm(readingFrom(form().phase, beforeIn([...props.ordered, ...checkpoints.value])))
     setSending({ type: "typing" })
+    toast(wonInRegularGames(reading.value) ? { title: "記録しました", description: "キリの良いところで、持ち玉を入力してください。" } : { title: "記録しました", stays: "glance" })
     app.wrote()
   }
 
-  /** Keeps the play's log made again with a reading set right or taken away, and leaves the revising. */
-  const revise = async (made: ReturnType<typeof withReadingRemoved>): Promise<void> => {
+  /** Keeps the play's log made again with a reading set right or taken away, says so where there are words for it, and leaves the revising. */
+  const revise = async (made: ReturnType<typeof withReadingRemoved>, said?: string): Promise<void> => {
     if (sending().type === "keeping") return
     if (!made.ok) {
       setSending({ type: "unrevisable", refusal: made.error })
@@ -177,6 +189,7 @@ export function ReadingComposer(props: {
       setSending({ type: "failed", error: kept.error })
       return
     }
+    if (said !== undefined) toast({ title: said, stays: "blink" })
     app.wrote()
     props.onRevised()
   }
@@ -188,7 +201,7 @@ export function ReadingComposer(props: {
       nudge.nudge()
       return
     }
-    await revise(withReadingRevised(props.ordered, revising.index, { ...reading.value, at: revising.taken.reading.at }))
+    await revise(withReadingRevised(props.ordered, revising.index, { ...reading.value, at: revising.taken.reading.at }), "保存しました")
   }
 
   const saveInsertion = async (inserting: { readonly before: number; readonly at: string }): Promise<void> => {
@@ -241,22 +254,10 @@ export function ReadingComposer(props: {
           )}
         </For>
       </ToggleGroup>
-      <div class="grid grid-cols-3 items-end gap-1.5">
+      <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-1.5">
         <TextField label="回転数" value={form().counter} onChange={(counter) => change({ counter })} inputMode="numeric" invalid={nudged("counter")} onFocus={nudge.settle} compact />
         <TextField label="持ち玉" value={form().held} onChange={(held) => change({ held, heldCarried: false })} inputMode="numeric" suffix="玉" invalid={nudged("held")} onFocus={nudge.settle} compact />
-        <div class="flex items-end gap-1">
-          <button
-            type="button"
-            aria-label={form().drift === "loss" ? "その他で減った（押すと増えたに切替）" : "その他で増えた（押すと減ったに切替）"}
-            onClick={() => change({ drift: form().drift === "loss" ? "gain" : "loss" })}
-            class="flex h-10 w-7 shrink-0 items-center justify-center rounded-[3px] bg-surface-input text-base font-bold text-text-primary focus-visible:outline-2 focus-visible:outline-focus-ring"
-          >
-            {form().drift === "loss" ? "−" : "＋"}
-          </button>
-          <div class="min-w-0 flex-1">
-            <TextField label="その他増減" value={form().supported} onChange={(supported) => change({ supported })} inputMode="numeric" invalid={nudged("supported")} onFocus={nudge.settle} compact />
-          </div>
-        </div>
+        <DriftButton drift={form().drift} supported={form().supported} invalid={nudged("supported")} onDrift={(drift) => change({ drift })} onSupported={(supported) => change({ supported })} onFocus={nudge.settle} />
       </div>
       <div class="grid grid-cols-2 items-end gap-1.5">
         <div class="flex items-end gap-1">

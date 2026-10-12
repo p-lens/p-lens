@@ -26,12 +26,18 @@ const DRAFT: PlayDraft = {
 
 const NOWHERE: PlayDraft = { ...DRAFT, venue: { type: "none", terms: TERMS } }
 
-const PLAYED: PlayedSoFar = { outlay: 12_000, replay: undefined, held: 4500, theoreticalValue: undefined }
+const PLAYED: PlayedSoFar = { outlay: 12_000, replay: undefined, carriedIn: undefined, held: 4500, theoreticalValue: undefined }
 
 describe("a play followed live, as it is recorded", () => {
   test("leaves at its parlor the tokens counted in hand at its last line", () => {
     expect(formFromDraft(DRAFT, PLAYED).payout).toBe("4500")
     expect(formFromDraft(DRAFT, { ...PLAYED, held: undefined }).payout).toBe("")
+  })
+
+  test("is begun with the tokens its first line counted in hand, which are not what it made", () => {
+    expect(formFromDraft(DRAFT, { ...PLAYED, carriedIn: 1500 }).carriedIn).toBe("1500")
+    expect(formFromDraft(DRAFT, PLAYED).carriedIn).toBe("")
+    expect(tallyFormFromDraft(NOWHERE, { ...PLAYED, outlay: 0, carriedIn: 1500, held: 2900 }).result).toBe("5600")
   })
 
   test("with no parlor, comes to those tokens exchanged less the cash spent", () => {

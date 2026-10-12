@@ -24,7 +24,8 @@ const NUMERIC_FIELDS: Readonly<Record<NumericField, string>> = {
   "rental-tokens": "貸玉・貸メダル",
   "replay-paid-out": "再プレイ払出",
   "replay-deducted": "再プレイ減数",
-  payout: "獲得",
+  "carried-in": "開始時の持ち玉・持ちメダル",
+  payout: "持ち玉・持ちメダル",
   result: "収支",
   "theoretical-value": "期待値",
 }
@@ -44,7 +45,7 @@ export const describePlayError = (error: PlayError): string => {
     case "rental-incomplete":
       return "投資額と貸玉・貸メダルの数は両方入力してください。"
     case "nothing-played":
-      return "貸玉・再プレイ・獲得のどれかを入力してください。"
+      return "貸玉・再プレイ・開始時の持ち玉・持ち玉のどれかを入力してください。"
     case "replay-below-payout":
       return "再プレイで減った貯玉が、払い出された数より少なくなっています。"
     case "pool-not-kept":

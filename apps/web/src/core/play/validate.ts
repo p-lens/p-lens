@@ -45,7 +45,7 @@ const checkRentalComplete: Check = (record) =>
     : Ok(record)
 
 const checkSomethingPlayed: Check = (record) =>
-  (record.rental === undefined || isZero(record.rental.tokens)) && isZero(record.replay.paidOut) && isZero(record.payout)
+  (record.rental === undefined || isZero(record.rental.tokens)) && isZero(record.replay.paidOut) && isZero(record.carriedIn) && isZero(record.payout)
     ? Err({ type: "nothing-played" })
     : Ok(record)
 
@@ -70,10 +70,12 @@ const CHECKS: readonly Check[] = [
   checkNonNegative("rental-tokens", (record) => record.rental?.tokens),
   checkNonNegative("replay-paid-out", (record) => record.replay.paidOut),
   checkNonNegative("replay-deducted", (record) => record.replay.deducted),
+  checkNonNegative("carried-in", (record) => record.carriedIn),
   checkNonNegative("payout", (record) => record.payout),
   checkWholeTokens("rental-tokens", (record) => record.rental?.tokens),
   checkWholeTokens("replay-paid-out", (record) => record.replay.paidOut),
   checkWholeTokens("replay-deducted", (record) => record.replay.deducted),
+  checkWholeTokens("carried-in", (record) => record.carriedIn),
   checkWholeTokens("payout", (record) => record.payout),
   checkRentalComplete,
   checkSomethingPlayed,

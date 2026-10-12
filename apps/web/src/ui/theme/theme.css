@@ -216,6 +216,23 @@ body {
   }
 }
 
+/*
+ * A card that was not there a moment ago, of whatever height it comes to:
+ * its one row grows from nothing to all of it, so it spreads downwards and
+ * eases away what is below. The row's child is what hides the rest while
+ * it grows (min-height 0, overflow hidden).
+ */
+@keyframes spread {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}
+
 /* A bubble growing out of what it speaks for: taller as it fades in. */
 @keyframes unfurl {
   from {

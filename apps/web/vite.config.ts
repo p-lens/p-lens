@@ -1,9 +1,9 @@
-import { readdirSync, readFileSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { extname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import tailwindcss from "@tailwindcss/vite"
-import { defineConfig, type Plugin } from "vite"
+import { defineConfig, type Plugin, type ServerOptions } from "vite"
 import { VitePWA } from "vite-plugin-pwa"
 import solid from "vite-plugin-solid"
 
@@ -95,9 +95,19 @@ const branding = (): Plugin => ({
       .replaceAll("%DEPLOYMENT_ADDRESS%", DEPLOYMENT.address),
 })
 
+/**
+ * Options for the dev server that are this machine's alone: where
+ * `vite.local.json` is beside this file — it is kept out of git, so a copy
+ * of the repository has none — what it says is laid over the server's
+ * options while the app is developed. Nothing is built from it.
+ */
+const LOCAL_SERVER = fileURLToPath(new URL("./vite.local.json", import.meta.url))
+
+const localServer = (): ServerOptions => (existsSync(LOCAL_SERVER) ? (JSON.parse(readFileSync(LOCAL_SERVER, "utf8")) as ServerOptions) : {})
+
 export default defineConfig({
   define: { "import.meta.env.VITE_APP_VERSION": JSON.stringify(VERSION) },
-  server: { port: 8136, strictPort: true },
+  server: { ...localServer(), port: 8136, strictPort: true },
   preview: { port: 8136, strictPort: true },
   plugins: [
     solid(),

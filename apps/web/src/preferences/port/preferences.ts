@@ -13,6 +13,9 @@ export interface Preferences {
   /** The day's parlor setting, as the start form and a reading's buttons wrote it, or none yet. */
   readonly parlorSetting: () => string | undefined
   readonly setParlorSetting: (written: string) => void
+  /** The tokens in hand between two plays of a day, as the play that left them wrote them, or none. */
+  readonly tokensInHand: () => string | undefined
+  readonly setTokensInHand: (written: string | undefined) => void
   /** A formula of a game the shared catalog did not take, as it was written to be sent again, or none. */
   readonly formulaDraft: (gameKind: GameKind) => string | undefined
   readonly setFormulaDraft: (gameKind: GameKind, written: string | undefined) => void

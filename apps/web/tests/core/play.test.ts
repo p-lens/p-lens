@@ -47,6 +47,24 @@ describe("composePlayEntry", () => {
     ])
   })
 
+  test("tokens carried in leave savings and are spent with no fee, and the entry says how many", () => {
+    const carried = { ...RENTED_PLAY, rental: undefined, replay: { paidOut: dec("1000"), deducted: dec("1100") }, carriedIn: dec("1500"), payout: dec("2000"), theoreticalValue: undefined }
+    const entry = composePlayEntry(carried, PRICES)
+    expect(entry.ok && entry.value.postings.map((posting) => [posting.account, posting.amount.quantity])).toEqual([
+      ["資産:貯玉:ホシゾラ梅田店:4円", dec("-1100")],
+      ["費用:遊技", dec("1000")],
+      ["費用:再プレイ手数料", dec("100")],
+      ["資産:貯玉:ホシゾラ梅田店:4円", dec("-1500")],
+      ["費用:遊技", dec("1500")],
+      ["資産:貯玉:ホシゾラ梅田店:4円", dec("2000")],
+      ["収益:遊技", dec("-2000")],
+    ])
+    expect(entry.ok && entry.value.tags.at(-1)).toEqual(["carried-in", "1500"])
+    expect(mapOk(composePlayEntry(RENTED_PLAY, PRICES), (written) => written.tags.some(([name]) => name === "carried-in"))).toEqual({ ok: true, value: false })
+    expect(composePlayEntry({ ...carried, replay: { paidOut: dec("0"), deducted: dec("0") }, payout: dec("0") }, PRICES).ok).toBe(true)
+    expect(composePlayEntry({ ...carried, carriedIn: dec("-1") }, PRICES)).toEqual({ ok: false, error: { type: "negative-amount", field: "carried-in" } })
+  })
+
   test("a replay's fee is what savings lost beyond what was paid out, written apart from the play", () => {
     const replay = { ...RENTED_PLAY, rental: undefined, replay: { paidOut: dec("1000"), deducted: dec("1100") }, payout: dec("0"), theoreticalValue: undefined }
     const entry = composePlayEntry(replay, PRICES)

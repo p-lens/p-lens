@@ -4,7 +4,7 @@ import type { Operation, PlayDraft } from "../../../core/live-play/draft"
 import { formatMoment } from "../../wording/dates"
 
 /** What a reading's fields are called, those this list names; any other is shown by the name the log gives it. */
-const FIELDS: Readonly<Record<string, string>> = { spins: "回転", outlay: "投資", held: "持ち玉", replay: "再プレイ", support: "その他増減" }
+const FIELDS: Readonly<Record<string, string>> = { spins: "回転", outlay: "投資", held: "持ち玉", replay: "再プレイ", support: "電サポ増減" }
 
 /** The fields of a reading that say when it was written and not what it read: passed over, since an operation says when itself. */
 const UNSAID = ["at"]

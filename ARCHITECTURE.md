@@ -281,6 +281,22 @@ rate for the day differs.
   A replay takes more off savings than it pays out; the difference is written
   to `費用:再プレイ手数料`, also in tokens.
 - **Payout** is the tokens left at the end, earned and put back into savings.
+  On screen they are the tokens in hand (持ち玉, 持ちメダル): the book puts
+  them into savings whether or not they went to the counter.
+- **Carried in** (`carriedIn`, 開始時の持ち玉) is the tokens a play was begun
+  with in hand, brought from the play before. That play put them into
+  savings as what it left, so this one takes them out again and spends
+  them — `資産:貯玉 -1500`, `費用:遊技 1500` — with no fee, and the two plays
+  together come to what the day did. The postings read as a replay's, so
+  the entry's `carried-in` tag says how many they were. In a play's log
+  they are what its first line counts in hand (`carriedInOf`), never a
+  replay: the engine weighs them as the player's own balls.
+
+What a recorded play left is kept on the device for its business day, its
+parlor and its pool (`ui/features/live/tokens-in-hand`, a preference): the
+day's next play started there is begun with them, written into its first
+line, and they are then no longer kept. A play recorded again changes
+them only while they are still its own to say.
 - **Theoretical value** (期待値) is the virtual posting, written only when
   given: what the play was worth by its formula, whatever it came to.
 

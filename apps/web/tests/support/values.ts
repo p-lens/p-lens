@@ -36,6 +36,7 @@ export const RENTED_PLAY: PlayRecord = {
   cabinetNumber: "123",
   rental: { outlay: dec("12000"), tokens: dec("3000") },
   replay: { paidOut: dec("0"), deducted: dec("0") },
+  carriedIn: dec("0"),
   payout: dec("4800"),
   theoreticalValue: dec("5500"),
 }

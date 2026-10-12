@@ -31,6 +31,39 @@ export const endCounterOf = (log: string, gameKind: PlayGameKind): EndCounter | 
   return parsed.ok ? lastRead(inPlayOrder(parsed.value), gameKind) : undefined
 }
 
+/** The moment a play's log was last written to: the latest any of its lines says, its ending aside. None for a log that does not read, or whose lines say no moment. */
+export const lastWrittenAt = (log: string): string | undefined => {
+  const parsed = parsePlayLog(log)
+  if (!parsed.ok) return undefined
+  return parsed.value
+    .filter((checkpoint) => checkpoint.event?.kind !== "ended")
+    .flatMap((checkpoint) => (checkpoint.at === undefined ? [] : [checkpoint.at]))
+    .reduce<string | undefined>((latest, at) => (latest === undefined || new Date(at).getTime() > new Date(latest).getTime() ? at : latest), undefined)
+}
+
+/**
+ * How long after its last line a play is taken to have gone on, in
+ * minutes, where nobody says when it ended. A person following their own
+ * play writes a line every few thousand yen — some a quarter of an hour
+ * apart — so their play may have run that long past its last line; a play
+ * sent by someone else was written to up to the moment it was sent, and
+ * is given less.
+ */
+export const PLAYED_ON_FOR = { own: 15, received: 5 } as const
+
+/**
+ * When a play is taken to have ended, asked at `now`: now, while the play
+ * was written to lately — the person is still at the cabinet — and
+ * otherwise so long after its last line and no later. A play recorded the
+ * morning after did not end that morning. A log that says no moment ends
+ * now.
+ */
+export const endedBy = (now: string, lastWritten: string | undefined, minutes: number): string => {
+  if (lastWritten === undefined) return now
+  const latest = new Date(lastWritten).getTime() + minutes * 60_000
+  return new Date(now).getTime() <= latest ? now : new Date(latest).toISOString()
+}
+
 /**
  * A log with the line that ends its play, last in play order: when the
  * play ended, and the counter as it then stood where that is further on

@@ -10,8 +10,9 @@ import type { PlayId } from "../../../core/play/play"
 import * as Pachinko from "../../../core/pachinko"
 import { type PlayDraft } from "../../../core/live-play/draft"
 import { parsePlayLog, type Checkpoint } from "../../../core/play-log/checkpoint"
-import { endCounterOf, type EndCounter } from "../../../core/play-log/end"
+import { endCounterOf, endedBy, lastWrittenAt, PLAYED_ON_FOR, type EndCounter } from "../../../core/play-log/end"
 import { liveSummary } from "../../../core/play-log/live"
+import { carriedInOf } from "../../../core/play-log/carried-in"
 import { inPlayOrder } from "../../../core/play-log/performance"
 import { Ok } from "../../../core/result/result"
 import { useApp } from "../../context"
@@ -30,6 +31,7 @@ import { bookTitle } from "../../wording/book"
 import { ViewHeader } from "../shell/ViewHeader"
 import { counterStands, endFormOf, readEndForm, type EndForm } from "./end-form"
 import { OperationHistory } from "./OperationHistory"
+import { tokensKeptAfter } from "./tokens-in-hand"
 
 /**
  * What a pachislot play's games are worth by its formula: the setting levels
@@ -45,16 +47,17 @@ const pachislotValueOf = async (engine: PachislotEngine.EngineClient, draft: Pla
 /** A log that does not read leaves the form to the draft alone. */
 const playedOf = async (engine: PachislotEngine.EngineClient, draft: PlayDraft): Promise<PlayedSoFar> => {
   const parsed = parsePlayLog(draft.log)
-  if (!parsed.ok) return { outlay: undefined, replay: undefined, held: undefined, theoreticalValue: undefined }
+  if (!parsed.ok) return { outlay: undefined, replay: undefined, carriedIn: undefined, held: undefined, theoreticalValue: undefined }
   const ordered = inPlayOrder(parsed.value)
   const summary = liveSummary(ordered)
   const replay = ordered.findLast((checkpoint) => checkpoint.replay !== undefined)?.replay
-  if (draft.gameKind === "slot") return { outlay: summary.outlay, replay, held: ordered.at(-1)?.held, theoreticalValue: await pachislotValueOf(engine, draft, ordered) }
+  const carriedIn = carriedInOf(ordered)
+  if (draft.gameKind === "slot") return { outlay: summary.outlay, replay, carriedIn, held: ordered.at(-1)?.held, theoreticalValue: await pachislotValueOf(engine, draft, ordered) }
   const terms = draft.venue.terms
   const held = terms === undefined ? ordered.at(-1)?.held : Pachinko.heldAtEndOf(ordered, terms)
   const theoretical =
     draft.pachinko === undefined || terms === undefined ? undefined : Pachinko.playTheoreticalValue(draft.pachinko.figures, terms, Pachinko.consumptionOf(ordered, terms))
-  return { outlay: summary.outlay, replay, held, theoreticalValue: theoretical?.theoreticalValue }
+  return { outlay: summary.outlay, replay, carriedIn, held, theoreticalValue: theoretical?.theoreticalValue }
 }
 
 const COUNTER_LABELS: Readonly<Record<PlayDraft["gameKind"], string>> = { pachinko: "終了時回転数", slot: "終了時ゲーム数" }
@@ -81,9 +84,9 @@ function EndFields(props: { readonly form: EndForm; readonly read: EndCounter | 
   )
 }
 
-/** The form as a play recorded before is about to be recorded again: ended when it was said to have ended then, on the counter given then where one was. A play not yet recorded ends now. */
+/** The form as a play recorded before is about to be recorded again: ended when it was said to have ended then, on the counter given then where one was. A play not yet recorded ends now, or — left unrecorded a while — so long after its last line and no later. */
 const endedAs = (draft: PlayDraft, now: string, read: EndCounter | undefined): EndForm => {
-  const form = endFormOf(draft.recorded?.end.at ?? now, read)
+  const form = endFormOf(draft.recorded?.end.at ?? endedBy(now, lastWrittenAt(draft.log), draft.received === undefined ? PLAYED_ON_FOR.own : PLAYED_ON_FOR.received), read)
   return draft.recorded?.end.counter === undefined ? form : { ...form, counter: String(draft.recorded.end.counter) }
 }
 
@@ -212,7 +215,10 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
                     playId={draft.id}
                     words={words}
                     submit={(record) => finishPlay(app.services.session, app.services.drafts, draft, bookId, record, readEndForm(end(), draft.startedAt), app.services.now())}
-                    onRecorded={(record) => recorded(record.id)}
+                    onRecorded={(record) => {
+                      if (draft.received === undefined) app.services.preferences.setTokensInHand(tokensKeptAfter(app.services.preferences.tokensInHand(), app.services.businessDay(), { id: draft.id, recordedBefore: draft.recorded !== undefined }, record))
+                      recorded(record.id)
+                    }}
                   />
                 )}
               </Show>

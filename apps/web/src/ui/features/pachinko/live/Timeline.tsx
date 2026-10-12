@@ -49,7 +49,7 @@ const ballsText = (step: Step): string =>
   [
     step.rented > 0 ? `貸玉 ¥${formatCount(step.rented)}` : undefined,
     step.replayed > 0 ? `貯玉 ${formatCount(step.replayed)}玉` : undefined,
-    step.supported !== 0 ? `その他 ${signedBalls(step.supported)}` : undefined,
+    step.supported !== 0 ? `電サポ ${signedBalls(step.supported)}` : undefined,
     step.checkpoint.held === undefined ? undefined : `持ち玉 ${formatCount(step.checkpoint.held)}玉`,
   ]
     .filter((text): text is string => text !== undefined)

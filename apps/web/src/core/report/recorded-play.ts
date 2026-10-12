@@ -1,9 +1,9 @@
 import type { Posting, Transaction } from "../../hledger/protocol/wire"
 import { YEN, tokenCommodity } from "../commodity/commodity"
-import { isNegative, isZero, negate, subtract, sum, type Decimal } from "../decimal/decimal"
+import { ZERO, isNegative, isZero, negate, parseDecimal, subtract, sum, type Decimal } from "../decimal/decimal"
 import { ACCOUNTS, rentalSpreadAccount, savingsAccount } from "../journal/accounts"
 import { identityIn, sameIdentity, type Parlor } from "../parlor/parlor"
-import { tokenKindOf, type PlayHead, type PlayRecord, type TalliedPlay } from "../play/play"
+import { PLAY_TAGS, tokenKindOf, type PlayHead, type PlayRecord, type TalliedPlay } from "../play/play"
 import { SOURCE_TAGS } from "../import/source-play"
 import { decimalOfQuantity } from "./figures"
 import { playSummaryOf } from "./plays"
@@ -47,7 +47,9 @@ const talliedOf = (head: PlayHead, real: readonly Posted[], parlor: Parlor | "no
  * A play in tokens, worked back from what its entry moved. Savings lose
  * what a replay took and gain what was left, so a replay took what was left
  * less what savings came to hold more; it paid out that less its fee, and
- * the tokens rented are the rest of what was spent. The pool is the one of
+ * the tokens rented are the rest of what was spent — each but for the
+ * tokens carried in, which the entry's tag counts, since they leave savings
+ * and are spent as a replay's do. The pool is the one of
  * the parlor's whose tokens the entry is in: a play of cash alone that left
  * nothing touches no savings account to say it.
  *
@@ -56,7 +58,7 @@ const talliedOf = (head: PlayHead, real: readonly Posted[], parlor: Parlor | "no
  * and is read as what it was recorded from. An entry these do not add up
  * for was not written by a record, and is not read as one.
  */
-const atParlorOf = (head: PlayHead, real: readonly Posted[], commodity: string, parlor: Parlor): RecordedPlay | undefined => {
+const atParlorOf = (head: PlayHead, real: readonly Posted[], commodity: string, parlor: Parlor, carriedIn: Decimal): RecordedPlay | undefined => {
   const pool = parlor.pools.find((kept) => tokenCommodity(kept.kind, parlor.name, kept.tier) === commodity)
   if (pool === undefined || tokenKindOf(head.gameKind) !== pool.kind) return undefined
   const account = savingsAccount(pool.kind, parlor.name, pool.tier)
@@ -73,11 +75,19 @@ const atParlorOf = (head: PlayHead, real: readonly Posted[], commodity: string, 
   const outlay = negate(at(real, ACCOUNTS.cash))
   const payout = negate(at(real, ACCOUNTS.playRevenue))
   const passedThrough = subtract(sum(moved.filter((quantity) => !isNegative(quantity))), payout)
-  const deducted = subtract(payout, sum(moved))
+  const deducted = subtract(subtract(payout, sum(moved)), carriedIn)
   const paidOut = subtract(deducted, at(real, ACCOUNTS.replayFee))
-  const tokens = subtract(at(real, ACCOUNTS.playExpense), paidOut)
-  const adds = [outlay, payout, tokens, paidOut, subtract(deducted, paidOut)].every((count) => !isNegative(count)) && (isZero(passedThrough) || same(passedThrough, tokens)) && isZero(outlay) === isZero(tokens)
-  return adds ? { type: "at-parlor", record: { ...head, parlor, pool: { kind: pool.kind, tier: pool.tier }, rental: isZero(tokens) ? undefined : { outlay, tokens }, replay: { paidOut, deducted }, payout } } : undefined
+  const tokens = subtract(subtract(at(real, ACCOUNTS.playExpense), paidOut), carriedIn)
+  const adds = [outlay, payout, tokens, paidOut, carriedIn, subtract(deducted, paidOut)].every((count) => !isNegative(count)) && (isZero(passedThrough) || same(passedThrough, tokens)) && isZero(outlay) === isZero(tokens)
+  return adds ? { type: "at-parlor", record: { ...head, parlor, pool: { kind: pool.kind, tier: pool.tier }, rental: isZero(tokens) ? undefined : { outlay, tokens }, replay: { paidOut, deducted }, carriedIn, payout } } : undefined
+}
+
+/** The tokens an entry's tag says were carried in: none where it has no such tag, undefined where the tag does not read as a count. */
+const carriedInOf = (transaction: Transaction): Decimal | undefined => {
+  const said = transaction.ttags.find(([name]) => name === PLAY_TAGS.carriedIn)?.[1]
+  if (said === undefined) return ZERO
+  const read = parseDecimal(said.trim())
+  return read.ok ? read.value : undefined
 }
 
 /** Whether an entry was taken in from another app: it keeps both sides of its result and what that app called things, none of which a form holds. */
@@ -98,5 +108,6 @@ export const recordedPlayOf = (transaction: Transaction, parlors: readonly Parlo
   const real = postedIn(transaction.tpostings.filter((posting) => posting.ptype === "RegularPosting"))
   const [commodity, ...others] = [...new Set(real.map((each) => each.commodity).filter((each) => each !== YEN))]
   if (commodity === undefined) return talliedOf(head, real, parlor)
-  return others.length > 0 || parlor === "none" ? undefined : atParlorOf(head, real, commodity, parlor)
+  const carriedIn = carriedInOf(transaction)
+  return others.length > 0 || parlor === "none" || carriedIn === undefined ? undefined : atParlorOf(head, real, commodity, parlor, carriedIn)
 }

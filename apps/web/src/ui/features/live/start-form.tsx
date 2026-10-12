@@ -11,6 +11,7 @@ import { useApp } from "../../context"
 import * as PachislotChoice from "../pachislot/start/choice"
 import { recalledParlorSetting, writtenParlorSetting } from "./parlor-setting"
 import { readTerms, termsAsOpened, type TermsForm } from "./start-terms"
+import { tokensStillInHand } from "./tokens-in-hand"
 
 /**
  * Where a play will be: no parlor, a parlor on the list, or one this device
@@ -167,11 +168,14 @@ const Context = createContext<StartFormState>()
  * terms — is kept on the device as it changes and is the form's for the
  * business day it was made on: the day's next play starts from it, a
  * reload does not lose it, and the day after starts empty. What a press
- * adds is the parlor's, so choosing another parlor forgets it.
+ * adds is the parlor's, so choosing another parlor forgets it. The tokens
+ * left in hand by a day's play are let go of here once the day has turned
+ * over: they are no day's but their own.
  */
 export function StartFormProvider(props: { readonly children: JSX.Element }): JSX.Element {
   const app = useApp()
   const recalled = recalledParlorSetting(app.services.preferences.parlorSetting(), app.services.businessDay())
+  if (app.services.preferences.tokensInHand() !== tokensStillInHand(app.services.preferences.tokensInHand(), app.services.businessDay())) app.services.preferences.setTokensInHand(undefined)
   const [held, setHeld] = createSignal<StartForm>(recalled === undefined ? EMPTY_START_FORM : { ...EMPTY_START_FORM, parlor: recalled.parlor, terms: recalledTerms(recalled.terms) })
   const [settingDay, setSettingDay] = createSignal(app.services.businessDay())
   const form = (): StartForm => (settingDay() === app.services.businessDay() ? held() : { ...held(), parlor: EMPTY_START_FORM.parlor, terms: EMPTY_START_FORM.terms })

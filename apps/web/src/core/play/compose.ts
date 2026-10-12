@@ -1,5 +1,5 @@
 import { YEN, tokenCommodity, type TokenKind } from "../commodity/commodity"
-import { isNegative, isZero, multiply, negate, subtract, type Decimal } from "../decimal/decimal"
+import { isNegative, isZero, multiply, negate, subtract, toPlainString, type Decimal } from "../decimal/decimal"
 import { ACCOUNTS, rentalSpreadAccount, savingsAccount } from "../journal/accounts"
 import type { Entry, Posting } from "../journal/entry"
 import { Err, Ok, andThen, mapOk, type Result } from "../result/result"
@@ -66,6 +66,14 @@ const replayPostings = (replay: Replay, holding: Holding): readonly Posting[] =>
   ]
 }
 
+/**
+ * Tokens in hand as the play began, brought from the play before: out of
+ * savings, where that play put them, and spent, with no fee — they never
+ * went to the counter.
+ */
+const carriedPostings = (carriedIn: Decimal, holding: Holding): readonly Posting[] =>
+  unlessZero(carriedIn, [real(holding.account, negate(carriedIn), holding.commodity), real(ACCOUNTS.playExpense, carriedIn, holding.commodity)])
+
 /** Tokens left at the end, earned by the play and put into savings. */
 const payoutPostings = (payout: Decimal, holding: Holding): readonly Posting[] =>
   unlessZero(payout, [real(holding.account, payout, holding.commodity), real(ACCOUNTS.playRevenue, negate(payout), holding.commodity)])
@@ -95,6 +103,9 @@ const describe = (record: PlayHead, parlor: Parlor | undefined): string =>
     .filter((part): part is string => part !== undefined && part !== "")
     .join(" ")
 
+/** What an entry says of the tokens carried in, where there were any: its postings alone read as a replay's, so the count is said beside them. */
+const carriedTags = (record: PlayRecord): Entry["tags"] => (isZero(record.carriedIn) ? [] : [[PLAY_TAGS.carriedIn, toPlainString(record.carriedIn)]])
+
 const tagsOf = (record: PlayHead, parlor: Parlor | undefined): Entry["tags"] => [
   [PLAY_TAGS.playId, record.id],
   ...(parlor === undefined ? [] : identityTags(parlor.identity)),
@@ -113,13 +124,14 @@ const postingsOf = (record: PlayRecord, rate: Decimal | undefined): readonly Pos
   return [
     ...(record.rental === undefined || rate === undefined ? [] : rentalPostings(record.rental, rate, holding)),
     ...replayPostings(record.replay, holding),
+    ...carriedPostings(record.carriedIn, holding),
     ...payoutPostings(record.payout, holding),
     ...statisticPostings(record),
   ]
 }
 
 /**
- * One play as one journal entry: rental, replay, payout and theoretical
+ * One play as one journal entry: rental, replay, tokens carried in, payout and theoretical
  * value together, so a play is one change to the book and one commit.
  */
 export const composePlayEntry = (record: PlayRecord, prices: readonly PricePoint[]): Result<Entry, PlayError> =>
@@ -127,7 +139,7 @@ export const composePlayEntry = (record: PlayRecord, prices: readonly PricePoint
     mapOk(rentalRate(valid, prices), (rate) => ({
       date: valid.date,
       description: describe(valid, valid.parlor),
-      tags: tagsOf(valid, valid.parlor),
+      tags: [...tagsOf(valid, valid.parlor), ...carriedTags(valid)],
       postings: postingsOf(valid, rate),
     })),
   )

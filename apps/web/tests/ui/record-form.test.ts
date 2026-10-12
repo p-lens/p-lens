@@ -24,11 +24,18 @@ const FORM: PlayForm = {
   rentalTokens: "",
   replayPaidOut: "",
   replayDeducted: "",
+  carriedIn: "",
   payout: "",
   theoreticalValue: "",
 }
 
 describe("the record form", () => {
+  test("counts the tokens a play was begun with against what it left, at no fee", () => {
+    const read = readPlayForm({ ...FORM, carriedIn: "1,500", payout: "2000" }, AT, ID)
+    expect(read.ok && [read.value.carriedIn, read.value.replay, read.value.payout]).toEqual([dec("1500"), { paidOut: dec("0"), deducted: dec("0") }, dec("2000")])
+    expect(read.ok && playResultOf(read.value, dec("3.5"))).toEqual(dec("1750.0"))
+  })
+
   test("composes a play of cash at a pool the book has yet to hear of, on the rate its terms state", () => {
     const elsewhere = playedOnTerms({ ...UMEDA, name: "スーパーホール", pools: [] }, TERMS, "pachinko")
     const read = readPlayForm({ ...FORM, date: "2026-10-11", outlay: "5000" }, elsewhere, ID)

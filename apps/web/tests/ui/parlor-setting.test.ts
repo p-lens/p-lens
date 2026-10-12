@@ -54,7 +54,7 @@ describe("what a press adds at the day's parlor", () => {
   })
 
   test("is dropped where it does not read as an amount", () => {
-    const kept = JSON.stringify({ day: DAY, parlor: SETTING.parlor, terms: SETTING.terms, presses: { "1000/250": { rental: 0, draw: 12345 } } })
+    const kept = JSON.stringify({ day: DAY, parlor: SETTING.parlor, terms: SETTING.terms, presses: { "1000/250": { rental: 0, draw: 123456 } } })
     expect(pressesAt(recalledParlorSetting(kept, DAY), FOUR)).toEqual({})
   })
 })

@@ -4,6 +4,7 @@ import type { Preferences } from "../port/preferences"
 
 const BUSINESS_DAY_TURN = "p-lens.business-day-turn"
 const PARLOR_SETTING = "p-lens.parlor-setting"
+const TOKENS_IN_HAND = "p-lens.tokens-in-hand"
 const CONSOLIDATION_SHOWN = "p-lens.consolidation-shown"
 const FORMULA_DRAFT: Readonly<Record<GameKind, string>> = { pachinko: "p-lens.formula-draft.pachinko", pachislot: "p-lens.formula-draft.pachislot" }
 
@@ -40,9 +41,10 @@ const forget = (key: string): void => {
  * refuses a change, the change still holds for as long as the page is open.
  */
 export const createLocalStoragePreferences = (): Preferences => {
-  const held: { businessDayTurn: BusinessDayTurn; parlorSetting: string | undefined; consolidationShown: boolean; formulaDraft: Record<GameKind, string | undefined> } = {
+  const held: { businessDayTurn: BusinessDayTurn; parlorSetting: string | undefined; tokensInHand: string | undefined; consolidationShown: boolean; formulaDraft: Record<GameKind, string | undefined> } = {
     businessDayTurn: readBusinessDayTurn(stored(BUSINESS_DAY_TURN)),
     parlorSetting: stored(PARLOR_SETTING),
+    tokensInHand: stored(TOKENS_IN_HAND),
     consolidationShown: stored(CONSOLIDATION_SHOWN) === ON,
     formulaDraft: { pachinko: stored(FORMULA_DRAFT.pachinko), pachislot: stored(FORMULA_DRAFT.pachislot) },
   }
@@ -56,6 +58,12 @@ export const createLocalStoragePreferences = (): Preferences => {
     setParlorSetting: (written) => {
       held.parlorSetting = written
       keep(PARLOR_SETTING, written)
+    },
+    tokensInHand: () => held.tokensInHand,
+    setTokensInHand: (written) => {
+      held.tokensInHand = written
+      if (written === undefined) forget(TOKENS_IN_HAND)
+      else keep(TOKENS_IN_HAND, written)
     },
     formulaDraft: (gameKind) => held.formulaDraft[gameKind],
     setFormulaDraft: (gameKind, written) => {

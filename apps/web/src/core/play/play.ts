@@ -50,12 +50,18 @@ export interface PlayHead {
  * Tokens rented or paid out from savings are all shot; whatever is left at
  * the end goes back into savings as the payout. Exchanging savings for cash is
  * a separate act, not part of a play.
+ *
+ * Tokens carried in are those in hand as the play began, brought from the
+ * play before: that play put them into savings as what it left, so this one
+ * takes them out again, with no fee — they never went to the counter — and
+ * what the two plays come to together is what the day did.
  */
 export interface PlayRecord extends PlayHead {
   readonly parlor: Parlor
   readonly pool: SavingsPool
   readonly rental: Rental | undefined
   readonly replay: Replay
+  readonly carriedIn: Decimal
   readonly payout: Decimal
 }
 
@@ -74,6 +80,7 @@ export const PLAY_TAGS = {
   gameKind: "game-kind",
   machine: "machine",
   cabinetNumber: "cabinet-number",
+  carriedIn: "carried-in",
 } as const
 
 /** The parts of a record a person fills in with a number. */
@@ -82,6 +89,7 @@ export type NumericField =
   | "rental-tokens"
   | "replay-paid-out"
   | "replay-deducted"
+  | "carried-in"
   | "payout"
   | "result"
   | "theoretical-value"

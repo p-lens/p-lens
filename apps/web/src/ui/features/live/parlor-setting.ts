@@ -13,7 +13,7 @@ export interface PressAmounts {
 }
 
 /** The most digits a press's amount has. */
-export const PRESS_DIGITS = 4
+export const PRESS_DIGITS = 5
 
 /**
  * The day's parlor setting: the parlor chosen and its corners' terms as

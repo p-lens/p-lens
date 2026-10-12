@@ -19,6 +19,14 @@ const TONES: Readonly<Record<ToastTone, string>> = {
 /** How long a toast stays, in milliseconds, unless it is hovered or touched. */
 const SHOWN_FOR = 4000
 
+/**
+ * How long a toast that only says a press took stays: a glance is long
+ * enough to read a word by and gone before the next thing is typed; a
+ * blink is shorter still, for a press the screen itself answers by
+ * changing.
+ */
+const SHOWN_BRIEFLY_FOR: Readonly<Record<"glance" | "blink", number>> = { glance: 1200, blink: 700 }
+
 /** How far a toast must be swiped, in pixels, before letting go throws it away rather than puts it back. */
 const SWIPE_AWAY = 50
 
@@ -53,12 +61,16 @@ export function ToastRegion(): JSX.Element {
 /**
  * Say something briefly without stopping anyone: a title, perhaps a line
  * more, gone after a few seconds or when closed. Never for something that
- * must be answered — that belongs on the screen itself.
+ * must be answered — that belongs on the screen itself. One said to stay
+ * a glance or a blink only says that a press took: it is done many times
+ * over, and is gone in a moment so as not to stand over what is typed
+ * next.
  */
-export const toast = (message: { readonly title: string; readonly description?: string; readonly tone?: ToastTone }): void => {
+export const toast = (message: { readonly title: string; readonly description?: string; readonly tone?: ToastTone; readonly stays?: "glance" | "blink" }): void => {
   toaster.show((props) => (
     <ToastPrimitive.Root
       toastId={props.toastId}
+      {...(message.stays === undefined ? {} : { duration: SHOWN_BRIEFLY_FOR[message.stays] })}
       class={`flex items-start gap-3 rounded-md border border-l-4 border-border bg-surface-1 px-4 py-3 shadow-lg ${TONES[message.tone ?? "info"]} ${MOTION}`}
     >
       <div class="min-w-0 flex-1">

@@ -14,3 +14,4 @@ apps/api/wrangler.production.jsonc
 apps/relay/wrangler.production.jsonc
 .claude/worktrees/
 apps/web/src/generated/
+apps/web/vite.local.json

@@ -88,6 +88,16 @@ describe("a recorded play, read back from its entry", () => {
     expect(await recordedOf(session, "lost")).toEqual({ ok: true, value: { type: "at-parlor", record: lost } })
   })
 
+  test("is the record it was written from where the play was begun with tokens in hand, a replay's fee beside them or not", async () => {
+    const { session } = await setUp()
+    const carried: PlayRecord = { ...FULL, id: "carried" as PlayId, carriedIn: dec("1500") }
+    const carriedOnly: PlayRecord = { ...TODAY, id: "carried-only" as PlayId, rental: undefined, carriedIn: dec("1500"), payout: dec("0"), theoreticalValue: undefined }
+    expect((await recordPlay(session, BOOK, carried)).ok).toBe(true)
+    expect((await recordPlay(session, BOOK, carriedOnly)).ok).toBe(true)
+    expect(await recordedOf(session, "carried")).toEqual({ ok: true, value: { type: "at-parlor", record: carried } })
+    expect(await recordedOf(session, "carried-only")).toEqual({ ok: true, value: { type: "at-parlor", record: carriedOnly } })
+  })
+
   test("is refused where its entry was changed by hand into what no record makes, and where the book has no such play", async () => {
     const { session, storage } = await setUp()
     const text = storage.peek(BOOK)?.files[BOOK_FILES.transactions] ?? ""

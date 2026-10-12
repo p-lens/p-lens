@@ -47,6 +47,7 @@ import { useBookFavorites } from "../../live/book-favorites"
 import { EMPTY_PACHINKO_START, type PachinkoMachineChoice, type ParlorChoice, useStartBallValue, useStartForm } from "../../live/start-form"
 import { locateAddress, submitAddress } from "../../live/submission-return"
 import { readTerms, type TermsField } from "../../live/start-terms"
+import { tokensCarriedTo } from "../../live/tokens-in-hand"
 import { Terms } from "./Terms"
 
 /**
@@ -535,6 +536,7 @@ export function Start(props: {
     const form = start.form()
     const formula = selection()?.listing.formula
     const startedAt = app.services.now()
+    const carriedIn = tokensCarriedTo(app.services.preferences.tokensInHand(), app.services.businessDay(), venue(), "pachinko")
     const draft: PlayDraft = {
       id: app.services.newPlayId(),
       date: app.services.businessDay(),
@@ -545,7 +547,7 @@ export function Start(props: {
       bonuses: listedBonuses(),
       cabinetNumber: form.cabinetNumber.trim() === "" ? undefined : form.cabinetNumber.trim(),
       startedAt,
-      log: appendCheckpoint("", { spins: 0, outlay: 0, at: startedAt, counter: { spins: countTyped(form.startCounter), total: countTyped(form.pachinko.seatTotal), jackpots: countTyped(form.pachinko.seatJackpots) } }),
+      log: appendCheckpoint("", { spins: 0, outlay: 0, at: startedAt, counter: { spins: countTyped(form.startCounter), total: countTyped(form.pachinko.seatTotal), jackpots: countTyped(form.pachinko.seatJackpots) }, ...(carriedIn === undefined ? {} : { held: carriedIn }) }),
     }
     const started = await startPlay(app.services.drafts, draft)
     setStarting(false)
@@ -553,6 +555,7 @@ export function Start(props: {
       setFailure(started.error)
       return
     }
+    if (carriedIn !== undefined) app.services.preferences.setTokensInHand(undefined)
     if (formula !== undefined) await recordUse(app.services.catalog, { type: "formula", id: formula.id })
     start.update({ cabinetNumber: "", startCounter: "", pachinko: { ...EMPTY_PACHINKO_START, remakeFrom: start.form().pachinko.remakeFrom } })
     app.wrote()

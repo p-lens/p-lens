@@ -28,6 +28,7 @@ import { Button } from "../../../primitives/button"
 import { createNudge } from "../../../primitives/nudge"
 import { Loaded } from "../../../primitives/states"
 import { settleTyping, TextField } from "../../../primitives/text-field"
+import { toast } from "../../../primitives/toast"
 import { useMoves } from "../../../navigation/moves"
 import type { Place } from "../../../navigation/place"
 import { describeError, describePlayLogError } from "../../../wording/errors"
@@ -150,6 +151,7 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
     if (written.type !== "written") return
     setTouched(false)
     setForm(standingForm())
+    toast({ title: "記録しました", stays: "glance" })
   }
   const refusal = (): CounterRefusal | undefined => {
     const current = sending()
@@ -392,7 +394,7 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
           title={props.title}
           actions={
             <Button size="small" onClick={() => moves.go({ kind: "live-record", playId: props.draft.id })}>
-              収支を記帳
+              遊技を終了
             </Button>
           }
         />

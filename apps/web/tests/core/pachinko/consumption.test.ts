@@ -8,6 +8,13 @@ import type { Checkpoint } from "../../../src/core/play-log/checkpoint"
 
 const TERMS = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 125, deducted: 133 } }
 
+/** A log begun with balls in hand, each reading added in turn. */
+const playedWith = (held: number, readings: readonly Reading[]): readonly Checkpoint[] =>
+  readings.reduce<readonly Checkpoint[]>((log, each) => {
+    const added = checkpointsForReading(log, each, false)
+    return added.ok ? [...log, ...added.value] : log
+  }, [{ ...SAT_DOWN, held }])
+
 const SAT_DOWN: Checkpoint = { spins: 0, outlay: 0, counter: { spins: 120, total: 2400, jackpots: 9 } }
 
 const reading = (fields: Partial<Reading> & Pick<Reading, "counterSpins">): Reading => ({
@@ -221,5 +228,13 @@ describe("a press of the rental button", () => {
     expect([at(1000, 250), at(1000, 228), at(1000, 500)]).toEqual([500, 500, 500])
     expect([at(1000, 1000), at(1000, 910), at(1000, 2000)]).toEqual([200, 200, 200])
     expect(rentalPressOf(undefined)).toBe(500)
+  })
+})
+
+describe("a play begun with balls in hand", () => {
+  test("is measured from them as the player's own, neither rented nor drawn", () => {
+    const log = playedWith(1500, [reading({ counterSpins: 220, held: 250 })])
+    expect(consumptionOf(log, TERMS)).toEqual({ regularSpins: 100, measured: { spins: 100, balls: 1250, rentedBalls: 0, replayedBalls: 0 } })
+    expect(heldAtEndOf(log, TERMS)).toBe(250)
   })
 })

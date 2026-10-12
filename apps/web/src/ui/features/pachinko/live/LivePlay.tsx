@@ -59,7 +59,7 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
           title={props.title}
           actions={
             <Button size="small" onClick={() => moves.go({ kind: "live-record", playId: props.draft.id })}>
-              収支を記帳
+              遊技を終了
             </Button>
           }
         />

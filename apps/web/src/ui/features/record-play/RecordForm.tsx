@@ -26,10 +26,10 @@ const REASONS: Readonly<Record<Exclude<FieldProblem["reason"], "required">, stri
   "not-a-date": "日付を入力してください。",
 }
 
-/** What the two counts are called where they are typed: the tokens an outlay rented, and the savings a replay took. */
-const COUNT_LABELS: Readonly<Record<TokenKind, { readonly rented: string; readonly deducted: string }>> = {
-  ball: { rented: "貸玉数", deducted: "再プレイ（貯玉減）" },
-  medal: { rented: "貸メダル数", deducted: "再プレイ（貯メダル減）" },
+/** What the counts are called where they are typed: the tokens an outlay rented, the savings a replay took, the tokens in hand as the play began — brought from the play before — and the tokens in hand as it ended — what it leaves, which the book puts into savings. */
+const COUNT_LABELS: Readonly<Record<TokenKind, { readonly rented: string; readonly deducted: string; readonly carriedIn: string; readonly left: string }>> = {
+  ball: { rented: "貸玉数", deducted: "再プレイ（貯玉減）", carriedIn: "開始時の持ち玉", left: "持ち玉" },
+  medal: { rented: "貸メダル数", deducted: "再プレイ（貯メダル減）", carriedIn: "開始時の持ちメダル", left: "持ちメダル" },
 }
 
 /**
@@ -175,7 +175,10 @@ export function RecordForm(props: {
             </Show>
           </Show>
         </div>
-        <TextField label="獲得（貯玉へ）" value={form().payout} onChange={set("payout")} inputMode="numeric" suffix={unit()} error={problemOf("payout")}
+        <TextField label={COUNT_LABELS[kind()].carriedIn} value={form().carriedIn} onChange={set("carriedIn")} inputMode="numeric" suffix={unit()} error={problemOf("carried-in")}
+          invalid={nudged("carried-in")}
+          onFocus={nudge.settle} />
+        <TextField label={COUNT_LABELS[kind()].left} value={form().payout} onChange={set("payout")} inputMode="numeric" suffix={unit()} error={problemOf("payout")}
           invalid={nudged("payout")}
           onFocus={nudge.settle} />
         <div class="flex flex-col gap-1.5">
