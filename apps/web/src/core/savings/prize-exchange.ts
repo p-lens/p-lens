@@ -1,6 +1,6 @@
 import type { IsoDate } from "../calendar/calendar"
 import { YEN, tokenCommodity, type TokenKind } from "../commodity/commodity"
-import { isNegative, isZero, multiply, negate, subtract, type Decimal } from "../decimal/decimal"
+import { isNegative, isZero, multiply, negate, rounded, subtract, type Decimal } from "../decimal/decimal"
 import { ACCOUNTS, savingsAccount } from "../journal/accounts"
 import type { Entry, Posting } from "../journal/entry"
 import { identityTags, type Parlor, type SavingsPool } from "../parlor/parlor"
@@ -47,12 +47,12 @@ const checked = (exchange: PrizeExchange): Result<PrizeExchange, PrizeExchangePr
   return isNegative(exchange.specialPrizes) ? Err({ type: "negative-prizes" }) : Ok(exchange)
 }
 
-/** The accounts prizes are written to, as a book declares them, under the equity savings are set against. */
-const PRIZE_ACCOUNTS = [ACCOUNTS.specialPrizes, ACCOUNTS.oddPrizes] as const
+/** The accounts an exchange is written to, as a book declares them, under the equity savings are set against. */
+const PRIZE_ACCOUNTS = [ACCOUNTS.specialPrizes, ACCOUNTS.oddPrizes, ACCOUNTS.translationAdjustment] as const
 
 const declares = (accounts: string, account: string): boolean => accounts.split("\n").some((line) => line.startsWith(`account ${account}`))
 
-/** A book's accounts with the two prize accounts declared, each once, and the equity they stand under: a book made before prizes were recorded has none. */
+/** A book's accounts with the two prize accounts and the translation adjustment declared, each once, and the equity they stand under: a book made before they were recorded has none. */
 export const withPrizesDeclared = (accounts: string): string =>
   PRIZE_ACCOUNTS.filter((account) => !declares(accounts, account)).reduce((declared, account) => `${declared.replace(/\n*$/, "")}\naccount ${account}\n`, withEquityDeclared(accounts))
 
@@ -61,9 +61,13 @@ export const withPrizesDeclared = (accounts: string): string =>
  * book's exchange rate for the day — what they stood at in every figure
  * until then — and leave the book as prizes: the special prizes at what
  * they are worth, and whatever lies between as odd prizes (端玉景品), the
- * sweets tokens short of a special prize are given as. Both are equity, as
- * an opening balance is: taking prizes home is no play's result, so no
- * income statement counts it, and the book never says money came of it.
+ * sweets tokens short of a special prize are given as. A prize is worth
+ * whole yen and a token's rate is not, so the odd prizes are the nearest
+ * yen and the part of a yen left over is the translation adjustment
+ * (換算調整勘定), as the difference left by restating one unit in another
+ * is kept. All three are equity, as an opening balance is: taking prizes
+ * home is no play's result, so no income statement counts it, and the book
+ * never says money came of it.
  */
 export const prizeExchangeEntry = (exchange: PrizeExchange, prices: readonly PricePoint[]): Result<Entry, PrizeExchangeProblem> => {
   const valid = checked(exchange)
@@ -71,7 +75,9 @@ export const prizeExchangeEntry = (exchange: PrizeExchange, prices: readonly Pri
   const commodity = tokenCommodity(exchange.pool.kind, exchange.parlor.name, exchange.pool.tier)
   const point = rateOn(prices, commodity, exchange.date)
   if (point === undefined) return Err({ type: "no-exchange-rate", commodity, date: exchange.date })
-  const odd = subtract(multiply(exchange.tokens, point.rate), exchange.specialPrizes)
+  const between = subtract(multiply(exchange.tokens, point.rate), exchange.specialPrizes)
+  const odd = rounded(between, 0)
+  const adjustment = subtract(between, odd)
   return Ok({
     date: exchange.date,
     description: `景品交換 ${exchange.parlor.name}`,
@@ -80,6 +86,7 @@ export const prizeExchangeEntry = (exchange: PrizeExchange, prices: readonly Pri
       { ...real(savingsAccount(exchange.pool.kind, exchange.parlor.name, exchange.pool.tier), negate(exchange.tokens), commodity), cost: { rate: point.rate, commodity: YEN } },
       ...unlessZero(exchange.specialPrizes, real(ACCOUNTS.specialPrizes, exchange.specialPrizes, YEN)),
       ...unlessZero(odd, real(ACCOUNTS.oddPrizes, odd, YEN)),
+      ...unlessZero(adjustment, real(ACCOUNTS.translationAdjustment, adjustment, YEN)),
     ],
   })
 }

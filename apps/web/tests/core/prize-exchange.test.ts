@@ -28,6 +28,16 @@ describe("a prize exchange as an entry", () => {
     expect(rendered({ ...EXCHANGE, specialPrizes: dec("17000") })).toContain("純資産:端玉景品                     -200 JPY")
   })
 
+  test("writes the odd prizes in whole yen, and the part of a yen left over as the translation adjustment", () => {
+    const over = rendered({ ...EXCHANGE, date: "2026-09-10" as IsoDate, tokens: dec("4801"), specialPrizes: dec("16500") })
+    expect(over).toContain("純資産:端玉景品                     640 JPY")
+    expect(over).toContain("純資産:換算調整勘定                 -0.43 JPY")
+    const under = rendered({ ...EXCHANGE, date: "2026-09-10" as IsoDate, tokens: dec("4799"), specialPrizes: dec("16500") })
+    expect(under).toContain("純資産:端玉景品                     632 JPY")
+    expect(under).toContain("純資産:換算調整勘定                 0.43 JPY")
+    expect(rendered(EXCHANGE)).not.toContain("換算調整勘定")
+  })
+
   test("uses the rate in force on its own day", () => {
     expect(rendered({ ...EXCHANGE, date: "2026-09-10" as IsoDate, specialPrizes: dec("17136") })).toContain("@ 3.57 JPY")
   })
@@ -40,10 +50,10 @@ describe("a prize exchange as an entry", () => {
   })
 })
 
-describe("the prize accounts", () => {
+describe("the accounts of a prize exchange", () => {
   test("are declared once, with the equity they stand under, in a book that lacks them", () => {
     const declared = withPrizesDeclared("account 費用                           ; type: X\n")
-    expect(declared.split("\n").filter((line) => line.startsWith("account 純資産"))).toEqual(["account 純資産                         ; type: E", "account 純資産:開始残高", "account 純資産:残高調整", "account 純資産:特殊景品", "account 純資産:端玉景品"])
+    expect(declared.split("\n").filter((line) => line.startsWith("account 純資産"))).toEqual(["account 純資産                         ; type: E", "account 純資産:開始残高", "account 純資産:残高調整", "account 純資産:特殊景品", "account 純資産:端玉景品", "account 純資産:換算調整勘定"])
     expect(withPrizesDeclared(declared)).toBe(declared)
   })
 })

@@ -14,6 +14,7 @@ export const ACCOUNTS = {
   balanceAdjustment: "純資産:残高調整",
   specialPrizes: "純資産:特殊景品",
   oddPrizes: "純資産:端玉景品",
+  translationAdjustment: "純資産:換算調整勘定",
 } as const
 
 /** The branch revenue is kept under. */

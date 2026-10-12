@@ -146,6 +146,9 @@ The account tree is deliberately small:
 費用:再プレイ手数料
 純資産:開始残高             savings a person already had when the book began
 純資産:残高調整             a pool's count put right to what the parlor says
+純資産:特殊景品             what the special prizes of a prize exchange are worth
+純資産:端玉景品             the rest of a prize exchange, in whole yen
+純資産:換算調整勘定         the part of a yen a prize exchange leaves over
 統計:期待値                 no type, virtual postings only
 ```
 
@@ -1458,9 +1461,15 @@ back are worth, and the day.
   tagged `savings: prize-exchange`: the tokens leave savings at the book's
   rate for the day (`@`), against `純資産:特殊景品` for what the special
   prizes are worth and `純資産:端玉景品` for what lies between — the sweets
-  that tokens short of a special prize are given as. Both are equity, as an
-  opening balance is, so no income statement counts either and no earlier
+  that tokens short of a special prize are given as. All are equity, as an
+  opening balance is, so no income statement counts any and no earlier
   figure moves. They are declared in a book the first time they are needed.
+- **Prizes in whole yen.** A prize is worth whole yen; a token's rate is
+  not. The odd prizes are what lies between to the nearest yen, and the
+  part of a yen left over is written to `純資産:換算調整勘定`, the
+  translation adjustment (`translationAdjustment`): equity too, named as
+  the difference left by restating one unit in another is. A rental spread
+  keeps its fraction, being a cost as large as it is.
 - **Never more than the pool holds** by the end of the day said: that is
   refused before anything is written.
 

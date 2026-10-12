@@ -261,7 +261,8 @@ export function BalanceAdjustmentForm(props: {
  * how many tokens were paid out over the counter (払出数), and what the
  * special prizes handed back are worth (特殊景品額). The line under the
  * fields says where the rest goes: what lies between that and the tokens'
- * worth at the exchange rate is written as odd prizes.
+ * worth at the exchange rate is written as odd prizes, in whole yen, and
+ * the part of a yen left over as the translation adjustment.
  */
 export function PrizeExchangeForm(props: {
   readonly bookId: BookId
@@ -313,7 +314,7 @@ export function PrizeExchangeForm(props: {
         <TextField label="払出数" value={tokens()} onChange={setTokens} inputMode="numeric" suffix={props.unit} invalid={nudge.red() && exchanged() === undefined} onFocus={nudge.settle} compact />
         <TextField label="特殊景品額" value={prizes()} onChange={setPrizes} inputMode="numeric" suffix="円" invalid={nudge.red() && countOf(prizes()) === undefined} onFocus={nudge.settle} compact />
       </div>
-      <p class="text-xs text-text-muted">交換率との差額は、端玉景品として記帳します。</p>
+      <p class="text-xs text-text-muted">交換率との差額は端玉景品として、円未満の端数は換算調整勘定として記帳します。</p>
       <Failure saving={saving()} />
       <div class="flex gap-2">
         <Button type="submit" size="small">
