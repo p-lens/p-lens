@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test"
 import type { IsoMonth } from "../../../src/core/calendar/calendar"
 import { fittedSize } from "../../../src/ui/features/result-calendar/fit"
 import { byDay, monthAfter, monthBefore, weeksOf } from "../../../src/ui/features/result-calendar/month"
-import { cellResult, dayNumber, daySays, monthTitle } from "../../../src/ui/features/result-calendar/wording"
+import { cellResult, cellWorth, dayNumber, daySays, monthTitle } from "../../../src/ui/features/result-calendar/wording"
 import { dec } from "../../support/values"
 
 const month = (text: string): IsoMonth => text as IsoMonth
@@ -46,6 +46,9 @@ describe("the result calendar's words", () => {
     expect(cellResult(dec("12340"))).toBe("+12,340")
     expect(cellResult(dec("-560"))).toBe("-560")
     expect(cellResult(dec("0"))).toBe("0")
+    expect(cellWorth(dec("1240.4"))).toBe("+1,240")
+    expect(cellWorth(dec("-380"))).toBe("-380")
+    expect(cellWorth(dec("0.2"))).toBe("±0")
   })
 
   test("are written in one size up to six digits, and smaller only for a great win, which still fits its cell", () => {
@@ -57,7 +60,8 @@ describe("the result calendar's words", () => {
   })
 
   test("say a day aloud, with what it made or that it had no plays", () => {
-    expect(daySays("2026-10-03" as never, dec("-560"))).toBe("10月3日 実収支 -¥560")
-    expect(daySays("2026-10-03" as never, undefined)).toBe("10月3日 稼働なし")
+    expect(daySays("2026-10-03" as never, dec("-560"), undefined)).toBe("10月3日 実収支 -¥560")
+    expect(daySays("2026-10-03" as never, dec("-560"), dec("1240"))).toBe("10月3日 実収支 -¥560 期待値 +¥1,240")
+    expect(daySays("2026-10-03" as never, undefined, undefined)).toBe("10月3日 稼働なし")
   })
 })

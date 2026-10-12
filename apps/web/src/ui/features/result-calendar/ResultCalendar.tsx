@@ -3,7 +3,7 @@ import { MainContent } from "solid-gathering-shell"
 
 import type { Outcome } from "../../../application/errors"
 import { monthOf, type IsoDate, type IsoMonth } from "../../../core/calendar/calendar"
-import { isZero } from "../../../core/decimal/decimal"
+import { isZero, type Decimal } from "../../../core/decimal/decimal"
 import { totalOf, type Group } from "../../../core/report/breakdown"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
@@ -16,30 +16,33 @@ import { ViewHeader } from "../shell/ViewHeader"
 import { EarlierIcon, LaterIcon } from "./icons"
 import { byDay, monthAfter, monthBefore, weeksOf, type Cell } from "./month"
 import { fittedSize } from "./fit"
-import { cellResult, dayNumber, daySays, monthTitle, RESULT_CALENDAR, WEEKDAYS } from "./wording"
+import { cellResult, cellWorth, dayNumber, daySays, monthTitle, RESULT_CALENDAR, WEEKDAYS } from "./wording"
 
 const TONES = { positive: "text-positive", negative: "text-negative", neutral: "text-text-secondary" } as const
 
 /** The groups an answer holds: none while it is awaited, and none where it failed, which is said apart. */
 const groupsIn = (outcome: Outcome<readonly Group[]> | undefined): readonly Group[] => (outcome?.ok === true ? outcome.value : [])
 
-const CELL = "flex min-h-14 min-w-0 flex-col gap-0.5 rounded-[3px] px-0.5 py-1 text-left sm:px-1"
+const CELL = "flex min-h-[3.75rem] min-w-0 flex-col gap-0.5 rounded-[3px] px-0.5 py-1 text-left sm:px-1"
 
 /**
  * One day of the month: its number, and what its plays made where it had
- * any. A day with plays is pressed to see them; a day without is only its
- * number. The business day it now is wears a ring. The result is written
+ * any, with what they were worth under that where the book keeps it and
+ * the day's plays had any — uncoloured, being a reckoning and no gain or
+ * loss. A day with plays is pressed to see them; a day without is only its
+ * number. The business day it now is wears a ring. Each figure is written
  * as small as its cell asks (`fittedSize`), in one size up to six digits,
  * so only a great win is in smaller figures, and none is cut short.
  */
-function Day(props: { readonly day: IsoDate; readonly figures: Group | undefined; readonly today: boolean; readonly onOpen: () => void }): JSX.Element {
+function Day(props: { readonly day: IsoDate; readonly figures: Group | undefined; readonly theoreticalKept: boolean; readonly today: boolean; readonly onOpen: () => void }): JSX.Element {
+  const worth = (): Decimal | undefined => (props.figures === undefined || !props.theoreticalKept || isZero(props.figures.theoretical) ? undefined : props.figures.theoretical)
   const number = (): JSX.Element => <span class="text-xs tabular-nums text-text-muted">{dayNumber(props.day)}</span>
   return (
     <Show
       when={props.figures}
       keyed
       fallback={
-        <div class={`${CELL} bg-surface-1`} classList={{ "outline outline-2 -outline-offset-2 outline-focus-ring": props.today }} aria-label={daySays(props.day, undefined)}>
+        <div class={`${CELL} bg-surface-1`} classList={{ "outline outline-2 -outline-offset-2 outline-focus-ring": props.today }} aria-label={daySays(props.day, undefined, undefined)}>
           {number()}
         </div>
       }
@@ -49,7 +52,7 @@ function Day(props: { readonly day: IsoDate; readonly figures: Group | undefined
           type="button"
           class={`${CELL} bg-surface-2 hover:bg-surface-3 focus-visible:outline-2 focus-visible:outline-focus-ring`}
           classList={{ "outline outline-2 -outline-offset-2 outline-focus-ring": props.today }}
-          aria-label={daySays(props.day, figures.actual)}
+          aria-label={daySays(props.day, figures.actual, worth())}
           onClick={() => props.onOpen()}
         >
           {number()}
@@ -57,6 +60,13 @@ function Day(props: { readonly day: IsoDate; readonly figures: Group | undefined
             <span class={`block whitespace-nowrap text-right font-bold leading-tight tabular-nums ${TONES[toneOf(figures.actual)]}`} style={{ "font-size": fittedSize(cellResult(figures.actual)) }}>
               {cellResult(figures.actual)}
             </span>
+            <Show when={worth()} keyed>
+              {(value) => (
+                <span class="block whitespace-nowrap text-right leading-tight tabular-nums text-text-primary" style={{ "font-size": fittedSize(cellWorth(value)) }}>
+                  {cellWorth(value)}
+                </span>
+              )}
+            </Show>
           </span>
         </button>
       )}
@@ -66,7 +76,8 @@ function Day(props: { readonly day: IsoDate; readonly figures: Group | undefined
 
 /**
  * Results a month at a time, as a calendar: what the month's plays made
- * and were worth above, and under it each day with what its plays made.
+ * and were worth above, and under it each day with what its plays made
+ * and were worth.
  * Whose results they are — a book's, or several books' together — is the
  * caller's: it holds the month, asks for the month's days and for the
  * month as a whole, and says where a day pressed goes. Nothing here adds
@@ -134,7 +145,7 @@ export function ResultCalendar(props: {
                   <For each={week}>
                     {(cell: Cell) => (
                       <Show when={cell} keyed fallback={<div />}>
-                        {(day) => <Day day={day} figures={figures().get(day)} today={day === app.services.businessDay()} onOpen={() => props.onOpen(day)} />}
+                        {(day) => <Day day={day} figures={figures().get(day)} theoreticalKept={props.theoreticalKept} today={day === app.services.businessDay()} onOpen={() => props.onOpen(day)} />}
                       </Show>
                     )}
                   </For>
