@@ -2,12 +2,12 @@ import { memberCan, type BookId, type MemberId } from "../core/book/book"
 import { appendEntry, BOOK_FILES } from "../core/journal/layout"
 import { renderEntry, type Entry } from "../core/journal/entry"
 import { parlorsFromDeclarations, type Parlor } from "../core/parlor/parlor"
-import { composePlayEntry, composeTalliedEntry } from "../core/play/compose"
+import { composePlayEntry, composeTalliedEntry, rateToWriteWith } from "../core/play/compose"
 import type { PlayError, PlayHead, PlayRecord, TalliedPlay } from "../core/play/play"
 import { playLogPath } from "../core/play-log/checkpoint"
 import { pricePointsOf } from "../core/report/holdings"
 import { andThen, mapOk, type Result } from "../core/result/result"
-import type { PricePoint } from "../core/valuation/valuation"
+import { renderPricePoint, type PricePoint } from "../core/valuation/valuation"
 import { accountsRequest, pricesRequest } from "../hledger/query/requests"
 import type { CommitId } from "../history/port/history-port"
 import type { BookSession, ProposedChange } from "./book-session"
@@ -33,15 +33,43 @@ export const loadRecordingContext = (session: BookSession, bookId: BookId, membe
     )
   })
 
-/** A play's entry as composed from the book's prices at the moment of writing. */
-type Composer = (prices: readonly PricePoint[]) => Result<Entry, PlayError>
+/** A play's entry as composed from the book's prices at the moment of writing, and the rate to be written with it where the book has none for its day. */
+export interface ComposedPlay {
+  readonly entry: Entry
+  readonly price: PricePoint | undefined
+}
+
+export type Composer = (prices: readonly PricePoint[]) => Result<ComposedPlay, PlayError>
+
+/**
+ * A play in tokens composed on the book's rates: where the book has no rate
+ * for the play's day — a play dated before its pool was opened — the pool's
+ * first rate is taken for that day and written beside the entry, rather
+ * than the play refused for want of a rate the book can give itself.
+ */
+export const composedOnBookRates =
+  (record: PlayRecord): Composer =>
+  (prices) => {
+    const price = rateToWriteWith(record, prices)
+    return mapOk(composePlayEntry(record, price === undefined ? prices : [...prices, price]), (entry) => ({ entry, price }))
+  }
+
+/** A play kept in yen alone composed: it has no tokens, so no rate is written with it. */
+export const composedInYen =
+  (play: TalliedPlay): Composer =>
+  () =>
+    mapOk(composeTalliedEntry(play), (entry) => ({ entry, price: undefined }))
+
+/** The book's files with a rate added to its prices, where there is one to add. */
+export const withPrice = (files: ProposedChange["files"], price: PricePoint | undefined): ProposedChange["files"] =>
+  price === undefined ? files : { ...files, [BOOK_FILES.prices]: appendEntry(files[BOOK_FILES.prices] ?? "", renderPricePoint(price)) }
 
 const writePlay = (session: BookSession, bookId: BookId, head: PlayHead, compose: Composer, log: string | undefined): Promise<Outcome<CommitId>> =>
   session.write(bookId, async (journal, stored) =>
     andThen(fromHledger(await journal.ask(pricesRequest(""))), (directives) =>
-      mapOk(fromPlay(compose(pricePointsOf(directives))), (entry): ProposedChange => ({
+      mapOk(fromPlay(compose(pricePointsOf(directives))), ({ entry, price }): ProposedChange => ({
         files: {
-          ...stored.files,
+          ...withPrice(stored.files, price),
           [BOOK_FILES.transactions]: appendEntry(stored.files[BOOK_FILES.transactions] ?? "", renderEntry(entry)),
           ...(log === undefined ? {} : { [playLogPath(head.gameKind, head.id)]: log }),
         },
@@ -53,11 +81,12 @@ const writePlay = (session: BookSession, bookId: BookId, head: PlayHead, compose
 /**
  * Write one play into the book as one entry and one commit, with its play log
  * beside it when there is one. The rate a rental is split at is read from the
- * book as it is at the moment of writing, not from whatever a form was showing.
+ * book as it is at the moment of writing, not from whatever a form was showing;
+ * a day the book has no rate for is given the pool's first, in the same commit.
  */
 export const recordPlay = (session: BookSession, bookId: BookId, record: PlayRecord, log?: string): Promise<Outcome<CommitId>> =>
-  writePlay(session, bookId, record, (prices) => composePlayEntry(record, prices), log)
+  writePlay(session, bookId, record, composedOnBookRates(record), log)
 
 /** Write one play kept in yen alone into the book, as one entry and one commit, with its play log when there is one. */
 export const recordTalliedPlay = (session: BookSession, bookId: BookId, play: TalliedPlay, log?: string): Promise<Outcome<CommitId>> =>
-  writePlay(session, bookId, play, () => composeTalliedEntry(play), log)
+  writePlay(session, bookId, play, composedInYen(play), log)

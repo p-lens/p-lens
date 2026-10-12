@@ -7,7 +7,7 @@ import { exchangeRateOf, poolOf, savingsDeductedFor, tokensRentedFor, type PlayT
 import type { PlayGameKind, NumericField, PlayId, PlayRecord } from "../../../core/play/play"
 import { Err, Ok, type Result } from "../../../core/result/result"
 import { tidyTyped } from "../../../core/text/tidy"
-import { rateOn, type PricePoint } from "../../../core/valuation/valuation"
+import { rateOn, rateReachingBack, type PricePoint } from "../../../core/valuation/valuation"
 
 /**
  * The record form for a play at a parlor, as typed: every field text, nothing
@@ -76,7 +76,8 @@ const countOf = (value: Decimal): number => Number(value.mantissa) / 10 ** value
  * rented and what its replay took, and a sum typed anew is counted in the
  * same proportion. A play that rented nothing, or replayed nothing, has no
  * proportion to give, and that count is typed. Its tokens exchange at the
- * book's rate for the day.
+ * book's rate for the day, or at the pool's first where the day is before
+ * any rate the book has.
  */
 export const playedAsRecorded = (record: PlayRecord, prices: readonly PricePoint[]): PlayedAt => ({
   parlor: record.parlor,
@@ -84,8 +85,24 @@ export const playedAsRecorded = (record: PlayRecord, prices: readonly PricePoint
   pool: record.pool,
   rental: record.rental === undefined ? undefined : { yen: countOf(record.rental.outlay), tokens: countOf(record.rental.tokens) },
   replay: isZero(record.replay.paidOut) ? undefined : { paidOut: countOf(record.replay.paidOut), deducted: countOf(record.replay.deducted) },
-  exchangeRateOn: (date) => rateOn(prices, tokenCommodity(record.pool.kind, record.parlor.name, record.pool.tier), date)?.rate,
+  exchangeRateOn: (date) => {
+    const commodity = tokenCommodity(record.pool.kind, record.parlor.name, record.pool.tier)
+    return (rateOn(prices, commodity, date) ?? rateReachingBack(prices, commodity, date))?.rate
+  },
 })
+
+/**
+ * The book's prices as they will stand when a play of a day is written:
+ * with the rate the play is counted at on that day, where there is one. A
+ * play at a pool the book does not keep yet has its rate from its terms
+ * alone until it is recorded — the pool is opened then — and what the form
+ * shows of the entry is composed on these, not on a book that has yet to
+ * hear of the pool.
+ */
+export const pricesPlayedAt = (at: PlayedAt, date: IsoDate, prices: readonly PricePoint[]): readonly PricePoint[] => {
+  const rate = at.exchangeRateOn(date)
+  return rate === undefined ? prices : [...prices, { date, commodity: tokenCommodity(at.pool.kind, at.parlor.name, at.pool.tier), rate }]
+}
 
 type Read<T> = Result<T, FieldProblem>
 

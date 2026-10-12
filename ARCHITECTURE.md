@@ -263,17 +263,20 @@ rate for the day differs.
 2026-09-05 ホシゾラ梅田店 流星 123番台  ; play-id: …, parlor-id: hoshizora-umeda, game-kind: pachinko, machine: 流星, cabinet-number: 123
     資産:現金                         -12000 JPY
     費用:貸玉差額                       1290 JPY
-    資産:貯玉:ホシゾラ梅田店:4円        3000 "玉(4円・ホシゾラ梅田店)" @ 3.57 JPY
-    資産:貯玉:ホシゾラ梅田店:4円       -3000 "玉(4円・ホシゾラ梅田店)"
-    費用:遊技                           3000 "玉(4円・ホシゾラ梅田店)"
+    費用:遊技                           3000 "玉(4円・ホシゾラ梅田店)" @ 3.57 JPY
     資産:貯玉:ホシゾラ梅田店:4円        4800 "玉(4円・ホシゾラ梅田店)"
     収益:遊技                          -4800 "玉(4円・ホシゾラ梅田店)"
     (統計:期待値)                       5500 JPY
 ```
 
 - **Rental** splits the cash at that day's rate into tokens and a rental
-  spread, a loss settled that day and never revalued.
-- **Shooting** moves tokens from savings to `費用:遊技`, in tokens only; what
+  spread, a loss settled that day and never revalued. The tokens go
+  straight to `費用:遊技`: rented tokens are shot, never saved, so cash
+  played touches no savings account. A book written before this was settled
+  has them put into savings and taken out again in the same entry, which
+  comes to the same figures: it is data already written, and is read as it
+  is.
+- **Replay** moves tokens from savings to `費用:遊技`, in tokens only; what
   they come to in yen is hledger's to say at whichever date it is asked about.
   A replay takes more off savings than it pays out; the difference is written
   to `費用:再プレイ手数料`, also in tokens.
@@ -1407,15 +1410,23 @@ A play in the book is set right, or taken out, from its detail
 - **Read back from its entry** (`core/report/recorded-play`): the book
   keeps no second copy of what a form recorded, so the entry hledger read is
   turned back into the `PlayRecord` or `TalliedPlay` it was written from —
-  the tokens rented are what savings gained less the revenue, and a
-  replay's two counts follow. An entry that does not add up as one a record
+  the pool is the one of the parlor's whose tokens the entry is in, a
+  replay took what was left less what savings came to hold more, it paid
+  out that less its fee, and the tokens rented are the rest of what was
+  spent — which reads an entry of either shape, rented tokens passed
+  through savings or not. An entry that does not add up as one a record
   makes, one a hand has changed, is refused as unreadable and is set right
   in the book's own file.
 - **Written anew where it stands** (`core/play/in-journal`): the entry is
   found by its `play-id` in `transactions.journal` and replaced, every
   other line as it was, in one commit (`play-revised`). The play keeps its
   id and its log. A rental is split at the book's rate for the day the play
-  now says, as at recording.
+  now says, as at recording. A day before any rate the book has for the
+  pool — a play moved back past the day its pool was opened — is given the
+  pool's first rate, written as a `P` directive in the same commit
+  (`rateReachingBack`), rather than the play refused: no day that had a
+  rate is given another, and savings a play so dated leaves short are the
+  person's to adjust.
 - **Where and at what rate stay.** The parlor and the pool of a play in
   tokens are not the form's to change: that is another savings account, and
   the play is removed and recorded again. The book keeps no corner's terms,

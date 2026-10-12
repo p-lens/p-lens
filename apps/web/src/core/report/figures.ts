@@ -23,8 +23,8 @@ export const decimalOfQuantity = (quantity: Quantity): Decimal =>
  * The quantity of one commodity in a mixed amount; absent is zero.
  *
  * Summed, because one commodity can arrive as several amounts: hledger keeps
- * tokens rented at a cost apart from the same tokens won, so 4,800 balls in
- * savings can be 3,000 `@ 3.57 JPY` beside 1,800 with no cost at all.
+ * tokens rented at a cost apart from the same tokens drawn from savings, so
+ * 4,800 balls shot can be 3,000 `@ 3.57 JPY` beside 1,800 with no cost at all.
  */
 export const quantityIn = (mixed: MixedAmount, commodity: string): Decimal =>
   sum(mixed.filter((amount) => amount.acommodity === commodity).map((amount) => decimalOfQuantity(amount.aquantity)))

@@ -1,5 +1,6 @@
 import type { IsoDate } from "../calendar/calendar"
-import type { Decimal } from "../decimal/decimal"
+import { YEN, renderCommodity } from "../commodity/commodity"
+import { toPlainString, type Decimal } from "../decimal/decimal"
 
 /**
  * How amounts in tokens are turned into yen, and the two are never mixed:
@@ -38,3 +39,21 @@ export const rateOn = (points: readonly PricePoint[], commodity: string, date: I
 /** The latest rate a commodity has at all. */
 export const latestRate = (points: readonly PricePoint[], commodity: string): PricePoint | undefined =>
   latestOf(points.filter((point) => point.commodity === commodity))
+
+/**
+ * The point that gives a commodity a rate on a day it has none: the first
+ * rate it was ever given, reaching back to that day. A play dated before
+ * its pool was opened is counted at the rate the pool was opened with,
+ * since the book knows no other, and no day that had a rate is given
+ * another. Nothing where the day has a rate already, or the commodity
+ * never had one.
+ */
+export const rateReachingBack = (points: readonly PricePoint[], commodity: string, date: IsoDate): PricePoint | undefined => {
+  if (rateOn(points, commodity, date) !== undefined) return undefined
+  const first = points.reduce<IsoDate | undefined>((earliest, point) => (point.commodity === commodity && (earliest === undefined || point.date < earliest) ? point.date : earliest), undefined)
+  const opened = first === undefined ? undefined : rateOn(points, commodity, first)
+  return opened === undefined ? undefined : { ...opened, date }
+}
+
+/** A rate as the `P` directive that states it, on a line of its own. */
+export const renderPricePoint = (point: PricePoint): string => `P ${point.date} ${renderCommodity(point.commodity)} ${toPlainString(point.rate)} ${YEN}\n`

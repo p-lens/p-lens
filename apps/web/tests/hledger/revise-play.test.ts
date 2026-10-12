@@ -66,10 +66,32 @@ describe("a recorded play, read back from its entry", () => {
     expect(read.map((each) => each.ok && each.value.type)).toEqual(["at-parlor", "at-parlor", "at-parlor", "at-parlor", "at-parlor"])
   })
 
+  test("is the same record where its entry is one written when rented tokens still passed through savings", async () => {
+    const { session, storage } = await setUp()
+    const asWritten = await recordedOf(session, "made-up-0905")
+    const text = storage.peek(BOOK)?.files[BOOK_FILES.transactions] ?? ""
+    const older = text.replace(
+      '    費用:遊技                        3000 "玉(4円・ホシゾラ梅田店)" @ 3.57 JPY\n',
+      '    資産:貯玉:ホシゾラ梅田店:4円         3000 "玉(4円・ホシゾラ梅田店)" @ 3.57 JPY\n    資産:貯玉:ホシゾラ梅田店:4円         -3000 "玉(4円・ホシゾラ梅田店)"\n    費用:遊技                        3000 "玉(4円・ホシゾラ梅田店)"\n',
+    )
+    expect(older).not.toBe(text)
+    const edited = await session.write(BOOK, async (_journal, stored) => Ok({ files: { ...stored.files, [BOOK_FILES.transactions]: older }, intent: { type: "file-edited", path: BOOK_FILES.transactions } }))
+    expect(edited.ok).toBe(true)
+    expect(asWritten.ok && asWritten.value.type).toBe("at-parlor")
+    expect(await recordedOf(session, "made-up-0905")).toEqual(asWritten)
+  })
+
+  test("is read at its pool where cash alone was played and nothing was left, so that no savings account says which", async () => {
+    const { session } = await setUp()
+    const lost: PlayRecord = { ...TODAY, id: "lost" as PlayId, payout: dec("0") }
+    await recordPlay(session, BOOK, lost)
+    expect(await recordedOf(session, "lost")).toEqual({ ok: true, value: { type: "at-parlor", record: lost } })
+  })
+
   test("is refused where its entry was changed by hand into what no record makes, and where the book has no such play", async () => {
     const { session, storage } = await setUp()
     const text = storage.peek(BOOK)?.files[BOOK_FILES.transactions] ?? ""
-    const byHand = text.replace("    費用:遊技                        3000 \"玉(4円・ホシゾラ梅田店)\"\n    資産:貯玉:ホシゾラ梅田店:4円         4800", "    費用:遊技                        2000 \"玉(4円・ホシゾラ梅田店)\"\n    費用:再プレイ手数料                  1000 \"玉(4円・ホシゾラ梅田店)\"\n    資産:貯玉:ホシゾラ梅田店:4円         4800")
+    const byHand = text.replace("    費用:遊技                        3000 \"玉(4円・ホシゾラ梅田店)\" @ 3.57 JPY\n", "    費用:遊技                        2000 \"玉(4円・ホシゾラ梅田店)\" @ 3.57 JPY\n    費用:再プレイ手数料                  1000 \"玉(4円・ホシゾラ梅田店)\" @ 3.57 JPY\n")
     expect(byHand).not.toBe(text)
     const edited = await session.write(BOOK, async (_journal, stored) => Ok({ files: { ...stored.files, [BOOK_FILES.transactions]: byHand }, intent: { type: "file-edited", path: BOOK_FILES.transactions } }))
     expect(edited.ok).toBe(true)
@@ -99,6 +121,16 @@ describe("setting a recorded play right", () => {
     await revisePlay(session, BOOK, { ...TODAY, date: "2026-09-10" as IsoDate })
     expect(await figures(session, "date:2026-10-04")).toEqual({ ok: true, value: ["0", "0"] })
     expect(await figures(session, "date:2026-09-10")).toEqual({ ok: true, value: ["5136", "5500"] })
+  })
+
+  test("moves a play to a day before any rate the book has, giving that day the pool's first", async () => {
+    const { session, storage } = await setUp()
+    await recordPlay(session, BOOK, TODAY)
+    const pricesBefore = storage.peek(BOOK)?.files[BOOK_FILES.prices] ?? ""
+    expect((await revisePlay(session, BOOK, { ...TODAY, date: "2016-10-11" as IsoDate })).ok).toBe(true)
+    expect(storage.peek(BOOK)?.files[BOOK_FILES.prices]).toBe(`${pricesBefore}\nP 2016-10-11 "玉(4円・ホシゾラ梅田店)" 3.57 JPY\n`)
+    expect(await recordedOf(session, "today")).toEqual({ ok: true, value: { type: "at-parlor", record: { ...TODAY, date: "2016-10-11" as IsoDate } } })
+    expect((await recordPlay(session, BOOK, { ...TODAY, id: "older" as PlayId, date: "2016-10-10" as IsoDate })).ok).toBe(true)
   })
 
   test("sets a play kept in yen right the same way", async () => {

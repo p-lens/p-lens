@@ -1,9 +1,9 @@
 import type { IsoDate } from "../calendar/calendar"
-import { YEN, renderCommodity, tokenCommodity } from "../commodity/commodity"
-import { compare, isNegative, isZero, toPlainString, type Decimal } from "../decimal/decimal"
+import { renderCommodity, tokenCommodity } from "../commodity/commodity"
+import { compare, isNegative, isZero, type Decimal } from "../decimal/decimal"
 import { savingsAccount } from "../journal/accounts"
 import { Err, Ok, type Result } from "../result/result"
-import { rateOn, type PricePoint } from "../valuation/valuation"
+import { rateOn, renderPricePoint, type PricePoint } from "../valuation/valuation"
 import { identityTags, sameIdentity, samePool, type Parlor, type ParlorIdentity, type SavingsPool } from "./parlor"
 import { sameParlorName } from "./search"
 import { isWritableParlorName } from "./shared"
@@ -63,7 +63,7 @@ export const openingText = (opening: PoolOpening, parlors: readonly Parlor[], pr
     price:
       current !== undefined && current.date === opening.date && compare(current.rate, opening.rate) === 0
         ? undefined
-        : `P ${opening.date} ${renderCommodity(commodity)} ${toPlainString(opening.rate)} ${YEN}\n`,
+        : renderPricePoint({ date: opening.date, commodity, rate: opening.rate }),
   }
 }
 

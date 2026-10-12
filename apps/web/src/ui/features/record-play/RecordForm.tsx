@@ -12,7 +12,7 @@ import { createNudge, redText } from "../../primitives/nudge"
 import { settleTyping, TextField } from "../../primitives/text-field"
 import { describeError, describePlayError } from "../../wording/errors"
 import { formatSignedYen, formatTokens, toneOf, tokenUnit } from "../../wording/numbers"
-import { readPlayForm, type FieldProblem, type FormField, type PlayedAt, type PlayForm, type SubmitWords } from "./form"
+import { pricesPlayedAt, readPlayForm, type FieldProblem, type FormField, type PlayedAt, type PlayForm, type SubmitWords } from "./form"
 
 /** Where a submission is: being typed, being written, or refused with why. */
 type Submission =
@@ -71,7 +71,7 @@ export function RecordForm(props: {
   }
   const preview = createMemo(() => {
     const found = record()
-    return found === undefined ? undefined : composePlayEntry(found, props.context.prices)
+    return found === undefined ? undefined : composePlayEntry(found, pricesPlayedAt(props.at, found.date, props.context.prices))
   })
   const result = createMemo(() => {
     const found = record()

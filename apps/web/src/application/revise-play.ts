@@ -1,22 +1,20 @@
 import { memberCan, type BookId, type MemberId } from "../core/book/book"
-import { renderEntry, type Entry } from "../core/journal/entry"
+import { renderEntry } from "../core/journal/entry"
 import { BOOK_FILES } from "../core/journal/layout"
 import { parlorsFromDeclarations } from "../core/parlor/parlor"
-import { composePlayEntry, composeTalliedEntry } from "../core/play/compose"
 import { withoutPlayEntry, withPlayEntry } from "../core/play/in-journal"
-import type { PlayError, PlayHead, PlayId, PlayRecord, TalliedPlay } from "../core/play/play"
+import type { PlayHead, PlayId, PlayRecord, TalliedPlay } from "../core/play/play"
 import { playLogPath } from "../core/play-log/checkpoint"
 import { pricePointsOf } from "../core/report/holdings"
 import { recordedPlayOf, type RecordedPlay } from "../core/report/recorded-play"
-import { Err, Ok, andThen, type Result } from "../core/result/result"
-import type { PricePoint } from "../core/valuation/valuation"
+import { Err, Ok, andThen } from "../core/result/result"
 import { accountsRequest, playsRequest, pricesRequest } from "../hledger/query/requests"
 import { playTerm } from "../hledger/query/terms"
 import type { CommitId } from "../history/port/history-port"
 import type { BookSession, ProposedChange } from "./book-session"
 import type { Outcome } from "./errors"
 import { fromHledger, fromPlay } from "./lift"
-import type { RecordingContext } from "./record-play"
+import { composedInYen, composedOnBookRates, withPrice, type ComposedPlay, type Composer, type RecordingContext } from "./record-play"
 
 /** A recorded play as it is set right: what the book knows before anything is typed, and the play read back from its entry. */
 export interface Revising {
@@ -45,33 +43,31 @@ export const loadRecordedPlay = (session: BookSession, bookId: BookId, member: M
     )
   })
 
-/** A play's entry as composed from the book's prices at the moment of writing. */
-type Composer = (prices: readonly PricePoint[]) => Result<Entry, PlayError>
-
-/** The book's files with a play's entry put in place of the one it has, if it has one. */
-const revised = (files: ProposedChange["files"], head: PlayHead, entry: Entry, log: string | undefined): Outcome<ProposedChange> => {
+/** The book's files with a play's entry put in place of the one it has, if it has one, and the rate its day lacked beside it. */
+const revised = (files: ProposedChange["files"], head: PlayHead, { entry, price }: ComposedPlay, log: string | undefined): Outcome<ProposedChange> => {
   const transactions = withPlayEntry(files[BOOK_FILES.transactions] ?? "", head.id, renderEntry(entry))
   return transactions === undefined
     ? Err({ type: "play-missing" })
-    : Ok({ files: { ...files, [BOOK_FILES.transactions]: transactions, ...(log === undefined ? {} : { [playLogPath(head.gameKind, head.id)]: log }) }, intent: { type: "play-revised", playId: head.id, description: entry.description, theoreticalValue: head.theoreticalValue } })
+    : Ok({ files: { ...withPrice(files, price), [BOOK_FILES.transactions]: transactions, ...(log === undefined ? {} : { [playLogPath(head.gameKind, head.id)]: log }) }, intent: { type: "play-revised", playId: head.id, description: entry.description, theoreticalValue: head.theoreticalValue } })
 }
 
 const revise = (session: BookSession, bookId: BookId, head: PlayHead, compose: Composer, log: string | undefined): Promise<Outcome<CommitId>> =>
   session.write(bookId, async (journal, stored) =>
-    andThen(fromHledger(await journal.ask(pricesRequest(""))), (directives) => andThen(fromPlay(compose(pricePointsOf(directives))), (entry) => revised(stored.files, head, entry, log))),
+    andThen(fromHledger(await journal.ask(pricesRequest(""))), (directives) => andThen(fromPlay(compose(pricePointsOf(directives))), (composed) => revised(stored.files, head, composed, log))),
   )
 
 /**
  * Set a recorded play right: its entry written anew where it stands, as
  * one commit. A rental is split at the book's rate for the day the play now
- * says, as it is when a play is recorded. Its log is left as it is unless
+ * says, as it is when a play is recorded, and a day moved to before any rate
+ * the book has is given the pool's first. Its log is left as it is unless
  * one is given: a play recorded again from its readings, set right since,
  * brings them, and they take the place of those the book has.
  */
-export const revisePlay = (session: BookSession, bookId: BookId, record: PlayRecord, log?: string): Promise<Outcome<CommitId>> => revise(session, bookId, record, (prices) => composePlayEntry(record, prices), log)
+export const revisePlay = (session: BookSession, bookId: BookId, record: PlayRecord, log?: string): Promise<Outcome<CommitId>> => revise(session, bookId, record, composedOnBookRates(record), log)
 
 /** Set right a play kept in yen alone: its entry written anew where it stands, as one commit, its log replaced where one is given. */
-export const reviseTalliedPlay = (session: BookSession, bookId: BookId, play: TalliedPlay, log?: string): Promise<Outcome<CommitId>> => revise(session, bookId, play, () => composeTalliedEntry(play), log)
+export const reviseTalliedPlay = (session: BookSession, bookId: BookId, play: TalliedPlay, log?: string): Promise<Outcome<CommitId>> => revise(session, bookId, play, composedInYen(play), log)
 
 /**
  * Take a recorded play out of a book, as one commit: its entry leaves the

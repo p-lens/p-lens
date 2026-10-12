@@ -1,8 +1,8 @@
 import type { Posting, Transaction } from "../../hledger/protocol/wire"
-import { YEN } from "../commodity/commodity"
+import { YEN, tokenCommodity } from "../commodity/commodity"
 import { isNegative, isZero, negate, subtract, sum, type Decimal } from "../decimal/decimal"
-import { ACCOUNTS, readSavingsAccount, rentalSpreadAccount } from "../journal/accounts"
-import { identityIn, sameIdentity, samePool, type Parlor } from "../parlor/parlor"
+import { ACCOUNTS, rentalSpreadAccount, savingsAccount } from "../journal/accounts"
+import { identityIn, sameIdentity, type Parlor } from "../parlor/parlor"
 import { tokenKindOf, type PlayHead, type PlayRecord, type TalliedPlay } from "../play/play"
 import { SOURCE_TAGS } from "../import/source-play"
 import { decimalOfQuantity } from "./figures"
@@ -44,19 +44,22 @@ const talliedOf = (head: PlayHead, real: readonly Posted[], parlor: Parlor | "no
     : undefined
 
 /**
- * A play in tokens, worked back from what its entry moved. Savings gain
- * what was rented and what was left; they lose what was rented and what a
- * replay took. Revenue is what was left, the expense what was rented and
- * what a replay paid out. So the tokens rented are the gains less the
- * revenue, and the replay's two counts follow. An entry these do not add
- * up for was not written by a record, and is not read as one.
+ * A play in tokens, worked back from what its entry moved. Savings lose
+ * what a replay took and gain what was left, so a replay took what was left
+ * less what savings came to hold more; it paid out that less its fee, and
+ * the tokens rented are the rest of what was spent. The pool is the one of
+ * the parlor's whose tokens the entry is in: a play of cash alone that left
+ * nothing touches no savings account to say it.
+ *
+ * An entry written before rented tokens stopped passing through savings
+ * puts them in and takes them out again, which comes to the same counts,
+ * and is read as what it was recorded from. An entry these do not add up
+ * for was not written by a record, and is not read as one.
  */
-const atParlorOf = (head: PlayHead, real: readonly Posted[], account: string, parlor: Parlor): RecordedPlay | undefined => {
-  const savings = readSavingsAccount(account)
-  const commodity = real.find((each) => each.account === account)?.commodity
-  if (savings === undefined || commodity === undefined) return undefined
-  const pool = { kind: savings.kind, tier: savings.tier }
-  if (parlor.name !== savings.parlorName || !parlor.pools.some((kept) => samePool(kept, pool)) || tokenKindOf(head.gameKind) !== pool.kind) return undefined
+const atParlorOf = (head: PlayHead, real: readonly Posted[], commodity: string, parlor: Parlor): RecordedPlay | undefined => {
+  const pool = parlor.pools.find((kept) => tokenCommodity(kept.kind, parlor.name, kept.tier) === commodity)
+  if (pool === undefined || tokenKindOf(head.gameKind) !== pool.kind) return undefined
+  const account = savingsAccount(pool.kind, parlor.name, pool.tier)
   const kept = keptTo(real, {
     [ACCOUNTS.cash]: YEN,
     [rentalSpreadAccount(pool.kind)]: YEN,
@@ -67,15 +70,14 @@ const atParlorOf = (head: PlayHead, real: readonly Posted[], account: string, pa
   })
   if (!kept) return undefined
   const moved = real.filter((each) => each.account === account).map((each) => each.quantity)
-  const gained = sum(moved.filter((quantity) => !isNegative(quantity)))
-  const drawn = negate(sum(moved.filter(isNegative)))
   const outlay = negate(at(real, ACCOUNTS.cash))
   const payout = negate(at(real, ACCOUNTS.playRevenue))
-  const tokens = subtract(gained, payout)
-  const paidOut = subtract(at(real, ACCOUNTS.playExpense), tokens)
-  const deducted = subtract(drawn, tokens)
-  const adds = [outlay, payout, tokens, paidOut, deducted].every((count) => !isNegative(count)) && same(at(real, ACCOUNTS.replayFee), subtract(deducted, paidOut)) && isZero(outlay) === isZero(tokens)
-  return adds ? { type: "at-parlor", record: { ...head, parlor, pool, rental: isZero(tokens) ? undefined : { outlay, tokens }, replay: { paidOut, deducted }, payout } } : undefined
+  const passedThrough = subtract(sum(moved.filter((quantity) => !isNegative(quantity))), payout)
+  const deducted = subtract(payout, sum(moved))
+  const paidOut = subtract(deducted, at(real, ACCOUNTS.replayFee))
+  const tokens = subtract(at(real, ACCOUNTS.playExpense), paidOut)
+  const adds = [outlay, payout, tokens, paidOut, subtract(deducted, paidOut)].every((count) => !isNegative(count)) && (isZero(passedThrough) || same(passedThrough, tokens)) && isZero(outlay) === isZero(tokens)
+  return adds ? { type: "at-parlor", record: { ...head, parlor, pool: { kind: pool.kind, tier: pool.tier }, rental: isZero(tokens) ? undefined : { outlay, tokens }, replay: { paidOut, deducted }, payout } } : undefined
 }
 
 /** Whether an entry was taken in from another app: it keeps both sides of its result and what that app called things, none of which a form holds. */
@@ -94,8 +96,7 @@ export const recordedPlayOf = (transaction: Transaction, parlors: readonly Parlo
   if (summary === undefined || summary.gameKind === undefined || parlor === undefined || !statisticsStand(transaction) || isImported(transaction)) return undefined
   const head: PlayHead = { id: summary.id, date: summary.date, gameKind: summary.gameKind, machine: summary.machine ?? "", cabinetNumber: summary.cabinetNumber, theoreticalValue: summary.theoreticalValue }
   const real = postedIn(transaction.tpostings.filter((posting) => posting.ptype === "RegularPosting"))
-  const accounts = [...new Set(real.map((each) => each.account).filter((account) => readSavingsAccount(account) !== undefined))]
-  const [account, ...others] = accounts
-  if (account === undefined) return talliedOf(head, real, parlor)
-  return others.length > 0 || parlor === "none" ? undefined : atParlorOf(head, real, account, parlor)
+  const [commodity, ...others] = [...new Set(real.map((each) => each.commodity).filter((each) => each !== YEN))]
+  if (commodity === undefined) return talliedOf(head, real, parlor)
+  return others.length > 0 || parlor === "none" ? undefined : atParlorOf(head, real, commodity, parlor)
 }

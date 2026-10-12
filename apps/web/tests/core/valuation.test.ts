@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { decimal } from "../../src/core/decimal/decimal"
-import { latestRate, rateOn, type PricePoint } from "../../src/core/valuation/valuation"
+import { latestRate, rateOn, rateReachingBack, renderPricePoint, type PricePoint } from "../../src/core/valuation/valuation"
 
 const point = (date: string, commodity: string, cents: bigint): PricePoint => ({
   date: date as IsoDate,
@@ -31,5 +31,16 @@ describe("price points", () => {
   test("of two points on one day, the one written later wins", () => {
     const sameDay = [...POINTS, point("2026-09-25", "玉(梅田)", 340n)]
     expect(rateOn(sameDay, "玉(梅田)", "2026-09-30" as IsoDate)?.rate).toEqual(decimal(34n, 1))
+  })
+
+  test("a day before any rate is given the first, and a day that has one is given nothing", () => {
+    expect(rateReachingBack(POINTS, "玉(梅田)", "2016-10-11" as IsoDate)).toEqual(point("2016-10-11", "玉(梅田)", 357n))
+    expect(rateReachingBack([...POINTS, point("2026-09-01", "玉(梅田)", 340n)], "玉(梅田)", "2026-08-31" as IsoDate)?.rate).toEqual(decimal(340n, 2))
+    expect(rateReachingBack(POINTS, "玉(梅田)", "2026-09-01" as IsoDate)).toBeUndefined()
+    expect(rateReachingBack(POINTS, "玉(難波)", "2026-09-01" as IsoDate)).toBeUndefined()
+  })
+
+  test("a rate is written as the directive that states it", () => {
+    expect(renderPricePoint(point("2016-10-11", "玉(梅田)", 357n))).toBe('P 2016-10-11 "玉(梅田)" 3.57 JPY\n')
   })
 })

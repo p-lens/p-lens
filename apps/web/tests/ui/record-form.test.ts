@@ -1,10 +1,13 @@
 import { describe, expect, test } from "bun:test"
 
 import { exchangeRateOf, type PlayTerms } from "../../src/core/parlor/terms"
+import { renderEntry } from "../../src/core/journal/entry"
+import { composePlayEntry } from "../../src/core/play/compose"
 import type { PlayId } from "../../src/core/play/play"
+import { mapOk } from "../../src/core/result/result"
 import { playResultOf } from "../../src/core/play/result"
 import { formatSignedYen } from "../../src/ui/wording/numbers"
-import { formOfRecord, playedAsRecorded, playedOnTerms, readPlayForm, type PlayedAt, type PlayForm } from "../../src/ui/features/record-play/form"
+import { formOfRecord, playedAsRecorded, playedOnTerms, pricesPlayedAt, readPlayForm, type PlayedAt, type PlayForm } from "../../src/ui/features/record-play/form"
 import { PRICES, RENTED_PLAY, UMEDA, dec } from "../support/values"
 
 const ID = "new" as PlayId
@@ -26,6 +29,14 @@ const FORM: PlayForm = {
 }
 
 describe("the record form", () => {
+  test("composes a play of cash at a pool the book has yet to hear of, on the rate its terms state", () => {
+    const elsewhere = playedOnTerms({ ...UMEDA, name: "スーパーホール", pools: [] }, TERMS, "pachinko")
+    const read = readPlayForm({ ...FORM, date: "2026-10-11", outlay: "5000" }, elsewhere, ID)
+    expect(read.ok && composePlayEntry(read.value, []).ok).toBe(false)
+    expect(read.ok && composePlayEntry(read.value, pricesPlayedAt(elsewhere, read.value.date, [])).ok).toBe(true)
+    expect(read.ok && mapOk(composePlayEntry(read.value, pricesPlayedAt(elsewhere, read.value.date, PRICES)), renderEntry)).toMatchObject({ ok: true, value: expect.stringContaining('1250 "玉(4円・スーパーホール)" @ 3.571429 JPY') })
+  })
+
   test("works out the tokens rented and the savings a replay took from the play's terms", () => {
     const read = readPlayForm({ ...FORM, outlay: "12,000", replayPaidOut: "1000", payout: "4000" }, AT, ID)
     expect(read.ok && [read.value.pool, read.value.rental, read.value.replay]).toEqual([
@@ -84,8 +95,8 @@ describe("the record form, setting a recorded play right", () => {
     expect(read({ replayPaidOut: "1000", replayDeducted: "1100" })).toEqual([undefined, { paidOut: dec("1000"), deducted: dec("1100") }])
   })
 
-  test("values its tokens at the book's rate for the day it says", () => {
+  test("values its tokens at the book's rate for the day it says, and at the pool's first for a day before any", () => {
     const at = playedAsRecorded(RENTED_PLAY, PRICES)
-    expect([at.exchangeRateOn("2026-09-05" as never), at.exchangeRateOn("2026-10-01" as never), at.exchangeRateOn("2026-08-01" as never)]).toEqual([dec("3.57"), dec("3.5"), undefined])
+    expect([at.exchangeRateOn("2026-09-05" as never), at.exchangeRateOn("2026-10-01" as never), at.exchangeRateOn("2026-08-01" as never)]).toEqual([dec("3.57"), dec("3.5"), dec("3.57")])
   })
 })

@@ -197,7 +197,7 @@ describe("a pool the book does not keep", () => {
     const lumina = opened.ok ? opened.value : UMEDA
     const rented = { ...RECORD, parlor: lumina, pool: { kind: "ball" as const, tier: "1円" }, rental: { outlay: dec("1000"), tokens: dec("890") } }
     expect((await recordPlay(session, BOOK, rented)).ok).toBe(true)
-    expect(storage.peek(BOOK)?.files["transactions.journal"]).toMatch(/資産:貯玉:ルミナ難波店:1円 +890 "玉\(1円・ルミナ難波店\)" @ 0.892857 JPY/)
+    expect(storage.peek(BOOK)?.files["transactions.journal"]).toMatch(/費用:遊技 +890 "玉\(1円・ルミナ難波店\)" @ 0.892857 JPY/)
   })
 
   test("opened again on the same day at the same rate writes nothing more", async () => {

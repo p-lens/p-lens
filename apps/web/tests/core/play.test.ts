@@ -10,16 +10,14 @@ import { PRICES, RENTED_PLAY, UMEDA, dec } from "../support/values"
 const rendered = (record: typeof RENTED_PLAY) => mapOk(composePlayEntry(record, PRICES), renderEntry)
 
 describe("composePlayEntry", () => {
-  test("a rented play is one entry: rental split at the day's rate, shooting, payout, theoretical value", () => {
+  test("a rented play is one entry: rental split at the day's rate and spent without passing through savings, payout, theoretical value", () => {
     expect(rendered(RENTED_PLAY)).toEqual({
       ok: true,
       value: [
         "2026-09-05 ホシゾラ梅田店 流星 123番台  ; play-id: made-up-0905, parlor-id: hoshizora-umeda, game-kind: pachinko, machine: 流星, cabinet-number: 123",
         "    資産:現金                           -12000 JPY",
         "    費用:貸玉差額                       1290 JPY",
-        '    資産:貯玉:ホシゾラ梅田店:4円        3000 "玉(4円・ホシゾラ梅田店)" @ 3.57 JPY',
-        '    資産:貯玉:ホシゾラ梅田店:4円        -3000 "玉(4円・ホシゾラ梅田店)"',
-        '    費用:遊技                           3000 "玉(4円・ホシゾラ梅田店)"',
+        '    費用:遊技                           3000 "玉(4円・ホシゾラ梅田店)" @ 3.57 JPY',
         '    資産:貯玉:ホシゾラ梅田店:4円        4800 "玉(4円・ホシゾラ梅田店)"',
         '    収益:遊技                           -4800 "玉(4円・ホシゾラ梅田店)"',
         "    (統計:期待値)                       5500 JPY",
