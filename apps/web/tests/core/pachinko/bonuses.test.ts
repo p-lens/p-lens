@@ -53,6 +53,16 @@ describe("a basis's bonuses, named", () => {
     if (!named.ok) throw new Error("the names should read")
     expect(bonusNamesOf(SPEC, named.value)).toEqual({ "10x15x10": "10R確変", "3x15x10": "3R", "10x10x10": "10R(2)" })
   })
+
+  test("come back under their rounds from a formula that lists them in another order, each told by what it pays", () => {
+    const listed = [
+      { name: "ライト", payout: 1000, spent: 100 },
+      { name: "ちび", payout: 450, spent: 30 },
+      { name: "でか", payout: 1500, spent: 100 },
+    ]
+    expect(bonusNamesOf(SPEC, listed)).toEqual({ "10x15x10": "でか", "3x15x10": "ちび", "10x10x10": "ライト" })
+    expect(bonusNamesOf(SPEC, listed.slice(0, 2))).toEqual({ "3x15x10": "ちび", "10x10x10": "ライト" })
+  })
 })
 
 describe("a basis whose machine gives a run of jackpots as one win", () => {

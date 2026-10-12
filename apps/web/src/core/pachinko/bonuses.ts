@@ -1,5 +1,5 @@
 import { comparableName, MACHINE_BONUSES } from "@p-lens/contracts"
-import { type BonusShape, bonusShapesOf, roundsOf, type SpecDto } from "@p-lens/contracts/pachinko"
+import { type BonusShape, bonusShapesOf, jackpotsOf, roundsOf, type SpecDto } from "@p-lens/contracts/pachinko"
 
 import { Err, Ok, type Result } from "../result/result"
 import { tidyTyped } from "../text/tidy"
@@ -41,6 +41,25 @@ export const namedBonuses = (shapes: readonly BonusShape[], typed: Readonly<Reco
   return problems.length > 0 ? Err(problems) : Ok(shapes.map((shape, index) => ({ name: names[index] ?? "", payout: shape.payout, spent: shape.spent, ...(shape.jackpots === 1 ? {} : { jackpots: shape.jackpots }) })))
 }
 
-/** The names a formula gave its basis's bonuses, each under its rounds, so they are typed again as they stood. */
+const fits = (shape: BonusShape, bonus: Bonus | undefined): boolean =>
+  bonus !== undefined && bonus.payout === shape.payout && bonus.spent === shape.spent && jackpotsOf(bonus) === shape.jackpots
+
+/**
+ * The names a formula gave its basis's bonuses, each under its rounds, so
+ * they are typed again as they stood. A bonus is told by what it pays out
+ * and takes over how many jackpots, not by where it stands: a formula
+ * stated before its bonuses were held to the order of its basis's shares
+ * lists them in another. The one at a shape's own place is taken where it
+ * fits, and otherwise the first that does and names no other shape.
+ */
 export const bonusNamesOf = (spec: SpecDto, bonuses: readonly Bonus[]): Readonly<Record<string, string>> =>
-  Object.fromEntries(bonusShapes(spec).flatMap((shape, index) => (bonuses[index] === undefined ? [] : [[shape.key, bonuses[index].name]])))
+  Object.fromEntries(
+    bonusShapes(spec).reduce<{ readonly named: readonly (readonly [string, string])[]; readonly taken: readonly number[] }>(
+      (sofar, shape, index) => {
+        const at = fits(shape, bonuses[index]) && !sofar.taken.includes(index) ? index : bonuses.findIndex((bonus, place) => !sofar.taken.includes(place) && fits(shape, bonus))
+        const bonus = bonuses[at]
+        return bonus === undefined ? sofar : { named: [...sofar.named, [shape.key, bonus.name] as const], taken: [...sofar.taken, at] }
+      },
+      { named: [], taken: [] },
+    ).named,
+  )

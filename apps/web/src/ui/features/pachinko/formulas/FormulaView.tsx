@@ -8,13 +8,13 @@ import { loadFormula } from "../../../../application/pachinko/formulas"
 import { bookNameOf } from "../../../../core/catalog/catalog"
 import { bonusShapes } from "../../../../core/pachinko/bonuses"
 import { borderOf } from "../../../../core/pachinko/theoretical-value"
-import { basisOf, type Formula, type Basis, type FormulaKind, type Sampling } from "../../../../core/pachinko/formula"
+import { basisOf, type Formula, type Basis, type Sampling } from "../../../../core/pachinko/formula"
 import { useApp } from "../../../context"
 import { Button, SemiproLink } from "../../../primitives/button"
 import { HandIcon, HandOffIcon, HeartIcon, ShieldIcon, ShieldOffIcon } from "../../../primitives/icons"
 import { Loaded } from "../../../primitives/states"
 import { useMoves } from "../../../navigation/moves"
-import type { FormulaTab, Place } from "../../../navigation/place"
+import type { Place } from "../../../navigation/place"
 import { formulaIdText } from "../../../wording/catalog"
 import { formatCount } from "../../../wording/numbers"
 import { describeError } from "../../../wording/errors"
@@ -23,6 +23,7 @@ import { useStartBallValue, useStartForm } from "../../live/start-form"
 import { ViewHeader } from "../../shell/ViewHeader"
 import { BonusTable } from "./BonusTable"
 import { HyenaHuntTable } from "./HyenaHuntTable"
+import { remadeIn } from "./remaking"
 import { trailTo } from "./trail"
 import { useActions } from "./use-actions"
 
@@ -52,9 +53,6 @@ const samplingOf = (formula: Formula): Sampling | undefined => (formula.kind ===
 
 /** The bonuses a formula's basis's jackpots pay, told by their rounds; none for one typed in. */
 const shapesOf = (formula: Formula): readonly BonusShape[] => ((basis) => (basis === undefined ? [] : bonusShapes(basis.spec)))(basisOf(formula))
-
-/** Where a formula is made again: in the tab it was made in. */
-const REMADE_IN: Readonly<Record<FormulaKind, FormulaTab>> = { manual: "manual", simulated: "basis", sampled: "simulator" }
 
 export function FormulaView(props: { readonly place: Place; readonly machineId: string; readonly formulaId: string }): JSX.Element {
   const app = useApp()
@@ -142,7 +140,7 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
                     variant="semipro"
                     onClick={() => {
                       start.updatePachinko({ machine: { type: "catalog", machineId: found.machine.id, name: bookNameOf(found.machine) }, remakeFrom: formula().id })
-                      moves.go({ kind: "pachinko-formula-new", tab: REMADE_IN[formula().kind] })
+                      moves.go({ kind: "pachinko-formula-new", tab: remadeIn(formula()) })
                     }}
                   >
                     作り直す

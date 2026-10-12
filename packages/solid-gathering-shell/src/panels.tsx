@@ -20,6 +20,16 @@ interface PanelProps {
 }
 
 /**
+ * What a pane's content scrolls in. It is positioned, so that whatever its
+ * content positions absolutely — a label kept for a screen reader and out
+ * of sight is one — is placed within it and scrolls with it. Left
+ * unpositioned, such a thing is placed against the page instead, far down
+ * a long pane, and the page grows to hold it: the whole shell then scrolls
+ * away under the content, rail and all.
+ */
+const SCROLLED = "relative min-h-0 flex-1 overflow-y-auto"
+
+/**
  * A pane with its own width beside the main content: fixed and resizable in a
  * wide arrangement, the whole screen in a narrow one.
  */
@@ -51,7 +61,7 @@ function WidthKeepingPanel(
         <Show when={props.header}>
           <header class="flex h-9 shrink-0 items-center border-b border-border px-3 sm:h-10 sm:px-4">{props.header}</header>
         </Show>
-        <div class="min-h-0 flex-1 overflow-y-auto">{props.children}</div>
+        <div class={SCROLLED}>{props.children}</div>
         <Show when={props.footer}>
           <footer class="shrink-0">{props.footer}</footer>
         </Show>
@@ -92,7 +102,7 @@ export function MainContent(props: { readonly header?: JSX.Element; readonly chi
       <Show when={props.header}>
         <header class="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3 sm:h-10 sm:px-4">{props.header}</header>
       </Show>
-      <div class="min-h-0 flex-1 overflow-y-auto">{props.children}</div>
+      <div class={SCROLLED}>{props.children}</div>
     </main>
   )
 }

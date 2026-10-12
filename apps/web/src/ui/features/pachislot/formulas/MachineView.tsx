@@ -16,6 +16,7 @@ import { useBookFavorites } from "../../live/book-favorites"
 import { useStartForm } from "../../live/start-form"
 import { ViewHeader } from "../../shell/ViewHeader"
 import { FormulaCard, SettingDistributionCard } from "./Cards"
+import { remadeIn, startedFrom } from "./remaking"
 import { trailTo } from "./trail"
 import { useActions } from "./use-actions"
 
@@ -57,8 +58,9 @@ export function MachineView(props: { readonly place: Place; readonly machineId: 
                     variant="semipro"
                     size="small"
                     onClick={() => {
-                      start.updatePachislot({ machine: { type: "catalog", machineId: found.machine.id, name: bookNameOf(found.machine) }, remakeFrom: undefined })
-                      moves.go({ kind: "pachislot-formula-new", tab: "manual" })
+                      const from = startedFrom(ranked(found.formulas, worthOf).map((listing) => listing.formula))
+                      start.updatePachislot({ machine: { type: "catalog", machineId: found.machine.id, name: bookNameOf(found.machine) }, remakeFrom: from?.id })
+                      moves.go({ kind: "pachislot-formula-new", tab: from === undefined ? "manual" : remadeIn(from) })
                     }}
                   >
                     算出条件を作る

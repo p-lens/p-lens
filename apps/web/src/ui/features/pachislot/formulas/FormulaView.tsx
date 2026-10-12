@@ -4,13 +4,13 @@ import { MainContent } from "solid-gathering-shell"
 import type { ApplicationError } from "../../../../application/errors"
 import { loadFormula } from "../../../../application/pachislot/formulas"
 import { bookNameOf } from "../../../../core/catalog/catalog"
-import type { Formula, FormulaKind, Sampling } from "../../../../core/pachislot/formula"
+import type { Formula, Sampling } from "../../../../core/pachislot/formula"
 import { useApp } from "../../../context"
 import { Button, SemiproLink } from "../../../primitives/button"
 import { HandIcon, HandOffIcon, HeartIcon, ShieldIcon, ShieldOffIcon } from "../../../primitives/icons"
 import { Loaded } from "../../../primitives/states"
 import { useMoves } from "../../../navigation/moves"
-import type { FormulaTab, Place } from "../../../navigation/place"
+import type { Place } from "../../../navigation/place"
 import { formulaIdText } from "../../../wording/catalog"
 import { describeError } from "../../../wording/errors"
 import { formatCount } from "../../../wording/numbers"
@@ -18,14 +18,9 @@ import { kindName } from "../../../wording/pachislot/formula"
 import { useStartForm } from "../../live/start-form"
 import { ViewHeader } from "../../shell/ViewHeader"
 import { FiguresTable } from "./FiguresTable"
+import { remadeIn } from "./remaking"
 import { trailTo } from "./trail"
 import { useActions } from "./use-actions"
-import { statesRate } from "./world-form"
-
-/** Where a formula is made again: in the tab it was made in — but one whose basis states its 機械割 where that can be typed, whatever it was made in. */
-const REMADE_IN: Readonly<Record<FormulaKind, FormulaTab>> = { manual: "manual", simulated: "basis", sampled: "simulator" }
-
-const remadeIn = (formula: Formula): FormulaTab => (statesRate(formula.basis.spec, formula.basis.conditions) ? "manual" : REMADE_IN[formula.kind])
 
 const samplingOf = (formula: Formula): Sampling | undefined => (formula.kind === "sampled" ? formula.sampling : undefined)
 
