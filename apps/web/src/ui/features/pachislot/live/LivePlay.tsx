@@ -17,6 +17,7 @@ import {
   totalNowOf,
   type CounterRefusal,
 } from "../../../../core/pachislot/reading"
+import { withStepsMerged, type Span } from "../../../../core/pachislot/merging"
 import { stepsOf } from "../../../../core/pachislot/revision"
 import { counterBonusesOf, counterBonusOf, countablesOf, type Countable, type Weighing } from "../../../../core/pachislot/weighing"
 import { parsePlayLog, type Checkpoint, type PlayLogError, type Tally } from "../../../../core/play-log/checkpoint"
@@ -34,6 +35,7 @@ import type { Place } from "../../../navigation/place"
 import { describeError, describePlayLogError } from "../../../wording/errors"
 import { formatCount } from "../../../wording/numbers"
 import { describeCounterRefusal, observedOneInText, priorName } from "../../../wording/pachislot/formula"
+import { CHANGED_SINCE_MERGED, MERGE_FAILED, MERGED, UNMERGE, UNMERGE_FAILED, UNMERGED } from "../../../wording/pachislot/play"
 import { ViewHeader } from "../../shell/ViewHeader"
 import { AtFigures, AtReadingComposer, AtResultComposer } from "./AtPlay"
 import { awaitsAtResult } from "./at-result-form"
@@ -303,6 +305,12 @@ const orderedOf = (draft: PlayDraft) => {
   return parsed.ok ? Ok(inPlayOrder(parsed.value)) : parsed
 }
 
+/** A merging as it was done: the log it was made from, and the log's text as it left it. */
+interface Merged {
+  readonly before: readonly Checkpoint[]
+  readonly left: string
+}
+
 /**
  * A pachislot play in progress, followed at the cabinet: where it stands,
  * how likely each setting level is and what the play is worth — for a
@@ -313,6 +321,7 @@ const orderedOf = (draft: PlayDraft) => {
  * each kept. A reading of the counter, pressed, is set right or taken away
  * where the next one would be typed, and every line after it is made again;
  * the log's last line, whatever it is, can be taken away a line at a time.
+ * A run of readings held and dragged over is made one line.
  */
 export function LivePlay(props: { readonly place: Place; readonly draft: PlayDraft; readonly title: string }): JSX.Element {
   const app = useApp()
@@ -372,6 +381,40 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
   const write = inTurn(addCheckpoints)
   /** Puts the log made in place of the one there is, where `write` adds to it. */
   const rewrite = inTurn(reviseCheckpoints)
+  /**
+   * Puts back the log a merging was made from, where the log still stands
+   * as the merging left it: one changed since — a reading added, a tile
+   * tapped — is left as it is, and that is said.
+   */
+  const unmerge = async (turn: Merged): Promise<void> => {
+    const written = await rewrite(() => (current().log === turn.left ? Ok(turn.before) : Err({ type: "changed-since-merged" as const })))
+    if (written.type !== "written") {
+      toast({ title: UNMERGE_FAILED, ...(written.type === "failed" ? { description: describeError(written.error) } : written.type === "refused" ? { description: CHANGED_SINCE_MERGED } : {}), tone: "error" })
+      return
+    }
+    setRevising(undefined)
+    toast({ title: UNMERGED, stays: "glance" })
+  }
+  /**
+   * Keeps the play's log with a run of its readings made one, and lets go
+   * of any reading taken up: its place among the steps is no longer its
+   * own. The word that it was done stays, with the way to take it back,
+   * until it is closed.
+   */
+  const merge = async (span: Span): Promise<void> => {
+    const turn: { before: readonly Checkpoint[] | undefined } = { before: undefined }
+    const written = await rewrite((ordered) => {
+      turn.before = ordered
+      return withStepsMerged(ordered, span)
+    })
+    const done: Merged | undefined = turn.before === undefined ? undefined : { before: turn.before, left: current().log }
+    if (written.type !== "written" || done === undefined) {
+      toast({ title: MERGE_FAILED, ...(written.type === "failed" ? { description: describeError(written.error) } : {}), tone: "error" })
+      return
+    }
+    setRevising(undefined)
+    toast({ title: MERGED, action: { label: UNMERGE, onPress: () => void unmerge(done) } })
+  }
   const undo = (): void => {
     setRevising(undefined)
     held.chain = held.chain.then(undoNow)
@@ -442,7 +485,7 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
                       </>
                     )}
                   </Show>
-                  <Timeline checkpoints={found()} bonuses={bonuses()} revising={revising()?.index} onRevise={(index) => setRevising({ index })} />
+                  <Timeline checkpoints={found()} bonuses={bonuses()} revising={revising()?.index} onRevise={(index) => setRevising({ index })} onMerge={merge} />
                   <Show when={found().length > 1}>
                     <div class="flex flex-col items-start gap-2">
                       <Button variant="ghost" size="small" onClick={undo}>

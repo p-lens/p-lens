@@ -1,11 +1,15 @@
-import { For, Show, type JSX } from "solid-js"
+import { createSignal, For, Show, type JSX } from "solid-js"
 
+import { mergeableSpan, type Span } from "../../../../core/pachislot/merging"
 import { revisableStepAt } from "../../../../core/pachislot/revision"
 import type { Countable } from "../../../../core/pachislot/weighing"
 import type { Checkpoint } from "../../../../core/play-log/checkpoint"
 import { cn } from "../../../primitives/cn"
+import { ConfirmPopover } from "../../../primitives/popover"
+import { createSpanPress, inSpan, spanRow } from "../../../primitives/span-press"
 import { formatMoment } from "../../../wording/dates"
 import { formatCount } from "../../../wording/numbers"
+import { MERGE_READINGS, mergeSays } from "../../../wording/pachislot/play"
 
 /** A line worth a row: a reading of the counter or the outlay, an AT won, or the start of counting — not every tap on a tile. */
 const isShown = (checkpoint: Checkpoint, index: number, ordered: readonly Checkpoint[]): boolean =>
@@ -92,45 +96,76 @@ const countedIn = (checkpoints: readonly Checkpoint[]): readonly Countable[] =>
  * revise, no line is pressed, and the line that ended the play is shown as
  * its last. Given no bonuses to name, each is named by its id as the
  * counter's readings have it: a recorded play keeps its log, not its formula.
+ *
+ * Given a way to merge, a reading held and dragged from marks a run of
+ * readings, as far as they may be made one (`mergeableSpan`), and letting
+ * go asks beside it whether to: nothing is merged by the dragging itself.
  */
 export function Timeline(props: {
   readonly checkpoints: readonly Checkpoint[]
   readonly bonuses: readonly Countable[] | undefined
   readonly revising: number | undefined
   readonly onRevise: ((step: number) => void) | undefined
+  readonly onMerge: ((span: Span) => Promise<void>) | undefined
 }): JSX.Element {
+  const press = createSpanPress((anchor, reached) => mergeableSpan(props.checkpoints, anchor, reached))
+  const [merging, setMerging] = createSignal(false)
+  const merge = async (span: Span): Promise<void> => {
+    if (merging()) return
+    setMerging(true)
+    await props.onMerge?.(span)
+    setMerging(false)
+    press.putDown()
+  }
   const bonuses = (): readonly Countable[] => props.bonuses ?? countedIn(props.checkpoints)
   const shown = (): readonly Row[] =>
     props.checkpoints.flatMap((checkpoint, line, ordered) =>
       isShown(checkpoint, line, ordered) ? [{ checkpoint, step: props.onRevise === undefined ? undefined : revisableStepAt(ordered, line) }] : [],
     )
+  /** How many readings a run takes in: its rows, the taps between them being no rows. */
+  const readingsIn = (span: Span): number => shown().filter((row) => inSpan(span, row.step)).length
   return (
-    <ol class="flex flex-col gap-0.5">
-      <For each={shown()}>
-        {(row) => (
-          <li>
-            <Show
-              when={row.step !== undefined}
-              fallback={
-                <div class={ROW}>
-                  <ReadingRow checkpoint={row.checkpoint} bonuses={bonuses()} />
-                </div>
-              }
-            >
-              <button
-                type="button"
-                class={cn(ROW, "hover:bg-surface-3/40", props.revising === row.step && "bg-warning/10 ring-1 ring-warning/50")}
-                aria-label={`${formatCount(row.checkpoint.spins)}Gの記録を修正`}
-                onClick={() => {
-                  if (row.step !== undefined) props.onRevise?.(row.step)
-                }}
+    <>
+      <ol
+        class="flex flex-col gap-0.5"
+        ref={(element) => {
+          if (props.onMerge !== undefined) press.list(element)
+        }}
+      >
+        <For each={shown()}>
+          {(row) => (
+            <li {...spanRow(row.step)}>
+              <Show
+                when={row.step !== undefined}
+                fallback={
+                  <div class={ROW}>
+                    <ReadingRow checkpoint={row.checkpoint} bonuses={bonuses()} />
+                  </div>
+                }
               >
-                <ReadingRow checkpoint={row.checkpoint} bonuses={bonuses()} />
-              </button>
-            </Show>
-          </li>
-        )}
-      </For>
-    </ol>
+                <button
+                  type="button"
+                  class={cn(ROW, "hover:bg-surface-3/40", props.revising === row.step && "bg-warning/10 ring-1 ring-warning/50", inSpan(press.span(), row.step) && "bg-accent/30")}
+                  aria-label={`${formatCount(row.checkpoint.spins)}Gの記録を修正`}
+                  onClick={() => {
+                    if (row.step !== undefined && !press.wasHeld()) props.onRevise?.(row.step)
+                  }}
+                >
+                  <ReadingRow checkpoint={row.checkpoint} bonuses={bonuses()} />
+                </button>
+              </Show>
+            </li>
+          )}
+        </For>
+      </ol>
+      <ConfirmPopover
+        anchor={press.chosen()?.row}
+        says={((span) => (span === undefined ? "" : mergeSays(readingsIn(span))))(press.chosen()?.span)}
+        confirm={MERGE_READINGS}
+        doing={merging()}
+        onConfirm={() => ((span) => (span === undefined ? undefined : void merge(span)))(press.chosen()?.span)}
+        onCancel={press.putDown}
+      />
+    </>
   )
 }

@@ -1,9 +1,12 @@
-import { For, Show, type JSX } from "solid-js"
+import { createSignal, For, Show, type JSX } from "solid-js"
 
+import { mergeableSpan, type Span } from "../../../../core/pachinko/merging"
 import type { Checkpoint } from "../../../../core/play-log/checkpoint"
+import { ConfirmPopover } from "../../../primitives/popover"
+import { createSpanPress, inSpan, spanRow } from "../../../primitives/span-press"
 import { formatMoment } from "../../../wording/dates"
 import { formatCount } from "../../../wording/numbers"
-import { PHASE_NAMES, signedBalls, UNTOLD_JACKPOT } from "../../../wording/pachinko/play"
+import { MERGE_READINGS, mergeSays, PHASE_NAMES, signedBalls, UNTOLD_JACKPOT } from "../../../wording/pachinko/play"
 
 /**
  * A line and the one before it, which says what the line added to the
@@ -91,11 +94,11 @@ const samePressed = (left: Revised | undefined, right: Revised | undefined): boo
 
 const pressLabel = (pressed: Revised): string => (pressed.type === "seat" ? "開始時データを修正" : `${pressed.index + 1}件目の記録を修正`)
 
-/** One line of the log. A reading, or the seat as it was found, is pressed to set it right; a jackpot found missing is only shown. */
-function Row(props: { readonly step: Step; readonly pressed: Revised | undefined; readonly revising: boolean; readonly onRevise: (pressed: Revised) => void }): JSX.Element {
+/** One line of the log. A reading, or the seat as it was found, is pressed to set it right; a jackpot found missing is only shown. A reading in the run being made one is marked. */
+function Row(props: { readonly step: Step; readonly pressed: Revised | undefined; readonly revising: boolean; readonly merging: boolean; readonly onRevise: (pressed: Revised) => void }): JSX.Element {
   const jackpot = (): boolean => props.step.checkpoint.event?.kind === "jackpot"
   return (
-    <li>
+    <li {...spanRow(props.step.reading)}>
       <Show
         when={props.pressed}
         keyed
@@ -111,7 +114,7 @@ function Row(props: { readonly step: Step; readonly pressed: Revised | undefined
             aria-label={pressLabel(found)}
             onClick={() => props.onRevise(found)}
             class={`${ROW} hover:bg-surface-3/40 focus-visible:outline-2 focus-visible:outline-focus-ring`}
-            classList={{ "bg-accent/10": jackpot() && !props.revising, "bg-warning/15": props.revising }}
+            classList={{ "bg-accent/10": jackpot() && !props.revising && !props.merging, "bg-warning/15": props.revising && !props.merging, "bg-accent/30": props.merging }}
           >
             <Line step={props.step} />
           </button>
@@ -129,17 +132,60 @@ function Row(props: { readonly step: Step; readonly pressed: Revised | undefined
  * it up to be set right — in a play in progress. A recorded play's log is
  * only read: given no way to revise, no line is pressed, and the line that
  * ended the play is shown as its last.
+ *
+ * Given a way to merge, a reading held and dragged from marks a run of
+ * readings, as far as they may be made one (`mergeableSpan`), and letting
+ * go asks beside it whether to: nothing is merged by the dragging itself.
  */
-export function Timeline(props: { readonly checkpoints: readonly Checkpoint[]; readonly revising: Revised | undefined; readonly onRevise: ((pressed: Revised) => void) | undefined }): JSX.Element {
+export function Timeline(props: {
+  readonly checkpoints: readonly Checkpoint[]
+  readonly revising: Revised | undefined
+  readonly onRevise: ((pressed: Revised) => void) | undefined
+  readonly onMerge: ((span: Span) => Promise<void>) | undefined
+}): JSX.Element {
+  const press = createSpanPress((anchor, reached) => mergeableSpan(props.checkpoints, anchor, reached))
+  const [merging, setMerging] = createSignal(false)
+  const merge = async (span: Span): Promise<void> => {
+    if (merging()) return
+    setMerging(true)
+    await props.onMerge?.(span)
+    setMerging(false)
+    press.putDown()
+  }
   return (
-    <ol class="flex flex-col gap-0.5">
-      <For each={stepsOf(props.checkpoints)}>
-        {(step, line) => {
-          const revise = props.onRevise
-          const pressed = revise === undefined ? undefined : pressedOf(step, line())
-          return <Row step={step} pressed={pressed} revising={samePressed(pressed, props.revising)} onRevise={(found) => revise?.(found)} />
+    <>
+      <ol
+        class="flex flex-col gap-0.5"
+        ref={(element) => {
+          if (props.onMerge !== undefined) press.list(element)
         }}
-      </For>
-    </ol>
+      >
+        <For each={stepsOf(props.checkpoints)}>
+          {(step, line) => {
+            const revise = props.onRevise
+            const pressed = revise === undefined ? undefined : pressedOf(step, line())
+            return (
+              <Row
+                step={step}
+                pressed={pressed}
+                revising={samePressed(pressed, props.revising)}
+                merging={inSpan(press.span(), step.reading)}
+                onRevise={(found) => {
+                  if (!press.wasHeld()) revise?.(found)
+                }}
+              />
+            )
+          }}
+        </For>
+      </ol>
+      <ConfirmPopover
+        anchor={press.chosen()?.row}
+        says={((span) => (span === undefined ? "" : mergeSays(span.to - span.from + 1)))(press.chosen()?.span)}
+        confirm={MERGE_READINGS}
+        doing={merging()}
+        onConfirm={() => ((span) => (span === undefined ? undefined : void merge(span)))(press.chosen()?.span)}
+        onCancel={press.putDown}
+      />
+    </>
   )
 }

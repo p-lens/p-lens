@@ -138,8 +138,8 @@ export function PlayDetail(props: { readonly place: Place; readonly bookId: Book
               {(log) => (
                 <section class="flex flex-col gap-2">
                   <h3 class="text-xs font-bold uppercase tracking-wide text-text-muted">計測履歴</h3>
-                  <Show when={found.summary.gameKind === "slot"} fallback={<PachinkoViews.Timeline checkpoints={log} revising={undefined} onRevise={undefined} />}>
-                    <PachislotViews.Timeline checkpoints={log} bonuses={undefined} revising={undefined} onRevise={undefined} />
+                  <Show when={found.summary.gameKind === "slot"} fallback={<PachinkoViews.Timeline checkpoints={log} revising={undefined} onRevise={undefined} onMerge={undefined} />}>
+                    <PachislotViews.Timeline checkpoints={log} bonuses={undefined} revising={undefined} onRevise={undefined} onMerge={undefined} />
                   </Show>
                 </section>
               )}

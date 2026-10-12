@@ -3,6 +3,7 @@
 import * as PopoverPrimitive from "@kobalte/core/popover"
 import { createSignal, type JSX } from "solid-js"
 
+import { Button } from "./button"
 import { CloseIcon, QuestionIcon } from "./icons"
 
 /**
@@ -117,6 +118,49 @@ export function CautionNote(props: { readonly children: string; readonly hint: s
           <PopoverPrimitive.CloseButton aria-label="閉じる" tabIndex={-1} class="flex size-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-3 hover:text-text-primary [&_svg]:size-4">
             <CloseIcon label="閉じる" />
           </PopoverPrimitive.CloseButton>
+        </PopoverPrimitive.Content>
+      </PopoverPrimitive.Portal>
+    </PopoverPrimitive.Root>
+  )
+}
+
+/**
+ * A question asked beside what it is about, before something is done that
+ * a slip of the hand should not do: it opens against `anchor` for as long
+ * as there is one, says what would be done, and does it only on its
+ * button. Its other button, or a press anywhere outside it, gives the
+ * thing up.
+ */
+export function ConfirmPopover(props: {
+  readonly anchor: HTMLElement | undefined
+  readonly says: string
+  readonly confirm: string
+  /** The thing is being done: its button waits. */
+  readonly doing: boolean
+  readonly onConfirm: () => void
+  readonly onCancel: () => void
+}): JSX.Element {
+  return (
+    <PopoverPrimitive.Root
+      open={props.anchor !== undefined}
+      onOpenChange={(next) => {
+        if (!next) props.onCancel()
+      }}
+      anchorRef={() => props.anchor}
+      gutter={6}
+      placement="top"
+    >
+      <PopoverPrimitive.Portal>
+        <PopoverPrimitive.Content class="z-50 flex w-[min(20rem,calc(100vw-2rem))] flex-col gap-3 rounded-md border border-border bg-surface-1 p-3 text-sm text-text-secondary shadow-lg outline-none">
+          <PopoverPrimitive.Description>{props.says}</PopoverPrimitive.Description>
+          <div class="flex justify-end gap-2">
+            <Button variant="secondary" size="small" onClick={() => props.onCancel()}>
+              やめる
+            </Button>
+            <Button size="small" disabled={props.doing} onClick={() => props.onConfirm()}>
+              {props.confirm}
+            </Button>
+          </div>
         </PopoverPrimitive.Content>
       </PopoverPrimitive.Portal>
     </PopoverPrimitive.Root>

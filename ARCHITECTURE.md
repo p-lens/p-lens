@@ -1568,6 +1568,45 @@ with plays is pressed to see them, the plays list asked for that day.
 - **The month shown is the screen's own**, in no address: it opens on the
   month of the business day, whose cell wears a ring.
 
+## Merging a play's readings
+
+A play in progress gathers many lines — one for every press of the rental
+button — and a run of them can be made one (`履歴をまとめる`). It is a
+feature that stands apart, to be taken out whole if it is not kept:
+`core/pachinko/merging` and `core/pachislot/merging`, the `onMerge` each
+game's `Timeline` is given and the `merge` and `unmerge` beside it in each
+`LivePlay`, the words under `MERGE_READINGS` in each game's
+`ui/wording/…/play`, `ui/primitives/span-press`, `ConfirmPopover`, and a
+toast's `action`. Each game's `revised` is exported for it alone.
+
+- **Held and dragged** (`createSpanPress`): a reading held begins a run,
+  which follows the pointer from row to row, the list scrolling on while
+  the pointer is near an edge of what it scrolls in, or over the composer
+  that stands across its foot. Nothing is merged by the dragging: letting
+  go over more than one row asks beside the run, and a press anywhere else
+  gives it up.
+- **Only what may be made one.** A run goes as far as each reading joins
+  the next (`mergeableSpan`) and no further, so the rows marked are always
+  the rows that would be merged. In pachinko a run never passes a jackpot
+  — one may only be its last line — nor a change of the cabinet's state,
+  nor takes in a reading a jackpot nobody wrote down was admitted before.
+  In pachislot it never passes a CZ missed or an AT won, an AT's result,
+  or the line that began the counting; the taps between its readings stay.
+- **No figure moves.** A pachinko run becomes its last reading with all
+  that was rented, drawn and drifted over it (`withReadingsMerged`); a
+  pachislot run becomes its last reading, which already says all the ones
+  before it did (`withStepsMerged`). A pachinko play is measured between
+  lines that know what was in hand, so a run in which any reading knew the
+  hand ends on one that does, and the reading the measuring starts from is
+  not folded into a later one: `consumptionOf` comes to the same before and
+  after, which the tests hold over every run of many generated plays.
+- **Taken back while its word stands.** The toast that says a run was
+  merged stays until it is closed and carries 取り消す, which puts the log
+  back as it was — unless the log has changed since, which is said and
+  left alone. Once the toast is closed the lines between are gone: a play
+  in progress is a draft, and has no history to bring them back from.
+- **A play in progress only.** A recorded play's log is read, not merged.
+
 ## Setting a recorded play right
 
 A play in the book is set right, or taken out, from its detail

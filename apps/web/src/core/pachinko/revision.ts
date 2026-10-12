@@ -111,7 +111,7 @@ const madeFrom = (seat: Checkpoint, taken: readonly Taken[]): Result<readonly Ch
  * every running total after the change follows from it. Refused where the
  * change leaves a counter going back.
  */
-const revised = (ordered: readonly Checkpoint[], change: (taken: readonly Taken[]) => readonly Taken[]): Result<readonly Checkpoint[], RevisionRefusal> => {
+export const revised = (ordered: readonly Checkpoint[], change: (taken: readonly Taken[]) => readonly Taken[]): Result<readonly Checkpoint[], RevisionRefusal> => {
   const seat = ordered.at(0)
   return seat === undefined ? Ok(ordered) : madeFrom(seat, change(takenOf(ordered)))
 }

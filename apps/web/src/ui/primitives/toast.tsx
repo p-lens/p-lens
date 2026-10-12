@@ -5,6 +5,7 @@ import { toaster } from "@kobalte/core/toast"
 import { Show, type JSX } from "solid-js"
 import { Portal } from "solid-js/web"
 
+import { Button } from "./button"
 import { CloseIcon } from "./icons"
 
 /** How a toast reads: news, something to mind, or something that went wrong. */
@@ -64,13 +65,22 @@ export function ToastRegion(): JSX.Element {
  * must be answered — that belongs on the screen itself. One said to stay
  * a glance or a blink only says that a press took: it is done many times
  * over, and is gone in a moment so as not to stand over what is typed
- * next.
+ * next. One given an `action` says what was just done and offers one thing
+ * to do about it — taking it back: it stays until it is closed, by its
+ * cross or by being swiped away, and pressing its button does the thing
+ * and closes it.
  */
-export const toast = (message: { readonly title: string; readonly description?: string; readonly tone?: ToastTone; readonly stays?: "glance" | "blink" }): void => {
+export const toast = (message: {
+  readonly title: string
+  readonly description?: string
+  readonly tone?: ToastTone
+  readonly stays?: "glance" | "blink"
+  readonly action?: { readonly label: string; readonly onPress: () => void }
+}): void => {
   toaster.show((props) => (
     <ToastPrimitive.Root
       toastId={props.toastId}
-      {...(message.stays === undefined ? {} : { duration: SHOWN_BRIEFLY_FOR[message.stays] })}
+      {...(message.action !== undefined ? { persistent: true } : message.stays === undefined ? {} : { duration: SHOWN_BRIEFLY_FOR[message.stays] })}
       class={`flex items-start gap-3 rounded-md border border-l-4 border-border bg-surface-1 px-4 py-3 shadow-lg ${TONES[message.tone ?? "info"]} ${MOTION}`}
     >
       <div class="min-w-0 flex-1">
@@ -79,6 +89,21 @@ export const toast = (message: { readonly title: string; readonly description?: 
           <ToastPrimitive.Description class="mt-0.5 text-xs text-text-secondary">{message.description}</ToastPrimitive.Description>
         </Show>
       </div>
+      <Show when={message.action} keyed>
+        {(action) => (
+          <Button
+            variant="secondary"
+            size="small"
+            class="shrink-0"
+            onClick={() => {
+              toaster.dismiss(props.toastId)
+              action.onPress()
+            }}
+          >
+            {action.label}
+          </Button>
+        )}
+      </Show>
       <ToastPrimitive.CloseButton aria-label="閉じる" class="-mr-1 flex size-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-3 hover:text-text-primary [&_svg]:size-4">
         <CloseIcon label="閉じる" />
       </ToastPrimitive.CloseButton>

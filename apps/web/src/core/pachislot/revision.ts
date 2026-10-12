@@ -97,7 +97,8 @@ const madeFrom = (seat: Checkpoint, steps: readonly Step[]): Result<readonly Che
     Ok([seat]),
   )
 
-const revised = (ordered: readonly Checkpoint[], change: (steps: readonly Step[]) => readonly Step[]): Result<readonly Checkpoint[], RevisionRefusal> => {
+/** A play's log with its steps changed, made again from the seat on, so every line after the change follows from it. Refused where the change leaves a step unable to follow. */
+export const revised = (ordered: readonly Checkpoint[], change: (steps: readonly Step[]) => readonly Step[]): Result<readonly Checkpoint[], RevisionRefusal> => {
   const seat = ordered.at(0)
   return seat === undefined ? Ok(ordered) : madeFrom(seat, change(stepsOf(ordered)))
 }

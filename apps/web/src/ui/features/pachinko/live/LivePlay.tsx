@@ -1,16 +1,21 @@
 import { createMemo, createSignal, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
+import { reviseCheckpoints } from "../../../../application/live-play"
 import { tokenValueOfDraft, type PlayDraft } from "../../../../core/live-play/draft"
 import { consumptionOf, spinPerformanceOf } from "../../../../core/pachinko/consumption"
+import { withReadingsMerged, type Span } from "../../../../core/pachinko/merging"
 import { standingBefore, takenOf } from "../../../../core/pachinko/revision"
 import { parsePlayLog, type Checkpoint, type PlayLogError } from "../../../../core/play-log/checkpoint"
 import { liveSummary } from "../../../../core/play-log/live"
 import { inPlayOrder } from "../../../../core/play-log/performance"
+import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
+import { toast } from "../../../primitives/toast"
 import { useMoves } from "../../../navigation/moves"
 import type { Place } from "../../../navigation/place"
-import { describePlayLogError } from "../../../wording/errors"
+import { describeError, describePlayLogError } from "../../../wording/errors"
+import { CHANGED_SINCE_MERGED, MERGE_FAILED, MERGED, UNMERGE, UNMERGE_FAILED, UNMERGED } from "../../../wording/pachinko/play"
 import { ViewHeader } from "../../shell/ViewHeader"
 import { CornerTerms } from "./CornerTerms"
 import { LiveFigures } from "./LiveFigures"
@@ -19,6 +24,12 @@ import { ReadingComposer } from "./ReadingComposer"
 import { SeatComposer } from "./SeatComposer"
 import { Timeline, type Revised } from "./Timeline"
 
+/** A merging as it was done: the log it was made from, and the play as it left it. */
+interface Merged {
+  readonly before: readonly Checkpoint[]
+  readonly left: PlayDraft
+}
+
 /** What the composer is doing beside taking the next reading. */
 type Work = Revised | { readonly type: "inserting"; readonly before: number }
 
@@ -26,9 +37,10 @@ type Work = Revised | { readonly type: "inserting"; readonly before: number }
  * A pachinko play in progress: what it comes to so far, the 遊タイム狙い its
  * formula allows, its readings in order, and the place to add the next one
  * — or, a line pressed, to set it right, take it away, or put a reading
- * in before it.
+ * in before it. A run of readings held and dragged over is made one line.
  */
 export function LivePlay(props: { readonly place: Place; readonly draft: PlayDraft; readonly title: string }): JSX.Element {
+  const app = useApp()
   const moves = useMoves()
   const parsed = createMemo(() => parsePlayLog(props.draft.log))
   /** What the composer is doing beside taking the next reading: setting a line right, or putting a reading in before another. */
@@ -42,6 +54,43 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
   }
   const insertBefore = (before: number): void => {
     setWork({ type: "inserting", before })
+  }
+  /**
+   * Puts back the log a merging was made from. Written against the log as
+   * the merging left it, so one changed since — a reading added, a line
+   * set right — is left as it is, and that is said.
+   */
+  const unmerge = async (turn: Merged): Promise<void> => {
+    const kept = await reviseCheckpoints(app.services.drafts, turn.left, turn.before)
+    if (!kept.ok) {
+      const changed = kept.error.type === "draft" && kept.error.error.type === "changed-elsewhere"
+      toast({ title: UNMERGE_FAILED, description: changed ? CHANGED_SINCE_MERGED : describeError(kept.error), tone: "error" })
+      return
+    }
+    setWork(undefined)
+    toast({ title: UNMERGED, stays: "glance" })
+    app.wrote()
+  }
+  /**
+   * Keeps the play's log with a run of its readings made one, and lets go
+   * of any line taken up: its place among the readings is no longer its
+   * own. The word that it was done stays, with the way to take it back,
+   * until it is closed.
+   */
+  const merge = async (checkpoints: readonly Checkpoint[], span: Span): Promise<void> => {
+    const made = withReadingsMerged(checkpoints, span)
+    if (!made.ok) {
+      toast({ title: MERGE_FAILED, tone: "error" })
+      return
+    }
+    const kept = await reviseCheckpoints(app.services.drafts, props.draft, made.value)
+    if (!kept.ok) {
+      toast({ title: MERGE_FAILED, description: describeError(kept.error), tone: "error" })
+      return
+    }
+    setWork(undefined)
+    toast({ title: MERGED, action: { label: UNMERGE, onPress: () => void unmerge({ before: checkpoints, left: kept.value }) } })
+    app.wrote()
   }
   const ordered = (): readonly Checkpoint[] | undefined => {
     const log = parsed()
@@ -103,7 +152,7 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
                       />
                     )}
                   />
-                  <Timeline checkpoints={checkpoints} revising={revised()} onRevise={setWork} />
+                  <Timeline checkpoints={checkpoints} revising={revised()} onRevise={setWork} onMerge={(span) => merge(checkpoints, span)} />
                 </div>
                 <div class="sticky bottom-0">
                   <Show when={work()} keyed fallback={<ReadingComposer draft={props.draft} ordered={checkpoints} revising={undefined} inserting={undefined} onRevised={done} onInsertBefore={insertBefore} />}>
