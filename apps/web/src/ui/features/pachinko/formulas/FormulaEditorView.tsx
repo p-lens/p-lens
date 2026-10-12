@@ -21,6 +21,7 @@ import { Loaded } from "../../../primitives/states"
 import { settleTyping, TextField } from "../../../primitives/text-field"
 import { CalculatorIcon, ComputerIcon, FistIcon } from "../../../primitives/icons"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../primitives/tabs"
+import { toast } from "../../../primitives/toast"
 import { useMoves } from "../../../navigation/moves"
 import type { FormulaTab, Place } from "../../../navigation/place"
 import { describeDescriptionProblem, describeReleaseDateError, quotaStandingText } from "../../../wording/catalog"
@@ -31,6 +32,8 @@ import { ViewHeader } from "../../shell/ViewHeader"
 import { BasisEditor } from "./BasisEditor"
 import { BonusNames } from "./BonusNames"
 import { BonusRows } from "./BonusRows"
+import { CopyFromMachine } from "./CopyFromMachine"
+import { remadeIn } from "./remaking"
 import { SamplingRun, type Sampled } from "./SamplingRun"
 import {
   type BasisForm,
@@ -488,6 +491,12 @@ export function FormulaEditorView(props: { readonly place: Place & { readonly ki
     dropDraft(app.services.preferences, "pachinko")
     setDraft(undefined)
   }
+  /** Starts the editor over from another machine's formula, in the tab it was made in: what is typed after is this machine's own, derived from none. */
+  const copy = (formula: Formula, from: string): void => {
+    setRestored(startFrom(formula))
+    moves.go({ kind: "pachinko-formula-new", tab: remadeIn(formula) })
+    toast({ title: `「${from}」の算出条件を入れました`, description: "機種名やリリース日はそのままです。数値を直して登録してください。" })
+  }
   return (
     <MainContent header={<ViewHeader place={props.place} title="算出条件を作る" trail={trail()} />}>
       <div class="flex max-w-5xl flex-col gap-3">
@@ -506,6 +515,11 @@ export function FormulaEditorView(props: { readonly place: Place & { readonly ki
               </Button>
             </div>
           )}
+        </Show>
+        <Show when={machine().type === "none"}>
+          <div class="px-4 pt-3">
+            <CopyFromMachine onCopied={copy} />
+          </div>
         </Show>
         <Loaded outcome={from()}>
           {(formula) => (
