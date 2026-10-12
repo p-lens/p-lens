@@ -1,3 +1,4 @@
+import type { IsoDate } from "../../core/calendar/calendar"
 import { UNSAID, type Dimension } from "../../core/report/breakdown"
 
 /** What each way of grouping plays is called, as the list of them offers it. */
@@ -10,6 +11,13 @@ export const DIMENSION_NAMES: Readonly<Record<Dimension, string>> = {
   month: "月別",
   day: "日別",
 }
+
+const SPANS = { month: "月別は月の初日から末日まで", year: "年別は1月1日から12月31日まで" } as const
+
+const slashed = (day: IsoDate | undefined): string => (day === undefined ? "" : day.replaceAll("-", "/"))
+
+/** What is said under the period where a grouping by month or year is asked about more days than were typed: which days it sums, so a whole month's figure is not taken for a part's. */
+export const widenedNote = (span: keyof typeof SPANS, from: IsoDate | undefined, to: IsoDate | undefined): string => `${SPANS[span]}を集計します（${slashed(from)}〜${slashed(to)}）。`
 
 /** What grouping several books' plays book by book is called: the one grouping only a consolidation has. */
 export const BY_BOOK = "帳簿別"

@@ -8,6 +8,7 @@ import { toPlainString } from "../../src/core/decimal/decimal"
 import { totalOf, type Dimension } from "../../src/core/report/breakdown"
 import { Ok } from "../../src/core/result/result"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
+import { queryOf } from "../../src/ui/features/breakdown/periods"
 import { ME, fixtureBook, inProcessHledger, memoryStorage } from "../support/in-process"
 
 const BOOK = "basic-play" as BookId
@@ -43,6 +44,16 @@ describe("the basic-play book, broken down by the real hledger module", () => {
     expect(await read("machine", "date:2026-10")).toEqual([["流星", "0", "1800"], ["森物語", "-1998", "900"]])
     const totals = await Promise.all((["machine", "parlor", "game", "month", "weekday"] as const).map(async (dimension) => ((found) => (found.ok ? ((total) => [toPlainString(total.actual), toPlainString(total.theoretical)])(totalOf(found.value)) : found))(await loadBreakdown(session(), BOOK, dimension, ""))))
     expect(totals).toEqual([["39144", "13200"], ["39144", "13200"], ["39144", "13200"], ["39144", "13200"], ["39144", "13200"]])
+  })
+
+  test("for a range of days, both ends included and either left open, as the period fields write it", async () => {
+    const days = async (from: string | undefined, to: string | undefined) => ((found) => (Array.isArray(found) ? found.map(([key]) => key) : found))(await read("day", queryOf({ from: from as never, to: to as never })))
+    expect(await days("2026-09-12", "2026-10-01")).toEqual(["2026-10-01", "2026-09-20", "2026-09-12"])
+    expect(await days("2026-10-03", "2026-10-03")).toEqual(["2026-10-03"])
+    expect(await days("2026-09-20", undefined)).toEqual(["2026-10-03", "2026-10-01", "2026-09-20"])
+    expect(await days(undefined, "2026-09-12")).toEqual(["2026-09-12", "2026-09-05"])
+    expect(await days(undefined, undefined)).toEqual(["2026-10-03", "2026-10-01", "2026-09-20", "2026-09-12", "2026-09-05"])
+    expect(await days("2026-10-03", "2026-09-05")).toEqual([])
   })
 
   test("with plays taken in from another app under what that app called their parlor and machine", async () => {

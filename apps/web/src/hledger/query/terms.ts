@@ -1,4 +1,4 @@
-import { monthOf, nextDay, type IsoDate } from "../../core/calendar/calendar"
+import { nextDay, type IsoDate } from "../../core/calendar/calendar"
 import type { TokenKind } from "../../core/commodity/commodity"
 import { ACCOUNTS, savingsAccount, savingsRoot } from "../../core/journal/accounts"
 import type { PlayId } from "../../core/play/play"
@@ -19,10 +19,16 @@ const escapeRegex = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g
 
 export const dayTerm = (date: IsoDate): string => `date:${date}`
 
-export const monthTerm = (date: IsoDate): string => `date:${monthOf(date)}`
-
 /** Everything up to and including a day; hledger's end is exclusive. */
 export const untilTerm = (date: IsoDate): string => `date:..${nextDay(date)}`
+
+/**
+ * Everything from one day to another, both included, either end left open
+ * where it is not given; nothing at all — every day there is — where
+ * neither is. hledger's end is exclusive, so the day after the last is
+ * what is written.
+ */
+export const rangeTerm = (from: IsoDate | undefined, to: IsoDate | undefined): string => (from === undefined && to === undefined ? "" : `date:${from ?? ""}..${to === undefined ? "" : nextDay(to)}`)
 
 /** Every savings account of every kind of token, at every parlor. */
 export const savingsTerm = `^(${escapeRegex(savingsRoot("ball"))}|${escapeRegex(savingsRoot("medal"))}):`

@@ -1616,6 +1616,20 @@ what its plays made and what they were worth.
   daily report, each day its own sum, folded into seven (`byWeekday`).
 - **Which grouping and which period are the address's**:
   `/books/:id/breakdown/weekday`, with `q` the period.
+- **A period is two days and nothing else** (`ui/features/breakdown/periods`,
+  `PeriodPicker`): the first and the last, both included, either left
+  open, written into the address as hledger's `date:FROM..TO` with the day
+  after the last (`rangeTerm`). 本日, 今月 and 今年 — counted from the
+  business day — only fill the two fields in; one is marked while the
+  fields say exactly its days, and pressed again it empties them, which is
+  every day there is.
+- **By month, whole months; by year, whole years.** A grouping by month is
+  asked about the days from the first of the month the period begins in to
+  the last of the month it ends in, and by year from the first of January
+  to the last of December (`queryFor`, `widened`), so a row is never the
+  part of a month or year a period happened to cut. The fields keep the
+  days typed, and a line under them says the days summed where they are
+  more.
 
 ## Consolidation
 

@@ -9,12 +9,12 @@ import { DIMENSIONS, isDimension, totalOf, type Dimension, type Group } from "..
 import { useApp } from "../../context"
 import { Select } from "../../primitives/select"
 import { EmptyState, Loaded } from "../../primitives/states"
-import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { DIMENSION_NAMES, groupName, NOT_TALLIED } from "../../wording/breakdown"
 import { formatSignedYen, toneOf } from "../../wording/numbers"
-import { periodsOn, type Period } from "./periods"
+import { PeriodPicker } from "./PeriodPicker"
+import { queryFor } from "./periods"
 import { ViewHeader } from "../shell/ViewHeader"
 
 const TONES = { positive: "text-positive", negative: "text-negative", neutral: "text-text-primary" } as const
@@ -61,11 +61,9 @@ export function GroupRow(props: { readonly name: string; readonly group: Group; 
 export function BreakdownView(props: { readonly place: Place; readonly bookId: BookId; readonly by: Dimension; readonly query: string }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
-  const periods = (): readonly Period[] => periodsOn(app.services.businessDay())
-  const chosenPeriod = (): Period | undefined => periods().find((period) => period.query === props.query)
   const [groups] = createResource(
     () => ({ bookId: props.bookId, by: props.by, query: props.query, revision: app.revision() }),
-    (source) => loadBreakdown(app.services.session, source.bookId, source.by, source.query),
+    (source) => loadBreakdown(app.services.session, source.bookId, source.by, queryFor(source.by, source.query)),
   )
   const [kept] = createResource(() => ({ bookId: props.bookId, revision: app.revision() }), (source) => keepsTheoreticalValues(app.services.session, source.bookId))
   /** Whether the book keeps theoretical values: taken to until hledger says it does not, so a book that does never flashes otherwise. */
@@ -86,18 +84,7 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
                 placeholder="切り口を選ぶ"
               />
             </div>
-            <ToggleGroup
-              value={chosenPeriod()?.id ?? null}
-              onChange={(id: string | null) => {
-                const period = periods().find((candidate) => candidate.id === id)
-                if (period !== undefined) moves.go(props.place, period.query)
-              }}
-              aria-label="期間"
-            >
-              {periods().map((period) => (
-                <ToggleGroupItem value={period.id}>{period.label}</ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+            <PeriodPicker by={props.by} query={props.query} today={app.services.businessDay()} onTyped={(query) => moves.refine(props.place, query)} onPressed={(query) => moves.go(props.place, query)} />
           </div>
           <Loaded outcome={groups()}>
             {(found) => (

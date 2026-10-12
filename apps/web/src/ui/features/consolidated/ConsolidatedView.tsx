@@ -8,14 +8,14 @@ import { useApp } from "../../context"
 import { BreakdownIcon } from "../../primitives/icons"
 import { Select } from "../../primitives/select"
 import { EmptyState, Loaded } from "../../primitives/states"
-import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { bookTitle } from "../../wording/book"
 import { BY_BOOK, DIMENSION_NAMES, groupName } from "../../wording/breakdown"
 import { describeError } from "../../wording/errors"
 import { GroupRow } from "../breakdown/BreakdownView"
-import { periodsOn, type Period } from "../breakdown/periods"
+import { PeriodPicker } from "../breakdown/PeriodPicker"
+import { queryFor } from "../breakdown/periods"
 import { SideList } from "../shell/SideList"
 import { ViewHeader } from "../shell/ViewHeader"
 
@@ -45,12 +45,10 @@ const grouped = (books: readonly ConsolidatedBook[], by: ConsolidatedBy): readon
 export function ConsolidatedView(props: { readonly place: Place; readonly by: ConsolidatedBy; readonly bookIds: readonly BookId[] | undefined; readonly query: string }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
-  const periods = (): readonly Period[] => periodsOn(app.services.businessDay())
-  const chosenPeriod = (): Period | undefined => periods().find((period) => period.query === props.query)
   const [listed] = createResource(() => app.revision(), () => app.services.session.books())
   const [consolidation] = createResource(
     () => ({ bookIds: props.bookIds, by: props.by, query: props.query, revision: app.revision() }),
-    (source) => loadConsolidation(app.services.session, source.bookIds, source.by, source.query),
+    (source) => loadConsolidation(app.services.session, source.bookIds, source.by, queryFor(source.by, source.query)),
   )
   const every = (): readonly BookId[] => ((found) => (found?.ok === true ? found.value.map((book) => book.id) : []))(listed())
   const ticked = (id: BookId): boolean => props.bookIds === undefined || props.bookIds.includes(id)
@@ -80,18 +78,7 @@ export function ConsolidatedView(props: { readonly place: Place; readonly by: Co
                 placeholder="切り口を選ぶ"
               />
             </div>
-            <ToggleGroup
-              value={chosenPeriod()?.id ?? null}
-              onChange={(id: string | null) => {
-                const period = periods().find((candidate) => candidate.id === id)
-                if (period !== undefined) moves.go(props.place, period.query)
-              }}
-              aria-label="期間"
-            >
-              {periods().map((period) => (
-                <ToggleGroupItem value={period.id}>{period.label}</ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+            <PeriodPicker by={props.by} query={props.query} today={app.services.businessDay()} onTyped={(query) => moves.refine(props.place, query)} onPressed={(query) => moves.go(props.place, query)} />
           </div>
           <Loaded outcome={consolidation()}>
             {() => (
