@@ -27,6 +27,7 @@ export type ChangeIntent =
   | { readonly type: "savings-opened"; readonly parlor: string; readonly tier: string }
   | { readonly type: "savings-adjusted"; readonly parlor: string; readonly tier: string }
   | { readonly type: "savings-exchanged"; readonly parlor: string; readonly tier: string }
+  | { readonly type: "savings-forfeited"; readonly parlor: string; readonly tier: string }
   | { readonly type: "pool-opened"; readonly parlor: string; readonly tier: string }
   | { readonly type: "parlors-linked"; readonly names: readonly string[] }
   | { readonly type: "conflict-settled"; readonly paths: readonly string[] }

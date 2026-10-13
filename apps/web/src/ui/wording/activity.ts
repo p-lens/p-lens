@@ -30,6 +30,8 @@ export const describeActivity = (line: ActivityLine): string => {
       return pool === undefined ? SOMETHING_DONE : `${pool.parlor}の${pool.tier}の残高を調整`
     case "savings-exchanged":
       return pool === undefined ? SOMETHING_DONE : `${pool.parlor}の${pool.tier}を交換払出`
+    case "savings-forfeited":
+      return pool === undefined ? SOMETHING_DONE : `${pool.parlor}の${pool.tier}の没収・失効を記録`
     case "pool-opened":
       return pool === undefined ? SOMETHING_DONE : `${pool.parlor}の${pool.tier}を帳簿に用意`
     case "conflict-settled":

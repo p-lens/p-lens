@@ -2,7 +2,7 @@ import { createMemo, createResource, createSignal, Show, type JSX } from "solid-
 
 import type { ApplicationError } from "../../../application/errors"
 import type { RecordingContext } from "../../../application/record-play"
-import { adjustBalance, exchangeRateOn, recordPrizeExchange, registerOpeningBalance } from "../../../application/savings"
+import { adjustBalance, exchangeRateOn, recordForfeiture, recordPrizeExchange, registerOpeningBalance } from "../../../application/savings"
 import type { BookId } from "../../../core/book/book"
 import { parseIsoDate } from "../../../core/calendar/calendar"
 import { decimal, isNegative, multiply, negate, toPlainString, type Decimal } from "../../../core/decimal/decimal"
@@ -339,6 +339,74 @@ export function PrizeExchangeForm(props: {
           </p>
         )}
       </Show>
+      <Failure saving={saving()} />
+      <div class="flex gap-2">
+        <Button type="submit" size="small">
+          {saving().type === "saving" ? "記録中…" : "記録する"}
+        </Button>
+        <Button variant="ghost" size="small" onClick={() => props.onDone()}>
+          やめる
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+/**
+ * Recording savings a parlor took back from one pool, 没収・失効: the day,
+ * and how many tokens went — all the pool holds, until the person says
+ * fewer, a membership withdrawn or savings lapsed taking the lot. The
+ * line under the fields says what it is to the book: a loss in the
+ * results of its day, and no play's.
+ */
+export function ForfeitureForm(props: {
+  readonly bookId: BookId
+  readonly parlor: Parlor
+  readonly pool: SavingsPool
+  readonly unit: string
+  readonly held: Decimal
+  readonly onDone: () => void
+}): JSX.Element {
+  const app = useApp()
+  const [tokens, setTokens] = createSignal(toPlainString(props.held))
+  const [date, setDate] = createSignal<string>(app.services.businessDay())
+  const [saving, setSaving] = createSignal<Saving>({ type: "typing" })
+  const nudge = createNudge()
+  const forfeited = (): number | undefined => {
+    const count = countOf(tokens())
+    return count !== undefined && count > 0 ? count : undefined
+  }
+  const save = async (): Promise<void> => {
+    settleTyping()
+    const [count, on] = [forfeited(), parseIsoDate(date())]
+    if (saving().type === "saving") return
+    if (count === undefined || !on.ok) {
+      nudge.nudge()
+      return
+    }
+    setSaving({ type: "saving" })
+    const recorded = await recordForfeiture(app.services.session, props.bookId, { parlor: props.parlor, pool: props.pool, date: on.value, tokens: whole(count) })
+    if (!recorded.ok) {
+      setSaving({ type: "failed", error: recorded.error })
+      return
+    }
+    toast({ title: "没収・失効を記録しました", description: `${props.parlor.name} ${count.toLocaleString("ja-JP")}${props.unit}` })
+    app.wrote()
+    props.onDone()
+  }
+  return (
+    <form autocomplete="off"
+      class="flex flex-col gap-2 rounded-md border border-border p-2"
+      onSubmit={(event) => {
+        event.preventDefault()
+        void save()
+      }}
+    >
+      <div class="grid grid-cols-2 items-end gap-1.5">
+        <TextField label="没収・失効した数" value={tokens()} onChange={setTokens} inputMode="numeric" suffix={props.unit} invalid={nudge.red() && forfeited() === undefined} onFocus={nudge.settle} compact />
+        <TextField label="日付" type="date" value={date()} onChange={setDate} invalid={nudge.red() && !parseIsoDate(date()).ok} onFocus={nudge.settle} compact />
+      </div>
+      <p class="text-xs text-text-muted">会員資格の取り消しや期限切れで、店に戻った貯玉・貯メダルです。その日の交換率で損失として収支に入ります。稼働にはなりません。</p>
       <Failure saving={saving()} />
       <div class="flex gap-2">
         <Button type="submit" size="small">

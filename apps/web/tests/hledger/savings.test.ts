@@ -5,7 +5,7 @@ import { loadActivity } from "../../src/application/activity"
 import { createBookSession } from "../../src/application/book-session"
 import { loadHoldings } from "../../src/application/holdings"
 import { loadOverview } from "../../src/application/overview"
-import { adjustBalance, recordPrizeExchange, registerOpeningBalance } from "../../src/application/savings"
+import { adjustBalance, recordForfeiture, recordPrizeExchange, registerOpeningBalance } from "../../src/application/savings"
 import type { BookId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { toPlainString } from "../../src/core/decimal/decimal"
@@ -137,5 +137,41 @@ describe("savings exchanged for prizes", () => {
     expect(await recordPrizeExchange(session, BOOK, { ...EXCHANGE, tokens: dec("4801") })).toEqual({ ok: false, error: { type: "prize-exchange", problem: { type: "savings-short", kind: "ball", held: dec("4800") } } })
     expect(await recordPrizeExchange(session, BOOK, { ...EXCHANGE, date: "2026-09-01" as IsoDate })).toEqual({ ok: false, error: { type: "prize-exchange", problem: { type: "savings-short", kind: "ball", held: dec("0") } } })
     expect(storage.peek(BOOK)?.files).toEqual(before as never)
+  })
+})
+
+describe("savings a parlor took back", () => {
+  const madeUpBook = async () => setUp(await fixtureBook("basic-play", { id: BOOK, members: [{ id: ME, displayName: "me", role: "owner" }] }))
+  const FORFEITURE = { parlor: UMEDA, pool: { kind: "ball", tier: "4円" } as const, date: "2026-10-04" as IsoDate, tokens: dec("4000") }
+  const results = async (session: Awaited<ReturnType<typeof setUp>>["session"], query: string) =>
+    ((overview) => overview.ok && [toPlainString(overview.value.actual), toPlainString(overview.value.theoretical)])(await loadOverview(session, BOOK, query))
+
+  test("leave the pool as a loss of their day, at the rate of the day, and are no play", async () => {
+    const { session, storage, history } = await madeUpBook()
+    const before = await results(session, "")
+    expect(await recordForfeiture(session, BOOK, FORFEITURE)).toEqual({ ok: true, value: undefined })
+    expect(await held(session)).toContainEqual(["ホシゾラ梅田店", "4円", "800"])
+    expect(await results(session, "date:2026-10-04")).toEqual(["-14000", "0"])
+    const after = await results(session, "")
+    expect(before && after && [Number(after[0]) - Number(before[0]), Number(after[1]) - Number(before[1])]).toEqual([-14000, 0])
+    const files = storage.peek(BOOK)?.files
+    expect(files?.[BOOK_FILES.accounts]).toContain("account 費用:没収・失効\n")
+    expect(files?.[BOOK_FILES.transactions]).toContain("2026-10-04 ホシゾラ梅田店 | 没収・失効  ; parlor-id: hoshizora-umeda, savings: forfeiture")
+    expect(files?.[BOOK_FILES.transactions]).not.toContain("資産:現金                         -14000")
+    const activity = await loadActivity(session, history, BOOK)
+    expect(activity.ok && activity.value.lines.map((line) => line.did).at(-1)).toBe("savings-forfeited")
+  })
+
+  test("declare their account once, however many are recorded", async () => {
+    const { session, storage } = await madeUpBook()
+    await recordForfeiture(session, BOOK, { ...FORFEITURE, tokens: dec("1000") })
+    await recordForfeiture(session, BOOK, { ...FORFEITURE, tokens: dec("1000") })
+    expect(storage.peek(BOOK)?.files[BOOK_FILES.accounts]?.split("account 費用:没収・失効").length).toBe(2)
+  })
+
+  test("are refused beyond what the pool holds by that day, or where none were taken", async () => {
+    const { session } = await madeUpBook()
+    expect(await recordForfeiture(session, BOOK, { ...FORFEITURE, tokens: dec("4801") })).toEqual({ ok: false, error: { type: "forfeiture", problem: { type: "savings-short", kind: "ball", held: dec("4800") } } })
+    expect(await recordForfeiture(session, BOOK, { ...FORFEITURE, tokens: dec("0") })).toEqual({ ok: false, error: { type: "forfeiture", problem: { type: "nothing-forfeited" } } })
   })
 })

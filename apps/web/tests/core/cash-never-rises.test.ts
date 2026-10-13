@@ -9,6 +9,7 @@ import type { Entry } from "../../src/core/journal/entry"
 import { composePlayEntry, composeTalliedEntry } from "../../src/core/play/compose"
 import type { PlayId, TalliedPlay } from "../../src/core/play/play"
 import { balanceAdjustmentEntry, openingBalanceEntry } from "../../src/core/savings/balance"
+import { forfeitureEntry } from "../../src/core/savings/forfeiture"
 import { prizeExchangeEntry } from "../../src/core/savings/prize-exchange"
 import { PRICES, RENTED_PLAY, UMEDA, dec } from "../support/values"
 
@@ -34,7 +35,7 @@ const SOURCE: SourcePlay = { date: DAY, parlor: { name: "ホシゾラ梅田店",
 
 const made = (entry: { readonly ok: true; readonly value: Entry } | { readonly ok: false }): readonly Entry[] => (entry.ok ? [entry.value] : [])
 
-/** Every entry the app composes, each in the cases where money came back: a play followed live, one typed in by its two sides, one taken in from another app, a prize exchange, and savings opened or put right. */
+/** Every entry the app composes, each in the cases where money came back: a play followed live, one typed in by its two sides, one taken in from another app, a prize exchange, savings opened or put right, and savings a parlor took back. */
 const ENTRIES: readonly Entry[] = [
   ...made(composePlayEntry(RENTED_PLAY, PRICES)),
   ...made(composePlayEntry({ ...RENTED_PLAY, payout: dec("48000") }, PRICES)),
@@ -45,6 +46,7 @@ const ENTRIES: readonly Entry[] = [
   openingBalanceEntry({ parlor: UMEDA, pool: POOL, date: DAY }, dec("12000")),
   balanceAdjustmentEntry({ parlor: UMEDA, pool: POOL, date: DAY }, dec("300")),
   balanceAdjustmentEntry({ parlor: UMEDA, pool: POOL, date: DAY }, dec("-300")),
+  ...made(forfeitureEntry({ parlor: UMEDA, pool: POOL, date: DAY, tokens: dec("4800") })),
 ]
 
 const sourceFiles = async (): Promise<readonly string[]> => (await readdir(SRC, { recursive: true })).filter((path) => /\.tsx?$/.test(path)).sort()
@@ -57,7 +59,7 @@ const naming = async (pattern: RegExp): Promise<readonly string[]> => {
 
 describe("cash never rises", () => {
   test("no entry the app composes puts a positive amount to 資産:現金, whatever came back", () => {
-    expect(ENTRIES.length).toBe(22)
+    expect(ENTRIES.length).toBe(23)
     const raised = ENTRIES.flatMap((entry) => entry.postings.filter((posting) => posting.account === ACCOUNTS.cash && posting.amount.quantity.mantissa > 0n).map((posting) => [entry.description, posting.amount.quantity]))
     expect(raised).toEqual([])
   })

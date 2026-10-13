@@ -10,6 +10,7 @@ import type { NameProblem } from "../core/names/known"
 import type { CashRaised } from "../core/report/cash-raised"
 import type { OpeningProblem } from "../core/parlor/opening"
 import type { PlayError } from "../core/play/play"
+import type { ForfeitureProblem } from "../core/savings/forfeiture"
 import type { PrizeExchangeProblem } from "../core/savings/prize-exchange"
 import type { ReportError } from "../core/report/figures"
 import type { CodecProblem } from "../core/sync/codec"
@@ -94,6 +95,7 @@ export type ApplicationError =
   | { readonly type: "archive"; readonly failure: ArchiveFailure }
   | { readonly type: "forbidden"; readonly capability: Capability }
   | { readonly type: "prize-exchange"; readonly problem: PrizeExchangeProblem }
+  | { readonly type: "forfeiture"; readonly problem: ForfeitureProblem }
   | { readonly type: "import"; readonly problem: ImportProblem }
   | { readonly type: "play-missing" }
   | { readonly type: "play-unreadable" }

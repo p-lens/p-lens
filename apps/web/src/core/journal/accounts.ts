@@ -11,6 +11,7 @@ export const ACCOUNTS = {
   theoreticalValue: "統計:期待値",
   inferredTheoreticalValue: "統計:期待値:推定",
   replayFee: "費用:再プレイ手数料",
+  forfeiture: "費用:没収・失効",
   openingBalance: "純資産:開始残高",
   balanceAdjustment: "純資産:残高調整",
   specialPrizes: "純資産:特殊景品",

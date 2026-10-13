@@ -5,6 +5,7 @@ import type { PlayGameKind } from "../../core/play/play"
 import type { ApplicationError } from "../../application/errors"
 import type { OpeningProblem } from "../../core/parlor/opening"
 import type { NumericField, PlayError, TextField } from "../../core/play/play"
+import type { ForfeitureProblem } from "../../core/savings/forfeiture"
 import type { PrizeExchangeProblem } from "../../core/savings/prize-exchange"
 import type { PlayLogError } from "../../core/play-log/checkpoint"
 import type { ReadingRefusal } from "../../core/play-log/live"
@@ -122,6 +123,18 @@ const describeHistoryError = (error: HistoryError): string => `履歴を残せ�
 
 const GAME_NAMES: Readonly<Record<PlayGameKind, string>> = { pachinko: "パチンコ", slot: "スロット" }
 
+/** Why a forfeiture could not be written, as a person is told. */
+const describeForfeitureProblem = (problem: ForfeitureProblem): string => {
+  switch (problem.type) {
+    case "nothing-forfeited":
+      return "没収・失効した数を入力してください。"
+    case "fractional-tokens":
+      return "没収・失効した数は整数で入力してください。"
+    case "savings-short":
+      return `その日の残高は${formatTokens(problem.held, problem.kind)}です。それより多くは没収・失効として記録できません。`
+  }
+}
+
 /** Why a prize exchange could not be written, as a person is told. */
 const describePrizeExchangeProblem = (problem: PrizeExchangeProblem): string => {
   switch (problem.type) {
@@ -188,6 +201,8 @@ export const describeError = (error: ApplicationError): string => {
       return `${error.parlor}（${error.tier}）の開始残高は登録済みです。残高を直すときは、一覧の「残高調整」を使ってください。`
     case "prize-exchange":
       return describePrizeExchangeProblem(error.problem)
+    case "forfeiture":
+      return describeForfeitureProblem(error.problem)
     case "import":
       return describeImportProblem(error.problem)
     case "play-missing":

@@ -18,12 +18,12 @@ import { formatDay } from "../../wording/dates"
 import { formatRate, formatTokens, formatYen } from "../../wording/numbers"
 import { createOffered } from "../record-play/TallyPlayView"
 import { ViewHeader } from "../shell/ViewHeader"
-import { BalanceAdjustmentForm, PrizeExchangeForm, OpeningBalanceForm } from "./SavingsForms"
+import { BalanceAdjustmentForm, ForfeitureForm, PrizeExchangeForm, OpeningBalanceForm } from "./SavingsForms"
 
 const UNITS = { ball: "玉", medal: "枚" } as const
 
-/** What is open under a pool's row: nothing, the form that records a prize exchange, or the one that puts the count right. */
-type Opened = "none" | "prize-exchange" | "adjustment"
+/** What is open under a pool's row: nothing, the form that records a prize exchange, the one that puts the count right, or the one that records what a parlor took back. */
+type Opened = "none" | "prize-exchange" | "adjustment" | "forfeiture"
 
 const ROW_BUTTON = "shrink-0 rounded border border-border px-2 py-0.5 text-xs text-text-secondary hover:border-text-secondary hover:text-text-primary"
 
@@ -59,6 +59,9 @@ function TokenRow(props: { readonly bookId: BookId; readonly parlor: Parlor | un
           <button type="button" class={ROW_BUTTON} onClick={() => setOpened("adjustment")}>
             残高調整
           </button>
+          <button type="button" class={ROW_BUTTON} onClick={() => setOpened("forfeiture")}>
+            没収・失効
+          </button>
         </div>
       </Show>
       <Show when={opened() === "prize-exchange" ? props.parlor : undefined} keyed>
@@ -66,6 +69,9 @@ function TokenRow(props: { readonly bookId: BookId; readonly parlor: Parlor | un
       </Show>
       <Show when={opened() === "adjustment" ? props.parlor : undefined} keyed>
         {(parlor) => <BalanceAdjustmentForm bookId={props.bookId} parlor={parlor} pool={pool()} unit={UNITS[props.token.kind]} held={props.token.quantity} onDone={() => setOpened("none")} />}
+      </Show>
+      <Show when={opened() === "forfeiture" ? props.parlor : undefined} keyed>
+        {(parlor) => <ForfeitureForm bookId={props.bookId} parlor={parlor} pool={pool()} unit={UNITS[props.token.kind]} held={props.token.quantity} onDone={() => setOpened("none")} />}
       </Show>
     </li>
   )

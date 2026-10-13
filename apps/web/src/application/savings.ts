@@ -10,6 +10,7 @@ import { Err, Ok, mapOk } from "../core/result/result"
 import { pricePointsOf } from "../core/report/holdings"
 import { andThen } from "../core/result/result"
 import { balanceAdjustmentEntry, openingBalanceEntry, prependEntry, withEquityDeclared } from "../core/savings/balance"
+import { forfeitureEntry, withForfeitureDeclared, type Forfeiture } from "../core/savings/forfeiture"
 import { prizeExchangeEntry, withPrizesDeclared, type PrizeExchange } from "../core/savings/prize-exchange"
 import { compare } from "../core/decimal/decimal"
 import { openingBalanceRequest, pricesRequest } from "../hledger/query/requests"
@@ -124,6 +125,33 @@ export const recordPrizeExchange = async (session: BookSession, bookId: BookId, 
               intent: { type: "savings-exchanged", parlor: exchange.parlor.name, tier: exchange.pool.tier },
             })
           : Err({ type: "prize-exchange", problem: entry.error })
+      }),
+    ),
+    () => undefined,
+  )
+}
+
+/**
+ * Record savings a parlor took back, as one entry and one commit. The pool
+ * must hold that many tokens by the end of the day said: more than it
+ * holds is refused, since the book would then say tokens were lost that
+ * it never had.
+ */
+export const recordForfeiture = async (session: BookSession, bookId: BookId, forfeiture: Forfeiture): Promise<Outcome<void>> => {
+  const held = await heldOn(session, bookId, forfeiture.parlor, forfeiture.pool, forfeiture.date)
+  if (!held.ok) return held
+  if (compare(held.value, forfeiture.tokens) < 0) return Err({ type: "forfeiture", problem: { type: "savings-short", kind: forfeiture.pool.kind, held: held.value } })
+  const entry = forfeitureEntry(forfeiture)
+  if (!entry.ok) return Err({ type: "forfeiture", problem: entry.error })
+  return mapOk(
+    await session.write(bookId, async (_journal, stored) =>
+      Ok({
+        files: {
+          ...stored.files,
+          [BOOK_FILES.accounts]: withForfeitureDeclared(stored.files[BOOK_FILES.accounts] ?? ""),
+          [BOOK_FILES.transactions]: appendEntry(stored.files[BOOK_FILES.transactions] ?? "", renderEntry(entry.value)),
+        },
+        intent: { type: "savings-forfeited" as const, parlor: forfeiture.parlor.name, tier: forfeiture.pool.tier },
       }),
     ),
     () => undefined,

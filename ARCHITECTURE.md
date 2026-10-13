@@ -152,6 +152,7 @@ The account tree is deliberately small:
 費用:貸玉差額
 費用:貸メダル差額
 費用:再プレイ手数料
+費用:没収・失効             savings a parlor took back, declared when a book first has one
 純資産:開始残高             savings a person already had when the book began
 純資産:残高調整             a pool's count put right to what the parlor says
 純資産:特殊景品             what the special prizes of a prize exchange are worth
@@ -1628,6 +1629,32 @@ back are worth, and the day.
   keeps its fraction, being a cost as large as it is.
 - **Never more than the pool holds** by the end of the day said: that is
   refused before anything is written.
+
+## Forfeiture
+
+Savings a parlor took back are recorded from a pool's row
+(貯玉・貯メダル → 没収・失効; `core/savings/forfeiture`,
+`recordForfeiture`): how many tokens — all the pool holds, until fewer
+are said — and the day. 没収 is a membership withdrawn and the card with
+it; 失効 is savings left past the day a parlor keeps them to. The book
+has one thing for both, the tokens being gone either way.
+
+```hledger
+2026-10-04 ホシゾラ梅田店 | 没収・失効  ; parlor-id: hoshizora-umeda, savings: forfeiture
+    費用:没収・失効                    4000 "玉(4円・ホシゾラ梅田店)"
+    資産:貯玉:ホシゾラ梅田店:4円      -4000 "玉(4円・ホシゾラ梅田店)"
+```
+
+- It is an expense, in tokens only, as a replay's fee is: what it comes
+  to in yen is hledger's to say at the rate of its day, and the income
+  statement counts it — 実収支 falls by it, under its parlor.
+- It is no play: it carries no `play-id`, stands under no machine, and
+  is in no list of plays. Tokens taken from a person in the middle of a
+  play are that play's, recorded with nothing left at its end.
+- Cash is not touched, and no prize is said to have been handed over.
+- More than the pool holds by the end of the day said is refused.
+- A pool put right to what the parlor says (残高調整) is another thing:
+  the count was wrong, nothing was lost, and it is set against equity.
 
 ## A book's settings, and the order of books
 

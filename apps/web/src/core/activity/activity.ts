@@ -87,6 +87,7 @@ const saidOf = (intent: ChangeIntent): Pick<ActivityLine, "did" | "parts"> | und
     case "savings-opened":
     case "savings-adjusted":
     case "savings-exchanged":
+    case "savings-forfeited":
     case "pool-opened":
       return { did: intent.type, parts: { pool: { parlor: intent.parlor, tier: intent.tier } } }
     case "parlors-linked":
