@@ -155,8 +155,8 @@ describe("savings a parlor took back", () => {
     const after = await results(session, "")
     expect(before && after && [Number(after[0]) - Number(before[0]), Number(after[1]) - Number(before[1])]).toEqual([-14000, 0])
     const files = storage.peek(BOOK)?.files
-    expect(files?.[BOOK_FILES.accounts]).toContain("account 費用:没収・失効\n")
-    expect(files?.[BOOK_FILES.transactions]).toContain("2026-10-04 ホシゾラ梅田店 | 没収・失効  ; parlor-id: hoshizora-umeda, savings: forfeiture")
+    expect(files?.[BOOK_FILES.accounts]).toContain("account 費用:失効損\n")
+    expect(files?.[BOOK_FILES.transactions]).toContain("2026-10-04 ホシゾラ梅田店 | 失効  ; parlor-id: hoshizora-umeda, savings: forfeiture")
     expect(files?.[BOOK_FILES.transactions]).not.toContain("資産:現金                         -14000")
     const activity = await loadActivity(session, history, BOOK)
     expect(activity.ok && activity.value.lines.map((line) => line.did).at(-1)).toBe("savings-forfeited")
@@ -166,7 +166,7 @@ describe("savings a parlor took back", () => {
     const { session, storage } = await madeUpBook()
     await recordForfeiture(session, BOOK, { ...FORFEITURE, tokens: dec("1000") })
     await recordForfeiture(session, BOOK, { ...FORFEITURE, tokens: dec("1000") })
-    expect(storage.peek(BOOK)?.files[BOOK_FILES.accounts]?.split("account 費用:没収・失効").length).toBe(2)
+    expect(storage.peek(BOOK)?.files[BOOK_FILES.accounts]?.split("account 費用:失効損").length).toBe(2)
   })
 
   test("are refused beyond what the pool holds by that day, or where none were taken", async () => {

@@ -353,7 +353,7 @@ export function PrizeExchangeForm(props: {
 }
 
 /**
- * Recording savings a parlor took back from one pool, 没収・失効: the day,
+ * Recording savings a parlor took back from one pool, 失効: the day,
  * and how many tokens went — all the pool holds, until the person says
  * fewer, a membership withdrawn or savings lapsed taking the lot. The
  * line under the fields says what it is to the book: a loss in the
@@ -390,7 +390,7 @@ export function ForfeitureForm(props: {
       setSaving({ type: "failed", error: recorded.error })
       return
     }
-    toast({ title: "没収・失効を記録しました", description: `${props.parlor.name} ${count.toLocaleString("ja-JP")}${props.unit}` })
+    toast({ title: "失効を記録しました", description: `${props.parlor.name} ${count.toLocaleString("ja-JP")}${props.unit}` })
     app.wrote()
     props.onDone()
   }
@@ -403,10 +403,10 @@ export function ForfeitureForm(props: {
       }}
     >
       <div class="grid grid-cols-2 items-end gap-1.5">
-        <TextField label="没収・失効した数" value={tokens()} onChange={setTokens} inputMode="numeric" suffix={props.unit} invalid={nudge.red() && forfeited() === undefined} onFocus={nudge.settle} compact />
+        <TextField label="失効した数" value={tokens()} onChange={setTokens} inputMode="numeric" suffix={props.unit} invalid={nudge.red() && forfeited() === undefined} onFocus={nudge.settle} compact />
         <TextField label="日付" type="date" value={date()} onChange={setDate} invalid={nudge.red() && !parseIsoDate(date()).ok} onFocus={nudge.settle} compact />
       </div>
-      <p class="text-xs text-text-muted">会員資格の取り消しや期限切れで、店に戻った貯玉・貯メダルです。その日の交換率で損失として収支に入ります。稼働にはなりません。</p>
+      <p class="text-xs text-text-muted">期限切れや会員資格の取り消しで、店に戻った貯玉・貯メダルです。その日の交換率で損失として収支に入ります。稼働にはなりません。</p>
       <Failure saving={saving()} />
       <div class="flex gap-2">
         <Button type="submit" size="small">

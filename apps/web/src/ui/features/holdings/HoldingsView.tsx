@@ -60,7 +60,7 @@ function TokenRow(props: { readonly bookId: BookId; readonly parlor: Parlor | un
             残高調整
           </button>
           <button type="button" class={ROW_BUTTON} onClick={() => setOpened("forfeiture")}>
-            没収・失効
+            失効
           </button>
         </div>
       </Show>

@@ -127,11 +127,11 @@ const GAME_NAMES: Readonly<Record<PlayGameKind, string>> = { pachinko: "パチ�
 const describeForfeitureProblem = (problem: ForfeitureProblem): string => {
   switch (problem.type) {
     case "nothing-forfeited":
-      return "没収・失効した数を入力してください。"
+      return "失効した数を入力してください。"
     case "fractional-tokens":
-      return "没収・失効した数は整数で入力してください。"
+      return "失効した数は整数で入力してください。"
     case "savings-short":
-      return `その日の残高は${formatTokens(problem.held, problem.kind)}です。それより多くは没収・失効として記録できません。`
+      return `その日の残高は${formatTokens(problem.held, problem.kind)}です。それより多くは失効として記録できません。`
   }
 }
 

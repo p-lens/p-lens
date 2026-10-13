@@ -152,7 +152,7 @@ The account tree is deliberately small:
 費用:貸玉差額
 費用:貸メダル差額
 費用:再プレイ手数料
-費用:没収・失効             savings a parlor took back, declared when a book first has one
+費用:失効損                 savings a parlor took back, declared when a book first has one
 純資産:開始残高             savings a person already had when the book began
 純資産:残高調整             a pool's count put right to what the parlor says
 純資産:特殊景品             what the special prizes of a prize exchange are worth
@@ -1633,15 +1633,20 @@ back are worth, and the day.
 ## Forfeiture
 
 Savings a parlor took back are recorded from a pool's row
-(貯玉・貯メダル → 没収・失効; `core/savings/forfeiture`,
+(貯玉・貯メダル → 失効; `core/savings/forfeiture`,
 `recordForfeiture`): how many tokens — all the pool holds, until fewer
-are said — and the day. 没収 is a membership withdrawn and the card with
-it; 失効 is savings left past the day a parlor keeps them to. The book
-has one thing for both, the tokens being gone either way.
+are said — and the day. Savings left past the day a parlor keeps them
+to have lapsed; a membership withdrawn takes the card and what is on
+it, a lapse of another kind. The tokens are gone either way, and the book
+has one word for both: 失効, on screen and on the entry, written to
+`費用:失効損` — a loss named as a book names one, 除却損, 減耗損.
+It is for what a parlor took back and nothing else: savings a member of
+a group made off with were not lost to the parlor, and the pool is put
+right to what is there (残高調整).
 
 ```hledger
-2026-10-04 ホシゾラ梅田店 | 没収・失効  ; parlor-id: hoshizora-umeda, savings: forfeiture
-    費用:没収・失効                    4000 "玉(4円・ホシゾラ梅田店)"
+2026-10-04 ホシゾラ梅田店 | 失効  ; parlor-id: hoshizora-umeda, savings: forfeiture
+    費用:失効損                        4000 "玉(4円・ホシゾラ梅田店)"
     資産:貯玉:ホシゾラ梅田店:4円      -4000 "玉(4円・ホシゾラ梅田店)"
 ```
 
@@ -1653,6 +1658,9 @@ has one thing for both, the tokens being gone either way.
   play are that play's, recorded with nothing left at its end.
 - Cash is not touched, and no prize is said to have been handed over.
 - More than the pool holds by the end of the day said is refused.
+- A book that recorded one in 0.2.9 or 0.2.10 has it under
+  `費用:没収・失効`, as the account was first called: it is data already
+  written, an expense like the other, and is counted as it stands.
 - A pool put right to what the parlor says (残高調整) is another thing:
   the count was wrong, nothing was lost, and it is set against equity.
 

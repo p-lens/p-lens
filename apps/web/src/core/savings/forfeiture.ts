@@ -9,9 +9,11 @@ import { SAVINGS_TAG } from "./balance"
 
 /**
  * Savings a parlor took back: so many tokens out of one pool on a day,
- * with nothing given for them — 没収, a membership withdrawn and the card
- * with it, or 失効, savings left past the day a parlor keeps them to: one
- * thing in the book, 没収・失効, the tokens being gone either way. It is a loss,
+ * with nothing given for them — savings left past the day a parlor keeps
+ * them to, or a membership withdrawn and the card with it, which is a
+ * lapse of another kind. The tokens are gone either way, and the book has
+ * one word for it: 失効, on screen and on the entry, written to 失効損,
+ * the loss it is, named as a book names a loss. It is a loss,
  * as large as the tokens were worth, and no play's: nothing was played
  * for it, so it stands under no machine and is counted in the results of
  * its day like any other expense.
@@ -47,7 +49,7 @@ export const forfeitureEntry = (forfeiture: Forfeiture): Result<Entry, Forfeitur
   const commodity = tokenCommodity(forfeiture.pool.kind, forfeiture.parlor.name, forfeiture.pool.tier)
   return Ok({
     date: forfeiture.date,
-    description: describedBy(forfeiture.parlor.name, "没収・失効"),
+    description: describedBy(forfeiture.parlor.name, "失効"),
     tags: [...identityTags(forfeiture.parlor.identity), [SAVINGS_TAG, "forfeiture"]],
     postings: [
       { account: ACCOUNTS.forfeiture, amount: { quantity: forfeiture.tokens, commodity }, kind: "real" },
