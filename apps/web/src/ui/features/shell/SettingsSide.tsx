@@ -90,6 +90,11 @@ export function SettingsSide(props: { readonly place: Place }): JSX.Element {
             selected: props.place.kind === "settings-section" && props.place.section === "consolidation",
             onSelect: () => moves.go({ kind: "settings-section", section: "consolidation" }),
           },
+        ]}
+      />
+      <hr class="mx-4 mt-4 border-border" />
+      <SideList
+        items={[
           {
             id: "clear-data",
             label: "データの消去",
