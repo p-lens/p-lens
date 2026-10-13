@@ -4,7 +4,7 @@ import { MainContent } from "solid-gathering-shell"
 import { dropDraft, keepDraft, keptDraft, loadQuota } from "../../../../application/catalog"
 import type { ApplicationError, Outcome } from "../../../../application/errors"
 import { addFormula, analyzeBasis, loadFormula, registerMachine } from "../../../../application/pachislot/formulas"
-import { bookNameOf } from "../../../../core/catalog/catalog"
+import { bookNameOf, shownNameOf } from "../../../../core/catalog/catalog"
 import { readKeywords, readModelName, readName } from "../../../../core/catalog/description"
 import type { DraftTarget, FormulaDraft } from "../../../../core/catalog/draft"
 import { type RegistrationKind, standingFor } from "../../../../core/catalog/quota"
@@ -17,7 +17,7 @@ import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
 import { createNudge, redText } from "../../../primitives/nudge"
 import { Loaded } from "../../../primitives/states"
-import { CalculatorIcon, ComputerIcon, FistIcon } from "../../../primitives/icons"
+import { CalculatorIcon, FistIcon } from "../../../primitives/icons"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../primitives/tabs"
 import { settleTyping, TextField } from "../../../primitives/text-field"
 import { toast } from "../../../primitives/toast"
@@ -30,7 +30,7 @@ import { ViewHeader } from "../../shell/ViewHeader"
 import { CopyFromMachine } from "./CopyFromMachine"
 import { FiguresTable } from "./FiguresTable"
 import { remadeIn } from "./remaking"
-import { SamplingRun, type Sampled } from "./SamplingRun"
+import { SamplingRun } from "./SamplingRun"
 import { ManualEditor, WorldEditor } from "./WorldEditor"
 import {
   type FormProblem,
@@ -46,7 +46,7 @@ import {
   worldFormOf,
 } from "./world-form"
 
-const isTab = (value: string): value is FormulaTab => value === "manual" || value === "basis" || value === "simulator"
+const isTab = (value: string): value is FormulaTab => value === "manual" || value === "basis"
 
 const REASONS: Readonly<Record<FormProblem["reason"], string>> = {
   required: "未入力",
@@ -104,7 +104,7 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachislot-for
   const pachislot = () => startForm.form().pachislot
   const catalogMachine = (): string | undefined => {
     const machine = pachislot().machine
-    return machine.type === "catalog" ? machine.name : undefined
+    return machine.type === "catalog" ? shownNameOf(app.machineNames(), machine.name) : undefined
   }
   const releaseDate = createMemo(() => readReleaseDate(pachislot().newMachineReleasedOn, app.services.today()))
   const releaseDateWording = (): string | undefined => {
@@ -126,7 +126,6 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachislot-for
   const [world, setWorld] = createSignal(props.start.world)
   const [failure, setFailure] = createSignal<ApplicationError | undefined>(undefined)
   const [saving, setSaving] = createSignal(false)
-  const [sampled, setSampled] = createSignal<Sampled | undefined>(undefined)
   /** What saving here registers, and where this device stands against its quota: asked once the editor opens, and again after a save is refused. */
   const registrationKind = (): RegistrationKind => (pachislot().machine.type === "catalog" ? "addition" : "machine")
   const [quota, { refetch: askQuotaAgain }] = createResource(() => loadQuota(app.services.catalog))
@@ -168,10 +167,7 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachislot-for
     const made = analyzed()
     if (read().ok !== true || made?.ok !== true) return undefined
     const derivedFrom = props.from?.id
-    if (props.place.tab === "manual") return { kind: "manual", figures: made.value.figures, basis: made.value.basis, derivedFrom }
-    if (props.place.tab === "basis") return { kind: "simulated", figures: made.value.figures, basis: made.value.basis, derivedFrom }
-    const run = sampled()
-    return run === undefined ? undefined : { kind: "sampled", figures: run.figures, basis: made.value.basis, sampling: run.sampling, derivedFrom }
+    return { kind: props.place.tab === "manual" ? "manual" : "simulated", figures: made.value.figures, basis: made.value.basis, derivedFrom }
   }
 
   /** Where a formula is shared: added to the machine chosen, or registered with a new one — or nowhere yet, if the new one is not filled in. */
@@ -236,9 +232,15 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachislot-for
     <Show when={read().ok} fallback={<Problems problems={problems()} nudged={figuresNudge.red()} />}>
       <Loaded outcome={analyzed()}>
         {(made) => (
-          <Show when={props.place.tab === "simulator"} fallback={<FiguresTable figures={made.figures} sampling={undefined} />}>
-            <SamplingRun basis={made.basis} exact={made.figures} onSampled={setSampled} nudged={figuresNudge.red()} />
-          </Show>
+          <>
+            <FiguresTable figures={made.figures} sampling={undefined} />
+            <Show when={props.place.tab === "basis"}>
+              <section aria-label="確認用シミュレーション" class="flex flex-col gap-2">
+                <p class="text-sm text-text-muted">確認用：同じ解析値でこの端末がゲームを回して、上の機械割を推定で確かめます。算出条件にはなりません。</p>
+                <SamplingRun basis={made.basis} settingLevels={made.figures.length} />
+              </section>
+            </Show>
+          </>
         )}
       </Loaded>
     </Show>
@@ -258,9 +260,6 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachislot-for
         </TabsTrigger>
         <TabsTrigger value="basis" icon={<CalculatorIcon />}>
           解析値から計算
-        </TabsTrigger>
-        <TabsTrigger value="simulator" icon={<ComputerIcon />}>
-          シミュレータ
         </TabsTrigger>
       </TabsList>
       <div class="flex flex-col gap-5 p-4">
@@ -330,11 +329,6 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachislot-for
             <WorldEditor form={world()} onChange={setWorld} />
             <Preview />
           </TabsContent>
-          <TabsContent value="simulator" class="flex flex-col gap-5">
-            <p class="text-sm text-text-muted">解析値から、この端末でゲームを回して設定ごとの機械割を推定します。</p>
-            <WorldEditor form={world()} onChange={setWorld} />
-            <Preview />
-          </TabsContent>
         </section>
         <Show when={failure()} keyed>
           {(error) => <p role="alert" class="text-sm text-negative">{describeError(error)}</p>}
@@ -378,7 +372,7 @@ export function FormulaEditorView(props: { readonly place: Place & { readonly ki
     const chosen = machine()
     return [
       { label: "スロット開始", onSelect: () => moves.go({ kind: "live-new", game: "slot" }) },
-      chosen.type === "catalog" ? { label: chosen.name, onSelect: () => moves.go({ kind: "pachislot-machine", machineId: chosen.machineId }) } : { label: "新しい機種" },
+      chosen.type === "catalog" ? { label: shownNameOf(app.machineNames(), chosen.name), onSelect: () => moves.go({ kind: "pachislot-machine", machineId: chosen.machineId }) } : { label: "新しい機種" },
       { label: "算出条件を作る" },
     ]
   })

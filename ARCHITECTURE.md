@@ -519,7 +519,7 @@ The place is read off the address (`ui/navigation/place.ts`):
 | `/pachinko/machines/:machine/formulas/:formula` | 算出条件: figures, marks, adopt, remake | content |
 | `/pachinko/machines/:machine/formulas/:formula/grounds` | 計算根拠: the combo solved, the spread | content |
 | `/pachinko/machines/:machine/formulas/:formula/basis` | 期待値基礎値: the spec values, verify | content |
-| `/pachinko/formulas/new/{manual,simulator}` | making a formula (and its machine, if new) | content |
+| `/pachinko/formulas/new/{manual,basis}` | making a formula (and its machine, if new) | content |
 | `/settings`, `/settings/appearance` | settings | selection, content |
 | `/terms`, `/privacy` | a document the deployment puts before people, where it supplies one | content |
 | anything else | 404 | content |
@@ -581,8 +581,8 @@ border       = 1000 / (ballsPerSpin × ballValue)          spins per ¥1000
 value / spin = ballsPerSpin × ballValue − 1000 / spinPerformance (core/pachinko/theoretical-value.ts)
 ```
 
-A formula is made one of three ways — the tabs 手入力, 基礎値から計算 and
-シミュレータ — and a machine is never stored without one:
+A formula is made one of two ways — the tabs 手入力 and 基礎値から計算 —
+and a machine is never stored without one. A third kind is only read:
 
 - **manual**: the two figures typed in, checked elsewhere (semi-pros).
 - **simulated**: a **期待値基礎値 (basis)** — the spec sheet's values and the
@@ -593,10 +593,15 @@ A formula is made one of three ways — the tabs 手入力, 基礎値から計�
 - **sampled**: the same basis, its 1R トータル確率 estimated on the device by
   Monte Carlo (`estimateChunk`): so many cycles — regular play to a first
   jackpot and the combo after — from a seed, run in chunks in the engine's
-  worker, counted as it goes and stoppable. The formula keeps the basis, the
-  cycles, the seed and the 95% margin, so anyone can sample it again from the
-  seed and must come to the same figure. Only a finished sampling is saved.
-  For now the API takes manual and simulated formulas only.
+  worker, counted as it goes and stoppable. It is no longer a way to make
+  a formula. A sampled figure is an estimate of what the same basis comes
+  to exactly, so it could only be held to that by a margin, and the margin
+  was its sender's to state: a wide one let any figure by. The API takes
+  manual and simulated formulas and refuses a sampled one, and the app
+  sends none; one a catalog already holds is still read and shown as what
+  it is. The sampling itself stays as a check, under the figures of
+  基礎値から計算: it runs on the device, is set beside what the engine
+  worked out, and makes nothing.
 
 Formulas are immutable. "Remake" makes a new one, `derivedFrom` the old.
 
@@ -948,9 +953,10 @@ users ─┬─ machines (game_kind ∈ pachinko | pachislot) ── machine_key
   sampled one `sampling_json`; every formula `figures_json` and
   `content_hash` (SHA-256 of canonical JSON). The API makes the normalised
   spec itself and solves it, and refuses figures that are not what the basis
-  comes to — a sampled pachislot formula's 機械割, which cannot be sampled
-  there, within five standard errors of the exact one by its own stated
-  margin. It is never accepted from the client.
+  comes to, each figure exactly: a sampled formula, whose figure could only
+  be held to a margin its sender stated, is not taken (`sampling_json` is
+  written by nothing now, and read for the ones stored before). It is never
+  accepted from the client.
 - Taggings are polymorphic, so their target has no foreign key; the API checks
   the target exists for its type before writing.
 - Each mark and use has a table for formulas and one for 設定配分, so every

@@ -1,7 +1,7 @@
 import type { Formula, FormulaKind } from "../../../../core/pachinko/formula"
 import type { FormulaTab } from "../../../navigation/place"
 
-const REMADE_IN: Readonly<Record<FormulaKind, FormulaTab>> = { manual: "manual", simulated: "basis", sampled: "simulator" }
+const REMADE_IN: Readonly<Record<FormulaKind, FormulaTab>> = { manual: "manual", simulated: "basis", sampled: "basis" }
 
 /** Where a formula is made again: in the tab it was made in. */
 export const remadeIn = (formula: Formula): FormulaTab => REMADE_IN[formula.kind]

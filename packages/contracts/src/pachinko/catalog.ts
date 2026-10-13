@@ -32,6 +32,14 @@ export interface SamplingDto {
 
 export type FormulaKindDto = "manual" | "simulated" | "sampled"
 
+/**
+ * How a formula may be made now: typed in, or worked out from its basis. A
+ * sampled one is kept and served where a catalog already holds it and is
+ * taken no more — its figure was an estimate of what the basis comes to
+ * exactly, held only to a margin its sender stated.
+ */
+export type NewFormulaKindDto = Exclude<FormulaKindDto, "sampled">
+
 export interface FormulaDto {
   readonly id: string
   readonly machineId: string
@@ -50,18 +58,16 @@ export interface FormulaDto {
 /**
  * A pachinko formula as sent to be made. One worked out from a basis sends
  * its spec and conditions; the API normalises them itself and keeps the
- * result, and refuses figures that are not what that basis comes to — a
- * sampled one's 1R chance within five standard errors by its own margin.
+ * result, and refuses figures that are not what that basis comes to.
  * Its bonuses are named by whoever makes it: one worked out from a basis
  * sends one for each bonus its basis's jackpots pay, in their order, paying
  * out and taking what those do, and anything else is refused; one typed in
  * sends at least one.
  */
 export interface NewFormulaDto {
-  readonly kind: FormulaKindDto
+  readonly kind: NewFormulaKindDto
   readonly figures: FiguresDto
   readonly basis?: { readonly spec: SpecDto; readonly conditions: ConditionsDto }
-  readonly sampling?: SamplingDto
   readonly bonuses: readonly MachineBonusDto[]
   readonly derivedFrom?: string
 }

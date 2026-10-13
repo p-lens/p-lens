@@ -1,4 +1,4 @@
-import type { AnalysisDto, EstimateSummaryDto } from "@p-lens/contracts/pachinko"
+import type { AnalysisDto } from "@p-lens/contracts/pachinko"
 
 /**
  * The figures a formula — a 算出条件 — is: everything a theoretical value is
@@ -27,13 +27,3 @@ export const figuresFromAnalysis = (analysis: AnalysisDto, spinsPerHour: number 
   totalChanceOneIn: analysis.totalChanceOneIn,
   spinsPerHour,
 })
-
-/**
- * The figures of a formula estimated by sampling: the sampled 1R chance,
- * what a round yields under the basis' conditions, and no total chance,
- * which was not sampled. None while nothing has been won to estimate from.
- */
-export const figuresFromEstimate = (summary: EstimateSummaryDto, spinsPerHour: number | undefined): Figures | undefined =>
-  summary.roundChanceOneIn === null
-    ? undefined
-    : { roundChanceOneIn: summary.roundChanceOneIn, payoutPerRound: summary.payoutPerRound, totalChanceOneIn: undefined, spinsPerHour }

@@ -39,6 +39,9 @@ export type FormulaMaking =
   | { readonly kind: "simulated"; readonly basis: Basis }
   | { readonly kind: "sampled"; readonly basis: Basis; readonly sampling: Sampling }
 
+/** How a formula may be made now: a sampled one is read where a catalog holds it, and made no more — what it estimated, its 解析値 give exactly. */
+export type NewFormulaMaking = Exclude<FormulaMaking, { readonly kind: "sampled" }>
+
 export type FormulaKind = FormulaMaking["kind"]
 
 /**

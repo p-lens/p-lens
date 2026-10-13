@@ -2,14 +2,12 @@ import type { EstimateSummaryDto } from "@p-lens/contracts/pachislot"
 import { createSignal, Index, Match, onCleanup, Show, Switch, type JSX } from "solid-js"
 
 import { sampleBasis } from "../../../../application/pachislot/formulas"
-import type { SettingLevelFigures } from "../../../../core/pachislot/figures"
 import { marginAtTrials } from "../../../../core/sampling/margin"
-import type { Basis, Sampling } from "../../../../core/pachislot/formula"
+import type { Basis } from "../../../../core/pachislot/formula"
 import type { RunningRun } from "../../../../pachislot-engine/client/client"
 import type { EngineFailure } from "../../../../pachislot-engine/protocol/messages"
 import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
-import { redRing } from "../../../primitives/nudge"
 import { HelpPopover } from "../../../primitives/popover"
 import { TextField } from "../../../primitives/text-field"
 import { formatCount, formatMan } from "../../../wording/numbers"
@@ -21,34 +19,9 @@ import { gamesOf, GAMES_BY_DEFAULT, seedOf } from "./sampling-settings"
 type Run =
   | { readonly type: "idle" }
   | { readonly type: "running"; readonly planned: number; readonly summary: EstimateSummaryDto | undefined; readonly handle: RunningRun }
-  | { readonly type: "finished"; readonly summary: EstimateSummaryDto; readonly seed: string }
+  | { readonly type: "finished"; readonly summary: EstimateSummaryDto }
   | { readonly type: "cancelled"; readonly summary: EstimateSummaryDto | undefined }
   | { readonly type: "failed"; readonly failure: EngineFailure }
-
-/** A sampled formula as it would be kept: its figures, and how its 機械割 was sampled. */
-export interface Sampled {
-  readonly figures: readonly SettingLevelFigures[]
-  readonly sampling: Sampling
-}
-
-/**
- * What a finished sampling makes: each setting level's figures with the
- * sampled 機械割 in place of the worked-out one — the bonus odds are exact
- * either way — and the margins and seed it was sampled with.
- */
-const sampledFrom = (exact: readonly SettingLevelFigures[], summary: EstimateSummaryDto, seed: string): Sampled | undefined => {
-  const estimates = summary.settingLevels
-  const complete = estimates.every((each) => each.payoutRate !== null && each.payoutRateMargin !== null)
-  if (!complete) return undefined
-  return {
-    figures: exact.map((figures) => ({ ...figures, payoutRate: estimates.find((each) => each.settingLevel === figures.settingLevel)?.payoutRate ?? figures.payoutRate })),
-    sampling: {
-      gamesPerSettingLevel: summary.gamesPerSettingLevel,
-      seed,
-      margins: estimates.map((each) => ({ settingLevel: each.settingLevel, payoutRateMargin: each.payoutRateMargin ?? 0 })),
-    },
-  }
-}
 
 /** The games every setting level has been sampled for so far: the planned number once a sampling finishes. */
 const fewestGames = (summary: EstimateSummaryDto): number => Math.min(...summary.settingLevels.map((each) => each.games))
@@ -78,18 +51,13 @@ function Estimates(props: { readonly summary: EstimateSummaryDto }): JSX.Element
 }
 
 /**
- * Sampling a 解析値's 機械割 on this device: so many regular games for each
- * setting level from a seed, a chunk at a time in the engine's worker,
- * counted as it goes and stoppable. A finished sampling is handed up as the
- * formula it would make; anything else hands up none.
+ * Sampling a 解析値's 機械割 on this device, to set beside what the engine
+ * worked out of them: so many regular games for each setting level from a
+ * seed, a chunk at a time in the engine's worker, counted as it goes and
+ * stoppable. It is a check and makes nothing: a formula keeps the exact
+ * 機械割, of which these are estimates.
  */
-export function SamplingRun(props: {
-  readonly basis: Basis
-  readonly exact: readonly SettingLevelFigures[]
-  readonly onSampled: (sampled: Sampled | undefined) => void
-  /** A save was pressed before a sampling finished: the way to start one turns red. */
-  readonly nudged: boolean
-}): JSX.Element {
+export function SamplingRun(props: { readonly basis: Basis; readonly settingLevels: number }): JSX.Element {
   const app = useApp()
   const [games, setGames] = createSignal(String(GAMES_BY_DEFAULT))
   const [seed, setSeed] = createSignal(app.services.newSeed())
@@ -115,27 +83,21 @@ export function SamplingRun(props: {
   const done = (summary: EstimateSummaryDto | undefined): number => summary?.settingLevels.reduce((sum, each) => sum + each.games, 0) ?? 0
   onCleanup(() => running()?.handle.cancel())
 
-  const settle = (next: Run): void => {
-    setRun(next)
-    props.onSampled(next.type === "finished" ? sampledFrom(props.exact, next.summary, next.seed) : undefined)
-  }
-
   const start = (): void => {
     const sampling = { gamesPerSettingLevel: gamesOf(games()) ?? GAMES_BY_DEFAULT, seed: seedOf(seed()) ?? app.services.newSeed() }
-    props.onSampled(undefined)
     const handle = sampleBasis(app.services.pachislot, props.basis, sampling, (event) => {
       switch (event.type) {
         case "progress":
           return setRun((current) => (current.type === "running" ? { ...current, summary: event.summary } : current))
         case "completed":
-          return settle({ type: "finished", summary: event.summary, seed: sampling.seed })
+          return setRun({ type: "finished", summary: event.summary })
         case "cancelled":
-          return settle({ type: "cancelled", summary: event.summary })
+          return setRun({ type: "cancelled", summary: event.summary })
         case "failed":
-          return settle({ type: "failed", failure: event.failure })
+          return setRun({ type: "failed", failure: event.failure })
       }
     })
-    setRun({ type: "running", planned: sampling.gamesPerSettingLevel * props.exact.length, summary: undefined, handle })
+    setRun({ type: "running", planned: sampling.gamesPerSettingLevel * props.settingLevels, summary: undefined, handle })
   }
 
   return (
@@ -143,16 +105,14 @@ export function SamplingRun(props: {
       <Switch
         fallback={
           <div class="flex items-center gap-1">
-            <span class="inline-flex rounded-[3px]" classList={redRing(props.nudged)}>
-              <Button variant="semipro" onClick={start}>シミュレーション開始</Button>
-            </span>
+            <Button variant="semipro" onClick={start}>シミュレーション開始</Button>
             <HelpPopover label="シミュレーションについて" title="シミュレーションについて" semipro>
               <p>この端末で、設定ごとに通常時を{formatMan(gamesOf(games()) ?? GAMES_BY_DEFAULT)}ゲームずつ回して、機械割を推定します。
                 <Show when={expectedMargin()} keyed fallback="ゲーム数が多いほど、結果の誤差（±）は小さくなります。">
                   {(margin) => <>いまの結果からすると、このゲーム数なら機械割の誤差（95%の範囲）は最大で ±{(margin * 100).toFixed(2)} ほどです。</>}
                 </Show>
               </p>
-              <p>同じシードなら、誰が回しても同じ結果になります。シードは算出条件と一緒に保存されます。</p>
+              <p>同じシードなら、誰が回しても同じ結果になります。結果は確認用で、算出条件にはなりません。</p>
               <div class="grid grid-cols-2 gap-2">
                 <TextField label="設定ごとのゲーム数" value={games()} onChange={setGames} inputMode="numeric" suffix="G" error={gamesOf(games()) === undefined ? "1〜10億G" : undefined} />
                 <TextField label="シード" value={seed()} onChange={setSeed} inputMode="numeric" error={seedOf(seed()) === undefined ? "整数" : undefined} />
@@ -177,7 +137,7 @@ export function SamplingRun(props: {
         </Match>
       </Switch>
       <Show when={run().type === "cancelled"}>
-        <p class="text-sm text-text-muted">中止しました。最後まで回した結果だけが算出条件になります。</p>
+        <p class="text-sm text-text-muted">中止しました。</p>
       </Show>
       <Show when={failure()} keyed>
         {(failed) => (

@@ -40,6 +40,14 @@ export interface SamplingDto {
 
 export type FormulaKindDto = "manual" | "simulated" | "sampled"
 
+/**
+ * How a formula may be made now: typed in, or worked out from its basis. A
+ * sampled one is kept and served where a catalog already holds it and is
+ * taken no more — its figure was an estimate of what the basis comes to
+ * exactly, held only to a margin its sender stated.
+ */
+export type NewFormulaKindDto = Exclude<FormulaKindDto, "sampled">
+
 export interface FormulaDto {
   readonly id: string
   readonly machineId: string
@@ -55,14 +63,12 @@ export interface FormulaDto {
 
 /**
  * A pachislot formula as sent to be made. The API normalises its 解析値 itself
- * and keeps the result, and refuses figures that are not what they come to —
- * a sampled formula's 機械割 within five standard errors of it.
+ * and keeps the result, and refuses figures that are not what they come to.
  */
 export interface NewFormulaDto {
-  readonly kind: FormulaKindDto
+  readonly kind: NewFormulaKindDto
   readonly figures: readonly FormulaSettingLevelFiguresDto[]
   readonly basis: SentBasisDto
-  readonly sampling?: SamplingDto
   readonly derivedFrom?: string
 }
 

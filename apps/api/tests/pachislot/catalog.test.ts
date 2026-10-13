@@ -116,28 +116,24 @@ describe("pachislot in the one catalog", () => {
     expect(count(client, "machines")).toBe(0)
   })
 
-  test("takes a typed-in formula's measured 機械割, and a sampled one's within five standard errors", async () => {
+  test("takes a typed-in formula's measured 機械割, and no sampled one, whatever margins it states", async () => {
     const { client, machineId } = await registered()
     expect((await client.call("POST", `/machines/${machineId}/formulas`, { as: BOB, body: await manual() })).status).toBe(201)
     const exact = await simulated()
-    const sampled = (stray: number): NewFormulaDto => ({
+    const sampled = (stray: number, payoutRateMargin: number) => ({
       ...exact,
       kind: "sampled",
       figures: exact.figures.map((each) => ({ ...each, payoutRate: each.payoutRate + stray })),
       sampling: {
         gamesPerSettingLevel: 1_000_000,
         seed: "7",
-        margins: exact.figures.map((each) => ({ settingLevel: each.settingLevel, payoutRateMargin: 0.002 })),
+        margins: exact.figures.map((each) => ({ settingLevel: each.settingLevel, payoutRateMargin })),
       },
     })
-    expect((await client.call("POST", `/machines/${machineId}/formulas`, { as: BOB, body: sampled(0.004) })).status).toBe(201)
-    const far = await client.call("POST", `/machines/${machineId}/formulas`, { as: BOB, body: sampled(0.006) })
-    expect(far.body.error).toEqual({ type: "figures-disagree-with-basis", field: "figures[0].payoutRate" })
-    const unsampled = await client.call("POST", `/machines/${machineId}/formulas`, { as: BOB, body: { ...sampled(0), sampling: undefined } })
-    expect(unsampled.body.error).toEqual({ type: "invalid-body", field: "sampling", reason: "missing" })
+    for (const body of [sampled(0, 0.002), sampled(0.004, 0.002), sampled(0.5, 1_000)])
+      expect((await client.call("POST", `/machines/${machineId}/formulas`, { as: BOB, body })).body.error).toEqual({ type: "invalid-body", field: "kind", reason: "unknown-value" })
     const formulas = (await client.call("GET", `/machines/${machineId}`)).body.formulas
-    expect(formulas.map((each: { kind: string }) => each.kind)).toEqual(["simulated", "manual", "sampled"])
-    expect(formulas[2].sampling.seed).toBe("7")
+    expect(formulas.map((each: { kind: string }) => each.kind)).toEqual(["simulated", "manual"])
   })
 
   test("refuses a formula said to be made a way its basis does not bear out: a stated 機械割 is typed in, and what is typed in states it", async () => {

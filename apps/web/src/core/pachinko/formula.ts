@@ -51,6 +51,9 @@ export type FormulaMaking =
   | { readonly kind: "simulated"; readonly basis: Basis }
   | { readonly kind: "sampled"; readonly basis: Basis; readonly sampling: Sampling }
 
+/** How a formula may be made now: a sampled one is read where a catalog holds it, and made no more — what it estimated, its basis gives exactly. */
+export type NewFormulaMaking = Exclude<FormulaMaking, { readonly kind: "sampled" }>
+
 /**
  * A 算出条件: figures typed in from somewhere trusted, worked out exactly by
  * the engine from a basis, or estimated by sampling one on the device.

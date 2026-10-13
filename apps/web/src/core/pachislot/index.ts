@@ -1,5 +1,5 @@
 export type { SettingLevelFigures } from "./figures"
-export type { Formula, FormulaId, FormulaMaking, SettingDistribution, SettingDistributionId, SettingLevelShare } from "./formula"
+export type { Formula, FormulaId, FormulaMaking, NewFormulaMaking, SettingDistribution, SettingDistributionId, SettingLevelShare } from "./formula"
 export type { ObservationProblem } from "./observation"
 export type { ChosenPrior, PriorProblem } from "./prior"
 export type { Weighing } from "./weighing"

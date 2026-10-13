@@ -99,22 +99,18 @@ describe("a simulated formula", () => {
 })
 
 describe("a sampled formula", () => {
-  test("stands within five standard errors of its basis's exact 1R chance, and keeps how it was sampled", async () => {
+  test("is not taken, whatever margin it states for its 1R chance: only what a basis comes to exactly is kept", async () => {
     const { client, machineId } = await registered(ALICE)
     const exact = await simulated()
-    const sampled = (stray: number) => ({
+    const sampled = (stray: number, roundChanceMargin: number) => ({
       ...exact,
       kind: "sampled",
       figures: { roundChanceOneIn: exact.figures.roundChanceOneIn + stray, payoutPerRound: exact.figures.payoutPerRound },
-      sampling: { cycles: 100_000, seed: "42", roundChanceMargin: 0.1 },
+      sampling: { cycles: 100_000, seed: "42", roundChanceMargin },
     })
-    expect((await client.call("POST", `/machines/${machineId}/formulas`, { as: BOB, body: sampled(0.2) })).status).toBe(201)
-    const far = await client.call("POST", `/machines/${machineId}/formulas`, { as: BOB, body: sampled(0.3) })
-    expect(far.body.error).toEqual({ type: "figures-disagree-with-basis", field: "roundChanceOneIn" })
-    const unsampled = await client.call("POST", `/machines/${machineId}/formulas`, { as: BOB, body: { ...sampled(0), sampling: undefined } })
-    expect(unsampled.body.error).toEqual({ type: "invalid-body", field: "sampling", reason: "missing" })
-    const stored = (await formulasOf(client, machineId)).find((each) => each.kind === "sampled")
-    expect(stored.sampling).toEqual({ cycles: 100_000, seed: "42", roundChanceMargin: 0.1 })
-    expect(stored.basis.normalized).toBeDefined()
+    const before = (await formulasOf(client, machineId)).map((each) => each.id)
+    for (const body of [sampled(0, 0.1), sampled(0.2, 0.1), sampled(50, 1_000_000)])
+      expect((await client.call("POST", `/machines/${machineId}/formulas`, { as: BOB, body })).body.error).toEqual({ type: "invalid-body", field: "kind", reason: "unknown-value" })
+    expect((await formulasOf(client, machineId)).map((each) => each.id)).toEqual(before)
   })
 })

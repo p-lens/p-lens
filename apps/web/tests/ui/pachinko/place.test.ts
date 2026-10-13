@@ -8,7 +8,7 @@ const PLACES: readonly Place[] = [
   { kind: "pachinko-formula", machineId: "m1", formulaId: "f/1" },
   { kind: "pachinko-formula-grounds", machineId: "m1", formulaId: "f1" },
   { kind: "pachinko-formula-basis", machineId: "m1", formulaId: "f1" },
-  { kind: "pachinko-formula-new", tab: "simulator" },
+  { kind: "pachinko-formula-new", tab: "basis" },
 ]
 
 describe("pachinko places", () => {

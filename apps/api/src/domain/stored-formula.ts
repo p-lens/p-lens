@@ -5,16 +5,15 @@ import * as Pachislot from "./pachislot/formula"
 
 /**
  * A formula as the catalog keeps it, whatever its game: how it was made, its
- * figures and basis in its game's shape, the normalised spec the API made of
- * the basis, and how a sampled one was sampled. The tables never look inside.
+ * figures and basis in its game's shape, and the normalised spec the API made
+ * of the basis. The tables never look inside.
  */
 export interface StoredFormula {
-  readonly kind: "manual" | "simulated" | "sampled"
+  readonly kind: "manual" | "simulated"
   readonly figures: unknown
   readonly basis: unknown
   readonly normalized: unknown
   readonly engineSchemaVersion: number | undefined
-  readonly sampling: unknown
   /** A pachinko formula's bonuses; none for a pachislot one, whose bonuses are its world's. */
   readonly bonuses: unknown
   readonly derivedFrom: string | undefined
@@ -27,14 +26,13 @@ export type PreparedOfGame =
 
 const storedPachinko = (formula: Pachinko.PreparedFormula): StoredFormula =>
   formula.kind === "manual"
-    ? { kind: "manual", figures: formula.figures, basis: undefined, normalized: undefined, engineSchemaVersion: undefined, sampling: undefined, bonuses: formula.bonuses, derivedFrom: formula.derivedFrom }
+    ? { kind: "manual", figures: formula.figures, basis: undefined, normalized: undefined, engineSchemaVersion: undefined, bonuses: formula.bonuses, derivedFrom: formula.derivedFrom }
     : {
         kind: formula.kind,
         figures: formula.figures,
         basis: { spec: Pachinko.specOf(formula), conditions: formula.conditions },
         normalized: formula.normalized,
         engineSchemaVersion: formula.engineSchemaVersion,
-        sampling: formula.kind === "sampled" ? formula.sampling : undefined,
         bonuses: formula.bonuses,
         derivedFrom: formula.derivedFrom,
       }
@@ -45,7 +43,6 @@ const storedPachislot = (formula: Pachislot.PreparedFormula): StoredFormula => (
   basis: { spec: Pachislot.specOf(formula), conditions: formula.conditions },
   normalized: formula.normalized,
   engineSchemaVersion: formula.engineSchemaVersion,
-  sampling: formula.sampling,
   bonuses: undefined,
   derivedFrom: formula.derivedFrom,
 })

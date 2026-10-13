@@ -18,7 +18,7 @@ const SETTINGS_SECTIONS = ["appearance", "business-day", "sync", "backup", "expo
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]
 
 /** The two ways a formula is made: figures typed in, or a basis simulated. */
-const FORMULA_TABS = ["manual", "basis", "simulator"] as const
+const FORMULA_TABS = ["manual", "basis"] as const
 
 export type FormulaTab = (typeof FORMULA_TABS)[number]
 

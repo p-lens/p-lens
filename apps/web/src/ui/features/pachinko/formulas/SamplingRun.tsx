@@ -2,15 +2,12 @@ import type { EstimateSummaryDto } from "@p-lens/contracts/pachinko"
 import { createSignal, Match, onCleanup, Show, Switch, type JSX } from "solid-js"
 
 import { sampleBasis } from "../../../../application/pachinko/formulas"
-import { figuresFromEstimate } from "../../../../core/pachinko/figures"
 import { marginAtTrials } from "../../../../core/sampling/margin"
-import type { Basis, Sampling } from "../../../../core/pachinko/formula"
-import type { Figures } from "../../../../core/pachinko/figures"
+import type { Basis } from "../../../../core/pachinko/formula"
 import type { RunningRun } from "../../../../pachinko-engine/client/client"
 import type { EngineFailure } from "../../../../pachinko-engine/protocol/messages"
 import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
-import { redRing } from "../../../primitives/nudge"
 import { HelpPopover } from "../../../primitives/popover"
 import { TextField } from "../../../primitives/text-field"
 import { describeEngineFailure } from "../../../wording/pachinko/engine"
@@ -23,23 +20,10 @@ import { seedOf, trialsOf, TRIALS_BY_DEFAULT } from "./sampling-settings"
 type Run =
   | { readonly type: "idle" }
   | { readonly type: "running"; readonly planned: number; readonly summary: EstimateSummaryDto | undefined; readonly handle: RunningRun }
-  | { readonly type: "finished"; readonly summary: EstimateSummaryDto; readonly seed: string }
+  | { readonly type: "finished"; readonly summary: EstimateSummaryDto }
   | { readonly type: "cancelled"; readonly summary: EstimateSummaryDto | undefined }
   | { readonly type: "failed"; readonly failure: EngineFailure }
 
-
-/** A sampled formula as it would be kept: its figures, and how they were sampled. */
-export interface Sampled {
-  readonly figures: Figures
-  readonly sampling: Sampling
-}
-
-const sampledFrom = (summary: EstimateSummaryDto, seed: string, spinsPerHour: number | undefined): Sampled | undefined => {
-  const figures = figuresFromEstimate(summary, spinsPerHour)
-  return figures === undefined || summary.roundChanceMargin === null
-    ? undefined
-    : { figures, sampling: { cycles: summary.cycles, seed, roundChanceMargin: summary.roundChanceMargin } }
-}
 
 function Estimate(props: { readonly summary: EstimateSummaryDto }): JSX.Element {
   return (
@@ -62,18 +46,12 @@ function Estimate(props: { readonly summary: EstimateSummaryDto }): JSX.Element 
 }
 
 /**
- * Sampling a basis on this device: so many cycles from a seed, a chunk at a
- * time in the engine's worker, counted as it goes and stoppable. A finished
- * sampling is handed up as the formula it would make; anything else hands up
- * none, so nothing half-sampled is ever saved.
+ * Sampling a basis on this device, to set beside what the engine worked out
+ * of it: so many cycles from a seed, a chunk at a time in the engine's
+ * worker, counted as it goes and stoppable. It is a check and makes
+ * nothing: a formula keeps the exact figure, of which this is an estimate.
  */
-export function SamplingRun(props: {
-  readonly basis: Basis
-  readonly spinsPerHour: number | undefined
-  readonly onSampled: (sampled: Sampled | undefined) => void
-  /** A save was pressed before a sampling finished: the way to start one turns red. */
-  readonly nudged: boolean
-}): JSX.Element {
+export function SamplingRun(props: { readonly basis: Basis }): JSX.Element {
   const app = useApp()
   const [cycles, setCycles] = createSignal(String(TRIALS_BY_DEFAULT))
   const [seed, setSeed] = createSignal(app.services.newSeed())
@@ -97,24 +75,18 @@ export function SamplingRun(props: {
   }
   onCleanup(() => running()?.handle.cancel())
 
-  const settle = (next: Run): void => {
-    setRun(next)
-    props.onSampled(next.type === "finished" ? sampledFrom(next.summary, next.seed, props.spinsPerHour) : undefined)
-  }
-
   const start = (): void => {
     const sampling = { cycles: trialsOf(cycles()) ?? TRIALS_BY_DEFAULT, seed: seedOf(seed()) ?? app.services.newSeed() }
-    props.onSampled(undefined)
     const handle = sampleBasis(app.services.pachinko, props.basis, sampling, (event) => {
       switch (event.type) {
         case "progress":
           return setRun((current) => (current.type === "running" ? { ...current, summary: event.summary } : current))
         case "completed":
-          return settle({ type: "finished", summary: event.summary, seed: sampling.seed })
+          return setRun({ type: "finished", summary: event.summary })
         case "cancelled":
-          return settle({ type: "cancelled", summary: event.summary })
+          return setRun({ type: "cancelled", summary: event.summary })
         case "failed":
-          return settle({ type: "failed", failure: event.failure })
+          return setRun({ type: "failed", failure: event.failure })
       }
     })
     setRun({ type: "running", planned: sampling.cycles, summary: undefined, handle })
@@ -125,9 +97,7 @@ export function SamplingRun(props: {
       <Switch
         fallback={
           <div class="flex items-center gap-1">
-            <span class="inline-flex rounded-[3px]" classList={redRing(props.nudged)}>
-              <Button variant="semipro" onClick={start}>シミュレーション開始</Button>
-            </span>
+            <Button variant="semipro" onClick={start}>シミュレーション開始</Button>
             <HelpPopover label="シミュレーションについて" title="シミュレーションについて" semipro>
               <p>
                 この端末で、通常時から初当りを引いてその連チャンが終わるまでを1回として、{formatMan(trialsOf(cycles()) ?? TRIALS_BY_DEFAULT)}回くり返します。
@@ -135,7 +105,7 @@ export function SamplingRun(props: {
                   {(margin) => <>いまの結果からすると、この回数なら1Rトータル確率の誤差（95%の範囲）は ±{margin.toFixed(2)} ほどです。</>}
                 </Show>
               </p>
-              <p>同じシードなら、誰が回しても同じ結果になります。シードは算出条件と一緒に保存されます。</p>
+              <p>同じシードなら、誰が回しても同じ結果になります。結果は確認用で、算出条件にはなりません。</p>
               <div class="grid grid-cols-2 gap-2">
                 <TextField label="試行回数" value={cycles()} onChange={setCycles} inputMode="numeric" suffix="回" error={trialsOf(cycles()) === undefined ? "1〜10億回" : undefined} />
                 <TextField label="シード" value={seed()} onChange={setSeed} inputMode="numeric" error={seedOf(seed()) === undefined ? "整数" : undefined} />
@@ -160,7 +130,7 @@ export function SamplingRun(props: {
         </Match>
       </Switch>
       <Show when={run().type === "cancelled"}>
-        <p class="text-sm text-text-muted">中止しました。最後まで回した結果だけが算出条件になります。</p>
+        <p class="text-sm text-text-muted">中止しました。</p>
       </Show>
       <Show when={failure()} keyed>
         {(failed) => (

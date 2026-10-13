@@ -4,9 +4,8 @@ import type {
   AnalysisDto,
   ConditionsDto,
   EngineErrorDto,
-  FormulaKindDto,
+  NewFormulaKindDto,
   NormalizedSpecDto,
-  SamplingDto,
   FormulaSettingLevelFiguresDto,
   SpecDto,
 } from "@p-lens/contracts/pachislot"
@@ -17,11 +16,10 @@ import { Err, Ok, type Result } from "../result"
 
 /** A pachislot formula as sent, checked for shape. */
 export interface SentFormula {
-  readonly kind: FormulaKindDto
+  readonly kind: NewFormulaKindDto
   readonly figures: readonly FormulaSettingLevelFiguresDto[]
   readonly spec: Body
   readonly conditions: ConditionsDto
-  readonly sampling: SamplingDto | undefined
   readonly derivedFrom: string | undefined
 }
 
@@ -31,7 +29,7 @@ export interface PreparedFormula extends SentFormula {
   readonly engineSchemaVersion: number
 }
 
-const KINDS: readonly FormulaKindDto[] = ["manual", "simulated", "sampled"]
+const KINDS: readonly NewFormulaKindDto[] = ["manual", "simulated"]
 
 const invalid = (field: string, reason: Extract<ApiError, { type: "invalid-body" }>["reason"] = "unknown-value"): Result<never, ApiError> =>
   Err({ type: "invalid-body", field, reason })
@@ -110,25 +108,6 @@ const readConditions = (body: Body): Result<ConditionsDto, ApiError> => {
   return rates.ok ? Ok({ payoutRate: { type: "measured", bySettingLevel: rates.value } }) : rates
 }
 
-const readSampling = (body: Body): Result<SamplingDto, ApiError> => {
-  const sampling = object(body, "sampling")
-  if (!sampling.ok) return sampling
-  const games = sampling.value["gamesPerSettingLevel"]
-  const seed = sampling.value["seed"]
-  const margins = sampling.value["margins"]
-  if (!isPositive(games) || !Number.isInteger(games)) return invalid("sampling.gamesPerSettingLevel", "not-positive")
-  if (typeof seed !== "string" || !/^\d{1,20}$/.test(seed)) return invalid("sampling.seed")
-  if (!Array.isArray(margins)) return invalid("sampling.margins", "missing")
-  const read = each(
-    margins.map((margin, index) =>
-      isBody(margin) && isSettingLevel(margin["settingLevel"]) && typeof margin["payoutRateMargin"] === "number" && margin["payoutRateMargin"] >= 0
-        ? Ok({ settingLevel: margin["settingLevel"], payoutRateMargin: margin["payoutRateMargin"] })
-        : invalid(`sampling.margins[${index}]`),
-    ),
-  )
-  return read.ok ? Ok({ gamesPerSettingLevel: games, seed, margins: read.value }) : read
-}
-
 /**
  * Whether a basis states its 機械割 — measured, or given for an AT's medals
  * to follow from — rather than leaving it to come of the 解析値.
@@ -144,7 +123,9 @@ const statesRate = (spec: Body, conditions: ConditionsDto): boolean => {
  * the engine's to say. How it was made is not the sender's to say against
  * its basis: a formula whose 機械割 is stated is one typed in, and one
  * typed in states it — nothing worked out from 解析値 has a 機械割 that was
- * handed to it.
+ * handed to it. A sampled formula is not taken: its 機械割 were estimates of
+ * what its 解析値 come to exactly, held to that only by margins its sender
+ * stated, and the exact ones are made here from the same 解析値.
  */
 export const readFormula = (body: Body): Result<SentFormula, ApiError> => {
   const head = all({ kind: oneOf(body, "kind", KINDS), basis: object(body, "basis"), derivedFrom: optionalId(body, "derivedFrom") })
@@ -156,14 +137,11 @@ export const readFormula = (body: Body): Result<SentFormula, ApiError> => {
   const conditions = readConditions(parts.value.conditions)
   if (!conditions.ok) return conditions
   if (statesRate(parts.value.spec, conditions.value) !== (head.value.kind === "manual")) return invalid("kind")
-  const sampling = head.value.kind === "sampled" ? readSampling(body) : body["sampling"] === undefined ? Ok(undefined) : invalid("sampling")
-  if (!sampling.ok) return sampling
   return Ok({
     kind: head.value.kind,
     figures: figures.value,
     spec: parts.value.spec,
     conditions: conditions.value,
-    sampling: sampling.value,
     derivedFrom: head.value.derivedFrom,
   })
 }
@@ -173,13 +151,6 @@ const agrees = (sent: number, solved: number): boolean => Math.abs(sent - solved
 
 const oneInOf = (chance: number): number => (chance > 0 ? 1 / chance : Number.POSITIVE_INFINITY)
 
-/** A 95% margin's standard errors, five of them: how far a sampled 機械割 may stray from the exact one. */
-const STRAY = 5 / 1.96
-
-/** Whether a sent 機械割 is the solved one: exactly, or for a sampled formula within five standard errors of its own margin. */
-const rateAgrees = (sent: number, solved: number, margin: number | undefined): boolean =>
-  margin === undefined ? agrees(sent, solved) : Math.abs(sent - solved) <= STRAY * margin + 1e-9
-
 /** The first figure sent that its 解析値 do not come to, named by its path. */
 const disagreement = (sent: SentFormula, analysis: AnalysisDto): string | undefined => {
   if (sent.figures.length !== analysis.settingLevels.length) return "figures"
@@ -188,9 +159,7 @@ const disagreement = (sent: SentFormula, analysis: AnalysisDto): string | undefi
       const figures = sent.figures[index]
       const at = `figures[${index}]`
       if (figures === undefined || figures.settingLevel !== solved.settingLevel) return `${at}.settingLevel`
-      const margin = sent.sampling?.margins.find((each) => each.settingLevel === solved.settingLevel)?.payoutRateMargin
-      if (sent.kind === "sampled" && margin === undefined) return `sampling.margins`
-      if (!rateAgrees(figures.payoutRate, solved.payoutRate, sent.kind === "sampled" ? margin : undefined)) return `${at}.payoutRate`
+      if (!agrees(figures.payoutRate, solved.payoutRate)) return `${at}.payoutRate`
       if (figures.bonuses.length !== solved.bonuses.length) return `${at}.bonuses`
       const bonus = solved.bonuses.findIndex((bonus, place) => figures.bonuses[place]?.id !== bonus.id || !agrees(figures.bonuses[place]?.oneIn ?? 0, oneInOf(bonus.chance)))
       if (bonus >= 0) return `${at}.bonuses[${bonus}]`
@@ -207,9 +176,7 @@ const disagreement = (sent: SentFormula, analysis: AnalysisDto): string | undefi
 /**
  * A pachislot formula made ready to store. Its 解析値 are normalised here, by
  * the engine, and its figures checked against what they come to: what is
- * stored is derived from the 解析値, never taken on trust. A sampled one's
- * 機械割 cannot be sampled here, so it stands if it lies within five standard
- * errors of the exact one.
+ * stored is derived from the 解析値, never taken on trust.
  */
 export const prepareFormula = (
   sent: SentFormula,
@@ -220,8 +187,7 @@ export const prepareFormula = (
 ): Result<PreparedFormula, ApiError> => {
   const normalized = engine.normalize(sent.spec)
   if (!normalized.ok) return Err({ type: "basis-rejected", error: normalized.error })
-  const exact: ConditionsDto = sent.kind === "sampled" ? { payoutRate: { type: "from-spec" } } : sent.conditions
-  const analysis = engine.analyze(normalized.value, exact)
+  const analysis = engine.analyze(normalized.value, sent.conditions)
   if (!analysis.ok) return Err({ type: "basis-rejected", error: analysis.error })
   const field = disagreement(sent, analysis.value)
   return field === undefined

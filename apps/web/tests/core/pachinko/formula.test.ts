@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
 import { ballsPerSpin, borderOf, playTheoreticalValue, theoreticalValueOf, yenPerHour, yenPerSpin } from "../../../src/core/pachinko/theoretical-value"
-import { figuresFromEstimate } from "../../../src/core/pachinko/figures"
 import type { Figures } from "../../../src/core/pachinko/figures"
 import { tokenValueOf } from "../../../src/core/parlor/terms"
 
@@ -65,17 +64,5 @@ describe("a play's theoretical value", () => {
     const plays = [5000, 2000, 1600, 1500, 1400, 1250, 1000].map((balls) => playTheoreticalValue(SAMPLE, dear, { regularSpins: 100, measured: { spins: 100, balls, rentedBalls: 250, replayedBalls: 125 } }))
     expect(plays.every((play) => play !== undefined && play.spinPerformance > play.border === play.yenPerSpin > 0)).toBe(true)
     expect(new Set(plays.map((play) => play !== undefined && play.yenPerSpin > 0)).size).toBe(2)
-  })
-})
-
-describe("a sampled formula's figures", () => {
-  const summary = { cycles: 1_000_000, planned: 1_000_000, finished: true, roundChanceOneIn: 13.9, roundChanceMargin: 0.05, roundsPerFirstHit: 23, payoutPerRound: 140, truncatedCombos: 0 }
-
-  test("are the sampled 1R chance and the conditions' payout, with no total chance", () => {
-    expect(figuresFromEstimate(summary, 220)).toEqual({ roundChanceOneIn: 13.9, payoutPerRound: 140, totalChanceOneIn: undefined, spinsPerHour: 220 })
-  })
-
-  test("are none while nothing has been won to estimate from", () => {
-    expect(figuresFromEstimate({ ...summary, roundChanceOneIn: null }, 220)).toBeUndefined()
   })
 })

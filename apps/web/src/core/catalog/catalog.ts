@@ -98,13 +98,13 @@ export type NewPachinkoFormula = {
   readonly figures: Pachinko.Figures
   readonly bonuses: readonly MachineBonus[]
   readonly derivedFrom: Pachinko.FormulaId | undefined
-} & Pachinko.FormulaMaking
+} & Pachinko.NewFormulaMaking
 
 /** A pachislot formula about to be made. */
 export type NewPachislotFormula = {
   readonly figures: readonly Pachislot.SettingLevelFigures[]
   readonly derivedFrom: Pachislot.FormulaId | undefined
-} & Pachislot.FormulaMaking
+} & Pachislot.NewFormulaMaking
 
 /** A 設定配分 about to be registered. */
 export interface NewSettingDistribution {

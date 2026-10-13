@@ -8,7 +8,7 @@ const PLACES: readonly Place[] = [
   { kind: "pachislot-formula", machineId: "m1", formulaId: "f/1" },
   { kind: "pachislot-formula-grounds", machineId: "m1", formulaId: "f1" },
   { kind: "pachislot-formula-basis", machineId: "m1", formulaId: "f1" },
-  { kind: "pachislot-formula-new", tab: "simulator" },
+  { kind: "pachislot-formula-new", tab: "basis" },
   { kind: "pachislot-distribution-new", machineId: "m1" },
 ]
 

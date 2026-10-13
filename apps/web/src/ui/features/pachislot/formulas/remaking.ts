@@ -2,7 +2,7 @@ import type { Formula, FormulaKind } from "../../../../core/pachislot/formula"
 import type { FormulaTab } from "../../../navigation/place"
 import { statesRate } from "./world-form"
 
-const REMADE_IN: Readonly<Record<FormulaKind, FormulaTab>> = { manual: "manual", simulated: "basis", sampled: "simulator" }
+const REMADE_IN: Readonly<Record<FormulaKind, FormulaTab>> = { manual: "manual", simulated: "basis", sampled: "basis" }
 
 /** Where a formula is made again: in the tab it was made in — but one whose basis states its 機械割 where that can be typed, whatever it was made in. */
 export const remadeIn = (formula: Formula): FormulaTab => (statesRate(formula.basis.spec, formula.basis.conditions) ? "manual" : REMADE_IN[formula.kind])

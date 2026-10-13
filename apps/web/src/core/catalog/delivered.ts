@@ -126,7 +126,6 @@ export const pachinkoFormulaDto = (formula: NewPachinkoFormula): PachinkoContrac
     ...(formula.figures.spinsPerHour === undefined ? {} : { spinsPerHour: formula.figures.spinsPerHour }),
   },
   ...(formula.kind === "manual" ? {} : { basis: { spec: formula.basis.spec, conditions: formula.basis.conditions } }),
-  ...(formula.kind === "sampled" ? { sampling: formula.sampling } : {}),
   bonuses: formula.bonuses,
   ...(formula.derivedFrom === undefined ? {} : { derivedFrom: formula.derivedFrom }),
 })
@@ -141,7 +140,6 @@ export const pachislotFormulaDto = (formula: NewPachislotFormula): PachislotCont
     ...(figures.at === undefined ? {} : { at: figures.at }),
   })),
   basis: { spec: formula.basis.spec, conditions: formula.basis.conditions },
-  ...(formula.kind === "sampled" ? { sampling: formula.sampling } : {}),
   ...(formula.derivedFrom === undefined ? {} : { derivedFrom: formula.derivedFrom }),
 })
 

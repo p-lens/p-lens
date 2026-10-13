@@ -1,14 +1,16 @@
 import type { MachineBonusDto } from "@p-lens/contracts"
-import { type AnalysisDto, bonusShapesOf, jackpotsOf, type ConditionsDto, type EngineErrorDto, type FiguresDto, type SpecDto, type NormalizedSpecDto, type SamplingDto } from "@p-lens/contracts/pachinko"
+import { type AnalysisDto, bonusShapesOf, jackpotsOf, type ConditionsDto, type EngineErrorDto, type FiguresDto, type SpecDto, type NormalizedSpecDto } from "@p-lens/contracts/pachinko"
 
 import { all, type Body, bonuses, isBody, object, oneOf, optionalId, optionalPositive, positive } from "../body"
 import type { ApiError } from "../errors"
 import { Err, Ok, type Result } from "../result"
 
-/** A formula worked out from a basis: exactly, or sampled — so many cycles from a seed, its 1R chance's "one in" within a 95% margin. */
-type FromBasis =
-  | { readonly kind: "simulated"; readonly spec: Body; readonly conditions: ConditionsDto }
-  | { readonly kind: "sampled"; readonly spec: Body; readonly conditions: ConditionsDto; readonly sampling: SamplingDto }
+/** A formula worked out from a basis, exactly. */
+interface FromBasis {
+  readonly kind: "simulated"
+  readonly spec: Body
+  readonly conditions: ConditionsDto
+}
 
 /** A formula as sent, checked for shape. */
 export type SentFormula = {
@@ -50,20 +52,15 @@ const readConditions = (body: Body): Result<ConditionsDto, ApiError> => {
     : invalid("basis.conditions.roundPayout")
 }
 
-const readSampling = (body: Body): Result<SamplingDto, ApiError> => {
-  const sampling = object(body, "sampling")
-  if (!sampling.ok) return sampling
-  const read = all({ cycles: positive(sampling.value, "cycles"), roundChanceMargin: positive(sampling.value, "roundChanceMargin") })
-  if (!read.ok) return read
-  const seed = sampling.value["seed"]
-  if (!Number.isInteger(read.value.cycles)) return invalid("sampling.cycles")
-  return typeof seed === "string" && /^\d{1,20}$/.test(seed) ? Ok({ ...read.value, seed }) : invalid("sampling.seed")
-}
-
-/** A formula body read for shape. Whether a basis makes sense is the engine's to say. */
+/**
+ * A formula body read for shape. Whether a basis makes sense is the engine's
+ * to say. A sampled formula is not taken: its figure was an estimate of
+ * what its basis comes to exactly, held to that only by a margin its sender
+ * stated, and the exact figure is made here from the same basis.
+ */
 export const readFormula = (body: Body): Result<SentFormula, ApiError> => {
   const head = all({
-    kind: oneOf(body, "kind", ["manual", "simulated", "sampled"] as const),
+    kind: oneOf(body, "kind", ["manual", "simulated"] as const),
     figures: object(body, "figures"),
     bonuses: bonuses(body, "bonuses"),
     derivedFrom: optionalId(body, "derivedFrom"),
@@ -79,30 +76,16 @@ export const readFormula = (body: Body): Result<SentFormula, ApiError> => {
   if (!parts.ok) return parts
   const conditions = readConditions(parts.value.conditions)
   if (!conditions.ok) return conditions
-  const basisOf = { spec: parts.value.spec, conditions: conditions.value }
-  if (head.value.kind === "simulated") return Ok({ ...common, kind: "simulated", ...basisOf })
-  const sampling = readSampling(body)
-  return sampling.ok ? Ok({ ...common, kind: "sampled", ...basisOf, sampling: sampling.value }) : sampling
+  return Ok({ ...common, kind: "simulated", spec: parts.value.spec, conditions: conditions.value })
 }
 
 /** Two figures equal as the engine's own arithmetic makes them, allowing for nothing but rounding. */
 const agrees = (sent: number, solved: number): boolean => Math.abs(sent - solved) <= 1e-9 * Math.max(1, Math.abs(solved))
 
-/** A 95% margin's standard errors, five of them: how far a sampled figure may stray from the exact one. */
-const STRAY = 5 / 1.96
-
-/**
- * The first figure a formula sent that its basis does not come to. A sampled
- * formula's 1R chance cannot be sampled here, so it stands within five
- * standard errors of the exact one by its own stated margin.
- */
+/** The first figure a formula sent that its basis does not come to. */
 const disagreement = (sent: SentFormula & FromBasis, analysis: AnalysisDto): string | undefined => {
   const figures = sent.figures
-  const round =
-    sent.kind === "sampled"
-      ? Math.abs(figures.roundChanceOneIn - analysis.roundChanceOneIn) <= STRAY * sent.sampling.roundChanceMargin + 1e-9
-      : agrees(figures.roundChanceOneIn, analysis.roundChanceOneIn)
-  if (!round) return "roundChanceOneIn"
+  if (!agrees(figures.roundChanceOneIn, analysis.roundChanceOneIn)) return "roundChanceOneIn"
   if (!agrees(figures.payoutPerRound, analysis.ballsPerRound)) return "payoutPerRound"
   if (figures.totalChanceOneIn !== undefined && !agrees(figures.totalChanceOneIn, analysis.totalChanceOneIn)) return "totalChanceOneIn"
   return undefined

@@ -13,13 +13,13 @@ import { type RegistrationKind, standingFor } from "../../../../core/catalog/quo
 import { readHitChance, readKeywords, readModelName, readName } from "../../../../core/catalog/description"
 import { readReleaseDate } from "../../../../core/catalog/release"
 import { Ok } from "../../../../core/result/result"
-import { bookNameOf, type MachineBonus, type NewMachine, type NewPachinkoFormula } from "../../../../core/catalog/catalog"
+import { bookNameOf, shownNameOf, type MachineBonus, type NewMachine, type NewPachinkoFormula } from "../../../../core/catalog/catalog"
 import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
 import { createNudge, redText } from "../../../primitives/nudge"
 import { Loaded } from "../../../primitives/states"
 import { settleTyping, TextField } from "../../../primitives/text-field"
-import { CalculatorIcon, ComputerIcon, FistIcon } from "../../../primitives/icons"
+import { CalculatorIcon, FistIcon } from "../../../primitives/icons"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../primitives/tabs"
 import { toast } from "../../../primitives/toast"
 import { useMoves } from "../../../navigation/moves"
@@ -34,7 +34,7 @@ import { BonusNames } from "./BonusNames"
 import { BonusRows } from "./BonusRows"
 import { CopyFromMachine } from "./CopyFromMachine"
 import { remadeIn } from "./remaking"
-import { SamplingRun, type Sampled } from "./SamplingRun"
+import { SamplingRun } from "./SamplingRun"
 import {
   type BasisForm,
   EMPTY_MANUAL_FORM,
@@ -47,7 +47,7 @@ import {
   readManualForm,
 } from "./formula-form"
 
-const isTab = (value: string | null): value is FormulaTab => value === "manual" || value === "basis" || value === "simulator"
+const isTab = (value: string | null): value is FormulaTab => value === "manual" || value === "basis"
 
 const REASONS: Readonly<Record<FormProblem["reason"], string>> = {
   required: "未入力",
@@ -133,7 +133,7 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachinko-form
   const target = () => startForm.form().pachinko.machine
   const catalogMachine = (): string | undefined => {
     const machine = target()
-    return machine.type === "catalog" ? machine.name : undefined
+    return machine.type === "catalog" ? shownNameOf(app.machineNames(), machine.name) : undefined
   }
   const basisProblems = (): readonly FormProblem[] => {
     const read = basisRead()
@@ -181,7 +181,6 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachinko-form
   const [bonusNames, setBonusNames] = createSignal(props.start.bonusNames)
   const [failure, setFailure] = createSignal<ApplicationError | undefined>(undefined)
   const [saving, setSaving] = createSignal(false)
-  const [sampled, setSampled] = createSignal<Sampled | undefined>(undefined)
   /** What saving here registers, and where this device stands against its quota: asked once the editor opens, and again after a save is refused. */
   const registrationKind = (): RegistrationKind => (target().type === "catalog" ? "addition" : "machine")
   const [quota, { refetch: askQuotaAgain }] = createResource(() => loadQuota(app.services.catalog))
@@ -239,10 +238,7 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachinko-form
       return read.ok ? { kind: "manual", figures: read.value, derivedFrom: props.from?.id } : undefined
     }
     const made = simulated()
-    if (made?.ok !== true) return undefined
-    if (props.place.tab === "basis") return { kind: "simulated", figures: made.value.figures, basis: made.value.basis, derivedFrom: props.from?.id }
-    const run = sampled()
-    return run === undefined ? undefined : { kind: "sampled", figures: run.figures, basis: made.value.basis, sampling: run.sampling, derivedFrom: props.from?.id }
+    return made?.ok === true ? { kind: "simulated", figures: made.value.figures, basis: made.value.basis, derivedFrom: props.from?.id } : undefined
   }
 
   /** The formula the tab on screen would make, or undefined while it cannot make one. */
@@ -332,9 +328,6 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachinko-form
         <TabsTrigger value="basis" icon={<CalculatorIcon />}>
           基礎値から計算
         </TabsTrigger>
-        <TabsTrigger value="simulator" icon={<ComputerIcon />}>
-          シミュレータ
-        </TabsTrigger>
       </TabsList>
       <div class="flex flex-col gap-5 p-4">
         <section aria-label="機種" class={PART}>
@@ -401,16 +394,16 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachinko-form
             <p class="text-sm text-text-muted">スペックの値（期待値基礎値）を入れると、計算エンジンが 1Rトータル確率と 1R平均出玉を厳密に出します。</p>
             <BasisEditor form={basis()} onChange={setBasis} />
             <Show when={basisRead().ok} fallback={<Problems problems={basisProblems()} nudged={figuresNudge.red()} />}>
-              <Loaded outcome={simulated()}>{(made) => <FiguresPreview figures={made.figures} />}</Loaded>
-              <BonusNames shapes={shapes()} names={bonusNames()} problems={((read) => (read.ok ? [] : read.error))(named())} onChange={setBonusNames} />
-            </Show>
-          </TabsContent>
-          <TabsContent value="simulator" class="flex flex-col gap-5">
-            <p class="text-sm text-text-muted">スペックの値（期待値基礎値）から、この端末でモンテカルロを回して 1Rトータル確率を推定します。</p>
-            <BasisEditor form={basis()} onChange={setBasis} />
-            <Show when={basisRead().ok} fallback={<Problems problems={basisProblems()} nudged={figuresNudge.red()} />}>
               <Loaded outcome={simulated()}>
-                {(made) => <SamplingRun basis={made.basis} spinsPerHour={made.figures.spinsPerHour} onSampled={setSampled} nudged={figuresNudge.red()} />}
+                {(made) => (
+                  <>
+                    <FiguresPreview figures={made.figures} />
+                    <section aria-label="確認用シミュレーション" class="flex flex-col gap-2">
+                      <p class="text-sm text-text-muted">確認用：同じ基礎値でこの端末がモンテカルロを回して、上の 1Rトータル確率を推定で確かめます。算出条件にはなりません。</p>
+                      <SamplingRun basis={made.basis} />
+                    </section>
+                  </>
+                )}
               </Loaded>
               <BonusNames shapes={shapes()} names={bonusNames()} problems={((read) => (read.ok ? [] : read.error))(named())} onChange={setBonusNames} />
             </Show>
@@ -461,7 +454,7 @@ export function FormulaEditorView(props: { readonly place: Place & { readonly ki
     const chosen = machine()
     return [
       { label: "パチンコ開始", onSelect: () => moves.go({ kind: "live-new", game: "pachinko" }) },
-      chosen.type === "catalog" ? { label: chosen.name, onSelect: () => moves.go({ kind: "pachinko-machine", machineId: chosen.machineId }) } : { label: "新しい機種" },
+      chosen.type === "catalog" ? { label: shownNameOf(app.machineNames(), chosen.name), onSelect: () => moves.go({ kind: "pachinko-machine", machineId: chosen.machineId }) } : { label: "新しい機種" },
       { label: "算出条件を作る" },
     ]
   })
