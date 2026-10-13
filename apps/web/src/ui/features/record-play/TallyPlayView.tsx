@@ -394,7 +394,7 @@ export function TallyEditor(props: {
         </div>
         <Show when={form().gameKind === "pachinko"}>
           <Show
-            when={weighing().type === "resting"}
+            when={weighing().type !== "weighing"}
             fallback={
               <output aria-live="polite" class="flex h-9 shrink-0 items-center whitespace-nowrap px-4 text-sm font-medium text-amateur">
                 {PachinkoWording.weighButtonText(weighing())}

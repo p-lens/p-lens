@@ -26,11 +26,11 @@ export const weighingText = (beyond: boolean): string => (beyond ? "通常に加
 
 /**
  * What stands where a weighing is begun, by where the weighing is: the
- * button's name until it is pressed, and then, in the button's place and
- * no button — a press would do nothing — that it is under way and how it
- * ended: 推定完了 where the play was weighed, 推定終了 where it ended with
- * nothing weighed. The button is back once the form says anything else of
- * the play.
+ * button's name until it is pressed; that it is under way, said in the
+ * button's place and as no button, a press then doing nothing; and, on the
+ * button again, how it ended — 推定完了 where the play was weighed, 推定終了
+ * where it ended with nothing weighed. A press on either weighs the play
+ * again, and it comes to the same.
  */
 export const weighButtonText = (weighing: Weighing): string => {
   switch (weighing.type) {
