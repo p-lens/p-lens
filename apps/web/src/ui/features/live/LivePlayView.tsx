@@ -1,6 +1,7 @@
 import { createResource, Show, type JSX } from "solid-js"
 
 import { loadDraft } from "../../../application/live-play"
+import { shownNameOf, type MachineNames } from "../../../core/catalog/catalog"
 import { parlorOf, type PlayDraft } from "../../../core/live-play/draft"
 import type { PlayId } from "../../../core/play/play"
 import { useApp } from "../../context"
@@ -10,8 +11,8 @@ import { parlorText } from "../../wording/parlor"
 import * as PachinkoViews from "../pachinko"
 import * as PachislotViews from "../pachislot"
 
-const titleOf = (draft: PlayDraft): string =>
-  `${draft.machine}${draft.cabinetNumber === undefined ? "" : ` ${draft.cabinetNumber}番台`}（${parlorText(parlorOf(draft))}）`
+const titleOf = (draft: PlayDraft, machineNames: MachineNames): string =>
+  `${shownNameOf(machineNames, draft.machine)}${draft.cabinetNumber === undefined ? "" : ` ${draft.cabinetNumber}番台`}（${parlorText(parlorOf(draft))}）`
 
 /**
  * A play in progress, followed at the cabinet: what it comes to so far, its
@@ -33,11 +34,11 @@ export function LivePlayView(props: { readonly place: Place; readonly playId: Pl
       when={slotDraft()}
       fallback={
         <Loaded outcome={draft()}>
-          {(found) => <PachinkoViews.LivePlay place={props.place} draft={found} title={titleOf(found)} />}
+          {(found) => <PachinkoViews.LivePlay place={props.place} draft={found} title={titleOf(found, app.machineNames())} />}
         </Loaded>
       }
     >
-      {(slot) => <PachislotViews.LivePlay place={props.place} draft={slot()} title={titleOf(slot())} />}
+      {(slot) => <PachislotViews.LivePlay place={props.place} draft={slot()} title={titleOf(slot(), app.machineNames())} />}
     </Show>
   )
 }

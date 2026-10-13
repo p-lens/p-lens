@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { bookNameOf } from "../../src/core/catalog/catalog"
+import { bookNameOf, machineNamesOf, modelNameOf, shownNameOf } from "../../src/core/catalog/catalog"
 import { machineMatches, readHitChance, readKeywords, readModelName } from "../../src/core/catalog/description"
 
 const GENKI = { name: "e星都幻鬼", modelName: "e星都幻鬼W", keywords: ["ゲンキ", "TG"] }
@@ -70,5 +70,27 @@ describe("the name a machine goes into a book under", () => {
   test("is its model name, and the name the halls call it only where it has none", () => {
     expect(bookNameOf({ name: "e押忍!団長 王の頂 99ver.", modelName: "e/押忍団長 王の頂/A03" })).toBe("e/押忍団長 王の頂/A03")
     expect(bookNameOf({ name: "スロット ワールドダイスター", modelName: undefined })).toBe("スロット ワールドダイスター")
+  })
+})
+
+describe("a machine a book names, on a screen", () => {
+  const names = machineNamesOf([
+    { name: "e押忍!団長 王の頂 99ver.", modelName: "e/押忍団長 王の頂/A03" },
+    { name: "スロット ワールドダイスター", modelName: undefined },
+  ])
+
+  test("is shown as the halls call it, with its model name known beside it", () => {
+    expect(shownNameOf(names, "e/押忍団長 王の頂/A03")).toBe("e押忍!団長 王の頂 99ver.")
+    expect(modelNameOf(names, "e/押忍団長 王の頂/A03")).toBe("e/押忍団長 王の頂/A03")
+  })
+
+  test("has no model name where the catalog knows none for it", () => {
+    expect(shownNameOf(names, "スロット ワールドダイスター")).toBe("スロット ワールドダイスター")
+    expect(modelNameOf(names, "スロット ワールドダイスター")).toBeUndefined()
+  })
+
+  test("is shown as the book says it, with no model name, where the catalog knows no such machine", () => {
+    expect(shownNameOf(names, "どこにもない機種")).toBe("どこにもない機種")
+    expect(modelNameOf(names, "どこにもない機種")).toBeUndefined()
   })
 })

@@ -1,4 +1,4 @@
-import type { CatalogTarget, GameKind, MachineEntry, MachineSummary } from "../core/catalog/catalog"
+import { machineNamesOf, type CatalogTarget, type GameKind, type MachineEntry, type MachineNames, type MachineSummary } from "../core/catalog/catalog"
 import type { FormulaDraft } from "../core/catalog/draft"
 import { readDraft, writtenDraft } from "../core/catalog/draft"
 import type { Quota } from "../core/catalog/quota"
@@ -25,6 +25,14 @@ export const findMachines = async (catalog: Catalog, query: string, gameKind: Ga
   if (matched.value.length > 0) return Ok({ type: "found", machines: matched.value })
   if (query.trim() === "") return Ok({ type: "none-registered" })
   return mapOk(fromCatalog(await catalog.search("", gameKind)), (all): MachineFinding => (all.length === 0 ? { type: "none-registered" } : { type: "no-match" }))
+}
+
+const GAME_KINDS: readonly GameKind[] = ["pachinko", "pachislot"]
+
+/** The machines of both games as delivered, by the name each goes into a book under; a game whose machines cannot be read gives none, and a book's machine is then shown as the book says it. */
+export const loadMachineNames = async (catalog: Catalog): Promise<MachineNames> => {
+  const found = await Promise.all(GAME_KINDS.map((gameKind) => catalog.search("", gameKind)))
+  return machineNamesOf(found.flatMap((machines) => (machines.ok ? machines.value : [])))
 }
 
 /** A machine as the catalog holds it, only if it is of the game asked for. */

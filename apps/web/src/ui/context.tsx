@@ -1,9 +1,10 @@
-import { createContext, createEffect, createSignal, on, onCleanup, onMount, useContext, type Accessor, type JSX } from "solid-js"
+import { createContext, createEffect, createResource, createSignal, on, onCleanup, onMount, useContext, type Accessor, type JSX } from "solid-js"
 
 import { adoptBusinessDayTurn } from "../application/business-day-turn"
-import { refreshCatalog } from "../application/catalog"
+import { loadMachineNames, refreshCatalog } from "../application/catalog"
 import type { ApplicationError } from "../application/errors"
 import type { Services } from "../application/services"
+import type { MachineNames } from "../core/catalog/catalog"
 import { receiveArrivals } from "../application/inbox"
 import { restoreEveryGrant } from "../application/invitations"
 import { syncAll, type Synced } from "../application/sync"
@@ -57,6 +58,9 @@ export interface BackupsMade {
   readonly made: () => void
 }
 
+/** What a book's machines are shown as before the catalog's machines are read: each as the book says it. */
+const NO_MACHINE_NAMES: MachineNames = new Map()
+
 /** How long after a write its sync waits, so several writes in a row go as one round, in milliseconds. */
 const AFTER_WRITING = 3_000
 
@@ -74,6 +78,12 @@ export interface AppContext {
   readonly revision: Accessor<number>
   readonly wrote: () => void
   readonly delivery: CatalogDelivery
+  /**
+   * The catalog's machines by the name a book keeps each under, read again
+   * after every write and every delivery: what a screen says a book's
+   * machine with (`shownNameOf`), the halls' name and not the model name.
+   */
+  readonly machineNames: Accessor<MachineNames>
   readonly sync: BookSync
   readonly backups: BackupsMade
 }
@@ -91,6 +101,11 @@ export function AppProvider(props: {
     setRevision((count) => count + 1)
   }
   createEffect(on(revision, () => void adoptBusinessDayTurn(props.services.session, props.services.preferences)))
+  const [machinesRead] = createResource(
+    () => ({ revision: revision() }),
+    () => loadMachineNames(props.services.catalog),
+  )
+  const machineNames = (): MachineNames => machinesRead.latest ?? NO_MACHINE_NAMES
   const [state, setState] = createSignal<DeliveryState>({ type: "idle" })
   const timers: { pending: readonly ReturnType<typeof setTimeout>[] } = { pending: [] }
   const refresh = (): void => {
@@ -156,6 +171,7 @@ export function AppProvider(props: {
         revision,
         wrote: wroteAndSync,
         delivery: { state, refresh, awaitShared },
+        machineNames,
         sync: { state: syncState, run: runSync },
         backups: { count: backupsMade, made: backupMade },
       }}>

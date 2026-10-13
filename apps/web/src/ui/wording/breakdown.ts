@@ -1,4 +1,5 @@
 import type { IsoDate } from "../../core/calendar/calendar"
+import { shownNameOf, type MachineNames } from "../../core/catalog/catalog"
 import type { Decimal } from "../../core/decimal/decimal"
 import { UNSAID, type Dimension } from "../../core/report/breakdown"
 import { formatTheoreticalYen } from "./numbers"
@@ -45,9 +46,10 @@ const UNSAID_NAMES: Readonly<Record<Dimension, string>> = {
   day: "--",
 }
 
-/** A group's key as a person reads it: a weekday by its name, a game by its, a month as a year and a month, and anything else as it is written. */
-export const groupName = (dimension: Dimension, key: string): string => {
+/** A group's key as a person reads it: a machine by the name the halls call it, a weekday by its name, a game by its, a month as a year and a month, and anything else as it is written. */
+export const groupName = (dimension: Dimension, key: string, machineNames: MachineNames): string => {
   if (key === UNSAID) return UNSAID_NAMES[dimension]
+  if (dimension === "machine") return shownNameOf(machineNames, key)
   if (dimension === "weekday") return WEEKDAYS[Number(key)] ?? key
   if (dimension === "game") return GAMES[key] ?? key
   if (dimension === "month") return `${key.slice(0, 4)}年${Number(key.slice(5, 7))}月`

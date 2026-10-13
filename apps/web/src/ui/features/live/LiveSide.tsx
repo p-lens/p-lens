@@ -3,6 +3,7 @@ import { SidePanel } from "solid-gathering-shell"
 
 import { abandonPlay, loadTodaysPlays } from "../../../application/live-play"
 import { destinationsOf, sendDraft, sendTodaysPlays } from "../../../application/sending"
+import { shownNameOf, type MachineNames } from "../../../core/catalog/catalog"
 import { afterItEnded, isLeftOver, isSentAsItStands, parlorOf, type PlayDraft } from "../../../core/live-play/draft"
 import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
@@ -48,6 +49,7 @@ function DraftRow(props: {
   readonly onAbandon: () => void
   readonly onSend: () => void
 }): JSX.Element {
+  const app = useApp()
   const hold = createLongPress(() => props.onAbandon())
   const flagged = (): boolean => props.leftOver || (props.draft.received !== undefined && afterItEnded(props.draft).length > 0)
   const sendable = (): boolean => props.destinations.length > 0 && props.draft.received === undefined
@@ -73,7 +75,7 @@ function DraftRow(props: {
             <span class="size-2 shrink-0 rounded-full bg-negative" role="img" aria-label={props.leftOver ? "前の日の、まだ記帳していない稼働" : "終了後に変更のある稼働"} />
           </Show>
           <span class="truncate">
-            {props.draft.machine}
+            {shownNameOf(app.machineNames(), props.draft.machine)}
             {props.draft.cabinetNumber === undefined ? "" : ` ${props.draft.cabinetNumber}番台`}
           </span>
         </span>
@@ -102,9 +104,9 @@ function DraftRow(props: {
   )
 }
 
-/** A play as a sentence names it: its machine and cabinet, or its parlor where it has no machine. */
-const draftName = (draft: PlayDraft): string => {
-  const machine = `${draft.machine}${draft.cabinetNumber === undefined ? "" : ` ${draft.cabinetNumber}番台`}`.trim()
+/** A play as a sentence names it: its machine, as the halls call it, and cabinet, or its parlor where it has no machine. */
+const draftName = (draft: PlayDraft, machineNames: MachineNames): string => {
+  const machine = `${shownNameOf(machineNames, draft.machine)}${draft.cabinetNumber === undefined ? "" : ` ${draft.cabinetNumber}番台`}`.trim()
   return machine === "" ? parlorText(parlorOf(draft)) : machine
 }
 
@@ -243,7 +245,7 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
         }}
         onDeclined={() => setAbandoning(undefined)}
       >
-        <p>{((draft) => (draft === undefined ? "" : draftName(draft)))(abandoning())}</p>
+        <p>{((draft) => (draft === undefined ? "" : draftName(draft, app.machineNames())))(abandoning())}</p>
         <p>{abandoning()?.recorded === undefined ? "ここまでの記録は帳簿に書かれずに消えます。元には戻せません。" : "本日の稼働から外します。帳簿に記帳した分はそのまま残ります。"}</p>
       </ConfirmDialog>
     </SidePanel>

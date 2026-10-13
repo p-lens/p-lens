@@ -3,6 +3,7 @@ import { AuxPanel } from "solid-gathering-shell"
 
 import { loadPlay } from "../../../application/plays"
 import { removePlay } from "../../../application/revise-play"
+import { modelNameOf, shownNameOf } from "../../../core/catalog/catalog"
 import type { BookId } from "../../../core/book/book"
 import { negate, type Decimal } from "../../../core/decimal/decimal"
 import { isWrittenReversed } from "../../../core/journal/accounts"
@@ -32,9 +33,10 @@ const asRead = (account: string, quantity: Decimal): Decimal => (isWrittenRevers
 
 const GAME_KINDS = { pachinko: "パチンコ", slot: "スロット" } as const
 
-/** What a play was, under its machine's name: when, where and at which cabinet, then its game and the rate it was on, as its log's head says it. Each is said even where the play names none: no parlor in words, the rest as dashes. */
-function Facts(props: { readonly play: PlaySummary; readonly parlorName: string | undefined; readonly terms: PlayTerms | undefined }): JSX.Element {
+/** What a play was, under its machine's name: the model name the book keeps it under, when, where and at which cabinet, then its game and the rate it was on, as its log's head says it. Each is said even where the play names none: no parlor in words, the rest as dashes. */
+function Facts(props: { readonly play: PlaySummary; readonly parlorName: string | undefined; readonly modelName: string | undefined; readonly terms: PlayTerms | undefined }): JSX.Element {
   const facts = (): readonly (readonly [string, string])[] => [
+    ["型式", props.modelName ?? "--"],
     ["日付", formatDay(props.play.date)],
     ["店舗", props.parlorName ?? NO_PARLOR],
     ["台番号", props.play.cabinetNumber ?? "--"],
@@ -128,8 +130,13 @@ export function PlayDetail(props: { readonly place: Place; readonly bookId: Book
       <Loaded outcome={play()}>
         {(found) => (
           <div class="flex flex-col gap-4 p-4">
-            <p class="break-words text-lg font-semibold text-text-primary">{found.names.machineName ?? NO_MACHINE}</p>
-            <Facts play={found.summary} parlorName={found.names.parlorName} terms={found.terms} />
+            <p class="break-words text-lg font-semibold text-text-primary">{found.names.machineName === undefined ? NO_MACHINE : shownNameOf(app.machineNames(), found.names.machineName)}</p>
+            <Facts
+              play={found.summary}
+              parlorName={found.names.parlorName}
+              modelName={found.names.machineName === undefined ? undefined : modelNameOf(app.machineNames(), found.names.machineName)}
+              terms={found.terms}
+            />
             <dl class="grid grid-cols-2 gap-2">
               <Figure label="実収支" value={found.actual} kind="actual" caption="稼働日の交換率で評価" />
               <Figure

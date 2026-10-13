@@ -2,6 +2,7 @@ import { createMemo, createResource, For, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import { consolidationKeepsTheoreticalValues, loadConsolidation, type ConsolidatedBook, type ConsolidatedBy } from "../../../application/consolidation"
+import type { MachineNames } from "../../../core/catalog/catalog"
 import type { BookId } from "../../../core/book/book"
 import { bestFirst, DIMENSIONS, inOrder, isDimension, merged, totalOf, type Group } from "../../../core/report/breakdown"
 import { useApp } from "../../context"
@@ -25,10 +26,10 @@ interface Named {
 }
 
 /** The books' results as the list shows them: book by book, each under its title, best first; or the books' groups of one key added together, in the order a book's own breakdown is read in. */
-const grouped = (books: readonly ConsolidatedBook<readonly Group[]>[], by: ConsolidatedBy): readonly Named[] =>
+const grouped = (books: readonly ConsolidatedBook<readonly Group[]>[], by: ConsolidatedBy, machineNames: MachineNames): readonly Named[] =>
   by === "book"
     ? bestFirst(readOf(books).flat()).map((group) => ({ name: ((book) => (book === undefined ? group.key : bookTitle(book.book)))(books.find((each) => each.book.id === group.key)), group }))
-    : inOrder(merged(readOf(books)), by).map((group) => ({ name: groupName(by, group.key), group }))
+    : inOrder(merged(readOf(books)), by).map((group) => ({ name: groupName(by, group.key, machineNames), group }))
 
 /**
  * Several books as one: the results of the books ticked, for a period,
@@ -49,7 +50,7 @@ export function ConsolidatedBreakdownView(props: { readonly place: Place; readon
   const [kept] = createResource(() => ({ bookIds: props.bookIds, revision: app.revision() }), (source) => consolidationKeepsTheoreticalValues(app.services.session, source.bookIds))
   /** Whether any of the books keeps theoretical values: taken to until hledger says none does. */
   const theoreticalKept = (): boolean => ((answer) => answer?.ok !== true || answer.value)(kept())
-  const groups = createMemo(() => ((found) => (found?.ok === true ? grouped(found.value, props.by) : undefined))(consolidation()))
+  const groups = createMemo(() => ((found) => (found?.ok === true ? grouped(found.value, props.by, app.machineNames()) : undefined))(consolidation()))
   return (
     <MainContent header={<ViewHeader place={props.place} title="集計" />}>
       <div class="max-w-5xl">

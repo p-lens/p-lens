@@ -116,15 +116,29 @@ const used = (ports: Pick<Ports, "database" | "now">, line: string): Promise<unk
 /**
  * Let go of every line nobody has read or added to for `LINE_IDLE_DAYS`,
  * its commits and its grants with it. Nothing is lost by it: each of a book's devices
- * keeps the book, and the first to come back makes the line again.
+ * keeps the book, and the first to come back makes the line again. Whose
+ * each line was is kept (`owners_kept`), so that only its owner does.
  */
 export const letGoOfIdleLines = (ports: Pick<Ports, "database" | "now">): Promise<unknown> => {
   const idleSince = daysBefore(ports.now(), LINE_IDLE_DAYS)
   return ports.database.batch([
+    ports.database.prepare("INSERT OR REPLACE INTO owners_kept (line_id, access_hash, let_go_at) SELECT id, access_hash, ? FROM lines WHERE COALESCE(used_at, created_at) < ?").bind(ports.now(), idleSince),
     ports.database.prepare("DELETE FROM entries WHERE line_id IN (SELECT id FROM lines WHERE COALESCE(used_at, created_at) < ?)").bind(idleSince),
     ports.database.prepare("DELETE FROM grants WHERE line_id IN (SELECT id FROM lines WHERE COALESCE(used_at, created_at) < ?)").bind(idleSince),
     ports.database.prepare("DELETE FROM lines WHERE COALESCE(used_at, created_at) < ?").bind(idleSince),
   ])
+}
+
+/**
+ * Whether a token may make a line that is not there: any token a line
+ * never made, and only the token that made it a line that was let go.
+ * Everyone let into a line knows its id, and its owner cannot move to
+ * another, the id coming from the book's secret — so a line made again by
+ * anyone else would shut its owner out for good.
+ */
+const mayMake = async (database: Database, line: string, token: string): Promise<boolean> => {
+  const kept = await database.prepare("SELECT access_hash FROM owners_kept WHERE line_id = ?").bind(line).first<{ access_hash: string }>()
+  return kept === null || kept.access_hash === (await hashOf(token))
 }
 
 const headOf = async (database: Database, line: string): Promise<number> =>
@@ -159,6 +173,8 @@ const readAppend = (body: unknown): Answer<{ readonly after: number; readonly en
  * Put commits on the end of a line, all or none, only where the sender has
  * every entry before them. Two devices sending at once cannot both land at
  * one place: the second finds the place taken, and is told it is behind.
+ * The first commits make the line, whose owner their token then is — and a
+ * line let go is made again by the token that made it and no other.
  */
 const append = async (ports: Ports, line: string, token: string, body: unknown): Promise<Answer<AppendedDto>> => {
   const sent = readAppend(body)
@@ -166,16 +182,18 @@ const append = async (ports: Ports, line: string, token: string, body: unknown):
   const held = await holds(ports.database, line, token)
   if (held === false) return refused({ type: "unauthorized" })
   if (held !== undefined && held.role === "viewer") return refused({ type: "forbidden" })
+  if (held === undefined && !(await mayMake(ports.database, line, token))) return refused({ type: "unauthorized" })
   const head = held === undefined ? 0 : await headOf(ports.database, line)
   if (sent.value.after !== head) return refused({ type: "behind", head })
   const made = ports.database.prepare("INSERT OR IGNORE INTO lines (id, access_hash, created_at) VALUES (?, ?, ?)").bind(line, await hashOf(token), ports.now())
+  const remade = ports.database.prepare("DELETE FROM owners_kept WHERE line_id = ?").bind(line)
   const added = sent.value.entries.map((entry, index) =>
     ports.database
       .prepare("INSERT INTO entries (line_id, seq, commit_id, box, created_at) VALUES (?, ?, ?, ?, ?)")
       .bind(line, head + index + 1, entry.commitId, entry.box, ports.now()),
   )
   try {
-    await ports.database.batch([made, ...added])
+    await ports.database.batch([made, remade, ...added])
   } catch (cause) {
     return /UNIQUE constraint failed/i.test(String(cause)) ? refused({ type: "behind", head: await headOf(ports.database, line) }) : storage(cause)
   }

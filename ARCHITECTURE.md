@@ -1011,12 +1011,20 @@ both required here as on the screen; a model name is kept as a name is
 
 A machine has two names and each has its use. The name the halls call it
 is what it is found and chosen by, shown first and bold wherever one is
-picked. The model name is what goes into a book (`bookNameOf`): a play
-names its machine by it, and so do the screens that show a play. It is
-the one name that is nobody's choice of words — the same machine is one
-name in every book — and the name a serious player knows it by; a light
-player does not mind which is kept. A machine registered before every
-machine was asked for one goes into a book under the halls' name. A model
+picked. The model name is what goes into a book (`bookNameOf`), and a
+book is the only place it is the machine's name: a play names its machine
+by it in the journal, and every screen that shows a play — the list of
+plays, a play's details, the breakdown by machine, a play in progress and
+the form one is started from — says the halls' name instead, looked up in
+the catalog's machines by what the book says (`shownNameOf`, over the
+names the app's context reads again after each write and delivery). A
+play's details alone say the model name too, as 型式, dashes where the
+catalog knows none. A name the catalog knows no machine under — typed by
+hand, taken in from another app, or read before any catalog was delivered
+— is shown as the book says it. The model name is the one name that is
+nobody's choice of words — the same machine is one name in every book —
+and the name a serious player knows it by. A machine registered before
+every machine was asked for one goes into a book under the halls' name. A model
 name is kept as a name is (`keptName`), on the device and again by the
 API, with a slash standing close between what it parts and a colon typed
 twice made one, as model names are written.
@@ -1359,7 +1367,15 @@ relay that can read none of them.
   between a book's devices, each of which keeps the book, so a line nobody
   has read or added to for `LINE_IDLE_DAYS` (7) is let go whole, its
   commits with it, by a daily cron (`letGoOfIdleLines`); a line's last use
-  is written at most once a day. Nothing says so on a device. A line says
+  is written at most once a day. Nothing says so on a device. Of a line
+  let go the relay keeps whose it was and no more (`owners_kept`: its id
+  and its token's hash), and takes the commits that make it again only
+  with that token: everyone let into a line knows its id, a line belongs
+  to the token its first commits came with, and an owner cannot move to
+  another line while the book's secret stands — so a line anyone else made
+  again would shut its owner out of syncing and sharing for good. A line
+  never made is still made by whoever sends to it first, and one let go
+  before the relay kept this has no owner kept. A line says
   when it was begun (`begunAt`), and a link keeps it beside its cursor: a
   device that finds its line gone, shorter than where it had come to, or
   begun at another moment counts none of its commits as on the line
@@ -1432,7 +1448,8 @@ since it rides on it.
   goes by, so a viewer's book takes no write. A round for a viewer takes in
   and sends nothing; and neither kind of invited device makes a line again
   where its relay let go of it — a line belongs to the token its first
-  commits came with — but waits for the owner's.
+  commits came with — but waits for the owner's. The relay holds them to
+  it: a line let go is made again by its owner's token alone.
 - **A book's name is its owner's.** A write that gives the book another
   title — by its name's field, or by a hand in `main.journal` — needs the
   `rename` capability, which an owner has and an editor does not

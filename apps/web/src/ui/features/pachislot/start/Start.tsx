@@ -3,6 +3,7 @@ import { createMemo, createResource, createSignal, Show, type JSX } from "solid-
 import type { ApplicationError } from "../../../../application/errors"
 import { startPlay } from "../../../../application/live-play"
 import { recordUse } from "../../../../application/catalog"
+import { shownNameOf } from "../../../../core/catalog/catalog"
 import type { PlayDraft, PlayVenue } from "../../../../core/live-play/draft"
 import { nearestFirst } from "../../../../core/parlor/distance"
 import type { ParlorId, ParlorIdentity, SubmissionId } from "../../../../core/parlor/parlor"
@@ -46,6 +47,7 @@ function MachineField(props: {
   readonly onOpen: () => void
   readonly onFocus: () => void
 }): JSX.Element {
+  const app = useApp()
   return (
     <div class="flex min-w-0 flex-col gap-1.5">
       <span class="text-xs font-bold uppercase tracking-wide text-text-secondary" id="slot-machine-field-label">
@@ -61,7 +63,7 @@ function MachineField(props: {
         class="flex h-10 items-center justify-between gap-2 rounded-[3px] bg-surface-input px-3 text-left focus:outline-2 focus:outline-offset-0 focus:outline-focus-ring"
       >
         <Show when={props.machine.type === "catalog" ? props.machine.name : undefined} keyed fallback={<span class="text-text-muted">機種選択</span>}>
-          {(name) => <span class="truncate text-text-primary">{name}</span>}
+          {(name) => <span class="truncate text-text-primary">{shownNameOf(app.machineNames(), name)}</span>}
         </Show>
         <span class="text-text-muted" aria-hidden="true">
           ›

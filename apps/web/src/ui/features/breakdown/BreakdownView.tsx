@@ -95,7 +95,7 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
               <Show when={found.length > 0} fallback={<EmptyState title="この期間の稼働はありません" />}>
                 <ul class="flex flex-col gap-1">
                   <GroupRow name="合計" group={totalOf(found)} strong theoreticalKept={theoreticalKept()} />
-                  <For each={found}>{(group) => <GroupRow name={groupName(props.by, group.key)} group={group} strong={false} theoreticalKept={theoreticalKept()} />}</For>
+                  <For each={found}>{(group) => <GroupRow name={groupName(props.by, group.key, app.machineNames())} group={group} strong={false} theoreticalKept={theoreticalKept()} />}</For>
                 </ul>
               </Show>
             )}

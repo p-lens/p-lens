@@ -5,7 +5,7 @@ import { findMachines } from "../../../../application/catalog"
 import type { ApplicationError } from "../../../../application/errors"
 import { changeCabinet } from "../../../../application/live-play"
 import { loadMachine } from "../../../../application/pachislot/formulas"
-import { bookNameOf, type MachineSummary } from "../../../../core/catalog/catalog"
+import { bookNameOf, shownNameOf, type MachineSummary } from "../../../../core/catalog/catalog"
 import { machineMatches } from "../../../../core/catalog/description"
 import { autoSelect, selectById, type Selection } from "../../../../core/formula/standing"
 import type { MachineChange, PlayDraft } from "../../../../core/live-play/draft"
@@ -157,7 +157,7 @@ export function Cabinet(props: { readonly place: Place; readonly draft: PlayDraf
           <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 sm:gap-2">
             <Combobox
               label="機種"
-              placeholder={props.draft.machine === "" ? "機種選択" : props.draft.machine}
+              placeholder={props.draft.machine === "" ? "機種選択" : shownNameOf(app.machineNames(), props.draft.machine)}
               options={machines().map((machine) => ({ value: machine.id, label: machine.name, ...(machine.modelName === undefined ? {} : { note: machine.modelName }) }))}
               value={machineId()}
               onChange={(id) => {

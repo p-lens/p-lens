@@ -42,6 +42,22 @@ export interface MachineSummary {
  */
 export const bookNameOf = (machine: Pick<MachineSummary, "name" | "modelName">): string => machine.modelName ?? machine.name
 
+/**
+ * The catalog's machines by the name each goes into a book under: what a
+ * screen needs to say a book's machine the way the halls do. A book keeps
+ * the model name and nothing else does — every screen shows the halls'
+ * name, and only a play's own details say the model name beside it.
+ */
+export type MachineNames = ReadonlyMap<string, Pick<MachineSummary, "name" | "modelName">>
+
+export const machineNamesOf = (machines: readonly Pick<MachineSummary, "name" | "modelName">[]): MachineNames => new Map(machines.map((machine) => [bookNameOf(machine), machine]))
+
+/** What a machine a book names is shown as: the name the halls call it, or, the catalog knowing no machine under what the book says, what the book says. */
+export const shownNameOf = (names: MachineNames, bookName: string): string => names.get(bookName)?.name ?? bookName
+
+/** The model name of a machine a book names, where the catalog knows the machine and its model name. */
+export const modelNameOf = (names: MachineNames, bookName: string): string | undefined => names.get(bookName)?.modelName
+
 /** A pachinko machine and every formula of it, each with what people have done with it. */
 export interface PachinkoMachineDetail {
   readonly machine: MachineSummary

@@ -4,6 +4,7 @@ import { SidePanel } from "solid-gathering-shell"
 import type { Outcome } from "../../../application/errors"
 import { loadTodaysPlays } from "../../../application/live-play"
 import { forgetDestination, sendDraft, sendTodaysPlays } from "../../../application/sending"
+import { shownNameOf } from "../../../core/catalog/catalog"
 import { awaitsSending, deliveryOf, parlorOf, type PlayDraft } from "../../../core/live-play/draft"
 import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
@@ -26,11 +27,12 @@ import { sendingPortsOf } from "./sending-ports"
  * paper plane that sends it.
  */
 function DeliveryRow(props: { readonly draft: PlayDraft; readonly lineId: string; readonly onSend: () => void }): JSX.Element {
+  const app = useApp()
   return (
     <li class="flex items-center gap-1 rounded px-2 py-1.5">
       <div class="flex min-w-0 flex-1 flex-col">
         <span class="truncate text-[15px] text-text-primary">
-          {props.draft.machine}
+          {shownNameOf(app.machineNames(), props.draft.machine)}
           {props.draft.cabinetNumber === undefined ? "" : ` ${props.draft.cabinetNumber}番台`}
         </span>
         <span class="truncate text-xs text-text-muted">

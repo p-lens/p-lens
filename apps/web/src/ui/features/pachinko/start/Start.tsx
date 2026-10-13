@@ -23,7 +23,7 @@ import { isWritableText } from "../../../../core/play/validate"
 import type { Result } from "../../../../core/result/result"
 import { tidyTyped } from "../../../../core/text/tidy"
 import type { LocateError } from "../../../../location/port/locator"
-import type { MachineBonus, PachinkoMachineDetail } from "../../../../core/catalog/catalog"
+import { shownNameOf, type MachineBonus, type PachinkoMachineDetail } from "../../../../core/catalog/catalog"
 import type { Submission } from "../../../../parlors/port/submission-store"
 import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
@@ -62,6 +62,7 @@ function MachineField(props: {
   readonly onOpen: () => void
   readonly onFocus: () => void
 }): JSX.Element {
+  const app = useApp()
   return (
     <div class="flex min-w-0 flex-col gap-1.5">
       <span class="text-xs font-bold uppercase tracking-wide text-text-secondary" id="machine-field-label">
@@ -77,7 +78,7 @@ function MachineField(props: {
         class="flex h-10 items-center justify-between gap-2 rounded-[3px] bg-surface-input px-3 text-left focus:outline-2 focus:outline-offset-0 focus:outline-focus-ring"
       >
         <Show when={props.machine.type === "catalog" ? props.machine.name : undefined} keyed fallback={<span class="text-text-muted">機種選択</span>}>
-          {(name) => <span class="truncate text-text-primary">{name}</span>}
+          {(name) => <span class="truncate text-text-primary">{shownNameOf(app.machineNames(), name)}</span>}
         </Show>
         <span class="text-text-muted" aria-hidden="true">
           ›

@@ -29,6 +29,7 @@ const selectedPlay = (place: Place): string | undefined => (place.kind === "play
  * figure's shape with nothing in it.
  */
 function PlayRow(props: { readonly play: ListedPlay; readonly selected: boolean; readonly onSelect: () => void }): JSX.Element {
+  const app = useApp()
   return (
     <li>
       <button
@@ -39,7 +40,7 @@ function PlayRow(props: { readonly play: ListedPlay; readonly selected: boolean;
         classList={{ "bg-surface-3": props.selected, "hover:bg-surface-3/60": !props.selected }}
       >
         <div class="flex min-w-0 flex-1 flex-col">
-          <span class="truncate text-text-primary">{playTitle(props.play)}</span>
+          <span class="truncate text-text-primary">{playTitle(props.play, app.machineNames())}</span>
           <span class="text-xs text-text-muted">{formatDay(props.play.date)}</span>
         </div>
         <div class="flex flex-col items-end text-sm tabular-nums text-text-secondary">

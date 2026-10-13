@@ -49,6 +49,7 @@ const relay = async (origins: Origins = { type: "any" }, limits: Limits = unlimi
   sqlite.exec(await readFile(new URL("../migrations/0001_lines.sql", import.meta.url).pathname, "utf8"))
   sqlite.exec(await readFile(new URL("../migrations/0002_line_use.sql", import.meta.url).pathname, "utf8"))
   sqlite.exec(await readFile(new URL("../migrations/0003_grants.sql", import.meta.url).pathname, "utf8"))
+  sqlite.exec(await readFile(new URL("../migrations/0004_owners_kept.sql", import.meta.url).pathname, "utf8"))
   const ports: Ports = { database: sqliteDatabase(sqlite), origins, limits, now: () => held.now }
   const ask = async (method: string, path: string, options: { readonly token?: string | undefined; readonly body?: unknown; readonly origin?: string; readonly from?: string } = {}) => {
     const token = "token" in options ? options.token : TOKEN
@@ -192,6 +193,40 @@ describe("what one address may ask of the relay", () => {
     await call.letGoOfIdleLines()
     expect((await call("GET", `/lines/${LINE}/entries`)).body).toEqual({ error: { type: "line-missing" } })
     expect((await call("POST", `/lines/${LINE}/entries`, { body: { after: 0, entries: [commit(1), commit(2)] } })).body).toEqual({ head: 2, begunAt: "2026-10-27T00:00:00.000Z" })
+  })
+
+  test("once let go, is made again only by the token that made it: nobody who knows its id takes it from its owner", async () => {
+    const call = await relay()
+    const other = "another-0123456789abcdef"
+    await call("POST", `/lines/${LINE}/entries`, { body: { after: 0, entries: [commit(1)] } })
+    await call("POST", `/lines/${LINE}/grants`, { body: { id: "grant-0123456789abcdef", token: other, role: "editor" } })
+    call.at("2026-10-27T00:00:00.000Z")
+    await call.letGoOfIdleLines()
+    expect((await call("POST", `/lines/${LINE}/entries`, { token: other, body: { after: 0, entries: [commit(9)] } })).status).toBe(401)
+    expect((await call("GET", `/lines/${LINE}/entries`)).body).toEqual({ error: { type: "line-missing" } })
+    expect((await call("POST", `/lines/${LINE}/entries`, { body: { after: 0, entries: [commit(1)] } })).body).toEqual({ head: 1, begunAt: "2026-10-27T00:00:00.000Z" })
+    expect((await call("GET", `/lines/${LINE}/entries`, { token: other })).status).toBe(401)
+    expect((await call("GET", `/lines/${LINE}/grants`)).body).toEqual({ grants: [] })
+  })
+
+  test("let go a second time, still answers to its owner alone", async () => {
+    const call = await relay()
+    const other = "another-0123456789abcdef"
+    await call("POST", `/lines/${LINE}/entries`, { body: { after: 0, entries: [commit(1)] } })
+    call.at("2026-10-27T00:00:00.000Z")
+    await call.letGoOfIdleLines()
+    await call("POST", `/lines/${LINE}/entries`, { body: { after: 0, entries: [commit(1)] } })
+    call.at("2026-11-20T00:00:00.000Z")
+    await call.letGoOfIdleLines()
+    expect((await call("POST", `/lines/${LINE}/entries`, { token: other, body: { after: 0, entries: [commit(9)] } })).status).toBe(401)
+    expect((await call("POST", `/lines/${LINE}/entries`, { body: { after: 0, entries: [commit(1)] } })).status).toBe(200)
+  })
+
+  test("never made, is made by whoever sends its first commits", async () => {
+    const call = await relay()
+    const other = "another-0123456789abcdef"
+    expect((await call("POST", `/lines/${LINE}/entries`, { token: other, body: { after: 0, entries: [commit(1)] } })).status).toBe(200)
+    expect((await call("GET", `/lines/${LINE}/entries`)).status).toBe(401)
   })
 
 })
