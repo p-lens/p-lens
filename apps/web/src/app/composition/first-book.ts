@@ -3,9 +3,6 @@ import { BOOK_FILES } from "../../core/journal/layout"
 import { withTitle } from "../../core/journal/title"
 import type { StoredBook } from "../../storage/port/book-storage"
 
-/** What a book is called until its owner names it. */
-const FIRST_TITLE = "マイ帳簿"
-
 /**
  * What every book opens with, for whoever opens the file without the app —
  * a person, or a program handed the files and nothing else: what it is,
@@ -58,14 +55,14 @@ account 統計:期待値
 
 /**
  * The book a first visit opens onto: its owner's own, with nothing in it
- * yet but the accounts every book has, named until they name it. Its id is
- * made afresh on each device, so two people's first books are never taken
- * for one book.
+ * yet but the accounts every book has, under the title it is given until
+ * they name it. Its id is made afresh on each device, so two people's first
+ * books are never taken for one book.
  */
-export const firstBook = (id: BookId, owner: MemberId): StoredBook => ({
+export const firstBook = (id: BookId, owner: MemberId, title: string): StoredBook => ({
   book: { id, members: [{ id: owner, displayName: "自分", role: "owner" }] },
   files: {
-    [BOOK_FILES.main]: withTitle(MAIN, FIRST_TITLE),
+    [BOOK_FILES.main]: withTitle(MAIN, title),
     [BOOK_FILES.accounts]: ACCOUNTS,
     [BOOK_FILES.prices]: "",
     [BOOK_FILES.transactions]: "",

@@ -17,7 +17,7 @@ const setUp = async () => {
   const session = createBookSession({ hledger: await inProcessHledger(), storage: memoryStorage(), history: createMemoryHistory(() => crypto.randomUUID()), clock: () => new Date("2026-10-09T20:00:00+09:00"), newId: () => crypto.randomUUID(), member: ME })
   await session.createBook(await fixtureBook("basic-play", { id: MINE as BookId, members: [{ id: ME, displayName: "me", role: "owner" }] }))
   await session.createBook(await fixtureBook("basic-play", { id: THEIRS as BookId, members: [{ id: ME, displayName: "me", role: "viewer" }] }))
-  await session.createBook(firstBook(EMPTY as BookId, ME))
+  await session.createBook(firstBook(EMPTY as BookId, ME, "マイ帳簿"))
   return session
 }
 

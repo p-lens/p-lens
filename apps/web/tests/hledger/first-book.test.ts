@@ -5,7 +5,7 @@ import { loadActivity } from "../../src/application/activity"
 import { loadMarks, pressMark, type VoterOf } from "../../src/application/marks"
 import type { Catalog } from "../../src/catalog/port/catalog"
 import { MARKS_LOG, type MarkDeed, type MarkLine } from "../../src/core/marks/marks"
-import { deleteBook } from "../../src/application/delete-book"
+import { deleteBook, holdsNothing } from "../../src/application/delete-book"
 import { createBookSession } from "../../src/application/book-session"
 import { loadOverview } from "../../src/application/overview"
 import { recordTalliedPlay } from "../../src/application/record-play"
@@ -41,7 +41,7 @@ const setUp = async () => {
   return { storage, history, session }
 }
 
-const make = (id: string) => () => firstBook(id as BookId, ME)
+const make = (id: string) => () => firstBook(id as BookId, ME, "🐢マイ帳簿")
 
 const WON: TalliedPlay = { id: "first" as PlayId, parlor: undefined, date: "2026-10-08" as IsoDate, gameKind: "pachinko", machine: "森物語", cabinetNumber: undefined, outlay: dec("2000"), takings: dec("5000"), theoreticalValue: dec("1200") , told: undefined}
 
@@ -51,7 +51,7 @@ describe("the book a first visit opens onto", () => {
     const made = await ensureFirstBook(session, make("mine"))
     expect(made).toEqual({ ok: true, value: "mine" as BookId })
     const books = await session.books()
-    expect(books.ok && books.value.map((book) => [book.id, book.title])).toEqual([["mine", "マイ帳簿"]] as never)
+    expect(books.ok && books.value.map((book) => [book.id, book.title])).toEqual([["mine", "🐢マイ帳簿"]] as never)
     const overview = await loadOverview(session, "mine" as BookId, "")
     expect(overview.ok && toPlainString(overview.value.actual)).toBe("0")
   })
@@ -151,7 +151,7 @@ describe("taking a book off the device", () => {
   test("lets go of its files, its history, its sync link, its receipt and the plays being played for it, and of nothing else", async () => {
     const here = await ports()
     await ensureFirstBook(here.session, make("mine"))
-    await here.session.createBook(firstBook("other" as BookId, ME))
+    await here.session.createBook(firstBook("other" as BookId, ME, "マイ帳簿"))
     await here.links.write({ bookId: "mine" as BookId, relayUrl: "https://relay.test", secret: "s", cursor: 0 } as never)
     await here.receipts.write({ bookId: "mine" as BookId, destination: "file", at: "2026-10-08T10:00:00.000Z", fingerprint: "f" })
     await here.receipts.write({ bookId: "other" as BookId, destination: "file", at: "2026-10-08T10:00:00.000Z", fingerprint: "f" })
@@ -177,7 +177,26 @@ describe("taking a book off the device", () => {
     await deleteBook(here, "mine" as BookId)
     expect(await ensureFirstBook(here.session, make("fresh"))).toEqual({ ok: true, value: "fresh" as BookId })
     const books = await here.session.books()
-    expect(books.ok && books.value.map((book) => [book.id, book.title])).toEqual([["fresh", "マイ帳簿"]] as never)
+    expect(books.ok && books.value.map((book) => [book.id, book.title])).toEqual([["fresh", "🐢マイ帳簿"]] as never)
+  })
+
+  test("holds nothing while it is as it was made, whatever it is called since — and something once a play is recorded in it", async () => {
+    const here = await ports()
+    const fresh = firstBook("another" as BookId, ME, "🦎マイ帳簿")
+    await ensureFirstBook(here.session, make("mine"))
+    expect(await holdsNothing(here, "mine" as BookId, fresh)).toEqual({ ok: true, value: true })
+    await renameBook(here.session, "mine" as BookId, "ノリ打ち")
+    expect(await holdsNothing(here, "mine" as BookId, fresh)).toEqual({ ok: true, value: true })
+    await recordTalliedPlay(here.session, "mine" as BookId, WON)
+    expect(await holdsNothing(here, "mine" as BookId, fresh)).toEqual({ ok: true, value: false })
+  })
+
+  test("holds something while a play is being played for it", async () => {
+    const here = await ports()
+    const fresh = firstBook("another" as BookId, ME, "🦎マイ帳簿")
+    await ensureFirstBook(here.session, make("mine"))
+    await here.drafts.createDraft(draftFor("playing", "mine"))
+    expect(await holdsNothing(here, "mine" as BookId, fresh)).toEqual({ ok: true, value: false })
   })
 })
 

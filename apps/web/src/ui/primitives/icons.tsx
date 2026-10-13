@@ -195,6 +195,14 @@ export const PlusIcon = () => (
   </Icon>
 )
 
+/** Draw again: a die, showing three. */
+export const DiceIcon = () => (
+  <Icon>
+    <rect x="4" y="4" width="16" height="16" rx="3" />
+    <path d="M8.5 8.5h.01M12 12h.01M15.5 15.5h.01" />
+  </Icon>
+)
+
 /** Change places: an arrow up beside an arrow down, between the two rows that swap. */
 export const SwapIcon = () => (
   <Icon>

@@ -10,6 +10,7 @@ import { createWebCryptoDigest } from "../../backup/web-crypto/web-crypto-digest
 import { createZipArchiver } from "../../backup/zip/zip-archiver"
 import type { Services } from "../../application/services"
 import type { BookId, Member, MemberId } from "../../core/book/book"
+import { unnamedTitle } from "../../core/book/unnamed-title"
 import { firstBook } from "./first-book"
 import { businessDayOf, localDayOf } from "../../core/calendar/calendar"
 import type { PlayId } from "../../core/play/play"
@@ -32,7 +33,7 @@ import type { UuidV7 } from "@p-lens/uuidv7"
 
 import { DEPLOYMENT } from "../../branding/deployment"
 import { brandedDocuments } from "../../branding/documents"
-import { freshSeed, freshUuidV7, uuidV7On, voterOf } from "./ids"
+import { freshFraction, freshSeed, freshUuidV7, uuidV7On, voterOf } from "./ids"
 import { createConnection } from "../../storage/browser/database"
 import { createBrowserStorageKeeper } from "../../storage/browser/storage-keeper"
 import { createLocalStoragePreferences } from "../../preferences/local/local-storage-preferences"
@@ -172,7 +173,8 @@ export const createServices = (): Services => {
     preferences,
     now: () => clock().toISOString(),
     newPlayId: () => freshUuidV7() as string as PlayId,
-    firstBook: () => firstBook(freshUuidV7() as string as BookId, LOCAL_MEMBER),
+    unnamedTitle: (taken) => unnamedTitle(taken, freshFraction()),
+    firstBook: () => firstBook(freshUuidV7() as string as BookId, LOCAL_MEMBER, unnamedTitle([], freshFraction())),
     storageKeeper: createBrowserStorageKeeper(),
     deletion: { storage, history, links, receipts, drafts },
     playIdOn: (fresh, date) => uuidV7On(fresh as string as UuidV7, date) as string as PlayId,

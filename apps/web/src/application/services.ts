@@ -89,7 +89,9 @@ export interface Services {
   /** The moment, as an ISO 8601 timestamp. */
   readonly now: () => string
   readonly newPlayId: () => PlayId
-  /** The book a device with none is given: its owner's own, empty, under an id no other device could make. */
+  /** A title for a book nobody has named, drawn afresh: a picture none of the titles there begins with, then マイ帳簿. */
+  readonly unnamedTitle: (taken: readonly string[]) => string
+  /** The book a device with none is given: its owner's own, empty, under an id no other device could make and a title drawn for it. */
   readonly firstBook: () => StoredBook
   /** The browser's word on whether what this device stores is kept. */
   readonly storageKeeper: StorageKeeper

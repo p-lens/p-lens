@@ -44,3 +44,6 @@ export const voterOf = async (bookId: string, member: string): Promise<string> =
 
 /** A fresh 64-bit simulation seed, as decimal text. */
 export const freshSeed = (): string => crypto.getRandomValues(new BigUint64Array(1))[0]?.toString() ?? "0"
+
+/** A number from 0 up to 1, drawn afresh. */
+export const freshFraction = (): number => (crypto.getRandomValues(new Uint32Array(1))[0] ?? 0) / 2 ** 32

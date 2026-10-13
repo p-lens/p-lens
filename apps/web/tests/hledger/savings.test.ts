@@ -18,7 +18,7 @@ import { UMEDA, dec, saidIn } from "../support/values"
 
 const BOOK = "mine" as BookId
 
-const setUp = async (stored = firstBook(BOOK, ME)) => {
+const setUp = async (stored = firstBook(BOOK, ME, "マイ帳簿")) => {
   const storage = memoryStorage()
   const history = createMemoryHistory(() => crypto.randomUUID())
   const session = createBookSession({ hledger: await inProcessHledger(), storage, history, clock: () => new Date("2026-10-08T20:00:00+09:00"), newId: () => crypto.randomUUID(), member: ME })

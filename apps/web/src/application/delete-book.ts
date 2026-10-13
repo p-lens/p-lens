@@ -1,8 +1,9 @@
 import type { ReceiptStore } from "../backup/port/receipt-store"
 import type { BookId } from "../core/book/book"
+import { isUntouched } from "../core/book/untouched"
 import { Ok, collect, mapErr, mapOk } from "../core/result/result"
 import type { HistoryPort } from "../history/port/history-port"
-import type { BookStorage } from "../storage/port/book-storage"
+import type { BookStorage, StoredBook } from "../storage/port/book-storage"
 import type { DraftStorage } from "../storage/port/draft-storage"
 import type { LinkStore } from "../sync/port/link-store"
 import type { Outcome } from "./errors"
@@ -46,4 +47,18 @@ export const deleteBook = async (ports: DeletionPorts, bookId: BookId): Promise<
   if (!history.ok) return history
   const files = fromStorage(await ports.storage.deleteBook(bookId))
   return files.ok ? Ok(undefined) : files
+}
+
+/**
+ * Whether deleting a book from this device would lose nothing: it holds
+ * what a fresh book holds and no more, and no play is being played for
+ * it. Such a book is deleted without being asked about twice — a dozen
+ * made to try something are a dozen presses to be rid of.
+ */
+export const holdsNothing = async (ports: Pick<DeletionPorts, "storage" | "drafts">, bookId: BookId, fresh: StoredBook): Promise<Outcome<boolean>> => {
+  const stored = fromStorage(await ports.storage.readBook(bookId))
+  if (!stored.ok) return stored
+  const drafts = fromDraft(await ports.drafts.listDrafts())
+  if (!drafts.ok) return drafts
+  return Ok(isUntouched(stored.value.files, fresh.files) && !drafts.value.some((draft) => draft.bookId === bookId))
 }

@@ -196,7 +196,7 @@ describe("a person let in only to send plays", () => {
   const both = async () => {
     const relay = memoryRelay()
     const mine = await owner(relay)
-    await mine.session.createBook(firstBook(LEDGER, ME))
+    await mine.session.createBook(firstBook(LEDGER, ME, "マイ帳簿"))
     const kept = await invited(mine, "けんじ", "sender")
     const theirs = await device("kenji", relay)
     const joined = await joinByCode({ ...theirs.ports, destinations: theirs.destinations }, kept.code, RELAY_URL)

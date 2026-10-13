@@ -24,7 +24,7 @@ export function SettingsSide(props: { readonly place: Place }): JSX.Element {
         items={[
           {
             id: "appearance",
-            label: "テーマ",
+            label: "外観",
             icon: <PaletteIcon />,
             selected: props.place.kind === "settings-section" && props.place.section === "appearance",
             onSelect: () => moves.go({ kind: "settings-section", section: "appearance" }),

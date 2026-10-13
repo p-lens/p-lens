@@ -5,7 +5,7 @@ import type { Outcome } from "../../../application/errors"
 import { loadTodaysPlays } from "../../../application/live-play"
 import { roleIn, type Book, type MemberId, type ListedBook } from "../../../core/book/book"
 import { awaitsSending } from "../../../core/live-play/draft"
-import { firstGraphemeOf } from "../../../core/text/first-grapheme"
+import { leadingGraphemesOf } from "../../../core/text/leading-graphemes"
 import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
 import { createHourStruck } from "../../primitives/hour"
@@ -13,6 +13,7 @@ import { ConsolidatedIcon, LiveIcon, SendIcon, SettingsIcon } from "../../primit
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../primitives/tooltip"
 import { useMoves } from "../../navigation/moves"
 import { bookOf, inConsolidation, inLiveSpace, inSettings, type Place } from "../../navigation/place"
+import { railLetters, type RailLetters } from "../../theme/rail-letters"
 import { bookTitle } from "../../wording/book"
 import { destinationLabel } from "../../wording/sync"
 import { consolidationShown } from "../consolidated/shown"
@@ -31,8 +32,11 @@ const DESTINATION = {
   resting: "border-2 border-dashed border-text-muted text-text-secondary",
 } as const
 
-/** A book on the rail is its title's first character, as a server is its initials. */
-const initialOf = (title: string): string => firstGraphemeOf(title.trim()) ?? "?"
+/** A book on the rail is its title's first character or two, as the person chose, as a server is its initials. */
+const initialsOf = (title: string, letters: RailLetters): string => leadingGraphemesOf(title.trim(), letters) || "?"
+
+/** Two characters are set smaller, so that two pictures fit a place made for one. */
+const INITIALS: Readonly<Record<RailLetters, string>> = { 1: "text-base font-semibold", 2: "text-sm font-semibold" }
 
 const ownedBy = (member: MemberId) => (book: Book): boolean => roleIn(book, member) === "owner"
 
@@ -66,7 +70,7 @@ export function SpacesRail(props: {
     label: destinationLabel(destination.title, waitingFor(destination)),
     icon: (
       <span class="relative flex size-full items-center justify-center">
-        <span class="text-base font-semibold">{initialOf(destination.title)}</span>
+        <span class={INITIALS[railLetters()]}>{initialsOf(destination.title, railLetters())}</span>
         <span class="absolute bottom-1.5 right-1.5 [&_svg]:size-3">
           <SendIcon />
         </span>
@@ -82,7 +86,7 @@ export function SpacesRail(props: {
   const bookItem = (book: ListedBook): RailItem => ({
     id: book.id,
     label: bookTitle(book),
-    icon: <span class="text-base font-semibold">{initialOf(bookTitle(book))}</span>,
+    icon: <span class={INITIALS[railLetters()]}>{initialsOf(bookTitle(book), railLetters())}</span>,
     selected: bookOf(props.place) === book.id,
     onSelect: () => moves.go({ kind: "book", bookId: book.id }),
   })
