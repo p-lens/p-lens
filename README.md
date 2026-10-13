@@ -19,6 +19,66 @@ medals saved at each parlor, exchange rates and theoretical values (期待値) a
 
 The design is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
+## The accounting model
+
+A book is kept by double entry in hledger, in an account tree that is small on purpose.
+
+```text
+資産:現金                      cash
+資産:貯玉:<parlor>:<rate>      balls saved at a parlor at a rate (e.g. 資産:貯玉:ホシゾラ梅田店:4円)
+資産:貯メダル:<parlor>:<rate>  medals saved at a parlor at a rate
+収益:遊技                      revenue of play
+費用:遊技                      expenses of play
+費用:貸玉差額                  the rental spread on balls
+費用:貸メダル差額              the rental spread on medals
+費用:再プレイ手数料            replay fees
+純資産:開始残高                savings a person already had when the book began
+純資産:残高調整                a count of savings put right to what the parlor says
+純資産:特殊景品                what the special prizes of a prize exchange are worth
+純資産:端玉景品                the general prizes the rest of a prize exchange was given as, in whole yen
+純資産:換算調整勘定            the part of a yen a prize exchange leaves over
+統計:期待値                    the theoretical value (virtual postings only)
+```
+
+Three things make the model what it is.
+
+- **Equity is the terminal account.** The booking ends with the prize
+  exchange: the prizes received are entered not as assets but in
+  `純資産:特殊景品` (special prizes) and `純資産:端玉景品` (odd prizes), and the
+  part of a yen left when balls or medals are restated in yen in
+  `純資産:換算調整勘定` (the translation adjustment). The keeping, consumption,
+  transfer or any other transaction of a prize after it is received is not
+  booked.
+- **Cash never rises.** No entry the app writes puts a positive amount to
+  `資産:現金`. A loss is recorded as cash spent, and a gain as prizes taken
+  home, in equity. There is no entry that turns special prizes into cash.
+- **Balls and medals are a parlor's own currency.** Savings are held in a
+  unit of their own for each parlor and rate (an hledger commodity), and are
+  valued in yen by the day's exchange rate (`P`).
+
+On a day when 4,800 saved balls at an exchange rate of 3.5 yen are exchanged
+for special prizes worth 16,500 yen and odd prizes, for example, the entry is
+this. Cash does not move.
+
+```journal
+2026-10-04 景品交換 ホシゾラ梅田店  ; parlor-id: hoshizora-umeda, savings: prize-exchange
+    資産:貯玉:ホシゾラ梅田店:4円        -4800 "玉(4円・ホシゾラ梅田店)" @ 3.5 JPY
+    純資産:特殊景品                     16500 JPY
+    純資産:端玉景品                     300 JPY
+```
+
+The balls and medals were already counted in the revenue and expenses of the
+day they were played for, so a prize exchange appears in no day's result.
+
+Entering prizes in equity is a treatment of management accounting particular
+to P-Lens, and does not replace general financial accounting or the treatment
+of anything for tax. The formal provisions are in [docs/](docs/README.md);
+the Japanese text is the original.
+
+- [P-Lens Accounting Standards (PLAS)](docs/en/accounting-policy.md)
+- [Appendix A — Official Interpretations](docs/en/accounting-faq.md)
+- [Appendix B — An Important Declaration on the Accounting](docs/en/accounting-declaration.md)
+
 ## Running it locally
 
 ```sh
