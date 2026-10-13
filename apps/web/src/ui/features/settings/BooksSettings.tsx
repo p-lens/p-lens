@@ -13,6 +13,7 @@ import { DiceIcon, SwapIcon } from "../../primitives/icons"
 import { Loaded } from "../../primitives/states"
 import { settleTyping, TextField } from "../../primitives/text-field"
 import { toast } from "../../primitives/toast"
+import { createWait } from "../../primitives/wait"
 import type { Place } from "../../navigation/place"
 import { lastBackupText, standingText } from "../../wording/backup"
 import { LONGEST_TITLE } from "../../../core/journal/title"
@@ -26,11 +27,12 @@ const SWAP_LABEL = "次の自分の帳簿と入れ替える"
 
 const REDRAW_LABEL = "名前の候補を引き直す"
 
-/** Where deleting a book is: not asked, asked and waiting to be sure, going — after being asked about, or straight away — or failed. */
+/** Where deleting a book is: not asked, asked and waiting to be sure, going — after being asked about, or straight away — gone and not yet said to be, or failed. */
 type Deleting =
   | { readonly type: "resting" }
   | { readonly type: "asking" }
   | { readonly type: "deleting"; readonly asked: boolean }
+  | { readonly type: "deleted"; readonly asked: boolean }
   | { readonly type: "failed"; readonly error: ApplicationError }
 
 /**
@@ -46,21 +48,27 @@ function BookRow(props: { readonly listed: BookStanding; readonly motion: Motion
   const [state, setState] = createSignal<Deleting>({ type: "resting" })
   const unsaved = (): boolean => props.listed.standing.type !== "kept"
   /** Whether what will be lost is shown: while a person is asked, and while a book they were asked about goes. A book that holds nothing goes with nothing shown. */
-  const warned = (): boolean => ((current) => current.type === "asking" || (current.type === "deleting" && current.asked))(state())
+  const warned = (): boolean => ((current) => current.type === "asking" || ((current.type === "deleting" || current.type === "deleted") && current.asked))(state())
+  const going = (): boolean => state().type === "deleting" || state().type === "deleted"
+  /** The deletion as the screen waits on it: a book gone within the quiet never says it was going, and one that says so says it long enough to be read. */
+  const wait = createWait(() => state().type === "deleting")
+  const waited = (): boolean => wait().type === "shown"
+  createEffect(
+    on(wait, (current) => {
+      if (current.type !== "over" || state().type !== "deleted") return
+      toast({ title: "帳簿を削除しました", description: bookTitle(props.listed.book) })
+      void props.onDeleted()
+    }),
+  )
   const remove = async (asked: boolean): Promise<void> => {
-    if (state().type === "deleting") return
+    if (going()) return
     setState({ type: "deleting", asked })
     const deleted = await deleteBook(app.services.deletion, props.listed.book.id)
-    if (!deleted.ok) {
-      setState({ type: "failed", error: deleted.error })
-      return
-    }
-    toast({ title: "帳簿を削除しました", description: bookTitle(props.listed.book) })
-    await props.onDeleted()
+    setState(deleted.ok ? { type: "deleted", asked } : { type: "failed", error: deleted.error })
   }
   /** A book that holds nothing goes at the first press; any other is asked about, and so is one that could not be read. */
   const ask = async (): Promise<void> => {
-    if (state().type === "deleting") return
+    if (going()) return
     const empty = await holdsNothing(app.services.deletion, props.listed.book.id, app.services.firstBook())
     if (empty.ok && empty.value) return remove(false)
     setState({ type: "asking" })
@@ -91,7 +99,7 @@ function BookRow(props: { readonly listed: BookStanding; readonly motion: Motion
         <div class="flex items-center justify-end sm:shrink-0">
           <Show when={!warned()}>
             <Button variant="secondary" class="text-negative" onClick={() => void ask()}>
-              {state().type === "deleting" ? "削除しています…" : "削除"}
+              {waited() ? "削除しています…" : "削除"}
             </Button>
           </Show>
         </div>
@@ -107,7 +115,7 @@ function BookRow(props: { readonly listed: BookStanding; readonly motion: Motion
             </p>
             <div class="flex flex-col gap-2 sm:flex-row">
               <Button variant="secondary" class="text-negative" onClick={() => void remove(true)}>
-                {state().type === "deleting" ? "削除しています…" : "削除する"}
+                {waited() ? "削除しています…" : "削除する"}
               </Button>
               <Button variant="secondary" onClick={() => setState({ type: "resting" })}>
                 やめる
@@ -197,6 +205,7 @@ function AddBook(props: { readonly titles: readonly string[] }): JSX.Element {
   const app = useApp()
   const [title, setTitle] = createSignal("")
   const [adding, setAdding] = createSignal<Adding>({ type: "typing" })
+  const wait = createWait(() => adding().type === "adding")
   const [unnamed, setUnnamed] = createSignal(app.services.unnamedTitle(props.titles))
   createEffect(on(() => props.titles, (titles) => setUnnamed(app.services.unnamedTitle(titles)), { defer: true }))
   const named = (): string => (title().trim() === "" ? unnamed() : title())
@@ -236,7 +245,7 @@ function AddBook(props: { readonly titles: readonly string[] }): JSX.Element {
           <DiceIcon />
         </Button>
         <Button type="submit" class="shrink-0">
-          {adding().type === "adding" ? "追加中…" : "追加"}
+          {wait().type === "shown" ? "追加中…" : "追加"}
         </Button>
       </div>
       <Show when={((current) => (current.type === "refused" ? current.reason : undefined))(adding())} keyed>
