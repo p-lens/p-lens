@@ -5,6 +5,8 @@ import { machineMatches, readHitChance, readKeywords, readModelName } from "../.
 
 const GENKI = { name: "e星都幻鬼", modelName: "e星都幻鬼W", keywords: ["ゲンキ", "TG"] }
 const HIKARI = { name: "P魔法少女ひかり☆ルミエ3", modelName: undefined, keywords: ["ひかルミ"] }
+const WELT = { name: "L機巧騎ヴェルトレイヴ", modelName: undefined, keywords: ["ヴヴヴ"] }
+const BARON = { name: "Pバロンの城", modelName: undefined, keywords: [] }
 
 describe("finding a machine", () => {
   test("by its name, its model name or a word it is searched by", () => {
@@ -15,6 +17,12 @@ describe("finding a machine", () => {
   test("katakana as hiragana, widths, case, spaces and stars aside", () => {
     for (const typed of ["げんき", "ｹﾞﾝｷ", "ＴＧ", "ｅ 星都 幻鬼"]) expect([typed, machineMatches(GENKI, typed)]).toEqual([typed, true])
     for (const typed of ["ひかりルミエ", "ひかり★ルミエ", "ひかるみ", "ヒカルミ"]) expect([typed, machineMatches(HIKARI, typed)]).toEqual([typed, true])
+  })
+
+  test("ヴ as the バ row, whichever of the two was registered and whichever is typed", () => {
+    for (const typed of ["ヴェルトレイヴ", "ベルトレイブ", "べるとれいぶ", "ｳﾞｪﾙﾄﾚｲｳﾞ", "ヴヴヴ", "ブブブ", "ぶぶぶ"]) expect([typed, machineMatches(WELT, typed)]).toEqual([typed, true])
+    for (const typed of ["バロン", "ヴァロン", "ゔぁろん"]) expect([typed, machineMatches(BARON, typed)]).toEqual([typed, true])
+    expect(machineMatches(WELT, "ウェルト")).toBe(false)
   })
 
   test("nothing typed finds every machine", () => {

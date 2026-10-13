@@ -36,6 +36,11 @@ describe("one name", () => {
     expect(sameParlorName(DSTATION.name, "D'station新宿東口店")).toBe(false)
   })
 
+  test("is a name whether it is written with ヴ or in the バ row", () => {
+    expect(sameParlorName("ヴィーナス新宿店", "ビーナス新宿店")).toBe(true)
+    expect(sameParlorName("ヴィーナス新宿店", "ウィーナス新宿店")).toBe(false)
+  })
+
   test("is taken by a listed parlor, unless the list made that parlor from the submission", () => {
     const listed = [{ ...DSTATION, submissions: ["sub_01" as SubmissionId] }]
     expect(namesakeOf(listed, "D station 新宿南口店", "sub_02" as SubmissionId)).toEqual(listed[0])

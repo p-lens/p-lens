@@ -4,7 +4,7 @@ import { findingsIn, givenIn, partsUnder, standingOf, stepsUnder, tallyOf, type 
 import { atomOf, compoundOf, numberOf, type Term } from "../../../core/grounds/term"
 import { oneInText } from "./formula"
 
-/** How a line of reasoned grounds is to be taken: said plainly, a check that held or failed, a figure taken unchecked, or something no real machine would show. */
+/** How a line of reasoned grounds is to be taken: said plainly, a check that held or failed, a figure taken unchecked, or something guessed to be out of the ordinary. */
 export type GroundsTone = "plain" | "holds" | "fails" | "unverified" | "odd"
 
 /** One line of reasoned grounds: what it says, how deep under the line above, and how it is to be taken. */
@@ -273,7 +273,7 @@ const unprovedLine = (goal: Term): Omit<GroundsLine, "depth"> | undefined => {
  * A proof of a formula's figures as lines to read, each step under the one it
  * supports: the figure, how it was worked out, what each share of an
  * allotment adds, the checks with whether they held, what was taken
- * unchecked and what no real machine would show. A part that could not be
+ * unchecked and what is guessed to be out of the ordinary. A part that could not be
  * proved is said so in its place. A conclusion reached twice is said once.
  * `labels` names each mode as the spec does, in the spec's order.
  */
@@ -301,8 +301,8 @@ export const groundsLines = (proof: Proof, normalized: NormalizedSpecDto, labels
 
 /**
  * What a formula's grounds come to, in a sentence: the worst of what was
- * found — a disagreement or a part unproved, then something no real machine
- * would show, then something taken unchecked — or that every check held.
+ * found — a disagreement or a part unproved, then something guessed to be
+ * out of the ordinary, then something taken unchecked — or that every check held.
  */
 export const groundsStanding = (proof: Proof): Omit<GroundsLine, "depth"> => {
   const tally = tallyOf(findingsIn(proof))
@@ -311,7 +311,7 @@ export const groundsStanding = (proof: Proof): Omit<GroundsLine, "depth"> => {
     return { text: `${parts.join("、")}あります。この算出条件の数字は、期待値基礎値から導ける数字ではありません。`, tone: "fails" }
   }
   const checks = `検算 ${tally.holds}件はすべて一致しました`
-  if (tally.odd > 0) return { text: `${checks}が、実機ではまず見ない点が ${tally.odd}件あります。計算は合っていても、期待値基礎値そのものを疑ってください。`, tone: "odd" }
+  if (tally.odd > 0) return { text: `${checks}が、珍しいとみている点が ${tally.odd}件あります。珍しいかどうかは推測で、確かめたものではありません。期待値基礎値を見直してください。`, tone: "odd" }
   if (tally.unverified > 0) return { text: `${checks}。ただし、確かめていない点が ${tally.unverified}件あります。`, tone: "unverified" }
   return { text: `${checks}。`, tone: "holds" }
 }

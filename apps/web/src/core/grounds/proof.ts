@@ -87,8 +87,8 @@ export const everyStep = (proof: Proof): readonly Step[] =>
 
 /**
  * How something a proof found stands: a check that held or failed, a
- * figure taken unchecked, something that holds but no real machine would
- * show, or a part that could not be proved at all.
+ * figure taken unchecked, something that holds but is guessed to be out of the
+ * ordinary, or a part that could not be proved at all.
  */
 export type Standing = "holds" | "fails" | "unverified" | "odd" | "unproved"
 

@@ -12,8 +12,8 @@
 % the chain is made again from the sheet and set against the engine's, and
 % what each state yields is put into the state's own equation, which only
 % the true solution satisfies once every state can end. What cannot be
-% checked that way is said to be unchecked, and what holds but no real
-% machine would show is remarked on.
+% checked that way is said to be unchecked, and what holds but is guessed
+% to be out of the ordinary is remarked on, as a guess.
 
 :- dynamic(given/1).
 
@@ -222,10 +222,16 @@ rule(beyond, verdict(Gap, Limit, fails), Gap > Limit).
 % that a sampled figure could be almost anything checks nothing.
 rule(unverified_wide_margin, remark(wide_margin(Sampled, Margin)), ( given(sampled(Sampled, Margin)), 2 * Margin > 0.05 * Sampled )).
 
-% What holds, but no real machine would show: a share nobody is allotted,
-% a round that gains nothing, a 遊タイム reached more often than a jackpot.
-% More than a round to a regular spin is not one of them: a machine whose
-% regular game is a rare ball into its works wins many rounds by each.
+% What holds, but is guessed to be out of the ordinary. A share nobody is
+% allotted is one the engine refuses to make a chain with, so a chain that
+% has one was not made by it. The other two are guesses at what to doubt,
+% not knowledge of machines: a round that gains nothing, and a 遊タイム
+% reached more often than a jackpot. What is known is only that none of
+% the catalog's 508 pachinko formulas, 48 of them with a 遊タイム, showed
+% either on 2026-10-13. A third guess — more than a round to a regular
+% spin — was wrong and is gone: seven of those formulas showed it, their
+% regular game hitting once in 9.9 to 39.9 spins and a first jackpot
+% running to between thirty-nine and fifty-two rounds.
 rule(odd_empty_share, remark(empty_share(From)), ( given(outcome(From, Share, _, _, _, _)), Share =< 0 )).
 rule(odd_no_gain, remark(no_gain(Net)), ( net_per_round(Net), Net =< 0 )).
 rule(odd_relief_drive_likely, remark(relief_drive_likely(Reach)),

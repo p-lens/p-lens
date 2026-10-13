@@ -34,8 +34,8 @@ function Toned(props: { readonly tone: GroundsTone; readonly text: string }): JS
  * A formula's figures reasoned out from its basis by the Prolog reasoner:
  * what the grounds come to in a sentence, then each step from the spec
  * sheet to the figure, indented under what it supports — the checks marked
- * held or failed, what was taken unchecked and what no real machine would
- * show marked as such, and a part that could not be proved said so.
+ * held or failed, what was taken unchecked and what is guessed to be out of the
+ * ordinary marked as such, and a part that could not be proved said so.
  */
 export function ReasonedGrounds(props: { readonly basis: Basis; readonly analysis: AnalysisDto; readonly figures: Figures; readonly sampled: SampledFigure | undefined }): JSX.Element {
   const app = useApp()

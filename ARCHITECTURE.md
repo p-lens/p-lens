@@ -866,7 +866,9 @@ walking down the trail and back keeps the work in hand.
   attempted on its own and shown as unproved beside the others. A figure
   taken on the engine's word, or a check that checks nothing, is a remark
   (`unverified_…`): today, a sampled margin too wide to check by. What holds
-  but no real machine would show is a remark too (`odd_…`). `core/grounds`
+  but is guessed to be out of the ordinary is a remark too (`odd_…`), and
+  said on screen to be a guess: the rules say beside each what is known of
+  it — the catalog's formulas, none of which showed it — and no more. `core/grounds`
   reads the proof back — a Prolog term and the proof tree it spells, of no
   game — and tells its findings apart by how they stand: held, failed,
   unverified, odd, unproved. `ui/wording/pachinko/grounds` alone turns it
@@ -930,8 +932,8 @@ users ─┬─ machines (game_kind ∈ pachinko | pachislot) ── machine_key
   pachinko machine's 大当り確率 as its spec sheet writes it (`1/319.7`, kept
   as written and calculated from nowhere), and up to ten words it is
   searched by: ヴェルヴ for ヴェルトレイヴ, ゲンキ for 幻鬼. A search finds a machine
-  by any of them, katakana as hiragana and widths, case, spaces and stars
-  aside (`machineMatches`). The list shows the name in bold over the model
+  by any of them, katakana as hiragana, ヴ as the バ row (ブブブ finds ヴヴヴ)
+  and widths, case, spaces and stars aside (`machineMatches`). The list shows the name in bold over the model
   name, with the release date and the 大当り確率 at the far end; what is not
   known is shown as dashes, never a blank. A formula is never changed, but
   a description is set right by an administrator when someone writes in

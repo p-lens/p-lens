@@ -34,7 +34,7 @@ function Toned(props: { readonly tone: GroundsTone; readonly text: string }): JS
  * reasoner: what the grounds come to in a sentence, then under each setting
  * level, what the AT gains and how the 機械割 comes of it, each step
  * indented under what it supports — the checks marked held or failed, what
- * was taken unchecked and what no real machine would show marked as such,
+ * was taken unchecked and what is guessed to be out of the ordinary marked as such,
  * and a setting level that could not be proved said so.
  */
 export function ReasonedGrounds(props: {

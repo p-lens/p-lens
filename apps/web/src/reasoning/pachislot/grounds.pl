@@ -23,7 +23,8 @@
 % sum held — from the one figure taken from the engine, the trigger's
 % chance below its ceilings, which is itself checked by the 初当たり it
 % comes back to. What still cannot be checked is said to be unchecked, and
-% what holds but no real machine would show is remarked on beside it.
+% what holds but is guessed to be out of the ordinary is remarked on
+% beside it, as a guess.
 
 :- dynamic(given/1).
 :- dynamic(memo/2).
@@ -166,8 +167,11 @@ rule(unverified_capped_gain, remark(capped_gain(Cap)), ( given(cap(Cap)), given(
 rule(unverified_completion, remark(completion),
      ( given(reset_on_cap), given(level(Level)), given(stated_rate(Level, _)) )).
 
-% What holds, but no real machine would show: a regular game that loses
-% more than it stakes, an AT that gains nothing.
+% What holds, but is guessed to be out of the ordinary. A regular game
+% cannot lose more than it stakes, so a ベース that says it does is not a
+% machine's. An AT that gains nothing is a guess at what to doubt, not
+% knowledge of machines: what is known is only that none of the catalog's
+% 190 pachislot formulas with a 純増 showed one on 2026-10-13.
 rule(odd_loss_beyond_bet, remark(loss_beyond_bet(Loss, Bet)), ( loss_per_game(Loss), given(bet(Bet)), Loss > Bet )).
 rule(odd_no_gain, remark(no_gain(Level, Gain)), ( gain(Level, Gain), Gain =< 0 )).
 

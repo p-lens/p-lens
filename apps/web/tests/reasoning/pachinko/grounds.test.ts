@@ -236,7 +236,7 @@ describe("a formula's grounds, reasoned", () => {
     expect(groundsStanding(proof).tone).toBe("fails")
   })
 
-  test("what holds but no real machine would show is remarked on, and a margin too wide to check by is said to check nothing", async () => {
+  test("what holds but is guessed to be out of the ordinary is remarked on, and a margin too wide to check by is said to check nothing", async () => {
     const drive = { ...STARTING_BASIS.modes[0]!, key: "m2", label: "遊タイム", kind: "rapid" as const, spins: "100" }
     const eager = await reasoned(specOf({ ...STARTING_BASIS, modes: [...STARTING_BASIS.modes, drive], reliefDriveGauge: "100", reliefDriveTo: "m2" }))
     expect(amiss(eager.proof)).toEqual([["odd_relief_drive_likely", "odd"]])
