@@ -2,11 +2,12 @@ import { createMemo, createResource, createSignal, Show, type JSX } from "solid-
 
 import type { ApplicationError } from "../../../application/errors"
 import type { RecordingContext } from "../../../application/record-play"
-import { adjustBalance, recordPrizeExchange, registerOpeningBalance } from "../../../application/savings"
+import { adjustBalance, exchangeRateOn, recordPrizeExchange, registerOpeningBalance } from "../../../application/savings"
 import type { BookId } from "../../../core/book/book"
 import { parseIsoDate } from "../../../core/calendar/calendar"
-import { decimal, toPlainString, type Decimal } from "../../../core/decimal/decimal"
+import { decimal, isNegative, multiply, negate, toPlainString, type Decimal } from "../../../core/decimal/decimal"
 import { identityKey, type Parlor, type SavingsPool } from "../../../core/parlor/parlor"
+import { oddPrizesAt } from "../../../core/savings/prize-exchange"
 import type { ParlorList } from "../../../core/parlor/shared"
 import { exchangeRateOf, poolOf, type PlayTerms } from "../../../core/parlor/terms"
 import type { PlayGameKind } from "../../../core/play/play"
@@ -20,7 +21,7 @@ import { settleTyping, TextField } from "../../primitives/text-field"
 import { toast } from "../../primitives/toast"
 import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
 import { describeError } from "../../wording/errors"
-import { formatYen } from "../../wording/numbers"
+import { formatRate, formatYen } from "../../wording/numbers"
 import { typedParlorRefused } from "../../wording/parlor"
 import { offersByKey, parlorOffers } from "../record-play/parlor-offers"
 
@@ -262,7 +263,11 @@ export function BalanceAdjustmentForm(props: {
  * special prizes handed back are worth (特殊景品額). The line under the
  * fields says where the rest goes: what lies between that and the tokens'
  * worth at the exchange rate is written as odd prizes, in whole yen, and
- * the part of a yen left over as the translation adjustment.
+ * the part of a yen left over as the translation adjustment. Where the
+ * special prizes are worth more than the tokens were at the book's rate
+ * for the day, a line says so and by how much, as soon as both are typed:
+ * a digit mistyped, or a rate that is not the parlor's. It is said and not
+ * refused — the person may record it as it is.
  */
 export function PrizeExchangeForm(props: {
   readonly bookId: BookId
@@ -280,6 +285,18 @@ export function PrizeExchangeForm(props: {
   const exchanged = (): number | undefined => {
     const count = countOf(tokens())
     return count !== undefined && count > 0 ? count : undefined
+  }
+  /** The book's rate for the pool on the day typed: read again when the day changes, and never because a count was typed. */
+  const [rate] = createResource(
+    () => ((on) => (on.ok ? ([on.value, app.revision()] as const) : undefined))(parseIsoDate(date())),
+    ([on]) => exchangeRateOn(app.services.session, props.bookId, props.parlor, props.pool, on),
+  )
+  /** What the special prizes are worth beyond what the tokens were, where they are worth more: the odd prizes would be written below nothing. */
+  const beyond = (): { readonly rate: Decimal; readonly worth: Decimal; readonly by: Decimal } | undefined => {
+    const [count, special, found] = [exchanged(), countOf(prizes()), rate()]
+    if (count === undefined || special === undefined || found?.ok !== true || found.value === undefined) return undefined
+    const odd = oddPrizesAt(whole(count), found.value, whole(special))
+    return isNegative(odd) ? { rate: found.value, worth: multiply(whole(count), found.value), by: negate(odd) } : undefined
   }
   const save = async (): Promise<void> => {
     settleTyping()
@@ -315,6 +332,13 @@ export function PrizeExchangeForm(props: {
         <TextField label="特殊景品額" value={prizes()} onChange={setPrizes} inputMode="numeric" suffix="円" invalid={nudge.red() && countOf(prizes()) === undefined} onFocus={nudge.settle} compact />
       </div>
       <p class="text-xs text-text-muted">交換率との差額は端玉景品として、円未満の端数は換算調整勘定として記帳します。</p>
+      <Show when={beyond()}>
+        {(over) => (
+          <p role="status" class="text-xs text-warning">
+            特殊景品額が、払出数の評価額 {formatYen(over().worth)}（交換率 {formatRate(over().rate)}）を {formatYen(over().by)} 上回っています。端玉景品は {formatYen(negate(over().by))} で記帳されます。入力や帳簿の交換率に間違いがないか確かめてください。このまま記録することもできます。
+          </p>
+        )}
+      </Show>
       <Failure saving={saving()} />
       <div class="flex gap-2">
         <Button type="submit" size="small">

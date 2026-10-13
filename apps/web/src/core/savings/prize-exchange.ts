@@ -47,6 +47,19 @@ const checked = (exchange: PrizeExchange): Result<PrizeExchange, PrizeExchangePr
   return isNegative(exchange.specialPrizes) ? Err({ type: "negative-prizes" }) : Ok(exchange)
 }
 
+/** What lies between tokens' worth at a rate and the special prizes handed over for them, in yen to whatever part of one. */
+const between = (tokens: Decimal, rate: Decimal, specialPrizes: Decimal): Decimal => subtract(multiply(tokens, rate), specialPrizes)
+
+/**
+ * The odd prizes an exchange comes to at a rate, in whole yen. They are
+ * below nothing where the special prizes are worth more than the tokens
+ * were: no parlor hands over less than no sweets, so the book's rate is
+ * then lower than the parlor's was. It is written so all the same — the
+ * person may know what they are doing, and the line says where to look —
+ * and whoever asks is told before it is.
+ */
+export const oddPrizesAt = (tokens: Decimal, rate: Decimal, specialPrizes: Decimal): Decimal => rounded(between(tokens, rate, specialPrizes), 0)
+
 /** The accounts an exchange is written to, as a book declares them, under the equity savings are set against. */
 const PRIZE_ACCOUNTS = [ACCOUNTS.specialPrizes, ACCOUNTS.oddPrizes, ACCOUNTS.translationAdjustment] as const
 
@@ -79,9 +92,8 @@ export const prizeExchangeEntry = (exchange: PrizeExchange, prices: readonly Pri
   const commodity = tokenCommodity(exchange.pool.kind, exchange.parlor.name, exchange.pool.tier)
   const point = rateOn(prices, commodity, exchange.date)
   if (point === undefined) return Err({ type: "no-exchange-rate", commodity, date: exchange.date })
-  const between = subtract(multiply(exchange.tokens, point.rate), exchange.specialPrizes)
-  const odd = rounded(between, 0)
-  const adjustment = subtract(between, odd)
+  const odd = oddPrizesAt(exchange.tokens, point.rate, exchange.specialPrizes)
+  const adjustment = subtract(between(exchange.tokens, point.rate, exchange.specialPrizes), odd)
   return Ok({
     date: exchange.date,
     description: describedBy(exchange.parlor.name, "景品交換"),

@@ -14,6 +14,7 @@ import { prizeExchangeEntry, withPrizesDeclared, type PrizeExchange } from "../c
 import { compare } from "../core/decimal/decimal"
 import { openingBalanceRequest, pricesRequest } from "../hledger/query/requests"
 import { untilTerm } from "../hledger/query/terms"
+import { rateOn } from "../core/valuation/valuation"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
 import { loadHoldings } from "./holdings"
@@ -93,6 +94,10 @@ export const adjustBalance = async (session: BookSession, bookId: BookId, parlor
     (): Adjusted => ({ type: "adjusted", difference }),
   )
 }
+
+/** The book's exchange rate for a pool on a day, or none where it has none by then: what a prize exchange on that day takes the tokens at. */
+export const exchangeRateOn = (session: BookSession, bookId: BookId, parlor: Parlor, pool: SavingsPool, date: IsoDate): Promise<Outcome<Decimal | undefined>> =>
+  session.read(bookId, async (journal) => mapOk(fromHledger(await journal.ask(pricesRequest(""))), (directives) => rateOn(pricePointsOf(directives), tokenCommodity(pool.kind, parlor.name, pool.tier), date)?.rate))
 
 /**
  * Record savings exchanged for prizes, as one entry and one commit. The

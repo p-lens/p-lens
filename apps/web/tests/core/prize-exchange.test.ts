@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test"
 
 import type { IsoDate } from "../../src/core/calendar/calendar"
+import { toPlainString } from "../../src/core/decimal/decimal"
 import { renderEntry } from "../../src/core/journal/entry"
-import { prizeExchangeEntry, withPrizesDeclared, type PrizeExchange } from "../../src/core/savings/prize-exchange"
+import { oddPrizesAt, prizeExchangeEntry, withPrizesDeclared, type PrizeExchange } from "../../src/core/savings/prize-exchange"
 import { PRICES, UMEDA, dec } from "../support/values"
 
 const EXCHANGE: PrizeExchange = { parlor: UMEDA, pool: { kind: "ball", tier: "4円" }, date: "2026-10-04" as IsoDate, tokens: dec("4800"), specialPrizes: dec("16500") }
@@ -55,5 +56,18 @@ describe("the accounts of a prize exchange", () => {
     const declared = withPrizesDeclared("account 費用                           ; type: X\n")
     expect(declared.split("\n").filter((line) => line.startsWith("account 純資産"))).toEqual(["account 純資産                         ; type: E", "account 純資産:開始残高", "account 純資産:残高調整", "account 純資産:特殊景品", "account 純資産:端玉景品", "account 純資産:換算調整勘定"])
     expect(withPrizesDeclared(declared)).toBe(declared)
+  })
+})
+
+describe("the odd prizes an exchange comes to", () => {
+  test("are what lies between the tokens' worth and the special prizes, in whole yen", () => {
+    expect(toPlainString(oddPrizesAt(dec("4800"), dec("3.5"), dec("16500")))).toBe("300")
+    expect(toPlainString(oddPrizesAt(dec("4800"), dec("3.5"), dec("16800")))).toBe("0")
+    expect(toPlainString(oddPrizesAt(dec("5000"), dec("3.571429"), dec("17500")))).toBe("357")
+  })
+
+  test("are below nothing where the special prizes are worth more than the tokens were: a digit mistyped, or a rate lower than the parlor's", () => {
+    expect(toPlainString(oddPrizesAt(dec("4800"), dec("3.5"), dec("17000")))).toBe("-200")
+    expect(toPlainString(oddPrizesAt(dec("4800"), dec("3.5"), dec("165000")))).toBe("-148200")
   })
 })
