@@ -1,3 +1,5 @@
+import { toPlainString } from "../../core/decimal/decimal"
+import type { CashRaised } from "../../core/report/cash-raised"
 import type { NameProblem } from "../../core/names/known"
 import type { PlayGameKind } from "../../core/play/play"
 import type { ApplicationError } from "../../application/errors"
@@ -137,6 +139,8 @@ const describePrizeExchangeProblem = (problem: PrizeExchangeProblem): string => 
 }
 
 /** A name a book may not hold, and what to do about it. */
+const describeCashRaised = (raised: CashRaised): string => `${raised.date} ${raised.description}（資産:現金 +${toPlainString(raised.amount)}）。`
+
 const describeNameProblem = (problem: NameProblem): string => {
   switch (problem.type) {
     case "parlor-unlisted":
@@ -160,6 +164,8 @@ export const describeError = (error: ApplicationError): string => {
       return `hledger がこの変更を受け付けませんでした。帳簿は変更されていません。${describeTrouble(error.trouble)}`
     case "unknown-names":
       return `一覧にない名前があるため保存できません。帳簿は変更されていません。${error.problems.map(describeNameProblem).join("")}`
+    case "cash-raised":
+      return `資産:現金 を増やす仕訳は保存できません。帳簿は変更されていません。勝ち分は 純資産:特殊景品 にプラスで書いてください。${error.raised.map(describeCashRaised).join("")}`
     case "report":
       return `交換率のない玉・メダルがあり、円に換算できません: ${error.error.commodities.join("、")}`
     case "play":

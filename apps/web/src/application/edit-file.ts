@@ -4,10 +4,11 @@ import { bookNameOf } from "../core/catalog/catalog"
 import { broughtIn, nameProblems, type KnownNames, type NameProblem } from "../core/names/known"
 import { identityKey, parlorsFromDeclarations, type ParlorId } from "../core/parlor/parlor"
 import type { PlayGameKind } from "../core/play/play"
+import { cashRaisedBy, cashRaisedIn, type CashRaised } from "../core/report/cash-raised"
 import { playSummariesOf } from "../core/report/plays"
 import { Err, Ok, andThen, mapOk } from "../core/result/result"
 import type { JournalAccess } from "../hledger/client/client"
-import { accountsRequest, playsRequest } from "../hledger/query/requests"
+import { accountsRequest, cashEntriesRequest, playsRequest } from "../hledger/query/requests"
 import type { CommitId } from "../history/port/history-port"
 import type { ParlorDirectory } from "../parlors/port/parlor-directory"
 import type { SubmissionStore } from "../parlors/port/submission-store"
@@ -54,6 +55,28 @@ const problemsIn = async (journal: JournalAccess, known: KnownNames): Promise<Ou
   return andThen(fromHledger(accounts), (declared) => mapOk(fromHledger(plays), (page) => nameProblems(parlorsFromDeclarations(declared), playSummariesOf(page.items), known)))
 }
 
+/** The postings in a journal that raise cash, as hledger reads it. */
+const cashRaisedOf = async (journal: JournalAccess): Promise<Outcome<readonly CashRaised[]>> => mapOk(fromHledger(await journal.ask(cashEntriesRequest)), (page) => cashRaisedIn(page.items))
+
+/** What a hand's edit may not bring into a book, as the book stands: names the lists lack, and cash that rose. */
+interface Standing {
+  readonly names: readonly NameProblem[]
+  readonly cash: readonly CashRaised[]
+}
+
+const standingOf = async (journal: JournalAccess, known: KnownNames): Promise<Outcome<Standing>> => {
+  const names = await problemsIn(journal, known)
+  if (!names.ok) return names
+  return mapOk(await cashRaisedOf(journal), (cash) => ({ names: names.value, cash }))
+}
+
+const refusalOf = (before: Standing, after: Standing): Outcome<void> => {
+  const names = broughtIn(before.names, after.names)
+  if (names.length > 0) return Err({ type: "unknown-names", problems: names })
+  const cash = cashRaisedBy(before.cash, after.cash)
+  return cash.length === 0 ? Ok(undefined) : Err({ type: "cash-raised", raised: cash })
+}
+
 /**
  * Put a file's text, typed by hand, in place of what the book has: one
  * change like any other, read by hledger before it is kept. A book's
@@ -61,20 +84,18 @@ const problemsIn = async (journal: JournalAccess, known: KnownNames): Promise<Ou
  * that brings in a parlor the list lacks, a listed parlor under another
  * name, or a machine the catalog has none of is refused, and says which.
  * A name the book already held is not the edit's doing and does not stop
- * it.
+ * it. Nor may a hand raise cash, which nothing the app writes does: an
+ * edit that brings in a positive amount to `資産:現金` is refused, and one
+ * the book already held — written before the rule — is left as it is.
  */
 export const editFile = async (session: BookSession, ports: NamePorts, bookId: BookId, path: string, text: string): Promise<Outcome<CommitId>> => {
   const known = await knownNames(ports)
   if (!known.ok) return known
   return session.write(bookId, async (journal, stored) =>
-    mapOk(await problemsIn(journal, known.value), (before) => ({
+    mapOk(await standingOf(journal, known.value), (before) => ({
       files: { ...stored.files, [path]: text },
       intent: { type: "file-edited" as const, path },
-      accept: async (proposed: JournalAccess): Promise<Outcome<void>> =>
-        andThen(await problemsIn(proposed, known.value), (after) => {
-          const brought = broughtIn(before, after)
-          return brought.length === 0 ? Ok(undefined) : Err({ type: "unknown-names" as const, problems: brought })
-        }),
+      accept: async (proposed: JournalAccess): Promise<Outcome<void>> => andThen(await standingOf(proposed, known.value), (after) => refusalOf(before, after)),
     })),
   )
 }

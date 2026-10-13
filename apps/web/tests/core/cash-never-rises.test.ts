@@ -69,8 +69,8 @@ describe("cash never rises", () => {
     expect(gains.some((entry) => entry.postings.some((posting) => posting.account === ACCOUNTS.cash))).toBe(false)
   })
 
-  test("the cash account is posted to only where a play is composed: a new writer is added here, with its gains above", async () => {
-    expect(await naming(/ACCOUNTS\.cash/)).toEqual(["core/play/compose.ts", "core/play/sides.ts", "core/report/recorded-play.ts"])
-    expect(await naming(/資産:現金/)).toEqual(["app/composition/first-book.ts", "core/journal/accounts.ts"])
+  test("the cash account is named in these files and no others: two compose a play's postings, the rest read them — a new writer is added here, with its gains above", async () => {
+    expect(await naming(/ACCOUNTS\.cash/)).toEqual(["core/play/compose.ts", "core/play/sides.ts", "core/report/cash-raised.ts", "core/report/recorded-play.ts", "hledger/query/terms.ts"])
+    expect(await naming(/資産:現金/)).toEqual(["app/composition/first-book.ts", "application/edit-file.ts", "core/journal/accounts.ts", "core/report/cash-raised.ts", "ui/wording/errors.ts"])
   })
 })

@@ -7,6 +7,7 @@ import type { ArchiveProblem } from "../core/backup/archive"
 import type { BookId } from "../core/book/book"
 import type { PrecordProblem } from "../core/import/precord"
 import type { NameProblem } from "../core/names/known"
+import type { CashRaised } from "../core/report/cash-raised"
 import type { OpeningProblem } from "../core/parlor/opening"
 import type { PlayError } from "../core/play/play"
 import type { PrizeExchangeProblem } from "../core/savings/prize-exchange"
@@ -82,6 +83,7 @@ export type ApplicationError =
   | { readonly type: "hledger"; readonly trouble: Trouble }
   | { readonly type: "journal-rejected"; readonly trouble: Trouble }
   | { readonly type: "unknown-names"; readonly problems: readonly NameProblem[] }
+  | { readonly type: "cash-raised"; readonly raised: readonly CashRaised[] }
   | { readonly type: "report"; readonly error: ReportError }
   | { readonly type: "play"; readonly error: PlayError }
   | { readonly type: "parlor"; readonly error: OpeningProblem }

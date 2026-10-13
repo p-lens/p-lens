@@ -28,6 +28,9 @@ export const untilTerm = (date: IsoDate): string => `date:..${nextDay(date)}`
  */
 export const rangeTerm = (from: IsoDate | undefined, to: IsoDate | undefined): string => (from === undefined && to === undefined ? "" : `date:${from ?? ""}..${to === undefined ? "" : nextDay(to)}`)
 
+/** The cash account, and no account under another name. */
+export const cashTerm = `^${escapeRegex(ACCOUNTS.cash)}$`
+
 /** Every savings account of every kind of token, at every parlor. */
 export const savingsTerm = `^(${escapeRegex(savingsRoot("ball"))}|${escapeRegex(savingsRoot("medal"))}):`
 

@@ -2,7 +2,7 @@ import { YEN, type TokenKind } from "../../core/commodity/commodity"
 import { PLAY_TAGS, type PlayId } from "../../core/play/play"
 import type { Valuation } from "../../core/valuation/valuation"
 import type { Cut, Request, ValuationRequest } from "../protocol/wire"
-import { combine, inferredValueTerm, openingBalanceTerm, playsAmongTerm, playsTerm, savingsTerm, theoreticalValueTerm } from "./terms"
+import { cashTerm, combine, inferredValueTerm, openingBalanceTerm, playsAmongTerm, playsTerm, savingsTerm, theoreticalValueTerm } from "./terms"
 
 type RequestOf<K extends Request["kind"]> = Extract<Request, { kind: K }>
 
@@ -72,3 +72,6 @@ export const openingBalanceRequest = (kind: TokenKind, parlorName: string, tier:
 export const theoreticalKeptRequest: RequestOf<"entries"> = { kind: "entries", query: theoreticalValueTerm, limit: 1, offset: 0 }
 
 export const accountsRequest: RequestOf<"accounts"> = { kind: "accounts" }
+
+/** Every entry that posts to cash, however many: where a book is looked over for cash that rose. */
+export const cashEntriesRequest: RequestOf<"entries"> = { kind: "entries", query: cashTerm, limit: 1_000_000, offset: 0 }

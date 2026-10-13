@@ -23,16 +23,20 @@ const PORTS: NamePorts = {
   catalog: { search: async (_query: string, gameKind: string) => Ok([machine("森物語", "pachinko"), machine("ハッピーピエロットEX", "pachislot")].filter((each) => each.gameKind === gameKind)) } as unknown as Catalog,
 }
 
-const setUp = async () => {
+/** A gain put to cash, as a play typed in by hand was written before cash was held never to rise. */
+const CASH_RAISED = (day: string, yen: number): string => `\n${day} 森物語  ; play-id: raised-${day}, game-kind: pachinko, machine: 森物語\n    資産:現金                        ${yen} JPY\n    収益:遊技                        -${yen} JPY\n`
+
+const setUp = async (held = "") => {
   const storage = memoryStorage()
   const history = createMemoryHistory(() => crypto.randomUUID())
-  await storage.createBook(await fixtureBook("basic-play", { id: BOOK, members: [{ id: ME, displayName: "me", role: "owner" }] }))
+  const fixture = await fixtureBook("basic-play", { id: BOOK, members: [{ id: ME, displayName: "me", role: "owner" }] })
+  await storage.createBook({ ...fixture, files: { ...fixture.files, [BOOK_FILES.transactions]: `${fixture.files[BOOK_FILES.transactions] ?? ""}${held}` } })
   const session = createBookSession({ hledger: await inProcessHledger(), storage, history, clock: () => new Date("2026-10-08T20:00:00+09:00"), newId: () => crypto.randomUUID(), member: ME })
   const text = (path: string): string => storage.peek(BOOK)?.files[path] ?? ""
   return { storage, history, session, text }
 }
 
-const TALLIED = (machineName: string, extra = ""): string => `\n2026-10-07 ${machineName}  ; play-id: by-hand, game-kind: pachinko, machine: ${machineName}${extra}\n    資産:現金                        3000 JPY\n    収益:遊技                        -3000 JPY\n`
+const TALLIED = (machineName: string, extra = ""): string => `\n2026-10-07 ${machineName}  ; play-id: by-hand, game-kind: pachinko, machine: ${machineName}${extra}\n    費用:遊技                        3000 JPY\n    資産:現金                        -3000 JPY\n`
 
 describe("a book's file edited by hand", () => {
   test("is kept as one change where hledger reads it and it brings in no name the lists lack", async () => {
@@ -71,6 +75,24 @@ describe("a book's file edited by hand", () => {
       error: { type: "unknown-names", problems: [{ type: "parlor-misnamed", name: "ホシゾラ難波", listed: "ホシゾラなんば新館" }] },
     })
     expect((await editFile(session, PORTS, BOOK, BOOK_FILES.accounts, declared("ホシゾラなんば新館", "osm-9"))).ok).toBe(true)
+  })
+
+  test("is refused, and the book left as it was, where it raises cash: a gain is prizes taken home, never cash", async () => {
+    const { session, text } = await setUp()
+    const before = text(BOOK_FILES.transactions)
+    const refused = await editFile(session, PORTS, BOOK, BOOK_FILES.transactions, `${before}${CASH_RAISED("2026-10-07", 3000)}`)
+    expect(!refused.ok && refused.error.type === "cash-raised" && refused.error.raised.map((each) => [each.date, each.description, each.amount.mantissa])).toEqual([["2026-10-07", "森物語", 3000n]])
+    expect(text(BOOK_FILES.transactions)).toBe(before)
+  })
+
+  test("is not stopped by cash a book already held raised, and is refused one more of it", async () => {
+    const { session, text } = await setUp(CASH_RAISED("2026-10-06", 5000))
+    const before = text(BOOK_FILES.transactions)
+    expect((await editFile(session, PORTS, BOOK, BOOK_FILES.transactions, before.replace("123番台", "126番台"))).ok).toBe(true)
+    const held = text(BOOK_FILES.transactions)
+    const again = await editFile(session, PORTS, BOOK, BOOK_FILES.transactions, `${held}${CASH_RAISED("2026-10-06", 5000).replace("raised-2026-10-06", "raised-again")}`)
+    expect(!again.ok && again.error.type === "cash-raised" && again.error.raised.length).toBe(1)
+    expect(text(BOOK_FILES.transactions)).toBe(held)
   })
 
   test("is refused where hledger cannot read it, and the book still reads afterwards", async () => {
