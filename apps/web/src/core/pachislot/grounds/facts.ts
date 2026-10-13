@@ -1,6 +1,7 @@
-import type { AnalysisDto, SettingLevelFiguresDto, SpecDto } from "@p-lens/contracts/pachislot"
+import type { AnalysisDto, ComponentsDto, ProbabilityDto, SettingLevelFiguresDto, SpecDto } from "@p-lens/contracts/pachislot"
 
 import { prologNumber } from "../../grounds/term"
+import type { SettingLevelFigures } from "../figures"
 import type { Basis } from "../formula"
 
 const given = (fact: string): string => `given(${fact}).`
@@ -14,17 +15,79 @@ const statedRate = (spec: SpecDto, at: string, settingLevel: number): number | u
   return points === undefined ? undefined : points / 10_000
 }
 
-const levelFacts = (figures: SettingLevelFiguresDto, spec: SpecDto, at: string): readonly string[] => {
+/** A probability as an analysis sheet writes it, as a number. */
+const chanceOf = (written: ProbabilityDto): number => (written.type === "ratio" ? (written.numerator * 100) / written.denominatorHundredths : written.basisPoints / 10_000)
+
+/** What a spec says under one setting level, where it says anything. */
+const under = <T>(values: readonly { readonly settingLevel: number; readonly value: T }[] | undefined, settingLevel: number): T | undefined =>
+  values?.find((each) => each.settingLevel === settingLevel)?.value
+
+/**
+ * What an AT gains under a setting level as its sheet gives it: its payout,
+ * its sets carried on at the level's 継続率, or the level's table of medals
+ * and how often each comes. None where its medals are to follow from the
+ * 機械割.
+ */
+const lawFacts = (spec: SpecDto, at: string, level: number): readonly string[] => {
+  const sets = spec.components.sets?.[at]
+  const carry = under(spec.components.continuationRate?.[at], level)
+  if (sets !== undefined && carry !== undefined) return [given(`law(${level}, sets(${prologNumber(sets.first)}, ${prologNumber(sets.set)}, ${prologNumber(carry / 10_000)}))`)]
+  const rows = under(spec.components.payoutTable?.[at], level)
+  if (rows !== undefined) return [given(`law(${level}, table)`), ...rows.map((row) => given(`payout_row(${level}, ${prologNumber(row.medals)}, ${prologNumber(row.share / 10_000)})`))]
+  const payout = spec.components.payout?.[at]
+  return payout === undefined ? [] : [given(`law(${level}, fixed(${prologNumber(payout)}))`)]
+}
+
+/**
+ * A setting level's facts: what the sheet publishes of it — the 初当たり of
+ * the trigger, the CZ's success rate, the AT's medals or the 機械割 they are
+ * to follow from — and what the engine came to: the trigger's chance below
+ * its ceilings, which it read back from the 初当たり, the games of a cycle,
+ * what the AT gains with the share that reach the cap, and the 機械割.
+ */
+const levelFacts = (figures: SettingLevelFiguresDto, spec: SpecDto, at: string, trigger: string | undefined, chance: number | undefined): readonly string[] => {
   const level = figures.settingLevel
-  const chance = figures.bonuses.find((bonus) => bonus.id === at)?.chance
+  const cycle = figures.bonuses.find((bonus) => bonus.id === at)?.chance
+  const published = under(spec.components.firstHit?.[trigger ?? at], level)
+  const success = trigger === undefined ? undefined : under(spec.components.success?.[trigger], level)
   const stated = statedRate(spec, at, level)
   return [
     given(`level(${level})`),
-    ...(chance === undefined ? [] : [given(`cycle_games(${level}, ${prologNumber(1 / chance)})`)]),
-    ...(figures.at === undefined ? [] : [given(`gain(${level}, ${prologNumber(figures.at.gain)})`), given(`engine(gain(${level}), ${prologNumber(figures.at.gain)})`)]),
-    ...(stated === undefined ? [] : [given(`stated_rate(${level}, ${prologNumber(stated)})`)]),
+    ...(published === undefined ? [] : [given(`first_hit(${level}, ${prologNumber(chanceOf(published))})`)]),
+    ...(chance === undefined ? [] : [given(`chance(${level}, ${prologNumber(chance)})`)]),
+    ...(success === undefined ? [] : [given(`success(${level}, ${prologNumber(success / 10_000)})`)]),
+    ...(cycle === undefined ? [] : [given(`engine(cycle_games(${level}), ${prologNumber(1 / cycle)})`)]),
+    ...(stated === undefined ? lawFacts(spec, at, level) : [given(`stated_rate(${level}, ${prologNumber(stated)})`)]),
+    ...(figures.at === undefined ? [] : [given(`engine(gain(${level}), ${prologNumber(figures.at.gain)})`), given(`engine(completion(${level}), ${prologNumber(figures.at.completion)})`)]),
     given(`engine(rate(${level}), ${prologNumber(figures.payoutRate)})`),
   ]
+}
+
+/**
+ * The modes play is in between ATs, as the sheet gives them and in the
+ * engine's order: each one's ceiling, as the sheet counts it, and under
+ * each setting level how often play enters it after an AT and after a
+ * setting change. A machine without modes has its trigger's ceiling as its
+ * one mode, and its ceiling after a setting change as a second that only a
+ * setting change enters.
+ */
+const modeFacts = (spec: SpecDto, modes: readonly string[], trigger: string, levels: readonly number[]): readonly string[] => {
+  const own = spec.components.mode ?? []
+  const ceilingOf = (mode: string, index: number): number | undefined =>
+    own.includes(mode) ? spec.components.ceiling?.[mode] : index === 0 ? spec.components.ceiling?.[trigger] : spec.components.resetCeiling?.[trigger]
+  const share = (allotment: ComponentsDto["allotment"], mode: string, level: number): number | undefined => {
+    const points = under(allotment?.[mode], level)
+    return points === undefined ? undefined : points / 10_000
+  }
+  const allotted = (mode: string, index: number, level: number): readonly [number, number] => {
+    if (!own.includes(mode)) return modes.length === 1 ? [1, 1] : index === 0 ? [1, 0] : [0, 1]
+    const afterAt = share(spec.components.allotment, mode, level) ?? 0
+    return [afterAt, share(spec.components.resetAllotment, mode, level) ?? afterAt]
+  }
+  return modes.flatMap((mode, index) => [
+    given(`mode(${index}, ${ceilingOf(mode, index) ?? "none"})`),
+    ...levels.map((level) => given(`allotted(${level}, ${index}, ${allotted(mode, index, level).map(prologNumber).join(", ")})`)),
+  ])
 }
 
 /**
@@ -41,22 +104,60 @@ const netFacts = (spec: SpecDto, at: string, overAll: number): readonly string[]
   ]
 }
 
+/** A sampled formula's 95% margin of the 機械割 it stores under a setting level. */
+export interface SampledMargin {
+  readonly settingLevel: number
+  readonly payoutRateMargin: number
+}
+
+/** The 機械割 a formula stores under a setting level: exact, or for a sampled formula an estimate with its margin. */
+const storedFact = (stored: SettingLevelFigures, margin: SampledMargin | undefined): string =>
+  margin === undefined
+    ? given(`stored(rate(${stored.settingLevel}), ${prologNumber(stored.payoutRate)})`)
+    : given(`sampled(${stored.settingLevel}, ${prologNumber(stored.payoutRate)}, ${prologNumber(margin.payoutRateMargin)})`)
+
+/**
+ * What the sheet says of the machine whatever the setting level: whether a
+ * CZ brings its AT, with the CZ's スルー天井 and the AT間天井; the
+ * 有利区間's cap, the games it carries on after an AT short of it, and
+ * whether play starts again as after a setting change once an AT reaches
+ * it; and the screen's games a regular game comes to, where ceilings are
+ * counted on the screen.
+ */
+const machineFacts = (spec: SpecDto, at: string, trigger: string | undefined): readonly string[] => {
+  const misses = trigger === undefined ? undefined : spec.components.misses?.[trigger]
+  const atCeiling = trigger === undefined ? undefined : spec.components.ceiling?.[at]
+  const window = spec.components.window?.[at]
+  return [
+    ...(trigger === undefined ? [] : [given("cz")]),
+    ...(misses === undefined ? [] : [given(`misses(${misses})`)]),
+    ...(atCeiling === undefined ? [] : [given(`at_ceiling(${atCeiling})`)]),
+    ...(spec.resources.cap === undefined ? [] : [given(`cap(${prologNumber(spec.resources.cap)})`)]),
+    ...(window === undefined ? [] : [given(`window(${window})`)]),
+    ...(spec.components.resetOnCap?.includes(at) === true ? [given("reset_on_cap")] : []),
+    ...(spec.resources.lcdRate === undefined ? [] : [given(`lcd_rate(${prologNumber(spec.resources.lcdRate)})`)]),
+  ]
+}
+
 /**
  * What the reasoner is told of an AT machine's formula, as Prolog facts:
- * its bet, its ベース as the engine normalised it and its 純増, and under
- * each setting level the regular games a cycle lasts and what the AT gains
- * as the engine solved them, the 機械割 its spec states where the AT's
- * medals are to follow from it, and the engine's own figures to check
- * against. Nothing where the machine has no 純増: there is then nothing to
- * reason a 機械割 from.
+ * its bet, its ベース as the engine normalised it and its 純増; what its
+ * sheet says of the machine and of its modes; under each setting level
+ * what its sheet publishes and what the engine came to; and the 機械割 the formula stores under each — for a
+ * sampled formula, with its margin. Only numbers are written. Nothing
+ * where the machine has no 純増: there is then nothing to reason a 機械割
+ * from.
  */
-export const groundsFacts = (basis: Basis, analysis: AnalysisDto): string => {
+export const groundsFacts = (basis: Basis, analysis: AnalysisDto, figures: readonly SettingLevelFigures[], margins: readonly SampledMargin[] | undefined): string => {
   const rules = basis.normalized.atRules
   if (rules?.netPerGame === undefined) return ""
   return [
     given(`bet(${prologNumber(basis.normalized.bet)})`),
     given(`base(${prologNumber(rules.base)})`),
     ...netFacts(basis.spec, rules.at, rules.netPerGame),
-    ...analysis.settingLevels.flatMap((figures) => levelFacts(figures, basis.spec, rules.at)),
+    ...machineFacts(basis.spec, rules.at, rules.trigger),
+    ...modeFacts(basis.spec, rules.modes.map((mode) => mode.id), rules.trigger ?? rules.at, analysis.settingLevels.map((solved) => solved.settingLevel)),
+    ...analysis.settingLevels.flatMap((solved) => levelFacts(solved, basis.spec, rules.at, rules.trigger, basis.normalized.tables.find((table) => table.settingLevel === solved.settingLevel)?.at?.chance)),
+    ...figures.map((stored) => storedFact(stored, margins?.find((margin) => margin.settingLevel === stored.settingLevel))),
   ].join("\n")
 }

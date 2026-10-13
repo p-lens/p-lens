@@ -117,6 +117,19 @@ export interface RestartDto {
   readonly balls: number
 }
 
+/**
+ * From one point of a combo — a state, the spins filled on the way out, and
+ * whether the 遊タイム's first run is still unbroken — the chance of each way
+ * regular play starts again: what the long run is worked out from, given so
+ * that it can be checked from outside the engine.
+ */
+export interface EndingDto {
+  readonly state: number
+  readonly filled: number
+  readonly unbroken: boolean
+  readonly chances: readonly { readonly restart: RestartDto["restart"]; readonly chance: number }[]
+}
+
 export type TargetDto = { readonly type: "state"; readonly index: number } | { readonly type: "end" }
 
 export interface OutcomeDto {
@@ -189,6 +202,8 @@ export interface AnalysisDto {
     readonly ballsAfter: number
     /** Each way regular play starts again over the long run: how often, and what a cycle from it yields. */
     readonly restarts: readonly RestartDto[]
+    /** From every point of a combo, the chance of each way of starting again. */
+    readonly endings: readonly EndingDto[]
   }
 }
 

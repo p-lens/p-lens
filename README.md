@@ -14,6 +14,9 @@ medals saved at each parlor, exchange rates and theoretical values (期待値) a
 - The theoretical value and the break-even line (ボーダー) come from each
   machine's formula (算出条件). A formula is typed in by hand, or made on the
   device by an exact calculation in Rust/WebAssembly from the machine's spec.
+- A formula's grounds (計算根拠) are built on the device as a proof tree by
+  Trealla Prolog (WebAssembly) from rules, and shown checked against the
+  engine's answer.
 - Machines, formulas and setting-level distributions are delivered to the
   device from a catalog everyone shares (`apps/api`).
 

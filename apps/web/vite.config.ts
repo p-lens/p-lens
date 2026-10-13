@@ -36,8 +36,8 @@ const SHARING_CARD = "og.png"
 const PACHINKO_ASSETS = "**/pachinko*"
 
 /**
- * The reasoner — its worker and Trealla Prolog with its wasm, over a
- * megabyte — is kept the same way: left out of the precache, and cached the
+ * The reasoner — its worker and Trealla Prolog with its wasm, over five
+ * megabytes — is kept the same way: left out of the precache, and cached the
  * first time a formula's grounds are opened.
  */
 const REASONER_ASSETS = ["**/reasoner*", "**/trealla*"]

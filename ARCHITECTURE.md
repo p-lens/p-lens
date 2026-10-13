@@ -839,27 +839,65 @@ walking down the trail and back keeps the work in hand.
   engine's worker speaks the same way.
 - A formula's grounds are solved from the **normalised spec it stores**, not from
   its basis normalised again by whatever engine is current.
-- **The grounds are reasoned, then worded.** `core/pachinko/grounds` turns the stored
-  basis and the engine's solved figures into Prolog facts; the reasoner —
-  Trealla Prolog in its own worker, loaded the first time grounds are opened
-  and cached like the engine — proves `grounds/2` from
-  `reasoning/pachinko/grounds.pl` with a meta-interpreter that returns the proof
-  tree: each rule applied, each fact given, each sum worked. Checks end in a
-  verdict rather than failing: the reasoned 1R トータル確率 and 1R 平均出玉
-  against the engine's, and a sampled formula's stored estimate against the
-  exact figure within twice its margin, so a figure tampered with shows as a
-  failed check. The proof is read back by `core/grounds` — a Prolog term, and
-  the proof tree it spells, of no game — and `ui/wording/pachinko/grounds`
-  alone turns it into sentences.
+- **The grounds are reasoned, then worded.** `core/pachinko/grounds` turns
+  the spec as its sheet was written, the chain the engine made of it, what
+  the engine solved and the figures the formula stores into Prolog facts —
+  numbers only, a mode by its place, never a name someone typed; the
+  reasoner — Trealla Prolog in its own worker, loaded the first time grounds
+  are opened and cached like the engine — proves `grounds` from
+  `reasoning/pachinko/grounds.pl` with a meta-interpreter that returns the
+  proof tree: each rule applied, each fact given, each sum worked.
+- **The engine is checked, not believed.** The reasoner does not solve the
+  chain; it checks the engine's solution, which is the easier thing and
+  proves as much. What the engine solved of each state is put into the
+  state's own equation — its outcomes' shares of what each yields and leads
+  to — and once every state can end, only the true solution satisfies them
+  all. The chain itself is made again from the spec sheet, mode by mode, and
+  set against the engine's; its shares are checked for a whole and its
+  states for ever ending. With a 遊タイム the long run is checked the same
+  way: the engine gives, from every point of a combo, the chance of each
+  way regular play starts again, each of which must be its outcomes' shares
+  of the chances where they lead; and a way's weight must be what flows
+  into it from all of them. The two figures are then put together from that
+  and checked against the engine's and against the ones stored, a sampled
+  estimate within twice its margin. Every check ends in a verdict rather
+  than failing, so a disagreement is shown, not hidden.
+- **What is not checked is said.** A part that cannot be proved is
+  attempted on its own and shown as unproved beside the others. A figure
+  taken on the engine's word, or a check that checks nothing, is a remark
+  (`unverified_…`): today, a sampled margin too wide to check by. What holds
+  but no real machine would show is a remark too (`odd_…`). `core/grounds`
+  reads the proof back — a Prolog term and the proof tree it spells, of no
+  game — and tells its findings apart by how they stand: held, failed,
+  unverified, odd, unproved. `ui/wording/pachinko/grounds` alone turns it
+  into sentences, the worst standing first.
 - **Pachislot's grounds are reasoned the same way**, for an AT machine that
   says its 純増: `core/pachislot/grounds` gives the bet, the ベース, the
-  純増 and, under each setting level, the cycle's regular games and the
-  AT's medals as the engine solved them and the 機械割 the spec states;
-  `reasoning/pachislot/grounds.pl` proves each level's AT gain — from the
-  stated 機械割, or as solved — and the 機械割 from it, checked against the
-  engine and against the 機械割 stated, and `ui/wording/pachislot/grounds`
-  words the proof. A machine without a 純増 has nothing to reason and
-  shows only what the engine solved.
+  純増 and, under each setting level, what the analysis sheet publishes —
+  the 初当たり of the AT or of the CZ that brings it, the CZ's success rate,
+  the AT's medals or the 機械割 they are to follow from — beside the
+  engine's figures and the 機械割 stored. `reasoning/pachislot/grounds.pl`
+  works a cycle's regular games from the published 初当たり — the triggers
+  a cycle brings over it, whatever the ceilings, which the published figure
+  already includes — the AT's medals from its payout, its sets or its
+  table, or from the stated 機械割, and the 機械割 from those, each checked
+  against the engine, the stored figure and the 機械割 stated; and the
+  trigger's chance below its ceilings, which the engine read back from the
+  published figure, is checked by the 初当たり it comes to when played
+  forward. Where the sheet's figures alone do not say — a cycle an AT間天井
+  cuts short, an AT's medals under the 有利区間's cap — the machine is
+  played out in the reasoner by another way than the engine's: the chance
+  play has lasted each game, each game resting only on games before it,
+  where the engine convolves trigger upon trigger; and how often an AT
+  starts from each sum held, worked upward from none, where the engine
+  carries the 有利区間 on a round at a time. These sums are worked outside
+  the proof and kept, since a proof comes to them many times. One thing is
+  still the engine's and remarked on as unverified: an AT's medals under a
+  cap where an AT may gain less than a window's games lose, which the
+  working upward does not allow for — and, where the AT's medals follow
+  from the 機械割, the share of ATs that reach the cap.
+  `ui/wording/pachislot/grounds` words the proof. A machine without a 純増
+  has nothing to reason and shows only what the engine solved.
 
 ### Shared data (D1)
 

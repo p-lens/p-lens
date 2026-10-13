@@ -32,12 +32,12 @@ use pachinko_simulator::simulation::{Plan, Progress};
 
 use crate::dto::{
     AllotmentDto, AnalysisDto, BeyondDto, BucketDto, ComponentsDto, ConditionsDto, DerivationDto,
-    ErrorDto, EstimateProgressDto, EstimateSummaryDto, HyenaHuntProgressDto, HyenaHuntSummaryDto,
-    InferenceProgressDto, InferenceRequest, InferenceSummaryDto, LocationDto, ModeEntryDto,
-    NextDto, NormalizedReliefDriveDto, NormalizedSpecDto, OriginDto, OtherRoundsDto, OutcomeDto,
-    PlanDto, PlayDto, ProbabilityDto, ProgressDto, ReadingDto, ReliefDriveFiguresDto, RestartDto,
-    RestartKindDto, RoundPayoutDto, SpecDto, StateDto, SummaryDto, TargetDto, UnsupportedDto,
-    WayDto, WeighedDto,
+    EndingChanceDto, EndingDto, ErrorDto, EstimateProgressDto, EstimateSummaryDto,
+    HyenaHuntProgressDto, HyenaHuntSummaryDto, InferenceProgressDto, InferenceRequest,
+    InferenceSummaryDto, LocationDto, ModeEntryDto, NextDto, NormalizedReliefDriveDto,
+    NormalizedSpecDto, OriginDto, OtherRoundsDto, OutcomeDto, PlanDto, PlayDto, ProbabilityDto,
+    ProgressDto, ReadingDto, ReliefDriveFiguresDto, RestartDto, RestartKindDto, RoundPayoutDto,
+    SpecDto, StateDto, SummaryDto, TargetDto, UnsupportedDto, WayDto, WeighedDto,
 };
 
 fn invalid(field: &str) -> ErrorDto {
@@ -501,6 +501,13 @@ pub fn normalized_dto(spec: &NormalizedSpec) -> NormalizedSpecDto {
     }
 }
 
+fn restart_kind_dto(restart: Restart) -> RestartKindDto {
+    match restart {
+        Restart::Filled(spins) => RestartKindDto::Filled { spins },
+        Restart::Spent => RestartKindDto::Spent,
+    }
+}
+
 pub fn analysis_dto(analysis: &Analysis, normalized: &NormalizedSpec) -> AnalysisDto {
     AnalysisDto {
         engine_version: analysis.engine_version.get(),
@@ -545,15 +552,29 @@ pub fn analysis_dto(analysis: &Analysis, normalized: &NormalizedSpec) -> Analysi
                     .restarts
                     .iter()
                     .map(|restart| RestartDto {
-                        restart: match restart.restart {
-                            Restart::Filled(spins) => RestartKindDto::Filled { spins },
-                            Restart::Spent => RestartKindDto::Spent,
-                        },
+                        restart: restart_kind_dto(restart.restart),
                         weight: restart.weight,
                         spins: restart.spins,
                         rounds: restart.rounds,
                         hits: restart.hits,
                         balls: restart.balls,
+                    })
+                    .collect(),
+                endings: relief_drive
+                    .endings
+                    .iter()
+                    .map(|ending| EndingDto {
+                        state: ending.state,
+                        filled: ending.filled,
+                        unbroken: ending.unbroken,
+                        chances: ending
+                            .chances
+                            .iter()
+                            .map(|&(restart, chance)| EndingChanceDto {
+                                restart: restart_kind_dto(restart),
+                                chance,
+                            })
+                            .collect(),
                     })
                     .collect(),
             }),

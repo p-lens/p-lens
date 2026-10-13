@@ -3,6 +3,7 @@ import { createMemo, createResource, createSignal, Show, type JSX } from "solid-
 import { MainContent } from "solid-gathering-shell"
 
 import { groundsOf, loadFormula } from "../../../../application/pachinko/formulas"
+import type { Figures } from "../../../../core/pachinko/figures"
 import { basisOf, type Formula, type Basis } from "../../../../core/pachinko/formula"
 import { labelsOf } from "../../../../core/pachinko/world"
 import type { SampledFigure } from "../../../../core/pachinko/grounds/facts"
@@ -25,8 +26,8 @@ const positive = (text: string): number | undefined => {
   return text.trim() !== "" && Number.isFinite(value) && value > 0 ? value : undefined
 }
 
-/** The basis' combo solved again, and the spread of play around the theoretical value. */
-function Grounds(props: { readonly basis: Basis; readonly sampled: SampledFigure | undefined; readonly onBasis: () => void }): JSX.Element {
+/** The basis' combo solved again, the spread of play around the theoretical value, and last — being long — the grounds reasoned out. */
+function Grounds(props: { readonly basis: Basis; readonly figures: Figures; readonly sampled: SampledFigure | undefined; readonly onBasis: () => void }): JSX.Element {
   const app = useApp()
   const ballValue = useStartBallValue()
   const [rate, setRate] = createSignal("")
@@ -44,7 +45,6 @@ function Grounds(props: { readonly basis: Basis; readonly sampled: SampledFigure
     <Loaded outcome={grounds()}>
       {(analysis) => (
         <div class="flex flex-col gap-6 p-4">
-          <ReasonedGrounds basis={props.basis} analysis={analysis} sampled={props.sampled} />
           <AnalysisFigures analysis={analysis} labels={labels()} />
           <section class="flex flex-col gap-3">
             <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">収支の分布（シミュレーション）</h2>
@@ -66,6 +66,7 @@ function Grounds(props: { readonly basis: Basis; readonly sampled: SampledFigure
           <SemiproLink class="self-start text-sm" onClick={() => props.onBasis()}>
             期待値基礎値を見る ›
           </SemiproLink>
+          <ReasonedGrounds basis={props.basis} analysis={analysis} figures={props.figures} sampled={props.sampled} />
         </div>
       )}
     </Loaded>
@@ -88,9 +89,11 @@ export function GroundsView(props: { readonly place: Place; readonly machineId: 
     const found = detail()
     return found?.ok === true ? found.value.listing.formula : undefined
   }
-  const basis = (): Basis | undefined => {
+  /** The basis a formula was made from and the figures it stores, which its grounds are checked against; none for one typed in. */
+  const grounded = (): { readonly basis: Basis; readonly figures: Figures } | undefined => {
     const found = formula()
-    return found === undefined ? undefined : basisOf(found)
+    const basis = found === undefined ? undefined : basisOf(found)
+    return found === undefined || basis === undefined ? undefined : { basis, figures: found.figures }
   }
   /** A sampled formula's stored estimate, which its grounds check against the exact figure. */
   const sampled = (): SampledFigure | undefined => {
@@ -106,9 +109,9 @@ export function GroundsView(props: { readonly place: Place; readonly machineId: 
       <div class="max-w-5xl">
         <Loaded outcome={detail()}>
           {() => (
-            <Show when={basis()} keyed fallback={<EmptyState title="計算根拠はありません">手入力の算出条件は、数字そのものが算出条件です。</EmptyState>}>
+            <Show when={grounded()} keyed fallback={<EmptyState title="計算根拠はありません">手入力の算出条件は、数字そのものが算出条件です。</EmptyState>}>
               {(found) => (
-                <Grounds basis={found} sampled={sampled()} onBasis={() => moves.go({ kind: "pachinko-formula-basis", machineId: props.machineId, formulaId: props.formulaId })} />
+                <Grounds basis={found.basis} figures={found.figures} sampled={sampled()} onBasis={() => moves.go({ kind: "pachinko-formula-basis", machineId: props.machineId, formulaId: props.formulaId })} />
               )}
             </Show>
           )}

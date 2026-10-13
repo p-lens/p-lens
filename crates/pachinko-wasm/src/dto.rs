@@ -315,6 +315,26 @@ pub struct ReliefDriveFiguresDto {
     pub combo_after: f64,
     pub balls_after: f64,
     pub restarts: Vec<RestartDto>,
+    pub endings: Vec<EndingDto>,
+}
+
+/// From one point of a combo — a state, the spins filled on the way out, and
+/// whether the 遊タイム's first run is still unbroken — the chance of each way
+/// regular play starts again.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct EndingDto {
+    pub state: usize,
+    pub filled: u32,
+    pub unbroken: bool,
+    pub chances: Vec<EndingChanceDto>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct EndingChanceDto {
+    pub restart: RestartKindDto,
+    pub chance: f64,
 }
 
 /// How regular play starts again after a combo: with spins already filled, or with the 遊タイム spent.

@@ -7,7 +7,7 @@ use pachinko_domain::spec::ModeId;
 use pachinko_domain::version::SchemaVersion;
 
 use crate::error::SolveError;
-use crate::relief_drive::{RestartFigures, Yield, restarts};
+use crate::relief_drive::{EndingFigures, RestartFigures, Yield, long_run};
 use crate::solve::{at, expected_totals, from_entry, reach_probabilities};
 
 /// Which engine produced a result. Bumped whenever the same input could
@@ -73,6 +73,9 @@ pub struct ReliefDriveFigures {
     /// Balls the mode it leads to gains, as the spec's payout gives them.
     pub balls_after: f64,
     pub restarts: Vec<RestartFigures>,
+    /// From every point of a combo, the chance of each way of starting again:
+    /// what the long run was worked out from, given so it can be checked.
+    pub endings: Vec<EndingFigures>,
 }
 
 /// Everything solved from a normalised spec, exact rather than sampled.
@@ -213,6 +216,16 @@ pub fn analyze(
             let rounds_after = at(&rounds, relief_drive.target);
             let combo_after = at(&hits, relief_drive.target);
             let balls_after = at(&balls, relief_drive.target);
+            let run = long_run(
+                spec,
+                relief_drive,
+                entry,
+                Yield {
+                    rounds: rounds_after,
+                    hits: combo_after,
+                    balls: balls_after,
+                },
+            )?;
             Ok(ReliefDriveFigures {
                 gauge: relief_drive.gauge,
                 reach_probability: spec
@@ -223,16 +236,8 @@ pub fn analyze(
                 rounds_after,
                 combo_after,
                 balls_after,
-                restarts: restarts(
-                    spec,
-                    relief_drive,
-                    entry,
-                    Yield {
-                        rounds: rounds_after,
-                        hits: combo_after,
-                        balls: balls_after,
-                    },
-                )?,
+                restarts: run.restarts,
+                endings: run.endings,
             })
         })
         .transpose()?;

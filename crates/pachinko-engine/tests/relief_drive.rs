@@ -139,6 +139,46 @@ fn a_rapid_mode_run_out_fills_the_relief_gauge() {
     assert!(restarts.contains(&Restart::Spent), "{restarts:?}");
 }
 
+/// From every point of a combo play starts again one way or another: the
+/// chances given for each point come to one. In the unbroken 遊タイム a miss
+/// leaves it spent; in the 時短 a jackpot won has broken, a miss leaves the
+/// gauge at 50.
+#[test]
+fn every_point_of_a_combo_ends_in_some_restart() {
+    let mut spec = with_relief_drive("遊タイム");
+    spec.components
+        .allotment
+        .insert(id("regular"), vec![share(10_000, 10, to("時短"))]);
+    let spec = spawn(
+        spec,
+        mode(
+            "時短",
+            rapid(50),
+            vec![share(10_000, 10, to("時短"))],
+            Next::Regular,
+        ),
+    );
+    let analysis = analyze(&normalize(&spec).expect("normalises"), &FROM_SPEC).expect("solves");
+    let endings = analysis.relief_drive.expect("a relief drive").endings;
+    assert!(endings.iter().any(|ending| ending.unbroken));
+    assert!(endings.iter().any(|ending| !ending.unbroken));
+    for ending in &endings {
+        let whole: f64 = ending.chances.iter().map(|(_, chance)| chance).sum();
+        assert!((whole - 1.0).abs() < 1e-12, "{ending:?}");
+    }
+    let miss = 0.99_f64.powi(100);
+    let unbroken = endings
+        .iter()
+        .find(|ending| ending.unbroken)
+        .expect("the 遊タイム's first run");
+    let spent = unbroken
+        .chances
+        .iter()
+        .find(|(restart, _)| *restart == Restart::Spent)
+        .map_or(0.0, |(_, chance)| *chance);
+    assert!((spent - miss).abs() < 1e-12, "{spent} {miss}");
+}
+
 #[test]
 fn hunting_from_initial_spins_waits_only_for_what_is_left() {
     let spec = normalize(&with_relief_drive("遊タイム")).expect("normalises");

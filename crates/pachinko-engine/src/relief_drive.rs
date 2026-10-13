@@ -56,6 +56,27 @@ pub struct RestartFigures {
     pub balls: f64,
 }
 
+/// From one point of a combo — a state, the spins filled on the way out,
+/// and whether the 遊タイム's first run is still unbroken — the chance of
+/// each way regular play starts again. Given beside the long run so that
+/// it can be checked from outside: each point's chances are its outcomes'
+/// shares of the chances where they lead.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EndingFigures {
+    pub state: usize,
+    pub filled: u32,
+    pub unbroken: bool,
+    pub chances: Vec<(Restart, f64)>,
+}
+
+/// The long run with a 遊タイム: each way regular play starts again, and the
+/// chances of each from every point of a combo they were worked out from.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LongRun {
+    pub restarts: Vec<RestartFigures>,
+    pub endings: Vec<EndingFigures>,
+}
+
 /// A point in a combo as the 遊タイム sees it: the state, the spins filled on
 /// the way out since the last jackpot, and whether play is still in the
 /// 遊タイム's first run with no jackpot yet.
@@ -213,6 +234,23 @@ fn endings(
 }
 
 impl Endings {
+    /// Every point's chances, as figures to give out.
+    fn figures(&self) -> Vec<EndingFigures> {
+        self.nodes
+            .iter()
+            .map(|(node, &index)| EndingFigures {
+                state: node.state,
+                filled: node.filled,
+                unbroken: node.unbroken,
+                chances: self
+                    .chances
+                    .iter()
+                    .map(|(&restart, column)| (restart, column.get(index).copied().unwrap_or(0.0)))
+                    .collect(),
+            })
+            .collect()
+    }
+
     /// The chance of each restart after landing at `step`.
     fn after(&self, landing: Step) -> BTreeMap<Restart, f64> {
         match landing {
@@ -276,18 +314,18 @@ fn stationary(
 }
 
 /// What the long run comes to with a 遊タイム: each way regular play starts
-/// again, how often, and what a cycle from it yields. `entry` and
-/// `relief_drive_combo` are what a first jackpot's combo and the 遊タイム's
-/// combo yield.
+/// again, how often, and what a cycle from it yields, with the chances of
+/// each from every point of a combo. `entry` and `relief_drive_combo` are
+/// what a first jackpot's combo and the 遊タイム's combo yield.
 ///
 /// # Errors
 /// When a system has no solution, which a normalised spec cannot cause.
-pub fn restarts(
+pub fn long_run(
     spec: &NormalizedSpec,
     relief_drive: NormalizedReliefDrive,
     entry: Yield,
     relief_drive_combo: Yield,
-) -> Result<Vec<RestartFigures>, SolveError> {
+) -> Result<LongRun, SolveError> {
     let p = spec.hit_chance.value();
     let fresh = |state: usize, unbroken: bool| Node {
         state,
@@ -355,17 +393,20 @@ pub fn restarts(
     let cycles: Vec<(f64, Yield, BTreeMap<Restart, f64>)> =
         kinds.iter().map(|&kind| cycle(kind)).collect();
     let weights = stationary(&kinds, &cycles)?;
-    Ok(kinds
-        .iter()
-        .zip(cycles)
-        .zip(weights)
-        .map(|((&restart, (spins, yielded, _)), weight)| RestartFigures {
-            restart,
-            weight,
-            spins,
-            rounds: yielded.rounds,
-            hits: yielded.hits,
-            balls: yielded.balls,
-        })
-        .collect())
+    Ok(LongRun {
+        restarts: kinds
+            .iter()
+            .zip(cycles)
+            .zip(weights)
+            .map(|((&restart, (spins, yielded, _)), weight)| RestartFigures {
+                restart,
+                weight,
+                spins,
+                rounds: yielded.rounds,
+                hits: yielded.hits,
+                balls: yielded.balls,
+            })
+            .collect(),
+        endings: ends.figures(),
+    })
 }
