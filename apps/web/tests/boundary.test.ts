@@ -98,8 +98,9 @@ describe("dependency direction", () => {
     expect(files.filter((_, index) => /not-allowed|no-drop/.test(texts[index] ?? ""))).toEqual([])
   })
 
-  test("no screen turns a control off: a press that cannot go ahead nudges what it waits on", async () => {
-    const files = (await readdir(`${WEB}src/ui/features/`, { recursive: true })).filter((path) => path.endsWith(".tsx")).map((path) => `${WEB}src/ui/features/${path}`)
+  test("nothing drawn turns a control off, a screen or a primitive under it or the shell: a press that cannot go ahead nudges what it waits on, or is passed over", async () => {
+    const drawn = async (root: string): Promise<readonly string[]> => (await readdir(root, { recursive: true })).filter((path) => path.endsWith(".tsx")).map((path) => `${root}${path}`)
+    const files = [...(await drawn(`${WEB}src/ui/`)), ...(await drawn(SHELL))]
     const texts = await Promise.all(files.map((file) => readFile(file, "utf8")))
     expect(files.filter((_, index) => /\sdisabled[={\s]/.test(texts[index] ?? ""))).toEqual([])
   })

@@ -393,9 +393,18 @@ export function TallyEditor(props: {
           </output>
         </div>
         <Show when={form().gameKind === "pachinko"}>
-          <Button type="button" variant="outline" class="shrink-0 text-amateur hover:text-amateur" onClick={weigh}>
-            {PachinkoWording.weighButtonText(weighing())}
-          </Button>
+          <Show
+            when={weighing().type === "resting"}
+            fallback={
+              <output aria-live="polite" class="flex h-9 shrink-0 items-center whitespace-nowrap px-4 text-sm font-medium text-amateur">
+                {PachinkoWording.weighButtonText(weighing())}
+              </output>
+            }
+          >
+            <Button type="button" variant="outline" class="shrink-0 text-amateur hover:text-amateur" onClick={weigh}>
+              {PachinkoWording.weighButtonText(weighing())}
+            </Button>
+          </Show>
           <DetailButton
             label="条件"
             says="推定の条件（大当り回数・レートと交換率）"

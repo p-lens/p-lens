@@ -135,7 +135,7 @@ export function ConfirmPopover(props: {
   readonly anchor: HTMLElement | undefined
   readonly says: string
   readonly confirm: string
-  /** The thing is being done: its button waits. */
+  /** The thing is being done: a press on its button is passed over until it is. The button is not turned off — no control here is. */
   readonly doing: boolean
   readonly onConfirm: () => void
   readonly onCancel: () => void
@@ -157,7 +157,12 @@ export function ConfirmPopover(props: {
             <Button variant="secondary" size="small" onClick={() => props.onCancel()}>
               やめる
             </Button>
-            <Button size="small" disabled={props.doing} onClick={() => props.onConfirm()}>
+            <Button
+              size="small"
+              onClick={() => {
+                if (!props.doing) props.onConfirm()
+              }}
+            >
               {props.confirm}
             </Button>
           </div>

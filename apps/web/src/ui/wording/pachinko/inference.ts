@@ -25,9 +25,12 @@ export const inferredValueText = (weighed: Weighed): string => theoreticalFigure
 export const weighingText = (beyond: boolean): string => (beyond ? "通常に加え、追加の推論をしています…" : "推定中…")
 
 /**
- * What the button that begins a weighing says of where it is: its own name
- * until pressed, that it is under way, and then how it ended — 推定完了
- * where the play was weighed, 推定終了 where it ended with nothing weighed.
+ * What stands where a weighing is begun, by where the weighing is: the
+ * button's name until it is pressed, and then, in the button's place and
+ * no button — a press would do nothing — that it is under way and how it
+ * ended: 推定完了 where the play was weighed, 推定終了 where it ended with
+ * nothing weighed. The button is back once the form says anything else of
+ * the play.
  */
 export const weighButtonText = (weighing: Weighing): string => {
   switch (weighing.type) {
