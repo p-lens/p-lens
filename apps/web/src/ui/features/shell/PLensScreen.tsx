@@ -36,6 +36,7 @@ import { ConsolidatedBreakdownView } from "../consolidated/ConsolidatedBreakdown
 import { ConsolidatedHoldingsView } from "../consolidated/ConsolidatedHoldingsView"
 import { ConsolidatedResultCalendarView } from "../consolidated/ConsolidatedResultCalendarView"
 import { ConsolidatedSide } from "../consolidated/ConsolidatedSide"
+import { ClearDataSettings } from "../settings/ClearDataSettings"
 import { ConsolidationSettings } from "../settings/ConsolidationSettings"
 import { ExportSettings } from "../settings/ExportSettings"
 import { ImportSettings } from "../settings/ImportSettings"
@@ -168,6 +169,8 @@ const settingsFor = (place: Extract<Place, { kind: "settings-section" }>): JSX.E
       return <BooksSettings place={place} />
     case "consolidation":
       return <ConsolidationSettings place={place} />
+    case "clear-data":
+      return <ClearDataSettings place={place} />
     case "licenses":
       return <LicensesView place={place} />
   }

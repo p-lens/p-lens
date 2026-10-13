@@ -1,7 +1,7 @@
 import type { JSX } from "solid-js"
 import { SidePanel } from "solid-gathering-shell"
 
-import { BackupIcon, BooksIcon, ClosingIcon, ConsolidatedIcon, ExportIcon, FileIcon, ImportIcon, PaletteIcon, PeopleIcon, RefreshIcon } from "../../primitives/icons"
+import { BackupIcon, BooksIcon, ClosingIcon, ConsolidatedIcon, ExportIcon, FileIcon, ImportIcon, PaletteIcon, PeopleIcon, RefreshIcon, TrashIcon } from "../../primitives/icons"
 import { DOCUMENT_KINDS } from "../../../core/document/document"
 import { useApp } from "../../context"
 import { useMoves } from "../../navigation/moves"
@@ -89,6 +89,13 @@ export function SettingsSide(props: { readonly place: Place }): JSX.Element {
             icon: <ConsolidatedIcon />,
             selected: props.place.kind === "settings-section" && props.place.section === "consolidation",
             onSelect: () => moves.go({ kind: "settings-section", section: "consolidation" }),
+          },
+          {
+            id: "clear-data",
+            label: "データの消去",
+            icon: <TrashIcon />,
+            selected: props.place.kind === "settings-section" && props.place.section === "clear-data",
+            onSelect: () => moves.go({ kind: "settings-section", section: "clear-data" }),
           },
         ]}
       />
