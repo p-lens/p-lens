@@ -119,13 +119,16 @@ type Editing =
  * How hledger signs an amount, said wherever a journal is read raw or
  * typed into: a book keeps its accounts by double entry, so what the
  * screens show as a win is a negative number in the file, and typing it
- * positive writes a loss.
+ * positive writes a loss. It names only the accounts a book has — a book
+ * has no liabilities — and says of equity what a book writes there: prizes
+ * taken home, which stand positive.
  */
 function SignNote(): JSX.Element {
   return (
     <p class="text-xs leading-relaxed text-text-muted">
-      hledger の符号：資産・費用は<span class="font-semibold text-text-secondary">プラス</span>、収益・負債・純資産は
-      <span class="font-semibold text-text-secondary">マイナス</span>で書きます。勝ち分は <code class="font-mono">収益:遊技 -5000</code> のように負の数です。
+      hledger の符号：資産・費用は増えると<span class="font-semibold text-text-secondary">プラス</span>、収益は
+      <span class="font-semibold text-text-secondary">マイナス</span>で書きます。勝ち分は <code class="font-mono">収益:遊技 -5000</code> のように負の数です。持ち帰った景品は{" "}
+      <code class="font-mono">純資産:特殊景品 5000</code> のようにプラスで書きます。
     </p>
   )
 }
