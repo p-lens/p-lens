@@ -1,12 +1,15 @@
-import { createEffect, createMemo, createResource, createSignal, For, Match, on, Show, Switch, type JSX } from "solid-js"
+import { createEffect, createMemo, createResource, createSignal, For, Match, on, onCleanup, Show, Switch, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import { bookStandings, type BookStanding } from "../../../application/backup"
 import { addBook } from "../../../application/add-book"
 import { deleteBook, holdsNothing } from "../../../application/delete-book"
-import type { ApplicationError } from "../../../application/errors"
+import type { ApplicationError, Outcome } from "../../../application/errors"
 import { swapWithNext } from "../../../application/book-order"
 import { ensureFirstBook } from "../../../application/seed"
+import { beginsAsOneOf } from "../../../core/book/unnamed-title"
+import type { BookId } from "../../../core/book/book"
+import { Ok } from "../../../core/result/result"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import { DiceIcon, SwapIcon } from "../../primitives/icons"
@@ -21,11 +24,13 @@ import { bookTitle, describeTitleProblem } from "../../wording/book"
 import { describeError } from "../../wording/errors"
 import { BookTitle } from "../shell/BookTitle"
 import { ViewHeader } from "../shell/ViewHeader"
-import { motionOf, rowsOf, type Motion, type Row, type Swap } from "./book-rows"
+import { exchangedIn, motionOf, placedAs, rowsOf, standAs, type Motion, type Row, type Swap } from "./book-rows"
 
 const SWAP_LABEL = "次の自分の帳簿と入れ替える"
 
 const REDRAW_LABEL = "名前の候補を引き直す"
+
+const READ: Outcome<true> = Ok(true)
 
 /** Where deleting a book is: not asked, asked and waiting to be sure, going — after being asked about, or straight away — gone and not yet said to be, or failed. */
 type Deleting =
@@ -135,54 +140,96 @@ function BookRow(props: { readonly listed: BookStanding; readonly motion: Motion
   )
 }
 
-/** Where changing two books' places is: not asked, being written, or written and shown until the two have settled. */
-type Swapping = { readonly type: "resting" } | { readonly type: "writing"; readonly swap: Swap } | { readonly type: "written"; readonly swap: Swap }
+/** Where changing two books' places is on screen: not asked, the two swelling where they stand, or settling in each other's place. */
+type Swapping = { readonly type: "resting" } | { readonly type: "swelling"; readonly swap: Swap } | { readonly type: "settling"; readonly swap: Swap }
 
 const swapOf = (swapping: Swapping): Swap | undefined => (swapping.type === "resting" ? undefined : swapping.swap)
+
+/** How long two rows swell before they change places, in milliseconds: the `swell` animation's length. */
+const SWELL_FOR = 140
 
 /**
  * The books as a list, and at its right edge, on the line between each of
  * the person's own and the row under it, where another of theirs comes
- * after, the arrows that swap the two: both swell while the swap is
- * written, and settle in each other's place once the list is read again.
+ * after, the arrows that swap the two: both swell where they stand, and
+ * settle in each other's place.
  * The edge is kept clear for the arrows whether there are any or not, so
  * a row is as wide with one book as with several, and reaches into the
- * screen's own margin, so the rows give up little. A
- * second swap waits for the first to be written.
+ * screen's own margin, so the rows give up little.
+ *
+ * The rows move at once and the places are written behind them, one swap
+ * after another: the first swap of all writes a place into every book, and
+ * nothing a person sees waits on that. A swap that could not be written
+ * puts the rows back as they are kept, and says so.
  */
 function BookList(props: { readonly rows: readonly Row[]; readonly onDeleted: () => Promise<void> }): JSX.Element {
   const app = useApp()
-  const rows = createMemo(() => props.rows)
+  /** The order the person has put the books in, ahead of its being written; none once what is read stands so. It is the order as it stood when they pressed, with the two exchanged: the writing may be read back before the rows have swollen, and exchanging them then would put them back. */
+  const [moved, setMoved] = createSignal<readonly BookId[] | undefined>(undefined)
+  const rows = createMemo(() => placedAs(props.rows, moved()))
+  /** The books by id, in order: a row is drawn once for its book and kept while the book is there, whatever else of the list is read again. */
+  const ids = createMemo(() => rows().map((row) => row.standing.book.id))
+  const rowOf = (id: BookId): Row | undefined => rows().find((row) => row.standing.book.id === id)
   const [swapping, setSwapping] = createSignal<Swapping>({ type: "resting" })
-  const swap = async (asked: Swap): Promise<void> => {
-    if (swapping().type === "writing") return
-    setSwapping({ type: "writing", swap: asked })
-    const done = await swapWithNext(app.services.session, app.services.member, asked.upper)
-    if (!done.ok) toast({ title: "帳簿を並べ替えられませんでした", description: describeError(done.error), tone: "error" })
-    setSwapping(done.ok ? { type: "written", swap: asked } : { type: "resting" })
-    app.wrote()
+  const held: { writing: Promise<void>; waiting: number; swell: ReturnType<typeof setTimeout> | undefined } = { writing: Promise.resolve(), waiting: 0, swell: undefined }
+  const written = async (upper: BookId): Promise<void> => {
+    const done = await swapWithNext(app.services.session, app.services.member, upper)
+    held.waiting -= 1
+    if (!done.ok) {
+      toast({ title: "帳簿を並べ替えられませんでした", description: describeError(done.error), tone: "error" })
+      setMoved(undefined)
+    }
+    if (held.waiting === 0) app.wrote()
   }
+  const write = (upper: BookId): void => {
+    held.waiting += 1
+    held.writing = held.writing.then(() => written(upper))
+  }
+  const swap = (asked: Swap): void => {
+    if (swapping().type === "swelling") return
+    const put = exchangedIn(ids(), asked)
+    setSwapping({ type: "swelling", swap: asked })
+    write(asked.upper)
+    held.swell = setTimeout(() => {
+      setMoved(standAs(props.rows, put) ? undefined : put)
+      setSwapping({ type: "settling", swap: asked })
+    }, SWELL_FOR)
+  }
+  createEffect(
+    on(
+      () => props.rows,
+      (read) => {
+        if (held.waiting === 0 && ((order) => order !== undefined && standAs(read, order))(moved())) setMoved(undefined)
+      },
+      { defer: true },
+    ),
+  )
+  onCleanup(() => clearTimeout(held.swell))
   return (
     <ul class="-mr-2 flex flex-col gap-1">
-      <For each={rows()}>
-        {(row) => (
-          <li class="relative pr-7">
-            <BookRow listed={row.standing} motion={motionOf(rows(), swapOf(swapping()), row.standing.book.id)} onSettled={() => setSwapping({ type: "resting" })} onDeleted={props.onDeleted} />
-            <Show when={row.swapsWith} keyed>
-              {(lower) => (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  class="absolute right-0 top-full z-20 mt-0.5 size-6 -translate-y-1/2"
-                  aria-label={SWAP_LABEL}
-                  title={SWAP_LABEL}
-                  onClick={() => void swap({ upper: row.standing.book.id, lower })}
-                >
-                  <SwapIcon />
-                </Button>
-              )}
-            </Show>
-          </li>
+      <For each={ids()}>
+        {(id) => (
+          <Show when={rowOf(id)}>
+            {(row) => (
+              <li class="relative pr-7">
+                <BookRow listed={row().standing} motion={motionOf(rows(), swapOf(swapping()), id)} onSettled={() => setSwapping({ type: "resting" })} onDeleted={props.onDeleted} />
+                <Show when={row().swapsWith} keyed>
+                  {(lower) => (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      class="absolute right-0 top-full z-20 mt-0.5 size-6 -translate-y-1/2"
+                      aria-label={SWAP_LABEL}
+                      title={SWAP_LABEL}
+                      onClick={() => swap({ upper: id, lower })}
+                    >
+                      <SwapIcon />
+                    </Button>
+                  )}
+                </Show>
+              </li>
+            )}
+          </Show>
         )}
       </For>
     </ul>
@@ -198,7 +245,8 @@ type Adding = { readonly type: "typing" } | { readonly type: "adding" } | { read
  * names each for what it holds. A name left empty is no refusal: the book
  * takes the one shown in the field, a picture none of the books there
  * begins with and マイ帳簿, so a dozen can be made by pressing a dozen
- * times and named whenever their owner cares to; and the die beside the
+ * times and named whenever their owner cares to — the name shown is
+ * drawn again only when a book takes its picture; and the die beside the
  * button draws another, for whoever would rather not be the one shown.
  */
 function AddBook(props: { readonly titles: readonly string[] }): JSX.Element {
@@ -207,7 +255,15 @@ function AddBook(props: { readonly titles: readonly string[] }): JSX.Element {
   const [adding, setAdding] = createSignal<Adding>({ type: "typing" })
   const wait = createWait(() => adding().type === "adding")
   const [unnamed, setUnnamed] = createSignal(app.services.unnamedTitle(props.titles))
-  createEffect(on(() => props.titles, (titles) => setUnnamed(app.services.unnamedTitle(titles)), { defer: true }))
+  createEffect(
+    on(
+      () => props.titles,
+      (titles) => {
+        if (beginsAsOneOf(unnamed(), titles)) setUnnamed(app.services.unnamedTitle(titles))
+      },
+      { defer: true },
+    ),
+  )
   const named = (): string => (title().trim() === "" ? unnamed() : title())
   const add = async (): Promise<void> => {
     settleTyping()
@@ -276,6 +332,10 @@ export function BooksSettings(props: { readonly place: Place }): JSX.Element {
     () => bookStandings(app.services.backup),
   )
   const [ordered] = createResource(() => app.revision(), () => app.services.session.books())
+  /** The rows as last read: the list is drawn from these and stays drawn while the books are read again. */
+  const shown = createMemo<readonly Row[]>((before) => ((found) => (found?.ok === true ? rows(found.value) : before))(listed()), [])
+  /** Whether the books have been read: not yet, read, or not readable. Read stays the same value from one reading to the next, so what is drawn under it is not drawn again. */
+  const read = (): Outcome<true> | undefined => ((found) => (found === undefined || !found.ok ? found : READ))(listed())
   /** What the device's books are called, for a new one to be told apart from. */
   const titles = createMemo((): readonly string[] => ((books) => (books?.ok === true ? books.value.flatMap((book) => (book.title === undefined ? [] : [book.title])) : []))(ordered()), [], { equals: (before, after) => before.join("\n") === after.join("\n") })
   /** The device's books in the order they stand in everywhere, each with how it stands against its backups, and the book it may change places with. */
@@ -291,9 +351,7 @@ export function BooksSettings(props: { readonly place: Place }): JSX.Element {
           <AddBook titles={titles()} />
           <section class="flex flex-col gap-2">
             <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">帳簿</h2>
-            <Loaded outcome={listed()}>
-              {(books) => <BookList rows={rows(books)} onDeleted={settle} />}
-            </Loaded>
+            <Loaded outcome={read()}>{() => <BookList rows={shown()} onDeleted={settle} />}</Loaded>
             <p class="text-xs text-text-muted">右の矢印で、自分の帳簿を上下に入れ替えられます。並びは帳簿と一緒に、同期しているほかの端末にも届きます。</p>
             <p class="text-xs text-text-muted">削除はこの端末からだけで、元に戻せません。バックアップや、同期しているほかの端末の帳簿は消えません。最後の1冊を削除すると、空の帳簿が新しく作られます。</p>
           </section>

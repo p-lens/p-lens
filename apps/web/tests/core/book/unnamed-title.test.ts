@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { TITLE_PICTURES, unnamedTitle } from "../../../src/core/book/unnamed-title"
+import { TITLE_PICTURES, beginsAsOneOf, unnamedTitle } from "../../../src/core/book/unnamed-title"
 import { leadingGraphemesOf } from "../../../src/core/text/leading-graphemes"
 
 describe("the pictures a book nobody has named is told apart by", () => {
@@ -37,5 +37,14 @@ describe("a title for a book nobody has named", () => {
 
   test("is still a picture and マイ帳簿 where every picture is taken", () => {
     expect(unnamedTitle(TITLE_PICTURES.map((picture) => `${picture}帳簿`), 0)).toBe(`${TITLE_PICTURES[0]}マイ帳簿`)
+  })
+})
+
+describe("a title drawn before", () => {
+  test("is drawn again once a book begins as it does, and not because a book went or was named otherwise", () => {
+    expect(beginsAsOneOf("🐢マイ帳簿", ["🐢マイ帳簿"])).toBe(true)
+    expect(beginsAsOneOf("🐢マイ帳簿", [" 🐢ノリ打ち", "マイ帳簿"])).toBe(true)
+    expect(beginsAsOneOf("🐢マイ帳簿", ["🦎マイ帳簿", "マイ帳簿"])).toBe(false)
+    expect(beginsAsOneOf("🐢マイ帳簿", [])).toBe(false)
   })
 })

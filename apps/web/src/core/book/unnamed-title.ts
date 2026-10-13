@@ -25,10 +25,15 @@ export const TITLE_PICTURES: readonly string[] = [
 /** What a book is called after its picture, until its owner names it. */
 const UNNAMED = "マイ帳簿"
 
+const leadingOf = (title: string): string => leadingGraphemesOf(title.trim(), 1)
+
 const untaken = (taken: readonly string[]): readonly string[] => {
-  const leading = new Set(taken.map((title) => leadingGraphemesOf(title.trim(), 1)))
+  const leading = new Set(taken.map(leadingOf))
   return TITLE_PICTURES.filter((picture) => !leading.has(picture))
 }
+
+/** Whether a title begins as one of those there does: a title drawn before a book took its picture is to be drawn again, and no other. */
+export const beginsAsOneOf = (title: string, taken: readonly string[]): boolean => taken.some((other) => leadingOf(other) === leadingOf(title))
 
 /**
  * A title for a book nobody has named: a picture, then マイ帳簿 — so that
