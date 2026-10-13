@@ -2,7 +2,7 @@ import type { IsoDate } from "../calendar/calendar"
 import { YEN, tokenCommodity, type TokenKind } from "../commodity/commodity"
 import { isNegative, isZero, multiply, negate, rounded, subtract, type Decimal } from "../decimal/decimal"
 import { ACCOUNTS, savingsAccount } from "../journal/accounts"
-import type { Entry, Posting } from "../journal/entry"
+import { describedBy, type Entry, type Posting } from "../journal/entry"
 import { identityTags, type Parlor, type SavingsPool } from "../parlor/parlor"
 import { Err, Ok, type Result } from "../result/result"
 import { rateOn, type PricePoint } from "../valuation/valuation"
@@ -84,7 +84,7 @@ export const prizeExchangeEntry = (exchange: PrizeExchange, prices: readonly Pri
   const adjustment = subtract(between, odd)
   return Ok({
     date: exchange.date,
-    description: `景品交換 ${exchange.parlor.name}`,
+    description: describedBy(exchange.parlor.name, "景品交換"),
     tags: [...identityTags(exchange.parlor.identity), [SAVINGS_TAG, "prize-exchange"]],
     postings: [
       { ...real(savingsAccount(exchange.pool.kind, exchange.parlor.name, exchange.pool.tier), negate(exchange.tokens), commodity), cost: { rate: point.rate, commodity: YEN } },

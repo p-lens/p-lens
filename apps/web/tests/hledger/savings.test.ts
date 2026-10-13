@@ -47,7 +47,7 @@ describe("the savings a person already had", () => {
     const overview = await loadOverview(session, BOOK, "")
     expect(overview.ok && toPlainString(overview.value.actual)).toBe("0")
     const stored = await storage.readBook(BOOK)
-    expect(stored.ok && stored.value.files[BOOK_FILES.transactions]).toContain("2026-10-01 開始残高 ホシゾラなんば新館  ; parlor-id: osm-9, savings: opening\n")
+    expect(stored.ok && stored.value.files[BOOK_FILES.transactions]).toContain("2026-10-01 ホシゾラなんば新館 | 開始残高  ; parlor-id: osm-9, savings: opening\n")
     const activity = await loadActivity(session, history, BOOK)
     expect(activity.ok && activity.value.lines.map((line) => line.did)).toContain("savings-opened")
   })
@@ -56,7 +56,7 @@ describe("the savings a person already had", () => {
     const { session, storage } = await setUp(await fixtureBook("basic-play", { id: BOOK, members: [{ id: ME, displayName: "me", role: "owner" }] }))
     expect((await registerOpeningBalance(session, BOOK, NAMBA, dec("1200"))).ok).toBe(true)
     const stored = await storage.readBook(BOOK)
-    expect(stored.ok && stored.value.files[BOOK_FILES.transactions]?.startsWith("2026-10-01 開始残高 ホシゾラなんば新館")).toBe(true)
+    expect(stored.ok && stored.value.files[BOOK_FILES.transactions]?.startsWith("2026-10-01 ホシゾラなんば新館 | 開始残高")).toBe(true)
     expect(stored.ok && stored.value.files[BOOK_FILES.accounts]).toContain("account 純資産:開始残高\n")
     expect((await registerOpeningBalance(session, BOOK, { ...NAMBA, pool: { kind: "medal", tier: "20円" }, rate: dec("17.857143") }, dec("300"))).ok).toBe(true)
     const again = await storage.readBook(BOOK)
@@ -91,7 +91,7 @@ describe("a pool's savings put right", () => {
     const overview = await loadOverview(session, BOOK, "")
     expect(overview.ok && toPlainString(overview.value.actual)).toBe("0")
     const stored = await storage.readBook(BOOK)
-    expect(stored.ok && stored.value.files[BOOK_FILES.transactions]).toContain("2026-10-05 残高調整 ホシゾラなんば新館  ; parlor-id: osm-9, savings: adjustment\n")
+    expect(stored.ok && stored.value.files[BOOK_FILES.transactions]).toContain("2026-10-05 ホシゾラなんば新館 | 残高調整  ; parlor-id: osm-9, savings: adjustment\n")
   })
 
   test("are counted as of the day said, and left alone where the book already has the count", async () => {
@@ -118,7 +118,7 @@ describe("savings exchanged for prizes", () => {
     expect(await results(session, "date:2026-10-04")).toEqual(["0", "0", "54808"])
     const files = storage.peek(BOOK)?.files
     expect(files?.[BOOK_FILES.accounts]).toContain("account 純資産:特殊景品\naccount 純資産:端玉景品\naccount 純資産:換算調整勘定")
-    expect(files?.[BOOK_FILES.transactions]).toContain("2026-10-04 景品交換 ホシゾラ梅田店  ; parlor-id: hoshizora-umeda, savings: prize-exchange")
+    expect(files?.[BOOK_FILES.transactions]).toContain("2026-10-04 ホシゾラ梅田店 | 景品交換  ; parlor-id: hoshizora-umeda, savings: prize-exchange")
     const activity = await loadActivity(session, history, BOOK)
     expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).at(-1)).toEqual(["savings-exchanged", { pool: { parlor: "ホシゾラ梅田店", tier: "4円" } }])
   })

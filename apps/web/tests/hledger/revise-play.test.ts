@@ -157,7 +157,7 @@ describe("setting a recorded play right", () => {
     const transactions = storage.peek(BOOK)?.files[BOOK_FILES.transactions] ?? ""
     expect(transactions.match(/play-id: today,/g)?.length).toBe(1)
     expect(transactions.indexOf("play-id: today,")).toBeLessThan(transactions.indexOf("play-id: tally,"))
-    expect(mapOk(await loadPlay(session, BOOK, "today" as PlayId), (found) => found.summary.description)).toEqual({ ok: true, value: "ホシゾラ梅田店 森物語 123番台" })
+    expect(mapOk(await loadPlay(session, BOOK, "today" as PlayId), (found) => found.summary.description)).toEqual({ ok: true, value: "ホシゾラ梅田店 | 森物語 123番台" })
   })
 
   test("moves a play to the day it now says, at that day's rate", async () => {
@@ -193,8 +193,8 @@ describe("setting a recorded play right", () => {
     expect(mapOk(activity, (found) => found.lines.map((line) => [line.did, saidIn(line.parts)]))).toEqual({
       ok: true,
       value: [
-        ["play-recorded", { play: { id: "today" as PlayId, description: "ホシゾラ梅田店 流星 123番台" }, theoretical: { value: dec("5500") } }],
-        ["play-revised", { play: { id: "today" as PlayId, description: "ホシゾラ梅田店 流星 123番台" } }],
+        ["play-recorded", { play: { id: "today" as PlayId, description: "ホシゾラ梅田店 | 流星 123番台" }, theoretical: { value: dec("5500") } }],
+        ["play-revised", { play: { id: "today" as PlayId, description: "ホシゾラ梅田店 | 流星 123番台" } }],
       ],
     })
     expect(await revisePlay(session, BOOK, { ...TODAY, id: "nowhere" as PlayId })).toEqual({ ok: false, error: { type: "play-missing" } })

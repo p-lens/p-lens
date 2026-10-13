@@ -2,7 +2,7 @@ import type { IsoDate } from "../calendar/calendar"
 import { tokenCommodity } from "../commodity/commodity"
 import { negate, type Decimal } from "../decimal/decimal"
 import { ACCOUNTS, savingsAccount } from "../journal/accounts"
-import type { Entry } from "../journal/entry"
+import { describedBy, type Entry } from "../journal/entry"
 import { identityTags, type Parlor, type SavingsPool } from "../parlor/parlor"
 
 /** The tag an entry about savings and no play carries, saying which it is: an opening balance, an adjustment, or a prize exchange. */
@@ -33,7 +33,7 @@ const settingEntry = (at: SavingsAt, what: "opening" | "adjustment", title: stri
   const commodity = tokenCommodity(at.pool.kind, at.parlor.name, at.pool.tier)
   return {
     date: at.date,
-    description: `${title} ${at.parlor.name}`,
+    description: describedBy(at.parlor.name, title),
     tags: [...identityTags(at.parlor.identity), [SAVINGS_TAG, what]],
     postings: [
       { account: savingsAccount(at.pool.kind, at.parlor.name, at.pool.tier), amount: { quantity: tokens, commodity }, kind: "real" },

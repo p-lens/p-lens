@@ -271,7 +271,7 @@ rate for the day differs.
 ### One play, one entry
 
 ```hledger
-2026-09-05 ホシゾラ梅田店 流星 123番台  ; play-id: …, parlor-id: hoshizora-umeda, game-kind: pachinko, machine: 流星, cabinet-number: 123
+2026-09-05 ホシゾラ梅田店 | 流星 123番台  ; play-id: …, parlor-id: hoshizora-umeda, game-kind: pachinko, machine: 流星, cabinet-number: 123
     資産:現金                         -12000 JPY
     費用:貸玉差額                       1290 JPY
     費用:遊技                           3000 "玉(4円・ホシゾラ梅田店)" @ 3.57 JPY
@@ -280,6 +280,14 @@ rate for the day differs.
     (統計:期待値)                       5500 JPY
 ```
 
+- **The description** is hledger's `payee | note` (`describedBy`): the
+  parlor is the payee, the machine and its cabinet the note, so `payee:`
+  groups a book by parlor outside the app too. Savings entries are the
+  same — `ホシゾラ梅田店 | 景品交換` — and an imported play's payee is the
+  parlor as the other app named it. A play with no parlor has no bar: its
+  description is then its own payee, as hledger has it. The app reads
+  neither side back — a parlor and a machine are read from tags — and an
+  entry written before the bar was has none: it is data already written.
 - **Rental** splits the cash at that day's rate into tokens and a rental
   spread, a loss settled that day and never revalued. The tokens go
   straight to `費用:遊技`: rented tokens are shot, never saved, so cash
@@ -324,6 +332,29 @@ outlay, and come together to what the last left, exchanged, less all that
 was spent.
 - **Theoretical value** (期待値) is the virtual posting, written only when
   given: what the play was worth by its formula, whatever it came to.
+
+**評価損益 (a revaluation) is never written.** Savings are held in tokens,
+a play's result is its postings at their own day's rate, and savings are
+valued at the rate in force when they are asked about: so when a parlor's
+exchange rate changes, tokens already held are worth more or less, and no
+play's result moves. The plays of a book then do not come to what its
+prizes less its cash come to, and what lies between is the revaluation —
+the tokens held on the day a rate changed, by how far it changed. Nothing
+is entered for it and no account holds it (invariant 1: it follows from
+the `P` lines and the savings a book already has, so it is asked, not
+stored; a rate set right afterwards sets it right with no entry to undo,
+and two devices cannot both write it). hledger works it out: the bindings'
+`revaluation` report is `--valuechange --value=end` less what was posted
+at `--value=then`, account by account, taken one from the other with
+hledger's own amounts (`lessPosted`) — hledger's `--gain` sets value
+against a posting's cost, and savings are posted with none. `loadRevaluation`
+asks it of a period's savings; `revaluationOf` reads its total and its rows
+by parlor, a parlor's balls and medals together. On screen it is 評価損益,
+under a book's breakdown (集計) in a row of its own, parlor by parlor where
+the plays are grouped by parlor, and never part of 実収支. A rate seldom
+changes and almost never rises, so the row is there only where savings
+gained or lost anything. `tests/hledger/revaluation.test.ts` holds it
+against the real hledger.
 
 A play can also be added afterwards by its totals in yen alone (`TalliedPlay`,
 `composeTalliedEntry`): what went in (投資額, `outlay`) to `費用:遊技`, what
@@ -489,7 +520,8 @@ rest of the table, including that `solid-gathering-shell` mentions no domain.
 
 `wasm/hledger-bindings` is hledger-lib behind two exports, `hledgerLoad` and
 `hledgerQuery`, derived from choai's bindings. P-Lens adds `valuation`
-(`--value=then|end,COMMODITY`) to balance reports and a `prices` report, and
+(`--value=then|end,COMMODITY`) to balance reports, a `prices` report and a
+`revaluation` report (two balance reports, one taken from the other), and
 reads journals with hledger's strict checks.
 
 - The worker keeps one instance and one parsed journal alive; parsing is the

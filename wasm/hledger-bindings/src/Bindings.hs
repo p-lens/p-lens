@@ -170,11 +170,12 @@ report journal request = case reqKind request of
   "entries" -> withSpec [] (\spec -> page request (entriesReport spec journal))
   "balance" -> withSpec [] (balanceOver request journal)
   "incomestatement" -> withSpec ["type:RX"] (balanceOver request journal)
+  "revaluation" -> revaluation journal request
   "prices" -> withSpec [] (\spec -> A.toJSON (filter (matchesPriceDirective (_rsQuery spec)) (jpricedirectives journal)))
   "accounts" -> pure (Right (declaredAccounts journal))
   other -> pure (Left (UnknownReport other))
   where
-    withSpec extra render = fmap (fmap render) (specFor request extra)
+    withSpec extra render = fmap (fmap render) (specFor request extra id)
 
 -- | A balance report over the journal, grouped by a tag's values where the
 -- request pivots.
@@ -196,6 +197,58 @@ balanceOver request journal spec = case reqPivot request of
           (journalPivot tag (filterJournalPostings (_rsQuery spec) journal))
       )
 
+-- | What the accounts of a query gained or lost in a commodity by prices
+-- changing under what they held, and by nothing else: 評価損益.
+--
+-- hledger has the two figures and no report of their difference. How far an
+-- account's value moved over the period, at the price at its end, is
+-- @--valuechange --value=end@; what was posted to it, each posting at the
+-- price of its own day, is @--value=then@. A price changing moves the first
+-- and not the second, so the first less the second is what the prices did.
+-- @--gain@ would be hledger's own word for it, but it sets value against a
+-- posting's cost, and what P-Lens asks this of — savings — is posted with
+-- none. Both reports are hledger's, and so is the arithmetic between them
+-- ('maMinus'): no sum is made outside it.
+revaluation :: Journal -> Request -> IO (Either Failure A.Value)
+revaluation journal request = case reqValuation request of
+  Just (AtEnd (Just commodity)) -> do
+    moved <- specFor request {reqValuation = Just (AtEnd (Just commodity))} [] (\options -> options {balancecalc_ = CalcValueChange})
+    posted <- specFor request {reqValuation = Just (AtThen (Just commodity))} [] id
+    pure (A.toJSON <$> (lessPosted <$> (reportOf <$> moved) <*> (reportOf <$> posted)))
+  _ -> pure (Left (MalformedRequest "a revaluation is asked with a valuation at the period's end"))
+  where
+    reportOf spec = multiBalanceReport spec journal
+
+-- | A report less another, account by account and period by period: each
+-- row of the first less the row of the same account in the second, a row
+-- only the second has turned over, and the totals likewise.
+lessPosted :: MultiBalanceReport -> MultiBalanceReport -> MultiBalanceReport
+lessPosted moved posted =
+  moved
+    { prRows = map lessItsOwn (prRows moved) <> map turnedOver (filter (not . inMoved) (prRows posted))
+    , prTotals = less (prTotals moved) (prTotals posted)
+    }
+  where
+    postedBy = M.fromList [(prrFullName row, row) | row <- prRows posted]
+    movedNames = M.fromList [(prrFullName row, ()) | row <- prRows moved]
+    inMoved row = M.member (prrFullName row) movedNames
+    lessItsOwn row = maybe row (less row) (M.lookup (prrFullName row) postedBy)
+    turnedOver = fmap maNegate
+
+-- | A row less another of the same periods; a period only one of them has is
+-- taken as that one's alone.
+less :: PeriodicReportRow a MixedAmount -> PeriodicReportRow a MixedAmount -> PeriodicReportRow a MixedAmount
+less row other =
+  row
+    { prrAmounts = across (prrAmounts row) (prrAmounts other)
+    , prrTotal = prrTotal row `maMinus` prrTotal other
+    , prrAverage = prrAverage row `maMinus` prrAverage other
+    }
+  where
+    across (a : as) (b : bs) = (a `maMinus` b) : across as bs
+    across as [] = as
+    across [] bs = map maNegate bs
+
 -- | Every account declared with an @account@ directive, in the order written,
 -- with the tags written on its declaration.
 --
@@ -208,10 +261,10 @@ declaredAccounts journal =
     | (name, _) <- jdeclaredaccounts journal
     ]
 
-specFor :: Request -> [Text] -> IO (Either Failure ReportSpec)
-specFor request extra = do
+specFor :: Request -> [Text] -> (ReportOpts -> ReportOpts) -> IO (Either Failure ReportSpec)
+specFor request extra calculating = do
   today <- getCurrentDay
-  pure $ case reportOptsToSpec today options of
+  pure $ case reportOptsToSpec today (calculating options) of
     Left detail -> Left (MalformedRequest (T.pack detail))
     Right spec -> Right spec
   where

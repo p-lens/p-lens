@@ -113,6 +113,13 @@ export type Request =
   | { readonly kind: "entries"; readonly query: string; readonly limit: number; readonly offset: number }
   | ({ readonly kind: "balance"; readonly query: string; readonly valuation?: ValuationRequest } & Cut)
   | ({ readonly kind: "incomestatement"; readonly query: string; readonly valuation?: ValuationRequest } & Cut)
+  /**
+   * What the accounts of a query gained or lost in a commodity by prices
+   * changing under what they held: hledger's `--valuechange` at the period's
+   * end less what was posted at each posting's own day, account by account,
+   * taken one from the other by hledger in the bindings.
+   */
+  | { readonly kind: "revaluation"; readonly query: string; readonly valuation: ValuationRequest & { readonly at: "period-end" } }
   | { readonly kind: "prices"; readonly query: string }
   | { readonly kind: "accounts" }
 
@@ -120,6 +127,7 @@ export interface Answer {
   readonly entries: Page<Transaction>
   readonly balance: BalanceReport
   readonly incomestatement: BalanceReport
+  readonly revaluation: BalanceReport
   readonly prices: readonly PriceDirective[]
   readonly accounts: readonly DeclaredAccount[]
 }

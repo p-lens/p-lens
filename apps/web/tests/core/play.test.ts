@@ -14,7 +14,7 @@ describe("composePlayEntry", () => {
     expect(rendered(RENTED_PLAY)).toEqual({
       ok: true,
       value: [
-        "2026-09-05 ホシゾラ梅田店 流星 123番台  ; play-id: made-up-0905, parlor-id: hoshizora-umeda, game-kind: pachinko, machine: 流星, cabinet-number: 123",
+        "2026-09-05 ホシゾラ梅田店 | 流星 123番台  ; play-id: made-up-0905, parlor-id: hoshizora-umeda, game-kind: pachinko, machine: 流星, cabinet-number: 123",
         "    資産:現金                           -12000 JPY",
         "    費用:貸玉差額                       1290 JPY",
         '    費用:遊技                           3000 "玉(4円・ホシゾラ梅田店)" @ 3.57 JPY',
@@ -178,7 +178,7 @@ describe("composeTalliedEntry", () => {
   test("a gain with nothing put in is revenue taken as prizes, and names the parlor when there is one", () => {
     const entry = composeTalliedEntry({ ...TALLIED, parlor: UMEDA, outlay: dec("0"), takings: dec("20000"), theoreticalValue: undefined })
     expect(entry.ok && [entry.value.description, entry.value.tags[1], entry.value.postings]).toEqual([
-      "ホシゾラ梅田店 e風の剣豪",
+      "ホシゾラ梅田店 | e風の剣豪",
       ["parlor-id", "hoshizora-umeda"],
       [
         { account: "収益:遊技", amount: { quantity: dec("-20000"), commodity: "JPY" }, kind: "real" },

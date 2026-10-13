@@ -38,6 +38,22 @@ export interface Entry {
   readonly notes?: readonly string[]
 }
 
+/** A bar would end a payee where it stands, so one inside a name gives way to its full-width twin. */
+const barless = (text: string): string => text.replaceAll("|", "｜")
+
+/**
+ * An entry's description as hledger reads one: the payee, a bar, the
+ * note — so `payee:` and `note:` find each, and a book groups by who was
+ * paid without the app. A description with no bar is its own payee and
+ * its own note, whole; so where either side is missing the other stands
+ * alone, no bar beside it.
+ */
+export const describedBy = (payee: string | undefined, note: string): string =>
+  [payee, note]
+    .map((part) => barless(part ?? "").trim())
+    .filter((part) => part !== "")
+    .join(" | ")
+
 const renderAmount = (amount: Amount): string => `${toPlainString(amount.quantity)} ${renderCommodity(amount.commodity)}`
 
 const renderCost = (cost: UnitCost | undefined): string =>

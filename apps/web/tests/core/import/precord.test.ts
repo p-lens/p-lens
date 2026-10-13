@@ -54,7 +54,7 @@ describe("an imported play", () => {
     const [id] = importedIdsOf("precord", [first as never])
     expect(renderEntry(importedPlayEntry({ id: id as never, from: "precord", source: first as never, machine: undefined, inferred: undefined }))).toBe(
       [
-        `2019-01-02 ホシゾラ梅田店 流星の剣 123番台  ; play-id: ${id}, cabinet-number: 123, imported-from: precord, source-parlor: ホシゾラ梅田店, source-parlor-code: S123, source-machine: 流星の剣, source-machine-code: M9, source-maker: ミナト, hours: 5`,
+        `2019-01-02 ホシゾラ梅田店 | 流星の剣 123番台  ; play-id: ${id}, cabinet-number: 123, imported-from: precord, source-parlor: ホシゾラ梅田店, source-parlor-code: S123, source-machine: 流星の剣, source-machine-code: M9, source-maker: ミナト, hours: 5`,
         "    費用:遊技                           12000 JPY",
         "    収益:遊技                           -20000 JPY",
         "    純資産:特殊景品                     8000 JPY",

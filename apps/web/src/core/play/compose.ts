@@ -1,7 +1,7 @@
 import { YEN, tokenCommodity, type TokenKind } from "../commodity/commodity"
 import { isZero, multiply, negate, subtract, toPlainString, type Decimal } from "../decimal/decimal"
 import { ACCOUNTS, rentalSpreadAccount, savingsAccount } from "../journal/accounts"
-import type { Entry, Posting } from "../journal/entry"
+import { describedBy, type Entry, type Posting } from "../journal/entry"
 import { Err, Ok, andThen, mapOk, type Result } from "../result/result"
 import { inferredTheoreticalValuePosting, theoreticalValuePosting } from "../theoretical/theoretical"
 import { rateOn, rateReachingBack, type PricePoint } from "../valuation/valuation"
@@ -99,10 +99,10 @@ const rentalRate = (record: PlayRecord, prices: readonly PricePoint[]): Result<D
 export const rateToWriteWith = (record: PlayRecord, prices: readonly PricePoint[]): PricePoint | undefined =>
   rateReachingBack(prices, tokenCommodity(record.pool.kind, record.parlor.name, record.pool.tier), record.date)
 
-const describe = (record: PlayHead, parlor: Parlor | undefined): string =>
-  [parlor?.name, record.machine.trim(), record.cabinetNumber === undefined ? undefined : `${record.cabinetNumber.trim()}番台`]
-    .filter((part): part is string => part !== undefined && part !== "")
-    .join(" ")
+const cabinetOf = (record: PlayHead): string => [record.machine.trim(), record.cabinetNumber === undefined ? "" : `${record.cabinetNumber.trim()}番台`].filter((part) => part !== "").join(" ")
+
+/** A play's description: the parlor as the payee, the machine and its cabinet as the note. */
+const describe = (record: PlayHead, parlor: Parlor | undefined): string => describedBy(parlor?.name, cabinetOf(record))
 
 /** What an entry says of the tokens carried in, where there were any: its postings alone read as a replay's, so the count is said beside them. */
 const carriedTags = (record: PlayRecord): Entry["tags"] => (isZero(record.carriedIn) ? [] : [[PLAY_TAGS.carriedIn, toPlainString(record.carriedIn)]])

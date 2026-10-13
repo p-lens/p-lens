@@ -2,16 +2,18 @@ import { createResource, For, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import { loadBreakdown } from "../../../application/breakdown"
+import { loadRevaluation } from "../../../application/revaluation"
 import { keepsTheoreticalValues } from "../../../application/theoretical"
 import type { BookId } from "../../../core/book/book"
 import { isZero, type Decimal } from "../../../core/decimal/decimal"
 import { DIMENSIONS, isDimension, totalOf, type Dimension, type Group } from "../../../core/report/breakdown"
+import type { Revaluation } from "../../../core/report/revaluation"
 import { useApp } from "../../context"
 import { Select } from "../../primitives/select"
 import { EmptyState, Loaded } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
-import { DIMENSION_NAMES, groupName, inferredShareText, NOT_TALLIED } from "../../wording/breakdown"
+import { DIMENSION_NAMES, groupName, inferredShareText, NOT_TALLIED, REVALUATION, REVALUATION_NOTE } from "../../wording/breakdown"
 import { formatSignedYen, formatTheoreticalYen, toneOf } from "../../wording/numbers"
 import { PeriodPicker } from "../period/PeriodPicker"
 import { queryFor } from "../period/periods"
@@ -56,6 +58,37 @@ export function GroupRow(props: { readonly name: string; readonly group: Group; 
 }
 
 /**
+ * 評価損益 under a breakdown, where there is any: what the period's
+ * savings gained or lost by their rates changing, which is no play's
+ * result and so stands apart from every group above it — and, where the
+ * plays are grouped by parlor, each parlor's own. A rate seldom changes,
+ * so in most periods there is none and nothing is shown.
+ */
+function RevaluationRow(props: { readonly revaluation: Revaluation; readonly byParlor: boolean }): JSX.Element {
+  return (
+    <section aria-label={REVALUATION} class="flex flex-col gap-1 rounded-md border border-border px-3 py-2">
+      <div class="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-sm">
+        <span class="font-semibold text-text-primary">{REVALUATION}</span>
+        <Yen value={props.revaluation.total} />
+      </div>
+      <Show when={props.byParlor}>
+        <ul class="flex flex-col gap-0.5">
+          <For each={[...props.revaluation.byParlor]}>
+            {([parlor, yen]) => (
+              <li class="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-sm">
+                <span class="min-w-0 break-words text-text-primary">{parlor}</span>
+                <Yen value={yen} />
+              </li>
+            )}
+          </For>
+        </ul>
+      </Show>
+      <p class="text-xs text-text-muted">{REVALUATION_NOTE}</p>
+    </section>
+  )
+}
+
+/**
  * A book's results by where they came from: its plays grouped by machine,
  * parlor, day of the week, game, year, month or day, each group with
  * what its plays made and were worth. Which grouping and which period are
@@ -69,6 +102,12 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
     () => ({ bookId: props.bookId, by: props.by, query: props.query, revision: app.revision() }),
     (source) => loadBreakdown(app.services.session, source.bookId, source.by, queryFor(source.by, source.query)),
   )
+  const [revalued] = createResource(
+    () => ({ bookId: props.bookId, by: props.by, query: props.query, revision: app.revision() }),
+    (source) => loadRevaluation(app.services.session, source.bookId, queryFor(source.by, source.query)),
+  )
+  /** 評価損益 over the period, only where savings gained or lost any: none while it is asked, and none where it could not be read — the breakdown above it stands without it. */
+  const revaluation = (): Revaluation | undefined => ((answer) => (answer?.ok === true && (!isZero(answer.value.total) || answer.value.byParlor.size > 0) ? answer.value : undefined))(revalued())
   const [kept] = createResource(() => ({ bookId: props.bookId, revision: app.revision() }), (source) => keepsTheoreticalValues(app.services.session, source.bookId))
   /** Whether the book keeps theoretical values: taken to until hledger says it does not, so a book that does never flashes otherwise. */
   const theoreticalKept = (): boolean => ((answer) => answer?.ok !== true || answer.value)(kept())
@@ -100,6 +139,9 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
               </Show>
             )}
           </Loaded>
+          <Show when={revaluation()} keyed>
+            {(found) => <RevaluationRow revaluation={found} byParlor={props.by === "parlor"} />}
+          </Show>
         </div>
       </div>
     </MainContent>

@@ -4,7 +4,7 @@ import { createBookSession } from "../../src/application/book-session"
 import { ACTIVITY_LOG, activityOfText } from "../../src/core/activity/activity"
 import { loadOverview } from "../../src/application/overview"
 import { loadActivity } from "../../src/application/activity"
-import { loadPlay } from "../../src/application/plays"
+import { loadPlay, loadPlays } from "../../src/application/plays"
 import { recordPlay, recordTalliedPlay } from "../../src/application/record-play"
 import type { BookId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
@@ -40,12 +40,21 @@ describe("recording a play", () => {
     const { session, storage } = await setUp("owner")
     const recorded = await recordPlay(session, BOOK, TODAY_PLAY)
     expect(recorded.ok).toBe(true)
-    expect(storage.peek(BOOK)?.files[BOOK_FILES.transactions]).toContain("2026-10-04 ホシゾラ梅田店 流星 123番台  ; play-id: today,")
+    expect(storage.peek(BOOK)?.files[BOOK_FILES.transactions]).toContain("2026-10-04 ホシゾラ梅田店 | 流星 123番台  ; play-id: today,")
     const overview = await loadOverview(session, BOOK, "date:2026-10-04")
     expect(mapOk(overview, (found) => [toPlainString(found.actual), toPlainString(found.theoretical)])).toEqual({
       ok: true,
       value: ["4800", "5500"],
     })
+  })
+
+  test("names its parlor as the payee and its machine as the note, as hledger splits a description at the bar", async () => {
+    const { session } = await setUp("owner")
+    await recordPlay(session, BOOK, TODAY_PLAY)
+    const found = async (query: string) => mapOk(await loadPlays(session, BOOK, query, 0), (list) => list.plays.map((play) => play.id))
+    expect(await found("payee:^ホシゾラ梅田店$ date:2026-10-04")).toEqual({ ok: true, value: ["today" as PlayId] })
+    expect(await found("'note:^流星 123番台$' date:2026-10-04")).toEqual({ ok: true, value: ["today" as PlayId] })
+    expect(await found("payee:流星 date:2026-10-04")).toEqual({ ok: true, value: [] })
   })
 
   test("leaves one commit saying what was done", async () => {
@@ -54,7 +63,7 @@ describe("recording a play", () => {
     const activity = await loadActivity(session, history, BOOK)
     expect(mapOk(activity, (found) => found.lines.map((line) => [line.did, saidIn(line.parts)]))).toEqual({
       ok: true,
-      value: [["play-recorded", { play: { id: "today" as PlayId, description: "ホシゾラ梅田店 流星 123番台" }, theoretical: { value: dec("5500") } }]],
+      value: [["play-recorded", { play: { id: "today" as PlayId, description: "ホシゾラ梅田店 | 流星 123番台" }, theoretical: { value: dec("5500") } }]],
     })
   })
 

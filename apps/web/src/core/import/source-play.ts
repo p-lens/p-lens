@@ -1,6 +1,6 @@
 import type { IsoDate } from "../calendar/calendar"
 import type { Decimal } from "../decimal/decimal"
-import type { Entry } from "../journal/entry"
+import { describedBy, type Entry } from "../journal/entry"
 import { toldTags } from "../play/compose"
 import { PLAY_TAGS, type InferredWorth, type PlayGameKind, type PlayId, type PlayTold } from "../play/play"
 import { sidePostings } from "../play/sides"
@@ -71,11 +71,10 @@ const noteOf = (memo: string): string => writable(memo).replaceAll(":", "：")
 
 const tagged = (name: string, value: string): readonly (readonly [string, string])[] => (writable(value) === "" ? [] : [[name, writable(value)]])
 
-const describe = (source: SourcePlay): string =>
-  [source.parlor.name, source.machine.name, source.cabinetNumber.trim() === "" ? "" : `${source.cabinetNumber.trim()}番台`]
-    .map(writable)
-    .filter((part) => part !== "")
-    .join(" ")
+const cabinetOf = (source: SourcePlay): string => [source.machine.name, source.cabinetNumber.trim() === "" ? "" : `${source.cabinetNumber.trim()}番台`].map(writable).filter((part) => part !== "").join(" ")
+
+/** An imported play's description: the parlor as the other app named it for the payee, its machine and cabinet for the note. */
+const describe = (source: SourcePlay): string => describedBy(writable(source.parlor.name), cabinetOf(source))
 
 /**
  * An imported play as one journal entry, in yen alone, its two sides as a

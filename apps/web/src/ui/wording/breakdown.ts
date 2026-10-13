@@ -32,6 +32,12 @@ const GAMES: Readonly<Record<string, string>> = { pachinko: "パチンコ", slot
 /** What is said beside a sum of theoretical values where part of it was inferred: how much of it is not measurement. */
 export const inferredShareText = (inferred: Decimal): string => `うち推定 ${formatTheoreticalYen(inferred)}`
 
+/** What 評価損益 is called on screen. */
+export const REVALUATION = "評価損益"
+
+/** What is said under 評価損益: what moved, and that no play's result holds it. */
+export const REVALUATION_NOTE = "交換率が変わって、持っていた貯玉・貯メダルの価値が動いた分です。実収支には入っていません。"
+
 /** What stands for a sum of theoretical values in a book that has none written in it: there is nothing to sum, which nought would not say. */
 export const NOT_TALLIED = "集計なし"
 

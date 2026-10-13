@@ -52,6 +52,13 @@ export const savingsValueRequest = (query: string): RequestOf<"balance"> => ({
   valuation: inYen({ at: "period-end" }),
 })
 
+/** 評価損益: what savings gained or lost in yen over the query's period by their rates changing, a row a savings account. */
+export const savingsRevaluationRequest = (query: string): RequestOf<"revaluation"> => ({
+  kind: "revaluation",
+  query: combine(savingsTerm, query),
+  valuation: { at: "period-end", commodity: YEN },
+})
+
 export const pricesRequest = (query: string): RequestOf<"prices"> => ({ kind: "prices", query })
 
 export const playsRequest = (query: string, page: { readonly limit: number; readonly offset: number }): RequestOf<"entries"> => ({
