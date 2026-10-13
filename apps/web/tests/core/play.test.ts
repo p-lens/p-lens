@@ -175,14 +175,6 @@ describe("composeTalliedEntry", () => {
     ])
   })
 
-  test("never raises cash, whatever the two sides", () => {
-    const raised = [["0", "20000"], ["12000", "30000"], ["5000", "5000"], ["5000", "5000.5"], ["12000", "0"]].flatMap(([outlay = "0", takings = "0"]) => {
-      const entry = composeTalliedEntry({ ...TALLIED, outlay: dec(outlay), takings: dec(takings) })
-      return entry.ok ? entry.value.postings.filter((posting) => posting.account === "資産:現金" && posting.amount.quantity.mantissa > 0n) : []
-    })
-    expect(raised).toEqual([])
-  })
-
   test("a gain with nothing put in is revenue taken as prizes, and names the parlor when there is one", () => {
     const entry = composeTalliedEntry({ ...TALLIED, parlor: UMEDA, outlay: dec("0"), takings: dec("20000"), theoreticalValue: undefined })
     expect(entry.ok && [entry.value.description, entry.value.tags[1], entry.value.postings]).toEqual([

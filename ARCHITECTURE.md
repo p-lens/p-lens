@@ -334,7 +334,12 @@ counts it like any play, both sides are kept and no savings move.
 
 **Cash never rises.** Nothing the app writes puts a positive amount to
 `資産:現金`: a parlor gives prizes, never money, so cash is spent and a gain
-is prizes taken home, in equity. The prize accounts are declared in a book
+is prizes taken home, in equity. A test holds it
+(`tests/core/cash-never-rises.test.ts`): every entry the app composes — a
+play followed live, one typed in, one taken in from another app, a prize
+exchange, savings opened or put right — in the cases where money came
+back, and the files that name the cash account, so a new writer cannot be
+added without being added there. The prize accounts are declared in a book
 the first time an entry needs them (`withPrizesDeclaredFor`). The form asks for the two sides and shows their
 difference, the result, which nobody types (`resultOfTally`); the
 theoretical value is behind the form's detail button. A parlor is named
