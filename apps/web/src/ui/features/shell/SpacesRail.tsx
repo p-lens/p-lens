@@ -5,6 +5,7 @@ import type { Outcome } from "../../../application/errors"
 import { loadTodaysPlays } from "../../../application/live-play"
 import { roleIn, type Book, type MemberId, type ListedBook } from "../../../core/book/book"
 import { awaitsSending } from "../../../core/live-play/draft"
+import { firstGraphemeOf } from "../../../core/text/first-grapheme"
 import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
 import { createHourStruck } from "../../primitives/hour"
@@ -31,7 +32,7 @@ const DESTINATION = {
 } as const
 
 /** A book on the rail is its title's first character, as a server is its initials. */
-const initialOf = (title: string): string => [...title.trim()].at(0) ?? "?"
+const initialOf = (title: string): string => firstGraphemeOf(title.trim()) ?? "?"
 
 const ownedBy = (member: MemberId) => (book: Book): boolean => roleIn(book, member) === "owner"
 
