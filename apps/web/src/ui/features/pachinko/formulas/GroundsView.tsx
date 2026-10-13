@@ -26,7 +26,7 @@ const positive = (text: string): number | undefined => {
   return text.trim() !== "" && Number.isFinite(value) && value > 0 ? value : undefined
 }
 
-/** The basis' combo solved again, the spread of play around the theoretical value, and last — being long — the grounds reasoned out. */
+/** The basis' combo solved again, the spread of play around the theoretical value, then the grounds reasoned out; the way to the basis is always the screen's last line. */
 function Grounds(props: { readonly basis: Basis; readonly figures: Figures; readonly sampled: SampledFigure | undefined; readonly onBasis: () => void }): JSX.Element {
   const app = useApp()
   const ballValue = useStartBallValue()
@@ -63,10 +63,10 @@ function Grounds(props: { readonly basis: Basis; readonly figures: Figures; read
             </div>
             <SimulationPanel normalized={props.basis.normalized} conditions={props.basis.conditions} play={play()} exactRounds={analysis.averageRounds} onUnready={unready.nudge} />
           </section>
+          <ReasonedGrounds basis={props.basis} analysis={analysis} figures={props.figures} sampled={props.sampled} />
           <SemiproLink class="self-start text-sm" onClick={() => props.onBasis()}>
             期待値基礎値を見る ›
           </SemiproLink>
-          <ReasonedGrounds basis={props.basis} analysis={analysis} figures={props.figures} sampled={props.sampled} />
         </div>
       )}
     </Loaded>

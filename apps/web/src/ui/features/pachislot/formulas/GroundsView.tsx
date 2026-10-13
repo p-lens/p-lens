@@ -104,12 +104,12 @@ export function GroundsView(props: { readonly place: Place; readonly machineId: 
               <Index each={found.analysis.settingLevels}>
                 {(figures) => <Derivation figures={figures()} spec={found.formula.basis.spec} bet={found.formula.basis.normalized.bet} reasoned={reasonsGrounds(found.formula.basis)} />}
               </Index>
-              <SemiproLink class="self-start text-sm" onClick={() => moves.go({ kind: "pachislot-formula-basis", machineId: found.machine.id, formulaId: found.formula.id })}>
-                解析値を見る ›
-              </SemiproLink>
               <Show when={reasonsGrounds(found.formula.basis)}>
                 <ReasonedGrounds basis={found.formula.basis} analysis={found.analysis} figures={found.formula.figures} margins={found.formula.kind === "sampled" ? found.formula.sampling.margins : undefined} />
               </Show>
+              <SemiproLink class="self-start text-sm" onClick={() => moves.go({ kind: "pachislot-formula-basis", machineId: found.machine.id, formulaId: found.formula.id })}>
+                解析値を見る ›
+              </SemiproLink>
             </div>
           )}
         </Loaded>
