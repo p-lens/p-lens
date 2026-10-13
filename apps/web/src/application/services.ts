@@ -7,6 +7,7 @@ import type { IsoDate } from "../core/calendar/calendar"
 import type { PlayId } from "../core/play/play"
 import type { HistoryPort } from "../history/port/history-port"
 import type { DraftStorage } from "../storage/port/draft-storage"
+import type { StorageKeeper } from "../storage/port/storage-keeping"
 import type { Catalog } from "../catalog/port/catalog"
 import type { Locator } from "../location/port/locator"
 import type { ParlorDirectory } from "../parlors/port/parlor-directory"
@@ -90,6 +91,8 @@ export interface Services {
   readonly newPlayId: () => PlayId
   /** The book a device with none is given: its owner's own, empty, under an id no other device could make. */
   readonly firstBook: () => StoredBook
+  /** The browser's word on whether what this device stores is kept. */
+  readonly storageKeeper: StorageKeeper
   /** Everywhere this device keeps something of a book, for taking one off it. */
   readonly deletion: DeletionPorts
   /**

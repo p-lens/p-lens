@@ -34,6 +34,7 @@ import { DEPLOYMENT } from "../../branding/deployment"
 import { brandedDocuments } from "../../branding/documents"
 import { freshSeed, freshUuidV7, uuidV7On, voterOf } from "./ids"
 import { createConnection } from "../../storage/browser/database"
+import { createBrowserStorageKeeper } from "../../storage/browser/storage-keeper"
 import { createLocalStoragePreferences } from "../../preferences/local/local-storage-preferences"
 import { createIndexedDbDrafts, createIndexedDbStorage } from "../../storage/browser/indexed-db"
 import { createHttpRelay } from "../../sync/http/http-relay"
@@ -172,6 +173,7 @@ export const createServices = (): Services => {
     now: () => clock().toISOString(),
     newPlayId: () => freshUuidV7() as string as PlayId,
     firstBook: () => firstBook(freshUuidV7() as string as BookId, LOCAL_MEMBER),
+    storageKeeper: createBrowserStorageKeeper(),
     deletion: { storage, history, links, receipts, drafts },
     playIdOn: (fresh, date) => uuidV7On(fresh as string as UuidV7, date) as string as PlayId,
     newSeed: freshSeed,

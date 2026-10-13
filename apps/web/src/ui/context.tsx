@@ -7,6 +7,7 @@ import type { Services } from "../application/services"
 import type { MachineNames } from "../core/catalog/catalog"
 import { receiveArrivals } from "../application/inbox"
 import { restoreEveryGrant } from "../application/invitations"
+import { keepStorage } from "../application/storage-keeping"
 import { syncAll, type Synced } from "../application/sync"
 import type { ThemeState } from "./theme/theme"
 
@@ -148,8 +149,16 @@ export function AppProvider(props: {
   const backupMade = (): void => {
     setBackupsMade((count) => count + 1)
   }
+  const keeping: { asked: boolean } = { asked: false }
+  /** Has the browser asked to keep the storage, once a page and at a write: a browser that puts the question to the person puts it as they save something, not as the app opens. */
+  const keepWhatWasWritten = (): void => {
+    if (keeping.asked) return
+    keeping.asked = true
+    void keepStorage(props.services.storageKeeper)
+  }
   const wroteAndSync = (): void => {
     wrote()
+    keepWhatWasWritten()
     clearTimeout(syncing.waiting)
     syncing.waiting = setTimeout(runSync, AFTER_WRITING)
   }

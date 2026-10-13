@@ -13,7 +13,14 @@ fixes.
 
 1. **The journal text is the only source of truth.** IndexedDB holds journal
    files; it is a container, never a second record. Nothing hledger can answer —
-   a balance, a total, a count — is stored.
+   a balance, a total, a count — is stored. The container is the browser's,
+   and a browser short of room clears a site's storage on its own unless it
+   was asked to keep it: so the app asks (`keepStorage`, over
+   `navigator.storage.persist()`), once a page, at the first write — a
+   browser that puts the question to the person puts it as they save
+   something. Whether it is granted is the browser's to say; a book cleared
+   with its browser's data, or lost with its device, is back only from a
+   backup or another device it is synced with.
 2. **A write is kept only if hledger reads it.** Every change is offered to
    hledger, with `--strict` checks, before it is stored. A refusal leaves the
    book exactly as it was.
@@ -436,7 +443,7 @@ core ──► hledger/protocol/wire (types only)
 | `hledger/query/` | hledger query terms and requests P-Lens writes | `core`, `hledger/protocol` |
 | `hledger/client/` | the only way to the worker; one queue (`inTurn`) | `hledger/protocol`, `core/result` |
 | `hledger/worker/` | the engine (WASI, one parsed journal) and the worker loop | `hledger/protocol` |
-| `storage/`, `history/` | `port/` interfaces (books, drafts, history); `browser/` or `adapters/` implementations | `core` |
+| `storage/`, `history/` | `port/` interfaces (books, drafts, history, whether the browser keeps what is stored); `browser/` or `adapters/` implementations | `core` |
 | `preferences/` | `port/` (what a person has set for this device), `local/` (kept in localStorage) | `core` |
 | `sync/` | `port/` (the relay, the sealing, a book's link to its line), `http/` (a relay by URL), `web-crypto/` (sealing by the browser's cryptography), `local/` (links in IndexedDB) | `core`, contracts |
 | `backup/` | `port/` (the archive, a store away from the device, a file handed over, a fingerprint, the receipts), `zip/` (archives as zip files), `google-drive/` (a store in a person's Google Drive, and its sign-in), `browser/` (a file handed over by the browser), `web-crypto/` (fingerprints by the browser's cryptography), `local/` (receipts in IndexedDB) | `core` |
