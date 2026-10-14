@@ -76,6 +76,13 @@ describe("a recorded tally, read back from its entry", () => {
     expect(await recordedOf(session, "finished")).toEqual({ ok: true, value: { type: "yen", tally: finished } })
   })
 
+  test("keeps who sent its play, so a tally a sender played is theirs still once set right", async () => {
+    const { session } = await setUp()
+    const sent: TokenTally = { ...TODAY, id: "sent" as PlayId, sender: { id: "grant-1", name: "けんじ" } }
+    await recordTokenTally(session, BOOK, sent)
+    expect(await recordedOf(session, "sent")).toEqual({ ok: true, value: { type: "token", tally: sent } })
+  })
+
   test("keeps what was told of a tally and what it was taken to be worth, apart from what was measured and summed with it", async () => {
     const { session, storage } = await setUp()
     const told = { ...TALLIED, id: "told" as PlayId, theoreticalValue: undefined, told: { hours: dec("4.25"), jackpots: 8, inferred: { value: dec("-5300"), formulaId: "formula-1", tokenRental: dec("4"), tokenExchange: dec("28"), spinPerformance: dec("16.4") } } }

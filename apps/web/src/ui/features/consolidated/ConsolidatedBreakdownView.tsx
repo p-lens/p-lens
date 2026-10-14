@@ -1,10 +1,12 @@
 import { createMemo, createResource, For, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
-import { consolidationKeepsTheoreticalValues, loadConsolidatedSpinPerformances, loadConsolidation, type ConsolidatedBook, type ConsolidatedBy } from "../../../application/consolidation"
+import { consolidationKeepsTheoreticalValues, loadConsolidatedSenderNames, loadConsolidatedSpinPerformances, loadConsolidation, type ConsolidatedBook, type ConsolidatedBy } from "../../../application/consolidation"
 import type { MachineNames } from "../../../core/catalog/catalog"
 import type { BookId } from "../../../core/book/book"
-import { bestFirst, DIMENSIONS, inOrder, isDimension, merged, totalOf, type Group } from "../../../core/report/breakdown"
+import { bestFirst, DIMENSIONS, inOrder, isDimension, merged, totalOf, UNSAID, type Group } from "../../../core/report/breakdown"
+import { compare } from "../../../core/decimal/decimal"
+import type { SenderNames } from "../../../core/report/senders"
 import { allSpinPerformances, type SpinPerformancesByMachine } from "../../../core/report/spin-performance"
 import { useApp } from "../../context"
 import { Select } from "../../primitives/select"
@@ -12,7 +14,7 @@ import { EmptyState, Loaded } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { bookTitle } from "../../wording/book"
-import { BY_BOOK, DIMENSION_NAMES, groupName } from "../../wording/breakdown"
+import { BY_BOOK, BY_SENDER, DIMENSION_NAMES, groupName, senderName, unsentName } from "../../wording/breakdown"
 import { GroupRow } from "../breakdown/BreakdownView"
 import { PeriodPicker } from "../period/PeriodPicker"
 import { queryFor } from "../period/periods"
@@ -26,11 +28,26 @@ interface Named {
   readonly group: Group
 }
 
-/** The books' results as the list shows them: book by book, each under its title, best first; or the books' groups of one key added together, in the order a book's own breakdown is read in. */
-const grouped = (books: readonly ConsolidatedBook<readonly Group[]>[], by: ConsolidatedBy, machineNames: MachineNames): readonly Named[] =>
-  by === "book"
-    ? bestFirst(readOf(books).flat()).map((group) => ({ name: ((book) => (book === undefined ? group.key : bookTitle(book.book)))(books.find((each) => each.book.id === group.key)), group }))
-    : inOrder(merged(readOf(books)), by).map((group) => ({ name: groupName(by, group.key, machineNames), group }))
+const byBest = (left: Named, right: Named): number => compare(right.group.actual, left.group.actual)
+
+/**
+ * The books' results by who played them, best first: each sender's over
+ * every book added, under the name on their last tally, and each book's
+ * tallies that name no sender apart, under its title — a book's own
+ * owner plays it too, and six books' owners are six people.
+ */
+const bySender = (books: readonly ConsolidatedBook<readonly Group[]>[], names: SenderNames): readonly Named[] => [
+  ...merged(readOf(books).map((groups) => groups.filter((group) => group.key !== UNSAID))).map((group) => ({ name: senderName(names, group.key), group })),
+  ...books.flatMap((each) => (each.read.ok ? each.read.value.filter((group) => group.key === UNSAID).map((group) => ({ name: unsentName(bookTitle(each.book)), group })) : [])),
+].toSorted(byBest)
+
+/** The books' results as the list shows them: book by book, each under its title, best first; by who played them; or the books' groups of one key added together, in the order a book's own breakdown is read in. */
+const grouped = (books: readonly ConsolidatedBook<readonly Group[]>[], by: ConsolidatedBy, machineNames: MachineNames, names: SenderNames): readonly Named[] => {
+  if (by === "book") return bestFirst(readOf(books).flat()).map((group) => ({ name: ((book) => (book === undefined ? group.key : bookTitle(book.book)))(books.find((each) => each.book.id === group.key)), group }))
+  return by === "sender" ? bySender(books, names) : inOrder(merged(readOf(books)), by).map((group) => ({ name: groupName(by, group.key, machineNames), group }))
+}
+
+const NO_NAMES: SenderNames = new Map()
 
 /**
  * Several books as one: the results of the books ticked, for a period,
@@ -57,7 +74,13 @@ export function ConsolidatedBreakdownView(props: { readonly place: Place; readon
   )
   /** The machines' spin performances over the books, while the tallies are grouped by machine and once they are read. */
   const spins = (): SpinPerformancesByMachine | undefined => ((answer) => (props.by === "machine" && answer?.ok === true ? answer.value : undefined))(spun())
-  const groups = createMemo(() => ((found) => (found?.ok === true ? grouped(found.value, props.by, app.machineNames()) : undefined))(consolidation()))
+  const [named] = createResource(
+    () => (props.by === "sender" ? { bookIds: props.bookIds, revision: app.revision() } : undefined),
+    (source) => loadConsolidatedSenderNames(app.services.session, source.bookIds),
+  )
+  /** Who sent the plays, by their last names, while the tallies are grouped by who played them and once they are read. */
+  const names = (): SenderNames => ((answer) => (answer?.ok === true ? answer.value : NO_NAMES))(named())
+  const groups = createMemo(() => ((found) => (found?.ok === true ? grouped(found.value, props.by, app.machineNames(), names()) : undefined))(consolidation()))
   return (
     <MainContent header={<ViewHeader place={props.place} title="集計" />}>
       <div class="max-w-5xl">
@@ -66,10 +89,10 @@ export function ConsolidatedBreakdownView(props: { readonly place: Place; readon
             <div class="w-48">
               <Select
                 label="切り口"
-                options={[{ value: "book", label: BY_BOOK }, ...DIMENSIONS.map((dimension) => ({ value: dimension, label: DIMENSION_NAMES[dimension] }))]}
+                options={[{ value: "book", label: BY_BOOK }, { value: "sender", label: BY_SENDER }, ...DIMENSIONS.map((dimension) => ({ value: dimension, label: DIMENSION_NAMES[dimension] }))]}
                 value={props.by}
                 onChange={(by) => {
-                  if (by === "book" || isDimension(by)) moves.go({ kind: "consolidated-breakdown", by, bookIds: props.bookIds }, props.query)
+                  if (by === "book" || by === "sender" || isDimension(by)) moves.go({ kind: "consolidated-breakdown", by, bookIds: props.bookIds }, props.query)
                 }}
                 placeholder="切り口を選ぶ"
               />

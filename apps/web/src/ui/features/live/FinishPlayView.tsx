@@ -10,7 +10,7 @@ import { keptSpinPerformance } from "../../../core/tally/aside"
 import type { TallyAside } from "../../../core/tally/tally"
 import type { PlayId } from "../../../core/play/play"
 import * as Pachinko from "../../../core/pachinko"
-import type { PlayDraft } from "../../../core/live-play/draft"
+import { senderOf, type PlayDraft } from "../../../core/live-play/draft"
 import { parsePlayLog, type Checkpoint } from "../../../core/play-log/checkpoint"
 import { finishCounterOf, finishedBy, lastWrittenAt, PLAYED_ON_FOR, type FinishCounter } from "../../../core/play-log/finish"
 import { liveSummary } from "../../../core/play-log/live"
@@ -192,7 +192,11 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
             const read = finishCounterOf(draft.log, draft.gameKind)
             const [finish, setFinish] = createSignal(finishedAs(draft, app.services.now(), read))
             const [start, setStart] = createSignal<TimeOfDay>(timeOf(draft.startedAt))
-            const aside = (): TallyAside => ({ clock: { started: start(), finished: finish().time }, spinPerformance: played.spinPerformance === undefined ? undefined : keptSpinPerformance(played.spinPerformance) })
+            const aside = (): TallyAside => ({
+              clock: { started: start(), finished: finish().time },
+              spinPerformance: played.spinPerformance === undefined ? undefined : keptSpinPerformance(played.spinPerformance),
+              sender: senderOf(draft),
+            })
             const words = draft.recorded === undefined ? RECORDING : RECORDING_AGAIN
             /** Keeps what the play left in hand for the day's next at its place; a play someone sent left its tokens with them. */
             const keepInHand = (left: TokensLeft | undefined): void => {

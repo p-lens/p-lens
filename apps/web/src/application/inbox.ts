@@ -4,7 +4,7 @@ import { Err, Ok, mapErr, mapOk, type Result } from "../core/result/result"
 import { readInvitation } from "../core/sync/invitation"
 import { readSentDraft, type SentDraft } from "../core/sync/sent-draft"
 import type { DraftStorage } from "../storage/port/draft-storage"
-import type { InvitationStore } from "../sync/port/invitation-store"
+import type { InvitationStore, KeptInvitation } from "../sync/port/invitation-store"
 import type { LinkStore, SyncLink } from "../sync/port/link-store"
 import type { LineAccess, Relay } from "../sync/port/relay"
 import { accessOf, type LineKeys, type Sealer } from "../sync/port/sealer"
@@ -64,10 +64,10 @@ const sentIn = async (sealer: Sealer, keys: LineKeys, sealed: Sealed): Promise<{
  * sent to. Nothing is written in the book: like a play of the device's
  * own, it reaches one when it is recorded, and its parlor's pool with it.
  */
-const inBook = (bookId: BookId | undefined, sent: SentDraft, sender: string | undefined): PlayDraft => ({
+const inBook = (bookId: BookId | undefined, sent: SentDraft, sender: KeptInvitation | undefined): PlayDraft => ({
   ...sent.play,
   ...(bookId === undefined ? {} : { bookId }),
-  received: { sender, log: sent.play.log, finished: sent.finished },
+  received: { sender: sender?.name, ...(sender === undefined ? {} : { senderId: sender.id }), log: sent.play.log, finished: sent.finished },
 })
 
 /** Whether a play this device received has been left as it arrived: not changed, and not recorded. Such a play is the sender's still, and a later sending of it takes its place. */
@@ -80,7 +80,7 @@ const untouched = (draft: PlayDraft): boolean => draft.received !== undefined &&
  * sending is kept beside it for the person to choose between. A play of
  * the device's own under the same id is left alone.
  */
-const takenIn = async (ports: InboxPorts, bookId: BookId, sent: SentDraft, sender: string | undefined): Promise<Outcome<void>> => {
+const takenIn = async (ports: InboxPorts, bookId: BookId, sent: SentDraft, sender: KeptInvitation | undefined): Promise<Outcome<void>> => {
   const has = await ports.drafts.readDraft(sent.play.id)
   if (!has.ok) return fromDraft(await ports.drafts.createDraft(inBook(bookId, sent, sender)))
   const mine = has.value
@@ -108,14 +108,14 @@ const receivedFor = async (ports: InboxPorts, link: SyncLink): Promise<Outcome<A
   if (!boxes.ok) return boxes
   const waiting = boxes.value.filter((sealed) => !(link.inboxHandled ?? []).includes(sealed.id))
   if (waiting.length === 0) return Ok(NONE_ARRIVED)
-  const nameOf = (mark: string): string | undefined => senders.find((kept) => readInvitation(kept.code)?.token.slice(0, SENDER_MARK) === mark)?.name
+  const senderOf = (mark: string): KeptInvitation | undefined => senders.find((kept) => readInvitation(kept.code)?.token.slice(0, SENDER_MARK) === mark)
   const taken = await waiting.reduce<Promise<Outcome<Arrivals>>>(async (so, sealed) => {
     const count = await so
     if (!count.ok) return count
     const held = await sentIn(ports.sealer, keys.value, sealed)
     if (held.type === "opening") return count
     if (held.type === "unreadable") return Ok(together(count.value, { taken: 0, unreadable: 1 }))
-    return mapOk(await takenIn(ports, link.bookId, held.sent, nameOf(held.sent.sender)), () => together(count.value, { taken: 1, unreadable: 0 }))
+    return mapOk(await takenIn(ports, link.bookId, held.sent, senderOf(held.sent.sender)), () => together(count.value, { taken: 1, unreadable: 0 }))
   }, Promise.resolve(Ok(NONE_ARRIVED)))
   return taken.ok ? mapOk(await handled(ports.links, link, waiting.map((sealed) => sealed.id)), () => taken.value) : taken
 }

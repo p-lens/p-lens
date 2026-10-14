@@ -93,8 +93,9 @@ const isRecorded = (value: unknown): value is NonNullable<PlayDraft["recorded"]>
 
 const isReceipt = (value: unknown): value is Receipt =>
   isFields(value) &&
-  hasOnly(value, "sender", "log", "finished", "again") &&
+  hasOnly(value, "sender", "senderId", "log", "finished", "again") &&
   isOptional(value["sender"], isText) &&
+  isOptional(value["senderId"], isText) &&
   isText(value["log"]) &&
   isOptional(value["finished"], isFinish) &&
   isOptional(value["again"], isDraft)

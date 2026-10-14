@@ -3,7 +3,7 @@ import { TALLY_TAGS } from "../../core/tally/tally"
 import type { PlayId } from "../../core/play/play"
 import type { Valuation } from "../../core/valuation/valuation"
 import type { Cut, Request, ValuationRequest } from "../protocol/wire"
-import { cashTerm, combine, inferredValueTerm, openingBalanceTerm, talliesAmongTerm, talliesTerm, savingsTerm, spinPerformanceTerm, theoreticalValueTerm } from "./terms"
+import { cashTerm, combine, inferredValueTerm, openingBalanceTerm, talliesAmongTerm, talliesTerm, savingsTerm, sentTalliesTerm, spinPerformanceTerm, theoreticalValueTerm } from "./terms"
 
 type RequestOf<K extends Request["kind"]> = Extract<Request, { kind: K }>
 
@@ -70,6 +70,9 @@ export const talliesRequest = (query: string, page: { readonly limit: number; re
 
 /** Every tally of a query that says a spin performance, measured or inferred, however many: hledger keeps the tags and does not add them up. */
 export const spinPerformancesRequest = (query: string): RequestOf<"entries"> => ({ kind: "entries", query: combine(talliesTerm, spinPerformanceTerm, query), limit: 1_000_000, offset: 0 })
+
+/** Every tally of a play someone sent, whenever it was played, newest first: who sent each is named by their last. */
+export const sentTalliesRequest: RequestOf<"entries"> = { kind: "entries", query: combine(talliesTerm, sentTalliesTerm), limit: 1_000_000, offset: 0 }
 
 /** Whether a pool's opening balance is registered: one entry is enough to say so. */
 export const openingBalanceRequest = (kind: TokenKind, parlorName: string, tier: string): RequestOf<"entries"> => ({

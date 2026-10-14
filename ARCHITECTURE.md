@@ -1537,11 +1537,15 @@ since it rides on it.
   it came by, addressed to the book it was sent to and with its parlor's
   pool opened there. From then on it is a play of the day like the owner's
   own: its readings set right, recorded into that book or another
-  (`moveDraft`). A play sent again takes the place of one left as it
-  arrived; one the owner has changed or recorded is not written over, and
-  the later sending is kept beside it for a choice (`takeSentAgain`,
-  `keepOwn`). Nothing goes back to the sender. What was taken in is kept
-  on the book's link (`inboxHandled`).
+  (`moveDraft`). Its entry says who played it — `sender-id:` the
+  invitation's id, which a person keeps however they are renamed, and
+  `sender:` the name they had as it was recorded — so a book's plays are
+  gathered by id and named by the latest entry; a person invited again is
+  another id. A play of the owner's own says neither. A play sent again
+  takes the place of one left as it arrived; one the owner has changed
+  or recorded is not written over, and the later sending is kept beside
+  it for a choice (`takeSentAgain`, `keepOwn`). Nothing goes back to the
+  sender. What was taken in is kept on the book's link (`inboxHandled`).
 - **A relay that let go** of a book's lines has lost their grants too. The
   owner's device says again whom it let in (`restoreEveryGrant`), once each
   time the app is opened, after the lines are made again.
@@ -1881,7 +1885,8 @@ Several books are read as one (連結, on the rail under the books, once
 turned on; `application/consolidation`), in the views a book has for
 reading it: the savings of the books ticked (貯玉・貯メダル), their results
 a month at a time (カレンダー), and their results for a period grouped as
-one book's breakdown groups them — and, first, book by book (集計).
+one book's breakdown groups them — and, first, book by book, and by who
+played them (集計).
 
 - **Each book's groups are its own, from hledger; one key from several
   books is those added** (`merged`). hledger holds one journal at a time,
@@ -1900,6 +1905,13 @@ one book's breakdown groups them — and, first, book by book (集計).
 - **The calendar is a book's, given the books' days added**
   (`ResultCalendar`, `mergedOf`): a day pressed goes to what each book
   made that day, there being no one list of several books' plays.
+- **By who played them** (打ち手別, `/consolidated/breakdown/sender`):
+  each sender's tallies over every book added, by the `sender-id` they
+  carry (`loadSenderBreakdown`), and named by the `sender` on their last
+  tally in any book (`loadConsolidatedSenderNames`), whatever the period.
+  A book's tallies that name no sender — its owner's own, and plays taken
+  in before senders were written — stand apart under the book's title:
+  six books' owners are six people, and no id says which is which.
 - **No sum of theoretical values where none of the books keeps any**
   (`consolidationKeepsTheoreticalValues`), as in one book that keeps none.
 - **A space of its own**: `/consolidated` lists its views, as a book's

@@ -45,6 +45,9 @@ export const inferredValueTerm = `^${escapeRegex(ACCOUNTS.inferredTheoreticalVal
 
 export const talliesTerm = `tag:${TALLY_TAGS.playId}`
 
+/** The tallies of plays someone sent: those that name their sender by id. */
+export const sentTalliesTerm = `tag:^${escapeRegex(TALLY_TAGS.senderId)}$`
+
 /** The tallies that say a spin performance: one their play's log measured, or one their play was inferred to have had. */
 export const spinPerformanceTerm = `tag:^(${escapeRegex(TALLY_TAGS.spinPerformance)}|${escapeRegex(TALLY_TAGS.inferredSpinPerformance)})$`
 

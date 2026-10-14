@@ -33,12 +33,26 @@ export interface TallyHead {
   readonly clock?: PlayClock
   /** The spins each ¥1,000 bought, to a tenth, as the log of a pachinko play followed live measured it (回転率). */
   readonly spinPerformance?: Decimal
+  /** Who played it, where it was sent to the book's owner by someone let in to send plays: absent from a play of the owner's own. */
+  readonly sender?: Sender
 }
 
-/** What is written beside a tally that its form does not ask: when its play began and finished, and the spin performance the play's log measured. */
+/** What is written beside a tally that its form does not ask: when its play began and finished, the spin performance the play's log measured, and who sent it. */
 export interface TallyAside {
   readonly clock: PlayClock | undefined
   readonly spinPerformance: Decimal | undefined
+  readonly sender: Sender | undefined
+}
+
+/**
+ * Someone a book's owner let in to send plays, as an entry keeps them: the
+ * invitation's id, which stays theirs whatever they are called, and the
+ * name the owner gave them as the play was recorded. A person invited
+ * again is another id; the name says who either was.
+ */
+export interface Sender {
+  readonly id: string
+  readonly name: string
 }
 
 /** A time on a clock's face, to the minute. */
@@ -142,6 +156,8 @@ export const TALLY_TAGS = {
   tokenRental: "token-rental",
   tokenExchange: "token-exchange",
   inferredSpinPerformance: "inferred-spin-performance",
+  senderId: "sender-id",
+  sender: "sender",
 } as const
 
 /** The parts of a tally a person fills in with a number. */

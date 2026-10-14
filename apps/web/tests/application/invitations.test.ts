@@ -17,7 +17,7 @@ import { readInvitation } from "../../src/core/sync/invitation"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
 import type { Relay } from "../../src/sync/port/relay"
 import { createWebCryptoSealer } from "../../src/sync/web-crypto/web-crypto-sealer"
-import { afterItFinished, isSentAsItStands, type PlayDraft } from "../../src/core/live-play/draft"
+import { afterItFinished, isSentAsItStands, senderOf, type PlayDraft } from "../../src/core/live-play/draft"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { fixtureBook, inProcessHledger, memoryDrafts, memoryStorage } from "../support/in-process"
 import { toPlainString } from "../../src/core/decimal/decimal"
@@ -228,14 +228,15 @@ describe("a person let in only to send plays", () => {
     expect(await receiveArrivals(mine.inbox)).toEqual({ taken: 0, unreadable: 0 })
   })
 
-  test("sends a play of their day with its history, which joins the owner's day under their name, in the book it was sent to", async () => {
-    const { mine, theirs, destination } = await both()
+  test("sends a play of their day with its history, which joins the owner's day under their name and their invitation's id, in the book it was sent to", async () => {
+    const { mine, theirs, kept, destination } = await both()
     const revised = await reviseCheckpoints(theirs.drafts, DRAFT, [{ spins: 0, outlay: 0 }, { spins: 250, outlay: 2000 }])
     const sent = await sendDraft(theirs.sending, revised.ok ? revised.value : DRAFT, destination)
     expect(sent.ok && isSentAsItStands(sent.value, destination.lineId)).toBe(true)
     expect(await receiveArrivals(mine.inbox)).toEqual({ taken: 1, unreadable: 0 })
     const [arrived] = await mineOf(mine)
     expect([arrived?.id, arrived?.bookId, arrived?.received?.sender, arrived?.log, arrived?.recorded, arrived?.sent]).toEqual([PLAY, BOOK, "けんじ", '{"spins":0,"outlay":0}\n{"spins":250,"outlay":2000}\n', undefined, undefined])
+    expect(arrived === undefined ? undefined : senderOf(arrived)).toEqual({ id: kept.id, name: "けんじ" })
     expect(arrived?.history).toEqual([{ at: "2026-10-09T02:00:00.000Z", removed: ['{"spins":250,"outlay":1000}'], added: ['{"spins":250,"outlay":2000}'] }])
     expect(arrived?.venue.type === "parlor" && arrived.venue.parlor.pools).toEqual([])
     expect(await receiveArrivals(mine.inbox)).toEqual({ taken: 0, unreadable: 0 })

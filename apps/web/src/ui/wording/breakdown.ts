@@ -2,6 +2,7 @@ import type { IsoDate } from "../../core/calendar/calendar"
 import { shownNameOf, type MachineNames } from "../../core/catalog/catalog"
 import { toPlainString, type Decimal } from "../../core/decimal/decimal"
 import { UNSAID, type Dimension } from "../../core/report/breakdown"
+import type { SenderNames } from "../../core/report/senders"
 import { formatTheoreticalYen } from "./numbers"
 
 /** What each way of grouping tallies is called, as the list of them offers it. */
@@ -22,8 +23,17 @@ const slashed = (day: IsoDate | undefined): string => (day === undefined ? "" : 
 /** What is said under the period where a grouping by month or year is asked about more days than were typed: which days it sums, so a whole month's figure is not taken for a part's. */
 export const widenedNote = (span: keyof typeof SPANS, from: IsoDate | undefined, to: IsoDate | undefined): string => `${SPANS[span]}を集計します（${slashed(from)}〜${slashed(to)}）。`
 
-/** What grouping several books' tallies book by book is called: the one grouping only a consolidation has. */
+/** What grouping several books' tallies book by book is called: a grouping only a consolidation has. */
 export const BY_BOOK = "帳簿別"
+
+/** What grouping several books' tallies by who played them is called: a grouping only a consolidation has. */
+export const BY_SENDER = "打ち手別"
+
+/** A sender as their group is called: by the name on their last tally. */
+export const senderName = (names: SenderNames, id: string): string => ((named) => (named === "" ? "--" : named))(names.get(id)?.name ?? "")
+
+/** What a book's tallies that name no sender are called, among senders: the plays of its owner, and any taken in before a sender was written. */
+export const unsentName = (bookTitle: string): string => `${bookTitle}（送信者なし）`
 
 const WEEKDAYS = ["月曜", "火曜", "水曜", "木曜", "金曜", "土曜", "日曜"] as const
 

@@ -1,17 +1,18 @@
 import type { BookId, ListedBook } from "../core/book/book"
 import type { Dimension, Group } from "../core/report/breakdown"
 import type { Holdings } from "../core/report/holdings"
+import { mergedSenderNames, type SenderNames } from "../core/report/senders"
 import { mergedSpinPerformances, type SpinPerformancesByMachine } from "../core/report/spin-performance"
 import { mapOk } from "../core/result/result"
 import type { BookSession } from "./book-session"
-import { loadBreakdown, loadSpinPerformances } from "./breakdown"
+import { loadBreakdown, loadSenderBreakdown, loadSenderNames, loadSpinPerformances } from "./breakdown"
 import type { Outcome } from "./errors"
 import { loadHoldings } from "./holdings"
 import { loadOverview } from "./overview"
 import { keepsTheoreticalValues } from "./theoretical"
 
-/** What several books' results are grouped by: what one book's are, or the books themselves. */
-export type ConsolidatedBy = Dimension | "book"
+/** What several books' results are grouped by: what one book's are, the books themselves, or who played them. */
+export type ConsolidatedBy = Dimension | "book" | "sender"
 
 /** One book among those consolidated: which, and what was asked of it — or why it could not be read. */
 export interface ConsolidatedBook<T> {
@@ -48,7 +49,10 @@ const whole = async (session: BookSession, book: ListedBook, query: string): Pro
 
 /** The results of the books chosen, for a period, grouped, book by book. */
 export const loadConsolidation = (session: BookSession, chosen: readonly BookId[] | undefined, by: ConsolidatedBy, query: string): Promise<Outcome<readonly ConsolidatedBook<readonly Group[]>[]>> =>
-  ofChosen(session, chosen, (book) => (by === "book" ? whole(session, book, query) : loadBreakdown(session, book.id, by, query)))
+  ofChosen(session, chosen, (book) => {
+    if (by === "book") return whole(session, book, query)
+    return by === "sender" ? loadSenderBreakdown(session, book.id, query) : loadBreakdown(session, book.id, by, query)
+  })
 
 /** The savings of the books chosen, as of the end of the query's period, book by book: each book's pools at its own rates. */
 export const loadConsolidatedHoldings = (session: BookSession, chosen: readonly BookId[] | undefined, query: string): Promise<Outcome<readonly ConsolidatedBook<Holdings>[]>> =>
@@ -66,3 +70,7 @@ export const consolidationKeepsTheoreticalValues = async (session: BookSession, 
 /** The spin performances of the books chosen, by machine, for a period: each book's, added. A book that could not be read adds nothing. */
 export const loadConsolidatedSpinPerformances = async (session: BookSession, chosen: readonly BookId[] | undefined, query: string): Promise<Outcome<SpinPerformancesByMachine>> =>
   mapOk(await ofChosen(session, chosen, (book) => loadSpinPerformances(session, book.id, query)), (books) => mergedSpinPerformances(books.flatMap((each) => (each.read.ok ? [each.read.value] : []))))
+
+/** Who sent the plays of the books chosen, each by the name on their last tally in any of them. A book that could not be read names no one. */
+export const loadConsolidatedSenderNames = async (session: BookSession, chosen: readonly BookId[] | undefined): Promise<Outcome<SenderNames>> =>
+  mapOk(await ofChosen(session, chosen, (book) => loadSenderNames(session, book.id)), (books) => mergedSenderNames(books.flatMap((each) => (each.read.ok ? [each.read.value] : []))))

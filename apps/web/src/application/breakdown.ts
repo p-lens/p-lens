@@ -5,10 +5,11 @@ import { TALLY_TAGS } from "../core/tally/tally"
 import { UNSAID, byColumn, byRow, byWeekday, groupsOf, inOrder, merged, type Dimension, type Group, type Period } from "../core/report/breakdown"
 import { negate } from "../core/decimal/decimal"
 import { actualOf, statisticTotalOf } from "../core/report/figures"
+import { senderNamesOf, type SenderNames } from "../core/report/senders"
 import { spinPerformancesOf, type SpinPerformancesByMachine } from "../core/report/spin-performance"
 import { andThen, mapOk } from "../core/result/result"
 import type { JournalAccess } from "../hledger/client/client"
-import { accountsRequest, actualCutRequest, spinPerformancesRequest, actualRequest, inferredCutRequest, inferredRequest, theoreticalCutRequest, theoreticalRequest } from "../hledger/query/requests"
+import { accountsRequest, actualCutRequest, sentTalliesRequest, spinPerformancesRequest, actualRequest, inferredCutRequest, inferredRequest, theoreticalCutRequest, theoreticalRequest } from "../hledger/query/requests"
 import { combine, untaggedTerm } from "../hledger/query/terms"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
@@ -108,3 +109,15 @@ export const loadBreakdown = (session: BookSession, bookId: BookId, dimension: D
  */
 export const loadSpinPerformances = (session: BookSession, bookId: BookId, query: string): Promise<Outcome<SpinPerformancesByMachine>> =>
   session.read(bookId, async (journal) => mapOk(fromHledger(await journal.ask(spinPerformancesRequest(query))), (page) => spinPerformancesOf(page.items)))
+
+/**
+ * A book's results for a period, by who played them: each sender by the id
+ * their tallies carry, and the tallies that name no one — the owner's own,
+ * and plays taken in before senders were written — as the unnamed group.
+ */
+export const loadSenderBreakdown = (session: BookSession, bookId: BookId, query: string): Promise<Outcome<readonly Group[]>> =>
+  session.read(bookId, (journal) => byTags(journal, query, [TALLY_TAGS.senderId]))
+
+/** Who sent a book's plays, each by the name on their last tally, whatever the period: the name a person goes by now. */
+export const loadSenderNames = (session: BookSession, bookId: BookId): Promise<Outcome<SenderNames>> =>
+  session.read(bookId, async (journal) => mapOk(fromHledger(await journal.ask(sentTalliesRequest)), (page) => senderNamesOf(page.items)))

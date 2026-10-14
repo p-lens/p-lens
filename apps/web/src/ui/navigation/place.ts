@@ -6,7 +6,7 @@ import type { PlayGameKind, PlayId } from "../../core/play/play"
 import type { ConsolidatedBy } from "../../application/consolidation"
 import { isDimension, type Dimension } from "../../core/report/breakdown"
 
-const isConsolidatedBy = (text: string): text is ConsolidatedBy => text === "book" || isDimension(text)
+const isConsolidatedBy = (text: string): text is ConsolidatedBy => text === "book" || text === "sender" || isDimension(text)
 
 /** The screens a book has, each at its own address under the book. */
 const BOOK_VIEWS = ["tallies", "holdings", "result-calendar", "activity", "files"] as const

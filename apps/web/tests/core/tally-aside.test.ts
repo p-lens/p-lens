@@ -19,6 +19,14 @@ describe("what is written beside a tally", () => {
     expect(asideTags({ ...RENTED_PLAY, clock: { started: undefined, finished: { hour: 0, minute: 30 } } })).toEqual([["finished", "00:30"]])
   })
 
+  test("is who sent its play, by their invitation's id and the name they were given, with nothing that would end a tag", () => {
+    const play = { ...RENTED_PLAY, sender: { id: "grant-1", name: "けんじ, 2号" } }
+    expect(asideTags(play)).toEqual([["sender-id", "grant-1"], ["sender", "けんじ， 2号"]])
+    const tags: Readonly<Record<string, string>> = { "sender-id": "grant-1", sender: "けんじ" }
+    expect(asideOf((name) => tags[name]).sender).toEqual({ id: "grant-1", name: "けんじ" })
+    expect(asideOf((name) => (name === "sender" ? "けんじ" : undefined)).sender).toBeUndefined()
+  })
+
   test("is read back from tags, a time that is no time read as none", () => {
     const tags: Readonly<Record<string, string>> = { started: "9:05", finished: "25:00", "spin-performance": "17.5" }
     const read = asideOf((name) => tags[name])

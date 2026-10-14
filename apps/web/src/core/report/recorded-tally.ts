@@ -150,6 +150,8 @@ const TAG_READS: Readonly<Record<string, (text: string) => boolean>> = {
   [TALLY_TAGS.tokenRental]: isAmount,
   [TALLY_TAGS.tokenExchange]: isAmount,
   [TALLY_TAGS.inferredSpinPerformance]: isAmount,
+  [TALLY_TAGS.senderId]: isSaid,
+  [TALLY_TAGS.sender]: () => true,
   [PARLOR_ID_TAG]: isSaid,
   [PARLOR_SUBMISSION_TAG]: isSaid,
 }
