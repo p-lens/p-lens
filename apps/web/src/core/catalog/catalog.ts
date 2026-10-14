@@ -1,8 +1,12 @@
+import type { ProbabilityDto } from "@p-lens/contracts/pachinko"
+
 import type { IsoDate } from "../calendar/calendar"
 import type * as Pachinko from "../pachinko"
 import type { MachineId } from "../machine/machine"
 import type { FormulaListing } from "../formula/standing"
+import { writableText } from "../journal/entry"
 import type * as Pachislot from "../pachislot"
+import type { PlayGameKind } from "../play/play"
 
 /**
  * The shared catalog as the screens take it: one catalog for both games, a
@@ -13,6 +17,9 @@ import type * as Pachislot from "../pachislot"
 /** Which game a machine is: a component of the machine, deciding the shape of all hung on it. */
 export type GameKind = "pachinko" | "pachislot"
 
+/** The catalog's game a play's is: a book says `slot` for pachislot, it being data already written. */
+export const CATALOG_GAMES: Readonly<Record<PlayGameKind, GameKind>> = { pachinko: "pachinko", slot: "pachislot" }
+
 /** One of a pachinko machine's bonuses, as a formula of it states them. */
 export type MachineBonus = Pachinko.Bonus
 
@@ -20,7 +27,10 @@ export type MachineBonus = Pachinko.Bonus
  * A machine as a search finds it: the name it goes by in a parlor, the
  * model name it was approved under where that is known, the other words it
  * is searched by, and a pachinko machine's 大当り確率 as its spec sheet
- * writes it.
+ * writes it — and, apart from it, the one each of its formulas' bases says,
+ * each once and the likeliest first: a machine whose versions differ in it
+ * has no one chance of its own, and is told by these. A formula typed in by
+ * hand says none, and a pachislot machine has none.
  */
 export interface MachineSummary {
   readonly id: MachineId
@@ -29,6 +39,7 @@ export interface MachineSummary {
   readonly modelName: string | undefined
   readonly keywords: readonly string[]
   readonly hitChance: string | undefined
+  readonly formulaHitChances: readonly ProbabilityDto[]
   readonly releasedOn: IsoDate
   readonly formulaCount: number
 }
@@ -38,15 +49,17 @@ export interface MachineSummary {
  * it has that is nobody's choice of words and that a serious player would
  * know it by — or, for a machine registered before one was asked of every
  * machine, the name the halls call it. The halls' name is what a machine
- * is found and chosen by; this is what is kept of the choice.
+ * is found and chosen by; this is what is kept of the choice. It is
+ * written as a book can hold it, `P STEINS;GATE0` as `P STEINS；GATE0`,
+ * so a name is the same wherever it is matched against a book.
  */
-export const bookNameOf = (machine: Pick<MachineSummary, "name" | "modelName">): string => machine.modelName ?? machine.name
+export const bookNameOf = (machine: Pick<MachineSummary, "name" | "modelName">): string => writableText(machine.modelName ?? machine.name)
 
 /**
  * The catalog's machines by the name each goes into a book under: what a
  * screen needs to say a book's machine the way the halls do. A book keeps
  * the model name and nothing else does — every screen shows the halls'
- * name, and only a play's own details say the model name beside it.
+ * name, and only a tally's own details say the model name beside it.
  */
 export type MachineNames = ReadonlyMap<string, Pick<MachineSummary, "name" | "modelName">>
 

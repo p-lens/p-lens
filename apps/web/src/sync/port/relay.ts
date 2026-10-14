@@ -27,6 +27,7 @@ export type RelayFailure =
   | { readonly type: "shut-out" }
   | { readonly type: "not-permitted" }
   | { readonly type: "refused"; readonly status: number; readonly reason: string }
+  | { readonly type: "unreadable-answer" }
 
 /**
  * A relay: where sealed commits wait for a book's other devices. The local

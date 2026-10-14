@@ -1,6 +1,6 @@
 /**
  * The result calendar (収支カレンダー): a month of a book, each day with what
- * its plays made. It is a guest in this app, kept whole in this folder so
+ * its tallies made. It is a guest in this app, kept whole in this folder so
  * that it can be taken out again in one go. Nothing here is imported by
  * anything but the lines that put it on screen — a book's:
  *

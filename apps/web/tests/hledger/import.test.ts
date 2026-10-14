@@ -4,8 +4,8 @@ import { loadActivity } from "../../src/application/activity"
 import { createBookSession } from "../../src/application/book-session"
 import { importPrecord, previewPrecord, type ImportPorts } from "../../src/application/import"
 import { loadOverview } from "../../src/application/overview"
-import { loadPlays } from "../../src/application/plays"
-import { loadRecordedPlay } from "../../src/application/revise-play"
+import { loadTallies } from "../../src/application/tallies"
+import { loadRecordedTally } from "../../src/application/revise-tally"
 import type { BookId } from "../../src/core/book/book"
 import { toPlainString } from "../../src/core/decimal/decimal"
 import { Ok } from "../../src/core/result/result"
@@ -33,21 +33,21 @@ const setUp = async () => {
 }
 
 describe("a pRecord file taken into a book", () => {
-  test("adds its plays, which hledger reads, to the results of their own days and to nothing else", async () => {
+  test("adds its tallies, which hledger reads, to the results of their own days and to nothing else", async () => {
     const { session, ports } = await setUp()
     expect(await importPrecord(ports, BOOK, FILE, new Map(), undefined)).toEqual({ ok: true, value: { written: 2, inferred: 0, unread: 0, alreadyHere: 0 } })
     const month = await loadOverview(session, BOOK, "date:2019-01")
     expect(month.ok && [toPlainString(month.value.actual), toPlainString(month.value.savings)]).toEqual(["-2000", "68808"])
     const before = await loadOverview(session, BOOK, "date:2026-09")
     expect(before.ok && toPlainString(before.value.actual)).toBe("41142")
-    const plays = await loadPlays(session, BOOK, "date:2019", 0)
-    expect(plays.ok && plays.value.plays.map((play) => [play.date, play.description, play.gameKind, play.machine, play.cabinetNumber])).toEqual([
+    const tallies = await loadTallies(session, BOOK, "date:2019", 0)
+    expect(tallies.ok && tallies.value.tallies.map((tally) => [tally.date, tally.description, tally.gameKind, tally.machine, tally.cabinetNumber])).toEqual([
       ["2019-01-05", "駅前ホール | ピエロット 45番台", "slot", "ピエロット", "45"],
       ["2019-01-02", "駅前ホール | 昔の台 123番台", undefined, undefined, "123"],
     ] as never)
   })
 
-  test("weighs its pachinko plays of a catalogued machine — its name told from another writing of it by its spaces alone — that say their hours and took cash, where asked, and keeps what each was taken to be worth apart", async () => {
+  test("weighs its pachinko tallies of a catalogued machine — its name told from another writing of it by its spaces alone — that say their hours and took cash, where asked, and keeps what each was taken to be worth apart", async () => {
     const { session, ports } = await setUp()
     const file = [
       "日付,店舗コード,店舗,メーカー,機種コード,機種,台番号,投資額,回収額,収支,メモ,稼働時間,時給,貯玉",
@@ -75,8 +75,8 @@ describe("a pRecord file taken into a book", () => {
     expect(taken).toEqual({ ok: true, value: { written: 4, inferred: 1, unread: 0, alreadyHere: 0 } })
     expect(progress).toEqual([[0, 1], [1, 1]])
     expect(asked.map((each) => [each.trials, each.hours])).toEqual([[200_000, 1.5]])
-    const plays = await loadPlays(session, BOOK, "date:2019-02", 0)
-    expect(plays.ok && plays.value.plays.map((play) => [play.date, play.inferredValue === undefined ? undefined : toPlainString(play.inferredValue)])).toEqual([
+    const tallies = await loadTallies(session, BOOK, "date:2019-02", 0)
+    expect(tallies.ok && tallies.value.tallies.map((tally) => [tally.date, tally.inferredValue === undefined ? undefined : toPlainString(tally.inferredValue)])).toEqual([
       ["2019-02-04", undefined],
       ["2019-02-03", undefined],
       ["2019-02-02", undefined],
@@ -89,7 +89,7 @@ describe("a pRecord file taken into a book", () => {
     expect(asked.length).toBe(1)
   })
 
-  test("is looked at before it is taken in: the plays that say their hours, and the machines' names the catalog does not know", async () => {
+  test("is looked at before it is taken in: the tallies that say their hours, and the machines' names the catalog does not know", async () => {
     const file = [
       "日付,店舗,機種,投資額,回収額,稼働時間",
       "2019/03/01,駅前ホール,森 物語,1000,0,1.5",
@@ -101,17 +101,17 @@ describe("a pRecord file taken into a book", () => {
     ].join("\r\n")
     const catalog = { search: async (_query: string, gameKind: "pachinko" | "pachislot") => Ok(gameKind === "pachinko" ? [{ id: "forest", gameKind, name: "森物語", keywords: ["もりものがたり"] }] : [{ id: "clown", gameKind, name: "ピエロット", keywords: [] }]) }
     const preview = await previewPrecord({ catalog: catalog as never }, file)
-    expect(preview.ok && [preview.value.told, preview.value.unnamed, preview.value.machines.map((machine) => machine.id)]).toEqual([2, [{ name: "知らない台", plays: 2 }], ["forest", "clown"]] as never)
+    expect(preview.ok && [preview.value.told, preview.value.unnamed, preview.value.machines.map((machine) => machine.id)]).toEqual([2, [{ name: "知らない台", tallies: 2 }], ["forest", "clown"]] as never)
     expect(await previewPrecord({ catalog: catalog as never }, "日付,店舗\n2019/01/02,店\n")).toEqual({ ok: false, error: { type: "import", problem: { type: "not-precord", missing: ["投資額", "回収額"] } } })
   })
 
-  test("ties a play to the machine a person said its name is, and to one that goes by it as a search word", async () => {
+  test("ties a tally to the machine a person said its name is, and to one that goes by it as a search word", async () => {
     const { session, ports } = await setUp()
     const file = ["日付,店舗,機種,投資額,回収額", "2019/03/02,駅前ホール,もりものがたり,1000,0", "2019/03/03,駅前ホール,知らない台,1000,0", "2019/03/04,駅前ホール,別の知らない台,1000,0", ""].join("\r\n")
     const catalog = { search: async (_query: string, gameKind: "pachinko" | "pachislot") => Ok(gameKind === "pachinko" ? [{ id: "forest", gameKind, name: "森物語", keywords: ["もりものがたり"] }] : [{ id: "clown", gameKind, name: "ピエロット", keywords: [] }]) }
     expect((await importPrecord({ ...ports, catalog: catalog as never }, BOOK, file, new Map([["知らない台", "clown"]]), undefined)).ok).toBe(true)
-    const plays = await loadPlays(session, BOOK, "date:2019-03", 0)
-    expect(plays.ok && plays.value.plays.map((play) => [play.date, play.gameKind, play.machine])).toEqual([
+    const tallies = await loadTallies(session, BOOK, "date:2019-03", 0)
+    expect(tallies.ok && tallies.value.tallies.map((tally) => [tally.date, tally.gameKind, tally.machine])).toEqual([
       ["2019-03-04", undefined, undefined],
       ["2019-03-03", "slot", "ピエロット"],
       ["2019-03-02", "pachinko", "森物語"],
@@ -134,15 +134,15 @@ describe("a pRecord file taken into a book", () => {
   test("is not set right in a form, which holds neither its two sides nor the source's names", async () => {
     const { session, ports } = await setUp()
     await importPrecord(ports, BOOK, FILE, new Map(), undefined)
-    const plays = await loadPlays(session, BOOK, "date:2019-01-05", 0)
-    const id = plays.ok ? plays.value.plays[0]?.id : undefined
-    expect(await loadRecordedPlay(session, BOOK, ME, id as never)).toEqual({ ok: false, error: { type: "play-unreadable" } })
+    const tallies = await loadTallies(session, BOOK, "date:2019-01-05", 0)
+    const id = tallies.ok ? tallies.value.tallies[0]?.id : undefined
+    expect(await loadRecordedTally(session, BOOK, ME, id as never)).toEqual({ ok: false, error: { type: "tally-unreadable" } })
   })
 
   test("takes nothing in from a file with a row that does not read", async () => {
     const { session, ports } = await setUp()
     expect(await importPrecord(ports, BOOK, `${FILE}いつか,,,,,,,1,1,0,,,,\r\n`, new Map(), undefined)).toEqual({ ok: false, error: { type: "import", problem: { type: "rows-unreadable", rows: [{ line: 4, fields: ["date"] }] } } })
-    const plays = await loadPlays(session, BOOK, "date:2019", 0)
-    expect(plays.ok && plays.value.total).toBe(0)
+    const tallies = await loadTallies(session, BOOK, "date:2019", 0)
+    expect(tallies.ok && tallies.value.total).toBe(0)
   })
 })

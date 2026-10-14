@@ -1,10 +1,10 @@
 import type { IsoDate } from "../../core/calendar/calendar"
 import { shownNameOf, type MachineNames } from "../../core/catalog/catalog"
-import type { Decimal } from "../../core/decimal/decimal"
+import { toPlainString, type Decimal } from "../../core/decimal/decimal"
 import { UNSAID, type Dimension } from "../../core/report/breakdown"
 import { formatTheoreticalYen } from "./numbers"
 
-/** What each way of grouping plays is called, as the list of them offers it. */
+/** What each way of grouping tallies is called, as the list of them offers it. */
 export const DIMENSION_NAMES: Readonly<Record<Dimension, string>> = {
   machine: "機種別",
   parlor: "店舗別",
@@ -22,7 +22,7 @@ const slashed = (day: IsoDate | undefined): string => (day === undefined ? "" : 
 /** What is said under the period where a grouping by month or year is asked about more days than were typed: which days it sums, so a whole month's figure is not taken for a part's. */
 export const widenedNote = (span: keyof typeof SPANS, from: IsoDate | undefined, to: IsoDate | undefined): string => `${SPANS[span]}を集計します（${slashed(from)}〜${slashed(to)}）。`
 
-/** What grouping several books' plays book by book is called: the one grouping only a consolidation has. */
+/** What grouping several books' tallies book by book is called: the one grouping only a consolidation has. */
 export const BY_BOOK = "帳簿別"
 
 const WEEKDAYS = ["月曜", "火曜", "水曜", "木曜", "金曜", "土曜", "日曜"] as const
@@ -32,16 +32,24 @@ const GAMES: Readonly<Record<string, string>> = { pachinko: "パチンコ", slot
 /** What is said beside a sum of theoretical values where part of it was inferred: how much of it is not measurement. */
 export const inferredShareText = (inferred: Decimal): string => `うち推定 ${formatTheoreticalYen(inferred)}`
 
+/** What a machine's tallies' spin performances are called, averaged: those their plays' logs measured, and those tallies typed in by hand were inferred to have had. */
+export const SPIN_AVERAGE = "平均回転率"
+
+export const INFERRED_SPIN_AVERAGE = "平均推定回転率"
+
+/** A spin performance as the live screen shows one, to a tenth. */
+export const spinAverageText = (average: Decimal): string => Number(toPlainString(average)).toFixed(1)
+
 /** What 評価損益 is called on screen. */
 export const REVALUATION = "評価損益"
 
-/** What is said under 評価損益: what moved, and that no play's result holds it. */
+/** What is said under 評価損益: what moved, and that no tally's result holds it. */
 export const REVALUATION_NOTE = "交換率が変わって、持っていた貯玉・貯メダルの価値が動いた分です。実収支には入っていません。"
 
 /** What stands for a sum of theoretical values in a book that has none written in it: there is nothing to sum, which nought would not say. */
 export const NOT_TALLIED = "集計なし"
 
-/** What plays that do not say what a dimension asks are called: a play with no machine named, an entry with no game. */
+/** What tallies that do not say what a dimension asks are called: a tally with no machine named, an entry with no game. */
 const UNSAID_NAMES: Readonly<Record<Dimension, string>> = {
   machine: "機種の指定なし",
   parlor: "店舗の指定なし",

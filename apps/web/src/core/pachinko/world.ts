@@ -30,6 +30,12 @@ export interface RegularView {
 /** The entity that is the regular game, by its `regularGame` component. */
 const regularEntity = (spec: SpecDto): string | undefined => Object.keys(spec.components.regularGame ?? {}).at(0)
 
+/** The regular game's 大当り確率 as the spec sheet writes it, where the world has a regular game. */
+export const regularChanceOf = (spec: SpecDto): ProbabilityDto | undefined => {
+  const entity = regularEntity(spec)
+  return entity === undefined ? undefined : spec.components.regularGame?.[entity]?.chance
+}
+
 /**
  * The regular game, if the world has one with its allotment. Whether the world
  * is well made is the engine's to say; this only reads what is there.

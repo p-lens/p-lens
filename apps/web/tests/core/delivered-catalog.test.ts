@@ -1,6 +1,7 @@
 import type { MachineDetailDto, StandingDto } from "@p-lens/contracts"
 import type * as PachislotContract from "@p-lens/contracts/pachislot"
 import type * as PachinkoContract from "@p-lens/contracts/pachinko"
+import type { ProbabilityDto } from "@p-lens/contracts/pachinko"
 import { describe, expect, test } from "bun:test"
 
 import { entryOf, locate, machineNamed, markable, searchDelivered } from "../../src/core/catalog/delivered"
@@ -51,6 +52,32 @@ describe("the delivered catalog", () => {
   test("is searched by a machine's name, its model name and the words it is searched by", () => {
     for (const query of ["森物語", "すーぱー", "ｽｰﾊﾟｰ", "もり", "pa森", "3r2"]) expect([query, searchDelivered(DELIVERED, query, "pachinko").map((machine) => machine.id)]).toEqual([query, ["mori"]] as never)
     expect(searchDelivered(DELIVERED, "流星", "pachinko")).toEqual([])
+  })
+
+  test("gives the 大当り確率 its formulas' bases say, each once and the likeliest first, none from one typed in by hand", () => {
+    const based = (id: string, denominatorHundredths: number): PachinkoContract.FormulaDto => ({
+      ...formula(id, "wanwan", "simulated"),
+      basis: { spec: { v: 1, entities: ["regular"], components: { regularGame: { regular: { chance: { type: "ratio", numerator: 1, denominatorHundredths } } } } } } as never,
+    })
+    const wanwan: MachineDetailDto = {
+      machine: { id: "wanwan", gameKind: "pachinko", name: "わんわん", keywords: [], releasedOn: "2026-10-05", formulaCount: 4 },
+      formulas: [based("seventy-seven", 7774), formula("typed", "wanwan", "manual"), based("forty-nine", 4991), based("again", 7774)],
+    }
+    expect(searchDelivered([wanwan], "", "pachinko")[0]).toMatchObject({ hitChance: undefined, formulaHitChances: [{ type: "ratio", numerator: 1, denominatorHundredths: 4991 }, { type: "ratio", numerator: 1, denominatorHundredths: 7774 }] })
+    expect(searchDelivered(DELIVERED, "", "pachislot")[0]?.formulaHitChances).toEqual([])
+  })
+
+  test("tells chances whose one-in lies within two of each other as one, the chance of the formula ranked first among them, and keeps those further apart", () => {
+    const based = (id: string, denominatorHundredths: number): PachinkoContract.FormulaDto => ({
+      ...formula(id, "wanwan", "simulated"),
+      basis: { spec: { v: 1, entities: ["regular"], components: { regularGame: { regular: { chance: { type: "ratio", numerator: 1, denominatorHundredths } } } } } } as never,
+    })
+    const ratio = (denominatorHundredths: number): ProbabilityDto => ({ type: "ratio", numerator: 1, denominatorHundredths })
+    const machine = (formulas: readonly PachinkoContract.FormulaDto[]): MachineDetailDto => ({ machine: { id: "wanwan", gameKind: "pachinko", name: "わんわん", keywords: [], releasedOn: "2026-10-05", formulaCount: formulas.length }, formulas })
+    expect(searchDelivered([machine([based("a", 31967), based("b", 31999)])], "", "pachinko")[0]?.formulaHitChances).toEqual([ratio(31967)])
+    const adopted = { ...based("b", 31999), standing: { ...based("b", 31999).standing, adoptions: 9 } }
+    expect(searchDelivered([machine([based("a", 31967), adopted])], "", "pachinko")[0]?.formulaHitChances).toEqual([ratio(31999)])
+    expect(searchDelivered([machine([based("a", 99900), based("b", 39900)])], "", "pachinko")[0]?.formulaHitChances).toEqual([ratio(39900), ratio(99900)])
   })
 
   test("gives a machine as it is described, and one delivered before machines had keywords with none", () => {

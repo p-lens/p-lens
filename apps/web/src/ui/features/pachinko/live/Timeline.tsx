@@ -23,9 +23,9 @@ interface Step {
   readonly supported: number
 }
 
-const isEnd = (checkpoint: Checkpoint): boolean => checkpoint.event?.kind === "ended"
+const isFinish = (checkpoint: Checkpoint): boolean => checkpoint.event?.kind === "finished"
 
-const isReading = (checkpoint: Checkpoint, line: number): boolean => line > 0 && !isEnd(checkpoint) && !(checkpoint.event?.kind === "jackpot" && checkpoint.event.approximate === true)
+const isReading = (checkpoint: Checkpoint, line: number): boolean => line > 0 && !isFinish(checkpoint) && !(checkpoint.event?.kind === "jackpot" && checkpoint.event.approximate === true)
 
 const stepsOf = (ordered: readonly Checkpoint[]): readonly Step[] =>
   ordered.reduce<{ readonly steps: readonly Step[]; readonly outlay: number; readonly replay: number; readonly support: number; readonly readings: number }>(
@@ -61,8 +61,8 @@ const ballsText = (step: Step): string =>
 
 const ROW = "flex w-full flex-col gap-0.5 rounded px-2 py-1.5 text-left"
 
-/** What the line that ends a recorded play is called, where a reading says the state the cabinet was in. */
-const END_NAME = "終了"
+/** What the line that finishes a recorded play is called, where a reading says the state the cabinet was in. */
+const FINISH_NAME = "終了"
 
 function Line(props: { readonly step: Step }): JSX.Element {
   const checkpoint = (): Checkpoint => props.step.checkpoint
@@ -70,8 +70,8 @@ function Line(props: { readonly step: Step }): JSX.Element {
     <>
       <div class="flex items-baseline gap-2">
         <time class="w-10 shrink-0 text-xs tabular-nums text-text-muted">{checkpoint().at === undefined ? "--:--" : formatMoment(checkpoint().at ?? "").slice(-5)}</time>
-        <span class="w-8 shrink-0 text-xs text-text-secondary">{isEnd(checkpoint()) ? END_NAME : PHASE_NAMES[checkpoint().phase ?? "regular"]}</span>
-        <Show when={!isEnd(checkpoint()) || checkpoint().counter?.spins !== undefined}>
+        <span class="w-8 shrink-0 text-xs text-text-secondary">{isFinish(checkpoint()) ? FINISH_NAME : PHASE_NAMES[checkpoint().phase ?? "regular"]}</span>
+        <Show when={!isFinish(checkpoint()) || checkpoint().counter?.spins !== undefined}>
           <span class="shrink-0 tabular-nums text-text-primary">{checkpoint().counter?.spins === undefined ? "--" : formatCount(checkpoint().counter?.spins ?? 0)} 回転</span>
         </Show>
         <Show when={jackpotText(checkpoint())} keyed>
@@ -132,7 +132,7 @@ function Row(props: { readonly step: Step; readonly pressed: Revised | undefined
  * did to the balls. Pressing a reading, or the seat as it was found, takes
  * it up to be set right — in a play in progress. A recorded play's log is
  * only read: given no way to revise, no line is pressed, and the line that
- * ended the play is shown as its last.
+ * finished the play is shown as its last.
  *
  * Given a way to merge, a reading held and dragged from marks a run of
  * readings, as far as they may be made one (`mergeableSpan`), and letting

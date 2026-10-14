@@ -31,7 +31,7 @@ export function PeriodPicker(props: {
   readonly onTyped: (query: string) => void
   /** A range pressed by name: a step of its own, which back undoes. */
   readonly onPressed: (query: string) => void
-  /** How the plays are grouped, where they are: by month or by year, the days summed are whole months or years, and are said where they are more than the days typed. */
+  /** How the tallies are grouped, where they are: by month or by year, the days summed are whole months or years, and are said where they are more than the days typed. */
   readonly by?: string | undefined
 }): JSX.Element {
   const range = (): DateRange | undefined => rangeOf(props.query)

@@ -1,7 +1,7 @@
 import { createMemo, createResource, createSignal, Show, type JSX } from "solid-js"
 
 import type { ApplicationError } from "../../../application/errors"
-import type { RecordingContext } from "../../../application/record-play"
+import type { RecordingContext } from "../../../application/record-tally"
 import { adjustBalance, exchangeRateOn, recordForfeiture, recordPrizeExchange, registerOpeningBalance } from "../../../application/savings"
 import type { BookId } from "../../../core/book/book"
 import { parseIsoDate } from "../../../core/calendar/calendar"
@@ -23,7 +23,7 @@ import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
 import { describeError } from "../../wording/errors"
 import { formatRate, formatYen } from "../../wording/numbers"
 import { typedParlorRefused } from "../../wording/parlor"
-import { offersByKey, parlorOffers } from "../record-play/parlor-offers"
+import { offersByKey, parlorOffers } from "../record-tally/parlor-offers"
 
 /** Where a form's saving is: being typed, being written, or failed. */
 type Saving = { readonly type: "typing" } | { readonly type: "saving" } | { readonly type: "failed"; readonly error: ApplicationError }
@@ -357,7 +357,7 @@ export function PrizeExchangeForm(props: {
  * and how many tokens went — all the pool holds, until the person says
  * fewer, a membership withdrawn or savings lapsed taking the lot. The
  * line under the fields says what it is to the book: a loss in the
- * results of its day, and no play's.
+ * results of its day, and no tally's.
  */
 export function ForfeitureForm(props: {
   readonly bookId: BookId

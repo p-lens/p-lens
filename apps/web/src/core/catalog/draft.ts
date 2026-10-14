@@ -23,7 +23,10 @@ export interface FormulaDraft {
   readonly formula: NewFormula
 }
 
-/** The shape a draft is written in; one written in another is not read back. */
+/** What a game's kept draft comes to: none written, one that reads, or one written that does not read. */
+export type KeptFormulaDraft = { readonly type: "none" } | { readonly type: "kept"; readonly draft: FormulaDraft } | { readonly type: "unreadable" }
+
+/** The shape a draft is written in; one written in another does not read. */
 const DRAFT_VERSION = 1
 
 export const writtenDraft = (draft: FormulaDraft): string => JSON.stringify({ v: DRAFT_VERSION, ...draft })
@@ -38,16 +41,24 @@ const parsed = (written: string): unknown => {
   }
 }
 
+const MACHINE_FIELDS = ["name", "modelName", "keywords", "hitChance", "releasedOn"] as const
+
+const isTarget = (value: unknown): value is DraftTarget =>
+  isRecord(value) &&
+  ((value["type"] === "catalog" && typeof value["machineId"] === "string" && typeof value["name"] === "string") ||
+    (value["type"] === "new" && isRecord(value["machine"]) && MACHINE_FIELDS.every((field) => typeof (value["machine"] as Readonly<Record<string, unknown>>)[field] === "string")))
+
 /**
- * A game's draft read back, or none: nothing written, written in another
- * shape, or another game's. The formula's basis is not checked here — the
- * engine refuses one it cannot read when the form is filled from it.
+ * A game's draft read back: none where nothing is written, and one that
+ * does not read where what is written is in another shape, another game's,
+ * or for no machine it can name. The formula's basis is not checked here —
+ * the engine refuses one it cannot read when the form is filled from it.
  */
-export const readDraft = (written: string | undefined, gameKind: GameKind): FormulaDraft | undefined => {
-  const read = written === undefined ? undefined : parsed(written)
-  if (!isRecord(read) || read["v"] !== DRAFT_VERSION) return undefined
+export const readDraft = (written: string | undefined, gameKind: GameKind): KeptFormulaDraft => {
+  if (written === undefined) return { type: "none" }
+  const read = parsed(written)
+  if (!isRecord(read) || read["v"] !== DRAFT_VERSION) return { type: "unreadable" }
   const { target, formula } = read
-  if (!isRecord(target) || (target["type"] !== "catalog" && target["type"] !== "new")) return undefined
-  if (!isRecord(formula) || formula["gameKind"] !== gameKind || !isRecord(formula["formula"])) return undefined
-  return { target, formula } as unknown as FormulaDraft
+  if (!isTarget(target) || !isRecord(formula) || formula["gameKind"] !== gameKind || !isRecord(formula["formula"])) return { type: "unreadable" }
+  return { type: "kept", draft: { target, formula } as unknown as FormulaDraft }
 }

@@ -13,14 +13,14 @@ import {
   countedGamesOf,
   isCounting,
   startCountingCheckpoint,
-  tallyNowOf,
+  countsNowOf,
   totalNowOf,
   type CounterRefusal,
 } from "../../../../core/pachislot/reading"
 import { withStepsMerged, type Span } from "../../../../core/pachislot/merging"
 import { stepsOf } from "../../../../core/pachislot/revision"
 import { counterBonusesOf, counterBonusOf, countablesOf, type Countable, type Weighing } from "../../../../core/pachislot/weighing"
-import { parsePlayLog, type Checkpoint, type PlayLogError, type Tally } from "../../../../core/play-log/checkpoint"
+import { parsePlayLog, type Checkpoint, type PlayLogError, type Counts } from "../../../../core/play-log/checkpoint"
 import { liveSummary } from "../../../../core/play-log/live"
 import { inPlayOrder } from "../../../../core/play-log/performance"
 import { Err, Ok, type Result } from "../../../../core/result/result"
@@ -73,7 +73,7 @@ function Tile(props: { readonly label: string; readonly value: string; readonly 
 }
 
 /** Where the play stands by its log: the games played and the day's, the outlay, and each bonus of the day with how often it has come. */
-function PlayFigures(props: { readonly ordered: readonly Checkpoint[]; readonly bonuses: readonly Countable[]; readonly day: { readonly games: number; readonly bonuses: Tally } | undefined }): JSX.Element {
+function PlayFigures(props: { readonly ordered: readonly Checkpoint[]; readonly bonuses: readonly Countable[]; readonly day: { readonly games: number; readonly bonuses: Counts } | undefined }): JSX.Element {
   const outlay = (): number | undefined => props.ordered.findLast((checkpoint) => checkpoint.outlay !== undefined)?.outlay
   const dayGames = (): number => props.day?.games ?? totalNowOf(props.ordered)
   return (
@@ -272,7 +272,7 @@ function Counting(props: { readonly weighing: Weighing; readonly ordered: readon
         </div>
         <RoleCounter
           countables={countablesOf(props.weighing.formula)}
-          counts={tallyNowOf(props.ordered)}
+          counts={countsNowOf(props.ordered)}
           games={countedGamesOf(props.ordered)}
           direction={direction()}
           onCount={count}
@@ -333,7 +333,6 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
     if (local === undefined || local.draft.id !== props.draft.id) return props.draft
     return local.draft.log.length > props.draft.log.length || local.over === props.draft.log ? local.draft : props.draft
   }
-  const [undoFailure, setUndoFailure] = createSignal<ApplicationError | undefined>(undefined)
   const ordered = createMemo(() => orderedOf(current()))
   const checkpoints = (): readonly Checkpoint[] | undefined => {
     const found = ordered()
@@ -359,16 +358,6 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
     setMine({ draft: kept.value, over: props.draft.log })
     app.wrote()
     return { type: "written" }
-  }
-  /** Takes the log's last line away: a reading, a tap or a result kept by mistake. The seat as it was found is never taken. */
-  const undoNow = async (): Promise<void> => {
-    const base = current()
-    const now = orderedOf(base)
-    if (!now.ok || now.value.length <= 1) return
-    const kept = await reviseCheckpoints(app.services.drafts, base, now.value.slice(0, -1))
-    setUndoFailure(kept.ok ? undefined : kept.error)
-    setMine(kept.ok ? { draft: kept.value, over: props.draft.log } : undefined)
-    if (kept.ok) app.wrote()
   }
   const held: { chain: Promise<unknown> } = { chain: Promise.resolve() }
   const inTurn =
@@ -414,10 +403,6 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
     }
     setRevising(undefined)
     toast({ title: MERGED, action: { label: UNMERGE, onPress: () => void unmerge(done) } })
-  }
-  const undo = (): void => {
-    setRevising(undefined)
-    held.chain = held.chain.then(undoNow)
   }
   const weighing = (): Weighing | undefined => props.draft.pachislot
   const shownAs = () => {
@@ -486,20 +471,6 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
                     )}
                   </Show>
                   <Timeline checkpoints={found()} bonuses={bonuses()} revising={revising()?.index} onRevise={(index) => setRevising({ index })} onMerge={merge} />
-                  <Show when={found().length > 1}>
-                    <div class="flex flex-col items-start gap-2">
-                      <Button variant="ghost" size="small" onClick={undo}>
-                        最後の記録を取り消す
-                      </Button>
-                      <Show when={undoFailure()} keyed>
-                        {(error) => (
-                          <p role="alert" class="text-xs text-negative">
-                            {describeError(error)}
-                          </p>
-                        )}
-                      </Show>
-                    </div>
-                  </Show>
                 </div>
                 <div class="sticky bottom-0">
                   <Show when={revising()} keyed fallback={composers()}>

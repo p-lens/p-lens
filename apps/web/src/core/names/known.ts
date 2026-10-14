@@ -1,6 +1,6 @@
 import { identityKey, type Parlor } from "../parlor/parlor"
 import type { PlayGameKind } from "../play/play"
-import type { PlaySummary } from "../report/plays"
+import type { TallySummary } from "../report/tallies"
 
 /**
  * The names a book may hold: each parlor's, by who it is — the parlor
@@ -20,7 +20,7 @@ export interface KnownNames {
  *
  * - `parlor-unlisted`: a parlor neither the list nor this device's submissions know.
  * - `parlor-misnamed`: a listed parlor kept under another name than its own.
- * - `machine-uncatalogued`: a play's machine the catalog has none of, for its game.
+ * - `machine-uncatalogued`: a tally's machine the catalog has none of, for its game.
  */
 export type NameProblem =
   | { readonly type: "parlor-unlisted"; readonly name: string }
@@ -33,17 +33,17 @@ const parlorProblem = (parlor: Parlor, known: KnownNames): NameProblem | undefin
   return listed === parlor.name ? undefined : { type: "parlor-misnamed", name: parlor.name, listed }
 }
 
-const machineProblem = (play: PlaySummary, known: KnownNames): NameProblem | undefined => {
-  const machine = play.machine?.trim() ?? ""
-  if (machine === "" || play.gameKind === undefined) return undefined
-  return known.machines[play.gameKind].has(machine) ? undefined : { type: "machine-uncatalogued", name: machine, gameKind: play.gameKind }
+const machineProblem = (tally: TallySummary, known: KnownNames): NameProblem | undefined => {
+  const machine = tally.machine?.trim() ?? ""
+  if (machine === "" || tally.gameKind === undefined) return undefined
+  return known.machines[tally.gameKind].has(machine) ? undefined : { type: "machine-uncatalogued", name: machine, gameKind: tally.gameKind }
 }
 
 const keyOf = (problem: NameProblem): string => JSON.stringify(problem)
 
-/** Every name a book's parlors and plays hold that the lists do not have, each once. */
-export const nameProblems = (parlors: readonly Parlor[], plays: readonly PlaySummary[], known: KnownNames): readonly NameProblem[] => {
-  const found = [...parlors.map((parlor) => parlorProblem(parlor, known)), ...plays.map((play) => machineProblem(play, known))].filter((problem): problem is NameProblem => problem !== undefined)
+/** Every name a book's parlors and tallies hold that the lists do not have, each once. */
+export const nameProblems = (parlors: readonly Parlor[], tallies: readonly TallySummary[], known: KnownNames): readonly NameProblem[] => {
+  const found = [...parlors.map((parlor) => parlorProblem(parlor, known)), ...tallies.map((tally) => machineProblem(tally, known))].filter((problem): problem is NameProblem => problem !== undefined)
   return found.filter((problem, index) => found.findIndex((other) => keyOf(other) === keyOf(problem)) === index)
 }
 

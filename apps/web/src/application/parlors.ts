@@ -51,7 +51,7 @@ export const openPool = async (session: BookSession, bookId: BookId, opening: Po
               ...(text.declarations === undefined ? {} : { [BOOK_FILES.accounts]: appendEntry(stored.files[BOOK_FILES.accounts] ?? "", text.declarations) }),
               ...(text.price === undefined ? {} : { [BOOK_FILES.prices]: appendEntry(stored.files[BOOK_FILES.prices] ?? "", text.price) }),
             },
-            intent: { type: "pool-opened" as const, parlor: valid.parlorName, tier: valid.pool.tier },
+            intent: { type: "pool-opened" as const, parlor: valid.parlorName, tier: valid.pool.tier, date: valid.date, rate: valid.rate },
           }
         }),
       ),

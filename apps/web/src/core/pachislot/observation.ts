@@ -1,6 +1,6 @@
 import type { CountDto, SegmentDto } from "@p-lens/contracts/pachislot"
 
-import type { Checkpoint, Tally } from "../play-log/checkpoint"
+import type { Checkpoint, Counts } from "../play-log/checkpoint"
 import { Err, Ok, type Result } from "../result/result"
 
 /**
@@ -12,21 +12,21 @@ export type ObservationProblem = { readonly type: "counter-below-counting"; read
 /** A stretch of games and the counts seen in it, before it is handed to the engine. */
 interface Stretch {
   readonly games: number
-  readonly counts: Tally
+  readonly counts: Counts
 }
 
-const idsOf = (left: Tally, right: Tally): readonly string[] => [...new Set([...Object.keys(left), ...Object.keys(right)])]
+const idsOf = (left: Counts, right: Counts): readonly string[] => [...new Set([...Object.keys(left), ...Object.keys(right)])]
 
-const add = (left: Tally, right: Tally): Tally => Object.fromEntries(idsOf(left, right).map((id) => [id, (left[id] ?? 0) + (right[id] ?? 0)]))
+const add = (left: Counts, right: Counts): Counts => Object.fromEntries(idsOf(left, right).map((id) => [id, (left[id] ?? 0) + (right[id] ?? 0)]))
 
-const subtract = (left: Tally, right: Tally): Tally => Object.fromEntries(idsOf(left, right).map((id) => [id, (left[id] ?? 0) - (right[id] ?? 0)]))
+const subtract = (left: Counts, right: Counts): Counts => Object.fromEntries(idsOf(left, right).map((id) => [id, (left[id] ?? 0) - (right[id] ?? 0)]))
 
-/** The tally standing at a line of the log: the last one carried at or before it, or nothing counted yet. */
-const tallyAt = (ordered: readonly Checkpoint[], index: number): Tally => ordered.slice(0, index + 1).findLast((checkpoint) => checkpoint.tally !== undefined)?.tally ?? {}
+/** The counts standing at a line of the log: the last carried at or before it, or nothing counted yet. */
+const countsAt = (ordered: readonly Checkpoint[], index: number): Counts => ordered.slice(0, index + 1).findLast((checkpoint) => checkpoint.tally !== undefined)?.tally ?? {}
 
 /** The bonuses among counts, each filed under what the counter shows it as — parts gathered into their bonus — and small wins left out. */
-const onCounter = (counts: Tally, shownAs: (id: string) => string | undefined): Tally =>
-  Object.entries(counts).reduce<Tally>((all, [id, count]) => {
+const onCounter = (counts: Counts, shownAs: (id: string) => string | undefined): Counts =>
+  Object.entries(counts).reduce<Counts>((all, [id, count]) => {
     const shown = shownAs(id)
     return shown === undefined ? all : add(all, { [shown]: count })
   }, {})
@@ -39,16 +39,16 @@ const onCounter = (counts: Tally, shownAs: (id: string) => string | undefined): 
 const dayOf = (ordered: readonly Checkpoint[], last: Checkpoint, shownAs: (id: string) => string | undefined): Stretch => {
   const index = ordered.findLastIndex((checkpoint) => checkpoint.counter?.total !== undefined)
   const reading = index < 0 ? undefined : ordered.at(index)
-  const now = tallyAt(ordered, ordered.length - 1)
+  const now = countsAt(ordered, ordered.length - 1)
   if (reading === undefined) return { games: last.spins, counts: onCounter(now, shownAs) }
   return {
     games: (reading.counter?.total ?? 0) + last.spins - reading.spins,
-    counts: add(reading.counter?.bonuses ?? {}, onCounter(subtract(now, tallyAt(ordered, index)), shownAs)),
+    counts: add(reading.counter?.bonuses ?? {}, onCounter(subtract(now, countsAt(ordered, index)), shownAs)),
   }
 }
 
 /** The day's games and bonuses as the log knows them now, for showing and for filling in the next reading; none before the play has a line. */
-export const daySeenOf = (ordered: readonly Checkpoint[], shownAs: (id: string) => string | undefined): { readonly games: number; readonly bonuses: Tally } | undefined => {
+export const daySeenOf = (ordered: readonly Checkpoint[], shownAs: (id: string) => string | undefined): { readonly games: number; readonly bonuses: Counts } | undefined => {
   const last = ordered.at(-1)
   if (last === undefined) return undefined
   const day = dayOf(ordered, last, shownAs)
@@ -84,7 +84,7 @@ export const segmentsOf = (ordered: readonly Checkpoint[], shownAs: (id: string)
   const day = dayOf(ordered, last, shownAs)
   const start = ordered.find((checkpoint) => checkpoint.tally !== undefined)
   if (start === undefined) return Ok([segmentOf(day)])
-  const counted: Stretch = { games: last.spins - start.spins, counts: subtract(tallyAt(ordered, ordered.length - 1), start.tally ?? {}) }
+  const counted: Stretch = { games: last.spins - start.spins, counts: subtract(countsAt(ordered, ordered.length - 1), start.tally ?? {}) }
   const rest = difference(day, { games: counted.games, counts: onCounter(counted.counts, shownAs) })
   if (!rest.ok) return rest
   return Ok([rest.value, counted].filter((stretch) => stretch.games > 0).map(segmentOf))

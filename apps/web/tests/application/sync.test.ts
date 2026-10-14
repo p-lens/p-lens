@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test"
 import { createBookSession } from "../../src/application/book-session"
 import { conflictOf, firstConflict, joinSync, settleConflict, startSync, syncBook, type SyncPorts } from "../../src/application/sync"
 import type { BookId, MemberId } from "../../src/core/book/book"
+import type { IsoDate } from "../../src/core/calendar/calendar"
 import { appendEntry, BOOK_FILES } from "../../src/core/journal/layout"
 import { Ok } from "../../src/core/result/result"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
@@ -10,6 +11,7 @@ import type { Relay } from "../../src/sync/port/relay"
 import { createWebCryptoSealer } from "../../src/sync/web-crypto/web-crypto-sealer"
 import { fixtureBook, inProcessHledger, memoryStorage } from "../support/in-process"
 import { memoryLinks, memoryRelay } from "../support/sync"
+import { dec } from "../support/values"
 
 const BOOK = "shared" as BookId
 const RELAY_URL = "https://relay.test"
@@ -37,7 +39,7 @@ const device = async (name: string, relay: Relay) => {
     session.write(BOOK, async (_journal, stored) =>
       Ok({
         files: { ...stored.files, [BOOK_FILES.transactions]: appendEntry(stored.files[BOOK_FILES.transactions] ?? "", entry(date, yen, note)) },
-        intent: { type: "pool-opened", parlor: note, tier: "4円" },
+        intent: { type: "pool-opened", parlor: note, tier: "4円", date: "2026-10-01" as IsoDate, rate: dec("4") },
       }),
     )
   const retitle = (title: string) =>

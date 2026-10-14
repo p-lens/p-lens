@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import type { Figures } from "../../../src/core/pachinko/figures"
-import { TERMS_BY_DEFAULT, ballValueOf, beliefOf, inferredWorthOf, seedOf, termsOf, toldDtoOf, tokenExchangeOf, verdictOf } from "../../../src/core/pachinko/inference"
+import { EXCHANGES_AT, TERMS_BY_DEFAULT, ballValueOf, beliefOf, inferredWorthOf, seedOf, termsOf, toldDtoOf, tokenExchangeOf, verdictOf, withRental } from "../../../src/core/pachinko/inference"
 import { toPlainString } from "../../../src/core/decimal/decimal"
 import { exchangeChoiceText, frequencyBasisText, frequencyText } from "../../../src/ui/wording/pachinko/inference"
 
@@ -25,6 +25,8 @@ describe("the terms a told play is weighed on", () => {
     expect(termsOf(4, 28)).toEqual(TERMS_BY_DEFAULT)
     expect(termsOf(1, 100)).toEqual({ rental: 1, exchange: "equal" })
     expect(termsOf(2, 28)).toBeUndefined()
+    expect(termsOf(4, 33)).toEqual({ rental: 4, exchange: "33" })
+    expect(termsOf(1, 132)).toBeUndefined()
   })
 
   test("scale a cheaper ball's yen up for the engine, which plays every play at ¥4 a ball", () => {
@@ -62,9 +64,9 @@ describe("what a weighing comes to", () => {
 })
 
 describe("what a play was taken to be worth, as kept", () => {
-  test("is whole yen with the formula and the terms it stood on", () => {
-    const kept = inferredWorthOf({ spinPerformance: 16, border: 20, theoreticalValue: -3749.6 }, "formula-1", { rental: 1, exchange: "30" })
-    expect([toPlainString(kept.value), kept.formulaId, toPlainString(kept.tokenRental), toPlainString(kept.tokenExchange)]).toEqual(["-3750", "formula-1", "1", "120"])
+  test("is whole yen with the formula and the terms it stood on, and the spin performance it was taken to have had to a tenth", () => {
+    const kept = inferredWorthOf({ spinPerformance: 16.04, border: 20, theoreticalValue: -3749.6 }, "formula-1", { rental: 1, exchange: "30" })
+    expect([toPlainString(kept.value), kept.formulaId, toPlainString(kept.tokenRental), toPlainString(kept.tokenExchange), kept.spinPerformance === undefined ? undefined : toPlainString(kept.spinPerformance)]).toEqual(["-3750", "formula-1", "1", "120", "16"])
   })
 
   test("is weighed from a seed its id always gives", () => {
@@ -83,7 +85,11 @@ describe("the words of a weighing", () => {
     expect(frequencyBasisText(12_000, false, "result-at-least")).toBe("この機種・仮定した条件で収支がこれ以上になる推定発生頻度")
   })
   test("name an exchange by the balls ¥100 of prizes takes at the rental chosen", () => {
-    expect((["equal", "28", "30"] as const).map((exchange) => exchangeChoiceText({ rental: 4, exchange }))).toEqual(["等価", "28玉", "30玉"])
-    expect((["equal", "28", "30"] as const).map((exchange) => exchangeChoiceText({ rental: 1, exchange }))).toEqual(["等価", "112玉", "120玉"])
+    expect(EXCHANGES_AT[4].map((exchange) => exchangeChoiceText({ rental: 4, exchange }))).toEqual(["等価", "28玉", "30玉", "33玉"])
+    expect(EXCHANGES_AT[1].map((exchange) => exchangeChoiceText({ rental: 1, exchange }))).toEqual(["等価", "112玉", "120玉"])
+  })
+  test("keep the exchange across rentals where the other offers it, and take the usual one where not", () => {
+    expect(withRental({ rental: 4, exchange: "30" }, 1)).toEqual({ rental: 1, exchange: "30" })
+    expect(withRental({ rental: 4, exchange: "33" }, 1)).toEqual({ rental: 1, exchange: "28" })
   })
 })

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import type { ModeView } from "../../../src/core/pachinko/world"
-import { kindText, nextText, probabilityText, roundPayoutText, shareText } from "../../../src/ui/features/pachinko/formulas/spec-text"
+import { kindText, nextText, probabilitiesText, probabilityText, roundPayoutText, shareText } from "../../../src/ui/features/pachinko/formulas/spec-text"
 import { borderText, kindName, formulaHandle, formulaText, formulaNameAmong, oneInText, payoutText } from "../../../src/ui/wording/pachinko/formula"
 
 describe("a basis as it reads", () => {
@@ -9,6 +9,11 @@ describe("a basis as it reads", () => {
     expect(probabilityText({ type: "ratio", numerator: 1, denominatorHundredths: 31_970 })).toBe("1/319.7")
     expect(probabilityText({ type: "percent", basisPoints: 8150 })).toBe("81.5%")
     expect(shareText(5000)).toBe("50%")
+  })
+
+  test("lists several probabilities side by side, and none where there are none", () => {
+    expect(probabilitiesText([{ type: "ratio", numerator: 1, denominatorHundredths: 4991 }, { type: "ratio", numerator: 1, denominatorHundredths: 7774 }])).toBe("1/49.91・1/77.74")
+    expect(probabilitiesText([])).toBeUndefined()
   })
 
   test("names a mode by its label, and each kind of mode as its spec sheet does", () => {

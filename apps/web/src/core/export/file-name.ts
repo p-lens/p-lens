@@ -44,8 +44,8 @@ const exportedOn = (day: IsoDate): string => `${day}_exported`
 /** The name a book's single journal goes by: what the book's files are named by, and the day it was written out. A name's parts are joined by underscores. */
 export const singleJournalName = (stem: string, day: IsoDate): string => `${stem}_${exportedOn(day)}.journal`
 
-/** The name a book's table of plays goes by: what the book's files are named by, what the table is of, and the day it was written out. */
-export const playTableName = (stem: string, day: IsoDate): string => `${stem}_収支_${exportedOn(day)}.csv`
+/** The name a book's table of tallies goes by: what the book's files are named by, what the table is of, and the day it was written out. */
+export const tallyTableName = (stem: string, day: IsoDate): string => `${stem}_収支_${exportedOn(day)}.csv`
 
 /** The name several books written out together go by: what they are, and the day. */
 export const bundleName = (day: IsoDate): string => `帳簿_${exportedOn(day)}.zip`

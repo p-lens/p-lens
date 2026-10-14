@@ -4,7 +4,7 @@ import { SidePanel } from "solid-gathering-shell"
 import { abandonPlay, loadTodaysPlays } from "../../../application/live-play"
 import { destinationsOf, sendDraft, sendTodaysPlays } from "../../../application/sending"
 import { shownNameOf, type MachineNames } from "../../../core/catalog/catalog"
-import { afterItEnded, isLeftOver, isSentAsItStands, parlorOf, type PlayDraft } from "../../../core/live-play/draft"
+import { afterItFinished, isLeftOver, isSentAsItStands, parlorOf, type PlayDraft } from "../../../core/live-play/draft"
 import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
@@ -51,7 +51,7 @@ function DraftRow(props: {
 }): JSX.Element {
   const app = useApp()
   const hold = createLongPress(() => props.onAbandon())
-  const flagged = (): boolean => props.leftOver || (props.draft.received !== undefined && afterItEnded(props.draft).length > 0)
+  const flagged = (): boolean => props.leftOver || (props.draft.received !== undefined && afterItFinished(props.draft).length > 0)
   const sendable = (): boolean => props.destinations.length > 0 && props.draft.received === undefined
   return (
     <li class="group relative">

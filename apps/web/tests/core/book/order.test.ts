@@ -59,32 +59,40 @@ describe("swapping a book with the one after it", () => {
 })
 
 describe("a book's settings", () => {
+  const unreadable = { ok: false, error: { type: "settings-unreadable" } } as const
+
   test("are a file of the book's, read for the place it was given", () => {
     expect(BOOK_SETTINGS_FILE).toBe("settings.json")
-    expect(bookSettingsOf('{\n  "order": 3\n}\n')).toEqual({ order: 3, businessDayTurn: undefined })
+    expect(bookSettingsOf('{\n  "order": 3\n}\n')).toEqual({ ok: true, value: { order: 3, businessDayTurn: undefined } })
   })
 
-  test("say nothing where there is no file, or it does not read, or the place is no whole number", () => {
-    expect(bookSettingsOf(undefined)).toEqual({ order: undefined, businessDayTurn: undefined })
-    expect(bookSettingsOf("")).toEqual({ order: undefined, businessDayTurn: undefined })
-    expect(bookSettingsOf('{\n  "order": 1\n}\n{\n  "order": 2\n}\n')).toEqual({ order: undefined, businessDayTurn: undefined })
-    expect(bookSettingsOf('{"order":"1"}')).toEqual({ order: undefined, businessDayTurn: undefined })
-    expect(bookSettingsOf('{"order":1.5}')).toEqual({ order: undefined, businessDayTurn: undefined })
-    expect(bookSettingsOf("[1]")).toEqual({ order: undefined, businessDayTurn: undefined })
+  test("say nothing where there is no file or it is empty, and read two run together as the later says", () => {
+    expect(bookSettingsOf(undefined)).toEqual({ ok: true, value: { order: undefined, businessDayTurn: undefined } })
+    expect(bookSettingsOf("")).toEqual({ ok: true, value: { order: undefined, businessDayTurn: undefined } })
+    expect(bookSettingsOf('{\n  "order": 1\n}\n{\n  "order": 2,\n  "businessDayTurn": 6\n}\n')).toEqual({ ok: true, value: { order: 2, businessDayTurn: 6 } })
+  })
+
+  test("do not read where the file is no object, or a field it has does not read as this app writes it", () => {
+    expect(bookSettingsOf("{{")).toEqual(unreadable)
+    expect(bookSettingsOf('{"order":1,}')).toEqual(unreadable)
+    expect(bookSettingsOf("[1]")).toEqual(unreadable)
+    expect(bookSettingsOf('{"order":"1"}')).toEqual(unreadable)
+    expect(bookSettingsOf('{"order":1.5}')).toEqual(unreadable)
+    expect(bookSettingsOf('{"businessDayTurn":10}')).toEqual(unreadable)
+    expect(bookSettingsOf('{"businessDayTurn":"5"}')).toEqual(unreadable)
   })
 
   test("say the hour a business day turns over at where one that can be is written, beside the place", () => {
-    expect(bookSettingsOf('{"order":3,"businessDayTurn":7}')).toEqual({ order: 3, businessDayTurn: 7 })
-    expect(bookSettingsOf('{"businessDayTurn":0}').businessDayTurn).toBe(0)
-    expect(bookSettingsOf('{"businessDayTurn":10}').businessDayTurn).toBeUndefined()
-    expect(bookSettingsOf('{"businessDayTurn":"5"}').businessDayTurn).toBeUndefined()
-    expect(withBusinessDayTurn('{"order":3}', 7)).toBe('{\n  "order": 3,\n  "businessDayTurn": 7\n}\n')
-    expect(withOrder('{"order":3,"businessDayTurn":7}', 1)).toBe('{\n  "order": 1,\n  "businessDayTurn": 7\n}\n')
+    expect(bookSettingsOf('{"order":3,"businessDayTurn":7}')).toEqual({ ok: true, value: { order: 3, businessDayTurn: 7 } })
+    expect(bookSettingsOf('{"businessDayTurn":0}')).toEqual({ ok: true, value: { order: undefined, businessDayTurn: 0 } })
+    expect(withBusinessDayTurn('{"order":3}', 7)).toEqual({ ok: true, value: '{\n  "order": 3,\n  "businessDayTurn": 7\n}\n' })
+    expect(withOrder('{"order":3,"businessDayTurn":7}', 1)).toEqual({ ok: true, value: '{\n  "order": 1,\n  "businessDayTurn": 7\n}\n' })
   })
 
-  test("are written a field to a line, keeping what a later version put there, and whole again over a file that did not read", () => {
-    expect(withOrder(undefined, 2)).toBe('{\n  "order": 2\n}\n')
-    expect(withOrder('{"folder":"勝負用","order":9}', 2)).toBe('{\n  "folder": "勝負用",\n  "order": 2\n}\n')
-    expect(withOrder("{{", 2)).toBe('{\n  "order": 2\n}\n')
+  test("are written a field to a line, keeping what a later version put there, and never over a file that does not read", () => {
+    expect(withOrder(undefined, 2)).toEqual({ ok: true, value: '{\n  "order": 2\n}\n' })
+    expect(withOrder('{"folder":"勝負用","order":9}', 2)).toEqual({ ok: true, value: '{\n  "folder": "勝負用",\n  "order": 2\n}\n' })
+    expect(withOrder("{{", 2)).toEqual(unreadable)
+    expect(withBusinessDayTurn("[1]", 5)).toEqual(unreadable)
   })
 })

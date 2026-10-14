@@ -1,42 +1,43 @@
 import { YEN, type TokenKind } from "../../core/commodity/commodity"
-import { PLAY_TAGS, type PlayId } from "../../core/play/play"
+import { TALLY_TAGS } from "../../core/tally/tally"
+import type { PlayId } from "../../core/play/play"
 import type { Valuation } from "../../core/valuation/valuation"
 import type { Cut, Request, ValuationRequest } from "../protocol/wire"
-import { cashTerm, combine, inferredValueTerm, openingBalanceTerm, playsAmongTerm, playsTerm, savingsTerm, theoreticalValueTerm } from "./terms"
+import { cashTerm, combine, inferredValueTerm, openingBalanceTerm, talliesAmongTerm, talliesTerm, savingsTerm, spinPerformanceTerm, theoreticalValueTerm } from "./terms"
 
 type RequestOf<K extends Request["kind"]> = Extract<Request, { kind: K }>
 
 const inYen = (valuation: Valuation): ValuationRequest => ({ at: valuation.at, commodity: YEN })
 
-/** What the plays in a query actually made or lost, each posting at its own day's rate. */
+/** What the tallies in a query actually made or lost, each posting at its own day's rate. */
 export const actualRequest = (query: string): RequestOf<"incomestatement"> => ({
   kind: "incomestatement",
   query,
   valuation: inYen({ at: "posting-date" }),
 })
 
-/** The theoretical value of the plays in a query, summed by hledger. */
+/** The theoretical value of the tallies in a query, summed by hledger. */
 export const theoreticalRequest = (query: string): RequestOf<"balance"> => ({
   kind: "balance",
   query: combine(theoreticalValueTerm, query),
 })
 
-/** The part of the theoretical value of the plays in a query that was inferred, summed by hledger. */
+/** The part of the theoretical value of the tallies in a query that was inferred, summed by hledger. */
 export const inferredRequest = (query: string): RequestOf<"balance"> => ({
   kind: "balance",
   query: combine(inferredValueTerm, query),
 })
 
-/** The inferred part of the theoretical value of the plays in a query, cut as the two reports beside it are. */
+/** The inferred part of the theoretical value of the tallies in a query, cut as the two reports beside it are. */
 export const inferredCutRequest = (query: string, cut: Cut): RequestOf<"balance"> => ({ ...inferredRequest(query), ...cut })
 
-/** What the plays in a query made or lost, cut by a tag's values or by period: an income statement whose rows, or columns, are the groups. */
+/** What the tallies in a query made or lost, cut by a tag's values or by period: an income statement whose rows, or columns, are the groups. */
 export const actualCutRequest = (query: string, cut: Cut): RequestOf<"incomestatement"> => ({ ...actualRequest(query), ...cut })
 
-/** What each of several plays made or lost: an income statement of them alone, its rows the plays' ids. */
-export const actualByPlayRequest = (ids: readonly PlayId[]): RequestOf<"incomestatement"> => actualCutRequest(playsAmongTerm(ids), { pivot: PLAY_TAGS.playId })
+/** What each of several tallies made or lost: an income statement of them alone, its rows the tallies' ids. */
+export const actualByTallyRequest = (ids: readonly PlayId[]): RequestOf<"incomestatement"> => actualCutRequest(talliesAmongTerm(ids), { pivot: TALLY_TAGS.playId })
 
-/** The theoretical value of the plays in a query, cut the same way. */
+/** The theoretical value of the tallies in a query, cut the same way. */
 export const theoreticalCutRequest = (query: string, cut: Cut): RequestOf<"balance"> => ({ ...theoreticalRequest(query), ...cut })
 
 /** Savings in tokens, per parlor and kind. */
@@ -61,11 +62,14 @@ export const savingsRevaluationRequest = (query: string): RequestOf<"revaluation
 
 export const pricesRequest = (query: string): RequestOf<"prices"> => ({ kind: "prices", query })
 
-export const playsRequest = (query: string, page: { readonly limit: number; readonly offset: number }): RequestOf<"entries"> => ({
+export const talliesRequest = (query: string, page: { readonly limit: number; readonly offset: number }): RequestOf<"entries"> => ({
   kind: "entries",
-  query: combine(playsTerm, query),
+  query: combine(talliesTerm, query),
   ...page,
 })
+
+/** Every tally of a query that says a spin performance, measured or inferred, however many: hledger keeps the tags and does not add them up. */
+export const spinPerformancesRequest = (query: string): RequestOf<"entries"> => ({ kind: "entries", query: combine(talliesTerm, spinPerformanceTerm, query), limit: 1_000_000, offset: 0 })
 
 /** Whether a pool's opening balance is registered: one entry is enough to say so. */
 export const openingBalanceRequest = (kind: TokenKind, parlorName: string, tier: string): RequestOf<"entries"> => ({

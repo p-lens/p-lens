@@ -67,7 +67,7 @@ function OwnBookRow(props: { readonly listed: Listed; readonly onChanged: () => 
   )
 }
 
-/** The books of other people this device may send plays to, each in a line with the small button that lets go of it. Shown only where there is one. */
+/** The books of other people this device may send plays to, each in a line with the small button that lets go of it. Shown only where there is one, or where what the device keeps of them does not read. */
 function Destinations(props: { readonly changed: number; readonly onChanged: () => void }): JSX.Element {
   const app = useApp()
   const [destinations] = createResource(
@@ -75,35 +75,41 @@ function Destinations(props: { readonly changed: number; readonly onChanged: () 
     () => destinationsOf(app.services.destinations),
   )
   const found = () => ((listed) => (listed?.ok === true ? listed.value : []))(destinations())
+  const failure = (): ApplicationError | undefined => ((listed) => (listed?.ok === false ? listed.error : undefined))(destinations())
   return (
-    <Show when={found().length > 0}>
-      <section class="flex flex-col gap-2">
-        <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">稼働の送り先</h2>
-        <ul class="flex flex-col gap-1">
-          <For each={found()}>
-            {(destination) => (
-              <li class="flex items-center gap-2 rounded-md bg-surface-1 py-2 pl-3 pr-2">
-                <span class="min-w-0 flex-1 break-words text-sm text-text-primary">{destination.title}</span>
-                <Button
-                  size="small"
-                  variant="outline"
-                  class="shrink-0"
-                  onClick={() =>
-                    void forgetDestination(app.services.destinations, destination).then(() => {
-                      props.onChanged()
-                      app.wrote()
-                    })
-                  }
-                >
-                  外す
-                </Button>
-              </li>
-            )}
-          </For>
-        </ul>
-        <p class="text-xs text-text-muted">左の列の送り先か、「本日の稼働」の紙ヒコーキで送れます。相手の帳簿の中身は、この端末からは見えません。</p>
-      </section>
-    </Show>
+    <>
+      <Show when={failure()} keyed>
+        {(error) => <FailureNote error={error} />}
+      </Show>
+      <Show when={found().length > 0}>
+        <section class="flex flex-col gap-2">
+          <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">稼働の送り先</h2>
+          <ul class="flex flex-col gap-1">
+            <For each={found()}>
+              {(destination) => (
+                <li class="flex items-center gap-2 rounded-md bg-surface-1 py-2 pl-3 pr-2">
+                  <span class="min-w-0 flex-1 break-words text-sm text-text-primary">{destination.title}</span>
+                  <Button
+                    size="small"
+                    variant="outline"
+                    class="shrink-0"
+                    onClick={() =>
+                      void forgetDestination(app.services.destinations, destination).then(() => {
+                        props.onChanged()
+                        app.wrote()
+                      })
+                    }
+                  >
+                    外す
+                  </Button>
+                </li>
+              )}
+            </For>
+          </ul>
+          <p class="text-xs text-text-muted">左の列の送り先か、「本日の稼働」の紙ヒコーキで送れます。相手の帳簿の中身は、この端末からは見えません。</p>
+        </section>
+      </Show>
+    </>
   )
 }
 

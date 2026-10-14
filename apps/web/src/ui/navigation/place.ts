@@ -9,7 +9,7 @@ import { isDimension, type Dimension } from "../../core/report/breakdown"
 const isConsolidatedBy = (text: string): text is ConsolidatedBy => text === "book" || isDimension(text)
 
 /** The screens a book has, each at its own address under the book. */
-const BOOK_VIEWS = ["plays", "holdings", "result-calendar", "activity", "files"] as const
+const BOOK_VIEWS = ["tallies", "holdings", "result-calendar", "activity", "files"] as const
 
 export type BookView = (typeof BOOK_VIEWS)[number]
 
@@ -29,9 +29,9 @@ const isFormulaTab = (segment: string): segment is FormulaTab => (FORMULA_TABS a
  *
  * Every move that changes the screen changes the address, so the browser's
  * back button — a phone's included — walks back through the same places in
- * reverse: a play's detail, the list it was in, then the book's views.
- * `play-new` adds a play to a book by hand, by its totals in yen;
- * `play-revise` sets a recorded play right; `book-breakdown` groups a
+ * reverse: a tally's detail, the list it was in, then the book's views.
+ * `tally-new` adds a tally to a book by hand, by its totals in yen;
+ * `tally-revise` sets a recorded tally right; `book-breakdown` groups a
  * book's results by what its last segment names; `book-file`
  * shows one of its files as it is kept, its path one encoded segment.
  *
@@ -40,7 +40,7 @@ const isFormulaTab = (segment: string): segment is FormulaTab => (FORMULA_TABS a
  * those its last segment names, comma between them:
  * `consolidated-holdings` is their savings, `consolidated-result-calendar`
  * their results a month at a time, and `consolidated-breakdown` groups
- * their plays together by what its segment names.
+ * their tallies together by what its segment names.
  *
  * The live space, at the top of the rail, holds plays still being played:
  * `live` lists them, `live-new` starts one of a game, `live-play` is one in progress and
@@ -72,9 +72,9 @@ export type Place =
   | { readonly kind: "book"; readonly bookId: BookId }
   | { readonly kind: "book-view"; readonly bookId: BookId; readonly view: BookView }
   | { readonly kind: "book-breakdown"; readonly bookId: BookId; readonly by: Dimension }
-  | { readonly kind: "play"; readonly bookId: BookId; readonly playId: PlayId }
-  | { readonly kind: "play-new"; readonly bookId: BookId }
-  | { readonly kind: "play-revise"; readonly bookId: BookId; readonly playId: PlayId }
+  | { readonly kind: "tally"; readonly bookId: BookId; readonly playId: PlayId }
+  | { readonly kind: "tally-new"; readonly bookId: BookId }
+  | { readonly kind: "tally-revise"; readonly bookId: BookId; readonly playId: PlayId }
   | { readonly kind: "book-file"; readonly bookId: BookId; readonly path: string }
   | { readonly kind: "pachinko-machine-search" }
   | { readonly kind: "parlor-submitted" }
@@ -157,8 +157,8 @@ const placeOfSegments = (segments: readonly string[], path: string): Place => {
   if (segments[0] === "pachislot") return pachislotPlaceOf(segments.slice(1), path)
   const [first, second, third, fourth, fifth, ...rest] = segments
   if (rest.length > 0) return { kind: "not-found", path }
-  if (first === "books" && second !== undefined && third === "plays" && fourth !== undefined && fourth !== "new" && fifth === "revise")
-    return { kind: "play-revise", bookId: second as BookId, playId: fourth as PlayId }
+  if (first === "books" && second !== undefined && third === "tallies" && fourth !== undefined && fourth !== "new" && fifth === "revise")
+    return { kind: "tally-revise", bookId: second as BookId, playId: fourth as PlayId }
   if (fifth !== undefined) return { kind: "not-found", path }
   if (first === "play" && second === undefined) return { kind: "live" }
   if (first === "play" && second === "new" && (third === "pachinko" || third === "slot") && fourth === undefined) return { kind: "live-new", game: third }
@@ -173,10 +173,10 @@ const placeOfSegments = (segments: readonly string[], path: string): Place => {
     return { kind: "book-view", bookId: second as BookId, view: third }
   if (first === "books" && second !== undefined && third === "breakdown" && fifth === undefined && (fourth === undefined || isDimension(fourth)))
     return { kind: "book-breakdown", bookId: second as BookId, by: fourth === undefined ? "machine" : fourth }
-  if (first === "books" && second !== undefined && third === "plays" && fourth === "new") return { kind: "play-new", bookId: second as BookId }
+  if (first === "books" && second !== undefined && third === "tallies" && fourth === "new") return { kind: "tally-new", bookId: second as BookId }
   if (first === "books" && second !== undefined && third === "files" && fourth !== undefined) return { kind: "book-file", bookId: second as BookId, path: fourth }
-  if (first === "books" && second !== undefined && third === "plays" && fourth !== undefined)
-    return { kind: "play", bookId: second as BookId, playId: fourth as PlayId }
+  if (first === "books" && second !== undefined && third === "tallies" && fourth !== undefined)
+    return { kind: "tally", bookId: second as BookId, playId: fourth as PlayId }
   if (first === "parlors" && second === "submitted" && third === undefined) return { kind: "parlor-submitted" }
   if (first === "destinations" && second !== undefined && third === undefined) return { kind: "destination", lineId: second }
   if (first === "consolidated" && second === undefined) return { kind: "consolidated" }
@@ -222,12 +222,12 @@ export const pathOf = (place: Place): string => {
       return `/books/${encode(place.bookId)}/${place.view}`
     case "book-breakdown":
       return `/books/${encode(place.bookId)}/breakdown/${place.by}`
-    case "play":
-      return `/books/${encode(place.bookId)}/plays/${encode(place.playId)}`
-    case "play-new":
-      return `/books/${encode(place.bookId)}/plays/new`
-    case "play-revise":
-      return `/books/${encode(place.bookId)}/plays/${encode(place.playId)}/revise`
+    case "tally":
+      return `/books/${encode(place.bookId)}/tallies/${encode(place.playId)}`
+    case "tally-new":
+      return `/books/${encode(place.bookId)}/tallies/new`
+    case "tally-revise":
+      return `/books/${encode(place.bookId)}/tallies/${encode(place.playId)}/revise`
     case "book-file":
       return `/books/${encode(place.bookId)}/files/${encode(place.path)}`
     case "pachinko-machine-search":
@@ -288,7 +288,7 @@ export const focusOf = (place: Place): Focus => {
     case "consolidated":
     case "settings":
       return "selection"
-    case "play":
+    case "tally":
     case "book-file":
       return "detail"
     case "live-new":
@@ -311,8 +311,8 @@ export const focusOf = (place: Place): Focus => {
     case "pachislot-distribution-new":
     case "book-view":
     case "book-breakdown":
-    case "play-new":
-    case "play-revise":
+    case "tally-new":
+    case "tally-revise":
     case "consolidated-holdings":
     case "consolidated-result-calendar":
     case "consolidated-breakdown":
@@ -324,17 +324,17 @@ export const focusOf = (place: Place): Focus => {
 }
 
 /**
- * The place one step back up from here: a play's list, a view's book, a
+ * The place one step back up from here: a tally's list, a view's book, a
  * section's settings, a consolidated view's list. The top of each space has
  * none.
  */
 export const parentOf = (place: Place): Place | undefined => {
   switch (place.kind) {
-    case "play":
-    case "play-new":
-      return { kind: "book-view", bookId: place.bookId, view: "plays" }
-    case "play-revise":
-      return { kind: "play", bookId: place.bookId, playId: place.playId }
+    case "tally":
+    case "tally-new":
+      return { kind: "book-view", bookId: place.bookId, view: "tallies" }
+    case "tally-revise":
+      return { kind: "tally", bookId: place.bookId, playId: place.playId }
     case "book-file":
       return { kind: "book-view", bookId: place.bookId, view: "files" }
     case "book-view":
@@ -387,7 +387,7 @@ export const parentOf = (place: Place): Place | undefined => {
 
 /** The book a place is inside, if it is inside one. */
 export const bookOf = (place: Place): BookId | undefined =>
-  place.kind === "book" || place.kind === "book-view" || place.kind === "book-breakdown" || place.kind === "play" || place.kind === "play-new" || place.kind === "play-revise" || place.kind === "book-file" ? place.bookId : undefined
+  place.kind === "book" || place.kind === "book-view" || place.kind === "book-breakdown" || place.kind === "tally" || place.kind === "tally-new" || place.kind === "tally-revise" || place.kind === "book-file" ? place.bookId : undefined
 
 /**
  * Places under the live space at the top of the rail: plays in progress, and

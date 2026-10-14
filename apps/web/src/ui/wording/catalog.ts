@@ -37,6 +37,10 @@ export const describeCatalogError = (error: CatalogError): string => {
   switch (error.type) {
     case "unavailable":
       return `共有カタログにつながりません: ${error.detail}`
+    case "unreadable-answer":
+      return "共有カタログの応答を読めませんでした。通信状況を確かめて、もう一度試してください。"
+    case "unreadable-kept":
+      return "この端末に保存された共有カタログのデータが壊れていて読めません。データの消去で端末のデータを消すと、また使えるようになります。"
     case "no-catalog":
       return "このアプリには共有カタログがありません。機種や算出条件は登録できません。"
     case "machine-missing":

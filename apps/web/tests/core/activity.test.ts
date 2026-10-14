@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import { ACTIVITY_LOG, activityLineOf, activityOf, activityOfText, retold, withActivity, type ActivityLine } from "../../src/core/activity/activity"
 import type { MemberId } from "../../src/core/book/book"
+import type { IsoDate } from "../../src/core/calendar/calendar"
 import { fileChangesBetween, patchesOf, type ChangeIntent } from "../../src/core/change/journal-change"
 import { patchBetween } from "../../src/core/change/patch"
 import type { BookFiles } from "../../src/core/journal/layout"
@@ -28,7 +29,7 @@ const PLAYED = lineOf("a2", {
 })
 const UNWEIGHED = lineOf("a3", { at: "2026-10-05T12:00:00.000Z", author: ME, intent: { type: "play-recorded", playId: "p2" as PlayId, description: "流星", theoreticalValue: undefined }, files: [] })
 const RENAMED = lineOf("a4", { at: "2026-10-06T09:00:00.000Z", author: ME, intent: { type: "book-renamed", title: "勝負帳" }, files: [] })
-const OPENED = lineOf("a5", { at: "2026-10-07T09:00:00.000Z", author: ME, intent: { type: "savings-opened", parlor: "梅田", tier: "4円" }, files: [] })
+const OPENED = lineOf("a5", { at: "2026-10-07T09:00:00.000Z", author: ME, intent: { type: "savings-opened", parlor: "梅田", tier: "4円", date: "2026-10-07" as IsoDate, kind: "ball", tokens: dec("1200") }, files: [] })
 
 const logOf = (...lines: readonly ActivityLine[]): string => lines.reduce<BookFiles>((files, line) => withActivity(files, [], line), {})[ACTIVITY_LOG] ?? ""
 
@@ -36,12 +37,13 @@ describe("a line of a book's activity", () => {
   test("says what a change did as a word and the parts it was done to, each part there or not", () => {
     expect<unknown>(PLAYED).toEqual({ id: "a2", at: "2026-10-04T12:00:00.000Z", by: ME, did: "play-recorded", parts: { play: { id: "p1", description: "梅田 流星" }, theoretical: { value: dec("-1234.5") } } })
     expect<unknown>(UNWEIGHED.parts).toEqual({ play: { id: "p2", description: "流星" } })
-    expect([CREATED.parts, RENAMED.parts, OPENED.parts]).toEqual([{}, { book: { title: "勝負帳" } }, { pool: { parlor: "梅田", tier: "4円" } }])
+    expect([CREATED.parts, RENAMED.parts, OPENED.parts]).toEqual([{}, { book: { title: "勝負帳" } }, { pool: { parlor: "梅田", tier: "4円" }, savings: { date: "2026-10-07" as IsoDate, kind: "ball", tokens: dec("1200") } }])
   })
 
   test("is written with its parts beside its id, when, by whom and what, a decimal as its digits, and reads back as it was", () => {
     const text = logOf(CREATED, PLAYED, UNWEIGHED, RENAMED, OPENED)
     expect(text.split("\n")[1]).toBe('{"v":1,"id":"a2","at":"2026-10-04T12:00:00.000Z","by":"me","did":"play-recorded","play":{"id":"p1","description":"梅田 流星"},"theoretical":{"value":"-1234.5"}}')
+    expect(text.split("\n")[4]).toBe('{"v":1,"id":"a5","at":"2026-10-07T09:00:00.000Z","by":"me","did":"savings-opened","pool":{"parlor":"梅田","tier":"4円"},"savings":{"date":"2026-10-07","kind":"ball","tokens":"1200"}}')
     expect(text.endsWith("\n")).toBe(true)
     expect(activityOfText(text)).toEqual([CREATED, PLAYED, UNWEIGHED, RENAMED, OPENED])
   })
@@ -54,12 +56,30 @@ describe("a line of a book's activity", () => {
     ].join("\n")
     const lines = activityOfText(text)
     expect<unknown>(lines.map((line) => [line.did, line.parts])).toEqual([["play-recorded", { play: { id: "p9", description: "流星" } }], ["backed-up", {}], ["book-renamed", {}]])
-    expect(lines.map(describeActivity)).toEqual(["流星 の稼働を追加", "帳簿を変更", "帳簿を変更"])
+    expect(lines.map(describeActivity)).toEqual(["流星 の収支を追加", "帳簿を変更", "帳簿を変更"])
   })
 
   test("says of a play written under nothing that it names no machine", () => {
     const line = activityOfText('{"v":1,"id":"c1","at":"2026-10-12T00:00:00.000Z","by":"me","did":"play-recorded","play":{"id":"p3","description":""}}')
-    expect(line.map(describeActivity)).toEqual(["機種の指定なしの稼働を追加"])
+    expect(line.map(describeActivity)).toEqual(["機種の指定なしの収支を追加"])
+  })
+
+  test("says what a thing done to savings set or moved, and says it without the figures where a line written before kept none", () => {
+    const at = (did: string, parts: string): string => `{"v":1,"id":"${did}","at":"2026-10-12T00:00:00.000Z","by":"me","did":"${did}","pool":{"parlor":"梅田","tier":"4円"}${parts}}`
+    const text = [
+      at("savings-adjusted", ',"savings":{"date":"2026-10-05","kind":"ball","tokens":"4820"}'),
+      at("savings-exchanged", ',"savings":{"date":"2026-10-05","kind":"medal","tokens":"1000"},"prizes":{"specialPrizes":"5000"}'),
+      at("savings-forfeited", ',"savings":{"date":"2026-10-05","kind":"ball","tokens":"300"}'),
+      at("pool-opened", ',"rate":{"date":"2026-10-01","rate":"3.5714"}'),
+      at("savings-opened", ""),
+    ].join("\n")
+    expect(activityOfText(text).map(describeActivity)).toEqual([
+      "梅田の4円の残高を4,820玉に調整",
+      "梅田の4円を1,000枚交換払出（特殊景品額 ¥5,000）",
+      "梅田の4円の300玉の失効を記録",
+      "梅田の4円を帳簿に用意（交換率 3.57円）",
+      "梅田の4円の開始残高を登録",
+    ])
   })
 
   test("is asked about a play, or a parlor, by that part alone, whatever was done", () => {

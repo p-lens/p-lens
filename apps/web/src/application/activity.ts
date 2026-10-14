@@ -1,4 +1,4 @@
-import { activityLinesOf, activityOf, type ActivityLine } from "../core/activity/activity"
+import { ACTIVITY_LOG, activityLinesOf, activityOf, unreadableActivityLines, type ActivityLine } from "../core/activity/activity"
 import type { BookId, ListedBook } from "../core/book/book"
 import { Ok, andThen, mapOk } from "../core/result/result"
 import type { HistoryPort } from "../history/port/history-port"
@@ -11,6 +11,8 @@ export interface Activity {
   readonly lines: readonly ActivityLine[]
   /** The book's cover, for naming the members who made each change. */
   readonly book: ListedBook | undefined
+  /** The lines of the book's activity log that do not read, by number: what is shown leaves them out. */
+  readonly unreadable: readonly number[]
 }
 
 /**
@@ -26,7 +28,7 @@ export const loadActivity = async (session: BookSession, history: HistoryPort, b
   ])
   return andThen(files, (held) =>
     andThen(commits, (found) =>
-      mapOk(books, (all) => ({ lines: activityOf(held, activityLinesOf(found).toReversed()), book: all.find((book) => book.id === bookId) })),
+      mapOk(books, (all) => ({ lines: activityOf(held, activityLinesOf(found).toReversed()), book: all.find((book) => book.id === bookId), unreadable: unreadableActivityLines(held[ACTIVITY_LOG] ?? "") })),
     ),
   )
 }

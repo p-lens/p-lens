@@ -1,14 +1,14 @@
 import { roleIn, type MemberId, type BookId } from "../core/book/book"
 import { swappedWithNext, type Placing } from "../core/book/order"
 import { BOOK_SETTINGS_FILE, withOrder } from "../core/book/settings"
-import { Ok } from "../core/result/result"
+import { Ok, mapOk } from "../core/result/result"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
 
 /** A place written into a book's settings, as one change to that book: kept in its history and carried to the owner's other devices like any other. */
 const place = async (session: BookSession, placing: Placing): Promise<Outcome<void>> => {
   const written = await session.write(placing.id, async (_journal, stored) =>
-    Ok({ files: { ...stored.files, [BOOK_SETTINGS_FILE]: withOrder(stored.files[BOOK_SETTINGS_FILE], placing.order) }, intent: { type: "book-placed" as const, order: placing.order } }),
+    mapOk(withOrder(stored.files[BOOK_SETTINGS_FILE], placing.order), (settings) => ({ files: { ...stored.files, [BOOK_SETTINGS_FILE]: settings }, intent: { type: "book-placed" as const, order: placing.order } })),
   )
   return written.ok ? Ok(undefined) : written
 }

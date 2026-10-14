@@ -10,6 +10,7 @@ import type { DraftStorage } from "../storage/port/draft-storage"
 import type { Outcome, SyncProblem } from "./errors"
 import { fromDraft } from "./lift"
 import { loadTodaysPlays } from "./live-play"
+import { linksProblemOf } from "./kept-links"
 
 /** Everything sending a play to another person reaches: the day's plays, the relay, the sealing, and the moment and a fresh id for what is sent. */
 export interface SendingPorts {
@@ -29,11 +30,11 @@ const fromSync = <T>(result: Result<T, SyncProblem>): Outcome<T> => mapErr(resul
 
 /** The books this device may send plays to, in the order it was let into them. */
 export const destinationsOf = async (destinations: DestinationStore): Promise<Outcome<readonly Destination[]>> =>
-  mapErr(await destinations.list(), (error) => ({ type: "sync", problem: { type: "links", detail: error.detail } }) as const)
+  mapErr(await destinations.list(), (error) => ({ type: "sync", problem: linksProblemOf(error) }) as const)
 
 /** Stop sending to a book: the invitation is let go of on this device. Its grant is the owner's to take away. */
 export const forgetDestination = async (destinations: DestinationStore, destination: Destination): Promise<Outcome<void>> =>
-  mapErr(await destinations.remove(destination.lineId), (error) => ({ type: "sync", problem: { type: "links", detail: error.detail } }) as const)
+  mapErr(await destinations.remove(destination.lineId), (error) => ({ type: "sync", problem: linksProblemOf(error) }) as const)
 
 /** How many times a play is put on an inbox that moved under it before the sending is given up. */
 const TRIES = 5

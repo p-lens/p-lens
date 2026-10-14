@@ -3,7 +3,8 @@ import { toPlainString } from "../../../core/decimal/decimal"
 import type { PlayVenue } from "../../../core/live-play/draft"
 import { sameIdentity, samePool, type ParlorIdentity, type SavingsPool } from "../../../core/parlor/parlor"
 import { poolOf } from "../../../core/parlor/terms"
-import type { PlayGameKind, PlayId, PlayRecord } from "../../../core/play/play"
+import type { TokenTally } from "../../../core/tally/tally"
+import type { PlayGameKind, PlayId } from "../../../core/play/play"
 import { tidyTyped } from "../../../core/text/tidy"
 
 /**
@@ -53,25 +54,38 @@ const inHandOf = (kept: Readonly<Record<string, unknown>>): TokensInHand | undef
   return (identity === undefined && kept["identity"] !== undefined) || pool === undefined || typeof count !== "number" || !Number.isInteger(count) || count <= 0 || typeof from !== "string" ? undefined : { identity, pool, count, from: from as PlayId }
 }
 
-/** The tokens in hand kept, if they were left on this business day and read as such: yesterday's were exchanged or saved overnight. */
-export const recalledTokensInHand = (written: string | undefined, day: IsoDate): TokensInHand | undefined => {
-  if (written === undefined) return undefined
+/** What is kept of the tokens in hand on a day: none, those left on it, or something kept that does not read. */
+export type RecalledTokens = { readonly type: "none" } | { readonly type: "kept"; readonly inHand: TokensInHand } | { readonly type: "unreadable" }
+
+const parsed = (written: string): unknown => {
   try {
-    const kept: unknown = JSON.parse(written)
-    return isRecord(kept) && kept["day"] === day ? inHandOf(kept) : undefined
+    return JSON.parse(written)
   } catch {
     return undefined
   }
 }
 
-/** What is kept as it is to stay kept on a day: itself while it is that day's, and nothing once the day has turned over — or where it does not read — so that it is let go of then, whatever the book says. */
-export const tokensStillInHand = (written: string | undefined, day: IsoDate): string | undefined => (recalledTokensInHand(written, day) === undefined ? undefined : written)
+/** The tokens in hand kept, if they were left on this business day: yesterday's were exchanged or saved overnight, and are none today. */
+export const recalledTokensInHand = (written: string | undefined, day: IsoDate): RecalledTokens => {
+  if (written === undefined) return { type: "none" }
+  const kept = parsed(written)
+  if (!isRecord(kept) || typeof kept["day"] !== "string") return { type: "unreadable" }
+  if (kept["day"] !== day) return { type: "none" }
+  const inHand = inHandOf(kept)
+  return inHand === undefined ? { type: "unreadable" } : { type: "kept", inHand }
+}
+
+/** Whether what is kept of the tokens in hand is there and does not read, so that the person is told, and types them in. */
+export const tokensInHandUnreadable = (written: string | undefined, day: IsoDate): boolean => recalledTokensInHand(written, day).type === "unreadable"
+
+/** What is kept as it is to stay kept on a day: itself while it is that day's, or while it does not read and is still to be told of, and nothing once the day has turned over, so that it is let go of then, whatever the book says. */
+export const tokensStillInHand = (written: string | undefined, day: IsoDate): string | undefined => (recalledTokensInHand(written, day).type === "none" ? undefined : written)
 
 /** The tokens a play about to start at this venue is begun with in hand: those kept, where they were left at its parlor — or at none, as it is — and are of its pool. */
 export const tokensCarriedTo = (written: string | undefined, day: IsoDate, venue: PlayVenue, gameKind: PlayGameKind): number | undefined => {
-  const inHand = recalledTokensInHand(written, day)
+  const recalled = recalledTokensInHand(written, day)
   const place = placeOf(venue, gameKind)
-  return inHand !== undefined && place !== undefined && samePlace(inHand.identity, place.identity) && samePool(inHand.pool, place.pool) ? inHand.count : undefined
+  return recalled.type === "kept" && place !== undefined && samePlace(recalled.inHand.identity, place.identity) && samePool(recalled.inHand.pool, place.pool) ? recalled.inHand.count : undefined
 }
 
 /** What the start form shows of the tokens a play is begun with: what was typed over it, or — left as it was — what is kept for the place. */
@@ -87,7 +101,7 @@ export const readCarriedIn = (shown: string): { readonly type: "none" } | { read
   return Number(plain) === 0 ? { type: "none" } : { type: "count", count: Number(plain) }
 }
 
-/** What a play recorded left in hand, and where: the tokens counted as it ended, at the venue it was played at. Nothing for a play with no terms. */
+/** What a play recorded left in hand, and where: the tokens counted as it finished, at the venue it was played at. Nothing for a play with no terms. */
 export const leftAt = (venue: PlayVenue, gameKind: PlayGameKind, date: IsoDate, count: number): TokensLeft | undefined => {
   const place = placeOf(venue, gameKind)
   return place === undefined ? undefined : { ...place, date, count }
@@ -110,10 +124,10 @@ export interface TokensLeft {
  * kept.
  */
 export const tokensKeptAfter = (written: string | undefined, day: IsoDate, play: { readonly id: PlayId; readonly recordedBefore: boolean }, left: TokensLeft): string | undefined => {
-  const kept = recalledTokensInHand(written, day)
-  if (left.date !== day || (play.recordedBefore && kept?.from !== play.id)) return written
+  const recalled = recalledTokensInHand(written, day)
+  if (left.date !== day || (play.recordedBefore && (recalled.type !== "kept" || recalled.inHand.from !== play.id))) return written
   return left.count > 0 ? writtenTokensInHand(day, { identity: left.identity, pool: left.pool, count: left.count, from: play.id }) : undefined
 }
 
 /** What a play recorded in tokens left: its payout, at its parlor and of its pool. */
-export const leftBy = (record: PlayRecord): TokensLeft => ({ identity: record.parlor.identity, pool: record.pool, date: record.date, count: Number(toPlainString(record.payout)) })
+export const leftBy = (record: TokenTally): TokensLeft => ({ identity: record.parlor.identity, pool: record.pool, date: record.date, count: Number(toPlainString(record.payout)) })

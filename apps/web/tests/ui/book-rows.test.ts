@@ -9,7 +9,7 @@ const OTHER = "other" as MemberId
 
 const book = (id: string, owner: MemberId): ListedBook => ({ id: id as BookId, members: [{ id: owner, displayName: "owner", role: "owner" }], title: id, order: undefined, businessDayTurn: undefined })
 
-const standing = (listed: ListedBook): BookStanding => ({ book: listed, standing: { type: "never" } as never })
+const standing = (listed: ListedBook): BookStanding => ({ book: listed, standing: { type: "never" } as never, unreadable: [] })
 
 describe("the rows of the books' list", () => {
   const books = [book("a", ME), book("theirs", OTHER), book("b", ME), book("c", ME)]

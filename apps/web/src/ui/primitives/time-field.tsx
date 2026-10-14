@@ -13,18 +13,22 @@ export interface TimeOfDay {
  * A labelled time of day: its hour and its minute each a field of their
  * own, typed over or stepped, on a 24-hour clock with nothing of a date
  * about it. A change is told once both hold a number. Its label is words
- * and no more, as every field's is.
+ * and no more, as every field's is. A field that may be left empty is
+ * given `onClear`, told once either part is emptied, and shows its
+ * placeholder while its value is none.
  */
 export function TimeField(props: {
   readonly label: string
-  readonly value: TimeOfDay
+  readonly value: TimeOfDay | undefined
   readonly onChange: (value: TimeOfDay) => void
+  readonly onClear?: () => void
 }): JSX.Element {
   return (
     <TimeFieldPrimitive.Root
-      value={{ hour: props.value.hour, minute: props.value.minute }}
+      {...(props.value === undefined ? {} : { value: { hour: props.value.hour, minute: props.value.minute } })}
       onChange={(time) => {
-        if (time.hour !== undefined && time.minute !== undefined) props.onChange({ hour: time.hour, minute: time.minute })
+        if (time?.hour !== undefined && time.minute !== undefined) props.onChange({ hour: time.hour, minute: time.minute })
+        else props.onClear?.()
       }}
       hourCycle={24}
       granularity="minute"

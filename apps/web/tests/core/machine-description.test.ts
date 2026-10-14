@@ -71,6 +71,15 @@ describe("the name a machine goes into a book under", () => {
     expect(bookNameOf({ name: "e押忍!団長 王の頂 99ver.", modelName: "e/押忍団長 王の頂/A03" })).toBe("e/押忍団長 王の頂/A03")
     expect(bookNameOf({ name: "スロット ワールドダイスター", modelName: undefined })).toBe("スロット ワールドダイスター")
   })
+
+  test("is written as a book can hold it, a comma or a semicolon as its full-width twin", () => {
+    expect(bookNameOf({ name: "P STEINS;GATE0", modelName: "PA STEINS;GATE0" })).toBe("PA STEINS；GATE0")
+    expect(bookNameOf({ name: "パチスロ Wake Up, Girls!Seven Memories", modelName: undefined })).toBe("パチスロ Wake Up， Girls!Seven Memories")
+  })
+
+  test("is shown as the halls call it, however it was written into the book", () => {
+    expect(shownNameOf(machineNamesOf([{ name: "SLOT STEINS;GATE", modelName: undefined }]), "SLOT STEINS；GATE")).toBe("SLOT STEINS;GATE")
+  })
 })
 
 describe("a machine a book names, on a screen", () => {

@@ -1,6 +1,6 @@
 import type { ProofError } from "../core/grounds/proof"
 import type { OpeningProblem } from "../core/parlor/opening"
-import type { PlayError } from "../core/play/play"
+import type { TallyError } from "../core/tally/tally"
 import type { ReportError } from "../core/report/figures"
 import { mapErr, type Result } from "../core/result/result"
 import type { Trouble } from "../hledger/protocol/wire"
@@ -39,6 +39,6 @@ export const fromReport = <T>(result: Result<T, ReportError>): Outcome<T> => map
 
 export const fromOpening = <T>(result: Result<T, OpeningProblem>): Outcome<T> => mapErr(result, (error) => ({ type: "parlor", error }))
 
-export const fromPlay = <T>(result: Result<T, PlayError>): Outcome<T> => mapErr(result, (error) => ({ type: "play", error }))
+export const fromTally = <T>(result: Result<T, TallyError>): Outcome<T> => mapErr(result, (error) => ({ type: "tally", error }))
 
 export const fromHistory = <T>(result: Result<T, HistoryError>): Outcome<T> => mapErr(result, (error) => ({ type: "history", error }))

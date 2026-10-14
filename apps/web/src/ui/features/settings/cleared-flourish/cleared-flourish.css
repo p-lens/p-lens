@@ -1,0 +1,77 @@
+/*
+ * The flourish shown once a device is emptied, and nothing else: kept in a
+ * file of its own beside the one component that uses it, so that taking
+ * the flourish away is taking this folder away.
+ */
+
+.cleared-flourish {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  background: var(--surface-2);
+  animation: cleared-flourish-veil 160ms ease-out;
+}
+
+.cleared-flourish__ring {
+  width: 4.5rem;
+  height: 4.5rem;
+  transform: rotate(-90deg);
+}
+
+.cleared-flourish__track {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 4;
+}
+
+/* The ring is drawn from twelve o'clock round to the right, all at once and quickly: a circle's stroke runs clockwise, and the ring is turned back a quarter so it begins at the top. */
+.cleared-flourish__sweep {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 0;
+  animation: cleared-flourish-sweep 420ms cubic-bezier(0.55, 0, 0.35, 1) both;
+}
+
+/* The words come softly once the ring has closed. */
+.cleared-flourish__said {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  animation: cleared-flourish-said 700ms ease-out 480ms both;
+}
+
+@keyframes cleared-flourish-veil {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes cleared-flourish-sweep {
+  from {
+    stroke-dashoffset: 100;
+  }
+}
+
+@keyframes cleared-flourish-said {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem);
+  }
+}
+
+/* For whoever asks for less motion, the ring stands closed and the words are simply there. */
+@media (prefers-reduced-motion: reduce) {
+  .cleared-flourish,
+  .cleared-flourish__sweep,
+  .cleared-flourish__said {
+    animation: none;
+  }
+}

@@ -2,15 +2,17 @@ import { createResource, createSignal, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import { keepOwn, takeSentAgain } from "../../../application/inbox"
-import { chooseBook, finishPlay, finishTalliedPlay, loadFinishing } from "../../../application/live-play"
+import { chooseBook, finishPlay, finishPlayInYen, loadFinishing } from "../../../application/live-play"
 import * as PachislotUseCases from "../../../application/pachislot/weighing"
 import type * as PachislotEngine from "../../../pachislot-engine/client/client"
 import type { BookId, ListedBook } from "../../../core/book/book"
+import { keptSpinPerformance } from "../../../core/tally/aside"
+import type { TallyAside } from "../../../core/tally/tally"
 import type { PlayId } from "../../../core/play/play"
 import * as Pachinko from "../../../core/pachinko"
-import { type PlayDraft } from "../../../core/live-play/draft"
+import type { PlayDraft } from "../../../core/live-play/draft"
 import { parsePlayLog, type Checkpoint } from "../../../core/play-log/checkpoint"
-import { endCounterOf, endedBy, lastWrittenAt, PLAYED_ON_FOR, type EndCounter } from "../../../core/play-log/end"
+import { finishCounterOf, finishedBy, lastWrittenAt, PLAYED_ON_FOR, type FinishCounter } from "../../../core/play-log/finish"
 import { liveSummary } from "../../../core/play-log/live"
 import { carriedInOf } from "../../../core/play-log/carried-in"
 import { inPlayOrder } from "../../../core/play-log/performance"
@@ -20,16 +22,17 @@ import { Button } from "../../primitives/button"
 import { Select } from "../../primitives/select"
 import { Loaded } from "../../primitives/states"
 import { TextField } from "../../primitives/text-field"
-import { TimeField } from "../../primitives/time-field"
+import { TimeField, type TimeOfDay } from "../../primitives/time-field"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
-import { formFromDraft, playedOnTerms, RECORDING, RECORDING_AGAIN, type PlayedSoFar } from "../record-play/form"
-import { RecordForm } from "../record-play/RecordForm"
-import { tallyFormFromDraft, tokenCountsFromDraft } from "../record-play/tally-form"
-import { createOffered, TallyEditor } from "../record-play/TallyPlayView"
+import { tokenTallyFormFromDraft, playedOnTerms, RECORDING, RECORDING_AGAIN, type PlayedSoFar } from "../record-tally/form"
+import { TokenTallyEditor } from "../record-tally/TokenTallyEditor"
+import { yenTallyFormFromDraft, tokenCountsFromDraft } from "../record-tally/yen-tally-form"
+import { createOffered } from "../record-tally/yen-tally-editing"
 import { bookTitle } from "../../wording/book"
 import { ViewHeader } from "../shell/ViewHeader"
-import { counterStands, endFormOf, readEndForm, type EndForm } from "./end-form"
+import { FinishYenTallyEditor } from "./FinishYenTallyEditor"
+import { counterStands, finishFormOf, readFinishForm, timeOf, type FinishForm } from "./finish-form"
 import { OperationHistory } from "./OperationHistory"
 import { leftAt, leftBy, tokensKeptAfter, type TokensLeft } from "./tokens-in-hand"
 
@@ -47,30 +50,40 @@ const pachislotValueOf = async (engine: PachislotEngine.EngineClient, draft: Pla
 /** A log that does not read leaves the form to the draft alone. */
 const playedOf = async (engine: PachislotEngine.EngineClient, draft: PlayDraft): Promise<PlayedSoFar> => {
   const parsed = parsePlayLog(draft.log)
-  if (!parsed.ok) return { outlay: undefined, replay: undefined, carriedIn: undefined, held: undefined, theoreticalValue: undefined }
+  if (!parsed.ok) return { outlay: undefined, replay: undefined, carriedIn: undefined, held: undefined, theoreticalValue: undefined, spinPerformance: undefined }
   const ordered = inPlayOrder(parsed.value)
   const summary = liveSummary(ordered)
   const replay = ordered.findLast((checkpoint) => checkpoint.replay !== undefined)?.replay
   const carriedIn = carriedInOf(ordered)
-  if (draft.gameKind === "slot") return { outlay: summary.outlay, replay, carriedIn, held: ordered.at(-1)?.held, theoreticalValue: await pachislotValueOf(engine, draft, ordered) }
+  if (draft.gameKind === "slot") return { outlay: summary.outlay, replay, carriedIn, held: ordered.at(-1)?.held, theoreticalValue: await pachislotValueOf(engine, draft, ordered), spinPerformance: undefined }
   const terms = draft.venue.terms
-  const held = terms === undefined ? ordered.at(-1)?.held : Pachinko.heldAtEndOf(ordered, terms)
+  const held = terms === undefined ? ordered.at(-1)?.held : Pachinko.heldAtFinishOf(ordered, terms)
   const theoretical =
     draft.pachinko === undefined || terms === undefined ? undefined : Pachinko.playTheoreticalValue(draft.pachinko.figures, terms, Pachinko.consumptionOf(ordered, terms))
-  return { outlay: summary.outlay, replay, carriedIn, held, theoreticalValue: theoretical?.theoreticalValue }
+  return { outlay: summary.outlay, replay, carriedIn, held, theoreticalValue: theoretical?.theoreticalValue, spinPerformance: terms === undefined ? undefined : Pachinko.measuredSpinPerformance(ordered, terms) }
 }
 
 const COUNTER_LABELS: Readonly<Record<PlayDraft["gameKind"], string>> = { pachinko: "終了時回転数", slot: "終了時ゲーム数" }
 
 /**
- * How the play ended, above the form it is recorded with: at what time —
- * now, unless set otherwise; the day follows from when the play began —
- * and what its counter stood at, as it was last
- * read unless the play went on past that.
+ * When the play began and how it finished, above the form it is recorded
+ * with: at what time it began — when it was started, unless set
+ * otherwise, which is written beside the play and changes nothing of its
+ * log — at what time it finished — now, unless set otherwise; the day
+ * follows from when the play began — and what its counter stood at, as it
+ * was last read unless the play went on past that.
  */
-function EndFields(props: { readonly form: EndForm; readonly read: EndCounter | undefined; readonly gameKind: PlayDraft["gameKind"]; readonly onChange: (form: EndForm) => void }): JSX.Element {
+function StartAndFinishFields(props: {
+  readonly start: TimeOfDay
+  readonly onStart: (time: TimeOfDay) => void
+  readonly form: FinishForm
+  readonly read: FinishCounter | undefined
+  readonly gameKind: PlayDraft["gameKind"]
+  readonly onChange: (form: FinishForm) => void
+}): JSX.Element {
   return (
-    <div class="grid grid-cols-[6rem_7.5rem] gap-x-3 px-4 pt-4">
+    <div class="grid grid-cols-[6rem_6rem_7.5rem] gap-x-3 px-4 pt-4">
+      <TimeField label="開始時刻" value={props.start} onChange={props.onStart} />
       <TimeField label="終了時刻" value={props.form.time} onChange={(time) => props.onChange({ ...props.form, time })} />
       <TextField
         label={COUNTER_LABELS[props.gameKind]}
@@ -84,10 +97,10 @@ function EndFields(props: { readonly form: EndForm; readonly read: EndCounter | 
   )
 }
 
-/** The form as a play recorded before is about to be recorded again: ended when it was said to have ended then, on the counter given then where one was. A play not yet recorded ends now, or — left unrecorded a while — so long after its last line and no later. */
-const endedAs = (draft: PlayDraft, now: string, read: EndCounter | undefined): EndForm => {
-  const form = endFormOf(draft.recorded?.end.at ?? endedBy(now, lastWrittenAt(draft.log), draft.received === undefined ? PLAYED_ON_FOR.own : PLAYED_ON_FOR.received), read)
-  return draft.recorded?.end.counter === undefined ? form : { ...form, counter: String(draft.recorded.end.counter) }
+/** The form as a play recorded before is about to be recorded again: finished when it was said to have finished then, on the counter given then where one was. A play not yet recorded finishes now, or — left unrecorded a while — so long after its last line and no later. */
+const finishedAs = (draft: PlayDraft, now: string, read: FinishCounter | undefined): FinishForm => {
+  const form = finishFormOf(draft.recorded?.finish.at ?? finishedBy(now, lastWrittenAt(draft.log), draft.received === undefined ? PLAYED_ON_FOR.own : PLAYED_ON_FOR.received), read)
+  return draft.recorded?.finish.counter === undefined ? form : { ...form, counter: String(draft.recorded.finish.counter) }
 }
 
 /**
@@ -154,7 +167,7 @@ function Arrived(props: { readonly draft: PlayDraft; readonly sender: string | u
  * Recording a play that was followed live into a book, which is when a book
  * first hears of it: the book asked for where there is more than one, the
  * form filled in from the play — in tokens at its parlor, or by its totals
- * in yen when it had none — its log written beside the entry and ended at the
+ * in yen when it had none — its log written beside the entry and finished at the
  * moment given here, now unless the person says otherwise, the draft let go
  * of once the book has it.
  */
@@ -176,8 +189,10 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
       <div class="max-w-5xl">
         <Loaded outcome={loaded()}>
           {({ draft, bookId, books, context, played }) => {
-            const read = endCounterOf(draft.log, draft.gameKind)
-            const [end, setEnd] = createSignal(endedAs(draft, app.services.now(), read))
+            const read = finishCounterOf(draft.log, draft.gameKind)
+            const [finish, setFinish] = createSignal(finishedAs(draft, app.services.now(), read))
+            const [start, setStart] = createSignal<TimeOfDay>(timeOf(draft.startedAt))
+            const aside = (): TallyAside => ({ clock: { started: start(), finished: finish().time }, spinPerformance: played.spinPerformance === undefined ? undefined : keptSpinPerformance(played.spinPerformance) })
             const words = draft.recorded === undefined ? RECORDING : RECORDING_AGAIN
             /** Keeps what the play left in hand for the day's next at its place; a play someone sent left its tokens with them. */
             const keepInHand = (left: TokensLeft | undefined): void => {
@@ -186,7 +201,7 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
             }
             const recorded = (playId: PlayId): void => {
               app.wrote()
-              moves.go({ kind: "play", bookId, playId })
+              moves.go({ kind: "tally", bookId, playId })
             }
             return (
               <>
@@ -194,21 +209,21 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
                   {(received) => <Arrived draft={draft} sender={received.sender} />}
                 </Show>
                 <BookField draft={draft} bookId={bookId} books={books} />
-                <EndFields form={end()} read={read} gameKind={draft.gameKind} onChange={setEnd} />
+                <StartAndFinishFields start={start()} onStart={setStart} form={finish()} read={read} gameKind={draft.gameKind} onChange={setFinish} />
               <Show
                 when={draft.venue.type === "parlor" ? draft.venue : undefined}
                 keyed
                 fallback={
-                  <TallyEditor
+                  <FinishYenTallyEditor
                     context={context}
                     list={offered.list()}
                     submissions={offered.submissions()}
-                    bookId={undefined}
-                    initial={tallyFormFromDraft(draft, played)}
-                    playIdOn={() => draft.id}
+                    initial={yenTallyFormFromDraft(draft, played)}
+                    playId={draft.id}
+                    aside={aside}
                     words={words}
                     tokens={tokenCountsFromDraft(draft, played)}
-                    submit={(play) => finishTalliedPlay(app.services.session, app.services.drafts, draft, bookId, play, readEndForm(end(), draft.startedAt), app.services.now())}
+                    submit={(play) => finishPlayInYen(app.services.session, app.services.drafts, draft, bookId, play, readFinishForm(finish(), draft.startedAt), app.services.now())}
                     onRecorded={(play, held) => {
                       if (held !== undefined) keepInHand(leftAt(draft.venue, draft.gameKind, play.date, held))
                       recorded(play.id)
@@ -217,13 +232,14 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
                 }
               >
                 {(venue) => (
-                  <RecordForm
+                  <TokenTallyEditor
                     context={context}
                     at={playedOnTerms(venue.parlor, venue.terms, draft.gameKind)}
-                    initial={formFromDraft(draft, played)}
+                    initial={tokenTallyFormFromDraft(draft, played)}
                     playId={draft.id}
+                    aside={aside}
                     words={words}
-                    submit={(record) => finishPlay(app.services.session, app.services.drafts, draft, bookId, record, readEndForm(end(), draft.startedAt), app.services.now())}
+                    submit={(record) => finishPlay(app.services.session, app.services.drafts, draft, bookId, record, readFinishForm(finish(), draft.startedAt), app.services.now())}
                     onRecorded={(record) => {
                       keepInHand(leftBy(record))
                       recorded(record.id)

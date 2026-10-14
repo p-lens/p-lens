@@ -1,6 +1,5 @@
 import { machineNamesOf, type CatalogTarget, type GameKind, type MachineEntry, type MachineNames, type MachineSummary } from "../core/catalog/catalog"
-import type { FormulaDraft } from "../core/catalog/draft"
-import { readDraft, writtenDraft } from "../core/catalog/draft"
+import { readDraft, writtenDraft, type FormulaDraft, type KeptFormulaDraft } from "../core/catalog/draft"
 import type { Quota } from "../core/catalog/quota"
 import type { Mark } from "../core/formula/standing"
 import { Err, Ok, mapOk } from "../core/result/result"
@@ -57,8 +56,8 @@ export const loadQuota = async (catalog: Catalog): Promise<Outcome<Quota>> => fr
 /** A formula the shared catalog did not take, kept so it is not typed twice: one a game, the last one refused. */
 export const keepDraft = (preferences: Preferences, draft: FormulaDraft): void => preferences.setFormulaDraft(draft.formula.gameKind, writtenDraft(draft))
 
-/** The formula of a game kept from the last time one could not be sent, if any. */
-export const keptDraft = (preferences: Preferences, gameKind: GameKind): FormulaDraft | undefined => readDraft(preferences.formulaDraft(gameKind), gameKind)
+/** The formula of a game kept from the last time one could not be sent: none, it, or one kept that does not read. */
+export const keptDraft = (preferences: Preferences, gameKind: GameKind): KeptFormulaDraft => readDraft(preferences.formulaDraft(gameKind), gameKind)
 
 /** A game's draft let go of: it was sent, or the person threw it away. */
 export const dropDraft = (preferences: Preferences, gameKind: GameKind): void => preferences.setFormulaDraft(gameKind, undefined)

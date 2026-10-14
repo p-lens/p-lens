@@ -8,6 +8,7 @@ import { createZipArchiver } from "../../src/backup/zip/zip-archiver"
 import { MANIFEST_PATH } from "../../src/core/backup/archive"
 import type { BookId, Member, MemberId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
+import { dec } from "../support/values"
 import { appendEntry, BOOK_FILES } from "../../src/core/journal/layout"
 import { Ok } from "../../src/core/result/result"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
@@ -42,7 +43,7 @@ const device = async (name: string, failing?: HandoverFailure) => {
     session.write(BOOK, async (_journal, stored) =>
       Ok({
         files: { ...stored.files, [BOOK_FILES.transactions]: appendEntry(stored.files[BOOK_FILES.transactions] ?? "", entry(date, yen, note)) },
-        intent: { type: "pool-opened", parlor: note, tier: "4円" },
+        intent: { type: "pool-opened", parlor: note, tier: "4円", date: "2026-10-01" as IsoDate, rate: dec("4") },
       }),
     )
   return { ports, session, storage, history, handover, record, clock, standing: async () => ((standings) => (standings.ok ? standings.value.map((each) => each.standing.type) : standings.error))(await bookStandings(ports)) }

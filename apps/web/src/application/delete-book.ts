@@ -8,6 +8,8 @@ import type { DraftStorage } from "../storage/port/draft-storage"
 import type { LinkStore } from "../sync/port/link-store"
 import type { Outcome } from "./errors"
 import { fromDraft, fromHistory, fromStorage } from "./lift"
+import { linksProblemOf } from "./kept-links"
+import { receiptsProblemOf } from "./backup"
 
 /** Everywhere a device keeps something of a book: its files, its history, its sync link, its backup's receipt, and the plays still being played for it. */
 export interface DeletionPorts {
@@ -39,9 +41,9 @@ const withoutDrafts = async (ports: DeletionPorts, bookId: BookId): Promise<Outc
 export const deleteBook = async (ports: DeletionPorts, bookId: BookId): Promise<Outcome<void>> => {
   const drafts = await withoutDrafts(ports, bookId)
   if (!drafts.ok) return drafts
-  const receipt = mapErr(await ports.receipts.remove(bookId), (error) => ({ type: "backup" as const, problem: { type: "receipts" as const, detail: error.detail } }))
+  const receipt = mapErr(await ports.receipts.remove(bookId), receiptsProblemOf)
   if (!receipt.ok) return receipt
-  const link = mapErr(await ports.links.remove(bookId), (error) => ({ type: "sync" as const, problem: { type: "links" as const, detail: error.detail } }))
+  const link = mapErr(await ports.links.remove(bookId), (error) => ({ type: "sync" as const, problem: linksProblemOf(error) }))
   if (!link.ok) return link
   const history = fromHistory(await ports.history.forget(bookId))
   if (!history.ok) return history

@@ -8,7 +8,7 @@ import { MARKS_LOG, type MarkDeed, type MarkLine } from "../../src/core/marks/ma
 import { deleteBook, holdsNothing } from "../../src/application/delete-book"
 import { createBookSession } from "../../src/application/book-session"
 import { loadOverview } from "../../src/application/overview"
-import { recordTalliedPlay } from "../../src/application/record-play"
+import { recordYenTally } from "../../src/application/record-tally"
 import { renameBook } from "../../src/application/rename-book"
 import { ensureFirstBook } from "../../src/application/seed"
 import type { BookId } from "../../src/core/book/book"
@@ -19,7 +19,8 @@ import { readTitle, withTitle } from "../../src/core/journal/title"
 import type { PlayDraft } from "../../src/core/live-play/draft"
 import { Err, Ok } from "../../src/core/result/result"
 import type { DraftStorage } from "../../src/storage/port/draft-storage"
-import type { PlayId, TalliedPlay } from "../../src/core/play/play"
+import type { YenTally } from "../../src/core/tally/tally"
+import type { PlayId } from "../../src/core/play/play"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
 import { memoryReceipts } from "../support/backup"
 import { ACTIVITY_LOG, activityOfText } from "../../src/core/activity/activity"
@@ -43,7 +44,7 @@ const setUp = async () => {
 
 const make = (id: string) => () => firstBook(id as BookId, ME, "🐢マイ帳簿")
 
-const WON: TalliedPlay = { id: "first" as PlayId, parlor: undefined, date: "2026-10-08" as IsoDate, gameKind: "pachinko", machine: "森物語", cabinetNumber: undefined, outlay: dec("2000"), takings: dec("5000"), theoreticalValue: dec("1200") , told: undefined}
+const WON: YenTally = { id: "first" as PlayId, parlor: undefined, date: "2026-10-08" as IsoDate, gameKind: "pachinko", machine: "森物語", cabinetNumber: undefined, outlay: dec("2000"), takings: dec("5000"), theoreticalValue: dec("1200") , told: undefined}
 
 describe("the book a first visit opens onto", () => {
   test("is put on a device that has none, named and empty, and hledger reads it", async () => {
@@ -67,7 +68,7 @@ describe("the book a first visit opens onto", () => {
   test("takes a play like any book", async () => {
     const { session } = await setUp()
     await ensureFirstBook(session, make("mine"))
-    expect((await recordTalliedPlay(session, "mine" as BookId, WON, "")).ok).toBe(true)
+    expect((await recordYenTally(session, "mine" as BookId, WON, "")).ok).toBe(true)
     const overview = await loadOverview(session, "mine" as BookId, "")
     expect(overview.ok && [toPlainString(overview.value.actual), toPlainString(overview.value.theoretical)]).toEqual(["3000", "1200"])
   })
@@ -187,7 +188,7 @@ describe("taking a book off the device", () => {
     expect(await holdsNothing(here, "mine" as BookId, fresh)).toEqual({ ok: true, value: true })
     await renameBook(here.session, "mine" as BookId, "ノリ打ち")
     expect(await holdsNothing(here, "mine" as BookId, fresh)).toEqual({ ok: true, value: true })
-    await recordTalliedPlay(here.session, "mine" as BookId, WON)
+    await recordYenTally(here.session, "mine" as BookId, WON)
     expect(await holdsNothing(here, "mine" as BookId, fresh)).toEqual({ ok: true, value: false })
   })
 

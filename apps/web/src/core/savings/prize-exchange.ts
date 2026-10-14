@@ -13,7 +13,7 @@ import { SAVINGS_TAG, withEquityDeclared } from "./balance"
  * one pool on a day, and what the special prizes (特殊景品) handed over for
  * them are worth in yen. A parlor gives prizes, never money, and the book
  * says what the parlor did: what becomes of a prize afterwards is outside
- * it. It is no play and no play's result — the tokens were won, or lost,
+ * it. It is no tally and no tally's result — the tokens were won, or lost,
  * when they were played for.
  */
 export interface PrizeExchange {
@@ -69,7 +69,7 @@ const declares = (accounts: string, account: string): boolean => accounts.split(
 export const withPrizesDeclared = (accounts: string): string =>
   PRIZE_ACCOUNTS.filter((account) => !declares(accounts, account)).reduce((declared, account) => `${declared.replace(/\n*$/, "")}\naccount ${account}\n`, withEquityDeclared(accounts))
 
-/** A book's accounts as an entry needs them: with the prize accounts declared where it posts to one — a play in yen that gained does — and as they were where it does not. */
+/** A book's accounts as an entry needs them: with the prize accounts declared where it posts to one — a tally in yen that gained does — and as they were where it does not. */
 export const withPrizesDeclaredFor = (accounts: string, entry: Entry): string =>
   entry.postings.some((posting) => (PRIZE_ACCOUNTS as readonly string[]).includes(posting.account)) ? withPrizesDeclared(accounts) : accounts
 
@@ -83,7 +83,7 @@ export const withPrizesDeclaredFor = (accounts: string, entry: Entry): string =>
  * yen and the part of a yen left over is the translation adjustment
  * (換算調整勘定), as the difference left by restating one unit in another
  * is kept. All three are equity, as an opening balance is: taking prizes
- * home is no play's result, so no income statement counts it, and the book
+ * home is no tally's result, so no income statement counts it, and the book
  * never says money came of it.
  */
 export const prizeExchangeEntry = (exchange: PrizeExchange, prices: readonly PricePoint[]): Result<Entry, PrizeExchangeProblem> => {

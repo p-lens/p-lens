@@ -38,6 +38,13 @@ export interface Entry {
   readonly notes?: readonly string[]
 }
 
+/**
+ * Text as a tag value or a description can hold it: a comma would end a
+ * tag, a semicolon start a comment, a line break end the entry, so each
+ * gives way to its full-width twin or a space.
+ */
+export const writableText = (text: string): string => text.replaceAll(",", "，").replaceAll(";", "；").replace(/[\r\n]+/g, " ").trim()
+
 /** A bar would end a payee where it stands, so one inside a name gives way to its full-width twin. */
 const barless = (text: string): string => text.replaceAll("|", "｜")
 

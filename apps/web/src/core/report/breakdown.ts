@@ -4,21 +4,21 @@ import { ZERO, add, compare, negate, type Decimal } from "../decimal/decimal"
 import { collect, mapOk, type Result } from "../result/result"
 import { yenOf, type ReportError } from "./figures"
 
-/** What plays are grouped by, each a way of asking where the results came from. */
+/** What tallies are grouped by, each a way of asking where the results came from. */
 export const DIMENSIONS = ["machine", "parlor", "weekday", "game", "year", "month", "day"] as const
 
 export type Dimension = (typeof DIMENSIONS)[number]
 
 export const isDimension = (text: string): text is Dimension => (DIMENSIONS as readonly string[]).includes(text)
 
-/** The key of the group whose plays do not say what a dimension asks: hledger's row for what carries no such tag. */
+/** The key of the group whose tallies do not say what a dimension asks: hledger's row for what carries no such tag. */
 export const UNSAID = ""
 
 /**
- * The plays that share one answer to a dimension, together: what they made
+ * The tallies that share one answer to a dimension, together: what they made
  * and what they were worth by their formulas — and how much of that worth
- * was inferred from what was told of them, not measured as they were
- * played, which is in the worth and said beside it. Each is hledger's sum
+ * was inferred from what was told of them, not measured as their plays
+ * were played, which is in the worth and said beside it. Each is hledger's sum
  * — a row of a report pivoted on a tag, or a column of one with an
  * interval.
  */

@@ -102,7 +102,7 @@ const weighingAs = (verdict: Verdict, weighable: Weighable, asked: WeighingAsked
 }
 
 /**
- * Weigh a told play from start to end: its machine looked up, the formula
+ * Weigh a told play from start to finish: its machine looked up, the formula
  * to weigh it by chosen, the machine played out, each step said as it
  * happens. A play too few of the trials came near is played out again,
  * many more times, before anything is said of it: each run is a whole one

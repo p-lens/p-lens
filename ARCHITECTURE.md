@@ -65,7 +65,7 @@ A book is four files, named in `core/journal/layout.ts`:
 main.journal          includes the other three by name, never by pattern
 accounts.journal      commodity and account declarations; a parlor is declared here
 prices.journal        P directives, only appended to
-transactions.journal  one entry per play
+transactions.journal  one entry per tally
 pachinko-play/<play-id>.jsonl   a pachinko play's head line and checkpoints, written when a play followed live is recorded
 pachislot-play/<play-id>.jsonl  a pachislot play's, the same
 logs/activity.jsonl             what was done to the book: who, when, what, and the lines it changed, a line a change
@@ -92,8 +92,8 @@ has:
   `files`, `pool`, `parlors`, `play`, `theoretical`, `imported`,
   `changes`. A line is not one of a
   closed list of shapes; it carries the parts that apply. Whatever asks
-  about a play looks for `play` and nothing else, whichever word the line
-  has. A new part is added without touching the others, and a part a
+  about a tally looks for `play` — the part's word, data already written —
+  and nothing else, whichever word the line has. A new part is added without touching the others, and a part a
   version does not know is passed over, its line read without it.
 
 `BookSession` writes the line in the same commit as the change it tells of,
@@ -102,7 +102,9 @@ is given one on its next write, holding first what its history on that
 device says was done until then, each line under its commit's id. Only
 ever added to, so what two devices each added comes together as entries
 appended to a journal do; a line whose id was already read is read once,
-and a line that does not read is passed over. No journal includes it.
+and a line that does not read is passed over, and told of: on the activity
+screen beside what it shows, and among the book's unreadable files on its
+row of the books (`unreadableFilesOf`). No journal includes it.
 
 The log is the book's events, and the book can be made again from them.
 `changes` is what the change did to every file it touched but the log
@@ -269,7 +271,7 @@ when anything is new): the commodity and savings account if the book does not
 keep that pool, and the day's exchange rate as a `P` directive if the book's
 rate for the day differs.
 
-### One play, one entry
+### One tally, one entry
 
 ```hledger
 2026-09-05 ホシゾラ梅田店 | 流星 123番台  ; play-id: …, parlor-id: hoshizora-umeda, game-kind: pachinko, machine: 流星, cabinet-number: 123
@@ -284,8 +286,8 @@ rate for the day differs.
 - **The description** is hledger's `payee | note` (`describedBy`): the
   parlor is the payee, the machine and its cabinet the note, so `payee:`
   groups a book by parlor outside the app too. Savings entries are the
-  same — `ホシゾラ梅田店 | 景品交換` — and an imported play's payee is the
-  parlor as the other app named it. A play with no parlor has no bar: its
+  same — `ホシゾラ梅田店 | 景品交換` — and an imported tally's payee is the
+  parlor as the other app named it. A tally with no parlor has no bar: its
   description is then its own payee, as hledger has it. The app reads
   neither side back — a parlor and a machine are read from tags — and an
   entry written before the bar was has none: it is data already written.
@@ -300,7 +302,7 @@ rate for the day differs.
   they come to in yen is hledger's to say at whichever date it is asked about.
   A replay takes more off savings than it pays out; the difference is written
   to `費用:再プレイ手数料`, also in tokens.
-- **Payout** is the tokens left at the end, earned and put back into savings.
+- **Payout** is the tokens left at the finish, earned and put back into savings.
   On screen they are the tokens in hand (持ち玉, 持ちメダル): the book puts
   them into savings whether or not they went to the counter.
 - **Carried in** (`carriedIn`, 開始時の持ち玉) is the tokens a play was begun
@@ -323,11 +325,11 @@ them only while they are still its own to say.
 
 No parlor is a place of its own for this: a play followed live with terms
 and no parlor is recorded with the same two counts — those it was begun
-with and those in hand as it ended — and leaves the latter for the day's
-next play at no parlor and of that pool. The book keeps such a play in
-yen alone, as ever, and no savings: what went into it is the cash spent
+with and those in hand as it finished — and leaves the latter for the day's
+next play at no parlor and of that pool. The book keeps the tally of
+such a play in yen alone, as ever, and no savings: what went into it is the cash spent
 and the tokens it was begun with, at its terms' exchange, and what came
-back is the tokens in hand at the end (`sidesFromTokens`), so the plays of
+back is the tokens in hand at the finish (`sidesFromTokens`), so the plays of
 a day at no parlor hand their tokens on, each one's takings the next one's
 outlay, and come together to what the last left, exchanged, less all that
 was spent.
@@ -335,10 +337,10 @@ was spent.
   given: what the play was worth by its formula, whatever it came to.
 
 **評価損益 (a revaluation) is never written.** Savings are held in tokens,
-a play's result is its postings at their own day's rate, and savings are
+a tally's result is its postings at their own day's rate, and savings are
 valued at the rate in force when they are asked about: so when a parlor's
 exchange rate changes, tokens already held are worth more or less, and no
-play's result moves. The plays of a book then do not come to what its
+tally's result moves. The tallies of a book then do not come to what its
 prizes less its cash come to, and what lies between is the revaluation —
 the tokens held on the day a rate changed, by how far it changed. Nothing
 is entered for it and no account holds it (invariant 1: it follows from
@@ -352,23 +354,23 @@ against a posting's cost, and savings are posted with none. `loadRevaluation`
 asks it of a period's savings; `revaluationOf` reads its total and its rows
 by parlor, a parlor's balls and medals together. On screen it is 評価損益,
 under a book's breakdown (集計) in a row of its own, parlor by parlor where
-the plays are grouped by parlor, and never part of 実収支. A rate seldom
+the tallies are grouped by parlor, and never part of 実収支. A rate seldom
 changes and almost never rises, so the row is there only where savings
 gained or lost anything. `tests/hledger/revaluation.test.ts` holds it
 against the real hledger.
 
-A play can also be added afterwards by its totals in yen alone (`TalliedPlay`,
-`composeTalliedEntry`): what went in (投資額, `outlay`) to `費用:遊技`, what
+A tally can also be kept by its totals in yen alone (`YenTally`,
+`composeYenTallyEntry`): what went in (投資額, `outlay`) to `費用:遊技`, what
 came back (回収額, `takings`) from `収益:遊技`, and what lies between: a
 loss out of `資産:現金`, a gain into `純資産:特殊景品` in whole yen, with the
 part of a yen left over in `純資産:換算調整勘定`. So the income statement
-counts it like any play, both sides are kept and no savings move.
+counts it like any tally, both sides are kept and no savings move.
 
 **Cash never rises.** Nothing the app writes puts a positive amount to
 `資産:現金`: a parlor gives prizes, never money, so cash is spent and a gain
 is prizes taken home, in equity. A test holds it
-(`tests/core/cash-never-rises.test.ts`): every entry the app composes — a
-play followed live, one typed in, one taken in from another app, a prize
+(`tests/core/cash-never-rises.test.ts`): every entry the app composes — the
+tally of a play followed live, one typed in, one taken in from another app, a prize
 exchange, savings opened or put right — in the cases where money came
 back, and the files that name the cash account, so a new writer cannot be
 added without being added there. A hand is held to it too: a file edited
@@ -378,7 +380,7 @@ says which entry. One a book already held is not the edit's doing and
 stays. What a book brings with it whole — put back from a backup, synced
 from another device — is taken as it is. The prize accounts are declared in a book
 the first time an entry needs them (`withPrizesDeclaredFor`). The form asks for the two sides and shows their
-difference, the result, which nobody types (`resultOfTally`); the
+difference, the result, which nobody types (`resultOfYenTally`); the
 theoretical value is behind the form's detail button. A parlor is named
 only if chosen; a side of nothing writes no posting.
 
@@ -390,12 +392,12 @@ only if chosen; a side of nothing writes no posting.
     (統計:期待値)                       8000 JPY
 ```
 
-An entry written while such a play kept only its result has one side — a
+An entry written while such a tally kept only its result has one side — a
 loss all outlay, a gain all takings — and is read back as that; one that
 put a gain to cash, as they then did, stays as it was written.
 
-A whole play is one entry so that it is one `JournalChange` and one commit,
-and so that the play log of the same play sits beside exactly one entry.
+A whole tally is one entry so that it is one `JournalChange` and one commit,
+and so that its play's log sits beside exactly one entry.
 
 ### Play logs
 
@@ -480,7 +482,7 @@ core ──► hledger/protocol/wire (types only)
 
 | Directory | Holds | May import |
 |---|---|---|
-| `core/` | pure domain: decimal, calendar, commodity, text, result, parlor, play, play-log, live-play, valuation, theoretical, journal, report, book, access, change, backup, export, document, favorites, marks; the catalog's machine, catalog, formula (a formula's standing) and grounds (a proof read back); and each game's own, pachinko and pachislot | itself, `hledger/protocol/wire` types |
+| `core/` | pure domain: decimal, calendar, commodity, text, result, parlor, play, tally, play-log, live-play, valuation, theoretical, journal, report, book, access, change, backup, export, document, favorites, marks; the catalog's machine, catalog, formula (a formula's standing) and grounds (a proof read back); and each game's own, pachinko and pachislot | itself, `hledger/protocol/wire` types |
 | `hledger/protocol/` | the wire format, mirroring `Bindings.hs`; worker messages | nothing |
 | `hledger/query/` | hledger query terms and requests P-Lens writes | `core`, `hledger/protocol` |
 | `hledger/client/` | the only way to the worker; one queue (`inTurn`) | `hledger/protocol`, `core/result` |
@@ -546,7 +548,7 @@ others let you into below another; then the books you may only send plays
 to, each an outline with a paper plane, since nothing of such a book is on
 the device, wearing the number of the day's plays that wait to be sent
 there (`awaitsSending`); settings at the foot. A book's side panel
-lists its plays first, with a ＋ beside them to add one by hand.
+lists its tallies first, with a ＋ beside them to add one by hand.
 
 The place is read off the address (`ui/navigation/place.ts`):
 
@@ -555,14 +557,15 @@ The place is read off the address (`ui/navigation/place.ts`):
 | `/play` | plays in progress on this device | selection |
 | `/play/new/{pachinko,slot}` | starting a play of a game | content |
 | `/play/:play` | a play in progress | content |
-| `/play/:play/record` | recording it into its book | content |
+| `/play/:play/record` | recording it into its book (収支を記帳) | content |
 | `/play/:play/cabinet` | saying anew which cabinet and machine it is on | content |
 | `/books/:book` | a book, no view chosen | selection |
-| `/books/:book/{plays,holdings,result-calendar,activity,files}?q=` | a view | content |
+| `/books/:book/{tallies,holdings,result-calendar,activity,files}?q=` | a view | content |
 | `/books/:book/breakdown/:by?q=` | a book's results grouped | content |
 | `/books/:book/files/:path` | one of the book's files as kept, beside the list | detail |
-| `/books/:book/plays/new` | adding a play by its totals (記録を追加) | content |
-| `/books/:book/plays/:play?q=` | a play beside its list | detail |
+| `/books/:book/tallies/new` | adding a tally by its totals (収支を追加) | content |
+| `/books/:book/tallies/:play?q=` | a tally beside its list | detail |
+| `/books/:book/tallies/:play/revise` | setting a tally right (収支の修正) | content |
 | `/destinations/:line` | a book only sent to: the day's plays and how each stands with it (`deliveryOf`), in the side panel | selection |
 | `/pachinko/machines?q=` | choosing a machine: a search bar over every machine, newest first | content |
 | `/pachinko/machines/:machine` | a machine's formulas, ranked | content |
@@ -1461,7 +1464,7 @@ after midnight, still today's.
   changing a log goes unrecorded. It is not the book's activity log, which
   a play still to be recorded is no part of. It goes wherever the play is
   sent and is shown to whoever receives it — what was done after the play
-  was said to be over set apart (`afterItEnded`) — and never on the device
+  was said to be over set apart (`afterItFinished`) — and never on the device
   that keeps it, where it would only be in the way.
 
 ## Letting others into a book
@@ -1655,7 +1658,7 @@ right to what is there (残高調整).
   statement counts it — 実収支 falls by it, under its parlor.
 - It is no play: it carries no `play-id`, stands under no machine, and
   is in no list of plays. Tokens taken from a person in the middle of a
-  play are that play's, recorded with nothing left at its end.
+  play are that play's, recorded with nothing left at its finish.
 - Cash is not touched, and no prize is said to have been handed over.
 - More than the pool holds by the end of the day said is refused.
 - A book that recorded one in 0.2.9 or 0.2.10 has it under
@@ -1671,9 +1674,12 @@ among its files: `settings.json` (`core/book/settings`). No journal includes
 it, so hledger never opens it; it is a file of the book's like any other, so
 it is backed up with the book and synced with it, and nothing else has to
 be. A field is written to a line. What a version of the app does not know
-in it, it leaves as it found it; a file that does not read as one object —
-two devices each made it before hearing of the other — says nothing until
-it is next written, whole.
+in it, it leaves as it found it. Two devices that each made it before
+hearing of the other leave two objects run together, read as the later
+says. A file that reads as neither, or a field of it this version reads
+that does not read as it writes it, is told of on the book's row of the
+books, and is never written over: the place and the hour wait until it is
+put right by hand.
 
 - **A book's place is its own.** Books are synced one at a time, each under
   its own key, so there is no file every book shares to hold a list of
@@ -1785,40 +1791,40 @@ toast's `action`. Each game's `revised` is exported for it alone.
   in progress is a draft, and has no history to bring them back from.
 - **A play in progress only.** A recorded play's log is read, not merged.
 
-## Setting a recorded play right
+## Setting a recorded tally right
 
-A play in the book is set right, or taken out, from its detail
-(`application/revise-play`).
+A tally in the book is set right, or taken out, from its detail
+(`application/revise-tally`).
 
-- **Read back from its entry** (`core/report/recorded-play`): the book
+- **Read back from its entry** (`core/report/recorded-tally`): the book
   keeps no second copy of what a form recorded, so the entry hledger read is
-  turned back into the `PlayRecord` or `TalliedPlay` it was written from —
+  turned back into the `TokenTally` or `YenTally` it was written from —
   the pool is the one of the parlor's whose tokens the entry is in, a
   replay took what was left less what savings came to hold more, it paid
   out that less its fee, and the tokens rented are the rest of what was
   spent — which reads an entry of either shape, rented tokens passed
-  through savings or not. An entry that does not add up as one a record
+  through savings or not. An entry that does not add up as one a form
   makes, one a hand has changed, is refused as unreadable and is set right
   in the book's own file.
-- **Written anew where it stands** (`core/play/in-journal`): the entry is
+- **Written anew where it stands** (`core/tally/in-journal`): the entry is
   found by its `play-id` in `transactions.journal` and replaced, every
-  other line as it was, in one commit (`play-revised`). The play keeps its
-  id and its log. A rental is split at the book's rate for the day the play
-  now says, as at recording. A day before any rate the book has for the
-  pool — a play moved back past the day its pool was opened — is given the
-  pool's first rate, written as a `P` directive in the same commit
-  (`rateReachingBack`), rather than the play refused: no day that had a
-  rate is given another, and savings a play so dated leaves short are the
-  person's to adjust.
-- **Where and at what rate stay.** The parlor and the pool of a play in
+  other line as it was, in one commit (`play-revised`, the word data
+  already written). The tally keeps its id and its play's log. A rental
+  is split at the book's rate for the day the tally now says, as at
+  recording. A day before any rate the book has for the pool — a tally
+  moved back past the day its pool was opened — is given the pool's first
+  rate, written as a `P` directive in the same commit (`rateReachingBack`),
+  rather than the tally refused: no day that had a rate is given another,
+  and savings a tally so dated leaves short are the person's to adjust.
+- **Where and at what rate stay.** The parlor and the pool of a tally in
   tokens are not the form's to change: that is another savings account, and
-  the play is removed and recorded again. The book keeps no corner's terms,
-  so a sum typed anew is counted in the proportion the play's own entry was
+  the tally is removed and recorded again. The book keeps no corner's terms,
+  so a sum typed anew is counted in the proportion the tally's own entry was
   — what its outlay rented, what its replay took — and typed as a count
-  only where the play has no such proportion to give.
-- **Taken out** (`removePlay`, `play-removed`): the entry leaves the
-  journal with the blank line that set it apart. Its log stays among the
-  book's files, and the history keeps the entry.
+  only where the tally has no such proportion to give.
+- **Taken out** (`removeTally`, `play-removed`): the entry leaves the
+  journal with the blank line that set it apart. Its play's log stays among
+  the book's files, and the history keeps the entry.
 
 ## Breakdown
 
@@ -1854,7 +1860,7 @@ what its plays made and what they were worth.
   business day — only fill the two fields in; one is marked while the
   fields say exactly its days, and pressed again it empties them, which is
   every day there is.
-- **The plays list is narrowed by the same two days** (稼働): a funnel at the
+- **The plays list is narrowed by the same two days** (最近の収支): a funnel at the
   end of the count's row brings out a card above the list holding the same
   picker, and the period is written into that address as the same query.
   The card stays out until its cross is pressed, so the list is seen
@@ -2048,7 +2054,7 @@ Plays kept in another app are taken into a book on a press (設定 →
 インポート; `core/import`, `application/import`). pRecord's CSV is the one
 source read.
 
-- **A source's play** (`SourcePlay`) is the play as the other app kept it:
+- **A source's tally** (`SourceTally`) is the tally as the other app kept it:
   the day, its parlor and machine by that app's names and codes, what went
   in and what came back in yen, a note. `core/import/precord` reads
   pRecord's CSV into these — its columns found by the names in the first
@@ -2087,8 +2093,8 @@ is not written out here a second time.
   `include` stood, under a comment naming it, nothing else altered. hledger
   opens it by itself and reads it to the same figures;
   `tests/hledger/export.test.ts` holds that.
-- **A table of plays** (`core/export/play-table`, `exportPlayTable`): CSV,
-  a play a row, newest first — 営業日, 店舗, 種別, 機種, 台番号, 投資, 回収,
+- **A table of tallies** (`core/export/tally-table`, `exportTallyTable`): CSV,
+  a tally a row, newest first — 営業日, 店舗, 種別, 機種, 台番号, 投資, 回収,
   収支, 期待値. The three figures in yen are hledger's, from the play's own
   income statement with each posting at its own day's rate: 投資 its
   expenses (cash and savings alike), 回収 its revenue, 収支 its total, as
@@ -2124,7 +2130,8 @@ is not written out here a second time.
 | 店舗 | parlor (`parlor-id`); a listed parlor in the parlor list |
 | 貸玉レート / 交換率（千円あたり） / 再プレイ手数料 | rental / exchange / replay, a corner's `PlayTerms` |
 | 4円・1円…（コーナーのレート） | tier; with the kind of token, a pool |
-| 稼働 | play (`play-id`) |
+| 稼働 | play (`PlayId`, `play-id`): what is played, followed live — the live space, its drafts and logs |
+| 収支 | tally (`TokenTally`, `YenTally`): what a book keeps of a play, under its play's id — the list, its details and its forms |
 | 営業日 | business day: the day a play belongs to, turning over at the hour set, 05:00 by default (`businessDayOf`) |
 | 機種 / 台 / 台番号 | machine / cabinet / `cabinet-number` |
 | パチンコ / スロット | `game-kind: pachinko \| slot` |
@@ -2135,9 +2142,9 @@ is not written out here a second time.
 | 貸玉差額 | rental spread |
 | 交換率（1玉・1枚あたり） | exchange rate (`P`, `PricePoint`) |
 | 投資 / 獲得 | outlay / payout |
-| 投資額 / 回収額（円での稼働記録） | outlay / takings |
+| 投資額 / 回収額（円での収支） | outlay / takings of a `YenTally` |
 | 期待値 | theoretical value |
-| 手入力の稼働記録 | tallied play |
+| 手入力の収支 | a `YenTally` typed in by hand |
 | 算出条件 / 計算根拠 / 期待値基礎値 | formula / grounds / basis |
 | 解析値（パチスロの期待値基礎値） | basis (a pachislot formula's world) |
 | 設定 / 設定配分 | setting level (`SettingLevel`, `settingLevels`) / setting distribution, the prior |

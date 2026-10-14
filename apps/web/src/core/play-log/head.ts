@@ -91,16 +91,20 @@ const isStated = (value: unknown): value is { readonly yen: number; readonly tok
 
 const isReplay = (value: unknown): value is PlayTerms["replay"] => isFields(value) && isCount(value["paidOut"]) && isCount(value["deducted"])
 
+/** What a log's head says of its corner's terms: none, the terms, or terms that are there and do not read as terms. */
+export type HeadTerms = { readonly type: "none" } | { readonly type: "stated"; readonly terms: PlayTerms } | { readonly type: "unreadable" }
+
 /**
  * The corner's terms a recorded play's log says in its head: the only
- * place a book keeps them whole. None for a log with no head, a head that
- * states none — a play at no corner — or terms that do not read as terms.
+ * place a book keeps them whole. None for a log with no head, or a head
+ * that states none — a play at no corner.
  */
-export const termsInHead = (log: string): PlayTerms | undefined => {
+export const termsInHead = (log: string): HeadTerms => {
   const terms = headFields(log.split("\n").find((line) => line.trim() !== "") ?? "")?.["terms"]
-  if (!isFields(terms)) return undefined
+  if (terms === undefined) return { type: "none" }
+  if (!isFields(terms)) return { type: "unreadable" }
   const { rental, exchange, replay } = terms
   return isStated(rental) && isStated(exchange) && isReplay(replay)
-    ? { rental: { yen: rental.yen, tokens: rental.tokens }, exchange: { yen: exchange.yen, tokens: exchange.tokens }, replay: { paidOut: replay.paidOut, deducted: replay.deducted } }
-    : undefined
+    ? { type: "stated", terms: { rental: { yen: rental.yen, tokens: rental.tokens }, exchange: { yen: exchange.yen, tokens: exchange.tokens }, replay: { paidOut: replay.paidOut, deducted: replay.deducted } } }
+    : { type: "unreadable" }
 }

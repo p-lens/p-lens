@@ -5,9 +5,10 @@ import type { MachineBonus } from "../catalog/catalog"
 import type * as Pachislot from "../pachislot"
 import type { Parlor } from "../parlor/parlor"
 import { tokenValueOf, type PlayTerms } from "../parlor/terms"
-import type { PlayGameKind, PlayHead, PlayId } from "../play/play"
+import type { TallyHead } from "../tally/tally"
+import type { PlayGameKind, PlayId } from "../play/play"
 import type { Checkpoint } from "../play-log/checkpoint"
-import type { End } from "../play-log/end"
+import type { Finish } from "../play-log/finish"
 import type { PlayLogHead } from "../play-log/head"
 import { appendCheckpoint } from "../play-log/checkpoint"
 
@@ -64,10 +65,10 @@ export interface PlayDraft {
   readonly history?: readonly Operation[]
   /**
    * The book has the play: when it was last recorded there, and how it was
-   * said to have ended. A recorded play stays among the day's plays, its
+   * said to have finished. A recorded play stays among the day's plays, its
    * log still to be set right and the book's entry made again from it.
    */
-  readonly recorded?: { readonly at: string; readonly end: End }
+  readonly recorded?: { readonly at: string; readonly finish: Finish }
   /** Where the play was sent, each with the log as it then was: a play sent and changed since is told from one sent as it stands. */
   readonly sent?: readonly Sending[]
   /** The play was sent to this device by someone else: who, as the owner named them, and the log as it arrived — a play not touched since is one a later sending may replace. */
@@ -95,8 +96,8 @@ export interface Receipt {
   readonly sender: string | undefined
   /** The log as it arrived. */
   readonly log: string
-  /** How the sender said the play ended, where they had recorded it before sending. */
-  readonly ended: End | undefined
+  /** How the sender said the play finished, where they had recorded it before sending. */
+  readonly finished: Finish | undefined
   /**
    * The same play, sent again after this device had changed the one it
    * had: kept beside it until the person chooses between them, since
@@ -128,7 +129,7 @@ export const bookOf = (draft: PlayDraft, books: readonly Book[], member: MemberI
  * recording screen may have set right — with what only the play knows:
  * when it began, its corner's terms, and what it was weighed by.
  */
-export const headOf = (draft: PlayDraft, entry: PlayHead & { readonly parlor: Parlor | undefined }): PlayLogHead => ({
+export const headOf = (draft: PlayDraft, entry: TallyHead & { readonly parlor: Parlor | undefined }): PlayLogHead => ({
   playId: entry.id,
   gameKind: entry.gameKind,
   date: entry.date,
@@ -229,12 +230,12 @@ export const deliveryOf = (draft: PlayDraft, lineId: string): Delivery =>
   isSentAsItStands(draft, lineId) ? "sent" : draft.sent?.some((sending) => sending.lineId === lineId) === true ? "changed" : "unsent"
 
 /**
- * The operations of a play made after it was said to have ended: what was
- * changed once the play was over. For a play someone sent, the end is the
+ * The operations of a play made after it was said to have finished: what was
+ * changed once the play was over. For a play someone sent, the finish is the
  * one its sender gave and the changes theirs, whatever the receiver does
  * with it since.
  */
-export const afterItEnded = (draft: PlayDraft): readonly Operation[] => {
-  const ended = draft.received === undefined ? draft.recorded?.end.at : draft.received.ended?.at
-  return ended === undefined ? [] : (draft.history ?? []).filter((operation) => operation.at > ended)
+export const afterItFinished = (draft: PlayDraft): readonly Operation[] => {
+  const finished = draft.received === undefined ? draft.recorded?.finish.at : draft.received.finished?.at
+  return finished === undefined ? [] : (draft.history ?? []).filter((operation) => operation.at > finished)
 }

@@ -35,7 +35,7 @@
       ]
     }
   },
-  "plays": {
+  "tallies": {
     "made-up-0905": { "actual": "5136", "theoretical": "5500" }
   }
 }

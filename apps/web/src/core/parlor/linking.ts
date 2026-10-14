@@ -23,7 +23,7 @@ const escapeRegex = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g
 
 /**
  * A journal file with each link written: the list's id beside every waiting
- * submission tag — on the parlor's account declarations and on its plays —
+ * submission tag — on the parlor's account declarations and on its tallies —
  * so the book reads the parlor as listed from then on. Past entries are
  * otherwise left as they are; the submission stays, saying where it came from.
  */

@@ -19,7 +19,7 @@ import { ViewHeader } from "../shell/ViewHeader"
 /**
  * Where a taking in is: not asked for; a file chosen that leaves
  * something to ask — which machines its unknown names are, whether its
- * plays that say their hours are to be weighed — and the person asked;
+ * tallies that say their plays' hours are to be weighed — and the person asked;
  * under way,
  * with how far a weighing has got where there is one; done with what it
  * came to; or failed with why.
@@ -33,12 +33,21 @@ type Taking =
 
 const IDLE: Taking = { type: "idle" }
 
+/** A file's bytes as UTF-8 text, or none where they do not read as UTF-8: a character made up in its place would be written into the book. */
+const utf8Of = (bytes: ArrayBuffer): string | undefined => {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes)
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * One book in a line: its title, and at the line's end a small button that
  * asks for a pRecord file to take into it. A file that names machines the
  * catalog does not know is taken in only after the person has been shown
  * them, each to say which machine it is or to leave as it is written; one
- * whose plays say how long they lasted, only after they have said whether
+ * whose tallies say how long their plays lasted, only after they have said whether
  * those are to be weighed for what they were worth, which takes a while.
  * A file that leaves nothing to ask is taken in at once. What the taking
  * in came to, or why nothing was taken in, is said under the line.
@@ -66,7 +75,11 @@ function BookRow(props: { readonly book: ListedBook; readonly taking: Taking; re
     const file = input.files?.[0]
     input.value = ""
     if (file === undefined || taking().type === "working") return
-    const text = await file.text()
+    const text = utf8Of(await file.arrayBuffer())
+    if (text === undefined) {
+      setTaking({ type: "failed", error: { type: "import", problem: { type: "not-utf8" } } })
+      return
+    }
     setNamed(new Map())
     const preview = await previewPrecord({ catalog: app.services.catalog }, text)
     if (!preview.ok) {
@@ -104,7 +117,7 @@ function BookRow(props: { readonly book: ListedBook; readonly taking: Taking; re
                     <div class="flex flex-col gap-1">
                       <p class="break-words text-sm text-text-primary">
                         {unnamed.name}
-                        <span class="text-xs text-text-muted">（{formatCount(unnamed.plays)}件）</span>
+                        <span class="text-xs text-text-muted">（{formatCount(unnamed.tallies)}件）</span>
                       </p>
                       <Combobox
                         label="カタログの機種"
@@ -131,7 +144,7 @@ function BookRow(props: { readonly book: ListedBook; readonly taking: Taking; re
             >
               <div class="flex flex-col gap-2">
                 <p class="text-sm text-text-primary">推定期待値を出しますか？</p>
-                <p class="text-xs text-text-muted">稼働時間のある{formatCount(asking.preview.told)}件のうち、機種がカタログにあるパチンコの稼働を、稼働時間と投資額・回収額から推定します。件数が多いと時間がかかります。</p>
+                <p class="text-xs text-text-muted">稼働時間のある{formatCount(asking.preview.told)}件のうち、機種がカタログにあるパチンコの稼働を、稼働時間と収支から推定します。件数が多いと時間がかかります。</p>
                 <div class="flex flex-wrap justify-end gap-2">
                   <Button variant="secondary" size="small" onClick={() => void take(asking.text, false)}>
                     出さずに取り込む
@@ -164,8 +177,8 @@ function BookRow(props: { readonly book: ListedBook; readonly taking: Taking; re
 }
 
 /**
- * Taking plays in from another app, into a book the person chooses, on a
- * press and at no other time: pRecord's CSV, a row a play, kept in yen with
+ * Taking tallies in from another app, into a book the person chooses, on a
+ * press and at no other time: pRecord's CSV, a row a tally, kept in yen with
  * what went in and what came back. A file taken in twice writes nothing
  * the second time.
  */

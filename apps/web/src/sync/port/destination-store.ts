@@ -16,7 +16,8 @@ export interface Destination {
   readonly joinedAt: string
 }
 
-export type DestinationStoreError = { readonly type: "unavailable"; readonly detail: string }
+/** A store out of reach, or a destination kept in it that does not read as one. */
+export type DestinationStoreError = { readonly type: "unavailable"; readonly detail: string } | { readonly type: "unreadable" }
 
 /** Where a device keeps the books it may send plays to. */
 export interface DestinationStore {

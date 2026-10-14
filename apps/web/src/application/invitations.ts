@@ -8,6 +8,7 @@ import type { LinkStore, SyncLink } from "../sync/port/link-store"
 import type { LineAccess, Relay } from "../sync/port/relay"
 import { accessOf, type LineKeys, type Sealer } from "../sync/port/sealer"
 import type { Outcome, SyncProblem } from "./errors"
+import { linksProblemOf } from "./kept-links"
 
 /** Everything letting people into a book reaches: its link to its line, the relay the line is on, the sealing, where the owner's device remembers them, and the moment and a fresh id for a grant. */
 export interface InvitationPorts {
@@ -23,7 +24,7 @@ const problem = (found: SyncProblem): Outcome<never> => Err({ type: "sync", prob
 
 const fromSync = <T>(result: Result<T, SyncProblem>): Outcome<T> => mapErr(result, (found) => ({ type: "sync", problem: found }))
 
-const fromStore = <T>(result: Result<T, InvitationStoreError>): Outcome<T> => mapErr(result, (error) => ({ type: "sync", problem: { type: "links", detail: error.detail } }))
+const fromStore = <T>(result: Result<T, InvitationStoreError>): Outcome<T> => mapErr(result, (error) => ({ type: "sync", problem: linksProblemOf(error) }))
 
 /**
  * The link a book's owner lets people in by: one whose device holds the
@@ -32,7 +33,7 @@ const fromStore = <T>(result: Result<T, InvitationStoreError>): Outcome<T> => ma
  */
 export const ownersLink = async (links: LinkStore, bookId: BookId): Promise<Outcome<SyncLink>> => {
   const link = await links.read(bookId)
-  if (!link.ok) return problem({ type: "links", detail: link.error.detail })
+  if (!link.ok) return problem(linksProblemOf(link.error))
   if (link.value === undefined) return problem({ type: "not-linked" })
   return readInvitation(link.value.secret) === undefined ? Ok(link.value) : problem({ type: "not-permitted" })
 }
@@ -53,11 +54,14 @@ const lineFor = async (ports: Pick<InvitationPorts, "sealer">, link: SyncLink, r
  * not have: so where the inbox is not there, it is begun — with one sealed
  * line that says nothing — and the grant made again.
  */
+/** What the line an inbox is begun with goes by, ahead of its own id: it says nothing, and is no play sent. */
+export const INBOX_OPENING = "inbox-opened-"
+
 const granted = async (ports: InvitationPorts, line: Opened, role: InvitedRole, grant: NewGrantDto): Promise<Outcome<void>> => {
   const made = await ports.relay.grant(line.access, grant)
   if (made.ok) return Ok(undefined)
   if (made.error.type !== "line-missing" || role !== "sender") return problem(made.error)
-  const opening = `inbox-opened-${ports.newId()}`
+  const opening = `${INBOX_OPENING}${ports.newId()}`
   const box = fromSync(await ports.sealer.seal(line.keys, opening, ""))
   if (!box.ok) return box
   const begun = await ports.relay.append(line.access, 0, [{ commitId: opening, box: box.value }])

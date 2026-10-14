@@ -62,6 +62,6 @@ describe("the result calendar's words", () => {
   test("say a day aloud, with what it made or that it had no plays", () => {
     expect(daySays("2026-10-03" as never, dec("-560"), undefined)).toBe("10月3日 実収支 -¥560")
     expect(daySays("2026-10-03" as never, dec("-560"), dec("1240"))).toBe("10月3日 実収支 -¥560 期待値 +¥1,240")
-    expect(daySays("2026-10-03" as never, undefined, undefined)).toBe("10月3日 稼働なし")
+    expect(daySays("2026-10-03" as never, undefined, undefined)).toBe("10月3日 収支なし")
   })
 })

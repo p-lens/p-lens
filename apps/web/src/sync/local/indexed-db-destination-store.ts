@@ -1,10 +1,20 @@
-import { Err, Ok, type Result, mapErr, mapOk } from "../../core/result/result"
+import { Err, Ok, type Result, andThen, collect, mapErr } from "../../core/result/result"
 import { type Connection, DESTINATIONS, completionOf, resultOf } from "../../storage/browser/database"
 import type { StorageError } from "../../storage/port/book-storage"
 import type { Destination, DestinationStore, DestinationStoreError } from "../port/destination-store"
 
 const fromStorage = <T>(result: Result<T, StorageError>): Result<T, DestinationStoreError> =>
   mapErr(result, (error) => ({ type: "unavailable", detail: error.type === "unavailable" ? error.detail : error.type }))
+
+type Fields = Readonly<Record<string, unknown>>
+
+const isFields = (value: unknown): value is Fields => typeof value === "object" && value !== null && !Array.isArray(value)
+
+const DESTINATION_TEXTS = ["lineId", "relayUrl", "code", "title", "joinedAt"] as const
+
+/** A destination as the store gave it back, or that it does not read as one. */
+const destinationOf = (value: unknown): Result<Destination, DestinationStoreError> =>
+  isFields(value) && DESTINATION_TEXTS.every((name) => typeof value[name] === "string") ? Ok(value as unknown as Destination) : Err({ type: "unreadable" })
 
 /**
  * A transaction on the destinations, or why there is none. A database
@@ -27,7 +37,8 @@ export const createIndexedDbDestinationStore = (database: Connection): Destinati
     if (!opened.ok) return opened
     const transaction = begin(opened.value, "readonly")
     if (!transaction.ok) return transaction
-    return mapOk(fromStorage(await resultOf<Destination[]>(transaction.value.objectStore(DESTINATIONS).getAll())), (kept) => (kept ?? []).toSorted((left, right) => left.joinedAt.localeCompare(right.joinedAt)))
+    const kept = andThen(fromStorage(await resultOf<unknown[]>(transaction.value.objectStore(DESTINATIONS).getAll())), (found) => collect((found ?? []).map(destinationOf)))
+    return kept.ok ? Ok(kept.value.toSorted((left, right) => left.joinedAt.localeCompare(right.joinedAt))) : kept
   },
   write: async (destination) => {
     const opened = fromStorage(await database())

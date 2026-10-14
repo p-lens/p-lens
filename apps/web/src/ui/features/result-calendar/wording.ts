@@ -20,12 +20,12 @@ export const dayNumber = (day: IsoDate): string => String(Number(day.slice(8)))
 /** A day's result as its cell has room for: signed and grouped, the yen sign left to the figures above. */
 export const cellResult = (value: Decimal): string => formatSignedYen(value).replace("¥", "")
 
-/** What a day's plays were worth as its cell has room for, under what they made: marked the way it went, the yen sign left to the figures above. */
+/** What a day's tallies were worth as its cell has room for, under what they made: marked the way it went, the yen sign left to the figures above. */
 export const cellWorth = (value: Decimal): string => formatTheoreticalYen(value).replace("¥", "")
 
-/** What a day's cell says to whoever cannot see it: what its plays made, and what they were worth where the cell shows that. */
+/** What a day's cell says to whoever cannot see it: what its tallies made, and what they were worth where the cell shows that. */
 export const daySays = (day: IsoDate, result: Decimal | undefined, worth: Decimal | undefined): string => {
   const [, monthOfYear = 0, dayOfMonth = 0] = day.split("-").map(Number)
-  if (result === undefined) return `${monthOfYear}月${dayOfMonth}日 稼働なし`
+  if (result === undefined) return `${monthOfYear}月${dayOfMonth}日 収支なし`
   return `${monthOfYear}月${dayOfMonth}日 実収支 ${formatSignedYen(result)}${worth === undefined ? "" : ` 期待値 ${formatTheoreticalYen(worth)}`}`
 }

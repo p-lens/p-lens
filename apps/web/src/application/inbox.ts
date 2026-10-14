@@ -9,9 +9,10 @@ import type { LinkStore, SyncLink } from "../sync/port/link-store"
 import type { LineAccess, Relay } from "../sync/port/relay"
 import { accessOf, type LineKeys, type Sealer } from "../sync/port/sealer"
 import type { Outcome, SyncProblem } from "./errors"
-import { ownersLink } from "./invitations"
+import { INBOX_OPENING, ownersLink } from "./invitations"
 import { fromDraft } from "./lift"
 import { SENDER_MARK } from "./sending"
+import { linksProblemOf } from "./kept-links"
 
 /** Everything taking in the plays sent to a device's books reaches. */
 export interface InboxPorts {
@@ -40,10 +41,22 @@ const everyBox = async (relay: Relay, access: LineAccess, after: number): Promis
   return reached >= page.value.head ? Ok(boxes) : mapOk(await everyBox(relay, access, reached), (rest) => [...boxes, ...rest])
 }
 
-/** What a box holds, where it opens and reads as a sent play: the line an inbox was begun with, and anything a stranger to this app put there, are passed over. */
-const sentIn = async (sealer: Sealer, keys: LineKeys, sealed: Sealed): Promise<SentDraft | undefined> => {
+/** What came of the plays waiting on inboxes: how many were taken in, and how many could not be read. */
+export interface Arrivals {
+  readonly taken: number
+  readonly unreadable: number
+}
+
+const NONE_ARRIVED: Arrivals = { taken: 0, unreadable: 0 }
+
+const together = (left: Arrivals, right: Arrivals): Arrivals => ({ taken: left.taken + right.taken, unreadable: left.unreadable + right.unreadable })
+
+/** What a box holds: none for the line an inbox was begun with, a sent play, or one that does not open or read as one. */
+const sentIn = async (sealer: Sealer, keys: LineKeys, sealed: Sealed): Promise<{ readonly type: "opening" } | { readonly type: "sent"; readonly sent: SentDraft } | { readonly type: "unreadable" }> => {
+  if (sealed.id.startsWith(INBOX_OPENING)) return { type: "opening" }
   const text = await sealer.open(keys, sealed.id, sealed.box)
-  return text.ok ? readSentDraft(text.value) : undefined
+  const sent = text.ok ? readSentDraft(text.value) : undefined
+  return sent === undefined ? { type: "unreadable" } : { type: "sent", sent }
 }
 
 /**
@@ -54,7 +67,7 @@ const sentIn = async (sealer: Sealer, keys: LineKeys, sealed: Sealed): Promise<S
 const inBook = (bookId: BookId | undefined, sent: SentDraft, sender: string | undefined): PlayDraft => ({
   ...sent.play,
   ...(bookId === undefined ? {} : { bookId }),
-  received: { sender, log: sent.play.log, ended: sent.ended },
+  received: { sender, log: sent.play.log, finished: sent.finished },
 })
 
 /** Whether a play this device received has been left as it arrived: not changed, and not recorded. Such a play is the sender's still, and a later sending of it takes its place. */
@@ -77,27 +90,33 @@ const takenIn = async (ports: InboxPorts, bookId: BookId, sent: SentDraft, sende
 }
 
 const handled = async (links: LinkStore, link: SyncLink, ids: readonly string[]): Promise<Outcome<void>> =>
-  mapErr(await links.write({ ...link, inboxHandled: [...(link.inboxHandled ?? []), ...ids] }), (error) => ({ type: "sync", problem: { type: "links", detail: error.detail } }) as const)
+  mapErr(await links.write({ ...link, inboxHandled: [...(link.inboxHandled ?? []), ...ids] }), (error) => ({ type: "sync", problem: linksProblemOf(error) }) as const)
 
-/** The plays waiting in one book's inbox taken into the day's plays, each counted as dealt with: how many there were. */
-const receivedFor = async (ports: InboxPorts, link: SyncLink): Promise<Outcome<number>> => {
+/**
+ * The plays waiting in one book's inbox taken into the day's plays, each
+ * counted as dealt with: how many there were, and how many could not be
+ * read — counted once, and dealt with too, since reading them again would
+ * read them no better.
+ */
+const receivedFor = async (ports: InboxPorts, link: SyncLink): Promise<Outcome<Arrivals>> => {
   const invitations = await ports.invitations.list(link.bookId)
   const senders = (invitations.ok ? invitations.value : []).filter((kept) => kept.role === "sender")
-  if (senders.length === 0) return Ok(0)
+  if (senders.length === 0) return Ok(NONE_ARRIVED)
   const keys = fromSync(await ports.sealer.inboxKeysOf(link.secret))
   if (!keys.ok) return keys
   const boxes = await everyBox(ports.relay, accessOf(link.relayUrl, keys.value), 0)
   if (!boxes.ok) return boxes
   const waiting = boxes.value.filter((sealed) => !(link.inboxHandled ?? []).includes(sealed.id))
-  if (waiting.length === 0) return Ok(0)
+  if (waiting.length === 0) return Ok(NONE_ARRIVED)
   const nameOf = (mark: string): string | undefined => senders.find((kept) => readInvitation(kept.code)?.token.slice(0, SENDER_MARK) === mark)?.name
-  const taken = await waiting.reduce<Promise<Outcome<number>>>(async (so, sealed) => {
+  const taken = await waiting.reduce<Promise<Outcome<Arrivals>>>(async (so, sealed) => {
     const count = await so
     if (!count.ok) return count
-    const sent = await sentIn(ports.sealer, keys.value, sealed)
-    if (sent === undefined) return count
-    return mapOk(await takenIn(ports, link.bookId, sent, nameOf(sent.sender)), () => count.value + 1)
-  }, Promise.resolve(Ok(0)))
+    const held = await sentIn(ports.sealer, keys.value, sealed)
+    if (held.type === "opening") return count
+    if (held.type === "unreadable") return Ok(together(count.value, { taken: 0, unreadable: 1 }))
+    return mapOk(await takenIn(ports, link.bookId, held.sent, nameOf(held.sent.sender)), () => together(count.value, { taken: 1, unreadable: 0 }))
+  }, Promise.resolve(Ok(NONE_ARRIVED)))
   return taken.ok ? mapOk(await handled(ports.links, link, waiting.map((sealed) => sealed.id)), () => taken.value) : taken
 }
 
@@ -108,14 +127,14 @@ const receivedFor = async (ports: InboxPorts, link: SyncLink): Promise<Outcome<n
  * rest ask their relay nothing. One book's inbox that cannot be read now
  * does not keep the others waiting.
  */
-export const receiveArrivals = async (ports: InboxPorts): Promise<number> => {
+export const receiveArrivals = async (ports: InboxPorts): Promise<Arrivals> => {
   const links = await ports.links.list()
-  return (links.ok ? links.value : []).reduce<Promise<number>>(async (so, each) => {
+  return (links.ok ? links.value : []).reduce<Promise<Arrivals>>(async (so, each) => {
     const count = await so
     const link = await ownersLink(ports.links, each.bookId)
     const received = link.ok ? await receivedFor(ports, link.value) : link
-    return count + (received.ok ? received.value : 0)
-  }, Promise.resolve(0))
+    return received.ok ? together(count, received.value) : count
+  }, Promise.resolve(NONE_ARRIVED))
 }
 
 /** Take the later sending of a play in place of the one this device changed: what was done to it here is given up. */

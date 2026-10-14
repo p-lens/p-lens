@@ -1,7 +1,7 @@
 import { roleIn, type BookId, type MemberId } from "../core/book/book"
 import { BOOK_SETTINGS_FILE, withBusinessDayTurn } from "../core/book/settings"
 import type { BusinessDayTurn } from "../core/calendar/calendar"
-import { Ok } from "../core/result/result"
+import { Ok, mapOk } from "../core/result/result"
 import type { Preferences } from "../preferences/port/preferences"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
@@ -9,7 +9,7 @@ import type { Outcome } from "./errors"
 /** The hour written into a book's settings, as one change to that book: kept in its history and carried to the owner's other devices like any other. */
 const write = async (session: BookSession, bookId: BookId, turn: BusinessDayTurn): Promise<Outcome<void>> => {
   const written = await session.write(bookId, async (_journal, stored) =>
-    Ok({ files: { ...stored.files, [BOOK_SETTINGS_FILE]: withBusinessDayTurn(stored.files[BOOK_SETTINGS_FILE], turn) }, intent: { type: "business-day-turn-set" as const, turn } }),
+    mapOk(withBusinessDayTurn(stored.files[BOOK_SETTINGS_FILE], turn), (settings) => ({ files: { ...stored.files, [BOOK_SETTINGS_FILE]: settings }, intent: { type: "business-day-turn-set" as const, turn } })),
   )
   return written.ok ? Ok(undefined) : written
 }

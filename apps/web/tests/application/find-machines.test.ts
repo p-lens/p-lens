@@ -7,7 +7,7 @@ import type { IsoDate } from "../../src/core/calendar/calendar"
 import type { MachineId } from "../../src/core/machine/machine"
 import { Err, Ok } from "../../src/core/result/result"
 
-const UMI: MachineSummary = { id: "mori" as MachineId, gameKind: "pachinko", name: "Pスーパー森物語", modelName: undefined, keywords: [], hitChance: undefined, releasedOn: "2026-09-01" as IsoDate, formulaCount: 1 }
+const UMI: MachineSummary = { id: "mori" as MachineId, gameKind: "pachinko", name: "Pスーパー森物語", modelName: undefined, keywords: [], hitChance: undefined, formulaHitChances: [], releasedOn: "2026-09-01" as IsoDate, formulaCount: 1 }
 
 const unused = async (): Promise<never> => {
   throw new Error("not used here")

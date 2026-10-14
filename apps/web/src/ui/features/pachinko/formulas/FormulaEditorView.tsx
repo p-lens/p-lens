@@ -478,11 +478,11 @@ export function FormulaEditorView(props: { readonly place: Place & { readonly ki
           },
     )
     setRestored(startFromDraft(formula))
-    setDraft(undefined)
+    setDraft({ type: "none" })
   }
   const discard = (): void => {
     dropDraft(app.services.preferences, "pachinko")
-    setDraft(undefined)
+    setDraft({ type: "none" })
   }
   /** Starts the editor over from another machine's formula, in the tab it was made in: what is typed after is this machine's own, derived from none. */
   const copy = (formula: Formula, from: string): void => {
@@ -493,7 +493,7 @@ export function FormulaEditorView(props: { readonly place: Place & { readonly ki
   return (
     <MainContent header={<ViewHeader place={props.place} title="算出条件を作る" trail={trail()} />}>
       <div class="flex max-w-5xl flex-col gap-3">
-        <Show when={draft()} keyed>
+        <Show when={((found) => (found.type === "kept" ? found.draft : undefined))(draft())} keyed>
           {(kept) => (
             <div class="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
               <div class="flex min-w-0 flex-1 flex-col">
@@ -508,6 +508,14 @@ export function FormulaEditorView(props: { readonly place: Place & { readonly ki
               </Button>
             </div>
           )}
+        </Show>
+        <Show when={draft().type === "unreadable"}>
+          <div role="alert" class="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-negative/40 px-3 py-2 text-sm">
+            <span class="min-w-0 flex-1 text-text-secondary">未送信の入力が壊れていて読めません</span>
+            <Button variant="ghost" size="small" onClick={discard}>
+              捨てる
+            </Button>
+          </div>
         </Show>
         <Show when={machine().type === "none"}>
           <div class="px-4 pt-3">

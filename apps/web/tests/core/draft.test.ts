@@ -40,7 +40,7 @@ describe("how a play stands with an inbox", () => {
   })
 
   test("a play someone sent here is not sent on", () => {
-    expect(awaitsSending({ ...DRAFT, received: { sender: "made-up", log: DRAFT.log, ended: undefined } }, LINE)).toBe(false)
+    expect(awaitsSending({ ...DRAFT, received: { sender: "made-up", log: DRAFT.log, finished: undefined } }, LINE)).toBe(false)
   })
 })
 

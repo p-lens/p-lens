@@ -9,7 +9,7 @@ import type { PrecordProblem } from "../core/import/precord"
 import type { NameProblem } from "../core/names/known"
 import type { CashRaised } from "../core/report/cash-raised"
 import type { OpeningProblem } from "../core/parlor/opening"
-import type { PlayError } from "../core/play/play"
+import type { TallyError } from "../core/tally/tally"
 import type { ForfeitureProblem } from "../core/savings/forfeiture"
 import type { PrizeExchangeProblem } from "../core/savings/prize-exchange"
 import type { ReportError } from "../core/report/figures"
@@ -24,6 +24,9 @@ import type { DraftError } from "../storage/port/draft-storage"
 import type { RelayFailure } from "../sync/port/relay"
 import type { SealFailure } from "../sync/port/sealer"
 import type { CatalogError } from "../catalog/port/catalog"
+import type { SettingsUnreadable } from "../core/book/settings"
+import type { UnreadableFile } from "../core/book/unreadable-files"
+import type { TallyProblem } from "../core/report/tally-problems"
 import type { DirectoryError } from "../parlors/port/parlor-directory"
 import type { ProofError } from "../core/grounds/proof"
 import type { ReasonerFailure } from "../reasoning/protocol/messages"
@@ -51,6 +54,7 @@ export type SyncProblem =
   | CodecProblem
   | PairingProblem
   | { readonly type: "links"; readonly detail: string }
+  | { readonly type: "links-unreadable" }
   | { readonly type: "not-linked" }
   | { readonly type: "no-relay" }
   | { readonly type: "nothing-to-join" }
@@ -72,11 +76,11 @@ export type BackupProblem =
   | { readonly type: "book-here"; readonly bookId: BookId }
 
 /**
- * Why a file of another app's plays was not taken in.
+ * Why a file of another app's tallies was not taken in.
  *
- * - `nothing-new`: the book already has every play the file holds.
+ * - `nothing-new`: the book already has every tally the file holds.
  */
-export type ImportProblem = PrecordProblem | { readonly type: "nothing-new"; readonly count: number }
+export type ImportProblem = PrecordProblem | { readonly type: "nothing-new"; readonly count: number } | { readonly type: "not-utf8" }
 
 export type ApplicationError =
   | { readonly type: "storage"; readonly error: StorageError }
@@ -84,9 +88,11 @@ export type ApplicationError =
   | { readonly type: "hledger"; readonly trouble: Trouble }
   | { readonly type: "journal-rejected"; readonly trouble: Trouble }
   | { readonly type: "unknown-names"; readonly problems: readonly NameProblem[] }
+  | { readonly type: "tally-problems"; readonly problems: readonly TallyProblem[] }
+  | { readonly type: "file-unreadable"; readonly file: UnreadableFile }
   | { readonly type: "cash-raised"; readonly raised: readonly CashRaised[] }
   | { readonly type: "report"; readonly error: ReportError }
-  | { readonly type: "play"; readonly error: PlayError }
+  | { readonly type: "tally"; readonly error: TallyError }
   | { readonly type: "parlor"; readonly error: OpeningProblem }
   | { readonly type: "history"; readonly error: HistoryError }
   | { readonly type: "sync"; readonly problem: SyncProblem }
@@ -97,8 +103,9 @@ export type ApplicationError =
   | { readonly type: "prize-exchange"; readonly problem: PrizeExchangeProblem }
   | { readonly type: "forfeiture"; readonly problem: ForfeitureProblem }
   | { readonly type: "import"; readonly problem: ImportProblem }
-  | { readonly type: "play-missing" }
-  | { readonly type: "play-unreadable" }
+  | { readonly type: "tally-missing" }
+  | { readonly type: "tally-unreadable" }
+  | SettingsUnreadable
   | { readonly type: "opening-balance-registered"; readonly parlor: string; readonly tier: string }
   | { readonly type: "catalog"; readonly error: CatalogError }
   | { readonly type: "directory"; readonly error: DirectoryError }

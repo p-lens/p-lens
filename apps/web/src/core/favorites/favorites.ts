@@ -54,22 +54,28 @@ const targetOf = (value: unknown): CatalogTarget | undefined => {
   return (target === "formula" || target === "distribution") && typeof id === "string" && id !== "" ? { type: target, id } : undefined
 }
 
-/** A line read as a press; one whose word this version does not know says nothing it can go by, and is passed over. */
-const lineOf = (text: string): FavoriteLine | undefined => {
+/** A line as it reads: a press, one a later version wrote in a shape or word this one does not know, or one that does not read at all. */
+type LineRead = { readonly type: "press"; readonly line: FavoriteLine } | { readonly type: "later" } | { readonly type: "broken" }
+
+/** A line read as a press; one a later version wrote says nothing this one can go by, and is passed over, but one that is no line of any version does not read. */
+const lineOf = (text: string): LineRead => {
   const value = parsed(text)
-  if (!isRecord(value) || value["v"] !== LINE_VERSION) return undefined
+  if (!isRecord(value) || typeof value["v"] !== "number") return { type: "broken" }
+  if (value["v"] !== LINE_VERSION) return { type: "later" }
   const { id, at, by, did } = value
-  if (typeof id !== "string" || id === "" || typeof at !== "string" || Number.isNaN(Date.parse(at)) || typeof by !== "string") return undefined
   const target = targetOf(value["favorite"])
-  return target !== undefined && (did === "favorite-kept" || did === "favorite-let-go") ? { id, at, by: by as MemberId, did, target } : undefined
+  if (typeof id !== "string" || id === "" || typeof at !== "string" || Number.isNaN(Date.parse(at)) || typeof by !== "string" || target === undefined) return { type: "broken" }
+  return did === "favorite-kept" || did === "favorite-let-go" ? { type: "press", line: { id, at, by: by as MemberId, did, target } } : { type: "later" }
 }
 
-/** Every line of a favourites log that reads as one, in the order written; a line that does not read is passed over. */
-const linesOf = (text: string): readonly FavoriteLine[] =>
-  text.split("\n").flatMap((line) => {
-    const found = line.trim() === "" ? undefined : lineOf(line)
-    return found === undefined ? [] : [found]
-  })
+const readLines = (text: string): readonly { readonly number: number; readonly read: LineRead }[] =>
+  text.split("\n").flatMap((line, index) => (line.trim() === "" ? [] : [{ number: index + 1, read: lineOf(line) }]))
+
+/** Every line of a favourites log that reads as a press, in the order written. */
+const linesOf = (text: string): readonly FavoriteLine[] => readLines(text).flatMap(({ read }) => (read.type === "press" ? [read.line] : []))
+
+/** The lines of a book's favourites log that do not read, by number: the presses they were are not counted, and the hearts may say otherwise than was pressed. */
+export const unreadableFavoriteLines = (files: BookFiles): readonly number[] => readLines(files[FAVORITES_LOG] ?? "").flatMap(({ number, read }) => (read.type === "broken" ? [number] : []))
 
 /**
  * What a book keeps handy, as the ids of its favourite formulas and

@@ -1,13 +1,13 @@
 import { seatCheckpoint } from "../../../../core/pachislot/reading"
 import { atSeatCheckpoint } from "../../../../core/pachislot/path"
-import type { Checkpoint, Tally } from "../../../../core/play-log/checkpoint"
+import type { Checkpoint, Counts } from "../../../../core/play-log/checkpoint"
 import { Err, Ok, type Result } from "../../../../core/result/result"
 import { tidyTyped } from "../../../../core/text/tidy"
 
 /** The data counter as it was found at the seat, read as counts. */
 export interface Seat {
   readonly total: number
-  readonly bonuses: Tally
+  readonly bonuses: Counts
   readonly sinceBonus: number
   /** None when left empty: no CZ since the last AT. */
   readonly sinceCz: number | undefined

@@ -2,7 +2,8 @@ import type { Parts } from "../../src/core/activity/activity"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { parseDecimal, type Decimal } from "../../src/core/decimal/decimal"
 import type { Parlor, ParlorId } from "../../src/core/parlor/parlor"
-import type { PlayId, PlayRecord } from "../../src/core/play/play"
+import type { TokenTally } from "../../src/core/tally/tally"
+import type { PlayId } from "../../src/core/play/play"
 import type { PricePoint } from "../../src/core/valuation/valuation"
 
 /** A decimal written in a test; a typo there fails the test that wrote it. */
@@ -26,7 +27,7 @@ export const PRICES: readonly PricePoint[] = [
   { date: "2026-09-25" as IsoDate, commodity: "玉(4円・ホシゾラ梅田店)", rate: dec("3.50") },
 ]
 
-export const RENTED_PLAY: PlayRecord = {
+export const RENTED_PLAY: TokenTally = {
   id: "made-up-0905" as PlayId,
   date: "2026-09-05" as IsoDate,
   parlor: UMEDA,

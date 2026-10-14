@@ -14,7 +14,7 @@ import { SAVINGS_TAG } from "./balance"
  * lapse of another kind. The tokens are gone either way, and the book has
  * one word for it: 失効, on screen and on the entry, written to 失効損,
  * the loss it is, named as a book names a loss. It is a loss,
- * as large as the tokens were worth, and no play's: nothing was played
+ * as large as the tokens were worth, and no tally's: nothing was played
  * for it, so it stands under no machine and is counted in the results of
  * its day like any other expense.
  */

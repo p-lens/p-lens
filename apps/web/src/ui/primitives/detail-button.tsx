@@ -9,8 +9,9 @@ import { SlidersIcon } from "./icons"
  * the button opens a bubble holding what is put away there; Enter, or a
  * press anywhere else, closes it, and what was typed stays typed. The
  * button is marked while something is set there, so that a figure put
- * away is not forgotten, red where it stopped a press, and beckons with its frame
- * where what a person was asked for is kept in it. The bubble does
+ * away is not forgotten, red where it stopped a press, beckons with its frame
+ * where what a person was asked for is kept in it, and glimmers amber where
+ * what would make an answer better is. The bubble does
  * not take the focus as it opens: a keyboard brought up unasked would
  * cover it, where a field the person presses is brought into view by the
  * browser itself.
@@ -26,6 +27,8 @@ export function DetailButton(props: {
   readonly tone?: "semipro"
   /** What was just asked for is to be found here: the frame comes slowly red and goes again, once each time this becomes so. */
   readonly beckoning?: boolean
+  /** What would make an answer better is to be found here: an amber light comes softly about it and goes again, once each time this becomes so. */
+  readonly glimmering?: boolean
   /** Where the bubble opens: above a button at the foot of the screen, below one further up. */
   readonly placement: "top-end" | "bottom-end"
   readonly onOpen?: () => void
@@ -55,6 +58,7 @@ export function DetailButton(props: {
             "text-semipro-ink": props.tone === "semipro" && !props.invalid,
             "bg-surface-3 text-negative outline outline-2 outline-negative": props.invalid,
             "animate-[beckon_2.4s_ease-in-out]": props.beckoning === true && !props.invalid,
+            "animate-[glimmer_2.4s_ease-in-out]": props.glimmering === true && props.beckoning !== true && !props.invalid,
           }}
         >
           <SlidersIcon />

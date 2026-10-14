@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test"
 
 import { createBookSession } from "../../src/application/book-session"
 import { keepingHistory } from "../../src/application/draft-history"
-import { addCheckpoints, changeTerms, finishPlay, finishTalliedPlay, loadDrafts, loadTodaysPlays, reviseCheckpoints, startPlay } from "../../src/application/live-play"
+import { addCheckpoints, changeTerms, finishPlay, finishPlayInYen, loadDrafts, loadTodaysPlays, reviseCheckpoints, startPlay } from "../../src/application/live-play"
 import { linkSubmissions, openPool } from "../../src/application/parlors"
-import { loadRecordingContext, recordPlay } from "../../src/application/record-play"
+import { loadRecordingContext, recordTokenTally } from "../../src/application/record-tally"
 import type { BookId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { isLeftOver, type PlayDraft } from "../../src/core/live-play/draft"
@@ -46,7 +46,7 @@ const setUp = async () => {
 
 const RECORD = { ...RENTED_PLAY, id: ID, date: "2026-10-04" as IsoDate }
 
-const END = { at: "2026-10-04T14:30:00.000Z", counter: 150 }
+const FINISH = { at: "2026-10-04T14:30:00.000Z", counter: 150 }
 
 const NOW = "2026-10-04T14:31:00.000Z"
 
@@ -69,7 +69,7 @@ describe("a play followed live", () => {
   test("is recorded with its log beside the entry, and stays among the day's plays, marked as recorded", async () => {
     const { storage, drafts, session } = await setUp()
     await startPlay(drafts, DRAFT)
-    const finished = await finishPlay(session, drafts, DRAFT, BOOK, RECORD, END, NOW)
+    const finished = await finishPlay(session, drafts, DRAFT, BOOK, RECORD, FINISH, NOW)
     expect(finished.ok).toBe(true)
     const [head = "", ...readings] = (storage.peek(BOOK)?.files[`pachinko-play/${ID}.jsonl`] ?? "").split("\n")
     expect(JSON.parse(head)).toEqual({
@@ -85,9 +85,9 @@ describe("a play followed live", () => {
       machine: "流星",
       cabinetNumber: "123",
     })
-    expect(readings.join("\n")).toBe(`${DRAFT.log}{"spins":30,"at":"2026-10-04T14:30:00.000Z","counter":{"spins":150},"event":{"kind":"ended"}}\n`)
+    expect(readings.join("\n")).toBe(`${DRAFT.log}{"spins":30,"at":"2026-10-04T14:30:00.000Z","counter":{"spins":150},"event":{"kind":"finished"}}\n`)
     expect(storage.peek(BOOK)?.files["transactions.journal"]).toContain("play-id: live-1")
-    expect(mapOk(await loadTodaysPlays(drafts, "2026-10-04" as IsoDate), (found) => found.map((draft) => [draft.id, draft.recorded, draft.log]))).toEqual({ ok: true, value: [[ID, { at: NOW, end: END }, DRAFT.log]] })
+    expect(mapOk(await loadTodaysPlays(drafts, "2026-10-04" as IsoDate), (found) => found.map((draft) => [draft.id, draft.recorded, draft.log]))).toEqual({ ok: true, value: [[ID, { at: NOW, finish: FINISH }, DRAFT.log]] })
   })
 
   test("is unknown to every book until it is recorded, when its parlor's pool is opened in the book it goes into", async () => {
@@ -96,7 +96,7 @@ describe("a play followed live", () => {
     const elsewhere: PlayDraft = { ...DRAFT, venue: { ...DRAFT.venue, type: "parlor", parlor, terms: DRAFT.venue.terms as never } }
     await startPlay(drafts, elsewhere)
     expect(storage.peek(BOOK)?.files["accounts.journal"]).not.toContain("新規店")
-    expect((await finishPlay(session, drafts, elsewhere, BOOK, { ...RECORD, parlor }, END, NOW)).ok).toBe(true)
+    expect((await finishPlay(session, drafts, elsewhere, BOOK, { ...RECORD, parlor }, FINISH, NOW)).ok).toBe(true)
     expect(storage.peek(BOOK)?.files["accounts.journal"]).toContain("資産:貯玉:新規店:4円")
     expect(mapOk(await loadDrafts(drafts), (found) => found.map((draft) => draft.bookId))).toEqual({ ok: true, value: [BOOK] })
   })
@@ -115,10 +115,10 @@ describe("a play followed live", () => {
   test("is recorded again from its readings set right since: the book's entry and its log replaced, never doubled", async () => {
     const { storage, drafts, session } = await setUp()
     await startPlay(drafts, DRAFT)
-    await finishPlay(session, drafts, DRAFT, BOOK, RECORD, END, NOW)
+    await finishPlay(session, drafts, DRAFT, BOOK, RECORD, FINISH, NOW)
     const [kept] = ((found) => (found.ok ? found.value : []))(await loadTodaysPlays(drafts, "2026-10-04" as IsoDate))
     const added = await addCheckpoints(drafts, kept as PlayDraft, [{ spins: 20, outlay: 500 }])
-    expect((await finishPlay(session, drafts, added.ok ? added.value : DRAFT, BOOK, { ...RECORD, payout: dec("6000") }, END, NOW)).ok).toBe(true)
+    expect((await finishPlay(session, drafts, added.ok ? added.value : DRAFT, BOOK, { ...RECORD, payout: dec("6000") }, FINISH, NOW)).ok).toBe(true)
     const transactions = storage.peek(BOOK)?.files["transactions.journal"] ?? ""
     expect(transactions.match(/play-id: live-1,/g)?.length).toBe(1)
     expect(transactions).toContain('6000 "玉(4円・ホシゾラ梅田店)"')
@@ -129,7 +129,7 @@ describe("a play followed live", () => {
     const { drafts, session } = await setUp()
     await startPlay(drafts, DRAFT)
     await startPlay(drafts, { ...DRAFT, id: "live-2" as PlayId })
-    await finishPlay(session, drafts, DRAFT, BOOK, RECORD, END, NOW)
+    await finishPlay(session, drafts, DRAFT, BOOK, RECORD, FINISH, NOW)
     const next = await loadTodaysPlays(drafts, "2026-10-05" as IsoDate)
     expect(mapOk(next, (found) => found.map((draft) => [draft.id, isLeftOver(draft, "2026-10-05" as IsoDate)]))).toEqual({ ok: true, value: [["live-2", true]] } as never)
     expect(mapOk(await loadDrafts(drafts), (found) => found.length)).toEqual({ ok: true, value: 1 })
@@ -179,10 +179,10 @@ describe("a play with no parlor", () => {
       theoreticalValue: undefined,
       told: undefined,
     }
-    expect((await finishTalliedPlay(session, drafts, nowhere, BOOK, play, { at: undefined, counter: undefined }, NOW)).ok).toBe(true)
+    expect((await finishPlayInYen(session, drafts, nowhere, BOOK, play, { at: undefined, counter: undefined }, NOW)).ok).toBe(true)
     const [head = "", ...readings] = (storage.peek(BOOK)?.files[`pachinko-play/${ID}.jsonl`] ?? "").split("\n")
     expect([JSON.parse(head).header, JSON.parse(head).parlor, JSON.parse(head).terms]).toEqual([true, undefined, undefined])
-    expect(readings.join("\n")).toBe(`${nowhere.log}{"spins":0,"event":{"kind":"ended"}}\n`)
+    expect(readings.join("\n")).toBe(`${nowhere.log}{"spins":0,"event":{"kind":"finished"}}\n`)
     expect(mapOk(await loadDrafts(drafts), (found) => found.map((draft) => draft.recorded !== undefined))).toEqual({ ok: true, value: [true] })
   })
 })
@@ -198,7 +198,7 @@ describe("a pool the book does not keep", () => {
     expect(mapOk(context, (found) => found.parlors.map((parlor) => parlor.name))).toEqual({ ok: true, value: ["ホシゾラ梅田店", "789松原店", "ルミナ難波店"] })
     const lumina = opened.ok ? opened.value : UMEDA
     const rented = { ...RECORD, parlor: lumina, pool: { kind: "ball" as const, tier: "1円" }, rental: { outlay: dec("1000"), tokens: dec("890") } }
-    expect((await recordPlay(session, BOOK, rented)).ok).toBe(true)
+    expect((await recordTokenTally(session, BOOK, rented)).ok).toBe(true)
     expect(storage.peek(BOOK)?.files["transactions.journal"]).toMatch(/費用:遊技 +890 "玉\(1円・ルミナ難波店\)" @ 0.892857 JPY/)
   })
 
@@ -237,7 +237,7 @@ describe("a parlor submitted and waiting on the list", () => {
     const opened = await openPool(session, BOOK, SUBMITTED)
     const waiting = opened.ok ? opened.value : UMEDA
     const played = { ...RECORD, parlor: waiting, pool: { kind: "ball" as const, tier: "1円" }, rental: { outlay: dec("1000"), tokens: dec("890") } }
-    expect((await recordPlay(session, BOOK, played)).ok).toBe(true)
+    expect((await recordTokenTally(session, BOOK, played)).ok).toBe(true)
     expect(await linkSubmissions(session, BOOK, [])).toEqual({ ok: true, value: 0 })
     expect(await linkSubmissions(session, BOOK, [LISTED])).toEqual({ ok: true, value: 1 })
     const files = storage.peek(BOOK)?.files ?? {}

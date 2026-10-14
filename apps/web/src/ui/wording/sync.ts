@@ -23,6 +23,8 @@ export const describeSyncProblem = (problem: SyncProblem): string => {
       return "同期が多すぎます。1分ほど待ってください。"
     case "refused":
       return `中継サーバに断られました。（${problem.status} ${problem.reason}）`
+    case "unreadable-answer":
+      return "中継サーバの応答を読めませんでした。通信状況を確かめて、もう一度試してください。"
     case "bad-secret":
     case "not-a-pairing-code":
       return "同期コード・招待コードとして読めません。もらったコードをそのまま貼り付けてください。"
@@ -39,6 +41,8 @@ export const describeSyncProblem = (problem: SyncProblem): string => {
       return `この端末とほかの端末が、同じ箇所を別々に書き換えています（${problem.path}）。下で残すほうを選んでください。`
     case "links":
       return `同期の設定を端末に残せませんでした: ${problem.detail}`
+    case "links-unreadable":
+      return "この端末に保存された同期と共有の設定が壊れていて読めません。データの消去で端末のデータを消すと、また使えるようになります。"
     case "not-linked":
       return "この帳簿は同期していません。"
     case "no-relay":
@@ -49,6 +53,9 @@ export const describeSyncProblem = (problem: SyncProblem): string => {
 }
 
 /** How a round of syncing went, in a line. */
+/** What is said of plays sent to this device that could not be read, so the sender can be asked to send them again. */
+export const unreadableArrivalsText = (count: number): string => `届いた稼働のうち${count}件が壊れていて読めませんでした。送った人に送り直してもらってください。`
+
 export const syncedText = (synced: Synced): string =>
   synced.received === 0 && synced.sent === 0 ? "最新です。" : `受け取り ${synced.received} 件・送信 ${synced.sent} 件。`
 

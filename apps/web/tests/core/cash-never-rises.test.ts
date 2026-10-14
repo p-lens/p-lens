@@ -3,11 +3,12 @@ import { readdir, readFile } from "node:fs/promises"
 import { describe, expect, test } from "bun:test"
 
 import type { IsoDate } from "../../src/core/calendar/calendar"
-import { importedPlayEntry, type SourcePlay } from "../../src/core/import/source-play"
+import { importedTallyEntry, type SourceTally } from "../../src/core/import/source-tally"
 import { ACCOUNTS } from "../../src/core/journal/accounts"
 import type { Entry } from "../../src/core/journal/entry"
-import { composePlayEntry, composeTalliedEntry } from "../../src/core/play/compose"
-import type { PlayId, TalliedPlay } from "../../src/core/play/play"
+import { composeTokenTallyEntry, composeYenTallyEntry } from "../../src/core/tally/compose"
+import type { YenTally } from "../../src/core/tally/tally"
+import type { PlayId } from "../../src/core/play/play"
 import { balanceAdjustmentEntry, openingBalanceEntry } from "../../src/core/savings/balance"
 import { forfeitureEntry } from "../../src/core/savings/forfeiture"
 import { prizeExchangeEntry } from "../../src/core/savings/prize-exchange"
@@ -29,19 +30,19 @@ const SIDES: readonly (readonly [string, string])[] = [
   ["1", "1000000"],
 ]
 
-const TALLIED: TalliedPlay = { id: "tally" as PlayId, date: DAY, parlor: undefined, gameKind: "pachinko", machine: "e風の剣豪", cabinetNumber: undefined, outlay: dec("0"), takings: dec("0"), theoreticalValue: undefined, told: undefined }
+const TALLIED: YenTally = { id: "tally" as PlayId, date: DAY, parlor: undefined, gameKind: "pachinko", machine: "e風の剣豪", cabinetNumber: undefined, outlay: dec("0"), takings: dec("0"), theoreticalValue: undefined, told: undefined }
 
-const SOURCE: SourcePlay = { date: DAY, parlor: { name: "ホシゾラ梅田店", code: "S123" }, machine: { name: "流星の剣", code: "M9", maker: "ミナト" }, cabinetNumber: "123", outlay: dec("0"), takings: dec("0"), memo: "", hours: undefined }
+const SOURCE: SourceTally = { date: DAY, parlor: { name: "ホシゾラ梅田店", code: "S123" }, machine: { name: "流星の剣", code: "M9", maker: "ミナト" }, cabinetNumber: "123", outlay: dec("0"), takings: dec("0"), memo: "", hours: undefined }
 
 const made = (entry: { readonly ok: true; readonly value: Entry } | { readonly ok: false }): readonly Entry[] => (entry.ok ? [entry.value] : [])
 
 /** Every entry the app composes, each in the cases where money came back: a play followed live, one typed in by its two sides, one taken in from another app, a prize exchange, savings opened or put right, and savings a parlor took back. */
 const ENTRIES: readonly Entry[] = [
-  ...made(composePlayEntry(RENTED_PLAY, PRICES)),
-  ...made(composePlayEntry({ ...RENTED_PLAY, payout: dec("48000") }, PRICES)),
-  ...made(composePlayEntry({ ...RENTED_PLAY, rental: undefined, replay: { paidOut: dec("4000"), deducted: dec("4000") }, payout: dec("90000"), theoreticalValue: undefined }, PRICES)),
-  ...SIDES.flatMap(([outlay, takings]) => made(composeTalliedEntry({ ...TALLIED, outlay: dec(outlay), takings: dec(takings) }))),
-  ...SIDES.map(([outlay, takings]) => importedPlayEntry({ id: "taken-in" as PlayId, from: "precord", source: { ...SOURCE, outlay: dec(outlay), takings: dec(takings) }, machine: undefined, inferred: undefined })),
+  ...made(composeTokenTallyEntry(RENTED_PLAY, PRICES)),
+  ...made(composeTokenTallyEntry({ ...RENTED_PLAY, payout: dec("48000") }, PRICES)),
+  ...made(composeTokenTallyEntry({ ...RENTED_PLAY, rental: undefined, replay: { paidOut: dec("4000"), deducted: dec("4000") }, payout: dec("90000"), theoreticalValue: undefined }, PRICES)),
+  ...SIDES.flatMap(([outlay, takings]) => made(composeYenTallyEntry({ ...TALLIED, outlay: dec(outlay), takings: dec(takings) }))),
+  ...SIDES.map(([outlay, takings]) => importedTallyEntry({ id: "taken-in" as PlayId, from: "precord", source: { ...SOURCE, outlay: dec(outlay), takings: dec(takings) }, machine: undefined, inferred: undefined })),
   ...["16500", "16800", "17000", "0"].flatMap((specialPrizes) => made(prizeExchangeEntry({ parlor: UMEDA, pool: POOL, date: DAY, tokens: dec("4800"), specialPrizes: dec(specialPrizes) }, PRICES))),
   openingBalanceEntry({ parlor: UMEDA, pool: POOL, date: DAY }, dec("12000")),
   balanceAdjustmentEntry({ parlor: UMEDA, pool: POOL, date: DAY }, dec("300")),
@@ -65,14 +66,14 @@ describe("cash never rises", () => {
   })
 
   test("a gain in yen is prizes taken home, in equity: the special prizes and the part of a yen left over", () => {
-    const gains = SIDES.filter(([outlay, takings]) => Number(takings) > Number(outlay)).flatMap(([outlay, takings]) => made(composeTalliedEntry({ ...TALLIED, outlay: dec(outlay), takings: dec(takings) })))
+    const gains = SIDES.filter(([outlay, takings]) => Number(takings) > Number(outlay)).flatMap(([outlay, takings]) => made(composeYenTallyEntry({ ...TALLIED, outlay: dec(outlay), takings: dec(takings) })))
     expect(gains.length).toBe(4)
     expect(gains.every((entry) => entry.postings.some((posting) => posting.account === ACCOUNTS.specialPrizes || posting.account === ACCOUNTS.translationAdjustment))).toBe(true)
     expect(gains.some((entry) => entry.postings.some((posting) => posting.account === ACCOUNTS.cash))).toBe(false)
   })
 
-  test("the cash account is named in these files and no others: two compose a play's postings, the rest read them — a new writer is added here, with its gains above", async () => {
-    expect(await naming(/ACCOUNTS\.cash/)).toEqual(["core/play/compose.ts", "core/play/sides.ts", "core/report/cash-raised.ts", "core/report/recorded-play.ts", "hledger/query/terms.ts"])
+  test("the cash account is named in these files and no others: two compose a tally's postings, the rest read them — a new writer is added here, with its gains above", async () => {
+    expect(await naming(/ACCOUNTS\.cash/)).toEqual(["core/report/cash-raised.ts", "core/report/recorded-tally.ts", "core/tally/compose.ts", "core/tally/sides.ts", "hledger/query/terms.ts"])
     expect(await naming(/資産:現金/)).toEqual(["app/composition/first-book.ts", "application/edit-file.ts", "core/journal/accounts.ts", "core/report/cash-raised.ts", "ui/wording/errors.ts"])
   })
 })

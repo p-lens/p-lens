@@ -8,7 +8,7 @@ import { fromHledger } from "./lift"
 /**
  * Whether a book has a theoretical value written anywhere in it. A book
  * with none has not been keeping them, and a sum of theoretical values
- * over it is nothing to show: it would read as plays worth nothing, which
+ * over it is nothing to show: it would read as tallies worth nothing, which
  * is not what was said. hledger is asked for one entry on the account,
  * over the whole book and whatever period is on screen.
  */

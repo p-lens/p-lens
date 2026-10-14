@@ -94,6 +94,15 @@ describe("a pool's savings put right", () => {
     expect(stored.ok && stored.value.files[BOOK_FILES.transactions]).toContain("2026-10-05 ホシゾラなんば新館 | 残高調整  ; parlor-id: osm-9, savings: adjustment\n")
   })
 
+  test("are told in the activity as the count they were set to on the day, and not as the difference", async () => {
+    const { session, history } = await setUp()
+    await registerOpeningBalance(session, BOOK, NAMBA, dec("5000"))
+    const parlor = { identity: NAMBA.identity, name: NAMBA.parlorName, pools: [NAMBA.pool] }
+    await adjustBalance(session, BOOK, parlor, NAMBA.pool, "2026-10-05" as IsoDate, dec("4820"))
+    const activity = await loadActivity(session, history, BOOK)
+    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).at(-1)).toEqual(["savings-adjusted", { pool: { parlor: "ホシゾラなんば新館", tier: "4円" }, savings: { date: "2026-10-05" as IsoDate, kind: "ball", tokens: dec("4820") } }])
+  })
+
   test("are counted as of the day said, and left alone where the book already has the count", async () => {
     const { session } = await setUp()
     await registerOpeningBalance(session, BOOK, NAMBA, dec("5000"))
@@ -120,7 +129,7 @@ describe("savings exchanged for prizes", () => {
     expect(files?.[BOOK_FILES.accounts]).toContain("account 純資産:特殊景品\naccount 純資産:端玉景品\naccount 純資産:換算調整勘定")
     expect(files?.[BOOK_FILES.transactions]).toContain("2026-10-04 ホシゾラ梅田店 | 景品交換  ; parlor-id: hoshizora-umeda, savings: prize-exchange")
     const activity = await loadActivity(session, history, BOOK)
-    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).at(-1)).toEqual(["savings-exchanged", { pool: { parlor: "ホシゾラ梅田店", tier: "4円" } }])
+    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).at(-1)).toEqual(["savings-exchanged", { pool: { parlor: "ホシゾラ梅田店", tier: "4円" }, savings: { date: "2026-10-04" as IsoDate, kind: "ball", tokens: dec("4000") }, prizes: { specialPrizes: dec("13800") } }])
   })
 
   test("leave every result as it was", async () => {

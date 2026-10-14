@@ -14,7 +14,7 @@ import { saidIn } from "../support/values"
 
 const BOOK = "edited" as BookId
 
-const machine = (name: string, gameKind: "pachinko" | "pachislot"): MachineSummary => ({ id: name as never, gameKind, name, modelName: undefined, keywords: [], hitChance: undefined, releasedOn: "2025-01-01" as never, formulaCount: 1 })
+const machine = (name: string, gameKind: "pachinko" | "pachislot"): MachineSummary => ({ id: name as never, gameKind, name, modelName: undefined, keywords: [], hitChance: undefined, formulaHitChances: [], releasedOn: "2025-01-01" as never, formulaCount: 1 })
 
 /** The lists as a device has them: one parlor listed under its own name, one machine of each game catalogued. */
 const PORTS: NamePorts = {
@@ -102,5 +102,21 @@ describe("a book's file edited by hand", () => {
     expect(!broken.ok && broken.error.type).toBe("journal-rejected")
     expect(text(BOOK_FILES.transactions)).toBe(before)
     expect((await editFile(session, PORTS, BOOK, BOOK_FILES.transactions, before.replace("123番台", "125番台"))).ok).toBe(true)
+  })
+  test("is refused, and the book left as it was, where it leaves a tally's entry in a shape the app would read past", async () => {
+    const { session, text } = await setUp()
+    const before = text(BOOK_FILES.transactions)
+    const refusedWith = async (edited: string): Promise<unknown> => ((found) => (!found.ok && found.error.type === "tally-problems" ? found.error.problems : found))(await editFile(session, PORTS, BOOK, BOOK_FILES.transactions, edited))
+    expect(await refusedWith(`${before}${TALLIED("森物語", ", finished: 25:00")}`)).toEqual([{ type: "tag-unreadable", playId: "by-hand", tag: "finished" }])
+    expect(await refusedWith(`${before}${TALLIED("森物語")}${TALLIED("森物語")}`)).toEqual([{ type: "play-id-twice", playId: "by-hand" }])
+    expect(await refusedWith(`${before}${TALLIED("森物語", ", parlor-id: osm-404")}`)).toEqual([{ type: "parlor-unknown", playId: "by-hand" }])
+    expect(text(BOOK_FILES.transactions)).toBe(before)
+  })
+
+  test("is refused, and the file left as it was, where it leaves a file beside the journal that read in a shape it does not", async () => {
+    const { session, text } = await setUp()
+    const refused = await editFile(session, PORTS, BOOK, "settings.json", "{{")
+    expect(!refused.ok && refused.error).toEqual({ type: "file-unreadable", file: { path: "settings.json", lines: undefined } })
+    expect(text("settings.json")).not.toBe("{{")
   })
 })

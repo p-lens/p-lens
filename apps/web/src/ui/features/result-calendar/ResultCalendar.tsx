@@ -11,7 +11,7 @@ import type { Place } from "../../navigation/place"
 import { inferredShareText, NOT_TALLIED } from "../../wording/breakdown"
 import { describeError } from "../../wording/errors"
 import { toneOf } from "../../wording/numbers"
-import { Figure } from "../plays/Figure"
+import { Figure } from "../tallies/Figure"
 import { ViewHeader } from "../shell/ViewHeader"
 import { EarlierIcon, LaterIcon } from "./icons"
 import { byDay, monthAfter, monthBefore, weeksOf, type Cell } from "./month"
@@ -26,10 +26,10 @@ const groupsIn = (outcome: Outcome<readonly Group[]> | undefined): readonly Grou
 const CELL = "flex min-h-[3.75rem] min-w-0 flex-col gap-0.5 rounded-[3px] px-0.5 py-1 text-left sm:px-1"
 
 /**
- * One day of the month: its number, and what its plays made where it had
+ * One day of the month: its number, and what its tallies made where it had
  * any, with what they were worth under that where the book keeps it and
- * the day's plays had any — uncoloured, being a reckoning and no gain or
- * loss. A day with plays is pressed to see them; a day without is only its
+ * the day's tallies had any — uncoloured, being a reckoning and no gain or
+ * loss. A day with tallies is pressed to see them; a day without is only its
  * number. The business day it now is wears a ring. Each figure is written
  * as small as its cell asks (`fittedSize`), in one size up to six digits,
  * so only a great win is in smaller figures, and none is cut short.
@@ -75,8 +75,8 @@ function Day(props: { readonly day: IsoDate; readonly figures: Group | undefined
 }
 
 /**
- * Results a month at a time, as a calendar: what the month's plays made
- * and were worth above, and under it each day with what its plays made
+ * Results a month at a time, as a calendar: what the month's tallies made
+ * and were worth above, and under it each day with what its tallies made
  * and were worth.
  * Whose results they are — a book's, or several books' together — is the
  * caller's: it holds the month, asks for the month's days and for the

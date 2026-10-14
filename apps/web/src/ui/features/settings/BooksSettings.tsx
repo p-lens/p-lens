@@ -21,7 +21,7 @@ import type { Place } from "../../navigation/place"
 import { lastBackupText, standingText } from "../../wording/backup"
 import { LONGEST_TITLE } from "../../../core/journal/title"
 import { bookTitle, describeTitleProblem } from "../../wording/book"
-import { describeError } from "../../wording/errors"
+import { describeError, unreadableFileText } from "../../wording/errors"
 import { BookTitle } from "../shell/BookTitle"
 import { ViewHeader } from "../shell/ViewHeader"
 import { exchangedIn, motionOf, placedAs, rowsOf, standAs, type Motion, type Row, type Swap } from "./book-rows"
@@ -99,6 +99,11 @@ function BookRow(props: { readonly listed: BookStanding; readonly motion: Motion
           </span>
           <Show when={lastBackupText(props.listed.standing)} keyed>
             {(last) => <span class="text-xs text-text-muted">{last}</span>}
+          </Show>
+          <Show when={props.listed.unreadable.length > 0}>
+            <span role="alert" class="text-xs text-negative">
+              {props.listed.unreadable.map((file) => unreadableFileText(file.path, file.lines)).join("")}生ファイルで直してください。
+            </span>
           </Show>
         </div>
         <div class="flex items-center justify-end sm:shrink-0">

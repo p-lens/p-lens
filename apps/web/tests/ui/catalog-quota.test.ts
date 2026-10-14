@@ -36,21 +36,20 @@ describe("a formula that could not be sent", () => {
   }
 
   test("is read back as it was written, for its own game alone", () => {
-    const read = readDraft(writtenDraft(draft), "pachinko")
-    expect(read?.target).toEqual(draft.target)
-    expect(read?.formula.gameKind).toBe("pachinko")
-    expect(readDraft(writtenDraft(draft), "pachislot")).toBeUndefined()
+    expect(readDraft(writtenDraft(draft), "pachinko")).toEqual({ type: "kept", draft })
+    expect(readDraft(writtenDraft(draft), "pachislot")).toEqual({ type: "unreadable" })
   })
 
   test("for a machine in the catalog names it", () => {
     const forMachine: FormulaDraft = { ...draft, target: { type: "catalog", machineId: "01a10000-0000-7000-8000-000000000001" as MachineId, name: "P森" } }
-    expect(readDraft(writtenDraft(forMachine), "pachinko")?.target).toEqual(forMachine.target)
+    expect(readDraft(writtenDraft(forMachine), "pachinko")).toEqual({ type: "kept", draft: forMachine })
   })
 
-  test("is not read from nothing, from what is no draft, or from another shape", () => {
-    expect(readDraft(undefined, "pachinko")).toBeUndefined()
-    expect(readDraft("{", "pachinko")).toBeUndefined()
-    expect(readDraft(JSON.stringify({ v: 0, ...draft }), "pachinko")).toBeUndefined()
-    expect(readDraft(JSON.stringify({ v: 1, target: [], formula: draft.formula }), "pachinko")).toBeUndefined()
+  test("is none where nothing is written, and does not read from what is no draft, another shape, or a machine it cannot name", () => {
+    expect(readDraft(undefined, "pachinko")).toEqual({ type: "none" })
+    expect(readDraft("{", "pachinko")).toEqual({ type: "unreadable" })
+    expect(readDraft(JSON.stringify({ v: 0, ...draft }), "pachinko")).toEqual({ type: "unreadable" })
+    expect(readDraft(JSON.stringify({ v: 1, target: [], formula: draft.formula }), "pachinko")).toEqual({ type: "unreadable" })
+    expect(readDraft(JSON.stringify({ v: 1, target: { type: "new" }, formula: draft.formula }), "pachinko")).toEqual({ type: "unreadable" })
   })
 })

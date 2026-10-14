@@ -1,6 +1,6 @@
 import type { BookId } from "../../core/book/book"
 import { type FilePatch, patchBetween } from "../../core/change/patch"
-import { type Result, mapErr, mapOk } from "../../core/result/result"
+import { Err, Ok, type Result, andThen, mapErr, mapOk } from "../../core/result/result"
 import { COMMITS, COMMITS_BY_BOOK, type Connection, completionOf, resultOf } from "../../storage/browser/database"
 import type { StorageError } from "../../storage/port/book-storage"
 import type { Commit, CommitId, HistoryError, HistoryPort } from "../port/history-port"
@@ -35,8 +35,28 @@ const fromStorage = <T>(result: Result<T, StorageError>): Result<T, HistoryError
 
 const oldestFirst = (records: readonly CommitRecord[]): readonly CommitRecord[] => records.toSorted((left, right) => left.order - right.order)
 
+type Fields = Readonly<Record<string, unknown>>
+
+const isFields = (value: unknown): value is Fields => typeof value === "object" && value !== null && !Array.isArray(value)
+
+const isKeptFile = (value: unknown): boolean => isFields(value) && typeof value["path"] === "string" && (Array.isArray(value["hunks"]) || typeof value["after"] === "string")
+
+const isChange = (value: unknown): boolean => isFields(value) && typeof value["at"] === "string" && isFields(value["intent"]) && Array.isArray(value["files"]) && value["files"].every(isKeptFile)
+
+/** Whether a record reads as a commit kept: its place, its book, whether it is on the line, and a change with its files. */
+const isRecord = (value: unknown): value is CommitRecord =>
+  isFields(value) &&
+  typeof value["order"] === "number" &&
+  typeof value["bookId"] === "string" &&
+  typeof value["onLine"] === "boolean" &&
+  isFields(value["commit"]) &&
+  typeof value["commit"]["id"] === "string" &&
+  isChange(value["commit"]["change"])
+
 const recordsOf = async (store: IDBObjectStore, book: BookId): Promise<Result<readonly CommitRecord[], HistoryError>> =>
-  mapOk(fromStorage(await resultOf<CommitRecord[]>(store.index(COMMITS_BY_BOOK).getAll(book))), (found) => oldestFirst(found ?? []))
+  andThen(fromStorage(await resultOf<unknown[]>(store.index(COMMITS_BY_BOOK).getAll(book))), (found) =>
+    (found ?? []).every(isRecord) ? Ok(oldestFirst(found as readonly CommitRecord[])) : Err({ type: "unreadable" }),
+  )
 
 /**
  * History kept on this device, in the database the books are in: every

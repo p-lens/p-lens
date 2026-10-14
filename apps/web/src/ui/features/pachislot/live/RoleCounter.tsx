@@ -1,7 +1,7 @@
 import { Index, onCleanup, onMount, type JSX } from "solid-js"
 
 import type { Countable } from "../../../../core/pachislot/weighing"
-import type { Tally } from "../../../../core/play-log/checkpoint"
+import type { Counts } from "../../../../core/play-log/checkpoint"
 import { formatCount } from "../../../wording/numbers"
 import { observedOneInText } from "../../../wording/pachislot/formula"
 
@@ -41,7 +41,7 @@ function CountTile(props: {
  */
 export function RoleCounter(props: {
   readonly countables: readonly Countable[]
-  readonly counts: Tally
+  readonly counts: Counts
   readonly games: number
   readonly direction: CountDirection
   readonly onCount: (id: string, by: 1 | -1) => void

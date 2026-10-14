@@ -2,8 +2,9 @@ import { describe, expect, test } from "bun:test"
 
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import type { PlayVenue } from "../../src/core/live-play/draft"
-import type { PlayId, PlayRecord } from "../../src/core/play/play"
-import { carriedInShown, leftAt, leftBy, readCarriedIn, recalledTokensInHand, tokensCarriedTo, tokensKeptAfter, tokensStillInHand, writtenTokensInHand, type TokensInHand } from "../../src/ui/features/live/tokens-in-hand"
+import type { TokenTally } from "../../src/core/tally/tally"
+import type { PlayId } from "../../src/core/play/play"
+import { carriedInShown, leftAt, leftBy, readCarriedIn, recalledTokensInHand, tokensCarriedTo, tokensInHandUnreadable, tokensKeptAfter, tokensStillInHand, writtenTokensInHand, type TokensInHand } from "../../src/ui/features/live/tokens-in-hand"
 import { RENTED_PLAY, UMEDA, dec } from "../support/values"
 
 const DAY = "2026-10-12" as IsoDate
@@ -16,22 +17,30 @@ const KEPT = writtenTokensInHand(DAY, IN_HAND)
 
 const AT_UMEDA: PlayVenue = { type: "parlor", parlor: UMEDA, terms: TERMS }
 
-const PLAYED: PlayRecord = { ...RENTED_PLAY, date: DAY, payout: dec("1500") }
+const PLAYED: TokenTally = { ...RENTED_PLAY, date: DAY, payout: dec("1500") }
 
 const LEFT = leftBy(PLAYED)
 
 describe("the tokens in hand between two plays of a day", () => {
   test("are recalled as they were written, on the day they were left, and not the day after", () => {
-    expect(recalledTokensInHand(KEPT, DAY)).toEqual(IN_HAND)
-    expect(recalledTokensInHand(KEPT, "2026-10-13" as IsoDate)).toBeUndefined()
-    expect(recalledTokensInHand("not json", DAY)).toBeUndefined()
-    expect(recalledTokensInHand(undefined, DAY)).toBeUndefined()
+    expect(recalledTokensInHand(KEPT, DAY)).toEqual({ type: "kept", inHand: IN_HAND })
+    expect(recalledTokensInHand(KEPT, "2026-10-13" as IsoDate)).toEqual({ type: "none" })
+    expect(recalledTokensInHand(undefined, DAY)).toEqual({ type: "none" })
   })
 
-  test("stay kept on their day and are let go of once it has turned over", () => {
+  test("are told apart where what is kept does not read, and not taken for none", () => {
+    const counted = (count: unknown): string => JSON.stringify({ ...(JSON.parse(KEPT) as object), count })
+    expect(recalledTokensInHand("not json", DAY)).toEqual({ type: "unreadable" })
+    expect(recalledTokensInHand(counted("500"), DAY)).toEqual({ type: "unreadable" })
+    expect(tokensInHandUnreadable(counted("500"), DAY)).toBe(true)
+    expect(tokensInHandUnreadable(KEPT, DAY)).toBe(false)
+    expect(tokensCarriedTo(counted("500"), DAY, AT_UMEDA, "pachinko")).toBeUndefined()
+  })
+
+  test("stay kept on their day, or while what is kept does not read, and are let go of once the day has turned over", () => {
     expect(tokensStillInHand(KEPT, DAY)).toBe(KEPT)
     expect(tokensStillInHand(KEPT, "2026-10-13" as IsoDate)).toBeUndefined()
-    expect(tokensStillInHand("not json", DAY)).toBeUndefined()
+    expect(tokensStillInHand("not json", DAY)).toBe("not json")
     expect(tokensStillInHand(undefined, DAY)).toBeUndefined()
   })
 
@@ -51,7 +60,7 @@ describe("the tokens in hand between two plays of a day", () => {
 
   test("are changed by a play recorded again only while they are still that play's", () => {
     const again = { ...LEFT, count: 1800 }
-    expect(recalledTokensInHand(tokensKeptAfter(KEPT, DAY, { id: "a" as PlayId, recordedBefore: true }, again), DAY)?.count).toBe(1800)
+    expect(recalledTokensInHand(tokensKeptAfter(KEPT, DAY, { id: "a" as PlayId, recordedBefore: true }, again), DAY)).toEqual({ type: "kept", inHand: { ...IN_HAND, count: 1800 } })
     expect(tokensKeptAfter(undefined, DAY, { id: "a" as PlayId, recordedBefore: true }, again)).toBeUndefined()
     expect(tokensKeptAfter(KEPT, DAY, { id: "b" as PlayId, recordedBefore: true }, again)).toBe(KEPT)
   })
@@ -61,7 +70,7 @@ describe("the tokens in hand between two plays of a day", () => {
     const left = leftAt(nowhere, "pachinko", DAY, 25)
     const kept = tokensKeptAfter(undefined, DAY, { id: "n" as PlayId, recordedBefore: false }, left ?? LEFT)
     expect(left).toEqual({ identity: undefined, pool: { kind: "ball", tier: "4円" }, date: DAY, count: 25 })
-    expect(recalledTokensInHand(kept, DAY)).toEqual({ identity: undefined, pool: { kind: "ball", tier: "4円" }, count: 25, from: "n" as PlayId })
+    expect(recalledTokensInHand(kept, DAY)).toEqual({ type: "kept", inHand: { identity: undefined, pool: { kind: "ball", tier: "4円" }, count: 25, from: "n" as PlayId } })
     expect(tokensCarriedTo(kept, DAY, nowhere, "pachinko")).toBe(25)
     expect(tokensCarriedTo(kept, DAY, AT_UMEDA, "pachinko")).toBeUndefined()
     expect(tokensCarriedTo(KEPT, DAY, nowhere, "pachinko")).toBeUndefined()

@@ -46,7 +46,7 @@ export const PARLOR_ID_TAG = "parlor-id"
 
 export const PARLOR_SUBMISSION_TAG = "parlor-submission"
 
-/** The tags a parlor's accounts and its plays carry: its list id, or its submission while it waits. */
+/** The tags a parlor's accounts and its tallies carry: its list id, or its submission while it waits. */
 export const identityTags = (identity: ParlorIdentity): readonly (readonly [string, string])[] =>
   identity.type === "listed" ? [[PARLOR_ID_TAG, identity.id]] : [[PARLOR_SUBMISSION_TAG, identity.submission]]
 
@@ -68,7 +68,7 @@ const tagIn = (tags: DeclaredAccount["tags"], tag: string): string | undefined =
 }
 
 /**
- * Who the parlor is that an account's or a play's tags name, if they name
+ * Who the parlor is that an account's or a tally's tags name, if they name
  * one. A list id wins over a submission: tags carrying both are a
  * submission the list has taken.
  */

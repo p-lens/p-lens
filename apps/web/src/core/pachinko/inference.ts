@@ -1,7 +1,8 @@
 import type { BeliefDto, InferenceSummaryDto, ReadingDto, ToldDto, WayDto } from "@p-lens/contracts/pachinko"
 
 import { decimal } from "../decimal/decimal"
-import type { InferredWorth } from "../play/play"
+import { keptSpinPerformance } from "../tally/aside"
+import type { InferredWorth } from "../tally/tally"
 import type { Figures } from "./figures"
 import { borderOf } from "./theoretical-value"
 
@@ -13,11 +14,14 @@ export type TokenRental = (typeof TOKEN_RENTALS)[number]
 /**
  * How a parlor exchanges balls for prizes, named as players name it at ¥4
  * a ball, the kindest first: the 25 that ¥100 rented — an equal exchange —
- * or 28 balls or 30 for ¥100 of prizes.
+ * or 28 balls, 30 or 33 for ¥100 of prizes.
  */
-export const EXCHANGES = ["equal", "28", "30"] as const
+export const EXCHANGES = ["equal", "28", "30", "33"] as const
 
 export type Exchange = (typeof EXCHANGES)[number]
+
+/** The exchanges a corner of each rental is offered as: 33 balls is a ¥4 corner's, a ¥1 corner being seldom that harsh. */
+export const EXCHANGES_AT: Readonly<Record<TokenRental, readonly Exchange[]>> = { 4: EXCHANGES, 1: ["equal", "28", "30"] }
 
 /** What a told play is weighed on beside its formula: what a ball rented for, and how balls were exchanged. */
 export interface WeighingTerms {
@@ -28,7 +32,10 @@ export interface WeighingTerms {
 /** The terms a play is weighed on until a person says otherwise: ¥4 a ball, exchanged at 28 — the harsher of the common exchanges being the one to assume. */
 export const TERMS_BY_DEFAULT: WeighingTerms = { rental: 4, exchange: "28" }
 
-const BALLS_FOR_100_AT_4: Readonly<Record<Exchange, number>> = { "28": 28, "30": 30, equal: 25 }
+/** Terms at another rental: the exchange as it was where that rental is offered it, and the usual one where not. */
+export const withRental = (terms: WeighingTerms, rental: TokenRental): WeighingTerms => ({ rental, exchange: EXCHANGES_AT[rental].includes(terms.exchange) ? terms.exchange : TERMS_BY_DEFAULT.exchange })
+
+const BALLS_FOR_100_AT_4: Readonly<Record<Exchange, number>> = { "28": 28, "30": 30, "33": 33, equal: 25 }
 
 /** Balls ¥100 of prizes takes: what the exchange is named for at ¥4 a ball, and as many times more as a ball is cheaper. */
 export const tokenExchangeOf = (terms: WeighingTerms): number => (BALLS_FOR_100_AT_4[terms.exchange] * 4) / terms.rental
@@ -39,7 +46,7 @@ export const ballValueOf = (terms: WeighingTerms): number => 100 / tokenExchange
 /** The terms two figures kept with a play say: what a ball rented for and the balls ¥100 of prizes took. None where they are not ones a play is weighed on. */
 export const termsOf = (tokenRental: number, tokenExchange: number): WeighingTerms | undefined => {
   const rental = TOKEN_RENTALS.find((each) => each === tokenRental)
-  const exchange = rental === undefined ? undefined : EXCHANGES.find((each) => tokenExchangeOf({ rental, exchange: each }) === tokenExchange)
+  const exchange = rental === undefined ? undefined : EXCHANGES_AT[rental].find((each) => tokenExchangeOf({ rental, exchange: each }) === tokenExchange)
   return rental === undefined || exchange === undefined ? undefined : { rental, exchange }
 }
 
@@ -185,6 +192,7 @@ export const inferredWorthOf = (weighed: Weighed, formulaId: string, terms: Weig
   formulaId,
   tokenRental: decimal(BigInt(terms.rental), 0),
   tokenExchange: decimal(BigInt(tokenExchangeOf(terms)), 0),
+  spinPerformance: keptSpinPerformance(weighed.spinPerformance),
 })
 
 const FNV_OFFSET = 0xcbf29ce484222325n

@@ -15,7 +15,7 @@ import {
 import { quotaOf } from "../../core/catalog/quota"
 import type { MachineId } from "../../core/machine/machine"
 import type { Mark } from "../../core/formula/standing"
-import { Err, Ok, mapOk, type Result } from "../../core/result/result"
+import { Err, Ok, andThen, collect, mapOk, type Result } from "../../core/result/result"
 import { CATALOG, CATALOG_OUTBOX, type Connection, completionOf, resultOf } from "../../storage/browser/database"
 import type { StorageError } from "../../storage/port/book-storage"
 import type { Catalog, CatalogError } from "../port/catalog"
@@ -28,6 +28,30 @@ interface DeliveredRecord {
   readonly deliveredAt: string
   readonly machines: readonly MachineDetailDto[]
 }
+
+type Fields = Readonly<Record<string, unknown>>
+
+const isFields = (value: unknown): value is Fields => typeof value === "object" && value !== null && !Array.isArray(value)
+
+const isMachineDetail = (value: unknown): value is MachineDetailDto => isFields(value) && isFields(value["machine"]) && typeof value["machine"]["id"] === "string" && Array.isArray(value["formulas"])
+
+const isDeliveredRecord = (value: unknown): value is DeliveredRecord =>
+  isFields(value) &&
+  value["key"] === "delivered" &&
+  typeof value["version"] === "string" &&
+  typeof value["deliveredAt"] === "string" &&
+  Array.isArray(value["machines"]) &&
+  value["machines"].every(isMachineDetail)
+
+const METHODS: ReadonlySet<unknown> = new Set(["PUT", "DELETE", "POST"])
+
+const isRequest = (value: unknown): value is CatalogRequest =>
+  isFields(value) && METHODS.has(value["method"]) && typeof value["path"] === "string" && (value["as"] === undefined || typeof value["as"] === "string")
+
+const isOutboxRecord = (value: unknown): value is OutboxRecord => isFields(value) && typeof value["id"] === "string" && isRequest(value["request"])
+
+/** What a store gave back, as what it must be, or that it does not read. */
+const keptAs = <T>(value: unknown, is: (kept: unknown) => kept is T): Result<T, CatalogError> => (is(value) ? Ok(value) : Err({ type: "unreadable-kept" }))
 
 /** A mark or a use waiting to be sent, keyed so they go in the order they were made. */
 interface OutboxRecord {
@@ -65,6 +89,8 @@ const fromApi = (failure: ApiFailure, sending: Sending): CatalogError => {
       return { type: "no-catalog" }
     case "unreachable":
       return { type: "unavailable", detail: failure.detail }
+    case "unreadable-answer":
+      return { type: "unreadable-answer" }
     case "answered": {
       const { error } = failure
       if (error.type === "conflict" && error["what"] === "model-name" && sending.type === "registering") return { type: "model-name-taken", modelName: sending.machine.modelName ?? "" }
@@ -126,7 +152,7 @@ export const createDeliveredCatalog = (database: Connection, api: CatalogApi, ef
     if (held.delivered !== undefined) return Ok(held.delivered)
     const db = await opened()
     if (!db.ok) return db
-    const read = fromStorage(await resultOf<DeliveredRecord>(db.value.transaction(CATALOG).objectStore(CATALOG).get("delivered")))
+    const read = andThen(fromStorage(await resultOf<unknown>(db.value.transaction(CATALOG).objectStore(CATALOG).get("delivered"))), (kept) => (kept === undefined ? Ok(undefined) : keptAs(kept, isDeliveredRecord)))
     if (read.ok) held.delivered = read.value
     return read
   }
@@ -211,8 +237,8 @@ export const createDeliveredCatalog = (database: Connection, api: CatalogApi, ef
   const flush = async (): Promise<Result<void, CatalogError>> => {
     const db = await opened()
     if (!db.ok) return db
-    const waiting = fromStorage(await resultOf<OutboxRecord[]>(db.value.transaction(CATALOG_OUTBOX).objectStore(CATALOG_OUTBOX).getAll()))
-    return waiting.ok ? sentFrom(db.value, waiting.value ?? []) : waiting
+    const waiting = andThen(fromStorage(await resultOf<unknown[]>(db.value.transaction(CATALOG_OUTBOX).objectStore(CATALOG_OUTBOX).getAll())), (kept) => collect((kept ?? []).map((each) => keptAs(each, isOutboxRecord))))
+    return waiting.ok ? sentFrom(db.value, waiting.value) : waiting
   }
 
   const deliver = async (catalog: CatalogDto): Promise<Result<void, CatalogError>> => {

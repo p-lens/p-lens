@@ -14,7 +14,7 @@ export interface Member {
 /**
  * A book: who it belongs to and who else may read or write it.
  *
- * Nothing the journal can answer is kept here — no balance, no count of plays,
+ * Nothing the journal can answer is kept here — no balance, no count of tallies,
  * not even its title. The book is its journal files; this is only the cover.
  */
 export interface Book {
@@ -47,7 +47,7 @@ export const memberCan = (book: Book, member: MemberId, capability: Capability):
 
 /**
  * The book in use: the first this member may write. Nobody is asked which:
- * a heart and a mark are written there, and a play is recorded there unless
+ * a heart and a mark are written there, and a tally is recorded there unless
  * another is chosen as it is recorded.
  */
 export const bookInUse = (books: readonly Book[], member: MemberId): BookId | undefined => books.find((book) => memberCan(book, member, "write"))?.id

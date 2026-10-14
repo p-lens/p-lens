@@ -5,13 +5,13 @@ import { ACCOUNTS, savingsAccount } from "../journal/accounts"
 import { describedBy, type Entry } from "../journal/entry"
 import { identityTags, type Parlor, type SavingsPool } from "../parlor/parlor"
 
-/** The tag an entry about savings and no play carries, saying which it is: an opening balance, an adjustment, or a prize exchange. */
+/** The tag an entry about savings and no tally carries, saying which it is: an opening balance, an adjustment, or a prize exchange. */
 export const SAVINGS_TAG = "savings"
 
 /**
  * The accounts savings are set against, as a book declares them. Neither is
  * revenue nor an expense: savings a person already had, and a count put
- * right, are no play's result, so they are kept out of every income
+ * right, are no tally's result, so they are kept out of every income
  * statement, in equity.
  */
 const EQUITY_DECLARATIONS = ["account 純資産                         ; type: E", `account ${ACCOUNTS.openingBalance}`, `account ${ACCOUNTS.balanceAdjustment}`, ""].join("\n")

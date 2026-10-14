@@ -9,7 +9,8 @@ export interface Commit {
   readonly change: JournalChange
 }
 
-export type HistoryError = { readonly type: "unavailable"; readonly detail: string }
+/** A history out of reach, or a commit kept in it that does not read as one. */
+export type HistoryError = { readonly type: "unavailable"; readonly detail: string } | { readonly type: "unreadable" }
 
 /**
  * The history of a book: every change, recorded as one commit. Git is the

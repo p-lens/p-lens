@@ -1,9 +1,10 @@
 import type { BookId, ListedBook } from "../core/book/book"
 import type { Dimension, Group } from "../core/report/breakdown"
 import type { Holdings } from "../core/report/holdings"
+import { mergedSpinPerformances, type SpinPerformancesByMachine } from "../core/report/spin-performance"
 import { mapOk } from "../core/result/result"
 import type { BookSession } from "./book-session"
-import { loadBreakdown } from "./breakdown"
+import { loadBreakdown, loadSpinPerformances } from "./breakdown"
 import type { Outcome } from "./errors"
 import { loadHoldings } from "./holdings"
 import { loadOverview } from "./overview"
@@ -61,3 +62,7 @@ export const loadConsolidatedHoldings = (session: BookSession, chosen: readonly 
  */
 export const consolidationKeepsTheoreticalValues = async (session: BookSession, chosen: readonly BookId[] | undefined): Promise<Outcome<boolean>> =>
   mapOk(await ofChosen(session, chosen, (book) => keepsTheoreticalValues(session, book.id)), (books) => books.some((each) => each.read.ok && each.read.value))
+
+/** The spin performances of the books chosen, by machine, for a period: each book's, added. A book that could not be read adds nothing. */
+export const loadConsolidatedSpinPerformances = async (session: BookSession, chosen: readonly BookId[] | undefined, query: string): Promise<Outcome<SpinPerformancesByMachine>> =>
+  mapOk(await ofChosen(session, chosen, (book) => loadSpinPerformances(session, book.id, query)), (books) => mergedSpinPerformances(books.flatMap((each) => (each.read.ok ? [each.read.value] : []))))

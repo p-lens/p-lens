@@ -1,7 +1,7 @@
 import type { NormalizedSpecDto, PlayDto } from "@p-lens/contracts/pachislot"
 
 import { tokenValueOf, type PlayTerms } from "../parlor/terms"
-import type { Checkpoint, Tally } from "../play-log/checkpoint"
+import type { Checkpoint, Counts } from "../play-log/checkpoint"
 import type { FormulaSnapshot } from "./snapshot"
 import type { Prior } from "./prior"
 
@@ -74,7 +74,7 @@ export const playOf = (
 const namedBy = (formula: FormulaSnapshot): ReadonlySet<string> =>
   new Set([...eventsOf(formula.normalized).flatMap((event) => (event.group === undefined ? [event.id] : [event.id, event.group])), ...counterBonusesOf(formula).map((bonus) => bonus.id)])
 
-const countsNamed = (counts: Tally, named: ReadonlySet<string>): Tally => Object.fromEntries(Object.entries(counts).filter(([id]) => named.has(id)))
+const countsNamed = (counts: Counts, named: ReadonlySet<string>): Counts => Object.fromEntries(Object.entries(counts).filter(([id]) => named.has(id)))
 
 /**
  * A log as another formula reads it. What a play counted, it counted under

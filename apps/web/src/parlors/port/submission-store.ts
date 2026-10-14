@@ -11,9 +11,8 @@ export interface Submission {
   readonly submittedAt: string
 }
 
-export interface SubmissionStoreError {
-  readonly detail: string
-}
+/** A store out of reach, or a submission kept in it that does not read as one. */
+export type SubmissionStoreError = { readonly type: "unavailable"; readonly detail: string } | { readonly type: "unreadable" }
 
 /**
  * The submissions this device made, kept so a parlor waiting on the list can

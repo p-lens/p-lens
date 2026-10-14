@@ -11,9 +11,9 @@ const PLACES: readonly Place[] = [
   { kind: "live-cabinet", playId: "p-1" as never },
   { kind: "book", bookId: "made-up" as never },
   { kind: "book-view", bookId: "made-up" as never, view: "holdings" },
-  { kind: "play", bookId: "made-up" as never, playId: "a b/c" as never },
-  { kind: "play-new", bookId: "made-up" as never },
-  { kind: "play-revise", bookId: "made-up" as never, playId: "p1" as never },
+  { kind: "tally", bookId: "made-up" as never, playId: "a b/c" as never },
+  { kind: "tally-new", bookId: "made-up" as never },
+  { kind: "tally-revise", bookId: "made-up" as never, playId: "p1" as never },
   { kind: "settings" },
   { kind: "settings-section", section: "appearance" },
   { kind: "settings-section", section: "backup" },
@@ -31,7 +31,7 @@ describe("places", () => {
   test("an address the app has no screen for is not found, not guessed at", () => {
     expect(placeOf("/books/made-up/nonsense")).toEqual({ kind: "not-found", path: "/books/made-up/nonsense" })
     expect(placeOf("/books/made-up/record")).toEqual({ kind: "not-found", path: "/books/made-up/record" })
-    expect(placeOf("/books/made-up/plays/a/b")).toEqual({ kind: "not-found", path: "/books/made-up/plays/a/b" })
+    expect(placeOf("/books/made-up/tallies/a/b")).toEqual({ kind: "not-found", path: "/books/made-up/tallies/a/b" })
     expect(placeOf("/settings/unknown")).toEqual({ kind: "not-found", path: "/settings/unknown" })
     expect(placeOf("/books/%E0%A4%A")).toEqual({ kind: "not-found", path: "/books/%E0%A4%A" })
     expect(placeOf("/machines/m1")).toEqual({ kind: "not-found", path: "/machines/m1" })
@@ -41,10 +41,10 @@ describe("places", () => {
     expect(PLACES.map(focusOf)).toEqual(["selection", "content", "content", "content", "content", "content", "selection", "content", "detail", "content", "content", "selection", "content", "content", "content", "content", "detail", "selection"])
   })
 
-  test("one step up from a play is its list, then the book", () => {
+  test("one step up from a tally is its list, then the book", () => {
     const play = PLACES[8] as Place
     const list = parentOf(play)
-    expect(list).toEqual({ kind: "book-view", bookId: "made-up", view: "plays" } as never)
+    expect(list).toEqual({ kind: "book-view", bookId: "made-up", view: "tallies" } as never)
     expect(parentOf(list as Place)).toEqual({ kind: "book", bookId: "made-up" } as never)
     expect(parentOf({ kind: "book", bookId: "made-up" as never })).toBeUndefined()
   })
@@ -63,14 +63,14 @@ describe("places", () => {
   })
 })
 
-describe("adding a play by hand", () => {
-  test("is under the book's plays, and steps back to them", () => {
-    expect(placeOf("/books/made-up/plays/new")).toEqual({ kind: "play-new", bookId: "made-up" } as never)
-    expect(parentOf({ kind: "play-new", bookId: "made-up" as never })).toEqual({ kind: "book-view", bookId: "made-up", view: "plays" } as never)
-    expect(focusOf({ kind: "play-new", bookId: "made-up" as never })).toBe("content")
-    expect(placeOf("/books/made-up/plays/p1/revise")).toEqual({ kind: "play-revise", bookId: "made-up", playId: "p1" } as never)
-    expect(parentOf({ kind: "play-revise", bookId: "made-up" as never, playId: "p1" as never })).toEqual({ kind: "play", bookId: "made-up", playId: "p1" } as never)
-    expect(placeOf("/books/made-up/plays/p1/elsewhere")).toEqual({ kind: "not-found", path: "/books/made-up/plays/p1/elsewhere" })
+describe("adding a tally by hand", () => {
+  test("is under the book's tallies, and steps back to them", () => {
+    expect(placeOf("/books/made-up/tallies/new")).toEqual({ kind: "tally-new", bookId: "made-up" } as never)
+    expect(parentOf({ kind: "tally-new", bookId: "made-up" as never })).toEqual({ kind: "book-view", bookId: "made-up", view: "tallies" } as never)
+    expect(focusOf({ kind: "tally-new", bookId: "made-up" as never })).toBe("content")
+    expect(placeOf("/books/made-up/tallies/p1/revise")).toEqual({ kind: "tally-revise", bookId: "made-up", playId: "p1" } as never)
+    expect(parentOf({ kind: "tally-revise", bookId: "made-up" as never, playId: "p1" as never })).toEqual({ kind: "tally", bookId: "made-up", playId: "p1" } as never)
+    expect(placeOf("/books/made-up/tallies/p1/elsewhere")).toEqual({ kind: "not-found", path: "/books/made-up/tallies/p1/elsewhere" })
   })
 })
 

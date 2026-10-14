@@ -3,9 +3,13 @@ import type { SharedParlor } from "../core/parlor/shared"
 import { mapErr, mapOk, Ok, type Result } from "../core/result/result"
 import type { ParlorDirectory } from "../parlors/port/parlor-directory"
 import type { Submission, SubmissionStore, SubmissionStoreError } from "../parlors/port/submission-store"
-import type { Outcome } from "./errors"
+import type { ApplicationError, Outcome } from "./errors"
 
-const fromStore = <T>(result: Result<T, SubmissionStoreError>): Outcome<T> => mapErr(result, (error) => ({ type: "submissions", detail: error.detail }))
+/** A submissions store's failure as the app says it: out of reach, or holding one that does not read. */
+export const submissionsProblemOf = (error: SubmissionStoreError): ApplicationError =>
+  error.type === "unreadable" ? { type: "storage", error: { type: "unreadable", kept: "submission" } } : { type: "submissions", detail: error.detail }
+
+const fromStore = <T>(result: Result<T, SubmissionStoreError>): Outcome<T> => mapErr(result, submissionsProblemOf)
 
 export const listSubmissions = async (store: SubmissionStore): Promise<Outcome<readonly Submission[]>> => fromStore(await store.list())
 

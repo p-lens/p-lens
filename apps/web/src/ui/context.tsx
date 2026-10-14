@@ -5,11 +5,13 @@ import { loadMachineNames, refreshCatalog } from "../application/catalog"
 import type { ApplicationError } from "../application/errors"
 import type { Services } from "../application/services"
 import type { MachineNames } from "../core/catalog/catalog"
-import { receiveArrivals } from "../application/inbox"
+import { receiveArrivals, type Arrivals } from "../application/inbox"
 import { restoreEveryGrant } from "../application/invitations"
 import { keepStorage } from "../application/storage-keeping"
 import { syncAll, type Synced } from "../application/sync"
+import { toast } from "./primitives/toast"
 import type { ThemeState } from "./theme/theme"
+import { unreadableArrivalsText } from "./wording/sync"
 
 /** Where the installed app stands against the newest published; supplied by the PWA layer. */
 export interface UpdateState {
@@ -123,6 +125,11 @@ export function AppProvider(props: {
   }
   const [syncState, setSyncState] = createSignal<SyncState>({ type: "idle" })
   const syncing: { running: boolean; again: boolean; waiting: ReturnType<typeof setTimeout> | undefined; grantsRestored: boolean } = { running: false, again: false, waiting: undefined, grantsRestored: false }
+  /** Plays that arrived: the day's plays read again where any was taken in, and a word where any could not be read. */
+  const told = (arrived: Arrivals): void => {
+    if (arrived.taken > 0) setRevision((count) => count + 1)
+    if (arrived.unreadable > 0) toast({ title: unreadableArrivalsText(arrived.unreadable) })
+  }
   const runSync = (): void => {
     if (syncing.running) {
       syncing.again = true
@@ -134,7 +141,7 @@ export function AppProvider(props: {
       syncing.running = false
       setSyncState(done.ok ? { type: "synced", synced: done.value } : { type: "failed", error: done.error })
       if (done.ok && done.value.received > 0) setRevision((count) => count + 1)
-      if (done.ok) void receiveArrivals({ links: props.services.sync.links, relay: props.services.sync.relay, sealer: props.services.sync.sealer, invitations: props.services.invitations, drafts: props.services.drafts }).then((arrived) => (arrived > 0 ? setRevision((count) => count + 1) : undefined))
+      if (done.ok) void receiveArrivals({ links: props.services.sync.links, relay: props.services.sync.relay, sealer: props.services.sync.sealer, invitations: props.services.invitations, drafts: props.services.drafts }).then(told)
       if (done.ok && !syncing.grantsRestored) {
         syncing.grantsRestored = true
         void restoreEveryGrant({ links: props.services.sync.links, relay: props.services.sync.relay, sealer: props.services.sync.sealer, invitations: props.services.invitations, now: props.services.now, newId: () => crypto.randomUUID() })

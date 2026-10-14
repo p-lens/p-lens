@@ -4,7 +4,7 @@ import { createBookSession } from "../../src/application/book-session"
 import { firstBook } from "../../src/app/composition/first-book"
 import { keepingHistory } from "../../src/application/draft-history"
 import { receiveArrivals, takeSentAgain, type InboxPorts } from "../../src/application/inbox"
-import { invitationsOf, invite, restoreGrants, uninvite, type InvitationPorts } from "../../src/application/invitations"
+import { INBOX_OPENING, invitationsOf, invite, restoreGrants, uninvite, type InvitationPorts } from "../../src/application/invitations"
 import { loadOverview } from "../../src/application/overview"
 import { chooseBook, finishPlay, loadDrafts, reviseCheckpoints, startPlay } from "../../src/application/live-play"
 import { destinationsOf, sendDraft, sendTodaysPlays, type SendingPorts } from "../../src/application/sending"
@@ -12,19 +12,19 @@ import { renameBook } from "../../src/application/rename-book"
 import { joinByCode, joinSync, startSync, syncBook, type SyncPorts } from "../../src/application/sync"
 import { roleIn, type BookId, type MemberId } from "../../src/core/book/book"
 import { appendEntry, BOOK_FILES } from "../../src/core/journal/layout"
-import { Ok } from "../../src/core/result/result"
+import { Ok, mapOk } from "../../src/core/result/result"
 import { readInvitation } from "../../src/core/sync/invitation"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
 import type { Relay } from "../../src/sync/port/relay"
 import { createWebCryptoSealer } from "../../src/sync/web-crypto/web-crypto-sealer"
-import { afterItEnded, isSentAsItStands, type PlayDraft } from "../../src/core/live-play/draft"
+import { afterItFinished, isSentAsItStands, type PlayDraft } from "../../src/core/live-play/draft"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { fixtureBook, inProcessHledger, memoryDrafts, memoryStorage } from "../support/in-process"
 import { toPlainString } from "../../src/core/decimal/decimal"
 import type { PlayId } from "../../src/core/play/play"
 import type { Destination, DestinationStore } from "../../src/sync/port/destination-store"
 import { memoryInvitations, memoryLinks, memoryRelay } from "../support/sync"
-import { RENTED_PLAY, UMEDA } from "../support/values"
+import { RENTED_PLAY, UMEDA, dec } from "../support/values"
 
 const BOOK = "group" as BookId
 const RELAY_URL = "https://relay.test"
@@ -58,7 +58,7 @@ const device = async (name: string, relay: Relay) => {
   const inbox: InboxPorts = { links, relay, sealer, invitations: inviting.invitations, drafts }
   const record = (date: string, yen: number, note: string) =>
     session.write(BOOK, async (_journal, stored) =>
-      Ok({ files: { ...stored.files, [BOOK_FILES.transactions]: appendEntry(stored.files[BOOK_FILES.transactions] ?? "", entry(date, yen, note)) }, intent: { type: "pool-opened", parlor: note, tier: "4円" } }),
+      Ok({ files: { ...stored.files, [BOOK_FILES.transactions]: appendEntry(stored.files[BOOK_FILES.transactions] ?? "", entry(date, yen, note)) }, intent: { type: "pool-opened", parlor: note, tier: "4円", date: "2026-10-01" as IsoDate, rate: dec("4") } }),
     )
   const role = async () => ((books) => (books.ok ? books.value.map((book) => roleIn(book, ME)) : books))(await session.books())
   return { ports, inviting, sending, inbox, destinations, drafts, clock, session, record, role, files: () => storage.peek(BOOK)?.files }
@@ -215,28 +215,41 @@ describe("a person let in only to send plays", () => {
     expect(await joinSync(theirs.ports, kept.code, RELAY_URL)).toEqual({ ok: false, error: { type: "sync", problem: { type: "not-a-pairing-code" } } })
   })
 
+  test("tells a play that arrived broken apart, once, and takes none of it in", async () => {
+    const { mine, theirs, destination } = await both()
+    await sendDraft(theirs.sending, DRAFT, destination)
+    const broken: Relay = {
+      ...mine.inbox.relay,
+      entriesAfter: async (access, after) =>
+        mapOk(await mine.inbox.relay.entriesAfter(access, after), (page) => ({ ...page, entries: page.entries.map((entry) => (entry.commitId.startsWith(INBOX_OPENING) ? entry : { ...entry, box: entry.box.slice(0, 12) })) })),
+    }
+    expect(await receiveArrivals({ ...mine.inbox, relay: broken })).toEqual({ taken: 0, unreadable: 1 })
+    expect(await mineOf(mine)).toEqual([])
+    expect(await receiveArrivals(mine.inbox)).toEqual({ taken: 0, unreadable: 0 })
+  })
+
   test("sends a play of their day with its history, which joins the owner's day under their name, in the book it was sent to", async () => {
     const { mine, theirs, destination } = await both()
     const revised = await reviseCheckpoints(theirs.drafts, DRAFT, [{ spins: 0, outlay: 0 }, { spins: 250, outlay: 2000 }])
     const sent = await sendDraft(theirs.sending, revised.ok ? revised.value : DRAFT, destination)
     expect(sent.ok && isSentAsItStands(sent.value, destination.lineId)).toBe(true)
-    expect(await receiveArrivals(mine.inbox)).toBe(1)
+    expect(await receiveArrivals(mine.inbox)).toEqual({ taken: 1, unreadable: 0 })
     const [arrived] = await mineOf(mine)
     expect([arrived?.id, arrived?.bookId, arrived?.received?.sender, arrived?.log, arrived?.recorded, arrived?.sent]).toEqual([PLAY, BOOK, "けんじ", '{"spins":0,"outlay":0}\n{"spins":250,"outlay":2000}\n', undefined, undefined])
     expect(arrived?.history).toEqual([{ at: "2026-10-09T02:00:00.000Z", removed: ['{"spins":250,"outlay":1000}'], added: ['{"spins":250,"outlay":2000}'] }])
     expect(arrived?.venue.type === "parlor" && arrived.venue.parlor.pools).toEqual([])
-    expect(await receiveArrivals(mine.inbox)).toBe(0)
+    expect(await receiveArrivals(mine.inbox)).toEqual({ taken: 0, unreadable: 0 })
   })
 
-  test("is recorded by the owner into a book of their choosing, set right first, and what the sender changed after it ended is told apart", async () => {
+  test("is recorded by the owner into a book of their choosing, set right first, and what the sender changed after it finished is told apart", async () => {
     const { mine, theirs, destination } = await both()
-    await theirs.drafts.updateDraft({ ...DRAFT, recorded: { at: "2026-10-09T03:00:10.000Z", end: { at: "2026-10-09T03:00:00.000Z", counter: undefined } } }, DRAFT.log)
+    await theirs.drafts.updateDraft({ ...DRAFT, recorded: { at: "2026-10-09T03:00:10.000Z", finish: { at: "2026-10-09T03:00:00.000Z", counter: undefined } } }, DRAFT.log)
     theirs.clock.now = "2026-10-09T05:00:00.000Z"
     await reviseCheckpoints(theirs.drafts, DRAFT, [{ spins: 0, outlay: 0 }, { spins: 250, outlay: 1000, held: 9000 }])
     await sendDraft(theirs.sending, DRAFT, destination)
     await receiveArrivals(mine.inbox)
     const [arrived] = await mineOf(mine)
-    expect(afterItEnded(arrived as PlayDraft).map((operation) => operation.at)).toEqual(["2026-10-09T05:00:00.000Z"])
+    expect(afterItFinished(arrived as PlayDraft).map((operation) => operation.at)).toEqual(["2026-10-09T05:00:00.000Z"])
     const moved = await chooseBook(mine.drafts, arrived as PlayDraft, LEDGER)
     expect(moved.ok && moved.value.bookId).toBe(LEDGER)
     const record = { ...RECORD, parlor: moved.ok && moved.value.venue.type === "parlor" ? { ...moved.value.venue.parlor, pools: [RECORD.pool] } : UMEDA }
@@ -269,7 +282,7 @@ describe("a person let in only to send plays", () => {
     await startPlay(theirs.drafts, { ...DRAFT, id: "sent-2" as PlayId, cabinetNumber: "200", startedAt: "2026-10-09T02:30:00.000Z" })
     expect(await sendTodaysPlays(theirs.sending, destination, "2026-10-09" as IsoDate)).toEqual({ ok: true, value: 2 })
     expect(await sendTodaysPlays(theirs.sending, destination, "2026-10-09" as IsoDate)).toEqual({ ok: true, value: 0 })
-    expect(await receiveArrivals(mine.inbox)).toBe(2)
+    expect(await receiveArrivals(mine.inbox)).toEqual({ taken: 2, unreadable: 0 })
     expect((await mineOf(mine)).map((draft) => draft.cabinetNumber).toSorted()).toEqual(["123", "200"])
   })
 

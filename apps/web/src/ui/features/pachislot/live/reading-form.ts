@@ -1,4 +1,4 @@
-import type { Tally } from "../../../../core/play-log/checkpoint"
+import type { Counts } from "../../../../core/play-log/checkpoint"
 import { Err, Ok, type Result } from "../../../../core/result/result"
 import { tidyTyped } from "../../../../core/text/tidy"
 
@@ -12,7 +12,7 @@ export interface ReadingForm {
 /** Where a play stands as its counter should now show it: the day's games, each bonus, and the outlay where one was given. */
 export interface Standing {
   readonly total: number
-  readonly bonuses: Tally
+  readonly bonuses: Counts
   readonly outlay: number | undefined
 }
 
@@ -35,7 +35,7 @@ export interface ReadingProblem {
 /** The reading as counts. Every bonus the counter shows is in it. */
 export interface Reading {
   readonly total: number
-  readonly bonuses: Tally
+  readonly bonuses: Counts
   readonly outlay: number | undefined
 }
 
@@ -53,7 +53,7 @@ const readText = (text: string): Read => {
  * required. A bonus left empty is as the log already knows it — the field
  * shows that count, waiting — and an outlay left empty was not read.
  */
-export const readReadingForm = (form: ReadingForm, known: Tally, bonusIds: readonly string[]): Result<Reading, readonly ReadingProblem[]> => {
+export const readReadingForm = (form: ReadingForm, known: Counts, bonusIds: readonly string[]): Result<Reading, readonly ReadingProblem[]> => {
   const total = readText(form.total)
   const outlay = readText(form.outlay)
   const bonuses = bonusIds.map((id) => ({ id, read: readText(form.bonuses[id] ?? "") }))

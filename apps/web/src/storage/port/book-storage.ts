@@ -3,8 +3,12 @@ import type { FileChange } from "../../core/change/journal-change"
 import type { BookFiles } from "../../core/journal/layout"
 import type { Result } from "../../core/result/result"
 
+/** What a device keeps that can be found broken as it is read back. */
+export type KeptKind = "book-cover" | "draft" | "submission" | "backup-receipt"
+
 export type StorageError =
   | { readonly type: "unavailable"; readonly detail: string }
+  | { readonly type: "unreadable"; readonly kept: KeptKind }
   | { readonly type: "book-missing"; readonly bookId: BookId }
   | { readonly type: "book-exists"; readonly bookId: BookId }
   | { readonly type: "changed-elsewhere"; readonly path: string }

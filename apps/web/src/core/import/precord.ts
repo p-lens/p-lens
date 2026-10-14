@@ -1,16 +1,16 @@
 import { parseIsoDate, type IsoDate } from "../calendar/calendar"
 import { decimal, parseDecimal, type Decimal } from "../decimal/decimal"
 import { Err, Ok, type Result } from "../result/result"
-import { rowsOfCsv } from "./csv-rows"
-import type { SourcePlay } from "./source-play"
+import { rowsOfCsv, type CsvProblem } from "./csv-rows"
+import type { SourceTally } from "./source-tally"
 
-/** pRecord, as an imported play says where it came from. */
+/** pRecord, as an imported tally says where it came from. */
 export const PRECORD = "precord"
 
 /**
  * The columns pRecord's CSV names in its first row, as its own import
  * reads them. 収支, 時給 and 貯玉 are there too and are not read: the
- * first two follow from what is, and savings are no part of a play kept
+ * first two follow from what is, and savings are no part of a tally kept
  * in yen.
  */
 const COLUMNS = {
@@ -33,18 +33,19 @@ type Column = keyof typeof COLUMNS
 const REQUIRED: readonly Column[] = ["date", "outlay", "takings"]
 
 /** What of a row could not be read. */
-export type RowField = "date" | "outlay" | "takings"
+export type RowField = "date" | "outlay" | "takings" | "hours"
 
 /**
  * Why a file is not taken in.
  *
- * - `not-precord`: its first row does not name the columns a play needs.
+ * - `not-precord`: its first row does not name the columns a tally needs.
  * - `rows-unreadable`: these rows, by their line in the file, each with what of it does not read. Nothing of a file is taken in while any row of it does not.
  */
 export type PrecordProblem =
   | { readonly type: "empty" }
   | { readonly type: "not-precord"; readonly missing: readonly string[] }
   | { readonly type: "rows-unreadable"; readonly rows: readonly { readonly line: number; readonly fields: readonly RowField[] }[] }
+  | CsvProblem
 
 const DAY = /^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/
 
@@ -66,25 +67,36 @@ const yenOf = (text: string): Decimal | undefined => {
 
 const CLOCK = /^(\d{1,2}):(\d{2})(?::\d{2})?$/
 
+const HOURS = /^\d+(\.\d+)?$/
+
 /**
- * How long a play lasted, in hours to the hundredth, as pRecord writes it:
+ * How long a tally's play lasted, in hours to the hundredth, as pRecord writes it:
  * a number of hours — `2.4166667` is two hours and twenty-five minutes,
  * its own 時給 the result over it — or, should a file have it so, a
- * clock's `2:25`. None where the cell is empty, does not read, or comes to
- * no time at all: a play is taken in without its hours rather than
- * refused for them.
+ * clock's `2:25`. None where the cell is empty or comes to no time at all:
+ * a tally is taken in without its hours rather than refused for them. A
+ * cell that says something and does not read as hours is no such thing,
+ * and the row does not read.
  */
-const hoursOf = (text: string): Decimal | undefined => {
-  const clock = CLOCK.exec(text.trim())
-  const hours = clock === null ? Number(text.trim() === "" ? Number.NaN : text.trim()) : Number(clock[1]) + Number(clock[2]) / 60
-  const hundredths = Number.isFinite(hours) ? Math.round(hours * 100) : 0
-  return hundredths > 0 ? decimal(BigInt(hundredths), 2) : undefined
+const hoursOf = (text: string): Result<Decimal | undefined, "hours"> => {
+  const plain = text.trim()
+  if (plain === "") return Ok(undefined)
+  const clock = CLOCK.exec(plain)
+  if (clock === null && !HOURS.test(plain)) return Err("hours")
+  const hours = clock === null ? Number(plain) : Number(clock[1]) + Number(clock[2]) / 60
+  const hundredths = Math.round(hours * 100)
+  return Ok(hundredths > 0 ? decimal(BigInt(hundredths), 2) : undefined)
 }
 
-const playOf = (cell: (column: Column) => string): Result<SourcePlay, readonly RowField[]> => {
-  const [date, outlay, takings] = [dayOf(cell("date")), yenOf(cell("outlay")), yenOf(cell("takings"))]
-  if (date === undefined || outlay === undefined || takings === undefined)
-    return Err([...(date === undefined ? (["date"] as const) : []), ...(outlay === undefined ? (["outlay"] as const) : []), ...(takings === undefined ? (["takings"] as const) : [])])
+const tallyOf = (cell: (column: Column) => string): Result<SourceTally, readonly RowField[]> => {
+  const [date, outlay, takings, hours] = [dayOf(cell("date")), yenOf(cell("outlay")), yenOf(cell("takings")), hoursOf(cell("hours"))]
+  if (date === undefined || outlay === undefined || takings === undefined || !hours.ok)
+    return Err([
+      ...(date === undefined ? (["date"] as const) : []),
+      ...(outlay === undefined ? (["outlay"] as const) : []),
+      ...(takings === undefined ? (["takings"] as const) : []),
+      ...(hours.ok ? [] : (["hours"] as const)),
+    ])
   return Ok({
     date,
     parlor: { name: cell("parlor").trim(), code: cell("parlorCode").trim() },
@@ -93,24 +105,26 @@ const playOf = (cell: (column: Column) => string): Result<SourcePlay, readonly R
     outlay,
     takings,
     memo: cell("memo").trim(),
-    hours: hoursOf(cell("hours")),
+    hours: hours.value,
   })
 }
 
 /**
- * The plays a pRecord CSV holds, in the file's order, or why it is not
+ * The tallies a pRecord CSV holds, in the file's order, or why it is not
  * taken in. Columns are found by the names in the first row, not by where
- * they stand, and a column the file lacks reads as empty unless a play
+ * they stand, and a column the file lacks reads as empty unless a tally
  * cannot do without it.
  */
-export const readPrecord = (text: string): Result<readonly SourcePlay[], PrecordProblem> => {
-  const [header, ...rows] = rowsOfCsv(text)
+export const readPrecord = (text: string): Result<readonly SourceTally[], PrecordProblem> => {
+  const csv = rowsOfCsv(text)
+  if (!csv.ok) return csv
+  const [header, ...rows] = csv.value
   if (header === undefined) return Err({ type: "empty" })
   const names = header.map((name) => name.trim())
   const missing = REQUIRED.filter((column) => !names.includes(COLUMNS[column])).map((column) => COLUMNS[column])
   if (missing.length > 0) return Err({ type: "not-precord", missing })
   if (rows.length === 0) return Err({ type: "empty" })
-  const read = rows.map((row) => playOf((column) => row[names.indexOf(COLUMNS[column])] ?? ""))
-  const unreadable = read.flatMap((play, index) => (play.ok ? [] : [{ line: index + 2, fields: play.error }]))
-  return unreadable.length > 0 ? Err({ type: "rows-unreadable", rows: unreadable }) : Ok(read.flatMap((play) => (play.ok ? [play.value] : [])))
+  const read = rows.map((row) => tallyOf((column) => row[names.indexOf(COLUMNS[column])] ?? ""))
+  const unreadable = read.flatMap((tally, index) => (tally.ok ? [] : [{ line: index + 2, fields: tally.error }]))
+  return unreadable.length > 0 ? Err({ type: "rows-unreadable", rows: unreadable }) : Ok(read.flatMap((tally) => (tally.ok ? [tally.value] : [])))
 }

@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, test } from "bun:test"
 import { createBookSession, type BookSession } from "../../src/application/book-session"
 import { loadHoldings } from "../../src/application/holdings"
 import { loadOverview } from "../../src/application/overview"
-import { loadPlay } from "../../src/application/plays"
+import { loadTally } from "../../src/application/tallies"
 import type { BookId } from "../../src/core/book/book"
 import { toPlainString } from "../../src/core/decimal/decimal"
 import type { PlayId } from "../../src/core/play/play"
@@ -16,7 +16,7 @@ interface Expected {
   readonly overview: Readonly<Record<string, { actual: string; theoretical: string }>>
   readonly savings: { readonly value: string; readonly valuedOn: string }
   readonly holdings: Readonly<Record<string, unknown>>
-  readonly plays: Readonly<Record<string, { actual: string; theoretical: string }>>
+  readonly tallies: Readonly<Record<string, { actual: string; theoretical: string }>>
 }
 
 const BOOK = "basic-play" as BookId
@@ -87,15 +87,15 @@ describe("the basic-play book, read by the real hledger module", () => {
     )
   })
 
-  test("one play's result against its theoretical value", async () => {
-    const [id, figure] = Object.entries(expected().plays)[0] ?? []
-    const play = await loadPlay(session(), BOOK, id as PlayId)
+  test("one tally's result against its theoretical value", async () => {
+    const [id, figure] = Object.entries(expected().tallies)[0] ?? []
+    const tally = await loadTally(session(), BOOK, id as PlayId)
     expect(
-      mapOk(play, (found) => ({ actual: toPlainString(found.actual), theoretical: toPlainString(found.theoretical) })),
+      mapOk(tally, (found) => ({ actual: toPlainString(found.actual), theoretical: toPlainString(found.theoretical) })),
     ).toEqual({ ok: true, value: figure as never })
   })
 
-  test("a play that is not in the book is missing, not an error of hledger's", async () => {
-    expect(await loadPlay(session(), BOOK, "no-such-play" as PlayId)).toEqual({ ok: false, error: { type: "play-missing" } })
+  test("a tally that is not in the book is missing, not an error of hledger's", async () => {
+    expect(await loadTally(session(), BOOK, "no-such-play" as PlayId)).toEqual({ ok: false, error: { type: "tally-missing" } })
   })
 })

@@ -1,5 +1,6 @@
 import type { BookId, MemberId } from "../book/book"
-import type { BusinessDayTurn } from "../calendar/calendar"
+import type { BusinessDayTurn, IsoDate } from "../calendar/calendar"
+import type { TokenKind } from "../commodity/commodity"
 import type { Decimal } from "../decimal/decimal"
 import type { BookFiles } from "../journal/layout"
 import type { PlayId } from "../play/play"
@@ -21,14 +22,19 @@ export type ChangeIntent =
   | { readonly type: "book-renamed"; readonly title: string }
   /** A book given its place among its owner's books: written in the book's settings, and no change to what the book records. */
   | { readonly type: "book-placed"; readonly order: number }
-  /** The hour its owner's business day turns over at, written in the book's settings: no change to what the book records, a play already written keeping its day. */
+  /** The hour its owner's business day turns over at, written in the book's settings: no change to what the book records, a tally already written keeping its day. */
   | { readonly type: "business-day-turn-set"; readonly turn: BusinessDayTurn }
   | { readonly type: "file-edited"; readonly path: string }
-  | { readonly type: "savings-opened"; readonly parlor: string; readonly tier: string }
-  | { readonly type: "savings-adjusted"; readonly parlor: string; readonly tier: string }
-  | { readonly type: "savings-exchanged"; readonly parlor: string; readonly tier: string }
-  | { readonly type: "savings-forfeited"; readonly parlor: string; readonly tier: string }
-  | { readonly type: "pool-opened"; readonly parlor: string; readonly tier: string }
+  /** A pool's savings registered as they stood on a day: so many tokens. */
+  | { readonly type: "savings-opened"; readonly parlor: string; readonly tier: string; readonly date: IsoDate; readonly kind: TokenKind; readonly tokens: Decimal }
+  /** A pool's savings put right as of a day: to so many tokens, whatever the book had said. */
+  | { readonly type: "savings-adjusted"; readonly parlor: string; readonly tier: string; readonly date: IsoDate; readonly kind: TokenKind; readonly tokens: Decimal }
+  /** So many of a pool's tokens exchanged on a day, for special prizes worth so many yen. */
+  | { readonly type: "savings-exchanged"; readonly parlor: string; readonly tier: string; readonly date: IsoDate; readonly kind: TokenKind; readonly tokens: Decimal; readonly specialPrizes: Decimal }
+  /** So many of a pool's tokens taken back by the parlor on a day. */
+  | { readonly type: "savings-forfeited"; readonly parlor: string; readonly tier: string; readonly date: IsoDate; readonly kind: TokenKind; readonly tokens: Decimal }
+  /** A pool made ready in the book, exchanging at a rate from a day. */
+  | { readonly type: "pool-opened"; readonly parlor: string; readonly tier: string; readonly date: IsoDate; readonly rate: Decimal }
   | { readonly type: "parlors-linked"; readonly names: readonly string[] }
   | { readonly type: "conflict-settled"; readonly paths: readonly string[] }
   | {

@@ -18,7 +18,8 @@ export interface KeptInvitation {
   readonly code: string
 }
 
-export type InvitationStoreError = { readonly type: "unavailable"; readonly detail: string }
+/** A store out of reach, or an invitation kept in it that does not read as one. */
+export type InvitationStoreError = { readonly type: "unavailable"; readonly detail: string } | { readonly type: "unreadable" }
 
 /** Where a device keeps whom its books' owner let in. It is this device's alone: the names go nowhere. */
 export interface InvitationStore {

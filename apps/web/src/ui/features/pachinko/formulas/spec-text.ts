@@ -11,6 +11,9 @@ export const probabilityText = (probability: ProbabilityDto): string =>
     ? `${probability.numerator}/${hundredths(probability.denominatorHundredths)}`
     : `${hundredths(probability.basisPoints)}%`
 
+/** Several probabilities side by side, as a row lists them: `1/49.91・1/77.74`; none where there are none. */
+export const probabilitiesText = (probabilities: readonly ProbabilityDto[]): string | undefined => (probabilities.length === 0 ? undefined : probabilities.map(probabilityText).join("・"))
+
 export const shareText = (basisPoints: number): string => `${hundredths(basisPoints)}%`
 
 /** Where play goes, named by the mode's label rather than its id. */

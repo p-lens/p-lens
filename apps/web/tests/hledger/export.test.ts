@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test"
 
 import { createBookSession, type BookSession } from "../../src/application/book-session"
-import { exportPlayTable, exportSingleJournal, exportTogether, type ExportPorts } from "../../src/application/export"
+import { exportTallyTable, exportSingleJournal, exportTogether, type ExportPorts } from "../../src/application/export"
 import { loadOverview } from "../../src/application/overview"
 import type { BookId, Member, MemberId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
@@ -40,9 +40,9 @@ describe("the basic-play book, written out", () => {
     await session().createBook(await fixtureBook("basic-play", { id: BOOK, members: [ME] }))
   })
 
-  test("its plays are a table, a play a row, newest first, with hledger's figures", async () => {
+  test("its tallies are a table, a tally a row, newest first, with hledger's figures", async () => {
     const handover = memoryHandover()
-    expect(await exportPlayTable(portsWith(handover), BOOK)).toEqual({ ok: true, value: undefined })
+    expect(await exportTallyTable(portsWith(handover), BOOK)).toEqual({ ok: true, value: undefined })
     const [file] = handover.given()
     expect(file?.name).toBe("サンプル帳簿_収支_2026-10-09_exported.csv")
     expect(file?.type).toBe("text/csv")

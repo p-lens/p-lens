@@ -113,7 +113,7 @@ export const consumptionOf = (ordered: readonly Checkpoint[], terms: PlayTerms):
 }
 
 /**
- * The balls in hand at a play's last line. Where that line knows, it is
+ * The balls in hand at a play's last line, which is where it finished so far. Where that line knows, it is
  * what it says. Where it does not, it is followed on from the last line
  * that did: what came to hand since — bought, won in bonuses, gained or
  * lost on the 電サポ — less what the regular games since cost at the rate
@@ -121,7 +121,7 @@ export const consumptionOf = (ordered: readonly Checkpoint[], terms: PlayTerms):
  * past a jackpot whose bonus the log does not say; a figure for a person
  * to set right, never one the play is weighed by.
  */
-export const heldAtEndOf = (ordered: readonly Checkpoint[], terms: PlayTerms): number | undefined => {
+export const heldAtFinishOf = (ordered: readonly Checkpoint[], terms: PlayTerms): number | undefined => {
   const walked = walkedOf(ordered, terms)
   const last = walked.last
   if (last === undefined) return undefined
@@ -134,3 +134,7 @@ export const heldAtEndOf = (ordered: readonly Checkpoint[], terms: PlayTerms): n
 
 /** The spin performance a measurement comes to: regular spins for the balls ¥1,000 rents, the player's own balls counted as rented ones are. */
 export const spinPerformanceOf = (measured: Measured, terms: PlayTerms): number => (measured.spins / measured.balls) * ((terms.rental.tokens * 1000) / terms.rental.yen)
+
+/** The spin performance a play's log measured, as its live screen shows it: none until there is a stretch to measure. */
+export const measuredSpinPerformance = (ordered: readonly Checkpoint[], terms: PlayTerms): number | undefined =>
+  ((measured) => (measured === undefined ? undefined : spinPerformanceOf(measured, terms)))(consumptionOf(ordered, terms).measured)

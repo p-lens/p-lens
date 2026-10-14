@@ -9,10 +9,10 @@ import type { Outcome } from "./errors"
 import { fromHledger, fromReport } from "./lift"
 
 export interface Overview {
-  /** What the period's plays made, each posting at its own day's rate. */
+  /** What the period's tallies made, each posting at its own day's rate. */
   readonly actual: Decimal
   readonly theoretical: Decimal
-  /** The part of `theoretical` that was inferred from what was told of plays, not measured. */
+  /** The part of `theoretical` that was inferred from what was told of tallies' plays, not measured. */
   readonly inferred: Decimal
   /** Every parlor's savings, at the latest rate the book has. */
   readonly savings: Decimal

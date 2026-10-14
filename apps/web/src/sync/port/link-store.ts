@@ -26,7 +26,8 @@ export interface SyncLink {
   readonly inboxHandled?: readonly string[]
 }
 
-export type LinkStoreError = { readonly type: "unavailable"; readonly detail: string }
+/** A store out of reach, or a link kept in it that does not read as one. */
+export type LinkStoreError = { readonly type: "unavailable"; readonly detail: string } | { readonly type: "unreadable" }
 
 /** Where a device keeps which of its books are synced, and how. */
 export interface LinkStore {

@@ -29,7 +29,7 @@ export function SubmissionReturnView(props: { readonly place: Place }): JSX.Elem
   const location = useLocation()
   const returned = () => returnedFrom(new URLSearchParams(location.search), app.services.now())
   /** Back to where the person left from: a game's start, or a book's play added by hand. */
-  const back = (from: LeftFrom): void => moves.refine(from.type === "entry" ? { kind: "play-new", bookId: from.bookId } : { kind: "live-new", game: from.game }, "")
+  const back = (from: LeftFrom): void => moves.refine(from.type === "entry" ? { kind: "tally-new", bookId: from.bookId } : { kind: "live-new", game: from.game }, "")
   const [kept] = createResource(
     () => {
       const read = returned()

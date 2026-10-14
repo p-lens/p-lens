@@ -24,10 +24,10 @@ import { SubmissionReturnView } from "../live/SubmissionReturnView"
 import { DocumentView } from "../documents/DocumentView"
 import { NotFound } from "../not-found/NotFound"
 import * as PachislotViews from "../pachislot"
-import { PlayDetail } from "../plays/PlayDetail"
-import { PlaysView } from "../plays/PlaysView"
-import { RevisePlayView } from "../record-play/RevisePlayView"
-import { TallyPlayView } from "../record-play/TallyPlayView"
+import { TallyDetail } from "../tallies/TallyDetail"
+import { TalliesView } from "../tallies/TalliesView"
+import { ReviseTallyView } from "../record-tally/ReviseTallyView"
+import { AddTallyView } from "../record-tally/AddTallyView"
 import { ResultCalendarView } from "../result-calendar"
 import { AppearanceSettings } from "../settings/AppearanceSettings"
 import { BackupSettings } from "../settings/BackupSettings"
@@ -92,12 +92,12 @@ const mainFor = (place: Place, query: () => string): JSX.Element => {
       return bookViewFor(place, query)
     case "book-breakdown":
       return <BreakdownView place={place} bookId={place.bookId} by={place.by} query={query()} />
-    case "play":
-      return <PlaysView place={place} bookId={place.bookId} query={query()} />
-    case "play-new":
-      return <TallyPlayView place={place} bookId={place.bookId} />
-    case "play-revise":
-      return <RevisePlayView place={place} bookId={place.bookId} playId={place.playId} />
+    case "tally":
+      return <TalliesView place={place} bookId={place.bookId} query={query()} />
+    case "tally-new":
+      return <AddTallyView place={place} bookId={place.bookId} />
+    case "tally-revise":
+      return <ReviseTallyView place={place} bookId={place.bookId} playId={place.playId} />
     case "book-file":
       return <FilesView place={place} bookId={place.bookId} />
     case "pachinko-machine-search":
@@ -180,8 +180,8 @@ const bookViewFor = (place: Extract<Place, { kind: "book-view" }>, query: () => 
   switch (place.view) {
     case "holdings":
       return <HoldingsView place={place} bookId={place.bookId} query={query()} />
-    case "plays":
-      return <PlaysView place={place} bookId={place.bookId} query={query()} />
+    case "tallies":
+      return <TalliesView place={place} bookId={place.bookId} query={query()} />
     case "result-calendar":
       return <ResultCalendarView place={place} bookId={place.bookId} />
     case "activity":
@@ -202,9 +202,9 @@ const sideFor = (place: Place, books: Outcome<readonly ListedBook[]> | undefined
   return <BookSpaceSide place={place} bookId={bookId} book={book} />
 }
 
-/** The detail pane: a play's, or a file's text. */
+/** The detail pane: a tally's, or a file's text. */
 const auxFor = (place: Place, query: () => string): JSX.Element | undefined => {
-  if (place.kind === "play") return <PlayDetail place={place} bookId={place.bookId} playId={place.playId} query={query()} />
+  if (place.kind === "tally") return <TallyDetail place={place} bookId={place.bookId} playId={place.playId} query={query()} />
   return place.kind === "book-file" ? <FileDetail place={place} bookId={place.bookId} path={place.path} /> : undefined
 }
 

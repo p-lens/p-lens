@@ -1,10 +1,11 @@
 import { createMemo, createResource, For, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
-import { consolidationKeepsTheoreticalValues, loadConsolidation, type ConsolidatedBook, type ConsolidatedBy } from "../../../application/consolidation"
+import { consolidationKeepsTheoreticalValues, loadConsolidatedSpinPerformances, loadConsolidation, type ConsolidatedBook, type ConsolidatedBy } from "../../../application/consolidation"
 import type { MachineNames } from "../../../core/catalog/catalog"
 import type { BookId } from "../../../core/book/book"
 import { bestFirst, DIMENSIONS, inOrder, isDimension, merged, totalOf, type Group } from "../../../core/report/breakdown"
+import { allSpinPerformances, type SpinPerformancesByMachine } from "../../../core/report/spin-performance"
 import { useApp } from "../../context"
 import { Select } from "../../primitives/select"
 import { EmptyState, Loaded } from "../../primitives/states"
@@ -50,6 +51,12 @@ export function ConsolidatedBreakdownView(props: { readonly place: Place; readon
   const [kept] = createResource(() => ({ bookIds: props.bookIds, revision: app.revision() }), (source) => consolidationKeepsTheoreticalValues(app.services.session, source.bookIds))
   /** Whether any of the books keeps theoretical values: taken to until hledger says none does. */
   const theoreticalKept = (): boolean => ((answer) => answer?.ok !== true || answer.value)(kept())
+  const [spun] = createResource(
+    () => (props.by === "machine" ? { bookIds: props.bookIds, query: props.query, revision: app.revision() } : undefined),
+    (source) => loadConsolidatedSpinPerformances(app.services.session, source.bookIds, queryFor("machine", source.query)),
+  )
+  /** The machines' spin performances over the books, while the tallies are grouped by machine and once they are read. */
+  const spins = (): SpinPerformancesByMachine | undefined => ((answer) => (props.by === "machine" && answer?.ok === true ? answer.value : undefined))(spun())
   const groups = createMemo(() => ((found) => (found?.ok === true ? grouped(found.value, props.by, app.machineNames()) : undefined))(consolidation()))
   return (
     <MainContent header={<ViewHeader place={props.place} title="集計" />}>
@@ -71,10 +78,10 @@ export function ConsolidatedBreakdownView(props: { readonly place: Place; readon
           </div>
           <Loaded outcome={consolidation()}>
             {() => (
-              <Show when={(groups() ?? []).length > 0} fallback={<EmptyState title="この期間の稼働はありません" />}>
+              <Show when={(groups() ?? []).length > 0} fallback={<EmptyState title="この期間の収支はありません" />}>
                 <ul class="flex flex-col gap-1">
-                  <GroupRow name="合計" group={totalOf((groups() ?? []).map((each) => each.group))} strong theoreticalKept={theoreticalKept()} />
-                  <For each={groups() ?? []}>{(each) => <GroupRow name={each.name} group={each.group} strong={false} theoreticalKept={theoreticalKept()} />}</For>
+                  <GroupRow name="合計" group={totalOf((groups() ?? []).map((each) => each.group))} strong theoreticalKept={theoreticalKept()} spins={((all) => (all === undefined ? undefined : allSpinPerformances(all)))(spins())} />
+                  <For each={groups() ?? []}>{(each) => <GroupRow name={each.name} group={each.group} strong={false} theoreticalKept={theoreticalKept()} spins={spins()?.get(each.group.key)} />}</For>
                 </ul>
               </Show>
             )}

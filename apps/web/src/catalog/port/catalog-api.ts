@@ -12,6 +12,8 @@ export type ApiFailure =
   | { readonly type: "absent" }
   | { readonly type: "unreachable"; readonly detail: string }
   | { readonly type: "answered"; readonly status: number; readonly error: { readonly type: string } & Readonly<Record<string, unknown>> }
+  /** An answer that says it went through and is not what was asked for: a page a hall's network put in its place, or one cut short. */
+  | { readonly type: "unreadable-answer" }
 
 /** A mark or a use, as it is sent: what to ask of which path, and — a mark — the voter it is asked as, in place of this device. */
 export interface CatalogRequest {

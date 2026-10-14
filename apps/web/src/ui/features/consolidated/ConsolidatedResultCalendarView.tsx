@@ -20,12 +20,12 @@ interface Asked {
 
 /**
  * Several books' results a month at a time, as a book's calendar shows
- * its own: each day what the plays of the books ticked made together, the
+ * its own: each day what the tallies of the books ticked made together, the
  * month's two figures above. Each book's days and month are its own, from
  * hledger, and one day of several books is those added. Which books are
  * the address's; the month is this screen's own, as it is in a book. A
  * day pressed goes to what each book made that day, there being no one
- * list of several books' plays.
+ * list of several books' tallies.
  */
 export function ConsolidatedResultCalendarView(props: { readonly place: Place; readonly bookIds: readonly BookId[] | undefined }): JSX.Element {
   const app = useApp()

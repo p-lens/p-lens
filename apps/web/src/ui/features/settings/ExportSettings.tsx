@@ -2,7 +2,7 @@ import { createResource, createSignal, For, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import type { ApplicationError, Outcome } from "../../../application/errors"
-import { exportPlayTable, exportSingleJournal, exportTogether } from "../../../application/export"
+import { exportTallyTable, exportSingleJournal, exportTogether } from "../../../application/export"
 import type { BookId, ListedBook } from "../../../core/book/book"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
@@ -83,7 +83,7 @@ function BookRow(props: { readonly book: ListedBook; readonly ticked: boolean; r
         <Button variant="outline" size="small" class="shrink-0" onClick={() => void writing.write(() => exportSingleJournal(app.services.export, props.book.id))}>
           journal
         </Button>
-        <Button variant="outline" size="small" class="shrink-0" onClick={() => void writing.write(() => exportPlayTable(app.services.export, props.book.id))}>
+        <Button variant="outline" size="small" class="shrink-0" onClick={() => void writing.write(() => exportTallyTable(app.services.export, props.book.id))}>
           CSV
         </Button>
       </div>
@@ -146,7 +146,7 @@ function Books(props: { readonly books: readonly ListedBook[] }): JSX.Element {
 /**
  * Writing a book out as a file other than a backup, each on a press and at
  * no other time: its journals as one, for hledger or any editor, and its
- * plays as a table, for a spreadsheet — a book at a time, or the ticked
+ * tallies as a table, for a spreadsheet — a book at a time, or the ticked
  * books' files together in one zip. The book whole, readings and all, is a
  * backup's to carry, and the line under the list is the way there.
  */
@@ -162,7 +162,7 @@ export function ExportSettings(props: { readonly place: Place }): JSX.Element {
             <dt class="font-medium text-text-secondary">journal</dt>
             <dd>仕訳を1本にまとめた hledger のテキストファイル。</dd>
             <dt class="font-medium text-text-secondary">CSV</dt>
-            <dd>収支の一覧を1稼働1行の表に。表計算ソフトで開けます。</dd>
+            <dd>収支の一覧を1件1行の表に。表計算ソフトで開けます。</dd>
             <dt class="font-medium text-text-secondary">zip</dt>
             <dd>選んだ帳簿の journal と CSV をひとつにまとめます。</dd>
           </dl>

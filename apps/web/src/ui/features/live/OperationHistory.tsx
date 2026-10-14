@@ -59,8 +59,8 @@ const kindOf = (operation: Operation): string => (operation.removed.length === 0
  * that keeps a play, its history is kept and not shown.
  */
 export function OperationHistory(props: { readonly draft: PlayDraft }): JSX.Element {
-  const ended = (): string | undefined => props.draft.received?.ended?.at
-  const late = (operation: Operation): boolean => ((end) => end !== undefined && operation.at > end)(ended())
+  const finished = (): string | undefined => props.draft.received?.finished?.at
+  const late = (operation: Operation): boolean => ((finish) => finish !== undefined && operation.at > finish)(finished())
   return (
     <section class="flex flex-col gap-2 px-4 pt-4">
       <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">操作履歴</h2>

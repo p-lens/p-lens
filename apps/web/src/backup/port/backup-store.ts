@@ -25,6 +25,8 @@ export type StoreFailure =
   | { readonly type: "sign-in-declined"; readonly reason: string }
   | { readonly type: "unreachable"; readonly detail: string }
   | { readonly type: "refused"; readonly status: number; readonly reason: string }
+  /** An answer that says it went through and is not what was asked for. */
+  | { readonly type: "unreadable-answer" }
 
 /**
  * Somewhere away from the device that keeps backups: one archive a key,

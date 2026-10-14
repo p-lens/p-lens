@@ -14,6 +14,7 @@ import { useStartForm } from "../../live/start-form"
 import { modelNameText, slashDay } from "../../../wording/catalog"
 import { hitChanceText } from "../../../wording/pachinko/machine"
 import { ViewHeader } from "../../shell/ViewHeader"
+import { probabilitiesText } from "./spec-text"
 
 function MachineList(props: { readonly machines: readonly MachineSummary[]; readonly onChoose: (machine: MachineSummary) => void }): JSX.Element {
   return (
@@ -32,7 +33,7 @@ function MachineList(props: { readonly machines: readonly MachineSummary[]; read
               </span>
               <span class="flex shrink-0 flex-col items-end text-xs tabular-nums text-text-muted">
                 <span>{slashDay(machine.releasedOn)}</span>
-                <span>{hitChanceText(machine.hitChance)}</span>
+                <span>{hitChanceText(machine.hitChance ?? probabilitiesText(machine.formulaHitChances))}</span>
               </span>
             </button>
           </li>

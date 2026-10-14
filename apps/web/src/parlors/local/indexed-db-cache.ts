@@ -1,5 +1,5 @@
 import { EMPTY_PARLOR_LIST, type ParlorList } from "../../core/parlor/shared"
-import { Err, mapOk, type Result } from "../../core/result/result"
+import { Err, Ok, mapOk, type Result } from "../../core/result/result"
 import { type Connection, SHARED_PARLORS, completionOf, resultOf } from "../../storage/browser/database"
 import type { StorageError } from "../../storage/port/book-storage"
 import type { CacheError, ParlorCache } from "../port/parlor-cache"
@@ -16,14 +16,33 @@ interface ListRecord extends ParlorList {
   readonly version?: string
 }
 
+type Fields = Readonly<Record<string, unknown>>
+
+const isFields = (value: unknown): value is Fields => typeof value === "object" && value !== null && !Array.isArray(value)
+
+const isTexts = (value: unknown): boolean => Array.isArray(value) && value.every((each) => typeof each === "string")
+
+const isParlor = (value: unknown): boolean =>
+  isFields(value) && ["id", "name", "reading", "prefecture", "address"].every((name) => typeof value[name] === "string") && isTexts(value["keywords"]) && isTexts(value["submissions"])
+
+/** Whether the record kept reads as the list it was: a copy that does not is no copy, and the list is read again in its place. */
+const isListRecord = (value: unknown): value is ListRecord =>
+  isFields(value) &&
+  Array.isArray(value["parlors"]) &&
+  value["parlors"].every(isParlor) &&
+  Array.isArray(value["rejections"]) &&
+  value["rejections"].every(isFields) &&
+  (value["version"] === undefined || typeof value["version"] === "string")
+
 /** The parlor list as last read, in IndexedDB. A device that never read one has an empty list. */
 export const createIndexedDbParlorCache = (database: Connection): ParlorCache => {
   const read: ParlorCache["read"] = async () => {
     const db = fromStorage(await database())
     if (!db.ok) return db
-    return mapOk(fromStorage(await resultOf<ListRecord>(db.value.transaction(SHARED_PARLORS).objectStore(SHARED_PARLORS).get(LIST_KEY))), (found) =>
-      found === undefined ? { list: EMPTY_PARLOR_LIST, version: undefined } : { list: { parlors: found.parlors, rejections: found.rejections }, version: found.version },
-    )
+    const found = fromStorage(await resultOf<unknown>(db.value.transaction(SHARED_PARLORS).objectStore(SHARED_PARLORS).get(LIST_KEY)))
+    if (!found.ok) return found
+    if (found.value === undefined) return Ok({ list: EMPTY_PARLOR_LIST, version: undefined })
+    return isListRecord(found.value) ? Ok({ list: { parlors: found.value.parlors, rejections: found.value.rejections }, version: found.value.version }) : Err({ detail: "unreadable" })
   }
 
   const replace: ParlorCache["replace"] = async ({ list, version }) => {

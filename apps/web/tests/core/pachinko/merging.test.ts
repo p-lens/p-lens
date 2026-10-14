@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { consumptionOf, heldAtEndOf } from "../../../src/core/pachinko/consumption"
+import { consumptionOf, heldAtFinishOf } from "../../../src/core/pachinko/consumption"
 import { mergeableSpan, withReadingsMerged } from "../../../src/core/pachinko/merging"
 import { checkpointsForReading, type Reading } from "../../../src/core/pachinko/reading"
 import { takenOf } from "../../../src/core/pachinko/revision"
@@ -162,7 +162,7 @@ describe("any run that may be made one", () => {
     made.forEach(({ log, after, span }) => {
       expect(takenOf(after)).toHaveLength(takenOf(log).length - (span.to - span.from))
       expect(consumptionOf(after, TERMS)).toEqual(consumptionOf(log, TERMS))
-      expect(heldAtEndOf(after, TERMS)).toEqual(heldAtEndOf(log, TERMS))
+      expect(heldAtFinishOf(after, TERMS)).toEqual(heldAtFinishOf(log, TERMS))
       expect(after.at(-1)).toEqual(log.at(-1) as Checkpoint)
       expect([liveSummary(after).spins, liveSummary(after).outlay, liveSummary(after).jackpots, liveSummary(after).counterNow]).toEqual([liveSummary(log).spins, liveSummary(log).outlay, liveSummary(log).jackpots, liveSummary(log).counterNow])
     })

@@ -6,13 +6,14 @@ import type { ReceiptStore, ReceiptStoreError } from "../backup/port/receipt-sto
 import { archiveName, archiveOf, backupOf } from "../core/backup/archive"
 import { type Destination, fingerprintText, type Receipt, type Standing, standingOf } from "../core/backup/standing"
 import type { Book, BookId, Member, ListedBook } from "../core/book/book"
+import { unreadableFilesOf, type UnreadableFile } from "../core/book/unreadable-files"
 import type { IsoDate } from "../core/calendar/calendar"
 import { BOOK_FILES, type BookFiles } from "../core/journal/layout"
 import { titleOfMain } from "../core/journal/title"
 import { Err, Ok, type Result, collect, mapErr, mapOk } from "../core/result/result"
 import type { BookStorage } from "../storage/port/book-storage"
 import type { BookSession } from "./book-session"
-import type { BackupProblem, Outcome } from "./errors"
+import type { ApplicationError, BackupProblem, Outcome } from "./errors"
 import { fromStorage } from "./lift"
 
 /**
@@ -39,7 +40,11 @@ const problem = (found: BackupProblem): Outcome<never> => Err({ type: "backup", 
 
 const fromBackup = <T>(result: Result<T, BackupProblem>): Outcome<T> => mapErr(result, (found) => ({ type: "backup", problem: found }))
 
-const fromReceipts = <T>(result: Result<T, ReceiptStoreError>): Outcome<T> => mapErr(result, (error) => ({ type: "backup", problem: { type: "receipts", detail: error.detail } }))
+/** A receipts store's failure as the app says it: out of reach, or holding one that does not read. */
+export const receiptsProblemOf = (error: ReceiptStoreError): ApplicationError =>
+  error.type === "unreadable" ? { type: "storage", error: { type: "unreadable", kept: "backup-receipt" } } : { type: "backup", problem: { type: "receipts", detail: error.detail } }
+
+const fromReceipts = <T>(result: Result<T, ReceiptStoreError>): Outcome<T> => mapErr(result, receiptsProblemOf)
 
 const fingerprintOf = async (ports: BackupPorts, files: BookFiles): Promise<Outcome<string>> => fromBackup(await ports.digest(fingerprintText(files)))
 
@@ -96,6 +101,8 @@ export const backUpToFile = async (ports: BackupPorts, bookId: BookId): Promise<
 export interface BookStanding {
   readonly book: Book & Pick<ListedBook, "title">
   readonly standing: Standing
+  /** The files of the book that do not read, for the person to be told where its books are listed. */
+  readonly unreadable: readonly UnreadableFile[]
 }
 
 const standing = async (ports: BackupPorts, book: Book, receipts: readonly Receipt[]): Promise<Outcome<BookStanding>> => {
@@ -105,6 +112,7 @@ const standing = async (ports: BackupPorts, book: Book, receipts: readonly Recei
   return mapOk(fingerprint, (now) => ({
     book: { ...book, title: titleOfMain(stored.value.files[BOOK_FILES.main] ?? "") },
     standing: standingOf(receipts.find((receipt) => receipt.bookId === book.id), now),
+    unreadable: unreadableFilesOf(stored.value.files),
   }))
 }
 

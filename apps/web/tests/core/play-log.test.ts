@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import { appendCheckpoint, parsePlayLog, playLogPath } from "../../src/core/play-log/checkpoint"
 import { carriedInOf, withCarriedIn } from "../../src/core/play-log/carried-in"
-import { endCounterOf, endedBy, lastWrittenAt, PLAYED_ON_FOR, withEnd } from "../../src/core/play-log/end"
+import { finishCounterOf, finishedBy, lastWrittenAt, PLAYED_ON_FOR, withFinish } from "../../src/core/play-log/finish"
 import { termsInHead, withHead } from "../../src/core/play-log/head"
 import { checkedPlayOrder, inPlayOrder, stretchPerformances } from "../../src/core/play-log/performance"
 import type { PlayId } from "../../src/core/play/play"
@@ -58,10 +58,10 @@ describe("play log", () => {
   test("gives back the corner's terms its head states, and none where it has no head or the head states none that read", () => {
     const terms = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 125, deducted: 133 } }
     const head = { playId: "p1" as PlayId, gameKind: "pachinko" as const, date: "2026-10-04" as never, startedAt: "2026-10-04T12:00:00.000Z", parlor: undefined, terms, machine: "流星", cabinetNumber: undefined, formulaId: undefined, prior: undefined }
-    expect(termsInHead(withHead(LOG, head))).toEqual(terms)
-    expect(termsInHead(withHead(LOG, { ...head, terms: undefined }))).toBeUndefined()
-    expect(termsInHead(LOG)).toBeUndefined()
-    expect(termsInHead(`{"header":true,"terms":{"rental":{"yen":1000,"tokens":0}}}\n${LOG}`)).toBeUndefined()
+    expect(termsInHead(withHead(LOG, head))).toEqual({ type: "stated", terms })
+    expect(termsInHead(withHead(LOG, { ...head, terms: undefined }))).toEqual({ type: "none" })
+    expect(termsInHead(LOG)).toEqual({ type: "none" })
+    expect(termsInHead(`{"header":true,"terms":{"rental":{"yen":1000,"tokens":0}}}\n${LOG}`)).toEqual({ type: "unreadable" })
   })
 
   test("a broken line is named by its number", () => {
@@ -91,56 +91,56 @@ describe("the tokens a play was begun with in hand", () => {
   })
 })
 
-describe("when a play is taken to have ended", () => {
+describe("when a play is taken to have finished", () => {
   const log = [{ spins: 0, outlay: 0, at: "2026-10-12T10:00:00.000Z" }, { spins: 120, outlay: 5000, at: "2026-10-12T10:40:00.000Z" }, { spins: 60, at: "2026-10-12T10:20:00.000Z" }].reduce(appendCheckpoint, "")
 
   test("is now while its log was written to lately", () => {
     expect(lastWrittenAt(log)).toBe("2026-10-12T10:40:00.000Z")
-    expect(endedBy("2026-10-12T10:48:00.000Z", lastWrittenAt(log), PLAYED_ON_FOR.own)).toBe("2026-10-12T10:48:00.000Z")
-    expect(endedBy("2026-10-12T10:55:00.000Z", lastWrittenAt(log), PLAYED_ON_FOR.own)).toBe("2026-10-12T10:55:00.000Z")
+    expect(finishedBy("2026-10-12T10:48:00.000Z", lastWrittenAt(log), PLAYED_ON_FOR.own)).toBe("2026-10-12T10:48:00.000Z")
+    expect(finishedBy("2026-10-12T10:55:00.000Z", lastWrittenAt(log), PLAYED_ON_FOR.own)).toBe("2026-10-12T10:55:00.000Z")
   })
 
   test("is so long after its last line and no later, less for a play someone sent", () => {
-    expect(endedBy("2026-10-13T09:00:00.000Z", lastWrittenAt(log), PLAYED_ON_FOR.own)).toBe("2026-10-12T10:55:00.000Z")
-    expect(endedBy("2026-10-12T10:48:00.000Z", lastWrittenAt(log), PLAYED_ON_FOR.received)).toBe("2026-10-12T10:45:00.000Z")
+    expect(finishedBy("2026-10-13T09:00:00.000Z", lastWrittenAt(log), PLAYED_ON_FOR.own)).toBe("2026-10-12T10:55:00.000Z")
+    expect(finishedBy("2026-10-12T10:48:00.000Z", lastWrittenAt(log), PLAYED_ON_FOR.received)).toBe("2026-10-12T10:45:00.000Z")
   })
 
-  test("is not counted from the line that ended it before, and is now for a log that says no moment", () => {
-    expect(lastWrittenAt(withEnd(log, { at: "2026-10-12T12:00:00.000Z", counter: undefined }, "pachinko"))).toBe("2026-10-12T10:40:00.000Z")
-    expect(endedBy("2026-10-13T09:00:00.000Z", lastWrittenAt(appendCheckpoint("", { spins: 0 })), PLAYED_ON_FOR.own)).toBe("2026-10-13T09:00:00.000Z")
+  test("is not counted from the line that finished it before, and is now for a log that says no moment", () => {
+    expect(lastWrittenAt(withFinish(log, { at: "2026-10-12T12:00:00.000Z", counter: undefined }, "pachinko"))).toBe("2026-10-12T10:40:00.000Z")
+    expect(finishedBy("2026-10-13T09:00:00.000Z", lastWrittenAt(appendCheckpoint("", { spins: 0 })), PLAYED_ON_FOR.own)).toBe("2026-10-13T09:00:00.000Z")
     expect(lastWrittenAt("not a log")).toBeUndefined()
   })
 })
 
-describe("the line that ends a play", () => {
+describe("the line that finishes a play", () => {
   const AT = "2026-10-04T14:30:00.000Z"
   const LOG = '{"spins":0,"outlay":0,"counter":{"spins":120}}\n{"spins":300,"outlay":5000,"counter":{"spins":420}}\n{"spins":120,"outlay":2000}\n'
 
   test("falls last in play order at the games the play had come to, and reads back", () => {
-    const ended = withEnd(LOG, { at: AT, counter: undefined }, "pachinko")
-    expect(ended).toBe(`${LOG}{"spins":300,"at":"${AT}","event":{"kind":"ended"}}\n`)
-    const parsed = parsePlayLog(ended)
-    expect(parsed.ok && parsed.value.at(-1)).toEqual({ spins: 300, at: AT, event: { kind: "ended" } })
+    const finished = withFinish(LOG, { at: AT, counter: undefined }, "pachinko")
+    expect(finished).toBe(`${LOG}{"spins":300,"at":"${AT}","event":{"kind":"finished"}}\n`)
+    const parsed = parsePlayLog(finished)
+    expect(parsed.ok && parsed.value.at(-1)).toEqual({ spins: 300, at: AT, event: { kind: "finished" } })
   })
 
-  test("takes the games between where the counter was last read and where it ended, and none where it ended there or behind", () => {
-    expect(endCounterOf(LOG, "pachinko")).toEqual({ figure: "spins", count: 420 })
-    expect(withEnd(LOG, { at: AT, counter: 455 }, "pachinko")).toBe(`${LOG}{"spins":335,"at":"${AT}","counter":{"spins":455},"event":{"kind":"ended"}}\n`)
-    expect(withEnd(LOG, { at: AT, counter: 420 }, "pachinko")).toBe(`${LOG}{"spins":300,"at":"${AT}","event":{"kind":"ended"}}\n`)
-    expect(withEnd(LOG, { at: AT, counter: 10 }, "pachinko")).toBe(`${LOG}{"spins":300,"at":"${AT}","event":{"kind":"ended"}}\n`)
+  test("takes the games between where the counter was last read and where it finished, and none where it finished there or behind", () => {
+    expect(finishCounterOf(LOG, "pachinko")).toEqual({ figure: "spins", count: 420 })
+    expect(withFinish(LOG, { at: AT, counter: 455 }, "pachinko")).toBe(`${LOG}{"spins":335,"at":"${AT}","counter":{"spins":455},"event":{"kind":"finished"}}\n`)
+    expect(withFinish(LOG, { at: AT, counter: 420 }, "pachinko")).toBe(`${LOG}{"spins":300,"at":"${AT}","event":{"kind":"finished"}}\n`)
+    expect(withFinish(LOG, { at: AT, counter: 10 }, "pachinko")).toBe(`${LOG}{"spins":300,"at":"${AT}","event":{"kind":"finished"}}\n`)
   })
 
   test("follows a pachislot counter by the day's games where it was read by them, and by the games since the last AT where not", () => {
     const byTotal = '{"spins":0,"counter":{"total":2400}}\n{"spins":200,"counter":{"total":2600}}\n'
     const sinceAt = '{"spins":0,"counter":{"spins":80}}\n{"spins":150,"counter":{"spins":230}}\n'
-    expect(endCounterOf(byTotal, "slot")).toEqual({ figure: "total", count: 2600 })
-    expect(withEnd(byTotal, { at: undefined, counter: 2650 }, "slot")).toBe(`${byTotal}{"spins":250,"counter":{"total":2650},"event":{"kind":"ended"}}\n`)
-    expect(endCounterOf(sinceAt, "slot")).toEqual({ figure: "spins", count: 230 })
+    expect(finishCounterOf(byTotal, "slot")).toEqual({ figure: "total", count: 2600 })
+    expect(withFinish(byTotal, { at: undefined, counter: 2650 }, "slot")).toBe(`${byTotal}{"spins":250,"counter":{"total":2650},"event":{"kind":"finished"}}\n`)
+    expect(finishCounterOf(sinceAt, "slot")).toEqual({ figure: "spins", count: 230 })
   })
 
-  test("ends an empty log at no games, and leaves a log that does not read alone", () => {
-    expect(withEnd("", { at: AT, counter: 50 }, "pachinko")).toBe(`{"spins":0,"at":"${AT}","event":{"kind":"ended"}}\n`)
-    expect(withEnd("not a log\n", { at: AT, counter: undefined }, "pachinko")).toBe("not a log\n")
-    expect(endCounterOf("not a log\n", "pachinko")).toBeUndefined()
+  test("finishes an empty log at no games, and leaves a log that does not read alone", () => {
+    expect(withFinish("", { at: AT, counter: 50 }, "pachinko")).toBe(`{"spins":0,"at":"${AT}","event":{"kind":"finished"}}\n`)
+    expect(withFinish("not a log\n", { at: AT, counter: undefined }, "pachinko")).toBe("not a log\n")
+    expect(finishCounterOf("not a log\n", "pachinko")).toBeUndefined()
   })
 })

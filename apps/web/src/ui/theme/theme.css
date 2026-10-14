@@ -195,6 +195,18 @@
   }
 }
 
+/* A button that holds what would make an answer better: a soft amber light swells around it and fades, a suggestion and no warning. */
+@keyframes glimmer {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  40%,
+  60% {
+    box-shadow: 0 0 0.75rem 0.25rem color-mix(in srgb, var(--color-warning) 55%, transparent);
+  }
+}
+
 /* A button that holds what was just asked for: its frame comes slowly red and goes again, pointing without stopping anyone. */
 @keyframes beckon {
   0%,

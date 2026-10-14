@@ -42,7 +42,7 @@ const endOf = (checkpoint: Checkpoint): LegDto["end"] | undefined => {
     case "cz-missed":
       return "missed"
     case "at-ended":
-    case "ended":
+    case "finished":
     case undefined:
       return undefined
   }

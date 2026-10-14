@@ -1,4 +1,4 @@
-import type { Checkpoint, Tally } from "../play-log/checkpoint"
+import type { Checkpoint, Counts } from "../play-log/checkpoint"
 import { Err, Ok, type Result } from "../result/result"
 
 /**
@@ -6,7 +6,7 @@ import { Err, Ok, type Result } from "../result/result"
  * spent yet, and the data counter as it was found at the seat — the day's
  * games, each bonus, and the games since the last one.
  */
-export const seatCheckpoint = (seat: { readonly total: number; readonly bonuses: Tally; readonly sinceBonus: number }, at: string): Checkpoint => ({
+export const seatCheckpoint = (seat: { readonly total: number; readonly bonuses: Counts; readonly sinceBonus: number }, at: string): Checkpoint => ({
   spins: 0,
   outlay: 0,
   at,
@@ -16,7 +16,7 @@ export const seatCheckpoint = (seat: { readonly total: number; readonly bonuses:
 /** One reading of a pachislot data counter at the cabinet: the day's games and bonuses, and the outlay so far if it was given. */
 export interface CounterInput {
   readonly total: number
-  readonly bonuses: Tally
+  readonly bonuses: Counts
   readonly outlay: number | undefined
   readonly at: string
 }
@@ -39,7 +39,7 @@ export const totalNowOf = (ordered: readonly Checkpoint[]): number => {
 }
 
 /** A bonus a reading counts fewer of than the counter last showed, with how many that was; a bonus the reading does not name is not asked about. */
-const bonusBehind = (ordered: readonly Checkpoint[], bonuses: Tally): { readonly id: string; readonly atLeast: number } | undefined => {
+const bonusBehind = (ordered: readonly Checkpoint[], bonuses: Counts): { readonly id: string; readonly atLeast: number } | undefined => {
   const shown = ordered.findLast((checkpoint) => checkpoint.counter?.bonuses !== undefined)?.counter?.bonuses ?? {}
   return Object.entries(shown)
     .map(([id, atLeast]) => ({ id, atLeast }))
@@ -67,10 +67,10 @@ export const checkpointForReading = (ordered: readonly Checkpoint[], input: Coun
   })
 }
 
-/** What has been counted so far, by id: the last tally in the log. */
-export const tallyNowOf = (ordered: readonly Checkpoint[]): Tally => ordered.findLast((checkpoint) => checkpoint.tally !== undefined)?.tally ?? {}
+/** What has been counted so far, by id: the last counts in the log. */
+export const countsNowOf = (ordered: readonly Checkpoint[]): Counts => ordered.findLast((checkpoint) => checkpoint.tally !== undefined)?.tally ?? {}
 
-/** Whether the player has started counting: a line with a tally is in the log. */
+/** Whether the player has started counting: a line with counts is in the log. */
 export const isCounting = (ordered: readonly Checkpoint[]): boolean => ordered.some((checkpoint) => checkpoint.tally !== undefined)
 
 /** Games played since counting began. */
@@ -83,11 +83,11 @@ export const countedGamesOf = (ordered: readonly Checkpoint[]): number => {
 export const startCountingCheckpoint = (ordered: readonly Checkpoint[], at: string): Checkpoint => ({ spins: ordered.at(-1)?.spins ?? 0, at, tally: {} })
 
 /**
- * The line a tap on a counting tile adds: the running tally with one more of
+ * The line a tap on a counting tile adds: the running counts with one more of
  * it, or one fewer — never below none — at the games last known. The next
  * counter reading says how many games the counting has covered.
  */
 export const countCheckpoint = (ordered: readonly Checkpoint[], id: string, by: 1 | -1, at: string): Checkpoint => {
-  const tally = tallyNowOf(ordered)
-  return { spins: ordered.at(-1)?.spins ?? 0, at, tally: { ...tally, [id]: Math.max(0, (tally[id] ?? 0) + by) } }
+  const counts = countsNowOf(ordered)
+  return { spins: ordered.at(-1)?.spins ?? 0, at, tally: { ...counts, [id]: Math.max(0, (counts[id] ?? 0) + by) } }
 }

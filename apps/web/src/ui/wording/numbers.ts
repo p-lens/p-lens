@@ -27,10 +27,10 @@ export const toneOf = (value: Decimal): "positive" | "negative" | "neutral" => {
   return isZero(whole) ? "neutral" : isNegative(whole) ? "negative" : "positive"
 }
 
-/** What plays made, where nothing is known of it yet: dashes in the shape the figure would have. */
+/** What tallies made, where nothing is known of it yet: dashes in the shape the figure would have. */
 export const UNSEEN_ACTUAL = "¥-,---"
 
-/** What plays were worth, where nothing is known of it yet: a figure that goes either way, and for most plays stays in the hundreds. */
+/** What tallies were worth, where nothing is known of it yet: a figure that goes either way, and for most tallies stays in the hundreds. */
 export const UNSEEN_THEORETICAL = "±¥---"
 
 const TOKEN_UNITS: Readonly<Record<TokenKind, string>> = { ball: "玉", medal: "枚" }
@@ -73,7 +73,7 @@ export const yenFigureText = (value: number | null | undefined): string =>
   value === null || value === undefined ? "--" : `${value < 0 ? "-" : "+"}¥${formatCount(Math.round(Math.abs(value)))}`
 
 /**
- * What plays were worth in yen, as a figure with no colour to say which
+ * What tallies were worth in yen, as a figure with no colour to say which
  * way it went: always marked, a gain `+`, a loss `-`, and nothing at all
  * `±¥0`.
  */

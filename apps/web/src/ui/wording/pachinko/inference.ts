@@ -7,7 +7,7 @@ import { formatCount, formatMan, theoreticalFigureText } from "../numbers"
 export const RENTAL_NAMES: Readonly<Record<TokenRental, string>> = { 4: "4円", 1: "1円" }
 
 /**
- * An exchange as a choice among the three, short enough for the three to
+ * An exchange as a choice among the few, short enough for them all to
  * stand in a row, and as players of that rental say it: the balls ¥100 of
  * prizes takes — 28玉 at ¥4 a ball is 112玉 at ¥1.
  */
@@ -56,6 +56,9 @@ export const UNWEIGHABLE: Readonly<Record<"no-basis" | "no-outlay", string>> = {
   "no-basis": "この機種には計算根拠のある算出条件がなく、推定できません。",
   "no-outlay": "現金投資のない稼働は、推定できません。",
 }
+
+/** What is said under a play weighed without its jackpots: they are in 条件, and would read it closer. */
+export const JACKPOTS_SHARPEN = "大当り回数を入力すると、さらに精度が上がります。"
 
 /** What is said of a play that told too little to read: what a person can still add, where they have not, and plainly that nothing was read where they have. */
 export const vagueText = (jackpotsTold: boolean): string => (jackpotsTold ? "この展開は、回転率の手がかりが少なく推定できませんでした。" : "情報が不足しています。「条件」から大当り回数を入力すると、推定できる場合があります。")

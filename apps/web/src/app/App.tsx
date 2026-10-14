@@ -6,6 +6,7 @@ import { ensureFirstBook } from "../application/seed"
 import type { Services } from "../application/services"
 import { createUpdates } from "../pwa/updates"
 import { AppProvider } from "../ui/context"
+import { ClearData } from "../ui/features/settings/ClearDataSettings"
 import { Entrance } from "../ui/features/shell/Entrance"
 import { PLensScreen } from "../ui/features/shell/PLensScreen"
 import { describeError } from "../ui/wording/errors"
@@ -14,7 +15,9 @@ import { createThemeState } from "../ui/theme/theme"
 /**
  * The app: services and theme provided once, a first book put on the
  * device where it has none, and every address handed to one screen that reads
- * the place off it — but `/`, which is only the way in.
+ * the place off it — but `/`, which is only the way in. Where the books
+ * cannot even be listed, nothing else opens, and the way out is emptying
+ * the device, offered beside why.
  */
 export function App(props: { readonly services: Services }): JSX.Element {
   const theme = createThemeState()
@@ -35,9 +38,12 @@ export function App(props: { readonly services: Services }): JSX.Element {
         </Match>
         <Match when={seedFailure()} keyed>
           {(error) => (
-            <p class="p-6 text-sm text-negative" role="alert">
-              {describeError(error)}
-            </p>
+            <div class="max-w-5xl">
+              <p class="px-4 pt-6 text-sm text-negative" role="alert">
+                {describeError(error)}
+              </p>
+              <ClearData />
+            </div>
           )}
         </Match>
         <Match when={seeded()?.ok === true}>

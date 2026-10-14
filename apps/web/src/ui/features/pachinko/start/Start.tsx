@@ -19,7 +19,7 @@ import { searchKeyOf } from "../../../../core/text/search-key"
 import type { Coordinates, ParlorList, SharedParlor, SharedParlorId } from "../../../../core/parlor/shared"
 import { poolOf } from "../../../../core/parlor/terms"
 import { appendCheckpoint } from "../../../../core/play-log/checkpoint"
-import { isWritableText } from "../../../../core/play/validate"
+import { isWritableText } from "../../../../core/tally/validate"
 import type { Result } from "../../../../core/result/result"
 import { tidyTyped } from "../../../../core/text/tidy"
 import type { LocateError } from "../../../../location/port/locator"
@@ -49,7 +49,7 @@ import { useBookFavorites } from "../../live/book-favorites"
 import { EMPTY_PACHINKO_START, type PachinkoMachineChoice, type ParlorChoice, useStartBallValue, useStartForm } from "../../live/start-form"
 import { locateAddress, submitAddress } from "../../live/submission-return"
 import { readTerms, type TermsField } from "../../live/start-terms"
-import { carriedInShown, readCarriedIn, tokensCarriedTo } from "../../live/tokens-in-hand"
+import { carriedInShown, readCarriedIn, tokensCarriedTo, tokensInHandUnreadable } from "../../live/tokens-in-hand"
 import { Terms } from "./Terms"
 
 /**
@@ -608,7 +608,16 @@ export function Start(props: {
             />
             <DetailButton label="詳細" says={carriedShown() === "" ? "詳細（開始時の持ち玉）" : `詳細（開始時の持ち玉 ${carriedShown()}玉）`} marked={carriedShown() !== ""} invalid={carriedUnread()} placement="bottom-end">
               <div class="min-w-0 flex-1">
-                <TextField label="開始時の持ち玉" value={carriedShown()} onChange={(carriedIn) => start.update({ carriedIn })} inputMode="numeric" suffix="玉" invalid={carriedUnread()} compact />
+                <TextField
+                  label="開始時の持ち玉"
+                  value={carriedShown()}
+                  onChange={(carriedIn) => start.update({ carriedIn })}
+                  inputMode="numeric"
+                  suffix="玉"
+                  invalid={carriedUnread()}
+                  error={tokensInHandUnreadable(app.services.preferences.tokensInHand(), app.services.businessDay()) ? "この端末に残した持ち玉の控えが壊れていて読めません。手で入れてください。" : undefined}
+                  compact
+                />
               </div>
             </DetailButton>
           </div>

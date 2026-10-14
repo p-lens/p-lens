@@ -20,6 +20,8 @@ import type { Outcome } from "./errors"
 export const addBook = async (session: BookSession, fresh: StoredBook, typed: string, businessDayTurn: BusinessDayTurn): Promise<Outcome<Result<BookId, TitleProblem>>> => {
   const title = readTitle(typed)
   if (!title.ok) return Ok(title)
-  const created = await session.createBook({ ...fresh, files: { ...fresh.files, [BOOK_FILES.main]: withTitle(fresh.files[BOOK_FILES.main] ?? "", title.value), [BOOK_SETTINGS_FILE]: withBusinessDayTurn(fresh.files[BOOK_SETTINGS_FILE], businessDayTurn) } })
+  const settings = withBusinessDayTurn(fresh.files[BOOK_SETTINGS_FILE], businessDayTurn)
+  if (!settings.ok) return settings
+  const created = await session.createBook({ ...fresh, files: { ...fresh.files, [BOOK_FILES.main]: withTitle(fresh.files[BOOK_FILES.main] ?? "", title.value), [BOOK_SETTINGS_FILE]: settings.value } })
   return created.ok ? Ok(Ok(fresh.book.id)) : created
 }

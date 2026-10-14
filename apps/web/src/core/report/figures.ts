@@ -36,7 +36,7 @@ export const yenOf = (mixed: MixedAmount): Result<Decimal, ReportError> => {
 }
 
 /**
- * What the plays in an income statement made: hledger's total with the sign
+ * What the tallies in an income statement made: hledger's total with the sign
  * an income statement is read with. Revenue is a credit and arrives negative,
  * so the net result is the total turned over, not recomputed.
  */
@@ -45,7 +45,7 @@ export const actualOf = (statement: BalanceReport): Result<Decimal, ReportError>
 
 /**
  * An income statement's two sides as a person reads them: what went into
- * the plays — cash and savings alike, the savings at the statement's
+ * the tallies — cash and savings alike, the savings at the statement's
  * valuation — and what came out of them. What they made is the one less the
  * other.
  */

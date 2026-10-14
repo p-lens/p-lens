@@ -43,5 +43,5 @@ const REFUSED: Readonly<Record<TypedNameRefused, string>> = { starting: "稼働�
 /** What is said under the parlor field while it holds a name that was typed and chose no parlor: nothing is done on one. */
 export const typedParlorRefused = (doing: TypedNameRefused): string => `手入力の店舗名では${REFUSED[doing]}。帳簿上どうしても店舗名を入れたい場合は、プラスボタンから店舗登録にご協力ください。`
 
-/** What is said under the machine field while it holds a name that was typed and chose no machine: a play names a machine of the catalog, or none. */
+/** What is said under the machine field while it holds a name that was typed and chose no machine: a tally names a machine of the catalog, or none. */
 export const typedMachineRefused = (doing: TypedNameRefused): string => `手入力の機種名では${REFUSED[doing]}。一覧から選ぶか、指定しないままにしてください。`

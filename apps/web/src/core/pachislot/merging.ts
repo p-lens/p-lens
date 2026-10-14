@@ -12,7 +12,7 @@ const TAPPED_FIELDS: readonly string[] = ["spins", "at", "tally"]
 
 /**
  * Whether the step at a place is a tap on a counting tile: a line that
- * says nothing but its tally, after the line that began the counting. A
+ * says nothing but its counts, after the line that began the counting. A
  * run passes over taps, which stand wherever the log has reached; the line
  * that began the counting is where the counted games are told from, and
  * no run passes it.

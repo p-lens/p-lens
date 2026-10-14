@@ -35,6 +35,8 @@ export const describeBackupProblem = (problem: BackupProblem): string => {
       return "保存先につながりません。通信を確かめてください。"
     case "refused":
       return `保存先に断られました。（${problem.status} ${problem.reason}）`
+    case "unreadable-answer":
+      return "保存先の応答を読めませんでした。通信を確かめて、もう一度試してください。"
     case "handover-cancelled":
     case "handover-unavailable":
       return describeHandoverFailure(problem)

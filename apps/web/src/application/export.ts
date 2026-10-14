@@ -4,15 +4,15 @@ import type { BookId } from "../core/book/book"
 import type { IsoDate } from "../core/calendar/calendar"
 import { csvOf } from "../core/export/csv"
 import { fileStemOf } from "../core/book/file-name"
-import { bundleName, fileStemsOf, playTableName, singleJournalName } from "../core/export/file-name"
-import { playTableOf } from "../core/export/play-table"
+import { bundleName, fileStemsOf, tallyTableName, singleJournalName } from "../core/export/file-name"
+import { tallyTableOf } from "../core/export/tally-table"
 import { singleJournalOf } from "../core/export/single-journal"
 import { BOOK_FILES, type BookFiles } from "../core/journal/layout"
 import { titleOfMain } from "../core/journal/title"
 import { Ok, mapErr, mapOk } from "../core/result/result"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
-import { linesIn } from "./play-lines"
+import { linesIn } from "./tally-lines"
 
 /** Everything writing a book out reaches: the book as hledger reads it, the archive several files go as one in, the handing over of a file, and the day it is. */
 export interface ExportPorts {
@@ -49,18 +49,18 @@ const singleJournal = (ports: ExportPorts, bookId: BookId, stem: Stem): Promise<
 /** Hand a book's journals to the person as one file hledger opens by itself. */
 export const exportSingleJournal = async (ports: ExportPorts, bookId: BookId): Promise<Outcome<void>> => handed(ports, await singleJournal(ports, bookId, ownStem))
 
-/** Every play of a book as a table, a play a row, newest first: what a spreadsheet opens. */
+/** Every tally of a book as a table, a tally a row, newest first: what a spreadsheet opens. */
 const playTable = (ports: ExportPorts, bookId: BookId, stem: Stem): Promise<Outcome<Written>> =>
   ports.session.read(bookId, async (journal, stored) =>
     mapOk(await linesIn(journal, ""), (lines) => ({
-      name: playTableName(stem(stored.files, bookId), ports.today()),
+      name: tallyTableName(stem(stored.files, bookId), ports.today()),
       type: "text/csv",
-      text: csvOf(playTableOf(lines)),
+      text: csvOf(tallyTableOf(lines)),
     })),
   )
 
-/** Hand the person every play of a book as a table. */
-export const exportPlayTable = async (ports: ExportPorts, bookId: BookId): Promise<Outcome<void>> => handed(ports, await playTable(ports, bookId, ownStem))
+/** Hand the person every tally of a book as a table. */
+export const exportTallyTable = async (ports: ExportPorts, bookId: BookId): Promise<Outcome<void>> => handed(ports, await playTable(ports, bookId, ownStem))
 
 /** Both files of each book, one book after another: the first that cannot be made stops the rest. */
 const everyFileOf = async (ports: ExportPorts, bookIds: readonly BookId[], stem: Stem): Promise<Outcome<readonly Written[]>> => {
@@ -75,7 +75,7 @@ const everyFileOf = async (ports: ExportPorts, bookIds: readonly BookId[], stem:
 
 /**
  * Hand the person several books together, as one archive: each book's
- * single journal and its table of plays, side by side under their own
+ * single journal and its table of tallies, side by side under their own
  * names. A book is its id and not its title, so books of one title are
  * told apart in their files' names by when each was made. It is the files
  * a book is written out as, gathered — not a backup, which carries a book

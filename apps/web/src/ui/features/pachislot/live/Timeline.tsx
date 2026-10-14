@@ -66,7 +66,7 @@ function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly bonuses: 
       <Show when={atEndedText(props.checkpoint)} keyed>
         {(text) => <span class="shrink-0 rounded bg-surface-3 px-1.5 py-0.5 text-xs font-semibold text-text-secondary">{text}</span>}
       </Show>
-      <Show when={props.checkpoint.event?.kind === "ended"}>
+      <Show when={props.checkpoint.event?.kind === "finished"}>
         <span class="shrink-0 rounded bg-surface-3 px-1.5 py-0.5 text-xs font-semibold text-text-secondary">終了</span>
       </Show>
       <Show when={props.checkpoint.event?.kind === "cz-missed"}>
@@ -93,7 +93,7 @@ const countedIn = (checkpoints: readonly Checkpoint[]): readonly Countable[] =>
  * the outlay. A reading of the counter is pressed to set it right or take it
  * away; the seat as it was found, and what was only tapped, are not — in a
  * play in progress. A recorded play's log is only read: given no way to
- * revise, no line is pressed, and the line that ended the play is shown as
+ * revise, no line is pressed, and the line that finished the play is shown as
  * its last. Given no bonuses to name, each is named by its id as the
  * counter's readings have it: a recorded play keeps its log, not its formula.
  *

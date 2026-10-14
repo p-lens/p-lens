@@ -38,10 +38,11 @@ export interface Checkpoint {
   /**
    * What the player counted, small wins and bonuses alike, as running totals
    * by their id in the formula's spec — `{ "grape": 412, "reg-solo": 2 }` —
-   * since counting began, at the first line that carries a tally. A count
-   * may go down: a tap taken back. Pachislot only.
+   * since counting began, at the first line that carries them. A count may
+   * go down: a tap taken back. Pachislot only. Written under `tally`, the
+   * log's word for them, data already written.
    */
-  readonly tally?: Tally
+  readonly tally?: Counts
   /**
    * The cabinet's settings were changed before the play, so its ceiling is
    * the shorter one until its first AT. On the first line only. Pachislot only.
@@ -96,7 +97,7 @@ export interface Counter {
   readonly spins?: number
   readonly jackpots?: number
   readonly total?: number
-  readonly bonuses?: Tally
+  readonly bonuses?: Counts
   readonly sinceCz?: number
   readonly misses?: number
   /** What the 有利区間 held at the end of the last AT, where it carries on into the games since. */
@@ -108,18 +109,18 @@ export interface Counter {
  * won, written when it ends — on the same games, since an AT's own games are
  * not regular ones: whether it reached the 有利区間's cap, the sets it
  * carried on to past its first, and the medals it gained, each where known.
- * `ended` is the play's last line, written as the play is recorded: its
- * `at` is when the play ended, as the person gave it, and it adds nothing
+ * `finished` is the play's last line, written as the play is recorded: its
+ * `at` is when the play finished, as the person gave it, and it adds nothing
  * to the totals.
  */
 export type PlayEvent =
   | { readonly kind: "jackpot"; readonly approximate?: true; readonly bonus?: BonusWon }
   | { readonly kind: "cz-missed" }
   | { readonly kind: "at-ended"; readonly completed?: boolean; readonly sets?: number; readonly medals?: number }
-  | { readonly kind: "ended" }
+  | { readonly kind: "finished" }
 
 /** Counts by name: bonuses on a counter, or small wins a player counted. */
-export type Tally = Readonly<Record<string, number>>
+export type Counts = Readonly<Record<string, number>>
 
 export type PlayLogError =
   | { readonly type: "unreadable-line"; readonly line: number }
@@ -156,7 +157,7 @@ const isTrue = (value: unknown): value is true => value === true
 
 const isTimestamp = (value: unknown): value is string => typeof value === "string" && !Number.isNaN(Date.parse(value))
 
-const isTally = (value: unknown): value is Tally =>
+const isCounts = (value: unknown): value is Counts =>
   isFields(value) && Object.entries(value).every(([name, count]) => name !== "" && isCount(count))
 
 const isCounter = (value: unknown): value is Counter =>
@@ -164,7 +165,7 @@ const isCounter = (value: unknown): value is Counter =>
   (value["spins"] === undefined || isCount(value["spins"])) &&
   (value["jackpots"] === undefined || isCount(value["jackpots"])) &&
   (value["total"] === undefined || isCount(value["total"])) &&
-  (value["bonuses"] === undefined || isTally(value["bonuses"])) &&
+  (value["bonuses"] === undefined || isCounts(value["bonuses"])) &&
   (value["sinceCz"] === undefined || isCount(value["sinceCz"])) &&
   (value["misses"] === undefined || isCount(value["misses"])) &&
   (value["held"] === undefined || isCount(value["held"]))
@@ -191,7 +192,7 @@ const isEvent = (value: unknown): value is PlayEvent =>
   isFields(value) &&
   ((value["kind"] === "jackpot" && (value["approximate"] === undefined || value["approximate"] === true) && (value["bonus"] === undefined || isBonusWon(value["bonus"]))) ||
     (value["kind"] === "cz-missed" && value["approximate"] === undefined) ||
-    value["kind"] === "ended" ||
+    value["kind"] === "finished" ||
     isAtEnded(value))
 
 const parseJson = (text: string): unknown => {
@@ -216,7 +217,7 @@ const decodeCheckpoint = (fields: Fields, line: number): Result<Checkpoint, Play
   const at = optional(fields, "at", line, isTimestamp)
   const counter = optional(fields, "counter", line, isCounter)
   const event = optional(fields, "event", line, isEvent)
-  const tally = optional(fields, "tally", line, isTally)
+  const counts = optional(fields, "tally", line, isCounts)
   const afterReset = optional(fields, "afterReset", line, isTrue)
   const phase = optional(fields, "phase", line, isPhase)
   const replay = optional(fields, "replay", line, isCount)
@@ -226,7 +227,7 @@ const decodeCheckpoint = (fields: Fields, line: number): Result<Checkpoint, Play
   if (!at.ok) return at
   if (!counter.ok) return counter
   if (!event.ok) return event
-  if (!tally.ok) return tally
+  if (!counts.ok) return counts
   if (!afterReset.ok) return afterReset
   if (!phase.ok) return phase
   if (!replay.ok) return replay
@@ -239,7 +240,7 @@ const decodeCheckpoint = (fields: Fields, line: number): Result<Checkpoint, Play
       at: at.value,
       counter: counter.value,
       event: event.value,
-      tally: tally.value,
+      tally: counts.value,
       afterReset: afterReset.value,
       phase: phase.value,
       replay: replay.value,

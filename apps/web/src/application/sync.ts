@@ -18,6 +18,7 @@ import { accessOf, type LineKeys, type Sealer } from "../sync/port/sealer"
 import type { BookSession } from "./book-session"
 import type { Outcome, SyncProblem } from "./errors"
 import { fromHistory } from "./lift"
+import { linksProblemOf } from "./kept-links"
 
 /** Everything syncing a book reaches: the book and its history, its link, the relay, the sealing, and who and when for what is made here. */
 export interface SyncPorts {
@@ -36,7 +37,7 @@ const problem = (found: SyncProblem): Outcome<never> => Err({ type: "sync", prob
 
 const fromSync = <T>(result: Result<T, SyncProblem>): Outcome<T> => mapErr(result, (found) => ({ type: "sync", problem: found }))
 
-const fromLinks = <T>(result: Result<T, LinkStoreError>): Outcome<T> => mapErr(result, (error) => ({ type: "sync", problem: { type: "links", detail: error.detail } }))
+const fromLinks = <T>(result: Result<T, LinkStoreError>): Outcome<T> => mapErr(result, (error) => ({ type: "sync", problem: linksProblemOf(error) }))
 
 /** A line as a device holds it open: where it is, and the key to its commits. */
 interface Line {
@@ -315,7 +316,7 @@ export const joinByCode = async (ports: SyncPorts & { readonly destinations: Des
   if (relayUrl === undefined) return problem({ type: "no-relay" })
   const title = invitation.title ?? ""
   const kept = await ports.destinations.write({ lineId: invitation.lineId, relayUrl, code: code.trim(), title, joinedAt: ports.now() })
-  return kept.ok ? Ok({ type: "destination", title }) : problem({ type: "links", detail: kept.error.detail })
+  return kept.ok ? Ok({ type: "destination", title }) : problem(linksProblemOf(kept.error))
 }
 
 /** The books synced from this device. */

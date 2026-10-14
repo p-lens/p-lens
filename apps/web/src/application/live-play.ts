@@ -3,9 +3,10 @@ import { memberCan } from "../core/book/book"
 import type { IsoDate } from "../core/calendar/calendar"
 import { bookOf, headOf, isPast, withCabinetNumber, withCheckpoints, withLog, withMachine, type MachineChange, type PlayDraft } from "../core/live-play/draft"
 import { exchangeRateOf, poolOf, type PlayTerms } from "../core/parlor/terms"
-import type { PlayId, PlayRecord, TalliedPlay } from "../core/play/play"
+import type { TokenTally, YenTally } from "../core/tally/tally"
+import type { PlayId } from "../core/play/play"
 import type { Checkpoint } from "../core/play-log/checkpoint"
-import { withEnd, type End } from "../core/play-log/end"
+import { withFinish, type Finish } from "../core/play-log/finish"
 import { withHead } from "../core/play-log/head"
 import { Err, Ok, mapOk } from "../core/result/result"
 import type { CommitId } from "../history/port/history-port"
@@ -14,8 +15,8 @@ import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
 import { fromDraft } from "./lift"
 import { openPool } from "./parlors"
-import { loadRecordingContext, recordPlay, recordTalliedPlay, type RecordingContext } from "./record-play"
-import { revisePlay, reviseTalliedPlay } from "./revise-play"
+import { loadRecordingContext, recordTokenTally, recordYenTally, type RecordingContext } from "./record-tally"
+import { reviseTokenTally, reviseYenTally } from "./revise-tally"
 
 export const loadDrafts = async (drafts: DraftStorage): Promise<Outcome<readonly PlayDraft[]>> =>
   mapOk(fromDraft(await drafts.listDrafts()), (found) => found.toSorted((left, right) => right.startedAt.localeCompare(left.startedAt)))
@@ -82,20 +83,20 @@ export const abandonPlay = async (drafts: DraftStorage, id: PlayId): Promise<Out
 
 /**
  * Keep a play among the day's once the book has it, marked as recorded with
- * how it was said to have ended: its log is still to be set right, and the
+ * how it was said to have finished: its log is still to be set right, and the
  * book's entry made again from it. A refused record leaves the play as it
  * was.
  */
-const keptRecorded = async (drafts: DraftStorage, draft: PlayDraft, bookId: BookId, end: End, at: string, recorded: Outcome<CommitId>): Promise<Outcome<CommitId>> => {
+const keptRecorded = async (drafts: DraftStorage, draft: PlayDraft, bookId: BookId, finish: Finish, at: string, recorded: Outcome<CommitId>): Promise<Outcome<CommitId>> => {
   if (!recorded.ok) return recorded
-  const kept = fromDraft(await drafts.updateDraft({ ...draft, bookId, recorded: { at, end } }, draft.log))
+  const kept = fromDraft(await drafts.updateDraft({ ...draft, bookId, recorded: { at, finish } }, draft.log))
   return kept.ok ? Ok(recorded.value) : kept
 }
 
 /** A play the book already has, written again in place of what it has; where the book has it no longer — it was taken out there — written as new. */
 const again = async (revise: () => Promise<Outcome<CommitId>>, record: () => Promise<Outcome<CommitId>>): Promise<Outcome<CommitId>> => {
   const revised = await revise()
-  return !revised.ok && revised.error.type === "play-missing" ? record() : revised
+  return !revised.ok && revised.error.type === "tally-missing" ? record() : revised
 }
 
 /**
@@ -138,29 +139,30 @@ export const chooseBook = async (drafts: DraftStorage, draft: PlayDraft, bookId:
 }
 
 /**
- * Record a finished play into a book, its log — ended as the person gave,
- * and headed by what the play was — beside the entry. This is when the book first hears of the play: its
+ * Record a finished play into a book as a tally in tokens, its log —
+ * finished as the person gave, and headed by what the play was — beside the
+ * tally's entry. This is when the book first hears of the play: its
  * parlor's pool is opened there, with the rate of the day it is recorded
  * on, and then the entry is written. Recorded before, its entry and its
  * log in the book are replaced by what the play now comes to: a reading
  * set right after the fact reaches the book by recording again.
  */
-export const finishPlay = async (session: BookSession, drafts: DraftStorage, draft: PlayDraft, bookId: BookId, record: PlayRecord, end: End, at: string): Promise<Outcome<CommitId>> => {
+export const finishPlay = async (session: BookSession, drafts: DraftStorage, draft: PlayDraft, bookId: BookId, tally: TokenTally, finish: Finish, at: string): Promise<Outcome<CommitId>> => {
   if (draft.venue.type === "parlor") {
     const { parlor, terms } = draft.venue
-    const opened = await openPool(session, bookId, { identity: parlor.identity, parlorName: parlor.name, pool: poolOf(draft.gameKind, terms), rate: exchangeRateOf(terms), date: record.date })
+    const opened = await openPool(session, bookId, { identity: parlor.identity, parlorName: parlor.name, pool: poolOf(draft.gameKind, terms), rate: exchangeRateOf(terms), date: tally.date })
     if (!opened.ok) return opened
   }
-  const log = withHead(withEnd(draft.log, end, draft.gameKind), headOf(draft, record))
-  const write = (): Promise<Outcome<CommitId>> => recordPlay(session, bookId, record, log)
-  return keptRecorded(drafts, draft, bookId, end, at, draft.recorded === undefined ? await write() : await again(() => revisePlay(session, bookId, record, log), write))
+  const log = withHead(withFinish(draft.log, finish, draft.gameKind), headOf(draft, tally))
+  const write = (): Promise<Outcome<CommitId>> => recordTokenTally(session, bookId, tally, log)
+  return keptRecorded(drafts, draft, bookId, finish, at, draft.recorded === undefined ? await write() : await again(() => reviseTokenTally(session, bookId, tally, log), write))
 }
 
-/** Record a finished play with no parlor by its totals in yen, as `finishPlay` records one at a parlor: its log beside the entry, and both replaced where the book already has the play. */
-export const finishTalliedPlay = async (session: BookSession, drafts: DraftStorage, draft: PlayDraft, bookId: BookId, play: TalliedPlay, end: End, at: string): Promise<Outcome<CommitId>> => {
-  const log = withHead(withEnd(draft.log, end, draft.gameKind), headOf(draft, play))
-  const write = (): Promise<Outcome<CommitId>> => recordTalliedPlay(session, bookId, play, log)
-  return keptRecorded(drafts, draft, bookId, end, at, draft.recorded === undefined ? await write() : await again(() => reviseTalliedPlay(session, bookId, play, log), write))
+/** Record a finished play with no parlor as a tally in yen, as `finishPlay` records one at a parlor in tokens: its log beside the tally's entry, and both replaced where the book already has the tally. */
+export const finishPlayInYen = async (session: BookSession, drafts: DraftStorage, draft: PlayDraft, bookId: BookId, tally: YenTally, finish: Finish, at: string): Promise<Outcome<CommitId>> => {
+  const log = withHead(withFinish(draft.log, finish, draft.gameKind), headOf(draft, tally))
+  const write = (): Promise<Outcome<CommitId>> => recordYenTally(session, bookId, tally, log)
+  return keptRecorded(drafts, draft, bookId, finish, at, draft.recorded === undefined ? await write() : await again(() => reviseYenTally(session, bookId, tally, log), write))
 }
 
 /**

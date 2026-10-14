@@ -48,7 +48,8 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 const isDriveFile = (value: unknown): value is DriveFile =>
   isRecord(value) && typeof value["id"] === "string" && typeof value["name"] === "string" && typeof value["modifiedTime"] === "string"
 
-const filesOf = (body: unknown): readonly DriveFile[] => (isRecord(body) && Array.isArray(body["files"]) ? body["files"].filter(isDriveFile) : [])
+/** The files a listing names, or none where it does not read as a listing: a listing read as empty would put a second file, or folder, beside the first. */
+const filesOf = (body: unknown): readonly DriveFile[] | undefined => (isRecord(body) && Array.isArray(body["files"]) && body["files"].every(isDriveFile) ? body["files"] : undefined)
 
 const reasonOf = (body: unknown): string => {
   const error = isRecord(body) ? body["error"] : undefined
@@ -103,7 +104,9 @@ export const createGoogleDriveStore = (ports: GoogleDrivePorts): BackupStore => 
 
   const found = async (query: string): Promise<Result<readonly DriveFile[], StoreFailure>> => {
     const listed = await described(searching(query), { method: "GET" })
-    return listed.ok ? Ok(filesOf(listed.value)) : listed
+    if (!listed.ok) return listed
+    const files = filesOf(listed.value)
+    return files === undefined ? Err({ type: "unreadable-answer" }) : Ok(files)
   }
 
   const folder = async (): Promise<Result<string, StoreFailure>> => {
@@ -117,7 +120,7 @@ export const createGoogleDriveStore = (ports: GoogleDrivePorts): BackupStore => 
       body: JSON.stringify({ name: ports.folderName, mimeType: FOLDER_TYPE, appProperties: { [FOLDER_MARK]: "true" } }),
     })
     if (!made.ok) return made
-    return isDriveFile(made.value) ? Ok(made.value.id) : Err({ type: "refused", status: 200, reason: "unreadable answer" })
+    return isDriveFile(made.value) ? Ok(made.value.id) : Err({ type: "unreadable-answer" })
   }
 
   /** An upload of a file's description and its bytes in one request, as Drive's multipart upload takes them. */
@@ -131,7 +134,7 @@ export const createGoogleDriveStore = (ports: GoogleDrivePorts): BackupStore => 
     const kept = await described(`${url}?uploadType=multipart&fields=${FILE_FIELDS}`, { method, headers: { "Content-Type": `multipart/related; boundary=${boundary}` }, body })
     if (!kept.ok) return kept
     const stored = isDriveFile(kept.value) ? storedOf(kept.value)[0] : undefined
-    return stored === undefined ? Err({ type: "refused", status: 200, reason: "unreadable answer" }) : Ok(stored)
+    return stored === undefined ? Err({ type: "unreadable-answer" }) : Ok(stored)
   }
 
   return {

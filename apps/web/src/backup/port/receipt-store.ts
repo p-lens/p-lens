@@ -1,7 +1,8 @@
 import type { Receipt } from "../../core/backup/standing"
 import type { Result } from "../../core/result/result"
 
-export type ReceiptStoreError = { readonly type: "unavailable"; readonly detail: string }
+/** A store out of reach, or a receipt kept in it that does not read as one. */
+export type ReceiptStoreError = { readonly type: "unavailable"; readonly detail: string } | { readonly type: "unreadable" }
 
 /** Where a device keeps the receipt of each book's last backup: one a book, the newest in place of the one before. */
 export interface ReceiptStore {

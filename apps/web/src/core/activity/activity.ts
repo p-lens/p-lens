@@ -1,4 +1,6 @@
 import type { MemberId } from "../book/book"
+import { parseIsoDate, type IsoDate } from "../calendar/calendar"
+import type { TokenKind } from "../commodity/commodity"
 import type { ChangeIntent, JournalChange } from "../change/journal-change"
 import { isFilePatch, type FilePatch } from "../change/patch"
 import { parseDecimal, toPlainString, type Decimal } from "../decimal/decimal"
@@ -30,11 +32,14 @@ export type ActivityId = string & { readonly __brand: "ActivityId" }
 /**
  * What a line may say a thing done was about, each a part of its own that
  * is there or not: the book's title, a file, several files, a parlor's
- * pool of savings, parlors, a play, a theoretical value, plays taken in
- * from another app, and the changes it made to the book's files — every
+ * pool of savings, parlors, a tally — under `play`, the word written
+ * already — a theoretical value, tallies taken in from another app, what a thing done to savings said — the day and the
+ * tokens it named, the prizes they were exchanged for, the rate a pool was
+ * made ready at: what was asked, never what it came to, so the asking can
+ * be done again — and the changes it made to the book's files — every
  * file it touched but this log, as the lines replaced. A line is not one
  * of a closed list of shapes: it carries whichever parts apply, a new part
- * is added without touching the others, and whatever asks about a play —
+ * is added without touching the others, and whatever asks about a tally —
  * or a parlor, or a file — looks for that part and nothing else.
  */
 export interface Parts {
@@ -46,6 +51,12 @@ export interface Parts {
   readonly play?: { readonly id: PlayId; readonly description: string }
   readonly theoretical?: { readonly value: Decimal }
   readonly imported?: { readonly from: string; readonly count: number }
+  /** The day a thing done to savings was on, and the tokens it named, balls or medals: the count registered or put right to, or the tokens exchanged or taken back. */
+  readonly savings?: { readonly date: IsoDate; readonly kind: TokenKind; readonly tokens: Decimal }
+  /** What special prizes tokens were exchanged for were worth, in yen. */
+  readonly prizes?: { readonly specialPrizes: Decimal }
+  /** The rate a pool was made ready at, from a day. */
+  readonly rate?: { readonly date: IsoDate; readonly rate: Decimal }
   readonly changes?: { readonly files: readonly FilePatch[] }
 }
 
@@ -86,10 +97,12 @@ const saidOf = (intent: ChangeIntent): Pick<ActivityLine, "did" | "parts"> | und
       return { did: intent.type, parts: { file: { path: intent.path } } }
     case "savings-opened":
     case "savings-adjusted":
-    case "savings-exchanged":
     case "savings-forfeited":
+      return { did: intent.type, parts: { pool: { parlor: intent.parlor, tier: intent.tier }, savings: { date: intent.date, kind: intent.kind, tokens: intent.tokens } } }
+    case "savings-exchanged":
+      return { did: intent.type, parts: { pool: { parlor: intent.parlor, tier: intent.tier }, savings: { date: intent.date, kind: intent.kind, tokens: intent.tokens }, prizes: { specialPrizes: intent.specialPrizes } } }
     case "pool-opened":
-      return { did: intent.type, parts: { pool: { parlor: intent.parlor, tier: intent.tier } } }
+      return { did: intent.type, parts: { pool: { parlor: intent.parlor, tier: intent.tier }, rate: { date: intent.date, rate: intent.rate } } }
     case "parlors-linked":
       return { did: intent.type, parts: { parlors: { names: intent.names } } }
     case "conflict-settled":
@@ -151,6 +164,13 @@ const decimalOf = (value: unknown): Decimal | undefined => {
   return read?.ok === true ? read.value : undefined
 }
 
+const isTokenKind = (value: unknown): value is TokenKind => value === "ball" || value === "medal"
+
+const dateOf = (value: unknown): IsoDate | undefined => {
+  const read = typeof value === "string" ? parseIsoDate(value) : undefined
+  return read?.ok === true ? read.value : undefined
+}
+
 const partsOf = (line: Readonly<Record<string, unknown>>): Parts => ({
   ...part("book", ({ title }) => (typeof title === "string" ? { title } : undefined), line),
   ...part("file", ({ path }) => (typeof path === "string" ? { path } : undefined), line),
@@ -160,6 +180,9 @@ const partsOf = (line: Readonly<Record<string, unknown>>): Parts => ({
   ...part("play", ({ id, description }) => (typeof id === "string" && typeof description === "string" ? { id: id as PlayId, description } : undefined), line),
   ...part("imported", ({ from, count }) => (typeof from === "string" && typeof count === "number" ? { from, count } : undefined), line),
   ...part("theoretical", ({ value }) => ((found) => (found === undefined ? undefined : { value: found }))(decimalOf(value)), line),
+  ...part("savings", ({ date, kind, tokens }) => ((day, count) => (day === undefined || count === undefined || !isTokenKind(kind) ? undefined : { date: day, kind, tokens: count }))(dateOf(date), decimalOf(tokens)), line),
+  ...part("prizes", ({ specialPrizes }) => ((found) => (found === undefined ? undefined : { specialPrizes: found }))(decimalOf(specialPrizes)), line),
+  ...part("rate", ({ date, rate }) => ((day, found) => (day === undefined || found === undefined ? undefined : { date: day, rate: found }))(dateOf(date), decimalOf(rate)), line),
   ...part("changes", ({ files }) => (Array.isArray(files) && files.every(isFilePatch) ? { files } : undefined), line),
 })
 
@@ -185,12 +208,22 @@ const oncePerId = (lines: readonly ActivityLine[]): readonly ActivityLine[] => {
   return lines.filter((line) => firsts.get(line.id) === line)
 }
 
+/** Whether a line is none a version of this app wrote: not an object with a version, or of this version and not reading as one. A line a later version wrote is not. */
+const isBroken = (text: string): boolean => {
+  const value = parsed(text)
+  if (!isRecord(value) || typeof value["v"] !== "number") return true
+  return value["v"] === LINE_VERSION && lineOf(text) === undefined
+}
+
+/** The lines of an activity log that do not read, by number, for the person to be told that what it shows leaves them out. */
+export const unreadableActivityLines = (text: string): readonly number[] => text.split("\n").flatMap((line, index) => (line.trim() !== "" && isBroken(line) ? [index + 1] : []))
+
 /**
  * Every line of an activity log that reads as one, in the order written.
  * A line that does not read is passed over, not a reason to show nothing:
- * the file is the book's, and a person may have had a hand in it. A part
- * this app does not know is passed over the same way, and its line read
- * without it.
+ * the file is the book's, and a person may have had a hand in it, and is
+ * told of it beside (`unreadableActivityLines`). A part this app does not
+ * know is passed over the same way, and its line read without it.
  */
 export const activityOfText = (text: string): readonly ActivityLine[] =>
   oncePerId(

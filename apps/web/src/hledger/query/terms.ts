@@ -2,7 +2,7 @@ import { nextDay, type IsoDate } from "../../core/calendar/calendar"
 import type { TokenKind } from "../../core/commodity/commodity"
 import { ACCOUNTS, savingsAccount, savingsRoot } from "../../core/journal/accounts"
 import type { PlayId } from "../../core/play/play"
-import { PLAY_TAGS } from "../../core/play/play"
+import { TALLY_TAGS } from "../../core/tally/tally"
 import { SAVINGS_TAG } from "../../core/savings/balance"
 
 /**
@@ -43,12 +43,15 @@ export const theoreticalValueTerm = `^${escapeRegex(ACCOUNTS.theoreticalValue)}(
 /** The inferred theoretical value's account alone: what nobody measured, apart from what was. */
 export const inferredValueTerm = `^${escapeRegex(ACCOUNTS.inferredTheoreticalValue)}$`
 
-export const playsTerm = `tag:${PLAY_TAGS.playId}`
+export const talliesTerm = `tag:${TALLY_TAGS.playId}`
 
-export const playTerm = (id: PlayId): string => `tag:${PLAY_TAGS.playId}=^${escapeRegex(id)}$`
+/** The tallies that say a spin performance: one their play's log measured, or one their play was inferred to have had. */
+export const spinPerformanceTerm = `tag:^(${escapeRegex(TALLY_TAGS.spinPerformance)}|${escapeRegex(TALLY_TAGS.inferredSpinPerformance)})$`
 
-/** The entries of several plays at once: any of their ids, each held to the whole of it. */
-export const playsAmongTerm = (ids: readonly PlayId[]): string => `tag:${PLAY_TAGS.playId}=^(${ids.map(escapeRegex).join("|")})$`
+export const tallyTerm = (id: PlayId): string => `tag:${TALLY_TAGS.playId}=^${escapeRegex(id)}$`
+
+/** The entries of several tallies at once: any of their ids, each held to the whole of it. */
+export const talliesAmongTerm = (ids: readonly PlayId[]): string => `tag:${TALLY_TAGS.playId}=^(${ids.map(escapeRegex).join("|")})$`
 
 /**
  * The postings of entries that carry no tag of a name: what a cut by that

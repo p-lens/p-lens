@@ -23,6 +23,10 @@ export interface Submitted {
 
 export type CatalogError =
   | { readonly type: "unavailable"; readonly detail: string }
+  /** The shared catalog's answer was not what was asked for. */
+  | { readonly type: "unreadable-answer" }
+  /** What this device keeps of the shared catalog — its delivery, or what waits to be sent — does not read. */
+  | { readonly type: "unreadable-kept" }
   /** No catalog to send to: the app was built without one. */
   | { readonly type: "no-catalog" }
   | { readonly type: "machine-missing"; readonly id: string }

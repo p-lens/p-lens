@@ -2,7 +2,7 @@ import { createResource, createSignal, For, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import { loadHoldings } from "../../../application/holdings"
-import { loadRecordingContext } from "../../../application/record-play"
+import { loadRecordingContext } from "../../../application/record-tally"
 import type { BookId } from "../../../core/book/book"
 import { parseIsoDate } from "../../../core/calendar/calendar"
 import type { Parlor } from "../../../core/parlor/parlor"
@@ -16,7 +16,7 @@ import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { formatDay } from "../../wording/dates"
 import { formatRate, formatTokens, formatYen } from "../../wording/numbers"
-import { createOffered } from "../record-play/TallyPlayView"
+import { createOffered } from "../record-tally/yen-tally-editing"
 import { ViewHeader } from "../shell/ViewHeader"
 import { BalanceAdjustmentForm, ForfeitureForm, PrizeExchangeForm, OpeningBalanceForm } from "./SavingsForms"
 
@@ -153,7 +153,7 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
             {(found) => (
               <Show
                 when={found.parlors.length > 0}
-                fallback={<EmptyState title="貯玉・貯メダルはありません">稼働を記録するか、開始残高を登録すると、店舗ごとの残高がここに並びます。</EmptyState>}
+                fallback={<EmptyState title="貯玉・貯メダルはありません">収支を記録するか、開始残高を登録すると、店舗ごとの残高がここに並びます。</EmptyState>}
               >
                 <p class="text-sm text-text-muted">
                   合計 <span class="font-semibold tabular-nums text-text-primary">{formatYen(found.total)}</span>

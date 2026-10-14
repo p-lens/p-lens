@@ -21,7 +21,7 @@ interface Asked {
 /**
  * A book's results a month at a time, as a calendar. The month shown is
  * this screen's own and is in no address: it opens on the month of the
- * business day, and a day pressed goes to that day's plays. hledger does
+ * business day, and a day pressed goes to that day's tallies. hledger does
  * every sum: the days are its breakdown by day and the month's two
  * figures its breakdown by month, both asked for the one month.
  */
@@ -43,7 +43,7 @@ export function ResultCalendarView(props: { readonly place: Place; readonly book
       days={days()}
       whole={whole()}
       theoreticalKept={theoreticalKept()}
-      onOpen={(day) => moves.go({ kind: "book-view", bookId: props.bookId, view: "plays" }, rangeTerm(day, day))}
+      onOpen={(day) => moves.go({ kind: "book-view", bookId: props.bookId, view: "tallies" }, rangeTerm(day, day))}
     />
   )
 }
