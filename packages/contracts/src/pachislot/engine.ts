@@ -299,6 +299,28 @@ export interface PosteriorRequest {
   readonly segments: readonly SegmentDto[]
   /** An AT machine's path. */
   readonly path?: PathDto
+  /** An AT machine's play told by its totals afterwards, read in place of the segments and the path. */
+  readonly told?: ToldPathDto
+}
+
+/**
+ * An AT machine's play told by its totals, as a data counter's history gives
+ * it: whether play began after a setting change, then each leg of regular
+ * games to an AT won, or still going at the finish, with the triggers
+ * missed in it where they were counted — a leg whose misses are not told
+ * is read over every number it might have had.
+ */
+export interface ToldPathDto {
+  readonly afterReset: boolean
+  /** The regular games since the last AT, or the setting change, when play was first seen; none where left out. */
+  readonly sinceAt?: number
+  readonly legs: readonly ToldLegDto[]
+}
+
+export interface ToldLegDto {
+  readonly games: number
+  readonly won: boolean
+  readonly misses?: number
 }
 
 export interface WeightDto {

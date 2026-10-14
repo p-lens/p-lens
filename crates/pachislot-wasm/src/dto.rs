@@ -468,6 +468,31 @@ pub struct PosteriorRequest {
     pub segments: Vec<SegmentDto>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<PathDto>,
+    /// An AT machine's play told by its totals afterwards, read in place of
+    /// the segments and the path.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub told: Option<ToldPathDto>,
+}
+
+/// An AT machine's play told by its totals: whether it began after a
+/// setting change, the games since the last AT when it was first seen, then each leg of regular games to an AT won or still
+/// going, with the triggers missed in it where told.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ToldPathDto {
+    pub after_reset: bool,
+    #[serde(default)]
+    pub since_at: u32,
+    pub legs: Vec<ToldLegDto>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ToldLegDto {
+    pub games: u32,
+    pub won: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub misses: Option<u32>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]

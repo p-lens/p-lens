@@ -2,6 +2,7 @@ import { parseIsoDate, type IsoDate } from "../../../core/calendar/calendar"
 import { ZERO, parseDecimal, subtract, toPlainString, type Decimal } from "../../../core/decimal/decimal"
 import { identityKey, type Parlor } from "../../../core/parlor/parlor"
 import * as Pachinko from "../../../core/pachinko"
+import * as Pachislot from "../../../core/pachislot"
 import type { InferredWorth, Settlement, TallyTold, YenTally } from "../../../core/tally/tally"
 import type { PlayGameKind, PlayId } from "../../../core/play/play"
 import { Err, Ok, type Result } from "../../../core/result/result"
@@ -24,6 +25,13 @@ export interface YenTallyForm {
   readonly jackpots: string
   /** What the play is weighed on, where it is: what a ball rented for and how balls were exchanged. */
   readonly weighingTerms: Pachinko.WeighingTerms
+  /** What a pachislot play's data counter showed at the finish: the day's games, and each bonus by the id the counter shows it as. Its setting level is read from them. */
+  readonly counterGames: string
+  readonly counterBonuses: Readonly<Record<string, string>>
+  /** What a pachislot play's medals were rented and exchanged at, as typed: so many for ¥1,000, so many for ¥100. */
+  readonly medalTerms: MedalTermsForm
+  /** An AT machine's history as typed: the games since the last AT when sat down at, whether the settings had been changed before then, each AT won and the games since the last at the finish. Its setting level is read from them. */
+  readonly atHistory: AtHistoryForm
   /** How a recorded tally's two sides were settled, carried as it was through setting it right: no field asks it. */
   readonly settlement: Settlement | undefined
 }
@@ -40,6 +48,10 @@ export const emptyYenTallyForm = (date: string): YenTallyForm => ({
   hours: "",
   jackpots: "",
   weighingTerms: Pachinko.TERMS_BY_DEFAULT,
+  counterGames: "",
+  counterBonuses: {},
+  medalTerms: medalTermsFormOf(Pachislot.MEDAL_TERMS_BY_DEFAULT),
+  atHistory: EMPTY_AT_HISTORY,
   settlement: undefined,
 })
 
@@ -148,6 +160,88 @@ export const toldFiguresOf = (tally: YenTally): Pachinko.Told | undefined =>
     ? undefined
     : { hours: Number(toPlainString(tally.told.hours)), outlay: Number(toPlainString(tally.outlay)), takings: Number(toPlainString(tally.takings)), jackpots: tally.told.jackpots }
 
+/** A pachislot play's medal terms as the form holds them. */
+interface MedalTermsForm {
+  readonly rentedPerThousand: string
+  readonly exchangedPerHundred: string
+}
+
+const medalTermsFormOf = (terms: Pachislot.MedalTerms): MedalTermsForm => ({ rentedPerThousand: String(terms.rentedPerThousand), exchangedPerHundred: String(terms.exchangedPerHundred) })
+
+const WHOLE_COUNT = /^\d+$/
+
+/** A count as typed, whole: none where left empty, undefined where it does not read as one. */
+const countTyped = (text: string): number | undefined => {
+  const plain = tidyTyped(text).replaceAll(",", "")
+  return plain === "" ? 0 : WHOLE_COUNT.test(plain) ? Number(plain) : undefined
+}
+
+/** A pachislot play's medal terms as typed, where both read: a whole number rented, any positive number exchanged. */
+export const readMedalTerms = (form: MedalTermsForm): Pachislot.MedalTerms | undefined => {
+  const rented = tidyTyped(form.rentedPerThousand).replaceAll(",", "")
+  const exchanged = Number(tidyTyped(form.exchangedPerHundred))
+  return WHOLE_COUNT.test(rented) && Number(rented) > 0 && Number.isFinite(exchanged) && exchanged > 0 ? { rentedPerThousand: Number(rented), exchangedPerHundred: exchanged } : undefined
+}
+
+/**
+ * What a pachislot tally tells to read its setting level from, where it
+ * tells enough: the counter's day games, more than none, and every bonus
+ * that reads — one left empty is none — with the play's hours and the cash
+ * it put in. None while the games, the hours or any bonus does not read.
+ */
+export const pachislotToldOf = (form: YenTallyForm, bonusIds: readonly string[]): Pachislot.Told | undefined => {
+  const games = countTyped(form.counterGames)
+  const hours = Number(form.hours)
+  const outlay = Number(tidyTyped(form.outlay).replaceAll(",", "") || "0")
+  const bonuses = bonusIds.map((id) => [id, countTyped(form.counterBonuses[id] ?? "")] as const)
+  if (games === undefined || games === 0 || form.hours === "" || !Number.isFinite(hours) || !Number.isFinite(outlay) || bonuses.some(([, count]) => count === undefined)) return undefined
+  return { games, bonuses: Object.fromEntries(bonuses.map(([id, count]) => [id, count ?? 0])), hours, outlay }
+}
+
+/** An AT machine's history as typed. */
+export interface AtHistoryForm {
+  readonly sinceAt: string
+  readonly afterReset: boolean
+  /** Each AT won, in order: its games, and the triggers missed in them where counted. */
+  readonly ats: readonly AtWonForm[]
+  readonly since: string
+}
+
+export interface AtWonForm {
+  readonly games: string
+  readonly misses: string
+}
+
+const EMPTY_AT_HISTORY: AtHistoryForm = { sinceAt: "", afterReset: false, ats: [], since: "" }
+
+/** An AT row as it is added: nothing typed in it. */
+export const NEW_AT_WON: AtWonForm = { games: "", misses: "" }
+
+/** An AT row read: its games, more than none, and its misses where typed; none where either is typed and does not read. */
+const atWonOf = (at: AtWonForm): Pachislot.AtWon | undefined => {
+  const games = countTyped(at.games)
+  const misses = at.misses.trim() === "" ? undefined : countTyped(at.misses)
+  return games === undefined || games === 0 || (at.misses.trim() !== "" && misses === undefined) ? undefined : { games, misses }
+}
+
+/**
+ * What an AT machine's tally tells to read its setting level from, where it
+ * tells enough: every AT row's games, more than none — a row left wholly
+ * empty is no AT — its misses where typed, the games since sitting down and
+ * since the last AT, none where left empty, and at least one game in all;
+ * with the cash put in. None while anything typed does not read.
+ */
+export const atToldOf = (form: YenTallyForm): Pachislot.AtTold | undefined => {
+  const history = form.atHistory
+  const ats = history.ats.filter((at) => at.games.trim() !== "" || at.misses.trim() !== "").map(atWonOf)
+  const sinceAt = countTyped(history.sinceAt)
+  const since = countTyped(history.since)
+  const outlay = Number(tidyTyped(form.outlay).replaceAll(",", "") || "0")
+  const read = ats.filter((at) => at !== undefined)
+  if (sinceAt === undefined || since === undefined || !Number.isFinite(outlay) || read.length < ats.length) return undefined
+  return read.length === 0 && since === 0 ? undefined : { sinceAt, afterReset: history.afterReset, ats: read, since, outlay }
+}
+
 /** A tally with what its play was taken to be worth; a tally nothing was told of is as it was. */
 export const withInferred = (tally: YenTally, inferred: InferredWorth | undefined): YenTally => (tally.told === undefined ? tally : { ...tally, told: { ...tally.told, inferred } })
 
@@ -164,5 +258,9 @@ export const yenTallyFormOf = (tally: YenTally): YenTallyForm => ({
   hours: tally.told === undefined ? "" : toPlainString(tally.told.hours),
   jackpots: tally.told?.jackpots === undefined ? "" : String(tally.told.jackpots),
   settlement: tally.settlement,
-  weighingTerms: ((inferred) => (inferred === undefined ? undefined : Pachinko.termsOf(Number(toPlainString(inferred.tokenRental)), Number(toPlainString(inferred.tokenExchange)))))(tally.told?.inferred) ?? Pachinko.TERMS_BY_DEFAULT,
+  weighingTerms: ((inferred) => (inferred === undefined || tally.gameKind !== "pachinko" ? undefined : Pachinko.termsOf(Number(toPlainString(inferred.tokenRental)), Number(toPlainString(inferred.tokenExchange)))))(tally.told?.inferred) ?? Pachinko.TERMS_BY_DEFAULT,
+  counterGames: "",
+  counterBonuses: {},
+  atHistory: EMPTY_AT_HISTORY,
+  medalTerms: medalTermsFormOf(((inferred) => (inferred === undefined || tally.gameKind !== "slot" ? Pachislot.MEDAL_TERMS_BY_DEFAULT : Pachislot.medalTermsOf(inferred)))(tally.told?.inferred)),
 })

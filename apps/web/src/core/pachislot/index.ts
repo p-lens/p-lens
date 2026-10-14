@@ -3,3 +3,5 @@ export type { Formula, FormulaId, FormulaMaking, NewFormulaMaking, SettingDistri
 export type { ObservationProblem } from "./observation"
 export type { ChosenPrior, PriorProblem } from "./prior"
 export type { Weighing } from "./weighing"
+export { MEDAL_TERMS_BY_DEFAULT, inferredWorthOf, medalTermsOf, type AtTold, type AtWon, type MedalTerms, type SettingTold, type Told } from "./told"
+export { counterBonusesOf, type Countable } from "./weighing"

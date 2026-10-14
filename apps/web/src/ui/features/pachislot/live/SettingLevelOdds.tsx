@@ -4,15 +4,15 @@ import { Index, Show, type JSX } from "solid-js"
 import { readSettingLevels } from "../../../../core/pachislot/setting-level-reading"
 import { averageSettingLevelText, shareText, UNSEEN } from "../../../wording/pachislot/formula"
 
-function Bar(props: { readonly weight: WeightDto; readonly largest: number; readonly high: boolean; readonly grounded: boolean }): JSX.Element {
+function Bar(props: { readonly weight: WeightDto; readonly largest: number; readonly high: boolean; readonly grounded: boolean; readonly unfolding: boolean; readonly place: number }): JSX.Element {
   return (
     <li class="flex items-center gap-2 text-sm tabular-nums">
       <span class="w-12 shrink-0 text-text-secondary">設定{props.weight.settingLevel}</span>
       <span class="h-3 flex-1 overflow-hidden rounded-sm bg-surface-3">
         <span
-          class="block h-full rounded-sm"
-          classList={{ "bg-accent": props.high, "bg-text-muted": !props.high }}
-          style={{ width: `${props.grounded && props.largest > 0 ? (props.weight.probability / props.largest) * 100 : 0}%` }}
+          class="block h-full origin-left rounded-sm"
+          classList={{ "bg-accent": props.high, "bg-text-muted": !props.high, "motion-safe:animate-[extend_520ms_cubic-bezier(0.22,1,0.36,1)_both]": props.unfolding }}
+          style={{ width: `${props.grounded && props.largest > 0 ? (props.weight.probability / props.largest) * 100 : 0}%`, ...(props.unfolding ? { "animation-delay": `${120 + props.place * 45}ms` } : {}) }}
         />
       </span>
       <span class="w-14 shrink-0 text-right text-text-primary">{props.grounded ? shareText(props.weight.probability) : UNSEEN.share}</span>
@@ -28,7 +28,13 @@ function Bar(props: { readonly weight: WeightDto; readonly largest: number; read
  * the cabinet and no 設定配分 chosen, the odds are an even spread's alone and
  * every figure is dashes: its "most likely" would be whichever came last.
  */
-export function SettingLevelOdds(props: { readonly settingLevels: readonly WeightDto[]; readonly prior: string; readonly grounded: boolean }): JSX.Element {
+export function SettingLevelOdds(props: {
+  readonly settingLevels: readonly WeightDto[]
+  readonly prior: string
+  readonly grounded: boolean
+  /** Whether the bars are drawn out as they first come, one after another: an answer just read, not odds kept up to date at the cabinet. */
+  readonly unfolding?: boolean
+}): JSX.Element {
   const reading = () => readSettingLevels(props.settingLevels)
   const largest = () => Math.max(0, ...props.settingLevels.map((weight) => weight.probability))
   return (
@@ -53,7 +59,7 @@ export function SettingLevelOdds(props: { readonly settingLevels: readonly Weigh
       </dl>
       <ol class="flex flex-col gap-1">
         <Index each={props.settingLevels}>
-          {(weight) => <Bar weight={weight()} largest={largest()} high={weight().settingLevel >= reading().threshold} grounded={props.grounded} />}
+          {(weight, place) => <Bar weight={weight()} largest={largest()} high={weight().settingLevel >= reading().threshold} grounded={props.grounded} unfolding={props.unfolding === true} place={place} />}
         </Index>
       </ol>
       <p class="text-xs text-text-muted">{props.grounded ? `設定配分「${props.prior}」のもとでの見込みです。` : "データカウンターを入れるか、設定配分を選ぶと、見込みが出ます。"}</p>

@@ -1,11 +1,11 @@
 use pachislot_domain::distribution::Distribution;
 use pachislot_domain::normalized::{AtRules, NormalizedSpec, SettingLevelTable};
-use pachislot_domain::observation::{Path, Segment};
+use pachislot_domain::observation::{Path, Segment, ToldPath};
 use pachislot_domain::probability::BasisPoints;
 use pachislot_domain::setting_level::SettingLevel;
 use pachislot_domain::spec::EntityId;
 
-use crate::at::walk;
+use crate::at::{told_log_likelihood, walk};
 use crate::error::InferenceError;
 
 /// How likely each of the machine's settings is, given the prior and what
@@ -196,17 +196,49 @@ pub fn posterior(
     if path.is_some() && spec.at_rules.is_none() {
         return Err(InferenceError::PathWithoutAt);
     }
+    weighed(spec, prior, |table| {
+        segments
+            .iter()
+            .map(|segment| log_likelihood(table, segment))
+            .sum::<f64>()
+            + path_log_likelihood(table, spec.at_rules.as_ref(), path)
+    })
+}
+
+/// How likely each setting of an AT machine is, given a prior — an even
+/// spread when there is none — and its play told by its totals afterwards.
+///
+/// # Errors
+/// When the machine has no AT, the prior does not match the machine's
+/// settings or sum to 100%, or what was told is impossible under every
+/// setting the prior allows.
+pub fn posterior_told(
+    spec: &NormalizedSpec,
+    prior: Option<&Distribution>,
+    told: &ToldPath,
+) -> Result<Posterior, InferenceError> {
+    let Some(rules) = spec.at_rules.as_ref() else {
+        return Err(InferenceError::PathWithoutAt);
+    };
+    weighed(spec, prior, |table| {
+        table
+            .at
+            .as_ref()
+            .map_or(0.0, |at| told_log_likelihood(told, rules, at))
+    })
+}
+
+/// Each setting's prior weighed by what was seen under its table, as a
+/// share of all of them.
+fn weighed(
+    spec: &NormalizedSpec,
+    prior: Option<&Distribution>,
+    seen: impl Fn(&SettingLevelTable) -> f64,
+) -> Result<Posterior, InferenceError> {
     let logs: Vec<f64> = log_prior(spec, prior)?
         .into_iter()
         .zip(&spec.tables)
-        .map(|(log_prior, table)| {
-            log_prior
-                + segments
-                    .iter()
-                    .map(|segment| log_likelihood(table, segment))
-                    .sum::<f64>()
-                + path_log_likelihood(table, spec.at_rules.as_ref(), path)
-        })
+        .map(|(log_prior, table)| log_prior + seen(table))
         .map(|log| if log.is_nan() { f64::NEG_INFINITY } else { log })
         .collect();
     let total = log_sum_exp(&logs);

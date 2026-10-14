@@ -1,4 +1,4 @@
-import { For, Match, Show, Switch, type JSX } from "solid-js"
+import { For, Index, Match, Show, Switch, type JSX } from "solid-js"
 
 import { bookNameOf } from "../../../core/catalog/catalog"
 import { machineMatches } from "../../../core/catalog/description"
@@ -8,7 +8,7 @@ import type { PlayGameKind } from "../../../core/play/play"
 import { Button } from "../../primitives/button"
 import { Combobox } from "../../primitives/combobox"
 import { DetailButton } from "../../primitives/detail-button"
-import { PlusIcon } from "../../primitives/icons"
+import { PlusIcon, TrashIcon } from "../../primitives/icons"
 import { redText } from "../../primitives/nudge"
 import { PencilledBubble } from "../../primitives/pencilled-bubble"
 import { Select } from "../../primitives/select"
@@ -18,9 +18,11 @@ import { describeError } from "../../wording/errors"
 import * as PachinkoWording from "../../wording/pachinko/inference"
 import { LOCATE_REQUEST, typedMachineRefused, typedParlorRefused } from "../../wording/parlor"
 import * as PachinkoViews from "../pachinko"
+import * as PachislotViews from "../pachislot"
+import * as PachislotWording from "../../wording/pachislot/inference"
 import type { SubmitWords } from "./form"
 import type { YenTallyEditing } from "./yen-tally-editing"
-import { HOUR_CHOICES, hoursOfMinutes, MINUTE_CHOICES, minutesToldIn } from "./yen-tally-form"
+import { HOUR_CHOICES, hoursOfMinutes, MINUTE_CHOICES, minutesToldIn, NEW_AT_WON, type AtHistoryForm, type AtWonForm } from "./yen-tally-form"
 
 const SUBMIT_PARLOR = "一覧にない店舗を申請する"
 
@@ -258,7 +260,92 @@ function WeighingTermsButton(props: { readonly editing: YenTallyEditing }): JSX.
   )
 }
 
-/** What the two sides come to, and — for a pachinko play — the press that infers what it was worth, with what it is inferred on and what it came to. */
+/** An AT machine's history as its data counter gives it: the games since the last AT when sat down at, whether the settings were changed before then, each AT won in order — its games, and the CZs missed on the way where the machine has them — and the games since the last when play stopped. */
+function AtHistoryFields(props: { readonly editing: YenTallyEditing }): JSX.Element {
+  const editing = props.editing
+  const history = () => editing.form().atHistory
+  const put = (change: Partial<AtHistoryForm>): void => editing.set("atHistory")({ ...history(), ...change })
+  const putAt = (index: number, change: Partial<AtWonForm>): void => put({ ats: history().ats.map((at, place) => (place === index ? { ...at, ...change } : at)) })
+  const cz = (): boolean => ((found) => found?.type === "inferable" && found.formula.normalized.atRules?.trigger !== undefined)(editing.inferable())
+  return (
+    <>
+      <p class="text-xs text-text-muted">データカウンターの履歴</p>
+      <ToggleGroup value={history().afterReset ? "changed" : "kept"} onChange={(value: string | null) => value !== null && put({ afterReset: value === "changed" })} aria-label="着席前の設定変更">
+        <ToggleGroupItem value="kept">設定変更なし</ToggleGroupItem>
+        <ToggleGroupItem value="changed">朝イチ設定変更</ToggleGroupItem>
+      </ToggleGroup>
+      <TextField label="着席時のAT間ゲーム数" value={history().sinceAt} onChange={(sinceAt) => put({ sinceAt })} inputMode="numeric" suffix="G" invalid={editing.lacked("counter")} onFocus={editing.weighNudge.settle} compact />
+      <Index each={history().ats}>
+        {(at, index) => (
+          <div class="flex items-end gap-2">
+            <div class="min-w-0 flex-1">
+              <TextField label={`${index + 1}回目のAT`} value={at().games} onChange={(games) => putAt(index, { games })} inputMode="numeric" suffix="G" onFocus={editing.weighNudge.settle} compact />
+            </div>
+            <Show when={cz()}>
+              <div class="w-24">
+                <TextField label="CZスルー" value={at().misses} onChange={(misses) => putAt(index, { misses })} inputMode="numeric" suffix="回" onFocus={editing.weighNudge.settle} compact />
+              </div>
+            </Show>
+            <button type="button" aria-label={`${index + 1}回目のATを消す`} title="消す" onClick={() => put({ ats: history().ats.filter((_, place) => place !== index) })} class="flex size-9 shrink-0 items-center justify-center rounded-[3px] text-text-muted hover:bg-surface-3 hover:text-text-primary [&_svg]:size-4">
+              <TrashIcon />
+            </button>
+          </div>
+        )}
+      </Index>
+      <div class="flex justify-end">
+        <Button type="button" variant="outline" size="small" onClick={() => put({ ats: [...history().ats, NEW_AT_WON] })}>
+          <PlusIcon />
+          ATを足す
+        </Button>
+      </div>
+      <TextField label="最後のATからのゲーム数" value={history().since} onChange={(since) => put({ since })} inputMode="numeric" suffix="G" onFocus={editing.weighNudge.settle} compact />
+    </>
+  )
+}
+
+/** What a pachislot play's setting level is read from beside its form: a bonus machine's data counter at the finish, or an AT machine's history, and the rental and exchange of its corner. */
+function CounterButton(props: { readonly editing: YenTallyEditing }): JSX.Element {
+  const editing = props.editing
+  return (
+    <DetailButton
+      label="条件"
+      says="推定の条件（データカウンターとレート・交換率）"
+      marked={editing.counterSet()}
+      invalid={editing.lacked("counter")}
+      glimmering={editing.missesWouldSharpen()}
+      placement="bottom-end"
+      onOpen={editing.weighNudge.settle}
+    >
+      <div class="flex min-w-0 flex-1 flex-col gap-3">
+        <Show when={!editing.atMachine()} fallback={<AtHistoryFields editing={editing} />}>
+        <p class="text-xs text-text-muted">遊技終了時のデータカウンター</p>
+        <div class="grid grid-cols-2 gap-3">
+          <TextField label="総ゲーム数" value={editing.form().counterGames} onChange={editing.set("counterGames")} inputMode="numeric" suffix="G" invalid={editing.lacked("counter")} onFocus={editing.weighNudge.settle} compact />
+          <Index each={editing.counterBonuses()}>
+            {(bonus) => (
+              <TextField
+                label={bonus().label}
+                value={editing.form().counterBonuses[bonus().id] ?? ""}
+                onChange={(count) => editing.set("counterBonuses")({ ...editing.form().counterBonuses, [bonus().id]: count })}
+                inputMode="numeric"
+                suffix="回"
+                onFocus={editing.weighNudge.settle}
+                compact
+              />
+            )}
+          </Index>
+        </div>
+        </Show>
+        <div class="grid grid-cols-2 gap-3">
+          <TextField label="貸メダル（1000円）" value={editing.form().medalTerms.rentedPerThousand} onChange={(rentedPerThousand) => editing.set("medalTerms")({ ...editing.form().medalTerms, rentedPerThousand })} inputMode="numeric" suffix="枚" onFocus={editing.weighNudge.settle} compact />
+          <TextField label="交換（100円）" value={editing.form().medalTerms.exchangedPerHundred} onChange={(exchangedPerHundred) => editing.set("medalTerms")({ ...editing.form().medalTerms, exchangedPerHundred })} inputMode="decimal" suffix="枚" onFocus={editing.weighNudge.settle} compact />
+        </div>
+      </div>
+    </DetailButton>
+  )
+}
+
+/** What the two sides come to, and — for a pachinko play — the press that infers what it was worth, or — for a pachislot play at a bonus machine — the press that reads its setting level by Bayes, each with what it is read from and what it came to. */
 export function ResultAndWeighing(props: { readonly editing: YenTallyEditing }): JSX.Element {
   const editing = props.editing
   return (
@@ -285,12 +372,35 @@ export function ResultAndWeighing(props: { readonly editing: YenTallyEditing }):
           </Show>
           <WeighingTermsButton editing={editing} />
         </Show>
+        <Show when={editing.form().gameKind === "slot"}>
+          <Show
+            when={editing.settingInference().type !== "inferring"}
+            fallback={
+              <output aria-live="polite" class="flex h-9 shrink-0 items-center whitespace-nowrap px-4 text-sm font-medium text-amateur">
+                {PachislotWording.settingInferenceButtonText(editing.settingInference())}
+              </output>
+            }
+          >
+            <Button type="button" variant="outline" class="shrink-0 text-amateur hover:text-amateur" onClick={() => editing.weigh()}>
+              {PachislotWording.settingInferenceButtonText(editing.settingInference())}
+            </Button>
+          </Show>
+          <CounterButton editing={editing} />
+        </Show>
       </div>
       <Show when={editing.form().gameKind === "pachinko" && editing.weighing().type !== "resting"}>
         <div class={HALF_ON_A_WIDE_SCREEN}>
           <PachinkoViews.WeighingLine weighing={editing.weighing()} />
           <Show when={editing.jackpotsWouldSharpen()}>
             <p class="mt-1.5 animate-[emerge_1.6s_ease-out] text-xs text-warning">{PachinkoWording.JACKPOTS_SHARPEN}</p>
+          </Show>
+        </div>
+      </Show>
+      <Show when={editing.form().gameKind === "slot" && editing.settingInference().type !== "resting"}>
+        <div class={HALF_ON_A_WIDE_SCREEN}>
+          <PachislotViews.SettingInferenceLine inference={editing.settingInference()} />
+          <Show when={editing.missesWouldSharpen()}>
+            <p class="mt-1.5 animate-[emerge_1.6s_ease-out] text-xs text-warning">{PachislotWording.MISSES_SHARPEN}</p>
           </Show>
         </div>
       </Show>
@@ -328,7 +438,7 @@ export function EntryAndSubmit(props: { readonly editing: YenTallyEditing; reado
       </Show>
       <div>
         <Button type="submit">
-          {editing.saving() ? props.words.busy : editing.weighing().type === "weighing" ? "推定中…" : props.words.idle}
+          {editing.saving() ? props.words.busy : editing.weighing().type === "weighing" || editing.settingInference().type === "inferring" ? "推定中…" : props.words.idle}
         </Button>
       </div>
     </>

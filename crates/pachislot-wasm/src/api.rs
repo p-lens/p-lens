@@ -6,7 +6,7 @@ use std::num::NonZeroU64;
 use pachislot_domain::normalized::NormalizedSpec;
 use pachislot_engine::analysis::{Analysis, analyze as solve};
 use pachislot_engine::normalize::normalize as normalise;
-use pachislot_engine::posterior::posterior as infer;
+use pachislot_engine::posterior::{posterior as infer, posterior_told};
 use pachislot_engine::theoretical::{
     path_theoretical_value as weigh_path, theoretical_value as weigh,
 };
@@ -87,9 +87,12 @@ fn posterior_of(request: &PosteriorRequest) -> Result<PosteriorDto, ErrorDto> {
         .transpose()?;
     let segments = convert::segments(&request.segments)?;
     let path = request.path.as_ref().map(convert::path);
-    infer(&spec, prior.as_ref(), &segments, path.as_ref())
-        .map(|posterior| convert::posterior_dto(&posterior))
-        .map_err(|error| convert::inference_error_dto(&error))
+    match &request.told {
+        Some(told) => posterior_told(&spec, prior.as_ref(), &convert::told(told)),
+        None => infer(&spec, prior.as_ref(), &segments, path.as_ref()),
+    }
+    .map(|posterior| convert::posterior_dto(&posterior))
+    .map_err(|error| convert::inference_error_dto(&error))
 }
 
 fn theoretical_value_of(

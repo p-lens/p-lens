@@ -59,11 +59,19 @@ export const settingLevelsOf = (formula: FormulaSnapshot): readonly number[] => 
  * out; with savings drawn and no outlay said, savings cover that shortfall
  * first. None without terms.
  */
-export const playOf = (
-  terms: PlayTerms | undefined,
-  play: { readonly bet: number; readonly games: number; readonly outlay: number | undefined; readonly replay: number | undefined; readonly payoutRate: number },
-): PlayDto | undefined => {
-  if (terms === undefined) return undefined
+export const playOf = (terms: PlayTerms | undefined, play: PlayCounted): PlayDto | undefined => (terms === undefined ? undefined : pricedPlayOf(terms, play))
+
+/** What a play's medals are weighed by beside its terms: its bet, the games played, the outlay and the medals drawn from savings where said, and what the machine pays back. */
+interface PlayCounted {
+  readonly bet: number
+  readonly games: number
+  readonly outlay: number | undefined
+  readonly replay: number | undefined
+  readonly payoutRate: number
+}
+
+/** A play's terms as the engine weighs them, where it has terms: as `playOf` says. */
+export const pricedPlayOf = (terms: PlayTerms, play: PlayCounted): PlayDto => {
   const played = play.games * play.bet
   const shortfall = Math.min(1, Math.max(0, 1 - play.payoutRate))
   const known = played > 0 && (play.outlay !== undefined || play.replay !== undefined)

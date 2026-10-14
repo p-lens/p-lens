@@ -4,8 +4,10 @@ import type { ApplicationError, Outcome } from "../../../application/errors"
 import type { RecordingContext } from "../../../application/record-tally"
 import { findMachines } from "../../../application/catalog"
 import type { Weighing, WeighingAsked } from "../../../application/pachinko/inference"
+import { loadInferable, type Inferable, type SettingInference } from "../../../application/pachislot/setting-inference"
 import { bookNameOf, CATALOG_GAMES, type MachineSummary } from "../../../core/catalog/catalog"
 import * as Pachinko from "../../../core/pachinko"
+import * as Pachislot from "../../../core/pachislot"
 import type { ParlorList } from "../../../core/parlor/shared"
 import { renderEntry } from "../../../core/journal/entry"
 import { composeYenTallyEntry } from "../../../core/tally/compose"
@@ -26,9 +28,10 @@ import type { TypedNameRefused } from "../../wording/parlor"
 import type { Submission as KeptSubmission } from "../../../parlors/port/submission-store"
 import { locateAddress, submitAddress, type LeftFrom } from "../live/submission-return"
 import * as PachinkoViews from "../pachinko"
+import * as PachislotViews from "../pachislot"
 import { offersByKey, parlorOffers, type ParlorOffer } from "../parlor-offers/parlor-offers"
 import type { FieldProblem, FormField } from "./form"
-import { readYenTallyForm, resultOfYenTally, toldFiguresOf, withInferred, type YenTallyForm } from "./yen-tally-form"
+import { atToldOf, pachislotToldOf, readMedalTerms, readYenTallyForm, resultOfYenTally, toldFiguresOf, withInferred, type YenTallyForm } from "./yen-tally-form"
 
 /** Where a submission is: being typed, being written, or refused with why. */
 type Submission =
@@ -42,8 +45,8 @@ const REASONS: Readonly<Record<Exclude<FieldProblem["reason"], "required">, stri
   "not-a-date": "日付を入力してください。",
 }
 
-/** What a press of 推定期待値を算出する needs of the form and has not got, field by field. */
-export type Lacking = Readonly<Record<"hours" | "machine" | "outlay" | "theoretical", boolean>>
+/** What a press that reads a play needs of the form and has not got, field by field: 推定期待値を算出する for pachinko, the setting level's for pachislot. */
+export type Lacking = Readonly<Record<"hours" | "machine" | "outlay" | "theoretical" | "counter", boolean>>
 
 /** What a tally typed in by its totals is given by the screen it is typed in on: what it starts filled with, what a name typed stops, where the survey brings the person back to, and what recording means. */
 export interface YenTallyEditingGiven {
@@ -92,6 +95,16 @@ export interface YenTallyEditing {
   /** Whether the tally's play was weighed without its jackpots, which would have read it closer. */
   readonly jackpotsWouldSharpen: Accessor<boolean>
   readonly weighingSet: () => boolean
+  /** The formula a pachislot tally's machine reads its setting level by, where one is chosen: none, an AT machine, or one to read. */
+  readonly inferable: Accessor<Inferable | undefined>
+  readonly settingInference: Accessor<SettingInference>
+  readonly atMachine: () => boolean
+  /** Whether an AT machine's history was read with an AT whose CZ misses were not counted, which would have read it closer. */
+  readonly missesWouldSharpen: Accessor<boolean>
+  /** The bonuses the data counter of a pachislot machine chosen shows, as its formula names them. */
+  readonly counterBonuses: () => readonly Pachislot.Countable[]
+  /** Whether anything is set of what a pachislot setting level is read from beside the form's own fields: the counter, or terms other than the usual. */
+  readonly counterSet: () => boolean
   readonly resultText: () => string
   readonly resultTone: () => ReturnType<typeof toneOf> | undefined
   readonly previewText: () => string | undefined
@@ -186,8 +199,43 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
   })
   const weigher = PachinkoViews.createWeighing(asked)
   const weighing = weigher.weighing
+  /** The formula a pachislot machine chosen reads its setting level by. */
+  const [inferableFound] = createResource(
+    () => (form().gameKind === "slot" ? machineId() : undefined),
+    (chosen) => loadInferable(app.services.catalog, chosen),
+  )
+  const inferable = (): Inferable | undefined => ((found) => (found?.ok === true ? found.value : undefined))(inferableFound())
+  const counterBonuses = (): readonly Pachislot.Countable[] => ((found) => (found?.type === "inferable" ? Pachislot.counterBonusesOf(found.formula) : []))(inferable())
+  const counterBonusIds = (): readonly string[] => counterBonuses().map((bonus) => bonus.id)
+  /** Whether the pachislot machine chosen is an AT machine, read by its history rather than its counter. */
+  const atMachine = (): boolean => ((found) => found?.type === "inferable" && found.formula.normalized.atRules !== undefined)(inferable())
+  /** What a pachislot tally tells its setting level by, where it tells enough: an AT machine's history, or a bonus machine's counter with its hours. */
+  const settingTold = (): Pachislot.SettingTold | undefined => {
+    if (atMachine()) return ((told) => (told === undefined ? undefined : { type: "history" as const, told }))(atToldOf(form()))
+    return ((told) => (told === undefined ? undefined : { type: "counter" as const, told }))(pachislotToldOf(form(), counterBonusIds()))
+  }
+  /** The play to read the setting level of: a pachislot tally's, of a machine of the catalog, that tells enough and whose theoretical value is not typed in. */
+  const settingAsked = createMemo((): PachislotViews.SettingAsked | undefined => {
+    const tally = read()
+    const found = inferable()
+    const terms = readMedalTerms(form().medalTerms)
+    const told = settingTold()
+    if (!tally.ok || tally.value.gameKind !== "slot" || tally.value.theoreticalValue !== undefined || found?.type !== "inferable" || terms === undefined || told === undefined) return undefined
+    return { formula: found.formula, told, terms }
+  })
+  const settingInferer = PachislotViews.createSettingInference(settingAsked)
+  const settingInference = settingInferer.inference
   /** What a press of 推定期待値を算出する needs of the form and has not got: the play's hours, its machine, the cash it took — and no theoretical value typed in, which is the tally's own and leaves nothing to infer. */
-  const lacking = (): Lacking => ({ hours: form().hours === "", machine: machineId() === undefined, outlay: problemAt("outlay") !== undefined || form().outlay.trim() === "", theoretical: form().theoreticalValue.trim() !== "" })
+  const lacking = (): Lacking =>
+    form().gameKind === "slot"
+      ? {
+          hours: !atMachine() && form().hours === "",
+          machine: inferable()?.type !== "inferable",
+          outlay: false,
+          theoretical: form().theoreticalValue.trim() !== "",
+          counter: (atMachine() ? atToldOf(form()) === undefined : pachislotToldOf({ ...form(), hours: "1" }, counterBonusIds()) === undefined) || readMedalTerms(form().medalTerms) === undefined,
+        }
+      : { hours: form().hours === "", machine: machineId() === undefined, outlay: problemAt("outlay") !== undefined || form().outlay.trim() === "", theoretical: form().theoreticalValue.trim() !== "", counter: false }
   const weighNudge = createNudge()
   const nudge = createNudge()
   /** Red for a while after a press of 推定期待値を算出する that this stopped. */
@@ -195,7 +243,8 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
   /** Begin the weighing; where the form has not got what it needs, that is shown in red and nothing is begun — and where what stops it is anything else of the form, that is shown as a press to record shows it. */
   const weigh = (): void => {
     settleTyping()
-    if (asked() !== undefined) return weigher.weigh()
+    if (form().gameKind === "slot" && settingAsked() !== undefined) return settingInferer.infer()
+    if (form().gameKind === "pachinko" && asked() !== undefined) return weigher.weigh()
     if (Object.values(lacking()).some((lacks) => lacks)) return weighNudge.nudge()
     nudge.nudge()
   }
@@ -203,7 +252,10 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
   const weighedRead = createMemo(() => {
     const tally = read()
     const now = weighing()
-    return tally.ok && now.type === "weighed" ? { ok: true as const, value: withInferred(tally.value, Pachinko.inferredWorthOf(now.weighed, now.formulaId, form().weighingTerms)) } : tally
+    const setting = settingInference()
+    const terms = readMedalTerms(form().medalTerms)
+    if (tally.ok && tally.value.gameKind === "slot" && setting.type === "inferred" && terms !== undefined) return { ok: true as const, value: withInferred(tally.value, Pachislot.inferredWorthOf(setting.inferred.formulaId, setting.inferred.theoreticalValue, terms)) }
+    return tally.ok && tally.value.gameKind === "pachinko" && now.type === "weighed" ? { ok: true as const, value: withInferred(tally.value, Pachinko.inferredWorthOf(now.weighed, now.formulaId, form().weighingTerms)) } : tally
   })
   const preview = createMemo((): Result<Entry, TallyError> | undefined => {
     const tally = weighedRead()
@@ -213,6 +265,22 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
   const jackpotsAsked = createMemo((): boolean => ((now) => now.type === "vague" && !now.jackpotsTold)(weighing()))
   const jackpotsWouldSharpen = createMemo((): boolean => weighing().type === "weighed" && form().jackpots.trim() === "")
   /** Whether anything is set of what a weighing may be told beside the form's own fields: the jackpots, or terms other than the usual. */
+  /** Whether an AT machine's history was read with an AT whose misses were not counted, where its machine has a trigger they would have read it closer by. */
+  const missesWouldSharpen = createMemo(
+    (): boolean =>
+      settingInference().type === "inferred" &&
+      ((found) => found?.type === "inferable" && found.formula.normalized.atRules?.trigger !== undefined)(inferable()) &&
+      form().atHistory.ats.some((at) => at.games.trim() !== "" && at.misses.trim() === ""),
+  )
+  const counterSet = (): boolean =>
+    form().atHistory.sinceAt.trim() !== "" ||
+    form().atHistory.afterReset ||
+    form().atHistory.ats.length > 0 ||
+    form().atHistory.since.trim() !== "" ||
+    form().counterGames.trim() !== "" ||
+    Object.values(form().counterBonuses).some((count) => count.trim() !== "") ||
+    form().medalTerms.rentedPerThousand !== String(Pachislot.MEDAL_TERMS_BY_DEFAULT.rentedPerThousand) ||
+    form().medalTerms.exchangedPerHundred !== String(Pachislot.MEDAL_TERMS_BY_DEFAULT.exchangedPerHundred)
   const weighingSet = (): boolean => form().jackpots.trim() !== "" || form().weighingTerms.rental !== Pachinko.TERMS_BY_DEFAULT.rental || form().weighingTerms.exchange !== Pachinko.TERMS_BY_DEFAULT.exchange
   const previewText = (): string | undefined => {
     const entry = preview()
@@ -237,7 +305,7 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
     event.preventDefault()
     settleTyping()
     const tally = weighedRead()
-    if (submission().type === "saving" || weighing().type === "weighing") return
+    if (submission().type === "saving" || weighing().type === "weighing" || settingInference().type === "inferring") return
     if (!tally.ok || preview()?.ok !== true || typedOnly() || machineTypedOnly()) {
       nudge.nudge()
       return
@@ -277,6 +345,12 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
     jackpotsAsked,
     jackpotsWouldSharpen,
     weighingSet,
+    inferable,
+    settingInference,
+    counterBonuses,
+    atMachine,
+    missesWouldSharpen,
+    counterSet,
     resultText,
     resultTone,
     previewText,

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import type { PlayId } from "../../src/core/play/play"
-import { emptyYenTallyForm, HOUR_CHOICES, hoursOfMinutes, MINUTE_CHOICES, minutesToldIn, readYenTallyForm, resultOfYenTally } from "../../src/ui/features/record-tally/yen-tally-form"
+import { atToldOf, emptyYenTallyForm, pachislotToldOf, readMedalTerms, HOUR_CHOICES, hoursOfMinutes, MINUTE_CHOICES, minutesToldIn, readYenTallyForm, resultOfYenTally } from "../../src/ui/features/record-tally/yen-tally-form"
 import { UMEDA, dec } from "../support/values"
 
 const ID = "new" as PlayId
@@ -66,5 +66,31 @@ describe("the tally form", () => {
     expect(minutesToldIn({ hours: "" })).toBeUndefined()
     expect(HOUR_CHOICES.every((hours) => MINUTE_CHOICES.every((minutes) => (minutesToldIn({ hours: hoursOfMinutes(hours * 60 + minutes) }) ?? 0) === hours * 60 + minutes))).toBe(true)
     expect([HOUR_CHOICES.at(0), HOUR_CHOICES.at(-1), MINUTE_CHOICES.at(1), MINUTE_CHOICES.at(-1)]).toEqual([0, 24, 5, 55])
+  })
+
+  test("tells a pachislot play's setting level what its data counter showed, its hours and its cash, and only once the games, the hours and every bonus read", () => {
+    const form = { ...emptyYenTallyForm("2026-10-04"), gameKind: "slot" as const, hours: "3.5", outlay: "20,000", counterGames: "4,200", counterBonuses: { big: "１５", reg: "" } }
+    expect(pachislotToldOf(form, ["big", "reg"])).toEqual({ games: 4200, bonuses: { big: 15, reg: 0 }, hours: 3.5, outlay: 20000 })
+    expect(pachislotToldOf({ ...form, counterGames: "" }, ["big", "reg"])).toBeUndefined()
+    expect(pachislotToldOf({ ...form, hours: "" }, ["big", "reg"])).toBeUndefined()
+    expect(pachislotToldOf({ ...form, counterBonuses: { big: "1.5" } }, ["big", "reg"])).toBeUndefined()
+    expect(readMedalTerms(form.medalTerms)).toEqual({ rentedPerThousand: 46, exchangedPerHundred: 5.2 })
+    expect(readMedalTerms({ rentedPerThousand: "46.5", exchangedPerHundred: "5.2" })).toBeUndefined()
+  })
+
+  test("tells an AT machine's setting level its history: every AT typed, its CZs missed where counted, and the games since sitting and since the last AT", () => {
+    const form = { ...emptyYenTallyForm("2026-10-04"), gameKind: "slot" as const, outlay: "15,000" }
+    const history = (atHistory: typeof form.atHistory) => atToldOf({ ...form, atHistory })
+    expect(history({ sinceAt: "120", afterReset: false, ats: [{ games: "300", misses: "" }, { games: "", misses: "" }, { games: "88", misses: "２" }], since: "40" })).toEqual({
+      sinceAt: 120,
+      afterReset: false,
+      ats: [{ games: 300, misses: undefined }, { games: 88, misses: 2 }],
+      since: 40,
+      outlay: 15000,
+    })
+    expect(history({ sinceAt: "", afterReset: true, ats: [], since: "" })).toBeUndefined()
+    expect(history({ sinceAt: "", afterReset: true, ats: [{ games: "0", misses: "" }], since: "" })).toBeUndefined()
+    expect(history({ sinceAt: "", afterReset: true, ats: [{ games: "300", misses: "x" }], since: "" })).toBeUndefined()
+    expect(history({ sinceAt: "", afterReset: true, ats: [], since: "250" })?.since).toBe(250)
   })
 })

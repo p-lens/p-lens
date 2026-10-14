@@ -62,6 +62,29 @@ pub struct AtSeen {
     pub medals: Option<u32>,
 }
 
+/// An AT machine's play told by its totals afterwards, as a data counter's
+/// history gives it: whether play began after a setting change, the regular
+/// games since the last AT — or the change — when it was first seen, then
+/// each leg of regular games from there — to an AT won, or still going at
+/// the finish — with the triggers missed in it, where they were counted:
+/// the first leg's since the last AT. A leg whose misses are not told is
+/// read over every number it might have had.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ToldPath {
+    pub after_reset: bool,
+    pub since_at: u32,
+    pub legs: Vec<ToldLeg>,
+}
+
+/// So many regular games after the last AT, or after play began, ending in
+/// an AT won or still going, with the triggers missed in them where told.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ToldLeg {
+    pub games: u32,
+    pub won: bool,
+    pub misses: Option<u32>,
+}
+
 impl Path {
     /// The regular games the path played.
     pub fn games(&self) -> u64 {

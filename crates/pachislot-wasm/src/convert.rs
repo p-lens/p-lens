@@ -10,7 +10,9 @@ use pachislot_domain::normalized::{
     Allotments, AtRules, AtTable, Event, EventKind, ModeRule, NormalizedSpec, PayoutLaw,
     SettingLevelTable,
 };
-use pachislot_domain::observation::{AtSeen, Leg, LegEnd, Path, PathStart, Segment};
+use pachislot_domain::observation::{
+    AtSeen, Leg, LegEnd, Path, PathStart, Segment, ToldLeg, ToldPath,
+};
 use pachislot_domain::probability::{BasisPoints, Denominator, Probability, ProbabilitySource};
 use pachislot_domain::setting_level::{PerSettingLevel, SettingLevel};
 use pachislot_domain::spec::{
@@ -34,7 +36,7 @@ use crate::dto::{
     ModeRuleDto, NormalizedSpecDto, PathDto, PayoutBasisDto, PayoutLawDto, PayoutRowDto, PlayDto,
     PosteriorDto, ProbabilityDto, ProbabilityProblemDto, ProgressDto, SegmentDto,
     SettingLevelEstimateDto, SettingLevelFiguresDto, SpecDto, SummaryDto, TableDto, TallyDto,
-    TheoreticalValueDto, WeightDto,
+    TheoreticalValueDto, ToldPathDto, WeightDto,
 };
 
 fn invalid(field: &str) -> ErrorDto {
@@ -558,6 +560,22 @@ pub fn normalized_dto(spec: &NormalizedSpec) -> NormalizedSpecDto {
 }
 
 /// A path as the engine walks it.
+pub fn told(dto: &ToldPathDto) -> ToldPath {
+    ToldPath {
+        after_reset: dto.after_reset,
+        since_at: dto.since_at,
+        legs: dto
+            .legs
+            .iter()
+            .map(|leg| ToldLeg {
+                games: leg.games,
+                won: leg.won,
+                misses: leg.misses,
+            })
+            .collect(),
+    }
+}
+
 pub fn path(dto: &PathDto) -> Path {
     Path {
         start: PathStart {

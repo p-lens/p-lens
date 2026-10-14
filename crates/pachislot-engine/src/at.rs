@@ -17,7 +17,7 @@ use std::num::NonZeroU32;
 use std::collections::BTreeMap;
 
 use pachislot_domain::normalized::{Allotments, AtRules, AtTable, ModeRule, PayoutLaw};
-use pachislot_domain::observation::{AtSeen, LegEnd, Path, PathStart};
+use pachislot_domain::observation::{AtSeen, LegEnd, Path, PathStart, ToldLeg, ToldPath};
 use pachislot_domain::spec::Medals;
 
 use crate::payout::{CapFigures, below, cap_figures, capped, headroom, set_chance};
@@ -709,4 +709,155 @@ pub fn walk(path: &Path, rules: &AtRules, table: &AtTable) -> Walked {
         medals,
         log_likelihood,
     }
+}
+
+/// The triggers' games in one mode within `horizon` games of an AT: for
+/// each count `j` from none on, where the `j`th trigger may fall, with the
+/// chance every trigger before it missed — stopped once no more can come.
+fn triggers_by_count(
+    p: f64,
+    success: f64,
+    mode: &ModeRule,
+    horizon: usize,
+    misses: Option<NonZeroU32>,
+    most: u32,
+) -> Vec<(Vec<f64>, f64)> {
+    let start: Vec<f64> = (0..horizon)
+        .map(|at| if at == 0 { 1.0 } else { 0.0 })
+        .collect();
+    (1..=most).fold(vec![(start, 1.0_f64)], |mut counts, j| {
+        let Some((previous, alive)) = counts.last().cloned() else {
+            return counts;
+        };
+        if alive <= 0.0 || previous.iter().sum::<f64>() < f64::EPSILON * f64::EPSILON {
+            return counts;
+        }
+        let at = convolved(&previous, p, mode.ceiling);
+        let wins = success_of(j, success, misses);
+        counts.push((at, alive * (1.0 - wins)));
+        counts
+    })
+}
+
+/// The chance a trigger count `j` has been reached by game `game`: always
+/// for none, and by the `j`th trigger's games otherwise.
+fn reached_by(counts: &[(Vec<f64>, f64)], j: usize, game: usize) -> f64 {
+    if j == 0 {
+        return 1.0;
+    }
+    counts
+        .get(j)
+        .map_or(0.0, |(at, _)| at.iter().take(game + 1).sum())
+}
+
+/// The chance one mode tells a leg as it was told: an AT won on its last
+/// game, or none through it — after exactly the triggers missed told, or
+/// over every number where they were not. On the AT間天井 the AT comes
+/// whatever the triggers did; past it no leg goes on.
+fn told_leg_in_mode(rules: &AtRules, p: f64, success: f64, mode: &ModeRule, leg: ToldLeg) -> f64 {
+    let games = leg.games as usize;
+    let ceiling = rules.at_ceiling.map(|ceiling| ceiling.get() as usize);
+    if ceiling.is_some_and(|ceiling| games > ceiling || (games == ceiling && !leg.won)) {
+        return 0.0;
+    }
+    let on_ceiling = ceiling.is_some_and(|ceiling| games == ceiling);
+    let most = leg
+        .misses
+        .map_or(u32::try_from(games).unwrap_or(u32::MAX), |misses| {
+            misses + 1
+        });
+    let counts = triggers_by_count(p, success, mode, games + 1, rules.misses, most);
+    let alive = |j: usize| counts.get(j).map_or(0.0, |(_, alive)| *alive);
+    let won_at = |j: usize, game: usize| -> f64 {
+        counts
+            .get(j)
+            .and_then(|(at, _)| at.get(game))
+            .copied()
+            .unwrap_or(0.0)
+            * alive(j - 1)
+            * success_of(u32::try_from(j).unwrap_or(u32::MAX), success, rules.misses)
+    };
+    let quiet = |k: usize, through: usize| {
+        alive(k) * (reached_by(&counts, k, through) - reached_by(&counts, k + 1, through))
+    };
+    let last = games.saturating_sub(1);
+    match (leg.won, leg.misses, on_ceiling) {
+        (true, Some(misses), true) => quiet(misses as usize, last),
+        (true, None, true) => {
+            1.0 - (1..games)
+                .map(|game| (1..counts.len()).map(|j| won_at(j, game)).sum::<f64>())
+                .sum::<f64>()
+        }
+        (true, Some(misses), false) => won_at(misses as usize + 1, games),
+        (true, None, false) => (1..counts.len()).map(|j| won_at(j, games)).sum(),
+        (false, Some(misses), _) => quiet(misses as usize, games),
+        (false, None, _) => {
+            1.0 - (1..=games)
+                .map(|game| (1..counts.len()).map(|j| won_at(j, game)).sum::<f64>())
+                .sum::<f64>()
+        }
+    }
+}
+
+/// The chance a leg is told as it was, over the modes by their shares.
+fn told_leg(rules: &AtRules, table: &AtTable, shares: &[f64], leg: ToldLeg) -> f64 {
+    let p = table.chance.value();
+    let success = table.success.value();
+    rules
+        .modes
+        .iter()
+        .zip(shares)
+        .map(|(mode, share)| share * told_leg_in_mode(rules, p, success, mode, leg))
+        .sum()
+}
+
+/// The log-likelihood of an AT machine's play told by its totals, under
+/// one setting: each leg weighed over the modes as play stood when it
+/// began — as a setting change or an AT allots them where play began after
+/// one, and as a cycle starts from after an AT for every leg after the
+/// first, the 有利区間's carry left unweighed, which a history does not
+/// say. Where play began after no setting change, the first leg is taken
+/// as if from an AT. The first leg is counted from the last AT, its games
+/// since then added in, given that no AT came in those: a cabinet sat down
+/// at is one whose AT had not yet come.
+pub fn told_log_likelihood(told: &ToldPath, rules: &AtRules, table: &AtTable) -> f64 {
+    let (_, after_an_at) = settled(rules, table);
+    let first = if told.after_reset {
+        table.allotments.of(true).to_vec()
+    } else {
+        after_an_at.clone()
+    };
+    let unseen = told_leg(
+        rules,
+        table,
+        &first,
+        ToldLeg {
+            games: told.since_at,
+            won: false,
+            misses: None,
+        },
+    );
+    told.legs
+        .iter()
+        .enumerate()
+        .scan(first, |shares, (index, leg)| {
+            let likely = if index == 0 {
+                told_leg(
+                    rules,
+                    table,
+                    shares,
+                    ToldLeg {
+                        games: leg.games + told.since_at,
+                        ..*leg
+                    },
+                ) / unseen
+            } else {
+                told_leg(rules, table, shares, *leg)
+            };
+            if leg.won {
+                shares.clone_from(&after_an_at);
+            }
+            Some(likely.max(0.0).ln())
+        })
+        .sum()
 }
