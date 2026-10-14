@@ -36,6 +36,12 @@ describe("a play followed live, as it is recorded", () => {
     expect(tokenTallyFormFromDraft(DRAFT, { ...PLAYED, held: undefined }).payout).toBe("")
   })
 
+  test("keeps the theoretical value its formula came to, to six places, whether at a parlor or at none", () => {
+    expect(tokenTallyFormFromDraft(DRAFT, { ...PLAYED, theoreticalValue: 1234.56789012 }).theoreticalValue).toBe("1234.56789")
+    expect(yenTallyFormFromDraft(NOWHERE, { ...PLAYED, theoreticalValue: -0.1234567 }).theoreticalValue).toBe("-0.123457")
+    expect(tokenTallyFormFromDraft(DRAFT, { ...PLAYED, theoreticalValue: 800 }).theoreticalValue).toBe("800")
+  })
+
   test("is begun with the tokens its first line counted in hand, which are not what it made", () => {
     expect(tokenTallyFormFromDraft(DRAFT, { ...PLAYED, carriedIn: 1500 }).carriedIn).toBe("1500")
     expect(tokenTallyFormFromDraft(DRAFT, PLAYED).carriedIn).toBe("")

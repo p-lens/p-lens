@@ -2,6 +2,7 @@ import type { BeliefDto, InferenceSummaryDto, ReadingDto, ToldDto, WayDto } from
 
 import { decimal } from "../decimal/decimal"
 import { keptSpinPerformance } from "../tally/aside"
+import { theoreticalDecimalOf } from "../theoretical/theoretical"
 import type { InferredWorth } from "../tally/tally"
 import type { Figures } from "./figures"
 import { borderOf } from "./theoretical-value"
@@ -186,9 +187,9 @@ export const verdictOf = (figures: Figures, terms: WeighingTerms, summary: Infer
   return spreadOf(summary.reading, beliefOf(figures, terms)) > VAGUE_FROM ? { type: "vague", why: "wide" } : { type: "weighed", weighed: weighedOf(figures, terms, summary.reading) }
 }
 
-/** What a play was taken to be worth, as its entry keeps it: the value in whole yen, with the formula and the terms it stood on. */
+/** What a play was taken to be worth, as its entry keeps it: the value to six places, with the formula and the terms it stood on. */
 export const inferredWorthOf = (weighed: Weighed, formulaId: string, terms: WeighingTerms): InferredWorth => ({
-  value: decimal(BigInt(Math.round(weighed.theoreticalValue)), 0),
+  value: theoreticalDecimalOf(weighed.theoreticalValue),
   formulaId,
   tokenRental: decimal(BigInt(terms.rental), 0),
   tokenExchange: decimal(BigInt(tokenExchangeOf(terms)), 0),

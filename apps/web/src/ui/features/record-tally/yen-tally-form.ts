@@ -7,6 +7,7 @@ import type { InferredWorth, TallyTold, YenTally } from "../../../core/tally/tal
 import type { PlayGameKind, PlayId } from "../../../core/play/play"
 import { Err, Ok, type Result } from "../../../core/result/result"
 import { tidyTyped } from "../../../core/text/tidy"
+import { theoreticalDecimalOf } from "../../../core/theoretical/theoretical"
 import { readOptionalYen, type FieldProblem, type PlayedSoFar } from "./form"
 
 /** A tally typed in by its totals in yen — what went in and what came back: every field text, nothing yet read. */
@@ -215,7 +216,7 @@ export const yenTallyFormFromDraft = (draft: PlayDraft, played: PlayedSoFar): Ye
     machine: draft.machine,
     cabinetNumber: draft.cabinetNumber ?? "",
     ...(tokenValue === undefined || played.held === undefined ? { outlay: yenText(played.outlay) } : sidesOf(played.carriedIn ?? 0, played.held, tokenValue, played.outlay ?? 0)),
-    theoreticalValue: yenText(played.theoreticalValue),
+    theoreticalValue: played.theoreticalValue === undefined ? "" : toPlainString(theoreticalDecimalOf(played.theoreticalValue)),
   }
 }
 

@@ -1,7 +1,13 @@
 import { YEN } from "../commodity/commodity"
-import type { Decimal } from "../decimal/decimal"
+import { decimal, type Decimal } from "../decimal/decimal"
 import { ACCOUNTS } from "../journal/accounts"
 import type { Entry, Posting } from "../journal/entry"
+
+/** The places a theoretical value worked out in floating point is written to: fine enough that a book keeps what was worked out, not whole yen. */
+const THEORETICAL_PLACES = 6
+
+/** A theoretical value worked out in floating point, as a book keeps it: to six places, its trailing zeros dropped. */
+export const theoreticalDecimalOf = (value: number): Decimal => decimal(BigInt(Math.round(value * 10 ** THEORETICAL_PLACES)), THEORETICAL_PLACES)
 
 /**
  * The theoretical value of a play, as a posting.

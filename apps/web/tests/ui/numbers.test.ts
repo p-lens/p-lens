@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import { decimal } from "../../src/core/decimal/decimal"
-import { formatMan, formatTheoreticalYen, theoreticalFigureText } from "../../src/ui/wording/numbers"
+import { formatMan, formatTheoreticalYen, theoreticalFigureText, theoreticalFractionText } from "../../src/ui/wording/numbers"
 
 describe("large counts as they are said", () => {
   test("in 万 from ten thousand up, as they are below", () => {
@@ -28,5 +28,13 @@ describe("a theoretical value in yen", () => {
     expect(theoreticalFigureText(-0.4)).toBe("±¥0")
     expect(theoreticalFigureText(undefined)).toBe("±¥---")
     expect(theoreticalFigureText(null)).toBe("±¥---")
+  })
+
+  test("too small for whole yen keeps its places, and its mark", () => {
+    expect(theoreticalFractionText(102.34561, 4)).toBe("+¥102.3456")
+    expect(theoreticalFractionText(-0.031, 4)).toBe("-¥0.0310")
+    expect(theoreticalFractionText(1234.5, 4)).toBe("+¥1,234.5000")
+    expect(theoreticalFractionText(-0.00004, 4)).toBe("±¥0.0000")
+    expect(theoreticalFractionText(undefined, 4)).toBe("±¥---")
   })
 })

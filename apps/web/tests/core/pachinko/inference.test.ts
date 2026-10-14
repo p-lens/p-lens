@@ -64,9 +64,9 @@ describe("what a weighing comes to", () => {
 })
 
 describe("what a play was taken to be worth, as kept", () => {
-  test("is whole yen with the formula and the terms it stood on, and the spin performance it was taken to have had to a tenth", () => {
-    const kept = inferredWorthOf({ spinPerformance: 16.04, border: 20, theoreticalValue: -3749.6 }, "formula-1", { rental: 1, exchange: "30" })
-    expect([toPlainString(kept.value), kept.formulaId, toPlainString(kept.tokenRental), toPlainString(kept.tokenExchange), kept.spinPerformance === undefined ? undefined : toPlainString(kept.spinPerformance)]).toEqual(["-3750", "formula-1", "1", "120", "16"])
+  test("is yen to six places with the formula and the terms it stood on, and the spin performance it was taken to have had to a tenth", () => {
+    const kept = inferredWorthOf({ spinPerformance: 16.04, border: 20, theoreticalValue: -3749.61234567 }, "formula-1", { rental: 1, exchange: "30" })
+    expect([toPlainString(kept.value), kept.formulaId, toPlainString(kept.tokenRental), toPlainString(kept.tokenExchange), kept.spinPerformance === undefined ? undefined : toPlainString(kept.spinPerformance)]).toEqual(["-3749.612346", "formula-1", "1", "120", "16"])
   })
 
   test("is weighed from a seed its id always gives", () => {

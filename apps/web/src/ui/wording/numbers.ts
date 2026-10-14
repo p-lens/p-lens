@@ -82,3 +82,15 @@ export const formatTheoreticalYen = (value: Decimal): string => (isZero(rounded(
 /** A theoretical value worked out in floating point, marked the same way: `+¥1,240`, `-¥380`, `±¥0`; its empty shape for none. */
 export const theoreticalFigureText = (value: number | null | undefined): string =>
   value === null || value === undefined ? UNSEEN_THEORETICAL : Math.round(value) === 0 ? "±¥0" : yenFigureText(value)
+
+/**
+ * A theoretical value too small for whole yen, to a fixed count of places,
+ * marked the same way: `+¥1.2345`, `-¥0.0310`, `±¥0.0000`; its empty shape
+ * for none.
+ */
+export const theoreticalFractionText = (value: number | null | undefined, places: number): string => {
+  if (value === null || value === undefined) return UNSEEN_THEORETICAL
+  const [whole = "0", fraction = ""] = Math.abs(value).toFixed(places).split(".")
+  const sign = Number(`${whole}.${fraction}`) === 0 ? "±" : value < 0 ? "-" : "+"
+  return `${sign}¥${groupDigits(whole)}.${fraction}`
+}

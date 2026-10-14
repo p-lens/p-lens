@@ -9,6 +9,7 @@ import type { NumericField, TokenTally } from "../../../core/tally/tally"
 import type { PlayGameKind, PlayId } from "../../../core/play/play"
 import { Err, Ok, type Result } from "../../../core/result/result"
 import { tidyTyped } from "../../../core/text/tidy"
+import { theoreticalDecimalOf } from "../../../core/theoretical/theoretical"
 import { rateOn, rateReachingBack, type PricePoint } from "../../../core/valuation/valuation"
 import type { ComboboxOption } from "../../primitives/combobox"
 
@@ -213,7 +214,7 @@ export const tokenTallyFormFromDraft = (draft: PlayDraft, played: PlayedSoFar): 
   replayDeducted: "",
   carriedIn: filled(played.carriedIn),
   payout: filled(played.held),
-  theoreticalValue: played.theoreticalValue === undefined ? "" : String(Math.round(played.theoreticalValue)),
+  theoreticalValue: played.theoreticalValue === undefined ? "" : toPlainString(theoreticalDecimalOf(played.theoreticalValue)),
 })
 
 const countText = (count: Decimal): string => (isZero(count) ? "" : toPlainString(count))

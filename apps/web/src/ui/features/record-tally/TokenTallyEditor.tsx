@@ -16,6 +16,7 @@ import { mapOk } from "../../../core/result/result"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import { Combobox, holdsTypedOnly } from "../../primitives/combobox"
+import { DetailButton } from "../../primitives/detail-button"
 import { createNudge, redText } from "../../primitives/nudge"
 import { settleTyping, TextField } from "../../primitives/text-field"
 import { describeError, describeTallyError } from "../../wording/errors"
@@ -223,26 +224,28 @@ export function TokenTallyEditor(props: {
         <TextField label={IN_HAND_LABELS[kind()].left} value={form().payout} onChange={set("payout")} inputMode="numeric" suffix={unit()} error={problemOf("payout")}
           invalid={nudged("payout")}
           onFocus={nudge.settle} />
-        <div class="flex flex-col gap-1.5">
-          <span class="text-xs font-bold uppercase tracking-wide text-text-secondary">実収支（自動計算）</span>
-          <span class="flex h-10 items-center text-lg font-bold tabular-nums" classList={{ "text-positive": resultTone() === "positive", "text-negative": resultTone() === "negative", "text-text-primary": resultTone() === "neutral", "text-text-muted": resultTone() === undefined }}>
-            <Show when={result()} keyed fallback={UNSEEN_ACTUAL}>
-              {(yen) => formatSignedYen(yen)}
-            </Show>
-          </span>
+        <div class="col-span-2 flex items-start justify-between gap-3 sm:col-span-1">
+          <div class="flex min-w-0 flex-col gap-1.5">
+            <span class="text-xs font-bold uppercase tracking-wide text-text-secondary">実収支（自動計算）</span>
+            <span class="flex h-10 items-center text-lg font-bold tabular-nums" classList={{ "text-positive": resultTone() === "positive", "text-negative": resultTone() === "negative", "text-text-primary": resultTone() === "neutral", "text-text-muted": resultTone() === undefined }}>
+              <Show when={result()} keyed fallback={UNSEEN_ACTUAL}>
+                {(yen) => formatSignedYen(yen)}
+              </Show>
+            </span>
+          </div>
+          <DetailButton
+            label="期待値"
+            says={form().theoreticalValue.trim() === "" ? "期待値を入力する" : `期待値 ${form().theoreticalValue.trim()}円`}
+            marked={form().theoreticalValue.trim() !== ""}
+            invalid={problemAt("theoretical-value") !== undefined}
+            tone="semipro"
+            placement="bottom-end"
+          >
+            <div class="min-w-0 flex-1">
+              <TextField label="期待値" value={form().theoreticalValue} onChange={set("theoreticalValue")} inputMode="decimal" suffix="円" invalid={problemAt("theoretical-value") !== undefined} onFocus={nudge.settle} compact />
+            </div>
+          </DetailButton>
         </div>
-      </div>
-      <div class="grid grid-cols-2 gap-x-3 gap-y-4">
-        <TextField
-          label="期待値"
-          value={form().theoreticalValue}
-          onChange={set("theoreticalValue")}
-          inputMode="decimal"
-          suffix="円"
-          error={problemOf("theoretical-value")}
-          invalid={nudged("theoretical-value")}
-          onFocus={nudge.settle}
-        />
       </div>
       <section class="flex flex-col gap-2">
         <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">書き込まれる仕訳</h2>
