@@ -137,12 +137,21 @@ describe("a pachislot formula at the cabinet", () => {
 
   test("the share played from cash is the outlay in medals over the medals played, or what the machine leaves short before that is known", () => {
     const terms: PlayTerms = { rental: { yen: 1000, tokens: 46 }, exchange: { tokens: 50, yen: 1000 }, replay: { paidOut: 1, deducted: 1 } }
-    const play = { bet: 3, games: 100, outlay: 1000, payoutRate: 0.97 }
-    expect(playOf(terms, play)).toEqual({ medalValue: 20, rentalPrice: 1000 / 46, cashShare: 46 / 300, gamesPerHour: GAMES_PER_HOUR })
+    const play = { bet: 3, games: 100, outlay: 1000, replay: undefined, payoutRate: 0.97 }
+    expect(playOf(terms, play)).toEqual({ medalValue: 20, rentalPrice: 1000 / 46, cashShare: 46 / 300, replayShare: 0, replayRate: 1, gamesPerHour: GAMES_PER_HOUR })
     expect(playOf(terms, { ...play, outlay: 10_000 })?.cashShare).toBe(1)
     expect(playOf(terms, { ...play, games: 0 })?.cashShare).toBeCloseTo(0.03, 12)
     expect(playOf(terms, { ...play, outlay: undefined, payoutRate: 1.05 })?.cashShare).toBe(0)
     expect(playOf(undefined, play)).toBeUndefined()
+  })
+
+  test("the share drawn from savings is the medals drawn over the medals played, after the rented, at the medals a replay takes for each it pays out", () => {
+    const terms: PlayTerms = { rental: { yen: 1000, tokens: 46 }, exchange: { tokens: 50, yen: 1000 }, replay: { paidOut: 100, deducted: 110 } }
+    const play = { bet: 3, games: 100, outlay: 1000, replay: 60, payoutRate: 0.97 }
+    expect(playOf(terms, play)).toMatchObject({ cashShare: 46 / 300, replayShare: 60 / 300, replayRate: 1.1 })
+    expect(playOf(terms, { ...play, outlay: 10_000 })).toMatchObject({ cashShare: 1, replayShare: 0 })
+    expect(playOf(terms, { ...play, outlay: undefined, replay: 3 })?.cashShare).toBeCloseTo(0.02, 12)
+    expect(playOf(terms, { ...play, outlay: undefined, replay: 30 })).toMatchObject({ cashShare: 0, replayShare: 0.1 })
   })
 })
 
@@ -152,20 +161,24 @@ describe("readings of a pachislot data counter", () => {
 
   test("the play's games are the day's games less those at the seat", () => {
     expect(seated).toEqual([{ spins: 0, outlay: 0, at, counter: { spins: 120, total: 2400, bonuses: { big: 9, reg: 7 } } }])
-    expect(checkpointForReading(seated, { total: 2650, bonuses: { big: 10, reg: 7 }, outlay: 2000, at })).toEqual({
+    expect(checkpointForReading(seated, { total: 2650, bonuses: { big: 10, reg: 7 }, outlay: 2000, replay: undefined, at })).toEqual({
       ok: true,
       value: { spins: 250, outlay: 2000, at, counter: { total: 2650, bonuses: { big: 10, reg: 7 } } },
     })
   })
 
-  test("the day's games and the outlay never go back", () => {
+  test("the day's games, the outlay and the medals drawn from savings never go back", () => {
     const played = [...seated, { spins: 300, outlay: 3000, at, counter: { total: 2700, bonuses: {} } }]
     expect(totalNowOf(played)).toBe(2700)
-    expect(checkpointForReading(played, { total: 2650, bonuses: {}, outlay: undefined, at })).toEqual({
+    expect(checkpointForReading(played, { total: 2650, bonuses: {}, outlay: undefined, replay: undefined, at })).toEqual({
       ok: false,
       error: { type: "total-went-back", atLeast: 2700 },
     })
-    expect(checkpointForReading(played, { total: 2800, bonuses: {}, outlay: 2000, at })).toEqual({ ok: false, error: { type: "outlay-went-back", atLeast: 3000 } })
+    expect(checkpointForReading(played, { total: 2800, bonuses: {}, outlay: 2000, replay: undefined, at })).toEqual({ ok: false, error: { type: "outlay-went-back", atLeast: 3000 } })
+    const drawn = checkpointForReading(played, { total: 2800, bonuses: {}, outlay: undefined, replay: 150, at })
+    expect(drawn.ok && drawn.value.replay).toBe(150)
+    const after = drawn.ok ? [...played, drawn.value] : played
+    expect(checkpointForReading(after, { total: 2900, bonuses: {}, outlay: undefined, replay: 100, at })).toEqual({ ok: false, error: { type: "replay-went-back", atLeast: 150 } })
   })
 
   test("counting starts at the games last known, and a tap adds to the running tally or takes one back", () => {

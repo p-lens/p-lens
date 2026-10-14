@@ -1,22 +1,25 @@
 import { Err, Ok, type Result } from "../../../../core/result/result"
 import { tidyTyped } from "../../../../core/text/tidy"
 
-/** An AT machine's counter reading as typed: the games since the last AT, and the outlay so far. */
+/** An AT machine's counter reading as typed: the games since the last AT, and the outlay and the medals drawn from savings so far. */
 export interface AtReadingForm {
   readonly sinceAt: string
   readonly outlay: string
+  readonly replay: string
 }
 
-/** Where an AT machine's play stands as its counter should now show it: the games since the last AT, and the outlay where one was given. */
+/** Where an AT machine's play stands as its counter should now show it: the games since the last AT, and the outlay and the medals drawn from savings, each where it was given. */
 export interface AtStanding {
   readonly sinceAt: number
   readonly outlay: number | undefined
+  readonly replay: number | undefined
 }
 
 /** The form a reading is typed into: where the play stands, to be typed over. */
 export const atReadingFrom = (standing: AtStanding): AtReadingForm => ({
   sinceAt: String(standing.sinceAt),
   outlay: standing.outlay === undefined || standing.outlay === 0 ? "" : String(standing.outlay),
+  replay: standing.replay === undefined || standing.replay === 0 ? "" : String(standing.replay),
 })
 
 export interface AtReadingProblem {
@@ -24,24 +27,27 @@ export interface AtReadingProblem {
   readonly reason: "required" | "not-a-count"
 }
 
-/** The reading as counts: the counter's games since the last AT, and the outlay if it was given. */
+/** The reading as counts: the counter's games since the last AT, and the outlay and the medals drawn from savings, each if it was given. */
 export interface AtReading {
   readonly sinceAt: number
   readonly outlay: number | undefined
+  readonly replay: number | undefined
 }
 
 const COUNT = /^\d+$/
 
 const plainOf = (text: string): string => tidyTyped(text).replaceAll(",", "")
 
-/** The form read as counts, or every field that cannot be. The games are required; an outlay left empty was not read. */
+/** The form read as counts, or every field that cannot be. The games are required; an outlay or a draw on savings left empty was not read. */
 export const readAtReadingForm = (form: AtReadingForm): Result<AtReading, readonly AtReadingProblem[]> => {
   const sinceAt = plainOf(form.sinceAt)
   const outlay = plainOf(form.outlay)
+  const replay = plainOf(form.replay)
   const problems: readonly AtReadingProblem[] = [
     ...(COUNT.test(sinceAt) ? [] : [{ field: "sinceAt", reason: sinceAt === "" ? "required" : "not-a-count" } as const]),
     ...(outlay === "" || COUNT.test(outlay) ? [] : [{ field: "outlay", reason: "not-a-count" } as const]),
+    ...(replay === "" || COUNT.test(replay) ? [] : [{ field: "replay", reason: "not-a-count" } as const]),
   ]
   if (problems.length > 0) return Err(problems)
-  return Ok({ sinceAt: Number(sinceAt), outlay: outlay === "" ? undefined : Number(outlay) })
+  return Ok({ sinceAt: Number(sinceAt), outlay: outlay === "" ? undefined : Number(outlay), replay: replay === "" ? undefined : Number(replay) })
 }

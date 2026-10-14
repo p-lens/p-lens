@@ -13,17 +13,19 @@ export const seatCheckpoint = (seat: { readonly total: number; readonly bonuses:
   counter: { spins: seat.sinceBonus, total: seat.total, bonuses: seat.bonuses },
 })
 
-/** One reading of a pachislot data counter at the cabinet: the day's games and bonuses, and the outlay so far if it was given. */
+/** One reading of a pachislot data counter at the cabinet: the day's games and bonuses, and the outlay and the medals drawn from savings so far, each if it was given. */
 export interface CounterInput {
   readonly total: number
   readonly bonuses: Counts
   readonly outlay: number | undefined
+  readonly replay: number | undefined
   readonly at: string
 }
 
 export type CounterRefusal =
   | { readonly type: "total-went-back"; readonly atLeast: number }
   | { readonly type: "outlay-went-back"; readonly atLeast: number }
+  | { readonly type: "replay-went-back"; readonly atLeast: number }
   | { readonly type: "bonus-went-back"; readonly id: string; readonly atLeast: number }
 
 /** Where the play's games are told from on the counter: its last reading of the day's games, or the play's start, counted as none. */
@@ -48,12 +50,14 @@ const bonusBehind = (ordered: readonly Checkpoint[], bonuses: Counts): { readonl
 
 /**
  * The line a counter reading adds, or why it cannot be added: the day's games
- * do not go back, nor does the outlay, nor the day's count of any bonus. The play's games are the reading's
+ * do not go back, nor does the outlay, nor the medals drawn from savings, nor the day's count of any bonus. The play's games are the reading's
  * games less those the counter showed at the anchor.
  */
 export const checkpointForReading = (ordered: readonly Checkpoint[], input: CounterInput): Result<Checkpoint, CounterRefusal> => {
   const spent = ordered.findLast((checkpoint) => checkpoint.outlay !== undefined)?.outlay
   if (input.outlay !== undefined && spent !== undefined && input.outlay < spent) return Err({ type: "outlay-went-back", atLeast: spent })
+  const drawn = ordered.findLast((checkpoint) => checkpoint.replay !== undefined)?.replay
+  if (input.replay !== undefined && drawn !== undefined && input.replay < drawn) return Err({ type: "replay-went-back", atLeast: drawn })
   const shown = totalNowOf(ordered)
   if (input.total < shown) return Err({ type: "total-went-back", atLeast: shown })
   const behind = bonusBehind(ordered, input.bonuses)
@@ -62,6 +66,7 @@ export const checkpointForReading = (ordered: readonly Checkpoint[], input: Coun
   return Ok({
     spins: anchor.spins + input.total - anchor.total,
     ...(input.outlay === undefined ? {} : { outlay: input.outlay }),
+    ...(input.replay === undefined ? {} : { replay: input.replay }),
     at: input.at,
     counter: { total: input.total, bonuses: input.bonuses },
   })

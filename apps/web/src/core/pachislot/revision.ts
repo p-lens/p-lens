@@ -7,10 +7,11 @@ import { checkpointForReading, type CounterInput, type CounterRefusal } from "./
 /** How the games an AT machine's reading closes ended: with nothing, a CZ missed, or an AT won. */
 export type Ended = "going" | "cz-missed" | "at"
 
-/** An AT machine's counter as it was read: the games since the last AT, and the outlay so far where it was given. */
+/** An AT machine's counter as it was read: the games since the last AT, and the outlay and the medals drawn from savings so far, each where it was given. */
 export interface AtInput {
   readonly sinceAt: number
   readonly outlay: number | undefined
+  readonly replay: number | undefined
   readonly at: string
 }
 
@@ -18,7 +19,7 @@ export interface AtInput {
  * One thing a pachislot play's log was made of, read back out of it: what
  * was typed or tapped, not the games it came to.
  *
- * - `reading`: a bonus machine's counter — the day's games, its bonuses, the outlay.
+ * - `reading`: a bonus machine's counter — the day's games, its bonuses, the outlay, the medals drawn from savings.
  * - `at-reading`: an AT machine's counter, with how its games ended; `afterMissedAt`
  *   says an AT nobody wrote down was admitted before it.
  * - `kept`: anything else — counting begun, a tap on a tile, an AT's result — which
@@ -39,8 +40,8 @@ const endedOf = (checkpoint: Checkpoint): Ended => (checkpoint.event?.kind === "
 const stepOf = (checkpoint: Checkpoint, afterMissedAt: boolean): Step => {
   const counter = checkpoint.counter
   const at = checkpoint.at ?? ""
-  if (counter?.total !== undefined) return { type: "reading", input: { total: counter.total, bonuses: counter.bonuses ?? {}, outlay: checkpoint.outlay, at } }
-  if (counter?.spins !== undefined) return { type: "at-reading", input: { sinceAt: counter.spins, outlay: checkpoint.outlay, at }, ended: endedOf(checkpoint), afterMissedAt }
+  if (counter?.total !== undefined) return { type: "reading", input: { total: counter.total, bonuses: counter.bonuses ?? {}, outlay: checkpoint.outlay, replay: checkpoint.replay, at } }
+  if (counter?.spins !== undefined) return { type: "at-reading", input: { sinceAt: counter.spins, outlay: checkpoint.outlay, replay: checkpoint.replay, at }, ended: endedOf(checkpoint), afterMissedAt }
   return { type: "kept", line: checkpoint }
 }
 
@@ -77,7 +78,7 @@ const linesOf = (log: readonly Checkpoint[], step: Step): Result<readonly Checkp
       return made.ok ? Ok([made.value]) : made
     }
     case "at-reading": {
-      const made = checkpointsForReading(log, { counterSpins: step.input.sinceAt, outlay: step.input.outlay, counterJackpots: undefined, at: step.input.at, jackpot: step.ended === "at" }, step.afterMissedAt)
+      const made = checkpointsForReading(log, { counterSpins: step.input.sinceAt, outlay: step.input.outlay, replay: step.input.replay, counterJackpots: undefined, at: step.input.at, jackpot: step.ended === "at" }, step.afterMissedAt)
       if (!made.ok) return made
       return Ok(step.ended === "cz-missed" ? czMissedAt(made.value) : made.value)
     }

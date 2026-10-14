@@ -127,6 +127,8 @@ export const missingJackpots = (summary: LiveSummary): number =>
 export interface CounterInput {
   readonly counterSpins: number
   readonly outlay: number | undefined
+  /** Tokens drawn from savings since the play began, where they were given. */
+  readonly replay: number | undefined
   readonly counterJackpots: number | undefined
   readonly at: string
   /** Whether the reading was taken at a jackpot, the moment the counter is about to start over. */
@@ -136,10 +138,12 @@ export interface CounterInput {
 export type ReadingRefusal =
   | { readonly type: "counter-went-back"; readonly expectedAtLeast: number }
   | { readonly type: "outlay-went-back"; readonly atLeast: number }
+  | { readonly type: "replay-went-back"; readonly atLeast: number }
 
 /** Everything a reading records except where in the play it falls. */
 const readingFields = (input: CounterInput): Omit<Checkpoint, "spins"> => ({
   ...(input.outlay === undefined ? {} : { outlay: input.outlay }),
+  ...(input.replay === undefined ? {} : { replay: input.replay }),
   at: input.at,
   counter: input.counterJackpots === undefined ? { spins: input.counterSpins } : { spins: input.counterSpins, jackpots: input.counterJackpots },
   ...(input.jackpot ? { event: { kind: "jackpot" as const } } : {}),
@@ -158,6 +162,8 @@ export const checkpointsForReading = (
   const spentBefore = lastKnown(ordered, (checkpoint) => checkpoint.outlay)
   if (input.outlay !== undefined && spentBefore !== undefined && input.outlay < spentBefore)
     return Err({ type: "outlay-went-back", atLeast: spentBefore })
+  const drawnBefore = lastKnown(ordered, (checkpoint) => checkpoint.replay)
+  if (input.replay !== undefined && drawnBefore !== undefined && input.replay < drawnBefore) return Err({ type: "replay-went-back", atLeast: drawnBefore })
   const reading = readCounter(ordered, input.counterSpins)
   if (reading.type === "continues") return Ok([{ spins: reading.spins, ...readingFields(input) }])
   if (!missedJackpot) return Err(reading)

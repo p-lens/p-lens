@@ -75,21 +75,21 @@ describe("adding a reading", () => {
   const log: Checkpoint[] = [SAT_DOWN, { spins: 250, outlay: 1000, counter: { spins: 370 } }]
 
   test("is one checkpoint at the spins the counter comes to", () => {
-    expect(checkpointsForReading(log, { counterSpins: 470, outlay: 2000, counterJackpots: undefined, at, jackpot: false }, false)).toEqual({
+    expect(checkpointsForReading(log, { counterSpins: 470, outlay: 2000, replay: undefined, counterJackpots: undefined, at, jackpot: false }, false)).toEqual({
       ok: true,
       value: [{ spins: 350, outlay: 2000, at, counter: { spins: 470 } }],
     })
   })
 
   test("at a jackpot is marked as one", () => {
-    expect(checkpointsForReading(log, { counterSpins: 400, outlay: undefined, counterJackpots: 1, at, jackpot: true }, false)).toEqual({
+    expect(checkpointsForReading(log, { counterSpins: 400, outlay: undefined, replay: undefined, counterJackpots: 1, at, jackpot: true }, false)).toEqual({
       ok: true,
       value: [{ spins: 280, at, counter: { spins: 400, jackpots: 1 }, event: { kind: "jackpot" } }],
     })
   })
 
   test("is refused when the counter went back, until the person says a jackpot was missed", () => {
-    const input = { counterSpins: 30, outlay: undefined, counterJackpots: undefined, at, jackpot: false }
+    const input = { counterSpins: 30, outlay: undefined, replay: undefined, counterJackpots: undefined, at, jackpot: false }
     expect(checkpointsForReading(log, input, false)).toEqual({ ok: false, error: { type: "counter-went-back", expectedAtLeast: 370 } })
     expect(checkpointsForReading(log, input, true)).toEqual({
       ok: true,
@@ -100,8 +100,15 @@ describe("adding a reading", () => {
     })
   })
 
+  test("keeps the tokens drawn from savings so far, and is refused where fewer are said than before", () => {
+    const drawn = checkpointsForReading(log, { counterSpins: 470, outlay: undefined, replay: 250, counterJackpots: undefined, at, jackpot: false }, false)
+    expect(drawn.ok && drawn.value.at(-1)?.replay).toBe(250)
+    const after = drawn.ok ? [...log, ...drawn.value] : log
+    expect(checkpointsForReading(after, { counterSpins: 480, outlay: undefined, replay: 100, counterJackpots: undefined, at, jackpot: false }, false)).toEqual({ ok: false, error: { type: "replay-went-back", atLeast: 250 } })
+  })
+
   test("is refused when it says less was spent than before", () => {
-    expect(checkpointsForReading(log, { counterSpins: 470, outlay: 500, counterJackpots: undefined, at, jackpot: false }, false)).toEqual({
+    expect(checkpointsForReading(log, { counterSpins: 470, outlay: 500, replay: undefined, counterJackpots: undefined, at, jackpot: false }, false)).toEqual({
       ok: false,
       error: { type: "outlay-went-back", atLeast: 1000 },
     })

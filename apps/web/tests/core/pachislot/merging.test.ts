@@ -17,7 +17,7 @@ const merged = (log: readonly Checkpoint[], from: number, to: number): readonly 
 /** A bonus machine's log: two readings, counting begun, a tap, two readings with a tap between them, and a last one. */
 const bonusLog = (): readonly Checkpoint[] => {
   const read = (log: readonly Checkpoint[], total: number, outlay: number, big: number): readonly Checkpoint[] => {
-    const made = checkpointForReading(log, { total, bonuses: { big, reg: 4 }, outlay, at: AT })
+    const made = checkpointForReading(log, { total, bonuses: { big, reg: 4 }, outlay, replay: undefined, at: AT })
     return made.ok ? [...log, made.value] : log
   }
   const tap = (log: readonly Checkpoint[]): readonly Checkpoint[] => [...log, countCheckpoint(log, "grape", 1, AT)]
@@ -67,7 +67,7 @@ describe("a run of a bonus machine's readings made one", () => {
 const atLog = (): readonly Checkpoint[] => {
   const seat: Checkpoint = { spins: 0, outlay: 0, at: AT, counter: { spins: 200 } }
   const read = (log: readonly Checkpoint[], sinceAt: number, outlay: number, jackpot: boolean, missed = false): readonly Checkpoint[] => {
-    const made = checkpointsForReading(log, { counterSpins: sinceAt, outlay, counterJackpots: undefined, at: AT, jackpot }, false)
+    const made = checkpointsForReading(log, { counterSpins: sinceAt, outlay, replay: undefined, counterJackpots: undefined, at: AT, jackpot }, false)
     return made.ok ? [...log, ...(missed ? czMissedAt(made.value) : made.value)] : log
   }
   const won = read(read(read(read(read([seat], 260, 1000, false), 300, 3000, false), 420, 6000, false, true), 500, 7000, false), 610, 9000, true)

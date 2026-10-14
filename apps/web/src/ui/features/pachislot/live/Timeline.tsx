@@ -11,10 +11,11 @@ import { formatMoment } from "../../../wording/dates"
 import { formatCount } from "../../../wording/numbers"
 import { MERGE_READINGS, mergeSays } from "../../../wording/pachislot/play"
 
-/** A line worth a row: a reading of the counter or the outlay, an AT won, or the start of counting — not every tap on a tile. */
+/** A line worth a row: a reading of the counter, the outlay or the medals drawn from savings, an AT won, or the start of counting — not every tap on a tile. */
 const isShown = (checkpoint: Checkpoint, index: number, ordered: readonly Checkpoint[]): boolean =>
   checkpoint.counter !== undefined ||
   checkpoint.outlay !== undefined ||
+  checkpoint.replay !== undefined ||
   checkpoint.event !== undefined ||
   (checkpoint.tally !== undefined && ordered.findIndex((candidate) => candidate.tally !== undefined) === index)
 
@@ -50,6 +51,9 @@ function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly bonuses: 
       <span class="w-20 shrink-0 tabular-nums text-text-primary">{formatCount(props.checkpoint.spins)} G</span>
       <span class="flex-1 text-sm tabular-nums text-text-secondary">
         {props.checkpoint.outlay === undefined ? "" : `¥${formatCount(props.checkpoint.outlay)}`}
+        <Show when={props.checkpoint.replay} keyed>
+          {(replay) => <span class="ml-3 text-text-muted">貯メダル {formatCount(replay)}枚</span>}
+        </Show>
         <Show when={props.checkpoint.counter?.total} keyed>
           {(total) => <span class="ml-3 text-text-muted">累計 {formatCount(total)}G</span>}
         </Show>

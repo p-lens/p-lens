@@ -13,6 +13,9 @@ pub enum ProbabilityError {
 }
 
 impl Probability {
+    /// Never.
+    pub const NONE: Self = Self(0.0);
+
     /// # Errors
     /// When `value` is not finite or lies outside `0..=1`.
     pub fn new(value: f64) -> Result<Self, ProbabilityError> {

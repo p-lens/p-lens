@@ -308,13 +308,19 @@ pub struct ConditionsDto {
 }
 
 /// The player's terms: yen a medal is exchanged for, yen renting one costs,
-/// the share of what is played rented for cash (`0..=1`), and games an hour.
+/// the share of what is played rented for cash (`0..=1`), the share drawn
+/// from savings and the medals a replay takes off them for each it pays out
+/// (none and one where left out), and games an hour.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayDto {
     pub medal_value: f64,
     pub rental_price: f64,
     pub cash_share: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replay_share: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replay_rate: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub games_per_hour: Option<f64>,
 }

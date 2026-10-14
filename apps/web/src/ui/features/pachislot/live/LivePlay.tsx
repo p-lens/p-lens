@@ -72,15 +72,20 @@ function Tile(props: { readonly label: string; readonly value: string; readonly 
   )
 }
 
-/** Where the play stands by its log: the games played and the day's, the outlay, and each bonus of the day with how often it has come. */
+/** The medals the play has drawn from savings so far, where the log says. */
+const replayOf = (ordered: readonly Checkpoint[]): number | undefined => ordered.findLast((checkpoint) => checkpoint.replay !== undefined)?.replay
+
+/** Where the play stands by its log: the games played and the day's, the outlay, the medals drawn from savings, and each bonus of the day with how often it has come. */
 function PlayFigures(props: { readonly ordered: readonly Checkpoint[]; readonly bonuses: readonly Countable[]; readonly day: { readonly games: number; readonly bonuses: Counts } | undefined }): JSX.Element {
   const outlay = (): number | undefined => props.ordered.findLast((checkpoint) => checkpoint.outlay !== undefined)?.outlay
+  const replay = (): number | undefined => replayOf(props.ordered)
   const dayGames = (): number => props.day?.games ?? totalNowOf(props.ordered)
   return (
     <dl class="grid grid-cols-2 gap-2 sm:grid-cols-4">
       <Tile label="打ったゲーム数" value={formatCount(props.ordered.at(-1)?.spins ?? 0)} note="G" />
       <Tile label="累計ゲーム数" value={formatCount(dayGames())} note="G" />
       <Tile label="投資" value={outlay() === undefined ? "--" : `¥${formatCount(outlay() ?? 0)}`} />
+      <Tile label="貯メダル" value={replay() === undefined ? "--" : formatCount(replay() ?? 0)} note="枚" />
       <Index each={props.bonuses}>
         {(bonus) => (
           <Tile
@@ -95,8 +100,8 @@ function PlayFigures(props: { readonly ordered: readonly Checkpoint[]; readonly 
 }
 
 /**
- * Where readings of the data counter are typed: the day's games, each bonus
- * and the outlay so far, each opening on where the play stands, to be typed
+ * Where readings of the data counter are typed: the day's games, each bonus,
+ * the outlay and the medals drawn from savings so far, each opening on where the play stands, to be typed
  * over. Until something is typed the form follows the play — a tap on a
  * tile moves the games it shows — and once a reading is kept it follows
  * again.
@@ -204,6 +209,16 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
           suffix="円"
           error={errorOf("outlay")}
           invalid={invalid("outlay")}
+          onFocus={nudge.settle}
+        />
+        <TextField
+          label="貯メダル（累計）"
+          value={form().replay}
+          onChange={(replay) => typed({ replay })}
+          inputMode="numeric"
+          suffix="枚"
+          error={errorOf("replay")}
+          invalid={invalid("replay")}
           onFocus={nudge.settle}
         />
       </div>
@@ -448,8 +463,8 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
                 <Show when={atResultMatters(weighing()?.formula.normalized ?? NO_MACHINE) && awaitsAtResult(found())}>
                   <AtResultComposer write={write} normalized={weighing()?.formula.normalized ?? NO_MACHINE} />
                 </Show>
-                <Show when={atRules() === undefined} fallback={<AtReadingComposer standing={{ sinceAt: liveSummary(found()).counterNow, outlay: liveSummary(found()).outlay }} write={write} cz={atRules()?.trigger !== undefined} />}>
-                  <ReadingComposer bonuses={bonuses()} standing={{ total: day()?.games ?? totalNowOf(found()), bonuses: day()?.bonuses ?? {}, outlay: liveSummary(found()).outlay }} write={write} />
+                <Show when={atRules() === undefined} fallback={<AtReadingComposer standing={{ sinceAt: liveSummary(found()).counterNow, outlay: liveSummary(found()).outlay, replay: replayOf(found()) }} write={write} cz={atRules()?.trigger !== undefined} />}>
+                  <ReadingComposer bonuses={bonuses()} standing={{ total: day()?.games ?? totalNowOf(found()), bonuses: day()?.bonuses ?? {}, outlay: liveSummary(found()).outlay, replay: replayOf(found()) }} write={write} />
                 </Show>
               </>
             )

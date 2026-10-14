@@ -44,8 +44,9 @@ fn weighted(
 /// Medals over regular games, in yen on the player's terms.
 ///
 /// The rental spread is charged on the share of the medals played that was
-/// rented: `games × bet × cash share × (rental price − medal value)`. Played
-/// from medals in hand, it costs nothing beyond their value.
+/// rented, and the replay fee on the share drawn from savings:
+/// `games × bet × spread per medal`. Played from medals in hand, a medal
+/// costs nothing beyond its value.
 fn priced(
     payout_rate: f64,
     medals: f64,
@@ -54,7 +55,7 @@ fn priced(
     play: PlayConditions,
 ) -> TheoreticalValue {
     let played = games * f64::from(bet);
-    let spread = played * play.cash_share().value() * (play.rental_price() - play.medal_value());
+    let spread = played * play.spread_per_medal();
     let yen = medals * play.medal_value() - spread;
     TheoreticalValue {
         payout_rate,

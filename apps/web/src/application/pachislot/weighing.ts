@@ -75,8 +75,8 @@ const observedOf = (weighing: Weighing, ordered: readonly Checkpoint[], played: 
  * A pachislot play weighed by its log: the setting levels inferred from what
  * was seen, under the play's prior, then the theoretical value of the games
  * played under those odds — on a machine of bonuses, of an hour's play
- * before any. The outlay the log last gives says how much of the play was
- * rented for cash.
+ * before any. The outlay and the savings drawn the log last gives say how
+ * much of the play was rented for cash and how much drawn from savings.
  */
 export const weighPlay = async (
   engine: EngineClient,
@@ -110,6 +110,7 @@ export const weighPlay = async (
     bet: weighing.formula.normalized.bet,
     games: played,
     outlay: ordered.findLast((checkpoint) => checkpoint.outlay !== undefined)?.outlay,
+    replay: ordered.findLast((checkpoint) => checkpoint.replay !== undefined)?.replay,
     payoutRate: unpriced.value.payoutRate,
   })
   const valued = play === undefined ? unpriced : await weigh(play)

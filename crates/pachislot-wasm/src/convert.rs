@@ -606,17 +606,22 @@ pub fn conditions(dto: &ConditionsDto) -> Result<PayoutBasis, ErrorDto> {
 }
 
 /// # Errors
-/// When a price or a pace is not a positive number, or the cash share is
-/// not between nothing and all.
+/// When a price or a pace is not a positive number, a share is not between
+/// nothing and all or the two come to more than all, or a replay takes
+/// fewer medals off savings than it pays out.
 pub fn play(dto: &PlayDto) -> Result<PlayConditions, ErrorDto> {
     let cash_share = Probability::new(dto.cash_share).map_err(|_| invalid("play.cashShare"))?;
+    let replay_share = Probability::new(dto.replay_share.unwrap_or(0.0))
+        .map_err(|_| invalid("play.replayShare"))?;
     PlayConditions::new(
         dto.medal_value,
         dto.rental_price,
         cash_share,
         dto.games_per_hour,
     )
-    .ok_or_else(|| invalid("play"))
+    .ok_or_else(|| invalid("play"))?
+    .with_replay(replay_share, dto.replay_rate.unwrap_or(1.0))
+    .ok_or_else(|| invalid("play.replay"))
 }
 
 /// # Errors

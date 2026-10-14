@@ -48,24 +48,33 @@ export const counterBonusesOf = (formula: FormulaSnapshot): readonly Countable[]
 export const settingLevelsOf = (formula: FormulaSnapshot): readonly number[] => formula.normalized.tables.map((table) => table.settingLevel)
 
 /**
- * The play's terms as the engine weighs them: what a medal exchanges for, what
- * renting one costs, and the share of the medals played that was rented —
- * the outlay in medals over the medals played. With no outlay known, or no
- * game played yet, the share is what a machine paying back `payoutRate`
- * leaves short over a long play: `1 − payoutRate`, and none above 100%,
- * where the play runs on what it pays out. None without terms.
+ * The play's terms as the engine weighs them: what a medal exchanges for,
+ * what renting one costs, and the shares of the medals played that were
+ * rented for cash — the outlay in medals over the medals played — and drawn
+ * from savings, at the medals a replay takes off them for each it pays out.
+ * The rented and the drawn are taken as played first, the rented before the
+ * drawn. With neither known, or no game played yet, the cash share is what a
+ * machine paying back `payoutRate` leaves short over a long play,
+ * `1 − payoutRate`, and none above 100%, where the play runs on what it pays
+ * out; with savings drawn and no outlay said, savings cover that shortfall
+ * first. None without terms.
  */
 export const playOf = (
   terms: PlayTerms | undefined,
-  play: { readonly bet: number; readonly games: number; readonly outlay: number | undefined; readonly payoutRate: number },
+  play: { readonly bet: number; readonly games: number; readonly outlay: number | undefined; readonly replay: number | undefined; readonly payoutRate: number },
 ): PlayDto | undefined => {
   if (terms === undefined) return undefined
   const played = play.games * play.bet
-  const rented = play.outlay === undefined ? undefined : (play.outlay * terms.rental.tokens) / terms.rental.yen
+  const shortfall = Math.min(1, Math.max(0, 1 - play.payoutRate))
+  const known = played > 0 && (play.outlay !== undefined || play.replay !== undefined)
+  const drawnShare = known ? (play.replay ?? 0) / played : 0
+  const cashShare = !known ? shortfall : play.outlay === undefined ? Math.max(0, shortfall - drawnShare) : Math.min(1, (play.outlay * terms.rental.tokens) / terms.rental.yen / played)
   return {
     medalValue: tokenValueOf(terms),
     rentalPrice: terms.rental.yen / terms.rental.tokens,
-    cashShare: rented === undefined || played === 0 ? Math.min(1, Math.max(0, 1 - play.payoutRate)) : Math.min(1, rented / played),
+    cashShare,
+    replayShare: Math.min(1 - cashShare, drawnShare),
+    replayRate: terms.replay.deducted / terms.replay.paidOut,
     gamesPerHour: GAMES_PER_HOUR,
   }
 }

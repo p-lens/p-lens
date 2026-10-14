@@ -13,7 +13,7 @@ const SEAT: Checkpoint = { spins: 0, outlay: 0, at: AT, counter: { spins: 120, t
 /** A bonus machine's log: readings of its counter, with counting begun and two taps between them. */
 const bonusLog = (): readonly Checkpoint[] => {
   const read = (log: readonly Checkpoint[], total: number, outlay: number, big: number): readonly Checkpoint[] => {
-    const made = checkpointForReading(log, { total, bonuses: { big, reg: 4 }, outlay, at: AT })
+    const made = checkpointForReading(log, { total, bonuses: { big, reg: 4 }, outlay, replay: undefined, at: AT })
     return made.ok ? [...log, made.value] : log
   }
   const first = read([SEAT], 2100, 2000, 6)
@@ -33,7 +33,7 @@ describe("a bonus machine's log", () => {
 
   test("has every line after a reading set right made again: its games, and the taps that stood on them", () => {
     const log = bonusLog()
-    const revised = withStepRevised(log, 0, { type: "reading", input: { total: 2150, bonuses: { big: 6, reg: 4 }, outlay: 3000, at: AT } })
+    const revised = withStepRevised(log, 0, { type: "reading", input: { total: 2150, bonuses: { big: 6, reg: 4 }, outlay: 3000, replay: undefined, at: AT } })
     expect(revised.ok && revised.value.map((line) => [line.spins, line.outlay, line.tally?.["grape"]])).toEqual([
       [0, 0, undefined],
       [150, 3000, undefined],
@@ -49,8 +49,8 @@ describe("a bonus machine's log", () => {
     const log = bonusLog()
     const removed = withStepRemoved(log, 4)
     expect(removed.ok && removed.value.map((line) => line.spins)).toEqual([0, 100, 100, 100, 100, 400])
-    expect(withStepRevised(log, 0, { type: "reading", input: { total: 2300, bonuses: {}, outlay: 2000, at: AT } })).toEqual({ ok: false, error: { type: "total-went-back", atLeast: 2300, index: 4 } })
-    expect(withStepRevised(log, 0, { type: "reading", input: { total: 2100, bonuses: {}, outlay: 6000, at: AT } })).toEqual({ ok: false, error: { type: "outlay-went-back", atLeast: 6000, index: 4 } })
+    expect(withStepRevised(log, 0, { type: "reading", input: { total: 2300, bonuses: {}, outlay: 2000, replay: undefined, at: AT } })).toEqual({ ok: false, error: { type: "total-went-back", atLeast: 2300, index: 4 } })
+    expect(withStepRevised(log, 0, { type: "reading", input: { total: 2100, bonuses: {}, outlay: 6000, replay: undefined, at: AT } })).toEqual({ ok: false, error: { type: "outlay-went-back", atLeast: 6000, index: 4 } })
   })
 })
 
@@ -58,7 +58,7 @@ describe("a bonus machine's log", () => {
 const atLog = (): readonly Checkpoint[] => {
   const seat: Checkpoint = { spins: 0, outlay: 0, at: AT, counter: { spins: 200 } }
   const read = (log: readonly Checkpoint[], sinceAt: number, outlay: number, jackpot: boolean, missed = false): readonly Checkpoint[] => {
-    const made = checkpointsForReading(log, { counterSpins: sinceAt, outlay, counterJackpots: undefined, at: AT, jackpot }, false)
+    const made = checkpointsForReading(log, { counterSpins: sinceAt, outlay, replay: undefined, counterJackpots: undefined, at: AT, jackpot }, false)
     return made.ok ? [...log, ...(missed ? czMissedAt(made.value) : made.value)] : log
   }
   const won = read(read(read([seat], 300, 3000, false), 420, 6000, false, true), 610, 9000, true)
@@ -69,9 +69,9 @@ const atLog = (): readonly Checkpoint[] => {
 describe("a bonus machine's counter", () => {
   test("does not count fewer of a bonus than it showed before, in a new reading or one set right", () => {
     const log = bonusLog()
-    expect(checkpointForReading(log, { total: 2500, bonuses: { big: 6, reg: 4 }, outlay: 7000, at: AT })).toEqual({ ok: false, error: { type: "bonus-went-back", id: "big", atLeast: 7 } })
-    expect(checkpointForReading(log, { total: 2500, bonuses: {}, outlay: 7000, at: AT }).ok).toBe(true)
-    expect(withStepRevised(log, 0, { type: "reading", input: { total: 2100, bonuses: { big: 8, reg: 4 }, outlay: 2000, at: AT } })).toEqual({
+    expect(checkpointForReading(log, { total: 2500, bonuses: { big: 6, reg: 4 }, outlay: 7000, replay: undefined, at: AT })).toEqual({ ok: false, error: { type: "bonus-went-back", id: "big", atLeast: 7 } })
+    expect(checkpointForReading(log, { total: 2500, bonuses: {}, outlay: 7000, replay: undefined, at: AT }).ok).toBe(true)
+    expect(withStepRevised(log, 0, { type: "reading", input: { total: 2100, bonuses: { big: 8, reg: 4 }, outlay: 2000, replay: undefined, at: AT } })).toEqual({
       ok: false,
       error: { type: "bonus-went-back", id: "big", atLeast: 8, index: 4 },
     })
@@ -87,7 +87,7 @@ describe("an AT machine's log", () => {
 
   test("drops an AT's result with the AT it told of, and counts the readings after on from the seat again", () => {
     const log = atLog()
-    const revised = withStepRevised(log, 2, { type: "at-reading", input: { sinceAt: 610, outlay: 9000, at: AT }, ended: "going", afterMissedAt: false })
+    const revised = withStepRevised(log, 2, { type: "at-reading", input: { sinceAt: 610, outlay: 9000, replay: undefined, at: AT }, ended: "going", afterMissedAt: false })
     expect(revised).toEqual({ ok: false, error: { type: "counter-went-back", expectedAtLeast: 610, index: 4 } })
     const withoutLast = withStepRemoved(log, 4)
     const removed = withStepRemoved(withoutLast.ok ? withoutLast.value : log, 2)

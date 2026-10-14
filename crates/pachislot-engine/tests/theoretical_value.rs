@@ -89,3 +89,28 @@ fn renting_for_cash_at_a_lower_exchange_costs_the_spread_on_what_was_rented() {
         1_000.0 * 3.0 * 0.5 * (20.0 - medal_value)
     ));
 }
+
+#[test]
+fn medals_drawn_from_savings_cost_their_value_and_the_replay_fee_beyond_it() {
+    let spec = normalize(&made_up_spec()).expect("normalises");
+    let analysis = analyze(&spec, &PayoutBasis::FromSpec).expect("solves");
+    let weights = [(setting_level(6), 1.0)];
+    let half = Probability::new(0.5).expect("a share");
+    let rented = theoretical_value(&analysis, 3, &weights, play(18.0, 0.5), 1_000);
+    let no_fee = theoretical_value(
+        &analysis,
+        3,
+        &weights,
+        play(18.0, 0.5).with_replay(half, 1.0).expect("a replay"),
+        1_000,
+    );
+    let fee = theoretical_value(
+        &analysis,
+        3,
+        &weights,
+        play(18.0, 0.5).with_replay(half, 1.1).expect("a replay"),
+        1_000,
+    );
+    assert!(close(no_fee.yen, rented.yen));
+    assert!(close(rented.yen - fee.yen, 3_000.0 * 0.5 * 18.0 * 0.1));
+}

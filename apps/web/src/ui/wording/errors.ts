@@ -285,5 +285,7 @@ export const describeReadingRefusal = (refusal: ReadingRefusal): string => {
       return `カウンタが ${refusal.expectedAtLeast} 回転より戻っています。大当りの記録漏れかもしれません。`
     case "outlay-went-back":
       return `投資額は累計で入力してください（これまでで ¥${refusal.atLeast.toLocaleString("ja-JP")}）。`
+    case "replay-went-back":
+      return `貯玉・貯メダルの引出は累計で入力してください（これまでで ${refusal.atLeast.toLocaleString("ja-JP")}）。`
   }
 }

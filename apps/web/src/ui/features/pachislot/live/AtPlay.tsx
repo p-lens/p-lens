@@ -34,7 +34,7 @@ function Tile(props: { readonly label: string; readonly value: string; readonly 
 
 /**
  * Where an AT machine's play stands by its log: its regular games, the games
- * since the last AT and the last CZ, the outlay, its ATs, and how far each
+ * since the last AT and the last CZ, the outlay, the medals drawn from savings, its ATs, and how far each
  * ceiling the machine has is — the trigger's, the AT間天井 and the スルー天井.
  */
 export function AtFigures(props: { readonly ordered: readonly Checkpoint[]; readonly normalized: NormalizedSpecDto }): JSX.Element {
@@ -56,6 +56,7 @@ export function AtFigures(props: { readonly ordered: readonly Checkpoint[]; read
         <Tile label="CZ間のゲーム数" value={formatCount(standing()?.sinceTrigger ?? 0)} note="G" />
       </Show>
       <Tile label="投資" value={summary().outlay === undefined ? "--" : `¥${formatCount(summary().outlay ?? 0)}`} />
+      <Tile label="貯メダル" value={((replay) => (replay === undefined ? "--" : formatCount(replay)))(props.ordered.findLast((checkpoint) => checkpoint.replay !== undefined)?.replay)} note="枚" />
       <Tile label="AT" value={formatCount(summary().jackpots)} note="回" />
       <Show when={cz()}>
         <Tile
@@ -209,7 +210,7 @@ const sendingOf = (written: Written<ReadingRefusal>, ended: Ended): Sending => {
 
 /**
  * Where an AT machine's counter is read at the cabinet: the games since the
- * last AT, and the outlay so far, each opening on where the play stands, to
+ * last AT, the outlay and the medals drawn from savings so far, each opening on where the play stands, to
  * be typed over — and following the play until something is typed. Sent as a reading, as an AT
  * won — the moment the counter is about to start over — or, where a CZ brings
  * the AT, as a CZ that missed. A counter that went back means an AT came that
@@ -252,7 +253,7 @@ export function AtReadingComposer(props: { readonly standing: AtStanding; readon
       mapOk(
         checkpointsForReading(
           ordered,
-          { counterSpins: reading.value.sinceAt, outlay: reading.value.outlay, counterJackpots: undefined, at, jackpot: ended === "at" },
+          { counterSpins: reading.value.sinceAt, outlay: reading.value.outlay, replay: reading.value.replay, counterJackpots: undefined, at, jackpot: ended === "at" },
           missedAt,
         ),
         (checkpoints) => (ended === "cz-missed" ? czMissedAt(checkpoints) : checkpoints),
@@ -298,6 +299,16 @@ export function AtReadingComposer(props: { readonly standing: AtStanding; readon
           suffix="円"
           error={errorOf("outlay")}
           invalid={nudge.red() && problemOf("outlay") !== undefined}
+          onFocus={nudge.settle}
+        />
+        <TextField
+          label="貯メダル（累計）"
+          value={form().replay}
+          onChange={(replay) => typed({ replay })}
+          inputMode="numeric"
+          suffix="枚"
+          error={errorOf("replay")}
+          invalid={nudge.red() && problemOf("replay") !== undefined}
           onFocus={nudge.settle}
         />
       </div>

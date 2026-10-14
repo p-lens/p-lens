@@ -47,8 +47,8 @@ describe("the seat's data counter as typed", () => {
 
 describe("an AT machine's counter reading as typed", () => {
   test("needs the games since the last AT; an outlay left empty was not read", () => {
-    expect(readAtReadingForm({ sinceAt: "１,２００", outlay: "" })).toEqual({ ok: true, value: { sinceAt: 1200, outlay: undefined } })
-    expect(readAtReadingForm({ sinceAt: "", outlay: "3千" })).toEqual({
+    expect(readAtReadingForm({ sinceAt: "１,２００", outlay: "", replay: "" })).toEqual({ ok: true, value: { sinceAt: 1200, outlay: undefined, replay: undefined } })
+    expect(readAtReadingForm({ sinceAt: "", outlay: "3千", replay: "" })).toEqual({
       ok: false,
       error: [
         { field: "sinceAt", reason: "required" },
@@ -60,14 +60,14 @@ describe("an AT machine's counter reading as typed", () => {
 
 describe("a pachislot counter reading as typed", () => {
   test("needs the day's games; a bonus left empty is as the log knows it, an outlay left empty was not read", () => {
-    expect(readReadingForm({ total: "2650", bonuses: { big: "10" }, outlay: "" }, { big: 9, reg: 7 }, ["big", "reg"])).toEqual({
+    expect(readReadingForm({ total: "2650", bonuses: { big: "10" }, outlay: "", replay: "" }, { big: 9, reg: 7 }, ["big", "reg"])).toEqual({
       ok: true,
-      value: { total: 2650, outlay: undefined, bonuses: { big: 10, reg: 7 } },
+      value: { total: 2650, outlay: undefined, replay: undefined, bonuses: { big: 10, reg: 7 } },
     })
   })
 
   test("says every field it cannot read", () => {
-    expect(readReadingForm({ total: "", bonuses: { reg: "1.5" }, outlay: "千円" }, {}, ["big", "reg"])).toEqual({
+    expect(readReadingForm({ total: "", bonuses: { reg: "1.5" }, outlay: "千円", replay: "" }, {}, ["big", "reg"])).toEqual({
       ok: false,
       error: [
         { field: "total", reason: "required" },

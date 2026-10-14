@@ -80,7 +80,8 @@ impl Progress {
 
 /// One session: a setting drawn by its weight, then the games played on it.
 /// Its yen are the medals at their value, less the rental spread on the share
-/// rented for cash, as the exact theoretical value counts them.
+/// rented for cash and the replay fee on the share drawn from savings, as the
+/// exact theoretical value counts them.
 fn play_session(mix: &Mix, plan: &Plan, rng: Rng) -> (f64, Rng) {
     let (model, rng) = mix.draw(rng);
     let (medals, rng) = model.map_or((0.0, rng), |model| {
@@ -90,9 +91,7 @@ fn play_session(mix: &Mix, plan: &Plan, rng: Rng) -> (f64, Rng) {
         })
     });
     let played = f64::from(plan.games) * f64::from(plan.bet);
-    let spread = played
-        * plan.play.cash_share().value()
-        * (plan.play.rental_price() - plan.play.medal_value());
+    let spread = played * plan.play.spread_per_medal();
     (medals * plan.play.medal_value() - spread, rng)
 }
 

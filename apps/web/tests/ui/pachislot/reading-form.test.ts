@@ -4,24 +4,24 @@ import { atReadingFrom, readAtReadingForm } from "../../../src/ui/features/pachi
 import { readingFrom, readReadingForm } from "../../../src/ui/features/pachislot/live/reading-form"
 
 describe("a pachislot reading typed onto where the play stands", () => {
-  const standing = { total: 2650, bonuses: { big: 8, reg: 5 }, outlay: 3000 }
+  const standing = { total: 2650, bonuses: { big: 8, reg: 5 }, outlay: 3000, replay: 120 }
 
   test("opens on the day's games, each bonus and the outlay, and reads back as the play stands", () => {
     const form = readingFrom(standing, ["big", "reg", "extra"])
-    expect(form).toEqual({ total: "2650", bonuses: { big: "8", reg: "5", extra: "0" }, outlay: "3000" })
-    expect(readReadingForm(form, standing.bonuses, ["big", "reg", "extra"])).toEqual({ ok: true, value: { total: 2650, bonuses: { big: 8, reg: 5, extra: 0 }, outlay: 3000 } })
+    expect(form).toEqual({ total: "2650", bonuses: { big: "8", reg: "5", extra: "0" }, outlay: "3000", replay: "120" })
+    expect(readReadingForm(form, standing.bonuses, ["big", "reg", "extra"])).toEqual({ ok: true, value: { total: 2650, bonuses: { big: 8, reg: 5, extra: 0 }, outlay: 3000, replay: 120 } })
   })
 
-  test("leaves the outlay empty where none was given", () => {
-    expect(readingFrom({ ...standing, outlay: undefined }, []).outlay).toBe("")
+  test("leaves the outlay and the medals drawn from savings empty where none was given", () => {
+    expect(readingFrom({ ...standing, outlay: undefined, replay: undefined }, [])).toMatchObject({ outlay: "", replay: "" })
   })
 })
 
 describe("an AT machine's reading typed onto where the play stands", () => {
   test("opens on the games since the last AT and the outlay, and reads back the same", () => {
-    const form = atReadingFrom({ sinceAt: 412, outlay: 8000 })
-    expect(form).toEqual({ sinceAt: "412", outlay: "8000" })
-    expect(readAtReadingForm(form)).toEqual({ ok: true, value: { sinceAt: 412, outlay: 8000 } })
-    expect(atReadingFrom({ sinceAt: 0, outlay: undefined })).toEqual({ sinceAt: "0", outlay: "" })
+    const form = atReadingFrom({ sinceAt: 412, outlay: 8000, replay: undefined })
+    expect(form).toEqual({ sinceAt: "412", outlay: "8000", replay: "" })
+    expect(readAtReadingForm(form)).toEqual({ ok: true, value: { sinceAt: 412, outlay: 8000, replay: undefined } })
+    expect(atReadingFrom({ sinceAt: 0, outlay: undefined, replay: undefined })).toEqual({ sinceAt: "0", outlay: "", replay: "" })
   })
 })

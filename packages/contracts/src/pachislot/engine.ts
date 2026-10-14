@@ -196,12 +196,16 @@ export interface ConditionsDto {
 
 /**
  * The player's terms: yen a medal is exchanged for, yen renting one costs, the
- * share of the medals played that was rented for cash (`0..=1`), and games an hour.
+ * share of the medals played that was rented for cash (`0..=1`), the share
+ * drawn from savings and the medals a replay takes off them for each it pays
+ * out (none and one where left out), and games an hour.
  */
 export interface PlayDto {
   readonly medalValue: number
   readonly rentalPrice: number
   readonly cashShare: number
+  readonly replayShare?: number
+  readonly replayRate?: number
   readonly gamesPerHour?: number
 }
 
