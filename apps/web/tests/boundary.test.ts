@@ -108,7 +108,7 @@ describe("dependency direction", () => {
   test("the shell package knows nothing of P-Lens", async () => {
     const files = await sourcesUnder(SHELL)
     const texts = await Promise.all(files.map((file) => readFile(file, "utf8")))
-    const domainWords = /pachinko|p-lens|ledger|parlor|\bplayer\b|\bparent\b|\bchild\b|\bboss\b|discord|mastodon/i
+    const domainWords = /pachinko|p-lens|ledger|parlor|\bplayer\b|\bparent\b|\bchild\b|\bboss\b|d.scord|mastodon/i
     expect(files.filter((_, index) => domainWords.test(texts[index] ?? ""))).toEqual([])
     expect((await Promise.all(files.map(importsOf))).flat().filter((name) => !name.startsWith(".") && name !== "solid-js")).toEqual([])
   })

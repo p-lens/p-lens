@@ -40,5 +40,5 @@ export const describeBonusNameProblem = (problem: BonusNameProblem): string => {
 /** The rounds a bonus is told by, as a spec sheet writes them: `10R×15個×10C`, one run of rounds after another. */
 export const bonusRoundsText = (shape: BonusShape): string => shape.rounds.map((each) => `${each.rounds}R×${each.prizeBalls}個×${each.count}C`).join(" ＋ ")
 
-/** How many jackpots a bonus is won over, said only where it is more than one: `大当り5回ぶん`. */
-export const jackpotsText = (won: { readonly jackpots?: number }): string | undefined => (won.jackpots === undefined || won.jackpots === 1 ? undefined : `大当り${String(won.jackpots)}回ぶん`)
+/** How many jackpots a bonus is won over, said only where it is more than one: `大当り5回分`. */
+export const jackpotsText = (won: { readonly jackpots?: number }): string | undefined => (won.jackpots === undefined || won.jackpots === 1 ? undefined : `大当り${String(won.jackpots)}回分`)
