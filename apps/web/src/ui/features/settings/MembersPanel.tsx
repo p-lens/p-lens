@@ -140,7 +140,7 @@ export function MembersPanel(props: { readonly bookId: BookId; readonly title: s
             <ToggleGroupItem value="editor">{roleText("editor")}</ToggleGroupItem>
             <ToggleGroupItem value="sender">{roleText("sender")}</ToggleGroupItem>
           </ToggleGroup>
-          <Button type="submit" size="small" class="shrink-0">
+          <Button type="submit" variant="semipro" size="small" class="shrink-0">
             {working() ? "作成中…" : "招待コードを作る"}
           </Button>
         </div>

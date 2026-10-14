@@ -143,9 +143,11 @@ function SyncStanding(): JSX.Element {
 }
 
 /**
- * Sharing books with other people: one's own books and who is let into
- * each, the books one was let into oneself, the books one may only send
- * plays to, and the place an invitation is typed into. Underneath it rides
+ * Sharing books with other people. First the place an invitation is typed
+ * into, and what came of those typed in already — the books one was let
+ * into, the books one may only send plays to — which is all most people
+ * need; then, below a rule, one's own books and who is let into each, for
+ * whoever invites. Underneath it rides
  * on the same lines a person's own devices sync by, but to the person it
  * is another thing: nothing here shows a book's own code, which is its
  * key, and what is handed to someone is always an invitation made for
@@ -177,40 +179,44 @@ export function SharingSettings(props: { readonly place: Place }): JSX.Element {
       <div class="max-w-5xl">
         <div class="flex flex-col gap-6 p-4">
           <div class="flex flex-col gap-2">
-            <p class="text-sm text-text-muted">仲間と帳簿を共有します。相手ごとに招待コードを作って渡してください。渡すのは招待コードだけで、帳簿そのものの鍵は相手に渡りません。</p>
+            <p class="text-sm text-text-muted">仲間からもらった招待コードを貼ると、その帳簿がこの端末に追加されます。</p>
             <SyncStanding />
           </div>
-          <Loaded outcome={listed()}>
-            {(books) => (
-              <>
-                <section class="flex flex-col gap-2">
-                  <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">自分の帳簿に招待</h2>
-                  <ul class="flex flex-col gap-1">
-                    <For each={own(books)}>{(each) => <OwnBookRow listed={each} onChanged={changedHere} />}</For>
-                  </ul>
-                </section>
-                <Show when={letInto(books).length > 0}>
-                  <section class="flex flex-col gap-2">
-                    <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">招待された帳簿</h2>
-                    <ul class="flex flex-col gap-1">
-                      <For each={letInto(books)}>
-                        {(each) => (
-                          <li class="flex flex-wrap items-center gap-2 rounded-md bg-surface-1 px-3 py-3">
-                            <span class="min-w-0 flex-1 truncate text-sm text-text-primary">{bookTitle(each.book)}</span>
-                            <span class="text-xs text-text-muted">{roleIn(each.book, app.services.member) === "editor" ? "編集できます" : "閲覧のみ"}</span>
-                          </li>
-                        )}
-                      </For>
-                    </ul>
-                  </section>
-                </Show>
-              </>
-            )}
-          </Loaded>
-          <Destinations changed={changed()} onChanged={changedHere} />
           <section class="flex flex-col gap-2">
             <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">招待コードを入れる</h2>
             <JoinByCode takes="invitation" onJoined={joined} />
+          </section>
+          <Loaded outcome={listed()}>
+            {(books) => (
+              <Show when={letInto(books).length > 0}>
+                <section class="flex flex-col gap-2">
+                  <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">招待された帳簿</h2>
+                  <ul class="flex flex-col gap-1">
+                    <For each={letInto(books)}>
+                      {(each) => (
+                        <li class="flex flex-wrap items-center gap-2 rounded-md bg-surface-1 px-3 py-3">
+                          <span class="min-w-0 flex-1 truncate text-sm text-text-primary">{bookTitle(each.book)}</span>
+                          <span class="text-xs text-text-muted">{roleIn(each.book, app.services.member) === "editor" ? "編集できます" : "閲覧のみ"}</span>
+                        </li>
+                      )}
+                    </For>
+                  </ul>
+                </section>
+              </Show>
+            )}
+          </Loaded>
+          <Destinations changed={changed()} onChanged={changedHere} />
+          <hr class="border-border" />
+          <section class="flex flex-col gap-2">
+            <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">自分の帳簿に招待</h2>
+            <p class="text-sm text-text-muted">相手ごとに招待コードを作って渡してください。渡すのは招待コードだけで、帳簿そのものの鍵は相手に渡りません。</p>
+            <Loaded outcome={listed()}>
+              {(books) => (
+                <ul class="flex flex-col gap-1">
+                  <For each={own(books)}>{(each) => <OwnBookRow listed={each} onChanged={changedHere} />}</For>
+                </ul>
+              )}
+            </Loaded>
           </section>
         </div>
       </div>
