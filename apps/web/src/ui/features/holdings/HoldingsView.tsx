@@ -16,7 +16,7 @@ import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { formatDay } from "../../wording/dates"
 import { formatRate, formatTokens, formatYen } from "../../wording/numbers"
-import { createOffered } from "../record-tally/yen-tally-editing"
+import { createOffered } from "../parlor-offers/offered"
 import { ViewHeader } from "../shell/ViewHeader"
 import { BalanceAdjustmentForm, ForfeitureForm, PrizeExchangeForm, OpeningBalanceForm } from "./SavingsForms"
 

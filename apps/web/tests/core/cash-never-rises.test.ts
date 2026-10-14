@@ -30,18 +30,21 @@ const SIDES: readonly (readonly [string, string])[] = [
   ["1", "1000000"],
 ]
 
-const TALLIED: YenTally = { id: "tally" as PlayId, date: DAY, parlor: undefined, gameKind: "pachinko", machine: "e風の剣豪", cabinetNumber: undefined, outlay: dec("0"), takings: dec("0"), theoreticalValue: undefined, told: undefined }
+const TALLIED: YenTally = { id: "tally" as PlayId, date: DAY, parlor: undefined, gameKind: "pachinko", machine: "e風の剣豪", cabinetNumber: undefined, outlay: dec("0"), takings: dec("0"), settlement: undefined, theoreticalValue: undefined, told: undefined }
 
 const SOURCE: SourceTally = { date: DAY, parlor: { name: "ホシゾラ梅田店", code: "S123" }, machine: { name: "流星の剣", code: "M9", maker: "ミナト" }, cabinetNumber: "123", outlay: dec("0"), takings: dec("0"), memo: "", hours: undefined }
 
 const made = (entry: { readonly ok: true; readonly value: Entry } | { readonly ok: false }): readonly Entry[] => (entry.ok ? [entry.value] : [])
 
-/** Every entry the app composes, each in the cases where money came back: a play followed live, one typed in by its two sides, one taken in from another app, a prize exchange, savings opened or put right, and savings a parlor took back. */
+/** Every entry the app composes, each in the cases where money came back: a play followed live, one typed in by its two sides, one at no parlor settled against savings the book does not keep or in cash and prizes, one taken in from another app, a prize exchange, savings opened or put right, and savings a parlor took back. */
 const ENTRIES: readonly Entry[] = [
   ...made(composeTokenTallyEntry(RENTED_PLAY, PRICES)),
   ...made(composeTokenTallyEntry({ ...RENTED_PLAY, payout: dec("48000") }, PRICES)),
   ...made(composeTokenTallyEntry({ ...RENTED_PLAY, rental: undefined, replay: { paidOut: dec("4000"), deducted: dec("4000") }, payout: dec("90000"), theoreticalValue: undefined }, PRICES)),
   ...SIDES.flatMap(([outlay, takings]) => made(composeYenTallyEntry({ ...TALLIED, outlay: dec(outlay), takings: dec(takings) }))),
+  ...SIDES.flatMap(([outlay, takings]) => made(composeYenTallyEntry({ ...TALLIED, outlay: dec(outlay), takings: dec(takings), settlement: { type: "off-book-savings", cash: dec(outlay) } }))),
+  ...SIDES.flatMap(([outlay, takings]) => made(composeYenTallyEntry({ ...TALLIED, outlay: dec(outlay), takings: dec(takings), settlement: { type: "off-book-savings", cash: dec("0") } }))),
+  ...SIDES.flatMap(([outlay, takings]) => made(composeYenTallyEntry({ ...TALLIED, outlay: dec(outlay), takings: dec(takings), settlement: { type: "cash-and-prizes" } }))),
   ...SIDES.map(([outlay, takings]) => importedTallyEntry({ id: "taken-in" as PlayId, from: "precord", source: { ...SOURCE, outlay: dec(outlay), takings: dec(takings) }, machine: undefined, inferred: undefined })),
   ...["16500", "16800", "17000", "0"].flatMap((specialPrizes) => made(prizeExchangeEntry({ parlor: UMEDA, pool: POOL, date: DAY, tokens: dec("4800"), specialPrizes: dec(specialPrizes) }, PRICES))),
   openingBalanceEntry({ parlor: UMEDA, pool: POOL, date: DAY }, dec("12000")),
@@ -60,7 +63,7 @@ const naming = async (pattern: RegExp): Promise<readonly string[]> => {
 
 describe("cash never rises", () => {
   test("no entry the app composes puts a positive amount to 資産:現金, whatever came back", () => {
-    expect(ENTRIES.length).toBe(23)
+    expect(ENTRIES.length).toBe(41)
     const raised = ENTRIES.flatMap((entry) => entry.postings.filter((posting) => posting.account === ACCOUNTS.cash && posting.amount.quantity.mantissa > 0n).map((posting) => [entry.description, posting.amount.quantity]))
     expect(raised).toEqual([])
   })

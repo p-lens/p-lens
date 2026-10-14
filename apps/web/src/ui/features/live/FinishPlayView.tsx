@@ -1,4 +1,4 @@
-import { createResource, createSignal, Show, type JSX } from "solid-js"
+import { createResource, createSignal, Show, type Accessor, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import { keepOwn, takeSentAgain } from "../../../application/inbox"
@@ -7,7 +7,11 @@ import * as PachislotUseCases from "../../../application/pachislot/weighing"
 import type * as PachislotEngine from "../../../pachislot-engine/client/client"
 import type { BookId, ListedBook } from "../../../core/book/book"
 import { keptSpinPerformance } from "../../../core/tally/aside"
-import type { TallyAside } from "../../../core/tally/tally"
+import type { TallyAside, TokenTally, YenTally } from "../../../core/tally/tally"
+import type { ParlorList } from "../../../core/parlor/shared"
+import type { Outcome } from "../../../application/errors"
+import type { RecordingContext } from "../../../application/record-tally"
+import type { Submission as KeptSubmission } from "../../../parlors/port/submission-store"
 import type { PlayId } from "../../../core/play/play"
 import * as Pachinko from "../../../core/pachinko"
 import { senderOf, type PlayDraft } from "../../../core/live-play/draft"
@@ -25,15 +29,18 @@ import { TextField } from "../../primitives/text-field"
 import { TimeField, type TimeOfDay } from "../../primitives/time-field"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
-import { tokenTallyFormFromDraft, playedOnTerms, RECORDING, RECORDING_AGAIN, type PlayedSoFar } from "../record-tally/form"
-import { TokenTallyEditor } from "../record-tally/TokenTallyEditor"
-import { yenTallyFormFromDraft, tokenCountsFromDraft } from "../record-tally/yen-tally-form"
-import { createOffered } from "../record-tally/yen-tally-editing"
+import { createOffered } from "../parlor-offers/offered"
 import { bookTitle } from "../../wording/book"
 import { ViewHeader } from "../shell/ViewHeader"
+import { RECORDING, RECORDING_AGAIN, type PlayedSoFar, type SubmitWords } from "./finish-tally-reading"
+import { finishTokenTallyFormOf, playedOnTerms, type PlayedOnTerms } from "./finish-token-tally-form"
+import { finishYenTallyFormOf } from "./finish-yen-tally-form"
+import { FinishTokenTallyEditor } from "./FinishTokenTallyEditor"
 import { FinishYenTallyEditor } from "./FinishYenTallyEditor"
 import { counterStands, finishFormOf, readFinishForm, timeOf, type FinishForm } from "./finish-form"
 import { OperationHistory } from "./OperationHistory"
+import { createParlorChoice } from "./parlor-choice"
+import { ParlorChoiceField } from "./ParlorChoiceField"
 import { leftAt, leftBy, tokensKeptAfter, type TokensLeft } from "./tokens-in-hand"
 
 /**
@@ -164,6 +171,70 @@ function Arrived(props: { readonly draft: PlayDraft; readonly sender: string | u
 }
 
 /**
+ * A play started at no parlor, as it is recorded: the parlor it may still
+ * be said to have been at is chosen above the form, and the form follows
+ * from it. A play with terms at a parlor chosen is recorded there as one
+ * started there is, in tokens, drawing on that parlor's savings whatever
+ * they hold; any other is recorded in yen, drawing on savings the book does
+ * not keep.
+ */
+function AtNoParlor(props: {
+  readonly draft: PlayDraft
+  readonly played: PlayedSoFar
+  readonly context: RecordingContext
+  readonly list: Accessor<ParlorList>
+  readonly submissions: Accessor<readonly KeptSubmission[]>
+  readonly aside: () => TallyAside
+  readonly words: SubmitWords
+  readonly recordInTokens: (tally: TokenTally) => Promise<Outcome<unknown>>
+  readonly recordInYen: (tally: YenTally) => Promise<Outcome<unknown>>
+  readonly onRecordedInTokens: (tally: TokenTally) => void
+  readonly onRecordedInYen: (tally: YenTally, held: number | undefined) => void
+}): JSX.Element {
+  const parlor = createParlorChoice({ context: props.context, list: props.list, submissions: props.submissions, gameKind: props.draft.gameKind })
+  const terms = props.draft.venue.terms
+  const atParlor = (): PlayedOnTerms | undefined => ((chosen) => (chosen === undefined || terms === undefined ? undefined : playedOnTerms(chosen, terms, props.draft.gameKind)))(parlor.chosen())
+  return (
+    <>
+      <div class="px-4 pt-4">
+        <ParlorChoiceField parlor={parlor} />
+      </div>
+      <Show
+        when={atParlor()}
+        keyed
+        fallback={
+          <FinishYenTallyEditor
+            initial={finishYenTallyFormOf(props.draft, props.played)}
+            gameKind={props.draft.gameKind}
+            terms={terms}
+            parlor={parlor}
+            playId={props.draft.id}
+            aside={props.aside}
+            words={props.words}
+            submit={props.recordInYen}
+            onRecorded={props.onRecordedInYen}
+          />
+        }
+      >
+        {(at) => (
+          <FinishTokenTallyEditor
+            context={props.context}
+            at={at}
+            namesPlace={false}
+            initial={finishTokenTallyFormOf(props.draft, props.played)}
+            playId={props.draft.id}
+            aside={props.aside}
+            words={props.words}
+            submit={props.recordInTokens}
+            onRecorded={props.onRecordedInTokens}
+          />
+        )}
+      </Show>
+    </>
+  )
+}
+
+/**
  * Recording a play that was followed live into a book, which is when a book
  * first hears of it: the book asked for where there is more than one, the
  * form filled in from the play — in tokens at its parlor, or by its totals
@@ -218,17 +289,21 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
                 when={draft.venue.type === "parlor" ? draft.venue : undefined}
                 keyed
                 fallback={
-                  <FinishYenTallyEditor
+                  <AtNoParlor
+                    draft={draft}
+                    played={played}
                     context={context}
-                    list={offered.list()}
-                    submissions={offered.submissions()}
-                    initial={yenTallyFormFromDraft(draft, played)}
-                    playId={draft.id}
+                    list={offered.list}
+                    submissions={offered.submissions}
                     aside={aside}
                     words={words}
-                    tokens={tokenCountsFromDraft(draft, played)}
-                    submit={(play) => finishPlayInYen(app.services.session, app.services.drafts, draft, bookId, play, readFinishForm(finish(), draft.startedAt), app.services.now())}
-                    onRecorded={(play, held) => {
+                    recordInTokens={(record) => finishPlay(app.services.session, app.services.drafts, draft, bookId, record, readFinishForm(finish(), draft.startedAt), app.services.now())}
+                    recordInYen={(play) => finishPlayInYen(app.services.session, app.services.drafts, draft, bookId, play, readFinishForm(finish(), draft.startedAt), app.services.now())}
+                    onRecordedInTokens={(record) => {
+                      keepInHand(leftBy(record))
+                      recorded(record.id)
+                    }}
+                    onRecordedInYen={(play, held) => {
                       if (held !== undefined) keepInHand(leftAt(draft.venue, draft.gameKind, play.date, held))
                       recorded(play.id)
                     }}
@@ -236,10 +311,11 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
                 }
               >
                 {(venue) => (
-                  <TokenTallyEditor
+                  <FinishTokenTallyEditor
                     context={context}
                     at={playedOnTerms(venue.parlor, venue.terms, draft.gameKind)}
-                    initial={tokenTallyFormFromDraft(draft, played)}
+                    namesPlace
+                    initial={finishTokenTallyFormOf(draft, played)}
                     playId={draft.id}
                     aside={aside}
                     words={words}

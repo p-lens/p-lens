@@ -27,7 +27,7 @@ const SUBMIT_PARLOR = "一覧にない店舗を申請する"
 const ROUND_BUTTON = "flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-border text-text-secondary hover:border-text-secondary hover:text-text-primary [&_svg]:size-5"
 
 /** What a form's rows are kept to on a screen with room: half the form's width, as a play started live gives its parlor — a name, or a pair of sums with what they come to under them, being read better short of a whole row. */
-export const HALF_ON_A_WIDE_SCREEN = "sm:w-[calc(50%-0.25rem)]"
+const HALF_ON_A_WIDE_SCREEN = "sm:w-[calc(50%-0.25rem)]"
 
 const isGameKind = (value: string | null): value is PlayGameKind => value === "pachinko" || value === "slot"
 

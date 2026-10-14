@@ -53,6 +53,10 @@ export const describeTallyError = (error: TallyError): string => {
       return "貸玉・再プレイ・開始時の持ち玉・持ち玉のどれかを入力してください。"
     case "replay-below-payout":
       return "再プレイで減った貯玉が、払い出された数より少なくなっています。"
+    case "cash-beyond-outlay":
+      return "現金で出した額が、投資額を超えています。"
+    case "off-book-at-parlor":
+      return "店舗を指定した収支は、簿外貯玉を使えません。その店舗の貯玉から引き出してください。"
     case "pool-not-kept":
       return `${error.parlor.name}には${error.pool.tier}の${tokenUnit(error.pool.kind)}の貯蓄口座がありません。`
     case "no-exchange-rate":

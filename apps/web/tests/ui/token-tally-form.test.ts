@@ -1,84 +1,10 @@
 import { describe, expect, test } from "bun:test"
 
-import { exchangeRateOf, type PlayTerms } from "../../src/core/parlor/terms"
-import { renderEntry } from "../../src/core/journal/entry"
-import { composeTokenTallyEntry } from "../../src/core/tally/compose"
-import type { PlayId } from "../../src/core/play/play"
-import { mapOk } from "../../src/core/result/result"
-import { tokenTallyResultOf } from "../../src/core/tally/result"
-import { formatSignedYen } from "../../src/ui/wording/numbers"
-import { tokenTallyFormOf, machineChoicesOf, playedAsRecorded, playedOnTerms, pricesPlayedAt, readTokenTallyForm, type PlayedAt, type TokenTallyForm } from "../../src/ui/features/record-tally/form"
-import { PRICES, RENTED_PLAY, UMEDA, dec } from "../support/values"
+import { tokenTallyFormOf, machineChoicesOf, playedAsRecorded, readTokenTallyForm, type TokenTallyForm } from "../../src/ui/features/record-tally/form"
+import { PRICES, RENTED_PLAY, dec } from "../support/values"
 import type { MachineSummary } from "../../src/core/catalog/catalog"
 import type { MachineId } from "../../src/core/machine/machine"
 import type { IsoDate } from "../../src/core/calendar/calendar"
-
-const ID = "new" as PlayId
-
-const TERMS: PlayTerms = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 250, deducted: 275 } }
-
-const AT: PlayedAt = playedOnTerms(UMEDA, TERMS, "pachinko")
-
-const FORM: TokenTallyForm = {
-  date: "2026-10-03",
-  machine: "流星",
-  cabinetNumber: "",
-  outlay: "",
-  rentalTokens: "",
-  replayPaidOut: "",
-  replayDeducted: "",
-  carriedIn: "",
-  payout: "",
-  theoreticalValue: "",
-}
-
-describe("the record form", () => {
-  test("counts the tokens a play was begun with against what it left, at no fee", () => {
-    const read = readTokenTallyForm({ ...FORM, carriedIn: "1,500", payout: "2000" }, AT, ID)
-    expect(read.ok && [read.value.carriedIn, read.value.replay, read.value.payout]).toEqual([dec("1500"), { paidOut: dec("0"), deducted: dec("0") }, dec("2000")])
-    expect(read.ok && tokenTallyResultOf(read.value, dec("3.5"))).toEqual(dec("1750.0"))
-  })
-
-  test("composes a tally of cash at a pool the book has yet to hear of, on the rate its terms state", () => {
-    const elsewhere = playedOnTerms({ ...UMEDA, name: "スーパーホール", pools: [] }, TERMS, "pachinko")
-    const read = readTokenTallyForm({ ...FORM, date: "2026-10-11", outlay: "5000" }, elsewhere, ID)
-    expect(read.ok && composeTokenTallyEntry(read.value, []).ok).toBe(false)
-    expect(read.ok && composeTokenTallyEntry(read.value, pricesPlayedAt(elsewhere, read.value.date, [])).ok).toBe(true)
-    expect(read.ok && mapOk(composeTokenTallyEntry(read.value, pricesPlayedAt(elsewhere, read.value.date, PRICES)), renderEntry)).toMatchObject({ ok: true, value: expect.stringContaining('1250 "玉(4円・スーパーホール)" @ 3.571429 JPY') })
-  })
-
-  test("works out the tokens rented and the savings a replay took from the play's terms", () => {
-    const read = readTokenTallyForm({ ...FORM, outlay: "12,000", replayPaidOut: "1000", payout: "4000" }, AT, ID)
-    expect(read.ok && [read.value.pool, read.value.rental, read.value.replay]).toEqual([
-      { kind: "ball", tier: "4円" },
-      { outlay: dec("12000"), tokens: dec("3000") },
-      { paidOut: dec("1000"), deducted: dec("1100") },
-    ])
-  })
-
-  test("empty counts are zero, no outlay means no rental, and an empty theoretical value is none", () => {
-    const read = readTokenTallyForm({ ...FORM, payout: "10" }, AT, ID)
-    expect(read.ok && [read.value.rental, read.value.replay, read.value.theoreticalValue]).toEqual([undefined, { paidOut: dec("0"), deducted: dec("0") }, undefined])
-  })
-
-  test("reports every field it could not read, not only the first", () => {
-    expect(readTokenTallyForm({ ...FORM, date: "2026-13-01", outlay: "千円", payout: "x" }, AT, ID)).toEqual({
-      ok: false,
-      error: [
-        { field: "date", reason: "not-a-date" },
-        { field: "outlay", reason: "not-a-number" },
-        { field: "payout", reason: "not-a-number" },
-      ],
-    })
-  })
-
-  test("comes to a result in yen by the play's terms: what is left over the savings a replay took, exchanged, less the cash spent", () => {
-    const result = (form: Partial<TokenTallyForm>): string => ((read) => (read.ok ? formatSignedYen(tokenTallyResultOf(read.value, exchangeRateOf(TERMS))) : "unread"))(readTokenTallyForm({ ...FORM, ...form }, AT, ID))
-    expect(result({ outlay: "12,000", replayPaidOut: "1000", payout: "4000" })).toBe("-¥1,643")
-    expect(result({ outlay: "5000" })).toBe("-¥5,000")
-    expect(result({})).toBe("¥0")
-  })
-})
 
 describe("the form of a tally in tokens, setting a recorded tally right", () => {
   const REPLAYED = { ...RENTED_PLAY, replay: { paidOut: dec("1000"), deducted: dec("1100") } }

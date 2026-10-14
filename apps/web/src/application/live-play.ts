@@ -141,16 +141,18 @@ export const chooseBook = async (drafts: DraftStorage, draft: PlayDraft, bookId:
 /**
  * Record a finished play into a book as a tally in tokens, its log —
  * finished as the person gave, and headed by what the play was — beside the
- * tally's entry. This is when the book first hears of the play: its
- * parlor's pool is opened there, with the rate of the day it is recorded
- * on, and then the entry is written. Recorded before, its entry and its
+ * tally's entry. This is when the book first hears of the play: the pool
+ * of the parlor the tally names — where it was started, or one chosen as it
+ * is recorded of a play started at none — is opened there on the play's
+ * terms, with the rate of the day it is recorded on, and then the entry is
+ * written. Its savings are drawn on whatever they hold. Recorded before, its entry and its
  * log in the book are replaced by what the play now comes to: a reading
  * set right after the fact reaches the book by recording again.
  */
 export const finishPlay = async (session: BookSession, drafts: DraftStorage, draft: PlayDraft, bookId: BookId, tally: TokenTally, finish: Finish, at: string): Promise<Outcome<CommitId>> => {
-  if (draft.venue.type === "parlor") {
-    const { parlor, terms } = draft.venue
-    const opened = await openPool(session, bookId, { identity: parlor.identity, parlorName: parlor.name, pool: poolOf(draft.gameKind, terms), rate: exchangeRateOf(terms), date: tally.date })
+  const terms = draft.venue.terms
+  if (terms !== undefined) {
+    const opened = await openPool(session, bookId, { identity: tally.parlor.identity, parlorName: tally.parlor.name, pool: poolOf(draft.gameKind, terms), rate: exchangeRateOf(terms), date: tally.date })
     if (!opened.ok) return opened
   }
   const log = withHead(withFinish(draft.log, finish, draft.gameKind), headOf(draft, tally))

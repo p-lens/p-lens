@@ -43,8 +43,7 @@ const COUNT_LABELS: Readonly<Record<TokenKind, { readonly rented: string; readon
 }
 
 /**
- * The form a tally in tokens at a parlor is recorded with, or a recorded
- * one set right: where and on what terms are its play's and shown as such; the
+ * The form a recorded tally in tokens at a parlor is set right with: where and on what terms are its play's and shown as such; the
  * tokens rented and the savings a replay took are worked out from those
  * terms as the sums are typed, and typed themselves only where the tally has
  * nothing to work them out by. Its machine is chosen from the catalog,

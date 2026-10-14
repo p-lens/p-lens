@@ -30,3 +30,33 @@ export const sidePostings = (outlay: Decimal, takings: Decimal): readonly Postin
   ...real(ACCOUNTS.playRevenue, negate(takings)),
   ...betweenPostings(subtract(takings, outlay)),
 ]
+
+/**
+ * The two sides of a play at no parlor counted in tokens: the cash of its
+ * outlay leaves cash, and the rest of its outlay and all its takings —
+ * tokens begun with, drawn from savings and left — are set against savings
+ * the book does not keep, in one posting of what they came to. Cash falls
+ * by the cash spent, never by tokens, and no prize is written.
+ */
+export const sidePostingsOffBook = (outlay: Decimal, takings: Decimal, cash: Decimal, offBookAccount: string): readonly Posting[] => [
+  ...real(ACCOUNTS.playExpense, outlay),
+  ...real(ACCOUNTS.playRevenue, negate(takings)),
+  ...real(ACCOUNTS.cash, negate(cash)),
+  ...real(offBookAccount, subtract(takings, subtract(outlay, cash))),
+]
+
+/**
+ * The two sides of a play at no parlor counted in yen alone: its outlay
+ * leaves cash, and its takings are the special prizes taken home — in
+ * whole yen, the part of one over the translation adjustment.
+ */
+export const sidePostingsInCashAndPrizes = (outlay: Decimal, takings: Decimal): readonly Posting[] => {
+  const prizes = rounded(takings, 0)
+  return [
+    ...real(ACCOUNTS.playExpense, outlay),
+    ...real(ACCOUNTS.playRevenue, negate(takings)),
+    ...real(ACCOUNTS.cash, negate(outlay)),
+    ...real(ACCOUNTS.specialPrizes, prizes),
+    ...real(ACCOUNTS.translationAdjustment, subtract(takings, prizes)),
+  ]
+}

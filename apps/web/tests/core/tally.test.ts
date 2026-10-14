@@ -132,6 +132,7 @@ const TALLIED: YenTally = {
   cabinetNumber: undefined,
   outlay: dec("12000"),
   takings: dec("0"),
+  settlement: undefined,
   theoreticalValue: dec("8000"), told: undefined,
 }
 
@@ -160,6 +161,39 @@ describe("composeYenTallyEntry", () => {
         "",
       ].join("\n"),
     })
+  })
+
+  test("at no parlor counted in tokens, takes the cash spent from cash and sets the tokens against savings the book does not keep, writing no prize", () => {
+    const head = "2026-10-04 e風の剣豪  ; play-id: tally-1004, game-kind: pachinko, machine: e風の剣豪"
+    expect(mapOk(composeYenTallyEntry({ ...TALLIED, outlay: dec("1000"), takings: dec("4000"), theoreticalValue: undefined, settlement: { type: "off-book-savings", cash: dec("1000") } }), renderEntry)).toEqual({
+      ok: true,
+      value: [head, "    費用:遊技                           1000 JPY", "    収益:遊技                           -4000 JPY", "    資産:現金                           -1000 JPY", "    純資産:簿外貯玉                     4000 JPY", ""].join("\n"),
+    })
+    expect(mapOk(composeYenTallyEntry({ ...TALLIED, outlay: dec("6000"), takings: dec("0"), theoreticalValue: undefined, settlement: { type: "off-book-savings", cash: dec("1000") } }), renderEntry)).toEqual({
+      ok: true,
+      value: [head, "    費用:遊技                           6000 JPY", "    資産:現金                           -1000 JPY", "    純資産:簿外貯玉                     -5000 JPY", ""].join("\n"),
+    })
+  })
+
+  test("at no parlor counted in yen alone, takes all its outlay from cash and puts all its takings to the special prizes", () => {
+    expect(mapOk(composeYenTallyEntry({ ...TALLIED, takings: dec("30000.4"), theoreticalValue: undefined, settlement: { type: "cash-and-prizes" } }), renderEntry)).toEqual({
+      ok: true,
+      value: [
+        "2026-10-04 e風の剣豪  ; play-id: tally-1004, game-kind: pachinko, machine: e風の剣豪",
+        "    費用:遊技                           12000 JPY",
+        "    収益:遊技                           -30000.4 JPY",
+        "    資産:現金                           -12000 JPY",
+        "    純資産:特殊景品                     30000 JPY",
+        "    純資産:換算調整勘定                 0.4 JPY",
+        "",
+      ].join("\n"),
+    })
+  })
+
+  test("is refused settled against savings the book does not keep at a parlor, or with more cash than its outlay", () => {
+    const settled = { ...TALLIED, outlay: dec("6000"), settlement: { type: "off-book-savings" as const, cash: dec("7000") } }
+    expect(composeYenTallyEntry(settled)).toEqual({ ok: false, error: { type: "cash-beyond-outlay" } })
+    expect(composeYenTallyEntry({ ...settled, parlor: UMEDA, settlement: { type: "off-book-savings", cash: dec("1000") } })).toEqual({ ok: false, error: { type: "off-book-at-parlor" } })
   })
 
   test("is refused with a side below nothing", () => {

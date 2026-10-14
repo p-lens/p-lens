@@ -35,7 +35,7 @@ const TODAY: TokenTally = { ...RENTED_PLAY, id: "today" as PlayId, date: "2026-1
 /** A tally that rented, replayed at a fee and left tokens: every sum a record can carry. */
 const FULL: TokenTally = { ...TODAY, id: "full" as PlayId, rental: { outlay: dec("2000"), tokens: dec("500") }, replay: { paidOut: dec("1000"), deducted: dec("1100") }, payout: dec("2500"), cabinetNumber: undefined, theoreticalValue: undefined }
 
-const TALLIED: YenTally = { id: "tally" as PlayId, date: "2026-10-04" as IsoDate, parlor: UMEDA, gameKind: "slot", machine: "スマスロ流星", cabinetNumber: "7", outlay: dec("15000"), takings: dec("3000"), theoreticalValue: dec("8000") , told: undefined}
+const TALLIED: YenTally = { id: "tally" as PlayId, date: "2026-10-04" as IsoDate, parlor: UMEDA, gameKind: "slot", machine: "スマスロ流星", cabinetNumber: "7", outlay: dec("15000"), takings: dec("3000"), settlement: undefined, theoreticalValue: dec("8000") , told: undefined}
 
 const figures = async (session: Awaited<ReturnType<typeof setUp>>["session"], query: string) =>
   mapOk(await loadOverview(session, BOOK, query), (found) => [toPlainString(found.actual), toPlainString(found.theoretical)])
@@ -64,6 +64,18 @@ describe("a recorded tally, read back from its entry", () => {
     const tallies = await loadTallies(session, BOOK, "", 0)
     const madeBy = (id: string): string | undefined => ((actual) => (actual === undefined ? undefined : toPlainString(actual)))((tallies.ok ? tallies.value.tallies : []).find((tally) => tally.id === id)?.actual)
     expect(["gain", "even"].map(madeBy)).toEqual(["3000", "0"])
+  })
+
+  test("keeps how a play at no parlor was settled, against savings the book does not keep or in cash and prizes, in a book hledger checks strictly", async () => {
+    const { session, storage } = await setUp()
+    const carried: YenTally = { ...TALLIED, id: "carried" as PlayId, parlor: undefined, outlay: dec("1000"), takings: dec("4000"), settlement: { type: "off-book-savings", cash: dec("1000") } }
+    const spent: YenTally = { ...TALLIED, id: "spent" as PlayId, parlor: undefined, outlay: dec("6000"), takings: dec("0"), settlement: { type: "off-book-savings", cash: dec("1000") } }
+    const prized: YenTally = { ...TALLIED, id: "prized" as PlayId, parlor: undefined, outlay: dec("12000"), takings: dec("30000"), settlement: { type: "cash-and-prizes" } }
+    for (const tally of [carried, spent, prized]) expect((await recordYenTally(session, BOOK, tally)).ok).toBe(true)
+    expect(await recordedOf(session, "carried")).toEqual({ ok: true, value: { type: "yen", tally: carried } })
+    expect(await recordedOf(session, "spent")).toEqual({ ok: true, value: { type: "yen", tally: spent } })
+    expect(await recordedOf(session, "prized")).toEqual({ ok: true, value: { type: "yen", tally: prized } })
+    expect(storage.peek(BOOK)?.files[BOOK_FILES.accounts]).toContain("account 純資産:簿外貯メダル")
   })
 
   test("keeps when its play began and finished by the clock, a time written as a book writes one, and the spin performance its log measured", async () => {

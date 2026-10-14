@@ -3,12 +3,10 @@ import { createMemo, createResource, createSignal, type Accessor } from "solid-j
 import type { ApplicationError, Outcome } from "../../../application/errors"
 import type { RecordingContext } from "../../../application/record-tally"
 import { findMachines } from "../../../application/catalog"
-import { listSharedParlors } from "../../../application/shared-parlors"
-import { listSubmissions } from "../../../application/submissions"
 import type { Weighing, WeighingAsked } from "../../../application/pachinko/inference"
 import { bookNameOf, CATALOG_GAMES, type MachineSummary } from "../../../core/catalog/catalog"
 import * as Pachinko from "../../../core/pachinko"
-import { EMPTY_PARLOR_LIST, type ParlorList } from "../../../core/parlor/shared"
+import type { ParlorList } from "../../../core/parlor/shared"
 import { renderEntry } from "../../../core/journal/entry"
 import { composeYenTallyEntry } from "../../../core/tally/compose"
 import type { IsoDate } from "../../../core/calendar/calendar"
@@ -28,7 +26,7 @@ import type { TypedNameRefused } from "../../wording/parlor"
 import type { Submission as KeptSubmission } from "../../../parlors/port/submission-store"
 import { locateAddress, submitAddress, type LeftFrom } from "../live/submission-return"
 import * as PachinkoViews from "../pachinko"
-import { offersByKey, parlorOffers, type ParlorOffer } from "./parlor-offers"
+import { offersByKey, parlorOffers, type ParlorOffer } from "../parlor-offers/parlor-offers"
 import type { FieldProblem, FormField } from "./form"
 import { readYenTallyForm, resultOfYenTally, toldFiguresOf, withInferred, type YenTallyForm } from "./yen-tally-form"
 
@@ -286,26 +284,5 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
     failure,
     saving: () => submission().type === "saving",
     submit,
-  }
-}
-
-/**
- * The parlor list and this device's submissions, read for a form that
- * offers them: an empty list where it could not be read, since a tally
- * may name no parlor.
- */
-export const createOffered = (): { readonly list: () => ParlorList; readonly submissions: () => readonly KeptSubmission[] } => {
-  const app = useApp()
-  const [parlors] = createResource(() => app.revision(), () => listSharedParlors(app.services.parlors))
-  const [submissions] = createResource(() => app.revision(), () => listSubmissions(app.services.submissions))
-  return {
-    list: () => {
-      const found = parlors()
-      return found?.ok === true ? found.value : EMPTY_PARLOR_LIST
-    },
-    submissions: () => {
-      const found = submissions()
-      return found?.ok === true ? found.value : []
-    },
   }
 }

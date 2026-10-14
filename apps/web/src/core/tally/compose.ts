@@ -1,14 +1,15 @@
 import { YEN, tokenCommodity, type TokenKind } from "../commodity/commodity"
 import { isZero, multiply, negate, subtract, toPlainString, type Decimal } from "../decimal/decimal"
-import { ACCOUNTS, rentalSpreadAccount, savingsAccount } from "../journal/accounts"
+import { ACCOUNTS, offBookSavingsAccount, rentalSpreadAccount, savingsAccount } from "../journal/accounts"
 import { describedBy, type Entry, type Posting } from "../journal/entry"
 import { Err, Ok, andThen, mapOk, type Result } from "../result/result"
 import { inferredTheoreticalValuePosting, theoreticalValuePosting } from "../theoretical/theoretical"
 import { rateOn, rateReachingBack, type PricePoint } from "../valuation/valuation"
 import { identityTags, type Parlor } from "../parlor/parlor"
+import { tokenKindOf } from "../play/play"
 import { TALLY_TAGS, type TallyError, type TallyHead, type TokenTally, type TallyTold, type Rental, type Replay, type YenTally } from "./tally"
 import { asideTags } from "./aside"
-import { sidePostings } from "./sides"
+import { sidePostings, sidePostingsInCashAndPrizes, sidePostingsOffBook } from "./sides"
 import { validateTokenTally, validateYenTally } from "./validate"
 
 const real = (account: string, quantity: Decimal, commodity: string): Posting => ({
@@ -168,11 +169,23 @@ export const toldTags = (told: TallyTold | undefined): Entry["tags"] =>
 /** What a told tally's play was taken to be worth, where it was weighed and no theoretical value was given: one given is the tally's, and nothing is inferred beside it. */
 const inferredPostings = (tally: YenTally): readonly Posting[] => (tally.theoreticalValue !== undefined || tally.told?.inferred === undefined ? [] : [inferredTheoreticalValuePosting(tally.told.inferred.value)])
 
+/** A tally in yen's two sides, as they were settled where that is known, and as what lies between them where it is not. */
+const yenSidePostings = (tally: YenTally): readonly Posting[] => {
+  const settlement = tally.settlement
+  if (settlement === undefined) return sidePostings(tally.outlay, tally.takings)
+  switch (settlement.type) {
+    case "off-book-savings":
+      return sidePostingsOffBook(tally.outlay, tally.takings, settlement.cash, offBookSavingsAccount(tokenKindOf(tally.gameKind)))
+    case "cash-and-prizes":
+      return sidePostingsInCashAndPrizes(tally.outlay, tally.takings)
+  }
+}
+
 /** A tally in yen as one journal entry: its two sides and its theoretical value — given, or inferred from what was told of it — together. */
 export const composeYenTallyEntry = (tally: YenTally): Result<Entry, TallyError> =>
   mapOk(validateYenTally(tally), (valid) => ({
     date: valid.date,
     description: describe(valid, valid.parlor),
     tags: [...tagsOf(valid, valid.parlor), ...toldTags(valid.told)],
-    postings: [...sidePostings(valid.outlay, valid.takings), ...statisticPostings(valid), ...inferredPostings(valid)],
+    postings: [...yenSidePostings(valid), ...statisticPostings(valid), ...inferredPostings(valid)],
   }))

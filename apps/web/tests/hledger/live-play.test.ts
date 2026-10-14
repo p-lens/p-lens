@@ -101,6 +101,17 @@ describe("a play followed live", () => {
     expect(mapOk(await loadDrafts(drafts), (found) => found.map((draft) => draft.bookId))).toEqual({ ok: true, value: [BOOK] })
   })
 
+  test("started at no parlor, is recorded at one chosen as it is recorded: that parlor's pool opened on the play's terms, and its savings drawn on though they hold none", async () => {
+    const { storage, drafts, session } = await setUp()
+    const parlor = { identity: { type: "listed" as const, id: "osm-78" as never }, name: "選んだ店", pools: [{ kind: "ball" as const, tier: "4円" }] }
+    const nowhere: PlayDraft = { ...DRAFT, venue: { type: "none", terms: DRAFT.venue.terms } }
+    await startPlay(drafts, nowhere)
+    const drawn = { ...RECORD, parlor, replay: { paidOut: dec("250"), deducted: dec("250") } }
+    expect(await finishPlay(session, drafts, nowhere, BOOK, drawn, FINISH, NOW)).toEqual({ ok: true, value: expect.anything() })
+    expect(storage.peek(BOOK)?.files["accounts.journal"]).toContain("資産:貯玉:選んだ店:4円")
+    expect(storage.peek(BOOK)?.files["accounts.journal"]).not.toContain("簿外")
+  })
+
   test("is put on other terms while it is played, its readings left as they are and no book told", async () => {
     const { storage, drafts } = await setUp()
     await startPlay(drafts, DRAFT)
@@ -176,6 +187,7 @@ describe("a play with no parlor", () => {
       cabinetNumber: "123",
       outlay: dec("5000"),
       takings: dec("0"),
+      settlement: undefined,
       theoreticalValue: undefined,
       told: undefined,
     }

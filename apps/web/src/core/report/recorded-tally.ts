@@ -1,9 +1,9 @@
 import type { Posting, Transaction } from "../../hledger/protocol/wire"
 import { YEN, tokenCommodity } from "../commodity/commodity"
 import { ZERO, isNegative, isZero, negate, parseDecimal, subtract, sum, type Decimal } from "../decimal/decimal"
-import { ACCOUNTS, rentalSpreadAccount, savingsAccount } from "../journal/accounts"
+import { ACCOUNTS, offBookSavingsAccount, rentalSpreadAccount, savingsAccount } from "../journal/accounts"
 import { PARLOR_ID_TAG, PARLOR_SUBMISSION_TAG, identityIn, sameIdentity, type Parlor } from "../parlor/parlor"
-import { TALLY_TAGS, type InferredWorth, type TallyHead, type TokenTally, type TallyTold, type YenTally } from "../tally/tally"
+import { TALLY_TAGS, type InferredWorth, type Settlement, type TallyHead, type TokenTally, type TallyTold, type YenTally } from "../tally/tally"
 import { tokenKindOf } from "../play/play"
 import { SOURCE_TAGS } from "../import/source-tally"
 import { asideOf, withAside } from "../tally/aside"
@@ -73,11 +73,27 @@ const toldOf = (transaction: Transaction, inferredValue: Decimal | undefined): T
     : { hours, jackpots: countOf(tagged(transaction, TALLY_TAGS.jackpots)), inferred: inferredOf(transaction, inferredValue) }
 }
 
+/**
+ * How a tally in yen's two sides were settled, as its entry says: against
+ * savings the book does not keep where it posts to them; in cash and
+ * prizes where it takes all its outlay from cash and puts all its takings
+ * to prizes, both; and unknown otherwise — an entry that wrote only what
+ * lay between, which is what an entry settled either way and coming to
+ * nothing else would write too, and is read back as the same entry.
+ */
+const settlementOf = (real: readonly Posted[], offBook: string, outlay: Decimal, takings: Decimal): Settlement | undefined => {
+  const cash = negate(at(real, ACCOUNTS.cash))
+  if (!isZero(at(real, offBook))) return { type: "off-book-savings", cash }
+  const prizes = sum([at(real, ACCOUNTS.specialPrizes), at(real, ACCOUNTS.translationAdjustment)])
+  return !isZero(cash) && !isZero(prizes) && isZero(subtract(cash, outlay)) && isZero(subtract(prizes, takings)) ? { type: "cash-and-prizes" } : undefined
+}
+
 const yenTallyOf = (head: TallyHead, real: readonly Posted[], parlor: Parlor | "none", told: TallyTold | undefined): RecordedTally | undefined => {
+  const offBook = offBookSavingsAccount(tokenKindOf(head.gameKind))
   const outlay = at(real, ACCOUNTS.playExpense)
   const takings = negate(at(real, ACCOUNTS.playRevenue))
-  return keptTo(real, { [ACCOUNTS.cash]: YEN, [ACCOUNTS.playExpense]: YEN, [ACCOUNTS.playRevenue]: YEN, [ACCOUNTS.specialPrizes]: YEN, [ACCOUNTS.translationAdjustment]: YEN }) && !isNegative(outlay) && !isNegative(takings)
-    ? { type: "yen", tally: { ...head, parlor: parlor === "none" ? undefined : parlor, outlay, takings, told } }
+  return keptTo(real, { [ACCOUNTS.cash]: YEN, [ACCOUNTS.playExpense]: YEN, [ACCOUNTS.playRevenue]: YEN, [ACCOUNTS.specialPrizes]: YEN, [ACCOUNTS.translationAdjustment]: YEN, [offBook]: YEN }) && !isNegative(outlay) && !isNegative(takings)
+    ? { type: "yen", tally: { ...head, parlor: parlor === "none" ? undefined : parlor, outlay, takings, settlement: settlementOf(real, offBook, outlay, takings), told } }
     : undefined
 }
 

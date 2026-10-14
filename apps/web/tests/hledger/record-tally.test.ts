@@ -111,6 +111,7 @@ const TALLIED: YenTally = {
   cabinetNumber: undefined,
   outlay: dec("15000"),
   takings: dec("3000"),
+  settlement: undefined,
   theoreticalValue: dec("8000"), told: undefined,
 }
 

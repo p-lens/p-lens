@@ -16,7 +16,7 @@ import { ClockFields } from "./ClockFields"
 import { tokenTallyFormOf, playedAsRecorded, REVISING } from "./form"
 import { TokenTallyEditor } from "./TokenTallyEditor"
 import { yenTallyFormOf } from "./yen-tally-form"
-import { createOffered } from "./yen-tally-editing"
+import { createOffered } from "../parlor-offers/offered"
 import { YenTallyEditor } from "./AddTallyView"
 
 /**

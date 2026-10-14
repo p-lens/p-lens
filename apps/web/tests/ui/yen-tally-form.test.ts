@@ -20,6 +20,7 @@ describe("the tally form", () => {
         cabinetNumber: undefined,
         outlay: dec("12000"),
         takings: dec("3000"),
+        settlement: undefined,
         theoreticalValue: dec("8000"), told: undefined,
       },
     })

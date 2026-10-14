@@ -1,0 +1,148 @@
+import { createMemo, createResource, createSignal } from "solid-js"
+
+import type { ApplicationError, Outcome } from "../../../application/errors"
+import { findMachines } from "../../../application/catalog"
+import { bookNameOf, CATALOG_GAMES, type MachineSummary } from "../../../core/catalog/catalog"
+import { machineMatches } from "../../../core/catalog/description"
+import type { Decimal } from "../../../core/decimal/decimal"
+import { renderEntry, type Entry } from "../../../core/journal/entry"
+import type { PlayTerms } from "../../../core/parlor/terms"
+import { composeYenTallyEntry } from "../../../core/tally/compose"
+import type { TallyAside, TallyError, YenTally } from "../../../core/tally/tally"
+import type { PlayId } from "../../../core/play/play"
+import { mapOk, type Result } from "../../../core/result/result"
+import { withAside } from "../../../core/tally/aside"
+import { useApp } from "../../context"
+import { createNudge } from "../../primitives/nudge"
+import { holdsTypedOnly } from "../../primitives/combobox"
+import { settleTyping } from "../../primitives/text-field"
+import { describeTallyError } from "../../wording/errors"
+import { formatSignedYen, toneOf, UNSEEN_ACTUAL } from "../../wording/numbers"
+import { machineChoicesOf, REASONS, type FieldProblem, type FormField } from "./finish-tally-reading"
+import { offBookDeductedOf, readFinishYenTallyForm, rentedOf, resultOfFinishYenTally, type FinishYenTallyForm } from "./finish-yen-tally-form"
+import type { FinishTallyEditing } from "./FinishTallyForm"
+import type { ParlorChoice } from "./parlor-choice"
+
+/** Where a submission is: being typed, being written, or refused with why. */
+type Submission =
+  | { readonly type: "editing" }
+  | { readonly type: "saving" }
+  | { readonly type: "failed"; readonly error: ApplicationError }
+
+/** What a play followed live is given to be recorded by its totals in yen: what it starts filled with, its terms where it has them, the parlor chosen for it, and what recording means. */
+interface FinishYenTallyEditingGiven {
+  readonly initial: FinishYenTallyForm
+  readonly terms: PlayTerms | undefined
+  readonly parlor: ParlorChoice
+  readonly playId: PlayId
+  /** What is written beside the tally that the form does not ask. */
+  readonly aside: () => TallyAside
+  readonly submit: (tally: YenTally) => Promise<Outcome<unknown>>
+  readonly onRecorded: (tally: YenTally) => void
+}
+
+/** A play followed live being recorded by its totals in yen: the form every play is recorded with, the savings a draw took, and the yen typed as come back where it counts no tokens. */
+interface FinishYenTallyEditing {
+  readonly tally: FinishTallyEditing
+  /** The savings the book does not keep that a draw took, where the play has terms. */
+  readonly deducted: () => Decimal | undefined
+  /** The tokens the cash spent rented, where the play has terms. */
+  readonly rented: () => Decimal | undefined
+  readonly takings: () => string
+  readonly setTakings: (typed: string) => void
+  /** The tokens in hand as typed. */
+  readonly payout: () => string
+}
+
+/**
+ * A play followed live at no parlor, recorded by its totals in yen. Its
+ * game is the one it was followed as; its machine is one of the catalog's,
+ * of that game, or none. What it drew from savings comes from savings the
+ * book does not keep (簿外貯玉). What it was worth is the one its log
+ * measured, and nothing is inferred here.
+ */
+export const createFinishYenTallyEditing = (given: FinishYenTallyEditingGiven): FinishYenTallyEditing => {
+  const app = useApp()
+  const [form, setForm] = createSignal<FinishYenTallyForm>(given.initial)
+  const [submission, setSubmission] = createSignal<Submission>({ type: "editing" })
+  const set =
+    <K extends keyof FinishYenTallyForm>(key: K) =>
+    (value: FinishYenTallyForm[K]): void => {
+      setForm((current) => ({ ...current, [key]: value }))
+    }
+  /** The catalog's machines of the play's game: all it may name. */
+  const [catalogued] = createResource(
+    () => form().gameKind,
+    (gameKind) => findMachines(app.services.catalog, "", CATALOG_GAMES[gameKind]),
+  )
+  const machines = (): readonly MachineSummary[] => {
+    const found = catalogued()
+    return found?.ok === true && found.value.type === "found" ? found.value.machines : []
+  }
+  const machineChoices = createMemo(() => machineChoicesOf(machines(), given.initial.machine))
+  /** What the machine field holds, chosen or only typed: a name typed that chose no machine stops the tally being recorded. */
+  const [machineTyped, setMachineTyped] = createSignal("")
+  const machineTypedOnly = (): boolean => holdsTypedOnly(machineTyped(), machineChoices().find((option) => option.value === form().machine)?.label)
+  const read = createMemo(() => mapOk(readFinishYenTallyForm(form(), given.terms, given.parlor.chosen(), given.playId), (tally) => withAside(tally, given.aside())))
+  const problemAt = (field: FormField): FieldProblem | undefined => {
+    const found = read()
+    return found.ok ? undefined : found.error.find((candidate) => candidate.field === field)
+  }
+  const problemOf = (field: FormField): string | undefined => {
+    const problem = problemAt(field)
+    return problem === undefined || problem.reason === "required" ? undefined : REASONS[problem.reason]
+  }
+  const nudge = createNudge()
+  const preview = createMemo((): Result<Entry, TallyError> | undefined => {
+    const tally = read()
+    return tally.ok ? composeYenTallyEntry(tally.value) : undefined
+  })
+  const result = (): ReturnType<typeof resultOfFinishYenTally> => resultOfFinishYenTally(form(), given.terms)
+
+  const submit = async (event: SubmitEvent): Promise<void> => {
+    event.preventDefault()
+    settleTyping()
+    const tally = read()
+    if (submission().type === "saving") return
+    if (!tally.ok || preview()?.ok !== true || given.parlor.typedOnly() || machineTypedOnly()) {
+      nudge.nudge()
+      return
+    }
+    setSubmission({ type: "saving" })
+    const recorded = await given.submit(tally.value)
+    if (!recorded.ok) {
+      setSubmission({ type: "failed", error: recorded.error })
+      return
+    }
+    given.onRecorded(tally.value)
+  }
+
+  return {
+    tally: {
+      value: (field) => form()[field],
+      set: (field) => set(field),
+      problemAt,
+      problemOf,
+      nudge,
+      nudged: (field) => nudge.red() && problemAt(field) !== undefined,
+      machineChoices,
+      machineMatches: (name, typed) => ((machine) => (machine === undefined ? name.includes(typed.trim()) : machineMatches(machine, typed)))(machines().find((machine) => bookNameOf(machine) === name)),
+      setMachineTyped,
+      machineTypedOnly,
+      machineLacked: () => false,
+      machineRequired: false,
+      resultText: () => ((yen) => (yen === undefined ? UNSEEN_ACTUAL : formatSignedYen(yen)))(result()),
+      resultTone: () => ((yen) => (yen === undefined ? undefined : toneOf(yen)))(result()),
+      previewText: () => ((entry) => (entry?.ok === true ? renderEntry(entry.value) : undefined))(preview()),
+      previewProblem: () => ((entry) => (entry?.ok === false ? describeTallyError(entry.error) : undefined))(preview()),
+      failure: () => ((current) => (current.type === "failed" ? current.error : undefined))(submission()),
+      saving: () => submission().type === "saving",
+      submit,
+    },
+    deducted: () => (given.terms === undefined ? undefined : offBookDeductedOf(form(), given.terms)),
+    rented: () => (given.terms === undefined ? undefined : rentedOf(form(), given.terms)),
+    takings: () => form().takings,
+    setTakings: set("takings"),
+    payout: () => form().payout,
+  }
+}

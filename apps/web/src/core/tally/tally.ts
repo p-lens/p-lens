@@ -106,9 +106,25 @@ export interface YenTally extends TallyHead {
   readonly outlay: Decimal
   /** What came back, in yen (回収額). */
   readonly takings: Decimal
+  /** How its two sides were settled, where that is known: a tally typed in by hand or taken in from another app knows only what lies between them. */
+  readonly settlement: Settlement | undefined
   /** What else was told of it, where its hours were. */
   readonly told: TallyTold | undefined
 }
+
+/**
+ * How a tally in yen's two sides were settled, where a play at no parlor
+ * followed live says.
+ *
+ * - `off-book-savings`: counted in tokens on its terms. Of the outlay,
+ *   `cash` was cash; the rest — the tokens it was begun with and those it
+ *   drew from savings — came from savings the book does not keep (簿外貯玉),
+ *   and the tokens it had left, its takings, went back to them. No prize
+ *   is written: the tokens never stopped being tokens.
+ * - `cash-and-prizes`: counted in yen alone: the outlay was cash, and the
+ *   takings the special prizes taken home.
+ */
+export type Settlement = { readonly type: "off-book-savings"; readonly cash: Decimal } | { readonly type: "cash-and-prizes" }
 
 /**
  * What a person tells of a play with a tally in yen, beside its two sides:
@@ -186,4 +202,8 @@ export type TallyError =
   | { readonly type: "pool-not-kept"; readonly parlor: Parlor; readonly pool: SavingsPool }
   /** A replay that took less off savings than it paid out: no parlor pays to be replayed at. */
   | { readonly type: "replay-below-payout" }
+  /** A tally in yen whose cash was more than it put in all told. */
+  | { readonly type: "cash-beyond-outlay" }
+  /** A tally in yen at a parlor said to have been settled against savings the book does not keep: a parlor's savings are its own. */
+  | { readonly type: "off-book-at-parlor" }
   | { readonly type: "no-exchange-rate"; readonly commodity: string; readonly date: IsoDate }

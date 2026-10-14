@@ -31,6 +31,19 @@ export const isWrittenReversed = (account: string): boolean => account === REVEN
 
 const SAVINGS_ROOTS: Readonly<Record<TokenKind, string>> = { ball: "資産:貯玉", medal: "資産:貯メダル" }
 
+/**
+ * Where savings the book does not keep are set against as they are drawn
+ * on (簿外貯玉, 簿外貯メダル): a play at no parlor has no savings in the book
+ * to draw from, so what it drew comes into the book as equity, as an
+ * opening balance brings in what was there before the book. A play at a
+ * parlor draws on that parlor's savings, whatever they hold, and never on
+ * these.
+ */
+const OFF_BOOK_SAVINGS_ACCOUNTS: Readonly<Record<TokenKind, string>> = {
+  ball: "純資産:簿外貯玉",
+  medal: "純資産:簿外貯メダル",
+}
+
 const RENTAL_SPREAD_ACCOUNTS: Readonly<Record<TokenKind, string>> = {
   ball: "費用:貸玉差額",
   medal: "費用:貸メダル差額",
@@ -40,6 +53,11 @@ export const savingsRoot = (kind: TokenKind): string => SAVINGS_ROOTS[kind]
 
 /** Where a parlor keeps a person's savings of one kind of token at one rental rate. */
 export const savingsAccount = (kind: TokenKind, parlorName: string, tier: string): string => `${SAVINGS_ROOTS[kind]}:${parlorName}:${tier}`
+
+export const offBookSavingsAccount = (kind: TokenKind): string => OFF_BOOK_SAVINGS_ACCOUNTS[kind]
+
+/** Whether an account is one savings the book does not keep are set against. */
+export const isOffBookSavingsAccount = (account: string): boolean => (Object.values(OFF_BOOK_SAVINGS_ACCOUNTS) as readonly string[]).includes(account)
 
 /** Where the loss on renting tokens above their exchange value is written. */
 export const rentalSpreadAccount = (kind: TokenKind): string => RENTAL_SPREAD_ACCOUNTS[kind]

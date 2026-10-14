@@ -23,7 +23,7 @@ import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
 import { describeError } from "../../wording/errors"
 import { formatRate, formatYen } from "../../wording/numbers"
 import { typedParlorRefused } from "../../wording/parlor"
-import { offersByKey, parlorOffers } from "../record-tally/parlor-offers"
+import { offersByKey, parlorOffers } from "../parlor-offers/parlor-offers"
 
 /** Where a form's saving is: being typed, being written, or failed. */
 type Saving = { readonly type: "typing" } | { readonly type: "saving" } | { readonly type: "failed"; readonly error: ApplicationError }

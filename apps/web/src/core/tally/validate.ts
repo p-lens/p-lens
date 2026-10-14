@@ -58,6 +58,15 @@ const checkPoolKept: Check = (tally) =>
     ? Ok(tally)
     : Err({ type: "pool-not-kept", parlor: tally.parlor, pool: tally.pool })
 
+/** Savings the book does not keep are a play's at no parlor alone, and the cash of its outlay never more than the outlay. */
+const checkSettlement: Check<YenTally> = (tally) => {
+  const settlement = tally.settlement
+  if (settlement?.type !== "off-book-savings") return Ok(tally)
+  if (tally.parlor !== undefined) return Err({ type: "off-book-at-parlor" })
+  if (isNegative(settlement.cash)) return Err({ type: "negative-amount", field: "outlay" })
+  return compare(settlement.cash, tally.outlay) > 0 ? Err({ type: "cash-beyond-outlay" }) : Ok(tally)
+}
+
 /** What every tally must say well enough to be written, however its result is kept. */
 const headChecks = <R extends TallyHead>(): readonly Check<R>[] => [
   checkMachine,
@@ -103,6 +112,7 @@ export const validateYenTally = (tally: YenTally): Result<YenTally, TallyError> 
       checkWritable<YenTally>("cabinet-number", (tally) => tally.cabinetNumber),
       checkNonNegative<YenTally>("outlay", (tally) => tally.outlay),
       checkNonNegative<YenTally>("takings", (tally) => tally.takings),
+      checkSettlement,
     ],
     tally,
   )

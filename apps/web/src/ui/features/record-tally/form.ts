@@ -2,14 +2,12 @@ import { parseIsoDate, type IsoDate } from "../../../core/calendar/calendar"
 import { bookNameOf, type MachineSummary } from "../../../core/catalog/catalog"
 import { tokenCommodity, type TokenKind } from "../../../core/commodity/commodity"
 import { ZERO, decimal, isZero, parseDecimal, toPlainString, type Decimal } from "../../../core/decimal/decimal"
-import type { PlayDraft } from "../../../core/live-play/draft"
-import { samePool, type Parlor, type SavingsPool } from "../../../core/parlor/parlor"
-import { exchangeRateOf, poolOf, savingsDeductedFor, tokensRentedFor, type PlayTerms } from "../../../core/parlor/terms"
+import type { Parlor, SavingsPool } from "../../../core/parlor/parlor"
+import { savingsDeductedFor, tokensRentedFor, type PlayTerms } from "../../../core/parlor/terms"
 import type { NumericField, TokenTally } from "../../../core/tally/tally"
 import type { PlayGameKind, PlayId } from "../../../core/play/play"
 import { Err, Ok, type Result } from "../../../core/result/result"
 import { tidyTyped } from "../../../core/text/tidy"
-import { theoreticalDecimalOf } from "../../../core/theoretical/theoretical"
 import { rateOn, rateReachingBack, type PricePoint } from "../../../core/valuation/valuation"
 import type { ComboboxOption } from "../../primitives/combobox"
 
@@ -70,21 +68,6 @@ export interface PlayedAt {
   /** Yen a token exchanges for on a day, where that is known. */
   readonly exchangeRateOn: (date: IsoDate) => Decimal | undefined
 }
-
-/**
- * A tally being recorded, on the terms of the corner its play was played
- * at. The parlor is said to have the pool those terms make, whatever it
- * had when the play began: the pool is opened in the book as the tally is
- * recorded.
- */
-export const playedOnTerms = (parlor: Parlor, terms: PlayTerms, gameKind: PlayGameKind): PlayedAt => ({
-  parlor: parlor.pools.some((pool) => samePool(pool, poolOf(gameKind, terms))) ? parlor : { ...parlor, pools: [...parlor.pools, poolOf(gameKind, terms)] },
-  gameKind,
-  pool: poolOf(gameKind, terms),
-  rental: terms.rental,
-  replay: terms.replay,
-  exchangeRateOn: () => exchangeRateOf(terms),
-})
 
 /** A count as a plain number, for the terms' arithmetic; a fraction is the core's to refuse, so it passes through. */
 const countOf = (value: Decimal): number => Number(value.mantissa) / 10 ** value.places
@@ -185,38 +168,6 @@ export const readTokenTallyForm = (form: TokenTallyForm, at: PlayedAt, id: PlayI
   })
 }
 
-/** What a play followed live comes to by its log, for recording it: yen spent, tokens drawn from savings, the tokens it was begun with in hand, the tokens in hand at its last line, its theoretical value and — a pachinko play's — the spin performance it measured, each where the log says. */
-export interface PlayedSoFar {
-  readonly outlay: number | undefined
-  readonly replay: number | undefined
-  readonly carriedIn: number | undefined
-  readonly held: number | undefined
-  readonly theoreticalValue: number | undefined
-  readonly spinPerformance: number | undefined
-}
-
-const filled = (count: number | undefined): string => (count === undefined || count === 0 ? "" : String(count))
-
-/**
- * The form filled in from a play followed live at a parlor, for recording it:
- * its outlay, what it drew from savings — the fee that took follows from the
- * corner's terms, as ever — the tokens it was begun with in hand, the tokens counted in hand at its last line as
- * what it leaves, and the theoretical value its formula comes to
- * at the spin performance measured, where there is one.
- */
-export const tokenTallyFormFromDraft = (draft: PlayDraft, played: PlayedSoFar): TokenTallyForm => ({
-  date: draft.date,
-  machine: draft.machine,
-  cabinetNumber: draft.cabinetNumber ?? "",
-  outlay: filled(played.outlay),
-  rentalTokens: "",
-  replayPaidOut: filled(played.replay),
-  replayDeducted: "",
-  carriedIn: filled(played.carriedIn),
-  payout: filled(played.held),
-  theoreticalValue: played.theoreticalValue === undefined ? "" : toPlainString(theoreticalDecimalOf(played.theoreticalValue)),
-})
-
 const countText = (count: Decimal): string => (isZero(count) ? "" : toPlainString(count))
 
 /** The form filled in from a recorded tally in tokens, for setting it right: every sum as its entry has it. */
@@ -248,6 +199,3 @@ export interface SubmitWords {
 export const RECORDING: SubmitWords = { idle: "記録する", busy: "記録中…" }
 
 export const REVISING: SubmitWords = { idle: "保存する", busy: "保存中…" }
-
-/** A play of the day whose tally the book already has, recorded again from its readings as they now are. */
-export const RECORDING_AGAIN: SubmitWords = { idle: "記帳し直す", busy: "記帳中…" }
