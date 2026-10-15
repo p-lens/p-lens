@@ -77,7 +77,7 @@ function ChooseFromList(props: { readonly place: Place; readonly title: string; 
 const mainFor = (place: Place, query: () => string): JSX.Element => {
   switch (place.kind) {
     case "live":
-      return <ChooseFromList place={place} title="稼働" hint="本日の稼働を選ぶか、新しく始めてください。" />
+      return <ChooseFromList place={place} title="ライブ計測" hint="本日の稼働を選ぶか、新しく始めてください。" />
     case "live-new":
       return <StartPlayView place={place} game={place.game} />
     case "live-play":

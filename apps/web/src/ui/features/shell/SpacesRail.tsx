@@ -91,7 +91,7 @@ export function SpacesRail(props: {
     onSelect: () => moves.go({ kind: "book", bookId: book.id }),
   })
   const groups = (): readonly (readonly RailItem[])[] => [
-    [{ id: "live", label: "稼働", icon: <LiveIcon />, selected: inLiveSpace(props.place), onSelect: () => moves.go({ kind: "live" }) }],
+    [{ id: "live", label: "ライブ計測", icon: <LiveIcon />, selected: inLiveSpace(props.place), onSelect: () => moves.go({ kind: "live" }) }],
     books().filter(ownedBy(app.services.member)).map(bookItem),
     books().filter((book) => !ownedBy(app.services.member)(book)).map(bookItem),
     destinations().map(destinationItem),

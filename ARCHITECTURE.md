@@ -2143,6 +2143,7 @@ is not written out here a second time.
 | 貸玉レート / 交換率（千円あたり） / 再プレイ手数料 | rental / exchange / replay, a corner's `PlayTerms` |
 | 4円・1円…（コーナーのレート） | tier; with the kind of token, a pool |
 | 稼働 | play (`PlayId`, `play-id`): what is played, followed live — the live space, its drafts and logs |
+| ライブ計測 | the live space by name on screen: the rail, its list of the day's plays and its empty pane |
 | 収支 | tally (`TokenTally`, `YenTally`): what a book keeps of a play, under its play's id — the list, its details and its forms |
 | 営業日 | business day: the day a play belongs to, turning over at the hour set, 05:00 by default (`businessDayOf`) |
 | 機種 / 台 / 台番号 | machine / cabinet / `cabinet-number` |
