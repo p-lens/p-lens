@@ -15,7 +15,7 @@ use pachislot_engine::at::{settled, walk};
 use pachislot_engine::error::SpecError;
 use pachislot_engine::normalize::normalize;
 use pachislot_engine::payout::{below, cap_figures, capped, headroom, mean};
-use support::{at_spec, close, id, medals, mode_spec, made_up_spec, setting_level};
+use support::{at_spec, close, id, made_up_spec, medals, mode_spec, setting_level};
 
 const LOSS: f64 = 50.0 / 40.0;
 
@@ -113,8 +113,8 @@ fn rules(cap: Option<f64>, window: Option<u32>, reset_on_cap: bool) -> AtRules {
         modes: vec![ModeRule {
             id: id("at"),
             ceiling: None,
+            at_ceiling: None,
         }],
-        at_ceiling: None,
         misses: None,
         net_per_game: None,
         cap: cap.and_then(Medals::new),
@@ -278,10 +278,12 @@ fn reaching_the_cap_starts_play_again_as_after_a_setting_change_where_the_machin
             ModeRule {
                 id: id("at"),
                 ceiling: NonZeroU32::new(1_000),
+                at_ceiling: None,
             },
             ModeRule {
                 id: id("at:reset"),
                 ceiling: NonZeroU32::new(100),
+                at_ceiling: None,
             },
         ],
         ..rules(Some(2_400.0), None, reset_on_cap)

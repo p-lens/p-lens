@@ -1,5 +1,6 @@
 import { findingsIn, givenIn, partsUnder, standingOf, stepsUnder, tallyOf, type Proof } from "../../../core/grounds/proof"
 import { atomOf, compoundOf, numberOf, type Term } from "../../../core/grounds/term"
+import type { GroundsNaming } from "../../../core/pachislot/grounds/naming"
 
 /** How a line of reasoned grounds is to be taken: said plainly, a check that held or failed, a figure taken unchecked, or something guessed to be out of the ordinary. */
 export type GroundsTone = "plain" | "holds" | "fails" | "unverified" | "odd"
@@ -133,13 +134,38 @@ const ceilingsIn = (step: Step): readonly (number | "none")[] => {
   return Array.isArray(listed) ? listed.map((ceiling: Term) => numberOf(ceiling) ?? "none") : []
 }
 
+/** The modes' AT間天井 a cycle step reasoned over, `none` where a mode has none. */
+const atCeilingsIn = (step: Step): readonly (number | "none")[] => {
+  const listed = stepUnder(step, "at_ceilings")?.claim.args[0]
+  return Array.isArray(listed) ? listed.map((ceiling: Term) => numberOf(ceiling) ?? "none") : []
+}
+
 /** The shares of the modes a cycle step reasoned over. */
 const sharesIn = (step: Step): readonly number[] => {
   const listed = stepsUnder(step).find((inner) => inner.rule.startsWith("shares_"))?.claim.args[1]
   return Array.isArray(listed) ? listed.map((share: Term) => known(numberOf(share))) : []
 }
 
-const ceilingText = (ceiling: number | "none"): string => (ceiling === "none" ? "天井なし" : games(ceiling))
+const ceilingText = (ceiling: number | "none"): string => (ceiling === "none" ? "なし" : games(ceiling))
+
+/** The trigger in a word: the CZ, or the AT a game wins directly. */
+const triggerWord = (naming: GroundsNaming): string => (naming.trigger === "cz" ? "CZ" : "AT")
+
+/** What play in a mode is called: a mode of the sheet's own by its label, else after an AT or after a setting change. */
+const modeName = (naming: GroundsNaming, index: number): string => {
+  const mode = naming.modes[index]
+  if (mode?.type === "own") return mode.label
+  return mode?.type === "after-reset" ? "設定変更後" : "AT後"
+}
+
+/** A ceiling under its mode's name, the name left off where it is the ceiling of play after an AT. */
+const ofMode = (naming: GroundsNaming, index: number, ceiling: string): string => (naming.modes[index]?.type === "after-at" ? ceiling : `${modeName(naming, index)}の${ceiling}`)
+
+/** A mode's trigger ceiling by name: the CZ天井, or the 天井 of an AT won directly. */
+const triggerCeilingName = (naming: GroundsNaming, index: number): string => ofMode(naming, index, naming.trigger === "cz" ? "CZ天井" : "天井")
+
+/** A mode's AT間天井 by name: set apart only where a setting change shortens it. */
+const atCeilingName = (naming: GroundsNaming, index: number): string => (naming.modes[index]?.type === "after-reset" ? "設定変更後のAT間天井" : "AT間天井")
 
 /** Figures joined by words, in the order given. */
 const joined = (figures: readonly string[], by: string): readonly (string | GroundsPart)[] => figures.flatMap((text, index) => (index === 0 ? [figure(text)] : [by, figure(text)]))
@@ -358,50 +384,60 @@ const tablePart = (step: Step): Said => {
 }
 
 /** A cycle's regular games: its triggers over the published 初当たり, one trigger where the AT is won directly. */
-const cycleFromFirstHit = (step: Step): Said => {
+const cycleFromFirstHit = (step: Step, naming: GroundsNaming): Said => {
   const won = stepsUnder(step).find((inner) => inner.rule.startsWith("won_"))
   const triggers = known(arg(won, 1))
   const odds = 1 / known(givenNumber(step, "first_hit", 1))
   const worked = shownAt(triggers, TIMES) * shownAt(odds, ODDS)
   const close = link(near(worked, known(arg(step, 1)), GAMES))
   return won?.rule === "won_directly"
-    ? plain("1周期の通常ゲーム数 ＝ トリガー ", figure(times(1)), " × 初当たり分母 ", figure(told(odds, ODDS)), close, figure(games(arg(step, 1))))
+    ? plain(`1周期の通常ゲーム数 ＝ ${triggerWord(naming)} `, figure(times(1)), " × 初当たり分母 ", figure(told(odds, ODDS)), close, figure(games(arg(step, 1))))
     : plain("1周期の通常ゲーム数 ＝ ATまでのCZ ", figure(times(triggers)), " × CZの初当たり分母 ", figure(told(odds, ODDS)), close, figure(games(arg(step, 1))))
 }
 
-/** A cycle played out game by game up to its AT間天井, with what it was played out from. */
-const cycleCut = (step: Step): Said => {
+/** A mode's ceilings as a cycle plays it out: its trigger's and its AT間天井, each by name. */
+const ceilingsOfMode = (naming: GroundsNaming, index: number, ceiling: number | "none", atCeiling: number | "none"): readonly (string | GroundsPart)[] => [
+  `${triggerCeilingName(naming, index)} `,
+  figure(ceilingText(ceiling)),
+  `・${atCeilingName(naming, index)} `,
+  figure(ceilingText(atCeiling)),
+]
+
+/** A cycle played out game by game up to the AT間天井 of the modes play enters, with what it was played out from. */
+const cycleCut = (step: Step, naming: GroundsNaming): Said => {
   const success = arg(stepUnder(step, "success_of_cz"), 1)
   const misses = arg(stepUnder(step, "within_misses"), 0)
   const trigger = [...(success === undefined ? [] : ["CZ成功率 ", figure(ratio(success))]), ...(misses === undefined ? [] : [success === undefined ? "" : "・", "スルー天井 ", figure(times(misses))])]
+  const [ceilings, atCeilings, shares] = [ceilingsIn(step), atCeilingsIn(step), sharesIn(step)]
+  const entered = shares.flatMap((share, index) => (share > 0 ? [{ index, share, ceiling: ceilings[index] ?? "none", atCeiling: atCeilings[index] ?? "none" }] : []))
+  const played =
+    entered.length === 1 && entered[0] !== undefined
+      ? ceilingsOfMode(naming, entered[0].index, entered[0].ceiling, entered[0].atCeiling)
+      : entered.flatMap((mode, place) => [place === 0 ? "" : "、", `${modeName(naming, mode.index)}（`, ...ceilingsOfMode(naming, mode.index, mode.ceiling, mode.atCeiling), "）を ", figure(rate(mode.share))])
   return plain(
-    "トリガー確率 ",
+    `天井を除いた${triggerWord(naming)}確率 `,
     figure(oneIn(givenNumber(step, "chance", 1))),
     ...(trigger.length === 0 ? [] : ["（", ...trigger, "）"]),
-    "、モード天井 ",
-    ...joined(ceilingsIn(step).map(ceilingText), "・"),
-    " を振り分け ",
-    ...joined(sharesIn(step).map(rate), "・"),
-    " で、AT間天井 ",
-    figure(games(givenNumber(step, "at_ceiling", 0))),
-    " まで1Gずつ追うと 1周期は通常 ",
+    "、",
+    ...played,
+    entered.length === 1 ? " まで1Gずつ追うと 1周期は通常 " : " の振り分けで1Gずつ追うと 1周期は通常 ",
     figure(games(arg(step, 1))),
-    "・トリガー ",
+    `・${triggerWord(naming)} `,
     figure(times(arg(step, 2))),
-    "（各ゲームでまだATに当たっていない確率を振り分けで重み付けして足し上げ）",
+    entered.length === 1 ? "（各ゲームでまだATに当たっていない確率を足し上げ）" : "（各ゲームでまだATに当たっていない確率を振り分けで重み付けして足し上げ）",
   )
 }
 
 /** A mode's games between triggers as worked: its share, where it shares with others, of the chance's denominator or what of it the ceiling leaves. */
-const betweenTerm = (mode: { readonly ceiling: number | "none"; readonly share: number }, odds: number): readonly (string | GroundsPart)[] => [
+const betweenTerm = (mode: { readonly ceiling: number | "none"; readonly share: number }, odds: number, naming: GroundsNaming): readonly (string | GroundsPart)[] => [
   ...(mode.share === 1 ? [] : [figure(ratio(mode.share)), mode.ceiling === "none" ? " × " : " ×"]),
   ...(mode.ceiling === "none"
-    ? [...(mode.share === 1 ? ["トリガー確率の分母 "] : []), figure(told(odds, ODDS))]
+    ? [...(mode.share === 1 ? [`天井を除いた${triggerWord(naming)}確率の分母 `] : []), figure(told(odds, ODDS))]
     : ["（1 −（1 − ", figure(`1/${told(odds, ODDS)}`), "）^", figure(String(mode.ceiling)), "）× ", figure(told(odds, ODDS))]),
 ]
 
 /** A cycle without an AT間天井: the games between triggers over the modes, ceilings included, then those times the triggers. */
-const cycleFree = (step: Step): readonly Said[] => {
+const cycleFree = (step: Step, naming: GroundsNaming): readonly Said[] => {
   const computed = step.premises.filter((premise) => premise.type === "computed").at(-1)
   const between = known(numberOf(compoundOf(computed?.type === "computed" ? computed.expression : undefined, "*", 2)?.args[1]))
   const odds = shownAt(1 / known(givenNumber(step, "chance", 1)), ODDS)
@@ -414,11 +450,11 @@ const cycleFree = (step: Step): readonly Said[] => {
   const summed = link(near(modes.reduce((sum, mode) => sum + mode.games, 0), between, GAMES))
   const perMode = modes.length === 1 ? [summed] : [" ＝ ", ...joined(modes.map((mode) => games(mode.games)), " ＋ "), summed]
   return [
-    plain("トリガー間 ＝ ", ...modes.flatMap((mode, index) => [index === 0 ? "" : " ＋ ", ...betweenTerm(mode, odds)]), ...perMode, figure(games(between))),
+    plain(`${triggerWord(naming)}間 ＝ `, ...modes.flatMap((mode, index) => [index === 0 ? "" : " ＋ ", ...betweenTerm(mode, odds, naming)]), ...perMode, figure(games(between))),
     plain(
-      "1周期の通常ゲーム数 ＝ トリガー間 ",
+      `1周期の通常ゲーム数 ＝ ${triggerWord(naming)}間 `,
       figure(games(between)),
-      " × トリガー ",
+      ` × ${triggerWord(naming)} `,
       figure(times(triggers)),
       link(near(shownAt(between, GAMES) * shownAt(triggers, TIMES), known(arg(step, 1)), GAMES)),
       figure(games(arg(step, 1))),
@@ -466,13 +502,13 @@ const wonWithinMisses = (step: Step): Said => {
 /** The CZ's success rate where a step reasons from it, as a ratio inside the working. */
 const successOf = (step: Step): number => known(givenNumber(step, "success", 1))
 
-const settledShare = (step: Step): Said => {
+const settledShare = (step: Step, naming: GroundsNaming): Said => {
   const allotted = givenIn(step, "allotted")
   const [after, reset] = [known(numberOf(allotted?.args[2])), known(numberOf(allotted?.args[3]))]
   const completion = known(arg(step, 1))
   const shown = shownAt(completion, RATIO)
   return plain(
-    `モード${numberOf(allotted?.args[1]) ?? "--"}の振り分け ＝（1 − 上限到達率 `,
+    `${modeName(naming, known(numberOf(allotted?.args[1])))}の振り分け ＝（1 − 上限到達率 `,
     figure(ratio(completion)),
     "）× AT後 ",
     figure(ratio(after)),
@@ -486,8 +522,8 @@ const settledShare = (step: Step): Said => {
 }
 
 /** A mode's ceiling in regular games: as the sheet gives it, counted on the screen and so reached sooner, or none. */
-const modeAt = (step: Step): Said => {
-  const label = `モード${arg(step, 0) ?? "--"}の天井`
+const modeAt = (step: Step, naming: GroundsNaming): Said => {
+  const label = triggerCeilingName(naming, known(arg(step, 0)))
   const inGames = stepsUnder(step).find((inner) => inner.rule === "ceiling_on_screen" || inner.rule === "ceiling_in_games" || inner.rule === "no_ceiling")
   if (inGames?.rule === "ceiling_on_screen") {
     const screen = known(arg(inGames, 0))
@@ -547,12 +583,12 @@ const rateLines = (step: Step): readonly Said[] => {
 }
 
 /** The 初当たり the engine's chance below the ceilings comes back to, from the cycle's triggers over its games, against the one published. */
-const chanceChecked = (step: Step): Said => {
+const chanceChecked = (step: Step, naming: GroundsNaming): Said => {
   const cycle = stepUnder(step, "cycle_cut", "cycle_free")
   const [cycleGames, triggers] = [known(arg(cycle, 1)), known(arg(cycle, 2))]
   const [mine, published] = [known(arg(step, 1)), known(arg(step, 2))]
   const extra = Array.from({ length: 7 }, (_, more) => more).find((more) => near(Number(trimmed(cycleGames, 1 + more)) / Number(trimmed(triggers, 3 + more)), 1 / mine, ODDS)) ?? 0
-  const division = ["トリガー ", figure(`${trimmed(triggers, 3 + extra)}回`), " ÷ 通常 ", figure(`${trimmed(cycleGames, 1 + extra)}G`), link(near(Number(trimmed(cycleGames, 1 + extra)) / Number(trimmed(triggers, 3 + extra)), 1 / mine, ODDS))]
+  const division = [`${triggerWord(naming)} `, figure(`${trimmed(triggers, 3 + extra)}回`), " ÷ 通常 ", figure(`${trimmed(cycleGames, 1 + extra)}G`), link(near(Number(trimmed(cycleGames, 1 + extra)) / Number(trimmed(triggers, 3 + extra)), 1 / mine, ODDS))]
   return checked(step, (holds) => {
     if (holds) {
       const digits = together(1 / mine, 1 / published, ODDS)
@@ -582,7 +618,7 @@ const sampleChecked = (step: Step): Said => {
 }
 
 /** What one step of the proof says, in the words of an analysis sheet; none for steps the line above already says. */
-const lineOf = (step: Step): Said | undefined => {
+const lineOf = (step: Step, naming: GroundsNaming): Said | undefined => {
   switch (step.rule) {
     case "grounds":
       return plain("この算出条件の数字は、設定ごとに次のように導かれます。")
@@ -601,7 +637,7 @@ const lineOf = (step: Step): Said | undefined => {
     case "completion_solved":
       return plain("上限到達率 ", figure(rate(arg(step, 1))), "（計算エンジンが有利区間の上限を入れて解いた値）")
     case "settled_share":
-      return settledShare(step)
+      return settledShare(step, naming)
     case "gain_fixed":
       return plain("ATの平均獲得枚数 ", figure(medals(arg(step, 1))), "（解析値のまま）")
     case "gain_in_sets":
@@ -611,13 +647,13 @@ const lineOf = (step: Step): Said | undefined => {
     case "table_part":
       return tablePart(step)
     case "cycle_from_first_hit":
-      return cycleFromFirstHit(step)
+      return cycleFromFirstHit(step, naming)
     case "cycle_to_at_ceiling":
-      return plain("1周期の通常ゲーム数 ", figure(games(arg(step, 1))), "（AT間天井 ", figure(games(givenNumber(step, "at_ceiling", 0))), " で打ち切られる周期）")
+      return plain("1周期の通常ゲーム数 ", figure(games(arg(step, 1))), "（AT間天井で打ち切られる周期）")
     case "cycle_cut":
-      return cycleCut(step)
+      return cycleCut(step, naming)
     case "mode_at":
-      return modeAt(step)
+      return modeAt(step, naming)
     case "won_by_success":
       return plain("ATまでのCZ ＝ 1 ÷ CZ成功率 ", figure(ratio(successOf(step))), link(near(1 / shownAt(successOf(step), RATIO), known(arg(step, 1)), TIMES)), figure(times(arg(step, 1))))
     case "won_within_misses":
@@ -638,7 +674,7 @@ const lineOf = (step: Step): Said | undefined => {
       )
     }
     case "check_chance":
-      return chanceChecked(step)
+      return chanceChecked(step, naming)
     case "check_stored":
       return compared(
         step,
@@ -680,10 +716,10 @@ const lineOf = (step: Step): Said | undefined => {
 }
 
 /** What one step of the proof says, a line to each step of its working; none for steps the line above already says. */
-const linesOf = (step: Step): readonly Said[] => {
+const linesOf = (step: Step, naming: GroundsNaming): readonly Said[] => {
   if (step.rule === "rate") return rateLines(step)
-  if (step.rule === "cycle_free") return cycleFree(step)
-  const line = lineOf(step)
+  if (step.rule === "cycle_free") return cycleFree(step, naming)
+  const line = lineOf(step, naming)
   return line === undefined ? [] : [line]
 }
 
@@ -707,11 +743,12 @@ const unprovedLine = (goal: Term): Said | undefined => {
  * was taken unchecked and what is guessed to be out of the ordinary. Each
  * line names its result, then the working with every known figure put in
  * its place, then the result; a figure put in is told apart from the
- * words. A setting level that could not be proved is said so in its place.
+ * words. The trigger and the modes are named as the formula names them.
+ * A setting level that could not be proved is said so in its place.
  * A conclusion reached twice is said once, where it is first used
  * outside a check.
  */
-export const groundsLines = (proof: Proof): readonly GroundsLine[] => {
+export const groundsLines = (proof: Proof, naming: GroundsNaming): readonly GroundsLine[] => {
   type Walked = { readonly lines: readonly GroundsLine[]; readonly said: ReadonlySet<string> }
   const plainly = new Set(plainKeys(proof))
   const walk = (part: Step | (Proof & { readonly type: "unproved" }), depth: number, saidAlready: ReadonlySet<string>, underCheck: boolean): Walked => {
@@ -721,7 +758,7 @@ export const groundsLines = (proof: Proof): readonly GroundsLine[] => {
     }
     const key = keyOf(part)
     if (saidAlready.has(key) || (underCheck && plainly.has(key))) return { lines: [], said: saidAlready }
-    const lines = linesOf(part).map((line) => ({ ...line, depth }))
+    const lines = linesOf(part, naming).map((line) => ({ ...line, depth }))
     const below = partsUnder(part).reduce<Walked>(
       (sofar, inner) => {
         const walked = walk(inner, lines.length === 0 ? depth : depth + 1, sofar.said, underCheck || isCheck(part))

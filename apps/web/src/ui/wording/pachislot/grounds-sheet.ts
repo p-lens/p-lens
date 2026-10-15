@@ -119,7 +119,7 @@ export const rateFromContributionsParts = (netPerGame: number, bet: number, payo
   )
 }
 
-/** The medals an outcome gains over the game it comes up on, net of the bet: none for a replay, the bet lost for a game that pays nothing, and none known for a bonus without its payout. */
+/** The medals an outcome gains over the game it comes up on, net of the bet: none for a replay, the bet lost for a game that pays nothing, and none known for a bonus or a small win without its payout. */
 export const outcomeGain = (id: string | undefined, events: readonly EventDto[], bet: number): number => {
   if (id === undefined) return -bet
   const kind = events.find((event) => event.id === id)?.kind
@@ -128,7 +128,6 @@ export const outcomeGain = (id: string | undefined, events: readonly EventDto[],
     case "replay":
       return 0
     case "role":
-      return kind.payout - bet
     case "bonus":
       return kind.payout === undefined ? Number.NaN : kind.payout - bet
   }

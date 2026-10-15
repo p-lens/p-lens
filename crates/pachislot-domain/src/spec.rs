@@ -330,13 +330,15 @@ pub struct Part {
     pub chance: PerSettingLevel<ProbabilitySource>,
 }
 
-/// A small win: ブドウ, チェリー, ベル. Pays medals on the game it comes up.
+/// A small win: ブドウ, チェリー, ベル. On a machine of bonuses it pays its
+/// medals on the game it comes up; on an AT machine it pays through the
+/// ベース, which counts every regular game's medals, and has none of its own.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Role {
     pub id: EntityId,
     pub label: String,
     pub chance: PerSettingLevel<ProbabilitySource>,
-    pub payout: Medals,
+    pub payout: Option<Medals>,
 }
 
 /// A replay: the next game costs nothing, which is counted as the bet paid

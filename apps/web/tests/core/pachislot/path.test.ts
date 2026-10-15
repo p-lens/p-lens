@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import type { NormalizedSpecDto } from "@p-lens/contracts/pachislot"
 
-import { atSeatCheckpoint, ceilingsOf, czMissedAt, hasCz, pathOf, resetMatters, standingOf, withLastTakenBack } from "../../../src/core/pachislot/path"
+import { atSeatCheckpoint, ceilingsOf, czMissedAt, hasCz, huntSeatsOf, inAt, pathOf, resetMatters, standingOf, withLastTakenBack } from "../../../src/core/pachislot/path"
 import { parsePlayLog, type Checkpoint } from "../../../src/core/play-log/checkpoint"
 
 const at = "2026-10-05T10:00:00.000Z"
@@ -79,7 +79,7 @@ describe("how far play is from each ceiling", () => {
     expect(resetMatters(direct)).toBe(true)
   })
 
-  test("a CZ machine: the CZ's ceiling, the AT間天井 and the スルー天井", () => {
+  test("a CZ machine stored before each mode held its AT間天井: the machine's one is every mode's", () => {
     expect(ceilingsOf({ sinceTrigger: 100, sinceAt: 700, misses: 2, afterReset: false }, cz)).toEqual({
       trigger: 500,
       at: 300,
@@ -88,6 +88,26 @@ describe("how far play is from each ceiling", () => {
     })
     expect(hasCz(cz)).toBe(true)
     expect(resetMatters(cz)).toBe(false)
+  })
+
+  test("a CZ machine whose setting change shortens the AT間天井: the shorter until the first AT, the usual after one", () => {
+    const shortened = machine(
+      {
+        base: 40,
+        at: "at",
+        trigger: "cz",
+        modes: [
+          { id: "cz", ceiling: 500, atCeiling: 980 },
+          { id: "cz:reset", ceiling: 500, atCeiling: 630 },
+        ],
+        misses: 7,
+      },
+      [1, 0],
+      [0, 1],
+    )
+    expect(ceilingsOf({ sinceTrigger: 50, sinceAt: 300, misses: 2, afterReset: true }, shortened)).toMatchObject({ trigger: 450, at: 330 })
+    expect(ceilingsOf({ sinceTrigger: 50, sinceAt: 300, misses: 2, afterReset: false }, shortened)).toMatchObject({ trigger: 450, at: 680 })
+    expect(resetMatters(shortened)).toBe(true)
   })
 
   test("a mode with no ceiling leaves the trigger's unknown", () => {
@@ -181,5 +201,40 @@ describe("taking the last AT won or CZ missed back", () => {
     expect(withLastTakenBack([seat, won], "cz-missed")).toEqual({ ok: false, error: { type: "none", taken: "cz-missed" } })
     expect(withLastTakenBack([seat, won, { spins: 200, at: AT, counter: { spins: 80 } }], "at")).toEqual({ ok: false, error: { type: "played-on", taken: "at" } })
     expect(withLastTakenBack([seat, missed, { spins: 200, at: AT, counter: { spins: 500 } }], "cz-missed")).toEqual({ ok: false, error: { type: "played-on", taken: "cz-missed" } })
+  })
+})
+
+describe("whether an AT machine's play is in an AT", () => {
+  test("it is from the line an AT was won on until a reading of the games after it, how it went said or not", () => {
+    const won: Checkpoint = { spins: 120, at, counter: { spins: 420 }, event: { kind: "jackpot" } }
+    expect(inAt(log(seat(300)))).toBe(false)
+    expect(inAt(log(seat(300), won))).toBe(true)
+    expect(inAt(log(seat(300), won, { spins: 120, at, event: { kind: "at-ended", completed: true } }))).toBe(true)
+    expect(inAt(log(seat(300), won, { spins: 150, at, counter: { spins: 30 } }))).toBe(false)
+  })
+})
+
+describe("the seats 天井狙い is tabled at", () => {
+  test("run by the games since the last AT short of the deepest ceiling, a CZ's own where none was missed", () => {
+    const shortened = machine(
+      {
+        base: 40,
+        at: "at",
+        trigger: "cz",
+        modes: [
+          { id: "cz", ceiling: 500, atCeiling: 980 },
+          { id: "cz:reset", ceiling: 500, atCeiling: 630 },
+        ],
+        misses: 7,
+      },
+      [1, 0],
+      [0, 1],
+    )
+    expect(huntSeatsOf(shortened, false, 0).map((seat) => seat.sinceAt)).toEqual([0, 50, 100, 150, 200, 250, 300, 350, 400, 450])
+    expect(huntSeatsOf(shortened, false, 2).map((seat) => seat.sinceAt)).toEqual([0, 100, 200, 300, 400, 500, 600, 700, 800, 900])
+    expect(huntSeatsOf(shortened, true, 2).map((seat) => seat.sinceAt)).toEqual([0, 100, 200, 300, 400, 500, 600])
+    expect(huntSeatsOf(shortened, false, 2)[3]).toEqual({ sinceTrigger: 0, sinceAt: 300, misses: 2, afterReset: false })
+    expect(huntSeatsOf(shortened, false, 0)[3]).toEqual({ sinceTrigger: 150, sinceAt: 150, misses: 0, afterReset: false })
+    expect(huntSeatsOf(direct, false, 0).map((seat) => seat.sinceAt)).toEqual([0, 100, 200, 300, 400, 500, 600, 700, 800, 900])
   })
 })

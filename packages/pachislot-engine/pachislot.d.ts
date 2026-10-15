@@ -5,5 +5,6 @@ export function normalize(request: string): string
 export function analyze(request: string): string
 export function posterior(request: string): string
 export function theoreticalValue(request: string): string
+export function hunt(request: string): string
 export function simulateChunk(request: string): string
 export function estimateChunk(request: string): string

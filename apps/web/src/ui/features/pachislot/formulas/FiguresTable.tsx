@@ -1,13 +1,14 @@
 import { Index, Show, type JSX } from "solid-js"
 
-import type { SettingLevelFigures } from "../../../../core/pachislot/figures"
+import { combinedTellsMore, type SettingLevelFigures } from "../../../../core/pachislot/figures"
 import type { Sampling } from "../../../../core/pachislot/formula"
 import { formatCount } from "../../../wording/numbers"
 import { oddsText, payoutRateText, shareText } from "../../../wording/pachislot/formula"
 
-/** Each setting level's figures as a table: its 機械割, each bonus's odds, and their 合算. */
+/** Each setting level's figures as a table: its 機械割, each bonus's odds, and their 合算 where it says more than they do. */
 export function FiguresTable(props: { readonly figures: readonly SettingLevelFigures[]; readonly sampling: Sampling | undefined }): JSX.Element {
   const bonuses = (): readonly { readonly id: string; readonly label: string }[] => props.figures[0]?.bonuses ?? []
+  const combined = (): boolean => props.figures.some(combinedTellsMore)
   const gains = (): boolean => props.figures.some((figures) => figures.at !== undefined)
   const completes = (): boolean => props.figures.some((figures) => (figures.at?.completion ?? 0) > 0)
   const margin = (level: number): number | undefined => props.sampling?.margins.find((each) => each.settingLevel === level)?.payoutRateMargin
@@ -19,7 +20,9 @@ export function FiguresTable(props: { readonly figures: readonly SettingLevelFig
             <th class="px-2 py-2 text-left font-normal">設定</th>
             <th class="px-2 py-2 text-right font-normal">機械割</th>
             <Index each={bonuses()}>{(bonus) => <th class="px-2 py-2 text-right font-normal">{bonus().label}</th>}</Index>
-            <th class="px-2 py-2 text-right font-normal">合算</th>
+            <Show when={combined()}>
+              <th class="px-2 py-2 text-right font-normal">合算</th>
+            </Show>
             <Show when={gains()}>
               <th class="px-2 py-2 text-right font-normal">平均獲得</th>
             </Show>
@@ -40,7 +43,9 @@ export function FiguresTable(props: { readonly figures: readonly SettingLevelFig
                   </Show>
                 </td>
                 <Index each={figures().bonuses}>{(bonus) => <td class="px-2 py-2 text-right text-text-primary">{oddsText(bonus().oneIn)}</td>}</Index>
-                <td class="px-2 py-2 text-right text-text-primary">{oddsText(figures().combinedOneIn)}</td>
+                <Show when={combined()}>
+                  <td class="px-2 py-2 text-right text-text-primary">{oddsText(figures().combinedOneIn)}</td>
+                </Show>
                 <Show when={gains()}>
                   <td class="px-2 py-2 text-right text-text-primary">{figures().at === undefined ? "--" : `${formatCount(Math.round(figures().at?.gain ?? 0))}枚`}</td>
                 </Show>

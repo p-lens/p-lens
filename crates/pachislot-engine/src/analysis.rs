@@ -120,8 +120,10 @@ fn at_figures(rules: &AtRules, table: &AtTable) -> (Vec<BonusFigure>, AtFigure) 
 /// What one outcome gains over the game it comes up on, net of the bet.
 fn gain(kind: EventKind, bet: f64, at: &EntityId) -> Result<f64, AnalysisError> {
     match kind {
-        EventKind::Bonus(Some(payout)) | EventKind::Role(payout) => Ok(payout.get() - bet),
-        EventKind::Bonus(None) => Err(AnalysisError::MissingPayout { at: at.clone() }),
+        EventKind::Bonus(Some(payout)) | EventKind::Role(Some(payout)) => Ok(payout.get() - bet),
+        EventKind::Bonus(None) | EventKind::Role(None) => {
+            Err(AnalysisError::MissingPayout { at: at.clone() })
+        }
         EventKind::Replay => Ok(0.0),
     }
 }

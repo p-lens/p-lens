@@ -5,7 +5,7 @@ import expected from "@p-lens/contracts/fixtures/pachislot/made-up/expected.json
 import normalized from "@p-lens/contracts/fixtures/pachislot/made-up/normalized.json"
 import spec from "@p-lens/contracts/fixtures/pachislot/made-up/spec.json"
 
-import { figuresFromAnalysis } from "../../../src/core/pachislot/figures"
+import { combinedTellsMore, figuresFromAnalysis } from "../../../src/core/pachislot/figures"
 import { readSettingLevels } from "../../../src/core/pachislot/setting-level-reading"
 
 const analysis = { engineVersion: 1, schemaVersion: 1, normalized, settingLevels: expected.settingLevels.map((each) => ({ ...each, derivation: [] })) } as AnalysisDto
@@ -19,6 +19,15 @@ describe("a pachislot formula's figures", () => {
       { id: "reg", label: "REG", oneIn: 400 },
     ])
     expect(high?.combinedOneIn).toBeCloseTo(1 / 0.009, 9)
+  })
+
+  test("tell more by their 合算 only on a machine of several bonuses: an AT machine's is its AT's odds, a lone bonus's its own", () => {
+    const level = { settingLevel: 1, payoutRate: 1, combinedOneIn: 300 }
+    const big = { id: "big", label: "BIG", oneIn: 500 }
+    const reg = { id: "reg", label: "REG", oneIn: 750 }
+    expect(combinedTellsMore({ ...level, bonuses: [big, reg] })).toBe(true)
+    expect(combinedTellsMore({ ...level, bonuses: [big] })).toBe(false)
+    expect(combinedTellsMore({ ...level, bonuses: [{ id: "cz", label: "CZ", oneIn: 150 }, { id: "at", label: "AT", oneIn: 300 }], at: { gain: 450, completion: 0 } })).toBe(false)
   })
 })
 

@@ -146,7 +146,8 @@ function RowEditor(props: {
   const bonuses = (): readonly SelectOption[] =>
     props.form.rows.filter((row) => row.kind === "bonus").map((row, index) => ({ value: row.key, label: bonusTitle(row.label, index + 1) }))
   const split = (): boolean => props.row.kind === "bonus" && props.form.rows.some((row) => row.kind === "part" && row.partOf === props.row.key)
-  const paid = (): boolean => props.row.kind === "bonus" || props.row.kind === "role" || props.row.kind === "at"
+  /** Whether the row is asked its medals: a bonus and an AT; a small win where its medals are its own, never on a sheet typed in by hand, whose small wins are counted on an AT machine and pay through its ベース. */
+  const paid = (): boolean => props.row.kind === "bonus" || props.row.kind === "at" || (props.row.kind === "role" && !props.manual)
   const brought = (): boolean => props.row.kind === "at" && hasCz(props.form)
   const fixed = (): boolean => props.row.kind === "at" || props.row.kind === "cz"
   const name = (fallback: string): string => (props.row.label.trim() === "" ? fallback : props.row.label)
@@ -211,6 +212,18 @@ function RowEditor(props: {
               inputMode="numeric"
               suffix="G"
               placeholder="なし"
+            />
+          </div>
+        </Show>
+        <Show when={brought() && !hasModes(props.form)}>
+          <div class="w-40">
+            <TextField
+              label="リセット後のAT間天井"
+              value={props.row.resetCeiling}
+              onChange={(resetCeiling) => props.onChange({ ...props.row, resetCeiling })}
+              inputMode="numeric"
+              suffix="G"
+              placeholder="同じ"
             />
           </div>
         </Show>
@@ -579,13 +592,18 @@ export function ManualEditor(props: { readonly form: ManualForm; readonly onChan
       </Show>
       <Show when={isAtMachine(world())}>
         <p class="text-xs text-text-muted">
-          天井の液晶ゲーム数がスイカなどで加算される機種は、液晶のゲーム数÷実ゲーム数の平均（例: 1.6倍）を入れると、天井を実ゲーム数に直して計算します。モードを足すと、天井はモードごとに入れます。
+          天井の液晶ゲーム数がスイカなどで加算される機種は、液晶のゲーム数÷実ゲーム数の平均（例: 1.6倍）を入れると、天井を実ゲーム数に直して計算します。モードを足すと、天井はモードごとに入れます。小役は、通常時に数える設定差のあるもの（共通ベルなど）を設定ごとの確率で入れます。払い出しはベースに含まれるので枚数は入れず、CZやATに直結する小役（強チェリーなど）は入れないでください。
         </p>
       </Show>
       <div class="flex flex-wrap gap-2">
         <Show when={isAtMachine(world()) && !hasCz(world())}>
           <Button variant="secondary" size="small" onClick={() => setWorld(withCz(world()))}>
             CZを追加
+          </Button>
+        </Show>
+        <Show when={isAtMachine(world())}>
+          <Button variant="secondary" size="small" onClick={() => setWorld({ ...world(), rows: [...world().rows, newRow(world().rows, "role")] })}>
+            小役を追加
           </Button>
         </Show>
         <Button

@@ -7,6 +7,7 @@ pub mod analysis;
 pub mod at;
 mod at_machine;
 pub mod error;
+pub mod hunt;
 pub mod normalize;
 pub mod payout;
 pub mod posterior;

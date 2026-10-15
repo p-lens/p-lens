@@ -52,12 +52,14 @@ pub fn models(spec: &NormalizedSpec, analysis: &Analysis) -> Result<Vec<GameMode
                 .iter()
                 .map(|event| {
                     let gain = match event.kind {
-                        EventKind::Bonus(Some(payout)) | EventKind::Role(payout) => {
+                        EventKind::Bonus(Some(payout)) | EventKind::Role(Some(payout)) => {
                             Ok(payout.get() - bet)
                         }
-                        EventKind::Bonus(None) => Err(AnalysisError::MissingPayout {
-                            at: event.id.clone(),
-                        }),
+                        EventKind::Bonus(None) | EventKind::Role(None) => {
+                            Err(AnalysisError::MissingPayout {
+                                at: event.id.clone(),
+                            })
+                        }
                         EventKind::Replay => Ok(0.0),
                     }?;
                     Ok((event.chance.value(), gain))

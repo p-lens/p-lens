@@ -1,8 +1,9 @@
-import type { AnalysisDto, ComponentsDto, ProbabilityDto, SettingLevelFiguresDto, SpecDto } from "@p-lens/contracts/pachislot"
+import type { AnalysisDto, AtRulesDto, ComponentsDto, ProbabilityDto, SettingLevelFiguresDto, SpecDto } from "@p-lens/contracts/pachislot"
 
 import { prologNumber } from "../../grounds/term"
 import type { SettingLevelFigures } from "../figures"
 import type { Basis } from "../formula"
+import { atCeilingOf } from "../path"
 
 const given = (fact: string): string => `given(${fact}).`
 
@@ -65,16 +66,23 @@ const levelFacts = (figures: SettingLevelFiguresDto, spec: SpecDto, at: string, 
 
 /**
  * The modes play is in between ATs, as the sheet gives them and in the
- * engine's order: each one's ceiling, as the sheet counts it, and under
- * each setting level how often play enters it after an AT and after a
- * setting change. A machine without modes has its trigger's ceiling as its
- * one mode, and its ceiling after a setting change as a second that only a
- * setting change enters.
+ * engine's order: each one's ceiling, as the sheet counts it, and its
+ * AT間天井 in regular games, and under each setting level how often play
+ * enters it after an AT and after a setting change. A machine without
+ * modes has its trigger's ceiling as its one mode, and its ceilings after a
+ * setting change — the trigger's where a setting change leaves it be — as
+ * a second that only a setting change enters.
  */
-const modeFacts = (spec: SpecDto, modes: readonly string[], trigger: string, levels: readonly number[]): readonly string[] => {
+const modeFacts = (spec: SpecDto, rules: AtRulesDto, levels: readonly number[]): readonly string[] => {
   const own = spec.components.mode ?? []
+  const modes = rules.modes.map((mode) => mode.id)
+  const trigger = rules.trigger ?? rules.at
   const ceilingOf = (mode: string, index: number): number | undefined =>
-    own.includes(mode) ? spec.components.ceiling?.[mode] : index === 0 ? spec.components.ceiling?.[trigger] : spec.components.resetCeiling?.[trigger]
+    own.includes(mode)
+      ? spec.components.ceiling?.[mode]
+      : index === 0
+        ? spec.components.ceiling?.[trigger]
+        : (spec.components.resetCeiling?.[trigger] ?? spec.components.ceiling?.[trigger])
   const share = (allotment: ComponentsDto["allotment"], mode: string, level: number): number | undefined => {
     const points = under(allotment?.[mode], level)
     return points === undefined ? undefined : points / 10_000
@@ -84,9 +92,9 @@ const modeFacts = (spec: SpecDto, modes: readonly string[], trigger: string, lev
     const afterAt = share(spec.components.allotment, mode, level) ?? 0
     return [afterAt, share(spec.components.resetAllotment, mode, level) ?? afterAt]
   }
-  return modes.flatMap((mode, index) => [
-    given(`mode(${index}, ${ceilingOf(mode, index) ?? "none"})`),
-    ...levels.map((level) => given(`allotted(${level}, ${index}, ${allotted(mode, index, level).map(prologNumber).join(", ")})`)),
+  return rules.modes.flatMap((mode, index) => [
+    given(`mode(${index}, ${ceilingOf(mode.id, index) ?? "none"}, ${atCeilingOf(rules, mode) ?? "none"})`),
+    ...levels.map((level) => given(`allotted(${level}, ${index}, ${allotted(mode.id, index, level).map(prologNumber).join(", ")})`)),
   ])
 }
 
@@ -118,7 +126,7 @@ const storedFact = (stored: SettingLevelFigures, margin: SampledMargin | undefin
 
 /**
  * What the sheet says of the machine whatever the setting level: whether a
- * CZ brings its AT, with the CZ's スルー天井 and the AT間天井; the
+ * CZ brings its AT, with the CZ's スルー天井; the
  * 有利区間's cap, the games it carries on after an AT short of it, and
  * whether play starts again as after a setting change once an AT reaches
  * it; and the screen's games a regular game comes to, where ceilings are
@@ -126,12 +134,10 @@ const storedFact = (stored: SettingLevelFigures, margin: SampledMargin | undefin
  */
 const machineFacts = (spec: SpecDto, at: string, trigger: string | undefined): readonly string[] => {
   const misses = trigger === undefined ? undefined : spec.components.misses?.[trigger]
-  const atCeiling = trigger === undefined ? undefined : spec.components.ceiling?.[at]
   const window = spec.components.window?.[at]
   return [
     ...(trigger === undefined ? [] : [given("cz")]),
     ...(misses === undefined ? [] : [given(`misses(${misses})`)]),
-    ...(atCeiling === undefined ? [] : [given(`at_ceiling(${atCeiling})`)]),
     ...(spec.resources.cap === undefined ? [] : [given(`cap(${prologNumber(spec.resources.cap)})`)]),
     ...(window === undefined ? [] : [given(`window(${window})`)]),
     ...(spec.components.resetOnCap?.includes(at) === true ? [given("reset_on_cap")] : []),
@@ -156,7 +162,7 @@ export const groundsFacts = (basis: Basis, analysis: AnalysisDto, figures: reado
     given(`base(${prologNumber(rules.base)})`),
     ...netFacts(basis.spec, rules.at, rules.netPerGame),
     ...machineFacts(basis.spec, rules.at, rules.trigger),
-    ...modeFacts(basis.spec, rules.modes.map((mode) => mode.id), rules.trigger ?? rules.at, analysis.settingLevels.map((solved) => solved.settingLevel)),
+    ...modeFacts(basis.spec, rules, analysis.settingLevels.map((solved) => solved.settingLevel)),
     ...analysis.settingLevels.flatMap((solved) => levelFacts(solved, basis.spec, rules.at, rules.trigger, basis.normalized.tables.find((table) => table.settingLevel === solved.settingLevel)?.at?.chance)),
     ...figures.map((stored) => storedFact(stored, margins?.find((margin) => margin.settingLevel === stored.settingLevel))),
   ].join("\n")

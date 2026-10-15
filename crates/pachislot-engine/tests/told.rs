@@ -2,12 +2,14 @@
 
 mod support;
 
+use std::num::NonZeroU32;
+
 use pachislot_domain::normalized::{AtTable, NormalizedSpec};
 use pachislot_domain::observation::{ToldLeg, ToldPath};
 use pachislot_engine::at::told_log_likelihood;
 use pachislot_engine::normalize::normalize;
 use pachislot_engine::posterior::posterior_told;
-use support::{at_spec, cz_spec, setting_level};
+use support::{at_spec, cz_spec, id, setting_level};
 
 fn spec_of(cz: bool) -> NormalizedSpec {
     normalize(&if cz { cz_spec() } else { at_spec() }).expect("normalises")
@@ -127,4 +129,29 @@ fn a_cabinet_sat_down_at_is_read_given_its_at_had_not_come() {
     let whole = told(0, 500, true);
     let before = told(0, 200, false);
     assert!((told(200, 300, true) - whole / before).abs() < 1e-12);
+}
+
+#[test]
+fn a_history_after_a_setting_change_is_read_to_its_shorter_at_ceiling_until_the_first_at() {
+    let mut shortened = cz_spec();
+    shortened
+        .components
+        .ceiling
+        .insert(id("at"), NonZeroU32::new(1_000).expect("a ceiling"));
+    shortened
+        .components
+        .reset_ceiling
+        .insert(id("at"), NonZeroU32::new(500).expect("a ceiling"));
+    let spec = normalize(&shortened).expect("normalises");
+    assert_eq!(likelihood(&spec, 1, true, vec![leg(600, true, None)]), 0.0);
+    assert!(likelihood(&spec, 1, false, vec![leg(600, true, None)]) > 0.0);
+    assert!(likelihood(&spec, 1, true, vec![leg(500, true, None)]) > 0.0);
+    assert!(
+        likelihood(
+            &spec,
+            1,
+            true,
+            vec![leg(400, true, None), leg(600, true, None)]
+        ) > 0.0
+    );
 }

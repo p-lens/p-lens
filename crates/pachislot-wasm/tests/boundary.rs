@@ -6,7 +6,7 @@
 #![allow(clippy::expect_used, clippy::indexing_slicing)]
 
 use pachislot_wasm::api::{
-    analyze, estimate_chunk, normalize, posterior, simulate_chunk, theoretical_value,
+    analyze, estimate_chunk, hunt, normalize, posterior, simulate_chunk, theoretical_value,
 };
 use pachislot_wasm::dto::NormalizedSpecDto;
 use serde_json::{Value, json};
@@ -347,8 +347,11 @@ fn a_cz_machine_is_read_with_its_trigger_its_ceilings_and_its_at_worked_out() {
         normalized["atRules"],
         json!({
             "base": 40.0, "at": "at", "trigger": "cz",
-            "modes": [{ "id": "cz", "ceiling": 600 }, { "id": "cz:reset", "ceiling": 300 }],
-            "atCeiling": 1000, "misses": 3
+            "modes": [
+                { "id": "cz", "ceiling": 600, "atCeiling": 1000 },
+                { "id": "cz:reset", "ceiling": 300, "atCeiling": 1000 }
+            ],
+            "misses": 3
         })
     );
     assert!(close(
@@ -436,5 +439,93 @@ fn a_capped_machine_is_read_with_its_sets_its_window_and_what_an_at_comes_to() {
             .to_string(),
         )),
         json!({ "type": "needs-cap", "entity": "at", "component": "window" })
+    );
+}
+
+#[test]
+fn a_cz_machine_stored_in_shape_two_has_its_one_at_ceiling_read_into_every_mode() {
+    let normalized = ok(&normalize(&json!({ "spec": value(CZ_SPEC) }).to_string()));
+    let mut stored = normalized.clone();
+    stored["schemaVersion"] = json!(2);
+    stored["atRules"]["atCeiling"] = json!(1000);
+    for mode in stored["atRules"]["modes"].as_array_mut().expect("modes") {
+        mode.as_object_mut().expect("a mode").remove("atCeiling");
+    }
+    let solved = |normalized: &Value| {
+        ok(&analyze(
+            &json!({ "source": { "type": "normalized", "normalized": normalized }, "conditions": measured() })
+                .to_string(),
+        ))["settingLevels"]
+            .clone()
+    };
+    assert_eq!(solved(&stored), solved(&normalized));
+    let mut mixed = stored.clone();
+    mixed["atRules"]["modes"][0]["atCeiling"] = json!(1000);
+    assert_eq!(
+        error(&analyze(
+            &json!({ "source": { "type": "normalized", "normalized": mixed }, "conditions": measured() })
+                .to_string(),
+        )),
+        json!({ "type": "invalid-value", "field": "normalized.atRules.modes[0].atCeiling" })
+    );
+}
+
+#[test]
+fn an_at_machine_s_small_win_is_counted_with_no_payout_of_its_own() {
+    let mut spec = value(CZ_SPEC);
+    spec["entities"]
+        .as_array_mut()
+        .expect("entities")
+        .push(json!("bell"));
+    spec["components"]["chance"]["bell"] = json!([
+        { "settingLevel": 1, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 730 } },
+        { "settingLevel": 6, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 690 } }
+    ]);
+    let normalized = ok(&normalize(&json!({ "spec": spec }).to_string()));
+    assert_eq!(
+        normalized["tables"][0]["events"][0]["kind"],
+        json!({ "type": "role" })
+    );
+    let solved = |source: Value| {
+        ok(&analyze(
+            &json!({ "source": source, "conditions": measured() }).to_string(),
+        ))["settingLevels"]
+            .clone()
+    };
+    assert_eq!(
+        solved(json!({ "type": "normalized", "normalized": normalized })),
+        solved(json!({ "type": "spec", "spec": value(CZ_SPEC) }))
+    );
+    spec["components"]["payout"]["bell"] = json!(8.0);
+    assert_eq!(
+        error(&normalize(&json!({ "spec": spec }).to_string())),
+        json!({ "type": "payout-beside-at", "entity": "bell" })
+    );
+}
+
+#[test]
+fn a_seat_at_an_at_machine_is_hunted_from_each_given_and_a_machine_of_bonuses_has_none() {
+    let weights = json!([{ "settingLevel": 1, "probability": 0.5 }, { "settingLevel": 6, "probability": 0.5 }]);
+    let play = json!({ "medalValue": 20, "rentalPrice": 25, "cashShare": 1 });
+    let seat = |since_at: u32| json!({ "sinceTrigger": 0, "sinceAt": since_at, "misses": 0, "afterReset": false });
+    let found = ok(&hunt(
+        &json!({ "source": { "type": "spec", "spec": value(CZ_SPEC) }, "weights": weights, "play": play, "seats": [seat(0), seat(900)] })
+            .to_string(),
+    ));
+    let rows = found.as_array().expect("a row a seat");
+    assert_eq!(rows.len(), 2);
+    let read = |row: &Value, key: &str| row[key].as_f64().expect("a figure");
+    assert!(read(&rows[1], "games") < read(&rows[0], "games"));
+    assert!(read(&rows[1], "byCeiling") > read(&rows[0], "byCeiling"));
+    assert!(close(
+        &json!(read(&rows[0], "yen")),
+        &json!(read(&rows[0], "medals") * 20.0 - read(&rows[0], "games") * 3.0 * 5.0)
+    ));
+    assert_eq!(
+        error(&hunt(
+            &json!({ "source": source(), "weights": weights, "play": play, "seats": [seat(0)] })
+                .to_string()
+        )),
+        json!({ "type": "path-without-at" })
     );
 }

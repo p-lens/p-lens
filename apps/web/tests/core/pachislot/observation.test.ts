@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { segmentsOf } from "../../../src/core/pachislot/observation"
+import { countedSegmentsOf, segmentsOf } from "../../../src/core/pachislot/observation"
 import { parsePlayLog, type Checkpoint } from "../../../src/core/play-log/checkpoint"
 
 const shownAs = (id: string): string | undefined => (id.startsWith("reg") ? "reg" : id === "big" ? "big" : undefined)
@@ -84,6 +84,16 @@ describe("reading a pachislot log as what was seen", () => {
       shownAs,
     )
     expect(seen).toEqual({ ok: false, error: { type: "counter-below-counting", id: "big" } })
+  })
+})
+
+describe("an AT machine's log as what was counted", () => {
+  test("is the regular games since counting began with what was counted in them, and nothing before", () => {
+    const seat: Checkpoint = { spins: 0, outlay: 0, counter: { spins: 300 } }
+    expect(countedSegmentsOf(log(seat))).toEqual([])
+    expect(countedSegmentsOf(log(seat, { spins: 40, tally: {} }))).toEqual([])
+    const counted = log(seat, { spins: 40, tally: {} }, { spins: 40, tally: { bell: 1 } }, { spins: 160, counter: { spins: 460 } }, { spins: 160, tally: { bell: 18 } })
+    expect(countedSegmentsOf(counted)).toEqual([{ games: 120, counts: [{ id: "bell", count: 18 }] }])
   })
 })
 

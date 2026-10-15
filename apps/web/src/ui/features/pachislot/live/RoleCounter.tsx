@@ -11,6 +11,7 @@ function CountTile(props: {
   readonly count: number
   readonly games: number
   readonly shortcut: number | undefined
+  readonly held: boolean
   readonly onCount: (id: string, by: 1 | -1) => void
 }): JSX.Element {
   const press = createLongPress(() => props.onCount(props.countable.id, -1))
@@ -18,6 +19,7 @@ function CountTile(props: {
     <button
       type="button"
       class="flex min-h-24 select-none flex-col items-center justify-center gap-1 rounded-lg border border-border bg-surface-2 px-2 py-3 transition-colors hover:bg-surface-3 active:bg-surface-0"
+      classList={{ "opacity-40": props.held }}
       style={{ "-webkit-touch-callout": "none" }}
       onPointerDown={press.onPointerDown}
       onPointerMove={press.onPointerMove}
@@ -43,12 +45,15 @@ function CountTile(props: {
  * Tiles to count small wins and bonuses with, four to a row, each showing its count and how
  * often it has come up in the games counted. A tap adds one, and a long
  * press takes one back; on a keyboard, the digits press the first nine
- * tiles. Rows are an `<Index>`, so a count changing never remounts a tile.
+ * tiles. Held, while what comes up is no regular game's, they are shown
+ * faint; what a press then does is the counting's to say. Rows are an
+ * `<Index>`, so a count changing never remounts a tile.
  */
 export function RoleCounter(props: {
   readonly countables: readonly Countable[]
   readonly counts: Counts
   readonly games: number
+  readonly held: boolean
   readonly onCount: (id: string, by: 1 | -1) => void
 }): JSX.Element {
   const pressed = (event: KeyboardEvent): void => {
@@ -69,6 +74,7 @@ export function RoleCounter(props: {
             count={props.counts[countable().id] ?? 0}
             games={props.games}
             shortcut={index < 9 ? index + 1 : undefined}
+            held={props.held}
             onCount={props.onCount}
           />
         )}

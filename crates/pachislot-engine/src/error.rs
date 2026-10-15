@@ -109,9 +109,15 @@ pub enum SpecError {
     FirstHitBesideCz {
         entity: EntityId,
     },
-    /// An AT given a ceiling after a setting change though a CZ brings it:
-    /// a setting change shortens the CZ's ceiling, or the modes'.
-    ResetCeilingBesideCz {
+    /// A small win on an AT machine given medals of its own: the ベース
+    /// counts every regular game's medals, so they would be counted twice.
+    PayoutBesideAt {
+        entity: EntityId,
+    },
+    /// An AT a CZ brings given an AT間天井 after a setting change on a
+    /// machine of modes: a setting change allots the same modes an AT does,
+    /// so there is no mode of its own to hold the shorter ceiling.
+    ResetCeilingBesideModes {
         entity: EntityId,
     },
     /// A set of an AT paid in sets that pays nothing.

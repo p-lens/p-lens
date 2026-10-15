@@ -23,6 +23,13 @@ export interface SettingLevelFigures {
   readonly at?: { readonly gain: number; readonly completion: number }
 }
 
+/**
+ * Whether a setting level's 合算 says more than its bonuses one by one: on a
+ * machine of bonuses that has several. An AT machine's 合算 is its AT's own
+ * odds, its CZ's being no win, and one bonus's is that bonus's.
+ */
+export const combinedTellsMore = (figures: SettingLevelFigures): boolean => figures.at === undefined && figures.bonuses.length > 1
+
 /** A bonus's label from the spec, or its id when the spec gives none. */
 const labelOf = (spec: SpecDto, id: string): string => spec.components.label?.[id] || id
 

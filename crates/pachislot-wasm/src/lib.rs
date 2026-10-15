@@ -28,6 +28,11 @@ pub fn theoretical_value(request: &str) -> String {
     api::theoretical_value(request)
 }
 
+#[wasm_bindgen]
+pub fn hunt(request: &str) -> String {
+    api::hunt(request)
+}
+
 #[wasm_bindgen(js_name = simulateChunk)]
 pub fn simulate_chunk(request: &str) -> String {
     api::simulate_chunk(request)

@@ -45,7 +45,7 @@ export const sharesText = (shares: readonly SettingLevelShare[]): string =>
     .join("・")
 
 /** Figures nothing is known of yet, each as dashes in the shape it would have. */
-export const UNSEEN = { share: "--.-%", averageSettingLevel: "設定-.--", settingLevel: "設定-", payoutRate: "---.-%", medalsPerGame: "-.---枚", yen: UNSEEN_THEORETICAL } as const
+export const UNSEEN = { share: "--.-%", averageSettingLevel: "設定-.--", settingLevel: "設定-", payoutRate: "---.-%", medalsPerGame: "-.---枚", medals: "--枚", games: "--G", yen: UNSEEN_THEORETICAL } as const
 
 /** 機械割 as players write it: `1.055` is `105.5%`. */
 export const payoutRateText = (ratio: number): string => `${(ratio * 100).toFixed(1)}%`
@@ -84,6 +84,12 @@ export const priorName = (prior: Prior): string => {
 
 /** Theoretical medals a game gains or loses, to three places: `+0.108枚`. */
 export const medalsPerGameText = (medals: number): string => `${medals < 0 ? "-" : "+"}${Math.abs(medals).toFixed(3)}枚`
+
+/** Theoretical medals in whole ones, signed: `+120枚`. */
+export const signedMedalsText = (medals: number): string => `${medals < 0 ? "-" : "+"}${formatCount(Math.round(Math.abs(medals)))}枚`
+
+/** Games or medals on average, in whole ones: `約412G`. */
+export const aboutText = (value: number, unit: "G" | "枚"): string => `約${formatCount(Math.round(value))}${unit}`
 
 /** Why an AT machine's reading cannot be kept as it stands. */
 export const describeAtReadingRefusal = (refusal: ReadingRefusal): string => {

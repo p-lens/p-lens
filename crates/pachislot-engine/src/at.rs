@@ -170,7 +170,7 @@ fn cycle_to_ceiling(
 
 /// The chance the next AT is won on each of the first `horizon` regular
 /// games after one, over the modes as an AT allots them: the `g`th game's
-/// at `g − 1`, the AT間天井 winning whatever is left on its game.
+/// at `g − 1`, a mode's AT間天井 winning whatever is left on its game.
 pub(crate) fn arrivals(
     rules: &AtRules,
     chance: f64,
@@ -178,14 +178,14 @@ pub(crate) fn arrivals(
     shares: &[f64],
     horizon: u32,
 ) -> Vec<f64> {
-    let reach = rules
-        .at_ceiling
-        .map_or(horizon + 1, |ceiling| ceiling.get().min(horizon + 1));
     rules
         .modes
         .iter()
         .zip(shares)
         .fold(vec![0.0_f64; horizon as usize], |sum, (mode, share)| {
+            let reach = mode
+                .at_ceiling
+                .map_or(horizon + 1, |ceiling| ceiling.get().min(horizon + 1));
             let (_, ended) = ended_by(chance, success, mode, reach as usize, rules.misses);
             let left = 1.0 - ended.iter().sum::<f64>();
             sum.iter()
@@ -193,10 +193,7 @@ pub(crate) fn arrivals(
                 .map(|(total, game)| {
                     let here = if game < reach {
                         ended.get(game as usize).copied().unwrap_or(0.0)
-                    } else if rules
-                        .at_ceiling
-                        .is_some_and(|ceiling| ceiling.get() == game)
-                    {
+                    } else if mode.at_ceiling.is_some_and(|ceiling| ceiling.get() == game) {
                         left
                     } else {
                         0.0
@@ -209,9 +206,9 @@ pub(crate) fn arrivals(
 
 /// A cycle in one mode: in closed form without an AT間天井 — the triggers
 /// until one wins, each the games between triggers apart — and convolved to
-/// the ceiling with one.
+/// the mode's ceiling with one.
 fn cycle_in_mode(p: f64, success: f64, mode: &ModeRule, rules: &AtRules) -> Cycle {
-    if let Some(at_ceiling) = rules.at_ceiling {
+    if let Some(at_ceiling) = mode.at_ceiling {
         return cycle_to_ceiling(p, success, mode, at_ceiling, rules.misses);
     }
     let triggers = match rules.misses {
@@ -330,45 +327,49 @@ pub(crate) fn natural_chance(
 /// AT, triggers missed since that AT, how likely each mode is, and how
 /// likely each sum the 有利区間 holds from the last AT — none where it
 /// ended with it.
-struct Standing {
-    since_trigger: u32,
-    since_at: u32,
-    misses: u32,
-    modes: Vec<f64>,
-    held: Held,
+pub(crate) struct Standing {
+    pub(crate) since_trigger: u32,
+    pub(crate) since_at: u32,
+    pub(crate) misses: u32,
+    pub(crate) modes: Vec<f64>,
+    pub(crate) held: Held,
 }
 
 /// The sums a 有利区間 may hold from the last AT, each with its weight;
 /// none where it ended with it.
-type Held = Vec<(Option<f64>, f64)>;
+pub(crate) type Held = Vec<(Option<f64>, f64)>;
 
 /// Nothing held: the 有利区間 starts afresh.
 fn fresh() -> Held {
     vec![(None, 1.0)]
 }
 
-/// One mode's chances for the next game: the AT, a missed trigger, nothing.
-fn chances(
+/// One mode's chances for the next game, where play stands so many games
+/// since the last trigger and AT with so many triggers missed since that
+/// AT: the AT, a missed trigger, nothing.
+pub(crate) fn chances(
     rules: &AtRules,
     table: &AtTable,
     mode: &ModeRule,
-    standing: &Standing,
+    since_trigger: u32,
+    since_at: u32,
+    misses: u32,
 ) -> (f64, f64, f64) {
-    if rules
+    if mode
         .at_ceiling
-        .is_some_and(|ceiling| standing.since_at + 1 >= ceiling.get())
+        .is_some_and(|ceiling| since_at + 1 >= ceiling.get())
     {
         return (1.0, 0.0, 0.0);
     }
     let triggered = if mode
         .ceiling
-        .is_some_and(|ceiling| standing.since_trigger + 1 >= ceiling.get())
+        .is_some_and(|ceiling| since_trigger + 1 >= ceiling.get())
     {
         1.0
     } else {
         table.chance.value()
     };
-    let wins = success_of(standing.misses + 1, table.success.value(), rules.misses);
+    let wins = success_of(misses + 1, table.success.value(), rules.misses);
     (triggered * wins, triggered * (1.0 - wins), 1.0 - triggered)
 }
 
@@ -415,12 +416,13 @@ fn reached(mode: &ModeRule, chance: f64, misses: u32, games: u32) -> f64 {
 }
 
 /// How likely each mode is where play was first seen: the share an AT or a
-/// setting change allots it, times the chance it brought the triggers
-/// missed in the games between the AT and the last of them, times the
-/// chance it then went the games since without one. Where the counts
-/// cannot have come about — misses given with no games between — the
-/// games since the last trigger alone weigh the modes.
-fn started(rules: &AtRules, table: &AtTable, start: PathStart) -> Standing {
+/// setting change allots it, none where its AT間天井 is behind the games
+/// since the last AT, times the chance it brought the triggers missed in
+/// the games between the AT and the last of them, times the chance it then
+/// went the games since without one. Where the counts cannot have come
+/// about — misses given with no games between — the games since the last
+/// trigger alone weigh the modes.
+pub(crate) fn started(rules: &AtRules, table: &AtTable, start: PathStart) -> Standing {
     let shares = table.allotments.of(start.after_reset);
     let chance = table.chance.value();
     let between = start.since_at.checked_sub(start.since_trigger);
@@ -428,7 +430,16 @@ fn started(rules: &AtRules, table: &AtTable, start: PathStart) -> Standing {
         .modes
         .iter()
         .zip(shares)
-        .map(|(mode, share)| share * lasting(mode, chance, start.since_trigger))
+        .map(|(mode, share)| {
+            if mode
+                .at_ceiling
+                .is_some_and(|ceiling| start.since_at >= ceiling.get())
+            {
+                0.0
+            } else {
+                share * lasting(mode, chance, start.since_trigger)
+            }
+        })
         .collect();
     let history = rules
         .modes
@@ -462,13 +473,12 @@ fn headroom_at(rules: &AtRules, held: Option<f64>, since_at: u32) -> Option<f64>
     )
 }
 
-/// The medals an AT won on the next game gains, on average over what is held.
-fn gain_now(rules: &AtRules, table: &AtTable, standing: &Standing) -> f64 {
-    standing
-        .held
-        .iter()
+/// The medals an AT won on the next game gains, so many games since the
+/// last AT, on average over what is held.
+pub(crate) fn gain_now(rules: &AtRules, table: &AtTable, held: &Held, since_at: u32) -> f64 {
+    held.iter()
         .map(|(held, weight)| {
-            weight * capped(&table.payout, headroom_at(rules, *held, standing.since_at)).gain
+            weight * capped(&table.payout, headroom_at(rules, *held, since_at)).gain
         })
         .sum()
 }
@@ -615,14 +625,24 @@ fn played(
     let each: Vec<(f64, f64, f64)> = rules
         .modes
         .iter()
-        .map(|mode| chances(rules, table, mode, standing))
+        .map(|mode| {
+            chances(
+                rules,
+                table,
+                mode,
+                standing.since_trigger,
+                standing.since_at,
+                standing.misses,
+            )
+        })
         .collect();
     let winning: f64 = each
         .iter()
         .zip(&standing.modes)
         .map(|((at, _, _), weight)| at * weight)
         .sum();
-    let medals = gain_now(rules, table, standing) * winning - rules.base.loss_per_game();
+    let medals = gain_now(rules, table, &standing.held, standing.since_at) * winning
+        - rules.base.loss_per_game();
     let seen = each
         .iter()
         .zip(&standing.modes)
@@ -752,11 +772,11 @@ fn reached_by(counts: &[(Vec<f64>, f64)], j: usize, game: usize) -> f64 {
 
 /// The chance one mode tells a leg as it was told: an AT won on its last
 /// game, or none through it — after exactly the triggers missed told, or
-/// over every number where they were not. On the AT間天井 the AT comes
-/// whatever the triggers did; past it no leg goes on.
+/// over every number where they were not. On the mode's AT間天井 the AT
+/// comes whatever the triggers did; past it no leg goes on.
 fn told_leg_in_mode(rules: &AtRules, p: f64, success: f64, mode: &ModeRule, leg: ToldLeg) -> f64 {
     let games = leg.games as usize;
-    let ceiling = rules.at_ceiling.map(|ceiling| ceiling.get() as usize);
+    let ceiling = mode.at_ceiling.map(|ceiling| ceiling.get() as usize);
     if ceiling.is_some_and(|ceiling| games > ceiling || (games == ceiling && !leg.won)) {
         return 0.0;
     }

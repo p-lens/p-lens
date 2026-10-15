@@ -1,4 +1,4 @@
-import type { NormalizedSpecDto, PlayDto } from "@p-lens/contracts/pachislot"
+import type { AtRulesDto, NormalizedSpecDto, PlayDto } from "@p-lens/contracts/pachislot"
 
 import { tokenValueOf, type PlayTerms } from "../parlor/terms"
 import type { Checkpoint, Counts } from "../play-log/checkpoint"
@@ -86,6 +86,18 @@ export const pricedPlayOf = (terms: PlayTerms, play: PlayCounted): PlayDto => {
     gamesPerHour: GAMES_PER_HOUR,
   }
 }
+
+/**
+ * The terms 天井狙い is weighed on, as pachinko's ハイエナ is: sat down with
+ * no medals, every regular game until the AT loses what the ベース says,
+ * rented for cash — the loss per game over the bet, all of it where that is
+ * more — and the AT's medals are exchanged.
+ */
+export const huntPlayOf = (terms: PlayTerms, rules: AtRulesDto, bet: number): PlayDto => ({
+  medalValue: tokenValueOf(terms),
+  rentalPrice: terms.rental.yen / terms.rental.tokens,
+  cashShare: Math.min(1, 50 / rules.base / bet),
+})
 
 /** Every name a formula counts by: each event, the bonus a part is part of, and the bonuses a data counter shows. */
 const namedBy = (formula: FormulaSnapshot): ReadonlySet<string> =>

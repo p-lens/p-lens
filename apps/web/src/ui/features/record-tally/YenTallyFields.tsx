@@ -277,18 +277,19 @@ function AtHistoryFields(props: { readonly editing: YenTallyEditing }): JSX.Elem
       <TextField label="着席時のAT間ゲーム数" value={history().sinceAt} onChange={(sinceAt) => put({ sinceAt })} inputMode="numeric" suffix="G" invalid={editing.lacked("counter")} onFocus={editing.weighNudge.settle} compact />
       <Index each={history().ats}>
         {(at, index) => (
-          <div class="flex items-end gap-2">
-            <div class="min-w-0 flex-1">
-              <TextField label={`${index + 1}回目のAT`} value={at().games} onChange={(games) => putAt(index, { games })} inputMode="numeric" suffix="G" onFocus={editing.weighNudge.settle} compact />
+          <div class="flex flex-col gap-1">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs font-bold text-text-secondary">{index + 1}回目のAT</span>
+              <button type="button" aria-label={`${index + 1}回目のATを消す`} title="消す" onClick={() => put({ ats: history().ats.filter((_, place) => place !== index) })} class="flex size-7 shrink-0 items-center justify-center rounded-[3px] text-text-muted hover:bg-surface-3 hover:text-text-primary [&_svg]:size-4">
+                <TrashIcon />
+              </button>
             </div>
-            <Show when={cz()}>
-              <div class="w-24">
+            <div class="grid gap-2" classList={{ "grid-cols-2": cz() }}>
+              <TextField label="ゲーム数" value={at().games} onChange={(games) => putAt(index, { games })} inputMode="numeric" suffix="G" onFocus={editing.weighNudge.settle} compact />
+              <Show when={cz()}>
                 <TextField label="CZスルー" value={at().misses} onChange={(misses) => putAt(index, { misses })} inputMode="numeric" suffix="回" onFocus={editing.weighNudge.settle} compact />
-              </div>
-            </Show>
-            <button type="button" aria-label={`${index + 1}回目のATを消す`} title="消す" onClick={() => put({ ats: history().ats.filter((_, place) => place !== index) })} class="flex size-9 shrink-0 items-center justify-center rounded-[3px] text-text-muted hover:bg-surface-3 hover:text-text-primary [&_svg]:size-4">
-              <TrashIcon />
-            </button>
+              </Show>
+            </div>
           </div>
         )}
       </Index>

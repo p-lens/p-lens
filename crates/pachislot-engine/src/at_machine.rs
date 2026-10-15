@@ -50,6 +50,23 @@ fn trigger_of<'a>(
     })
 }
 
+/// The AT間天井, after an AT and after a setting change: the AT's ceilings
+/// where a CZ brings it — without one they are the trigger's — the second
+/// the first where a setting change does not shorten it.
+fn at_ceilings_of(at: &At, cz: Option<&Cz>) -> (Option<NonZeroU32>, Option<NonZeroU32>) {
+    cz.map_or((None, None), |_| {
+        (at.ceiling, at.reset_ceiling.or(at.ceiling))
+    })
+}
+
+/// Whether a machine without modes plays a mode of its own after a setting
+/// change: where a setting change shortens the trigger's ceiling or, on a
+/// machine a CZ brings the AT on, the AT間天井.
+fn resets(at: &At, cz: Option<&Cz>) -> bool {
+    let (_, _, reset_ceiling) = trigger_of(at, cz);
+    reset_ceiling.is_some() || (cz.is_some() && at.reset_ceiling.is_some())
+}
+
 /// An AT's medals given one way: its average, its sets with their 継続率,
 /// its table, or the 機械割 they are to follow from with its 純増 — and
 /// only one of them; a set and a game of the AT pay something; and only a
@@ -137,8 +154,8 @@ fn checked<'a>(
                 entity: at.id.clone(),
             });
         }
-        if at.reset_ceiling.is_some() {
-            return Err(SpecError::ResetCeilingBesideCz {
+        if at.reset_ceiling.is_some() && !modes.is_empty() {
+            return Err(SpecError::ResetCeilingBesideModes {
                 entity: at.id.clone(),
             });
         }
@@ -220,12 +237,20 @@ pub(crate) fn at_machine<'a>(
     let stray = elements.iter().find(|element| match element {
         Element::At(other) => other.id != at.id,
         Element::Cz(other) => cz.is_some_and(|cz| other.id != cz.id),
-        Element::Mode(_) => false,
-        _ => true,
+        Element::Mode(_) | Element::Role(_) | Element::Replay(_) => false,
+        Element::Bonus(_) => true,
     });
     if let Some(other) = stray {
         return Err(SpecError::AtNotAlone {
             entity: element_id(other).clone(),
+        });
+    }
+    if let Some(paid) = elements.iter().find_map(|element| match element {
+        Element::Role(role) if role.payout.is_some() => Some(&role.id),
+        _ => None,
+    }) {
+        return Err(SpecError::PayoutBesideAt {
+            entity: paid.clone(),
         });
     }
     checked(at, cz, modes, base, spec.resources.cap).map(Some)
@@ -253,28 +278,38 @@ fn reset_mode(trigger: &EntityId) -> EntityId {
 
 /// The rules the engine plays: the trigger's ceilings by mode — the
 /// machine's own modes, or one at the trigger's ceiling and one at its
-/// ceiling after a setting change — counted on the screen where the machine
-/// says so; the AT間天井 in regular games; the スルー天井.
+/// ceilings after a setting change, the trigger's where a setting change
+/// leaves it be — counted on the screen where the machine says so; each
+/// mode's AT間天井 in regular games; the スルー天井.
 pub(crate) fn rules_of(
     machine: &AtMachine<'_>,
     lcd_rate: Option<LcdRate>,
     cap: Option<Medals>,
 ) -> AtRules {
-    let rule = |id: &EntityId, ceiling: Option<NonZeroU32>| ModeRule {
-        id: id.clone(),
-        ceiling: ceiling.map(|ceiling| in_regular_games(ceiling, lcd_rate)),
-    };
+    let rule =
+        |id: &EntityId, ceiling: Option<NonZeroU32>, at_ceiling: Option<NonZeroU32>| ModeRule {
+            id: id.clone(),
+            ceiling: ceiling.map(|ceiling| in_regular_games(ceiling, lcd_rate)),
+            at_ceiling,
+        };
     let (trigger, ceiling, reset_ceiling) = trigger_of(machine.at, machine.cz);
+    let (at_ceiling, reset_at_ceiling) = at_ceilings_of(machine.at, machine.cz);
     let modes = if machine.modes.is_empty() {
-        [rule(trigger, ceiling)]
+        [rule(trigger, ceiling, at_ceiling)]
             .into_iter()
-            .chain(reset_ceiling.map(|reset| rule(&reset_mode(trigger), Some(reset))))
+            .chain(resets(machine.at, machine.cz).then(|| {
+                rule(
+                    &reset_mode(trigger),
+                    reset_ceiling.or(ceiling),
+                    reset_at_ceiling,
+                )
+            }))
             .collect()
     } else {
         machine
             .modes
             .iter()
-            .map(|mode| rule(&mode.id, mode.ceiling))
+            .map(|mode| rule(&mode.id, mode.ceiling, at_ceiling))
             .collect()
     };
     AtRules {
@@ -282,7 +317,6 @@ pub(crate) fn rules_of(
         at: machine.at.id.clone(),
         trigger: machine.cz.map(|cz| cz.id.clone()),
         modes,
-        at_ceiling: machine.cz.and(machine.at.ceiling),
         misses: machine.cz.and_then(|cz| cz.misses),
         net_per_game: net_of(machine.at),
         cap,
@@ -325,14 +359,13 @@ fn shares(
 
 /// How a setting allots play between the modes, after an AT and after a
 /// setting change. A machine without modes is always in its one mode, or
-/// after a setting change in the mode of its shorter ceiling.
+/// after a setting change in the mode of its shorter ceilings.
 fn allotments_of(
     machine: &AtMachine<'_>,
     setting_level: SettingLevel,
 ) -> Result<Allotments, SpecError> {
     if machine.modes.is_empty() {
-        let (_, _, reset_ceiling) = trigger_of(machine.at, machine.cz);
-        return Ok(if reset_ceiling.is_some() {
+        return Ok(if resets(machine.at, machine.cz) {
             Allotments {
                 after_at: vec![1.0, 0.0],
                 after_reset: vec![0.0, 1.0],

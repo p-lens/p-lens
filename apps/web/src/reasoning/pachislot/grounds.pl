@@ -51,8 +51,9 @@ rule(other_games, other_games(Share, Games), ( given(other_net(Net, Share)), Gam
 % included, so a cycle lasts the triggers it brings over that chance. An AT
 % won directly is one trigger. A CZ is tried until one wins: one over its
 % success rate, or within a スルー天井 the sum of the chances each try is
-% reached. An AT間天井 cuts a cycle short, and the cycle is then played
-% out, mode by mode, from the trigger's chance below its ceilings.
+% reached. A mode's AT間天井 cuts a cycle short where play enters it, and
+% the cycle is then played out, mode by mode, from the trigger's chance
+% below its ceilings.
 rule(won_directly, triggers(_, 1), \+ given(cz)).
 rule(won_by_success, triggers(Level, Triggers),
      ( given(cz), \+ given(misses(_)), given(success(Level, Success)), Triggers is 1 / Success )).
@@ -62,31 +63,33 @@ rule(won_within_misses, triggers(Level, Triggers),
 rule(won_on_the_last_miss, triggers(Level, Triggers),
      ( given(cz), given(misses(Misses)), given(success(Level, Success)), Success =< 0, Triggers is Misses + 1 )).
 rule(cycle_from_first_hit, cycle_games(Level, Games),
-     ( \+ given(at_ceiling(_)), given(first_hit(Level, Chance)), triggers(Level, Triggers), Games is Triggers / Chance )).
-rule(cycle_to_at_ceiling, cycle_games(Level, Games), ( given(at_ceiling(_)), cycle(Level, Games, _) )).
+     ( \+ cut_short(Level), given(first_hit(Level, Chance)), triggers(Level, Triggers), Games is Triggers / Chance )).
+rule(cycle_to_at_ceiling, cycle_games(Level, Games), ( cut_short(Level), cycle(Level, Games, _) )).
+rule(cut_short, cut_short(Level), ( shares(Level, Shares), at_ceilings(AtCeilings), entered_ceiling(Shares, AtCeilings) )).
 
 % A cycle played out from the trigger's chance below its ceilings: the
 % games it lasts and the triggers it brings, over the modes as an AT
-% allots them. Without an AT間天井 a mode's triggers come so many games
-% apart on average, its ceiling included. With one, the chance play has
-% lasted each game is worked game by game up to it.
+% allots them. In a mode without an AT間天井 the triggers come so many
+% games apart on average, its ceiling included. In one with an AT間天井,
+% the chance play has lasted each game is worked game by game up to it.
 rule(cycle_cut, cycle(Level, Games, Triggers),
-     ( given(at_ceiling(AtCeiling)), given(chance(Level, Chance)), success(Level, Success), misses(Misses),
-       ceilings(Ceilings), shares(Level, Shares), run_cut(Chance, Success, Misses, Ceilings, Shares, AtCeiling, Games, Triggers) )).
+     ( cut_short(Level), given(chance(Level, Chance)), success(Level, Success), misses(Misses),
+       ceilings(Ceilings), shares(Level, Shares), at_ceilings(AtCeilings),
+       run_cut(Chance, Success, Misses, Ceilings, Shares, AtCeilings, Games, Triggers) )).
 rule(cycle_free, cycle(Level, Games, Triggers),
-     ( \+ given(at_ceiling(_)), given(chance(Level, Chance)), triggers(Level, Triggers), ceilings(Ceilings), shares(Level, Shares),
+     ( \+ cut_short(Level), given(chance(Level, Chance)), triggers(Level, Triggers), ceilings(Ceilings), shares(Level, Shares),
        games_between(Chance, Ceilings, Shares, Between), Games is Triggers * Between )).
 rule(success_of_cz, success(Level, Success), ( given(cz), given(success(Level, Success)) )).
 rule(success_direct, success(_, 1), \+ given(cz)).
 rule(within_misses, misses(Misses), given(misses(Misses))).
 rule(without_misses, misses(none), \+ given(misses(_))).
-rule(at_ceiling, at_ceiling(Games), given(at_ceiling(Games))).
-rule(no_at_ceiling, at_ceiling(none), \+ given(at_ceiling(_))).
 
 % A mode's ceiling in regular games: as the sheet gives it, or counted on
-% the screen and so reached that many regular games sooner.
+% the screen and so reached that many regular games sooner. Its AT間天井,
+% where it has one, is in regular games already.
 rule(ceilings, ceilings(Ceilings), findall(Games, mode_at(_, Games), Ceilings)).
-rule(mode_at, mode_at(Index, Games), ( given(mode(Index, Sheet)), in_games(Sheet, Games) )).
+rule(mode_at, mode_at(Index, Games), ( given(mode(Index, Sheet, _)), in_games(Sheet, Games) )).
+rule(at_ceilings, at_ceilings(AtCeilings), findall(AtCeiling, given(mode(_, _, AtCeiling)), AtCeilings)).
 rule(no_ceiling, in_games(none, none), true).
 rule(ceiling_in_games, in_games(Games, Games), ( Games \== none, \+ given(lcd_rate(_)) )).
 rule(ceiling_on_screen, in_games(Screen, Games), ( Screen \== none, given(lcd_rate(Rate)), Games is max(1, ceiling(Screen / Rate)) )).
@@ -129,8 +132,8 @@ rule(law_by_table, law(Level, table(Rows)),
      ( given(law(Level, table)), findall(o(Medals, Share), given(payout_row(Level, Medals, Share)), Rows) )).
 rule(arrivals_in_window, arrivals(Level, Arrivals),
      ( given(window(Window)), given(chance(Level, Chance)), success(Level, Success), misses(Misses), ceilings(Ceilings),
-       findall(Share, given(allotted(Level, _, Share, _)), Shares), at_ceiling(AtCeiling),
-       arriving(Chance, Success, Misses, Ceilings, Shares, AtCeiling, Window, Arrivals) )).
+       findall(Share, given(allotted(Level, _, Share, _)), Shares), at_ceilings(AtCeilings),
+       arriving(Chance, Success, Misses, Ceilings, Shares, AtCeilings, Window, Arrivals) )).
 rule(no_window, arrivals(_, none), \+ given(window(_))).
 rule(completion_under_cap, completion(Level, Completion), capped(Level, _, Completion)).
 rule(completion_solved, completion(Level, Completion), ( \+ capped(Level, _, _), given(engine(completion(Level), Completion)) )).
@@ -214,6 +217,7 @@ compared(_ \== _).
 worked(keys_of(_, _)).
 worked(values_of(_, _)).
 worked(games_between(_, _, _, _)).
+worked(entered_ceiling(_, _)).
 worked(run_cut(_, _, _, _, _, _, _, _)).
 worked(arriving(_, _, _, _, _, _, _, _)).
 worked(under_cap(_, _, _, _, _, _)).
@@ -229,13 +233,25 @@ remembered(Key, Value, Goal) :- ( memo(Key, Found) -> Value = Found ; call(Goal)
 zeros(0, []) :- !.
 zeros(Count, [0.0|Zeros]) :- Less is Count - 1, zeros(Less, Zeros).
 
+% Whether play enters a mode with an AT間天井: one some share allots it.
+entered_ceiling([Share|_], [AtCeiling|_]) :- Share > 0, AtCeiling \== none, !.
+entered_ceiling([_|Shares], [_|AtCeilings]) :- entered_ceiling(Shares, AtCeilings).
+
 % Games on average between triggers, over the modes by their shares:
 % (1 − (1 − p)^C) / p in a mode with a ceiling of C, 1 / p in one without.
 games_between(Chance, Ceilings, Shares, Mean) :- between_modes(Ceilings, Shares, Chance, 0.0, Mean).
 between_modes([], [], _, Mean, Mean).
 between_modes([Ceiling|Ceilings], [Share|Shares], Chance, Sum, Mean) :-
-    ( Ceiling == none -> Games is 1 / Chance ; Games is (1 - (1 - Chance) ** Ceiling) / Chance ),
+    between_games(Chance, Ceiling, Games),
     Next is Sum + Share * Games, between_modes(Ceilings, Shares, Chance, Next, Mean).
+between_games(Chance, none, Games) :- !, Games is 1 / Chance.
+between_games(Chance, Ceiling, Games) :- Games is (1 - (1 - Chance) ** Ceiling) / Chance.
+
+% The triggers tried until one wins, as the rules for them reckon it, for a
+% mode a cycle plays out without an AT間天井 beside one with.
+tries(Success, none, Tries) :- !, Success > 0, Tries is 1 / Success.
+tries(Success, Misses, Tries) :- Success > 0, !, Tries is (1 - (1 - Success) ** (Misses + 1)) / Success.
+tries(_, Misses, Tries) :- Tries is Misses + 1.
 
 % Play in one mode, game by game from an AT, for so many games: the chance
 % it has lasted each game without the AT, and the triggers it has brought
@@ -279,35 +295,39 @@ renewed([Base|Bases], [Near|Nears], [Far|Fars], Keep, Chance, Risk, Tail, Runnin
     Value is Base + Keep * (Chance * Next + Reached),
     renewed(Bases, Nears, Fars, Keep, Chance, Risk, Tail, Next, Values).
 
-% A cycle an AT間天井 ends at the latest: the games it lasts are the chances
-% play has lasted each game before the ceiling, summed; the triggers, those
-% brought by the game before it.
-run_cut(Chance, Success, Misses, Ceilings, Shares, AtCeiling, Games, Triggers) :-
-    remembered(run(Chance, Success, Misses, Ceilings, Shares, AtCeiling), Games-Triggers,
-               cut_modes(Ceilings, Shares, Chance, Success, Misses, AtCeiling, 0.0, 0.0, Games, Triggers)).
-cut_modes([], [], _, _, _, _, Games, Triggers, Games, Triggers).
-cut_modes([Ceiling|Ceilings], [Share|Shares], Chance, Success, Misses, AtCeiling, Games0, Triggers0, Games, Triggers) :-
+% A cycle each mode's AT間天井 ends at the latest: the games it lasts are
+% the chances play has lasted each game before the ceiling, summed; the
+% triggers, those brought by the game before it. A mode without one lasts
+% its tries, each the games between triggers apart.
+run_cut(Chance, Success, Misses, Ceilings, Shares, AtCeilings, Games, Triggers) :-
+    remembered(run(Chance, Success, Misses, Ceilings, Shares, AtCeilings), Games-Triggers,
+               cut_modes(Ceilings, Shares, AtCeilings, Chance, Success, Misses, 0.0, 0.0, Games, Triggers)).
+cut_modes([], [], [], _, _, _, Games, Triggers, Games, Triggers).
+cut_modes([Ceiling|Ceilings], [Share|Shares], [AtCeiling|AtCeilings], Chance, Success, Misses, Games0, Triggers0, Games, Triggers) :-
     (   Share =:= 0
     ->  Games1 = Games0, Triggers1 = Triggers0
+    ;   AtCeiling == none
+    ->  tries(Success, Misses, Brought), between_games(Chance, Ceiling, Between),
+        Games1 is Games0 + Share * Brought * Between, Triggers1 is Triggers0 + Share * Brought
     ;   mode_run(Chance, Success, Misses, Ceiling, AtCeiling, Lasting, Counted), sum_list(Lasting, Lasted), last(Counted, Brought),
         Games1 is Games0 + Share * Lasted, Triggers1 is Triggers0 + Share * Brought ),
-    cut_modes(Ceilings, Shares, Chance, Success, Misses, AtCeiling, Games1, Triggers1, Games, Triggers).
+    cut_modes(Ceilings, Shares, AtCeilings, Chance, Success, Misses, Games1, Triggers1, Games, Triggers).
 
 % The chance the next AT is won on each game of the window after one: the
 % chance play lasted to the game before less the chance it lasts this one,
-% and whatever is left on the AT間天井's own game.
-arriving(Chance, Success, Misses, Ceilings, Shares, AtCeiling, Window, Arrivals) :-
-    remembered(arriving(Chance, Success, Misses, Ceilings, Shares, AtCeiling, Window), Arrivals,
-               ( zeros(Window, None), arriving_modes(Ceilings, Shares, Chance, Success, Misses, AtCeiling, Window, None, Arrivals) )).
-arriving_modes([], [], _, _, _, _, _, Arrivals, Arrivals).
-arriving_modes([Ceiling|Ceilings], [Share|Shares], Chance, Success, Misses, AtCeiling, Window, Sum, Arrivals) :-
+% and whatever is left on the game of the mode's AT間天井.
+arriving(Chance, Success, Misses, Ceilings, Shares, AtCeilings, Window, Arrivals) :-
+    remembered(arriving(Chance, Success, Misses, Ceilings, Shares, AtCeilings, Window), Arrivals,
+               ( zeros(Window, None), arriving_modes(Ceilings, Shares, AtCeilings, Chance, Success, Misses, Window, None, Arrivals) )).
+arriving_modes([], [], [], _, _, _, _, Arrivals, Arrivals).
+arriving_modes([Ceiling|Ceilings], [Share|Shares], [AtCeiling|AtCeilings], Chance, Success, Misses, Window, Sum, Arrivals) :-
     (   Share =:= 0
     ->  Next = Sum
     ;   ( AtCeiling == none -> Reach is Window + 1 ; Reach is min(AtCeiling, Window + 1) ),
         mode_run(Chance, Success, Misses, Ceiling, Reach, Lasting, _), won_each(Lasting, Won),
         ( Reach > Window -> Wins = Won ; last(Lasting, Left), Rest is Window - Reach, zeros(Rest, None), append(Won, [Left|None], Wins) ),
         weighed(Sum, Share, Wins, Next) ),
-    arriving_modes(Ceilings, Shares, Chance, Success, Misses, AtCeiling, Window, Next, Arrivals).
+    arriving_modes(Ceilings, Shares, AtCeilings, Chance, Success, Misses, Window, Next, Arrivals).
 won_each([_], []) :- !.
 won_each([Before, After|Lasting], [Won|Wins]) :- Won is Before - After, won_each([After|Lasting], Wins).
 weighed([], _, [], []).

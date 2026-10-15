@@ -162,7 +162,8 @@ pub enum EventKindDto {
         payout: Option<f64>,
     },
     Role {
-        payout: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        payout: Option<f64>,
     },
     Replay,
 }
@@ -247,8 +248,8 @@ pub struct NormalizedSpecDto {
 }
 
 /// An AT machine's regular games: its ベース, its AT and what it pays, the
-/// CZ that brings it if one does, its modes with the trigger's ceilings in
-/// regular games, its AT間天井 and its スルー天井.
+/// CZ that brings it if one does, its modes with the trigger's ceilings and
+/// their AT間天井 in regular games, and its スルー天井.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AtRulesDto {
@@ -257,7 +258,10 @@ pub struct AtRulesDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trigger: Option<String>,
     pub modes: Vec<ModeRuleDto>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The one AT間天井 of a spec stored in a shape before
+    /// `SchemaVersion::AT_CEILING_BY_MODE`, which every mode is read to have;
+    /// never written.
+    #[serde(default, skip_serializing)]
     pub at_ceiling: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub misses: Option<u32>,
@@ -277,6 +281,8 @@ pub struct ModeRuleDto {
     pub id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ceiling: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at_ceiling: Option<u32>,
 }
 
 /// A spec to normalise, or one normalised before and stored, solved as it is.
@@ -543,6 +549,31 @@ pub struct TheoreticalValueDto {
     pub yen_per_hour: Option<f64>,
 }
 
+/// What sitting down at an AT machine is worth from each of these seats,
+/// played on until the next AT is won and over, given how likely each
+/// setting is, on the player's terms.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct HuntRequest {
+    pub source: SourceDto,
+    pub weights: Vec<WeightDto>,
+    pub play: PlayDto,
+    pub seats: Vec<PathStartDto>,
+}
+
+/// What a seat comes to: the regular games played on average, the AT's
+/// medals, the medals over both and in yen, and the chance the AT is won by
+/// a ceiling.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct HuntDto {
+    pub games: f64,
+    pub at_medals: f64,
+    pub medals: f64,
+    pub yen: f64,
+    pub by_ceiling: f64,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PlanDto {
@@ -761,6 +792,8 @@ pub enum ErrorDto {
         setting_level: u8,
     },
     PathWithoutAt,
+    /// A seat hunted at where under some setting the AT might never come.
+    AtNeverComes,
     /// Games given for an AT machine, whose games are worth what the path
     /// to them makes them; or a path for a machine with no AT.
     PlayedMismatch,
@@ -784,7 +817,10 @@ pub enum ErrorDto {
     FirstHitBesideCz {
         entity: String,
     },
-    ResetCeilingBesideCz {
+    PayoutBesideAt {
+        entity: String,
+    },
+    ResetCeilingBesideModes {
         entity: String,
     },
     EmptySet {

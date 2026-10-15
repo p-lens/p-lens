@@ -39,8 +39,8 @@ pub struct NormalizedSpec {
 /// one chance below the ceiling of the mode play is in, and certainly on it;
 /// a trigger wins the AT at the setting's success rate, certainly once it
 /// has missed so many times since the last AT; and a second ceiling, in
-/// games since the last AT, wins it whatever came before. Every game loses
-/// what the ベース says otherwise.
+/// games since the last AT, the mode's own, wins it whatever came before.
+/// Every game loses what the ベース says otherwise.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AtRules {
     pub base: Base,
@@ -48,13 +48,10 @@ pub struct AtRules {
     pub at: EntityId,
     /// The CZ that brings the AT, where the AT is not won directly.
     pub trigger: Option<EntityId>,
-    /// The modes, each with its trigger's ceiling in regular games. A machine
-    /// without modes has one, and a second for the shorter ceiling of a
-    /// setting change.
+    /// The modes, each with its trigger's ceiling and its AT間天井 in
+    /// regular games. A machine without modes has one, and a second for the
+    /// shorter ceilings of a setting change.
     pub modes: Vec<ModeRule>,
-    /// AT間天井: the regular game since the last AT on which the AT is won at
-    /// the latest, whatever the trigger did.
-    pub at_ceiling: Option<NonZeroU32>,
     /// スルー天井: the misses since the last AT after which the next trigger
     /// wins the AT.
     pub misses: Option<NonZeroU32>,
@@ -74,11 +71,16 @@ pub struct AtRules {
     pub reset_on_cap: bool,
 }
 
-/// One mode as the engine plays it: its trigger's ceiling in regular games.
+/// One mode as the engine plays it: its trigger's ceiling in regular games,
+/// and its AT間天井 — the regular game since the last AT on which the AT is
+/// won at the latest, whatever the trigger did. A mode a setting change
+/// alone enters has the setting change's, which therefore holds only until
+/// the first AT.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ModeRule {
     pub id: EntityId,
     pub ceiling: Option<NonZeroU32>,
+    pub at_ceiling: Option<NonZeroU32>,
 }
 
 /// How one setting allots play between an AT machine's modes, in the order
@@ -115,8 +117,9 @@ pub struct AtTable {
 #[derive(Clone, Debug, PartialEq)]
 pub struct SettingLevelTable {
     pub setting_level: SettingLevel,
-    /// What a regular game comes up with; none on an AT machine, whose games
-    /// are its `at`'s.
+    /// What a regular game comes up with that can be counted: on a machine
+    /// of bonuses every outcome, on an AT machine its small wins and replays,
+    /// whose games are otherwise its `at`'s.
     pub events: Vec<Event>,
     pub at: Option<AtTable>,
 }
@@ -136,7 +139,9 @@ pub enum EventKind {
     /// Gains its medals over the bonus's own games; `None` when the spec
     /// leaves them to a measured payout rate.
     Bonus(Option<Medals>),
-    Role(Medals),
+    /// Pays its medals on the game it comes up; `None` on an AT machine,
+    /// where they are counted in the ベース.
+    Role(Option<Medals>),
     Replay,
 }
 

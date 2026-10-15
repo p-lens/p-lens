@@ -1,4 +1,4 @@
-import type { AtRulesDto, AtSeenDto, LegDto, NormalizedSpecDto, PathDto, PayoutLawDto } from "@p-lens/contracts/pachislot"
+import type { AtRulesDto, AtSeenDto, LegDto, ModeRuleDto, NormalizedSpecDto, PathDto, PayoutLawDto } from "@p-lens/contracts/pachislot"
 
 import type { Checkpoint } from "../play-log/checkpoint"
 import { Err, Ok, type Result } from "../result/result"
@@ -180,23 +180,26 @@ const afterLeg =
 export const standingOf = (path: PathDto, normalized?: NormalizedSpecDto): AtStanding => path.legs.reduce(afterLeg(normalized), path.start)
 
 /**
- * The deepest ceiling the trigger can be under, in regular games: of the
- * modes some setting allots play to — after a setting change, or after an
- * AT — the one won latest. None when one of them has no ceiling.
+ * A mode's AT間天井 in regular games: its own, or — in a spec stored in
+ * shape 2, before each mode held one — the machine's one.
  */
-const deepestCeiling = (normalized: NormalizedSpecDto, afterReset: boolean): number | undefined => {
-  const modes = normalized.atRules?.modes ?? []
-  const reachable = modes.filter((_, index) =>
+export const atCeilingOf = (rules: AtRulesDto, mode: ModeRuleDto): number | undefined => mode.atCeiling ?? rules.atCeiling
+
+/** The modes some setting allots play to, after a setting change or after an AT. */
+const reachableModes = (normalized: NormalizedSpecDto, afterReset: boolean): readonly ModeRuleDto[] =>
+  (normalized.atRules?.modes ?? []).filter((_, index) =>
     normalized.tables.some((table) => ((afterReset ? table.at?.allotments.afterReset : table.at?.allotments.afterAt)?.[index] ?? 0) > 0),
   )
-  const ceilings = reachable.map((mode) => mode.ceiling)
-  return ceilings.length === 0 || ceilings.some((ceiling) => ceiling === undefined) ? undefined : Math.max(...ceilings.map((ceiling) => ceiling ?? 0))
-}
+
+/** The deepest of the ceilings given, the one reached latest; none where there are none, or one of them is none. */
+const deepest = (ceilings: readonly (number | undefined)[]): number | undefined =>
+  ceilings.length === 0 || ceilings.some((ceiling) => ceiling === undefined) ? undefined : Math.max(...ceilings.map((ceiling) => ceiling ?? 0))
 
 /**
  * How far play is from each of an AT machine's ceilings: regular games left
- * to the trigger's deepest ceiling and to the AT間天井, and the CZs missed
- * against the スルー天井. Each is there only where the machine has it.
+ * to the deepest ceiling of the trigger and of the AT間天井 over the modes
+ * play may be in, and the CZs missed against the スルー天井. Each is there
+ * only where the machine has it.
  */
 export interface Ceilings {
   readonly trigger: number | undefined
@@ -214,18 +217,55 @@ const zoneOf = (standing: AtStanding, rules: AtRulesDto | undefined): Ceilings["
 
 export const ceilingsOf = (standing: AtStanding, normalized: NormalizedSpecDto): Ceilings => {
   const rules = normalized.atRules
-  const deepest = deepestCeiling(normalized, standing.afterReset)
+  const modes = reachableModes(normalized, standing.afterReset)
+  const trigger = deepest(modes.map((mode) => mode.ceiling))
+  const at = rules === undefined ? undefined : deepest(modes.map((mode) => atCeilingOf(rules, mode)))
   return {
-    trigger: deepest === undefined ? undefined : Math.max(0, deepest - standing.sinceTrigger),
-    at: rules?.atCeiling === undefined ? undefined : Math.max(0, rules.atCeiling - standing.sinceAt),
+    trigger: trigger === undefined ? undefined : Math.max(0, trigger - standing.sinceTrigger),
+    at: at === undefined ? undefined : Math.max(0, at - standing.sinceAt),
     misses: rules?.misses === undefined ? undefined : { missed: standing.misses, limit: rules.misses },
     zone: zoneOf(standing, rules),
   }
 }
 
+/**
+ * The seats 天井狙い is weighed at down a table, by the games since the last
+ * AT: from none, every 50 games — every 100 past a 500-game ceiling — short
+ * of the deepest ceiling play may be under, the AT間天井 or, where the AT is
+ * won directly, its 天井; up to 1000 games without one. With CZs missed,
+ * each seat is just after the last of them; without, the CZ has come no
+ * sooner than the AT, so no seat is past the CZ's own ceiling, where one
+ * would have come.
+ */
+export const huntSeatsOf = (normalized: NormalizedSpecDto, afterReset: boolean, misses: number): readonly AtStanding[] => {
+  const rules = normalized.atRules
+  if (rules === undefined) return []
+  const modes = reachableModes(normalized, afterReset)
+  const atCeiling = deepest(modes.map((mode) => (rules.trigger === undefined ? mode.ceiling : atCeilingOf(rules, mode)))) ?? 1000
+  const czCeiling = rules.trigger === undefined || misses > 0 ? undefined : deepest(modes.map((mode) => mode.ceiling))
+  const ceiling = Math.min(atCeiling, czCeiling ?? atCeiling)
+  const step = ceiling > 500 ? 100 : 50
+  return Array.from({ length: Math.ceil(ceiling / step) }, (_, index) => index * step).map((sinceAt) => ({
+    sinceTrigger: misses > 0 ? 0 : sinceAt,
+    sinceAt,
+    misses,
+    afterReset,
+  }))
+}
+
 /** Whether how an AT went tells the engine anything: on a machine with a 有利区間's cap, or one paid in sets. */
 export const atResultMatters = (normalized: NormalizedSpecDto): boolean =>
   normalized.atRules?.cap !== undefined || normalized.tables.some((table) => table.at?.payout.type === "sets")
+
+/**
+ * Whether an AT machine's play is in an AT by its log: from the line it was
+ * won on until a reading of the regular games after it, how it went said
+ * or not. What is counted then is no regular game's.
+ */
+export const inAt = (ordered: readonly Checkpoint[]): boolean => {
+  const kind = ordered.at(-1)?.event?.kind
+  return kind === "jackpot" || kind === "at-ended"
+}
 
 /** Whether an AT machine's AT is brought by a CZ. */
 export const hasCz = (normalized: NormalizedSpecDto): boolean => normalized.atRules?.trigger !== undefined

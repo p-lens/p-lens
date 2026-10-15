@@ -1,10 +1,11 @@
 use pachislot_domain::conditions::PlayConditions;
 use pachislot_domain::normalized::{AtRules, NormalizedSpec};
-use pachislot_domain::observation::Path;
+use pachislot_domain::observation::{Path, PathStart};
 use pachislot_domain::setting_level::SettingLevel;
 
 use crate::analysis::{Analysis, SettingLevelFigures};
 use crate::at::walk;
+use crate::hunt::{Hunted, hunt};
 
 /// The theoretical value of so many regular games: each setting level's
 /// figures weighed by how likely it is.
@@ -47,6 +48,11 @@ fn weighted(
 /// rented, and the replay fee on the share drawn from savings:
 /// `games × bet × spread per medal`. Played from medals in hand, a medal
 /// costs nothing beyond its value.
+fn yen_of(medals: f64, games: f64, bet: u32, play: PlayConditions) -> f64 {
+    medals * play.medal_value() - games * f64::from(bet) * play.spread_per_medal()
+}
+
+/// Medals over regular games as a theoretical value on the player's terms.
 fn priced(
     payout_rate: f64,
     medals: f64,
@@ -54,9 +60,7 @@ fn priced(
     bet: u32,
     play: PlayConditions,
 ) -> TheoreticalValue {
-    let played = games * f64::from(bet);
-    let spread = played * play.spread_per_medal();
-    let yen = medals * play.medal_value() - spread;
+    let yen = yen_of(medals, games, bet, play);
     TheoreticalValue {
         payout_rate,
         net_per_game: if games > 0.0 { medals / games } else { 0.0 },
@@ -125,4 +129,47 @@ pub fn path_theoretical_value(
         spec.bet,
         play,
     )
+}
+
+/// What sitting down at an AT machine where it stands is worth, played on
+/// until the next AT is won and over, each setting level weighed by how
+/// likely it is: the regular games played on average and the AT's medals,
+/// the medals over them and in yen on the player's terms, and the chance the
+/// AT is won by a ceiling.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HuntValue {
+    pub games: f64,
+    pub at_medals: f64,
+    pub medals: f64,
+    pub yen: f64,
+    pub by_ceiling: f64,
+}
+
+/// What sitting down where play stands is worth: each setting level's
+/// hunt weighed by how likely it is, a weight for a setting the spec does
+/// not have counting for nothing. None where under some setting the AT
+/// might never come.
+pub fn hunt_theoretical_value(
+    spec: &NormalizedSpec,
+    rules: &AtRules,
+    weights: &[(SettingLevel, f64)],
+    play: PlayConditions,
+    start: PathStart,
+) -> Option<HuntValue> {
+    let hunted = weights
+        .iter()
+        .try_fold(Hunted::NONE, |sum, (setting_level, weight)| {
+            spec.table(*setting_level)
+                .and_then(|table| table.at.as_ref())
+                .map_or(Some(sum), |table| {
+                    Some(sum.plus(hunt(start, rules, table)?, *weight))
+                })
+        })?;
+    Some(HuntValue {
+        games: hunted.games,
+        at_medals: hunted.at_medals,
+        medals: hunted.medals,
+        yen: yen_of(hunted.medals, hunted.games, spec.bet, play),
+        by_ceiling: hunted.by_ceiling,
+    })
 }

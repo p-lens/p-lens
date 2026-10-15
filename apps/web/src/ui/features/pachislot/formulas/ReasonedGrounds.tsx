@@ -4,6 +4,7 @@ import { createResource, For, type JSX } from "solid-js"
 import { reasonGrounds } from "../../../../application/pachislot/grounds"
 import type { SettingLevelFigures } from "../../../../core/pachislot/figures"
 import type { Basis } from "../../../../core/pachislot/formula"
+import { groundsNamingOf } from "../../../../core/pachislot/grounds/naming"
 import type { SampledMargin } from "../../../../core/pachislot/grounds/facts"
 import { useApp } from "../../../context"
 import { Loaded } from "../../../primitives/states"
@@ -59,7 +60,7 @@ export function ReasonedGrounds(props: {
               <Toned {...groundsStanding(found)} />
             </p>
             <ol class="flex flex-col gap-1 rounded-lg border border-border px-4 py-3 text-sm">
-              <For each={groundsLines(found)}>
+              <For each={groundsLines(found, groundsNamingOf(props.basis))}>
                 {(line) => (
                   <li class="tabular-nums" style={{ "padding-left": `${line.depth * 0.75}rem` }}>
                     <Toned tone={line.tone} parts={line.parts} />

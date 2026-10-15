@@ -18,6 +18,7 @@ import { kindName } from "../../../wording/pachislot/formula"
 import { useStartForm } from "../../live/start-form"
 import { ViewHeader } from "../../shell/ViewHeader"
 import { FiguresTable } from "./FiguresTable"
+import { HuntTable } from "./HuntTable"
 import { remadeIn } from "./remaking"
 import { trailTo } from "./trail"
 import { useActions } from "./use-actions"
@@ -25,8 +26,9 @@ import { useActions } from "./use-actions"
 const samplingOf = (formula: Formula): Sampling | undefined => (formula.kind === "sampled" ? formula.sampling : undefined)
 
 /**
- * One pachislot 算出条件: each setting level's 機械割 and bonus odds, how it
- * was made, and what people have done with it. Adopting it as one's own is
+ * One pachislot 算出条件: each setting level's 機械割 and bonus odds, at an
+ * AT machine 天井狙い down a table, how it was made, and what people have
+ * done with it. Adopting it as one's own is
  * done here, a level below where most people stop.
  */
 export function FormulaView(props: { readonly place: Place; readonly machineId: string; readonly formulaId: string }): JSX.Element {
@@ -53,6 +55,9 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
             return (
               <div class="flex flex-col gap-5 p-4">
                 <FiguresTable figures={formula().figures} sampling={samplingOf(formula())} />
+                <Show when={formula().basis.normalized.atRules !== undefined}>
+                  <HuntTable basis={formula().basis} />
+                </Show>
                 <dl class="flex flex-wrap gap-x-6 gap-y-1 text-sm">
                   <div class="flex gap-2"><dt class="text-text-muted">種類</dt><dd class="text-text-primary">{kindName(formula().kind)}</dd></div>
                   <Show when={samplingOf(formula())} keyed>

@@ -334,11 +334,7 @@ fn element_of(spec: &Spec, entity: &EntityId) -> Result<Option<Element>, SpecErr
             id: entity.clone(),
             label: label_of(spec, entity),
             chance: chance_of(spec, entity)?,
-            payout: components
-                .payout
-                .get(entity)
-                .copied()
-                .ok_or_else(|| missing(entity, Component::Payout))?,
+            payout: components.payout.get(entity).copied(),
         }))),
     }
 }

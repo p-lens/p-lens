@@ -1,6 +1,6 @@
 {
   "name": "p-lens",
-  "version": "0.3.10",
+  "version": "0.3.11",
   "private": true,
   "license": "GPL-3.0-or-later",
   "workspaces": [

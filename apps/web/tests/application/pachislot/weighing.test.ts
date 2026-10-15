@@ -47,6 +47,7 @@ describe("weighing a pachislot play", () => {
     expect(outlook.value.theoreticalValuePerHour).toBeCloseTo(GAMES_PER_HOUR * (outlook.value.netPerGame ?? Number.NaN) * 20, 6)
     expect(outlook.value.theoreticalValue).toBeUndefined()
     expect(outlook.value.grounded).toBe(false)
+    expect(outlook.value.hunt).toBeUndefined()
   })
 
   test("a 設定配分 for every level of the machine is weighed on the formula's levels alone", async () => {
@@ -107,6 +108,14 @@ describe("weighing a pachislot play", () => {
     const seat = atSeatCheckpoint({ sinceAt: 400, sinceCz: undefined, misses: 0, afterReset: false, held: undefined }, at)
     const seated = await weighPlay(inProcessEngine, machine, [seat], terms)
     expect(seated.ok && { netPerGame: seated.value.netPerGame, value: seated.value.theoreticalValue, grounded: seated.value.grounded }).toEqual({ netPerGame: undefined, value: undefined, grounded: true })
+    if (!seated.ok) throw new Error("weighs")
+    const hunted = await inProcessEngine.call("hunt", {
+      source: { type: "normalized", normalized: analysed.value.normalized },
+      weights: seated.value.settingLevels,
+      play: { medalValue: 20, rentalPrice: 20, cashShare: 50 / 40 / 3 },
+      seats: [{ sinceTrigger: 400, sinceAt: 400, misses: 0, afterReset: false }],
+    })
+    expect(seated.value.hunt).toEqual(hunted.ok ? hunted.value[0] : undefined)
     const unread = await weighPlay(inProcessEngine, machine, [atSeatCheckpoint({ sinceAt: 0, sinceCz: undefined, misses: 0, afterReset: false, held: undefined }, at)], terms)
     expect(unread.ok && unread.value.grounded).toBe(false)
 
@@ -119,6 +128,44 @@ describe("weighing a pachislot play", () => {
     const medals = chances.map((p) => 600 * (p * 599 + 1) - (50 / 40) * 600)
     expect(outlook.value.settingLevels[0]?.probability).toBeCloseTo(odds[0] ?? Number.NaN, 12)
     expect(outlook.value.theoreticalValue).toBeCloseTo(20 * medals.reduce((sum, each, index) => sum + each * (odds[index] ?? 0), 0), 6)
+  })
+
+  test("an AT machine's small wins counted in its regular games weigh beside its path", async () => {
+    const spec = atSpec as SpecDto
+    const belled: SpecDto = {
+      ...spec,
+      entities: [...spec.entities, "bell"],
+      components: {
+        ...spec.components,
+        chance: {
+          ...spec.components.chance,
+          bell: [
+            { settingLevel: 1, value: { type: "ratio", numerator: 1, denominatorHundredths: 730 } },
+            { settingLevel: 6, value: { type: "ratio", numerator: 1, denominatorHundredths: 690 } },
+          ],
+        },
+      },
+    }
+    const conditions = {
+      payoutRate: {
+        type: "measured" as const,
+        bySettingLevel: [
+          { settingLevel: 1, value: 9_700 },
+          { settingLevel: 6, value: 11_000 },
+        ],
+      },
+    }
+    const analysed = await inProcessEngine.call("analyze", { source: { type: "spec", spec: belled }, conditions })
+    if (!analysed.ok) throw new Error(JSON.stringify(analysed.error))
+    const machine: Weighing = { ...even, formula: { ...even.formula, normalized: analysed.value.normalized, conditions } }
+    const seat = atSeatCheckpoint({ sinceAt: 0, sinceCz: undefined, misses: 0, afterReset: false, held: undefined }, at)
+    const counting: readonly Checkpoint[] = [seat, { spins: 0, at, tally: {} }, { spins: 300, at, counter: { spins: 300 } }, { spins: 300, at, tally: { bell: 45 } }]
+    const walked = await weighPlay(inProcessEngine, machine, counting.slice(0, 3), undefined)
+    const both = await weighPlay(inProcessEngine, machine, counting, undefined)
+    if (!walked.ok || !both.ok) throw new Error("weighs")
+    const weighed = walked.value.settingLevels.map((each, index) => each.probability * Math.exp(45 * Math.log(index === 0 ? 1 / 7.3 : 1 / 6.9) + 255 * Math.log1p(-(index === 0 ? 1 / 7.3 : 1 / 6.9))))
+    const total = weighed.reduce((sum, each) => sum + each, 0)
+    both.value.settingLevels.forEach((each, index) => expect(each.probability).toBeCloseTo((weighed[index] ?? Number.NaN) / total, 9))
   })
 
   test("a counter showing fewer bonuses than were counted is the play's problem, not the engine's", async () => {

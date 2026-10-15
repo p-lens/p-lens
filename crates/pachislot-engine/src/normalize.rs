@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use pachislot_domain::normalized::{AtRules, Event, EventKind, NormalizedSpec, SettingLevelTable};
 use pachislot_domain::probability::{Probability, ProbabilityError, ProbabilitySource};
 use pachislot_domain::setting_level::{PerSettingLevel, SettingLevel};
-use pachislot_domain::spec::{Chance, Element, EntityId, Spec};
+use pachislot_domain::spec::{Chance, Component, Element, EntityId, Spec};
 
 use pachislot_domain::version::SchemaVersion;
 
@@ -157,22 +157,27 @@ fn table(
     })
 }
 
-/// An AT machine's tables, one a setting, and the rules it plays by.
+/// An AT machine's tables, one a setting — its small wins and replays, to
+/// be counted, and its trigger and modes — and the rules it plays by.
 fn at_tables(
     machine: &AtMachine<'_>,
+    elements: &[Element],
     spec: &Spec,
 ) -> Result<(Vec<SettingLevelTable>, AtRules), SpecError> {
     let setting_levels = &spec.resources.setting_levels;
     coverage(machine, setting_levels)?;
+    let counted = elements.iter().flat_map(outcomes).collect::<Vec<_>>();
+    counted
+        .iter()
+        .try_for_each(|outcome| check_coverage(setting_levels, outcome))?;
     let rules = rules_of(machine, spec.resources.lcd_rate, spec.resources.cap);
     let bet = f64::from(spec.resources.bet.get());
     let tables = setting_levels
         .iter()
         .map(|setting_level| {
             Ok(SettingLevelTable {
-                setting_level: *setting_level,
-                events: Vec::new(),
                 at: Some(table_of(machine, &rules, bet, *setting_level)?),
+                ..table(&counted, *setting_level)?
             })
         })
         .collect::<Result<Vec<_>, SpecError>>()?;
@@ -189,6 +194,15 @@ fn outcome_tables(
     outcomes
         .iter()
         .try_for_each(|outcome| check_coverage(setting_levels, outcome))?;
+    if let Some(unpaid) = outcomes
+        .iter()
+        .find(|outcome| outcome.kind == EventKind::Role(None))
+    {
+        return Err(SpecError::MissingComponent {
+            entity: unpaid.id.clone(),
+            component: Component::Payout,
+        });
+    }
     setting_levels
         .iter()
         .map(|setting_level| table(&outcomes, *setting_level))
@@ -210,7 +224,7 @@ pub fn normalize(spec: &Spec) -> Result<NormalizedSpec, SpecError> {
     let elements = elements(spec)?;
     let machine = at_machine(spec, &elements)?;
     let (tables, at_rules) = if let Some(machine) = machine {
-        let (tables, rules) = at_tables(&machine, spec)?;
+        let (tables, rules) = at_tables(&machine, &elements, spec)?;
         (tables, Some(rules))
     } else {
         (outcome_tables(&elements, setting_levels)?, None)

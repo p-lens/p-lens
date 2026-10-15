@@ -372,7 +372,8 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
   const partOf: Read<string> =
     entity.kind !== "part" ? Ok("") : form.rows.some((other) => other.key === entity.partOf && other.kind === "bonus") ? Ok(entity.partOf) : Err({ field: `${name} どのボーナスの内訳か`, reason: "required" })
   const ceiling = entity.kind === "at" || isCz || isMode ? ceilingOf(entity.ceiling, `${name} ${brought ? "AT間天井" : "天井"}`) : Ok(undefined)
-  const resetCeiling = (entity.kind === "at" && !brought) || isCz ? ceilingOf(entity.resetCeiling, `${name} リセット後の天井`) : Ok(undefined)
+  const resetCeiling =
+    (entity.kind === "at" && !hasModes(form)) || isCz ? ceilingOf(entity.resetCeiling, `${name} ${brought ? "リセット後のAT間天井" : "リセット後の天井"}`) : Ok(undefined)
   const law = entity.kind === "at" ? readLaw(form, entity, name) : Ok(undefined)
   const problems = [
     ...problemsOf([label, payout, partOf, ceiling, resetCeiling, misses, ...chances, ...allotment, ...(resetAllotment ?? []), ...success]),

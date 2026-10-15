@@ -2,7 +2,7 @@
 
 import type { Envelope, EstimateRequest, EstimateResponse, ProgressDto, SimulateRequest, SimulateResponse } from "@p-lens/contracts/pachislot"
 
-import type { FromWorker, EngineFailure, EstimateOrder, RunEvent, SimulationOrder, ToWorker } from "../protocol/messages"
+import type { Call, FromWorker, EngineFailure, EstimateOrder, RunEvent, SimulationOrder, ToWorker } from "../protocol/messages"
 
 /**
  * The pachislot engine runs here, never on the page's thread. It is imported
@@ -109,7 +109,7 @@ const estimate = async (id: number, order: EstimateOrder): Promise<void> => {
   )
 }
 
-const answer = async (id: number, call: "analyze" | "posterior" | "theoreticalValue", request: unknown): Promise<void> => {
+const answer = async (id: number, call: Call, request: unknown): Promise<void> => {
   const run = await engine()
   const reply = opened<unknown>(run[call](JSON.stringify(request)))
   post(reply.ok ? { type: "answered", id, answer: reply.value } : { type: "refused", id, failure: reply.failure })

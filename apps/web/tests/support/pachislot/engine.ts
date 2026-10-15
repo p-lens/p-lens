@@ -13,6 +13,7 @@ const CALLS: Readonly<Record<Call, (request: string) => string>> = {
   analyze: engine.analyze,
   posterior: engine.posterior,
   theoreticalValue: engine.theoreticalValue,
+  hunt: engine.hunt,
 }
 
 const refused = (): never => {

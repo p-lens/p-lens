@@ -7,7 +7,9 @@
 
 use std::num::NonZeroU32;
 
-use pachislot_domain::probability::{BasisPoints, Denominator, ProbabilitySource};
+use pachislot_domain::normalized::{Allotments, AtRules, AtTable, ModeRule, PayoutLaw};
+use pachislot_domain::observation::PathStart;
+use pachislot_domain::probability::{BasisPoints, Denominator, Probability, ProbabilitySource};
 use pachislot_domain::setting_level::{PerSettingLevel, SettingLevel};
 use pachislot_domain::spec::{Base, Components, EntityId, Medals, Resources, Spec};
 
@@ -212,4 +214,68 @@ pub fn cz_spec() -> Spec {
         .reset_ceiling
         .insert(id("cz"), NonZeroU32::new(300).expect("a ceiling"));
     spec
+}
+
+/// What the AT of the rules built here gains.
+pub const PAYOUT: f64 = 600.0;
+/// What a regular game loses on a ベース of 40 games.
+pub const LOSS: f64 = 50.0 / 40.0;
+
+/// A mode with its trigger's ceiling, none at nought, and no AT間天井.
+pub fn mode(name: &str, ceiling: u32) -> ModeRule {
+    ModeRule {
+        id: id(name),
+        ceiling: NonZeroU32::new(ceiling),
+        at_ceiling: None,
+    }
+}
+
+/// A mode with an AT間天井 of `at_ceiling` games beside its trigger's ceiling.
+pub fn ceiled(name: &str, ceiling: u32, at_ceiling: u32) -> ModeRule {
+    ModeRule {
+        at_ceiling: NonZeroU32::new(at_ceiling),
+        ..mode(name, ceiling)
+    }
+}
+
+/// The rules of a machine whose trigger is `trigger`, or the AT itself, on
+/// a ベース of 40 games.
+pub fn rules(trigger: Option<&str>, modes: Vec<ModeRule>) -> AtRules {
+    AtRules {
+        base: Base::new(40.0).expect("a base"),
+        at: id("at"),
+        trigger: trigger.map(id),
+        modes,
+        misses: None,
+        net_per_game: None,
+        cap: None,
+        window: None,
+        reset_on_cap: false,
+    }
+}
+
+/// A setting's table: the trigger's chance below its ceilings, the chance a
+/// trigger wins the AT, the allotments, and the AT gaining `PAYOUT`.
+pub fn table(chance: f64, success: f64, after_at: Vec<f64>, after_reset: Vec<f64>) -> AtTable {
+    AtTable {
+        chance: Probability::new(chance).expect("a chance"),
+        success: Probability::new(success).expect("a rate"),
+        allotments: Allotments {
+            after_at,
+            after_reset,
+        },
+        payout: PayoutLaw::Fixed(medals(PAYOUT)),
+    }
+}
+
+/// Where play was first seen: so many games since the last trigger and AT,
+/// so many triggers missed, no setting change, nothing held.
+pub fn start(since_trigger: u32, since_at: u32, misses: u32) -> PathStart {
+    PathStart {
+        since_trigger,
+        since_at,
+        misses,
+        after_reset: false,
+        held: None,
+    }
 }

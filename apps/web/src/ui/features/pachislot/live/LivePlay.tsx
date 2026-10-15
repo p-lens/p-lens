@@ -6,7 +6,7 @@ import { addCheckpoints, reviseCheckpoints } from "../../../../application/live-
 import { weighPlay } from "../../../../application/pachislot/weighing"
 import type { PlayDraft } from "../../../../core/live-play/draft"
 import { daySeenOf } from "../../../../core/pachislot/observation"
-import { atResultMatters } from "../../../../core/pachislot/path"
+import { atResultMatters, inAt } from "../../../../core/pachislot/path"
 import {
   checkpointForReading,
   countCheckpoint,
@@ -234,16 +234,20 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
  * Counting small wins and bonuses as they come, beneath the counter's
  * readings: off until the player starts it, then a tile for everything the
  * formula has. A tap is kept at once; the next reading of the counter says
- * how many games the counting has covered.
+ * how many games the counting has covered. On an AT machine only regular
+ * games are counted in, so a press while it is in an AT is passed over,
+ * and that is said.
  */
 function Counting(props: { readonly weighing: Weighing; readonly ordered: readonly Checkpoint[]; readonly write: Write }): JSX.Element {
   const app = useApp()
+  const held = (): boolean => props.weighing.formula.normalized.atRules !== undefined && inAt(props.ordered)
   const [failure, setFailure] = createSignal<ApplicationError | undefined>(undefined)
   const kept = (written: Written<never>): void => {
     setFailure(written.type === "failed" ? written.error : undefined)
   }
-  /** A tap, the first of which begins the counting where the log stands: what a play counts is counted from then. */
+  /** A tap, the first of which begins the counting where the log stands: what a play counts is counted from then. None while held. */
   const count = (id: string, by: 1 | -1): void => {
+    if (held()) return
     const at = app.services.now()
     void props
       .write((ordered) => {
@@ -258,7 +262,10 @@ function Counting(props: { readonly weighing: Weighing; readonly ordered: readon
         小役カウンター
         <span class="ml-2 font-normal normal-case text-text-muted">長押しで1つ戻します</span>
       </h3>
-      <RoleCounter countables={countablesOf(props.weighing.formula)} counts={countsNowOf(props.ordered)} games={countedGamesOf(props.ordered)} onCount={count} />
+      <RoleCounter countables={countablesOf(props.weighing.formula)} counts={countsNowOf(props.ordered)} games={countedGamesOf(props.ordered)} held={held()} onCount={count} />
+      <Show when={held()}>
+        <p class="text-xs text-text-muted">AT中は数えません。ATのあとのゲーム数を記録すると、また数えられます。</p>
+      </Show>
       <Show when={failure()} keyed>
         {(error) => (
           <p role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-text-primary">
@@ -469,10 +476,10 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
                     {(weighed) => (
                       <>
                         <Outlook draft={props.draft} weighing={weighed()} ordered={found()} />
-                        <Show
-                          when={atRules() === undefined}
-                          fallback={<AtCounting reading={atReading} ordered={found()} normalized={weighed().formula.normalized} write={write} rewrite={rewrite} awaitsResult={atResultMatters(weighed().formula.normalized) && awaitsAtResult(found())} />}
-                        >
+                        <Show when={atRules() !== undefined}>
+                          <AtCounting reading={atReading} ordered={found()} normalized={weighed().formula.normalized} write={write} rewrite={rewrite} awaitsResult={atResultMatters(weighed().formula.normalized) && awaitsAtResult(found())} />
+                        </Show>
+                        <Show when={countablesOf(weighed().formula).length > 0}>
                           <Counting weighing={weighed()} ordered={found()} write={write} />
                         </Show>
                       </>

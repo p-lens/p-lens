@@ -68,6 +68,24 @@ const segmentOf = (stretch: Stretch): SegmentDto => ({
   counts: Object.entries(stretch.counts).map(([id, count]): CountDto => ({ id, count })),
 })
 
+/** The stretch the player counted in: the games since counting began and what was counted in them; none before counting began. */
+const countedOf = (ordered: readonly Checkpoint[]): Stretch | undefined => {
+  const last = ordered.at(-1)
+  const start = ordered.find((checkpoint) => checkpoint.tally !== undefined)
+  return last === undefined || start === undefined ? undefined : { games: last.spins - start.spins, counts: subtract(countsAt(ordered, ordered.length - 1), start.tally ?? {}) }
+}
+
+/**
+ * What an AT machine's play log says was counted, as the one stretch the
+ * engine weighs beside the play's path: the regular games since counting
+ * began — an AT's own games are none of a log's — with everything counted
+ * in them. None before a game was counted in.
+ */
+export const countedSegmentsOf = (ordered: readonly Checkpoint[]): readonly SegmentDto[] => {
+  const counted = countedOf(ordered)
+  return counted === undefined || counted.games <= 0 ? [] : [segmentOf(counted)]
+}
+
 /**
  * What a pachislot play's log says was seen, as the stretches the engine
  * infers the setting from. The day's games and bonuses come from the data
@@ -82,9 +100,8 @@ export const segmentsOf = (ordered: readonly Checkpoint[], shownAs: (id: string)
   const last = ordered.at(-1)
   if (last === undefined) return Ok([])
   const day = dayOf(ordered, last, shownAs)
-  const start = ordered.find((checkpoint) => checkpoint.tally !== undefined)
-  if (start === undefined) return Ok([segmentOf(day)])
-  const counted: Stretch = { games: last.spins - start.spins, counts: subtract(countsAt(ordered, ordered.length - 1), start.tally ?? {}) }
+  const counted = countedOf(ordered)
+  if (counted === undefined) return Ok([segmentOf(day)])
   const rest = difference(day, { games: counted.games, counts: onCounter(counted.counts, shownAs) })
   if (!rest.ok) return rest
   return Ok([rest.value, counted].filter((stretch) => stretch.games > 0).map(segmentOf))

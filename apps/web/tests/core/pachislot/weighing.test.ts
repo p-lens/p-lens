@@ -17,8 +17,8 @@ import {
   startCountingCheckpoint,
   totalNowOf,
 } from "../../../src/core/pachislot/reading"
-import { counterBonusesOf, counterBonusOf, countablesOf, GAMES_PER_HOUR, playOf, settingLevelsOf } from "../../../src/core/pachislot/weighing"
-import type { PlayTerms } from "../../../src/core/parlor/terms"
+import { counterBonusesOf, counterBonusOf, countablesOf, GAMES_PER_HOUR, huntPlayOf, playOf, settingLevelsOf } from "../../../src/core/pachislot/weighing"
+import { tokenValueOf, type PlayTerms } from "../../../src/core/parlor/terms"
 import type { Checkpoint } from "../../../src/core/play-log/checkpoint"
 
 const spec: NormalizedSpecDto = normalized as NormalizedSpecDto
@@ -192,5 +192,13 @@ describe("readings of a pachislot data counter", () => {
     const later = [...started, grape, { spins: 400, at, counter: { total: 2800 } }]
     expect(isCounting(later)).toBe(true)
     expect(countedGamesOf(later)).toBe(150)
+  })
+})
+
+describe("天井狙い's terms", () => {
+  test("rent every regular game's loss for cash, the bet at the most, and exchange the AT's medals", () => {
+    const terms: PlayTerms = { rental: { yen: 1000, tokens: 46 }, exchange: { yen: 10_000, tokens: 510 }, replay: { paidOut: 1, deducted: 1 } }
+    expect(huntPlayOf(terms, { base: 33.9, at: "at", modes: [] }, 3)).toEqual({ medalValue: tokenValueOf(terms), rentalPrice: 1000 / 46, cashShare: 50 / 33.9 / 3 })
+    expect(huntPlayOf(terms, { base: 10, at: "at", modes: [] }, 3).cashShare).toBe(1)
   })
 })

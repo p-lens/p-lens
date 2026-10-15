@@ -78,7 +78,7 @@ const describeEngineError = (error: EngineErrorDto): string => {
     case "rate-not-from-spec":
       return "純増のないAT機の機械割は解析値から計算できません。設定ごとの機械割を入れてください。"
     case "at-not-alone":
-      return `AT機には、AT・CZ・モードのほかに「${error.entity}」を入れられません。AT・CZ・モード・ベースだけにしてください。`
+      return `AT機には「${error.entity}」を入れられません。ボーナスや2つ目のAT・CZは入れず、AT・CZ・モード・小役・リプレイ・ベースだけにしてください。`
     case "missing-base":
       return "AT機にはベース（50枚あたりのゲーム数）が要ります。"
     case "base-without-at":
@@ -87,6 +87,8 @@ const describeEngineError = (error: EngineErrorDto): string => {
       return `「${error.at}」の${settingLevel(error.settingLevel)}の初当たりが、天井と同じか天井より重くなっています。`
     case "path-without-at":
       return "この機種にはATがないため、AT間・CZ間のゲーム数は使えません。"
+    case "at-never-comes":
+      return "この算出条件では、ATに当たらないまま終わる設定があるため、天井狙いの期待値を出せません。"
     case "played-mismatch":
       return "この機種の打ち方に合わない形で、打ったゲームが渡されました。"
     case "mode-without-at":
@@ -101,8 +103,10 @@ const describeEngineError = (error: EngineErrorDto): string => {
       return `CZ「${error.entity}」はAT機にだけ入れられます。この機種にはATがありません。`
     case "first-hit-beside-cz":
       return `CZからATに入る機種では、ATの初当たりはCZ合算と成功率から計算します。「${error.entity}」の初当たりは外してください。`
-    case "reset-ceiling-beside-cz":
-      return `CZからATに入る機種では、リセット後の天井はCZに入れます。「${error.entity}」のリセット後の天井は外してください。`
+    case "payout-beside-at":
+      return `AT機の小役は、払い出しがベースに含まれるため枚数を入れません。「${error.entity}」の枚数は外してください。`
+    case "reset-ceiling-beside-modes":
+      return `モードのあるAT機では、設定変更後もAT後と同じモードに入るため、設定変更後のAT間天井は入れられません。「${error.entity}」のリセット後の天井は外してください。`
     case "empty-set":
       return `AT「${error.entity}」の1セットの枚数が0枚です。1枚以上にしてください。`
     case "empty-net-per-game":

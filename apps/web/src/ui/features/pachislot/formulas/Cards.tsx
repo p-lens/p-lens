@@ -1,6 +1,7 @@
 import { Index, Show, type JSX } from "solid-js"
 
 import type { FormulaListing } from "../../../../core/formula/standing"
+import { combinedTellsMore } from "../../../../core/pachislot/figures"
 import type { Formula, SettingDistribution } from "../../../../core/pachislot/formula"
 import { HandIcon, HandOffIcon, HeartIcon, QuestionIcon, ShieldIcon, ShieldOffIcon } from "../../../primitives/icons"
 import { formulaIdText } from "../../../wording/catalog"
@@ -66,8 +67,9 @@ function Standing(props: { readonly listing: FormulaListing<Formula> | FormulaLi
 
 /**
  * One pachislot formula at a glance: its 機械割 from the lowest setting level
- * to the highest, which is its name, its id under it, each level's rate and bonus odds, and
- * what people have done with it.
+ * to the highest, which is its name, its id under it, each level's rate and
+ * odds — its 合算 where that says more than its bonuses, else each bonus's,
+ * a CZ's beside an AT's — and what people have done with it.
  */
 export function FormulaCard(props: {
   readonly listing: FormulaListing<Formula>
@@ -101,7 +103,9 @@ export function FormulaCard(props: {
           {(figures) => (
             <li>
               設定{figures().settingLevel} <span class="text-text-primary">{payoutRateText(figures().payoutRate)}</span>
-              <span class="ml-1 text-text-muted">合算 {oddsText(figures().combinedOneIn)}</span>
+              <Show when={combinedTellsMore(figures())} fallback={<Index each={figures().bonuses}>{(bonus) => <span class="ml-1 text-text-muted">{bonus().label} {oddsText(bonus().oneIn)}</span>}</Index>}>
+                <span class="ml-1 text-text-muted">合算 {oddsText(figures().combinedOneIn)}</span>
+              </Show>
             </li>
           )}
         </Index>

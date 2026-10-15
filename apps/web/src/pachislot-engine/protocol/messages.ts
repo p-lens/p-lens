@@ -4,6 +4,8 @@ import type {
   ConditionsDto,
   EngineErrorDto,
   EstimateSummaryDto,
+  HuntDto,
+  HuntRequest,
   PlayDto,
   SourceDto,
   SummaryDto,
@@ -42,6 +44,7 @@ export interface Calls {
   readonly analyze: { readonly request: AnalyzeRequest; readonly answer: AnalysisDto }
   readonly posterior: { readonly request: PosteriorRequest; readonly answer: PosteriorDto }
   readonly theoreticalValue: { readonly request: TheoreticalValueRequest; readonly answer: TheoreticalValueDto }
+  readonly hunt: { readonly request: HuntRequest; readonly answer: readonly HuntDto[] }
 }
 
 export type Call = keyof Calls

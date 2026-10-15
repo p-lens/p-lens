@@ -184,6 +184,37 @@ describe("an AT machine typed in by hand", () => {
     expect(readManualForm(form)).toEqual({ ok: true, value: { spec: madeUp, conditions: measured } })
   })
 
+  test("an AT machine's small win is its chance alone, to be counted, and reads back the same", () => {
+    const madeUp = czSpec as SpecDto
+    const belled: SpecDto = {
+      ...madeUp,
+      entities: [...madeUp.entities, "bell"],
+      components: {
+        ...madeUp.components,
+        label: { ...madeUp.components.label, bell: "共通ベル" },
+        chance: {
+          ...madeUp.components.chance,
+          bell: [
+            { settingLevel: 1, value: { type: "ratio", numerator: 1, denominatorHundredths: 730 } },
+            { settingLevel: 6, value: { type: "ratio", numerator: 1, denominatorHundredths: 690 } },
+          ],
+        },
+      },
+    }
+    const form = manualFormOf(belled, measured)
+    expect(form.world.rows.find((row) => row.label === "共通ベル")?.kind).toBe("role")
+    const read = readManualForm(form)
+    expect(read).toEqual({ ok: true, value: { spec: belled, conditions: measured } })
+    expect(read.ok && read.value.spec.components.payout?.["bell"]).toBeUndefined()
+  })
+
+  test("a CZ machine's AT takes an AT間天井 after a setting change, and reads back the same", () => {
+    const shortened = { ...(czSpec as SpecDto), components: { ...(czSpec as SpecDto).components, resetCeiling: { ...(czSpec as SpecDto).components.resetCeiling, at: 630 } } }
+    const form = manualFormOf(shortened, measured)
+    expect(form.world.rows.find((row) => row.kind === "at")?.resetCeiling).toBe("630")
+    expect(readManualForm(form)).toEqual({ ok: true, value: { spec: shortened, conditions: measured } })
+  })
+
   test("a CZ asks for its 合算 and success rate setting by setting, and its スルー天井 is a whole count", () => {
     const form = manualFormOf(czSpec as SpecDto, measured)
     const rows = form.world.rows.map((row) => (row.kind === "cz" ? { ...row, success: { "1": "30" }, misses: "2.5" } : row))

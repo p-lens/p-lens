@@ -8,7 +8,7 @@ use pachislot_engine::analysis::{Analysis, analyze as solve};
 use pachislot_engine::normalize::normalize as normalise;
 use pachislot_engine::posterior::{posterior as infer, posterior_told};
 use pachislot_engine::theoretical::{
-    path_theoretical_value as weigh_path, theoretical_value as weigh,
+    hunt_theoretical_value, path_theoretical_value as weigh_path, theoretical_value as weigh,
 };
 use pachislot_simulator::estimate::{Estimate, advance_estimate};
 use pachislot_simulator::game::{GameModel, models};
@@ -19,9 +19,9 @@ use serde::de::DeserializeOwned;
 use crate::convert;
 use crate::dto::{
     AnalysisDto, AnalyzeRequest, ConditionsDto, Envelope, ErrorDto, EstimateRequest,
-    EstimateResponse, NormalizeRequest, NormalizedSpecDto, PlayedDto, PosteriorDto,
-    PosteriorRequest, SimulateRequest, SimulateResponse, SourceDto, TheoreticalValueDto,
-    TheoreticalValueRequest,
+    EstimateResponse, HuntDto, HuntRequest, NormalizeRequest, NormalizedSpecDto, PlayedDto,
+    PosteriorDto, PosteriorRequest, SimulateRequest, SimulateResponse, SourceDto,
+    TheoreticalValueDto, TheoreticalValueRequest,
 };
 
 fn parse<T: DeserializeOwned>(json: &str) -> Result<T, ErrorDto> {
@@ -117,6 +117,28 @@ fn theoretical_value_of(
     Ok(convert::theoretical_value_dto(&value))
 }
 
+fn hunts(request: &HuntRequest) -> Result<Vec<HuntDto>, ErrorDto> {
+    let spec = source(&request.source)?;
+    let rules = spec.at_rules.as_ref().ok_or(ErrorDto::PathWithoutAt)?;
+    let weights = convert::weights(&request.weights)?;
+    let play = convert::play(&request.play)?;
+    request
+        .seats
+        .iter()
+        .map(|seat| {
+            hunt_theoretical_value(&spec, rules, &weights, play, convert::path_start(seat))
+                .map(|value| HuntDto {
+                    games: value.games,
+                    at_medals: value.at_medals,
+                    medals: value.medals,
+                    yen: value.yen,
+                    by_ceiling: value.by_ceiling,
+                })
+                .ok_or(ErrorDto::AtNeverComes)
+        })
+        .collect()
+}
+
 fn simulation(request: &SimulateRequest) -> Result<SimulateResponse, ErrorDto> {
     let spec = source(&request.source)?;
     let analysis = solved(&spec, &request.conditions)?;
@@ -198,6 +220,10 @@ pub fn posterior(json: &str) -> String {
 
 pub fn theoretical_value(json: &str) -> String {
     reply(parse::<TheoreticalValueRequest>(json).and_then(|request| theoretical_value_of(&request)))
+}
+
+pub fn hunt(json: &str) -> String {
+    reply(parse::<HuntRequest>(json).and_then(|request| hunts(&request)))
 }
 
 pub fn simulate_chunk(json: &str) -> String {

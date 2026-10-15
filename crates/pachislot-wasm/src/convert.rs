@@ -33,10 +33,10 @@ use crate::dto::{
     AllotmentsDto, AnalysisDto, AtFigureDto, AtRulesDto, AtTableDto, BonusFigureDto, BucketDto,
     BySettingLevelDto, ComponentsDto, ConditionsDto, ContributionDto, DistributionDto, ErrorDto,
     EstimateProgressDto, EstimateSummaryDto, EventDto, EventKindDto, LawRowDto, LegEndDto,
-    ModeRuleDto, NormalizedSpecDto, PathDto, PayoutBasisDto, PayoutLawDto, PayoutRowDto, PlayDto,
-    PosteriorDto, ProbabilityDto, ProbabilityProblemDto, ProgressDto, SegmentDto,
-    SettingLevelEstimateDto, SettingLevelFiguresDto, SpecDto, SummaryDto, TableDto, TallyDto,
-    TheoreticalValueDto, ToldPathDto, WeightDto,
+    ModeRuleDto, NormalizedSpecDto, PathDto, PathStartDto, PayoutBasisDto, PayoutLawDto,
+    PayoutRowDto, PlayDto, PosteriorDto, ProbabilityDto, ProbabilityProblemDto, ProgressDto,
+    SegmentDto, SettingLevelEstimateDto, SettingLevelFiguresDto, SpecDto, SummaryDto, TableDto,
+    TallyDto, TheoreticalValueDto, ToldPathDto, WeightDto,
 };
 
 fn invalid(field: &str) -> ErrorDto {
@@ -297,9 +297,10 @@ fn event_kind(dto: &EventKindDto, field: &str) -> Result<EventKind, ErrorDto> {
             .map(|value| medals(value, &format!("{field}.payout")))
             .transpose()
             .map(EventKind::Bonus),
-        EventKindDto::Role { payout } => {
-            medals(*payout, &format!("{field}.payout")).map(EventKind::Role)
-        }
+        EventKindDto::Role { payout } => payout
+            .map(|value| medals(value, &format!("{field}.payout")))
+            .transpose()
+            .map(EventKind::Role),
         EventKindDto::Replay => Ok(EventKind::Replay),
     }
 }
@@ -310,7 +311,15 @@ fn ceiling(games: Option<u32>, field: &str) -> Result<Option<NonZeroU32>, ErrorD
         .transpose()
 }
 
-fn at_rules(dto: &AtRulesDto) -> Result<AtRules, ErrorDto> {
+/// An AT machine's rules as stored in a shape: from one before
+/// `SchemaVersion::AT_CEILING_BY_MODE`, the machine's one AT間天井 given to
+/// every mode, and from that on each mode's own, the machine giving none.
+fn at_rules(dto: &AtRulesDto, shape: SchemaVersion) -> Result<AtRules, ErrorDto> {
+    let by_mode = shape >= SchemaVersion::AT_CEILING_BY_MODE;
+    if by_mode && dto.at_ceiling.is_some() {
+        return Err(invalid("normalized.atRules.atCeiling"));
+    }
+    let machine_ceiling = ceiling(dto.at_ceiling, "normalized.atRules.atCeiling")?;
     Ok(AtRules {
         base: Base::new(dto.base).ok_or_else(|| invalid("normalized.atRules.base"))?,
         at: id(&dto.at, "normalized.atRules.at")?,
@@ -329,7 +338,6 @@ fn at_rules(dto: &AtRulesDto) -> Result<AtRules, ErrorDto> {
             .as_deref()
             .map(|trigger| id(trigger, "normalized.atRules.trigger"))
             .transpose()?,
-        at_ceiling: ceiling(dto.at_ceiling, "normalized.atRules.atCeiling")?,
         misses: ceiling(dto.misses, "normalized.atRules.misses")?,
         modes: dto
             .modes
@@ -337,9 +345,17 @@ fn at_rules(dto: &AtRulesDto) -> Result<AtRules, ErrorDto> {
             .enumerate()
             .map(|(index, mode)| {
                 let at = format!("normalized.atRules.modes[{index}]");
+                if !by_mode && mode.at_ceiling.is_some() {
+                    return Err(invalid(&format!("{at}.atCeiling")));
+                }
                 Ok(ModeRule {
                     id: id(&mode.id, &format!("{at}.id"))?,
                     ceiling: ceiling(mode.ceiling, &format!("{at}.ceiling"))?,
+                    at_ceiling: if by_mode {
+                        ceiling(mode.at_ceiling, &format!("{at}.atCeiling"))?
+                    } else {
+                        machine_ceiling
+                    },
                 })
             })
             .collect::<Result<_, _>>()?,
@@ -491,7 +507,11 @@ pub fn normalized_spec(dto: &NormalizedSpecDto) -> Result<NormalizedSpec, ErrorD
                 })
             })
             .collect::<Result<_, _>>()?,
-        at_rules: dto.at_rules.as_ref().map(at_rules).transpose()?,
+        at_rules: dto
+            .at_rules
+            .as_ref()
+            .map(|rules| at_rules(rules, SchemaVersion::new(dto.schema_version)))
+            .transpose()?,
     })
 }
 
@@ -501,7 +521,7 @@ fn event_kind_dto(kind: EventKind) -> EventKindDto {
             payout: payout.map(Medals::get),
         },
         EventKind::Role(payout) => EventKindDto::Role {
-            payout: payout.get(),
+            payout: payout.map(Medals::get),
         },
         EventKind::Replay => EventKindDto::Replay,
     }
@@ -545,7 +565,7 @@ pub fn normalized_dto(spec: &NormalizedSpec) -> NormalizedSpecDto {
             window: rules.window.map(NonZeroU32::get),
             reset_on_cap: rules.reset_on_cap,
             trigger: rules.trigger.as_ref().map(named),
-            at_ceiling: rules.at_ceiling.map(NonZeroU32::get),
+            at_ceiling: None,
             misses: rules.misses.map(NonZeroU32::get),
             modes: rules
                 .modes
@@ -553,6 +573,7 @@ pub fn normalized_dto(spec: &NormalizedSpec) -> NormalizedSpecDto {
                 .map(|mode| ModeRuleDto {
                     id: mode.id.as_str().to_owned(),
                     ceiling: mode.ceiling.map(NonZeroU32::get),
+                    at_ceiling: mode.at_ceiling.map(NonZeroU32::get),
                 })
                 .collect(),
         }),
@@ -576,15 +597,19 @@ pub fn told(dto: &ToldPathDto) -> ToldPath {
     }
 }
 
+pub fn path_start(dto: &PathStartDto) -> PathStart {
+    PathStart {
+        since_trigger: dto.since_trigger,
+        since_at: dto.since_at,
+        misses: dto.misses,
+        after_reset: dto.after_reset,
+        held: dto.held,
+    }
+}
+
 pub fn path(dto: &PathDto) -> Path {
     Path {
-        start: PathStart {
-            since_trigger: dto.start.since_trigger,
-            since_at: dto.start.since_at,
-            misses: dto.start.misses,
-            after_reset: dto.start.after_reset,
-            held: dto.start.held,
-        },
+        start: path_start(&dto.start),
         legs: dto
             .legs
             .iter()
@@ -829,7 +854,10 @@ pub fn spec_error_dto(error: &SpecError) -> ErrorDto {
         SpecError::FirstHitBesideCz { entity } => ErrorDto::FirstHitBesideCz {
             entity: named(entity),
         },
-        SpecError::ResetCeilingBesideCz { entity } => ErrorDto::ResetCeilingBesideCz {
+        SpecError::PayoutBesideAt { entity } => ErrorDto::PayoutBesideAt {
+            entity: named(entity),
+        },
+        SpecError::ResetCeilingBesideModes { entity } => ErrorDto::ResetCeilingBesideModes {
             entity: named(entity),
         },
         SpecError::EmptySet { entity } => ErrorDto::EmptySet {

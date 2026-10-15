@@ -5,13 +5,11 @@ mod support;
 use std::num::NonZeroU32;
 
 use pachislot_domain::conditions::{PayoutBasis, PayoutRate, PlayConditions};
-use pachislot_domain::normalized::{
-    Allotments, AtRules, AtTable, ModeRule, NormalizedSpec, PayoutLaw,
-};
+use pachislot_domain::normalized::{Allotments, AtRules, AtTable, EventKind, NormalizedSpec};
 use pachislot_domain::observation::{AtSeen, Leg, LegEnd, Path, PathStart, Segment};
 use pachislot_domain::probability::Probability;
 use pachislot_domain::setting_level::PerSettingLevel;
-use pachislot_domain::spec::{Base, Component, LcdRate};
+use pachislot_domain::spec::{Base, Component, LcdRate, Spec};
 use pachislot_engine::analysis::{Analysis, analyze};
 use pachislot_engine::at::{cycle, walk};
 use pachislot_engine::error::{AnalysisError, InferenceError, SpecError};
@@ -19,13 +17,9 @@ use pachislot_engine::normalize::normalize;
 use pachislot_engine::posterior::posterior;
 use pachislot_engine::theoretical::path_theoretical_value;
 use support::{
-    at_spec, close, cz_spec, id, medals, mode_spec, one_in, per, percent, made_up_spec,
-    setting_level,
+    LOSS, PAYOUT, at_spec, ceiled, close, cz_spec, id, made_up_spec, medals, mode, mode_spec,
+    one_in, per, rules, setting_level, start, table,
 };
-
-const PAYOUT: f64 = 600.0;
-/// What a regular game loses on a ベース of 40 games.
-const LOSS: f64 = 50.0 / 40.0;
 
 fn normalized() -> NormalizedSpec {
     normalize(&at_spec()).expect("normalises")
@@ -57,55 +51,6 @@ fn at_table(spec: &NormalizedSpec, setting: u8) -> &AtTable {
 /// The trigger's chance a regular game below the ceilings, under one setting.
 fn chance(spec: &NormalizedSpec, setting: u8) -> f64 {
     at_table(spec, setting).chance.value()
-}
-
-fn mode(name: &str, ceiling: u32) -> ModeRule {
-    ModeRule {
-        id: id(name),
-        ceiling: NonZeroU32::new(ceiling),
-    }
-}
-
-fn base() -> Base {
-    Base::new(40.0).expect("a base")
-}
-
-/// The rules of a machine whose trigger is `trigger`, or the AT itself.
-fn rules(trigger: Option<&str>, modes: Vec<ModeRule>) -> AtRules {
-    AtRules {
-        base: base(),
-        at: id("at"),
-        trigger: trigger.map(id),
-        modes,
-        at_ceiling: None,
-        misses: None,
-        net_per_game: None,
-        cap: None,
-        window: None,
-        reset_on_cap: false,
-    }
-}
-
-fn table(chance: f64, success: f64, after_at: Vec<f64>, after_reset: Vec<f64>) -> AtTable {
-    AtTable {
-        chance: Probability::new(chance).expect("a chance"),
-        success: Probability::new(success).expect("a rate"),
-        allotments: Allotments {
-            after_at,
-            after_reset,
-        },
-        payout: PayoutLaw::Fixed(medals(PAYOUT)),
-    }
-}
-
-fn start(since_trigger: u32, since_at: u32, misses: u32) -> PathStart {
-    PathStart {
-        since_trigger,
-        since_at,
-        misses,
-        after_reset: false,
-        held: None,
-    }
 }
 
 fn path(start: PathStart, legs: &[(u32, LegEnd)]) -> Path {
@@ -180,10 +125,7 @@ fn a_through_ceiling_wins_the_at_on_the_trigger_after_so_many_misses() {
 #[test]
 fn a_second_ceiling_in_games_since_the_at_ends_the_cycle_there() {
     let p: f64 = 0.002;
-    let capped = AtRules {
-        at_ceiling: NonZeroU32::new(300),
-        ..rules(None, vec![mode("at", 0)])
-    };
+    let capped = rules(None, vec![ceiled("at", 0, 300)]);
     let found = cycle(&capped, p, 1.0, &[1.0]);
     assert!(close(found.games, -(300.0 * (-p).ln_1p()).exp_m1() / p));
     assert!(close(found.triggers, -(299.0 * (-p).ln_1p()).exp_m1()));
@@ -199,7 +141,7 @@ fn the_convolved_cycle_meets_the_closed_form_when_the_second_ceiling_is_out_of_r
             ..rules(Some("cz"), modes.clone())
         };
         let far = AtRules {
-            at_ceiling: NonZeroU32::new(30_000),
+            modes: vec![ceiled("cz", 150, 30_000)],
             ..open.clone()
         };
         let closed = cycle(&open, p, q, &[1.0]);
@@ -240,8 +182,10 @@ fn an_at_ceiling_beside_a_cz_is_the_second_ceiling_and_never_on_the_screen() {
     spec.resources.lcd_rate = LcdRate::new(1.25);
     let normalized = normalize(&spec).expect("normalises");
     let found = normalized.at_rules.clone().expect("an AT machine");
-    assert_eq!(found.at_ceiling, NonZeroU32::new(1_000));
-    assert_eq!(found.modes, vec![mode("cz", 480), mode("cz:reset", 240)]);
+    assert_eq!(
+        found.modes,
+        vec![ceiled("cz", 480, 1_000), ceiled("cz:reset", 240, 1_000)]
+    );
     let figures = analysed(&normalized);
     assert!((figures.setting_levels[0].bonuses[0].chance - 1.0 / 150.0).abs() < 1e-12);
     assert!(figures.setting_levels[0].bonuses[1].chance > 1.0 / 500.0);
@@ -281,10 +225,7 @@ fn a_cz_path_is_as_likely_as_each_game_that_made_it() {
 
 #[test]
 fn a_game_on_the_second_ceiling_is_the_at_itself() {
-    let capped = AtRules {
-        at_ceiling: NonZeroU32::new(300),
-        ..rules(Some("cz"), vec![mode("cz", 0)])
-    };
+    let capped = rules(Some("cz"), vec![ceiled("cz", 0, 300)]);
     let odds = table(0.01, 0.3, vec![1.0], vec![1.0]);
     let won = walk(
         &path(start(40, 299, 2), &[(1, LegEnd::WonAt(AtSeen::default()))]),
@@ -312,6 +253,113 @@ fn a_game_on_the_second_ceiling_is_the_at_itself() {
 }
 
 #[test]
+fn a_setting_change_shortens_the_at_ceiling_until_the_first_at() {
+    let rules = rules(
+        Some("cz"),
+        vec![ceiled("cz", 0, 300), ceiled("cz:reset", 0, 200)],
+    );
+    let odds = table(0.01, 0.3, vec![1.0, 0.0], vec![0.0, 1.0]);
+    let after_reset = |since_at| PathStart {
+        after_reset: true,
+        ..start(40, since_at, 0)
+    };
+    let won = walk(
+        &path(after_reset(199), &[(1, LegEnd::WonAt(AtSeen::default()))]),
+        &rules,
+        &odds,
+    );
+    assert!(close(won.log_likelihood, 0.0));
+    let past = walk(
+        &path(after_reset(199), &[(1, LegEnd::Going)]),
+        &rules,
+        &odds,
+    );
+    assert_eq!(past.log_likelihood, f64::NEG_INFINITY);
+    let then = walk(
+        &path(
+            after_reset(199),
+            &[
+                (1, LegEnd::WonAt(AtSeen::default())),
+                (300, LegEnd::WonAt(AtSeen::default())),
+            ],
+        ),
+        &rules,
+        &odds,
+    );
+    assert!(close(then.log_likelihood, 299.0 * (1.0_f64 - 0.01).ln()));
+}
+
+#[test]
+fn a_mode_whose_at_ceiling_the_seat_is_past_is_none_play_could_be_in() {
+    let rules = rules(
+        Some("cz"),
+        vec![ceiled("cz", 0, 300), ceiled("cz:reset", 0, 200)],
+    );
+    let odds = table(0.01, 0.3, vec![0.5, 0.5], vec![0.5, 0.5]);
+    let walked = walk(
+        &path(
+            start(40, 250, 0),
+            &[(49, LegEnd::Going), (1, LegEnd::WonAt(AtSeen::default()))],
+        ),
+        &rules,
+        &odds,
+    );
+    assert!(close(walked.log_likelihood, 49.0 * (1.0_f64 - 0.01).ln()));
+}
+
+#[test]
+fn a_setting_change_s_at_ceiling_beside_a_cz_is_a_mode_of_its_own() {
+    let ceilings = |spec: &mut Spec, at_ceiling: u32, reset: u32| {
+        spec.components
+            .ceiling
+            .insert(id("at"), NonZeroU32::new(at_ceiling).expect("a ceiling"));
+        spec.components
+            .reset_ceiling
+            .insert(id("at"), NonZeroU32::new(reset).expect("a ceiling"));
+    };
+    let mut both = cz_spec();
+    ceilings(&mut both, 1_000, 500);
+    let found = normalize(&both).expect("normalises");
+    assert_eq!(
+        found.at_rules.map(|rules| rules.modes),
+        Some(vec![ceiled("cz", 600, 1_000), ceiled("cz:reset", 300, 500)])
+    );
+
+    let mut at_alone = cz_spec();
+    at_alone.components.reset_ceiling.clear();
+    ceilings(&mut at_alone, 1_000, 500);
+    let found = normalize(&at_alone).expect("normalises");
+    assert_eq!(
+        found.at_rules.as_ref().map(|rules| rules.modes.clone()),
+        Some(vec![ceiled("cz", 600, 1_000), ceiled("cz:reset", 600, 500)])
+    );
+    let reset_only = at_table(&found, 1).allotments.clone();
+    assert_eq!(
+        (reset_only.after_at, reset_only.after_reset),
+        (vec![1.0, 0.0], vec![0.0, 1.0])
+    );
+
+    let mut moded = mode_spec();
+    let cz = cz_spec();
+    moded.entities.push(id("cz"));
+    moded.components.first_hit.clear();
+    moded.components.cz = cz.components.cz.clone();
+    moded
+        .components
+        .first_hit
+        .clone_from(&cz.components.first_hit);
+    moded.components.success.clone_from(&cz.components.success);
+    moded
+        .components
+        .reset_ceiling
+        .insert(id("at"), NonZeroU32::new(500).expect("a ceiling"));
+    assert_eq!(
+        normalize(&moded),
+        Err(SpecError::ResetCeilingBesideModes { entity: id("at") })
+    );
+}
+
+#[test]
 fn the_misses_before_play_was_seen_rule_out_a_mode_they_could_not_come_from() {
     let (p, q) = (0.004, 0.3);
     let modes = rules(Some("cz"), vec![mode("heaven", 100), mode("normal", 1_000)]);
@@ -335,6 +383,55 @@ fn a_long_path_without_a_cz_points_to_the_rarer_setting() {
     let odds = (400.0 * ((-high).ln_1p() - (-low).ln_1p())).exp();
     assert!(close(found.setting_levels[0].1, 1.0 / (1.0 + odds)));
     assert!(found.setting_levels[0].1 > 0.5);
+}
+
+/// The made-up CZ machine with a bell counted in its regular games, 1/7.3
+/// under setting 1 and 1/6.9 under 6, paying through the ベース.
+fn belled() -> Spec {
+    let mut spec = cz_spec();
+    spec.entities.push(id("bell"));
+    spec.components
+        .chance
+        .insert(id("bell"), per(one_in(730), one_in(690)));
+    spec
+}
+
+#[test]
+fn an_at_machine_s_small_wins_are_counted_and_leave_its_figures_be() {
+    let bare = normalize(&cz_spec()).expect("normalises");
+    let counted = normalize(&belled()).expect("normalises");
+    assert_eq!(counted.at_rules, bare.at_rules);
+    for (with, without) in counted.tables.iter().zip(&bare.tables) {
+        assert_eq!(with.at, without.at);
+        assert_eq!(with.events.len(), 1);
+        assert_eq!(with.events[0].id, id("bell"));
+        assert_eq!(with.events[0].kind, EventKind::Role(None));
+    }
+    assert!(close(counted.tables[0].events[0].chance.value(), 1.0 / 7.3));
+    assert_eq!(analysed(&counted), analysed(&bare));
+}
+
+#[test]
+fn an_at_machine_s_counted_small_wins_weigh_beside_its_path() {
+    let spec = normalize(&belled()).expect("normalises");
+    let played = path(start(0, 0, 0), &[(300, LegEnd::Going)]);
+    let bells = Segment {
+        games: 300,
+        counts: vec![(id("bell"), 45)],
+    };
+    let alone = posterior(&spec, None, &[], Some(&played)).expect("infers");
+    let both = posterior(&spec, None, &[bells], Some(&played)).expect("infers");
+    let likely = |q: f64| 45.0 * q.ln() + 255.0 * (-q).ln_1p();
+    let weighed: Vec<f64> = alone
+        .setting_levels
+        .iter()
+        .zip([1.0 / 7.3, 1.0 / 6.9])
+        .map(|((_, share), q)| share * likely(q).exp())
+        .collect();
+    let total: f64 = weighed.iter().sum();
+    for ((_, share), weight) in both.setting_levels.iter().zip(&weighed) {
+        assert!(near(*share, weight / total, 1e-9));
+    }
 }
 
 #[test]
@@ -386,15 +483,23 @@ fn the_games_played_are_weighed_setting_by_setting_and_priced_on_the_terms() {
 #[test]
 fn an_at_machine_is_its_at_its_cz_and_its_base() {
     let mut beside = at_spec();
-    beside.entities.push(id("bell"));
+    beside.entities.push(id("big"));
+    beside.components.bonus = [id("big")].into();
     beside
         .components
         .chance
-        .insert(id("bell"), per(percent(1_000), percent(1_000)));
-    beside.components.payout.insert(id("bell"), medals(8.0));
+        .insert(id("big"), per(one_in(30_000), one_in(25_000)));
+    beside.components.payout.insert(id("big"), medals(240.0));
     assert_eq!(
         normalize(&beside),
-        Err(SpecError::AtNotAlone { entity: id("bell") })
+        Err(SpecError::AtNotAlone { entity: id("big") })
+    );
+
+    let mut paid = belled();
+    paid.components.payout.insert(id("bell"), medals(8.0));
+    assert_eq!(
+        normalize(&paid),
+        Err(SpecError::PayoutBesideAt { entity: id("bell") })
     );
 
     let mut baseless = at_spec();
@@ -418,7 +523,7 @@ fn an_at_machine_is_its_at_its_cz_and_its_base() {
 }
 
 #[test]
-fn an_at_a_cz_brings_takes_its_first_hit_and_reset_ceiling_from_the_cz() {
+fn an_at_a_cz_brings_takes_its_first_hit_from_the_cz() {
     let mut first_hit = cz_spec();
     first_hit
         .components
@@ -427,16 +532,6 @@ fn an_at_a_cz_brings_takes_its_first_hit_and_reset_ceiling_from_the_cz() {
     assert_eq!(
         normalize(&first_hit),
         Err(SpecError::FirstHitBesideCz { entity: id("at") })
-    );
-
-    let mut reset = cz_spec();
-    reset
-        .components
-        .reset_ceiling
-        .insert(id("at"), NonZeroU32::new(500).expect("a ceiling"));
-    assert_eq!(
-        normalize(&reset),
-        Err(SpecError::ResetCeilingBesideCz { entity: id("at") })
     );
 
     let mut direct = at_spec();

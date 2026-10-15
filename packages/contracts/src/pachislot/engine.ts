@@ -112,9 +112,10 @@ export interface PayoutRowDto {
   readonly share: number
 }
 
+/** What an outcome is: a bonus, a small win — with no payout of its own on an AT machine, whose ベース counts it — or a replay. */
 export type EventKindDto =
   | { readonly type: "bonus"; readonly payout?: number }
-  | { readonly type: "role"; readonly payout: number }
+  | { readonly type: "role"; readonly payout?: number }
   | { readonly type: "replay" }
 
 export interface EventDto {
@@ -128,7 +129,7 @@ export interface EventDto {
 export interface TableDto {
   readonly settingLevel: number
   readonly events: readonly EventDto[]
-  /** An AT machine's setting; its events are then none. */
+  /** An AT machine's setting; its events are then the small wins and replays counted in its regular games. */
   readonly at?: AtTableDto
 }
 
@@ -159,12 +160,19 @@ export interface NormalizedSpecDto {
   readonly atRules?: AtRulesDto
 }
 
+/** One mode of an AT machine: its trigger's ceiling and its AT間天井, in regular games, where it has them. */
+export interface ModeRuleDto {
+  readonly id: string
+  readonly ceiling?: number
+  readonly atCeiling?: number
+}
+
 /**
  * An AT machine's regular games: its ベース, its AT, the CZ that brings it
- * if one does, its modes with the trigger's ceiling in regular games — a
- * machine without modes has one, and a second for the shorter ceiling of a
- * setting change — its AT間天井, its スルー天井, its 純増 where the 機械割
- * is to follow from what its AT gains, and its 有利区間: the cap,
+ * if one does, its modes with the trigger's ceiling and their AT間天井 in
+ * regular games — a machine without modes has one, and a second for the
+ * shorter ceilings of a setting change — its スルー天井, its 純増 where the
+ * 機械割 is to follow from what its AT gains, and its 有利区間: the cap,
  * the games it carries on after an AT short of it, and whether play starts
  * again as after a setting change once an AT reaches it.
  */
@@ -172,7 +180,8 @@ export interface AtRulesDto {
   readonly base: number
   readonly at: string
   readonly trigger?: string
-  readonly modes: readonly { readonly id: string; readonly ceiling?: number }[]
+  readonly modes: readonly ModeRuleDto[]
+  /** The one AT間天井 of a spec stored in shape 2, which every mode is read to have; never written since. */
   readonly atCeiling?: number
   readonly misses?: number
   readonly netPerGame?: number
@@ -351,6 +360,26 @@ export interface TheoreticalValueDto {
   readonly yenPerHour?: number
 }
 
+/** Where play stands at an AT machine, as a path starts from it. */
+export type PathStartDto = PathDto["start"]
+
+/** What sitting down at an AT machine is worth from each seat, played on until the next AT is won and over, given how likely each setting is, on the player's terms. */
+export interface HuntRequest {
+  readonly source: SourceDto
+  readonly weights: readonly WeightDto[]
+  readonly play: PlayDto
+  readonly seats: readonly PathStartDto[]
+}
+
+/** What a seat comes to: the regular games played on average, the AT's medals, the medals over both and in yen, and the chance the AT is won by a ceiling. */
+export interface HuntDto {
+  readonly games: number
+  readonly atMedals: number
+  readonly medals: number
+  readonly yen: number
+  readonly byCeiling: number
+}
+
 /** A run in progress, carried across chunks and handed back as received. */
 export interface ProgressDto {
   readonly rng: readonly [string, string, string, string]
@@ -444,6 +473,7 @@ export type EngineErrorDto =
   | { readonly type: "base-without-at" }
   | { readonly type: "first-hit-beyond-ceiling"; readonly at: string; readonly settingLevel: number }
   | { readonly type: "path-without-at" }
+  | { readonly type: "at-never-comes" }
   | { readonly type: "played-mismatch" }
   | { readonly type: "mode-without-at"; readonly entity: string }
   | { readonly type: "ceiling-beside-modes"; readonly entity: string }
@@ -451,7 +481,8 @@ export type EngineErrorDto =
   | { readonly type: "reset-allotment-partial"; readonly entity: string }
   | { readonly type: "cz-without-at"; readonly entity: string }
   | { readonly type: "first-hit-beside-cz"; readonly entity: string }
-  | { readonly type: "reset-ceiling-beside-cz"; readonly entity: string }
+  | { readonly type: "payout-beside-at"; readonly entity: string }
+  | { readonly type: "reset-ceiling-beside-modes"; readonly entity: string }
   | { readonly type: "empty-set"; readonly entity: string }
   | { readonly type: "empty-net-per-game"; readonly entity: string }
   | { readonly type: "other-net-beyond-whole"; readonly entity: string; readonly sum: number }

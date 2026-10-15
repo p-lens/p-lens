@@ -13,6 +13,7 @@ import { load, Prolog } from "trealla"
 import { figuresFromAnalysis, type SettingLevelFigures } from "../../../src/core/pachislot/figures"
 import type { Basis } from "../../../src/core/pachislot/formula"
 import { groundsFacts, reasonsGrounds, type SampledMargin } from "../../../src/core/pachislot/grounds/facts"
+import { groundsNamingOf } from "../../../src/core/pachislot/grounds/naming"
 import { everyStep, findingsIn, proofOf, type Proof } from "../../../src/core/grounds/proof"
 import { compoundOf, numberOf, termOf } from "../../../src/core/grounds/term"
 import { groundsLines, groundsStanding, plainOf, type GroundsLine, type GroundsPart } from "../../../src/ui/wording/pachislot/grounds"
@@ -192,13 +193,13 @@ describe("an AT machine's grounds, reasoned", () => {
   test("an AT's medals follow from the stated 機械割, and the 機械割 comes back from them", async () => {
     const { basis, analysis } = solved(rateSpec as SpecDto)
     const proof = await proved(basis, analysis)
-    const lines = groundsLines(proof).map((line) => plainOf(line.parts))
+    const lines = groundsLines(proof, groundsNamingOf(basis)).map((line) => plainOf(line.parts))
     expect(lines).toContain("設定1")
     expect(lines).toContain("通常時1Gあたりの減り ＝ 50枚 ÷ ベース 40G ＝ 1.25枚/G")
     expect(lines).toContain("ATの平均獲得枚数 ＝ 通常 500G ×（3枚 ×（機械割 0.975 − 1）＋ 減り 1.25枚/G）÷（1 ＋ 3枚 ×（1 − 機械割 0.975）÷ 純増 4枚/G）＝ 500 × 1.175 ÷ 1.01875 ＝ 587.5枚 ÷ 1.01875 ＝ 576.7枚")
     expect(lines).toContain("検算：獲得枚数から戻した機械割 110% ＝ 入力された 110%")
-    expect(lines).toContain("1周期の通常ゲーム数 ＝ トリガー 1回 × 初当たり分母 500 ＝ 500G")
-    expect(lines).toContain("検算：トリガー 1回 ÷ 通常 500G ＝ 1/500、解析値の初当たり 1/500 と一致")
+    expect(lines).toContain("1周期の通常ゲーム数 ＝ AT 1回 × 初当たり分母 500 ＝ 500G")
+    expect(lines).toContain("検算：AT 1回 ÷ 通常 500G ＝ 1/500、解析値の初当たり 1/500 と一致")
     expect(findingsIn(proof).filter((finding) => finding.standing === "holds")).toHaveLength(12)
     expect(amiss(proof)).toEqual([])
     expect(groundsStanding(proof).tone).toBe("holds")
@@ -208,7 +209,7 @@ describe("an AT machine's grounds, reasoned", () => {
     const { basis, analysis } = solved(withNet)
     const proof = await proved(basis, analysis)
     expect(everyStep(proof).filter((step) => step.rule === "gain_fixed").length).toBeGreaterThanOrEqual(2)
-    const lines = groundsLines(proof).map((line) => plainOf(line.parts))
+    const lines = groundsLines(proof, groundsNamingOf(basis)).map((line) => plainOf(line.parts))
     expect(lines).toContain("ATの平均獲得枚数 600枚（解析値のまま）")
     expect(lines).toContain("検算：ここで導いた平均獲得枚数 600枚 ＝ 計算エンジンの 600枚")
     expect(lines).toContain("ATのゲーム数 ＝ 獲得 600枚 ÷ 純増 4枚/G ＝ 150G")
@@ -226,7 +227,7 @@ describe("an AT machine's grounds, reasoned", () => {
     const { basis, analysis } = solved(shared)
     expect(analysis.settingLevels.map((figures) => figures.at?.gain)).toEqual(solved(single).analysis.settingLevels.map((figures) => figures.at?.gain))
     const proof = await proved(basis, analysis)
-    const lines = groundsLines(proof).map((line) => plainOf(line.parts))
+    const lines = groundsLines(proof, groundsNamingOf(basis)).map((line) => plainOf(line.parts))
     expect(lines).toContain("AT全体の純増 ＝ 1 ÷（0.5 ÷ 2枚/G ＋ 0.5 ÷ 8枚/G）＝ 1 ÷（0.25G/枚 ＋ 0.0625G/枚）＝ 1 ÷ 0.3125G/枚 ＝ 3.2枚/G（1枚あたりのATゲーム数を、獲得枚数の割合で合わせる）")
     expect(lines).toContain("検算：ここで導いたAT全体の純増 3.2枚/G ＝ 計算エンジンの 3.2枚/G")
     expect(lines.some((line) => line.includes("÷ 純増 3.2枚/G）＝ 500 × 1.175 ÷ 1.02344"))).toBe(true)
@@ -252,7 +253,7 @@ describe("an AT machine's grounds, reasoned", () => {
       ["check_stored", "fails"],
       ["check_stored", "fails"],
     ])
-    expect(groundsLines(proof).map((line) => plainOf(line.parts))).toContain("検算：保存されている機械割 99.5% と、ここで導いた 97.5% が食い違っています（差 2%）。古い計算エンジンで作られたか、数字が書き換えられています")
+    expect(groundsLines(proof, groundsNamingOf(basis)).map((line) => plainOf(line.parts))).toContain("検算：保存されている機械割 99.5% と、ここで導いた 97.5% が食い違っています（差 2%）。古い計算エンジンで作られたか、数字が書き換えられています")
   })
 
   test("a setting level that cannot be proved is said so beside the ones that can", async () => {
@@ -260,7 +261,7 @@ describe("an AT machine's grounds, reasoned", () => {
     const figures = figuresFromAnalysis(analysis, basis.spec)
     const proof = await proved(basis, analysis, figures.slice(1))
     expect(amiss(proof)).toContainEqual([undefined, "unproved"])
-    const lines = groundsLines(proof).map((line) => plainOf(line.parts))
+    const lines = groundsLines(proof, groundsNamingOf(basis)).map((line) => plainOf(line.parts))
     expect(lines).toContain("設定1の機械割を、解析値から導けませんでした")
     expect(lines).toContain("検算：獲得枚数から戻した機械割 110% ＝ 入力された 110%")
   })
@@ -272,7 +273,7 @@ describe("an AT machine's grounds, reasoned", () => {
     const sound = solved(within)
     const proof = await proved(sound.basis, sound.analysis)
     expect(amiss(proof)).toEqual([])
-    const lines = groundsLines(proof).map((line) => plainOf(line.parts))
+    const lines = groundsLines(proof, groundsNamingOf(sound.basis)).map((line) => plainOf(line.parts))
     expect(lines).toContain("ATまでのCZ ＝（1 −（1 − CZ成功率 0.3）^4）÷ 0.3 ＝（1 − 0.7^4）÷ 0.3 ＝（1 − 0.2401）÷ 0.3 ＝ 0.7599 ÷ 0.3 ＝ 2.533回（3回スルーで次は当選）")
     expect(lines).toContain("1周期の通常ゲーム数 ＝ ATまでのCZ 2.533回 × CZの初当たり分母 150 ＝ 380G")
     expect(lines).toContain("検算：ここで導いた1周期の通常ゲーム数 380G ＝ 計算エンジンの 380G")
@@ -280,7 +281,7 @@ describe("an AT machine's grounds, reasoned", () => {
     const without = solved({ ...cz, components: { ...rest, ceiling: { cz: 600 }, netPerGame: { at: 4 } } })
     const free = await proved(without.basis, without.analysis)
     expect(amiss(free)).toEqual([])
-    expect(groundsLines(free).map((line) => plainOf(line.parts))).toContain("ATまでのCZ ＝ 1 ÷ CZ成功率 0.3 ＝ 3.333回")
+    expect(groundsLines(free, groundsNamingOf(without.basis)).map((line) => plainOf(line.parts))).toContain("ATまでのCZ ＝ 1 ÷ CZ成功率 0.3 ＝ 3.333回")
     expect(ceiling?.["at"]).toBe(1000)
   })
 
@@ -301,6 +302,29 @@ describe("an AT machine's grounds, reasoned", () => {
     expect(amiss(await proved(wrong, cut.analysis)).map(([rule]) => rule)).toContain("check_chance")
   })
 
+  test("a cycle names the CZ and its ceilings, and a setting change's shorter AT間天井 leaves an AT's cycle as it was", async () => {
+    const cz = czSpec as SpecDto
+    const cut = solved({ ...cz, components: { ...cz.components, netPerGame: { at: 4 } } })
+    const lines = groundsLines(await proved(cut.basis, cut.analysis), groundsNamingOf(cut.basis)).map((line) => plainOf(line.parts))
+    expect(lines).toContain("天井を除いたCZ確率 1/152.57（CZ成功率 0.3・スルー天井 3回）、CZ天井 600G・AT間天井 1000G まで1Gずつ追うと 1周期は通常 373G・CZ 2.487回（各ゲームでまだATに当たっていない確率を足し上げ）")
+    expect(lines).toContain("CZ天井 600G")
+    expect(lines).toContain("設定変更後のCZ天井 300G")
+    expect(lines.some((line) => /モード\d|トリガー/u.test(line))).toBe(false)
+
+    const shortened = solved({ ...cz, components: { ...cz.components, resetCeiling: { ...cz.components.resetCeiling, at: 500 }, netPerGame: { at: 4 } } })
+    const proof = await proved(shortened.basis, shortened.analysis)
+    expect(amiss(proof)).toEqual([])
+    expect(shortened.analysis.settingLevels.map((figures) => figures.payoutRate)).toEqual(cut.analysis.settingLevels.map((figures) => figures.payoutRate))
+  })
+
+  test("a machine of modes names each by its label", async () => {
+    const modes = modesSpec as SpecDto
+    const moded = solved({ ...modes, components: { ...modes.components, netPerGame: { at: 4 } } })
+    const lines = groundsLines(await proved(moded.basis, moded.analysis), groundsNamingOf(moded.basis)).map((line) => plainOf(line.parts))
+    expect(lines).toContain("天国の天井 ＝ 液晶 100G ÷ 液晶倍率 1.25 ＝ 80、切り上げて通常 80G")
+    expect(lines).toContain("通常の天井 ＝ 液晶 1000G ÷ 液晶倍率 1.25 ＝ 800、切り上げて通常 800G")
+  })
+
   test("an AT's medals under a cap are averaged over what each AT starts from, and come to the engine's", async () => {
     const cap = capSpec as SpecDto
     const capped = solved({ ...cap, components: { ...cap.components, netPerGame: { at: 4 } } })
@@ -313,11 +337,11 @@ describe("an AT machine's grounds, reasoned", () => {
     expect(amiss(await proved(alone.basis, alone.analysis))).toEqual([])
     expect([window?.["at"], resetOnCap]).toEqual([32, ["at"]])
 
-    const lines = groundsLines(proof).map((line) => plainOf(line.parts))
+    const lines = groundsLines(proof, groundsNamingOf(capped.basis)).map((line) => plainOf(line.parts))
     expect(lines).toContain("検算：ここで導いた上限到達率 1.21% ＝ 計算エンジンの 1.21%")
     expect(lines.some((line) => line.startsWith("ATの平均獲得枚数 694.9枚（上限なしなら 初回 300枚 ＋ 1セット 100枚 × 0.8 ÷（1 − 0.8）＝ 700枚。"))).toBe(true)
     expect(lines).toContain("上限 2400枚 に届くATの割合 1.21%（次のATが 32G 以内なら持ち越した枚数から積み上げ、来なければ0枚から）")
-    expect(lines).toContain("モード1の振り分け ＝（1 − 上限到達率 0.0121）× AT後 0 ＋ 0.0121 × 設定変更後 1 ＝ 1.21%")
+    expect(lines).toContain("設定変更後の振り分け ＝（1 − 上限到達率 0.0121）× AT後 0 ＋ 0.0121 × 設定変更後 1 ＝ 1.21%")
 
     const bent = { ...capped.analysis, settingLevels: capped.analysis.settingLevels.map((level) => (level.at === undefined ? level : { ...level, at: { ...level.at, gain: level.at.gain + 1 } })) }
     expect(amiss(await proved(capped.basis, bent)).map(([rule, standing]) => [rule, standing])).toContainEqual(["check_engine", "fails"])
@@ -367,7 +391,7 @@ describe("an AT machine's grounds, reasoned", () => {
     const { basis, analysis } = solved({ ...cap, components: { ...rest, netPerGame: { at: 4 } }, resources })
     const proof = await proved(basis, analysis)
     expect(amiss(proof)).toEqual([])
-    expect(groundsLines(proof).map((line) => plainOf(line.parts))).toContain("ATの平均獲得枚数 ＝ 初回 300枚 ＋ 1セット 100枚 × 継続率 0.8 ÷（1 − 0.8）＝ 300 ＋ 100 × 4 ＝ 300 ＋ 400 ＝ 700枚")
+    expect(groundsLines(proof, groundsNamingOf(basis)).map((line) => plainOf(line.parts))).toContain("ATの平均獲得枚数 ＝ 初回 300枚 ＋ 1セット 100枚 × 継続率 0.8 ÷（1 − 0.8）＝ 300 ＋ 100 × 4 ＝ 300 ＋ 400 ＝ 700枚")
     expect([window?.["at"], resetOnCap, limit]).toEqual([32, ["at"], 2400])
   })
 
@@ -383,7 +407,7 @@ describe("an AT machine's grounds, reasoned", () => {
     const proof = await proved(basis, analysis)
     expect(amiss(proof)).toEqual([])
     expect(payout?.["at"]).toBe(600)
-    const lines = groundsLines(proof).map((line) => plainOf(line.parts))
+    const lines = groundsLines(proof, groundsNamingOf(basis)).map((line) => plainOf(line.parts))
     expect(lines.filter((line) => line === "ATの平均獲得枚数 ＝ 150枚 ＋ 150枚 ＋ 225枚 ＝ 525枚").length).toBe(2)
     expect(lines.filter((line) => line === "300枚 × 0.5 ＝ 150枚").length).toBe(2)
     expect(lines.filter((line) => line === "600枚 × 0.25 ＝ 150枚").length).toBe(2)
@@ -392,7 +416,7 @@ describe("an AT machine's grounds, reasoned", () => {
 
   test("a line puts in every figure it knows, set apart from its words", async () => {
     const { basis, analysis } = solved(rateSpec as SpecDto)
-    const line = groundsLines(await proved(basis, analysis)).find((each) => plainOf(each.parts).startsWith("ATの平均獲得枚数 ＝ 通常 500G"))
+    const line = groundsLines(await proved(basis, analysis), groundsNamingOf(basis)).find((each) => plainOf(each.parts).startsWith("ATの平均獲得枚数 ＝ 通常 500G"))
     const figures = line?.parts.filter((part) => part.type === "figure").map((part) => part.text) ?? []
     const words = line?.parts.filter((part) => part.type === "words").map((part) => part.text).join("") ?? ""
     expect(figures).toEqual(["500G", "3枚", "0.975", "1.25枚/G", "3枚", "0.975", "4枚/G", "500", "1.175", "1.01875", "587.5枚", "1.01875", "576.7枚"])
@@ -424,8 +448,8 @@ describe("an AT machine's grounds, reasoned", () => {
     const table = solved({ ...withNet, components: { ...tableRest, payoutTable: { at: [1, 6].map((settingLevel) => ({ settingLevel, value: rows })) } } })
     const modes = modesSpec as SpecDto
     const moded = solved({ ...modes, components: { ...modes.components, netPerGame: { at: 4 } } })
-    const proofs = await Promise.all([rate, shared, net, within, cut, capped, sets, table, moded].map((each) => proved(each.basis, each.analysis)))
-    const links = proofs.flatMap((proof) => groundsLines(proof).flatMap(equalities))
+    const proofs = await Promise.all([rate, shared, net, within, cut, capped, sets, table, moded].map(async (each) => ({ proof: await proved(each.basis, each.analysis), naming: groundsNamingOf(each.basis) })))
+    const links = proofs.flatMap(({ proof, naming }) => groundsLines(proof, naming).flatMap(equalities))
     expect(links.length).toBeGreaterThan(150)
     expect(links.filter((each) => Math.abs(each.left - each.right) > each.spread * 1.01 + 1e-9 * Math.max(1, Math.abs(each.left)))).toEqual([])
     expect([ceiling?.["at"], window?.["at"], resetOnCap, limit, payout?.["at"]]).toEqual([1000, 32, ["at"], 2400, 600])
@@ -434,10 +458,10 @@ describe("an AT machine's grounds, reasoned", () => {
   test("a check that fails shows both figures, told apart, and how far apart they are", async () => {
     const { basis, analysis } = solved(rateSpec as SpecDto)
     const tampered = { ...analysis, settingLevels: analysis.settingLevels.map((figures) => ({ ...figures, payoutRate: figures.payoutRate + 0.01 })) }
-    const failed = groundsLines(await proved(basis, tampered, figuresFromAnalysis(analysis, basis.spec))).filter((line) => line.tone === "fails")
+    const failed = groundsLines(await proved(basis, tampered, figuresFromAnalysis(analysis, basis.spec)), groundsNamingOf(basis)).filter((line) => line.tone === "fails")
     expect(failed.map((line) => plainOf(line.parts))).toEqual(["検算：ここで導いた機械割 97.5% が計算エンジンの 98.5% と食い違っています（差 1%）", "検算：ここで導いた機械割 110% が計算エンジンの 111% と食い違っています（差 1%）"])
     const slight = { ...analysis, settingLevels: analysis.settingLevels.map((figures) => ({ ...figures, payoutRate: figures.payoutRate + 1e-6 })) }
-    const close = groundsLines(await proved(basis, slight, figuresFromAnalysis(analysis, basis.spec))).find((line) => line.tone === "fails")
+    const close = groundsLines(await proved(basis, slight, figuresFromAnalysis(analysis, basis.spec)), groundsNamingOf(basis)).find((line) => line.tone === "fails")
     const [mine, engine, gap] = close?.parts.filter((part) => part.type === "figure").map((part) => part.text) ?? []
     expect(mine).not.toBe(engine)
     expect(gap).toBe("0.0001%")
@@ -457,9 +481,9 @@ describe("an AT machine's grounds, reasoned", () => {
       expect(Math.abs(between - games)).toBeGreaterThan(1)
       expect(between * triggers).toBeCloseTo(games, 6)
     })
-    const lines = groundsLines(proof).map((line) => plainOf(line.parts))
-    expect(lines).toContain("トリガー間 ＝（1 −（1 − 1/152.99）^600）× 152.99 ＝ 150G")
-    expect(lines).toContain("1周期の通常ゲーム数 ＝ トリガー間 150G × トリガー 2.533回 ＝ 380G")
+    const lines = groundsLines(proof, groundsNamingOf(basis)).map((line) => plainOf(line.parts))
+    expect(lines).toContain("CZ間 ＝（1 −（1 − 1/152.99）^600）× 152.99 ＝ 150G")
+    expect(lines).toContain("1周期の通常ゲーム数 ＝ CZ間 150G × CZ 2.533回 ＝ 380G")
     expect(ceiling?.["at"]).toBe(1000)
   })
 
@@ -468,10 +492,10 @@ describe("an AT machine's grounds, reasoned", () => {
     const exact = figuresFromAnalysis(analysis, basis.spec)
     const margins = exact.map((figures) => ({ settingLevel: figures.settingLevel, payoutRateMargin: 0.001 }))
     const off = (margin: number) => exact.map((figures) => ({ ...figures, payoutRate: figures.payoutRate + margin * 0.001 }))
-    const within = groundsLines(await proved(basis, analysis, off(1.5), margins)).map((line) => plainOf(line.parts))
+    const within = groundsLines(await proved(basis, analysis, off(1.5), margins), groundsNamingOf(basis)).map((line) => plainOf(line.parts))
     expect(within).toContain("検算：推定の機械割 97.65% と厳密解 97.5% の差 0.15% は、誤差 ±0.1% の2倍 0.2% 以内")
     const beyond = await proved(basis, analysis, off(2.5), margins)
-    expect(groundsLines(beyond).map((line) => plainOf(line.parts))).toContain("検算：推定の機械割 97.75% と厳密解 97.5% の差 0.25% は、誤差 ±0.1% の2倍 0.2% を超えています。数字が書き換えられているかもしれません")
+    expect(groundsLines(beyond, groundsNamingOf(basis)).map((line) => plainOf(line.parts))).toContain("検算：推定の機械割 97.75% と厳密解 97.5% の差 0.25% は、誤差 ±0.1% の2倍 0.2% を超えています。数字が書き換えられているかもしれません")
     expect(amiss(beyond).filter(([, standing]) => standing === "fails")).toEqual([
       ["check_sample", "fails"],
       ["check_sample", "fails"],
