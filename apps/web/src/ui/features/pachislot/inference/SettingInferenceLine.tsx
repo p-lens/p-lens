@@ -2,9 +2,10 @@ import { Match, Switch, type JSX } from "solid-js"
 
 import { describeError } from "../../../wording/errors"
 import { theoreticalFigureText } from "../../../wording/numbers"
-import { EVEN_PRIOR } from "../../../wording/pachislot/inference"
+import { priorName } from "../../../wording/pachislot/formula"
 import { SettingLevelOdds } from "../live/SettingLevelOdds"
 import type { SettingInference } from "../../../../application/pachislot/setting-inference"
+import { DEFAULT_PRIOR } from "../../../../core/pachislot/prior"
 
 /** What a reading came to is set in: a dark card with a frame, as a machine would report it. */
 const CARD = "flex flex-col gap-3 rounded-[3px] border border-border bg-surface-0 px-4 py-3"
@@ -31,7 +32,7 @@ export function SettingInferenceLine(props: { readonly inference: SettingInferen
               <p class="text-xs tracking-widest text-text-secondary">推定期待値</p>
               <p class="text-2xl font-bold tabular-nums text-text-primary">{theoreticalFigureText(inferred.theoreticalValue)}</p>
             </div>
-            <SettingLevelOdds settingLevels={inferred.settingLevels} prior={EVEN_PRIOR} grounded unfolding />
+            <SettingLevelOdds settingLevels={inferred.settingLevels} prior={priorName(DEFAULT_PRIOR)} grounded unfolding />
           </div>
         )}
       </Match>

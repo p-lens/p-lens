@@ -136,8 +136,8 @@ const STOCK = "stock:"
 const stockValue = (key: StockSpreadKey): string => `${STOCK}${key}`
 
 /**
- * The prior a pachislot play's setting level is inferred from: the harshest
- * stock spread unless a 設定配分 is kept as the favourite or one is chosen
+ * The prior a pachislot play's setting level is inferred from: an ordinary
+ * day's stock spread unless a 設定配分 is kept as the favourite or one is chosen
  * here by hand. It is there from the first, like the formula beside it:
  * before a machine is chosen it waits, and pressing it nudges the machine.
  */

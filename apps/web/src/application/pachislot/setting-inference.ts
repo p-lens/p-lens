@@ -2,11 +2,12 @@ import type { PlayDto, PlayedDto, PosteriorRequest, WeightDto } from "@p-lens/co
 
 import type { Catalog } from "../../catalog/port/catalog"
 import { ranked } from "../../core/formula/standing"
+import { DEFAULT_PRIOR, priorFor } from "../../core/pachislot/prior"
 import { worthOf } from "../../core/pachislot/formula"
 import { snapshotOf, type FormulaSnapshot } from "../../core/pachislot/snapshot"
 import { atGamesOf, playedGamesOf, playTermsOf, segmentOf, toldAtPathOf, toldPathOf, type MedalTerms, type SettingTold } from "../../core/pachislot/told"
-import { pricedPlayOf } from "../../core/pachislot/weighing"
-import { mapOk } from "../../core/result/result"
+import { pricedPlayOf, settingLevelsOf } from "../../core/pachislot/weighing"
+import { Err, mapOk } from "../../core/result/result"
 import type { EngineClient } from "../../pachislot-engine/client/client"
 import type { ApplicationError, Outcome } from "../errors"
 import { fromPachislotEngine } from "../lift"
@@ -52,8 +53,8 @@ const askedOf = (told: SettingTold): { readonly seen: Pick<PosteriorRequest, "se
 }
 
 /**
- * Read a told play's setting level by Bayes: an even prior over the
- * formula's setting levels, updated by what was told — a bonus machine's
+ * Read a told play's setting level by Bayes: an ordinary day's stock spread
+ * over the formula's setting levels, as a play followed live starts with, updated by what was told — a bonus machine's
  * day games and bonuses its counter showed, an AT machine's history of ATs
  * — then the theoretical value of its games, each setting level weighed by
  * how likely it now is, on the terms told: the cash put in rented, nothing
@@ -64,7 +65,9 @@ const askedOf = (told: SettingTold): { readonly seen: Pick<PosteriorRequest, "se
 export const inferSettingLevels = async (engine: EngineClient, formula: FormulaSnapshot, told: SettingTold, terms: MedalTerms): Promise<Outcome<InferredSettingLevels>> => {
   const source = { type: "normalized", normalized: formula.normalized } as const
   const asked = askedOf(told)
-  const posterior = fromPachislotEngine(await engine.call("posterior", { source, ...asked.seen }))
+  const prior = priorFor(DEFAULT_PRIOR, settingLevelsOf(formula))
+  if (!prior.ok) return Err({ type: "pachislot-play", problem: prior.error })
+  const posterior = fromPachislotEngine(await engine.call("posterior", { source, ...asked.seen, ...(prior.value === undefined ? {} : { prior: prior.value }) }))
   if (!posterior.ok) return posterior
   const weigh = async (play: PlayDto) =>
     fromPachislotEngine(await engine.call("theoreticalValue", { source, conditions: formula.conditions, weights: posterior.value.settingLevels, play, played: asked.played }))

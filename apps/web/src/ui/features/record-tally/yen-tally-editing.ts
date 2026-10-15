@@ -31,7 +31,7 @@ import * as PachinkoViews from "../pachinko"
 import * as PachislotViews from "../pachislot"
 import { offersByKey, parlorOffers, type ParlorOffer } from "../parlor-offers/parlor-offers"
 import type { FieldProblem, FormField } from "./form"
-import { atToldOf, pachislotToldOf, readMedalTerms, readYenTallyForm, resultOfYenTally, toldFiguresOf, withInferred, type YenTallyForm } from "./yen-tally-form"
+import { atToldOf, medalTermsFormOf, pachislotToldOf, readMedalTerms, readYenTallyForm, resultOfYenTally, toldFiguresOf, withInferred, type YenTallyForm } from "./yen-tally-form"
 
 /** Where a submission is: being typed, being written, or refused with why. */
 type Submission =
@@ -279,8 +279,8 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
     form().atHistory.since.trim() !== "" ||
     form().counterGames.trim() !== "" ||
     Object.values(form().counterBonuses).some((count) => count.trim() !== "") ||
-    form().medalTerms.rentedPerThousand !== String(Pachislot.MEDAL_TERMS_BY_DEFAULT.rentedPerThousand) ||
-    form().medalTerms.exchangedPerHundred !== String(Pachislot.MEDAL_TERMS_BY_DEFAULT.exchangedPerHundred)
+    form().medalTerms.rentedPerThousand !== medalTermsFormOf(Pachislot.MEDAL_TERMS_BY_DEFAULT).rentedPerThousand ||
+    form().medalTerms.exchangedPerHundred !== medalTermsFormOf(Pachislot.MEDAL_TERMS_BY_DEFAULT).exchangedPerHundred
   const weighingSet = (): boolean => form().jackpots.trim() !== "" || form().weighingTerms.rental !== Pachinko.TERMS_BY_DEFAULT.rental || form().weighingTerms.exchange !== Pachinko.TERMS_BY_DEFAULT.exchange
   const previewText = (): string | undefined => {
     const entry = preview()

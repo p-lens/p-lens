@@ -18,6 +18,3 @@ export const settingInferenceButtonText = (inference: SettingInference): string 
 
 /** That an AT machine's history read better with the CZs missed on the way to each AT counted. */
 export const MISSES_SHARPEN = "CZスルー回数を入力すると、さらに精度が上がります。"
-
-/** What a told play's setting level was read under: nothing was supposed of the cabinet beforehand. */
-export const EVEN_PRIOR = "均等（事前の見込みなし）"

@@ -44,9 +44,9 @@ const parlorOf = (value: unknown): ParlorChoice | undefined => {
 
 const termsOf = (value: unknown): TermsForm | undefined => {
   if (!isRecord(value)) return undefined
-  const { rentalTokens, exchangeTokens, replayPaidOut, replayDeducted } = value
-  return typeof rentalTokens === "string" && typeof exchangeTokens === "string" && typeof replayPaidOut === "string" && typeof replayDeducted === "string"
-    ? { rentalTokens, exchangeTokens, replayPaidOut, replayDeducted }
+  const { rentalTokens, exchange, replayPaidOut, replayDeducted } = value
+  return typeof rentalTokens === "string" && typeof exchange === "string" && typeof replayPaidOut === "string" && typeof replayDeducted === "string"
+    ? { rentalTokens, exchange, replayPaidOut, replayDeducted }
     : undefined
 }
 

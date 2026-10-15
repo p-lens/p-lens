@@ -262,14 +262,14 @@ export function Start(props: {
   const machineMissing = (): boolean => chosenMachine() === undefined
   /** Where the play is: the chosen parlor on the corner's terms, with the pool they make, or none. No book hears of it until the play is recorded. */
   const venue = (): PlayVenue => {
-    const read = readTerms(start.form().terms.slot)
+    const read = readTerms(start.form().terms.slot, "slot")
     const terms = read.ok ? read.value : undefined
     const parlor = chosenParlor()
     return parlor === undefined || terms === undefined ? { type: "none", terms } : { type: "parlor", parlor: { ...parlor, pools: [poolOf("slot", terms)] }, terms }
   }
   /** The terms' fields that do not read: a play is not started without its corner's terms, at a parlor or at none. */
   const termsProblems = (): readonly TermsField[] => {
-    const read = readTerms(start.form().terms.slot)
+    const read = readTerms(start.form().terms.slot, "slot")
     return read.ok ? [] : read.error
   }
   /** The medals the play is begun with in hand: what the day's play before left at this place, unless typed over. */
@@ -278,7 +278,7 @@ export function Start(props: {
   const textProblems = (): readonly (string | undefined)[] => [carriedUnread() ? "整数で入力してください。" : undefined, unwritable(start.form().cabinetNumber)]
   /** The corner's terms as read, for weighing the seat: none until they read. */
   const terms = (): PlayTerms | undefined => {
-    const read = readTerms(start.form().terms.slot)
+    const read = readTerms(start.form().terms.slot, "slot")
     return read.ok ? read.value : undefined
   }
 

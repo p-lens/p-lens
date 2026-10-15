@@ -74,7 +74,8 @@ describe("the tally form", () => {
     expect(pachislotToldOf({ ...form, counterGames: "" }, ["big", "reg"])).toBeUndefined()
     expect(pachislotToldOf({ ...form, hours: "" }, ["big", "reg"])).toBeUndefined()
     expect(pachislotToldOf({ ...form, counterBonuses: { big: "1.5" } }, ["big", "reg"])).toBeUndefined()
-    expect(readMedalTerms(form.medalTerms)).toEqual({ rentedPerThousand: 46, exchangedPerHundred: 5.2 })
+    expect(form.medalTerms).toEqual({ rentedPerThousand: "46", exchangedPerHundred: "5.10" })
+    expect(readMedalTerms(form.medalTerms)).toEqual({ rentedPerThousand: 46, exchangedPerHundred: 5.1 })
     expect(readMedalTerms({ rentedPerThousand: "46.5", exchangedPerHundred: "5.2" })).toBeUndefined()
   })
 

@@ -1,24 +1,26 @@
-import type { PlayTerms } from "../../../core/parlor/terms"
+import { exchangeOfStated, statedExchangeOf, type PlayTerms } from "../../../core/parlor/terms"
+import type { PlayGameKind } from "../../../core/play/play"
 import { Err, Ok, type Result } from "../../../core/result/result"
 import { tidyTyped } from "../../../core/text/tidy"
 
 /**
- * The sum a corner's rental and exchange are stated for. A board says them
- * as tokens for ¥1,000 — 250玉, 280玉 — so only the tokens are typed: with a
- * field for the sum too, 250 and 280 went into it and the rate came out a
- * quarter of what it was.
+ * The sum a corner's rental is stated for. A board says it as tokens for
+ * ¥1,000 — 250玉, 46枚 — so only the tokens are typed: with a field for the
+ * sum too, 250 and 280 went into it and the rate came out a quarter of what
+ * it was. The exchange is stated as each game states it (`exchangeOfStated`).
  */
-export const TERMS_YEN = 1000
+const TERMS_YEN = 1000
 
 /**
  * A corner's terms as typed for one game, each still text: the tokens ¥1,000
- * rents, the tokens ¥1,000 is exchanged for, and a replay's two counts —
+ * rents, the exchange as the game states it, for ¥100 — 28玉, 5.1枚 —
+ * and a replay's two counts —
  * what it pays out and what it takes off the savings. Few corners take a fee
  * on a replay, and with none the two counts are the same.
  */
 export interface TermsForm {
   readonly rentalTokens: string
-  readonly exchangeTokens: string
+  readonly exchange: string
   readonly replayPaidOut: string
   readonly replayDeducted: string
 }
@@ -26,20 +28,20 @@ export interface TermsForm {
 export type TermsField = keyof TermsForm
 
 /** The form as it opens, from what a corner of the game usually has: the rates and the tokens a replay is stated for, typed over where the corner differs, the replay taking what it pays out. */
-export const termsAsOpened = (usual: { readonly rentalTokens: string; readonly exchangeTokens: string; readonly replayTokens: string }): TermsForm => ({
+export const termsAsOpened = (usual: { readonly rentalTokens: string; readonly exchange: string; readonly replayTokens: string }): TermsForm => ({
   rentalTokens: usual.rentalTokens,
-  exchangeTokens: usual.exchangeTokens,
+  exchange: usual.exchange,
   replayPaidOut: usual.replayTokens,
   replayDeducted: usual.replayTokens,
 })
 
-/** A sum's tokens as a board says them, for ¥1,000. */
+/** A rental's tokens as a board says them, for ¥1,000. */
 const forTermsYen = (stated: { readonly yen: number; readonly tokens: number }): string => String((stated.tokens * TERMS_YEN) / stated.yen)
 
-/** Terms as the form that states them: what a play is on, set out to be typed over. */
-export const termsFormOf = (terms: PlayTerms): TermsForm => ({
+/** Terms as the form that states them for a game: what a play is on, set out to be typed over. */
+export const termsFormOf = (terms: PlayTerms, gameKind: PlayGameKind): TermsForm => ({
   rentalTokens: forTermsYen(terms.rental),
-  exchangeTokens: forTermsYen(terms.exchange),
+  exchange: statedExchangeOf(gameKind, terms.exchange),
   replayPaidOut: String(terms.replay.paidOut),
   replayDeducted: String(terms.replay.deducted),
 })
@@ -55,14 +57,15 @@ const countOf = (text: string): number | undefined => {
   return COUNT.test(plain) && Number(plain) > 0 ? Number(plain) : undefined
 }
 
-const FIELDS: readonly TermsField[] = ["rentalTokens", "exchangeTokens", "replayPaidOut", "replayDeducted"]
-
-/** The terms the form states, or every field that is not a whole number above zero. */
-export const readTerms = (form: TermsForm): Result<PlayTerms, readonly TermsField[]> => {
-  const [rentalTokens, exchangeTokens, paidOut, deducted] = FIELDS.map((field) => countOf(form[field]))
-  if (rentalTokens === undefined || exchangeTokens === undefined || paidOut === undefined || deducted === undefined)
-    return Err(FIELDS.filter((field) => countOf(form[field]) === undefined))
-  return Ok({ rental: { yen: TERMS_YEN, tokens: rentalTokens }, exchange: { yen: TERMS_YEN, tokens: exchangeTokens }, replay: { paidOut, deducted } })
+/** The terms the form states for a game, or every field that does not read: a count not a whole number above zero, an exchange not one as the game states it. */
+export const readTerms = (form: TermsForm, gameKind: PlayGameKind): Result<PlayTerms, readonly TermsField[]> => {
+  const [rentalTokens, paidOut, deducted] = [form.rentalTokens, form.replayPaidOut, form.replayDeducted].map(countOf)
+  const exchange = exchangeOfStated(gameKind, tidyTyped(form.exchange).replaceAll(",", ""))
+  if (rentalTokens === undefined || exchange === undefined || paidOut === undefined || deducted === undefined) {
+    const unread: readonly (TermsField | false)[] = [rentalTokens === undefined && "rentalTokens", exchange === undefined && "exchange", paidOut === undefined && "replayPaidOut", deducted === undefined && "replayDeducted"]
+    return Err(unread.filter((field) => field !== false))
+  }
+  return Ok({ rental: { yen: TERMS_YEN, tokens: rentalTokens }, exchange, replay: { paidOut, deducted } })
 }
 
 /**
@@ -71,6 +74,6 @@ export const readTerms = (form: TermsForm): Result<PlayTerms, readonly TermsFiel
  * the wrong way round. It is cautioned about and stops nothing.
  */
 export const replayPaysMoreThanItTakes = (form: TermsForm): boolean => {
-  const read = readTerms(form)
-  return read.ok && read.value.replay.paidOut > read.value.replay.deducted
+  const [paidOut, deducted] = [countOf(form.replayPaidOut), countOf(form.replayDeducted)]
+  return paidOut !== undefined && deducted !== undefined && paidOut > deducted
 }

@@ -42,18 +42,18 @@ export function CornerTerms(props: { readonly draft: PlayDraft }): JSX.Element {
   const [failure, setFailure] = createSignal<ApplicationError | undefined>(undefined)
   const nudge = createNudge()
   const problems = (): readonly TermsField[] => {
-    const read = readTerms(form())
+    const read = readTerms(form(), "slot")
     return read.ok ? [] : read.error
   }
   const open = (): void => {
     const terms = props.draft.venue.terms
-    setForm(terms === undefined ? start.form().terms.slot : termsFormOf(terms))
+    setForm(terms === undefined ? start.form().terms.slot : termsFormOf(terms, "slot"))
     setFailure(undefined)
     setLook("changing")
   }
   const apply = async (): Promise<void> => {
     settleTyping()
-    const read = readTerms(form())
+    const read = readTerms(form(), "slot")
     if (!read.ok) {
       nudge.nudge()
       return

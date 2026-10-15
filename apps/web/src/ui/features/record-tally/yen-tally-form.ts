@@ -166,7 +166,8 @@ interface MedalTermsForm {
   readonly exchangedPerHundred: string
 }
 
-const medalTermsFormOf = (terms: Pachislot.MedalTerms): MedalTermsForm => ({ rentedPerThousand: String(terms.rentedPerThousand), exchangedPerHundred: String(terms.exchangedPerHundred) })
+/** The terms as the form opens on them, the exchange to the two places it is said to: 5.10. */
+export const medalTermsFormOf = (terms: Pachislot.MedalTerms): MedalTermsForm => ({ rentedPerThousand: String(terms.rentedPerThousand), exchangedPerHundred: terms.exchangedPerHundred.toFixed(2) })
 
 const WHOLE_COUNT = /^\d+$/
 

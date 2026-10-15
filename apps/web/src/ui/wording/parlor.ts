@@ -1,6 +1,6 @@
 import type { SharedParlor } from "../../core/parlor/shared"
 import type { Parlor } from "../../core/parlor/parlor"
-import { tierOf, type PlayTerms } from "../../core/parlor/terms"
+import { statedExchangeOf, tierOf, type PlayTerms } from "../../core/parlor/terms"
 import type { PlayGameKind } from "../../core/play/play"
 
 /** A play's parlor by name, or the words for having none. */
@@ -8,9 +8,9 @@ export const parlorText = (parlor: Parlor | undefined): string => parlor?.name ?
 
 const TOKENS: Readonly<Record<PlayGameKind, string>> = { pachinko: "玉", slot: "枚" }
 
-/** A corner's terms in a line: what ¥1,000 rents and is exchanged for, and what a replay pays out and takes. */
+/** A corner's terms in a line: what ¥1,000 rents, the exchange as the game states it, and what a replay pays out and takes. */
 const termsText = (gameKind: PlayGameKind, terms: PlayTerms): string =>
-  `貸${TOKENS[gameKind]} ${String(terms.rental.tokens)}・交換 ${String(terms.exchange.tokens)}・再プレイ ${String(terms.replay.paidOut)}/${String(terms.replay.deducted)}`
+  `貸${TOKENS[gameKind]} ${String(terms.rental.tokens)}・交換 ${statedExchangeOf(gameKind, terms.exchange)}・再プレイ ${String(terms.replay.paidOut)}/${String(terms.replay.deducted)}`
 
 /** The rate a play was on, as one fact of it: the corner's advertised rate, then its terms. */
 export const rateText = (gameKind: PlayGameKind, terms: PlayTerms): string => `${tierOf(gameKind, terms)}（${termsText(gameKind, terms)}）`

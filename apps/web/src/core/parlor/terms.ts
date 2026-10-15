@@ -16,6 +16,39 @@ export interface PlayTerms {
   readonly replay: { readonly paidOut: number; readonly deducted: number }
 }
 
+/**
+ * How a corner's exchange is stated for each game, as a board and a player
+ * say it: the tokens ¥100 takes, to the places each game says it to —
+ * pachinko's 28玉 or 27.5玉, pachislot's 5.1枚 or 5.15枚.
+ */
+const EXCHANGE_STATED: Readonly<Record<PlayGameKind, { readonly yen: number; readonly places: number }>> = {
+  pachinko: { yen: 100, places: 1 },
+  slot: { yen: 100, places: 2 },
+}
+
+const statedNumber = (places: number): RegExp => new RegExp(`^\\d+(\\.\\d{1,${String(places)}})?$`)
+
+/**
+ * An exchange as stated for a game, read from its text — commas and wide
+ * digits tidied before — as whole tokens for a sum: 5.15枚 for ¥100 is 515
+ * for ¥10,000, and 27.5玉 is 275 for ¥1,000. None where it is not a number above zero to the places the
+ * game states it to.
+ */
+export const exchangeOfStated = (gameKind: PlayGameKind, typed: string): PlayTerms["exchange"] | undefined => {
+  const { yen, places } = EXCHANGE_STATED[gameKind]
+  if (!statedNumber(places).test(typed)) return undefined
+  const [units = "", fraction = ""] = typed.split(".")
+  const scale = 10 ** places
+  const tokens = Number(units) * scale + Number(fraction.padEnd(places, "0") || "0")
+  return tokens > 0 ? { yen: yen * scale, tokens } : undefined
+}
+
+/** An exchange as stated for a game, to every place it is said to, however it is kept: 510 for ¥10,000 and 52 for ¥1,000 at pachislot are 5.10 and 5.20, 280 for ¥1,000 at pachinko 28.0. */
+export const statedExchangeOf = (gameKind: PlayGameKind, exchange: PlayTerms["exchange"]): string => {
+  const { yen, places } = EXCHANGE_STATED[gameKind]
+  return ((exchange.tokens * yen) / exchange.yen).toFixed(places)
+}
+
 /** How many places an exchange rate is kept to; 1000 yen for 280 balls is 3.571429. */
 const RATE_PLACES = 6
 

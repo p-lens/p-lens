@@ -111,7 +111,7 @@ describe("choosing a play's prior", () => {
   })
 
   test("is the harshest stock spread by default, however well a 設定配分 ranks", () => {
-    expect(selectPrior([listing("weekday", 12)], undefined, new Set())).toEqual({ prior: { type: "stock", key: "collecting", shares: stockSharesOf("collecting") }, by: "default" })
+    expect(selectPrior([listing("weekday", 12)], undefined, new Set())).toEqual({ prior: { type: "stock", key: "ordinary", shares: stockSharesOf("ordinary") }, by: "default" })
   })
 
   test("is the favourite when one is kept, and what was chosen by hand over either", () => {

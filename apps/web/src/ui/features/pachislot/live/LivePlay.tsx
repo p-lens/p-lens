@@ -256,12 +256,9 @@ function Counting(props: { readonly weighing: Weighing; readonly ordered: readon
     <section class="flex flex-col gap-3">
       <h3 class="text-xs font-bold uppercase tracking-wide text-text-secondary">
         小役カウンター
-        <Show when={isCounting(props.ordered)}>
-          <span class="ml-2 font-normal normal-case tabular-nums text-text-muted">数え始めてから {formatCount(countedGamesOf(props.ordered))}G</span>
-        </Show>
+        <span class="ml-2 font-normal normal-case text-text-muted">長押しで1つ戻します</span>
       </h3>
       <RoleCounter countables={countablesOf(props.weighing.formula)} counts={countsNowOf(props.ordered)} games={countedGamesOf(props.ordered)} onCount={count} />
-      <p class="text-xs text-text-muted">タップで1つ数え、長押しで1つ戻します。ブドウやチェリー、単独・重複のボーナスまで数えると、設定の見込みがより確かになります。数え始めたら、最後まで数えてください。ゲーム数は、データカウンターの累計ゲーム数を記録したときに進みます。</p>
       <Show when={failure()} keyed>
         {(error) => (
           <p role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-text-primary">

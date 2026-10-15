@@ -15,6 +15,7 @@ function TermField(props: {
   readonly label: string
   readonly field: TermsField
   readonly suffix: string
+  readonly inputMode?: "numeric" | "decimal"
   readonly form: TermsForm
   readonly invalid: readonly TermsField[]
   readonly onChange: (field: TermsField, text: string) => void
@@ -30,7 +31,7 @@ function TermField(props: {
         labelHidden
         value={props.form[props.field]}
         onChange={(text) => props.onChange(props.field, text)}
-        inputMode="numeric"
+        inputMode={props.inputMode ?? "numeric"}
         suffix={props.suffix}
         invalid={props.invalid.includes(props.field)}
         onFocus={props.onFocus}
@@ -81,7 +82,7 @@ export function Terms(props: {
     props.onChange(withReplayFee(props.form, fee))
   }
   const tier = (): string | undefined => {
-    const read = readTerms(props.form)
+    const read = readTerms(props.form, "slot")
     return read.ok ? tierOf("slot", read.value) : undefined
   }
   return (
@@ -90,7 +91,7 @@ export function Terms(props: {
         <div class="grid grid-cols-2 items-end gap-x-1.5">
           <div class="grid grid-cols-2 gap-x-1.5">
             <TermField label="貸枚(千円)" field="rentalTokens" suffix="枚" form={props.form} invalid={props.invalid} onChange={change} onFocus={props.onFocus} />
-            <TermField label="交換(千円)" field="exchangeTokens" suffix="枚" form={props.form} invalid={props.invalid} onChange={change} onFocus={props.onFocus} />
+            <TermField label="交換(100円)" field="exchange" suffix="枚" inputMode="decimal" form={props.form} invalid={props.invalid} onChange={change} onFocus={props.onFocus} />
           </div>
           <Show
             when={counted()}
@@ -126,7 +127,7 @@ export function Terms(props: {
           <Show when={tier()} keyed>
             {(found) => (
               <Show when={found === UNKNOWN_TIER} fallback={<p class="text-xs text-text-muted">{found}コーナーとして記録します。</p>}>
-                <CautionNote hint="貸枚と交換は、1,000円あたりの枚数に換算して入力してください。このままでも記録できます。">レート不明です。ご確認ください。</CautionNote>
+                <CautionNote hint="貸枚は1,000円あたり、交換は100円あたりの枚数に換算して入力してください。このままでも記録できます。">レート不明です。ご確認ください。</CautionNote>
               </Show>
             )}
           </Show>

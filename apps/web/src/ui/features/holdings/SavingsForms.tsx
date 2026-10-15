@@ -9,7 +9,7 @@ import { decimal, isNegative, multiply, negate, toPlainString, type Decimal } fr
 import { identityKey, type Parlor, type SavingsPool } from "../../../core/parlor/parlor"
 import { oddPrizesAt } from "../../../core/savings/prize-exchange"
 import type { ParlorList } from "../../../core/parlor/shared"
-import { exchangeRateOf, poolOf, type PlayTerms } from "../../../core/parlor/terms"
+import { exchangeOfStated, exchangeRateOf, poolOf, type PlayTerms } from "../../../core/parlor/terms"
 import type { PlayGameKind } from "../../../core/play/play"
 import { tidyTyped } from "../../../core/text/tidy"
 import type { Submission } from "../../../parlors/port/submission-store"
@@ -38,14 +38,14 @@ const countOf = (text: string): number | undefined => {
 
 const whole = (count: number): Decimal => decimal(BigInt(count), 0)
 
-/** The rates a corner usually has, for each game, as tokens for ¥1,000: what the form opens with. */
+/** The rates a corner usually has, for each game, what the form opens with: the tokens ¥1,000 rents, and the tokens ¥100 is exchanged for. */
 const USUAL: Readonly<Record<PlayGameKind, { readonly rental: string; readonly exchange: string; readonly unit: string }>> = {
-  pachinko: { rental: "250", exchange: "280", unit: "玉" },
-  slot: { rental: "46", exchange: "52", unit: "枚" },
+  pachinko: { rental: "250", exchange: "28.0", unit: "玉" },
+  slot: { rental: "46", exchange: "5.10", unit: "枚" },
 }
 
 /** The terms a corner's rates make, as far as a pool needs them: its rate names the pool, its exchange values the savings. A replay is none of a balance's business. */
-const termsOf = (rental: number, exchange: number): PlayTerms => ({ rental: { yen: 1000, tokens: rental }, exchange: { yen: 1000, tokens: exchange }, replay: { paidOut: 1, deducted: 1 } })
+const termsOf = (rental: number, exchange: PlayTerms["exchange"]): PlayTerms => ({ rental: { yen: 1000, tokens: rental }, exchange, replay: { paidOut: 1, deducted: 1 } })
 
 function Failure(props: { readonly saving: Saving }): JSX.Element {
   return (
@@ -96,11 +96,13 @@ export function OpeningBalanceForm(props: {
     return count !== undefined && count > 0 ? count : undefined
   }
   const day = () => parseIsoDate(date())
+  const exchanged = (): PlayTerms["exchange"] | undefined => exchangeOfStated(game(), tidyTyped(exchange()).replaceAll(",", ""))
   const missing = (field: "parlor" | "rental" | "exchange" | "tokens" | "date"): boolean => {
     if (!nudge.red()) return false
     if (field === "parlor") return chosen() === undefined
     if (field === "date") return !day().ok
-    return field === "tokens" ? countOf(tokens()) === undefined : positive({ rental: rental(), exchange: exchange() }[field]) === undefined
+    if (field === "exchange") return exchanged() === undefined
+    return field === "tokens" ? countOf(tokens()) === undefined : positive(rental()) === undefined
   }
   const play = (kind: PlayGameKind): void => {
     setGame(kind)
@@ -110,13 +112,13 @@ export function OpeningBalanceForm(props: {
   const save = async (): Promise<void> => {
     settleTyping()
     const parlor = chosen()
-    const [rented, exchanged, held, on] = [positive(rental()), positive(exchange()), countOf(tokens()), day()]
+    const [rented, stated, held, on] = [positive(rental()), exchanged(), countOf(tokens()), day()]
     if (saving().type === "saving") return
-    if (parlor === undefined || typedOnly() || rented === undefined || exchanged === undefined || held === undefined || !on.ok) {
+    if (parlor === undefined || typedOnly() || rented === undefined || stated === undefined || held === undefined || !on.ok) {
       nudge.nudge()
       return
     }
-    const terms = termsOf(rented, exchanged)
+    const terms = termsOf(rented, stated)
     setSaving({ type: "saving" })
     const registered = await registerOpeningBalance(
       app.services.session,
@@ -172,7 +174,7 @@ export function OpeningBalanceForm(props: {
       </ToggleGroup>
       <div class="grid grid-cols-4 items-end gap-1.5">
         <TextField label="貸(千円)" value={rental()} onChange={setRental} inputMode="numeric" suffix={USUAL[game()].unit} invalid={missing("rental")} onFocus={nudge.settle} compact />
-        <TextField label="交換(千円)" value={exchange()} onChange={setExchange} inputMode="numeric" suffix={USUAL[game()].unit} invalid={missing("exchange")} onFocus={nudge.settle} compact />
+        <TextField label="交換(100円)" value={exchange()} onChange={setExchange} inputMode="decimal" suffix={USUAL[game()].unit} invalid={missing("exchange")} onFocus={nudge.settle} compact />
         <div class="col-span-2">
           <TextField label="残高" value={tokens()} onChange={setTokens} inputMode="numeric" suffix={USUAL[game()].unit} invalid={missing("tokens")} onFocus={nudge.settle} compact />
         </div>

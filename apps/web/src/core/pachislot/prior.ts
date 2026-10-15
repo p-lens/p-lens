@@ -51,8 +51,8 @@ const STOCK_SHARES: Readonly<Record<StockSpreadKey, readonly number[]>> = {
 /** The stock spreads in the order they are offered: the harshest first. */
 export const STOCK_SPREADS: readonly StockSpreadKey[] = ["collecting", "ordinary-harsh", "ordinary", "ordinary-kind", "event-weak", "event", "event-strong", "new-machine", "grand-opening", "featured"]
 
-/** The spread a play starts with where nobody has said one: the harshest. A person told nothing is told no better than a parlor's worst day. */
-const HARSHEST: StockSpreadKey = "collecting"
+/** The spread a play starts with where nobody has said one, live or told afterwards: an ordinary day at an ordinary parlor. */
+const ORDINARY: StockSpreadKey = "ordinary"
 
 const isStockSpread = (key: string): key is StockSpreadKey => STOCK_SPREADS.some((candidate) => candidate === key)
 
@@ -75,8 +75,8 @@ export type ChosenPrior = { readonly type: "even" } | { readonly type: "distribu
 
 /**
  * Which prior a play starts with, and why: the one chosen by hand, else the
- * 設定配分 a book of the person's keeps as its favourite, else the harshest
- * stock spread. Unlike a formula, no 設定配分 of the catalog's is chosen for
+ * 設定配分 a book of the person's keeps as its favourite, else the ordinary
+ * day's stock spread. Unlike a formula, no 設定配分 of the catalog's is chosen for
  * you by its ranking: a parlor's spread is the player's own reading of it.
  */
 export interface PriorSelection {
@@ -93,13 +93,16 @@ const priorOf = (distribution: SettingDistribution): Prior => ({
 
 const stockPrior = (key: StockSpreadKey): Prior => ({ type: "stock", key, shares: stockSharesOf(key) })
 
+/** The prior nobody has said one in place of: an ordinary day's stock spread. */
+export const DEFAULT_PRIOR: Prior = stockPrior(ORDINARY)
+
 export const selectPrior = (listings: readonly FormulaListing<SettingDistribution>[], chosen: ChosenPrior | undefined, favorites: ReadonlySet<string>): PriorSelection => {
   if (chosen?.type === "even") return { prior: { type: "even" }, by: "person" }
   if (chosen?.type === "stock" && isStockSpread(chosen.key)) return { prior: stockPrior(chosen.key), by: "person" }
   const byHand = chosen?.type === "distribution" ? listings.find((listing) => listing.formula.id === chosen.id) : undefined
   if (byHand !== undefined) return { prior: priorOf(byHand.formula), by: "person" }
   const favorite = ranked(listings, sameWorth).find((listing) => favorites.has(listing.formula.id))
-  return favorite === undefined ? { prior: stockPrior(HARSHEST), by: "default" } : { prior: priorOf(favorite.formula), by: "favorite" }
+  return favorite === undefined ? { prior: DEFAULT_PRIOR, by: "default" } : { prior: priorOf(favorite.formula), by: "favorite" }
 }
 
 /** A 設定配分 that gives none of a formula's setting levels any share, so nothing could be inferred under it. */

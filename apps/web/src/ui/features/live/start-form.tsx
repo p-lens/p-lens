@@ -141,10 +141,10 @@ export interface StartForm {
   readonly cabinet: CabinetChoice | undefined
 }
 
-/** What a corner usually has, for each game: for ¥1,000, 250玉 rented and 280玉 exchanged, or 46枚 rented — what a 20-yen corner gives with the tax on top — and 52枚 exchanged; and a replay stated for half the rental. */
-const USUAL_TERMS: Readonly<Record<PlayGameKind, { readonly rentalTokens: string; readonly exchangeTokens: string; readonly replayTokens: string }>> = {
-  pachinko: { rentalTokens: "250", exchangeTokens: "280", replayTokens: "125" },
-  slot: { rentalTokens: "46", exchangeTokens: "52", replayTokens: "23" },
+/** What a corner usually has, for each game: 250玉 rented for ¥1,000 and 28玉 exchanged for ¥100, or 46枚 rented — what a 20-yen corner gives with the tax on top — and 5.1枚 exchanged; and a replay stated for half the rental. */
+const USUAL_TERMS: Readonly<Record<PlayGameKind, { readonly rentalTokens: string; readonly exchange: string; readonly replayTokens: string }>> = {
+  pachinko: { rentalTokens: "250", exchange: "28.0", replayTokens: "125" },
+  slot: { rentalTokens: "46", exchange: "5.10", replayTokens: "23" },
 }
 
 const EMPTY_START_FORM: StartForm = {
@@ -161,7 +161,7 @@ const EMPTY_START_FORM: StartForm = {
 /** A game's terms as recalled, a count left empty opening as the usual one again: the form never opens on a blank. */
 const filledTerms = (recalled: TermsForm, opened: TermsForm): TermsForm => ({
   rentalTokens: recalled.rentalTokens === "" ? opened.rentalTokens : recalled.rentalTokens,
-  exchangeTokens: recalled.exchangeTokens === "" ? opened.exchangeTokens : recalled.exchangeTokens,
+  exchange: recalled.exchange === "" ? opened.exchange : recalled.exchange,
   replayPaidOut: recalled.replayPaidOut === "" ? opened.replayPaidOut : recalled.replayPaidOut,
   replayDeducted: recalled.replayDeducted === "" ? opened.replayDeducted : recalled.replayDeducted,
 })
@@ -231,7 +231,7 @@ export const useStartForm = (): StartFormState => {
 export const useStartBallValue = (): Accessor<number | undefined> => {
   const { form } = useStartForm()
   return createMemo(() => {
-    const terms = readTerms(form().terms.pachinko)
+    const terms = readTerms(form().terms.pachinko, "pachinko")
     return terms.ok ? tokenValueOf(terms.value) : undefined
   })
 }
