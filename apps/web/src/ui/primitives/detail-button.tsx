@@ -67,7 +67,7 @@ export function DetailButton(props: {
         </PopoverPrimitive.Trigger>
       </div>
       <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Content onOpenAutoFocus={(event) => event.preventDefault()} onKeyDown={doneOnEnter} class="z-50 flex items-end gap-1 rounded-md border border-border bg-surface-1 p-2 shadow-lg outline-none" classList={{ "w-44": props.wide !== true, "w-56": props.wide === true }}>
+        <PopoverPrimitive.Content onOpenAutoFocus={(event) => event.preventDefault()} onKeyDown={doneOnEnter} class="z-50 flex max-h-[var(--kb-popper-content-available-height)] items-end gap-1 overflow-y-auto rounded-md border border-border bg-surface-1 p-2 shadow-lg outline-none" classList={{ "w-44": props.wide !== true, "w-56": props.wide === true }}>
           {props.children}
         </PopoverPrimitive.Content>
       </PopoverPrimitive.Portal>

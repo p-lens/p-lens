@@ -285,7 +285,7 @@ function AtHistoryFields(props: { readonly editing: YenTallyEditing }): JSX.Elem
                 <TrashIcon />
               </button>
             </div>
-            <div class="grid gap-2" classList={{ "grid-cols-2": cz() }}>
+            <div class="grid gap-2" classList={{ "grid-cols-2": cz(), "grid-cols-1": !cz() }}>
               <TextField label="ゲーム数" value={at().games} onChange={(games) => putAt(index, { games })} inputMode="numeric" suffix="G" onFocus={editing.weighNudge.settle} compact />
               <Show when={cz()}>
                 <TextField label="CZスルー" value={at().misses} onChange={(misses) => putAt(index, { misses })} inputMode="numeric" suffix="回" onFocus={editing.weighNudge.settle} compact />
