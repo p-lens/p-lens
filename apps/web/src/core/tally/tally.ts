@@ -108,7 +108,7 @@ export interface YenTally extends TallyHead {
   readonly takings: Decimal
   /** How its two sides were settled, where that is known: a tally typed in by hand or taken in from another app knows only what lies between them. */
   readonly settlement: Settlement | undefined
-  /** What else was told of it, where its hours were. */
+  /** What else was told of it, where its hours were, or what it was inferred to be worth from what its counter showed. */
   readonly told: TallyTold | undefined
 }
 
@@ -130,11 +130,12 @@ export type Settlement = { readonly type: "off-book-savings"; readonly cash: Dec
  * What a person tells of a play with a tally in yen, beside its two sides:
  * how long it lasted (稼働時間) and, where they looked, the jackpots its
  * counter showed (大当り回数) — and what the play was taken to be worth
- * from them, where it was weighed.
+ * from them, where it was weighed. An AT machine's play is read by the
+ * history its counter showed, its hours left unsaid where nobody said them.
  */
 export interface TallyTold {
-  /** In hours, to the hundredth: five minutes at a time where a person chose them, and as another app said them where a tally was taken in from one. */
-  readonly hours: Decimal
+  /** In hours, to the hundredth: five minutes at a time where a person chose them, and as another app said them where a tally was taken in from one; none where only what it was worth is told. */
+  readonly hours: Decimal | undefined
   readonly jackpots: number | undefined
   readonly inferred: InferredWorth | undefined
 }

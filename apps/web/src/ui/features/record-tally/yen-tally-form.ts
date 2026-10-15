@@ -156,7 +156,7 @@ export const readYenTallyForm = (form: YenTallyForm, parlors: readonly Parlor[],
 
 /** What was told of a play, as the figures it is weighed from; none for a play whose hours are not said. */
 export const toldFiguresOf = (tally: YenTally): Pachinko.Told | undefined =>
-  tally.told === undefined
+  tally.told?.hours === undefined
     ? undefined
     : { hours: Number(toPlainString(tally.told.hours)), outlay: Number(toPlainString(tally.outlay)), takings: Number(toPlainString(tally.takings)), jackpots: tally.told.jackpots }
 
@@ -243,8 +243,9 @@ export const atToldOf = (form: YenTallyForm): Pachislot.AtTold | undefined => {
   return read.length === 0 && since === 0 ? undefined : { sinceAt, afterReset: history.afterReset, ats: read, since, outlay }
 }
 
-/** A tally with what its play was taken to be worth; a tally nothing was told of is as it was. */
-export const withInferred = (tally: YenTally, inferred: InferredWorth | undefined): YenTally => (tally.told === undefined ? tally : { ...tally, told: { ...tally.told, inferred } })
+/** A tally with what its play was taken to be worth; one whose hours were not said is told of by that alone. */
+export const withInferred = (tally: YenTally, inferred: InferredWorth | undefined): YenTally =>
+  inferred === undefined && tally.told === undefined ? tally : { ...tally, told: { ...(tally.told ?? { hours: undefined, jackpots: undefined }), inferred } }
 
 /** The yen tally form filled in from a recorded tally in yen, for setting it right: its words and its figures as its entry has them. */
 export const yenTallyFormOf = (tally: YenTally): YenTallyForm => ({
@@ -256,7 +257,7 @@ export const yenTallyFormOf = (tally: YenTally): YenTallyForm => ({
   outlay: toPlainString(tally.outlay),
   takings: toPlainString(tally.takings),
   theoreticalValue: tally.theoreticalValue === undefined ? "" : toPlainString(tally.theoreticalValue),
-  hours: tally.told === undefined ? "" : toPlainString(tally.told.hours),
+  hours: tally.told?.hours === undefined ? "" : toPlainString(tally.told.hours),
   jackpots: tally.told?.jackpots === undefined ? "" : String(tally.told.jackpots),
   settlement: tally.settlement,
   weighingTerms: ((inferred) => (inferred === undefined || tally.gameKind !== "pachinko" ? undefined : Pachinko.termsOf(Number(toPlainString(inferred.tokenRental)), Number(toPlainString(inferred.tokenExchange)))))(tally.told?.inferred) ?? Pachinko.TERMS_BY_DEFAULT,

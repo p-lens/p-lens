@@ -117,6 +117,16 @@ describe("a recorded tally, read back from its entry", () => {
     expect(mapOk(await recordedOf(session, "given"), (found) => found.type === "yen" && [found.tally.theoreticalValue && toPlainString(found.tally.theoreticalValue), found.tally.told?.inferred])).toEqual({ ok: true, value: ["1200", undefined] })
   })
 
+  test("keeps what an AT machine's tally was inferred to be worth from its history, its hours left unsaid", async () => {
+    const { session, storage } = await setUp()
+    const read = { ...TALLIED, id: "read" as PlayId, theoreticalValue: undefined, told: { hours: undefined, jackpots: undefined, inferred: { value: dec("-2100"), formulaId: "formula-2", tokenRental: dec("21.73913"), tokenExchange: dec("5.1"), spinPerformance: undefined } } }
+    expect((await recordYenTally(session, BOOK, read)).ok).toBe(true)
+    expect(await recordedOf(session, "read")).toEqual({ ok: true, value: { type: "yen", tally: read } })
+    const text = storage.peek(BOOK)?.files[BOOK_FILES.transactions] ?? ""
+    expect(text).toContain("cabinet-number: 7, inferred-formula: formula-2, token-rental: 21.73913, token-exchange: 5.1")
+    expect(text).toContain("(統計:期待値:推定)")
+  })
+
   test("lists every tally of the made-up book with what it made, the figure its own page gives", async () => {
     const { session } = await setUp()
     const tallies = await loadTallies(session, BOOK, "", 0)

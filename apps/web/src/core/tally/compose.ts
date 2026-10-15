@@ -149,12 +149,12 @@ export const composeTokenTallyEntry = (tally: TokenTally, prices: readonly Price
     })),
   )
 
-/** What an entry says of what was told of its tally's play: its hours, and each of the rest where it was told or taken. */
+/** What an entry says of what was told of its tally's play: each part of it where it was told or taken. */
 export const toldTags = (told: TallyTold | undefined): Entry["tags"] =>
   told === undefined
     ? []
     : [
-        [TALLY_TAGS.hours, toPlainString(told.hours)],
+        ...(told.hours === undefined ? [] : [[TALLY_TAGS.hours, toPlainString(told.hours)] as const]),
         ...(told.jackpots === undefined ? [] : [[TALLY_TAGS.jackpots, String(told.jackpots)] as const]),
         ...(told.inferred === undefined
           ? []

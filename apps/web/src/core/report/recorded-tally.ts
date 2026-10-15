@@ -65,12 +65,11 @@ const inferredOf = (transaction: Transaction, value: Decimal | undefined): Infer
     : { value, formulaId, tokenRental, tokenExchange, spinPerformance: amountOf(tagged(transaction, TALLY_TAGS.inferredSpinPerformance)) }
 }
 
-/** What an entry's tags say was told of its play: nothing unless they say its hours. */
+/** What an entry's tags say was told of its play: nothing unless they say its hours or what it was inferred to be worth. */
 const toldOf = (transaction: Transaction, inferredValue: Decimal | undefined): TallyTold | undefined => {
   const hours = amountOf(tagged(transaction, TALLY_TAGS.hours))
-  return hours === undefined
-    ? undefined
-    : { hours, jackpots: countOf(tagged(transaction, TALLY_TAGS.jackpots)), inferred: inferredOf(transaction, inferredValue) }
+  const inferred = inferredOf(transaction, inferredValue)
+  return hours === undefined && inferred === undefined ? undefined : { hours, jackpots: hours === undefined ? undefined : countOf(tagged(transaction, TALLY_TAGS.jackpots)), inferred }
 }
 
 /**
