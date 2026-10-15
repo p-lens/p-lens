@@ -104,7 +104,7 @@ function Row(props: { readonly step: Step; readonly pressed: Revised | undefined
         when={props.pressed}
         keyed
         fallback={
-          <div class={ROW} classList={{ "bg-accent/10": jackpot() }}>
+          <div class={ROW}>
             <Line step={props.step} />
           </div>
         }

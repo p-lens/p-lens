@@ -273,7 +273,7 @@ body {
 }
 
 /* A line that was not there a moment ago: it opens downwards as it fades in, so what is below it is eased away, not jolted. */
-@keyframes unfold {
+@keyframes unroll {
   from {
     max-height: 0;
     opacity: 0;

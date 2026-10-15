@@ -40,6 +40,7 @@ import { ViewHeader } from "../../shell/ViewHeader"
 import { AtCounting, AtFigures, AtReadingComposer, createAtReading } from "./AtPlay"
 import { awaitsAtResult } from "./at-result-form"
 import { CornerTerms } from "./CornerTerms"
+import { createNoticeBoard, NoticeStack, type Post } from "./NoticeBoard"
 import { OutlookPanel } from "./OutlookPanel"
 import { StepReviser, type RevisedStep } from "./StepReviser"
 import { Timeline } from "./Timeline"
@@ -107,7 +108,7 @@ function PlayFigures(props: { readonly ordered: readonly Checkpoint[]; readonly 
  * tile moves the games it shows — and once a reading is kept it follows
  * again.
  */
-function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readonly standing: Standing; readonly write: Write }): JSX.Element {
+function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readonly standing: Standing; readonly write: Write; readonly post: Post }): JSX.Element {
   const app = useApp()
   const standingForm = createMemo(() =>
     readingFrom(
@@ -169,9 +170,15 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
     const current = sending()
     return current.type === "failed" ? current.error : undefined
   }
+  props.post(() => {
+    const refused = refusal()
+    if (refused !== undefined) return { tone: "refused", said: describeCounterRefusal(refused, (id) => props.bonuses.find((bonus) => bonus.id === id)?.label ?? id) }
+    const error = failure()
+    return error === undefined ? undefined : { tone: "failed", said: describeError(error) }
+  })
   return (
     <form autocomplete="off"
-      class="flex flex-col gap-3 border-t border-border bg-surface-2 p-4"
+      class="flex flex-col gap-3"
       onSubmit={(event) => {
         event.preventDefault()
         void send()
@@ -209,20 +216,6 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
           onFocus={nudge.settle}
         />
       </div>
-      <Show when={refusal()} keyed>
-        {(refused) => (
-          <p role="alert" class="rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-sm text-text-primary">
-            {describeCounterRefusal(refused, (id) => props.bonuses.find((bonus) => bonus.id === id)?.label ?? id)}
-          </p>
-        )}
-      </Show>
-      <Show when={failure()} keyed>
-        {(error) => (
-          <p role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-text-primary">
-            {describeError(error)}
-          </p>
-        )}
-      </Show>
       <div>
         <Button type="submit">記録</Button>
       </div>
@@ -238,13 +231,14 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
  * games are counted in, so a press while it is in an AT is passed over,
  * and that is said.
  */
-function Counting(props: { readonly weighing: Weighing; readonly ordered: readonly Checkpoint[]; readonly write: Write }): JSX.Element {
+function Counting(props: { readonly weighing: Weighing; readonly ordered: readonly Checkpoint[]; readonly write: Write; readonly post: Post }): JSX.Element {
   const app = useApp()
   const held = (): boolean => props.weighing.formula.normalized.atRules !== undefined && inAt(props.ordered)
   const [failure, setFailure] = createSignal<ApplicationError | undefined>(undefined)
   const kept = (written: Written<never>): void => {
     setFailure(written.type === "failed" ? written.error : undefined)
   }
+  props.post(() => ((error) => (error === undefined ? undefined : { tone: "failed", said: describeError(error) }))(failure()))
   /** A tap, the first of which begins the counting where the log stands: what a play counts is counted from then. None while held. */
   const count = (id: string, by: 1 | -1): void => {
     if (held()) return
@@ -265,13 +259,6 @@ function Counting(props: { readonly weighing: Weighing; readonly ordered: readon
       <RoleCounter countables={countablesOf(props.weighing.formula)} counts={countsNowOf(props.ordered)} games={countedGamesOf(props.ordered)} held={held()} onCount={count} />
       <Show when={held()}>
         <p class="text-xs text-text-muted">AT中は数えません。ATのあとのゲーム数を記録すると、また数えられます。</p>
-      </Show>
-      <Show when={failure()} keyed>
-        {(error) => (
-          <p role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-text-primary">
-            {describeError(error)}
-          </p>
-        )}
       </Show>
     </section>
   )
@@ -332,6 +319,7 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
   }
   /** The reading being set right, by its step in the log; held as one value so that it stands while the log around it is written. */
   const [revising, setRevising] = createSignal<{ readonly index: number } | undefined>(undefined)
+  const board = createNoticeBoard()
   const keepNow = async <R,>(keep: typeof addCheckpoints, make: (ordered: readonly Checkpoint[]) => Result<readonly Checkpoint[], R>): Promise<Written<R>> => {
     const base = current()
     const now = orderedOf(base)
@@ -455,10 +443,10 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
         >
           {(found) => {
             const day = () => daySeenOf(found(), shownAs())
-            const atReading = createAtReading(() => ({ sinceAt: liveSummary(found()).counterNow, outlay: liveSummary(found()).outlay, replay: replayOf(found()) }), write)
+            const atReading = createAtReading(() => ({ sinceAt: liveSummary(found()).counterNow, outlay: liveSummary(found()).outlay, replay: replayOf(found()) }), write, board.post)
             const composers = (): JSX.Element => (
               <Show when={atRules() === undefined} fallback={<AtReadingComposer reading={atReading} />}>
-                <ReadingComposer bonuses={bonuses()} standing={{ total: day()?.games ?? totalNowOf(found()), bonuses: day()?.bonuses ?? {}, outlay: liveSummary(found()).outlay, replay: replayOf(found()) }} write={write} />
+                <ReadingComposer bonuses={bonuses()} standing={{ total: day()?.games ?? totalNowOf(found()), bonuses: day()?.bonuses ?? {}, outlay: liveSummary(found()).outlay, replay: replayOf(found()) }} write={write} post={board.post} />
               </Show>
             )
             return (
@@ -477,20 +465,21 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
                       <>
                         <Outlook draft={props.draft} weighing={weighed()} ordered={found()} />
                         <Show when={atRules() !== undefined}>
-                          <AtCounting reading={atReading} ordered={found()} normalized={weighed().formula.normalized} write={write} rewrite={rewrite} awaitsResult={atResultMatters(weighed().formula.normalized) && awaitsAtResult(found())} />
+                          <AtCounting reading={atReading} ordered={found()} normalized={weighed().formula.normalized} write={write} rewrite={rewrite} post={board.post} awaitsResult={atResultMatters(weighed().formula.normalized) && awaitsAtResult(found())} />
                         </Show>
                         <Show when={countablesOf(weighed().formula).length > 0}>
-                          <Counting weighing={weighed()} ordered={found()} write={write} />
+                          <Counting weighing={weighed()} ordered={found()} write={write} post={board.post} />
                         </Show>
                       </>
                     )}
                   </Show>
                 </div>
-                <div class="sticky bottom-0">
+                <div class="sticky bottom-0 flex flex-col gap-3 border-t border-border bg-surface-2 p-4">
+                  <NoticeStack notices={board.notices()} />
                   <Show when={revising()} keyed fallback={composers()}>
                     {(doing) => (
                       <Show when={revisedStepOf(found(), doing.index)} fallback={composers()}>
-                        {(step) => <StepReviser index={doing.index} step={step()} bonuses={bonuses()} cz={atRules()?.trigger !== undefined} rewrite={rewrite} onRemove={() => removeStep(doing.index)} onDone={() => setRevising(undefined)} />}
+                        {(step) => <StepReviser index={doing.index} step={step()} bonuses={bonuses()} cz={atRules()?.trigger !== undefined} rewrite={rewrite} post={board.post} onRemove={() => removeStep(doing.index)} onDone={() => setRevising(undefined)} />}
                       </Show>
                     )}
                   </Show>

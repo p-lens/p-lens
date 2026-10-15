@@ -16,6 +16,7 @@ import { pressesAt, recalledParlorSetting, withPresses, type PressAmounts } from
 import { Button } from "../../../primitives/button"
 import { TrashIcon } from "../../../primitives/icons"
 import { createNudge } from "../../../primitives/nudge"
+import { holdTheEnd } from "../../../primitives/scroll-end"
 import { Select, type SelectOption } from "../../../primitives/select"
 import { settleTyping, TextField } from "../../../primitives/text-field"
 import { toast } from "../../../primitives/toast"
@@ -235,8 +236,11 @@ export function ReadingComposer(props: {
     await revise(withReadingInserted(props.ordered, inserting.before, { ...reading.value, at: inserting.at }))
   }
 
+  const held: { form: HTMLFormElement | undefined } = { form: undefined }
+  holdTheEnd(() => held.form, () => [refusal(), unrevisable(), failure()])
   return (
     <form autocomplete="off"
+      ref={(element) => (held.form = element)}
       class="flex flex-col gap-2 border-t border-border bg-surface-2 p-3"
       onSubmit={(event) => {
         event.preventDefault()
@@ -245,6 +249,30 @@ export function ReadingComposer(props: {
         else void send(false)
       }}
     >
+      <Show when={refusal()} keyed>
+        {(refused) => (
+          <div role="alert" class="flex flex-wrap items-center gap-2 rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-sm text-text-primary">
+            <span class="flex-1">{describeReadingRefusal(refused)}</span>
+            <Button size="small" variant="secondary" onClick={() => void send(true)}>
+              記録漏れの大当りを足して記録
+            </Button>
+          </div>
+        )}
+      </Show>
+      <Show when={unrevisable()} keyed>
+        {(refused) => (
+          <p role="alert" class="rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-sm text-text-primary">
+            {describeRevisionRefusal(refused)}
+          </p>
+        )}
+      </Show>
+      <Show when={failure()} keyed>
+        {(error) => (
+          <div role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-text-primary">
+            {describeError(error)}
+          </div>
+        )}
+      </Show>
       <Show when={props.revising} keyed>
         {(revising) => (
           <div class="flex items-center justify-between gap-2">
@@ -307,30 +335,6 @@ export function ReadingComposer(props: {
       <Show when={behind()}>
         <p class="text-xs text-negative">貸玉と貯玉引出は累計です。これまでより少なくはできません。</p>
       </Show>
-      <Show when={refusal()} keyed>
-        {(refused) => (
-          <div role="alert" class="flex flex-wrap items-center gap-2 rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-sm text-text-primary">
-            <span class="flex-1">{describeReadingRefusal(refused)}</span>
-            <Button size="small" variant="secondary" onClick={() => void send(true)}>
-              記録漏れの大当りを足して記録
-            </Button>
-          </div>
-        )}
-      </Show>
-      <Show when={unrevisable()} keyed>
-        {(refused) => (
-          <p role="alert" class="rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-sm text-text-primary">
-            {describeRevisionRefusal(refused)}
-          </p>
-        )}
-      </Show>
-      <Show when={failure()} keyed>
-        {(error) => (
-          <div role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-text-primary">
-            {describeError(error)}
-          </div>
-        )}
-      </Show>
       <div class="grid grid-cols-2 items-end gap-2">
         <div class="flex min-w-0 items-end gap-1">
           <Show
@@ -362,7 +366,7 @@ export function ReadingComposer(props: {
                 <Button variant="ghost" class="h-10 shrink-0 px-1.5" onClick={() => props.onRevised()}>
                   やめる
                 </Button>
-                <Button variant="ghost" class="ml-auto h-10 shrink-0 px-2 text-negative" aria-label={REMOVE_READING} onClick={() => void remove(revising.index)}>
+                <Button variant="outline" class="ml-auto h-10 shrink-0 px-2 text-negative hover:text-negative" aria-label={REMOVE_READING} onClick={() => void remove(revising.index)}>
                   <TrashIcon />
                 </Button>
               </>

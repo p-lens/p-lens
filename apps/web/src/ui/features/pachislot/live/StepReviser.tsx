@@ -13,6 +13,7 @@ import { describeError } from "../../../wording/errors"
 import { describeStepRefusal } from "../../../wording/pachislot/formula"
 import { REMOVE_READING } from "../../../wording/pachislot/play"
 import { readAtReadingForm, type AtReadingForm } from "./at-reading-form"
+import type { Post } from "./NoticeBoard"
 import { readReadingForm, type ReadingForm } from "./reading-form"
 import type { Write, Written } from "./write"
 
@@ -51,6 +52,7 @@ export function StepReviser(props: {
   /** Whether a CZ brings the machine's AT, so that a reading's games may have ended in one missed. */
   readonly cz: boolean
   readonly rewrite: Write
+  readonly post: Post
   readonly onRemove: () => Promise<Written<RevisionRefusal>>
   readonly onDone: () => void
 }): JSX.Element {
@@ -100,9 +102,14 @@ export function StepReviser(props: {
     if (state().type !== "keeping") void kept(props.onRemove())
   }
   const unread = (): boolean => nudge.red() && revised() === undefined
+  props.post(() => {
+    const current = state()
+    if (current.type === "refused") return { tone: "refused", said: describeStepRefusal(current.refusal, (id) => props.bonuses.find((bonus) => bonus.id === id)?.label ?? id) }
+    return current.type === "failed" ? { tone: "failed", said: describeError(current.error) } : undefined
+  })
   return (
     <form autocomplete="off"
-      class="flex flex-col gap-3 border-t border-border bg-surface-2 p-4"
+      class="flex flex-col gap-3"
       onSubmit={(event) => {
         event.preventDefault()
         save()
@@ -159,26 +166,12 @@ export function StepReviser(props: {
       <Show when={unread()}>
         <p class="text-xs text-negative">整数で入力してください。</p>
       </Show>
-      <Show when={((current) => (current.type === "refused" ? current.refusal : undefined))(state())} keyed>
-        {(refusal) => (
-          <p role="alert" class="rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-sm text-text-primary">
-            {describeStepRefusal(refusal, (id) => props.bonuses.find((bonus) => bonus.id === id)?.label ?? id)}
-          </p>
-        )}
-      </Show>
-      <Show when={((current) => (current.type === "failed" ? current.error : undefined))(state())} keyed>
-        {(error) => (
-          <p role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-text-primary">
-            {describeError(error)}
-          </p>
-        )}
-      </Show>
       <div class="flex items-center gap-2">
         <Button type="submit">保存</Button>
         <Button variant="ghost" onClick={() => props.onDone()}>
           やめる
         </Button>
-        <Button variant="ghost" class="ml-auto text-negative" aria-label={REMOVE_READING} onClick={remove}>
+        <Button variant="outline" size="icon" class="ml-auto text-negative hover:text-negative" aria-label={REMOVE_READING} onClick={remove}>
           <TrashIcon />
         </Button>
       </div>

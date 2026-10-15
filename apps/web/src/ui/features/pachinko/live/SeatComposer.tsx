@@ -11,6 +11,7 @@ import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
 import { DetailButton } from "../../../primitives/detail-button"
 import { createNudge } from "../../../primitives/nudge"
+import { holdTheEnd } from "../../../primitives/scroll-end"
 import { settleTyping, TextField } from "../../../primitives/text-field"
 import { describeError } from "../../../wording/errors"
 import { describeRevisionRefusal } from "../../../wording/pachinko/play"
@@ -82,14 +83,31 @@ export function SeatComposer(props: { readonly draft: PlayDraft; readonly ordere
     app.wrote()
     props.onDone()
   }
+  const held: { form: HTMLFormElement | undefined } = { form: undefined }
+  holdTheEnd(() => held.form, sending)
   return (
     <form autocomplete="off"
+      ref={(element) => (held.form = element)}
       class="flex flex-col gap-2 border-t border-border bg-surface-2 p-3"
       onSubmit={(event) => {
         event.preventDefault()
         void save()
       }}
     >
+      <Show when={((current) => (current.type === "unrevisable" ? current.refusal : undefined))(sending())} keyed>
+        {(refused) => (
+          <p role="alert" class="rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-sm text-text-primary">
+            {describeRevisionRefusal(refused)}
+          </p>
+        )}
+      </Show>
+      <Show when={((current) => (current.type === "failed" ? current.error : undefined))(sending())} keyed>
+        {(error) => (
+          <div role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-text-primary">
+            {describeError(error)}
+          </div>
+        )}
+      </Show>
       <p class="text-xs font-bold text-warning">開始時データを修正中</p>
       <div class="grid grid-cols-[repeat(3,minmax(0,1fr))_auto] items-end gap-1.5">
         <TextField label="総回転数" value={form().total} onChange={(total) => change({ total })} inputMode="numeric" invalid={wrong("total")} onFocus={nudge.settle} compact />
@@ -113,20 +131,6 @@ export function SeatComposer(props: { readonly draft: PlayDraft; readonly ordere
           </div>
         </DetailButton>
       </div>
-      <Show when={((current) => (current.type === "unrevisable" ? current.refusal : undefined))(sending())} keyed>
-        {(refused) => (
-          <p role="alert" class="rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-sm text-text-primary">
-            {describeRevisionRefusal(refused)}
-          </p>
-        )}
-      </Show>
-      <Show when={((current) => (current.type === "failed" ? current.error : undefined))(sending())} keyed>
-        {(error) => (
-          <div role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-text-primary">
-            {describeError(error)}
-          </div>
-        )}
-      </Show>
       <div class="flex justify-end gap-2">
         <Button type="submit" class="h-10 px-4">
           保存

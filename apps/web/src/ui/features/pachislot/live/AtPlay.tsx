@@ -16,6 +16,7 @@ import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
 import { describeError } from "../../../wording/errors"
 import { formatCount } from "../../../wording/numbers"
 import { describeAtReadingRefusal, describeTakeBackRefusal } from "../../../wording/pachislot/formula"
+import type { Post } from "./NoticeBoard"
 import { type AtReadingForm, type AtReadingProblem, type AtStanding, atReadingFrom, readAtReadingForm } from "./at-reading-form"
 import { type AtResultForm, type AtResultProblem, atResultLine, type Completion, EMPTY_AT_RESULT, readAtResultForm } from "./at-result-form"
 import type { Write, Written } from "./write"
@@ -105,7 +106,7 @@ const isCompletion = (value: string): value is Completion => COMPLETIONS.some((e
  * setting and carries what the 有利区間 holds into the games after. Shown
  * while the log's last line is the AT, and gone once anything follows it.
  */
-function AtResultComposer(props: { readonly write: Write; readonly normalized: NormalizedSpecDto }): JSX.Element {
+function AtResultComposer(props: { readonly write: Write; readonly normalized: NormalizedSpecDto; readonly post: Post }): JSX.Element {
   const app = useApp()
   const [form, setForm] = createSignal<AtResultForm>(EMPTY_AT_RESULT)
   const [keeping, setKeeping] = createSignal<Keeping>({ type: "typing" })
@@ -139,6 +140,7 @@ function AtResultComposer(props: { readonly write: Write; readonly normalized: N
     const current = keeping()
     return current.type === "failed" ? current.error : undefined
   }
+  props.post(() => ((error) => (error === undefined ? undefined : { tone: "failed", said: describeError(error) }))(failure()))
   return (
     <form autocomplete="off"
       class="flex flex-col gap-3 rounded-lg border border-border bg-surface-2 p-4"
@@ -178,13 +180,6 @@ function AtResultComposer(props: { readonly write: Write; readonly normalized: N
           onFocus={nudge.settle}
         />
       </div>
-      <Show when={failure()} keyed>
-        {(error) => (
-          <p role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-text-primary">
-            {describeError(error)}
-          </p>
-        )}
-      </Show>
       <div>
         <Button type="submit">結果を記録</Button>
       </div>
@@ -217,7 +212,7 @@ const sendingOf = (written: Written<ReadingRefusal>, ended: Ended): Sending => {
   }
 }
 
-/** An AT machine's reading as the cabinet's row and the counting tiles share it: the form, what was last refused or failed, and the sending of it. */
+/** An AT machine's reading as the cabinet's row and the counting tiles share it: the form and the sending of it. What was last refused or failed, whether sent from the row or from a tile, is posted to the play's notices. */
 export interface AtReading {
   readonly form: Accessor<AtReadingForm>
   readonly typed: (change: Partial<AtReadingForm>) => void
@@ -225,8 +220,6 @@ export interface AtReading {
   readonly problemOf: (field: keyof AtReadingForm) => AtReadingProblem | undefined
   readonly red: Accessor<boolean>
   readonly settle: () => void
-  readonly refused: Accessor<(Sending & { type: "refused" }) | undefined>
-  readonly failure: Accessor<ApplicationError | undefined>
 }
 
 /**
@@ -238,7 +231,7 @@ export interface AtReading {
  * as a CZ that missed. A counter that went back means an AT came that was
  * not written down, which can be added.
  */
-export const createAtReading = (standing: () => AtStanding, write: Write): AtReading => {
+export const createAtReading = (standing: () => AtStanding, write: Write, post: Post): AtReading => {
   const app = useApp()
   const standingForm = createMemo(() => atReadingFrom(standing()))
   const [form, setForm] = createSignal<AtReadingForm>(standingForm())
@@ -294,21 +287,31 @@ export const createAtReading = (standing: () => AtStanding, write: Write): AtRea
     const current = sending()
     return current.type === "failed" ? current.error : undefined
   }
-  return { form, typed, send, problemOf, red: nudge.red, settle: nudge.settle, refused, failure }
+  post(() => {
+    const found = refused()
+    if (found !== undefined)
+      return {
+        tone: "refused",
+        said: describeAtReadingRefusal(found.refusal),
+        ...(found.refusal.type === "counter-went-back" ? { action: { label: "記録漏れのATを足して記録", onPress: () => void send(found.ended, true) } } : {}),
+      }
+    const error = failure()
+    return error === undefined ? undefined : { tone: "failed", said: describeError(error) }
+  })
+  return { form, typed, send, problemOf, red: nudge.red, settle: nudge.settle }
 }
 
 /**
  * Where an AT machine's counter is typed at the cabinet's foot, in one row as
  * a bonus machine's is: the games since the last AT, the cash spent and the
- * medals drawn from savings so far. What was refused or failed, whether
- * sent from here or from a tile, is said here.
+ * medals drawn from savings so far.
  */
 export function AtReadingComposer(props: { readonly reading: AtReading }): JSX.Element {
   const errorOf = (field: keyof AtReadingForm): string | undefined => (props.reading.problemOf(field)?.reason === "not-a-count" ? "整数で入力してください。" : undefined)
   const invalid = (field: keyof AtReadingForm): boolean => props.reading.red() && props.reading.problemOf(field) !== undefined
   return (
     <form autocomplete="off"
-      class="flex flex-col gap-3 border-t border-border bg-surface-2 p-4"
+      class="flex flex-col gap-3"
       onSubmit={(event) => {
         event.preventDefault()
         void props.reading.send("going", false)
@@ -346,25 +349,6 @@ export function AtReadingComposer(props: { readonly reading: AtReading }): JSX.E
           onFocus={props.reading.settle}
         />
       </div>
-      <Show when={props.reading.refused()} keyed>
-        {(found) => (
-          <div role="alert" class="flex flex-wrap items-center gap-3 rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-sm text-text-primary">
-            <span class="flex-1">{describeAtReadingRefusal(found.refusal)}</span>
-            <Show when={found.refusal.type === "counter-went-back"}>
-              <Button size="small" variant="secondary" onClick={() => void props.reading.send(found.ended, true)}>
-                記録漏れのATを足して記録
-              </Button>
-            </Show>
-          </div>
-        )}
-      </Show>
-      <Show when={props.reading.failure()} keyed>
-        {(error) => (
-          <p role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-text-primary">
-            {describeError(error)}
-          </p>
-        )}
-      </Show>
       <div>
         <Button type="submit">記録</Button>
       </div>
@@ -410,6 +394,7 @@ export function AtCounting(props: {
   readonly normalized: NormalizedSpecDto
   readonly write: Write
   readonly rewrite: Write
+  readonly post: Post
   readonly awaitsResult: boolean
 }): JSX.Element {
   const counted = (kind: "cz-missed" | "jackpot"): number => props.ordered.filter((checkpoint) => checkpoint.event?.kind === kind).length
@@ -429,6 +414,7 @@ export function AtCounting(props: {
     if (current?.type === "refused") return describeTakeBackRefusal(current.refusal)
     return current?.type === "failed" ? describeError(current.error) : undefined
   }
+  props.post(() => ((said) => (said === undefined ? undefined : { tone: takingBack()?.type === "failed" ? "failed" : "refused", said }))(unkept()))
   return (
     <section class="flex flex-col gap-3">
       <h3 class="text-xs font-bold uppercase tracking-wide text-text-secondary">
@@ -441,15 +427,8 @@ export function AtCounting(props: {
         </Show>
         <EventTile label="AT当選" count={counted("jackpot")} onPress={() => keep("at")} onLongPress={() => takeBack("at")} />
       </div>
-      <Show when={unkept()} keyed>
-        {(said) => (
-          <p role="alert" class="rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-sm text-text-primary">
-            {said}
-          </p>
-        )}
-      </Show>
       <Show when={props.awaitsResult}>
-        <AtResultComposer write={props.write} normalized={props.normalized} />
+        <AtResultComposer write={props.write} normalized={props.normalized} post={props.post} />
       </Show>
     </section>
   )

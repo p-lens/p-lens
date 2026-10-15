@@ -103,7 +103,7 @@ export function CautionNote(props: { readonly children: string; readonly hint: s
       <PopoverPrimitive.Trigger
         tabIndex={-1}
         onMouseDown={(event) => event.preventDefault()}
-        class="animate-[unfold_360ms_ease-out] self-start overflow-hidden text-left text-xs font-semibold text-warning underline decoration-dotted underline-offset-2"
+        class="animate-[unroll_360ms_ease-out] self-start overflow-hidden text-left text-xs font-semibold text-warning underline decoration-dotted underline-offset-2"
       >
         {props.children}
       </PopoverPrimitive.Trigger>
