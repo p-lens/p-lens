@@ -1,5 +1,6 @@
 import type { Checkpoint, Counts } from "../play-log/checkpoint"
 import { Err, Ok, type Result } from "../result/result"
+import { countingStartOf } from "./observation"
 
 /**
  * The first line of a pachislot play's log: no games played and nothing
@@ -75,17 +76,8 @@ export const checkpointForReading = (ordered: readonly Checkpoint[], input: Coun
 /** What has been counted so far, by id: the last counts in the log. */
 export const countsNowOf = (ordered: readonly Checkpoint[]): Counts => ordered.findLast((checkpoint) => checkpoint.tally !== undefined)?.tally ?? {}
 
-/** Whether the player has started counting: a line with counts is in the log. */
-export const isCounting = (ordered: readonly Checkpoint[]): boolean => ordered.some((checkpoint) => checkpoint.tally !== undefined)
-
-/** Games played since counting began. */
-export const countedGamesOf = (ordered: readonly Checkpoint[]): number => {
-  const start = ordered.find((checkpoint) => checkpoint.tally !== undefined)
-  return start === undefined ? 0 : (ordered.at(-1)?.spins ?? 0) - start.spins
-}
-
-/** The line that starts counting: nothing counted yet, at the games last known. */
-export const startCountingCheckpoint = (ordered: readonly Checkpoint[], at: string): Checkpoint => ({ spins: ordered.at(-1)?.spins ?? 0, at, tally: {} })
+/** Games played since counting began: the play's, once anything is counted. */
+export const countedGamesOf = (ordered: readonly Checkpoint[]): number => ((start) => (start === undefined ? 0 : (ordered.at(-1)?.spins ?? 0) - start))(countingStartOf(ordered))
 
 /**
  * The line a tap on a counting tile adds: the running counts with one more of

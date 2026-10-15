@@ -11,8 +11,6 @@ import {
   checkpointForReading,
   countCheckpoint,
   countedGamesOf,
-  isCounting,
-  startCountingCheckpoint,
   countsNowOf,
   totalNowOf,
   type CounterRefusal,
@@ -225,9 +223,9 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
 
 /**
  * Counting small wins and bonuses as they come, beneath the counter's
- * readings: off until the player starts it, then a tile for everything the
- * formula has. A tap is kept at once; the next reading of the counter says
- * how many games the counting has covered. On an AT machine only regular
+ * readings: a tile for everything the formula has, counted over the play
+ * from its first game. A tap is kept at once; the next reading of the
+ * counter says how many games the counting has covered. On an AT machine only regular
  * games are counted in, so a press while it is in an AT is passed over,
  * and that is said.
  */
@@ -239,16 +237,11 @@ function Counting(props: { readonly weighing: Weighing; readonly ordered: readon
     setFailure(written.type === "failed" ? written.error : undefined)
   }
   props.post(() => ((error) => (error === undefined ? undefined : { tone: "failed", said: describeError(error) }))(failure()))
-  /** A tap, the first of which begins the counting where the log stands: what a play counts is counted from then. None while held. */
+  /** A tap, counted over the play from its first game. None while held. */
   const count = (id: string, by: 1 | -1): void => {
     if (held()) return
     const at = app.services.now()
-    void props
-      .write((ordered) => {
-        const begun = isCounting(ordered) ? [] : [startCountingCheckpoint(ordered, at)]
-        return Ok([...begun, countCheckpoint([...ordered, ...begun], id, by, at)])
-      })
-      .then(kept)
+    void props.write((ordered) => Ok([countCheckpoint(ordered, id, by, at)])).then(kept)
   }
   return (
     <section class="flex flex-col gap-3">

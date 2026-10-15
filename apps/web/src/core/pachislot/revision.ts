@@ -22,7 +22,7 @@ export interface AtInput {
  * - `reading`: a bonus machine's counter — the day's games, its bonuses, the outlay, the medals drawn from savings.
  * - `at-reading`: an AT machine's counter, with how its games ended; `afterMissedAt`
  *   says an AT nobody wrote down was admitted before it.
- * - `kept`: anything else — counting begun, a tap on a tile, an AT's result — which
+ * - `kept`: anything else — a tap on a tile, an AT's result, the line an older log began counting at — which
  *   says nothing of the counter and stands on whatever games the log has reached.
  */
 export type Step =

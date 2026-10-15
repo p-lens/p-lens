@@ -11,13 +11,8 @@ import { formatMoment } from "../../../wording/dates"
 import { formatCount } from "../../../wording/numbers"
 import { MERGE_READINGS, mergeSays } from "../../../wording/pachislot/play"
 
-/** A line worth a row: a reading of the counter, the outlay or the medals drawn from savings, an AT won, or the start of counting — not every tap on a tile. */
-const isShown = (checkpoint: Checkpoint, index: number, ordered: readonly Checkpoint[]): boolean =>
-  checkpoint.counter !== undefined ||
-  checkpoint.outlay !== undefined ||
-  checkpoint.replay !== undefined ||
-  checkpoint.event !== undefined ||
-  (checkpoint.tally !== undefined && ordered.findIndex((candidate) => candidate.tally !== undefined) === index)
+/** A line worth a row: a reading of the counter, the outlay or the medals drawn from savings, or an AT won — not a tap on a tile. */
+const isShown = (checkpoint: Checkpoint): boolean => checkpoint.counter !== undefined || checkpoint.outlay !== undefined || checkpoint.replay !== undefined || checkpoint.event !== undefined
 
 /** An AT's result as a line says it: whether it completed, its sets and its medals, where said. */
 const atEndedText = (checkpoint: Checkpoint): string | undefined => {
@@ -64,9 +59,6 @@ function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly bonuses: 
           <span class="text-text-muted" classList={{ "ml-3": !props.strip }}>{counted()}</span>
         </Show>
       </span>
-      <Show when={props.checkpoint.tally !== undefined && props.checkpoint.counter === undefined}>
-        <span class="shrink-0 rounded bg-surface-3 px-1.5 py-0.5 text-xs text-text-secondary">小役カウント開始</span>
-      </Show>
       <Show when={atEndedText(props.checkpoint)} keyed>
         {(text) => <span class="shrink-0 rounded bg-surface-3 px-1.5 py-0.5 text-xs font-semibold text-text-secondary">{text}</span>}
       </Show>
@@ -145,7 +137,7 @@ export function Timeline(props: {
   const bonuses = (): readonly Countable[] => props.bonuses ?? countedIn(props.checkpoints)
   const shown = (): readonly Row[] =>
     props.checkpoints.flatMap((checkpoint, line, ordered) =>
-      isShown(checkpoint, line, ordered) ? [{ checkpoint, step: props.onRevise === undefined ? undefined : revisableStepAt(ordered, line) }] : [],
+      isShown(checkpoint) ? [{ checkpoint, step: props.onRevise === undefined ? undefined : revisableStepAt(ordered, line) }] : [],
     )
   createEffect(
     on(

@@ -12,19 +12,14 @@ const TAPPED_FIELDS: readonly string[] = ["spins", "at", "tally"]
 
 /**
  * Whether the step at a place is a tap on a counting tile: a line that
- * says nothing but its counts, after the line that began the counting. A
- * run passes over taps, which stand wherever the log has reached; the line
- * that began the counting is where the counted games are told from, and
- * no run passes it.
+ * says nothing but its counts. A run passes over taps, which stand
+ * wherever the log has reached. A line of no counts is where a log written
+ * while counting began with a press told its counted games from, and no
+ * run passes it.
  */
 const isTap = (steps: readonly Step[], at: number): boolean => {
   const step = steps[at]
-  return (
-    step?.type === "kept" &&
-    step.line.tally !== undefined &&
-    Object.keys(step.line).every((field) => TAPPED_FIELDS.includes(field)) &&
-    steps.slice(0, at).some((before) => before.type === "kept" && before.line.tally !== undefined)
-  )
+  return step?.type === "kept" && Object.keys(step.line.tally ?? {}).length > 0 && Object.keys(step.line).every((field) => TAPPED_FIELDS.includes(field))
 }
 
 /** The next reading from a place, one way or the other, past any taps; none where another line stands between, or the steps end. */

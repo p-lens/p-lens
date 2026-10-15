@@ -12,9 +12,7 @@ import {
   checkpointForReading,
   countCheckpoint,
   countedGamesOf,
-  isCounting,
   seatCheckpoint,
-  startCountingCheckpoint,
   totalNowOf,
 } from "../../../src/core/pachislot/reading"
 import { counterBonusesOf, counterBonusOf, countablesOf, GAMES_PER_HOUR, huntPlayOf, playOf, settingLevelsOf } from "../../../src/core/pachislot/weighing"
@@ -181,17 +179,16 @@ describe("readings of a pachislot data counter", () => {
     expect(checkpointForReading(after, { total: 2900, bonuses: {}, outlay: undefined, replay: 100, at })).toEqual({ ok: false, error: { type: "replay-went-back", atLeast: 150 } })
   })
 
-  test("counting starts at the games last known, and a tap adds to the running tally or takes one back", () => {
-    expect(isCounting(seated)).toBe(false)
-    const started = [...seated, { spins: 250, at, counter: { total: 2650 } }, startCountingCheckpoint([...seated, { spins: 250 }], at)]
-    expect(started.at(-1)).toEqual({ spins: 250, at, tally: {} })
+  test("a tap adds to the running tally or takes one back, counted over the play from its first game", () => {
+    const started = [...seated, { spins: 250, at, counter: { total: 2650 } }]
+    expect(countedGamesOf(started)).toBe(0)
     const grape = countCheckpoint(started, "grape", 1, at)
     expect(grape).toEqual({ spins: 250, at, tally: { grape: 1 } })
     expect(countCheckpoint([...started, grape], "grape", -1, at).tally).toEqual({ grape: 0 })
     expect(countCheckpoint(started, "cherry", -1, at).tally).toEqual({ cherry: 0 })
     const later = [...started, grape, { spins: 400, at, counter: { total: 2800 } }]
-    expect(isCounting(later)).toBe(true)
-    expect(countedGamesOf(later)).toBe(150)
+    expect(countedGamesOf(later)).toBe(400)
+    expect(countedGamesOf([...seated, { spins: 250, at, tally: {} }, grape, { spins: 400, at, counter: { total: 2800 } }])).toBe(150)
   })
 })
 

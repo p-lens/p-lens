@@ -65,6 +65,17 @@ describe("reading a pachislot log as what was seen", () => {
     })
   })
 
+  test("what was counted is counted over the whole play, however late its first tap came", () => {
+    const seen = segmentsOf(log({ spins: 0, counter: { total: 1000, bonuses: { big: 2, reg: 2 } } }, { spins: 400, tally: { grape: 1 } }, { spins: 600, counter: { total: 1600, bonuses: { big: 3, reg: 2 } }, tally: { grape: 100, big: 1 } }), shownAs)
+    expect(seen).toEqual({
+      ok: true,
+      value: [
+        { games: 1000, counts: [{ id: "big", count: 2 }, { id: "reg", count: 2 }] },
+        { games: 600, counts: [{ id: "grape", count: 100 }, { id: "big", count: 1 }] },
+      ],
+    })
+  })
+
   test("a count taken back counts as never made", () => {
     const seen = segmentsOf(
       log({ spins: 0, counter: { total: 0, bonuses: {} } }, { spins: 0, tally: {} }, { spins: 0, tally: { grape: 1 } }, { spins: 300, tally: { grape: 0 } }),
@@ -88,7 +99,13 @@ describe("reading a pachislot log as what was seen", () => {
 })
 
 describe("an AT machine's log as what was counted", () => {
-  test("is the regular games since counting began with what was counted in them, and nothing before", () => {
+  test("is the play's regular games with what was counted in them, from its first game, once anything is counted", () => {
+    const seat: Checkpoint = { spins: 0, outlay: 0, counter: { spins: 300 } }
+    const counted = log(seat, { spins: 40, tally: { bell: 1 } }, { spins: 160, counter: { spins: 460 } }, { spins: 160, tally: { bell: 18 } })
+    expect(countedSegmentsOf(counted)).toEqual([{ games: 160, counts: [{ id: "bell", count: 18 }] }])
+  })
+
+  test("in a log written while counting began with a press, is the regular games since that press, and nothing before", () => {
     const seat: Checkpoint = { spins: 0, outlay: 0, counter: { spins: 300 } }
     expect(countedSegmentsOf(log(seat))).toEqual([])
     expect(countedSegmentsOf(log(seat, { spins: 40, tally: {} }))).toEqual([])

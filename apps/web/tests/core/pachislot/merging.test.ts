@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test"
 import { mergeableSpan, withStepsMerged } from "../../../src/core/pachislot/merging"
 import { segmentsOf } from "../../../src/core/pachislot/observation"
 import { czMissedAt, pathOf } from "../../../src/core/pachislot/path"
-import { checkpointForReading, countCheckpoint, startCountingCheckpoint } from "../../../src/core/pachislot/reading"
+import { checkpointForReading, countCheckpoint } from "../../../src/core/pachislot/reading"
 import { stepsOf } from "../../../src/core/pachislot/revision"
 import type { Checkpoint } from "../../../src/core/play-log/checkpoint"
 import { checkpointsForReading } from "../../../src/core/play-log/live"
@@ -14,7 +14,7 @@ const SEAT: Checkpoint = { spins: 0, outlay: 0, at: AT, counter: { spins: 120, t
 
 const merged = (log: readonly Checkpoint[], from: number, to: number): readonly Checkpoint[] => ((made) => (made.ok ? made.value : []))(withStepsMerged(log, { from, to }))
 
-/** A bonus machine's log: two readings, counting begun, a tap, two readings with a tap between them, and a last one. */
+/** A bonus machine's log: two readings, a tap, two readings with a tap between them, and a last one. */
 const bonusLog = (): readonly Checkpoint[] => {
   const read = (log: readonly Checkpoint[], total: number, outlay: number, big: number): readonly Checkpoint[] => {
     const made = checkpointForReading(log, { total, bonuses: { big, reg: 4 }, outlay, replay: undefined, at: AT })
@@ -22,44 +22,50 @@ const bonusLog = (): readonly Checkpoint[] => {
   }
   const tap = (log: readonly Checkpoint[]): readonly Checkpoint[] => [...log, countCheckpoint(log, "grape", 1, AT)]
   const early = read(read([SEAT], 2100, 2000, 6), 2180, 3000, 6)
-  const counting = tap([...early, startCountingCheckpoint(early, AT)])
+  const counting = tap(early)
   return read(read(tap(read(counting, 2250, 5000, 7)), 2330, 6000, 7), 2400, 7000, 8)
 }
 
 describe("a run of a bonus machine's readings made one", () => {
   test("is its last reading, the taps between kept where the log has reached", () => {
     const log = bonusLog()
-    expect(stepsOf(log).map((step) => step.type)).toEqual(["reading", "reading", "kept", "kept", "reading", "kept", "reading", "reading"])
-    expect(mergeableSpan(log, 4, 7)).toEqual({ from: 4, to: 7 })
-    expect(merged(log, 4, 7).map((line) => [line.spins, line.outlay, line.counter?.bonuses?.["big"], line.tally?.["grape"]])).toEqual([
+    expect(stepsOf(log).map((step) => step.type)).toEqual(["reading", "reading", "kept", "reading", "kept", "reading", "reading"])
+    expect(mergeableSpan(log, 3, 6)).toEqual({ from: 3, to: 6 })
+    expect(merged(log, 3, 6).map((line) => [line.spins, line.outlay, line.counter?.bonuses?.["big"], line.tally?.["grape"]])).toEqual([
       [0, 0, 6, undefined],
       [100, 2000, 6, undefined],
       [180, 3000, 6, undefined],
-      [180, undefined, undefined, undefined],
       [180, undefined, undefined, 1],
       [180, undefined, undefined, 2],
       [400, 7000, 8, undefined],
     ])
   })
 
-  test("never passes the line that began the counting, which the counted games are told from", () => {
+  test("passes over every tap, the first among them", () => {
     const log = bonusLog()
-    expect(mergeableSpan(log, 0, 7)).toEqual({ from: 0, to: 1 })
-    expect(mergeableSpan(log, 7, 0)).toEqual({ from: 4, to: 7 })
+    expect(mergeableSpan(log, 0, 6)).toEqual({ from: 0, to: 6 })
+    expect(mergeableSpan(log, 6, 0)).toEqual({ from: 0, to: 6 })
+  })
+
+  test("never passes the line an older log began counting at, which its counted games are told from", () => {
+    const log = bonusLog()
+    const older = [...log.slice(0, 3), { spins: 180, at: AT, tally: {} }, ...log.slice(3)]
+    expect(mergeableSpan(older, 0, 7)).toEqual({ from: 0, to: 1 })
+    expect(mergeableSpan(older, 7, 0)).toEqual({ from: 4, to: 7 })
   })
 
   test("leaves what was seen of the day, and of the games counted, as it was", () => {
     const log = bonusLog()
     const shownAs = (id: string): string | undefined => (id === "grape" ? undefined : id)
-    expect(segmentsOf(merged(log, 4, 7), shownAs)).toEqual(segmentsOf(log, shownAs))
+    expect(segmentsOf(merged(log, 3, 6), shownAs)).toEqual(segmentsOf(log, shownAs))
     expect(segmentsOf(merged(log, 0, 1), shownAs)).toEqual(segmentsOf(log, shownAs))
     expect(merged(log, 0, 1).at(-1)).toEqual(log.at(-1) as Checkpoint)
   })
 
   test("is the log as it was where the span is one reading, or begins on no reading", () => {
     const log = bonusLog()
-    expect(merged(log, 4, 4)).toEqual(log)
-    expect(mergeableSpan(log, 2, 7)).toEqual({ from: 2, to: 2 })
+    expect(merged(log, 3, 3)).toEqual(log)
+    expect(mergeableSpan(log, 2, 6)).toEqual({ from: 2, to: 2 })
   })
 })
 

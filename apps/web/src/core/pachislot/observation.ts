@@ -68,11 +68,23 @@ const segmentOf = (stretch: Stretch): SegmentDto => ({
   counts: Object.entries(stretch.counts).map(([id, count]): CountDto => ({ id, count })),
 })
 
-/** The stretch the player counted in: the games since counting began and what was counted in them; none before counting began. */
+/**
+ * Where the counting began: with the play, nothing counted yet — every
+ * play counts from its first game — or, in a log written while counting
+ * began with a press, at the line of no counts that press wrote. None
+ * while nothing has been counted.
+ */
+export const countingStartOf = (ordered: readonly Checkpoint[]): number | undefined => {
+  const first = ordered.find((checkpoint) => checkpoint.tally !== undefined)
+  if (first === undefined) return undefined
+  return Object.keys(first.tally ?? {}).length === 0 ? first.spins : (ordered.at(0)?.spins ?? first.spins)
+}
+
+/** The stretch the player counted in: the games since counting began and what was counted in them; none while nothing has been counted. */
 const countedOf = (ordered: readonly Checkpoint[]): Stretch | undefined => {
   const last = ordered.at(-1)
-  const start = ordered.find((checkpoint) => checkpoint.tally !== undefined)
-  return last === undefined || start === undefined ? undefined : { games: last.spins - start.spins, counts: subtract(countsAt(ordered, ordered.length - 1), start.tally ?? {}) }
+  const start = countingStartOf(ordered)
+  return last === undefined || start === undefined ? undefined : { games: last.spins - start, counts: countsAt(ordered, ordered.length - 1) }
 }
 
 /**

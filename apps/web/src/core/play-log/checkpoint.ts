@@ -38,7 +38,9 @@ export interface Checkpoint {
   /**
    * What the player counted, small wins and bonuses alike, as running totals
    * by their id in the formula's spec — `{ "grape": 412, "reg-solo": 2 }` —
-   * since counting began, at the first line that carries them. A count may
+   * since the play began, at the first line that carries them. A log
+   * written while counting began with a press has a line of no counts
+   * where it began, and is counted from there. A count may
    * go down: a tap taken back. Pachislot only. Written under `tally`, the
    * log's word for them, data already written.
    */
