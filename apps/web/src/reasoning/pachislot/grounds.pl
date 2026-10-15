@@ -116,8 +116,8 @@ rule(gain_fixed, gain(Level, Gain), ( \+ given(cap(_)), given(law(Level, fixed(G
 rule(gain_in_sets, gain(Level, Gain),
      ( \+ given(cap(_)), given(law(Level, sets(First, Set, Carry))), Gain is First + Set * Carry / (1 - Carry) )).
 rule(gain_by_table, gain(Level, Gain),
-     ( \+ given(cap(_)), given(law(Level, table)), findall(Part, table_part(Level, Part), Parts), sum_list(Parts, Gain) )).
-rule(table_part, table_part(Level, Part), ( given(payout_row(Level, Medals, Share)), Part is Medals * Share )).
+     ( \+ given(cap(_)), given(law(Level, table)), findall(Part, table_part(Level, _, _, Part), Parts), sum_list(Parts, Gain) )).
+rule(table_part, table_part(Level, Medals, Share, Part), ( given(payout_row(Level, Medals, Share)), Part is Medals * Share )).
 rule(gain_under_cap, gain(Level, Gain), ( given(cap(_)), given(law(Level, _)), capped(Level, Gain, _) )).
 rule(gain_solved, gain(Level, Gain), ( gain_taken(Level), given(engine(gain(Level), Gain)) )).
 rule(gain_taken, gain_taken(Level), ( given(cap(_)), given(law(Level, _)), \+ capped(Level, _, _) )).
@@ -179,8 +179,8 @@ rule(odd_no_gain, remark(no_gain(Level, Gain)), ( gain(Level, Gain), Gain =< 0 )
 % remarks. Each level is attempted on its own, so one that cannot be
 % proved is shown as unproved beside the others.
 rule(level, level(Level, Gain, Rate),
-     ( chance_check(Level, _, _, _),
-       cycle_games(Level, Games), engine_check(cycle_games(Level), Games, _, _),
+     ( cycle_games(Level, Games), engine_check(cycle_games(Level), Games, _, _),
+       chance_check(Level, _, _, _),
        gain(Level, Gain), ( gain_taken(Level) -> true ; engine_check(gain(Level), Gain, _, _) ),
        ( capped(Level, _, Completion) -> engine_check(completion(Level), Completion, _, _) ; true ),
        rate(Level, Rate), engine_check(rate(Level), Rate, _, _),

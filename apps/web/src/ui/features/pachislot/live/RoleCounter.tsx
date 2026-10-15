@@ -2,26 +2,32 @@ import { Index, onCleanup, onMount, type JSX } from "solid-js"
 
 import type { Countable } from "../../../../core/pachislot/weighing"
 import type { Counts } from "../../../../core/play-log/checkpoint"
+import { createLongPress } from "../../../primitives/long-press"
 import { formatCount } from "../../../wording/numbers"
 import { observedOneInText } from "../../../wording/pachislot/formula"
-
-/** Whether a tap adds one or takes one back, as a counter's mode switch does. */
-export type CountDirection = "up" | "down"
 
 function CountTile(props: {
   readonly countable: Countable
   readonly count: number
   readonly games: number
   readonly shortcut: number | undefined
-  readonly direction: CountDirection
   readonly onCount: (id: string, by: 1 | -1) => void
 }): JSX.Element {
+  const press = createLongPress(() => props.onCount(props.countable.id, -1))
   return (
     <button
       type="button"
-      class="flex min-h-24 flex-col items-center justify-center gap-1 rounded-lg border border-border bg-surface-2 px-2 py-3 transition-colors hover:bg-surface-3 active:bg-surface-0"
-      classList={{ "border-negative": props.direction === "down" }}
-      onClick={() => props.onCount(props.countable.id, props.direction === "up" ? 1 : -1)}
+      class="flex min-h-24 select-none flex-col items-center justify-center gap-1 rounded-lg border border-border bg-surface-2 px-2 py-3 transition-colors hover:bg-surface-3 active:bg-surface-0"
+      style={{ "-webkit-touch-callout": "none" }}
+      onPointerDown={press.onPointerDown}
+      onPointerMove={press.onPointerMove}
+      onPointerUp={press.onPointerUp}
+      onPointerLeave={press.onPointerLeave}
+      onPointerCancel={press.onPointerCancel}
+      onContextMenu={press.onContextMenu}
+      onClick={() => {
+        if (!press.wasLong()) props.onCount(props.countable.id, 1)
+      }}
     >
       <span class="text-3xl font-bold tabular-nums text-text-primary">{formatCount(props.count)}</span>
       <span class="text-xs tabular-nums text-text-muted">{observedOneInText(props.games, props.count)}</span>
@@ -35,15 +41,14 @@ function CountTile(props: {
 
 /**
  * Tiles to count small wins and bonuses with, each showing its count and how
- * often it has come up in the games counted. A tap adds one, or takes one
- * back when the direction is down; on a keyboard, the digits press the first
- * nine tiles. Rows are an `<Index>`, so a count changing never remounts a tile.
+ * often it has come up in the games counted. A tap adds one, and a long
+ * press takes one back; on a keyboard, the digits press the first nine
+ * tiles. Rows are an `<Index>`, so a count changing never remounts a tile.
  */
 export function RoleCounter(props: {
   readonly countables: readonly Countable[]
   readonly counts: Counts
   readonly games: number
-  readonly direction: CountDirection
   readonly onCount: (id: string, by: 1 | -1) => void
 }): JSX.Element {
   const pressed = (event: KeyboardEvent): void => {
@@ -51,7 +56,7 @@ export function RoleCounter(props: {
     const countable = /^[1-9]$/.test(event.key) ? props.countables[Number(event.key) - 1] : undefined
     if (countable === undefined) return
     event.preventDefault()
-    props.onCount(countable.id, props.direction === "up" ? 1 : -1)
+    props.onCount(countable.id, 1)
   }
   onMount(() => window.addEventListener("keydown", pressed))
   onCleanup(() => window.removeEventListener("keydown", pressed))
@@ -64,7 +69,6 @@ export function RoleCounter(props: {
             count={props.counts[countable().id] ?? 0}
             games={props.games}
             shortcut={index < 9 ? index + 1 : undefined}
-            direction={props.direction}
             onCount={props.onCount}
           />
         )}

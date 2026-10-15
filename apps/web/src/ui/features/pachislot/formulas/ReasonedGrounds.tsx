@@ -7,12 +7,13 @@ import type { Basis } from "../../../../core/pachislot/formula"
 import type { SampledMargin } from "../../../../core/pachislot/grounds/facts"
 import { useApp } from "../../../context"
 import { Loaded } from "../../../primitives/states"
-import { groundsLines, groundsStanding, type GroundsTone } from "../../../wording/pachislot/grounds"
+import { groundsLines, groundsStanding, type GroundsPart, type GroundsTone } from "../../../wording/pachislot/grounds"
+import { GroundsText } from "./GroundsText"
 
 const MARKS: Readonly<Record<GroundsTone, string>> = { plain: "", holds: "✓ ", fails: "✗ ", unverified: "？ ", odd: "△ " }
 
-/** A line of grounds in its tone's colour, with its mark before it. */
-function Toned(props: { readonly tone: GroundsTone; readonly text: string }): JSX.Element {
+/** A line of grounds in its tone's colour, with its mark before it and its figures in bold. */
+function Toned(props: { readonly tone: GroundsTone; readonly parts: readonly GroundsPart[] }): JSX.Element {
   return (
     <span
       classList={{
@@ -24,7 +25,7 @@ function Toned(props: { readonly tone: GroundsTone; readonly text: string }): JS
       }}
     >
       {MARKS[props.tone]}
-      {props.text}
+      <GroundsText parts={props.parts} />
     </span>
   )
 }
@@ -54,14 +55,14 @@ export function ReasonedGrounds(props: {
       <Loaded outcome={proof()}>
         {(found) => (
           <div class="flex flex-col gap-2">
-            <p class="text-sm font-bold">
+            <p class="text-sm">
               <Toned {...groundsStanding(found)} />
             </p>
             <ol class="flex flex-col gap-1 rounded-lg border border-border px-4 py-3 text-sm">
               <For each={groundsLines(found)}>
                 {(line) => (
                   <li class="tabular-nums" style={{ "padding-left": `${line.depth * 0.75}rem` }}>
-                    <Toned tone={line.tone} text={line.text} />
+                    <Toned tone={line.tone} parts={line.parts} />
                   </li>
                 )}
               </For>

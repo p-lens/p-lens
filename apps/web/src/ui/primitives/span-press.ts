@@ -55,23 +55,69 @@ const placeOf = (row: Element | undefined): number | undefined => {
   return written === undefined ? undefined : Number(written)
 }
 
-const scrolls = (element: Element): boolean => ((overflow) => (overflow === "auto" || overflow === "scroll") && element.scrollHeight > element.clientHeight)(getComputedStyle(element).overflowY)
+/** Which way a list's rows run: down a column, or across a strip. */
+export type SpanAxis = "down" | "across"
 
-/** What a list scrolls in: the nearest thing around it that does, or the page. */
-const scrollerOf = (list: Element): Element | undefined => {
-  const around = list.parentElement ?? undefined
-  if (around === undefined) return document.scrollingElement ?? undefined
-  return scrolls(around) ? around : scrollerOf(around)
+/** A stretch of the screen along the way the rows run: its first edge and its last. */
+interface Stretch {
+  readonly top: number
+  readonly bottom: number
 }
 
-/** The part of a scroller that is on the screen, top and bottom. */
-const windowOf = (scroller: Element): { readonly top: number; readonly bottom: number } => {
-  const box = scroller.getBoundingClientRect()
-  return { top: Math.max(box.top, 0), bottom: Math.min(box.bottom, window.innerHeight) }
+/** What differs between a column and a strip: where along the way the rows run a point and a box lie, how a scroller scrolls that way, and whether it does. */
+interface Way {
+  readonly along: (point: { readonly x: number; readonly y: number }) => number
+  readonly pointAt: (along: number, point: { readonly x: number; readonly y: number }) => { readonly x: number; readonly y: number }
+  readonly stretchOf: (box: DOMRect) => Stretch
+  readonly screen: () => number
+  readonly overflow: (style: CSSStyleDeclaration) => string
+  readonly overflows: (element: Element) => boolean
+  readonly scrollBy: (scroller: Element, by: number) => void
+}
+
+const WAYS: Readonly<Record<SpanAxis, Way>> = {
+  down: {
+    along: (point) => point.y,
+    pointAt: (along, point) => ({ x: point.x, y: along }),
+    stretchOf: (box) => ({ top: box.top, bottom: box.bottom }),
+    screen: () => window.innerHeight,
+    overflow: (style) => style.overflowY,
+    overflows: (element) => element.scrollHeight > element.clientHeight,
+    scrollBy: (scroller, by) => {
+      scroller.scrollTop += by
+    },
+  },
+  across: {
+    along: (point) => point.x,
+    pointAt: (along, point) => ({ x: along, y: point.y }),
+    stretchOf: (box) => ({ top: box.left, bottom: box.right }),
+    screen: () => window.innerWidth,
+    overflow: (style) => style.overflowX,
+    overflows: (element) => element.scrollWidth > element.clientWidth,
+    scrollBy: (scroller, by) => {
+      scroller.scrollLeft += by
+    },
+  },
+}
+
+const scrolls = (way: Way, element: Element): boolean => ((overflow) => (overflow === "auto" || overflow === "scroll") && way.overflows(element))(way.overflow(getComputedStyle(element)))
+
+/** What a list scrolls in: itself where it does, as a strip does, or the nearest thing around it that does, or the page. */
+const scrollerOf = (way: Way, list: Element): Element | undefined => {
+  if (scrolls(way, list)) return list
+  const around = list.parentElement ?? undefined
+  return around === undefined ? (document.scrollingElement ?? undefined) : scrollerOf(way, around)
+}
+
+/** The part of a scroller that is on the screen, along the way the rows run. */
+const windowOf = (way: Way, scroller: Element): Stretch => {
+  const box = way.stretchOf(scroller.getBoundingClientRect())
+  return { top: Math.max(box.top, 0), bottom: Math.min(box.bottom, way.screen()) }
 }
 
 /**
- * A run of a list's rows chosen by holding one and dragging: the row held
+ * A run of a list's rows chosen by holding one and dragging — down a column,
+ * or across a strip — the row held
  * begins the run, and it follows the pointer from there, the list scrolled
  * on while the pointer is held near an edge of what it scrolls in — or
  * over whatever stands across the list there, a bar kept at the foot of
@@ -85,7 +131,8 @@ const windowOf = (scroller: Element): { readonly top: number; readonly bottom: n
  * is there from the start: one added once the hold has lasted comes too
  * late for a browser to ask.
  */
-export const createSpanPress = (stretch: (anchor: number, reached: number) => Span): SpanPress => {
+export const createSpanPress = (stretch: (anchor: number, reached: number) => Span, axis: SpanAxis = "down"): SpanPress => {
+  const way = WAYS[axis]
   const [pressing, setPressing] = createSignal<Pressing>({ type: "resting" })
   const held: { list: HTMLElement | undefined; scroller: Element | undefined; pressed: number | undefined; x: number; y: number; frame: number | undefined } = {
     list: undefined,
@@ -98,32 +145,37 @@ export const createSpanPress = (stretch: (anchor: number, reached: number) => Sp
 
   const rows = (): readonly HTMLElement[] => (held.list === undefined ? [] : [...held.list.querySelectorAll<HTMLElement>(`[${ROW_PLACE}]`)])
 
-  /** Whether the list shows at a height: it is what is there, or the height is past its ends, where nothing covers it. */
-  const showsAt = (list: HTMLElement, y: number): boolean => {
-    const box = list.getBoundingClientRect()
-    if (y < box.top || y > box.bottom) return true
-    const there = document.elementFromPoint(held.x, y) ?? undefined
+  /** Where the pointer is along the way the rows run. */
+  const pointer = (): number => way.along(held)
+
+  /** Whether the list shows at a place along the way: it is what is there, or the place is past its ends, where nothing covers it. */
+  const showsAt = (list: HTMLElement, at: number): boolean => {
+    const box = way.stretchOf(list.getBoundingClientRect())
+    if (at < box.top || at > box.bottom) return true
+    const point = way.pointAt(at, held)
+    const there = document.elementFromPoint(point.x, point.y) ?? undefined
     return there !== undefined && list.contains(there)
   }
 
-  /** The height the list shows at nearest the pointer's: the pointer's own, or the first towards the middle of what it scrolls in that nothing covers. */
-  const shownHeight = (list: HTMLElement, within: { readonly top: number; readonly bottom: number }): number => {
+  /** The place the list shows at nearest the pointer's: the pointer's own, or the first towards the middle of what it scrolls in that nothing covers. */
+  const shownAt = (list: HTMLElement, within: Stretch): number => {
     const middle = (within.top + within.bottom) / 2
-    const toward = held.y > middle ? -PROBE : PROBE
-    const seek = (y: number): number => (showsAt(list, y) || (y - middle) * toward >= 0 ? y : seek(y + toward))
-    return seek(held.y)
+    const toward = pointer() > middle ? -PROBE : PROBE
+    const seek = (at: number): number => (showsAt(list, at) || (at - middle) * toward >= 0 ? at : seek(at + toward))
+    return seek(pointer())
   }
 
   /** How far to scroll this frame: faster the nearer the pointer is to an edge, fastest past it or over what covers the list. */
-  const paceOf = (within: { readonly top: number; readonly bottom: number }, covered: boolean): number => {
+  const paceOf = (within: Stretch, covered: boolean): number => {
     const middle = (within.top + within.bottom) / 2
-    const depth = covered ? 1 : Math.min(1, Math.max(0, held.y < middle ? (within.top + EDGE - held.y) / EDGE : (held.y - (within.bottom - EDGE)) / EDGE))
-    return Math.ceil(depth * FASTEST) * (held.y < middle ? -1 : 1)
+    const at = pointer()
+    const depth = covered ? 1 : Math.min(1, Math.max(0, at < middle ? (within.top + EDGE - at) / EDGE : (at - (within.bottom - EDGE)) / EDGE))
+    return Math.ceil(depth * FASTEST) * (at < middle ? -1 : 1)
   }
 
-  const reachedAt = (y: number): number | undefined => {
+  const reachedAt = (at: number): number | undefined => {
     const nearest = rows()
-      .map((row) => ((box) => ({ row, away: y < box.top ? box.top - y : y > box.bottom ? y - box.bottom : 0 }))(row.getBoundingClientRect()))
+      .map((row) => ((box) => ({ row, away: at < box.top ? box.top - at : at > box.bottom ? at - box.bottom : 0 }))(way.stretchOf(row.getBoundingClientRect())))
       .reduce<{ readonly row: HTMLElement; readonly away: number } | undefined>((best, each) => (best === undefined || each.away < best.away ? each : best), undefined)
     return placeOf(nearest?.row)
   }
@@ -133,9 +185,9 @@ export const createSpanPress = (stretch: (anchor: number, reached: number) => Sp
     const list = held.list
     const scroller = held.scroller
     if (now.type !== "stretching" || list === undefined || scroller === undefined) return
-    const within = windowOf(scroller)
-    const shown = shownHeight(list, within)
-    scroller.scrollTop += paceOf(within, shown !== held.y)
+    const within = windowOf(way, scroller)
+    const shown = shownAt(list, within)
+    way.scrollBy(scroller, paceOf(within, shown !== pointer()))
     const reached = reachedAt(shown)
     if (reached !== undefined && reached !== now.reached) setPressing({ ...now, reached, span: stretch(now.anchor, reached) })
     held.frame = requestAnimationFrame(follow)
@@ -169,7 +221,7 @@ export const createSpanPress = (stretch: (anchor: number, reached: number) => Sp
     const anchor = held.pressed
     const list = held.list
     if (anchor === undefined || list === undefined) return
-    held.scroller = scrollerOf(list)
+    held.scroller = scrollerOf(way, list)
     setPressing({ type: "stretching", anchor, reached: anchor, span: { from: anchor, to: anchor } })
     window.addEventListener("pointermove", moved)
     window.addEventListener("pointerup", letGo)

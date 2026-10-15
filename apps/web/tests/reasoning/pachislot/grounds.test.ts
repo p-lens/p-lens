@@ -12,10 +12,10 @@ import { load, Prolog } from "trealla"
 
 import { figuresFromAnalysis, type SettingLevelFigures } from "../../../src/core/pachislot/figures"
 import type { Basis } from "../../../src/core/pachislot/formula"
-import { groundsFacts, reasonsGrounds } from "../../../src/core/pachislot/grounds/facts"
+import { groundsFacts, reasonsGrounds, type SampledMargin } from "../../../src/core/pachislot/grounds/facts"
 import { everyStep, findingsIn, proofOf, type Proof } from "../../../src/core/grounds/proof"
-import { termOf } from "../../../src/core/grounds/term"
-import { groundsLines, groundsStanding } from "../../../src/ui/wording/pachislot/grounds"
+import { compoundOf, numberOf, termOf } from "../../../src/core/grounds/term"
+import { groundsLines, groundsStanding, plainOf, type GroundsLine, type GroundsPart } from "../../../src/ui/wording/pachislot/grounds"
 
 const ENGINE = new URL("../../../../../packages/pachislot-engine/pachislot_bg.wasm", import.meta.url).pathname
 const RULES = new URL("../../../src/reasoning/pachislot/grounds.pl", import.meta.url).pathname
@@ -30,11 +30,16 @@ const solved = (spec: SpecDto): { readonly basis: Basis; readonly analysis: Anal
   return { basis: { spec, conditions, normalized: reply.value.normalized, engineSchemaVersion: reply.value.schemaVersion }, analysis: reply.value }
 }
 
-/** A basis reasoned against what the engine solved of it, and against the figures a formula of it stores: the engine's own unless a test says otherwise. */
-const proved = async (basis: Basis, analysis: AnalysisDto, figures: readonly SettingLevelFigures[] = figuresFromAnalysis(analysis, basis.spec)): Promise<Proof> => {
+/** A basis reasoned against what the engine solved of it, and against the figures a formula of it stores: the engine's own unless a test says otherwise, sampled where margins are given. */
+const proved = async (
+  basis: Basis,
+  analysis: AnalysisDto,
+  figures: readonly SettingLevelFigures[] = figuresFromAnalysis(analysis, basis.spec),
+  margins: readonly SampledMargin[] | undefined = undefined,
+): Promise<Proof> => {
   const prolog = new Prolog()
   await prolog.consultText(await readFile(RULES, "utf8"))
-  await prolog.consultText(groundsFacts(basis, analysis, figures, undefined))
+  await prolog.consultText(groundsFacts(basis, analysis, figures, margins))
   const answer = await prolog.queryOnce("prove(grounds, Proof).", { format: "json" })
   if (answer.status !== "success") throw new Error(JSON.stringify(answer))
   const term = termOf((answer.answer as Record<string, unknown>)["Proof"])
@@ -42,6 +47,138 @@ const proved = async (basis: Basis, analysis: AnalysisDto, figures: readonly Set
   const proof = proofOf(term)
   if (!proof.ok) throw new Error(JSON.stringify(proof.error))
   return proof.value
+}
+
+
+/** A piece of a line's working as read back: a number with how far its shown digits may be from it, a sign of arithmetic, words, a sign of equality, or the end of a chain. */
+type Token =
+  | { readonly kind: "number"; readonly value: number; readonly half: number }
+  | { readonly kind: "op"; readonly op: string }
+  | { readonly kind: "label" }
+  | { readonly kind: "link"; readonly exact: boolean }
+  | { readonly kind: "end" }
+
+type Arithmetic = Extract<Token, { readonly kind: "number" | "op" }>
+
+/** A number as a line writes it, with or without its unit, and half the last digit it shows. */
+const numberRead = (text: string, rounded: boolean): Token | undefined => {
+  const match = /^(\d+(?:\.(\d+))?)(枚\/G|G\/枚|枚|G|回|%)?$/u.exec(text)
+  if (match === null) return undefined
+  const scale = match[3] === "%" ? 0.01 : 1
+  return { kind: "number", value: Number(match[1]) * scale, half: rounded ? 0.5 * 10 ** -(match[2]?.length ?? 0) * scale : 0 }
+}
+
+const tokensOf = (part: GroundsPart): readonly Token[] => {
+  if (part.type === "figure") {
+    const whole = numberRead(part.text, true)
+    if (whole !== undefined) return [whole]
+    const under = part.text.startsWith("1/") ? numberRead(part.text.slice(2), true) : undefined
+    return under === undefined ? [{ kind: "label" }] : [{ kind: "number", value: 1, half: 0 }, { kind: "op", op: "÷" }, under]
+  }
+  return (part.text.match(/[＝≈；]|[×÷＋−（）^/]|[^\s＝≈；×÷＋−（）^/]+/gu) ?? []).map((chunk): Token => {
+    if (chunk === "＝" || chunk === "≈") return { kind: "link", exact: chunk === "＝" }
+    if (chunk === "；") return { kind: "end" }
+    if ("×÷＋−（）^/".includes(chunk)) return { kind: "op", op: chunk === "/" ? "÷" : chunk }
+    return numberRead(chunk, false) ?? { kind: "label" }
+  })
+}
+
+/** The value of a run of arithmetic, or none where it does not read as one whole sum. */
+const evaluated = (tokens: readonly Arithmetic[]): number | undefined => {
+  const at = { index: 0 }
+  const peek = (): Arithmetic | undefined => tokens[at.index]
+  const isOp = (op: string): boolean => {
+    const next = peek()
+    return next?.kind === "op" && next.op === op
+  }
+  const primary = (): number | undefined => {
+    const next = peek()
+    if (next?.kind === "number") {
+      at.index += 1
+      return next.value
+    }
+    if (!isOp("（")) return undefined
+    at.index += 1
+    const inner = sum()
+    if (inner === undefined || !isOp("）")) return undefined
+    at.index += 1
+    return inner
+  }
+  const power = (): number | undefined => {
+    const base = primary()
+    if (base === undefined || !isOp("^")) return base
+    at.index += 1
+    const exponent = power()
+    return exponent === undefined ? undefined : base ** exponent
+  }
+  const product = (): number | undefined => {
+    const first = power()
+    if (first === undefined) return undefined
+    const more = (sofar: number): number | undefined => {
+      const multiplying = isOp("×")
+      if (!multiplying && !isOp("÷")) return sofar
+      at.index += 1
+      const next = power()
+      return next === undefined ? undefined : more(multiplying ? sofar * next : sofar / next)
+    }
+    return more(first)
+  }
+  const sum = (): number | undefined => {
+    const first = product()
+    if (first === undefined) return undefined
+    const more = (sofar: number): number | undefined => {
+      const adding = isOp("＋")
+      if (!adding && !isOp("−")) return sofar
+      at.index += 1
+      const next = product()
+      return next === undefined ? undefined : more(adding ? sofar + next : sofar - next)
+    }
+    return more(first)
+  }
+  const value = sum()
+  return value !== undefined && at.index === tokens.length ? value : undefined
+}
+
+/** A run of arithmetic's value, and how far it could move with each number its digits round. */
+const reckoned = (tokens: readonly Arithmetic[]): { readonly value: number; readonly spread: number } | undefined => {
+  const value = evaluated(tokens)
+  if (value === undefined) return undefined
+  const spread = tokens.reduce((total, token, index) => {
+    if (token.kind !== "number" || token.half === 0) return total
+    const moved = evaluated(tokens.map((each, other) => (other === index ? { ...token, value: token.value + token.half } : each)))
+    return total + Math.abs((moved ?? value) - value)
+  }, 0)
+  return { value, spread }
+}
+
+const arithmeticIn = (tokens: readonly Token[]): readonly Arithmetic[] => tokens.flatMap((token) => (token.kind === "number" || token.kind === "op" ? [token] : []))
+
+/** The longest run of arithmetic a side of an equality ends with, or starts with. */
+const ending = (tokens: readonly Token[]): ReturnType<typeof reckoned> => {
+  const sum = arithmeticIn(tokens)
+  return sum.map((_, start) => reckoned(sum.slice(start))).find((found) => found !== undefined)
+}
+const starting = (tokens: readonly Token[]): ReturnType<typeof reckoned> => {
+  const sum = arithmeticIn(tokens)
+  return sum.map((_, cut) => reckoned(sum.slice(0, sum.length - cut))).find((found) => found !== undefined)
+}
+
+/** Every equality a line states that has arithmetic on both sides, with what each side comes to. */
+const equalities = (line: GroundsLine): readonly { readonly left: number; readonly right: number; readonly spread: number; readonly text: string }[] => {
+  const tokens = line.parts.flatMap(tokensOf)
+  const chains = tokens.reduce<readonly (readonly Token[])[]>((sofar, token) => (token.kind === "end" ? [...sofar, []] : [...sofar.slice(0, -1), [...(sofar.at(-1) ?? []), token]]), [[]])
+  return chains.flatMap((chain) => {
+    const segments = chain.reduce<readonly { readonly tokens: readonly Token[]; readonly exact: boolean }[]>(
+      (sofar, token) => (token.kind === "link" ? [...sofar, { tokens: [], exact: token.exact }] : [...sofar.slice(0, -1), { ...(sofar.at(-1) ?? { exact: true }), tokens: [...(sofar.at(-1)?.tokens ?? []), token] }]),
+      [{ tokens: [], exact: true }],
+    )
+    return segments.slice(1).flatMap((segment, index) => {
+      const before = segments[index]
+      const left = before === undefined || !segment.exact ? undefined : ending(before.tokens)
+      const right = left === undefined ? undefined : starting(segment.tokens)
+      return left === undefined || right === undefined ? [] : [{ left: left.value, right: right.value, spread: right.spread, text: plainOf(line.parts) }]
+    })
+  })
 }
 
 /** What a proof found that did not simply hold, as the rule and how it stands. */
@@ -55,13 +192,13 @@ describe("an AT machine's grounds, reasoned", () => {
   test("an AT's medals follow from the stated 機械割, and the 機械割 comes back from them", async () => {
     const { basis, analysis } = solved(rateSpec as SpecDto)
     const proof = await proved(basis, analysis)
-    const lines = groundsLines(proof).map((line) => line.text)
+    const lines = groundsLines(proof).map((line) => plainOf(line.parts))
     expect(lines).toContain("設定1")
-    expect(lines).toContain("通常時1Gあたりの減り 1.25枚 ＝ 50枚 ÷ ベース 40G")
-    expect(lines).toContain("ATの平均獲得枚数 576.7枚 ＝ 通常 500G ×（1G 3枚 ×（機械割 97.5% − 1）＋ 1Gの減り 1.25枚）÷（1 ＋ 3枚 ×（1 − 機械割 97.5%）÷ 純増 4枚）")
-    expect(lines).toContain("検算：入力された機械割 110% に戻る")
-    expect(lines).toContain("1周期の通常ゲーム数 500G ＝ 1 ÷ 初当たり 1/500")
-    expect(lines).toContain("検算：計算エンジンが逆算したトリガー確率を戻すと、解析値の初当たり 1/500 になる")
+    expect(lines).toContain("通常時1Gあたりの減り ＝ 50枚 ÷ ベース 40G ＝ 1.25枚/G")
+    expect(lines).toContain("ATの平均獲得枚数 ＝ 通常 500G ×（3枚 ×（機械割 0.975 − 1）＋ 減り 1.25枚/G）÷（1 ＋ 3枚 ×（1 − 機械割 0.975）÷ 純増 4枚/G）＝ 500 × 1.175 ÷ 1.01875 ＝ 587.5枚 ÷ 1.01875 ＝ 576.7枚")
+    expect(lines).toContain("検算：獲得枚数から戻した機械割 110% ＝ 入力された 110%")
+    expect(lines).toContain("1周期の通常ゲーム数 ＝ トリガー 1回 × 初当たり分母 500 ＝ 500G")
+    expect(lines).toContain("検算：トリガー 1回 ÷ 通常 500G ＝ 1/500、解析値の初当たり 1/500 と一致")
     expect(findingsIn(proof).filter((finding) => finding.standing === "holds")).toHaveLength(12)
     expect(amiss(proof)).toEqual([])
     expect(groundsStanding(proof).tone).toBe("holds")
@@ -71,10 +208,13 @@ describe("an AT machine's grounds, reasoned", () => {
     const { basis, analysis } = solved(withNet)
     const proof = await proved(basis, analysis)
     expect(everyStep(proof).filter((step) => step.rule === "gain_fixed").length).toBeGreaterThanOrEqual(2)
-    const lines = groundsLines(proof).map((line) => line.text)
+    const lines = groundsLines(proof).map((line) => plainOf(line.parts))
     expect(lines).toContain("ATの平均獲得枚数 600枚（解析値のまま）")
-    expect(lines).toContain("検算：計算エンジンの平均獲得枚数 600枚 と一致")
-    expect(lines).toContain("機械割 98.72% ＝ 払い出し 1925枚 ÷ 投入 1950枚（ATからATまで：通常 500G ＋ AT 150G、どちらも1G 3枚）")
+    expect(lines).toContain("検算：ここで導いた平均獲得枚数 600枚 ＝ 計算エンジンの 600枚")
+    expect(lines).toContain("ATのゲーム数 ＝ 獲得 600枚 ÷ 純増 4枚/G ＝ 150G")
+    expect(lines).toContain("1周期の投入 ＝ 3枚 ×（通常 500G ＋ AT 150G）＝ 1950枚")
+    expect(lines).toContain("1周期の払い出し ＝ 投入 1950枚 − 減り 1.25枚/G × 通常 500G ＋ 獲得 600枚 ＝ 1925枚")
+    expect(lines).toContain("機械割 ＝ 払い出し 1925枚 ÷ 投入 1950枚 ＝ 98.72%")
     expect(findingsIn(proof).filter((finding) => finding.standing === "holds")).toHaveLength(10)
     expect(amiss(proof)).toEqual([])
   })
@@ -86,10 +226,10 @@ describe("an AT machine's grounds, reasoned", () => {
     const { basis, analysis } = solved(shared)
     expect(analysis.settingLevels.map((figures) => figures.at?.gain)).toEqual(solved(single).analysis.settingLevels.map((figures) => figures.at?.gain))
     const proof = await proved(basis, analysis)
-    const lines = groundsLines(proof).map((line) => line.text)
-    expect(lines).toContain("AT全体の純増 3.2枚 ＝ 1 ÷（50% ÷ 2枚 ＋ 50% ÷ 8枚）（獲得枚数の割合ごとに、同じ枚数にかかるゲーム数を合わせる）")
-    expect(lines).toContain("検算：計算エンジンのAT全体の純増 3.2枚 と一致")
-    expect(lines.some((line) => line.endsWith("÷ 純増 3.2枚）"))).toBe(true)
+    const lines = groundsLines(proof).map((line) => plainOf(line.parts))
+    expect(lines).toContain("AT全体の純増 ＝ 1 ÷（0.5 ÷ 2枚/G ＋ 0.5 ÷ 8枚/G）＝ 1 ÷（0.25G/枚 ＋ 0.0625G/枚）＝ 1 ÷ 0.3125G/枚 ＝ 3.2枚/G（1枚あたりのATゲーム数を、獲得枚数の割合で合わせる）")
+    expect(lines).toContain("検算：ここで導いたAT全体の純増 3.2枚/G ＝ 計算エンジンの 3.2枚/G")
+    expect(lines.some((line) => line.includes("÷ 純増 3.2枚/G）＝ 500 × 1.175 ÷ 1.02344"))).toBe(true)
     expect(amiss(proof)).toEqual([])
   })
 
@@ -112,7 +252,7 @@ describe("an AT machine's grounds, reasoned", () => {
       ["check_stored", "fails"],
       ["check_stored", "fails"],
     ])
-    expect(groundsLines(proof).map((line) => line.text)).toContain("検算：保存されている機械割 99.5% と食い違っています。古い計算エンジンで作られたか、数字が書き換えられています")
+    expect(groundsLines(proof).map((line) => plainOf(line.parts))).toContain("検算：保存されている機械割 99.5% と、ここで導いた 97.5% が食い違っています（差 2%）。古い計算エンジンで作られたか、数字が書き換えられています")
   })
 
   test("a setting level that cannot be proved is said so beside the ones that can", async () => {
@@ -120,9 +260,9 @@ describe("an AT machine's grounds, reasoned", () => {
     const figures = figuresFromAnalysis(analysis, basis.spec)
     const proof = await proved(basis, analysis, figures.slice(1))
     expect(amiss(proof)).toContainEqual([undefined, "unproved"])
-    const lines = groundsLines(proof).map((line) => line.text)
+    const lines = groundsLines(proof).map((line) => plainOf(line.parts))
     expect(lines).toContain("設定1の機械割を、解析値から導けませんでした")
-    expect(lines).toContain("検算：入力された機械割 110% に戻る")
+    expect(lines).toContain("検算：獲得枚数から戻した機械割 110% ＝ 入力された 110%")
   })
 
   test("a cycle a CZ brings is the CZs it takes over the CZ's published 初当たり, within a スルー天井 or without one", async () => {
@@ -132,15 +272,15 @@ describe("an AT machine's grounds, reasoned", () => {
     const sound = solved(within)
     const proof = await proved(sound.basis, sound.analysis)
     expect(amiss(proof)).toEqual([])
-    const lines = groundsLines(proof).map((line) => line.text)
-    expect(lines).toContain("ATまでのCZ 2.533回 ＝（1 −（1 − CZ成功率 30%）の 4乗）÷ CZ成功率 30%（3回スルーで次は当選）")
-    expect(lines).toContain("1周期の通常ゲーム数 380G ＝ ATまでのCZ 2.533回 ÷ CZの初当たり 1/150")
-    expect(lines).toContain("検算：計算エンジンの1周期の通常ゲーム数 379.9G と一致")
+    const lines = groundsLines(proof).map((line) => plainOf(line.parts))
+    expect(lines).toContain("ATまでのCZ ＝（1 −（1 − CZ成功率 0.3）^4）÷ 0.3 ＝（1 − 0.7^4）÷ 0.3 ＝（1 − 0.2401）÷ 0.3 ＝ 0.7599 ÷ 0.3 ＝ 2.533回（3回スルーで次は当選）")
+    expect(lines).toContain("1周期の通常ゲーム数 ＝ ATまでのCZ 2.533回 × CZの初当たり分母 150 ＝ 380G")
+    expect(lines).toContain("検算：ここで導いた1周期の通常ゲーム数 380G ＝ 計算エンジンの 380G")
 
     const without = solved({ ...cz, components: { ...rest, ceiling: { cz: 600 }, netPerGame: { at: 4 } } })
     const free = await proved(without.basis, without.analysis)
     expect(amiss(free)).toEqual([])
-    expect(groundsLines(free).map((line) => line.text)).toContain("ATまでのCZ 3.333回 ＝ 1 ÷ CZ成功率 30%")
+    expect(groundsLines(free).map((line) => plainOf(line.parts))).toContain("ATまでのCZ ＝ 1 ÷ CZ成功率 0.3 ＝ 3.333回")
     expect(ceiling?.["at"]).toBe(1000)
   })
 
@@ -173,9 +313,11 @@ describe("an AT machine's grounds, reasoned", () => {
     expect(amiss(await proved(alone.basis, alone.analysis))).toEqual([])
     expect([window?.["at"], resetOnCap]).toEqual([32, ["at"]])
 
-    const lines = groundsLines(proof).map((line) => line.text)
-    expect(lines).toContain("検算：計算エンジンの上限到達率 1.21% と一致")
-    expect(lines.some((line) => line.startsWith("ATの平均獲得枚数 694.9枚（有利区間の上限あり"))).toBe(true)
+    const lines = groundsLines(proof).map((line) => plainOf(line.parts))
+    expect(lines).toContain("検算：ここで導いた上限到達率 1.21% ＝ 計算エンジンの 1.21%")
+    expect(lines.some((line) => line.startsWith("ATの平均獲得枚数 694.9枚（上限なしなら 初回 300枚 ＋ 1セット 100枚 × 0.8 ÷（1 − 0.8）＝ 700枚。"))).toBe(true)
+    expect(lines).toContain("上限 2400枚 に届くATの割合 1.21%（次のATが 32G 以内なら持ち越した枚数から積み上げ、来なければ0枚から）")
+    expect(lines).toContain("モード1の振り分け ＝（1 − 上限到達率 0.0121）× AT後 0 ＋ 0.0121 × 設定変更後 1 ＝ 1.21%")
 
     const bent = { ...capped.analysis, settingLevels: capped.analysis.settingLevels.map((level) => (level.at === undefined ? level : { ...level, at: { ...level.at, gain: level.at.gain + 1 } })) }
     expect(amiss(await proved(capped.basis, bent)).map(([rule, standing]) => [rule, standing])).toContainEqual(["check_engine", "fails"])
@@ -225,8 +367,115 @@ describe("an AT machine's grounds, reasoned", () => {
     const { basis, analysis } = solved({ ...cap, components: { ...rest, netPerGame: { at: 4 } }, resources })
     const proof = await proved(basis, analysis)
     expect(amiss(proof)).toEqual([])
-    expect(groundsLines(proof).map((line) => line.text)).toContain("ATの平均獲得枚数 700枚 ＝ 初回 300枚 ＋ 1セット 100枚 × 継続率 80% ÷（1 − 継続率 80%）")
+    expect(groundsLines(proof).map((line) => plainOf(line.parts))).toContain("ATの平均獲得枚数 ＝ 初回 300枚 ＋ 1セット 100枚 × 継続率 0.8 ÷（1 − 0.8）＝ 300 ＋ 100 × 4 ＝ 300 ＋ 400 ＝ 700枚")
     expect([window?.["at"], resetOnCap, limit]).toEqual([32, ["at"], 2400])
+  })
+
+  test("an AT's medals by table are each row's medals at its share, summed, rows of the same product each said", async () => {
+    const { payout, ...rest } = withNet.components
+    const rows = [
+      { medals: 300, share: 5000 },
+      { medals: 600, share: 2500 },
+      { medals: 900, share: 2500 },
+    ]
+    const table = { at: [1, 6].map((settingLevel) => ({ settingLevel, value: rows })) }
+    const { basis, analysis } = solved({ ...withNet, components: { ...rest, payoutTable: table } })
+    const proof = await proved(basis, analysis)
+    expect(amiss(proof)).toEqual([])
+    expect(payout?.["at"]).toBe(600)
+    const lines = groundsLines(proof).map((line) => plainOf(line.parts))
+    expect(lines.filter((line) => line === "ATの平均獲得枚数 ＝ 150枚 ＋ 150枚 ＋ 225枚 ＝ 525枚").length).toBe(2)
+    expect(lines.filter((line) => line === "300枚 × 0.5 ＝ 150枚").length).toBe(2)
+    expect(lines.filter((line) => line === "600枚 × 0.25 ＝ 150枚").length).toBe(2)
+    expect(lines.filter((line) => line === "900枚 × 0.25 ＝ 225枚").length).toBe(2)
+  })
+
+  test("a line puts in every figure it knows, set apart from its words", async () => {
+    const { basis, analysis } = solved(rateSpec as SpecDto)
+    const line = groundsLines(await proved(basis, analysis)).find((each) => plainOf(each.parts).startsWith("ATの平均獲得枚数 ＝ 通常 500G"))
+    const figures = line?.parts.filter((part) => part.type === "figure").map((part) => part.text) ?? []
+    const words = line?.parts.filter((part) => part.type === "words").map((part) => part.text).join("") ?? ""
+    expect(figures).toEqual(["500G", "3枚", "0.975", "1.25枚/G", "3枚", "0.975", "4枚/G", "500", "1.175", "1.01875", "587.5枚", "1.01875", "576.7枚"])
+    expect(words).toContain("機械割")
+    expect(words).toContain("純増")
+    expect(words).not.toContain("576.7")
+  })
+
+  test("every working a line writes out comes to the figure after it, within the digits shown", async () => {
+    const rate = solved(rateSpec as SpecDto)
+    const spec = rateSpec as SpecDto
+    const shared = solved({ ...spec, components: { ...spec.components, netPerGame: { at: 2 }, otherNet: { at: [{ net: 8, shareBasisPoints: 5000 }] } } })
+    const net = solved(withNet)
+    const cz = czSpec as SpecDto
+    const { ceiling, misses, ...czRest } = cz.components
+    const within = solved({ ...cz, components: { ...czRest, ceiling: { cz: 600 }, ...(misses === undefined ? {} : { misses }), netPerGame: { at: 4 } } })
+    const cut = solved({ ...cz, components: { ...cz.components, netPerGame: { at: 4 } } })
+    const cap = capSpec as SpecDto
+    const capped = solved({ ...cap, components: { ...cap.components, netPerGame: { at: 4 } } })
+    const { window, resetOnCap, ...setsRest } = cap.components
+    const { cap: limit, ...resources } = cap.resources
+    const sets = solved({ ...cap, components: { ...setsRest, netPerGame: { at: 4 } }, resources })
+    const { payout, ...tableRest } = withNet.components
+    const rows = [
+      { medals: 300, share: 5000 },
+      { medals: 600, share: 2500 },
+      { medals: 900, share: 2500 },
+    ]
+    const table = solved({ ...withNet, components: { ...tableRest, payoutTable: { at: [1, 6].map((settingLevel) => ({ settingLevel, value: rows })) } } })
+    const modes = modesSpec as SpecDto
+    const moded = solved({ ...modes, components: { ...modes.components, netPerGame: { at: 4 } } })
+    const proofs = await Promise.all([rate, shared, net, within, cut, capped, sets, table, moded].map((each) => proved(each.basis, each.analysis)))
+    const links = proofs.flatMap((proof) => groundsLines(proof).flatMap(equalities))
+    expect(links.length).toBeGreaterThan(150)
+    expect(links.filter((each) => Math.abs(each.left - each.right) > each.spread * 1.01 + 1e-9 * Math.max(1, Math.abs(each.left)))).toEqual([])
+    expect([ceiling?.["at"], window?.["at"], resetOnCap, limit, payout?.["at"]]).toEqual([1000, 32, ["at"], 2400, 600])
+  })
+
+  test("a check that fails shows both figures, told apart, and how far apart they are", async () => {
+    const { basis, analysis } = solved(rateSpec as SpecDto)
+    const tampered = { ...analysis, settingLevels: analysis.settingLevels.map((figures) => ({ ...figures, payoutRate: figures.payoutRate + 0.01 })) }
+    const failed = groundsLines(await proved(basis, tampered, figuresFromAnalysis(analysis, basis.spec))).filter((line) => line.tone === "fails")
+    expect(failed.map((line) => plainOf(line.parts))).toEqual(["検算：ここで導いた機械割 97.5% が計算エンジンの 98.5% と食い違っています（差 1%）", "検算：ここで導いた機械割 110% が計算エンジンの 111% と食い違っています（差 1%）"])
+    const slight = { ...analysis, settingLevels: analysis.settingLevels.map((figures) => ({ ...figures, payoutRate: figures.payoutRate + 1e-6 })) }
+    const close = groundsLines(await proved(basis, slight, figuresFromAnalysis(analysis, basis.spec))).find((line) => line.tone === "fails")
+    const [mine, engine, gap] = close?.parts.filter((part) => part.type === "figure").map((part) => part.text) ?? []
+    expect(mine).not.toBe(engine)
+    expect(gap).toBe("0.0001%")
+  })
+
+  test("a cycle without an AT間天井 is the games between triggers times the triggers", async () => {
+    const cz = czSpec as SpecDto
+    const { ceiling, misses, ...rest } = cz.components
+    const { basis, analysis } = solved({ ...cz, components: { ...rest, ceiling: { cz: 600 }, ...(misses === undefined ? {} : { misses }), netPerGame: { at: 4 } } })
+    const proof = await proved(basis, analysis)
+    const free = everyStep(proof).filter((step) => step.rule === "cycle_free")
+    expect(free.length).toBeGreaterThanOrEqual(2)
+    free.forEach((step) => {
+      const product = step.premises.flatMap((premise) => (premise.type === "computed" ? [premise.expression] : [])).at(-1)
+      const between = numberOf(compoundOf(product, "*", 2)?.args[1]) ?? Number.NaN
+      const [games, triggers] = [numberOf(step.claim.args[1]) ?? Number.NaN, numberOf(step.claim.args[2]) ?? Number.NaN]
+      expect(Math.abs(between - games)).toBeGreaterThan(1)
+      expect(between * triggers).toBeCloseTo(games, 6)
+    })
+    const lines = groundsLines(proof).map((line) => plainOf(line.parts))
+    expect(lines).toContain("トリガー間 ＝（1 −（1 − 1/152.99）^600）× 152.99 ＝ 150G")
+    expect(lines).toContain("1周期の通常ゲーム数 ＝ トリガー間 150G × トリガー 2.533回 ＝ 380G")
+    expect(ceiling?.["at"]).toBe(1000)
+  })
+
+  test("a sampled 機械割 is checked against the exact one within twice its margin, both said", async () => {
+    const { basis, analysis } = solved(rateSpec as SpecDto)
+    const exact = figuresFromAnalysis(analysis, basis.spec)
+    const margins = exact.map((figures) => ({ settingLevel: figures.settingLevel, payoutRateMargin: 0.001 }))
+    const off = (margin: number) => exact.map((figures) => ({ ...figures, payoutRate: figures.payoutRate + margin * 0.001 }))
+    const within = groundsLines(await proved(basis, analysis, off(1.5), margins)).map((line) => plainOf(line.parts))
+    expect(within).toContain("検算：推定の機械割 97.65% と厳密解 97.5% の差 0.15% は、誤差 ±0.1% の2倍 0.2% 以内")
+    const beyond = await proved(basis, analysis, off(2.5), margins)
+    expect(groundsLines(beyond).map((line) => plainOf(line.parts))).toContain("検算：推定の機械割 97.75% と厳密解 97.5% の差 0.25% は、誤差 ±0.1% の2倍 0.2% を超えています。数字が書き換えられているかもしれません")
+    expect(amiss(beyond).filter(([, standing]) => standing === "fails")).toEqual([
+      ["check_sample", "fails"],
+      ["check_sample", "fails"],
+    ])
   })
 
   test("a machine of modes is reasoned by its published 初当たり, whatever its modes' ceilings", async () => {

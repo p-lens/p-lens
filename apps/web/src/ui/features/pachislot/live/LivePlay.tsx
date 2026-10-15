@@ -44,7 +44,7 @@ import { OutlookPanel } from "./OutlookPanel"
 import { StepReviser, type RevisedStep } from "./StepReviser"
 import { Timeline } from "./Timeline"
 import { readingFrom, readReadingForm, type ReadingField, type ReadingForm, type Standing } from "./reading-form"
-import { RoleCounter, type CountDirection } from "./RoleCounter"
+import { RoleCounter } from "./RoleCounter"
 import type { Write, Written } from "./write"
 
 /** The reading at a step of the log, where that step is one: what a pressed row is set right from. */
@@ -75,16 +75,16 @@ function Tile(props: { readonly label: string; readonly value: string; readonly 
 /** The medals the play has drawn from savings so far, where the log says. */
 const replayOf = (ordered: readonly Checkpoint[]): number | undefined => ordered.findLast((checkpoint) => checkpoint.replay !== undefined)?.replay
 
-/** Where the play stands by its log: the games played and the day's, the outlay, the medals drawn from savings, and each bonus of the day with how often it has come. */
+/** Where the play stands by its log, three to a row: the cash spent, the games played and the day's, the medals drawn from savings, and each bonus of the day with how often it has come. */
 function PlayFigures(props: { readonly ordered: readonly Checkpoint[]; readonly bonuses: readonly Countable[]; readonly day: { readonly games: number; readonly bonuses: Counts } | undefined }): JSX.Element {
   const outlay = (): number | undefined => props.ordered.findLast((checkpoint) => checkpoint.outlay !== undefined)?.outlay
   const replay = (): number | undefined => replayOf(props.ordered)
   const dayGames = (): number => props.day?.games ?? totalNowOf(props.ordered)
   return (
-    <dl class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <dl class="grid grid-cols-3 gap-2">
+      <Tile label="現金投資" value={outlay() === undefined ? "--" : `¥${formatCount(outlay() ?? 0)}`} />
       <Tile label="打ったゲーム数" value={formatCount(props.ordered.at(-1)?.spins ?? 0)} note="G" />
       <Tile label="累計ゲーム数" value={formatCount(dayGames())} note="G" />
-      <Tile label="投資" value={outlay() === undefined ? "--" : `¥${formatCount(outlay() ?? 0)}`} />
       <Tile label="貯メダル" value={replay() === undefined ? "--" : formatCount(replay() ?? 0)} note="枚" />
       <Index each={props.bonuses}>
         {(bonus) => (
@@ -100,8 +100,9 @@ function PlayFigures(props: { readonly ordered: readonly Checkpoint[]; readonly 
 }
 
 /**
- * Where readings of the data counter are typed: the day's games, each bonus,
- * the outlay and the medals drawn from savings so far, each opening on where the play stands, to be typed
+ * Where readings of the data counter are typed, in one row: the day's games,
+ * the cash spent and the medals drawn from savings so far — the bonuses
+ * being counted on the tiles, a reading takes them as they stand — each opening on where the play stands, to be typed
  * over. Until something is typed the form follows the play — a tap on a
  * tile moves the games it shows — and once a reading is kept it follows
  * again.
@@ -176,7 +177,7 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
         void send()
       }}
     >
-      <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div class="grid grid-cols-3 gap-3">
         <TextField
           label="累計ゲーム数"
           value={form().total}
@@ -187,22 +188,8 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
           invalid={invalid("total")}
           onFocus={nudge.settle}
         />
-        <Index each={props.bonuses}>
-          {(bonus) => (
-            <TextField
-              label={bonus().label}
-              value={form().bonuses[bonus().id] ?? ""}
-              onChange={(count) => typed({ bonuses: { ...form().bonuses, [bonus().id]: count } })}
-              inputMode="numeric"
-              suffix="回"
-              error={errorOf({ bonus: bonus().id })}
-              invalid={invalid({ bonus: bonus().id })}
-              onFocus={nudge.settle}
-            />
-          )}
-        </Index>
         <TextField
-          label="投資（累計）"
+          label="現金投資（累計）"
           value={form().outlay}
           onChange={(outlay) => typed({ outlay })}
           inputMode="numeric"
@@ -251,49 +238,30 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
  */
 function Counting(props: { readonly weighing: Weighing; readonly ordered: readonly Checkpoint[]; readonly write: Write }): JSX.Element {
   const app = useApp()
-  const [direction, setDirection] = createSignal<CountDirection>("up")
   const [failure, setFailure] = createSignal<ApplicationError | undefined>(undefined)
   const kept = (written: Written<never>): void => {
     setFailure(written.type === "failed" ? written.error : undefined)
   }
-  const start = (): void => {
-    const at = app.services.now()
-    void props.write((ordered) => Ok([startCountingCheckpoint(ordered, at)])).then(kept)
-  }
+  /** A tap, the first of which begins the counting where the log stands: what a play counts is counted from then. */
   const count = (id: string, by: 1 | -1): void => {
     const at = app.services.now()
-    void props.write((ordered) => Ok([countCheckpoint(ordered, id, by, at)])).then(kept)
+    void props
+      .write((ordered) => {
+        const begun = isCounting(ordered) ? [] : [startCountingCheckpoint(ordered, at)]
+        return Ok([...begun, countCheckpoint([...ordered, ...begun], id, by, at)])
+      })
+      .then(kept)
   }
   return (
     <section class="flex flex-col gap-3">
-      <Show
-        when={isCounting(props.ordered)}
-        fallback={
-          <div class="flex flex-col items-start gap-2">
-            <Button variant="secondary" onClick={start}>
-              小役も数える
-            </Button>
-            <p class="text-xs text-text-muted">ブドウやチェリー、単独・重複のボーナスまで数えると、設定の見込みがより確かになります。数え始めたら、最後まで数えてください。</p>
-          </div>
-        }
-      >
-        <div class="flex items-center justify-between gap-3">
-          <h3 class="text-xs font-bold uppercase tracking-wide text-text-secondary">
-            小役カウンター <span class="ml-2 font-normal normal-case tabular-nums text-text-muted">数え始めてから {formatCount(countedGamesOf(props.ordered))}G</span>
-          </h3>
-          <Button size="small" variant="secondary" aria-pressed={direction() === "down"} onClick={() => setDirection(direction() === "up" ? "down" : "up")}>
-            {direction() === "up" ? "取り消しモードへ" : "数えるモードへ"}
-          </Button>
-        </div>
-        <RoleCounter
-          countables={countablesOf(props.weighing.formula)}
-          counts={countsNowOf(props.ordered)}
-          games={countedGamesOf(props.ordered)}
-          direction={direction()}
-          onCount={count}
-        />
-        <p class="text-xs text-text-muted">ゲーム数は、データカウンターの累計ゲーム数を記録したときに進みます。</p>
-      </Show>
+      <h3 class="text-xs font-bold uppercase tracking-wide text-text-secondary">
+        小役カウンター
+        <Show when={isCounting(props.ordered)}>
+          <span class="ml-2 font-normal normal-case tabular-nums text-text-muted">数え始めてから {formatCount(countedGamesOf(props.ordered))}G</span>
+        </Show>
+      </h3>
+      <RoleCounter countables={countablesOf(props.weighing.formula)} counts={countsNowOf(props.ordered)} games={countedGamesOf(props.ordered)} onCount={count} />
+      <p class="text-xs text-text-muted">タップで1つ数え、長押しで1つ戻します。ブドウやチェリー、単独・重複のボーナスまで数えると、設定の見込みがより確かになります。数え始めたら、最後まで数えてください。ゲーム数は、データカウンターの累計ゲーム数を記録したときに進みます。</p>
       <Show when={failure()} keyed>
         {(error) => (
           <p role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-text-primary">
@@ -327,10 +295,11 @@ interface Merged {
 }
 
 /**
- * A pachislot play in progress, followed at the cabinet: where it stands,
- * how likely each setting level is and what the play is worth — for a
- * machine from the catalog — its readings in order, the counting tiles, and
- * the place to read the counter. The view is kept while the play is: what it
+ * A pachislot play in progress, followed at the cabinet: its readings in a
+ * strip across the top, the newest in view, then where it stands, how
+ * likely each setting level is and what the play is worth — for a machine
+ * from the catalog — the counting tiles, always there, and the place to
+ * read the counter. The view is kept while the play is: what it
  * shows is worked out afresh from the log, and writes go one after another
  * from the log as it stands, so taps quicker than the screen reloads are
  * each kept. A reading of the counter, pressed, is set right or taken away
@@ -471,6 +440,8 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
             return (
               <div class="flex flex-1 flex-col">
                 <div class="flex flex-1 flex-col gap-5 p-4">
+                  <Timeline checkpoints={found()} bonuses={bonuses()} revising={revising()?.index} onRevise={(index) => setRevising({ index })} onMerge={merge} strip />
+                  <hr class="border-border" />
                   <CornerTerms draft={props.draft} />
                   <Show when={atRules()} fallback={<PlayFigures ordered={found()} bonuses={bonuses()} day={day()} />}>
                     <AtFigures ordered={found()} normalized={weighing()?.formula.normalized ?? NO_MACHINE} />
@@ -485,7 +456,6 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
                       </>
                     )}
                   </Show>
-                  <Timeline checkpoints={found()} bonuses={bonuses()} revising={revising()?.index} onRevise={(index) => setRevising({ index })} onMerge={merge} />
                 </div>
                 <div class="sticky bottom-0">
                   <Show when={revising()} keyed fallback={composers()}>

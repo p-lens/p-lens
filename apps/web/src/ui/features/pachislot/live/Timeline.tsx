@@ -1,4 +1,4 @@
-import { createSignal, For, Show, type JSX } from "solid-js"
+import { createEffect, createSignal, For, on, Show, type JSX } from "solid-js"
 
 import { mergeableSpan, type Span } from "../../../../core/pachislot/merging"
 import { revisableStepAt } from "../../../../core/pachislot/revision"
@@ -37,7 +37,7 @@ interface Row {
   readonly step: number | undefined
 }
 
-function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly bonuses: readonly Countable[] }): JSX.Element {
+function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly bonuses: readonly Countable[]; readonly strip: boolean }): JSX.Element {
   const counted = (): string =>
     props.bonuses
       .flatMap((bonus) => {
@@ -47,21 +47,21 @@ function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly bonuses: 
       .join("・")
   return (
     <>
-      <time class="w-20 shrink-0 text-xs tabular-nums text-text-muted">{props.checkpoint.at === undefined ? "--" : formatMoment(props.checkpoint.at)}</time>
-      <span class="w-20 shrink-0 tabular-nums text-text-primary">{formatCount(props.checkpoint.spins)} G</span>
-      <span class="flex-1 text-sm tabular-nums text-text-secondary">
+      <time class="shrink-0 text-xs tabular-nums text-text-muted" classList={{ "w-20": !props.strip }}>{props.checkpoint.at === undefined ? "--" : formatMoment(props.checkpoint.at)}</time>
+      <span class="shrink-0 tabular-nums text-text-primary" classList={{ "w-20": !props.strip, "font-semibold": props.strip }}>{formatCount(props.checkpoint.spins)} G</span>
+      <span class="text-sm tabular-nums text-text-secondary" classList={{ "flex-1": !props.strip, "flex flex-col": props.strip }}>
         {props.checkpoint.outlay === undefined ? "" : `¥${formatCount(props.checkpoint.outlay)}`}
         <Show when={props.checkpoint.replay} keyed>
-          {(replay) => <span class="ml-3 text-text-muted">貯メダル {formatCount(replay)}枚</span>}
+          {(replay) => <span class="text-text-muted" classList={{ "ml-3": !props.strip }}>貯メダル {formatCount(replay)}枚</span>}
         </Show>
         <Show when={props.checkpoint.counter?.total} keyed>
-          {(total) => <span class="ml-3 text-text-muted">累計 {formatCount(total)}G</span>}
+          {(total) => <span class="text-text-muted" classList={{ "ml-3": !props.strip }}>累計 {formatCount(total)}G</span>}
         </Show>
         <Show when={props.checkpoint.counter?.total === undefined ? props.checkpoint.counter?.spins : undefined} keyed>
-          {(sinceAt) => <span class="ml-3 text-text-muted">AT間 {formatCount(sinceAt)}G</span>}
+          {(sinceAt) => <span class="text-text-muted" classList={{ "ml-3": !props.strip }}>AT間 {formatCount(sinceAt)}G</span>}
         </Show>
         <Show when={counted() !== ""}>
-          <span class="ml-3 text-text-muted">{counted()}</span>
+          <span class="text-text-muted" classList={{ "ml-3": !props.strip }}>{counted()}</span>
         </Show>
       </span>
       <Show when={props.checkpoint.tally !== undefined && props.checkpoint.counter === undefined}>
@@ -87,6 +87,12 @@ function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly bonuses: 
 
 const ROW = "flex w-full items-baseline gap-3 rounded px-3 py-1.5 text-left"
 
+/** A reading as a card of a strip: its lines one under another, as wide as a strip shows several of. */
+const CARD = "flex h-full w-36 flex-col items-start gap-1 rounded-md border border-border px-3 py-2 text-left"
+
+/** How near its end, in pixels, a strip scrolled by a person still counts as at its newest. */
+const NEWEST_WITHIN = 24
+
 /** The bonuses a log's counter readings count, each under its id, in the order first read. */
 const countedIn = (checkpoints: readonly Checkpoint[]): readonly Countable[] =>
   [...new Set(checkpoints.flatMap((checkpoint) => Object.keys(checkpoint.counter?.bonuses ?? {})))].map((id) => ({ id, label: id }))
@@ -101,6 +107,10 @@ const countedIn = (checkpoints: readonly Checkpoint[]): readonly Countable[] =>
  * its last. Given no bonuses to name, each is named by its id as the
  * counter's readings have it: a recorded play keeps its log, not its formula.
  *
+ * As a strip, the readings run across, the newest at the end, and the
+ * strip keeps to that end as readings come unless a person has scrolled it
+ * back, and again once they scroll it there.
+ *
  * Given a way to merge, a reading held and dragged from marks a run of
  * readings, as far as they may be made one (`mergeableSpan`), and letting
  * go asks beside it whether to: nothing is merged by the dragging itself.
@@ -111,8 +121,17 @@ export function Timeline(props: {
   readonly revising: number | undefined
   readonly onRevise: ((step: number) => void) | undefined
   readonly onMerge: ((span: Span) => Promise<void>) | undefined
+  /** Whether the readings run across a strip, the newest at its end, rather than down a column. */
+  readonly strip?: boolean
 }): JSX.Element {
-  const press = createSpanPress((anchor, reached) => mergeableSpan(props.checkpoints, anchor, reached))
+  const press = createSpanPress((anchor, reached) => mergeableSpan(props.checkpoints, anchor, reached), props.strip === true ? "across" : "down")
+  const strip = (): boolean => props.strip === true
+  const shape = (): string => (strip() ? CARD : ROW)
+  /** The strip, and whether it keeps to its newest end: it does until a person scrolls it back, and again once they scroll it to the end. */
+  const held: { strip: HTMLElement | undefined; following: boolean } = { strip: undefined, following: true }
+  const toNewest = (): void => {
+    if (held.strip !== undefined && held.following) held.strip.scrollLeft = held.strip.scrollWidth
+  }
   const [merging, setMerging] = createSignal(false)
   const merge = async (span: Span): Promise<void> => {
     if (merging()) return
@@ -126,36 +145,48 @@ export function Timeline(props: {
     props.checkpoints.flatMap((checkpoint, line, ordered) =>
       isShown(checkpoint, line, ordered) ? [{ checkpoint, step: props.onRevise === undefined ? undefined : revisableStepAt(ordered, line) }] : [],
     )
+  createEffect(
+    on(
+      () => shown().length,
+      () => queueMicrotask(toNewest),
+    ),
+  )
   /** How many readings a run takes in: its rows, the taps between them being no rows. */
   const readingsIn = (span: Span): number => shown().filter((row) => inSpan(span, row.step)).length
   return (
     <>
       <ol
-        class="flex flex-col gap-0.5"
+        class={strip() ? "flex snap-x gap-2 overflow-x-auto pb-1" : "flex flex-col gap-0.5"}
         ref={(element) => {
           if (props.onMerge !== undefined) press.list(element)
+          if (!strip()) return
+          held.strip = element
+          element.addEventListener("scroll", () => {
+            held.following = element.scrollLeft + element.clientWidth >= element.scrollWidth - NEWEST_WITHIN
+          })
+          queueMicrotask(toNewest)
         }}
       >
         <For each={shown()}>
           {(row) => (
-            <li {...spanRow(row.step)}>
+            <li {...spanRow(row.step)} class={strip() ? "shrink-0 snap-end" : undefined}>
               <Show
                 when={row.step !== undefined}
                 fallback={
-                  <div class={ROW}>
-                    <ReadingRow checkpoint={row.checkpoint} bonuses={bonuses()} />
+                  <div class={shape()}>
+                    <ReadingRow checkpoint={row.checkpoint} bonuses={bonuses()} strip={strip()} />
                   </div>
                 }
               >
                 <button
                   type="button"
-                  class={cn(ROW, "hover:bg-surface-3/40", props.revising === row.step && "bg-warning/10 ring-1 ring-warning/50", inSpan(press.span(), row.step) && "bg-accent/30")}
+                  class={cn(shape(), "hover:bg-surface-3/40", props.revising === row.step && "bg-warning/10 ring-1 ring-warning/50", inSpan(press.span(), row.step) && "bg-accent/30")}
                   aria-label={`${formatCount(row.checkpoint.spins)}Gの記録を修正`}
                   onClick={() => {
                     if (row.step !== undefined && !press.wasHeld()) props.onRevise?.(row.step)
                   }}
                 >
-                  <ReadingRow checkpoint={row.checkpoint} bonuses={bonuses()} />
+                  <ReadingRow checkpoint={row.checkpoint} bonuses={bonuses()} strip={strip()} />
                 </button>
               </Show>
             </li>
