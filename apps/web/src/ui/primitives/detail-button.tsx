@@ -31,6 +31,8 @@ export function DetailButton(props: {
   readonly glimmering?: boolean
   /** Where the bubble opens: above a button at the foot of the screen, below one further up. */
   readonly placement: "top-end" | "bottom-end"
+  /** Whether the bubble is opened wider, for a row of choices one field's width cannot hold. */
+  readonly wide?: boolean
   readonly onOpen?: () => void
   readonly children: JSX.Element
 }): JSX.Element {
@@ -65,7 +67,7 @@ export function DetailButton(props: {
         </PopoverPrimitive.Trigger>
       </div>
       <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Content onOpenAutoFocus={(event) => event.preventDefault()} onKeyDown={doneOnEnter} class="z-50 flex w-44 items-end gap-1 rounded-md border border-border bg-surface-1 p-2 shadow-lg outline-none">
+        <PopoverPrimitive.Content onOpenAutoFocus={(event) => event.preventDefault()} onKeyDown={doneOnEnter} class="z-50 flex items-end gap-1 rounded-md border border-border bg-surface-1 p-2 shadow-lg outline-none" classList={{ "w-44": props.wide !== true, "w-56": props.wide === true }}>
           {props.children}
         </PopoverPrimitive.Content>
       </PopoverPrimitive.Portal>

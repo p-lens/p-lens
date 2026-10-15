@@ -187,14 +187,6 @@
   }
 }
 
-/* A reading's answer coming up into place, softly, as if laid down: no swell, nothing to wait out. */
-@keyframes unfold {
-  from {
-    opacity: 0;
-    transform: translateY(0.5rem);
-  }
-}
-
 /* A share drawn out from its start, as a bar is filled. */
 @keyframes extend {
   from {

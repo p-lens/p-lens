@@ -225,6 +225,7 @@ function WeighingTermsButton(props: { readonly editing: YenTallyEditing }): JSX.
       beckoning={editing.jackpotsAsked()}
       glimmering={editing.jackpotsWouldSharpen()}
       placement="bottom-end"
+      wide
     >
       <div class="flex min-w-0 flex-1 flex-col gap-3">
         <TextField label="大当り回数" value={editing.form().jackpots} onChange={editing.set("jackpots")} inputMode="numeric" suffix="回" invalid={editing.problemAt("jackpots") !== undefined} onFocus={editing.nudge.settle} compact />
