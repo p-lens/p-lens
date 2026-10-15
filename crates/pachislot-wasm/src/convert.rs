@@ -164,6 +164,9 @@ fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
             "spec.components.resetAllotment",
             |values, at| shares(values, at),
         )?,
+        at_ceiling: table(&dto.at_ceiling, "spec.components.atCeiling", |games, at| {
+            NonZeroU32::new(*games).ok_or_else(|| invalid(at))
+        })?,
         cz: listed(&dto.cz, "spec.components.cz")?,
         success: table(&dto.success, "spec.components.success", |values, at| {
             shares(values, at)
@@ -748,6 +751,7 @@ fn component_name(component: Component) -> String {
         Component::Mode => "mode",
         Component::Allotment => "allotment",
         Component::ResetAllotment => "resetAllotment",
+        Component::AtCeiling => "atCeiling",
         Component::Cz => "cz",
         Component::Success => "success",
         Component::Misses => "misses",
@@ -858,6 +862,9 @@ pub fn spec_error_dto(error: &SpecError) -> ErrorDto {
             entity: named(entity),
         },
         SpecError::ResetCeilingBesideModes { entity } => ErrorDto::ResetCeilingBesideModes {
+            entity: named(entity),
+        },
+        SpecError::AtCeilingWithoutCz { entity } => ErrorDto::AtCeilingWithoutCz {
             entity: named(entity),
         },
         SpecError::EmptySet { entity } => ErrorDto::EmptySet {

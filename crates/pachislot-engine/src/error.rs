@@ -120,6 +120,11 @@ pub enum SpecError {
     ResetCeilingBesideModes {
         entity: EntityId,
     },
+    /// A mode given an AT間天井 of its own on a machine without a CZ: its
+    /// trigger is the AT, so its ceiling is already the AT's.
+    AtCeilingWithoutCz {
+        entity: EntityId,
+    },
     /// A set of an AT paid in sets that pays nothing.
     EmptySet {
         entity: EntityId,

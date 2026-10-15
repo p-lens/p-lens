@@ -164,6 +164,10 @@ fn checked<'a>(
             entity: at.id.clone(),
             component: Component::FirstHit,
         });
+    } else if let Some(ceiled) = modes.iter().find(|mode| mode.at_ceiling.is_some()) {
+        return Err(SpecError::AtCeilingWithoutCz {
+            entity: ceiled.id.clone(),
+        });
     }
     let (trigger, ceiling, reset_ceiling) = trigger_of(at, cz);
     if !modes.is_empty() && (ceiling.is_some() || reset_ceiling.is_some()) {
@@ -280,7 +284,7 @@ fn reset_mode(trigger: &EntityId) -> EntityId {
 /// machine's own modes, or one at the trigger's ceiling and one at its
 /// ceilings after a setting change, the trigger's where a setting change
 /// leaves it be — counted on the screen where the machine says so; each
-/// mode's AT間天井 in regular games; the スルー天井.
+/// mode's AT間天井 in regular games, its own or the AT's; the スルー天井.
 pub(crate) fn rules_of(
     machine: &AtMachine<'_>,
     lcd_rate: Option<LcdRate>,
@@ -309,7 +313,7 @@ pub(crate) fn rules_of(
         machine
             .modes
             .iter()
-            .map(|mode| rule(&mode.id, mode.ceiling, at_ceiling))
+            .map(|mode| rule(&mode.id, mode.ceiling, mode.at_ceiling.or(at_ceiling)))
             .collect()
     };
     AtRules {
@@ -595,8 +599,8 @@ fn cycle_games(rules: &AtRules, table: &AtTable) -> f64 {
     1.0 / cycle(rules, table.chance.value(), table.success.value(), &shares).at_chance()
 }
 
-/// What a setting's 機械割 implies its AT gains: the cycle is read off the
-/// table as it stands with an AT that gains nothing — the games between
+/// What a setting's 機械割 implies its AT gains: the cycle is read off
+/// `unpaid`, the setting's table with an AT that gains nothing — the games between
 /// ATs do not turn on what one gains, short of a cap — and the gain that
 /// brings the 機械割 over it is the AT's.
 fn gain_from(
@@ -605,19 +609,14 @@ fn gain_from(
     bet: f64,
     setting_level: SettingLevel,
     rate: PayoutRate,
+    unpaid: &AtTable,
 ) -> Result<PayoutLaw, SpecError> {
     let unattainable = || SpecError::UnattainableRate {
         entity: machine.at.id.clone(),
         setting_level,
     };
-    let unpaid = table_paying(
-        machine,
-        rules,
-        setting_level,
-        PayoutLaw::Fixed(Medals::NONE),
-    )?;
     let cycle = RateCycle {
-        games: cycle_games(rules, &unpaid),
+        games: cycle_games(rules, unpaid),
         loss: rules.base.loss_per_game(),
         bet,
         net: rules.net_per_game.map_or(0.0, Medals::get),
@@ -629,18 +628,33 @@ fn gain_from(
 }
 
 /// A setting's table, its AT gaining what the spec says or what the
-/// setting's 機械割 implies.
+/// setting's 機械割 implies. Where play does not start again as after a
+/// setting change once an AT reaches the cap, the trigger's chance is read
+/// off the 合算 whatever the AT gains, so the table the gain was found on
+/// keeps its chance.
 pub(crate) fn table_of(
     machine: &AtMachine<'_>,
     rules: &AtRules,
     bet: f64,
     setting_level: SettingLevel,
 ) -> Result<AtTable, SpecError> {
-    let payout = match paid_under(machine.at, setting_level)? {
-        Paid::Law(law) => law,
-        Paid::FromRate(rate) => gain_from(machine, rules, bet, setting_level, rate)?,
-    };
-    table_paying(machine, rules, setting_level, payout)
+    match paid_under(machine.at, setting_level)? {
+        Paid::Law(law) => table_paying(machine, rules, setting_level, law),
+        Paid::FromRate(rate) => {
+            let unpaid = table_paying(
+                machine,
+                rules,
+                setting_level,
+                PayoutLaw::Fixed(Medals::NONE),
+            )?;
+            let payout = gain_from(machine, rules, bet, setting_level, rate, &unpaid)?;
+            if rules.reset_on_cap {
+                table_paying(machine, rules, setting_level, payout)
+            } else {
+                Ok(AtTable { payout, ..unpaid })
+            }
+        }
+    }
 }
 
 /// Everything a machine of an AT gives per setting, against the settings

@@ -7,7 +7,7 @@ use std::num::NonZeroU32;
 use pachislot_domain::conditions::{PayoutBasis, PayoutRate, PlayConditions};
 use pachislot_domain::normalized::{Allotments, AtRules, AtTable, EventKind, NormalizedSpec};
 use pachislot_domain::observation::{AtSeen, Leg, LegEnd, Path, PathStart, Segment};
-use pachislot_domain::probability::Probability;
+use pachislot_domain::probability::{BasisPoints, Probability};
 use pachislot_domain::setting_level::PerSettingLevel;
 use pachislot_domain::spec::{Base, Component, LcdRate, Spec};
 use pachislot_engine::analysis::{Analysis, analyze};
@@ -192,6 +192,21 @@ fn an_at_ceiling_beside_a_cz_is_the_second_ceiling_and_never_on_the_screen() {
 }
 
 #[test]
+fn a_cz_s_published_figure_is_read_back_where_an_at_ceiling_keeps_it_below_its_chance() {
+    let mut spec = cz_spec();
+    spec.components.ceiling.clear();
+    spec.components.reset_ceiling.clear();
+    spec.components
+        .ceiling
+        .insert(id("at"), NonZeroU32::new(400).expect("a ceiling"));
+    let normalized = normalize(&spec).expect("normalises");
+    let figures = analysed(&normalized);
+    assert!((figures.setting_levels[0].bonuses[0].chance - 1.0 / 150.0).abs() < 1e-15);
+    assert!((figures.setting_levels[1].bonuses[0].chance - 1.0 / 120.0).abs() < 1e-15);
+    assert!(chance(&normalized, 1) > 1.0 / 150.0);
+}
+
+#[test]
 fn a_cz_path_is_as_likely_as_each_game_that_made_it() {
     let (p, q): (f64, f64) = (0.01, 0.3);
     let plain = rules(Some("cz"), vec![mode("cz", 0)]);
@@ -356,6 +371,83 @@ fn a_setting_change_s_at_ceiling_beside_a_cz_is_a_mode_of_its_own() {
     assert_eq!(
         normalize(&moded),
         Err(SpecError::ResetCeilingBesideModes { entity: id("at") })
+    );
+}
+
+/// The CZ machine with its AT間天井 drawn after each AT: 450G 40% of the
+/// time under setting 1 and 50% under setting 6, 999G otherwise.
+fn drawn() -> Spec {
+    let mut spec = cz_spec();
+    spec.components.ceiling.clear();
+    spec.components.reset_ceiling.clear();
+    spec.components
+        .ceiling
+        .insert(id("at"), NonZeroU32::new(999).expect("a ceiling"));
+    spec.entities.extend([id("short"), id("long")]);
+    spec.components.mode = [id("short"), id("long")].into();
+    let shares = |low: u32, high: u32| {
+        PerSettingLevel(vec![
+            (setting_level(1), BasisPoints::new(low).expect("a share")),
+            (setting_level(6), BasisPoints::new(high).expect("a share")),
+        ])
+    };
+    spec.components
+        .allotment
+        .insert(id("short"), shares(4_000, 5_000));
+    spec.components
+        .allotment
+        .insert(id("long"), shares(6_000, 5_000));
+    spec.components
+        .at_ceiling
+        .insert(id("short"), NonZeroU32::new(450).expect("a ceiling"));
+    spec
+}
+
+#[test]
+fn a_mode_s_own_at_ceiling_stands_in_for_the_at_s() {
+    let spec = normalize(&drawn()).expect("normalises");
+    let found = spec.at_rules.clone().expect("an AT machine");
+    assert_eq!(
+        found.modes,
+        vec![ceiled("short", 0, 450), ceiled("long", 0, 999)]
+    );
+    let figures = analysed(&spec);
+    let one = &figures.setting_levels[0];
+    assert!((one.bonuses[0].chance - 1.0 / 150.0).abs() < 1e-15);
+    let table = at_table(&spec, 1);
+    let mixed = cycle(
+        &found,
+        table.chance.value(),
+        table.success.value(),
+        &[0.4, 0.6],
+    );
+    assert!(near(one.bonuses[1].chance, mixed.at_chance(), 1e-12));
+    let short = cycle(
+        &found,
+        table.chance.value(),
+        table.success.value(),
+        &[1.0, 0.0],
+    );
+    let long = cycle(
+        &found,
+        table.chance.value(),
+        table.success.value(),
+        &[0.0, 1.0],
+    );
+    assert!(short.games < mixed.games && mixed.games < long.games);
+}
+
+#[test]
+fn a_mode_s_own_at_ceiling_needs_a_cz() {
+    let mut spec = mode_spec();
+    spec.components
+        .at_ceiling
+        .insert(id("heaven"), NonZeroU32::new(450).expect("a ceiling"));
+    assert_eq!(
+        normalize(&spec),
+        Err(SpecError::AtCeilingWithoutCz {
+            entity: id("heaven")
+        })
     );
 }
 

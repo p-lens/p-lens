@@ -40,6 +40,8 @@ export interface EntityRow {
   readonly ceiling: string
   /** The trigger's ceiling after a setting change, as typed; empty for the same as ever. */
   readonly resetCeiling: string
+  /** A mode's own AT間天井 where a CZ brings the AT, as typed; empty for the AT's. */
+  readonly atCeiling: string
   /** A CZ's chance of winning the AT, in percent by the level. */
   readonly success: Readonly<Record<string, string>>
   /** A CZ's スルー天井: the misses after which the next CZ wins the AT, as typed; empty for none. */
@@ -122,6 +124,7 @@ const row = (key: string, label: string, kind: EntityKindName, payout = ""): Ent
   chances: {},
   ceiling: "",
   resetCeiling: "",
+  atCeiling: "",
   resetAllotment: {},
   success: {},
   misses: "",
@@ -269,6 +272,7 @@ interface ReadRow {
   readonly payout: number | undefined
   readonly ceiling: number | undefined
   readonly resetCeiling: number | undefined
+  readonly atCeiling: number | undefined
   readonly resetAllotment: readonly BySettingLevelDto<number>[] | undefined
   readonly success: readonly BySettingLevelDto<number>[] | undefined
   readonly misses: number | undefined
@@ -374,9 +378,10 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
   const ceiling = entity.kind === "at" || isCz || isMode ? ceilingOf(entity.ceiling, `${name} ${brought ? "AT間天井" : "天井"}`) : Ok(undefined)
   const resetCeiling =
     (entity.kind === "at" && !hasModes(form)) || isCz ? ceilingOf(entity.resetCeiling, `${name} ${brought ? "リセット後のAT間天井" : "リセット後の天井"}`) : Ok(undefined)
+  const atCeiling = isMode && hasCz(form) ? ceilingOf(entity.atCeiling, `${name} AT間天井`) : Ok(undefined)
   const law = entity.kind === "at" ? readLaw(form, entity, name) : Ok(undefined)
   const problems = [
-    ...problemsOf([label, payout, partOf, ceiling, resetCeiling, misses, ...chances, ...allotment, ...(resetAllotment ?? []), ...success]),
+    ...problemsOf([label, payout, partOf, ceiling, resetCeiling, atCeiling, misses, ...chances, ...allotment, ...(resetAllotment ?? []), ...success]),
     ...(law.ok ? [] : law.error),
   ]
   if (problems.length > 0 || !law.ok) return Err(problems)
@@ -387,6 +392,7 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
     payout: payout.ok ? payout.value : undefined,
     ceiling: ceiling.ok ? ceiling.value : undefined,
     resetCeiling: resetCeiling.ok ? resetCeiling.value : undefined,
+    atCeiling: atCeiling.ok ? atCeiling.value : undefined,
     resetAllotment: resetAllotment === undefined ? undefined : valuesOf(resetAllotment),
     success: isCz ? valuesOf(success) : undefined,
     misses: misses.ok ? misses.value : undefined,
@@ -419,6 +425,7 @@ const worldOf = (form: WorldForm, bet: number, at: MachineResources | undefined,
   const ceilings = keyed((read) => read.ceiling)
   const resetCeilings = keyed((read) => read.resetCeiling)
   const resetAllotments = keyed((read) => read.resetAllotment)
+  const atCeilings = keyed((read) => read.atCeiling)
   const sets = keyed((read) => read.law?.sets)
   const carries = keyed((read) => read.law?.continuationRate)
   const tables = keyed((read) => read.law?.table)
@@ -444,6 +451,7 @@ const worldOf = (form: WorldForm, bet: number, at: MachineResources | undefined,
       ...(Object.keys(resetCeilings).length > 0 ? { resetCeiling: resetCeilings } : {}),
       ...(listed("mode").length > 0 ? { mode: listed("mode"), allotment: keyed((read) => read.allotment) } : {}),
       ...(Object.keys(resetAllotments).length > 0 ? { resetAllotment: resetAllotments } : {}),
+      ...(Object.keys(atCeilings).length > 0 ? { atCeiling: atCeilings } : {}),
       ...(Object.keys(sets).length > 0 ? { sets, continuationRate: carries } : {}),
       ...(Object.keys(tables).length > 0 ? { payoutTable: tables } : {}),
       ...(Object.keys(nets).length > 0 ? { netPerGame: nets } : {}),
@@ -565,6 +573,7 @@ export const worldFormOf = (spec: SpecDto): WorldForm => ({
     resetAllotment: Object.fromEntries((spec.components.resetAllotment?.[entity] ?? []).map((each) => [String(each.settingLevel), String(each.value / 100)])),
     ceiling: spec.components.ceiling?.[entity] === undefined ? "" : String(spec.components.ceiling[entity]),
     resetCeiling: spec.components.resetCeiling?.[entity] === undefined ? "" : String(spec.components.resetCeiling[entity]),
+    atCeiling: spec.components.atCeiling?.[entity] === undefined ? "" : String(spec.components.atCeiling[entity]),
     success: Object.fromEntries((spec.components.success?.[entity] ?? []).map((each) => [String(each.settingLevel), String(each.value / 100)])),
     misses: spec.components.misses?.[entity] === undefined ? "" : String(spec.components.misses[entity]),
     law: lawFormOf(spec, entity),

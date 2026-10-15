@@ -83,6 +83,9 @@ pub struct ComponentsDto {
     pub allotment: BTreeMap<String, Vec<BySettingLevelDto<u32>>>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub reset_allotment: BTreeMap<String, Vec<BySettingLevelDto<u32>>>,
+    /// A mode's own AT間天井, in regular games.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub at_ceiling: BTreeMap<String, u32>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cz: Vec<String>,
     /// A CZ's chance of winning the AT, in hundredths of a percent under each setting.
@@ -821,6 +824,9 @@ pub enum ErrorDto {
         entity: String,
     },
     ResetCeilingBesideModes {
+        entity: String,
+    },
+    AtCeilingWithoutCz {
         entity: String,
     },
     EmptySet {

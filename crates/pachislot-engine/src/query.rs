@@ -58,6 +58,7 @@ fn check_entities(spec: &Spec) -> Result<(), SpecError> {
             &components.reset_allotment,
             Component::ResetAllotment,
         ))
+        .chain(keyed(&components.at_ceiling, Component::AtCeiling))
         .chain(listed(&components.cz, Component::Cz))
         .chain(keyed(&components.success, Component::Success))
         .chain(keyed(&components.misses, Component::Misses))
@@ -236,7 +237,8 @@ fn misplaced(spec: &Spec, entity: &EntityId, kinds: &[Component]) -> Option<Comp
     }
     (!mode
         && (components.allotment.contains_key(entity)
-            || components.reset_allotment.contains_key(entity)))
+            || components.reset_allotment.contains_key(entity)
+            || components.at_ceiling.contains_key(entity)))
     .then_some(Component::Mode)
 }
 
@@ -269,8 +271,8 @@ fn cz(spec: &Spec, entity: &EntityId) -> Result<Cz, SpecError> {
     })
 }
 
-/// A mode: its allotment, its ceiling if it has one, and nothing a regular
-/// game comes up with.
+/// A mode: its allotment, its ceiling and its own AT間天井 if it has them,
+/// and nothing a regular game comes up with.
 fn mode(spec: &Spec, entity: &EntityId) -> Result<Mode, SpecError> {
     let components = &spec.components;
     if components.chance.contains_key(entity) {
@@ -283,6 +285,7 @@ fn mode(spec: &Spec, entity: &EntityId) -> Result<Mode, SpecError> {
         id: entity.clone(),
         label: label_of(spec, entity),
         ceiling: components.ceiling.get(entity).copied(),
+        at_ceiling: components.at_ceiling.get(entity).copied(),
         allotment: components
             .allotment
             .get(entity)

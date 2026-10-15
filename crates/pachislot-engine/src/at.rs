@@ -77,90 +77,149 @@ fn success_of(j: u32, success: f64, misses: Option<NonZeroU32>) -> f64 {
     }
 }
 
+/// The games between triggers in a mode, as a running sum carries them:
+/// geometric at `p` below the ceiling, so each game's share of `f ⋆ d`
+/// follows from the one before rather than a sum over the ceiling.
+#[derive(Clone, Copy)]
+struct Between {
+    p: f64,
+    risk: f64,
+    span: Option<usize>,
+    tail: f64,
+    decayed: f64,
+}
+
+impl Between {
+    fn of(p: f64, ceiling: Option<NonZeroU32>) -> Self {
+        let risk = 1.0 - p;
+        let span = ceiling.map(|ceiling| ceiling.get() as usize);
+        Self {
+            p,
+            risk,
+            span,
+            tail: span.map_or(0.0, |span| interval(p, ceiling, span)),
+            decayed: span.map_or(0.0, |span| {
+                risk.powi(i32::try_from(span - 1).unwrap_or(i32::MAX))
+            }),
+        }
+    }
+
+    /// Game `at` of `f ⋆ d`, from the running sum before it: the running
+    /// sum at it, and where the next trigger falls on it. Only the games of
+    /// `f` before `at` are read, so `f` may be written as it is read.
+    fn step(self, f: &[f64], running: f64, at: usize) -> (f64, f64) {
+        let before = |back: usize| -> f64 {
+            at.checked_sub(back)
+                .and_then(|at| f.get(at))
+                .copied()
+                .unwrap_or(0.0)
+        };
+        let dropped = self.span.map_or(0.0, |span| before(span) * self.decayed);
+        let running = self.risk * running + before(1) - dropped;
+        let reached = self.span.map_or(0.0, |span| before(span) * self.tail);
+        (running, self.p * running + reached)
+    }
+}
+
 /// The next trigger's games after the last, convolved onto where the last
-/// fell: `f ⋆ d`, with `d` the games between triggers. The games between
-/// are geometric below the ceiling, so a running sum gives each game in
-/// turn rather than a sum over the ceiling.
+/// fell: `f ⋆ d`, with `d` the games between triggers.
 fn convolved(f: &[f64], p: f64, ceiling: Option<NonZeroU32>) -> Vec<f64> {
-    let risk = 1.0 - p;
-    let span = ceiling.map(|ceiling| ceiling.get() as usize);
-    let tail = span.map_or(0.0, |span| interval(p, ceiling, span));
-    let decayed = span.map_or(0.0, |span| {
-        risk.powi(i32::try_from(span - 1).unwrap_or(i32::MAX))
-    });
-    let before = |at: usize, back: usize| -> f64 {
-        at.checked_sub(back)
-            .and_then(|at| f.get(at))
-            .copied()
-            .unwrap_or(0.0)
-    };
+    let between = Between::of(p, ceiling);
     let (_, next) = (0..f.len()).fold(
         (0.0_f64, Vec::with_capacity(f.len())),
         |(running, mut next), at| {
-            let dropped = span.map_or(0.0, |span| before(at, span) * decayed);
-            let running = risk * running + before(at, 1) - dropped;
-            let reached = span.map_or(0.0, |span| before(at, span) * tail);
-            next.push(p * running + reached);
+            let (running, here) = between.step(f, running, at);
+            next.push(here);
             (running, next)
         },
     );
     next
 }
 
-/// The triggers a mode brings within `length` regular games of an AT, and
-/// the chance the AT is won on each game: the triggers' games convolved one
-/// after another, each alive while every trigger before it missed.
+/// The triggers a mode brings on each of the first `length` regular games
+/// of an AT, and the chance the AT is won on each, in one pass over the
+/// games: what any shorter length brings is the same games cut short. The
+/// triggers are told apart by their count since the AT only as far as the
+/// スルー天井 makes it matter: each count is a stream of where its trigger
+/// falls, fed by the misses of the count before it, the last counted fed
+/// by its own; with no スルー天井 one stream feeds itself.
 fn ended_by(
     p: f64,
     success: f64,
     mode: &ModeRule,
     length: usize,
     misses: Option<NonZeroU32>,
-) -> (f64, Vec<f64>) {
-    let start: Vec<f64> = (0..length)
-        .map(|at| if at == 0 { 1.0 } else { 0.0 })
+) -> Walk {
+    let between = Between::of(p, mode.ceiling);
+    let streams = misses.map_or(1, |misses| misses.get() as usize + 1);
+    let wins: Vec<f64> = (1..=streams)
+        .map(|j| success_of(u32::try_from(j).unwrap_or(u32::MAX), success, misses))
         .collect();
-    let most = u32::try_from(length).unwrap_or(u32::MAX);
-    let (_, _, triggers, ended) = (1..=most)
-        .try_fold(
-            (start, 1.0_f64, 0.0_f64, vec![0.0_f64; length]),
-            |(previous, alive, triggers, mut ended), j| {
-                let at = convolved(&previous, p, mode.ceiling);
-                let wins = success_of(j, success, misses);
-                let arrived: f64 = at.iter().sum::<f64>() * alive;
-                ended
-                    .iter_mut()
-                    .zip(&at)
-                    .for_each(|(end, here)| *end += here * alive * wins);
-                let next = (at, alive * (1.0 - wins), triggers + arrived, ended);
-                if next.1 <= 0.0 || arrived < f64::EPSILON * f64::EPSILON {
-                    Err(next)
-                } else {
-                    Ok(next)
-                }
-            },
-        )
-        .unwrap_or_else(|stopped| stopped);
-    (triggers, ended)
+    let (_, _, _, arrived, ended) = (0..length).fold(
+        (
+            (0..streams)
+                .map(|_| Vec::with_capacity(length))
+                .collect::<Vec<Vec<f64>>>(),
+            vec![0.0_f64; streams],
+            vec![0.0_f64; streams],
+            Vec::with_capacity(length),
+            Vec::with_capacity(length),
+        ),
+        |(mut sources, mut running, mut here, mut arrived, mut ended), at| {
+            for ((source, running), here) in sources.iter().zip(&mut running).zip(&mut here) {
+                (*running, *here) = between.step(source, *running, at);
+            }
+            for (stream, source) in sources.iter_mut().enumerate() {
+                let start = if stream == 0 && at == 0 { 1.0 } else { 0.0 };
+                source.push(start + fed(&wins, &here, stream));
+            }
+            ended.push(here.iter().zip(&wins).map(|(here, wins)| here * wins).sum());
+            arrived.push(here.iter().sum());
+            (sources, running, here, arrived, ended)
+        },
+    );
+    Walk { arrived, ended }
+}
+
+/// What a mode's triggers come to game by game after an AT: the chance a
+/// trigger arrives on each, and the chance the AT is won on each.
+struct Walk {
+    arrived: Vec<f64>,
+    ended: Vec<f64>,
+}
+
+/// What a stream is fed on a game: the misses there of the count before
+/// it, and the last counted's of its own.
+fn fed(wins: &[f64], here: &[f64], stream: usize) -> f64 {
+    let from_before = stream
+        .checked_sub(1)
+        .map_or(0.0, |before| missed(wins, here, before));
+    let from_itself = if stream + 1 == here.len() {
+        missed(wins, here, stream)
+    } else {
+        0.0
+    };
+    from_before + from_itself
+}
+
+/// What a stream's trigger on a game leaves to the next: the chance it fell
+/// there and missed.
+fn missed(wins: &[f64], here: &[f64], stream: usize) -> f64 {
+    here.get(stream).copied().unwrap_or(0.0) * (1.0 - wins.get(stream).copied().unwrap_or(1.0))
 }
 
 /// A cycle in one mode with an AT間天井 of `at_ceiling` games, which ends
-/// it there at the latest.
-fn cycle_to_ceiling(
-    p: f64,
-    success: f64,
-    mode: &ModeRule,
-    at_ceiling: NonZeroU32,
-    misses: Option<NonZeroU32>,
-) -> Cycle {
-    let (triggers, ended) = ended_by(p, success, mode, at_ceiling.get() as usize, misses);
-    let ended_before: f64 = ended.iter().sum();
+/// it there at the latest: its trigger's walk cut short there.
+fn cycle_to_ceiling(walk: &Walk, at_ceiling: NonZeroU32) -> Cycle {
+    let length = at_ceiling.get() as usize;
+    let triggers: f64 = walk.arrived.iter().take(length).sum();
+    let ended = walk.ended.iter().take(length);
+    let ended_before: f64 = ended.clone().sum();
     #[allow(
         clippy::cast_precision_loss,
         reason = "a game's number is far below where a float loses whole numbers"
     )]
     let games = ended
-        .iter()
         .enumerate()
         .map(|(game, end)| game as f64 * end)
         .sum::<f64>()
@@ -186,7 +245,7 @@ pub(crate) fn arrivals(
             let reach = mode
                 .at_ceiling
                 .map_or(horizon + 1, |ceiling| ceiling.get().min(horizon + 1));
-            let (_, ended) = ended_by(chance, success, mode, reach as usize, rules.misses);
+            let Walk { ended, .. } = ended_by(chance, success, mode, reach as usize, rules.misses);
             let left = 1.0 - ended.iter().sum::<f64>();
             sum.iter()
                 .zip(1_u32..)
@@ -204,13 +263,9 @@ pub(crate) fn arrivals(
         })
 }
 
-/// A cycle in one mode: in closed form without an AT間天井 — the triggers
-/// until one wins, each the games between triggers apart — and convolved to
-/// the mode's ceiling with one.
-fn cycle_in_mode(p: f64, success: f64, mode: &ModeRule, rules: &AtRules) -> Cycle {
-    if let Some(at_ceiling) = mode.at_ceiling {
-        return cycle_to_ceiling(p, success, mode, at_ceiling, rules.misses);
-    }
+/// A cycle in one mode without an AT間天井, in closed form: the triggers
+/// until one wins, each the games between triggers apart.
+fn cycle_unceiled(p: f64, success: f64, mode: &ModeRule, rules: &AtRules) -> Cycle {
     let triggers = match rules.misses {
         Some(misses) => (0..=misses.get())
             .map(|j| (1.0 - success).powi(i32::try_from(j).unwrap_or(i32::MAX)))
@@ -224,15 +279,62 @@ fn cycle_in_mode(p: f64, success: f64, mode: &ModeRule, rules: &AtRules) -> Cycl
     }
 }
 
-/// A cycle under one setting, over the modes as an AT allots them.
+/// A cycle under one setting, over the modes play may be in as an AT
+/// allots them: in closed form in a mode without an AT間天井, and with one
+/// its trigger's walk cut short there. Modes that share a trigger's
+/// ceiling share its walk, taken as far as the longest AT間天井 among them.
 pub fn cycle(rules: &AtRules, chance: f64, success: f64, shares: &[f64]) -> Cycle {
-    rules.modes.iter().zip(shares).fold(
+    let played: Vec<(&ModeRule, f64)> = rules
+        .modes
+        .iter()
+        .zip(shares.iter().copied())
+        .filter(|(_, share)| *share > 0.0)
+        .collect();
+    let walks: Vec<(Option<NonZeroU32>, Walk)> = played
+        .iter()
+        .filter_map(|(mode, _)| mode.at_ceiling.map(|at_ceiling| (mode, at_ceiling)))
+        .fold(
+            Vec::<(&ModeRule, NonZeroU32)>::new(),
+            |mut longest, (mode, at_ceiling)| {
+                match longest
+                    .iter_mut()
+                    .find(|(other, _)| other.ceiling == mode.ceiling)
+                {
+                    Some(found) => found.1 = found.1.max(at_ceiling),
+                    None => longest.push((mode, at_ceiling)),
+                }
+                longest
+            },
+        )
+        .into_iter()
+        .map(|(mode, at_ceiling)| {
+            (
+                mode.ceiling,
+                ended_by(
+                    chance,
+                    success,
+                    mode,
+                    at_ceiling.get() as usize,
+                    rules.misses,
+                ),
+            )
+        })
+        .collect();
+    played.iter().fold(
         Cycle {
             triggers: 0.0,
             games: 0.0,
         },
         |sum, (mode, share)| {
-            let each = cycle_in_mode(chance, success, mode, rules);
+            let each = mode
+                .at_ceiling
+                .and_then(|at_ceiling| {
+                    walks
+                        .iter()
+                        .find(|(ceiling, _)| *ceiling == mode.ceiling)
+                        .map(|(_, walk)| cycle_to_ceiling(walk, at_ceiling))
+                })
+                .unwrap_or_else(|| cycle_unceiled(chance, success, mode, rules));
             Cycle {
                 triggers: sum.triggers + share * each.triggers,
                 games: sum.games + share * each.games,
@@ -294,33 +396,131 @@ pub fn settled(rules: &AtRules, table: &AtTable) -> (CapFigures, Vec<f64>) {
     (figures, shares)
 }
 
-/// Halvings enough to pin a chance to the last bit a float has.
-const HALVINGS: u32 = 120;
+/// Narrowings at most of the bracket a chance is found in: far more than
+/// it takes, as each narrows it faster than the last.
+const NARROWINGS: u32 = 200;
 
 /// The trigger's chance a regular game below the ceilings that makes its
 /// published 合算 — ceilings, misses and the AT間天井 included — come true,
-/// over the modes as an AT allots them: found by halving, since the 合算
-/// grows with the chance. None when no chance can: the published figure as
-/// rare as the ceilings allow, or rarer.
+/// over the modes as an AT allots them. The 合算 grows with the chance, so
+/// the chance lies between none and a chance at which the 合算 is past
+/// the published — the 合算 itself, or twice it and so on where an AT間天井
+/// keeps the 合算 below its chance; it is found there by false position,
+/// the end that stays halved in weight so that both ends close in (the
+/// Illinois method). None when no chance can: the published figure as rare
+/// as the ceilings allow or rarer, or past what any chance gives.
 pub(crate) fn natural_chance(
     published: f64,
     rules: &AtRules,
     success: f64,
     shares: &[f64],
 ) -> Option<f64> {
-    let rate = |p: f64| cycle(rules, p, success, shares).trigger_chance();
-    if !published.is_finite() || published <= rate(f64::MIN_POSITIVE) || published >= 1.0 {
+    let gap = |p: f64| cycle(rules, p, success, shares).trigger_chance() - published;
+    if !published.is_finite() || published >= 1.0 {
         return None;
     }
-    let (low, high) = (0..HALVINGS).fold((0.0_f64, 1.0_f64), |(low, high), _| {
-        let middle = f64::midpoint(low, high);
-        if rate(middle) < published {
-            (middle, high)
+    let low = (0.0, gap(0.0));
+    if low.1.is_nan() || low.1 >= 0.0 {
+        return None;
+    }
+    let high = match above(published, gap) {
+        Ok(high) => high,
+        Err(found) => return found,
+    };
+    let found = (0..NARROWINGS).try_fold(
+        Bracket {
+            low,
+            high,
+            kept: Kept::Neither,
+        },
+        |bracket, _| bracket.narrowed(gap),
+    );
+    Some(found.map_or_else(|chance| chance, Bracket::nearer))
+}
+
+/// A chance from the 合算 up, doubled while the 合算 there falls short:
+/// the first past the published with how far past, the chance itself where
+/// the 合算 meets it there, or none where even certainty falls short.
+fn above(published: f64, gap: impl Fn(f64) -> f64) -> Result<(f64, f64), Option<f64>> {
+    let first = (published, gap(published));
+    let (Ok(last) | Err(last)) = (0..f64::MAX_EXP).try_fold(first, |(chance, short), _| {
+        if short >= 0.0 || chance >= 1.0 {
+            Err((chance, short))
         } else {
-            (low, middle)
+            let next = (2.0 * chance).min(1.0);
+            Ok((next, gap(next)))
         }
     });
-    Some(f64::midpoint(low, high))
+    let (chance, short) = last;
+    if short > 0.0 {
+        Ok(last)
+    } else if short == 0.0 {
+        Err(Some(chance))
+    } else {
+        Err(None)
+    }
+}
+
+/// Which end of a bracket the last narrowing kept.
+#[derive(Clone, Copy, PartialEq)]
+enum Kept {
+    Neither,
+    Low,
+    High,
+}
+
+/// Where a chance is found: below it the gap is short, above it over.
+#[derive(Clone, Copy)]
+struct Bracket {
+    low: (f64, f64),
+    high: (f64, f64),
+    kept: Kept,
+}
+
+impl Bracket {
+    /// The bracket narrowed at the false position, or the chance there
+    /// once the bracket closes on it.
+    fn narrowed(self, gap: impl Fn(f64) -> f64) -> Result<Self, f64> {
+        let ((low, below), (high, over)) = (self.low, self.high);
+        let at = (low * over - high * below) / (over - below);
+        if !(at > low && at < high) || high - low <= 4.0 * f64::EPSILON * high {
+            return Err(self.nearer());
+        }
+        let here = gap(at);
+        if here == 0.0 {
+            return Err(at);
+        }
+        Ok(if here < 0.0 {
+            Self {
+                low: (at, here),
+                high: if self.kept == Kept::High {
+                    (high, over / 2.0)
+                } else {
+                    self.high
+                },
+                kept: Kept::High,
+            }
+        } else {
+            Self {
+                low: if self.kept == Kept::Low {
+                    (low, below / 2.0)
+                } else {
+                    self.low
+                },
+                high: (at, here),
+                kept: Kept::Low,
+            }
+        })
+    }
+
+    /// The end whose gap is the shorter.
+    fn nearer(self) -> f64 {
+        if self.low.1.abs() < self.high.1.abs() {
+            self.low.0
+        } else {
+            self.high.0
+        }
+    }
 }
 
 /// Where play stands as a path is walked: games since the last trigger and

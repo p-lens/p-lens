@@ -36,7 +36,7 @@ describe("the 解析値 form", () => {
     const form = {
       settingLevels: [1, 6],
       bet: "3",
-      rows: [{ key: "big", label: "BIG", kind: "bonus" as const, partOf: "", payout: "２５２", chances: { "1": "1/273.1", "6": "２５５" }, ceiling: "", resetCeiling: "", resetAllotment: {}, success: {}, misses: "", law: EMPTY_LAW }],
+      rows: [{ key: "big", label: "BIG", kind: "bonus" as const, partOf: "", payout: "２５２", chances: { "1": "1/273.1", "6": "２５５" }, ceiling: "", resetCeiling: "", atCeiling: "", resetAllotment: {}, success: {}, misses: "", law: EMPTY_LAW }],
       base: "",
       lcdRate: "",
       cap: "",
@@ -213,6 +213,29 @@ describe("an AT machine typed in by hand", () => {
     const form = manualFormOf(shortened, measured)
     expect(form.world.rows.find((row) => row.kind === "at")?.resetCeiling).toBe("630")
     expect(readManualForm(form)).toEqual({ ok: true, value: { spec: shortened, conditions: measured } })
+  })
+
+  test("a CZ machine's mode takes an AT間天井 of its own, and reads back the same", () => {
+    const { resetCeiling: _, ...components } = (czSpec as SpecDto).components
+    const shares = (low: number, high: number) => [
+      { settingLevel: 1, value: low },
+      { settingLevel: 6, value: high },
+    ]
+    const drawn: SpecDto = {
+      ...(czSpec as SpecDto),
+      entities: [...(czSpec as SpecDto).entities, "short", "long"],
+      components: {
+        ...components,
+        label: { ...components.label, short: "450G", long: "999G" },
+        ceiling: { at: 999 },
+        mode: ["short", "long"],
+        allotment: { short: shares(4_000, 5_000), long: shares(6_000, 5_000) },
+        atCeiling: { short: 450 },
+      },
+    }
+    const form = manualFormOf(drawn, measured)
+    expect(form.world.rows.find((row) => row.key === "short")?.atCeiling).toBe("450")
+    expect(readManualForm(form)).toEqual({ ok: true, value: { spec: drawn, conditions: measured } })
   })
 
   test("a CZ asks for its 合算 and success rate setting by setting, and its スルー天井 is a whole count", () => {

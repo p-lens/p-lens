@@ -151,6 +151,11 @@ pub struct Components {
     /// How often play enters a mode after the settings are changed, under
     /// each setting, where that differs.
     pub reset_allotment: BTreeMap<EntityId, PerSettingLevel<BasisPoints>>,
+    /// A mode's own AT間天井 on a machine a CZ brings the AT on: the regular
+    /// game since the last AT on which play in the mode wins it at the
+    /// latest, in place of the AT's — an AT間天井 drawn after each AT, 450G
+    /// or 999G, is a mode for each.
+    pub at_ceiling: BTreeMap<EntityId, NonZeroU32>,
     /// A CZ: won from regular games like an AT, and winning the AT at its
     /// success rate. Its `first_hit` is the published CZ合算, ceiling
     /// included; its `ceiling` the CZ間天井.
@@ -218,6 +223,7 @@ pub enum Component {
     Mode,
     Allotment,
     ResetAllotment,
+    AtCeiling,
     Cz,
     Success,
     Misses,
@@ -256,13 +262,15 @@ pub struct Cz {
     pub misses: Option<NonZeroU32>,
 }
 
-/// A mode between ATs: its ceiling, if it has one, and how often play enters
-/// it after an AT and after a setting change, under each setting.
+/// A mode between ATs: its ceiling and its own AT間天井, if it has them,
+/// and how often play enters it after an AT and after a setting change,
+/// under each setting.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Mode {
     pub id: EntityId,
     pub label: String,
     pub ceiling: Option<NonZeroU32>,
+    pub at_ceiling: Option<NonZeroU32>,
     pub allotment: PerSettingLevel<BasisPoints>,
     pub reset_allotment: Option<PerSettingLevel<BasisPoints>>,
 }

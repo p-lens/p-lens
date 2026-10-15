@@ -21,6 +21,7 @@ const COMPONENT_NAMES: Readonly<Record<string, string>> = {
   mode: "モードの印",
   allotment: "モード振り分け",
   resetAllotment: "リセット時のモード振り分け",
+  atCeiling: "モードのAT間天井",
   cz: "CZの印",
   success: "CZ成功率",
   misses: "スルー天井",
@@ -107,6 +108,8 @@ const describeEngineError = (error: EngineErrorDto): string => {
       return `AT機の小役は、払い出しがベースに含まれるため枚数を入れません。「${error.entity}」の枚数は外してください。`
     case "reset-ceiling-beside-modes":
       return `モードのあるAT機では、設定変更後もAT後と同じモードに入るため、設定変更後のAT間天井は入れられません。「${error.entity}」のリセット後の天井は外してください。`
+    case "at-ceiling-without-cz":
+      return `モードのAT間天井は、CZからATに入る機種にだけ入れられます。CZのない機種では、モードの天井がそのままAT間天井です。「${error.entity}」のAT間天井は外してください。`
     case "empty-set":
       return `AT「${error.entity}」の1セットの枚数が0枚です。1枚以上にしてください。`
     case "empty-net-per-game":

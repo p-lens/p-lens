@@ -203,6 +203,18 @@ function RowEditor(props: {
             />
           </div>
         </Show>
+        <Show when={props.row.kind === "mode" && hasCz(props.form)}>
+          <div class="w-28">
+            <TextField
+              label="AT間天井"
+              value={props.row.atCeiling}
+              onChange={(atCeiling) => props.onChange({ ...props.row, atCeiling })}
+              inputMode="numeric"
+              suffix="G"
+              placeholder="ATと同じ"
+            />
+          </div>
+        </Show>
         <Show when={brought()}>
           <div class="w-36">
             <TextField

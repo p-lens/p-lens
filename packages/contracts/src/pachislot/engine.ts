@@ -105,6 +105,8 @@ export interface ComponentsDto {
   readonly allotment?: Readonly<Record<string, readonly BySettingLevelDto<number>[]>>
   /** How often play enters a mode after a setting change, where that differs; every mode has one, or none does. */
   readonly resetAllotment?: Readonly<Record<string, readonly BySettingLevelDto<number>[]>>
+  /** A mode's own AT間天井 in regular games, in place of the AT's, on a machine a CZ brings the AT on: an AT間天井 drawn after each AT is a mode for each. */
+  readonly atCeiling?: Readonly<Record<string, number>>
 }
 
 export interface PayoutRowDto {
@@ -483,6 +485,7 @@ export type EngineErrorDto =
   | { readonly type: "first-hit-beside-cz"; readonly entity: string }
   | { readonly type: "payout-beside-at"; readonly entity: string }
   | { readonly type: "reset-ceiling-beside-modes"; readonly entity: string }
+  | { readonly type: "at-ceiling-without-cz"; readonly entity: string }
   | { readonly type: "empty-set"; readonly entity: string }
   | { readonly type: "empty-net-per-game"; readonly entity: string }
   | { readonly type: "other-net-beyond-whole"; readonly entity: string; readonly sum: number }

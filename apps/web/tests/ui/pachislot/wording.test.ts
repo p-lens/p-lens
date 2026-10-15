@@ -43,7 +43,7 @@ describe("pachislot wording", () => {
   test("what came up reads as one in so many games, or not yet", () => {
     expect(observedOneInText(600, 101)).toBe("1/5.94")
     expect(observedOneInText(3000, 12)).toBe("1/250.0")
-    expect(observedOneInText(300, 0)).toBe("1/—")
+    expect(observedOneInText(300, 0)).toBe("1/--")
   })
 })
 

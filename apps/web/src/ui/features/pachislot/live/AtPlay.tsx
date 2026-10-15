@@ -432,7 +432,7 @@ export function AtCounting(props: {
   return (
     <section class="flex flex-col gap-3">
       <h3 class="text-xs font-bold uppercase tracking-wide text-text-secondary">
-        CZ・AT
+        {hasCz(props.normalized) ? "CZ・AT" : "AT"}
         <span class="ml-2 font-normal normal-case text-text-muted">長押しで1つ戻します</span>
       </h3>
       <div class="grid grid-cols-4 gap-2">

@@ -22,7 +22,7 @@ export const oddsText = (oneIn: number): string => (Number.isFinite(oneIn) ? `1/
 export const formulaText = (figures: readonly SettingLevelFigures[]): string => {
   const rates = figures.map((each) => each.payoutRate)
   const [lowest, highest] = [Math.min(...rates), Math.max(...rates)]
-  if (rates.length === 0) return "機械割 —"
+  if (rates.length === 0) return "機械割 --"
   return lowest === highest ? `機械割 ${payoutRateText(lowest)}` : `機械割 ${payoutRateText(lowest)}〜${payoutRateText(highest)}`
 }
 
@@ -56,8 +56,8 @@ export const shareText = (probability: number): string => `${(probability * 100)
 /** 期待設定, to two places as players quote it: `設定3.22`. */
 export const averageSettingLevelText = (settingLevel: number): string => `設定${settingLevel.toFixed(2)}`
 
-/** How often something came up so far, as a counter shows it: `1/5.9`, or `1/—` before it has. */
-export const observedOneInText = (games: number, count: number): string => (count > 0 && games > 0 ? `1/${(games / count).toFixed(games / count < 10 ? 2 : 1)}` : "1/—")
+/** How often something came up so far, as a counter shows it: `1/5.9`, or `1/--` before it has. */
+export const observedOneInText = (games: number, count: number): string => (count > 0 && games > 0 ? `1/${(games / count).toFixed(games / count < 10 ? 2 : 1)}` : "1/--")
 
 /** What an even prior is called wherever a 設定配分 would be named. */
 export const EVEN_PRIOR_NAME = "均等（全設定が同じ）"
