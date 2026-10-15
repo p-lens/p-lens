@@ -74,7 +74,7 @@ export function MachineSearchView(props: { readonly place: Place; readonly query
         <div class="flex flex-col gap-4 p-4">
           <div class="flex items-end gap-2">
             <div class="min-w-0 flex-1">
-              <TextField label="機種を検索" value={props.query} onChange={(query) => moves.refine(props.place, query)} placeholder="機種名" />
+              <TextField label="機種を検索" value={props.query} onChange={(query) => moves.refine(props.place, query)} placeholder="機種名" focusedOnShow />
             </div>
             <Tooltip placement="top">
               <TooltipTrigger

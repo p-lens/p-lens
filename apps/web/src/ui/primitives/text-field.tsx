@@ -1,7 +1,7 @@
 // After stefan-karger/solid-ui's text-field, on P-Lens's tokens.
 
 import * as TextFieldPrimitive from "@kobalte/core/text-field"
-import { createEffect, createSignal, on, onCleanup, Show, type JSX } from "solid-js"
+import { createEffect, createSignal, on, onCleanup, onMount, Show, type JSX } from "solid-js"
 
 import { tidyTyped } from "../../core/text/tidy"
 import { redRing } from "./nudge"
@@ -69,6 +69,8 @@ export function TextField(props: {
   readonly tidied?: (typed: string) => string
   /** Named for assistive technology only, where what surrounds it — a fieldset's legend, a suffix — already says it on screen. */
   readonly labelHidden?: boolean
+  /** Takes the focus as it appears, the caret after what it holds: the one field a screen is opened to type in. */
+  readonly focusedOnShow?: boolean
 }): JSX.Element {
   const invalid = (): boolean => props.invalid === true || props.error !== undefined
   const [typed, setTyped] = createSignal(props.value)
@@ -119,6 +121,11 @@ export function TextField(props: {
     }),
   )
   onCleanup(flush)
+  onMount(() => {
+    if (props.focusedOnShow !== true || debounce.input === undefined) return
+    debounce.input.focus({ preventScroll: true })
+    debounce.input.setSelectionRange(debounce.input.value.length, debounce.input.value.length)
+  })
   return (
     <TextFieldPrimitive.Root
       value={typed()}
