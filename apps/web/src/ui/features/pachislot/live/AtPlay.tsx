@@ -1,20 +1,22 @@
 import type { NormalizedSpecDto } from "@p-lens/contracts/pachislot"
-import { createEffect, createMemo, createSignal, Index, on, Show, type JSX } from "solid-js"
+import { createEffect, createMemo, createSignal, Index, on, Show, type Accessor, type JSX } from "solid-js"
 
 import type { ApplicationError } from "../../../../application/errors"
-import { ceilingsOf, czMissedAt, hasCz, pathOf, standingOf } from "../../../../core/pachislot/path"
+import { ceilingsOf, czMissedAt, hasCz, pathOf, standingOf, withLastTakenBack, type TakeBackRefusal, type TakenBack } from "../../../../core/pachislot/path"
 import type { Checkpoint } from "../../../../core/play-log/checkpoint"
 import { checkpointsForReading, liveSummary, type ReadingRefusal } from "../../../../core/play-log/live"
 import { mapOk } from "../../../../core/result/result"
 import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
+import { createLongPress } from "../../../primitives/long-press"
 import { createNudge } from "../../../primitives/nudge"
 import { settleTyping, TextField } from "../../../primitives/text-field"
+import { toast } from "../../../primitives/toast"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
 import { describeError } from "../../../wording/errors"
 import { formatCount } from "../../../wording/numbers"
-import { describeAtReadingRefusal } from "../../../wording/pachislot/formula"
-import { type AtReadingForm, type AtStanding, atReadingFrom, readAtReadingForm } from "./at-reading-form"
+import { describeAtReadingRefusal, describeTakeBackRefusal } from "../../../wording/pachislot/formula"
+import { type AtReadingForm, type AtReadingProblem, type AtStanding, atReadingFrom, readAtReadingForm } from "./at-reading-form"
 import { type AtResultForm, type AtResultProblem, atResultLine, type Completion, EMPTY_AT_RESULT, readAtResultForm } from "./at-result-form"
 import type { Write, Written } from "./write"
 
@@ -33,9 +35,11 @@ function Tile(props: { readonly label: string; readonly value: string; readonly 
 }
 
 /**
- * Where an AT machine's play stands by its log: its regular games, the games
- * since the last AT and the last CZ, the outlay, the medals drawn from savings, its ATs, and how far each
- * ceiling the machine has is — the trigger's, the AT間天井 and the スルー天井.
+ * Where an AT machine's play stands by its log, three to a row as a bonus
+ * machine's: the cash spent first, its regular games, the games since the
+ * last AT and the last CZ, the medals drawn from savings, its ATs, and how
+ * far each ceiling the machine has is — the trigger's, the AT間天井 and the
+ * スルー天井.
  */
 export function AtFigures(props: { readonly ordered: readonly Checkpoint[]; readonly normalized: NormalizedSpecDto }): JSX.Element {
   const summary = () => liveSummary(props.ordered)
@@ -49,13 +53,13 @@ export function AtFigures(props: { readonly ordered: readonly Checkpoint[]; read
     return found === undefined ? undefined : ceilingsOf(found, props.normalized)
   }
   return (
-    <dl class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <dl class="grid grid-cols-3 gap-2">
+      <Tile label="現金投資" value={summary().outlay === undefined ? "--" : `¥${formatCount(summary().outlay ?? 0)}`} />
       <Tile label="打ったゲーム数" value={formatCount(summary().spins)} note="G" />
       <Tile label="AT間のゲーム数" value={formatCount(standing()?.sinceAt ?? 0)} note="G" />
       <Show when={cz()}>
         <Tile label="CZ間のゲーム数" value={formatCount(standing()?.sinceTrigger ?? 0)} note="G" />
       </Show>
-      <Tile label="投資" value={summary().outlay === undefined ? "--" : `¥${formatCount(summary().outlay ?? 0)}`} />
       <Tile label="貯メダル" value={((replay) => (replay === undefined ? "--" : formatCount(replay)))(props.ordered.findLast((checkpoint) => checkpoint.replay !== undefined)?.replay)} note="枚" />
       <Tile label="AT" value={formatCount(summary().jackpots)} note="回" />
       <Show when={cz()}>
@@ -101,7 +105,7 @@ const isCompletion = (value: string): value is Completion => COMPLETIONS.some((e
  * setting and carries what the 有利区間 holds into the games after. Shown
  * while the log's last line is the AT, and gone once anything follows it.
  */
-export function AtResultComposer(props: { readonly write: Write; readonly normalized: NormalizedSpecDto }): JSX.Element {
+function AtResultComposer(props: { readonly write: Write; readonly normalized: NormalizedSpecDto }): JSX.Element {
   const app = useApp()
   const [form, setForm] = createSignal<AtResultForm>(EMPTY_AT_RESULT)
   const [keeping, setKeeping] = createSignal<Keeping>({ type: "typing" })
@@ -127,7 +131,9 @@ export function AtResultComposer(props: { readonly write: Write; readonly normal
     setKeeping({ type: "keeping" })
     const written = await props.write((ordered) => atResultLine(ordered, read.value, app.services.now()))
     setKeeping(written.type === "failed" ? { type: "failed", error: written.error } : { type: "typing" })
-    if (written.type === "written") setForm(EMPTY_AT_RESULT)
+    if (written.type !== "written") return
+    setForm(EMPTY_AT_RESULT)
+    toast({ title: "記録しました", stays: "glance" })
   }
   const failure = (): ApplicationError | undefined => {
     const current = keeping()
@@ -135,7 +141,7 @@ export function AtResultComposer(props: { readonly write: Write; readonly normal
   }
   return (
     <form autocomplete="off"
-      class="flex flex-col gap-3 border-t border-border bg-surface-2 p-4"
+      class="flex flex-col gap-3 rounded-lg border border-border bg-surface-2 p-4"
       onSubmit={(event) => {
         event.preventDefault()
         void keep()
@@ -196,6 +202,9 @@ type Sending =
 /** How the games a reading closes ended: with nothing, a CZ missed, or an AT won. */
 type Ended = "going" | "cz-missed" | "at"
 
+/** What is said once a reading is kept, by how its games ended. */
+const KEPT_AS: Readonly<Record<Ended, string>> = { going: "記録しました", "cz-missed": "CZ失敗を記録しました", at: "AT当選を記録しました" }
+
 const sendingOf = (written: Written<ReadingRefusal>, ended: Ended): Sending => {
   switch (written.type) {
     case "written":
@@ -208,17 +217,30 @@ const sendingOf = (written: Written<ReadingRefusal>, ended: Ended): Sending => {
   }
 }
 
+/** An AT machine's reading as the cabinet's row and the counting tiles share it: the form, what was last refused or failed, and the sending of it. */
+export interface AtReading {
+  readonly form: Accessor<AtReadingForm>
+  readonly typed: (change: Partial<AtReadingForm>) => void
+  readonly send: (ended: Ended, missedAt: boolean) => Promise<void>
+  readonly problemOf: (field: keyof AtReadingForm) => AtReadingProblem | undefined
+  readonly red: Accessor<boolean>
+  readonly settle: () => void
+  readonly refused: Accessor<(Sending & { type: "refused" }) | undefined>
+  readonly failure: Accessor<ApplicationError | undefined>
+}
+
 /**
- * Where an AT machine's counter is read at the cabinet: the games since the
- * last AT, the outlay and the medals drawn from savings so far, each opening on where the play stands, to
- * be typed over — and following the play until something is typed. Sent as a reading, as an AT
- * won — the moment the counter is about to start over — or, where a CZ brings
- * the AT, as a CZ that missed. A counter that went back means an AT came that
- * was not written down, which can be added.
+ * An AT machine's counter as it is read at the cabinet: the games since the
+ * last AT, the outlay and the medals drawn from savings so far, each
+ * opening on where the play stands, to be typed over — and following the
+ * play until something is typed. Sent as a reading, as an AT won — the
+ * moment the counter is about to start over — or, where a CZ brings the AT,
+ * as a CZ that missed. A counter that went back means an AT came that was
+ * not written down, which can be added.
  */
-export function AtReadingComposer(props: { readonly standing: AtStanding; readonly write: Write; readonly cz: boolean }): JSX.Element {
+export const createAtReading = (standing: () => AtStanding, write: Write): AtReading => {
   const app = useApp()
-  const standingForm = createMemo(() => atReadingFrom(props.standing))
+  const standingForm = createMemo(() => atReadingFrom(standing()))
   const [form, setForm] = createSignal<AtReadingForm>(standingForm())
   const [touched, setTouched] = createSignal(false)
   createEffect(
@@ -229,11 +251,10 @@ export function AtReadingComposer(props: { readonly standing: AtStanding; readon
   const [sending, setSending] = createSignal<Sending>({ type: "typing" })
   const nudge = createNudge()
   const read = () => readAtReadingForm(form())
-  const problemOf = (field: keyof AtReadingForm) => {
+  const problemOf = (field: keyof AtReadingForm): AtReadingProblem | undefined => {
     const found = read()
     return found.ok ? undefined : found.error.find((problem) => problem.field === field)
   }
-  const errorOf = (field: keyof AtReadingForm): string | undefined => (problemOf(field)?.reason === "not-a-count" ? "整数で入力してください。" : undefined)
   const typed = (change: Partial<AtReadingForm>): void => {
     setTouched(true)
     setForm((current) => ({ ...current, ...change }))
@@ -249,7 +270,7 @@ export function AtReadingComposer(props: { readonly standing: AtStanding; readon
     }
     setSending({ type: "keeping" })
     const at = app.services.now()
-    const written = await props.write((ordered) =>
+    const written = await write((ordered) =>
       mapOk(
         checkpointsForReading(
           ordered,
@@ -263,6 +284,7 @@ export function AtReadingComposer(props: { readonly standing: AtStanding; readon
     if (written.type !== "written") return
     setTouched(false)
     setForm(standingForm())
+    toast({ title: KEPT_AS[ended], stays: "glance" })
   }
   const refused = (): (Sending & { type: "refused" }) | undefined => {
     const current = sending()
@@ -272,76 +294,163 @@ export function AtReadingComposer(props: { readonly standing: AtStanding; readon
     const current = sending()
     return current.type === "failed" ? current.error : undefined
   }
+  return { form, typed, send, problemOf, red: nudge.red, settle: nudge.settle, refused, failure }
+}
+
+/**
+ * Where an AT machine's counter is typed at the cabinet's foot, in one row as
+ * a bonus machine's is: the games since the last AT, the cash spent and the
+ * medals drawn from savings so far. What was refused or failed, whether
+ * sent from here or from a tile, is said here.
+ */
+export function AtReadingComposer(props: { readonly reading: AtReading }): JSX.Element {
+  const errorOf = (field: keyof AtReadingForm): string | undefined => (props.reading.problemOf(field)?.reason === "not-a-count" ? "整数で入力してください。" : undefined)
+  const invalid = (field: keyof AtReadingForm): boolean => props.reading.red() && props.reading.problemOf(field) !== undefined
   return (
     <form autocomplete="off"
       class="flex flex-col gap-3 border-t border-border bg-surface-2 p-4"
       onSubmit={(event) => {
         event.preventDefault()
-        void send("going", false)
+        void props.reading.send("going", false)
       }}
     >
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-3 gap-3">
         <TextField
           label="AT間のゲーム数"
-          value={form().sinceAt}
-          onChange={(sinceAt) => typed({ sinceAt })}
+          value={props.reading.form().sinceAt}
+          onChange={(sinceAt) => props.reading.typed({ sinceAt })}
           inputMode="numeric"
           suffix="G"
           error={errorOf("sinceAt")}
-          invalid={nudge.red() && problemOf("sinceAt") !== undefined}
-          onFocus={nudge.settle}
+          invalid={invalid("sinceAt")}
+          onFocus={props.reading.settle}
         />
         <TextField
-          label="投資（累計）"
-          value={form().outlay}
-          onChange={(outlay) => typed({ outlay })}
+          label="現金投資（累計）"
+          value={props.reading.form().outlay}
+          onChange={(outlay) => props.reading.typed({ outlay })}
           inputMode="numeric"
           suffix="円"
           error={errorOf("outlay")}
-          invalid={nudge.red() && problemOf("outlay") !== undefined}
-          onFocus={nudge.settle}
+          invalid={invalid("outlay")}
+          onFocus={props.reading.settle}
         />
         <TextField
           label="貯メダル（累計）"
-          value={form().replay}
-          onChange={(replay) => typed({ replay })}
+          value={props.reading.form().replay}
+          onChange={(replay) => props.reading.typed({ replay })}
           inputMode="numeric"
           suffix="枚"
           error={errorOf("replay")}
-          invalid={nudge.red() && problemOf("replay") !== undefined}
-          onFocus={nudge.settle}
+          invalid={invalid("replay")}
+          onFocus={props.reading.settle}
         />
       </div>
-      <Show when={refused()} keyed>
+      <Show when={props.reading.refused()} keyed>
         {(found) => (
           <div role="alert" class="flex flex-wrap items-center gap-3 rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-sm text-text-primary">
             <span class="flex-1">{describeAtReadingRefusal(found.refusal)}</span>
             <Show when={found.refusal.type === "counter-went-back"}>
-              <Button size="small" variant="secondary" onClick={() => void send(found.ended, true)}>
+              <Button size="small" variant="secondary" onClick={() => void props.reading.send(found.ended, true)}>
                 記録漏れのATを足して記録
               </Button>
             </Show>
           </div>
         )}
       </Show>
-      <Show when={failure()} keyed>
+      <Show when={props.reading.failure()} keyed>
         {(error) => (
           <p role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-text-primary">
             {describeError(error)}
           </p>
         )}
       </Show>
-      <div class="flex gap-2">
+      <div>
         <Button type="submit">記録</Button>
-        <Show when={props.cz}>
-          <Button variant="secondary" onClick={() => void send("cz-missed", false)}>
-            CZ失敗
-          </Button>
-        </Show>
-        <Button variant="secondary" onClick={() => void send("at", false)}>
-          AT当選
-        </Button>
       </div>
     </form>
+  )
+}
+
+/** A tile an event is kept with by a tap, and the last of it taken back by a long press. */
+function EventTile(props: { readonly label: string; readonly count: number; readonly onPress: () => void; readonly onLongPress: () => void }): JSX.Element {
+  const press = createLongPress(() => props.onLongPress())
+  return (
+    <button
+      type="button"
+      class="flex min-h-24 select-none flex-col items-center justify-center gap-1 rounded-lg border border-border bg-surface-2 px-2 py-3 transition-colors hover:bg-surface-3 active:bg-surface-0"
+      style={{ "-webkit-touch-callout": "none" }}
+      onPointerDown={press.onPointerDown}
+      onPointerMove={press.onPointerMove}
+      onPointerUp={press.onPointerUp}
+      onPointerLeave={press.onPointerLeave}
+      onPointerCancel={press.onPointerCancel}
+      onContextMenu={press.onContextMenu}
+      onClick={() => {
+        if (!press.wasLong()) props.onPress()
+      }}
+    >
+      <span class="text-3xl font-bold tabular-nums text-text-primary">{formatCount(props.count)}</span>
+      <span class="text-center text-sm font-semibold leading-tight text-text-secondary">{props.label}</span>
+    </button>
+  )
+}
+
+/**
+ * What an AT machine's play counts, at the foot of its figures as a bonus
+ * machine's counter is: a tile for a CZ missed, where a CZ brings the AT,
+ * and one for an AT won, each with how many the play has had, a tap
+ * keeping it at the games the row below says, and a long press taking the
+ * last one back while nothing follows it; and how the AT just won went,
+ * said once it ends.
+ */
+export function AtCounting(props: {
+  readonly reading: AtReading
+  readonly ordered: readonly Checkpoint[]
+  readonly normalized: NormalizedSpecDto
+  readonly write: Write
+  readonly rewrite: Write
+  readonly awaitsResult: boolean
+}): JSX.Element {
+  const counted = (kind: "cz-missed" | "jackpot"): number => props.ordered.filter((checkpoint) => checkpoint.event?.kind === kind).length
+  const [takingBack, setTakingBack] = createSignal<Written<TakeBackRefusal> | undefined>(undefined)
+  const takeBack = (taken: TakenBack): void => {
+    void props.rewrite((ordered) => withLastTakenBack(ordered, taken)).then((written) => {
+      setTakingBack(written)
+      if (written.type === "written") toast({ title: "1つ戻しました", stays: "blink" })
+    })
+  }
+  const keep = (ended: "at" | "cz-missed"): void => {
+    setTakingBack(undefined)
+    void props.reading.send(ended, false)
+  }
+  const unkept = (): string | undefined => {
+    const current = takingBack()
+    if (current?.type === "refused") return describeTakeBackRefusal(current.refusal)
+    return current?.type === "failed" ? describeError(current.error) : undefined
+  }
+  return (
+    <section class="flex flex-col gap-3">
+      <h3 class="text-xs font-bold uppercase tracking-wide text-text-secondary">
+        CZ・AT
+        <span class="ml-2 font-normal normal-case text-text-muted">長押しで1つ戻します</span>
+      </h3>
+      <div class="grid grid-cols-4 gap-2">
+        <Show when={hasCz(props.normalized)}>
+          <EventTile label="CZ失敗" count={counted("cz-missed")} onPress={() => keep("cz-missed")} onLongPress={() => takeBack("cz-missed")} />
+        </Show>
+        <EventTile label="AT当選" count={counted("jackpot")} onPress={() => keep("at")} onLongPress={() => takeBack("at")} />
+      </div>
+      <Show when={unkept()} keyed>
+        {(said) => (
+          <p role="alert" class="rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-sm text-text-primary">
+            {said}
+          </p>
+        )}
+      </Show>
+      <Show when={props.awaitsResult}>
+        <AtResultComposer write={props.write} normalized={props.normalized} />
+      </Show>
+    </section>
   )
 }

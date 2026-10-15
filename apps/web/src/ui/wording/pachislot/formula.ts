@@ -1,6 +1,7 @@
 import type { SettingLevelFigures } from "../../../core/pachislot/figures"
 import type { FormulaKind, SettingLevelShare } from "../../../core/pachislot/formula"
 import type { Prior, StockSpreadKey } from "../../../core/pachislot/prior"
+import type { TakeBackRefusal } from "../../../core/pachislot/path"
 import type { CounterRefusal } from "../../../core/pachislot/reading"
 import type { RevisionRefusal } from "../../../core/pachislot/revision"
 import type { ReadingRefusal } from "../../../core/play-log/live"
@@ -93,6 +94,18 @@ export const describeAtReadingRefusal = (refusal: ReadingRefusal): string => {
       return `投資（累計）は、前に記録した¥${formatCount(refusal.atLeast)}より少なくはなりません。`
     case "replay-went-back":
       return `貯メダル（累計）は、前に記録した${formatCount(refusal.atLeast)}枚より少なくはなりません。`
+  }
+}
+
+const TAKEN_NAMES = { at: "AT当選", "cz-missed": "CZ失敗" } as const
+
+/** Why the last AT won or CZ missed was not taken back. */
+export const describeTakeBackRefusal = (refusal: TakeBackRefusal): string => {
+  switch (refusal.type) {
+    case "none":
+      return `戻せる${TAKEN_NAMES[refusal.taken]}がありません。`
+    case "played-on":
+      return `${TAKEN_NAMES[refusal.taken]}のあとに記録があるので戻せません。上の履歴から直してください。`
   }
 }
 

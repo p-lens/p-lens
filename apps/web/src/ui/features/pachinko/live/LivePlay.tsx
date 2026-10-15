@@ -16,7 +16,7 @@ import { toast } from "../../../primitives/toast"
 import { useMoves } from "../../../navigation/moves"
 import type { Place } from "../../../navigation/place"
 import { describeError, describePlayLogError } from "../../../wording/errors"
-import { CHANGED_SINCE_MERGED, FOLD_FIGURES, MERGE_FAILED, MERGED, UNFOLD_FIGURES, UNMERGE, UNMERGE_FAILED, UNMERGED } from "../../../wording/pachinko/play"
+import { CHANGED_SINCE_MERGED, FOLD_FIGURES, MERGE_FAILED, MERGED, UNFOLD_FIGURES, TAKE_BACK, TAKE_BACK_FAILED, UNMERGED } from "../../../wording/pachinko/play"
 import { ViewHeader } from "../../shell/ViewHeader"
 import { CornerTerms } from "./CornerTerms"
 import { LiveFigures } from "./LiveFigures"
@@ -72,7 +72,7 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
     const kept = await reviseCheckpoints(app.services.drafts, turn.left, turn.before)
     if (!kept.ok) {
       const changed = kept.error.type === "draft" && kept.error.error.type === "changed-elsewhere"
-      toast({ title: UNMERGE_FAILED, description: changed ? CHANGED_SINCE_MERGED : describeError(kept.error), tone: "error" })
+      toast({ title: TAKE_BACK_FAILED, description: changed ? CHANGED_SINCE_MERGED : describeError(kept.error), tone: "error" })
       return
     }
     setWork(undefined)
@@ -97,7 +97,7 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
       return
     }
     setWork(undefined)
-    toast({ title: MERGED, action: { label: UNMERGE, onPress: () => void unmerge({ before: checkpoints, left: kept.value }) } })
+    toast({ title: MERGED, action: { label: TAKE_BACK, onPress: () => void unmerge({ before: checkpoints, left: kept.value }) } })
     app.wrote()
   }
   const ordered = (): readonly Checkpoint[] | undefined => {

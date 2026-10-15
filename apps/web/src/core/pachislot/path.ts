@@ -1,6 +1,7 @@
 import type { AtRulesDto, AtSeenDto, LegDto, NormalizedSpecDto, PathDto, PayoutLawDto } from "@p-lens/contracts/pachislot"
 
 import type { Checkpoint } from "../play-log/checkpoint"
+import { Err, Ok, type Result } from "../result/result"
 
 /**
  * Where an AT machine stands at the seat, read off its counter and history:
@@ -34,6 +35,34 @@ export const atSeatCheckpoint = (seat: AtSeat, at: string): Checkpoint => ({
 /** A reading's lines with a CZ that did not win the AT on the last of them. */
 export const czMissedAt = (checkpoints: readonly Checkpoint[]): readonly Checkpoint[] =>
   checkpoints.map((checkpoint, index) => (index === checkpoints.length - 1 ? { ...checkpoint, event: { kind: "cz-missed" as const } } : checkpoint))
+
+/** What an AT machine's tiles keep and take back: an AT won, or a CZ missed. */
+export type TakenBack = "at" | "cz-missed"
+
+/** Why the last of them cannot be taken back: there is none, or the play has gone on past it. */
+export type TakeBackRefusal = { readonly type: "none"; readonly taken: TakenBack } | { readonly type: "played-on"; readonly taken: TakenBack }
+
+const EVENT_OF: Readonly<Record<TakenBack, "jackpot" | "cz-missed">> = { at: "jackpot", "cz-missed": "cz-missed" }
+
+/** What may follow the last of them and go with it: how an AT went, said when it ended; nothing after a CZ. */
+const GOES_WITH: Readonly<Record<TakenBack, readonly string[]>> = { at: ["at-ended"], "cz-missed": [] }
+
+const plainOf = ({ event: _event, ...reading }: Checkpoint): Checkpoint => reading
+
+/**
+ * The log with the last AT won or CZ missed taken back, as a long press on
+ * its tile does: the reading it was kept at stays as a plain reading, and
+ * how an AT went, where that was said, goes with it. Only while nothing
+ * else follows it: a reading after an AT counts its games from that AT, and
+ * one after a CZ was read with it.
+ */
+export const withLastTakenBack = (ordered: readonly Checkpoint[], taken: TakenBack): Result<readonly Checkpoint[], TakeBackRefusal> => {
+  const index = ordered.findLastIndex((checkpoint) => checkpoint.event?.kind === EVENT_OF[taken])
+  const last = ordered.at(index)
+  if (index < 0 || last === undefined) return Err({ type: "none", taken })
+  if (ordered.slice(index + 1).some((checkpoint) => !GOES_WITH[taken].includes(checkpoint.event?.kind ?? ""))) return Err({ type: "played-on", taken })
+  return Ok([...ordered.slice(0, index), plainOf(last)])
+}
 
 const endOf = (checkpoint: Checkpoint): LegDto["end"] | undefined => {
   switch (checkpoint.event?.kind) {

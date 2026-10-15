@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import type { NormalizedSpecDto } from "@p-lens/contracts/pachislot"
 
-import { atSeatCheckpoint, ceilingsOf, czMissedAt, hasCz, pathOf, resetMatters, standingOf } from "../../../src/core/pachislot/path"
+import { atSeatCheckpoint, ceilingsOf, czMissedAt, hasCz, pathOf, resetMatters, standingOf, withLastTakenBack } from "../../../src/core/pachislot/path"
 import { parsePlayLog, type Checkpoint } from "../../../src/core/play-log/checkpoint"
 
 const at = "2026-10-05T10:00:00.000Z"
@@ -160,5 +160,26 @@ describe("the log keeps what an AT machine's play needs", () => {
       value: [{ spins: 5, event: { kind: "at-ended", completed: true, medals: 2400 } }],
     })
     expect(parsePlayLog('{"spins":5,"event":{"kind":"at-ended","sets":-1}}')).toEqual({ ok: false, error: { type: "invalid-field", line: 1, field: "event" } })
+  })
+})
+
+describe("taking the last AT won or CZ missed back", () => {
+  const AT = "2026-10-05T12:00:00.000Z"
+  const seat = { spins: 0, outlay: 0, at: AT, counter: { spins: 300 } }
+  const plain = { spins: 120, outlay: 5000, at: AT, counter: { spins: 420 } }
+  const won = { ...plain, event: { kind: "jackpot" as const } }
+  const missed = { ...plain, event: { kind: "cz-missed" as const } }
+
+  test("keeps the reading it was kept at as a plain one, and lets go of how the AT went", () => {
+    expect(withLastTakenBack([seat, won], "at")).toEqual({ ok: true, value: [seat, plain] })
+    expect(withLastTakenBack([seat, won, { spins: 120, at: AT, event: { kind: "at-ended" as const, completed: true } }], "at")).toEqual({ ok: true, value: [seat, plain] })
+    expect(withLastTakenBack([seat, missed], "cz-missed")).toEqual({ ok: true, value: [seat, plain] })
+  })
+
+  test("is refused where there is none, or the play has gone on past it", () => {
+    expect(withLastTakenBack([seat], "at")).toEqual({ ok: false, error: { type: "none", taken: "at" } })
+    expect(withLastTakenBack([seat, won], "cz-missed")).toEqual({ ok: false, error: { type: "none", taken: "cz-missed" } })
+    expect(withLastTakenBack([seat, won, { spins: 200, at: AT, counter: { spins: 80 } }], "at")).toEqual({ ok: false, error: { type: "played-on", taken: "at" } })
+    expect(withLastTakenBack([seat, missed, { spins: 200, at: AT, counter: { spins: 500 } }], "cz-missed")).toEqual({ ok: false, error: { type: "played-on", taken: "cz-missed" } })
   })
 })

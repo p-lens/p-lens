@@ -18,7 +18,7 @@ import {
   type CounterRefusal,
 } from "../../../../core/pachislot/reading"
 import { withStepsMerged, type Span } from "../../../../core/pachislot/merging"
-import { stepsOf } from "../../../../core/pachislot/revision"
+import { stepsOf, withStepRemoved, type RevisionRefusal } from "../../../../core/pachislot/revision"
 import { counterBonusesOf, counterBonusOf, countablesOf, type Countable, type Weighing } from "../../../../core/pachislot/weighing"
 import { parsePlayLog, type Checkpoint, type PlayLogError, type Counts } from "../../../../core/play-log/checkpoint"
 import { liveSummary } from "../../../../core/play-log/live"
@@ -35,9 +35,9 @@ import type { Place } from "../../../navigation/place"
 import { describeError, describePlayLogError } from "../../../wording/errors"
 import { formatCount } from "../../../wording/numbers"
 import { describeCounterRefusal, observedOneInText, priorName } from "../../../wording/pachislot/formula"
-import { CHANGED_SINCE_MERGED, MERGE_FAILED, MERGED, UNMERGE, UNMERGE_FAILED, UNMERGED } from "../../../wording/pachislot/play"
+import { CHANGED_SINCE_MERGED, CHANGED_SINCE_REMOVED, MERGE_FAILED, MERGED, READING_REMOVED, REMOVAL_TAKEN_BACK, TAKE_BACK, TAKE_BACK_FAILED, UNMERGED } from "../../../wording/pachislot/play"
 import { ViewHeader } from "../../shell/ViewHeader"
-import { AtFigures, AtReadingComposer, AtResultComposer } from "./AtPlay"
+import { AtCounting, AtFigures, AtReadingComposer, createAtReading } from "./AtPlay"
 import { awaitsAtResult } from "./at-result-form"
 import { CornerTerms } from "./CornerTerms"
 import { OutlookPanel } from "./OutlookPanel"
@@ -285,8 +285,8 @@ const orderedOf = (draft: PlayDraft) => {
   return parsed.ok ? Ok(inPlayOrder(parsed.value)) : parsed
 }
 
-/** A merging as it was done: the log it was made from, and the log's text as it left it. */
-interface Merged {
+/** A merging or a removal as it was done, to be taken back: the log it was made from, and the log's text as it left it. */
+interface Rewritten {
   readonly before: readonly Checkpoint[]
   readonly left: string
 }
@@ -356,14 +356,38 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
    * as the merging left it: one changed since — a reading added, a tile
    * tapped — is left as it is, and that is said.
    */
-  const unmerge = async (turn: Merged): Promise<void> => {
+  const unmerge = async (turn: Rewritten): Promise<void> => {
     const written = await rewrite(() => (current().log === turn.left ? Ok(turn.before) : Err({ type: "changed-since-merged" as const })))
     if (written.type !== "written") {
-      toast({ title: UNMERGE_FAILED, ...(written.type === "failed" ? { description: describeError(written.error) } : written.type === "refused" ? { description: CHANGED_SINCE_MERGED } : {}), tone: "error" })
+      toast({ title: TAKE_BACK_FAILED, ...(written.type === "failed" ? { description: describeError(written.error) } : written.type === "refused" ? { description: CHANGED_SINCE_MERGED } : {}), tone: "error" })
       return
     }
     setRevising(undefined)
     toast({ title: UNMERGED, stays: "glance" })
+  }
+  /** Puts back the log a removal was made from, where the log still stands as the removal left it, as a merging is taken back. */
+  const unremove = async (turn: Rewritten): Promise<void> => {
+    const written = await rewrite(() => (current().log === turn.left ? Ok(turn.before) : Err({ type: "changed-since-removed" as const })))
+    if (written.type !== "written") {
+      toast({ title: TAKE_BACK_FAILED, ...(written.type === "failed" ? { description: describeError(written.error) } : written.type === "refused" ? { description: CHANGED_SINCE_REMOVED } : {}), tone: "error" })
+      return
+    }
+    setRevising(undefined)
+    toast({ title: REMOVAL_TAKEN_BACK, stays: "glance" })
+  }
+  /** Takes a reading away, and says so with the way to take it back until the word is closed. */
+  const removeStep = async (index: number): Promise<Written<RevisionRefusal>> => {
+    const turn: { before: readonly Checkpoint[] | undefined } = { before: undefined }
+    const written = await rewrite((ordered) => {
+      turn.before = ordered
+      return withStepRemoved(ordered, index)
+    })
+    const before = turn.before
+    if (written.type === "written" && before !== undefined) {
+      const done: Rewritten = { before, left: current().log }
+      toast({ title: READING_REMOVED, action: { label: TAKE_BACK, onPress: () => void unremove(done) } })
+    }
+    return written
   }
   /**
    * Keeps the play's log with a run of its readings made one, and lets go
@@ -377,13 +401,13 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
       turn.before = ordered
       return withStepsMerged(ordered, span)
     })
-    const done: Merged | undefined = turn.before === undefined ? undefined : { before: turn.before, left: current().log }
+    const done: Rewritten | undefined = turn.before === undefined ? undefined : { before: turn.before, left: current().log }
     if (written.type !== "written" || done === undefined) {
       toast({ title: MERGE_FAILED, ...(written.type === "failed" ? { description: describeError(written.error) } : {}), tone: "error" })
       return
     }
     setRevising(undefined)
-    toast({ title: MERGED, action: { label: UNMERGE, onPress: () => void unmerge(done) } })
+    toast({ title: MERGED, action: { label: TAKE_BACK, onPress: () => void unmerge(done) } })
   }
   const weighing = (): Weighing | undefined => props.draft.pachislot
   const shownAs = () => {
@@ -424,21 +448,19 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
         >
           {(found) => {
             const day = () => daySeenOf(found(), shownAs())
+            const atReading = createAtReading(() => ({ sinceAt: liveSummary(found()).counterNow, outlay: liveSummary(found()).outlay, replay: replayOf(found()) }), write)
             const composers = (): JSX.Element => (
-              <>
-                <Show when={atResultMatters(weighing()?.formula.normalized ?? NO_MACHINE) && awaitsAtResult(found())}>
-                  <AtResultComposer write={write} normalized={weighing()?.formula.normalized ?? NO_MACHINE} />
-                </Show>
-                <Show when={atRules() === undefined} fallback={<AtReadingComposer standing={{ sinceAt: liveSummary(found()).counterNow, outlay: liveSummary(found()).outlay, replay: replayOf(found()) }} write={write} cz={atRules()?.trigger !== undefined} />}>
-                  <ReadingComposer bonuses={bonuses()} standing={{ total: day()?.games ?? totalNowOf(found()), bonuses: day()?.bonuses ?? {}, outlay: liveSummary(found()).outlay, replay: replayOf(found()) }} write={write} />
-                </Show>
-              </>
+              <Show when={atRules() === undefined} fallback={<AtReadingComposer reading={atReading} />}>
+                <ReadingComposer bonuses={bonuses()} standing={{ total: day()?.games ?? totalNowOf(found()), bonuses: day()?.bonuses ?? {}, outlay: liveSummary(found()).outlay, replay: replayOf(found()) }} write={write} />
+              </Show>
             )
             return (
               <div class="flex flex-1 flex-col">
                 <div class="flex flex-1 flex-col gap-5 p-4">
-                  <Timeline checkpoints={found()} bonuses={bonuses()} revising={revising()?.index} onRevise={(index) => setRevising({ index })} onMerge={merge} strip />
-                  <hr class="border-border" />
+                  <div class="-mb-2 flex flex-col gap-2">
+                    <Timeline checkpoints={found()} bonuses={bonuses()} revising={revising()?.index} onRevise={(index) => setRevising({ index })} onMerge={merge} strip />
+                    <hr class="border-border" />
+                  </div>
                   <CornerTerms draft={props.draft} />
                   <Show when={atRules()} fallback={<PlayFigures ordered={found()} bonuses={bonuses()} day={day()} />}>
                     <AtFigures ordered={found()} normalized={weighing()?.formula.normalized ?? NO_MACHINE} />
@@ -447,7 +469,10 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
                     {(weighed) => (
                       <>
                         <Outlook draft={props.draft} weighing={weighed()} ordered={found()} />
-                        <Show when={atRules() === undefined}>
+                        <Show
+                          when={atRules() === undefined}
+                          fallback={<AtCounting reading={atReading} ordered={found()} normalized={weighed().formula.normalized} write={write} rewrite={rewrite} awaitsResult={atResultMatters(weighed().formula.normalized) && awaitsAtResult(found())} />}
+                        >
                           <Counting weighing={weighed()} ordered={found()} write={write} />
                         </Show>
                       </>
@@ -458,7 +483,7 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
                   <Show when={revising()} keyed fallback={composers()}>
                     {(doing) => (
                       <Show when={revisedStepOf(found(), doing.index)} fallback={composers()}>
-                        {(step) => <StepReviser index={doing.index} step={step()} bonuses={bonuses()} cz={atRules()?.trigger !== undefined} rewrite={rewrite} onDone={() => setRevising(undefined)} />}
+                        {(step) => <StepReviser index={doing.index} step={step()} bonuses={bonuses()} cz={atRules()?.trigger !== undefined} rewrite={rewrite} onRemove={() => removeStep(doing.index)} onDone={() => setRevising(undefined)} />}
                       </Show>
                     )}
                   </Show>

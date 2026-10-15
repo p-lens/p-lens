@@ -109,7 +109,9 @@ const countedIn = (checkpoints: readonly Checkpoint[]): readonly Countable[] =>
  *
  * As a strip, the readings run across, the newest at the end, and the
  * strip keeps to that end as readings come unless a person has scrolled it
- * back, and again once they scroll it there.
+ * back, and again once they scroll it there. It comes to rest on a card,
+ * except while a run is held: a snap would pull each step of the scrolling
+ * a held finger makes at its edge back to the card it left.
  *
  * Given a way to merge, a reading held and dragged from marks a run of
  * readings, as far as they may be made one (`mergeableSpan`), and letting
@@ -156,7 +158,8 @@ export function Timeline(props: {
   return (
     <>
       <ol
-        class={strip() ? "flex snap-x gap-2 overflow-x-auto pb-1" : "flex flex-col gap-0.5"}
+        class={strip() ? "flex gap-2 overflow-x-auto pb-1" : "flex flex-col gap-0.5"}
+        classList={{ "snap-x": strip() && press.span() === undefined }}
         ref={(element) => {
           if (props.onMerge !== undefined) press.list(element)
           if (!strip()) return

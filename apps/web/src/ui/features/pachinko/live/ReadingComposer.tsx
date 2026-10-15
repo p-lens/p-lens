@@ -14,6 +14,7 @@ import type { Checkpoint, Phase } from "../../../../core/play-log/checkpoint"
 import { useApp } from "../../../context"
 import { pressesAt, recalledParlorSetting, withPresses, type PressAmounts } from "../../live/parlor-setting"
 import { Button } from "../../../primitives/button"
+import { TrashIcon } from "../../../primitives/icons"
 import { createNudge } from "../../../primitives/nudge"
 import { Select, type SelectOption } from "../../../primitives/select"
 import { settleTyping, TextField } from "../../../primitives/text-field"
@@ -21,7 +22,7 @@ import { toast } from "../../../primitives/toast"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
 import { describeError, describeReadingRefusal } from "../../../wording/errors"
 import { formatCount } from "../../../wording/numbers"
-import { describeRevisionRefusal, PHASE_NAMES, signedBalls, UNTOLD_JACKPOT } from "../../../wording/pachinko/play"
+import { CHANGED_SINCE_REMOVED, describeRevisionRefusal, PHASE_NAMES, READING_REMOVED, REMOVAL_TAKEN_BACK, REMOVE_READING, signedBalls, TAKE_BACK, TAKE_BACK_FAILED, UNTOLD_JACKPOT } from "../../../wording/pachinko/play"
 import { DriftButton } from "./DriftButton"
 import { PressButton } from "./PressButton"
 import { bonusKey, formOfReading, NO_JACKPOT, readingFrom, readReadingForm, saysNothingNew, UNTOLD, withMore, type ReadingField, type ReadingForm } from "./reading-form"
@@ -176,22 +177,42 @@ export function ReadingComposer(props: {
     app.wrote()
   }
 
-  /** Keeps the play's log made again with a reading set right or taken away, says so where there are words for it, and leaves the revising. */
-  const revise = async (made: ReturnType<typeof withReadingRemoved>, said?: string): Promise<void> => {
-    if (sending().type === "keeping") return
+  /** Keeps the play's log made again with a reading set right, put in or taken away, says so where there are words for it, and leaves the revising; the play as kept, where it was. */
+  const revise = async (made: ReturnType<typeof withReadingRemoved>, said?: string): Promise<PlayDraft | undefined> => {
+    if (sending().type === "keeping") return undefined
     if (!made.ok) {
       setSending({ type: "unrevisable", refusal: made.error })
-      return
+      return undefined
     }
     setSending({ type: "keeping" })
     const kept = await reviseCheckpoints(app.services.drafts, props.draft, made.value)
     if (!kept.ok) {
       setSending({ type: "failed", error: kept.error })
-      return
+      return undefined
     }
     if (said !== undefined) toast({ title: said, stays: "blink" })
     app.wrote()
     props.onRevised()
+    return kept.value
+  }
+
+  /** Puts back the log a removal was made from. Written against the play as the removal left it, so one changed since is left as it is, and that is said. */
+  const unremove = async (left: PlayDraft, before: readonly Checkpoint[]): Promise<void> => {
+    const kept = await reviseCheckpoints(app.services.drafts, left, before)
+    if (!kept.ok) {
+      const changed = kept.error.type === "draft" && kept.error.error.type === "changed-elsewhere"
+      toast({ title: TAKE_BACK_FAILED, description: changed ? CHANGED_SINCE_REMOVED : describeError(kept.error), tone: "error" })
+      return
+    }
+    toast({ title: REMOVAL_TAKEN_BACK, stays: "glance" })
+    app.wrote()
+  }
+
+  /** Takes a reading away, and says so with the way to take it back until the word is closed. */
+  const remove = async (index: number): Promise<void> => {
+    const before = props.ordered
+    const left = await revise(withReadingRemoved(before, index))
+    if (left !== undefined) toast({ title: READING_REMOVED, action: { label: TAKE_BACK, onPress: () => void unremove(left, before) } })
   }
 
   const saveRevision = async (revising: { readonly index: number; readonly taken: Taken }): Promise<void> => {
@@ -338,11 +359,11 @@ export function ReadingComposer(props: {
                 <Button type="submit" class="h-10 shrink-0 px-3">
                   保存
                 </Button>
-                <Button variant="secondary" class="h-10 shrink-0 px-2 text-negative" onClick={() => void revise(withReadingRemoved(props.ordered, revising.index))}>
-                  削除
-                </Button>
                 <Button variant="ghost" class="h-10 shrink-0 px-1.5" onClick={() => props.onRevised()}>
                   やめる
+                </Button>
+                <Button variant="ghost" class="ml-auto h-10 shrink-0 px-2 text-negative" aria-label={REMOVE_READING} onClick={() => void remove(revising.index)}>
+                  <TrashIcon />
                 </Button>
               </>
             )}

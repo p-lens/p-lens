@@ -1,14 +1,17 @@
 import { createSignal, Index, Show, type JSX } from "solid-js"
 
 import type { ApplicationError } from "../../../../application/errors"
-import { withStepRemoved, withStepRevised, type Ended, type RevisionRefusal, type Step } from "../../../../core/pachislot/revision"
+import { withStepRevised, type Ended, type RevisionRefusal, type Step } from "../../../../core/pachislot/revision"
 import type { Countable } from "../../../../core/pachislot/weighing"
 import { Button } from "../../../primitives/button"
+import { TrashIcon } from "../../../primitives/icons"
 import { createNudge } from "../../../primitives/nudge"
 import { settleTyping, TextField } from "../../../primitives/text-field"
+import { toast } from "../../../primitives/toast"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
 import { describeError } from "../../../wording/errors"
 import { describeStepRefusal } from "../../../wording/pachislot/formula"
+import { REMOVE_READING } from "../../../wording/pachislot/play"
 import { readAtReadingForm, type AtReadingForm } from "./at-reading-form"
 import { readReadingForm, type ReadingForm } from "./reading-form"
 import type { Write, Written } from "./write"
@@ -34,8 +37,12 @@ const ENDED_NAMES: Readonly<Record<Ended, string>> = { going: "通常", "cz-miss
  * right and saved, or taken away. Saving makes every line after it again —
  * the games each later reading comes to, the taps that stood on them — and
  * a change a later reading cannot follow is refused, with why. A bonus
- * machine's reading is its counter's day; an AT machine's is the games
- * since its last AT, with how they ended, which can be set right too.
+ * machine's reading is its counter's day — its bonuses four to a row, then
+ * the day's games, the cash and the medals drawn in one — and an AT
+ * machine's is the games since its last AT, with how they ended, which can
+ * be set right too, then the cash and the medals drawn beside them.
+ * The bin stands apart from saving, at the row's far end, and the removal
+ * is the play's to make (`onRemove`), with the way to take it back.
  */
 export function StepReviser(props: {
   readonly index: number
@@ -44,6 +51,7 @@ export function StepReviser(props: {
   /** Whether a CZ brings the machine's AT, so that a reading's games may have ended in one missed. */
   readonly cz: boolean
   readonly rewrite: Write
+  readonly onRemove: () => Promise<Written<RevisionRefusal>>
   readonly onDone: () => void
 }): JSX.Element {
   const [reading, setReading] = createSignal<ReadingForm>(
@@ -68,12 +76,13 @@ export function StepReviser(props: {
     const read = readAtReadingForm(atReading())
     return read.ok ? { type: "at-reading", input: { ...read.value, at: props.step.input.at }, ended: ended(), afterMissedAt: props.step.afterMissedAt } : undefined
   }
-  const kept = async (written: Promise<Written<RevisionRefusal>>): Promise<void> => {
+  const kept = async (written: Promise<Written<RevisionRefusal>>): Promise<boolean> => {
     setState({ type: "keeping" })
     const done = await written
     if (done.type === "refused") setState({ type: "refused", refusal: done.refusal })
     else if (done.type === "failed") setState({ type: "failed", error: done.error })
     else props.onDone()
+    return done.type === "written"
   }
   const save = (): void => {
     settleTyping()
@@ -83,10 +92,12 @@ export function StepReviser(props: {
       nudge.nudge()
       return
     }
-    void kept(props.rewrite((ordered) => withStepRevised(ordered, props.index, step)))
+    void kept(props.rewrite((ordered) => withStepRevised(ordered, props.index, step))).then((saved) => {
+      if (saved) toast({ title: "保存しました", stays: "blink" })
+    })
   }
   const remove = (): void => {
-    if (state().type !== "keeping") void kept(props.rewrite((ordered) => withStepRemoved(ordered, props.index)))
+    if (state().type !== "keeping") void kept(props.onRemove())
   }
   const unread = (): boolean => nudge.red() && revised() === undefined
   return (
@@ -112,31 +123,37 @@ export function StepReviser(props: {
             >
               <Index each={ENDED.filter((each) => each !== "cz-missed" || props.cz)}>{(each) => <ToggleGroupItem value={each()}>{ENDED_NAMES[each()]}</ToggleGroupItem>}</Index>
             </ToggleGroup>
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-3 gap-3">
               <TextField label="AT間のゲーム数" value={atReading().sinceAt} onChange={(sinceAt) => setAtReading({ ...atReading(), sinceAt })} inputMode="numeric" suffix="G" invalid={unread()} onFocus={nudge.settle} />
-              <TextField label="投資（累計）" value={atReading().outlay} onChange={(outlay) => setAtReading({ ...atReading(), outlay })} inputMode="numeric" suffix="円" invalid={unread()} onFocus={nudge.settle} />
+              <TextField label="現金投資（累計）" value={atReading().outlay} onChange={(outlay) => setAtReading({ ...atReading(), outlay })} inputMode="numeric" suffix="円" invalid={unread()} onFocus={nudge.settle} />
               <TextField label="貯メダル（累計）" value={atReading().replay} onChange={(replay) => setAtReading({ ...atReading(), replay })} inputMode="numeric" suffix="枚" invalid={unread()} onFocus={nudge.settle} />
             </div>
           </div>
         }
       >
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <TextField label="累計ゲーム数" value={reading().total} onChange={(total) => setReading({ ...reading(), total })} inputMode="numeric" suffix="G" invalid={unread()} onFocus={nudge.settle} />
-          <Index each={props.bonuses}>
-            {(bonus) => (
-              <TextField
-                label={bonus().label}
-                value={reading().bonuses[bonus().id] ?? ""}
-                onChange={(count) => setReading({ ...reading(), bonuses: { ...reading().bonuses, [bonus().id]: count } })}
-                inputMode="numeric"
-                suffix="回"
-                invalid={unread()}
-                onFocus={nudge.settle}
-              />
-            )}
-          </Index>
-          <TextField label="投資（累計）" value={reading().outlay} onChange={(outlay) => setReading({ ...reading(), outlay })} inputMode="numeric" suffix="円" invalid={unread()} onFocus={nudge.settle} />
-          <TextField label="貯メダル（累計）" value={reading().replay} onChange={(replay) => setReading({ ...reading(), replay })} inputMode="numeric" suffix="枚" invalid={unread()} onFocus={nudge.settle} />
+        <div class="flex flex-col gap-3">
+          <Show when={props.bonuses.length > 0}>
+            <div class="grid grid-cols-4 gap-3">
+              <Index each={props.bonuses}>
+                {(bonus) => (
+                  <TextField
+                    label={bonus().label}
+                    value={reading().bonuses[bonus().id] ?? ""}
+                    onChange={(count) => setReading({ ...reading(), bonuses: { ...reading().bonuses, [bonus().id]: count } })}
+                    inputMode="numeric"
+                    suffix="回"
+                    invalid={unread()}
+                    onFocus={nudge.settle}
+                  />
+                )}
+              </Index>
+            </div>
+          </Show>
+          <div class="grid grid-cols-3 gap-3">
+            <TextField label="累計ゲーム数" value={reading().total} onChange={(total) => setReading({ ...reading(), total })} inputMode="numeric" suffix="G" invalid={unread()} onFocus={nudge.settle} />
+            <TextField label="現金投資（累計）" value={reading().outlay} onChange={(outlay) => setReading({ ...reading(), outlay })} inputMode="numeric" suffix="円" invalid={unread()} onFocus={nudge.settle} />
+            <TextField label="貯メダル（累計）" value={reading().replay} onChange={(replay) => setReading({ ...reading(), replay })} inputMode="numeric" suffix="枚" invalid={unread()} onFocus={nudge.settle} />
+          </div>
         </div>
       </Show>
       <Show when={unread()}>
@@ -156,13 +173,13 @@ export function StepReviser(props: {
           </p>
         )}
       </Show>
-      <div class="flex gap-2">
+      <div class="flex items-center gap-2">
         <Button type="submit">保存</Button>
-        <Button variant="secondary" class="text-negative" onClick={remove}>
-          削除
-        </Button>
         <Button variant="ghost" onClick={() => props.onDone()}>
           やめる
+        </Button>
+        <Button variant="ghost" class="ml-auto text-negative" aria-label={REMOVE_READING} onClick={remove}>
+          <TrashIcon />
         </Button>
       </div>
     </form>

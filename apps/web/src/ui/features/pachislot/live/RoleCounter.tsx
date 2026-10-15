@@ -31,7 +31,7 @@ function CountTile(props: {
     >
       <span class="text-3xl font-bold tabular-nums text-text-primary">{formatCount(props.count)}</span>
       <span class="text-xs tabular-nums text-text-muted">{observedOneInText(props.games, props.count)}</span>
-      <span class="text-sm font-semibold text-text-secondary">
+      <span class="text-center text-sm font-semibold leading-tight text-text-secondary">
         {props.countable.label}
         {props.shortcut === undefined ? "" : <kbd class="ml-1 text-xs font-normal text-text-muted">{props.shortcut}</kbd>}
       </span>
@@ -40,7 +40,7 @@ function CountTile(props: {
 }
 
 /**
- * Tiles to count small wins and bonuses with, each showing its count and how
+ * Tiles to count small wins and bonuses with, four to a row, each showing its count and how
  * often it has come up in the games counted. A tap adds one, and a long
  * press takes one back; on a keyboard, the digits press the first nine
  * tiles. Rows are an `<Index>`, so a count changing never remounts a tile.
@@ -61,7 +61,7 @@ export function RoleCounter(props: {
   onMount(() => window.addEventListener("keydown", pressed))
   onCleanup(() => window.removeEventListener("keydown", pressed))
   return (
-    <div class="grid grid-cols-3 gap-2">
+    <div class="grid grid-cols-4 gap-2">
       <Index each={props.countables}>
         {(countable, index) => (
           <CountTile
