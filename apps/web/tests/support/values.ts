@@ -15,7 +15,7 @@ export const dec = (text: string): Decimal => {
 
 export const UMEDA: Parlor = {
   identity: { type: "listed", id: "hoshizora-umeda" as ParlorId },
-  name: "ホシゾラ梅田店",
+  name: "マレハン第3新東京店",
   pools: [
     { kind: "ball", tier: "4円" },
     { kind: "medal", tier: "20円" },
@@ -23,8 +23,8 @@ export const UMEDA: Parlor = {
 }
 
 export const PRICES: readonly PricePoint[] = [
-  { date: "2026-09-01" as IsoDate, commodity: "玉(4円・ホシゾラ梅田店)", rate: dec("3.57") },
-  { date: "2026-09-25" as IsoDate, commodity: "玉(4円・ホシゾラ梅田店)", rate: dec("3.50") },
+  { date: "2026-09-01" as IsoDate, commodity: "玉(4円・マレハン第3新東京店)", rate: dec("3.57") },
+  { date: "2026-09-25" as IsoDate, commodity: "玉(4円・マレハン第3新東京店)", rate: dec("3.50") },
 ]
 
 export const RENTED_PLAY: TokenTally = {

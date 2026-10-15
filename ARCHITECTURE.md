@@ -28,7 +28,7 @@ fixes.
    valuation is `--value`, sums are balance reports. No figure a book comes
    to is worked out here.
 4. **Each parlor's tokens at each rental rate are their own commodity.**
-   `玉(4円・ホシゾラ梅田店)`, `玉(1円・ホシゾラ梅田店)` and `玉(4円・789松原店)`
+   `玉(4円・マレハン第3新東京店)`, `玉(1円・マレハン第3新東京店)` and `玉(4円・723小宇宙店)`
    cannot be exchanged for each other, so they are different commodities,
    held as real assets.
 5. **Exchange rates are only ever added.** A changed rate is a new `P` directive
@@ -147,7 +147,7 @@ The account tree is deliberately small:
 
 ```text
 資産:現金
-資産:貯玉:<parlor>:<rate>      tagged parlor-id, e.g. 資産:貯玉:ホシゾラ梅田店:4円
+資産:貯玉:<parlor>:<rate>      tagged parlor-id, e.g. 資産:貯玉:マレハン第3新東京店:4円
 資産:貯メダル:<parlor>:<rate>  tagged parlor-id
 収益:遊技
 費用:遊技
@@ -274,19 +274,19 @@ rate for the day differs.
 ### One tally, one entry
 
 ```hledger
-2026-09-05 ホシゾラ梅田店 | 流星 123番台  ; play-id: …, parlor-id: hoshizora-umeda, game-kind: pachinko, machine: 流星, cabinet-number: 123
+2026-09-05 マレハン第3新東京店 | 流星 123番台  ; play-id: …, parlor-id: hoshizora-umeda, game-kind: pachinko, machine: 流星, cabinet-number: 123
     資産:現金                         -12000 JPY
     費用:貸玉差額                       1290 JPY
-    費用:遊技                           3000 "玉(4円・ホシゾラ梅田店)" @ 3.57 JPY
-    資産:貯玉:ホシゾラ梅田店:4円        4800 "玉(4円・ホシゾラ梅田店)"
-    収益:遊技                          -4800 "玉(4円・ホシゾラ梅田店)"
+    費用:遊技                           3000 "玉(4円・マレハン第3新東京店)" @ 3.57 JPY
+    資産:貯玉:マレハン第3新東京店:4円        4800 "玉(4円・マレハン第3新東京店)"
+    収益:遊技                          -4800 "玉(4円・マレハン第3新東京店)"
     (統計:期待値)                       5500 JPY
 ```
 
 - **The description** is hledger's `payee | note` (`describedBy`): the
   parlor is the payee, the machine and its cabinet the note, so `payee:`
   groups a book by parlor outside the app too. Savings entries are the
-  same — `ホシゾラ梅田店 | 景品交換` — and an imported tally's payee is the
+  same — `マレハン第3新東京店 | 景品交換` — and an imported tally's payee is the
   parlor as the other app named it. A tally with no parlor has no bar: its
   description is then its own payee, as hledger has it. The app reads
   neither side back — a parlor and a machine are read from tags — and an
@@ -1652,9 +1652,9 @@ a group made off with were not lost to the parlor, and the pool is put
 right to what is there (残高調整).
 
 ```hledger
-2026-10-04 ホシゾラ梅田店 | 失効  ; parlor-id: hoshizora-umeda, savings: forfeiture
-    費用:失効損                        4000 "玉(4円・ホシゾラ梅田店)"
-    資産:貯玉:ホシゾラ梅田店:4円      -4000 "玉(4円・ホシゾラ梅田店)"
+2026-10-04 マレハン第3新東京店 | 失効  ; parlor-id: hoshizora-umeda, savings: forfeiture
+    費用:失効損                        4000 "玉(4円・マレハン第3新東京店)"
+    資産:貯玉:マレハン第3新東京店:4円      -4000 "玉(4円・マレハン第3新東京店)"
 ```
 
 - It is an expense, in tokens only, as a replay's fee is: what it comes

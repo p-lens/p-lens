@@ -14,8 +14,8 @@ describe("a prize exchange as an entry", () => {
   test("takes the tokens out at the day's rate, as special prizes and, for what lies between, odd prizes — and moves no cash", () => {
     expect(rendered(EXCHANGE)).toBe(
       [
-        "2026-10-04 ホシゾラ梅田店 | 景品交換  ; parlor-id: hoshizora-umeda, savings: prize-exchange",
-        '    資産:貯玉:ホシゾラ梅田店:4円        -4800 "玉(4円・ホシゾラ梅田店)" @ 3.5 JPY',
+        "2026-10-04 マレハン第3新東京店 | 景品交換  ; parlor-id: hoshizora-umeda, savings: prize-exchange",
+        '    資産:貯玉:マレハン第3新東京店:4円   -4800 "玉(4円・マレハン第3新東京店)" @ 3.5 JPY',
         "    純資産:特殊景品                     16500 JPY",
         "    純資産:端玉景品                     300 JPY",
         "",

@@ -1,15 +1,15 @@
 commodity 1. JPY
-commodity 1. "玉(4円・ホシゾラ梅田店)"
-commodity 1. "枚(20円・ホシゾラ梅田店)"
-commodity 1. "玉(4円・789松原店)"
-commodity 1. "枚(20円・789松原店)"
+commodity 1. "玉(4円・マレハン第3新東京店)"
+commodity 1. "枚(20円・マレハン第3新東京店)"
+commodity 1. "玉(4円・723小宇宙店)"
+commodity 1. "枚(20円・723小宇宙店)"
 
 account 資産                           ; type: A
 account 資産:現金                      ; type: C
-account 資産:貯玉:ホシゾラ梅田店:4円         ; parlor-id: hoshizora-umeda
-account 資産:貯メダル:ホシゾラ梅田店:20円     ; parlor-id: hoshizora-umeda
-account 資産:貯玉:789松原店:4円             ; parlor-id: 123-matsubara
-account 資産:貯メダル:789松原店:20円         ; parlor-id: 123-matsubara
+account 資産:貯玉:マレハン第3新東京店:4円         ; parlor-id: hoshizora-umeda
+account 資産:貯メダル:マレハン第3新東京店:20円     ; parlor-id: hoshizora-umeda
+account 資産:貯玉:723小宇宙店:4円             ; parlor-id: 123-matsubara
+account 資産:貯メダル:723小宇宙店:20円         ; parlor-id: 123-matsubara
 account 収益                           ; type: R
 account 収益:遊技
 account 費用                           ; type: X

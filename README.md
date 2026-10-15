@@ -28,7 +28,7 @@ A book is kept by double entry in hledger, in an account tree that is small on p
 
 ```text
 資産:現金                      cash
-資産:貯玉:<parlor>:<rate>      balls saved at a parlor at a rate (e.g. 資産:貯玉:ホシゾラ梅田店:4円)
+資産:貯玉:<parlor>:<rate>      balls saved at a parlor at a rate (e.g. 資産:貯玉:マレハン第3新東京店:4円)
 資産:貯メダル:<parlor>:<rate>  medals saved at a parlor at a rate
 収益:遊技                      revenue of play
 費用:遊技                      expenses of play
@@ -64,8 +64,8 @@ for special prizes worth 16,500 yen and odd prizes, for example, the entry is
 this. Cash does not move.
 
 ```journal
-2026-10-04 景品交換 ホシゾラ梅田店  ; parlor-id: hoshizora-umeda, savings: prize-exchange
-    資産:貯玉:ホシゾラ梅田店:4円        -4800 "玉(4円・ホシゾラ梅田店)" @ 3.5 JPY
+2026-10-04 景品交換 マレハン第3新東京店  ; parlor-id: hoshizora-umeda, savings: prize-exchange
+    資産:貯玉:マレハン第3新東京店:4円        -4800 "玉(4円・マレハン第3新東京店)" @ 3.5 JPY
     純資産:特殊景品                     16500 JPY
     純資産:端玉景品                     300 JPY
 ```

@@ -220,7 +220,7 @@ describe("a book on two devices", () => {
     await syncBook(first.ports, BOOK)
     const kept = JSON.stringify(relay.kept())
     expect(relay.kept().length).toBe(1)
-    expect(["ホシゾラ", "資産", "transactions.journal", "book-created", BOOK].some((word) => kept.includes(word))).toBe(false)
+    expect(["マレハン", "資産", "transactions.journal", "book-created", BOOK].some((word) => kept.includes(word))).toBe(false)
   })
 
   test("a code that is none, or one whose line has nothing yet, joins nothing", async () => {

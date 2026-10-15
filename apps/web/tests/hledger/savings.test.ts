@@ -123,13 +123,13 @@ describe("savings exchanged for prizes", () => {
   test("leave the pool as prizes, and are no result of any day", async () => {
     const { session, storage, history } = await madeUpBook()
     expect(await recordPrizeExchange(session, BOOK, EXCHANGE)).toEqual({ ok: true, value: undefined })
-    expect(await held(session)).toContainEqual(["ホシゾラ梅田店", "4円", "800"])
+    expect(await held(session)).toContainEqual(["マレハン第3新東京店", "4円", "800"])
     expect(await results(session, "date:2026-10-04")).toEqual(["0", "0", "54808"])
     const files = storage.peek(BOOK)?.files
     expect(files?.[BOOK_FILES.accounts]).toContain("account 純資産:特殊景品\naccount 純資産:端玉景品\naccount 純資産:換算調整勘定")
-    expect(files?.[BOOK_FILES.transactions]).toContain("2026-10-04 ホシゾラ梅田店 | 景品交換  ; parlor-id: hoshizora-umeda, savings: prize-exchange")
+    expect(files?.[BOOK_FILES.transactions]).toContain("2026-10-04 マレハン第3新東京店 | 景品交換  ; parlor-id: hoshizora-umeda, savings: prize-exchange")
     const activity = await loadActivity(session, history, BOOK)
-    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).at(-1)).toEqual(["savings-exchanged", { pool: { parlor: "ホシゾラ梅田店", tier: "4円" }, savings: { date: "2026-10-04" as IsoDate, kind: "ball", tokens: dec("4000") }, prizes: { specialPrizes: dec("13800") } }])
+    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).at(-1)).toEqual(["savings-exchanged", { pool: { parlor: "マレハン第3新東京店", tier: "4円" }, savings: { date: "2026-10-04" as IsoDate, kind: "ball", tokens: dec("4000") }, prizes: { specialPrizes: dec("13800") } }])
   })
 
   test("leave every result as it was", async () => {
@@ -159,13 +159,13 @@ describe("savings a parlor took back", () => {
     const { session, storage, history } = await madeUpBook()
     const before = await results(session, "")
     expect(await recordForfeiture(session, BOOK, FORFEITURE)).toEqual({ ok: true, value: undefined })
-    expect(await held(session)).toContainEqual(["ホシゾラ梅田店", "4円", "800"])
+    expect(await held(session)).toContainEqual(["マレハン第3新東京店", "4円", "800"])
     expect(await results(session, "date:2026-10-04")).toEqual(["-14000", "0"])
     const after = await results(session, "")
     expect(before && after && [Number(after[0]) - Number(before[0]), Number(after[1]) - Number(before[1])]).toEqual([-14000, 0])
     const files = storage.peek(BOOK)?.files
     expect(files?.[BOOK_FILES.accounts]).toContain("account 費用:失効損\n")
-    expect(files?.[BOOK_FILES.transactions]).toContain("2026-10-04 ホシゾラ梅田店 | 失効  ; parlor-id: hoshizora-umeda, savings: forfeiture")
+    expect(files?.[BOOK_FILES.transactions]).toContain("2026-10-04 マレハン第3新東京店 | 失効  ; parlor-id: hoshizora-umeda, savings: forfeiture")
     expect(files?.[BOOK_FILES.transactions]).not.toContain("資産:現金                         -14000")
     const activity = await loadActivity(session, history, BOOK)
     expect(activity.ok && activity.value.lines.map((line) => line.did).at(-1)).toBe("savings-forfeited")

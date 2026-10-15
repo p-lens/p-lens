@@ -80,7 +80,7 @@ describe("a play followed live", () => {
       gameKind: "pachinko",
       date: "2026-10-04",
       startedAt: "2026-10-04T12:00:00.000Z",
-      parlor: { name: "ホシゾラ梅田店", id: "hoshizora-umeda" },
+      parlor: { name: "マレハン第3新東京店", id: "hoshizora-umeda" },
       terms: { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 250, deducted: 275 } },
       machine: "流星",
       cabinetNumber: "123",
@@ -132,7 +132,7 @@ describe("a play followed live", () => {
     expect((await finishPlay(session, drafts, added.ok ? added.value : DRAFT, BOOK, { ...RECORD, payout: dec("6000") }, FINISH, NOW)).ok).toBe(true)
     const transactions = storage.peek(BOOK)?.files["transactions.journal"] ?? ""
     expect(transactions.match(/play-id: live-1,/g)?.length).toBe(1)
-    expect(transactions).toContain('6000 "玉(4円・ホシゾラ梅田店)"')
+    expect(transactions).toContain('6000 "玉(4円・マレハン第3新東京店)"')
     expect(storage.peek(BOOK)?.files[`pachinko-play/${ID}.jsonl`]).toContain('{"spins":20,"outlay":500}')
   })
 
@@ -207,7 +207,7 @@ describe("a pool the book does not keep", () => {
     const opened = await openPool(session, BOOK, LUMINA_1)
     expect(opened).toEqual({ ok: true, value: { identity: { type: "listed", id: "lumina" }, name: "ルミナ難波店", pools: [{ kind: "ball", tier: "1円" }] } } as never)
     const context = await loadRecordingContext(session, BOOK, ME)
-    expect(mapOk(context, (found) => found.parlors.map((parlor) => parlor.name))).toEqual({ ok: true, value: ["ホシゾラ梅田店", "789松原店", "ルミナ難波店"] })
+    expect(mapOk(context, (found) => found.parlors.map((parlor) => parlor.name))).toEqual({ ok: true, value: ["マレハン第3新東京店", "723小宇宙店", "ルミナ難波店"] })
     const lumina = opened.ok ? opened.value : UMEDA
     const rented = { ...RECORD, parlor: lumina, pool: { kind: "ball" as const, tier: "1円" }, rental: { outlay: dec("1000"), tokens: dec("890") } }
     expect((await recordTokenTally(session, BOOK, rented)).ok).toBe(true)
@@ -225,8 +225,8 @@ describe("a pool the book does not keep", () => {
   test("is refused under a name another parlor of the book has, and nothing is written", async () => {
     const { storage, session } = await setUp()
     const before = storage.peek(BOOK)?.files
-    const refused = await openPool(session, BOOK, { ...LUMINA_1, parlorName: "ホシゾラ梅田店" })
-    expect(refused).toEqual({ ok: false, error: { type: "parlor", error: { type: "name-taken", name: "ホシゾラ梅田店" } } })
+    const refused = await openPool(session, BOOK, { ...LUMINA_1, parlorName: "マレハン第3新東京店" })
+    expect(refused).toEqual({ ok: false, error: { type: "parlor", error: { type: "name-taken", name: "マレハン第3新東京店" } } })
     expect(storage.peek(BOOK)?.files).toEqual(before as never)
   })
 })

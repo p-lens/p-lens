@@ -36,15 +36,15 @@ describe("評価損益", () => {
   })
 
   test("is a gain where a rate rose, and counts the savings held on the day it changed, not those played since", async () => {
-    const session = await setUp('\nP 2026-10-05 "玉(4円・789松原店)" 3.43 JPY\n')
+    const session = await setUp('\nP 2026-10-05 "玉(4円・723小宇宙店)" 3.43 JPY\n')
     expect(await revalued(session, "date:2026-10-01..2026-11-01")).toBe("660")
     expect(await revalued(session, "")).toBe("324")
   })
 
   test("is each parlor's own, a parlor whose rates stood being none of them", async () => {
-    const session = await setUp('\nP 2026-10-05 "玉(4円・789松原店)" 3.43 JPY\n')
-    expect(await byParlor(session, "")).toEqual([["789松原店", "660"], ["ホシゾラ梅田店", "-336"]])
-    expect(await byParlor(session, "date:2026-09-01..2026-10-01")).toEqual([["ホシゾラ梅田店", "-336"]])
+    const session = await setUp('\nP 2026-10-05 "玉(4円・723小宇宙店)" 3.43 JPY\n')
+    expect(await byParlor(session, "")).toEqual([["723小宇宙店", "660"], ["マレハン第3新東京店", "-336"]])
+    expect(await byParlor(session, "date:2026-09-01..2026-10-01")).toEqual([["マレハン第3新東京店", "-336"]])
     expect(await byParlor(session, "date:2026-08-01..2026-09-01")).toEqual([])
   })
 

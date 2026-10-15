@@ -18,7 +18,7 @@ describe("opening a pool in a book", () => {
 
   test("writes only the rate for a pool the book keeps, and nothing when the book already has that rate for the day", () => {
     const umeda: PoolOpening = { identity: UMEDA.identity, parlorName: UMEDA.name, pool: { kind: "ball", tier: "4円" }, rate: dec("3.571429"), date: "2026-09-25" as IsoDate }
-    expect(openingText(umeda, [UMEDA], PRICES)).toEqual({ declarations: undefined, price: 'P 2026-09-25 "玉(4円・ホシゾラ梅田店)" 3.571429 JPY\n' })
+    expect(openingText(umeda, [UMEDA], PRICES)).toEqual({ declarations: undefined, price: 'P 2026-09-25 "玉(4円・マレハン第3新東京店)" 3.571429 JPY\n' })
     expect(openingText({ ...umeda, rate: dec("3.50") }, [UMEDA], PRICES)).toEqual({ declarations: undefined, price: undefined })
   })
 
@@ -30,8 +30,8 @@ describe("opening a pool in a book", () => {
   test("refuses a name it cannot write, a name another parlor of the book has, and a rate not above zero", () => {
     expect(checkOpening({ ...LUMINA, parlorName: "梅田:本店" }, [])).toEqual({ ok: false, error: { type: "name-unwritable", name: "梅田:本店" } })
     expect(checkOpening({ ...LUMINA, parlorName: UMEDA.name }, [UMEDA])).toEqual({ ok: false, error: { type: "name-taken", name: UMEDA.name } })
-    expect(checkOpening({ ...LUMINA, parlorName: "ホシゾラ 梅田店" }, [UMEDA])).toEqual({ ok: false, error: { type: "name-taken", name: "ホシゾラ 梅田店" } })
-    expect(checkOpening({ ...LUMINA, identity: UMEDA.identity, parlorName: "ホシゾラ 梅田店" }, [UMEDA]).ok).toBe(true)
+    expect(checkOpening({ ...LUMINA, parlorName: "マレハン 第3新東京店" }, [UMEDA])).toEqual({ ok: false, error: { type: "name-taken", name: "マレハン 第3新東京店" } })
+    expect(checkOpening({ ...LUMINA, identity: UMEDA.identity, parlorName: "マレハン 第3新東京店" }, [UMEDA]).ok).toBe(true)
     expect(checkOpening({ ...LUMINA, rate: dec("0") }, [])).toEqual({ ok: false, error: { type: "rate-not-positive" } })
     expect(checkOpening(LUMINA, [UMEDA])).toEqual({ ok: true, value: LUMINA })
   })

@@ -8,7 +8,7 @@ import { dec } from "../../support/values"
 
 const HEADER = "日付,店舗コード,店舗,メーカー,機種コード,機種,台番号,投資額,回収額,収支,メモ,稼働時間,時給,貯玉"
 
-const FILE = `﻿${HEADER}\r\n2019/01/02,S123,ホシゾラ梅田店,ミナト,M9,流星の剣,123,12000,20000,8000,"朝イチ, 設定6: たぶん",5,1600,0\r\n2019/1/5,,名もなき店,,,,,5000,0,-5000,,,,\r\n`
+const FILE = `﻿${HEADER}\r\n2019/01/02,S123,マレハン第3新東京店,ミナト,M9,流星の剣,123,12000,20000,8000,"朝イチ, 設定6: たぶん",5,1600,0\r\n2019/1/5,,名もなき店,,,,,5000,0,-5000,,,,\r\n`
 
 describe("a CSV text as rows", () => {
   test("keeps commas, quotes and line breaks inside a quoted cell, and passes over the mark at its head and empty rows", () => {
@@ -27,7 +27,7 @@ describe("a pRecord CSV", () => {
   test("is read a row a tally, its day whichever way it is written, its unread columns passed over", () => {
     const read = readPrecord(FILE)
     expect(read.ok && read.value).toEqual([
-      { date: "2019-01-02", parlor: { name: "ホシゾラ梅田店", code: "S123" }, machine: { name: "流星の剣", code: "M9", maker: "ミナト" }, cabinetNumber: "123", outlay: dec("12000"), takings: dec("20000"), memo: "朝イチ, 設定6: たぶん", hours: dec("5") },
+      { date: "2019-01-02", parlor: { name: "マレハン第3新東京店", code: "S123" }, machine: { name: "流星の剣", code: "M9", maker: "ミナト" }, cabinetNumber: "123", outlay: dec("12000"), takings: dec("20000"), memo: "朝イチ, 設定6: たぶん", hours: dec("5") },
       { date: "2019-01-05", parlor: { name: "名もなき店", code: "" }, machine: { name: "", code: "", maker: "" }, cabinetNumber: "", outlay: dec("5000"), takings: dec("0"), memo: "", hours: undefined },
     ] as never)
   })
@@ -62,7 +62,7 @@ describe("an imported tally", () => {
     const [id] = importedIdsOf("precord", [first as never])
     expect(renderEntry(importedTallyEntry({ id: id as never, from: "precord", source: first as never, machine: undefined, inferred: undefined }))).toBe(
       [
-        `2019-01-02 ホシゾラ梅田店 | 流星の剣 123番台  ; play-id: ${id}, cabinet-number: 123, imported-from: precord, source-parlor: ホシゾラ梅田店, source-parlor-code: S123, source-machine: 流星の剣, source-machine-code: M9, source-maker: ミナト, hours: 5`,
+        `2019-01-02 マレハン第3新東京店 | 流星の剣 123番台  ; play-id: ${id}, cabinet-number: 123, imported-from: precord, source-parlor: マレハン第3新東京店, source-parlor-code: S123, source-machine: 流星の剣, source-machine-code: M9, source-maker: ミナト, hours: 5`,
         "    費用:遊技                           12000 JPY",
         "    収益:遊技                           -20000 JPY",
         "    純資産:特殊景品                     8000 JPY",

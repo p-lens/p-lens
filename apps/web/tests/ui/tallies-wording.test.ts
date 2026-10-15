@@ -7,7 +7,7 @@ import type { TallySummary } from "../../src/core/report/tallies"
 import { groupName } from "../../src/ui/wording/breakdown"
 import { tallyTitle } from "../../src/ui/wording/tallies"
 
-const PLAY: TallySummary = { id: "one" as PlayId, date: "2026-10-21" as IsoDate, description: "ホシゾラ梅田店", parlorId: undefined, gameKind: "pachinko", machine: undefined, cabinetNumber: undefined, importedFrom: undefined, theoreticalValue: undefined , inferredValue: undefined}
+const PLAY: TallySummary = { id: "one" as PlayId, date: "2026-10-21" as IsoDate, description: "マレハン第3新東京店", parlorId: undefined, gameKind: "pachinko", machine: undefined, cabinetNumber: undefined, importedFrom: undefined, theoreticalValue: undefined , inferredValue: undefined}
 
 const NAMES = machineNamesOf([
   { name: "e風の剣豪", modelName: "e風の剣豪KZ" },

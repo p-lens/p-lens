@@ -14,7 +14,7 @@ describe("tallies as a table", () => {
       tallyTableOf([
         {
           tally: { id: "one" as PlayId, date: "2026-10-08" as IsoDate, description: "", parlorId: undefined, gameKind: "slot", machine: "ピエロット", cabinetNumber: "45", importedFrom: undefined, theoreticalValue: yen(-800) , inferredValue: undefined},
-          parlorName: "789松原店",
+          parlorName: "723小宇宙店",
           machineName: "ピエロット",
           maker: undefined,
           sides: { spent: yen(10000), won: decimal(123455n, 1) },
@@ -23,7 +23,7 @@ describe("tallies as a table", () => {
       ]),
     ).toEqual([
       ["営業日", "店舗", "種別", "機種", "台番号", "投資", "回収", "収支", "期待値"],
-      ["2026-10-08", "789松原店", "スロット", "ピエロット", "45", "10000", "12345.5", "2345.5", "-800"],
+      ["2026-10-08", "723小宇宙店", "スロット", "ピエロット", "45", "10000", "12345.5", "2345.5", "-800"],
     ])
   })
 
