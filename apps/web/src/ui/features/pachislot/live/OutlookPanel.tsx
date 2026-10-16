@@ -18,8 +18,8 @@ function Tile(props: { readonly label: string; readonly value: string }): JSX.El
 /**
  * 天井狙い at an AT machine: what playing on from where it stands until the
  * next AT is over is worth — in yen with terms, else in medals — the
- * regular games it takes and what the AT gains on average, and how often a
- * ceiling wins it.
+ * regular games it takes, what the AT gains on average and, where bonuses
+ * bring it, what they pay on the way, and how often a ceiling wins it.
  */
 function Hunt(props: { readonly hunt: HuntDto; readonly priced: boolean; readonly grounded: boolean }): JSX.Element {
   const shown = (text: string, unseen: string): string => (props.grounded ? text : unseen)
@@ -30,6 +30,9 @@ function Hunt(props: { readonly hunt: HuntDto; readonly priced: boolean; readonl
         <Tile label="期待値" value={props.priced ? shown(theoreticalFigureText(props.hunt.yen), UNSEEN.yen) : shown(signedMedalsText(props.hunt.medals), UNSEEN.medals)} />
         <Tile label="ATまで" value={shown(aboutText(props.hunt.games, "G"), UNSEEN.games)} />
         <Tile label="ATの獲得" value={shown(aboutText(props.hunt.atMedals, "枚"), UNSEEN.medals)} />
+        <Show when={props.hunt.triggerMedals > 0}>
+          <Tile label="ボーナスの獲得" value={shown(aboutText(props.hunt.triggerMedals, "枚"), UNSEEN.medals)} />
+        </Show>
         <Tile label="天井で当選" value={shown(shareText(props.hunt.byCeiling), UNSEEN.share)} />
       </dl>
       <p class="text-xs text-text-muted">ここから打ち続けて、次のATが終わるまでの平均です。</p>

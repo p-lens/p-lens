@@ -130,6 +130,7 @@ fn hunts(request: &HuntRequest) -> Result<Vec<HuntDto>, ErrorDto> {
                 .map(|value| HuntDto {
                     games: value.games,
                     at_medals: value.at_medals,
+                    trigger_medals: value.trigger_medals,
                     medals: value.medals,
                     yen: value.yen,
                     by_ceiling: value.by_ceiling,

@@ -5,7 +5,9 @@ mod support;
 use std::num::NonZeroU32;
 
 use pachislot_domain::conditions::{PayoutBasis, PayoutRate, PlayConditions};
-use pachislot_domain::normalized::{Allotments, AtRules, AtTable, EventKind, NormalizedSpec};
+use pachislot_domain::normalized::{
+    Allotments, AtRules, AtTable, EventKind, NormalizedSpec, TriggerPayout,
+};
 use pachislot_domain::observation::{AtSeen, Leg, LegEnd, Path, PathStart, Segment};
 use pachislot_domain::probability::{BasisPoints, Probability};
 use pachislot_domain::setting_level::PerSettingLevel;
@@ -17,8 +19,8 @@ use pachislot_engine::normalize::normalize;
 use pachislot_engine::posterior::posterior;
 use pachislot_engine::theoretical::path_theoretical_value;
 use support::{
-    LOSS, PAYOUT, at_spec, ceiled, close, cz_spec, id, made_up_spec, medals, mode, mode_spec,
-    one_in, per, rules, setting_level, start, table,
+    LOSS, PAYOUT, at_spec, ceiled, close, cz_spec, drawn_misses_spec, id, made_up_spec, medals,
+    mode, mode_spec, one_in, per, rules, setting_level, start, table, through,
 };
 
 fn normalized() -> NormalizedSpec {
@@ -112,11 +114,8 @@ fn a_cz_without_ceilings_brings_the_at_once_in_so_many_tries() {
 #[test]
 fn a_through_ceiling_wins_the_at_on_the_trigger_after_so_many_misses() {
     let (p, q) = (0.01, 0.3);
-    let through = AtRules {
-        misses: NonZeroU32::new(2),
-        ..rules(Some("cz"), vec![mode("cz", 0)])
-    };
-    let found = cycle(&through, p, q, &[1.0]);
+    let machine = rules(Some("cz"), through(vec![mode("cz", 0)], NonZeroU32::new(2)));
+    let found = cycle(&machine, p, q, &[1.0]);
     let triggers = 1.0 + (1.0 - q) + (1.0 - q) * (1.0 - q);
     assert!(close(found.triggers, triggers));
     assert!(close(found.games, triggers / p));
@@ -136,14 +135,8 @@ fn the_convolved_cycle_meets_the_closed_form_when_the_second_ceiling_is_out_of_r
     let (p, q) = (0.01, 0.3);
     let modes = vec![mode("cz", 150)];
     for misses in [None, NonZeroU32::new(3)] {
-        let open = AtRules {
-            misses,
-            ..rules(Some("cz"), modes.clone())
-        };
-        let far = AtRules {
-            modes: vec![ceiled("cz", 150, 30_000)],
-            ..open.clone()
-        };
+        let open = rules(Some("cz"), through(modes.clone(), misses));
+        let far = rules(Some("cz"), through(vec![ceiled("cz", 150, 30_000)], misses));
         let closed = cycle(&open, p, q, &[1.0]);
         let convolved = cycle(&far, p, q, &[1.0]);
         assert!(near(convolved.games, closed.games, 1e-9));
@@ -223,11 +216,8 @@ fn a_cz_path_is_as_likely_as_each_game_that_made_it() {
     ));
     assert!(close(found.medals, 15.0 * (PAYOUT * p * q - LOSS)));
 
-    let through = AtRules {
-        misses: NonZeroU32::new(1),
-        ..plain
-    };
-    let found = walk(&played, &through, &odds);
+    let limited = rules(Some("cz"), through(vec![mode("cz", 0)], NonZeroU32::new(1)));
+    let found = walk(&played, &limited, &odds);
     assert!(close(
         found.log_likelihood,
         13.0 * miss + (p * (1.0 - q)).ln() + p.ln()
@@ -763,6 +753,70 @@ fn modes_are_an_at_machine_s_and_their_allotments_whole() {
         normalize(&partial),
         Err(SpecError::ResetAllotmentPartial {
             entity: id("normal")
+        })
+    );
+}
+
+#[test]
+fn a_game_walked_counts_what_a_bonus_that_is_the_trigger_pays_at_its_chance() {
+    let (p, q) = (0.01, 0.25);
+    let machine = AtRules {
+        trigger_payout: Some(TriggerPayout {
+            medals: medals(100.0),
+            net_per_game: None,
+        }),
+        ..rules(Some("cz"), vec![mode("cz", 0)])
+    };
+    let walked = walk(
+        &path(start(0, 0, 0), &[(1, LegEnd::Going)]),
+        &machine,
+        &table(p, q, vec![1.0], vec![1.0]),
+    );
+    assert!(close(walked.medals, p * q * PAYOUT + p * 100.0 - LOSS));
+}
+
+#[test]
+fn a_through_ceiling_drawn_after_each_at_is_a_mode_for_each_and_a_cycle_their_mix() {
+    let normalized = normalize(&drawn_misses_spec()).expect("normalises");
+    let rules_of = normalized.at_rules.as_ref().expect("an AT machine");
+    let limits: Vec<Option<u32>> = rules_of
+        .modes
+        .iter()
+        .map(|mode| mode.misses.map(NonZeroU32::get))
+        .collect();
+    assert_eq!(limits, vec![Some(2), Some(4), Some(6)]);
+    let (p, q) = (0.01, 0.3);
+    let shares = [0.34, 0.33, 0.33];
+    let mixed = cycle(rules_of, p, q, &shares);
+    let each: Vec<_> = rules_of
+        .modes
+        .iter()
+        .map(|mode| cycle(&rules(Some("cz"), vec![mode.clone()]), p, q, &[1.0]))
+        .collect();
+    let games: f64 = each
+        .iter()
+        .zip(shares)
+        .map(|(one, share)| share * one.games)
+        .sum();
+    let triggers: f64 = each
+        .iter()
+        .zip(shares)
+        .map(|(one, share)| share * one.triggers)
+        .sum();
+    assert!(close(mixed.games, games));
+    assert!(close(mixed.triggers, triggers));
+}
+
+#[test]
+fn a_mode_s_through_ceiling_needs_a_cz_to_miss() {
+    let mut spec = mode_spec();
+    spec.components
+        .misses
+        .insert(id("heaven"), NonZeroU32::new(2).expect("misses"));
+    assert_eq!(
+        normalize(&spec),
+        Err(SpecError::MissesWithoutCz {
+            entity: id("heaven")
         })
     );
 }

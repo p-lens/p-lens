@@ -12,6 +12,7 @@ import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
 import { describeError } from "../../../wording/errors"
 import { describeStepRefusal } from "../../../wording/pachislot/formula"
 import { REMOVE_READING } from "../../../wording/pachislot/play"
+import type { TriggerWords } from "../../../wording/pachislot/trigger"
 import { readAtReadingForm, type AtReadingForm } from "./at-reading-form"
 import type { Post } from "./NoticeBoard"
 import { readReadingForm, type ReadingForm } from "./reading-form"
@@ -31,7 +32,17 @@ const typed = (count: number | undefined): string => (count === undefined ? "" :
 
 const ENDED: readonly Ended[] = ["going", "cz-missed", "at"]
 
-const ENDED_NAMES: Readonly<Record<Ended, string>> = { going: "通常", "cz-missed": "CZ失敗", at: "AT当選" }
+/** How a reading's games ended, as its toggle says it: a trigger missed in the words of the machine's. */
+const endedName = (ended: Ended, trigger: TriggerWords | undefined): string => {
+  switch (ended) {
+    case "going":
+      return "通常"
+    case "cz-missed":
+      return trigger?.missed ?? ""
+    case "at":
+      return "AT当選"
+  }
+}
 
 /**
  * A reading already taken, typed again where the next one would be: set
@@ -49,8 +60,8 @@ export function StepReviser(props: {
   readonly index: number
   readonly step: RevisedStep
   readonly bonuses: readonly Countable[]
-  /** Whether a CZ brings the machine's AT, so that a reading's games may have ended in one missed. */
-  readonly cz: boolean
+  /** What brings the machine's AT where a CZ or a bonus does, so that a reading's games may have ended in one missed; none where the AT is won directly. */
+  readonly trigger: TriggerWords | undefined
   readonly rewrite: Write
   readonly post: Post
   readonly onRemove: () => Promise<Written<RevisionRefusal>>
@@ -128,7 +139,7 @@ export function StepReviser(props: {
               }}
               aria-label="このゲーム数の終わり方"
             >
-              <Index each={ENDED.filter((each) => each !== "cz-missed" || props.cz)}>{(each) => <ToggleGroupItem value={each()}>{ENDED_NAMES[each()]}</ToggleGroupItem>}</Index>
+              <Index each={ENDED.filter((each) => each !== "cz-missed" || props.trigger !== undefined)}>{(each) => <ToggleGroupItem value={each()}>{endedName(each(), props.trigger)}</ToggleGroupItem>}</Index>
             </ToggleGroup>
             <div class="grid grid-cols-3 gap-3">
               <TextField label="AT間のゲーム数" value={atReading().sinceAt} onChange={(sinceAt) => setAtReading({ ...atReading(), sinceAt })} inputMode="numeric" suffix="G" invalid={unread()} onFocus={nudge.settle} />

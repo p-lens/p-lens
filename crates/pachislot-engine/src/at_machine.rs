@@ -9,17 +9,19 @@ use std::collections::BTreeSet;
 use std::num::NonZeroU32;
 
 use pachislot_domain::conditions::PayoutRate;
-use pachislot_domain::normalized::{Allotments, AtRules, AtTable, ModeRule, PayoutLaw};
+use pachislot_domain::normalized::{
+    Allotments, AtRules, AtTable, ModeRule, PayoutLaw, TriggerPayout,
+};
 use pachislot_domain::probability::{BasisPoints, Probability, ProbabilitySource};
 use pachislot_domain::setting_level::{PerSettingLevel, SettingLevel};
 use pachislot_domain::spec::{
     At, Base, Component, Cz, Element, EntityId, LcdRate, Medals, Mode, Spec,
 };
 
-use crate::at::{after_at, cap_figures_of, cycle, natural_chance, settled};
+use crate::at::{Cycle, after_at, cap_figures_of, cycle, natural_chance, settled};
 use crate::error::{ProbabilityProblem, SpecError};
 use crate::payout::capped;
-use crate::rate::{RateCycle, implied_gain, net_over_all};
+use crate::rate::{RateCycle, TriggersPaid, implied_gain, net_over_all};
 
 /// What a machine of an AT is made of.
 pub(crate) struct AtMachine<'a> {
@@ -169,6 +171,10 @@ fn checked<'a>(
         return Err(SpecError::AtCeilingWithoutCz {
             entity: ceiled.id.clone(),
         });
+    } else if let Some(through) = modes.iter().find(|mode| mode.misses.is_some()) {
+        return Err(SpecError::MissesWithoutCz {
+            entity: through.id.clone(),
+        });
     }
     let (trigger, ceiling, reset_ceiling) = trigger_of(at, cz);
     if !modes.is_empty() && (ceiling.is_some() || reset_ceiling.is_some()) {
@@ -291,22 +297,27 @@ pub(crate) fn rules_of(
     lcd_rate: Option<LcdRate>,
     cap: Option<Medals>,
 ) -> AtRules {
-    let rule =
-        |id: &EntityId, ceiling: Option<NonZeroU32>, at_ceiling: Option<NonZeroU32>| ModeRule {
-            id: id.clone(),
-            ceiling: ceiling.map(|ceiling| in_regular_games(ceiling, lcd_rate)),
-            at_ceiling,
-        };
+    let misses = machine.cz.and_then(|cz| cz.misses);
+    let rule = |id: &EntityId,
+                ceiling: Option<NonZeroU32>,
+                at_ceiling: Option<NonZeroU32>,
+                misses: Option<NonZeroU32>| ModeRule {
+        id: id.clone(),
+        ceiling: ceiling.map(|ceiling| in_regular_games(ceiling, lcd_rate)),
+        at_ceiling,
+        misses,
+    };
     let (trigger, ceiling, reset_ceiling) = trigger_of(machine.at, machine.cz);
     let (at_ceiling, reset_at_ceiling) = at_ceilings_of(machine.at, machine.cz);
     let modes = if machine.modes.is_empty() {
-        [rule(trigger, ceiling, at_ceiling)]
+        [rule(trigger, ceiling, at_ceiling, misses)]
             .into_iter()
             .chain(resets(machine.at, machine.cz).then(|| {
                 rule(
                     &reset_mode(trigger),
                     reset_ceiling.or(ceiling),
                     reset_at_ceiling,
+                    misses,
                 )
             }))
             .collect()
@@ -314,7 +325,14 @@ pub(crate) fn rules_of(
         machine
             .modes
             .iter()
-            .map(|mode| rule(&mode.id, mode.ceiling, mode.at_ceiling.or(at_ceiling)))
+            .map(|mode| {
+                rule(
+                    &mode.id,
+                    mode.ceiling,
+                    mode.at_ceiling.or(at_ceiling),
+                    mode.misses.or(misses),
+                )
+            })
             .collect()
     };
     AtRules {
@@ -322,11 +340,16 @@ pub(crate) fn rules_of(
         at: machine.at.id.clone(),
         trigger: machine.cz.map(|cz| cz.id.clone()),
         modes,
-        misses: machine.cz.and_then(|cz| cz.misses),
         net_per_game: net_of(machine.at),
         cap,
         window: machine.at.window,
         reset_on_cap: machine.at.reset_on_cap,
+        trigger_payout: machine.cz.and_then(|cz| {
+            cz.payout.map(|medals| TriggerPayout {
+                medals,
+                net_per_game: cz.net_per_game,
+            })
+        }),
     }
 }
 
@@ -594,10 +617,26 @@ fn table_paying(
     })
 }
 
-/// The regular games a setting's cycle lasts, from one AT to the next.
-fn cycle_games(rules: &AtRules, table: &AtTable) -> f64 {
+/// A setting's cycle, from one AT to the next: its regular games, and the
+/// triggers it brings.
+fn cycle_of(rules: &AtRules, table: &AtTable) -> Cycle {
     let (_, shares) = settled(rules, table);
-    1.0 / cycle(rules, table.chance.value(), table.success.value(), &shares).at_chance()
+    cycle(rules, table.chance.value(), table.success.value(), &shares)
+}
+
+/// A cycle's games and what it costs and pays besides its AT, to work a
+/// 機械割 and an AT's gain each from the other.
+pub(crate) fn rate_cycle(rules: &AtRules, cycle: Cycle, bet: f64) -> RateCycle {
+    RateCycle {
+        games: 1.0 / cycle.at_chance(),
+        loss: rules.base.loss_per_game(),
+        bet,
+        net: rules.net_per_game.map_or(0.0, Medals::get),
+        triggers: rules.trigger_payout.map(|payout| TriggersPaid {
+            count: cycle.triggers,
+            payout,
+        }),
+    }
 }
 
 /// What a setting's 機械割 implies its AT gains: the cycle is read off
@@ -616,16 +655,13 @@ fn gain_from(
         entity: machine.at.id.clone(),
         setting_level,
     };
-    let cycle = RateCycle {
-        games: cycle_games(rules, unpaid),
-        loss: rules.base.loss_per_game(),
-        bet,
-        net: rules.net_per_game.map_or(0.0, Medals::get),
-    };
-    implied_gain(cycle, rate.ratio())
-        .and_then(Medals::new)
-        .map(PayoutLaw::Fixed)
-        .ok_or_else(unattainable)
+    implied_gain(
+        rate_cycle(rules, cycle_of(rules, unpaid), bet),
+        rate.ratio(),
+    )
+    .and_then(Medals::new)
+    .map(PayoutLaw::Fixed)
+    .ok_or_else(unattainable)
 }
 
 /// A setting's table, its AT gaining what the spec says or what the

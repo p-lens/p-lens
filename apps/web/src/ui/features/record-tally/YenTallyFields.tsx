@@ -20,6 +20,7 @@ import { LOCATE_REQUEST, typedMachineRefused, typedParlorRefused } from "../../w
 import * as PachinkoViews from "../pachinko"
 import * as PachislotViews from "../pachislot"
 import * as PachislotWording from "../../wording/pachislot/inference"
+import { triggerWordsOf } from "../../wording/pachislot/trigger"
 import type { SubmitWords } from "./form"
 import type { YenTallyEditing } from "./yen-tally-editing"
 import { HOUR_CHOICES, hoursOfMinutes, MINUTE_CHOICES, minutesToldIn, NEW_AT_WON, type AtHistoryForm, type AtWonForm } from "./yen-tally-form"
@@ -268,6 +269,7 @@ function AtHistoryFields(props: { readonly editing: YenTallyEditing }): JSX.Elem
   const put = (change: Partial<AtHistoryForm>): void => editing.set("atHistory")({ ...history(), ...change })
   const putAt = (index: number, change: Partial<AtWonForm>): void => put({ ats: history().ats.map((at, place) => (place === index ? { ...at, ...change } : at)) })
   const cz = (): boolean => ((found) => found?.type === "inferable" && found.formula.normalized.atRules?.trigger !== undefined)(editing.inferable())
+  const trigger = () => ((found) => triggerWordsOf(found?.type === "inferable" ? found.formula.normalized : undefined))(editing.inferable())
   return (
     <>
       <p class="text-xs text-text-muted">データカウンターの履歴</p>
@@ -288,7 +290,7 @@ function AtHistoryFields(props: { readonly editing: YenTallyEditing }): JSX.Elem
             <div class="grid gap-2" classList={{ "grid-cols-2": cz(), "grid-cols-1": !cz() }}>
               <TextField label="ゲーム数" value={at().games} onChange={(games) => putAt(index, { games })} inputMode="numeric" suffix="G" onFocus={editing.weighNudge.settle} compact />
               <Show when={cz()}>
-                <TextField label="CZスルー" value={at().misses} onChange={(misses) => putAt(index, { misses })} inputMode="numeric" suffix="回" onFocus={editing.weighNudge.settle} compact />
+                <TextField label={`${trigger().name}スルー`} value={at().misses} onChange={(misses) => putAt(index, { misses })} inputMode="numeric" suffix="回" onFocus={editing.weighNudge.settle} compact />
               </Show>
             </div>
           </div>
@@ -402,7 +404,7 @@ export function ResultAndWeighing(props: { readonly editing: YenTallyEditing }):
         <div class={HALF_ON_A_WIDE_SCREEN}>
           <PachislotViews.SettingInferenceLine inference={editing.settingInference()} />
           <Show when={editing.missesWouldSharpen()}>
-            <p class="mt-1.5 animate-[emerge_1.6s_ease-out] text-xs text-warning">{PachislotWording.MISSES_SHARPEN}</p>
+            <p class="mt-1.5 animate-[emerge_1.6s_ease-out] text-xs text-warning">{PachislotWording.missesSharpen(((found) => triggerWordsOf(found?.type === "inferable" ? found.formula.normalized : undefined))(editing.inferable()))}</p>
           </Show>
         </div>
       </Show>

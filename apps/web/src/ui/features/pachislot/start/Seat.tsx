@@ -17,6 +17,7 @@ import { Loaded } from "../../../primitives/states"
 import { TextField } from "../../../primitives/text-field"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
 import { priorName } from "../../../wording/pachislot/formula"
+import { triggerWordsOf } from "../../../wording/pachislot/trigger"
 import { useBookFavorites } from "../../live/book-favorites"
 import { useStartForm } from "../../live/start-form"
 import { OutlookPanel } from "../live/OutlookPanel"
@@ -194,7 +195,7 @@ function SeatCounter(props: { readonly state: SeatState; readonly nudged: boolea
           />
           <Show when={hasCz(props.state.weighing()?.formula.normalized ?? NO_MACHINE)}>
             <TextField
-              label="CZ間のゲーム数"
+              label={`${triggerWordsOf(props.state.weighing()?.formula.normalized).name}間のゲーム数`}
               value={start.form().pachislot.seatSinceCz}
               onChange={(seatSinceCz) => start.updatePachislot({ seatSinceCz })}
               inputMode="numeric"
@@ -206,7 +207,7 @@ function SeatCounter(props: { readonly state: SeatState; readonly nudged: boolea
               compact
             />
             <TextField
-              label="CZスルー回数"
+              label={`${triggerWordsOf(props.state.weighing()?.formula.normalized).name}スルー回数`}
               value={start.form().pachislot.seatMisses}
               onChange={(seatMisses) => start.updatePachislot({ seatMisses })}
               inputMode="numeric"

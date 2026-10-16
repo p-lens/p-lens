@@ -11,7 +11,8 @@
 %
 % A cycle is so many regular games, each staking the bet and losing what
 % the ベース says, then an AT that gains its medals at the 純増 a game, each
-% of those games staked like any other. Medals out over medals in is the
+% of those games staked like any other — and where the trigger is a bonus,
+% each it brings gaining its medals over games of its own. Medals out over medals in is the
 % 機械割; solved for the AT's medals, it is what a stated 機械割 implies.
 %
 % The engine is checked, not believed. The games a cycle lasts follow from
@@ -73,7 +74,7 @@ rule(cut_short, cut_short(Level), ( shares(Level, Shares), at_ceilings(AtCeiling
 % games apart on average, its ceiling included. In one with an AT間天井,
 % the chance play has lasted each game is worked game by game up to it.
 rule(cycle_cut, cycle(Level, Games, Triggers),
-     ( cut_short(Level), given(chance(Level, Chance)), success(Level, Success), misses(Misses),
+     ( cut_short(Level), given(chance(Level, Chance)), success(Level, Success), mode_misses(Misses),
        ceilings(Ceilings), shares(Level, Shares), at_ceilings(AtCeilings),
        run_cut(Chance, Success, Misses, Ceilings, Shares, AtCeilings, Games, Triggers) )).
 rule(cycle_free, cycle(Level, Games, Triggers),
@@ -83,6 +84,13 @@ rule(success_of_cz, success(Level, Success), ( given(cz), given(success(Level, S
 rule(success_direct, success(_, 1), \+ given(cz)).
 rule(within_misses, misses(Misses), given(misses(Misses))).
 rule(without_misses, misses(none), \+ given(misses(_))).
+
+% Each mode's スルー天井, in the order of the modes: the CZ's, the same for
+% every mode, or where a スルー天井 is drawn after each AT, a mode for each
+% with its own — a cycle is then played out mode by mode.
+rule(misses_shared, mode_misses(Misses), ( \+ given(misses_by_mode), misses(Each), ceilings(Ceilings), repeated(Each, Ceilings, Misses) )).
+rule(misses_by_mode, mode_misses(Misses), ( given(misses_by_mode), findall(Each, given(mode_misses(_, Each)), Misses) )).
+rule(cut_by_misses, cut_short(_), given(misses_by_mode)).
 
 % A mode's ceiling in regular games: as the sheet gives it, or counted on
 % the screen and so reached that many regular games sooner. Its AT間天井,
@@ -113,8 +121,12 @@ rule(settled_share, settled_share(Level, Completion, Share),
 % none held, and the medals and the share that reach the cap are averaged
 % over them.
 rule(gain_from_rate, gain(Level, Gain),
-     ( given(stated_rate(Level, Rate)), cycle_games(Level, Games), given(bet(Bet)), net(Net),
+     ( \+ given(trigger_payout(_)), given(stated_rate(Level, Rate)), cycle_games(Level, Games), given(bet(Bet)), net(Net),
        loss_per_game(Loss), Spread is 1 + Bet * (1 - Rate) / Net, Gain is Games * (Bet * (Rate - 1) + Loss) / Spread )).
+rule(gain_from_rate_beside_bonuses, gain(Level, Gain),
+     ( given(trigger_payout(_)), given(stated_rate(Level, Rate)), cycle_games(Level, Games), bonuses(Level, Bonus, Own),
+       given(bet(Bet)), net(Net), loss_per_game(Loss), Spread is 1 + Bet * (1 - Rate) / Net,
+       Gain is (Bet * (Rate - 1) * (Games + Own) + Loss * Games - Bonus) / Spread )).
 rule(gain_fixed, gain(Level, Gain), ( \+ given(cap(_)), given(law(Level, fixed(Gain))) )).
 rule(gain_in_sets, gain(Level, Gain),
      ( \+ given(cap(_)), given(law(Level, sets(First, Set, Carry))), Gain is First + Set * Carry / (1 - Carry) )).
@@ -131,17 +143,35 @@ rule(law_as_given, law(Level, Law), ( given(law(Level, Law)), Law \== table )).
 rule(law_by_table, law(Level, table(Rows)),
      ( given(law(Level, table)), findall(o(Medals, Share), given(payout_row(Level, Medals, Share)), Rows) )).
 rule(arrivals_in_window, arrivals(Level, Arrivals),
-     ( given(window(Window)), given(chance(Level, Chance)), success(Level, Success), misses(Misses), ceilings(Ceilings),
+     ( given(window(Window)), given(chance(Level, Chance)), success(Level, Success), mode_misses(Misses), ceilings(Ceilings),
        findall(Share, given(allotted(Level, _, Share, _)), Shares), at_ceilings(AtCeilings),
        arriving(Chance, Success, Misses, Ceilings, Shares, AtCeilings, Window, Arrivals) )).
 rule(no_window, arrivals(_, none), \+ given(window(_))).
 rule(completion_under_cap, completion(Level, Completion), capped(Level, _, Completion)).
 rule(completion_solved, completion(Level, Completion), ( \+ capped(Level, _, _), given(engine(completion(Level), Completion)) )).
 
-% 機械割: medals out over medals in, across a cycle and its AT.
+% ボーナス: where the trigger is a bonus, each one a cycle brings gains its
+% medals, the AT won or not, over games of its own — counted where its 純増
+% is given — each staked like any other. A cycle brings the triggers it is
+% tried until one wins, or as it is played out to an AT間天井, whose AT is
+% no bonus's.
+rule(cycle_triggers_free, cycle_triggers(Level, Triggers), ( \+ cut_short(Level), triggers(Level, Triggers) )).
+rule(cycle_triggers_cut, cycle_triggers(Level, Triggers), ( cut_short(Level), cycle(Level, _, Triggers) )).
+rule(bonuses, bonuses(Level, Medals, Games),
+     ( given(trigger_payout(Each)), cycle_triggers(Level, Triggers), bonus_games(Each, Own),
+       Medals is Triggers * Each, Games is Triggers * Own )).
+rule(bonus_games_counted, bonus_games(Each, Own), ( given(trigger_net(Net)), Own is Each / Net )).
+rule(bonus_games_uncounted, bonus_games(_, 0), \+ given(trigger_net(_))).
+
+% 機械割: medals out over medals in, across a cycle and its AT, and its
+% bonuses where the trigger is one.
 rule(rate, rate(Level, Rate),
-     ( gain(Level, Gain), cycle_games(Level, Games), given(bet(Bet)), net(Net), loss_per_game(Loss),
+     ( \+ given(trigger_payout(_)), gain(Level, Gain), cycle_games(Level, Games), given(bet(Bet)), net(Net), loss_per_game(Loss),
        AtGames is Gain / Net, Staked is Bet * (Games + AtGames), Out is Staked - Loss * Games + Gain, Rate is Out / Staked )).
+rule(rate_beside_bonuses, rate(Level, Rate),
+     ( given(trigger_payout(_)), gain(Level, Gain), cycle_games(Level, Games), bonuses(Level, Bonus, Own), given(bet(Bet)), net(Net),
+       loss_per_game(Loss), AtGames is Gain / Net, Staked is Bet * (Games + Own + AtGames),
+       Out is Staked - Loss * Games + Gain + Bonus, Rate is Out / Staked )).
 
 % Checks, each ending in a verdict rather than failing, so a disagreement
 % is shown, not hidden: the 初当たり the engine's chance below the ceilings
@@ -221,6 +251,10 @@ worked(entered_ceiling(_, _)).
 worked(run_cut(_, _, _, _, _, _, _, _)).
 worked(arriving(_, _, _, _, _, _, _, _)).
 worked(under_cap(_, _, _, _, _, _)).
+worked(repeated(_, _, _)).
+
+repeated(_, [], []).
+repeated(Each, [_|Rest], [Each|Repeated]) :- repeated(Each, Rest, Repeated).
 
 keys_of([], []).
 keys_of([Key-_|Pairs], [Key|Keys]) :- keys_of(Pairs, Keys).
@@ -303,7 +337,7 @@ run_cut(Chance, Success, Misses, Ceilings, Shares, AtCeilings, Games, Triggers) 
     remembered(run(Chance, Success, Misses, Ceilings, Shares, AtCeilings), Games-Triggers,
                cut_modes(Ceilings, Shares, AtCeilings, Chance, Success, Misses, 0.0, 0.0, Games, Triggers)).
 cut_modes([], [], [], _, _, _, Games, Triggers, Games, Triggers).
-cut_modes([Ceiling|Ceilings], [Share|Shares], [AtCeiling|AtCeilings], Chance, Success, Misses, Games0, Triggers0, Games, Triggers) :-
+cut_modes([Ceiling|Ceilings], [Share|Shares], [AtCeiling|AtCeilings], Chance, Success, [Misses|MoreMisses], Games0, Triggers0, Games, Triggers) :-
     (   Share =:= 0
     ->  Games1 = Games0, Triggers1 = Triggers0
     ;   AtCeiling == none
@@ -311,7 +345,7 @@ cut_modes([Ceiling|Ceilings], [Share|Shares], [AtCeiling|AtCeilings], Chance, Su
         Games1 is Games0 + Share * Brought * Between, Triggers1 is Triggers0 + Share * Brought
     ;   mode_run(Chance, Success, Misses, Ceiling, AtCeiling, Lasting, Counted), sum_list(Lasting, Lasted), last(Counted, Brought),
         Games1 is Games0 + Share * Lasted, Triggers1 is Triggers0 + Share * Brought ),
-    cut_modes(Ceilings, Shares, AtCeilings, Chance, Success, Misses, Games1, Triggers1, Games, Triggers).
+    cut_modes(Ceilings, Shares, AtCeilings, Chance, Success, MoreMisses, Games1, Triggers1, Games, Triggers).
 
 % The chance the next AT is won on each game of the window after one: the
 % chance play lasted to the game before less the chance it lasts this one,
@@ -320,14 +354,14 @@ arriving(Chance, Success, Misses, Ceilings, Shares, AtCeilings, Window, Arrivals
     remembered(arriving(Chance, Success, Misses, Ceilings, Shares, AtCeilings, Window), Arrivals,
                ( zeros(Window, None), arriving_modes(Ceilings, Shares, AtCeilings, Chance, Success, Misses, Window, None, Arrivals) )).
 arriving_modes([], [], [], _, _, _, _, Arrivals, Arrivals).
-arriving_modes([Ceiling|Ceilings], [Share|Shares], [AtCeiling|AtCeilings], Chance, Success, Misses, Window, Sum, Arrivals) :-
+arriving_modes([Ceiling|Ceilings], [Share|Shares], [AtCeiling|AtCeilings], Chance, Success, [Misses|MoreMisses], Window, Sum, Arrivals) :-
     (   Share =:= 0
     ->  Next = Sum
     ;   ( AtCeiling == none -> Reach is Window + 1 ; Reach is min(AtCeiling, Window + 1) ),
         mode_run(Chance, Success, Misses, Ceiling, Reach, Lasting, _), won_each(Lasting, Won),
         ( Reach > Window -> Wins = Won ; last(Lasting, Left), Rest is Window - Reach, zeros(Rest, None), append(Won, [Left|None], Wins) ),
         weighed(Sum, Share, Wins, Next) ),
-    arriving_modes(Ceilings, Shares, AtCeilings, Chance, Success, Misses, Window, Next, Arrivals).
+    arriving_modes(Ceilings, Shares, AtCeilings, Chance, Success, MoreMisses, Window, Next, Arrivals).
 won_each([_], []) :- !.
 won_each([Before, After|Lasting], [Won|Wins]) :- Won is Before - After, won_each([After|Lasting], Wins).
 weighed([], _, [], []).

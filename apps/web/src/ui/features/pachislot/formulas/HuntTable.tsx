@@ -2,7 +2,7 @@ import { createMemo, createResource, createSignal, For, Show, type JSX } from "s
 
 import { huntTable } from "../../../../application/pachislot/hunt"
 import type { Basis } from "../../../../core/pachislot/formula"
-import { huntSeatsOf, resetMatters } from "../../../../core/pachislot/path"
+import { deepestMisses, huntSeatsOf, resetMatters } from "../../../../core/pachislot/path"
 import { DEFAULT_PRIOR } from "../../../../core/pachislot/prior"
 import { useApp } from "../../../context"
 import { Loaded } from "../../../primitives/states"
@@ -10,6 +10,7 @@ import { Select } from "../../../primitives/select"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
 import { formatCount, theoreticalFigureText } from "../../../wording/numbers"
 import { aboutText, priorName, shareText } from "../../../wording/pachislot/formula"
+import { triggerWordsOf } from "../../../wording/pachislot/trigger"
 import { readTerms } from "../../live/start-terms"
 import { useStartForm } from "../../live/start-form"
 
@@ -26,7 +27,8 @@ export function HuntTable(props: { readonly basis: Basis }): JSX.Element {
   const start = useStartForm()
   const [afterReset, setAfterReset] = createSignal(false)
   const [misses, setMisses] = createSignal(0)
-  const limit = (): number | undefined => props.basis.normalized.atRules?.misses
+  const limit = (): number | undefined =>
+    ((rules) => (rules === undefined ? undefined : deepestMisses(rules)))(props.basis.normalized.atRules)
   const terms = createMemo(() => ((read) => (read.ok ? read.value : undefined))(readTerms(start.form().terms.slot, "slot")))
   const seats = createMemo(() => huntSeatsOf(props.basis.normalized, afterReset(), misses()))
   const [rows] = createResource(
@@ -47,7 +49,7 @@ export function HuntTable(props: { readonly basis: Basis }): JSX.Element {
           {(most) => (
             <div class="w-36">
               <Select
-                label="CZスルー"
+                label={`${triggerWordsOf(props.basis.normalized).name}スルー`}
                 placeholder="0回"
                 options={Array.from({ length: most + 1 }, (_, count) => ({ value: String(count), label: `${String(count)}回` }))}
                 value={String(misses())}
@@ -85,7 +87,7 @@ export function HuntTable(props: { readonly basis: Basis }): JSX.Element {
           )}
         </Loaded>
       </Show>
-      <p class="text-xs text-text-muted">設定配分「{priorName(DEFAULT_PRIOR)}」のもとで、通常時は現金で打ち、次のATが終わるまでの平均です。{misses() > 0 ? "CZスルーは、CZに失敗した直後として出しています。" : ""}</p>
+      <p class="text-xs text-text-muted">設定配分「{priorName(DEFAULT_PRIOR)}」のもとで、通常時は現金で打ち、次のATが終わるまでの平均です。{misses() > 0 ? ((trigger) => `${trigger.name}スルーは、${trigger.missed}の直後として出しています。`)(triggerWordsOf(props.basis.normalized)) : ""}</p>
     </section>
   )
 }

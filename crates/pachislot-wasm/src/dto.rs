@@ -299,7 +299,9 @@ pub struct AtRulesDto {
     /// never written.
     #[serde(default, skip_serializing)]
     pub at_ceiling: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The one スルー天井 of a spec stored before each mode said its own,
+    /// which every mode is read to have; never written.
+    #[serde(default, skip_serializing)]
     pub misses: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub net_per_game: Option<f64>,
@@ -309,6 +311,19 @@ pub struct AtRulesDto {
     pub window: Option<u32>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub reset_on_cap: bool,
+    /// What the trigger pays each time it comes, where it is a bonus.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trigger_payout: Option<TriggerPayoutDto>,
+}
+
+/// A bonus trigger's medals, and the medals a game of it gains where its
+/// games are counted.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TriggerPayoutDto {
+    pub medals: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub net_per_game: Option<f64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -319,6 +334,8 @@ pub struct ModeRuleDto {
     pub ceiling: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub at_ceiling: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub misses: Option<u32>,
 }
 
 /// A spec to normalise, or one normalised before and stored, solved as it is.
@@ -326,7 +343,7 @@ pub struct ModeRuleDto {
 #[serde(tag = "type", rename_all = "kebab-case")]
 pub enum SourceDto {
     Spec { spec: Box<SpecDto> },
-    Normalized { normalized: NormalizedSpecDto },
+    Normalized { normalized: Box<NormalizedSpecDto> },
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -598,13 +615,14 @@ pub struct HuntRequest {
 }
 
 /// What a seat comes to: the regular games played on average, the AT's
-/// medals, the medals over both and in yen, and the chance the AT is won by
-/// a ceiling.
+/// medals and what the bonuses that are its trigger pay on the way, the
+/// medals over them and in yen, and the chance the AT is won by a ceiling.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct HuntDto {
     pub games: f64,
     pub at_medals: f64,
+    pub trigger_medals: f64,
     pub medals: f64,
     pub yen: f64,
     pub by_ceiling: f64,
@@ -876,6 +894,9 @@ pub enum ErrorDto {
         entity: String,
     },
     AtCeilingWithoutCz {
+        entity: String,
+    },
+    MissesWithoutCz {
         entity: String,
     },
     EmptySet {

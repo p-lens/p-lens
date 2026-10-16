@@ -121,6 +121,8 @@ const describeEngineError = (error: EngineErrorDto): string => {
       return `モードのあるAT機では、設定変更後もAT後と同じモードに入るため、設定変更後のAT間天井は入れられません。「${error.entity}」のリセット後の天井は外してください。`
     case "at-ceiling-without-cz":
       return `モードのAT間天井は、CZからATに入る機種にだけ入れられます。CZのない機種では、モードの天井がそのままAT間天井です。「${error.entity}」のAT間天井は外してください。`
+    case "misses-without-cz":
+      return `モード「${error.entity}」のスルー天井は、CZからATに入る機種にだけ入れられます。CZのない機種は、ATを直接引くのでスルーしません。`
     case "empty-set":
       return `AT「${error.entity}」の1セットの枚数が0枚です。1枚以上にしてください。`
     case "empty-net-per-game":

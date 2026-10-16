@@ -185,6 +185,12 @@ export const standingOf = (path: PathDto, normalized?: NormalizedSpecDto): AtSta
  */
 export const atCeilingOf = (rules: AtRulesDto, mode: ModeRuleDto): number | undefined => mode.atCeiling ?? rules.atCeiling
 
+/** A mode's スルー天井: its own, or the one a spec stored before each mode said its own gave every mode. */
+export const missesOf = (rules: AtRulesDto, mode: ModeRuleDto): number | undefined => mode.misses ?? rules.misses
+
+/** The deepest スルー天井 over a machine's modes; none where some mode has none. */
+export const deepestMisses = (rules: AtRulesDto): number | undefined => deepest(rules.modes.map((mode) => missesOf(rules, mode)))
+
 /** The modes some setting allots play to, after a setting change or after an AT. */
 const reachableModes = (normalized: NormalizedSpecDto, afterReset: boolean): readonly ModeRuleDto[] =>
   (normalized.atRules?.modes ?? []).filter((_, index) =>
@@ -223,7 +229,7 @@ export const ceilingsOf = (standing: AtStanding, normalized: NormalizedSpecDto):
   return {
     trigger: trigger === undefined ? undefined : Math.max(0, trigger - standing.sinceTrigger),
     at: at === undefined ? undefined : Math.max(0, at - standing.sinceAt),
-    misses: rules?.misses === undefined ? undefined : { missed: standing.misses, limit: rules.misses },
+    misses: ((limit) => (limit === undefined ? undefined : { missed: standing.misses, limit }))(rules === undefined ? undefined : deepest(modes.map((mode) => missesOf(rules, mode)))),
     zone: zoneOf(standing, rules),
   }
 }

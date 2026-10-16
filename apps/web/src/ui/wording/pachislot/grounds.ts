@@ -148,8 +148,20 @@ const sharesIn = (step: Step): readonly number[] => {
 
 const ceilingText = (ceiling: number | "none"): string => (ceiling === "none" ? "なし" : games(ceiling))
 
-/** The trigger in a word: the CZ, or the AT a game wins directly. */
-const triggerWord = (naming: GroundsNaming): string => (naming.trigger === "cz" ? "CZ" : "AT")
+/** The trigger in a word: the CZ, the bonus by its label, or the AT a game wins directly. */
+const triggerWord = (naming: GroundsNaming): string => {
+  switch (naming.trigger.type) {
+    case "cz":
+      return "CZ"
+    case "bonus":
+      return naming.trigger.label
+    case "at":
+      return "AT"
+  }
+}
+
+/** How often the trigger wins the AT, in a word: a CZ's success rate, a bonus's share that wins it. */
+const successWord = (naming: GroundsNaming): string => (naming.trigger.type === "bonus" ? `${naming.trigger.label}のAT当選率` : "CZ成功率")
 
 /** What play in a mode is called: a mode of the sheet's own by its label, else after an AT or after a setting change. */
 const modeName = (naming: GroundsNaming, index: number): string => {
@@ -162,7 +174,16 @@ const modeName = (naming: GroundsNaming, index: number): string => {
 const ofMode = (naming: GroundsNaming, index: number, ceiling: string): string => (naming.modes[index]?.type === "after-at" ? ceiling : `${modeName(naming, index)}の${ceiling}`)
 
 /** A mode's trigger ceiling by name: the CZ天井, or the 天井 of an AT won directly. */
-const triggerCeilingName = (naming: GroundsNaming, index: number): string => ofMode(naming, index, naming.trigger === "cz" ? "CZ天井" : "天井")
+const triggerCeilingName = (naming: GroundsNaming, index: number): string => {
+  switch (naming.trigger.type) {
+    case "cz":
+      return ofMode(naming, index, "CZ天井")
+    case "bonus":
+      return ofMode(naming, index, `${naming.trigger.label}間天井`)
+    case "at":
+      return ofMode(naming, index, "天井")
+  }
+}
 
 /** A mode's AT間天井 by name: set apart only where a setting change shortens it. */
 const atCeilingName = (naming: GroundsNaming, index: number): string => (naming.modes[index]?.type === "after-reset" ? "設定変更後のAT間天井" : "AT間天井")
@@ -257,6 +278,78 @@ const gainFromRate = (step: Step): Said => {
     bare(shownSpread, SPREAD),
     link(near(product / shownSpread, known(gain), MEDALS)),
     figure(medals(gain)),
+  )
+}
+
+/** What a cycle's bonuses come to where the trigger is one: their medals, from how many it brings, and where their 純増 is given the games they take. */
+const bonusesIn = (step: Step): { readonly medals: number; readonly games: number } => {
+  const bonuses = stepUnder(step, "bonuses")
+  return { medals: known(arg(bonuses, 1)), games: known(arg(bonuses, 2)) }
+}
+
+/** A cycle's bonuses where the trigger is one: so many a cycle times what each gains, and the games they take where their 純増 is given. */
+const bonusesLine = (step: Step, naming: GroundsNaming): Said => {
+  const word = triggerWord(naming)
+  const triggers = known(arg(stepUnder(step, "cycle_triggers_free", "cycle_triggers_cut"), 1))
+  const each = known(givenNumber(step, "trigger_payout", 0))
+  const net = givenNumber(stepUnder(step, "bonus_games_counted"), "trigger_net", 0)
+  const [total, own] = [known(arg(step, 1)), known(arg(step, 2))]
+  return plain(
+    `1周期の${word}の獲得 ＝ ${word} `,
+    figure(times(triggers)),
+    " × ",
+    figure(medals(each)),
+    link(near(shownAt(triggers, TIMES) * shownAt(each, MEDALS), total, MEDALS)),
+    figure(medals(total)),
+    ...(net === undefined
+      ? [`（${word}中のゲーム数は数えない）`]
+      : [`；${word}中 ＝ `, figure(medals(total)), " ÷ 純増 ", figure(perGame(net)), link(near(shownAt(total, MEDALS) / shownAt(net, PER_GAME), own, GAMES)), figure(games(own))]),
+  )
+}
+
+/** The AT's medals a stated 機械割 implies beside the bonuses a cycle brings, which are taken from what the 機械割 gives before the AT has the rest. */
+const gainFromRateBesideBonuses = (step: Step, naming: GroundsNaming): Said => {
+  const word = triggerWord(naming)
+  const bet = known(givenNumber(step, "bet", 0))
+  const stated = known(givenNumber(step, "stated_rate", 1))
+  const cycle = known(cycleIn(step))
+  const loss = known(lossIn(step))
+  const net = known(netIn(step))
+  const bonus = bonusesIn(step)
+  const [spread = Number.NaN] = computedIn(step)
+  const numerator = bet * (stated - 1) * (cycle + bonus.games) + loss * cycle - bonus.medals
+  const shown = { stated: shownAt(stated, RATIO), cycle: shownAt(cycle, GAMES), loss: shownAt(loss, PER_GAME), net: shownAt(net, PER_GAME), own: shownAt(bonus.games, GAMES), medals: shownAt(bonus.medals, MEDALS) }
+  const shownNumerator = shownAt(numerator, MEDALS)
+  const substituted =
+    near(bet * (shown.stated - 1) * (shown.cycle + shown.own) + shown.loss * shown.cycle - shown.medals, numerator, MEDALS) && near(1 + (bet * (1 - shown.stated)) / shown.net, spread, SPREAD)
+  return plain(
+    "ATの平均獲得枚数 ＝（",
+    figure(medals(bet)),
+    " ×（機械割 ",
+    figure(ratio(stated)),
+    " − 1）×（通常 ",
+    figure(games(cycle)),
+    ` ＋ ${word}中 `,
+    figure(games(bonus.games)),
+    "）＋ 減り ",
+    figure(perGame(loss)),
+    " × 通常 ",
+    figure(games(cycle)),
+    ` − ${word}の獲得 `,
+    figure(medals(bonus.medals)),
+    "）÷（1 ＋ ",
+    figure(medals(bet)),
+    " ×（1 − 機械割 ",
+    figure(ratio(stated)),
+    "）÷ 純増 ",
+    figure(perGame(net)),
+    "）",
+    link(substituted),
+    figure(medals(numerator)),
+    " ÷ ",
+    figure(told(spread, SPREAD)),
+    link(near(shownNumerator / shownAt(spread, SPREAD), known(arg(step, 1)), MEDALS)),
+    figure(medals(arg(step, 1))),
   )
 }
 
@@ -392,28 +485,36 @@ const cycleFromFirstHit = (step: Step, naming: GroundsNaming): Said => {
   const close = link(near(worked, known(arg(step, 1)), GAMES))
   return won?.rule === "won_directly"
     ? plain(`1周期の通常ゲーム数 ＝ ${triggerWord(naming)} `, figure(times(1)), " × 初当たり分母 ", figure(told(odds, ODDS)), close, figure(games(arg(step, 1))))
-    : plain("1周期の通常ゲーム数 ＝ ATまでのCZ ", figure(times(triggers)), " × CZの初当たり分母 ", figure(told(odds, ODDS)), close, figure(games(arg(step, 1))))
+    : plain(`1周期の通常ゲーム数 ＝ ATまでの${triggerWord(naming)} `, figure(times(triggers)), ` × ${triggerWord(naming)}の初当たり分母 `, figure(told(odds, ODDS)), close, figure(games(arg(step, 1))))
 }
 
-/** A mode's ceilings as a cycle plays it out: its trigger's and its AT間天井, each by name. */
-const ceilingsOfMode = (naming: GroundsNaming, index: number, ceiling: number | "none", atCeiling: number | "none"): readonly (string | GroundsPart)[] => [
+/** A mode's ceilings as a cycle plays it out: its trigger's and its AT間天井, each by name, and its own スルー天井 where each mode has one. */
+const ceilingsOfMode = (naming: GroundsNaming, index: number, ceiling: number | "none", atCeiling: number | "none", misses: number | "none" | undefined): readonly (string | GroundsPart)[] => [
   `${triggerCeilingName(naming, index)} `,
   figure(ceilingText(ceiling)),
   `・${atCeilingName(naming, index)} `,
   figure(ceilingText(atCeiling)),
+  ...(misses === undefined ? [] : ["・スルー天井 ", figure(misses === "none" ? "なし" : times(misses))]),
 ]
+
+/** Each mode's スルー天井 a cycle step reasoned over, where a スルー天井 is drawn after each AT; none where the modes share one. */
+const missesByModeIn = (step: Step): readonly (number | "none")[] | undefined => {
+  const listed = stepUnder(step, "misses_by_mode")?.claim.args[0]
+  return Array.isArray(listed) ? listed.map((misses: Term) => numberOf(misses) ?? "none") : undefined
+}
 
 /** A cycle played out game by game up to the AT間天井 of the modes play enters, with what it was played out from. */
 const cycleCut = (step: Step, naming: GroundsNaming): Said => {
   const success = arg(stepUnder(step, "success_of_cz"), 1)
-  const misses = arg(stepUnder(step, "within_misses"), 0)
-  const trigger = [...(success === undefined ? [] : ["CZ成功率 ", figure(ratio(success))]), ...(misses === undefined ? [] : [success === undefined ? "" : "・", "スルー天井 ", figure(times(misses))])]
+  const misses = arg(stepUnder(stepUnder(step, "misses_shared"), "within_misses"), 0)
+  const byMode = missesByModeIn(step)
+  const trigger = [...(success === undefined ? [] : [`${successWord(naming)} `, figure(ratio(success))]), ...(misses === undefined ? [] : [success === undefined ? "" : "・", "スルー天井 ", figure(times(misses))])]
   const [ceilings, atCeilings, shares] = [ceilingsIn(step), atCeilingsIn(step), sharesIn(step)]
-  const entered = shares.flatMap((share, index) => (share > 0 ? [{ index, share, ceiling: ceilings[index] ?? "none", atCeiling: atCeilings[index] ?? "none" }] : []))
+  const entered = shares.flatMap((share, index) => (share > 0 ? [{ index, share, ceiling: ceilings[index] ?? "none", atCeiling: atCeilings[index] ?? "none", misses: byMode?.[index] }] : []))
   const played =
     entered.length === 1 && entered[0] !== undefined
-      ? ceilingsOfMode(naming, entered[0].index, entered[0].ceiling, entered[0].atCeiling)
-      : entered.flatMap((mode, place) => [place === 0 ? "" : "、", `${modeName(naming, mode.index)}（`, ...ceilingsOfMode(naming, mode.index, mode.ceiling, mode.atCeiling), "）を ", figure(rate(mode.share))])
+      ? ceilingsOfMode(naming, entered[0].index, entered[0].ceiling, entered[0].atCeiling, entered[0].misses)
+      : entered.flatMap((mode, place) => [place === 0 ? "" : "、", `${modeName(naming, mode.index)}（`, ...ceilingsOfMode(naming, mode.index, mode.ceiling, mode.atCeiling, mode.misses), "）を ", figure(rate(mode.share))])
   return plain(
     `天井を除いた${triggerWord(naming)}確率 `,
     figure(oneIn(givenNumber(step, "chance", 1))),
@@ -463,7 +564,7 @@ const cycleFree = (step: Step, naming: GroundsNaming): readonly Said[] => {
 }
 
 /** The CZs tried until one wins within a スルー天井, worked from the figures shown. */
-const wonWithinMisses = (step: Step): Said => {
+const wonWithinMisses = (step: Step, naming: GroundsNaming): Said => {
   const success = known(givenNumber(step, "success", 1))
   const misses = known(givenNumber(step, "misses", 0))
   const shown = shownAt(success, RATIO)
@@ -471,7 +572,7 @@ const wonWithinMisses = (step: Step): Said => {
   const power = shownAt(kept ** (misses + 1), RATIO)
   const left = shownAt(1 - power, RATIO)
   return plain(
-    "ATまでのCZ ＝（1 −（1 − CZ成功率 ",
+    `ATまでの${triggerWord(naming)} ＝（1 −（1 − ${successWord(naming)} `,
     figure(ratio(success)),
     "）^",
     figure(String(misses + 1)),
@@ -582,6 +683,51 @@ const rateLines = (step: Step): readonly Said[] => {
   ]
 }
 
+/** The 機械割 over a cycle, its bonuses and its AT, a line to each step: the AT's games, the medals staked, those paid out, and the one over the other. */
+const rateLinesBesideBonuses = (step: Step, naming: GroundsNaming): readonly Said[] => {
+  const word = triggerWord(naming)
+  const [atGames = Number.NaN, staked = Number.NaN, out = Number.NaN] = computedIn(step)
+  const gain = known(arg(stepsUnder(step).find((inner) => inner.claim.functor === "gain"), 1))
+  const net = known(netIn(step))
+  const loss = known(lossIn(step))
+  const cycle = known(cycleIn(step))
+  const bet = known(givenNumber(step, "bet", 0))
+  const bonus = bonusesIn(step)
+  const shown = { gain: shownAt(gain, MEDALS), net: shownAt(net, PER_GAME), loss: shownAt(loss, PER_GAME), cycle: shownAt(cycle, GAMES), own: shownAt(bonus.games, GAMES), medals: shownAt(bonus.medals, MEDALS) }
+  const [shownAtGames, shownStaked, shownOut] = [shownAt(atGames, GAMES), shownAt(staked, MEDALS), shownAt(out, MEDALS)]
+  return [
+    plain("ATのゲーム数 ＝ 獲得 ", figure(medals(gain)), " ÷ 純増 ", figure(perGame(net)), link(near(shown.gain / shown.net, atGames, GAMES)), figure(games(atGames))),
+    plain(
+      "1周期の投入 ＝ ",
+      figure(medals(bet)),
+      " ×（通常 ",
+      figure(games(cycle)),
+      ` ＋ ${word}中 `,
+      figure(games(bonus.games)),
+      " ＋ AT ",
+      figure(games(atGames)),
+      "）",
+      link(near(bet * (shown.cycle + shown.own + shownAtGames), staked, MEDALS)),
+      figure(medals(staked)),
+    ),
+    plain(
+      "1周期の払い出し ＝ 投入 ",
+      figure(medals(staked)),
+      " − 減り ",
+      figure(perGame(loss)),
+      " × 通常 ",
+      figure(games(cycle)),
+      " ＋ 獲得 ",
+      figure(medals(gain)),
+      ` ＋ ${word}の獲得 `,
+      figure(medals(bonus.medals)),
+      link(near(shownStaked - shown.loss * shown.cycle + shown.gain + shown.medals, out, MEDALS)),
+      figure(medals(out)),
+    ),
+    plain("機械割 ＝ 払い出し ", figure(medals(out)), " ÷ 投入 ", figure(medals(staked)), link(near(shownOut / shownStaked, known(arg(step, 1)), RATE)), figure(rate(arg(step, 1)))),
+  ]
+}
+
 /** The 初当たり the engine's chance below the ceilings comes back to, from the cycle's triggers over its games, against the one published. */
 const chanceChecked = (step: Step, naming: GroundsNaming): Said => {
   const cycle = stepUnder(step, "cycle_cut", "cycle_free")
@@ -626,6 +772,10 @@ const lineOf = (step: Step, naming: GroundsNaming): Said | undefined => {
       return plain(`設定${arg(step, 0) ?? "--"}`)
     case "gain_from_rate":
       return gainFromRate(step)
+    case "gain_from_rate_beside_bonuses":
+      return gainFromRateBesideBonuses(step, naming)
+    case "bonuses":
+      return bonusesLine(step, naming)
     case "net_over_all":
       return netOverAll(step)
     case "gain_solved":
@@ -655,11 +805,11 @@ const lineOf = (step: Step, naming: GroundsNaming): Said | undefined => {
     case "mode_at":
       return modeAt(step, naming)
     case "won_by_success":
-      return plain("ATまでのCZ ＝ 1 ÷ CZ成功率 ", figure(ratio(successOf(step))), link(near(1 / shownAt(successOf(step), RATIO), known(arg(step, 1)), TIMES)), figure(times(arg(step, 1))))
+      return plain(`ATまでの${triggerWord(naming)} ＝ 1 ÷ ${successWord(naming)} `, figure(ratio(successOf(step))), link(near(1 / shownAt(successOf(step), RATIO), known(arg(step, 1)), TIMES)), figure(times(arg(step, 1))))
     case "won_within_misses":
-      return wonWithinMisses(step)
+      return wonWithinMisses(step, naming)
     case "won_on_the_last_miss":
-      return plain("ATまでのCZ ＝ スルー天井 ", figure(times(givenNumber(step, "misses", 0))), " ＋ 1 ＝ ", figure(times(arg(step, 1))), "（CZ成功率 ", figure(rate(successOf(step))), "：スルー天井でだけ当選）")
+      return plain(`ATまでの${triggerWord(naming)} ＝ スルー天井 `, figure(times(givenNumber(step, "misses", 0))), " ＋ 1 ＝ ", figure(times(arg(step, 1))), `（${successWord(naming)} `, figure(rate(successOf(step))), "：スルー天井でだけ当選）")
     case "loss_per_game": {
       const base = known(givenNumber(step, "base", 0))
       return plain("通常時1Gあたりの減り ＝ 50枚 ÷ ベース ", figure(told(base, { ...WHOLE, unit: "G" })), link(near(50 / shownAt(base, WHOLE), known(arg(step, 0)), PER_GAME)), figure(perGame(arg(step, 0))))
@@ -718,6 +868,7 @@ const lineOf = (step: Step, naming: GroundsNaming): Said | undefined => {
 /** What one step of the proof says, a line to each step of its working; none for steps the line above already says. */
 const linesOf = (step: Step, naming: GroundsNaming): readonly Said[] => {
   if (step.rule === "rate") return rateLines(step)
+  if (step.rule === "rate_beside_bonuses") return rateLinesBesideBonuses(step, naming)
   if (step.rule === "cycle_free") return cycleFree(step, naming)
   const line = lineOf(step, naming)
   return line === undefined ? [] : [line]

@@ -348,10 +348,9 @@ fn a_cz_machine_is_read_with_its_trigger_its_ceilings_and_its_at_worked_out() {
         json!({
             "base": 40.0, "at": "at", "trigger": "cz",
             "modes": [
-                { "id": "cz", "ceiling": 600, "atCeiling": 1000 },
-                { "id": "cz:reset", "ceiling": 300, "atCeiling": 1000 }
-            ],
-            "misses": 3
+                { "id": "cz", "ceiling": 600, "atCeiling": 1000, "misses": 3 },
+                { "id": "cz:reset", "ceiling": 300, "atCeiling": 1000, "misses": 3 }
+            ]
         })
     );
     assert!(close(
@@ -471,6 +470,33 @@ fn a_cz_machine_stored_in_shape_two_has_its_one_at_ceiling_read_into_every_mode(
 }
 
 #[test]
+fn a_cz_machine_stored_with_one_through_ceiling_has_it_read_into_every_mode() {
+    let normalized = ok(&normalize(&json!({ "spec": value(CZ_SPEC) }).to_string()));
+    let mut stored = normalized.clone();
+    stored["atRules"]["misses"] = json!(3);
+    for mode in stored["atRules"]["modes"].as_array_mut().expect("modes") {
+        mode.as_object_mut().expect("a mode").remove("misses");
+    }
+    let solved = |normalized: &Value| {
+        ok(&analyze(
+            &json!({ "source": { "type": "normalized", "normalized": normalized }, "conditions": measured() })
+                .to_string(),
+        ))["settingLevels"]
+            .clone()
+    };
+    assert_eq!(solved(&stored), solved(&normalized));
+    let mut mixed = stored.clone();
+    mixed["atRules"]["modes"][0]["misses"] = json!(3);
+    assert_eq!(
+        error(&analyze(
+            &json!({ "source": { "type": "normalized", "normalized": mixed }, "conditions": measured() })
+                .to_string(),
+        )),
+        json!({ "type": "invalid-value", "field": "normalized.atRules.modes[0].misses" })
+    );
+}
+
+#[test]
 fn an_at_machine_s_small_win_is_counted_with_no_payout_of_its_own() {
     let mut spec = value(CZ_SPEC);
     spec["entities"]
@@ -578,4 +604,36 @@ fn a_watch_crosses_the_boundary_stored_and_weighed() {
         )),
         json!({ "type": "cues-exceed-trials", "segment": 0, "id": "big-games" })
     );
+}
+
+#[test]
+fn a_cz_that_is_a_bonus_carries_its_medals_through_the_stored_spec_and_the_hunt() {
+    let mut spec = value(CZ_SPEC);
+    spec["components"]["payout"]["cz"] = json!(100.0);
+    spec["components"]["netPerGame"]["cz"] = json!(5.0);
+    let normalized = ok(&normalize(&json!({ "spec": spec }).to_string()));
+    assert_eq!(
+        normalized["atRules"]["triggerPayout"],
+        json!({ "medals": 100.0, "netPerGame": 5.0 })
+    );
+    let weights = json!([{ "settingLevel": 1, "probability": 1.0 }]);
+    let play = json!({ "medalValue": 20, "rentalPrice": 20, "cashShare": 0 });
+    let seats = json!([{ "sinceTrigger": 0, "sinceAt": 0, "misses": 0, "afterReset": false }]);
+    let hunted = |source: Value| {
+        ok(&hunt(
+            &json!({ "source": source, "weights": weights, "play": play, "seats": seats })
+                .to_string(),
+        ))[0]
+            .clone()
+    };
+    let paid = hunted(json!({ "type": "normalized", "normalized": normalized }));
+    let plain = hunted(json!({ "type": "spec", "spec": value(CZ_SPEC) }));
+    assert!(paid["triggerMedals"].as_f64().expect("medals") > 0.0);
+    assert_eq!(plain["triggerMedals"], json!(0.0));
+    assert!(close(
+        &json!(
+            paid["medals"].as_f64().expect("medals") - plain["medals"].as_f64().expect("medals")
+        ),
+        &paid["triggerMedals"]
+    ));
 }

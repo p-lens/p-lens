@@ -34,6 +34,7 @@ import { describeError, describePlayLogError } from "../../../wording/errors"
 import { formatCount } from "../../../wording/numbers"
 import { describeCounterRefusal, observedOneInText, priorName } from "../../../wording/pachislot/formula"
 import { CHANGED_SINCE_MERGED, CHANGED_SINCE_REMOVED, MERGE_FAILED, MERGED, READING_REMOVED, REMOVAL_TAKEN_BACK, TAKE_BACK, TAKE_BACK_FAILED, UNMERGED } from "../../../wording/pachislot/play"
+import { triggerWordsOf } from "../../../wording/pachislot/trigger"
 import { ViewHeader } from "../../shell/ViewHeader"
 import { AtCounting, AtFigures, AtReadingComposer, createAtReading } from "./AtPlay"
 import { awaitsAtResult } from "./at-result-form"
@@ -442,7 +443,7 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
         >
           {(found) => {
             const day = () => daySeenOf(found(), shownAs())
-            const atReading = createAtReading(() => ({ sinceAt: liveSummary(found()).counterNow, outlay: liveSummary(found()).outlay, replay: replayOf(found()) }), write, board.post)
+            const atReading = createAtReading(() => ({ sinceAt: liveSummary(found()).counterNow, outlay: liveSummary(found()).outlay, replay: replayOf(found()) }), () => triggerWordsOf(weighing()?.formula.normalized), write, board.post)
             const composers = (): JSX.Element => (
               <Show when={atRules() === undefined} fallback={<AtReadingComposer reading={atReading} />}>
                 <ReadingComposer bonuses={bonuses()} standing={{ total: day()?.games ?? totalNowOf(found()), bonuses: day()?.bonuses ?? {}, outlay: liveSummary(found()).outlay, replay: replayOf(found()) }} write={write} post={board.post} />
@@ -452,7 +453,7 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
               <div class="flex flex-1 flex-col">
                 <div class="flex flex-1 flex-col gap-5 p-4">
                   <div class="-mb-2 flex flex-col gap-2">
-                    <Timeline checkpoints={found()} bonuses={bonuses()} revising={revising()?.index} onRevise={(index) => setRevising({ index })} onMerge={merge} strip />
+                    <Timeline checkpoints={found()} bonuses={bonuses()} trigger={triggerWordsOf(weighing()?.formula.normalized)} revising={revising()?.index} onRevise={(index) => setRevising({ index })} onMerge={merge} strip />
                     <hr class="border-border" />
                   </div>
                   <CornerTerms draft={props.draft} />
@@ -478,7 +479,7 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
                   <Show when={revising()} keyed fallback={composers()}>
                     {(doing) => (
                       <Show when={revisedStepOf(found(), doing.index)} fallback={composers()}>
-                        {(step) => <StepReviser index={doing.index} step={step()} bonuses={bonuses()} cz={atRules()?.trigger !== undefined} rewrite={rewrite} post={board.post} onRemove={() => removeStep(doing.index)} onDone={() => setRevising(undefined)} />}
+                        {(step) => <StepReviser index={doing.index} step={step()} bonuses={bonuses()} trigger={atRules()?.trigger === undefined ? undefined : triggerWordsOf(weighing()?.formula.normalized)} rewrite={rewrite} post={board.post} onRemove={() => removeStep(doing.index)} onDone={() => setRevising(undefined)} />}
                       </Show>
                     )}
                   </Show>

@@ -162,7 +162,8 @@ pub struct Components {
     pub cz: BTreeSet<EntityId>,
     /// How often a CZ wins the AT, under each setting.
     pub success: BTreeMap<EntityId, PerSettingLevel<BasisPoints>>,
-    /// スルー天井: the CZs missed since the last AT after which the next wins it.
+    /// スルー天井: the CZs missed since the last AT after which the next
+    /// wins it — on a CZ, or on a mode where each has its own.
     pub misses: BTreeMap<EntityId, NonZeroU32>,
     /// An AT paid in sets: the medals of its first, and of each set it
     /// carries on to.
@@ -288,7 +289,9 @@ pub struct Cue {
 
 /// A CZ: won from regular games at its published 合算 — its ceiling, its
 /// ceiling after a setting change and its modes included — and winning the
-/// AT at its success rate, or certainly after so many misses.
+/// AT at its success rate, or certainly after so many misses. A bonus that
+/// wins the AT at a share of its own is one too, paying its medals each
+/// time it comes, whether it wins the AT or not.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Cz {
     pub id: EntityId,
@@ -298,6 +301,12 @@ pub struct Cz {
     pub ceiling: Option<NonZeroU32>,
     pub reset_ceiling: Option<NonZeroU32>,
     pub misses: Option<NonZeroU32>,
+    /// Medals it gains over its own games each time it comes: a bonus's;
+    /// none for a CZ that pays nothing.
+    pub payout: Option<Medals>,
+    /// 純増: the medals a game of it gains, which says the games it takes;
+    /// none where they are not counted.
+    pub net_per_game: Option<Medals>,
 }
 
 /// A mode between ATs: its ceiling and its own AT間天井, if it has them,
@@ -309,6 +318,11 @@ pub struct Mode {
     pub label: String,
     pub ceiling: Option<NonZeroU32>,
     pub at_ceiling: Option<NonZeroU32>,
+    /// A mode's own スルー天井 on a machine a CZ brings the AT on: the
+    /// triggers missed since the last AT after which the next wins it, in
+    /// place of the CZ's — a スルー天井 drawn after each AT, two, four or
+    /// six, is a mode for each.
+    pub misses: Option<NonZeroU32>,
     pub allotment: PerSettingLevel<BasisPoints>,
     pub reset_allotment: Option<PerSettingLevel<BasisPoints>>,
 }

@@ -7,6 +7,7 @@ import type { RevisionRefusal } from "../../../core/pachislot/revision"
 import type { ReadingRefusal } from "../../../core/play-log/live"
 import { formulaIdText } from "../catalog"
 import { formatCount, UNSEEN_THEORETICAL } from "../numbers"
+import type { TriggerWords } from "./trigger"
 
 const KIND_NAMES: Readonly<Record<FormulaKind, string>> = { manual: "手入力", simulated: "解析値から計算", sampled: "シミュレータ" }
 
@@ -103,15 +104,16 @@ export const describeAtReadingRefusal = (refusal: ReadingRefusal): string => {
   }
 }
 
-const TAKEN_NAMES = { at: "AT当選", "cz-missed": "CZ失敗" } as const
+/** What was to be taken back, in the words of the machine's trigger. */
+const takenName = (taken: TakeBackRefusal["taken"], trigger: TriggerWords): string => (taken === "at" ? "AT当選" : trigger.missed)
 
 /** Why the last AT won or CZ missed was not taken back. */
-export const describeTakeBackRefusal = (refusal: TakeBackRefusal): string => {
+export const describeTakeBackRefusal = (refusal: TakeBackRefusal, trigger: TriggerWords): string => {
   switch (refusal.type) {
     case "none":
-      return `戻せる${TAKEN_NAMES[refusal.taken]}がありません。`
+      return `戻せる${takenName(refusal.taken, trigger)}がありません。`
     case "played-on":
-      return `${TAKEN_NAMES[refusal.taken]}のあとに記録があるので戻せません。上の履歴から直してください。`
+      return `${takenName(refusal.taken, trigger)}のあとに記録があるので戻せません。上の履歴から直してください。`
   }
 }
 

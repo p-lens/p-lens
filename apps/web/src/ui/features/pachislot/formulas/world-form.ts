@@ -47,8 +47,10 @@ export interface EntityRow {
   readonly atCeiling: string
   /** A CZ's chance of winning the AT, in percent by the level. */
   readonly success: Readonly<Record<string, string>>
-  /** A CZ's スルー天井: the misses after which the next CZ wins the AT, as typed; empty for none. */
+  /** A CZ's スルー天井 — or a mode's own, where a CZ brings the AT — the misses after which the next CZ wins it, as typed; empty for none. */
   readonly misses: string
+  /** A CZ that is a bonus: its 純増, the medals a game of it gains, as typed; empty where its games are not counted. */
+  readonly net: string
   /** A mode's 振り分け after a setting change, in percent by the level; empty for the same as after an AT. */
   readonly resetAllotment: Readonly<Record<string, string>>
   /** An AT's medals beyond their average, and its 有利区間. */
@@ -132,6 +134,7 @@ const row = (key: string, label: string, kind: EntityKindName, payout = ""): Ent
   resetAllotment: {},
   success: {},
   misses: "",
+  net: "",
   law: EMPTY_LAW,
 })
 
@@ -282,6 +285,8 @@ interface ReadRow {
   readonly misses: number | undefined
   /** A watch's trials, where more than one. */
   readonly trials: number | undefined
+  /** A CZ that is a bonus: its 純増, where given. */
+  readonly net: number | undefined
   readonly law: ReadLaw | undefined
 }
 
@@ -396,7 +401,8 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
   const allotment = isMode ? (sharesOf(form, entity.chances, `${name} 振り分け`, false) ?? []) : []
   const resetAllotment = isMode ? sharesOf(form, entity.resetAllotment, `${name} リセット時の振り分け`, true) : undefined
   const success = isCz ? (sharesOf(form, entity.success, `${name} 成功率`, false) ?? []) : []
-  const misses = isCz ? ceilingOf(entity.misses, `${name} スルー天井`) : Ok(undefined)
+  const misses = isCz || (isMode && hasCz(form)) ? ceilingOf(entity.misses, `${name} スルー天井`) : Ok(undefined)
+  const net: Read<number | undefined> = isCz && tidyTyped(entity.net) !== "" ? setOf(entity.net, `${name} 純増`) : Ok(undefined)
   const rule = payoutRule(entity)
   const payout: Read<number | undefined> =
     rule === "none" || (rule === "optional" && tidyTyped(entity.payout) === "") ? Ok(undefined) : medalsOf(entity.payout, `${name} 枚数`)
@@ -408,7 +414,7 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
   const atCeiling = isMode && hasCz(form) ? ceilingOf(entity.atCeiling, `${name} AT間天井`) : Ok(undefined)
   const law = entity.kind === "at" ? readLaw(form, entity, name) : Ok(undefined)
   const problems = [
-    ...problemsOf([label, payout, of, trials, ceiling, resetCeiling, atCeiling, misses, ...chances, ...allotment, ...(resetAllotment ?? []), ...success]),
+    ...problemsOf([label, payout, of, trials, net, ceiling, resetCeiling, atCeiling, misses, ...chances, ...allotment, ...(resetAllotment ?? []), ...success]),
     ...(law.ok ? [] : law.error),
   ]
   if (problems.length > 0 || !law.ok) return Err(problems)
@@ -424,6 +430,7 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
     success: isCz ? valuesOf(success) : undefined,
     misses: misses.ok ? misses.value : undefined,
     trials: trials.ok ? trials.value : undefined,
+    net: net.ok ? net.value : undefined,
     law: law.value,
   })
 }
@@ -461,7 +468,7 @@ const worldOf = (form: WorldForm, bet: number, at: MachineResources | undefined,
   const sets = keyed((read) => read.law?.sets)
   const carries = keyed((read) => read.law?.continuationRate)
   const tables = keyed((read) => read.law?.table)
-  const nets = keyed((read) => read.law?.net)
+  const nets = keyed((read) => read.law?.net ?? read.net)
   const otherNets = keyed((read) => read.law?.otherNets)
   const windows = keyed((read) => read.law?.window)
   const resetOnCap = rows.filter((read) => read.law?.resetOnCap === true).map((read) => read.entity.key)
@@ -531,7 +538,7 @@ export interface ReadWorld {
  * worked out from them.
  */
 export const readWorldForm = (form: WorldForm): Result<ReadWorld, readonly FormProblem[]> => {
-  const spec = readRows(form, (entity) => (entity.kind === "bonus" || entity.kind === "role" ? "required" : "none"))
+  const spec = readRows(form, (entity) => (entity.kind === "bonus" || entity.kind === "role" ? "required" : entity.kind === "cz" ? "optional" : "none"))
   return spec.ok ? Ok({ spec: spec.value, conditions: { payoutRate: { type: "from-spec" } } }) : spec
 }
 
@@ -543,7 +550,7 @@ export const readWorldForm = (form: WorldForm): Result<ReadWorld, readonly FormP
  * instead, beside its 純増, and the engine works both out from there.
  */
 export const readManualForm = (form: ManualForm): Result<ReadWorld, readonly FormProblem[]> => {
-  const spec = readRows(form.world, (entity) => (entity.kind === "bonus" ? "optional" : entity.kind === "at" && entity.law.shape === "average" ? "required" : "none"))
+  const spec = readRows(form.world, (entity) => (entity.kind === "bonus" || entity.kind === "cz" ? "optional" : entity.kind === "at" && entity.law.shape === "average" ? "required" : "none"))
   const rates: readonly Read<BySettingLevelDto<number>>[] = form.world.settingLevels.map((level) => {
     const read = rateOf(form.rates[String(level)] ?? "", `機械割 設定${level}`)
     return read.ok ? Ok({ settingLevel: level, value: read.value }) : read
@@ -614,6 +621,7 @@ export const worldFormOf = (spec: SpecDto): WorldForm => ({
     atCeiling: spec.components.atCeiling?.[entity] === undefined ? "" : String(spec.components.atCeiling[entity]),
     success: Object.fromEntries((spec.components.success?.[entity] ?? []).map((each) => [String(each.settingLevel), String(each.value / 100)])),
     misses: spec.components.misses?.[entity] === undefined ? "" : String(spec.components.misses[entity]),
+    net: spec.components.cz?.includes(entity) === true && spec.components.netPerGame?.[entity] !== undefined ? String(spec.components.netPerGame[entity]) : "",
     law: lawFormOf(spec, entity),
   })),
   base: spec.resources.base === undefined ? "" : String(spec.resources.base),

@@ -188,7 +188,7 @@ pub fn at_spec() -> Spec {
     }
 }
 
-fn shares(low: u32, high: u32) -> PerSettingLevel<BasisPoints> {
+pub fn shares(low: u32, high: u32) -> PerSettingLevel<BasisPoints> {
     PerSettingLevel(vec![
         (setting_level(1), BasisPoints::new(low).expect("a share")),
         (setting_level(6), BasisPoints::new(high).expect("a share")),
@@ -253,6 +253,29 @@ pub fn cz_spec() -> Spec {
     spec
 }
 
+/// The CZ machine with its スルー天井 drawn after each AT: two, four or six
+/// misses, a third of the time each — a mode for each, at the CZ's ceiling
+/// of 600 games.
+pub fn drawn_misses_spec() -> Spec {
+    let mut spec = cz_spec();
+    spec.components.ceiling.remove(&id("cz"));
+    spec.components.reset_ceiling.clear();
+    for (name, misses, share) in [("m2", 2, 3_400), ("m4", 4, 3_300), ("m6", 6, 3_300)] {
+        spec.entities.push(id(name));
+        spec.components.mode.insert(id(name));
+        spec.components
+            .ceiling
+            .insert(id(name), NonZeroU32::new(600).expect("a ceiling"));
+        spec.components
+            .misses
+            .insert(id(name), NonZeroU32::new(misses).expect("misses"));
+        spec.components
+            .allotment
+            .insert(id(name), shares(share, share));
+    }
+    spec
+}
+
 /// What the AT of the rules built here gains.
 pub const PAYOUT: f64 = 600.0;
 /// What a regular game loses on a ベース of 40 games.
@@ -264,7 +287,16 @@ pub fn mode(name: &str, ceiling: u32) -> ModeRule {
         id: id(name),
         ceiling: NonZeroU32::new(ceiling),
         at_ceiling: None,
+        misses: None,
     }
+}
+
+/// Modes each given the same スルー天井, or none.
+pub fn through(modes: Vec<ModeRule>, misses: Option<NonZeroU32>) -> Vec<ModeRule> {
+    modes
+        .into_iter()
+        .map(|mode| ModeRule { misses, ..mode })
+        .collect()
 }
 
 /// A mode with an AT間天井 of `at_ceiling` games beside its trigger's ceiling.
@@ -283,11 +315,11 @@ pub fn rules(trigger: Option<&str>, modes: Vec<ModeRule>) -> AtRules {
         at: id("at"),
         trigger: trigger.map(id),
         modes,
-        misses: None,
         net_per_game: None,
         cap: None,
         window: None,
         reset_on_cap: false,
+        trigger_payout: None,
     }
 }
 

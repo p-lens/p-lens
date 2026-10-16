@@ -3,7 +3,7 @@ import type { AnalysisDto, AtRulesDto, ComponentsDto, ProbabilityDto, SettingLev
 import { prologNumber } from "../../grounds/term"
 import type { SettingLevelFigures } from "../figures"
 import type { Basis } from "../formula"
-import { atCeilingOf } from "../path"
+import { atCeilingOf, missesOf } from "../path"
 
 const given = (fact: string): string => `given(${fact}).`
 
@@ -125,19 +125,34 @@ const storedFact = (stored: SettingLevelFigures, margin: SampledMargin | undefin
     : given(`sampled(${stored.settingLevel}, ${prologNumber(stored.payoutRate)}, ${prologNumber(margin.payoutRateMargin)})`)
 
 /**
+ * The スルー天井: one for every mode, or where a スルー天井 is drawn after
+ * each AT — a mode for each — each mode's own, in the engine's order.
+ */
+const missesFacts = (rules: AtRulesDto): readonly string[] => {
+  const each = rules.modes.map((mode) => missesOf(rules, mode))
+  if (each.every((misses) => misses === each[0])) return each[0] === undefined ? [] : [given(`misses(${each[0]})`)]
+  return [given("misses_by_mode"), ...each.map((misses, index) => given(`mode_misses(${index}, ${misses ?? "none"})`))]
+}
+
+/**
  * What the sheet says of the machine whatever the setting level: whether a
- * CZ brings its AT, with the CZ's スルー天井; the
+ * CZ brings its AT, with its スルー天井 and, where it is a bonus, its
+ * medals and its 純増; the
  * 有利区間's cap, the games it carries on after an AT short of it, and
  * whether play starts again as after a setting change once an AT reaches
  * it; and the screen's games a regular game comes to, where ceilings are
  * counted on the screen.
  */
-const machineFacts = (spec: SpecDto, at: string, trigger: string | undefined): readonly string[] => {
-  const misses = trigger === undefined ? undefined : spec.components.misses?.[trigger]
+const machineFacts = (spec: SpecDto, rules: AtRulesDto): readonly string[] => {
+  const { at, trigger } = rules
+  const bonus = trigger === undefined ? undefined : spec.components.payout?.[trigger]
+  const bonusNet = trigger === undefined ? undefined : spec.components.netPerGame?.[trigger]
   const window = spec.components.window?.[at]
   return [
     ...(trigger === undefined ? [] : [given("cz")]),
-    ...(misses === undefined ? [] : [given(`misses(${misses})`)]),
+    ...missesFacts(rules),
+    ...(bonus === undefined ? [] : [given(`trigger_payout(${prologNumber(bonus)})`)]),
+    ...(bonus === undefined || bonusNet === undefined ? [] : [given(`trigger_net(${prologNumber(bonusNet)})`)]),
     ...(spec.resources.cap === undefined ? [] : [given(`cap(${prologNumber(spec.resources.cap)})`)]),
     ...(window === undefined ? [] : [given(`window(${window})`)]),
     ...(spec.components.resetOnCap?.includes(at) === true ? [given("reset_on_cap")] : []),
@@ -161,7 +176,7 @@ export const groundsFacts = (basis: Basis, analysis: AnalysisDto, figures: reado
     given(`bet(${prologNumber(basis.normalized.bet)})`),
     given(`base(${prologNumber(rules.base)})`),
     ...netFacts(basis.spec, rules.at, rules.netPerGame),
-    ...machineFacts(basis.spec, rules.at, rules.trigger),
+    ...machineFacts(basis.spec, rules),
     ...modeFacts(basis.spec, rules, analysis.settingLevels.map((solved) => solved.settingLevel)),
     ...analysis.settingLevels.flatMap((solved) => levelFacts(solved, basis.spec, rules.at, rules.trigger, basis.normalized.tables.find((table) => table.settingLevel === solved.settingLevel)?.at?.chance)),
     ...figures.map((stored) => storedFact(stored, margins?.find((margin) => margin.settingLevel === stored.settingLevel))),

@@ -4,7 +4,7 @@
 use pachislot_domain::normalized::{AtRules, AtTable, ModeRule};
 use pachislot_domain::observation::PathStart;
 
-use crate::at::{Held, chances, gain_now, started};
+use crate::at::{Held, chances, gain_now, started, trigger_medals};
 
 /// What playing on from where play stands until the next AT is over comes
 /// to under one setting.
@@ -12,11 +12,14 @@ use crate::at::{Held, chances, gain_now, started};
 pub struct Hunted {
     /// Regular games played on average, the one the AT is won on included.
     pub games: f64,
-    /// Medals over them and the AT: what the AT gains, less what the regular
-    /// games lose.
+    /// Medals over them and the AT: what the AT gains and what the bonuses
+    /// that are its triggers pay, less what the regular games lose.
     pub medals: f64,
     /// What the AT gains on average.
     pub at_medals: f64,
+    /// What the bonuses that are the trigger pay on the way, the one that
+    /// wins the AT included; none where the trigger pays nothing.
+    pub trigger_medals: f64,
     /// The chance the AT is won by a ceiling rather than at the odds: the
     /// AT間天井 or the スルー天井 of a machine a CZ brings the AT on, the
     /// trigger's of one won directly, whose trigger is the AT.
@@ -29,6 +32,7 @@ impl Hunted {
         games: 0.0,
         medals: 0.0,
         at_medals: 0.0,
+        trigger_medals: 0.0,
         by_ceiling: 0.0,
     };
 
@@ -38,6 +42,7 @@ impl Hunted {
             games: self.games + weight * other.games,
             medals: self.medals + weight * other.medals,
             at_medals: self.at_medals + weight * other.at_medals,
+            trigger_medals: self.trigger_medals + weight * other.trigger_medals,
             by_ceiling: self.by_ceiling + weight * other.by_ceiling,
         }
     }
@@ -66,9 +71,9 @@ struct Going {
 impl Going {
     /// Play where it starts: certainly at the counts it was seen at, each
     /// kept within what is told apart.
-    fn seated(mode: &ModeRule, rules: &AtRules, since_trigger: u32, misses: u32) -> Self {
+    fn seated(mode: &ModeRule, since_trigger: u32, misses: u32) -> Self {
         let games = mode.ceiling.map_or(1, |ceiling| ceiling.get() as usize);
-        let told = rules.misses.map_or(1, |limit| limit.get() as usize + 1);
+        let told = mode.misses.map_or(1, |limit| limit.get() as usize + 1);
         let at = Self::place_in(
             games,
             (since_trigger as usize).min(games - 1),
@@ -106,8 +111,8 @@ fn counted(count: usize) -> u32 {
 }
 
 /// One game played in a mode `now` games after the last AT: what it adds —
-/// the game, and the AT won on it gaining `gain`, by a ceiling or at the
-/// odds — and where what is still going goes on to: the next game without
+/// the game, the AT won on it gaining `gain`, by a ceiling or at the odds,
+/// and what a bonus that is the trigger pays there — and where what is still going goes on to: the next game without
 /// a trigger, or a trigger missed.
 fn played(
     rules: &AtRules,
@@ -135,15 +140,9 @@ fn played(
             ),
             |(mut next, sum), (place, alive)| {
                 let (since_trigger, missed) = going.counts(place);
-                let (won, miss, quiet) = chances(
-                    rules,
-                    table,
-                    mode,
-                    counted(since_trigger),
-                    now,
-                    counted(missed),
-                );
-                let through = rules
+                let (won, miss, quiet) =
+                    chances(table, mode, counted(since_trigger), now, counted(missed));
+                let through = mode
                     .misses
                     .is_some_and(|limit| missed + 1 > limit.get() as usize);
                 let direct_ceiling = rules.trigger.is_none()
@@ -162,6 +161,7 @@ fn played(
                     games: 1.0,
                     medals: 0.0,
                     at_medals: won * gain,
+                    trigger_medals: trigger_medals(rules, mode, now, (won, miss)),
                     by_ceiling: if at_ceiling || through || direct_ceiling {
                         won
                     } else {
@@ -184,14 +184,11 @@ fn hunt_in_mode(
     (since_trigger, since_at, misses): (u32, u32, u32),
 ) -> Option<Hunted> {
     let finished = |sum: Hunted| Hunted {
-        medals: sum.at_medals - rules.base.loss_per_game() * sum.games,
+        medals: sum.at_medals + sum.trigger_medals - rules.base.loss_per_game() * sum.games,
         ..sum
     };
     let walked = (0..LONGEST).try_fold(
-        (
-            Going::seated(mode, rules, since_trigger, misses),
-            Hunted::NONE,
-        ),
+        (Going::seated(mode, since_trigger, misses), Hunted::NONE),
         |(going, sum), game| {
             if going.left() < SETTLED {
                 return Err(finished(sum));

@@ -1237,7 +1237,12 @@ only the primitives, the core and the application.
   of its own — 天国, 通常 — with its `ceiling`, its `allotment` after an AT
   and, where it differs, its `resetAllotment` after a setting change, each
   under every setting level; a machine of modes keeps its trigger's ceilings
-  on them. Where the ceilings count the screen's games, `lcdRate` says how
+  on them. On a machine a CZ brings the AT on, a mode may have its own
+  `misses` in place of the CZ's: a スルー天井 drawn after each AT — two,
+  four or six — is a mode for each, its share the draw, and misses past a
+  mode's スルー天井 rule it out where play is seen (`atRules.modes[].misses`;
+  a spec stored with one `atRules.misses` has it read into every mode).
+  Where the ceilings count the screen's games, `lcdRate` says how
   many the screen counts for each regular game, and the trigger's ceilings
   are taken that much sooner — on average, which the screen's additions are;
   the AT間天井 is counted in regular games.
@@ -1260,6 +1265,18 @@ only the primitives, the core and the application.
   and the 純増 over all its medals — what `atRules.netPerGame` holds — is
   one over that. Shares beyond the whole are refused
   (`other-net-beyond-whole`).
+- **A bonus that wins the AT at a share is the CZ.** A machine whose CZ
+  brings a bonus and the bonus the AT — or whose bonuses win the AT at a
+  share of their own — has the bonus as its `cz`: its 合算 the bonus
+  初当たり, its `success` the share of bonuses that win the AT, its
+  `ceiling` the ボーナス間天井 and its `misses` the bonuses missed before
+  one wins it. Its `payout` is what the bonus gains each time it comes, the
+  AT won or not, and its `netPerGame` the games that takes, where it is
+  known (`atRules.triggerPayout`). The 機械割 counts each cycle's bonuses
+  besides its AT, so the AT's gain worked from it is the AT's alone; the
+  walk and the hunt pay a bonus at its chance a game. An AT won on the
+  AT間天井 is no bonus's and pays none, and a bonus's medals are not
+  counted towards the 有利区間's cap.
 - Normalising gives `NormalizedSpec.atRules` — the ベース, the AT and its
   payout, the trigger (the CZ, or none where the AT is won directly), the
   modes with the trigger's ceiling in regular games, the AT間天井 and the

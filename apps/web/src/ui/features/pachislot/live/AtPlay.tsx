@@ -16,6 +16,7 @@ import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
 import { describeError } from "../../../wording/errors"
 import { formatCount } from "../../../wording/numbers"
 import { describeAtReadingRefusal, describeTakeBackRefusal } from "../../../wording/pachislot/formula"
+import { triggerWordsOf, type TriggerWords } from "../../../wording/pachislot/trigger"
 import type { Post } from "./NoticeBoard"
 import { type AtReadingForm, type AtReadingProblem, type AtStanding, atReadingFrom, readAtReadingForm } from "./at-reading-form"
 import { type AtResultForm, type AtResultProblem, atResultLine, type Completion, EMPTY_AT_RESULT, readAtResultForm } from "./at-result-form"
@@ -45,6 +46,7 @@ function Tile(props: { readonly label: string; readonly value: string; readonly 
 export function AtFigures(props: { readonly ordered: readonly Checkpoint[]; readonly normalized: NormalizedSpecDto }): JSX.Element {
   const summary = () => liveSummary(props.ordered)
   const cz = () => hasCz(props.normalized)
+  const trigger = () => triggerWordsOf(props.normalized)
   const standing = () => {
     const path = pathOf(props.ordered)
     return path === undefined ? undefined : standingOf(path, props.normalized)
@@ -59,19 +61,19 @@ export function AtFigures(props: { readonly ordered: readonly Checkpoint[]; read
       <Tile label="打ったゲーム数" value={formatCount(summary().spins)} note="G" />
       <Tile label="AT間のゲーム数" value={formatCount(standing()?.sinceAt ?? 0)} note="G" />
       <Show when={cz()}>
-        <Tile label="CZ間のゲーム数" value={formatCount(standing()?.sinceTrigger ?? 0)} note="G" />
+        <Tile label={`${trigger().name}間のゲーム数`} value={formatCount(standing()?.sinceTrigger ?? 0)} note="G" />
       </Show>
       <Tile label="貯メダル" value={((replay) => (replay === undefined ? "--" : formatCount(replay)))(props.ordered.findLast((checkpoint) => checkpoint.replay !== undefined)?.replay)} note="枚" />
       <Tile label="AT" value={formatCount(summary().jackpots)} note="回" />
       <Show when={cz()}>
         <Tile
-          label="CZスルー"
+          label={`${trigger().name}スルー`}
           value={formatCount(standing()?.misses ?? 0)}
           note={ceilings()?.misses === undefined ? "回" : `回 / 天井 ${formatCount(ceilings()?.misses?.limit ?? 0)}回`}
         />
       </Show>
       <Show when={ceilings()?.trigger !== undefined}>
-        <Tile label={cz() ? "CZ天井まで" : "天井まで"} value={formatCount(ceilings()?.trigger ?? 0)} note="G" />
+        <Tile label={cz() ? `${trigger().name}天井まで` : "天井まで"} value={formatCount(ceilings()?.trigger ?? 0)} note="G" />
       </Show>
       <Show when={ceilings()?.at !== undefined}>
         <Tile label="AT間天井まで" value={formatCount(ceilings()?.at ?? 0)} note="G" />
@@ -198,7 +200,16 @@ type Sending =
 type Ended = "going" | "cz-missed" | "at"
 
 /** What is said once a reading is kept, by how its games ended. */
-const KEPT_AS: Readonly<Record<Ended, string>> = { going: "記録しました", "cz-missed": "CZ失敗を記録しました", at: "AT当選を記録しました" }
+const keptAs = (ended: Ended, trigger: TriggerWords): string => {
+  switch (ended) {
+    case "going":
+      return "記録しました"
+    case "cz-missed":
+      return `${trigger.missed}を記録しました`
+    case "at":
+      return "AT当選を記録しました"
+  }
+}
 
 const sendingOf = (written: Written<ReadingRefusal>, ended: Ended): Sending => {
   switch (written.type) {
@@ -231,7 +242,7 @@ export interface AtReading {
  * as a CZ that missed. A counter that went back means an AT came that was
  * not written down, which can be added.
  */
-export const createAtReading = (standing: () => AtStanding, write: Write, post: Post): AtReading => {
+export const createAtReading = (standing: () => AtStanding, trigger: () => TriggerWords, write: Write, post: Post): AtReading => {
   const app = useApp()
   const standingForm = createMemo(() => atReadingFrom(standing()))
   const [form, setForm] = createSignal<AtReadingForm>(standingForm())
@@ -277,7 +288,7 @@ export const createAtReading = (standing: () => AtStanding, write: Write, post: 
     if (written.type !== "written") return
     setTouched(false)
     setForm(standingForm())
-    toast({ title: KEPT_AS[ended], stays: "glance" })
+    toast({ title: keptAs(ended, trigger()), stays: "glance" })
   }
   const refused = (): (Sending & { type: "refused" }) | undefined => {
     const current = sending()
@@ -411,19 +422,19 @@ export function AtCounting(props: {
   }
   const unkept = (): string | undefined => {
     const current = takingBack()
-    if (current?.type === "refused") return describeTakeBackRefusal(current.refusal)
+    if (current?.type === "refused") return describeTakeBackRefusal(current.refusal, triggerWordsOf(props.normalized))
     return current?.type === "failed" ? describeError(current.error) : undefined
   }
   props.post(() => ((said) => (said === undefined ? undefined : { tone: takingBack()?.type === "failed" ? "failed" : "refused", said }))(unkept()))
   return (
     <section class="flex flex-col gap-3">
       <h3 class="text-xs font-bold uppercase tracking-wide text-text-secondary">
-        {hasCz(props.normalized) ? "CZ・AT" : "AT"}
+        {hasCz(props.normalized) ? `${triggerWordsOf(props.normalized).name}・AT` : "AT"}
         <span class="ml-2 font-normal normal-case text-text-muted">長押しで1つ戻します</span>
       </h3>
       <div class="grid grid-cols-4 gap-2">
         <Show when={hasCz(props.normalized)}>
-          <EventTile label="CZ失敗" count={counted("cz-missed")} onPress={() => keep("cz-missed")} onLongPress={() => takeBack("cz-missed")} />
+          <EventTile label={triggerWordsOf(props.normalized).missed} count={counted("cz-missed")} onPress={() => keep("cz-missed")} onLongPress={() => takeBack("cz-missed")} />
         </Show>
         <EventTile label="AT当選" count={counted("jackpot")} onPress={() => keep("at")} onLongPress={() => takeBack("at")} />
       </div>

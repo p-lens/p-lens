@@ -5,14 +5,16 @@ mod support;
 use std::num::NonZeroU32;
 
 use pachislot_domain::conditions::PlayConditions;
-use pachislot_domain::normalized::AtRules;
+use pachislot_domain::normalized::{AtRules, ModeRule, TriggerPayout};
 use pachislot_domain::observation::PathStart;
 use pachislot_domain::probability::Probability;
 use pachislot_engine::at::cycle;
 use pachislot_engine::hunt::hunt;
 use pachislot_engine::normalize::normalize;
 use pachislot_engine::theoretical::hunt_theoretical_value;
-use support::{LOSS, PAYOUT, ceiled, cz_spec, mode, rules, setting_level, start, table};
+use support::{
+    LOSS, PAYOUT, ceiled, cz_spec, medals, mode, rules, setting_level, start, table, through,
+};
 
 fn near(left: f64, right: f64) -> bool {
     (left - right).abs() <= 1e-9 * right.abs().max(1.0)
@@ -55,10 +57,7 @@ fn from_just_after_an_at_it_is_the_cycle() {
         (vec![mode("cz", 150)], NonZeroU32::new(3)),
         (vec![ceiled("cz", 0, 600)], None),
     ] {
-        let machine = AtRules {
-            misses,
-            ..rules(Some("cz"), modes)
-        };
+        let machine = rules(Some("cz"), through(modes, misses));
         let found =
             hunt(start(0, 0, 0), &machine, &table(p, q, vec![1.0], vec![1.0])).expect("comes");
         let whole = cycle(&machine, p, q, &[1.0]);
@@ -94,10 +93,7 @@ fn a_setting_change_s_shorter_at_ceiling_holds_for_a_seat_after_one() {
 #[test]
 fn a_cz_missed_to_the_through_ceiling_wins_on_the_next() {
     let (p, q) = (0.01, 0.3);
-    let machine = AtRules {
-        misses: NonZeroU32::new(3),
-        ..rules(Some("cz"), vec![mode("cz", 0)])
-    };
+    let machine = rules(Some("cz"), through(vec![mode("cz", 0)], NonZeroU32::new(3)));
     let found = hunt(
         start(0, 100, 3),
         &machine,
@@ -147,4 +143,59 @@ fn a_seat_is_worth_each_setting_s_hunt_by_how_likely_it_is_in_yen_less_the_renta
         found.yen,
         found.medals * 20.0 - found.games * 3.0 * 5.0
     ));
+}
+
+#[test]
+fn a_bonus_that_is_the_trigger_pays_each_time_it_comes_until_one_wins_the_at() {
+    let (p, q) = (0.01, 0.25);
+    let machine = AtRules {
+        trigger_payout: Some(TriggerPayout {
+            medals: medals(100.0),
+            net_per_game: None,
+        }),
+        ..rules(Some("cz"), vec![mode("cz", 0)])
+    };
+    let found = hunt(start(0, 0, 0), &machine, &table(p, q, vec![1.0], vec![1.0])).expect("comes");
+    assert!(near(found.games, 1.0 / (p * q)));
+    assert!(near(found.trigger_medals, 100.0 / q));
+    assert!(near(found.medals, PAYOUT + 100.0 / q - LOSS / (p * q)));
+}
+
+#[test]
+fn an_at_won_on_its_at_ceiling_brings_no_bonus() {
+    let machine = AtRules {
+        trigger_payout: Some(TriggerPayout {
+            medals: medals(100.0),
+            net_per_game: None,
+        }),
+        ..rules(Some("cz"), vec![ceiled("cz", 0, 600)])
+    };
+    let found = hunt(
+        start(0, 599, 0),
+        &machine,
+        &table(0.01, 0.25, vec![1.0], vec![1.0]),
+    )
+    .expect("comes");
+    assert!(near(found.trigger_medals, 0.0));
+    assert!(near(found.by_ceiling, 1.0));
+}
+
+#[test]
+fn misses_past_a_mode_s_through_ceiling_rule_it_out_where_play_is_seen() {
+    let (p, q) = (0.01, 0.3);
+    let limited = |misses: u32| ModeRule {
+        misses: NonZeroU32::new(misses),
+        ..mode("cz", 0)
+    };
+    let both = rules(Some("cz"), vec![limited(2), limited(4)]);
+    let odds = table(p, q, vec![0.5, 0.5], vec![0.5, 0.5]);
+    let seen = hunt(start(0, 100, 3), &both, &odds).expect("comes");
+    let deeper = hunt(
+        start(0, 100, 3),
+        &rules(Some("cz"), vec![limited(4)]),
+        &table(p, q, vec![1.0], vec![1.0]),
+    )
+    .expect("comes");
+    assert!(near(seen.games, deeper.games));
+    assert!(near(seen.medals, deeper.medals));
 }

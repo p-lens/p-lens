@@ -1,3 +1,4 @@
+import type { TriggerWords } from "./trigger"
 import type { SettingInference } from "../../../application/pachislot/setting-inference"
 
 /** The press that reads a told play's setting level, as its button says it at rest. */
@@ -16,5 +17,5 @@ export const settingInferenceButtonText = (inference: SettingInference): string 
   }
 }
 
-/** That an AT machine's history read better with the CZs missed on the way to each AT counted. */
-export const MISSES_SHARPEN = "CZスルー回数を入力すると、さらに精度が上がります。"
+/** That an AT machine's history read better with the triggers missed on the way to each AT counted. */
+export const missesSharpen = (trigger: TriggerWords): string => `${trigger.name}スルー回数を入力すると、さらに精度が上がります。`

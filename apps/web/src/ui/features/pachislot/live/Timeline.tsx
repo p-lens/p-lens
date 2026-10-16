@@ -10,6 +10,7 @@ import { createSpanPress, inSpan, spanRow } from "../../../primitives/span-press
 import { formatMoment } from "../../../wording/dates"
 import { formatCount } from "../../../wording/numbers"
 import { MERGE_READINGS, mergeSays } from "../../../wording/pachislot/play"
+import { triggerWordsOf, type TriggerWords } from "../../../wording/pachislot/trigger"
 
 /** A line worth a row: a reading of the counter, the outlay or the medals drawn from savings, or an AT won — not a tap on a tile. */
 const isShown = (checkpoint: Checkpoint): boolean => checkpoint.counter !== undefined || checkpoint.outlay !== undefined || checkpoint.replay !== undefined || checkpoint.event !== undefined
@@ -32,7 +33,7 @@ interface Row {
   readonly step: number | undefined
 }
 
-function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly bonuses: readonly Countable[]; readonly strip: boolean }): JSX.Element {
+function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly bonuses: readonly Countable[]; readonly trigger: TriggerWords; readonly strip: boolean }): JSX.Element {
   const counted = (): string =>
     props.bonuses
       .flatMap((bonus) => {
@@ -66,7 +67,7 @@ function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly bonuses: 
         <span class="shrink-0 rounded bg-surface-3 px-1.5 py-0.5 text-xs font-semibold text-text-secondary">終了</span>
       </Show>
       <Show when={props.checkpoint.event?.kind === "cz-missed"}>
-        <span class="shrink-0 rounded bg-surface-3 px-1.5 py-0.5 text-xs font-semibold text-text-secondary">CZ失敗</span>
+        <span class="shrink-0 rounded bg-surface-3 px-1.5 py-0.5 text-xs font-semibold text-text-secondary">{props.trigger.missed}</span>
       </Show>
       <Show when={props.checkpoint.event?.kind === "jackpot"}>
         <span class="shrink-0 rounded bg-accent px-1.5 py-0.5 text-xs font-semibold text-accent-contrast">
@@ -112,6 +113,8 @@ const countedIn = (checkpoints: readonly Checkpoint[]): readonly Countable[] =>
 export function Timeline(props: {
   readonly checkpoints: readonly Checkpoint[]
   readonly bonuses: readonly Countable[] | undefined
+  /** What the machine's trigger is called, a CZ where no formula is at hand to say. */
+  readonly trigger?: TriggerWords
   readonly revising: number | undefined
   readonly onRevise: ((step: number) => void) | undefined
   readonly onMerge: ((span: Span) => Promise<void>) | undefined
@@ -169,7 +172,7 @@ export function Timeline(props: {
                 when={row.step !== undefined}
                 fallback={
                   <div class={shape()}>
-                    <ReadingRow checkpoint={row.checkpoint} bonuses={bonuses()} strip={strip()} />
+                    <ReadingRow checkpoint={row.checkpoint} bonuses={bonuses()} trigger={props.trigger ?? triggerWordsOf(undefined)} strip={strip()} />
                   </div>
                 }
               >
@@ -181,7 +184,7 @@ export function Timeline(props: {
                     if (row.step !== undefined && !press.wasHeld()) props.onRevise?.(row.step)
                   }}
                 >
-                  <ReadingRow checkpoint={row.checkpoint} bonuses={bonuses()} strip={strip()} />
+                  <ReadingRow checkpoint={row.checkpoint} bonuses={bonuses()} trigger={props.trigger ?? triggerWordsOf(undefined)} strip={strip()} />
                 </button>
               </Show>
             </li>

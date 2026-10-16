@@ -317,6 +317,63 @@ describe("an AT machine's grounds, reasoned", () => {
     expect(shortened.analysis.settingLevels.map((figures) => figures.payoutRate)).toEqual(cut.analysis.settingLevels.map((figures) => figures.payoutRate))
   })
 
+  test("a bonus that is the trigger pays each time it comes, and the AT's medals are what the 機械割 leaves after the bonuses", async () => {
+    const cz = czSpec as SpecDto
+    const { payout, ceiling, ...rest } = cz.components
+    const rates = [
+      { settingLevel: 1, value: 9750 },
+      { settingLevel: 6, value: 11000 },
+    ]
+    const bonus: SpecDto = { ...cz, components: { ...rest, ceiling: { cz: 600 }, label: { at: "AT", cz: "ボーナス" }, payout: { cz: 100 }, netPerGame: { at: 4, cz: 5 }, rate: { at: rates } } }
+    const cut: SpecDto = { ...bonus, components: { ...bonus.components, ceiling: { cz: 600, at: 1000 } } }
+    const reasoned = await Promise.all(
+      [bonus, cut].map(async (spec) => {
+        const { basis, analysis } = solved(spec)
+        const proof = await proved(basis, analysis)
+        return { proof, lines: groundsLines(proof, groundsNamingOf(basis)) }
+      }),
+    )
+    reasoned.forEach(({ proof }) => expect(amiss(proof)).toEqual([]))
+    const [free, ceiled] = reasoned.map(({ lines }) => lines.map((line) => plainOf(line.parts)))
+    expect(free).toContain("1周期のボーナスの獲得 ＝ ボーナス 2.533回 × 100枚 ＝ 253.3枚；ボーナス中 ＝ 253.3枚 ÷ 純増 5枚/G ＝ 50.7G")
+    expect(free?.some((line) => line.startsWith("ATの平均獲得枚数 ＝（3枚 ×（機械割 0.975 − 1）×（通常 380G ＋ ボーナス中 50.7G）＋ 減り 1.25枚/G × 通常 380G − ボーナスの獲得 253.3枚）"))).toBe(true)
+    expect(free?.some((line) => line.startsWith("1周期の投入 ＝ 3枚 ×（通常 380G ＋ ボーナス中 50.7G ＋ AT "))).toBe(true)
+    expect(free).toContain("ATまでのボーナス ＝（1 −（1 − ボーナスのAT当選率 0.3）^4）÷ 0.3 ＝（1 − 0.7^4）÷ 0.3 ＝（1 − 0.2401）÷ 0.3 ＝ 0.7599 ÷ 0.3 ＝ 2.533回（3回スルーで次は当選）")
+    expect(free).toContain("ボーナス間天井 600G")
+    expect(ceiled?.some((line) => line.startsWith("天井を除いたボーナス確率 "))).toBe(true)
+    const links = reasoned.flatMap(({ lines }) => lines.flatMap(equalities))
+    expect(links.length).toBeGreaterThan(20)
+    expect(links.filter((each) => Math.abs(each.left - each.right) > each.spread * 1.01 + 1e-9 * Math.max(1, Math.abs(each.left)))).toEqual([])
+    expect([payout?.["at"], ceiling?.["at"]]).toEqual([600, 1000])
+  })
+
+  test("a スルー天井 drawn after each AT is a mode for each, played out mode by mode and come to the engine's", async () => {
+    const cz = czSpec as SpecDto
+    const { ceiling, resetCeiling, misses, ...rest } = cz.components
+    const share = (points: number) => [1, 6].map((settingLevel) => ({ settingLevel, value: points }))
+    const drawn: SpecDto = {
+      ...cz,
+      entities: [...cz.entities, "m2", "m4", "m6"],
+      components: {
+        ...rest,
+        label: { ...rest.label, m2: "スルー2回", m4: "スルー4回", m6: "スルー6回" },
+        mode: ["m2", "m4", "m6"],
+        ceiling: { m2: 600, m4: 600, m6: 600 },
+        misses: { m2: 2, m4: 4, m6: 6 },
+        allotment: { m2: share(3400), m4: share(3300), m6: share(3300) },
+        netPerGame: { at: 4 },
+      },
+    }
+    const { basis, analysis } = solved(drawn)
+    const proof = await proved(basis, analysis)
+    expect(amiss(proof)).toEqual([])
+    const lines = groundsLines(proof, groundsNamingOf(basis))
+    const plain = lines.map((line) => plainOf(line.parts))
+    expect(plain.some((line) => line.includes("スルー2回（スルー2回のCZ天井 600G・AT間天井 なし・スルー天井 2回）を 34%"))).toBe(true)
+    expect(lines.flatMap(equalities).filter((each) => Math.abs(each.left - each.right) > each.spread * 1.01 + 1e-9 * Math.max(1, Math.abs(each.left)))).toEqual([])
+    expect([ceiling?.["cz"], resetCeiling?.["cz"], misses?.["cz"]]).toEqual([600, 300, 3])
+  })
+
   test("a machine of modes names each by its label", async () => {
     const modes = modesSpec as SpecDto
     const moded = solved({ ...modes, components: { ...modes.components, netPerGame: { at: 4 } } })

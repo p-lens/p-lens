@@ -151,12 +151,13 @@ function RowEditor(props: {
     props.form.rows.filter((row) => row.kind === "watch").map((row, index) => ({ value: row.key, label: row.label.trim() === "" ? `場面${index + 1}` : row.label }))
   const split = (): boolean => props.row.kind === "bonus" && props.form.rows.some((row) => row.kind === "part" && row.of === props.row.key)
   /** Whether the row is asked its medals: a bonus and an AT; a small win where its medals are its own, never on a sheet typed in by hand, whose small wins are counted on an AT machine and pay through its ベース. */
-  const paid = (): boolean => props.row.kind === "bonus" || props.row.kind === "at" || (props.row.kind === "role" && !props.manual)
+  const paid = (): boolean => props.row.kind === "bonus" || props.row.kind === "at" || props.row.kind === "cz" || (props.row.kind === "role" && !props.manual)
   const brought = (): boolean => props.row.kind === "at" && hasCz(props.form)
   const fixed = (): boolean => props.row.kind === "at" || props.row.kind === "cz"
   const name = (fallback: string): string => (props.row.label.trim() === "" ? fallback : props.row.label)
   const payoutLabel = (): string => {
     if (props.row.kind === "at") return "平均獲得枚数"
+    if (props.row.kind === "cz") return "ボーナスの獲得（任意）"
     if (props.manual) return "獲得枚数（任意）"
     return props.row.kind === "bonus" ? "獲得枚数" : "払い出し"
   }
@@ -215,6 +216,18 @@ function RowEditor(props: {
             />
           </div>
         </Show>
+        <Show when={props.row.kind === "cz"}>
+          <div class="w-36">
+            <TextField
+              label="ボーナスの純増（任意）"
+              value={props.row.net}
+              onChange={(net) => props.onChange({ ...props.row, net })}
+              inputMode="decimal"
+              suffix="枚/G"
+              placeholder="なし"
+            />
+          </div>
+        </Show>
         <Show when={(props.row.kind === "at" && !brought() && !hasModes(props.form)) || props.row.kind === "mode"}>
           <div class="w-28">
             <TextField
@@ -224,6 +237,18 @@ function RowEditor(props: {
               inputMode="numeric"
               suffix="G"
               placeholder="なし"
+            />
+          </div>
+        </Show>
+        <Show when={props.row.kind === "mode" && hasCz(props.form)}>
+          <div class="w-36">
+            <TextField
+              label="スルー天井（任意）"
+              value={props.row.misses}
+              onChange={(misses) => props.onChange({ ...props.row, misses })}
+              inputMode="numeric"
+              suffix="回"
+              placeholder="CZと同じ"
             />
           </div>
         </Show>
@@ -303,6 +328,9 @@ function RowEditor(props: {
           onChange={(success) => props.onChange({ ...props.row, success })}
         />
         <CzDepths row={props.row} form={props.form} onChange={props.onChange} />
+        <p class="text-xs text-text-muted">
+          CZのかわりにボーナスがATを抽選する機種は、ボーナスをここに入れます。CZ合算にボーナス合算、CZ成功率にボーナスからATに入る割合、天井にボーナス間天井を入れ、ボーナスの獲得と純増を足すと、ATに入らなかったボーナスの枚数も期待値に入ります。
+        </p>
       </Show>
       <Show
         when={props.row.kind !== "mode" && props.row.kind !== "cz" && props.row.kind !== "watch" && !brought()}

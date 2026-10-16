@@ -232,11 +232,13 @@ fn misplaced(spec: &Spec, entity: &EntityId, kinds: &[Component]) -> Option<Comp
     {
         return Some(Component::At);
     }
+    if !at && !cz && components.net_per_game.contains_key(entity) {
+        return Some(Component::At);
+    }
     if !at
         && (components.sets.contains_key(entity)
             || components.continuation_rate.contains_key(entity)
             || components.payout_table.contains_key(entity)
-            || components.net_per_game.contains_key(entity)
             || components.other_net.contains_key(entity)
             || components.rate.contains_key(entity)
             || components.window.contains_key(entity)
@@ -244,7 +246,10 @@ fn misplaced(spec: &Spec, entity: &EntityId, kinds: &[Component]) -> Option<Comp
     {
         return Some(Component::At);
     }
-    if !cz && (components.success.contains_key(entity) || components.misses.contains_key(entity)) {
+    if !cz
+        && (components.success.contains_key(entity)
+            || (!mode && components.misses.contains_key(entity)))
+    {
         return Some(Component::Cz);
     }
     if !kinds.contains(&Component::Watch) && components.trials.contains_key(entity) {
@@ -258,14 +263,22 @@ fn misplaced(spec: &Spec, entity: &EntityId, kinds: &[Component]) -> Option<Comp
 }
 
 /// A CZ: its published 合算 and success rate, its ceilings and スルー天井 if
-/// it has them, and nothing a regular game pays.
+/// it has them, and no chance a regular game of its own; what it pays where
+/// it is a bonus, with its 純増 only beside medals for it to take games over.
 fn cz(spec: &Spec, entity: &EntityId) -> Result<Cz, SpecError> {
     let components = &spec.components;
     if components.chance.contains_key(entity) {
         return Err(conflict(entity, Component::Cz, Component::Chance));
     }
-    if components.payout.contains_key(entity) {
-        return Err(conflict(entity, Component::Cz, Component::Payout));
+    let payout = components.payout.get(entity).copied();
+    let net_per_game = components.net_per_game.get(entity).copied();
+    if net_per_game.is_some() && payout.is_none() {
+        return Err(missing(entity, Component::Payout));
+    }
+    if net_per_game.is_some_and(|net| net.get() <= 0.0) {
+        return Err(SpecError::EmptyNetPerGame {
+            entity: entity.clone(),
+        });
     }
     Ok(Cz {
         id: entity.clone(),
@@ -283,6 +296,8 @@ fn cz(spec: &Spec, entity: &EntityId) -> Result<Cz, SpecError> {
         ceiling: components.ceiling.get(entity).copied(),
         reset_ceiling: components.reset_ceiling.get(entity).copied(),
         misses: components.misses.get(entity).copied(),
+        payout,
+        net_per_game,
     })
 }
 
@@ -301,6 +316,7 @@ fn mode(spec: &Spec, entity: &EntityId) -> Result<Mode, SpecError> {
         label: label_of(spec, entity),
         ceiling: components.ceiling.get(entity).copied(),
         at_ceiling: components.at_ceiling.get(entity).copied(),
+        misses: components.misses.get(entity).copied(),
         allotment: components
             .allotment
             .get(entity)

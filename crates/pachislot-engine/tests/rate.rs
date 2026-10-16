@@ -4,14 +4,15 @@ mod support;
 
 use pachislot_domain::conditions::{PayoutBasis, PayoutRate};
 use pachislot_domain::normalized::PayoutLaw;
+use pachislot_domain::normalized::TriggerPayout;
 use pachislot_domain::probability::BasisPoints;
 use pachislot_domain::setting_level::PerSettingLevel;
 use pachislot_domain::spec::{Component, OtherNet, Spec};
 use pachislot_engine::analysis::analyze;
 use pachislot_engine::error::{AnalysisError, SpecError};
 use pachislot_engine::normalize::normalize;
-use pachislot_engine::rate::{RateCycle, implied_gain, implied_rate, net_over_all};
-use support::{at_spec, close, id, medals, setting_level};
+use pachislot_engine::rate::{RateCycle, TriggersPaid, implied_gain, implied_rate, net_over_all};
+use support::{at_spec, close, cz_spec, id, medals, setting_level};
 
 /// 300 regular games losing 1.25 medals each on a bet of 3, then an AT at 4 medals a game.
 const CYCLE: RateCycle = RateCycle {
@@ -19,6 +20,7 @@ const CYCLE: RateCycle = RateCycle {
     loss: 1.25,
     bet: 3.0,
     net: 4.0,
+    triggers: None,
 };
 
 fn rates(low: u32, high: u32) -> PerSettingLevel<PayoutRate> {
@@ -83,6 +85,7 @@ fn an_at_machine_with_its_net_per_game_has_its_rate_from_its_spec() {
         loss: 50.0 / 40.0,
         bet: 3.0,
         net: 4.0,
+        triggers: None,
     };
     assert!(close(
         analysis.setting_levels[0].payout_rate,
@@ -123,6 +126,7 @@ fn an_at_gains_what_its_published_rate_implies_and_the_rate_comes_back() {
         loss: 50.0 / 40.0,
         bet: 3.0,
         net: 4.0,
+        triggers: None,
     };
     assert!(close(gains[0], implied_gain(low, 0.975).expect("a gain")));
     assert!(close(
@@ -267,5 +271,93 @@ fn other_nets_need_the_at_s_own_and_shares_within_the_whole() {
     assert_eq!(
         normalize(&nothing),
         Err(SpecError::EmptyNetPerGame { entity: id("at") })
+    );
+}
+
+/// The cycle with two and a half bonuses that are its triggers, each
+/// gaining 100 medals at 5 a game.
+fn with_bonuses(net: Option<f64>) -> RateCycle {
+    RateCycle {
+        triggers: Some(TriggersPaid {
+            count: 2.5,
+            payout: TriggerPayout {
+                medals: medals(100.0),
+                net_per_game: net.map(medals),
+            },
+        }),
+        ..CYCLE
+    }
+}
+
+#[test]
+fn a_bonus_trigger_s_medals_and_games_go_into_the_rate_and_out_of_the_at_s_gain() {
+    let paid = with_bonuses(Some(5.0));
+    let staked = 3.0 * (300.0 + 2.5 * 20.0 + 600.0 / 4.0);
+    assert!(close(
+        implied_rate(paid, 600.0),
+        (staked - 1.25 * 300.0 + 600.0 + 250.0) / staked
+    ));
+    assert!(close(
+        implied_gain(paid, implied_rate(paid, 600.0)).expect("a gain"),
+        600.0
+    ));
+    let uncounted = with_bonuses(None);
+    assert!(close(
+        implied_gain(uncounted, implied_rate(uncounted, 600.0)).expect("a gain"),
+        600.0
+    ));
+    assert!(implied_gain(paid, 1.0).expect("a gain") < implied_gain(CYCLE, 1.0).expect("a gain"));
+}
+
+/// The made-up CZ machine whose CZ is a bonus gaining 100 medals at 5 a
+/// game, its AT's medals to follow from a 機械割 of 97.5% and 110% at 4 a game.
+fn bonus_triggered() -> Spec {
+    let mut spec = cz_spec();
+    spec.components.payout.remove(&id("at"));
+    spec.components.net_per_game.insert(id("at"), medals(4.0));
+    spec.components.rate.insert(id("at"), rates(9_750, 11_000));
+    spec.components.payout.insert(id("cz"), medals(100.0));
+    spec.components.net_per_game.insert(id("cz"), medals(5.0));
+    spec
+}
+
+#[test]
+fn a_bonus_trigger_s_machine_comes_back_to_its_rate_with_its_at_gaining_less() {
+    let normalized = normalize(&bonus_triggered()).expect("normalises");
+    let rules = normalized.at_rules.as_ref().expect("an AT machine");
+    assert_eq!(
+        rules.trigger_payout,
+        Some(TriggerPayout {
+            medals: medals(100.0),
+            net_per_game: Some(medals(5.0))
+        })
+    );
+    let analysis = analyze(&normalized, &PayoutBasis::FromSpec).expect("solves");
+    assert!(close(analysis.setting_levels[0].payout_rate, 0.975));
+    assert!(close(analysis.setting_levels[1].payout_rate, 1.1));
+    let mut unpaid = bonus_triggered();
+    unpaid.components.payout.remove(&id("cz"));
+    unpaid.components.net_per_game.remove(&id("cz"));
+    let plain = analyze(
+        &normalize(&unpaid).expect("normalises"),
+        &PayoutBasis::FromSpec,
+    )
+    .expect("solves");
+    let gain = |analysis: &pachislot_engine::analysis::Analysis| {
+        analysis.setting_levels[1].at.expect("an AT").gain
+    };
+    assert!(gain(&analysis) < gain(&plain));
+}
+
+#[test]
+fn a_cz_s_net_needs_medals_to_be_won_over() {
+    let mut bare = bonus_triggered();
+    bare.components.payout.remove(&id("cz"));
+    assert_eq!(
+        normalize(&bare),
+        Err(SpecError::MissingComponent {
+            entity: id("cz"),
+            component: Component::Payout
+        })
     );
 }

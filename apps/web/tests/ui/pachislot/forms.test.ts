@@ -36,7 +36,7 @@ describe("the 解析値 form", () => {
     const form = {
       settingLevels: [1, 6],
       bet: "3",
-      rows: [{ key: "big", label: "BIG", kind: "bonus" as const, of: "", trials: "", payout: "２５２", chances: { "1": "1/273.1", "6": "２５５" }, ceiling: "", resetCeiling: "", atCeiling: "", resetAllotment: {}, success: {}, misses: "", law: EMPTY_LAW }],
+      rows: [{ key: "big", label: "BIG", kind: "bonus" as const, of: "", trials: "", payout: "２５２", chances: { "1": "1/273.1", "6": "２５５" }, ceiling: "", resetCeiling: "", atCeiling: "", resetAllotment: {}, success: {}, misses: "", net: "", law: EMPTY_LAW }],
       base: "",
       lcdRate: "",
       cap: "",
@@ -207,6 +207,37 @@ describe("an AT machine typed in by hand", () => {
     expect(hasCz(form.world)).toBe(true)
     expect(form.world.rows.find((row) => row.kind === "at")?.ceiling).toBe("1000")
     expect(readManualForm(form)).toEqual({ ok: true, value: { spec: madeUp, conditions: measured } })
+  })
+
+  test("a CZ that is a bonus keeps its medals and its 純増, and reads back the same", () => {
+    const madeUp = czSpec as SpecDto
+    const bonus: SpecDto = { ...madeUp, components: { ...madeUp.components, payout: { ...madeUp.components.payout, cz: 100 }, netPerGame: { cz: 5 } } }
+    const form = manualFormOf(bonus, measured)
+    const row = form.world.rows.find((each) => each.kind === "cz")
+    expect([row?.payout, row?.net]).toEqual(["100", "5"])
+    expect(readManualForm(form)).toEqual({ ok: true, value: { spec: bonus, conditions: measured } })
+  })
+
+  test("a mode of a CZ machine keeps a スルー天井 of its own, and reads back the same", () => {
+    const madeUp = czSpec as SpecDto
+    const { ceiling, resetCeiling, ...rest } = madeUp.components
+    const share = (points: number) => [1, 6].map((settingLevel) => ({ settingLevel, value: points }))
+    const drawn: SpecDto = {
+      ...madeUp,
+      entities: [...madeUp.entities, "m2", "m6"],
+      components: {
+        ...rest,
+        ceiling: { at: ceiling?.["at"] ?? 1000, m2: 600, m6: 600 },
+        label: { ...rest.label, m2: "スルー2回", m6: "スルー6回" },
+        mode: ["m2", "m6"],
+        misses: { cz: 3, m2: 2, m6: 6 },
+        allotment: { m2: share(5000), m6: share(5000) },
+      },
+    }
+    const form = manualFormOf(drawn, measured)
+    expect(form.world.rows.find((row) => row.key === "m2")?.misses).toBe("2")
+    expect(readManualForm(form)).toEqual({ ok: true, value: { spec: drawn, conditions: measured } })
+    expect(resetCeiling?.["cz"]).toBe(300)
   })
 
   test("an AT machine's small win is its chance alone, to be counted, and reads back the same", () => {

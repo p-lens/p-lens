@@ -60,7 +60,7 @@ pub struct CueChance {
 /// bring its trigger — a CZ, or on a machine without one the AT itself — at
 /// one chance below the ceiling of the mode play is in, and certainly on it;
 /// a trigger wins the AT at the setting's success rate, certainly once it
-/// has missed so many times since the last AT; and a second ceiling, in
+/// has missed as many times since the last AT as the mode allows; and a second ceiling, in
 /// games since the last AT, the mode's own, wins it whatever came before.
 /// Every game loses what the ベース says otherwise.
 #[derive(Clone, Debug, PartialEq)]
@@ -70,13 +70,10 @@ pub struct AtRules {
     pub at: EntityId,
     /// The CZ that brings the AT, where the AT is not won directly.
     pub trigger: Option<EntityId>,
-    /// The modes, each with its trigger's ceiling and its AT間天井 in
-    /// regular games. A machine without modes has one, and a second for the
-    /// shorter ceilings of a setting change.
+    /// The modes, each with its trigger's ceiling, its AT間天井 in regular
+    /// games and its スルー天井. A machine without modes has one, and a
+    /// second for the shorter ceilings of a setting change.
     pub modes: Vec<ModeRule>,
-    /// スルー天井: the misses since the last AT after which the next trigger
-    /// wins the AT.
-    pub misses: Option<NonZeroU32>,
     /// 純増: the medals a game of the AT gains, over all its medals where
     /// shares of them are won at another 純増 than its own. With it the
     /// machine's 機械割 follows from what its AT gains; without it the
@@ -91,6 +88,25 @@ pub struct AtRules {
     /// Whether play starts again as after a setting change once an AT
     /// reaches the cap, rather than as after any AT.
     pub reset_on_cap: bool,
+    /// What the trigger pays each time it comes, where it is a bonus: its
+    /// medals, and the medals a game of it gains where its games are
+    /// counted. A win on the AT間天井 is no trigger's and pays none of it.
+    pub trigger_payout: Option<TriggerPayout>,
+}
+
+/// What a bonus that wins the AT at a share pays each time it comes.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TriggerPayout {
+    pub medals: Medals,
+    pub net_per_game: Option<Medals>,
+}
+
+impl TriggerPayout {
+    /// The games of its own a trigger takes; none where they are not counted.
+    pub fn games(self) -> f64 {
+        self.net_per_game
+            .map_or(0.0, |net| self.medals.get() / net.get())
+    }
 }
 
 /// One mode as the engine plays it: its trigger's ceiling in regular games,
@@ -103,6 +119,9 @@ pub struct ModeRule {
     pub id: EntityId,
     pub ceiling: Option<NonZeroU32>,
     pub at_ceiling: Option<NonZeroU32>,
+    /// スルー天井: the triggers missed since the last AT after which the
+    /// next wins it, the mode's own or the CZ's.
+    pub misses: Option<NonZeroU32>,
 }
 
 /// How one setting allots play between an AT machine's modes, in the order

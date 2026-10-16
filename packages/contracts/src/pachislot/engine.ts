@@ -61,7 +61,7 @@ export interface ComponentsDto {
   readonly label?: Readonly<Record<string, string>>
   /** How often a regular game comes up with it, under each setting. */
   readonly chance?: Readonly<Record<string, readonly BySettingLevelDto<ProbabilityDto>[]>>
-  /** Medals a small win pays, or a bonus gains over its own games; a bonus needs none when the rate is measured. */
+  /** Medals a small win pays, or a bonus gains over its own games — a CZ that is a bonus too, each time it comes; a bonus needs none when the rate is measured. */
   readonly payout?: Readonly<Record<string, number>>
   /** A bonus: BIG, REG. Its chance is its own, or the sum of its parts'. */
   readonly bonus?: readonly string[]
@@ -89,7 +89,7 @@ export interface ComponentsDto {
   readonly continuationRate?: Readonly<Record<string, readonly BySettingLevelDto<number>[]>>
   /** An AT's medals as a table under each setting — so many medals, so often in hundredths of a percent — in place of a `payout`. */
   readonly payoutTable?: Readonly<Record<string, readonly BySettingLevelDto<readonly PayoutRowDto[]>[]>>
-  /** 純増: medals a game of an AT gains. It says the games an AT of so many medals takes, so with it an AT's gain and the machine's 機械割 each follow from the other. */
+  /** 純増: medals a game of an AT gains. It says the games an AT of so many medals takes, so with it an AT's gain and the machine's 機械割 each follow from the other. On a CZ that is a bonus, the games its medals take. */
   readonly netPerGame?: Readonly<Record<string, number>>
   /** 上位AT, or a bonus inside the AT: shares of an AT's medals won at another 純増 than its `netPerGame`, which the rest are won at. */
   readonly otherNet?: Readonly<Record<string, readonly OtherNetDto[]>>
@@ -196,6 +196,8 @@ export interface ModeRuleDto {
   readonly id: string
   readonly ceiling?: number
   readonly atCeiling?: number
+  /** スルー天井: the triggers missed since the last AT after which the next wins it, the mode's own or the CZ's. */
+  readonly misses?: number
 }
 
 /**
@@ -214,11 +216,14 @@ export interface AtRulesDto {
   readonly modes: readonly ModeRuleDto[]
   /** The one AT間天井 of a spec stored in shape 2, which every mode is read to have; never written since. */
   readonly atCeiling?: number
+  /** The one スルー天井 of a spec stored before each mode said its own, which every mode is read to have; never written since. */
   readonly misses?: number
   readonly netPerGame?: number
   readonly cap?: number
   readonly window?: number
   readonly resetOnCap?: boolean
+  /** What the trigger pays each time it comes, where it is a bonus: its medals, and its 純増 where its games are counted. A win on the AT間天井 pays none of it. */
+  readonly triggerPayout?: { readonly medals: number; readonly netPerGame?: number }
 }
 
 export type SourceDto =
@@ -402,10 +407,11 @@ export interface HuntRequest {
   readonly seats: readonly PathStartDto[]
 }
 
-/** What a seat comes to: the regular games played on average, the AT's medals, the medals over both and in yen, and the chance the AT is won by a ceiling. */
+/** What a seat comes to: the regular games played on average, the AT's medals and what the bonuses that are its trigger pay on the way, the medals over them and in yen, and the chance the AT is won by a ceiling. */
 export interface HuntDto {
   readonly games: number
   readonly atMedals: number
+  readonly triggerMedals: number
   readonly medals: number
   readonly yen: number
   readonly byCeiling: number
@@ -519,6 +525,7 @@ export type EngineErrorDto =
   | { readonly type: "payout-beside-at"; readonly entity: string }
   | { readonly type: "reset-ceiling-beside-modes"; readonly entity: string }
   | { readonly type: "at-ceiling-without-cz"; readonly entity: string }
+  | { readonly type: "misses-without-cz"; readonly entity: string }
   | { readonly type: "empty-set"; readonly entity: string }
   | { readonly type: "empty-net-per-game"; readonly entity: string }
   | { readonly type: "other-net-beyond-whole"; readonly entity: string; readonly sum: number }

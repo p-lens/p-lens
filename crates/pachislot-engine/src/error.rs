@@ -147,6 +147,11 @@ pub enum SpecError {
     AtCeilingWithoutCz {
         entity: EntityId,
     },
+    /// A mode given a スルー天井 of its own on a machine without a CZ: its
+    /// trigger is the AT, which never misses.
+    MissesWithoutCz {
+        entity: EntityId,
+    },
     /// A set of an AT paid in sets that pays nothing.
     EmptySet {
         entity: EntityId,

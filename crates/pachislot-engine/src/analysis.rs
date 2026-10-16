@@ -6,9 +6,10 @@ use pachislot_domain::setting_level::SettingLevel;
 use pachislot_domain::spec::EntityId;
 use pachislot_domain::version::{EngineVersion, SchemaVersion};
 
-use crate::at::{cycle, settled};
+use crate::at::{Cycle, cycle, settled};
+use crate::at_machine::rate_cycle;
 use crate::error::AnalysisError;
-use crate::rate::{RateCycle, implied_rate};
+use crate::rate::implied_rate;
 
 /// What a formula comes to, setting by setting.
 #[derive(Clone, Debug, PartialEq)]
@@ -153,16 +154,27 @@ fn derivation(table: &SettingLevelTable, bet: f64) -> Result<Vec<Contribution>, 
 }
 
 /// An AT machine's 機械割 from what its AT gains, over the cycle its
-/// 初当たり gives; none without its 純増, which says the games an AT takes.
-fn at_rate(rules: Option<&AtRules>, at: Option<AtFigure>, first_hit: f64, bet: f64) -> Option<f64> {
+/// 初当たり gives, with the triggers its CZ's 合算 brings in it; none
+/// without its 純増, which says the games an AT takes.
+fn at_rate(
+    rules: Option<&AtRules>,
+    at: Option<AtFigure>,
+    bonuses: &[BonusFigure],
+    bet: f64,
+) -> Option<f64> {
     let rules = rules?;
-    let cycle = RateCycle {
+    rules.net_per_game?;
+    let first_hit = bonuses.last()?.chance;
+    let triggers = rules
+        .trigger
+        .as_ref()
+        .and_then(|trigger| bonuses.iter().find(|bonus| bonus.id == *trigger))
+        .map_or(1.0, |trigger| trigger.chance / first_hit);
+    let cycle = Cycle {
+        triggers,
         games: 1.0 / first_hit,
-        loss: rules.base.loss_per_game(),
-        bet,
-        net: rules.net_per_game?.get(),
     };
-    Some(implied_rate(cycle, at?.gain))
+    Some(implied_rate(rate_cycle(rules, cycle, bet), at?.gain))
 }
 
 fn figures(
@@ -185,7 +197,7 @@ fn figures(
     };
     let (net_per_game, payout_rate, derivation) = match basis {
         PayoutBasis::FromSpec if machine.is_some() => {
-            let rate = at_rate(rules, at, combined, bet).ok_or(AnalysisError::RateNotFromSpec)?;
+            let rate = at_rate(rules, at, &bonuses, bet).ok_or(AnalysisError::RateNotFromSpec)?;
             (bet * (rate - 1.0), rate, Vec::new())
         }
         PayoutBasis::FromSpec => {

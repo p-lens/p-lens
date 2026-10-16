@@ -8,7 +8,7 @@ use pachislot_domain::conditions::{PayoutBasis, PayoutRate, PlayConditions};
 use pachislot_domain::distribution::Distribution;
 use pachislot_domain::normalized::{
     Allotments, AtRules, AtTable, CueChance, Event, EventKind, ModeRule, NormalizedSpec, PayoutLaw,
-    SettingLevelTable, WatchRule,
+    SettingLevelTable, TriggerPayout, WatchRule,
 };
 use pachislot_domain::observation::{
     AtSeen, Leg, LegEnd, Path, PathStart, Segment, ToldLeg, ToldPath,
@@ -36,7 +36,7 @@ use crate::dto::{
     LegEndDto, ModeRuleDto, NormalizedSpecDto, PathDto, PathStartDto, PayoutBasisDto, PayoutLawDto,
     PayoutRowDto, PlayDto, PosteriorDto, ProbabilityDto, ProbabilityProblemDto, ProgressDto,
     SegmentDto, SettingLevelEstimateDto, SettingLevelFiguresDto, SpecDto, SummaryDto, TableDto,
-    TallyDto, TheoreticalValueDto, ToldPathDto, WatchDto, WeightDto,
+    TallyDto, TheoreticalValueDto, ToldPathDto, TriggerPayoutDto, WatchDto, WeightDto,
 };
 
 fn invalid(field: &str) -> ErrorDto {
@@ -332,6 +332,7 @@ fn at_rules(dto: &AtRulesDto, shape: SchemaVersion) -> Result<AtRules, ErrorDto>
         return Err(invalid("normalized.atRules.atCeiling"));
     }
     let machine_ceiling = ceiling(dto.at_ceiling, "normalized.atRules.atCeiling")?;
+    let machine_misses = ceiling(dto.misses, "normalized.atRules.misses")?;
     Ok(AtRules {
         base: Base::new(dto.base).ok_or_else(|| invalid("normalized.atRules.base"))?,
         at: id(&dto.at, "normalized.atRules.at")?,
@@ -350,7 +351,18 @@ fn at_rules(dto: &AtRulesDto, shape: SchemaVersion) -> Result<AtRules, ErrorDto>
             .as_deref()
             .map(|trigger| id(trigger, "normalized.atRules.trigger"))
             .transpose()?,
-        misses: ceiling(dto.misses, "normalized.atRules.misses")?,
+        trigger_payout: dto
+            .trigger_payout
+            .map(|payout| {
+                Ok::<_, ErrorDto>(TriggerPayout {
+                    medals: medals(payout.medals, "normalized.atRules.triggerPayout.medals")?,
+                    net_per_game: payout
+                        .net_per_game
+                        .map(|net| medals(net, "normalized.atRules.triggerPayout.netPerGame"))
+                        .transpose()?,
+                })
+            })
+            .transpose()?,
         modes: dto
             .modes
             .iter()
@@ -360,8 +372,12 @@ fn at_rules(dto: &AtRulesDto, shape: SchemaVersion) -> Result<AtRules, ErrorDto>
                 if !by_mode && mode.at_ceiling.is_some() {
                     return Err(invalid(&format!("{at}.atCeiling")));
                 }
+                if machine_misses.is_some() && mode.misses.is_some() {
+                    return Err(invalid(&format!("{at}.misses")));
+                }
                 Ok(ModeRule {
                     id: id(&mode.id, &format!("{at}.id"))?,
+                    misses: ceiling(mode.misses, &format!("{at}.misses"))?.or(machine_misses),
                     ceiling: ceiling(mode.ceiling, &format!("{at}.ceiling"))?,
                     at_ceiling: if by_mode {
                         ceiling(mode.at_ceiling, &format!("{at}.atCeiling"))?
@@ -624,9 +640,13 @@ pub fn normalized_dto(spec: &NormalizedSpec) -> NormalizedSpecDto {
             cap: rules.cap.map(Medals::get),
             window: rules.window.map(NonZeroU32::get),
             reset_on_cap: rules.reset_on_cap,
+            trigger_payout: rules.trigger_payout.map(|payout| TriggerPayoutDto {
+                medals: payout.medals.get(),
+                net_per_game: payout.net_per_game.map(Medals::get),
+            }),
             trigger: rules.trigger.as_ref().map(named),
             at_ceiling: None,
-            misses: rules.misses.map(NonZeroU32::get),
+            misses: None,
             modes: rules
                 .modes
                 .iter()
@@ -634,6 +654,7 @@ pub fn normalized_dto(spec: &NormalizedSpec) -> NormalizedSpecDto {
                     id: mode.id.as_str().to_owned(),
                     ceiling: mode.ceiling.map(NonZeroU32::get),
                     at_ceiling: mode.at_ceiling.map(NonZeroU32::get),
+                    misses: mode.misses.map(NonZeroU32::get),
                 })
                 .collect(),
         }),
@@ -945,6 +966,9 @@ pub fn spec_error_dto(error: &SpecError) -> ErrorDto {
             entity: named(entity),
         },
         SpecError::AtCeilingWithoutCz { entity } => ErrorDto::AtCeilingWithoutCz {
+            entity: named(entity),
+        },
+        SpecError::MissesWithoutCz { entity } => ErrorDto::MissesWithoutCz {
             entity: named(entity),
         },
         SpecError::EmptySet { entity } => ErrorDto::EmptySet {
