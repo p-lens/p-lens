@@ -93,7 +93,7 @@ function LevelCells(props: {
  */
 function CzDepths(props: { readonly row: EntityRow; readonly form: WorldForm; readonly onChange: (row: EntityRow) => void }): JSX.Element {
   const [asked, setAsked] = createSignal(false)
-  const typed = (): boolean => [props.row.ceiling, props.row.resetCeiling, props.row.misses].some((text) => text.trim() !== "")
+  const typed = (): boolean => [props.row.ceiling, props.row.resetCeiling, props.row.misses, props.row.sinceAtCeiling].some((text) => text.trim() !== "")
   return (
     <Show
       when={asked() || typed()}
@@ -131,7 +131,19 @@ function CzDepths(props: { readonly row: EntityRow; readonly form: WorldForm; re
             placeholder="なし"
           />
         </div>
-        <p class="basis-full text-xs text-text-muted">スルー天井は、AT後にCZをこの回数失敗すると次のCZで必ずATに当たる、という回数です。</p>
+        <div class="w-40">
+          <TextField
+            label="ATから数える天井"
+            value={props.row.sinceAtCeiling}
+            onChange={(sinceAtCeiling) => props.onChange({ ...props.row, sinceAtCeiling })}
+            inputMode="numeric"
+            suffix="G"
+            placeholder="なし"
+          />
+        </div>
+        <p class="basis-full text-xs text-text-muted">
+          スルー天井は、AT後にCZをこの回数失敗すると次のCZで必ずATに当たる、という回数です。ATから数える天井は、ATに入らなかったボーナスでは数え直さず、AT後このゲーム数で1回だけ必ずCZ（ボーナス）が来る、という天井です。AT間天井と同じか手前にしてください。
+        </p>
       </div>
     </Show>
   )

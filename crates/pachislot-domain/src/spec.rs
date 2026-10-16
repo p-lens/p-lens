@@ -166,6 +166,10 @@ pub struct Components {
     /// スルー天井: the CZs missed since the last AT after which the next
     /// wins it — on a CZ, or on a mode where each has its own.
     pub misses: BTreeMap<EntityId, NonZeroU32>,
+    /// On a CZ: the regular game since the last AT on which it comes at the
+    /// latest, once — a bonus's ceiling that a bonus missing the AT does not
+    /// start again, short of the AT間天井.
+    pub since_at_ceiling: BTreeMap<EntityId, NonZeroU32>,
     /// An AT paid in sets: the medals of its first, and of each set it
     /// carries on to.
     pub sets: BTreeMap<EntityId, Sets>,
@@ -251,6 +255,7 @@ pub enum Component {
     Watch,
     Trials,
     Cue,
+    SinceAtCeiling,
 }
 
 /// What an entity is, as the engine queries it from its components.
@@ -302,6 +307,9 @@ pub struct Cz {
     pub ceiling: Option<NonZeroU32>,
     pub reset_ceiling: Option<NonZeroU32>,
     pub misses: Option<NonZeroU32>,
+    /// The regular game since the last AT on which it comes at the latest,
+    /// once, whatever came before.
+    pub since_at_ceiling: Option<NonZeroU32>,
     /// Whether it is a bonus that wins the AT at a share, rather than a CZ:
     /// marked so, or given medals of its own.
     pub bonus: bool,

@@ -121,16 +121,37 @@ impl Between {
     }
 }
 
+/// Whether game `at` since the AT is the one a mode's ceiling counted from
+/// the AT brings the trigger on.
+fn is_forced(mode: &ModeRule, at: usize) -> bool {
+    mode.since_at_ceiling
+        .is_some_and(|ceiling| ceiling.get() as usize == at)
+}
+
+/// On the game a ceiling counted from the AT forces it, the trigger every
+/// game still waiting comes: what would have come at the chance, and the
+/// rest of what was waiting, which then waits no more.
+fn all_waiting(here: f64, running: f64, p: f64) -> f64 {
+    here + (1.0 - p) * running
+}
+
 /// The next trigger's games after the last, convolved onto where the last
-/// fell: `f ⋆ d`, with `d` the games between triggers.
-fn convolved(f: &[f64], p: f64, ceiling: Option<NonZeroU32>) -> Vec<f64> {
-    let between = Between::of(p, ceiling);
-    let (_, next) = (0..f.len()).fold(
-        (0.0_f64, Vec::with_capacity(f.len())),
-        |(running, mut next), at| {
-            let (running, here) = between.step(f, running, at);
+/// fell: `f ⋆ d`, with `d` the games between triggers — and, on the game a
+/// ceiling counted from the AT forces it, every trigger still waiting.
+fn convolved(f: &[f64], p: f64, mode: &ModeRule) -> Vec<f64> {
+    let between = Between::of(p, mode.ceiling);
+    let (_, _, next) = (0..f.len()).fold(
+        (f.to_vec(), 0.0_f64, Vec::with_capacity(f.len())),
+        |(mut waiting, running, mut next), at| {
+            let (running, here) = between.step(&waiting, running, at);
+            let (running, here) = if is_forced(mode, at) {
+                waiting.iter_mut().take(at).for_each(|before| *before = 0.0);
+                (0.0, all_waiting(here, running, p))
+            } else {
+                (running, here)
+            };
             next.push(here);
-            (running, next)
+            (waiting, running, next)
         },
     );
     next
@@ -166,8 +187,13 @@ fn ended_by(
             Vec::with_capacity(length),
         ),
         |(mut sources, mut running, mut here, mut arrived, mut ended), at| {
-            for ((source, running), here) in sources.iter().zip(&mut running).zip(&mut here) {
+            let forced = is_forced(mode, at);
+            for ((source, running), here) in sources.iter_mut().zip(&mut running).zip(&mut here) {
                 (*running, *here) = between.step(source, *running, at);
+                if forced {
+                    (*running, *here) = (0.0, all_waiting(*here, *running, p));
+                    source.fill(0.0);
+                }
             }
             for (stream, source) in sources.iter_mut().enumerate() {
                 let start = if stream == 0 && at == 0 { 1.0 } else { 0.0 };
@@ -181,9 +207,10 @@ fn ended_by(
     Walk { arrived, ended }
 }
 
-/// What tells two modes' walks apart: the trigger's ceiling and the
-/// スルー天井, all a walk turns on short of the AT間天井 it is cut at.
-type WalkKey = (Option<NonZeroU32>, Option<NonZeroU32>);
+/// What tells two modes' walks apart: the trigger's ceiling, the スルー天井
+/// and the trigger's ceiling counted from the AT, all a walk turns on short
+/// of the AT間天井 it is cut at.
+type WalkKey = (Option<NonZeroU32>, Option<NonZeroU32>, Option<NonZeroU32>);
 
 /// What a mode's triggers come to game by game after an AT: the chance a
 /// trigger arrives on each, and the chance the AT is won on each.
@@ -313,7 +340,7 @@ pub fn cycle(rules: &AtRules, chance: f64, success: f64, shares: &[f64]) -> Cycl
         .into_iter()
         .map(|(mode, at_ceiling)| {
             (
-                (mode.ceiling, mode.misses),
+                (mode.ceiling, mode.misses, mode.since_at_ceiling),
                 ended_by(
                     chance,
                     success,
@@ -335,7 +362,7 @@ pub fn cycle(rules: &AtRules, chance: f64, success: f64, shares: &[f64]) -> Cycl
                 .and_then(|at_ceiling| {
                     walks
                         .iter()
-                        .find(|(key, _)| *key == (mode.ceiling, mode.misses))
+                        .find(|(key, _)| *key == (mode.ceiling, mode.misses, mode.since_at_ceiling))
                         .map(|(_, walk)| cycle_to_ceiling(walk, at_ceiling))
                 })
                 .unwrap_or_else(|| cycle_unceiled(chance, success, mode));
@@ -567,6 +594,7 @@ pub(crate) fn chances(
     let triggered = if mode
         .ceiling
         .is_some_and(|ceiling| since_trigger + 1 >= ceiling.get())
+        || is_forced(mode, since_at as usize + 1)
     {
         1.0
     } else {
@@ -630,10 +658,19 @@ fn reached(mode: &ModeRule, chance: f64, misses: u32, games: u32) -> f64 {
         .map(|at| if at == 0 { 1.0 } else { 0.0 })
         .collect();
     (0..misses)
-        .fold(start, |f, _| convolved(&f, chance, mode.ceiling))
+        .fold(start, |f, _| convolved(&f, chance, mode))
         .last()
         .copied()
         .unwrap_or(0.0)
+}
+
+/// Whether play seen where it is could not have gone so far in a mode: past
+/// its ceiling counted from the AT with no trigger since before it.
+fn passed_unbrought(mode: &ModeRule, start: PathStart) -> bool {
+    mode.since_at_ceiling.is_some_and(|ceiling| {
+        start.since_at >= ceiling.get()
+            && start.since_at.saturating_sub(start.since_trigger) < ceiling.get()
+    })
 }
 
 /// How likely each mode is where play was first seen: the share an AT or a
@@ -656,6 +693,7 @@ pub(crate) fn started(rules: &AtRules, table: &AtTable, start: PathStart) -> Sta
                 .at_ceiling
                 .is_some_and(|ceiling| start.since_at >= ceiling.get())
                 || mode.misses.is_some_and(|limit| start.misses > limit.get())
+                || passed_unbrought(mode, start)
             {
                 0.0
             } else {
@@ -983,7 +1021,7 @@ fn triggers_by_count(
         if alive <= 0.0 || previous.iter().sum::<f64>() < f64::EPSILON * f64::EPSILON {
             return counts;
         }
-        let at = convolved(&previous, p, mode.ceiling);
+        let at = convolved(&previous, p, mode);
         let wins = success_of(j, success, misses);
         counts.push((at, alive * (1.0 - wins)));
         counts

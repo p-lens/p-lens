@@ -36,6 +36,7 @@ const COMPONENT_NAMES: Readonly<Record<string, string>> = {
   watch: "ボーナス中に見る場面",
   trials: "ボーナス1回の回数",
   cue: "示唆",
+  sinceAtCeiling: "ATから数える天井",
 }
 
 /** A component by what the person entering a spec calls it. */
@@ -123,6 +124,8 @@ const describeEngineError = (error: EngineErrorDto): string => {
       return `モードのAT間天井は、CZからATに入る機種にだけ入れられます。CZのない機種では、モードの天井がそのままAT間天井です。「${error.entity}」のAT間天井は外してください。`
     case "misses-without-cz":
       return `モード「${error.entity}」のスルー天井は、CZからATに入る機種にだけ入れられます。CZのない機種は、ATを直接引くのでスルーしません。`
+    case "since-at-ceiling-beyond-at-ceiling":
+      return `「${error.entity}」のATから数える天井は、AT間天井と同じか手前にしてください。AT間天井のない機種には入れられません。`
     case "empty-set":
       return `AT「${error.entity}」の1セットの枚数が0枚です。1枚以上にしてください。`
     case "empty-net-per-game":

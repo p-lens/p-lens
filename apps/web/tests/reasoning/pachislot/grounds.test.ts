@@ -374,6 +374,17 @@ describe("an AT machine's grounds, reasoned", () => {
     expect([ceiling?.["cz"], resetCeiling?.["cz"], misses?.["cz"]]).toEqual([600, 300, 3])
   })
 
+  test("a trigger forced once on a game counted from the AT takes the engine's cycle, said to be unchecked, and comes back to the 初当たり", async () => {
+    const cz = czSpec as SpecDto
+    const forced: SpecDto = { ...cz, components: { ...cz.components, sinceAtCeiling: { cz: 800 }, netPerGame: { at: 4 } } }
+    const { basis, analysis } = solved(forced)
+    const proof = await proved(basis, analysis)
+    expect(amiss(proof)).toEqual([["unverified_forced_cycle", "unverified"]])
+    const lines = groundsLines(proof, groundsNamingOf(basis)).map((line) => plainOf(line.parts))
+    expect(lines.some((line) => line.startsWith("1周期の通常ゲーム数 ") && line.endsWith("（計算エンジンの値）"))).toBe(true)
+    expect(lines.filter((line) => line.startsWith("検算：CZ ") && line.includes("と一致")).length).toBe(2)
+  })
+
   test("a machine of modes names each by its label", async () => {
     const modes = modesSpec as SpecDto
     const moded = solved({ ...modes, components: { ...modes.components, netPerGame: { at: 4 } } })

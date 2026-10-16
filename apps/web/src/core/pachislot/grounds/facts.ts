@@ -61,6 +61,7 @@ const levelFacts = (figures: SettingLevelFiguresDto, spec: SpecDto, at: string, 
     ...(stated === undefined ? lawFacts(spec, at, level) : [given(`stated_rate(${level}, ${prologNumber(stated)})`)]),
     ...(figures.at === undefined ? [] : [given(`engine(gain(${level}), ${prologNumber(figures.at.gain)})`), given(`engine(completion(${level}), ${prologNumber(figures.at.completion)})`)]),
     given(`engine(rate(${level}), ${prologNumber(figures.payoutRate)})`),
+    ...((triggerChance) => (cycle === undefined || triggerChance === undefined ? [] : [given(`engine(cycle_triggers(${level}), ${prologNumber(triggerChance / cycle)})`)]))(trigger === undefined ? undefined : figures.bonuses.find((bonus) => bonus.id === trigger)?.chance),
   ]
 }
 
@@ -128,6 +129,9 @@ const storedFact = (stored: SettingLevelFigures, margin: SampledMargin | undefin
  * The スルー天井: one for every mode, or where a スルー天井 is drawn after
  * each AT — a mode for each — each mode's own, in the engine's order.
  */
+/** Whether a mode's trigger comes, once, on a game counted from the last AT: a cycle the reasoner takes from the engine, and says so. */
+const forcedFacts = (rules: AtRulesDto): readonly string[] => (rules.modes.some((mode) => mode.sinceAtCeiling !== undefined) ? [given("forced_from_at")] : [])
+
 const missesFacts = (rules: AtRulesDto): readonly string[] => {
   const each = rules.modes.map((mode) => missesOf(rules, mode))
   if (each.every((misses) => misses === each[0])) return each[0] === undefined ? [] : [given(`misses(${each[0]})`)]
@@ -151,6 +155,7 @@ const machineFacts = (spec: SpecDto, rules: AtRulesDto): readonly string[] => {
   return [
     ...(trigger === undefined ? [] : [given("cz")]),
     ...missesFacts(rules),
+    ...forcedFacts(rules),
     ...(bonus === undefined ? [] : [given(`trigger_payout(${prologNumber(bonus)})`)]),
     ...(bonus === undefined || bonusNet === undefined ? [] : [given(`trigger_net(${prologNumber(bonusNet)})`)]),
     ...(spec.resources.cap === undefined ? [] : [given(`cap(${prologNumber(spec.resources.cap)})`)]),

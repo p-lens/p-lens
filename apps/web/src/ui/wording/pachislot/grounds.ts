@@ -730,7 +730,7 @@ const rateLinesBesideBonuses = (step: Step, naming: GroundsNaming): readonly Sai
 
 /** The 初当たり the engine's chance below the ceilings comes back to, from the cycle's triggers over its games, against the one published. */
 const chanceChecked = (step: Step, naming: GroundsNaming): Said => {
-  const cycle = stepUnder(step, "cycle_cut", "cycle_free")
+  const cycle = stepUnder(step, "cycle_cut", "cycle_free", "cycle_taken")
   const [cycleGames, triggers] = [known(arg(cycle, 1)), known(arg(cycle, 2))]
   const [mine, published] = [known(arg(step, 1)), known(arg(step, 2))]
   const extra = Array.from({ length: 7 }, (_, more) => more).find((more) => near(Number(trimmed(cycleGames, 1 + more)) / Number(trimmed(triggers, 3 + more)), 1 / mine, ODDS)) ?? 0
@@ -850,6 +850,10 @@ const lineOf = (step: Step, naming: GroundsNaming): Said | undefined => {
         ),
         tone: "unverified",
       }
+    case "cycle_taken":
+      return plain("1周期の通常ゲーム数 ", figure(games(arg(step, 1))), `・${triggerWord(naming)} `, figure(times(arg(step, 2))), "（計算エンジンの値）")
+    case "unverified_forced_cycle":
+      return { parts: said(`未確認：ATから数える${triggerWord(naming)}の天井がある機種の1周期は、計算エンジンが解いた値をそのまま使っています`), tone: "unverified" }
     case "unverified_completion":
       return { parts: said("未確認：上限に届くATの割合は、計算エンジンが解いた値をそのまま使っています。ATの獲得枚数を機械割から導く機種では、ここでは確かめられません"), tone: "unverified" }
     case "odd_loss_beyond_bet": {

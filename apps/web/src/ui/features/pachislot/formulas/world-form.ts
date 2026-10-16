@@ -53,6 +53,8 @@ export interface EntityRow {
   readonly net: string
   /** Whether a CZ row is a bonus that wins the AT at a share, rather than a CZ. */
   readonly bonusTrigger: boolean
+  /** A CZ's ceiling counted from the last AT, which it comes on once, as typed; empty for none. */
+  readonly sinceAtCeiling: string
   /** A mode's 振り分け after a setting change, in percent by the level; empty for the same as after an AT. */
   readonly resetAllotment: Readonly<Record<string, string>>
   /** An AT's medals beyond their average, and its 有利区間. */
@@ -138,6 +140,7 @@ const row = (key: string, label: string, kind: EntityKindName, payout = ""): Ent
   misses: "",
   net: "",
   bonusTrigger: false,
+  sinceAtCeiling: "",
   law: EMPTY_LAW,
 })
 
@@ -290,6 +293,8 @@ interface ReadRow {
   readonly trials: number | undefined
   /** A CZ that is a bonus: its 純増, where given. */
   readonly net: number | undefined
+  /** A CZ's ceiling counted from the last AT, where given. */
+  readonly sinceAtCeiling: number | undefined
   readonly law: ReadLaw | undefined
 }
 
@@ -406,6 +411,7 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
   const success = isCz ? (sharesOf(form, entity.success, `${name} 成功率`, false) ?? []) : []
   const misses = isCz || (isMode && hasCz(form)) ? ceilingOf(entity.misses, `${name} スルー天井`) : Ok(undefined)
   const net: Read<number | undefined> = isCz && tidyTyped(entity.net) !== "" ? setOf(entity.net, `${name} 純増`) : Ok(undefined)
+  const sinceAtCeiling = isCz ? ceilingOf(entity.sinceAtCeiling, `${name} ATから数える天井`) : Ok(undefined)
   const rule = payoutRule(entity)
   const payout: Read<number | undefined> =
     rule === "none" || (rule === "optional" && tidyTyped(entity.payout) === "") ? Ok(undefined) : medalsOf(entity.payout, `${name} 枚数`)
@@ -417,7 +423,7 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
   const atCeiling = isMode && hasCz(form) ? ceilingOf(entity.atCeiling, `${name} AT間天井`) : Ok(undefined)
   const law = entity.kind === "at" ? readLaw(form, entity, name) : Ok(undefined)
   const problems = [
-    ...problemsOf([label, payout, of, trials, net, ceiling, resetCeiling, atCeiling, misses, ...chances, ...allotment, ...(resetAllotment ?? []), ...success]),
+    ...problemsOf([label, payout, of, trials, net, sinceAtCeiling, ceiling, resetCeiling, atCeiling, misses, ...chances, ...allotment, ...(resetAllotment ?? []), ...success]),
     ...(law.ok ? [] : law.error),
   ]
   if (problems.length > 0 || !law.ok) return Err(problems)
@@ -434,6 +440,7 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
     misses: misses.ok ? misses.value : undefined,
     trials: trials.ok ? trials.value : undefined,
     net: net.ok ? net.value : undefined,
+    sinceAtCeiling: sinceAtCeiling.ok ? sinceAtCeiling.value : undefined,
     law: law.value,
   })
 }
@@ -459,6 +466,7 @@ const worldOf = (form: WorldForm, bet: number, at: MachineResources | undefined,
   const watches = owned("watch")
   const cues = owned("cue")
   const trials = keyed((read) => read.trials)
+  const sinceAtCeilings = keyed((read) => read.sinceAtCeiling)
   const isAt = (read: ReadRow): boolean => read.entity.kind === "at"
   const isCz = (read: ReadRow): boolean => read.entity.kind === "cz"
   const isMode = (read: ReadRow): boolean => read.entity.kind === "mode"
@@ -504,6 +512,7 @@ const worldOf = (form: WorldForm, bet: number, at: MachineResources | undefined,
       ...(Object.keys(watches).length > 0 ? { watch: watches } : {}),
       ...(Object.keys(trials).length > 0 ? { trials } : {}),
       ...(Object.keys(cues).length > 0 ? { cue: cues } : {}),
+      ...(Object.keys(sinceAtCeilings).length > 0 ? { sinceAtCeiling: sinceAtCeilings } : {}),
     },
     resources: {
       settingLevels: form.settingLevels.toSorted((left, right) => left - right),
@@ -627,6 +636,7 @@ export const worldFormOf = (spec: SpecDto): WorldForm => ({
     misses: spec.components.misses?.[entity] === undefined ? "" : String(spec.components.misses[entity]),
     net: spec.components.cz?.includes(entity) === true && spec.components.netPerGame?.[entity] !== undefined ? String(spec.components.netPerGame[entity]) : "",
     bonusTrigger: spec.components.cz?.includes(entity) === true && spec.components.bonus?.includes(entity) === true,
+    sinceAtCeiling: spec.components.sinceAtCeiling?.[entity] === undefined ? "" : String(spec.components.sinceAtCeiling[entity]),
     law: lawFormOf(spec, entity),
   })),
   base: spec.resources.base === undefined ? "" : String(spec.resources.base),

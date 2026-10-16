@@ -10,7 +10,7 @@ use pachislot_domain::spec::Component;
 use pachislot_engine::error::{ProbabilityProblem, SpecError};
 use pachislot_engine::normalize::normalize;
 use support::{
-    id, made_up_spec, medals, one_in, per, percent, setting_level, watched_spec, with_role,
+    cz_spec, id, made_up_spec, medals, one_in, per, percent, setting_level, watched_spec, with_role,
 };
 
 #[test]
@@ -338,5 +338,36 @@ fn a_watchs_cues_never_exceed_certainty_and_are_certain_under_every_setting_or_n
         Err(SpecError::WatchPartlyWhole {
             entity: id("reg-lamp")
         })
+    );
+}
+
+#[test]
+fn a_cz_ceiling_counted_from_the_at_needs_an_at_ceiling_beyond_it() {
+    let mut beyond = cz_spec();
+    beyond
+        .components
+        .since_at_ceiling
+        .insert(id("cz"), NonZeroU32::new(1_200).expect("a ceiling"));
+    assert_eq!(
+        normalize(&beyond),
+        Err(SpecError::SinceAtCeilingBeyondAtCeiling { entity: id("cz") })
+    );
+    let mut within = cz_spec();
+    within
+        .components
+        .ceiling
+        .insert(id("at"), NonZeroU32::new(1_000).expect("a ceiling"));
+    within
+        .components
+        .since_at_ceiling
+        .insert(id("cz"), NonZeroU32::new(800).expect("a ceiling"));
+    let normalized = normalize(&within).expect("normalises");
+    assert!(
+        normalized
+            .at_rules
+            .expect("an AT machine")
+            .modes
+            .iter()
+            .all(|mode| mode.since_at_ceiling == NonZeroU32::new(800))
     );
 }

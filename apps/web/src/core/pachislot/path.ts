@@ -188,6 +188,17 @@ export const atCeilingOf = (rules: AtRulesDto, mode: ModeRuleDto): number | unde
 /** A mode's スルー天井: its own, or the one a spec stored before each mode said its own gave every mode. */
 export const missesOf = (rules: AtRulesDto, mode: ModeRuleDto): number | undefined => mode.misses ?? rules.misses
 
+/**
+ * The games left to a mode's trigger ceiling where play stands: to its own,
+ * counted from the last trigger, or to one counted from the last AT while
+ * no trigger has come since its game; none where the mode has neither.
+ */
+const triggerCeilingOf = (mode: ModeRuleDto, standing: AtStanding): number | undefined => {
+  const own = mode.ceiling === undefined ? undefined : mode.ceiling - standing.sinceTrigger
+  const fromAt = mode.sinceAtCeiling !== undefined && standing.sinceAt < mode.sinceAtCeiling ? mode.sinceAtCeiling - standing.sinceAt : undefined
+  return own === undefined ? fromAt : fromAt === undefined ? own : Math.min(own, fromAt)
+}
+
 /** The deepest スルー天井 over a machine's modes; none where some mode has none. */
 export const deepestMisses = (rules: AtRulesDto): number | undefined => deepest(rules.modes.map((mode) => missesOf(rules, mode)))
 
@@ -224,10 +235,10 @@ const zoneOf = (standing: AtStanding, rules: AtRulesDto | undefined): Ceilings["
 export const ceilingsOf = (standing: AtStanding, normalized: NormalizedSpecDto): Ceilings => {
   const rules = normalized.atRules
   const modes = reachableModes(normalized, standing.afterReset)
-  const trigger = deepest(modes.map((mode) => mode.ceiling))
+  const trigger = deepest(modes.map((mode) => triggerCeilingOf(mode, standing)))
   const at = rules === undefined ? undefined : deepest(modes.map((mode) => atCeilingOf(rules, mode)))
   return {
-    trigger: trigger === undefined ? undefined : Math.max(0, trigger - standing.sinceTrigger),
+    trigger: trigger === undefined ? undefined : Math.max(0, trigger),
     at: at === undefined ? undefined : Math.max(0, at - standing.sinceAt),
     misses: ((limit) => (limit === undefined ? undefined : { missed: standing.misses, limit }))(rules === undefined ? undefined : deepest(modes.map((mode) => missesOf(rules, mode)))),
     zone: zoneOf(standing, rules),
@@ -248,7 +259,7 @@ export const huntSeatsOf = (normalized: NormalizedSpecDto, afterReset: boolean, 
   if (rules === undefined) return []
   const modes = reachableModes(normalized, afterReset)
   const atCeiling = deepest(modes.map((mode) => (rules.trigger === undefined ? mode.ceiling : atCeilingOf(rules, mode)))) ?? 1000
-  const czCeiling = rules.trigger === undefined || misses > 0 ? undefined : deepest(modes.map((mode) => mode.ceiling))
+  const czCeiling = rules.trigger === undefined || misses > 0 ? undefined : deepest(modes.map((mode) => (mode.ceiling === undefined ? mode.sinceAtCeiling : mode.sinceAtCeiling === undefined ? mode.ceiling : Math.min(mode.ceiling, mode.sinceAtCeiling))))
   const ceiling = Math.min(atCeiling, czCeiling ?? atCeiling)
   const step = ceiling > 500 ? 100 : 50
   return Array.from({ length: Math.ceil(ceiling / step) }, (_, index) => index * step).map((sinceAt) => ({

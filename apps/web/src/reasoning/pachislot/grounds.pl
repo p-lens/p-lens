@@ -68,15 +68,20 @@ rule(cycle_from_first_hit, cycle_games(Level, Games),
 rule(cycle_to_at_ceiling, cycle_games(Level, Games), ( cut_short(Level), cycle(Level, Games, _) )).
 rule(cut_short, cut_short(Level), ( shares(Level, Shares), at_ceilings(AtCeilings), entered_ceiling(Shares, AtCeilings) )).
 
+% Where a trigger comes, once, on a game counted from the last AT, the
+% cycle is not played out here: the engine's games and triggers are taken,
+% and said to be unchecked.
 % A cycle played out from the trigger's chance below its ceilings: the
 % games it lasts and the triggers it brings, over the modes as an AT
 % allots them. In a mode without an AT間天井 the triggers come so many
 % games apart on average, its ceiling included. In one with an AT間天井,
 % the chance play has lasted each game is worked game by game up to it.
 rule(cycle_cut, cycle(Level, Games, Triggers),
-     ( cut_short(Level), given(chance(Level, Chance)), success(Level, Success), mode_misses(Misses),
+     ( cut_short(Level), \+ given(forced_from_at), given(chance(Level, Chance)), success(Level, Success), mode_misses(Misses),
        ceilings(Ceilings), shares(Level, Shares), at_ceilings(AtCeilings),
        run_cut(Chance, Success, Misses, Ceilings, Shares, AtCeilings, Games, Triggers) )).
+rule(cycle_taken, cycle(Level, Games, Triggers),
+     ( given(forced_from_at), given(engine(cycle_games(Level), Games)), given(engine(cycle_triggers(Level), Triggers)) )).
 rule(cycle_free, cycle(Level, Games, Triggers),
      ( \+ cut_short(Level), given(chance(Level, Chance)), triggers(Level, Triggers), ceilings(Ceilings), shares(Level, Shares),
        games_between(Chance, Ceilings, Shares, Between), Games is Triggers * Between )).
@@ -91,6 +96,7 @@ rule(without_misses, misses(none), \+ given(misses(_))).
 rule(misses_shared, mode_misses(Misses), ( \+ given(misses_by_mode), misses(Each), ceilings(Ceilings), repeated(Each, Ceilings, Misses) )).
 rule(misses_by_mode, mode_misses(Misses), ( given(misses_by_mode), findall(Each, given(mode_misses(_, Each)), Misses) )).
 rule(cut_by_misses, cut_short(_), given(misses_by_mode)).
+rule(cut_by_forcing, cut_short(_), given(forced_from_at)).
 
 % A mode's ceiling in regular games: as the sheet gives it, or counted on
 % the screen and so reached that many regular games sooner. Its AT間天井,
@@ -196,6 +202,7 @@ rule(beyond, verdict(Gap, Limit, fails), Gap > Limit).
 % under a cap where a regular game's loss in the window could undo an AT's
 % whole gain, which the working upward does not allow for; and the share
 % of ATs that reach the cap where the AT's medals follow from the 機械割.
+rule(unverified_forced_cycle, remark(forced_cycle), given(forced_from_at)).
 rule(unverified_capped_gain, remark(capped_gain(Cap)), ( given(cap(Cap)), given(level(Level)), gain_taken(Level) )).
 rule(unverified_completion, remark(completion),
      ( given(reset_on_cap), given(level(Level)), given(stated_rate(Level, _)) )).

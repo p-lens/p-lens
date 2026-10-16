@@ -115,6 +115,7 @@ fn rules(cap: Option<f64>, window: Option<u32>, reset_on_cap: bool) -> AtRules {
             ceiling: None,
             at_ceiling: None,
             misses: None,
+            since_at_ceiling: None,
         }],
         net_per_game: None,
         cap: cap.and_then(Medals::new),
@@ -282,12 +283,14 @@ fn reaching_the_cap_starts_play_again_as_after_a_setting_change_where_the_machin
                 ceiling: NonZeroU32::new(1_000),
                 at_ceiling: None,
                 misses: None,
+                since_at_ceiling: None,
             },
             ModeRule {
                 id: id("at:reset"),
                 ceiling: NonZeroU32::new(100),
                 at_ceiling: None,
                 misses: None,
+                since_at_ceiling: None,
             },
         ],
         ..rules(Some(2_400.0), None, reset_on_cap)

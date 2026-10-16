@@ -77,6 +77,10 @@ fn check_entities(spec: &Spec) -> Result<(), SpecError> {
         .chain(keyed(&components.watch, Component::Watch))
         .chain(keyed(&components.trials, Component::Trials))
         .chain(keyed(&components.cue, Component::Cue))
+        .chain(keyed(
+            &components.since_at_ceiling,
+            Component::SinceAtCeiling,
+        ))
         .find(|(entity, _)| !known.contains(entity))
         .map_or(Ok(()), |(entity, component)| {
             Err(SpecError::StrayComponent {
@@ -296,6 +300,7 @@ fn cz(spec: &Spec, entity: &EntityId) -> Result<Cz, SpecError> {
         ceiling: components.ceiling.get(entity).copied(),
         reset_ceiling: components.reset_ceiling.get(entity).copied(),
         misses: components.misses.get(entity).copied(),
+        since_at_ceiling: components.since_at_ceiling.get(entity).copied(),
         bonus: components.bonus.contains(entity) || payout.is_some(),
         payout,
         net_per_game,

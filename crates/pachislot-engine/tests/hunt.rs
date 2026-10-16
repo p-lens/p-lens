@@ -199,3 +199,62 @@ fn misses_past_a_mode_s_through_ceiling_rule_it_out_where_play_is_seen() {
     assert!(near(seen.games, deeper.games));
     assert!(near(seen.medals, deeper.medals));
 }
+
+#[test]
+fn a_trigger_forced_once_on_a_game_counted_from_the_at_is_the_cycle_from_just_after_one() {
+    let (p, q) = (0.004, 0.4);
+    for misses in [None, NonZeroU32::new(2)] {
+        let forced = ModeRule {
+            since_at_ceiling: NonZeroU32::new(300),
+            misses,
+            ..ceiled("cz", 0, 700)
+        };
+        let machine = rules(Some("cz"), vec![forced]);
+        let found =
+            hunt(start(0, 0, 0), &machine, &table(p, q, vec![1.0], vec![1.0])).expect("comes");
+        let whole = cycle(&machine, p, q, &[1.0]);
+        assert!(
+            near(found.games, whole.games),
+            "{} against {}",
+            found.games,
+            whole.games
+        );
+        let unforced = cycle(
+            &rules(
+                Some("cz"),
+                vec![ModeRule {
+                    misses,
+                    ..ceiled("cz", 0, 700)
+                }],
+            ),
+            p,
+            q,
+            &[1.0],
+        );
+        assert!(whole.games < unforced.games);
+        assert!(whole.triggers > unforced.triggers);
+    }
+}
+
+#[test]
+fn a_seat_past_the_ceiling_counted_from_the_at_with_no_trigger_since_rules_its_mode_out() {
+    let (p, q) = (0.004, 0.4);
+    let forced = ModeRule {
+        since_at_ceiling: NonZeroU32::new(300),
+        ..ceiled("cz", 0, 700)
+    };
+    let both = rules(Some("cz"), vec![forced, ceiled("free", 0, 700)]);
+    let seen = hunt(
+        start(350, 350, 0),
+        &both,
+        &table(p, q, vec![0.5, 0.5], vec![0.5, 0.5]),
+    )
+    .expect("comes");
+    let free = hunt(
+        start(350, 350, 0),
+        &rules(Some("cz"), vec![ceiled("free", 0, 700)]),
+        &table(p, q, vec![1.0], vec![1.0]),
+    )
+    .expect("comes");
+    assert!(near(seen.games, free.games));
+}

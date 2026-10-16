@@ -9,7 +9,7 @@ use pachislot_domain::spec::{Chance, Component, Element, EntityId, Spec, Watch};
 
 use pachislot_domain::version::SchemaVersion;
 
-use crate::at_machine::{AtMachine, at_machine, coverage, rules_of, table_of};
+use crate::at_machine::{AtMachine, at_machine, check_since_at, coverage, rules_of, table_of};
 use crate::error::{ProbabilityProblem, SpecError};
 use crate::query::elements;
 
@@ -178,6 +178,7 @@ fn at_tables(
         .iter()
         .try_for_each(|outcome| check_coverage(setting_levels, outcome.id, outcome.chance))?;
     let rules = rules_of(machine, spec.resources.lcd_rate, spec.resources.cap);
+    check_since_at(&rules)?;
     let bet = f64::from(spec.resources.bet.get());
     let tables = setting_levels
         .iter()

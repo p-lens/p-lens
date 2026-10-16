@@ -126,6 +126,10 @@ pub struct ModeRule {
     /// スルー天井: the triggers missed since the last AT after which the
     /// next wins it, the mode's own or the CZ's.
     pub misses: Option<NonZeroU32>,
+    /// The regular game since the last AT on which the trigger comes at the
+    /// latest, once, short of the AT間天井: a bonus's ceiling that a bonus
+    /// missing the AT does not start again.
+    pub since_at_ceiling: Option<NonZeroU32>,
 }
 
 /// How one setting allots play between an AT machine's modes, in the order

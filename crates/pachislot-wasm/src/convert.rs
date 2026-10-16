@@ -230,6 +230,11 @@ fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
             NonZeroU32::new(*count).ok_or_else(|| invalid(at))
         })?,
         cue: table(&dto.cue, "spec.components.cue", |of, at| id(of, at))?,
+        since_at_ceiling: table(
+            &dto.since_at_ceiling,
+            "spec.components.sinceAtCeiling",
+            |games, at| NonZeroU32::new(*games).ok_or_else(|| invalid(at)),
+        )?,
     })
 }
 
@@ -379,6 +384,10 @@ fn at_rules(dto: &AtRulesDto, shape: SchemaVersion) -> Result<AtRules, ErrorDto>
                 Ok(ModeRule {
                     id: id(&mode.id, &format!("{at}.id"))?,
                     misses: ceiling(mode.misses, &format!("{at}.misses"))?.or(machine_misses),
+                    since_at_ceiling: ceiling(
+                        mode.since_at_ceiling,
+                        &format!("{at}.sinceAtCeiling"),
+                    )?,
                     ceiling: ceiling(mode.ceiling, &format!("{at}.ceiling"))?,
                     at_ceiling: if by_mode {
                         ceiling(mode.at_ceiling, &format!("{at}.atCeiling"))?
@@ -657,6 +666,7 @@ pub fn normalized_dto(spec: &NormalizedSpec) -> NormalizedSpecDto {
                     ceiling: mode.ceiling.map(NonZeroU32::get),
                     at_ceiling: mode.at_ceiling.map(NonZeroU32::get),
                     misses: mode.misses.map(NonZeroU32::get),
+                    since_at_ceiling: mode.since_at_ceiling.map(NonZeroU32::get),
                 })
                 .collect(),
         }),
@@ -846,6 +856,7 @@ fn component_name(component: Component) -> String {
         Component::Watch => "watch",
         Component::Trials => "trials",
         Component::Cue => "cue",
+        Component::SinceAtCeiling => "sinceAtCeiling",
     }
     .to_owned()
 }
@@ -973,6 +984,11 @@ pub fn spec_error_dto(error: &SpecError) -> ErrorDto {
         SpecError::MissesWithoutCz { entity } => ErrorDto::MissesWithoutCz {
             entity: named(entity),
         },
+        SpecError::SinceAtCeilingBeyondAtCeiling { entity } => {
+            ErrorDto::SinceAtCeilingBeyondAtCeiling {
+                entity: named(entity),
+            }
+        }
         SpecError::EmptySet { entity } => ErrorDto::EmptySet {
             entity: named(entity),
         },

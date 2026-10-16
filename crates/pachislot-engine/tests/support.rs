@@ -288,6 +288,7 @@ pub fn mode(name: &str, ceiling: u32) -> ModeRule {
         ceiling: NonZeroU32::new(ceiling),
         at_ceiling: None,
         misses: None,
+        since_at_ceiling: None,
     }
 }
 

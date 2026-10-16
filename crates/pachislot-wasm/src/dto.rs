@@ -127,6 +127,10 @@ pub struct ComponentsDto {
     /// A cue: one thing a watch may show on a trial, named by the watch.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub cue: BTreeMap<String, String>,
+    /// On a CZ: the regular game since the last AT on which it comes at the
+    /// latest, once.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub since_at_ceiling: BTreeMap<String, u32>,
     #[serde(flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub unsupported: BTreeMap<String, serde_json::Value>,
 }
@@ -340,6 +344,8 @@ pub struct ModeRuleDto {
     pub at_ceiling: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub misses: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub since_at_ceiling: Option<u32>,
 }
 
 /// A spec to normalise, or one normalised before and stored, solved as it is.
@@ -901,6 +907,9 @@ pub enum ErrorDto {
         entity: String,
     },
     MissesWithoutCz {
+        entity: String,
+    },
+    SinceAtCeilingBeyondAtCeiling {
         entity: String,
     },
     EmptySet {

@@ -638,3 +638,19 @@ fn a_cz_that_is_a_bonus_carries_its_medals_through_the_stored_spec_and_the_hunt(
         &paid["triggerMedals"]
     ));
 }
+
+#[test]
+fn a_cz_ceiling_counted_from_the_at_is_carried_on_each_mode() {
+    let mut spec = value(CZ_SPEC);
+    spec["components"]["sinceAtCeiling"] = json!({ "cz": 800 });
+    let normalized = ok(&normalize(&json!({ "spec": spec }).to_string()));
+    assert_eq!(
+        normalized["atRules"]["modes"][0]["sinceAtCeiling"],
+        json!(800)
+    );
+    spec["components"]["sinceAtCeiling"] = json!({ "cz": 1001 });
+    assert_eq!(
+        error(&normalize(&json!({ "spec": spec }).to_string())),
+        json!({ "type": "since-at-ceiling-beyond-at-ceiling", "entity": "cz" })
+    );
+}

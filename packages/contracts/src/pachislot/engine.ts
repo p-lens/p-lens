@@ -111,6 +111,8 @@ export interface ComponentsDto {
   readonly watch?: Readonly<Record<string, string>>
   /** The trials each of a watch's bonus gives it — a BIG's games — one where left out. */
   readonly trials?: Readonly<Record<string, number>>
+  /** On a CZ: the regular game since the last AT on which it comes at the latest, once — a bonus's ceiling that a bonus missing the AT does not start again. Needs an AT間天井 beyond it. */
+  readonly sinceAtCeiling?: Readonly<Record<string, number>>
   /** A cue: one thing a watch may show on a trial — a スイカ, a lamp's colour — named by the watch. Its `chance` is a trial's; a watch's cues never share a trial. */
   readonly cue?: Readonly<Record<string, string>>
 }
@@ -198,6 +200,8 @@ export interface ModeRuleDto {
   readonly atCeiling?: number
   /** スルー天井: the triggers missed since the last AT after which the next wins it, the mode's own or the CZ's. */
   readonly misses?: number
+  /** The regular game since the last AT on which the trigger comes at the latest, once. */
+  readonly sinceAtCeiling?: number
 }
 
 /**
@@ -528,6 +532,7 @@ export type EngineErrorDto =
   | { readonly type: "reset-ceiling-beside-modes"; readonly entity: string }
   | { readonly type: "at-ceiling-without-cz"; readonly entity: string }
   | { readonly type: "misses-without-cz"; readonly entity: string }
+  | { readonly type: "since-at-ceiling-beyond-at-ceiling"; readonly entity: string }
   | { readonly type: "empty-set"; readonly entity: string }
   | { readonly type: "empty-net-per-game"; readonly entity: string }
   | { readonly type: "other-net-beyond-whole"; readonly entity: string; readonly sum: number }

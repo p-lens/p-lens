@@ -1242,6 +1242,11 @@ only the primitives, the core and the application.
   four or six — is a mode for each, its share the draw, and misses past a
   mode's スルー天井 rule it out where play is seen (`atRules.modes[].misses`;
   a spec stored with one `atRules.misses` has it read into every mode).
+  A CZ may also come, once, on a game counted from the last AT
+  (`sinceAtCeiling`): a bonus's ceiling that a bonus missing the AT does
+  not start again. Every waiting trigger comes on that game; it needs an
+  AT間天井 at it or beyond, so that a cycle ends. The grounds do not play
+  such a cycle out: they take the engine's, and say it is unchecked.
   Where the ceilings count the screen's games, `lcdRate` says how
   many the screen counts for each regular game, and the trigger's ceilings
   are taken that much sooner — on average, which the screen's additions are;

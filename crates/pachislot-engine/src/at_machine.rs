@@ -298,6 +298,7 @@ pub(crate) fn rules_of(
     cap: Option<Medals>,
 ) -> AtRules {
     let misses = machine.cz.and_then(|cz| cz.misses);
+    let since_at_ceiling = machine.cz.and_then(|cz| cz.since_at_ceiling);
     let rule = |id: &EntityId,
                 ceiling: Option<NonZeroU32>,
                 at_ceiling: Option<NonZeroU32>,
@@ -306,6 +307,7 @@ pub(crate) fn rules_of(
         ceiling: ceiling.map(|ceiling| in_regular_games(ceiling, lcd_rate)),
         at_ceiling,
         misses,
+        since_at_ceiling,
     };
     let (trigger, ceiling, reset_ceiling) = trigger_of(machine.at, machine.cz);
     let (at_ceiling, reset_at_ceiling) = at_ceilings_of(machine.at, machine.cz);
@@ -351,6 +353,24 @@ pub(crate) fn rules_of(
                 net_per_game: cz.net_per_game,
             })
         }),
+    }
+}
+
+/// Every mode with a CZ's ceiling counted from the AT has an AT間天井 at it
+/// or beyond, so that a cycle is followed to its end; on the same game the
+/// AT is won, as an AT間天井 wins it.
+pub(crate) fn check_since_at(rules: &AtRules) -> Result<(), SpecError> {
+    let unbounded = rules.modes.iter().any(|mode| {
+        mode.since_at_ceiling.is_some_and(|since_at| {
+            mode.at_ceiling
+                .is_none_or(|at_ceiling| at_ceiling < since_at)
+        })
+    });
+    match (unbounded, rules.trigger.as_ref()) {
+        (true, Some(trigger)) => Err(SpecError::SinceAtCeilingBeyondAtCeiling {
+            entity: trigger.clone(),
+        }),
+        _ => Ok(()),
     }
 }
 
