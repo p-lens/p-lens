@@ -3,6 +3,7 @@ import { createSignal, type JSX } from "solid-js"
 
 import { createLongPress } from "../../../primitives/long-press"
 import { TextField } from "../../../primitives/text-field"
+import { feelHold, feelTap } from "../../../primitives/vibration"
 import { PRESS_DIGITS } from "../../live/parlor-setting"
 import { readPressAmount } from "./press-amounts"
 
@@ -47,6 +48,7 @@ export function PressButton(props: {
     if (event.target instanceof Node && own.button?.contains(event.target) === true) event.preventDefault()
   }
   const hold = createLongPress(() => {
+    feelHold()
     own.opened = props.amount
     setTyped(String(props.amount))
     setOpen(true)
@@ -73,7 +75,9 @@ export function PressButton(props: {
           onPointerCancel={hold.onPointerCancel}
           onContextMenu={hold.onContextMenu}
           onClick={() => {
-            if (!hold.wasLong()) props.onPress()
+            if (hold.wasLong()) return
+            feelTap()
+            props.onPress()
           }}
         >
           +{props.amount}

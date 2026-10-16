@@ -3,6 +3,7 @@ import { Index, onCleanup, onMount, type JSX } from "solid-js"
 import type { Countable } from "../../../../core/pachislot/weighing"
 import type { Counts } from "../../../../core/play-log/checkpoint"
 import { createLongPress } from "../../../primitives/long-press"
+import { feelHold, feelTap } from "../../../primitives/vibration"
 import { formatCount } from "../../../wording/numbers"
 import { observedOneInText } from "../../../wording/pachislot/formula"
 
@@ -14,7 +15,10 @@ function CountTile(props: {
   readonly held: boolean
   readonly onCount: (id: string, by: 1 | -1) => void
 }): JSX.Element {
-  const press = createLongPress(() => props.onCount(props.countable.id, -1))
+  const press = createLongPress(() => {
+    feelHold()
+    props.onCount(props.countable.id, -1)
+  })
   return (
     <button
       type="button"
@@ -28,7 +32,9 @@ function CountTile(props: {
       onPointerCancel={press.onPointerCancel}
       onContextMenu={press.onContextMenu}
       onClick={() => {
-        if (!press.wasLong()) props.onCount(props.countable.id, 1)
+        if (press.wasLong()) return
+        feelTap()
+        props.onCount(props.countable.id, 1)
       }}
     >
       <span class="text-3xl font-bold tabular-nums text-text-primary">{formatCount(props.count)}</span>

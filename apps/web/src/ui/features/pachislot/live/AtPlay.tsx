@@ -13,6 +13,7 @@ import { createNudge } from "../../../primitives/nudge"
 import { settleTyping, TextField } from "../../../primitives/text-field"
 import { toast } from "../../../primitives/toast"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
+import { feelHold, feelTap } from "../../../primitives/vibration"
 import { describeError } from "../../../wording/errors"
 import { formatCount } from "../../../wording/numbers"
 import { describeAtReadingRefusal, describeTakeBackRefusal } from "../../../wording/pachislot/formula"
@@ -369,7 +370,10 @@ export function AtReadingComposer(props: { readonly reading: AtReading }): JSX.E
 
 /** A tile an event is kept with by a tap, and the last of it taken back by a long press. */
 function EventTile(props: { readonly label: string; readonly count: number; readonly onPress: () => void; readonly onLongPress: () => void }): JSX.Element {
-  const press = createLongPress(() => props.onLongPress())
+  const press = createLongPress(() => {
+    feelHold()
+    props.onLongPress()
+  })
   return (
     <button
       type="button"
@@ -382,7 +386,9 @@ function EventTile(props: { readonly label: string; readonly count: number; read
       onPointerCancel={press.onPointerCancel}
       onContextMenu={press.onContextMenu}
       onClick={() => {
-        if (!press.wasLong()) props.onPress()
+        if (press.wasLong()) return
+        feelTap()
+        props.onPress()
       }}
     >
       <span class="text-3xl font-bold tabular-nums text-text-primary">{formatCount(props.count)}</span>
