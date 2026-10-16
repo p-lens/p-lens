@@ -319,6 +319,7 @@ pub fn rules(trigger: Option<&str>, modes: Vec<ModeRule>) -> AtRules {
         cap: None,
         window: None,
         reset_on_cap: false,
+        trigger_is_bonus: false,
         trigger_payout: None,
     }
 }

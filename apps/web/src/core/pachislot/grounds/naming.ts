@@ -24,7 +24,7 @@ export interface GroundsNaming {
 const triggerOf = (basis: Basis): GroundsTrigger => {
   const rules = basis.normalized.atRules
   if (rules?.trigger === undefined) return { type: "at" }
-  return rules.triggerPayout === undefined ? { type: "cz" } : { type: "bonus", label: basis.spec.components.label?.[rules.trigger] || "ボーナス" }
+  return rules.triggerIsBonus !== true && rules.triggerPayout === undefined ? { type: "cz" } : { type: "bonus", label: basis.spec.components.label?.[rules.trigger] || "ボーナス" }
 }
 
 /** How a formula's grounds name its trigger and its modes. */

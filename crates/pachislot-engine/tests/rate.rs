@@ -361,3 +361,28 @@ fn a_cz_s_net_needs_medals_to_be_won_over() {
         })
     );
 }
+
+#[test]
+fn a_cz_marked_a_bonus_is_one_whether_its_medals_are_known_or_not() {
+    let mut marked = cz_spec();
+    marked.components.bonus.insert(id("cz"));
+    let normalized = normalize(&marked).expect("normalises");
+    let rules = normalized.at_rules.as_ref().expect("an AT machine");
+    assert!(rules.trigger_is_bonus);
+    assert_eq!(rules.trigger_payout, None);
+    let paid = normalize(&bonus_triggered()).expect("normalises");
+    assert!(
+        paid.at_rules
+            .as_ref()
+            .expect("an AT machine")
+            .trigger_is_bonus
+    );
+    let plain = normalize(&cz_spec()).expect("normalises");
+    assert!(
+        !plain
+            .at_rules
+            .as_ref()
+            .expect("an AT machine")
+            .trigger_is_bonus
+    );
+}

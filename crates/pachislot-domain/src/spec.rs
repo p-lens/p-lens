@@ -126,7 +126,8 @@ pub struct Components {
     /// Medals it pays on the game it comes up — a small win — or gains over
     /// its own games — a bonus.
     pub payout: BTreeMap<EntityId, Medals>,
-    /// A bonus: BIG, REG.
+    /// A bonus: BIG, REG — or, beside `cz`, a bonus that brings the AT in a
+    /// CZ's place.
     pub bonus: BTreeSet<EntityId>,
     /// A replay: the next game costs nothing.
     pub replay: BTreeSet<EntityId>,
@@ -301,8 +302,11 @@ pub struct Cz {
     pub ceiling: Option<NonZeroU32>,
     pub reset_ceiling: Option<NonZeroU32>,
     pub misses: Option<NonZeroU32>,
-    /// Medals it gains over its own games each time it comes: a bonus's;
-    /// none for a CZ that pays nothing.
+    /// Whether it is a bonus that wins the AT at a share, rather than a CZ:
+    /// marked so, or given medals of its own.
+    pub bonus: bool,
+    /// Medals it gains over its own games each time it comes: a bonus's,
+    /// where they are known; none for a CZ, which pays nothing.
     pub payout: Option<Medals>,
     /// 純増: the medals a game of it gains, which says the games it takes;
     /// none where they are not counted.

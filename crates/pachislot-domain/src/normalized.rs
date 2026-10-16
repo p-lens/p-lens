@@ -88,9 +88,13 @@ pub struct AtRules {
     /// Whether play starts again as after a setting change once an AT
     /// reaches the cap, rather than as after any AT.
     pub reset_on_cap: bool,
-    /// What the trigger pays each time it comes, where it is a bonus: its
-    /// medals, and the medals a game of it gains where its games are
-    /// counted. A win on the AT間天井 is no trigger's and pays none of it.
+    /// Whether the trigger is a bonus that wins the AT at a share, rather
+    /// than a CZ.
+    pub trigger_is_bonus: bool,
+    /// What the trigger pays each time it comes, where it is a bonus whose
+    /// medals are known: its medals, and the medals a game of it gains
+    /// where its games are counted. A win on the AT間天井 is no trigger's
+    /// and pays none of it.
     pub trigger_payout: Option<TriggerPayout>,
 }
 

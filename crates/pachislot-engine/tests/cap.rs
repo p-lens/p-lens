@@ -120,6 +120,7 @@ fn rules(cap: Option<f64>, window: Option<u32>, reset_on_cap: bool) -> AtRules {
         cap: cap.and_then(Medals::new),
         window: window.and_then(NonZeroU32::new),
         reset_on_cap,
+        trigger_is_bonus: false,
         trigger_payout: None,
     }
 }

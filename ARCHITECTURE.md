@@ -1270,9 +1270,11 @@ only the primitives, the core and the application.
   share of their own — has the bonus as its `cz`: its 合算 the bonus
   初当たり, its `success` the share of bonuses that win the AT, its
   `ceiling` the ボーナス間天井 and its `misses` the bonuses missed before
-  one wins it. Its `payout` is what the bonus gains each time it comes, the
-  AT won or not, and its `netPerGame` the games that takes, where it is
-  known (`atRules.triggerPayout`). The 機械割 counts each cycle's bonuses
+  one wins it. It is marked a bonus by `bonus` beside `cz`
+  (`atRules.triggerIsBonus`, which the screens and the grounds name it
+  by). Its `payout` is what the bonus gains each time it comes, the AT won
+  or not, and its `netPerGame` the games that takes, where they are known
+  (`atRules.triggerPayout`); medals given mark it a bonus too. The 機械割 counts each cycle's bonuses
   besides its AT, so the AT's gain worked from it is the AT's alone; the
   walk and the hunt pay a bonus at its chance a game. An AT won on the
   AT間天井 is no bonus's and pays none, and a bonus's medals are not

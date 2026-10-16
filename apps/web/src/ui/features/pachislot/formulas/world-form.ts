@@ -51,6 +51,8 @@ export interface EntityRow {
   readonly misses: string
   /** A CZ that is a bonus: its 純増, the medals a game of it gains, as typed; empty where its games are not counted. */
   readonly net: string
+  /** Whether a CZ row is a bonus that wins the AT at a share, rather than a CZ. */
+  readonly bonusTrigger: boolean
   /** A mode's 振り分け after a setting change, in percent by the level; empty for the same as after an AT. */
   readonly resetAllotment: Readonly<Record<string, string>>
   /** An AT's medals beyond their average, and its 有利区間. */
@@ -135,6 +137,7 @@ const row = (key: string, label: string, kind: EntityKindName, payout = ""): Ent
   success: {},
   misses: "",
   net: "",
+  bonusTrigger: false,
   law: EMPTY_LAW,
 })
 
@@ -451,6 +454,7 @@ const worldOf = (form: WorldForm, bet: number, at: MachineResources | undefined,
     }))
   const listed = (kind: EntityKindName): readonly string[] => rows.filter((read) => read.entity.kind === kind).map((read) => read.entity.key)
   const owned = (kind: EntityKindName): Readonly<Record<string, string>> => keyed((read) => (read.entity.kind === kind ? read.entity.of : undefined))
+  const bonuses = rows.filter((read) => read.entity.kind === "bonus" || (read.entity.kind === "cz" && read.entity.bonusTrigger)).map((read) => read.entity.key)
   const parts = owned("part")
   const watches = owned("watch")
   const cues = owned("cue")
@@ -479,7 +483,7 @@ const worldOf = (form: WorldForm, bet: number, at: MachineResources | undefined,
       label: keyed((read) => read.entity.label.trim()),
       ...(rows.some((read) => !isAt(read) && !isCz(read) && !isMode(read) && read.entity.kind !== "watch") ? { chance: keyed((read) => (isAt(read) || isCz(read) ? undefined : read.chance)) } : {}),
       ...(rows.some((read) => read.payout !== undefined) ? { payout: keyed((read) => read.payout) } : {}),
-      ...(listed("bonus").length > 0 ? { bonus: listed("bonus") } : {}),
+      ...(bonuses.length > 0 ? { bonus: bonuses } : {}),
       ...(listed("replay").length > 0 ? { replay: listed("replay") } : {}),
       ...(Object.keys(parts).length > 0 ? { partOf: parts } : {}),
       ...(listed("at").length > 0 ? { at: listed("at") } : {}),
@@ -622,6 +626,7 @@ export const worldFormOf = (spec: SpecDto): WorldForm => ({
     success: Object.fromEntries((spec.components.success?.[entity] ?? []).map((each) => [String(each.settingLevel), String(each.value / 100)])),
     misses: spec.components.misses?.[entity] === undefined ? "" : String(spec.components.misses[entity]),
     net: spec.components.cz?.includes(entity) === true && spec.components.netPerGame?.[entity] !== undefined ? String(spec.components.netPerGame[entity]) : "",
+    bonusTrigger: spec.components.cz?.includes(entity) === true && spec.components.bonus?.includes(entity) === true,
     law: lawFormOf(spec, entity),
   })),
   base: spec.resources.base === undefined ? "" : String(spec.resources.base),

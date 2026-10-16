@@ -311,7 +311,11 @@ pub struct AtRulesDto {
     pub window: Option<u32>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub reset_on_cap: bool,
-    /// What the trigger pays each time it comes, where it is a bonus.
+    /// Whether the trigger is a bonus that wins the AT at a share.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub trigger_is_bonus: bool,
+    /// What the trigger pays each time it comes, where it is a bonus whose
+    /// medals are known.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trigger_payout: Option<TriggerPayoutDto>,
 }

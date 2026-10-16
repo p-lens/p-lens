@@ -344,6 +344,7 @@ pub(crate) fn rules_of(
         cap,
         window: machine.at.window,
         reset_on_cap: machine.at.reset_on_cap,
+        trigger_is_bonus: machine.cz.is_some_and(|cz| cz.bonus),
         trigger_payout: machine.cz.and_then(|cz| {
             cz.payout.map(|medals| TriggerPayout {
                 medals,

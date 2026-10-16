@@ -316,6 +316,13 @@ function RowEditor(props: {
         <p class="text-xs text-text-muted">ボーナス1回で何回見るかを入れます。BIG中のスイカならBIGのゲーム数、REG中のランプなら1回です。示唆の確率は、その1回あたりで入れてください。</p>
       </Show>
       <Show when={props.row.kind === "cz"}>
+        <div class="flex flex-col gap-1.5">
+          <span class={LABEL}>ATを抽選するのは</span>
+          <ToggleGroup value={props.row.bonusTrigger ? "bonus" : "cz"} onChange={(value: string | null) => value !== null && props.onChange({ ...props.row, bonusTrigger: value === "bonus" })}>
+            <ToggleGroupItem value="cz">CZ</ToggleGroupItem>
+            <ToggleGroupItem value="bonus">ボーナス</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
         <span class={LABEL}>CZ合算（公表値・天井込み）</span>
         <LevelCells name={`${name("CZ")} 合算`} levels={props.form.settingLevels} values={props.row.chances} placeholder="1/" onChange={(chances) => props.onChange({ ...props.row, chances })} />
         <span class={LABEL}>CZ成功率</span>
@@ -329,7 +336,7 @@ function RowEditor(props: {
         />
         <CzDepths row={props.row} form={props.form} onChange={props.onChange} />
         <p class="text-xs text-text-muted">
-          CZのかわりにボーナスがATを抽選する機種は、ボーナスをここに入れます。CZ合算にボーナス合算、CZ成功率にボーナスからATに入る割合、天井にボーナス間天井を入れ、ボーナスの獲得と純増を足すと、ATに入らなかったボーナスの枚数も期待値に入ります。
+          ボーナスがATを抽選する機種は「ボーナス」を選び、ここに入れます。CZ合算にボーナス合算、CZ成功率にボーナスからATに入る割合、天井にボーナス間天井を入れ、ボーナスの獲得と純増を足すと、ATに入らなかったボーナスの枚数も期待値に入ります。
         </p>
       </Show>
       <Show

@@ -36,7 +36,7 @@ describe("the 解析値 form", () => {
     const form = {
       settingLevels: [1, 6],
       bet: "3",
-      rows: [{ key: "big", label: "BIG", kind: "bonus" as const, of: "", trials: "", payout: "２５２", chances: { "1": "1/273.1", "6": "２５５" }, ceiling: "", resetCeiling: "", atCeiling: "", resetAllotment: {}, success: {}, misses: "", net: "", law: EMPTY_LAW }],
+      rows: [{ key: "big", label: "BIG", kind: "bonus" as const, of: "", trials: "", payout: "２５２", chances: { "1": "1/273.1", "6": "２５５" }, ceiling: "", resetCeiling: "", atCeiling: "", resetAllotment: {}, success: {}, misses: "", net: "", bonusTrigger: false, law: EMPTY_LAW }],
       base: "",
       lcdRate: "",
       cap: "",
@@ -216,6 +216,14 @@ describe("an AT machine typed in by hand", () => {
     const row = form.world.rows.find((each) => each.kind === "cz")
     expect([row?.payout, row?.net]).toEqual(["100", "5"])
     expect(readManualForm(form)).toEqual({ ok: true, value: { spec: bonus, conditions: measured } })
+  })
+
+  test("a CZ marked a bonus keeps its mark, its medals unknown, and reads back the same", () => {
+    const madeUp = czSpec as SpecDto
+    const marked: SpecDto = { ...madeUp, components: { ...madeUp.components, bonus: ["cz"] } }
+    const form = manualFormOf(marked, measured)
+    expect(form.world.rows.find((row) => row.kind === "cz")?.bonusTrigger).toBe(true)
+    expect(readManualForm(form)).toEqual({ ok: true, value: { spec: marked, conditions: measured } })
   })
 
   test("a mode of a CZ machine keeps a スルー天井 of its own, and reads back the same", () => {

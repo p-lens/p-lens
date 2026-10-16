@@ -63,7 +63,7 @@ export interface ComponentsDto {
   readonly chance?: Readonly<Record<string, readonly BySettingLevelDto<ProbabilityDto>[]>>
   /** Medals a small win pays, or a bonus gains over its own games — a CZ that is a bonus too, each time it comes; a bonus needs none when the rate is measured. */
   readonly payout?: Readonly<Record<string, number>>
-  /** A bonus: BIG, REG. Its chance is its own, or the sum of its parts'. */
+  /** A bonus: BIG, REG. Its chance is its own, or the sum of its parts'. Beside `cz`, a bonus that brings the AT in a CZ's place. */
   readonly bonus?: readonly string[]
   /** A replay: the next game costs nothing. */
   readonly replay?: readonly string[]
@@ -222,7 +222,9 @@ export interface AtRulesDto {
   readonly cap?: number
   readonly window?: number
   readonly resetOnCap?: boolean
-  /** What the trigger pays each time it comes, where it is a bonus: its medals, and its 純増 where its games are counted. A win on the AT間天井 pays none of it. */
+  /** Whether the trigger is a bonus that wins the AT at a share, rather than a CZ. */
+  readonly triggerIsBonus?: boolean
+  /** What the trigger pays each time it comes, where it is a bonus whose medals are known: its medals, and its 純増 where its games are counted. A win on the AT間天井 pays none of it. */
   readonly triggerPayout?: { readonly medals: number; readonly netPerGame?: number }
 }
 

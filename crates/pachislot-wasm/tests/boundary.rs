@@ -616,6 +616,7 @@ fn a_cz_that_is_a_bonus_carries_its_medals_through_the_stored_spec_and_the_hunt(
         normalized["atRules"]["triggerPayout"],
         json!({ "medals": 100.0, "netPerGame": 5.0 })
     );
+    assert_eq!(normalized["atRules"]["triggerIsBonus"], json!(true));
     let weights = json!([{ "settingLevel": 1, "probability": 1.0 }]);
     let play = json!({ "medalValue": 20, "rentalPrice": 20, "cashShare": 0 });
     let seats = json!([{ "sinceTrigger": 0, "sinceAt": 0, "misses": 0, "afterReset": false }]);

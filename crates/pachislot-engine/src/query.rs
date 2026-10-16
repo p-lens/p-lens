@@ -296,6 +296,7 @@ fn cz(spec: &Spec, entity: &EntityId) -> Result<Cz, SpecError> {
         ceiling: components.ceiling.get(entity).copied(),
         reset_ceiling: components.reset_ceiling.get(entity).copied(),
         misses: components.misses.get(entity).copied(),
+        bonus: components.bonus.contains(entity) || payout.is_some(),
         payout,
         net_per_game,
     })
@@ -385,10 +386,12 @@ fn element_of(spec: &Spec, entity: &EntityId) -> Result<Option<Element>, SpecErr
         return Err(missing(entity, component));
     }
     match kinds.as_slice() {
+        [Component::Bonus, Component::Cz] | [Component::Cz] => {
+            cz(spec, entity).map(|cz| Some(Element::Cz(cz)))
+        }
         [first, second, ..] => Err(conflict(entity, *first, *second)),
         [Component::At] => at(spec, entity).map(|at| Some(Element::At(at))),
         [Component::Mode] => mode(spec, entity).map(|mode| Some(Element::Mode(mode))),
-        [Component::Cz] => cz(spec, entity).map(|cz| Some(Element::Cz(cz))),
         [Component::Watch] => match components.watch.get(entity) {
             Some(bonus) => watch(spec, entity, bonus).map(|watch| Some(Element::Watch(watch))),
             None => Err(missing(entity, Component::Watch)),

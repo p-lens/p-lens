@@ -10,5 +10,6 @@ const CZ: TriggerWords = { name: "CZ", missed: "CZ失敗" }
 
 const BONUS: TriggerWords = { name: "ボーナス", missed: "ATなしボーナス" }
 
-/** The words for a machine's trigger: a bonus where it pays medals of its own, else a CZ, as it is where no formula is at hand to say. */
-export const triggerWordsOf = (normalized: NormalizedSpecDto | undefined): TriggerWords => (normalized?.atRules?.triggerPayout === undefined ? CZ : BONUS)
+/** The words for a machine's trigger: a bonus where the formula says so — marked one, or given its medals — else a CZ, as it is where no formula is at hand to say. */
+export const triggerWordsOf = (normalized: NormalizedSpecDto | undefined): TriggerWords =>
+  normalized?.atRules?.triggerIsBonus === true || normalized?.atRules?.triggerPayout !== undefined ? BONUS : CZ

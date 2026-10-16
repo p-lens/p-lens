@@ -351,6 +351,7 @@ fn at_rules(dto: &AtRulesDto, shape: SchemaVersion) -> Result<AtRules, ErrorDto>
             .as_deref()
             .map(|trigger| id(trigger, "normalized.atRules.trigger"))
             .transpose()?,
+        trigger_is_bonus: dto.trigger_is_bonus || dto.trigger_payout.is_some(),
         trigger_payout: dto
             .trigger_payout
             .map(|payout| {
@@ -640,6 +641,7 @@ pub fn normalized_dto(spec: &NormalizedSpec) -> NormalizedSpecDto {
             cap: rules.cap.map(Medals::get),
             window: rules.window.map(NonZeroU32::get),
             reset_on_cap: rules.reset_on_cap,
+            trigger_is_bonus: rules.trigger_is_bonus,
             trigger_payout: rules.trigger_payout.map(|payout| TriggerPayoutDto {
                 medals: payout.medals.get(),
                 net_per_game: payout.net_per_game.map(Medals::get),
