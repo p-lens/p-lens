@@ -4,13 +4,15 @@ import type { NormalizedSpecDto } from "@p-lens/contracts/pachislot"
 export interface TriggerWords {
   readonly name: string
   readonly missed: string
+  /** A bonus a CZ's success brought that missed the AT, where the machine has one apart from a failed CZ. */
+  readonly bonusMissed: string | undefined
 }
 
-const CZ: TriggerWords = { name: "CZ", missed: "CZ失敗" }
+const CZ: TriggerWords = { name: "CZ", missed: "CZ失敗", bonusMissed: undefined }
 
-const BONUS: TriggerWords = { name: "ボーナス", missed: "ATなしボーナス" }
+const BONUS: TriggerWords = { name: "ボーナス", missed: "ATなしボーナス", bonusMissed: undefined }
 
-const CZ_THEN_BONUS: TriggerWords = { name: "CZ", missed: "CZ失敗・ATなし" }
+const CZ_THEN_BONUS: TriggerWords = { name: "CZ", missed: "CZ失敗", bonusMissed: "ATなしボーナス" }
 
 /** Whether a CZ's success brings a bonus before the AT: some setting pays the trigger's medals on only some CZs. */
 const staged = (normalized: NormalizedSpecDto): boolean => normalized.atRules?.triggerIsBonus !== true && normalized.tables.some((table) => table.at?.paid !== undefined)

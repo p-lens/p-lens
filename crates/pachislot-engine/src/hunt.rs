@@ -4,7 +4,10 @@
 use pachislot_domain::normalized::{AtRules, AtTable, ModeRule};
 use pachislot_domain::observation::PathStart;
 
-use crate::at::{Held, chances, gain_now, started, trigger_medals};
+use crate::at::{
+    Held, Odds, Standing, chained, chances, direct_on, fresh, gain_now, started, trigger_medals,
+};
+use crate::chain::Chain;
 
 /// What playing on from where play stands until the next AT is over comes
 /// to under one setting.
@@ -117,7 +120,7 @@ fn counted(count: usize) -> u32 {
 fn played(
     rules: &AtRules,
     table: &AtTable,
-    mode: &ModeRule,
+    (index, mode): (usize, &ModeRule),
     going: &Going,
     now: u32,
     gain: f64,
@@ -140,8 +143,12 @@ fn played(
             ),
             |(mut next, sum), (place, alive)| {
                 let (since_trigger, missed) = going.counts(place);
-                let (won, miss, quiet) =
-                    chances(table, mode, counted(since_trigger), now, counted(missed));
+                let (won, miss, quiet) = chances(
+                    rules,
+                    table,
+                    (index, mode),
+                    (counted(since_trigger), now, counted(missed)),
+                );
                 let through = mode
                     .misses
                     .is_some_and(|limit| missed + 1 > limit.get() as usize);
@@ -157,13 +164,26 @@ fn played(
                 if let Some(cell) = next.alive.get_mut(after_miss) {
                     *cell += alive * miss;
                 }
+                let outright = direct_on(
+                    table.direct.value(),
+                    Odds::of(table).gates_of(index),
+                    now as usize + 1,
+                );
                 let game = Hunted {
                     games: 1.0,
                     medals: 0.0,
                     at_medals: won * gain,
-                    trigger_medals: trigger_medals(rules, table, mode, now, (won, miss)),
-                    by_ceiling: if at_ceiling || through || direct_ceiling {
+                    trigger_medals: trigger_medals(
+                        rules,
+                        table,
+                        (mode, Odds::of(table).gates_of(index)),
+                        now,
+                        (won, miss),
+                    ),
+                    by_ceiling: if at_ceiling {
                         won
+                    } else if through || direct_ceiling {
+                        won - outright
                     } else {
                         0.0
                     },
@@ -179,7 +199,7 @@ fn played(
 fn hunt_in_mode(
     rules: &AtRules,
     table: &AtTable,
-    mode: &ModeRule,
+    (index, mode): (usize, &ModeRule),
     held: &Held,
     (since_trigger, since_at, misses): (u32, u32, u32),
 ) -> Option<Hunted> {
@@ -197,7 +217,7 @@ fn hunt_in_mode(
             let (next, added) = played(
                 rules,
                 table,
-                mode,
+                (index, mode),
                 &going,
                 now,
                 gain_now(rules, table, held, now),
@@ -213,16 +233,94 @@ fn hunt_in_mode(
 /// when it sat down weighs them. None where the AT might never come.
 pub fn hunt(start: PathStart, rules: &AtRules, table: &AtTable) -> Option<Hunted> {
     let seated = started(rules, table, start);
+    if chained(rules, Odds::of(table)) {
+        return hunt_chained(rules, table, &seated);
+    }
     let counts = (seated.since_trigger, seated.since_at, seated.misses);
     rules
         .modes
         .iter()
         .zip(&seated.modes)
-        .filter(|(_, weight)| **weight > 0.0)
-        .try_fold(Hunted::NONE, |sum, (mode, weight)| {
+        .enumerate()
+        .filter(|(_, (_, weight))| **weight > 0.0)
+        .try_fold(Hunted::NONE, |sum, (index, (mode, weight))| {
             Some(sum.plus(
-                hunt_in_mode(rules, table, mode, &seated.held, counts)?,
+                hunt_in_mode(rules, table, (index, mode), &seated.held, counts)?,
                 *weight,
             ))
         })
+}
+
+/// What playing on from where play stands comes to where it is walked as a
+/// chain, every mode at once — and where play starts again at a bonus that
+/// misses the AT, what playing on from such a start comes to, as often as
+/// play starts again. None where the AT might never come.
+fn hunt_chained(rules: &AtRules, table: &AtTable, seated: &Standing) -> Option<Hunted> {
+    let finished = |sum: Hunted| Hunted {
+        medals: sum.at_medals + sum.trigger_medals - rules.base.loss_per_game() * sum.games,
+        ..sum
+    };
+    let (sum, again) = stretch(rules, table, seated)?;
+    if !rules.restarts() || again <= 0.0 {
+        return Some(finished(sum));
+    }
+    let restart = Standing {
+        since_trigger: 0,
+        since_at: 0,
+        misses: 0,
+        modes: table.allotments.after_at.clone(),
+        held: fresh(),
+    };
+    let (anew, anew_again) = stretch(rules, table, &restart)?;
+    (anew_again < 1.0).then(|| {
+        let each = Hunted::NONE.plus(anew, 1.0 / (1.0 - anew_again));
+        finished(sum.plus(each, again))
+    })
+}
+
+/// Playing on as a chain from where play stands to the AT — or, where play
+/// starts again at a bonus that misses the AT, to such a bonus — game by
+/// game: the AT won outright at the machine's own chance before anything
+/// else is drawn, what a trigger that is a bonus pays where it comes, until
+/// what is still going is too little to tell; and how often it ends at a
+/// bonus that starts play again. None where it might never end.
+fn stretch(rules: &AtRules, table: &AtTable, seated: &Standing) -> Option<(Hunted, f64)> {
+    let odds = Odds::of(table);
+    let mut chain = Chain::seated(
+        rules,
+        odds,
+        (seated.since_trigger, seated.since_at, seated.misses),
+        &seated.modes,
+    );
+    let keep = 1.0 - odds.direct;
+    let paid = rules
+        .trigger_payout
+        .map_or(0.0, |payout| payout.medals.get() * table.paid.value());
+    let through_wins = if rules.restarts() {
+        odds.bonus_share
+    } else {
+        1.0
+    };
+    let walked = (0..LONGEST).try_fold(
+        (Hunted::NONE, 1.0_f64, 0.0_f64),
+        |(sum, reached, again), game| {
+            let going = chain.going(None);
+            if reached * going < SETTLED {
+                return Err((sum, again));
+            }
+            let now = seated.since_at.saturating_add(game);
+            let played = chain.play();
+            let restarted = reached * keep * played.bonus * (1.0 - odds.bonus_share);
+            let won = reached * (odds.direct * going + keep * played.ended) - restarted;
+            let added = Hunted {
+                games: reached * going,
+                medals: 0.0,
+                at_medals: won * gain_now(rules, table, &seated.held, now),
+                trigger_medals: reached * keep * played.arrived * paid,
+                by_ceiling: reached * (played.on_at_ceiling + keep * played.through * through_wins),
+            };
+            Ok((sum.plus(added, 1.0), reached * keep, again + restarted))
+        },
+    );
+    walked.err()
 }

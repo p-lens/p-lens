@@ -1,10 +1,11 @@
 import { createMemo, createResource, For, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
-import { consolidationKeepsTheoreticalValues, loadConsolidatedOverall, loadConsolidatedSenderNames, loadConsolidatedSpinPerformances, loadConsolidation, type ConsolidatedBook, type ConsolidatedBy, type ConsolidatedGrouping } from "../../../application/consolidation"
+import { consolidationKeepsTheoreticalValues, loadConsolidatedOtherGains, loadConsolidatedOverall, loadConsolidatedSenderNames, loadConsolidatedSpinPerformances, loadConsolidation, type ConsolidatedBook, type ConsolidatedBy, type ConsolidatedGrouping } from "../../../application/consolidation"
 import type { MachineNames } from "../../../core/catalog/catalog"
 import type { BookId } from "../../../core/book/book"
 import { bestFirst, inOrder, isDimension, merged, OVERALL, totalOf, UNSAID, type Group } from "../../../core/report/breakdown"
+import { hasOtherGains, mergedOtherGains, type OtherGains } from "../../../core/report/other-gains"
 import { mergedOverall } from "../../../core/report/overall"
 import { compare } from "../../../core/decimal/decimal"
 import type { SenderNames } from "../../../core/report/senders"
@@ -17,6 +18,7 @@ import type { Place } from "../../navigation/place"
 import { bookTitle } from "../../wording/book"
 import { BY_BOOK, BY_SENDER, groupName, senderName, unsentName } from "../../wording/breakdown"
 import { BREAKDOWN_OPTIONS, GroupRow } from "../breakdown/BreakdownView"
+import { OtherGainsSection } from "../breakdown/OtherGainsSection"
 import { OverallCard } from "../breakdown/OverallCard"
 import { PeriodPicker } from "../period/PeriodPicker"
 import { queryFor } from "../period/periods"
@@ -88,13 +90,19 @@ export function ConsolidatedBreakdownView(props: { readonly place: Place; readon
   )
   /** Who sent the plays, by their last names, while the tallies are grouped by who played them and once they are read. */
   const names = (): SenderNames => ((answer) => (answer?.ok === true ? answer.value : NO_NAMES))(named())
+  const [othered] = createResource(
+    () => ({ bookIds: props.bookIds, by: props.by, query: props.query, revision: app.revision() }),
+    (source) => loadConsolidatedOtherGains(app.services.session, source.bookIds, queryFor(source.by, source.query)),
+  )
+  /** その他損益 over the books, added, only where there is any: the breakdown above it stands without it. */
+  const otherGains = (): OtherGains | undefined => ((answer) => (answer?.ok === true ? ((gains) => (hasOtherGains(gains) ? gains : undefined))(mergedOtherGains(readOf(answer.value))) : undefined))(othered())
   const groups = createMemo(() => ((found, by) => (found?.ok === true && by !== undefined ? grouped(found.value, by, app.machineNames(), names()) : undefined))(consolidation(), grouping()))
   return (
     <MainContent header={<ViewHeader place={props.place} title="集計" />}>
       <div class="max-w-5xl">
         <div class="flex flex-col gap-4 p-4">
           <div class="flex flex-wrap items-end gap-3">
-            <div class="w-48">
+            <div class="w-36">
               <Select
                 label="切り口"
                 options={[...BREAKDOWN_OPTIONS.slice(0, 1), { value: "book", label: BY_BOOK }, { value: "sender", label: BY_SENDER }, ...BREAKDOWN_OPTIONS.slice(1)]}
@@ -116,16 +124,21 @@ export function ConsolidatedBreakdownView(props: { readonly place: Place; readon
               )}
             </Loaded>
           </Show>
-          <Loaded outcome={consolidation()}>
-            {() => (
-              <Show when={(groups() ?? []).length > 0} fallback={<EmptyState title="この期間の収支はありません" />}>
-                <ul class="flex flex-col gap-1">
-                  <GroupRow name="合計" group={totalOf((groups() ?? []).map((each) => each.group))} strong theoreticalKept={theoreticalKept()} spins={((all) => (all === undefined ? undefined : allSpinPerformances(all)))(spins())} />
-                  <For each={groups() ?? []}>{(each) => <GroupRow name={each.name} group={each.group} strong={false} theoreticalKept={theoreticalKept()} spins={spins()?.get(each.group.key)} />}</For>
-                </ul>
-              </Show>
-            )}
-          </Loaded>
+          <Show when={grouping() !== undefined}>
+            <Loaded outcome={consolidation()}>
+              {() => (
+                <Show when={(groups() ?? []).length > 0} fallback={<EmptyState title="この期間の収支はありません" />}>
+                  <ul class="flex flex-col gap-1">
+                    <GroupRow name="合計" group={totalOf((groups() ?? []).map((each) => each.group))} strong theoreticalKept={theoreticalKept()} spins={((all) => (all === undefined ? undefined : allSpinPerformances(all)))(spins())} />
+                    <For each={groups() ?? []}>{(each) => <GroupRow name={each.name} group={each.group} strong={false} theoreticalKept={theoreticalKept()} spins={spins()?.get(each.group.key)} />}</For>
+                  </ul>
+                </Show>
+              )}
+            </Loaded>
+          </Show>
+          <Show when={otherGains()} keyed>
+            {(found) => <OtherGainsSection gains={found} byParlor={props.by === "parlor"} />}
+          </Show>
           <ConsolidatedBooks bookIds={props.bookIds} unread={(id) => (props.by === OVERALL ? unreadIn(overall(), id) : unreadIn(consolidation(), id))} onChosen={(bookIds) => moves.go({ kind: "consolidated-breakdown", by: props.by, bookIds }, props.query)} />
         </div>
       </div>

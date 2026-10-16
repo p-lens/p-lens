@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { add, compare, decimal, multiply, negate, parseDecimal, subtract, sum, toPlainString } from "../../src/core/decimal/decimal"
+import { add, apportioned, compare, decimal, multiply, negate, parseDecimal, subtract, sum, toPlainString } from "../../src/core/decimal/decimal"
 
 const d = (text: string) => {
   const parsed = parseDecimal(text)
@@ -30,5 +30,14 @@ describe("decimal", () => {
     expect(toPlainString(d("12,000"))).toBe("12000")
     expect(parseDecimal("1.2.3")).toEqual({ ok: false, error: { type: "not-a-number", text: "1.2.3" } })
     expect(parseDecimal("")).toEqual({ ok: false, error: { type: "not-a-number", text: "" } })
+  })
+
+  test("rounds parts so they still add up to their whole rounded", () => {
+    const whole = (parts: readonly string[]): readonly string[] => apportioned(parts.map(d), 0).map(toPlainString)
+    expect(whole(["1000.3", "200.3", "0.4"])).toEqual(["1000", "200", "1"])
+    expect(whole(["5000", "120", "0.4"])).toEqual(["5000", "120", "0"])
+    expect(whole(["5000", "120", "-0.6"])).toEqual(["5000", "120", "-1"])
+    expect(whole(["0.5", "0.5"])).toEqual(["1", "0"])
+    expect(whole([])).toEqual([])
   })
 })

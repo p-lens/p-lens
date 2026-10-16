@@ -1,11 +1,11 @@
 import type { Checkpoint } from "../play-log/checkpoint"
 import { checkpointsForReading, type ReadingRefusal } from "../play-log/live"
 import { Err, Ok, type Result } from "../result/result"
-import { czMissedAt } from "./path"
+import { missedOn } from "./path"
 import { checkpointForReading, type CounterInput, type CounterRefusal } from "./reading"
 
 /** How the games an AT machine's reading closes ended: with nothing, a CZ missed, or an AT won. */
-export type Ended = "going" | "cz-missed" | "at"
+export type Ended = "going" | "cz-missed" | "bonus-missed" | "at"
 
 /** An AT machine's counter as it was read: the games since the last AT, and the outlay and the medals drawn from savings so far, each where it was given. */
 export interface AtInput {
@@ -35,7 +35,10 @@ export type RevisionRefusal = (CounterRefusal | ReadingRefusal) & { readonly ind
 
 const isMissedAt = (checkpoint: Checkpoint): boolean => checkpoint.event?.kind === "jackpot" && checkpoint.event.approximate === true
 
-const endedOf = (checkpoint: Checkpoint): Ended => (checkpoint.event?.kind === "jackpot" ? "at" : checkpoint.event?.kind === "cz-missed" ? "cz-missed" : "going")
+const endedOf = (checkpoint: Checkpoint): Ended => {
+  const kind = checkpoint.event?.kind
+  return kind === "jackpot" ? "at" : kind === "cz-missed" || kind === "bonus-missed" ? kind : "going"
+}
 
 const stepOf = (checkpoint: Checkpoint, afterMissedAt: boolean): Step => {
   const counter = checkpoint.counter
@@ -80,7 +83,7 @@ const linesOf = (log: readonly Checkpoint[], step: Step): Result<readonly Checkp
     case "at-reading": {
       const made = checkpointsForReading(log, { counterSpins: step.input.sinceAt, outlay: step.input.outlay, replay: step.input.replay, counterJackpots: undefined, at: step.input.at, jackpot: step.ended === "at" }, step.afterMissedAt)
       if (!made.ok) return made
-      return Ok(step.ended === "cz-missed" ? czMissedAt(made.value) : made.value)
+      return Ok(step.ended === "cz-missed" || step.ended === "bonus-missed" ? missedOn(made.value, step.ended) : made.value)
     }
     case "kept":
       return Ok(isOrphaned(log, step.line) ? [] : [{ ...step.line, spins: log.at(-1)?.spins ?? 0 }])

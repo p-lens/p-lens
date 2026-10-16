@@ -371,6 +371,74 @@ describe("an AT machine's grounds, reasoned", () => {
     expect(links.filter((each) => Math.abs(each.left - each.right) > each.spread * 1.01 + 1e-9 * Math.max(1, Math.abs(each.left)))).toEqual([])
   })
 
+  test("a machine drawing at zones takes the engine's cycle, said to be unchecked, with an AT間天井 or without one", async () => {
+    const cz = czSpec as SpecDto
+    const gates = {
+      cz: [
+        {
+          game: 200,
+          trigger: [
+            { settingLevel: 1, value: 4000 },
+            { settingLevel: 6, value: 6600 },
+          ],
+          at: [
+            { settingLevel: 1, value: 0 },
+            { settingLevel: 6, value: 500 },
+          ],
+        },
+      ],
+    }
+    const { ceiling: _, ...unceiled } = cz.components
+    for (const components of [{ ...cz.components, netPerGame: { at: 4 }, gates }, { ...unceiled, netPerGame: { at: 4 }, gates }]) {
+      const zoned = solved({ ...cz, components })
+      const proof = await proved(zoned.basis, zoned.analysis)
+      expect(amiss(proof).filter(([, standing]) => standing !== "holds")).toEqual([["unverified_gated_cycle", "unverified"]])
+      const lines = groundsLines(proof, groundsNamingOf(zoned.basis)).map((line) => plainOf(line.parts))
+      expect(lines).toContain("未確認：ゾーンでCZやATを抽選する機種の1周期は、計算エンジンが解いた値をそのまま使っています")
+    }
+  })
+
+  test("a machine whose failed CZ moves play between modes takes the engine's cycle, said to be unchecked", async () => {
+    const modes = modesSpec as SpecDto
+    const { firstHit: _, ...components } = modes.components
+    const levels = (low: number, high: number) => [
+      { settingLevel: 1, value: low },
+      { settingLevel: 6, value: high },
+    ]
+    const chained = solved({
+      ...modes,
+      entities: [...modes.entities, "cz"],
+      components: {
+        ...components,
+        label: { ...modes.components.label, cz: "CZ" },
+        cz: ["cz"],
+        firstHit: { cz: [{ settingLevel: 1, value: { type: "ratio", numerator: 1, denominatorHundredths: 15_000 } }, { settingLevel: 6, value: { type: "ratio", numerator: 1, denominatorHundredths: 12_000 } }] },
+        success: { cz: levels(3_000, 4_000), heaven: levels(6_000, 8_000) },
+        redraw: { normal: [{ to: "heaven", share: levels(2_500, 5_000) }, { to: "normal", share: levels(7_500, 5_000) }] },
+        netPerGame: { at: 4 },
+      },
+    })
+    const proof = await proved(chained.basis, chained.analysis)
+    expect(amiss(proof).filter(([, standing]) => standing !== "holds")).toEqual([["unverified_redrawn_cycle", "unverified"]])
+    const lines = groundsLines(proof, groundsNamingOf(chained.basis)).map((line) => plainOf(line.parts))
+    expect(lines).toContain("未確認：CZに失敗するとモードが移る機種や、モードごとにCZの確率や成功率が違う機種の1周期は、計算エンジンが解いた値をそのまま使っています")
+  })
+
+  test("a machine that starts again at a bonus missing the AT takes the engine's cycle, said to be unchecked", async () => {
+    const cz = czSpec as SpecDto
+    const { ceiling: _, ...components } = cz.components
+    const shares = [
+      { settingLevel: 1, value: 5000 },
+      { settingLevel: 6, value: 6000 },
+    ]
+    const restarting = solved({ ...cz, components: { ...components, netPerGame: { at: 4 }, bonusShare: { cz: shares }, sinceAtCeiling: { cz: 1500 }, restart: ["cz"], ceilingWins: ["cz"] } })
+    const proof = await proved(restarting.basis, restarting.analysis)
+    expect(amiss(proof).filter(([, standing]) => standing !== "holds")).toEqual([
+      ["unverified_forced_cycle", "unverified"],
+      ["unverified_restarted_cycle", "unverified"],
+    ])
+  })
+
   test("a スルー天井 drawn after each AT is a mode for each, played out mode by mode and come to the engine's", async () => {
     const cz = czSpec as SpecDto
     const { ceiling, resetCeiling, misses, ...rest } = cz.components
@@ -436,6 +504,20 @@ describe("an AT machine's grounds, reasoned", () => {
     expect(lines).toContain("天国の天井 100pt × 1ptあたり 2G ＝ 200、切り上げて通常 200G（平均で数えた近似）")
     expect(lines).toContain("通常の天井 1000pt × 1ptあたり 2G ＝ 2000、切り上げて通常 2000G（平均で数えた近似）")
     expect(amiss(proof).filter(([, standing]) => standing === "fails")).toEqual([])
+  })
+
+  test("ceilings in games and in a unit are reasoned in regular games, the sooner of the two as the engine took them", async () => {
+    const cz = czSpec as SpecDto
+    const counted = solved({
+      ...cz,
+      components: { ...cz.components, netPerGame: { at: 4 }, unitCeiling: { cz: 100 } },
+      resources: { ...cz.resources, ceilingUnit: { name: "pt", perGame: 0.25 } },
+    })
+    const proof = await proved(counted.basis, counted.analysis)
+    expect(amiss(proof).filter(([, standing]) => standing === "fails")).toEqual([])
+    const lines = groundsLines(proof, groundsNamingOf(counted.basis)).map((line) => plainOf(line.parts))
+    expect(lines).toContain("CZ天井 400G")
+    expect(lines).toContain("設定変更後のCZ天井 300G")
   })
 
   test("an AT's medals under a cap are averaged over what each AT starts from, and come to the engine's", async () => {

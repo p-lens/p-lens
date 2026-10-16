@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import { createBookSession } from "../../src/application/book-session"
-import { loadRevaluation } from "../../src/application/revaluation"
+import { loadOtherGains } from "../../src/application/other-gains"
 import type { BookId } from "../../src/core/book/book"
 import { toPlainString } from "../../src/core/decimal/decimal"
 import { BOOK_FILES } from "../../src/core/journal/layout"
@@ -17,10 +17,10 @@ const setUp = async (prices = "") => {
   return createBookSession({ hledger: await inProcessHledger(), storage, history: createMemoryHistory(() => crypto.randomUUID()), clock: () => new Date("2026-10-08T20:00:00+09:00"), newId: () => crypto.randomUUID(), member: ME })
 }
 
-const revalued = async (session: Awaited<ReturnType<typeof setUp>>, query: string): Promise<string> => ((found) => (found.ok ? toPlainString(found.value.total) : found.error.type))(await loadRevaluation(session, BOOK, query))
+const revalued = async (session: Awaited<ReturnType<typeof setUp>>, query: string): Promise<string> => ((found) => (found.ok ? toPlainString(found.value.revaluation.total) : found.error.type))(await loadOtherGains(session, BOOK, query))
 
 const byParlor = async (session: Awaited<ReturnType<typeof setUp>>, query: string): Promise<readonly (readonly [string, string])[]> =>
-  ((found) => (found.ok ? [...found.value.byParlor].map(([parlor, yen]) => [parlor, toPlainString(yen)] as const) : []))(await loadRevaluation(session, BOOK, query))
+  ((found) => (found.ok ? [...found.value.revaluation.byParlor].map(([parlor, yen]) => [parlor, toPlainString(yen)] as const) : []))(await loadOtherGains(session, BOOK, query))
 
 describe("評価損益", () => {
   test("is what savings lost by their rate falling under them: 4,800 balls won at ¥3.57 and worth ¥3.50 since", async () => {

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
-import { decimal, parseDecimal, ZERO } from "../../src/core/decimal/decimal"
-import { formatCompactSignedYen, formatCompactYen, formatMan, formatTheoreticalYen, theoreticalFigureText, theoreticalFractionText } from "../../src/ui/wording/numbers"
+import { decimal } from "../../src/core/decimal/decimal"
+import { formatMan, formatTheoreticalYen, theoreticalFigureText, theoreticalFractionText } from "../../src/ui/wording/numbers"
 
 describe("large counts as they are said", () => {
   test("in 万 from ten thousand up, as they are below", () => {
@@ -36,16 +36,5 @@ describe("a theoretical value in yen", () => {
     expect(theoreticalFractionText(1234.5, 4)).toBe("+¥1,234.5000")
     expect(theoreticalFractionText(-0.00004, 4)).toBe("±¥0.0000")
     expect(theoreticalFractionText(undefined, 4)).toBe("±¥---")
-  })
-})
-
-describe("yen as a tile has room for", () => {
-  test("is in full below a hundred thousand, in 万 to a tenth and in 億 to a hundredth above, the sign before the mark", () => {
-    const yen = (text: string) => ((read) => (read.ok ? read.value : ZERO))(parseDecimal(text))
-    expect(formatCompactYen(yen("99999"))).toBe("¥99,999")
-    expect(formatCompactYen(yen("1234567"))).toBe("¥123.5万")
-    expect(formatCompactYen(yen("123456789"))).toBe("¥1.23億")
-    expect(formatCompactSignedYen(yen("-2500000"))).toBe("-¥250.0万")
-    expect(formatCompactSignedYen(yen("0"))).toBe("¥0")
   })
 })

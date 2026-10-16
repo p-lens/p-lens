@@ -6,7 +6,7 @@ import { averageOf, daysWonOf, mergedOverall, prizesOf, shareOf, type Overall } 
 
 const yen = (text: string): Decimal => ((read) => (read.ok ? read.value : (() => { throw new Error(text) })()))(parseDecimal(text))
 
-const book = (days: readonly (readonly [string, string])[], plays: number, playsWon: number): Overall => ({
+const book = (days: readonly (readonly [string, string])[], plays: number, playsWon: number, playSeconds?: string): Overall => ({
   plays,
   playsWon,
   days: days.map(([day, actual]) => ({ day: day as IsoDate, actual: yen(actual) })),
@@ -14,8 +14,14 @@ const book = (days: readonly (readonly [string, string])[], plays: number, plays
   theoretical: yen("1000"),
   inferred: yen("0"),
   cash: yen("5000"),
+  spent: yen("7000"),
+  returned: yen("9000"),
+  rentalSpread: yen("800"),
+  replayFee: yen("50"),
+  playSeconds: playSeconds === undefined ? undefined : yen(playSeconds),
   specialPrizes: yen("3000"),
   oddPrizes: yen("120"),
+  translationAdjustment: yen("3"),
   savingsDrawn: yen("2000"),
 })
 
@@ -27,7 +33,13 @@ describe("a period's tallies taken as one", () => {
     expect(merged.days.map((day) => [day.day, toPlainString(day.actual)])).toEqual([["2026-10-01", "5000"], ["2026-10-02", "1000"]])
     expect(daysWonOf(merged)).toBe(2)
     expect(toPlainString(merged.cash)).toBe("10000")
-    expect(toPlainString(prizesOf(merged))).toBe("6240")
+    expect(toPlainString(prizesOf(merged))).toBe("6246")
+    expect([merged.spent, merged.returned, merged.rentalSpread, merged.replayFee, merged.translationAdjustment].map(toPlainString)).toEqual(["14000", "18000", "1600", "100", "6"])
+  })
+
+  test("adds the time of the books that keep any, and keeps none where none does", () => {
+    expect(mergedOverall([book([], 1, 0, "3600"), book([], 1, 0), book([], 1, 0, "5400")]).playSeconds).toEqual(yen("9000"))
+    expect(mergedOverall([book([], 1, 0), book([], 1, 0)]).playSeconds).toBeUndefined()
   })
 
   test("averages to the yen and takes shares, with none where there is nothing", () => {

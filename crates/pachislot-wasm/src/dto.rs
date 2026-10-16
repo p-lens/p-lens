@@ -76,6 +76,12 @@ pub struct ComponentsDto {
     pub ceiling: BTreeMap<String, u32>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub reset_ceiling: BTreeMap<String, u32>,
+    /// A ceiling counted in the machine's unit, the sooner of it and `ceiling` in games.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub unit_ceiling: BTreeMap<String, u32>,
+    /// The same after the settings are changed, until the first AT.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub reset_unit_ceiling: BTreeMap<String, u32>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mode: Vec<String>,
     /// Shares in hundredths of a percent, under each setting.
@@ -86,8 +92,17 @@ pub struct ComponentsDto {
     /// A mode's own AT間天井, in regular games.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub at_ceiling: BTreeMap<String, u32>,
+    /// A mode's own AT間天井 counted in the machine's unit.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub at_unit_ceiling: BTreeMap<String, u32>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cz: Vec<String>,
+    /// On a CZ whose success brings a bonus: a bonus that misses the AT starts play again as after an AT.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub restart: Vec<String>,
+    /// On a CZ: the CZ its ceiling counted from the AT brings certainly succeeds.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ceiling_wins: Vec<String>,
     /// A CZ's chance of winning the AT, in hundredths of a percent under each setting.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub success: BTreeMap<String, Vec<BySettingLevelDto<u32>>>,
@@ -138,8 +153,49 @@ pub struct ComponentsDto {
     /// On an AT a CZ brings: how often a regular game wins it outright, under each setting.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub direct: BTreeMap<String, Vec<BySettingLevelDto<ProbabilityDto>>>,
+    /// ゾーン: on a mode, or on the CZ of a machine without modes, the
+    /// regular games since the last AT it draws at.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub gates: BTreeMap<String, Vec<GateDto>>,
+    /// On a mode: where a missed trigger in it moves play, each mode with
+    /// its share in hundredths of a percent under each setting.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub redraw: BTreeMap<String, Vec<RedrawDto>>,
+    /// On a mode: the trigger's chance a game in it under each setting, in place of the one read back from the 合算.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub trigger_chance: BTreeMap<String, Vec<BySettingLevelDto<ProbabilityDto>>>,
+    /// On a mode: where play moves when so many games since its last trigger bring none.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub expiry: BTreeMap<String, ExpiryDto<String>>,
+    /// On a mode: where a missed trigger that came on its ceiling moves
+    /// play, where that differs from `redraw`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub ceiling_redraw: BTreeMap<String, Vec<RedrawDto>>,
     #[serde(flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub unsupported: BTreeMap<String, serde_json::Value>,
+}
+
+/// One mode a missed trigger may move play to, and how often.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RedrawDto {
+    pub to: String,
+    pub share: Vec<BySettingLevelDto<u32>>,
+}
+
+/// A zone: the regular game since the last AT it is on, and the shares of
+/// play still going there that it brings the trigger to and wins the AT
+/// outright on, in hundredths of a percent under each setting.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GateDto {
+    pub game: u32,
+    /// The games the zone draws over, evenly; one where it is left out.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub span: Option<u32>,
+    pub trigger: Vec<BySettingLevelDto<u32>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at: Option<Vec<BySettingLevelDto<u32>>>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
@@ -258,8 +314,38 @@ pub struct AtTableDto {
     /// where it is left out.
     #[serde(default = "whole", skip_serializing_if = "is_whole")]
     pub paid: f64,
+    /// Where a CZ's success brings a bonus, the share of those bonuses that win the AT; all of them where it is left out.
+    #[serde(default = "whole", skip_serializing_if = "is_whole")]
+    pub bonus_share: f64,
+    /// Each mode's zones under the setting, in the order of the rules'
+    /// modes; none where no mode has any.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub gates: Vec<Vec<GateChanceDto>>,
+    /// Each mode's own chance a trigger wins the AT; none where every mode takes `success`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub successes: Vec<f64>,
+    /// Where a missed trigger moves play, a row over the modes for each; none where play stays.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub redraws: Vec<Vec<f64>>,
+    /// Where a missed trigger that came on its mode's ceiling moves play; none where `redraws` says.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ceiling_redraws: Vec<Vec<f64>>,
+    /// Each mode's own chance a game brings the trigger; none for a mode at the table's.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub own_chances: Vec<Option<f64>>,
     pub allotments: AllotmentsDto,
     pub payout: PayoutLawDto,
+}
+
+/// A zone under one setting: its game, and the chances play still going
+/// there brings the trigger and wins the AT outright.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GateChanceDto {
+    pub game: u32,
+    pub trigger: f64,
+    #[serde(default, skip_serializing_if = "is_none")]
+    pub at: f64,
 }
 
 /// Every one: what a share left out is.
@@ -371,6 +457,50 @@ pub struct AtRulesDto {
     /// medals are known.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trigger_payout: Option<TriggerPayoutDto>,
+    /// What a bonus a CZ's success brings does when it misses the AT.
+    #[serde(default, skip_serializing_if = "BonusMissDto::is_counted")]
+    pub bonus_miss: BonusMissDto,
+    /// How the CZ a ceiling counted from the AT forces fares.
+    #[serde(default, skip_serializing_if = "ForcedCzDto::is_drawn")]
+    pub forced_cz: ForcedCzDto,
+}
+
+/// A bonus that misses the AT counted as a miss, or starting play again.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum BonusMissDto {
+    #[default]
+    Counted,
+    Restarts,
+}
+
+impl BonusMissDto {
+    #[allow(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "serde hands a field to skip_serializing_if by reference"
+    )]
+    fn is_counted(&self) -> bool {
+        *self == Self::Counted
+    }
+}
+
+/// The CZ a ceiling counted from the AT forces at its rate, or certainly succeeding.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum ForcedCzDto {
+    #[default]
+    Drawn,
+    Wins,
+}
+
+impl ForcedCzDto {
+    #[allow(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "serde hands a field to skip_serializing_if by reference"
+    )]
+    fn is_drawn(&self) -> bool {
+        *self == Self::Drawn
+    }
 }
 
 /// A bonus trigger's medals, and the medals a game of it gains where its
@@ -395,6 +525,19 @@ pub struct ModeRuleDto {
     pub misses: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub since_at_ceiling: Option<u32>,
+    /// Where play moves when so many games since the mode's last trigger bring none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expiry: Option<ExpiryDto>,
+}
+
+/// A mode left when so many games since its last trigger bring none: the
+/// games, and the mode play moves to — in a spec by its name, in the
+/// engine's rules by its place among them.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExpiryDto<To = usize> {
+    pub games: u32,
+    pub to: To,
 }
 
 /// A spec to normalise, or one normalised before and stored, solved as it is.
@@ -567,6 +710,7 @@ pub struct AtSeenDto {
 pub enum LegEndDto {
     Going,
     Missed,
+    Bonus,
     WonAt,
 }
 
@@ -988,6 +1132,34 @@ pub enum ErrorDto {
         sum: u32,
     },
     CeilingUnitBesideLcdRate,
+    UnitCeilingWithoutUnit {
+        entity: String,
+    },
+    GateBeyondWhole {
+        entity: String,
+        game: u32,
+        setting_level: u8,
+    },
+    GateTwice {
+        entity: String,
+        game: u32,
+    },
+    GatesBesideModes {
+        entity: String,
+    },
+    NeedsCz {
+        entity: String,
+        component: String,
+    },
+    RedrawToUnknown {
+        entity: String,
+        to: String,
+    },
+    RedrawNotWhole {
+        entity: String,
+        setting_level: u8,
+        sum: u32,
+    },
     NeedsCap {
         entity: String,
         component: String,

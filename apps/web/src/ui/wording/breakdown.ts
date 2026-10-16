@@ -3,7 +3,7 @@ import { shownNameOf, type MachineNames } from "../../core/catalog/catalog"
 import { toPlainString, type Decimal } from "../../core/decimal/decimal"
 import { UNSAID, type Dimension } from "../../core/report/breakdown"
 import type { SenderNames } from "../../core/report/senders"
-import { formatTheoreticalYen } from "./numbers"
+import { formatCount, formatTheoreticalYen } from "./numbers"
 
 /** What taking the tallies as one, rather than grouping them, is called: the breakdown's first choice. */
 export const OVERALL_NAME = "総合"
@@ -53,14 +53,31 @@ export const INFERRED_SPIN_AVERAGE = "平均推定回転率"
 /** A spin performance as the live screen shows one, to a tenth. */
 export const spinAverageText = (average: Decimal): string => Number(toPlainString(average)).toFixed(1)
 
-/** What 評価損益 is called on screen. */
+/** What その他損益 is called on screen, and each of its lines. */
+export const OTHER_GAINS = "その他損益"
+
+export const FORFEITED = "失効損"
+
 export const REVALUATION = "評価損益"
 
-/** What is said under 評価損益: what moved, and that no tally's result holds it. */
-export const REVALUATION_NOTE = "交換率が変わって、持っていた貯玉・貯メダルの価値が動いた分です。実収支には入っていません。"
+/** What is said beside 失効損: what it is, and that 収支 holds it. */
+export const FORFEITED_NOTE = "失効した貯玉・貯メダルの分。収支に含みます。"
+
+/** What is said beside 評価損益: what moved, and that 収支 does not hold it. */
+export const REVALUATION_NOTE = "交換率が変わって貯玉・貯メダルの価値が動いた分。収支には含みません。"
+
+/** The heads a period's totals are listed under in 総合. */
+export const TOTALS_HEADS = { played: "稼働", result: "収支", money: "現金と景品" } as const
 
 /** What stands for a sum of theoretical values in a book that has none written in it: there is nothing to sum, which nought would not say. */
 export const NOT_TALLIED = "集計なし"
+
+/** A play time in seconds as a person reads it: whole hours and minutes, the seconds dropped — `34時間20分`, `45分`. */
+export const playTimeText = (seconds: Decimal): string => {
+  const minutes = Math.floor(Number(toPlainString(seconds)) / 60)
+  const hours = Math.floor(minutes / 60)
+  return hours === 0 ? `${minutes}分` : `${formatCount(hours)}時間${minutes % 60}分`
+}
 
 /** What tallies that do not say what a dimension asks are called: a tally with no machine named, an entry with no game. */
 const UNSAID_NAMES: Readonly<Record<Dimension, string>> = {

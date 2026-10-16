@@ -5,9 +5,12 @@
 
 #![allow(dead_code, clippy::expect_used, clippy::missing_panics_doc)]
 
+use pachislot_engine::at::Odds;
 use std::num::NonZeroU32;
 
-use pachislot_domain::normalized::{Allotments, AtRules, AtTable, ModeRule, PayoutLaw};
+use pachislot_domain::normalized::{
+    Allotments, AtRules, AtTable, BonusMiss, ForcedCz, ModeRule, PayoutLaw,
+};
 use pachislot_domain::observation::PathStart;
 use pachislot_domain::probability::{BasisPoints, Denominator, Probability, ProbabilitySource};
 use pachislot_domain::setting_level::{PerSettingLevel, SettingLevel};
@@ -291,6 +294,7 @@ pub fn mode(name: &str, ceiling: u32) -> ModeRule {
         at_ceiling: None,
         misses: None,
         since_at_ceiling: None,
+        expiry: None,
     }
 }
 
@@ -324,6 +328,24 @@ pub fn rules(trigger: Option<&str>, modes: Vec<ModeRule>) -> AtRules {
         reset_on_cap: false,
         trigger_is_bonus: false,
         trigger_payout: None,
+        bonus_miss: BonusMiss::Counted,
+        forced_cz: ForcedCz::Drawn,
+    }
+}
+
+/// Odds without zones: the trigger's chance below its ceilings, the chance
+/// a trigger wins the AT, and the chance a game wins it outright.
+pub fn odds(chance: f64, success: f64, direct: f64) -> Odds<'static> {
+    Odds {
+        chance,
+        success,
+        direct,
+        gates: &[],
+        successes: &[],
+        redraws: &[],
+        ceiling_redraws: &[],
+        own_chances: &[],
+        bonus_share: 1.0,
     }
 }
 
@@ -335,6 +357,12 @@ pub fn table(chance: f64, success: f64, after_at: Vec<f64>, after_reset: Vec<f64
         success: Probability::new(success).expect("a rate"),
         direct: Probability::NONE,
         paid: Probability::new(1.0).expect("every one"),
+        bonus_share: Probability::new(1.0).expect("every one"),
+        gates: Vec::new(),
+        successes: Vec::new(),
+        redraws: Vec::new(),
+        ceiling_redraws: Vec::new(),
+        own_chances: Vec::new(),
         allotments: Allotments {
             after_at,
             after_reset,

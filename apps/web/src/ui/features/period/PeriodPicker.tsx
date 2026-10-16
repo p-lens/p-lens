@@ -11,7 +11,7 @@ const dayTyped = (text: string): IsoDate | undefined => ((read) => (read.ok ? re
 /**
  * The period a view is asked about, chosen as two days: the first and the
  * last, each a date field, either left empty for no end on that side.
- * Beside them the ranges offered by name — 本日, 今月, 今年 — which do
+ * Before them the ranges offered by name — 本日, 今月, 今年 — which do
  * nothing but fill the two fields in; one is marked while the fields say
  * exactly its days, and pressed again it empties them, which is every day
  * there is. The period is the address's query and nothing is
@@ -19,7 +19,7 @@ const dayTyped = (text: string): IsoDate | undefined => ((read) => (read.ok ? re
  * as the query it makes. A grouping by month or by year sums whole months
  * or years (`queryFor`), and a line says which days where they are more
  * than the days typed. It is laid out by the row it is put in — the
- * fields, the names and then the line, which takes a row of its own under
+ * names, the fields and then the line, which takes a row of its own under
  * everything beside them — so whatever stands in that row stays level
  * with the fields.
  */
@@ -40,6 +40,11 @@ export function PeriodPicker(props: {
   const note = (): string | undefined => ((wide) => (wide === undefined ? undefined : widenedNote(wide.span, wide.range.from, wide.range.to)))(props.by === undefined ? undefined : widenedFor(props.by, props.query))
   return (
     <>
+      <ToggleGroup value={pressed()} onChange={(id: string | null) => props.onPressed(queryOf(shortcutsOn(props.today).find((candidate) => candidate.id === id)?.range ?? EVERY_DAY))} aria-label="期間">
+        {shortcutsOn(props.today).map((shortcut) => (
+          <ToggleGroupItem value={shortcut.id}>{shortcut.label}</ToggleGroupItem>
+        ))}
+      </ToggleGroup>
       <div class="flex min-w-0 items-end gap-2">
         <div class="w-40 min-w-0">
           <TextField label="開始日" type="date" value={held().from ?? ""} onChange={(text) => props.onTyped(queryOf({ ...held(), from: dayTyped(text) }))} />
@@ -48,11 +53,6 @@ export function PeriodPicker(props: {
           <TextField label="終了日" type="date" value={held().to ?? ""} onChange={(text) => props.onTyped(queryOf({ ...held(), to: dayTyped(text) }))} />
         </div>
       </div>
-      <ToggleGroup value={pressed()} onChange={(id: string | null) => props.onPressed(queryOf(shortcutsOn(props.today).find((candidate) => candidate.id === id)?.range ?? EVERY_DAY))} aria-label="期間">
-        {shortcutsOn(props.today).map((shortcut) => (
-          <ToggleGroupItem value={shortcut.id}>{shortcut.label}</ToggleGroupItem>
-        ))}
-      </ToggleGroup>
       <Show when={note()} keyed>
         {(words) => <p class="-mt-1.5 w-full text-xs text-text-muted">{words}</p>}
       </Show>

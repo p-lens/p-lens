@@ -39,6 +39,16 @@ const COMPONENT_NAMES: Readonly<Record<string, string>> = {
   sinceAtCeiling: "ATから数える天井",
   direct: "直撃AT",
   bonusShare: "ボーナスからのAT率",
+  gates: "ゾーン",
+  redraw: "CZ失敗後のモード移行",
+  ceilingRedraw: "天井CZ失敗後のモード移行",
+  restart: "ATなしボーナスでの数え直し",
+  unitCeiling: "単位で数える天井",
+  resetUnitCeiling: "リセット後の単位で数える天井",
+  atUnitCeiling: "単位で数えるモードのAT間天井",
+  triggerChance: "モードのCZ確率",
+  expiry: "モードを抜けるゲーム数",
+  ceilingWins: "天井CZの確定",
 }
 
 /** A component by what the person entering a spec calls it. */
@@ -128,6 +138,20 @@ const describeEngineError = (error: EngineErrorDto): string => {
       return `モード「${error.entity}」のスルー天井は、CZからATに入る機種にだけ入れられます。CZのない機種は、ATを直接引くのでスルーしません。`
     case "ceiling-unit-beside-lcd-rate":
       return "天井の数え方は、液晶のゲーム数か、ほかの単位（ptや周期）か、どちらか一つにしてください。"
+    case "gate-beyond-whole":
+      return `「${error.entity}」の${error.game}Gのゾーンは、${settingLevel(error.settingLevel)}のCZとATの割合の合計が100%を超えています。`
+    case "gate-twice":
+      return `「${error.entity}」に${error.game}Gのゾーンが2つあります。1つにまとめてください。`
+    case "gates-beside-modes":
+      return `モードのある機種では、ゾーンはCZ「${error.entity}」ではなく、モードごとに入れてください。`
+    case "needs-cz":
+      return `モード「${error.entity}」の${componentName(error.component)}は、CZからATに入る機種にだけ入れられます。CZのない機種は、ATを直接引くので失敗しません。`
+    case "redraw-to-unknown":
+      return `モード「${error.entity}」のCZ失敗後の移り先「${error.to}」が、この機種のモードにありません。`
+    case "redraw-not-whole":
+      return `モード「${error.entity}」のCZ失敗後の移り先の割合が、${settingLevel(error.settingLevel)}で合計${error.sum / 100}%です。100%にしてください。`
+    case "unit-ceiling-without-unit":
+      return `「${error.entity}」にptや周期で数える天井がありますが、天井の単位が入っていません。`
     case "direct-without-cz":
       return `AT「${error.entity}」の直撃ATは、CZやボーナスからATに入る機種にだけ入れられます。CZのない機種は、ATの初当たりがそのまま直撃です。`
     case "since-at-ceiling-beyond-at-ceiling":

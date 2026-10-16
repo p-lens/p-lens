@@ -1,6 +1,6 @@
 import { nextDay, type IsoDate } from "../../core/calendar/calendar"
 import type { TokenKind } from "../../core/commodity/commodity"
-import { ACCOUNTS, savingsAccount, savingsRoot } from "../../core/journal/accounts"
+import { ACCOUNTS, rentalSpreadAccount, savingsAccount, savingsRoot } from "../../core/journal/accounts"
 import type { PlayId } from "../../core/play/play"
 import { TALLY_TAGS } from "../../core/tally/tally"
 import { SAVINGS_TAG } from "../../core/savings/balance"
@@ -33,6 +33,15 @@ export const cashTerm = `^${escapeRegex(ACCOUNTS.cash)}$`
 
 /** One account, and no account under another name. */
 export const accountTerm = (account: string): string => `^${escapeRegex(account)}$`
+
+/** A branch of the account tree: its root and every account under it. */
+export const branchTerm = (root: string): string => `^${escapeRegex(root)}(:|$)`
+
+/** The play time's account alone. */
+export const playTimeTerm = `^${escapeRegex(ACCOUNTS.playTime)}$`
+
+/** The loss on renting tokens above their exchange value, of every kind of token. */
+export const rentalSpreadTerm = `^(${escapeRegex(rentalSpreadAccount("ball"))}|${escapeRegex(rentalSpreadAccount("medal"))})$`
 
 /** The postings that take something away from their account: savings drawn on, rather than put back. */
 export const drawnTerm = "amt:<0"

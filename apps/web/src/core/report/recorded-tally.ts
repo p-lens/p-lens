@@ -1,5 +1,5 @@
 import type { Posting, Transaction } from "../../hledger/protocol/wire"
-import { YEN, tokenCommodity } from "../commodity/commodity"
+import { SECONDS, YEN, tokenCommodity } from "../commodity/commodity"
 import { ZERO, isNegative, isZero, negate, parseDecimal, subtract, sum, type Decimal } from "../decimal/decimal"
 import { ACCOUNTS, offBookSavingsAccount, rentalSpreadAccount, savingsAccount } from "../journal/accounts"
 import { PARLOR_ID_TAG, PARLOR_SUBMISSION_TAG, identityIn, sameIdentity, type Parlor } from "../parlor/parlor"
@@ -37,9 +37,13 @@ const parlorOf = (transaction: Transaction, parlors: readonly Parlor[]): Parlor 
   return identity === undefined ? "none" : parlors.find((parlor) => sameIdentity(parlor.identity, identity))
 }
 
-/** The one statistic an entry may carry beside its money: its theoretical value, in yen. */
+/** The statistics an entry may carry beside its money: its theoretical value, in yen, and its play's time, in seconds — which its clock or the hours told of it say again whenever it is written. */
 export const statisticsStand = (transaction: Transaction): boolean =>
-  keptTo(postedIn(transaction.tpostings.filter((posting) => posting.ptype !== "RegularPosting")), { [ACCOUNTS.theoreticalValue]: YEN, [ACCOUNTS.inferredTheoreticalValue]: YEN })
+  keptTo(postedIn(transaction.tpostings.filter((posting) => posting.ptype !== "RegularPosting")), {
+    [ACCOUNTS.theoreticalValue]: YEN,
+    [ACCOUNTS.inferredTheoreticalValue]: YEN,
+    [ACCOUNTS.playTime]: SECONDS,
+  })
 
 /**
  * A tally in yen, read from its two sides: what its entry put to the

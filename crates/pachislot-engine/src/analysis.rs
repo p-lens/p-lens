@@ -6,7 +6,7 @@ use pachislot_domain::setting_level::SettingLevel;
 use pachislot_domain::spec::EntityId;
 use pachislot_domain::version::{EngineVersion, SchemaVersion};
 
-use crate::at::{Cycle, cycle, settled};
+use crate::at::{Cycle, Odds, cycle, settled};
 use crate::at_machine::rate_cycle;
 use crate::error::AnalysisError;
 use crate::rate::implied_rate;
@@ -96,13 +96,7 @@ fn bonuses(table: &SettingLevelTable) -> Vec<BonusFigure> {
 /// 初当たり — ceilings, misses and modes included.
 fn at_figures(rules: &AtRules, table: &AtTable) -> (Vec<BonusFigure>, AtFigure) {
     let (figures, shares) = settled(rules, table);
-    let cycle = cycle(
-        rules,
-        table.chance.value(),
-        table.success.value(),
-        table.direct.value(),
-        &shares,
-    );
+    let cycle = cycle(rules, Odds::of(table), &shares);
     let bonuses = rules
         .trigger
         .iter()

@@ -10,6 +10,7 @@ export const ACCOUNTS = {
   playExpense: "費用:遊技",
   theoreticalValue: "統計:期待値",
   inferredTheoreticalValue: "統計:期待値:推定",
+  playTime: "統計:時間",
   replayFee: "費用:再プレイ手数料",
   forfeiture: "費用:失効損",
   openingBalance: "純資産:開始残高",
@@ -19,8 +20,11 @@ export const ACCOUNTS = {
   translationAdjustment: "純資産:換算調整勘定",
 } as const
 
-/** The branch revenue is kept under. */
-const REVENUE_ROOT = "収益"
+/** The branch revenue is kept under: what the tallies gave back. */
+export const REVENUE_ROOT = "収益"
+
+/** The branch expenses are kept under: what the tallies took in. */
+export const EXPENSE_ROOT = "費用"
 
 /**
  * Whether an account's amounts are written turned over from how a person

@@ -35,6 +35,7 @@ include transactions.journal
 
 /** The accounts every book starts with: a parlor's savings are declared when a play first opens its pool. */
 const ACCOUNTS = `commodity 1. JPY
+commodity 1. 秒
 
 account 資産                           ; type: A
 account 資産:現金                      ; type: C
@@ -52,6 +53,7 @@ account 純資産:特殊景品
 account 純資産:端玉景品
 account 純資産:換算調整勘定
 account 統計:期待値
+account 統計:時間
 `
 
 /**

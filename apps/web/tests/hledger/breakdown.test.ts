@@ -27,7 +27,7 @@ describe("the basic-play book, broken down by the real hledger module", () => {
 
   test("taken as one: its tallies and days counted, every sum hledger's", async () => {
     const found = await loadOverall(session(), BOOK, "")
-    expect(found.ok && { ...found.value, days: found.value.days.map((day) => [day.day, toPlainString(day.actual)]), actual: toPlainString(found.value.actual), theoretical: toPlainString(found.value.theoretical), inferred: toPlainString(found.value.inferred), cash: toPlainString(found.value.cash), specialPrizes: toPlainString(found.value.specialPrizes), oddPrizes: toPlainString(found.value.oddPrizes), savingsDrawn: toPlainString(found.value.savingsDrawn) }).toEqual({
+    expect(found.ok && { ...found.value, days: found.value.days.map((day) => [day.day, toPlainString(day.actual)]), actual: toPlainString(found.value.actual), theoretical: toPlainString(found.value.theoretical), inferred: toPlainString(found.value.inferred), cash: toPlainString(found.value.cash), specialPrizes: toPlainString(found.value.specialPrizes), oddPrizes: toPlainString(found.value.oddPrizes), translationAdjustment: toPlainString(found.value.translationAdjustment), savingsDrawn: toPlainString(found.value.savingsDrawn), spent: toPlainString(found.value.spent), returned: toPlainString(found.value.returned), rentalSpread: toPlainString(found.value.rentalSpread), replayFee: toPlainString(found.value.replayFee), playSeconds: found.value.playSeconds === undefined ? undefined : toPlainString(found.value.playSeconds) }).toEqual({
       plays: 5,
       playsWon: 3,
       days: [
@@ -41,8 +41,14 @@ describe("the basic-play book, broken down by the real hledger module", () => {
       theoretical: "13200",
       inferred: "0",
       cash: "30000",
+      spent: "53990",
+      returned: "93134",
+      rentalSpread: "4258",
+      replayFee: "0",
+      playSeconds: "19800",
       specialPrizes: "0",
       oddPrizes: "0",
+      translationAdjustment: "0",
       savingsDrawn: "23990",
     } as never)
   })

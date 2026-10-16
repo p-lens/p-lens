@@ -85,6 +85,34 @@ export const rounded = (value: Decimal, places: number): Decimal => {
   return decimal(value.mantissa < 0n ? -roundedMagnitude : roundedMagnitude, places)
 }
 
+/** A value rounded down to a number of places, towards minus infinity. */
+const floored = (value: Decimal, places: number): Decimal => {
+  if (value.places <= places) return value
+  const divisor = 10n ** BigInt(value.places - places)
+  const down = value.mantissa / divisor
+  return decimal(value.mantissa < 0n && down * divisor !== value.mantissa ? down - 1n : down, places)
+}
+
+/**
+ * Parts of a whole rounded to a number of places so that they still add up
+ * to the whole rounded: each is rounded down, and what that leaves short
+ * goes a unit at a time to the parts that lost most, the first among
+ * equals — the largest remainder. Each part ends within a unit of itself.
+ */
+export const apportioned = (parts: readonly Decimal[], places: number): readonly Decimal[] => {
+  const unit = decimal(1n, places)
+  const downs = parts.map((part) => floored(part, places))
+  const short = Number(quotient(subtract(rounded(sum(parts), places), sum(downs)), unit, 0).mantissa)
+  const raised = new Set(
+    parts
+      .map((part, index) => ({ index, lost: subtract(part, downs[index] ?? ZERO) }))
+      .toSorted((left, right) => compare(right.lost, left.lost) || left.index - right.index)
+      .slice(0, short)
+      .map((each) => each.index),
+  )
+  return downs.map((down, index) => (raised.has(index) ? add(down, unit) : down))
+}
+
 /**
  * One value divided by another, to a number of places, halves away from zero.
  * Division is the one operation that does not stay exact, so it says how far.

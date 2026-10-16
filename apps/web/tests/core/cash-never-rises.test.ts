@@ -76,7 +76,7 @@ describe("cash never rises", () => {
   })
 
   test("the cash account is named in these files and no others: two compose a tally's postings, the rest read them — a new writer is added here, with its gains above", async () => {
-    expect(await naming(/ACCOUNTS\.cash/)).toEqual(["core/report/cash-raised.ts", "core/report/recorded-tally.ts", "core/tally/compose.ts", "core/tally/sides.ts", "hledger/query/terms.ts"])
+    expect(await naming(/ACCOUNTS\.cash/)).toEqual(["application/overall.ts", "core/report/cash-raised.ts", "core/report/recorded-tally.ts", "core/tally/compose.ts", "core/tally/sides.ts", "hledger/query/terms.ts"])
     expect(await naming(/資産:現金/)).toEqual(["app/composition/first-book.ts", "application/edit-file.ts", "core/journal/accounts.ts", "core/report/cash-raised.ts", "ui/wording/errors.ts"])
   })
 })

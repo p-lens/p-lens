@@ -7,8 +7,8 @@ use std::num::{NonZeroU32, NonZeroU64};
 use pachislot_domain::conditions::{PayoutBasis, PayoutRate, PlayConditions};
 use pachislot_domain::distribution::Distribution;
 use pachislot_domain::normalized::{
-    Allotments, AtRules, AtTable, CueChance, Event, EventKind, ModeRule, NormalizedSpec, PayoutLaw,
-    SettingLevelTable, TriggerPayout, WatchRule,
+    Allotments, AtRules, AtTable, BonusMiss, CueChance, Event, EventKind, Expiry, ForcedCz, Gate,
+    ModeRule, NormalizedSpec, PayoutLaw, SettingLevelTable, TriggerPayout, WatchRule,
 };
 use pachislot_domain::observation::{
     AtSeen, Leg, LegEnd, Path, PathStart, Segment, ToldLeg, ToldPath,
@@ -16,8 +16,8 @@ use pachislot_domain::observation::{
 use pachislot_domain::probability::{BasisPoints, Denominator, Probability, ProbabilitySource};
 use pachislot_domain::setting_level::{PerSettingLevel, SettingLevel};
 use pachislot_domain::spec::{
-    Base, CeilingUnit, Component, Components, EntityId, LcdRate, Medals, OtherNet, PayoutRow,
-    Resources, Sets, Spec,
+    Base, CeilingUnit, Component, Components, EntityId, Gate as SpecGate, LcdRate, Medals,
+    OtherNet, PayoutRow, Redraw, Resources, Sets, Spec, SpecExpiry,
 };
 use pachislot_domain::version::{SchemaVersion, SpecVersion};
 use pachislot_engine::analysis::Analysis;
@@ -30,13 +30,14 @@ use pachislot_simulator::rng::{Rng, Seed};
 use pachislot_simulator::session::{Plan, Progress};
 
 use crate::dto::{
-    AllotmentsDto, AnalysisDto, AtFigureDto, AtRulesDto, AtTableDto, BonusFigureDto, BucketDto,
-    BySettingLevelDto, ComponentsDto, ConditionsDto, ContributionDto, CueDto, DistributionDto,
-    ErrorDto, EstimateProgressDto, EstimateSummaryDto, EventDto, EventKindDto, LawRowDto,
-    LegEndDto, ModeRuleDto, NormalizedSpecDto, PathDto, PathStartDto, PayoutBasisDto, PayoutLawDto,
-    PayoutRowDto, PlayDto, PosteriorDto, ProbabilityDto, ProbabilityProblemDto, ProgressDto,
-    SegmentDto, SettingLevelEstimateDto, SettingLevelFiguresDto, SpecDto, SummaryDto, TableDto,
-    TallyDto, TheoreticalValueDto, ToldPathDto, TriggerPayoutDto, WatchDto, WeightDto,
+    AllotmentsDto, AnalysisDto, AtFigureDto, AtRulesDto, AtTableDto, BonusFigureDto, BonusMissDto,
+    BucketDto, BySettingLevelDto, ComponentsDto, ConditionsDto, ContributionDto, CueDto,
+    DistributionDto, ErrorDto, EstimateProgressDto, EstimateSummaryDto, EventDto, EventKindDto,
+    ExpiryDto, ForcedCzDto, GateChanceDto, GateDto, LawRowDto, LegEndDto, ModeRuleDto,
+    NormalizedSpecDto, PathDto, PathStartDto, PayoutBasisDto, PayoutLawDto, PayoutRowDto, PlayDto,
+    PosteriorDto, ProbabilityDto, ProbabilityProblemDto, ProgressDto, SegmentDto,
+    SettingLevelEstimateDto, SettingLevelFiguresDto, SpecDto, SummaryDto, TableDto, TallyDto,
+    TheoreticalValueDto, ToldPathDto, TriggerPayoutDto, WatchDto, WeightDto,
 };
 
 fn invalid(field: &str) -> ErrorDto {
@@ -171,7 +172,24 @@ fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
         at_ceiling: table(&dto.at_ceiling, "spec.components.atCeiling", |games, at| {
             NonZeroU32::new(*games).ok_or_else(|| invalid(at))
         })?,
+        at_unit_ceiling: table(
+            &dto.at_unit_ceiling,
+            "spec.components.atUnitCeiling",
+            |games, at| NonZeroU32::new(*games).ok_or_else(|| invalid(at)),
+        )?,
+        unit_ceiling: table(
+            &dto.unit_ceiling,
+            "spec.components.unitCeiling",
+            |games, at| NonZeroU32::new(*games).ok_or_else(|| invalid(at)),
+        )?,
+        reset_unit_ceiling: table(
+            &dto.reset_unit_ceiling,
+            "spec.components.resetUnitCeiling",
+            |games, at| NonZeroU32::new(*games).ok_or_else(|| invalid(at)),
+        )?,
         cz: listed(&dto.cz, "spec.components.cz")?,
+        restart: listed(&dto.restart, "spec.components.restart")?,
+        ceiling_wins: listed(&dto.ceiling_wins, "spec.components.ceilingWins")?,
         success: table(&dto.success, "spec.components.success", |values, at| {
             shares(values, at)
         })?,
@@ -243,6 +261,75 @@ fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
             "spec.components.sinceAtCeiling",
             |games, at| NonZeroU32::new(*games).ok_or_else(|| invalid(at)),
         )?,
+        trigger_chance: table(
+            &dto.trigger_chance,
+            "spec.components.triggerChance",
+            |values, at| probabilities(values, at),
+        )?,
+        expiry: table(&dto.expiry, "spec.components.expiry", |expiry, at| {
+            Ok(SpecExpiry {
+                games: NonZeroU32::new(expiry.games)
+                    .ok_or_else(|| invalid(&format!("{at}.games")))?,
+                to: id(&expiry.to, &format!("{at}.to"))?,
+            })
+        })?,
+        redraw: table(&dto.redraw, "spec.components.redraw", |rows, at| {
+            rows.iter()
+                .enumerate()
+                .map(|(index, row)| {
+                    Ok(Redraw {
+                        to: id(&row.to, &format!("{at}[{index}].to"))?,
+                        share: shares(&row.share, &format!("{at}[{index}].share"))?,
+                    })
+                })
+                .collect()
+        })?,
+        ceiling_redraw: table(
+            &dto.ceiling_redraw,
+            "spec.components.ceilingRedraw",
+            |rows, at| {
+                rows.iter()
+                    .enumerate()
+                    .map(|(index, row)| {
+                        Ok(Redraw {
+                            to: id(&row.to, &format!("{at}[{index}].to"))?,
+                            share: shares(&row.share, &format!("{at}[{index}].share"))?,
+                        })
+                    })
+                    .collect()
+            },
+        )?,
+        gates: table(&dto.gates, "spec.components.gates", |gates, at| {
+            gates
+                .iter()
+                .enumerate()
+                .map(|(index, gate)| spec_gate(gate, &format!("{at}[{index}]")))
+                .collect()
+        })?,
+    })
+}
+
+fn spec_gate(dto: &GateDto, field: &str) -> Result<SpecGate, ErrorDto> {
+    Ok(SpecGate {
+        game: NonZeroU32::new(dto.game).ok_or_else(|| invalid(&format!("{field}.game")))?,
+        span: dto
+            .span
+            .map(|span| NonZeroU32::new(span).ok_or_else(|| invalid(&format!("{field}.span"))))
+            .transpose()?,
+        trigger: shares(&dto.trigger, &format!("{field}.trigger"))?,
+        at: dto
+            .at
+            .as_ref()
+            .map(|at| shares(at, &format!("{field}.at")))
+            .transpose()?,
+    })
+}
+
+fn gate_chance(dto: &GateChanceDto, field: &str) -> Result<Gate, ErrorDto> {
+    Ok(Gate {
+        game: NonZeroU32::new(dto.game).ok_or_else(|| invalid(&format!("{field}.game")))?,
+        trigger: probability(dto.trigger, &format!("{field}.trigger"))?,
+        at: probability(dto.at, &format!("{field}.at"))?,
     })
 }
 
@@ -386,6 +473,14 @@ fn at_rules(dto: &AtRulesDto, shape: SchemaVersion) -> Result<AtRules, ErrorDto>
                 })
             })
             .transpose()?,
+        bonus_miss: match dto.bonus_miss {
+            BonusMissDto::Counted => BonusMiss::Counted,
+            BonusMissDto::Restarts => BonusMiss::Restarts,
+        },
+        forced_cz: match dto.forced_cz {
+            ForcedCzDto::Drawn => ForcedCz::Drawn,
+            ForcedCzDto::Wins => ForcedCz::Wins,
+        },
         modes: dto
             .modes
             .iter()
@@ -411,6 +506,17 @@ fn at_rules(dto: &AtRulesDto, shape: SchemaVersion) -> Result<AtRules, ErrorDto>
                     } else {
                         machine_ceiling
                     },
+                    expiry: mode
+                        .expiry
+                        .as_ref()
+                        .map(|expiry| {
+                            Ok::<_, ErrorDto>(Expiry {
+                                games: NonZeroU32::new(expiry.games)
+                                    .ok_or_else(|| invalid(&format!("{at}.expiry.games")))?,
+                                to: expiry.to,
+                            })
+                        })
+                        .transpose()?,
                 })
             })
             .collect::<Result<_, _>>()?,
@@ -447,6 +553,49 @@ fn at_table(dto: &AtTableDto, field: &str) -> Result<AtTable, ErrorDto> {
         success: probability(dto.success, &format!("{field}.success"))?,
         direct: probability(dto.direct, &format!("{field}.direct"))?,
         paid: probability(dto.paid, &format!("{field}.paid"))?,
+        bonus_share: probability(dto.bonus_share, &format!("{field}.bonusShare"))?,
+        gates: dto
+            .gates
+            .iter()
+            .enumerate()
+            .map(|(mode, gates)| {
+                gates
+                    .iter()
+                    .enumerate()
+                    .map(|(index, gate)| {
+                        gate_chance(gate, &format!("{field}.gates[{mode}][{index}]"))
+                    })
+                    .collect()
+            })
+            .collect::<Result<_, _>>()?,
+        successes: dto
+            .successes
+            .iter()
+            .enumerate()
+            .map(|(index, success)| probability(*success, &format!("{field}.successes[{index}]")))
+            .collect::<Result<_, _>>()?,
+        redraws: dto
+            .redraws
+            .iter()
+            .enumerate()
+            .map(|(index, row)| fractions(row, &format!("{field}.redraws[{index}]")))
+            .collect::<Result<_, _>>()?,
+        ceiling_redraws: dto
+            .ceiling_redraws
+            .iter()
+            .enumerate()
+            .map(|(index, row)| fractions(row, &format!("{field}.ceilingRedraws[{index}]")))
+            .collect::<Result<_, _>>()?,
+        own_chances: dto
+            .own_chances
+            .iter()
+            .enumerate()
+            .map(|(index, chance)| {
+                chance
+                    .map(|chance| probability(chance, &format!("{field}.ownChances[{index}]")))
+                    .transpose()
+            })
+            .collect::<Result<_, _>>()?,
         allotments: allotments(&dto.allotments, &format!("{field}.allotments"))?,
         payout: payout_law(&dto.payout, &format!("{field}.payout"))?,
     })
@@ -632,17 +781,7 @@ pub fn normalized_dto(spec: &NormalizedSpec) -> NormalizedSpecDto {
                         chance: event.chance.value(),
                     })
                     .collect(),
-                at: table.at.as_ref().map(|each| AtTableDto {
-                    chance: each.chance.value(),
-                    success: each.success.value(),
-                    direct: each.direct.value(),
-                    paid: each.paid.value(),
-                    allotments: AllotmentsDto {
-                        after_at: each.allotments.after_at.clone(),
-                        after_reset: each.allotments.after_reset.clone(),
-                    },
-                    payout: payout_law_dto(&each.payout),
-                }),
+                at: table.at.as_ref().map(at_table_dto),
                 cues: table
                     .cues
                     .iter()
@@ -676,6 +815,14 @@ pub fn normalized_dto(spec: &NormalizedSpec) -> NormalizedSpecDto {
                 medals: payout.medals.get(),
                 net_per_game: payout.net_per_game.map(Medals::get),
             }),
+            bonus_miss: match rules.bonus_miss {
+                BonusMiss::Counted => BonusMissDto::Counted,
+                BonusMiss::Restarts => BonusMissDto::Restarts,
+            },
+            forced_cz: match rules.forced_cz {
+                ForcedCz::Drawn => ForcedCzDto::Drawn,
+                ForcedCz::Wins => ForcedCzDto::Wins,
+            },
             trigger: rules.trigger.as_ref().map(named),
             at_ceiling: None,
             misses: None,
@@ -688,9 +835,59 @@ pub fn normalized_dto(spec: &NormalizedSpec) -> NormalizedSpecDto {
                     at_ceiling: mode.at_ceiling.map(NonZeroU32::get),
                     misses: mode.misses.map(NonZeroU32::get),
                     since_at_ceiling: mode.since_at_ceiling.map(NonZeroU32::get),
+                    expiry: mode.expiry.map(|expiry| ExpiryDto {
+                        games: expiry.games.get(),
+                        to: expiry.to,
+                    }),
                 })
                 .collect(),
         }),
+    }
+}
+
+/// An AT machine's setting as the boundary writes it: zones left out where
+/// no mode has any.
+fn at_table_dto(each: &AtTable) -> AtTableDto {
+    AtTableDto {
+        chance: each.chance.value(),
+        success: each.success.value(),
+        direct: each.direct.value(),
+        paid: each.paid.value(),
+        bonus_share: each.bonus_share.value(),
+        gates: if each.gates.iter().all(Vec::is_empty) {
+            Vec::new()
+        } else {
+            each.gates
+                .iter()
+                .map(|gates| {
+                    gates
+                        .iter()
+                        .map(|gate| GateChanceDto {
+                            game: gate.game.get(),
+                            trigger: gate.trigger.value(),
+                            at: gate.at.value(),
+                        })
+                        .collect()
+                })
+                .collect()
+        },
+        successes: each
+            .successes
+            .iter()
+            .map(|success| success.value())
+            .collect(),
+        redraws: each.redraws.clone(),
+        ceiling_redraws: each.ceiling_redraws.clone(),
+        own_chances: each
+            .own_chances
+            .iter()
+            .map(|chance| chance.map(Probability::value))
+            .collect(),
+        allotments: AllotmentsDto {
+            after_at: each.allotments.after_at.clone(),
+            after_reset: each.allotments.after_reset.clone(),
+        },
+        payout: payout_law_dto(&each.payout),
     }
 }
 
@@ -732,6 +929,7 @@ pub fn path(dto: &PathDto) -> Path {
                 end: match leg.end {
                     LegEndDto::Going => LegEnd::Going,
                     LegEndDto::Missed => LegEnd::Missed,
+                    LegEndDto::Bonus => LegEnd::Bonus,
                     LegEndDto::WonAt => {
                         let seen = leg.at.unwrap_or_default();
                         LegEnd::WonAt(AtSeen {
@@ -880,6 +1078,16 @@ fn component_name(component: Component) -> String {
         Component::SinceAtCeiling => "sinceAtCeiling",
         Component::Direct => "direct",
         Component::BonusShare => "bonusShare",
+        Component::Gates => "gates",
+        Component::Redraw => "redraw",
+        Component::CeilingRedraw => "ceilingRedraw",
+        Component::Restart => "restart",
+        Component::CeilingWins => "ceilingWins",
+        Component::UnitCeiling => "unitCeiling",
+        Component::ResetUnitCeiling => "resetUnitCeiling",
+        Component::AtUnitCeiling => "atUnitCeiling",
+        Component::TriggerChance => "triggerChance",
+        Component::Expiry => "expiry",
     }
     .to_owned()
 }
@@ -1054,6 +1262,42 @@ pub fn spec_error_dto(error: &SpecError) -> ErrorDto {
         },
         SpecError::CapWithoutAt => ErrorDto::CapWithoutAt,
         SpecError::CeilingUnitBesideLcdRate => ErrorDto::CeilingUnitBesideLcdRate,
+        SpecError::UnitCeilingWithoutUnit { entity } => ErrorDto::UnitCeilingWithoutUnit {
+            entity: named(entity),
+        },
+        SpecError::GateBeyondWhole {
+            entity,
+            game,
+            setting_level,
+        } => ErrorDto::GateBeyondWhole {
+            entity: named(entity),
+            game: game.get(),
+            setting_level: setting_level.get(),
+        },
+        SpecError::GateTwice { entity, game } => ErrorDto::GateTwice {
+            entity: named(entity),
+            game: game.get(),
+        },
+        SpecError::GatesBesideModes { entity } => ErrorDto::GatesBesideModes {
+            entity: named(entity),
+        },
+        SpecError::NeedsCz { entity, component } => ErrorDto::NeedsCz {
+            entity: named(entity),
+            component: component_name(*component),
+        },
+        SpecError::RedrawToUnknown { entity, to } => ErrorDto::RedrawToUnknown {
+            entity: named(entity),
+            to: named(to),
+        },
+        SpecError::RedrawNotWhole {
+            entity,
+            setting_level,
+            sum,
+        } => ErrorDto::RedrawNotWhole {
+            entity: named(entity),
+            setting_level: setting_level.get(),
+            sum: *sum,
+        },
     }
 }
 

@@ -249,6 +249,7 @@ describe("composeYenTallyEntry", () => {
         "2026-10-04 | マイジャグラーVI  ; play-id: tally-1004, game-kind: slot, machine: マイジャグラーVI, hours: 3.5, inferred-formula: formula-1, token-rental: 21.73913, token-exchange: 5.1",
         "    費用:遊技                           12000 JPY",
         "    資産:現金                           -12000 JPY",
+        "    (統計:時間)                         12600 秒",
         "    (統計:期待値:推定)                  -1234.5 JPY",
         "",
       ].join("\n"),
@@ -258,7 +259,7 @@ describe("composeYenTallyEntry", () => {
   test("a pachislot tally's theoretical value typed in is its own, and nothing inferred is written beside it", () => {
     const told = { ...TALLIED, gameKind: "slot" as const, machine: "マイジャグラーVI", told: { hours: dec("3.5"), jackpots: undefined, inferred: inferredWorthOf("formula-1", -1234.5, MEDAL_TERMS_BY_DEFAULT) } }
     const entry = composeYenTallyEntry(told)
-    expect(entry.ok && entry.value.postings.map((posting) => posting.account)).toEqual(["費用:遊技", "資産:現金", "統計:期待値"])
+    expect(entry.ok && entry.value.postings.map((posting) => posting.account)).toEqual(["費用:遊技", "資産:現金", "統計:期待値", "統計:時間"])
   })
 
   test("an AT machine's tally read by its history keeps what it was inferred to be worth, its hours left unsaid", () => {

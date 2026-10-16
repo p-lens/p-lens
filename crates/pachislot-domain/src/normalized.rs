@@ -96,6 +96,38 @@ pub struct AtRules {
     /// where its games are counted. A win on the AT間天井 is no trigger's
     /// and pays none of it.
     pub trigger_payout: Option<TriggerPayout>,
+    /// What a bonus a CZ's success brings does when it misses the AT.
+    pub bonus_miss: BonusMiss,
+    /// How the CZ a ceiling counted from the AT forces fares.
+    pub forced_cz: ForcedCz,
+}
+
+/// What a bonus a CZ's success brings does when it misses the AT: counted
+/// as a miss like a failed CZ, or starting play again as after an AT.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BonusMiss {
+    Counted,
+    Restarts,
+}
+
+/// How the CZ a ceiling counted from the AT forces fares: at the CZ's own
+/// success rate, or certainly succeeding — it and any other on its game.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ForcedCz {
+    Drawn,
+    Wins,
+}
+
+impl AtRules {
+    /// Whether a bonus that misses the AT starts play again.
+    pub fn restarts(&self) -> bool {
+        self.bonus_miss == BonusMiss::Restarts
+    }
+
+    /// Whether the CZ a ceiling counted from the AT forces certainly succeeds.
+    pub fn ceiling_wins(&self) -> bool {
+        self.forced_cz == ForcedCz::Wins
+    }
 }
 
 /// What a bonus that wins the AT at a share pays each time it comes.
@@ -130,6 +162,17 @@ pub struct ModeRule {
     /// latest, once, short of the AT間天井: a bonus's ceiling that a bonus
     /// missing the AT does not start again.
     pub since_at_ceiling: Option<NonZeroU32>,
+    /// Where play moves when so many games in the mode since its last
+    /// trigger have brought none: a CZ連 ending.
+    pub expiry: Option<Expiry>,
+}
+
+/// A mode left when so many games since the last trigger bring none in it:
+/// the games, and the mode play moves to, by its place among the rules'.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Expiry {
+    pub games: NonZeroU32,
+    pub to: usize,
 }
 
 /// How one setting allots play between an AT machine's modes, in the order
@@ -166,8 +209,39 @@ pub struct AtTable {
     /// success brings the bonus. `success` is then the CZ's success times
     /// the bonus's share.
     pub paid: Probability,
+    /// Where a CZ's success brings a bonus, the share of those bonuses
+    /// that win the AT; one otherwise. `success` is the CZ's own times it.
+    pub bonus_share: Probability,
+    /// Each mode's zones under the setting, in the order of the rules'
+    /// modes, each in the order of its games; none for a mode without.
+    pub gates: Vec<Vec<Gate>>,
+    /// Each mode's chance a trigger wins the AT, in the order of the rules'
+    /// modes, where any mode has its own; none where every mode takes
+    /// `success`.
+    pub successes: Vec<Probability>,
+    /// Where a missed trigger moves play, mode by mode: a row of shares
+    /// over the rules' modes for each, summing to one; none where play
+    /// stays in its mode from one AT to the next.
+    pub redraws: Vec<Vec<f64>>,
+    /// Where a missed trigger that came on its mode's ceiling moves play,
+    /// mode by mode; none where `redraws` says.
+    pub ceiling_redraws: Vec<Vec<f64>>,
+    /// Each mode's own chance a game brings the trigger, in the order of
+    /// the rules' modes, where any mode has one; none for a mode at the
+    /// chance read back from the 合算, and none at all where no mode has.
+    pub own_chances: Vec<Option<Probability>>,
     pub allotments: Allotments,
     pub payout: PayoutLaw,
+}
+
+/// A zone under one setting: the regular game since the last AT it is on,
+/// the chance play still going there brings the trigger, and the chance it
+/// wins the AT outright, before the trigger is drawn.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Gate {
+    pub game: NonZeroU32,
+    pub trigger: Probability,
+    pub at: Probability,
 }
 
 /// One setting's outcomes of a regular game.

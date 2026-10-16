@@ -9,6 +9,7 @@ import { bonusTitle } from "../../../wording/pachislot/formula"
 import {
   ALL_SETTING_LEVELS,
   type AtLawForm,
+  EMPTY_GATE,
   EMPTY_LAW,
   EMPTY_OTHER_NET,
   EMPTY_PAYOUT_ROW,
@@ -17,6 +18,7 @@ import {
   type CzTrigger,
   type EntityKindName,
   type EntityRow,
+  type GateForm,
   hasCz,
   hasModes,
   isAtMachine,
@@ -24,6 +26,7 @@ import {
   newRow,
   STARTING_AT_MANUAL,
   STARTING_MANUAL,
+  takesGates,
   type WorldForm,
 } from "./world-form"
 
@@ -97,7 +100,7 @@ const czTriggerNamed = (value: string): CzTrigger => (value === "bonus" || value
 
 function CzDepths(props: { readonly row: EntityRow; readonly form: WorldForm; readonly onChange: (row: EntityRow) => void }): JSX.Element {
   const [asked, setAsked] = createSignal(false)
-  const typed = (): boolean => [props.row.ceiling, props.row.resetCeiling, props.row.misses, props.row.sinceAtCeiling].some((text) => text.trim() !== "")
+  const typed = (): boolean => [props.row.ceiling, props.row.resetCeiling, props.row.unitCeiling, props.row.resetUnitCeiling, props.row.misses, props.row.sinceAtCeiling].some((text) => text.trim() !== "")
   return (
     <Show
       when={asked() || typed()}
@@ -114,6 +117,18 @@ function CzDepths(props: { readonly row: EntityRow; readonly form: WorldForm; re
           <div class="w-28">
             <TextField label="CZ天井" value={props.row.ceiling} onChange={(ceiling) => props.onChange({ ...props.row, ceiling })} inputMode="numeric" suffix="G" placeholder="なし" />
           </div>
+          <Show when={props.form.unitName.trim() !== ""}>
+            <div class="w-32">
+              <TextField
+                label={`CZ天井（${props.form.unitName.trim()}）`}
+                value={props.row.unitCeiling}
+                onChange={(unitCeiling) => props.onChange({ ...props.row, unitCeiling })}
+                inputMode="numeric"
+                suffix={props.form.unitName.trim()}
+                placeholder="なし"
+              />
+            </div>
+          </Show>
           <div class="w-36">
             <TextField
               label="リセット後のCZ天井"
@@ -124,6 +139,18 @@ function CzDepths(props: { readonly row: EntityRow; readonly form: WorldForm; re
               placeholder="同じ"
             />
           </div>
+          <Show when={props.form.unitName.trim() !== ""}>
+            <div class="w-40">
+              <TextField
+                label={`リセット後のCZ天井（${props.form.unitName.trim()}）`}
+                value={props.row.resetUnitCeiling}
+                onChange={(resetUnitCeiling) => props.onChange({ ...props.row, resetUnitCeiling })}
+                inputMode="numeric"
+                suffix={props.form.unitName.trim()}
+                placeholder="同じ"
+              />
+            </div>
+          </Show>
         </Show>
         <div class="w-36">
           <TextField
@@ -145,6 +172,15 @@ function CzDepths(props: { readonly row: EntityRow; readonly form: WorldForm; re
             placeholder="なし"
           />
         </div>
+        <Show when={props.row.sinceAtCeiling.trim() !== ""}>
+          <div class="flex flex-col gap-1.5">
+            <span class={LABEL}>その天井のCZ</span>
+            <ToggleGroup value={props.row.forcedCz} onChange={(value: string | null) => value !== null && props.onChange({ ...props.row, forcedCz: value === "wins" ? "wins" : "drawn" })}>
+              <ToggleGroupItem value="drawn">成功率どおり</ToggleGroupItem>
+              <ToggleGroupItem value="wins">必ず成功</ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+        </Show>
         <p class="basis-full text-xs text-text-muted">
           スルー天井は、AT後にCZをこの回数失敗すると次のCZで必ずATに当たる、という回数です。ATから数える天井は、ATに入らなかったボーナスでは数え直さず、AT後このゲーム数で1回だけ必ずCZ（ボーナス）が来る、という天井です。AT間天井と同じか手前にしてください。
         </p>
@@ -255,6 +291,18 @@ function RowEditor(props: {
               placeholder="なし"
             />
           </div>
+          <Show when={props.form.unitName.trim() !== ""}>
+            <div class="w-32">
+              <TextField
+                label={`${props.row.kind === "mode" && hasCz(props.form) ? "CZ天井" : "天井"}（${props.form.unitName.trim()}）`}
+                value={props.row.unitCeiling}
+                onChange={(unitCeiling) => props.onChange({ ...props.row, unitCeiling })}
+                inputMode="numeric"
+                suffix={props.form.unitName.trim()}
+                placeholder="なし"
+              />
+            </div>
+          </Show>
         </Show>
         <Show when={props.row.kind === "mode" && hasCz(props.form)}>
           <div class="w-36">
@@ -279,6 +327,18 @@ function RowEditor(props: {
               placeholder="ATと同じ"
             />
           </div>
+          <Show when={props.form.unitName.trim() !== ""}>
+            <div class="w-32">
+              <TextField
+                label={`AT間天井（${props.form.unitName.trim()}）`}
+                value={props.row.atUnitCeiling}
+                onChange={(atUnitCeiling) => props.onChange({ ...props.row, atUnitCeiling })}
+                inputMode="numeric"
+                suffix={props.form.unitName.trim()}
+                placeholder="ATと同じ"
+              />
+            </div>
+          </Show>
         </Show>
         <Show when={brought()}>
           <div class="w-36">
@@ -291,6 +351,18 @@ function RowEditor(props: {
               placeholder="なし"
             />
           </div>
+          <Show when={props.form.unitName.trim() !== ""}>
+            <div class="w-32">
+              <TextField
+                label={`AT間天井（${props.form.unitName.trim()}）`}
+                value={props.row.unitCeiling}
+                onChange={(unitCeiling) => props.onChange({ ...props.row, unitCeiling })}
+                inputMode="numeric"
+                suffix={props.form.unitName.trim()}
+                placeholder="なし"
+              />
+            </div>
+          </Show>
         </Show>
         <Show when={brought() && !hasModes(props.form)}>
           <div class="w-40">
@@ -303,6 +375,18 @@ function RowEditor(props: {
               placeholder="同じ"
             />
           </div>
+          <Show when={props.form.unitName.trim() !== ""}>
+            <div class="w-40">
+              <TextField
+                label={`リセット後のAT間天井（${props.form.unitName.trim()}）`}
+                value={props.row.resetUnitCeiling}
+                onChange={(resetUnitCeiling) => props.onChange({ ...props.row, resetUnitCeiling })}
+                inputMode="numeric"
+                suffix={props.form.unitName.trim()}
+                placeholder="同じ"
+              />
+            </div>
+          </Show>
         </Show>
         <Show when={props.row.kind === "at" && !brought() && !hasModes(props.form)}>
           <div class="w-36">
@@ -315,6 +399,18 @@ function RowEditor(props: {
               placeholder="同じ"
             />
           </div>
+          <Show when={props.form.unitName.trim() !== ""}>
+            <div class="w-40">
+              <TextField
+                label={`リセット後の天井（${props.form.unitName.trim()}）`}
+                value={props.row.resetUnitCeiling}
+                onChange={(resetUnitCeiling) => props.onChange({ ...props.row, resetUnitCeiling })}
+                inputMode="numeric"
+                suffix={props.form.unitName.trim()}
+                placeholder="同じ"
+              />
+            </div>
+          </Show>
         </Show>
         <Show when={props.row.kind !== "at"}>
           <Button variant="outline" size="icon" class="ml-auto" aria-label={`${name("この行")}を削除`} title="この行を削除" onClick={() => props.onRemove()}>
@@ -355,6 +451,13 @@ function RowEditor(props: {
           onChange={(success) => props.onChange({ ...props.row, success })}
         />
         <Show when={props.row.trigger === "cz-then-bonus"}>
+          <div class="flex flex-col gap-1.5">
+            <span class={LABEL}>ATに入らなかったボーナスのあと</span>
+            <ToggleGroup value={props.row.bonusMiss} onChange={(value: string | null) => value !== null && props.onChange({ ...props.row, bonusMiss: value === "restarts" ? "restarts" : "counted" })}>
+              <ToggleGroupItem value="counted">そのまま数える</ToggleGroupItem>
+              <ToggleGroupItem value="restarts">数え直す</ToggleGroupItem>
+            </ToggleGroup>
+          </div>
           <span class={LABEL}>ボーナスからのAT率（任意）</span>
           <LevelCells
             name={`${name("CZ")} ボーナスからのAT率`}
@@ -375,7 +478,7 @@ function RowEditor(props: {
           }
         >
           <p class="text-xs text-text-muted">
-            CZに成功するとボーナスに入り、ボーナスからATを抽選する機種は「CZ→ボーナス」を選びます。枚数と純増にはボーナスの獲得を入れます。CZ成功率とボーナスからのAT率が公表されていなければ、予想で入れてもかまいません。ボーナスからのAT率を空けると、ボーナスは必ずATに入るものとして計算し、ボーナスの枚数を入れなければCZのように計算します。ATに入らなかったボーナスも、スルー天井では1回のスルーと数えます。
+            CZに成功するとボーナスに入り、ボーナスからATを抽選する機種は「CZ→ボーナス」を選びます。枚数と純増にはボーナスの獲得を入れます。CZ成功率とボーナスからのAT率が公表されていなければ、予想で入れてもかまいません。ボーナスからのAT率を空けると、ボーナスは必ずATに入るものとして計算し、ボーナスの枚数を入れなければCZのように計算します。ATに入らなかったボーナスは、「そのまま数える」ならスルー天井で1回のスルーと数えます。「数え直す」なら、そのボーナスからATのあとと同じように天井・スルー・モードを数え直します（ボーナス&AT間天井の機種）。
           </p>
         </Show>
       </Show>
@@ -402,6 +505,9 @@ function RowEditor(props: {
                 placeholder="同じ"
                 onChange={(resetAllotment) => props.onChange({ ...props.row, resetAllotment })}
               />
+              <Show when={hasCz(props.form)}>
+                <ModeChain row={props.row} form={props.form} onChange={props.onChange} />
+              </Show>
             </div>
           </Show>
         }
@@ -416,7 +522,146 @@ function RowEditor(props: {
           />
         </Show>
       </Show>
+      <Show when={takesGates(props.form, props.row)}>
+        <Zones name={name(props.row.kind === "cz" ? "CZ" : "モード")} levels={props.form.settingLevels} gates={props.row.gates} onChange={(gates) => props.onChange({ ...props.row, gates })} />
+      </Show>
     </section>
+  )
+}
+
+/**
+ * What a failed CZ does in a mode, on a machine a CZ brings the AT on: the
+ * mode's own CZ success where it is not the CZ's, and where play moves —
+ * each mode with its share under each setting, all of them 100%. Left
+ * empty, the CZ's success holds and play stays in the mode until the AT.
+ * The modes are an `<Index>`, so typing never remounts a field.
+ */
+function ModeChain(props: { readonly row: EntityRow; readonly form: WorldForm; readonly onChange: (row: EntityRow) => void }): JSX.Element {
+  const name = (): string => (props.row.label.trim() === "" ? "モード" : props.row.label)
+  const modes = (): readonly EntityRow[] => props.form.rows.filter((row) => row.kind === "mode")
+  return (
+    <div class="flex flex-col gap-2">
+      <span class={LABEL}>このモードのCZ確率（任意）</span>
+      <LevelCells name={`${name()} CZ確率`} levels={props.form.settingLevels} values={props.row.triggerChances} placeholder="合算から" onChange={(triggerChances) => props.onChange({ ...props.row, triggerChances })} />
+      <div class="flex flex-wrap items-end gap-3">
+        <div class="w-36">
+          <TextField
+            label="抜けるまで（任意）"
+            value={props.row.expiryGames}
+            onChange={(expiryGames) => props.onChange({ ...props.row, expiryGames })}
+            inputMode="numeric"
+            suffix="G"
+            placeholder="ずっと"
+          />
+        </div>
+        <Show when={props.row.expiryGames.trim() !== ""}>
+          <div class="min-w-32 flex-1">
+            <Select
+              label="抜けた先のモード"
+              placeholder="モード"
+              options={modes().map((to) => ({ value: to.key, label: to.label.trim() === "" ? "名前のないモード" : to.label }))}
+              value={props.row.expiryTo}
+              onChange={(expiryTo) => props.onChange({ ...props.row, expiryTo: expiryTo ?? "" })}
+            />
+          </div>
+        </Show>
+      </div>
+      <span class={LABEL}>このモードのCZ成功率（任意）</span>
+      <LevelCells name={`${name()} CZ成功率`} levels={props.form.settingLevels} values={props.row.success} suffix="%" placeholder="CZの" onChange={(success) => props.onChange({ ...props.row, success })} />
+      <span class={LABEL}>CZに失敗したときの移り先（任意）</span>
+      <Index each={modes()}>
+        {(to) => (
+          <div class="flex flex-col gap-1">
+            <span class="text-xs text-text-secondary">→ {to().label.trim() === "" ? "名前のないモード" : to().label}</span>
+            <LevelCells
+              name={`${name()} → ${to().label.trim() === "" ? "モード" : to().label}`}
+              levels={props.form.settingLevels}
+              values={props.row.redraw[to().key] ?? {}}
+              suffix="%"
+              placeholder="0"
+              onChange={(shares) => props.onChange({ ...props.row, redraw: { ...props.row.redraw, [to().key]: shares } })}
+            />
+          </div>
+        )}
+      </Index>
+      <Show when={props.row.ceiling.trim() !== ""}>
+        <span class={LABEL}>天井でCZに入って失敗したときの移り先（任意）</span>
+        <Index each={modes()}>
+          {(to) => (
+            <div class="flex flex-col gap-1">
+              <span class="text-xs text-text-secondary">→ {to().label.trim() === "" ? "名前のないモード" : to().label}</span>
+              <LevelCells
+                name={`${name()} 天井CZ → ${to().label.trim() === "" ? "モード" : to().label}`}
+                levels={props.form.settingLevels}
+                values={props.row.ceilingRedraw[to().key] ?? {}}
+                suffix="%"
+                placeholder="0"
+                onChange={(shares) => props.onChange({ ...props.row, ceilingRedraw: { ...props.row.ceilingRedraw, [to().key]: shares } })}
+              />
+            </div>
+          )}
+        </Index>
+      </Show>
+      <p class="text-xs text-text-muted">
+        CZに失敗するたびにモードを選び直す機種は、移り先ごとの割合を入れます（設定ごとに合計100%）。空けたモードは、失敗してもATまでそのままです。天井で入ったCZの失敗で次の天井が変わる機種は、その移り先を天井の欄に入れます（空けると普通の失敗と同じ）。CZ失敗後に成功率の上がる高確は、成功率を入れたモードにします。CZのあとしばらくCZが来やすいCZ連は、CZ確率と抜けるまでのゲーム数を入れたモードにして、CZ失敗の移り先にします。公表されていなければ予想で入れてかまいません。
+      </p>
+    </div>
+  )
+}
+
+/**
+ * A mode's zones, or a CZ's on a machine without modes: each the game since
+ * the last AT it is on, the share of play still going there that the CZ
+ * comes to, and the share that wins the AT outright, under each setting.
+ * Zones are an `<Index>`, so typing never remounts a field.
+ */
+function Zones(props: { readonly name: string; readonly levels: readonly number[]; readonly gates: readonly GateForm[]; readonly onChange: (gates: readonly GateForm[]) => void }): JSX.Element {
+  return (
+    <div class="flex flex-col gap-2">
+      <Index each={props.gates}>
+        {(gate, index) => (
+          <div class="flex flex-col gap-1.5 rounded-md border border-border p-2">
+            <div class="flex items-end gap-3">
+              <div class="w-32">
+                <TextField
+                  label="ゾーン（AT後）"
+                  value={gate().game}
+                  onChange={(game) => props.onChange(replaced(props.gates, index, { ...gate(), game }))}
+                  inputMode="numeric"
+                  suffix="G"
+                  placeholder="100"
+                />
+              </div>
+              <div class="w-24">
+                <TextField
+                  label="長さ（任意）"
+                  value={gate().span}
+                  onChange={(span) => props.onChange(replaced(props.gates, index, { ...gate(), span }))}
+                  inputMode="numeric"
+                  suffix="G"
+                  placeholder="1"
+                />
+              </div>
+              <Button variant="outline" size="icon" class="ml-auto" aria-label={`${props.name}のゾーンを削除`} title="このゾーンを削除" onClick={() => props.onChange(props.gates.filter((_, at) => at !== index))}>
+                <TrashIcon />
+              </Button>
+            </div>
+            <span class={LABEL}>CZに入る割合</span>
+            <LevelCells name={`${props.name} ゾーン CZ`} levels={props.levels} values={gate().trigger} suffix="%" placeholder="" onChange={(trigger) => props.onChange(replaced(props.gates, index, { ...gate(), trigger }))} />
+            <span class={LABEL}>ATに直撃する割合（任意）</span>
+            <LevelCells name={`${props.name} ゾーン AT`} levels={props.levels} values={gate().at} suffix="%" placeholder="0" onChange={(at) => props.onChange(replaced(props.gates, index, { ...gate(), at }))} />
+          </div>
+        )}
+      </Index>
+      <div class="flex flex-wrap items-center gap-2">
+        <Button variant="ghost" size="small" onClick={() => props.onChange([...props.gates, EMPTY_GATE])}>
+          ゾーンを足す
+        </Button>
+        <p class="basis-full text-xs text-text-muted">
+          100G・200Gのように、AT後のゲーム数で抽選する区切り（ゾーン）を入れます。そのゲームまでCZもATも来ていなければ、CZに入る割合とATに直撃する割合で抽選します。長さを入れると、その割合をそのゲーム数のあいだに均して抽選します（AT後66Gの引き戻しなら、1Gから長さ66G、ATに直撃する割合に引き戻し率）。公表されていなければ予想で入れてかまいません。
+        </p>
+      </div>
+    </div>
   )
 }
 

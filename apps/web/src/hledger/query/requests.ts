@@ -3,7 +3,7 @@ import { TALLY_TAGS } from "../../core/tally/tally"
 import type { PlayId } from "../../core/play/play"
 import type { Valuation } from "../../core/valuation/valuation"
 import type { Cut, Request, ValuationRequest } from "../protocol/wire"
-import { accountTerm, cashTerm, combine, drawnTerm, inferredValueTerm, openingBalanceTerm, talliesAmongTerm, talliesTerm, savingsTerm, sentTalliesTerm, spinPerformanceTerm, theoreticalValueTerm } from "./terms"
+import { accountTerm, branchTerm, cashTerm, combine, playTimeTerm, rentalSpreadTerm, drawnTerm, inferredValueTerm, openingBalanceTerm, talliesAmongTerm, talliesTerm, savingsTerm, sentTalliesTerm, spinPerformanceTerm, theoreticalValueTerm } from "./terms"
 
 type RequestOf<K extends Request["kind"]> = Extract<Request, { kind: K }>
 
@@ -39,6 +39,19 @@ export const actualByTallyRequest = (ids: readonly PlayId[]): RequestOf<"incomes
 
 /** The theoretical value of the tallies in a query, cut the same way. */
 export const theoreticalCutRequest = (query: string, cut: Cut): RequestOf<"balance"> => ({ ...theoreticalRequest(query), ...cut })
+
+/** What a branch of the account tree came to over a query, in yen at the rate of each posting's day: what the tallies took in, under 費用, or gave back, under 収益. */
+export const branchRequest = (root: string, query: string): RequestOf<"balance"> => ({
+  kind: "balance",
+  query: combine(branchTerm(root), query),
+  valuation: inYen({ at: "posting-date" }),
+})
+
+/** The time the tallies of a query were played for, in seconds, as hledger sums it. */
+export const playTimeRequest = (query: string): RequestOf<"balance"> => ({ kind: "balance", query: combine(playTimeTerm, query) })
+
+/** The loss on renting tokens above their exchange value over a query, in yen. */
+export const rentalSpreadRequest = (query: string): RequestOf<"balance"> => ({ kind: "balance", query: combine(rentalSpreadTerm, query) })
 
 /** What one account of a query came to, as hledger sums it: the cash spent, or the prizes taken home. */
 export const accountRequest = (account: string, query: string): RequestOf<"balance"> => ({ kind: "balance", query: combine(accountTerm(account), query) })

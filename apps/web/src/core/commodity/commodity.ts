@@ -6,6 +6,9 @@ export type TokenKind = "ball" | "medal"
 /** The currency every token is valued in. */
 export const YEN = "JPY"
 
+/** What a play's time is kept in: seconds, so that a book's plays add up to the second. */
+export const SECONDS = "秒"
+
 const TOKEN_NAMES: Readonly<Record<TokenKind, string>> = { ball: "玉", medal: "枚" }
 
 /**

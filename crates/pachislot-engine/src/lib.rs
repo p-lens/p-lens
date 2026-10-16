@@ -6,6 +6,7 @@
 pub mod analysis;
 pub mod at;
 mod at_machine;
+mod chain;
 pub mod error;
 pub mod hunt;
 pub mod normalize;

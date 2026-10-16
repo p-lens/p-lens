@@ -161,6 +161,7 @@ The account tree is deliberately small:
 純資産:端玉景品             the rest of a prize exchange, in whole yen
 純資産:換算調整勘定         the part of a yen a prize exchange leaves over
 統計:期待値                 no type, virtual postings only
+統計:時間                   seconds a play lasted, virtual postings only; declared with 秒 in every new book, and in an older one when it first has one
 ```
 
 Savings are set in two ways, both against equity so that neither is any
@@ -338,6 +339,13 @@ outlay, and come together to what the last left, exchanged, less all that
 was spent.
 - **Theoretical value** (期待値) is the virtual posting, written only when
   given: what the play was worth by its formula, whatever it came to.
+- **Play time** (`(統計:時間)`, in `秒`) is a virtual posting too: the
+  seconds a play lasted, from its clock where both its start and its
+  finish are said (the finish on the day after where it is the earlier),
+  else from the hours told of it, and none where neither says. Kept in
+  seconds so that a book's plays add up, over any period, in hledger. A
+  tally set right writes it again from its clock and hours, never from
+  the posting.
 
 **評価損益 (a revaluation) is never written.** Savings are held in tokens,
 a tally's result is its postings at their own day's rate, and savings are
@@ -353,13 +361,15 @@ and two devices cannot both write it). hledger works it out: the bindings'
 `revaluation` report is `--valuechange --value=end` less what was posted
 at `--value=then`, account by account, taken one from the other with
 hledger's own amounts (`lessPosted`) — hledger's `--gain` sets value
-against a posting's cost, and savings are posted with none. `loadRevaluation`
+against a posting's cost, and savings are posted with none. `loadOtherGains`
 asks it of a period's savings; `revaluationOf` reads its total and its rows
 by parlor, a parlor's balls and medals together. On screen it is 評価損益,
-under a book's breakdown (集計) in a row of its own, parlor by parlor where
-the tallies are grouped by parlor, and never part of 実収支. A rate seldom
-changes and almost never rises, so the row is there only where savings
-gained or lost anything. `tests/hledger/revaluation.test.ts` holds it
+a line of その他損益 (`OtherGains`) under a breakdown (集計), a book's or
+several books', parlor by parlor where the tallies are grouped by parlor,
+and never part of 収支. その他損益 lists beside it 失効損, which 収支 does
+hold, and is never summed, each line saying which it is. A rate seldom
+changes and savings seldom lapse, so その他損益 is there only where there
+is any. `tests/hledger/revaluation.test.ts` holds it
 against the real hledger.
 
 A tally can also be kept by its totals in yen alone (`YenTally`,
@@ -1285,10 +1295,17 @@ only the primitives, the core and the application.
   are taken that much sooner — on average, which the screen's additions are;
   the AT間天井 is counted in regular games. Where they count something
   else — points, 周期 — `ceilingUnit` names it and says how much of it a
-  regular game comes to on average, and they are reached after that many
-  over it; a machine says one or the other, never both
-  (`ceiling-unit-beside-lcd-rate`). Either is an average, and the grounds
-  say so.
+  regular game comes to on average. A ceiling counted in it stands beside
+  the one in games (`unitCeiling`, `resetUnitCeiling`; on a mode
+  `atUnitCeiling`): on the trigger its ceiling, on an AT a CZ brings its
+  AT間天井, and whichever comes first is the ceiling — 560G or 1000pt, 999G
+  or 7 周期. Beside one, every `ceiling` counts games, on the screen where
+  `lcdRate` says so. A spec with a unit and no ceiling counted in it is
+  read as it was written before: its trigger's ceilings counted in the
+  unit, never beside `lcdRate` (`ceiling-unit-beside-lcd-rate`); the
+  editor types such a spec's ceilings again as the unit's. Either is an
+  average, and the grounds say so, reasoning a machine with both from the
+  ceilings in regular games the engine took.
 - **An AT's 純増 closes the machine.** What an AT costs in games of its own
   is not in its payout, which is why an AT machine's 機械割 is measured —
   unless the AT says its 純増 (`netPerGame`, medals a game). Over a cycle,
@@ -1322,6 +1339,60 @@ only the primitives, the core and the application.
   walk and the hunt pay a bonus at its chance a game. An AT won on the
   AT間天井 is no bonus's and pays none, and a bonus's medals are not
   counted towards the 有利区間's cap.
+- **Zones are drawn on games counted from the AT.** A mode — or the CZ
+  of a machine without modes — may have `gates`: regular games since the
+  last AT (100G, 200G, a 周期 every so many games) on which play still
+  going draws the trigger at one share and the AT outright at another,
+  per setting, besides its chance a game. A zone of the whole trigger is
+  `sinceAtCeiling`'s forced game; one of the AT is `direct` on that game.
+  The walks, the hunt, a told history and a seat's weighing all draw on
+  them game by game; a mode without an AT間天井 is then walked, twice as
+  far each time, until next to nothing is left, as no closed form follows.
+  The grounds take such a machine's cycle from the engine and say so. A
+  zone may span games (`span`): its shares are drawn evenly over them, game
+  by game — a 引き戻し of 66 games after each AT is a zone from game one,
+  66 games long, whose AT share is the 引き戻し率, in each mode that draws
+  it at its own rate.
+- **A failed CZ may move play between modes.** A mode may say where a
+  missed trigger in it moves play (`redraw`: each mode it may go to with
+  its share, per setting, the whole of it) — the mode drawn again at each
+  failed CZ, a まいるテーブル or a 規定ゲーム数 mode that climbs — and win
+  the AT at a rate of its own (`success` on the mode: a 高確 after a failed
+  CZ). Such a machine is walked as one chain (`chain`): every mode and
+  every count of misses at once, game by game, each a stream of where its
+  trigger's games began, a miss starting the next count spread over the
+  modes it moves play to. A mode's AT間天井 wins whatever of play is in it
+  on its game, and play moved into a mode past it the game after. The
+  cycle, the arrivals, a seat's weighing, a told history and the hunt all
+  take the chain; a walked path moves its modes at each miss. A machine
+  whose modes all keep play and win at the CZ's rate comes to the same
+  figures either way, which the tests hold. The grounds take such a
+  machine's cycle from the engine and say so. A miss that came on its
+  mode's ceiling may move play by a row of its own (`ceilingRedraw`): a
+  ceiling CZ that shortens the next ceiling. A mode may draw the trigger at a
+  chance of its own (`triggerChance`), in place of the one read back from
+  the 合算, and be left once so many games since its trigger bring none
+  (`expiry`: the games and the mode play moves to, its count since the
+  trigger carried on there): a CZ連 is a mode a failed CZ moves play to,
+  at 1/19.7 a game, left after 20 games for the mode it came from. The
+  chain takes play that reaches a mode's expiry out before the game is
+  drawn and holds it in the mode it moves to as many games since its
+  trigger as it went; a walked path moves its modes the same way.
+- **A bonus that misses the AT may start play again.** A CZ whose
+  success brings a bonus may say so (`restart`): a bonus that misses the
+  AT then starts play again as after an AT — its ceilings, its スルー天井
+  and its modes counted from the bonus, ボーナス&AT間 — and the cycle is a
+  stretch from an AT or such a bonus to the next, as many of them as it
+  takes the AT to come: one stretch over the chance it ends in the AT. The
+  hunt plays the stretch from the seat and adds, for each start again, what
+  a stretch from a fresh start comes to over the starts it brings. Past
+  the スルー天井 such a machine brings the bonus, not the AT. A CZ's
+  ceiling counted from the AT — or the bonus — may certainly succeed
+  (`ceilingWins`), it and any other CZ on its game. A play tells a failed
+  CZ (`cz-missed`, a leg ending `missed`) from a bonus that missed the AT
+  (`bonus-missed`, `bonus`), the live play giving each its tile where a
+  CZ's success brings a bonus; a history told by its totals counts both as
+  misses, and the engine walks it without starting again.
 - **A CZ whose success brings a bonus keeps both stages.** Where a CZ
   succeeds into a bonus and the bonus wins the AT at a share of its own —
   CZ, then BIG, then the AT about half the time — the CZ keeps its 合算,
@@ -2000,10 +2071,16 @@ played them (集計).
   hledger finds the tallies, which are counted, and sums every figure: what
   they made over all, each tally on its own and each day on its own (an
   income statement pivoted on `play-id`, and one by day), what they were
-  worth, the cash spent, the special and odd prizes taken home, and the
-  savings tallies drew on (`amt:<0` on the savings accounts, each at its
-  own day's rate). The app counts tallies, days, and those that came out
-  ahead, and divides for the averages. Several books are added, a day
+  worth, what they took in (通算投資: the 費用 branch) and gave back
+  (通算回収: the 収益 branch), each posting at its own day's rate — the one
+  less the other being what they made — the loss on renting tokens
+  (通算貸玉差額), the time they were played for (通算時間, `統計:時間`;
+  集計なし where no entry keeps any), the cash spent, the special and odd
+  prizes taken home, and the savings tallies drew on (`amt:<0` on the
+  savings accounts, each at its own day's rate). The app counts tallies,
+  days, and those that came out ahead, and divides for the averages. What
+  is only added up is listed a line to each, as a trial balance is; what
+  is worked out from it stands in tiles below. Several books are added, a day
   played in two books one day its results added (`mergedOverall`).
 - **By who played them** (打ち手別, `/consolidated/breakdown/sender`):
   each sender's tallies over every book added, by the `sender-id` they
@@ -2269,6 +2346,12 @@ is not written out here a second time.
 | 初当たり / CZ合算 | first hit (`firstHit`): a published chance, ceilings included |
 | CZ成功率 | success (`success`): a probability |
 | ボーナスからのAT率 | bonus share (`bonusShare`): on a CZ whose success brings a bonus |
+| ゾーン / 規定ゲーム数 | gates (`gates`): games since the AT a mode draws at |
+| CZ失敗後のモード移行 | redraw (`redraw`): where a missed trigger moves play |
+| 天井CZ失敗後のモード移行 | ceiling redraw (`ceilingRedraw`): where a miss on the ceiling moves play |
+| ボーナス&AT間・ATなしボーナスで数え直し | restart (`restart`, `bonusMiss: restarts`) |
+| 天井CZ確定 | ceiling wins (`ceilingWins`, `forcedCz: wins`) |
+| モードのCZ確率 / CZ連 | trigger chance (`triggerChance`), expiry (`expiry`) |
 | 天井 / AT間天井 / スルー天井 | ceiling (`ceiling`) / AT ceiling (`atCeiling`) / misses (`misses`) |
 | ベース | base (`base`): regular games fifty medals last |
 | モード / 振り分け | mode / allotment (`allotment`, `resetAllotment`) |

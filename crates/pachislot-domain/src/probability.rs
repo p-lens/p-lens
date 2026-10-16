@@ -39,6 +39,7 @@ impl Probability {
 pub struct BasisPoints(u32);
 
 impl BasisPoints {
+    pub const NONE: Self = Self(0);
     pub const WHOLE: Self = Self(10_000);
 
     /// # Errors

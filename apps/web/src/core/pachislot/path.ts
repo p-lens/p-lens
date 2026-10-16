@@ -32,20 +32,26 @@ export const atSeatCheckpoint = (seat: AtSeat, at: string): Checkpoint => ({
   ...(seat.afterReset ? { afterReset: true as const } : {}),
 })
 
-/** A reading's lines with a CZ that did not win the AT on the last of them. */
-export const czMissedAt = (checkpoints: readonly Checkpoint[]): readonly Checkpoint[] =>
-  checkpoints.map((checkpoint, index) => (index === checkpoints.length - 1 ? { ...checkpoint, event: { kind: "cz-missed" as const } } : checkpoint))
+/** A trigger that did not win the AT: a CZ that failed, or a bonus a CZ's success brought that missed it. */
+export type Missed = "cz-missed" | "bonus-missed"
 
-/** What an AT machine's tiles keep and take back: an AT won, or a CZ missed. */
-export type TakenBack = "at" | "cz-missed"
+/** A reading's lines with a trigger that did not win the AT on the last of them. */
+export const missedOn = (checkpoints: readonly Checkpoint[], kind: Missed): readonly Checkpoint[] =>
+  checkpoints.map((checkpoint, index) => (index === checkpoints.length - 1 ? { ...checkpoint, event: { kind } } : checkpoint))
+
+/** A reading's lines with a CZ that did not win the AT on the last of them. */
+export const czMissedAt = (checkpoints: readonly Checkpoint[]): readonly Checkpoint[] => missedOn(checkpoints, "cz-missed")
+
+/** What an AT machine's tiles keep and take back: an AT won, a CZ failed, or a bonus that missed the AT. */
+export type TakenBack = "at" | Missed
 
 /** Why the last of them cannot be taken back: there is none, or the play has gone on past it. */
 export type TakeBackRefusal = { readonly type: "none"; readonly taken: TakenBack } | { readonly type: "played-on"; readonly taken: TakenBack }
 
-const EVENT_OF: Readonly<Record<TakenBack, "jackpot" | "cz-missed">> = { at: "jackpot", "cz-missed": "cz-missed" }
+const EVENT_OF: Readonly<Record<TakenBack, "jackpot" | Missed>> = { at: "jackpot", "cz-missed": "cz-missed", "bonus-missed": "bonus-missed" }
 
 /** What may follow the last of them and go with it: how an AT went, said when it ended; nothing after a CZ. */
-const GOES_WITH: Readonly<Record<TakenBack, readonly string[]>> = { at: ["at-ended"], "cz-missed": [] }
+const GOES_WITH: Readonly<Record<TakenBack, readonly string[]>> = { at: ["at-ended"], "cz-missed": [], "bonus-missed": [] }
 
 const plainOf = ({ event: _event, ...reading }: Checkpoint): Checkpoint => reading
 
@@ -70,6 +76,8 @@ const endOf = (checkpoint: Checkpoint): LegDto["end"] | undefined => {
       return "won-at"
     case "cz-missed":
       return "missed"
+    case "bonus-missed":
+      return "bonus"
     case "at-ended":
     case "finished":
     case undefined:
@@ -168,6 +176,10 @@ const afterLeg =
         return { ...standing, sinceTrigger: standing.sinceTrigger + leg.games, sinceAt: standing.sinceAt + leg.games }
       case "missed":
         return { ...standing, sinceTrigger: 0, sinceAt: standing.sinceAt + leg.games, misses: standing.misses + 1 }
+      case "bonus":
+        return normalized?.atRules?.bonusMiss === "restarts"
+          ? { ...standing, sinceTrigger: 0, sinceAt: 0, misses: 0, afterReset: false }
+          : { ...standing, sinceTrigger: 0, sinceAt: standing.sinceAt + leg.games, misses: standing.misses + 1 }
       case "won-at": {
         const before = holdingAt({ ...standing, sinceAt: standing.sinceAt + Math.max(0, leg.games - 1) }, normalized?.atRules)
         const held = heldAfter(leg.at, before, normalized?.tables[0]?.at?.payout)

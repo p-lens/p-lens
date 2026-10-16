@@ -54,6 +54,21 @@ describe("an AT machine's play as the path the engine walks", () => {
     expect(beforeAt === undefined ? undefined : standingOf(beforeAt)).toEqual({ sinceTrigger: 0, sinceAt: 320, misses: 2, afterReset: false })
   })
 
+  test("a bonus that missed the AT is a leg of its own, which starts the counts again where the machine restarts at one", () => {
+    const played = log(seat(100, 30, 1), { spins: 80, event: { kind: "bonus-missed" } }, { spins: 140 })
+    const path = pathOf(played)
+    expect(path?.legs).toEqual([
+      { games: 80, end: "bonus" },
+      { games: 60, end: "going" },
+    ])
+    const rules = { base: 40, at: "at", trigger: "cz", modes: [{ id: "cz" }] }
+    const counted = machine(rules, [1], [1])
+    const restarting = machine({ ...rules, bonusMiss: "restarts" }, [1], [1])
+    expect(path === undefined ? undefined : standingOf(path, counted)).toEqual({ sinceTrigger: 60, sinceAt: 240, misses: 2, afterReset: false })
+    expect(path === undefined ? undefined : standingOf(path, restarting)).toEqual({ sinceTrigger: 60, sinceAt: 60, misses: 0, afterReset: false })
+    expect(withLastTakenBack(played, "bonus-missed")).toEqual({ ok: false, error: { type: "played-on", taken: "bonus-missed" } })
+  })
+
   test("an AT found only after its line was written is a leg of no games", () => {
     expect(pathOf(log({ spins: 0 }, { spins: 0, event: { kind: "jackpot", approximate: true } }, { spins: 100 }))?.legs).toEqual([
       { games: 0, end: "won-at" },

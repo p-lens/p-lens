@@ -14,7 +14,7 @@ use pachislot_engine::hunt::hunt;
 use pachislot_engine::normalize::normalize;
 use pachislot_engine::theoretical::hunt_theoretical_value;
 use support::{
-    LOSS, PAYOUT, ceiled, cz_spec, medals, mode, rules, setting_level, start, table, through,
+    LOSS, PAYOUT, ceiled, cz_spec, medals, mode, odds, rules, setting_level, start, table, through,
 };
 
 fn near(left: f64, right: f64) -> bool {
@@ -61,7 +61,7 @@ fn from_just_after_an_at_it_is_the_cycle() {
         let machine = rules(Some("cz"), through(modes, misses));
         let found =
             hunt(start(0, 0, 0), &machine, &table(p, q, vec![1.0], vec![1.0])).expect("comes");
-        let whole = cycle(&machine, p, q, 0.0, &[1.0]);
+        let whole = cycle(&machine, odds(p, q, 0.0), &[1.0]);
         assert!(
             near(found.games, whole.games),
             "{} against {}",
@@ -213,7 +213,7 @@ fn a_trigger_forced_once_on_a_game_counted_from_the_at_is_the_cycle_from_just_af
         let machine = rules(Some("cz"), vec![forced]);
         let found =
             hunt(start(0, 0, 0), &machine, &table(p, q, vec![1.0], vec![1.0])).expect("comes");
-        let whole = cycle(&machine, p, q, 0.0, &[1.0]);
+        let whole = cycle(&machine, odds(p, q, 0.0), &[1.0]);
         assert!(
             near(found.games, whole.games),
             "{} against {}",
@@ -228,9 +228,7 @@ fn a_trigger_forced_once_on_a_game_counted_from_the_at_is_the_cycle_from_just_af
                     ..ceiled("cz", 0, 700)
                 }],
             ),
-            p,
-            q,
-            0.0,
+            odds(p, q, 0.0),
             &[1.0],
         );
         assert!(whole.games < unforced.games);
@@ -266,12 +264,12 @@ fn an_at_won_outright_beside_the_cz_is_the_cycle_from_just_after_one() {
     let (p, q, d) = (0.01, 0.3, 0.002);
     for modes in [vec![ceiled("cz", 150, 600)], vec![mode("cz", 150)]] {
         let machine = rules(Some("cz"), through(modes, NonZeroU32::new(3)));
-        let odds = AtTable {
+        let outright = AtTable {
             direct: Probability::new(d).expect("a chance"),
             ..table(p, q, vec![1.0], vec![1.0])
         };
-        let found = hunt(start(0, 0, 0), &machine, &odds).expect("comes");
-        let whole = cycle(&machine, p, q, d, &[1.0]);
+        let found = hunt(start(0, 0, 0), &machine, &outright).expect("comes");
+        let whole = cycle(&machine, odds(p, q, d), &[1.0]);
         assert!(
             near(found.games, whole.games),
             "{} against {}",

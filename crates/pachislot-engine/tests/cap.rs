@@ -5,7 +5,9 @@ mod support;
 use std::num::NonZeroU32;
 
 use pachislot_domain::conditions::{PayoutBasis, PayoutRate};
-use pachislot_domain::normalized::{Allotments, AtRules, AtTable, ModeRule, PayoutLaw};
+use pachislot_domain::normalized::{
+    Allotments, AtRules, AtTable, BonusMiss, ForcedCz, ModeRule, PayoutLaw,
+};
 use pachislot_domain::observation::{AtSeen, Leg, LegEnd, Path, PathStart};
 use pachislot_domain::probability::{BasisPoints, Probability};
 use pachislot_domain::setting_level::PerSettingLevel;
@@ -116,6 +118,7 @@ fn rules(cap: Option<f64>, window: Option<u32>, reset_on_cap: bool) -> AtRules {
             at_ceiling: None,
             misses: None,
             since_at_ceiling: None,
+            expiry: None,
         }],
         net_per_game: None,
         cap: cap.and_then(Medals::new),
@@ -123,6 +126,8 @@ fn rules(cap: Option<f64>, window: Option<u32>, reset_on_cap: bool) -> AtRules {
         reset_on_cap,
         trigger_is_bonus: false,
         trigger_payout: None,
+        bonus_miss: BonusMiss::Counted,
+        forced_cz: ForcedCz::Drawn,
     }
 }
 
@@ -132,6 +137,12 @@ fn table(payout: PayoutLaw) -> AtTable {
         success: chance(1.0),
         direct: chance(0.0),
         paid: chance(1.0),
+        bonus_share: chance(1.0),
+        gates: Vec::new(),
+        successes: Vec::new(),
+        redraws: Vec::new(),
+        ceiling_redraws: Vec::new(),
+        own_chances: Vec::new(),
         allotments: Allotments {
             after_at: vec![1.0],
             after_reset: vec![1.0],
@@ -286,6 +297,7 @@ fn reaching_the_cap_starts_play_again_as_after_a_setting_change_where_the_machin
                 at_ceiling: None,
                 misses: None,
                 since_at_ceiling: None,
+                expiry: None,
             },
             ModeRule {
                 id: id("at:reset"),
@@ -293,6 +305,7 @@ fn reaching_the_cap_starts_play_again_as_after_a_setting_change_where_the_machin
                 at_ceiling: None,
                 misses: None,
                 since_at_ceiling: None,
+                expiry: None,
             },
         ],
         ..rules(Some(2_400.0), None, reset_on_cap)

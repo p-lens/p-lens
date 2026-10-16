@@ -1,4 +1,5 @@
 commodity 1. JPY
+commodity 1. 秒
 commodity 1. "玉(4円・マレハン第3新東京店)"
 commodity 1. "枚(20円・マレハン第3新東京店)"
 commodity 1. "玉(4円・723小宇宙店)"
@@ -17,4 +18,5 @@ account 費用:遊技
 account 費用:貸玉差額
 account 費用:貸メダル差額
 account 統計:期待値
+account 統計:時間
 account 費用:再プレイ手数料

@@ -64,8 +64,9 @@ rule(won_within_misses, triggers(Level, Triggers),
 rule(won_on_the_last_miss, triggers(Level, Triggers),
      ( given(cz), given(misses(Misses)), given(success(Level, Success)), Success =< 0, Triggers is Misses + 1 )).
 rule(cycle_from_first_hit, cycle_games(Level, Games),
-     ( \+ cut_short(Level), given(first_hit(Level, Chance)), triggers(Level, Triggers), Games is Triggers / Chance )).
+     ( \+ cut_short(Level), \+ unplayed, given(first_hit(Level, Chance)), triggers(Level, Triggers), Games is Triggers / Chance )).
 rule(cycle_to_at_ceiling, cycle_games(Level, Games), ( cut_short(Level), cycle(Level, Games, _) )).
+rule(cycle_unplayed, cycle_games(Level, Games), ( \+ cut_short(Level), unplayed, cycle(Level, Games, _) )).
 rule(cut_short, cut_short(Level), ( shares(Level, Shares), at_ceilings(AtCeilings), entered_ceiling(Shares, AtCeilings) )).
 
 % Where a trigger comes, once, on a game counted from the last AT, or the
@@ -84,8 +85,11 @@ rule(cycle_taken, cycle(Level, Games, Triggers),
      ( unplayed, given(engine(cycle_games(Level), Games)), given(engine(cycle_triggers(Level), Triggers)) )).
 rule(unplayed_forced, unplayed, given(forced_from_at)).
 rule(unplayed_direct, unplayed, given(direct_at)).
+rule(unplayed_gated, unplayed, given(gated)).
+rule(unplayed_redrawn, unplayed, given(redrawn)).
+rule(unplayed_restarted, unplayed, given(restarted)).
 rule(cycle_free, cycle(Level, Games, Triggers),
-     ( \+ cut_short(Level), given(chance(Level, Chance)), triggers(Level, Triggers), ceilings(Ceilings), shares(Level, Shares),
+     ( \+ cut_short(Level), \+ unplayed, given(chance(Level, Chance)), triggers(Level, Triggers), ceilings(Ceilings), shares(Level, Shares),
        games_between(Chance, Ceilings, Shares, Between), Games is Triggers * Between )).
 rule(success_of_cz, success(Level, Success), ( given(cz), given(success(Level, Success)) )).
 rule(success_direct, success(_, 1), \+ given(cz)).
@@ -164,8 +168,9 @@ rule(completion_solved, completion(Level, Completion), ( \+ capped(Level, _, _),
 % is given — each staked like any other. A cycle brings the triggers it is
 % tried until one wins, or as it is played out to an AT間天井, whose AT is
 % no bonus's.
-rule(cycle_triggers_free, cycle_triggers(Level, Triggers), ( \+ cut_short(Level), triggers(Level, Triggers) )).
+rule(cycle_triggers_free, cycle_triggers(Level, Triggers), ( \+ cut_short(Level), \+ unplayed, triggers(Level, Triggers) )).
 rule(cycle_triggers_cut, cycle_triggers(Level, Triggers), ( cut_short(Level), cycle(Level, _, Triggers) )).
+rule(cycle_triggers_unplayed, cycle_triggers(Level, Triggers), ( \+ cut_short(Level), unplayed, cycle(Level, _, Triggers) )).
 rule(bonuses, bonuses(Level, Medals, Games),
      ( given(trigger_payout(Each)), cycle_triggers(Level, Triggers), trigger_paid(Level, Paid), bonus_games(Each, Own),
        Medals is Triggers * Paid * Each, Games is Triggers * Paid * Own )).
@@ -214,6 +219,9 @@ rule(beyond, verdict(Gap, Limit, fails), Gap > Limit).
 % of ATs that reach the cap where the AT's medals follow from the 機械割.
 rule(unverified_forced_cycle, remark(forced_cycle), given(forced_from_at)).
 rule(unverified_direct_cycle, remark(direct_cycle), given(direct_at)).
+rule(unverified_gated_cycle, remark(gated_cycle), given(gated)).
+rule(unverified_redrawn_cycle, remark(redrawn_cycle), given(redrawn)).
+rule(unverified_restarted_cycle, remark(restarted_cycle), given(restarted)).
 rule(unverified_capped_gain, remark(capped_gain(Cap)), ( given(cap(Cap)), given(level(Level)), gain_taken(Level) )).
 rule(unverified_completion, remark(completion),
      ( given(reset_on_cap), given(level(Level)), given(stated_rate(Level, _)) )).

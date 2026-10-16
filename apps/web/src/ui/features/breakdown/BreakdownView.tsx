@@ -3,23 +3,24 @@ import { MainContent } from "solid-gathering-shell"
 
 import { loadBreakdown, loadSpinPerformances } from "../../../application/breakdown"
 import { loadOverall } from "../../../application/overall"
-import { loadRevaluation } from "../../../application/revaluation"
+import { loadOtherGains } from "../../../application/other-gains"
 import { keepsTheoreticalValues } from "../../../application/theoretical"
 import type { BookId } from "../../../core/book/book"
 import { isZero, type Decimal } from "../../../core/decimal/decimal"
 import { DIMENSIONS, isBreakdownBy, OVERALL, totalOf, type BreakdownBy, type Dimension, type Group } from "../../../core/report/breakdown"
-import type { Revaluation } from "../../../core/report/revaluation"
+import { hasOtherGains, type OtherGains } from "../../../core/report/other-gains"
 import { allSpinPerformances, averageOf, type SpinPerformances, type SpinPerformancesByMachine } from "../../../core/report/spin-performance"
 import { useApp } from "../../context"
 import { Select } from "../../primitives/select"
 import { EmptyState, Loaded } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
-import { DIMENSION_NAMES, OVERALL_NAME, groupName, INFERRED_SPIN_AVERAGE, inferredShareText, NOT_TALLIED, REVALUATION, REVALUATION_NOTE, SPIN_AVERAGE, spinAverageText } from "../../wording/breakdown"
+import { DIMENSION_NAMES, OVERALL_NAME, groupName, INFERRED_SPIN_AVERAGE, inferredShareText, NOT_TALLIED, SPIN_AVERAGE, spinAverageText } from "../../wording/breakdown"
 import { formatSignedYen, formatTheoreticalYen, toneOf } from "../../wording/numbers"
 import { PeriodPicker } from "../period/PeriodPicker"
 import { queryFor } from "../period/periods"
 import { ViewHeader } from "../shell/ViewHeader"
+import { OtherGainsSection } from "./OtherGainsSection"
 import { OverallCard } from "./OverallCard"
 
 const TONES = { positive: "text-positive", negative: "text-negative", neutral: "text-text-primary" } as const
@@ -77,37 +78,6 @@ export function GroupRow(props: { readonly name: string; readonly group: Group; 
   )
 }
 
-/**
- * 評価損益 under a breakdown, where there is any: what the period's
- * savings gained or lost by their rates changing, which is no tally's
- * result and so stands apart from every group above it — and, where the
- * tallies are grouped by parlor, each parlor's own. A rate seldom changes,
- * so in most periods there is none and nothing is shown.
- */
-function RevaluationRow(props: { readonly revaluation: Revaluation; readonly byParlor: boolean }): JSX.Element {
-  return (
-    <section aria-label={REVALUATION} class="flex flex-col gap-1 rounded-md border border-border px-3 py-2">
-      <div class="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-sm">
-        <span class="font-semibold text-text-primary">{REVALUATION}</span>
-        <Yen value={props.revaluation.total} />
-      </div>
-      <Show when={props.byParlor}>
-        <ul class="flex flex-col gap-0.5">
-          <For each={[...props.revaluation.byParlor]}>
-            {([parlor, yen]) => (
-              <li class="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-sm">
-                <span class="min-w-0 break-words text-text-primary">{parlor}</span>
-                <Yen value={yen} />
-              </li>
-            )}
-          </For>
-        </ul>
-      </Show>
-      <p class="text-xs text-text-muted">{REVALUATION_NOTE}</p>
-    </section>
-  )
-}
-
 /** The ways a breakdown is offered: 総合 first, then each grouping. */
 export const BREAKDOWN_OPTIONS = [{ value: OVERALL, label: OVERALL_NAME }, ...DIMENSIONS.map((dimension) => ({ value: dimension, label: DIMENSION_NAMES[dimension] }))]
 
@@ -131,12 +101,12 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
     () => (props.by === OVERALL ? { bookId: props.bookId, query: props.query, revision: app.revision() } : undefined),
     (source) => loadOverall(app.services.session, source.bookId, source.query),
   )
-  const [revalued] = createResource(
+  const [othered] = createResource(
     () => ({ bookId: props.bookId, by: props.by, query: props.query, revision: app.revision() }),
-    (source) => loadRevaluation(app.services.session, source.bookId, queryFor(source.by, source.query)),
+    (source) => loadOtherGains(app.services.session, source.bookId, queryFor(source.by, source.query)),
   )
-  /** 評価損益 over the period, only where savings gained or lost any: none while it is asked, and none where it could not be read — the breakdown above it stands without it. */
-  const revaluation = (): Revaluation | undefined => ((answer) => (answer?.ok === true && (!isZero(answer.value.total) || answer.value.byParlor.size > 0) ? answer.value : undefined))(revalued())
+  /** その他損益 over the period, only where there is any: none while it is asked, and none where it could not be read — the breakdown above it stands without it. */
+  const otherGains = (): OtherGains | undefined => ((answer) => (answer?.ok === true && hasOtherGains(answer.value) ? answer.value : undefined))(othered())
   const [spun] = createResource(
     () => (props.by === "machine" ? { bookId: props.bookId, query: props.query, revision: app.revision() } : undefined),
     (source) => loadSpinPerformances(app.services.session, source.bookId, queryFor("machine", source.query)),
@@ -151,7 +121,7 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
       <div class="max-w-5xl">
         <div class="flex flex-col gap-4 p-4">
           <div class="flex flex-wrap items-end gap-3">
-            <div class="w-48">
+            <div class="w-36">
               <Select
                 label="切り口"
                 options={BREAKDOWN_OPTIONS}
@@ -187,8 +157,8 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
               </Loaded>
             )}
           </Show>
-          <Show when={revaluation()} keyed>
-            {(found) => <RevaluationRow revaluation={found} byParlor={props.by === "parlor"} />}
+          <Show when={otherGains()} keyed>
+            {(found) => <OtherGainsSection gains={found} byParlor={props.by === "parlor"} />}
           </Show>
         </div>
       </div>

@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use pachislot_domain::setting_level::SettingLevel;
 use pachislot_domain::spec::{Component, EntityId};
 
@@ -206,6 +208,45 @@ pub enum SpecError {
     /// Ceilings said to be counted both on the screen and in another unit:
     /// they are counted one way.
     CeilingUnitBesideLcdRate,
+    /// A zone whose shares of the trigger and of the AT outright come to
+    /// more than the whole under a setting.
+    GateBeyondWhole {
+        entity: EntityId,
+        game: NonZeroU32,
+        setting_level: SettingLevel,
+    },
+    /// Two zones of a mode, or of a CZ, on the same game.
+    GateTwice {
+        entity: EntityId,
+        game: NonZeroU32,
+    },
+    /// Zones on the CZ of a machine with modes, where each mode draws at
+    /// its own.
+    GatesBesideModes {
+        entity: EntityId,
+    },
+    /// A mode's own success rate, or a redraw at a missed trigger, on a
+    /// machine without a CZ, whose trigger is the AT and never misses.
+    NeedsCz {
+        entity: EntityId,
+        component: Component,
+    },
+    /// A ceiling counted in a unit on a machine that names none.
+    UnitCeilingWithoutUnit {
+        entity: EntityId,
+    },
+    /// A redraw to something that is not one of the machine's modes.
+    RedrawToUnknown {
+        entity: EntityId,
+        to: EntityId,
+    },
+    /// A mode's redraw whose shares do not come to the whole under a
+    /// setting.
+    RedrawNotWhole {
+        entity: EntityId,
+        setting_level: SettingLevel,
+        sum: u32,
+    },
 }
 
 /// What can stop payout rates being worked out.

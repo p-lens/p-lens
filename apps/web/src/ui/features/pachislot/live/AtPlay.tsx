@@ -2,7 +2,7 @@ import type { NormalizedSpecDto } from "@p-lens/contracts/pachislot"
 import { createEffect, createMemo, createSignal, Index, on, Show, type Accessor, type JSX } from "solid-js"
 
 import type { ApplicationError } from "../../../../application/errors"
-import { ceilingsOf, czMissedAt, hasCz, pathOf, standingOf, withLastTakenBack, type TakeBackRefusal, type TakenBack } from "../../../../core/pachislot/path"
+import { ceilingsOf, hasCz, missedOn, pathOf, standingOf, withLastTakenBack, type Missed, type TakeBackRefusal, type TakenBack } from "../../../../core/pachislot/path"
 import type { Checkpoint } from "../../../../core/play-log/checkpoint"
 import { checkpointsForReading, liveSummary, type ReadingRefusal } from "../../../../core/play-log/live"
 import { mapOk } from "../../../../core/result/result"
@@ -197,8 +197,8 @@ type Sending =
   | { readonly type: "refused"; readonly refusal: ReadingRefusal; readonly ended: Ended }
   | { readonly type: "failed"; readonly error: ApplicationError }
 
-/** How the games a reading closes ended: with nothing, a CZ missed, or an AT won. */
-type Ended = "going" | "cz-missed" | "at"
+/** How the games a reading closes ended: with nothing, a CZ failed, a bonus that missed the AT, or an AT won. */
+type Ended = "going" | Missed | "at"
 
 /** What is said once a reading is kept, by how its games ended. */
 const keptAs = (ended: Ended, trigger: TriggerWords): string => {
@@ -207,6 +207,8 @@ const keptAs = (ended: Ended, trigger: TriggerWords): string => {
       return "記録しました"
     case "cz-missed":
       return `${trigger.missed}を記録しました`
+    case "bonus-missed":
+      return `${trigger.bonusMissed ?? "ATなしボーナス"}を記録しました`
     case "at":
       return "AT当選を記録しました"
   }
@@ -282,7 +284,7 @@ export const createAtReading = (standing: () => AtStanding, trigger: () => Trigg
           { counterSpins: reading.value.sinceAt, outlay: reading.value.outlay, replay: reading.value.replay, counterJackpots: undefined, at, jackpot: ended === "at" },
           missedAt,
         ),
-        (checkpoints) => (ended === "cz-missed" ? czMissedAt(checkpoints) : checkpoints),
+        (checkpoints) => (ended === "cz-missed" || ended === "bonus-missed" ? missedOn(checkpoints, ended) : checkpoints),
       ),
     )
     setSending(sendingOf(written, ended))
@@ -414,7 +416,7 @@ export function AtCounting(props: {
   readonly post: Post
   readonly awaitsResult: boolean
 }): JSX.Element {
-  const counted = (kind: "cz-missed" | "jackpot"): number => props.ordered.filter((checkpoint) => checkpoint.event?.kind === kind).length
+  const counted = (kind: Missed | "jackpot"): number => props.ordered.filter((checkpoint) => checkpoint.event?.kind === kind).length
   const [takingBack, setTakingBack] = createSignal<Written<TakeBackRefusal> | undefined>(undefined)
   const takeBack = (taken: TakenBack): void => {
     void props.rewrite((ordered) => withLastTakenBack(ordered, taken)).then((written) => {
@@ -422,7 +424,7 @@ export function AtCounting(props: {
       if (written.type === "written") toast({ title: "1つ戻しました", stays: "blink" })
     })
   }
-  const keep = (ended: "at" | "cz-missed"): void => {
+  const keep = (ended: "at" | Missed): void => {
     setTakingBack(undefined)
     void props.reading.send(ended, false)
   }
@@ -441,6 +443,9 @@ export function AtCounting(props: {
       <div class="grid grid-cols-4 gap-2">
         <Show when={hasCz(props.normalized)}>
           <EventTile label={triggerWordsOf(props.normalized).missed} count={counted("cz-missed")} onPress={() => keep("cz-missed")} onLongPress={() => takeBack("cz-missed")} />
+        </Show>
+        <Show when={triggerWordsOf(props.normalized).bonusMissed} keyed>
+          {(label) => <EventTile label={label} count={counted("bonus-missed")} onPress={() => keep("bonus-missed")} onLongPress={() => takeBack("bonus-missed")} />}
         </Show>
         <EventTile label="AT当選" count={counted("jackpot")} onPress={() => keep("at")} onLongPress={() => takeBack("at")} />
       </div>

@@ -4,7 +4,8 @@ import type { IsoDate } from "../../src/core/calendar/calendar"
 import { machineNamesOf } from "../../src/core/catalog/catalog"
 import type { PlayId } from "../../src/core/play/play"
 import type { TallySummary } from "../../src/core/report/tallies"
-import { groupName } from "../../src/ui/wording/breakdown"
+import { groupName, playTimeText } from "../../src/ui/wording/breakdown"
+import { decimal } from "../../src/core/decimal/decimal"
 import { shownDescription, tallyTitle } from "../../src/ui/wording/tallies"
 
 const PLAY: TallySummary = { id: "one" as PlayId, date: "2026-10-21" as IsoDate, description: "マレハン第3新東京店", parlorId: undefined, gameKind: "pachinko", machine: undefined, cabinetNumber: undefined, importedFrom: undefined, theoreticalValue: undefined , inferredValue: undefined}
@@ -59,5 +60,13 @@ describe("an entry's description on screen", () => {
   test("names a tally taken in from another app by the sides it has", () => {
     expect(tallyTitle({ ...PLAY, importedFrom: "precord", description: "名もなき店 |" }, NAMES)).toBe("名もなき店")
     expect(tallyTitle({ ...PLAY, importedFrom: "precord", description: "|" }, NAMES)).toBe("手入力した収支")
+  })
+})
+
+describe("a play time on screen", () => {
+  test("is whole hours and minutes, the seconds dropped, and minutes alone under an hour", () => {
+    expect(playTimeText(decimal(19_800n, 0))).toBe("5時間30分")
+    expect(playTimeText(decimal(2_759n, 0))).toBe("45分")
+    expect(playTimeText(decimal(36_000_000n, 0))).toBe("10,000時間0分")
   })
 })

@@ -67,6 +67,10 @@ const levelFacts = (figures: SettingLevelFiguresDto, spec: SpecDto, at: string, 
   ]
 }
 
+/** Whether a ceiling of the machine is counted in its unit beside one in games: the reasoner is then told the ceilings in regular games, the sooner of the two as the engine took them. */
+const unitCounted = (spec: SpecDto): boolean =>
+  [spec.components.unitCeiling, spec.components.resetUnitCeiling, spec.components.atUnitCeiling].some((ceilings) => Object.keys(ceilings ?? {}).length > 0)
+
 /**
  * The modes play is in between ATs, as the sheet gives them and in the
  * engine's order: each one's ceiling, as the sheet counts it, and its
@@ -81,7 +85,9 @@ const modeFacts = (spec: SpecDto, rules: AtRulesDto, levels: readonly number[]):
   const modes = rules.modes.map((mode) => mode.id)
   const trigger = rules.trigger ?? rules.at
   const ceilingOf = (mode: string, index: number): number | undefined =>
-    own.includes(mode)
+    unitCounted(spec)
+      ? rules.modes[index]?.ceiling
+      : own.includes(mode)
       ? spec.components.ceiling?.[mode]
       : index === 0
         ? spec.components.ceiling?.[trigger]
@@ -137,6 +143,19 @@ const forcedFacts = (rules: AtRulesDto): readonly string[] => (rules.modes.some(
 /** Whether the AT is also won outright beside its CZ: a cycle the reasoner takes from the engine, and says so. */
 const directFacts = (basis: Basis): readonly string[] => (basis.normalized.tables.some((table) => (table.at?.direct ?? 0) > 0) ? [given("direct_at")] : [])
 
+/** Whether a mode draws at zones: a cycle the reasoner takes from the engine, and says so. */
+const gatedFacts = (basis: Basis): readonly string[] => (basis.normalized.tables.some((table) => (table.at?.gates ?? []).some((gates) => gates.length > 0)) ? [given("gated")] : [])
+
+/** Whether play starts again at a bonus that misses the AT, or a ceiling's CZ certainly succeeds: a cycle the reasoner takes from the engine, and says so. */
+const restartedFacts = (rules: AtRulesDto): readonly string[] => (rules.bonusMiss === "restarts" || rules.forcedCz === "wins" ? [given("restarted")] : [])
+
+/** Whether a missed trigger moves play between modes, or modes win the AT each at its own rate: a cycle the reasoner takes from the engine, and says so. */
+const redrawnFacts = (basis: Basis): readonly string[] =>
+  basis.normalized.tables.some((table) => [table.at?.redraws, table.at?.ceilingRedraws, table.at?.successes, table.at?.ownChances].some((each) => (each ?? []).length > 0)) ||
+  (basis.normalized.atRules?.modes ?? []).some((mode) => mode.expiry !== undefined)
+    ? [given("redrawn")]
+    : []
+
 const missesFacts = (rules: AtRulesDto): readonly string[] => {
   const each = rules.modes.map((mode) => missesOf(rules, mode))
   if (each.every((misses) => misses === each[0])) return each[0] === undefined ? [] : [given(`misses(${each[0]})`)]
@@ -166,8 +185,8 @@ const machineFacts = (spec: SpecDto, rules: AtRulesDto): readonly string[] => {
     ...(spec.resources.cap === undefined ? [] : [given(`cap(${prologNumber(spec.resources.cap)})`)]),
     ...(window === undefined ? [] : [given(`window(${window})`)]),
     ...(spec.components.resetOnCap?.includes(at) === true ? [given("reset_on_cap")] : []),
-    ...(spec.resources.lcdRate === undefined ? [] : [given(`lcd_rate(${prologNumber(spec.resources.lcdRate)})`)]),
-    ...(spec.resources.ceilingUnit === undefined ? [] : [given(`ceiling_unit(${prologNumber(spec.resources.ceilingUnit.perGame)})`)]),
+    ...(spec.resources.lcdRate === undefined || unitCounted(spec) ? [] : [given(`lcd_rate(${prologNumber(spec.resources.lcdRate)})`)]),
+    ...(spec.resources.ceilingUnit === undefined || unitCounted(spec) ? [] : [given(`ceiling_unit(${prologNumber(spec.resources.ceilingUnit.perGame)})`)]),
   ]
 }
 
@@ -189,6 +208,9 @@ export const groundsFacts = (basis: Basis, analysis: AnalysisDto, figures: reado
     ...netFacts(basis.spec, rules.at, rules.netPerGame),
     ...machineFacts(basis.spec, rules),
     ...directFacts(basis),
+    ...gatedFacts(basis),
+    ...redrawnFacts(basis),
+    ...restartedFacts(rules),
     ...modeFacts(basis.spec, rules, analysis.settingLevels.map((solved) => solved.settingLevel)),
     ...analysis.settingLevels.flatMap((solved) => levelFacts(solved, basis.spec, rules.at, rules.trigger, basis.normalized.tables.find((table) => table.settingLevel === solved.settingLevel)?.at?.chance)),
     ...figures.map((stored) => storedFact(stored, margins?.find((margin) => margin.settingLevel === stored.settingLevel))),

@@ -5,11 +5,15 @@ use pachislot_domain::normalized::{
 };
 use pachislot_domain::probability::{Probability, ProbabilityError, ProbabilitySource};
 use pachislot_domain::setting_level::{PerSettingLevel, SettingLevel};
-use pachislot_domain::spec::{Chance, Component, Element, EntityId, Spec, Watch};
+use pachislot_domain::spec::{
+    CeilingUnit, Chance, Component, Element, EntityId, LcdRate, Spec, Watch,
+};
 
 use pachislot_domain::version::SchemaVersion;
 
-use crate::at_machine::{AtMachine, at_machine, check_since_at, coverage, rules_of, table_of};
+use crate::at_machine::{
+    AtMachine, Scales, at_machine, check_since_at, coverage, rules_of, table_of, unit_counted,
+};
 use crate::error::{ProbabilityProblem, SpecError};
 use crate::query::elements;
 
@@ -177,16 +181,27 @@ fn at_tables(
     counted
         .iter()
         .try_for_each(|outcome| check_coverage(setting_levels, outcome.id, outcome.chance))?;
-    let rate = match (
-        spec.resources.lcd_rate,
-        spec.resources.ceiling_unit.as_ref(),
-    ) {
-        (Some(_), Some(_)) => return Err(SpecError::CeilingUnitBesideLcdRate),
-        (Some(lcd), None) => Some(lcd.get()),
-        (None, Some(unit)) => Some(unit.per_game()),
-        (None, None) => None,
+    let in_unit = unit_counted(machine);
+    let unit = spec
+        .resources
+        .ceiling_unit
+        .as_ref()
+        .map(CeilingUnit::per_game);
+    if let (Some(entity), None) = (&in_unit, unit) {
+        return Err(SpecError::UnitCeilingWithoutUnit {
+            entity: entity.clone(),
+        });
+    }
+    let whole_unit = unit.is_some() && in_unit.is_none();
+    if whole_unit && spec.resources.lcd_rate.is_some() {
+        return Err(SpecError::CeilingUnitBesideLcdRate);
+    }
+    let scales = Scales {
+        screen: spec.resources.lcd_rate.map(LcdRate::get),
+        unit,
+        whole_unit,
     };
-    let rules = rules_of(machine, rate, spec.resources.cap);
+    let rules = rules_of(machine, scales, spec.resources.cap);
     check_since_at(&rules)?;
     let bet = f64::from(spec.resources.bet.get());
     let tables = setting_levels

@@ -69,6 +69,9 @@ function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly bonuses: 
       <Show when={props.checkpoint.event?.kind === "cz-missed"}>
         <span class="shrink-0 rounded bg-surface-3 px-1.5 py-0.5 text-xs font-semibold text-text-secondary">{props.trigger.missed}</span>
       </Show>
+      <Show when={props.checkpoint.event?.kind === "bonus-missed"}>
+        <span class="shrink-0 rounded bg-surface-3 px-1.5 py-0.5 text-xs font-semibold text-text-secondary">{props.trigger.bonusMissed ?? "ATなしボーナス"}</span>
+      </Show>
       <Show when={props.checkpoint.event?.kind === "jackpot"}>
         <span class="shrink-0 rounded bg-accent px-1.5 py-0.5 text-xs font-semibold text-accent-contrast">
           {props.checkpoint.event?.kind === "jackpot" && props.checkpoint.event.approximate === true ? "AT当選（推定）" : "AT当選"}

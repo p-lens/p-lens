@@ -49,6 +49,9 @@ pub struct Leg {
 pub enum LegEnd {
     Going,
     Missed,
+    /// A bonus a CZ's success brought that did not win the AT: told apart
+    /// from a CZ that failed where a CZ's success brings a bonus.
+    Bonus,
     WonAt(AtSeen),
 }
 

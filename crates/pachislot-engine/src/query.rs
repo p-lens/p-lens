@@ -60,6 +60,14 @@ fn check_entities(spec: &Spec) -> Result<(), SpecError> {
             Component::ResetAllotment,
         ))
         .chain(keyed(&components.at_ceiling, Component::AtCeiling))
+        .chain(keyed(&components.unit_ceiling, Component::UnitCeiling))
+        .chain(keyed(
+            &components.reset_unit_ceiling,
+            Component::ResetUnitCeiling,
+        ))
+        .chain(keyed(&components.at_unit_ceiling, Component::AtUnitCeiling))
+        .chain(keyed(&components.trigger_chance, Component::TriggerChance))
+        .chain(keyed(&components.expiry, Component::Expiry))
         .chain(listed(&components.cz, Component::Cz))
         .chain(keyed(&components.success, Component::Success))
         .chain(keyed(&components.misses, Component::Misses))
@@ -81,6 +89,12 @@ fn check_entities(spec: &Spec) -> Result<(), SpecError> {
             &components.since_at_ceiling,
             Component::SinceAtCeiling,
         ))
+        .chain(keyed(&components.bonus_share, Component::BonusShare))
+        .chain(keyed(&components.gates, Component::Gates))
+        .chain(keyed(&components.redraw, Component::Redraw))
+        .chain(keyed(&components.ceiling_redraw, Component::CeilingRedraw))
+        .chain(listed(&components.restart, Component::Restart))
+        .chain(listed(&components.ceiling_wins, Component::CeilingWins))
         .find(|(entity, _)| !known.contains(entity))
         .map_or(Ok(()), |(entity, component)| {
             Err(SpecError::StrayComponent {
@@ -215,6 +229,8 @@ fn at(spec: &Spec, entity: &EntityId) -> Result<At, SpecError> {
         rate: components.rate.get(entity).cloned(),
         ceiling: components.ceiling.get(entity).copied(),
         reset_ceiling: components.reset_ceiling.get(entity).copied(),
+        unit_ceiling: components.unit_ceiling.get(entity).copied(),
+        reset_unit_ceiling: components.reset_unit_ceiling.get(entity).copied(),
         window: components.window.get(entity).copied(),
         reset_on_cap: components.reset_on_cap.contains(entity),
     })
@@ -233,7 +249,9 @@ fn misplaced(spec: &Spec, entity: &EntityId, kinds: &[Component]) -> Option<Comp
         && !cz
         && (components.first_hit.contains_key(entity)
             || components.reset_ceiling.contains_key(entity)
-            || (!mode && components.ceiling.contains_key(entity)))
+            || components.reset_unit_ceiling.contains_key(entity)
+            || (!mode && components.ceiling.contains_key(entity))
+            || (!mode && components.unit_ceiling.contains_key(entity)))
     {
         return Some(Component::At);
     }
@@ -252,9 +270,20 @@ fn misplaced(spec: &Spec, entity: &EntityId, kinds: &[Component]) -> Option<Comp
     {
         return Some(Component::At);
     }
+    if !kinds.contains(&Component::Mode)
+        && (components.redraw.contains_key(entity)
+            || components.ceiling_redraw.contains_key(entity)
+            || components.trigger_chance.contains_key(entity)
+            || components.expiry.contains_key(entity))
+    {
+        return Some(Component::Mode);
+    }
     if !cz
-        && (components.success.contains_key(entity)
+        && ((!mode && components.success.contains_key(entity))
             || components.bonus_share.contains_key(entity)
+            || components.restart.contains(entity)
+            || components.ceiling_wins.contains(entity)
+            || (!mode && components.gates.contains_key(entity))
             || (!mode && components.misses.contains_key(entity)))
     {
         return Some(Component::Cz);
@@ -265,7 +294,8 @@ fn misplaced(spec: &Spec, entity: &EntityId, kinds: &[Component]) -> Option<Comp
     (!mode
         && (components.allotment.contains_key(entity)
             || components.reset_allotment.contains_key(entity)
-            || components.at_ceiling.contains_key(entity)))
+            || components.at_ceiling.contains_key(entity)
+            || components.at_unit_ceiling.contains_key(entity)))
     .then_some(Component::Mode)
 }
 
@@ -306,12 +336,17 @@ fn cz(spec: &Spec, entity: &EntityId) -> Result<Cz, SpecError> {
             .ok_or_else(|| missing(entity, Component::Success))?,
         ceiling: components.ceiling.get(entity).copied(),
         reset_ceiling: components.reset_ceiling.get(entity).copied(),
+        unit_ceiling: components.unit_ceiling.get(entity).copied(),
+        reset_unit_ceiling: components.reset_unit_ceiling.get(entity).copied(),
         misses: components.misses.get(entity).copied(),
         since_at_ceiling: components.since_at_ceiling.get(entity).copied(),
+        ceiling_wins: components.ceiling_wins.contains(entity),
+        restart: components.restart.contains(entity),
         bonus: components.bonus.contains(entity) || (payout.is_some() && bonus_share.is_none()),
         payout,
         net_per_game,
         bonus_share,
+        gates: components.gates.get(entity).cloned().unwrap_or_default(),
     })
 }
 
@@ -330,6 +365,8 @@ fn mode(spec: &Spec, entity: &EntityId) -> Result<Mode, SpecError> {
         label: label_of(spec, entity),
         ceiling: components.ceiling.get(entity).copied(),
         at_ceiling: components.at_ceiling.get(entity).copied(),
+        unit_ceiling: components.unit_ceiling.get(entity).copied(),
+        at_unit_ceiling: components.at_unit_ceiling.get(entity).copied(),
         misses: components.misses.get(entity).copied(),
         allotment: components
             .allotment
@@ -337,6 +374,16 @@ fn mode(spec: &Spec, entity: &EntityId) -> Result<Mode, SpecError> {
             .cloned()
             .ok_or_else(|| missing(entity, Component::Allotment))?,
         reset_allotment: components.reset_allotment.get(entity).cloned(),
+        gates: components.gates.get(entity).cloned().unwrap_or_default(),
+        success: components.success.get(entity).cloned(),
+        redraw: components.redraw.get(entity).cloned().unwrap_or_default(),
+        ceiling_redraw: components
+            .ceiling_redraw
+            .get(entity)
+            .cloned()
+            .unwrap_or_default(),
+        trigger_chance: components.trigger_chance.get(entity).cloned(),
+        expiry: components.expiry.get(entity).cloned(),
     })
 }
 

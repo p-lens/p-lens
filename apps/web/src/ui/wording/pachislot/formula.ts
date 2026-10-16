@@ -105,7 +105,16 @@ export const describeAtReadingRefusal = (refusal: ReadingRefusal): string => {
 }
 
 /** What was to be taken back, in the words of the machine's trigger. */
-const takenName = (taken: TakeBackRefusal["taken"], trigger: TriggerWords): string => (taken === "at" ? "AT当選" : trigger.missed)
+const takenName = (taken: TakeBackRefusal["taken"], trigger: TriggerWords): string => {
+  switch (taken) {
+    case "at":
+      return "AT当選"
+    case "cz-missed":
+      return trigger.missed
+    case "bonus-missed":
+      return trigger.bonusMissed ?? "ATなしボーナス"
+  }
+}
 
 /** Why the last AT won or CZ missed was not taken back. */
 export const describeTakeBackRefusal = (refusal: TakeBackRefusal, trigger: TriggerWords): string => {

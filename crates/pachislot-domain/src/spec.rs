@@ -176,6 +176,13 @@ pub struct Components {
     pub ceiling: BTreeMap<EntityId, NonZeroU32>,
     /// The ceiling after the settings are changed, until the first AT.
     pub reset_ceiling: BTreeMap<EntityId, NonZeroU32>,
+    /// A ceiling counted in the machine's `ceiling_unit` — points, 周期 —
+    /// where it reaches the same thing as `ceiling` in games, whichever
+    /// comes first: on the trigger its ceiling, on an AT a CZ brings its
+    /// AT間天井, on a mode its trigger's. Beside one, `ceiling` counts games.
+    pub unit_ceiling: BTreeMap<EntityId, NonZeroU32>,
+    /// The same after the settings are changed, until the first AT.
+    pub reset_unit_ceiling: BTreeMap<EntityId, NonZeroU32>,
     /// A mode: a hidden state between ATs with a ceiling of its own — 天国,
     /// 通常A — that the player never sees and the engine infers.
     pub mode: BTreeSet<EntityId>,
@@ -189,6 +196,9 @@ pub struct Components {
     /// latest, in place of the AT's — an AT間天井 drawn after each AT, 450G
     /// or 999G, is a mode for each.
     pub at_ceiling: BTreeMap<EntityId, NonZeroU32>,
+    /// A mode's own AT間天井 counted in the machine's `ceiling_unit`,
+    /// beside or in place of its `at_ceiling`.
+    pub at_unit_ceiling: BTreeMap<EntityId, NonZeroU32>,
     /// A CZ: won from regular games like an AT, and winning the AT at its
     /// success rate. Its `first_hit` is the published CZ合算, ceiling
     /// included; its `ceiling` the CZ間天井.
@@ -206,6 +216,35 @@ pub struct Components {
     /// setting. The bonus pays the CZ's `payout`, over its `net_per_game`,
     /// each time a CZ succeeds; a bonus missing the AT is a CZ missed.
     pub bonus_share: BTreeMap<EntityId, PerSettingLevel<BasisPoints>>,
+    /// ゾーン: the regular games since the last AT at which a mode — or the
+    /// CZ of a machine without modes — draws besides its chance a game: the
+    /// trigger at one share, and the AT outright at another, under each
+    /// setting. 規定ゲーム数 zones, 100G gates, a 周期 drawn every so many
+    /// games.
+    pub gates: BTreeMap<EntityId, Vec<Gate>>,
+    /// On a mode: the trigger's chance a regular game in it, under each
+    /// setting, in place of the one read back from the 合算 — a CZ連 at
+    /// 1/19.7 a game.
+    pub trigger_chance: BTreeMap<EntityId, PerSettingLevel<ProbabilitySource>>,
+    /// On a mode: the games since its last trigger after which, none come,
+    /// play moves to another mode.
+    pub expiry: BTreeMap<EntityId, SpecExpiry>,
+    /// On a CZ whose success brings a bonus: a bonus that misses the AT
+    /// starts play again as after an AT — its ceilings, its スルー天井 and
+    /// its modes counted from the bonus, ボーナス&AT間.
+    pub restart: BTreeSet<EntityId>,
+    /// On a CZ: its ceiling counted from the AT — or from the last bonus,
+    /// where play starts again at one — brings a CZ that certainly
+    /// succeeds.
+    pub ceiling_wins: BTreeSet<EntityId>,
+    /// On a mode: where play goes when a trigger in it misses — the mode
+    /// drawn again at each failed CZ — each mode it may go to with its share
+    /// under each setting, the whole of it. A mode without stays.
+    pub redraw: BTreeMap<EntityId, Vec<Redraw>>,
+    /// On a mode: where a missed trigger that came on the mode's ceiling
+    /// moves play, where that differs from `redraw` — a ceiling CZ that
+    /// shortens the next ceiling.
+    pub ceiling_redraw: BTreeMap<EntityId, Vec<Redraw>>,
     /// On a CZ: the regular game since the last AT on which it comes at the
     /// latest, once — a bonus's ceiling that a bonus missing the AT does not
     /// start again, short of the AT間天井.
@@ -298,6 +337,46 @@ pub enum Component {
     SinceAtCeiling,
     Direct,
     BonusShare,
+    Gates,
+    Redraw,
+    CeilingRedraw,
+    Restart,
+    CeilingWins,
+    UnitCeiling,
+    ResetUnitCeiling,
+    AtUnitCeiling,
+    TriggerChance,
+    Expiry,
+}
+
+/// A mode left when so many games since its last trigger bring none: the
+/// games, and the mode play moves to.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SpecExpiry {
+    pub games: NonZeroU32,
+    pub to: EntityId,
+}
+
+/// One mode a missed trigger may move play to, and how often under each
+/// setting.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Redraw {
+    pub to: EntityId,
+    pub share: PerSettingLevel<BasisPoints>,
+}
+
+/// A zone a mode draws at: the regular game since the last AT it begins
+/// on, and the share of play still going there that the trigger comes to
+/// and that the AT is won outright on, under each setting — the two
+/// together no more than the whole. A zone of a `span` of games draws
+/// those shares over all of them, evenly game by game: a 引き戻し of 66
+/// games after the AT.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Gate {
+    pub game: NonZeroU32,
+    pub span: Option<NonZeroU32>,
+    pub trigger: PerSettingLevel<BasisPoints>,
+    pub at: Option<PerSettingLevel<BasisPoints>>,
 }
 
 /// What an entity is, as the engine queries it from its components.
@@ -348,10 +427,18 @@ pub struct Cz {
     pub success: PerSettingLevel<BasisPoints>,
     pub ceiling: Option<NonZeroU32>,
     pub reset_ceiling: Option<NonZeroU32>,
+    /// Its ceilings counted in the machine's unit, where they are.
+    pub unit_ceiling: Option<NonZeroU32>,
+    pub reset_unit_ceiling: Option<NonZeroU32>,
     pub misses: Option<NonZeroU32>,
     /// The regular game since the last AT on which it comes at the latest,
     /// once, whatever came before.
     pub since_at_ceiling: Option<NonZeroU32>,
+    /// Whether the CZ that ceiling brings certainly succeeds.
+    pub ceiling_wins: bool,
+    /// Whether a bonus its success brings that misses the AT starts play
+    /// again as after an AT.
+    pub restart: bool,
     /// Whether it is a bonus that wins the AT at a share, rather than a CZ:
     /// marked so, or given medals of its own without a bonus after it.
     pub bonus: bool,
@@ -366,6 +453,8 @@ pub struct Cz {
     /// Where its success brings a bonus: how often the bonus wins the AT,
     /// under each setting. None where its success wins the AT itself.
     pub bonus_share: Option<PerSettingLevel<BasisPoints>>,
+    /// The zones it draws at, on a machine without modes.
+    pub gates: Vec<Gate>,
 }
 
 /// A mode between ATs: its ceiling and its own AT間天井, if it has them,
@@ -377,6 +466,9 @@ pub struct Mode {
     pub label: String,
     pub ceiling: Option<NonZeroU32>,
     pub at_ceiling: Option<NonZeroU32>,
+    /// Its ceilings counted in the machine's unit, where they are.
+    pub unit_ceiling: Option<NonZeroU32>,
+    pub at_unit_ceiling: Option<NonZeroU32>,
     /// A mode's own スルー天井 on a machine a CZ brings the AT on: the
     /// triggers missed since the last AT after which the next wins it, in
     /// place of the CZ's — a スルー天井 drawn after each AT, two, four or
@@ -384,6 +476,20 @@ pub struct Mode {
     pub misses: Option<NonZeroU32>,
     pub allotment: PerSettingLevel<BasisPoints>,
     pub reset_allotment: Option<PerSettingLevel<BasisPoints>>,
+    /// The zones play in it draws at.
+    pub gates: Vec<Gate>,
+    /// How often a trigger in it wins the AT under each setting, where it
+    /// is not the CZ's: a 高確 after a failed CZ.
+    pub success: Option<PerSettingLevel<BasisPoints>>,
+    /// Where a missed trigger in it moves play to; none where play stays.
+    pub redraw: Vec<Redraw>,
+    /// Where a missed trigger that came on its ceiling moves play; none
+    /// where `redraw` says.
+    pub ceiling_redraw: Vec<Redraw>,
+    /// Its own chance a game brings the trigger, where it has one.
+    pub trigger_chance: Option<PerSettingLevel<ProbabilitySource>>,
+    /// Where play moves when so many games bring no trigger in it.
+    pub expiry: Option<SpecExpiry>,
 }
 
 /// A share of an AT's medals won at another 純増 than the AT's own: an
@@ -421,6 +527,9 @@ pub struct At {
     pub rate: Option<PerSettingLevel<PayoutRate>>,
     pub ceiling: Option<NonZeroU32>,
     pub reset_ceiling: Option<NonZeroU32>,
+    /// Its ceilings counted in the machine's unit, where they are.
+    pub unit_ceiling: Option<NonZeroU32>,
+    pub reset_unit_ceiling: Option<NonZeroU32>,
     pub window: Option<NonZeroU32>,
     pub reset_on_cap: bool,
 }

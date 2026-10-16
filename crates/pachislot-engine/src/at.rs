@@ -16,8 +16,9 @@ use std::num::NonZeroU32;
 
 use std::collections::BTreeMap;
 
-use pachislot_domain::normalized::{Allotments, AtRules, AtTable, ModeRule, PayoutLaw};
+use pachislot_domain::normalized::{Allotments, AtRules, AtTable, Gate, ModeRule, PayoutLaw};
 use pachislot_domain::observation::{AtSeen, LegEnd, Path, PathStart, ToldLeg, ToldPath};
+use pachislot_domain::probability::Probability;
 use pachislot_domain::spec::Medals;
 
 use crate::payout::{CapFigures, below, cap_figures, capped, headroom, set_chance};
@@ -28,6 +29,155 @@ use crate::payout::{CapFigures, below, cap_figures, capped, headroom, set_chance
 pub struct Cycle {
     pub triggers: f64,
     pub games: f64,
+}
+
+/// What a setting draws regular games by: the trigger's chance a game below
+/// the ceilings, the chance a trigger wins the AT, the chance a game wins it
+/// outright, and each mode's zones, in the order of the rules' modes.
+#[derive(Clone, Copy, Debug)]
+pub struct Odds<'a> {
+    pub chance: f64,
+    pub success: f64,
+    pub direct: f64,
+    pub gates: &'a [Vec<Gate>],
+    /// Each mode's own chance a trigger wins the AT; none where every mode takes `success`.
+    pub successes: &'a [Probability],
+    /// Where a missed trigger moves play, mode by mode; none where play stays.
+    pub redraws: &'a [Vec<f64>],
+    /// Where a missed trigger that came on its mode's ceiling moves play;
+    /// none where `redraws` says.
+    pub ceiling_redraws: &'a [Vec<f64>],
+    /// Where a CZ's success brings a bonus, the share of those bonuses
+    /// that win the AT; one otherwise.
+    pub bonus_share: f64,
+    /// Each mode's own chance a game brings the trigger, where it has one.
+    pub own_chances: &'a [Option<Probability>],
+}
+
+impl<'a> Odds<'a> {
+    /// A setting's odds as its table holds them.
+    pub fn of(table: &'a AtTable) -> Self {
+        Self {
+            chance: table.chance.value(),
+            success: table.success.value(),
+            direct: table.direct.value(),
+            gates: &table.gates,
+            successes: &table.successes,
+            redraws: &table.redraws,
+            ceiling_redraws: &table.ceiling_redraws,
+            bonus_share: table.bonus_share.value(),
+            own_chances: &table.own_chances,
+        }
+    }
+
+    /// The trigger's chance a game in the mode at `index`: its own, or the
+    /// one read back from the 合算.
+    pub(crate) fn chance_in(self, index: usize) -> f64 {
+        self.own_chances
+            .get(index)
+            .copied()
+            .flatten()
+            .map_or(self.chance, Probability::value)
+    }
+
+    /// The chance a CZ in the mode at `index` succeeds: brings its bonus,
+    /// where its success brings one, or wins the AT where it does itself.
+    pub(crate) fn bonus_in(self, index: usize) -> f64 {
+        if self.bonus_share > 0.0 {
+            (self.success_in(index) / self.bonus_share).min(1.0)
+        } else {
+            self.success_in(index)
+        }
+    }
+
+    /// Whether play is walked over every mode at once: where a missed
+    /// trigger moves it between modes, or modes win the AT each at its own
+    /// rate.
+    pub(crate) fn chained(self) -> bool {
+        !self.redraws.is_empty()
+            || !self.ceiling_redraws.is_empty()
+            || !self.successes.is_empty()
+            || !self.own_chances.is_empty()
+    }
+
+    /// The chance a trigger in the mode at `index` wins the AT.
+    pub(crate) fn success_in(self, index: usize) -> f64 {
+        self.successes
+            .get(index)
+            .map_or(self.success, |success| success.value())
+    }
+
+    /// The share of play a missed trigger in the mode at `from` moves to
+    /// the mode at `to`: all of it to itself where play stays.
+    pub(crate) fn moved(self, from: usize, to: usize) -> f64 {
+        self.redraws
+            .get(from)
+            .and_then(|row| row.get(to))
+            .copied()
+            .unwrap_or(if from == to { 1.0 } else { 0.0 })
+    }
+
+    /// The same for a missed trigger that came on the mode's ceiling.
+    pub(crate) fn moved_from_ceiling(self, from: usize, to: usize) -> f64 {
+        self.ceiling_redraws
+            .get(from)
+            .and_then(|row| row.get(to))
+            .copied()
+            .unwrap_or_else(|| self.moved(from, to))
+    }
+
+    /// The same odds at another chance a game.
+    #[must_use]
+    pub fn at_chance(self, chance: f64) -> Self {
+        Self { chance, ..self }
+    }
+
+    /// The zones of the mode at `index` among the rules' modes; none where it has none.
+    pub(crate) fn gates_of(self, index: usize) -> &'a [Gate] {
+        self.gates.get(index).map_or(&[], Vec::as_slice)
+    }
+}
+
+/// Whether a machine is walked as one chain over every mode at once: where
+/// a missed trigger moves play between modes, modes win the AT each at its
+/// own rate, play starts again at a bonus, or a ceiling's CZ certainly
+/// succeeds.
+pub(crate) fn chained(rules: &AtRules, odds: Odds<'_>) -> bool {
+    odds.chained()
+        || rules.restarts()
+        || rules.ceiling_wins()
+        || rules.modes.iter().any(|mode| mode.expiry.is_some())
+}
+
+/// Whether a mode's span of games since its trigger ends in its expiry
+/// rather than its ceiling: it is left before its ceiling brings one.
+pub(crate) fn expires(mode: &ModeRule) -> bool {
+    mode.expiry
+        .is_some_and(|expiry| mode.ceiling.is_none_or(|ceiling| expiry.games < ceiling))
+}
+
+/// The zone on a regular game since the last AT, if there is one.
+pub(crate) fn gate_on(gates: &[Gate], game: usize) -> Option<&Gate> {
+    gates.iter().find(|gate| gate.game.get() as usize == game)
+}
+
+/// The share of play still going that a game brings the trigger to besides
+/// its chance a game: all of it on a ceiling counted from the AT, a zone's
+/// share on a zone, none elsewhere.
+pub(crate) fn drawn_on(mode: &ModeRule, gates: &[Gate], game: usize) -> f64 {
+    if is_forced(mode, game) {
+        1.0
+    } else {
+        gate_on(gates, game).map_or(0.0, |gate| gate.trigger.value())
+    }
+}
+
+/// The chance a game wins the AT outright, before the trigger is drawn:
+/// every game's, and on a zone the zone's besides.
+pub(crate) fn direct_on(direct: f64, gates: &[Gate], game: usize) -> f64 {
+    gate_on(gates, game).map_or(direct, |gate| {
+        1.0 - (1.0 - direct) * (1.0 - gate.at.value())
+    })
 }
 
 impl Cycle {
@@ -69,7 +219,7 @@ fn games_between(p: f64, ceiling: Option<NonZeroU32>) -> f64 {
 }
 
 /// The chance the `j`th trigger since the last AT wins it.
-fn success_of(j: u32, success: f64, misses: Option<NonZeroU32>) -> f64 {
+pub(crate) fn success_of(j: u32, success: f64, misses: Option<NonZeroU32>) -> f64 {
     if misses.is_some_and(|misses| j > misses.get()) {
         1.0
     } else {
@@ -81,7 +231,7 @@ fn success_of(j: u32, success: f64, misses: Option<NonZeroU32>) -> f64 {
 /// geometric at `p` below the ceiling, so each game's share of `f ⋆ d`
 /// follows from the one before rather than a sum over the ceiling.
 #[derive(Clone, Copy)]
-struct Between {
+pub(crate) struct Between {
     p: f64,
     risk: f64,
     span: Option<usize>,
@@ -90,7 +240,7 @@ struct Between {
 }
 
 impl Between {
-    fn of(p: f64, ceiling: Option<NonZeroU32>) -> Self {
+    pub(crate) fn of(p: f64, ceiling: Option<NonZeroU32>) -> Self {
         let risk = 1.0 - p;
         let span = ceiling.map(|ceiling| ceiling.get() as usize);
         Self {
@@ -104,10 +254,22 @@ impl Between {
         }
     }
 
+    /// What of game `at` of `f ⋆ d` comes on the ceiling: the play that
+    /// went all its games to it without a trigger.
+    pub(crate) fn on_ceiling(self, f: &[f64], at: usize) -> f64 {
+        self.span.map_or(0.0, |span| {
+            at.checked_sub(span)
+                .and_then(|at| f.get(at))
+                .copied()
+                .unwrap_or(0.0)
+                * self.tail
+        })
+    }
+
     /// Game `at` of `f ⋆ d`, from the running sum before it: the running
     /// sum at it, and where the next trigger falls on it. Only the games of
     /// `f` before `at` are read, so `f` may be written as it is read.
-    fn step(self, f: &[f64], running: f64, at: usize) -> (f64, f64) {
+    pub(crate) fn step(self, f: &[f64], running: f64, at: usize) -> (f64, f64) {
         let before = |back: usize| -> f64 {
             at.checked_sub(back)
                 .and_then(|at| f.get(at))
@@ -123,30 +285,36 @@ impl Between {
 
 /// Whether game `at` since the AT is the one a mode's ceiling counted from
 /// the AT brings the trigger on.
-fn is_forced(mode: &ModeRule, at: usize) -> bool {
+pub(crate) fn is_forced(mode: &ModeRule, at: usize) -> bool {
     mode.since_at_ceiling
         .is_some_and(|ceiling| ceiling.get() as usize == at)
 }
 
-/// On the game a ceiling counted from the AT forces it, the trigger every
-/// game still waiting comes: what would have come at the chance, and the
-/// rest of what was waiting, which then waits no more.
-fn all_waiting(here: f64, running: f64, p: f64) -> f64 {
-    here + (1.0 - p) * running
+/// On a game that draws the trigger for a share of play still waiting —
+/// all of it where a ceiling counted from the AT forces it, a zone's share
+/// on a zone — the trigger comes for that share of what would not have come
+/// at the chance, besides what did.
+pub(crate) fn drawn(here: f64, running: f64, p: f64, share: f64) -> f64 {
+    here + share * (1.0 - p) * running
 }
 
 /// The next trigger's games after the last, convolved onto where the last
-/// fell: `f ⋆ d`, with `d` the games between triggers — and, on the game a
-/// ceiling counted from the AT forces it, every trigger still waiting.
-fn convolved(f: &[f64], p: f64, mode: &ModeRule) -> Vec<f64> {
+/// fell: `f ⋆ d`, with `d` the games between triggers — and, on a game that
+/// draws the trigger for a share of play still waiting, that share of every
+/// trigger still waiting.
+fn convolved(f: &[f64], p: f64, mode: &ModeRule, gates: &[Gate]) -> Vec<f64> {
     let between = Between::of(p, mode.ceiling);
     let (_, _, next) = (0..f.len()).fold(
         (f.to_vec(), 0.0_f64, Vec::with_capacity(f.len())),
         |(mut waiting, running, mut next), at| {
             let (running, here) = between.step(&waiting, running, at);
-            let (running, here) = if is_forced(mode, at) {
-                waiting.iter_mut().take(at).for_each(|before| *before = 0.0);
-                (0.0, all_waiting(here, running, p))
+            let share = drawn_on(mode, gates, at);
+            let (running, here) = if share > 0.0 {
+                waiting
+                    .iter_mut()
+                    .take(at)
+                    .for_each(|before| *before *= 1.0 - share);
+                ((1.0 - share) * running, drawn(here, running, p, share))
             } else {
                 (running, here)
             };
@@ -165,13 +333,18 @@ fn convolved(f: &[f64], p: f64, mode: &ModeRule) -> Vec<f64> {
 /// falls, fed by the misses of the count before it, the last counted fed
 /// by its own; with no スルー天井 one stream feeds itself.
 fn ended_by(
-    p: f64,
-    success: f64,
-    direct: f64,
+    odds: Odds<'_>,
     mode: &ModeRule,
+    gates: &[Gate],
     length: usize,
     misses: Option<NonZeroU32>,
 ) -> Walk {
+    let Odds {
+        chance: p,
+        success,
+        direct,
+        ..
+    } = odds;
     let between = Between::of(p, mode.ceiling);
     let streams = misses.map_or(1, |misses| misses.get() as usize + 1);
     let wins: Vec<f64> = (1..=streams)
@@ -188,12 +361,15 @@ fn ended_by(
             Vec::with_capacity(length),
         ),
         |(mut sources, mut running, mut here, mut arrived, mut ended), at| {
-            let forced = is_forced(mode, at);
+            let share = drawn_on(mode, gates, at);
             for ((source, running), here) in sources.iter_mut().zip(&mut running).zip(&mut here) {
                 (*running, *here) = between.step(source, *running, at);
-                if forced {
-                    (*running, *here) = (0.0, all_waiting(*here, *running, p));
-                    source.fill(0.0);
+                if share > 0.0 {
+                    (*running, *here) =
+                        ((1.0 - share) * *running, drawn(*here, *running, p, share));
+                    for before in source.iter_mut() {
+                        *before *= 1.0 - share;
+                    }
                 }
             }
             for (stream, source) in sources.iter_mut().enumerate() {
@@ -205,49 +381,62 @@ fn ended_by(
             (sources, running, here, arrived, ended)
         },
     );
-    with_direct(Walk { arrived, ended }, direct)
+    with_direct(Walk { arrived, ended }, |game| {
+        direct_on(direct, gates, game)
+    })
 }
 
-/// A trigger's walk with the AT also won outright, at `direct` a game
+/// A trigger's walk with the AT also won outright, at `direct` of each game
 /// before the trigger is drawn: each game is reached only where none before
 /// it won the AT outright, and on it the AT comes outright where play was
 /// still going, or by its trigger where it did not.
-fn with_direct(walk: Walk, direct: f64) -> Walk {
-    if direct <= 0.0 {
+pub(crate) fn with_direct(walk: Walk, direct: impl Fn(usize) -> f64) -> Walk {
+    if (1..walk.arrived.len()).all(|game| direct(game) <= 0.0) {
         return walk;
     }
-    let keep = 1.0 - direct;
-    let (_, arrived, ended) = walk.arrived.iter().zip(&walk.ended).enumerate().fold(
+    let (_, _, arrived, ended) = walk.arrived.iter().zip(&walk.ended).enumerate().fold(
         (
+            1.0_f64,
             1.0_f64,
             Vec::with_capacity(walk.arrived.len()),
             Vec::with_capacity(walk.ended.len()),
         ),
-        |(going, mut arrived, mut ended), (game, (here, won))| {
-            let reached = keep.powi(i32::try_from(game.saturating_sub(1)).unwrap_or(i32::MAX));
+        |(going, reached, mut arrived, mut ended), (game, (here, won))| {
             if game == 0 {
                 arrived.push(*here);
                 ended.push(*won);
-                return (going - won, arrived, ended);
+                return (going - won, reached, arrived, ended);
             }
+            let direct = direct(game);
+            let keep = 1.0 - direct;
             arrived.push(reached * keep * here);
             ended.push(reached * (direct * going + keep * won));
-            (going - won, arrived, ended)
+            (going - won, reached * keep, arrived, ended)
         },
     );
     Walk { arrived, ended }
 }
 
-/// What tells two modes' walks apart: the trigger's ceiling, the スルー天井
-/// and the trigger's ceiling counted from the AT, all a walk turns on short
-/// of the AT間天井 it is cut at.
-type WalkKey = (Option<NonZeroU32>, Option<NonZeroU32>, Option<NonZeroU32>);
+/// What tells two modes' walks apart: the trigger's ceiling, the スルー天井,
+/// the trigger's ceiling counted from the AT and the zones, all a walk turns
+/// on short of the AT間天井 it is cut at.
+type WalkKey<'a> = (
+    Option<NonZeroU32>,
+    Option<NonZeroU32>,
+    Option<NonZeroU32>,
+    &'a [Gate],
+);
+
+/// A mode's walk key, with its zones.
+fn walk_key<'a>(mode: &ModeRule, gates: &'a [Gate]) -> WalkKey<'a> {
+    (mode.ceiling, mode.misses, mode.since_at_ceiling, gates)
+}
 
 /// What a mode's triggers come to game by game after an AT: the chance a
 /// trigger arrives on each, and the chance the AT is won on each.
-struct Walk {
-    arrived: Vec<f64>,
-    ended: Vec<f64>,
+pub(crate) struct Walk {
+    pub(crate) arrived: Vec<f64>,
+    pub(crate) ended: Vec<f64>,
 }
 
 /// What a stream is fed on a game: the misses there of the count before
@@ -272,7 +461,7 @@ fn missed(wins: &[f64], here: &[f64], stream: usize) -> f64 {
 
 /// A cycle in one mode with an AT間天井 of `at_ceiling` games, which ends
 /// it there at the latest: its trigger's walk cut short there.
-fn cycle_to_ceiling(walk: &Walk, at_ceiling: NonZeroU32) -> Cycle {
+pub(crate) fn cycle_to_ceiling(walk: &Walk, at_ceiling: NonZeroU32) -> Cycle {
     let length = at_ceiling.get() as usize;
     let triggers: f64 = walk.arrived.iter().take(length).sum();
     let ended = walk.ended.iter().take(length);
@@ -292,24 +481,23 @@ fn cycle_to_ceiling(walk: &Walk, at_ceiling: NonZeroU32) -> Cycle {
 /// The chance the next AT is won on each of the first `horizon` regular
 /// games after one, over the modes as an AT allots them: the `g`th game's
 /// at `g − 1`, a mode's AT間天井 winning whatever is left on its game.
-pub(crate) fn arrivals(
-    rules: &AtRules,
-    chance: f64,
-    success: f64,
-    direct: f64,
-    shares: &[f64],
-    horizon: u32,
-) -> Vec<f64> {
-    rules
-        .modes
-        .iter()
-        .zip(shares)
-        .fold(vec![0.0_f64; horizon as usize], |sum, (mode, share)| {
+pub(crate) fn arrivals(rules: &AtRules, odds: Odds<'_>, shares: &[f64], horizon: u32) -> Vec<f64> {
+    if chained(rules, odds) {
+        return crate::chain::arrivals(rules, odds, shares, horizon);
+    }
+    rules.modes.iter().zip(shares).enumerate().fold(
+        vec![0.0_f64; horizon as usize],
+        |sum, (index, (mode, share))| {
             let reach = mode
                 .at_ceiling
                 .map_or(horizon + 1, |ceiling| ceiling.get().min(horizon + 1));
-            let Walk { ended, .. } =
-                ended_by(chance, success, direct, mode, reach as usize, mode.misses);
+            let Walk { ended, .. } = ended_by(
+                odds,
+                mode,
+                odds.gates_of(index),
+                reach as usize,
+                mode.misses,
+            );
             let left = 1.0 - ended.iter().sum::<f64>();
             sum.iter()
                 .zip(1_u32..)
@@ -324,6 +512,35 @@ pub(crate) fn arrivals(
                     total + share * here
                 })
                 .collect()
+        },
+    )
+}
+
+/// Regular games a walk is taken to at the most before what is left of it
+/// is taken never to end: hundreds of hours of play.
+pub(crate) const LONGEST_WALK: usize = 1 << 17;
+
+/// What is left of a walk under which it is taken as over.
+pub(crate) const WALKED: f64 = 1e-12;
+
+/// A cycle in one mode without an AT間天井 but with zones, which no closed
+/// form follows: walked game by game, twice as far each time, until next
+/// to nothing of it is left.
+fn cycle_walked(odds: Odds<'_>, mode: &ModeRule, gates: &[Gate]) -> Cycle {
+    let first = gates.last().map_or(0, |gate| gate.game.get() as usize) + 1024;
+    std::iter::successors(Some(first), |length| Some(length * 2))
+        .take_while(|length| *length <= LONGEST_WALK)
+        .map(|length| (length, ended_by(odds, mode, gates, length, mode.misses)))
+        .find(|(length, walk)| {
+            1.0 - walk.ended.iter().sum::<f64>() < WALKED || length * 2 > LONGEST_WALK
+        })
+        .and_then(|(length, walk)| {
+            NonZeroU32::new(u32::try_from(length).unwrap_or(u32::MAX))
+                .map(|length| cycle_to_ceiling(&walk, length))
+        })
+        .unwrap_or(Cycle {
+            triggers: f64::INFINITY,
+            games: f64::INFINITY,
         })
 }
 
@@ -418,41 +635,42 @@ fn tries_within(g: f64, success: f64, limit: NonZeroU32) -> (f64, f64) {
 /// allots them: in closed form in a mode without an AT間天井, and with one
 /// its trigger's walk cut short there. Modes that share a trigger's
 /// ceiling share its walk, taken as far as the longest AT間天井 among them.
-pub fn cycle(rules: &AtRules, chance: f64, success: f64, direct: f64, shares: &[f64]) -> Cycle {
-    let played: Vec<(&ModeRule, f64)> = rules
+pub fn cycle(rules: &AtRules, odds: Odds<'_>, shares: &[f64]) -> Cycle {
+    if chained(rules, odds) {
+        return crate::chain::cycle(rules, odds, shares);
+    }
+    let played: Vec<(&ModeRule, &[Gate], f64)> = rules
         .modes
         .iter()
         .zip(shares.iter().copied())
-        .filter(|(_, share)| *share > 0.0)
+        .enumerate()
+        .filter(|(_, (_, share))| *share > 0.0)
+        .map(|(index, (mode, share))| (mode, odds.gates_of(index), share))
         .collect();
     let walks: Vec<(WalkKey, Walk)> = played
         .iter()
-        .filter_map(|(mode, _)| mode.at_ceiling.map(|at_ceiling| (mode, at_ceiling)))
+        .filter_map(|(mode, gates, _)| {
+            mode.at_ceiling
+                .map(|at_ceiling| (*mode, *gates, at_ceiling))
+        })
         .fold(
-            Vec::<(&ModeRule, NonZeroU32)>::new(),
-            |mut longest, (mode, at_ceiling)| {
+            Vec::<(&ModeRule, &[Gate], NonZeroU32)>::new(),
+            |mut longest, (mode, gates, at_ceiling)| {
                 match longest
                     .iter_mut()
-                    .find(|(other, _)| other.ceiling == mode.ceiling && other.misses == mode.misses)
+                    .find(|(other, others, _)| walk_key(other, others) == walk_key(mode, gates))
                 {
-                    Some(found) => found.1 = found.1.max(at_ceiling),
-                    None => longest.push((mode, at_ceiling)),
+                    Some(found) => found.2 = found.2.max(at_ceiling),
+                    None => longest.push((mode, gates, at_ceiling)),
                 }
                 longest
             },
         )
         .into_iter()
-        .map(|(mode, at_ceiling)| {
+        .map(|(mode, gates, at_ceiling)| {
             (
-                (mode.ceiling, mode.misses, mode.since_at_ceiling),
-                ended_by(
-                    chance,
-                    success,
-                    direct,
-                    mode,
-                    at_ceiling.get() as usize,
-                    mode.misses,
-                ),
+                walk_key(mode, gates),
+                ended_by(odds, mode, gates, at_ceiling.get() as usize, mode.misses),
             )
         })
         .collect();
@@ -461,16 +679,23 @@ pub fn cycle(rules: &AtRules, chance: f64, success: f64, direct: f64, shares: &[
             triggers: 0.0,
             games: 0.0,
         },
-        |sum, (mode, share)| {
-            let each = mode
-                .at_ceiling
-                .and_then(|at_ceiling| {
-                    walks
-                        .iter()
-                        .find(|(key, _)| *key == (mode.ceiling, mode.misses, mode.since_at_ceiling))
-                        .map(|(_, walk)| cycle_to_ceiling(walk, at_ceiling))
-                })
-                .unwrap_or_else(|| cycle_unceiled(chance, success, direct, mode));
+        |sum, (mode, gates, share)| {
+            let each = match mode.at_ceiling {
+                Some(at_ceiling) => walks
+                    .iter()
+                    .find(|(key, _)| *key == walk_key(mode, gates))
+                    .map_or(
+                        Cycle {
+                            triggers: f64::INFINITY,
+                            games: f64::INFINITY,
+                        },
+                        |(_, walk)| cycle_to_ceiling(walk, at_ceiling),
+                    ),
+                None if gates.is_empty() => {
+                    cycle_unceiled(odds.chance, odds.success, odds.direct, mode)
+                }
+                None => cycle_walked(odds, mode, gates),
+            };
             Cycle {
                 triggers: sum.triggers + share * each.triggers,
                 games: sum.games + share * each.games,
@@ -500,15 +725,13 @@ pub(crate) fn after_at(rules: &AtRules, allotments: &Allotments, completion: f64
 /// that fell short.
 pub(crate) fn cap_figures_of(
     rules: &AtRules,
-    chance: f64,
-    success: f64,
-    direct: f64,
+    odds: Odds<'_>,
     allotments: &Allotments,
     payout: &PayoutLaw,
 ) -> CapFigures {
     let window = rules.window.map(NonZeroU32::get);
     let arrived = window.map_or_else(Vec::new, |window| {
-        arrivals(rules, chance, success, direct, &allotments.after_at, window)
+        arrivals(rules, odds, &allotments.after_at, window)
     });
     cap_figures(
         payout,
@@ -522,14 +745,7 @@ pub(crate) fn cap_figures_of(
 /// What an AT machine's setting settles to: what an AT comes to, and the
 /// shares a cycle starts from given it.
 pub fn settled(rules: &AtRules, table: &AtTable) -> (CapFigures, Vec<f64>) {
-    let figures = cap_figures_of(
-        rules,
-        table.chance.value(),
-        table.success.value(),
-        table.direct.value(),
-        &table.allotments,
-        &table.payout,
-    );
+    let figures = cap_figures_of(rules, Odds::of(table), &table.allotments, &table.payout);
     let shares = after_at(rules, &table.allotments, figures.completion);
     (figures, shares)
 }
@@ -550,11 +766,10 @@ const NARROWINGS: u32 = 200;
 pub(crate) fn natural_chance(
     published: f64,
     rules: &AtRules,
-    success: f64,
-    direct: f64,
+    odds: Odds<'_>,
     shares: &[f64],
 ) -> Option<f64> {
-    let gap = |p: f64| cycle(rules, p, success, direct, shares).trigger_chance() - published;
+    let gap = |p: f64| cycle(rules, odds.at_chance(p), shares).trigger_chance() - published;
     if !published.is_finite() || published >= 1.0 {
         return None;
     }
@@ -679,7 +894,7 @@ pub(crate) struct Standing {
 pub(crate) type Held = Vec<(Option<f64>, f64)>;
 
 /// Nothing held: the 有利区間 starts afresh.
-fn fresh() -> Held {
+pub(crate) fn fresh() -> Held {
     vec![(None, 1.0)]
 }
 
@@ -687,35 +902,88 @@ fn fresh() -> Held {
 /// since the last trigger and AT with so many triggers missed since that
 /// AT: the AT, outright or by its trigger, a missed trigger, nothing.
 pub(crate) fn chances(
+    rules: &AtRules,
     table: &AtTable,
-    mode: &ModeRule,
-    since_trigger: u32,
-    since_at: u32,
-    misses: u32,
+    (index, mode): (usize, &ModeRule),
+    (since_trigger, since_at, misses): (u32, u32, u32),
 ) -> (f64, f64, f64) {
+    let drawn = drawn_parts(
+        rules,
+        table,
+        (index, mode),
+        (since_trigger, since_at, misses),
+    );
+    (drawn.at, drawn.failed + drawn.bonus, drawn.going)
+}
+
+/// How one mode's next game may end: the AT won, a CZ failed, a bonus a
+/// CZ's success brought that missed the AT, or nothing.
+pub(crate) struct Drawn {
+    pub(crate) at: f64,
+    pub(crate) failed: f64,
+    pub(crate) bonus: f64,
+    pub(crate) going: f64,
+}
+
+/// The chances of each end of one mode's next game, so many games since
+/// the last trigger and AT with so many triggers missed since that AT: the
+/// AT outright, then a trigger by its chance, a zone or a ceiling. A
+/// trigger succeeds at its mode's rate — into the bonus, where a CZ's
+/// success brings one, which wins the AT at its share — and certainly past
+/// the スルー天井; and where the machine says so, a CZ on the game a
+/// ceiling counted from the AT forces one — that one or any other —
+/// certainly succeeds. Past the スルー天井 a
+/// machine that starts again at a bonus brings the bonus; another, the AT.
+pub(crate) fn drawn_parts(
+    rules: &AtRules,
+    table: &AtTable,
+    (index, mode): (usize, &ModeRule),
+    (since_trigger, since_at, misses): (u32, u32, u32),
+) -> Drawn {
+    let odds = Odds::of(table);
+    let gates = odds.gates_of(index);
     if mode
         .at_ceiling
         .is_some_and(|ceiling| since_at + 1 >= ceiling.get())
     {
-        return (1.0, 0.0, 0.0);
+        return Drawn {
+            at: 1.0,
+            failed: 0.0,
+            bonus: 0.0,
+            going: 0.0,
+        };
     }
-    let triggered = if mode
+    let game = since_at as usize + 1;
+    let on_ceiling = mode
         .ceiling
-        .is_some_and(|ceiling| since_trigger + 1 >= ceiling.get())
-        || is_forced(mode, since_at as usize + 1)
-    {
-        1.0
+        .is_some_and(|ceiling| since_trigger + 1 >= ceiling.get());
+    let chance = odds.chance_in(index);
+    let share = drawn_on(mode, gates, game);
+    let (by_chance, forced) = if rules.ceiling_wins() && is_forced(mode, game) {
+        (0.0, 1.0)
+    } else if on_ceiling {
+        (1.0, 0.0)
     } else {
-        table.chance.value()
+        (1.0 - (1.0 - chance) * (1.0 - share), 0.0)
     };
-    let wins = success_of(misses + 1, table.success.value(), mode.misses);
-    let direct = table.direct.value();
-    let drawn = (1.0 - direct) * triggered;
-    (
-        direct + drawn * wins,
-        drawn * (1.0 - wins),
-        (1.0 - direct) * (1.0 - triggered),
-    )
+    let q = odds.bonus_share;
+    let through = mode.misses.is_some_and(|limit| misses + 1 > limit.get());
+    let succeeded = odds.bonus_in(index);
+    let (at, bonus, failed) = if through && rules.restarts() {
+        (q, 1.0 - q, 0.0)
+    } else if through {
+        (1.0, 0.0, 0.0)
+    } else {
+        (succeeded * q, succeeded * (1.0 - q), 1.0 - succeeded)
+    };
+    let direct = direct_on(table.direct.value(), gates, game);
+    let keep = 1.0 - direct;
+    Drawn {
+        at: direct + keep * (by_chance * at + forced * q),
+        failed: keep * by_chance * failed,
+        bonus: keep * (by_chance * bonus + forced * (1.0 - q)),
+        going: keep * (1.0 - by_chance - forced),
+    }
 }
 
 /// What the next game's trigger pays on average in a mode, where it is a
@@ -725,28 +993,44 @@ pub(crate) fn chances(
 pub(crate) fn trigger_medals(
     rules: &AtRules,
     table: &AtTable,
-    mode: &ModeRule,
+    (mode, gates): (&ModeRule, &[Gate]),
     since_at: u32,
     (at, missed): (f64, f64),
 ) -> f64 {
     let ceiled = mode
         .at_ceiling
         .is_some_and(|ceiling| since_at + 1 >= ceiling.get());
+    let direct = direct_on(table.direct.value(), gates, since_at as usize + 1);
     match rules.trigger_payout {
         Some(payout) if !ceiled => {
-            (at + missed - table.direct.value()) * table.paid.value() * payout.medals.get()
+            (at + missed - direct) * table.paid.value() * payout.medals.get()
         }
         _ => 0.0,
     }
 }
 
-/// The chance a mode lasts `games` regular games without a trigger.
-fn lasting(mode: &ModeRule, chance: f64, games: u32) -> f64 {
+/// The chance a mode lasts the `games` regular games up to game `since_at`
+/// after the AT without a trigger — by its chance or on a zone — and goes
+/// through every zone since the AT without the AT outright, which a zone
+/// draws mode by mode.
+fn lasting(mode: &ModeRule, zones: &[Gate], chance: f64, games: u32, since_at: u32) -> f64 {
     if mode.ceiling.is_some_and(|ceiling| games >= ceiling.get()) {
-        0.0
-    } else {
-        (f64::from(games) * (-chance).ln_1p()).exp()
+        return 0.0;
     }
+    let from = since_at.saturating_sub(games);
+    let through_zones: f64 = zones
+        .iter()
+        .filter(|gate| gate.game.get() <= since_at)
+        .map(|gate| {
+            let trigger = if gate.game.get() > from {
+                1.0 - gate.trigger.value()
+            } else {
+                1.0
+            };
+            trigger * (1.0 - gate.at.value())
+        })
+        .product();
+    (f64::from(games) * (-chance).ln_1p()).exp() * through_zones
 }
 
 /// What walking a path comes to under one setting: the theoretical medals
@@ -757,7 +1041,7 @@ pub struct Walked {
     pub log_likelihood: f64,
 }
 
-fn normalised(weights: &[f64], fallback: &[f64]) -> (Vec<f64>, f64) {
+pub(crate) fn normalised(weights: &[f64], fallback: &[f64]) -> (Vec<f64>, f64) {
     let total: f64 = weights.iter().sum();
     if total > 0.0 && total.is_finite() {
         (
@@ -771,12 +1055,12 @@ fn normalised(weights: &[f64], fallback: &[f64]) -> (Vec<f64>, f64) {
 
 /// The chance a mode brought `misses` triggers, one after another, in
 /// exactly `games` regular games.
-fn reached(mode: &ModeRule, chance: f64, misses: u32, games: u32) -> f64 {
+fn reached(mode: &ModeRule, zones: &[Gate], chance: f64, misses: u32, games: u32) -> f64 {
     let start: Vec<f64> = (0..=games)
         .map(|at| if at == 0 { 1.0 } else { 0.0 })
         .collect();
     (0..misses)
-        .fold(start, |f, _| convolved(&f, chance, mode))
+        .fold(start, |f, _| convolved(&f, chance, mode, zones))
         .last()
         .copied()
         .unwrap_or(0.0)
@@ -784,7 +1068,7 @@ fn reached(mode: &ModeRule, chance: f64, misses: u32, games: u32) -> f64 {
 
 /// Whether play seen where it is could not have gone so far in a mode: past
 /// its ceiling counted from the AT with no trigger since before it.
-fn passed_unbrought(mode: &ModeRule, start: PathStart) -> bool {
+pub(crate) fn passed_unbrought(mode: &ModeRule, start: PathStart) -> bool {
     mode.since_at_ceiling.is_some_and(|ceiling| {
         start.since_at >= ceiling.get()
             && start.since_at.saturating_sub(start.since_trigger) < ceiling.get()
@@ -799,14 +1083,19 @@ fn passed_unbrought(mode: &ModeRule, start: PathStart) -> bool {
 /// about — misses given with no games between — the games since the last
 /// trigger alone weigh the modes.
 pub(crate) fn started(rules: &AtRules, table: &AtTable, start: PathStart) -> Standing {
+    if chained(rules, Odds::of(table)) {
+        return crate::chain::started(rules, table, start);
+    }
     let shares = table.allotments.of(start.after_reset);
     let chance = table.chance.value();
     let between = start.since_at.checked_sub(start.since_trigger);
+    let odds = Odds::of(table);
     let lasted: Vec<f64> = rules
         .modes
         .iter()
         .zip(shares)
-        .map(|(mode, share)| {
+        .enumerate()
+        .map(|(index, (mode, share))| {
             if mode
                 .at_ceiling
                 .is_some_and(|ceiling| start.since_at >= ceiling.get())
@@ -815,7 +1104,14 @@ pub(crate) fn started(rules: &AtRules, table: &AtTable, start: PathStart) -> Sta
             {
                 0.0
             } else {
-                share * lasting(mode, chance, start.since_trigger)
+                share
+                    * lasting(
+                        mode,
+                        odds.gates_of(index),
+                        chance,
+                        start.since_trigger,
+                        start.since_at,
+                    )
             }
         })
         .collect();
@@ -823,8 +1119,11 @@ pub(crate) fn started(rules: &AtRules, table: &AtTable, start: PathStart) -> Sta
         .modes
         .iter()
         .zip(&lasted)
-        .map(|(mode, weight)| match between {
-            Some(games) if start.misses > 0 => weight * reached(mode, chance, start.misses, games),
+        .enumerate()
+        .map(|(index, (mode, weight))| match between {
+            Some(games) if start.misses > 0 => {
+                weight * reached(mode, odds.gates_of(index), chance, start.misses, games)
+            }
             _ => *weight,
         });
     let (fallback, _) = normalised(&lasted, shares);
@@ -1000,46 +1299,53 @@ fn played(
     standing: &Standing,
     end: LegEnd,
 ) -> (Standing, f64, f64) {
-    let each: Vec<(f64, f64, f64)> = rules
+    let odds = Odds::of(table);
+    let each: Vec<Drawn> = rules
         .modes
         .iter()
-        .map(|mode| {
-            chances(
+        .enumerate()
+        .map(|(index, mode)| {
+            drawn_parts(
+                rules,
                 table,
-                mode,
-                standing.since_trigger,
-                standing.since_at,
-                standing.misses,
+                (index, mode),
+                (standing.since_trigger, standing.since_at, standing.misses),
             )
         })
         .collect();
     let winning: f64 = each
         .iter()
         .zip(&standing.modes)
-        .map(|((at, _, _), weight)| at * weight)
+        .map(|(drawn, weight)| drawn.at * weight)
         .sum();
     let bonuses: f64 = rules
         .modes
         .iter()
         .zip(&each)
         .zip(&standing.modes)
-        .map(|((mode, (at, missed, _)), weight)| {
-            weight * trigger_medals(rules, table, mode, standing.since_at, (*at, *missed))
+        .enumerate()
+        .map(|(index, ((mode, drawn), weight))| {
+            weight
+                * trigger_medals(
+                    rules,
+                    table,
+                    (mode, odds.gates_of(index)),
+                    standing.since_at,
+                    (drawn.at, drawn.failed + drawn.bonus),
+                )
         })
         .sum();
     let medals = gain_now(rules, table, &standing.held, standing.since_at) * winning + bonuses
         - rules.base.loss_per_game();
-    let seen = each
-        .iter()
-        .zip(&standing.modes)
-        .map(|((at, missed, going), weight)| {
-            weight
-                * match end {
-                    LegEnd::Going => *going,
-                    LegEnd::Missed => *missed,
-                    LegEnd::WonAt(_) => *at,
-                }
-        });
+    let seen = each.iter().zip(&standing.modes).map(|(drawn, weight)| {
+        weight
+            * match end {
+                LegEnd::Going => drawn.going,
+                LegEnd::Missed => drawn.failed,
+                LegEnd::Bonus => drawn.bonus,
+                LegEnd::WonAt(_) => drawn.at,
+            }
+    });
     let (modes, log) = normalised(&seen.collect::<Vec<_>>(), &standing.modes);
     let (after, seen) = match end {
         LegEnd::Going => (
@@ -1047,7 +1353,7 @@ fn played(
                 since_trigger: standing.since_trigger + 1,
                 since_at: standing.since_at + 1,
                 misses: standing.misses,
-                modes,
+                modes: expired(rules, &modes, standing.since_trigger + 1),
                 held: standing.held.clone(),
             },
             0.0,
@@ -1057,14 +1363,105 @@ fn played(
                 since_trigger: 0,
                 since_at: standing.since_at + 1,
                 misses: standing.misses + 1,
-                modes,
+                modes: moved(odds, &modes, |mode| {
+                    ceiling_game(rules, mode, standing.since_trigger)
+                }),
                 held: standing.held.clone(),
             },
+            0.0,
+        ),
+        LegEnd::Bonus => (
+            after_bonus(
+                rules,
+                table,
+                Standing {
+                    since_trigger: 0,
+                    since_at: standing.since_at + 1,
+                    misses: standing.misses + 1,
+                    modes: moved(odds, &modes, |mode| {
+                        ceiling_game(rules, mode, standing.since_trigger)
+                    }),
+                    held: standing.held.clone(),
+                },
+            ),
             0.0,
         ),
         LegEnd::WonAt(seen) => after_won(rules, table, standing, seen),
     };
     (after, medals, log + seen)
+}
+
+/// Play after a bonus a CZ's success brought that missed the AT: started
+/// again as after an AT where the machine counts from the bonus, its
+/// ceilings, misses and modes alike; otherwise a miss like any other.
+fn after_bonus(rules: &AtRules, table: &AtTable, missed: Standing) -> Standing {
+    if rules.restarts() {
+        Standing {
+            since_trigger: 0,
+            since_at: 0,
+            misses: 0,
+            modes: table.allotments.after_at.clone(),
+            held: missed.held,
+        }
+    } else {
+        missed
+    }
+}
+
+/// The modes play may be in once so many games since the last trigger have
+/// brought none: each whose expiry they reach moved to the mode it names.
+fn expired(rules: &AtRules, modes: &[f64], games: u32) -> Vec<f64> {
+    rules.modes.iter().zip(modes).enumerate().fold(
+        modes.to_vec(),
+        |mut moved, (from, (mode, weight))| {
+            if let Some(expiry) = mode
+                .expiry
+                .filter(|expiry| expires(mode) && expiry.games.get() == games)
+            {
+                if let Some(cell) = moved.get_mut(from) {
+                    *cell -= weight;
+                }
+                if let Some(cell) = moved.get_mut(expiry.to) {
+                    *cell += weight;
+                }
+            }
+            moved
+        },
+    )
+}
+
+/// The modes play may be in after a missed trigger, from those it was in:
+/// each moved as the mode it missed in says, or kept where play stays.
+fn moved(odds: Odds<'_>, modes: &[f64], on_ceiling: impl Fn(usize) -> bool) -> Vec<f64> {
+    if odds.redraws.is_empty() && odds.ceiling_redraws.is_empty() {
+        return modes.to_vec();
+    }
+    (0..modes.len())
+        .map(|to| {
+            modes
+                .iter()
+                .enumerate()
+                .map(|(from, weight)| {
+                    weight
+                        * if on_ceiling(from) {
+                            odds.moved_from_ceiling(from, to)
+                        } else {
+                            odds.moved(from, to)
+                        }
+                })
+                .sum()
+        })
+        .collect()
+}
+
+/// Whether the trigger of the game after so many since the last one comes
+/// on the mode's ceiling.
+fn ceiling_game(rules: &AtRules, mode: usize, since_trigger: u32) -> bool {
+    rules
+        .modes
+        .get(mode)
+        .and_then(|mode| mode.ceiling)
+        .is_some_and(|ceiling| since_trigger + 1 >= ceiling.get())
 }
 
 /// A trigger missed or an AT won on a game no leg counted — one the counter
@@ -1078,8 +1475,22 @@ fn unseen(rules: &AtRules, table: &AtTable, standing: Standing, end: LegEnd) -> 
             Standing {
                 since_trigger: 0,
                 misses: standing.misses + 1,
+                modes: moved(Odds::of(table), &standing.modes, |_| false),
                 ..standing
             },
+            0.0,
+        ),
+        LegEnd::Bonus => (
+            after_bonus(
+                rules,
+                table,
+                Standing {
+                    since_trigger: 0,
+                    misses: standing.misses + 1,
+                    modes: moved(Odds::of(table), &standing.modes, |_| false),
+                    ..standing
+                },
+            ),
             0.0,
         ),
         LegEnd::WonAt(seen) => after_won(rules, table, &standing, seen),
@@ -1124,7 +1535,7 @@ pub fn walk(path: &Path, rules: &AtRules, table: &AtTable) -> Walked {
 fn triggers_by_count(
     p: f64,
     success: f64,
-    mode: &ModeRule,
+    (mode, gates): (&ModeRule, &[Gate]),
     horizon: usize,
     misses: Option<NonZeroU32>,
     most: u32,
@@ -1139,7 +1550,7 @@ fn triggers_by_count(
         if alive <= 0.0 || previous.iter().sum::<f64>() < f64::EPSILON * f64::EPSILON {
             return counts;
         }
-        let at = convolved(&previous, p, mode);
+        let at = convolved(&previous, p, mode, gates);
         let wins = success_of(j, success, misses);
         counts.push((at, alive * (1.0 - wins)));
         counts
@@ -1163,7 +1574,13 @@ fn reached_by(counts: &[(Vec<f64>, f64)], j: usize, game: usize) -> f64 {
 /// number where they were not; a game wins nothing outright at `direct`
 /// each. On the mode's AT間天井 the AT comes whatever the triggers did;
 /// past it no leg goes on.
-fn told_leg_in_mode(p: f64, success: f64, direct: f64, mode: &ModeRule, leg: ToldLeg) -> f64 {
+fn told_leg_in_mode(odds: Odds<'_>, (mode, zones): (&ModeRule, &[Gate]), leg: ToldLeg) -> f64 {
+    let Odds {
+        chance: p,
+        success,
+        direct,
+        ..
+    } = odds;
     let games = leg.games as usize;
     let ceiling = mode.at_ceiling.map(|ceiling| ceiling.get() as usize);
     if ceiling.is_some_and(|ceiling| games > ceiling || (games == ceiling && !leg.won)) {
@@ -1175,7 +1592,7 @@ fn told_leg_in_mode(p: f64, success: f64, direct: f64, mode: &ModeRule, leg: Tol
         .map_or(u32::try_from(games).unwrap_or(u32::MAX), |misses| {
             misses + 1
         });
-    let counts = triggers_by_count(p, success, mode, games + 1, mode.misses, most);
+    let counts = triggers_by_count(p, success, (mode, zones), games + 1, mode.misses, most);
     let alive = |j: usize| counts.get(j).map_or(0.0, |(_, alive)| *alive);
     let won_at = |j: usize, game: usize| -> f64 {
         counts
@@ -1190,8 +1607,13 @@ fn told_leg_in_mode(p: f64, success: f64, direct: f64, mode: &ModeRule, leg: Tol
         alive(k) * (reached_by(&counts, k, through) - reached_by(&counts, k + 1, through))
     };
     let last = games.saturating_sub(1);
+    let direct = direct_on(direct, zones, games);
     let keep = 1.0 - direct;
-    let lasted = |through: usize| keep.powi(i32::try_from(through).unwrap_or(i32::MAX));
+    let lasted = |through: usize| {
+        (1..=through)
+            .map(|game| 1.0 - direct_on(odds.direct, zones, game))
+            .product::<f64>()
+    };
     let going = |through: usize| {
         1.0 - (1..=through)
             .map(|game| (1..counts.len()).map(|j| won_at(j, game)).sum::<f64>())
@@ -1217,14 +1639,18 @@ fn told_leg_in_mode(p: f64, success: f64, direct: f64, mode: &ModeRule, leg: Tol
 
 /// The chance a leg is told as it was, over the modes by their shares.
 fn told_leg(rules: &AtRules, table: &AtTable, shares: &[f64], leg: ToldLeg) -> f64 {
-    let p = table.chance.value();
-    let success = table.success.value();
-    let direct = table.direct.value();
+    let odds = Odds::of(table);
+    if chained(rules, odds) {
+        return crate::chain::told_leg(rules, table, shares, leg);
+    }
     rules
         .modes
         .iter()
         .zip(shares)
-        .map(|(mode, share)| share * told_leg_in_mode(p, success, direct, mode, leg))
+        .enumerate()
+        .map(|(index, (mode, share))| {
+            share * told_leg_in_mode(odds, (mode, odds.gates_of(index)), leg)
+        })
         .sum()
 }
 

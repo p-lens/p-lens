@@ -30,7 +30,7 @@ type Revising =
 
 const typed = (count: number | undefined): string => (count === undefined ? "" : String(count))
 
-const ENDED: readonly Ended[] = ["going", "cz-missed", "at"]
+const ENDED: readonly Ended[] = ["going", "cz-missed", "bonus-missed", "at"]
 
 /** How a reading's games ended, as its toggle says it: a trigger missed in the words of the machine's. */
 const endedName = (ended: Ended, trigger: TriggerWords | undefined): string => {
@@ -39,6 +39,8 @@ const endedName = (ended: Ended, trigger: TriggerWords | undefined): string => {
       return "通常"
     case "cz-missed":
       return trigger?.missed ?? ""
+    case "bonus-missed":
+      return trigger?.bonusMissed ?? ""
     case "at":
       return "AT当選"
   }
@@ -139,7 +141,7 @@ export function StepReviser(props: {
               }}
               aria-label="このゲーム数の終わり方"
             >
-              <Index each={ENDED.filter((each) => each !== "cz-missed" || props.trigger !== undefined)}>{(each) => <ToggleGroupItem value={each()}>{endedName(each(), props.trigger)}</ToggleGroupItem>}</Index>
+              <Index each={ENDED.filter((each) => (each !== "cz-missed" || props.trigger !== undefined) && (each !== "bonus-missed" || props.trigger?.bonusMissed !== undefined))}>{(each) => <ToggleGroupItem value={each()}>{endedName(each(), props.trigger)}</ToggleGroupItem>}</Index>
             </ToggleGroup>
             <div class="grid grid-cols-3 gap-3">
               <TextField label="AT間のゲーム数" value={atReading().sinceAt} onChange={(sinceAt) => setAtReading({ ...atReading(), sinceAt })} inputMode="numeric" suffix="G" invalid={unread()} onFocus={nudge.settle} />

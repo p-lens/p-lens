@@ -111,6 +111,9 @@ export interface Counter {
  * won, written when it ends — on the same games, since an AT's own games are
  * not regular ones: whether it reached the 有利区間's cap, the sets it
  * carried on to past its first, and the medals it gained, each where known.
+ * `bonus-missed` is a bonus a CZ's success brought that did not win the
+ * AT, told apart from a CZ that failed (`cz-missed`) on a machine whose CZ
+ * brings a bonus before the AT.
  * `finished` is the play's last line, written as the play is recorded: its
  * `at` is when the play finished, as the person gave it, and it adds nothing
  * to the totals.
@@ -118,6 +121,7 @@ export interface Counter {
 export type PlayEvent =
   | { readonly kind: "jackpot"; readonly approximate?: true; readonly bonus?: BonusWon }
   | { readonly kind: "cz-missed" }
+  | { readonly kind: "bonus-missed" }
   | { readonly kind: "at-ended"; readonly completed?: boolean; readonly sets?: number; readonly medals?: number }
   | { readonly kind: "finished" }
 
@@ -194,6 +198,7 @@ const isEvent = (value: unknown): value is PlayEvent =>
   isFields(value) &&
   ((value["kind"] === "jackpot" && (value["approximate"] === undefined || value["approximate"] === true) && (value["bonus"] === undefined || isBonusWon(value["bonus"]))) ||
     (value["kind"] === "cz-missed" && value["approximate"] === undefined) ||
+    (value["kind"] === "bonus-missed" && value["approximate"] === undefined) ||
     value["kind"] === "finished" ||
     isAtEnded(value))
 

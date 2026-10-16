@@ -126,7 +126,7 @@ const netIn = (step: Step): number | undefined => arg(stepUnder(step, "net_singl
 const lossIn = (step: Step): number | undefined => arg(stepUnder(step, "loss_per_game"), 0)
 
 /** The regular games a cycle lasts, as a step reasoned them or took them. */
-const cycleIn = (step: Step): number | undefined => arg(stepUnder(step, "cycle_from_first_hit", "cycle_to_at_ceiling"), 1)
+const cycleIn = (step: Step): number | undefined => arg(stepUnder(step, "cycle_from_first_hit", "cycle_to_at_ceiling", "cycle_unplayed"), 1)
 
 /** The modes' ceilings in regular games a cycle step reasoned over, `none` where a mode has none. */
 const ceilingsIn = (step: Step): readonly (number | "none")[] => {
@@ -305,7 +305,7 @@ const bonusesIn = (step: Step): { readonly medals: number; readonly games: numbe
 /** A cycle's bonuses where the trigger is one: so many a cycle times what each gains, and the games they take where their 純増 is given. */
 const bonusesLine = (step: Step, naming: GroundsNaming): Said => {
   const word = bonusWord(naming)
-  const triggers = known(arg(stepUnder(step, "cycle_triggers_free", "cycle_triggers_cut"), 1))
+  const triggers = known(arg(stepUnder(step, "cycle_triggers_free", "cycle_triggers_cut", "cycle_triggers_unplayed"), 1))
   const each = known(givenNumber(step, "trigger_payout", 0))
   const net = givenNumber(stepUnder(step, "bonus_games_counted"), "trigger_net", 0)
   const succeeding = givenNumber(stepUnder(step, "paid_on_success"), "staged", 1)
@@ -892,6 +892,12 @@ const lineOf = (step: Step, naming: GroundsNaming): Said | undefined => {
       }
     case "cycle_taken":
       return plain("1周期の通常ゲーム数 ", figure(games(arg(step, 1))), `・${triggerWord(naming)} `, figure(times(arg(step, 2))), "（計算エンジンの値）")
+    case "unverified_restarted_cycle":
+      return { parts: said("未確認：ATなしボーナスで天井やスルーを数え直す機種や、天井のCZが必ず成功する機種の1周期は、計算エンジンが解いた値をそのまま使っています"), tone: "unverified" }
+    case "unverified_redrawn_cycle":
+      return { parts: said(`未確認：${triggerWord(naming)}に失敗するとモードが移る機種や、モードごとに${triggerWord(naming)}の確率や成功率が違う機種の1周期は、計算エンジンが解いた値をそのまま使っています`), tone: "unverified" }
+    case "unverified_gated_cycle":
+      return { parts: said(`未確認：ゾーンで${triggerWord(naming)}やATを抽選する機種の1周期は、計算エンジンが解いた値をそのまま使っています`), tone: "unverified" }
     case "unverified_direct_cycle":
       return { parts: said(`未確認：${triggerWord(naming)}を通らない直撃ATがある機種の1周期は、計算エンジンが解いた値をそのまま使っています`), tone: "unverified" }
     case "unverified_forced_cycle":

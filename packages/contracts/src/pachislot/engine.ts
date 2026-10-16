@@ -75,6 +75,10 @@ export interface ComponentsDto {
   readonly at?: readonly string[]
   /** A CZ: a trigger from regular games that wins the AT at a setting's success rate. */
   readonly cz?: readonly string[]
+  /** On a CZ whose success brings a bonus: a bonus that misses the AT starts play again as after an AT — its ceilings, スルー天井 and modes counted from the bonus. */
+  readonly restart?: readonly string[]
+  /** On a CZ: the CZ its ceiling counted from the AT — or from the last bonus, where play starts again at one — brings certainly succeeds. */
+  readonly ceilingWins?: readonly string[]
   /** 初当たり: how often an AT — or the CZ that brings it — comes up, ceilings included, as analysis sheets publish it, under each setting. */
   readonly firstHit?: Readonly<Record<string, readonly BySettingLevelDto<ProbabilityDto>[]>>
   /** A CZ's chance of winning the AT, in hundredths of a percent, under each setting. */
@@ -119,6 +123,22 @@ export interface ComponentsDto {
   readonly direct?: Readonly<Record<string, readonly BySettingLevelDto<ProbabilityDto>[]>>
   /** On a CZ: the regular game since the last AT on which it comes at the latest, once — a bonus's ceiling that a bonus missing the AT does not start again. Needs an AT間天井 beyond it. */
   readonly sinceAtCeiling?: Readonly<Record<string, number>>
+  /** ゾーン: on a mode, or on the CZ of a machine without modes, the regular games since the last AT it draws at besides its chance a game. */
+  readonly gates?: Readonly<Record<string, readonly GateDto[]>>
+  /** On a mode: where a missed trigger in it moves play — the mode drawn again at each failed CZ — each mode it may go to with its share under each setting, the whole of it. A mode without stays. */
+  readonly redraw?: Readonly<Record<string, readonly RedrawDto[]>>
+  /** On a mode: where a missed trigger that came on its ceiling moves play, where that differs from `redraw` — a ceiling CZ that shortens the next ceiling. */
+  readonly ceilingRedraw?: Readonly<Record<string, readonly RedrawDto[]>>
+  /** A ceiling counted in the machine's `ceilingUnit` — points, 周期 — reaching what `ceiling` does, whichever comes first: on the trigger its ceiling, on an AT a CZ brings its AT間天井, on a mode its trigger's. Beside one anywhere in a spec, every `ceiling` counts games; a spec with a unit and none counts its trigger's `ceiling` in the unit. */
+  readonly unitCeiling?: Readonly<Record<string, number>>
+  /** The same after the settings are changed, until the first AT. */
+  readonly resetUnitCeiling?: Readonly<Record<string, number>>
+  /** A mode's own AT間天井 counted in the machine's unit. */
+  readonly atUnitCeiling?: Readonly<Record<string, number>>
+  /** On a mode: the trigger's chance a regular game in it, under each setting, in place of the one read back from the 合算 — a CZ連 at 1/19.7 a game. */
+  readonly triggerChance?: Readonly<Record<string, readonly BySettingLevelDto<ProbabilityDto>[]>>
+  /** On a mode: the games since its last trigger after which, none come, play moves to the mode `to` names. */
+  readonly expiry?: Readonly<Record<string, { readonly games: number; readonly to: string }>>
   /** A cue: one thing a watch may show on a trial — a スイカ, a lamp's colour — named by the watch. Its `chance` is a trial's; a watch's cues never share a trial. */
   readonly cue?: Readonly<Record<string, string>>
 }
@@ -170,6 +190,28 @@ export interface WatchDto {
   readonly whole: boolean
 }
 
+/** A zone: the regular game since the last AT it is on, and the shares of play still going there that it brings the trigger to and wins the AT outright on, in hundredths of a percent under each setting — the two together no more than the whole. */
+export interface GateDto {
+  readonly game: number
+  /** The games the zone draws over, evenly game by game, from `game` on — a 引き戻し of 66 games; one where it is left out. */
+  readonly span?: number
+  readonly trigger: readonly BySettingLevelDto<number>[]
+  readonly at?: readonly BySettingLevelDto<number>[]
+}
+
+/** One mode a missed trigger may move play to, and how often, in hundredths of a percent under each setting. */
+export interface RedrawDto {
+  readonly to: string
+  readonly share: readonly BySettingLevelDto<number>[]
+}
+
+/** A zone under one setting: its game, and the chances play still going there brings the trigger and wins the AT outright. */
+export interface GateChanceDto {
+  readonly game: number
+  readonly trigger: number
+  readonly at?: number
+}
+
 /**
  * An AT machine's setting: the trigger's chance a regular game below its
  * ceilings, its chance of winning the AT (one for an AT won directly), and
@@ -183,6 +225,18 @@ export interface AtTableDto {
   readonly direct?: number
   /** The share of triggers that pay the trigger's medals: the CZ's success where it brings a bonus; every one where it is left out. */
   readonly paid?: number
+  /** Where a CZ's success brings a bonus, the share of those bonuses that win the AT; all of them where it is left out. */
+  readonly bonusShare?: number
+  /** Each mode's zones under the setting, in the order of the rules' modes; left out where no mode has any. */
+  readonly gates?: readonly (readonly GateChanceDto[])[]
+  /** Each mode's own chance a trigger wins the AT, in the order of the rules' modes; left out where every mode takes `success`. */
+  readonly successes?: readonly number[]
+  /** Where a missed trigger moves play, a row of shares over the modes for each; left out where play stays in its mode from one AT to the next. */
+  readonly redraws?: readonly (readonly number[])[]
+  /** Where a missed trigger that came on its mode's ceiling moves play; left out where `redraws` says. */
+  readonly ceilingRedraws?: readonly (readonly number[])[]
+  /** Each mode's own chance a game brings the trigger, `null` for one at the table's `chance`; left out where no mode has one. */
+  readonly ownChances?: readonly (number | null)[]
   readonly allotments: { readonly afterAt: readonly number[]; readonly afterReset: readonly number[] }
   readonly payout: PayoutLawDto
 }
@@ -212,6 +266,8 @@ export interface ModeRuleDto {
   readonly misses?: number
   /** The regular game since the last AT on which the trigger comes at the latest, once. */
   readonly sinceAtCeiling?: number
+  /** Where play moves — `to`, by its place among the rules' modes — once so many games since the trigger bring none in it. */
+  readonly expiry?: { readonly games: number; readonly to: number }
 }
 
 /**
@@ -240,6 +296,10 @@ export interface AtRulesDto {
   readonly triggerIsBonus?: boolean
   /** What the trigger pays each time it comes, where it is a bonus whose medals are known: its medals, and its 純増 where its games are counted. A win on the AT間天井 pays none of it. */
   readonly triggerPayout?: { readonly medals: number; readonly netPerGame?: number }
+  /** What a bonus a CZ's success brings does when it misses the AT: counted as a miss, or — `restarts` — starting play again as after an AT. Counted where left out. */
+  readonly bonusMiss?: "counted" | "restarts"
+  /** How the CZ a ceiling counted from the AT forces fares: at the CZ's rate, or — `wins` — certainly succeeding. Drawn where left out. */
+  readonly forcedCz?: "drawn" | "wins"
 }
 
 export type SourceDto =
@@ -337,7 +397,7 @@ export interface PathDto {
 
 export interface LegDto {
   readonly games: number
-  readonly end: "going" | "missed" | "won-at"
+  readonly end: "going" | "missed" | "bonus" | "won-at"
   /** What was seen of the AT a leg ending in one won. */
   readonly at?: AtSeenDto
 }
@@ -545,6 +605,13 @@ export type EngineErrorDto =
   | { readonly type: "since-at-ceiling-beyond-at-ceiling"; readonly entity: string }
   | { readonly type: "direct-without-cz"; readonly entity: string }
   | { readonly type: "ceiling-unit-beside-lcd-rate" }
+  | { readonly type: "unit-ceiling-without-unit"; readonly entity: string }
+  | { readonly type: "gate-beyond-whole"; readonly entity: string; readonly game: number; readonly settingLevel: number }
+  | { readonly type: "gate-twice"; readonly entity: string; readonly game: number }
+  | { readonly type: "gates-beside-modes"; readonly entity: string }
+  | { readonly type: "needs-cz"; readonly entity: string; readonly component: string }
+  | { readonly type: "redraw-to-unknown"; readonly entity: string; readonly to: string }
+  | { readonly type: "redraw-not-whole"; readonly entity: string; readonly settingLevel: number; readonly sum: number }
   | { readonly type: "empty-set"; readonly entity: string }
   | { readonly type: "empty-net-per-game"; readonly entity: string }
   | { readonly type: "other-net-beyond-whole"; readonly entity: string; readonly sum: number }

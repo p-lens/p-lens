@@ -4,6 +4,7 @@ import { ACCOUNTS, offBookSavingsAccount, rentalSpreadAccount, savingsAccount } 
 import { describedBy, type Entry, type Posting } from "../journal/entry"
 import { Err, Ok, andThen, mapOk, type Result } from "../result/result"
 import { inferredTheoreticalValuePosting, theoreticalValuePosting } from "../theoretical/theoretical"
+import { playSecondsOf, playTimePosting } from "./play-time"
 import { rateOn, rateReachingBack, type PricePoint } from "../valuation/valuation"
 import { identityTags, type Parlor } from "../parlor/parlor"
 import { tokenKindOf } from "../play/play"
@@ -120,8 +121,11 @@ const tagsOf = (tally: TallyHead, parlor: Parlor | undefined): Entry["tags"] => 
   ...asideTags(tally),
 ]
 
-/** The tally's theoretical value, where it was given. */
-const statisticPostings = (tally: TallyHead): readonly Posting[] => (tally.theoreticalValue === undefined ? [] : [theoreticalValuePosting(tally.theoreticalValue)])
+/** The tally's theoretical value, where it was given, and its play's time, where its clock or the hours told of it say it. */
+const statisticPostings = (tally: TallyHead, hours?: Decimal): readonly Posting[] => {
+  const seconds = playSecondsOf(tally.clock, hours)
+  return [...(tally.theoreticalValue === undefined ? [] : [theoreticalValuePosting(tally.theoreticalValue)]), ...(seconds === undefined ? [] : [playTimePosting(seconds)])]
+}
 
 const postingsOf = (tally: TokenTally, rate: Decimal | undefined): readonly Posting[] => {
   const holding = holdingOf(tally)
@@ -187,5 +191,5 @@ export const composeYenTallyEntry = (tally: YenTally): Result<Entry, TallyError>
     date: valid.date,
     description: describe(valid, valid.parlor),
     tags: [...tagsOf(valid, valid.parlor), ...toldTags(valid.told)],
-    postings: [...yenSidePostings(valid), ...statisticPostings(valid), ...inferredPostings(valid)],
+    postings: [...yenSidePostings(valid), ...statisticPostings(valid, valid.told?.hours), ...inferredPostings(valid)],
   }))
