@@ -1,9 +1,11 @@
 use std::collections::BTreeSet;
 
-use pachislot_domain::normalized::{AtRules, Event, EventKind, NormalizedSpec, SettingLevelTable};
+use pachislot_domain::normalized::{
+    AtRules, CueChance, Event, EventKind, NormalizedSpec, SettingLevelTable, WatchRule,
+};
 use pachislot_domain::probability::{Probability, ProbabilityError, ProbabilitySource};
 use pachislot_domain::setting_level::{PerSettingLevel, SettingLevel};
-use pachislot_domain::spec::{Chance, Component, Element, EntityId, Spec};
+use pachislot_domain::spec::{Chance, Component, Element, EntityId, Spec, Watch};
 
 use pachislot_domain::version::SchemaVersion;
 
@@ -53,7 +55,7 @@ fn outcomes(element: &Element) -> Vec<Outcome<'_>> {
             kind: EventKind::Replay,
             chance: &replay.chance,
         }],
-        Element::At(_) | Element::Mode(_) | Element::Cz(_) => Vec::new(),
+        Element::At(_) | Element::Mode(_) | Element::Cz(_) | Element::Watch(_) => Vec::new(),
     }
 }
 
@@ -74,15 +76,15 @@ fn check_setting_levels(setting_levels: &[SettingLevel]) -> Result<(), SpecError
     })
 }
 
-fn check_coverage(setting_levels: &[SettingLevel], outcome: &Outcome<'_>) -> Result<(), SpecError> {
-    let given = outcome
-        .chance
-        .0
-        .iter()
-        .map(|(setting_level, _)| *setting_level);
+fn check_coverage(
+    setting_levels: &[SettingLevel],
+    id: &EntityId,
+    chance: &PerSettingLevel<ProbabilitySource>,
+) -> Result<(), SpecError> {
+    let given = chance.0.iter().map(|(setting_level, _)| *setting_level);
     if let Some(setting_level) = first_repeat(given.clone()) {
         return Err(SpecError::DuplicateSettingLevel {
-            at: Some(outcome.id.clone()),
+            at: Some(id.clone()),
             setting_level,
         });
     }
@@ -91,16 +93,16 @@ fn check_coverage(setting_levels: &[SettingLevel], outcome: &Outcome<'_>) -> Res
         .find(|setting_level| !setting_levels.contains(setting_level))
     {
         return Err(SpecError::UnknownSettingLevel {
-            at: outcome.id.clone(),
+            at: id.clone(),
             setting_level,
         });
     }
     setting_levels
         .iter()
-        .find(|setting_level| outcome.chance.get(**setting_level).is_none())
+        .find(|setting_level| chance.get(**setting_level).is_none())
         .map_or(Ok(()), |setting_level| {
             Err(SpecError::MissingSettingLevel {
-                at: outcome.id.clone(),
+                at: id.clone(),
                 setting_level: *setting_level,
             })
         })
@@ -113,28 +115,32 @@ fn problem(error: ProbabilityError) -> ProbabilityProblem {
     }
 }
 
-fn event(outcome: &Outcome<'_>, setting_level: SettingLevel) -> Result<Event, SpecError> {
-    let invalid = |problem| SpecError::InvalidProbability {
-        at: outcome.id.clone(),
-        setting_level,
-        problem,
-    };
-    let source =
-        outcome
-            .chance
-            .get(setting_level)
-            .ok_or_else(|| SpecError::MissingSettingLevel {
-                at: outcome.id.clone(),
-                setting_level,
-            })?;
-    let chance: Probability = source
+fn probability_of(
+    id: &EntityId,
+    chance: &PerSettingLevel<ProbabilitySource>,
+    setting_level: SettingLevel,
+) -> Result<Probability, SpecError> {
+    let source = chance
+        .get(setting_level)
+        .ok_or_else(|| SpecError::MissingSettingLevel {
+            at: id.clone(),
+            setting_level,
+        })?;
+    source
         .probability()
-        .map_err(|error| invalid(problem(error)))?;
+        .map_err(|error| SpecError::InvalidProbability {
+            at: id.clone(),
+            setting_level,
+            problem: problem(error),
+        })
+}
+
+fn event(outcome: &Outcome<'_>, setting_level: SettingLevel) -> Result<Event, SpecError> {
     Ok(Event {
         id: outcome.id.clone(),
         group: outcome.group.cloned(),
         kind: outcome.kind,
-        chance,
+        chance: probability_of(outcome.id, outcome.chance, setting_level)?,
     })
 }
 
@@ -154,6 +160,7 @@ fn table(
         setting_level,
         events,
         at: None,
+        cues: Vec::new(),
     })
 }
 
@@ -169,7 +176,7 @@ fn at_tables(
     let counted = elements.iter().flat_map(outcomes).collect::<Vec<_>>();
     counted
         .iter()
-        .try_for_each(|outcome| check_coverage(setting_levels, outcome))?;
+        .try_for_each(|outcome| check_coverage(setting_levels, outcome.id, outcome.chance))?;
     let rules = rules_of(machine, spec.resources.lcd_rate, spec.resources.cap);
     let bet = f64::from(spec.resources.bet.get());
     let tables = setting_levels
@@ -193,7 +200,7 @@ fn outcome_tables(
     let outcomes = elements.iter().flat_map(outcomes).collect::<Vec<_>>();
     outcomes
         .iter()
-        .try_for_each(|outcome| check_coverage(setting_levels, outcome))?;
+        .try_for_each(|outcome| check_coverage(setting_levels, outcome.id, outcome.chance))?;
     if let Some(unpaid) = outcomes
         .iter()
         .find(|outcome| outcome.kind == EventKind::Role(None))
@@ -209,6 +216,109 @@ fn outcome_tables(
         .collect()
 }
 
+/// How far from one a watch's cues may come and still be shown certainly
+/// on a trial: published shares rounded to a whole come to one exactly, and
+/// a ratio's float misses it by a rounding.
+const WHOLE_TOLERANCE: f64 = 1e-9;
+
+/// A watch's cues and their chances on a trial under one setting, which
+/// never come to more than certainty.
+fn cue_chances(watch: &Watch, setting_level: SettingLevel) -> Result<Vec<CueChance>, SpecError> {
+    let cues = watch
+        .cues
+        .iter()
+        .map(|cue| {
+            Ok(CueChance {
+                id: cue.id.clone(),
+                watch: watch.id.clone(),
+                chance: probability_of(&cue.id, &cue.chance, setting_level)?,
+            })
+        })
+        .collect::<Result<Vec<_>, SpecError>>()?;
+    let sum: f64 = cues.iter().map(|cue| cue.chance.value()).sum();
+    if sum > 1.0 + WHOLE_TOLERANCE {
+        return Err(SpecError::CuesExceedOne {
+            entity: watch.id.clone(),
+            setting_level,
+            sum,
+        });
+    }
+    Ok(cues)
+}
+
+/// A watch's rule and its cues' chances setting by setting, in the order
+/// of the settings: whole where under every setting a trial shows a cue
+/// certainly.
+fn watch_of(
+    watch: &Watch,
+    setting_levels: &[SettingLevel],
+) -> Result<(WatchRule, Vec<Vec<CueChance>>), SpecError> {
+    watch
+        .cues
+        .iter()
+        .try_for_each(|cue| check_coverage(setting_levels, &cue.id, &cue.chance))?;
+    let chances = setting_levels
+        .iter()
+        .map(|setting_level| cue_chances(watch, *setting_level))
+        .collect::<Result<Vec<_>, _>>()?;
+    let wholes = chances
+        .iter()
+        .map(|cues| {
+            (cues.iter().map(|cue| cue.chance.value()).sum::<f64>() - 1.0).abs() <= WHOLE_TOLERANCE
+        })
+        .collect::<BTreeSet<_>>();
+    if wholes.len() > 1 {
+        return Err(SpecError::WatchPartlyWhole {
+            entity: watch.id.clone(),
+        });
+    }
+    Ok((
+        WatchRule {
+            id: watch.id.clone(),
+            bonus: watch.bonus.clone(),
+            trials: watch.trials,
+            whole: wholes.contains(&true),
+        },
+        chances,
+    ))
+}
+
+/// Every watch's rule, and the cues of all of them setting by setting, in
+/// the order of the settings.
+fn watches_of(
+    elements: &[Element],
+    setting_levels: &[SettingLevel],
+) -> Result<(Vec<WatchRule>, Vec<Vec<CueChance>>), SpecError> {
+    elements
+        .iter()
+        .filter_map(|element| match element {
+            Element::Watch(watch) => Some(watch_of(watch, setting_levels)),
+            _ => None,
+        })
+        .try_fold(
+            (
+                Vec::new(),
+                setting_levels
+                    .iter()
+                    .map(|_| Vec::new())
+                    .collect::<Vec<_>>(),
+            ),
+            |(mut rules, cues), made| {
+                let (rule, chances) = made?;
+                rules.push(rule);
+                let cues = cues
+                    .into_iter()
+                    .zip(chances)
+                    .map(|(mut all, more)| {
+                        all.extend(more);
+                        all
+                    })
+                    .collect();
+                Ok((rules, cues))
+            },
+        )
+}
+
 /// Checks a spec and reads it into one table per setting: of a regular
 /// game's outcomes, or of an AT machine's trigger and modes.
 ///
@@ -216,8 +326,9 @@ fn outcome_tables(
 /// When the spec has no settings or repeats one, its components do not make
 /// a bonus, small win, replay, AT, CZ or mode of each entity, a chance leaves
 /// a setting without a value or gives one for a setting the machine lacks, a
-/// probability is impossible, a game's outcomes exceed certainty, or an AT
-/// machine's figures do not make one.
+/// probability is impossible, a game's outcomes or a watch's cues exceed
+/// certainty, a watch's cues are certain under some settings alone, or an
+/// AT machine's figures do not make one.
 pub fn normalize(spec: &Spec) -> Result<NormalizedSpec, SpecError> {
     let setting_levels = &spec.resources.setting_levels;
     check_setting_levels(setting_levels)?;
@@ -229,10 +340,16 @@ pub fn normalize(spec: &Spec) -> Result<NormalizedSpec, SpecError> {
     } else {
         (outcome_tables(&elements, setting_levels)?, None)
     };
+    let (watches, cues) = watches_of(&elements, setting_levels)?;
     Ok(NormalizedSpec {
         schema_version: SchemaVersion::CURRENT,
         bet: spec.resources.bet.get(),
-        tables,
+        tables: tables
+            .into_iter()
+            .zip(cues)
+            .map(|(table, cues)| SettingLevelTable { cues, ..table })
+            .collect(),
         at_rules,
+        watches,
     })
 }

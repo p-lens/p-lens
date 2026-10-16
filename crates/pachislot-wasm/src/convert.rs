@@ -7,8 +7,8 @@ use std::num::{NonZeroU32, NonZeroU64};
 use pachislot_domain::conditions::{PayoutBasis, PayoutRate, PlayConditions};
 use pachislot_domain::distribution::Distribution;
 use pachislot_domain::normalized::{
-    Allotments, AtRules, AtTable, Event, EventKind, ModeRule, NormalizedSpec, PayoutLaw,
-    SettingLevelTable,
+    Allotments, AtRules, AtTable, CueChance, Event, EventKind, ModeRule, NormalizedSpec, PayoutLaw,
+    SettingLevelTable, WatchRule,
 };
 use pachislot_domain::observation::{
     AtSeen, Leg, LegEnd, Path, PathStart, Segment, ToldLeg, ToldPath,
@@ -31,12 +31,12 @@ use pachislot_simulator::session::{Plan, Progress};
 
 use crate::dto::{
     AllotmentsDto, AnalysisDto, AtFigureDto, AtRulesDto, AtTableDto, BonusFigureDto, BucketDto,
-    BySettingLevelDto, ComponentsDto, ConditionsDto, ContributionDto, DistributionDto, ErrorDto,
-    EstimateProgressDto, EstimateSummaryDto, EventDto, EventKindDto, LawRowDto, LegEndDto,
-    ModeRuleDto, NormalizedSpecDto, PathDto, PathStartDto, PayoutBasisDto, PayoutLawDto,
+    BySettingLevelDto, ComponentsDto, ConditionsDto, ContributionDto, CueDto, DistributionDto,
+    ErrorDto, EstimateProgressDto, EstimateSummaryDto, EventDto, EventKindDto, LawRowDto,
+    LegEndDto, ModeRuleDto, NormalizedSpecDto, PathDto, PathStartDto, PayoutBasisDto, PayoutLawDto,
     PayoutRowDto, PlayDto, PosteriorDto, ProbabilityDto, ProbabilityProblemDto, ProgressDto,
     SegmentDto, SettingLevelEstimateDto, SettingLevelFiguresDto, SpecDto, SummaryDto, TableDto,
-    TallyDto, TheoreticalValueDto, ToldPathDto, WeightDto,
+    TallyDto, TheoreticalValueDto, ToldPathDto, WatchDto, WeightDto,
 };
 
 fn invalid(field: &str) -> ErrorDto {
@@ -124,6 +124,10 @@ fn listed(names: &[String], field: &str) -> Result<BTreeSet<EntityId>, ErrorDto>
         .collect()
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "one field for each component, each as plain as the last"
+)]
 fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
     if let Some(name) = dto.unsupported.keys().next() {
         return Err(ErrorDto::UnsupportedComponent {
@@ -221,6 +225,11 @@ fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
             NonZeroU32::new(*games).ok_or_else(|| invalid(at))
         })?,
         reset_on_cap: listed(&dto.reset_on_cap, "spec.components.resetOnCap")?,
+        watch: table(&dto.watch, "spec.components.watch", |of, at| id(of, at))?,
+        trials: table(&dto.trials, "spec.components.trials", |count, at| {
+            NonZeroU32::new(*count).ok_or_else(|| invalid(at))
+        })?,
+        cue: table(&dto.cue, "spec.components.cue", |of, at| id(of, at))?,
     })
 }
 
@@ -507,6 +516,12 @@ pub fn normalized_spec(dto: &NormalizedSpecDto) -> Result<NormalizedSpec, ErrorD
                         .as_ref()
                         .map(|each| at_table(each, &format!("{at}.at")))
                         .transpose()?,
+                    cues: table
+                        .cues
+                        .iter()
+                        .enumerate()
+                        .map(|(position, each)| cue(each, &format!("{at}.cues[{position}]")))
+                        .collect::<Result<_, _>>()?,
                 })
             })
             .collect::<Result<_, _>>()?,
@@ -515,6 +530,29 @@ pub fn normalized_spec(dto: &NormalizedSpecDto) -> Result<NormalizedSpec, ErrorD
             .as_ref()
             .map(|rules| at_rules(rules, SchemaVersion::new(dto.schema_version)))
             .transpose()?,
+        watches: dto
+            .watches
+            .iter()
+            .enumerate()
+            .map(|(index, each)| watch_rule(each, &format!("normalized.watches[{index}]")))
+            .collect::<Result<_, _>>()?,
+    })
+}
+
+fn cue(dto: &CueDto, field: &str) -> Result<CueChance, ErrorDto> {
+    Ok(CueChance {
+        id: id(&dto.id, &format!("{field}.id"))?,
+        watch: id(&dto.watch, &format!("{field}.watch"))?,
+        chance: Probability::new(dto.chance).map_err(|_| invalid(&format!("{field}.chance")))?,
+    })
+}
+
+fn watch_rule(dto: &WatchDto, field: &str) -> Result<WatchRule, ErrorDto> {
+    Ok(WatchRule {
+        id: id(&dto.id, &format!("{field}.id"))?,
+        bonus: id(&dto.bonus, &format!("{field}.bonus"))?,
+        trials: NonZeroU32::new(dto.trials).ok_or_else(|| invalid(&format!("{field}.trials")))?,
+        whole: dto.whole,
     })
 }
 
@@ -558,6 +596,25 @@ pub fn normalized_dto(spec: &NormalizedSpec) -> NormalizedSpecDto {
                     },
                     payout: payout_law_dto(&each.payout),
                 }),
+                cues: table
+                    .cues
+                    .iter()
+                    .map(|cue| CueDto {
+                        id: named(&cue.id),
+                        watch: named(&cue.watch),
+                        chance: cue.chance.value(),
+                    })
+                    .collect(),
+            })
+            .collect(),
+        watches: spec
+            .watches
+            .iter()
+            .map(|watch| WatchDto {
+                id: named(&watch.id),
+                bonus: named(&watch.bonus),
+                trials: watch.trials.get(),
+                whole: watch.whole,
             })
             .collect(),
         at_rules: spec.at_rules.as_ref().map(|rules| AtRulesDto {
@@ -763,6 +820,9 @@ fn component_name(component: Component) -> String {
         Component::Rate => "rate",
         Component::Window => "window",
         Component::ResetOnCap => "resetOnCap",
+        Component::Watch => "watch",
+        Component::Trials => "trials",
+        Component::Cue => "cue",
     }
     .to_owned()
 }
@@ -809,6 +869,26 @@ pub fn spec_error_dto(error: &SpecError) -> ErrorDto {
         SpecError::PartOfNonBonus { entity, of } => ErrorDto::PartOfNonBonus {
             entity: named(entity),
             of: named(of),
+        },
+        SpecError::WatchOfNonBonus { entity, of } => ErrorDto::WatchOfNonBonus {
+            entity: named(entity),
+            of: named(of),
+        },
+        SpecError::CueOfNonWatch { entity, of } => ErrorDto::CueOfNonWatch {
+            entity: named(entity),
+            of: named(of),
+        },
+        SpecError::CuesExceedOne {
+            entity,
+            setting_level,
+            sum,
+        } => ErrorDto::CuesExceedOne {
+            entity: named(entity),
+            setting_level: setting_level.get(),
+            sum: *sum,
+        },
+        SpecError::WatchPartlyWhole { entity } => ErrorDto::WatchPartlyWhole {
+            entity: named(entity),
         },
         SpecError::InvalidProbability {
             at,
@@ -934,6 +1014,10 @@ pub fn inference_error_dto(error: &InferenceError) -> ErrorDto {
         InferenceError::CountsExceedGames { segment } => {
             ErrorDto::CountsExceedGames { segment: *segment }
         }
+        InferenceError::CuesExceedTrials { segment, id } => ErrorDto::CuesExceedTrials {
+            segment: *segment,
+            id: named(id),
+        },
         InferenceError::PriorMismatch { setting_level } => ErrorDto::PriorMismatch {
             setting_level: setting_level.get(),
         },

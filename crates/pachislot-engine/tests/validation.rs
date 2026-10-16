@@ -1,4 +1,4 @@
-#![allow(clippy::expect_used)]
+#![allow(clippy::expect_used, clippy::indexing_slicing)]
 
 mod support;
 
@@ -9,7 +9,9 @@ use pachislot_domain::setting_level::PerSettingLevel;
 use pachislot_domain::spec::Component;
 use pachislot_engine::error::{ProbabilityProblem, SpecError};
 use pachislot_engine::normalize::normalize;
-use support::{id, medals, one_in, per, percent, made_up_spec, setting_level, with_role};
+use support::{
+    id, made_up_spec, medals, one_in, per, percent, setting_level, watched_spec, with_role,
+};
 
 #[test]
 fn the_made_up_normalises_into_one_table_per_setting() {
@@ -221,4 +223,120 @@ fn a_game_cannot_come_up_with_more_than_certainty() {
         normalize(&with_role("bell", per(percent(7_000), percent(10)))),
         Err(SpecError::ProbabilitiesExceedOne { setting_level: s, .. }) if s == setting_level(1)
     ));
+}
+
+#[test]
+fn a_watch_normalises_into_its_rule_and_each_settings_cues() {
+    let normalized = normalize(&watched_spec()).expect("normalises");
+    let rules = normalized
+        .watches
+        .iter()
+        .map(|watch| {
+            (
+                watch.id.as_str(),
+                watch.bonus.as_str(),
+                watch.trials.get(),
+                watch.whole,
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        rules,
+        vec![
+            ("big-games", "big", 20, false),
+            ("reg-lamp", "reg", 1, true)
+        ]
+    );
+    let cues = normalized.tables[1]
+        .cues
+        .iter()
+        .map(|cue| (cue.id.as_str(), cue.watch.as_str(), cue.chance.value()))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        cues,
+        vec![
+            ("big-suika", "big-games", 1.0 / 30.0),
+            ("lamp-blue", "reg-lamp", 0.4),
+            ("lamp-red", "reg-lamp", 0.6)
+        ]
+    );
+    assert!(
+        normalized.tables[0]
+            .events
+            .iter()
+            .all(|event| event.id != id("big-suika") && event.id != id("big-games"))
+    );
+}
+
+#[test]
+fn a_watch_is_over_a_bonus_and_has_a_cue() {
+    let mut astray = watched_spec();
+    astray.components.watch.insert(id("big-games"), id("grape"));
+    assert_eq!(
+        normalize(&astray),
+        Err(SpecError::WatchOfNonBonus {
+            entity: id("big-games"),
+            of: id("grape")
+        })
+    );
+    let mut bare = watched_spec();
+    bare.components.cue.remove(&id("big-suika"));
+    bare.components.chance.remove(&id("big-suika"));
+    bare.entities.retain(|entity| entity != &id("big-suika"));
+    assert_eq!(
+        normalize(&bare),
+        Err(SpecError::MissingComponent {
+            entity: id("big-games"),
+            component: Component::Cue
+        })
+    );
+}
+
+#[test]
+fn a_cue_belongs_to_a_watch_and_trials_to_one() {
+    let mut astray = watched_spec();
+    astray.components.cue.insert(id("lamp-red"), id("big"));
+    assert_eq!(
+        normalize(&astray),
+        Err(SpecError::CueOfNonWatch {
+            entity: id("lamp-red"),
+            of: id("big")
+        })
+    );
+    let mut stray = watched_spec();
+    stray
+        .components
+        .trials
+        .insert(id("big"), NonZeroU32::new(2).expect("trials"));
+    assert_eq!(
+        normalize(&stray),
+        Err(SpecError::MissingComponent {
+            entity: id("big"),
+            component: Component::Watch
+        })
+    );
+}
+
+#[test]
+fn a_watchs_cues_never_exceed_certainty_and_are_certain_under_every_setting_or_none() {
+    let mut beyond = watched_spec();
+    beyond
+        .components
+        .chance
+        .insert(id("lamp-red"), per(percent(4_100), percent(6_000)));
+    assert!(matches!(
+        normalize(&beyond),
+        Err(SpecError::CuesExceedOne { entity, setting_level: s, .. }) if entity == id("reg-lamp") && s == setting_level(1)
+    ));
+    let mut partly = watched_spec();
+    partly
+        .components
+        .chance
+        .insert(id("lamp-red"), per(percent(3_900), percent(6_000)));
+    assert_eq!(
+        normalize(&partly),
+        Err(SpecError::WatchPartlyWhole {
+            entity: id("reg-lamp")
+        })
+    );
 }

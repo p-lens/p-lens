@@ -1193,6 +1193,17 @@ only the primitives, the core and the application.
   `MissingComponent`, `ConflictingComponents`, `StrayComponent`,
   `PartOfNonBonus` — and a component table the engine does not know is
   refused by its name rather than misread.
+- **What is watched over a bonus is a watch and its cues.** A `watch` names
+  the bonus it is watched over — a BIG's games for a スイカ, a REG's side
+  lamp — `trials` the times each of the bonus gives it (one where left out),
+  and a `cue` one thing it may show on a trial, with its `chance` per trial.
+  None is a regular game's: cues never count towards the games played, and
+  sit beside a table's events as its `cues`. A stretch watched a watch where
+  it counts any of its cues, a cue counted none included. Where a trial shows
+  a cue certainly under every setting level (a lamp's colours), the cues
+  counted are weighed among themselves; otherwise every trial of the bonus
+  counted in the stretch is weighed, those with no cue as showing none, and
+  more cues than trials is `CuesExceedTrials`.
 - **設定 is a setting level** — `SettingLevel`, `settingLevels` — in full
   everywhere: 6 is the highest and the best, and "settings" would read as the
   app's own. A machine lists the setting levels it has (`1, 2, 4, 5, 6` is
@@ -2162,6 +2173,7 @@ is not written out here a second time.
 | 解析値（パチスロの期待値基礎値） | basis (a pachislot formula's world) |
 | 設定 / 設定配分 | setting level (`SettingLevel`, `settingLevels`) / setting distribution, the prior |
 | 小役 / ボーナス / リプレイ / 単独・重複 | small win (role) / bonus / replay / parts of a bonus (`partOf`) |
+| ボーナス中に見る場面 / 示唆（BIG中スイカ・サイドランプ） | watch (`watch`, its `trials`) / cue (`cue`), never a regular game's |
 | 機械割 / 差枚 / 合算 | payout rate / medals won or lost / combined bonus odds |
 | 高設定期待度 / 期待設定 | the chance of a high setting level / the setting level averaged by its odds |
 | AT / CZ | AT (`at`) / CZ (`cz`); either is the trigger (`trigger`) a regular game may bring |

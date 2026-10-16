@@ -190,6 +190,17 @@ pub struct Components {
     /// An AT after which, once it reaches the cap, play starts again as
     /// after a setting change: its ceilings and allotments are those.
     pub reset_on_cap: BTreeSet<EntityId>,
+    /// A watch: what a player watches over each of a bonus, named by the
+    /// bonus — the BIG's games for a スイカ, the REG's side lamp — and never
+    /// a regular game's.
+    pub watch: BTreeMap<EntityId, EntityId>,
+    /// The trials each of a watch's bonus gives it — a BIG's games for a
+    /// スイカ in them — one where it is left out.
+    pub trials: BTreeMap<EntityId, NonZeroU32>,
+    /// A cue: one thing a watch may show on a trial — a スイカ, a lamp's
+    /// colour — named by the watch. Its chance is a trial's, under each
+    /// setting, and a watch's cues are never shown on the same trial.
+    pub cue: BTreeMap<EntityId, EntityId>,
 }
 
 /// An AT paid in sets: so many medals for its first, and so many for each
@@ -235,6 +246,9 @@ pub enum Component {
     Rate,
     Window,
     ResetOnCap,
+    Watch,
+    Trials,
+    Cue,
 }
 
 /// What an entity is, as the engine queries it from its components.
@@ -246,6 +260,30 @@ pub enum Element {
     At(At),
     Mode(Mode),
     Cz(Cz),
+    Watch(Watch),
+}
+
+/// A watch: what a player watches over each of a bonus — its games, or a
+/// lamp once — so many trials a bonus, and the cues a trial may show. A
+/// trial shows one cue at most; where under every setting it shows one
+/// certainly, a trial with none counted was not watched, and otherwise it
+/// showed none.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Watch {
+    pub id: EntityId,
+    pub label: String,
+    pub bonus: EntityId,
+    pub trials: NonZeroU32,
+    pub cues: Vec<Cue>,
+}
+
+/// One thing a watch may show on a trial, and how often it does under each
+/// setting.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Cue {
+    pub id: EntityId,
+    pub label: String,
+    pub chance: PerSettingLevel<ProbabilitySource>,
 }
 
 /// A CZ: won from regular games at its published 合算 — its ceiling, its

@@ -31,6 +31,8 @@ const KINDS: readonly SelectOption[] = [
   { value: "part", label: "ボーナスの内訳（単独・重複）" },
   { value: "role", label: "小役" },
   { value: "replay", label: "リプレイ" },
+  { value: "watch", label: "ボーナス中に見る場面" },
+  { value: "cue", label: "示唆" },
 ]
 
 const isKind = (value: string): value is EntityKindName => KINDS.some((kind) => kind.value === value)
@@ -145,7 +147,9 @@ function RowEditor(props: {
 }): JSX.Element {
   const bonuses = (): readonly SelectOption[] =>
     props.form.rows.filter((row) => row.kind === "bonus").map((row, index) => ({ value: row.key, label: bonusTitle(row.label, index + 1) }))
-  const split = (): boolean => props.row.kind === "bonus" && props.form.rows.some((row) => row.kind === "part" && row.partOf === props.row.key)
+  const watches = (): readonly SelectOption[] =>
+    props.form.rows.filter((row) => row.kind === "watch").map((row, index) => ({ value: row.key, label: row.label.trim() === "" ? `場面${index + 1}` : row.label }))
+  const split = (): boolean => props.row.kind === "bonus" && props.form.rows.some((row) => row.kind === "part" && row.of === props.row.key)
   /** Whether the row is asked its medals: a bonus and an AT; a small win where its medals are its own, never on a sheet typed in by hand, whose small wins are counted on an AT machine and pay through its ベース. */
   const paid = (): boolean => props.row.kind === "bonus" || props.row.kind === "at" || (props.row.kind === "role" && !props.manual)
   const brought = (): boolean => props.row.kind === "at" && hasCz(props.form)
@@ -177,7 +181,27 @@ function RowEditor(props: {
         </Show>
         <Show when={props.row.kind === "part"}>
           <div class="min-w-32 flex-1">
-            <Select label="どのボーナスの内訳か" placeholder="ボーナス" options={bonuses()} value={props.row.partOf} onChange={(partOf) => props.onChange({ ...props.row, partOf })} />
+            <Select label="どのボーナスの内訳か" placeholder="ボーナス" options={bonuses()} value={props.row.of} onChange={(of) => props.onChange({ ...props.row, of })} />
+          </div>
+        </Show>
+        <Show when={props.row.kind === "watch"}>
+          <div class="min-w-32 flex-1">
+            <Select label="どのボーナスで見るか" placeholder="ボーナス" options={bonuses()} value={props.row.of} onChange={(of) => props.onChange({ ...props.row, of })} />
+          </div>
+          <div class="w-36">
+            <TextField
+              label="ボーナス1回の回数"
+              value={props.row.trials}
+              onChange={(trials) => props.onChange({ ...props.row, trials })}
+              inputMode="numeric"
+              suffix="回"
+              placeholder="1"
+            />
+          </div>
+        </Show>
+        <Show when={props.row.kind === "cue"}>
+          <div class="min-w-32 flex-1">
+            <Select label="どの場面の示唆か" placeholder="場面" options={watches()} value={props.row.of} onChange={(of) => props.onChange({ ...props.row, of })} />
           </div>
         </Show>
         <Show when={paid() && (props.row.kind !== "at" || props.row.law.shape === "average")}>
@@ -263,6 +287,9 @@ function RowEditor(props: {
       <Show when={brought()}>
         <p class="text-xs text-text-muted">ATの初当たりは、CZ合算と成功率・天井から正確に計算します。</p>
       </Show>
+      <Show when={props.row.kind === "watch"}>
+        <p class="text-xs text-text-muted">ボーナス1回で何回見るかを入れます。BIG中のスイカならBIGのゲーム数、REG中のランプなら1回です。示唆の確率は、その1回あたりで入れてください。</p>
+      </Show>
       <Show when={props.row.kind === "cz"}>
         <span class={LABEL}>CZ合算（公表値・天井込み）</span>
         <LevelCells name={`${name("CZ")} 合算`} levels={props.form.settingLevels} values={props.row.chances} placeholder="1/" onChange={(chances) => props.onChange({ ...props.row, chances })} />
@@ -278,7 +305,7 @@ function RowEditor(props: {
         <CzDepths row={props.row} form={props.form} onChange={props.onChange} />
       </Show>
       <Show
-        when={props.row.kind !== "mode" && props.row.kind !== "cz" && !brought()}
+        when={props.row.kind !== "mode" && props.row.kind !== "cz" && props.row.kind !== "watch" && !brought()}
         fallback={
           <Show when={props.row.kind === "mode"}>
             <div class="flex flex-col gap-2">
@@ -339,11 +366,14 @@ const ADDABLE: readonly { readonly kind: EntityKindName; readonly label: string 
   { kind: "part", label: "内訳を追加" },
   { kind: "role", label: "小役を追加" },
   { kind: "replay", label: "リプレイを追加" },
+  { kind: "watch", label: "見る場面を追加" },
+  { kind: "cue", label: "示唆を追加" },
 ]
 
 /**
  * A machine's 解析値: its setting levels, its bet, and each entity — a bonus,
- * a part of one, a small win, a replay — with its chance under each level.
+ * a part of one, a small win, a replay, or what is watched over a bonus and
+ * the cues it shows — with its chance under each level.
  * Chances are typed as an analysis sheet prints them: `1/273.1` or `16%`.
  */
 export function WorldEditor(props: { readonly form: WorldForm; readonly onChange: (form: WorldForm) => void }): JSX.Element {
@@ -567,7 +597,7 @@ function MachineShape(props: { readonly form: ManualForm; readonly onChange: (fo
 
 /**
  * A formula typed in by hand: its setting levels, its bonuses' odds — their
- * payout may be left out — or its AT's, with the AT's payout, its ceilings
+ * payout may be left out — and what is watched over them, or its AT's, with the AT's payout, its ceilings
  * and the machine's ベース; and each level's 機械割 as published or measured.
  */
 export function ManualEditor(props: { readonly form: ManualForm; readonly onChange: (form: ManualForm) => void }): JSX.Element {
@@ -625,6 +655,14 @@ export function ManualEditor(props: { readonly form: ManualForm; readonly onChan
         >
           {isAtMachine(world()) ? "モードを追加" : "ボーナスを追加"}
         </Button>
+        <Show when={!isAtMachine(world())}>
+          <Button variant="secondary" size="small" onClick={() => setWorld({ ...world(), rows: [...world().rows, newRow(world().rows, "watch")] })}>
+            見る場面を追加
+          </Button>
+          <Button variant="secondary" size="small" onClick={() => setWorld({ ...world(), rows: [...world().rows, newRow(world().rows, "cue")] })}>
+            示唆を追加
+          </Button>
+        </Show>
       </div>
     </div>
   )

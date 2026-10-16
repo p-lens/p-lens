@@ -16,14 +16,15 @@ type Read<T> = Result<T, FormProblem>
 export const ALL_SETTING_LEVELS: readonly number[] = [1, 2, 3, 4, 5, 6]
 
 /** What a row of the 解析値 is. */
-export type EntityKindName = "bonus" | "part" | "role" | "replay" | "at" | "cz" | "mode"
+export type EntityKindName = "bonus" | "part" | "role" | "replay" | "at" | "cz" | "mode" | "watch" | "cue"
 
 /**
  * One entity of the world as typed: a bonus, a part of one, a small win, a
  * replay, an AT or a CZ, with its chance under each setting level — an AT's
  * or a CZ's being its 初当たり as published, ceilings included; an AT a CZ
- * brings has none — or a mode, whose `chances` are its 振り分け after an AT,
- * in percent. Its key is its entity's id, made once when the row is and kept
+ * brings has none — a mode, whose `chances` are its 振り分け after an AT,
+ * in percent, or what a player watches over each of a bonus — a watch, with
+ * no chance of its own, and its cues, each with its chance on a trial. Its key is its entity's id, made once when the row is and kept
  * however it is relabelled, so the counts a play files under it stay where
  * they are.
  */
@@ -31,8 +32,10 @@ export interface EntityRow {
   readonly key: string
   readonly label: string
   readonly kind: EntityKindName
-  /** The key of the bonus a part belongs to. */
-  readonly partOf: string
+  /** The key of the row it belongs to: a part's bonus or a watch's, a cue's watch. */
+  readonly of: string
+  /** A watch's trials each of its bonus gives, as typed: a BIG's games for a スイカ; empty for one. */
+  readonly trials: string
   readonly payout: string
   /** Each setting level's chance as typed — `1/273.1`, `273.1`, `16%` — by the level. */
   readonly chances: Readonly<Record<string, string>>
@@ -119,7 +122,8 @@ const row = (key: string, label: string, kind: EntityKindName, payout = ""): Ent
   key,
   label,
   kind,
-  partOf: "",
+  of: "",
+  trials: "",
   payout,
   chances: {},
   ceiling: "",
@@ -261,7 +265,7 @@ const problemsOf = (reads: readonly Read<unknown>[]): readonly FormProblem[] => 
 const valuesOf = <T,>(reads: readonly Read<T>[]): readonly T[] => reads.flatMap((read) => (read.ok ? [read.value] : []))
 
 /** The bonus keys some part belongs to: their chance is their parts'. */
-const splitBonuses = (form: WorldForm): ReadonlySet<string> => new Set(form.rows.filter((each) => each.kind === "part").map((each) => each.partOf))
+const splitBonuses = (form: WorldForm): ReadonlySet<string> => new Set(form.rows.filter((each) => each.kind === "part").map((each) => each.of))
 
 /** What a row's components come to, read: its chance per level, its payout, and where it belongs. */
 interface ReadRow {
@@ -276,6 +280,8 @@ interface ReadRow {
   readonly resetAllotment: readonly BySettingLevelDto<number>[] | undefined
   readonly success: readonly BySettingLevelDto<number>[] | undefined
   readonly misses: number | undefined
+  /** A watch's trials, where more than one. */
+  readonly trials: number | undefined
   readonly law: ReadLaw | undefined
 }
 
@@ -350,6 +356,26 @@ const readLaw = (form: WorldForm, entity: EntityRow, name: string): Result<ReadL
   })
 }
 
+/** What a row that belongs to another must name: a part and a watch a bonus, a cue a watch. */
+const OWNERS: Partial<Readonly<Record<EntityKindName, { readonly kind: EntityKindName; readonly field: string }>>> = {
+  part: { kind: "bonus", field: "どのボーナスの内訳か" },
+  watch: { kind: "bonus", field: "どのボーナスで見るか" },
+  cue: { kind: "watch", field: "どの場面の示唆か" },
+}
+
+/** The row a row belongs to, where it is one that belongs to another. */
+const ofRead = (form: WorldForm, entity: EntityRow, name: string): Read<string> => {
+  const owner = OWNERS[entity.kind]
+  if (owner === undefined) return Ok("")
+  return form.rows.some((other) => other.key === entity.of && other.kind === owner.kind) ? Ok(entity.of) : Err({ field: `${name} ${owner.field}`, reason: "required" })
+}
+
+/** A watch's trials: empty for one, else a whole number above none; one is left out of the world. */
+const trialsOf = (text: string, field: string): Read<number | undefined> => {
+  const read = ceilingOf(text, field)
+  return read.ok && read.value === 1 ? Ok(undefined) : read
+}
+
 /** Whether a row's payout must be given, may be, or is not had at all. */
 type PayoutRule = "required" | "optional" | "none"
 
@@ -359,7 +385,8 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
   const isMode = entity.kind === "mode"
   const isCz = entity.kind === "cz"
   const brought = entity.kind === "at" && hasCz(form)
-  const hasChance = !isMode && !brought && !(entity.kind === "bonus" && splitBonuses(form).has(entity.key))
+  const isWatch = entity.kind === "watch"
+  const hasChance = !isMode && !isWatch && !brought && !(entity.kind === "bonus" && splitBonuses(form).has(entity.key))
   const chances: readonly Read<BySettingLevelDto<ProbabilityDto>>[] = hasChance
     ? form.settingLevels.map((level) => {
         const read = chanceOf(entity.chances[String(level)] ?? "", `${name}${isCz ? " 合算" : ""} 設定${level}`)
@@ -373,15 +400,15 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
   const rule = payoutRule(entity)
   const payout: Read<number | undefined> =
     rule === "none" || (rule === "optional" && tidyTyped(entity.payout) === "") ? Ok(undefined) : medalsOf(entity.payout, `${name} 枚数`)
-  const partOf: Read<string> =
-    entity.kind !== "part" ? Ok("") : form.rows.some((other) => other.key === entity.partOf && other.kind === "bonus") ? Ok(entity.partOf) : Err({ field: `${name} どのボーナスの内訳か`, reason: "required" })
+  const of = ofRead(form, entity, name)
+  const trials = isWatch ? trialsOf(entity.trials, `${name} ボーナス1回の回数`) : Ok(undefined)
   const ceiling = entity.kind === "at" || isCz || isMode ? ceilingOf(entity.ceiling, `${name} ${brought ? "AT間天井" : "天井"}`) : Ok(undefined)
   const resetCeiling =
     (entity.kind === "at" && !hasModes(form)) || isCz ? ceilingOf(entity.resetCeiling, `${name} ${brought ? "リセット後のAT間天井" : "リセット後の天井"}`) : Ok(undefined)
   const atCeiling = isMode && hasCz(form) ? ceilingOf(entity.atCeiling, `${name} AT間天井`) : Ok(undefined)
   const law = entity.kind === "at" ? readLaw(form, entity, name) : Ok(undefined)
   const problems = [
-    ...problemsOf([label, payout, partOf, ceiling, resetCeiling, atCeiling, misses, ...chances, ...allotment, ...(resetAllotment ?? []), ...success]),
+    ...problemsOf([label, payout, of, trials, ceiling, resetCeiling, atCeiling, misses, ...chances, ...allotment, ...(resetAllotment ?? []), ...success]),
     ...(law.ok ? [] : law.error),
   ]
   if (problems.length > 0 || !law.ok) return Err(problems)
@@ -396,6 +423,7 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
     resetAllotment: resetAllotment === undefined ? undefined : valuesOf(resetAllotment),
     success: isCz ? valuesOf(success) : undefined,
     misses: misses.ok ? misses.value : undefined,
+    trials: trials.ok ? trials.value : undefined,
     law: law.value,
   })
 }
@@ -415,7 +443,11 @@ const worldOf = (form: WorldForm, bet: number, at: MachineResources | undefined,
       return value === undefined ? [] : [[read.entity.key, value] as const]
     }))
   const listed = (kind: EntityKindName): readonly string[] => rows.filter((read) => read.entity.kind === kind).map((read) => read.entity.key)
-  const parts = keyed((read) => (read.entity.kind === "part" ? read.entity.partOf : undefined))
+  const owned = (kind: EntityKindName): Readonly<Record<string, string>> => keyed((read) => (read.entity.kind === kind ? read.entity.of : undefined))
+  const parts = owned("part")
+  const watches = owned("watch")
+  const cues = owned("cue")
+  const trials = keyed((read) => read.trials)
   const isAt = (read: ReadRow): boolean => read.entity.kind === "at"
   const isCz = (read: ReadRow): boolean => read.entity.kind === "cz"
   const isMode = (read: ReadRow): boolean => read.entity.kind === "mode"
@@ -438,7 +470,7 @@ const worldOf = (form: WorldForm, bet: number, at: MachineResources | undefined,
     entities: rows.map((read) => read.entity.key),
     components: {
       label: keyed((read) => read.entity.label.trim()),
-      ...(rows.some((read) => !isAt(read) && !isCz(read) && !isMode(read)) ? { chance: keyed((read) => (isAt(read) || isCz(read) ? undefined : read.chance)) } : {}),
+      ...(rows.some((read) => !isAt(read) && !isCz(read) && !isMode(read) && read.entity.kind !== "watch") ? { chance: keyed((read) => (isAt(read) || isCz(read) ? undefined : read.chance)) } : {}),
       ...(rows.some((read) => read.payout !== undefined) ? { payout: keyed((read) => read.payout) } : {}),
       ...(listed("bonus").length > 0 ? { bonus: listed("bonus") } : {}),
       ...(listed("replay").length > 0 ? { replay: listed("replay") } : {}),
@@ -458,6 +490,9 @@ const worldOf = (form: WorldForm, bet: number, at: MachineResources | undefined,
       ...(Object.keys(otherNets).length > 0 ? { otherNet: otherNets } : {}),
       ...(Object.keys(windows).length > 0 ? { window: windows } : {}),
       ...(resetOnCap.length > 0 ? { resetOnCap } : {}),
+      ...(Object.keys(watches).length > 0 ? { watch: watches } : {}),
+      ...(Object.keys(trials).length > 0 ? { trials } : {}),
+      ...(Object.keys(cues).length > 0 ? { cue: cues } : {}),
     },
     resources: {
       settingLevels: form.settingLevels.toSorted((left, right) => left - right),
@@ -528,6 +563,8 @@ const kindOf = (spec: SpecDto, entity: string): EntityKindName => {
   if (components.mode?.includes(entity) === true) return "mode"
   if (components.bonus?.includes(entity) === true) return "bonus"
   if (components.replay?.includes(entity) === true) return "replay"
+  if (components.watch?.[entity] !== undefined) return "watch"
+  if (components.cue?.[entity] !== undefined) return "cue"
   return components.partOf?.[entity] === undefined ? "role" : "part"
 }
 
@@ -564,7 +601,8 @@ export const worldFormOf = (spec: SpecDto): WorldForm => ({
     key: entity,
     label: spec.components.label?.[entity] ?? entity,
     kind: kindOf(spec, entity),
-    partOf: spec.components.partOf?.[entity] ?? "",
+    of: spec.components.partOf?.[entity] ?? spec.components.watch?.[entity] ?? spec.components.cue?.[entity] ?? "",
+    trials: spec.components.trials?.[entity] === undefined ? "" : String(spec.components.trials[entity]),
     payout: spec.components.payout?.[entity] === undefined ? "" : String(spec.components.payout[entity]),
     chances: Object.fromEntries([
       ...(spec.components.chance?.[entity] ?? spec.components.firstHit?.[entity] ?? []).map((each) => [String(each.settingLevel), chanceText(each.value)]),

@@ -529,3 +529,53 @@ fn a_seat_at_an_at_machine_is_hunted_from_each_given_and_a_machine_of_bonuses_ha
         json!({ "type": "path-without-at" })
     );
 }
+
+/// The made-up machine with a BIG's 20 games watched for a スイカ.
+fn watched_spec() -> Value {
+    let mut spec = value(SPEC);
+    let entities = spec["entities"].as_array_mut().expect("entities");
+    entities.push(json!("big-games"));
+    entities.push(json!("big-suika"));
+    let components = &mut spec["components"];
+    components["watch"] = json!({ "big-games": "big" });
+    components["trials"] = json!({ "big-games": 20 });
+    components["cue"] = json!({ "big-suika": "big-games" });
+    components["chance"]["big-suika"] = json!([
+        { "settingLevel": 1, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 4000 } },
+        { "settingLevel": 6, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 3000 } }
+    ]);
+    spec
+}
+
+#[test]
+fn a_watch_crosses_the_boundary_stored_and_weighed() {
+    let normalized = ok(&normalize(&json!({ "spec": watched_spec() }).to_string()));
+    assert_eq!(
+        normalized["watches"],
+        json!([{ "id": "big-games", "bonus": "big", "trials": 20, "whole": false }])
+    );
+    assert!(close(
+        &normalized["tables"][1]["cues"][0]["chance"],
+        &json!(1.0 / 30.0)
+    ));
+    let stored = json!({ "type": "normalized", "normalized": normalized });
+    let weighed = |counts: Value| {
+        ok(&posterior(
+            &json!({ "source": stored, "segments": [{ "games": 1000, "counts": counts }] })
+                .to_string(),
+        ))["settingLevels"][0]["probability"]
+            .as_f64()
+            .expect("a probability")
+    };
+    let unwatched = weighed(json!([{ "id": "big", "count": 5 }]));
+    let none_seen =
+        weighed(json!([{ "id": "big", "count": 5 }, { "id": "big-suika", "count": 0 }]));
+    assert!(none_seen > unwatched);
+    assert_eq!(
+        error(&posterior(
+            &json!({ "source": stored, "segments": [{ "games": 1000, "counts": [{ "id": "big", "count": 1 }, { "id": "big-suika", "count": 21 }] }] })
+                .to_string(),
+        )),
+        json!({ "type": "cues-exceed-trials", "segment": 0, "id": "big-games" })
+    );
+}

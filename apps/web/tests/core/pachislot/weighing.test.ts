@@ -15,7 +15,7 @@ import {
   seatCheckpoint,
   totalNowOf,
 } from "../../../src/core/pachislot/reading"
-import { counterBonusesOf, counterBonusOf, countablesOf, GAMES_PER_HOUR, huntPlayOf, playOf, settingLevelsOf } from "../../../src/core/pachislot/weighing"
+import { counterBonusesOf, counterBonusOf, countablesOf, countedOutOf, GAMES_PER_HOUR, huntPlayOf, playOf, settingLevelsOf } from "../../../src/core/pachislot/weighing"
 import { tokenValueOf, type PlayTerms } from "../../../src/core/parlor/terms"
 import type { Checkpoint } from "../../../src/core/play-log/checkpoint"
 
@@ -197,5 +197,37 @@ describe("天井狙い's terms", () => {
     const terms: PlayTerms = { rental: { yen: 1000, tokens: 46 }, exchange: { yen: 10_000, tokens: 510 }, replay: { paidOut: 1, deducted: 1 } }
     expect(huntPlayOf(terms, { base: 33.9, at: "at", modes: [] }, 3)).toEqual({ medalValue: tokenValueOf(terms), rentalPrice: 1000 / 46, cashShare: 50 / 33.9 / 3 })
     expect(huntPlayOf(terms, { base: 10, at: "at", modes: [] }, 3).cashShare).toBe(1)
+  })
+})
+
+/** The made-up machine with a BIG's 20 games watched for a スイカ, and a REG's lamp once, blue or red. */
+const watched: NormalizedSpecDto = {
+  ...spec,
+  tables: spec.tables.map((table) => ({
+    ...table,
+    cues: [
+      { id: "big-suika", watch: "big-games", chance: 1 / 40 },
+      { id: "lamp-blue", watch: "reg-lamp", chance: 0.6 },
+      { id: "lamp-red", watch: "reg-lamp", chance: 0.4 },
+    ],
+  })),
+  watches: [
+    { id: "big-games", bonus: "big", trials: 20, whole: false },
+    { id: "reg-lamp", bonus: "reg", trials: 1, whole: true },
+  ],
+}
+
+describe("the cues watched for over a bonus", () => {
+  test("are counted after what a game comes to, each by its label", () => {
+    const countables = countablesOf({ ...formula, normalized: watched, labels: { ...formula.labels, "big-suika": "BIG中スイカ" } })
+    expect(countables.map((each) => each.id).slice(-3)).toEqual(["big-suika", "lamp-blue", "lamp-red"])
+    expect(countables.at(-3)?.label).toBe("BIG中スイカ")
+  })
+
+  test("come up out of the trials watched: a BIG's games for each counted, or the lamps seen", () => {
+    const outOf = countedOutOf(watched, { big: 3, "reg-solo": 1, "reg-cherry": 1, "big-suika": 2, "lamp-blue": 1, "lamp-red": 2 }, 900)
+    expect(outOf("grape")).toBe(900)
+    expect(outOf("big-suika")).toBe(60)
+    expect(outOf("lamp-blue")).toBe(3)
   })
 })

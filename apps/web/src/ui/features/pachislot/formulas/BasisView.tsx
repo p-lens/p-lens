@@ -16,7 +16,17 @@ import { trailTo } from "./trail"
 import { useActions } from "./use-actions"
 import { type EntityKindName, manualFormOf, worldFormOf } from "./world-form"
 
-const KIND_NAMES: Readonly<Record<EntityKindName, string>> = { bonus: "ボーナス", part: "内訳", role: "小役", replay: "リプレイ", at: "AT", cz: "CZ", mode: "モード" }
+const KIND_NAMES: Readonly<Record<EntityKindName, string>> = {
+  bonus: "ボーナス",
+  part: "内訳",
+  role: "小役",
+  replay: "リプレイ",
+  at: "AT",
+  cz: "CZ",
+  mode: "モード",
+  watch: "見る場面",
+  cue: "示唆",
+}
 
 /** Which way a check just given went. */
 type Verdict = "verified" | "refuted"
@@ -110,7 +120,10 @@ export function BasisView(props: { readonly place: Place; readonly machineId: st
                                 <td class="px-3 py-2 text-text-primary">{row().label}</td>
                                 <td class="px-3 py-2 text-text-secondary">
                                   {KIND_NAMES[row().kind]}
-                                  <Show when={row().kind === "part"}>（{labelOf(row().partOf)}）</Show>
+                                  <Show when={row().kind === "part" || row().kind === "cue"}>（{labelOf(row().of)}）</Show>
+                                  <Show when={row().kind === "watch"}>
+                                    （{labelOf(row().of)}・1回{row().trials === "" ? "1" : row().trials}回）
+                                  </Show>
                                 </td>
                                 <td class="px-3 py-2 text-right text-text-primary">{row().payout === "" ? "--" : `${row().payout}枚`}</td>
                                 <Index each={world().settingLevels}>

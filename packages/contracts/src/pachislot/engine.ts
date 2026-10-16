@@ -107,6 +107,12 @@ export interface ComponentsDto {
   readonly resetAllotment?: Readonly<Record<string, readonly BySettingLevelDto<number>[]>>
   /** A mode's own AT間天井 in regular games, in place of the AT's, on a machine a CZ brings the AT on: an AT間天井 drawn after each AT is a mode for each. */
   readonly atCeiling?: Readonly<Record<string, number>>
+  /** A watch: what a player watches over each of a bonus — its games for a スイカ, its side lamp once — named by the bonus, and never a regular game's. */
+  readonly watch?: Readonly<Record<string, string>>
+  /** The trials each of a watch's bonus gives it — a BIG's games — one where left out. */
+  readonly trials?: Readonly<Record<string, number>>
+  /** A cue: one thing a watch may show on a trial — a スイカ, a lamp's colour — named by the watch. Its `chance` is a trial's; a watch's cues never share a trial. */
+  readonly cue?: Readonly<Record<string, string>>
 }
 
 export interface PayoutRowDto {
@@ -133,6 +139,27 @@ export interface TableDto {
   readonly events: readonly EventDto[]
   /** An AT machine's setting; its events are then the small wins and replays counted in its regular games. */
   readonly at?: AtTableDto
+  /** Each watch's cues and their chances on a trial. */
+  readonly cues?: readonly CueDto[]
+}
+
+/** One cue of a watch and its chance on a trial. */
+export interface CueDto {
+  readonly id: string
+  readonly watch: string
+  readonly chance: number
+}
+
+/**
+ * A watch: the bonus it is watched over, the trials each of the bonus
+ * gives, and whether a trial shows one of its cues certainly — then a trial
+ * with none counted was not watched, and otherwise it showed none.
+ */
+export interface WatchDto {
+  readonly id: string
+  readonly bonus: string
+  readonly trials: number
+  readonly whole: boolean
 }
 
 /**
@@ -160,6 +187,8 @@ export interface NormalizedSpecDto {
   readonly tables: readonly TableDto[]
   /** An AT machine's regular games; each table then holds its setting's `at`. */
   readonly atRules?: AtRulesDto
+  /** What a player watches over each of a bonus; each table then holds its cues. */
+  readonly watches?: readonly WatchDto[]
 }
 
 /** One mode of an AT machine: its trigger's ceiling and its AT間天井, in regular games, where it has them. */
@@ -464,6 +493,10 @@ export type EngineErrorDto =
   | { readonly type: "conflicting-components"; readonly entity: string; readonly first: string; readonly second: string }
   | { readonly type: "stray-component"; readonly entity: string; readonly component: string }
   | { readonly type: "part-of-non-bonus"; readonly entity: string; readonly of: string }
+  | { readonly type: "watch-of-non-bonus"; readonly entity: string; readonly of: string }
+  | { readonly type: "cue-of-non-watch"; readonly entity: string; readonly of: string }
+  | { readonly type: "cues-exceed-one"; readonly entity: string; readonly settingLevel: number; readonly sum: number }
+  | { readonly type: "watch-partly-whole"; readonly entity: string }
   | { readonly type: "invalid-probability"; readonly at: string; readonly settingLevel: number; readonly problem: "not-finite" | "out-of-range" }
   | { readonly type: "probabilities-exceed-one"; readonly settingLevel: number; readonly sum: number }
   | { readonly type: "missing-payout"; readonly at: string }
@@ -497,6 +530,7 @@ export type EngineErrorDto =
   | { readonly type: "unknown-count"; readonly segment: number; readonly id: string }
   | { readonly type: "overlapping-counts"; readonly segment: number; readonly id: string }
   | { readonly type: "counts-exceed-games"; readonly segment: number }
+  | { readonly type: "cues-exceed-trials"; readonly segment: number; readonly id: string }
   | { readonly type: "prior-mismatch"; readonly settingLevel: number }
   | { readonly type: "invalid-prior"; readonly sum: number }
   | { readonly type: "contradictory-evidence" }

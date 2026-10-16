@@ -122,6 +122,43 @@ pub fn with_role(name: &str, chance: PerSettingLevel<ProbabilitySource>) -> Spec
     spec
 }
 
+/// The made-up machine watched over its bonuses: a BIG's 20 games for a
+/// スイカ, 1/40 and 1/30 a game, and a REG's lamp once, blue or red, 60% and
+/// 40% under setting 1, the other way round under 6.
+pub fn watched_spec() -> Spec {
+    let mut spec = made_up_spec();
+    let components = &mut spec.components;
+    spec.entities.extend(
+        [
+            "big-games",
+            "big-suika",
+            "reg-lamp",
+            "lamp-blue",
+            "lamp-red",
+        ]
+        .into_iter()
+        .map(id),
+    );
+    components.watch.insert(id("big-games"), id("big"));
+    components.watch.insert(id("reg-lamp"), id("reg"));
+    components
+        .trials
+        .insert(id("big-games"), NonZeroU32::new(20).expect("trials"));
+    components.cue.insert(id("big-suika"), id("big-games"));
+    components.cue.insert(id("lamp-blue"), id("reg-lamp"));
+    components.cue.insert(id("lamp-red"), id("reg-lamp"));
+    components
+        .chance
+        .insert(id("big-suika"), per(one_in(4_000), one_in(3_000)));
+    components
+        .chance
+        .insert(id("lamp-blue"), per(percent(6_000), percent(4_000)));
+    components
+        .chance
+        .insert(id("lamp-red"), per(percent(4_000), percent(6_000)));
+    spec
+}
+
 pub fn close(left: f64, right: f64) -> bool {
     (left - right).abs() < 1e-9
 }

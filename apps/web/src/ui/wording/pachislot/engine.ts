@@ -33,6 +33,9 @@ const COMPONENT_NAMES: Readonly<Record<string, string>> = {
   rate: "機械割",
   window: "引き戻しのゲーム数",
   resetOnCap: "完走後のリセット",
+  watch: "ボーナス中に見る場面",
+  trials: "ボーナス1回の回数",
+  cue: "示唆",
 }
 
 /** A component by what the person entering a spec calls it. */
@@ -66,6 +69,14 @@ const describeEngineError = (error: EngineErrorDto): string => {
       return `${componentName(error.component)}が、ない「${error.entity}」に付いています。`
     case "part-of-non-bonus":
       return `「${error.entity}」は「${error.of}」の内訳になっていますが、「${error.of}」はボーナスではありません。`
+    case "watch-of-non-bonus":
+      return `「${error.entity}」は「${error.of}」の中で見る場面になっていますが、「${error.of}」はボーナスではありません。`
+    case "cue-of-non-watch":
+      return `「${error.entity}」は「${error.of}」の示唆になっていますが、「${error.of}」はボーナス中に見る場面ではありません。`
+    case "cues-exceed-one":
+      return `「${error.entity}」の${settingLevel(error.settingLevel)}の示唆を全部足すと ${(error.sum * 100).toFixed(2)}% になり、100% を超えています。`
+    case "watch-partly-whole":
+      return `「${error.entity}」の示唆は、足して 100% になる設定とならない設定があります。全部の設定で 100% にするか、全部の設定で 100% 未満にしてください。`
     case "invalid-probability":
       return `「${error.at}」の${settingLevel(error.settingLevel)}の確率が正しくありません。`
     case "probabilities-exceed-one":
@@ -132,6 +143,8 @@ const describeEngineError = (error: EngineErrorDto): string => {
       return `「${error.id}」が重ねて数えられています。`
     case "counts-exceed-games":
       return "数えた回数がゲーム数を超えています。"
+    case "cues-exceed-trials":
+      return `「${error.id}」の示唆を、数えたボーナスで見られる回数より多く数えています。ボーナスも数えてください。`
     case "prior-mismatch":
       return `設定配分に、この機種にない${settingLevel(error.settingLevel)}があります。`
     case "invalid-prior":

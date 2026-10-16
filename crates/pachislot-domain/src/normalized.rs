@@ -32,6 +32,28 @@ pub struct NormalizedSpec {
     /// How a machine of an AT plays between ATs; none for one of bonuses
     /// and small wins.
     pub at_rules: Option<AtRules>,
+    /// What a player watches over each of a bonus, whose cues each table
+    /// gives the chances of.
+    pub watches: Vec<WatchRule>,
+}
+
+/// A watch as the engine weighs it: the bonus it is watched over, the
+/// trials each of the bonus gives, and whether a trial shows one of its
+/// cues certainly — then a trial with none counted was not watched.
+#[derive(Clone, Debug, PartialEq)]
+pub struct WatchRule {
+    pub id: EntityId,
+    pub bonus: EntityId,
+    pub trials: NonZeroU32,
+    pub whole: bool,
+}
+
+/// One cue of a watch and its chance on a trial under one setting.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CueChance {
+    pub id: EntityId,
+    pub watch: EntityId,
+    pub chance: Probability,
 }
 
 /// An AT machine's regular games, as the engine plays them. Each game may
@@ -122,6 +144,8 @@ pub struct SettingLevelTable {
     /// whose games are otherwise its `at`'s.
     pub events: Vec<Event>,
     pub at: Option<AtTable>,
+    /// What each watch's cues come up with on a trial.
+    pub cues: Vec<CueChance>,
 }
 
 /// One outcome of a regular game.

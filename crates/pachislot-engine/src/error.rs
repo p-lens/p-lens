@@ -53,6 +53,28 @@ pub enum SpecError {
         entity: EntityId,
         of: EntityId,
     },
+    /// A watch over something that is not a bonus.
+    WatchOfNonBonus {
+        entity: EntityId,
+        of: EntityId,
+    },
+    /// A cue of something that is not a watch.
+    CueOfNonWatch {
+        entity: EntityId,
+        of: EntityId,
+    },
+    /// A watch's cues on a trial coming to more than certainty.
+    CuesExceedOne {
+        entity: EntityId,
+        setting_level: SettingLevel,
+        sum: f64,
+    },
+    /// A watch whose cues a trial shows certainly under some settings and
+    /// not under others: either a trial with none counted was not watched,
+    /// or it showed none, under every setting alike.
+    WatchPartlyWhole {
+        entity: EntityId,
+    },
     InvalidProbability {
         at: EntityId,
         setting_level: SettingLevel,
@@ -192,6 +214,9 @@ pub enum InferenceError {
     OverlappingCounts { segment: usize, id: EntityId },
     /// More things counted than games played.
     CountsExceedGames { segment: usize },
+    /// More of a watch's cues counted than the trials of its bonus counted
+    /// in the same stretch.
+    CuesExceedTrials { segment: usize, id: EntityId },
     /// A path of an AT machine's play given for a machine with no AT.
     PathWithoutAt,
     /// A distribution whose settings are not the machine's.

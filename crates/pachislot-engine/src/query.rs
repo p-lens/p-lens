@@ -1,13 +1,14 @@
 //! The systems' view of a machine: queries over its components that assemble
-//! each bonus, small win and replay, refusing an entity whose components do
+//! each bonus, small win, replay and watch, refusing an entity whose components do
 //! not make one — a component missing, two that conflict, or one astray.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::num::NonZeroU32;
 
 use pachislot_domain::probability::ProbabilitySource;
 use pachislot_domain::setting_level::PerSettingLevel;
 use pachislot_domain::spec::{
-    At, Bonus, Chance, Component, Cz, Element, EntityId, Mode, Part, Replay, Role, Spec,
+    At, Bonus, Chance, Component, Cue, Cz, Element, EntityId, Mode, Part, Replay, Role, Spec, Watch,
 };
 
 use crate::error::SpecError;
@@ -73,6 +74,9 @@ fn check_entities(spec: &Spec) -> Result<(), SpecError> {
         .chain(keyed(&components.rate, Component::Rate))
         .chain(keyed(&components.window, Component::Window))
         .chain(listed(&components.reset_on_cap, Component::ResetOnCap))
+        .chain(keyed(&components.watch, Component::Watch))
+        .chain(keyed(&components.trials, Component::Trials))
+        .chain(keyed(&components.cue, Component::Cue))
         .find(|(entity, _)| !known.contains(entity))
         .map_or(Ok(()), |(entity, component)| {
             Err(SpecError::StrayComponent {
@@ -101,6 +105,14 @@ fn kinds_of(spec: &Spec, entity: &EntityId) -> Vec<Component> {
         components.at.contains(entity).then_some(Component::At),
         components.mode.contains(entity).then_some(Component::Mode),
         components.cz.contains(entity).then_some(Component::Cz),
+        components
+            .watch
+            .contains_key(entity)
+            .then_some(Component::Watch),
+        components
+            .cue
+            .contains_key(entity)
+            .then_some(Component::Cue),
     ]
     .into_iter()
     .flatten()
@@ -235,6 +247,9 @@ fn misplaced(spec: &Spec, entity: &EntityId, kinds: &[Component]) -> Option<Comp
     if !cz && (components.success.contains_key(entity) || components.misses.contains_key(entity)) {
         return Some(Component::Cz);
     }
+    if !kinds.contains(&Component::Watch) && components.trials.contains_key(entity) {
+        return Some(Component::Watch);
+    }
     (!mode
         && (components.allotment.contains_key(entity)
             || components.reset_allotment.contains_key(entity)
@@ -295,8 +310,58 @@ fn mode(spec: &Spec, entity: &EntityId) -> Result<Mode, SpecError> {
     })
 }
 
+/// A cue of a watch: its chance, and nothing a regular game pays.
+fn cue(spec: &Spec, entity: &EntityId) -> Result<Cue, SpecError> {
+    if spec.components.payout.contains_key(entity) {
+        return Err(conflict(entity, Component::Cue, Component::Payout));
+    }
+    Ok(Cue {
+        id: entity.clone(),
+        label: label_of(spec, entity),
+        chance: chance_of(spec, entity)?,
+    })
+}
+
+/// A watch: the bonus it is watched over, its trials, and its cues, at
+/// least one; no chance a regular game of its own, nor anything it pays.
+fn watch(spec: &Spec, entity: &EntityId, bonus: &EntityId) -> Result<Watch, SpecError> {
+    let components = &spec.components;
+    if components.chance.contains_key(entity) {
+        return Err(conflict(entity, Component::Watch, Component::Chance));
+    }
+    if components.payout.contains_key(entity) {
+        return Err(conflict(entity, Component::Watch, Component::Payout));
+    }
+    if !components.bonus.contains(bonus) {
+        return Err(SpecError::WatchOfNonBonus {
+            entity: entity.clone(),
+            of: bonus.clone(),
+        });
+    }
+    let cues = spec
+        .entities
+        .iter()
+        .filter(|candidate| components.cue.get(*candidate) == Some(entity))
+        .map(|each| cue(spec, each))
+        .collect::<Result<Vec<_>, _>>()?;
+    if cues.is_empty() {
+        return Err(missing(entity, Component::Cue));
+    }
+    Ok(Watch {
+        id: entity.clone(),
+        label: label_of(spec, entity),
+        bonus: bonus.clone(),
+        trials: components
+            .trials
+            .get(entity)
+            .copied()
+            .unwrap_or(NonZeroU32::MIN),
+        cues,
+    })
+}
+
 /// What an entity is, by its components; `None` for a part, which is read
-/// with its bonus.
+/// with its bonus, and for a cue, read with its watch.
 fn element_of(spec: &Spec, entity: &EntityId) -> Result<Option<Element>, SpecError> {
     let components = &spec.components;
     let kinds = kinds_of(spec, entity);
@@ -308,6 +373,18 @@ fn element_of(spec: &Spec, entity: &EntityId) -> Result<Option<Element>, SpecErr
         [Component::At] => at(spec, entity).map(|at| Some(Element::At(at))),
         [Component::Mode] => mode(spec, entity).map(|mode| Some(Element::Mode(mode))),
         [Component::Cz] => cz(spec, entity).map(|cz| Some(Element::Cz(cz))),
+        [Component::Watch] => match components.watch.get(entity) {
+            Some(bonus) => watch(spec, entity, bonus).map(|watch| Some(Element::Watch(watch))),
+            None => Err(missing(entity, Component::Watch)),
+        },
+        [Component::Cue] => match components.cue.get(entity) {
+            Some(of) if components.watch.contains_key(of) => Ok(None),
+            Some(of) => Err(SpecError::CueOfNonWatch {
+                entity: entity.clone(),
+                of: of.clone(),
+            }),
+            None => Err(missing(entity, Component::Cue)),
+        },
         [Component::Bonus] => bonus(spec, entity).map(|bonus| Some(Element::Bonus(bonus))),
         [Component::Replay] => {
             if components.payout.contains_key(entity) {
@@ -342,13 +419,16 @@ fn element_of(spec: &Spec, entity: &EntityId) -> Result<Option<Element>, SpecErr
     }
 }
 
-/// Every bonus, small win and replay, in the order its entity was made,
-/// assembled from its components; a bonus's parts are read with it.
+/// Every bonus, small win, replay and watch, in the order its entity was
+/// made, assembled from its components; a bonus's parts are read with it,
+/// and a watch's cues.
 ///
 /// # Errors
 /// When an entity is listed twice or a component names one the world lacks,
 /// an entity lacks its chance or a small win its payout, two components
-/// conflict, or a part belongs to something that is not a bonus.
+/// conflict, a part belongs to something that is not a bonus, a watch is
+/// over something that is not one or has no cue, or a cue belongs to
+/// something that is not a watch.
 pub fn elements(spec: &Spec) -> Result<Vec<Element>, SpecError> {
     check_entities(spec)?;
     spec.entities

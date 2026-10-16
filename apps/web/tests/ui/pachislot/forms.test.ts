@@ -36,7 +36,7 @@ describe("the 解析値 form", () => {
     const form = {
       settingLevels: [1, 6],
       bet: "3",
-      rows: [{ key: "big", label: "BIG", kind: "bonus" as const, partOf: "", payout: "２５２", chances: { "1": "1/273.1", "6": "２５５" }, ceiling: "", resetCeiling: "", atCeiling: "", resetAllotment: {}, success: {}, misses: "", law: EMPTY_LAW }],
+      rows: [{ key: "big", label: "BIG", kind: "bonus" as const, of: "", trials: "", payout: "２５２", chances: { "1": "1/273.1", "6": "２５５" }, ceiling: "", resetCeiling: "", atCeiling: "", resetAllotment: {}, success: {}, misses: "", law: EMPTY_LAW }],
       base: "",
       lcdRate: "",
       cap: "",
@@ -66,9 +66,34 @@ describe("the 解析値 form", () => {
   test("a bonus split into parts takes its chance from them, and a part must belong to a bonus", () => {
     const parted = worldFormOf(madeUp)
     expect(parted.rows.find((row) => row.key === "reg")?.chances).toEqual({})
-    const astray = { ...parted, rows: parted.rows.map((row) => (row.key === "reg-solo" ? { ...row, partOf: "grape" } : row)) }
+    const astray = { ...parted, rows: parted.rows.map((row) => (row.key === "reg-solo" ? { ...row, of: "grape" } : row)) }
     const read = readWorldForm(astray)
     expect(!read.ok && read.error).toContainEqual({ field: "単独REG どのボーナスの内訳か", reason: "required" })
+  })
+
+  test("a watch over a bonus and its cue come back as the same world, and a cue must belong to a watch", () => {
+    const watched: SpecDto = {
+      ...madeUp,
+      entities: [...madeUp.entities, "big-games", "big-suika"],
+      components: {
+        ...madeUp.components,
+        label: { ...madeUp.components.label, "big-games": "BIG中", "big-suika": "BIG中スイカ" },
+        chance: {
+          ...madeUp.components.chance,
+          "big-suika": [
+            { settingLevel: 1, value: { type: "ratio", numerator: 1, denominatorHundredths: 4_290 } },
+            { settingLevel: 6, value: { type: "ratio", numerator: 1, denominatorHundredths: 2_800 } },
+          ],
+        },
+        watch: { "big-games": "big" },
+        trials: { "big-games": 20 },
+        cue: { "big-suika": "big-games" },
+      },
+    }
+    expect(readWorldForm(worldFormOf(watched))).toEqual({ ok: true, value: { spec: watched, conditions: { payoutRate: { type: "from-spec" } } } })
+    const astray = worldFormOf(watched)
+    const read = readWorldForm({ ...astray, rows: astray.rows.map((row) => (row.key === "big-suika" ? { ...row, of: "big" } : row)) })
+    expect(!read.ok && read.error).toContainEqual({ field: "BIG中スイカ どの場面の示唆か", reason: "required" })
   })
 
   test("a new row's key is one no row has, and stays however the row is relabelled", () => {

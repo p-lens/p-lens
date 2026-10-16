@@ -11,7 +11,7 @@ use pachislot_engine::error::InferenceError;
 use pachislot_engine::normalize::normalize;
 use pachislot_engine::posterior::posterior;
 use proptest::prelude::*;
-use support::{close, id, made_up_spec, setting_level};
+use support::{close, id, made_up_spec, setting_level, watched_spec};
 
 fn spec() -> NormalizedSpec {
     normalize(&made_up_spec()).expect("normalises")
@@ -191,4 +191,98 @@ proptest! {
         prop_assert!((apart.setting_levels[0].1 - together.setting_levels[0].1).abs() < 1e-9);
         prop_assert!((apart.setting_levels[0].1 + apart.setting_levels[1].1 - 1.0).abs() < 1e-9);
     }
+}
+
+fn watched() -> NormalizedSpec {
+    normalize(&watched_spec()).expect("normalises")
+}
+
+fn stretch(games: u32, counts: &[(&str, u32)]) -> Segment {
+    Segment {
+        games,
+        counts: counts
+            .iter()
+            .map(|(name, count)| (id(name), *count))
+            .collect(),
+    }
+}
+
+#[test]
+fn a_bonus_watched_weighs_every_trial_of_it_by_hand() {
+    let found = posterior(
+        &watched(),
+        None,
+        &[stretch(1_000, &[("big", 5), ("reg", 3), ("big-suika", 4)])],
+        None,
+    )
+    .expect("infers");
+    let suika = |p: f64| 4.0 * p.ln() + 96.0 * (1.0 - p).ln();
+    let low = by_hand(1_000.0, 5.0, 3.0, 0.5);
+    let ratio = (suika(1.0 / 40.0) - suika(1.0 / 30.0)).exp();
+    assert!(close(
+        found.setting_levels[0].1,
+        low * ratio / (low * ratio + (1.0 - low))
+    ));
+}
+
+#[test]
+fn a_watch_is_weighed_only_where_a_cue_of_it_is_counted_none_included() {
+    let unwatched = posterior(
+        &watched(),
+        None,
+        &[stretch(1_000, &[("big", 5), ("reg", 3)])],
+        None,
+    )
+    .expect("infers");
+    assert!(close(
+        unwatched.setting_levels[0].1,
+        by_hand(1_000.0, 5.0, 3.0, 0.5)
+    ));
+    let none_seen = posterior(
+        &watched(),
+        None,
+        &[stretch(1_000, &[("big", 5), ("reg", 3), ("big-suika", 0)])],
+        None,
+    )
+    .expect("infers");
+    assert!(none_seen.setting_levels[0].1 > unwatched.setting_levels[0].1);
+}
+
+#[test]
+fn a_certain_watch_weighs_the_trials_whose_cue_was_counted() {
+    let found = posterior(
+        &watched(),
+        None,
+        &[stretch(100, &[("lamp-blue", 3), ("lamp-red", 1)])],
+        None,
+    )
+    .expect("infers");
+    let low = 0.6_f64.powi(3) * 0.4;
+    let high = 0.4_f64.powi(3) * 0.6;
+    assert!(close(found.setting_levels[0].1, low / (low + high)));
+}
+
+#[test]
+fn cues_are_no_regular_games_and_never_more_than_their_bonus_gives() {
+    assert!(
+        posterior(
+            &watched(),
+            None,
+            &[stretch(10, &[("big", 1), ("big-suika", 5)])],
+            None,
+        )
+        .is_ok()
+    );
+    assert_eq!(
+        posterior(
+            &watched(),
+            None,
+            &[stretch(1_000, &[("big", 1), ("big-suika", 21)])],
+            None,
+        ),
+        Err(InferenceError::CuesExceedTrials {
+            segment: 0,
+            id: id("big-games")
+        })
+    );
 }

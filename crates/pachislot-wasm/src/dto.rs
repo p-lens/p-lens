@@ -118,6 +118,15 @@ pub struct ComponentsDto {
     /// ATs after which, on reaching the cap, play starts again as after a setting change.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub reset_on_cap: Vec<String>,
+    /// A watch: what a player watches over each of a bonus, named by the bonus.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub watch: BTreeMap<String, String>,
+    /// The trials each of a watch's bonus gives it; one where left out.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub trials: BTreeMap<String, u32>,
+    /// A cue: one thing a watch may show on a trial, named by the watch.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub cue: BTreeMap<String, String>,
     #[serde(flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub unsupported: BTreeMap<String, serde_json::Value>,
 }
@@ -188,6 +197,28 @@ pub struct TableDto {
     pub events: Vec<EventDto>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub at: Option<AtTableDto>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cues: Vec<CueDto>,
+}
+
+/// One cue of a watch and its chance on a trial.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CueDto {
+    pub id: String,
+    pub watch: String,
+    pub chance: f64,
+}
+
+/// A watch: the bonus it is watched over, the trials each of it gives, and
+/// whether a trial shows one of its cues certainly.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct WatchDto {
+    pub id: String,
+    pub bonus: String,
+    pub trials: u32,
+    pub whole: bool,
 }
 
 /// An AT machine's setting: the trigger's chance a regular game below its
@@ -248,6 +279,8 @@ pub struct NormalizedSpecDto {
     pub tables: Vec<TableDto>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub at_rules: Option<AtRulesDto>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub watches: Vec<WatchDto>,
 }
 
 /// An AT machine's regular games: its ベース, its AT and what it pays, the
@@ -766,6 +799,22 @@ pub enum ErrorDto {
         entity: String,
         of: String,
     },
+    WatchOfNonBonus {
+        entity: String,
+        of: String,
+    },
+    CueOfNonWatch {
+        entity: String,
+        of: String,
+    },
+    CuesExceedOne {
+        entity: String,
+        setting_level: u8,
+        sum: f64,
+    },
+    WatchPartlyWhole {
+        entity: String,
+    },
     InvalidProbability {
         at: String,
         setting_level: u8,
@@ -867,6 +916,10 @@ pub enum ErrorDto {
     },
     CountsExceedGames {
         segment: usize,
+    },
+    CuesExceedTrials {
+        segment: usize,
+        id: String,
     },
     PriorMismatch {
         setting_level: u8,

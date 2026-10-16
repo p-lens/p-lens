@@ -37,6 +37,7 @@ fn element_id(element: &Element) -> &EntityId {
         Element::At(at) => &at.id,
         Element::Mode(mode) => &mode.id,
         Element::Cz(cz) => &cz.id,
+        Element::Watch(watch) => &watch.id,
     }
 }
 
@@ -241,7 +242,7 @@ pub(crate) fn at_machine<'a>(
     let stray = elements.iter().find(|element| match element {
         Element::At(other) => other.id != at.id,
         Element::Cz(other) => cz.is_some_and(|cz| other.id != cz.id),
-        Element::Mode(_) | Element::Role(_) | Element::Replay(_) => false,
+        Element::Mode(_) | Element::Role(_) | Element::Replay(_) | Element::Watch(_) => false,
         Element::Bonus(_) => true,
     });
     if let Some(other) = stray {

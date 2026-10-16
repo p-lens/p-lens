@@ -17,7 +17,7 @@ import {
 } from "../../../../core/pachislot/reading"
 import { withStepsMerged, type Span } from "../../../../core/pachislot/merging"
 import { stepsOf, withStepRemoved, type RevisionRefusal } from "../../../../core/pachislot/revision"
-import { counterBonusesOf, counterBonusOf, countablesOf, type Countable, type Weighing } from "../../../../core/pachislot/weighing"
+import { counterBonusesOf, counterBonusOf, countablesOf, countedOutOf, type Countable, type Weighing } from "../../../../core/pachislot/weighing"
 import { parsePlayLog, type Checkpoint, type PlayLogError, type Counts } from "../../../../core/play-log/checkpoint"
 import { liveSummary } from "../../../../core/play-log/live"
 import { inPlayOrder } from "../../../../core/play-log/performance"
@@ -249,7 +249,13 @@ function Counting(props: { readonly weighing: Weighing; readonly ordered: readon
         小役カウンター
         <span class="ml-2 font-normal normal-case text-text-muted">長押しで1つ戻します</span>
       </h3>
-      <RoleCounter countables={countablesOf(props.weighing.formula)} counts={countsNowOf(props.ordered)} games={countedGamesOf(props.ordered)} held={held()} onCount={count} />
+      <RoleCounter
+        countables={countablesOf(props.weighing.formula)}
+        counts={countsNowOf(props.ordered)}
+        outOf={countedOutOf(props.weighing.formula.normalized, countsNowOf(props.ordered), countedGamesOf(props.ordered))}
+        held={held()}
+        onCount={count}
+      />
       <Show when={held()}>
         <p class="text-xs text-text-muted">AT中は数えません。ATのあとのゲーム数を記録すると、また数えられます。</p>
       </Show>

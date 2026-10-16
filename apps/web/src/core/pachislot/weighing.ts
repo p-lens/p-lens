@@ -14,7 +14,7 @@ export interface Weighing {
   readonly prior: Prior
 }
 
-/** Something a player can count at the cabinet: a small win, a replay, a bonus or a part of one, by its id and label. */
+/** Something a player can count at the cabinet: a small win, a replay, a bonus or a part of one, or a cue watched for over a bonus, by its id and label. */
 export interface Countable {
   readonly id: string
   readonly label: string
@@ -36,9 +36,37 @@ export const counterBonusOf =
     return event === undefined ? undefined : (event.group ?? event.id)
   }
 
-/** Everything a game can come to that a player can count, in the spec's order: a bonus told apart by its parts is counted part by part. */
+const cuesOf = (normalized: NormalizedSpecDto) => normalized.tables.at(0)?.cues ?? []
+
+/**
+ * Everything a player can count, in the spec's order: what a game can come
+ * to — a bonus told apart by its parts counted part by part — then the cues
+ * watched for over a bonus.
+ */
 export const countablesOf = (formula: FormulaSnapshot): readonly Countable[] =>
-  eventsOf(formula.normalized).map((event) => ({ id: event.id, label: formula.labels[event.id] || event.id }))
+  [...eventsOf(formula.normalized), ...cuesOf(formula.normalized)].map((each) => ({ id: each.id, label: formula.labels[each.id] || each.id }))
+
+/** How many of a bonus are counted: the bonus itself, or each of its parts. */
+const bonusesCounted = (normalized: NormalizedSpecDto, counts: Counts, bonus: string): number =>
+  eventsOf(normalized)
+    .filter((event) => event.id === bonus || event.group === bonus)
+    .reduce((sum, event) => sum + (counts[event.id] ?? 0), 0)
+
+/**
+ * What a count is out of, for saying how often it came up: the games
+ * counted, for what a game comes to; for a cue, the trials watched — each
+ * of its bonus counted times the trials one gives, or, where a trial shows
+ * one of its watch's cues certainly, the cues of the watch counted.
+ */
+export const countedOutOf =
+  (normalized: NormalizedSpecDto, counts: Counts, games: number) =>
+  (id: string): number => {
+    const cue = cuesOf(normalized).find((each) => each.id === id)
+    const watch = normalized.watches?.find((each) => each.id === cue?.watch)
+    if (cue === undefined || watch === undefined) return games
+    if (watch.whole) return cuesOf(normalized).filter((each) => each.watch === watch.id).reduce((sum, each) => sum + (counts[each.id] ?? 0), 0)
+    return bonusesCounted(normalized, counts, watch.bonus) * watch.trials
+  }
 
 /** The bonuses a data counter shows, as the formula names them. */
 export const counterBonusesOf = (formula: FormulaSnapshot): readonly Countable[] =>
