@@ -5,6 +5,7 @@ import { findMachines } from "../../../../application/catalog"
 import { bookNameOf, type MachineSummary } from "../../../../core/catalog/catalog"
 import { useApp } from "../../../context"
 import { PlusIcon } from "../../../primitives/icons"
+import { letGoOfFocus } from "../../../primitives/let-go"
 import { EmptyState, Loaded } from "../../../primitives/states"
 import { TextField } from "../../../primitives/text-field"
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../../primitives/tooltip"
@@ -47,6 +48,8 @@ function MachineList(props: { readonly machines: readonly MachineSummary[]; read
  * Finding the machine to play: a search bar over the list of every machine,
  * newest release first, with a plus beside it for a machine not listed. Choosing one returns to the start of the play with it; a
  * machine not in the catalog is registered by making its first formula.
+ * The search bar takes the focus as the view opens, and lets go of it once
+ * the list is dragged, so a phone's keyboard does not hide what is read.
  */
 export function MachineSearchView(props: { readonly place: Place; readonly query: string }): JSX.Element {
   const app = useApp()
@@ -89,21 +92,23 @@ export function MachineSearchView(props: { readonly place: Place; readonly query
               <TooltipContent>{createLabel()}</TooltipContent>
             </Tooltip>
           </div>
-          <Loaded outcome={finding()}>
-            {(found) => (
-              <Switch>
-                <Match when={found.type === "found" && found.machines} keyed>
-                  {(machines) => <MachineList machines={machines} onChoose={choose} />}
-                </Match>
-                <Match when={found.type === "no-match"}>
-                  <EmptyState title="該当する機種がありません">「{searched()}」の算出条件を作ると、機種も一緒に登録されます。</EmptyState>
-                </Match>
-                <Match when={found.type === "none-registered"}>
-                  <EmptyState title="機種が1件も登録されていません">算出条件を作ると、その機種も一緒に登録されます。</EmptyState>
-                </Match>
-              </Switch>
-            )}
-          </Loaded>
+          <div onTouchMove={letGoOfFocus}>
+            <Loaded outcome={finding()}>
+              {(found) => (
+                <Switch>
+                  <Match when={found.type === "found" && found.machines} keyed>
+                    {(machines) => <MachineList machines={machines} onChoose={choose} />}
+                  </Match>
+                  <Match when={found.type === "no-match"}>
+                    <EmptyState title="該当する機種がありません">「{searched()}」の算出条件を作ると、機種も一緒に登録されます。</EmptyState>
+                  </Match>
+                  <Match when={found.type === "none-registered"}>
+                    <EmptyState title="機種が1件も登録されていません">算出条件を作ると、その機種も一緒に登録されます。</EmptyState>
+                  </Match>
+                </Switch>
+              )}
+            </Loaded>
+          </div>
         </div>
       </div>
     </MainContent>

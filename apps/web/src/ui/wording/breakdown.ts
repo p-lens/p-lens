@@ -72,6 +72,9 @@ export const TOTALS_HEADS = { played: "稼働", result: "収支", money: "現金
 /** What stands for a sum of theoretical values in a book that has none written in it: there is nothing to sum, which nought would not say. */
 export const NOT_TALLIED = "集計なし"
 
+/** What a group's play time is called beside it. */
+export const PLAY_TIME = "時間"
+
 /** A play time in seconds as a person reads it: whole hours and minutes, the seconds dropped — `34時間20分`, `45分`. */
 export const playTimeText = (seconds: Decimal): string => {
   const minutes = Math.floor(Number(toPlainString(seconds)) / 60)

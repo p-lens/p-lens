@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import { toPlainString } from "../../src/core/decimal/decimal"
 import { bestFirst, byColumn, byRow, byWeekday, groupsOf, inOrder, merged, totalOf, type Group } from "../../src/core/report/breakdown"
+import { secondsIn } from "../../src/core/report/figures"
 import type { BalanceReport, MixedAmount } from "../../src/hledger/protocol/wire"
 import { dec } from "../support/values"
 
@@ -21,13 +22,18 @@ const figures = (report: BalanceReport) => ((found) => (found.ok ? found.value :
 
 describe("a report pivoted on a tag", () => {
   test("is a group a row, its income statement turned over, what carries no such tag under the empty key", () => {
-    const groups = groupsOf(figures(pivoted([["流星", -3000], ["", -1000], ["ピエロット", 8000]])), figures(pivoted([["流星", 4000]])), figures(pivoted([["流星", 1500], ["よその台", 900]])))
+    const groups = groupsOf(figures(pivoted([["流星", -3000], ["", -1000], ["ピエロット", 8000]])), figures(pivoted([["流星", 4000]])), figures(pivoted([["流星", 1500], ["よその台", 900]])), new Map([["流星", dec("7200")]]))
     expect(read(bestFirst(groups))).toEqual([["流星", "3000", "4000"], ["", "1000", "0"], ["ピエロット", "-8000", "0"]])
     expect(bestFirst(groups).map((group) => toPlainString(group.inferred))).toEqual(["1500", "0", "0"])
+    expect(bestFirst(groups).map((group) => toPlainString(group.seconds))).toEqual(["7200", "0", "0"])
   })
 
   test("has no group for what comes to nothing in both reports, and one for what only the theoretical values have", () => {
-    expect(read(groupsOf(figures(pivoted([["流星", 0]])), figures(pivoted([["森物語", 500]])), figures(pivoted([]))))).toEqual([["森物語", "0", "500"]])
+    expect(read(groupsOf(figures(pivoted([["流星", 0]])), figures(pivoted([["森物語", 500]])), figures(pivoted([])), new Map()))).toEqual([["森物語", "0", "500"]])
+  })
+
+  test("reads play time as seconds", () => {
+    expect(byRow({ ...pivoted([]), prRows: [{ prrName: "流星", prrAmounts: [], prrTotal: [{ acommodity: "秒", aquantity: { decimalMantissa: 5400, decimalPlaces: 0 } }] }] }, secondsIn)).toEqual({ ok: true, value: new Map([["流星", dec("5400")]]) })
   })
 
   test("is refused where a figure was left in tokens no rate values", () => {
@@ -47,10 +53,10 @@ describe("a report with a column a period", () => {
 
 /** 2026-10-05 and 10-12 are Mondays; 10-10 a Saturday; 10-11 a Sunday. */
 const DAYS: readonly Group[] = [
-  { key: "2026-10-05", actual: dec("5000"), theoretical: dec("3000"), inferred: dec("0") },
-  { key: "2026-10-10", actual: dec("-2000"), theoretical: dec("1000"), inferred: dec("0") },
-  { key: "2026-10-11", actual: dec("-8000"), theoretical: dec("0"), inferred: dec("0") },
-  { key: "2026-10-12", actual: dec("1000"), theoretical: dec("0"), inferred: dec("0") },
+  { key: "2026-10-05", actual: dec("5000"), theoretical: dec("3000"), inferred: dec("0"), seconds: dec("3600") },
+  { key: "2026-10-10", actual: dec("-2000"), theoretical: dec("1000"), inferred: dec("0"), seconds: dec("3600") },
+  { key: "2026-10-11", actual: dec("-8000"), theoretical: dec("0"), inferred: dec("0"), seconds: dec("3600") },
+  { key: "2026-10-12", actual: dec("1000"), theoretical: dec("0"), inferred: dec("0"), seconds: dec("3600") },
 ]
 
 describe("groups set in order and brought together", () => {
@@ -64,8 +70,9 @@ describe("groups set in order and brought together", () => {
   })
 
   test("the same key from several books is one group, and every group comes to the total", () => {
-    expect(read(merged([[DAYS[0] as Group], [{ key: "2026-10-05", actual: dec("500"), theoretical: dec("100"), inferred: dec("0") }, DAYS[1] as Group]]))).toEqual([["2026-10-05", "5500", "3100"], ["2026-10-10", "-2000", "1000"]])
+    expect(read(merged([[DAYS[0] as Group], [{ key: "2026-10-05", actual: dec("500"), theoretical: dec("100"), inferred: dec("0"), seconds: dec("3600") }, DAYS[1] as Group]]))).toEqual([["2026-10-05", "5500", "3100"], ["2026-10-10", "-2000", "1000"]])
     expect(read([totalOf(DAYS)])).toEqual([["", "-4000", "4000"]])
     expect(toPlainString(totalOf([{ ...(DAYS[0] as Group), inferred: dec("700") }, { ...(DAYS[1] as Group), inferred: dec("-200") }]).inferred)).toBe("500")
+    expect(toPlainString(totalOf(DAYS).seconds)).toBe("14400")
   })
 })

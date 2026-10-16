@@ -1,4 +1,5 @@
 import type { BookId, ListedBook } from "../core/book/book"
+import { ZERO } from "../core/decimal/decimal"
 import type { Dimension, Group, OVERALL } from "../core/report/breakdown"
 import type { Holdings } from "../core/report/holdings"
 import type { OtherGains } from "../core/report/other-gains"
@@ -52,7 +53,7 @@ const ofChosen = async <T>(session: BookSession, chosen: readonly BookId[] | und
 
 /** A book's results for a period as one group, the book itself: what the period made and was worth, as hledger sums it. */
 const whole = async (session: BookSession, book: ListedBook, query: string): Promise<Outcome<readonly Group[]>> =>
-  mapOk(await loadOverview(session, book.id, query), (overview) => [{ key: book.id, actual: overview.actual, theoretical: overview.theoretical, inferred: overview.inferred }])
+  mapOk(await loadOverview(session, book.id, query), (overview) => [{ key: book.id, actual: overview.actual, theoretical: overview.theoretical, inferred: overview.inferred, seconds: overview.playSeconds ?? ZERO }])
 
 /** The books chosen taken as one, for a period: each book's own figures, added — a day played in several books one day. */
 export const loadConsolidatedOverall = async (session: BookSession, chosen: readonly BookId[] | undefined, query: string): Promise<Outcome<readonly ConsolidatedBook<Overall>[]>> =>

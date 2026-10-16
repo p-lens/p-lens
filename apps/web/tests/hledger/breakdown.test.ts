@@ -69,10 +69,10 @@ describe("the basic-play book, broken down by the real hledger module", () => {
     expect(await read("weekday")).toEqual([["3", "0", "1800"], ["5", "23168", "8200"], ["6", "15976", "3200"]])
   })
 
-  test("for a period, and to the same total whichever way it is cut", async () => {
+  test("for a period, and to the same total and play time whichever way it is cut", async () => {
     expect(await read("machine", "date:2026-10")).toEqual([["流星", "0", "1800"], ["森物語", "-1998", "900"]])
-    const totals = await Promise.all((["machine", "parlor", "game", "month", "weekday"] as const).map(async (dimension) => ((found) => (found.ok ? ((total) => [toPlainString(total.actual), toPlainString(total.theoretical)])(totalOf(found.value)) : found))(await loadBreakdown(session(), BOOK, dimension, ""))))
-    expect(totals).toEqual([["39144", "13200"], ["39144", "13200"], ["39144", "13200"], ["39144", "13200"], ["39144", "13200"]])
+    const totals = await Promise.all((["machine", "parlor", "game", "year", "month", "day", "weekday"] as const).map(async (dimension) => ((found) => (found.ok ? ((total) => [toPlainString(total.actual), toPlainString(total.theoretical), toPlainString(total.seconds)])(totalOf(found.value)) : found))(await loadBreakdown(session(), BOOK, dimension, ""))))
+    expect(totals).toEqual(Array.from({ length: 7 }, () => ["39144", "13200", "19800"]))
   })
 
   test("for a range of days, both ends included and either left open, as the period fields write it", async () => {

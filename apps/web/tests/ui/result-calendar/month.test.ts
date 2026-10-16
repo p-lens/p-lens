@@ -33,7 +33,7 @@ describe("a month of the result calendar", () => {
   })
 
   test("finds a day's figures by its day", () => {
-    const groups = [{ key: "2026-10-04", actual: dec("-12000"), theoretical: dec("8000"), inferred: dec("0") }]
+    const groups = [{ key: "2026-10-04", actual: dec("-12000"), theoretical: dec("8000"), inferred: dec("0"), seconds: dec("0") }]
     expect(byDay(groups).get("2026-10-04")).toEqual(groups[0])
     expect(byDay(groups).get("2026-10-05")).toBeUndefined()
   })

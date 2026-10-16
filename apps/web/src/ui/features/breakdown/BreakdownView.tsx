@@ -15,7 +15,7 @@ import { Select } from "../../primitives/select"
 import { EmptyState, Loaded } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
-import { DIMENSION_NAMES, OVERALL_NAME, groupName, INFERRED_SPIN_AVERAGE, inferredShareText, NOT_TALLIED, SPIN_AVERAGE, spinAverageText } from "../../wording/breakdown"
+import { DIMENSION_NAMES, OVERALL_NAME, groupName, INFERRED_SPIN_AVERAGE, inferredShareText, NOT_TALLIED, PLAY_TIME, playTimeText, SPIN_AVERAGE, spinAverageText } from "../../wording/breakdown"
 import { formatSignedYen, formatTheoreticalYen, toneOf } from "../../wording/numbers"
 import { PeriodPicker } from "../period/PeriodPicker"
 import { queryFor } from "../period/periods"
@@ -49,6 +49,7 @@ function SpinAverage(props: { readonly label: string; readonly average: Decimal 
  * worth — or, in a book with no theoretical value written in it, that
  * there is none to sum — and, where part of that worth was inferred, how
  * much, so a figure nobody measured is not taken for one somebody did —
+ * then how long its tallies were played for, `--` where none kept it —
  * and, grouped by machine, the spin performances its tallies averaged.
  */
 export function GroupRow(props: { readonly name: string; readonly group: Group; readonly strong: boolean; readonly theoreticalKept: boolean; readonly spins?: SpinPerformances | undefined }): JSX.Element {
@@ -71,6 +72,10 @@ export function GroupRow(props: { readonly name: string; readonly group: Group; 
         <Show when={props.theoreticalKept && !isZero(props.group.inferred)}>
           <span class="text-xs tabular-nums text-text-muted">{inferredShareText(props.group.inferred)}</span>
         </Show>
+        <span class="flex items-baseline gap-1.5">
+          <span class="text-xs text-text-muted">{PLAY_TIME}</span>
+          <span class="tabular-nums text-text-primary">{isZero(props.group.seconds) ? "--" : playTimeText(props.group.seconds)}</span>
+        </span>
         <SpinAverage label={SPIN_AVERAGE} average={props.spins === undefined ? undefined : averageOf(props.spins.measured)} />
         <SpinAverage label={INFERRED_SPIN_AVERAGE} average={props.spins === undefined ? undefined : averageOf(props.spins.inferred)} />
       </div>

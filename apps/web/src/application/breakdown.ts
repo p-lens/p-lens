@@ -3,32 +3,37 @@ import { SOURCE_TAGS } from "../core/import/source-tally"
 import { PARLOR_ID_TAG, PARLOR_SUBMISSION_TAG, parlorsFromDeclarations, type Parlor } from "../core/parlor/parlor"
 import { TALLY_TAGS } from "../core/tally/tally"
 import { UNSAID, byColumn, byRow, byWeekday, groupsOf, inOrder, merged, type Dimension, type Group, type Period } from "../core/report/breakdown"
-import { negate } from "../core/decimal/decimal"
-import { actualOf, statisticTotalOf } from "../core/report/figures"
+import { negate, ZERO } from "../core/decimal/decimal"
+import { actualOf, secondsIn, secondsOf, statisticTotalOf } from "../core/report/figures"
 import { senderNamesOf, type SenderNames } from "../core/report/senders"
 import { spinPerformancesOf, type SpinPerformancesByMachine } from "../core/report/spin-performance"
 import { andThen, mapOk } from "../core/result/result"
 import type { JournalAccess } from "../hledger/client/client"
-import { accountsRequest, actualCutRequest, sentTalliesRequest, spinPerformancesRequest, actualRequest, inferredCutRequest, inferredRequest, theoreticalCutRequest, theoreticalRequest } from "../hledger/query/requests"
+import { accountsRequest, actualCutRequest, sentTalliesRequest, spinPerformancesRequest, actualRequest, inferredCutRequest, inferredRequest, playTimeCutRequest, playTimeRequest, theoreticalCutRequest, theoreticalRequest } from "../hledger/query/requests"
 import { combine, untaggedTerm } from "../hledger/query/terms"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
 import { fromHledger, fromReport } from "./lift"
 
-/** The tallies of a query grouped by one tag's values, each group's figures hledger's: an income statement, a balance of theoretical values and a balance of the inferred among them, all pivoted on the tag. */
+/** The tallies of a query grouped by one tag's values, each group's figures hledger's: an income statement, a balance of theoretical values, a balance of the inferred among them and a balance of play time, all pivoted on the tag. */
 const byTag = async (journal: JournalAccess, query: string, tag: string): Promise<Outcome<readonly Group[]>> => {
-  const [statement, theoretical, inferred] = await Promise.all([journal.ask(actualCutRequest(query, { pivot: tag })), journal.ask(theoreticalCutRequest(query, { pivot: tag })), journal.ask(inferredCutRequest(query, { pivot: tag }))])
+  const cut = { pivot: tag }
+  const [statement, theoretical, inferred, time] = await Promise.all([journal.ask(actualCutRequest(query, cut)), journal.ask(theoreticalCutRequest(query, cut)), journal.ask(inferredCutRequest(query, cut)), journal.ask(playTimeCutRequest(query, cut))])
   return andThen(andThen(fromHledger(statement), (report) => fromReport(byRow(report))), (made) =>
-    andThen(andThen(fromHledger(theoretical), (report) => fromReport(byRow(report))), (worth) => mapOk(andThen(fromHledger(inferred), (report) => fromReport(byRow(report))), (taken) => groupsOf(made, worth, taken))),
+    andThen(andThen(fromHledger(theoretical), (report) => fromReport(byRow(report))), (worth) =>
+      andThen(andThen(fromHledger(inferred), (report) => fromReport(byRow(report))), (taken) => mapOk(andThen(fromHledger(time), (report) => fromReport(byRow(report, secondsIn))), (played) => groupsOf(made, worth, taken, played))),
+    ),
   )
 }
 
-/** Everything a query matches as one group under a key: an income statement, a balance of theoretical values and a balance of the inferred among them, none cut. */
+/** Everything a query matches as one group under a key: an income statement, a balance of theoretical values, a balance of the inferred among them and a balance of play time, none cut. */
 const whole = async (journal: JournalAccess, query: string, key: string): Promise<Outcome<readonly Group[]>> => {
-  const [statement, theoretical, inferred] = await Promise.all([journal.ask(actualRequest(query)), journal.ask(theoreticalRequest(query)), journal.ask(inferredRequest(query))])
+  const [statement, theoretical, inferred, time] = await Promise.all([journal.ask(actualRequest(query)), journal.ask(theoreticalRequest(query)), journal.ask(inferredRequest(query)), journal.ask(playTimeRequest(query))])
   return andThen(andThen(fromHledger(statement), (report) => fromReport(actualOf(report))), (actual) =>
     andThen(andThen(fromHledger(theoretical), (report) => fromReport(statisticTotalOf(report))), (worth) =>
-      mapOk(andThen(fromHledger(inferred), (report) => fromReport(statisticTotalOf(report))), (taken) => groupsOf(new Map([[key, negate(actual)]]), new Map([[key, worth]]), new Map([[key, taken]]))),
+      andThen(andThen(fromHledger(inferred), (report) => fromReport(statisticTotalOf(report))), (taken) =>
+        mapOk(mapOk(fromHledger(time), secondsOf), (played) => groupsOf(new Map([[key, negate(actual)]]), new Map([[key, worth]]), new Map([[key, taken]]), new Map([[key, played ?? ZERO]]))),
+      ),
     ),
   )
 }
@@ -49,11 +54,14 @@ const byTags = async (journal: JournalAccess, query: string, tags: readonly stri
   return mapOk(await byTags(journal, combine(query, untaggedTerm(tag)), rest), (further) => [...groups.value.filter((group) => group.key !== UNSAID), ...further])
 }
 
-/** The tallies of a query grouped by period, each period's figures hledger's: the three reports, each with a column a period. */
+/** The tallies of a query grouped by period, each period's figures hledger's: the four reports, each with a column a period. */
 const byPeriod = async (journal: JournalAccess, query: string, period: Period): Promise<Outcome<readonly Group[]>> => {
-  const [statement, theoretical, inferred] = await Promise.all([journal.ask(actualCutRequest(query, { interval: period })), journal.ask(theoreticalCutRequest(query, { interval: period })), journal.ask(inferredCutRequest(query, { interval: period }))])
+  const cut = { interval: period }
+  const [statement, theoretical, inferred, time] = await Promise.all([journal.ask(actualCutRequest(query, cut)), journal.ask(theoreticalCutRequest(query, cut)), journal.ask(inferredCutRequest(query, cut)), journal.ask(playTimeCutRequest(query, cut))])
   return andThen(andThen(fromHledger(statement), (report) => fromReport(byColumn(report, period))), (made) =>
-    andThen(andThen(fromHledger(theoretical), (report) => fromReport(byColumn(report, period))), (worth) => mapOk(andThen(fromHledger(inferred), (report) => fromReport(byColumn(report, period))), (taken) => groupsOf(made, worth, taken))),
+    andThen(andThen(fromHledger(theoretical), (report) => fromReport(byColumn(report, period))), (worth) =>
+      andThen(andThen(fromHledger(inferred), (report) => fromReport(byColumn(report, period))), (taken) => mapOk(andThen(fromHledger(time), (report) => fromReport(byColumn(report, period, secondsIn))), (played) => groupsOf(made, worth, taken, played))),
+    ),
   )
 }
 

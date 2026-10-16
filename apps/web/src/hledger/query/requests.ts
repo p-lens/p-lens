@@ -50,6 +50,9 @@ export const branchRequest = (root: string, query: string): RequestOf<"balance">
 /** The time the tallies of a query were played for, in seconds, as hledger sums it. */
 export const playTimeRequest = (query: string): RequestOf<"balance"> => ({ kind: "balance", query: combine(playTimeTerm, query) })
 
+/** The time the tallies of a query were played for, cut the same way. */
+export const playTimeCutRequest = (query: string, cut: Cut): RequestOf<"balance"> => ({ ...playTimeRequest(query), ...cut })
+
 /** The loss on renting tokens above their exchange value over a query, in yen. */
 export const rentalSpreadRequest = (query: string): RequestOf<"balance"> => ({ kind: "balance", query: combine(rentalSpreadTerm, query) })
 

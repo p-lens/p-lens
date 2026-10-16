@@ -29,6 +29,9 @@ export const decimalOfQuantity = (quantity: Quantity): Decimal =>
 export const quantityIn = (mixed: MixedAmount, commodity: string): Decimal =>
   sum(mixed.filter((amount) => amount.acommodity === commodity).map((amount) => decimalOfQuantity(amount.aquantity)))
 
+/** A mixed amount's seconds, its play time; nought where it has none. */
+export const secondsIn = (mixed: MixedAmount): Result<Decimal, ReportError> => Ok(quantityIn(mixed, SECONDS))
+
 /** A mixed amount that should be all yen, or the commodities that were not. */
 export const yenOf = (mixed: MixedAmount): Result<Decimal, ReportError> => {
   const others = mixed.map((amount) => amount.acommodity).filter((commodity) => commodity !== YEN)

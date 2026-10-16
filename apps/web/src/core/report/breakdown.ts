@@ -4,6 +4,9 @@ import { ZERO, add, compare, negate, type Decimal } from "../decimal/decimal"
 import { collect, mapOk, type Result } from "../result/result"
 import { yenOf, type ReportError } from "./figures"
 
+/** How one report's amounts are read: as yen, or as seconds. */
+type Reading = (amount: MixedAmount) => Result<Decimal, ReportError>
+
 /** What tallies are grouped by, each a way of asking where the results came from. */
 export const DIMENSIONS = ["machine", "parlor", "weekday", "game", "year", "month", "day"] as const
 
@@ -35,16 +38,18 @@ export interface Group {
   readonly actual: Decimal
   readonly theoretical: Decimal
   readonly inferred: Decimal
+  /** The seconds the tallies were played for, as their entries keep them; nought where none keeps any. */
+  readonly seconds: Decimal
 }
 
 /** One figure a group, by key, as one report gives it. */
 type Figures = ReadonlyMap<string, Decimal>
 
-const figuresOf = (pairs: readonly (readonly [string, MixedAmount])[]): Result<Figures, ReportError> =>
-  mapOk(collect(pairs.map(([key, amount]) => mapOk(yenOf(amount), (yen) => [key, yen] as const))), (read) => new Map(read))
+const figuresOf = (pairs: readonly (readonly [string, MixedAmount])[], reading: Reading): Result<Figures, ReportError> =>
+  mapOk(collect(pairs.map(([key, amount]) => mapOk(reading(amount), (figure) => [key, figure] as const))), (read) => new Map(read))
 
 /** A pivoted report's rows as figures by the tag's value: each row's total, the row for what carries no such tag under the empty key. */
-export const byRow = (report: BalanceReport): Result<Figures, ReportError> => figuresOf(report.prRows.map((row) => [typeof row.prrName === "string" ? row.prrName : UNSAID, row.prrTotal]))
+export const byRow = (report: BalanceReport, reading: Reading = yenOf): Result<Figures, ReportError> => figuresOf(report.prRows.map((row) => [typeof row.prrName === "string" ? row.prrName : UNSAID, row.prrTotal]), reading)
 
 /** A day as the key of the period it begins, as long as the period is: a year, a month, or itself. */
 const PERIOD_KEYS = { yearly: (day: IsoDate) => day.slice(0, 4), monthly: (day: IsoDate) => day.slice(0, 7), daily: (day: IsoDate) => day as string } as const
@@ -52,29 +57,34 @@ const PERIOD_KEYS = { yearly: (day: IsoDate) => day.slice(0, 4), monthly: (day: 
 export type Period = keyof typeof PERIOD_KEYS
 
 /** A report's columns as figures by period: each column's total over every row, a column whose start does not read left out. */
-export const byColumn = (report: BalanceReport, period: Period): Result<Figures, ReportError> =>
+export const byColumn = (report: BalanceReport, period: Period, reading: Reading = yenOf): Result<Figures, ReportError> =>
   figuresOf(
     report.prDates.flatMap((span, index) => {
       const began = parseIsoDate(span[0]?.contents ?? "")
       return began.ok ? [[PERIOD_KEYS[period](began.value), report.prTotals.prrAmounts[index] ?? []] as const] : []
     }),
+    reading,
   )
 
 /**
- * Groups from what an income statement, a balance of theoretical values
- * and a balance of the inferred among those, cut alike, each say of them.
+ * Groups from what an income statement, a balance of theoretical values,
+ * a balance of the inferred among those and a balance of play time, cut
+ * alike, each say of them.
  * An income statement's total is turned over, as it is read: revenue is a
  * credit. A group one report has and another lacks stands at nothing in
  * the other, and a group that made nothing and was worth nothing is no
  * group.
  */
-export const groupsOf = (statement: Figures, theoretical: Figures, inferred: Figures): readonly Group[] =>
+export const groupsOf = (statement: Figures, theoretical: Figures, inferred: Figures, seconds: Figures): readonly Group[] =>
   [...new Set([...statement.keys(), ...theoretical.keys()])]
-    .map((key) => ({ key, actual: negate(statement.get(key) ?? ZERO), theoretical: theoretical.get(key) ?? ZERO, inferred: inferred.get(key) ?? ZERO }))
+    .map((key) => ({ key, actual: negate(statement.get(key) ?? ZERO), theoretical: theoretical.get(key) ?? ZERO, inferred: inferred.get(key) ?? ZERO, seconds: seconds.get(key) ?? ZERO }))
     .filter((group) => compare(group.actual, ZERO) !== 0 || compare(group.theoretical, ZERO) !== 0)
 
 const together = (key: string, groups: readonly Group[]): Group =>
-  groups.reduce((total, group) => ({ key, actual: add(total.actual, group.actual), theoretical: add(total.theoretical, group.theoretical), inferred: add(total.inferred, group.inferred) }), { key, actual: ZERO, theoretical: ZERO, inferred: ZERO })
+  groups.reduce(
+    (total, group) => ({ key, actual: add(total.actual, group.actual), theoretical: add(total.theoretical, group.theoretical), inferred: add(total.inferred, group.inferred), seconds: add(total.seconds, group.seconds) }),
+    { key, actual: ZERO, theoretical: ZERO, inferred: ZERO, seconds: ZERO },
+  )
 
 /** The same groups from several books, each key's figures added: books are read one at a time, and several are one by adding what each says. */
 export const merged = (books: readonly (readonly Group[])[]): readonly Group[] => {
