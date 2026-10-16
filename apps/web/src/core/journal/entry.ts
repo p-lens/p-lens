@@ -51,15 +51,13 @@ const barless = (text: string): string => text.replaceAll("|", "｜")
 /**
  * An entry's description as hledger reads one: the payee, a bar, the
  * note — so `payee:` and `note:` find each, and a book groups by who was
- * paid without the app. A description with no bar is its own payee and
- * its own note, whole; so where either side is missing the other stands
- * alone, no bar beside it.
+ * paid without the app. The bar is written always: a description with no
+ * bar is its own payee whole, so a note with no payee would be read as one
+ * — a machine as the parlor paid. Where a side is missing it is left empty
+ * beside the bar, and with both missing the bar stands alone.
  */
 export const describedBy = (payee: string | undefined, note: string): string =>
-  [payee, note]
-    .map((part) => barless(part ?? "").trim())
-    .filter((part) => part !== "")
-    .join(" | ")
+  `${barless(payee ?? "").trim()} | ${barless(note).trim()}`.trim()
 
 const renderAmount = (amount: Amount): string => `${toPlainString(amount.quantity)} ${renderCommodity(amount.commodity)}`
 

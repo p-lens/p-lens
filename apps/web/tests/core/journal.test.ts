@@ -51,14 +51,15 @@ describe("an entry's description", () => {
     expect(describedBy("マレハン第3新東京店", "流星 123番台")).toBe("マレハン第3新東京店 | 流星 123番台")
   })
 
-  test("is one side alone where the other is missing, with no bar beside it", () => {
-    expect(describedBy(undefined, "流星 123番台")).toBe("流星 123番台")
-    expect(describedBy("マレハン第3新東京店", "")).toBe("マレハン第3新東京店")
-    expect(describedBy(undefined, "")).toBe("")
+  test("keeps its bar where a side is missing, so a note is never read as the payee", () => {
+    expect(describedBy(undefined, "流星 123番台")).toBe("| 流星 123番台")
+    expect(describedBy("マレハン第3新東京店", "")).toBe("マレハン第3新東京店 |")
+    expect(describedBy(undefined, "")).toBe("|")
+    expect(describedBy("  ", "  ")).toBe("|")
   })
 
   test("keeps a bar inside a name from ending the payee", () => {
     expect(describedBy("A|B店", "C|D")).toBe("A｜B店 | C｜D")
-    expect(describedBy(undefined, "C|D")).toBe("C｜D")
+    expect(describedBy(undefined, "C|D")).toBe("| C｜D")
   })
 })

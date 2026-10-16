@@ -8,7 +8,8 @@
 ;   transactions.journal  one entry per play, tagged play-id, game-kind and machine
 ;   pachinko-play/        a pachinko play's readings as JSON Lines, in a file named by its play-id
 ;   pachislot-play/       a pachislot play's, the same
-; Parlors are named as the open list at https://parlors.p-lens.jp names them, machines as P-Lens's catalog does.
+; Each parlor-id, with the parlor's name, is the one the open parlor list gives: https://github.com/p-lens/p-lens-parlors
+; (app.p-lens.jp reads that list as it is published at https://parlors.p-lens.jp). Machines are named as P-Lens's catalog names them.
 ; The layout, the accounts and every tag are described in ARCHITECTURE.md in the P-Lens repository.
 ;
 ; Point hledger at this file: hledger -f main.journal bal

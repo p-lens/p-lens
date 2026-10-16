@@ -142,7 +142,7 @@ describe("composeYenTallyEntry", () => {
     expect(mapOk(composeYenTallyEntry(TALLIED), renderEntry)).toEqual({
       ok: true,
       value: [
-        "2026-10-04 e風の剣豪  ; play-id: tally-1004, game-kind: pachinko, machine: e風の剣豪",
+        "2026-10-04 | e風の剣豪  ; play-id: tally-1004, game-kind: pachinko, machine: e風の剣豪",
         "    費用:遊技                           12000 JPY",
         "    資産:現金                           -12000 JPY",
         "    (統計:期待値)                       8000 JPY",
@@ -155,7 +155,7 @@ describe("composeYenTallyEntry", () => {
     expect(mapOk(composeYenTallyEntry({ ...TALLIED, takings: dec("30000"), theoreticalValue: undefined }), renderEntry)).toEqual({
       ok: true,
       value: [
-        "2026-10-04 e風の剣豪  ; play-id: tally-1004, game-kind: pachinko, machine: e風の剣豪",
+        "2026-10-04 | e風の剣豪  ; play-id: tally-1004, game-kind: pachinko, machine: e風の剣豪",
         "    費用:遊技                           12000 JPY",
         "    収益:遊技                           -30000 JPY",
         "    純資産:特殊景品                     18000 JPY",
@@ -165,7 +165,7 @@ describe("composeYenTallyEntry", () => {
   })
 
   test("at no parlor counted in tokens, takes the cash spent from cash and sets the tokens against savings the book does not keep, writing no prize", () => {
-    const head = "2026-10-04 e風の剣豪  ; play-id: tally-1004, game-kind: pachinko, machine: e風の剣豪"
+    const head = "2026-10-04 | e風の剣豪  ; play-id: tally-1004, game-kind: pachinko, machine: e風の剣豪"
     expect(mapOk(composeYenTallyEntry({ ...TALLIED, outlay: dec("1000"), takings: dec("4000"), theoreticalValue: undefined, settlement: { type: "off-book-savings", cash: dec("1000") } }), renderEntry)).toEqual({
       ok: true,
       value: [head, "    費用:遊技                           1000 JPY", "    収益:遊技                           -4000 JPY", "    資産:現金                           -1000 JPY", "    純資産:簿外貯玉                     4000 JPY", ""].join("\n"),
@@ -180,7 +180,7 @@ describe("composeYenTallyEntry", () => {
     expect(mapOk(composeYenTallyEntry({ ...TALLIED, takings: dec("30000.4"), theoreticalValue: undefined, settlement: { type: "cash-and-prizes" } }), renderEntry)).toEqual({
       ok: true,
       value: [
-        "2026-10-04 e風の剣豪  ; play-id: tally-1004, game-kind: pachinko, machine: e風の剣豪",
+        "2026-10-04 | e風の剣豪  ; play-id: tally-1004, game-kind: pachinko, machine: e風の剣豪",
         "    費用:遊技                           12000 JPY",
         "    収益:遊技                           -30000.4 JPY",
         "    資産:現金                           -12000 JPY",
@@ -246,7 +246,7 @@ describe("composeYenTallyEntry", () => {
     expect(mapOk(composeYenTallyEntry(told), renderEntry)).toEqual({
       ok: true,
       value: [
-        "2026-10-04 マイジャグラーVI  ; play-id: tally-1004, game-kind: slot, machine: マイジャグラーVI, hours: 3.5, inferred-formula: formula-1, token-rental: 21.73913, token-exchange: 5.1",
+        "2026-10-04 | マイジャグラーVI  ; play-id: tally-1004, game-kind: slot, machine: マイジャグラーVI, hours: 3.5, inferred-formula: formula-1, token-rental: 21.73913, token-exchange: 5.1",
         "    費用:遊技                           12000 JPY",
         "    資産:現金                           -12000 JPY",
         "    (統計:期待値:推定)                  -1234.5 JPY",

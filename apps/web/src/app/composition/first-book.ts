@@ -21,7 +21,8 @@ const MAIN = `; A P-Lens book: pachinko and pachislot play, kept as a plain-text
 ;   pachinko-play/        a pachinko play's readings as JSON Lines, in a file named by its play-id
 ;   pachislot-play/       a pachislot play's, the same
 ;   logs/activity.jsonl   what was done to the book, as JSON Lines: who, when and what, a line a change
-; Parlors are named as the open list at https://parlors.p-lens.jp names them, machines as P-Lens's catalog does.
+; Each parlor-id, with the parlor's name, is the one the open parlor list gives: https://github.com/p-lens/p-lens-parlors
+; (app.p-lens.jp reads that list as it is published at https://parlors.p-lens.jp). Machines are named as P-Lens's catalog names them.
 ; The layout, the accounts and every tag are described in ARCHITECTURE.md in the P-Lens repository.
 ;
 ; Point hledger at this file: hledger -f main.journal bal

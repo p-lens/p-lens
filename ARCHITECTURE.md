@@ -287,10 +287,13 @@ rate for the day differs.
   parlor is the payee, the machine and its cabinet the note, so `payee:`
   groups a book by parlor outside the app too. Savings entries are the
   same — `マレハン第3新東京店 | 景品交換` — and an imported tally's payee is the
-  parlor as the other app named it. A tally with no parlor has no bar: its
-  description is then its own payee, as hledger has it. The app reads
+  parlor as the other app named it. The bar is written always: a tally with
+  no parlor is `| e風の剣豪`, its payee empty rather than its machine — a
+  description with no bar is its own payee whole — and with no machine
+  either it is the bar alone. The app reads
   neither side back — a parlor and a machine are read from tags — and an
-  entry written before the bar was has none: it is data already written.
+  entry written before the bar was, or without it where a side was missing,
+  is data already written.
 - **Rental** splits the cash at that day's rate into tokens and a rental
   spread, a loss settled that day and never revalued. The tokens go
   straight to `費用:遊技`: rented tokens are shot, never saved, so cash
