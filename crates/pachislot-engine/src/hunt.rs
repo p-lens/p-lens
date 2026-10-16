@@ -161,7 +161,7 @@ fn played(
                     games: 1.0,
                     medals: 0.0,
                     at_medals: won * gain,
-                    trigger_medals: trigger_medals(rules, mode, now, (won, miss)),
+                    trigger_medals: trigger_medals(rules, table, mode, now, (won, miss)),
                     by_ceiling: if at_ceiling || through || direct_ceiling {
                         won
                     } else {

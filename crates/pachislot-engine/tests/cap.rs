@@ -130,6 +130,8 @@ fn table(payout: PayoutLaw) -> AtTable {
     AtTable {
         chance: chance(0.01),
         success: chance(1.0),
+        direct: chance(0.0),
+        paid: chance(1.0),
         allotments: Allotments {
             after_at: vec![1.0],
             after_reset: vec![1.0],

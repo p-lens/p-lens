@@ -388,12 +388,39 @@ theoretical value is behind the form's detail button. A parlor is named
 only if chosen; a side of nothing writes no posting.
 
 ```hledger
-2026-10-04 e風の剣豪  ; play-id: …, game-kind: pachinko, machine: e風の剣豪
+2026-10-04 | e風の剣豪  ; play-id: …, game-kind: pachinko, machine: e風の剣豪
     費用:遊技                          15000 JPY
     収益:遊技                          -3000 JPY
     資産:現金                         -12000 JPY
     (統計:期待値)                       8000 JPY
 ```
+
+**Reading the signs.** A book opened in hledger looks upside down to anyone
+who keeps household accounts, and is not. hledger writes a debit positive
+and a credit negative, and a P-Lens book keeps two things out of it on
+purpose: a wallet's balance, which would have the book follow every yen
+spent elsewhere, and money coming back, which a parlor never gives.
+
+- `資産:現金` starts at nothing and only falls. Its balance is negative:
+  the cash brought in from outside the book and spent on play, all told —
+  in the place of an owner's contribution (元入金, 事業主借), kept as an
+  asset sunk below nothing rather than as equity.
+- `純資産:特殊景品` and `純資産:端玉景品` only rise. Their balances are
+  positive: the prizes taken out of the book, all told — in the place of
+  an owner's drawings (引出金). A prize is no asset the book keeps, so a
+  gain leaves it as prizes, and equity falls by them.
+- `資産:貯玉` and `資産:貯メダル` hold what a parlor keeps for a person,
+  positive in tokens and worth yen at the latest `P`.
+- `収益:遊技` is negative and `費用:遊技` positive, as hledger keeps them.
+  The result, 収支, is the income statement turned over: what came back
+  less what went in.
+
+So a book's result is the prizes taken home, plus the savings gained, less
+the cash spent — the same figure the income statement comes to, and the
+one the screens show. In `hledger bs` equity is shown turned over, so the
+prizes there read as equity taken away; `hledger bal` shows them as taken
+home. The screens never show a raw sign: 総合 says the cash spent and the
+prizes taken home as amounts, and a result as won or lost.
 
 An entry written while such a tally kept only its result has one side — a
 loss all outlay, a gain all takings — and is read back as that; one that
@@ -1247,10 +1274,21 @@ only the primitives, the core and the application.
   not start again. Every waiting trigger comes on that game; it needs an
   AT間天井 at it or beyond, so that a cycle ends. The grounds do not play
   such a cycle out: they take the engine's, and say it is unchecked.
+  An AT a CZ brings may also be won outright (`direct`, a chance a regular
+  game below the ceilings, under every setting level), drawn before the
+  CZ: a cycle is the CZ's walk with each game reached only where none
+  before it won outright — in closed form where no AT間天井 cuts it
+  short — the CZ's 合算 still what is published, and the AT's 初当たり
+  coming out of both. The grounds take that cycle from the engine too.
   Where the ceilings count the screen's games, `lcdRate` says how
   many the screen counts for each regular game, and the trigger's ceilings
   are taken that much sooner — on average, which the screen's additions are;
-  the AT間天井 is counted in regular games.
+  the AT間天井 is counted in regular games. Where they count something
+  else — points, 周期 — `ceilingUnit` names it and says how much of it a
+  regular game comes to on average, and they are reached after that many
+  over it; a machine says one or the other, never both
+  (`ceiling-unit-beside-lcd-rate`). Either is an average, and the grounds
+  say so.
 - **An AT's 純増 closes the machine.** What an AT costs in games of its own
   is not in its payout, which is why an AT machine's 機械割 is measured —
   unless the AT says its 純増 (`netPerGame`, medals a game). Over a cycle,
@@ -1284,6 +1322,20 @@ only the primitives, the core and the application.
   walk and the hunt pay a bonus at its chance a game. An AT won on the
   AT間天井 is no bonus's and pays none, and a bonus's medals are not
   counted towards the 有利区間's cap.
+- **A CZ whose success brings a bonus keeps both stages.** Where a CZ
+  succeeds into a bonus and the bonus wins the AT at a share of its own —
+  CZ, then BIG, then the AT about half the time — the CZ keeps its 合算,
+  its ceilings and its `success`, and `bonusShare` gives the bonus's share
+  under each setting. Its `payout` and `netPerGame` are then the bonus's,
+  paid each time a CZ succeeds. Normalising multiplies the two stages: the
+  table's `success` is the CZ's success times the bonus's share, and its
+  `paid` the share of CZs that pay the bonus's medals, the CZ's success;
+  the cycle, the 機械割, the walk and the hunt take them as they take a
+  bonus that is the trigger. A bonus missing the AT is a CZ missed, for
+  the スルー天井 too. It is an average: a CZ won on its スルー天井 pays
+  the bonus at the CZ's success, as any other does. Figures nobody
+  publishes may be guessed by the person typing them in; the share left
+  empty in the editor is every time.
 - Normalising gives `NormalizedSpec.atRules` — the ベース, the AT and its
   payout, the trigger (the CZ, or none where the AT is won directly), the
   modes with the trigger's ceiling in regular games, the AT間天井 and the
@@ -2216,10 +2268,12 @@ is not written out here a second time.
 | AT / CZ | AT (`at`) / CZ (`cz`); either is the trigger (`trigger`) a regular game may bring |
 | 初当たり / CZ合算 | first hit (`firstHit`): a published chance, ceilings included |
 | CZ成功率 | success (`success`): a probability |
+| ボーナスからのAT率 | bonus share (`bonusShare`): on a CZ whose success brings a bonus |
 | 天井 / AT間天井 / スルー天井 | ceiling (`ceiling`) / AT ceiling (`atCeiling`) / misses (`misses`) |
 | ベース | base (`base`): regular games fifty medals last |
 | モード / 振り分け | mode / allotment (`allotment`, `resetAllotment`) |
 | 液晶ゲーム数の加算 | LCD rate (`lcdRate`) |
+| pt・周期で数える天井 | ceiling unit (`ceilingUnit`: a name and `perGame`) |
 | 設定変更（リセット） | setting change (`afterReset`) |
 | 有利区間 / 有利区間の上限 | 有利区間 / cap (`cap`), counted from its lowest point |
 | 引き戻し | window (`window`) |

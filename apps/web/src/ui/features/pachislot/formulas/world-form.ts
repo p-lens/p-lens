@@ -51,8 +51,10 @@ export interface EntityRow {
   readonly misses: string
   /** A CZ that is a bonus: its 純増, the medals a game of it gains, as typed; empty where its games are not counted. */
   readonly net: string
-  /** Whether a CZ row is a bonus that wins the AT at a share, rather than a CZ. */
-  readonly bonusTrigger: boolean
+  /** What a CZ row is: a CZ, a bonus that wins the AT at a share, or a CZ whose success brings a bonus that does. */
+  readonly trigger: CzTrigger
+  /** Where a CZ's success brings a bonus: how often the bonus wins the AT, in percent by the level; empty for every time. */
+  readonly bonusShares: Readonly<Record<string, string>>
   /** A CZ's ceiling counted from the last AT, which it comes on once, as typed; empty for none. */
   readonly sinceAtCeiling: string
   /** A mode's 振り分け after a setting change, in percent by the level; empty for the same as after an AT. */
@@ -60,6 +62,9 @@ export interface EntityRow {
   /** An AT's medals beyond their average, and its 有利区間. */
   readonly law: AtLawForm
 }
+
+/** What brings the AT on a CZ row: the CZ, a bonus in its place, or a CZ whose success brings a bonus before the AT. */
+export type CzTrigger = "cz" | "bonus" | "cz-then-bonus"
 
 /** How an AT's medals are given: their average, sets carried on at a 継続率, a table, or the 機械割 they follow from with the AT's 純増. */
 export type PayoutShape = "average" | "sets" | "table" | "rate"
@@ -113,6 +118,10 @@ export interface WorldForm {
   readonly base: string
   /** The screen's games a regular game comes to, where the ceilings are counted on it; empty where they count regular games. */
   readonly lcdRate: string
+  /** What the trigger's ceilings are counted in where it is not games — `pt`, `周期` — as typed; empty where they count games. */
+  readonly unitName: string
+  /** The regular games one of that unit comes to on average, as typed: 32 for a 周期 of 32 games. */
+  readonly unitGames: string
   /** 有利区間の上限 in medals; empty where it is not modelled. */
   readonly cap: string
 }
@@ -139,7 +148,8 @@ const row = (key: string, label: string, kind: EntityKindName, payout = ""): Ent
   success: {},
   misses: "",
   net: "",
-  bonusTrigger: false,
+  trigger: "cz",
+  bonusShares: {},
   sinceAtCeiling: "",
   law: EMPTY_LAW,
 })
@@ -151,18 +161,20 @@ export const STARTING_WORLD: WorldForm = {
   rows: [row("big", "BIG", "bonus"), row("reg", "REG", "bonus"), row("grape", "ブドウ", "role"), row("cherry", "チェリー", "role"), row("replay", "リプレイ", "replay")],
   base: "",
   lcdRate: "",
+  unitName: "",
+  unitGames: "",
   cap: "",
 }
 
 /** Where a typed-in formula starts: BIG and REG, and a 機械割 for each level. */
 export const STARTING_MANUAL: ManualForm = {
-  world: { settingLevels: ALL_SETTING_LEVELS, bet: "3", rows: [row("big", "BIG", "bonus"), row("reg", "REG", "bonus")], base: "", lcdRate: "", cap: "" },
+  world: { settingLevels: ALL_SETTING_LEVELS, bet: "3", rows: [row("big", "BIG", "bonus"), row("reg", "REG", "bonus")], base: "", lcdRate: "", unitName: "", unitGames: "", cap: "" },
   rates: {},
 }
 
 /** Where a typed-in formula of an AT machine starts: its AT, its ベース, and a 機械割 for each level. */
 export const STARTING_AT_MANUAL: ManualForm = {
-  world: { settingLevels: ALL_SETTING_LEVELS, bet: "3", rows: [row("at", "AT", "at")], base: "", lcdRate: "", cap: "" },
+  world: { settingLevels: ALL_SETTING_LEVELS, bet: "3", rows: [row("at", "AT", "at")], base: "", lcdRate: "", unitName: "", unitGames: "", cap: "" },
   rates: {},
 }
 
@@ -252,6 +264,14 @@ const lcdRateOf = (text: string): Read<number | undefined> => {
   return !read.ok ? read : read.value < 100 ? Err({ field: "液晶の加算", reason: "out-of-range" }) : Ok(read.value / 100)
 }
 
+/** What the trigger's ceilings are counted in, read: none where no name is typed, else the name and how much of it a regular game comes to — one over the games one of it takes. */
+const ceilingUnitOf = (form: WorldForm): Read<{ readonly name: string; readonly perGame: number } | undefined> => {
+  const name = tidyTyped(form.unitName)
+  if (name === "") return Ok(undefined)
+  const read = hundredthsOf(form.unitGames, `1${name}あたりのG数`)
+  return !read.ok ? read : read.value === 0 ? Err({ field: `1${name}あたりのG数`, reason: "out-of-range" }) : Ok({ name, perGame: 100 / read.value })
+}
+
 /** A share for each setting level, read; or none where every one is left empty and that is allowed. */
 const sharesOf = (form: WorldForm, values: Readonly<Record<string, string>>, name: string, optional: boolean): readonly Read<BySettingLevelDto<number>>[] | undefined => {
   if (optional && form.settingLevels.every((level) => tidyTyped(values[String(level)] ?? "") === "")) return undefined
@@ -266,6 +286,9 @@ const rateOf = (text: string, field: string): Read<number> => {
   const read = hundredthsOf(text, field)
   return read.ok && read.value === 0 ? Err({ field, reason: "out-of-range" }) : read
 }
+
+/** A share of every time under each level: a bonus a CZ's success brings, its share left empty, wins the AT each time. */
+const everyTime = (form: WorldForm): readonly Read<BySettingLevelDto<number>>[] => form.settingLevels.map((level) => Ok({ settingLevel: level, value: 10_000 }))
 
 const nameOf = (entity: EntityRow): string => (entity.label.trim() === "" ? "名前のない行" : entity.label.trim())
 
@@ -288,6 +311,8 @@ interface ReadRow {
   readonly atCeiling: number | undefined
   readonly resetAllotment: readonly BySettingLevelDto<number>[] | undefined
   readonly success: readonly BySettingLevelDto<number>[] | undefined
+  /** Where a CZ's success brings a bonus: how often it wins the AT. */
+  readonly bonusShare: readonly BySettingLevelDto<number>[] | undefined
   readonly misses: number | undefined
   /** A watch's trials, where more than one. */
   readonly trials: number | undefined
@@ -295,6 +320,8 @@ interface ReadRow {
   readonly net: number | undefined
   /** A CZ's ceiling counted from the last AT, where given. */
   readonly sinceAtCeiling: number | undefined
+  /** An AT a CZ brings: how often a regular game wins it outright, where given. */
+  readonly direct: readonly BySettingLevelDto<ProbabilityDto>[] | undefined
   readonly law: ReadLaw | undefined
 }
 
@@ -406,9 +433,17 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
         return read.ok ? Ok({ settingLevel: level, value: read.value }) : read
       })
     : []
+  const typedDirect = brought && form.settingLevels.some((level) => tidyTyped(entity.chances[String(level)] ?? "") !== "")
+  const direct: readonly Read<BySettingLevelDto<ProbabilityDto>>[] = typedDirect
+    ? form.settingLevels.map((level) => {
+        const read = chanceOf(entity.chances[String(level)] ?? "", `${name} 直撃 設定${level}`)
+        return read.ok ? Ok({ settingLevel: level, value: read.value }) : read
+      })
+    : []
   const allotment = isMode ? (sharesOf(form, entity.chances, `${name} 振り分け`, false) ?? []) : []
   const resetAllotment = isMode ? sharesOf(form, entity.resetAllotment, `${name} リセット時の振り分け`, true) : undefined
   const success = isCz ? (sharesOf(form, entity.success, `${name} 成功率`, false) ?? []) : []
+  const bonusShare = isCz && entity.trigger === "cz-then-bonus" ? (sharesOf(form, entity.bonusShares, `${name} ボーナスからのAT率`, true) ?? everyTime(form)) : []
   const misses = isCz || (isMode && hasCz(form)) ? ceilingOf(entity.misses, `${name} スルー天井`) : Ok(undefined)
   const net: Read<number | undefined> = isCz && tidyTyped(entity.net) !== "" ? setOf(entity.net, `${name} 純増`) : Ok(undefined)
   const sinceAtCeiling = isCz ? ceilingOf(entity.sinceAtCeiling, `${name} ATから数える天井`) : Ok(undefined)
@@ -423,13 +458,14 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
   const atCeiling = isMode && hasCz(form) ? ceilingOf(entity.atCeiling, `${name} AT間天井`) : Ok(undefined)
   const law = entity.kind === "at" ? readLaw(form, entity, name) : Ok(undefined)
   const problems = [
-    ...problemsOf([label, payout, of, trials, net, sinceAtCeiling, ceiling, resetCeiling, atCeiling, misses, ...chances, ...allotment, ...(resetAllotment ?? []), ...success]),
+    ...problemsOf([label, payout, of, trials, net, sinceAtCeiling, ...direct, ceiling, resetCeiling, atCeiling, misses, ...chances, ...allotment, ...(resetAllotment ?? []), ...success, ...bonusShare]),
     ...(law.ok ? [] : law.error),
   ]
   if (problems.length > 0 || !law.ok) return Err(problems)
   return Ok({
     entity,
     chance: hasChance ? valuesOf(chances) : undefined,
+    direct: typedDirect ? valuesOf(direct) : undefined,
     allotment: isMode ? valuesOf(allotment) : undefined,
     payout: payout.ok ? payout.value : undefined,
     ceiling: ceiling.ok ? ceiling.value : undefined,
@@ -437,6 +473,7 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
     atCeiling: atCeiling.ok ? atCeiling.value : undefined,
     resetAllotment: resetAllotment === undefined ? undefined : valuesOf(resetAllotment),
     success: isCz ? valuesOf(success) : undefined,
+    bonusShare: isCz && entity.trigger === "cz-then-bonus" ? valuesOf(bonusShare) : undefined,
     misses: misses.ok ? misses.value : undefined,
     trials: trials.ok ? trials.value : undefined,
     net: net.ok ? net.value : undefined,
@@ -450,6 +487,7 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
 interface MachineResources {
   readonly base: number
   readonly lcdRate: number | undefined
+  readonly ceilingUnit: { readonly name: string; readonly perGame: number } | undefined
   readonly cap: number | undefined
 }
 
@@ -461,17 +499,19 @@ const worldOf = (form: WorldForm, bet: number, at: MachineResources | undefined,
     }))
   const listed = (kind: EntityKindName): readonly string[] => rows.filter((read) => read.entity.kind === kind).map((read) => read.entity.key)
   const owned = (kind: EntityKindName): Readonly<Record<string, string>> => keyed((read) => (read.entity.kind === kind ? read.entity.of : undefined))
-  const bonuses = rows.filter((read) => read.entity.kind === "bonus" || (read.entity.kind === "cz" && read.entity.bonusTrigger)).map((read) => read.entity.key)
+  const bonuses = rows.filter((read) => read.entity.kind === "bonus" || (read.entity.kind === "cz" && read.entity.trigger === "bonus")).map((read) => read.entity.key)
   const parts = owned("part")
   const watches = owned("watch")
   const cues = owned("cue")
   const trials = keyed((read) => read.trials)
   const sinceAtCeilings = keyed((read) => read.sinceAtCeiling)
+  const directs = keyed((read) => read.direct)
   const isAt = (read: ReadRow): boolean => read.entity.kind === "at"
   const isCz = (read: ReadRow): boolean => read.entity.kind === "cz"
   const isMode = (read: ReadRow): boolean => read.entity.kind === "mode"
   const firstHits = keyed((read) => (isAt(read) || isCz(read) ? read.chance : undefined))
   const successes = keyed((read) => read.success)
+  const bonusShares = keyed((read) => read.bonusShare)
   const misses = keyed((read) => read.misses)
   const ceilings = keyed((read) => read.ceiling)
   const resetCeilings = keyed((read) => read.resetCeiling)
@@ -496,6 +536,7 @@ const worldOf = (form: WorldForm, bet: number, at: MachineResources | undefined,
       ...(Object.keys(parts).length > 0 ? { partOf: parts } : {}),
       ...(listed("at").length > 0 ? { at: listed("at") } : {}),
       ...(listed("cz").length > 0 ? { cz: listed("cz"), success: successes } : {}),
+      ...(Object.keys(bonusShares).length > 0 ? { bonusShare: bonusShares } : {}),
       ...(Object.keys(firstHits).length > 0 ? { firstHit: firstHits } : {}),
       ...(Object.keys(misses).length > 0 ? { misses } : {}),
       ...(Object.keys(ceilings).length > 0 ? { ceiling: ceilings } : {}),
@@ -513,12 +554,14 @@ const worldOf = (form: WorldForm, bet: number, at: MachineResources | undefined,
       ...(Object.keys(trials).length > 0 ? { trials } : {}),
       ...(Object.keys(cues).length > 0 ? { cue: cues } : {}),
       ...(Object.keys(sinceAtCeilings).length > 0 ? { sinceAtCeiling: sinceAtCeilings } : {}),
+      ...(Object.keys(directs).length > 0 ? { direct: directs } : {}),
     },
     resources: {
       settingLevels: form.settingLevels.toSorted((left, right) => left - right),
       bet,
       ...(at === undefined ? {} : { base: at.base }),
       ...(at?.lcdRate === undefined ? {} : { lcdRate: at.lcdRate }),
+      ...(at?.ceilingUnit === undefined ? {} : { ceilingUnit: at.ceilingUnit }),
       ...(at?.cap === undefined ? {} : { cap: at.cap }),
     },
   }
@@ -531,11 +574,12 @@ const readRows = (form: WorldForm, payoutRule: (entity: EntityRow) => PayoutRule
   const bonuses: Read<true> = at || form.rows.some((entity) => entity.kind === "bonus") ? Ok(true) : Err({ field: "ボーナス", reason: "no-bonus" })
   const base: Read<number | undefined> = at ? baseOf(form.base) : Ok(undefined)
   const lcdRate = at ? lcdRateOf(form.lcdRate) : Ok(undefined)
+  const ceilingUnit = at ? ceilingUnitOf(form) : Ok(undefined)
   const cap = at ? ceilingOf(form.cap, "有利区間の上限") : Ok(undefined)
   const rows = form.rows.map((entity) => readRow(form, entity, payoutRule))
-  const problems = [...problemsOf([levels, bet, bonuses, base, lcdRate, cap]), ...rows.flatMap((read) => (read.ok ? [] : read.error))]
-  if (problems.length > 0 || !bet.ok || !base.ok || !lcdRate.ok || !cap.ok) return Err(problems)
-  const machine = base.value === undefined ? undefined : { base: base.value, lcdRate: lcdRate.value, cap: cap.value }
+  const problems = [...problemsOf([levels, bet, bonuses, base, lcdRate, ceilingUnit, cap]), ...rows.flatMap((read) => (read.ok ? [] : read.error))]
+  if (problems.length > 0 || !bet.ok || !base.ok || !lcdRate.ok || !ceilingUnit.ok || !cap.ok) return Err(problems)
+  const machine = base.value === undefined ? undefined : { base: base.value, lcdRate: lcdRate.value, ceilingUnit: ceilingUnit.value, cap: cap.value }
   return Ok(worldOf(form, bet.value, machine, rows.flatMap((read) => (read.ok ? [read.value] : []))))
 }
 
@@ -613,6 +657,12 @@ const lawFormOf = (spec: SpecDto, entity: string): AtLawForm => {
   }
 }
 
+/** What a stored CZ is: a CZ whose success brings a bonus where it has the bonus's share, a bonus where it is marked one, else a CZ. */
+const czTriggerOf = (spec: SpecDto, entity: string): CzTrigger => {
+  if (spec.components.bonusShare?.[entity] !== undefined) return "cz-then-bonus"
+  return spec.components.cz?.includes(entity) === true && spec.components.bonus?.includes(entity) === true ? "bonus" : "cz"
+}
+
 /** A stored world as rows again, for a formula remade from it. */
 export const worldFormOf = (spec: SpecDto): WorldForm => ({
   settingLevels: spec.resources.settingLevels,
@@ -625,7 +675,7 @@ export const worldFormOf = (spec: SpecDto): WorldForm => ({
     trials: spec.components.trials?.[entity] === undefined ? "" : String(spec.components.trials[entity]),
     payout: spec.components.payout?.[entity] === undefined ? "" : String(spec.components.payout[entity]),
     chances: Object.fromEntries([
-      ...(spec.components.chance?.[entity] ?? spec.components.firstHit?.[entity] ?? []).map((each) => [String(each.settingLevel), chanceText(each.value)]),
+      ...(spec.components.chance?.[entity] ?? spec.components.firstHit?.[entity] ?? spec.components.direct?.[entity] ?? []).map((each) => [String(each.settingLevel), chanceText(each.value)]),
       ...(spec.components.allotment?.[entity] ?? []).map((each) => [String(each.settingLevel), String(each.value / 100)]),
     ]),
     resetAllotment: Object.fromEntries((spec.components.resetAllotment?.[entity] ?? []).map((each) => [String(each.settingLevel), String(each.value / 100)])),
@@ -635,12 +685,15 @@ export const worldFormOf = (spec: SpecDto): WorldForm => ({
     success: Object.fromEntries((spec.components.success?.[entity] ?? []).map((each) => [String(each.settingLevel), String(each.value / 100)])),
     misses: spec.components.misses?.[entity] === undefined ? "" : String(spec.components.misses[entity]),
     net: spec.components.cz?.includes(entity) === true && spec.components.netPerGame?.[entity] !== undefined ? String(spec.components.netPerGame[entity]) : "",
-    bonusTrigger: spec.components.cz?.includes(entity) === true && spec.components.bonus?.includes(entity) === true,
+    trigger: czTriggerOf(spec, entity),
+    bonusShares: Object.fromEntries((spec.components.bonusShare?.[entity] ?? []).map((each) => [String(each.settingLevel), String(each.value / 100)])),
     sinceAtCeiling: spec.components.sinceAtCeiling?.[entity] === undefined ? "" : String(spec.components.sinceAtCeiling[entity]),
     law: lawFormOf(spec, entity),
   })),
   base: spec.resources.base === undefined ? "" : String(spec.resources.base),
   lcdRate: spec.resources.lcdRate === undefined ? "" : String(spec.resources.lcdRate),
+  unitName: spec.resources.ceilingUnit?.name ?? "",
+  unitGames: spec.resources.ceilingUnit === undefined ? "" : String(Math.round(100 / spec.resources.ceilingUnit.perGame) / 100),
   cap: spec.resources.cap === undefined ? "" : String(spec.resources.cap),
 })
 

@@ -96,7 +96,13 @@ fn bonuses(table: &SettingLevelTable) -> Vec<BonusFigure> {
 /// 初当たり — ceilings, misses and modes included.
 fn at_figures(rules: &AtRules, table: &AtTable) -> (Vec<BonusFigure>, AtFigure) {
     let (figures, shares) = settled(rules, table);
-    let cycle = cycle(rules, table.chance.value(), table.success.value(), &shares);
+    let cycle = cycle(
+        rules,
+        table.chance.value(),
+        table.success.value(),
+        table.direct.value(),
+        &shares,
+    );
     let bonuses = rules
         .trigger
         .iter()
@@ -154,13 +160,15 @@ fn derivation(table: &SettingLevelTable, bet: f64) -> Result<Vec<Contribution>, 
 }
 
 /// An AT machine's 機械割 from what its AT gains, over the cycle its
-/// 初当たり gives, with the triggers its CZ's 合算 brings in it; none
-/// without its 純増, which says the games an AT takes.
+/// 初当たり gives, with the triggers its CZ's 合算 brings in it, `paid` of
+/// them paying their medals; none without its 純増, which says the games
+/// an AT takes.
 fn at_rate(
     rules: Option<&AtRules>,
     at: Option<AtFigure>,
     bonuses: &[BonusFigure],
     bet: f64,
+    paid: f64,
 ) -> Option<f64> {
     let rules = rules?;
     rules.net_per_game?;
@@ -174,7 +182,7 @@ fn at_rate(
         triggers,
         games: 1.0 / first_hit,
     };
-    Some(implied_rate(rate_cycle(rules, cycle, bet), at?.gain))
+    Some(implied_rate(rate_cycle(rules, cycle, bet, paid), at?.gain))
 }
 
 fn figures(
@@ -197,7 +205,9 @@ fn figures(
     };
     let (net_per_game, payout_rate, derivation) = match basis {
         PayoutBasis::FromSpec if machine.is_some() => {
-            let rate = at_rate(rules, at, &bonuses, bet).ok_or(AnalysisError::RateNotFromSpec)?;
+            let paid = table.at.as_ref().map_or(1.0, |at| at.paid.value());
+            let rate =
+                at_rate(rules, at, &bonuses, bet, paid).ok_or(AnalysisError::RateNotFromSpec)?;
             (bet * (rate - 1.0), rate, Vec::new())
         }
         PayoutBasis::FromSpec => {

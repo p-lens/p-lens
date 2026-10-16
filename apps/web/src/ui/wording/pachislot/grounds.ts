@@ -152,6 +152,7 @@ const ceilingText = (ceiling: number | "none"): string => (ceiling === "none" ? 
 const triggerWord = (naming: GroundsNaming): string => {
   switch (naming.trigger.type) {
     case "cz":
+    case "cz-then-bonus":
       return "CZ"
     case "bonus":
       return naming.trigger.label
@@ -160,8 +161,21 @@ const triggerWord = (naming: GroundsNaming): string => {
   }
 }
 
-/** How often the trigger wins the AT, in a word: a CZ's success rate, a bonus's share that wins it. */
-const successWord = (naming: GroundsNaming): string => (naming.trigger.type === "bonus" ? `${naming.trigger.label}のAT当選率` : "CZ成功率")
+/** What pays medals beside the AT, in a word: the bonus that is the trigger by its label, or the one a CZ's success brings. */
+const bonusWord = (naming: GroundsNaming): string => (naming.trigger.type === "bonus" ? naming.trigger.label : "ボーナス")
+
+/** How often the trigger wins the AT, in a word: a CZ's success rate, a bonus's share that wins it, or a CZ's through the bonus its success brings. */
+const successWord = (naming: GroundsNaming): string => {
+  switch (naming.trigger.type) {
+    case "bonus":
+      return `${naming.trigger.label}のAT当選率`
+    case "cz-then-bonus":
+      return "CZからのAT率"
+    case "cz":
+    case "at":
+      return "CZ成功率"
+  }
+}
 
 /** What play in a mode is called: a mode of the sheet's own by its label, else after an AT or after a setting change. */
 const modeName = (naming: GroundsNaming, index: number): string => {
@@ -177,6 +191,7 @@ const ofMode = (naming: GroundsNaming, index: number, ceiling: string): string =
 const triggerCeilingName = (naming: GroundsNaming, index: number): string => {
   switch (naming.trigger.type) {
     case "cz":
+    case "cz-then-bonus":
       return ofMode(naming, index, "CZ天井")
     case "bonus":
       return ofMode(naming, index, `${naming.trigger.label}間天井`)
@@ -289,17 +304,19 @@ const bonusesIn = (step: Step): { readonly medals: number; readonly games: numbe
 
 /** A cycle's bonuses where the trigger is one: so many a cycle times what each gains, and the games they take where their 純増 is given. */
 const bonusesLine = (step: Step, naming: GroundsNaming): Said => {
-  const word = triggerWord(naming)
+  const word = bonusWord(naming)
   const triggers = known(arg(stepUnder(step, "cycle_triggers_free", "cycle_triggers_cut"), 1))
   const each = known(givenNumber(step, "trigger_payout", 0))
   const net = givenNumber(stepUnder(step, "bonus_games_counted"), "trigger_net", 0)
+  const succeeding = givenNumber(stepUnder(step, "paid_on_success"), "staged", 1)
   const [total, own] = [known(arg(step, 1)), known(arg(step, 2))]
   return plain(
-    `1周期の${word}の獲得 ＝ ${word} `,
+    `1周期の${word}の獲得 ＝ ${triggerWord(naming)} `,
     figure(times(triggers)),
+    ...(succeeding === undefined ? [] : [" × CZ成功率 ", figure(ratio(succeeding))]),
     " × ",
     figure(medals(each)),
-    link(near(shownAt(triggers, TIMES) * shownAt(each, MEDALS), total, MEDALS)),
+    link(near(shownAt(triggers, TIMES) * (succeeding === undefined ? 1 : shownAt(succeeding, RATIO)) * shownAt(each, MEDALS), total, MEDALS)),
     figure(medals(total)),
     ...(net === undefined
       ? [`（${word}中のゲーム数は数えない）`]
@@ -309,7 +326,7 @@ const bonusesLine = (step: Step, naming: GroundsNaming): Said => {
 
 /** The AT's medals a stated 機械割 implies beside the bonuses a cycle brings, which are taken from what the 機械割 gives before the AT has the rest. */
 const gainFromRateBesideBonuses = (step: Step, naming: GroundsNaming): Said => {
-  const word = triggerWord(naming)
+  const word = bonusWord(naming)
   const bet = known(givenNumber(step, "bet", 0))
   const stated = known(givenNumber(step, "stated_rate", 1))
   const cycle = known(cycleIn(step))
@@ -622,10 +639,28 @@ const settledShare = (step: Step, naming: GroundsNaming): Said => {
   )
 }
 
-/** A mode's ceiling in regular games: as the sheet gives it, counted on the screen and so reached sooner, or none. */
+/** A mode's ceiling in regular games: as the sheet gives it, counted on the screen and so reached sooner, counted in another unit and so reached after that over its rate, or none. */
 const modeAt = (step: Step, naming: GroundsNaming): Said => {
   const label = triggerCeilingName(naming, known(arg(step, 0)))
-  const inGames = stepsUnder(step).find((inner) => inner.rule === "ceiling_on_screen" || inner.rule === "ceiling_in_games" || inner.rule === "no_ceiling")
+  const inGames = stepsUnder(step).find((inner) => ["ceiling_on_screen", "ceiling_in_unit", "ceiling_in_games", "no_ceiling"].includes(inner.rule))
+  if (inGames?.rule === "ceiling_in_unit") {
+    const counted = known(arg(inGames, 0))
+    const rate = known(givenNumber(inGames, "ceiling_unit", 0))
+    const unit = naming.unit ?? ""
+    const perUnit = 1 / rate
+    const quotient = counted / rate
+    return plain(
+      `${label} `,
+      figure(`${trimmed(counted, 1)}${unit}`),
+      ` × 1${unit}あたり `,
+      figure(`${trimmed(perUnit, 2)}G`),
+      link(near(counted * Number(trimmed(perUnit, 2)), quotient, WHOLE)),
+      figure(told(quotient, WHOLE)),
+      "、切り上げて通常 ",
+      figure(games(arg(step, 1))),
+      "（平均で数えた近似）",
+    )
+  }
   if (inGames?.rule === "ceiling_on_screen") {
     const screen = known(arg(inGames, 0))
     const lcd = known(givenNumber(inGames, "lcd_rate", 0))
@@ -685,7 +720,7 @@ const rateLines = (step: Step): readonly Said[] => {
 
 /** The 機械割 over a cycle, its bonuses and its AT, a line to each step: the AT's games, the medals staked, those paid out, and the one over the other. */
 const rateLinesBesideBonuses = (step: Step, naming: GroundsNaming): readonly Said[] => {
-  const word = triggerWord(naming)
+  const word = bonusWord(naming)
   const [atGames = Number.NaN, staked = Number.NaN, out = Number.NaN] = computedIn(step)
   const gain = known(arg(stepsUnder(step).find((inner) => inner.claim.functor === "gain"), 1))
   const net = known(netIn(step))
@@ -804,6 +839,11 @@ const lineOf = (step: Step, naming: GroundsNaming): Said | undefined => {
       return cycleCut(step, naming)
     case "mode_at":
       return modeAt(step, naming)
+    case "through_bonus": {
+      const staged = givenIn(step, "staged")
+      const [cz, share] = [known(numberOf(staged?.args[1])), known(numberOf(staged?.args[2]))]
+      return plain("CZからのAT率 ＝ CZ成功率 ", figure(ratio(cz)), " × ボーナスからのAT率 ", figure(ratio(share)), link(near(shownAt(cz, RATIO) * shownAt(share, RATIO), known(arg(step, 1)), RATIO)), figure(ratio(arg(step, 1))))
+    }
     case "won_by_success":
       return plain(`ATまでの${triggerWord(naming)} ＝ 1 ÷ ${successWord(naming)} `, figure(ratio(successOf(step))), link(near(1 / shownAt(successOf(step), RATIO), known(arg(step, 1)), TIMES)), figure(times(arg(step, 1))))
     case "won_within_misses":
@@ -852,6 +892,8 @@ const lineOf = (step: Step, naming: GroundsNaming): Said | undefined => {
       }
     case "cycle_taken":
       return plain("1周期の通常ゲーム数 ", figure(games(arg(step, 1))), `・${triggerWord(naming)} `, figure(times(arg(step, 2))), "（計算エンジンの値）")
+    case "unverified_direct_cycle":
+      return { parts: said(`未確認：${triggerWord(naming)}を通らない直撃ATがある機種の1周期は、計算エンジンが解いた値をそのまま使っています`), tone: "unverified" }
     case "unverified_forced_cycle":
       return { parts: said(`未確認：ATから数える${triggerWord(naming)}の天井がある機種の1周期は、計算エンジンが解いた値をそのまま使っています`), tone: "unverified" }
     case "unverified_completion":

@@ -68,20 +68,22 @@ rule(cycle_from_first_hit, cycle_games(Level, Games),
 rule(cycle_to_at_ceiling, cycle_games(Level, Games), ( cut_short(Level), cycle(Level, Games, _) )).
 rule(cut_short, cut_short(Level), ( shares(Level, Shares), at_ceilings(AtCeilings), entered_ceiling(Shares, AtCeilings) )).
 
-% Where a trigger comes, once, on a game counted from the last AT, the
-% cycle is not played out here: the engine's games and triggers are taken,
-% and said to be unchecked.
+% Where a trigger comes, once, on a game counted from the last AT, or the
+% AT is also won outright beside it, the cycle is not played out here: the
+% engine's games and triggers are taken, and said to be unchecked.
 % A cycle played out from the trigger's chance below its ceilings: the
 % games it lasts and the triggers it brings, over the modes as an AT
 % allots them. In a mode without an AT間天井 the triggers come so many
 % games apart on average, its ceiling included. In one with an AT間天井,
 % the chance play has lasted each game is worked game by game up to it.
 rule(cycle_cut, cycle(Level, Games, Triggers),
-     ( cut_short(Level), \+ given(forced_from_at), given(chance(Level, Chance)), success(Level, Success), mode_misses(Misses),
+     ( cut_short(Level), \+ unplayed, given(chance(Level, Chance)), success(Level, Success), mode_misses(Misses),
        ceilings(Ceilings), shares(Level, Shares), at_ceilings(AtCeilings),
        run_cut(Chance, Success, Misses, Ceilings, Shares, AtCeilings, Games, Triggers) )).
 rule(cycle_taken, cycle(Level, Games, Triggers),
-     ( given(forced_from_at), given(engine(cycle_games(Level), Games)), given(engine(cycle_triggers(Level), Triggers)) )).
+     ( unplayed, given(engine(cycle_games(Level), Games)), given(engine(cycle_triggers(Level), Triggers)) )).
+rule(unplayed_forced, unplayed, given(forced_from_at)).
+rule(unplayed_direct, unplayed, given(direct_at)).
 rule(cycle_free, cycle(Level, Games, Triggers),
      ( \+ cut_short(Level), given(chance(Level, Chance)), triggers(Level, Triggers), ceilings(Ceilings), shares(Level, Shares),
        games_between(Chance, Ceilings, Shares, Between), Games is Triggers * Between )).
@@ -96,7 +98,7 @@ rule(without_misses, misses(none), \+ given(misses(_))).
 rule(misses_shared, mode_misses(Misses), ( \+ given(misses_by_mode), misses(Each), ceilings(Ceilings), repeated(Each, Ceilings, Misses) )).
 rule(misses_by_mode, mode_misses(Misses), ( given(misses_by_mode), findall(Each, given(mode_misses(_, Each)), Misses) )).
 rule(cut_by_misses, cut_short(_), given(misses_by_mode)).
-rule(cut_by_forcing, cut_short(_), given(forced_from_at)).
+rule(cut_by_forcing, cut_short(_), unplayed).
 
 % A mode's ceiling in regular games: as the sheet gives it, or counted on
 % the screen and so reached that many regular games sooner. Its AT間天井,
@@ -105,7 +107,8 @@ rule(ceilings, ceilings(Ceilings), findall(Games, mode_at(_, Games), Ceilings)).
 rule(mode_at, mode_at(Index, Games), ( given(mode(Index, Sheet, _)), in_games(Sheet, Games) )).
 rule(at_ceilings, at_ceilings(AtCeilings), findall(AtCeiling, given(mode(_, _, AtCeiling)), AtCeilings)).
 rule(no_ceiling, in_games(none, none), true).
-rule(ceiling_in_games, in_games(Games, Games), ( Games \== none, \+ given(lcd_rate(_)) )).
+rule(ceiling_in_games, in_games(Games, Games), ( Games \== none, \+ given(lcd_rate(_)), \+ given(ceiling_unit(_)) )).
+rule(ceiling_in_unit, in_games(Counted, Games), ( Counted \== none, given(ceiling_unit(Rate)), Games is max(1, ceiling(Counted / Rate)) )).
 rule(ceiling_on_screen, in_games(Screen, Games), ( Screen \== none, given(lcd_rate(Rate)), Games is max(1, ceiling(Screen / Rate)) )).
 
 % The modes a cycle starts from: as an AT allots them, or — where an AT
@@ -164,8 +167,15 @@ rule(completion_solved, completion(Level, Completion), ( \+ capped(Level, _, _),
 rule(cycle_triggers_free, cycle_triggers(Level, Triggers), ( \+ cut_short(Level), triggers(Level, Triggers) )).
 rule(cycle_triggers_cut, cycle_triggers(Level, Triggers), ( cut_short(Level), cycle(Level, _, Triggers) )).
 rule(bonuses, bonuses(Level, Medals, Games),
-     ( given(trigger_payout(Each)), cycle_triggers(Level, Triggers), bonus_games(Each, Own),
-       Medals is Triggers * Each, Games is Triggers * Own )).
+     ( given(trigger_payout(Each)), cycle_triggers(Level, Triggers), trigger_paid(Level, Paid), bonus_games(Each, Own),
+       Medals is Triggers * Paid * Each, Games is Triggers * Paid * Own )).
+rule(paid_each, trigger_paid(Level, 1), \+ given(staged(Level, _, _))).
+rule(paid_on_success, trigger_paid(Level, Paid), given(staged(Level, Paid, _))).
+
+% CZ → ボーナス → AT: where a CZ's success brings a bonus, which wins the AT
+% at a share of its own, a CZ wins the AT at its success times that share,
+% and the bonus is paid on the CZs that succeed, whether it wins the AT or
+% not. A bonus missing the AT is a CZ missed.
 rule(bonus_games_counted, bonus_games(Each, Own), ( given(trigger_net(Net)), Own is Each / Net )).
 rule(bonus_games_uncounted, bonus_games(_, 0), \+ given(trigger_net(_))).
 
@@ -203,6 +213,7 @@ rule(beyond, verdict(Gap, Limit, fails), Gap > Limit).
 % whole gain, which the working upward does not allow for; and the share
 % of ATs that reach the cap where the AT's medals follow from the 機械割.
 rule(unverified_forced_cycle, remark(forced_cycle), given(forced_from_at)).
+rule(unverified_direct_cycle, remark(direct_cycle), given(direct_at)).
 rule(unverified_capped_gain, remark(capped_gain(Cap)), ( given(cap(Cap)), given(level(Level)), gain_taken(Level) )).
 rule(unverified_completion, remark(completion),
      ( given(reset_on_cap), given(level(Level)), given(stated_rate(Level, _)) )).
@@ -219,7 +230,8 @@ rule(odd_no_gain, remark(no_gain(Level, Gain)), ( gain(Level, Gain), Gain =< 0 )
 % remarks. Each level is attempted on its own, so one that cannot be
 % proved is shown as unproved beside the others.
 rule(level, level(Level, Gain, Rate),
-     ( cycle_games(Level, Games), engine_check(cycle_games(Level), Games, _, _),
+     ( ( given(staged(Level, _, _)) -> through_bonus(Level, _) ; true ),
+       cycle_games(Level, Games), engine_check(cycle_games(Level), Games, _, _),
        chance_check(Level, _, _, _),
        gain(Level, Gain), ( gain_taken(Level) -> true ; engine_check(gain(Level), Gain, _, _) ),
        ( capped(Level, _, Completion) -> engine_check(completion(Level), Completion, _, _) ; true ),
@@ -227,6 +239,7 @@ rule(level, level(Level, Gain, Rate),
        ( given(sampled(Level, _, _)) -> sample_check(Level, Rate, _, _, _) ; stored_check(rate(Level), Rate, _, _) ),
        ( given(stated_rate(Level, _)) -> stated_check(Level, Rate, _, _) ; true ) )).
 rule(level_attempted, level_attempted(Level), ( given(level(Level)), attempt(level(Level, _, _)) )).
+rule(through_bonus, through_bonus(Level, Success), ( given(staged(Level, Cz, Share)), Success is Cz * Share )).
 rule(remarks, remarks, findall(Remark, remark(Remark), _)).
 rule(grounds, grounds, ( findall(Level, level_attempted(Level), _), attempt(remarks) )).
 

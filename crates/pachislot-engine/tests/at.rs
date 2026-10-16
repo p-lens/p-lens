@@ -11,7 +11,7 @@ use pachislot_domain::normalized::{
 use pachislot_domain::observation::{AtSeen, Leg, LegEnd, Path, PathStart, Segment};
 use pachislot_domain::probability::{BasisPoints, Probability};
 use pachislot_domain::setting_level::PerSettingLevel;
-use pachislot_domain::spec::{Base, Component, LcdRate, Spec};
+use pachislot_domain::spec::{Base, CeilingUnit, Component, LcdRate, Spec};
 use pachislot_engine::analysis::{Analysis, analyze};
 use pachislot_engine::at::{cycle, walk};
 use pachislot_engine::error::{AnalysisError, InferenceError, SpecError};
@@ -104,7 +104,7 @@ fn a_machine_without_a_ceiling_keeps_its_first_hit_as_its_chance() {
 fn a_cz_without_ceilings_brings_the_at_once_in_so_many_tries() {
     let (p, q) = (0.01, 0.3);
     let plain = rules(Some("cz"), vec![mode("cz", 0)]);
-    let found = cycle(&plain, p, q, &[1.0]);
+    let found = cycle(&plain, p, q, 0.0, &[1.0]);
     assert!(close(found.triggers, 1.0 / q));
     assert!(close(found.games, 1.0 / (p * q)));
     assert!(close(found.trigger_chance(), p));
@@ -115,7 +115,7 @@ fn a_cz_without_ceilings_brings_the_at_once_in_so_many_tries() {
 fn a_through_ceiling_wins_the_at_on_the_trigger_after_so_many_misses() {
     let (p, q) = (0.01, 0.3);
     let machine = rules(Some("cz"), through(vec![mode("cz", 0)], NonZeroU32::new(2)));
-    let found = cycle(&machine, p, q, &[1.0]);
+    let found = cycle(&machine, p, q, 0.0, &[1.0]);
     let triggers = 1.0 + (1.0 - q) + (1.0 - q) * (1.0 - q);
     assert!(close(found.triggers, triggers));
     assert!(close(found.games, triggers / p));
@@ -125,7 +125,7 @@ fn a_through_ceiling_wins_the_at_on_the_trigger_after_so_many_misses() {
 fn a_second_ceiling_in_games_since_the_at_ends_the_cycle_there() {
     let p: f64 = 0.002;
     let capped = rules(None, vec![ceiled("at", 0, 300)]);
-    let found = cycle(&capped, p, 1.0, &[1.0]);
+    let found = cycle(&capped, p, 1.0, 0.0, &[1.0]);
     assert!(close(found.games, -(300.0 * (-p).ln_1p()).exp_m1() / p));
     assert!(close(found.triggers, -(299.0 * (-p).ln_1p()).exp_m1()));
 }
@@ -137,8 +137,8 @@ fn the_convolved_cycle_meets_the_closed_form_when_the_second_ceiling_is_out_of_r
     for misses in [None, NonZeroU32::new(3)] {
         let open = rules(Some("cz"), through(modes.clone(), misses));
         let far = rules(Some("cz"), through(vec![ceiled("cz", 150, 30_000)], misses));
-        let closed = cycle(&open, p, q, &[1.0]);
-        let convolved = cycle(&far, p, q, &[1.0]);
+        let closed = cycle(&open, p, q, 0.0, &[1.0]);
+        let convolved = cycle(&far, p, q, 0.0, &[1.0]);
         assert!(near(convolved.games, closed.games, 1e-9));
         assert!(near(convolved.triggers, closed.triggers, 1e-9));
     }
@@ -409,6 +409,7 @@ fn a_mode_s_own_at_ceiling_stands_in_for_the_at_s() {
         &found,
         table.chance.value(),
         table.success.value(),
+        0.0,
         &[0.4, 0.6],
     );
     assert!(near(one.bonuses[1].chance, mixed.at_chance(), 1e-12));
@@ -416,12 +417,14 @@ fn a_mode_s_own_at_ceiling_stands_in_for_the_at_s() {
         &found,
         table.chance.value(),
         table.success.value(),
+        0.0,
         &[1.0, 0.0],
     );
     let long = cycle(
         &found,
         table.chance.value(),
         table.success.value(),
+        0.0,
         &[0.0, 1.0],
     );
     assert!(short.games < mixed.games && mixed.games < long.games);
@@ -776,6 +779,30 @@ fn a_game_walked_counts_what_a_bonus_that_is_the_trigger_pays_at_its_chance() {
 }
 
 #[test]
+fn a_game_walked_counts_what_a_bonus_a_cz_s_success_brings_pays_over_the_cz_s_that_succeed() {
+    let (p, q, succeeding) = (0.01, 0.25, 0.4);
+    let machine = AtRules {
+        trigger_payout: Some(TriggerPayout {
+            medals: medals(100.0),
+            net_per_game: None,
+        }),
+        ..rules(Some("cz"), vec![mode("cz", 0)])
+    };
+    let walked = walk(
+        &path(start(0, 0, 0), &[(1, LegEnd::Going)]),
+        &machine,
+        &AtTable {
+            paid: Probability::new(succeeding).expect("a share"),
+            ..table(p, q, vec![1.0], vec![1.0])
+        },
+    );
+    assert!(close(
+        walked.medals,
+        p * q * PAYOUT + p * succeeding * 100.0 - LOSS
+    ));
+}
+
+#[test]
 fn a_through_ceiling_drawn_after_each_at_is_a_mode_for_each_and_a_cycle_their_mix() {
     let normalized = normalize(&drawn_misses_spec()).expect("normalises");
     let rules_of = normalized.at_rules.as_ref().expect("an AT machine");
@@ -787,11 +814,11 @@ fn a_through_ceiling_drawn_after_each_at_is_a_mode_for_each_and_a_cycle_their_mi
     assert_eq!(limits, vec![Some(2), Some(4), Some(6)]);
     let (p, q) = (0.01, 0.3);
     let shares = [0.34, 0.33, 0.33];
-    let mixed = cycle(rules_of, p, q, &shares);
+    let mixed = cycle(rules_of, p, q, 0.0, &shares);
     let each: Vec<_> = rules_of
         .modes
         .iter()
-        .map(|mode| cycle(&rules(Some("cz"), vec![mode.clone()]), p, q, &[1.0]))
+        .map(|mode| cycle(&rules(Some("cz"), vec![mode.clone()]), p, q, 0.0, &[1.0]))
         .collect();
     let games: f64 = each
         .iter()
@@ -819,4 +846,90 @@ fn a_mode_s_through_ceiling_needs_a_cz_to_miss() {
             entity: id("heaven")
         })
     );
+}
+
+#[test]
+fn an_at_won_outright_beside_its_cz_is_the_same_cycle_in_closed_form_and_walked() {
+    let (p, q, d) = (0.01, 0.3, 0.002);
+    for misses in [None, NonZeroU32::new(3)] {
+        for ceiling in [0, 150] {
+            let open = rules(Some("cz"), through(vec![mode("cz", ceiling)], misses));
+            let far = rules(
+                Some("cz"),
+                through(vec![ceiled("cz", ceiling, 30_000)], misses),
+            );
+            let closed = cycle(&open, p, q, d, &[1.0]);
+            let walked = cycle(&far, p, q, d, &[1.0]);
+            assert!(
+                near(walked.games, closed.games, 1e-9),
+                "{} against {}",
+                walked.games,
+                closed.games
+            );
+            assert!(near(walked.triggers, closed.triggers, 1e-9));
+            assert!(closed.games < cycle(&open, p, q, 0.0, &[1.0]).games);
+        }
+    }
+    let never = cycle(&rules(Some("cz"), vec![mode("cz", 0)]), 0.0, q, d, &[1.0]);
+    assert!(near(never.games, 1.0 / d, 1e-12));
+    assert!(near(never.triggers, 0.0, 1e-12));
+}
+
+#[test]
+fn an_at_won_outright_needs_a_cz_beside_it() {
+    let mut spec = at_spec();
+    spec.components
+        .direct
+        .insert(id("at"), per(one_in(100_000), one_in(80_000)));
+    assert_eq!(
+        normalize(&spec),
+        Err(SpecError::DirectWithoutCz { entity: id("at") })
+    );
+    let mut beside = cz_spec();
+    beside
+        .components
+        .direct
+        .insert(id("at"), per(one_in(100_000), one_in(80_000)));
+    let normalized = normalize(&beside).expect("normalises");
+    assert!(close(at_table(&normalized, 1).direct.value(), 0.001));
+    let figures = analysed(&normalized);
+    assert!((figures.setting_levels[0].bonuses[0].chance - 1.0 / 150.0).abs() < 1e-12);
+    let plain = analysed(&normalize(&cz_spec()).expect("normalises"));
+    assert!(
+        figures.setting_levels[0].bonuses[1].chance > plain.setting_levels[0].bonuses[1].chance
+    );
+}
+
+#[test]
+fn a_ceiling_counted_in_another_unit_comes_after_that_over_its_rate_in_regular_games() {
+    let in_points = |per_game: f64| {
+        let mut spec = at_spec();
+        spec.resources.ceiling_unit = CeilingUnit::new("pt", per_game);
+        normalize(&spec)
+    };
+    let ceilings = |per_game: f64| -> Vec<Option<u32>> {
+        in_points(per_game)
+            .expect("normalises")
+            .at_rules
+            .expect("an AT machine")
+            .modes
+            .iter()
+            .map(|mode| mode.ceiling.map(NonZeroU32::get))
+            .collect()
+    };
+    assert_eq!(ceilings(0.5), vec![Some(2_000), Some(1_200)]);
+    assert_eq!(ceilings(1.0 / 32.0), vec![Some(32_000), Some(19_200)]);
+    let mut both = at_spec();
+    both.resources.ceiling_unit = CeilingUnit::new("pt", 2.0);
+    both.resources.lcd_rate = LcdRate::new(1.5);
+    assert_eq!(normalize(&both), Err(SpecError::CeilingUnitBesideLcdRate));
+    assert_eq!(
+        in_points(2.0),
+        Err(SpecError::FirstHitBeyondCeiling {
+            at: id("at"),
+            setting_level: setting_level(1)
+        })
+    );
+    assert_eq!(CeilingUnit::new(" ", 2.0), None);
+    assert_eq!(CeilingUnit::new("pt", 0.0), None);
 }

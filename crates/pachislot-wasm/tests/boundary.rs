@@ -654,3 +654,19 @@ fn a_cz_ceiling_counted_from_the_at_is_carried_on_each_mode() {
         json!({ "type": "since-at-ceiling-beyond-at-ceiling", "entity": "cz" })
     );
 }
+
+#[test]
+fn an_at_won_outright_beside_its_cz_is_carried_on_each_setting() {
+    let mut spec = value(CZ_SPEC);
+    spec["components"]["direct"] = json!({ "at": [
+        { "settingLevel": 1, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 200_000 } },
+        { "settingLevel": 6, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 150_000 } }
+    ] });
+    let normalized = ok(&normalize(&json!({ "spec": spec }).to_string()));
+    assert!(close(
+        &normalized["tables"][0]["at"]["direct"],
+        &json!(0.0005)
+    ));
+    let plain = ok(&normalize(&json!({ "spec": value(CZ_SPEC) }).to_string()));
+    assert_eq!(plain["tables"][0]["at"].get("direct"), None);
+}

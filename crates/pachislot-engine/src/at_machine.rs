@@ -14,9 +14,7 @@ use pachislot_domain::normalized::{
 };
 use pachislot_domain::probability::{BasisPoints, Probability, ProbabilitySource};
 use pachislot_domain::setting_level::{PerSettingLevel, SettingLevel};
-use pachislot_domain::spec::{
-    At, Base, Component, Cz, Element, EntityId, LcdRate, Medals, Mode, Spec,
-};
+use pachislot_domain::spec::{At, Base, Component, Cz, Element, EntityId, Medals, Mode, Spec};
 
 use crate::at::{Cycle, after_at, cap_figures_of, cycle, natural_chance, settled};
 use crate::error::{ProbabilityProblem, SpecError};
@@ -171,6 +169,10 @@ fn checked<'a>(
         return Err(SpecError::AtCeilingWithoutCz {
             entity: ceiled.id.clone(),
         });
+    } else if at.direct.is_some() {
+        return Err(SpecError::DirectWithoutCz {
+            entity: at.id.clone(),
+        });
     } else if let Some(through) = modes.iter().find(|mode| mode.misses.is_some()) {
         return Err(SpecError::MissesWithoutCz {
             entity: through.id.clone(),
@@ -267,18 +269,21 @@ pub(crate) fn at_machine<'a>(
     checked(at, cz, modes, base, spec.resources.cap).map(Some)
 }
 
-/// A ceiling counted on a screen, in the regular games it comes after on
-/// average: rounded up, and never under one.
-fn in_regular_games(ceiling: NonZeroU32, lcd_rate: Option<LcdRate>) -> NonZeroU32 {
-    let Some(rate) = lcd_rate else {
+/// A ceiling counted on a screen or in another unit, in the regular games
+/// it comes after on average, `rate` of the unit a game: rounded up, and
+/// never under one. As it is where the ceiling counts regular games.
+fn in_regular_games(ceiling: NonZeroU32, rate: Option<f64>) -> NonZeroU32 {
+    let Some(rate) = rate else {
         return ceiling;
     };
     #[allow(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
-        reason = "a ceiling over a rate of one or more is positive and no larger than the ceiling"
+        reason = "a ceiling over a positive rate is positive, and kept within what a game count holds"
     )]
-    let games = (f64::from(ceiling.get()) / rate.get()).ceil() as u32;
+    let games = (f64::from(ceiling.get()) / rate)
+        .ceil()
+        .min(f64::from(u32::MAX)) as u32;
     NonZeroU32::new(games).unwrap_or(NonZeroU32::MIN)
 }
 
@@ -290,11 +295,12 @@ fn reset_mode(trigger: &EntityId) -> EntityId {
 /// The rules the engine plays: the trigger's ceilings by mode — the
 /// machine's own modes, or one at the trigger's ceiling and one at its
 /// ceilings after a setting change, the trigger's where a setting change
-/// leaves it be — counted on the screen where the machine says so; each
+/// leaves it be — counted on the screen or in another unit where the
+/// machine says so, at `ceiling_rate` of it a regular game; each
 /// mode's AT間天井 in regular games, its own or the AT's; the スルー天井.
 pub(crate) fn rules_of(
     machine: &AtMachine<'_>,
-    lcd_rate: Option<LcdRate>,
+    ceiling_rate: Option<f64>,
     cap: Option<Medals>,
 ) -> AtRules {
     let misses = machine.cz.and_then(|cz| cz.misses);
@@ -304,7 +310,7 @@ pub(crate) fn rules_of(
                 at_ceiling: Option<NonZeroU32>,
                 misses: Option<NonZeroU32>| ModeRule {
         id: id.clone(),
-        ceiling: ceiling.map(|ceiling| in_regular_games(ceiling, lcd_rate)),
+        ceiling: ceiling.map(|ceiling| in_regular_games(ceiling, ceiling_rate)),
         at_ceiling,
         misses,
         since_at_ceiling,
@@ -470,11 +476,14 @@ fn problem(
     }
 }
 
-/// The trigger's published 合算 under a setting, and the chance a trigger wins the AT.
+/// The trigger's published 合算 under a setting, the chance a trigger wins
+/// the AT, and the share of triggers that pay its medals: those that
+/// succeed where a CZ's success brings a bonus, which wins the AT at its
+/// own share, and every one otherwise.
 fn published(
     machine: &AtMachine<'_>,
     setting_level: SettingLevel,
-) -> Result<(EntityId, f64, f64), SpecError> {
+) -> Result<(EntityId, f64, f64, f64), SpecError> {
     let (id, first_hit, success): (
         &EntityId,
         Option<&PerSettingLevel<ProbabilitySource>>,
@@ -500,7 +509,35 @@ fn published(
             .value(),
         None => 1.0,
     };
-    Ok((id.clone(), chance.value(), success))
+    let bonus_share = match machine.cz.and_then(|cz| cz.bonus_share.as_ref()) {
+        Some(share) => Some(
+            share
+                .get(setting_level)
+                .ok_or_else(missing)?
+                .probability()
+                .value(),
+        ),
+        None => None,
+    };
+    Ok(match bonus_share {
+        Some(share) => (id.clone(), chance.value(), success * share, success),
+        None => (id.clone(), chance.value(), success, 1.0),
+    })
+}
+
+/// How often a regular game wins an AT outright under a setting, before
+/// its CZ is drawn: none where only the CZ wins it.
+fn direct_of(at: &At, setting_level: SettingLevel) -> Result<Probability, SpecError> {
+    at.direct.as_ref().map_or(Ok(Probability::NONE), |direct| {
+        direct
+            .get(setting_level)
+            .ok_or_else(|| SpecError::MissingSettingLevel {
+                at: at.id.clone(),
+                setting_level,
+            })?
+            .probability()
+            .map_err(problem(&at.id, setting_level))
+    })
 }
 
 /// How an AT's medals under a setting are come to: by a law the spec
@@ -601,7 +638,8 @@ fn table_paying(
     payout: PayoutLaw,
 ) -> Result<AtTable, SpecError> {
     let allotments = allotments_of(machine, setting_level)?;
-    let (id, published, success) = published(machine, setting_level)?;
+    let (id, published, success, paid) = published(machine, setting_level)?;
+    let direct = direct_of(machine.at, setting_level)?;
     let beyond = || SpecError::FirstHitBeyondCeiling {
         at: id.clone(),
         setting_level,
@@ -611,13 +649,16 @@ fn table_paying(
             published,
             rules,
             success,
+            direct.value(),
             &after_at(rules, &allotments, completion),
         )
         .ok_or_else(beyond)
     };
     let first = chance_for(capped(&payout, rules.cap.map(Medals::get)).completion)?;
     let settle = |chance: f64| {
-        chance_for(cap_figures_of(rules, chance, success, &allotments, &payout).completion)
+        chance_for(
+            cap_figures_of(rules, chance, success, direct.value(), &allotments, &payout).completion,
+        )
     };
     let chance = if rules.reset_on_cap {
         (0..SETTLINGS)
@@ -633,6 +674,8 @@ fn table_paying(
     Ok(AtTable {
         chance: Probability::new(chance).map_err(|_| beyond())?,
         success: Probability::new(success).map_err(problem(&id, setting_level))?,
+        direct,
+        paid: Probability::new(paid).map_err(problem(&id, setting_level))?,
         allotments,
         payout,
     })
@@ -642,19 +685,26 @@ fn table_paying(
 /// triggers it brings.
 fn cycle_of(rules: &AtRules, table: &AtTable) -> Cycle {
     let (_, shares) = settled(rules, table);
-    cycle(rules, table.chance.value(), table.success.value(), &shares)
+    cycle(
+        rules,
+        table.chance.value(),
+        table.success.value(),
+        table.direct.value(),
+        &shares,
+    )
 }
 
 /// A cycle's games and what it costs and pays besides its AT, to work a
-/// 機械割 and an AT's gain each from the other.
-pub(crate) fn rate_cycle(rules: &AtRules, cycle: Cycle, bet: f64) -> RateCycle {
+/// 機械割 and an AT's gain each from the other: `paid`, the share of its
+/// triggers that pay their medals.
+pub(crate) fn rate_cycle(rules: &AtRules, cycle: Cycle, bet: f64, paid: f64) -> RateCycle {
     RateCycle {
         games: 1.0 / cycle.at_chance(),
         loss: rules.base.loss_per_game(),
         bet,
         net: rules.net_per_game.map_or(0.0, Medals::get),
         triggers: rules.trigger_payout.map(|payout| TriggersPaid {
-            count: cycle.triggers,
+            count: cycle.triggers * paid,
             payout,
         }),
     }
@@ -677,7 +727,7 @@ fn gain_from(
         setting_level,
     };
     implied_gain(
-        rate_cycle(rules, cycle_of(rules, unpaid), bet),
+        rate_cycle(rules, cycle_of(rules, unpaid), bet, unpaid.paid.value()),
         rate.ratio(),
     )
     .and_then(Medals::new)
@@ -728,7 +778,17 @@ pub(crate) fn coverage(
             .as_ref()
             .map(|first_hit| (&machine.at.id, levels(first_hit))),
         machine.cz.map(|cz| (&cz.id, levels(&cz.first_hit))),
+        machine
+            .at
+            .direct
+            .as_ref()
+            .map(|direct| (&machine.at.id, levels(direct))),
         machine.cz.map(|cz| (&cz.id, levels(&cz.success))),
+        machine
+            .cz
+            .and_then(|cz| cz.bonus_share.as_ref())
+            .zip(machine.cz)
+            .map(|(share, cz)| (&cz.id, levels(share))),
         machine
             .at
             .continuation_rate

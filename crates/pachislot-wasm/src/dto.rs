@@ -91,6 +91,10 @@ pub struct ComponentsDto {
     /// A CZ's chance of winning the AT, in hundredths of a percent under each setting.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub success: BTreeMap<String, Vec<BySettingLevelDto<u32>>>,
+    /// On a CZ whose success brings a bonus: how often the bonus wins the
+    /// AT, in hundredths of a percent under each setting.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub bonus_share: BTreeMap<String, Vec<BySettingLevelDto<u32>>>,
     /// スルー天井: the CZs missed after which the next one wins the AT.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub misses: BTreeMap<String, u32>,
@@ -131,6 +135,9 @@ pub struct ComponentsDto {
     /// latest, once.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub since_at_ceiling: BTreeMap<String, u32>,
+    /// On an AT a CZ brings: how often a regular game wins it outright, under each setting.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub direct: BTreeMap<String, Vec<BySettingLevelDto<ProbabilityDto>>>,
     #[serde(flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub unsupported: BTreeMap<String, serde_json::Value>,
 }
@@ -150,6 +157,14 @@ pub struct PayoutRowDto {
     pub share: u32,
 }
 
+/// A ceiling's unit by its name, and how much of it a regular game comes to on average.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CeilingUnitDto {
+    pub name: String,
+    pub per_game: f64,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ResourcesDto {
@@ -161,6 +176,9 @@ pub struct ResourcesDto {
     /// A screen's games a regular game comes to, where the ceilings are counted on it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lcd_rate: Option<f64>,
+    /// What the trigger's ceilings are counted in where it is not games, and how much of it a regular game comes to.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ceiling_unit: Option<CeilingUnitDto>,
     /// 有利区間の上限, in medals.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cap: Option<f64>,
@@ -233,8 +251,39 @@ pub struct WatchDto {
 pub struct AtTableDto {
     pub chance: f64,
     pub success: f64,
+    /// How often a regular game wins the AT outright; none where only the trigger does.
+    #[serde(default, skip_serializing_if = "is_none")]
+    pub direct: f64,
+    /// The share of triggers that pay the trigger's medals; all of them
+    /// where it is left out.
+    #[serde(default = "whole", skip_serializing_if = "is_whole")]
+    pub paid: f64,
     pub allotments: AllotmentsDto,
     pub payout: PayoutLawDto,
+}
+
+/// Every one: what a share left out is.
+fn whole() -> f64 {
+    1.0
+}
+
+/// Whether a share is every one, and so left out of what is written.
+#[allow(
+    clippy::trivially_copy_pass_by_ref,
+    clippy::float_cmp,
+    reason = "serde hands a field to skip_serializing_if by reference; one is written exactly"
+)]
+fn is_whole(share: &f64) -> bool {
+    *share == 1.0
+}
+
+/// Whether a chance is none, and so left out of what is written.
+#[allow(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde hands a field to skip_serializing_if by reference"
+)]
+fn is_none(chance: &f64) -> bool {
+    *chance == 0.0
 }
 
 /// What an AT gains under a setting: a fixed figure, sets carried on at a
@@ -912,6 +961,9 @@ pub enum ErrorDto {
     SinceAtCeilingBeyondAtCeiling {
         entity: String,
     },
+    DirectWithoutCz {
+        entity: String,
+    },
     EmptySet {
         entity: String,
     },
@@ -935,6 +987,7 @@ pub enum ErrorDto {
         setting_level: u8,
         sum: u32,
     },
+    CeilingUnitBesideLcdRate,
     NeedsCap {
         entity: String,
         component: String,

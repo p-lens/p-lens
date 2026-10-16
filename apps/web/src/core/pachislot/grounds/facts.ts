@@ -51,12 +51,14 @@ const levelFacts = (figures: SettingLevelFiguresDto, spec: SpecDto, at: string, 
   const cycle = figures.bonuses.find((bonus) => bonus.id === at)?.chance
   const published = under(spec.components.firstHit?.[trigger ?? at], level)
   const success = trigger === undefined ? undefined : under(spec.components.success?.[trigger], level)
+  const bonusShare = trigger === undefined ? undefined : under(spec.components.bonusShare?.[trigger], level)
   const stated = statedRate(spec, at, level)
   return [
     given(`level(${level})`),
     ...(published === undefined ? [] : [given(`first_hit(${level}, ${prologNumber(chanceOf(published))})`)]),
     ...(chance === undefined ? [] : [given(`chance(${level}, ${prologNumber(chance)})`)]),
-    ...(success === undefined ? [] : [given(`success(${level}, ${prologNumber(success / 10_000)})`)]),
+    ...(success === undefined ? [] : [given(`success(${level}, ${prologNumber((success / 10_000) * ((bonusShare ?? 10_000) / 10_000))})`)]),
+    ...(success === undefined || bonusShare === undefined ? [] : [given(`staged(${level}, ${prologNumber(success / 10_000)}, ${prologNumber(bonusShare / 10_000)})`)]),
     ...(cycle === undefined ? [] : [given(`engine(cycle_games(${level}), ${prologNumber(1 / cycle)})`)]),
     ...(stated === undefined ? lawFacts(spec, at, level) : [given(`stated_rate(${level}, ${prologNumber(stated)})`)]),
     ...(figures.at === undefined ? [] : [given(`engine(gain(${level}), ${prologNumber(figures.at.gain)})`), given(`engine(completion(${level}), ${prologNumber(figures.at.completion)})`)]),
@@ -132,6 +134,9 @@ const storedFact = (stored: SettingLevelFigures, margin: SampledMargin | undefin
 /** Whether a mode's trigger comes, once, on a game counted from the last AT: a cycle the reasoner takes from the engine, and says so. */
 const forcedFacts = (rules: AtRulesDto): readonly string[] => (rules.modes.some((mode) => mode.sinceAtCeiling !== undefined) ? [given("forced_from_at")] : [])
 
+/** Whether the AT is also won outright beside its CZ: a cycle the reasoner takes from the engine, and says so. */
+const directFacts = (basis: Basis): readonly string[] => (basis.normalized.tables.some((table) => (table.at?.direct ?? 0) > 0) ? [given("direct_at")] : [])
+
 const missesFacts = (rules: AtRulesDto): readonly string[] => {
   const each = rules.modes.map((mode) => missesOf(rules, mode))
   if (each.every((misses) => misses === each[0])) return each[0] === undefined ? [] : [given(`misses(${each[0]})`)]
@@ -162,6 +167,7 @@ const machineFacts = (spec: SpecDto, rules: AtRulesDto): readonly string[] => {
     ...(window === undefined ? [] : [given(`window(${window})`)]),
     ...(spec.components.resetOnCap?.includes(at) === true ? [given("reset_on_cap")] : []),
     ...(spec.resources.lcdRate === undefined ? [] : [given(`lcd_rate(${prologNumber(spec.resources.lcdRate)})`)]),
+    ...(spec.resources.ceilingUnit === undefined ? [] : [given(`ceiling_unit(${prologNumber(spec.resources.ceilingUnit.perGame)})`)]),
   ]
 }
 
@@ -182,6 +188,7 @@ export const groundsFacts = (basis: Basis, analysis: AnalysisDto, figures: reado
     given(`base(${prologNumber(rules.base)})`),
     ...netFacts(basis.spec, rules.at, rules.netPerGame),
     ...machineFacts(basis.spec, rules),
+    ...directFacts(basis),
     ...modeFacts(basis.spec, rules, analysis.settingLevels.map((solved) => solved.settingLevel)),
     ...analysis.settingLevels.flatMap((solved) => levelFacts(solved, basis.spec, rules.at, rules.trigger, basis.normalized.tables.find((table) => table.settingLevel === solved.settingLevel)?.at?.chance)),
     ...figures.map((stored) => storedFact(stored, margins?.find((margin) => margin.settingLevel === stored.settingLevel))),

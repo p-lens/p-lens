@@ -201,6 +201,7 @@ fn at(spec: &Spec, entity: &EntityId) -> Result<At, SpecError> {
         id: entity.clone(),
         label: label_of(spec, entity),
         first_hit: components.first_hit.get(entity).cloned(),
+        direct: components.direct.get(entity).cloned(),
         payout: components.payout.get(entity).copied(),
         sets: components.sets.get(entity).copied(),
         continuation_rate: components.continuation_rate.get(entity).cloned(),
@@ -240,7 +241,8 @@ fn misplaced(spec: &Spec, entity: &EntityId, kinds: &[Component]) -> Option<Comp
         return Some(Component::At);
     }
     if !at
-        && (components.sets.contains_key(entity)
+        && (components.direct.contains_key(entity)
+            || components.sets.contains_key(entity)
             || components.continuation_rate.contains_key(entity)
             || components.payout_table.contains_key(entity)
             || components.other_net.contains_key(entity)
@@ -252,6 +254,7 @@ fn misplaced(spec: &Spec, entity: &EntityId, kinds: &[Component]) -> Option<Comp
     }
     if !cz
         && (components.success.contains_key(entity)
+            || components.bonus_share.contains_key(entity)
             || (!mode && components.misses.contains_key(entity)))
     {
         return Some(Component::Cz);
@@ -284,6 +287,10 @@ fn cz(spec: &Spec, entity: &EntityId) -> Result<Cz, SpecError> {
             entity: entity.clone(),
         });
     }
+    let bonus_share = components.bonus_share.get(entity).cloned();
+    if bonus_share.is_some() && components.bonus.contains(entity) {
+        return Err(conflict(entity, Component::Bonus, Component::BonusShare));
+    }
     Ok(Cz {
         id: entity.clone(),
         label: label_of(spec, entity),
@@ -301,9 +308,10 @@ fn cz(spec: &Spec, entity: &EntityId) -> Result<Cz, SpecError> {
         reset_ceiling: components.reset_ceiling.get(entity).copied(),
         misses: components.misses.get(entity).copied(),
         since_at_ceiling: components.since_at_ceiling.get(entity).copied(),
-        bonus: components.bonus.contains(entity) || payout.is_some(),
+        bonus: components.bonus.contains(entity) || (payout.is_some() && bonus_share.is_none()),
         payout,
         net_per_game,
+        bonus_share,
     })
 }
 

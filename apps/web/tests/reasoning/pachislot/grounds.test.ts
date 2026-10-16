@@ -347,6 +347,30 @@ describe("an AT machine's grounds, reasoned", () => {
     expect([payout?.["at"], ceiling?.["at"]]).toEqual([600, 1000])
   })
 
+  test("a CZ whose success brings a bonus wins the AT at its success times the bonus's share, and the bonus pays on the CZs that succeed", async () => {
+    const cz = czSpec as SpecDto
+    const { payout: _, ...rest } = cz.components
+    const rates = [
+      { settingLevel: 1, value: 9750 },
+      { settingLevel: 6, value: 11000 },
+    ]
+    const shares = [
+      { settingLevel: 1, value: 5000 },
+      { settingLevel: 6, value: 6000 },
+    ]
+    const staged: SpecDto = { ...cz, components: { ...rest, payout: { cz: 100 }, netPerGame: { at: 4, cz: 5 }, rate: { at: rates }, bonusShare: { cz: shares } } }
+    const { basis, analysis } = solved(staged)
+    const proof = await proved(basis, analysis)
+    expect(amiss(proof)).toEqual([])
+    const lines = groundsLines(proof, groundsNamingOf(basis)).map((line) => plainOf(line.parts))
+    expect(lines).toContain("CZからのAT率 ＝ CZ成功率 0.3 × ボーナスからのAT率 0.5 ＝ 0.15")
+    expect(lines).toContain("CZからのAT率 ＝ CZ成功率 0.4 × ボーナスからのAT率 0.6 ＝ 0.24")
+    expect(lines.some((line) => /^1周期のボーナスの獲得 ＝ CZ [\d.]+回 × CZ成功率 0\.3 × 100枚 ＝ /u.test(line))).toBe(true)
+    expect(lines.some((line) => line.startsWith("天井を除いたCZ確率 1/152.46（CZからのAT率 0.15・スルー天井 3回）"))).toBe(true)
+    const links = groundsLines(proof, groundsNamingOf(basis)).flatMap(equalities)
+    expect(links.filter((each) => Math.abs(each.left - each.right) > each.spread * 1.01 + 1e-9 * Math.max(1, Math.abs(each.left)))).toEqual([])
+  })
+
   test("a スルー天井 drawn after each AT is a mode for each, played out mode by mode and come to the engine's", async () => {
     const cz = czSpec as SpecDto
     const { ceiling, resetCeiling, misses, ...rest } = cz.components
@@ -385,12 +409,33 @@ describe("an AT machine's grounds, reasoned", () => {
     expect(lines.filter((line) => line.startsWith("検算：CZ ") && line.includes("と一致")).length).toBe(2)
   })
 
+  test("an AT also won outright beside its CZ takes the engine's cycle, said to be unchecked, and comes back to the 合算", async () => {
+    const cz = czSpec as SpecDto
+    const outright = [1, 6].map((settingLevel) => ({ settingLevel, value: { type: "ratio", numerator: 1, denominatorHundredths: 200_000 } as const }))
+    const direct: SpecDto = { ...cz, components: { ...cz.components, direct: { at: outright }, netPerGame: { at: 4 } } }
+    const { basis, analysis } = solved(direct)
+    const proof = await proved(basis, analysis)
+    expect(amiss(proof)).toEqual([["unverified_direct_cycle", "unverified"]])
+    expect(groundsLines(proof, groundsNamingOf(basis)).map((line) => plainOf(line.parts))).toContain("未確認：CZを通らない直撃ATがある機種の1周期は、計算エンジンが解いた値をそのまま使っています")
+  })
+
   test("a machine of modes names each by its label", async () => {
     const modes = modesSpec as SpecDto
     const moded = solved({ ...modes, components: { ...modes.components, netPerGame: { at: 4 } } })
     const lines = groundsLines(await proved(moded.basis, moded.analysis), groundsNamingOf(moded.basis)).map((line) => plainOf(line.parts))
     expect(lines).toContain("天国の天井 ＝ 液晶 100G ÷ 液晶倍率 1.25 ＝ 80、切り上げて通常 80G")
     expect(lines).toContain("通常の天井 ＝ 液晶 1000G ÷ 液晶倍率 1.25 ＝ 800、切り上げて通常 800G")
+  })
+
+  test("a ceiling counted in another unit is that many over the unit a game comes to, said to be an average", async () => {
+    const modes = modesSpec as SpecDto
+    const { lcdRate: _, ...resources } = modes.resources
+    const counted = solved({ ...modes, components: { ...modes.components, netPerGame: { at: 4 } }, resources: { ...resources, ceilingUnit: { name: "pt", perGame: 0.5 } } })
+    const proof = await proved(counted.basis, counted.analysis)
+    const lines = groundsLines(proof, groundsNamingOf(counted.basis)).map((line) => plainOf(line.parts))
+    expect(lines).toContain("天国の天井 100pt × 1ptあたり 2G ＝ 200、切り上げて通常 200G（平均で数えた近似）")
+    expect(lines).toContain("通常の天井 1000pt × 1ptあたり 2G ＝ 2000、切り上げて通常 2000G（平均で数えた近似）")
+    expect(amiss(proof).filter(([, standing]) => standing === "fails")).toEqual([])
   })
 
   test("an AT's medals under a cap are averaged over what each AT starts from, and come to the engine's", async () => {

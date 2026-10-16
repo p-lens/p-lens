@@ -108,6 +108,7 @@ pub fn made_up_spec() -> Spec {
             bet: NonZeroU32::new(3).expect("a bet"),
             base: None,
             lcd_rate: None,
+            ceiling_unit: None,
             cap: None,
         },
     }
@@ -183,6 +184,7 @@ pub fn at_spec() -> Spec {
             bet: NonZeroU32::new(3).expect("a bet"),
             base: Some(Base::new(40.0).expect("a base")),
             lcd_rate: None,
+            ceiling_unit: None,
             cap: None,
         },
     }
@@ -331,6 +333,8 @@ pub fn table(chance: f64, success: f64, after_at: Vec<f64>, after_reset: Vec<f64
     AtTable {
         chance: Probability::new(chance).expect("a chance"),
         success: Probability::new(success).expect("a rate"),
+        direct: Probability::NONE,
+        paid: Probability::new(1.0).expect("every one"),
         allotments: Allotments {
             after_at,
             after_reset,

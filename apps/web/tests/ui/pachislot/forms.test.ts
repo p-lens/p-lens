@@ -36,9 +36,11 @@ describe("the 解析値 form", () => {
     const form = {
       settingLevels: [1, 6],
       bet: "3",
-      rows: [{ key: "big", label: "BIG", kind: "bonus" as const, of: "", trials: "", payout: "２５２", chances: { "1": "1/273.1", "6": "２５５" }, ceiling: "", resetCeiling: "", atCeiling: "", resetAllotment: {}, success: {}, misses: "", net: "", bonusTrigger: false, sinceAtCeiling: "", law: EMPTY_LAW }],
+      rows: [{ key: "big", label: "BIG", kind: "bonus" as const, of: "", trials: "", payout: "２５２", chances: { "1": "1/273.1", "6": "２５５" }, ceiling: "", resetCeiling: "", atCeiling: "", resetAllotment: {}, success: {}, misses: "", net: "", trigger: "cz" as const, bonusShares: {}, sinceAtCeiling: "", law: EMPTY_LAW }],
       base: "",
       lcdRate: "",
+      unitName: "",
+      unitGames: "",
       cap: "",
     }
     const read = readWorldForm(form)
@@ -168,6 +170,15 @@ describe("an AT machine typed in by hand", () => {
     expect(readManualForm(manualFormOf(madeUp, measured))).toEqual({ ok: true, value: { spec: madeUp, conditions: measured } })
   })
 
+  test("ceilings counted in another unit read back as the same unit, and a unit of no games is refused", () => {
+    const madeUp: SpecDto = { ...(atSpec as SpecDto), resources: { ...(atSpec as SpecDto).resources, ceilingUnit: { name: "周期", perGame: 1 / 32 } } }
+    const form = manualFormOf(madeUp, measured)
+    expect([form.world.unitName, form.world.unitGames]).toEqual(["周期", "32"])
+    expect(readManualForm(form)).toEqual({ ok: true, value: { spec: madeUp, conditions: measured } })
+    const read = readManualForm({ ...form, world: { ...form.world, unitGames: "0" } })
+    expect(!read.ok && read.error).toEqual([{ field: "1周期あたりのG数", reason: "out-of-range" }])
+  })
+
   test("an AT machine of modes read back into the form comes out as the same world", () => {
     const madeUp = modesSpec as SpecDto
     const form = manualFormOf(madeUp, measured)
@@ -222,8 +233,48 @@ describe("an AT machine typed in by hand", () => {
     const madeUp = czSpec as SpecDto
     const marked: SpecDto = { ...madeUp, components: { ...madeUp.components, bonus: ["cz"] } }
     const form = manualFormOf(marked, measured)
-    expect(form.world.rows.find((row) => row.kind === "cz")?.bonusTrigger).toBe(true)
+    expect(form.world.rows.find((row) => row.kind === "cz")?.trigger).toBe("bonus")
     expect(readManualForm(form)).toEqual({ ok: true, value: { spec: marked, conditions: measured } })
+  })
+
+  test("a CZ whose success brings a bonus keeps the bonus's AT share and reads back the same; left empty, the bonus wins it every time", () => {
+    const madeUp = czSpec as SpecDto
+    const shares = [
+      { settingLevel: 1, value: 5_000 },
+      { settingLevel: 6, value: 6_000 },
+    ]
+    const staged: SpecDto = { ...madeUp, components: { ...madeUp.components, payout: { ...madeUp.components.payout, cz: 112 }, netPerGame: { cz: 2.5 }, bonusShare: { cz: shares } } }
+    const form = manualFormOf(staged, measured)
+    const row = form.world.rows.find((each) => each.kind === "cz")
+    expect([row?.trigger, row?.bonusShares]).toEqual(["cz-then-bonus", { "1": "50", "6": "60" }])
+    expect(readManualForm(form)).toEqual({ ok: true, value: { spec: staged, conditions: measured } })
+    const emptied = { ...form, world: { ...form.world, rows: form.world.rows.map((each) => (each.kind === "cz" ? { ...each, bonusShares: {} } : each)) } }
+    const read = readManualForm(emptied)
+    expect(read.ok && read.value.spec.components.bonusShare).toEqual({
+      cz: [
+        { settingLevel: 1, value: 10_000 },
+        { settingLevel: 6, value: 10_000 },
+      ],
+    })
+  })
+
+  test("an AT a CZ brings keeps its chance of being won outright, and reads back the same", () => {
+    const madeUp = czSpec as SpecDto
+    const direct: SpecDto = {
+      ...madeUp,
+      components: {
+        ...madeUp.components,
+        direct: {
+          at: [
+            { settingLevel: 1, value: { type: "ratio", numerator: 1, denominatorHundredths: 200_000 } },
+            { settingLevel: 6, value: { type: "ratio", numerator: 1, denominatorHundredths: 150_000 } },
+          ],
+        },
+      },
+    }
+    const form = manualFormOf(direct, measured)
+    expect(form.world.rows.find((row) => row.kind === "at")?.chances).toEqual({ "1": "1/2000", "6": "1/1500" })
+    expect(readManualForm(form)).toEqual({ ok: true, value: { spec: direct, conditions: measured } })
   })
 
   test("a CZ keeps its ceiling counted from the AT, and reads back the same", () => {

@@ -158,6 +158,11 @@ pub enum SpecError {
     SinceAtCeilingBeyondAtCeiling {
         entity: EntityId,
     },
+    /// An AT given a chance of being won outright on a machine without a
+    /// CZ, where every win is its trigger's already.
+    DirectWithoutCz {
+        entity: EntityId,
+    },
     /// A set of an AT paid in sets that pays nothing.
     EmptySet {
         entity: EntityId,
@@ -198,6 +203,9 @@ pub enum SpecError {
     },
     /// A 有利区間's cap on a machine with no AT.
     CapWithoutAt,
+    /// Ceilings said to be counted both on the screen and in another unit:
+    /// they are counted one way.
+    CeilingUnitBesideLcdRate,
 }
 
 /// What can stop payout rates being worked out.

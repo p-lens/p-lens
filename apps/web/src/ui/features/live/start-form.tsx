@@ -143,8 +143,8 @@ export interface StartForm {
 
 /** What a corner usually has, for each game: 250玉 rented for ¥1,000 and 28玉 exchanged for ¥100, or 46枚 rented — what a 20-yen corner gives with the tax on top — and 5.1枚 exchanged; and a replay stated for half the rental. */
 const USUAL_TERMS: Readonly<Record<PlayGameKind, { readonly rentalTokens: string; readonly exchange: string; readonly replayTokens: string }>> = {
-  pachinko: { rentalTokens: "250", exchange: "28.0", replayTokens: "125" },
-  slot: { rentalTokens: "46", exchange: "5.10", replayTokens: "23" },
+  pachinko: { rentalTokens: "250", exchange: "28", replayTokens: "125" },
+  slot: { rentalTokens: "46", exchange: "5.1", replayTokens: "23" },
 }
 
 const EMPTY_START_FORM: StartForm = {

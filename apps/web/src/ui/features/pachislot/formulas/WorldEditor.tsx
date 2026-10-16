@@ -14,6 +14,7 @@ import {
   EMPTY_PAYOUT_ROW,
   type PayoutRowForm,
   type PayoutShape,
+  type CzTrigger,
   type EntityKindName,
   type EntityRow,
   hasCz,
@@ -91,6 +92,9 @@ function LevelCells(props: {
  * asked for, or while one of them is typed. Its ceilings are its modes' on a
  * machine of modes.
  */
+/** A CZ row's trigger from the toggle's value. */
+const czTriggerNamed = (value: string): CzTrigger => (value === "bonus" || value === "cz-then-bonus" ? value : "cz")
+
 function CzDepths(props: { readonly row: EntityRow; readonly form: WorldForm; readonly onChange: (row: EntityRow) => void }): JSX.Element {
   const [asked, setAsked] = createSignal(false)
   const typed = (): boolean => [props.row.ceiling, props.row.resetCeiling, props.row.misses, props.row.sinceAtCeiling].some((text) => text.trim() !== "")
@@ -323,6 +327,9 @@ function RowEditor(props: {
       </Show>
       <Show when={brought()}>
         <p class="text-xs text-text-muted">ATの初当たりは、CZ合算と成功率・天井から正確に計算します。</p>
+        <span class={LABEL}>直撃AT（任意）</span>
+        <LevelCells name={`${name("AT")} 直撃`} levels={props.form.settingLevels} values={props.row.chances} placeholder="なし" onChange={(chances) => props.onChange({ ...props.row, chances })} />
+        <p class="text-xs text-text-muted">CZやボーナスを通らずにATに当たる確率（1Gあたり）です。公表されている直撃の確率を入れます。</p>
       </Show>
       <Show when={props.row.kind === "watch"}>
         <p class="text-xs text-text-muted">ボーナス1回で何回見るかを入れます。BIG中のスイカならBIGのゲーム数、REG中のランプなら1回です。示唆の確率は、その1回あたりで入れてください。</p>
@@ -330,9 +337,10 @@ function RowEditor(props: {
       <Show when={props.row.kind === "cz"}>
         <div class="flex flex-col gap-1.5">
           <span class={LABEL}>ATを抽選するのは</span>
-          <ToggleGroup value={props.row.bonusTrigger ? "bonus" : "cz"} onChange={(value: string | null) => value !== null && props.onChange({ ...props.row, bonusTrigger: value === "bonus" })}>
+          <ToggleGroup value={props.row.trigger} onChange={(value: string | null) => value !== null && props.onChange({ ...props.row, trigger: czTriggerNamed(value) })}>
             <ToggleGroupItem value="cz">CZ</ToggleGroupItem>
             <ToggleGroupItem value="bonus">ボーナス</ToggleGroupItem>
+            <ToggleGroupItem value="cz-then-bonus">CZ→ボーナス</ToggleGroupItem>
           </ToggleGroup>
         </div>
         <span class={LABEL}>CZ合算（公表値・天井込み）</span>
@@ -346,10 +354,30 @@ function RowEditor(props: {
           placeholder=""
           onChange={(success) => props.onChange({ ...props.row, success })}
         />
+        <Show when={props.row.trigger === "cz-then-bonus"}>
+          <span class={LABEL}>ボーナスからのAT率（任意）</span>
+          <LevelCells
+            name={`${name("CZ")} ボーナスからのAT率`}
+            levels={props.form.settingLevels}
+            values={props.row.bonusShares}
+            suffix="%"
+            placeholder="100"
+            onChange={(bonusShares) => props.onChange({ ...props.row, bonusShares })}
+          />
+        </Show>
         <CzDepths row={props.row} form={props.form} onChange={props.onChange} />
-        <p class="text-xs text-text-muted">
-          ボーナスがATを抽選する機種は「ボーナス」を選び、ここに入れます。CZ合算にボーナス合算、CZ成功率にボーナスからATに入る割合、天井にボーナス間天井を入れ、ボーナスの獲得と純増を足すと、ATに入らなかったボーナスの枚数も期待値に入ります。
-        </p>
+        <Show
+          when={props.row.trigger === "cz-then-bonus"}
+          fallback={
+            <p class="text-xs text-text-muted">
+              ボーナスがATを抽選する機種は「ボーナス」を選び、ここに入れます。CZ合算にボーナス合算、CZ成功率にボーナスからATに入る割合、天井にボーナス間天井を入れ、ボーナスの獲得と純増を足すと、ATに入らなかったボーナスの枚数も期待値に入ります。
+            </p>
+          }
+        >
+          <p class="text-xs text-text-muted">
+            CZに成功するとボーナスに入り、ボーナスからATを抽選する機種は「CZ→ボーナス」を選びます。枚数と純増にはボーナスの獲得を入れます。CZ成功率とボーナスからのAT率が公表されていなければ、予想で入れてもかまいません。ボーナスからのAT率を空けると、ボーナスは必ずATに入るものとして計算し、ボーナスの枚数を入れなければCZのように計算します。ATに入らなかったボーナスも、スルー天井では1回のスルーと数えます。
+          </p>
+        </Show>
       </Show>
       <Show
         when={props.row.kind !== "mode" && props.row.kind !== "cz" && props.row.kind !== "watch" && !brought()}
@@ -669,6 +697,21 @@ export function ManualEditor(props: { readonly form: ManualForm; readonly onChan
               placeholder="なし"
             />
           </div>
+          <div class="w-36">
+            <TextField label="天井の単位（任意）" value={world().unitName} onChange={(unitName) => setWorld({ ...world(), unitName })} placeholder="pt・周期" />
+          </div>
+          <Show when={world().unitName.trim() !== ""}>
+            <div class="w-40">
+              <TextField
+                label={`1${world().unitName.trim()}あたり`}
+                value={world().unitGames}
+                onChange={(unitGames) => setWorld({ ...world(), unitGames })}
+                inputMode="decimal"
+                suffix="G"
+                placeholder="32"
+              />
+            </div>
+          </Show>
         </Show>
       </div>
       <section class="flex flex-col gap-2 rounded-lg border border-border px-4 py-3">
@@ -681,7 +724,7 @@ export function ManualEditor(props: { readonly form: ManualForm; readonly onChan
       </Show>
       <Show when={isAtMachine(world())}>
         <p class="text-xs text-text-muted">
-          天井の液晶ゲーム数がスイカなどで加算される機種は、液晶のゲーム数÷実ゲーム数の平均（例: 1.6倍）を入れると、天井を実ゲーム数に直して計算します。モードを足すと、天井はモードごとに入れます。小役は、通常時に数える設定差のあるもの（共通ベルなど）を設定ごとの確率で入れます。払い出しはベースに含まれるので枚数は入れず、CZやATに直結する小役（強チェリーなど）は入れないでください。
+          天井の液晶ゲーム数がスイカなどで加算される機種は、液晶のゲーム数÷実ゲーム数の平均（例: 1.6倍）を入れると、天井を実ゲーム数に直して計算します。天井がptや周期で数えられる機種は、その単位の名前と1単位あたりの平均G数を入れます（液晶の加算とはどちらか一方）。モードを足すと、天井はモードごとに入れます。小役は、通常時に数える設定差のあるもの（共通ベルなど）を設定ごとの確率で入れます。払い出しはベースに含まれるので枚数は入れず、CZやATに直結する小役（強チェリーなど）は入れないでください。
         </p>
       </Show>
       <div class="flex flex-wrap gap-2">

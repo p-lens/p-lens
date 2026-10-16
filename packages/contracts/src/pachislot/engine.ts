@@ -46,6 +46,8 @@ export interface SpecDto {
     readonly base?: number
     /** For ceilings counted on the screen: the screen's games a regular game comes to on average, one or more. */
     readonly lcdRate?: number
+    /** For the trigger's ceilings counted in something other than games — points, periods — what it is and how much of it a regular game comes to on average. Not beside `lcdRate`. */
+    readonly ceilingUnit?: { readonly name: string; readonly perGame: number }
     /** 有利区間の上限: medals a 有利区間 may gain from its lowest point before it ends. */
     readonly cap?: number
   }
@@ -77,6 +79,8 @@ export interface ComponentsDto {
   readonly firstHit?: Readonly<Record<string, readonly BySettingLevelDto<ProbabilityDto>[]>>
   /** A CZ's chance of winning the AT, in hundredths of a percent, under each setting. */
   readonly success?: Readonly<Record<string, readonly BySettingLevelDto<number>[]>>
+  /** On a CZ whose success brings a bonus before the AT: how often that bonus wins the AT, in hundredths of a percent, under each setting. The bonus pays the CZ's `payout` over its `netPerGame` each time a CZ succeeds, and one missing the AT is a CZ missed. */
+  readonly bonusShare?: Readonly<Record<string, readonly BySettingLevelDto<number>[]>>
   /** 天井: on the trigger — a CZ, or an AT without one — the regular game since the last one on which it comes at the latest; on an AT a CZ brings, the AT間天井 in regular games since the last AT. */
   readonly ceiling?: Readonly<Record<string, number>>
   /** The trigger's ceiling after the settings are changed, until the first AT. */
@@ -111,6 +115,8 @@ export interface ComponentsDto {
   readonly watch?: Readonly<Record<string, string>>
   /** The trials each of a watch's bonus gives it — a BIG's games — one where left out. */
   readonly trials?: Readonly<Record<string, number>>
+  /** On an AT a CZ brings: how often a regular game wins it outright, before the CZ is drawn, below the ceilings, under each setting. */
+  readonly direct?: Readonly<Record<string, readonly BySettingLevelDto<ProbabilityDto>[]>>
   /** On a CZ: the regular game since the last AT on which it comes at the latest, once — a bonus's ceiling that a bonus missing the AT does not start again. Needs an AT間天井 beyond it. */
   readonly sinceAtCeiling?: Readonly<Record<string, number>>
   /** A cue: one thing a watch may show on a trial — a スイカ, a lamp's colour — named by the watch. Its `chance` is a trial's; a watch's cues never share a trial. */
@@ -173,6 +179,10 @@ export interface WatchDto {
 export interface AtTableDto {
   readonly chance: number
   readonly success: number
+  /** How often a regular game wins the AT outright; none where only the trigger does. */
+  readonly direct?: number
+  /** The share of triggers that pay the trigger's medals: the CZ's success where it brings a bonus; every one where it is left out. */
+  readonly paid?: number
   readonly allotments: { readonly afterAt: readonly number[]; readonly afterReset: readonly number[] }
   readonly payout: PayoutLawDto
 }
@@ -533,6 +543,8 @@ export type EngineErrorDto =
   | { readonly type: "at-ceiling-without-cz"; readonly entity: string }
   | { readonly type: "misses-without-cz"; readonly entity: string }
   | { readonly type: "since-at-ceiling-beyond-at-ceiling"; readonly entity: string }
+  | { readonly type: "direct-without-cz"; readonly entity: string }
+  | { readonly type: "ceiling-unit-beside-lcd-rate" }
   | { readonly type: "empty-set"; readonly entity: string }
   | { readonly type: "empty-net-per-game"; readonly entity: string }
   | { readonly type: "other-net-beyond-whole"; readonly entity: string; readonly sum: number }

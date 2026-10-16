@@ -155,3 +155,27 @@ fn a_history_after_a_setting_change_is_read_to_its_shorter_at_ceiling_until_the_
         ) > 0.0
     );
 }
+
+#[test]
+fn a_leg_told_every_way_it_could_end_comes_to_certainty_where_the_at_is_also_won_outright() {
+    let mut spec = cz_spec();
+    spec.components.direct.insert(
+        id("at"),
+        support::per(support::one_in(50_000), support::one_in(40_000)),
+    );
+    let normalized = normalize(&spec).expect("normalises");
+    let horizon = 1_000_u32;
+    let won: f64 = (1..horizon)
+        .map(|games| likelihood(&normalized, 1, false, vec![leg(games, true, None)]))
+        .sum();
+    let going = likelihood(&normalized, 1, false, vec![leg(horizon - 1, false, None)]);
+    assert!((won + going - 1.0).abs() < 1e-9, "{}", won + going);
+    let by_misses: f64 = (0..=60)
+        .map(|misses| likelihood(&normalized, 1, false, vec![leg(200, true, Some(misses))]))
+        .sum();
+    let unsaid = likelihood(&normalized, 1, false, vec![leg(200, true, None)]);
+    assert!(
+        (by_misses - unsaid).abs() < 1e-12,
+        "{by_misses} against {unsaid}"
+    );
+}

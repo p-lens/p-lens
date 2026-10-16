@@ -386,3 +386,90 @@ fn a_cz_marked_a_bonus_is_one_whether_its_medals_are_known_or_not() {
             .trigger_is_bonus
     );
 }
+
+/// The made-up CZ machine without its ceilings, its AT gaining 600 medals at
+/// 4 a game, and each CZ that succeeds bringing a bonus of 100 medals at 5
+/// a game, which wins the AT half the time under setting 1 and 60% under
+/// setting 6.
+fn staged() -> Spec {
+    let mut spec = cz_spec();
+    spec.components.ceiling.clear();
+    spec.components.reset_ceiling.clear();
+    spec.components.net_per_game.insert(id("at"), medals(4.0));
+    spec.components.payout.insert(id("cz"), medals(100.0));
+    spec.components.net_per_game.insert(id("cz"), medals(5.0));
+    spec.components
+        .bonus_share
+        .insert(id("cz"), support::shares(5_000, 6_000));
+    spec
+}
+
+#[test]
+fn a_cz_whose_success_brings_a_bonus_is_the_bonus_won_at_the_cz_s_chance_times_its_success() {
+    let normalized = normalize(&staged()).expect("normalises");
+    let rules = normalized.at_rules.as_ref().expect("an AT machine");
+    assert!(!rules.trigger_is_bonus);
+    let at = |level: usize| normalized.tables[level].at.as_ref().expect("an AT table");
+    assert!(close(at(0).success.value(), 0.3 * 0.5));
+    assert!(close(at(0).paid.value(), 0.3));
+    assert!(close(at(1).success.value(), 0.4 * 0.6));
+    let mut bonus = staged();
+    bonus.components.bonus_share.clear();
+    bonus.components.first_hit.insert(
+        id("cz"),
+        support::per(support::one_in(50_000), support::one_in(30_000)),
+    );
+    bonus
+        .components
+        .success
+        .insert(id("cz"), support::shares(5_000, 6_000));
+    let rate = |spec: &Spec| {
+        analyze(
+            &normalize(spec).expect("normalises"),
+            &PayoutBasis::FromSpec,
+        )
+        .expect("solves")
+        .setting_levels
+        .iter()
+        .map(|level| level.payout_rate)
+        .collect::<Vec<_>>()
+    };
+    let (two_stages, one) = (rate(&staged()), rate(&bonus));
+    assert!(
+        two_stages
+            .iter()
+            .zip(&one)
+            .all(|(left, right)| (left - right).abs() < 1e-9),
+        "{two_stages:?} against {one:?}"
+    );
+}
+
+#[test]
+fn a_bonus_a_cz_brings_wins_the_at_at_a_share_for_every_setting_level_and_never_beside_the_bonus_mark()
+ {
+    let mut partial = staged();
+    partial.components.bonus_share.insert(
+        id("cz"),
+        PerSettingLevel(vec![(
+            setting_level(1),
+            BasisPoints::new(5_000).expect("a share"),
+        )]),
+    );
+    assert_eq!(
+        normalize(&partial),
+        Err(SpecError::MissingSettingLevel {
+            at: id("cz"),
+            setting_level: setting_level(6)
+        })
+    );
+    let mut marked = staged();
+    marked.components.bonus.insert(id("cz"));
+    assert_eq!(
+        normalize(&marked),
+        Err(SpecError::ConflictingComponents {
+            entity: id("cz"),
+            first: Component::Bonus,
+            second: Component::BonusShare
+        })
+    );
+}

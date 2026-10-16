@@ -16,8 +16,8 @@ use pachislot_domain::observation::{
 use pachislot_domain::probability::{BasisPoints, Denominator, Probability, ProbabilitySource};
 use pachislot_domain::setting_level::{PerSettingLevel, SettingLevel};
 use pachislot_domain::spec::{
-    Base, Component, Components, EntityId, LcdRate, Medals, OtherNet, PayoutRow, Resources, Sets,
-    Spec,
+    Base, CeilingUnit, Component, Components, EntityId, LcdRate, Medals, OtherNet, PayoutRow,
+    Resources, Sets, Spec,
 };
 use pachislot_domain::version::{SchemaVersion, SpecVersion};
 use pachislot_engine::analysis::Analysis;
@@ -175,6 +175,11 @@ fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
         success: table(&dto.success, "spec.components.success", |values, at| {
             shares(values, at)
         })?,
+        bonus_share: table(
+            &dto.bonus_share,
+            "spec.components.bonusShare",
+            |values, at| shares(values, at),
+        )?,
         misses: table(&dto.misses, "spec.components.misses", |count, at| {
             NonZeroU32::new(*count).ok_or_else(|| invalid(at))
         })?,
@@ -230,6 +235,9 @@ fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
             NonZeroU32::new(*count).ok_or_else(|| invalid(at))
         })?,
         cue: table(&dto.cue, "spec.components.cue", |of, at| id(of, at))?,
+        direct: table(&dto.direct, "spec.components.direct", |values, at| {
+            probabilities(values, at)
+        })?,
         since_at_ceiling: table(
             &dto.since_at_ceiling,
             "spec.components.sinceAtCeiling",
@@ -298,6 +306,15 @@ pub fn spec(dto: &SpecDto) -> Result<Spec, ErrorDto> {
                 .resources
                 .lcd_rate
                 .map(|rate| LcdRate::new(rate).ok_or_else(|| invalid("spec.resources.lcdRate")))
+                .transpose()?,
+            ceiling_unit: dto
+                .resources
+                .ceiling_unit
+                .as_ref()
+                .map(|unit| {
+                    CeilingUnit::new(&unit.name, unit.per_game)
+                        .ok_or_else(|| invalid("spec.resources.ceilingUnit"))
+                })
                 .transpose()?,
             cap: dto
                 .resources
@@ -428,6 +445,8 @@ fn at_table(dto: &AtTableDto, field: &str) -> Result<AtTable, ErrorDto> {
     Ok(AtTable {
         chance: probability(dto.chance, &format!("{field}.chance"))?,
         success: probability(dto.success, &format!("{field}.success"))?,
+        direct: probability(dto.direct, &format!("{field}.direct"))?,
+        paid: probability(dto.paid, &format!("{field}.paid"))?,
         allotments: allotments(&dto.allotments, &format!("{field}.allotments"))?,
         payout: payout_law(&dto.payout, &format!("{field}.payout"))?,
     })
@@ -616,6 +635,8 @@ pub fn normalized_dto(spec: &NormalizedSpec) -> NormalizedSpecDto {
                 at: table.at.as_ref().map(|each| AtTableDto {
                     chance: each.chance.value(),
                     success: each.success.value(),
+                    direct: each.direct.value(),
+                    paid: each.paid.value(),
                     allotments: AllotmentsDto {
                         after_at: each.allotments.after_at.clone(),
                         after_reset: each.allotments.after_reset.clone(),
@@ -857,6 +878,8 @@ fn component_name(component: Component) -> String {
         Component::Trials => "trials",
         Component::Cue => "cue",
         Component::SinceAtCeiling => "sinceAtCeiling",
+        Component::Direct => "direct",
+        Component::BonusShare => "bonusShare",
     }
     .to_owned()
 }
@@ -984,6 +1007,9 @@ pub fn spec_error_dto(error: &SpecError) -> ErrorDto {
         SpecError::MissesWithoutCz { entity } => ErrorDto::MissesWithoutCz {
             entity: named(entity),
         },
+        SpecError::DirectWithoutCz { entity } => ErrorDto::DirectWithoutCz {
+            entity: named(entity),
+        },
         SpecError::SinceAtCeilingBeyondAtCeiling { entity } => {
             ErrorDto::SinceAtCeilingBeyondAtCeiling {
                 entity: named(entity),
@@ -1027,6 +1053,7 @@ pub fn spec_error_dto(error: &SpecError) -> ErrorDto {
             component: component_name(*component),
         },
         SpecError::CapWithoutAt => ErrorDto::CapWithoutAt,
+        SpecError::CeilingUnitBesideLcdRate => ErrorDto::CeilingUnitBesideLcdRate,
     }
 }
 

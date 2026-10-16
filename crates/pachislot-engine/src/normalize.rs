@@ -177,7 +177,16 @@ fn at_tables(
     counted
         .iter()
         .try_for_each(|outcome| check_coverage(setting_levels, outcome.id, outcome.chance))?;
-    let rules = rules_of(machine, spec.resources.lcd_rate, spec.resources.cap);
+    let rate = match (
+        spec.resources.lcd_rate,
+        spec.resources.ceiling_unit.as_ref(),
+    ) {
+        (Some(_), Some(_)) => return Err(SpecError::CeilingUnitBesideLcdRate),
+        (Some(lcd), None) => Some(lcd.get()),
+        (None, Some(unit)) => Some(unit.per_game()),
+        (None, None) => None,
+    };
+    let rules = rules_of(machine, rate, spec.resources.cap);
     check_since_at(&rules)?;
     let bet = f64::from(spec.resources.bet.get());
     let tables = setting_levels

@@ -7,8 +7,8 @@ import type { Basis } from "../formula"
  */
 export type GroundsMode = { readonly type: "own"; readonly label: string } | { readonly type: "after-at" } | { readonly type: "after-reset" }
 
-/** What brings the AT: a CZ, a bonus that wins it at a share — by its label — or nothing, the AT won directly. */
-export type GroundsTrigger = { readonly type: "cz" } | { readonly type: "bonus"; readonly label: string } | { readonly type: "at" }
+/** What brings the AT: a CZ, a CZ whose success brings a bonus that wins it at a share, a bonus that wins it at a share — by its label — or nothing, the AT won directly. */
+export type GroundsTrigger = { readonly type: "cz" } | { readonly type: "cz-then-bonus" } | { readonly type: "bonus"; readonly label: string } | { readonly type: "at" }
 
 /**
  * What a formula's grounds reason over, to be named in words: the trigger —
@@ -19,11 +19,14 @@ export type GroundsTrigger = { readonly type: "cz" } | { readonly type: "bonus";
 export interface GroundsNaming {
   readonly trigger: GroundsTrigger
   readonly modes: readonly GroundsMode[]
+  /** What the trigger's ceilings are counted in where it is not games: `pt`, `周期`. */
+  readonly unit: string | undefined
 }
 
 const triggerOf = (basis: Basis): GroundsTrigger => {
   const rules = basis.normalized.atRules
   if (rules?.trigger === undefined) return { type: "at" }
+  if (basis.spec.components.bonusShare?.[rules.trigger] !== undefined) return { type: "cz-then-bonus" }
   return rules.triggerIsBonus !== true && rules.triggerPayout === undefined ? { type: "cz" } : { type: "bonus", label: basis.spec.components.label?.[rules.trigger] || "ボーナス" }
 }
 
@@ -33,6 +36,7 @@ export const groundsNamingOf = (basis: Basis): GroundsNaming => {
   const own = basis.spec.components.mode ?? []
   return {
     trigger: triggerOf(basis),
+    unit: basis.spec.resources.ceilingUnit?.name,
     modes: (rules?.modes ?? []).map((mode, index): GroundsMode => {
       if (own.includes(mode.id)) return { type: "own", label: basis.spec.components.label?.[mode.id] || mode.id }
       return index === 0 ? { type: "after-at" } : { type: "after-reset" }

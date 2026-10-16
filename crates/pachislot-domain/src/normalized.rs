@@ -158,6 +158,14 @@ impl Allotments {
 pub struct AtTable {
     pub chance: Probability,
     pub success: Probability,
+    /// How often a regular game below the ceilings wins the AT outright,
+    /// before the trigger is drawn; none where only the trigger wins it.
+    pub direct: Probability,
+    /// The share of triggers that pay the trigger's medals: all of them
+    /// where the trigger is a bonus, those that succeed where a CZ's
+    /// success brings the bonus. `success` is then the CZ's success times
+    /// the bonus's share.
+    pub paid: Probability,
     pub allotments: Allotments,
     pub payout: PayoutLaw,
 }

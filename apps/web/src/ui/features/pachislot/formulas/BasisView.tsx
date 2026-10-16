@@ -119,7 +119,7 @@ export function BasisView(props: { readonly place: Place; readonly machineId: st
                               <tr class="border-t border-border">
                                 <td class="px-3 py-2 text-text-primary">{row().label}</td>
                                 <td class="px-3 py-2 text-text-secondary">
-                                  {row().kind === "cz" && (row().bonusTrigger || row().payout !== "") ? "ボーナス（AT抽選）" : KIND_NAMES[row().kind]}
+                                  {row().kind === "cz" && row().trigger === "cz-then-bonus" ? "CZ→ボーナス（AT抽選）" : row().kind === "cz" && (row().trigger === "bonus" || row().payout !== "") ? "ボーナス（AT抽選）" : KIND_NAMES[row().kind]}
                                   <Show when={row().kind === "part" || row().kind === "cue"}>（{labelOf(row().of)}）</Show>
                                   <Show when={row().kind === "watch"}>
                                     （{labelOf(row().of)}・1回{row().trials === "" ? "1" : row().trials}回）
