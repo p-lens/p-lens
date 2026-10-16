@@ -1,6 +1,7 @@
 import type { BookId, ListedBook } from "../core/book/book"
-import type { Dimension, Group } from "../core/report/breakdown"
+import type { Dimension, Group, OVERALL } from "../core/report/breakdown"
 import type { Holdings } from "../core/report/holdings"
+import type { Overall } from "../core/report/overall"
 import { mergedSenderNames, type SenderNames } from "../core/report/senders"
 import { mergedSpinPerformances, type SpinPerformancesByMachine } from "../core/report/spin-performance"
 import { mapOk } from "../core/result/result"
@@ -8,11 +9,15 @@ import type { BookSession } from "./book-session"
 import { loadBreakdown, loadSenderBreakdown, loadSenderNames, loadSpinPerformances } from "./breakdown"
 import type { Outcome } from "./errors"
 import { loadHoldings } from "./holdings"
+import { loadOverall } from "./overall"
 import { loadOverview } from "./overview"
 import { keepsTheoreticalValues } from "./theoretical"
 
-/** What several books' results are grouped by: what one book's are, the books themselves, or who played them. */
-export type ConsolidatedBy = Dimension | "book" | "sender"
+/** What several books' results are grouped by: what one book's are, the books themselves, or who played them — or the books taken as one. */
+export type ConsolidatedBy = typeof OVERALL | Dimension | "book" | "sender"
+
+/** What several books' results are grouped by, where they are grouped at all. */
+export type ConsolidatedGrouping = Exclude<ConsolidatedBy, typeof OVERALL>
 
 /** One book among those consolidated: which, and what was asked of it — or why it could not be read. */
 export interface ConsolidatedBook<T> {
@@ -47,8 +52,12 @@ const ofChosen = async <T>(session: BookSession, chosen: readonly BookId[] | und
 const whole = async (session: BookSession, book: ListedBook, query: string): Promise<Outcome<readonly Group[]>> =>
   mapOk(await loadOverview(session, book.id, query), (overview) => [{ key: book.id, actual: overview.actual, theoretical: overview.theoretical, inferred: overview.inferred }])
 
+/** The books chosen taken as one, for a period: each book's own figures, added — a day played in several books one day. */
+export const loadConsolidatedOverall = async (session: BookSession, chosen: readonly BookId[] | undefined, query: string): Promise<Outcome<readonly ConsolidatedBook<Overall>[]>> =>
+  ofChosen(session, chosen, (book) => loadOverall(session, book.id, query))
+
 /** The results of the books chosen, for a period, grouped, book by book. */
-export const loadConsolidation = (session: BookSession, chosen: readonly BookId[] | undefined, by: ConsolidatedBy, query: string): Promise<Outcome<readonly ConsolidatedBook<readonly Group[]>[]>> =>
+export const loadConsolidation = (session: BookSession, chosen: readonly BookId[] | undefined, by: ConsolidatedGrouping, query: string): Promise<Outcome<readonly ConsolidatedBook<readonly Group[]>[]>> =>
   ofChosen(session, chosen, (book) => {
     if (by === "book") return whole(session, book, query)
     return by === "sender" ? loadSenderBreakdown(session, book.id, query) : loadBreakdown(session, book.id, by, query)

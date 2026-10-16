@@ -11,6 +11,14 @@ export type Dimension = (typeof DIMENSIONS)[number]
 
 export const isDimension = (text: string): text is Dimension => (DIMENSIONS as readonly string[]).includes(text)
 
+/** Tallies taken as one rather than grouped: 総合, what a breakdown opens on. */
+export const OVERALL = "overall"
+
+/** What a breakdown shows: its tallies taken as one, or grouped by a dimension. */
+export type BreakdownBy = typeof OVERALL | Dimension
+
+export const isBreakdownBy = (text: string): text is BreakdownBy => text === OVERALL || isDimension(text)
+
 /** The key of the group whose tallies do not say what a dimension asks: hledger's row for what carries no such tag. */
 export const UNSAID = ""
 

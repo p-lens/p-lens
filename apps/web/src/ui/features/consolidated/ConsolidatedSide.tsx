@@ -1,6 +1,7 @@
 import type { JSX } from "solid-js"
 import { SidePanel } from "solid-gathering-shell"
 
+import { OVERALL } from "../../../core/report/breakdown"
 import { BreakdownIcon, HoldingsIcon } from "../../primitives/icons"
 import { useMoves } from "../../navigation/moves"
 import { consolidatedBooksOf, type Place } from "../../navigation/place"
@@ -40,7 +41,7 @@ export function ConsolidatedSide(props: { readonly place: Place }): JSX.Element 
             label: "集計",
             icon: <BreakdownIcon />,
             selected: props.place.kind === "consolidated-breakdown",
-            onSelect: () => moves.go({ kind: "consolidated-breakdown", by: "book", bookIds: bookIds() }),
+            onSelect: () => moves.go({ kind: "consolidated-breakdown", by: OVERALL, bookIds: bookIds() }),
           },
         ]}
       />

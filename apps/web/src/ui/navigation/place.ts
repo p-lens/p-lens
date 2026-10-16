@@ -4,9 +4,9 @@ import type { BookId } from "../../core/book/book"
 import { isDocumentKind, type DocumentKind } from "../../core/document/document"
 import type { PlayGameKind, PlayId } from "../../core/play/play"
 import type { ConsolidatedBy } from "../../application/consolidation"
-import { isDimension, type Dimension } from "../../core/report/breakdown"
+import { OVERALL, isBreakdownBy, isDimension, type BreakdownBy } from "../../core/report/breakdown"
 
-const isConsolidatedBy = (text: string): text is ConsolidatedBy => text === "book" || text === "sender" || isDimension(text)
+const isConsolidatedBy = (text: string): text is ConsolidatedBy => text === OVERALL || text === "book" || text === "sender" || isDimension(text)
 
 /** The screens a book has, each at its own address under the book. */
 const BOOK_VIEWS = ["tallies", "holdings", "result-calendar", "activity", "files"] as const
@@ -71,7 +71,7 @@ export type Place =
   | { readonly kind: "live-cabinet"; readonly playId: PlayId }
   | { readonly kind: "book"; readonly bookId: BookId }
   | { readonly kind: "book-view"; readonly bookId: BookId; readonly view: BookView }
-  | { readonly kind: "book-breakdown"; readonly bookId: BookId; readonly by: Dimension }
+  | { readonly kind: "book-breakdown"; readonly bookId: BookId; readonly by: BreakdownBy }
   | { readonly kind: "tally"; readonly bookId: BookId; readonly playId: PlayId }
   | { readonly kind: "tally-new"; readonly bookId: BookId }
   | { readonly kind: "tally-revise"; readonly bookId: BookId; readonly playId: PlayId }
@@ -171,8 +171,8 @@ const placeOfSegments = (segments: readonly string[], path: string): Place => {
   if (first === "books" && second !== undefined && third === undefined) return { kind: "book", bookId: second as BookId }
   if (first === "books" && second !== undefined && third !== undefined && fourth === undefined && isBookView(third))
     return { kind: "book-view", bookId: second as BookId, view: third }
-  if (first === "books" && second !== undefined && third === "breakdown" && fifth === undefined && (fourth === undefined || isDimension(fourth)))
-    return { kind: "book-breakdown", bookId: second as BookId, by: fourth === undefined ? "machine" : fourth }
+  if (first === "books" && second !== undefined && third === "breakdown" && fifth === undefined && (fourth === undefined || isBreakdownBy(fourth)))
+    return { kind: "book-breakdown", bookId: second as BookId, by: fourth ?? OVERALL }
   if (first === "books" && second !== undefined && third === "tallies" && fourth === "new") return { kind: "tally-new", bookId: second as BookId }
   if (first === "books" && second !== undefined && third === "files" && fourth !== undefined) return { kind: "book-file", bookId: second as BookId, path: fourth }
   if (first === "books" && second !== undefined && third === "tallies" && fourth !== undefined)
@@ -183,7 +183,7 @@ const placeOfSegments = (segments: readonly string[], path: string): Place => {
   if (first === "consolidated" && second === "holdings" && fourth === undefined) return { kind: "consolidated-holdings", bookIds: bookIdsIn(third) }
   if (first === "consolidated" && second === "result-calendar" && fourth === undefined) return { kind: "consolidated-result-calendar", bookIds: bookIdsIn(third) }
   if (first === "consolidated" && second === "breakdown" && fifth === undefined && (third === undefined || isConsolidatedBy(third)))
-    return { kind: "consolidated-breakdown", by: third === undefined ? "book" : third, bookIds: bookIdsIn(fourth) }
+    return { kind: "consolidated-breakdown", by: third ?? OVERALL, bookIds: bookIdsIn(fourth) }
   if (first === "settings" && second === undefined) return { kind: "settings" }
   if (first === "settings" && second !== undefined && third === undefined && isSettingsSection(second))
     return { kind: "settings-section", section: second }

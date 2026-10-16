@@ -2,11 +2,12 @@ import { createResource, For, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import { loadBreakdown, loadSpinPerformances } from "../../../application/breakdown"
+import { loadOverall } from "../../../application/overall"
 import { loadRevaluation } from "../../../application/revaluation"
 import { keepsTheoreticalValues } from "../../../application/theoretical"
 import type { BookId } from "../../../core/book/book"
 import { isZero, type Decimal } from "../../../core/decimal/decimal"
-import { DIMENSIONS, isDimension, totalOf, type Dimension, type Group } from "../../../core/report/breakdown"
+import { DIMENSIONS, isBreakdownBy, OVERALL, totalOf, type BreakdownBy, type Dimension, type Group } from "../../../core/report/breakdown"
 import type { Revaluation } from "../../../core/report/revaluation"
 import { allSpinPerformances, averageOf, type SpinPerformances, type SpinPerformancesByMachine } from "../../../core/report/spin-performance"
 import { useApp } from "../../context"
@@ -14,11 +15,12 @@ import { Select } from "../../primitives/select"
 import { EmptyState, Loaded } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
-import { DIMENSION_NAMES, groupName, INFERRED_SPIN_AVERAGE, inferredShareText, NOT_TALLIED, REVALUATION, REVALUATION_NOTE, SPIN_AVERAGE, spinAverageText } from "../../wording/breakdown"
+import { DIMENSION_NAMES, OVERALL_NAME, groupName, INFERRED_SPIN_AVERAGE, inferredShareText, NOT_TALLIED, REVALUATION, REVALUATION_NOTE, SPIN_AVERAGE, spinAverageText } from "../../wording/breakdown"
 import { formatSignedYen, formatTheoreticalYen, toneOf } from "../../wording/numbers"
 import { PeriodPicker } from "../period/PeriodPicker"
 import { queryFor } from "../period/periods"
 import { ViewHeader } from "../shell/ViewHeader"
+import { OverallCard } from "./OverallCard"
 
 const TONES = { positive: "text-positive", negative: "text-negative", neutral: "text-text-primary" } as const
 
@@ -106,19 +108,28 @@ function RevaluationRow(props: { readonly revaluation: Revaluation; readonly byP
   )
 }
 
+/** The ways a breakdown is offered: 総合 first, then each grouping. */
+export const BREAKDOWN_OPTIONS = [{ value: OVERALL, label: OVERALL_NAME }, ...DIMENSIONS.map((dimension) => ({ value: dimension, label: DIMENSION_NAMES[dimension] }))]
+
 /**
- * A book's results by where they came from: its tallies grouped by machine,
- * parlor, day of the week, game, year, month or day, each group with
- * what its tallies made and were worth. Which grouping and which period are
- * the address's. hledger does the grouping and the sums; this lays out what
- * it answers.
+ * A book's results for a period: taken as one, 総合 — what it opens on —
+ * or by where they came from, its tallies grouped by machine, parlor, day
+ * of the week, game, year, month or day, each group with what its tallies
+ * made and were worth. Which and which period are the address's. hledger
+ * does the grouping and the sums; this lays out what it answers.
  */
-export function BreakdownView(props: { readonly place: Place; readonly bookId: BookId; readonly by: Dimension; readonly query: string }): JSX.Element {
+export function BreakdownView(props: { readonly place: Place; readonly bookId: BookId; readonly by: BreakdownBy; readonly query: string }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
+  /** The dimension the tallies are grouped by; none where they are taken as one. */
+  const grouping = (): Dimension | undefined => (props.by === OVERALL ? undefined : props.by)
   const [groups] = createResource(
-    () => ({ bookId: props.bookId, by: props.by, query: props.query, revision: app.revision() }),
+    () => ((by) => (by === undefined ? undefined : { bookId: props.bookId, by, query: props.query, revision: app.revision() }))(grouping()),
     (source) => loadBreakdown(app.services.session, source.bookId, source.by, queryFor(source.by, source.query)),
+  )
+  const [overall] = createResource(
+    () => (props.by === OVERALL ? { bookId: props.bookId, query: props.query, revision: app.revision() } : undefined),
+    (source) => loadOverall(app.services.session, source.bookId, source.query),
   )
   const [revalued] = createResource(
     () => ({ bookId: props.bookId, by: props.by, query: props.query, revision: app.revision() }),
@@ -143,26 +154,39 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
             <div class="w-48">
               <Select
                 label="切り口"
-                options={DIMENSIONS.map((dimension) => ({ value: dimension, label: DIMENSION_NAMES[dimension] }))}
+                options={BREAKDOWN_OPTIONS}
                 value={props.by}
                 onChange={(by) => {
-                  if (isDimension(by)) moves.go({ kind: "book-breakdown", bookId: props.bookId, by }, props.query)
+                  if (isBreakdownBy(by)) moves.go({ kind: "book-breakdown", bookId: props.bookId, by }, props.query)
                 }}
                 placeholder="切り口を選ぶ"
               />
             </div>
             <PeriodPicker by={props.by} query={props.query} today={app.services.businessDay()} onTyped={(query) => moves.refine(props.place, query)} onPressed={(query) => moves.go(props.place, query)} />
           </div>
-          <Loaded outcome={groups()}>
-            {(found) => (
-              <Show when={found.length > 0} fallback={<EmptyState title="この期間の収支はありません" />}>
-                <ul class="flex flex-col gap-1">
-                  <GroupRow name="合計" group={totalOf(found)} strong theoreticalKept={theoreticalKept()} spins={((all) => (all === undefined ? undefined : allSpinPerformances(all)))(spins())} />
-                  <For each={found}>{(group) => <GroupRow name={groupName(props.by, group.key, app.machineNames())} group={group} strong={false} theoreticalKept={theoreticalKept()} spins={spins()?.get(group.key)} />}</For>
-                </ul>
-              </Show>
+          <Show when={props.by === OVERALL}>
+            <Loaded outcome={overall()}>
+              {(found) => (
+                <Show when={found.plays > 0} fallback={<EmptyState title="この期間の収支はありません" />}>
+                  <OverallCard overall={found} theoreticalKept={theoreticalKept()} />
+                </Show>
+              )}
+            </Loaded>
+          </Show>
+          <Show when={grouping()} keyed>
+            {(dimension) => (
+              <Loaded outcome={groups()}>
+                {(found) => (
+                  <Show when={found.length > 0} fallback={<EmptyState title="この期間の収支はありません" />}>
+                    <ul class="flex flex-col gap-1">
+                      <GroupRow name="合計" group={totalOf(found)} strong theoreticalKept={theoreticalKept()} spins={((all) => (all === undefined ? undefined : allSpinPerformances(all)))(spins())} />
+                      <For each={found}>{(group) => <GroupRow name={groupName(dimension, group.key, app.machineNames())} group={group} strong={false} theoreticalKept={theoreticalKept()} spins={spins()?.get(group.key)} />}</For>
+                    </ul>
+                  </Show>
+                )}
+              </Loaded>
             )}
-          </Loaded>
+          </Show>
           <Show when={revaluation()} keyed>
             {(found) => <RevaluationRow revaluation={found} byParlor={props.by === "parlor"} />}
           </Show>

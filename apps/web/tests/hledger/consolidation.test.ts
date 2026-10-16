@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import { createBookSession } from "../../src/application/book-session"
-import { consolidationKeepsTheoreticalValues, loadConsolidatedHoldings, loadConsolidatedSenderNames, loadConsolidation, type ConsolidatedBy } from "../../src/application/consolidation"
+import { consolidationKeepsTheoreticalValues, loadConsolidatedHoldings, loadConsolidatedSenderNames, loadConsolidation, type ConsolidatedGrouping } from "../../src/application/consolidation"
 import { recordTokenTally } from "../../src/application/record-tally"
 import { loadHoldings } from "../../src/application/holdings"
 import { latestValuedOn, totalAcross } from "../../src/core/report/holdings"
@@ -25,7 +25,7 @@ const setUp = async () => {
   return session
 }
 
-const read = async (session: Awaited<ReturnType<typeof setUp>>, chosen: readonly BookId[] | undefined, by: ConsolidatedBy, query: string) => {
+const read = async (session: Awaited<ReturnType<typeof setUp>>, chosen: readonly BookId[] | undefined, by: ConsolidatedGrouping, query: string) => {
   const found = await loadConsolidation(session, chosen, by, query)
   return found.ok && found.value.map((each) => [each.book.id, each.read.ok && each.read.value.map((group) => [group.key, toPlainString(group.actual), toPlainString(group.theoretical)])])
 }
@@ -76,7 +76,7 @@ describe("several books consolidated", () => {
     const found = await read(session, [MINE as BookId], "sender", "date:2026-10")
     const groups = found === false ? [] : (found[0]?.[1] as readonly (readonly string[])[])
     expect(groups.map((group) => group[0]).toSorted()).toEqual(["", "grant-kenji", "grant-taro"])
-    const figuresOf = async (by: ConsolidatedBy) => ((found) => (found.ok ? found.value.flatMap((each) => (each.read.ok ? each.read.value.map((group) => [toPlainString(group.actual), toPlainString(group.theoretical)]) : [])) : []))(await loadConsolidation(session, [MINE as BookId], by, "date:2026-09"))
+    const figuresOf = async (by: ConsolidatedGrouping) => ((found) => (found.ok ? found.value.flatMap((each) => (each.read.ok ? each.read.value.map((group) => [toPlainString(group.actual), toPlainString(group.theoretical)]) : [])) : []))(await loadConsolidation(session, [MINE as BookId], by, "date:2026-09"))
     expect(await read(session, [MINE as BookId], "sender", "date:2026-09")).toEqual([[MINE, [["", ...((await figuresOf("book"))[0] ?? [])]]]] as never)
     const names = await loadConsolidatedSenderNames(session, undefined)
     expect(names.ok && [...names.value].toSorted()).toEqual([["grant-kenji", { name: "けんじ2号", date: "2026-10-03" }], ["grant-taro", { name: "たろう", date: "2026-10-02" }]] as never)

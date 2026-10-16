@@ -94,3 +94,26 @@ export const theoreticalFractionText = (value: number | null | undefined, places
   const sign = Number(`${whole}.${fraction}`) === 0 ? "±" : value < 0 ? "-" : "+"
   return `${sign}¥${groupDigits(whole)}.${fraction}`
 }
+
+/** Below this, yen are written in full; from it, in 万 or 億, so a figure of years still fits a tile. */
+const COMPACT_FROM = 100_000
+
+/** A positive amount of yen, rounded to the yen, in full below a hundred thousand, else to a tenth of a 万 or a hundredth of a 億. */
+const compactMagnitude = (whole: Decimal): string => {
+  const yen = Number(toPlainString(whole))
+  if (yen < COMPACT_FROM) return `¥${grouped(whole)}`
+  if (yen < OKU) return `¥${groupDigits((Math.round(yen / (MAN / 10)) / 10).toFixed(1))}万`
+  return `¥${groupDigits((Math.round(yen / (OKU / 100)) / 100).toFixed(2))}億`
+}
+
+/** Yen as a tile has room for: `¥12,345`, `¥123.5万`, `¥1.23億`, the sign before the mark. */
+export const formatCompactYen = (value: Decimal): string => {
+  const whole = rounded(value, 0)
+  return isNegative(whole) ? `-${compactMagnitude(negate(whole))}` : compactMagnitude(whole)
+}
+
+/** A result as a tile has room for, always signed, so a gain and a loss never look alike. */
+export const formatCompactSignedYen = (value: Decimal): string => {
+  const whole = rounded(value, 0)
+  return isZero(whole) ? "¥0" : isNegative(whole) ? `-${compactMagnitude(negate(whole))}` : `+${compactMagnitude(whole)}`
+}

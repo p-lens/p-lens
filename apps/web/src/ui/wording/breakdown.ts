@@ -5,6 +5,9 @@ import { UNSAID, type Dimension } from "../../core/report/breakdown"
 import type { SenderNames } from "../../core/report/senders"
 import { formatTheoreticalYen } from "./numbers"
 
+/** What taking the tallies as one, rather than grouping them, is called: the breakdown's first choice. */
+export const OVERALL_NAME = "総合"
+
 /** What each way of grouping tallies is called, as the list of them offers it. */
 export const DIMENSION_NAMES: Readonly<Record<Dimension, string>> = {
   machine: "機種別",

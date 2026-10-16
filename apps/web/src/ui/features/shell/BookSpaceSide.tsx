@@ -2,6 +2,7 @@ import { Show, type JSX } from "solid-js"
 import { SidePanel } from "solid-gathering-shell"
 
 import type { BookId, ListedBook } from "../../../core/book/book"
+import { OVERALL } from "../../../core/report/breakdown"
 import { ActivityIcon, BreakdownIcon, FileIcon, HoldingsIcon, TalliesIcon, PlusIcon } from "../../primitives/icons"
 import { useMoves } from "../../navigation/moves"
 import type { BookView, Place } from "../../navigation/place"
@@ -30,7 +31,7 @@ export function BookSpaceSide(props: { readonly place: Place; readonly bookId: B
     label: "集計",
     icon: <BreakdownIcon />,
     selected: props.place.kind === "book-breakdown",
-    onSelect: () => moves.go({ kind: "book-breakdown", bookId: props.bookId, by: "machine" }),
+    onSelect: () => moves.go({ kind: "book-breakdown", bookId: props.bookId, by: OVERALL }),
   })
   const items = (): readonly SideListItem[] =>
     VIEWS.flatMap(({ view, label, icon }): readonly SideListItem[] => [

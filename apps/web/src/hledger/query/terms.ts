@@ -31,6 +31,12 @@ export const rangeTerm = (from: IsoDate | undefined, to: IsoDate | undefined): s
 /** The cash account, and no account under another name. */
 export const cashTerm = `^${escapeRegex(ACCOUNTS.cash)}$`
 
+/** One account, and no account under another name. */
+export const accountTerm = (account: string): string => `^${escapeRegex(account)}$`
+
+/** The postings that take something away from their account: savings drawn on, rather than put back. */
+export const drawnTerm = "amt:<0"
+
 /** Every savings account of every kind of token, at every parlor. */
 export const savingsTerm = `^(${escapeRegex(savingsRoot("ball"))}|${escapeRegex(savingsRoot("medal"))}):`
 

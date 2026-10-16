@@ -564,7 +564,7 @@ The place is read off the address (`ui/navigation/place.ts`):
 | `/play/:play/cabinet` | saying anew which cabinet and machine it is on | content |
 | `/books/:book` | a book, no view chosen | selection |
 | `/books/:book/{tallies,holdings,result-calendar,activity,files}?q=` | a view | content |
-| `/books/:book/breakdown/:by?q=` | a book's results grouped | content |
+| `/books/:book/breakdown/:by?q=` | a book's results taken as one (総合, by default) or grouped | content |
 | `/books/:book/files/:path` | one of the book's files as kept, beside the list | detail |
 | `/books/:book/tallies/new` | adding a tally by its totals (収支を追加) | content |
 | `/books/:book/tallies/:play?q=` | a tally beside its list | detail |
@@ -1938,6 +1938,16 @@ played them (集計).
 - **The calendar is a book's, given the books' days added**
   (`ResultCalendar`, `mergedOf`): a day pressed goes to what each book
   made that day, there being no one list of several books' plays.
+- **総合 first** (`/books/:book/breakdown/overall`, `/consolidated/breakdown/overall`,
+  what both open on): a period's tallies taken as one (`loadOverall`).
+  hledger finds the tallies, which are counted, and sums every figure: what
+  they made over all, each tally on its own and each day on its own (an
+  income statement pivoted on `play-id`, and one by day), what they were
+  worth, the cash spent, the special and odd prizes taken home, and the
+  savings tallies drew on (`amt:<0` on the savings accounts, each at its
+  own day's rate). The app counts tallies, days, and those that came out
+  ahead, and divides for the averages. Several books are added, a day
+  played in two books one day its results added (`mergedOverall`).
 - **By who played them** (打ち手別, `/consolidated/breakdown/sender`):
   each sender's tallies over every book added, by the `sender-id` they
   carry (`loadSenderBreakdown`), and named by the `sender` on their last

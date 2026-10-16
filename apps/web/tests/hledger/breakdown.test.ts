@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, test } from "bun:test"
 
 import { createBookSession, type BookSession } from "../../src/application/book-session"
 import { loadBreakdown } from "../../src/application/breakdown"
+import { loadOverall } from "../../src/application/overall"
 import { importPrecord } from "../../src/application/import"
 import type { BookId } from "../../src/core/book/book"
 import { toPlainString } from "../../src/core/decimal/decimal"
@@ -22,6 +23,28 @@ describe("the basic-play book, broken down by the real hledger module", () => {
     const storage = memoryStorage()
     context.session = createBookSession({ hledger: await inProcessHledger(), storage, history: createMemoryHistory(() => crypto.randomUUID()), clock: () => new Date("2026-10-09T12:00:00+09:00"), newId: () => crypto.randomUUID(), member: ME })
     await session().createBook(await fixtureBook("basic-play", { id: BOOK, members: [{ id: ME, displayName: "me", role: "owner" }] }))
+  })
+
+  test("taken as one: its tallies and days counted, every sum hledger's", async () => {
+    const found = await loadOverall(session(), BOOK, "")
+    expect(found.ok && { ...found.value, days: found.value.days.map((day) => [day.day, toPlainString(day.actual)]), actual: toPlainString(found.value.actual), theoretical: toPlainString(found.value.theoretical), inferred: toPlainString(found.value.inferred), cash: toPlainString(found.value.cash), specialPrizes: toPlainString(found.value.specialPrizes), oddPrizes: toPlainString(found.value.oddPrizes), savingsDrawn: toPlainString(found.value.savingsDrawn) }).toEqual({
+      plays: 5,
+      playsWon: 3,
+      days: [
+        ["2026-09-05", "5136"],
+        ["2026-09-12", "20030"],
+        ["2026-09-20", "15976"],
+        ["2026-10-01", "0"],
+        ["2026-10-03", "-1998"],
+      ],
+      actual: "39144",
+      theoretical: "13200",
+      inferred: "0",
+      cash: "30000",
+      specialPrizes: "0",
+      oddPrizes: "0",
+      savingsDrawn: "23990",
+    } as never)
   })
 
   test("by machine and by game, each group hledger's own sum, best first", async () => {

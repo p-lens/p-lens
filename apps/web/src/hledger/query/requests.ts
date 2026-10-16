@@ -3,7 +3,7 @@ import { TALLY_TAGS } from "../../core/tally/tally"
 import type { PlayId } from "../../core/play/play"
 import type { Valuation } from "../../core/valuation/valuation"
 import type { Cut, Request, ValuationRequest } from "../protocol/wire"
-import { cashTerm, combine, inferredValueTerm, openingBalanceTerm, talliesAmongTerm, talliesTerm, savingsTerm, sentTalliesTerm, spinPerformanceTerm, theoreticalValueTerm } from "./terms"
+import { accountTerm, cashTerm, combine, drawnTerm, inferredValueTerm, openingBalanceTerm, talliesAmongTerm, talliesTerm, savingsTerm, sentTalliesTerm, spinPerformanceTerm, theoreticalValueTerm } from "./terms"
 
 type RequestOf<K extends Request["kind"]> = Extract<Request, { kind: K }>
 
@@ -39,6 +39,16 @@ export const actualByTallyRequest = (ids: readonly PlayId[]): RequestOf<"incomes
 
 /** The theoretical value of the tallies in a query, cut the same way. */
 export const theoreticalCutRequest = (query: string, cut: Cut): RequestOf<"balance"> => ({ ...theoreticalRequest(query), ...cut })
+
+/** What one account of a query came to, as hledger sums it: the cash spent, or the prizes taken home. */
+export const accountRequest = (account: string, query: string): RequestOf<"balance"> => ({ kind: "balance", query: combine(accountTerm(account), query) })
+
+/** The savings the tallies of a query drew on, in yen at the rate of the day each was drawn: what was taken out of savings, not what was put back. */
+export const savingsDrawnRequest = (query: string): RequestOf<"balance"> => ({
+  kind: "balance",
+  query: combine(talliesTerm, savingsTerm, drawnTerm, query),
+  valuation: inYen({ at: "posting-date" }),
+})
 
 /** Savings in tokens, per parlor and kind. */
 export const savingsQuantityRequest = (query: string): RequestOf<"balance"> => ({

@@ -75,9 +75,10 @@ describe("adding a tally by hand", () => {
 })
 
 describe("a book's breakdown", () => {
-  test("is by what its address names, by machine where it names nothing, and steps back to the book", () => {
+  test("is by what its address names, taken as one where it names nothing, and steps back to the book", () => {
     expect(placeOf("/books/made-up/breakdown/weekday")).toEqual({ kind: "book-breakdown", bookId: "made-up", by: "weekday" } as never)
-    expect(placeOf("/books/made-up/breakdown")).toEqual({ kind: "book-breakdown", bookId: "made-up", by: "machine" } as never)
+    expect(placeOf("/books/made-up/breakdown")).toEqual({ kind: "book-breakdown", bookId: "made-up", by: "overall" } as never)
+    expect(placeOf("/books/made-up/breakdown/overall")).toEqual({ kind: "book-breakdown", bookId: "made-up", by: "overall" } as never)
     expect(pathOf({ kind: "book-breakdown", bookId: "made-up" as never, by: "parlor" })).toBe("/books/made-up/breakdown/parlor")
     expect(parentOf({ kind: "book-breakdown", bookId: "made-up" as never, by: "parlor" })).toEqual({ kind: "book", bookId: "made-up" } as never)
     expect(placeOf("/books/made-up/breakdown/colour")).toEqual({ kind: "not-found", path: "/books/made-up/breakdown/colour" })
@@ -85,11 +86,11 @@ describe("a book's breakdown", () => {
 })
 
 describe("the consolidation", () => {
-  test("is a space with a list of its own, and its breakdown of every book or the books its address names, by book where it names no grouping", () => {
+  test("is a space with a list of its own, and its breakdown of every book or the books its address names, taken as one where it names no grouping", () => {
     expect(placeOf("/consolidated")).toEqual({ kind: "consolidated" })
     expect(focusOf({ kind: "consolidated" })).toBe("selection")
     expect(parentOf({ kind: "consolidated" })).toBeUndefined()
-    expect(placeOf("/consolidated/breakdown")).toEqual({ kind: "consolidated-breakdown", by: "book", bookIds: undefined })
+    expect(placeOf("/consolidated/breakdown")).toEqual({ kind: "consolidated-breakdown", by: "overall", bookIds: undefined })
     expect(placeOf("/consolidated/breakdown/machine/a%2Cb")).toEqual({ kind: "consolidated-breakdown", by: "machine", bookIds: ["a", "b"] } as never)
     expect(pathOf({ kind: "consolidated-breakdown", by: "weekday", bookIds: ["a", "b"] as never })).toBe("/consolidated/breakdown/weekday/a%2Cb")
     expect(pathOf({ kind: "consolidated-breakdown", by: "book", bookIds: undefined })).toBe("/consolidated/breakdown/book")
