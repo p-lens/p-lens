@@ -5,7 +5,7 @@ import { machineNamesOf } from "../../src/core/catalog/catalog"
 import type { PlayId } from "../../src/core/play/play"
 import type { TallySummary } from "../../src/core/report/tallies"
 import { groupName } from "../../src/ui/wording/breakdown"
-import { tallyTitle } from "../../src/ui/wording/tallies"
+import { shownDescription, tallyTitle } from "../../src/ui/wording/tallies"
 
 const PLAY: TallySummary = { id: "one" as PlayId, date: "2026-10-21" as IsoDate, description: "マレハン第3新東京店", parlorId: undefined, gameKind: "pachinko", machine: undefined, cabinetNumber: undefined, importedFrom: undefined, theoreticalValue: undefined , inferredValue: undefined}
 
@@ -41,5 +41,23 @@ describe("what a group of tallies is called", () => {
     expect(groupName("machine", "e風の剣豪KZ", NAMES)).toBe("e風の剣豪")
     expect(groupName("machine", "手で打った機種名", NAMES)).toBe("手で打った機種名")
     expect(groupName("parlor", "e風の剣豪KZ", NAMES)).toBe("e風の剣豪KZ")
+  })
+})
+
+describe("an entry's description on screen", () => {
+  test("shows each side there is, with the bar between them only where both are", () => {
+    expect(shownDescription("マレハン第3新東京店 | e風の剣豪 12番台")).toBe("マレハン第3新東京店 | e風の剣豪 12番台")
+    expect(shownDescription("| e風の剣豪")).toBe("e風の剣豪")
+    expect(shownDescription("名もなき店 |")).toBe("名もなき店")
+    expect(shownDescription("|")).toBe("")
+  })
+
+  test("shows one written with no bar whole", () => {
+    expect(shownDescription("e風の剣豪")).toBe("e風の剣豪")
+  })
+
+  test("names a tally taken in from another app by the sides it has", () => {
+    expect(tallyTitle({ ...PLAY, importedFrom: "precord", description: "名もなき店 |" }, NAMES)).toBe("名もなき店")
+    expect(tallyTitle({ ...PLAY, importedFrom: "precord", description: "|" }, NAMES)).toBe("手入力した収支")
   })
 })

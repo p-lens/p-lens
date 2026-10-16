@@ -1,12 +1,13 @@
 import type { ActivityLine } from "../../core/activity/activity"
 import { sourceName } from "./import"
 import { formatCount, formatRate, formatTokens, formatYen } from "./numbers"
+import { shownDescription } from "./tallies"
 
 /** A thing done whose word this app does not know, or whose parts are not the ones the word goes with: something was done, and that much is said. */
 const SOMETHING_DONE = "帳簿を変更"
 
 /** What a tally is called in a line of activity: what it was written under, or, written under nothing, that it names no machine. */
-const tallyName = (description: string): string => (description.trim() === "" ? "機種の指定なし" : `${description} `)
+const tallyName = (description: string): string => ((shown) => (shown === "" ? "機種の指定なし" : `${shown} `))(shownDescription(description))
 
 /**
  * What a line of activity says was done, as a person reads it. Each word

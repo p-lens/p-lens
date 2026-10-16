@@ -24,7 +24,7 @@ import { formatDay } from "../../wording/dates"
 import { describeError, describePlayLogError } from "../../wording/errors"
 import { formatCommodityAmount, formatTheoreticalYen } from "../../wording/numbers"
 import { rateText } from "../../wording/parlor"
-import { NO_MACHINE, NO_PARLOR } from "../../wording/tallies"
+import { NO_MACHINE, NO_PARLOR, shownDescription, tallyTitle } from "../../wording/tallies"
 import { Figure } from "./Figure"
 import * as PachinkoViews from "../pachinko"
 import * as PachislotViews from "../pachislot"
@@ -185,7 +185,7 @@ export function TallyDetail(props: { readonly place: Place; readonly bookId: Boo
               </Button>
             </div>
             <ConfirmDialog open={removing()} title="この収支を削除しますか？" confirm="削除する" decline="やめる" onConfirmed={() => void remove()} onDeclined={() => setRemoving(false)}>
-              <p>{found.summary.description}</p>
+              <p>{shownDescription(found.summary.description) || tallyTitle(found.summary, app.machineNames())}</p>
               <p>仕訳が帳簿から外れ、収支・期待値・貯玉の残高がその分だけ変わります。</p>
             </ConfirmDialog>
           </div>
