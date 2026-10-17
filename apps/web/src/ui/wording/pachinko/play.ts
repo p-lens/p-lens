@@ -1,4 +1,5 @@
 import type { BorderStanding } from "../../../core/pachinko/border-standing"
+import type { StretchRate } from "../../../core/pachinko/consumption"
 import type { RevisionRefusal } from "../../../core/pachinko/revision"
 import type { Phase } from "../../../core/play-log/checkpoint"
 
@@ -61,6 +62,6 @@ export const FOLD_FIGURES = "数値をたたむ"
 /** What is said under a reading's 持ち玉 once the hand has been played long without a count: the hand likely now, where the play has been measured. */
 export const recountText = (estimate: number | undefined): string => `持ち玉を数え直して${estimate === undefined ? "" : `（推定 ${estimate.toLocaleString("ja-JP")}玉）`}`
 
-/** What a line of the log says of its own stretch's spin performance: the figure, to a tenth, and its unit beside it. */
-export const stretchRateText = (rate: number): string => rate.toFixed(1)
+/** What a line of the log says of its own stretch's spin performance: the figure, to a tenth, or `--` while it waits on the hand to be counted after a bonus; and its unit beside it. */
+export const stretchRateText = (rate: StretchRate): string => (rate.type === "measured" ? rate.rate.toFixed(1) : "--")
 export const STRETCH_RATE_UNIT = "回転/千円"

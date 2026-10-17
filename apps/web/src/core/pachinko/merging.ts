@@ -46,8 +46,8 @@ const stretched = (weighed: readonly Weighed[], at: number, reached: number): nu
   return earlier !== undefined && later !== undefined && joins(earlier.taken, later.taken) ? stretched(weighed, next, reached) : at
 }
 
-/** Whether a reading says what was in hand: the balls counted, or balls bought, which says the hand had run out. */
-const knowsTheHand = ({ reading }: Taken): boolean => reading.held !== undefined || reading.rented > 0 || reading.replayed > 0
+/** Whether a reading says what was in hand: the balls counted, or balls bought, which says the hand had run out — but not at a jackpot, which may have come before what was bought there was played (`consumptionOf`). */
+const knowsTheHand = ({ reading }: Taken): boolean => reading.held !== undefined || (reading.jackpot.type === "none" && (reading.rented > 0 || reading.replayed > 0))
 
 const spanBetween = (one: number, other: number): Span => ({ from: Math.min(one, other), to: Math.max(one, other) })
 

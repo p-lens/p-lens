@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import { consumptionOf, handDriftOf, spinPerformanceOf, stretchPerformancesOf } from "../../../src/core/pachinko/consumption"
+import { withReadingsMerged } from "../../../src/core/pachinko/merging"
 import { checkpointsForReading, type Reading } from "../../../src/core/pachinko/reading"
 import { rentalPressOf } from "../../../src/core/pachinko/rental-press"
 import { heldAsToldOf, seatOf, takenOf, withReadingInserted, withReadingRemoved, withReadingRevised, withSeatRevised } from "../../../src/core/pachinko/revision"
@@ -104,9 +105,11 @@ describe("what a play's regular games cost", () => {
     expect(found.measured).toEqual({ spins: 300, balls: 2750 + 1400 - 100, rentedBalls: 2750, replayedBalls: 0 })
   })
 
-  test("keeps what a bonus won in hand where the last balls bought brought it", () => {
+  test("knows no hand at a jackpot where balls were bought, the jackpot having come before they were all played, until it is counted", () => {
     const log = played([reading({ counterSpins: 140, rented: 1000 }), reading({ counterSpins: 160, rented: 1000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } })])
-    expect(consumptionOf(log, TERMS).measured).toEqual({ spins: 40, balls: 500, rentedBalls: 500, replayedBalls: 0 })
+    expect(consumptionOf(log, TERMS).measured).toEqual({ spins: 20, balls: 250, rentedBalls: 250, replayedBalls: 0 })
+    const counted = played([reading({ counterSpins: 140, rented: 1000 }), reading({ counterSpins: 160, rented: 1000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }), reading({ counterSpins: 30, phase: "rapid", held: 1500 })])
+    expect(consumptionOf(counted, TERMS).measured).toEqual({ spins: 40, balls: 500 + 1400 - 1500, rentedBalls: 500, replayedBalls: 0 })
   })
 
   test("takes the balls in hand where they were counted, so a play on its own balls is measured before they run out", () => {
@@ -256,23 +259,42 @@ describe("a play begun with balls in hand", () => {
 })
 
 describe("each line's own stretch of a pachinko play", () => {
+  /** The rates as figures, an awaited one as such. */
+  const shown = (log: readonly Checkpoint[], terms: typeof TERMS): readonly (number | "awaited" | undefined)[] =>
+    stretchPerformancesOf(log, terms).map((rate) => (rate === undefined ? undefined : rate.type === "measured" ? rate.rate : rate.type))
+
   test("is the spin performance from the last point the hand was known at to the line, where the line knows it", () => {
     const log = played([reading({ counterSpins: 230, rented: 5000 }), reading({ counterSpins: 270 }), reading({ counterSpins: 335, rented: 5000 })])
-    expect(stretchPerformancesOf(log, TERMS)).toEqual([undefined, 22, undefined, 21])
+    expect(shown(log, TERMS)).toEqual([undefined, 22, undefined, 21])
   })
 
-  test("runs to a jackpot whose balls were bought at it, and is none for a line with no regular game since", () => {
-    const log = played([reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 257, rented: 1000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }), reading({ counterSpins: 30, phase: "rapid", held: 1300 })])
-    expect(stretchPerformancesOf(log, TERMS)).toEqual([undefined, 20, 37, undefined])
+  test("is a jackpot's line's from before it to the count after its bonus, what was bought at it not all played, and none until then", () => {
+    const before = played([reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 257, rented: 1000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } })])
+    expect(shown(before, TERMS)).toEqual([undefined, 20, "awaited"])
+    const counted = played([reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 257, rented: 1000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }), reading({ counterSpins: 30, phase: "rapid", held: 1300 })])
+    const rates = shown(counted, TERMS)
+    expect([rates[0], rates[1], rates[3]]).toEqual([undefined, 20, undefined])
+    expect(rates[2]).toBeCloseTo((37 / (250 + 1400 - 1300)) * 250)
+  })
+
+  test("is a folded line's whole run, as if its readings had been read as one, a jackpot's line's too", () => {
+    const merged = (log: readonly Checkpoint[], from: number, to: number): readonly Checkpoint[] => ((made) => (made.ok ? made.value : []))(withReadingsMerged(log, { from, to }))
+    const log = played([reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 280, rented: 2500 })])
+    expect(shown(log, TERMS)).toEqual([undefined, 20, 24])
+    expect(shown(merged(log, 0, 1), TERMS)[1]).toBeCloseTo((160 / 1875) * 250)
+    const won = played([reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 250, rented: 500 }), reading({ counterSpins: 257, rented: 500, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }), reading({ counterSpins: 30, phase: "rapid", held: 1300 })])
+    const unmerged = shown(won, TERMS)
+    expect(shown(merged(won, 1, 2), TERMS)[2]).toBeCloseTo((37 / (250 + 1400 - 1300)) * 250)
+    expect(unmerged[3]).toBeCloseTo((7 / (125 + 1400 - 1300)) * 250)
   })
 
   test("is shown on a line played in regular games alone, never on a 時短 line that counted the hand after them", () => {
     const log = played([reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 260 }), reading({ counterSpins: 300, phase: "rapid", held: 200 })])
-    expect(stretchPerformancesOf(log, TERMS)).toEqual([undefined, 20, undefined, undefined])
+    expect(shown(log, TERMS)).toEqual([undefined, 20, undefined, undefined])
   })
 
   test("is none across a jackpot whose bonus the log does not say, and runs again from the hand known after it", () => {
     const log = played([reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 260, jackpot: { type: "untold" }, held: 1000 }), reading({ counterSpins: 50, rented: 1000, held: 0 })])
-    expect(stretchPerformancesOf(log, TERMS)).toEqual([undefined, 20, undefined, 10])
+    expect(shown(log, TERMS)).toEqual([undefined, 20, undefined, 10])
   })
 })

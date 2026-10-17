@@ -1,6 +1,6 @@
 import { createMemo, createSignal, For, Show, type JSX } from "solid-js"
 
-import { stretchPerformancesOf } from "../../../../core/pachinko/consumption"
+import { stretchPerformancesOf, type StretchRate } from "../../../../core/pachinko/consumption"
 import { mergeableSpan, type Span } from "../../../../core/pachinko/merging"
 import type { PlayTerms } from "../../../../core/parlor/terms"
 import type { Checkpoint } from "../../../../core/play-log/checkpoint"
@@ -76,7 +76,7 @@ const SEAT_NAME = "着席"
 const nameOf = (step: Step): string => (step.seat ? SEAT_NAME : isFinish(step.checkpoint) ? FINISH_NAME : PHASE_NAMES[step.checkpoint.phase ?? "regular"])
 
 /** One line of the log: its moment, its name, its counter, its own stretch's spin performance where it has one, and its bonus — cut short where it would not fit — over what it did to the balls. */
-function Line(props: { readonly step: Step; readonly rate: number | undefined }): JSX.Element {
+function Line(props: { readonly step: Step; readonly rate: StretchRate | undefined }): JSX.Element {
   const checkpoint = (): Checkpoint => props.step.checkpoint
   return (
     <>
@@ -120,7 +120,7 @@ export const samePressed = (left: Revised | undefined, right: Revised | undefine
 const pressLabel = (pressed: Revised): string => (pressed.type === "seat" ? "開始時データを修正" : `${pressed.index + 1}件目の記録を修正`)
 
 /** One line of the log, tinted by what it is — a jackpot blue, 時短 yellow-green, 確変 purple. A reading, or the seat as it was found, is pressed to set it right; a jackpot found missing is only shown. A reading in the run being made one is marked. */
-function Row(props: { readonly step: Step; readonly rate: number | undefined; readonly pressed: Revised | undefined; readonly revising: boolean; readonly merging: boolean; readonly onRevise: (pressed: Revised) => void }): JSX.Element {
+function Row(props: { readonly step: Step; readonly rate: StretchRate | undefined; readonly pressed: Revised | undefined; readonly revising: boolean; readonly merging: boolean; readonly onRevise: (pressed: Revised) => void }): JSX.Element {
   const jackpot = (): boolean => props.step.checkpoint.event?.kind === "jackpot"
   /** Whether the row is neither being set right nor in a run being made one: only then does it wear what it is. */
   const resting = (): boolean => !props.revising && !props.merging
@@ -179,7 +179,7 @@ export function Timeline(props: {
   readonly onRevise: ((pressed: Revised) => void) | undefined
   readonly onMerge: ((span: Span) => Promise<void>) | undefined
 }): JSX.Element {
-  const rates = createMemo((): readonly (number | undefined)[] => (props.terms === undefined ? [] : stretchPerformancesOf(props.checkpoints, props.terms)))
+  const rates = createMemo((): readonly (StretchRate | undefined)[] => (props.terms === undefined ? [] : stretchPerformancesOf(props.checkpoints, props.terms)))
   const press = createSpanPress((anchor, reached) => mergeableSpan(props.checkpoints, anchor, reached))
   const [merging, setMerging] = createSignal(false)
   const merge = async (span: Span): Promise<void> => {
