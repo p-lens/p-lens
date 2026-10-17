@@ -42,8 +42,8 @@ function TermField(props: {
   )
 }
 
-/** What a corner that takes a fee on a replay usually takes, to start from: 23 paid out for 26 off the savings, the gap between what ¥500 rents and what it is exchanged for. */
-const USUAL_FEE = { replayPaidOut: "23", replayDeducted: "26" } as const
+/** What a corner that takes a fee on a replay usually takes, to start from: 23 paid out for 25 off the savings. */
+const USUAL_FEE = { replayPaidOut: "23", replayDeducted: "25" } as const
 
 /**
  * The form with a replay said to take a fee or none: the counts are what

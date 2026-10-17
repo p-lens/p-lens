@@ -1,6 +1,7 @@
 import { createResource, createSignal, Match, Show, Switch, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
+import { writtenKeepingTerms } from "../../../application/inference-terms"
 import { loadRecordedTally, reviseTokenTally, reviseYenTally } from "../../../application/revise-tally"
 import type { BookId } from "../../../core/book/book"
 import { asideOfTally } from "../../../core/tally/aside"
@@ -74,11 +75,11 @@ export function ReviseTallyView(props: { readonly place: Place; readonly bookId:
                         list={offered.list()}
                         submissions={offered.submissions()}
                         bookId={props.bookId}
-                        initial={yenTallyFormOf(recorded.tally)}
+                        initial={yenTallyFormOf(recorded.tally, found.context.inferenceTerms)}
                         playIdOn={() => props.playId}
                         aside={aside()}
                         words={REVISING}
-                        submit={(tally) => reviseYenTally(app.services.session, props.bookId, tally)}
+                        submit={(tally, used) => writtenKeepingTerms(app.services.session, props.bookId, reviseYenTally(app.services.session, props.bookId, tally), used)}
                         onRecorded={revised}
                       />
                     )}

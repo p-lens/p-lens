@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
-import { consolidatedBooksOf, focusOf, inConsolidation, parentOf, pathOf, placeOf, type Place } from "../../src/ui/navigation/place"
+import { consolidatedBooksOf, focusOf, inConsolidation, parentOf, pathOf, placeOf, screenOf, type Place } from "../../src/ui/navigation/place"
+import type { BookId } from "../../src/core/book/book"
 
 const PLACES: readonly Place[] = [
   { kind: "live" },
@@ -60,6 +61,38 @@ describe("places", () => {
     expect(placeOf("/play/new/slot")).toEqual({ kind: "live-new", game: "slot" })
     expect(placeOf("/play/new")).toEqual({ kind: "not-found", path: "/play/new" })
     expect(placeOf("/play/new/record")).toEqual({ kind: "not-found", path: "/play/new/record" })
+  })
+})
+
+describe("the screen a place is drawn on", () => {
+  test("is the same however a view is narrowed, and another for another view", () => {
+    const book = "b1" as BookId
+    expect(screenOf({ kind: "book-view", bookId: book, view: "result-calendar", senders: ["s1"] })).toBe(screenOf({ kind: "book-view", bookId: book, view: "result-calendar", senders: undefined }))
+    expect(screenOf({ kind: "book-view", bookId: book, view: "holdings", parlors: [] })).toBe(screenOf({ kind: "book-view", bookId: book, view: "holdings", parlors: ["店"] }))
+    expect(screenOf({ kind: "consolidated-breakdown", by: "machine", bookIds: [book] })).toBe(screenOf({ kind: "consolidated-breakdown", by: "machine", bookIds: undefined }))
+    expect(screenOf({ kind: "consolidated-breakdown", by: "machine", bookIds: undefined })).not.toBe(screenOf({ kind: "consolidated-breakdown", by: "parlor", bookIds: undefined }))
+    expect(screenOf({ kind: "book-view", bookId: book, view: "holdings", parlors: undefined })).not.toBe(screenOf({ kind: "book-view", bookId: "b2" as BookId, view: "holdings", parlors: undefined }))
+  })
+})
+
+describe("a book's narrowed views", () => {
+  test("name their parlors and senders in a last segment, each encoded on its own, a comma alone for none", () => {
+    const parlors: Place = { kind: "book-view", bookId: "b" as never, view: "holdings", parlors: ["A,店", "B 店"] }
+    expect(pathOf(parlors)).toBe("/books/b/holdings/A%252C%25E5%25BA%2597%2CB%2520%25E5%25BA%2597")
+    expect(placeOf(pathOf(parlors))).toEqual(parlors)
+    const senders: Place = { kind: "book-view", bookId: "b" as never, view: "result-calendar", senders: ["unsent", "grant-1"] }
+    expect(pathOf(senders)).toBe("/books/b/result-calendar/unsent%2Cgrant-1")
+    expect(placeOf(pathOf(senders))).toEqual(senders)
+    const none: Place = { kind: "book-view", bookId: "b" as never, view: "result-calendar", senders: [] }
+    expect(pathOf(none)).toBe("/books/b/result-calendar/%2C")
+    expect(placeOf(pathOf(none))).toEqual(none)
+    expect(placeOf("/books/b/holdings")).toEqual({ kind: "book-view", bookId: "b", view: "holdings" } as never)
+    expect(placeOf("/books/b/activity/x")).toEqual({ kind: "not-found", path: "/books/b/activity/x" })
+  })
+
+  test("a consolidation of no books at all is written down as one", () => {
+    expect(pathOf({ kind: "consolidated-holdings", bookIds: [] })).toBe("/consolidated/holdings/%2C")
+    expect(placeOf("/consolidated/holdings/%2C")).toEqual({ kind: "consolidated-holdings", bookIds: [] })
   })
 })
 

@@ -15,6 +15,7 @@ import type { CommitId } from "../history/port/history-port"
 import type { BookSession, ProposedChange } from "./book-session"
 import type { Outcome } from "./errors"
 import { fromHledger, fromTally } from "./lift"
+import { keptInferenceTermsOf } from "./inference-terms"
 import { composedInYen, composedOnBookRates, withAccountsFor, withPrice, type ComposedTally, type Composer, type RecordingContext } from "./record-tally"
 
 /** A recorded tally as it is set right: what the book knows before anything is typed, and the tally read back from its entry. */
@@ -38,7 +39,7 @@ export const loadRecordedTally = (session: BookSession, bookId: BookId, member: 
           if (transaction === undefined) return Err({ type: "tally-missing" })
           const parlors = parlorsFromDeclarations(declared)
           const recorded = recordedTallyOf(transaction, parlors)
-          return recorded === undefined ? Err({ type: "tally-unreadable" }) : Ok({ context: { parlors, prices: pricePointsOf(directives), canWrite: memberCan(stored.book, member, "write") }, recorded })
+          return recorded === undefined ? Err({ type: "tally-unreadable" }) : Ok({ context: { parlors, prices: pricePointsOf(directives), canWrite: memberCan(stored.book, member, "write"), inferenceTerms: keptInferenceTermsOf(stored.files) }, recorded })
         }),
       ),
     )

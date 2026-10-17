@@ -130,6 +130,7 @@ fn rules(cap: Option<f64>, window: Option<u32>, reset_on_cap: bool) -> AtRules {
         forced_cz: ForcedCz::Drawn,
         ceiling_at: CeilingAt::Outright,
         ceiling_across_bonuses: None,
+        endings: Vec::new(),
     }
 }
 
@@ -148,6 +149,7 @@ fn table(payout: PayoutLaw) -> AtTable {
         allotments: Allotments {
             after_at: vec![1.0],
             after_reset: vec![1.0],
+            after_endings: Vec::new(),
         },
         payout,
     }
@@ -161,6 +163,7 @@ fn start(held: Option<u32>, since_at: u32) -> PathStart {
         after_reset: false,
         held,
         since_at_across_bonuses: None,
+        ending: None,
     }
 }
 
@@ -291,6 +294,7 @@ fn reaching_the_cap_starts_play_again_as_after_a_setting_change_where_the_machin
     odds.allotments = Allotments {
         after_at: vec![1.0, 0.0],
         after_reset: vec![0.0, 1.0],
+        after_endings: Vec::new(),
     };
     let two_modes = |reset_on_cap| AtRules {
         modes: vec![

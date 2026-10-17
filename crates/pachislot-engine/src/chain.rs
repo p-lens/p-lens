@@ -775,12 +775,13 @@ pub(crate) fn arrivals(rules: &AtRules, odds: Odds<'_>, shares: &[f64], horizon:
 }
 
 /// How likely each mode is where play was first seen, walked as a chain
-/// from the AT or the setting change: where the triggers missed told left
+/// from the AT — allotted as the seat says it ended, where it says — or the
+/// setting change: where the triggers missed told left
 /// play when the last of them came, each mode then going the games since
 /// without a trigger, through its zones, short of its ceilings.
 pub(crate) fn started(rules: &AtRules, table: &AtTable, start: PathStart) -> Standing {
     let odds = Odds::of(table);
-    let shares = table.allotments.of(start.after_reset);
+    let shares = table.allotments.starting(start.after_reset, start.ending);
     let possible = |index: usize| {
         rules.modes.get(index).is_some_and(|mode| {
             !(mode

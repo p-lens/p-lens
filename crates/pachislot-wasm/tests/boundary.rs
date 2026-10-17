@@ -274,6 +274,95 @@ fn a_machine_of_modes_is_read_with_its_ceilings_in_regular_games_and_its_allotme
     );
 }
 
+/// The machine of modes whose AT ends at once (駆け抜け) half the time, after
+/// which play enters 天国 20% of the time; after any other end, as its
+/// modes' allotments say.
+fn ended_spec() -> Value {
+    let mut spec = value(MODES_SPEC);
+    let entities = spec["entities"].as_array_mut().expect("entities");
+    entities.push(json!("through"));
+    entities.push(json!("rest"));
+    let half = json!([{ "settingLevel": 1, "value": 5000 }, { "settingLevel": 6, "value": 5000 }]);
+    let components = &mut spec["components"];
+    components["label"]["through"] = json!("駆け抜け");
+    components["label"]["rest"] = json!("それ以外");
+    components["ending"] = json!({ "through": half, "rest": half });
+    components["endingAllotment"] = json!({
+        "heaven": { "through": [{ "settingLevel": 1, "value": 2000 }, { "settingLevel": 6, "value": 2000 }] },
+        "normal": { "through": [{ "settingLevel": 1, "value": 8000 }, { "settingLevel": 6, "value": 8000 }] }
+    });
+    spec
+}
+
+#[test]
+fn endings_are_carried_with_their_allotments_and_a_seat_may_name_one() {
+    let normalized = ok(&normalize(&json!({ "spec": ended_spec() }).to_string()));
+    assert_eq!(normalized["atRules"]["endings"], json!(["through", "rest"]));
+    let allotments = &normalized["tables"][1]["at"]["allotments"];
+    assert_eq!(
+        allotments["afterEndings"],
+        json!([
+            { "share": 0.5, "afterAt": [0.2, 0.8] },
+            { "share": 0.5, "afterAt": [0.5, 0.5] }
+        ])
+    );
+    assert!(close(&allotments["afterAt"][0], &json!(0.35)));
+    let stored: NormalizedSpecDto =
+        serde_json::from_value(normalized.clone()).expect("a normalised spec");
+    assert_eq!(
+        serde_json::to_value(&stored).expect("written again"),
+        normalized
+    );
+    let weights = json!([{ "settingLevel": 1, "probability": 0.5 }, { "settingLevel": 6, "probability": 0.5 }]);
+    let play = json!({ "medalValue": 20, "rentalPrice": 20, "cashShare": 1 });
+    let seat = |ending: Option<&str>| {
+        let mut seat = json!({ "sinceTrigger": 0, "sinceAt": 0, "misses": 0, "afterReset": false });
+        if let Some(ending) = ending {
+            seat["ending"] = json!(ending);
+        }
+        seat
+    };
+    let source = json!({ "type": "normalized", "normalized": normalized });
+    let found = ok(&hunt(
+        &json!({ "source": source, "weights": weights, "play": play, "seats": [seat(None), seat(Some("through")), seat(Some("rest"))] })
+            .to_string(),
+    ));
+    let games = |index: usize| found[index]["games"].as_f64().expect("games");
+    assert!(games(1) > games(0) && games(0) > games(2));
+    assert_eq!(
+        error(&hunt(
+            &json!({ "source": source, "weights": weights, "play": play, "seats": [seat(Some("upper"))] })
+                .to_string(),
+        )),
+        json!({ "type": "unknown-ending", "ending": "upper" })
+    );
+    let mut lopsided = ended_spec();
+    lopsided["components"]["ending"]["rest"] =
+        json!([{ "settingLevel": 1, "value": 4000 }, { "settingLevel": 6, "value": 5000 }]);
+    assert_eq!(
+        error(&normalize(&json!({ "spec": lopsided }).to_string())),
+        json!({ "type": "endings-not-whole", "settingLevel": 1, "sum": 9000 })
+    );
+    let mut unallotted = ended_spec();
+    unallotted["components"]
+        .as_object_mut()
+        .expect("components")
+        .remove("endingAllotment");
+    assert_eq!(
+        error(&normalize(&json!({ "spec": unallotted }).to_string())),
+        json!({ "type": "endings-without-allotment", "entity": "through" })
+    );
+    let mut unmatched = source["normalized"].clone();
+    unmatched["atRules"]["endings"] = json!(["through"]);
+    assert_eq!(
+        error(&analyze(
+            &json!({ "source": { "type": "normalized", "normalized": unmatched }, "conditions": measured() })
+                .to_string(),
+        )),
+        json!({ "type": "invalid-value", "field": "normalized.tables[0].at.allotments.afterEndings" })
+    );
+}
+
 fn simulate(chunk: u64, progress: Option<&Value>) -> Value {
     let mut request = json!({
         "source": source(),

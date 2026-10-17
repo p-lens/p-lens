@@ -66,12 +66,14 @@ export const finishedBy = (now: string, lastWritten: string | undefined, minutes
 
 /**
  * A log with the line that finishes its play, last in play order: when the
- * play finished, and the counter as it then stood where that is further on
+ * play finished, the counter as it then stood where that is further on
  * than it was last read — the games between are the line's, as any
- * reading's are. A counter given as it was last read, or behind it, adds
- * no games. A log that does not read is left as it is.
+ * reading's are — and the tokens in hand as the play was recorded with
+ * them, where it was: a count, which the play is measured to. A counter
+ * given as it was last read, or behind it, adds no games. A log that does
+ * not read is left as it is.
  */
-export const withFinish = (log: string, finish: Finish, gameKind: PlayGameKind): string => {
+export const withFinish = (log: string, finish: Finish, gameKind: PlayGameKind, held: number | undefined): string => {
   const parsed = parsePlayLog(log)
   if (!parsed.ok) return log
   const ordered = inPlayOrder(parsed.value)
@@ -82,6 +84,7 @@ export const withFinish = (log: string, finish: Finish, gameKind: PlayGameKind):
     spins: spins + (further?.by ?? 0),
     ...(finish.at === undefined ? {} : { at: finish.at }),
     ...(further === undefined ? {} : { counter: { [further.figure]: further.count } }),
+    ...(held === undefined ? {} : { held }),
     event: { kind: "finished" },
   })
 }

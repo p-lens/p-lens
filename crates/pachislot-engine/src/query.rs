@@ -8,7 +8,8 @@ use std::num::NonZeroU32;
 use pachislot_domain::probability::ProbabilitySource;
 use pachislot_domain::setting_level::PerSettingLevel;
 use pachislot_domain::spec::{
-    At, Bonus, Chance, Component, Cue, Cz, Element, EntityId, Mode, Part, Replay, Role, Spec, Watch,
+    At, Bonus, Chance, Component, Cue, Cz, Element, Ending, EntityId, Mode, Part, Replay, Role,
+    Spec, Watch,
 };
 
 use crate::error::SpecError;
@@ -107,6 +108,11 @@ fn check_entities(spec: &Spec) -> Result<(), SpecError> {
             &components.ceiling_across_bonuses,
             Component::CeilingAcrossBonuses,
         ))
+        .chain(keyed(&components.ending, Component::Ending))
+        .chain(keyed(
+            &components.ending_allotment,
+            Component::EndingAllotment,
+        ))
         .find(|(entity, _)| !known.contains(entity))
         .map_or(Ok(()), |(entity, component)| {
             Err(SpecError::StrayComponent {
@@ -143,6 +149,10 @@ fn kinds_of(spec: &Spec, entity: &EntityId) -> Vec<Component> {
             .cue
             .contains_key(entity)
             .then_some(Component::Cue),
+        components
+            .ending
+            .contains_key(entity)
+            .then_some(Component::Ending),
     ]
     .into_iter()
     .flatten()
@@ -313,6 +323,7 @@ fn misplaced(spec: &Spec, entity: &EntityId, kinds: &[Component]) -> Option<Comp
     (!mode
         && (components.allotment.contains_key(entity)
             || components.reset_allotment.contains_key(entity)
+            || components.ending_allotment.contains_key(entity)
             || components.at_ceiling.contains_key(entity)
             || components.at_unit_ceiling.contains_key(entity)))
     .then_some(Component::Mode)
@@ -396,6 +407,11 @@ fn mode(spec: &Spec, entity: &EntityId) -> Result<Mode, SpecError> {
             .cloned()
             .ok_or_else(|| missing(entity, Component::Allotment))?,
         reset_allotment: components.reset_allotment.get(entity).cloned(),
+        ending_allotment: components
+            .ending_allotment
+            .get(entity)
+            .cloned()
+            .unwrap_or_default(),
         gates: components.gates.get(entity).cloned().unwrap_or_default(),
         success: components.success.get(entity).cloned(),
         redraw: components.redraw.get(entity).cloned().unwrap_or_default(),
@@ -406,6 +422,27 @@ fn mode(spec: &Spec, entity: &EntityId) -> Result<Mode, SpecError> {
             .unwrap_or_default(),
         trigger_chance: components.trigger_chance.get(entity).cloned(),
         expiry: components.expiry.get(entity).cloned(),
+    })
+}
+
+/// An ending of the AT: its share of ATs, and nothing a regular game comes
+/// up with or pays.
+fn ending(spec: &Spec, entity: &EntityId) -> Result<Ending, SpecError> {
+    let components = &spec.components;
+    if components.chance.contains_key(entity) {
+        return Err(conflict(entity, Component::Ending, Component::Chance));
+    }
+    if components.payout.contains_key(entity) {
+        return Err(conflict(entity, Component::Ending, Component::Payout));
+    }
+    Ok(Ending {
+        id: entity.clone(),
+        label: label_of(spec, entity),
+        share: components
+            .ending
+            .get(entity)
+            .cloned()
+            .ok_or_else(|| missing(entity, Component::Ending))?,
     })
 }
 
@@ -474,6 +511,7 @@ fn element_of(spec: &Spec, entity: &EntityId) -> Result<Option<Element>, SpecErr
         [first, second, ..] => Err(conflict(entity, *first, *second)),
         [Component::At] => at(spec, entity).map(|at| Some(Element::At(at))),
         [Component::Mode] => mode(spec, entity).map(|mode| Some(Element::Mode(mode))),
+        [Component::Ending] => ending(spec, entity).map(|ending| Some(Element::Ending(ending))),
         [Component::Watch] => match components.watch.get(entity) {
             Some(bonus) => watch(spec, entity, bonus).map(|watch| Some(Element::Watch(watch))),
             None => Err(missing(entity, Component::Watch)),

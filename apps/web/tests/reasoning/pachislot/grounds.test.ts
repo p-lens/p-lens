@@ -186,6 +186,33 @@ const equalities = (line: GroundsLine): readonly { readonly left: number; readon
 const amiss = (proof: Proof): readonly (readonly [string | undefined, string])[] =>
   findingsIn(proof).filter((finding) => finding.standing !== "holds").map((finding) => [finding.rule, finding.standing] as const)
 
+/**
+ * The made-up machine of modes, a 純増 of 4 beside its payout, whose AT ends
+ * at once (駆け抜け) 30% of the time under setting 1 and 40% under 6, after
+ * which play enters 天国 20% of the time; after any other end, as its
+ * modes' allotments say.
+ */
+const endedSpec = (): SpecDto => {
+  const modes = modesSpec as SpecDto
+  const levels = (low: number, high: number) => [
+    { settingLevel: 1, value: low },
+    { settingLevel: 6, value: high },
+  ]
+  return {
+    ...modes,
+    entities: ["at", "through", "rest", "heaven", "normal"],
+    components: {
+      ...modes.components,
+      netPerGame: { at: 4 },
+      label: { ...modes.components.label, through: "駆け抜け", rest: "それ以外" },
+      ending: { through: levels(3_000, 4_000), rest: levels(7_000, 6_000) },
+      endingAllotment: { heaven: { through: levels(2_000, 2_000) }, normal: { through: levels(8_000, 8_000) } },
+    },
+  }
+}
+
+const ended = solved(endedSpec())
+
 /** The made-up AT machine with a 純増 of 4 medals a game beside its payout of 600. */
 const withNet: SpecDto = { ...(atSpec as SpecDto), components: { ...(atSpec as SpecDto).components, netPerGame: { at: 4 } } }
 
@@ -539,6 +566,17 @@ describe("an AT machine's grounds, reasoned", () => {
     expect(lines).toContain("通常の天井 ＝ 液晶 1000G ÷ 液晶倍率 1.25 ＝ 800、切り上げて通常 800G")
   })
 
+  test("a machine whose modes are allotted by how an AT ended plays its cycle out from the endings' allotments mixed, and comes to the engine's", async () => {
+    const proof = await proved(ended.basis, ended.analysis)
+    expect(amiss(proof)).toEqual([])
+    const lines = groundsLines(proof, groundsNamingOf(ended.basis)).map((line) => plainOf(line.parts))
+    expect(lines).toContain("天国のAT後の振り分け ＝ 駆け抜け 30% × 20% ＋ それ以外 70% × 30% ＝ 27%（ATの終わり方の割合で重み付け）")
+    expect(lines).toContain("通常のAT後の振り分け ＝ 駆け抜け 40% × 80% ＋ それ以外 60% × 50% ＝ 62%（ATの終わり方の割合で重み付け）")
+    const plainly = { ...ended.analysis.normalized, atRules: { ...ended.basis.normalized.atRules!, endings: [] } }
+    const unmixed = await proved({ ...ended.basis, spec: { ...ended.basis.spec, components: { ...ended.basis.spec.components, ending: {} } }, normalized: plainly }, ended.analysis)
+    expect(amiss(unmixed).length).toBeGreaterThan(0)
+  })
+
   test("a ceiling counted in another unit is that many over the unit a game comes to, said to be an average", async () => {
     const modes = modesSpec as SpecDto
     const { lcdRate: _, ...resources } = modes.resources
@@ -687,7 +725,7 @@ describe("an AT machine's grounds, reasoned", () => {
     const table = solved({ ...withNet, components: { ...tableRest, payoutTable: { at: [1, 6].map((settingLevel) => ({ settingLevel, value: rows })) } } })
     const modes = modesSpec as SpecDto
     const moded = solved({ ...modes, components: { ...modes.components, netPerGame: { at: 4 } } })
-    const proofs = await Promise.all([rate, shared, net, within, cut, capped, sets, table, moded].map(async (each) => ({ proof: await proved(each.basis, each.analysis), naming: groundsNamingOf(each.basis) })))
+    const proofs = await Promise.all([rate, shared, net, within, cut, capped, sets, table, moded, ended].map(async (each) => ({ proof: await proved(each.basis, each.analysis), naming: groundsNamingOf(each.basis) })))
     const links = proofs.flatMap(({ proof, naming }) => groundsLines(proof, naming).flatMap(equalities))
     expect(links.length).toBeGreaterThan(150)
     expect(links.filter((each) => Math.abs(each.left - each.right) > each.spread * 1.01 + 1e-9 * Math.max(1, Math.abs(each.left)))).toEqual([])

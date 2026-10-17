@@ -104,15 +104,18 @@ const pointsOf = (run: readonly Weighed[]): readonly Point[] =>
   ).points
 
 /**
- * The points a run's one reading must keep for the play to be measured as
- * it was (`consumptionOf`): the last before any regular game, which the
- * measuring may start from, and — where the last reading does not know the
- * hand itself — the last of all, which it may end at. No other is ever read.
+ * The points a run's one reading must keep for the play to stand as it
+ * did: for it to be measured as it was (`consumptionOf`), the last before
+ * any regular game, which the measuring may start from, and — where the
+ * last reading does not know the hand itself — the last of all, which it
+ * may end at; and, where the last reading counted nothing, the last count,
+ * which the hand is told from (`heldAsToldOf`). No other is ever read.
  */
-const keptPoints = (points: readonly Point[], lastKnows: boolean): readonly ReadingHand[] => {
+const keptPoints = (points: readonly Point[], last: Taken): readonly ReadingHand[] => {
   const start = points.findLast((point) => point.regularSpins === 0)
-  const end = lastKnows ? undefined : points.at(-1)
-  return points.filter((point) => point === start || point === end).map((point) => point.hand)
+  const end = knowsTheHand(last) ? undefined : points.at(-1)
+  const count = last.reading.held === undefined ? points.findLast((point) => point.hand.counted === true) : undefined
+  return points.filter((point) => point === start || point === end || point === count).map((point) => point.hand)
 }
 
 /**
@@ -123,7 +126,7 @@ const keptPoints = (points: readonly Point[], lastKnows: boolean): readonly Read
 const mergedOf = (run: readonly Weighed[]): Taken | undefined => {
   const last = run.at(-1)?.taken
   if (last === undefined) return undefined
-  const hands = keptPoints(pointsOf(run), knowsTheHand(last))
+  const hands = keptPoints(pointsOf(run), last)
   const { handsBefore: _, ...reading } = last.reading
   return {
     ...last,

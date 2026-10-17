@@ -7,6 +7,7 @@ import { bonusGain } from "../../../../core/catalog/bonuses"
 import type { MachineBonus } from "../../../../core/catalog/catalog"
 import type { PlayDraft } from "../../../../core/live-play/draft"
 import { checkpointsForReading, type ReadingRefusal } from "../../../../core/pachinko/reading"
+import { handDriftOf, RECOUNT_AFTER, type HandDrift } from "../../../../core/pachinko/consumption"
 import { rentalPressOf } from "../../../../core/pachinko/rental-press"
 import { standingBefore, takenOf, withReadingInserted, withReadingRemoved, withReadingRevised, type Before, type RevisionRefusal, type Taken } from "../../../../core/pachinko/revision"
 import { cornerOf, savingsDeductedFor } from "../../../../core/parlor/terms"
@@ -23,7 +24,7 @@ import { toast } from "../../../primitives/toast"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
 import { describeError, describeReadingRefusal } from "../../../wording/errors"
 import { formatCount } from "../../../wording/numbers"
-import { CHANGED_SINCE_REMOVED, describeRevisionRefusal, PHASE_NAMES, READING_REMOVED, REMOVAL_TAKEN_BACK, REMOVE_READING, signedBalls, TAKE_BACK, TAKE_BACK_FAILED, UNTOLD_JACKPOT } from "../../../wording/pachinko/play"
+import { CHANGED_SINCE_REMOVED, describeRevisionRefusal, PHASE_NAMES, recountText, READING_REMOVED, REMOVAL_TAKEN_BACK, REMOVE_READING, signedBalls, TAKE_BACK, TAKE_BACK_FAILED, UNTOLD_JACKPOT } from "../../../wording/pachinko/play"
 import { DriftButton } from "./DriftButton"
 import { PressButton } from "./PressButton"
 import { bonusKey, formOfReading, NO_JACKPOT, readingFrom, readReadingForm, saysNothingNew, UNTOLD, withMore, type ReadingField, type ReadingForm } from "./reading-form"
@@ -105,6 +106,13 @@ export function ReadingComposer(props: {
   /** Where the play stood before the reading being typed: before the one set right, at the place one is put in, or after them all. */
   const beforeIn = (ordered: readonly Checkpoint[]): Before => standingBefore(ordered, props.revising?.index ?? props.inserting?.before ?? takenOf(ordered).length)
   const before = createMemo(() => beforeIn(props.ordered))
+  /** How far the hand has been played since it was last counted, while a new reading carries it over unchanged and long enough to be worth counting again. */
+  const recount = (): HandDrift | undefined => {
+    const terms = props.draft.venue.terms
+    if (props.revising !== undefined || props.inserting !== undefined || !form().heldCarried || terms === undefined) return undefined
+    const drift = handDriftOf(props.ordered, terms, before().held)
+    return drift !== undefined && drift.spins >= RECOUNT_AFTER ? drift : undefined
+  }
   const [form, setForm] = createSignal<ReadingForm>(
     props.revising === undefined ? readingFrom(props.ordered.at(-1)?.phase ?? "regular", before()) : formOfReading(props.revising.taken.reading, before()),
   )
@@ -305,6 +313,9 @@ export function ReadingComposer(props: {
         <TextField label="持ち玉" value={form().held} onChange={(held) => change({ held, heldCarried: false })} inputMode="numeric" suffix="玉" invalid={nudged("held")} onFocus={nudge.settle} compact />
         <DriftButton drift={form().drift} supported={form().supported} invalid={nudged("supported")} onDrift={(drift) => change({ drift })} onSupported={(supported) => change({ supported })} onFocus={nudge.settle} />
       </div>
+      <Show when={recount()} keyed>
+        {(drift) => <p class="text-xs text-warning">{recountText(drift.spins, drift.estimate)}</p>}
+      </Show>
       <div class="grid grid-cols-2 items-end gap-1.5">
         <div class="flex items-end gap-1">
           <div class="min-w-0 flex-1">

@@ -1135,8 +1135,9 @@ pub(crate) fn passed_unbrought(mode: &ModeRule, start: PathStart) -> bool {
     })
 }
 
-/// How likely each mode is where play was first seen: the share an AT or a
-/// setting change allots it, none where its AT間天井 is behind the games
+/// How likely each mode is where play was first seen: the share an AT —
+/// one that ended as the seat says, where it says — or a setting change
+/// allots it, none where its AT間天井 is behind the games
 /// since the last AT or its スルー天井 below the triggers missed since, times the chance it brought the triggers missed in
 /// the games between the AT and the last of them, times the chance it then
 /// went the games since without one. Where the counts cannot have come
@@ -1146,7 +1147,7 @@ pub(crate) fn started(rules: &AtRules, table: &AtTable, start: PathStart) -> Sta
     if chained(rules, Odds::of(table)) {
         return crate::chain::started(rules, table, start);
     }
-    let shares = table.allotments.of(start.after_reset);
+    let shares = table.allotments.starting(start.after_reset, start.ending);
     let chance = table.chance.value();
     let between = start.since_at.checked_sub(start.since_trigger);
     let odds = Odds::of(table);

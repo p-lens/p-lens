@@ -1,4 +1,4 @@
-import { createMemo, createResource, createSignal, Show, type JSX } from "solid-js"
+import { createMemo, createResource, createSignal, Show, type Accessor, type JSX } from "solid-js"
 
 import type { ApplicationError, Outcome } from "../../../application/errors"
 import type { RecordingContext } from "../../../application/record-tally"
@@ -21,6 +21,7 @@ import { formatSignedYen, formatTokens, toneOf, tokenUnit, UNSEEN_ACTUAL } from 
 import { machineChoicesOf, REASONS, type FieldProblem, type FormField, type SubmitWords } from "./finish-tally-reading"
 import { FinishTallyForm, type FinishTallyEditing } from "./FinishTallyForm"
 import { pricesPlayedOn, readFinishTokenTallyForm, type FinishTokenTallyForm, type PlayedOnTerms } from "./finish-token-tally-form"
+import { createFollowedWorth, heldTyped, type WorthAt } from "./followed-worth"
 
 /** Where a submission is: being typed, being written, or refused with why. */
 type Submission =
@@ -45,16 +46,25 @@ export function FinishTokenTallyEditor(props: {
   /** What is written beside the tally that the form does not ask. */
   readonly aside: () => TallyAside
   readonly words: SubmitWords
+  /** What the play comes to finished as said above the form, asked again as what is typed here changes. */
+  readonly worthAt: Accessor<WorthAt>
   readonly submit: (tally: TokenTally) => Promise<Outcome<unknown>>
   readonly onRecorded: (tally: TokenTally) => void
 }): JSX.Element {
   const app = useApp()
   const [form, setForm] = createSignal<FinishTokenTallyForm>(props.initial)
   const [submission, setSubmission] = createSignal<Submission>({ type: "editing" })
-  const set =
+  const fill =
     <K extends keyof FinishTokenTallyForm>(key: K) =>
     (value: FinishTokenTallyForm[K]): void => {
       setForm((current) => ({ ...current, [key]: value }))
+    }
+  const worth = createFollowedWorth({ worthAt: props.worthAt, held: () => heldTyped(form().payout), fill: fill("theoreticalValue") })
+  const set =
+    <K extends keyof FinishTokenTallyForm>(key: K) =>
+    (value: FinishTokenTallyForm[K]): void => {
+      if (key === "theoreticalValue") worth.typedByPerson()
+      fill(key)(value)
     }
 
   const read = createMemo(() => mapOk(readFinishTokenTallyForm(form(), props.at, props.playId), (tally) => withAside(tally, props.aside())))

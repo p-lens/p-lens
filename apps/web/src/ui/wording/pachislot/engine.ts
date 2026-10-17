@@ -52,6 +52,8 @@ const COMPONENT_NAMES: Readonly<Record<string, string>> = {
   ceilingWins: "天井CZの確定",
   ceilingTriggers: "AT間天井での当選",
   ceilingAcrossBonuses: "ATから数えるAT間天井（ボーナスで戻らない）",
+  ending: "ATの終わり方",
+  endingAllotment: "ATの終わり方ごとのモード振り分け",
 }
 
 /** A component by what the person entering a spec calls it. */
@@ -129,6 +131,18 @@ const describeEngineError = (error: EngineErrorDto): string => {
       return `${settingLevel(error.settingLevel)}の${error.afterReset ? "リセット時の" : ""}モード振り分けの合計が ${(error.sum / 100).toFixed(2)}% です。100% にしてください。`
     case "reset-allotment-partial":
       return `モード「${error.entity}」にリセット時の振り分けがありません。全部のモードに入れるか、全部空にしてください。`
+    case "ending-without-modes":
+      return `ATの終わり方「${error.entity}」は、モードのあるAT機にだけ入れられます。終わり方ごとにモードの振り分けが変わる機種のためのものです。`
+    case "endings-not-whole":
+      return `${settingLevel(error.settingLevel)}のATの終わり方の割合の合計が ${(error.sum / 100).toFixed(2)}% です。100% にしてください。`
+    case "ending-allotment-to-unknown":
+      return `モード「${error.entity}」に、ない終わり方「${error.ending}」のあとの振り分けがあります。`
+    case "ending-allotment-not-whole":
+      return `ATが「${error.ending}」で終わったあとの${settingLevel(error.settingLevel)}のモード振り分けの合計が ${(error.sum / 100).toFixed(2)}% です。100% にしてください。空けたモードはAT後の振り分けを使います。`
+    case "endings-without-allotment":
+      return `ATの終わり方「${error.entity}」がありますが、終わり方ごとのモード振り分けがどのモードにもありません。どれかのモードに入れるか、終わり方を外してください。`
+    case "unknown-ending":
+      return `この機種にないATの終わり方「${error.ending}」が指定されました。`
     case "cz-without-at":
       return `CZ「${error.entity}」はAT機にだけ入れられます。この機種にはATがありません。`
     case "first-hit-beside-cz":

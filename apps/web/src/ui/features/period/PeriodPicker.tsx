@@ -20,8 +20,8 @@ const dayTyped = (text: string): IsoDate | undefined => ((read) => (read.ok ? re
  * or years (`queryFor`), and a line says which days where they are more
  * than the days typed. It is laid out by the row it is put in — the
  * names, the fields and then the line, which takes a row of its own under
- * everything beside them — so whatever stands in that row stays level
- * with the fields.
+ * everything beside them, put after it in the row or not — so whatever
+ * stands in that row stays level with the fields.
  */
 export function PeriodPicker(props: {
   readonly query: string
@@ -40,21 +40,23 @@ export function PeriodPicker(props: {
   const note = (): string | undefined => ((wide) => (wide === undefined ? undefined : widenedNote(wide.span, wide.range.from, wide.range.to)))(props.by === undefined ? undefined : widenedFor(props.by, props.query))
   return (
     <>
-      <ToggleGroup value={pressed()} onChange={(id: string | null) => props.onPressed(queryOf(shortcutsOn(props.today).find((candidate) => candidate.id === id)?.range ?? EVERY_DAY))} aria-label="期間">
+      <ToggleGroup class="w-[8.5rem] flex-nowrap" value={pressed()} onChange={(id: string | null) => props.onPressed(queryOf(shortcutsOn(props.today).find((candidate) => candidate.id === id)?.range ?? EVERY_DAY))} aria-label="期間">
         {shortcutsOn(props.today).map((shortcut) => (
-          <ToggleGroupItem value={shortcut.id}>{shortcut.label}</ToggleGroupItem>
+          <ToggleGroupItem class="flex-1 px-1.5" value={shortcut.id}>
+            {shortcut.label}
+          </ToggleGroupItem>
         ))}
       </ToggleGroup>
-      <div class="flex min-w-0 items-end gap-2">
-        <div class="w-40 min-w-0">
+      <div class="flex min-w-0 items-end gap-3">
+        <div class="w-[8.5rem] min-w-0">
           <TextField label="開始日" type="date" value={held().from ?? ""} onChange={(text) => props.onTyped(queryOf({ ...held(), from: dayTyped(text) }))} />
         </div>
-        <div class="w-40 min-w-0">
+        <div class="w-[8.5rem] min-w-0">
           <TextField label="終了日" type="date" value={held().to ?? ""} onChange={(text) => props.onTyped(queryOf({ ...held(), to: dayTyped(text) }))} />
         </div>
       </div>
       <Show when={note()} keyed>
-        {(words) => <p class="-mt-1.5 w-full text-xs text-text-muted">{words}</p>}
+        {(words) => <p class="order-last -mt-1.5 w-full text-xs text-text-muted">{words}</p>}
       </Show>
     </>
   )

@@ -7,10 +7,10 @@ import { negate, ZERO } from "../core/decimal/decimal"
 import { actualOf, secondsIn, secondsOf, statisticTotalOf } from "../core/report/figures"
 import { senderNamesOf, type SenderNames } from "../core/report/senders"
 import { spinPerformancesOf, type SpinPerformancesByMachine } from "../core/report/spin-performance"
-import { andThen, mapOk } from "../core/result/result"
+import { andThen, mapOk, Ok } from "../core/result/result"
 import type { JournalAccess } from "../hledger/client/client"
 import { accountsRequest, actualCutRequest, sentTalliesRequest, spinPerformancesRequest, actualRequest, inferredCutRequest, inferredRequest, playTimeCutRequest, playTimeRequest, theoreticalCutRequest, theoreticalRequest } from "../hledger/query/requests"
-import { combine, talliesTerm, untaggedTerm } from "../hledger/query/terms"
+import { combine, sendersTerm, talliesTerm, untaggedTerm } from "../hledger/query/terms"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
 import { fromHledger, fromReport } from "./lift"
@@ -109,6 +109,22 @@ const grouped = async (journal: JournalAccess, dimension: Dimension, query: stri
  */
 export const loadBreakdown = (session: BookSession, bookId: BookId, dimension: Dimension, query: string): Promise<Outcome<readonly Group[]>> =>
   session.read(bookId, async (journal) => mapOk(await grouped(journal, dimension, combine(talliesTerm, query)), (groups) => inOrder(groups, dimension)))
+
+/** Who of those that played a book its tallies are asked of: every one, or those chosen of those offered, by sender id and `UNSENT`. */
+export interface Players {
+  readonly chosen: readonly string[] | undefined
+  readonly offered: readonly string[]
+}
+
+/**
+ * A book's results for a period, grouped by a dimension, of the tallies
+ * of those chosen among who played them: hledger asked of their tallies
+ * alone (`sendersTerm`), and nothing at all where nobody is chosen.
+ */
+export const loadBreakdownOf = (session: BookSession, bookId: BookId, dimension: Dimension, query: string, players: Players): Promise<Outcome<readonly Group[]>> => {
+  const term = players.chosen === undefined ? "" : sendersTerm(players.chosen, players.offered)
+  return term === undefined ? Promise.resolve(Ok([])) : loadBreakdown(session, bookId, dimension, combine(query, term))
+}
 
 /**
  * A book's tallies' spin performances for a period, by machine: what the

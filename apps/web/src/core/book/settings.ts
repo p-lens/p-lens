@@ -1,4 +1,5 @@
 import { isBusinessDayTurn, type BusinessDayTurn } from "../calendar/calendar"
+import type { PlayGameKind } from "../play/play"
 import { Err, Ok, andThen, mapOk, type Result } from "../result/result"
 
 /**
@@ -18,6 +19,15 @@ export interface PressAmounts {
 /** The most digits a press's amount has: ¥10,000 at a press is how some rent. */
 export const PRESS_DIGITS = 5
 
+/** What a tally typed in by hand was last weighed on, at a game's corner: so many tokens for ¥1,000 rented, so many for ¥100 of prizes. */
+export interface InferenceTerms {
+  readonly rentedPerThousand: number
+  readonly exchangedPerHundred: number
+}
+
+/** The terms kept for each game, balls and medals being no measure of each other; none kept for a game whose tallies were never weighed on any. */
+export type KeptInferenceTerms = Readonly<Partial<Record<PlayGameKind, InferenceTerms>>>
+
 /** A book's settings as this app reads them. A later version may keep more in the file; what this one does not know it leaves as it found it. */
 export interface BookSettings {
   /** Where the book stands among its owner's books, lowest first; none where it was never placed. */
@@ -26,6 +36,8 @@ export interface BookSettings {
   readonly businessDayTurn: BusinessDayTurn | undefined
   /** What a press adds at each corner, by what the corner is called (`cornerOf`: `4円パチ`); none set at a corner, none kept. */
   readonly presses: Readonly<Record<string, PressAmounts>>
+  /** The terms the last tally typed in by hand of each game was weighed on (`inferenceTerms`), which the next opens on. */
+  readonly inferenceTerms: KeptInferenceTerms
 }
 
 type Fields = Readonly<Record<string, unknown>>
@@ -87,13 +99,29 @@ const pressesOf = (value: unknown): BookSettings["presses"] | undefined => {
   return read.length === Object.keys(value).length ? Object.fromEntries(read) : undefined
 }
 
+const GAMES: readonly PlayGameKind[] = ["pachinko", "slot"]
+
+const termsOf = (value: unknown): InferenceTerms | undefined => {
+  if (!isFields(value)) return undefined
+  const [rented, exchanged] = [value["rentedPerThousand"], value["exchangedPerHundred"]]
+  return typeof rented === "number" && Number.isSafeInteger(rented) && rented > 0 && typeof exchanged === "number" && Number.isFinite(exchanged) && exchanged > 0 ? { rentedPerThousand: rented, exchangedPerHundred: exchanged } : undefined
+}
+
+/** The terms kept for each game this app knows: each that is there must read; a game it does not know it leaves as it found it. */
+const inferenceTermsOf = (value: unknown): KeptInferenceTerms | undefined => {
+  if (!isFields(value)) return undefined
+  const read = GAMES.filter((game) => value[game] !== undefined).map((game) => [game, termsOf(value[game])] as const)
+  return read.every(([, terms]) => terms !== undefined) ? Object.fromEntries(read) : undefined
+}
+
 /** A book's settings, or that its file is there and does not read: a field it has that this app reads must read as this app writes it. */
 export const bookSettingsOf = (text: string | undefined): Result<BookSettings, SettingsUnreadable> =>
   andThen(fieldsOf(text), (fields) => {
-    const [order, businessDayTurn, presses] = [fieldOf(fields["order"], orderOf), fieldOf(fields["businessDayTurn"], businessDayTurnOf), fieldOf(fields["presses"], pressesOf)]
+    const [order, businessDayTurn, presses, inferenceTerms] = [fieldOf(fields["order"], orderOf), fieldOf(fields["businessDayTurn"], businessDayTurnOf), fieldOf(fields["presses"], pressesOf), fieldOf(fields["inferenceTerms"], inferenceTermsOf)]
     if (!order.ok) return order
     if (!businessDayTurn.ok) return businessDayTurn
-    return presses.ok ? Ok({ order: order.value, businessDayTurn: businessDayTurn.value, presses: presses.value ?? {} }) : presses
+    if (!presses.ok) return presses
+    return inferenceTerms.ok ? Ok({ order: order.value, businessDayTurn: businessDayTurn.value, presses: presses.value ?? {}, inferenceTerms: inferenceTerms.value ?? {} }) : inferenceTerms
   })
 
 const written = (fields: Fields): string => `${JSON.stringify(fields, undefined, 2)}\n`
@@ -110,4 +138,11 @@ export const withPresses = (text: string | undefined, corner: string, amounts: P
   andThen(fieldsOf(text), (fields) => {
     const kept = fieldOf(fields["presses"], pressesOf)
     return mapOk(kept, (presses) => written({ ...fields, presses: { ...presses, [corner]: amounts } }))
+  })
+
+/** The file with the terms a game's tally typed in by hand was weighed on written in it, every other game and field as it was; a file that does not read is not written over. */
+export const withInferenceTerms = (text: string | undefined, game: PlayGameKind, terms: InferenceTerms): Result<string, SettingsUnreadable> =>
+  andThen(fieldsOf(text), (fields) => {
+    const kept = fieldOf(fields["inferenceTerms"], inferenceTermsOf)
+    return mapOk(kept, () => written({ ...fields, inferenceTerms: { ...(isFields(fields["inferenceTerms"]) ? fields["inferenceTerms"] : {}), [game]: { rentedPerThousand: terms.rentedPerThousand, exchangedPerHundred: terms.exchangedPerHundred } } }))
   })

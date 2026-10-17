@@ -4,6 +4,7 @@ import { mergeableSpan, type Span } from "../../../../core/pachinko/merging"
 import type { Checkpoint } from "../../../../core/play-log/checkpoint"
 import { ConfirmPopover } from "../../../primitives/popover"
 import { createSpanPress, inSpan, spanRow } from "../../../primitives/span-press"
+import { feelTap } from "../../../primitives/vibration"
 import { formatMoment } from "../../../wording/dates"
 import { formatCount } from "../../../wording/numbers"
 import { jackpotsText } from "../../../wording/pachinko/machine"
@@ -172,7 +173,9 @@ export function Timeline(props: {
                 revising={samePressed(pressed, props.revising)}
                 merging={inSpan(press.span(), step.reading)}
                 onRevise={(found) => {
-                  if (!press.wasHeld()) revise?.(found)
+                  if (press.wasHeld() || revise === undefined) return
+                  feelTap()
+                  revise(found)
                 }}
               />
             )

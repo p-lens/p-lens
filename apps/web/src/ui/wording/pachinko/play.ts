@@ -57,3 +57,7 @@ export const BORDER_STANDING_SAYS: Readonly<Record<BorderStanding, string>> = { 
 /** What the button that unfolds a play's figures, and folds them again, is called. */
 export const UNFOLD_FIGURES = "すべての数値を表示"
 export const FOLD_FIGURES = "数値をたたむ"
+
+/** What is said under a reading's 持ち玉 once the hand has been played long without a count: how long, and the hand likely now, where the play has been measured. */
+export const recountText = (spins: number, estimate: number | undefined): string =>
+  `最後に数えてから${spins.toLocaleString("ja-JP")}回転。持ち玉を数え直したほうがよさそうです${estimate === undefined ? "" : `（推定 ${estimate.toLocaleString("ja-JP")}玉）`}`

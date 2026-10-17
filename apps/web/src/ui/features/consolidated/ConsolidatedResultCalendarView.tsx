@@ -46,8 +46,7 @@ export function ConsolidatedResultCalendarView(props: { readonly place: Place; r
       whole={mergedOf(whole())}
       theoreticalKept={theoreticalKept()}
       onOpen={(day) => moves.go({ kind: "consolidated-breakdown", by: "book", bookIds: props.bookIds }, rangeTerm(day, day))}
-    >
-      <ConsolidatedBooks bookIds={props.bookIds} unread={(id) => unreadIn(days(), id)} onChosen={(bookIds) => moves.go({ kind: "consolidated-result-calendar", bookIds })} />
-    </ResultCalendar>
+      filter={<ConsolidatedBooks bookIds={props.bookIds} unread={(id) => unreadIn(days(), id)} onChosen={(bookIds) => moves.go({ kind: "consolidated-result-calendar", bookIds })} />}
+    />
   )
 }

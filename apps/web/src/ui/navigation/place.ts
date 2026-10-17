@@ -13,6 +13,9 @@ const BOOK_VIEWS = ["tallies", "holdings", "result-calendar", "activity", "files
 
 export type BookView = (typeof BOOK_VIEWS)[number]
 
+/** A book's views that keep nothing narrowed in their address. */
+type WholeBookView = Exclude<BookView, "holdings" | "result-calendar">
+
 const SETTINGS_SECTIONS = ["appearance", "business-day", "sync", "backup", "export", "import", "books", "sharing", "consolidation", "clear-data", "licenses"] as const
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]
@@ -34,6 +37,10 @@ const isFormulaTab = (segment: string): segment is FormulaTab => (FORMULA_TABS a
  * `tally-revise` sets a recorded tally right; `book-breakdown` groups a
  * book's results by what its last segment names; `book-file`
  * shows one of its files as it is kept, its path one encoded segment.
+ *
+ * `book-view` is one of a book's views; its savings may be of some of its
+ * parlors, and its calendar of some of those who played it, named by a
+ * last segment as a consolidation's books are.
  *
  * `consolidated` is the space where several books are read as one, its
  * views listed as a book's are, each of every book on the device or of
@@ -70,7 +77,11 @@ export type Place =
   | { readonly kind: "live-record"; readonly playId: PlayId }
   | { readonly kind: "live-cabinet"; readonly playId: PlayId }
   | { readonly kind: "book"; readonly bookId: BookId }
-  | { readonly kind: "book-view"; readonly bookId: BookId; readonly view: BookView }
+  | { readonly kind: "book-view"; readonly bookId: BookId; readonly view: WholeBookView }
+  /** A book's savings, of the parlors its last segment names where it names any. */
+  | { readonly kind: "book-view"; readonly bookId: BookId; readonly view: "holdings"; readonly parlors?: readonly string[] | undefined }
+  /** A book's calendar, of the tallies of those its last segment names among who played them where it names any. */
+  | { readonly kind: "book-view"; readonly bookId: BookId; readonly view: "result-calendar"; readonly senders?: readonly string[] | undefined }
   | { readonly kind: "book-breakdown"; readonly bookId: BookId; readonly by: BreakdownBy }
   | { readonly kind: "tally"; readonly bookId: BookId; readonly playId: PlayId }
   | { readonly kind: "tally-new"; readonly bookId: BookId }
@@ -106,9 +117,6 @@ const isBookView = (segment: string): segment is BookView => (BOOK_VIEWS as read
 const isSettingsSection = (segment: string): segment is SettingsSection =>
   (SETTINGS_SECTIONS as readonly string[]).includes(segment)
 
-/** The books a segment names, comma between them; every book on the device where there is no such segment. */
-const bookIdsIn = (segment: string | undefined): readonly BookId[] | undefined => (segment === undefined ? undefined : (segment.split(",").filter((id) => id !== "") as BookId[]))
-
 /** One path segment as it was meant, or undefined if it is not valid percent-encoding. */
 const decodeSegment = (segment: string): string | undefined => {
   try {
@@ -117,6 +125,17 @@ const decodeSegment = (segment: string): string | undefined => {
     return undefined
   }
 }
+
+/**
+ * What a segment chooses, comma between them, each encoded on its own so
+ * a comma in a name is no break; every one where there is no such
+ * segment. A comma alone chooses none.
+ */
+const chosenIn = (segment: string | undefined): readonly string[] | undefined =>
+  segment === undefined ? undefined : segment.split(",").filter((each) => each !== "").flatMap((each) => ((decoded) => (decoded === undefined ? [] : [decoded]))(decodeSegment(each)))
+
+/** The books a segment names; every book on the device where there is no such segment. */
+const bookIdsIn = (segment: string | undefined): readonly BookId[] | undefined => chosenIn(segment) as readonly BookId[] | undefined
 
 /** A place under `/pachislot`, read from the segments after it. */
 const pachislotPlaceOf = (segments: readonly string[], path: string): Place => {
@@ -171,6 +190,8 @@ const placeOfSegments = (segments: readonly string[], path: string): Place => {
   if (first === "books" && second !== undefined && third === undefined) return { kind: "book", bookId: second as BookId }
   if (first === "books" && second !== undefined && third !== undefined && fourth === undefined && isBookView(third))
     return { kind: "book-view", bookId: second as BookId, view: third }
+  if (first === "books" && second !== undefined && third === "holdings" && fourth !== undefined) return { kind: "book-view", bookId: second as BookId, view: "holdings", parlors: chosenIn(fourth) }
+  if (first === "books" && second !== undefined && third === "result-calendar" && fourth !== undefined) return { kind: "book-view", bookId: second as BookId, view: "result-calendar", senders: chosenIn(fourth) }
   if (first === "books" && second !== undefined && third === "breakdown" && fifth === undefined && (fourth === undefined || isBreakdownBy(fourth)))
     return { kind: "book-breakdown", bookId: second as BookId, by: fourth ?? OVERALL }
   if (first === "books" && second !== undefined && third === "tallies" && fourth === "new") return { kind: "tally-new", bookId: second as BookId }
@@ -201,8 +222,11 @@ export const placeOf = (path: string): Place => {
 
 const encode = encodeURIComponent
 
-/** The segment that names the books a consolidated view is of, or none for every book on the device. */
-const bookIdsSegment = (bookIds: readonly BookId[] | undefined): string => (bookIds === undefined ? "" : `/${encode(bookIds.join(","))}`)
+/** The segment that names what a view is narrowed to, or none for every one; a comma alone for none at all. */
+const chosenSegment = (chosen: readonly string[] | undefined): string => (chosen === undefined ? "" : `/${encode(chosen.length === 0 ? "," : chosen.map(encode).join(","))}`)
+
+/** The segment that names what a book's view is narrowed to, if it is narrowed. */
+const narrowedSegment = (place: Extract<Place, { kind: "book-view" }>): string => (place.view === "holdings" ? chosenSegment(place.parlors) : place.view === "result-calendar" ? chosenSegment(place.senders) : "")
 
 export const pathOf = (place: Place): string => {
   switch (place.kind) {
@@ -219,7 +243,7 @@ export const pathOf = (place: Place): string => {
     case "book":
       return `/books/${encode(place.bookId)}`
     case "book-view":
-      return `/books/${encode(place.bookId)}/${place.view}`
+      return `/books/${encode(place.bookId)}/${place.view}${narrowedSegment(place)}`
     case "book-breakdown":
       return `/books/${encode(place.bookId)}/breakdown/${place.by}`
     case "tally":
@@ -263,11 +287,11 @@ export const pathOf = (place: Place): string => {
     case "consolidated":
       return "/consolidated"
     case "consolidated-holdings":
-      return `/consolidated/holdings${bookIdsSegment(place.bookIds)}`
+      return `/consolidated/holdings${chosenSegment(place.bookIds)}`
     case "consolidated-result-calendar":
-      return `/consolidated/result-calendar${bookIdsSegment(place.bookIds)}`
+      return `/consolidated/result-calendar${chosenSegment(place.bookIds)}`
     case "consolidated-breakdown":
-      return `/consolidated/breakdown/${place.by}${bookIdsSegment(place.bookIds)}`
+      return `/consolidated/breakdown/${place.by}${chosenSegment(place.bookIds)}`
     case "settings":
       return "/settings"
     case "settings-section":
@@ -426,3 +450,24 @@ export const consolidatedBooksOf = (place: Place): readonly BookId[] | undefined
 
 export const inSettings = (place: Place): boolean => place.kind === "settings" || place.kind === "settings-section" || place.kind === "document"
 
+/** A place apart from what it is narrowed to: the books a consolidation reads, the parlors a book's savings show, who a book's calendar is of. */
+const unnarrowed = (place: Place): Place => {
+  switch (place.kind) {
+    case "consolidated-holdings":
+    case "consolidated-result-calendar":
+    case "consolidated-breakdown":
+      return { ...place, bookIds: undefined }
+    case "book-view":
+      return place.view === "holdings" ? { ...place, parlors: undefined } : place.view === "result-calendar" ? { ...place, senders: undefined } : place
+    default:
+      return place
+  }
+}
+
+/**
+ * The screen a place is drawn on: its address with nothing narrowed.
+ * Narrowing a view changes its place and not its screen, so the view is
+ * kept — the month it shows, a filter left open — and only told what it
+ * is narrowed to now.
+ */
+export const screenOf = (place: Place): string => pathOf(unnarrowed(place))

@@ -1,8 +1,7 @@
-import { For, Index, Match, Show, Switch, type JSX } from "solid-js"
+import { Index, Match, Show, Switch, type JSX } from "solid-js"
 
 import { bookNameOf } from "../../../core/catalog/catalog"
 import { machineMatches } from "../../../core/catalog/description"
-import * as Pachinko from "../../../core/pachinko"
 import { identityKey } from "../../../core/parlor/parlor"
 import type { PlayGameKind } from "../../../core/play/play"
 import { Button } from "../../primitives/button"
@@ -214,49 +213,28 @@ export function SidesFields(props: { readonly editing: YenTallyEditing }): JSX.E
   )
 }
 
-/** What a pachinko play is weighed on beside its form: the jackpots, and the rental and exchange of its corner. */
+/** What a pachinko play is weighed on beside its form: the jackpots, and the balls its corner rents for ¥1,000 and exchanges for ¥100. */
 function WeighingTermsButton(props: { readonly editing: YenTallyEditing }): JSX.Element {
   const editing = props.editing
   return (
     <DetailButton
       label="条件"
-      says="推定の条件（大当り回数・レートと交換率）"
+      says="推定の条件（大当り回数・貸玉と交換率）"
       marked={editing.weighingSet()}
-      invalid={editing.problemAt("jackpots") !== undefined}
+      invalid={editing.problemAt("jackpots") !== undefined || editing.lacked("terms")}
       beckoning={editing.jackpotsAsked()}
       glimmering={editing.jackpotsWouldSharpen()}
       placement="bottom-end"
-      wide
+      fitted
     >
-      <div class="flex min-w-0 flex-1 flex-col gap-3">
-        <TextField label="大当り回数" value={editing.form().jackpots} onChange={editing.set("jackpots")} inputMode="numeric" suffix="回" invalid={editing.problemAt("jackpots") !== undefined} onFocus={editing.nudge.settle} compact />
-        <ToggleGroup
-          value={String(editing.form().weighingTerms.rental)}
-          onChange={(value: string | null) => {
-            const rental = Pachinko.TOKEN_RENTALS.find((each) => String(each) === value)
-            if (rental !== undefined) editing.set("weighingTerms")(Pachinko.withRental(editing.form().weighingTerms, rental))
-          }}
-          aria-label="貸玉レート"
-        >
-          <For each={Pachinko.TOKEN_RENTALS}>{(rental) => <ToggleGroupItem value={String(rental)}>{PachinkoWording.RENTAL_NAMES[rental]}</ToggleGroupItem>}</For>
-        </ToggleGroup>
-        <ToggleGroup
-          value={editing.form().weighingTerms.exchange}
-          onChange={(value: string | null) => {
-            const exchange = Pachinko.EXCHANGES_AT[editing.form().weighingTerms.rental].find((each) => each === value)
-            if (exchange !== undefined) editing.set("weighingTerms")({ ...editing.form().weighingTerms, exchange })
-          }}
-          aria-label="交換率"
-          class="flex-nowrap"
-        >
-          <For each={Pachinko.EXCHANGES_AT[editing.form().weighingTerms.rental]}>
-            {(exchange) => (
-              <ToggleGroupItem value={exchange} class="px-1.5">
-                {PachinkoWording.exchangeChoiceText({ rental: editing.form().weighingTerms.rental, exchange })}
-              </ToggleGroupItem>
-            )}
-          </For>
-        </ToggleGroup>
+      <div class="flex min-w-0 flex-1 flex-col gap-2">
+        <div class="grid grid-cols-[5.25rem_5.25rem] gap-2">
+          <TextField label="大当り回数" value={editing.form().jackpots} onChange={editing.set("jackpots")} inputMode="numeric" suffix="回" invalid={editing.problemAt("jackpots") !== undefined} onFocus={editing.nudge.settle} compact />
+        </div>
+        <div class="grid grid-cols-[5.25rem_5.25rem] gap-2">
+          <TextField label="貸玉(千円)" value={editing.form().weighingTerms.rentedPerThousand} onChange={(rentedPerThousand) => editing.set("weighingTerms")({ ...editing.form().weighingTerms, rentedPerThousand })} inputMode="numeric" suffix="玉" invalid={editing.lacked("terms")} onFocus={editing.weighNudge.settle} compact />
+          <TextField label="交換(100円)" value={editing.form().weighingTerms.exchangedPerHundred} onChange={(exchangedPerHundred) => editing.set("weighingTerms")({ ...editing.form().weighingTerms, exchangedPerHundred })} inputMode="decimal" suffix="玉" invalid={editing.lacked("terms")} onFocus={editing.weighNudge.settle} compact />
+        </div>
       </div>
     </DetailButton>
   )
@@ -315,15 +293,16 @@ function CounterButton(props: { readonly editing: YenTallyEditing }): JSX.Elemen
       label="条件"
       says="推定の条件（データカウンターとレート・交換率）"
       marked={editing.counterSet()}
-      invalid={editing.lacked("counter")}
+      invalid={editing.lacked("counter") || editing.lacked("terms")}
       glimmering={editing.missesWouldSharpen()}
       placement="bottom-end"
+      fitted
       onOpen={editing.weighNudge.settle}
     >
-      <div class="flex min-w-0 flex-1 flex-col gap-3">
+      <div class="flex min-w-0 flex-1 flex-col gap-2">
         <Show when={!editing.atMachine()} fallback={<AtHistoryFields editing={editing} />}>
         <p class="text-xs text-text-muted">遊技終了時のデータカウンター</p>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-[5.25rem_5.25rem] gap-2">
           <TextField label="総ゲーム数" value={editing.form().counterGames} onChange={editing.set("counterGames")} inputMode="numeric" suffix="G" invalid={editing.lacked("counter")} onFocus={editing.weighNudge.settle} compact />
           <Index each={editing.counterBonuses()}>
             {(bonus) => (
@@ -340,9 +319,9 @@ function CounterButton(props: { readonly editing: YenTallyEditing }): JSX.Elemen
           </Index>
         </div>
         </Show>
-        <div class="grid grid-cols-2 gap-3">
-          <TextField label="貸メダル（1000円）" value={editing.form().medalTerms.rentedPerThousand} onChange={(rentedPerThousand) => editing.set("medalTerms")({ ...editing.form().medalTerms, rentedPerThousand })} inputMode="numeric" suffix="枚" onFocus={editing.weighNudge.settle} compact />
-          <TextField label="交換（100円）" value={editing.form().medalTerms.exchangedPerHundred} onChange={(exchangedPerHundred) => editing.set("medalTerms")({ ...editing.form().medalTerms, exchangedPerHundred })} inputMode="decimal" suffix="枚" onFocus={editing.weighNudge.settle} compact />
+        <div class="grid grid-cols-[5.25rem_5.25rem] gap-2">
+          <TextField label="貸枚(千円)" value={editing.form().medalTerms.rentedPerThousand} onChange={(rentedPerThousand) => editing.set("medalTerms")({ ...editing.form().medalTerms, rentedPerThousand })} inputMode="numeric" suffix="枚" invalid={editing.lacked("terms")} onFocus={editing.weighNudge.settle} compact />
+          <TextField label="交換(100円)" value={editing.form().medalTerms.exchangedPerHundred} onChange={(exchangedPerHundred) => editing.set("medalTerms")({ ...editing.form().medalTerms, exchangedPerHundred })} inputMode="decimal" suffix="枚" invalid={editing.lacked("terms")} onFocus={editing.weighNudge.settle} compact />
         </div>
       </div>
     </DetailButton>

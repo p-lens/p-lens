@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test"
 
 import type { Figures } from "../../../src/core/pachinko/figures"
-import { EXCHANGES_AT, TERMS_BY_DEFAULT, ballValueOf, beliefOf, inferredWorthOf, seedOf, termsOf, toldDtoOf, tokenExchangeOf, verdictOf, withRental } from "../../../src/core/pachinko/inference"
-import { toPlainString } from "../../../src/core/decimal/decimal"
-import { exchangeChoiceText, frequencyBasisText, frequencyText } from "../../../src/ui/wording/pachinko/inference"
+import { TERMS_BY_DEFAULT, ballValueOf, beliefOf, inferredWorthOf, scaledBallValueOf, seedOf, toldDtoOf, verdictOf, weighingTermsOf } from "../../../src/core/pachinko/inference"
+import { decimal, parseDecimal, toPlainString, type Decimal } from "../../../src/core/decimal/decimal"
+import { frequencyBasisText, frequencyText } from "../../../src/ui/wording/pachinko/inference"
+
+const dec = (text: string): Decimal => ((parsed) => (parsed.ok ? parsed.value : decimal(0n, 0)))(parseDecimal(text))
 
 /** A machine whose spin wins 14 balls: at 28 to ¥100 its border is 20 spins for ¥1,000. */
 const FIGURES: Figures = { roundChanceOneIn: 10, payoutPerRound: 140, totalChanceOneIn: undefined, spinsPerHour: undefined }
@@ -18,25 +20,39 @@ const summary = (reading: { readonly lower: number; readonly upper: number; read
 })
 
 describe("the terms a told play is weighed on", () => {
-  test("say what a ball exchanges for, at either rental, and are read back from the figures kept with a play", () => {
-    expect(tokenExchangeOf(TERMS_BY_DEFAULT)).toBe(28)
-    expect(ballValueOf({ rental: 4, exchange: "equal" })).toBe(4)
-    expect(tokenExchangeOf({ rental: 1, exchange: "30" })).toBe(120)
-    expect(termsOf(4, 28)).toEqual(TERMS_BY_DEFAULT)
-    expect(termsOf(1, 100)).toEqual({ rental: 1, exchange: "equal" })
-    expect(termsOf(2, 28)).toBeUndefined()
-    expect(termsOf(4, 33)).toEqual({ rental: 4, exchange: "33" })
-    expect(termsOf(1, 132)).toBeUndefined()
+  test("say what a ball exchanges for, and are read back from the figures kept with a play, as they are written now and as they once were", () => {
+    expect(TERMS_BY_DEFAULT).toEqual({ rentedPerThousand: 250, exchangedPerHundred: 28 })
+    expect(ballValueOf({ rentedPerThousand: 250, exchangedPerHundred: 25 })).toBe(4)
+    expect(weighingTermsOf({ tokenRental: decimal(4n, 0), tokenExchange: decimal(28n, 0) })).toEqual(TERMS_BY_DEFAULT)
+    expect(weighingTermsOf({ tokenRental: decimal(1n, 0), tokenExchange: decimal(120n, 0) })).toEqual({ rentedPerThousand: 1000, exchangedPerHundred: 120 })
+    expect(weighingTermsOf({ tokenRental: decimal(4n, 0), tokenExchange: decimal(33n, 0) })).toEqual({ rentedPerThousand: 250, exchangedPerHundred: 33 })
+    expect(weighingTermsOf({ tokenRental: dec("4.166667"), tokenExchange: dec("27.5") })).toEqual({ rentedPerThousand: 240, exchangedPerHundred: 27.5 })
+    expect(weighingTermsOf({ tokenRental: decimal(0n, 0), tokenExchange: decimal(28n, 0) })).toBeUndefined()
+    expect(weighingTermsOf({ tokenRental: decimal(4n, 0), tokenExchange: decimal(-28n, 0) })).toBeUndefined()
+  })
+
+  test("weigh a ¥4 ball at 250 to ¥1,000 exchanged at 28 as the engine's own play, and a ¥1 ball at 1,000 as before", () => {
+    expect(toldDtoOf({ hours: 3, outlay: 5000, takings: 1000, jackpots: 2 }, TERMS_BY_DEFAULT)).toEqual({ hours: 3, outlay: 5000, takings: 1000, jackpots: 2 })
+    expect(scaledBallValueOf(TERMS_BY_DEFAULT)).toBe(100 / 28)
+    expect(scaledBallValueOf({ rentedPerThousand: 1000, exchangedPerHundred: 112 })).toBe(100 / 28)
+  })
+
+  test("scale a corner renting 240 to ¥1,000 by 240/250", () => {
+    const terms = { rentedPerThousand: 240, exchangedPerHundred: 27.5 }
+    expect(toldDtoOf({ hours: 3, outlay: 5000, takings: 1000, jackpots: undefined }, terms)).toEqual({ hours: 3, outlay: 4800, takings: 960 })
+    expect(scaledBallValueOf(terms)).toBeCloseTo((100 / 27.5) * (240 / 250), 12)
+    const verdict = verdictOf(FIGURES, terms, summary({ lower: 16, upper: 18 }, 400_000))
+    expect(verdict.type === "weighed" && [verdict.weighed.spinPerformance, Number(verdict.weighed.border.toFixed(3)), verdict.weighed.theoreticalValue]).toEqual([17 * 0.96, Number((1000 / (14 * (100 / 27.5))).toFixed(3)), -3750 / 0.96])
   })
 
   test("scale a cheaper ball's yen up for the engine, which plays every play at ¥4 a ball", () => {
-    expect(toldDtoOf({ hours: 3, outlay: 5000, takings: 1000, jackpots: 2 }, { rental: 1, exchange: "28" })).toEqual({ hours: 3, outlay: 20000, takings: 4000, jackpots: 2 })
+    expect(toldDtoOf({ hours: 3, outlay: 5000, takings: 1000, jackpots: 2 }, { rentedPerThousand: 1000, exchangedPerHundred: 112 })).toEqual({ hours: 3, outlay: 20000, takings: 4000, jackpots: 2 })
   })
 
   test("believe a cabinet a spin under its border before anything is told, give or take a sixth of the border", () => {
     const belief = beliefOf(FIGURES, TERMS_BY_DEFAULT)
     expect([belief.mean, belief.deviation].map((figure) => Number(figure.toFixed(3)))).toEqual([19, 3.333])
-    const cheaper = beliefOf(FIGURES, { rental: 1, exchange: "28" })
+    const cheaper = beliefOf(FIGURES, { rentedPerThousand: 1000, exchangedPerHundred: 112 })
     expect([cheaper.mean, cheaper.deviation].map((figure) => Number(figure.toFixed(3)))).toEqual([19, 3.333])
   })
 })
@@ -45,7 +61,7 @@ describe("what a weighing comes to", () => {
   test("is the middle reading, with the worth the trials themselves give, where they say enough — a cheaper ball's scaled back to its own yen", () => {
     const verdict = verdictOf(FIGURES, TERMS_BY_DEFAULT, summary({ lower: 16, upper: 18 }, 400_000))
     expect(verdict.type === "weighed" && [verdict.weighed.spinPerformance, Number(verdict.weighed.border.toFixed(3)), verdict.weighed.theoreticalValue]).toEqual([17, 20, -3750])
-    const cheaper = verdictOf(FIGURES, { rental: 1, exchange: "28" }, summary({ lower: 16, upper: 18 }, 400_000))
+    const cheaper = verdictOf(FIGURES, { rentedPerThousand: 1000, exchangedPerHundred: 112 }, summary({ lower: 16, upper: 18 }, 400_000))
     expect(cheaper.type === "weighed" && [cheaper.weighed.spinPerformance, Number(cheaper.weighed.border.toFixed(3)), cheaper.weighed.theoreticalValue]).toEqual([68, 80, -937.5])
   })
 
@@ -65,8 +81,15 @@ describe("what a weighing comes to", () => {
 
 describe("what a play was taken to be worth, as kept", () => {
   test("is yen to six places with the formula and the terms it stood on, and the spin performance it was taken to have had to a tenth", () => {
-    const kept = inferredWorthOf({ spinPerformance: 16.04, border: 20, theoreticalValue: -3749.61234567 }, "formula-1", { rental: 1, exchange: "30" })
+    const kept = inferredWorthOf({ spinPerformance: 16.04, border: 20, theoreticalValue: -3749.61234567 }, "formula-1", { rentedPerThousand: 1000, exchangedPerHundred: 120 })
     expect([toPlainString(kept.value), kept.formulaId, toPlainString(kept.tokenRental), toPlainString(kept.tokenExchange), kept.spinPerformance === undefined ? undefined : toPlainString(kept.spinPerformance)]).toEqual(["-3749.612346", "formula-1", "1", "120", "16"])
+  })
+
+  test("keep a ball's yen to six places where ¥1,000 does not divide by the balls it rents, and the exchange to its places, and read back as typed", () => {
+    const kept = inferredWorthOf({ spinPerformance: 16, border: 20, theoreticalValue: 0 }, "formula-1", { rentedPerThousand: 240, exchangedPerHundred: 27.5 })
+    expect([toPlainString(kept.tokenRental), toPlainString(kept.tokenExchange)]).toEqual(["4.166667", "27.5"])
+    expect(weighingTermsOf(kept)).toEqual({ rentedPerThousand: 240, exchangedPerHundred: 27.5 })
+    expect(weighingTermsOf(inferredWorthOf({ spinPerformance: 16, border: 20, theoreticalValue: 0 }, "formula-1", TERMS_BY_DEFAULT))).toEqual(TERMS_BY_DEFAULT)
   })
 
   test("is weighed from a seed its id always gives", () => {
@@ -83,13 +106,5 @@ describe("the words of a weighing", () => {
     expect(frequencyText(2_000_000, true)).toBe("再現できませんでした")
     expect(frequencyBasisText(2_000_000, true, "outlay-at-least")).toBe("200万回のシミュレーションでの結果（この機種・仮定した条件で投資額がこれ以上になる展開）")
     expect(frequencyBasisText(12_000, false, "result-at-least")).toBe("この機種・仮定した条件で収支がこれ以上になる推定発生頻度")
-  })
-  test("name an exchange by the balls ¥100 of prizes takes at the rental chosen", () => {
-    expect(EXCHANGES_AT[4].map((exchange) => exchangeChoiceText({ rental: 4, exchange }))).toEqual(["等価", "28玉", "30玉", "33玉"])
-    expect(EXCHANGES_AT[1].map((exchange) => exchangeChoiceText({ rental: 1, exchange }))).toEqual(["等価", "112玉", "120玉"])
-  })
-  test("keep the exchange across rentals where the other offers it, and take the usual one where not", () => {
-    expect(withRental({ rental: 4, exchange: "30" }, 1)).toEqual({ rental: 1, exchange: "30" })
-    expect(withRental({ rental: 4, exchange: "33" }, 1)).toEqual({ rental: 1, exchange: "28" })
   })
 })

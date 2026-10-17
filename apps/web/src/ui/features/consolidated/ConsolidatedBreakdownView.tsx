@@ -91,10 +91,10 @@ export function ConsolidatedBreakdownView(props: { readonly place: Place; readon
   /** Who sent the plays, by their last names, while the tallies are grouped by who played them and once they are read. */
   const names = (): SenderNames => ((answer) => (answer?.ok === true ? answer.value : NO_NAMES))(named())
   const [othered] = createResource(
-    () => ({ bookIds: props.bookIds, by: props.by, query: props.query, revision: app.revision() }),
-    (source) => loadConsolidatedOtherGains(app.services.session, source.bookIds, queryFor(source.by, source.query)),
+    () => (props.by === OVERALL ? { bookIds: props.bookIds, query: props.query, revision: app.revision() } : undefined),
+    (source) => loadConsolidatedOtherGains(app.services.session, source.bookIds, source.query),
   )
-  /** その他損益 over the books, added, only where there is any: the breakdown above it stands without it. */
+  /** その他損益 over the books, added, under 総合 alone and only where there is any: 総合 stands without it. */
   const otherGains = (): OtherGains | undefined => ((answer) => (answer?.ok === true ? ((gains) => (hasOtherGains(gains) ? gains : undefined))(mergedOtherGains(readOf(answer.value))) : undefined))(othered())
   const groups = createMemo(() => ((found, by) => (found?.ok === true && by !== undefined ? grouped(found.value, by, app.machineNames(), names()) : undefined))(consolidation(), grouping()))
   return (
@@ -102,7 +102,7 @@ export function ConsolidatedBreakdownView(props: { readonly place: Place; readon
       <div class="max-w-5xl">
         <div class="flex flex-col gap-4 p-4">
           <div class="flex flex-wrap items-end gap-3">
-            <div class="w-36">
+            <div class="w-[8.5rem]">
               <Select
                 label="切り口"
                 options={[...BREAKDOWN_OPTIONS.slice(0, 1), { value: "book", label: BY_BOOK }, { value: "sender", label: BY_SENDER }, ...BREAKDOWN_OPTIONS.slice(1)]}
@@ -114,6 +114,7 @@ export function ConsolidatedBreakdownView(props: { readonly place: Place; readon
               />
             </div>
             <PeriodPicker by={props.by} query={props.query} today={app.services.businessDay()} onTyped={(query) => moves.refine(props.place, query)} onPressed={(query) => moves.go(props.place, query)} />
+            <ConsolidatedBooks bookIds={props.bookIds} unread={(id) => (props.by === OVERALL ? unreadIn(overall(), id) : unreadIn(consolidation(), id))} onChosen={(bookIds) => moves.go({ kind: "consolidated-breakdown", by: props.by, bookIds }, props.query)} />
           </div>
           <Show when={props.by === OVERALL}>
             <Loaded outcome={overall()}>
@@ -137,9 +138,8 @@ export function ConsolidatedBreakdownView(props: { readonly place: Place; readon
             </Loaded>
           </Show>
           <Show when={otherGains()} keyed>
-            {(found) => <OtherGainsSection gains={found} byParlor={props.by === "parlor"} />}
+            {(found) => <OtherGainsSection gains={found} />}
           </Show>
-          <ConsolidatedBooks bookIds={props.bookIds} unread={(id) => (props.by === OVERALL ? unreadIn(overall(), id) : unreadIn(consolidation(), id))} onChosen={(bookIds) => moves.go({ kind: "consolidated-breakdown", by: props.by, bookIds }, props.query)} />
         </div>
       </div>
     </MainContent>

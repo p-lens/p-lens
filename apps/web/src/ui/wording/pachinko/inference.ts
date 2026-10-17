@@ -1,17 +1,8 @@
 import type { WayDto } from "@p-lens/contracts/pachinko"
 
 import type { Weighing } from "../../../application/pachinko/inference"
-import { PACE_BY_DEFAULT, tokenExchangeOf, type TokenRental, type Weighed, type WeighingTerms } from "../../../core/pachinko/inference"
+import { PACE_BY_DEFAULT, type Weighed } from "../../../core/pachinko/inference"
 import { formatCount, formatMan, theoreticalFigureText } from "../numbers"
-
-export const RENTAL_NAMES: Readonly<Record<TokenRental, string>> = { 4: "4円", 1: "1円" }
-
-/**
- * An exchange as a choice among the few, short enough for them all to
- * stand in a row, and as players of that rental say it: the balls ¥100 of
- * prizes takes — 28玉 at ¥4 a ball is 112玉 at ¥1.
- */
-export const exchangeChoiceText = (terms: WeighingTerms): string => (terms.exchange === "equal" ? "等価" : `${formatCount(tokenExchangeOf(terms))}玉`)
 
 /** A spin performance as players say it, to one place. */
 export const spinPerformanceText = (weighed: Weighed): string => `${weighed.spinPerformance.toFixed(1)}回転/千円`

@@ -191,6 +191,16 @@ pub struct Components {
     /// How often play enters a mode after the settings are changed, under
     /// each setting, where that differs.
     pub reset_allotment: BTreeMap<EntityId, PerSettingLevel<BasisPoints>>,
+    /// An ending: one way an AT ends — 駆け抜け, 上位AT, a failed 魔術ボーナス
+    /// — and its share of ATs under each setting, a machine's endings the
+    /// whole of them. Only a machine of modes has them, which allots its
+    /// modes by how the AT ended.
+    pub ending: BTreeMap<EntityId, PerSettingLevel<BasisPoints>>,
+    /// On a mode: how often play enters it after an AT that ended a given
+    /// way, by the ending, under each setting, in place of its `allotment`
+    /// after that ending. An ending a mode says nothing of takes its
+    /// `allotment`.
+    pub ending_allotment: BTreeMap<EntityId, BTreeMap<EntityId, PerSettingLevel<BasisPoints>>>,
     /// A mode's own AT間天井 on a machine a CZ brings the AT on: the regular
     /// game since the last AT on which play in the mode wins it at the
     /// latest, in place of the AT's — an AT間天井 drawn after each AT, 450G
@@ -367,6 +377,8 @@ pub enum Component {
     ResetSinceAtCeiling,
     CeilingTriggers,
     CeilingAcrossBonuses,
+    Ending,
+    EndingAllotment,
 }
 
 /// A mode left when so many games since its last trigger bring none: the
@@ -409,6 +421,16 @@ pub enum Element {
     Mode(Mode),
     Cz(Cz),
     Watch(Watch),
+    Ending(Ending),
+}
+
+/// One way an AT ends — 駆け抜け, それ以外 — and its share of ATs under
+/// each setting.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Ending {
+    pub id: EntityId,
+    pub label: String,
+    pub share: PerSettingLevel<BasisPoints>,
 }
 
 /// A watch: what a player watches over each of a bonus — its games, or a
@@ -502,6 +524,9 @@ pub struct Mode {
     pub since_at_ceiling: Option<NonZeroU32>,
     pub allotment: PerSettingLevel<BasisPoints>,
     pub reset_allotment: Option<PerSettingLevel<BasisPoints>>,
+    /// How often play enters it after an AT that ended a given way, by the
+    /// ending, where that differs from `allotment`.
+    pub ending_allotment: BTreeMap<EntityId, PerSettingLevel<BasisPoints>>,
     /// The zones play in it draws at.
     pub gates: Vec<Gate>,
     /// How often a trigger in it wins the AT under each setting, where it

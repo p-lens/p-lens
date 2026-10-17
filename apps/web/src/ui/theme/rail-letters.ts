@@ -1,11 +1,13 @@
 import { createSignal, type Accessor } from "solid-js"
 
-/** How many characters of a book's name stand for it on the rail: one, until the person says two. */
-export type RailLetters = 1 | 2
+/** How many characters of a book's name stand for it on the rail: one, until the person says two, three or four. */
+export type RailLetters = 1 | 2 | 3 | 4
+
+export const RAIL_LETTERS: readonly RailLetters[] = [1, 2, 3, 4]
 
 export const DEFAULT_RAIL_LETTERS: RailLetters = 1
 
-export const readRailLetters = (stored: string | undefined): RailLetters => (stored === "2" ? 2 : DEFAULT_RAIL_LETTERS)
+export const readRailLetters = (stored: string | undefined): RailLetters => RAIL_LETTERS.find((letters) => String(letters) === stored) ?? DEFAULT_RAIL_LETTERS
 
 const STORAGE_KEY = "p-lens.rail-letters"
 

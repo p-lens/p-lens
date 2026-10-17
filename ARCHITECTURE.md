@@ -186,6 +186,13 @@ A parlor is not stored anywhere beside the journal: it is the savings
 accounts declared with its `parlor-id`, read back by `parlorsFromDeclarations`
 as pools — a kind of token at a rental rate. Its id is the shared directory's.
 
+A book's savings (貯玉・貯メダル, `loadHoldings`) are every parlor's pools
+until some parlors are chosen behind the funnel at the end of the 評価日
+row, a tick to each parlor the book holds savings at: hledger is then asked
+of those parlors' savings accounts alone (`savingsAtTerm`, by the names
+the book keeps them under), so the total is its own over them. Which are
+chosen is the address's last segment (`/books/:id/holdings/<parlor>,…`).
+
 ### Parlors and the terms of a corner
 
 P-Lens (Pレンズ) is several sites, each its own repository and Cloudflare
@@ -510,6 +517,21 @@ so performance between points the person picks can be offered later.
 Recording turns the draft into one entry and its play log in one change,
 then deletes the draft; a record the book refuses keeps it.
 
+- **The hand is what the person said.** A reading's 持ち玉 starts from
+  the last count with what each bonus since paid (`standingBefore`), and
+  the finish form's from the same (`heldAsToldOf`): the regular games
+  played on it are never taken off by an estimate, so a drift is the
+  person's to set right by counting, there or as the play is recorded.
+- **The value follows the finish form.** What the play was worth is
+  worked out from its log with the line it would finish on — the counter
+  and the tokens in hand the form says (`theoreticalValueAtFinish`) — as
+  the form opens and again once what is typed there stands still
+  (`createFollowedWorth`, debounced); the line is written so as the play
+  is recorded (`withFinish` with the hand), so the value recorded is the
+  one the log comes to. A value the person types is theirs and is no
+  longer written over. This is the finish forms' own (`live/`): adding or
+  setting right a tally by hand never shares it.
+
 ## Layers and dependency direction
 
 ```text
@@ -606,6 +628,8 @@ The place is read off the address (`ui/navigation/place.ts`):
 | `/play/:play/cabinet` | saying anew which cabinet and machine it is on | content |
 | `/books/:book` | a book, no view chosen | selection |
 | `/books/:book/{tallies,holdings,result-calendar,activity,files}?q=` | a view | content |
+| `/books/:book/holdings/:parlors?q=` | a book's savings at the parlors named | content |
+| `/books/:book/result-calendar/:senders` | a book's calendar of the tallies of those named among who played it | content |
 | `/books/:book/breakdown/:by?q=` | a book's results taken as one (総合, by default) or grouped | content |
 | `/books/:book/files/:path` | one of the book's files as kept, beside the list | detail |
 | `/books/:book/tallies/new` | adding a tally by its totals (収支を追加) | content |
@@ -1468,6 +1492,40 @@ only the primitives, the core and the application.
   carries them across each bonus, and its ceilings show the sooner. The
   grounds take such a machine's cycle from the engine, as any that starts
   again.
+- **How an AT ended may allot the modes.** Many machines allot their
+  modes after an AT by how it ended — スマスロパリピ孔明's 428G after an AT
+  that ended at once, 1009G otherwise; L無職転生's shorter ceiling after a
+  駆け抜け or a failed 魔術ボーナス. A way an AT ends is an entity of its
+  own, marked by `ending`, which holds its share of ATs under each setting
+  — every ending's together the whole, `endings-not-whole` otherwise — and
+  named by its `label`: 駆け抜け 30%, それ以外 70%. A mode may say how often
+  play enters it after an AT that ended a given way (`endingAllotment`, by
+  the ending); an ending a mode says nothing of takes its `allotment`, so
+  each ending's allotment over the modes must still be the whole
+  (`ending-allotment-not-whole`). Endings belong to a machine of modes of
+  its own (`ending-without-modes`), an allotment after one the machine
+  lacks is refused (`ending-allotment-to-unknown`), and so are endings no
+  mode is allotted otherwise after (`endings-without-allotment`): they
+  would say nothing. The rules list the endings (`atRules.endings`) and
+  each table keeps every ending's share and allotment
+  (`allotments.afterEndings`), with no change of shape — a stored spec
+  without them reads as it did. Play after an AT not seen to end is in
+  each mode as often as the endings' allotments weighed by their shares
+  say, and that mix is `allotments.afterAt`: the cycle, the 合算 read back,
+  the arrivals, the 機械割, the walk and the told history all take it, and
+  where a machine has no endings nothing changes. That is an average: how
+  an AT ended is taken to be independent of what it gained and of the
+  mode it was won from, which the sheets do not say otherwise. A seat may
+  say how the last AT ended (`PathStart::ending`, by its place among the
+  rules' endings; at the boundary the ending's id, `unknown-ending` where
+  the machine lacks it): play is then weighed from that ending's
+  allotment, in the walk and the chain alike, and a setting change since
+  leaves it of no account. The editor types the endings on the AT — 「ATの
+  終わり方」, a name and a share per setting — and each mode's allotment
+  after each by the ending's name; the hunt table offers 「前のAT」, 指定なし
+  being the mix, and says which ending its values assume. The grounds
+  work the mix out from the sheet's figures (`allotted_by_ending`) and
+  play the cycle out from it, as they do any allotment.
 - **A CZ whose success brings a bonus keeps both stages.** Where a CZ
   succeeds into a bonus and the bonus wins the AT at a share of its own —
   CZ, then BIG, then the AT about half the time — the CZ keeps its 合算,
@@ -1961,6 +2019,18 @@ put right by hand.
   person's own books. It was kept before in the day's parlor setting on
   the device, and lost with the day; what is kept there is now left
   unread.
+- **The terms a tally typed in by hand was weighed on** are kept in the
+  book it was added to or set right in (`inferenceTerms`;
+  `application/inference-terms`): one set for each game — balls and
+  medals being no measure of each other — and not by corner, the last
+  used. They are written once the tally is, where they read and are not
+  what the book keeps already, as one change of their own
+  (`inference-terms-set`) of which the activity says nothing; a tally
+  written is never reported as refused for them. 収支を追加 opens on the
+  book's terms for each game, else the usual ones; 収支の修正 on those the
+  tally was weighed on, else the book's. They are read from the book
+  whoever adds to it, and have nothing to do with a live play's terms
+  (the start form and the day's parlor setting).
 - **The owner's alone.** Only a person's own books are placed. On the
   device of someone let into a book its `order` is not read: where a book
   stands among another person's books says nothing of where it stands
@@ -2002,6 +2072,16 @@ with plays is pressed to see them, the plays list asked for that day.
   breakdown's rows do, never ¥0: nothing was said, which is not nought.
 - **The month shown is the screen's own**, in no address: it opens on the
   month of the business day, whose cell wears a ring.
+- **Whose tallies, where others play the book** (打った人): in a book any
+  tally of which names a sender, a funnel at the end of the month's row
+  chooses among the book's own tallies — those that name no sender,
+  under the book's title as 打ち手別 has them — and each sender, by the
+  name on their last tally. hledger is asked of theirs alone
+  (`loadBreakdownOf`, `sendersTerm`): the chosen senders' ids, or, where
+  the book's own are among them, every tally but the senders left out.
+  Who is chosen is the address's last segment
+  (`/books/:id/result-calendar/unsent,<sender id>`), as a consolidation's
+  books are; a personal book has no funnel.
 
 ## Merging a play's readings
 
@@ -2035,9 +2115,10 @@ toast's `action`. Each game's `revised` is exported for it alone.
   the hand ran out — so the one line keeps the points inside the run that
   the measuring may start or end at (`handsBefore`: the last before any
   regular game, and the last of all where the line itself knows nothing
-  of the hand), each as the running totals there. What was bought by the
+  of the hand) and the last count where it counted nothing, which the
+  hand is told from, each as the running totals there. What was bought by the
   last of them was bought there, not at the line. `consumptionOf`, the
-  balls in hand at the finish and the play's totals come to the same
+  balls in hand as told and the play's totals come to the same
   before and after, which the tests hold over every run of many generated
   plays, folded again, written down and read back.
 - **Taken back while its word stands.** The toast that says a run was
@@ -2187,7 +2268,7 @@ played them (集計).
   averages. What is only added up is listed a line to each, as a trial
   balance is, under three heads — 稼働 (台数, 日数, 時間), 収支 (通算投資
   with うち貸玉差額 and うち再プレイ手数料, 通算回収, 通算収支, 通算期待値)
-  and 現金と景品 (現金投資, 貯玉利用, and 景品等合計 with its special
+  and 現金と景品 (現金投資, 持ち玉投資 — what tallies drew from savings, which tokens in hand pass through as 貯玉 do — and 景品等合計 with its special
   prizes, odd prizes and 換算調整勘定 beneath) — side by side on a wide
   screen; what is worked out from it stands in tiles below. Every figure
   is in whole yen, never in 万 or 億, and a total's parts are rounded by
@@ -2205,12 +2286,24 @@ played them (集計).
   (`consolidationKeepsTheoreticalValues`), as in one book that keeps none.
 - **A space of its own**: `/consolidated` lists its views, as a book's
   address lists a book's, and in a book's order.
+- **The books chosen behind a funnel** (連結する帳簿, `ConsolidatedBooks`):
+  an outline button at the right end of each view's first row — 切り口
+  and the period in 集計, 今月 in the calendar, 評価日 in 貯玉・貯メダル —
+  opens a popover with a tick to each book in the books' order, and a
+  book that could not be read said under its tick. The funnel is hollow
+  while every book is read, and filled with a dot at its top right while
+  some are left out, as the plays list's is. It is the app's one filter
+  (`TickFilter`, `ui/primitives/filter`), the same for a book's calendar
+  and savings: a すべて選択 tick above the rest ticks every one or clears
+  every one, and stands mixed while some are ticked, so out of many all
+  can be cleared and a few ticked again.
 - **Which books, which grouping and which period are the address's**:
   `/consolidated/breakdown/book` is every book on the device,
   `/consolidated/breakdown/machine/a,b` those named, `q` the period;
   `/consolidated/holdings/a,b` and `/consolidated/result-calendar/a,b`
-  name their books the same way. The books ticked go with a person from
-  one view to the next (`consolidatedBooksOf`).
+  name their books the same way, each encoded on its own, and a comma
+  alone names none. The books ticked go with a person from one view to
+  the next (`consolidatedBooksOf`).
 - **Out of sight until turned on** (設定 → 連結会計): most people keep one
   book, so the rail shows 連結 only on a device whose owner asked for it.
   The choice is a preference of the device; the address has its screen
@@ -2303,9 +2396,18 @@ cash it took and what came back.
   only typed figures has nothing to play out, and is not weighed. Where a
   formula says no spins an hour, 200 are taken (`PACE_BY_DEFAULT`), and
   the reading says that its pace was assumed.
-- **On ¥4 a ball exchanged at 28 until a person says otherwise**
-  (`TERMS_BY_DEFAULT`), every ball taken as rented: the harsher of the
-  common terms. A cheaper ball is the same play with its yen scaled.
+- **The terms are typed as a corner states them** (`WeighingTerms`,
+  `readWeighingTerms`): the balls ¥1,000 rents (貸玉(千円), whole) and the
+  balls ¥100 of prizes takes (交換(100円), to two places: 27.5), as
+  pachislot's medals are (貸枚(千円), 交換(100円)); a figure that is not
+  more than none does not read, and a press shows it in red. They are
+  ¥4 a ball, 250 to ¥1,000, exchanged at 28 until a person or the book says
+  otherwise (`TERMS_BY_DEFAULT`), every ball taken as rented: the harsher
+  of the common terms. The engine plays every play at 250 balls to
+  ¥1,000 (`RENTED_PER_THOUSAND`); a corner renting more or fewer is the
+  same play with its yen scaled by what it rents over 250 — four times
+  at ¥1 a ball, 240/250 at 240 balls — its spin performance scaled the
+  other way, and a ball worth ¥100 over the balls ¥100 takes.
 - **Said wherever it is summed.** A breakdown's groups each carry how much
   of their theoretical value was inferred (`Group.inferred`, hledger's own
   sum of `統計:期待値:推定` cut as the other two reports are —
@@ -2318,7 +2420,12 @@ cash it took and what came back.
   apart; the account is declared the first time an entry needs it. What
   was told — `hours`, `jackpots` — and what the weighing
   stood on — `inferred-formula`, `token-rental`, `token-exchange` — are
-  the entry's tags, so the play is read back as it was typed. A
+  the entry's tags, so the play is read back as it was typed
+  (`weighingTermsOf`): `token-rental` is the yen a ball rented for, to six
+  places where ¥1,000 does not divide by the balls (4.166667 at 240), and
+  `token-exchange` the balls ¥100 took. Tags written while the terms were
+  chosen among a few — 4 or 1, and 25 to 33 or 100 to 132 — read back
+  the same way. A
   theoretical value typed in is the play's, and nothing is inferred
   beside it.
 - **A file taken in may be weighed too** (`importPrecord` with a

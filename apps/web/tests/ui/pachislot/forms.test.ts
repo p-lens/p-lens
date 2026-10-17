@@ -60,7 +60,7 @@ describe("the 解析値 form", () => {
     const form = {
       settingLevels: [1, 6],
       bet: "3",
-      rows: [{ key: "big", label: "BIG", kind: "bonus" as const, of: "", trials: "", payout: "２５２", chances: { "1": "1/273.1", "6": "２５５" }, ceiling: "", resetCeiling: "", atCeiling: "", resetAllotment: {}, success: {}, misses: "", net: "", unitCeiling: "", resetUnitCeiling: "", atUnitCeiling: "", trigger: "cz" as const, bonusShares: {}, bonusMiss: "counted" as const, forcedCz: "drawn" as const, ceilingAt: "outright" as const, ceilingAcrossBonuses: "", gates: [], redraw: {}, ceilingRedraw: {}, triggerChances: {}, expiryGames: "", expiryTo: "", sinceAtCeiling: "", resetSinceAtCeiling: "", law: EMPTY_LAW }],
+      rows: [{ key: "big", label: "BIG", kind: "bonus" as const, of: "", trials: "", payout: "２５２", chances: { "1": "1/273.1", "6": "２５５" }, ceiling: "", resetCeiling: "", atCeiling: "", resetAllotment: {}, success: {}, misses: "", net: "", unitCeiling: "", resetUnitCeiling: "", atUnitCeiling: "", trigger: "cz" as const, bonusShares: {}, bonusMiss: "counted" as const, forcedCz: "drawn" as const, ceilingAt: "outright" as const, ceilingAcrossBonuses: "", gates: [], redraw: {}, ceilingRedraw: {}, triggerChances: {}, expiryGames: "", expiryTo: "", sinceAtCeiling: "", resetSinceAtCeiling: "", endings: [], endingAllotment: {}, law: EMPTY_LAW }],
       base: "",
       lcdRate: "",
       unitName: "",
@@ -213,6 +213,45 @@ describe("an AT machine typed in by hand", () => {
     const form = manualFormOf(madeUp, measured)
     expect(hasModes(form.world)).toBe(true)
     expect(readManualForm(form)).toEqual({ ok: true, value: { spec: madeUp, conditions: measured } })
+  })
+
+  test("an AT's endings and each mode's 振り分け after them read back the same, an ending is named and shared, and a mode left empty after one is left out", () => {
+    const modes = modesSpec as SpecDto
+    const levels = (low: number, high: number) => [
+      { settingLevel: 1, value: low },
+      { settingLevel: 6, value: high },
+    ]
+    const ended: SpecDto = {
+      ...modes,
+      entities: ["at", "through", "rest", "heaven", "normal"],
+      components: {
+        ...modes.components,
+        label: { ...modes.components.label, through: "駆け抜け", rest: "それ以外" },
+        ending: { through: levels(3_000, 4_000), rest: levels(7_000, 6_000) },
+        endingAllotment: { heaven: { through: levels(1_000, 2_000) }, normal: { through: levels(9_000, 8_000) } },
+      },
+    }
+    const form = manualFormOf(ended, measured)
+    expect(form.world.rows.map((row) => row.key)).toEqual(["at", "heaven", "normal"])
+    expect(form.world.rows.find((row) => row.kind === "at")?.endings.map((ending) => [ending.key, ending.label, ending.shares])).toEqual([
+      ["through", "駆け抜け", { "1": "30", "6": "40" }],
+      ["rest", "それ以外", { "1": "70", "6": "60" }],
+    ])
+    expect(readManualForm(form)).toEqual({ ok: true, value: { spec: ended, conditions: measured } })
+    expect(freshKey(form.world.rows)).toBe("e6")
+    const unnamed = form.world.rows.map((row) => (row.kind === "at" ? { ...row, endings: row.endings.map((ending, index) => (index === 0 ? { ...ending, label: "", shares: { "1": "30" } } : ending)) } : row))
+    const refused = readManualForm({ ...form, world: { ...form.world, rows: unnamed } })
+    expect(!refused.ok && refused.error).toEqual([
+      { field: "ATの終わり方1 名前", reason: "required" },
+      { field: "ATの終わり方1 割合 設定6", reason: "required" },
+    ])
+    const plain = form.world.rows.map((row) => (row.key === "heaven" || row.key === "normal" ? { ...row, endingAllotment: {} } : row))
+    const read = readManualForm({ ...form, world: { ...form.world, rows: plain } })
+    expect(read.ok && read.value.spec.components.endingAllotment).toBeUndefined()
+    expect(read.ok && read.value.spec.components.ending).toEqual(ended.components.ending)
+    const withoutModes = { ...form.world, rows: form.world.rows.filter((row) => row.kind === "at") }
+    const bare = readManualForm({ ...form, world: withoutModes })
+    expect(bare.ok && [bare.value.spec.entities, bare.value.spec.components.ending]).toEqual([["at"], undefined])
   })
 
   test("a capped machine in sets read back into the form comes out as the same world", () => {

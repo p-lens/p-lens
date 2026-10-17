@@ -84,14 +84,28 @@ export const takenOf = (ordered: readonly Checkpoint[]): readonly Taken[] =>
 /**
  * Where a play stood before one of its readings: the counter as it then
  * showed — none where a jackpot had just started it over — the balls in
- * hand as last counted, or as the play was begun with them, and what had
- * been spent and drawn in all.
+ * hand as last counted, or as the play was begun with them, with what each
+ * bonus since paid added on, and what had been spent and drawn in all. The
+ * hand is only ever what the person said and what the bonuses brought:
+ * the regular games played on it are never taken off by an estimate, so a
+ * drift is the person's to set right by counting.
  */
 export interface Before {
   readonly counter: number
   readonly held: number | undefined
   readonly outlay: number
   readonly replay: number
+}
+
+/** What a bonus a reading won paid beyond what it took to win: what it added to the hand. */
+const bonusGainOf = (reading: Reading): number => (reading.jackpot.type === "bonus" ? Math.max(0, reading.jackpot.bonus.payout - reading.jackpot.bonus.spent) : 0)
+
+/** The balls in hand after a reading, from those before it: what it counted last — inside it, folded, or at its line — else what was in hand with its bonus added; none where nothing was ever said and nothing was won. */
+const heldAfter = (before: number | undefined, { reading }: Taken): number | undefined => {
+  if (reading.held !== undefined) return reading.held
+  const from = (reading.handsBefore ?? []).findLast((hand) => hand.counted === true)?.held ?? before
+  const gain = bonusGainOf(reading)
+  return gain === 0 ? from : (from ?? 0) + gain
 }
 
 /** Where the play stood before its reading at `index` — after them all, where there is none there. */
@@ -101,11 +115,14 @@ export const standingBefore = (ordered: readonly Checkpoint[], index: number): B
   const last = earlier.at(-1)?.reading
   return {
     counter: last === undefined ? (seat?.counter?.spins ?? 0) : last.jackpot.type === "none" ? last.counterSpins : 0,
-    held: earlier.flatMap((each) => [...(each.reading.handsBefore ?? []).filter((hand) => hand.counted === true).map((hand) => hand.held), ...(each.reading.held === undefined ? [] : [each.reading.held])]).at(-1) ?? seat?.held,
+    held: earlier.reduce(heldAfter, seat?.held),
     outlay: earlier.reduce((sum, each) => sum + each.reading.rented, seat?.outlay ?? 0),
     replay: earlier.reduce((sum, each) => sum + each.reading.replayed, seat?.replay ?? 0),
   }
 }
+
+/** The balls in hand at a play's end as the person told them: the last count, with what each bonus since paid; never estimated down by the regular games since. */
+export const heldAsToldOf = (ordered: readonly Checkpoint[]): number | undefined => standingBefore(ordered, takenOf(ordered).length).held
 
 /** A log made again from its first line and its readings, each added as it was when taken. */
 const madeFrom = (seat: Checkpoint, taken: readonly Taken[]): Result<readonly Checkpoint[], RevisionRefusal> =>

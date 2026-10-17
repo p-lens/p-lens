@@ -87,8 +87,19 @@ export interface EntityRow {
   readonly resetSinceAtCeiling: string
   /** A mode's 振り分け after a setting change, in percent by the level; empty for the same as after an AT. */
   readonly resetAllotment: Readonly<Record<string, string>>
+  /** An AT's endings — the ways it ends that its modes are allotted by — in the order typed; empty where it has none. */
+  readonly endings: readonly EndingForm[]
+  /** A mode's 振り分け after an AT that ended a given way: each ending by its key, in percent by the level; an ending left empty takes the mode's 振り分け after an AT. */
+  readonly endingAllotment: Readonly<Record<string, Readonly<Record<string, string>>>>
   /** An AT's medals beyond their average, and its 有利区間. */
   readonly law: AtLawForm
+}
+
+/** One way an AT ends, as typed: its key — its entity's id, made once and kept — its name, and its share of ATs in percent by the level. */
+export interface EndingForm {
+  readonly key: string
+  readonly label: string
+  readonly shares: Readonly<Record<string, string>>
 }
 
 /** A zone as typed: the regular game since the last AT it is on, and the shares of play still going there that it brings the trigger to and wins the AT outright on, in percent by the level — the AT's left empty where there is none. */
@@ -205,6 +216,8 @@ const row = (key: string, label: string, kind: EntityKindName, payout = ""): Ent
   expiryTo: "",
   sinceAtCeiling: "",
   resetSinceAtCeiling: "",
+  endings: [],
+  endingAllotment: {},
   law: EMPTY_LAW,
 })
 
@@ -258,14 +271,20 @@ export const hasAtCeiling = (form: WorldForm): boolean =>
   hasCz(form) &&
   form.rows.some((each) => (each.kind === "at" ? atCeilingsTyped(form, each) : each.kind === "mode" ? [each.atCeiling, each.atUnitCeiling] : []).some((text) => text.trim() !== ""))
 
-/** A key no row has yet. */
+/** A key no row, nor any AT's ending, has yet. */
 export const freshKey = (rows: readonly EntityRow[]): string => {
-  const used = new Set(rows.map((each) => each.key))
+  const used = new Set(rows.flatMap((each) => [each.key, ...each.endings.map((ending) => ending.key)]))
   const next = (count: number): string => (used.has(`e${count}`) ? next(count + 1) : `e${count}`)
-  return next(rows.length + 1)
+  return next(used.size + 1)
 }
 
 export const newRow = (rows: readonly EntityRow[], kind: EntityKindName): EntityRow => row(freshKey(rows), "", kind)
+
+/** An ending of the AT not yet typed, under a key no row nor ending has. */
+export const newEnding = (rows: readonly EntityRow[]): EndingForm => ({ key: freshKey(rows), label: "", shares: {} })
+
+/** The AT's endings as typed, where the machine has modes for them to allot; none otherwise. */
+export const atEndings = (form: WorldForm): readonly EndingForm[] => (hasModes(form) ? (form.rows.find((each) => each.kind === "at")?.endings ?? []) : [])
 
 const DECIMAL = /^(\d+)(?:\.(\d+))?$/
 
@@ -447,8 +466,37 @@ interface ReadRow {
   readonly ceilingAcrossBonuses: number | undefined
   /** An AT a CZ brings: how often a regular game wins it outright, where given. */
   readonly direct: readonly BySettingLevelDto<ProbabilityDto>[] | undefined
+  /** An AT's endings, each with its share in basis points, where the machine has modes for them to allot. */
+  readonly endings: readonly ReadEnding[] | undefined
+  /** A mode's 振り分け after each ending typed for it, in basis points, by the ending's key. */
+  readonly endingAllotment: Readonly<Record<string, readonly BySettingLevelDto<number>[]>> | undefined
   readonly law: ReadLaw | undefined
 }
+
+/** An ending read: its key, its name, and its share of ATs under each level. */
+interface ReadEnding {
+  readonly key: string
+  readonly label: string
+  readonly share: readonly BySettingLevelDto<number>[]
+}
+
+/** An ending of the AT read: a name, and a share under every level; the first thing wrong otherwise. */
+const endingOf = (form: WorldForm, ending: EndingForm, index: number): Result<ReadEnding, readonly FormProblem[]> => {
+  const name = ending.label.trim() === "" ? `ATの終わり方${index + 1}` : ending.label.trim()
+  const label: Read<string> = ending.label.trim() === "" ? Err({ field: `ATの終わり方${index + 1} 名前`, reason: "required" }) : Ok(ending.label.trim())
+  const shares = sharesOf(form, ending.shares, `${name} 割合`, false) ?? []
+  const problems = problemsOf([label, ...shares])
+  return problems.length > 0 || !label.ok ? Err(problems) : Ok({ key: ending.key, label: label.value, share: valuesOf(shares) })
+}
+
+/** A mode's 振り分け after each of the AT's endings, read: those typed for it, by the ending's key; none where none is. */
+const endingAllotmentOf = (form: WorldForm, entity: EntityRow, name: string): readonly Read<readonly [string, readonly BySettingLevelDto<number>[]]>[] =>
+  atEndings(form).flatMap((ending, index) => {
+    const shares = sharesOf(form, entity.endingAllotment[ending.key] ?? {}, `${name} ${ending.label.trim() === "" ? `ATの終わり方${index + 1}` : ending.label.trim()}のあとの振り分け`, true)
+    if (shares === undefined) return []
+    const [problem] = problemsOf(shares)
+    return [problem === undefined ? Ok([ending.key, valuesOf(shares)] as const) : Err(problem)]
+  })
 
 /** An AT's law and 有利区間, read into the components they become. */
 interface ReadLaw {
@@ -602,7 +650,11 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
     counted && ((entity.kind === "at" && !hasModes(form)) || isCz) ? ceilingOf(entity.resetUnitCeiling, `${name} ${brought ? "リセット後のAT間天井" : "リセット後の天井"}（${unit}）`) : Ok(undefined)
   const atUnitCeiling = counted && isMode && hasCz(form) ? ceilingOf(entity.atUnitCeiling, `${name} AT間天井（${unit}）`) : Ok(undefined)
   const law = entity.kind === "at" ? readLaw(form, entity, name) : Ok(undefined)
+  const endings = entity.kind === "at" && hasModes(form) ? entity.endings.map((ending, index) => endingOf(form, ending, index)) : []
+  const endingAllotment = isMode ? endingAllotmentOf(form, entity, name) : []
   const problems = [
+    ...endings.flatMap((read) => (read.ok ? [] : read.error)),
+    ...problemsOf(endingAllotment),
     ...problemsOf([label, payout, of, trials, net, sinceAtCeiling, resetSinceAtCeiling, ceilingAcrossBonuses, ...direct, ceiling, resetCeiling, atCeiling, unitCeiling, resetUnitCeiling, atUnitCeiling, misses, ...chances, ...allotment, ...(resetAllotment ?? []), ...success, ...bonusShare, ...gates, ...redraw, ...ceilingRedraw, ...triggerChance, expiry]),
     ...(law.ok ? [] : law.error),
   ]
@@ -633,6 +685,8 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
     sinceAtCeiling: sinceAtCeiling.ok ? sinceAtCeiling.value : undefined,
     resetSinceAtCeiling: resetSinceAtCeiling.ok ? resetSinceAtCeiling.value : undefined,
     ceilingAcrossBonuses: ceilingAcrossBonuses.ok ? ceilingAcrossBonuses.value : undefined,
+    endings: endings.length > 0 ? endings.flatMap((read) => (read.ok ? [read.value] : [])) : undefined,
+    endingAllotment: endingAllotment.length > 0 ? Object.fromEntries(valuesOf(endingAllotment)) : undefined,
     law: law.value,
   })
 }
@@ -698,11 +752,13 @@ const worldOf = (form: WorldForm, bet: number, at: MachineResources | undefined,
   const otherNets = keyed((read) => read.law?.otherNets)
   const windows = keyed((read) => read.law?.window)
   const resetOnCap = rows.filter((read) => read.law?.resetOnCap === true).map((read) => read.entity.key)
+  const endings = rows.flatMap((read) => read.endings ?? [])
+  const endingAllotments = keyed((read) => read.endingAllotment)
   return {
     v: SPEC_VERSION,
-    entities: rows.map((read) => read.entity.key),
+    entities: rows.flatMap((read) => [read.entity.key, ...(read.endings ?? []).map((ending) => ending.key)]),
     components: {
-      label: keyed((read) => read.entity.label.trim()),
+      label: { ...keyed((read) => read.entity.label.trim()), ...Object.fromEntries(endings.map((ending) => [ending.key, ending.label])) },
       ...(rows.some((read) => !isAt(read) && !isCz(read) && !isMode(read) && read.entity.kind !== "watch") ? { chance: keyed((read) => (isAt(read) || isCz(read) ? undefined : read.chance)) } : {}),
       ...(rows.some((read) => read.payout !== undefined) ? { payout: keyed((read) => read.payout) } : {}),
       ...(bonuses.length > 0 ? { bonus: bonuses } : {}),
@@ -721,6 +777,8 @@ const worldOf = (form: WorldForm, bet: number, at: MachineResources | undefined,
       ...(Object.keys(resetCeilings).length > 0 ? { resetCeiling: resetCeilings } : {}),
       ...(listed("mode").length > 0 ? { mode: listed("mode"), allotment: keyed((read) => read.allotment) } : {}),
       ...(Object.keys(resetAllotments).length > 0 ? { resetAllotment: resetAllotments } : {}),
+      ...(endings.length > 0 ? { ending: Object.fromEntries(endings.map((ending) => [ending.key, ending.share])) } : {}),
+      ...(Object.keys(endingAllotments).length > 0 ? { endingAllotment: endingAllotments } : {}),
       ...(Object.keys(atCeilings).length > 0 ? { atCeiling: atCeilings } : {}),
       ...(Object.keys(unitCeilings).length > 0 ? { unitCeiling: unitCeilings } : {}),
       ...(Object.keys(resetUnitCeilings).length > 0 ? { resetUnitCeiling: resetUnitCeilings } : {}),
@@ -883,11 +941,28 @@ const czTriggerOf = (spec: SpecDto, entity: string): CzTrigger => {
   return spec.components.cz?.includes(entity) === true && spec.components.bonus?.includes(entity) === true ? "bonus" : "cz"
 }
 
-/** A stored world as rows again, for a formula remade from it. */
+/** Shares in basis points as typed again, in percent by the level. */
+const percentsOf = (values: readonly BySettingLevelDto<number>[] | undefined): Readonly<Record<string, string>> =>
+  Object.fromEntries((values ?? []).map((each) => [String(each.settingLevel), percentText(each.value)]))
+
+/** A stored AT's endings as typed again, in the order made; none on any other entity. */
+const endingsFormOf = (spec: SpecDto, entity: string): readonly EndingForm[] =>
+  spec.components.at?.includes(entity) === true
+    ? spec.entities.flatMap((key) => {
+        const shares = spec.components.ending?.[key]
+        return shares === undefined ? [] : [{ key, label: spec.components.label?.[key] ?? key, shares: percentsOf(shares) }]
+      })
+    : []
+
+/** A stored mode's 振り分け after each ending as typed again, by the ending's key. */
+const endingAllotmentFormOf = (spec: SpecDto, entity: string): EntityRow["endingAllotment"] =>
+  Object.fromEntries(Object.entries(spec.components.endingAllotment?.[entity] ?? {}).map(([ending, values]) => [ending, percentsOf(values)]))
+
+/** A stored world as rows again, for a formula remade from it: an AT's endings typed on its row. */
 export const worldFormOf = (spec: SpecDto): WorldForm => ({
   settingLevels: spec.resources.settingLevels,
   bet: String(spec.resources.bet),
-  rows: spec.entities.map((entity) => ({
+  rows: spec.entities.filter((entity) => spec.components.ending?.[entity] === undefined).map((entity) => ({
     key: entity,
     label: spec.components.label?.[entity] ?? entity,
     kind: kindOf(spec, entity),
@@ -919,6 +994,8 @@ export const worldFormOf = (spec: SpecDto): WorldForm => ({
     expiryTo: spec.components.expiry?.[entity]?.to ?? "",
     sinceAtCeiling: spec.components.sinceAtCeiling?.[entity] === undefined ? "" : String(spec.components.sinceAtCeiling[entity]),
     resetSinceAtCeiling: typedCount(spec.components.resetSinceAtCeiling?.[entity]),
+    endings: endingsFormOf(spec, entity),
+    endingAllotment: endingAllotmentFormOf(spec, entity),
     law: lawFormOf(spec, entity),
   })),
   base: spec.resources.base === undefined ? "" : String(spec.resources.base),

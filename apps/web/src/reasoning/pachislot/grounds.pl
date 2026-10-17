@@ -127,11 +127,22 @@ rule(ceiling_on_screen, in_games(Screen, Games), ( Screen \== none, given(lcd_ra
 % that reaches the cap starts play again as after a setting change — the
 % two allotments mixed by the share of ATs that do.
 rule(shares_after_at, shares(Level, Shares),
-     ( \+ given(reset_on_cap), findall(Share, given(allotted(Level, _, Share, _)), Shares) )).
+     ( \+ given(reset_on_cap), findall(Share, allotted_at(Level, _, Share), Shares) )).
 rule(shares_settled, shares(Level, Shares),
      ( given(reset_on_cap), completion(Level, Completion), findall(Share, settled_share(Level, Completion, Share), Shares) )).
 rule(settled_share, settled_share(Level, Completion, Share),
-     ( given(allotted(Level, _, At, Reset)), Share is (1 - Completion) * At + Completion * Reset )).
+     ( given(allotted(Level, Index, _, Reset)), allotted_at(Level, Index, At), Share is (1 - Completion) * At + Completion * Reset )).
+
+% How an AT allots play to a mode: as the sheet gives it, or — where the
+% modes are allotted by how the AT ended — each ending's allotment to it
+% weighed by the share of ATs that end so, summed: play after an AT not
+% seen to end is in each mode as often as that, and every figure of the
+% machine is worked from it.
+rule(allotted_plain, allotted_at(Level, Index, At), ( \+ given(ended), given(allotted(Level, Index, At, _)) )).
+rule(allotted_by_ending, allotted_at(Level, Index, At),
+     ( given(ended), given(allotted(Level, Index, _, _)), findall(Part, ending_part(Level, Index, _, Part), Parts), sum_list(Parts, At) )).
+rule(ending_part, ending_part(Level, Index, Ending, Part),
+     ( given(ending_share(Level, Ending, Share)), given(ended_allotted(Level, Ending, Index, After)), Part is Share * After )).
 
 % ATの平均獲得枚数: what the stated 機械割 implies, or what the sheet's
 % payout comes to — its figure, its sets carried on at a 継続率, or its
@@ -165,7 +176,7 @@ rule(law_by_table, law(Level, table(Rows)),
      ( given(law(Level, table)), findall(o(Medals, Share), given(payout_row(Level, Medals, Share)), Rows) )).
 rule(arrivals_in_window, arrivals(Level, Arrivals),
      ( given(window(Window)), given(chance(Level, Chance)), success(Level, Success), mode_misses(Misses), ceilings(Ceilings),
-       findall(Share, given(allotted(Level, _, Share, _)), Shares), at_ceilings(AtCeilings),
+       findall(Share, allotted_at(Level, _, Share), Shares), at_ceilings(AtCeilings),
        arriving(Chance, Success, Misses, Ceilings, Shares, AtCeilings, Window, Arrivals) )).
 rule(no_window, arrivals(_, none), \+ given(window(_))).
 rule(completion_under_cap, completion(Level, Completion), capped(Level, _, Completion)).

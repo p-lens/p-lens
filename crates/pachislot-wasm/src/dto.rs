@@ -89,6 +89,14 @@ pub struct ComponentsDto {
     pub allotment: BTreeMap<String, Vec<BySettingLevelDto<u32>>>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub reset_allotment: BTreeMap<String, Vec<BySettingLevelDto<u32>>>,
+    /// An ending: one way an AT ends, with its share of ATs in hundredths of
+    /// a percent under each setting.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub ending: BTreeMap<String, Vec<BySettingLevelDto<u32>>>,
+    /// On a mode: its allotment after an AT that ended a given way, by the
+    /// ending, in hundredths of a percent under each setting.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub ending_allotment: BTreeMap<String, BTreeMap<String, Vec<BySettingLevelDto<u32>>>>,
     /// A mode's own AT間天井, in regular games.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub at_ceiling: BTreeMap<String, u32>,
@@ -416,11 +424,25 @@ pub struct LawRowDto {
 
 /// How a setting allots play between an AT machine's modes, in the order of
 /// its rules: after an AT, and after a setting change; each sums to one.
+/// Where the modes are allotted by how an AT ended, each ending's share and
+/// allotment, in the order of the rules' endings — `afterAt` being them
+/// mixed; none where they are not.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AllotmentsDto {
     pub after_at: Vec<f64>,
     pub after_reset: Vec<f64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub after_endings: Vec<AfterEndingDto>,
+}
+
+/// One way an AT ends under a setting: its share of ATs, and the modes'
+/// shares after an AT that ended so.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AfterEndingDto {
+    pub share: f64,
+    pub after_at: Vec<f64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -483,6 +505,10 @@ pub struct AtRulesDto {
     /// play again, in regular games, where there is one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ceiling_across_bonuses: Option<u32>,
+    /// The ways an AT ends, where the modes are allotted by them; none
+    /// where they are not.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub endings: Vec<String>,
 }
 
 /// A bonus that misses the AT counted as a miss, or starting play again.
@@ -719,7 +745,7 @@ pub struct PathDto {
     pub legs: Vec<LegDto>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PathStartDto {
     pub since_trigger: u32,
@@ -733,6 +759,10 @@ pub struct PathStartDto {
     /// again since it; none where none did.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub since_at_across_bonuses: Option<u32>,
+    /// How the last AT ended, by the ending's name, where it is said; play
+    /// then starts from that ending's allotment.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ending: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
@@ -1139,6 +1169,29 @@ pub enum ErrorDto {
     },
     ResetAllotmentPartial {
         entity: String,
+    },
+    EndingWithoutModes {
+        entity: String,
+    },
+    EndingsNotWhole {
+        setting_level: u8,
+        sum: u32,
+    },
+    EndingAllotmentToUnknown {
+        entity: String,
+        ending: String,
+    },
+    EndingAllotmentNotWhole {
+        ending: String,
+        setting_level: u8,
+        sum: u32,
+    },
+    EndingsWithoutAllotment {
+        entity: String,
+    },
+    /// A seat that says the last AT ended a way the machine does not have.
+    UnknownEnding {
+        ending: String,
     },
     CzWithoutAt {
         entity: String,

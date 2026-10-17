@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import type { NormalizedSpecDto } from "@p-lens/contracts/pachislot"
 
-import { atSeatCheckpoint, ceilingsOf, czMissedAt, hasCz, huntSeatsOf, inAt, pathOf, resetMatters, standingOf, withLastTakenBack } from "../../../src/core/pachislot/path"
+import { atEndingsOf, atSeatCheckpoint, ceilingsOf, czMissedAt, hasCz, huntSeatsOf, inAt, pathOf, resetMatters, standingOf, withLastTakenBack } from "../../../src/core/pachislot/path"
 import { parsePlayLog, type Checkpoint } from "../../../src/core/play-log/checkpoint"
 
 const at = "2026-10-05T10:00:00.000Z"
@@ -262,5 +262,34 @@ describe("the seats 天井狙い is tabled at", () => {
     expect(huntSeatsOf(shortened, false, 2)[3]).toEqual({ sinceTrigger: 0, sinceAt: 300, misses: 2, afterReset: false })
     expect(huntSeatsOf(shortened, false, 0)[3]).toEqual({ sinceTrigger: 150, sinceAt: 150, misses: 0, afterReset: false })
     expect(huntSeatsOf(direct, false, 0).map((seat) => seat.sinceAt)).toEqual([0, 100, 200, 300, 400, 500, 600, 700, 800, 900])
+  })
+
+  test("after an AT said to have ended a given way, each seat says so and reaches only the modes it allots play to", () => {
+    const ended: NormalizedSpecDto = {
+      schemaVersion: 1,
+      bet: 3,
+      tables: [1, 6].map((settingLevel) => ({
+        settingLevel,
+        events: [],
+        at: {
+          chance: 0.01,
+          success: 1,
+          allotments: { afterAt: [0.3, 0.7], afterReset: [0, 1], afterEndings: [{ share: 0.3, afterAt: [1, 0] }, { share: 0.7, afterAt: [0, 1] }] },
+          payout: { type: "fixed" as const, medals: 600 },
+        },
+      })),
+      atRules: { base: 40, at: "at", modes: [{ id: "short", ceiling: 428 }, { id: "long", ceiling: 1009 }], endings: ["through", "rest"] },
+    }
+    expect(huntSeatsOf(ended, false, 0).at(-1)).toEqual({ sinceTrigger: 1000, sinceAt: 1000, misses: 0, afterReset: false })
+    expect(huntSeatsOf(ended, false, 0, "through").map((seat) => seat.sinceAt)).toEqual([0, 50, 100, 150, 200, 250, 300, 350, 400])
+    expect(huntSeatsOf(ended, false, 0, "through")[1]).toEqual({ sinceTrigger: 50, sinceAt: 50, misses: 0, afterReset: false, ending: "through" })
+    expect(huntSeatsOf(ended, false, 0, "rest").at(-1)?.sinceAt).toBe(1000)
+    expect(huntSeatsOf(ended, true, 0, "through").every((seat) => seat.ending === undefined)).toBe(true)
+    expect(huntSeatsOf(ended, false, 0, "upper").every((seat) => seat.ending === undefined)).toBe(true)
+    expect(atEndingsOf(ended, { v: 1, entities: [], components: { label: { through: "駆け抜け" } }, resources: { settingLevels: [1, 6], bet: 3 } })).toEqual([
+      { id: "through", label: "駆け抜け" },
+      { id: "rest", label: "rest" },
+    ])
+    expect(atEndingsOf(direct, { v: 1, entities: [], components: {}, resources: { settingLevels: [1, 6], bet: 3 } })).toEqual([])
   })
 })

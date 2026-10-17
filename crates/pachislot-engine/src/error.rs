@@ -124,6 +124,35 @@ pub enum SpecError {
     ResetAllotmentPartial {
         entity: EntityId,
     },
+    /// An ending of the AT on a machine without modes of its own — or
+    /// without an AT — where how an AT ended allots nothing.
+    EndingWithoutModes {
+        entity: EntityId,
+    },
+    /// Endings whose shares of ATs under a setting do not come to exactly
+    /// 100%; in hundredths of a percent.
+    EndingsNotWhole {
+        setting_level: SettingLevel,
+        sum: u32,
+    },
+    /// A mode's allotment after an ending the machine does not have.
+    EndingAllotmentToUnknown {
+        entity: EntityId,
+        ending: EntityId,
+    },
+    /// A setting's allotment between the modes after an AT that ended a
+    /// given way — each mode's own after it, or its `allotment` — that does
+    /// not come to exactly 100%; in hundredths of a percent.
+    EndingAllotmentNotWhole {
+        ending: EntityId,
+        setting_level: SettingLevel,
+        sum: u32,
+    },
+    /// Endings that no mode is allotted after differently: every ending
+    /// would allot the modes alike, and how an AT ended would say nothing.
+    EndingsWithoutAllotment {
+        entity: EntityId,
+    },
     /// A CZ on a machine with no AT for it to win.
     CzWithoutAt {
         entity: EntityId,

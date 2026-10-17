@@ -10,6 +10,7 @@ import type { ParlorHolding, TokenHolding } from "../../../core/report/holdings"
 import { untilTerm } from "../../../hledger/query/terms"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
+import { TickFilter, type Offered } from "../../primitives/filter"
 import { EmptyState, Loaded } from "../../primitives/states"
 import { TextField } from "../../primitives/text-field"
 import { useMoves } from "../../navigation/moves"
@@ -92,21 +93,36 @@ export function ParlorCard(props: { readonly holding: ParlorHolding; readonly ch
   )
 }
 
+const BY_PARLOR = "店舗"
+
+/** What the filter of parlors says where the book holds savings at none. */
+const NO_PARLORS = "貯玉・貯メダルのある店舗がないため、絞り込めません。"
+
 /**
  * Savings at every parlor, valued at the rate in force on the day shown,
  * with the ways to set them — the savings a person already had when they
  * began the book, registered once, and a pool's count put right — and to
  * record a pool's savings exchanged for prizes.
  * Choosing a day writes `date:..` into the query, so a past valuation is an
- * address like any other.
+ * address like any other. A funnel at the end of that row chooses which
+ * parlors' savings are shown, the total over theirs alone, hledger asked
+ * of their accounts; which are chosen is the address's too.
  */
-export function HoldingsView(props: { readonly place: Place; readonly bookId: BookId; readonly query: string }): JSX.Element {
+export function HoldingsView(props: { readonly place: Place; readonly bookId: BookId; readonly parlors: readonly string[] | undefined; readonly query: string }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
-  const [holdings] = createResource(
+  const [every] = createResource(
     () => ({ bookId: props.bookId, query: props.query, revision: app.revision() }),
     (source) => loadHoldings(app.services.session, source.bookId, source.query),
   )
+  const [narrowed] = createResource(
+    () => (props.parlors === undefined ? undefined : { bookId: props.bookId, query: props.query, parlors: props.parlors, revision: app.revision() }),
+    (source) => loadHoldings(app.services.session, source.bookId, source.query, source.parlors),
+  )
+  /** The savings shown: at every parlor, or at those chosen, hledger asked of theirs alone. */
+  const holdings = () => (props.parlors === undefined ? every() : narrowed())
+  /** The parlors the book holds savings at, whatever is chosen: what the funnel offers. */
+  const offered = (): readonly Offered[] => ((found) => (found?.ok === true ? found.value.parlors.map((holding) => ({ key: holding.parlorName, label: holding.parlorName })) : []))(every())
   const valuedOn = (): string => {
     const found = holdings()
     return found?.ok === true ? (found.value.valuedOn ?? "") : ""
@@ -115,7 +131,7 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
     () => ({ bookId: props.bookId, revision: app.revision() }),
     (source) => loadRecordingContext(app.services.session, source.bookId, app.services.member),
   )
-  const offered = createOffered()
+  const listedParlors = createOffered()
   const [opening, setOpening] = createSignal(false)
   /** What registering savings needs of the book, once it is read and the book may be written. */
   const writable = () => {
@@ -132,7 +148,7 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
       <div class="max-w-5xl">
         <div class="flex flex-col gap-4 p-4">
           <div class="flex flex-wrap items-end gap-3">
-            <div class="w-48">
+            <div class="w-[8.5rem]">
               <TextField label="評価日" type="date" value={valuedOn()} onChange={chooseDay} />
             </div>
             <Show when={props.query !== ""}>
@@ -145,15 +161,20 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
                 開始残高を登録
               </Button>
             </Show>
+            <TickFilter label={BY_PARLOR} offered={offered()} none={NO_PARLORS} chosen={props.parlors} onChosen={(parlors) => moves.go({ kind: "book-view", bookId: props.bookId, view: "holdings", parlors }, props.query)} class="ml-auto" />
           </div>
           <Show when={opening() ? writable() : undefined} keyed>
-            {(found) => <OpeningBalanceForm bookId={props.bookId} context={found} list={offered.list()} submissions={offered.submissions()} onDone={() => setOpening(false)} />}
+            {(found) => <OpeningBalanceForm bookId={props.bookId} context={found} list={listedParlors.list()} submissions={listedParlors.submissions()} onDone={() => setOpening(false)} />}
           </Show>
           <Loaded outcome={holdings()}>
             {(found) => (
               <Show
                 when={found.parlors.length > 0}
-                fallback={<EmptyState title="貯玉・貯メダルはありません">収支を記録するか、開始残高を登録すると、店舗ごとの残高がここに並びます。</EmptyState>}
+                fallback={
+                  <Show when={props.parlors?.length !== 0} fallback={<EmptyState title="店舗が選ばれていません">右上の絞り込みで、残高を見る店舗を選んでください。</EmptyState>}>
+                    <EmptyState title="貯玉・貯メダルはありません">収支を記録するか、開始残高を登録すると、店舗ごとの残高がここに並びます。</EmptyState>
+                  </Show>
+                }
               >
                 <p class="text-sm text-text-muted">
                   合計 <span class="font-semibold tabular-nums text-text-primary">{formatYen(found.total)}</span>

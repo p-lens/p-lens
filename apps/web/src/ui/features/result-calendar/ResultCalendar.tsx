@@ -83,8 +83,8 @@ function Day(props: { readonly day: IsoDate; readonly figures: Group | undefined
  * month as a whole, and says where a day pressed goes. Nothing here adds
  * a day to another. Where part of the month's theoretical value was
  * inferred, how much is said under it, so a figure nobody measured is not
- * taken for one somebody did. What the caller puts inside stands under
- * the calendar.
+ * taken for one somebody did. A filter the caller gives stands at the
+ * end of the month's row, after 今月.
  */
 export function ResultCalendar(props: {
   readonly place: Place
@@ -94,7 +94,8 @@ export function ResultCalendar(props: {
   readonly whole: Outcome<readonly Group[]> | undefined
   readonly theoreticalKept: boolean
   readonly onOpen: (day: IsoDate) => void
-  readonly children?: JSX.Element
+  /** Whose tallies the calendar is of, chosen at the end of the month's row. */
+  readonly filter?: JSX.Element
 }): JSX.Element {
   const app = useApp()
   const figures = createMemo(() => byDay(groupsIn(props.days)))
@@ -117,6 +118,7 @@ export function ResultCalendar(props: {
             <Button type="button" variant="outline" size="small" onClick={() => props.onMonth(monthOf(app.services.businessDay()))}>
               今月
             </Button>
+            {props.filter}
           </div>
           <dl class="grid grid-cols-2 gap-2">
             <Figure label="実収支" value={total().actual} kind="actual" />
@@ -153,7 +155,6 @@ export function ResultCalendar(props: {
               )}
             </For>
           </div>
-          {props.children}
         </div>
       </div>
     </MainContent>

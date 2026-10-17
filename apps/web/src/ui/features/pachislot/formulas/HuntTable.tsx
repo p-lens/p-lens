@@ -2,7 +2,7 @@ import { createMemo, createResource, createSignal, For, Show, type JSX } from "s
 
 import { huntTable } from "../../../../application/pachislot/hunt"
 import type { Basis } from "../../../../core/pachislot/formula"
-import { deepestMisses, huntSeatsOf, resetMatters } from "../../../../core/pachislot/path"
+import { atEndingsOf, deepestMisses, huntSeatsOf, resetMatters } from "../../../../core/pachislot/path"
 import { DEFAULT_PRIOR } from "../../../../core/pachislot/prior"
 import { useApp } from "../../../context"
 import { Loaded } from "../../../primitives/states"
@@ -14,11 +14,22 @@ import { triggerWordsOf } from "../../../wording/pachislot/trigger"
 import { readTerms } from "../../live/start-terms"
 import { useStartForm } from "../../live/start-form"
 
+/** The toggle's value for a last AT however it ended. */
+const ANY_ENDING = "any"
+
+/** What sets an ending's toggle value apart from the one for any ending. */
+const ENDING_PREFIX = "ending:"
+
+/** The ending a toggle value names; none for any ending. */
+const endingOfValue = (value: string): string | undefined => (value.startsWith(ENDING_PREFIX) ? value.slice(ENDING_PREFIX.length) : undefined)
+
 /**
  * 天井狙い at an AT machine down a table, by the games since the last AT
  * sat down at: what playing on to the next AT's end comes to, the games it
  * takes and how often a ceiling wins it — after a setting change or not,
- * and just after so many CZs missed where a スルー天井 makes them count.
+ * and just after so many CZs missed where a スルー天井 makes them count;
+ * and, where the machine allots its modes by how an AT ended, after a last
+ * AT that ended a given way, or however it ended (指定なし).
  * Weighed under the stock spread a play starts with, on the slot terms the
  * start screen holds.
  */
@@ -27,10 +38,13 @@ export function HuntTable(props: { readonly basis: Basis }): JSX.Element {
   const start = useStartForm()
   const [afterReset, setAfterReset] = createSignal(false)
   const [misses, setMisses] = createSignal(0)
+  const [ending, setEnding] = createSignal<string | undefined>(undefined)
+  const endings = createMemo(() => atEndingsOf(props.basis.normalized, props.basis.spec))
+  const endingLabel = (): string | undefined => ((id) => (id === undefined || afterReset() ? undefined : endings().find((each) => each.id === id)?.label))(ending())
   const limit = (): number | undefined =>
     ((rules) => (rules === undefined ? undefined : deepestMisses(rules)))(props.basis.normalized.atRules)
   const terms = createMemo(() => ((read) => (read.ok ? read.value : undefined))(readTerms(start.form().terms.slot, "slot")))
-  const seats = createMemo(() => huntSeatsOf(props.basis.normalized, afterReset(), misses()))
+  const seats = createMemo(() => huntSeatsOf(props.basis.normalized, afterReset(), misses(), ending()))
   const [rows] = createResource(
     () => ((found) => (found === undefined ? undefined : { terms: found, seats: seats() }))(terms()),
     (asked) => huntTable(app.services.pachislot, props.basis, asked.terms, asked.seats),
@@ -44,6 +58,15 @@ export function HuntTable(props: { readonly basis: Basis }): JSX.Element {
             <ToggleGroupItem value="kept">設定変更なし</ToggleGroupItem>
             <ToggleGroupItem value="reset">設定変更後</ToggleGroupItem>
           </ToggleGroup>
+        </Show>
+        <Show when={endings().length > 0 && !afterReset()}>
+          <div class="flex flex-col gap-1.5">
+            <span class="text-xs text-text-muted">前のAT</span>
+            <ToggleGroup value={ending() === undefined ? ANY_ENDING : `${ENDING_PREFIX}${ending() ?? ""}`} onChange={(value: string | null) => value !== null && setEnding(endingOfValue(value))} aria-label="前のAT">
+              <ToggleGroupItem value={ANY_ENDING}>指定なし</ToggleGroupItem>
+              <For each={endings()}>{(each) => <ToggleGroupItem value={`${ENDING_PREFIX}${each.id}`}>{each.label}</ToggleGroupItem>}</For>
+            </ToggleGroup>
+          </div>
         </Show>
         <Show when={limit()} keyed>
           {(most) => (
@@ -87,7 +110,11 @@ export function HuntTable(props: { readonly basis: Basis }): JSX.Element {
           )}
         </Loaded>
       </Show>
-      <p class="text-xs text-text-muted">設定配分「{priorName(DEFAULT_PRIOR)}」のもとで、通常時は現金で打ち、次のATが終わるまでの平均です。{misses() > 0 ? ((trigger) => `${trigger.name}スルーは、${trigger.missed}の直後として出しています。`)(triggerWordsOf(props.basis.normalized)) : ""}</p>
+      <p class="text-xs text-text-muted">
+        設定配分「{priorName(DEFAULT_PRIOR)}」のもとで、通常時は現金で打ち、次のATが終わるまでの平均です。
+        {misses() > 0 ? ((trigger) => `${trigger.name}スルーは、${trigger.missed}の直後として出しています。`)(triggerWordsOf(props.basis.normalized)) : ""}
+        {((label) => (label === undefined ? "" : `前のATが${label}だった場合の値です。`))(endingLabel())}
+      </p>
     </section>
   )
 }

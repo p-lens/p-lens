@@ -89,6 +89,7 @@ const saidOf = (intent: ChangeIntent): Pick<ActivityLine, "did" | "parts"> | und
     case "book-placed":
     case "business-day-turn-set":
     case "presses-set":
+    case "inference-terms-set":
       return undefined
     case "book-created":
       return { did: intent.type, parts: {} }

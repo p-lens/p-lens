@@ -1,6 +1,7 @@
 import { createSignal, onCleanup, type Accessor } from "solid-js"
 
 import { createLongPress } from "./long-press"
+import { feelHold } from "./vibration"
 
 /** A run of a list's rows, by the places of its first and its last. */
 export interface Span {
@@ -222,6 +223,7 @@ export const createSpanPress = (stretch: (anchor: number, reached: number) => Sp
     const list = held.list
     if (anchor === undefined || list === undefined) return
     held.scroller = scrollerOf(way, list)
+    feelHold()
     setPressing({ type: "stretching", anchor, reached: anchor, span: { from: anchor, to: anchor } })
     window.addEventListener("pointermove", moved)
     window.addEventListener("pointerup", letGo)

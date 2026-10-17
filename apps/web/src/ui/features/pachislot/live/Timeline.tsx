@@ -7,6 +7,7 @@ import type { Checkpoint } from "../../../../core/play-log/checkpoint"
 import { cn } from "../../../primitives/cn"
 import { ConfirmPopover } from "../../../primitives/popover"
 import { createSpanPress, inSpan, spanRow } from "../../../primitives/span-press"
+import { feelTap } from "../../../primitives/vibration"
 import { formatMoment } from "../../../wording/dates"
 import { formatCount } from "../../../wording/numbers"
 import { MERGE_READINGS, mergeSays } from "../../../wording/pachislot/play"
@@ -184,7 +185,9 @@ export function Timeline(props: {
                   class={cn(shape(), "hover:bg-surface-3/40", props.revising === row.step && "bg-warning/10 ring-1 ring-warning/50", inSpan(press.span(), row.step) && "bg-accent/30")}
                   aria-label={`${formatCount(row.checkpoint.spins)}Gの記録を修正`}
                   onClick={() => {
-                    if (row.step !== undefined && !press.wasHeld()) props.onRevise?.(row.step)
+                    if (row.step === undefined || press.wasHeld() || props.onRevise === undefined) return
+                    feelTap()
+                    props.onRevise(row.step)
                   }}
                 >
                   <ReadingRow checkpoint={row.checkpoint} bonuses={bonuses()} trigger={props.trigger ?? triggerWordsOf(undefined)} strip={strip()} />

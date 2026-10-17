@@ -4,6 +4,7 @@ import { ACCOUNTS, rentalSpreadAccount, savingsAccount, savingsRoot } from "../.
 import type { PlayId } from "../../core/play/play"
 import { TALLY_TAGS } from "../../core/tally/tally"
 import { SAVINGS_TAG } from "../../core/savings/balance"
+import { UNSENT } from "../../core/report/senders"
 
 /**
  * hledger query terms P-Lens writes. Each is a string hledger reads as it
@@ -62,6 +63,30 @@ export const talliesTerm = `tag:${TALLY_TAGS.playId}`
 
 /** The tallies of plays someone sent: those that name their sender by id. */
 export const sentTalliesTerm = `tag:^${escapeRegex(TALLY_TAGS.senderId)}$`
+
+/**
+ * The tallies of those chosen among who played a book: senders by the id
+ * their tallies carry, and the tallies that name no sender by `UNSENT`.
+ * Where those are among them, it is every tally but the senders left out
+ * of those offered — the empty term where none is — and otherwise the
+ * chosen senders' alone. Nothing at all where nobody is chosen: no term
+ * says that, so it is `undefined`, and nothing is asked.
+ */
+export const sendersTerm = (chosen: readonly string[], offered: readonly string[]): string | undefined => {
+  const senders = (among: readonly string[]): readonly string[] => among.filter((each) => each !== UNSENT)
+  const pattern = (ids: readonly string[]): string => `tag:^${escapeRegex(TALLY_TAGS.senderId)}$=^(${ids.map(escapeRegex).join("|")})$`
+  if (chosen.includes(UNSENT)) return ((left) => (left.length === 0 ? "" : `not:${pattern(left)}`))(senders(offered).filter((each) => !chosen.includes(each)))
+  return ((ids) => (ids.length === 0 ? undefined : pattern(ids)))(senders(chosen))
+}
+
+/**
+ * The savings accounts of some parlors, by the names the book keeps them
+ * under, of every kind of token and rate; nothing at all where none is
+ * named, so it is `undefined`. Quoted, for a parlor's name may hold a
+ * space, and a quote in one is matched by any letter.
+ */
+export const savingsAtTerm = (parlorNames: readonly string[]): string | undefined =>
+  parlorNames.length === 0 ? undefined : `"^(${escapeRegex(savingsRoot("ball"))}|${escapeRegex(savingsRoot("medal"))}):(${parlorNames.map((name) => escapeRegex(name).replaceAll('"', ".")).join("|")}):"`
 
 /** The tallies that say a spin performance: one their play's log measured, or one their play was inferred to have had. */
 export const spinPerformanceTerm = `tag:^(${escapeRegex(TALLY_TAGS.spinPerformance)}|${escapeRegex(TALLY_TAGS.inferredSpinPerformance)})$`

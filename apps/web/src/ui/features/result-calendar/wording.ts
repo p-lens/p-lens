@@ -5,6 +5,12 @@ import { formatSignedYen, formatTheoreticalYen } from "../../wording/numbers"
 /** What the calendar is called in a book's list of views. */
 export const RESULT_CALENDAR = "カレンダー"
 
+/** What the funnel that chooses whose tallies the calendar shows is called. */
+export const BY_PLAYERS = "打った人"
+
+/** What the filter of who played says where the book has no tally anyone sent: everything in it is its owner's. */
+export const NO_PLAYERS = "送られた稼働がないため、打った人では絞り込めません。"
+
 /** The days of a week as the calendar heads its columns, Sunday first. */
 export const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const
 

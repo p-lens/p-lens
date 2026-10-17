@@ -145,29 +145,67 @@ export const consumptionOf = (ordered: readonly Checkpoint[], terms: PlayTerms):
   return { regularSpins: walked.last?.regularSpins ?? 0, measured: measuredOf(walked) }
 }
 
-/**
- * The balls in hand at a play's last line, which is where it finished so far. Where that line knows, it is
- * what it says. Where it does not, it is followed on from the last line
- * that did: what came to hand since — bought, won in bonuses, gained or
- * lost on the 電サポ — less what the regular games since cost at the rate
- * the play was measured to cost. None where no stretch was measured, or
- * past a jackpot whose bonus the log does not say; a figure for a person
- * to set right, never one the play is weighed by.
- */
-export const heldAtFinishOf = (ordered: readonly Checkpoint[], terms: PlayTerms): number | undefined => {
-  const walked = walkedOf(ordered, terms)
-  const last = walked.last
-  if (last === undefined) return undefined
-  if (last.held !== undefined) return last.held
-  const measured = measuredOf(walked)
-  if (measured === undefined || walked.pastUntold) return undefined
-  const played = ((last.regularSpins - walked.to.regularSpins) * measured.balls) / measured.spins
-  return Math.max(0, Math.round(walked.to.held + last.gained - walked.to.gained - played))
-}
-
 /** The spin performance a measurement comes to: regular spins for the balls ¥1,000 rents, the player's own balls counted as rented ones are. */
 export const spinPerformanceOf = (measured: Measured, terms: PlayTerms): number => (measured.spins / measured.balls) * ((terms.rental.tokens * 1000) / terms.rental.yen)
 
 /** The spin performance a play's log measured, as its live screen shows it: none until there is a stretch to measure. */
 export const measuredSpinPerformance = (ordered: readonly Checkpoint[], terms: PlayTerms): number | undefined =>
   ((measured) => (measured === undefined ? undefined : spinPerformanceOf(measured, terms)))(consumptionOf(ordered, terms).measured)
+
+/** Regular games the hand may be played that long without a count before a person is asked to count it again. */
+export const RECOUNT_AFTER = 50
+
+/** How far a play has gone since its hand was last counted: the regular games since, and what the hand is likely to hold now — none where nothing has been measured to cost. */
+export interface HandDrift {
+  readonly spins: number
+  readonly estimate: number | undefined
+}
+
+/** A point where the balls in hand were counted: so many spins into the play, at the running totals there. */
+interface Counted {
+  readonly spins: number
+  readonly outlay: number
+  readonly replay: number
+}
+
+/** The running totals each line leaves, a line that says nothing of one keeping it as it was. */
+const totalsOf = (ordered: readonly Checkpoint[]): readonly { readonly outlay: number; readonly replay: number }[] =>
+  ordered.reduce<readonly { readonly outlay: number; readonly replay: number }[]>(
+    (totals, checkpoint) => [...totals, { outlay: checkpoint.outlay ?? totals.at(-1)?.outlay ?? 0, replay: checkpoint.replay ?? totals.at(-1)?.replay ?? 0 }],
+    [],
+  )
+
+/** The last point the balls in hand were counted at: a line's count, or one folded into it, or the seat's. */
+const lastCountOf = (ordered: readonly Checkpoint[]): Counted | undefined => {
+  const totals = totalsOf(ordered)
+  return ordered
+    .flatMap((checkpoint, index) => [
+      ...(checkpoint.handsBefore ?? []).filter((hand) => hand.counted === true).map((hand) => ({ spins: hand.spins, outlay: hand.outlay, replay: hand.replay })),
+      ...(checkpoint.held === undefined ? [] : [{ spins: checkpoint.spins, outlay: totals[index]?.outlay ?? 0, replay: totals[index]?.replay ?? 0 }]),
+    ])
+    .at(-1)
+}
+
+/** Regular games played after a point so many spins into the play. */
+const regularSpinsAfter = (ordered: readonly Checkpoint[], spins: number): number =>
+  ordered.reduce((sum, checkpoint, index) => {
+    const from = Math.max(spins, ordered[index - 1]?.spins ?? 0)
+    return isRegular(checkpoint) && checkpoint.spins > from ? sum + checkpoint.spins - from : sum
+  }, 0)
+
+/**
+ * How far a play has gone since its hand was last counted, for asking a
+ * person to count it again: the regular games since, and the hand likely
+ * now — as told, with what was bought since, less those games at the cost
+ * the play was measured at. An estimate to be shown, never one written
+ * into the hand. None where the hand was never counted.
+ */
+export const handDriftOf = (ordered: readonly Checkpoint[], terms: PlayTerms, told: number | undefined): HandDrift | undefined => {
+  const counted = lastCountOf(ordered)
+  const last = totalsOf(ordered).at(-1)
+  if (counted === undefined || last === undefined) return undefined
+  const spins = regularSpinsAfter(ordered, counted.spins)
+  const measured = consumptionOf(ordered, terms).measured
+  const bought = rentedBallsOf(last.outlay - counted.outlay, terms) + last.replay - counted.replay
+  return { spins, estimate: told === undefined || measured === undefined ? undefined : Math.max(0, Math.round(told + bought - (spins * measured.balls) / measured.spins)) }
+}

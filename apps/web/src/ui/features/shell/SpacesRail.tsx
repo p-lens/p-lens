@@ -1,11 +1,11 @@
-import { createResource, type JSX } from "solid-js"
+import { createResource, For, Match, Switch, type JSX } from "solid-js"
 import { RailBar, type RailItem } from "solid-gathering-shell"
 
 import type { Outcome } from "../../../application/errors"
 import { loadTodaysPlays } from "../../../application/live-play"
 import { roleIn, type Book, type MemberId, type ListedBook } from "../../../core/book/book"
 import { awaitsSending } from "../../../core/live-play/draft"
-import { leadingGraphemesOf } from "../../../core/text/leading-graphemes"
+import { leadingGraphemeListOf } from "../../../core/text/leading-graphemes"
 import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
 import { createHourStruck } from "../../primitives/hour"
@@ -32,11 +32,33 @@ const DESTINATION = {
   resting: "border-2 border-dashed border-text-muted text-text-secondary",
 } as const
 
-/** A book on the rail is its title's first character or two, as the person chose, as a server is its initials. */
-const initialsOf = (title: string, letters: RailLetters): string => leadingGraphemesOf(title.trim(), letters) || "?"
+/** A book on the rail is its title's first characters, as many as the person chose, as a server is its initials. */
+const initialsOf = (title: string, letters: RailLetters): readonly string[] => ((found) => (found.length === 0 ? ["?"] : found))(leadingGraphemeListOf(title.trim(), letters))
 
-/** Two characters are set smaller, so that two pictures fit a place made for one. */
-const INITIALS: Readonly<Record<RailLetters, string>> = { 1: "text-base font-semibold", 2: "text-sm font-semibold" }
+/**
+ * A book's characters set out in the place made for one, as large as the round place holds: one or two in a
+ * line, one a little larger, two at about the size three and four are set at; three as a triangle, one over two; four in two
+ * lines of two, read across. Fewer than chosen, where the title is
+ * shorter, are set out as so many.
+ */
+function Initials(props: { readonly title: string }): JSX.Element {
+  const shown = (): readonly string[] => initialsOf(props.title, railLetters())
+  return (
+    <Switch fallback={<span class={`${shown().length === 1 ? "text-[19px]" : "text-[17px]"} font-semibold leading-none tracking-tighter`}>{shown().join("")}</span>}>
+      <Match when={shown().length === 3}>
+        <span class="flex flex-col items-center gap-y-[3px] text-[16px] font-semibold leading-none tracking-tighter">
+          <span>{shown()[0]}</span>
+          <span>{shown().slice(1).join("")}</span>
+        </span>
+      </Match>
+      <Match when={shown().length === 4}>
+        <span class="grid grid-cols-2 gap-y-[3px] text-[16px] font-semibold leading-none tracking-tighter">
+          <For each={shown()}>{(character) => <span class="text-center">{character}</span>}</For>
+        </span>
+      </Match>
+    </Switch>
+  )
+}
 
 const ownedBy = (member: MemberId) => (book: Book): boolean => roleIn(book, member) === "owner"
 
@@ -70,7 +92,7 @@ export function SpacesRail(props: {
     label: destinationLabel(destination.title, waitingFor(destination)),
     icon: (
       <span class="relative flex size-full items-center justify-center">
-        <span class={INITIALS[railLetters()]}>{initialsOf(destination.title, railLetters())}</span>
+        <Initials title={destination.title} />
         <span class="absolute bottom-1.5 right-1.5 [&_svg]:size-3">
           <SendIcon />
         </span>
@@ -86,7 +108,7 @@ export function SpacesRail(props: {
   const bookItem = (book: ListedBook): RailItem => ({
     id: book.id,
     label: bookTitle(book),
-    icon: <span class={INITIALS[railLetters()]}>{initialsOf(bookTitle(book), railLetters())}</span>,
+    icon: <Initials title={bookTitle(book)} />,
     selected: bookOf(props.place) === book.id,
     onSelect: () => moves.go({ kind: "book", bookId: book.id }),
   })

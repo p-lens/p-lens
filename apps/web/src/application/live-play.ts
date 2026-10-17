@@ -6,13 +6,19 @@ import { exchangeRateOf, poolOf, type PlayTerms } from "../core/parlor/terms"
 import type { TokenTally, YenTally } from "../core/tally/tally"
 import type { PlayId } from "../core/play/play"
 import type { Checkpoint } from "../core/play-log/checkpoint"
+import { toPlainString } from "../core/decimal/decimal"
+import * as Pachinko from "../core/pachinko"
+import { parsePlayLog } from "../core/play-log/checkpoint"
 import { withFinish, type Finish } from "../core/play-log/finish"
+import { inPlayOrder } from "../core/play-log/performance"
 import { withHead } from "../core/play-log/head"
 import { Err, Ok, mapOk } from "../core/result/result"
 import type { CommitId } from "../history/port/history-port"
 import type { DraftStorage } from "../storage/port/draft-storage"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
+import { weighPlay as weighPachislotPlay } from "./pachislot/weighing"
+import type * as PachislotEngine from "../pachislot-engine/client/client"
 import { fromDraft } from "./lift"
 import { openPool } from "./parlors"
 import { loadRecordingContext, recordTokenTally, recordYenTally, type RecordingContext } from "./record-tally"
@@ -150,19 +156,20 @@ export const chooseBook = async (drafts: DraftStorage, draft: PlayDraft, bookId:
  * set right after the fact reaches the book by recording again.
  */
 export const finishPlay = async (session: BookSession, drafts: DraftStorage, draft: PlayDraft, bookId: BookId, tally: TokenTally, finish: Finish, at: string): Promise<Outcome<CommitId>> => {
+  const held = Number(toPlainString(tally.payout))
   const terms = draft.venue.terms
   if (terms !== undefined) {
     const opened = await openPool(session, bookId, { identity: tally.parlor.identity, parlorName: tally.parlor.name, pool: poolOf(draft.gameKind, terms), rate: exchangeRateOf(terms), date: tally.date })
     if (!opened.ok) return opened
   }
-  const log = withHead(withFinish(draft.log, finish, draft.gameKind), headOf(draft, tally))
+  const log = withHead(withFinish(draft.log, finish, draft.gameKind, held), headOf(draft, tally))
   const write = (): Promise<Outcome<CommitId>> => recordTokenTally(session, bookId, tally, log)
   return keptRecorded(drafts, draft, bookId, finish, at, draft.recorded === undefined ? await write() : await again(() => reviseTokenTally(session, bookId, tally, log), write))
 }
 
-/** Record a finished play with no parlor as a tally in yen, as `finishPlay` records one at a parlor in tokens: its log beside the tally's entry, and both replaced where the book already has the tally. */
-export const finishPlayInYen = async (session: BookSession, drafts: DraftStorage, draft: PlayDraft, bookId: BookId, tally: YenTally, finish: Finish, at: string): Promise<Outcome<CommitId>> => {
-  const log = withHead(withFinish(draft.log, finish, draft.gameKind), headOf(draft, tally))
+/** Record a finished play with no parlor as a tally in yen, as `finishPlay` records one at a parlor in tokens: its log beside the tally's entry — finished with the tokens in hand, where it was counted by them — and both replaced where the book already has the tally. */
+export const finishPlayInYen = async (session: BookSession, drafts: DraftStorage, draft: PlayDraft, bookId: BookId, tally: YenTally, finish: Finish, at: string, held: number | undefined): Promise<Outcome<CommitId>> => {
+  const log = withHead(withFinish(draft.log, finish, draft.gameKind, held), headOf(draft, tally))
   const write = (): Promise<Outcome<CommitId>> => recordYenTally(session, bookId, tally, log)
   return keptRecorded(drafts, draft, bookId, finish, at, draft.recorded === undefined ? await write() : await again(() => reviseYenTally(session, bookId, tally, log), write))
 }
@@ -178,4 +185,25 @@ export const loadTodaysPlays = async (drafts: DraftStorage, businessDay: IsoDate
   if (!found.ok) return found
   await Promise.all(found.value.filter((draft) => isPast(draft, businessDay)).map((draft) => drafts.deleteDraft(draft.id)))
   return Ok(found.value.filter((draft) => !isPast(draft, businessDay)))
+}
+
+/**
+ * What a play is worth as it is about to be recorded: worked out from its
+ * log with the line it would finish on — the counter and the tokens in
+ * hand the form says — so the value shown is the one the recorded log
+ * comes to. A pachinko play by its formula and its measured regular games;
+ * a pachislot play by the setting levels its log saw. None where it cannot
+ * be weighed.
+ */
+export const theoreticalValueAtFinish = async (engine: PachislotEngine.EngineClient, draft: PlayDraft, finish: Finish, held: number | undefined): Promise<number | undefined> => {
+  const parsed = parsePlayLog(withFinish(draft.log, finish, draft.gameKind, held))
+  const terms = draft.venue.terms
+  if (!parsed.ok) return undefined
+  const ordered = inPlayOrder(parsed.value)
+  if (draft.gameKind === "slot") {
+    if (draft.pachislot === undefined) return undefined
+    const outlook = await weighPachislotPlay(engine, draft.pachislot, ordered, terms)
+    return outlook.ok ? outlook.value.theoreticalValue : undefined
+  }
+  return draft.pachinko === undefined || terms === undefined ? undefined : Pachinko.playTheoreticalValue(draft.pachinko.figures, terms, Pachinko.consumptionOf(ordered, terms))?.theoreticalValue
 }

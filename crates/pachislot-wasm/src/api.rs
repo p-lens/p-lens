@@ -4,6 +4,7 @@
 use std::num::NonZeroU64;
 
 use pachislot_domain::normalized::NormalizedSpec;
+use pachislot_domain::spec::EntityId;
 use pachislot_engine::analysis::{Analysis, analyze as solve};
 use pachislot_engine::budget::within;
 use pachislot_engine::normalize::normalize as normalise;
@@ -49,6 +50,13 @@ fn source(source: &SourceDto) -> Result<NormalizedSpec, ErrorDto> {
         }
         SourceDto::Normalized { normalized } => convert::normalized_spec(normalized),
     }
+}
+
+/// The ways an AT of the machine ends, where it allots its modes by them.
+fn endings_of(spec: &NormalizedSpec) -> &[EntityId] {
+    spec.at_rules
+        .as_ref()
+        .map_or(&[], |rules| rules.endings.as_slice())
 }
 
 fn solved(spec: &NormalizedSpec, conditions: &ConditionsDto) -> Result<Analysis, ErrorDto> {
@@ -103,7 +111,12 @@ fn posterior_of(request: &PosteriorRequest) -> Result<PosteriorDto, ErrorDto> {
         .map(convert::distribution)
         .transpose()?;
     let segments = convert::segments(&request.segments)?;
-    let path = request.path.as_ref().map(convert::path);
+    let endings = endings_of(&spec);
+    let path = request
+        .path
+        .as_ref()
+        .map(|path| convert::path(path, endings))
+        .transpose()?;
     match &request.told {
         Some(told) => posterior_told(&spec, prior.as_ref(), &convert::told(told)),
         None => infer(&spec, prior.as_ref(), &segments, path.as_ref()),
@@ -127,7 +140,7 @@ fn theoretical_value_of(
             &analysis,
             &weights,
             play,
-            &convert::path(path),
+            &convert::path(path, endings_of(&spec))?,
         ),
         _ => return Err(ErrorDto::PlayedMismatch),
     };
@@ -143,16 +156,22 @@ fn hunts(request: &HuntRequest) -> Result<Vec<HuntDto>, ErrorDto> {
         .seats
         .iter()
         .map(|seat| {
-            hunt_theoretical_value(&spec, rules, &weights, play, convert::path_start(seat))
-                .map(|value| HuntDto {
-                    games: value.games,
-                    at_medals: value.at_medals,
-                    trigger_medals: value.trigger_medals,
-                    medals: value.medals,
-                    yen: value.yen,
-                    by_ceiling: value.by_ceiling,
-                })
-                .ok_or(ErrorDto::AtNeverComes)
+            hunt_theoretical_value(
+                &spec,
+                rules,
+                &weights,
+                play,
+                convert::path_start(seat, &rules.endings)?,
+            )
+            .map(|value| HuntDto {
+                games: value.games,
+                at_medals: value.at_medals,
+                trigger_medals: value.trigger_medals,
+                medals: value.medals,
+                yen: value.yen,
+                by_ceiling: value.by_ceiling,
+            })
+            .ok_or(ErrorDto::AtNeverComes)
         })
         .collect()
 }

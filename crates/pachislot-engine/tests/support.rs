@@ -332,6 +332,7 @@ pub fn rules(trigger: Option<&str>, modes: Vec<ModeRule>) -> AtRules {
         forced_cz: ForcedCz::Drawn,
         ceiling_at: CeilingAt::Outright,
         ceiling_across_bonuses: None,
+        endings: Vec::new(),
     }
 }
 
@@ -368,6 +369,7 @@ pub fn table(chance: f64, success: f64, after_at: Vec<f64>, after_reset: Vec<f64
         allotments: Allotments {
             after_at,
             after_reset,
+            after_endings: Vec::new(),
         },
         payout: PayoutLaw::Fixed(medals(PAYOUT)),
     }
@@ -383,5 +385,6 @@ pub fn start(since_trigger: u32, since_at: u32, misses: u32) -> PathStart {
         after_reset: false,
         held: None,
         since_at_across_bonuses: None,
+        ending: None,
     }
 }

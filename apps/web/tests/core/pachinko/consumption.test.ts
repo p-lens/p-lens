@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test"
 
-import { consumptionOf, heldAtFinishOf, spinPerformanceOf } from "../../../src/core/pachinko/consumption"
+import { consumptionOf, handDriftOf, spinPerformanceOf } from "../../../src/core/pachinko/consumption"
 import { checkpointsForReading, type Reading } from "../../../src/core/pachinko/reading"
 import { rentalPressOf } from "../../../src/core/pachinko/rental-press"
-import { seatOf, takenOf, withReadingInserted, withReadingRemoved, withReadingRevised, withSeatRevised } from "../../../src/core/pachinko/revision"
+import { heldAsToldOf, seatOf, takenOf, withReadingInserted, withReadingRemoved, withReadingRevised, withSeatRevised } from "../../../src/core/pachinko/revision"
 import type { Checkpoint } from "../../../src/core/play-log/checkpoint"
 
 const TERMS = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 125, deducted: 133 } }
@@ -197,27 +197,37 @@ describe("setting a play's readings right", () => {
   })
 })
 
-describe("the balls in hand at a play's last line", () => {
+describe("the balls in hand at a play's end", () => {
   const won = reading({ counterSpins: 320, rented: 10_000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } })
   const rush = reading({ counterSpins: 45, phase: "special", supported: -30, jackpot: { type: "bonus", bonus: TEN_ROUNDS } })
 
-  test("are what that line counted", () => {
-    expect(heldAtFinishOf(played([won, rush, reading({ counterSpins: 100, held: 900 })]), TERMS)).toBe(900)
+  test("are what the last count said", () => {
+    expect(heldAsToldOf(played([won, rush, reading({ counterSpins: 100, held: 900 })]))).toBe(900)
   })
 
-  test("are followed on from the last line that knew: what the bonuses and the 電サポ brought since, less the regular games at their measured cost", () => {
-    expect(heldAtFinishOf(played([won, rush, reading({ counterSpins: 100 })]), TERMS)).toBe(1400 + 1400 - 30 - 100 * 12.5)
+  test("are the last count with what each bonus since paid, never less what the regular games since are estimated to have cost", () => {
+    expect(heldAsToldOf(played([won, rush, reading({ counterSpins: 100 })]))).toBe(1400 + 1400)
+    expect(heldAsToldOf(played([reading({ counterSpins: 300, held: 500 }), reading({ counterSpins: 400 })]))).toBe(500)
   })
 
-  test("are none where more had to be bought at the end, and never below none", () => {
-    expect(heldAtFinishOf(played([reading({ counterSpins: 320, rented: 10_000 })]), TERMS)).toBe(0)
-    expect(heldAtFinishOf(played([won, reading({ counterSpins: 400 })]), TERMS)).toBe(0)
+  test("are none where nothing was ever said of the hand and nothing was won", () => {
+    expect(heldAsToldOf(played([reading({ counterSpins: 320, rented: 10_000 })]))).toBeUndefined()
+    expect(heldAsToldOf([])).toBeUndefined()
+  })
+})
+
+describe("how far the hand has been played since it was counted", () => {
+  const rateOf = (log: readonly Checkpoint[]): number => ((measured) => (measured === undefined ? Number.NaN : measured.balls / measured.spins))(consumptionOf(log, TERMS).measured)
+
+  test("is the regular games since the last count, and the hand likely now at the cost measured", () => {
+    const log = played([reading({ counterSpins: 160, rented: 2000 }), reading({ counterSpins: 170, held: 120 }), reading({ counterSpins: 190 })])
+    expect(handDriftOf(log, TERMS, heldAsToldOf(log))).toEqual({ spins: 20, estimate: Math.max(0, Math.round(120 - 20 * rateOf(log))) })
   })
 
-  test("are not told past a jackpot whose bonus the log does not say, or before anything was measured", () => {
-    expect(heldAtFinishOf(played([won, reading({ counterSpins: 45, phase: "special", jackpot: { type: "untold" } }), reading({ counterSpins: 100 })]), TERMS)).toBeUndefined()
-    expect(heldAtFinishOf(played([reading({ counterSpins: 200 })]), TERMS)).toBeUndefined()
-    expect(heldAtFinishOf([], TERMS)).toBeUndefined()
+  test("takes what was bought since in, and is none where the hand was never counted", () => {
+    const log = played([reading({ counterSpins: 160, rented: 2000 }), reading({ counterSpins: 170, held: 120 }), reading({ counterSpins: 200, rented: 1000 }), reading({ counterSpins: 210 })])
+    expect(handDriftOf(log, TERMS, heldAsToldOf(log))).toEqual({ spins: 40, estimate: Math.max(0, Math.round(120 + 250 - 40 * rateOf(log))) })
+    expect(handDriftOf(played([reading({ counterSpins: 140, rented: 1000 })]), TERMS, undefined)).toBeUndefined()
   })
 })
 
@@ -235,6 +245,6 @@ describe("a play begun with balls in hand", () => {
   test("is measured from them as the player's own, neither rented nor drawn", () => {
     const log = playedWith(1500, [reading({ counterSpins: 220, held: 250 })])
     expect(consumptionOf(log, TERMS)).toEqual({ regularSpins: 100, measured: { spins: 100, balls: 1250, rentedBalls: 0, replayedBalls: 0 } })
-    expect(heldAtFinishOf(log, TERMS)).toBe(250)
+    expect(heldAsToldOf(log)).toBe(250)
   })
 })

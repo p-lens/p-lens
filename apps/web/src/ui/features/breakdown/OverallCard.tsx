@@ -94,7 +94,7 @@ export function OverallCard(props: { readonly overall: Overall; readonly theoret
         </Totals>
         <Totals head={TOTALS_HEADS.money}>
           <Total label="現金投資" value={formatYen(props.overall.cash)} />
-          <Total label="貯玉利用（円換算）" value={formatYen(props.overall.savingsDrawn)} />
+          <Total label="持ち玉投資" value={formatYen(props.overall.savingsDrawn)} />
           <Total label="景品等合計" value={formatYen(prizesOf(props.overall))} />
           <Total label="うち特殊景品" value={formatYen(prizeParts()[0] ?? ZERO)} minor />
           <Total label="うち端玉景品" value={formatYen(prizeParts()[1] ?? ZERO)} minor />

@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test"
 
-import { consumptionOf, heldAtFinishOf } from "../../../src/core/pachinko/consumption"
+import { consumptionOf } from "../../../src/core/pachinko/consumption"
 import { mergeableSpan, withReadingsMerged } from "../../../src/core/pachinko/merging"
 import { checkpointsForReading, type Reading } from "../../../src/core/pachinko/reading"
-import { standingBefore, takenOf, withReadingInserted, withReadingRemoved } from "../../../src/core/pachinko/revision"
+import { heldAsToldOf, standingBefore, takenOf, withReadingInserted, withReadingRemoved } from "../../../src/core/pachinko/revision"
 import type { Checkpoint, Phase } from "../../../src/core/play-log/checkpoint"
 import { liveSummary } from "../../../src/core/play-log/live"
 import { appendCheckpoint, parsePlayLog } from "../../../src/core/play-log/checkpoint"
@@ -98,7 +98,7 @@ describe("a run of a pachinko play's readings made one", () => {
     expect(made.at(-1)?.handsBefore).toEqual([{ spins: 200, outlay: 10000, replay: 3000, support: 0, held: 0 }])
     expect(consumptionOf(made, TERMS)).toEqual(consumptionOf(log, TERMS))
     expect(consumptionOf(made, TERMS).measured).toEqual({ spins: 200, balls: 5500, rentedBalls: 2500, replayedBalls: 3000 })
-    expect(heldAtFinishOf(made, TERMS)).toBe(heldAtFinishOf(log, TERMS))
+    expect(heldAsToldOf(made)).toBe(heldAsToldOf(log))
   })
 
   test("folds the first balls bought, before any regular game, the measuring still starting from them", () => {
@@ -107,7 +107,7 @@ describe("a run of a pachinko play's readings made one", () => {
     const made = merged(log, 0, 3)
     expect(takenOf(made)).toHaveLength(1)
     expect(consumptionOf(made, TERMS)).toEqual(consumptionOf(log, TERMS))
-    expect(heldAtFinishOf(made, TERMS)).toBe(heldAtFinishOf(log, TERMS))
+    expect(heldAsToldOf(made)).toBe(heldAsToldOf(log))
   })
 
   test("keeps a count folded in as the last count, for the next reading to carry", () => {
@@ -174,14 +174,14 @@ describe("any run that may be made one", () => {
     made.forEach(({ log, after, span }) => {
       expect(takenOf(after)).toHaveLength(takenOf(log).length - (span.to - span.from))
       expect(consumptionOf(after, TERMS)).toEqual(consumptionOf(log, TERMS))
-      expect(heldAtFinishOf(after, TERMS)).toEqual(heldAtFinishOf(log, TERMS))
+      expect(heldAsToldOf(after)).toEqual(heldAsToldOf(log))
       expect(((line) => (line === undefined ? undefined : { ...line, handsBefore: undefined }))(after.at(-1))).toEqual({ ...(log.at(-1) as Checkpoint), handsBefore: undefined })
       expect([liveSummary(after).spins, liveSummary(after).outlay, liveSummary(after).jackpots, liveSummary(after).counterNow]).toEqual([liveSummary(log).spins, liveSummary(log).outlay, liveSummary(log).jackpots, liveSummary(log).counterNow])
     })
   })
 
   test("leaves every figure as it was however often it is folded again, written down and read back, or set right elsewhere", () => {
-    const figures = (log: readonly Checkpoint[]) => [consumptionOf(log, TERMS), heldAtFinishOf(log, TERMS), liveSummary(log).spins, liveSummary(log).outlay, liveSummary(log).jackpots, liveSummary(log).counterNow]
+    const figures = (log: readonly Checkpoint[]) => [consumptionOf(log, TERMS), heldAsToldOf(log), liveSummary(log).spins, liveSummary(log).outlay, liveSummary(log).jackpots, liveSummary(log).counterNow]
     const written = (log: readonly Checkpoint[]): readonly Checkpoint[] => ((read) => (read.ok ? read.value : []))(parsePlayLog(log.reduce((text, line) => appendCheckpoint(text, line), "")))
     const plays = Array.from({ length: 40 }, (_, seed) => anyPlay(seed + 101, 16))
     const checked = plays.map((log, seed) => {

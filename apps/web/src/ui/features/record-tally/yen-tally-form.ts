@@ -1,5 +1,6 @@
 import { parseIsoDate, type IsoDate } from "../../../core/calendar/calendar"
 import { ZERO, parseDecimal, subtract, toPlainString, type Decimal } from "../../../core/decimal/decimal"
+import type { InferenceTerms, KeptInferenceTerms } from "../../../core/book/settings"
 import { identityKey, type Parlor } from "../../../core/parlor/parlor"
 import * as Pachinko from "../../../core/pachinko"
 import * as Pachislot from "../../../core/pachislot"
@@ -23,8 +24,8 @@ export interface YenTallyForm {
   /** How long the play lasted, in hours to the hundredth, as the hours and minutes chosen come to; empty when it is not said. */
   readonly hours: string
   readonly jackpots: string
-  /** What the play is weighed on, where it is: what a ball rented for and how balls were exchanged. */
-  readonly weighingTerms: Pachinko.WeighingTerms
+  /** What a pachinko play is weighed on, as typed: so many balls for ¥1,000, so many for ¥100. */
+  readonly weighingTerms: WeighingTermsForm
   /** What a pachislot play's data counter showed at the finish: the day's games, and each bonus by the id the counter shows it as. Its setting level is read from them. */
   readonly counterGames: string
   readonly counterBonuses: Readonly<Record<string, string>>
@@ -36,7 +37,8 @@ export interface YenTallyForm {
   readonly settlement: Settlement | undefined
 }
 
-export const emptyYenTallyForm = (date: string): YenTallyForm => ({
+/** An empty form, on a day, its terms of each game those the book keeps, else the usual ones. */
+export const emptyYenTallyForm = (date: string, kept: KeptInferenceTerms): YenTallyForm => ({
   date,
   parlorKey: "",
   gameKind: "pachinko",
@@ -47,10 +49,10 @@ export const emptyYenTallyForm = (date: string): YenTallyForm => ({
   theoreticalValue: "",
   hours: "",
   jackpots: "",
-  weighingTerms: Pachinko.TERMS_BY_DEFAULT,
+  weighingTerms: weighingTermsFormOf(kept.pachinko ?? Pachinko.TERMS_BY_DEFAULT),
   counterGames: "",
   counterBonuses: {},
-  medalTerms: medalTermsFormOf(Pachislot.MEDAL_TERMS_BY_DEFAULT),
+  medalTerms: medalTermsFormOf(kept.slot ?? Pachislot.MEDAL_TERMS_BY_DEFAULT),
   atHistory: EMPTY_AT_HISTORY,
   settlement: undefined,
 })
@@ -160,14 +162,36 @@ export const toldFiguresOf = (tally: YenTally): Pachinko.Told | undefined =>
     ? undefined
     : { hours: Number(toPlainString(tally.told.hours)), outlay: Number(toPlainString(tally.outlay)), takings: Number(toPlainString(tally.takings)), jackpots: tally.told.jackpots }
 
+/** A pachinko play's terms as the form holds them. */
+interface WeighingTermsForm {
+  readonly rentedPerThousand: string
+  readonly exchangedPerHundred: string
+}
+
+/** The terms as the form opens on them, the exchange as players say it: 28, 27.5. */
+export const weighingTermsFormOf = (terms: Pachinko.WeighingTerms): WeighingTermsForm => ({ rentedPerThousand: String(terms.rentedPerThousand), exchangedPerHundred: String(terms.exchangedPerHundred) })
+
+const TO_TWO_PLACES = /^\d+(\.\d{1,2})?$/
+
+/** A pachinko play's terms as typed, where both read: a whole number of balls rented, and a number exchanged to two places at most, each more than none. */
+export const readWeighingTerms = (form: WeighingTermsForm): Pachinko.WeighingTerms | undefined => {
+  const rented = tidyTyped(form.rentedPerThousand).replaceAll(",", "")
+  const exchanged = tidyTyped(form.exchangedPerHundred)
+  return WHOLE_COUNT.test(rented) && Number(rented) > 0 && TO_TWO_PLACES.test(exchanged) && Number(exchanged) > 0 ? { rentedPerThousand: Number(rented), exchangedPerHundred: Number(exchanged) } : undefined
+}
+
+/** The terms a form says for the game it is of, where they read. */
+export const termsTypedOf = (form: Pick<YenTallyForm, "gameKind" | "weighingTerms" | "medalTerms">): InferenceTerms | undefined =>
+  form.gameKind === "pachinko" ? readWeighingTerms(form.weighingTerms) : readMedalTerms(form.medalTerms)
+
 /** A pachislot play's medal terms as the form holds them. */
 interface MedalTermsForm {
   readonly rentedPerThousand: string
   readonly exchangedPerHundred: string
 }
 
-/** The terms as the form opens on them, the exchange to the two places it is said to: 5.10. */
-export const medalTermsFormOf = (terms: Pachislot.MedalTerms): MedalTermsForm => ({ rentedPerThousand: String(terms.rentedPerThousand), exchangedPerHundred: terms.exchangedPerHundred.toFixed(2) })
+/** The terms as the form opens on them, the exchange to the places it needs and no more: 5.1, 5.15. */
+export const medalTermsFormOf = (terms: Pachislot.MedalTerms): MedalTermsForm => ({ rentedPerThousand: String(terms.rentedPerThousand), exchangedPerHundred: String(Math.round(terms.exchangedPerHundred * 100) / 100) })
 
 const WHOLE_COUNT = /^\d+$/
 
@@ -247,8 +271,8 @@ export const atToldOf = (form: YenTallyForm): Pachislot.AtTold | undefined => {
 export const withInferred = (tally: YenTally, inferred: InferredWorth | undefined): YenTally =>
   inferred === undefined && tally.told === undefined ? tally : { ...tally, told: { ...(tally.told ?? { hours: undefined, jackpots: undefined }), inferred } }
 
-/** The yen tally form filled in from a recorded tally in yen, for setting it right: its words and its figures as its entry has them. */
-export const yenTallyFormOf = (tally: YenTally): YenTallyForm => ({
+/** The yen tally form filled in from a recorded tally in yen, for setting it right: its words and its figures as its entry has them, and the terms it was weighed on — else those the book keeps, else the usual ones. */
+export const yenTallyFormOf = (tally: YenTally, kept: KeptInferenceTerms): YenTallyForm => ({
   date: tally.date,
   parlorKey: tally.parlor === undefined ? "" : identityKey(tally.parlor.identity),
   gameKind: tally.gameKind,
@@ -260,9 +284,9 @@ export const yenTallyFormOf = (tally: YenTally): YenTallyForm => ({
   hours: tally.told?.hours === undefined ? "" : toPlainString(tally.told.hours),
   jackpots: tally.told?.jackpots === undefined ? "" : String(tally.told.jackpots),
   settlement: tally.settlement,
-  weighingTerms: ((inferred) => (inferred === undefined || tally.gameKind !== "pachinko" ? undefined : Pachinko.termsOf(Number(toPlainString(inferred.tokenRental)), Number(toPlainString(inferred.tokenExchange)))))(tally.told?.inferred) ?? Pachinko.TERMS_BY_DEFAULT,
+  weighingTerms: weighingTermsFormOf(((inferred) => (inferred === undefined || tally.gameKind !== "pachinko" ? undefined : Pachinko.weighingTermsOf(inferred)))(tally.told?.inferred) ?? kept.pachinko ?? Pachinko.TERMS_BY_DEFAULT),
   counterGames: "",
   counterBonuses: {},
   atHistory: EMPTY_AT_HISTORY,
-  medalTerms: medalTermsFormOf(((inferred) => (inferred === undefined || tally.gameKind !== "slot" ? Pachislot.MEDAL_TERMS_BY_DEFAULT : Pachislot.medalTermsOf(inferred)))(tally.told?.inferred)),
+  medalTerms: medalTermsFormOf(((inferred) => (inferred === undefined || tally.gameKind !== "slot" ? undefined : Pachislot.medalTermsOf(inferred)))(tally.told?.inferred) ?? kept.slot ?? Pachislot.MEDAL_TERMS_BY_DEFAULT),
 })

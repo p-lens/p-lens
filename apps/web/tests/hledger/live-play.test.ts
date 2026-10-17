@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import { createBookSession } from "../../src/application/book-session"
 import { keepingHistory } from "../../src/application/draft-history"
-import { addCheckpoints, changeTerms, finishPlay, finishPlayInYen, loadDrafts, loadTodaysPlays, reviseCheckpoints, startPlay } from "../../src/application/live-play"
+import { addCheckpoints, changeTerms, finishPlay, finishPlayInYen, loadDrafts, loadTodaysPlays, reviseCheckpoints, startPlay, theoreticalValueAtFinish } from "../../src/application/live-play"
 import { linkSubmissions, openPool } from "../../src/application/parlors"
 import { loadRecordingContext, recordTokenTally } from "../../src/application/record-tally"
 import type { BookId } from "../../src/core/book/book"
@@ -85,7 +85,7 @@ describe("a play followed live", () => {
       machine: "流星",
       cabinetNumber: "123",
     })
-    expect(readings.join("\n")).toBe(`${DRAFT.log}{"spins":30,"at":"2026-10-04T14:30:00.000Z","counter":{"spins":150},"event":{"kind":"finished"}}\n`)
+    expect(readings.join("\n")).toBe(`${DRAFT.log}{"spins":30,"at":"2026-10-04T14:30:00.000Z","counter":{"spins":150},"held":4800,"event":{"kind":"finished"}}\n`)
     expect(storage.peek(BOOK)?.files["transactions.journal"]).toContain("play-id: live-1")
     expect(mapOk(await loadTodaysPlays(drafts, "2026-10-04" as IsoDate), (found) => found.map((draft) => [draft.id, draft.recorded, draft.log]))).toEqual({ ok: true, value: [[ID, { at: NOW, finish: FINISH }, DRAFT.log]] })
   })
@@ -191,7 +191,7 @@ describe("a play with no parlor", () => {
       theoreticalValue: undefined,
       told: undefined,
     }
-    expect((await finishPlayInYen(session, drafts, nowhere, BOOK, play, { at: undefined, counter: undefined }, NOW)).ok).toBe(true)
+    expect((await finishPlayInYen(session, drafts, nowhere, BOOK, play, { at: undefined, counter: undefined }, NOW, undefined)).ok).toBe(true)
     const [head = "", ...readings] = (storage.peek(BOOK)?.files[`pachinko-play/${ID}.jsonl`] ?? "").split("\n")
     expect([JSON.parse(head).header, JSON.parse(head).parlor, JSON.parse(head).terms]).toEqual([true, undefined, undefined])
     expect(readings.join("\n")).toBe(`${nowhere.log}{"spins":0,"event":{"kind":"finished"}}\n`)
@@ -258,5 +258,23 @@ describe("a parlor submitted and waiting on the list", () => {
     const context = await loadRecordingContext(session, BOOK, ME)
     expect(mapOk(context, (found) => found.parlors.find((parlor) => parlor.name === "新しい店")?.identity)).toEqual({ ok: true, value: { type: "listed", id: "osm-9" } } as never)
     expect(await linkSubmissions(session, BOOK, [LISTED])).toEqual({ ok: true, value: 0 })
+  })
+
+  test("is worth, as it is about to be recorded, what its log finished as the form says comes to", async () => {
+    const figures = { roundChanceOneIn: 100 / 30, payoutPerRound: 140, totalChanceOneIn: 100 / 3, spinsPerHour: 200 }
+    const played: PlayDraft = {
+      ...DRAFT,
+      pachinko: { id: "f" as never, name: "流星", figures } as never,
+      log: `${DRAFT.log}{"spins":40,"outlay":1000,"counter":{"spins":160},"phase":"regular"}\n{"spins":80,"outlay":2000,"counter":{"spins":200},"phase":"regular"}\n`,
+    }
+    const engine = {} as never
+    const at = (counter: number | undefined, held: number | undefined) => theoreticalValueAtFinish(engine, played, { at: undefined, counter }, held)
+    const asLogged = await at(undefined, undefined)
+    const further = await at(260, undefined)
+    const counted = await at(260, 100)
+    expect(asLogged).toBeDefined()
+    expect(further).toBeGreaterThan(asLogged ?? Number.POSITIVE_INFINITY)
+    expect(counted).not.toBe(further)
+    expect(await at(260, 100)).toBe(counted)
   })
 })

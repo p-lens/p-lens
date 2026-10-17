@@ -13,6 +13,9 @@ import {
   EMPTY_LAW,
   EMPTY_OTHER_NET,
   EMPTY_PAYOUT_ROW,
+  type EndingForm,
+  atEndings,
+  newEnding,
   type PayoutRowForm,
   type PayoutShape,
   type CzTrigger,
@@ -563,6 +566,7 @@ function RowEditor(props: {
                 placeholder="同じ"
                 onChange={(resetAllotment) => props.onChange({ ...props.row, resetAllotment })}
               />
+              <EndingAllotments row={props.row} form={props.form} onChange={props.onChange} />
               <Show when={hasCz(props.form)}>
                 <ModeChain row={props.row} form={props.form} onChange={props.onChange} />
               </Show>
@@ -580,10 +584,76 @@ function RowEditor(props: {
           />
         </Show>
       </Show>
+      <Show when={props.row.kind === "at" && hasModes(props.form)}>
+        <AtEndings row={props.row} form={props.form} onChange={props.onChange} />
+      </Show>
       <Show when={takesGates(props.form, props.row)}>
         <Zones name={name(props.row.kind === "cz" ? "CZ" : "モード")} levels={props.form.settingLevels} gates={props.row.gates} onChange={(gates) => props.onChange({ ...props.row, gates })} />
       </Show>
     </section>
+  )
+}
+
+/** An ending's name on screen: as typed, or by its place where nothing is typed yet. */
+const endingName = (ending: EndingForm, index: number): string => (ending.label.trim() === "" ? `終わり方${index + 1}` : ending.label.trim())
+
+/**
+ * The ways an AT ends that a machine of modes allots its modes by — 駆け抜け,
+ * 上位AT — each with its name and its share of ATs under each setting, all
+ * of them 100%. Left empty, every AT allots the modes alike. The endings are
+ * an `<Index>`, so typing never remounts a field.
+ */
+function AtEndings(props: { readonly row: EntityRow; readonly form: WorldForm; readonly onChange: (row: EntityRow) => void }): JSX.Element {
+  const setEndings = (endings: readonly EndingForm[]): void => props.onChange({ ...props.row, endings })
+  return (
+    <div class="flex flex-col gap-2">
+      <span class={LABEL}>ATの終わり方（任意）</span>
+      <Index each={props.row.endings}>
+        {(ending, index) => (
+          <div class="flex flex-col gap-1.5 rounded-md border border-border p-2">
+            <div class="flex items-end gap-3">
+              <div class="min-w-24 flex-1">
+                <TextField label="終わり方" value={ending().label} onChange={(label) => setEndings(replaced(props.row.endings, index, { ...ending(), label }))} placeholder="駆け抜け" />
+              </div>
+              <Button variant="outline" size="icon" aria-label={`${endingName(ending(), index)}を削除`} title="この終わり方を削除" onClick={() => setEndings(props.row.endings.filter((_, at) => at !== index))}>
+                <TrashIcon />
+              </Button>
+            </div>
+            <LevelCells name={`${endingName(ending(), index)} 割合`} levels={props.form.settingLevels} values={ending().shares} suffix="%" placeholder="" onChange={(shares) => setEndings(replaced(props.row.endings, index, { ...ending(), shares }))} />
+          </div>
+        )}
+      </Index>
+      <div class="flex flex-wrap items-center gap-2">
+        <Button variant="ghost" size="small" onClick={() => setEndings([...props.row.endings, newEnding(props.form.rows)])}>
+          終わり方を追加
+        </Button>
+        <p class="basis-full text-xs text-text-muted">
+          ATの終わり方（駆け抜け・上位ATなど）でAT後のモード振り分けが変わる機種は、終わり方とATがそう終わる割合を入れます（設定ごとに合計100%）。終わり方のあとの振り分けは、モードごとに入れます。空けたモードは「AT後の振り分け」を使います。機械割や初当たりは、終わり方の割合で振り分けを混ぜて計算します。天井狙いの表では、前のATの終わり方を選べます。
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/** A mode's 振り分け after each of the AT's endings, labelled by the ending's name; left empty, the mode's 振り分け after an AT. */
+function EndingAllotments(props: { readonly row: EntityRow; readonly form: WorldForm; readonly onChange: (row: EntityRow) => void }): JSX.Element {
+  const name = (): string => (props.row.label.trim() === "" ? "モード" : props.row.label)
+  return (
+    <Index each={atEndings(props.form)}>
+      {(ending, index) => (
+        <div class="flex flex-col gap-1">
+          <span class={LABEL}>{`${endingName(ending(), index)}のあとの振り分け（任意）`}</span>
+          <LevelCells
+            name={`${name()} ${endingName(ending(), index)}のあとの振り分け`}
+            levels={props.form.settingLevels}
+            values={props.row.endingAllotment[ending().key] ?? {}}
+            suffix="%"
+            placeholder="同じ"
+            onChange={(shares) => props.onChange({ ...props.row, endingAllotment: { ...props.row.endingAllotment, [ending().key]: shares } })}
+          />
+        </div>
+      )}
+    </Index>
   )
 }
 

@@ -12,8 +12,8 @@ export type GroundsTrigger = { readonly type: "cz" } | { readonly type: "cz-then
 
 /**
  * What a formula's grounds reason over, to be named in words: the trigger —
- * the CZ or the bonus that brings the AT, or the AT itself — and the modes,
- * in the order the reasoner counts them. Names are never handed to the
+ * the CZ or the bonus that brings the AT, or the AT itself — the modes and
+ * the ways an AT ends, in the order the reasoner counts them. Names are never handed to the
  * reasoner, which is told numbers alone.
  */
 export interface GroundsNaming {
@@ -21,6 +21,8 @@ export interface GroundsNaming {
   readonly modes: readonly GroundsMode[]
   /** What the trigger's ceilings are counted in where it is not games: `pt`, `周期`. */
   readonly unit: string | undefined
+  /** The ways an AT ends, by their labels, in the order the reasoner counts them; none where the modes are not allotted by them. */
+  readonly endings: readonly string[]
 }
 
 const triggerOf = (basis: Basis): GroundsTrigger => {
@@ -37,6 +39,7 @@ export const groundsNamingOf = (basis: Basis): GroundsNaming => {
   return {
     trigger: triggerOf(basis),
     unit: basis.spec.resources.ceilingUnit?.name,
+    endings: (rules?.endings ?? []).map((ending) => basis.spec.components.label?.[ending] || ending),
     modes: (rules?.modes ?? []).map((mode, index): GroundsMode => {
       if (own.includes(mode.id)) return { type: "own", label: basis.spec.components.label?.[mode.id] || mode.id }
       return index === 0 ? { type: "after-at" } : { type: "after-reset" }

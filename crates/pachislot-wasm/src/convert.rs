@@ -7,8 +7,8 @@ use std::num::{NonZeroU32, NonZeroU64};
 use pachislot_domain::conditions::{PayoutBasis, PayoutRate, PlayConditions};
 use pachislot_domain::distribution::Distribution;
 use pachislot_domain::normalized::{
-    Allotments, AtRules, AtTable, BonusMiss, CeilingAt, CueChance, Event, EventKind, Expiry,
-    ForcedCz, Gate, ModeRule, NormalizedSpec, PayoutLaw, SettingLevelTable, TriggerPayout,
+    AfterEnding, Allotments, AtRules, AtTable, BonusMiss, CeilingAt, CueChance, Event, EventKind,
+    Expiry, ForcedCz, Gate, ModeRule, NormalizedSpec, PayoutLaw, SettingLevelTable, TriggerPayout,
     WatchRule,
 };
 use pachislot_domain::observation::{
@@ -31,14 +31,14 @@ use pachislot_simulator::rng::{Rng, Seed};
 use pachislot_simulator::session::{Plan, Progress};
 
 use crate::dto::{
-    AllotmentsDto, AnalysisDto, AtFigureDto, AtRulesDto, AtTableDto, BonusFigureDto, BonusMissDto,
-    BucketDto, BySettingLevelDto, CeilingAtDto, ComponentsDto, ConditionsDto, ContributionDto,
-    CueDto, DistributionDto, ErrorDto, EstimateProgressDto, EstimateSummaryDto, EventDto,
-    EventKindDto, ExpiryDto, ForcedCzDto, GateChanceDto, GateDto, LawRowDto, LegEndDto,
-    ModeRuleDto, NormalizedSpecDto, PathDto, PathStartDto, PayoutBasisDto, PayoutLawDto,
-    PayoutRowDto, PlayDto, PosteriorDto, ProbabilityDto, ProbabilityProblemDto, ProgressDto,
-    SegmentDto, SettingLevelEstimateDto, SettingLevelFiguresDto, SpecDto, SummaryDto, TableDto,
-    TallyDto, TheoreticalValueDto, ToldPathDto, TriggerPayoutDto, WatchDto, WeightDto,
+    AfterEndingDto, AllotmentsDto, AnalysisDto, AtFigureDto, AtRulesDto, AtTableDto,
+    BonusFigureDto, BonusMissDto, BucketDto, BySettingLevelDto, CeilingAtDto, ComponentsDto,
+    ConditionsDto, ContributionDto, CueDto, DistributionDto, ErrorDto, EstimateProgressDto,
+    EstimateSummaryDto, EventDto, EventKindDto, ExpiryDto, ForcedCzDto, GateChanceDto, GateDto,
+    LawRowDto, LegEndDto, ModeRuleDto, NormalizedSpecDto, PathDto, PathStartDto, PayoutBasisDto,
+    PayoutLawDto, PayoutRowDto, PlayDto, PosteriorDto, ProbabilityDto, ProbabilityProblemDto,
+    ProgressDto, SegmentDto, SettingLevelEstimateDto, SettingLevelFiguresDto, SpecDto, SummaryDto,
+    TableDto, TallyDto, TheoreticalValueDto, ToldPathDto, TriggerPayoutDto, WatchDto, WeightDto,
 };
 
 fn invalid(field: &str) -> ErrorDto {
@@ -169,6 +169,14 @@ fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
             &dto.reset_allotment,
             "spec.components.resetAllotment",
             |values, at| shares(values, at),
+        )?,
+        ending: table(&dto.ending, "spec.components.ending", |values, at| {
+            shares(values, at)
+        })?,
+        ending_allotment: table(
+            &dto.ending_allotment,
+            "spec.components.endingAllotment",
+            |allotments, at| table(allotments, at, |values, at| shares(values, at)),
         )?,
         at_ceiling: table(&dto.at_ceiling, "spec.components.atCeiling", |games, at| {
             NonZeroU32::new(*games).ok_or_else(|| invalid(at))
@@ -501,6 +509,12 @@ fn at_rules(dto: &AtRulesDto, shape: SchemaVersion) -> Result<AtRules, ErrorDto>
             dto.ceiling_across_bonuses,
             "normalized.atRules.ceilingAcrossBonuses",
         )?,
+        endings: dto
+            .endings
+            .iter()
+            .enumerate()
+            .map(|(index, ending)| id(ending, &format!("normalized.atRules.endings[{index}]")))
+            .collect::<Result<_, _>>()?,
         modes: dto
             .modes
             .iter()
@@ -560,6 +574,18 @@ fn allotments(dto: &AllotmentsDto, field: &str) -> Result<Allotments, ErrorDto> 
     Ok(Allotments {
         after_at: fractions(&dto.after_at, &format!("{field}.afterAt"))?,
         after_reset: fractions(&dto.after_reset, &format!("{field}.afterReset"))?,
+        after_endings: dto
+            .after_endings
+            .iter()
+            .enumerate()
+            .map(|(index, ended)| {
+                let at = format!("{field}.afterEndings[{index}]");
+                Ok(AfterEnding {
+                    share: probability(ended.share, &format!("{at}.share"))?.value(),
+                    after_at: fractions(&ended.after_at, &format!("{at}.afterAt"))?,
+                })
+            })
+            .collect::<Result<_, _>>()?,
     })
 }
 
@@ -705,7 +731,7 @@ fn event(dto: &EventDto, field: &str) -> Result<Event, ErrorDto> {
 /// # Errors
 /// When the stored spec is not one this adapter wrote.
 pub fn normalized_spec(dto: &NormalizedSpecDto) -> Result<NormalizedSpec, ErrorDto> {
-    Ok(NormalizedSpec {
+    endings_matched(NormalizedSpec {
         schema_version: SchemaVersion::new(dto.schema_version),
         bet: dto.bet,
         tables: dto
@@ -751,6 +777,27 @@ pub fn normalized_spec(dto: &NormalizedSpecDto) -> Result<NormalizedSpec, ErrorD
             .map(|(index, each)| watch_rule(each, &format!("normalized.watches[{index}]")))
             .collect::<Result<_, _>>()?,
     })
+}
+
+/// A stored spec whose tables each allot the modes after every ending its
+/// rules name, and after no other.
+fn endings_matched(spec: NormalizedSpec) -> Result<NormalizedSpec, ErrorDto> {
+    let endings = spec
+        .at_rules
+        .as_ref()
+        .map_or(0, |rules| rules.endings.len());
+    let unmatched = spec.tables.iter().position(|table| {
+        table
+            .at
+            .as_ref()
+            .is_some_and(|at| at.allotments.after_endings.len() != endings)
+    });
+    match unmatched {
+        Some(index) => Err(invalid(&format!(
+            "normalized.tables[{index}].at.allotments.afterEndings"
+        ))),
+        None => Ok(spec),
+    }
 }
 
 fn cue(dto: &CueDto, field: &str) -> Result<CueChance, ErrorDto> {
@@ -848,6 +895,7 @@ pub fn normalized_dto(spec: &NormalizedSpec) -> NormalizedSpecDto {
                 CeilingAt::Triggered => CeilingAtDto::Triggered,
             },
             ceiling_across_bonuses: rules.ceiling_across_bonuses.map(NonZeroU32::get),
+            endings: rules.endings.iter().map(named).collect(),
             trigger: rules.trigger.as_ref().map(named),
             at_ceiling: None,
             misses: None,
@@ -911,6 +959,15 @@ fn at_table_dto(each: &AtTable) -> AtTableDto {
         allotments: AllotmentsDto {
             after_at: each.allotments.after_at.clone(),
             after_reset: each.allotments.after_reset.clone(),
+            after_endings: each
+                .allotments
+                .after_endings
+                .iter()
+                .map(|ended| AfterEndingDto {
+                    share: ended.share,
+                    after_at: ended.after_at.clone(),
+                })
+                .collect(),
         },
         payout: payout_law_dto(&each.payout),
     }
@@ -933,20 +990,42 @@ pub fn told(dto: &ToldPathDto) -> ToldPath {
     }
 }
 
-pub fn path_start(dto: &PathStartDto) -> PathStart {
-    PathStart {
+/// Where play stood at a seat, the ending it names read as its place among
+/// `endings`, the machine's.
+///
+/// # Errors
+/// When it names an ending the machine does not have.
+pub fn path_start(dto: &PathStartDto, endings: &[EntityId]) -> Result<PathStart, ErrorDto> {
+    let ending = dto
+        .ending
+        .as_ref()
+        .map(|named| {
+            endings
+                .iter()
+                .position(|ending| ending.as_str() == named)
+                .ok_or_else(|| ErrorDto::UnknownEnding {
+                    ending: named.clone(),
+                })
+        })
+        .transpose()?;
+    Ok(PathStart {
         since_trigger: dto.since_trigger,
         since_at: dto.since_at,
         misses: dto.misses,
         after_reset: dto.after_reset,
         held: dto.held,
         since_at_across_bonuses: dto.since_at_across_bonuses,
-    }
+        ending,
+    })
 }
 
-pub fn path(dto: &PathDto) -> Path {
-    Path {
-        start: path_start(&dto.start),
+/// A path as the engine walks it, its start's ending read among `endings`.
+///
+/// # Errors
+/// When its start names an ending the machine does not have.
+pub fn path(dto: &PathDto, endings: &[EntityId]) -> Result<Path, ErrorDto> {
+    Ok(Path {
+        start: path_start(&dto.start, endings)?,
         legs: dto
             .legs
             .iter()
@@ -967,7 +1046,7 @@ pub fn path(dto: &PathDto) -> Path {
                 },
             })
             .collect(),
-    }
+    })
 }
 
 /// # Errors
@@ -1117,6 +1196,8 @@ fn component_name(component: Component) -> String {
         Component::ResetSinceAtCeiling => "resetSinceAtCeiling",
         Component::CeilingTriggers => "ceilingTriggers",
         Component::CeilingAcrossBonuses => "ceilingAcrossBonuses",
+        Component::Ending => "ending",
+        Component::EndingAllotment => "endingAllotment",
     }
     .to_owned()
 }
@@ -1224,6 +1305,31 @@ pub fn spec_error_dto(error: &SpecError) -> ErrorDto {
             sum: *sum,
         },
         SpecError::ResetAllotmentPartial { entity } => ErrorDto::ResetAllotmentPartial {
+            entity: named(entity),
+        },
+        SpecError::EndingWithoutModes { entity } => ErrorDto::EndingWithoutModes {
+            entity: named(entity),
+        },
+        SpecError::EndingsNotWhole { setting_level, sum } => ErrorDto::EndingsNotWhole {
+            setting_level: setting_level.get(),
+            sum: *sum,
+        },
+        SpecError::EndingAllotmentToUnknown { entity, ending } => {
+            ErrorDto::EndingAllotmentToUnknown {
+                entity: named(entity),
+                ending: named(ending),
+            }
+        }
+        SpecError::EndingAllotmentNotWhole {
+            ending,
+            setting_level,
+            sum,
+        } => ErrorDto::EndingAllotmentNotWhole {
+            ending: named(ending),
+            setting_level: setting_level.get(),
+            sum: *sum,
+        },
+        SpecError::EndingsWithoutAllotment { entity } => ErrorDto::EndingsWithoutAllotment {
             entity: named(entity),
         },
         SpecError::CzWithoutAt { entity } => ErrorDto::CzWithoutAt {

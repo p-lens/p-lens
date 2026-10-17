@@ -1,4 +1,4 @@
-import { Show, type JSX } from "solid-js"
+import { Show, type Accessor, type JSX } from "solid-js"
 
 import type { Outcome } from "../../../application/errors"
 import type { PlayTerms } from "../../../core/parlor/terms"
@@ -10,6 +10,7 @@ import type { SubmitWords } from "./finish-tally-reading"
 import { createFinishYenTallyEditing } from "./finish-yen-tally-editing"
 import { heldIn, type FinishYenTallyForm } from "./finish-yen-tally-form"
 import { FinishTallyForm } from "./FinishTallyForm"
+import type { WorthAt } from "./followed-worth"
 import type { ParlorChoice } from "./parlor-choice"
 
 /**
@@ -30,7 +31,10 @@ export function FinishYenTallyEditor(props: {
   /** What is written beside the tally: when its play began and finished, as said above the form, and what the play's log measured. */
   readonly aside: () => TallyAside
   readonly words: SubmitWords
-  readonly submit: (tally: YenTally) => Promise<Outcome<unknown>>
+  /** What the play comes to finished as said above the form, asked again as what is typed here changes. */
+  readonly worthAt: Accessor<WorthAt>
+  /** Given the tokens in hand as the play finished, where it is counted by them. */
+  readonly submit: (tally: YenTally, held: number | undefined) => Promise<Outcome<unknown>>
   /** Told the tokens in hand as the play finished, where it was counted by them. */
   readonly onRecorded: (tally: YenTally, held: number | undefined) => void
 }): JSX.Element {
@@ -40,6 +44,7 @@ export function FinishYenTallyEditor(props: {
     parlor: props.parlor,
     playId: props.playId,
     aside: props.aside,
+    worthAt: props.worthAt,
     submit: props.submit,
     onRecorded: (tally) => props.onRecorded(tally, props.terms === undefined ? undefined : heldIn({ payout: editing.payout() })),
   })

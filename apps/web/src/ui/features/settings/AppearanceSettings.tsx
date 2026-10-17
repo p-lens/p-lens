@@ -1,10 +1,10 @@
-import type { JSX } from "solid-js"
+import { For, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import { useApp } from "../../context"
 import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
 import type { Place } from "../../navigation/place"
-import { chooseRailLetters, railLetters } from "../../theme/rail-letters"
+import { chooseRailLetters, RAIL_LETTERS, railLetters } from "../../theme/rail-letters"
 import type { ThemeChoice } from "../../theme/theme"
 import { ViewHeader } from "../shell/ViewHeader"
 
@@ -36,12 +36,12 @@ export function AppearanceSettings(props: { readonly place: Place }): JSX.Elemen
             <ToggleGroup
               value={String(railLetters())}
               onChange={(value: string | null) => {
-                if (value === "1" || value === "2") chooseRailLetters(value === "2" ? 2 : 1)
+                const chosen = RAIL_LETTERS.find((letters) => String(letters) === value)
+                if (chosen !== undefined) chooseRailLetters(chosen)
               }}
               aria-label="帳簿アイコンの文字数"
             >
-              <ToggleGroupItem value="1">1文字</ToggleGroupItem>
-              <ToggleGroupItem value="2">2文字</ToggleGroupItem>
+              <For each={RAIL_LETTERS}>{(letters) => <ToggleGroupItem value={String(letters)}>{letters}文字</ToggleGroupItem>}</For>
             </ToggleGroup>
             <p class="text-xs text-text-muted">左の一覧に並ぶ帳簿を、名前のはじめの何文字で表すかです。絵文字も1文字に数えます。</p>
           </section>

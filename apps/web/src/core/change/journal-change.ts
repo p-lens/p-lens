@@ -3,7 +3,7 @@ import type { BusinessDayTurn, IsoDate } from "../calendar/calendar"
 import type { TokenKind } from "../commodity/commodity"
 import type { Decimal } from "../decimal/decimal"
 import type { BookFiles } from "../journal/layout"
-import type { PlayId } from "../play/play"
+import type { PlayGameKind, PlayId } from "../play/play"
 import { type FilePatch, patchBetween } from "./patch"
 
 /** One file's text before and after a change; `before` is absent for a new file. */
@@ -26,6 +26,8 @@ export type ChangeIntent =
   | { readonly type: "business-day-turn-set"; readonly turn: BusinessDayTurn }
   /** What a press of a live play's buttons adds at a corner, written in the book's settings: no change to what the book records. */
   | { readonly type: "presses-set"; readonly corner: string }
+  /** The terms a tally of a game typed in by hand was weighed on, written in the book's settings for the next to open on: no change to what the book records. */
+  | { readonly type: "inference-terms-set"; readonly game: PlayGameKind }
   | { readonly type: "file-edited"; readonly path: string }
   /** A pool's savings registered as they stood on a day: so many tokens. */
   | { readonly type: "savings-opened"; readonly parlor: string; readonly tier: string; readonly date: IsoDate; readonly kind: TokenKind; readonly tokens: Decimal }

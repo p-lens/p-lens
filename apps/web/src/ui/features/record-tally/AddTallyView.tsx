@@ -2,6 +2,7 @@ import { createResource, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import type { Outcome } from "../../../application/errors"
+import { writtenKeepingTerms, type TermsUsed } from "../../../application/inference-terms"
 import { loadRecordingContext, recordYenTally, type RecordingContext } from "../../../application/record-tally"
 import type { BookId } from "../../../core/book/book"
 import type { ParlorList } from "../../../core/parlor/shared"
@@ -40,7 +41,8 @@ export function YenTallyEditor(props: {
   /** What is written beside the tally, as its entry says where it is set right; nothing for a tally added. */
   readonly aside: TallyAside
   readonly words: SubmitWords
-  readonly submit: (tally: YenTally) => Promise<Outcome<unknown>>
+  /** Record the tally, with the terms of its game as the form says them, for the book to keep. */
+  readonly submit: (tally: YenTally, used: TermsUsed | undefined) => Promise<Outcome<unknown>>
   readonly onRecorded: (tally: YenTally) => void
 }): JSX.Element {
   const editing = createYenTallyEditing({
@@ -94,11 +96,11 @@ export function AddTallyView(props: { readonly place: Place; readonly bookId: Bo
                 list={offered.list()}
                 submissions={offered.submissions()}
                 bookId={props.bookId}
-                initial={emptyYenTallyForm(app.services.businessDay())}
+                initial={emptyYenTallyForm(app.services.businessDay(), found.inferenceTerms)}
                 playIdOn={(date) => app.services.playIdOn(fresh, date)}
                 aside={NOTHING_ASIDE}
                 words={RECORDING}
-                submit={(tally) => recordYenTally(app.services.session, props.bookId, tally)}
+                submit={(tally, used) => writtenKeepingTerms(app.services.session, props.bookId, recordYenTally(app.services.session, props.bookId, tally), used)}
                 onRecorded={(tally) => {
                   app.wrote()
                   moves.go({ kind: "tally", bookId: props.bookId, playId: tally.id })

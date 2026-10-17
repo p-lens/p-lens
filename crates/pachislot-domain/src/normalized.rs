@@ -108,6 +108,10 @@ pub struct AtRules {
     /// every mode's own — counted from the bonus — stands beside, the
     /// sooner winning it.
     pub ceiling_across_bonuses: Option<NonZeroU32>,
+    /// The ways an AT ends, where the modes are allotted by them: each
+    /// table's `allotments.after_endings` in this order. None where the
+    /// machine allots its modes alike after every AT.
+    pub endings: Vec<EntityId>,
 }
 
 /// What a bonus a CZ's success brings does when it misses the AT: counted
@@ -200,10 +204,24 @@ pub struct Expiry {
 
 /// How one setting allots play between an AT machine's modes, in the order
 /// of its rules: after an AT, and after a setting change. Each sums to one.
+/// Where the modes are allotted by how an AT ended, `after_at` is every
+/// ending's allotment weighed by its share — what play after an AT not
+/// seen to end starts from, and what every figure of the machine is worked
+/// from — and `after_endings` keeps each, in the order of the rules'
+/// endings, for play seen after an AT that ended so.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Allotments {
     pub after_at: Vec<f64>,
     pub after_reset: Vec<f64>,
+    pub after_endings: Vec<AfterEnding>,
+}
+
+/// One way an AT ends under a setting: its share of ATs, and how play is
+/// allotted between the modes after an AT that ended so, summing to one.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AfterEnding {
+    pub share: f64,
+    pub after_at: Vec<f64>,
 }
 
 impl Allotments {
@@ -213,6 +231,16 @@ impl Allotments {
             &self.after_reset
         } else {
             &self.after_at
+        }
+    }
+
+    /// The shares play seen where it stands starts from: after a setting
+    /// change, after an AT that ended the way `ending` says — by its place
+    /// among the rules' endings — or after an AT that ended any way.
+    pub fn starting(&self, after_reset: bool, ending: Option<usize>) -> &[f64] {
+        match ending.and_then(|ending| self.after_endings.get(ending)) {
+            Some(ended) if !after_reset => &ended.after_at,
+            _ => self.of(after_reset),
         }
     }
 }

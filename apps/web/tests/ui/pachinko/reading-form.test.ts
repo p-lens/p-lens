@@ -13,10 +13,17 @@ const LOG: readonly Checkpoint[] = [
 ]
 
 describe("where a pachinko play stood before a reading", () => {
-  test("is the seat before the first, and after them all the totals, the last count of the hand, and a counter a jackpot started over", () => {
+  test("is the seat before the first, and after them all the totals, the last count of the hand with what the bonuses since paid, and a counter a jackpot started over", () => {
     expect(standingBefore(LOG, 0)).toEqual({ counter: 120, held: undefined, outlay: 0, replay: 0 })
     expect(standingBefore(LOG, 1)).toEqual({ counter: 200, held: 150, outlay: 2000, replay: 0 })
-    expect(standingBefore(LOG, 2)).toEqual({ counter: 0, held: 150, outlay: 3000, replay: 125 })
+    expect(standingBefore(LOG, 2)).toEqual({ counter: 0, held: 1550, outlay: 3000, replay: 125 })
+  })
+
+  test("never takes the regular games played since off the hand, and starts from none where a bonus comes before any count", () => {
+    const spun: readonly Checkpoint[] = [...LOG.slice(0, 2), { spins: 150, outlay: 2000, counter: { spins: 270 }, phase: "regular" }]
+    expect(standingBefore(spun, 2).held).toBe(150)
+    const uncounted: readonly Checkpoint[] = [LOG[0] as Checkpoint, { spins: 100, outlay: 3000, counter: { spins: 220 }, phase: "regular", event: { kind: "jackpot", bonus: TEN_ROUNDS } }]
+    expect(standingBefore(uncounted, 1).held).toBe(1400)
   })
 })
 

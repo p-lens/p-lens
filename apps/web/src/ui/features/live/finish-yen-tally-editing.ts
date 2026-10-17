@@ -1,4 +1,4 @@
-import { createMemo, createResource, createSignal } from "solid-js"
+import { createMemo, createResource, createSignal, type Accessor } from "solid-js"
 
 import type { ApplicationError, Outcome } from "../../../application/errors"
 import { findMachines } from "../../../application/catalog"
@@ -19,7 +19,8 @@ import { settleTyping } from "../../primitives/text-field"
 import { describeTallyError } from "../../wording/errors"
 import { formatSignedYen, toneOf, UNSEEN_ACTUAL } from "../../wording/numbers"
 import { machineChoicesOf, REASONS, type FieldProblem, type FormField } from "./finish-tally-reading"
-import { offBookDeductedOf, readFinishYenTallyForm, rentedOf, resultOfFinishYenTally, type FinishYenTallyForm } from "./finish-yen-tally-form"
+import { heldIn, offBookDeductedOf, readFinishYenTallyForm, rentedOf, resultOfFinishYenTally, type FinishYenTallyForm } from "./finish-yen-tally-form"
+import { createFollowedWorth, type WorthAt } from "./followed-worth"
 import type { FinishTallyEditing } from "./FinishTallyForm"
 import type { ParlorChoice } from "./parlor-choice"
 
@@ -37,7 +38,10 @@ interface FinishYenTallyEditingGiven {
   readonly playId: PlayId
   /** What is written beside the tally that the form does not ask. */
   readonly aside: () => TallyAside
-  readonly submit: (tally: YenTally) => Promise<Outcome<unknown>>
+  /** What the play comes to finished as said above the form, asked again as what is typed here changes. */
+  readonly worthAt: Accessor<WorthAt>
+  /** Given the tokens in hand as the play finished, where it is counted by them. */
+  readonly submit: (tally: YenTally, held: number | undefined) => Promise<Outcome<unknown>>
   readonly onRecorded: (tally: YenTally) => void
 }
 
@@ -65,10 +69,19 @@ export const createFinishYenTallyEditing = (given: FinishYenTallyEditingGiven): 
   const app = useApp()
   const [form, setForm] = createSignal<FinishYenTallyForm>(given.initial)
   const [submission, setSubmission] = createSignal<Submission>({ type: "editing" })
-  const set =
+  const fill =
     <K extends keyof FinishYenTallyForm>(key: K) =>
     (value: FinishYenTallyForm[K]): void => {
       setForm((current) => ({ ...current, [key]: value }))
+    }
+  /** The tokens in hand as the play finished, where it is counted by them: a play with terms. */
+  const held = (): number | undefined => (given.terms === undefined ? undefined : heldIn({ payout: form().payout }))
+  const worth = createFollowedWorth({ worthAt: given.worthAt, held, fill: fill("theoreticalValue") })
+  const set =
+    <K extends keyof FinishYenTallyForm>(key: K) =>
+    (value: FinishYenTallyForm[K]): void => {
+      if (key === "theoreticalValue") worth.typedByPerson()
+      fill(key)(value)
     }
   /** The catalog's machines of the play's game: all it may name. */
   const [catalogued] = createResource(
@@ -109,7 +122,7 @@ export const createFinishYenTallyEditing = (given: FinishYenTallyEditingGiven): 
       return
     }
     setSubmission({ type: "saving" })
-    const recorded = await given.submit(tally.value)
+    const recorded = await given.submit(tally.value, held())
     if (!recorded.ok) {
       setSubmission({ type: "failed", error: recorded.error })
       return

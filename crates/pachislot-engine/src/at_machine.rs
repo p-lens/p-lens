@@ -10,13 +10,14 @@ use std::num::NonZeroU32;
 
 use pachislot_domain::conditions::PayoutRate;
 use pachislot_domain::normalized::{
-    Allotments, AtRules, AtTable, BonusMiss, CeilingAt, Expiry, ForcedCz, Gate, ModeRule,
-    PayoutLaw, TriggerPayout,
+    AfterEnding, Allotments, AtRules, AtTable, BonusMiss, CeilingAt, Expiry, ForcedCz, Gate,
+    ModeRule, PayoutLaw, TriggerPayout,
 };
 use pachislot_domain::probability::{BasisPoints, Probability, ProbabilitySource};
 use pachislot_domain::setting_level::{PerSettingLevel, SettingLevel};
 use pachislot_domain::spec::{
-    At, Base, Component, Cz, Element, EntityId, Gate as SpecGate, Medals, Mode, Redraw, Spec,
+    At, Base, Component, Cz, Element, Ending, EntityId, Gate as SpecGate, Medals, Mode, Redraw,
+    Spec,
 };
 
 use crate::at::{Cycle, Odds, after_at, cap_figures_of, cycle, natural_chance, settled};
@@ -29,6 +30,7 @@ pub(crate) struct AtMachine<'a> {
     at: &'a At,
     cz: Option<&'a Cz>,
     modes: Vec<&'a Mode>,
+    endings: Vec<&'a Ending>,
     base: Base,
 }
 
@@ -41,6 +43,7 @@ fn element_id(element: &Element) -> &EntityId {
         Element::Mode(mode) => &mode.id,
         Element::Cz(cz) => &cz.id,
         Element::Watch(watch) => &watch.id,
+        Element::Ending(ending) => &ending.id,
     }
 }
 
@@ -242,11 +245,12 @@ fn paid(at: &At, cap: Option<Medals>) -> Result<(), SpecError> {
 fn checked<'a>(
     at: &'a At,
     cz: Option<&'a Cz>,
-    modes: Vec<&'a Mode>,
+    (modes, endings): (Vec<&'a Mode>, Vec<&'a Ending>),
     base: Base,
     cap: Option<Medals>,
 ) -> Result<AtMachine<'a>, SpecError> {
     paid(at, cap)?;
+    ended(&modes, &endings)?;
     if let Some(cz) = cz {
         if at.first_hit.is_some() {
             return Err(SpecError::FirstHitBesideCz {
@@ -312,7 +316,37 @@ fn checked<'a>(
         at,
         cz,
         modes,
+        endings,
         base,
+    })
+}
+
+/// Endings only on a machine of modes, which they allot, and some mode
+/// allotted after one of them otherwise than after the rest; a mode
+/// allotted after no ending but the machine's.
+fn ended(modes: &[&Mode], endings: &[&Ending]) -> Result<(), SpecError> {
+    if let Some(ending) = endings.first() {
+        if modes.is_empty() {
+            return Err(SpecError::EndingWithoutModes {
+                entity: ending.id.clone(),
+            });
+        }
+        if modes.iter().all(|mode| mode.ending_allotment.is_empty()) {
+            return Err(SpecError::EndingsWithoutAllotment {
+                entity: ending.id.clone(),
+            });
+        }
+    }
+    modes.iter().try_for_each(|mode| {
+        mode.ending_allotment
+            .keys()
+            .find(|ending| !endings.iter().any(|known| known.id == **ending))
+            .map_or(Ok(()), |ending| {
+                Err(SpecError::EndingAllotmentToUnknown {
+                    entity: mode.id.clone(),
+                    ending: ending.clone(),
+                })
+            })
     })
 }
 
@@ -502,6 +536,13 @@ pub(crate) fn at_machine<'a>(
             _ => None,
         })
         .collect();
+    let endings: Vec<&Ending> = elements
+        .iter()
+        .filter_map(|element| match element {
+            Element::Ending(ending) => Some(ending),
+            _ => None,
+        })
+        .collect();
     let Some(at) = ats.first().copied() else {
         if let Some(cz) = czs.first() {
             return Err(SpecError::CzWithoutAt {
@@ -511,6 +552,11 @@ pub(crate) fn at_machine<'a>(
         if let Some(mode) = modes.first() {
             return Err(SpecError::ModeWithoutAt {
                 entity: mode.id.clone(),
+            });
+        }
+        if let Some(ending) = endings.first() {
+            return Err(SpecError::EndingWithoutModes {
+                entity: ending.id.clone(),
             });
         }
         if spec.resources.cap.is_some() {
@@ -526,7 +572,11 @@ pub(crate) fn at_machine<'a>(
     let stray = elements.iter().find(|element| match element {
         Element::At(other) => other.id != at.id,
         Element::Cz(other) => cz.is_some_and(|cz| other.id != cz.id),
-        Element::Mode(_) | Element::Role(_) | Element::Replay(_) | Element::Watch(_) => false,
+        Element::Mode(_)
+        | Element::Role(_)
+        | Element::Replay(_)
+        | Element::Watch(_)
+        | Element::Ending(_) => false,
         Element::Bonus(_) => true,
     });
     if let Some(other) = stray {
@@ -542,7 +592,7 @@ pub(crate) fn at_machine<'a>(
             entity: paid.clone(),
         });
     }
-    checked(at, cz, modes, base, spec.resources.cap).map(Some)
+    checked(at, cz, (modes, endings), base, spec.resources.cap).map(Some)
 }
 
 /// A ceiling counted on a screen or in another unit, in the regular games
@@ -674,7 +724,17 @@ pub(crate) fn rules_of(machine: &AtMachine<'_>, scales: Scales, cap: Option<Meda
         },
         ceiling_at: ceiling_at_of(machine.at),
         ceiling_across_bonuses: machine.at.ceiling_across_bonuses,
+        endings: endings_of(machine),
     }
+}
+
+/// The ways the machine's AT ends, in the order made.
+fn endings_of(machine: &AtMachine<'_>) -> Vec<EntityId> {
+    machine
+        .endings
+        .iter()
+        .map(|ending| ending.id.clone())
+        .collect()
 }
 
 /// How an AT's AT間天井 wins it: by the trigger it brings, where the AT
@@ -708,16 +768,16 @@ pub(crate) fn check_since_at(rules: &AtRules) -> Result<(), SpecError> {
     }
 }
 
-/// One allotment's shares under a setting, mode by mode, as fractions of one.
-fn shares(
-    allotments: &[(&EntityId, &PerSettingLevel<BasisPoints>)],
+/// Shares under a setting, one for each entity that gives them, as they
+/// were given, and what they come to.
+fn points_of(
+    given: &[(&EntityId, &PerSettingLevel<BasisPoints>)],
     setting_level: SettingLevel,
-    after_reset: bool,
-) -> Result<Vec<f64>, SpecError> {
-    let points = allotments
+) -> Result<(Vec<BasisPoints>, u32), SpecError> {
+    let points = given
         .iter()
-        .map(|(id, allotment)| {
-            allotment
+        .map(|(id, shares)| {
+            shares
                 .get(setting_level)
                 .copied()
                 .ok_or_else(|| SpecError::MissingSettingLevel {
@@ -726,7 +786,24 @@ fn shares(
                 })
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let sum: u32 = points.iter().map(|share| share.get()).sum();
+    let sum = points.iter().map(|share| share.get()).sum();
+    Ok((points, sum))
+}
+
+fn fractions(points: &[BasisPoints]) -> Vec<f64> {
+    points
+        .iter()
+        .map(|share| share.probability().value())
+        .collect()
+}
+
+/// One allotment's shares under a setting, mode by mode, as fractions of one.
+fn shares(
+    allotments: &[(&EntityId, &PerSettingLevel<BasisPoints>)],
+    setting_level: SettingLevel,
+    after_reset: bool,
+) -> Result<Vec<f64>, SpecError> {
+    let (points, sum) = points_of(allotments, setting_level)?;
     if sum != BasisPoints::WHOLE.get() {
         return Err(SpecError::AllotmentNotWhole {
             setting_level,
@@ -734,15 +811,78 @@ fn shares(
             sum,
         });
     }
-    Ok(points
+    Ok(fractions(&points))
+}
+
+/// Each ending's share of ATs under a setting and how the modes are
+/// allotted after an AT that ended so — each mode's own allotment after
+/// it, or its `allotment` — in the order of the endings; none where the
+/// machine has none.
+fn after_endings_of(
+    machine: &AtMachine<'_>,
+    setting_level: SettingLevel,
+) -> Result<Vec<AfterEnding>, SpecError> {
+    if machine.endings.is_empty() {
+        return Ok(Vec::new());
+    }
+    let given: Vec<_> = machine
+        .endings
         .iter()
-        .map(|share| share.probability().value())
-        .collect())
+        .map(|ending| (&ending.id, &ending.share))
+        .collect();
+    let (points, sum) = points_of(&given, setting_level)?;
+    if sum != BasisPoints::WHOLE.get() {
+        return Err(SpecError::EndingsNotWhole { setting_level, sum });
+    }
+    machine
+        .endings
+        .iter()
+        .zip(fractions(&points))
+        .map(|(ending, share)| {
+            let allotted: Vec<_> = machine
+                .modes
+                .iter()
+                .map(|mode| {
+                    (
+                        &mode.id,
+                        mode.ending_allotment
+                            .get(&ending.id)
+                            .unwrap_or(&mode.allotment),
+                    )
+                })
+                .collect();
+            let (after, sum) = points_of(&allotted, setting_level)?;
+            if sum != BasisPoints::WHOLE.get() {
+                return Err(SpecError::EndingAllotmentNotWhole {
+                    ending: ending.id.clone(),
+                    setting_level,
+                    sum,
+                });
+            }
+            Ok(AfterEnding {
+                share,
+                after_at: fractions(&after),
+            })
+        })
+        .collect()
+}
+
+/// Each ending's allotment weighed by its share: how play is allotted
+/// after an AT however it ended.
+fn mixed(after_endings: &[AfterEnding], modes: usize) -> Vec<f64> {
+    after_endings.iter().fold(vec![0.0; modes], |sum, ended| {
+        sum.iter()
+            .zip(&ended.after_at)
+            .map(|(sum, share)| sum + ended.share * share)
+            .collect()
+    })
 }
 
 /// How a setting allots play between the modes, after an AT and after a
-/// setting change. A machine without modes is always in its one mode, or
-/// after a setting change in the mode of its shorter ceilings.
+/// setting change — after an AT, where the modes are allotted by how it
+/// ended, each ending's allotment weighed by its share, and each kept
+/// beside. A machine without modes is always in its one mode, or after a
+/// setting change in the mode of its shorter ceilings.
 fn allotments_of(
     machine: &AtMachine<'_>,
     setting_level: SettingLevel,
@@ -752,11 +892,13 @@ fn allotments_of(
             Allotments {
                 after_at: vec![1.0, 0.0],
                 after_reset: vec![0.0, 1.0],
+                after_endings: Vec::new(),
             }
         } else {
             Allotments {
                 after_at: vec![1.0],
                 after_reset: vec![1.0],
+                after_endings: Vec::new(),
             }
         });
     }
@@ -774,15 +916,22 @@ fn allotments_of(
                 .map(|allotment| (&mode.id, allotment))
         })
         .collect();
-    let after_at = shares(&after_at, setting_level, false)?;
+    let plain = shares(&after_at, setting_level, false)?;
     let after_reset = if after_reset.is_empty() {
-        after_at.clone()
+        plain.clone()
     } else {
         shares(&after_reset, setting_level, true)?
+    };
+    let after_endings = after_endings_of(machine, setting_level)?;
+    let after_at = if after_endings.is_empty() {
+        plain
+    } else {
+        mixed(&after_endings, machine.modes.len())
     };
     Ok(Allotments {
         after_at,
         after_reset,
+        after_endings,
     })
 }
 
@@ -1393,6 +1542,12 @@ pub(crate) fn coverage(
     ]
     .into_iter()
     .flatten()
+    .chain(
+        machine
+            .endings
+            .iter()
+            .map(|ending| (&ending.id, levels(&ending.share))),
+    )
     .chain(machine.modes.iter().flat_map(|mode| {
         [
             Some(levels(&mode.allotment)),
@@ -1408,6 +1563,7 @@ pub(crate) fn coverage(
                 .chain(&mode.ceiling_redraw)
                 .map(|row| levels(&row.share)),
         )
+        .chain(mode.ending_allotment.values().map(levels))
         .map(|each| (&mode.id, each))
     }))
     .chain(

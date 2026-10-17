@@ -66,16 +66,16 @@ export const savingsDrawnRequest = (query: string): RequestOf<"balance"> => ({
   valuation: inYen({ at: "posting-date" }),
 })
 
-/** Savings in tokens, per parlor and kind. */
-export const savingsQuantityRequest = (query: string): RequestOf<"balance"> => ({
+/** Savings in tokens, per parlor and kind: in every savings account, or in those `accounts` matches. */
+export const savingsQuantityRequest = (query: string, accounts: string = savingsTerm): RequestOf<"balance"> => ({
   kind: "balance",
-  query: combine(savingsTerm, query),
+  query: combine(accounts, query),
 })
 
-/** Savings in yen, at the rate in force at the end of the query's period. */
-export const savingsValueRequest = (query: string): RequestOf<"balance"> => ({
+/** Savings in yen, at the rate in force at the end of the query's period: in every savings account, or in those `accounts` matches. */
+export const savingsValueRequest = (query: string, accounts: string = savingsTerm): RequestOf<"balance"> => ({
   kind: "balance",
-  query: combine(savingsTerm, query),
+  query: combine(accounts, query),
   valuation: inYen({ at: "period-end" }),
 })
 

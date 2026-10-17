@@ -47,7 +47,7 @@ export function ConsolidatedHoldingsView(props: { readonly place: Place; readonl
       <div class="max-w-5xl">
         <div class="flex flex-col gap-4 p-4">
           <div class="flex flex-wrap items-end gap-3">
-            <div class="w-48">
+            <div class="w-[8.5rem]">
               <TextField label="評価日" type="date" value={latestValuedOn(read()) ?? ""} onChange={chooseDay} />
             </div>
             <Show when={props.query !== ""}>
@@ -55,6 +55,7 @@ export function ConsolidatedHoldingsView(props: { readonly place: Place; readonl
                 最新に戻す
               </Button>
             </Show>
+            <ConsolidatedBooks bookIds={props.bookIds} unread={(id) => unreadIn(holdings(), id)} onChosen={(bookIds) => moves.go({ kind: "consolidated-holdings", bookIds }, props.query)} />
           </div>
           <Loaded outcome={holdings()}>
             {(books) => (
@@ -96,7 +97,6 @@ export function ConsolidatedHoldingsView(props: { readonly place: Place; readonl
               </Show>
             )}
           </Loaded>
-          <ConsolidatedBooks bookIds={props.bookIds} unread={(id) => unreadIn(holdings(), id)} onChosen={(bookIds) => moves.go({ kind: "consolidated-holdings", bookIds }, props.query)} />
         </div>
       </div>
     </MainContent>

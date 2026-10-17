@@ -1,54 +1,39 @@
 import type { BeliefDto, InferenceSummaryDto, ReadingDto, ToldDto, WayDto } from "@p-lens/contracts/pachinko"
 
-import { decimal } from "../decimal/decimal"
+import { decimal, quotient, toPlainString, type Decimal } from "../decimal/decimal"
 import { keptSpinPerformance } from "../tally/aside"
 import { theoreticalDecimalOf } from "../theoretical/theoretical"
 import type { InferredWorth } from "../tally/tally"
 import type { Figures } from "./figures"
 import { borderOf } from "./theoretical-value"
 
-/** What a ball may rent for, in yen: the two rates a parlor's corners are. */
-export const TOKEN_RENTALS = [4, 1] as const
+/** Balls ¥1,000 rents in the engine's play: it weighs every play as one of ¥4 a ball. */
+export const RENTED_PER_THOUSAND = 250
 
-export type TokenRental = (typeof TOKEN_RENTALS)[number]
-
-/**
- * How a parlor exchanges balls for prizes, named as players name it at ¥4
- * a ball, the kindest first: the 25 that ¥100 rented — an equal exchange —
- * or 28 balls, 30 or 33 for ¥100 of prizes.
- */
-export const EXCHANGES = ["equal", "28", "30", "33"] as const
-
-export type Exchange = (typeof EXCHANGES)[number]
-
-/** The exchanges a corner of each rental is offered as: 33 balls is a ¥4 corner's, a ¥1 corner being seldom that harsh. */
-export const EXCHANGES_AT: Readonly<Record<TokenRental, readonly Exchange[]>> = { 4: EXCHANGES, 1: ["equal", "28", "30"] }
-
-/** What a told play is weighed on beside its formula: what a ball rented for, and how balls were exchanged. */
+/** What a told play is weighed on beside its formula, as a corner states them: so many balls for ¥1,000 rented, so many for ¥100 of prizes. */
 export interface WeighingTerms {
-  readonly rental: TokenRental
-  readonly exchange: Exchange
+  readonly rentedPerThousand: number
+  readonly exchangedPerHundred: number
 }
 
 /** The terms a play is weighed on until a person says otherwise: ¥4 a ball, exchanged at 28 — the harsher of the common exchanges being the one to assume. */
-export const TERMS_BY_DEFAULT: WeighingTerms = { rental: 4, exchange: "28" }
-
-/** Terms at another rental: the exchange as it was where that rental is offered it, and the usual one where not. */
-export const withRental = (terms: WeighingTerms, rental: TokenRental): WeighingTerms => ({ rental, exchange: EXCHANGES_AT[rental].includes(terms.exchange) ? terms.exchange : TERMS_BY_DEFAULT.exchange })
-
-const BALLS_FOR_100_AT_4: Readonly<Record<Exchange, number>> = { "28": 28, "30": 30, "33": 33, equal: 25 }
-
-/** Balls ¥100 of prizes takes: what the exchange is named for at ¥4 a ball, and as many times more as a ball is cheaper. */
-export const tokenExchangeOf = (terms: WeighingTerms): number => (BALLS_FOR_100_AT_4[terms.exchange] * 4) / terms.rental
+export const TERMS_BY_DEFAULT: WeighingTerms = { rentedPerThousand: RENTED_PER_THOUSAND, exchangedPerHundred: 28 }
 
 /** Yen a ball exchanges for. */
-export const ballValueOf = (terms: WeighingTerms): number => 100 / tokenExchangeOf(terms)
+export const ballValueOf = (terms: WeighingTerms): number => 100 / terms.exchangedPerHundred
 
-/** The terms two figures kept with a play say: what a ball rented for and the balls ¥100 of prizes took. None where they are not ones a play is weighed on. */
-export const termsOf = (tokenRental: number, tokenExchange: number): WeighingTerms | undefined => {
-  const rental = TOKEN_RENTALS.find((each) => each === tokenRental)
-  const exchange = rental === undefined ? undefined : EXCHANGES_AT[rental].find((each) => tokenExchangeOf({ rental, exchange: each }) === tokenExchange)
-  return rental === undefined || exchange === undefined ? undefined : { rental, exchange }
+/** Yen a ball rented for, to six places, as an entry keeps the terms a play was weighed on: 4 at 250 balls, 4.166667 at 240. */
+const rentalPriceOf = (terms: WeighingTerms): Decimal => quotient(decimal(1000n, 0), decimal(BigInt(terms.rentedPerThousand), 0), 6)
+
+/**
+ * The terms an entry kept back as typed, where it kept a pachinko play's:
+ * the balls ¥1,000 rented, from the yen one rented for — 4 and 1 as the
+ * terms were once written, 4.166667 as a 240-ball corner is — and the
+ * balls ¥100 of prizes took. None where either is no positive figure.
+ */
+export const weighingTermsOf = (inferred: Pick<InferredWorth, "tokenRental" | "tokenExchange">): WeighingTerms | undefined => {
+  const [rental, exchange] = [Number(toPlainString(inferred.tokenRental)), Number(toPlainString(inferred.tokenExchange))]
+  return rental > 0 && exchange > 0 && Number.isFinite(rental) && Number.isFinite(exchange) ? { rentedPerThousand: Math.round(1000 / rental), exchangedPerHundred: exchange } : undefined
 }
 
 /** Regular spins a cabinet is taken to play in an hour where its formula does not say: on the slow side, a person's breaks being in their hours. */
@@ -72,17 +57,15 @@ export interface Told {
 }
 
 /**
- * The engine weighs a play as one of ¥4 a ball, 250 to ¥1,000. A play of a
- * cheaper ball is the same play with its yen worth so many times more —
+ * The engine weighs a play as one of ¥4 a ball, 250 to ¥1,000. A play at a
+ * corner renting more to ¥1,000 is the same play with its yen worth so
+ * many times more — 4 at ¥1 a ball, 240/250 at 240 balls —
  * the balls, the spins and the hours are what they were — so its sums are
  * scaled up going in, and coming out its worth is scaled back down and
  * its spin performance, which is spins for ¥1,000, up: ¥1,000 rents so
- * many times more of a cheaper ball.
+ * many times more of the corner's ball.
  */
-const scaleOf = (terms: WeighingTerms): number => 4 / terms.rental
-
-/** Balls ¥1,000 rents in the engine's play. */
-export const RENTED_PER_THOUSAND = 250
+const scaleOf = (terms: WeighingTerms): number => terms.rentedPerThousand / RENTED_PER_THOUSAND
 
 /** Yen a ball exchanges for in the engine's play. */
 export const scaledBallValueOf = (terms: WeighingTerms): number => ballValueOf(terms) * scaleOf(terms)
@@ -191,8 +174,8 @@ export const verdictOf = (figures: Figures, terms: WeighingTerms, summary: Infer
 export const inferredWorthOf = (weighed: Weighed, formulaId: string, terms: WeighingTerms): InferredWorth => ({
   value: theoreticalDecimalOf(weighed.theoreticalValue),
   formulaId,
-  tokenRental: decimal(BigInt(terms.rental), 0),
-  tokenExchange: decimal(BigInt(tokenExchangeOf(terms)), 0),
+  tokenRental: rentalPriceOf(terms),
+  tokenExchange: theoreticalDecimalOf(terms.exchangedPerHundred),
   spinPerformance: keptSpinPerformance(weighed.spinPerformance),
 })
 

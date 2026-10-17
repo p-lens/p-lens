@@ -5,8 +5,8 @@ const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: "grapheme" })
  * for or as there are: a flag, a family or a heart with its colour is
  * several code points joined, and a cut between them leaves half a picture.
  */
-export const leadingGraphemesOf = (text: string, count: number): string =>
-  [...GRAPHEMES.segment(text)]
-    .slice(0, count)
-    .map((each) => each.segment)
-    .join("")
+export const leadingGraphemesOf = (text: string, count: number): string => leadingGraphemeListOf(text, count).join("")
+
+/** The same first characters, each on its own: for setting them out one by one. */
+export const leadingGraphemeListOf = (text: string, count: number): readonly string[] =>
+  [...GRAPHEMES.segment(text)].slice(0, count).map((each) => each.segment)

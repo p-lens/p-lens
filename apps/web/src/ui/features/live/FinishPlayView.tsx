@@ -2,8 +2,7 @@ import { createResource, createSignal, Show, type Accessor, type JSX } from "sol
 import { MainContent } from "solid-gathering-shell"
 
 import { keepOwn, takeSentAgain } from "../../../application/inbox"
-import { chooseBook, finishPlay, finishPlayInYen, loadFinishing } from "../../../application/live-play"
-import * as PachislotUseCases from "../../../application/pachislot/weighing"
+import { chooseBook, finishPlay, finishPlayInYen, loadFinishing, theoreticalValueAtFinish } from "../../../application/live-play"
 import type * as PachislotEngine from "../../../pachislot-engine/client/client"
 import type { BookId, ListedBook } from "../../../core/book/book"
 import { keptSpinPerformance } from "../../../core/tally/aside"
@@ -15,8 +14,8 @@ import type { Submission as KeptSubmission } from "../../../parlors/port/submiss
 import type { PlayId } from "../../../core/play/play"
 import * as Pachinko from "../../../core/pachinko"
 import { senderOf, type PlayDraft } from "../../../core/live-play/draft"
-import { parsePlayLog, type Checkpoint } from "../../../core/play-log/checkpoint"
-import { finishCounterOf, finishedBy, lastWrittenAt, PLAYED_ON_FOR, type FinishCounter } from "../../../core/play-log/finish"
+import { parsePlayLog } from "../../../core/play-log/checkpoint"
+import { finishCounterOf, finishedBy, lastWrittenAt, PLAYED_ON_FOR, type Finish, type FinishCounter } from "../../../core/play-log/finish"
 import { liveSummary } from "../../../core/play-log/live"
 import { carriedInOf } from "../../../core/play-log/carried-in"
 import { inPlayOrder } from "../../../core/play-log/performance"
@@ -37,37 +36,25 @@ import { finishTokenTallyFormOf, playedOnTerms, type PlayedOnTerms } from "./fin
 import { finishYenTallyFormOf } from "./finish-yen-tally-form"
 import { FinishTokenTallyEditor } from "./FinishTokenTallyEditor"
 import { FinishYenTallyEditor } from "./FinishYenTallyEditor"
+import type { WorthAt } from "./followed-worth"
 import { counterStands, finishFormOf, readFinishForm, timeOf, type FinishForm } from "./finish-form"
 import { OperationHistory } from "./OperationHistory"
 import { createParlorChoice } from "./parlor-choice"
 import { ParlorChoiceField } from "./ParlorChoiceField"
 import { leftAt, leftBy, tokensKeptAfter, type TokensLeft } from "./tokens-in-hand"
 
-/**
- * What a pachislot play's games are worth by its formula: the setting levels
- * inferred from everything its log saw, weighed on its terms. A play that
- * cannot be weighed has none, and is recorded without it.
- */
-const pachislotValueOf = async (engine: PachislotEngine.EngineClient, draft: PlayDraft, ordered: readonly Checkpoint[]): Promise<number | undefined> => {
-  if (draft.pachislot === undefined) return undefined
-  const outlook = await PachislotUseCases.weighPlay(engine, draft.pachislot, ordered, draft.venue.terms)
-  return outlook.ok ? outlook.value.theoreticalValue : undefined
-}
-
-/** A log that does not read leaves the form to the draft alone. */
-const playedOf = async (engine: PachislotEngine.EngineClient, draft: PlayDraft): Promise<PlayedSoFar> => {
+/** A log that does not read leaves the form to the draft alone. Its theoretical value is the one it comes to finished as the form opens: on the finish given, with the hand as told. */
+const playedOf = async (engine: PachislotEngine.EngineClient, draft: PlayDraft, finish: Finish): Promise<PlayedSoFar> => {
   const parsed = parsePlayLog(draft.log)
   if (!parsed.ok) return { outlay: undefined, replay: undefined, carriedIn: undefined, held: undefined, theoreticalValue: undefined, spinPerformance: undefined }
   const ordered = inPlayOrder(parsed.value)
   const summary = liveSummary(ordered)
   const replay = ordered.findLast((checkpoint) => checkpoint.replay !== undefined)?.replay
   const carriedIn = carriedInOf(ordered)
-  if (draft.gameKind === "slot") return { outlay: summary.outlay, replay, carriedIn, held: ordered.at(-1)?.held, theoreticalValue: await pachislotValueOf(engine, draft, ordered), spinPerformance: undefined }
+  const held = draft.gameKind === "slot" ? ordered.at(-1)?.held : Pachinko.heldAsToldOf(ordered)
   const terms = draft.venue.terms
-  const held = terms === undefined ? ordered.at(-1)?.held : Pachinko.heldAtFinishOf(ordered, terms)
-  const theoretical =
-    draft.pachinko === undefined || terms === undefined ? undefined : Pachinko.playTheoreticalValue(draft.pachinko.figures, terms, Pachinko.consumptionOf(ordered, terms))
-  return { outlay: summary.outlay, replay, carriedIn, held, theoreticalValue: theoretical?.theoreticalValue, spinPerformance: terms === undefined ? undefined : Pachinko.measuredSpinPerformance(ordered, terms) }
+  const spinPerformance = draft.gameKind === "slot" || terms === undefined ? undefined : Pachinko.measuredSpinPerformance(ordered, terms)
+  return { outlay: summary.outlay, replay, carriedIn, held, theoreticalValue: await theoreticalValueAtFinish(engine, draft, finish, held), spinPerformance }
 }
 
 const COUNTER_LABELS: Readonly<Record<PlayDraft["gameKind"], string>> = { pachinko: "終了時回転数", slot: "終了時ゲーム数" }
@@ -186,8 +173,9 @@ function AtNoParlor(props: {
   readonly submissions: Accessor<readonly KeptSubmission[]>
   readonly aside: () => TallyAside
   readonly words: SubmitWords
+  readonly worthAt: Accessor<WorthAt>
   readonly recordInTokens: (tally: TokenTally) => Promise<Outcome<unknown>>
-  readonly recordInYen: (tally: YenTally) => Promise<Outcome<unknown>>
+  readonly recordInYen: (tally: YenTally, held: number | undefined) => Promise<Outcome<unknown>>
   readonly onRecordedInTokens: (tally: TokenTally) => void
   readonly onRecordedInYen: (tally: YenTally, held: number | undefined) => void
 }): JSX.Element {
@@ -211,6 +199,7 @@ function AtNoParlor(props: {
             playId={props.draft.id}
             aside={props.aside}
             words={props.words}
+            worthAt={props.worthAt}
             submit={props.recordInYen}
             onRecorded={props.onRecordedInYen}
           />
@@ -225,6 +214,7 @@ function AtNoParlor(props: {
             playId={props.draft.id}
             aside={props.aside}
             words={props.words}
+            worthAt={props.worthAt}
             submit={props.recordInTokens}
             onRecorded={props.onRecordedInTokens}
           />
@@ -251,7 +241,8 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
     async (source) => {
       const finishing = await loadFinishing(app.services.session, app.services.drafts, source.playId, app.services.member)
       if (!finishing.ok) return finishing
-      const played = await playedOf(app.services.pachislot, finishing.value.draft)
+      const draft = finishing.value.draft
+      const played = await playedOf(app.services.pachislot, draft, readFinishForm(finishedAs(draft, app.services.now(), finishCounterOf(draft.log, draft.gameKind)), draft.startedAt))
       return Ok({ ...finishing.value, played })
     },
   )
@@ -269,6 +260,8 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
               sender: senderOf(draft),
             })
             const words = draft.recorded === undefined ? RECORDING : RECORDING_AGAIN
+            /** What the play comes to finished as the form above now says, for the tokens in hand the form below says. */
+            const worthAt = (): WorthAt => ((at) => (held) => theoreticalValueAtFinish(app.services.pachislot, draft, at, held))(readFinishForm(finish(), draft.startedAt))
             /** Keeps what the play left in hand for the day's next at its place; a play someone sent left its tokens with them. */
             const keepInHand = (left: TokensLeft | undefined): void => {
               if (draft.received !== undefined || left === undefined) return
@@ -298,7 +291,8 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
                     aside={aside}
                     words={words}
                     recordInTokens={(record) => finishPlay(app.services.session, app.services.drafts, draft, bookId, record, readFinishForm(finish(), draft.startedAt), app.services.now())}
-                    recordInYen={(play) => finishPlayInYen(app.services.session, app.services.drafts, draft, bookId, play, readFinishForm(finish(), draft.startedAt), app.services.now())}
+                    recordInYen={(play, held) => finishPlayInYen(app.services.session, app.services.drafts, draft, bookId, play, readFinishForm(finish(), draft.startedAt), app.services.now(), held)}
+                    worthAt={worthAt}
                     onRecordedInTokens={(record) => {
                       keepInHand(leftBy(record))
                       recorded(record.id)
@@ -319,6 +313,7 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
                     playId={draft.id}
                     aside={aside}
                     words={words}
+                    worthAt={worthAt}
                     submit={(record) => finishPlay(app.services.session, app.services.drafts, draft, bookId, record, readFinishForm(finish(), draft.startedAt), app.services.now())}
                     onRecorded={(record) => {
                       keepInHand(leftBy(record))

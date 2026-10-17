@@ -1,6 +1,7 @@
 import { createMemo, createResource, createSignal, type Accessor } from "solid-js"
 
 import type { ApplicationError, Outcome } from "../../../application/errors"
+import type { TermsUsed } from "../../../application/inference-terms"
 import type { RecordingContext } from "../../../application/record-tally"
 import { findMachines } from "../../../application/catalog"
 import type { Weighing, WeighingAsked } from "../../../application/pachinko/inference"
@@ -31,7 +32,7 @@ import * as PachinkoViews from "../pachinko"
 import * as PachislotViews from "../pachislot"
 import { offersByKey, parlorOffers, type ParlorOffer } from "../parlor-offers/parlor-offers"
 import type { FieldProblem, FormField } from "./form"
-import { atToldOf, medalTermsFormOf, pachislotToldOf, readMedalTerms, readYenTallyForm, resultOfYenTally, toldFiguresOf, withInferred, type YenTallyForm } from "./yen-tally-form"
+import { atToldOf, medalTermsFormOf, pachislotToldOf, readMedalTerms, readWeighingTerms, readYenTallyForm, resultOfYenTally, termsTypedOf, toldFiguresOf, weighingTermsFormOf, withInferred, type YenTallyForm } from "./yen-tally-form"
 
 /** Where a submission is: being typed, being written, or refused with why. */
 type Submission =
@@ -46,7 +47,7 @@ const REASONS: Readonly<Record<Exclude<FieldProblem["reason"], "required">, stri
 }
 
 /** What a press that reads a play needs of the form and has not got, field by field: 推定期待値を算出する for pachinko, the setting level's for pachislot. */
-export type Lacking = Readonly<Record<"hours" | "machine" | "outlay" | "theoretical" | "counter", boolean>>
+export type Lacking = Readonly<Record<"hours" | "machine" | "outlay" | "theoretical" | "counter" | "terms", boolean>>
 
 /** What a tally typed in by its totals is given by the screen it is typed in on: what it starts filled with, what a name typed stops, where the survey brings the person back to, and what recording means. */
 export interface YenTallyEditingGiven {
@@ -61,7 +62,8 @@ export interface YenTallyEditingGiven {
   readonly aside: () => TallyAside
   readonly refused: TypedNameRefused
   readonly leftFrom: (game: PlayGameKind) => LeftFrom
-  readonly submit: (tally: YenTally) => Promise<Outcome<unknown>>
+  /** Record the tally, with the terms of its game as the form says them where they read, for the book to keep. */
+  readonly submit: (tally: YenTally, used: TermsUsed | undefined) => Promise<Outcome<unknown>>
   readonly onRecorded: (tally: YenTally) => void
 }
 
@@ -195,7 +197,8 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
     const chosen = machineId()
     if (!tally.ok || tally.value.gameKind !== "pachinko" || tally.value.theoreticalValue !== undefined || chosen === undefined) return undefined
     const told = toldFiguresOf(tally.value)
-    return told === undefined ? undefined : { machineId: chosen, playId: tally.value.id, told, terms: form().weighingTerms }
+    const terms = readWeighingTerms(form().weighingTerms)
+    return told === undefined || terms === undefined ? undefined : { machineId: chosen, playId: tally.value.id, told, terms }
   })
   const weigher = PachinkoViews.createWeighing(asked)
   const weighing = weigher.weighing
@@ -233,9 +236,17 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
           machine: inferable()?.type !== "inferable",
           outlay: false,
           theoretical: form().theoreticalValue.trim() !== "",
-          counter: (atMachine() ? atToldOf(form()) === undefined : pachislotToldOf({ ...form(), hours: "1" }, counterBonusIds()) === undefined) || readMedalTerms(form().medalTerms) === undefined,
+          counter: atMachine() ? atToldOf(form()) === undefined : pachislotToldOf({ ...form(), hours: "1" }, counterBonusIds()) === undefined,
+          terms: readMedalTerms(form().medalTerms) === undefined,
         }
-      : { hours: form().hours === "", machine: machineId() === undefined, outlay: problemAt("outlay") !== undefined || form().outlay.trim() === "", theoretical: form().theoreticalValue.trim() !== "", counter: false }
+      : {
+          hours: form().hours === "",
+          machine: machineId() === undefined,
+          outlay: problemAt("outlay") !== undefined || form().outlay.trim() === "",
+          theoretical: form().theoreticalValue.trim() !== "",
+          counter: false,
+          terms: readWeighingTerms(form().weighingTerms) === undefined,
+        }
   const weighNudge = createNudge()
   const nudge = createNudge()
   /** Red for a while after a press of 推定期待値を算出する that this stopped. */
@@ -254,8 +265,9 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
     const now = weighing()
     const setting = settingInference()
     const terms = readMedalTerms(form().medalTerms)
+    const weighingTerms = readWeighingTerms(form().weighingTerms)
     if (tally.ok && tally.value.gameKind === "slot" && setting.type === "inferred" && terms !== undefined) return { ok: true as const, value: withInferred(tally.value, Pachislot.inferredWorthOf(setting.inferred.formulaId, setting.inferred.theoreticalValue, terms)) }
-    return tally.ok && tally.value.gameKind === "pachinko" && now.type === "weighed" ? { ok: true as const, value: withInferred(tally.value, Pachinko.inferredWorthOf(now.weighed, now.formulaId, form().weighingTerms)) } : tally
+    return tally.ok && tally.value.gameKind === "pachinko" && now.type === "weighed" && weighingTerms !== undefined ? { ok: true as const, value: withInferred(tally.value, Pachinko.inferredWorthOf(now.weighed, now.formulaId, weighingTerms)) } : tally
   })
   const preview = createMemo((): Result<Entry, TallyError> | undefined => {
     const tally = weighedRead()
@@ -264,7 +276,6 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
   /** Whether the weighing has just asked for the jackpots: it read too little from a play told without them. */
   const jackpotsAsked = createMemo((): boolean => ((now) => now.type === "vague" && !now.jackpotsTold)(weighing()))
   const jackpotsWouldSharpen = createMemo((): boolean => weighing().type === "weighed" && form().jackpots.trim() === "")
-  /** Whether anything is set of what a weighing may be told beside the form's own fields: the jackpots, or terms other than the usual. */
   /** Whether an AT machine's history was read with an AT whose misses were not counted, where its machine has a trigger they would have read it closer by. */
   const missesWouldSharpen = createMemo(
     (): boolean =>
@@ -281,7 +292,11 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
     Object.values(form().counterBonuses).some((count) => count.trim() !== "") ||
     form().medalTerms.rentedPerThousand !== medalTermsFormOf(Pachislot.MEDAL_TERMS_BY_DEFAULT).rentedPerThousand ||
     form().medalTerms.exchangedPerHundred !== medalTermsFormOf(Pachislot.MEDAL_TERMS_BY_DEFAULT).exchangedPerHundred
-  const weighingSet = (): boolean => form().jackpots.trim() !== "" || form().weighingTerms.rental !== Pachinko.TERMS_BY_DEFAULT.rental || form().weighingTerms.exchange !== Pachinko.TERMS_BY_DEFAULT.exchange
+  /** Whether anything is set of what a weighing may be told beside the form's own fields: the jackpots, or terms other than the usual. */
+  const weighingSet = (): boolean =>
+    form().jackpots.trim() !== "" ||
+    form().weighingTerms.rentedPerThousand !== weighingTermsFormOf(Pachinko.TERMS_BY_DEFAULT).rentedPerThousand ||
+    form().weighingTerms.exchangedPerHundred !== weighingTermsFormOf(Pachinko.TERMS_BY_DEFAULT).exchangedPerHundred
   const previewText = (): string | undefined => {
     const entry = preview()
     return entry?.ok === true ? renderEntry(entry.value) : undefined
@@ -311,7 +326,7 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
       return
     }
     setSubmission({ type: "saving" })
-    const recorded = await given.submit(tally.value)
+    const recorded = await given.submit(tally.value, ((terms) => (terms === undefined ? undefined : { game: tally.value.gameKind, terms }))(termsTypedOf(form())))
     if (!recorded.ok) {
       setSubmission({ type: "failed", error: recorded.error })
       return

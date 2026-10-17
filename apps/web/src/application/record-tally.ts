@@ -1,4 +1,5 @@
 import { memberCan, type BookId, type MemberId } from "../core/book/book"
+import type { KeptInferenceTerms } from "../core/book/settings"
 import { appendEntry, BOOK_FILES } from "../core/journal/layout"
 import { renderEntry, type Entry } from "../core/journal/entry"
 import { parlorsFromDeclarations, type Parlor } from "../core/parlor/parlor"
@@ -16,6 +17,7 @@ import { accountsRequest, pricesRequest } from "../hledger/query/requests"
 import type { CommitId } from "../history/port/history-port"
 import type { BookSession, ProposedChange } from "./book-session"
 import type { Outcome } from "./errors"
+import { keptInferenceTermsOf } from "./inference-terms"
 import { fromHledger, fromTally } from "./lift"
 
 /** What recording a tally needs to know about the book before anything is typed. */
@@ -23,6 +25,8 @@ export interface RecordingContext {
   readonly parlors: readonly Parlor[]
   readonly prices: readonly PricePoint[]
   readonly canWrite: boolean
+  /** The terms the book keeps for a tally typed in by hand of each game, which its form opens on. */
+  readonly inferenceTerms: KeptInferenceTerms
 }
 
 export const loadRecordingContext = (session: BookSession, bookId: BookId, member: MemberId): Promise<Outcome<RecordingContext>> =>
@@ -33,6 +37,7 @@ export const loadRecordingContext = (session: BookSession, bookId: BookId, membe
         parlors: parlorsFromDeclarations(declared),
         prices: pricePointsOf(directives),
         canWrite: memberCan(stored.book, member, "write"),
+        inferenceTerms: keptInferenceTermsOf(stored.files),
       })),
     )
   })

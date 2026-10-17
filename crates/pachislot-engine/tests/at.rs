@@ -685,6 +685,7 @@ fn a_machine_of_modes_reads_its_published_first_hit_over_its_allotment() {
         Allotments {
             after_at: vec![0.5, 0.5],
             after_reset: vec![1.0, 0.0],
+            after_endings: Vec::new(),
         }
     );
     let figures = analysed(&spec);

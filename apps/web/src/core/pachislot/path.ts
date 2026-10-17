@@ -1,4 +1,4 @@
-import type { AtRulesDto, AtSeenDto, LegDto, ModeRuleDto, NormalizedSpecDto, PathDto, PayoutLawDto } from "@p-lens/contracts/pachislot"
+import type { AtRulesDto, AtSeenDto, LegDto, ModeRuleDto, NormalizedSpecDto, PathDto, PayoutLawDto, SpecDto } from "@p-lens/contracts/pachislot"
 
 import type { Checkpoint } from "../play-log/checkpoint"
 import { Err, Ok, type Result } from "../result/result"
@@ -222,11 +222,20 @@ const triggerCeilingOf = (mode: ModeRuleDto, standing: AtStanding): number | und
 /** The deepest スルー天井 over a machine's modes; none where some mode has none. */
 export const deepestMisses = (rules: AtRulesDto): number | undefined => deepest(rules.modes.map((mode) => missesOf(rules, mode)))
 
-/** The modes some setting allots play to, after a setting change or after an AT. */
-const reachableModes = (normalized: NormalizedSpecDto, afterReset: boolean): readonly ModeRuleDto[] =>
-  (normalized.atRules?.modes ?? []).filter((_, index) =>
-    normalized.tables.some((table) => ((afterReset ? table.at?.allotments.afterReset : table.at?.allotments.afterAt)?.[index] ?? 0) > 0),
+/**
+ * The modes some setting allots play to, after a setting change or after an
+ * AT — one that ended the way `ending` names, where it names one.
+ */
+const reachableModes = (normalized: NormalizedSpecDto, afterReset: boolean, ending?: string): readonly ModeRuleDto[] => {
+  const ended = ending === undefined || afterReset ? -1 : (normalized.atRules?.endings ?? []).indexOf(ending)
+  return (normalized.atRules?.modes ?? []).filter((_, index) =>
+    normalized.tables.some((table) => {
+      const allotments = table.at?.allotments
+      const shares = afterReset ? allotments?.afterReset : (allotments?.afterEndings?.[ended]?.afterAt ?? allotments?.afterAt)
+      return (shares?.[index] ?? 0) > 0
+    }),
   )
+}
 
 /** The deepest of the ceilings given, the one reached latest; none where there are none, or one of them is none. */
 const deepest = (ceilings: readonly (number | undefined)[]): number | undefined =>
@@ -279,12 +288,15 @@ export const ceilingsOf = (standing: AtStanding, normalized: NormalizedSpecDto):
  * won directly, its 天井; up to 1000 games without one. With CZs missed,
  * each seat is just after the last of them; without, the CZ has come no
  * sooner than the AT, so no seat is past the CZ's own ceiling, where one
- * would have come.
+ * would have come. Where the last AT is said to have ended a given way, the
+ * seats say so and reach only the modes an AT that ended so allots play
+ * to; after a setting change, how it ended is of no account.
  */
-export const huntSeatsOf = (normalized: NormalizedSpecDto, afterReset: boolean, misses: number): readonly AtStanding[] => {
+export const huntSeatsOf = (normalized: NormalizedSpecDto, afterReset: boolean, misses: number, ending?: string): readonly AtStanding[] => {
   const rules = normalized.atRules
   if (rules === undefined) return []
-  const modes = reachableModes(normalized, afterReset)
+  const ended = afterReset || ending === undefined || !(rules.endings ?? []).includes(ending) ? undefined : ending
+  const modes = reachableModes(normalized, afterReset, ended)
   const atCeiling = sooner(deepest(modes.map((mode) => (rules.trigger === undefined ? mode.ceiling : atCeilingOf(rules, mode)))), rules.ceilingAcrossBonuses) ?? 1000
   const czCeiling = rules.trigger === undefined || misses > 0 ? undefined : deepest(modes.map((mode) => (mode.ceiling === undefined ? mode.sinceAtCeiling : mode.sinceAtCeiling === undefined ? mode.ceiling : Math.min(mode.ceiling, mode.sinceAtCeiling))))
   const ceiling = Math.min(atCeiling, czCeiling ?? atCeiling)
@@ -294,8 +306,19 @@ export const huntSeatsOf = (normalized: NormalizedSpecDto, afterReset: boolean, 
     sinceAt,
     misses,
     afterReset,
+    ...(ended === undefined ? {} : { ending: ended }),
   }))
 }
+
+/** One way an AT of the machine ends, by its id and as its sheet names it. */
+export interface AtEnding {
+  readonly id: string
+  readonly label: string
+}
+
+/** The ways an AT of the machine ends, where its modes are allotted by them, in the engine's order; none where they are not. */
+export const atEndingsOf = (normalized: NormalizedSpecDto, spec: SpecDto): readonly AtEnding[] =>
+  (normalized.atRules?.endings ?? []).map((id) => ({ id, label: spec.components.label?.[id]?.trim() || id }))
 
 /** Whether how an AT went tells the engine anything: on a machine with a 有利区間's cap, or one paid in sets. */
 export const atResultMatters = (normalized: NormalizedSpecDto): boolean =>

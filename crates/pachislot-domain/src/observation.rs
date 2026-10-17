@@ -39,6 +39,11 @@ pub struct PathStart {
     /// `since_at` counts from the last of. None where no bonus did, the
     /// games since the AT being `since_at`.
     pub since_at_across_bonuses: Option<u32>,
+    /// How the last AT ended, by its place among the rules' endings, where
+    /// it is said: play then starts from that ending's allotment rather
+    /// than every ending's weighed by its share. None where it is not said,
+    /// and of no account after a setting change.
+    pub ending: Option<usize>,
 }
 
 /// So many regular games, the last of which ended as it says.

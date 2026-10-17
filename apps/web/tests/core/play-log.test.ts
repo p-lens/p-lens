@@ -106,7 +106,7 @@ describe("when a play is taken to have finished", () => {
   })
 
   test("is not counted from the line that finished it before, and is now for a log that says no moment", () => {
-    expect(lastWrittenAt(withFinish(log, { at: "2026-10-12T12:00:00.000Z", counter: undefined }, "pachinko"))).toBe("2026-10-12T10:40:00.000Z")
+    expect(lastWrittenAt(withFinish(log, { at: "2026-10-12T12:00:00.000Z", counter: undefined }, "pachinko", undefined))).toBe("2026-10-12T10:40:00.000Z")
     expect(finishedBy("2026-10-13T09:00:00.000Z", lastWrittenAt(appendCheckpoint("", { spins: 0 })), PLAYED_ON_FOR.own)).toBe("2026-10-13T09:00:00.000Z")
     expect(lastWrittenAt("not a log")).toBeUndefined()
   })
@@ -117,7 +117,7 @@ describe("the line that finishes a play", () => {
   const LOG = '{"spins":0,"outlay":0,"counter":{"spins":120}}\n{"spins":300,"outlay":5000,"counter":{"spins":420}}\n{"spins":120,"outlay":2000}\n'
 
   test("falls last in play order at the games the play had come to, and reads back", () => {
-    const finished = withFinish(LOG, { at: AT, counter: undefined }, "pachinko")
+    const finished = withFinish(LOG, { at: AT, counter: undefined }, "pachinko", undefined)
     expect(finished).toBe(`${LOG}{"spins":300,"at":"${AT}","event":{"kind":"finished"}}\n`)
     const parsed = parsePlayLog(finished)
     expect(parsed.ok && parsed.value.at(-1)).toEqual({ spins: 300, at: AT, event: { kind: "finished" } })
@@ -125,22 +125,23 @@ describe("the line that finishes a play", () => {
 
   test("takes the games between where the counter was last read and where it finished, and none where it finished there or behind", () => {
     expect(finishCounterOf(LOG, "pachinko")).toEqual({ figure: "spins", count: 420 })
-    expect(withFinish(LOG, { at: AT, counter: 455 }, "pachinko")).toBe(`${LOG}{"spins":335,"at":"${AT}","counter":{"spins":455},"event":{"kind":"finished"}}\n`)
-    expect(withFinish(LOG, { at: AT, counter: 420 }, "pachinko")).toBe(`${LOG}{"spins":300,"at":"${AT}","event":{"kind":"finished"}}\n`)
-    expect(withFinish(LOG, { at: AT, counter: 10 }, "pachinko")).toBe(`${LOG}{"spins":300,"at":"${AT}","event":{"kind":"finished"}}\n`)
+    expect(withFinish(LOG, { at: AT, counter: 455 }, "pachinko", undefined)).toBe(`${LOG}{"spins":335,"at":"${AT}","counter":{"spins":455},"event":{"kind":"finished"}}\n`)
+    expect(withFinish(LOG, { at: AT, counter: 420 }, "pachinko", undefined)).toBe(`${LOG}{"spins":300,"at":"${AT}","event":{"kind":"finished"}}\n`)
+    expect(withFinish(LOG, { at: AT, counter: 455 }, "pachinko", 640)).toBe(`${LOG}{"spins":335,"at":"${AT}","counter":{"spins":455},"held":640,"event":{"kind":"finished"}}\n`)
+    expect(withFinish(LOG, { at: AT, counter: 10 }, "pachinko", undefined)).toBe(`${LOG}{"spins":300,"at":"${AT}","event":{"kind":"finished"}}\n`)
   })
 
   test("follows a pachislot counter by the day's games where it was read by them, and by the games since the last AT where not", () => {
     const byTotal = '{"spins":0,"counter":{"total":2400}}\n{"spins":200,"counter":{"total":2600}}\n'
     const sinceAt = '{"spins":0,"counter":{"spins":80}}\n{"spins":150,"counter":{"spins":230}}\n'
     expect(finishCounterOf(byTotal, "slot")).toEqual({ figure: "total", count: 2600 })
-    expect(withFinish(byTotal, { at: undefined, counter: 2650 }, "slot")).toBe(`${byTotal}{"spins":250,"counter":{"total":2650},"event":{"kind":"finished"}}\n`)
+    expect(withFinish(byTotal, { at: undefined, counter: 2650 }, "slot", undefined)).toBe(`${byTotal}{"spins":250,"counter":{"total":2650},"event":{"kind":"finished"}}\n`)
     expect(finishCounterOf(sinceAt, "slot")).toEqual({ figure: "spins", count: 230 })
   })
 
   test("finishes an empty log at no games, and leaves a log that does not read alone", () => {
-    expect(withFinish("", { at: AT, counter: 50 }, "pachinko")).toBe(`{"spins":0,"at":"${AT}","event":{"kind":"finished"}}\n`)
-    expect(withFinish("not a log\n", { at: AT, counter: undefined }, "pachinko")).toBe("not a log\n")
+    expect(withFinish("", { at: AT, counter: 50 }, "pachinko", undefined)).toBe(`{"spins":0,"at":"${AT}","event":{"kind":"finished"}}\n`)
+    expect(withFinish("not a log\n", { at: AT, counter: undefined }, "pachinko", undefined)).toBe("not a log\n")
     expect(finishCounterOf("not a log\n", "pachinko")).toBeUndefined()
   })
 })

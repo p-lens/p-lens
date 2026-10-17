@@ -6,7 +6,8 @@ import type { BookId } from "../../../core/book/book"
 import type { ListedTally } from "../../../core/report/tallies"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
-import { CloseIcon, FilterIcon } from "../../primitives/icons"
+import { filterButtonClass, FilterMark } from "../../primitives/filter"
+import { CloseIcon } from "../../primitives/icons"
 import { EmptyState, Loaded } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
@@ -96,12 +97,9 @@ export function TalliesView(props: { readonly place: Place; readonly bookId: Boo
         <div class="flex flex-col gap-2 p-2">
           <div class="flex items-center justify-between gap-2 pl-3 pr-1 pt-1">
             <p class="text-xs text-text-muted">{countText()}</p>
-            <Button type="button" variant="outline" size="icon" aria-label={FILTER} title={FILTER} aria-expanded={filtering()} onClick={() => setFiltering((open) => !open)} class={`relative shrink-0 [&_svg]:size-5 ${narrowed() ? "border-text-secondary text-text-primary" : ""}`}>
-              <FilterIcon filled={narrowed()} />
-              <Show when={narrowed()}>
-                <span aria-hidden="true" class="absolute -right-1 -top-1 size-2.5 rounded-full bg-text-primary ring-2 ring-surface-2" />
-              </Show>
-            </Button>
+            <button type="button" aria-label={FILTER} title={FILTER} aria-expanded={filtering()} onClick={() => setFiltering((open) => !open)} class={filterButtonClass(narrowed())}>
+              <FilterMark narrowed={narrowed()} />
+            </button>
           </div>
           <Show when={filtering()}>
             <section class="flex flex-col gap-3 rounded-md border border-border bg-surface-1 p-3" aria-label={FILTER}>

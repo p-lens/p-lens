@@ -107,10 +107,10 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
     (source) => loadOverall(app.services.session, source.bookId, source.query),
   )
   const [othered] = createResource(
-    () => ({ bookId: props.bookId, by: props.by, query: props.query, revision: app.revision() }),
-    (source) => loadOtherGains(app.services.session, source.bookId, queryFor(source.by, source.query)),
+    () => (props.by === OVERALL ? { bookId: props.bookId, query: props.query, revision: app.revision() } : undefined),
+    (source) => loadOtherGains(app.services.session, source.bookId, source.query),
   )
-  /** その他損益 over the period, only where there is any: none while it is asked, and none where it could not be read — the breakdown above it stands without it. */
+  /** その他損益 over the period, under 総合 alone and only where there is any: none while it is asked, and none where it could not be read — 総合 stands without it. */
   const otherGains = (): OtherGains | undefined => ((answer) => (answer?.ok === true && hasOtherGains(answer.value) ? answer.value : undefined))(othered())
   const [spun] = createResource(
     () => (props.by === "machine" ? { bookId: props.bookId, query: props.query, revision: app.revision() } : undefined),
@@ -126,7 +126,7 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
       <div class="max-w-5xl">
         <div class="flex flex-col gap-4 p-4">
           <div class="flex flex-wrap items-end gap-3">
-            <div class="w-36">
+            <div class="w-[8.5rem]">
               <Select
                 label="切り口"
                 options={BREAKDOWN_OPTIONS}
@@ -163,7 +163,7 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
             )}
           </Show>
           <Show when={otherGains()} keyed>
-            {(found) => <OtherGainsSection gains={found} byParlor={props.by === "parlor"} />}
+            {(found) => <OtherGainsSection gains={found} />}
           </Show>
         </div>
       </div>

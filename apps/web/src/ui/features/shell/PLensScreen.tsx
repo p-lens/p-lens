@@ -1,5 +1,5 @@
 import { useLocation, useSearchParams } from "@solidjs/router"
-import { createMemo, createResource, Show, type JSX } from "solid-js"
+import { createMemo, createResource, Show, untrack, type JSX } from "solid-js"
 import { createArrangement, GatheringShell, MainContent, TopBar } from "solid-gathering-shell"
 
 import type { Outcome } from "../../../application/errors"
@@ -7,7 +7,7 @@ import { destinationsOf } from "../../../application/sending"
 import type { ListedBook } from "../../../core/book/book"
 import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
-import { bookOf, focusOf, inConsolidation, inSettings, placeOf, type Place } from "../../navigation/place"
+import { bookOf, focusOf, inConsolidation, inSettings, placeOf, screenOf, type Place } from "../../navigation/place"
 import { EmptyState } from "../../primitives/states"
 import { ActivityView } from "../activity/ActivityView"
 import { CabinetView } from "../live/CabinetView"
@@ -71,10 +71,18 @@ function ChooseFromList(props: { readonly place: Place; readonly title: string; 
 }
 
 /**
- * The main pane for a place. Called once per place; the query is read through
- * an accessor so a new query refreshes the view without rebuilding it.
+ * The main pane for a place. Called once per screen (`screenOf`); the
+ * query, and what the place is narrowed to, are read through accessors so
+ * either refreshes the view without rebuilding it.
  */
-const mainFor = (place: Place, query: () => string): JSX.Element => {
+/**
+ * The place a view drawn for one is at now: the same screen, narrowed as
+ * the address now says — read where it is used, so the view follows a
+ * narrowing without being drawn again.
+ */
+const liveAs = <P extends Place>(live: () => Place, drawnFor: P): P => ((now) => (now.kind === drawnFor.kind ? (now as P) : drawnFor))(live())
+
+const mainFor = (place: Place, query: () => string, live: () => Place): JSX.Element => {
   switch (place.kind) {
     case "live":
       return <ChooseFromList place={place} title="ライブ計測" hint="本日の稼働を選ぶか、新しく始めてください。" />
@@ -89,7 +97,7 @@ const mainFor = (place: Place, query: () => string): JSX.Element => {
     case "book":
       return <ChooseFromList place={place} title="帳簿" hint="左のリストからビューを選んでください。" />
     case "book-view":
-      return bookViewFor(place, query)
+      return bookViewFor(place, query, live)
     case "book-breakdown":
       return <BreakdownView place={place} bookId={place.bookId} by={place.by} query={query()} />
     case "tally":
@@ -133,11 +141,11 @@ const mainFor = (place: Place, query: () => string): JSX.Element => {
     case "consolidated":
       return <ChooseFromList place={place} title="連結" hint="左のリストからビューを選んでください。" />
     case "consolidated-holdings":
-      return <ConsolidatedHoldingsView place={place} bookIds={place.bookIds} query={query()} />
+      return <ConsolidatedHoldingsView place={liveAs(live, place)} bookIds={liveAs(live, place).bookIds} query={query()} />
     case "consolidated-result-calendar":
-      return <ConsolidatedResultCalendarView place={place} bookIds={place.bookIds} />
+      return <ConsolidatedResultCalendarView place={liveAs(live, place)} bookIds={liveAs(live, place).bookIds} />
     case "consolidated-breakdown":
-      return <ConsolidatedBreakdownView place={place} by={place.by} bookIds={place.bookIds} query={query()} />
+      return <ConsolidatedBreakdownView place={liveAs(live, place)} by={place.by} bookIds={liveAs(live, place).bookIds} query={query()} />
     case "settings":
       return <ChooseFromList place={place} title="設定" hint="左のリストから項目を選んでください。" />
     case "settings-section":
@@ -176,14 +184,14 @@ const settingsFor = (place: Extract<Place, { kind: "settings-section" }>): JSX.E
   }
 }
 
-const bookViewFor = (place: Extract<Place, { kind: "book-view" }>, query: () => string): JSX.Element => {
+const bookViewFor = (place: Extract<Place, { kind: "book-view" }>, query: () => string, live: () => Place): JSX.Element => {
   switch (place.view) {
     case "holdings":
-      return <HoldingsView place={place} bookId={place.bookId} query={query()} />
+      return <HoldingsView place={liveAs(live, place)} bookId={place.bookId} parlors={liveAs(live, place).parlors} query={query()} />
     case "tallies":
       return <TalliesView place={place} bookId={place.bookId} query={query()} />
     case "result-calendar":
-      return <ResultCalendarView place={place} bookId={place.bookId} />
+      return <ResultCalendarView place={liveAs(live, place)} bookId={place.bookId} senders={liveAs(live, place).senders} />
     case "activity":
       return <ActivityView place={place} bookId={place.bookId} />
     case "files":
@@ -246,8 +254,8 @@ export function PLensScreen(): JSX.Element {
         side={sideFor(place(), books(), destinations())}
         aux={auxFor(place(), query)}
       >
-        <Show when={place()} keyed>
-          {(current) => mainFor(current, query)}
+        <Show when={screenOf(place())} keyed>
+          {(_screen) => mainFor(untrack(place), query, place)}
         </Show>
       </GatheringShell>
       <ToastRegion />

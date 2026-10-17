@@ -110,6 +110,30 @@ const modeFacts = (spec: SpecDto, rules: AtRulesDto, levels: readonly number[]):
 }
 
 /**
+ * Where the modes are allotted by how an AT ended: that they are, and under
+ * each setting level each ending's share of ATs and how play is allotted
+ * between the modes, in the engine's order, after an AT that ended so — a
+ * mode's own after it, or its 振り分け after any AT. An ending is told by
+ * its place, never by its name. Nothing where the machine has no endings.
+ */
+const endingFacts = (spec: SpecDto, rules: AtRulesDto, levels: readonly number[]): readonly string[] => {
+  const endings = rules.endings ?? []
+  if (endings.length === 0) return []
+  const fraction = (points: number | undefined): string => prologNumber((points ?? 0) / 10_000)
+  return [
+    given("ended"),
+    ...levels.flatMap((level) =>
+      endings.flatMap((ending, place) => [
+        given(`ending_share(${level}, ${place}, ${fraction(under(spec.components.ending?.[ending], level))})`),
+        ...rules.modes.map((mode, index) =>
+          given(`ended_allotted(${level}, ${place}, ${index}, ${fraction(under(spec.components.endingAllotment?.[mode.id]?.[ending] ?? spec.components.allotment?.[mode.id], level))})`),
+        ),
+      ]),
+    ),
+  ]
+}
+
+/**
  * The AT's 純増 as its spec gives it: its own, each share of its medals won
  * at another, and the 純増 over all of them as the engine normalised it, to
  * check against. An AT with no other 純増 has the one figure.
@@ -196,7 +220,8 @@ const machineFacts = (spec: SpecDto, rules: AtRulesDto): readonly string[] => {
 /**
  * What the reasoner is told of an AT machine's formula, as Prolog facts:
  * its bet, its ベース as the engine normalised it and its 純増; what its
- * sheet says of the machine and of its modes; under each setting level
+ * sheet says of the machine and of its modes, and of the ways an AT ends
+ * where its modes are allotted by them; under each setting level
  * what its sheet publishes and what the engine came to; and the 機械割 the formula stores under each — for a
  * sampled formula, with its margin. Only numbers are written. Nothing
  * where the machine has no 純増: there is then nothing to reason a 機械割
@@ -215,6 +240,7 @@ export const groundsFacts = (basis: Basis, analysis: AnalysisDto, figures: reado
     ...redrawnFacts(basis),
     ...restartedFacts(rules),
     ...modeFacts(basis.spec, rules, analysis.settingLevels.map((solved) => solved.settingLevel)),
+    ...endingFacts(basis.spec, rules, analysis.settingLevels.map((solved) => solved.settingLevel)),
     ...analysis.settingLevels.flatMap((solved) => levelFacts(solved, basis.spec, rules.at, rules.trigger, basis.normalized.tables.find((table) => table.settingLevel === solved.settingLevel)?.at?.chance)),
     ...figures.map((stored) => storedFact(stored, margins?.find((margin) => margin.settingLevel === stored.settingLevel))),
   ].join("\n")

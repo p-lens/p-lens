@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { leadingGraphemesOf } from "../../src/core/text/leading-graphemes"
+import { leadingGraphemeListOf, leadingGraphemesOf } from "../../src/core/text/leading-graphemes"
 
 describe("the first characters a person sees", () => {
   test("are letters, or pictures of one code point, as they are", () => {
@@ -21,5 +21,11 @@ describe("the first characters a person sees", () => {
   test("are as many as there are, where fewer than asked for", () => {
     expect(leadingGraphemesOf("帳", 2)).toBe("帳")
     expect(leadingGraphemesOf("", 1)).toBe("")
+  })
+
+  test("are given one by one, to be set out as a triangle of three or a square of four", () => {
+    expect(leadingGraphemeListOf("マイ帳簿", 3)).toEqual(["マ", "イ", "帳"])
+    expect(leadingGraphemeListOf("🇯🇵マイ帳簿", 4)).toEqual(["🇯🇵", "マ", "イ", "帳"])
+    expect(leadingGraphemeListOf("家計", 4)).toEqual(["家", "計"])
   })
 })

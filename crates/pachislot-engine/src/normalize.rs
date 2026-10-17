@@ -59,7 +59,11 @@ fn outcomes(element: &Element) -> Vec<Outcome<'_>> {
             kind: EventKind::Replay,
             chance: &replay.chance,
         }],
-        Element::At(_) | Element::Mode(_) | Element::Cz(_) | Element::Watch(_) => Vec::new(),
+        Element::At(_)
+        | Element::Mode(_)
+        | Element::Cz(_)
+        | Element::Watch(_)
+        | Element::Ending(_) => Vec::new(),
     }
 }
 

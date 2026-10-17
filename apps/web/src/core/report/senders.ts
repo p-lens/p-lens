@@ -29,3 +29,10 @@ export const senderNamesOf = (newestFirst: readonly Transaction[]): SenderNames 
 /** Several books' senders as one: where two say a name for one id, the later tally's. */
 export const mergedSenderNames = (books: readonly SenderNames[]): SenderNames =>
   books.reduce<ReadonlyMap<string, LastNamed>>((all, book) => [...book].reduce((sofar, [id, named]) => new Map([...sofar, [id, later(sofar.get(id), named)]]), all), new Map())
+
+/**
+ * What a book's tallies that name no sender go by among who played them,
+ * where a choice of them is written down: its owner's own, and plays taken
+ * in before senders were written. No sender's id is ever this word.
+ */
+export const UNSENT = "unsent"

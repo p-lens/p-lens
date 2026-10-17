@@ -117,6 +117,10 @@ export interface ComponentsDto {
   readonly allotment?: Readonly<Record<string, readonly BySettingLevelDto<number>[]>>
   /** How often play enters a mode after a setting change, where that differs; every mode has one, or none does. */
   readonly resetAllotment?: Readonly<Record<string, readonly BySettingLevelDto<number>[]>>
+  /** An ending: one way an AT ends — 駆け抜け, 上位AT — with its share of ATs in hundredths of a percent under each setting, a machine's endings the whole of them. Only on a machine of modes, which some mode is allotted otherwise after. */
+  readonly ending?: Readonly<Record<string, readonly BySettingLevelDto<number>[]>>
+  /** On a mode: how often play enters it after an AT that ended a given way, by the ending, in hundredths of a percent under each setting, in place of its `allotment` after that ending; an ending a mode leaves out takes its `allotment`. */
+  readonly endingAllotment?: Readonly<Record<string, Readonly<Record<string, readonly BySettingLevelDto<number>[]>>>>
   /** A mode's own AT間天井 in regular games, in place of the AT's, on a machine a CZ brings the AT on: an AT間天井 drawn after each AT is a mode for each. */
   readonly atCeiling?: Readonly<Record<string, number>>
   /** A watch: what a player watches over each of a bonus — its games for a スイカ, its side lamp once — named by the bonus, and never a regular game's. */
@@ -243,7 +247,17 @@ export interface AtTableDto {
   readonly ceilingRedraws?: readonly (readonly number[])[]
   /** Each mode's own chance a game brings the trigger, `null` for one at the table's `chance`; left out where no mode has one. */
   readonly ownChances?: readonly (number | null)[]
-  readonly allotments: { readonly afterAt: readonly number[]; readonly afterReset: readonly number[] }
+  /**
+   * How play is allotted between the modes after an AT and after a setting
+   * change; where the modes are allotted by how an AT ended, each ending's
+   * share and allotment in the order of `atRules.endings` — `afterAt` being
+   * them weighed by their shares, which every figure is worked from.
+   */
+  readonly allotments: {
+    readonly afterAt: readonly number[]
+    readonly afterReset: readonly number[]
+    readonly afterEndings?: readonly { readonly share: number; readonly afterAt: readonly number[] }[]
+  }
   readonly payout: PayoutLawDto
 }
 
@@ -310,6 +324,8 @@ export interface AtRulesDto {
   readonly ceilingAt?: "outright" | "triggered"
   /** Where a bonus that misses the AT starts play again: an AT間天井 in regular games counted from the last AT across those bonuses, beside each mode's own counted from the bonus. None where left out. */
   readonly ceilingAcrossBonuses?: number
+  /** The ways an AT ends, where the modes are allotted by them: each table's `allotments.afterEndings` in this order. Left out where they are not. */
+  readonly endings?: readonly string[]
 }
 
 export type SourceDto =
@@ -410,6 +426,8 @@ export interface PathDto {
     readonly held?: number
     /** Where a bonus that missed the AT started play again since it: the regular games since the AT itself, across those bonuses, `sinceAt` counting from the last of them. Left out where none did. */
     readonly sinceAtAcrossBonuses?: number
+    /** How the last AT ended, by the ending's id, where it is said: play then starts from that ending's allotment rather than every ending's mixed. Of no account after a setting change. */
+    readonly ending?: string
   }
   readonly legs: readonly LegDto[]
 }
@@ -617,6 +635,12 @@ export type EngineErrorDto =
   | { readonly type: "ceiling-beside-modes"; readonly entity: string }
   | { readonly type: "allotment-not-whole"; readonly settingLevel: number; readonly afterReset: boolean; readonly sum: number }
   | { readonly type: "reset-allotment-partial"; readonly entity: string }
+  | { readonly type: "ending-without-modes"; readonly entity: string }
+  | { readonly type: "endings-not-whole"; readonly settingLevel: number; readonly sum: number }
+  | { readonly type: "ending-allotment-to-unknown"; readonly entity: string; readonly ending: string }
+  | { readonly type: "ending-allotment-not-whole"; readonly ending: string; readonly settingLevel: number; readonly sum: number }
+  | { readonly type: "endings-without-allotment"; readonly entity: string }
+  | { readonly type: "unknown-ending"; readonly ending: string }
   | { readonly type: "cz-without-at"; readonly entity: string }
   | { readonly type: "first-hit-beside-cz"; readonly entity: string }
   | { readonly type: "payout-beside-at"; readonly entity: string }

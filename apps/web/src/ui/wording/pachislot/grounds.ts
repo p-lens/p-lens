@@ -634,7 +634,7 @@ const successOf = (step: Step): number => known(givenNumber(step, "success", 1))
 
 const settledShare = (step: Step, naming: GroundsNaming): Said => {
   const allotted = givenIn(step, "allotted")
-  const [after, reset] = [known(numberOf(allotted?.args[2])), known(numberOf(allotted?.args[3]))]
+  const [after, reset] = [known(arg(stepUnder(step, "allotted_plain", "allotted_by_ending"), 2)), known(numberOf(allotted?.args[3]))]
   const completion = known(arg(step, 1))
   const shown = shownAt(completion, RATIO)
   return plain(
@@ -648,6 +648,21 @@ const settledShare = (step: Step, naming: GroundsNaming): Said => {
     figure(ratio(reset)),
     link(near((1 - shown) * shownAt(after, RATIO) + shown * shownAt(reset, RATIO), known(arg(step, 2)), RATE)),
     figure(rate(arg(step, 2))),
+  )
+}
+
+/** A mode's share after an AT, where the modes are allotted by how an AT ended: each ending's share of ATs times its allotment to the mode, summed. */
+const allottedByEnding = (step: Step, naming: GroundsNaming): Said => {
+  const parts = stepsUnder(step)
+    .filter((inner) => inner.rule === "ending_part")
+    .map((inner) => ({ ending: known(numberOf(givenIn(inner, "ending_share")?.args[1])), share: known(givenNumber(inner, "ending_share", 2)), after: known(givenNumber(inner, "ended_allotted", 3)) }))
+  const sum = parts.reduce((total, part) => total + shownAt(part.share, RATE) * shownAt(part.after, RATE), 0)
+  return plain(
+    `${modeName(naming, known(arg(step, 1)))}のAT後の振り分け ＝ `,
+    ...parts.flatMap((part, index) => [index === 0 ? "" : " ＋ ", `${naming.endings[part.ending] ?? "--"} `, figure(rate(part.share)), " × ", figure(rate(part.after))]),
+    link(near(sum, known(arg(step, 2)), RATE)),
+    figure(rate(arg(step, 2))),
+    "（ATの終わり方の割合で重み付け）",
   )
 }
 
@@ -835,6 +850,8 @@ const lineOf = (step: Step, naming: GroundsNaming): Said | undefined => {
       return plain("上限到達率 ", figure(rate(arg(step, 1))), "（計算エンジンが有利区間の上限を入れて解いた値）")
     case "settled_share":
       return settledShare(step, naming)
+    case "allotted_by_ending":
+      return allottedByEnding(step, naming)
     case "gain_fixed":
       return plain("ATの平均獲得枚数 ", figure(medals(arg(step, 1))), "（解析値のまま）")
     case "gain_in_sets":
