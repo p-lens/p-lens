@@ -30,13 +30,17 @@ const atEndedText = (checkpoint: Checkpoint, endings: readonly AtEnding[]): stri
   return parts.length === 0 ? "AT終了" : `AT終了（${parts.join("・")}）`
 }
 
-/** A line with the step it can be set right as, where it is a reading. */
+/** A line with the step it can be set right as, where it is a reading, and whether it is the seat as it was found: the log's first. */
 interface Row {
   readonly checkpoint: Checkpoint
   readonly step: number | undefined
+  readonly seat: boolean
 }
 
-function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly bonuses: readonly Countable[]; readonly trigger: TriggerWords; readonly endings: readonly AtEnding[]; readonly strip: boolean }): JSX.Element {
+/** What the seat as it was found is called, in place of the games played, which are none there. */
+const SEAT_NAME = "着席"
+
+function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly seat: boolean; readonly bonuses: readonly Countable[]; readonly trigger: TriggerWords; readonly endings: readonly AtEnding[]; readonly strip: boolean }): JSX.Element {
   const counted = (): string =>
     props.bonuses
       .flatMap((bonus) => {
@@ -47,7 +51,7 @@ function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly bonuses: 
   return (
     <>
       <time class="shrink-0 text-xs tabular-nums text-text-muted" classList={{ "w-20": !props.strip }}>{props.checkpoint.at === undefined ? "--" : formatMoment(props.checkpoint.at)}</time>
-      <span class="shrink-0 tabular-nums text-text-primary" classList={{ "w-20": !props.strip, "font-semibold": props.strip }}>{formatCount(props.checkpoint.spins)} G</span>
+      <span class="shrink-0 tabular-nums text-text-primary" classList={{ "w-20": !props.strip, "font-semibold": props.strip }}>{props.seat ? SEAT_NAME : `${formatCount(props.checkpoint.spins)} G`}</span>
       <span class="text-sm tabular-nums text-text-secondary" classList={{ "flex-1": !props.strip, "flex flex-col": props.strip }}>
         {props.checkpoint.outlay === undefined ? "" : `¥${formatCount(props.checkpoint.outlay)}`}
         <Show when={props.checkpoint.replay} keyed>
@@ -148,7 +152,7 @@ export function Timeline(props: {
   const bonuses = (): readonly Countable[] => props.bonuses ?? countedIn(props.checkpoints)
   const shown = (): readonly Row[] =>
     props.checkpoints.flatMap((checkpoint, line, ordered) =>
-      isShown(checkpoint) ? [{ checkpoint, step: props.onRevise === undefined ? undefined : revisableStepAt(ordered, line) }] : [],
+      isShown(checkpoint) ? [{ checkpoint, step: props.onRevise === undefined ? undefined : revisableStepAt(ordered, line), seat: line === 0 }] : [],
     )
   createEffect(
     on(
@@ -180,7 +184,7 @@ export function Timeline(props: {
                 when={row.step !== undefined}
                 fallback={
                   <div class={shape()}>
-                    <ReadingRow checkpoint={row.checkpoint} bonuses={bonuses()} trigger={props.trigger ?? triggerWordsOf(undefined)} endings={props.endings ?? []} strip={strip()} />
+                    <ReadingRow checkpoint={row.checkpoint} seat={row.seat} bonuses={bonuses()} trigger={props.trigger ?? triggerWordsOf(undefined)} endings={props.endings ?? []} strip={strip()} />
                   </div>
                 }
               >
@@ -194,7 +198,7 @@ export function Timeline(props: {
                     props.onRevise(row.step)
                   }}
                 >
-                  <ReadingRow checkpoint={row.checkpoint} bonuses={bonuses()} trigger={props.trigger ?? triggerWordsOf(undefined)} endings={props.endings ?? []} strip={strip()} />
+                  <ReadingRow checkpoint={row.checkpoint} seat={row.seat} bonuses={bonuses()} trigger={props.trigger ?? triggerWordsOf(undefined)} endings={props.endings ?? []} strip={strip()} />
                 </button>
               </Show>
             </li>
