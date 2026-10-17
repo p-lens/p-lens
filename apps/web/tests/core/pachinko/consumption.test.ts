@@ -293,8 +293,18 @@ describe("each line's own stretch of a pachinko play", () => {
     expect(shown(log, TERMS)).toEqual([undefined, 20, undefined, undefined])
   })
 
-  test("is none across a jackpot whose bonus the log does not say, and runs again from the hand known after it", () => {
-    const log = played([reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 260, jackpot: { type: "untold" }, held: 1000 }), reading({ counterSpins: 50, rented: 1000, held: 0 })])
-    expect(shown(log, TERMS)).toEqual([undefined, 20, undefined, 10])
+  test("is none across a jackpot whose bonus the log does not say, a count at it being before what it paid, and runs again between hands known after it", () => {
+    const log = played([reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 260, jackpot: { type: "untold" }, held: 1000 }), reading({ counterSpins: 50, rented: 1000, held: 0 }), reading({ counterSpins: 100, rented: 1000 })])
+    expect(shown(log, TERMS)).toEqual([undefined, 20, undefined, undefined, 50])
+  })
+
+  test("takes a count at a jackpot as the hand when it came, before its bonus paid, so a chain counted along the way is measured", () => {
+    const first = { name: "A", payout: 300, spent: 20 }
+    const second = { name: "B", payout: 500, spent: 20 }
+    const chain = [reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 225, rented: 500, jackpot: { type: "bonus", bonus: first } }), reading({ counterSpins: 3, phase: "special", held: 379, jackpot: { type: "bonus", bonus: second } })]
+    expect(shown(played([...chain, reading({ counterSpins: 0, held: 859 })]), TERMS)).toEqual([undefined, 20, (5 / (125 - 99)) * 250, undefined, undefined])
+    const on = shown(played([...chain, reading({ counterSpins: 16, held: 744 })]), TERMS)
+    expect(on[4]).toBeCloseTo((16 / 115) * 250)
+    expect(heldAsToldOf(played([...chain, reading({ counterSpins: 16 })]))).toBe(859)
   })
 })

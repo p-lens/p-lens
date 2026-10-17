@@ -541,6 +541,16 @@ then deletes the draft; a record the book refuses keeps it.
   the finish form's from the same (`heldAsToldOf`): the regular games
   played on it are never taken off by an estimate, so a drift is the
   person's to set right by counting, there or as the play is recorded.
+  A count typed at a jackpot is the hand as the jackpot came, before its
+  bonus paid, which is then in hand besides.
+- **A purchase says the hand ran out, a jackpot does not.** A line where
+  balls were rented or drawn had played all that came to hand by then,
+  but a jackpot's may have come a few spins into what was bought there,
+  so it knows no hand until it is counted (`consumptionOf`). Each line
+  played in regular games shows its own stretch's spin performance, from
+  the last point the hand was known at (`stretchPerformancesOf`): a folded
+  line its whole run, and a jackpot's line the stretch closed by the first
+  count after its bonus, `--` until then.
 - **The value follows the finish form.** What the play was worth is
   worked out from its log with the line it would finish on — the counter
   and the tokens in hand the form says (`theoreticalValueAtFinish`) — as

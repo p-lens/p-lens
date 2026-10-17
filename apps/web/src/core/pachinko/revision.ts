@@ -108,10 +108,15 @@ export interface Before {
 /** What a bonus a reading won paid beyond what it took to win: what it added to the hand. */
 const bonusGainOf = (reading: Reading): number => (reading.jackpot.type === "bonus" ? Math.max(0, reading.jackpot.bonus.payout - reading.jackpot.bonus.spent) : 0)
 
-/** The balls in hand after a reading, from those before it: what it counted last — inside it, folded, or at its line — else what was in hand with its bonus added; none where nothing was ever said and nothing was won. */
+/**
+ * The balls in hand after a reading, from those before it: what it counted
+ * last — inside it, folded, or at its line — else what was in hand, with
+ * its bonus added either way; none where nothing was ever said and nothing
+ * was won. A jackpot's count is the hand as the jackpot came, before its
+ * bonus paid.
+ */
 const heldAfter = (before: number | undefined, { reading }: Taken): number | undefined => {
-  if (reading.held !== undefined) return reading.held
-  const from = (reading.handsBefore ?? []).findLast((hand) => hand.counted === true)?.held ?? before
+  const from = reading.held ?? (reading.handsBefore ?? []).findLast((hand) => hand.counted === true)?.held ?? before
   const gain = bonusGainOf(reading)
   return gain === 0 ? from : (from ?? 0) + gain
 }

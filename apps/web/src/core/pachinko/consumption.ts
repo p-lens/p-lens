@@ -55,8 +55,10 @@ interface Stood {
  * played — but not a jackpot's line: the jackpot may have come a few
  * spins into what was bought there, and what was left of it is in hand
  * with what the bonus paid, so that line does not know the hand until it
- * is counted. A line where the balls in hand were counted says so itself;
- * any other line does not know what is in hand. A line made of readings folded
+ * is counted. A line where the balls in hand were counted says so itself
+ * — a jackpot's count being the hand as the jackpot came, before its bonus
+ * paid, which is then in hand besides; any other line does not know what
+ * is in hand. A line made of readings folded
  * together says, besides, where the hand was known inside it
  * (`handsBefore`), each a standing of its own before the line's; what was
  * bought by the last of them was bought there, not at the line.
@@ -84,7 +86,7 @@ const standingsOf = (ordered: readonly Checkpoint[], terms: PlayTerms): readonly
         rentedBalls,
         replayedBalls,
         gained: rentedBalls + replayedBalls + bonuses + (checkpoint.support ?? 0),
-        held: checkpoint.held ?? (bought && checkpoint.event?.kind !== "jackpot" ? 0 : undefined),
+        held: checkpoint.held === undefined ? (bought && checkpoint.event?.kind !== "jackpot" ? 0 : undefined) : checkpoint.held + Math.max(0, bonusGainOf(checkpoint)),
       }
       return { stood: [...walked.stood, { standing, hands }], before: standing, spins: checkpoint.spins, bonuses }
     },
@@ -199,7 +201,7 @@ export const stretchPerformancesOf = (ordered: readonly Checkpoint[], terms: Pla
     (walked, { standing, hands }, index) => {
       const line = ordered[index]
       const waiting = walked.waiting
-      if (line !== undefined && isUntold(line)) return { rates: [...(waiting === undefined ? walked.rates : settled(walked.rates, waiting.line, undefined)), undefined], last: isKnown(standing) ? standing : undefined, waiting: undefined }
+      if (line !== undefined && isUntold(line)) return { rates: [...(waiting === undefined ? walked.rates : settled(walked.rates, waiting.line, undefined)), undefined], last: undefined, waiting: undefined }
       const first = hands.at(0) ?? (isKnown(standing) ? standing : undefined)
       const closing = waiting !== undefined && first !== undefined
       const rates = closing ? settled(walked.rates, waiting.line, measuredRate(stretchBetween(waiting.from, first, terms))) : walked.rates
