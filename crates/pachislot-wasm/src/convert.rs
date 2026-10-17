@@ -192,6 +192,11 @@ fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
         restart: listed(&dto.restart, "spec.components.restart")?,
         ceiling_wins: listed(&dto.ceiling_wins, "spec.components.ceilingWins")?,
         ceiling_triggers: listed(&dto.ceiling_triggers, "spec.components.ceilingTriggers")?,
+        ceiling_across_bonuses: table(
+            &dto.ceiling_across_bonuses,
+            "spec.components.ceilingAcrossBonuses",
+            |games, at| NonZeroU32::new(*games).ok_or_else(|| invalid(at)),
+        )?,
         success: table(&dto.success, "spec.components.success", |values, at| {
             shares(values, at)
         })?,
@@ -492,6 +497,10 @@ fn at_rules(dto: &AtRulesDto, shape: SchemaVersion) -> Result<AtRules, ErrorDto>
             CeilingAtDto::Outright => CeilingAt::Outright,
             CeilingAtDto::Triggered => CeilingAt::Triggered,
         },
+        ceiling_across_bonuses: ceiling(
+            dto.ceiling_across_bonuses,
+            "normalized.atRules.ceilingAcrossBonuses",
+        )?,
         modes: dto
             .modes
             .iter()
@@ -838,6 +847,7 @@ pub fn normalized_dto(spec: &NormalizedSpec) -> NormalizedSpecDto {
                 CeilingAt::Outright => CeilingAtDto::Outright,
                 CeilingAt::Triggered => CeilingAtDto::Triggered,
             },
+            ceiling_across_bonuses: rules.ceiling_across_bonuses.map(NonZeroU32::get),
             trigger: rules.trigger.as_ref().map(named),
             at_ceiling: None,
             misses: None,
@@ -930,6 +940,7 @@ pub fn path_start(dto: &PathStartDto) -> PathStart {
         misses: dto.misses,
         after_reset: dto.after_reset,
         held: dto.held,
+        since_at_across_bonuses: dto.since_at_across_bonuses,
     }
 }
 
@@ -1105,6 +1116,7 @@ fn component_name(component: Component) -> String {
         Component::Expiry => "expiry",
         Component::ResetSinceAtCeiling => "resetSinceAtCeiling",
         Component::CeilingTriggers => "ceilingTriggers",
+        Component::CeilingAcrossBonuses => "ceilingAcrossBonuses",
     }
     .to_owned()
 }
@@ -1238,6 +1250,11 @@ pub fn spec_error_dto(error: &SpecError) -> ErrorDto {
         SpecError::CeilingTriggersWithoutCz { entity } => ErrorDto::CeilingTriggersWithoutCz {
             entity: named(entity),
         },
+        SpecError::CeilingAcrossBonusesWithoutRestart { entity } => {
+            ErrorDto::CeilingAcrossBonusesWithoutRestart {
+                entity: named(entity),
+            }
+        }
         SpecError::SinceAtCeilingBeyondAtCeiling { entity } => {
             ErrorDto::SinceAtCeilingBeyondAtCeiling {
                 entity: named(entity),

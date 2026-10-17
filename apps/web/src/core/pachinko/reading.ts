@@ -19,6 +19,23 @@ export interface Reading {
   readonly held: number | undefined
   readonly jackpot: Jackpot
   readonly at: string
+  /** Where the balls in hand were known inside a reading made of several folded together, oldest first; none in a reading taken as it is. */
+  readonly handsBefore?: readonly ReadingHand[]
+}
+
+/**
+ * The balls in hand at a point inside a reading folded from several: the
+ * counter there, what had been rented, drawn and drifted since the reading
+ * before by then, and the balls in hand.
+ */
+export interface ReadingHand {
+  readonly counterSpins: number
+  readonly rented: number
+  readonly replayed: number
+  readonly supported: number
+  readonly held: number
+  /** Whether the balls were counted there, rather than known by more being bought. */
+  readonly counted?: true
 }
 
 /**
@@ -69,6 +86,31 @@ const readingFields = (ordered: readonly Checkpoint[], reading: Reading): Omit<C
  */
 export const checkpointsForReading = (ordered: readonly Checkpoint[], reading: Reading, missedJackpot: boolean): Result<readonly Checkpoint[], ReadingRefusal> => {
   const read = readCounter(ordered, reading.counterSpins)
-  if (read.type === "continues") return Ok([{ spins: read.spins, ...readingFields(ordered, reading) }])
-  return missedJackpot ? Ok(afterMissedJackpot(ordered, reading.counterSpins, readingFields(ordered, reading))) : Err(read)
+  if (read.type === "continues") return Ok(withHands(ordered, reading, [{ spins: read.spins, ...readingFields(ordered, reading) }]))
+  return missedJackpot ? Ok(withHands(ordered, reading, afterMissedJackpot(ordered, reading.counterSpins, readingFields(ordered, reading)))) : Err(read)
+}
+
+/**
+ * The lines a reading adds, the last carrying the hands known inside the
+ * reading as a line of their own would have said them: so many spins
+ * before it by the counter, at the running totals there. A hand the
+ * counter no longer places between the line before and this one — the
+ * reading's counter set right since — is let go of.
+ */
+const withHands = (ordered: readonly Checkpoint[], reading: Reading, made: readonly Checkpoint[]): readonly Checkpoint[] => {
+  const line = made.at(-1)
+  if (line === undefined || reading.handsBefore === undefined) return made
+  const since = ordered.at(-1)?.spins ?? 0
+  const base = { outlay: lastKnown(ordered, (each) => each.outlay), replay: lastKnown(ordered, (each) => each.replay), support: lastKnown(ordered, (each) => each.support) }
+  const hands = reading.handsBefore
+    .map((hand) => ({
+      spins: line.spins - (reading.counterSpins - hand.counterSpins),
+      outlay: base.outlay + hand.rented,
+      replay: base.replay + hand.replayed,
+      support: base.support + hand.supported,
+      held: hand.held,
+      ...(hand.counted === true ? { counted: true as const } : {}),
+    }))
+    .filter((hand) => hand.spins >= since && hand.spins <= line.spins)
+  return hands.length === 0 ? made : [...made.slice(0, -1), { ...line, handsBefore: hands }]
 }

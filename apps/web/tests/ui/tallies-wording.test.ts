@@ -67,6 +67,8 @@ describe("a play time on screen", () => {
   test("is whole hours and minutes, the seconds dropped, and minutes alone under an hour", () => {
     expect(playTimeText(decimal(19_800n, 0))).toBe("5時間30分")
     expect(playTimeText(decimal(2_759n, 0))).toBe("45分")
-    expect(playTimeText(decimal(36_000_000n, 0))).toBe("10,000時間0分")
+    expect(playTimeText(decimal(36_000_000n, 0))).toBe("10,000時間00分")
+    expect(playTimeText(decimal(18_180n, 0))).toBe("5時間03分")
+    expect(playTimeText(decimal(180n, 0))).toBe("03分")
   })
 })

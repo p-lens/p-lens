@@ -107,6 +107,11 @@ pub struct ComponentsDto {
     /// wins it, rather than the AT outright.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ceiling_triggers: Vec<String>,
+    /// On an AT a CZ brings, where a bonus that misses the AT starts play
+    /// again: an AT間天井 in regular games counted from the last AT across
+    /// those bonuses.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub ceiling_across_bonuses: BTreeMap<String, u32>,
     /// A CZ's chance of winning the AT, in hundredths of a percent under each setting.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub success: BTreeMap<String, Vec<BySettingLevelDto<u32>>>,
@@ -474,6 +479,10 @@ pub struct AtRulesDto {
     /// How the AT間天井 wins the AT; outright where a stored spec says nothing.
     #[serde(default, skip_serializing_if = "CeilingAtDto::is_outright")]
     pub ceiling_at: CeilingAtDto,
+    /// The AT間天井 counted from the last AT across the bonuses that start
+    /// play again, in regular games, where there is one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ceiling_across_bonuses: Option<u32>,
 }
 
 /// A bonus that misses the AT counted as a miss, or starting play again.
@@ -720,6 +729,10 @@ pub struct PathStartDto {
     /// What the 有利区間 held at the end of the last AT, where it carries on.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub held: Option<u32>,
+    /// The games since the AT itself, across the bonuses that started play
+    /// again since it; none where none did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub since_at_across_bonuses: Option<u32>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
@@ -1158,6 +1171,9 @@ pub enum ErrorDto {
         entity: String,
     },
     CeilingTriggersWithoutCz {
+        entity: String,
+    },
+    CeilingAcrossBonusesWithoutRestart {
         entity: String,
     },
     EmptySet {

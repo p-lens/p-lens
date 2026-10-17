@@ -9,13 +9,15 @@
 //! chance a game is the caller's to weigh, as for a mode's own walk; a
 //! zone's, which is a mode's, is drawn here.
 
-use pachislot_domain::normalized::{AtRules, AtTable};
+use std::num::NonZeroU32;
+
+use pachislot_domain::normalized::{AtRules, AtTable, ModeRule};
 use pachislot_domain::observation::{PathStart, ToldLeg};
 
 use crate::at::{
-    Between, Cycle, LONGEST_WALK, Odds, Standing, WALKED, Walk, cycle_to_ceiling, direct_on, drawn,
-    drawn_on, expires, fresh, gate_on, is_forced, normalised, passed_unbrought, success_of,
-    with_direct,
+    Between, Cycle, LONGEST_WALK, Odds, Standing, WALKED, Walk, across_bonuses_of,
+    cycle_to_ceiling, direct_on, drawn, drawn_on, expires, fresh, gate_on, is_forced, normalised,
+    passed_unbrought, success_of, with_direct,
 };
 
 /// One mode and count of misses: where its trigger's games began, the
@@ -168,6 +170,10 @@ pub(crate) struct Chain<'a> {
     /// Whether a CZ's success ends the chain at its bonus, play starting
     /// again from it, rather than winning the AT at the bonus's share.
     restarting: bool,
+    /// The games since the AT itself across the bonuses that start play
+    /// again, at the chain's game nought, where the AT間天井 counted across
+    /// them ends this chain; none where it is weighed outside the chain.
+    across_from: Option<usize>,
 }
 
 /// The counts of misses a chain tells apart: as far as the deepest スルー天井
@@ -219,15 +225,28 @@ impl<'a> Chain<'a> {
             moves: moves_of(odds, rules.modes.len()),
             game: 0,
             restarting: rules.restarts(),
+            across_from: None,
         }
     }
 
     /// The same chain with every bonus that misses the AT taken as a miss,
     /// as a history told by its totals counts it, play never starting
-    /// again at one.
+    /// again at one: its games are counted from the AT itself, and the
+    /// AT間天井 counted across bonuses is one more on them.
     pub(crate) fn lumped(self) -> Self {
         Self {
             restarting: false,
+            across_from: Some(0),
+            ..self
+        }
+    }
+
+    /// The same chain ended by the AT間天井 counted across the bonuses that
+    /// start play again, play having gone `before` games across them by the
+    /// chain's game nought.
+    pub(crate) fn counted_across(self, before: usize) -> Self {
+        Self {
+            across_from: Some(before),
             ..self
         }
     }
@@ -334,6 +353,17 @@ impl<'a> Chain<'a> {
         }
     }
 
+    /// Whether game `at` is on an AT間天井 of the mode, its own or the one
+    /// counted across bonuses where this chain is ended by it.
+    fn ceiled_on(&self, mode: &ModeRule, at: usize) -> bool {
+        mode.at_ceiling
+            .is_some_and(|ceiling| at >= ceiling.get() as usize)
+            || self
+                .across_from
+                .zip(self.rules.ceiling_across_bonuses)
+                .is_some_and(|(before, ceiling)| at + before >= ceiling.get() as usize)
+    }
+
     pub(crate) fn play(&mut self) -> Game {
         let at = self.game;
         self.expire(at);
@@ -361,9 +391,7 @@ impl<'a> Chain<'a> {
             } else {
                 self.odds.bonus_share
             };
-            let ceiled = mode
-                .at_ceiling
-                .is_some_and(|ceiling| at >= ceiling.get() as usize);
+            let ceiled = self.ceiled_on(mode, at);
             let outright = gate_on(gates, at).map_or(0.0, |gate| gate.at.value());
             let share = drawn_on(mode, gates, at);
             let between = self.between.get(index).copied();
@@ -438,13 +466,13 @@ impl<'a> Chain<'a> {
 }
 
 /// What a chain walked from an AT comes to: its triggers and ends game by
-/// game, the bonuses among the ends game by game, and the play its
-/// AT間天井 wins, each with the AT won outright at the machine's own chance
-/// weighed in.
+/// game, the bonuses among the ends and the play its AT間天井 wins, game by
+/// game, each with the AT won outright at the machine's own chance weighed
+/// in.
 struct Walked {
     walk: Walk,
     bonuses: Vec<f64>,
-    on_at_ceiling: f64,
+    on_at_ceiling: Vec<f64>,
 }
 
 /// A chain from an AT walked game by game until next to nothing of it is
@@ -488,7 +516,7 @@ fn walked(rules: &AtRules, odds: Odds<'_>, shares: &[f64], horizon: Option<usize
             .iter()
             .enumerate()
             .map(|(game, ceiled)| reached(game) * ceiled)
-            .sum(),
+            .collect(),
     }
 }
 
@@ -501,12 +529,194 @@ fn restarts(odds: Odds<'_>, bonuses: &[f64]) -> Vec<f64> {
         .collect()
 }
 
+/// A stretch from a fresh start — an AT, or a bonus that starts play again
+/// — walked game by game as far as the AT間天井 counted across bonuses: on
+/// each game the triggers it brings, the AT won, play started again at a
+/// bonus, and the play a mode's own AT間天井 wins; the AT won outright at
+/// the machine's own chance weighed in.
+struct Fresh {
+    arrived: Vec<f64>,
+    won: Vec<f64>,
+    again: Vec<f64>,
+    ceiled: Vec<f64>,
+}
+
+impl Fresh {
+    /// The stretch from play at `shares`, walked `across` games.
+    fn walked(rules: &AtRules, odds: Odds<'_>, shares: &[f64], across: usize) -> Self {
+        let Walked {
+            walk,
+            bonuses,
+            on_at_ceiling,
+        } = walked(rules, odds, shares, Some(across));
+        let again = restarts(odds, &bonuses);
+        let won = walk
+            .ended
+            .iter()
+            .zip(&again)
+            .map(|(ended, again)| ended - again)
+            .collect();
+        Self {
+            arrived: walk.arrived,
+            won,
+            again,
+            ceiled: on_at_ceiling,
+        }
+    }
+
+    /// Its starts again only as far as any of the stretch is left to bring
+    /// them: past where next to nothing of it is, they are taken as none.
+    fn again_while_going(&self) -> &[f64] {
+        let mut left = 1.0;
+        let reach = self
+            .won
+            .iter()
+            .zip(&self.again)
+            .position(|(won, again)| {
+                left -= won + again;
+                left < WALKED
+            })
+            .map_or(self.again.len(), |last| last + 1);
+        self.again.get(..reach).unwrap_or(&self.again)
+    }
+}
+
+/// The running sums of a stretch's figures game by game: the `n`th the sum
+/// over its first `n` games.
+fn summed(each: impl Iterator<Item = f64>) -> Vec<f64> {
+    std::iter::once(0.0)
+        .chain(each.scan(0.0, |sum, here| {
+            *sum += here;
+            Some(*sum)
+        }))
+        .collect()
+}
+
+/// How much of play starts a fresh stretch on each game counted from the
+/// AT itself, short of the AT間天井 `across` games on: what `seeded` starts
+/// there, and on each game play starts again at a bonus — `again` of a
+/// stretch so many games after it began — what earlier stretches bring.
+pub(crate) fn spread(mut seeded: Vec<f64>, again: &[f64], across: usize) -> Vec<f64> {
+    seeded.resize(across, 0.0);
+    for began in 0..across {
+        let start = seeded.get(began).copied().unwrap_or(0.0);
+        if start == 0.0 {
+            continue;
+        }
+        crate::budget::spend(again.len().min(across - began));
+        for (game, again) in again.iter().enumerate().take(across - began).skip(1) {
+            if let Some(cell) = seeded.get_mut(began + game) {
+                *cell += start * again;
+            }
+        }
+    }
+    seeded
+}
+
+/// A cycle under one setting where an AT間天井 counted from the AT across
+/// the bonuses that start play again stands beside the rest: no longer one
+/// stretch over the chance it ends in the AT, since the count goes on
+/// through each start again. The stretches are laid where they begin,
+/// counted from the AT — each a fresh one, the same walk moved on — and cut
+/// at that ceiling, where whatever of play is still going wins the AT: by a
+/// trigger that certainly wins, where the AT間天井 brings one.
+fn cycle_across(rules: &AtRules, odds: Odds<'_>, shares: &[f64], across: NonZeroU32) -> Cycle {
+    let ceiling = across.get() as usize;
+    let fresh = Fresh::walked(rules, odds, shares, ceiling);
+    let starts = spread(vec![1.0], fresh.again_while_going(), ceiling);
+    let triggering = if rules.ceiling_triggers() { 1.0 } else { 0.0 };
+    let ended = summed(
+        fresh
+            .won
+            .iter()
+            .zip(&fresh.again)
+            .map(|(won, again)| won + again),
+    );
+    let won = summed(fresh.won.iter().copied());
+    #[allow(
+        clippy::cast_precision_loss,
+        reason = "a game's number is far below where a float loses whole numbers"
+    )]
+    let won_by_game = summed(
+        fresh
+            .won
+            .iter()
+            .enumerate()
+            .map(|(game, won)| game as f64 * won),
+    );
+    let brought = summed(fresh.arrived.iter().copied());
+    let ceiled = summed(fresh.ceiled.iter().copied());
+    let to = |sums: &[f64], games: usize| sums.get(games).or(sums.last()).copied().unwrap_or(0.0);
+    let (left, games, triggers, on_ceilings) = starts.iter().enumerate().fold(
+        (0.0, 0.0, 0.0, 0.0),
+        |(left, games, triggers, on_ceilings), (began, start)| {
+            let short = ceiling - began;
+            #[allow(
+                clippy::cast_precision_loss,
+                reason = "a game's number is far below where a float loses whole numbers"
+            )]
+            let offset = began as f64;
+            (
+                left + start * (1.0 - to(&ended, short)),
+                games + start * (offset * to(&won, short) + to(&won_by_game, short)),
+                triggers + start * to(&brought, short),
+                on_ceilings + start * to(&ceiled, short),
+            )
+        },
+    );
+    let ceiled = triggering * (on_ceilings + left);
+    Cycle {
+        triggers: triggers + ceiled,
+        games: games + f64::from(across.get()) * left,
+        ceiled,
+    }
+}
+
+/// The chance the next AT is won on each of the first `horizon` games after
+/// one where an AT間天井 counted across bonuses stands beside the rest: on
+/// each game short of it, what the stretches begun before it win there; on
+/// it, whatever of play is still going; past it, nothing.
+fn arrivals_across(
+    rules: &AtRules,
+    odds: Odds<'_>,
+    shares: &[f64],
+    horizon: u32,
+    across: NonZeroU32,
+) -> Vec<f64> {
+    let ceiling = across.get() as usize;
+    let fresh = Fresh::walked(rules, odds, shares, ceiling);
+    let starts = spread(vec![1.0], fresh.again_while_going(), ceiling);
+    let won_on = |game: usize| -> f64 {
+        starts
+            .iter()
+            .take(game)
+            .enumerate()
+            .map(|(began, start)| start * fresh.won.get(game - began).copied().unwrap_or(0.0))
+            .sum()
+    };
+    let before: Vec<f64> = (1..ceiling.min(horizon as usize + 1))
+        .take_while(|game| crate::budget::spend(*game))
+        .map(won_on)
+        .collect();
+    let left = 1.0 - before.iter().sum::<f64>();
+    (1..=horizon as usize)
+        .map(|game| match game.cmp(&ceiling) {
+            std::cmp::Ordering::Less => before.get(game - 1).copied().unwrap_or(0.0),
+            std::cmp::Ordering::Equal => left,
+            std::cmp::Ordering::Greater => 0.0,
+        })
+        .collect()
+}
+
 /// A cycle under one setting, walked as a chain. Where play starts again at
 /// a bonus that misses the AT, the chain is walked from an AT or such a
 /// bonus to the next, and the AT comes after as many of those as it takes:
 /// the cycle is one of them over the chance it ends in the AT. Where the
 /// AT間天井 brings the trigger, the play it wins is a trigger each.
 pub(crate) fn cycle(rules: &AtRules, odds: Odds<'_>, shares: &[f64]) -> Cycle {
+    if let Some(across) = rules.ceiling_across_bonuses {
+        return cycle_across(rules, odds, shares, across);
+    }
     let Walked {
         walk,
         bonuses,
@@ -525,7 +735,7 @@ pub(crate) fn cycle(rules: &AtRules, odds: Odds<'_>, shares: &[f64]) -> Cycle {
     let stretch = cycle_to_ceiling(&walk, length, false);
     let at: f64 = 1.0 - restarts(odds, &bonuses).iter().sum::<f64>();
     let ceiled = if rules.ceiling_triggers() {
-        on_at_ceiling
+        on_at_ceiling.iter().sum()
     } else {
         0.0
     };
@@ -540,6 +750,9 @@ pub(crate) fn cycle(rules: &AtRules, odds: Odds<'_>, shares: &[f64]) -> Cycle {
 /// one, walked as a chain: where play starts again at a bonus that misses
 /// the AT, each start again carrying on from where it fell.
 pub(crate) fn arrivals(rules: &AtRules, odds: Odds<'_>, shares: &[f64], horizon: u32) -> Vec<f64> {
+    if let Some(across) = rules.ceiling_across_bonuses {
+        return arrivals_across(rules, odds, shares, horizon, across);
+    }
     let horizon = horizon as usize;
     let Walked { walk, bonuses, .. } = walked(rules, odds, shares, Some(horizon));
     let again = restarts(odds, &bonuses);
@@ -639,6 +852,7 @@ pub(crate) fn started(rules: &AtRules, table: &AtTable, start: PathStart) -> Sta
     Standing {
         since_trigger: start.since_trigger,
         since_at: start.since_at,
+        since_at_across_bonuses: across_bonuses_of(start),
         misses: start.misses,
         modes,
         held: start

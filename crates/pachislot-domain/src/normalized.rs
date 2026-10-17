@@ -103,6 +103,11 @@ pub struct AtRules {
     pub forced_cz: ForcedCz,
     /// How the AT間天井 wins the AT: outright, or by the trigger it brings.
     pub ceiling_at: CeilingAt,
+    /// Where a bonus that misses the AT starts play again: an AT間天井 in
+    /// regular games counted from the last AT across those bonuses, which
+    /// every mode's own — counted from the bonus — stands beside, the
+    /// sooner winning it.
+    pub ceiling_across_bonuses: Option<NonZeroU32>,
 }
 
 /// What a bonus a CZ's success brings does when it misses the AT: counted

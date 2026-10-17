@@ -34,6 +34,11 @@ pub struct PathStart {
     /// What the 有利区間 had gained by the end of the last AT, where it
     /// carries on into the games since: none where it ended with the AT.
     pub held: Option<u32>,
+    /// Where a bonus that missed the AT started play again since it: the
+    /// regular games since the AT itself, across such bonuses, which
+    /// `since_at` counts from the last of. None where no bonus did, the
+    /// games since the AT being `since_at`.
+    pub since_at_across_bonuses: Option<u32>,
 }
 
 /// So many regular games, the last of which ended as it says.

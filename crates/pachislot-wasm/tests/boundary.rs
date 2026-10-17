@@ -743,3 +743,53 @@ fn an_at_ceiling_that_brings_the_trigger_is_carried_and_counted() {
         json!({ "type": "ceiling-triggers-without-cz", "entity": "at" })
     );
 }
+
+#[test]
+fn an_at_ceiling_across_bonuses_is_carried_and_hunted_from_the_at_itself() {
+    let mut spec = value(CZ_SPEC);
+    spec["components"]["ceiling"] = json!({ "cz": 600 });
+    spec["components"]["bonusShare"] = json!({ "cz": [
+        { "settingLevel": 1, "value": 5000 },
+        { "settingLevel": 6, "value": 5000 }
+    ] });
+    spec["components"]["restart"] = json!(["cz"]);
+    let restarting = ok(&normalize(&json!({ "spec": spec }).to_string()));
+    assert_eq!(restarting["atRules"].get("ceilingAcrossBonuses"), None);
+    spec["components"]["ceilingAcrossBonuses"] = json!({ "at": 1600 });
+    let normalized = ok(&normalize(&json!({ "spec": spec }).to_string()));
+    assert_eq!(normalized["atRules"]["ceilingAcrossBonuses"], json!(1600));
+    let analyzed = |source: Value| {
+        ok(&analyze(
+            &json!({ "source": source, "conditions": measured() }).to_string(),
+        ))
+    };
+    assert_eq!(
+        analyzed(json!({ "type": "spec", "spec": spec }))["settingLevels"],
+        analyzed(json!({ "type": "normalized", "normalized": normalized }))["settingLevels"]
+    );
+    let weights = json!([{ "settingLevel": 1, "probability": 1.0 }]);
+    let play = json!({ "medalValue": 20, "rentalPrice": 20, "cashShare": 0 });
+    let seat = |across: Option<u32>| {
+        let mut seat =
+            json!({ "sinceTrigger": 100, "sinceAt": 100, "misses": 0, "afterReset": false });
+        if let Some(across) = across {
+            seat["sinceAtAcrossBonuses"] = json!(across);
+        }
+        seat
+    };
+    let found = ok(&hunt(
+        &json!({ "source": { "type": "normalized", "normalized": normalized }, "weights": weights, "play": play, "seats": [seat(None), seat(Some(1500))] })
+            .to_string(),
+    ));
+    let read = |row: &Value, key: &str| row[key].as_f64().expect("a figure");
+    assert!(read(&found[1], "games") <= 100.0 + 1e-9);
+    assert!(read(&found[1], "byCeiling") > read(&found[0], "byCeiling"));
+    spec["components"]
+        .as_object_mut()
+        .expect("components")
+        .remove("restart");
+    assert_eq!(
+        error(&normalize(&json!({ "spec": spec }).to_string())),
+        json!({ "type": "ceiling-across-bonuses-without-restart", "entity": "at" })
+    );
+}

@@ -902,13 +902,43 @@ impl Bracket {
 /// Where play stands as a path is walked: games since the last trigger and
 /// AT, triggers missed since that AT, how likely each mode is, and how
 /// likely each sum the 有利区間 holds from the last AT — none where it
-/// ended with it.
+/// ended with it. Where a bonus that misses the AT starts play again,
+/// `since_at` counts from the last such bonus, and
+/// `since_at_across_bonuses` from the AT itself.
 pub(crate) struct Standing {
     pub(crate) since_trigger: u32,
     pub(crate) since_at: u32,
+    pub(crate) since_at_across_bonuses: u32,
     pub(crate) misses: u32,
     pub(crate) modes: Vec<f64>,
     pub(crate) held: Held,
+}
+
+/// The games since the AT itself where play was first seen: as told, and
+/// never fewer than those since the last bonus that started play again;
+/// those where no bonus did.
+pub(crate) fn across_bonuses_of(start: PathStart) -> u32 {
+    start
+        .since_at_across_bonuses
+        .map_or(start.since_at, |across| across.max(start.since_at))
+}
+
+/// Whether the next game is on the AT間天井 counted across the bonuses that
+/// start play again, which wins the AT whatever play is in.
+fn on_ceiling_across_bonuses(rules: &AtRules, standing: &Standing) -> bool {
+    rules
+        .ceiling_across_bonuses
+        .is_some_and(|ceiling| standing.since_at_across_bonuses + 1 >= ceiling.get())
+}
+
+/// What the AT間天井 pays besides the AT where it wins it: the trigger's
+/// medals in full where it brings the trigger, nothing where it wins
+/// outright.
+fn ceiling_medals(rules: &AtRules) -> f64 {
+    rules
+        .trigger_payout
+        .filter(|_| rules.ceiling_triggers())
+        .map_or(0.0, |payout| payout.medals.get())
 }
 
 /// The sums a 有利区間 may hold from the last AT, each with its weight;
@@ -947,6 +977,16 @@ pub(crate) struct Drawn {
     pub(crate) going: f64,
 }
 
+impl Drawn {
+    /// A game on an AT間天井: the AT, certainly.
+    const WON: Self = Self {
+        at: 1.0,
+        failed: 0.0,
+        bonus: 0.0,
+        going: 0.0,
+    };
+}
+
 /// The chances of each end of one mode's next game, so many games since
 /// the last trigger and AT with so many triggers missed since that AT: the
 /// AT outright, then a trigger by its chance, a zone or a ceiling. A
@@ -968,12 +1008,7 @@ pub(crate) fn drawn_parts(
         .at_ceiling
         .is_some_and(|ceiling| since_at + 1 >= ceiling.get())
     {
-        return Drawn {
-            at: 1.0,
-            failed: 0.0,
-            bonus: 0.0,
-            going: 0.0,
-        };
+        return Drawn::WON;
     }
     let game = since_at as usize + 1;
     let on_ceiling = mode
@@ -1156,6 +1191,7 @@ pub(crate) fn started(rules: &AtRules, table: &AtTable, start: PathStart) -> Sta
     Standing {
         since_trigger: start.since_trigger,
         since_at: start.since_at,
+        since_at_across_bonuses: across_bonuses_of(start),
         misses: start.misses,
         modes,
         held: start
@@ -1309,11 +1345,60 @@ fn after_won(
     let after = Standing {
         since_trigger: 0,
         since_at: 0,
+        since_at_across_bonuses: 0,
         misses: 0,
         modes: after_at(rules, &table.allotments, completed),
         held: merged(left),
     };
     (after, likely.ln())
+}
+
+/// How the next game may end in each mode where play stands, and what the
+/// trigger pays on it on average over the modes: on the AT間天井 counted
+/// across bonuses, the AT whatever play is in, paying what that ceiling
+/// pays.
+fn drawn_now(rules: &AtRules, table: &AtTable, standing: &Standing) -> (Vec<Drawn>, f64) {
+    let odds = Odds::of(table);
+    let across = on_ceiling_across_bonuses(rules, standing);
+    let each: Vec<Drawn> = rules
+        .modes
+        .iter()
+        .enumerate()
+        .map(|(index, mode)| {
+            if across {
+                Drawn::WON
+            } else {
+                drawn_parts(
+                    rules,
+                    table,
+                    (index, mode),
+                    (standing.since_trigger, standing.since_at, standing.misses),
+                )
+            }
+        })
+        .collect();
+    let bonuses: f64 = if across {
+        ceiling_medals(rules)
+    } else {
+        rules
+            .modes
+            .iter()
+            .zip(&each)
+            .zip(&standing.modes)
+            .enumerate()
+            .map(|(index, ((mode, drawn), weight))| {
+                weight
+                    * trigger_medals(
+                        rules,
+                        table,
+                        (mode, odds.gates_of(index)),
+                        standing.since_at,
+                        (drawn.at, drawn.failed + drawn.bonus),
+                    )
+            })
+            .sum()
+    };
+    (each, bonuses)
 }
 
 /// One game walked: its theoretical medals, then how it ended, which
@@ -1325,40 +1410,11 @@ fn played(
     end: LegEnd,
 ) -> (Standing, f64, f64) {
     let odds = Odds::of(table);
-    let each: Vec<Drawn> = rules
-        .modes
-        .iter()
-        .enumerate()
-        .map(|(index, mode)| {
-            drawn_parts(
-                rules,
-                table,
-                (index, mode),
-                (standing.since_trigger, standing.since_at, standing.misses),
-            )
-        })
-        .collect();
+    let (each, bonuses) = drawn_now(rules, table, standing);
     let winning: f64 = each
         .iter()
         .zip(&standing.modes)
         .map(|(drawn, weight)| drawn.at * weight)
-        .sum();
-    let bonuses: f64 = rules
-        .modes
-        .iter()
-        .zip(&each)
-        .zip(&standing.modes)
-        .enumerate()
-        .map(|(index, ((mode, drawn), weight))| {
-            weight
-                * trigger_medals(
-                    rules,
-                    table,
-                    (mode, odds.gates_of(index)),
-                    standing.since_at,
-                    (drawn.at, drawn.failed + drawn.bonus),
-                )
-        })
         .sum();
     let medals = gain_now(rules, table, &standing.held, standing.since_at) * winning + bonuses
         - rules.base.loss_per_game();
@@ -1377,6 +1433,7 @@ fn played(
             Standing {
                 since_trigger: standing.since_trigger + 1,
                 since_at: standing.since_at + 1,
+                since_at_across_bonuses: standing.since_at_across_bonuses + 1,
                 misses: standing.misses,
                 modes: expired(rules, &modes, standing.since_trigger + 1),
                 held: standing.held.clone(),
@@ -1387,6 +1444,7 @@ fn played(
             Standing {
                 since_trigger: 0,
                 since_at: standing.since_at + 1,
+                since_at_across_bonuses: standing.since_at_across_bonuses + 1,
                 misses: standing.misses + 1,
                 modes: moved(odds, &modes, |mode| {
                     ceiling_game(rules, mode, standing.since_trigger)
@@ -1402,6 +1460,7 @@ fn played(
                 Standing {
                     since_trigger: 0,
                     since_at: standing.since_at + 1,
+                    since_at_across_bonuses: standing.since_at_across_bonuses + 1,
                     misses: standing.misses + 1,
                     modes: moved(odds, &modes, |mode| {
                         ceiling_game(rules, mode, standing.since_trigger)
@@ -1418,12 +1477,14 @@ fn played(
 
 /// Play after a bonus a CZ's success brought that missed the AT: started
 /// again as after an AT where the machine counts from the bonus, its
-/// ceilings, misses and modes alike; otherwise a miss like any other.
+/// ceilings, misses and modes alike, the games since the AT itself still
+/// counted across it; otherwise a miss like any other.
 fn after_bonus(rules: &AtRules, table: &AtTable, missed: Standing) -> Standing {
     if rules.restarts() {
         Standing {
             since_trigger: 0,
             since_at: 0,
+            since_at_across_bonuses: missed.since_at_across_bonuses,
             misses: 0,
             modes: table.allotments.after_at.clone(),
             held: missed.held,

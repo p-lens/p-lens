@@ -103,6 +103,10 @@ fn check_entities(spec: &Spec) -> Result<(), SpecError> {
             &components.ceiling_triggers,
             Component::CeilingTriggers,
         ))
+        .chain(keyed(
+            &components.ceiling_across_bonuses,
+            Component::CeilingAcrossBonuses,
+        ))
         .find(|(entity, _)| !known.contains(entity))
         .map_or(Ok(()), |(entity, component)| {
             Err(SpecError::StrayComponent {
@@ -242,6 +246,7 @@ fn at(spec: &Spec, entity: &EntityId) -> Result<At, SpecError> {
         window: components.window.get(entity).copied(),
         reset_on_cap: components.reset_on_cap.contains(entity),
         ceiling_triggers: components.ceiling_triggers.contains(entity),
+        ceiling_across_bonuses: components.ceiling_across_bonuses.get(entity).copied(),
     })
 }
 
@@ -277,7 +282,8 @@ fn misplaced(spec: &Spec, entity: &EntityId, kinds: &[Component]) -> Option<Comp
             || components.rate.contains_key(entity)
             || components.window.contains_key(entity)
             || components.reset_on_cap.contains(entity)
-            || components.ceiling_triggers.contains(entity))
+            || components.ceiling_triggers.contains(entity)
+            || components.ceiling_across_bonuses.contains_key(entity))
     {
         return Some(Component::At);
     }

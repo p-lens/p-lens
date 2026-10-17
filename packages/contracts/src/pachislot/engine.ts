@@ -81,6 +81,8 @@ export interface ComponentsDto {
   readonly ceilingWins?: readonly string[]
   /** On an AT a CZ brings: its AT間天井 — after an AT or a setting change, in games or in the unit, a mode's own included — brings the trigger, which certainly wins it, rather than the AT outright: counted in the published 合算 and paying the trigger's medals as any other. */
   readonly ceilingTriggers?: readonly string[]
+  /** On an AT a CZ brings, where a bonus that misses the AT starts play again (`restart`): an AT間天井 in regular games counted from the last AT across those bonuses, which none of them starts again — 1600G from the AT beside an 800G ceiling counted from each bonus. Whichever AT間天井 comes first wins it. */
+  readonly ceilingAcrossBonuses?: Readonly<Record<string, number>>
   /** 初当たり: how often an AT — or the CZ that brings it — comes up, ceilings included, as analysis sheets publish it, under each setting. */
   readonly firstHit?: Readonly<Record<string, readonly BySettingLevelDto<ProbabilityDto>[]>>
   /** A CZ's chance of winning the AT, in hundredths of a percent, under each setting. */
@@ -306,6 +308,8 @@ export interface AtRulesDto {
   readonly forcedCz?: "drawn" | "wins"
   /** How the AT間天井 wins the AT: outright, or — `triggered` — by the trigger it brings, which certainly wins, counted in the 合算 and paying its medals. Outright where left out. */
   readonly ceilingAt?: "outright" | "triggered"
+  /** Where a bonus that misses the AT starts play again: an AT間天井 in regular games counted from the last AT across those bonuses, beside each mode's own counted from the bonus. None where left out. */
+  readonly ceilingAcrossBonuses?: number
 }
 
 export type SourceDto =
@@ -404,6 +408,8 @@ export interface PathDto {
     readonly afterReset: boolean
     /** What the 有利区間 held at the end of the last AT, where it carries on into the games since. */
     readonly held?: number
+    /** Where a bonus that missed the AT started play again since it: the regular games since the AT itself, across those bonuses, `sinceAt` counting from the last of them. Left out where none did. */
+    readonly sinceAtAcrossBonuses?: number
   }
   readonly legs: readonly LegDto[]
 }
@@ -622,6 +628,7 @@ export type EngineErrorDto =
   | { readonly type: "reset-since-at-ceiling-beside-modes"; readonly entity: string }
   | { readonly type: "direct-without-cz"; readonly entity: string }
   | { readonly type: "ceiling-triggers-without-cz"; readonly entity: string }
+  | { readonly type: "ceiling-across-bonuses-without-restart"; readonly entity: string }
   | { readonly type: "ceiling-unit-beside-lcd-rate" }
   | { readonly type: "unit-ceiling-without-unit"; readonly entity: string }
   | { readonly type: "gate-beyond-whole"; readonly entity: string; readonly game: number; readonly settingLevel: number }

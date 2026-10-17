@@ -3,9 +3,10 @@ import { describe, expect, test } from "bun:test"
 import { consumptionOf, heldAtFinishOf } from "../../../src/core/pachinko/consumption"
 import { mergeableSpan, withReadingsMerged } from "../../../src/core/pachinko/merging"
 import { checkpointsForReading, type Reading } from "../../../src/core/pachinko/reading"
-import { takenOf } from "../../../src/core/pachinko/revision"
+import { standingBefore, takenOf, withReadingInserted, withReadingRemoved } from "../../../src/core/pachinko/revision"
 import type { Checkpoint, Phase } from "../../../src/core/play-log/checkpoint"
 import { liveSummary } from "../../../src/core/play-log/live"
+import { appendCheckpoint, parsePlayLog } from "../../../src/core/play-log/checkpoint"
 
 const TERMS = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 125, deducted: 133 } }
 
@@ -89,29 +90,31 @@ describe("a run of a pachinko play's readings made one", () => {
     expect(merged(log, 2, 3).map((line) => [line.spins, line.event?.kind])).toEqual([[0, undefined], [180, undefined], [180, "jackpot"], [210, undefined], [260, undefined]])
   })
 
-  test("ends on a reading that knows the hand where any before it did, so that no count is lost and no ball taken as played early", () => {
-    const log = played([reading({ counterSpins: 140, rented: 500 }), reading({ counterSpins: 150 }), reading({ counterSpins: 165, rented: 500 }), reading({ counterSpins: 170 }), reading({ counterSpins: 180 })])
-    expect(mergeableSpan(log, 0, 1)).toEqual({ from: 0, to: 0 })
-    expect(mergeableSpan(log, 0, 3)).toEqual({ from: 0, to: 2 })
-    expect(mergeableSpan(log, 4, 0)).toEqual({ from: 3, to: 4 })
-    expect(mergeableSpan(log, 2, 0)).toEqual({ from: 0, to: 2 })
-    const counted = played([reading({ counterSpins: 140, held: 300 }), reading({ counterSpins: 160 })])
-    expect(mergeableSpan(counted, 0, 1)).toEqual({ from: 0, to: 0 })
+  test("folds a reading that bought balls into one that knows nothing of the hand, the hand known there kept in it", () => {
+    const log = played([reading({ counterSpins: 320, rented: 10000, replayed: 3000 }), reading({ counterSpins: 400 })])
+    expect(mergeableSpan(log, 0, 1)).toEqual({ from: 0, to: 1 })
+    const made = merged(log, 0, 1)
+    expect(takenOf(made).map((each) => each.reading)).toMatchObject([{ counterSpins: 400, rented: 10000, replayed: 3000, held: undefined, handsBefore: [{ counterSpins: 320, rented: 10000, replayed: 3000, supported: 0, held: 0 }] }])
+    expect(made.at(-1)?.handsBefore).toEqual([{ spins: 200, outlay: 10000, replay: 3000, support: 0, held: 0 }])
+    expect(consumptionOf(made, TERMS)).toEqual(consumptionOf(log, TERMS))
+    expect(consumptionOf(made, TERMS).measured).toEqual({ spins: 200, balls: 5500, rentedBalls: 2500, replayedBalls: 3000 })
+    expect(heldAtFinishOf(made, TERMS)).toBe(heldAtFinishOf(log, TERMS))
   })
 
-  test("does not fold the reading the measuring starts from, taken before any regular game, into one after them", () => {
-    const log = played([reading({ counterSpins: 120, rented: 500 }), reading({ counterSpins: 140, rented: 500 }), reading({ counterSpins: 160, rented: 500 })])
-    expect(mergeableSpan(log, 0, 2)).toEqual({ from: 1, to: 2 })
-    expect(mergeableSpan(log, 1, 2)).toEqual({ from: 1, to: 2 })
+  test("folds the first balls bought, before any regular game, the measuring still starting from them", () => {
+    const log = played([reading({ counterSpins: 120, rented: 500 }), reading({ counterSpins: 140, rented: 500 }), reading({ counterSpins: 160, replayed: 125 }), reading({ counterSpins: 175 })])
+    expect(mergeableSpan(log, 0, 3)).toEqual({ from: 0, to: 3 })
+    const made = merged(log, 0, 3)
+    expect(takenOf(made)).toHaveLength(1)
+    expect(consumptionOf(made, TERMS)).toEqual(consumptionOf(log, TERMS))
+    expect(heldAtFinishOf(made, TERMS)).toBe(heldAtFinishOf(log, TERMS))
   })
 
-  test("dragged from a reading that may be made one with none, folds the longest run of the others that may", () => {
-    const first = played([reading({ counterSpins: 120, rented: 500 }), reading({ counterSpins: 140, rented: 500 }), reading({ counterSpins: 160, replayed: 125 }), reading({ counterSpins: 180, rented: 500 })])
-    expect(mergeableSpan(first, 0, 3)).toEqual({ from: 1, to: 3 })
-    expect(consumptionOf(merged(first, 1, 3), TERMS)).toEqual(consumptionOf(first, TERMS))
-    const unknowing = played([reading({ counterSpins: 140, rented: 500 }), reading({ counterSpins: 160, replayed: 125 }), reading({ counterSpins: 180, rented: 500 }), reading({ counterSpins: 190 })])
-    expect(mergeableSpan(unknowing, 3, 0)).toEqual({ from: 0, to: 2 })
-    expect(mergeableSpan(unknowing, 3, 2)).toEqual({ from: 3, to: 3 })
+  test("keeps a count folded in as the last count, for the next reading to carry", () => {
+    const log = played([reading({ counterSpins: 140, rented: 500 }), reading({ counterSpins: 150, held: 80 }), reading({ counterSpins: 160 })])
+    const made = merged(log, 1, 2)
+    expect(standingBefore(made, 2).held).toBe(80)
+    expect(made.at(-1)?.handsBefore).toEqual([{ spins: 30, outlay: 500, replay: 0, support: 0, held: 80, counted: true }])
   })
 
   test("is the log as it was where the span is one reading, or none of the play's", () => {
@@ -172,8 +175,39 @@ describe("any run that may be made one", () => {
       expect(takenOf(after)).toHaveLength(takenOf(log).length - (span.to - span.from))
       expect(consumptionOf(after, TERMS)).toEqual(consumptionOf(log, TERMS))
       expect(heldAtFinishOf(after, TERMS)).toEqual(heldAtFinishOf(log, TERMS))
-      expect(after.at(-1)).toEqual(log.at(-1) as Checkpoint)
+      expect(((line) => (line === undefined ? undefined : { ...line, handsBefore: undefined }))(after.at(-1))).toEqual({ ...(log.at(-1) as Checkpoint), handsBefore: undefined })
       expect([liveSummary(after).spins, liveSummary(after).outlay, liveSummary(after).jackpots, liveSummary(after).counterNow]).toEqual([liveSummary(log).spins, liveSummary(log).outlay, liveSummary(log).jackpots, liveSummary(log).counterNow])
     })
+  })
+
+  test("leaves every figure as it was however often it is folded again, written down and read back, or set right elsewhere", () => {
+    const figures = (log: readonly Checkpoint[]) => [consumptionOf(log, TERMS), heldAtFinishOf(log, TERMS), liveSummary(log).spins, liveSummary(log).outlay, liveSummary(log).jackpots, liveSummary(log).counterNow]
+    const written = (log: readonly Checkpoint[]): readonly Checkpoint[] => ((read) => (read.ok ? read.value : []))(parsePlayLog(log.reduce((text, line) => appendCheckpoint(text, line), "")))
+    const plays = Array.from({ length: 40 }, (_, seed) => anyPlay(seed + 101, 16))
+    const checked = plays.map((log, seed) => {
+      const next = thrown(seed + 7)
+      const fold = (now: readonly Checkpoint[]): readonly Checkpoint[] => {
+        const count = takenOf(now).length
+        const span = mergeableSpan(now, Math.floor(next() * count), Math.floor(next() * count))
+        return merged(now, span.from, span.to)
+      }
+      const folded = [fold, fold, written, fold, written, fold].reduce<readonly Checkpoint[]>((now, step) => {
+        const after = step(now)
+        expect(figures(after)).toEqual(figures(now))
+        return after
+      }, log)
+      expect(merged(folded, 0, 0)).toEqual(folded)
+      return takenOf(folded).length < takenOf(log).length
+    })
+    expect(checked.filter(Boolean).length).toBeGreaterThan(15)
+  })
+
+  test("keeps the hands of a folded reading through a reading put in or taken out before it", () => {
+    const log = played([reading({ counterSpins: 140, rented: 500 }), reading({ counterSpins: 320, rented: 10000, replayed: 3000 }), reading({ counterSpins: 400 })])
+    const made = merged(log, 1, 2)
+    const without = withReadingRemoved(made, 0)
+    expect(without.ok && without.value.at(-1)?.handsBefore).toEqual([{ spins: 200, outlay: 10000, replay: 3000, support: 0, held: 0 }])
+    const withMore = withReadingInserted(made, 0, reading({ counterSpins: 130, rented: 500 }))
+    expect(withMore.ok && withMore.value.at(-1)?.handsBefore).toEqual([{ spins: 200, outlay: 11000, replay: 3000, support: 0, held: 0 }])
   })
 })

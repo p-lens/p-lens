@@ -67,6 +67,8 @@ export interface EntityRow {
   readonly forcedCz: "drawn" | "wins"
   /** How an AT a CZ brings is won on its AT間天井: outright, or by the CZ or bonus it brings, which certainly wins it and is counted in the 合算. */
   readonly ceilingAt: "outright" | "triggered"
+  /** An AT's AT間天井 counted from the last AT across the bonuses that start play again, which none of them starts again, as typed; empty for none. */
+  readonly ceilingAcrossBonuses: string
   /** A mode's zones, or a CZ's on a machine without modes, in the order typed. */
   readonly gates: readonly GateForm[]
   /** Where a failed CZ in a mode moves play: each mode by its key, with its share in percent by the level; empty where play stays. */
@@ -194,6 +196,7 @@ const row = (key: string, label: string, kind: EntityKindName, payout = ""): Ent
   bonusMiss: "counted",
   forcedCz: "drawn",
   ceilingAt: "outright",
+  ceilingAcrossBonuses: "",
   gates: [],
   redraw: {},
   ceilingRedraw: {},
@@ -238,12 +241,22 @@ export const hasCz = (form: WorldForm): boolean => form.rows.some((each) => each
 /** Whether an AT machine's ceilings are its modes'. */
 export const hasModes = (form: WorldForm): boolean => form.rows.some((each) => each.kind === "mode")
 
-/** Whether an AT a CZ brings has an AT間天井 typed: its own, after an AT or a setting change, in games or in the unit, or a mode's. */
+/** Whether a CZ's bonus that misses the AT starts play again: ceilings, スルー天井 and modes counted again from it. */
+export const restartsAtBonus = (form: WorldForm): boolean => form.rows.some((each) => each.kind === "cz" && each.trigger === "cz-then-bonus" && each.bonusMiss === "restarts")
+
+/** An AT row's AT間天井 as typed: after an AT or a setting change, in games or in the unit, and across bonuses where they start play again. */
+const atCeilingsTyped = (form: WorldForm, at: EntityRow): readonly string[] => [
+  at.ceiling,
+  at.resetCeiling,
+  at.unitCeiling,
+  at.resetUnitCeiling,
+  ...(restartsAtBonus(form) ? [at.ceilingAcrossBonuses] : []),
+]
+
+/** Whether an AT a CZ brings has an AT間天井 typed: its own, after an AT or a setting change, in games or in the unit, across bonuses, or a mode's. */
 export const hasAtCeiling = (form: WorldForm): boolean =>
   hasCz(form) &&
-  form.rows.some((each) =>
-    (each.kind === "at" ? [each.ceiling, each.resetCeiling, each.unitCeiling, each.resetUnitCeiling] : each.kind === "mode" ? [each.atCeiling, each.atUnitCeiling] : []).some((text) => text.trim() !== ""),
-  )
+  form.rows.some((each) => (each.kind === "at" ? atCeilingsTyped(form, each) : each.kind === "mode" ? [each.atCeiling, each.atUnitCeiling] : []).some((text) => text.trim() !== ""))
 
 /** A key no row has yet. */
 export const freshKey = (rows: readonly EntityRow[]): string => {
@@ -430,6 +443,8 @@ interface ReadRow {
   readonly sinceAtCeiling: number | undefined
   /** A CZ's ceiling counted from the last AT after a setting change, where given. */
   readonly resetSinceAtCeiling: number | undefined
+  /** An AT's AT間天井 counted from the last AT across the bonuses that start play again, where given. */
+  readonly ceilingAcrossBonuses: number | undefined
   /** An AT a CZ brings: how often a regular game wins it outright, where given. */
   readonly direct: readonly BySettingLevelDto<ProbabilityDto>[] | undefined
   readonly law: ReadLaw | undefined
@@ -570,6 +585,7 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
   const net: Read<number | undefined> = isCz && tidyTyped(entity.net) !== "" ? setOf(entity.net, `${name} 純増`) : Ok(undefined)
   const sinceAtCeiling = isCz || (isMode && hasCz(form)) ? ceilingOf(entity.sinceAtCeiling, `${name} ATから数える天井`) : Ok(undefined)
   const resetSinceAtCeiling = isCz && !hasModes(form) ? ceilingOf(entity.resetSinceAtCeiling, `${name} リセット後のATから数える天井`) : Ok(undefined)
+  const ceilingAcrossBonuses = brought && restartsAtBonus(form) ? ceilingOf(entity.ceilingAcrossBonuses, `${name} ATから数えるAT間天井`) : Ok(undefined)
   const rule = payoutRule(entity)
   const payout: Read<number | undefined> =
     rule === "none" || (rule === "optional" && tidyTyped(entity.payout) === "") ? Ok(undefined) : medalsOf(entity.payout, `${name} 枚数`)
@@ -587,7 +603,7 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
   const atUnitCeiling = counted && isMode && hasCz(form) ? ceilingOf(entity.atUnitCeiling, `${name} AT間天井（${unit}）`) : Ok(undefined)
   const law = entity.kind === "at" ? readLaw(form, entity, name) : Ok(undefined)
   const problems = [
-    ...problemsOf([label, payout, of, trials, net, sinceAtCeiling, resetSinceAtCeiling, ...direct, ceiling, resetCeiling, atCeiling, unitCeiling, resetUnitCeiling, atUnitCeiling, misses, ...chances, ...allotment, ...(resetAllotment ?? []), ...success, ...bonusShare, ...gates, ...redraw, ...ceilingRedraw, ...triggerChance, expiry]),
+    ...problemsOf([label, payout, of, trials, net, sinceAtCeiling, resetSinceAtCeiling, ceilingAcrossBonuses, ...direct, ceiling, resetCeiling, atCeiling, unitCeiling, resetUnitCeiling, atUnitCeiling, misses, ...chances, ...allotment, ...(resetAllotment ?? []), ...success, ...bonusShare, ...gates, ...redraw, ...ceilingRedraw, ...triggerChance, expiry]),
     ...(law.ok ? [] : law.error),
   ]
   if (problems.length > 0 || !law.ok) return Err(problems)
@@ -616,6 +632,7 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
     net: net.ok ? net.value : undefined,
     sinceAtCeiling: sinceAtCeiling.ok ? sinceAtCeiling.value : undefined,
     resetSinceAtCeiling: resetSinceAtCeiling.ok ? resetSinceAtCeiling.value : undefined,
+    ceilingAcrossBonuses: ceilingAcrossBonuses.ok ? ceilingAcrossBonuses.value : undefined,
     law: law.value,
   })
 }
@@ -642,7 +659,9 @@ const worldOf = (form: WorldForm, bet: number, at: MachineResources | undefined,
   const forcedFromAt = rows.some((read) => (read.entity.kind === "cz" || read.entity.kind === "mode") && read.sinceAtCeiling !== undefined)
   const sure = rows.filter((read) => read.entity.kind === "cz" && read.entity.forcedCz === "wins" && forcedFromAt).map((read) => read.entity.key)
   const atCeiled = rows.some((read) =>
-    read.entity.kind === "at" ? [read.ceiling, read.resetCeiling, read.unitCeiling, read.resetUnitCeiling].some((ceiling) => ceiling !== undefined) : read.entity.kind === "mode" && (read.atCeiling !== undefined || read.atUnitCeiling !== undefined),
+    read.entity.kind === "at"
+      ? [read.ceiling, read.resetCeiling, read.unitCeiling, read.resetUnitCeiling, read.ceilingAcrossBonuses].some((ceiling) => ceiling !== undefined)
+      : read.entity.kind === "mode" && (read.atCeiling !== undefined || read.atUnitCeiling !== undefined),
   )
   const triggering = rows.filter((read) => read.entity.kind === "at" && read.entity.ceilingAt === "triggered" && hasCz(form) && atCeiled).map((read) => read.entity.key)
   const parts = owned("part")
@@ -651,6 +670,7 @@ const worldOf = (form: WorldForm, bet: number, at: MachineResources | undefined,
   const trials = keyed((read) => read.trials)
   const sinceAtCeilings = keyed((read) => read.sinceAtCeiling)
   const resetSinceAtCeilings = keyed((read) => read.resetSinceAtCeiling)
+  const ceilingsAcrossBonuses = keyed((read) => read.ceilingAcrossBonuses)
   const directs = keyed((read) => read.direct)
   const isAt = (read: ReadRow): boolean => read.entity.kind === "at"
   const isCz = (read: ReadRow): boolean => read.entity.kind === "cz"
@@ -694,6 +714,7 @@ const worldOf = (form: WorldForm, bet: number, at: MachineResources | undefined,
       ...(restarting.length > 0 ? { restart: restarting } : {}),
       ...(sure.length > 0 ? { ceilingWins: sure } : {}),
       ...(triggering.length > 0 ? { ceilingTriggers: triggering } : {}),
+      ...(Object.keys(ceilingsAcrossBonuses).length > 0 ? { ceilingAcrossBonuses: ceilingsAcrossBonuses } : {}),
       ...(Object.keys(firstHits).length > 0 ? { firstHit: firstHits } : {}),
       ...(Object.keys(misses).length > 0 ? { misses } : {}),
       ...(Object.keys(ceilings).length > 0 ? { ceiling: ceilings } : {}),
@@ -888,6 +909,7 @@ export const worldFormOf = (spec: SpecDto): WorldForm => ({
     bonusMiss: spec.components.restart?.includes(entity) === true ? "restarts" : "counted",
     forcedCz: spec.components.ceilingWins?.includes(entity) === true ? "wins" : "drawn",
     ceilingAt: spec.components.ceilingTriggers?.includes(entity) === true ? "triggered" : "outright",
+    ceilingAcrossBonuses: typedCount(spec.components.ceilingAcrossBonuses?.[entity]),
     bonusShares: Object.fromEntries((spec.components.bonusShare?.[entity] ?? []).map((each) => [String(each.settingLevel), String(each.value / 100)])),
     gates: (spec.components.gates?.[entity] ?? []).map(gateFormOf),
     redraw: redrawFormOf(spec.components.redraw?.[entity]),

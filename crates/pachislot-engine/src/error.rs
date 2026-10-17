@@ -182,6 +182,12 @@ pub enum SpecError {
     CeilingTriggersWithoutCz {
         entity: EntityId,
     },
+    /// An AT given an AT間天井 counted across the bonuses that start play
+    /// again on a machine whose bonuses do not: there it is the AT間天井
+    /// itself.
+    CeilingAcrossBonusesWithoutRestart {
+        entity: EntityId,
+    },
     /// A set of an AT paid in sets that pays nothing.
     EmptySet {
         entity: EntityId,

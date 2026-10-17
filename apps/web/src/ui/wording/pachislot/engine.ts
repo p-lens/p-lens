@@ -51,6 +51,7 @@ const COMPONENT_NAMES: Readonly<Record<string, string>> = {
   expiry: "モードを抜けるゲーム数",
   ceilingWins: "天井CZの確定",
   ceilingTriggers: "AT間天井での当選",
+  ceilingAcrossBonuses: "ATから数えるAT間天井（ボーナスで戻らない）",
 }
 
 /** A component by what the person entering a spec calls it. */
@@ -162,6 +163,8 @@ const describeEngineError = (error: EngineErrorDto): string => {
       return `「${error.entity}」のATから数える天井は、AT間天井と同じか手前にしてください。AT間天井のない機種には入れられません。`
     case "ceiling-triggers-without-cz":
       return `AT「${error.entity}」のAT間天井での当選は、CZやボーナスからATに入る機種にだけ入れられます。CZのない機種は、天井でATそのものに当たります。`
+    case "ceiling-across-bonuses-without-restart":
+      return `AT「${error.entity}」のATから数えるAT間天井（ボーナスで戻らない）は、ATなしボーナスで天井を数え直す機種にだけ入れられます。数え直さない機種では、AT間天井がそのままATから数える天井です。`
     case "reset-since-at-ceiling-without-since-at-ceiling":
       return `CZ「${error.entity}」にリセット後のATから数える天井だけがあります。AT後のATから数える天井も入れてください。`
     case "reset-since-at-ceiling-beside-modes":

@@ -25,6 +25,7 @@ import {
   isAtMachine,
   type ManualForm,
   newRow,
+  restartsAtBonus,
   STARTING_AT_MANUAL,
   STARTING_MANUAL,
   takesGates,
@@ -391,6 +392,18 @@ function RowEditor(props: {
               />
             </div>
           </Show>
+          <Show when={restartsAtBonus(props.form)}>
+            <div class="w-64">
+              <TextField
+                label="ATから数えるAT間天井（ボーナスで戻らない）"
+                value={props.row.ceilingAcrossBonuses}
+                onChange={(ceilingAcrossBonuses) => props.onChange({ ...props.row, ceilingAcrossBonuses })}
+                inputMode="numeric"
+                suffix="G"
+                placeholder="なし"
+              />
+            </div>
+          </Show>
         </Show>
         <Show when={brought() && !hasModes(props.form)}>
           <div class="w-40">
@@ -451,6 +464,11 @@ function RowEditor(props: {
       </Show>
       <Show when={brought()}>
         <p class="text-xs text-text-muted">ATの初当たりは、CZ合算と成功率・天井から正確に計算します。</p>
+        <Show when={restartsAtBonus(props.form)}>
+          <p class="text-xs text-text-muted">
+            ATなしボーナスで天井を数え直す機種では、AT間天井もボーナスから数え直します。ボーナスでは戻らず、ATからだけ数えるAT間天井（ボーナス間800G・AT間1600Gの1600G）があれば「ATから数えるAT間天井」に入れます。どちらか早いほうでATに当たります。
+          </p>
+        </Show>
         <Show when={hasAtCeiling(props.form)}>
           <div class="flex flex-col gap-1.5">
             <span class={LABEL}>AT間天井での当選</span>

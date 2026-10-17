@@ -60,7 +60,7 @@ describe("the 解析値 form", () => {
     const form = {
       settingLevels: [1, 6],
       bet: "3",
-      rows: [{ key: "big", label: "BIG", kind: "bonus" as const, of: "", trials: "", payout: "２５２", chances: { "1": "1/273.1", "6": "２５５" }, ceiling: "", resetCeiling: "", atCeiling: "", resetAllotment: {}, success: {}, misses: "", net: "", unitCeiling: "", resetUnitCeiling: "", atUnitCeiling: "", trigger: "cz" as const, bonusShares: {}, bonusMiss: "counted" as const, forcedCz: "drawn" as const, ceilingAt: "outright" as const, gates: [], redraw: {}, ceilingRedraw: {}, triggerChances: {}, expiryGames: "", expiryTo: "", sinceAtCeiling: "", resetSinceAtCeiling: "", law: EMPTY_LAW }],
+      rows: [{ key: "big", label: "BIG", kind: "bonus" as const, of: "", trials: "", payout: "２５２", chances: { "1": "1/273.1", "6": "２５５" }, ceiling: "", resetCeiling: "", atCeiling: "", resetAllotment: {}, success: {}, misses: "", net: "", unitCeiling: "", resetUnitCeiling: "", atUnitCeiling: "", trigger: "cz" as const, bonusShares: {}, bonusMiss: "counted" as const, forcedCz: "drawn" as const, ceilingAt: "outright" as const, ceilingAcrossBonuses: "", gates: [], redraw: {}, ceilingRedraw: {}, triggerChances: {}, expiryGames: "", expiryTo: "", sinceAtCeiling: "", resetSinceAtCeiling: "", law: EMPTY_LAW }],
       base: "",
       lcdRate: "",
       unitName: "",
@@ -324,6 +324,27 @@ describe("an AT machine typed in by hand", () => {
     const row = form.world.rows.find((each) => each.kind === "cz")
     expect([row?.bonusMiss, row?.forcedCz]).toEqual(["restarts", "wins"])
     expect(readManualForm(form)).toEqual({ ok: true, value: { spec: restarting, conditions: measured } })
+  })
+
+  test("an AT間天井 counted from the AT across bonuses reads back the same, and goes with the bonus that restarts play", () => {
+    const madeUp = czSpec as SpecDto
+    const shares = [
+      { settingLevel: 1, value: 5_000 },
+      { settingLevel: 6, value: 6_000 },
+    ]
+    const across: SpecDto = {
+      ...madeUp,
+      components: { ...madeUp.components, bonusShare: { cz: shares }, restart: ["cz"], ceilingAcrossBonuses: { at: 1_600 } },
+    }
+    const form = manualFormOf(across, measured)
+    expect(form.world.rows.find((each) => each.kind === "at")?.ceilingAcrossBonuses).toBe("1600")
+    expect(readManualForm(form)).toEqual({ ok: true, value: { spec: across, conditions: measured } })
+    const counted = { ...form, world: { ...form.world, rows: form.world.rows.map((each) => (each.kind === "cz" ? { ...each, bonusMiss: "counted" as const } : each)) } }
+    const read = readManualForm(counted)
+    expect(read.ok && read.value.spec.components.ceilingAcrossBonuses).toBeUndefined()
+    const mistyped = { ...form, world: { ...form.world, rows: form.world.rows.map((each) => (each.kind === "at" ? { ...each, ceilingAcrossBonuses: "千六百" } : each)) } }
+    const refused = readManualForm(mistyped)
+    expect(!refused.ok && refused.error).toEqual([{ field: "AT ATから数えるAT間天井", reason: "not-a-number" }])
   })
 
   test("a mode's own CZ chance and the mode play leaves to after so many games read back the same", () => {

@@ -445,7 +445,9 @@ and so that its play's log sits beside exactly one entry.
 ### Play logs
 
 A JSONL file per play, each line a `Checkpoint`: running totals since the play
-began (`spins`, optionally `outlay`, `at`, the parlor's `counter`, an `event`).
+began (`spins`, optionally `outlay`, `at`, the parlor's `counter`, an `event`,
+and, on a pachinko line folded from several readings, the `handsBefore`
+it keeps).
 Totals, not differences, so a forgotten line is appended later without touching
 any other: order comes from `spins`, never from position. Appending only is
 also what lets two edits of a log merge cleanly in Git. A log whose spending
@@ -1440,6 +1442,32 @@ only the primitives, the core and the application.
   (`bonus-missed`, `bonus`), the live play giving each its tile where a
   CZ's success brings a bonus; a history told by its totals counts both as
   misses, and the engine walks it without starting again.
+- **An AT間天井 may count across those bonuses.** Beside the ceilings a
+  bonus starts again, a machine may have one it does not: 賞金首Angel's
+  800G counted from each bonus and 1600G counted from the AT. The AT says
+  so (`ceilingAcrossBonuses`, in the rules `atRules.ceilingAcrossBonuses`),
+  in regular games from the AT — or the setting change — across every
+  bonus that starts play again, and whichever AT間天井 comes first wins it,
+  outright or by the trigger it brings as the others do. It needs a CZ
+  that restarts (`ceiling-across-bonuses-without-restart`): elsewhere
+  nothing starts again, and the AT間天井 is that ceiling already. One
+  stretch over the chance it ends in the AT no longer holds, since the
+  count goes on through each start again; so a stretch from a fresh start
+  is walked once as far as that ceiling, and the stretches are laid where
+  each begins, counted from the AT (`spread`) — each start again a fresh
+  stretch moved on, as much of play as bonuses brought there — and cut at
+  that ceiling, where whatever is still going wins the AT. The cycle, the
+  arrivals and the hunt sum over them, which the tests hold against play
+  walked state by state; with the ceiling out of reach the cycle is the
+  stretch over its chance again. Where it is absent the figures are as they
+  were. A walked path counts the games since the AT through each start
+  again (`Standing::since_at_across_bonuses`), a history told by its
+  totals has them as its games already, and a seat says them
+  (`PathStart::since_at_across_bonuses`, from the last AT; where left out,
+  no bonus came since and they are the games since the AT); the live play
+  carries them across each bonus, and its ceilings show the sooner. The
+  grounds take such a machine's cycle from the engine, as any that starts
+  again.
 - **A CZ whose success brings a bonus keeps both stages.** Where a CZ
   succeeds into a bonus and the bonus wins the AT at a share of its own —
   CZ, then BIG, then the AT about half the time — the CZ keeps its 合算,
@@ -2003,10 +2031,15 @@ toast's `action`. Each game's `revised` is exported for it alone.
   that was rented, drawn and drifted over it (`withReadingsMerged`); a
   pachislot run becomes its last reading, which already says all the ones
   before it did (`withStepsMerged`). A pachinko play is measured between
-  lines that know what was in hand, so a run in which any reading knew the
-  hand ends on one that does, and the reading the measuring starts from is
-  not folded into a later one: `consumptionOf` comes to the same before and
-  after, which the tests hold over every run of many generated plays.
+  points that know what was in hand — its start, a count, balls bought as
+  the hand ran out — so the one line keeps the points inside the run that
+  the measuring may start or end at (`handsBefore`: the last before any
+  regular game, and the last of all where the line itself knows nothing
+  of the hand), each as the running totals there. What was bought by the
+  last of them was bought there, not at the line. `consumptionOf`, the
+  balls in hand at the finish and the play's totals come to the same
+  before and after, which the tests hold over every run of many generated
+  plays, folded again, written down and read back.
 - **Taken back while its word stands.** The toast that says a run was
   merged stays until it is closed and carries 取り消す, which puts the log
   back as it was — unless the log has changed since, which is said and

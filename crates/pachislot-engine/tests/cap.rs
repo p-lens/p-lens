@@ -129,6 +129,7 @@ fn rules(cap: Option<f64>, window: Option<u32>, reset_on_cap: bool) -> AtRules {
         bonus_miss: BonusMiss::Counted,
         forced_cz: ForcedCz::Drawn,
         ceiling_at: CeilingAt::Outright,
+        ceiling_across_bonuses: None,
     }
 }
 
@@ -159,6 +160,7 @@ fn start(held: Option<u32>, since_at: u32) -> PathStart {
         misses: 0,
         after_reset: false,
         held,
+        since_at_across_bonuses: None,
     }
 }
 

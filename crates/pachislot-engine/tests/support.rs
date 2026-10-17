@@ -331,6 +331,7 @@ pub fn rules(trigger: Option<&str>, modes: Vec<ModeRule>) -> AtRules {
         bonus_miss: BonusMiss::Counted,
         forced_cz: ForcedCz::Drawn,
         ceiling_at: CeilingAt::Outright,
+        ceiling_across_bonuses: None,
     }
 }
 
@@ -381,5 +382,6 @@ pub fn start(since_trigger: u32, since_at: u32, misses: u32) -> PathStart {
         misses,
         after_reset: false,
         held: None,
+        since_at_across_bonuses: None,
     }
 }

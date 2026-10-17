@@ -63,6 +63,18 @@ export const takenOf = (ordered: readonly Checkpoint[]): readonly Taken[] =>
         held: checkpoint.held,
         jackpot: jackpotOf(checkpoint),
         at: checkpoint.at ?? "",
+        ...(checkpoint.handsBefore === undefined
+          ? {}
+          : {
+              handsBefore: checkpoint.handsBefore.map((hand) => ({
+                counterSpins: (checkpoint.counter?.spins ?? 0) - (checkpoint.spins - hand.spins),
+                rented: hand.outlay - walked.totals.outlay,
+                replayed: hand.replay - walked.totals.replay,
+                supported: hand.support - walked.totals.support,
+                held: hand.held,
+                ...(hand.counted === true ? { counted: true as const } : {}),
+              })),
+            }),
       }
       return { taken: [...walked.taken, { reading, afterMissedJackpot: walked.missed }], totals, missed: false }
     },
@@ -89,7 +101,7 @@ export const standingBefore = (ordered: readonly Checkpoint[], index: number): B
   const last = earlier.at(-1)?.reading
   return {
     counter: last === undefined ? (seat?.counter?.spins ?? 0) : last.jackpot.type === "none" ? last.counterSpins : 0,
-    held: earlier.findLast((each) => each.reading.held !== undefined)?.reading.held ?? seat?.held,
+    held: earlier.flatMap((each) => [...(each.reading.handsBefore ?? []).filter((hand) => hand.counted === true).map((hand) => hand.held), ...(each.reading.held === undefined ? [] : [each.reading.held])]).at(-1) ?? seat?.held,
     outlay: earlier.reduce((sum, each) => sum + each.reading.rented, seat?.outlay ?? 0),
     replay: earlier.reduce((sum, each) => sum + each.reading.replayed, seat?.replay ?? 0),
   }

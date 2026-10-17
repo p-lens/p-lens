@@ -43,37 +43,59 @@ const bonusGainOf = (checkpoint: Checkpoint): number =>
 /** A jackpot whose bonus the log does not say: what it paid is unknown, so the balls cannot be followed past it. */
 const isUntold = (checkpoint: Checkpoint): boolean => checkpoint.event?.kind === "jackpot" && checkpoint.event.bonus === undefined
 
+/** A line's standing, and those of the hands known inside it before it, oldest first. */
+interface Stood {
+  readonly standing: Standing
+  readonly hands: readonly Known[]
+}
+
 /**
  * The standing at each line. A line where balls were rented or drawn is
  * one where the hand had run out, so all that came to hand by then was
  * played — but for what a bonus won at that very line, which is in hand;
  * a line where the balls in hand were counted says so itself; any other
- * line does not know what is in hand.
+ * line does not know what is in hand. A line made of readings folded
+ * together says, besides, where the hand was known inside it
+ * (`handsBefore`), each a standing of its own before the line's; what was
+ * bought by the last of them was bought there, not at the line.
  */
-const standingsOf = (ordered: readonly Checkpoint[], terms: PlayTerms): readonly Standing[] =>
-  ordered.reduce<{ readonly standings: readonly Standing[]; readonly before: Standing; readonly spins: number; readonly bonuses: number }>(
+const standingsOf = (ordered: readonly Checkpoint[], terms: PlayTerms): readonly Stood[] =>
+  ordered.reduce<{ readonly stood: readonly Stood[]; readonly before: Standing; readonly spins: number; readonly bonuses: number }>(
     (walked, checkpoint) => {
       const rentedBalls = checkpoint.outlay === undefined ? walked.before.rentedBalls : rentedBallsOf(checkpoint.outlay, terms)
       const replayedBalls = checkpoint.replay ?? walked.before.replayedBalls
       const bonuses = walked.bonuses + bonusGainOf(checkpoint)
-      const bought = rentedBalls > walked.before.rentedBalls || replayedBalls > walked.before.replayedBalls
+      const regularSince = (spins: number): number => walked.before.regularSpins + (isRegular(checkpoint) ? spins - walked.spins : 0)
+      const hands = (checkpoint.handsBefore ?? []).map(
+        (hand): Known => ({
+          regularSpins: regularSince(hand.spins),
+          rentedBalls: rentedBallsOf(hand.outlay, terms),
+          replayedBalls: hand.replay,
+          gained: rentedBallsOf(hand.outlay, terms) + hand.replay + walked.bonuses + hand.support,
+          held: hand.held,
+        }),
+      )
+      const latest = hands.at(-1) ?? walked.before
+      const bought = rentedBalls > latest.rentedBalls || replayedBalls > latest.replayedBalls
       const standing: Standing = {
-        regularSpins: walked.before.regularSpins + (isRegular(checkpoint) ? checkpoint.spins - walked.spins : 0),
+        regularSpins: regularSince(checkpoint.spins),
         rentedBalls,
         replayedBalls,
         gained: rentedBalls + replayedBalls + bonuses + (checkpoint.support ?? 0),
         held: checkpoint.held ?? (bought ? Math.max(0, bonusGainOf(checkpoint)) : undefined),
       }
-      return { standings: [...walked.standings, standing], before: standing, spins: checkpoint.spins, bonuses }
+      return { stood: [...walked.stood, { standing, hands }], before: standing, spins: checkpoint.spins, bonuses }
     },
-    { standings: [], before: START, spins: ordered.at(0)?.spins ?? 0, bonuses: 0 },
-  ).standings
+    { stood: [], before: START, spins: ordered.at(0)?.spins ?? 0, bonuses: 0 },
+  ).stood
 
 type Known = Standing & { readonly held: number }
 
+const isKnown = (standing: Standing): standing is Known => standing.held !== undefined
+
 const playedOf = (standing: Known): number => standing.gained - standing.held
 
-/** A play walked through: where it stands at its last line, and the two lines its regular games are measured between. */
+/** A play walked through: where it stands at its last line, and the two points its regular games are measured between. */
 interface Walked {
   readonly last: Standing | undefined
   readonly from: Known
@@ -82,12 +104,23 @@ interface Walked {
   readonly pastUntold: boolean
 }
 
+/**
+ * Every point the hand was known at, in play order, up to a jackpot whose
+ * bonus the log does not say: the start, each line that knew, and the
+ * hands known inside folded lines — those inside the untold jackpot's own
+ * line too, which came before it.
+ */
+const knownOf = (stood: readonly Stood[], untold: number): readonly Known[] => [
+  { ...START, held: 0 },
+  ...(untold === -1 ? stood : stood.slice(0, untold + 1)).flatMap((each, index) => [...each.hands, ...(index !== untold && isKnown(each.standing) ? [each.standing] : [])]),
+]
+
 const walkedOf = (ordered: readonly Checkpoint[], terms: PlayTerms): Walked => {
   const untold = ordered.findIndex(isUntold)
-  const standings = standingsOf(ordered, terms)
-  const known = [START, ...(untold === -1 ? standings : standings.slice(0, untold))].filter((standing): standing is Known => standing.held !== undefined)
+  const stood = standingsOf(ordered, terms)
+  const known = knownOf(stood, untold)
   const from = known.findLast((standing) => standing.regularSpins === 0) ?? { ...START, held: 0 }
-  return { last: standings.at(-1), from, to: known.at(-1) ?? from, pastUntold: untold !== -1 }
+  return { last: stood.at(-1)?.standing, from, to: known.at(-1) ?? from, pastUntold: untold !== -1 }
 }
 
 const measuredOf = (walked: Walked): Measured | undefined => {

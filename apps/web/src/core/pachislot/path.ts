@@ -168,18 +168,26 @@ const heldAfter = (seen: AtSeenDto | undefined, before: number | undefined, payo
   return gained === undefined ? undefined : (before ?? 0) + gained
 }
 
+/** The games since the AT itself across the bonuses that started play again, where one did, so many games on. */
+const acrossOn = (standing: AtStanding, games: number): Pick<AtStanding, "sinceAtAcrossBonuses"> =>
+  standing.sinceAtAcrossBonuses === undefined ? {} : { sinceAtAcrossBonuses: standing.sinceAtAcrossBonuses + games }
+
+/** Where a bonus starts play again on a machine with an AT間天井 counted from the AT across bonuses: the games since the AT itself, which it does not start again. */
+const acrossBonus = (standing: AtStanding, games: number, rules: AtRulesDto): Pick<AtStanding, "sinceAtAcrossBonuses"> =>
+  rules.ceilingAcrossBonuses === undefined ? {} : { sinceAtAcrossBonuses: (standing.sinceAtAcrossBonuses ?? standing.sinceAt) + games }
+
 const afterLeg =
   (normalized: NormalizedSpecDto | undefined) =>
   (standing: AtStanding, leg: LegDto): AtStanding => {
     switch (leg.end) {
       case "going":
-        return { ...standing, sinceTrigger: standing.sinceTrigger + leg.games, sinceAt: standing.sinceAt + leg.games }
+        return { ...standing, sinceTrigger: standing.sinceTrigger + leg.games, sinceAt: standing.sinceAt + leg.games, ...acrossOn(standing, leg.games) }
       case "missed":
-        return { ...standing, sinceTrigger: 0, sinceAt: standing.sinceAt + leg.games, misses: standing.misses + 1 }
+        return { ...standing, sinceTrigger: 0, sinceAt: standing.sinceAt + leg.games, misses: standing.misses + 1, ...acrossOn(standing, leg.games) }
       case "bonus":
         return normalized?.atRules?.bonusMiss === "restarts"
-          ? { ...standing, sinceTrigger: 0, sinceAt: 0, misses: 0, afterReset: false }
-          : { ...standing, sinceTrigger: 0, sinceAt: standing.sinceAt + leg.games, misses: standing.misses + 1 }
+          ? { ...standing, sinceTrigger: 0, sinceAt: 0, misses: 0, afterReset: false, ...acrossBonus(standing, leg.games, normalized.atRules) }
+          : { ...standing, sinceTrigger: 0, sinceAt: standing.sinceAt + leg.games, misses: standing.misses + 1, ...acrossOn(standing, leg.games) }
       case "won-at": {
         const before = holdingAt({ ...standing, sinceAt: standing.sinceAt + Math.max(0, leg.games - 1) }, normalized?.atRules)
         const held = heldAfter(leg.at, before, normalized?.tables[0]?.at?.payout)
@@ -227,8 +235,9 @@ const deepest = (ceilings: readonly (number | undefined)[]): number | undefined 
 /**
  * How far play is from each of an AT machine's ceilings: regular games left
  * to the deepest ceiling of the trigger and of the AT間天井 over the modes
- * play may be in, and the CZs missed against the スルー天井. Each is there
- * only where the machine has it.
+ * play may be in — or to the AT間天井 counted from the AT across bonuses,
+ * where it comes sooner — and the CZs missed against the スルー天井. Each is
+ * there only where the machine has it.
  */
 export interface Ceilings {
   readonly trigger: number | undefined
@@ -244,14 +253,19 @@ const zoneOf = (standing: AtStanding, rules: AtRulesDto | undefined): Ceilings["
   return { games: rules.window - standing.sinceAt, headroom: Math.max(0, rules.cap - held) }
 }
 
+/** The sooner of two ceilings, where either is. */
+const sooner = (one: number | undefined, other: number | undefined): number | undefined => (one === undefined ? other : other === undefined ? one : Math.min(one, other))
+
 export const ceilingsOf = (standing: AtStanding, normalized: NormalizedSpecDto): Ceilings => {
   const rules = normalized.atRules
   const modes = reachableModes(normalized, standing.afterReset)
   const trigger = deepest(modes.map((mode) => triggerCeilingOf(mode, standing)))
   const at = rules === undefined ? undefined : deepest(modes.map((mode) => atCeilingOf(rules, mode)))
+  const across = rules?.ceilingAcrossBonuses === undefined ? undefined : rules.ceilingAcrossBonuses - (standing.sinceAtAcrossBonuses ?? standing.sinceAt)
+  const left = sooner(at === undefined ? undefined : at - standing.sinceAt, across)
   return {
     trigger: trigger === undefined ? undefined : Math.max(0, trigger),
-    at: at === undefined ? undefined : Math.max(0, at - standing.sinceAt),
+    at: left === undefined ? undefined : Math.max(0, left),
     misses: ((limit) => (limit === undefined ? undefined : { missed: standing.misses, limit }))(rules === undefined ? undefined : deepest(modes.map((mode) => missesOf(rules, mode)))),
     zone: zoneOf(standing, rules),
   }
@@ -260,7 +274,8 @@ export const ceilingsOf = (standing: AtStanding, normalized: NormalizedSpecDto):
 /**
  * The seats 天井狙い is weighed at down a table, by the games since the last
  * AT: from none, every 50 games — every 100 past a 500-game ceiling — short
- * of the deepest ceiling play may be under, the AT間天井 or, where the AT is
+ * of the deepest ceiling play may be under, the AT間天井 — or the one counted
+ * from the AT across bonuses, where it comes sooner — or, where the AT is
  * won directly, its 天井; up to 1000 games without one. With CZs missed,
  * each seat is just after the last of them; without, the CZ has come no
  * sooner than the AT, so no seat is past the CZ's own ceiling, where one
@@ -270,7 +285,7 @@ export const huntSeatsOf = (normalized: NormalizedSpecDto, afterReset: boolean, 
   const rules = normalized.atRules
   if (rules === undefined) return []
   const modes = reachableModes(normalized, afterReset)
-  const atCeiling = deepest(modes.map((mode) => (rules.trigger === undefined ? mode.ceiling : atCeilingOf(rules, mode)))) ?? 1000
+  const atCeiling = sooner(deepest(modes.map((mode) => (rules.trigger === undefined ? mode.ceiling : atCeilingOf(rules, mode)))), rules.ceilingAcrossBonuses) ?? 1000
   const czCeiling = rules.trigger === undefined || misses > 0 ? undefined : deepest(modes.map((mode) => (mode.ceiling === undefined ? mode.sinceAtCeiling : mode.sinceAtCeiling === undefined ? mode.ceiling : Math.min(mode.ceiling, mode.sinceAtCeiling))))
   const ceiling = Math.min(atCeiling, czCeiling ?? atCeiling)
   const step = ceiling > 500 ? 100 : 50

@@ -288,6 +288,7 @@ fn checked<'a>(
     zoned(cz, &modes)?;
     redrawn(cz, &modes)?;
     restarted(cz, &modes)?;
+    across_bonuses(at, cz)?;
     let (trigger, ceiling, reset_ceiling) = trigger_of(at, cz);
     let (units, reset_units) = trigger_units_of(at, cz);
     if !modes.is_empty()
@@ -336,9 +337,11 @@ fn reset_since_at(cz: &Cz, modes: &[&Mode]) -> Result<(), SpecError> {
 }
 
 /// An AT間天井 that brings the trigger only where there is one: the AT's,
-/// after an AT or a setting change, in games or in the unit, or a mode's.
+/// after an AT or a setting change, in games or in the unit, across the
+/// bonuses that start play again, or a mode's.
 fn ceiling_triggered(at: &At, modes: &[&Mode]) -> Result<(), SpecError> {
     let ceiled = at.ceiling.is_some()
+        || at.ceiling_across_bonuses.is_some()
         || at.reset_ceiling.is_some()
         || at.unit_ceiling.is_some()
         || at.reset_unit_ceiling.is_some()
@@ -458,6 +461,18 @@ fn restarted(cz: Option<&Cz>, modes: &[&Mode]) -> Result<(), SpecError> {
             component,
         })
     })
+}
+
+/// An AT間天井 counted across the bonuses that start play again only where
+/// a CZ's bonus does: elsewhere nothing starts play again, and the AT間天井
+/// is counted from the AT already.
+fn across_bonuses(at: &At, cz: Option<&Cz>) -> Result<(), SpecError> {
+    if at.ceiling_across_bonuses.is_some() && !cz.is_some_and(|cz| cz.restart) {
+        return Err(SpecError::CeilingAcrossBonusesWithoutRestart {
+            entity: at.id.clone(),
+        });
+    }
+    Ok(())
 }
 
 /// A machine of an AT, if the spec is one: its AT, its CZ, its modes and its
@@ -658,6 +673,7 @@ pub(crate) fn rules_of(machine: &AtMachine<'_>, scales: Scales, cap: Option<Meda
             ForcedCz::Drawn
         },
         ceiling_at: ceiling_at_of(machine.at),
+        ceiling_across_bonuses: machine.at.ceiling_across_bonuses,
     }
 }
 

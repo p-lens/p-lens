@@ -1,5 +1,6 @@
 import type { Checkpoint } from "../play-log/checkpoint"
 import type { Result } from "../result/result"
+import type { ReadingHand } from "./reading"
 import { revised, takenOf, type RevisionRefusal, type Taken } from "./revision"
 
 /** A run of a play's readings, by the places of its first and its last among them. */
@@ -48,80 +49,109 @@ const stretched = (weighed: readonly Weighed[], at: number, reached: number): nu
 /** Whether a reading says what was in hand: the balls counted, or balls bought, which says the hand had run out. */
 const knowsTheHand = ({ reading }: Taken): boolean => reading.held !== undefined || reading.rented > 0 || reading.replayed > 0
 
-/**
- * Whether a run made one line leaves what the play is measured by as it
- * was. A play's regular games are measured between two lines that know
- * what was in hand (`consumptionOf`), and the one line a run becomes
- * stands where its last reading stood, saying what that one said of the
- * hand. So where any reading of the run knew the hand, the last must: a
- * count would otherwise be lost, or balls bought earlier be taken as
- * bought, the hand empty, at the last. And a reading that knew the hand
- * before any regular game is not folded into one after them: the
- * measuring starts from it.
- */
-const keepsTheMeasure = (run: readonly Weighed[]): boolean => {
-  const last = run.at(-1)
-  const knowing = run.slice(0, -1).filter(({ taken }) => knowsTheHand(taken))
-  return last === undefined || knowing.length === 0 || (knowsTheHand(last.taken) && !knowing.some((each) => each.regularSpins === 0 && last.regularSpins > 0))
-}
-
 const spanBetween = (one: number, other: number): Span => ({ from: Math.min(one, other), to: Math.max(one, other) })
-
-/** Every place from one to another, the other first. */
-const backFrom = (reached: number, anchor: number): readonly number[] => Array.from({ length: Math.abs(reached - anchor) + 1 }, (_, back) => reached - back * Math.sign(reached - anchor))
-
-/** Every run of two readings or more inside a span, longest first, the nearer to `anchor` first among runs as long. */
-const runsWithin = (span: Span, anchor: number): readonly Span[] =>
-  Array.from({ length: span.to - span.from }, (_, shorter) => span.to - span.from - shorter)
-    .flatMap((length) => Array.from({ length: span.to - span.from - length + 1 }, (_, start) => ({ from: span.from + start, to: span.from + start + length })))
-    .toSorted((left, right) => right.to - right.from - (left.to - left.from) || Math.abs(left.from - anchor) + Math.abs(left.to - anchor) - (Math.abs(right.from - anchor) + Math.abs(right.to - anchor)))
 
 /**
  * The run of readings that may be made one, from the reading at `anchor`
- * towards the one at `reached`: as far as each joins the next, and then
- * the longest of that which leaves the play measured as it was. Where the
- * reading at `anchor` itself may be made one with none of them — the
- * first balls bought before any regular game, where the measuring starts,
- * or a last reading that knows nothing of the hand — the longest run among
- * the others that may, so a run dragged from it is still folded as far as
- * the figures allow. A reading alone, where nothing may be made one.
+ * towards the one at `reached`: as far as each joins the next. A reading
+ * alone, where nothing may be made one with it.
  */
-export const mergeableSpan = (ordered: readonly Checkpoint[], anchor: number, reached: number): Span => {
-  const weighed = weighedOf(ordered)
-  const keeps = (span: Span): boolean => keepsTheMeasure(weighed.slice(span.from, span.to + 1))
-  const stretch = spanBetween(anchor, stretched(weighed, anchor, reached))
-  const end = backFrom(stretched(weighed, anchor, reached), anchor).find((candidate) => keeps(spanBetween(anchor, candidate)))
-  const withAnchor = spanBetween(anchor, end ?? anchor)
-  return withAnchor.to > withAnchor.from ? withAnchor : (runsWithin(stretch, anchor).find(keeps) ?? withAnchor)
+export const mergeableSpan = (ordered: readonly Checkpoint[], anchor: number, reached: number): Span => spanBetween(anchor, stretched(weighedOf(ordered), anchor, reached))
+
+/** A point inside a run where the hand was known, as the run's one reading will say it, with the regular games the play had come to there. */
+interface Point {
+  readonly hand: ReadingHand
+  readonly regularSpins: number
 }
 
-/** A run of readings as the one it makes: the last, with all that was rented, drawn and drifted over the run. */
-const mergedOf = (run: readonly Taken[]): Taken | undefined => {
-  const last = run.at(-1)
+/** What a run's readings before one had rented, drawn and drifted in all. */
+interface Since {
+  readonly rented: number
+  readonly replayed: number
+  readonly supported: number
+}
+
+/** A reading's own hand where it knew one: what it counted, or none left as it bought more. */
+const handOf = ({ reading }: Taken, since: Since): ReadingHand => ({
+  counterSpins: reading.counterSpins,
+  rented: since.rented + reading.rented,
+  replayed: since.replayed + reading.replayed,
+  supported: since.supported + reading.supported,
+  held: reading.held ?? 0,
+  ...(reading.held === undefined ? {} : { counted: true as const }),
+})
+
+/**
+ * Every point inside a run where the hand was known, oldest first: the
+ * hands its readings already kept from folds before, and every reading but
+ * the last that knew the hand, each said from the line before the run.
+ */
+const pointsOf = (run: readonly Weighed[]): readonly Point[] =>
+  run.reduce<{ readonly points: readonly Point[]; readonly since: Since }>(
+    (walked, { taken, regularSpins }, index) => {
+      const back = (counterSpins: number): number => regularSpins - (taken.reading.phase === "regular" ? taken.reading.counterSpins - counterSpins : 0)
+      const kept = (taken.reading.handsBefore ?? []).map((hand) => ({
+        hand: { ...hand, rented: walked.since.rented + hand.rented, replayed: walked.since.replayed + hand.replayed, supported: walked.since.supported + hand.supported },
+        regularSpins: back(hand.counterSpins),
+      }))
+      const own = index < run.length - 1 && knowsTheHand(taken) ? [{ hand: handOf(taken, walked.since), regularSpins }] : []
+      return {
+        points: [...walked.points, ...kept, ...own],
+        since: { rented: walked.since.rented + taken.reading.rented, replayed: walked.since.replayed + taken.reading.replayed, supported: walked.since.supported + taken.reading.supported },
+      }
+    },
+    { points: [], since: { rented: 0, replayed: 0, supported: 0 } },
+  ).points
+
+/**
+ * The points a run's one reading must keep for the play to be measured as
+ * it was (`consumptionOf`): the last before any regular game, which the
+ * measuring may start from, and — where the last reading does not know the
+ * hand itself — the last of all, which it may end at. No other is ever read.
+ */
+const keptPoints = (points: readonly Point[], lastKnows: boolean): readonly ReadingHand[] => {
+  const start = points.findLast((point) => point.regularSpins === 0)
+  const end = lastKnows ? undefined : points.at(-1)
+  return points.filter((point) => point === start || point === end).map((point) => point.hand)
+}
+
+/**
+ * A run of readings as the one it makes: the last, with all that was
+ * rented, drawn and drifted over the run, and the points inside it where
+ * the hand was known that the play is measured by.
+ */
+const mergedOf = (run: readonly Weighed[]): Taken | undefined => {
+  const last = run.at(-1)?.taken
   if (last === undefined) return undefined
+  const hands = keptPoints(pointsOf(run), knowsTheHand(last))
+  const { handsBefore: _, ...reading } = last.reading
   return {
     ...last,
     reading: {
-      ...last.reading,
-      rented: run.reduce((sum, each) => sum + each.reading.rented, 0),
-      replayed: run.reduce((sum, each) => sum + each.reading.replayed, 0),
-      supported: run.reduce((sum, each) => sum + each.reading.supported, 0),
+      ...reading,
+      rented: run.reduce((sum, each) => sum + each.taken.reading.rented, 0),
+      replayed: run.reduce((sum, each) => sum + each.taken.reading.replayed, 0),
+      supported: run.reduce((sum, each) => sum + each.taken.reading.supported, 0),
+      ...(hands.length === 0 ? {} : { handsBefore: hands }),
     },
   }
 }
 
 /**
  * The log with a run of its readings made one line: the counter, the
- * balls in hand and the hour as the last read them, and what was rented,
- * drawn and drifted over the run in all. The play's totals, and what it
- * is measured by, stand as they were; only the lines between are gone. A
- * span that may not be made one whole is made one as far as it may be
- * (`mergeableSpan`), from its first reading.
+ * balls in hand and the hour as the last read them, what was rented,
+ * drawn and drifted over the run in all, and the points inside it where the
+ * hand was known that the play is measured by (`handsBefore`). The play's
+ * totals, and what it is measured by, stand as they were; only the lines
+ * between are gone. A span that may not be made one whole — past a
+ * jackpot, a change of the cabinet's state — is made one as far as it may
+ * be (`mergeableSpan`), from its first reading.
  */
 export const withReadingsMerged = (ordered: readonly Checkpoint[], span: Span): Result<readonly Checkpoint[], RevisionRefusal> => {
   const { from, to } = mergeableSpan(ordered, span.from, span.to)
+  const weighed = weighedOf(ordered)
   return revised(ordered, (taken) => {
-    const merged = mergedOf(taken.slice(from, to + 1))
+    const merged = mergedOf(weighed.slice(from, to + 1))
     return merged === undefined ? taken : [...taken.slice(0, from), merged, ...taken.slice(to + 1)]
   })
 }

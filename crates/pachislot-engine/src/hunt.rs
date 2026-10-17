@@ -4,10 +4,12 @@
 use pachislot_domain::normalized::{AtRules, AtTable, ModeRule};
 use pachislot_domain::observation::PathStart;
 
+use std::num::NonZeroU32;
+
 use crate::at::{
     Held, Odds, Standing, chained, chances, direct_on, fresh, gain_now, started, trigger_medals,
 };
-use crate::chain::Chain;
+use crate::chain::{Chain, spread};
 
 /// What playing on from where play stands until the next AT is over comes
 /// to under one setting.
@@ -260,39 +262,142 @@ fn hunt_chained(rules: &AtRules, table: &AtTable, seated: &Standing) -> Option<H
         medals: sum.at_medals + sum.trigger_medals - rules.base.loss_per_game() * sum.games,
         ..sum
     };
+    if let Some(across) = rules.ceiling_across_bonuses {
+        return Some(finished(hunt_across(rules, table, seated, across)));
+    }
     let (sum, again) = stretch(rules, table, seated)?;
     if !rules.restarts() || again <= 0.0 {
         return Some(finished(sum));
     }
-    let restart = Standing {
-        since_trigger: 0,
-        since_at: 0,
-        misses: 0,
-        modes: table.allotments.after_at.clone(),
-        held: fresh(),
-    };
-    let (anew, anew_again) = stretch(rules, table, &restart)?;
+    let (anew, anew_again) = stretch(rules, table, &restarted(table))?;
     (anew_again < 1.0).then(|| {
         let each = Hunted::NONE.plus(anew, 1.0 / (1.0 - anew_again));
         finished(sum.plus(each, again))
     })
 }
 
+/// Where play stands as a bonus that misses the AT starts it again: as
+/// after an AT, nothing held.
+fn restarted(table: &AtTable) -> Standing {
+    Standing {
+        since_trigger: 0,
+        since_at: 0,
+        since_at_across_bonuses: 0,
+        misses: 0,
+        modes: table.allotments.after_at.clone(),
+        held: fresh(),
+    }
+}
+
 /// Playing on as a chain from where play stands to the AT — or, where play
-/// starts again at a bonus that misses the AT, to such a bonus — game by
-/// game: the AT won outright at the machine's own chance before anything
-/// else is drawn, what a trigger that is a bonus pays where it comes — in
-/// full on the AT間天井, where it brings the trigger — until
-/// what is still going is too little to tell; and how often it ends at a
-/// bonus that starts play again. None where it might never end.
+/// starts again at a bonus that misses the AT, to such a bonus — and how
+/// often it ends at a bonus that starts play again. None where it might
+/// never end.
 fn stretch(rules: &AtRules, table: &AtTable, seated: &Standing) -> Option<(Hunted, f64)> {
-    let odds = Odds::of(table);
-    let mut chain = Chain::seated(
+    let chain = Chain::seated(
         rules,
-        odds,
+        Odds::of(table),
         (seated.since_trigger, seated.since_at, seated.misses),
         &seated.modes,
     );
+    let (steps, settled) = stepped(rules, table, seated, chain, LONGEST);
+    settled.then(|| {
+        steps
+            .iter()
+            .fold((Hunted::NONE, 0.0_f64), |(sum, again), step| {
+                (sum.plus(step.added, 1.0), again + step.again)
+            })
+    })
+}
+
+/// What playing on comes to where an AT間天井 counted from the AT across
+/// the bonuses that start play again stands beside the rest: the stretch
+/// from where play stands, cut at that ceiling, and a fresh stretch from
+/// each start again — laid where it begins, counted from the AT, and cut
+/// there too, whatever of play is still going winning the AT on it.
+fn hunt_across(rules: &AtRules, table: &AtTable, seated: &Standing, across: NonZeroU32) -> Hunted {
+    let ceiling = across.get() as usize;
+    let since = seated.since_at_across_bonuses as usize;
+    let chain = Chain::seated(
+        rules,
+        Odds::of(table),
+        (seated.since_trigger, seated.since_at, seated.misses),
+        &seated.modes,
+    )
+    .counted_across(since.saturating_sub(seated.since_at as usize));
+    let (first, _) = stepped(rules, table, seated, chain, LONGEST);
+    let seeded = first
+        .iter()
+        .enumerate()
+        .fold(vec![0.0; ceiling], |mut seeded, (game, step)| {
+            if let Some(cell) = seeded.get_mut(since + 1 + game) {
+                *cell += step.again;
+            }
+            seeded
+        });
+    let anew = restarted(table);
+    let fresh_chain = Chain::seated(rules, Odds::of(table), (0, 0, 0), &anew.modes);
+    let (fresh, _) = stepped(
+        rules,
+        table,
+        &anew,
+        fresh_chain,
+        u32::try_from(ceiling).unwrap_or(u32::MAX),
+    );
+    let again: Vec<f64> = std::iter::once(0.0)
+        .chain(fresh.iter().map(|step| step.again))
+        .collect();
+    let starts = spread(seeded, &again, ceiling);
+    let before: Vec<Hunted> = std::iter::once(Hunted::NONE)
+        .chain(fresh.iter().scan(Hunted::NONE, |sum, step| {
+            *sum = sum.plus(step.added, 1.0);
+            Some(*sum)
+        }))
+        .collect();
+    let from_seat = first
+        .iter()
+        .fold(Hunted::NONE, |sum, step| sum.plus(step.added, 1.0));
+    starts
+        .iter()
+        .enumerate()
+        .filter(|(_, start)| **start > 0.0)
+        .fold(from_seat, |sum, (began, start)| {
+            let played = ceiling - began - 1;
+            let up_to = before
+                .get(played)
+                .or(before.last())
+                .copied()
+                .unwrap_or(Hunted::NONE);
+            let on = fresh.get(played).map_or(Hunted::NONE, |step| step.ceiled);
+            sum.plus(up_to.plus(on, 1.0), *start)
+        })
+}
+
+/// One game of a stretch played on: what it adds, what of it ended at a
+/// bonus that starts play again, and what it would come to were the
+/// AT間天井 counted across bonuses on it — the AT for whatever of play was
+/// still going, and the trigger's medals in full where that ceiling brings
+/// the trigger.
+struct Step {
+    added: Hunted,
+    again: f64,
+    ceiled: Hunted,
+}
+
+/// Playing on as a chain from where play stands, game by game, at most
+/// `most` games: the AT won outright at the machine's own chance before
+/// anything else is drawn, what a trigger that is a bonus pays where it
+/// comes — in full on the AT間天井, where it brings the trigger — and what
+/// ends at a bonus that starts play again; and whether what is still going
+/// came to too little to tell within them.
+fn stepped(
+    rules: &AtRules,
+    table: &AtTable,
+    seated: &Standing,
+    mut chain: Chain<'_>,
+    most: u32,
+) -> (Vec<Step>, bool) {
+    let odds = Odds::of(table);
     let keep = 1.0 - odds.direct;
     let paid = rules
         .trigger_payout
@@ -306,28 +411,44 @@ fn stretch(rules: &AtRules, table: &AtTable, seated: &Standing) -> Option<(Hunte
     } else {
         1.0
     };
-    let walked = (0..LONGEST).try_fold(
-        (Hunted::NONE, 1.0_f64, 0.0_f64),
-        |(sum, reached, again), game| {
+    let walked = (0..most).try_fold(
+        (Vec::new(), 1.0_f64),
+        |(mut steps, reached): (Vec<Step>, f64), game| {
             let going = chain.going(None);
             if reached * going < SETTLED {
-                return Err((sum, again));
+                return Err(steps);
             }
             let now = seated.since_at.saturating_add(game);
+            let gain = gain_now(rules, table, &seated.held, now);
             let played = chain.play();
             let restarted = reached * keep * played.bonus * (1.0 - odds.bonus_share);
             let won = reached * (odds.direct * going + keep * played.ended) - restarted;
-            let added = Hunted {
-                games: reached * going,
-                medals: 0.0,
-                at_medals: won * gain_now(rules, table, &seated.held, now),
-                trigger_medals: reached
-                    * keep
-                    * (played.arrived * paid + played.on_at_ceiling * ceiling_paid),
-                by_ceiling: reached * (played.on_at_ceiling + keep * played.through * through_wins),
-            };
-            Ok((sum.plus(added, 1.0), reached * keep, again + restarted))
+            let alive = reached * going;
+            steps.push(Step {
+                added: Hunted {
+                    games: alive,
+                    medals: 0.0,
+                    at_medals: won * gain,
+                    trigger_medals: reached
+                        * keep
+                        * (played.arrived * paid + played.on_at_ceiling * ceiling_paid),
+                    by_ceiling: reached
+                        * (played.on_at_ceiling + keep * played.through * through_wins),
+                },
+                again: restarted,
+                ceiled: Hunted {
+                    games: alive,
+                    medals: 0.0,
+                    at_medals: alive * gain,
+                    trigger_medals: alive * keep * ceiling_paid,
+                    by_ceiling: alive,
+                },
+            });
+            Ok((steps, reached * keep))
         },
     );
-    walked.err()
+    match walked {
+        Err(steps) => (steps, true),
+        Ok((steps, _)) => (steps, false),
+    }
 }

@@ -75,11 +75,12 @@ export const NOT_TALLIED = "集計なし"
 /** What a group's play time is called beside it. */
 export const PLAY_TIME = "時間"
 
-/** A play time in seconds as a person reads it: whole hours and minutes, the seconds dropped — `34時間20分`, `45分`. */
+/** A play time in seconds as a person reads it: whole hours and minutes, the minutes always two digits, the seconds dropped — `34時間05分`, `03分`. */
 export const playTimeText = (seconds: Decimal): string => {
   const minutes = Math.floor(Number(toPlainString(seconds)) / 60)
   const hours = Math.floor(minutes / 60)
-  return hours === 0 ? `${minutes}分` : `${formatCount(hours)}時間${minutes % 60}分`
+  const shown = `${String(minutes % 60).padStart(2, "0")}分`
+  return hours === 0 ? shown : `${formatCount(hours)}時間${shown}`
 }
 
 /** What tallies that do not say what a dimension asks are called: a tally with no machine named, an entry with no game. */

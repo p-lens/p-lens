@@ -243,6 +243,12 @@ pub struct Components {
     /// bonus with the AT certain at 10 周期, counted in the published 合算
     /// and paying its medals as any other.
     pub ceiling_triggers: BTreeSet<EntityId>,
+    /// On an AT a CZ brings, where a bonus that misses the AT starts play
+    /// again: an AT間天井 counted from the last AT across those bonuses, in
+    /// regular games, which none of them starts again — 1600G from the AT
+    /// beside an 800G ceiling counted from each bonus. Whichever AT間天井
+    /// comes first wins it.
+    pub ceiling_across_bonuses: BTreeMap<EntityId, NonZeroU32>,
     /// On a mode: where play goes when a trigger in it misses — the mode
     /// drawn again at each failed CZ — each mode it may go to with its share
     /// under each setting, the whole of it. A mode without stays.
@@ -360,6 +366,7 @@ pub enum Component {
     Expiry,
     ResetSinceAtCeiling,
     CeilingTriggers,
+    CeilingAcrossBonuses,
 }
 
 /// A mode left when so many games since its last trigger bring none: the
@@ -554,6 +561,9 @@ pub struct At {
     /// Whether its AT間天井 brings the trigger, certainly winning it,
     /// rather than winning it outright.
     pub ceiling_triggers: bool,
+    /// An AT間天井 counted from the last AT across the bonuses that start
+    /// play again, where a CZ's bonus does.
+    pub ceiling_across_bonuses: Option<NonZeroU32>,
 }
 
 /// A bonus: BIG, REG. Its chance is either one figure per setting or the sum

@@ -64,6 +64,27 @@ export interface Checkpoint {
   readonly support?: number
   /** The tokens in hand at this point, where they were counted. */
   readonly held?: number
+  /**
+   * Where the balls in hand were known before this line, at readings since
+   * folded into it — counted, or none left as more were bought — oldest
+   * first: what a play's regular games are measured between, kept so that
+   * folding readings changes no figure. Pachinko only.
+   */
+  readonly handsBefore?: readonly HandAt[]
+}
+
+/**
+ * The balls in hand at a point now inside a line, with the play's running
+ * totals there, as a line of its own would have said them.
+ */
+export interface HandAt {
+  readonly spins: number
+  readonly outlay: number
+  readonly replay: number
+  readonly support: number
+  readonly held: number
+  /** Whether the balls were counted there, rather than known by more being bought. */
+  readonly counted?: true
 }
 
 /**
@@ -194,6 +215,17 @@ const isPhase = (value: unknown): value is Phase => value === "regular" || value
 
 const isWhole = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value)
 
+const isHandAt = (value: unknown): value is HandAt =>
+  isFields(value) &&
+  isCount(value["spins"]) &&
+  isCount(value["outlay"]) &&
+  isCount(value["replay"]) &&
+  isWhole(value["support"]) &&
+  isCount(value["held"]) &&
+  (value["counted"] === undefined || value["counted"] === true)
+
+const isHandsBefore = (value: unknown): value is readonly HandAt[] => Array.isArray(value) && value.length > 0 && value.every(isHandAt)
+
 const isEvent = (value: unknown): value is PlayEvent =>
   isFields(value) &&
   ((value["kind"] === "jackpot" && (value["approximate"] === undefined || value["approximate"] === true) && (value["bonus"] === undefined || isBonusWon(value["bonus"]))) ||
@@ -230,6 +262,7 @@ const decodeCheckpoint = (fields: Fields, line: number): Result<Checkpoint, Play
   const replay = optional(fields, "replay", line, isCount)
   const support = optional(fields, "support", line, isWhole)
   const held = optional(fields, "held", line, isCount)
+  const handsBefore = optional(fields, "handsBefore", line, isHandsBefore)
   if (!outlay.ok) return outlay
   if (!at.ok) return at
   if (!counter.ok) return counter
@@ -240,6 +273,7 @@ const decodeCheckpoint = (fields: Fields, line: number): Result<Checkpoint, Play
   if (!replay.ok) return replay
   if (!support.ok) return support
   if (!held.ok) return held
+  if (!handsBefore.ok) return handsBefore
   return Ok(
     present<Checkpoint>({
       spins,
@@ -253,6 +287,7 @@ const decodeCheckpoint = (fields: Fields, line: number): Result<Checkpoint, Play
       replay: replay.value,
       support: support.value,
       held: held.value,
+      handsBefore: handsBefore.value,
     }),
   )
 }
