@@ -75,6 +75,9 @@ function Line(props: { readonly step: Step }): JSX.Element {
         <Show when={!isFinish(checkpoint()) || checkpoint().counter?.spins !== undefined}>
           <span class="shrink-0 tabular-nums text-text-primary">{checkpoint().counter?.spins === undefined ? "--" : formatCount(checkpoint().counter?.spins ?? 0)} 回転</span>
         </Show>
+        <Show when={checkpoint().counter?.gauge !== undefined}>
+          <span class="shrink-0 text-xs tabular-nums text-text-secondary">遊 {formatCount(checkpoint().counter?.gauge ?? 0)}</span>
+        </Show>
         <Show when={jackpotText(checkpoint())} keyed>
           {(won) => <span class="ml-auto shrink-0 rounded bg-accent px-1.5 py-0.5 text-xs font-semibold text-accent-contrast">{won}</span>}
         </Show>
@@ -96,9 +99,11 @@ const samePressed = (left: Revised | undefined, right: Revised | undefined): boo
 
 const pressLabel = (pressed: Revised): string => (pressed.type === "seat" ? "開始時データを修正" : `${pressed.index + 1}件目の記録を修正`)
 
-/** One line of the log. A reading, or the seat as it was found, is pressed to set it right; a jackpot found missing is only shown. A reading in the run being made one is marked. */
+/** One line of the log, tinted by what it is — a jackpot blue, 時短 yellow-green, 確変 purple. A reading, or the seat as it was found, is pressed to set it right; a jackpot found missing is only shown. A reading in the run being made one is marked. */
 function Row(props: { readonly step: Step; readonly pressed: Revised | undefined; readonly revising: boolean; readonly merging: boolean; readonly onRevise: (pressed: Revised) => void }): JSX.Element {
   const jackpot = (): boolean => props.step.checkpoint.event?.kind === "jackpot"
+  /** Whether the row is neither being set right nor in a run being made one: only then does it wear what it is. */
+  const resting = (): boolean => !props.revising && !props.merging
   return (
     <li {...spanRow(props.step.reading)}>
       <Show
@@ -116,7 +121,13 @@ function Row(props: { readonly step: Step; readonly pressed: Revised | undefined
             aria-label={pressLabel(found)}
             onClick={() => props.onRevise(found)}
             class={`${ROW} hover:bg-surface-3/40 focus-visible:outline-2 focus-visible:outline-focus-ring`}
-            classList={{ "bg-accent/10": jackpot() && !props.revising && !props.merging, "bg-warning/15": props.revising && !props.merging, "bg-accent/30": props.merging }}
+            classList={{
+              "bg-accent/10": jackpot() && resting(),
+              "bg-rapid/15": !jackpot() && props.step.checkpoint.phase === "rapid" && resting(),
+              "bg-special/15": !jackpot() && props.step.checkpoint.phase === "special" && resting(),
+              "bg-warning/15": props.revising && !props.merging,
+              "bg-accent/30": props.merging,
+            }}
           >
             <Line step={props.step} />
           </button>

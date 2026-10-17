@@ -206,6 +206,20 @@ pub enum SpecError {
     DirectWithoutCz {
         entity: EntityId,
     },
+    /// An AT given a chance of a bonus outright where no CZ's success
+    /// brings a bonus for it to be.
+    DirectBonusWithoutBonusShare {
+        entity: EntityId,
+    },
+    /// A side bonus on a machine without an AT, whose bonuses are its
+    /// outcomes already.
+    SideBonusWithoutAt {
+        entity: EntityId,
+    },
+    /// A second side bonus: a machine has one at the most.
+    SideBonusNotAlone {
+        entity: EntityId,
+    },
     /// An AT whose AT間天井 brings the trigger on a machine without a CZ,
     /// where its trigger is the AT and its ceiling the trigger's already.
     CeilingTriggersWithoutCz {
@@ -292,6 +306,18 @@ pub enum SpecError {
         entity: EntityId,
         to: EntityId,
     },
+    /// What the trigger the AT間天井 brings pays, on an AT whose AT間天井
+    /// brings none.
+    CeilingPayoutWithoutCeilingTriggers {
+        entity: EntityId,
+    },
+    /// A mode's allotment after an AT given beside one after every ending
+    /// that is not the endings' mix, in basis points, under a setting.
+    AllotmentAgainstEndings {
+        entity: EntityId,
+        setting_level: SettingLevel,
+        mix: u32,
+    },
     /// A mode's redraw whose shares do not come to the whole under a
     /// setting.
     RedrawNotWhole {
@@ -299,6 +325,24 @@ pub enum SpecError {
         setting_level: SettingLevel,
         sum: u32,
     },
+}
+
+/// What makes a seat one play cannot stand at, on the machine it is on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SeatError {
+    /// At or past the game a ceiling counted from the AT — or from the last
+    /// bonus that started play again — forces a CZ that certainly succeeds,
+    /// in every mode play may be in: that CZ would have ended the count.
+    PastSureCz { game: NonZeroU32 },
+    /// Past the game such a ceiling forces a CZ on, with no trigger since
+    /// before it, in every mode play may be in: that CZ would have come.
+    PastForcedCz { game: NonZeroU32 },
+    /// Fewer games since the AT itself, across the bonuses that started
+    /// play again, than since the last of them.
+    AcrossBonusesBelowSinceAt { since_at: u32, across: u32 },
+    /// As many games since the last side bonus as its ceiling, or more: it
+    /// certainly comes on that game.
+    PastSideBonusCeiling { since: u32, ceiling: NonZeroU32 },
 }
 
 /// What can stop payout rates being worked out.

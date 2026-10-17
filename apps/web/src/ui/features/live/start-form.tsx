@@ -49,6 +49,8 @@ export interface PachinkoStart {
   /** The data counter as it was found at the seat, beside the spins since its last jackpot: the day's spins and the day's jackpots. */
   readonly seatTotal: string
   readonly seatJackpots: string
+  /** The cabinet's own 遊タイム counter, for a machine with a 遊タイム, where it shows otherwise than the data counter; empty, it shows the same. */
+  readonly seatGauge: string
 }
 
 export const EMPTY_PACHINKO_START: PachinkoStart = {
@@ -62,6 +64,7 @@ export const EMPTY_PACHINKO_START: PachinkoStart = {
   newMachineReleasedOn: "",
   seatTotal: "",
   seatJackpots: "",
+  seatGauge: "",
 }
 
 /**
@@ -89,6 +92,8 @@ export interface PachislotStart {
   readonly seatMisses: string
   /** On an AT machine whose 有利区間 carries on after an AT: what it held when the last AT ended. */
   readonly seatHeld: string
+  /** On an AT machine whose AT間天井 counts across the bonuses that start the counter again: the games since the AT itself. */
+  readonly seatSinceAtAcrossBonuses: string
 }
 
 export const EMPTY_PACHISLOT_START: PachislotStart = {
@@ -106,6 +111,7 @@ export const EMPTY_PACHISLOT_START: PachislotStart = {
   seatSinceCz: "",
   seatMisses: "",
   seatHeld: "",
+  seatSinceAtAcrossBonuses: "",
 }
 
 /**

@@ -314,7 +314,7 @@ export function ReadingComposer(props: {
         <DriftButton drift={form().drift} supported={form().supported} invalid={nudged("supported")} onDrift={(drift) => change({ drift })} onSupported={(supported) => change({ supported })} onFocus={nudge.settle} />
       </div>
       <Show when={recount()} keyed>
-        {(drift) => <p class="text-xs text-warning">{recountText(drift.spins, drift.estimate)}</p>}
+        {(drift) => <p class="text-xs text-warning">{recountText(drift.estimate)}</p>}
       </Show>
       <div class="grid grid-cols-2 items-end gap-1.5">
         <div class="flex items-end gap-1">

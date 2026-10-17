@@ -153,7 +153,7 @@ export const measuredSpinPerformance = (ordered: readonly Checkpoint[], terms: P
   ((measured) => (measured === undefined ? undefined : spinPerformanceOf(measured, terms)))(consumptionOf(ordered, terms).measured)
 
 /** Regular games the hand may be played that long without a count before a person is asked to count it again. */
-export const RECOUNT_AFTER = 50
+export const RECOUNT_AFTER = 75
 
 /** How far a play has gone since its hand was last counted: the regular games since, and what the hand is likely to hold now — none where nothing has been measured to cost. */
 export interface HandDrift {
@@ -198,12 +198,14 @@ const regularSpinsAfter = (ordered: readonly Checkpoint[], spins: number): numbe
  * person to count it again: the regular games since, and the hand likely
  * now — as told, with what was bought since, less those games at the cost
  * the play was measured at. An estimate to be shown, never one written
- * into the hand. None where the hand was never counted.
+ * into the hand. None where the hand was never counted, or where it is
+ * told to be empty: a hand played down to nothing and said so has nothing
+ * left to count, whatever is played on after.
  */
 export const handDriftOf = (ordered: readonly Checkpoint[], terms: PlayTerms, told: number | undefined): HandDrift | undefined => {
   const counted = lastCountOf(ordered)
   const last = totalsOf(ordered).at(-1)
-  if (counted === undefined || last === undefined) return undefined
+  if (counted === undefined || last === undefined || told === 0) return undefined
   const spins = regularSpinsAfter(ordered, counted.spins)
   const measured = consumptionOf(ordered, terms).measured
   const bought = rentedBallsOf(last.outlay - counted.outlay, terms) + last.replay - counted.replay

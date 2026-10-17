@@ -15,13 +15,10 @@ export interface OtherGains {
 }
 
 /** Whether a period has any to show: a rate seldom changes and savings seldom lapse. */
-export const hasOtherGains = (gains: OtherGains): boolean => !isZero(gains.forfeited) || !isZero(gains.revaluation.total) || gains.revaluation.byParlor.size > 0
+export const hasOtherGains = (gains: OtherGains): boolean => !isZero(gains.forfeited) || !isZero(gains.revaluation.total)
 
-/** Several books' as one: each sum added, a parlor's revaluation in several books added together under its name. */
+/** Several books' as one: each sum added. */
 export const mergedOtherGains = (books: readonly OtherGains[]): OtherGains => ({
   forfeited: books.reduce((total, book) => add(total, book.forfeited), ZERO),
-  revaluation: {
-    total: books.reduce((total, book) => add(total, book.revaluation.total), ZERO),
-    byParlor: books.flatMap((book) => [...book.revaluation.byParlor]).reduce<ReadonlyMap<string, Decimal>>((found, [parlor, yen]) => new Map([...found, [parlor, add(found.get(parlor) ?? ZERO, yen)]]), new Map()),
-  },
+  revaluation: { total: books.reduce((total, book) => add(total, book.revaluation.total), ZERO) },
 })

@@ -92,7 +92,7 @@ impl Stream {
         let ceiling = between.on_ceiling(&self.source, at);
         let (running, here) = between.step(&self.source, self.running, at);
         let (running, here) = if share > 0.0 {
-            crate::budget::spend(self.source.len());
+            crate::budget::spend_sums(self.source.len());
             for before in &mut self.source {
                 *before *= 1.0 - share;
             }
@@ -126,6 +126,11 @@ pub(crate) struct Game {
     pub(crate) bonus: f64,
     pub(crate) on_at_ceiling: f64,
     pub(crate) through: f64,
+    /// The triggers a ceiling counted from the AT forced on the game, each
+    /// certainly succeeding where the machine says so: the AT's at the
+    /// bonus's share, where a CZ's success brings one. None where its CZ is
+    /// drawn as any other, and none past the スルー天井, counted in `through`.
+    pub(crate) forced: f64,
     pub(crate) ended_by: Vec<f64>,
 }
 
@@ -375,6 +380,7 @@ impl<'a> Chain<'a> {
             bonus: 0.0,
             on_at_ceiling: 0.0,
             through: 0.0,
+            forced: 0.0,
             ended_by: vec![0.0; counts],
         };
         let mut moved = vec![0.0; modes * counts];
@@ -429,6 +435,8 @@ impl<'a> Chain<'a> {
                 let wins = success_of(tries, success, mode.misses);
                 if mode.misses.is_some_and(|limit| tries > limit.get()) {
                     game.through += here;
+                } else {
+                    game.forced += forced;
                 }
                 let succeeded = (here - forced) * wins + forced * sure_wins;
                 if self.restarting {
@@ -473,6 +481,9 @@ struct Walked {
     walk: Walk,
     bonuses: Vec<f64>,
     on_at_ceiling: Vec<f64>,
+    /// The play that reaches an AT間天井, game by game, before the game's
+    /// draw outright: what of a cycle draws nothing outright there.
+    reaching_ceiling: Vec<f64>,
 }
 
 /// A chain from an AT walked game by game until next to nothing of it is
@@ -486,7 +497,7 @@ fn walked(rules: &AtRules, odds: Odds<'_>, shares: &[f64], horizon: Option<usize
     let mut ceiled = Vec::new();
     while horizon.map_or(arrived.len() < LONGEST_WALK, |horizon| {
         arrived.len() <= horizon
-    }) && crate::budget::spend(chain.streams.len())
+    }) && crate::budget::spend_chain_game(chain.streams.len())
     {
         let game = chain.play();
         arrived.push(game.arrived);
@@ -517,6 +528,11 @@ fn walked(rules: &AtRules, odds: Odds<'_>, shares: &[f64], horizon: Option<usize
             .enumerate()
             .map(|(game, ceiled)| reached(game) * ceiled)
             .collect(),
+        reaching_ceiling: ceiled
+            .iter()
+            .enumerate()
+            .map(|(game, ceiled)| reached(game.saturating_sub(1)) * ceiled)
+            .collect(),
     }
 }
 
@@ -539,6 +555,7 @@ struct Fresh {
     won: Vec<f64>,
     again: Vec<f64>,
     ceiled: Vec<f64>,
+    reaching: Vec<f64>,
 }
 
 impl Fresh {
@@ -548,6 +565,7 @@ impl Fresh {
             walk,
             bonuses,
             on_at_ceiling,
+            reaching_ceiling,
         } = walked(rules, odds, shares, Some(across));
         let again = restarts(odds, &bonuses);
         let won = walk
@@ -561,6 +579,7 @@ impl Fresh {
             won,
             again,
             ceiled: on_at_ceiling,
+            reaching: reaching_ceiling,
         }
     }
 
@@ -603,7 +622,7 @@ pub(crate) fn spread(mut seeded: Vec<f64>, again: &[f64], across: usize) -> Vec<
         if start == 0.0 {
             continue;
         }
-        crate::budget::spend(again.len().min(across - began));
+        crate::budget::spend_sums(again.len().min(across - began));
         for (game, again) in again.iter().enumerate().take(across - began).skip(1) {
             if let Some(cell) = seeded.get_mut(began + game) {
                 *cell += start * again;
@@ -646,10 +665,11 @@ fn cycle_across(rules: &AtRules, odds: Odds<'_>, shares: &[f64], across: NonZero
     );
     let brought = summed(fresh.arrived.iter().copied());
     let ceiled = summed(fresh.ceiled.iter().copied());
+    let reaching = summed(fresh.reaching.iter().copied());
     let to = |sums: &[f64], games: usize| sums.get(games).or(sums.last()).copied().unwrap_or(0.0);
-    let (left, games, triggers, on_ceilings) = starts.iter().enumerate().fold(
-        (0.0, 0.0, 0.0, 0.0),
-        |(left, games, triggers, on_ceilings), (began, start)| {
+    let (left, games, triggers, (on_ceilings, reached)) = starts.iter().enumerate().fold(
+        (0.0, 0.0, 0.0, (0.0, 0.0)),
+        |(left, games, triggers, (on_ceilings, reached)), (began, start)| {
             let short = ceiling - began;
             #[allow(
                 clippy::cast_precision_loss,
@@ -660,7 +680,10 @@ fn cycle_across(rules: &AtRules, odds: Odds<'_>, shares: &[f64], across: NonZero
                 left + start * (1.0 - to(&ended, short)),
                 games + start * (offset * to(&won, short) + to(&won_by_game, short)),
                 triggers + start * to(&brought, short),
-                on_ceilings + start * to(&ceiled, short),
+                (
+                    on_ceilings + start * to(&ceiled, short),
+                    reached + start * to(&reaching, short),
+                ),
             )
         },
     );
@@ -669,6 +692,7 @@ fn cycle_across(rules: &AtRules, odds: Odds<'_>, shares: &[f64], across: NonZero
         triggers: triggers + ceiled,
         games: games + f64::from(across.get()) * left,
         ceiled,
+        on_ceiling: reached + left,
     }
 }
 
@@ -695,7 +719,7 @@ fn arrivals_across(
             .sum()
     };
     let before: Vec<f64> = (1..ceiling.min(horizon as usize + 1))
-        .take_while(|game| crate::budget::spend(*game))
+        .take_while(|game| crate::budget::spend_sums(*game))
         .map(won_on)
         .collect();
     let left = 1.0 - before.iter().sum::<f64>();
@@ -721,6 +745,7 @@ pub(crate) fn cycle(rules: &AtRules, odds: Odds<'_>, shares: &[f64]) -> Cycle {
         walk,
         bonuses,
         on_at_ceiling,
+        reaching_ceiling,
     } = walked(rules, odds, shares, None);
     let length = u32::try_from(walk.ended.len())
         .ok()
@@ -730,6 +755,7 @@ pub(crate) fn cycle(rules: &AtRules, odds: Odds<'_>, shares: &[f64]) -> Cycle {
             triggers: f64::INFINITY,
             games: f64::INFINITY,
             ceiled: 0.0,
+            on_ceiling: 0.0,
         };
     };
     let stretch = cycle_to_ceiling(&walk, length, false);
@@ -739,10 +765,12 @@ pub(crate) fn cycle(rules: &AtRules, odds: Odds<'_>, shares: &[f64]) -> Cycle {
     } else {
         0.0
     };
+    let on_ceiling: f64 = reaching_ceiling.iter().sum();
     Cycle {
         triggers: (stretch.triggers + ceiled) / at,
         games: stretch.games / at,
         ceiled: ceiled / at,
+        on_ceiling: on_ceiling / at,
     }
 }
 
@@ -791,7 +819,7 @@ pub(crate) fn started(rules: &AtRules, table: &AtTable, start: PathStart) -> Sta
                 || mode
                     .ceiling
                     .is_some_and(|ceiling| start.since_trigger >= ceiling.get())
-                || passed_unbrought(mode, start))
+                || passed_unbrought(rules, mode, start))
         })
     };
     let quiet = |index: usize, from: u32, to: u32| {

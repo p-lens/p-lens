@@ -5,14 +5,31 @@ import { tidyTyped } from "../../../../core/text/tidy"
 /** Whether an AT reached the 有利区間's cap, as answered: yes, no, or not said. */
 export type Completion = "completed" | "short" | "unsaid"
 
-/** How an AT went, as typed when it ends: whether it reached the cap, the sets it carried on to past its first, and the medals it gained. */
+/**
+ * How an AT went, as typed when it ends: whether it reached the cap, the
+ * sets it carried on to past its first, the medals it gained, and how it
+ * ended — by the ending's id, none where it is not said.
+ */
 export interface AtResultForm {
   readonly completion: Completion
   readonly sets: string
   readonly medals: string
+  readonly ending: string | undefined
 }
 
-export const EMPTY_AT_RESULT: AtResultForm = { completion: "unsaid", sets: "", medals: "" }
+export const EMPTY_AT_RESULT: AtResultForm = { completion: "unsaid", sets: "", medals: "", ending: undefined }
+
+/** The toggle value for an ending not said. */
+export const UNSAID_ENDING = "unsaid"
+
+/** What sets an ending's toggle value apart from the one for an ending not said. */
+const ENDING_PREFIX = "ending:"
+
+/** An ending's toggle value; the unsaid one for none. */
+export const endingValueOf = (ending: string | undefined): string => (ending === undefined ? UNSAID_ENDING : `${ENDING_PREFIX}${ending}`)
+
+/** The ending a toggle value names; none for the unsaid one. */
+export const endingOfValue = (value: string): string | undefined => (value.startsWith(ENDING_PREFIX) ? value.slice(ENDING_PREFIX.length) : undefined)
 
 export interface AtResultProblem {
   readonly field: "sets" | "medals"
@@ -45,6 +62,7 @@ export const readAtResultForm = (form: AtResultForm): Result<AtEnded, readonly A
     ...(form.completion === "unsaid" ? {} : { completed: form.completion === "completed" }),
     ...(sets === undefined ? {} : { sets }),
     ...(medals === undefined ? {} : { medals }),
+    ...(form.ending === undefined ? {} : { ending: form.ending }),
   })
 }
 

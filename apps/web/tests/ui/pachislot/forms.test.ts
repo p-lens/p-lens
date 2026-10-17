@@ -18,6 +18,7 @@ import {
   STARTING_AT_MANUAL,
   STARTING_MANUAL,
   STARTING_WORLD,
+  everyEndingAllotted,
   freshKey,
   manualFormOf,
   newRow,
@@ -60,7 +61,7 @@ describe("the 解析値 form", () => {
     const form = {
       settingLevels: [1, 6],
       bet: "3",
-      rows: [{ key: "big", label: "BIG", kind: "bonus" as const, of: "", trials: "", payout: "２５２", chances: { "1": "1/273.1", "6": "２５５" }, ceiling: "", resetCeiling: "", atCeiling: "", resetAllotment: {}, success: {}, misses: "", net: "", unitCeiling: "", resetUnitCeiling: "", atUnitCeiling: "", trigger: "cz" as const, bonusShares: {}, bonusMiss: "counted" as const, forcedCz: "drawn" as const, ceilingAt: "outright" as const, ceilingAcrossBonuses: "", gates: [], redraw: {}, ceilingRedraw: {}, triggerChances: {}, expiryGames: "", expiryTo: "", sinceAtCeiling: "", resetSinceAtCeiling: "", endings: [], endingAllotment: {}, law: EMPTY_LAW }],
+      rows: [{ key: "big", label: "BIG", kind: "bonus" as const, of: "", trials: "", payout: "２５２", chances: { "1": "1/273.1", "6": "２５５" }, chanceKind: "combined" as const, ceiling: "", resetCeiling: "", atCeiling: "", resetAllotment: {}, success: {}, misses: "", net: "", unitCeiling: "", resetUnitCeiling: "", atUnitCeiling: "", trigger: "cz" as const, bonusShares: {}, bonusMiss: "counted" as const, forcedCz: "drawn" as const, ceilingAt: "outright" as const, ceilingPayout: "", ceilingAcrossBonuses: "", gates: [], redraw: {}, ceilingRedraw: {}, triggerChances: {}, directBonuses: {}, expiryGames: "", expiryTo: "", sinceAtCeiling: "", resetSinceAtCeiling: "", endings: [], endingAllotment: {}, law: EMPTY_LAW }],
       base: "",
       lcdRate: "",
       unitName: "",
@@ -254,6 +255,32 @@ describe("an AT machine typed in by hand", () => {
     expect(bare.ok && [bare.value.spec.entities, bare.value.spec.components.ending]).toEqual([["at"], undefined])
   })
 
+  test("a mode's 振り分け after an AT may be left empty where every mode is allotted after every ending", () => {
+    const modes = modesSpec as SpecDto
+    const levels = (low: number, high: number) => [
+      { settingLevel: 1, value: low },
+      { settingLevel: 6, value: high },
+    ]
+    const { allotment: _, ...components } = modes.components
+    const ended: SpecDto = {
+      ...modes,
+      entities: ["at", "through", "rest", "heaven", "normal"],
+      components: {
+        ...components,
+        label: { ...modes.components.label, through: "駆け抜け", rest: "それ以外" },
+        ending: { through: levels(3_000, 4_000), rest: levels(7_000, 6_000) },
+        endingAllotment: { heaven: { through: levels(1_000, 2_000), rest: levels(3_000, 5_000) }, normal: { through: levels(9_000, 8_000), rest: levels(7_000, 5_000) } },
+      },
+    }
+    const form = manualFormOf(ended, measured)
+    expect(everyEndingAllotted(form.world)).toBe(true)
+    expect(readManualForm(form)).toEqual({ ok: true, value: { spec: ended, conditions: measured } })
+    const partly = form.world.rows.map((row) => (row.key === "heaven" ? { ...row, endingAllotment: { through: row.endingAllotment.through ?? {} } } : row))
+    expect(everyEndingAllotted({ ...form.world, rows: partly })).toBe(false)
+    const refused = readManualForm({ ...form, world: { ...form.world, rows: partly } })
+    expect(!refused.ok && refused.error.some((problem) => problem.field.endsWith("振り分け 設定1") && problem.reason === "required")).toBe(true)
+  })
+
   test("a capped machine in sets read back into the form comes out as the same world", () => {
     const madeUp = capSpec as SpecDto
     const form = manualFormOf(madeUp, measured)
@@ -439,6 +466,80 @@ describe("an AT machine typed in by hand", () => {
     expect(readManualForm(form)).toEqual({ ok: true, value: { spec: direct, conditions: measured } })
   })
 
+  test("an AT whose CZ brings a bonus keeps its chance of that bonus outright, and reads back the same", () => {
+    const madeUp = czSpec as SpecDto
+    const staged: SpecDto = {
+      ...madeUp,
+      components: {
+        ...madeUp.components,
+        payout: { ...madeUp.components.payout, cz: 200 },
+        bonusShare: {
+          cz: [
+            { settingLevel: 1, value: 5000 },
+            { settingLevel: 6, value: 5000 },
+          ],
+        },
+        directBonus: {
+          at: [
+            { settingLevel: 1, value: { type: "ratio", numerator: 1, denominatorHundredths: 100_000 } },
+            { settingLevel: 6, value: { type: "ratio", numerator: 1, denominatorHundredths: 80_000 } },
+          ],
+        },
+      },
+    }
+    const form = manualFormOf(staged, measured)
+    expect(form.world.rows.find((row) => row.kind === "at")?.directBonuses).toEqual({ "1": "1/1000", "6": "1/800" })
+    expect(readManualForm(form)).toEqual({ ok: true, value: { spec: staged, conditions: measured } })
+    const plain = { ...form, world: { ...form.world, rows: form.world.rows.map((row) => (row.kind === "cz" ? { ...row, trigger: "cz" as const } : row)) } }
+    const read = readManualForm(plain)
+    expect(read.ok && read.value.spec.components.directBonus).toBe(undefined)
+  })
+
+  test("a side bonus keeps its chance as published or below its ceiling, its ceiling and its medals, and reads back the same", () => {
+    const madeUp = czSpec as SpecDto
+    const levels = [
+      { settingLevel: 1, value: { type: "ratio", numerator: 1, denominatorHundredths: 25_000 } as const },
+      { settingLevel: 6, value: { type: "ratio", numerator: 1, denominatorHundredths: 20_000 } as const },
+    ]
+    const published: SpecDto = {
+      ...madeUp,
+      entities: [...madeUp.entities, "fran"],
+      components: {
+        ...madeUp.components,
+        label: { ...madeUp.components.label, fran: "フランボーナス" },
+        sideBonus: ["fran"],
+        firstHit: { ...madeUp.components.firstHit, fran: levels },
+        ceiling: { ...madeUp.components.ceiling, fran: 300 },
+        payout: { ...madeUp.components.payout, fran: 100 },
+        netPerGame: { fran: 4 },
+      },
+    }
+    const form = manualFormOf(published, measured)
+    const side = form.world.rows.find((row) => row.kind === "side")
+    expect([side?.chanceKind, side?.chances, side?.ceiling, side?.payout, side?.net]).toEqual(["combined", { "1": "1/250", "6": "1/200" }, "300", "100", "4"])
+    expect(readManualForm(form)).toEqual({ ok: true, value: { spec: published, conditions: measured } })
+    const { fran: _, ...firstHit } = published.components.firstHit ?? {}
+    const below: SpecDto = { ...published, components: { ...published.components, firstHit, chance: { fran: levels } } }
+    const typed = manualFormOf(below, measured)
+    expect(typed.world.rows.find((row) => row.kind === "side")?.chanceKind).toBe("below")
+    expect(readManualForm(typed)).toEqual({ ok: true, value: { spec: below, conditions: measured } })
+    const unpaid = { ...form, world: { ...form.world, rows: form.world.rows.map((row) => (row.kind === "side" ? { ...row, payout: "" } : row)) } }
+    expect(readManualForm(unpaid).ok).toBe(false)
+  })
+
+  test("a CZ's chance given below its ceilings is kept as such, and reads back the same", () => {
+    const madeUp = czSpec as SpecDto
+    const { firstHit, ...rest } = madeUp.components
+    const below: SpecDto = { ...madeUp, components: { ...rest, chance: { cz: firstHit?.["cz"] ?? [] } } }
+    const form = manualFormOf(below, measured)
+    const cz = form.world.rows.find((row) => row.kind === "cz")
+    expect([cz?.chanceKind, cz?.chances]).toEqual(["below", { "1": "1/150", "6": "1/120" }])
+    expect(readManualForm(form)).toEqual({ ok: true, value: { spec: below, conditions: measured } })
+    const back = manualFormOf(madeUp, measured)
+    expect(back.world.rows.find((row) => row.kind === "cz")?.chanceKind).toBe("combined")
+    expect(readManualForm(back)).toEqual({ ok: true, value: { spec: madeUp, conditions: measured } })
+  })
+
   test("a CZ keeps its ceiling counted from the AT, and reads back the same", () => {
     const madeUp = czSpec as SpecDto
     const forced: SpecDto = { ...madeUp, components: { ...madeUp.components, sinceAtCeiling: { cz: 800 } } }
@@ -468,6 +569,17 @@ describe("an AT machine typed in by hand", () => {
     const unceiled = { ...form, world: { ...form.world, rows: form.world.rows.map((row) => (row.kind === "at" ? { ...row, ceiling: "", resetCeiling: "" } : row)) } }
     const read = readManualForm(unceiled)
     expect(read.ok && read.value.spec.components.ceilingTriggers).toBeUndefined()
+  })
+
+  test("a bonus the AT間天井 brings keeps its own medals, reads back the same, and lets them go with the ceiling's trigger", () => {
+    const madeUp = czSpec as SpecDto
+    const paying: SpecDto = { ...madeUp, components: { ...madeUp.components, bonus: ["cz"], payout: { ...madeUp.components.payout, cz: 85 }, ceilingTriggers: ["at"], ceilingPayout: { at: 100 } } }
+    const form = manualFormOf(paying, measured)
+    expect(form.world.rows.find((row) => row.kind === "at")?.ceilingPayout).toBe("100")
+    expect(readManualForm(form)).toEqual({ ok: true, value: { spec: paying, conditions: measured } })
+    const outright = { ...form, world: { ...form.world, rows: form.world.rows.map((row) => (row.kind === "at" ? { ...row, ceilingAt: "outright" as const } : row)) } }
+    const read = readManualForm(outright)
+    expect(read.ok && read.value.spec.components.ceilingPayout).toBeUndefined()
   })
 
   test("a mode of a CZ machine keeps a ceiling counted from the AT of its own, which makes the CZ's sure one, and the CZ's after a setting change is the modes'", () => {

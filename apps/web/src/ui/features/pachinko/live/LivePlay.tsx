@@ -1,11 +1,14 @@
-import { createMemo, createSignal, Show, type JSX } from "solid-js"
+import { createMemo, createResource, createSignal, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import { reviseCheckpoints } from "../../../../application/live-play"
+import { loadFormula } from "../../../../application/pachinko/formulas"
+import { reliefDriveOf } from "../../../../application/pachinko/hyena-hunt"
 import { tokenValueOfDraft, type PlayDraft } from "../../../../core/live-play/draft"
 import { consumptionOf, spinPerformanceOf } from "../../../../core/pachinko/consumption"
 import { withReadingsMerged, type Span } from "../../../../core/pachinko/merging"
-import { standingBefore, takenOf } from "../../../../core/pachinko/revision"
+import { basisOf, type Basis } from "../../../../core/pachinko/formula"
+import { gaugeNowOf, standingBefore, takenOf } from "../../../../core/pachinko/revision"
 import { parsePlayLog, type Checkpoint, type PlayLogError } from "../../../../core/play-log/checkpoint"
 import { liveSummary } from "../../../../core/play-log/live"
 import { inPlayOrder } from "../../../../core/play-log/performance"
@@ -44,6 +47,20 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
   const app = useApp()
   const moves = useMoves()
   const parsed = createMemo(() => parsePlayLog(props.draft.log))
+  const [found] = createResource(
+    () => (props.draft.pachinko === undefined ? undefined : { machineId: props.draft.pachinko.machineId, formulaId: props.draft.pachinko.id }),
+    (source) => loadFormula(app.services.catalog, source.machineId, source.formulaId),
+  )
+  /** The basis of the play's formula, read from the catalog since a play carries only its figures, where its machine has a 遊タイム. */
+  const huntBasis = createMemo((): Basis | undefined => {
+    const loaded = found()
+    const basis = loaded?.ok === true ? basisOf(loaded.value.listing.formula) : undefined
+    return basis !== undefined && reliefDriveOf(basis) !== undefined ? basis : undefined
+  })
+  const reliefDrive = (): number | undefined => {
+    const basis = huntBasis()
+    return basis === undefined ? undefined : reliefDriveOf(basis)
+  }
   /** Whether the play's figures are all shown: they are folded to the few anyone reads first until a person unfolds them, and stay as the device was left. */
   const [unfolded, setUnfolded] = createSignal(app.services.preferences.figuresUnfolded("pachinko"))
   const fold = (): void => {
@@ -169,12 +186,19 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
                     terms={terms}
                     folded={!unfolded()}
                     beside={(formula) => (
-                      <LiveHyenaHunt
-                        formula={formula}
-                        counterNow={summary.counterNow}
-                        spinPerformance={measured === undefined || terms === undefined ? undefined : spinPerformanceOf(measured, terms)}
-                        ballValue={tokenValueOfDraft(props.draft)}
-                      />
+                      <Show when={huntBasis()}>
+                        {(basis) => (
+                          <LiveHyenaHunt
+                            draft={props.draft}
+                            ordered={checkpoints}
+                            formula={formula}
+                            basis={basis()}
+                            gaugeNow={gaugeNowOf(checkpoints)}
+                            spinPerformance={measured === undefined || terms === undefined ? undefined : spinPerformanceOf(measured, terms)}
+                            ballValue={tokenValueOfDraft(props.draft)}
+                          />
+                        )}
+                      </Show>
                     )}
                   />
                   <Timeline checkpoints={checkpoints} revising={revised()} onRevise={setWork} onMerge={(span) => merge(checkpoints, span)} />
@@ -182,7 +206,7 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
                 <div class="sticky bottom-0">
                   <Show when={work()} keyed fallback={<ReadingComposer draft={props.draft} ordered={checkpoints} revising={undefined} inserting={undefined} onRevised={done} onInsertBefore={insertBefore} />}>
                     {(doing) => {
-                      if (doing.type === "seat") return <SeatComposer draft={props.draft} ordered={checkpoints} onDone={done} />
+                      if (doing.type === "seat") return <SeatComposer draft={props.draft} ordered={checkpoints} reliefDrive={reliefDrive()} onDone={done} />
                       const taken = takenOf(checkpoints)
                       const before = doing.type === "inserting" ? doing.before : doing.index
                       const at = taken[before - 1]?.reading.at ?? checkpoints.at(0)?.at ?? ""

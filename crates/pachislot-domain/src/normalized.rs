@@ -108,10 +108,30 @@ pub struct AtRules {
     /// every mode's own — counted from the bonus — stands beside, the
     /// sooner winning it.
     pub ceiling_across_bonuses: Option<NonZeroU32>,
+    /// What the trigger the AT間天井 brings pays, where it is a bonus of its
+    /// own beside the trigger's average — the ceiling's BB — its games
+    /// counted at the trigger's 純増; none where it pays the trigger's
+    /// medals.
+    pub ceiling_payout: Option<Medals>,
     /// The ways an AT ends, where the modes are allotted by them: each
     /// table's `allotments.after_endings` in this order. None where the
     /// machine allots its modes alike after every AT.
     pub endings: Vec<EntityId>,
+    /// A bonus beside the trigger, drawn at its own chance a game — each
+    /// table's `side_chance` — with its own ceiling, paying its medals and
+    /// winning nothing; none where the machine has none.
+    pub side_bonus: Option<SideBonusRule>,
+}
+
+/// A side bonus as the engine plays it: certain on its ceiling, in regular
+/// games since the last of it, where it has one; what it pays each time.
+/// It is drawn on every regular game, whatever the AT machine's play did,
+/// and nothing of that play turns on it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SideBonusRule {
+    pub id: EntityId,
+    pub ceiling: Option<NonZeroU32>,
+    pub payout: TriggerPayout,
 }
 
 /// What a bonus a CZ's success brings does when it misses the AT: counted
@@ -155,9 +175,22 @@ impl AtRules {
     pub fn ceiling_triggers(&self) -> bool {
         self.ceiling_at == CeilingAt::Triggered
     }
+
+    /// What the trigger the AT間天井 brings pays, where it brings one that
+    /// pays: its own medals where the machine says them, at the trigger's
+    /// 純増, and the trigger's otherwise.
+    pub fn ceiling_trigger_payout(&self) -> Option<TriggerPayout> {
+        self.trigger_payout
+            .filter(|_| self.ceiling_triggers())
+            .map(|payout| TriggerPayout {
+                medals: self.ceiling_payout.unwrap_or(payout.medals),
+                ..payout
+            })
+    }
 }
 
-/// What a bonus that wins the AT at a share pays each time it comes.
+/// What a bonus pays each time it comes: one that wins the AT at a share,
+/// or a side bonus beside it.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TriggerPayout {
     pub medals: Medals,
@@ -255,6 +288,12 @@ pub struct AtTable {
     /// How often a regular game below the ceilings wins the AT outright,
     /// before the trigger is drawn; none where only the trigger wins it.
     pub direct: Probability,
+    /// How often a regular game below the ceilings brings, outright, the
+    /// bonus a CZ's success brings — after the AT outright, before the
+    /// trigger is drawn; none where only a CZ brings it. The share of them
+    /// that win the AT is counted in `direct` already; each pays the
+    /// trigger's medals, and one that misses leaves play where it stood.
+    pub direct_bonus: Probability,
     /// The share of triggers that pay the trigger's medals: all of them
     /// where the trigger is a bonus, those that succeed where a CZ's
     /// success brings the bonus. `success` is then the CZ's success times
@@ -281,6 +320,9 @@ pub struct AtTable {
     /// the rules' modes, where any mode has one; none for a mode at the
     /// chance read back from the 合算, and none at all where no mode has.
     pub own_chances: Vec<Option<Probability>>,
+    /// The side bonus's chance a regular game below its ceiling; none where
+    /// the machine has none.
+    pub side_chance: Probability,
     pub allotments: Allotments,
     pub payout: PayoutLaw,
 }

@@ -1,6 +1,7 @@
 import { createEffect, createSignal, For, on, Show, type JSX } from "solid-js"
 
 import { mergeableSpan, type Span } from "../../../../core/pachislot/merging"
+import type { AtEnding } from "../../../../core/pachislot/path"
 import { revisableStepAt } from "../../../../core/pachislot/revision"
 import type { Countable } from "../../../../core/pachislot/weighing"
 import type { Checkpoint } from "../../../../core/play-log/checkpoint"
@@ -16,11 +17,12 @@ import { triggerWordsOf, type TriggerWords } from "../../../wording/pachislot/tr
 /** A line worth a row: a reading of the counter, the outlay or the medals drawn from savings, or an AT won — not a tap on a tile. */
 const isShown = (checkpoint: Checkpoint): boolean => checkpoint.counter !== undefined || checkpoint.outlay !== undefined || checkpoint.replay !== undefined || checkpoint.event !== undefined
 
-/** An AT's result as a line says it: whether it completed, its sets and its medals, where said. */
-const atEndedText = (checkpoint: Checkpoint): string | undefined => {
+/** An AT's result as a line says it: how it ended where its name is at hand, whether it completed, its sets and its medals, where said. */
+const atEndedText = (checkpoint: Checkpoint, endings: readonly AtEnding[]): string | undefined => {
   const event = checkpoint.event
   if (event?.kind !== "at-ended") return undefined
   const parts = [
+    endings.find((ending) => ending.id === event.ending)?.label,
     event.completed === undefined ? undefined : event.completed ? "完走" : "完走せず",
     event.sets === undefined ? undefined : `${formatCount(event.sets)}セット継続`,
     event.medals === undefined ? undefined : `${formatCount(event.medals)}枚`,
@@ -34,7 +36,7 @@ interface Row {
   readonly step: number | undefined
 }
 
-function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly bonuses: readonly Countable[]; readonly trigger: TriggerWords; readonly strip: boolean }): JSX.Element {
+function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly bonuses: readonly Countable[]; readonly trigger: TriggerWords; readonly endings: readonly AtEnding[]; readonly strip: boolean }): JSX.Element {
   const counted = (): string =>
     props.bonuses
       .flatMap((bonus) => {
@@ -61,7 +63,7 @@ function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly bonuses: 
           <span class="text-text-muted" classList={{ "ml-3": !props.strip }}>{counted()}</span>
         </Show>
       </span>
-      <Show when={atEndedText(props.checkpoint)} keyed>
+      <Show when={atEndedText(props.checkpoint, props.endings)} keyed>
         {(text) => <span class="shrink-0 rounded bg-surface-3 px-1.5 py-0.5 text-xs font-semibold text-text-secondary">{text}</span>}
       </Show>
       <Show when={props.checkpoint.event?.kind === "finished"}>
@@ -119,6 +121,8 @@ export function Timeline(props: {
   readonly bonuses: readonly Countable[] | undefined
   /** What the machine's trigger is called, a CZ where no formula is at hand to say. */
   readonly trigger?: TriggerWords
+  /** The ways the machine's AT ends, by which an AT's end is named; none where no formula is at hand to say. */
+  readonly endings?: readonly AtEnding[]
   readonly revising: number | undefined
   readonly onRevise: ((step: number) => void) | undefined
   readonly onMerge: ((span: Span) => Promise<void>) | undefined
@@ -176,7 +180,7 @@ export function Timeline(props: {
                 when={row.step !== undefined}
                 fallback={
                   <div class={shape()}>
-                    <ReadingRow checkpoint={row.checkpoint} bonuses={bonuses()} trigger={props.trigger ?? triggerWordsOf(undefined)} strip={strip()} />
+                    <ReadingRow checkpoint={row.checkpoint} bonuses={bonuses()} trigger={props.trigger ?? triggerWordsOf(undefined)} endings={props.endings ?? []} strip={strip()} />
                   </div>
                 }
               >
@@ -190,7 +194,7 @@ export function Timeline(props: {
                     props.onRevise(row.step)
                   }}
                 >
-                  <ReadingRow checkpoint={row.checkpoint} bonuses={bonuses()} trigger={props.trigger ?? triggerWordsOf(undefined)} strip={strip()} />
+                  <ReadingRow checkpoint={row.checkpoint} bonuses={bonuses()} trigger={props.trigger ?? triggerWordsOf(undefined)} endings={props.endings ?? []} strip={strip()} />
                 </button>
               </Show>
             </li>

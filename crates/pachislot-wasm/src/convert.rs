@@ -8,8 +8,8 @@ use pachislot_domain::conditions::{PayoutBasis, PayoutRate, PlayConditions};
 use pachislot_domain::distribution::Distribution;
 use pachislot_domain::normalized::{
     AfterEnding, Allotments, AtRules, AtTable, BonusMiss, CeilingAt, CueChance, Event, EventKind,
-    Expiry, ForcedCz, Gate, ModeRule, NormalizedSpec, PayoutLaw, SettingLevelTable, TriggerPayout,
-    WatchRule,
+    Expiry, ForcedCz, Gate, ModeRule, NormalizedSpec, PayoutLaw, SettingLevelTable, SideBonusRule,
+    TriggerPayout, WatchRule,
 };
 use pachislot_domain::observation::{
     AtSeen, Leg, LegEnd, Path, PathStart, Segment, ToldLeg, ToldPath,
@@ -22,7 +22,9 @@ use pachislot_domain::spec::{
 };
 use pachislot_domain::version::{SchemaVersion, SpecVersion};
 use pachislot_engine::analysis::Analysis;
-use pachislot_engine::error::{AnalysisError, InferenceError, ProbabilityProblem, SpecError};
+use pachislot_engine::error::{
+    AnalysisError, InferenceError, ProbabilityProblem, SeatError, SpecError,
+};
 use pachislot_engine::posterior::Posterior;
 use pachislot_engine::theoretical::TheoreticalValue;
 use pachislot_simulator::aggregate::{Aggregate, HISTOGRAM_BUCKET_YEN};
@@ -31,14 +33,15 @@ use pachislot_simulator::rng::{Rng, Seed};
 use pachislot_simulator::session::{Plan, Progress};
 
 use crate::dto::{
-    AfterEndingDto, AllotmentsDto, AnalysisDto, AtFigureDto, AtRulesDto, AtTableDto,
+    AfterEndingDto, AllotmentsDto, AnalysisDto, AtFigureDto, AtRulesDto, AtSeenDto, AtTableDto,
     BonusFigureDto, BonusMissDto, BucketDto, BySettingLevelDto, CeilingAtDto, ComponentsDto,
     ConditionsDto, ContributionDto, CueDto, DistributionDto, ErrorDto, EstimateProgressDto,
     EstimateSummaryDto, EventDto, EventKindDto, ExpiryDto, ForcedCzDto, GateChanceDto, GateDto,
     LawRowDto, LegEndDto, ModeRuleDto, NormalizedSpecDto, PathDto, PathStartDto, PayoutBasisDto,
     PayoutLawDto, PayoutRowDto, PlayDto, PosteriorDto, ProbabilityDto, ProbabilityProblemDto,
-    ProgressDto, SegmentDto, SettingLevelEstimateDto, SettingLevelFiguresDto, SpecDto, SummaryDto,
-    TableDto, TallyDto, TheoreticalValueDto, ToldPathDto, TriggerPayoutDto, WatchDto, WeightDto,
+    ProgressDto, SegmentDto, SettingLevelEstimateDto, SettingLevelFiguresDto, SideBonusRuleDto,
+    SpecDto, SummaryDto, TableDto, TallyDto, TheoreticalValueDto, ToldPathDto, TriggerPayoutDto,
+    WatchDto, WeightDto,
 };
 
 fn invalid(field: &str) -> ErrorDto {
@@ -200,10 +203,16 @@ fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
         restart: listed(&dto.restart, "spec.components.restart")?,
         ceiling_wins: listed(&dto.ceiling_wins, "spec.components.ceilingWins")?,
         ceiling_triggers: listed(&dto.ceiling_triggers, "spec.components.ceilingTriggers")?,
+        side_bonus: listed(&dto.side_bonus, "spec.components.sideBonus")?,
         ceiling_across_bonuses: table(
             &dto.ceiling_across_bonuses,
             "spec.components.ceilingAcrossBonuses",
             |games, at| NonZeroU32::new(*games).ok_or_else(|| invalid(at)),
+        )?,
+        ceiling_payout: table(
+            &dto.ceiling_payout,
+            "spec.components.ceilingPayout",
+            |value, at| medals(*value, at),
         )?,
         success: table(&dto.success, "spec.components.success", |values, at| {
             shares(values, at)
@@ -271,6 +280,11 @@ fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
         direct: table(&dto.direct, "spec.components.direct", |values, at| {
             probabilities(values, at)
         })?,
+        direct_bonus: table(
+            &dto.direct_bonus,
+            "spec.components.directBonus",
+            |values, at| probabilities(values, at),
+        )?,
         since_at_ceiling: table(
             &dto.since_at_ceiling,
             "spec.components.sinceAtCeiling",
@@ -455,6 +469,26 @@ fn ceiling(games: Option<u32>, field: &str) -> Result<Option<NonZeroU32>, ErrorD
 /// An AT machine's rules as stored in a shape: from one before
 /// `SchemaVersion::AT_CEILING_BY_MODE`, the machine's one AT間天井 given to
 /// every mode, and from that on each mode's own, the machine giving none.
+/// What a bonus pays each time it comes, as the boundary writes it.
+fn trigger_payout(dto: TriggerPayoutDto, field: &str) -> Result<TriggerPayout, ErrorDto> {
+    Ok(TriggerPayout {
+        medals: medals(dto.medals, &format!("{field}.medals"))?,
+        net_per_game: dto
+            .net_per_game
+            .map(|net| medals(net, &format!("{field}.netPerGame")))
+            .transpose()?,
+    })
+}
+
+/// A side bonus as the boundary writes it.
+fn side_bonus_rule(dto: &SideBonusRuleDto) -> Result<SideBonusRule, ErrorDto> {
+    Ok(SideBonusRule {
+        id: id(&dto.id, "normalized.atRules.sideBonus.id")?,
+        ceiling: ceiling(dto.ceiling, "normalized.atRules.sideBonus.ceiling")?,
+        payout: trigger_payout(dto.payout, "normalized.atRules.sideBonus.payout")?,
+    })
+}
+
 fn at_rules(dto: &AtRulesDto, shape: SchemaVersion) -> Result<AtRules, ErrorDto> {
     let by_mode = shape >= SchemaVersion::AT_CEILING_BY_MODE;
     if by_mode && dto.at_ceiling.is_some() {
@@ -483,15 +517,7 @@ fn at_rules(dto: &AtRulesDto, shape: SchemaVersion) -> Result<AtRules, ErrorDto>
         trigger_is_bonus: dto.trigger_is_bonus || dto.trigger_payout.is_some(),
         trigger_payout: dto
             .trigger_payout
-            .map(|payout| {
-                Ok::<_, ErrorDto>(TriggerPayout {
-                    medals: medals(payout.medals, "normalized.atRules.triggerPayout.medals")?,
-                    net_per_game: payout
-                        .net_per_game
-                        .map(|net| medals(net, "normalized.atRules.triggerPayout.netPerGame"))
-                        .transpose()?,
-                })
-            })
+            .map(|payout| trigger_payout(payout, "normalized.atRules.triggerPayout"))
             .transpose()?,
         bonus_miss: match dto.bonus_miss {
             BonusMissDto::Counted => BonusMiss::Counted,
@@ -509,12 +535,17 @@ fn at_rules(dto: &AtRulesDto, shape: SchemaVersion) -> Result<AtRules, ErrorDto>
             dto.ceiling_across_bonuses,
             "normalized.atRules.ceilingAcrossBonuses",
         )?,
+        ceiling_payout: dto
+            .ceiling_payout
+            .map(|value| medals(value, "normalized.atRules.ceilingPayout"))
+            .transpose()?,
         endings: dto
             .endings
             .iter()
             .enumerate()
             .map(|(index, ending)| id(ending, &format!("normalized.atRules.endings[{index}]")))
             .collect::<Result<_, _>>()?,
+        side_bonus: dto.side_bonus.as_ref().map(side_bonus_rule).transpose()?,
         modes: dto
             .modes
             .iter()
@@ -598,6 +629,7 @@ fn at_table(dto: &AtTableDto, field: &str) -> Result<AtTable, ErrorDto> {
         chance: probability(dto.chance, &format!("{field}.chance"))?,
         success: probability(dto.success, &format!("{field}.success"))?,
         direct: probability(dto.direct, &format!("{field}.direct"))?,
+        direct_bonus: probability(dto.direct_bonus, &format!("{field}.directBonus"))?,
         paid: probability(dto.paid, &format!("{field}.paid"))?,
         bonus_share: probability(dto.bonus_share, &format!("{field}.bonusShare"))?,
         gates: dto
@@ -642,6 +674,7 @@ fn at_table(dto: &AtTableDto, field: &str) -> Result<AtTable, ErrorDto> {
                     .transpose()
             })
             .collect::<Result<_, _>>()?,
+        side_chance: probability(dto.side_chance, &format!("{field}.sideChance"))?,
         allotments: allotments(&dto.allotments, &format!("{field}.allotments"))?,
         payout: payout_law(&dto.payout, &format!("{field}.payout"))?,
     })
@@ -895,7 +928,16 @@ pub fn normalized_dto(spec: &NormalizedSpec) -> NormalizedSpecDto {
                 CeilingAt::Triggered => CeilingAtDto::Triggered,
             },
             ceiling_across_bonuses: rules.ceiling_across_bonuses.map(NonZeroU32::get),
+            ceiling_payout: rules.ceiling_payout.map(Medals::get),
             endings: rules.endings.iter().map(named).collect(),
+            side_bonus: rules.side_bonus.as_ref().map(|side| SideBonusRuleDto {
+                id: named(&side.id),
+                ceiling: side.ceiling.map(NonZeroU32::get),
+                payout: TriggerPayoutDto {
+                    medals: side.payout.medals.get(),
+                    net_per_game: side.payout.net_per_game.map(Medals::get),
+                },
+            }),
             trigger: rules.trigger.as_ref().map(named),
             at_ceiling: None,
             misses: None,
@@ -925,6 +967,7 @@ fn at_table_dto(each: &AtTable) -> AtTableDto {
         chance: each.chance.value(),
         success: each.success.value(),
         direct: each.direct.value(),
+        direct_bonus: each.direct_bonus.value(),
         paid: each.paid.value(),
         bonus_share: each.bonus_share.value(),
         gates: if each.gates.iter().all(Vec::is_empty) {
@@ -956,6 +999,7 @@ fn at_table_dto(each: &AtTable) -> AtTableDto {
             .iter()
             .map(|chance| chance.map(Probability::value))
             .collect(),
+        side_chance: each.side_chance.value(),
         allotments: AllotmentsDto {
             after_at: each.allotments.after_at.clone(),
             after_reset: each.allotments.after_reset.clone(),
@@ -990,24 +1034,34 @@ pub fn told(dto: &ToldPathDto) -> ToldPath {
     }
 }
 
+/// An ending named by its id, read as its place among `endings`, the
+/// machine's.
+fn ending_among(named: &str, endings: &[EntityId]) -> Result<usize, ErrorDto> {
+    endings
+        .iter()
+        .position(|ending| ending.as_str() == named)
+        .ok_or_else(|| ErrorDto::UnknownEnding {
+            ending: named.to_owned(),
+        })
+}
+
+/// An ending named, read among `endings`, the machine's: none where the
+/// machine allots its modes alike after every AT, and has no use for it.
+fn ending_of(named: Option<&str>, endings: &[EntityId]) -> Result<Option<usize>, ErrorDto> {
+    named
+        .filter(|_| !endings.is_empty())
+        .map(|named| ending_among(named, endings))
+        .transpose()
+}
+
 /// Where play stood at a seat, the ending it names read as its place among
 /// `endings`, the machine's.
 ///
 /// # Errors
-/// When it names an ending the machine does not have.
+/// When it names an ending the machine does not have, on a machine that
+/// has endings.
 pub fn path_start(dto: &PathStartDto, endings: &[EntityId]) -> Result<PathStart, ErrorDto> {
-    let ending = dto
-        .ending
-        .as_ref()
-        .map(|named| {
-            endings
-                .iter()
-                .position(|ending| ending.as_str() == named)
-                .ok_or_else(|| ErrorDto::UnknownEnding {
-                    ending: named.clone(),
-                })
-        })
-        .transpose()?;
+    let ending = ending_of(dto.ending.as_deref(), endings)?;
     Ok(PathStart {
         since_trigger: dto.since_trigger,
         since_at: dto.since_at,
@@ -1016,36 +1070,44 @@ pub fn path_start(dto: &PathStartDto, endings: &[EntityId]) -> Result<PathStart,
         held: dto.held,
         since_at_across_bonuses: dto.since_at_across_bonuses,
         ending,
+        since_side_bonus: dto.since_side_bonus,
     })
 }
 
-/// A path as the engine walks it, its start's ending read among `endings`.
+/// What was seen of an AT, the ending it names read among `endings`.
+fn at_seen(dto: Option<&AtSeenDto>, endings: &[EntityId]) -> Result<AtSeen, ErrorDto> {
+    let seen = dto.cloned().unwrap_or_default();
+    Ok(AtSeen {
+        completed: seen.completed,
+        sets: seen.sets,
+        medals: seen.medals,
+        ending: ending_of(seen.ending.as_deref(), endings)?,
+    })
+}
+
+/// A path as the engine walks it, the endings its start and its ATs name
+/// read among `endings`.
 ///
 /// # Errors
-/// When its start names an ending the machine does not have.
+/// When its start or an AT names an ending the machine does not have.
 pub fn path(dto: &PathDto, endings: &[EntityId]) -> Result<Path, ErrorDto> {
     Ok(Path {
         start: path_start(&dto.start, endings)?,
         legs: dto
             .legs
             .iter()
-            .map(|leg| Leg {
-                games: leg.games,
-                end: match leg.end {
-                    LegEndDto::Going => LegEnd::Going,
-                    LegEndDto::Missed => LegEnd::Missed,
-                    LegEndDto::Bonus => LegEnd::Bonus,
-                    LegEndDto::WonAt => {
-                        let seen = leg.at.unwrap_or_default();
-                        LegEnd::WonAt(AtSeen {
-                            completed: seen.completed,
-                            sets: seen.sets,
-                            medals: seen.medals,
-                        })
-                    }
-                },
+            .map(|leg| {
+                Ok(Leg {
+                    games: leg.games,
+                    end: match leg.end {
+                        LegEndDto::Going => LegEnd::Going,
+                        LegEndDto::Missed => LegEnd::Missed,
+                        LegEndDto::Bonus => LegEnd::Bonus,
+                        LegEndDto::WonAt => LegEnd::WonAt(at_seen(leg.at.as_ref(), endings)?),
+                    },
+                })
             })
-            .collect(),
+            .collect::<Result<_, ErrorDto>>()?,
     })
 }
 
@@ -1182,6 +1244,8 @@ fn component_name(component: Component) -> String {
         Component::Cue => "cue",
         Component::SinceAtCeiling => "sinceAtCeiling",
         Component::Direct => "direct",
+        Component::DirectBonus => "directBonus",
+        Component::SideBonus => "sideBonus",
         Component::BonusShare => "bonusShare",
         Component::Gates => "gates",
         Component::Redraw => "redraw",
@@ -1196,6 +1260,7 @@ fn component_name(component: Component) -> String {
         Component::ResetSinceAtCeiling => "resetSinceAtCeiling",
         Component::CeilingTriggers => "ceilingTriggers",
         Component::CeilingAcrossBonuses => "ceilingAcrossBonuses",
+        Component::CeilingPayout => "ceilingPayout",
         Component::Ending => "ending",
         Component::EndingAllotment => "endingAllotment",
     }
@@ -1329,6 +1394,15 @@ pub fn spec_error_dto(error: &SpecError) -> ErrorDto {
             setting_level: setting_level.get(),
             sum: *sum,
         },
+        SpecError::AllotmentAgainstEndings {
+            entity,
+            setting_level,
+            mix,
+        } => ErrorDto::AllotmentAgainstEndings {
+            entity: named(entity),
+            setting_level: setting_level.get(),
+            mix: *mix,
+        },
         SpecError::EndingsWithoutAllotment { entity } => ErrorDto::EndingsWithoutAllotment {
             entity: named(entity),
         },
@@ -1353,11 +1427,27 @@ pub fn spec_error_dto(error: &SpecError) -> ErrorDto {
         SpecError::DirectWithoutCz { entity } => ErrorDto::DirectWithoutCz {
             entity: named(entity),
         },
+        SpecError::DirectBonusWithoutBonusShare { entity } => {
+            ErrorDto::DirectBonusWithoutBonusShare {
+                entity: named(entity),
+            }
+        }
+        SpecError::SideBonusWithoutAt { entity } => ErrorDto::SideBonusWithoutAt {
+            entity: named(entity),
+        },
+        SpecError::SideBonusNotAlone { entity } => ErrorDto::SideBonusNotAlone {
+            entity: named(entity),
+        },
         SpecError::CeilingTriggersWithoutCz { entity } => ErrorDto::CeilingTriggersWithoutCz {
             entity: named(entity),
         },
         SpecError::CeilingAcrossBonusesWithoutRestart { entity } => {
             ErrorDto::CeilingAcrossBonusesWithoutRestart {
+                entity: named(entity),
+            }
+        }
+        SpecError::CeilingPayoutWithoutCeilingTriggers { entity } => {
+            ErrorDto::CeilingPayoutWithoutCeilingTriggers {
                 entity: named(entity),
             }
         }
@@ -1467,6 +1557,23 @@ pub fn analysis_error_dto(error: &AnalysisError) -> ErrorDto {
     }
 }
 
+pub fn seat_error_dto(error: SeatError) -> ErrorDto {
+    match error {
+        SeatError::PastSureCz { game } => ErrorDto::SeatPastSureCz { game: game.get() },
+        SeatError::PastForcedCz { game } => ErrorDto::SeatPastForcedCz { game: game.get() },
+        SeatError::AcrossBonusesBelowSinceAt { since_at, across } => {
+            ErrorDto::SeatAcrossBonusesBelowSinceAt {
+                since_at,
+                since_at_across_bonuses: across,
+            }
+        }
+        SeatError::PastSideBonusCeiling { since, ceiling } => ErrorDto::SeatPastSideBonusCeiling {
+            since_side_bonus: since,
+            ceiling: ceiling.get(),
+        },
+    }
+}
+
 pub fn inference_error_dto(error: &InferenceError) -> ErrorDto {
     match error {
         InferenceError::UnknownCount { segment, id } => ErrorDto::UnknownCount {
@@ -1527,6 +1634,8 @@ pub fn analysis_dto(analysis: &Analysis, spec: &NormalizedSpec) -> AnalysisDto {
                     gain: at.gain,
                     completion: at.completion,
                     ceiling_triggers: at.ceiling_triggers,
+                    direct_bonuses: at.direct_bonuses,
+                    side_bonuses: at.side_bonuses,
                 }),
             })
             .collect(),

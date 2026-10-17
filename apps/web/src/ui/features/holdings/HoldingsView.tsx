@@ -138,7 +138,9 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
     const found = context()
     return found?.ok === true && found.value.canWrite ? found.value : undefined
   }
+  /** A day chosen to value the savings on, and the field emptied to value them as they stand now. */
   const chooseDay = (text: string): void => {
+    if (text.trim() === "") return void moves.go(props.place)
     const day = parseIsoDate(text)
     if (day.ok) moves.go(props.place, untilTerm(day.value))
   }
@@ -151,11 +153,6 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
             <div class="w-[8.5rem]">
               <TextField label="評価日" type="date" value={valuedOn()} onChange={chooseDay} />
             </div>
-            <Show when={props.query !== ""}>
-              <Button variant="secondary" onClick={() => moves.go(props.place)}>
-                最新に戻す
-              </Button>
-            </Show>
             <Show when={writable() !== undefined && !opening()}>
               <Button onClick={() => setOpening(true)}>
                 開始残高を登録

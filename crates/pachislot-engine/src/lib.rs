@@ -16,4 +16,6 @@ pub mod payout;
 pub mod posterior;
 pub mod query;
 pub mod rate;
+pub mod seat;
+mod side;
 pub mod theoretical;

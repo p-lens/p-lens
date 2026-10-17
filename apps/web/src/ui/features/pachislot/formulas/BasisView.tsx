@@ -26,6 +26,7 @@ const KIND_NAMES: Readonly<Record<EntityKindName, string>> = {
   mode: "モード",
   watch: "見る場面",
   cue: "示唆",
+  side: "別枠ボーナス",
 }
 
 /** Which way a check just given went. */

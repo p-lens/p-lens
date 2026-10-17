@@ -2,7 +2,7 @@ import type { NormalizedSpecDto } from "@p-lens/contracts/pachislot"
 import { createEffect, createMemo, createSignal, Index, on, Show, type Accessor, type JSX } from "solid-js"
 
 import type { ApplicationError } from "../../../../application/errors"
-import { ceilingsOf, hasCz, missedOn, pathOf, standingOf, withLastTakenBack, type Missed, type TakeBackRefusal, type TakenBack } from "../../../../core/pachislot/path"
+import { atGainMatters, type AtEnding, ceilingsOf, hasCz, missedOn, pathOf, standingOf, withLastTakenBack, type Missed, type TakeBackRefusal, type TakenBack } from "../../../../core/pachislot/path"
 import type { Checkpoint } from "../../../../core/play-log/checkpoint"
 import { checkpointsForReading, liveSummary, type ReadingRefusal } from "../../../../core/play-log/live"
 import { mapOk } from "../../../../core/result/result"
@@ -20,7 +20,7 @@ import { describeAtReadingRefusal, describeTakeBackRefusal } from "../../../word
 import { triggerWordsOf, type TriggerWords } from "../../../wording/pachislot/trigger"
 import type { Post } from "./NoticeBoard"
 import { type AtReadingForm, type AtReadingProblem, type AtStanding, atReadingFrom, readAtReadingForm } from "./at-reading-form"
-import { type AtResultForm, type AtResultProblem, atResultLine, type Completion, EMPTY_AT_RESULT, readAtResultForm } from "./at-result-form"
+import { type AtResultForm, type AtResultProblem, atResultLine, type Completion, EMPTY_AT_RESULT, endingOfValue, endingValueOf, readAtResultForm, UNSAID_ENDING } from "./at-result-form"
 import type { Write, Written } from "./write"
 
 function Tile(props: { readonly label: string; readonly value: string; readonly note?: string }): JSX.Element {
@@ -103,13 +103,15 @@ const COMPLETIONS: readonly { readonly value: Completion; readonly label: string
 const isCompletion = (value: string): value is Completion => COMPLETIONS.some((each) => each.value === value)
 
 /**
- * How the AT just won went, said when it ends: whether it reached the
+ * How the AT just won went, said when it ends: how it ended where the
+ * machine's modes after it are allotted by that, whether it reached the
  * 有利区間's cap, the sets it carried on to past its first where it is paid in
  * sets, and the medals it gained. Each is optional; what is said weighs the
- * setting and carries what the 有利区間 holds into the games after. Shown
- * while the log's last line is the AT, and gone once anything follows it.
+ * setting, starts the modes after it from that ending's allotment, and
+ * carries what the 有利区間 holds into the games after. Shown while the log's
+ * last line is the AT, and gone once anything follows it.
  */
-function AtResultComposer(props: { readonly write: Write; readonly normalized: NormalizedSpecDto; readonly post: Post }): JSX.Element {
+function AtResultComposer(props: { readonly write: Write; readonly normalized: NormalizedSpecDto; readonly endings: readonly AtEnding[]; readonly post: Post }): JSX.Element {
   const app = useApp()
   const [form, setForm] = createSignal<AtResultForm>(EMPTY_AT_RESULT)
   const [keeping, setKeeping] = createSignal<Keeping>({ type: "typing" })
@@ -153,36 +155,47 @@ function AtResultComposer(props: { readonly write: Write; readonly normalized: N
       }}
     >
       <span class="text-xs font-bold uppercase tracking-wide text-text-secondary">ATの結果</span>
+      <Show when={props.endings.length > 0}>
+        <div class="flex flex-col gap-1.5">
+          <span class="text-xs text-text-muted">ATの終わり方</span>
+          <ToggleGroup value={endingValueOf(form().ending)} onChange={(value: string | null) => value !== null && typed({ ending: endingOfValue(value) })} aria-label="ATの終わり方">
+            <Index each={props.endings}>{(each) => <ToggleGroupItem value={endingValueOf(each().id)}>{each().label}</ToggleGroupItem>}</Index>
+            <ToggleGroupItem value={UNSAID_ENDING}>わからない</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+      </Show>
       <Show when={capped()}>
         <ToggleGroup value={form().completion} onChange={(value: string | null) => value !== null && isCompletion(value) && typed({ completion: value })}>
           <Index each={COMPLETIONS}>{(each) => <ToggleGroupItem value={each().value}>{each().label}</ToggleGroupItem>}</Index>
         </ToggleGroup>
       </Show>
-      <div class="grid grid-cols-2 gap-3">
-        <Show when={inSets()}>
+      <Show when={atGainMatters(props.normalized)}>
+        <div class="grid grid-cols-2 gap-3">
+          <Show when={inSets()}>
+            <TextField
+              label="継続したセット数"
+              value={form().sets}
+              onChange={(sets) => typed({ sets })}
+              inputMode="numeric"
+              suffix="セット"
+              placeholder="初期のみは0"
+              error={problemOf("sets") === undefined ? undefined : "整数で入力してください。"}
+              invalid={nudge.red() && problemOf("sets") !== undefined}
+              onFocus={nudge.settle}
+            />
+          </Show>
           <TextField
-            label="継続したセット数"
-            value={form().sets}
-            onChange={(sets) => typed({ sets })}
+            label="獲得枚数（任意）"
+            value={form().medals}
+            onChange={(medals) => typed({ medals })}
             inputMode="numeric"
-            suffix="セット"
-            placeholder="初期のみは0"
-            error={problemOf("sets") === undefined ? undefined : "整数で入力してください。"}
-            invalid={nudge.red() && problemOf("sets") !== undefined}
+            suffix="枚"
+            error={problemOf("medals") === undefined ? undefined : "整数で入力してください。"}
+            invalid={nudge.red() && problemOf("medals") !== undefined}
             onFocus={nudge.settle}
           />
-        </Show>
-        <TextField
-          label="獲得枚数（任意）"
-          value={form().medals}
-          onChange={(medals) => typed({ medals })}
-          inputMode="numeric"
-          suffix="枚"
-          error={problemOf("medals") === undefined ? undefined : "整数で入力してください。"}
-          invalid={nudge.red() && problemOf("medals") !== undefined}
-          onFocus={nudge.settle}
-        />
-      </div>
+        </div>
+      </Show>
       <div>
         <Button type="submit">結果を記録</Button>
       </div>
@@ -411,6 +424,7 @@ export function AtCounting(props: {
   readonly reading: AtReading
   readonly ordered: readonly Checkpoint[]
   readonly normalized: NormalizedSpecDto
+  readonly endings: readonly AtEnding[]
   readonly write: Write
   readonly rewrite: Write
   readonly post: Post
@@ -450,7 +464,7 @@ export function AtCounting(props: {
         <EventTile label="AT当選" count={counted("jackpot")} onPress={() => keep("at")} onLongPress={() => takeBack("at")} />
       </div>
       <Show when={props.awaitsResult}>
-        <AtResultComposer write={props.write} normalized={props.normalized} post={props.post} />
+        <AtResultComposer write={props.write} normalized={props.normalized} endings={props.endings} post={props.post} />
       </Show>
     </section>
   )

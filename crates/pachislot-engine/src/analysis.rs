@@ -10,6 +10,7 @@ use crate::at::{Cycle, Odds, cycle, settled};
 use crate::at_machine::rate_cycle;
 use crate::error::AnalysisError;
 use crate::rate::implied_rate;
+use crate::side::per_game;
 
 /// What a formula comes to, setting by setting.
 #[derive(Clone, Debug, PartialEq)]
@@ -49,6 +50,12 @@ pub struct AtFigure {
     /// The triggers a cycle's AT間天井 brings, among those its 合算
     /// counts, each certainly winning: none where it wins the AT outright.
     pub ceiling_triggers: f64,
+    /// The bonuses a cycle's games bring outright, past the CZ, which its
+    /// 合算 does not count: none where no game brings one.
+    pub direct_bonuses: f64,
+    /// The side bonuses a cycle's games bring in the long run: none where
+    /// the machine has none.
+    pub side_bonuses: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -118,6 +125,11 @@ fn at_figures(rules: &AtRules, table: &AtTable) -> (Vec<BonusFigure>, AtFigure, 
             gain: figures.gain,
             completion: figures.completion,
             ceiling_triggers: cycle.ceiled,
+            direct_bonuses: cycle.direct_bonuses(table.direct_bonus.value()),
+            side_bonuses: rules
+                .side_bonus
+                .as_ref()
+                .map_or(0.0, |side| cycle.games * per_game(side, table)),
         },
         cycle,
     )
@@ -160,18 +172,22 @@ fn derivation(table: &SettingLevelTable, bet: f64) -> Result<Vec<Contribution>, 
 
 /// An AT machine's 機械割 from what its AT gains, over its cycle — the
 /// games its 初当たり gives, with the triggers its CZ's 合算 brings in it,
-/// `paid` of them paying their medals, and every one its AT間天井 brings;
-/// none without its 純増, which says the games an AT takes.
+/// the share its table says of them paying their medals and every one its
+/// AT間天井 brings, and the bonuses its games bring outright; none without
+/// its 純増, which says the games an AT takes.
 fn at_rate(
     rules: Option<&AtRules>,
     at: Option<AtFigure>,
     cycle: Option<Cycle>,
     bet: f64,
-    paid: f64,
+    table: Option<&AtTable>,
 ) -> Option<f64> {
     let rules = rules?;
     rules.net_per_game?;
-    Some(implied_rate(rate_cycle(rules, cycle?, bet, paid), at?.gain))
+    Some(implied_rate(
+        rate_cycle(rules, cycle?, bet, table?),
+        at?.gain,
+    ))
 }
 
 fn figures(
@@ -194,9 +210,8 @@ fn figures(
     };
     let (net_per_game, payout_rate, derivation) = match basis {
         PayoutBasis::FromSpec if machine.is_some() => {
-            let paid = table.at.as_ref().map_or(1.0, |at| at.paid.value());
-            let rate =
-                at_rate(rules, at, cycle, bet, paid).ok_or(AnalysisError::RateNotFromSpec)?;
+            let rate = at_rate(rules, at, cycle, bet, table.at.as_ref())
+                .ok_or(AnalysisError::RateNotFromSpec)?;
             (bet * (rate - 1.0), rate, Vec::new())
         }
         PayoutBasis::FromSpec => {

@@ -49,7 +49,8 @@ export interface Checkpoint {
    * The cabinet's settings were changed before the play, so its ceiling is
    * the shorter one until its first AT. On the first line only. Pachislot only.
    */
-  readonly afterReset?: true  /**
+  readonly afterReset?: true
+  /**
    * The state a pachinko cabinet was in over the spins since the line
    * before. Absent, they were regular games. Pachinko only.
    */
@@ -125,13 +126,28 @@ export interface Counter {
   readonly misses?: number
   /** What the 有利区間 held at the end of the last AT, where it carries on into the games since. */
   readonly held?: number
+  /**
+   * Where a bonus that missed the AT started the counter again since it: the
+   * games since the AT itself, across those bonuses, read off the history at
+   * the seat, `spins` counting from the last of them.
+   */
+  readonly sinceAtAcrossBonuses?: number
+  /**
+   * What a pachinko cabinet's own 遊タイム counter (遊カウンター) showed, where
+   * it was read and said: the spins it has counted toward the 遊タイム. It
+   * starts over at a jackpot as the data counter does, but also where a
+   * 遊タイム ran out without one, when the data counter carries on; the two
+   * then differ by as many spins until the next jackpot. Pachinko only.
+   */
+  readonly gauge?: number
 }
 
 /**
  * On a pachislot AT machine, `at-ended` is what was seen of the AT last
  * won, written when it ends — on the same games, since an AT's own games are
  * not regular ones: whether it reached the 有利区間's cap, the sets it
- * carried on to past its first, and the medals it gained, each where known.
+ * carried on to past its first, the medals it gained, and how it ended — by
+ * the ending's id in the formula's spec — each where known.
  * `bonus-missed` is a bonus a CZ's success brought that did not win the
  * AT, told apart from a CZ that failed (`cz-missed`) on a machine whose CZ
  * brings a bonus before the AT.
@@ -143,7 +159,7 @@ export type PlayEvent =
   | { readonly kind: "jackpot"; readonly approximate?: true; readonly bonus?: BonusWon }
   | { readonly kind: "cz-missed" }
   | { readonly kind: "bonus-missed" }
-  | { readonly kind: "at-ended"; readonly completed?: boolean; readonly sets?: number; readonly medals?: number }
+  | { readonly kind: "at-ended"; readonly completed?: boolean; readonly sets?: number; readonly medals?: number; readonly ending?: string }
   | { readonly kind: "finished" }
 
 /** Counts by name: bonuses on a counter, or small wins a player counted. */
@@ -195,13 +211,16 @@ const isCounter = (value: unknown): value is Counter =>
   (value["bonuses"] === undefined || isCounts(value["bonuses"])) &&
   (value["sinceCz"] === undefined || isCount(value["sinceCz"])) &&
   (value["misses"] === undefined || isCount(value["misses"])) &&
-  (value["held"] === undefined || isCount(value["held"]))
+  (value["held"] === undefined || isCount(value["held"])) &&
+  (value["sinceAtAcrossBonuses"] === undefined || isCount(value["sinceAtAcrossBonuses"])) &&
+  (value["gauge"] === undefined || isCount(value["gauge"]))
 
 const isAtEnded = (value: Fields): boolean =>
   value["kind"] === "at-ended" &&
   (value["completed"] === undefined || typeof value["completed"] === "boolean") &&
   (value["sets"] === undefined || isCount(value["sets"])) &&
-  (value["medals"] === undefined || isCount(value["medals"]))
+  (value["medals"] === undefined || isCount(value["medals"])) &&
+  (value["ending"] === undefined || (typeof value["ending"] === "string" && value["ending"] !== ""))
 
 const isBonusWon = (value: unknown): value is BonusWon =>
   isFields(value) &&

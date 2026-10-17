@@ -359,6 +359,7 @@ fn a_path_walked_where_modes_all_win_at_the_setting_s_rate_comes_to_the_same_and
         medals: None,
         sets: None,
         completed: None,
+        ending: None,
     };
     let legs = [
         (80, LegEnd::Missed),

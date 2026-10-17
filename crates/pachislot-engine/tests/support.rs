@@ -3,7 +3,12 @@
 //! and a replay. Shares are written as percentages so every probability is
 //! exact to read.
 
-#![allow(dead_code, clippy::expect_used, clippy::missing_panics_doc)]
+#![allow(
+    dead_code,
+    clippy::expect_used,
+    clippy::missing_panics_doc,
+    clippy::indexing_slicing
+)]
 
 use pachislot_engine::at::Odds;
 use std::num::NonZeroU32;
@@ -332,7 +337,9 @@ pub fn rules(trigger: Option<&str>, modes: Vec<ModeRule>) -> AtRules {
         forced_cz: ForcedCz::Drawn,
         ceiling_at: CeilingAt::Outright,
         ceiling_across_bonuses: None,
+        ceiling_payout: None,
         endings: Vec::new(),
+        side_bonus: None,
     }
 }
 
@@ -359,6 +366,7 @@ pub fn table(chance: f64, success: f64, after_at: Vec<f64>, after_reset: Vec<f64
         chance: Probability::new(chance).expect("a chance"),
         success: Probability::new(success).expect("a rate"),
         direct: Probability::NONE,
+        direct_bonus: Probability::NONE,
         paid: Probability::new(1.0).expect("every one"),
         bonus_share: Probability::new(1.0).expect("every one"),
         gates: Vec::new(),
@@ -366,6 +374,7 @@ pub fn table(chance: f64, success: f64, after_at: Vec<f64>, after_reset: Vec<f64
         redraws: Vec::new(),
         ceiling_redraws: Vec::new(),
         own_chances: Vec::new(),
+        side_chance: Probability::NONE,
         allotments: Allotments {
             after_at,
             after_reset,
@@ -386,5 +395,32 @@ pub fn start(since_trigger: u32, since_at: u32, misses: u32) -> PathStart {
         held: None,
         since_at_across_bonuses: None,
         ending: None,
+        since_side_bonus: None,
     }
+}
+
+/// A side bonus's chance on each of the first `games` games from a seat so
+/// many games since the last, at `chance` a game below its `ceiling` and
+/// certainly on it: worked by carrying how likely each count since the last
+/// is, a game at a time.
+pub fn side_chances(chance: f64, ceiling: usize, since: u32, games: usize) -> Vec<f64> {
+    let mut counts = vec![0.0; ceiling];
+    counts[(since as usize).min(ceiling - 1)] = 1.0;
+    (0..games)
+        .map(|_| {
+            let comes: Vec<f64> = counts
+                .iter()
+                .enumerate()
+                .map(|(count, likely)| likely * if count + 1 >= ceiling { 1.0 } else { chance })
+                .collect();
+            let brought: f64 = comes.iter().sum();
+            let mut next = vec![0.0; ceiling];
+            next[0] = brought;
+            for count in 0..ceiling - 1 {
+                next[count + 1] = counts[count] - comes[count];
+            }
+            counts = next;
+            brought
+        })
+        .collect()
 }

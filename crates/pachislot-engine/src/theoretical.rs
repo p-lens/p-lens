@@ -134,14 +134,15 @@ pub fn path_theoretical_value(
 /// What sitting down at an AT machine where it stands is worth, played on
 /// until the next AT is won and over, each setting level weighed by how
 /// likely it is: the regular games played on average, the AT's medals and
-/// what the bonuses that are its trigger pay on the way, the medals over
-/// them and in yen on the player's terms, and the chance the AT is won by a
-/// ceiling.
+/// what the bonuses that are its trigger and a side bonus pay on the way,
+/// the medals over them and in yen on the player's terms, and the chance
+/// the AT is won by a ceiling.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct HuntValue {
     pub games: f64,
     pub at_medals: f64,
     pub trigger_medals: f64,
+    pub side_medals: f64,
     pub medals: f64,
     pub yen: f64,
     pub by_ceiling: f64,
@@ -171,6 +172,7 @@ pub fn hunt_theoretical_value(
         games: hunted.games,
         at_medals: hunted.at_medals,
         trigger_medals: hunted.trigger_medals,
+        side_medals: hunted.side_medals,
         medals: hunted.medals,
         yen: yen_of(hunted.medals, hunted.games, spec.bet, play),
         by_ceiling: hunted.by_ceiling,

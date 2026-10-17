@@ -9,7 +9,7 @@ const at = "2026-10-05T10:00:00.000Z"
 
 const log = (...lines: readonly Checkpoint[]): readonly Checkpoint[] => lines
 
-const seat = (sinceAt: number, sinceCz?: number, misses = 0, afterReset = false): Checkpoint => atSeatCheckpoint({ sinceAt, sinceCz, misses, afterReset, held: undefined }, at)
+const seat = (sinceAt: number, sinceCz?: number, misses = 0, afterReset = false): Checkpoint => atSeatCheckpoint({ sinceAt, sinceCz, misses, afterReset, held: undefined, sinceAtAcrossBonuses: undefined }, at)
 
 const machine = (atRules: NonNullable<NormalizedSpecDto["atRules"]>, afterAt: readonly number[], afterReset: readonly number[]): NormalizedSpecDto => ({
   schemaVersion: 1,
@@ -78,6 +78,31 @@ describe("an AT machine's play as the path the engine walks", () => {
     expect(standing === undefined ? undefined : ceilingsOf(standing, across).at).toBe(740)
     expect(ceilingsOf({ sinceTrigger: 60, sinceAt: 60, misses: 0, afterReset: false, sinceAtAcrossBonuses: 1500 }, across).at).toBe(100)
     expect(huntSeatsOf(machine({ base: 40, at: "at", trigger: "cz", modes: [{ id: "cz" }], bonusMiss: "restarts", ceilingAcrossBonuses: 1600 }, [1], [1]), false, 0).at(-1)?.sinceAt).toBe(1500)
+  })
+
+  test("hunt seats say the games since the side bonus where the machine has one and they are given", () => {
+    const sided = machine({ base: 40, at: "at", modes: [{ id: "at", ceiling: 500 }], sideBonus: { id: "fran", ceiling: 300, payout: { medals: 100 } } }, [1], [1])
+    expect(huntSeatsOf(sided, false, 0, undefined, 120).every((seat) => seat.sinceSideBonus === 120)).toBe(true)
+    expect(huntSeatsOf(sided, false, 0, undefined, 450).every((seat) => seat.sinceSideBonus === 299)).toBe(true)
+    const unceiled = machine({ base: 40, at: "at", modes: [{ id: "at", ceiling: 500 }], sideBonus: { id: "fran", payout: { medals: 100 } } }, [1], [1])
+    expect(huntSeatsOf(unceiled, false, 0, undefined, 120).some((seat) => seat.sinceSideBonus !== undefined)).toBe(false)
+    expect(huntSeatsOf(sided, false, 0).some((seat) => seat.sinceSideBonus !== undefined)).toBe(false)
+    const plain = machine({ base: 40, at: "at", modes: [{ id: "at", ceiling: 500 }] }, [1], [1])
+    expect(huntSeatsOf(plain, false, 0, undefined, 120).some((seat) => seat.sinceSideBonus !== undefined)).toBe(false)
+  })
+
+  test("the seat may give the games since the AT itself across the bonuses that started the counter again, and the path starts from them", () => {
+    const first = atSeatCheckpoint({ sinceAt: 120, sinceCz: undefined, misses: 0, afterReset: false, held: undefined, sinceAtAcrossBonuses: 900 }, at)
+    expect(first.counter).toEqual({ spins: 120, sinceAtAcrossBonuses: 900 })
+    expect(parsePlayLog(`${JSON.stringify(first)}\n`)).toEqual({ ok: true, value: [first] })
+    expect(pathOf(log(first, { spins: 30 }))?.start).toEqual({ sinceTrigger: 120, sinceAt: 120, misses: 0, afterReset: false, sinceAtAcrossBonuses: 900 })
+    expect(pathOf(log(seat(120)))?.start.sinceAtAcrossBonuses).toBeUndefined()
+    const below = atSeatCheckpoint({ sinceAt: 120, sinceCz: undefined, misses: 0, afterReset: false, held: undefined, sinceAtAcrossBonuses: 80 }, at)
+    expect(pathOf(log(below))?.start.sinceAtAcrossBonuses).toBe(120)
+    const across = machine({ base: 40, at: "at", trigger: "cz", modes: [{ id: "cz", atCeiling: 800 }], bonusMiss: "restarts", ceilingAcrossBonuses: 1600 }, [1], [1])
+    const path = pathOf(log(first, { spins: 30, event: { kind: "bonus-missed" } }, { spins: 50 }))
+    expect(path === undefined ? undefined : standingOf(path, across)).toEqual({ sinceTrigger: 20, sinceAt: 20, misses: 0, afterReset: false, sinceAtAcrossBonuses: 950 })
+    expect(parsePlayLog('{"spins":0,"counter":{"spins":5,"sinceAtAcrossBonuses":-1}}')).toEqual({ ok: false, error: { type: "invalid-field", line: 1, field: "counter" } })
   })
 
   test("an AT found only after its line was written is a leg of no games", () => {
@@ -171,10 +196,42 @@ describe("an AT's result and the 有利区間 it leaves", () => {
     expect(standing === undefined ? undefined : ceilingsOf(standing, capped).zone).toEqual({ games: 22, headroom: 2400 - (700 - 12.5) })
   })
 
+  test("how an AT was said to end is carried onto its leg and where play stands, and let go of by a bonus that starts play again", () => {
+    const ended: NormalizedSpecDto = {
+      schemaVersion: 1,
+      bet: 3,
+      tables: [1, 6].map((settingLevel) => ({
+        settingLevel,
+        events: [],
+        at: {
+          chance: 0.01,
+          success: 1,
+          allotments: { afterAt: [0.3, 0.7], afterReset: [0, 1], afterEndings: [{ share: 0.3, afterAt: [1, 0] }, { share: 0.7, afterAt: [0, 1] }] },
+          payout: { type: "fixed" as const, medals: 600 },
+        },
+      })),
+      atRules: { base: 40, at: "at", modes: [{ id: "short", ceiling: 428 }, { id: "long", ceiling: 1009 }], endings: ["through", "rest"], bonusMiss: "restarts" },
+    }
+    const ending: Checkpoint = { spins: 50, event: { kind: "at-ended", ending: "through" } }
+    const played = log(seat(100), { spins: 50, event: { kind: "jackpot" } }, ending, { spins: 80 })
+    const path = pathOf(played)
+    expect(path?.legs).toEqual([
+      { games: 50, end: "won-at", at: { ending: "through" } },
+      { games: 30, end: "going" },
+    ])
+    const standing = path === undefined ? undefined : standingOf(path, ended)
+    expect(standing).toEqual({ sinceTrigger: 30, sinceAt: 30, misses: 0, afterReset: false, ending: "through" })
+    expect(standing === undefined ? undefined : ceilingsOf(standing, ended).trigger).toBe(398)
+    expect(ceilingsOf({ sinceTrigger: 30, sinceAt: 30, misses: 0, afterReset: false }, ended).trigger).toBe(979)
+    const restarted = pathOf([...played, { spins: 90, event: { kind: "bonus-missed" } }])
+    expect(restarted === undefined ? undefined : standingOf(restarted, ended).ending).toBeUndefined()
+    expect(parsePlayLog(`${JSON.stringify(ending)}\n`)).toEqual({ ok: true, value: [ending] })
+  })
+
   test("an AT won back in the window holds what the zone already held as well as its own", () => {
     const back = pathOf(
       log(
-        atSeatCheckpoint({ sinceAt: 10, sinceCz: undefined, misses: 0, afterReset: false, held: 1500 }, at),
+        atSeatCheckpoint({ sinceAt: 10, sinceCz: undefined, misses: 0, afterReset: false, held: 1500, sinceAtAcrossBonuses: undefined }, at),
         { spins: 5, event: { kind: "jackpot" } },
         { spins: 5, event: { kind: "at-ended", completed: false, sets: 4 } },
       ),
@@ -187,7 +244,7 @@ describe("an AT's result and the 有利区間 it leaves", () => {
   test("an AT that reached the cap leaves nothing held, and the seat may say what is", () => {
     const done = pathOf(log(seat(0), { spins: 5, event: { kind: "jackpot" } }, { spins: 5, event: { kind: "at-ended", completed: true, medals: 2400 } }))
     expect(done === undefined ? undefined : standingOf(done, paid).held).toBeUndefined()
-    expect(pathOf(log(atSeatCheckpoint({ sinceAt: 5, sinceCz: undefined, misses: 0, afterReset: false, held: 900 }, at)))?.start.held).toBe(900)
+    expect(pathOf(log(atSeatCheckpoint({ sinceAt: 5, sinceCz: undefined, misses: 0, afterReset: false, held: 900, sinceAtAcrossBonuses: undefined }, at)))?.start.held).toBe(900)
     expect(ceilingsOf({ sinceTrigger: 40, sinceAt: 40, misses: 0, afterReset: false, held: 900 }, capped).zone).toBeUndefined()
   })
 })
@@ -206,6 +263,8 @@ describe("the log keeps what an AT machine's play needs", () => {
       value: [{ spins: 5, event: { kind: "at-ended", completed: true, medals: 2400 } }],
     })
     expect(parsePlayLog('{"spins":5,"event":{"kind":"at-ended","sets":-1}}')).toEqual({ ok: false, error: { type: "invalid-field", line: 1, field: "event" } })
+    expect(parsePlayLog('{"spins":5,"event":{"kind":"at-ended","ending":"through"}}')).toEqual({ ok: true, value: [{ spins: 5, event: { kind: "at-ended", ending: "through" } }] })
+    expect(parsePlayLog('{"spins":5,"event":{"kind":"at-ended","ending":""}}')).toEqual({ ok: false, error: { type: "invalid-field", line: 1, field: "event" } })
   })
 })
 
@@ -264,6 +323,27 @@ describe("the seats 天井狙い is tabled at", () => {
     expect(huntSeatsOf(direct, false, 0).map((seat) => seat.sinceAt)).toEqual([0, 100, 200, 300, 400, 500, 600, 700, 800, 900])
   })
 
+  test("never at or past a CZ a ceiling from the AT forces where it certainly succeeds, whatever was missed", () => {
+    const forced = (forcedCz: "drawn" | "wins") =>
+      machine(
+        {
+          base: 40,
+          at: "at",
+          trigger: "cz",
+          modes: [
+            { id: "cz", sinceAtCeiling: 650 },
+            { id: "cz:reset", sinceAtCeiling: 350 },
+          ],
+          forcedCz,
+        },
+        [1, 0],
+        [0, 1],
+      )
+    expect(huntSeatsOf(forced("wins"), false, 2).map((seat) => seat.sinceAt)).toEqual([0, 100, 200, 300, 400, 500, 600])
+    expect(huntSeatsOf(forced("wins"), true, 2).map((seat) => seat.sinceAt)).toEqual([0, 50, 100, 150, 200, 250, 300])
+    expect(huntSeatsOf(forced("drawn"), false, 2).at(-1)?.sinceAt).toBe(900)
+  })
+
   test("after an AT said to have ended a given way, each seat says so and reaches only the modes it allots play to", () => {
     const ended: NormalizedSpecDto = {
       schemaVersion: 1,
@@ -286,10 +366,10 @@ describe("the seats 天井狙い is tabled at", () => {
     expect(huntSeatsOf(ended, false, 0, "rest").at(-1)?.sinceAt).toBe(1000)
     expect(huntSeatsOf(ended, true, 0, "through").every((seat) => seat.ending === undefined)).toBe(true)
     expect(huntSeatsOf(ended, false, 0, "upper").every((seat) => seat.ending === undefined)).toBe(true)
-    expect(atEndingsOf(ended, { v: 1, entities: [], components: { label: { through: "駆け抜け" } }, resources: { settingLevels: [1, 6], bet: 3 } })).toEqual([
+    expect(atEndingsOf(ended, { through: "駆け抜け" })).toEqual([
       { id: "through", label: "駆け抜け" },
       { id: "rest", label: "rest" },
     ])
-    expect(atEndingsOf(direct, { v: 1, entities: [], components: {}, resources: { settingLevels: [1, 6], bet: 3 } })).toEqual([])
+    expect(atEndingsOf(direct, {})).toEqual([])
   })
 })

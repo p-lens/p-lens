@@ -8,8 +8,8 @@ use std::num::NonZeroU32;
 use pachislot_domain::probability::ProbabilitySource;
 use pachislot_domain::setting_level::PerSettingLevel;
 use pachislot_domain::spec::{
-    At, Bonus, Chance, Component, Cue, Cz, Element, Ending, EntityId, Mode, Part, Replay, Role,
-    Spec, Watch,
+    At, Bonus, Chance, Component, Cue, Cz, Element, Ending, EntityId, GivenChance, Mode, Part,
+    Replay, Role, SideBonus, Spec, Watch,
 };
 
 use crate::error::SpecError;
@@ -94,6 +94,7 @@ fn check_entities(spec: &Spec) -> Result<(), SpecError> {
             &components.reset_since_at_ceiling,
             Component::ResetSinceAtCeiling,
         ))
+        .chain(keyed(&components.direct_bonus, Component::DirectBonus))
         .chain(keyed(&components.bonus_share, Component::BonusShare))
         .chain(keyed(&components.gates, Component::Gates))
         .chain(keyed(&components.redraw, Component::Redraw))
@@ -108,7 +109,9 @@ fn check_entities(spec: &Spec) -> Result<(), SpecError> {
             &components.ceiling_across_bonuses,
             Component::CeilingAcrossBonuses,
         ))
+        .chain(keyed(&components.ceiling_payout, Component::CeilingPayout))
         .chain(keyed(&components.ending, Component::Ending))
+        .chain(listed(&components.side_bonus, Component::SideBonus))
         .chain(keyed(
             &components.ending_allotment,
             Component::EndingAllotment,
@@ -153,6 +156,10 @@ fn kinds_of(spec: &Spec, entity: &EntityId) -> Vec<Component> {
             .ending
             .contains_key(entity)
             .then_some(Component::Ending),
+        components
+            .side_bonus
+            .contains(entity)
+            .then_some(Component::SideBonus),
     ]
     .into_iter()
     .flatten()
@@ -226,18 +233,31 @@ fn bonus(spec: &Spec, entity: &EntityId) -> Result<Bonus, SpecError> {
     })
 }
 
-/// An AT: its 初当たり and payout, its ceilings if it has them, and no chance
-/// a regular game of its own, which its 初当たり stands for.
+/// How an entity's chance a regular game is given, where it is: below its
+/// ceilings as `chance`, or as published as `first_hit` — one of them.
+fn given_chance(spec: &Spec, entity: &EntityId) -> Result<Option<GivenChance>, SpecError> {
+    let components = &spec.components;
+    match (
+        components.chance.get(entity),
+        components.first_hit.get(entity),
+    ) {
+        (Some(below), None) => Ok(Some(GivenChance::Below(below.clone()))),
+        (None, Some(published)) => Ok(Some(GivenChance::Published(published.clone()))),
+        (Some(_), Some(_)) => Err(conflict(entity, Component::Chance, Component::FirstHit)),
+        (None, None) => Ok(None),
+    }
+}
+
+/// An AT: its 初当たり — or its chance a regular game below its ceiling —
+/// and payout, and its ceilings if it has them.
 fn at(spec: &Spec, entity: &EntityId) -> Result<At, SpecError> {
     let components = &spec.components;
-    if components.chance.contains_key(entity) {
-        return Err(conflict(entity, Component::At, Component::Chance));
-    }
     Ok(At {
         id: entity.clone(),
         label: label_of(spec, entity),
-        first_hit: components.first_hit.get(entity).cloned(),
+        chance: given_chance(spec, entity)?,
         direct: components.direct.get(entity).cloned(),
+        direct_bonus: components.direct_bonus.get(entity).cloned(),
         payout: components.payout.get(entity).copied(),
         sets: components.sets.get(entity).copied(),
         continuation_rate: components.continuation_rate.get(entity).cloned(),
@@ -257,6 +277,7 @@ fn at(spec: &Spec, entity: &EntityId) -> Result<At, SpecError> {
         reset_on_cap: components.reset_on_cap.contains(entity),
         ceiling_triggers: components.ceiling_triggers.contains(entity),
         ceiling_across_bonuses: components.ceiling_across_bonuses.get(entity).copied(),
+        ceiling_payout: components.ceiling_payout.get(entity).copied(),
     })
 }
 
@@ -270,21 +291,23 @@ fn misplaced(spec: &Spec, entity: &EntityId, kinds: &[Component]) -> Option<Comp
     let at = kinds.contains(&Component::At);
     let mode = kinds.contains(&Component::Mode);
     let cz = kinds.contains(&Component::Cz);
+    let side = kinds.contains(&Component::SideBonus);
     if !at
         && !cz
-        && (components.first_hit.contains_key(entity)
+        && ((!side && components.first_hit.contains_key(entity))
             || components.reset_ceiling.contains_key(entity)
             || components.reset_unit_ceiling.contains_key(entity)
-            || (!mode && components.ceiling.contains_key(entity))
+            || (!mode && !side && components.ceiling.contains_key(entity))
             || (!mode && components.unit_ceiling.contains_key(entity)))
     {
         return Some(Component::At);
     }
-    if !at && !cz && components.net_per_game.contains_key(entity) {
+    if !at && !cz && !side && components.net_per_game.contains_key(entity) {
         return Some(Component::At);
     }
     if !at
         && (components.direct.contains_key(entity)
+            || components.direct_bonus.contains_key(entity)
             || components.sets.contains_key(entity)
             || components.continuation_rate.contains_key(entity)
             || components.payout_table.contains_key(entity)
@@ -293,7 +316,8 @@ fn misplaced(spec: &Spec, entity: &EntityId, kinds: &[Component]) -> Option<Comp
             || components.window.contains_key(entity)
             || components.reset_on_cap.contains(entity)
             || components.ceiling_triggers.contains(entity)
-            || components.ceiling_across_bonuses.contains_key(entity))
+            || components.ceiling_across_bonuses.contains_key(entity)
+            || components.ceiling_payout.contains_key(entity))
     {
         return Some(Component::At);
     }
@@ -329,14 +353,12 @@ fn misplaced(spec: &Spec, entity: &EntityId, kinds: &[Component]) -> Option<Comp
     .then_some(Component::Mode)
 }
 
-/// A CZ: its published 合算 and success rate, its ceilings and スルー天井 if
-/// it has them, and no chance a regular game of its own; what it pays where
-/// it is a bonus, with its 純増 only beside medals for it to take games over.
+/// A CZ: its published 合算 — or its chance a regular game below its
+/// ceilings — and success rate, its ceilings and スルー天井 if it has them;
+/// what it pays where it is a bonus, with its 純増 only beside medals for
+/// it to take games over.
 fn cz(spec: &Spec, entity: &EntityId) -> Result<Cz, SpecError> {
     let components = &spec.components;
-    if components.chance.contains_key(entity) {
-        return Err(conflict(entity, Component::Cz, Component::Chance));
-    }
     let payout = components.payout.get(entity).copied();
     let net_per_game = components.net_per_game.get(entity).copied();
     if net_per_game.is_some() && payout.is_none() {
@@ -354,11 +376,7 @@ fn cz(spec: &Spec, entity: &EntityId) -> Result<Cz, SpecError> {
     Ok(Cz {
         id: entity.clone(),
         label: label_of(spec, entity),
-        first_hit: components
-            .first_hit
-            .get(entity)
-            .cloned()
-            .ok_or_else(|| missing(entity, Component::FirstHit))?,
+        chance: given_chance(spec, entity)?.ok_or_else(|| missing(entity, Component::FirstHit))?,
         success: components
             .success
             .get(entity)
@@ -401,11 +419,7 @@ fn mode(spec: &Spec, entity: &EntityId) -> Result<Mode, SpecError> {
         at_unit_ceiling: components.at_unit_ceiling.get(entity).copied(),
         misses: components.misses.get(entity).copied(),
         since_at_ceiling: components.since_at_ceiling.get(entity).copied(),
-        allotment: components
-            .allotment
-            .get(entity)
-            .cloned()
-            .ok_or_else(|| missing(entity, Component::Allotment))?,
+        allotment: components.allotment.get(entity).cloned(),
         reset_allotment: components.reset_allotment.get(entity).cloned(),
         ending_allotment: components
             .ending_allotment
@@ -443,6 +457,32 @@ fn ending(spec: &Spec, entity: &EntityId) -> Result<Ending, SpecError> {
             .get(entity)
             .cloned()
             .ok_or_else(|| missing(entity, Component::Ending))?,
+    })
+}
+
+/// A side bonus: its chance below its ceiling or its 合算 as published —
+/// one of them — its ceiling if it has one, and its medals, with its 純増
+/// where its games are counted.
+fn side_bonus(spec: &Spec, entity: &EntityId) -> Result<SideBonus, SpecError> {
+    let components = &spec.components;
+    let chance = given_chance(spec, entity)?.ok_or_else(|| missing(entity, Component::Chance))?;
+    let net_per_game = components.net_per_game.get(entity).copied();
+    if net_per_game.is_some_and(|net| net.get() <= 0.0) {
+        return Err(SpecError::EmptyNetPerGame {
+            entity: entity.clone(),
+        });
+    }
+    Ok(SideBonus {
+        id: entity.clone(),
+        label: label_of(spec, entity),
+        chance,
+        ceiling: components.ceiling.get(entity).copied(),
+        payout: components
+            .payout
+            .get(entity)
+            .copied()
+            .ok_or_else(|| missing(entity, Component::Payout))?,
+        net_per_game,
     })
 }
 
@@ -512,6 +552,9 @@ fn element_of(spec: &Spec, entity: &EntityId) -> Result<Option<Element>, SpecErr
         [Component::At] => at(spec, entity).map(|at| Some(Element::At(at))),
         [Component::Mode] => mode(spec, entity).map(|mode| Some(Element::Mode(mode))),
         [Component::Ending] => ending(spec, entity).map(|ending| Some(Element::Ending(ending))),
+        [Component::SideBonus] => {
+            side_bonus(spec, entity).map(|side| Some(Element::SideBonus(side)))
+        }
         [Component::Watch] => match components.watch.get(entity) {
             Some(bonus) => watch(spec, entity, bonus).map(|watch| Some(Element::Watch(watch))),
             None => Err(missing(entity, Component::Watch)),

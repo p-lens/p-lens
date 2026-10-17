@@ -99,6 +99,7 @@ export const useSeat = (): SeatState => {
       sinceCz: start.form().pachislot.seatSinceCz,
       misses: start.form().pachislot.seatMisses,
       held: start.form().pachislot.seatHeld,
+      sinceAtAcrossBonuses: weighing()?.formula.normalized.atRules?.ceilingAcrossBonuses === undefined ? "" : start.form().pachislot.seatSinceAtAcrossBonuses,
     }),
     undefined,
     { equals: sameJson },
@@ -133,10 +134,18 @@ function ResetChoice(): JSX.Element {
 
 const isField = (problem: SeatProblem, field: SeatProblem["field"]): boolean => JSON.stringify(problem.field) === JSON.stringify(field)
 
+/** What a field's problem says under it; a bonus left empty is only nudged. */
+const SEAT_PROBLEM_TEXT: Readonly<Record<Exclude<SeatProblem["reason"], "required">, string>> = {
+  "not-a-count": "整数で入力してください。",
+  "below-since-bonus": "AT間のゲーム数以上にしてください。",
+}
+
 /**
  * The seat's data counter: the day's games, each bonus the formula's counter
- * shows, and the games since the last bonus. A count that cannot be read
- * says so; a bonus left empty is only nudged when starting is pressed.
+ * shows, and the games since the last bonus — and, where the AT間天井 counts
+ * across the bonuses that start the counter again, the games since the AT
+ * itself through them, beside it. A count that cannot be read says so; a
+ * bonus left empty is only nudged when starting is pressed.
  */
 function SeatCounter(props: { readonly state: SeatState; readonly nudged: boolean; readonly onFocus: () => void; readonly beside: JSX.Element }): JSX.Element {
   const start = useStartForm()
@@ -145,7 +154,9 @@ function SeatCounter(props: { readonly state: SeatState; readonly nudged: boolea
     return read.ok ? [] : read.error
   }
   const errorOf = (field: SeatProblem["field"]): string | undefined =>
-    problems().some((problem) => isField(problem, field) && problem.reason === "not-a-count") ? "整数で入力してください。" : undefined
+    problems()
+      .flatMap((problem) => (isField(problem, field) && problem.reason !== "required" ? [SEAT_PROBLEM_TEXT[problem.reason]] : []))
+      .at(0)
   const invalid = (field: SeatProblem["field"]): boolean => props.nudged && problems().some((problem) => isField(problem, field))
   return (
     <fieldset class="flex flex-col gap-1.5">
@@ -193,6 +204,20 @@ function SeatCounter(props: { readonly state: SeatState; readonly nudged: boolea
             onFocus={props.onFocus}
             compact
           />
+          <Show when={props.state.weighing()?.formula.normalized.atRules?.ceilingAcrossBonuses !== undefined}>
+            <TextField
+              label="AT後の通算ゲーム数"
+              value={start.form().pachislot.seatSinceAtAcrossBonuses}
+              onChange={(seatSinceAtAcrossBonuses) => start.updatePachislot({ seatSinceAtAcrossBonuses })}
+              inputMode="numeric"
+              suffix="G"
+              placeholder={start.form().startCounter === "" ? "AT間と同じ" : start.form().startCounter}
+              error={errorOf("sinceAtAcrossBonuses")}
+              invalid={invalid("sinceAtAcrossBonuses")}
+              onFocus={props.onFocus}
+              compact
+            />
+          </Show>
           <Show when={hasCz(props.state.weighing()?.formula.normalized ?? NO_MACHINE)}>
             <TextField
               label={`${triggerWordsOf(props.state.weighing()?.formula.normalized).name}間のゲーム数`}

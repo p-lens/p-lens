@@ -119,6 +119,17 @@ const keptPoints = (points: readonly Point[], last: Taken): readonly ReadingHand
 }
 
 /**
+ * The 遊 counter a run's one reading says: the last's, or the latest said
+ * inside the run, carried to the last's data counter — a run crosses no
+ * jackpot before its last reading, so the two counters keep their distance
+ * through it.
+ */
+const gaugeOfRun = (run: readonly Weighed[], last: Taken): number | undefined => {
+  const said = run.findLast(({ taken }) => taken.reading.gauge !== undefined)?.taken.reading
+  return said?.gauge === undefined ? undefined : said.gauge + last.reading.counterSpins - said.counterSpins
+}
+
+/**
  * A run of readings as the one it makes: the last, with all that was
  * rented, drawn and drifted over the run, and the points inside it where
  * the hand was known that the play is measured by.
@@ -127,7 +138,8 @@ const mergedOf = (run: readonly Weighed[]): Taken | undefined => {
   const last = run.at(-1)?.taken
   if (last === undefined) return undefined
   const hands = keptPoints(pointsOf(run), last)
-  const { handsBefore: _, ...reading } = last.reading
+  const gauge = gaugeOfRun(run, last)
+  const { handsBefore: _, gauge: _gauge, ...reading } = last.reading
   return {
     ...last,
     reading: {
@@ -136,6 +148,7 @@ const mergedOf = (run: readonly Weighed[]): Taken | undefined => {
       replayed: run.reduce((sum, each) => sum + each.taken.reading.replayed, 0),
       supported: run.reduce((sum, each) => sum + each.taken.reading.supported, 0),
       ...(hands.length === 0 ? {} : { handsBefore: hands }),
+      ...(gauge === undefined ? {} : { gauge }),
     },
   }
 }

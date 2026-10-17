@@ -19,9 +19,6 @@ const setUp = async (prices = "") => {
 
 const revalued = async (session: Awaited<ReturnType<typeof setUp>>, query: string): Promise<string> => ((found) => (found.ok ? toPlainString(found.value.revaluation.total) : found.error.type))(await loadOtherGains(session, BOOK, query))
 
-const byParlor = async (session: Awaited<ReturnType<typeof setUp>>, query: string): Promise<readonly (readonly [string, string])[]> =>
-  ((found) => (found.ok ? [...found.value.revaluation.byParlor].map(([parlor, yen]) => [parlor, toPlainString(yen)] as const) : []))(await loadOtherGains(session, BOOK, query))
-
 describe("評価損益", () => {
   test("is what savings lost by their rate falling under them: 4,800 balls won at ¥3.57 and worth ¥3.50 since", async () => {
     const session = await setUp()
@@ -39,13 +36,6 @@ describe("評価損益", () => {
     const session = await setUp('\nP 2026-10-05 "玉(4円・723小宇宙店)" 3.43 JPY\n')
     expect(await revalued(session, "date:2026-10-01..2026-11-01")).toBe("660")
     expect(await revalued(session, "")).toBe("324")
-  })
-
-  test("is each parlor's own, a parlor whose rates stood being none of them", async () => {
-    const session = await setUp('\nP 2026-10-05 "玉(4円・723小宇宙店)" 3.43 JPY\n')
-    expect(await byParlor(session, "")).toEqual([["723小宇宙店", "660"], ["マレハン第3新東京店", "-336"]])
-    expect(await byParlor(session, "date:2026-09-01..2026-10-01")).toEqual([["マレハン第3新東京店", "-336"]])
-    expect(await byParlor(session, "date:2026-08-01..2026-09-01")).toEqual([])
   })
 
   test("is nothing in a book that holds no savings", async () => {

@@ -19,6 +19,7 @@ const nothingChosen: PachislotStart = {
   seatSinceCz: "",
   seatMisses: "",
   seatHeld: "",
+  seatSinceAtAcrossBonuses: "",
 }
 
 const machineId = "01a10afa-94ae-78db-8dbd-c4162a0aaa8c" as MachineId

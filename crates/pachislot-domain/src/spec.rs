@@ -153,7 +153,10 @@ impl Base {
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct Components {
     pub label: BTreeMap<EntityId, String>,
-    /// How often a regular game comes up with it, under each setting.
+    /// How often a regular game comes up with it, under each setting. On a
+    /// CZ, an AT won directly or a side bonus, in place of its `first_hit`:
+    /// its chance a regular game below its ceilings, the 合算 then worked
+    /// out rather than read back.
     pub chance: BTreeMap<EntityId, PerSettingLevel<ProbabilitySource>>,
     /// Medals it pays on the game it comes up — a small win — or gains over
     /// its own games — a bonus.
@@ -211,7 +214,8 @@ pub struct Components {
     pub at_unit_ceiling: BTreeMap<EntityId, NonZeroU32>,
     /// A CZ: won from regular games like an AT, and winning the AT at its
     /// success rate. Its `first_hit` is the published CZ合算, ceiling
-    /// included; its `ceiling` the CZ間天井.
+    /// included — or its `chance` a regular game below the ceilings; its
+    /// `ceiling` the CZ間天井.
     pub cz: BTreeSet<EntityId>,
     /// How often a CZ wins the AT, under each setting.
     pub success: BTreeMap<EntityId, PerSettingLevel<BasisPoints>>,
@@ -221,6 +225,12 @@ pub struct Components {
     /// On an AT a CZ brings: how often a regular game wins it outright,
     /// before the CZ is drawn, below the ceilings, under each setting.
     pub direct: BTreeMap<EntityId, PerSettingLevel<ProbabilitySource>>,
+    /// On an AT a CZ brings, whose success brings a bonus: how often a
+    /// regular game brings that bonus outright, past the CZ, below the
+    /// ceilings, under each setting — drawn after the AT outright and before
+    /// the CZ. The bonus pays the CZ's `payout` and wins the AT at its
+    /// `bonus_share`; one that misses leaves play where it stood.
+    pub direct_bonus: BTreeMap<EntityId, PerSettingLevel<ProbabilitySource>>,
     /// On a CZ whose success brings a bonus before the AT — CZ, then BIG,
     /// then the AT at a share: how often that bonus wins the AT, under each
     /// setting. The bonus pays the CZ's `payout`, over its `net_per_game`,
@@ -259,6 +269,11 @@ pub struct Components {
     /// beside an 800G ceiling counted from each bonus. Whichever AT間天井
     /// comes first wins it.
     pub ceiling_across_bonuses: BTreeMap<EntityId, NonZeroU32>,
+    /// On an AT whose AT間天井 brings the trigger: what the trigger brought
+    /// there pays, where it is a bonus of its own rather than the trigger's
+    /// average — BIRDIE WING's BB at its ceiling, 100 medals beside 85 on
+    /// average. Its games are counted at the trigger's 純増.
+    pub ceiling_payout: BTreeMap<EntityId, Medals>,
     /// On a mode: where play goes when a trigger in it misses — the mode
     /// drawn again at each failed CZ — each mode it may go to with its share
     /// under each setting, the whole of it. A mode without stays.
@@ -302,6 +317,13 @@ pub struct Components {
     /// An AT after which, once it reaches the cap, play starts again as
     /// after a setting change: its ceilings and allotments are those.
     pub reset_on_cap: BTreeSet<EntityId>,
+    /// A side bonus on an AT machine: a bonus beside its trigger — a
+    /// フランボーナス — drawn at its own chance a regular game: its
+    /// `chance` below its own `ceiling`, or its `first_hit` as published,
+    /// that ceiling included. The ceiling counts regular games from the last
+    /// of it, and no AT starts it again. It pays its `payout`, over games of
+    /// its own where its `net_per_game` is given, and wins nothing.
+    pub side_bonus: BTreeSet<EntityId>,
     /// A watch: what a player watches over each of a bonus, named by the
     /// bonus — the BIG's games for a スイカ, the REG's side lamp — and never
     /// a regular game's.
@@ -363,6 +385,7 @@ pub enum Component {
     Cue,
     SinceAtCeiling,
     Direct,
+    DirectBonus,
     BonusShare,
     Gates,
     Redraw,
@@ -377,8 +400,10 @@ pub enum Component {
     ResetSinceAtCeiling,
     CeilingTriggers,
     CeilingAcrossBonuses,
+    CeilingPayout,
     Ending,
     EndingAllotment,
+    SideBonus,
 }
 
 /// A mode left when so many games since its last trigger bring none: the
@@ -422,6 +447,42 @@ pub enum Element {
     Cz(Cz),
     Watch(Watch),
     Ending(Ending),
+    SideBonus(SideBonus),
+}
+
+/// A side bonus: drawn beside an AT machine's trigger at a chance of its
+/// own, certainly on its own ceiling — regular games counted from the last
+/// of it, never started again by an AT — paying its medals and winning
+/// nothing.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SideBonus {
+    pub id: EntityId,
+    pub label: String,
+    pub chance: GivenChance,
+    pub ceiling: Option<NonZeroU32>,
+    /// Medals it gains over its own games each time it comes.
+    pub payout: Medals,
+    /// 純増: the medals a game of it gains, which says the games it takes;
+    /// none where they are not counted.
+    pub net_per_game: Option<Medals>,
+}
+
+/// How a chance a regular game is given, under each setting — a CZ's, an
+/// AT's won directly, a side bonus's: a regular game's below its ceilings,
+/// or as published, its ceilings included.
+#[derive(Clone, Debug, PartialEq)]
+pub enum GivenChance {
+    Below(PerSettingLevel<ProbabilitySource>),
+    Published(PerSettingLevel<ProbabilitySource>),
+}
+
+impl GivenChance {
+    /// The chances, however they are given.
+    pub fn values(&self) -> &PerSettingLevel<ProbabilitySource> {
+        match self {
+            Self::Below(values) | Self::Published(values) => values,
+        }
+    }
 }
 
 /// One way an AT ends — 駆け抜け, それ以外 — and its share of ATs under
@@ -457,15 +518,18 @@ pub struct Cue {
 }
 
 /// A CZ: won from regular games at its published 合算 — its ceiling, its
-/// ceiling after a setting change and its modes included — and winning the
-/// AT at its success rate, or certainly after so many misses. A bonus that
-/// wins the AT at a share of its own is one too, paying its medals each
-/// time it comes, whether it wins the AT or not.
+/// ceiling after a setting change and its modes included — or at a chance
+/// below them given as it is, and winning the AT at its success rate, or
+/// certainly after so many misses. A bonus that wins the AT at a share of
+/// its own is one too, paying its medals each time it comes, whether it
+/// wins the AT or not.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Cz {
     pub id: EntityId,
     pub label: String,
-    pub first_hit: PerSettingLevel<ProbabilitySource>,
+    /// Its 合算 as published, ceilings included, or its chance a regular
+    /// game below them.
+    pub chance: GivenChance,
     pub success: PerSettingLevel<BasisPoints>,
     pub ceiling: Option<NonZeroU32>,
     pub reset_ceiling: Option<NonZeroU32>,
@@ -522,7 +586,10 @@ pub struct Mode {
     /// the AT on, in place of the CZ's: a shorter one in a mode play enters
     /// only after a setting change.
     pub since_at_ceiling: Option<NonZeroU32>,
-    pub allotment: PerSettingLevel<BasisPoints>,
+    /// How often play enters it after an AT, under each setting: none
+    /// where every mode is allotted after every way an AT ends, the
+    /// endings' allotments mixed by their shares standing for it.
+    pub allotment: Option<PerSettingLevel<BasisPoints>>,
     pub reset_allotment: Option<PerSettingLevel<BasisPoints>>,
     /// How often play enters it after an AT that ended a given way, by the
     /// ending, where that differs from `allotment`.
@@ -559,11 +626,15 @@ pub struct OtherNet {
 pub struct At {
     pub id: EntityId,
     pub label: String,
-    /// 初当たり as published, ceiling included; none through a CZ.
-    pub first_hit: Option<PerSettingLevel<ProbabilitySource>>,
+    /// 初当たり as published, ceiling included, or its chance a regular
+    /// game below the ceiling; none through a CZ.
+    pub chance: Option<GivenChance>,
     /// Where a CZ brings it: how often a regular game wins it outright
     /// besides, before the CZ is drawn, under each setting.
     pub direct: Option<PerSettingLevel<ProbabilitySource>>,
+    /// Where a CZ's success brings a bonus: how often a regular game brings
+    /// that bonus outright besides, past the CZ, under each setting.
+    pub direct_bonus: Option<PerSettingLevel<ProbabilitySource>>,
     /// 平均獲得枚数: medals an AT gains on average, where its medals are not
     /// given as sets or a table.
     pub payout: Option<Medals>,
@@ -589,6 +660,9 @@ pub struct At {
     /// An AT間天井 counted from the last AT across the bonuses that start
     /// play again, where a CZ's bonus does.
     pub ceiling_across_bonuses: Option<NonZeroU32>,
+    /// What the trigger its AT間天井 brings pays, where that is not the
+    /// trigger's own medals.
+    pub ceiling_payout: Option<Medals>,
 }
 
 /// A bonus: BIG, REG. Its chance is either one figure per setting or the sum

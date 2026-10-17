@@ -16,6 +16,7 @@ import { settleTyping, TextField } from "../../../primitives/text-field"
 import { describeError } from "../../../wording/errors"
 import { describeRevisionRefusal } from "../../../wording/pachinko/play"
 import { carriedInShown, readCarriedIn } from "../../live/tokens-in-hand"
+import { GaugeButton } from "./GaugeButton"
 
 /** The seat's counter as typed, each still text. */
 type SeatForm = Readonly<Record<keyof Seat, string>>
@@ -35,22 +36,30 @@ const countOf = (text: string): number | undefined => {
   return plain === "" ? 0 : COUNT.test(plain) ? Number(plain) : undefined
 }
 
+/** The 遊 counter as typed: none typed is none said, the data counter standing for it; undefined where it is no count. */
+const gaugeOf = (text: string): { readonly gauge?: number } | undefined => {
+  if (tidyTyped(text) === "") return {}
+  const gauge = countOf(text)
+  return gauge === undefined ? undefined : { gauge }
+}
+
 const readSeat = (form: SeatForm): Seat | undefined => {
-  const [spins, total, jackpots] = [countOf(form.spins), countOf(form.total), countOf(form.jackpots)]
-  return spins === undefined || total === undefined || jackpots === undefined ? undefined : { spins, total, jackpots }
+  const [spins, total, jackpots, gauge] = [countOf(form.spins), countOf(form.total), countOf(form.jackpots), gaugeOf(form.gauge)]
+  return spins === undefined || total === undefined || jackpots === undefined || gauge === undefined ? undefined : { spins, total, jackpots, ...gauge }
 }
 
 /**
  * Where the data counter as it was found at the seat is set right: the
  * day's spins, the spins since its last jackpot and the day's jackpots,
- * as they were typed when the play began, and — behind the small detail
+ * as they were typed when the play began, the cabinet's own 遊タイム counter
+ * behind its [遊] button for a machine with a 遊タイム, and — behind the small detail
  * button — the balls the play was begun with in hand. Saving makes every
  * reading before the first jackpot again, since they count on from here.
  */
-export function SeatComposer(props: { readonly draft: PlayDraft; readonly ordered: readonly Checkpoint[]; readonly onDone: () => void }): JSX.Element {
+export function SeatComposer(props: { readonly draft: PlayDraft; readonly ordered: readonly Checkpoint[]; readonly reliefDrive: number | undefined; readonly onDone: () => void }): JSX.Element {
   const app = useApp()
   const found = seatOf(props.ordered)
-  const [form, setForm] = createSignal<SeatForm>({ spins: String(found.spins), total: String(found.total), jackpots: String(found.jackpots) })
+  const [form, setForm] = createSignal<SeatForm>({ spins: String(found.spins), total: String(found.total), jackpots: String(found.jackpots), gauge: found.gauge === undefined ? "" : String(found.gauge) })
   const [carriedIn, setCarriedIn] = createSignal(carriedInShown(undefined, carriedInOf(props.ordered)))
   const [sending, setSending] = createSignal<Sending>({ type: "typing" })
   const nudge = createNudge()
@@ -59,7 +68,7 @@ export function SeatComposer(props: { readonly draft: PlayDraft; readonly ordere
     setForm((current) => ({ ...current, ...changed }))
     setSending({ type: "typing" })
   }
-  const wrong = (field: keyof Seat): boolean => nudge.red() && countOf(form()[field]) === undefined
+  const wrong = (field: Exclude<keyof Seat, "gauge">): boolean => nudge.red() && countOf(form()[field]) === undefined
   const save = async (): Promise<void> => {
     settleTyping()
     const seat = readSeat(form())
@@ -112,7 +121,14 @@ export function SeatComposer(props: { readonly draft: PlayDraft; readonly ordere
       <div class="grid grid-cols-[repeat(3,minmax(0,1fr))_auto] items-end gap-1.5">
         <TextField label="総回転数" value={form().total} onChange={(total) => change({ total })} inputMode="numeric" invalid={wrong("total")} onFocus={nudge.settle} compact />
         <TextField label="ゲーム数" value={form().spins} onChange={(spins) => change({ spins })} inputMode="numeric" invalid={wrong("spins")} onFocus={nudge.settle} compact />
-        <TextField label="大当り数" value={form().jackpots} onChange={(jackpots) => change({ jackpots })} inputMode="numeric" invalid={wrong("jackpots")} onFocus={nudge.settle} compact />
+        <div class="flex min-w-0 items-end gap-1">
+          <Show when={props.reliefDrive !== undefined}>
+            <GaugeButton gauge={form().gauge} following={undefined} invalid={nudge.red() && gaugeOf(form().gauge) === undefined} placement="top-end" onGauge={(gauge) => change({ gauge })} onFocus={nudge.settle} />
+          </Show>
+          <div class="min-w-0 flex-1">
+            <TextField label="大当り数" value={form().jackpots} onChange={(jackpots) => change({ jackpots })} inputMode="numeric" invalid={wrong("jackpots")} onFocus={nudge.settle} compact />
+          </div>
+        </div>
         <DetailButton label="詳細" says={carriedIn() === "" ? "詳細（開始時の持ち玉）" : `詳細（開始時の持ち玉 ${carriedIn()}玉）`} marked={carriedIn() !== ""} invalid={nudge.red() && carriedUnread()} placement="top-end" onOpen={nudge.settle}>
           <div class="min-w-0 flex-1">
             <TextField

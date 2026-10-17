@@ -4,11 +4,13 @@
 use std::num::NonZeroU64;
 
 use pachislot_domain::normalized::NormalizedSpec;
+use pachislot_domain::observation::{Path, PathStart};
 use pachislot_domain::spec::EntityId;
 use pachislot_engine::analysis::{Analysis, analyze as solve};
 use pachislot_engine::budget::within;
 use pachislot_engine::normalize::normalize as normalise;
 use pachislot_engine::posterior::{posterior as infer, posterior_told};
+use pachislot_engine::seat::seated;
 use pachislot_engine::theoretical::{
     hunt_theoretical_value, path_theoretical_value as weigh_path, theoretical_value as weigh,
 };
@@ -64,6 +66,22 @@ fn solved(spec: &NormalizedSpec, conditions: &ConditionsDto) -> Result<Analysis,
         .map_err(|error| convert::analysis_error_dto(&error))
 }
 
+/// A seat the machine could stand at, the fields it has no use for let go
+/// of; as it is on a machine with no AT, which a path is refused on.
+fn seat_on(spec: &NormalizedSpec, start: PathStart) -> Result<PathStart, ErrorDto> {
+    spec.at_rules.as_ref().map_or(Ok(start), |rules| {
+        seated(spec, rules, start).map_err(convert::seat_error_dto)
+    })
+}
+
+/// A path whose seat the machine could stand at.
+fn path_on(spec: &NormalizedSpec, path: Path) -> Result<Path, ErrorDto> {
+    Ok(Path {
+        start: seat_on(spec, path.start)?,
+        ..path
+    })
+}
+
 fn game_models(spec: &NormalizedSpec, analysis: &Analysis) -> Result<Vec<GameModel>, ErrorDto> {
     models(spec, analysis).map_err(|error| convert::analysis_error_dto(&error))
 }
@@ -115,7 +133,7 @@ fn posterior_of(request: &PosteriorRequest) -> Result<PosteriorDto, ErrorDto> {
     let path = request
         .path
         .as_ref()
-        .map(|path| convert::path(path, endings))
+        .map(|path| path_on(&spec, convert::path(path, endings)?))
         .transpose()?;
     match &request.told {
         Some(told) => posterior_told(&spec, prior.as_ref(), &convert::told(told)),
@@ -140,7 +158,7 @@ fn theoretical_value_of(
             &analysis,
             &weights,
             play,
-            &convert::path(path, endings_of(&spec))?,
+            &path_on(&spec, convert::path(path, endings_of(&spec))?)?,
         ),
         _ => return Err(ErrorDto::PlayedMismatch),
     };
@@ -161,12 +179,13 @@ fn hunts(request: &HuntRequest) -> Result<Vec<HuntDto>, ErrorDto> {
                 rules,
                 &weights,
                 play,
-                convert::path_start(seat, &rules.endings)?,
+                seat_on(&spec, convert::path_start(seat, &rules.endings)?)?,
             )
             .map(|value| HuntDto {
                 games: value.games,
                 at_medals: value.at_medals,
                 trigger_medals: value.trigger_medals,
+                side_medals: value.side_medals,
                 medals: value.medals,
                 yen: value.yen,
                 by_ceiling: value.by_ceiling,

@@ -39,6 +39,7 @@ const COMPONENT_NAMES: Readonly<Record<string, string>> = {
   sinceAtCeiling: "ATから数える天井",
   resetSinceAtCeiling: "リセット後のATから数える天井",
   direct: "直撃AT",
+  directBonus: "直撃ボーナス",
   bonusShare: "ボーナスからのAT率",
   gates: "ゾーン",
   redraw: "CZ失敗後のモード移行",
@@ -52,8 +53,10 @@ const COMPONENT_NAMES: Readonly<Record<string, string>> = {
   ceilingWins: "天井CZの確定",
   ceilingTriggers: "AT間天井での当選",
   ceilingAcrossBonuses: "ATから数えるAT間天井（ボーナスで戻らない）",
+  ceilingPayout: "天井で当たるボーナスの枚数",
   ending: "ATの終わり方",
   endingAllotment: "ATの終わり方ごとのモード振り分け",
+  sideBonus: "別枠ボーナス",
 }
 
 /** A component by what the person entering a spec calls it. */
@@ -141,8 +144,18 @@ const describeEngineError = (error: EngineErrorDto): string => {
       return `ATが「${error.ending}」で終わったあとの${settingLevel(error.settingLevel)}のモード振り分けの合計が ${(error.sum / 100).toFixed(2)}% です。100% にしてください。空けたモードはAT後の振り分けを使います。`
     case "endings-without-allotment":
       return `ATの終わり方「${error.entity}」がありますが、終わり方ごとのモード振り分けがどのモードにもありません。どれかのモードに入れるか、終わり方を外してください。`
+    case "allotment-against-endings":
+      return `モード「${error.entity}」の${settingLevel(error.settingLevel)}のAT後の振り分けが、終わり方ごとの振り分けを終わり方の割合で混ぜた ${(error.mix / 100).toFixed(2)}% と合いません。どのモードにも全部の終わり方のあとの振り分けを入れたときは、AT後の振り分けは空けてかまいません。`
     case "unknown-ending":
       return `この機種にないATの終わり方「${error.ending}」が指定されました。`
+    case "seat-past-sure-cz":
+      return `この機種は${error.game}G目のCZで必ず当選するため、そのゲーム数に届いた台はありません。ゲーム数を確かめてください。`
+    case "seat-past-forced-cz":
+      return `この機種は${error.game}G目に必ずCZに入るため、それを過ぎた台にはそこからのCZがあったはずです。CZ後のゲーム数を確かめてください。`
+    case "seat-across-bonuses-below-since-at":
+      return `AT後の通算ゲーム数（${error.sinceAtAcrossBonuses}G）が、AT間のゲーム数（${error.sinceAt}G）より少なくなっています。`
+    case "seat-past-side-bonus-ceiling":
+      return `別枠ボーナスは${error.ceiling}G目で必ず当たるため、前回から${error.sinceSideBonus}Gの台はありません。ゲーム数を確かめてください。`
     case "cz-without-at":
       return `CZ「${error.entity}」はAT機にだけ入れられます。この機種にはATがありません。`
     case "first-hit-beside-cz":
@@ -173,12 +186,20 @@ const describeEngineError = (error: EngineErrorDto): string => {
       return `「${error.entity}」にptや周期で数える天井がありますが、天井の単位が入っていません。`
     case "direct-without-cz":
       return `AT「${error.entity}」の直撃ATは、CZやボーナスからATに入る機種にだけ入れられます。CZのない機種は、ATの初当たりがそのまま直撃です。`
+    case "side-bonus-without-at":
+      return `別枠ボーナス「${error.entity}」は、ATのある機種にだけ入れられます。ATのない機種では、ふつうのボーナスとして入れてください。`
+    case "side-bonus-not-alone":
+      return `別枠ボーナスは1機種に1つまでです（「${error.entity}」）。`
+    case "direct-bonus-without-bonus-share":
+      return `AT「${error.entity}」の直撃ボーナスは、CZ成功でボーナスに入り、そのボーナスからATに入る機種にだけ入れられます。`
     case "since-at-ceiling-beyond-at-ceiling":
       return `「${error.entity}」のATから数える天井は、AT間天井と同じか手前にしてください。AT間天井のない機種には入れられません。`
     case "ceiling-triggers-without-cz":
       return `AT「${error.entity}」のAT間天井での当選は、CZやボーナスからATに入る機種にだけ入れられます。CZのない機種は、天井でATそのものに当たります。`
     case "ceiling-across-bonuses-without-restart":
       return `AT「${error.entity}」のATから数えるAT間天井（ボーナスで戻らない）は、ATなしボーナスで天井を数え直す機種にだけ入れられます。数え直さない機種では、AT間天井がそのままATから数える天井です。`
+    case "ceiling-payout-without-ceiling-triggers":
+      return `AT「${error.entity}」の天井で当たるボーナスの枚数は、AT間天井でボーナスに当選する機種にだけ入れられます。「AT間天井での当選」を「天井で当選」にしてください。`
     case "reset-since-at-ceiling-without-since-at-ceiling":
       return `CZ「${error.entity}」にリセット後のATから数える天井だけがあります。AT後のATから数える天井も入れてください。`
     case "reset-since-at-ceiling-beside-modes":

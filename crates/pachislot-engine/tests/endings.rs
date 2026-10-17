@@ -6,12 +6,12 @@ use std::collections::BTreeMap;
 
 use pachislot_domain::conditions::PayoutBasis;
 use pachislot_domain::normalized::{AfterEnding, AtRules, AtTable, NormalizedSpec};
-use pachislot_domain::observation::PathStart;
+use pachislot_domain::observation::{AtSeen, Leg, LegEnd, Path, PathStart};
 use pachislot_domain::probability::BasisPoints;
 use pachislot_domain::setting_level::PerSettingLevel;
 use pachislot_domain::spec::{Component, Spec};
 use pachislot_engine::analysis::analyze;
-use pachislot_engine::at::{Odds, cycle};
+use pachislot_engine::at::{Odds, Walked, cycle, walk};
 use pachislot_engine::error::SpecError;
 use pachislot_engine::hunt::hunt;
 use pachislot_engine::normalize::normalize;
@@ -267,6 +267,96 @@ fn a_hunt_walked_as_a_chain_starts_from_the_ending_too() {
     assert_ne!(hunt(seat, rules, table), hunt(seat, rules, &alone));
 }
 
+/// A path from a fresh AT: so many games to an AT seen to end as `ending`
+/// says, then so many more still going.
+fn won_then_going(won: u32, ending: Option<usize>, going: u32) -> Path {
+    Path {
+        start: start(0, 0, 0),
+        legs: vec![
+            Leg {
+                games: won,
+                end: LegEnd::WonAt(AtSeen {
+                    ending,
+                    ..AtSeen::default()
+                }),
+            },
+            Leg {
+                games: going,
+                end: LegEnd::Going,
+            },
+        ],
+    }
+}
+
+/// Two walks laid end to end: what each comes to, summed.
+fn joined(first: &Walked, then: &Walked) -> (f64, f64) {
+    (
+        first.medals + then.medals,
+        first.log_likelihood + then.log_likelihood,
+    )
+}
+
+#[test]
+fn a_path_walks_the_games_after_an_at_that_ended_a_given_way_as_a_seat_after_that_ending() {
+    let spec = normalized(&ended_spec());
+    let rules = rules_of(&spec);
+    for (level, ending) in [(1, Some(0)), (1, Some(1)), (6, Some(0)), (6, None)] {
+        let table = table_of(&spec, level);
+        let told = walk(&won_then_going(30, ending, 150), rules, table);
+        let before = walk(
+            &Path {
+                start: start(0, 0, 0),
+                legs: vec![Leg {
+                    games: 30,
+                    end: LegEnd::WonAt(AtSeen::default()),
+                }],
+            },
+            rules,
+            table,
+        );
+        let after = walk(
+            &Path {
+                start: PathStart {
+                    ending,
+                    ..start(0, 0, 0)
+                },
+                legs: vec![Leg {
+                    games: 150,
+                    end: LegEnd::Going,
+                }],
+            },
+            rules,
+            table,
+        );
+        let (medals, log_likelihood) = joined(&before, &after);
+        assert!(
+            near(told.medals, medals),
+            "{} against {medals}",
+            told.medals
+        );
+        assert!(near(told.log_likelihood, log_likelihood));
+    }
+}
+
+#[test]
+fn a_path_whose_at_ending_is_unsaid_walks_as_it_always_has() {
+    let spec = normalized(&ended_spec());
+    let (rules, table) = (rules_of(&spec), table_of(&spec, 1));
+    let unsaid = walk(&won_then_going(30, None, 150), rules, table);
+    let mixed = normalized(&mixed_spec());
+    let alike = walk(
+        &won_then_going(30, None, 150),
+        rules_of(&mixed),
+        table_of(&mixed, 1),
+    );
+    assert!(near(unsaid.medals, alike.medals));
+    assert!(near(unsaid.log_likelihood, alike.log_likelihood));
+    let through = walk(&won_then_going(30, Some(0), 150), rules, table);
+    let rest = walk(&won_then_going(30, Some(1), 150), rules, table);
+    assert_ne!(through.log_likelihood, unsaid.log_likelihood);
+    assert!(through.medals > unsaid.medals && unsaid.medals > rest.medals);
+}
+
 #[test]
 fn endings_need_modes_of_the_machines_own() {
     let mut spec = at_spec();
@@ -379,6 +469,91 @@ fn an_ending_is_its_share_and_a_label_and_an_allotment_by_ending_a_modes() {
         Err(SpecError::MissingSettingLevel {
             at: id("rest"),
             setting_level: setting_level(6)
+        })
+    );
+}
+
+/// The ending machine allotted after every ending on every mode: after any
+/// other end, 30% and 50% to 天国 as the modes' own allotments said.
+fn fully_ended_spec() -> Spec {
+    let mut spec = ended_spec();
+    for (mode, rest) in [
+        ("heaven", shares(3_000, 5_000)),
+        ("normal", shares(7_000, 5_000)),
+    ] {
+        spec.components
+            .ending_allotment
+            .get_mut(&id(mode))
+            .expect("allotted after an ending")
+            .insert(id("rest"), rest);
+    }
+    spec
+}
+
+/// The same with its allotment after an AT the endings' mix: 45% and 62%
+/// to 天国.
+fn fully_mixed_spec() -> Spec {
+    let mut spec = fully_ended_spec();
+    spec.components
+        .allotment
+        .insert(id("heaven"), shares(4_500, 6_200));
+    spec.components
+        .allotment
+        .insert(id("normal"), shares(5_500, 3_800));
+    spec
+}
+
+#[test]
+fn an_allotment_after_an_at_beside_one_after_every_ending_may_be_left_out() {
+    let given = normalized(&fully_mixed_spec());
+    let mut left_out = fully_ended_spec();
+    left_out.components.allotment.clear();
+    let mixed = normalized(&left_out);
+    assert_eq!(
+        table_of(&mixed, 1).allotments,
+        table_of(&normalized(&ended_spec()), 1).allotments
+    );
+    assert_eq!(
+        table_of(&given, 6).allotments,
+        table_of(&mixed, 6).allotments
+    );
+    left_out.components.reset_allotment.clear();
+    let unreset = normalized(&left_out);
+    let allotments = &table_of(&unreset, 1).allotments;
+    assert_eq!(allotments.after_reset, allotments.after_at);
+}
+
+#[test]
+fn an_allotment_after_an_at_beside_one_after_every_ending_is_their_mix_or_refused() {
+    assert!(normalize(&fully_mixed_spec()).is_ok());
+    assert_eq!(
+        normalize(&fully_ended_spec()),
+        Err(SpecError::AllotmentAgainstEndings {
+            entity: id("heaven"),
+            setting_level: setting_level(1),
+            mix: 4_500,
+        })
+    );
+}
+
+#[test]
+fn an_allotment_after_an_at_is_on_every_mode_or_none_and_needed_where_an_ending_takes_it() {
+    let mut partly = fully_ended_spec();
+    partly.components.allotment.remove(&id("normal"));
+    assert_eq!(
+        normalize(&partly),
+        Err(SpecError::MissingComponent {
+            entity: id("normal"),
+            component: Component::Allotment,
+        })
+    );
+    let mut taken = ended_spec();
+    taken.components.allotment.clear();
+    assert_eq!(
+        normalize(&taken),
+        Err(SpecError::MissingComponent {
+            entity: id("heaven"),
+            component: Component::Allotment,
         })
     );
 }

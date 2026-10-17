@@ -41,22 +41,34 @@ const lawFacts = (spec: SpecDto, at: string, level: number): readonly string[] =
 
 /**
  * A setting level's facts: what the sheet publishes of it — the 初当たり of
- * the trigger, the CZ's success rate, the AT's medals or the 機械割 they are
+ * the trigger, or its chance below its ceilings, the CZ's success rate, the AT's medals or the 機械割 they are
  * to follow from — and what the engine came to: the trigger's chance below
  * its ceilings, which it read back from the 初当たり, the games of a cycle,
  * what the AT gains with the share that reach the cap, the triggers a
- * cycle's AT間天井 brings, and the 機械割.
+ * cycle's AT間天井 brings, and the 機械割 — and where the machine has a
+ * side bonus, its chance below its ceiling as the engine took it, with its
+ * 合算 where the sheet publishes one.
  */
-const levelFacts = (figures: SettingLevelFiguresDto, spec: SpecDto, at: string, trigger: string | undefined, chance: number | undefined): readonly string[] => {
+const levelFacts = (figures: SettingLevelFiguresDto, basis: Basis): readonly string[] => {
   const level = figures.settingLevel
+  const spec = basis.spec
+  const rules = basis.normalized.atRules
+  const at = rules?.at ?? ""
+  const trigger = rules?.trigger
+  const chance = basis.normalized.tables.find((table) => table.settingLevel === level)?.at?.chance
   const cycle = figures.bonuses.find((bonus) => bonus.id === at)?.chance
   const published = under(spec.components.firstHit?.[trigger ?? at], level)
+  const below = under(spec.components.chance?.[trigger ?? at], level)
   const success = trigger === undefined ? undefined : under(spec.components.success?.[trigger], level)
   const bonusShare = trigger === undefined ? undefined : under(spec.components.bonusShare?.[trigger], level)
   const stated = statedRate(spec, at, level)
+  const side = rules?.sideBonus
+  const sideChance = basis.normalized.tables.find((table) => table.settingLevel === level)?.at?.sideChance
+  const sidePublished = side === undefined ? undefined : under(spec.components.firstHit?.[side.id], level)
   return [
     given(`level(${level})`),
     ...(published === undefined ? [] : [given(`first_hit(${level}, ${prologNumber(chanceOf(published))})`)]),
+    ...(below === undefined ? [] : [given(`first_hit_below(${level}, ${prologNumber(chanceOf(below))})`)]),
     ...(chance === undefined ? [] : [given(`chance(${level}, ${prologNumber(chance)})`)]),
     ...(success === undefined ? [] : [given(`success(${level}, ${prologNumber((success / 10_000) * ((bonusShare ?? 10_000) / 10_000))})`)]),
     ...(success === undefined || bonusShare === undefined ? [] : [given(`staged(${level}, ${prologNumber(success / 10_000)}, ${prologNumber(bonusShare / 10_000)})`)]),
@@ -64,7 +76,10 @@ const levelFacts = (figures: SettingLevelFiguresDto, spec: SpecDto, at: string, 
     ...(stated === undefined ? lawFacts(spec, at, level) : [given(`stated_rate(${level}, ${prologNumber(stated)})`)]),
     ...(figures.at === undefined ? [] : [given(`engine(gain(${level}), ${prologNumber(figures.at.gain)})`), given(`engine(completion(${level}), ${prologNumber(figures.at.completion)})`)]),
     ...(figures.at === undefined ? [] : [given(`engine(ceiling_triggers(${level}), ${prologNumber(figures.at.ceilingTriggers ?? 0)})`)]),
+    ...(figures.at?.directBonuses === undefined ? [] : [given(`engine(direct_bonuses(${level}), ${prologNumber(figures.at.directBonuses)})`)]),
     given(`engine(rate(${level}), ${prologNumber(figures.payoutRate)})`),
+    ...(side === undefined || sideChance === undefined ? [] : [given(`side_chance(${level}, ${prologNumber(sideChance)})`)]),
+    ...(sidePublished === undefined ? [] : [given(`side_first_hit(${level}, ${prologNumber(chanceOf(sidePublished))})`)]),
     ...((triggerChance) => (cycle === undefined || triggerChance === undefined ? [] : [given(`engine(cycle_triggers(${level}), ${prologNumber(triggerChance / cycle)})`)]))(trigger === undefined ? undefined : figures.bonuses.find((bonus) => bonus.id === trigger)?.chance),
   ]
 }
@@ -98,9 +113,11 @@ const modeFacts = (spec: SpecDto, rules: AtRulesDto, levels: readonly number[]):
     const points = under(allotment?.[mode], level)
     return points === undefined ? undefined : points / 10_000
   }
+  const mixed = (mode: string, level: number): number =>
+    (rules.endings ?? []).reduce((sum, ending) => sum + ((under(spec.components.ending?.[ending], level) ?? 0) / 10_000) * ((under(spec.components.endingAllotment?.[mode]?.[ending], level) ?? 0) / 10_000), 0)
   const allotted = (mode: string, index: number, level: number): readonly [number, number] => {
     if (!own.includes(mode)) return modes.length === 1 ? [1, 1] : index === 0 ? [1, 0] : [0, 1]
-    const afterAt = share(spec.components.allotment, mode, level) ?? 0
+    const afterAt = share(spec.components.allotment, mode, level) ?? mixed(mode, level)
     return [afterAt, share(spec.components.resetAllotment, mode, level) ?? afterAt]
   }
   return rules.modes.flatMap((mode, index) => [
@@ -166,8 +183,12 @@ const storedFact = (stored: SettingLevelFigures, margin: SampledMargin | undefin
 /** Whether a mode's trigger comes, once, on a game counted from the last AT: a cycle the reasoner takes from the engine, and says so. */
 const forcedFacts = (rules: AtRulesDto): readonly string[] => (rules.modes.some((mode) => mode.sinceAtCeiling !== undefined) ? [given("forced_from_at")] : [])
 
-/** Whether the AT is also won outright beside its CZ: a cycle the reasoner takes from the engine, and says so. */
-const directFacts = (basis: Basis): readonly string[] => (basis.normalized.tables.some((table) => (table.at?.direct ?? 0) > 0) ? [given("direct_at")] : [])
+/** Whether the AT is also won outright beside its CZ, or a game brings the CZ's bonus outright: a cycle the reasoner takes from the engine, and says so — and the bonuses brought outright, which it takes too. */
+const directFacts = (basis: Basis): readonly string[] => {
+  const tables = basis.normalized.tables
+  const bonus = tables.some((table) => (table.at?.directBonus ?? 0) > 0)
+  return [...(bonus || tables.some((table) => (table.at?.direct ?? 0) > 0) ? [given("direct_at")] : []), ...(bonus ? [given("direct_bonus")] : [])]
+}
 
 /** Whether a mode draws at zones: a cycle the reasoner takes from the engine, and says so. */
 const gatedFacts = (basis: Basis): readonly string[] => (basis.normalized.tables.some((table) => (table.at?.gates ?? []).some((gates) => gates.length > 0)) ? [given("gated")] : [])
@@ -186,6 +207,17 @@ const missesFacts = (rules: AtRulesDto): readonly string[] => {
   const each = rules.modes.map((mode) => missesOf(rules, mode))
   if (each.every((misses) => misses === each[0])) return each[0] === undefined ? [] : [given(`misses(${each[0]})`)]
   return [given("misses_by_mode"), ...each.map((misses, index) => given(`mode_misses(${index}, ${misses ?? "none"})`))]
+}
+
+/** A side bonus beside the trigger, where the machine has one: its medals, its ceiling in regular games where it has one, and its 純増 where its games are counted. */
+const sideFacts = (rules: AtRulesDto): readonly string[] => {
+  const side = rules.sideBonus
+  if (side === undefined) return []
+  return [
+    given(`side_bonus(${prologNumber(side.payout.medals)})`),
+    ...(side.ceiling === undefined ? [] : [given(`side_ceiling(${side.ceiling})`)]),
+    ...(side.payout.netPerGame === undefined ? [] : [given(`side_net(${prologNumber(side.payout.netPerGame)})`)]),
+  ]
 }
 
 /**
@@ -208,10 +240,12 @@ const machineFacts = (spec: SpecDto, rules: AtRulesDto): readonly string[] => {
     ...forcedFacts(rules),
     ...(rules.ceilingAt === "triggered" ? [given("ceiling_triggered")] : []),
     ...(bonus === undefined ? [] : [given(`trigger_payout(${prologNumber(bonus)})`)]),
+    ...(bonus === undefined || rules.ceilingAt !== "triggered" || spec.components.ceilingPayout?.[at] === undefined ? [] : [given(`ceiling_payout(${prologNumber(spec.components.ceilingPayout[at])})`)]),
     ...(bonus === undefined || bonusNet === undefined ? [] : [given(`trigger_net(${prologNumber(bonusNet)})`)]),
     ...(spec.resources.cap === undefined ? [] : [given(`cap(${prologNumber(spec.resources.cap)})`)]),
     ...(window === undefined ? [] : [given(`window(${window})`)]),
     ...(spec.components.resetOnCap?.includes(at) === true ? [given("reset_on_cap")] : []),
+    ...sideFacts(rules),
     ...(spec.resources.lcdRate === undefined || unitCounted(spec) ? [] : [given(`lcd_rate(${prologNumber(spec.resources.lcdRate)})`)]),
     ...(spec.resources.ceilingUnit === undefined || unitCounted(spec) ? [] : [given(`ceiling_unit(${prologNumber(spec.resources.ceilingUnit.perGame)})`)]),
   ]
@@ -241,7 +275,7 @@ export const groundsFacts = (basis: Basis, analysis: AnalysisDto, figures: reado
     ...restartedFacts(rules),
     ...modeFacts(basis.spec, rules, analysis.settingLevels.map((solved) => solved.settingLevel)),
     ...endingFacts(basis.spec, rules, analysis.settingLevels.map((solved) => solved.settingLevel)),
-    ...analysis.settingLevels.flatMap((solved) => levelFacts(solved, basis.spec, rules.at, rules.trigger, basis.normalized.tables.find((table) => table.settingLevel === solved.settingLevel)?.at?.chance)),
+    ...analysis.settingLevels.flatMap((solved) => levelFacts(solved, basis)),
     ...figures.map((stored) => storedFact(stored, margins?.find((margin) => margin.settingLevel === stored.settingLevel))),
   ].join("\n")
 }

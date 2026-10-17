@@ -120,6 +120,10 @@ pub struct ComponentsDto {
     /// those bonuses.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub ceiling_across_bonuses: BTreeMap<String, u32>,
+    /// On an AT whose AT間天井 brings the trigger: what the trigger brought
+    /// there pays, where it is a bonus of its own.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub ceiling_payout: BTreeMap<String, f64>,
     /// A CZ's chance of winning the AT, in hundredths of a percent under each setting.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub success: BTreeMap<String, Vec<BySettingLevelDto<u32>>>,
@@ -174,6 +178,16 @@ pub struct ComponentsDto {
     /// On an AT a CZ brings: how often a regular game wins it outright, under each setting.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub direct: BTreeMap<String, Vec<BySettingLevelDto<ProbabilityDto>>>,
+    /// On an AT a CZ brings, whose success brings a bonus: how often a
+    /// regular game brings that bonus outright, past the CZ, under each setting.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub direct_bonus: BTreeMap<String, Vec<BySettingLevelDto<ProbabilityDto>>>,
+    /// A side bonus on an AT machine: drawn beside the trigger at its own
+    /// chance a game — its `chance` below its own `ceiling`, or its
+    /// `firstHit`, that ceiling included — paying its `payout` and winning
+    /// nothing.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub side_bonus: Vec<String>,
     /// ゾーン: on a mode, or on the CZ of a machine without modes, the
     /// regular games since the last AT it draws at.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -331,6 +345,11 @@ pub struct AtTableDto {
     /// How often a regular game wins the AT outright; none where only the trigger does.
     #[serde(default, skip_serializing_if = "is_none")]
     pub direct: f64,
+    /// How often a regular game brings the bonus a CZ's success brings
+    /// outright, those that win the AT counted in `direct` too; none where
+    /// only a CZ brings it.
+    #[serde(default, skip_serializing_if = "is_none")]
+    pub direct_bonus: f64,
     /// The share of triggers that pay the trigger's medals; all of them
     /// where it is left out.
     #[serde(default = "whole", skip_serializing_if = "is_whole")]
@@ -354,6 +373,9 @@ pub struct AtTableDto {
     /// Each mode's own chance a game brings the trigger; none for a mode at the table's.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub own_chances: Vec<Option<f64>>,
+    /// The side bonus's chance a regular game below its ceiling; none where the machine has none.
+    #[serde(default, skip_serializing_if = "is_none")]
+    pub side_chance: f64,
     pub allotments: AllotmentsDto,
     pub payout: PayoutLawDto,
 }
@@ -505,10 +527,29 @@ pub struct AtRulesDto {
     /// play again, in regular games, where there is one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ceiling_across_bonuses: Option<u32>,
+    /// What the trigger the AT間天井 brings pays, where it is a bonus of its
+    /// own rather than the trigger's medals; none where it pays those.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ceiling_payout: Option<f64>,
     /// The ways an AT ends, where the modes are allotted by them; none
     /// where they are not.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub endings: Vec<String>,
+    /// A bonus beside the trigger, with its own ceiling, paying its medals
+    /// and winning nothing; none where the machine has none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub side_bonus: Option<SideBonusRuleDto>,
+}
+
+/// A side bonus as the engine plays it: its ceiling in regular games since
+/// the last of it, where it has one, and what it pays each time.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SideBonusRuleDto {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ceiling: Option<u32>,
+    pub payout: TriggerPayoutDto,
 }
 
 /// A bonus that misses the AT counted as a miss, or starting play again.
@@ -710,6 +751,12 @@ pub struct AtFigureDto {
     /// The triggers a cycle's AT間天井 brings; none where it wins the AT outright.
     #[serde(default, skip_serializing_if = "is_none")]
     pub ceiling_triggers: f64,
+    /// The bonuses a cycle's games bring outright, past the CZ; none where no game brings one.
+    #[serde(default, skip_serializing_if = "is_none")]
+    pub direct_bonuses: f64,
+    /// The side bonuses a cycle's games bring in the long run; none where the machine has none.
+    #[serde(default, skip_serializing_if = "is_none")]
+    pub side_bonuses: f64,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -763,9 +810,14 @@ pub struct PathStartDto {
     /// then starts from that ending's allotment.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ending: Option<String>,
+    /// The regular games since the last side bonus, where the machine has
+    /// one and the seat says; its next as likely on any game as in the long
+    /// run where it does not.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub since_side_bonus: Option<u32>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct LegDto {
     pub games: u32,
@@ -776,8 +828,8 @@ pub struct LegDto {
 }
 
 /// Whether an AT reached the cap, the sets it carried on to past its first,
-/// and the medals it gained — each where it was seen.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq)]
+/// the medals it gained, and how it ended — each where it was seen.
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AtSeenDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -786,6 +838,10 @@ pub struct AtSeenDto {
     pub sets: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub medals: Option<u32>,
+    /// How the AT ended, by the ending's name, where it was said: play
+    /// after it then starts from that ending's allotment.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ending: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -901,14 +957,18 @@ pub struct HuntRequest {
 }
 
 /// What a seat comes to: the regular games played on average, the AT's
-/// medals and what the bonuses that are its trigger pay on the way, the
-/// medals over them and in yen, and the chance the AT is won by a ceiling.
+/// medals and what the bonuses that are its trigger and a side bonus pay
+/// on the way, the medals over them and in yen, and the chance the AT is
+/// won by a ceiling.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct HuntDto {
     pub games: f64,
     pub at_medals: f64,
     pub trigger_medals: f64,
+    /// What a side bonus pays on the way; none where the machine has none.
+    #[serde(default, skip_serializing_if = "is_none")]
+    pub side_medals: f64,
     pub medals: f64,
     pub yen: f64,
     pub by_ceiling: f64,
@@ -1189,9 +1249,37 @@ pub enum ErrorDto {
     EndingsWithoutAllotment {
         entity: String,
     },
+    /// A mode's allotment after an AT beside one after every ending, not
+    /// the endings' mix: that mix in basis points.
+    AllotmentAgainstEndings {
+        entity: String,
+        setting_level: u8,
+        mix: u32,
+    },
     /// A seat that says the last AT ended a way the machine does not have.
     UnknownEnding {
         ending: String,
+    },
+    /// A seat at or past the game a ceiling counted from the AT, or the
+    /// last bonus, forces a CZ that certainly succeeds.
+    SeatPastSureCz {
+        game: u32,
+    },
+    /// A seat past the game a ceiling counted from the AT forces a CZ on,
+    /// with no CZ since before it.
+    SeatPastForcedCz {
+        game: u32,
+    },
+    /// A seat with fewer games since the AT itself, across bonuses, than
+    /// since the last bonus.
+    SeatAcrossBonusesBelowSinceAt {
+        since_at: u32,
+        since_at_across_bonuses: u32,
+    },
+    /// A seat at or past the side bonus's ceiling in games since the last.
+    SeatPastSideBonusCeiling {
+        since_side_bonus: u32,
+        ceiling: u32,
     },
     CzWithoutAt {
         entity: String,
@@ -1223,10 +1311,22 @@ pub enum ErrorDto {
     DirectWithoutCz {
         entity: String,
     },
+    DirectBonusWithoutBonusShare {
+        entity: String,
+    },
+    SideBonusWithoutAt {
+        entity: String,
+    },
+    SideBonusNotAlone {
+        entity: String,
+    },
     CeilingTriggersWithoutCz {
         entity: String,
     },
     CeilingAcrossBonusesWithoutRestart {
+        entity: String,
+    },
+    CeilingPayoutWithoutCeilingTriggers {
         entity: String,
     },
     EmptySet {

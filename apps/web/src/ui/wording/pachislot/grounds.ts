@@ -126,7 +126,7 @@ const netIn = (step: Step): number | undefined => arg(stepUnder(step, "net_singl
 const lossIn = (step: Step): number | undefined => arg(stepUnder(step, "loss_per_game"), 0)
 
 /** The regular games a cycle lasts, as a step reasoned them or took them. */
-const cycleIn = (step: Step): number | undefined => arg(stepUnder(step, "cycle_from_first_hit", "cycle_to_at_ceiling", "cycle_unplayed"), 1)
+const cycleIn = (step: Step): number | undefined => arg(stepUnder(step, "cycle_from_first_hit", "cycle_from_chance", "cycle_to_at_ceiling", "cycle_unplayed"), 1)
 
 /** The modes' ceilings in regular games a cycle step reasoned over, `none` where a mode has none. */
 const ceilingsIn = (step: Step): readonly (number | "none")[] => {
@@ -296,10 +296,92 @@ const gainFromRate = (step: Step): Said => {
   )
 }
 
-/** What a cycle's bonuses come to where the trigger is one: their medals, from how many it brings, and where their 純増 is given the games they take. */
+const PAID_BONUSES = ["paid_trigger_bonuses", "paid_side_bonuses", "paid_both"] as const
+
+/** What a cycle's bonuses come to — those that are the trigger, a side bonus's, or both: their medals, from how many it brings, and where their 純増 is given the games they take. */
 const bonusesIn = (step: Step): { readonly medals: number; readonly games: number } => {
-  const bonuses = stepUnder(step, "bonuses")
+  const bonuses = stepUnder(step, ...PAID_BONUSES)
   return { medals: known(arg(bonuses, 1)), games: known(arg(bonuses, 2)) }
+}
+
+/** The bonuses a cycle pays, in a word: the trigger's, the side bonus's by its label, or ボーナス where both are paid. */
+const paidWord = (step: Step, naming: GroundsNaming): string => {
+  const paid = stepUnder(step, ...PAID_BONUSES)?.rule
+  if (paid === "paid_side_bonuses") return naming.side ?? "別枠ボーナス"
+  return paid === "paid_both" ? "ボーナス" : bonusWord(naming)
+}
+
+/** The games between two side bonuses on average, its ceiling included: (1 − (1 − p)^C) over p, or one over p without a ceiling. */
+const sideBetween = (step: Step, naming: GroundsNaming): Said => {
+  const chance = known(givenNumber(step, "side_chance", 1))
+  const ceiling = givenNumber(stepUnder(step, "side_ceiled"), "side_ceiling", 0)
+  const label = naming.side ?? "別枠ボーナス"
+  const odds = 1 / chance
+  const worked = ceiling === undefined ? shownAt(odds, ODDS) : (1 - (1 - 1 / shownAt(odds, ODDS)) ** ceiling) * shownAt(odds, ODDS)
+  const close = link(near(worked, known(arg(step, 1)), GAMES))
+  return ceiling === undefined
+    ? plain(`${label}の平均間隔 ＝ 天井を除いた確率の分母 `, figure(told(odds, ODDS)), close, figure(games(arg(step, 1))), "（天井なし）")
+    : plain(`${label}の平均間隔 ＝（1 −（1 − `, figure(oneIn(chance)), "）^", figure(String(ceiling)), "）× 分母 ", figure(told(odds, ODDS)), close, figure(games(arg(step, 1))), "（天井込み）")
+}
+
+/** A cycle's side bonuses: its regular games over the games between two, and what they pay, with the games they take where their 純増 is given. */
+const sideBonusesLine = (step: Step, naming: GroundsNaming): Said => {
+  const label = naming.side ?? "別枠ボーナス"
+  const cycle = known(cycleIn(step))
+  const between = known(arg(stepUnder(step, "side_between"), 1))
+  const each = known(givenNumber(step, "side_bonus", 0))
+  const net = givenNumber(stepUnder(step, "side_games_counted"), "side_net", 0)
+  const [total, own] = [known(arg(step, 1)), known(arg(step, 2))]
+  const count = shownAt(cycle, GAMES) / shownAt(between, GAMES)
+  return plain(
+    `1周期の${label}の獲得 ＝ 通常 `,
+    figure(games(cycle)),
+    " ÷ 平均間隔 ",
+    figure(games(between)),
+    " × ",
+    figure(medals(each)),
+    link(near(count * shownAt(each, MEDALS), total, MEDALS)),
+    figure(medals(total)),
+    ...(net === undefined
+      ? [`（${label}中のゲーム数は数えない）`]
+      : [`；${label}中 ＝ `, figure(medals(total)), " ÷ 純増 ", figure(perGame(net)), link(near(shownAt(total, MEDALS) / shownAt(net, PER_GAME), own, GAMES)), figure(games(own))]),
+  )
+}
+
+/** A cycle's bonuses where both the trigger's and a side bonus's are paid: the two summed, medals and games. */
+const paidBoth = (step: Step, naming: GroundsNaming): Said => {
+  const trigger = stepUnder(step, "bonuses", "bonuses_ceiling_paid")
+  const side = stepUnder(step, "side_bonuses")
+  const [medalsOf, gamesOf] = [(inner: Step | undefined) => known(arg(inner, 1)), (inner: Step | undefined) => known(arg(inner, 2))]
+  return plain(
+    "1周期のボーナスの獲得 ＝ ",
+    `${bonusWord(naming)} `,
+    figure(medals(medalsOf(trigger))),
+    ` ＋ ${naming.side ?? "別枠ボーナス"} `,
+    figure(medals(medalsOf(side))),
+    link(near(shownAt(medalsOf(trigger), MEDALS) + shownAt(medalsOf(side), MEDALS), known(arg(step, 1)), MEDALS)),
+    figure(medals(arg(step, 1))),
+    "；ボーナス中 ＝ ",
+    figure(games(gamesOf(trigger))),
+    " ＋ ",
+    figure(games(gamesOf(side))),
+    link(near(shownAt(gamesOf(trigger), GAMES) + shownAt(gamesOf(side), GAMES), known(arg(step, 2)), GAMES)),
+    figure(games(arg(step, 2))),
+  )
+}
+
+/** A side bonus's 合算 the engine's chance below its ceiling comes back to, against the one published. */
+const sideChanceChecked = (step: Step, naming: GroundsNaming): Said => {
+  const label = naming.side ?? "別枠ボーナス"
+  const [mine, published] = [known(arg(step, 1)), known(arg(step, 2))]
+  return checked(step, (holds) => {
+    if (holds) {
+      const digits = together(1 / mine, 1 / published, ODDS)
+      return [`${label}の平均間隔から `, figure(oneIn(mine, digits)), `、解析値の${label}合算 `, figure(oneIn(published, digits)), " と一致"]
+    }
+    const shown = apart(1 / mine, 1 / published, ODDS)
+    return [`${label}の平均間隔から `, figure(`1/${shown.mine}`), `、解析値の${label}合算 `, figure(`1/${shown.other}`), " と一致しません（分母の差 ", figure(shown.gap), "）"]
+  })
 }
 
 /** A cycle's bonuses where the trigger is one: so many a cycle times what each gains, and the games they take where their 純増 is given. */
@@ -310,18 +392,28 @@ const bonusesLine = (step: Step, naming: GroundsNaming): Said => {
   const net = givenNumber(stepUnder(step, "bonus_games_counted"), "trigger_net", 0)
   const succeeding = givenNumber(stepUnder(step, "paid_on_success"), "staged", 1)
   const ceiled = arg(stepUnder(step, "ceiled_cut", "ceiled_taken"), 1)
+  const direct = arg(stepUnder(step, "direct_bonuses_taken"), 1)
   const [total, own] = [known(arg(step, 1)), known(arg(step, 2))]
   const paidShown = succeeding === undefined ? 1 : shownAt(succeeding, RATIO)
   const ceiledShown = ceiled === undefined || ceiled === 0 ? 0 : shownAt(ceiled, TIMES)
+  const directShown = direct === undefined ? 0 : shownAt(direct, TIMES)
+  const outright = direct === undefined ? [] : [" ＋ 直撃ボーナス ", figure(times(direct))]
   const counted =
     ceiledShown === 0 || succeeding === undefined
-      ? [`${triggerWord(naming)} `, figure(times(triggers)), ...(succeeding === undefined ? [] : [" × CZ成功率 ", figure(ratio(succeeding))]), " × "]
-      : ["（（", `${triggerWord(naming)} `, figure(times(triggers)), " − AT間天井 ", figure(times(ceiled)), "）× CZ成功率 ", figure(ratio(succeeding)), " ＋ AT間天井 ", figure(times(ceiled)), "）× "]
+      ? [
+          ...(direct === undefined ? [] : ["（"]),
+          `${triggerWord(naming)} `,
+          figure(times(triggers)),
+          ...(succeeding === undefined ? [] : [" × CZ成功率 ", figure(ratio(succeeding))]),
+          ...(direct === undefined ? [] : [...outright, "）"]),
+          " × ",
+        ]
+      : ["（（", `${triggerWord(naming)} `, figure(times(triggers)), " − AT間天井 ", figure(times(ceiled)), "）× CZ成功率 ", figure(ratio(succeeding)), " ＋ AT間天井 ", figure(times(ceiled)), ...outright, "）× "]
   return plain(
     `1周期の${word}の獲得 ＝ `,
     ...counted,
     figure(medals(each)),
-    link(near(((shownAt(triggers, TIMES) - ceiledShown) * paidShown + ceiledShown) * shownAt(each, MEDALS), total, MEDALS)),
+    link(near(((shownAt(triggers, TIMES) - ceiledShown) * paidShown + ceiledShown + directShown) * shownAt(each, MEDALS), total, MEDALS)),
     figure(medals(total)),
     ...(net === undefined
       ? [`（${word}中のゲーム数は数えない）`]
@@ -331,7 +423,7 @@ const bonusesLine = (step: Step, naming: GroundsNaming): Said => {
 
 /** The AT's medals a stated 機械割 implies beside the bonuses a cycle brings, which are taken from what the 機械割 gives before the AT has the rest. */
 const gainFromRateBesideBonuses = (step: Step, naming: GroundsNaming): Said => {
-  const word = bonusWord(naming)
+  const word = paidWord(step, naming)
   const bet = known(givenNumber(step, "bet", 0))
   const stated = known(givenNumber(step, "stated_rate", 1))
   const cycle = known(cycleIn(step))
@@ -747,7 +839,7 @@ const rateLines = (step: Step): readonly Said[] => {
 
 /** The 機械割 over a cycle, its bonuses and its AT, a line to each step: the AT's games, the medals staked, those paid out, and the one over the other. */
 const rateLinesBesideBonuses = (step: Step, naming: GroundsNaming): readonly Said[] => {
-  const word = bonusWord(naming)
+  const word = paidWord(step, naming)
   const [atGames = Number.NaN, staked = Number.NaN, out = Number.NaN] = computedIn(step)
   const gain = known(arg(stepsUnder(step).find((inner) => inner.claim.functor === "gain"), 1))
   const net = known(netIn(step))
@@ -807,6 +899,20 @@ const chanceChecked = (step: Step, naming: GroundsNaming): Said => {
   })
 }
 
+/** The trigger's chance below its ceilings the engine played, against the one the sheet gives. */
+const chanceBelowChecked = (step: Step, naming: GroundsNaming): Said => {
+  const [mine, published] = [known(arg(step, 1)), known(arg(step, 2))]
+  const word = `計算に使った天井を除いた${triggerWord(naming)}確率 `
+  return checked(step, (holds) => {
+    if (holds) {
+      const digits = together(1 / mine, 1 / published, ODDS)
+      return [word, figure(oneIn(mine, digits)), "、解析値の ", figure(oneIn(published, digits)), " のまま"]
+    }
+    const shown = apart(1 / mine, 1 / published, ODDS)
+    return [word, figure(`1/${shown.mine}`), " が、解析値の ", figure(`1/${shown.other}`), " と食い違っています（分母の差 ", figure(shown.gap), "）"]
+  })
+}
+
 /** A sampled 機械割 against the exact one, within twice its margin or beyond it. */
 const sampleChecked = (step: Step): Said => {
   const [exact, sampled, margin] = [known(arg(step, 1)), known(arg(step, 2)), known(arg(step, 3))]
@@ -825,6 +931,48 @@ const sampleChecked = (step: Step): Said => {
   ])
 }
 
+/** A cycle's bonuses where the AT間天井 brings one of its own: those it does not bring times what each gains, and those it brings times what that one gains, with the games they take where their 純増 is given. */
+const bonusesCeilingPaidLine = (step: Step, naming: GroundsNaming): Said => {
+  const word = bonusWord(naming)
+  const triggers = known(arg(stepUnder(step, "cycle_triggers_free", "cycle_triggers_cut", "cycle_triggers_unplayed"), 1))
+  const each = known(givenNumber(step, "trigger_payout", 0))
+  const atCeiling = known(givenNumber(step, "ceiling_payout", 0))
+  const net = givenNumber(stepUnder(step, "bonus_games_counted"), "trigger_net", 0)
+  const succeeding = givenNumber(stepUnder(step, "paid_on_success"), "staged", 1)
+  const ceiled = known(arg(stepUnder(step, "ceiled_cut", "ceiled_taken", "ceiled_free"), 1))
+  const direct = arg(stepUnder(step, "direct_bonuses_taken"), 1)
+  const [total, own] = [known(arg(step, 1)), known(arg(step, 2))]
+  const paidShown = succeeding === undefined ? 1 : shownAt(succeeding, RATIO)
+  const ceiledShown = shownAt(ceiled, TIMES)
+  const directShown = direct === undefined ? 0 : shownAt(direct, TIMES)
+  const unceiled = [`${triggerWord(naming)} `, figure(times(triggers)), " − AT間天井 ", figure(times(ceiled))]
+  const counted =
+    succeeding === undefined && direct === undefined
+      ? ["（", ...unceiled, "）× "]
+      : [
+          "（（",
+          ...unceiled,
+          "）",
+          ...(succeeding === undefined ? [] : [" × CZ成功率 ", figure(ratio(succeeding))]),
+          ...(direct === undefined ? [] : [" ＋ 直撃ボーナス ", figure(times(direct))]),
+          "）× ",
+        ]
+  return plain(
+    `1周期の${word}の獲得 ＝`,
+    ...counted,
+    figure(medals(each)),
+    " ＋ AT間天井 ",
+    figure(times(ceiled)),
+    " × ",
+    figure(medals(atCeiling)),
+    link(near(((shownAt(triggers, TIMES) - ceiledShown) * paidShown + directShown) * shownAt(each, MEDALS) + ceiledShown * shownAt(atCeiling, MEDALS), total, MEDALS)),
+    figure(medals(total)),
+    ...(net === undefined
+      ? [`（${word}中のゲーム数は数えない）`]
+      : [`；${word}中 ＝ `, figure(medals(total)), " ÷ 純増 ", figure(perGame(net)), link(near(shownAt(total, MEDALS) / shownAt(net, PER_GAME), own, GAMES)), figure(games(own))]),
+  )
+}
+
 /** What one step of the proof says, in the words of an analysis sheet; none for steps the line above already says. */
 const lineOf = (step: Step, naming: GroundsNaming): Said | undefined => {
   switch (step.rule) {
@@ -838,6 +986,16 @@ const lineOf = (step: Step, naming: GroundsNaming): Said | undefined => {
       return gainFromRateBesideBonuses(step, naming)
     case "bonuses":
       return bonusesLine(step, naming)
+    case "bonuses_ceiling_paid":
+      return bonusesCeilingPaidLine(step, naming)
+    case "side_bonuses":
+      return sideBonusesLine(step, naming)
+    case "side_between":
+      return sideBetween(step, naming)
+    case "paid_both":
+      return paidBoth(step, naming)
+    case "check_side_chance":
+      return sideChanceChecked(step, naming)
     case "net_over_all":
       return netOverAll(step)
     case "gain_solved":
@@ -862,6 +1020,10 @@ const lineOf = (step: Step, naming: GroundsNaming): Said | undefined => {
       return tablePart(step)
     case "cycle_from_first_hit":
       return cycleFromFirstHit(step, naming)
+    case "cycle_from_chance":
+      return plain("1周期の通常ゲーム数 ", figure(games(arg(step, 1))), `（天井を除いた${triggerWord(naming)}確率から）`)
+    case "check_chance_below":
+      return chanceBelowChecked(step, naming)
     case "cycle_to_at_ceiling":
       return plain("1周期の通常ゲーム数 ", figure(games(arg(step, 1))), "（AT間天井で打ち切られる周期）")
     case "cycle_cut":
@@ -928,7 +1090,9 @@ const lineOf = (step: Step, naming: GroundsNaming): Said | undefined => {
     case "unverified_gated_cycle":
       return { parts: said(`未確認：ゾーンで${triggerWord(naming)}やATを抽選する機種の1周期は、計算エンジンが解いた値をそのまま使っています`), tone: "unverified" }
     case "unverified_direct_cycle":
-      return { parts: said(`未確認：${triggerWord(naming)}を通らない直撃ATがある機種の1周期は、計算エンジンが解いた値をそのまま使っています`), tone: "unverified" }
+      return { parts: said(`未確認：${triggerWord(naming)}を通らない直撃ATや直撃ボーナスがある機種の1周期は、計算エンジンが解いた値をそのまま使っています`), tone: "unverified" }
+    case "unverified_direct_bonuses":
+      return { parts: said(`未確認：${triggerWord(naming)}を通らない直撃ボーナスの1周期あたりの回数は、計算エンジンが解いた値をそのまま使っています`), tone: "unverified" }
     case "unverified_forced_cycle":
       return { parts: said(`未確認：ATから数える${triggerWord(naming)}の天井がある機種の1周期は、計算エンジンが解いた値をそのまま使っています`), tone: "unverified" }
     case "unverified_completion":

@@ -103,7 +103,7 @@ export function LiveFigures(props: {
             </div>
             <dl class="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
               <Tile label="期待値（ここまで）" value={theoreticalFigureText(theoretical()?.theoreticalValue)} />
-              <Tile label="期待値（1回転）" value={theoreticalFractionText(theoretical()?.yenPerSpin, 4)} />
+              <Tile label="期待値（1回転）" value={theoreticalFractionText(theoretical()?.yenPerSpin, 3)} />
               <Tile label="実質ボーダー" value={rateOf(theoretical()?.border)} unit="回転/千円" />
               <Show when={formula.figures.spinsPerHour !== undefined}>
                 <Tile label="期待値（時給）" value={theoreticalFigureText(theoretical()?.yenPerHour)} />

@@ -105,7 +105,7 @@ describe("weighing a pachislot play", () => {
     const analysed = await inProcessEngine.call("analyze", { source: { type: "spec", spec: atSpec as SpecDto }, conditions })
     if (!analysed.ok) throw new Error(JSON.stringify(analysed.error))
     const machine: Weighing = { ...even, formula: { ...even.formula, normalized: analysed.value.normalized, conditions } }
-    const seat = atSeatCheckpoint({ sinceAt: 400, sinceCz: undefined, misses: 0, afterReset: false, held: undefined }, at)
+    const seat = atSeatCheckpoint({ sinceAt: 400, sinceCz: undefined, misses: 0, afterReset: false, held: undefined, sinceAtAcrossBonuses: undefined }, at)
     const seated = await weighPlay(inProcessEngine, machine, [seat], terms)
     expect(seated.ok && { netPerGame: seated.value.netPerGame, value: seated.value.theoreticalValue, grounded: seated.value.grounded }).toEqual({ netPerGame: undefined, value: undefined, grounded: true })
     if (!seated.ok) throw new Error("weighs")
@@ -116,7 +116,7 @@ describe("weighing a pachislot play", () => {
       seats: [{ sinceTrigger: 400, sinceAt: 400, misses: 0, afterReset: false }],
     })
     expect(seated.value.hunt).toEqual(hunted.ok ? hunted.value[0] : undefined)
-    const unread = await weighPlay(inProcessEngine, machine, [atSeatCheckpoint({ sinceAt: 0, sinceCz: undefined, misses: 0, afterReset: false, held: undefined }, at)], terms)
+    const unread = await weighPlay(inProcessEngine, machine, [atSeatCheckpoint({ sinceAt: 0, sinceCz: undefined, misses: 0, afterReset: false, held: undefined, sinceAtAcrossBonuses: undefined }, at)], terms)
     expect(unread.ok && unread.value.grounded).toBe(false)
 
     const toCeiling = [seat, { spins: 600, at, event: { kind: "jackpot" as const } }]
@@ -158,7 +158,7 @@ describe("weighing a pachislot play", () => {
     const analysed = await inProcessEngine.call("analyze", { source: { type: "spec", spec: belled }, conditions })
     if (!analysed.ok) throw new Error(JSON.stringify(analysed.error))
     const machine: Weighing = { ...even, formula: { ...even.formula, normalized: analysed.value.normalized, conditions } }
-    const seat = atSeatCheckpoint({ sinceAt: 0, sinceCz: undefined, misses: 0, afterReset: false, held: undefined }, at)
+    const seat = atSeatCheckpoint({ sinceAt: 0, sinceCz: undefined, misses: 0, afterReset: false, held: undefined, sinceAtAcrossBonuses: undefined }, at)
     const counting: readonly Checkpoint[] = [seat, { spins: 0, at, tally: {} }, { spins: 300, at, counter: { spins: 300 } }, { spins: 300, at, tally: { bell: 45 } }]
     const walked = await weighPlay(inProcessEngine, machine, counting.slice(0, 3), undefined)
     const both = await weighPlay(inProcessEngine, machine, counting, undefined)

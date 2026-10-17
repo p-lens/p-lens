@@ -21,6 +21,8 @@ const CYCLE: RateCycle = RateCycle {
     bet: 3.0,
     net: 4.0,
     triggers: None,
+    ceiling: None,
+    side: None,
 };
 
 fn rates(low: u32, high: u32) -> PerSettingLevel<PayoutRate> {
@@ -86,6 +88,8 @@ fn an_at_machine_with_its_net_per_game_has_its_rate_from_its_spec() {
         bet: 3.0,
         net: 4.0,
         triggers: None,
+        ceiling: None,
+        side: None,
     };
     assert!(close(
         analysis.setting_levels[0].payout_rate,
@@ -127,6 +131,8 @@ fn an_at_gains_what_its_published_rate_implies_and_the_rate_comes_back() {
         bet: 3.0,
         net: 4.0,
         triggers: None,
+        ceiling: None,
+        side: None,
     };
     assert!(close(gains[0], implied_gain(low, 0.975).expect("a gain")));
     assert!(close(

@@ -336,6 +336,25 @@ fn endings_are_carried_with_their_allotments_and_a_seat_may_name_one() {
         )),
         json!({ "type": "unknown-ending", "ending": "upper" })
     );
+    let told = |ending: &str| {
+        json!({
+            "source": source,
+            "segments": [],
+            "path": {
+                "start": { "sinceTrigger": 0, "sinceAt": 0, "misses": 0, "afterReset": false },
+                "legs": [
+                    { "games": 40, "end": "won-at", "at": { "ending": ending } },
+                    { "games": 60, "end": "going" }
+                ]
+            }
+        })
+        .to_string()
+    };
+    assert!(ok(&posterior(&told("through")))["settingLevels"].is_array());
+    assert_eq!(
+        error(&posterior(&told("upper"))),
+        json!({ "type": "unknown-ending", "ending": "upper" })
+    );
     let mut lopsided = ended_spec();
     lopsided["components"]["ending"]["rest"] =
         json!([{ "settingLevel": 1, "value": 4000 }, { "settingLevel": 6, "value": 5000 }]);
@@ -781,6 +800,150 @@ fn an_at_won_outright_beside_its_cz_is_carried_on_each_setting() {
     assert_eq!(plain["tables"][0]["at"].get("direct"), None);
 }
 
+#[test]
+fn a_bonus_brought_outright_is_carried_on_each_setting_and_counted_in_the_cycle() {
+    let mut spec = value(CZ_SPEC);
+    spec["components"]["bonusShare"] = json!({ "cz": [
+        { "settingLevel": 1, "value": 5000 },
+        { "settingLevel": 6, "value": 5000 }
+    ] });
+    spec["components"]["payout"]["cz"] = json!(200);
+    spec["components"]["directBonus"] = json!({ "at": [
+        { "settingLevel": 1, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 100_000 } },
+        { "settingLevel": 6, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 80_000 } }
+    ] });
+    let normalized = ok(&normalize(&json!({ "spec": spec }).to_string()));
+    assert!(close(
+        &normalized["tables"][0]["at"]["directBonus"],
+        &json!(0.001)
+    ));
+    assert!(close(
+        &normalized["tables"][0]["at"]["direct"],
+        &json!(0.0005)
+    ));
+    let analysis = ok(&analyze(
+        &json!({ "source": { "type": "spec", "spec": spec }, "conditions": measured() })
+            .to_string(),
+    ));
+    assert!(
+        analysis["settingLevels"][0]["at"]["directBonuses"]
+            .as_f64()
+            .is_some_and(|bonuses| bonuses > 0.0)
+    );
+    let plain = ok(&normalize(&json!({ "spec": value(CZ_SPEC) }).to_string()));
+    assert_eq!(plain["tables"][0]["at"].get("directBonus"), None);
+    let mut lone = value(CZ_SPEC);
+    lone["components"]["directBonus"] = spec["components"]["directBonus"].clone();
+    assert_eq!(
+        error(&normalize(&json!({ "spec": lone }).to_string())),
+        json!({ "type": "direct-bonus-without-bonus-share", "entity": "at" })
+    );
+}
+
+#[test]
+fn a_side_bonus_is_carried_with_its_ceiling_and_paid_on_the_cycle_and_from_a_seat() {
+    let mut spec = value(CZ_SPEC);
+    spec["entities"] = json!(["at", "cz", "fran"]);
+    spec["components"]["sideBonus"] = json!(["fran"]);
+    spec["components"]["firstHit"]["fran"] = json!([
+        { "settingLevel": 1, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 25_000 } },
+        { "settingLevel": 6, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 20_000 } }
+    ]);
+    spec["components"]["ceiling"]["fran"] = json!(300);
+    spec["components"]["payout"]["fran"] = json!(100);
+    let normalized = ok(&normalize(&json!({ "spec": spec }).to_string()));
+    assert_eq!(
+        normalized["atRules"]["sideBonus"],
+        json!({ "id": "fran", "ceiling": 300, "payout": { "medals": 100.0 } })
+    );
+    assert!(
+        normalized["tables"][0]["at"]["sideChance"]
+            .as_f64()
+            .is_some_and(|chance| chance > 0.0 && chance < 1.0 / 250.0)
+    );
+    let analysis = ok(&analyze(
+        &json!({ "source": { "type": "spec", "spec": spec }, "conditions": measured() })
+            .to_string(),
+    ));
+    assert!(
+        analysis["settingLevels"][0]["at"]["sideBonuses"]
+            .as_f64()
+            .is_some_and(|bonuses| bonuses > 0.0)
+    );
+    let plain = ok(&normalize(&json!({ "spec": value(CZ_SPEC) }).to_string()));
+    assert_eq!(plain["atRules"].get("sideBonus"), None);
+    assert_eq!(plain["tables"][0]["at"].get("sideChance"), None);
+    let weights = json!([{ "settingLevel": 1, "probability": 0.5 }, { "settingLevel": 6, "probability": 0.5 }]);
+    let play = json!({ "medalValue": 20, "rentalPrice": 25, "cashShare": 1 });
+    let seat = |since: Option<u32>| {
+        let mut seat = json!({ "sinceTrigger": 0, "sinceAt": 0, "misses": 0, "afterReset": false });
+        if let Some(since) = since {
+            seat["sinceSideBonus"] = json!(since);
+        }
+        seat
+    };
+    let found = ok(&hunt(
+        &json!({ "source": { "type": "spec", "spec": spec }, "weights": weights, "play": play, "seats": [seat(None), seat(Some(299))] })
+            .to_string(),
+    ));
+    let read = |row: &Value, key: &str| row[key].as_f64().expect("a figure");
+    assert!(read(&found[1], "sideMedals") > read(&found[0], "sideMedals"));
+    assert!(read(&found[1], "medals") > read(&found[0], "medals"));
+    let bare = ok(&hunt(
+        &json!({ "source": { "type": "spec", "spec": value(CZ_SPEC) }, "weights": weights, "play": play, "seats": [seat(Some(299))] })
+            .to_string(),
+    ));
+    assert_eq!(bare[0].get("sideMedals"), None);
+    let mut lone = value(SPEC);
+    lone["entities"] = json!([
+        "big",
+        "reg",
+        "reg-solo",
+        "reg-cherry",
+        "grape",
+        "cherry",
+        "replay",
+        "fran"
+    ]);
+    lone["components"]["sideBonus"] = json!(["fran"]);
+    lone["components"]["chance"]["fran"] = spec["components"]["firstHit"]["fran"].clone();
+    lone["components"]["payout"]["fran"] = json!(100);
+    assert_eq!(
+        error(&normalize(&json!({ "spec": lone }).to_string())),
+        json!({ "type": "side-bonus-without-at", "entity": "fran" })
+    );
+}
+
+#[test]
+fn a_cz_given_below_its_ceilings_is_taken_as_it_is_across_the_boundary() {
+    let mut spec = value(CZ_SPEC);
+    let given = json!([
+        { "settingLevel": 1, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 33_380 } },
+        { "settingLevel": 6, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 28_000 } }
+    ]);
+    spec["components"]["firstHit"] = json!({});
+    spec["components"]["chance"] = json!({ "cz": given });
+    let normalized = ok(&normalize(&json!({ "spec": spec }).to_string()));
+    assert!(close(
+        &normalized["tables"][0]["at"]["chance"],
+        &json!(1.0 / 333.8)
+    ));
+    let analysis = ok(&analyze(
+        &json!({ "source": { "type": "spec", "spec": spec }, "conditions": measured() })
+            .to_string(),
+    ));
+    assert!(
+        analysis["settingLevels"][0]["bonuses"][0]["chance"]
+            .as_f64()
+            .is_some_and(|combined| combined > 1.0 / 333.8)
+    );
+    spec["components"]["firstHit"] = json!({ "cz": given });
+    assert_eq!(
+        error(&normalize(&json!({ "spec": spec }).to_string())),
+        json!({ "type": "conflicting-components", "entity": "cz", "first": "chance", "second": "firstHit" })
+    );
+}
+
 const HEAVY: &str =
     include_str!("../../../packages/contracts/fixtures/pachislot/made-up-heavy/spec.json");
 
@@ -880,5 +1043,188 @@ fn an_at_ceiling_across_bonuses_is_carried_and_hunted_from_the_at_itself() {
     assert_eq!(
         error(&normalize(&json!({ "spec": spec }).to_string())),
         json!({ "type": "ceiling-across-bonuses-without-restart", "entity": "at" })
+    );
+}
+
+fn hunted(spec: &Value, seat: &Value) -> String {
+    hunt(
+        &json!({
+            "source": { "type": "spec", "spec": spec },
+            "weights": [{ "settingLevel": 1, "probability": 1.0 }],
+            "play": { "medalValue": 20, "rentalPrice": 20, "cashShare": 0 },
+            "seats": [seat]
+        })
+        .to_string(),
+    )
+}
+
+fn seat_at(since_trigger: u32, since_at: u32, more: &Value) -> Value {
+    let mut seat = json!({ "sinceTrigger": since_trigger, "sinceAt": since_at, "misses": 0, "afterReset": false });
+    for (key, field) in more.as_object().expect("fields") {
+        seat[key] = field.clone();
+    }
+    seat
+}
+
+#[test]
+fn a_seat_past_a_forced_cz_is_refused_by_the_game_it_comes_on() {
+    let mut spec = value(CZ_SPEC);
+    spec["components"]["sinceAtCeiling"] = json!({ "cz": 800 });
+    let none = json!({});
+    ok(&hunted(&spec, &seat_at(10, 850, &none)));
+    assert_eq!(
+        error(&hunted(&spec, &seat_at(500, 850, &none))),
+        json!({ "type": "seat-past-forced-cz", "game": 800 })
+    );
+    spec["components"]["ceilingWins"] = json!(["cz"]);
+    ok(&hunted(&spec, &seat_at(500, 799, &none)));
+    for seat in [seat_at(10, 800, &none), seat_at(10, 850, &none)] {
+        assert_eq!(
+            error(&hunted(&spec, &seat)),
+            json!({ "type": "seat-past-sure-cz", "game": 800 })
+        );
+    }
+    let path = json!({
+        "source": { "type": "spec", "spec": spec },
+        "segments": [],
+        "path": { "start": seat_at(10, 820, &none), "legs": [{ "games": 10, "end": "going" }] }
+    });
+    assert_eq!(
+        error(&posterior(&path.to_string())),
+        json!({ "type": "seat-past-sure-cz", "game": 800 })
+    );
+}
+
+#[test]
+fn a_seat_s_field_the_machine_has_no_use_for_is_let_go_of_and_an_impossible_one_refused() {
+    let plain = value(CZ_SPEC);
+    let bare = ok(&hunted(&plain, &seat_at(100, 100, &json!({}))));
+    for more in [
+        json!({ "sinceAtAcrossBonuses": 50 }),
+        json!({ "sinceSideBonus": 5000 }),
+        json!({ "ending": "upper" }),
+    ] {
+        assert_eq!(ok(&hunted(&plain, &seat_at(100, 100, &more))), bare);
+    }
+    let mut across = value(CZ_SPEC);
+    across["components"]["bonusShare"] = json!({ "cz": [
+        { "settingLevel": 1, "value": 5000 },
+        { "settingLevel": 6, "value": 5000 }
+    ] });
+    across["components"]["restart"] = json!(["cz"]);
+    across["components"]["ceilingAcrossBonuses"] = json!({ "at": 1600 });
+    assert_eq!(
+        error(&hunted(
+            &across,
+            &seat_at(100, 100, &json!({ "sinceAtAcrossBonuses": 50 }))
+        )),
+        json!({ "type": "seat-across-bonuses-below-since-at", "sinceAt": 100, "sinceAtAcrossBonuses": 50 })
+    );
+    ok(&hunted(
+        &across,
+        &seat_at(100, 100, &json!({ "sinceAtAcrossBonuses": 100 })),
+    ));
+    let mut side = value(CZ_SPEC);
+    side["entities"] = json!(["at", "cz", "fran"]);
+    side["components"]["sideBonus"] = json!(["fran"]);
+    side["components"]["chance"] = json!({ "fran": [
+        { "settingLevel": 1, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 40_000 } },
+        { "settingLevel": 6, "value": { "type": "ratio", "numerator": 1, "denominatorHundredths": 30_000 } }
+    ] });
+    side["components"]["ceiling"]["fran"] = json!(300);
+    side["components"]["payout"]["fran"] = json!(100);
+    ok(&hunted(
+        &side,
+        &seat_at(100, 100, &json!({ "sinceSideBonus": 299 })),
+    ));
+    assert_eq!(
+        error(&hunted(
+            &side,
+            &seat_at(100, 100, &json!({ "sinceSideBonus": 300 }))
+        )),
+        json!({ "type": "seat-past-side-bonus-ceiling", "sinceSideBonus": 300, "ceiling": 300 })
+    );
+    let mut unceiled = side.clone();
+    unceiled["components"]["ceiling"]
+        .as_object_mut()
+        .expect("ceilings")
+        .remove("fran");
+    assert_eq!(
+        ok(&hunted(
+            &unceiled,
+            &seat_at(100, 100, &json!({ "sinceSideBonus": 5000 }))
+        )),
+        ok(&hunted(&unceiled, &seat_at(100, 100, &json!({}))))
+    );
+}
+
+#[test]
+fn an_allotment_after_an_at_beside_one_after_every_ending_may_be_left_out_or_must_be_their_mix() {
+    let mut spec = ended_spec();
+    let half = json!([{ "settingLevel": 1, "value": 5000 }, { "settingLevel": 6, "value": 5000 }]);
+    spec["components"]["endingAllotment"]["heaven"]["rest"] = half.clone();
+    spec["components"]["endingAllotment"]["normal"]["rest"] = half;
+    assert_eq!(
+        error(&normalize(&json!({ "spec": spec }).to_string())),
+        json!({ "type": "allotment-against-endings", "entity": "heaven", "settingLevel": 1, "mix": 3500 })
+    );
+    spec["components"]
+        .as_object_mut()
+        .expect("components")
+        .remove("allotment");
+    let normalized = ok(&normalize(&json!({ "spec": spec }).to_string()));
+    assert!(close(
+        &normalized["tables"][0]["at"]["allotments"]["afterAt"][0],
+        &json!(0.35)
+    ));
+}
+
+#[test]
+fn a_bonus_the_at_ceiling_brings_carries_its_own_medals_through_the_stored_spec() {
+    let mut spec = value(CZ_SPEC);
+    spec["components"]["payout"]["cz"] = json!(85);
+    spec["components"]["bonus"] = json!(["cz"]);
+    spec["components"]["ceilingTriggers"] = json!(["at"]);
+    spec["components"]["ceilingPayout"] = json!({ "at": 100 });
+    let normalized = ok(&normalize(&json!({ "spec": spec }).to_string()));
+    assert_eq!(normalized["atRules"]["ceilingPayout"], json!(100.0));
+    let stored: NormalizedSpecDto =
+        serde_json::from_value(normalized.clone()).expect("a normalised spec");
+    assert_eq!(
+        serde_json::to_value(&stored).expect("written again"),
+        normalized
+    );
+    let mut plain = spec.clone();
+    plain["components"]
+        .as_object_mut()
+        .expect("components")
+        .remove("ceilingPayout");
+    let hunted = |source: &Value| {
+        ok(&hunt(
+            &json!({
+                "source": source,
+                "weights": [{ "settingLevel": 1, "probability": 1.0 }],
+                "play": { "medalValue": 20, "rentalPrice": 20, "cashShare": 0 },
+                "seats": [{ "sinceTrigger": 100, "sinceAt": 999, "misses": 0, "afterReset": false }]
+            })
+            .to_string(),
+        ))[0]["triggerMedals"]
+            .clone()
+    };
+    assert!(close(
+        &hunted(&json!({ "type": "normalized", "normalized": normalized })),
+        &json!(100.0)
+    ));
+    assert!(close(
+        &hunted(&json!({ "type": "spec", "spec": plain })),
+        &json!(85.0)
+    ));
+    spec["components"]
+        .as_object_mut()
+        .expect("components")
+        .remove("ceilingTriggers");
+    assert_eq!(
+        error(&normalize(&json!({ "spec": spec }).to_string())),
+        json!({ "type": "ceiling-payout-without-ceiling-triggers", "entity": "at" })
     );
 }

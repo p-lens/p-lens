@@ -57,6 +57,8 @@
   --nerdpro-hover: #9870e6;
   --on-nerdpro: #100a1c;
   --nerdpro-ink: #6f47bd;
+  --rapid: #86d426;
+  --special: #a985f2;
 }
 
 [data-theme="dark"] {
@@ -89,6 +91,8 @@
   --nerdpro-hover: #c8acf9;
   --on-nerdpro: #100a1c;
   --nerdpro-ink: #9a74dc;
+  --rapid: #9be22d;
+  --special: #b794f6;
 }
 
 @theme inline {
@@ -111,6 +115,8 @@
   --color-amateur: var(--amateur);
   --color-amateur-hover: var(--amateur-hover);
   --color-on-amateur: var(--on-amateur);
+  --color-rapid: var(--rapid);
+  --color-special: var(--special);
   --color-semipro: var(--semipro);
   --color-semipro-hover: var(--semipro-hover);
   --color-on-semipro: var(--on-semipro);

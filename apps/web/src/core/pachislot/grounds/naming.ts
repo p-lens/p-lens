@@ -23,6 +23,8 @@ export interface GroundsNaming {
   readonly unit: string | undefined
   /** The ways an AT ends, by their labels, in the order the reasoner counts them; none where the modes are not allotted by them. */
   readonly endings: readonly string[]
+  /** A side bonus beside the trigger, by its label; none where the machine has none. */
+  readonly side: string | undefined
 }
 
 const triggerOf = (basis: Basis): GroundsTrigger => {
@@ -40,6 +42,7 @@ export const groundsNamingOf = (basis: Basis): GroundsNaming => {
     trigger: triggerOf(basis),
     unit: basis.spec.resources.ceilingUnit?.name,
     endings: (rules?.endings ?? []).map((ending) => basis.spec.components.label?.[ending] || ending),
+    side: rules?.sideBonus === undefined ? undefined : basis.spec.components.label?.[rules.sideBonus.id] || "別枠ボーナス",
     modes: (rules?.modes ?? []).map((mode, index): GroundsMode => {
       if (own.includes(mode.id)) return { type: "own", label: basis.spec.components.label?.[mode.id] || mode.id }
       return index === 0 ? { type: "after-at" } : { type: "after-reset" }

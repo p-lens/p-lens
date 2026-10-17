@@ -6,7 +6,7 @@ import { addCheckpoints, reviseCheckpoints } from "../../../../application/live-
 import { weighPlay } from "../../../../application/pachislot/weighing"
 import type { PlayDraft } from "../../../../core/live-play/draft"
 import { daySeenOf } from "../../../../core/pachislot/observation"
-import { atResultMatters, inAt } from "../../../../core/pachislot/path"
+import { atEndingsOf, atResultMatters, type AtEnding, inAt } from "../../../../core/pachislot/path"
 import {
   checkpointForReading,
   countCheckpoint,
@@ -410,6 +410,10 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
     return found === undefined ? NO_BONUSES : counterBonusOf(found.formula.normalized)
   }
   const atRules = () => weighing()?.formula.normalized.atRules
+  const endings = (): readonly AtEnding[] => {
+    const found = weighing()
+    return found === undefined ? [] : atEndingsOf(found.formula.normalized, found.formula.labels)
+  }
   const bonuses = (): readonly Countable[] => {
     const found = weighing()
     return found === undefined || atRules() !== undefined ? [] : counterBonusesOf(found.formula)
@@ -453,7 +457,7 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
               <div class="flex flex-1 flex-col">
                 <div class="flex flex-1 flex-col gap-5 p-4">
                   <div class="-mb-2 flex flex-col gap-2">
-                    <Timeline checkpoints={found()} bonuses={bonuses()} trigger={triggerWordsOf(weighing()?.formula.normalized)} revising={revising()?.index} onRevise={(index) => setRevising({ index })} onMerge={merge} strip />
+                    <Timeline checkpoints={found()} bonuses={bonuses()} trigger={triggerWordsOf(weighing()?.formula.normalized)} endings={endings()} revising={revising()?.index} onRevise={(index) => setRevising({ index })} onMerge={merge} strip />
                     <hr class="border-border" />
                   </div>
                   <CornerTerms draft={props.draft} />
@@ -465,7 +469,7 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
                       <>
                         <Outlook draft={props.draft} weighing={weighed()} ordered={found()} />
                         <Show when={atRules() !== undefined}>
-                          <AtCounting reading={atReading} ordered={found()} normalized={weighed().formula.normalized} write={write} rewrite={rewrite} post={board.post} awaitsResult={atResultMatters(weighed().formula.normalized) && awaitsAtResult(found())} />
+                          <AtCounting reading={atReading} ordered={found()} normalized={weighed().formula.normalized} endings={endings()} write={write} rewrite={rewrite} post={board.post} awaitsResult={atResultMatters(weighed().formula.normalized) && awaitsAtResult(found())} />
                         </Show>
                         <Show when={countablesOf(weighed().formula).length > 0}>
                           <Counting weighing={weighed()} ordered={found()} write={write} post={board.post} />

@@ -229,6 +229,12 @@ describe("how far the hand has been played since it was counted", () => {
     expect(handDriftOf(log, TERMS, heldAsToldOf(log))).toEqual({ spins: 40, estimate: Math.max(0, Math.round(120 + 250 - 40 * rateOf(log))) })
     expect(handDriftOf(played([reading({ counterSpins: 140, rented: 1000 })]), TERMS, undefined)).toBeUndefined()
   })
+
+  test("is none where the hand was counted down to nothing and nothing was won since, however long it is played on", () => {
+    const log = played([reading({ counterSpins: 160, rented: 2000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }), reading({ counterSpins: 40, held: 348 }), reading({ counterSpins: 100, held: 0 }), reading({ counterSpins: 151, rented: 1000 })])
+    expect(heldAsToldOf(log)).toBe(0)
+    expect(handDriftOf(log, TERMS, heldAsToldOf(log))).toBeUndefined()
+  })
 })
 
 describe("a press of the rental button", () => {

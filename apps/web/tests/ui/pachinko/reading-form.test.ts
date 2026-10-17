@@ -14,9 +14,9 @@ const LOG: readonly Checkpoint[] = [
 
 describe("where a pachinko play stood before a reading", () => {
   test("is the seat before the first, and after them all the totals, the last count of the hand with what the bonuses since paid, and a counter a jackpot started over", () => {
-    expect(standingBefore(LOG, 0)).toEqual({ counter: 120, held: undefined, outlay: 0, replay: 0 })
-    expect(standingBefore(LOG, 1)).toEqual({ counter: 200, held: 150, outlay: 2000, replay: 0 })
-    expect(standingBefore(LOG, 2)).toEqual({ counter: 0, held: 1550, outlay: 3000, replay: 125 })
+    expect(standingBefore(LOG, 0)).toEqual({ counter: 120, held: undefined, outlay: 0, replay: 0, gaugeOffset: undefined })
+    expect(standingBefore(LOG, 1)).toEqual({ counter: 200, held: 150, outlay: 2000, replay: 0, gaugeOffset: undefined })
+    expect(standingBefore(LOG, 2)).toEqual({ counter: 0, held: 1550, outlay: 3000, replay: 125, gaugeOffset: undefined })
   })
 
   test("never takes the regular games played since off the hand, and starts from none where a bonus comes before any count", () => {
@@ -59,5 +59,17 @@ describe("a pachinko reading typed onto where the play stands", () => {
     expect([shown.rented, shown.replayed]).toEqual(["3000", "125"])
     const read = readReadingForm(shown, [TEN_ROUNDS], before)
     expect(read.ok && { ...read.value, at: "" }).toEqual(reading)
+  })
+})
+
+describe("the 遊 counter of a pachinko reading set right", () => {
+  const before = standingBefore(LOG, 1)
+
+  test("is never typed into a new reading, and is kept as it was where a reading set right said it", () => {
+    const fresh = readReadingForm(readingFrom("regular", before), [], before)
+    expect(fresh.ok && fresh.value.gauge).toBeUndefined()
+    const said = formOfReading({ counterSpins: 200, phase: "regular", rented: 0, replayed: 0, supported: 0, held: undefined, jackpot: { type: "none" }, at: "", gauge: 15 }, before)
+    const read = readReadingForm(said, [], before)
+    expect(read.ok && read.value.gauge).toBe(15)
   })
 })

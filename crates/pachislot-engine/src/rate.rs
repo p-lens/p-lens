@@ -5,7 +5,8 @@
 //! medals at `net` a game — so over `gain / net` games of its own, each
 //! bet on like any other. Where the trigger is a bonus, each of the
 //! `triggers` a cycle brings gains `bonus` medals over `own` games of its
-//! own, bet on too. Medals out over medals in is the 機械割:
+//! own, bet on too; a side bonus is more of the same, its count and its
+//! medals added to them. Medals out over medals in is the 機械割:
 //!
 //! ```text
 //!        bet · in − loss · games + gain + triggers · bonus
@@ -48,6 +49,13 @@ pub struct RateCycle {
     pub bet: f64,
     pub net: f64,
     pub triggers: Option<TriggersPaid>,
+    /// The triggers the AT間天井 brings, where each pays a bonus of its own
+    /// rather than the trigger's: none where they pay as any other, counted
+    /// among `triggers`.
+    pub ceiling: Option<TriggersPaid>,
+    /// The side bonuses a cycle brings, and what each pays, where the
+    /// machine has one.
+    pub side: Option<TriggersPaid>,
 }
 
 /// The triggers a cycle brings, and what each pays where it is a bonus.
@@ -58,14 +66,23 @@ pub struct TriggersPaid {
 }
 
 impl RateCycle {
-    /// What the cycle's triggers gain, and the games of their own they take.
+    /// What the cycle's triggers gain, and the games of their own they
+    /// take — those its AT間天井 brings and its side bonuses' added where
+    /// it has them.
     fn paid(self) -> (f64, f64) {
-        self.triggers.map_or((0.0, 0.0), |triggers| {
+        let each = |paid: TriggersPaid| {
             (
-                triggers.count * triggers.payout.medals.get(),
-                triggers.count * triggers.payout.games(),
+                paid.count * paid.payout.medals.get(),
+                paid.count * paid.payout.games(),
             )
-        })
+        };
+        [self.triggers, self.ceiling, self.side]
+            .into_iter()
+            .flatten()
+            .map(each)
+            .fold((0.0, 0.0), |(medals, games), (more, longer)| {
+                (medals + more, games + longer)
+            })
     }
 }
 

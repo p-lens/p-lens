@@ -15,7 +15,9 @@ export type Drift = "gain" | "loss"
  * the last count carried over and not counted again: they are then not
  * this reading's to say. `jackpot` is the choice made in the bonus list —
  * none, the jackpot a machine with no bonuses listed has, or a listed
- * bonus by its name.
+ * bonus by its name. `gauge` is the cabinet's own 遊タイム counter a reading
+ * set right already said, kept as it was: it is said in the 遊タイム狙い,
+ * never typed here.
  */
 export interface ReadingForm {
   readonly phase: Phase
@@ -27,6 +29,7 @@ export interface ReadingForm {
   readonly supported: string
   readonly drift: Drift
   readonly jackpot: string
+  readonly gauge: number | undefined
 }
 
 export type ReadingField = "counter" | "held" | "rented" | "replayed" | "supported"
@@ -50,6 +53,7 @@ export const readingFrom = (phase: Phase, before: Before): ReadingForm => ({
   supported: "",
   drift: "loss",
   jackpot: NO_JACKPOT,
+  gauge: undefined,
 })
 
 const COUNT = /^\d+$/
@@ -101,6 +105,7 @@ export const formOfReading = (reading: Reading, before: Before): ReadingForm => 
   supported: typed(Math.abs(reading.supported)),
   drift: reading.supported > 0 ? "gain" : "loss",
   jackpot: chosenOf(reading.jackpot),
+  gauge: reading.gauge,
 })
 
 /** The choice in the bonus list as a list keys it: a listed bonus by its name, which its machine has once. */
@@ -132,6 +137,7 @@ export const readReadingForm = (form: ReadingForm, bonuses: readonly MachineBonu
     supported: form.drift === "loss" && supported.value !== 0 ? -supported.value : supported.value,
     held: held.value,
     jackpot: jackpotOf(form.jackpot, bonuses),
+    ...(form.gauge === undefined ? {} : { gauge: form.gauge }),
   })
 }
 

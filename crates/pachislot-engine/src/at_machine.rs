@@ -11,19 +11,20 @@ use std::num::NonZeroU32;
 use pachislot_domain::conditions::PayoutRate;
 use pachislot_domain::normalized::{
     AfterEnding, Allotments, AtRules, AtTable, BonusMiss, CeilingAt, Expiry, ForcedCz, Gate,
-    ModeRule, PayoutLaw, TriggerPayout,
+    ModeRule, PayoutLaw, SideBonusRule, TriggerPayout,
 };
 use pachislot_domain::probability::{BasisPoints, Probability, ProbabilitySource};
 use pachislot_domain::setting_level::{PerSettingLevel, SettingLevel};
 use pachislot_domain::spec::{
-    At, Base, Component, Cz, Element, Ending, EntityId, Gate as SpecGate, Medals, Mode, Redraw,
-    Spec,
+    At, Base, Component, Cz, Element, Ending, EntityId, Gate as SpecGate, GivenChance, Medals,
+    Mode, Redraw, SideBonus, Spec,
 };
 
 use crate::at::{Cycle, Odds, after_at, cap_figures_of, cycle, natural_chance, settled};
 use crate::error::{ProbabilityProblem, SpecError};
 use crate::payout::capped;
 use crate::rate::{RateCycle, TriggersPaid, implied_gain, net_over_all};
+use crate::side::{chance_below, per_game};
 
 /// What a machine of an AT is made of.
 pub(crate) struct AtMachine<'a> {
@@ -31,6 +32,7 @@ pub(crate) struct AtMachine<'a> {
     cz: Option<&'a Cz>,
     modes: Vec<&'a Mode>,
     endings: Vec<&'a Ending>,
+    side: Option<&'a SideBonus>,
     base: Base,
 }
 
@@ -44,6 +46,7 @@ fn element_id(element: &Element) -> &EntityId {
         Element::Cz(cz) => &cz.id,
         Element::Watch(watch) => &watch.id,
         Element::Ending(ending) => &ending.id,
+        Element::SideBonus(side) => &side.id,
     }
 }
 
@@ -245,14 +248,20 @@ fn paid(at: &At, cap: Option<Medals>) -> Result<(), SpecError> {
 fn checked<'a>(
     at: &'a At,
     cz: Option<&'a Cz>,
-    (modes, endings): (Vec<&'a Mode>, Vec<&'a Ending>),
+    (modes, endings, side): (Vec<&'a Mode>, Vec<&'a Ending>, Option<&'a SideBonus>),
     base: Base,
     cap: Option<Medals>,
 ) -> Result<AtMachine<'a>, SpecError> {
     paid(at, cap)?;
+    if at.ceiling_payout.is_some() && !at.ceiling_triggers {
+        return Err(SpecError::CeilingPayoutWithoutCeilingTriggers {
+            entity: at.id.clone(),
+        });
+    }
     ended(&modes, &endings)?;
+    allotted(&modes, &endings)?;
     if let Some(cz) = cz {
-        if at.first_hit.is_some() {
+        if at.chance.is_some() {
             return Err(SpecError::FirstHitBesideCz {
                 entity: at.id.clone(),
             });
@@ -263,8 +272,8 @@ fn checked<'a>(
             });
         }
         reset_since_at(cz, &modes)?;
-        ceiling_triggered(at, &modes)?;
-    } else if at.first_hit.is_none() {
+        ceiling_triggered(at, cz, &modes)?;
+    } else if at.chance.is_none() {
         return Err(SpecError::MissingComponent {
             entity: at.id.clone(),
             component: Component::FirstHit,
@@ -289,6 +298,7 @@ fn checked<'a>(
             entity: through.id.clone(),
         });
     }
+    direct_bonused(at, cz)?;
     zoned(cz, &modes)?;
     redrawn(cz, &modes)?;
     restarted(cz, &modes)?;
@@ -317,6 +327,7 @@ fn checked<'a>(
         cz,
         modes,
         endings,
+        side,
         base,
     })
 }
@@ -350,6 +361,34 @@ fn ended(modes: &[&Mode], endings: &[&Ending]) -> Result<(), SpecError> {
     })
 }
 
+/// Whether every mode is allotted after every way an AT ends, so that its
+/// allotment after an AT is not needed for any of them.
+fn every_ending_allotted(modes: &[&Mode], endings: &[&Ending]) -> bool {
+    !endings.is_empty()
+        && modes.iter().all(|mode| {
+            endings
+                .iter()
+                .all(|ending| mode.ending_allotment.contains_key(&ending.id))
+        })
+}
+
+/// Every mode's allotment after an AT, or — where every mode is allotted
+/// after every ending, the endings' mix standing for it — none's.
+fn allotted(modes: &[&Mode], endings: &[&Ending]) -> Result<(), SpecError> {
+    if every_ending_allotted(modes, endings) && modes.iter().all(|mode| mode.allotment.is_none()) {
+        return Ok(());
+    }
+    modes
+        .iter()
+        .find(|mode| mode.allotment.is_none())
+        .map_or(Ok(()), |mode| {
+            Err(SpecError::MissingComponent {
+                entity: mode.id.clone(),
+                component: Component::Allotment,
+            })
+        })
+}
+
 /// A CZ's ceiling counted from the AT after a setting change only beside
 /// the one after an AT, and only on a machine without modes, whose modes
 /// carry their own.
@@ -372,8 +411,9 @@ fn reset_since_at(cz: &Cz, modes: &[&Mode]) -> Result<(), SpecError> {
 
 /// An AT間天井 that brings the trigger only where there is one: the AT's,
 /// after an AT or a setting change, in games or in the unit, across the
-/// bonuses that start play again, or a mode's.
-fn ceiling_triggered(at: &At, modes: &[&Mode]) -> Result<(), SpecError> {
+/// bonuses that start play again, or a mode's; and what the trigger it
+/// brings pays only where it brings one, a bonus that pays.
+fn ceiling_triggered(at: &At, cz: &Cz, modes: &[&Mode]) -> Result<(), SpecError> {
     let ceiled = at.ceiling.is_some()
         || at.ceiling_across_bonuses.is_some()
         || at.reset_ceiling.is_some()
@@ -386,6 +426,22 @@ fn ceiling_triggered(at: &At, modes: &[&Mode]) -> Result<(), SpecError> {
         return Err(SpecError::MissingComponent {
             entity: at.id.clone(),
             component: Component::Ceiling,
+        });
+    }
+    if at.ceiling_payout.is_some() && cz.payout.is_none() {
+        return Err(SpecError::MissingComponent {
+            entity: cz.id.clone(),
+            component: Component::Payout,
+        });
+    }
+    Ok(())
+}
+
+/// A bonus outright only where a CZ's success brings a bonus for it to be.
+fn direct_bonused(at: &At, cz: Option<&Cz>) -> Result<(), SpecError> {
+    if at.direct_bonus.is_some() && cz.is_none_or(|cz| cz.bonus_share.is_none()) {
+        return Err(SpecError::DirectBonusWithoutBonusShare {
+            entity: at.id.clone(),
         });
     }
     Ok(())
@@ -509,6 +565,17 @@ fn across_bonuses(at: &At, cz: Option<&Cz>) -> Result<(), SpecError> {
     Ok(())
 }
 
+/// The side bonuses among a machine's elements.
+fn side_bonuses(elements: &[Element]) -> Vec<&SideBonus> {
+    elements
+        .iter()
+        .filter_map(|element| match element {
+            Element::SideBonus(side) => Some(side),
+            _ => None,
+        })
+        .collect()
+}
+
 /// A machine of an AT, if the spec is one: its AT, its CZ, its modes and its
 /// ベース, and nothing else. None for a machine of bonuses and small wins.
 pub(crate) fn at_machine<'a>(
@@ -543,7 +610,13 @@ pub(crate) fn at_machine<'a>(
             _ => None,
         })
         .collect();
+    let sides = side_bonuses(elements);
     let Some(at) = ats.first().copied() else {
+        if let Some(side) = sides.first() {
+            return Err(SpecError::SideBonusWithoutAt {
+                entity: side.id.clone(),
+            });
+        }
         if let Some(cz) = czs.first() {
             return Err(SpecError::CzWithoutAt {
                 entity: cz.id.clone(),
@@ -576,7 +649,8 @@ pub(crate) fn at_machine<'a>(
         | Element::Role(_)
         | Element::Replay(_)
         | Element::Watch(_)
-        | Element::Ending(_) => false,
+        | Element::Ending(_)
+        | Element::SideBonus(_) => false,
         Element::Bonus(_) => true,
     });
     if let Some(other) = stray {
@@ -592,7 +666,19 @@ pub(crate) fn at_machine<'a>(
             entity: paid.clone(),
         });
     }
-    checked(at, cz, (modes, endings), base, spec.resources.cap).map(Some)
+    if let Some(second) = sides.get(1) {
+        return Err(SpecError::SideBonusNotAlone {
+            entity: second.id.clone(),
+        });
+    }
+    checked(
+        at,
+        cz,
+        (modes, endings, sides.first().copied()),
+        base,
+        spec.resources.cap,
+    )
+    .map(Some)
 }
 
 /// A ceiling counted on a screen or in another unit, in the regular games
@@ -706,12 +792,7 @@ pub(crate) fn rules_of(machine: &AtMachine<'_>, scales: Scales, cap: Option<Meda
         window: machine.at.window,
         reset_on_cap: machine.at.reset_on_cap,
         trigger_is_bonus: machine.cz.is_some_and(|cz| cz.bonus),
-        trigger_payout: machine.cz.and_then(|cz| {
-            cz.payout.map(|medals| TriggerPayout {
-                medals,
-                net_per_game: cz.net_per_game,
-            })
-        }),
+        trigger_payout: machine.cz.and_then(trigger_payout_of),
         bonus_miss: if machine.cz.is_some_and(|cz| cz.restart) {
             BonusMiss::Restarts
         } else {
@@ -724,7 +805,30 @@ pub(crate) fn rules_of(machine: &AtMachine<'_>, scales: Scales, cap: Option<Meda
         },
         ceiling_at: ceiling_at_of(machine.at),
         ceiling_across_bonuses: machine.at.ceiling_across_bonuses,
+        ceiling_payout: machine.at.ceiling_payout,
         endings: endings_of(machine),
+        side_bonus: machine.side.map(side_rule),
+    }
+}
+
+/// What a trigger pays each time it comes, where it is a bonus whose
+/// medals are known.
+fn trigger_payout_of(cz: &Cz) -> Option<TriggerPayout> {
+    cz.payout.map(|medals| TriggerPayout {
+        medals,
+        net_per_game: cz.net_per_game,
+    })
+}
+
+/// A side bonus as the engine plays it.
+fn side_rule(side: &SideBonus) -> SideBonusRule {
+    SideBonusRule {
+        id: side.id.clone(),
+        ceiling: side.ceiling,
+        payout: TriggerPayout {
+            medals: side.payout,
+            net_per_game: side.net_per_game,
+        },
     }
 }
 
@@ -839,18 +943,20 @@ fn after_endings_of(
         .iter()
         .zip(fractions(&points))
         .map(|(ending, share)| {
-            let allotted: Vec<_> = machine
+            let allotted = machine
                 .modes
                 .iter()
                 .map(|mode| {
-                    (
-                        &mode.id,
-                        mode.ending_allotment
-                            .get(&ending.id)
-                            .unwrap_or(&mode.allotment),
-                    )
+                    mode.ending_allotment
+                        .get(&ending.id)
+                        .or(mode.allotment.as_ref())
+                        .map(|allotment| (&mode.id, allotment))
+                        .ok_or_else(|| SpecError::MissingComponent {
+                            entity: mode.id.clone(),
+                            component: Component::Allotment,
+                        })
                 })
-                .collect();
+                .collect::<Result<Vec<_>, _>>()?;
             let (after, sum) = points_of(&allotted, setting_level)?;
             if sum != BasisPoints::WHOLE.get() {
                 return Err(SpecError::EndingAllotmentNotWhole {
@@ -865,6 +971,36 @@ fn after_endings_of(
             })
         })
         .collect()
+}
+
+/// An allotment after an AT given beside one after every ending, which
+/// then says nothing they do not: each mode's within a basis point of the
+/// endings' mix, a share rounded as it was typed.
+fn as_mixed(
+    given: &[(&EntityId, &PerSettingLevel<BasisPoints>)],
+    mix: &[f64],
+    setting_level: SettingLevel,
+) -> Result<(), SpecError> {
+    let (points, _) = points_of(given, setting_level)?;
+    let whole = f64::from(BasisPoints::WHOLE.get());
+    given
+        .iter()
+        .zip(points)
+        .zip(mix)
+        .find(|((_, points), mixed)| (f64::from(points.get()) - *mixed * whole).abs() >= 1.0)
+        .map_or(Ok(()), |(((entity, _), _), mixed)| {
+            #[allow(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "a share of the whole in basis points is within a u32"
+            )]
+            let mix = (*mixed * whole).round() as u32;
+            Err(SpecError::AllotmentAgainstEndings {
+                entity: (*entity).clone(),
+                setting_level,
+                mix,
+            })
+        })
 }
 
 /// Each ending's allotment weighed by its share: how play is allotted
@@ -902,10 +1038,14 @@ fn allotments_of(
             }
         });
     }
-    let after_at: Vec<_> = machine
+    let given: Option<Vec<_>> = machine
         .modes
         .iter()
-        .map(|mode| (&mode.id, &mode.allotment))
+        .map(|mode| {
+            mode.allotment
+                .as_ref()
+                .map(|allotment| (&mode.id, allotment))
+        })
         .collect();
     let after_reset: Vec<_> = machine
         .modes
@@ -916,18 +1056,24 @@ fn allotments_of(
                 .map(|allotment| (&mode.id, allotment))
         })
         .collect();
-    let plain = shares(&after_at, setting_level, false)?;
+    let after_endings = after_endings_of(machine, setting_level)?;
+    let mix = mixed(&after_endings, machine.modes.len());
+    let plain = match given {
+        Some(given) => {
+            let plain = shares(&given, setting_level, false)?;
+            if every_ending_allotted(&machine.modes, &machine.endings) {
+                as_mixed(&given, &mix, setting_level)?;
+            }
+            plain
+        }
+        None => mix.clone(),
+    };
     let after_reset = if after_reset.is_empty() {
         plain.clone()
     } else {
         shares(&after_reset, setting_level, true)?
     };
-    let after_endings = after_endings_of(machine, setting_level)?;
-    let after_at = if after_endings.is_empty() {
-        plain
-    } else {
-        mixed(&after_endings, machine.modes.len())
-    };
+    let after_at = if after_endings.is_empty() { plain } else { mix };
     Ok(Allotments {
         after_at,
         after_reset,
@@ -953,31 +1099,45 @@ fn problem(
     }
 }
 
-/// The trigger's published 合算 under a setting, the chance a trigger wins
-/// the AT, and the share of triggers that pay its medals: those that
+/// The trigger's chance under a setting as the sheet gives it: its 合算,
+/// ceilings included, to be read back to a chance below them, or that
+/// chance itself, taken as it is.
+#[derive(Clone, Copy)]
+enum Given {
+    Published(f64),
+    Below(f64),
+}
+
+/// The trigger's chance under a setting as given, the chance a trigger
+/// wins the AT, and the share of triggers that pay its medals: those that
 /// succeed where a CZ's success brings a bonus, which wins the AT at its
 /// own share, and every one otherwise.
 fn published(
     machine: &AtMachine<'_>,
     setting_level: SettingLevel,
-) -> Result<(EntityId, f64, f64, f64), SpecError> {
-    let (id, first_hit, success): (
+) -> Result<(EntityId, Given, f64, f64), SpecError> {
+    let (id, given, success): (
         &EntityId,
-        Option<&PerSettingLevel<ProbabilitySource>>,
+        Option<&GivenChance>,
         Option<&PerSettingLevel<BasisPoints>>,
     ) = match machine.cz {
-        Some(cz) => (&cz.id, Some(&cz.first_hit), Some(&cz.success)),
-        None => (&machine.at.id, machine.at.first_hit.as_ref(), None),
+        Some(cz) => (&cz.id, Some(&cz.chance), Some(&cz.success)),
+        None => (&machine.at.id, machine.at.chance.as_ref(), None),
     };
     let missing = || SpecError::MissingSettingLevel {
         at: id.clone(),
         setting_level,
     };
-    let chance = first_hit
-        .and_then(|first_hit| first_hit.get(setting_level))
+    let value = given
+        .and_then(|given| given.values().get(setting_level))
         .ok_or_else(missing)?
         .probability()
-        .map_err(problem(id, setting_level))?;
+        .map_err(problem(id, setting_level))?
+        .value();
+    let chance = match given {
+        Some(GivenChance::Below(_)) => Given::Below(value),
+        _ => Given::Published(value),
+    };
     let success = match success {
         Some(success) => success
             .get(setting_level)
@@ -997,24 +1157,75 @@ fn published(
         None => None,
     };
     Ok(match bonus_share {
-        Some(share) => (id.clone(), chance.value(), success * share, success),
-        None => (id.clone(), chance.value(), success, 1.0),
+        Some(share) => (id.clone(), chance, success * share, success),
+        None => (id.clone(), chance, success, 1.0),
     })
 }
 
 /// How often a regular game wins an AT outright under a setting, before
-/// its CZ is drawn: none where only the CZ wins it.
-fn direct_of(at: &At, setting_level: SettingLevel) -> Result<Probability, SpecError> {
-    at.direct.as_ref().map_or(Ok(Probability::NONE), |direct| {
-        direct
-            .get(setting_level)
-            .ok_or_else(|| SpecError::MissingSettingLevel {
-                at: at.id.clone(),
+/// its CZ is drawn, and how often it brings the bonus a CZ's success brings
+/// outright: none where only the CZ wins it. The AT is drawn first, at its
+/// own chance, then the bonus at its chance of what is left, winning the
+/// AT at the bonus's share — so the AT outright is both together, and the
+/// bonus is its chance of what the AT left.
+fn direct_of(
+    at: &At,
+    setting_level: SettingLevel,
+    bonus_share: f64,
+) -> Result<(Probability, Probability), SpecError> {
+    let under = |chances: Option<&PerSettingLevel<ProbabilitySource>>| {
+        chances.map_or(Ok(Probability::NONE), |chances| {
+            chances
+                .get(setting_level)
+                .ok_or_else(|| SpecError::MissingSettingLevel {
+                    at: at.id.clone(),
+                    setting_level,
+                })?
+                .probability()
+                .map_err(problem(&at.id, setting_level))
+        })
+    };
+    let direct = under(at.direct.as_ref())?;
+    if at.direct_bonus.is_none() {
+        return Ok((direct, Probability::NONE));
+    }
+    let bonus = (1.0 - direct.value()) * under(at.direct_bonus.as_ref())?.value();
+    let outright = direct.value() + bonus * bonus_share;
+    Ok((
+        Probability::new(outright).map_err(problem(&at.id, setting_level))?,
+        Probability::new(bonus).map_err(problem(&at.id, setting_level))?,
+    ))
+}
+
+/// The side bonus's chance a regular game below its ceiling under a
+/// setting: as given, or read back from its published 合算; none where the
+/// machine has no side bonus.
+fn side_chance_of(
+    machine: &AtMachine<'_>,
+    setting_level: SettingLevel,
+) -> Result<Probability, SpecError> {
+    let Some(side) = machine.side else {
+        return Ok(Probability::NONE);
+    };
+    let given = side
+        .chance
+        .values()
+        .get(setting_level)
+        .ok_or_else(|| SpecError::MissingSettingLevel {
+            at: side.id.clone(),
+            setting_level,
+        })?
+        .probability()
+        .map_err(problem(&side.id, setting_level))?;
+    match side.chance {
+        GivenChance::Below(_) => Ok(given),
+        GivenChance::Published(_) => chance_below(given.value(), side.ceiling)
+            .and_then(|chance| Probability::new(chance).ok())
+            .ok_or_else(|| SpecError::FirstHitBeyondCeiling {
+                at: side.id.clone(),
                 setting_level,
-            })?
-            .probability()
-            .map_err(problem(&at.id, setting_level))
-    })
+            }),
+    }
 }
 
 /// Each mode's chance a trigger in it wins the AT under a setting, where
@@ -1347,11 +1558,43 @@ fn net_of(at: &At) -> Option<Medals> {
 /// at most, where play after one starts as after a setting change.
 const SETTLINGS: u32 = 50;
 
-/// A setting's table: the trigger's chance below its ceilings, read back
-/// from its published 合算 over the modes as an AT allots them — and where
-/// an AT that reaches the cap starts play again as after a setting change,
-/// over the share that do, which itself turns on the chance, so the two are
-/// settled against each other until they agree.
+/// The trigger's chance below its ceilings that its published 合算 comes
+/// back to over the modes as an AT allots them — and where an AT that
+/// reaches the cap starts play again as after a setting change, over the
+/// share that do, which itself turns on the chance, so the two are settled
+/// against each other until they agree. None where no chance can make it.
+fn read_back(
+    rules: &AtRules,
+    odds: Odds<'_>,
+    (allotments, payout): (&Allotments, &PayoutLaw),
+    published: f64,
+) -> Option<f64> {
+    let chance_for = |completion: f64| {
+        natural_chance(
+            published,
+            rules,
+            odds,
+            &after_at(rules, allotments, completion),
+        )
+    };
+    let first = chance_for(capped(payout, rules.cap.map(Medals::get)).completion)?;
+    let settle = |chance: f64| {
+        chance_for(cap_figures_of(rules, odds.at_chance(chance), allotments, payout).completion)
+    };
+    if !rules.reset_on_cap {
+        return Some(first);
+    }
+    (0..SETTLINGS)
+        .try_fold(first, |chance, _| match settle(chance) {
+            Some(next) if (next - chance).abs() <= f64::EPSILON * chance => Err(Some(next)),
+            Some(next) => Ok(next),
+            None => Err(None),
+        })
+        .map_or_else(|stopped| stopped, Some)
+}
+
+/// A setting's table: the trigger's chance below its ceilings, as given or
+/// read back from its published 合算.
 fn table_paying(
     machine: &AtMachine<'_>,
     rules: &AtRules,
@@ -1359,13 +1602,14 @@ fn table_paying(
     payout: PayoutLaw,
 ) -> Result<AtTable, SpecError> {
     let allotments = allotments_of(machine, setting_level)?;
-    let (id, published, success, paid) = published(machine, setting_level)?;
-    let direct = direct_of(machine.at, setting_level)?;
+    let (id, given, success, paid) = published(machine, setting_level)?;
     let gates = gates_of(machine, rules, setting_level)?;
     let bonus_share = bonus_share_of(machine, setting_level)?;
+    let (direct, direct_bonus) = direct_of(machine.at, setting_level, bonus_share.value())?;
     let successes = successes_of(machine, setting_level, success, bonus_share.value())?;
     let (redraws, ceiling_redraws) = redraws_of(machine, setting_level)?;
     let own_chances = own_chances_of(machine, setting_level)?;
+    let side_chance = side_chance_of(machine, setting_level)?;
     let odds = Odds {
         chance: 0.0,
         success,
@@ -1381,34 +1625,17 @@ fn table_paying(
         at: id.clone(),
         setting_level,
     };
-    let chance_for = |completion: f64| {
-        natural_chance(
-            published,
-            rules,
-            odds,
-            &after_at(rules, &allotments, completion),
-        )
-        .ok_or_else(beyond)
-    };
-    let first = chance_for(capped(&payout, rules.cap.map(Medals::get)).completion)?;
-    let settle = |chance: f64| {
-        chance_for(cap_figures_of(rules, odds.at_chance(chance), &allotments, &payout).completion)
-    };
-    let chance = if rules.reset_on_cap {
-        (0..SETTLINGS)
-            .try_fold(first, |chance, _| match settle(chance) {
-                Ok(next) if (next - chance).abs() <= f64::EPSILON * chance => Err(Ok(next)),
-                Ok(next) => Ok(next),
-                Err(error) => Err(Err(error)),
-            })
-            .map_or_else(|stopped| stopped, Ok)?
-    } else {
-        first
+    let chance = match given {
+        Given::Below(chance) => chance,
+        Given::Published(published) => {
+            read_back(rules, odds, (&allotments, &payout), published).ok_or_else(beyond)?
+        }
     };
     Ok(AtTable {
         chance: Probability::new(chance).map_err(|_| beyond())?,
         success: Probability::new(success).map_err(problem(&id, setting_level))?,
         direct,
+        direct_bonus,
         paid: Probability::new(paid).map_err(problem(&id, setting_level))?,
         bonus_share,
         gates,
@@ -1416,6 +1643,7 @@ fn table_paying(
         redraws,
         ceiling_redraws,
         own_chances,
+        side_chance,
         allotments,
         payout,
     })
@@ -1429,18 +1657,37 @@ fn cycle_of(rules: &AtRules, table: &AtTable) -> Cycle {
 }
 
 /// A cycle's games and what it costs and pays besides its AT, to work a
-/// 機械割 and an AT's gain each from the other: `paid`, the share of its
-/// triggers that pay their medals — every one the AT間天井 brings, which
-/// certainly wins.
-pub(crate) fn rate_cycle(rules: &AtRules, cycle: Cycle, bet: f64, paid: f64) -> RateCycle {
+/// 機械割 and an AT's gain each from the other under a setting's table: the
+/// share of its triggers that pay their medals — and every one the
+/// AT間天井 brings, which certainly wins — and the bonuses its games bring
+/// outright, past the CZ, each paying as a trigger's does; and the side
+/// bonuses its games bring in the long run, each paying its own.
+pub(crate) fn rate_cycle(rules: &AtRules, cycle: Cycle, bet: f64, table: &AtTable) -> RateCycle {
     RateCycle {
         games: 1.0 / cycle.at_chance(),
         loss: rules.base.loss_per_game(),
         bet,
         net: rules.net_per_game.map_or(0.0, Medals::get),
         triggers: rules.trigger_payout.map(|payout| TriggersPaid {
-            count: (cycle.triggers - cycle.ceiled) * paid + cycle.ceiled,
+            count: (cycle.triggers - cycle.ceiled) * table.paid.value()
+                + if rules.ceiling_payout.is_some() {
+                    0.0
+                } else {
+                    cycle.ceiled
+                }
+                + cycle.direct_bonuses(table.direct_bonus.value()),
             payout,
+        }),
+        ceiling: rules
+            .ceiling_trigger_payout()
+            .filter(|_| rules.ceiling_payout.is_some())
+            .map(|payout| TriggersPaid {
+                count: cycle.ceiled,
+                payout,
+            }),
+        side: rules.side_bonus.as_ref().map(|side| TriggersPaid {
+            count: cycle.games * per_game(side, table),
+            payout: side.payout,
         }),
     }
 }
@@ -1462,7 +1709,7 @@ fn gain_from(
         setting_level,
     };
     implied_gain(
-        rate_cycle(rules, cycle_of(rules, unpaid), bet, unpaid.paid.value()),
+        rate_cycle(rules, cycle_of(rules, unpaid), bet, unpaid),
         rate.ratio(),
     )
     .and_then(Medals::new)
@@ -1509,13 +1756,18 @@ pub(crate) fn coverage(
     let given: Vec<(&EntityId, Vec<SettingLevel>)> = [
         machine
             .at
-            .first_hit
+            .chance
             .as_ref()
-            .map(|first_hit| (&machine.at.id, levels(first_hit))),
-        machine.cz.map(|cz| (&cz.id, levels(&cz.first_hit))),
+            .map(|chance| (&machine.at.id, levels(chance.values()))),
+        machine.cz.map(|cz| (&cz.id, levels(cz.chance.values()))),
         machine
             .at
             .direct
+            .as_ref()
+            .map(|direct| (&machine.at.id, levels(direct))),
+        machine
+            .at
+            .direct_bonus
             .as_ref()
             .map(|direct| (&machine.at.id, levels(direct))),
         machine.cz.map(|cz| (&cz.id, levels(&cz.success))),
@@ -1539,6 +1791,9 @@ pub(crate) fn coverage(
             .rate
             .as_ref()
             .map(|rate| (&machine.at.id, levels(rate))),
+        machine
+            .side
+            .map(|side| (&side.id, levels(side.chance.values()))),
     ]
     .into_iter()
     .flatten()
@@ -1550,7 +1805,7 @@ pub(crate) fn coverage(
     )
     .chain(machine.modes.iter().flat_map(|mode| {
         [
-            Some(levels(&mode.allotment)),
+            mode.allotment.as_ref().map(levels),
             mode.reset_allotment.as_ref().map(levels),
             mode.success.as_ref().map(levels),
             mode.trigger_chance.as_ref().map(levels),
@@ -1582,30 +1837,40 @@ pub(crate) fn coverage(
             }),
     )
     .collect();
-    given.iter().try_for_each(|(at, each)| {
-        let mut seen = BTreeSet::new();
-        if let Some(setting_level) = each.iter().find(|level| !seen.insert(**level)) {
-            return Err(SpecError::DuplicateSettingLevel {
-                at: Some((*at).clone()),
+    given
+        .iter()
+        .try_for_each(|(at, each)| covered(at, each, setting_levels))
+}
+
+/// One thing given per setting, against the settings the machine has:
+/// none twice, none it lacks, none missing.
+fn covered(
+    at: &EntityId,
+    each: &[SettingLevel],
+    setting_levels: &[SettingLevel],
+) -> Result<(), SpecError> {
+    let mut seen = BTreeSet::new();
+    if let Some(setting_level) = each.iter().find(|level| !seen.insert(**level)) {
+        return Err(SpecError::DuplicateSettingLevel {
+            at: Some(at.clone()),
+            setting_level: *setting_level,
+        });
+    }
+    if let Some(setting_level) = each.iter().find(|level| !setting_levels.contains(level)) {
+        return Err(SpecError::UnknownSettingLevel {
+            at: at.clone(),
+            setting_level: *setting_level,
+        });
+    }
+    setting_levels
+        .iter()
+        .find(|level| !each.contains(level))
+        .map_or(Ok(()), |setting_level| {
+            Err(SpecError::MissingSettingLevel {
+                at: at.clone(),
                 setting_level: *setting_level,
-            });
-        }
-        if let Some(setting_level) = each.iter().find(|level| !setting_levels.contains(level)) {
-            return Err(SpecError::UnknownSettingLevel {
-                at: (*at).clone(),
-                setting_level: *setting_level,
-            });
-        }
-        setting_levels
-            .iter()
-            .find(|level| !each.contains(level))
-            .map_or(Ok(()), |setting_level| {
-                Err(SpecError::MissingSettingLevel {
-                    at: (*at).clone(),
-                    setting_level: *setting_level,
-                })
             })
-    })
+        })
 }
 
 fn levels<T>(values: &PerSettingLevel<T>) -> Vec<SettingLevel> {

@@ -4,7 +4,9 @@ mod support;
 
 use std::num::NonZeroU32;
 
-use pachislot_domain::normalized::{AtRules, AtTable, BonusMiss, CeilingAt, ForcedCz, ModeRule};
+use pachislot_domain::normalized::{
+    AtRules, AtTable, BonusMiss, CeilingAt, ForcedCz, ModeRule, SideBonusRule, TriggerPayout,
+};
 use pachislot_domain::observation::{AtSeen, Leg, LegEnd, Path, PathStart, ToldLeg, ToldPath};
 use pachislot_domain::probability::Probability;
 use pachislot_domain::spec::{Component, Spec};
@@ -59,17 +61,30 @@ fn angel(bonus_ceiling: u32, across: Option<u32>) -> AtRules {
 /// starting play again — until the AT間天井 counted across bonuses wins
 /// whatever is left. The games played, the triggers drawn — the AT間天井's
 /// one where it brings it — and the chance the AT came on that ceiling.
-#[allow(clippy::cast_precision_loss)]
 fn played_out(
+    odds: (f64, f64, f64),
+    ceilings: (usize, usize),
+    seat: (usize, usize),
+    triggering: bool,
+) -> (f64, f64, f64) {
+    let (each, triggers, ceiled) = played_by_game(odds, ceilings, seat, triggering);
+    (each.iter().sum(), triggers, ceiled)
+}
+
+/// The same, with the chance each game from the seat is played.
+#[allow(clippy::cast_precision_loss)]
+fn played_by_game(
     (p, s, q): (f64, f64, f64),
     (bonus_ceiling, across): (usize, usize),
     (seat, since): (usize, usize),
     triggering: bool,
-) -> (f64, f64, f64) {
+) -> (Vec<f64>, f64, f64) {
     let mut alive = vec![0.0; bonus_ceiling];
     alive[since] = 1.0;
-    let (mut played, mut triggers, mut ceiled) = (0.0, 0.0, 0.0);
+    let (mut triggers, mut ceiled) = (0.0, 0.0);
+    let mut each = Vec::new();
     for game in seat + 1..=across {
+        let mut played = 0.0;
         let mut next = vec![0.0; bonus_ceiling];
         let mut again = 0.0;
         for (before, mass) in alive.iter().copied().enumerate() {
@@ -95,8 +110,9 @@ fn played_out(
         }
         next[0] += again;
         alive = next;
+        each.push(played);
     }
-    (played, triggers, ceiled)
+    (each, triggers, ceiled)
 }
 
 const ODDS: (f64, f64, f64) = (1.0 / 250.0, 0.35, 0.4);
@@ -338,4 +354,91 @@ fn a_ceiling_across_bonuses_is_an_at_ceiling_the_trigger_may_be_brought_on() {
     spec.components.reset_ceiling.remove(&id("at"));
     spec.components.ceiling_triggers.insert(id("at"));
     assert!(normalize(&spec).is_ok());
+}
+
+#[test]
+fn a_side_bonus_is_paid_on_each_game_a_seat_past_bonuses_plays_to_the_ceiling_from_the_at() {
+    let (p, s, q) = ODDS;
+    let side = 0.002;
+    let held = AtTable {
+        side_chance: Probability::new(side).expect("a chance"),
+        ..staged(p, s, q)
+    };
+    let machine = AtRules {
+        side_bonus: Some(SideBonusRule {
+            id: id("fran"),
+            ceiling: NonZeroU32::new(300),
+            payout: TriggerPayout {
+                medals: support::medals(100.0),
+                net_per_game: None,
+            },
+        }),
+        ..angel(800, Some(1_600))
+    };
+    for (since_bonus, since_at, since_side) in [(100, 1_500, 30), (300, 900, 299), (0, 0, 120)] {
+        let seat = PathStart {
+            since_side_bonus: Some(since_side),
+            ..past_a_bonus(since_bonus, since_at)
+        };
+        let hunted = hunt(seat, &machine, &held).expect("comes");
+        let (each, _, _) = played_by_game(
+            ODDS,
+            (800, 1_600),
+            (since_at as usize, since_bonus as usize),
+            false,
+        );
+        let chances = support::side_chances(side, 300, since_side, each.len());
+        let expected: f64 = each
+            .iter()
+            .zip(&chances)
+            .map(|(played, chance)| played * chance)
+            .sum::<f64>()
+            * 100.0;
+        assert!(
+            near(hunted.side_medals, expected),
+            "{since_bonus}/{since_at}/{since_side}: {} against {expected}",
+            hunted.side_medals
+        );
+    }
+    let unsaid = hunt(past_a_bonus(300, 900), &machine, &held).expect("comes");
+    assert!(near(
+        unsaid.side_medals,
+        unsaid.games * side / (1.0 - (1.0 - side).powi(300)) * 100.0
+    ));
+    let restarting = AtRules {
+        ceiling_across_bonuses: None,
+        ..machine.clone()
+    };
+    let restarted = hunt(start(0, 0, 0), &restarting, &held).expect("comes");
+    assert!(near(
+        restarted.side_medals,
+        restarted.games * side / (1.0 - (1.0 - side).powi(300)) * 100.0
+    ));
+}
+
+/// The fewest steps a call can be given and still be answered.
+fn least_steps(call: impl Fn()) -> u64 {
+    let (mut low, mut high) = (1_u64, 1_u64 << 40);
+    while low < high {
+        let middle = low + (high - low) / 2;
+        if pachislot_engine::budget::within(middle, &call).is_ok() {
+            high = middle;
+        } else {
+            low = middle + 1;
+        }
+    }
+    low
+}
+
+#[test]
+fn laying_the_stretches_where_they_begin_is_spent_on_at_what_it_costs_beside_walking_them() {
+    let (p, s, q) = ODDS;
+    let held = staged(p, s, q);
+    let across = least_steps(|| {
+        cycle(&angel(800, Some(1_600)), Odds::of(&held), &[1.0]);
+    });
+    let stretch = least_steps(|| {
+        cycle(&angel(800, None), Odds::of(&held), &[1.0]);
+    });
+    assert!(across < 15 * stretch, "{across} against {stretch}");
 }

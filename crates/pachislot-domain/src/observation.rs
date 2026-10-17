@@ -44,6 +44,10 @@ pub struct PathStart {
     /// than every ending's weighed by its share. None where it is not said,
     /// and of no account after a setting change.
     pub ending: Option<usize>,
+    /// The regular games since the last side bonus, where the machine has
+    /// one and the seat says: none where it is not said, the side bonus's
+    /// next then as likely on any game as in the long run.
+    pub since_side_bonus: Option<u32>,
 }
 
 /// So many regular games, the last of which ended as it says.
@@ -66,13 +70,17 @@ pub enum LegEnd {
 }
 
 /// What was seen of an AT, each where it was: whether it reached the
-/// 有利区間's cap, the sets it carried on to past its first, and the medals
-/// it gained.
+/// 有利区間's cap, the sets it carried on to past its first, the medals
+/// it gained, and how it ended.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct AtSeen {
     pub completed: Option<bool>,
     pub sets: Option<u32>,
     pub medals: Option<u32>,
+    /// How the AT ended, by its place among the rules' endings, where it
+    /// was said: play after it then starts from that ending's allotment
+    /// rather than every ending's weighed by its share.
+    pub ending: Option<usize>,
 }
 
 /// An AT machine's play told by its totals afterwards, as a data counter's

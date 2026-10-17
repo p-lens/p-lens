@@ -45,6 +45,7 @@ import { KindMark } from "../formulas/KindMark"
 import { HyenaHuntByRate } from "../formulas/HyenaHuntByRate"
 import { HyenaHuntRun } from "../formulas/HyenaHuntRun"
 import { SelectionReason } from "../formulas/SelectionReason"
+import { GaugeButton } from "../live/GaugeButton"
 import { useBookFavorites } from "../../live/book-favorites"
 import { EMPTY_PACHINKO_START, type PachinkoMachineChoice, type ParlorChoice, useStartBallValue, useStartForm } from "../../live/start-form"
 import { locateAddress, submitAddress } from "../../live/submission-return"
@@ -196,16 +197,17 @@ const spinPerformanceOf = (text: string): number | undefined => {
 }
 
 /**
- * 遊タイム狙い before sitting down, for a machine with a 遊タイム: from the data
- * counter as it stands and the terms' exchange rate, the spin rate sitting
+ * 遊タイム狙い before sitting down, for a machine with a 遊タイム: from the
+ * spins toward it as the seat shows them — the cabinet's own 遊 counter where
+ * it was typed, else the data counter — and the terms' exchange rate, the spin rate sitting
  * down breaks even at and what it comes to around it; then, at a spin
  * performance typed in, what it comes to there, and its sampling — whose
  * button is there throughout, and marks the rate while there is none.
  */
-function StartHyenaHunt(props: { readonly basis: Basis; readonly figures: Figures | undefined; readonly counter: string; readonly ballValue: number | undefined }): JSX.Element {
+function StartHyenaHunt(props: { readonly basis: Basis; readonly figures: Figures | undefined; readonly gauge: string; readonly ballValue: number | undefined }): JSX.Element {
   const [rate, setRate] = createSignal("")
   const unready = createNudge()
-  const initialSpins = (): number => Number(tidyTyped(props.counter) || "0")
+  const initialSpins = (): number => Number(tidyTyped(props.gauge) || "0")
   const play = createMemo((): PlayDto | undefined => {
     const spins = spinPerformanceOf(rate())
     return spins === undefined || props.ballValue === undefined ? undefined : { spinPerformance: spins, ballValue: props.ballValue }
@@ -396,6 +398,9 @@ const unwritable = (text: string): string | undefined => (isWritableText(text) ?
 /** A count as typed at the seat, none typed being none yet. */
 const countTyped = (text: string): number => Number(tidyTyped(text) || "0")
 
+/** The spins toward the 遊タイム as typed at the seat: the 遊 counter where one was typed, else the data counter. */
+const seatGaugeTyped = (counter: string, gauge: string): string => (tidyTyped(gauge) === "" ? counter : gauge)
+
 const notACount = (text: string): string | undefined => (tidyTyped(text) === "" || COUNT.test(tidyTyped(text)) ? undefined : "整数で入力してください。")
 
 /**
@@ -484,6 +489,7 @@ export function Start(props: {
     notACount(start.form().startCounter),
     notACount(start.form().pachinko.seatTotal),
     notACount(start.form().pachinko.seatJackpots),
+    hyenaHuntBasis() === undefined ? undefined : notACount(start.form().pachinko.seatGauge),
   ]
 
   /** Nudges whatever starting is waiting on, and says whether anything stops it. */
@@ -503,6 +509,7 @@ export function Start(props: {
     const kept = tokensCarriedTo(app.services.preferences.tokensInHand(), app.services.businessDay(), venue(), "pachinko")
     const said = readCarriedIn(carriedShown())
     const carriedIn = said.type === "count" ? said.count : undefined
+    const gauge = hyenaHuntBasis() === undefined || tidyTyped(form.pachinko.seatGauge) === "" ? {} : { gauge: countTyped(form.pachinko.seatGauge) }
     const draft: PlayDraft = {
       id: app.services.newPlayId(),
       date: app.services.businessDay(),
@@ -513,7 +520,7 @@ export function Start(props: {
       bonuses: listedBonuses(),
       cabinetNumber: form.cabinetNumber.trim() === "" ? undefined : form.cabinetNumber.trim(),
       startedAt,
-      log: appendCheckpoint("", { spins: 0, outlay: 0, at: startedAt, counter: { spins: countTyped(form.startCounter), total: countTyped(form.pachinko.seatTotal), jackpots: countTyped(form.pachinko.seatJackpots) }, ...(carriedIn === undefined ? {} : { held: carriedIn }) }),
+      log: appendCheckpoint("", { spins: 0, outlay: 0, at: startedAt, counter: { spins: countTyped(form.startCounter), total: countTyped(form.pachinko.seatTotal), jackpots: countTyped(form.pachinko.seatJackpots), ...gauge }, ...(carriedIn === undefined ? {} : { held: carriedIn }) }),
     }
     const started = await startPlay(app.services.drafts, draft)
     setStarting(false)
@@ -597,15 +604,28 @@ export function Start(props: {
               error={notACount(start.form().startCounter)}
               compact
             />
-            <TextField
-              label="大当り数"
-              value={start.form().pachinko.seatJackpots}
-              onChange={(seatJackpots) => start.updatePachinko({ seatJackpots })}
-              inputMode="numeric"
-              placeholder="0"
-              error={notACount(start.form().pachinko.seatJackpots)}
-              compact
-            />
+            <div class="flex min-w-0 items-start gap-1">
+              <Show when={hyenaHuntBasis() !== undefined}>
+                <GaugeButton
+                  gauge={start.form().pachinko.seatGauge}
+                  following={undefined}
+                  invalid={notACount(start.form().pachinko.seatGauge) !== undefined}
+                  placement="bottom-end"
+                  onGauge={(seatGauge) => start.updatePachinko({ seatGauge })}
+                />
+              </Show>
+              <div class="min-w-0 flex-1">
+                <TextField
+                  label="大当り数"
+                  value={start.form().pachinko.seatJackpots}
+                  onChange={(seatJackpots) => start.updatePachinko({ seatJackpots })}
+                  inputMode="numeric"
+                  placeholder="0"
+                  error={notACount(start.form().pachinko.seatJackpots)}
+                  compact
+                />
+              </div>
+            </div>
             <DetailButton label="詳細" says={carriedShown() === "" ? "詳細（開始時の持ち玉）" : `詳細（開始時の持ち玉 ${carriedShown()}玉）`} marked={carriedShown() !== ""} invalid={carriedUnread()} placement="bottom-end">
               <div class="min-w-0 flex-1">
                 <TextField
@@ -624,7 +644,7 @@ export function Start(props: {
         </div>
       </section>
       <Show when={hyenaHuntBasis()}>
-        {(basis) => <StartHyenaHunt basis={basis()} figures={selection()?.listing.formula.figures} counter={start.form().startCounter} ballValue={ballValue()} />}
+        {(basis) => <StartHyenaHunt basis={basis()} figures={selection()?.listing.formula.figures} gauge={seatGaugeTyped(start.form().startCounter, start.form().pachinko.seatGauge)} ballValue={ballValue()} />}
       </Show>
       <Show when={failure()} keyed>
         {(error) => (

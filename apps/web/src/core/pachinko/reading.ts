@@ -21,6 +21,8 @@ export interface Reading {
   readonly at: string
   /** Where the balls in hand were known inside a reading made of several folded together, oldest first; none in a reading taken as it is. */
   readonly handsBefore?: readonly ReadingHand[]
+  /** The cabinet's own 遊タイム counter as it showed with the data counter, where it was said: from here to the next jackpot, the spins toward the 遊タイム are the data counter's less the difference between them. */
+  readonly gauge?: number
 }
 
 /**
@@ -69,7 +71,7 @@ const readingFields = (ordered: readonly Checkpoint[], reading: Reading): Omit<C
   return {
     outlay: lastKnown(ordered, (checkpoint) => checkpoint.outlay) + reading.rented,
     at: reading.at,
-    counter: { spins: reading.counterSpins },
+    counter: reading.gauge === undefined ? { spins: reading.counterSpins } : { spins: reading.counterSpins, gauge: reading.gauge },
     ...eventOf(reading.jackpot),
     phase: reading.phase,
     ...(replay === 0 ? {} : { replay }),

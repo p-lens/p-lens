@@ -12,6 +12,7 @@ const FORGOTTEN_SEAT = {
   seatSinceCz: "",
   seatMisses: "",
   seatHeld: "",
+  seatSinceAtAcrossBonuses: "",
 } as const
 
 /**

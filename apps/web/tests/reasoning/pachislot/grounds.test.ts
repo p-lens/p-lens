@@ -555,7 +555,86 @@ describe("an AT machine's grounds, reasoned", () => {
     const { basis, analysis } = solved(direct)
     const proof = await proved(basis, analysis)
     expect(amiss(proof)).toEqual([["unverified_direct_cycle", "unverified"]])
-    expect(groundsLines(proof, groundsNamingOf(basis)).map((line) => plainOf(line.parts))).toContain("未確認：CZを通らない直撃ATがある機種の1周期は、計算エンジンが解いた値をそのまま使っています")
+    expect(groundsLines(proof, groundsNamingOf(basis)).map((line) => plainOf(line.parts))).toContain("未確認：CZを通らない直撃ATや直撃ボーナスがある機種の1周期は、計算エンジンが解いた値をそのまま使っています")
+  })
+
+  test("a bonus a game brings outright past the CZ is paid among the cycle's bonuses, how many the engine's and said to be unchecked", async () => {
+    const cz = czSpec as SpecDto
+    const levels = (value: number) => [1, 6].map((settingLevel) => ({ settingLevel, value }))
+    const outright = [1, 6].map((settingLevel) => ({ settingLevel, value: { type: "ratio", numerator: 1, denominatorHundredths: 100_000 } as const }))
+    const staged: SpecDto = {
+      ...cz,
+      components: { ...cz.components, payout: { ...cz.components.payout, cz: 200 }, bonusShare: { cz: levels(5_000) }, directBonus: { at: outright }, netPerGame: { at: 4 } },
+    }
+    const { basis, analysis } = solved(staged)
+    expect(analysis.settingLevels.every((figures) => (figures.at?.directBonuses ?? 0) > 0)).toBe(true)
+    const proof = await proved(basis, analysis)
+    expect(amiss(proof)).toEqual([
+      ["unverified_direct_cycle", "unverified"],
+      ["unverified_direct_bonuses", "unverified"],
+    ])
+    const lines = groundsLines(proof, groundsNamingOf(basis))
+    expect(lines.map((line) => plainOf(line.parts)).filter((line) => line.startsWith("1周期のボーナスの獲得") && line.includes("＋ 直撃ボーナス "))).toHaveLength(2)
+    const links = lines.flatMap(equalities)
+    expect(links.length).toBeGreaterThan(10)
+    expect(links.filter((each) => Math.abs(each.left - each.right) > each.spread * 1.01 + 1e-9 * Math.max(1, Math.abs(each.left)))).toEqual([])
+  })
+
+  test("a side bonus beside the trigger is paid over a cycle one over the games between two, its 合算 checked, and nothing left unchecked", async () => {
+    const cz = czSpec as SpecDto
+    const levels = (low: number, high: number) => [
+      { settingLevel: 1, value: { type: "ratio", numerator: 1, denominatorHundredths: low } as const },
+      { settingLevel: 6, value: { type: "ratio", numerator: 1, denominatorHundredths: high } as const },
+    ]
+    const side = (components: SpecDto["components"]): SpecDto => ({
+      ...cz,
+      entities: [...cz.entities, "fran"],
+      components: {
+        ...components,
+        label: { ...components.label, fran: "フランボーナス" },
+        sideBonus: ["fran"],
+        firstHit: { ...components.firstHit, fran: levels(25_000, 20_000) },
+        ceiling: { ...components.ceiling, fran: 300 },
+        payout: { ...components.payout, fran: 100 },
+        netPerGame: { ...components.netPerGame, at: 4, fran: 4 },
+      },
+    })
+    const alone = solved(side(cz.components))
+    const both = solved(side({ ...cz.components, payout: { ...cz.components.payout, cz: 120 } }))
+    const { payout: _, ...unpaid } = cz.components
+    const stated = solved(side({ ...unpaid, payout: {}, rate: { at: [{ settingLevel: 1, value: 9_800 }, { settingLevel: 6, value: 11_000 }] } }))
+    for (const { basis, analysis } of [alone, both, stated]) {
+      expect(analysis.settingLevels.every((figures) => (figures.at?.sideBonuses ?? 0) > 0)).toBe(true)
+      const proof = await proved(basis, analysis)
+      expect(amiss(proof)).toEqual([])
+      const lines = groundsLines(proof, groundsNamingOf(basis))
+      const words = lines.map((line) => plainOf(line.parts))
+      expect(words.filter((line) => line.startsWith("1周期のフランボーナスの獲得 ＝ 通常 "))).toHaveLength(2)
+      expect(words.filter((line) => line.startsWith("検算：フランボーナスの平均間隔から ") && line.endsWith("と一致"))).toHaveLength(2)
+      const links = lines.flatMap(equalities)
+      expect(links.length).toBeGreaterThan(10)
+      expect(links.filter((each) => Math.abs(each.left - each.right) > each.spread * 1.01 + 1e-9 * Math.max(1, Math.abs(each.left)))).toEqual([])
+    }
+    const words = groundsLines(await proved(both.basis, both.analysis), groundsNamingOf(both.basis)).map((line) => plainOf(line.parts))
+    expect(words.filter((line) => line.startsWith("1周期のボーナスの獲得 ＝ CZ ") && line.includes(" ＋ フランボーナス "))).toHaveLength(2)
+  })
+
+  test("a CZ given its chance below its ceilings is played out from it as it is, checked against the sheet, cut short or not", async () => {
+    const cz = czSpec as SpecDto
+    const { firstHit, ...rest } = cz.components
+    const below = (components: SpecDto["components"]): SpecDto => ({ ...cz, components: { ...components, chance: { cz: firstHit?.["cz"] ?? [] }, netPerGame: { at: 4 } } })
+    const { at: _, ...czCeilings } = cz.components.ceiling ?? {}
+    for (const spec of [below(rest), below({ ...rest, ceiling: czCeilings })]) {
+      const { basis, analysis } = solved(spec)
+      const proof = await proved(basis, analysis)
+      expect(amiss(proof)).toEqual([])
+      const lines = groundsLines(proof, groundsNamingOf(basis))
+      const words = lines.map((line) => plainOf(line.parts))
+      expect(words).toContain("検算：計算に使った天井を除いたCZ確率 1/150、解析値の 1/150 のまま")
+      expect(words.some((line) => line.startsWith("検算：CZ ") && line.includes("解析値の初当たり"))).toBe(false)
+      const links = lines.flatMap(equalities)
+      expect(links.filter((each) => Math.abs(each.left - each.right) > each.spread * 1.01 + 1e-9 * Math.max(1, Math.abs(each.left)))).toEqual([])
+    }
   })
 
   test("a machine of modes names each by its label", async () => {
@@ -575,6 +654,47 @@ describe("an AT machine's grounds, reasoned", () => {
     const plainly = { ...ended.analysis.normalized, atRules: { ...ended.basis.normalized.atRules!, endings: [] } }
     const unmixed = await proved({ ...ended.basis, spec: { ...ended.basis.spec, components: { ...ended.basis.spec.components, ending: {} } }, normalized: plainly }, ended.analysis)
     expect(amiss(unmixed).length).toBeGreaterThan(0)
+  })
+
+  test("a bonus the AT間天井 brings is paid its own medals, beside the rest at theirs", async () => {
+    const cz = czSpec as SpecDto
+    const paying = (ceilingPayout: number | undefined) =>
+      solved({
+        ...cz,
+        components: {
+          ...cz.components,
+          bonus: ["cz"],
+          payout: { ...cz.components.payout, cz: 85 },
+          netPerGame: { at: 4 },
+          ceilingTriggers: ["at"],
+          ...(ceilingPayout === undefined ? {} : { ceilingPayout: { at: ceilingPayout } }),
+        },
+      })
+    const own = paying(100)
+    const proof = await proved(own.basis, own.analysis)
+    expect(amiss(proof)).toEqual([])
+    const lines = groundsLines(proof, groundsNamingOf(own.basis)).map((line) => plainOf(line.parts))
+    expect(lines).toContain("1周期のCZの獲得 ＝（CZ 2.521回 − AT間天井 0.038回）× 85枚 ＋ AT間天井 0.038回 × 100枚 ＝ 214.9枚（CZ中のゲーム数は数えない）")
+    const plainly = paying(undefined)
+    expect(amiss(await proved(plainly.basis, plainly.analysis))).toEqual([])
+    expect(own.analysis.settingLevels[0]?.payoutRate).not.toBe(plainly.analysis.settingLevels[0]?.payoutRate)
+  })
+
+  test("a machine allotted after every ending with no allotment after an AT plays its cycle out from the endings' mix", async () => {
+    const spec = endedSpec()
+    const levels = (low: number, high: number) => [
+      { settingLevel: 1, value: low },
+      { settingLevel: 6, value: high },
+    ]
+    const { allotment: _, resetAllotment: __, ...components } = spec.components
+    const full = solved({
+      ...spec,
+      components: { ...components, endingAllotment: { heaven: { through: levels(2_000, 2_000), rest: levels(3_000, 5_000) }, normal: { through: levels(8_000, 8_000), rest: levels(7_000, 5_000) } } },
+    })
+    const proof = await proved(full.basis, full.analysis)
+    expect(amiss(proof)).toEqual([])
+    const lines = groundsLines(proof, groundsNamingOf(full.basis)).map((line) => plainOf(line.parts))
+    expect(lines).toContain("天国のAT後の振り分け ＝ 駆け抜け 30% × 20% ＋ それ以外 70% × 30% ＝ 27%（ATの終わり方の割合で重み付け）")
   })
 
   test("a ceiling counted in another unit is that many over the unit a game comes to, said to be an average", async () => {

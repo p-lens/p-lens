@@ -130,7 +130,9 @@ fn rules(cap: Option<f64>, window: Option<u32>, reset_on_cap: bool) -> AtRules {
         forced_cz: ForcedCz::Drawn,
         ceiling_at: CeilingAt::Outright,
         ceiling_across_bonuses: None,
+        ceiling_payout: None,
         endings: Vec::new(),
+        side_bonus: None,
     }
 }
 
@@ -139,6 +141,7 @@ fn table(payout: PayoutLaw) -> AtTable {
         chance: chance(0.01),
         success: chance(1.0),
         direct: chance(0.0),
+        direct_bonus: chance(0.0),
         paid: chance(1.0),
         bonus_share: chance(1.0),
         gates: Vec::new(),
@@ -146,6 +149,7 @@ fn table(payout: PayoutLaw) -> AtTable {
         redraws: Vec::new(),
         ceiling_redraws: Vec::new(),
         own_chances: Vec::new(),
+        side_chance: chance(0.0),
         allotments: Allotments {
             after_at: vec![1.0],
             after_reset: vec![1.0],
@@ -164,6 +168,7 @@ fn start(held: Option<u32>, since_at: u32) -> PathStart {
         held,
         since_at_across_bonuses: None,
         ending: None,
+        since_side_bonus: None,
     }
 }
 

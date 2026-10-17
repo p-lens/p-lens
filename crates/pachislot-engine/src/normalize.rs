@@ -63,7 +63,8 @@ fn outcomes(element: &Element) -> Vec<Outcome<'_>> {
         | Element::Mode(_)
         | Element::Cz(_)
         | Element::Watch(_)
-        | Element::Ending(_) => Vec::new(),
+        | Element::Ending(_)
+        | Element::SideBonus(_) => Vec::new(),
     }
 }
 

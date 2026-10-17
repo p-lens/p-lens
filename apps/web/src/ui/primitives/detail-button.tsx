@@ -17,8 +17,10 @@ import { SlidersIcon } from "./icons"
  * browser itself.
  */
 export function DetailButton(props: {
-  /** The name over the button, as a field's is over it. */
-  readonly label: string
+  /** The name over the button, as a field's is over it. Left out, the button's face is its name, and the room over it is kept so that it stands level with the fields beside it. */
+  readonly label?: string
+  /** What the button shows: the sliders where left out. */
+  readonly face?: JSX.Element
   /** What the button holds and, where something is set, what: for whoever cannot see the mark. */
   readonly says: string
   readonly marked: boolean
@@ -46,7 +48,7 @@ export function DetailButton(props: {
     <PopoverPrimitive.Root open={open()} onOpenChange={setOpen} gutter={6} placement={props.placement}>
       <div class="flex shrink-0 flex-col gap-1.5">
         <span aria-hidden="true" class="text-xs font-bold tracking-wide text-text-secondary">
-          {props.label}
+          {props.label ?? "\u00a0"}
         </span>
         <PopoverPrimitive.Trigger
           type="button"
@@ -63,7 +65,7 @@ export function DetailButton(props: {
             "animate-[glimmer_2.4s_ease-in-out]": props.glimmering === true && props.beckoning !== true && !props.invalid,
           }}
         >
-          <SlidersIcon />
+          {props.face ?? <SlidersIcon />}
         </PopoverPrimitive.Trigger>
       </div>
       <PopoverPrimitive.Portal>

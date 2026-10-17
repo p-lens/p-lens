@@ -266,3 +266,118 @@ fn the_rate_from_the_spec_pays_a_bonus_the_at_ceiling_brings_in_full() {
             .all(|figures| figures.at.is_some_and(|at| at.ceiling_triggers == 0.0))
     );
 }
+
+/// What the bonus the AT間天井 brings pays, where it is one of its own.
+const CEILING_BONUS: f64 = 130.0;
+
+/// The paying machine whose AT間天井 brings a bonus of `CEILING_BONUS`.
+fn paying_at_ceiling(ceiling_at: CeilingAt) -> AtRules {
+    AtRules {
+        ceiling_payout: Some(medals(CEILING_BONUS)),
+        ..paying(ceiling_at)
+    }
+}
+
+#[test]
+fn a_bonus_the_at_ceiling_brings_pays_its_own_medals_where_the_at_says_them() {
+    let (brought, left, games) = closed();
+    for chain in [false, true] {
+        let seat = AtTable {
+            successes: if chain { own() } else { Vec::new() },
+            ..table(P, Q, vec![1.0], vec![1.0])
+        };
+        let own = hunt(
+            start(0, 0, 0),
+            &paying_at_ceiling(CeilingAt::Triggered),
+            &seat,
+        )
+        .expect("comes");
+        assert!(near(own.games, games));
+        assert!(near(
+            own.trigger_medals,
+            brought * BONUS + left * CEILING_BONUS
+        ));
+        let due = hunt(
+            start(200, AT_CEILING - 1, 0),
+            &paying_at_ceiling(CeilingAt::Triggered),
+            &seat,
+        )
+        .expect("comes");
+        assert!(near(due.trigger_medals, CEILING_BONUS));
+        let given_as_ever = AtRules {
+            ceiling_payout: Some(medals(BONUS)),
+            ..paying(CeilingAt::Triggered)
+        };
+        assert_eq!(
+            hunt(start(100, 100, 0), &given_as_ever, &seat),
+            hunt(start(100, 100, 0), &paying(CeilingAt::Triggered), &seat)
+        );
+    }
+}
+
+#[test]
+fn the_rate_from_the_spec_pays_the_at_ceiling_s_bonus_its_own_medals() {
+    let mut own = staged(true);
+    own.components
+        .ceiling_payout
+        .insert(id("at"), medals(CEILING_BONUS));
+    let normalized = normalize(&own).expect("normalises");
+    assert_eq!(
+        normalized
+            .at_rules
+            .as_ref()
+            .and_then(|rules| rules.ceiling_payout),
+        Some(medals(CEILING_BONUS))
+    );
+    let analysis = analyze(&normalized, &PayoutBasis::FromSpec).expect("a rate");
+    let rules = normalized.at_rules.as_ref().expect("an AT machine");
+    for (figures, table) in analysis.setting_levels.iter().zip(&normalized.tables) {
+        let at = figures.at.expect("an AT's figures");
+        let games = 1.0 / figures.bonuses[1].chance;
+        let triggers = figures.bonuses[0].chance * games;
+        let paid = table.at.as_ref().expect("an AT table").paid.value();
+        let medals =
+            (triggers - at.ceiling_triggers) * paid * BONUS + at.ceiling_triggers * CEILING_BONUS;
+        let staked = 3.0 * (games + at.gain / 4.0);
+        let rate = (staked - rules.base.loss_per_game() * games + at.gain + medals) / staked;
+        assert!(
+            near(figures.payout_rate, rate),
+            "{} against {rate}",
+            figures.payout_rate
+        );
+    }
+    let mut outright = staged(false);
+    outright
+        .components
+        .ceiling_payout
+        .insert(id("at"), medals(CEILING_BONUS));
+    assert_eq!(
+        normalize(&outright).map(|_| ()),
+        Err(SpecError::CeilingPayoutWithoutCeilingTriggers { entity: id("at") })
+    );
+}
+
+#[test]
+fn the_at_ceiling_s_own_medals_need_a_trigger_it_brings_that_pays() {
+    let mut unpaid = ceiled_spec(true);
+    unpaid
+        .components
+        .ceiling_payout
+        .insert(id("at"), medals(CEILING_BONUS));
+    assert_eq!(
+        normalize(&unpaid).map(|_| ()),
+        Err(SpecError::MissingComponent {
+            entity: id("cz"),
+            component: Component::Payout,
+        })
+    );
+    let mut direct = at_spec();
+    direct
+        .components
+        .ceiling_payout
+        .insert(id("at"), medals(CEILING_BONUS));
+    assert_eq!(
+        normalize(&direct).map(|_| ()),
+        Err(SpecError::CeilingPayoutWithoutCeilingTriggers { entity: id("at") })
+    );
+}

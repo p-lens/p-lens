@@ -7,7 +7,6 @@ import { parseIsoDate } from "../../../core/calendar/calendar"
 import { latestValuedOn, totalAcross } from "../../../core/report/holdings"
 import { untilTerm } from "../../../hledger/query/terms"
 import { useApp } from "../../context"
-import { Button } from "../../primitives/button"
 import { EmptyState, Loaded } from "../../primitives/states"
 import { TextField } from "../../primitives/text-field"
 import { useMoves } from "../../navigation/moves"
@@ -38,7 +37,9 @@ export function ConsolidatedHoldingsView(props: { readonly place: Place; readonl
     (source) => loadConsolidatedHoldings(app.services.session, source.bookIds, source.query),
   )
   const read = createMemo(() => ((found) => (found?.ok === true ? readOf(found.value) : []))(holdings()))
+  /** A day chosen to value the savings on, and the field emptied to value them as they stand now. */
   const chooseDay = (text: string): void => {
+    if (text.trim() === "") return void moves.go(props.place)
     const day = parseIsoDate(text)
     if (day.ok) moves.go(props.place, untilTerm(day.value))
   }
@@ -50,11 +51,6 @@ export function ConsolidatedHoldingsView(props: { readonly place: Place; readonl
             <div class="w-[8.5rem]">
               <TextField label="評価日" type="date" value={latestValuedOn(read()) ?? ""} onChange={chooseDay} />
             </div>
-            <Show when={props.query !== ""}>
-              <Button variant="secondary" onClick={() => moves.go(props.place)}>
-                最新に戻す
-              </Button>
-            </Show>
             <ConsolidatedBooks bookIds={props.bookIds} unread={(id) => unreadIn(holdings(), id)} onChosen={(bookIds) => moves.go({ kind: "consolidated-holdings", bookIds }, props.query)} />
           </div>
           <Loaded outcome={holdings()}>

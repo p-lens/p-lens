@@ -372,11 +372,9 @@ and two devices cannot both write it). hledger works it out: the bindings'
 at `--value=then`, account by account, taken one from the other with
 hledger's own amounts (`lessPosted`) — hledger's `--gain` sets value
 against a posting's cost, and savings are posted with none. `loadOtherGains`
-asks it of a period's savings; `revaluationOf` reads its total and its rows
-by parlor, a parlor's balls and medals together. On screen it is 評価損益,
-a line of その他損益 (`OtherGains`) under a breakdown (集計), a book's or
-several books', parlor by parlor where the tallies are grouped by parlor,
-and never part of 収支. その他損益 lists beside it 失効損, which 収支 does
+asks it of a period's savings; `revaluationOf` reads its total. On screen
+it is 評価損益, a line of その他損益 (`OtherGains`) under 総合 (集計), a
+book's or several books', and never part of 収支. その他損益 lists beside it 失効損, which 収支 does
 hold, and is never summed, each line saying which it is. A rate seldom
 changes and savings seldom lapse, so その他損益 is there only where there
 is any. `tests/hledger/revaluation.test.ts` holds it
@@ -479,7 +477,9 @@ bonus by its entity in the formula's spec) and a `tally` of what was counted
 by hand — small wins, replays and bonuses part by part — running totals from
 the first line that carries one. A tap on a counting tile is a line of its
 own at the games last known; the next counter reading says how many games the
-counting covered. Pachinko logs read as before.
+counting covered. Pachinko logs read as before, but that a pachinko line's
+counter may carry `counter.gauge`: what the cabinet's own 遊タイム counter
+(遊カウンター) showed beside the data counter, where it was said.
 
 ### Plays followed live
 
@@ -510,6 +510,25 @@ or the last jackpot, where the counter starts over (`core/play-log/live.ts`).
 A reading below what the counter should show means a jackpot went unrecorded;
 the person can add it, as an `approximate` jackpot at the last known point. A
 counter jackpot count above the log's is pointed out.
+
+On a machine with a 遊タイム, the cabinet's own 遊タイム counter
+(遊カウンター) is said where it shows otherwise than the data counter: a
+遊タイム that ran out without a jackpot starts it over while the data
+counter carries on. At the start, and as the seat is set right, it is
+behind a small [遊] button after the counter field; while the play goes
+on it is not asked for in a reading, being followed on its own, but shown
+in the 遊タイム狙い beside its simulation, and typed there only where the
+cabinet has come to show otherwise — kept as a line at the data counter
+where it stands that says nothing else (`gaugeSaid`). Left empty, it is
+the data counter. It is kept on the line where it was said
+(`counter.gauge`), and the data counter's lead over it holds from there
+until the next jackpot, written or found missing, when both start over
+(`Before.gaugeOffset`, `gaugeNowOf`); merged readings carry it to the
+merged line's counter. The 遊タイム狙い of the start and of a play in
+progress is worked out from the spins toward the 遊タイム so found, never
+from the data counter where the two differ; the engine is asked nothing
+new, its initial spins being only ever the distance to the 遊タイム. The
+button is marked while a count is typed or one said before is followed.
 
 Live figures stop at spin performance. `performanceAcross` takes any two points,
 so performance between points the person picks can be offered later.
@@ -904,7 +923,8 @@ walking down the trail and back keeps the work in hand.
   change that. The simulator carries the gauge and the spent 遊タイム from
   cycle to cycle the same way, and is tested against the exact figure on a
   machine where both happen often.
-- **遊タイム狙い is sitting down at initial spins.** From the counter as it stands, play
+- **遊タイム狙い is sitting down at initial spins.** From the counter as it stands — the
+  cabinet's 遊 counter where it shows otherwise than the data counter — play
   until a first jackpot — or the relief drive — and its combo are over, and leave.
   A counter past the relief drive's count is a cabinet whose relief drive has come
   and gone: it comes once between jackpots, so the sitting waits for a jackpot alone.
@@ -1085,7 +1105,9 @@ users ─┬─ machines (game_kind ∈ pachinko | pachislot) ── machine_key
   counts of misses takes far more to solve. So the API asks its engine
   calls for so many steps of work (`steps`; the engine's `budget` counts
   the steps its game-by-game walks take, and answers `too-heavy` past
-  them), never the browser's, which solve as far as they need. Answered
+  them — a step about as much time whatever the shape, a chain's game, a
+  mode's own walk and a row of multiply-adds each spent at what it costs,
+  timed at forty to sixty-five thousand steps a millisecond natively), never the browser's, which solve as far as they need. Answered
   too heavy, the app sends the formula again with the normalised spec its
   own device made (`basis.normalized`), showing for a few seconds that it
   is doing so, and the API stores that one, unchecked — but only when its
@@ -1336,13 +1358,32 @@ only the primitives, the core and the application.
   a mode only a setting change enters holds the shorter one, and the CZ
   takes no `resetSinceAtCeiling` (`reset-since-at-ceiling-beside-modes`).
   Each mode's is held to its own AT間天井, and `ceilingWins` needs one,
-  the CZ's or a mode's.
+  the CZ's or a mode's. An AT such a CZ wins where it certainly succeeds
+  — at its bonus's share, where its success brings one — is won by the
+  ceiling, in the hunt's `by_ceiling` as an AT間天井's or a スルー天井's is.
   An AT a CZ brings may also be won outright (`direct`, a chance a regular
   game below the ceilings, under every setting level), drawn before the
   CZ: a cycle is the CZ's walk with each game reached only where none
   before it won outright — in closed form where no AT間天井 cuts it
   short — the CZ's 合算 still what is published, and the AT's 初当たり
   coming out of both. The grounds take that cycle from the engine too.
+  Where the CZ's success brings a bonus, a game may bring that bonus
+  outright too (`directBonus`, on the AT: a chance a regular game below
+  the ceilings, under every setting; `direct-bonus-without-bonus-share`
+  where no CZ brings a bonus) — drawn after the AT outright and before
+  the CZ. It wins the AT at the bonus's share, so the table's `direct` is
+  both together, `1 − (1 − direct)(1 − b·share)`, and its `directBonus`
+  the bonus's chance of what the AT outright left; every walk, cycle and
+  told leg takes the AT from there unchanged. Each such bonus pays the
+  CZ's medals over its games where they are counted, the AT won or not:
+  on every game that draws outright — all but an AT間天井's, a cycle's
+  `games − on_ceiling` — at that chance, in the walk, the hunt and the
+  機械割 (`AtFigure::direct_bonuses`). One that misses the AT leaves play
+  where it stood: no CZ missed, nothing started again, the game's CZ still
+  drawn as on any game. That is an approximation for a machine where such
+  a bonus starts its counts again; the CZ's 合算 never counts these
+  bonuses, and the chance read back from it absorbs the games they take.
+  The grounds take how many a cycle brings from the engine and say so.
   Where the ceilings count the screen's games, `lcdRate` says how
   many the screen counts for each regular game, and the trigger's ceilings
   are taken that much sooner — on average, which the screen's additions are;
@@ -1405,7 +1446,14 @@ only the primitives, the core and the application.
   and the chance comes out lower than it would where the ceiling's
   triggers were left out; and it pays the trigger's medals in full — a CZ
   on it certainly succeeds into its bonus, which certainly wins — in the
-  cycle's 機械割, the walk, the hunt and the chain alike. The AT on it is
+  cycle's 機械割, the walk, the hunt and the chain alike. Where the trigger
+  it brings is a bonus of its own — BIRDIE WING's BB at its ceiling, about
+  100 medals beside the 85 a trigger gains on average — the AT says what
+  that one pays (`ceilingPayout`, in the rules `atRules.ceilingPayout`),
+  its games counted at the trigger's 純増: only beside `ceilingTriggers`
+  (`ceiling-payout-without-ceiling-triggers`) and a trigger that pays, and
+  where it is left out the ceiling's trigger pays the trigger's medals as
+  before. The grounds pay it so too. The AT on it is
   still the AT間天井's for the hunt's `by_ceiling` and a told history's
   legs. Only an AT a CZ brings may say so
   (`ceiling-triggers-without-cz`), and only beside an AT間天井. The grounds
@@ -1489,8 +1537,11 @@ only the primitives, the core and the application.
   totals has them as its games already, and a seat says them
   (`PathStart::since_at_across_bonuses`, from the last AT; where left out,
   no bonus came since and they are the games since the AT); the live play
-  carries them across each bonus, and its ceilings show the sooner. The
-  grounds take such a machine's cycle from the engine, as any that starts
+  asks for them at the seat (「AT後の通算ゲーム数」 beside 「AT間のゲーム数」,
+  shown only for such a machine, empty being the same as the games since
+  the last bonus) and writes them on its first line
+  (`counter.sinceAtAcrossBonuses`), carries them across each bonus, and its
+  ceilings show the sooner. The grounds take such a machine's cycle from the engine, as any that starts
   again.
 - **How an AT ended may allot the modes.** Many machines allot their
   modes after an AT by how it ended — スマスロパリピ孔明's 428G after an AT
@@ -1502,7 +1553,13 @@ only the primitives, the core and the application.
   play enters it after an AT that ended a given way (`endingAllotment`, by
   the ending); an ending a mode says nothing of takes its `allotment`, so
   each ending's allotment over the modes must still be the whole
-  (`ending-allotment-not-whole`). Endings belong to a machine of modes of
+  (`ending-allotment-not-whole`). Where every mode is allotted after every
+  ending, `allotment` says nothing they do not, and may be left out — on
+  every mode together, `missing-component` otherwise — the endings' mix
+  then standing for it, after a setting change too where no
+  `resetAllotment` says otherwise; given, each mode's must be that mix to
+  within a basis point (`allotment-against-endings`), and the editor asks
+  for it only where some mode leaves an ending to it. Endings belong to a machine of modes of
   its own (`ending-without-modes`), an allotment after one the machine
   lacks is refused (`ending-allotment-to-unknown`), and so are endings no
   mode is allotted otherwise after (`endings-without-allotment`): they
@@ -1518,9 +1575,16 @@ only the primitives, the core and the application.
   mode it was won from, which the sheets do not say otherwise. A seat may
   say how the last AT ended (`PathStart::ending`, by its place among the
   rules' endings; at the boundary the ending's id, `unknown-ending` where
-  the machine lacks it): play is then weighed from that ending's
+  the machine has endings and not that one, let go of where it has none):
+  play is then weighed from that ending's
   allotment, in the walk and the chain alike, and a setting change since
-  leaves it of no account. The editor types the endings on the AT — 「ATの
+  leaves it of no account. A walked path may say how each AT it saw ended
+  (`AtSeen::ending`, the leg's `at.ending` at the boundary, checked as the
+  seat's is): the games after it then start from that ending's allotment
+  — mixed with the setting change's for the share that reached the cap,
+  where the machine says so — and where it is not said they start from the
+  mix exactly as before. A bonus that starts play again starts from the
+  mix whatever the AT before it ended as. The editor types the endings on the AT — 「ATの
   終わり方」, a name and a share per setting — and each mode's allotment
   after each by the ending's name; the hunt table offers 「前のAT」, 指定なし
   being the mix, and says which ending its values assume. The grounds
@@ -1540,6 +1604,62 @@ only the primitives, the core and the application.
   the bonus at the CZ's success, as any other does. Figures nobody
   publishes may be guessed by the person typing them in; the share left
   empty in the editor is every time.
+- **A side bonus stands beside the trigger.** Some machines draw a bonus
+  of their own beside the AT's trigger — 転生したら剣でした's フランボーナス
+  — with its own ceiling in regular games since the last of it, which no
+  AT starts again. It is an entity marked `sideBonus`, with its `chance`
+  below that `ceiling` or its `firstHit` as published, the ceiling
+  included (read back to the chance below it by halving:
+  `first-hit-beyond-ceiling` where no chance can make it), its `payout`
+  and, where its games are counted, its `netPerGame`; one at the most
+  (`side-bonus-not-alone`), and only beside an AT
+  (`side-bonus-without-at`). It wins nothing, and nothing of the AT
+  machine's play turns on it, nor it on that play — its draw is taken as
+  independent of the CZ's on the same game, the CZ's chance read back
+  from its 合算 absorbing any overlap — so what it comes to is worked
+  apart and added in, exactly: over a cycle, its bonuses are the cycle's
+  regular games over the games between two of it (`(1 − (1 − p)^C) / p`),
+  the long run a 機械割 is, which pay its medals and take its games in
+  the 機械割 and the gain a stated 機械割 leaves the AT
+  (`atRules.sideBonus`, each table's `sideChance`,
+  `AtFigure::side_bonuses`). From a seat, each game brings it at the
+  chance the games since the last of it make (`PathStart::since_side_bonus`,
+  the hunt table's 「…後のG数」), played on game by game as a renewal; and
+  where they are not said, at the long run's chance. The walk pays it over
+  every game it walks, and the hunt over every game it is still played —
+  exactly where play runs from the seat to the AT, or to an AT間天井
+  counted across bonuses; where a bonus that misses the AT starts play
+  again with no such ceiling, the stretches after a start again are paid at
+  the long run's chance, where they fall from the seat not being kept: an
+  approximation, a few medals in five hundred on a made-up machine. A play
+  does not tell when the side bonus came, so a walked path never learns
+  its phase. The grounds pay it closed form, check the 合算 the engine
+  read back where the sheet publishes one, and leave nothing of it
+  unchecked.
+- **A seat the machine could not stand at is refused.** A seat is read
+  against its machine before anything is walked from it — each of the
+  hunt's seats, a path's start (`pachislot_engine::seat::seated`) — and
+  refused by what makes it impossible: in every mode its allotment reaches
+  under some setting, at or past the game a ceiling counted from the AT,
+  or from the last bonus that started play again, forces a CZ that
+  certainly succeeds (`seat-past-sure-cz`, by that game: the CZ would have
+  ended the count), or past such a game with no trigger since before it
+  where the CZ is drawn as any other (`seat-past-forced-cz`: it would have
+  come; past it with one since, it came and missed, and only the odds and
+  the AT間天井 are left); fewer games since the AT itself than since the
+  last bonus (`seat-across-bonuses-below-since-at`); as many games since
+  the side bonus as its ceiling or more (`seat-past-side-bonus-ceiling`).
+  Where only some modes are past such a CZ, they are ruled out and the
+  others weighed. A field the machine has no use for is let go of,
+  whatever it says: games across bonuses where no AT間天井 counts across
+  them, games since a side bonus it lacks or that has no ceiling, and an
+  ending on a machine that allots its modes alike after every AT. The hunt
+  table offers no seat at or past a CZ that certainly succeeds, and holds
+  the games since the side bonus below its ceiling; the seat form refuses
+  games since the AT itself below those since the last bonus, asks for
+  them only where the machine counts across bonuses, and a first line
+  written before that is read with them raised to the games since the
+  last bonus, as the engine once read them.
 - Normalising gives `NormalizedSpec.atRules` — the ベース, the AT and its
   payout, the trigger (the CZ, or none where the AT is won directly), the
   modes with the trigger's ceiling in regular games, the AT間天井 and the
@@ -1551,6 +1671,17 @@ only the primitives, the core and the application.
   out exactly: in closed form without an AT間天井, and with one by
   convolving the games between triggers, each alive while every one before
   it missed. The AT's 初当たり is that cycle's, never typed in beside a CZ.
+  Where a sheet gives the trigger's chance below its ceilings rather than
+  its 合算 — Lタクトオーパス デスティニー's CZ at 1/333.8 a regular game —
+  the CZ, or the AT won directly, has it as `chance` in place of
+  `firstHit`, one of the two (`conflicting-components` otherwise), and the
+  editor's 「天井を除いた確率」 writes it so. It is taken as it is, nothing
+  read back, and the 合算 is the cycle's, worked out as any figure is; a
+  figure too rare to be a 合算 under its ceiling, refused as
+  `first-hit-beyond-ceiling` when given as one, is a fine chance below it.
+  A side bonus is given either way too. With `firstHit`, nothing changes.
+  The grounds check that the chance the engine played is the sheet's and
+  play the cycle out from it.
 - The modes are never seen, so a play is walked game by game from where it
   stood at the seat (`Path`: the games since the last trigger and AT, the
   CZs missed, a setting change), each leg ending in nothing, a CZ missed or
@@ -1649,7 +1780,14 @@ only the primitives, the core and the application.
   carrying on held (`counter.held`). An AT's end is an `at-ended` event on
   the games it was won on — completed, its sets, its medals, each optional —
   asked for once an AT is won on a machine where it tells the engine
-  anything. `core/pachislot/path` reads the log into the path the engine
+  anything. On a machine whose modes are allotted by how an AT ended, that
+  form asks 「ATの終わり方」 — each ending by its name, or わからない — and
+  keeps the ending's id on the event (`ending`); the timeline names it, the
+  path carries it onto the AT's leg, and the ceilings and a hunt from where
+  play stands reach only the modes that ending allots. Left unsaid, the
+  line is as before. Where the AT間天井 counts across bonuses, the first
+  line may give the games since the AT itself
+  (`counter.sinceAtAcrossBonuses`). `core/pachislot/path` reads the log into the path the engine
   walks, how far each ceiling is, and what is left of a 有利区間's window and
   headroom.
 
@@ -2591,6 +2729,7 @@ is not written out here a second time.
 | 外れる確率 | risk |
 | 遊タイム | relief drive (`reliefDrive`): what the relief gauge brings once it holds its `gauge` of spins |
 | 遊タイムまでの回転数 | relief gauge (`ReliefGauge`, `fills_gauge`) |
+| 遊カウンター | the relief gauge as the cabinet shows it (`counter.gauge`, `gaugeNowOf`) |
 | ST | special time (`specialTime`) |
 | 時短 | rapid mode (`rapid`): each spin is quick, at the regular game's chance |
 | 保留 / 残保留 | queue / leftover queue (`leftoverQueue`, its `draws`); never "hold" |

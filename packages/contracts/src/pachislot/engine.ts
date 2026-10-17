@@ -61,7 +61,7 @@ export interface OtherNetDto {
 
 export interface ComponentsDto {
   readonly label?: Readonly<Record<string, string>>
-  /** How often a regular game comes up with it, under each setting. */
+  /** How often a regular game comes up with it, under each setting. On a CZ, an AT won directly or a side bonus, in place of its `firstHit`: its chance a regular game below its ceilings, taken as it is, the 合算 then worked out. */
   readonly chance?: Readonly<Record<string, readonly BySettingLevelDto<ProbabilityDto>[]>>
   /** Medals a small win pays, or a bonus gains over its own games — a CZ that is a bonus too, each time it comes; a bonus needs none when the rate is measured. */
   readonly payout?: Readonly<Record<string, number>>
@@ -81,9 +81,13 @@ export interface ComponentsDto {
   readonly ceilingWins?: readonly string[]
   /** On an AT a CZ brings: its AT間天井 — after an AT or a setting change, in games or in the unit, a mode's own included — brings the trigger, which certainly wins it, rather than the AT outright: counted in the published 合算 and paying the trigger's medals as any other. */
   readonly ceilingTriggers?: readonly string[]
+  /** On an AT whose AT間天井 brings the trigger (`ceilingTriggers`), a bonus that pays: what the bonus brought there pays, where it is one of its own rather than the trigger's average — BIRDIE WING's BB at its ceiling. Its games are counted at the trigger's 純増. */
+  readonly ceilingPayout?: Readonly<Record<string, number>>
+  /** A side bonus on an AT machine — a フランボーナス — drawn beside its trigger at its own chance a regular game: its `chance` below its own `ceiling`, or its `firstHit` as published, that ceiling included. The ceiling counts regular games from the last of it, and no AT starts it again. It pays its `payout`, over games of its own where its `netPerGame` is given, and wins nothing. One at the most. */
+  readonly sideBonus?: readonly string[]
   /** On an AT a CZ brings, where a bonus that misses the AT starts play again (`restart`): an AT間天井 in regular games counted from the last AT across those bonuses, which none of them starts again — 1600G from the AT beside an 800G ceiling counted from each bonus. Whichever AT間天井 comes first wins it. */
   readonly ceilingAcrossBonuses?: Readonly<Record<string, number>>
-  /** 初当たり: how often an AT — or the CZ that brings it — comes up, ceilings included, as analysis sheets publish it, under each setting. */
+  /** 初当たり: how often an AT — or the CZ that brings it, or a side bonus — comes up, ceilings included, as analysis sheets publish it, under each setting; read back to its chance below the ceilings. */
   readonly firstHit?: Readonly<Record<string, readonly BySettingLevelDto<ProbabilityDto>[]>>
   /** A CZ's chance of winning the AT, in hundredths of a percent, under each setting. */
   readonly success?: Readonly<Record<string, readonly BySettingLevelDto<number>[]>>
@@ -113,7 +117,7 @@ export interface ComponentsDto {
   readonly resetOnCap?: readonly string[]
   /** A mode: a hidden state between ATs with a ceiling of its own — 天国, 通常A — inferred, never seen. */
   readonly mode?: readonly string[]
-  /** 振り分け: how often play enters a mode after an AT, in hundredths of a percent, under each setting. */
+  /** 振り分け: how often play enters a mode after an AT, in hundredths of a percent, under each setting; on every mode, or — where every mode is allotted after every ending — on none, the endings' mix standing for it. */
   readonly allotment?: Readonly<Record<string, readonly BySettingLevelDto<number>[]>>
   /** How often play enters a mode after a setting change, where that differs; every mode has one, or none does. */
   readonly resetAllotment?: Readonly<Record<string, readonly BySettingLevelDto<number>[]>>
@@ -129,6 +133,8 @@ export interface ComponentsDto {
   readonly trials?: Readonly<Record<string, number>>
   /** On an AT a CZ brings: how often a regular game wins it outright, before the CZ is drawn, below the ceilings, under each setting. */
   readonly direct?: Readonly<Record<string, readonly BySettingLevelDto<ProbabilityDto>[]>>
+  /** On an AT a CZ brings, whose success brings a bonus: how often a regular game brings that bonus outright, past the CZ, below the ceilings, under each setting — drawn after the AT outright, before the CZ. It pays the CZ's `payout` and wins the AT at its `bonusShare`; one that misses leaves play where it stood. */
+  readonly directBonus?: Readonly<Record<string, readonly BySettingLevelDto<ProbabilityDto>[]>>
   /** On a CZ: the regular game since the last AT on which it comes at the latest, once — a bonus's ceiling that a bonus missing the AT does not start again. Needs an AT間天井 beyond it. On a mode, the same for play in it, in place of the CZ's. */
   readonly sinceAtCeiling?: Readonly<Record<string, number>>
   /** On the CZ of a machine without modes: its `sinceAtCeiling` after a setting change, until the first AT — 979G from the AT, 579G after a reset. Only beside `sinceAtCeiling`; with modes, each mode carries its own. */
@@ -233,6 +239,8 @@ export interface AtTableDto {
   readonly success: number
   /** How often a regular game wins the AT outright; none where only the trigger does. */
   readonly direct?: number
+  /** How often a regular game brings the bonus a CZ's success brings outright, those that win the AT counted in `direct` too; none where only a CZ brings it. */
+  readonly directBonus?: number
   /** The share of triggers that pay the trigger's medals: the CZ's success where it brings a bonus; every one where it is left out. */
   readonly paid?: number
   /** Where a CZ's success brings a bonus, the share of those bonuses that win the AT; all of them where it is left out. */
@@ -247,6 +255,8 @@ export interface AtTableDto {
   readonly ceilingRedraws?: readonly (readonly number[])[]
   /** Each mode's own chance a game brings the trigger, `null` for one at the table's `chance`; left out where no mode has one. */
   readonly ownChances?: readonly (number | null)[]
+  /** The side bonus's chance a regular game below its ceiling; left out where the machine has none. */
+  readonly sideChance?: number
   /**
    * How play is allotted between the modes after an AT and after a setting
    * change; where the modes are allotted by how an AT ended, each ending's
@@ -324,8 +334,12 @@ export interface AtRulesDto {
   readonly ceilingAt?: "outright" | "triggered"
   /** Where a bonus that misses the AT starts play again: an AT間天井 in regular games counted from the last AT across those bonuses, beside each mode's own counted from the bonus. None where left out. */
   readonly ceilingAcrossBonuses?: number
+  /** What the trigger the AT間天井 brings pays, where it is a bonus of its own rather than the trigger's medals. None where left out. */
+  readonly ceilingPayout?: number
   /** The ways an AT ends, where the modes are allotted by them: each table's `allotments.afterEndings` in this order. Left out where they are not. */
   readonly endings?: readonly string[]
+  /** A bonus beside the trigger, drawn at each table's `sideChance` a game, certain on its own ceiling in regular games since the last of it — which no AT starts again — paying its medals and winning nothing. Left out where the machine has none. */
+  readonly sideBonus?: { readonly id: string; readonly ceiling?: number; readonly payout: { readonly medals: number; readonly netPerGame?: number } }
 }
 
 export type SourceDto =
@@ -387,9 +401,11 @@ export interface SettingLevelFiguresDto {
    * On an AT machine: the medals an AT gains on average, cap and carried
    * 有利区間 included, the share that reach the cap, and the triggers a
    * cycle's AT間天井 brings where it brings one — none where it wins the AT
-   * outright.
+   * outright — the bonuses a cycle's games bring outright, past the CZ,
+   * where they do, and the side bonuses they bring in the long run, where
+   * the machine has one.
    */
-  readonly at?: { readonly gain: number; readonly completion: number; readonly ceilingTriggers?: number }
+  readonly at?: { readonly gain: number; readonly completion: number; readonly ceilingTriggers?: number; readonly directBonuses?: number; readonly sideBonuses?: number }
 }
 
 export interface AnalysisDto {
@@ -428,6 +444,8 @@ export interface PathDto {
     readonly sinceAtAcrossBonuses?: number
     /** How the last AT ended, by the ending's id, where it is said: play then starts from that ending's allotment rather than every ending's mixed. Of no account after a setting change. */
     readonly ending?: string
+    /** The regular games since the last side bonus, where the machine has one and the seat says; left out, its next is as likely on any game as in the long run. */
+    readonly sinceSideBonus?: number
   }
   readonly legs: readonly LegDto[]
 }
@@ -439,11 +457,13 @@ export interface LegDto {
   readonly at?: AtSeenDto
 }
 
-/** Whether an AT reached the cap, the sets it carried on to past its first, and the medals it gained — each where it was seen. */
+/** Whether an AT reached the cap, the sets it carried on to past its first, the medals it gained, and how it ended — each where it was seen. */
 export interface AtSeenDto {
   readonly completed?: boolean
   readonly sets?: number
   readonly medals?: number
+  /** How the AT ended, by the ending's id, where it was said: play after it then starts from that ending's allotment rather than every ending's mixed. */
+  readonly ending?: string
 }
 
 /** 設定配分: shares in hundredths of a percent, summing to `10000`. */
@@ -520,11 +540,13 @@ export interface HuntRequest {
   readonly seats: readonly PathStartDto[]
 }
 
-/** What a seat comes to: the regular games played on average, the AT's medals and what the bonuses that are its trigger pay on the way, the medals over them and in yen, and the chance the AT is won by a ceiling. */
+/** What a seat comes to: the regular games played on average, the AT's medals and what the bonuses that are its trigger and a side bonus pay on the way, the medals over them and in yen, and the chance the AT is won by a ceiling. */
 export interface HuntDto {
   readonly games: number
   readonly atMedals: number
   readonly triggerMedals: number
+  /** What a side bonus pays on the way; left out where the machine has none. */
+  readonly sideMedals?: number
   readonly medals: number
   readonly yen: number
   readonly byCeiling: number
@@ -640,7 +662,17 @@ export type EngineErrorDto =
   | { readonly type: "ending-allotment-to-unknown"; readonly entity: string; readonly ending: string }
   | { readonly type: "ending-allotment-not-whole"; readonly ending: string; readonly settingLevel: number; readonly sum: number }
   | { readonly type: "endings-without-allotment"; readonly entity: string }
+  /** A mode's allotment after an AT beside one after every ending that is not the endings' mix (`mix`, in basis points). */
+  | { readonly type: "allotment-against-endings"; readonly entity: string; readonly settingLevel: number; readonly mix: number }
   | { readonly type: "unknown-ending"; readonly ending: string }
+  /** A seat at or past the game a ceiling counted from the AT, or the last bonus, forces a CZ that certainly succeeds. */
+  | { readonly type: "seat-past-sure-cz"; readonly game: number }
+  /** A seat past the game a ceiling counted from the AT forces a CZ on, with no CZ since before it. */
+  | { readonly type: "seat-past-forced-cz"; readonly game: number }
+  /** A seat with fewer games since the AT itself, across bonuses, than since the last bonus. */
+  | { readonly type: "seat-across-bonuses-below-since-at"; readonly sinceAt: number; readonly sinceAtAcrossBonuses: number }
+  /** A seat at or past the side bonus's ceiling in games since the last of it. */
+  | { readonly type: "seat-past-side-bonus-ceiling"; readonly sinceSideBonus: number; readonly ceiling: number }
   | { readonly type: "cz-without-at"; readonly entity: string }
   | { readonly type: "first-hit-beside-cz"; readonly entity: string }
   | { readonly type: "payout-beside-at"; readonly entity: string }
@@ -651,8 +683,12 @@ export type EngineErrorDto =
   | { readonly type: "reset-since-at-ceiling-without-since-at-ceiling"; readonly entity: string }
   | { readonly type: "reset-since-at-ceiling-beside-modes"; readonly entity: string }
   | { readonly type: "direct-without-cz"; readonly entity: string }
+  | { readonly type: "direct-bonus-without-bonus-share"; readonly entity: string }
+  | { readonly type: "side-bonus-without-at"; readonly entity: string }
+  | { readonly type: "side-bonus-not-alone"; readonly entity: string }
   | { readonly type: "ceiling-triggers-without-cz"; readonly entity: string }
   | { readonly type: "ceiling-across-bonuses-without-restart"; readonly entity: string }
+  | { readonly type: "ceiling-payout-without-ceiling-triggers"; readonly entity: string }
   | { readonly type: "ceiling-unit-beside-lcd-rate" }
   | { readonly type: "unit-ceiling-without-unit"; readonly entity: string }
   | { readonly type: "gate-beyond-whole"; readonly entity: string; readonly game: number; readonly settingLevel: number }

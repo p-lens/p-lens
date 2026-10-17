@@ -15,6 +15,8 @@ import {
   EMPTY_PAYOUT_ROW,
   type EndingForm,
   atEndings,
+  bringsBonus,
+  ceilingBringsBonus,
   newEnding,
   type PayoutRowForm,
   type PayoutShape,
@@ -24,7 +26,9 @@ import {
   type GateForm,
   hasAtCeiling,
   hasCz,
+  everyEndingAllotted,
   hasModes,
+  hasSideBonus,
   isAtMachine,
   type ManualForm,
   newRow,
@@ -211,6 +215,19 @@ function CzDepths(props: { readonly row: EntityRow; readonly form: WorldForm; re
   )
 }
 
+/** How a row's chances are typed: as published, ceilings included, or a regular game's below the ceilings — the 合算 then worked out. */
+function ChanceKindToggle(props: { readonly row: EntityRow; readonly onChange: (row: EntityRow) => void }): JSX.Element {
+  return (
+    <div class="flex flex-col gap-1.5">
+      <span class={LABEL}>確率の入れ方</span>
+      <ToggleGroup value={props.row.chanceKind} onChange={(value: string | null) => value !== null && props.onChange({ ...props.row, chanceKind: value === "below" ? "below" : "combined" })}>
+        <ToggleGroupItem value="combined">公表値（天井込み）</ToggleGroupItem>
+        <ToggleGroupItem value="below">天井を除いた確率</ToggleGroupItem>
+      </ToggleGroup>
+    </div>
+  )
+}
+
 function RowEditor(props: {
   readonly row: EntityRow
   readonly form: WorldForm
@@ -225,13 +242,14 @@ function RowEditor(props: {
     props.form.rows.filter((row) => row.kind === "watch").map((row, index) => ({ value: row.key, label: row.label.trim() === "" ? `場面${index + 1}` : row.label }))
   const split = (): boolean => props.row.kind === "bonus" && props.form.rows.some((row) => row.kind === "part" && row.of === props.row.key)
   /** Whether the row is asked its medals: a bonus and an AT; a small win where its medals are its own, never on a sheet typed in by hand, whose small wins are counted on an AT machine and pay through its ベース. */
-  const paid = (): boolean => props.row.kind === "bonus" || props.row.kind === "at" || props.row.kind === "cz" || (props.row.kind === "role" && !props.manual)
+  const paid = (): boolean => props.row.kind === "bonus" || props.row.kind === "at" || props.row.kind === "cz" || props.row.kind === "side" || (props.row.kind === "role" && !props.manual)
   const brought = (): boolean => props.row.kind === "at" && hasCz(props.form)
-  const fixed = (): boolean => props.row.kind === "at" || props.row.kind === "cz"
+  const fixed = (): boolean => props.row.kind === "at" || props.row.kind === "cz" || props.row.kind === "side"
   const name = (fallback: string): string => (props.row.label.trim() === "" ? fallback : props.row.label)
   const payoutLabel = (): string => {
     if (props.row.kind === "at") return "平均獲得枚数"
     if (props.row.kind === "cz") return "ボーナスの獲得（任意）"
+    if (props.row.kind === "side") return "獲得枚数"
     if (props.manual) return "獲得枚数（任意）"
     return props.row.kind === "bonus" ? "獲得枚数" : "払い出し"
   }
@@ -290,16 +308,21 @@ function RowEditor(props: {
             />
           </div>
         </Show>
-        <Show when={props.row.kind === "cz"}>
+        <Show when={props.row.kind === "cz" || props.row.kind === "side"}>
           <div class="w-36">
             <TextField
-              label="ボーナスの純増（任意）"
+              label={props.row.kind === "side" ? "純増（任意）" : "ボーナスの純増（任意）"}
               value={props.row.net}
               onChange={(net) => props.onChange({ ...props.row, net })}
               inputMode="decimal"
               suffix="枚/G"
               placeholder="なし"
             />
+          </div>
+        </Show>
+        <Show when={props.row.kind === "side"}>
+          <div class="w-28">
+            <TextField label="天井（任意）" value={props.row.ceiling} onChange={(ceiling) => props.onChange({ ...props.row, ceiling })} inputMode="numeric" suffix="G" placeholder="なし" />
           </div>
         </Show>
         <Show when={(props.row.kind === "at" && !brought() && !hasModes(props.form)) || props.row.kind === "mode"}>
@@ -463,7 +486,12 @@ function RowEditor(props: {
         </Show>
       </div>
       <Show when={props.row.kind === "at" && !brought()}>
-        <p class="text-xs text-text-muted">初当たりは解析サイトの公表値（天井込み）をそのまま入れてください。</p>
+        <ChanceKindToggle row={props.row} onChange={props.onChange} />
+        <p class="text-xs text-text-muted">
+          {props.row.chanceKind === "below"
+            ? "初当たりに、天井を除いた通常時1Gあたりの確率を入れます。天井込みの初当たりは計算で出します。"
+            : "初当たりは解析サイトの公表値（天井込み）をそのまま入れてください。"}
+        </p>
       </Show>
       <Show when={brought()}>
         <p class="text-xs text-text-muted">ATの初当たりは、CZ合算と成功率・天井から正確に計算します。</p>
@@ -483,10 +511,41 @@ function RowEditor(props: {
           <p class="text-xs text-text-muted">
             AT間天井で、ATが確定した{ceilingTriggerWord(props.form)}が来る機種は「天井で{ceilingTriggerWord(props.form)}当選」を選びます。その{ceilingTriggerWord(props.form)}は公表の合算に含まれ、ボーナスなら枚数も獲得するものとして計算します。
           </p>
+          <Show when={props.row.ceilingAt === "triggered" && ceilingBringsBonus(props.form)}>
+            <TextField
+              label="天井で当たるボーナスの枚数（任意）"
+              value={props.row.ceilingPayout}
+              onChange={(ceilingPayout) => props.onChange({ ...props.row, ceilingPayout })}
+              inputMode="decimal"
+              suffix="枚"
+              placeholder="ボーナスと同じ"
+              compact
+            />
+            <p class="text-xs text-text-muted">天井で当たるのが決まったボーナス（BBなど）で、ボーナスの平均と獲得枚数が違うときに入れます。空けると、ほかのボーナスと同じ枚数で計算します。</p>
+          </Show>
         </Show>
         <span class={LABEL}>直撃AT（任意）</span>
         <LevelCells name={`${name("AT")} 直撃`} levels={props.form.settingLevels} values={props.row.chances} placeholder="なし" onChange={(chances) => props.onChange({ ...props.row, chances })} />
         <p class="text-xs text-text-muted">CZやボーナスを通らずにATに当たる確率（1Gあたり）です。公表されている直撃の確率を入れます。</p>
+        <Show when={bringsBonus(props.form)}>
+          <span class={LABEL}>直撃ボーナス（任意）</span>
+          <LevelCells
+            name={`${name("AT")} 直撃ボーナス`}
+            levels={props.form.settingLevels}
+            values={props.row.directBonuses}
+            placeholder="なし"
+            onChange={(directBonuses) => props.onChange({ ...props.row, directBonuses })}
+          />
+          <p class="text-xs text-text-muted">
+            CZを通らずに、CZ成功で入るボーナスに直接当たる確率（1Gあたり）です。強チェリーからの直撃などを入れます。そのボーナスはボーナスの枚数を獲得し、ボーナスからのAT率でATを抽選します。ATに入らなかったときは、天井やスルーの数え方を変えずにそのまま続くものとして計算します。CZ合算には含めません。
+          </p>
+        </Show>
+      </Show>
+      <Show when={props.row.kind === "side"}>
+        <ChanceKindToggle row={props.row} onChange={props.onChange} />
+        <p class="text-xs text-text-muted">
+          ATやCZとは別に抽選され、自分の天井を持つボーナス（フランボーナスなど）です。天井は、前回のこのボーナスからの通常ゲーム数で数え、ATでは戻りません。ATには当たらないものとして、獲得枚数を機械割と期待値に入れます。
+        </p>
       </Show>
       <Show when={props.row.kind === "watch"}>
         <p class="text-xs text-text-muted">ボーナス1回で何回見るかを入れます。BIG中のスイカならBIGのゲーム数、REG中のランプなら1回です。示唆の確率は、その1回あたりで入れてください。</p>
@@ -500,8 +559,18 @@ function RowEditor(props: {
             <ToggleGroupItem value="cz-then-bonus">CZ→ボーナス</ToggleGroupItem>
           </ToggleGroup>
         </div>
-        <span class={LABEL}>CZ合算（公表値・天井込み）</span>
-        <LevelCells name={`${name("CZ")} 合算`} levels={props.form.settingLevels} values={props.row.chances} placeholder="1/" onChange={(chances) => props.onChange({ ...props.row, chances })} />
+        <ChanceKindToggle row={props.row} onChange={props.onChange} />
+        <span class={LABEL}>{props.row.chanceKind === "below" ? "CZ確率（天井を除いた通常時1Gあたり）" : "CZ合算（公表値・天井込み）"}</span>
+        <LevelCells
+          name={`${name("CZ")} ${props.row.chanceKind === "below" ? "天井を除いた確率" : "合算"}`}
+          levels={props.form.settingLevels}
+          values={props.row.chances}
+          placeholder="1/"
+          onChange={(chances) => props.onChange({ ...props.row, chances })}
+        />
+        <Show when={props.row.chanceKind === "below"}>
+          <p class="text-xs text-text-muted">公表値が天井やスルーを含まない、通常時1Gあたりの確率のときに選びます。そのまま抽選確率として使い、天井込みの合算は計算で出します。</p>
+        </Show>
         <span class={LABEL}>CZ成功率</span>
         <LevelCells
           name={`${name("CZ")} 成功率`}
@@ -548,13 +617,13 @@ function RowEditor(props: {
         fallback={
           <Show when={props.row.kind === "mode"}>
             <div class="flex flex-col gap-2">
-              <span class={LABEL}>AT後の振り分け</span>
+              <span class={LABEL}>{everyEndingAllotted(props.form) ? "AT後の振り分け（任意）" : "AT後の振り分け"}</span>
               <LevelCells
                 name={`${props.row.label.trim() === "" ? "モード" : props.row.label} 振り分け`}
                 levels={props.form.settingLevels}
                 values={props.row.chances}
                 suffix="%"
-                placeholder=""
+                placeholder={everyEndingAllotted(props.form) ? "混ぜた値" : ""}
                 onChange={(chances) => props.onChange({ ...props.row, chances })}
               />
               <span class={LABEL}>リセット時の振り分け（任意）</span>
@@ -628,7 +697,7 @@ function AtEndings(props: { readonly row: EntityRow; readonly form: WorldForm; r
           終わり方を追加
         </Button>
         <p class="basis-full text-xs text-text-muted">
-          ATの終わり方（駆け抜け・上位ATなど）でAT後のモード振り分けが変わる機種は、終わり方とATがそう終わる割合を入れます（設定ごとに合計100%）。終わり方のあとの振り分けは、モードごとに入れます。空けたモードは「AT後の振り分け」を使います。機械割や初当たりは、終わり方の割合で振り分けを混ぜて計算します。天井狙いの表では、前のATの終わり方を選べます。
+          ATの終わり方（駆け抜け・上位ATなど）でAT後のモード振り分けが変わる機種は、終わり方とATがそう終わる割合を入れます（設定ごとに合計100%）。終わり方のあとの振り分けは、モードごとに入れます。空けたモードは「AT後の振り分け」を使います。どのモードにも全部の終わり方のあとの振り分けを入れたときは、「AT後の振り分け」は空けられます（入れるなら、終わり方の割合で混ぜた値と同じにします）。機械割や初当たりは、終わり方の割合で振り分けを混ぜて計算します。天井狙いの表では、前のATの終わり方を選べます。
         </p>
       </div>
     </div>
@@ -1109,6 +1178,11 @@ export function ManualEditor(props: { readonly form: ManualForm; readonly onChan
         <Show when={isAtMachine(world())}>
           <Button variant="secondary" size="small" onClick={() => setWorld({ ...world(), rows: [...world().rows, newRow(world().rows, "role")] })}>
             小役を追加
+          </Button>
+        </Show>
+        <Show when={isAtMachine(world()) && !hasSideBonus(world())}>
+          <Button variant="secondary" size="small" onClick={() => setWorld({ ...world(), rows: [...world().rows, newRow(world().rows, "side")] })}>
+            別枠ボーナスを追加
           </Button>
         </Show>
         <Button

@@ -1,4 +1,4 @@
-import type { AtRulesDto, AtSeenDto, LegDto, ModeRuleDto, NormalizedSpecDto, PathDto, PayoutLawDto, SpecDto } from "@p-lens/contracts/pachislot"
+import type { AtRulesDto, AtSeenDto, LegDto, ModeRuleDto, NormalizedSpecDto, PathDto, PayoutLawDto } from "@p-lens/contracts/pachislot"
 
 import type { Checkpoint } from "../play-log/checkpoint"
 import { Err, Ok, type Result } from "../result/result"
@@ -7,8 +7,9 @@ import { Err, Ok, type Result } from "../result/result"
  * Where an AT machine stands at the seat, read off its counter and history:
  * the games since the last AT, the games since the last CZ and the CZs
  * missed since that AT where a CZ brings the AT, whether the settings had
- * been changed with no AT since, and what the 有利区間 held at the end of the
- * last AT where it still carries on.
+ * been changed with no AT since, what the 有利区間 held at the end of the
+ * last AT where it still carries on, and — where a bonus that missed the AT
+ * started the counter again — the games since the AT itself across it.
  */
 export interface AtSeat {
   readonly sinceAt: number
@@ -16,6 +17,7 @@ export interface AtSeat {
   readonly misses: number
   readonly afterReset: boolean
   readonly held: number | undefined
+  readonly sinceAtAcrossBonuses: number | undefined
 }
 
 /** The first line of an AT machine's play: no games played and nothing spent yet, and where the machine stood. */
@@ -28,6 +30,7 @@ export const atSeatCheckpoint = (seat: AtSeat, at: string): Checkpoint => ({
     ...(seat.sinceCz === undefined ? {} : { sinceCz: seat.sinceCz }),
     ...(seat.misses === 0 ? {} : { misses: seat.misses }),
     ...(seat.held === undefined ? {} : { held: seat.held }),
+    ...(seat.sinceAtAcrossBonuses === undefined ? {} : { sinceAtAcrossBonuses: seat.sinceAtAcrossBonuses }),
   },
   ...(seat.afterReset ? { afterReset: true as const } : {}),
 })
@@ -86,10 +89,11 @@ const endOf = (checkpoint: Checkpoint): LegDto["end"] | undefined => {
 }
 
 /** What was seen of an AT, as the engine takes it: only what was. */
-const seenOf = (event: { readonly completed?: boolean; readonly sets?: number; readonly medals?: number }): AtSeenDto => ({
+const seenOf = (event: { readonly completed?: boolean; readonly sets?: number; readonly medals?: number; readonly ending?: string }): AtSeenDto => ({
   ...(event.completed === undefined ? {} : { completed: event.completed }),
   ...(event.sets === undefined ? {} : { sets: event.sets }),
   ...(event.medals === undefined ? {} : { medals: event.medals }),
+  ...(event.ending === undefined ? {} : { ending: event.ending }),
 })
 
 /** The legs with how the AT the last of them won went, where it ended in one. */
@@ -112,15 +116,24 @@ const step = (sofar: Walked, checkpoint: Checkpoint): Walked => {
 
 /**
  * Where play stood at the seat. The games since the last CZ are the games
- * since the last AT when the counter does not give them: no CZ since.
+ * since the last AT when the counter does not give them: no CZ since. The
+ * games since the AT itself across the bonuses that started the counter
+ * again are there only where the seat gave them, and never fewer than
+ * those since the last of them: a line written before the seat said so is
+ * read as it always was.
  */
-const startOf = (first: Checkpoint): PathDto["start"] => ({
-  sinceTrigger: first.counter?.sinceCz ?? first.counter?.spins ?? 0,
-  sinceAt: first.counter?.spins ?? 0,
-  misses: first.counter?.misses ?? 0,
-  afterReset: first.afterReset === true,
-  ...(first.counter?.held === undefined ? {} : { held: first.counter.held }),
-})
+const startOf = (first: Checkpoint): PathDto["start"] => {
+  const sinceAt = first.counter?.spins ?? 0
+  const across = first.counter?.sinceAtAcrossBonuses
+  return {
+    sinceTrigger: first.counter?.sinceCz ?? sinceAt,
+    sinceAt,
+    misses: first.counter?.misses ?? 0,
+    afterReset: first.afterReset === true,
+    ...(first.counter?.held === undefined ? {} : { held: first.counter.held }),
+    ...(across === undefined ? {} : { sinceAtAcrossBonuses: Math.max(across, sinceAt) }),
+  }
+}
 
 /**
  * An AT machine's play as the engine walks it: where it stood at the seat,
@@ -176,6 +189,12 @@ const acrossOn = (standing: AtStanding, games: number): Pick<AtStanding, "sinceA
 const acrossBonus = (standing: AtStanding, games: number, rules: AtRulesDto): Pick<AtStanding, "sinceAtAcrossBonuses"> =>
   rules.ceilingAcrossBonuses === undefined ? {} : { sinceAtAcrossBonuses: (standing.sinceAtAcrossBonuses ?? standing.sinceAt) + games }
 
+/** Where play stands with how the last AT ended let go of: after a bonus that starts play again, every ending's allotment mixed. */
+const unended = ({ ending: _ending, ...standing }: AtStanding): AtStanding => standing
+
+/** How an AT ended, where it was said. */
+const endedAs = (seen: AtSeenDto | undefined): Pick<AtStanding, "ending"> => (seen?.ending === undefined ? {} : { ending: seen.ending })
+
 const afterLeg =
   (normalized: NormalizedSpecDto | undefined) =>
   (standing: AtStanding, leg: LegDto): AtStanding => {
@@ -186,12 +205,12 @@ const afterLeg =
         return { ...standing, sinceTrigger: 0, sinceAt: standing.sinceAt + leg.games, misses: standing.misses + 1, ...acrossOn(standing, leg.games) }
       case "bonus":
         return normalized?.atRules?.bonusMiss === "restarts"
-          ? { ...standing, sinceTrigger: 0, sinceAt: 0, misses: 0, afterReset: false, ...acrossBonus(standing, leg.games, normalized.atRules) }
+          ? { ...unended(standing), sinceTrigger: 0, sinceAt: 0, misses: 0, afterReset: false, ...acrossBonus(standing, leg.games, normalized.atRules) }
           : { ...standing, sinceTrigger: 0, sinceAt: standing.sinceAt + leg.games, misses: standing.misses + 1, ...acrossOn(standing, leg.games) }
       case "won-at": {
         const before = holdingAt({ ...standing, sinceAt: standing.sinceAt + Math.max(0, leg.games - 1) }, normalized?.atRules)
         const held = heldAfter(leg.at, before, normalized?.tables[0]?.at?.payout)
-        return { sinceTrigger: 0, sinceAt: 0, misses: 0, afterReset: false, ...(held === undefined ? {} : { held }) }
+        return { sinceTrigger: 0, sinceAt: 0, misses: 0, afterReset: false, ...(held === undefined ? {} : { held }), ...endedAs(leg.at) }
       }
     }
   }
@@ -267,7 +286,7 @@ const sooner = (one: number | undefined, other: number | undefined): number | un
 
 export const ceilingsOf = (standing: AtStanding, normalized: NormalizedSpecDto): Ceilings => {
   const rules = normalized.atRules
-  const modes = reachableModes(normalized, standing.afterReset)
+  const modes = reachableModes(normalized, standing.afterReset, standing.ending)
   const trigger = deepest(modes.map((mode) => triggerCeilingOf(mode, standing)))
   const at = rules === undefined ? undefined : deepest(modes.map((mode) => atCeilingOf(rules, mode)))
   const across = rules?.ceilingAcrossBonuses === undefined ? undefined : rules.ceilingAcrossBonuses - (standing.sinceAtAcrossBonuses ?? standing.sinceAt)
@@ -288,25 +307,34 @@ export const ceilingsOf = (standing: AtStanding, normalized: NormalizedSpecDto):
  * won directly, its 天井; up to 1000 games without one. With CZs missed,
  * each seat is just after the last of them; without, the CZ has come no
  * sooner than the AT, so no seat is past the CZ's own ceiling, where one
- * would have come. Where the last AT is said to have ended a given way, the
- * seats say so and reach only the modes an AT that ended so allots play
- * to; after a setting change, how it ended is of no account.
+ * would have come. Where the CZ a ceiling counted from the AT forces
+ * certainly succeeds, no seat is at or past it in every mode play may be
+ * in, whatever was missed: that CZ ends the count. Where the last AT is
+ * said to have ended a given way, the seats say so and reach only the
+ * modes an AT that ended so allots play to; after a setting change, how it
+ * ended is of no account. Where the machine has a side bonus with a
+ * ceiling and the games since the last of it are said, every seat says
+ * them — never past that ceiling, which brings it on the next game at the
+ * latest; unsaid, it is as likely on any game as in the long run.
  */
-export const huntSeatsOf = (normalized: NormalizedSpecDto, afterReset: boolean, misses: number, ending?: string): readonly AtStanding[] => {
+export const huntSeatsOf = (normalized: NormalizedSpecDto, afterReset: boolean, misses: number, ending?: string, sinceSideBonus?: number): readonly AtStanding[] => {
   const rules = normalized.atRules
   if (rules === undefined) return []
   const ended = afterReset || ending === undefined || !(rules.endings ?? []).includes(ending) ? undefined : ending
   const modes = reachableModes(normalized, afterReset, ended)
   const atCeiling = sooner(deepest(modes.map((mode) => (rules.trigger === undefined ? mode.ceiling : atCeilingOf(rules, mode)))), rules.ceilingAcrossBonuses) ?? 1000
   const czCeiling = rules.trigger === undefined || misses > 0 ? undefined : deepest(modes.map((mode) => (mode.ceiling === undefined ? mode.sinceAtCeiling : mode.sinceAtCeiling === undefined ? mode.ceiling : Math.min(mode.ceiling, mode.sinceAtCeiling))))
-  const ceiling = Math.min(atCeiling, czCeiling ?? atCeiling)
+  const sure = rules.forcedCz === "wins" ? deepest(modes.map((mode) => mode.sinceAtCeiling)) : undefined
+  const ceiling = Math.min(atCeiling, czCeiling ?? atCeiling, sure ?? atCeiling)
   const step = ceiling > 500 ? 100 : 50
+  const sideCeiling = rules.sideBonus?.ceiling
   return Array.from({ length: Math.ceil(ceiling / step) }, (_, index) => index * step).map((sinceAt) => ({
     sinceTrigger: misses > 0 ? 0 : sinceAt,
     sinceAt,
     misses,
     afterReset,
     ...(ended === undefined ? {} : { ending: ended }),
+    ...(sinceSideBonus === undefined || sideCeiling === undefined ? {} : { sinceSideBonus: Math.min(sinceSideBonus, sideCeiling - 1) }),
   }))
 }
 
@@ -316,13 +344,16 @@ export interface AtEnding {
   readonly label: string
 }
 
-/** The ways an AT of the machine ends, where its modes are allotted by them, in the engine's order; none where they are not. */
-export const atEndingsOf = (normalized: NormalizedSpecDto, spec: SpecDto): readonly AtEnding[] =>
-  (normalized.atRules?.endings ?? []).map((id) => ({ id, label: spec.components.label?.[id]?.trim() || id }))
+/** The ways an AT of the machine ends, where its modes are allotted by them, in the engine's order, named as the spec's labels name them; none where they are not. */
+export const atEndingsOf = (normalized: NormalizedSpecDto, labels: Readonly<Record<string, string>>): readonly AtEnding[] =>
+  (normalized.atRules?.endings ?? []).map((id) => ({ id, label: labels[id]?.trim() || id }))
 
-/** Whether how an AT went tells the engine anything: on a machine with a 有利区間's cap, or one paid in sets. */
-export const atResultMatters = (normalized: NormalizedSpecDto): boolean =>
+/** Whether what an AT gained tells the engine anything: on a machine with a 有利区間's cap, or one paid in sets. */
+export const atGainMatters = (normalized: NormalizedSpecDto): boolean =>
   normalized.atRules?.cap !== undefined || normalized.tables.some((table) => table.at?.payout.type === "sets")
+
+/** Whether how an AT went tells the engine anything: what it gained, or how it ended on a machine whose modes are allotted by it. */
+export const atResultMatters = (normalized: NormalizedSpecDto): boolean => atGainMatters(normalized) || (normalized.atRules?.endings ?? []).length > 0
 
 /**
  * Whether an AT machine's play is in an AT by its log: from the line it was
