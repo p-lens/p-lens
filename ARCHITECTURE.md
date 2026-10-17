@@ -1646,19 +1646,26 @@ only the primitives, the core and the application.
   its phase. The grounds pay it closed form, check the 合算 the engine
   read back where the sheet publishes one, and leave nothing of it
   unchecked.
-- **A seat the machine could not stand at is refused.** A seat is read
-  against its machine before anything is walked from it — each of the
-  hunt's seats, a path's start (`pachislot_engine::seat::seated`) — and
-  refused by what makes it impossible: in every mode its allotment reaches
-  under some setting, at or past the game a ceiling counted from the AT,
-  or from the last bonus that started play again, forces a CZ that
-  certainly succeeds (`seat-past-sure-cz`, by that game: the CZ would have
-  ended the count), or past such a game with no trigger since before it
-  where the CZ is drawn as any other (`seat-past-forced-cz`: it would have
-  come; past it with one since, it came and missed, and only the odds and
-  the AT間天井 are left); fewer games since the AT itself than since the
-  last bonus (`seat-across-bonuses-below-since-at`); as many games since
-  the side bonus as its ceiling or more (`seat-past-side-bonus-ceiling`).
+- **A seat the machine could not stand at is refused; one past a sure
+  ceiling stands just short of it.** A seat is read against its machine
+  before anything is walked from it — each of the hunt's seats, a path's
+  start (`pachislot_engine::seat::seated`). It is refused by what makes it
+  impossible: more games since the last CZ than since the last AT
+  (`seat-trigger-above-since-at`), or fewer games since the AT itself than
+  since the last bonus (`seat-across-bonuses-below-since-at`). A seat past
+  a ceiling that certainly brings something is taken to stand at the game
+  before it, so that what it brings comes on the next game, as an AT does
+  past an AT間天井: a ceiling's `+α` is games the cabinet plays out before
+  it shows, and a seat taken there is a seat people take. So it is with
+  one at or past the game a ceiling counted from the AT, or from the last
+  bonus that started play again, forces a CZ that certainly succeeds, or
+  past such a game with no trigger since before it where the CZ is drawn
+  as any other — in every mode its allotment reaches under some setting
+  (past it with one since, it came and missed, and only the odds and the
+  AT間天井 are left) — and with games since the side bonus at its ceiling
+  or more. The games walked from such a seat are walked from that game, so
+  a path that goes on past it without what it brings is contradictory
+  evidence, as one past an AT間天井 is.
   Where only some modes are past such a CZ, they are ruled out and the
   others weighed. A field the machine has no use for is let go of,
   whatever it says: games across bonuses where no AT間天井 counts across

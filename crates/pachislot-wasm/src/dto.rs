@@ -1260,26 +1260,16 @@ pub enum ErrorDto {
     UnknownEnding {
         ending: String,
     },
-    /// A seat at or past the game a ceiling counted from the AT, or the
-    /// last bonus, forces a CZ that certainly succeeds.
-    SeatPastSureCz {
-        game: u32,
-    },
-    /// A seat past the game a ceiling counted from the AT forces a CZ on,
-    /// with no CZ since before it.
-    SeatPastForcedCz {
-        game: u32,
+    /// A seat with more games since the last CZ than since the last AT.
+    SeatTriggerAboveSinceAt {
+        since_trigger: u32,
+        since_at: u32,
     },
     /// A seat with fewer games since the AT itself, across bonuses, than
     /// since the last bonus.
     SeatAcrossBonusesBelowSinceAt {
         since_at: u32,
         since_at_across_bonuses: u32,
-    },
-    /// A seat at or past the side bonus's ceiling in games since the last.
-    SeatPastSideBonusCeiling {
-        since_side_bonus: u32,
-        ceiling: u32,
     },
     CzWithoutAt {
         entity: String,

@@ -148,14 +148,10 @@ const describeEngineError = (error: EngineErrorDto): string => {
       return `モード「${error.entity}」の${settingLevel(error.settingLevel)}のAT後の振り分けが、終わり方ごとの振り分けを終わり方の割合で混ぜた ${(error.mix / 100).toFixed(2)}% と合いません。どのモードにも全部の終わり方のあとの振り分けを入れたときは、AT後の振り分けは空けてかまいません。`
     case "unknown-ending":
       return `この機種にないATの終わり方「${error.ending}」が指定されました。`
-    case "seat-past-sure-cz":
-      return `この機種は${error.game}G目のCZで必ず当選するため、そのゲーム数に届いた台はありません。ゲーム数を確かめてください。`
-    case "seat-past-forced-cz":
-      return `この機種は${error.game}G目に必ずCZに入るため、それを過ぎた台にはそこからのCZがあったはずです。CZ後のゲーム数を確かめてください。`
+    case "seat-trigger-above-since-at":
+      return `CZ後のゲーム数（${error.sinceTrigger}G）が、AT間のゲーム数（${error.sinceAt}G）より多くなっています。`
     case "seat-across-bonuses-below-since-at":
       return `AT後の通算ゲーム数（${error.sinceAtAcrossBonuses}G）が、AT間のゲーム数（${error.sinceAt}G）より少なくなっています。`
-    case "seat-past-side-bonus-ceiling":
-      return `別枠ボーナスは${error.ceiling}G目で必ず当たるため、前回から${error.sinceSideBonus}Gの台はありません。ゲーム数を確かめてください。`
     case "cz-without-at":
       return `CZ「${error.entity}」はAT機にだけ入れられます。この機種にはATがありません。`
     case "first-hit-beside-cz":

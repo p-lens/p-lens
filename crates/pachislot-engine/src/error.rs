@@ -330,19 +330,12 @@ pub enum SpecError {
 /// What makes a seat one play cannot stand at, on the machine it is on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SeatError {
-    /// At or past the game a ceiling counted from the AT — or from the last
-    /// bonus that started play again — forces a CZ that certainly succeeds,
-    /// in every mode play may be in: that CZ would have ended the count.
-    PastSureCz { game: NonZeroU32 },
-    /// Past the game such a ceiling forces a CZ on, with no trigger since
-    /// before it, in every mode play may be in: that CZ would have come.
-    PastForcedCz { game: NonZeroU32 },
+    /// More games since the last trigger than since the last AT, which
+    /// starts the count of both.
+    TriggerAboveSinceAt { since_trigger: u32, since_at: u32 },
     /// Fewer games since the AT itself, across the bonuses that started
     /// play again, than since the last of them.
     AcrossBonusesBelowSinceAt { since_at: u32, across: u32 },
-    /// As many games since the last side bonus as its ceiling, or more: it
-    /// certainly comes on that game.
-    PastSideBonusCeiling { since: u32, ceiling: NonZeroU32 },
 }
 
 /// What can stop payout rates being worked out.

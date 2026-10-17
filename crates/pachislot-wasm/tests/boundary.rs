@@ -1067,36 +1067,37 @@ fn seat_at(since_trigger: u32, since_at: u32, more: &Value) -> Value {
 }
 
 #[test]
-fn a_seat_past_a_forced_cz_is_refused_by_the_game_it_comes_on() {
+fn a_seat_past_a_forced_cz_stands_just_short_of_it_the_cz_coming_on_the_next_game() {
     let mut spec = value(CZ_SPEC);
     spec["components"]["sinceAtCeiling"] = json!({ "cz": 800 });
     let none = json!({});
     ok(&hunted(&spec, &seat_at(10, 850, &none)));
     assert_eq!(
-        error(&hunted(&spec, &seat_at(500, 850, &none))),
-        json!({ "type": "seat-past-forced-cz", "game": 800 })
+        ok(&hunted(&spec, &seat_at(500, 850, &none))),
+        ok(&hunted(&spec, &seat_at(500, 799, &none)))
     );
     spec["components"]["ceilingWins"] = json!(["cz"]);
-    ok(&hunted(&spec, &seat_at(500, 799, &none)));
     for seat in [seat_at(10, 800, &none), seat_at(10, 850, &none)] {
         assert_eq!(
-            error(&hunted(&spec, &seat)),
-            json!({ "type": "seat-past-sure-cz", "game": 800 })
+            ok(&hunted(&spec, &seat)),
+            ok(&hunted(&spec, &seat_at(10, 799, &none)))
         );
     }
     let path = json!({
         "source": { "type": "spec", "spec": spec },
         "segments": [],
-        "path": { "start": seat_at(10, 820, &none), "legs": [{ "games": 10, "end": "going" }] }
+        "path": { "start": seat_at(10, 820, &none), "legs": [] }
     });
+    ok(&posterior(&path.to_string()));
     assert_eq!(
-        error(&posterior(&path.to_string())),
-        json!({ "type": "seat-past-sure-cz", "game": 800 })
+        error(&hunted(&spec, &seat_at(600, 500, &none))),
+        json!({ "type": "seat-trigger-above-since-at", "sinceTrigger": 600, "sinceAt": 500 })
     );
 }
 
 #[test]
-fn a_seat_s_field_the_machine_has_no_use_for_is_let_go_of_and_an_impossible_one_refused() {
+fn a_seat_s_field_the_machine_has_no_use_for_is_let_go_of_an_impossible_one_refused_and_one_past_a_side_bonus_s_ceiling_taken_short_of_it()
+ {
     let plain = value(CZ_SPEC);
     let bare = ok(&hunted(&plain, &seat_at(100, 100, &json!({}))));
     for more in [
@@ -1137,13 +1138,18 @@ fn a_seat_s_field_the_machine_has_no_use_for_is_let_go_of_and_an_impossible_one_
         &side,
         &seat_at(100, 100, &json!({ "sinceSideBonus": 299 })),
     ));
-    assert_eq!(
-        error(&hunted(
-            &side,
-            &seat_at(100, 100, &json!({ "sinceSideBonus": 300 }))
-        )),
-        json!({ "type": "seat-past-side-bonus-ceiling", "sinceSideBonus": 300, "ceiling": 300 })
-    );
+    for since in [300, 400] {
+        assert_eq!(
+            ok(&hunted(
+                &side,
+                &seat_at(100, 100, &json!({ "sinceSideBonus": since }))
+            )),
+            ok(&hunted(
+                &side,
+                &seat_at(100, 100, &json!({ "sinceSideBonus": 299 }))
+            ))
+        );
+    }
     let mut unceiled = side.clone();
     unceiled["components"]["ceiling"]
         .as_object_mut()

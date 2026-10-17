@@ -1,8 +1,12 @@
 //! Where play stands at a seat, checked against the machine it is on. A
 //! seat the machine could not stand at is refused, by what makes it so; a
-//! field the machine has no use for — games across bonuses where nothing
-//! counts across them, games since a side bonus it lacks or that has no
-//! ceiling — is let go of, whatever it says.
+//! seat past a ceiling that brings something certainly — a CZ counted from
+//! the AT, a side bonus — stands at the game before it, the ceiling's `+α`
+//! being games the cabinet plays out before what it brings shows: it comes
+//! on the next game, as an AT does past an AT間天井. A field the machine has
+//! no use for — games across bonuses where nothing counts across them,
+//! games since a side bonus it lacks or that has no ceiling — is let go of,
+//! whatever it says.
 
 use std::num::NonZeroU32;
 
@@ -16,29 +20,35 @@ use crate::error::SeatError;
 /// stand at.
 ///
 /// # Errors
-/// Where play could not stand there: past a forced CZ in every mode it
-/// may be in, fewer games since the AT itself than since the last bonus,
-/// or at or past a side bonus's ceiling.
+/// Where play could not stand there: more games since the last CZ than
+/// since the last AT, or fewer games since the AT itself than since the
+/// last bonus.
 pub fn seated(
     spec: &NormalizedSpec,
     rules: &AtRules,
     start: PathStart,
 ) -> Result<PathStart, SeatError> {
+    if start.since_trigger > start.since_at {
+        return Err(SeatError::TriggerAboveSinceAt {
+            since_trigger: start.since_trigger,
+            since_at: start.since_at,
+        });
+    }
+    let side_ceiling = rules
+        .side_bonus
+        .as_ref()
+        .and_then(|side| side.ceiling)
+        .map(NonZeroU32::get);
     let start = PathStart {
         since_at_across_bonuses: start
             .since_at_across_bonuses
             .filter(|_| rules.ceiling_across_bonuses.is_some()),
-        since_side_bonus: start.since_side_bonus.filter(|_| {
-            rules
-                .side_bonus
-                .as_ref()
-                .is_some_and(|side| side.ceiling.is_some())
-        }),
+        since_side_bonus: start
+            .since_side_bonus
+            .zip(side_ceiling)
+            .map(|(since, ceiling)| since.min(ceiling - 1)),
         ..start
     };
-    if let Some(past) = past_forced(spec, rules, start) {
-        return Err(past);
-    }
     if let Some(across) = start
         .since_at_across_bonuses
         .filter(|across| *across < start.since_at)
@@ -48,23 +58,22 @@ pub fn seated(
             across,
         });
     }
-    let side_ceiling = rules.side_bonus.as_ref().and_then(|side| side.ceiling);
-    if let Some((since, ceiling)) = start
-        .since_side_bonus
-        .zip(side_ceiling)
-        .filter(|(since, ceiling)| *since >= ceiling.get())
-    {
-        return Err(SeatError::PastSideBonusCeiling { since, ceiling });
-    }
-    Ok(start)
+    Ok(forced_game(spec, rules, start).map_or(start, |game| {
+        let before = game.get() - 1;
+        PathStart {
+            since_at: before,
+            since_trigger: start.since_trigger.min(before),
+            ..start
+        }
+    }))
 }
 
 /// Where every mode the seat's allotment reaches under some setting is
 /// past the game its ceiling counted from the AT forces a CZ on — the CZ
-/// certainly succeeding, or none come since before it — what that makes
-/// the seat, at the latest such game; none where some mode leaves play
-/// there.
-fn past_forced(spec: &NormalizedSpec, rules: &AtRules, start: PathStart) -> Option<SeatError> {
+/// certainly succeeding, or none come since before it — the latest such
+/// game, which play is taken to be just short of; none where some mode
+/// leaves play where it is.
+fn forced_game(spec: &NormalizedSpec, rules: &AtRules, start: PathStart) -> Option<NonZeroU32> {
     let reached: Vec<_> = spec
         .tables
         .iter()
@@ -85,14 +94,8 @@ fn past_forced(spec: &NormalizedSpec, rules: &AtRules, start: PathStart) -> Opti
     {
         return None;
     }
-    let game = reached
+    reached
         .iter()
         .filter_map(|mode| mode.since_at_ceiling)
         .max()
-        .unwrap_or(NonZeroU32::MIN);
-    Some(if rules.ceiling_wins() {
-        SeatError::PastSureCz { game }
-    } else {
-        SeatError::PastForcedCz { game }
-    })
 }

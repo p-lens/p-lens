@@ -150,7 +150,8 @@ fn a_mode_whose_sure_cz_the_seat_is_past_is_ruled_out_and_the_others_weighed() {
 }
 
 #[test]
-fn a_seat_is_refused_only_where_every_mode_it_may_be_in_is_past_its_sure_cz() {
+fn a_seat_past_a_sure_cz_in_every_mode_it_may_be_in_stands_just_short_of_it_and_one_counting_more_since_the_cz_than_since_the_at_is_refused()
+ {
     let mut spec = drawn_misses_spec();
     let ceiling = |games: u32| NonZeroU32::new(games).expect("a ceiling");
     spec.components.ceiling.insert(id("at"), ceiling(1_000));
@@ -167,8 +168,17 @@ fn a_seat_is_refused_only_where_every_mode_it_may_be_in_is_past_its_sure_cz() {
         seated(&normalized, machine, start(0, 500, 3)),
         Ok(start(0, 500, 3))
     );
+    for since_at in [800, 850] {
+        assert_eq!(
+            seated(&normalized, machine, start(0, since_at, 3)),
+            Ok(start(0, 799, 3))
+        );
+    }
     assert_eq!(
-        seated(&normalized, machine, start(0, 800, 3)),
-        Err(SeatError::PastSureCz { game: ceiling(800) })
+        seated(&normalized, machine, start(600, 500, 3)),
+        Err(SeatError::TriggerAboveSinceAt {
+            since_trigger: 600,
+            since_at: 500
+        })
     );
 }

@@ -1559,18 +1559,19 @@ pub fn analysis_error_dto(error: &AnalysisError) -> ErrorDto {
 
 pub fn seat_error_dto(error: SeatError) -> ErrorDto {
     match error {
-        SeatError::PastSureCz { game } => ErrorDto::SeatPastSureCz { game: game.get() },
-        SeatError::PastForcedCz { game } => ErrorDto::SeatPastForcedCz { game: game.get() },
+        SeatError::TriggerAboveSinceAt {
+            since_trigger,
+            since_at,
+        } => ErrorDto::SeatTriggerAboveSinceAt {
+            since_trigger,
+            since_at,
+        },
         SeatError::AcrossBonusesBelowSinceAt { since_at, across } => {
             ErrorDto::SeatAcrossBonusesBelowSinceAt {
                 since_at,
                 since_at_across_bonuses: across,
             }
         }
-        SeatError::PastSideBonusCeiling { since, ceiling } => ErrorDto::SeatPastSideBonusCeiling {
-            since_side_bonus: since,
-            ceiling: ceiling.get(),
-        },
     }
 }
 

@@ -665,14 +665,10 @@ export type EngineErrorDto =
   /** A mode's allotment after an AT beside one after every ending that is not the endings' mix (`mix`, in basis points). */
   | { readonly type: "allotment-against-endings"; readonly entity: string; readonly settingLevel: number; readonly mix: number }
   | { readonly type: "unknown-ending"; readonly ending: string }
-  /** A seat at or past the game a ceiling counted from the AT, or the last bonus, forces a CZ that certainly succeeds. */
-  | { readonly type: "seat-past-sure-cz"; readonly game: number }
-  /** A seat past the game a ceiling counted from the AT forces a CZ on, with no CZ since before it. */
-  | { readonly type: "seat-past-forced-cz"; readonly game: number }
+  /** A seat with more games since the last CZ than since the last AT. */
+  | { readonly type: "seat-trigger-above-since-at"; readonly sinceTrigger: number; readonly sinceAt: number }
   /** A seat with fewer games since the AT itself, across bonuses, than since the last bonus. */
   | { readonly type: "seat-across-bonuses-below-since-at"; readonly sinceAt: number; readonly sinceAtAcrossBonuses: number }
-  /** A seat at or past the side bonus's ceiling in games since the last of it. */
-  | { readonly type: "seat-past-side-bonus-ceiling"; readonly sinceSideBonus: number; readonly ceiling: number }
   | { readonly type: "cz-without-at"; readonly entity: string }
   | { readonly type: "first-hit-beside-cz"; readonly entity: string }
   | { readonly type: "payout-beside-at"; readonly entity: string }
