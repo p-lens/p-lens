@@ -208,7 +208,7 @@ export const stretchPerformancesOf = (ordered: readonly Checkpoint[], terms: Pla
       const from = closing ? (first === standing ? undefined : first) : (walked.last ?? hands.at(0))
       const rate = from === undefined || !isKnown(standing) || line?.phase !== "regular" ? undefined : measuredRate(stretchBetween(from, standing, terms))
       const last = isKnown(standing) ? standing : (hands.at(-1) ?? walked.last)
-      const opens = !closing && waiting === undefined && isToldRegularJackpot(line) && !isKnown(standing) && from !== undefined
+      const opens = (closing || waiting === undefined) && isToldRegularJackpot(line) && !isKnown(standing) && from !== undefined
       const next = opens ? { line: index, from } : closing ? undefined : waiting
       return { rates: [...rates, opens ? { type: "awaited" as const } : rate], last, waiting: next }
     },

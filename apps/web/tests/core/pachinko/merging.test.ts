@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { consumptionOf } from "../../../src/core/pachinko/consumption"
+import { consumptionOf, stretchPerformancesOf } from "../../../src/core/pachinko/consumption"
 import { mergeableSpan, withReadingsMerged } from "../../../src/core/pachinko/merging"
 import { checkpointsForReading, type Reading } from "../../../src/core/pachinko/reading"
 import { heldAsToldOf, standingBefore, takenOf, withReadingInserted, withReadingRemoved } from "../../../src/core/pachinko/revision"
@@ -175,6 +175,10 @@ describe("any run that may be made one", () => {
       expect(takenOf(after)).toHaveLength(takenOf(log).length - (span.to - span.from))
       expect(consumptionOf(after, TERMS)).toEqual(consumptionOf(log, TERMS))
       expect(heldAsToldOf(after)).toEqual(heldAsToldOf(log))
+      const lines = log.flatMap((line, at) => (at > 0 && !(line.event?.kind === "jackpot" && line.event.approximate === true) ? [at] : []))
+      const [first, last] = [lines[span.from] ?? 0, lines[span.to] ?? 0]
+      expect(stretchPerformancesOf(after, TERMS).slice(0, first)).toEqual(stretchPerformancesOf(log, TERMS).slice(0, first))
+      expect(stretchPerformancesOf(after, TERMS).slice(first + 1)).toEqual(stretchPerformancesOf(log, TERMS).slice(last + 1))
       expect(((line) => (line === undefined ? undefined : { ...line, handsBefore: undefined }))(after.at(-1))).toEqual({ ...(log.at(-1) as Checkpoint), handsBefore: undefined })
       expect([liveSummary(after).spins, liveSummary(after).outlay, liveSummary(after).jackpots, liveSummary(after).counterNow]).toEqual([liveSummary(log).spins, liveSummary(log).outlay, liveSummary(log).jackpots, liveSummary(log).counterNow])
     })
@@ -200,6 +204,29 @@ describe("any run that may be made one", () => {
       return takenOf(folded).length < takenOf(log).length
     })
     expect(checked.filter(Boolean).length).toBeGreaterThan(15)
+  })
+
+  test("keeps where a jackpot's stretch before the run closes, and a folded reading's purchases where they were, however often it is folded", () => {
+    const log = played([
+      reading({ counterSpins: 140, rented: 500 }),
+      reading({ counterSpins: 160, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }),
+      reading({ counterSpins: 30, held: 1300 }),
+      reading({ counterSpins: 60, rented: 500 }),
+      reading({ counterSpins: 90 }),
+      reading({ counterSpins: 120 }),
+    ])
+    const once = merged(log, 2, 4)
+    expect(stretchPerformancesOf(once, TERMS)[2]).toEqual(stretchPerformancesOf(log, TERMS)[2])
+    const twice = merged(once, 2, 3)
+    expect(consumptionOf(twice, TERMS)).toEqual(consumptionOf(log, TERMS))
+    expect(stretchPerformancesOf(twice, TERMS)[2]).toEqual(stretchPerformancesOf(log, TERMS)[2])
+  })
+
+  test("keeps a 電サポ total that came back to none, so folding reads it as it was", () => {
+    const log = played([reading({ counterSpins: 140, rented: 500, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }), reading({ counterSpins: 20, phase: "rapid", supported: 30 }), reading({ counterSpins: 40, phase: "rapid", supported: -30 }), reading({ counterSpins: 60, held: 900 })])
+    expect(log.at(3)?.support).toBe(0)
+    expect(takenOf(log).map((taken) => taken.reading.supported)).toEqual([0, 30, -30, 0])
+    expect(consumptionOf(merged(log, 0, 0), TERMS)).toEqual(consumptionOf(log, TERMS))
   })
 
   test("keeps the hands of a folded reading through a reading put in or taken out before it", () => {

@@ -550,7 +550,7 @@ then deletes the draft; a record the book refuses keeps it.
   played in regular games shows its own stretch's spin performance, from
   the last point the hand was known at (`stretchPerformancesOf`): a folded
   line its whole run, and a jackpot's line the stretch closed by the first
-  count after its bonus, `--` until then.
+  count after its bonus, `-----` until then.
 - **The value follows the finish form.** What the play was worth is
   worked out from its log with the line it would finish on — the counter
   and the tokens in hand the form says (`theoreticalValueAtFinish`) — as

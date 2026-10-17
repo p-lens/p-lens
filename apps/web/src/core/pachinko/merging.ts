@@ -46,8 +46,17 @@ const stretched = (weighed: readonly Weighed[], at: number, reached: number): nu
   return earlier !== undefined && later !== undefined && joins(earlier.taken, later.taken) ? stretched(weighed, next, reached) : at
 }
 
-/** Whether a reading says what was in hand: the balls counted, or balls bought, which says the hand had run out — but not at a jackpot, which may have come before what was bought there was played (`consumptionOf`). */
-const knowsTheHand = ({ reading }: Taken): boolean => reading.held !== undefined || (reading.jackpot.type === "none" && (reading.rented > 0 || reading.replayed > 0))
+/**
+ * Whether a reading says what was in hand: the balls counted, or balls
+ * bought since the last hand it already knew inside it, which says the
+ * hand had run out — but not at a jackpot, which may have come before what
+ * was bought there was played (`consumptionOf`).
+ */
+const knowsTheHand = ({ reading }: Taken): boolean => {
+  const inside = reading.handsBefore?.at(-1)
+  const bought = reading.rented > (inside?.rented ?? 0) || reading.replayed > (inside?.replayed ?? 0)
+  return reading.held !== undefined || (reading.jackpot.type === "none" && bought)
+}
 
 const spanBetween = (one: number, other: number): Span => ({ from: Math.min(one, other), to: Math.max(one, other) })
 
@@ -108,14 +117,17 @@ const pointsOf = (run: readonly Weighed[]): readonly Point[] =>
  * did: for it to be measured as it was (`consumptionOf`), the last before
  * any regular game, which the measuring may start from, and — where the
  * last reading does not know the hand itself — the last of all, which it
- * may end at; and, where the last reading counted nothing, the last count,
- * which the hand is told from (`heldAsToldOf`). No other is ever read.
+ * may end at; where the last reading counted nothing, the last count,
+ * which the hand is told from (`heldAsToldOf`); and the first of all, where
+ * a jackpot's stretch before the run closes (`stretchPerformancesOf`). No
+ * other is ever read.
  */
 const keptPoints = (points: readonly Point[], last: Taken): readonly ReadingHand[] => {
+  const first = points.at(0)
   const start = points.findLast((point) => point.regularSpins === 0)
   const end = knowsTheHand(last) ? undefined : points.at(-1)
   const count = last.reading.held === undefined ? points.findLast((point) => point.hand.counted === true) : undefined
-  return points.filter((point) => point === start || point === end || point === count).map((point) => point.hand)
+  return points.filter((point) => point === first || point === start || point === end || point === count).map((point) => point.hand)
 }
 
 /**

@@ -64,10 +64,11 @@ export type ReadingRefusal = { readonly type: "counter-went-back"; readonly expe
 const lastKnown = (ordered: readonly Checkpoint[], read: (checkpoint: Checkpoint) => number | undefined): number =>
   ordered.map(read).findLast((value): value is number => value !== undefined) ?? 0
 
-/** Everything a reading records except where in the play it falls: the running totals as they stand with it. */
+/** Everything a reading records except where in the play it falls: the running totals as they stand with it — the 電サポ's too where it has come back to none, a line that says none of a total being read as leaving it as it was. */
 const readingFields = (ordered: readonly Checkpoint[], reading: Reading): Omit<Checkpoint, "spins"> => {
   const replay = lastKnown(ordered, (checkpoint) => checkpoint.replay) + reading.replayed
-  const support = lastKnown(ordered, (checkpoint) => checkpoint.support) + reading.supported
+  const supportBefore = lastKnown(ordered, (checkpoint) => checkpoint.support)
+  const support = supportBefore + reading.supported
   return {
     outlay: lastKnown(ordered, (checkpoint) => checkpoint.outlay) + reading.rented,
     at: reading.at,
@@ -75,7 +76,7 @@ const readingFields = (ordered: readonly Checkpoint[], reading: Reading): Omit<C
     ...eventOf(reading.jackpot),
     phase: reading.phase,
     ...(replay === 0 ? {} : { replay }),
-    ...(support === 0 ? {} : { support }),
+    ...(support === 0 && supportBefore === 0 ? {} : { support }),
     ...(reading.held === undefined ? {} : { held: reading.held }),
   }
 }
