@@ -37,7 +37,7 @@ interface Row {
   readonly seat: boolean
 }
 
-/** What the seat as it was found is called, in place of the games played, which are none there. */
+/** What the seat as it was found is called, written small beside its moment — at a card's top right. */
 const SEAT_NAME = "着席"
 
 function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly seat: boolean; readonly bonuses: readonly Countable[]; readonly trigger: TriggerWords; readonly endings: readonly AtEnding[]; readonly strip: boolean }): JSX.Element {
@@ -50,8 +50,13 @@ function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly seat: boo
       .join("・")
   return (
     <>
-      <time class="shrink-0 text-xs tabular-nums text-text-muted" classList={{ "w-20": !props.strip }}>{props.checkpoint.at === undefined ? "--" : formatMoment(props.checkpoint.at)}</time>
-      <span class="shrink-0 tabular-nums text-text-primary" classList={{ "w-20": !props.strip, "font-semibold": props.strip }}>{props.seat ? SEAT_NAME : `${formatCount(props.checkpoint.spins)} G`}</span>
+      <span class="flex shrink-0 items-baseline gap-1" classList={{ "w-20": !props.strip, "w-full justify-between": props.strip }}>
+        <time class="text-xs tabular-nums text-text-muted">{props.checkpoint.at === undefined ? "--" : formatMoment(props.checkpoint.at)}</time>
+        <Show when={props.seat}>
+          <span class="whitespace-nowrap text-[0.625rem] text-text-muted">{SEAT_NAME}</span>
+        </Show>
+      </span>
+      <span class="shrink-0 tabular-nums text-text-primary" classList={{ "w-20": !props.strip, "font-semibold": props.strip }}>{formatCount(props.checkpoint.spins)} G</span>
       <span class="text-sm tabular-nums text-text-secondary" classList={{ "flex-1": !props.strip, "flex flex-col": props.strip }}>
         {props.checkpoint.outlay === undefined ? "" : `¥${formatCount(props.checkpoint.outlay)}`}
         <Show when={props.checkpoint.replay} keyed>
