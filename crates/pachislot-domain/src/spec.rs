@@ -237,6 +237,12 @@ pub struct Components {
     /// where play starts again at one — brings a CZ that certainly
     /// succeeds.
     pub ceiling_wins: BTreeSet<EntityId>,
+    /// On an AT a CZ brings: its AT間天井 — after an AT or a setting
+    /// change, in games or in the unit, a mode's own included — brings the
+    /// trigger, which certainly wins it, rather than the AT outright: a
+    /// bonus with the AT certain at 10 周期, counted in the published 合算
+    /// and paying its medals as any other.
+    pub ceiling_triggers: BTreeSet<EntityId>,
     /// On a mode: where play goes when a trigger in it misses — the mode
     /// drawn again at each failed CZ — each mode it may go to with its share
     /// under each setting, the whole of it. A mode without stays.
@@ -247,8 +253,13 @@ pub struct Components {
     pub ceiling_redraw: BTreeMap<EntityId, Vec<Redraw>>,
     /// On a CZ: the regular game since the last AT on which it comes at the
     /// latest, once — a bonus's ceiling that a bonus missing the AT does not
-    /// start again, short of the AT間天井.
+    /// start again, short of the AT間天井. On a mode, the same for play in
+    /// it, in place of the CZ's.
     pub since_at_ceiling: BTreeMap<EntityId, NonZeroU32>,
+    /// On the CZ of a machine without modes: its `since_at_ceiling` after
+    /// the settings are changed, until the first AT — 979G from the AT, 579G
+    /// after a setting change. Beside modes, each mode carries its own.
+    pub reset_since_at_ceiling: BTreeMap<EntityId, NonZeroU32>,
     /// An AT paid in sets: the medals of its first, and of each set it
     /// carries on to.
     pub sets: BTreeMap<EntityId, Sets>,
@@ -347,6 +358,8 @@ pub enum Component {
     AtUnitCeiling,
     TriggerChance,
     Expiry,
+    ResetSinceAtCeiling,
+    CeilingTriggers,
 }
 
 /// A mode left when so many games since its last trigger bring none: the
@@ -434,6 +447,8 @@ pub struct Cz {
     /// The regular game since the last AT on which it comes at the latest,
     /// once, whatever came before.
     pub since_at_ceiling: Option<NonZeroU32>,
+    /// The same after a setting change, until the first AT.
+    pub reset_since_at_ceiling: Option<NonZeroU32>,
     /// Whether the CZ that ceiling brings certainly succeeds.
     pub ceiling_wins: bool,
     /// Whether a bonus its success brings that misses the AT starts play
@@ -474,6 +489,10 @@ pub struct Mode {
     /// place of the CZ's — a スルー天井 drawn after each AT, two, four or
     /// six, is a mode for each.
     pub misses: Option<NonZeroU32>,
+    /// A mode's own ceiling counted from the AT on a machine a CZ brings
+    /// the AT on, in place of the CZ's: a shorter one in a mode play enters
+    /// only after a setting change.
+    pub since_at_ceiling: Option<NonZeroU32>,
     pub allotment: PerSettingLevel<BasisPoints>,
     pub reset_allotment: Option<PerSettingLevel<BasisPoints>>,
     /// The zones play in it draws at.
@@ -532,6 +551,9 @@ pub struct At {
     pub reset_unit_ceiling: Option<NonZeroU32>,
     pub window: Option<NonZeroU32>,
     pub reset_on_cap: bool,
+    /// Whether its AT間天井 brings the trigger, certainly winning it,
+    /// rather than winning it outright.
+    pub ceiling_triggers: bool,
 }
 
 /// A bonus: BIG, REG. Its chance is either one figure per setting or the sum

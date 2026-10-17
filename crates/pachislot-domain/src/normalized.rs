@@ -93,13 +93,16 @@ pub struct AtRules {
     pub trigger_is_bonus: bool,
     /// What the trigger pays each time it comes, where it is a bonus whose
     /// medals are known: its medals, and the medals a game of it gains
-    /// where its games are counted. A win on the AT間天井 is no trigger's
-    /// and pays none of it.
+    /// where its games are counted. A win on the AT間天井 pays it only
+    /// where the AT間天井 brings the trigger (`ceiling_at`), and then in
+    /// full: that trigger certainly wins.
     pub trigger_payout: Option<TriggerPayout>,
     /// What a bonus a CZ's success brings does when it misses the AT.
     pub bonus_miss: BonusMiss,
     /// How the CZ a ceiling counted from the AT forces fares.
     pub forced_cz: ForcedCz,
+    /// How the AT間天井 wins the AT: outright, or by the trigger it brings.
+    pub ceiling_at: CeilingAt,
 }
 
 /// What a bonus a CZ's success brings does when it misses the AT: counted
@@ -118,6 +121,16 @@ pub enum ForcedCz {
     Wins,
 }
 
+/// How the AT間天井 wins the AT: outright, no trigger's and paying none of
+/// it, or by a trigger it brings that certainly wins — counted among a
+/// cycle's triggers, in the published 合算, and paying the trigger's medals
+/// in full, a CZ's bonus certainly won.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CeilingAt {
+    Outright,
+    Triggered,
+}
+
 impl AtRules {
     /// Whether a bonus that misses the AT starts play again.
     pub fn restarts(&self) -> bool {
@@ -127,6 +140,11 @@ impl AtRules {
     /// Whether the CZ a ceiling counted from the AT forces certainly succeeds.
     pub fn ceiling_wins(&self) -> bool {
         self.forced_cz == ForcedCz::Wins
+    }
+
+    /// Whether the AT間天井 brings the trigger, certainly winning the AT.
+    pub fn ceiling_triggers(&self) -> bool {
+        self.ceiling_at == CeilingAt::Triggered
     }
 }
 

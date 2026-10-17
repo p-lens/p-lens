@@ -281,7 +281,8 @@ fn hunt_chained(rules: &AtRules, table: &AtTable, seated: &Standing) -> Option<H
 /// Playing on as a chain from where play stands to the AT — or, where play
 /// starts again at a bonus that misses the AT, to such a bonus — game by
 /// game: the AT won outright at the machine's own chance before anything
-/// else is drawn, what a trigger that is a bonus pays where it comes, until
+/// else is drawn, what a trigger that is a bonus pays where it comes — in
+/// full on the AT間天井, where it brings the trigger — until
 /// what is still going is too little to tell; and how often it ends at a
 /// bonus that starts play again. None where it might never end.
 fn stretch(rules: &AtRules, table: &AtTable, seated: &Standing) -> Option<(Hunted, f64)> {
@@ -296,6 +297,10 @@ fn stretch(rules: &AtRules, table: &AtTable, seated: &Standing) -> Option<(Hunte
     let paid = rules
         .trigger_payout
         .map_or(0.0, |payout| payout.medals.get() * table.paid.value());
+    let ceiling_paid = rules
+        .trigger_payout
+        .filter(|_| rules.ceiling_triggers())
+        .map_or(0.0, |payout| payout.medals.get());
     let through_wins = if rules.restarts() {
         odds.bonus_share
     } else {
@@ -316,7 +321,9 @@ fn stretch(rules: &AtRules, table: &AtTable, seated: &Standing) -> Option<(Hunte
                 games: reached * going,
                 medals: 0.0,
                 at_medals: won * gain_now(rules, table, &seated.held, now),
-                trigger_medals: reached * keep * played.arrived * paid,
+                trigger_medals: reached
+                    * keep
+                    * (played.arrived * paid + played.on_at_ceiling * ceiling_paid),
                 by_ceiling: reached * (played.on_at_ceiling + keep * played.through * through_wins),
             };
             Ok((sum.plus(added, 1.0), reached * keep, again + restarted))

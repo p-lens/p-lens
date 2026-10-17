@@ -437,19 +437,25 @@ impl<'a> Chain<'a> {
     }
 }
 
+/// What a chain walked from an AT comes to: its triggers and ends game by
+/// game, the bonuses among the ends game by game, and the play its
+/// AT間天井 wins, each with the AT won outright at the machine's own chance
+/// weighed in.
+struct Walked {
+    walk: Walk,
+    bonuses: Vec<f64>,
+    on_at_ceiling: f64,
+}
+
 /// A chain from an AT walked game by game until next to nothing of it is
 /// left — every mode at its AT間天井 or the walk at its longest — the AT
 /// won outright at the machine's own chance weighed in.
-fn walked(
-    rules: &AtRules,
-    odds: Odds<'_>,
-    shares: &[f64],
-    horizon: Option<usize>,
-) -> (Walk, Vec<f64>) {
+fn walked(rules: &AtRules, odds: Odds<'_>, shares: &[f64], horizon: Option<usize>) -> Walked {
     let mut chain = Chain::from_at(rules, odds, shares, 0);
     let mut arrived = Vec::new();
     let mut ended = Vec::new();
     let mut bonuses = Vec::new();
+    let mut ceiled = Vec::new();
     while horizon.map_or(arrived.len() < LONGEST_WALK, |horizon| {
         arrived.len() <= horizon
     }) && crate::budget::spend(chain.streams.len())
@@ -458,26 +464,32 @@ fn walked(
         arrived.push(game.arrived);
         ended.push(game.ended);
         bonuses.push(game.bonus);
+        ceiled.push(game.on_at_ceiling);
         if horizon.is_none() && arrived.len() > 1 && chain.going(None) < WALKED {
             break;
         }
     }
     let keep = 1.0 - odds.direct;
-    let bonuses = bonuses
-        .iter()
-        .enumerate()
-        .map(|(game, bonus)| {
-            if game == 0 {
-                *bonus
-            } else {
-                keep.powi(i32::try_from(game).unwrap_or(i32::MAX)) * bonus
-            }
-        })
-        .collect();
-    (
-        with_direct(Walk { arrived, ended }, |_| odds.direct),
-        bonuses,
-    )
+    let reached = |game: usize| {
+        if game == 0 {
+            1.0
+        } else {
+            keep.powi(i32::try_from(game).unwrap_or(i32::MAX))
+        }
+    };
+    Walked {
+        walk: with_direct(Walk { arrived, ended }, |_| odds.direct),
+        bonuses: bonuses
+            .iter()
+            .enumerate()
+            .map(|(game, bonus)| reached(game) * bonus)
+            .collect(),
+        on_at_ceiling: ceiled
+            .iter()
+            .enumerate()
+            .map(|(game, ceiled)| reached(game) * ceiled)
+            .sum(),
+    }
 }
 
 /// The share of a chain's ends where play starts again at a bonus: the
@@ -492,9 +504,14 @@ fn restarts(odds: Odds<'_>, bonuses: &[f64]) -> Vec<f64> {
 /// A cycle under one setting, walked as a chain. Where play starts again at
 /// a bonus that misses the AT, the chain is walked from an AT or such a
 /// bonus to the next, and the AT comes after as many of those as it takes:
-/// the cycle is one of them over the chance it ends in the AT.
+/// the cycle is one of them over the chance it ends in the AT. Where the
+/// AT間天井 brings the trigger, the play it wins is a trigger each.
 pub(crate) fn cycle(rules: &AtRules, odds: Odds<'_>, shares: &[f64]) -> Cycle {
-    let (walk, bonuses) = walked(rules, odds, shares, None);
+    let Walked {
+        walk,
+        bonuses,
+        on_at_ceiling,
+    } = walked(rules, odds, shares, None);
     let length = u32::try_from(walk.ended.len())
         .ok()
         .and_then(std::num::NonZeroU32::new);
@@ -502,13 +519,20 @@ pub(crate) fn cycle(rules: &AtRules, odds: Odds<'_>, shares: &[f64]) -> Cycle {
         return Cycle {
             triggers: f64::INFINITY,
             games: f64::INFINITY,
+            ceiled: 0.0,
         };
     };
-    let stretch = cycle_to_ceiling(&walk, length);
+    let stretch = cycle_to_ceiling(&walk, length, false);
     let at: f64 = 1.0 - restarts(odds, &bonuses).iter().sum::<f64>();
+    let ceiled = if rules.ceiling_triggers() {
+        on_at_ceiling
+    } else {
+        0.0
+    };
     Cycle {
-        triggers: stretch.triggers / at,
+        triggers: (stretch.triggers + ceiled) / at,
         games: stretch.games / at,
+        ceiled: ceiled / at,
     }
 }
 
@@ -517,7 +541,7 @@ pub(crate) fn cycle(rules: &AtRules, odds: Odds<'_>, shares: &[f64]) -> Cycle {
 /// the AT, each start again carrying on from where it fell.
 pub(crate) fn arrivals(rules: &AtRules, odds: Odds<'_>, shares: &[f64], horizon: u32) -> Vec<f64> {
     let horizon = horizon as usize;
-    let (walk, bonuses) = walked(rules, odds, shares, Some(horizon));
+    let Walked { walk, bonuses, .. } = walked(rules, odds, shares, Some(horizon));
     let again = restarts(odds, &bonuses);
     let ends: Vec<f64> = walk
         .ended

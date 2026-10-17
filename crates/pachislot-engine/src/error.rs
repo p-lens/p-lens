@@ -160,9 +160,26 @@ pub enum SpecError {
     SinceAtCeilingBeyondAtCeiling {
         entity: EntityId,
     },
+    /// A CZ given a ceiling counted from the AT after a setting change and
+    /// none after an AT: the shorter one stands for the other, and there is
+    /// no other.
+    ResetSinceAtCeilingWithoutSinceAtCeiling {
+        entity: EntityId,
+    },
+    /// A CZ given a ceiling counted from the AT after a setting change on a
+    /// machine of modes: a setting change allots the same modes an AT does,
+    /// so a mode play enters after one carries the shorter ceiling itself.
+    ResetSinceAtCeilingBesideModes {
+        entity: EntityId,
+    },
     /// An AT given a chance of being won outright on a machine without a
     /// CZ, where every win is its trigger's already.
     DirectWithoutCz {
+        entity: EntityId,
+    },
+    /// An AT whose AT間天井 brings the trigger on a machine without a CZ,
+    /// where its trigger is the AT and its ceiling the trigger's already.
+    CeilingTriggersWithoutCz {
         entity: EntityId,
     },
     /// A set of an AT paid in sets that pays nothing.

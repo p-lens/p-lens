@@ -101,8 +101,17 @@ describe("a run of a pachinko play's readings made one", () => {
 
   test("does not fold the reading the measuring starts from, taken before any regular game, into one after them", () => {
     const log = played([reading({ counterSpins: 120, rented: 500 }), reading({ counterSpins: 140, rented: 500 }), reading({ counterSpins: 160, rented: 500 })])
-    expect(mergeableSpan(log, 0, 2)).toEqual({ from: 0, to: 0 })
+    expect(mergeableSpan(log, 0, 2)).toEqual({ from: 1, to: 2 })
     expect(mergeableSpan(log, 1, 2)).toEqual({ from: 1, to: 2 })
+  })
+
+  test("dragged from a reading that may be made one with none, folds the longest run of the others that may", () => {
+    const first = played([reading({ counterSpins: 120, rented: 500 }), reading({ counterSpins: 140, rented: 500 }), reading({ counterSpins: 160, replayed: 125 }), reading({ counterSpins: 180, rented: 500 })])
+    expect(mergeableSpan(first, 0, 3)).toEqual({ from: 1, to: 3 })
+    expect(consumptionOf(merged(first, 1, 3), TERMS)).toEqual(consumptionOf(first, TERMS))
+    const unknowing = played([reading({ counterSpins: 140, rented: 500 }), reading({ counterSpins: 160, replayed: 125 }), reading({ counterSpins: 180, rented: 500 }), reading({ counterSpins: 190 })])
+    expect(mergeableSpan(unknowing, 3, 0)).toEqual({ from: 0, to: 2 })
+    expect(mergeableSpan(unknowing, 3, 2)).toEqual({ from: 3, to: 3 })
   })
 
   test("is the log as it was where the span is one reading, or none of the play's", () => {

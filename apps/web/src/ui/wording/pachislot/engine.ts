@@ -37,6 +37,7 @@ const COMPONENT_NAMES: Readonly<Record<string, string>> = {
   trials: "ボーナス1回の回数",
   cue: "示唆",
   sinceAtCeiling: "ATから数える天井",
+  resetSinceAtCeiling: "リセット後のATから数える天井",
   direct: "直撃AT",
   bonusShare: "ボーナスからのAT率",
   gates: "ゾーン",
@@ -49,6 +50,7 @@ const COMPONENT_NAMES: Readonly<Record<string, string>> = {
   triggerChance: "モードのCZ確率",
   expiry: "モードを抜けるゲーム数",
   ceilingWins: "天井CZの確定",
+  ceilingTriggers: "AT間天井での当選",
 }
 
 /** A component by what the person entering a spec calls it. */
@@ -158,6 +160,12 @@ const describeEngineError = (error: EngineErrorDto): string => {
       return `AT「${error.entity}」の直撃ATは、CZやボーナスからATに入る機種にだけ入れられます。CZのない機種は、ATの初当たりがそのまま直撃です。`
     case "since-at-ceiling-beyond-at-ceiling":
       return `「${error.entity}」のATから数える天井は、AT間天井と同じか手前にしてください。AT間天井のない機種には入れられません。`
+    case "ceiling-triggers-without-cz":
+      return `AT「${error.entity}」のAT間天井での当選は、CZやボーナスからATに入る機種にだけ入れられます。CZのない機種は、天井でATそのものに当たります。`
+    case "reset-since-at-ceiling-without-since-at-ceiling":
+      return `CZ「${error.entity}」にリセット後のATから数える天井だけがあります。AT後のATから数える天井も入れてください。`
+    case "reset-since-at-ceiling-beside-modes":
+      return `モードのある機種では、設定変更後もAT後と同じモードに入るため、CZにリセット後のATから数える天井は入れられません。設定変更後だけに入るモードに、ATから数える天井を入れてください。`
     case "empty-set":
       return `AT「${error.entity}」の1セットの枚数が0枚です。1枚以上にしてください。`
     case "empty-net-per-game":

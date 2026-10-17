@@ -1,10 +1,10 @@
 import * as PopoverPrimitive from "@kobalte/core/popover"
 import { createSignal, type JSX } from "solid-js"
 
+import { PRESS_DIGITS } from "../../../../core/book/settings"
 import { createLongPress } from "../../../primitives/long-press"
 import { TextField } from "../../../primitives/text-field"
 import { feelHold, feelTap } from "../../../primitives/vibration"
-import { PRESS_DIGITS } from "../../live/parlor-setting"
 import { readPressAmount } from "./press-amounts"
 
 /**

@@ -9,10 +9,10 @@ import type { PlayDraft } from "../../../../core/live-play/draft"
 import { checkpointsForReading, type ReadingRefusal } from "../../../../core/pachinko/reading"
 import { rentalPressOf } from "../../../../core/pachinko/rental-press"
 import { standingBefore, takenOf, withReadingInserted, withReadingRemoved, withReadingRevised, type Before, type RevisionRefusal, type Taken } from "../../../../core/pachinko/revision"
-import { savingsDeductedFor } from "../../../../core/parlor/terms"
+import { cornerOf, savingsDeductedFor } from "../../../../core/parlor/terms"
 import type { Checkpoint, Phase } from "../../../../core/play-log/checkpoint"
 import { useApp } from "../../../context"
-import { pressesAt, recalledParlorSetting, withPresses, type PressAmounts } from "../../live/parlor-setting"
+import { useCornerPresses } from "../../live/corner-presses"
 import { Button } from "../../../primitives/button"
 import { TrashIcon } from "../../../primitives/icons"
 import { createNudge } from "../../../primitives/nudge"
@@ -95,16 +95,13 @@ export function ReadingComposer(props: {
     if (kept.length > 0 || now?.ok !== true) return kept
     return now.value.formulas.find((listing) => listing.formula.id === props.draft.pachinko?.id)?.formula.bonuses ?? []
   }
-  const [set, setSet] = createSignal<PressAmounts>(pressesAt(recalledParlorSetting(app.services.preferences.parlorSetting(), app.services.businessDay()), props.draft.venue.terms))
-  /** Sets what a press adds at this play's rate, kept with the day's parlor setting where there is one: for every play of the day at that rate, and otherwise for as long as this play is open. */
-  const setPress = (changed: PressAmounts): void => {
-    const amounts = { ...set(), ...changed }
-    setSet(amounts)
-    const written = withPresses(app.services.preferences.parlorSetting(), app.services.businessDay(), props.draft.venue.terms, amounts)
-    if (written !== undefined) app.services.preferences.setParlorSetting(written)
-  }
-  const press = (): number => set().rental ?? rentalPressOf(props.draft.venue.terms)
-  const draw = (): number => set().draw ?? props.draft.venue.terms?.replay.paidOut ?? USUAL_DRAW
+  const corner = useCornerPresses(
+    () => props.draft.bookId,
+    () => cornerOf("pachinko", props.draft.venue.terms),
+  )
+  const setPress = corner.set
+  const press = (): number => corner.presses().rental ?? rentalPressOf(props.draft.venue.terms)
+  const draw = (): number => corner.presses().draw ?? props.draft.venue.terms?.replay.paidOut ?? USUAL_DRAW
   /** Where the play stood before the reading being typed: before the one set right, at the place one is put in, or after them all. */
   const beforeIn = (ordered: readonly Checkpoint[]): Before => standingBefore(ordered, props.revising?.index ?? props.inserting?.before ?? takenOf(ordered).length)
   const before = createMemo(() => beforeIn(props.ordered))

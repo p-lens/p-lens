@@ -656,6 +656,27 @@ fn a_cz_ceiling_counted_from_the_at_is_carried_on_each_mode() {
 }
 
 #[test]
+fn a_cz_ceiling_counted_from_the_at_after_a_setting_change_is_carried_on_the_reset_mode() {
+    let mut spec = value(CZ_SPEC);
+    spec["components"]["sinceAtCeiling"] = json!({ "cz": 800 });
+    spec["components"]["resetSinceAtCeiling"] = json!({ "cz": 400 });
+    let normalized = ok(&normalize(&json!({ "spec": spec }).to_string()));
+    let modes = &normalized["atRules"]["modes"];
+    assert_eq!(
+        (&modes[0]["sinceAtCeiling"], &modes[1]["sinceAtCeiling"]),
+        (&json!(800), &json!(400))
+    );
+    spec["components"]
+        .as_object_mut()
+        .expect("components")
+        .remove("sinceAtCeiling");
+    assert_eq!(
+        error(&normalize(&json!({ "spec": spec }).to_string())),
+        json!({ "type": "reset-since-at-ceiling-without-since-at-ceiling", "entity": "cz" })
+    );
+}
+
+#[test]
 fn an_at_won_outright_beside_its_cz_is_carried_on_each_setting() {
     let mut spec = value(CZ_SPEC);
     spec["components"]["direct"] = json!({ "at": [
@@ -685,4 +706,40 @@ fn a_spec_past_the_steps_it_is_given_is_too_heavy_and_one_given_none_is_solved()
     assert_eq!(error(&analyze(&analysed)), json!({ "type": "too-heavy" }));
     let light = json!({ "spec": value(SPEC), "steps": 100_000 }).to_string();
     ok(&normalize(&light));
+}
+
+#[test]
+fn an_at_ceiling_that_brings_the_trigger_is_carried_and_counted() {
+    let mut spec = value(CZ_SPEC);
+    let outright = ok(&normalize(&json!({ "spec": spec }).to_string()));
+    assert_eq!(outright["atRules"].get("ceilingAt"), None);
+    spec["components"]["ceilingTriggers"] = json!(["at"]);
+    let normalized = ok(&normalize(&json!({ "spec": spec }).to_string()));
+    assert_eq!(normalized["atRules"]["ceilingAt"], json!("triggered"));
+    let analyzed = |source: Value| {
+        ok(&analyze(
+            &json!({ "source": source, "conditions": measured() }).to_string(),
+        ))
+    };
+    let from_spec = analyzed(json!({ "type": "spec", "spec": spec }));
+    let from_normalized = analyzed(json!({ "type": "normalized", "normalized": normalized }));
+    assert_eq!(from_spec["settingLevels"], from_normalized["settingLevels"]);
+    let figures = &from_spec["settingLevels"][0];
+    assert!(close(&figures["bonuses"][0]["chance"], &json!(1.0 / 150.0)));
+    assert!(
+        figures["at"]["ceilingTriggers"]
+            .as_f64()
+            .is_some_and(|ceiled| ceiled > 0.0)
+    );
+    let unceiled = analyzed(json!({ "type": "normalized", "normalized": outright }));
+    assert_eq!(
+        unceiled["settingLevels"][0]["at"].get("ceilingTriggers"),
+        None
+    );
+    let mut direct = value(AT_SPEC);
+    direct["components"]["ceilingTriggers"] = json!(["at"]);
+    assert_eq!(
+        error(&normalize(&json!({ "spec": direct }).to_string())),
+        json!({ "type": "ceiling-triggers-without-cz", "entity": "at" })
+    );
 }

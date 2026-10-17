@@ -103,6 +103,10 @@ pub struct ComponentsDto {
     /// On a CZ: the CZ its ceiling counted from the AT brings certainly succeeds.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ceiling_wins: Vec<String>,
+    /// On an AT a CZ brings: its AT間天井 brings the trigger, which certainly
+    /// wins it, rather than the AT outright.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ceiling_triggers: Vec<String>,
     /// A CZ's chance of winning the AT, in hundredths of a percent under each setting.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub success: BTreeMap<String, Vec<BySettingLevelDto<u32>>>,
@@ -147,9 +151,13 @@ pub struct ComponentsDto {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub cue: BTreeMap<String, String>,
     /// On a CZ: the regular game since the last AT on which it comes at the
-    /// latest, once.
+    /// latest, once. On a mode, the same for play in it, in place of the CZ's.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub since_at_ceiling: BTreeMap<String, u32>,
+    /// On the CZ of a machine without modes: that ceiling after a setting
+    /// change, until the first AT.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub reset_since_at_ceiling: BTreeMap<String, u32>,
     /// On an AT a CZ brings: how often a regular game wins it outright, under each setting.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub direct: BTreeMap<String, Vec<BySettingLevelDto<ProbabilityDto>>>,
@@ -463,6 +471,9 @@ pub struct AtRulesDto {
     /// How the CZ a ceiling counted from the AT forces fares.
     #[serde(default, skip_serializing_if = "ForcedCzDto::is_drawn")]
     pub forced_cz: ForcedCzDto,
+    /// How the AT間天井 wins the AT; outright where a stored spec says nothing.
+    #[serde(default, skip_serializing_if = "CeilingAtDto::is_outright")]
+    pub ceiling_at: CeilingAtDto,
 }
 
 /// A bonus that misses the AT counted as a miss, or starting play again.
@@ -500,6 +511,25 @@ impl ForcedCzDto {
     )]
     fn is_drawn(&self) -> bool {
         *self == Self::Drawn
+    }
+}
+
+/// The AT間天井 winning the AT outright, or by the trigger it brings.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum CeilingAtDto {
+    #[default]
+    Outright,
+    Triggered,
+}
+
+impl CeilingAtDto {
+    #[allow(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "serde hands a field to skip_serializing_if by reference"
+    )]
+    fn is_outright(&self) -> bool {
+        *self == Self::Outright
     }
 }
 
@@ -642,6 +672,9 @@ pub struct SettingLevelFiguresDto {
 pub struct AtFigureDto {
     pub gain: f64,
     pub completion: f64,
+    /// The triggers a cycle's AT間天井 brings; none where it wins the AT outright.
+    #[serde(default, skip_serializing_if = "is_none")]
+    pub ceiling_triggers: f64,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -1115,7 +1148,16 @@ pub enum ErrorDto {
     SinceAtCeilingBeyondAtCeiling {
         entity: String,
     },
+    ResetSinceAtCeilingWithoutSinceAtCeiling {
+        entity: String,
+    },
+    ResetSinceAtCeilingBesideModes {
+        entity: String,
+    },
     DirectWithoutCz {
+        entity: String,
+    },
+    CeilingTriggersWithoutCz {
         entity: String,
     },
     EmptySet {

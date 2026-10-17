@@ -6,7 +6,7 @@ use std::num::NonZeroU32;
 
 use pachislot_domain::conditions::{PayoutBasis, PayoutRate};
 use pachislot_domain::normalized::{
-    Allotments, AtRules, AtTable, BonusMiss, ForcedCz, ModeRule, PayoutLaw,
+    Allotments, AtRules, AtTable, BonusMiss, CeilingAt, ForcedCz, ModeRule, PayoutLaw,
 };
 use pachislot_domain::observation::{AtSeen, Leg, LegEnd, Path, PathStart};
 use pachislot_domain::probability::{BasisPoints, Probability};
@@ -128,6 +128,7 @@ fn rules(cap: Option<f64>, window: Option<u32>, reset_on_cap: bool) -> AtRules {
         trigger_payout: None,
         bonus_miss: BonusMiss::Counted,
         forced_cz: ForcedCz::Drawn,
+        ceiling_at: CeilingAt::Outright,
     }
 }
 

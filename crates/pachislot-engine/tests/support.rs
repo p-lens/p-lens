@@ -9,7 +9,7 @@ use pachislot_engine::at::Odds;
 use std::num::NonZeroU32;
 
 use pachislot_domain::normalized::{
-    Allotments, AtRules, AtTable, BonusMiss, ForcedCz, ModeRule, PayoutLaw,
+    Allotments, AtRules, AtTable, BonusMiss, CeilingAt, ForcedCz, ModeRule, PayoutLaw,
 };
 use pachislot_domain::observation::PathStart;
 use pachislot_domain::probability::{BasisPoints, Denominator, Probability, ProbabilitySource};
@@ -330,6 +330,7 @@ pub fn rules(trigger: Option<&str>, modes: Vec<ModeRule>) -> AtRules {
         trigger_payout: None,
         bonus_miss: BonusMiss::Counted,
         forced_cz: ForcedCz::Drawn,
+        ceiling_at: CeilingAt::Outright,
     }
 }
 

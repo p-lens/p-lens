@@ -309,14 +309,19 @@ const bonusesLine = (step: Step, naming: GroundsNaming): Said => {
   const each = known(givenNumber(step, "trigger_payout", 0))
   const net = givenNumber(stepUnder(step, "bonus_games_counted"), "trigger_net", 0)
   const succeeding = givenNumber(stepUnder(step, "paid_on_success"), "staged", 1)
+  const ceiled = arg(stepUnder(step, "ceiled_cut", "ceiled_taken"), 1)
   const [total, own] = [known(arg(step, 1)), known(arg(step, 2))]
+  const paidShown = succeeding === undefined ? 1 : shownAt(succeeding, RATIO)
+  const ceiledShown = ceiled === undefined || ceiled === 0 ? 0 : shownAt(ceiled, TIMES)
+  const counted =
+    ceiledShown === 0 || succeeding === undefined
+      ? [`${triggerWord(naming)} `, figure(times(triggers)), ...(succeeding === undefined ? [] : [" × CZ成功率 ", figure(ratio(succeeding))]), " × "]
+      : ["（（", `${triggerWord(naming)} `, figure(times(triggers)), " − AT間天井 ", figure(times(ceiled)), "）× CZ成功率 ", figure(ratio(succeeding)), " ＋ AT間天井 ", figure(times(ceiled)), "）× "]
   return plain(
-    `1周期の${word}の獲得 ＝ ${triggerWord(naming)} `,
-    figure(times(triggers)),
-    ...(succeeding === undefined ? [] : [" × CZ成功率 ", figure(ratio(succeeding))]),
-    " × ",
+    `1周期の${word}の獲得 ＝ `,
+    ...counted,
     figure(medals(each)),
-    link(near(shownAt(triggers, TIMES) * (succeeding === undefined ? 1 : shownAt(succeeding, RATIO)) * shownAt(each, MEDALS), total, MEDALS)),
+    link(near(((shownAt(triggers, TIMES) - ceiledShown) * paidShown + ceiledShown) * shownAt(each, MEDALS), total, MEDALS)),
     figure(medals(total)),
     ...(net === undefined
       ? [`（${word}中のゲーム数は数えない）`]
@@ -520,13 +525,19 @@ const missesByModeIn = (step: Step): readonly (number | "none")[] | undefined =>
   return Array.isArray(listed) ? listed.map((misses: Term) => numberOf(misses) ?? "none") : undefined
 }
 
-/** A cycle played out game by game up to the AT間天井 of the modes play enters, with what it was played out from. */
+/**
+ * A cycle played out game by game up to the AT間天井 of the modes play
+ * enters, with what it was played out from — and where the AT間天井 brings
+ * the trigger, how many of the cycle's triggers come on it.
+ */
 const cycleCut = (step: Step, naming: GroundsNaming): Said => {
-  const success = arg(stepUnder(step, "success_of_cz"), 1)
-  const misses = arg(stepUnder(stepUnder(step, "misses_shared"), "within_misses"), 0)
-  const byMode = missesByModeIn(step)
+  const run = stepUnder(step, "played_cut") ?? step
+  const success = arg(stepUnder(run, "success_of_cz"), 1)
+  const misses = arg(stepUnder(stepUnder(run, "misses_shared"), "within_misses"), 0)
+  const byMode = missesByModeIn(run)
+  const ceiled = arg(stepUnder(step, "ceiling_triggered"), 1)
   const trigger = [...(success === undefined ? [] : [`${successWord(naming)} `, figure(ratio(success))]), ...(misses === undefined ? [] : [success === undefined ? "" : "・", "スルー天井 ", figure(times(misses))])]
-  const [ceilings, atCeilings, shares] = [ceilingsIn(step), atCeilingsIn(step), sharesIn(step)]
+  const [ceilings, atCeilings, shares] = [ceilingsIn(run), atCeilingsIn(run), sharesIn(run)]
   const entered = shares.flatMap((share, index) => (share > 0 ? [{ index, share, ceiling: ceilings[index] ?? "none", atCeiling: atCeilings[index] ?? "none", misses: byMode?.[index] }] : []))
   const played =
     entered.length === 1 && entered[0] !== undefined
@@ -534,7 +545,7 @@ const cycleCut = (step: Step, naming: GroundsNaming): Said => {
       : entered.flatMap((mode, place) => [place === 0 ? "" : "、", `${modeName(naming, mode.index)}（`, ...ceilingsOfMode(naming, mode.index, mode.ceiling, mode.atCeiling, mode.misses), "）を ", figure(rate(mode.share))])
   return plain(
     `天井を除いた${triggerWord(naming)}確率 `,
-    figure(oneIn(givenNumber(step, "chance", 1))),
+    figure(oneIn(givenNumber(run, "chance", 1))),
     ...(trigger.length === 0 ? [] : ["（", ...trigger, "）"]),
     "、",
     ...played,
@@ -542,7 +553,8 @@ const cycleCut = (step: Step, naming: GroundsNaming): Said => {
     figure(games(arg(step, 1))),
     `・${triggerWord(naming)} `,
     figure(times(arg(step, 2))),
-    entered.length === 1 ? "（各ゲームでまだATに当たっていない確率を足し上げ）" : "（各ゲームでまだATに当たっていない確率を振り分けで重み付けして足し上げ）",
+    entered.length === 1 ? "（各ゲームでまだATに当たっていない確率を足し上げ" : "（各ゲームでまだATに当たっていない確率を振り分けで重み付けして足し上げ",
+    ...(ceiled === undefined ? ["）"] : [`。うちAT間天井で当たる${triggerWord(naming)} `, figure(times(ceiled)), "）"]),
   )
 }
 

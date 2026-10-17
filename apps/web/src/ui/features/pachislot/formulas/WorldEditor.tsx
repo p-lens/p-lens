@@ -19,6 +19,7 @@ import {
   type EntityKindName,
   type EntityRow,
   type GateForm,
+  hasAtCeiling,
   hasCz,
   hasModes,
   isAtMachine,
@@ -98,9 +99,14 @@ function LevelCells(props: {
 /** A CZ row's trigger from the toggle's value. */
 const czTriggerNamed = (value: string): CzTrigger => (value === "bonus" || value === "cz-then-bonus" ? value : "cz")
 
+/** What a CZ row brings play as on the AT間天井: a bonus where it is one, otherwise a CZ. */
+const ceilingTriggerWord = (form: WorldForm): string => (form.rows.find((each) => each.kind === "cz")?.trigger === "bonus" ? "ボーナス" : "CZ")
+
 function CzDepths(props: { readonly row: EntityRow; readonly form: WorldForm; readonly onChange: (row: EntityRow) => void }): JSX.Element {
   const [asked, setAsked] = createSignal(false)
-  const typed = (): boolean => [props.row.ceiling, props.row.resetCeiling, props.row.unitCeiling, props.row.resetUnitCeiling, props.row.misses, props.row.sinceAtCeiling].some((text) => text.trim() !== "")
+  const typed = (): boolean =>
+    [props.row.ceiling, props.row.resetCeiling, props.row.unitCeiling, props.row.resetUnitCeiling, props.row.misses, props.row.sinceAtCeiling, props.row.resetSinceAtCeiling].some((text) => text.trim() !== "")
+  const forcedFromAt = (): boolean => props.row.sinceAtCeiling.trim() !== "" || props.form.rows.some((each) => each.kind === "mode" && each.sinceAtCeiling.trim() !== "")
   return (
     <Show
       when={asked() || typed()}
@@ -172,7 +178,19 @@ function CzDepths(props: { readonly row: EntityRow; readonly form: WorldForm; re
             placeholder="なし"
           />
         </div>
-        <Show when={props.row.sinceAtCeiling.trim() !== ""}>
+        <Show when={!hasModes(props.form)}>
+          <div class="w-48">
+            <TextField
+              label="リセット後のATから数える天井"
+              value={props.row.resetSinceAtCeiling}
+              onChange={(resetSinceAtCeiling) => props.onChange({ ...props.row, resetSinceAtCeiling })}
+              inputMode="numeric"
+              suffix="G"
+              placeholder="同じ"
+            />
+          </div>
+        </Show>
+        <Show when={forcedFromAt()}>
           <div class="flex flex-col gap-1.5">
             <span class={LABEL}>その天井のCZ</span>
             <ToggleGroup value={props.row.forcedCz} onChange={(value: string | null) => value !== null && props.onChange({ ...props.row, forcedCz: value === "wins" ? "wins" : "drawn" })}>
@@ -182,7 +200,7 @@ function CzDepths(props: { readonly row: EntityRow; readonly form: WorldForm; re
           </div>
         </Show>
         <p class="basis-full text-xs text-text-muted">
-          スルー天井は、AT後にCZをこの回数失敗すると次のCZで必ずATに当たる、という回数です。ATから数える天井は、ATに入らなかったボーナスでは数え直さず、AT後このゲーム数で1回だけ必ずCZ（ボーナス）が来る、という天井です。AT間天井と同じか手前にしてください。
+          スルー天井は、AT後にCZをこの回数失敗すると次のCZで必ずATに当たる、という回数です。ATから数える天井は、ATに入らなかったボーナスでは数え直さず、AT後このゲーム数で1回だけ必ずCZ（ボーナス）が来る、という天井です。AT間天井と同じか手前にしてください。モードのある機種では、モードごとに入れると、そのモードではCZのものに代わります。
         </p>
       </div>
     </Show>
@@ -339,6 +357,16 @@ function RowEditor(props: {
               />
             </div>
           </Show>
+          <div class="w-40">
+            <TextField
+              label="ATから数える天井"
+              value={props.row.sinceAtCeiling}
+              onChange={(sinceAtCeiling) => props.onChange({ ...props.row, sinceAtCeiling })}
+              inputMode="numeric"
+              suffix="G"
+              placeholder="CZと同じ"
+            />
+          </div>
         </Show>
         <Show when={brought()}>
           <div class="w-36">
@@ -423,6 +451,18 @@ function RowEditor(props: {
       </Show>
       <Show when={brought()}>
         <p class="text-xs text-text-muted">ATの初当たりは、CZ合算と成功率・天井から正確に計算します。</p>
+        <Show when={hasAtCeiling(props.form)}>
+          <div class="flex flex-col gap-1.5">
+            <span class={LABEL}>AT間天井での当選</span>
+            <ToggleGroup value={props.row.ceilingAt} onChange={(value: string | null) => value !== null && props.onChange({ ...props.row, ceilingAt: value === "triggered" ? "triggered" : "outright" })}>
+              <ToggleGroupItem value="outright">ATに直接</ToggleGroupItem>
+              <ToggleGroupItem value="triggered">{`天井で${ceilingTriggerWord(props.form)}当選（合算に含む）`}</ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+          <p class="text-xs text-text-muted">
+            AT間天井で、ATが確定した{ceilingTriggerWord(props.form)}が来る機種は「天井で{ceilingTriggerWord(props.form)}当選」を選びます。その{ceilingTriggerWord(props.form)}は公表の合算に含まれ、ボーナスなら枚数も獲得するものとして計算します。
+          </p>
+        </Show>
         <span class={LABEL}>直撃AT（任意）</span>
         <LevelCells name={`${name("AT")} 直撃`} levels={props.form.settingLevels} values={props.row.chances} placeholder="なし" onChange={(chances) => props.onChange({ ...props.row, chances })} />
         <p class="text-xs text-text-muted">CZやボーナスを通らずにATに当たる確率（1Gあたり）です。公表されている直撃の確率を入れます。</p>

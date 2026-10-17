@@ -79,6 +79,8 @@ export interface ComponentsDto {
   readonly restart?: readonly string[]
   /** On a CZ: the CZ its ceiling counted from the AT — or from the last bonus, where play starts again at one — brings certainly succeeds. */
   readonly ceilingWins?: readonly string[]
+  /** On an AT a CZ brings: its AT間天井 — after an AT or a setting change, in games or in the unit, a mode's own included — brings the trigger, which certainly wins it, rather than the AT outright: counted in the published 合算 and paying the trigger's medals as any other. */
+  readonly ceilingTriggers?: readonly string[]
   /** 初当たり: how often an AT — or the CZ that brings it — comes up, ceilings included, as analysis sheets publish it, under each setting. */
   readonly firstHit?: Readonly<Record<string, readonly BySettingLevelDto<ProbabilityDto>[]>>
   /** A CZ's chance of winning the AT, in hundredths of a percent, under each setting. */
@@ -121,8 +123,10 @@ export interface ComponentsDto {
   readonly trials?: Readonly<Record<string, number>>
   /** On an AT a CZ brings: how often a regular game wins it outright, before the CZ is drawn, below the ceilings, under each setting. */
   readonly direct?: Readonly<Record<string, readonly BySettingLevelDto<ProbabilityDto>[]>>
-  /** On a CZ: the regular game since the last AT on which it comes at the latest, once — a bonus's ceiling that a bonus missing the AT does not start again. Needs an AT間天井 beyond it. */
+  /** On a CZ: the regular game since the last AT on which it comes at the latest, once — a bonus's ceiling that a bonus missing the AT does not start again. Needs an AT間天井 beyond it. On a mode, the same for play in it, in place of the CZ's. */
   readonly sinceAtCeiling?: Readonly<Record<string, number>>
+  /** On the CZ of a machine without modes: its `sinceAtCeiling` after a setting change, until the first AT — 979G from the AT, 579G after a reset. Only beside `sinceAtCeiling`; with modes, each mode carries its own. */
+  readonly resetSinceAtCeiling?: Readonly<Record<string, number>>
   /** ゾーン: on a mode, or on the CZ of a machine without modes, the regular games since the last AT it draws at besides its chance a game. */
   readonly gates?: Readonly<Record<string, readonly GateDto[]>>
   /** On a mode: where a missed trigger in it moves play — the mode drawn again at each failed CZ — each mode it may go to with its share under each setting, the whole of it. A mode without stays. */
@@ -294,12 +298,14 @@ export interface AtRulesDto {
   readonly resetOnCap?: boolean
   /** Whether the trigger is a bonus that wins the AT at a share, rather than a CZ. */
   readonly triggerIsBonus?: boolean
-  /** What the trigger pays each time it comes, where it is a bonus whose medals are known: its medals, and its 純増 where its games are counted. A win on the AT間天井 pays none of it. */
+  /** What the trigger pays each time it comes, where it is a bonus whose medals are known: its medals, and its 純増 where its games are counted. A win on the AT間天井 pays it in full where the AT間天井 brings the trigger (`ceilingAt`), and none otherwise. */
   readonly triggerPayout?: { readonly medals: number; readonly netPerGame?: number }
   /** What a bonus a CZ's success brings does when it misses the AT: counted as a miss, or — `restarts` — starting play again as after an AT. Counted where left out. */
   readonly bonusMiss?: "counted" | "restarts"
   /** How the CZ a ceiling counted from the AT forces fares: at the CZ's rate, or — `wins` — certainly succeeding. Drawn where left out. */
   readonly forcedCz?: "drawn" | "wins"
+  /** How the AT間天井 wins the AT: outright, or — `triggered` — by the trigger it brings, which certainly wins, counted in the 合算 and paying its medals. Outright where left out. */
+  readonly ceilingAt?: "outright" | "triggered"
 }
 
 export type SourceDto =
@@ -357,8 +363,13 @@ export interface SettingLevelFiguresDto {
   readonly bonuses: readonly BonusFigureDto[]
   readonly combined: number
   readonly derivation: readonly ContributionDto[]
-  /** On an AT machine: the medals an AT gains on average, cap and carried 有利区間 included, and the share that reach the cap. */
-  readonly at?: { readonly gain: number; readonly completion: number }
+  /**
+   * On an AT machine: the medals an AT gains on average, cap and carried
+   * 有利区間 included, the share that reach the cap, and the triggers a
+   * cycle's AT間天井 brings where it brings one — none where it wins the AT
+   * outright.
+   */
+  readonly at?: { readonly gain: number; readonly completion: number; readonly ceilingTriggers?: number }
 }
 
 export interface AnalysisDto {
@@ -607,7 +618,10 @@ export type EngineErrorDto =
   | { readonly type: "at-ceiling-without-cz"; readonly entity: string }
   | { readonly type: "misses-without-cz"; readonly entity: string }
   | { readonly type: "since-at-ceiling-beyond-at-ceiling"; readonly entity: string }
+  | { readonly type: "reset-since-at-ceiling-without-since-at-ceiling"; readonly entity: string }
+  | { readonly type: "reset-since-at-ceiling-beside-modes"; readonly entity: string }
   | { readonly type: "direct-without-cz"; readonly entity: string }
+  | { readonly type: "ceiling-triggers-without-cz"; readonly entity: string }
   | { readonly type: "ceiling-unit-beside-lcd-rate" }
   | { readonly type: "unit-ceiling-without-unit"; readonly entity: string }
   | { readonly type: "gate-beyond-whole"; readonly entity: string; readonly game: number; readonly settingLevel: number }

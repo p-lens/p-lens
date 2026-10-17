@@ -3,7 +3,8 @@
 //! AT itself on a machine without one — at one chance below the mode's
 //! ceiling and certainly on it; a trigger wins the AT at the setting's
 //! success rate, certainly once it has missed so many times since the last
-//! AT; and the AT間天井 wins it whatever came before.
+//! AT; and the AT間天井 wins it whatever came before — outright, or by a
+//! trigger it brings that certainly wins, one of the cycle's triggers.
 //!
 //! The published figures are a cycle's, from one AT to the next: the
 //! triggers it brings and the games it lasts, worked out exactly by
@@ -29,6 +30,9 @@ use crate::payout::{CapFigures, below, cap_figures, capped, headroom, set_chance
 pub struct Cycle {
     pub triggers: f64,
     pub games: f64,
+    /// The triggers among them the AT間天井 brings, each certainly winning
+    /// the AT: none where it wins the AT outright.
+    pub ceiled: f64,
 }
 
 /// What a setting draws regular games by: the trigger's chance a game below
@@ -465,8 +469,10 @@ fn missed(wins: &[f64], here: &[f64], stream: usize) -> f64 {
 }
 
 /// A cycle in one mode with an AT間天井 of `at_ceiling` games, which ends
-/// it there at the latest: its trigger's walk cut short there.
-pub(crate) fn cycle_to_ceiling(walk: &Walk, at_ceiling: NonZeroU32) -> Cycle {
+/// it there at the latest: its trigger's walk cut short there, and — where
+/// the AT間天井 brings the trigger — a trigger for what of play is left on
+/// it.
+pub(crate) fn cycle_to_ceiling(walk: &Walk, at_ceiling: NonZeroU32, triggered: bool) -> Cycle {
     let length = at_ceiling.get() as usize;
     let triggers: f64 = walk.arrived.iter().take(length).sum();
     let ended = walk.ended.iter().take(length);
@@ -480,7 +486,12 @@ pub(crate) fn cycle_to_ceiling(walk: &Walk, at_ceiling: NonZeroU32) -> Cycle {
         .map(|(game, end)| game as f64 * end)
         .sum::<f64>()
         + f64::from(at_ceiling.get()) * (1.0 - ended_before);
-    Cycle { triggers, games }
+    let ceiled = if triggered { 1.0 - ended_before } else { 0.0 };
+    Cycle {
+        triggers: triggers + ceiled,
+        games,
+        ceiled,
+    }
 }
 
 /// The chance the next AT is won on each of the first `horizon` regular
@@ -541,11 +552,12 @@ fn cycle_walked(odds: Odds<'_>, mode: &ModeRule, gates: &[Gate]) -> Cycle {
         })
         .and_then(|(length, walk)| {
             NonZeroU32::new(u32::try_from(length).unwrap_or(u32::MAX))
-                .map(|length| cycle_to_ceiling(&walk, length))
+                .map(|length| cycle_to_ceiling(&walk, length, false))
         })
         .unwrap_or(Cycle {
             triggers: f64::INFINITY,
             games: f64::INFINITY,
+            ceiled: 0.0,
         })
 }
 
@@ -565,6 +577,7 @@ fn cycle_unceiled(p: f64, success: f64, direct: f64, mode: &ModeRule) -> Cycle {
     Cycle {
         triggers,
         games: triggers * games_between(p, mode.ceiling),
+        ceiled: 0.0,
     }
 }
 
@@ -610,6 +623,7 @@ fn cycle_unceiled_with_direct(p: f64, success: f64, direct: f64, mode: &ModeRule
     Cycle {
         triggers,
         games: (1.0 - won) / direct,
+        ceiled: 0.0,
     }
 }
 
@@ -683,6 +697,7 @@ pub fn cycle(rules: &AtRules, odds: Odds<'_>, shares: &[f64]) -> Cycle {
         Cycle {
             triggers: 0.0,
             games: 0.0,
+            ceiled: 0.0,
         },
         |sum, (mode, gates, share)| {
             let each = match mode.at_ceiling {
@@ -693,8 +708,9 @@ pub fn cycle(rules: &AtRules, odds: Odds<'_>, shares: &[f64]) -> Cycle {
                         Cycle {
                             triggers: f64::INFINITY,
                             games: f64::INFINITY,
+                            ceiled: 0.0,
                         },
-                        |(_, walk)| cycle_to_ceiling(walk, at_ceiling),
+                        |(_, walk)| cycle_to_ceiling(walk, at_ceiling, rules.ceiling_triggers()),
                     ),
                 None if gates.is_empty() => {
                     cycle_unceiled(odds.chance, odds.success, odds.direct, mode)
@@ -704,6 +720,7 @@ pub fn cycle(rules: &AtRules, odds: Odds<'_>, shares: &[f64]) -> Cycle {
             Cycle {
                 triggers: sum.triggers + share * each.triggers,
                 games: sum.games + share * each.games,
+                ceiled: sum.ceiled + share * each.ceiled,
             }
         },
     )
@@ -993,8 +1010,10 @@ pub(crate) fn drawn_parts(
 
 /// What the next game's trigger pays on average in a mode, where it is a
 /// bonus or a CZ's success brings one: its medals at the chance it comes,
-/// as the AT won on it or a miss, over the share that pay. An AT won outright, or on the AT間天井, is no trigger's and pays
-/// none of them.
+/// as the AT won on it or a miss, over the share that pay. An AT won
+/// outright is no trigger's and pays none of them; one won on the AT間天井
+/// pays them in full where the AT間天井 brings the trigger, which
+/// certainly wins, and none otherwise.
 pub(crate) fn trigger_medals(
     rules: &AtRules,
     table: &AtTable,
@@ -1010,6 +1029,7 @@ pub(crate) fn trigger_medals(
         Some(payout) if !ceiled => {
             (at + missed - direct) * table.paid.value() * payout.medals.get()
         }
+        Some(payout) if rules.ceiling_triggers() => at * payout.medals.get(),
         _ => 0.0,
     }
 }

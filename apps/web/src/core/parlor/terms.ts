@@ -87,6 +87,29 @@ const exchangeTier = (gameKind: PlayGameKind, terms: PlayTerms): number | undefi
   return TIERS[gameKind].toReversed().find((tier) => tier >= rate - SLACK)
 }
 
+/**
+ * The rates a corner is called by, in yen per token, dearest first: the
+ * advertised ones, and pachislot's 8円, which some parlors run though the
+ * journal keeps no pool under it.
+ */
+const CORNER_RATES: Readonly<Record<PlayGameKind, readonly number[]>> = {
+  pachinko: [4, 2, 1, 0.5, 0.25, 0.2],
+  slot: [20, 10, 8, 5, 2, 1, 0.5],
+}
+
+const GAME_SHORT: Readonly<Record<PlayGameKind, string>> = { pachinko: "パチ", slot: "スロ" }
+
+/**
+ * A corner as a player calls it — `4円パチ`, `20円スロ` — by the dearest
+ * rate it rents at or above, whatever it exchanges at and whichever parlor
+ * it is: what a press of its buttons adds is kept under it. A play on no
+ * terms, or below every rate, is at a rate unknown.
+ */
+export const cornerOf = (gameKind: PlayGameKind, terms: PlayTerms | undefined): string => {
+  const rate = terms === undefined ? undefined : CORNER_RATES[gameKind].find((each) => each <= terms.rental.yen / terms.rental.tokens + SLACK)
+  return `${rate === undefined ? UNKNOWN_TIER : `${String(rate)}円`}${GAME_SHORT[gameKind]}`
+}
+
 /** What a corner is called when its rental and exchange do not point to one advertised rate. */
 export const UNKNOWN_TIER = "レート不明"
 

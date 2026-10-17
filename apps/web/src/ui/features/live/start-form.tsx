@@ -186,8 +186,7 @@ const Context = createContext<StartFormState>()
  * Holds the start form. Its parlor setting — the parlor and the corners'
  * terms — is kept on the device as it changes and is the form's for the
  * business day it was made on: the day's next play starts from it, a
- * reload does not lose it, and the day after starts empty. What a press
- * adds is the parlor's, so choosing another parlor forgets it. The tokens
+ * reload does not lose it, and the day after starts empty. The tokens
  * left in hand by a day's play are let go of here once the day has turned
  * over: they are no day's but their own.
  */
@@ -203,8 +202,7 @@ export function StartFormProvider(props: { readonly children: JSX.Element }): JS
     setHeld(changed)
     if (change.parlor === undefined && change.terms === undefined) return
     setSettingDay(app.services.businessDay())
-    const presses = change.parlor === undefined ? (recalledParlorSetting(app.services.preferences.parlorSetting(), app.services.businessDay())?.presses ?? {}) : {}
-    app.services.preferences.setParlorSetting(writtenParlorSetting(app.services.businessDay(), { parlor: changed.parlor, terms: changed.terms, presses }))
+    app.services.preferences.setParlorSetting(writtenParlorSetting(app.services.businessDay(), { parlor: changed.parlor, terms: changed.terms }))
   }
   return (
     <Context.Provider

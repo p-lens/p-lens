@@ -10,8 +10,8 @@ use std::num::NonZeroU32;
 
 use pachislot_domain::conditions::PayoutRate;
 use pachislot_domain::normalized::{
-    Allotments, AtRules, AtTable, BonusMiss, Expiry, ForcedCz, Gate, ModeRule, PayoutLaw,
-    TriggerPayout,
+    Allotments, AtRules, AtTable, BonusMiss, CeilingAt, Expiry, ForcedCz, Gate, ModeRule,
+    PayoutLaw, TriggerPayout,
 };
 use pachislot_domain::probability::{BasisPoints, Probability, ProbabilitySource};
 use pachislot_domain::setting_level::{PerSettingLevel, SettingLevel};
@@ -152,13 +152,18 @@ fn at_ceilings_of(at: &At, cz: Option<&Cz>) -> (Option<NonZeroU32>, Option<NonZe
 
 /// Whether a machine without modes plays a mode of its own after a setting
 /// change: where a setting change shortens the trigger's ceiling or, on a
-/// machine a CZ brings the AT on, the AT間天井.
+/// machine a CZ brings the AT on, the AT間天井 or the CZ's ceiling counted
+/// from the AT.
 fn resets(at: &At, cz: Option<&Cz>) -> bool {
     let (_, _, reset_ceiling) = trigger_of(at, cz);
     let (_, reset_units) = trigger_units_of(at, cz);
     reset_ceiling.is_some()
         || reset_units.is_some()
-        || (cz.is_some() && (at.reset_ceiling.is_some() || at.reset_unit_ceiling.is_some()))
+        || cz.is_some_and(|cz| {
+            at.reset_ceiling.is_some()
+                || at.reset_unit_ceiling.is_some()
+                || cz.reset_since_at_ceiling.is_some()
+        })
 }
 
 /// An AT's medals given one way: its average, its sets with their 継続率,
@@ -242,7 +247,7 @@ fn checked<'a>(
     cap: Option<Medals>,
 ) -> Result<AtMachine<'a>, SpecError> {
     paid(at, cap)?;
-    if cz.is_some() {
+    if let Some(cz) = cz {
         if at.first_hit.is_some() {
             return Err(SpecError::FirstHitBesideCz {
                 entity: at.id.clone(),
@@ -253,6 +258,8 @@ fn checked<'a>(
                 entity: at.id.clone(),
             });
         }
+        reset_since_at(cz, &modes)?;
+        ceiling_triggered(at, &modes)?;
     } else if at.first_hit.is_none() {
         return Err(SpecError::MissingComponent {
             entity: at.id.clone(),
@@ -269,6 +276,10 @@ fn checked<'a>(
         return Err(SpecError::DirectWithoutCz {
             entity: at.id.clone(),
         });
+    } else if at.ceiling_triggers {
+        return Err(SpecError::CeilingTriggersWithoutCz {
+            entity: at.id.clone(),
+        });
     } else if let Some(through) = modes.iter().find(|mode| mode.misses.is_some()) {
         return Err(SpecError::MissesWithoutCz {
             entity: through.id.clone(),
@@ -276,7 +287,7 @@ fn checked<'a>(
     }
     zoned(cz, &modes)?;
     redrawn(cz, &modes)?;
-    restarted(cz)?;
+    restarted(cz, &modes)?;
     let (trigger, ceiling, reset_ceiling) = trigger_of(at, cz);
     let (units, reset_units) = trigger_units_of(at, cz);
     if !modes.is_empty()
@@ -302,6 +313,45 @@ fn checked<'a>(
         modes,
         base,
     })
+}
+
+/// A CZ's ceiling counted from the AT after a setting change only beside
+/// the one after an AT, and only on a machine without modes, whose modes
+/// carry their own.
+fn reset_since_at(cz: &Cz, modes: &[&Mode]) -> Result<(), SpecError> {
+    if cz.reset_since_at_ceiling.is_none() {
+        return Ok(());
+    }
+    if !modes.is_empty() {
+        return Err(SpecError::ResetSinceAtCeilingBesideModes {
+            entity: cz.id.clone(),
+        });
+    }
+    if cz.since_at_ceiling.is_none() {
+        return Err(SpecError::ResetSinceAtCeilingWithoutSinceAtCeiling {
+            entity: cz.id.clone(),
+        });
+    }
+    Ok(())
+}
+
+/// An AT間天井 that brings the trigger only where there is one: the AT's,
+/// after an AT or a setting change, in games or in the unit, or a mode's.
+fn ceiling_triggered(at: &At, modes: &[&Mode]) -> Result<(), SpecError> {
+    let ceiled = at.ceiling.is_some()
+        || at.reset_ceiling.is_some()
+        || at.unit_ceiling.is_some()
+        || at.reset_unit_ceiling.is_some()
+        || modes
+            .iter()
+            .any(|mode| mode.at_ceiling.is_some() || mode.at_unit_ceiling.is_some());
+    if at.ceiling_triggers && !ceiled {
+        return Err(SpecError::MissingComponent {
+            entity: at.id.clone(),
+            component: Component::Ceiling,
+        });
+    }
+    Ok(())
 }
 
 /// Zones on the modes, or on the CZ of a machine without them, and never
@@ -337,8 +387,9 @@ fn games_of(gate: &SpecGate) -> impl Iterator<Item = NonZeroU32> + use<> {
     (0..gate.span.map_or(1, NonZeroU32::get)).filter_map(move |offset| first.checked_add(offset))
 }
 
-/// A mode's own success rate and its redraw at a missed trigger need a CZ
-/// to miss; and a redraw goes to the machine's modes and nowhere else.
+/// A mode's own success rate, its redraw at a missed trigger and its own
+/// ceiling counted from the AT need a CZ — to miss, or to be forced; and a
+/// redraw goes to the machine's modes and nowhere else.
 fn redrawn(cz: Option<&Cz>, modes: &[&Mode]) -> Result<(), SpecError> {
     if cz.is_none()
         && let Some((mode, component)) = modes.iter().find_map(|mode| {
@@ -346,10 +397,12 @@ fn redrawn(cz: Option<&Cz>, modes: &[&Mode]) -> Result<(), SpecError> {
                 Some((mode, Component::Success))
             } else if !mode.redraw.is_empty() {
                 Some((mode, Component::Redraw))
-            } else if mode.ceiling_redraw.is_empty() {
-                None
-            } else {
+            } else if !mode.ceiling_redraw.is_empty() {
                 Some((mode, Component::CeilingRedraw))
+            } else if mode.since_at_ceiling.is_some() {
+                Some((mode, Component::SinceAtCeiling))
+            } else {
+                None
             }
         })
     {
@@ -384,12 +437,16 @@ fn redrawn(cz: Option<&Cz>, modes: &[&Mode]) -> Result<(), SpecError> {
 }
 
 /// Play starts again at a bonus only where a CZ's success brings one, and
-/// a ceiling's CZ certainly succeeds only where there is that ceiling.
-fn restarted(cz: Option<&Cz>) -> Result<(), SpecError> {
+/// a ceiling's CZ certainly succeeds only where there is that ceiling, the
+/// CZ's or a mode's.
+fn restarted(cz: Option<&Cz>, modes: &[&Mode]) -> Result<(), SpecError> {
     let lacking = cz.and_then(|cz| {
         if cz.restart && cz.bonus_share.is_none() {
             Some((cz, Component::BonusShare))
-        } else if cz.ceiling_wins && cz.since_at_ceiling.is_none() {
+        } else if cz.ceiling_wins
+            && cz.since_at_ceiling.is_none()
+            && modes.iter().all(|mode| mode.since_at_ceiling.is_none())
+        {
             Some((cz, Component::SinceAtCeiling))
         } else {
             None
@@ -501,14 +558,21 @@ fn reset_mode(trigger: &EntityId) -> EntityId {
 /// ceilings after a setting change, the trigger's where a setting change
 /// leaves it be — counted on the screen or in another unit where the
 /// machine says so, at `ceiling_rate` of it a regular game; each
-/// mode's AT間天井 in regular games, its own or the AT's; the スルー天井.
+/// mode's AT間天井 in regular games, its own or the AT's; the スルー天井;
+/// and each mode's ceiling counted from the AT, its own or the CZ's — the
+/// CZ's after a setting change in the mode a setting change plays.
 pub(crate) fn rules_of(machine: &AtMachine<'_>, scales: Scales, cap: Option<Medals>) -> AtRules {
     let misses = machine.cz.and_then(|cz| cz.misses);
     let since_at_ceiling = machine.cz.and_then(|cz| cz.since_at_ceiling);
+    let reset_since_at_ceiling = machine
+        .cz
+        .and_then(|cz| cz.reset_since_at_ceiling)
+        .or(since_at_ceiling);
     let rule = |id: &EntityId,
                 ceiling: Option<NonZeroU32>,
                 at_ceiling: Option<NonZeroU32>,
-                misses: Option<NonZeroU32>| ModeRule {
+                misses: Option<NonZeroU32>,
+                since_at_ceiling: Option<NonZeroU32>| ModeRule {
         id: id.clone(),
         ceiling,
         at_ceiling,
@@ -526,6 +590,7 @@ pub(crate) fn rules_of(machine: &AtMachine<'_>, scales: Scales, cap: Option<Meda
             scales.trigger(ceiling, units),
             scales.at(at_ceiling, at_units),
             misses,
+            since_at_ceiling,
         )]
         .into_iter()
         .chain(resets(machine.at, machine.cz).then(|| {
@@ -534,6 +599,7 @@ pub(crate) fn rules_of(machine: &AtMachine<'_>, scales: Scales, cap: Option<Meda
                 scales.trigger(reset_ceiling.or(ceiling), reset_units.or(units)),
                 scales.at(reset_at_ceiling, reset_at_units),
                 misses,
+                reset_since_at_ceiling,
             )
         }))
         .collect()
@@ -560,6 +626,7 @@ pub(crate) fn rules_of(machine: &AtMachine<'_>, scales: Scales, cap: Option<Meda
                         mode.at_unit_ceiling.or(at_units),
                     ),
                     mode.misses.or(misses),
+                    mode.since_at_ceiling.or(since_at_ceiling),
                 )
             })
             .collect()
@@ -590,6 +657,17 @@ pub(crate) fn rules_of(machine: &AtMachine<'_>, scales: Scales, cap: Option<Meda
         } else {
             ForcedCz::Drawn
         },
+        ceiling_at: ceiling_at_of(machine.at),
+    }
+}
+
+/// How an AT's AT間天井 wins it: by the trigger it brings, where the AT
+/// says so, and outright otherwise.
+fn ceiling_at_of(at: &At) -> CeilingAt {
+    if at.ceiling_triggers {
+        CeilingAt::Triggered
+    } else {
+        CeilingAt::Outright
     }
 }
 
@@ -1187,7 +1265,8 @@ fn cycle_of(rules: &AtRules, table: &AtTable) -> Cycle {
 
 /// A cycle's games and what it costs and pays besides its AT, to work a
 /// 機械割 and an AT's gain each from the other: `paid`, the share of its
-/// triggers that pay their medals.
+/// triggers that pay their medals — every one the AT間天井 brings, which
+/// certainly wins.
 pub(crate) fn rate_cycle(rules: &AtRules, cycle: Cycle, bet: f64, paid: f64) -> RateCycle {
     RateCycle {
         games: 1.0 / cycle.at_chance(),
@@ -1195,7 +1274,7 @@ pub(crate) fn rate_cycle(rules: &AtRules, cycle: Cycle, bet: f64, paid: f64) -> 
         bet,
         net: rules.net_per_game.map_or(0.0, Medals::get),
         triggers: rules.trigger_payout.map(|payout| TriggersPaid {
-            count: cycle.triggers * paid,
+            count: (cycle.triggers - cycle.ceiled) * paid + cycle.ceiled,
             payout,
         }),
     }

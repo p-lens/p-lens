@@ -46,6 +46,9 @@ pub struct SettingLevelFigures {
 pub struct AtFigure {
     pub gain: f64,
     pub completion: f64,
+    /// The triggers a cycle's AT間天井 brings, among those its 合算
+    /// counts, each certainly winning: none where it wins the AT outright.
+    pub ceiling_triggers: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -93,8 +96,8 @@ fn bonuses(table: &SettingLevelTable) -> Vec<BonusFigure> {
 
 /// An AT machine's published figures under a setting, worked out exactly
 /// from its cycle: the CZ's 合算, if a CZ brings the AT, then the AT's
-/// 初当たり — ceilings, misses and modes included.
-fn at_figures(rules: &AtRules, table: &AtTable) -> (Vec<BonusFigure>, AtFigure) {
+/// 初当たり — ceilings, misses and modes included — and the cycle itself.
+fn at_figures(rules: &AtRules, table: &AtTable) -> (Vec<BonusFigure>, AtFigure, Cycle) {
     let (figures, shares) = settled(rules, table);
     let cycle = cycle(rules, Odds::of(table), &shares);
     let bonuses = rules
@@ -114,7 +117,9 @@ fn at_figures(rules: &AtRules, table: &AtTable) -> (Vec<BonusFigure>, AtFigure) 
         AtFigure {
             gain: figures.gain,
             completion: figures.completion,
+            ceiling_triggers: cycle.ceiled,
         },
+        cycle,
     )
 }
 
@@ -153,30 +158,20 @@ fn derivation(table: &SettingLevelTable, bet: f64) -> Result<Vec<Contribution>, 
         .collect())
 }
 
-/// An AT machine's 機械割 from what its AT gains, over the cycle its
-/// 初当たり gives, with the triggers its CZ's 合算 brings in it, `paid` of
-/// them paying their medals; none without its 純増, which says the games
-/// an AT takes.
+/// An AT machine's 機械割 from what its AT gains, over its cycle — the
+/// games its 初当たり gives, with the triggers its CZ's 合算 brings in it,
+/// `paid` of them paying their medals, and every one its AT間天井 brings;
+/// none without its 純増, which says the games an AT takes.
 fn at_rate(
     rules: Option<&AtRules>,
     at: Option<AtFigure>,
-    bonuses: &[BonusFigure],
+    cycle: Option<Cycle>,
     bet: f64,
     paid: f64,
 ) -> Option<f64> {
     let rules = rules?;
     rules.net_per_game?;
-    let first_hit = bonuses.last()?.chance;
-    let triggers = rules
-        .trigger
-        .as_ref()
-        .and_then(|trigger| bonuses.iter().find(|bonus| bonus.id == *trigger))
-        .map_or(1.0, |trigger| trigger.chance / first_hit);
-    let cycle = Cycle {
-        triggers,
-        games: 1.0 / first_hit,
-    };
-    Some(implied_rate(rate_cycle(rules, cycle, bet, paid), at?.gain))
+    Some(implied_rate(rate_cycle(rules, cycle?, bet, paid), at?.gain))
 }
 
 fn figures(
@@ -186,11 +181,11 @@ fn figures(
     rules: Option<&AtRules>,
 ) -> Result<SettingLevelFigures, AnalysisError> {
     let machine = rules.zip(table.at.as_ref());
-    let (bonuses, at) = machine.map_or_else(
-        || (bonuses(table), None),
+    let (bonuses, at, cycle) = machine.map_or_else(
+        || (bonuses(table), None, None),
         |(rules, at)| {
-            let (bonuses, figure) = at_figures(rules, at);
-            (bonuses, Some(figure))
+            let (bonuses, figure, cycle) = at_figures(rules, at);
+            (bonuses, Some(figure), Some(cycle))
         },
     );
     let combined = match machine {
@@ -201,7 +196,7 @@ fn figures(
         PayoutBasis::FromSpec if machine.is_some() => {
             let paid = table.at.as_ref().map_or(1.0, |at| at.paid.value());
             let rate =
-                at_rate(rules, at, &bonuses, bet, paid).ok_or(AnalysisError::RateNotFromSpec)?;
+                at_rate(rules, at, cycle, bet, paid).ok_or(AnalysisError::RateNotFromSpec)?;
             (bet * (rate - 1.0), rate, Vec::new())
         }
         PayoutBasis::FromSpec => {

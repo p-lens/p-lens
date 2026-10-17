@@ -89,12 +89,20 @@ fn check_entities(spec: &Spec) -> Result<(), SpecError> {
             &components.since_at_ceiling,
             Component::SinceAtCeiling,
         ))
+        .chain(keyed(
+            &components.reset_since_at_ceiling,
+            Component::ResetSinceAtCeiling,
+        ))
         .chain(keyed(&components.bonus_share, Component::BonusShare))
         .chain(keyed(&components.gates, Component::Gates))
         .chain(keyed(&components.redraw, Component::Redraw))
         .chain(keyed(&components.ceiling_redraw, Component::CeilingRedraw))
         .chain(listed(&components.restart, Component::Restart))
         .chain(listed(&components.ceiling_wins, Component::CeilingWins))
+        .chain(listed(
+            &components.ceiling_triggers,
+            Component::CeilingTriggers,
+        ))
         .find(|(entity, _)| !known.contains(entity))
         .map_or(Ok(()), |(entity, component)| {
             Err(SpecError::StrayComponent {
@@ -233,13 +241,15 @@ fn at(spec: &Spec, entity: &EntityId) -> Result<At, SpecError> {
         reset_unit_ceiling: components.reset_unit_ceiling.get(entity).copied(),
         window: components.window.get(entity).copied(),
         reset_on_cap: components.reset_on_cap.contains(entity),
+        ceiling_triggers: components.ceiling_triggers.contains(entity),
     })
 }
 
 /// The kind an entity lacks for a component it has that only an AT, a CZ
 /// or a mode has: a 初当たり or a ceiling after a reset an AT or a CZ, a
-/// ceiling one of the three, an allotment a mode, a success rate or a スルー
-/// 天井 a CZ.
+/// ceiling one of the three, an allotment a mode, a success rate, a スルー
+/// 天井 or a ceiling counted from the AT a CZ — the last two a mode too — and
+/// that ceiling after a setting change a CZ alone.
 fn misplaced(spec: &Spec, entity: &EntityId, kinds: &[Component]) -> Option<Component> {
     let components = &spec.components;
     let at = kinds.contains(&Component::At);
@@ -266,7 +276,8 @@ fn misplaced(spec: &Spec, entity: &EntityId, kinds: &[Component]) -> Option<Comp
             || components.other_net.contains_key(entity)
             || components.rate.contains_key(entity)
             || components.window.contains_key(entity)
-            || components.reset_on_cap.contains(entity))
+            || components.reset_on_cap.contains(entity)
+            || components.ceiling_triggers.contains(entity))
     {
         return Some(Component::At);
     }
@@ -284,7 +295,9 @@ fn misplaced(spec: &Spec, entity: &EntityId, kinds: &[Component]) -> Option<Comp
             || components.restart.contains(entity)
             || components.ceiling_wins.contains(entity)
             || (!mode && components.gates.contains_key(entity))
-            || (!mode && components.misses.contains_key(entity)))
+            || (!mode && components.misses.contains_key(entity))
+            || (!mode && components.since_at_ceiling.contains_key(entity))
+            || components.reset_since_at_ceiling.contains_key(entity))
     {
         return Some(Component::Cz);
     }
@@ -340,6 +353,7 @@ fn cz(spec: &Spec, entity: &EntityId) -> Result<Cz, SpecError> {
         reset_unit_ceiling: components.reset_unit_ceiling.get(entity).copied(),
         misses: components.misses.get(entity).copied(),
         since_at_ceiling: components.since_at_ceiling.get(entity).copied(),
+        reset_since_at_ceiling: components.reset_since_at_ceiling.get(entity).copied(),
         ceiling_wins: components.ceiling_wins.contains(entity),
         restart: components.restart.contains(entity),
         bonus: components.bonus.contains(entity) || (payout.is_some() && bonus_share.is_none()),
@@ -350,8 +364,9 @@ fn cz(spec: &Spec, entity: &EntityId) -> Result<Cz, SpecError> {
     })
 }
 
-/// A mode: its allotment, its ceiling and its own AT間天井 if it has them,
-/// and nothing a regular game comes up with.
+/// A mode: its allotment, its ceiling, its own AT間天井 and its own ceiling
+/// counted from the AT if it has them, and nothing a regular game comes up
+/// with.
 fn mode(spec: &Spec, entity: &EntityId) -> Result<Mode, SpecError> {
     let components = &spec.components;
     if components.chance.contains_key(entity) {
@@ -368,6 +383,7 @@ fn mode(spec: &Spec, entity: &EntityId) -> Result<Mode, SpecError> {
         unit_ceiling: components.unit_ceiling.get(entity).copied(),
         at_unit_ceiling: components.at_unit_ceiling.get(entity).copied(),
         misses: components.misses.get(entity).copied(),
+        since_at_ceiling: components.since_at_ceiling.get(entity).copied(),
         allotment: components
             .allotment
             .get(entity)

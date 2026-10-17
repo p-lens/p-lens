@@ -44,7 +44,8 @@ const lawFacts = (spec: SpecDto, at: string, level: number): readonly string[] =
  * the trigger, the CZ's success rate, the AT's medals or the 機械割 they are
  * to follow from — and what the engine came to: the trigger's chance below
  * its ceilings, which it read back from the 初当たり, the games of a cycle,
- * what the AT gains with the share that reach the cap, and the 機械割.
+ * what the AT gains with the share that reach the cap, the triggers a
+ * cycle's AT間天井 brings, and the 機械割.
  */
 const levelFacts = (figures: SettingLevelFiguresDto, spec: SpecDto, at: string, trigger: string | undefined, chance: number | undefined): readonly string[] => {
   const level = figures.settingLevel
@@ -62,6 +63,7 @@ const levelFacts = (figures: SettingLevelFiguresDto, spec: SpecDto, at: string, 
     ...(cycle === undefined ? [] : [given(`engine(cycle_games(${level}), ${prologNumber(1 / cycle)})`)]),
     ...(stated === undefined ? lawFacts(spec, at, level) : [given(`stated_rate(${level}, ${prologNumber(stated)})`)]),
     ...(figures.at === undefined ? [] : [given(`engine(gain(${level}), ${prologNumber(figures.at.gain)})`), given(`engine(completion(${level}), ${prologNumber(figures.at.completion)})`)]),
+    ...(figures.at === undefined ? [] : [given(`engine(ceiling_triggers(${level}), ${prologNumber(figures.at.ceilingTriggers ?? 0)})`)]),
     given(`engine(rate(${level}), ${prologNumber(figures.payoutRate)})`),
     ...((triggerChance) => (cycle === undefined || triggerChance === undefined ? [] : [given(`engine(cycle_triggers(${level}), ${prologNumber(triggerChance / cycle)})`)]))(trigger === undefined ? undefined : figures.bonuses.find((bonus) => bonus.id === trigger)?.chance),
   ]
@@ -164,8 +166,8 @@ const missesFacts = (rules: AtRulesDto): readonly string[] => {
 
 /**
  * What the sheet says of the machine whatever the setting level: whether a
- * CZ brings its AT, with its スルー天井 and, where it is a bonus, its
- * medals and its 純増; the
+ * CZ brings its AT, with its スルー天井, whether its AT間天井 brings that
+ * trigger and, where it is a bonus, its medals and its 純増; the
  * 有利区間's cap, the games it carries on after an AT short of it, and
  * whether play starts again as after a setting change once an AT reaches
  * it; and the screen's games a regular game comes to, where ceilings are
@@ -180,6 +182,7 @@ const machineFacts = (spec: SpecDto, rules: AtRulesDto): readonly string[] => {
     ...(trigger === undefined ? [] : [given("cz")]),
     ...missesFacts(rules),
     ...forcedFacts(rules),
+    ...(rules.ceilingAt === "triggered" ? [given("ceiling_triggered")] : []),
     ...(bonus === undefined ? [] : [given(`trigger_payout(${prologNumber(bonus)})`)]),
     ...(bonus === undefined || bonusNet === undefined ? [] : [given(`trigger_net(${prologNumber(bonusNet)})`)]),
     ...(spec.resources.cap === undefined ? [] : [given(`cap(${prologNumber(spec.resources.cap)})`)]),

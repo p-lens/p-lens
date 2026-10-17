@@ -70,16 +70,29 @@ const spanBetween = (one: number, other: number): Span => ({ from: Math.min(one,
 /** Every place from one to another, the other first. */
 const backFrom = (reached: number, anchor: number): readonly number[] => Array.from({ length: Math.abs(reached - anchor) + 1 }, (_, back) => reached - back * Math.sign(reached - anchor))
 
+/** Every run of two readings or more inside a span, longest first, the nearer to `anchor` first among runs as long. */
+const runsWithin = (span: Span, anchor: number): readonly Span[] =>
+  Array.from({ length: span.to - span.from }, (_, shorter) => span.to - span.from - shorter)
+    .flatMap((length) => Array.from({ length: span.to - span.from - length + 1 }, (_, start) => ({ from: span.from + start, to: span.from + start + length })))
+    .toSorted((left, right) => right.to - right.from - (left.to - left.from) || Math.abs(left.from - anchor) + Math.abs(left.to - anchor) - (Math.abs(right.from - anchor) + Math.abs(right.to - anchor)))
+
 /**
  * The run of readings that may be made one, from the reading at `anchor`
  * towards the one at `reached`: as far as each joins the next, and then
- * the longest of that which leaves the play measured as it was. A reading
- * alone, where nothing may be made one with it.
+ * the longest of that which leaves the play measured as it was. Where the
+ * reading at `anchor` itself may be made one with none of them — the
+ * first balls bought before any regular game, where the measuring starts,
+ * or a last reading that knows nothing of the hand — the longest run among
+ * the others that may, so a run dragged from it is still folded as far as
+ * the figures allow. A reading alone, where nothing may be made one.
  */
 export const mergeableSpan = (ordered: readonly Checkpoint[], anchor: number, reached: number): Span => {
   const weighed = weighedOf(ordered)
-  const end = backFrom(stretched(weighed, anchor, reached), anchor).find((candidate) => ((span) => keepsTheMeasure(weighed.slice(span.from, span.to + 1)))(spanBetween(anchor, candidate)))
-  return spanBetween(anchor, end ?? anchor)
+  const keeps = (span: Span): boolean => keepsTheMeasure(weighed.slice(span.from, span.to + 1))
+  const stretch = spanBetween(anchor, stretched(weighed, anchor, reached))
+  const end = backFrom(stretched(weighed, anchor, reached), anchor).find((candidate) => keeps(spanBetween(anchor, candidate)))
+  const withAnchor = spanBetween(anchor, end ?? anchor)
+  return withAnchor.to > withAnchor.from ? withAnchor : (runsWithin(stretch, anchor).find(keeps) ?? withAnchor)
 }
 
 /** A run of readings as the one it makes: the last, with all that was rented, drawn and drifted over the run. */

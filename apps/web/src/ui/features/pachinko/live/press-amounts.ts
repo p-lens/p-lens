@@ -1,5 +1,5 @@
 import { tidyTyped } from "../../../../core/text/tidy"
-import { PRESS_DIGITS } from "../../live/parlor-setting"
+import { PRESS_DIGITS } from "../../../../core/book/settings"
 
 const AMOUNT = new RegExp(`^[1-9]\\d{0,${PRESS_DIGITS - 1}}$`)
 

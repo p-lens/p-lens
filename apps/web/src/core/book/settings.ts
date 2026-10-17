@@ -9,12 +9,23 @@ import { Err, Ok, andThen, mapOk, type Result } from "../result/result"
  */
 export const BOOK_SETTINGS_FILE = "settings.json"
 
+/** What one press of a live play's buttons adds at a corner, where the person has set it: yen rented, tokens drawn. */
+export interface PressAmounts {
+  readonly rental?: number
+  readonly draw?: number
+}
+
+/** The most digits a press's amount has: ¥10,000 at a press is how some rent. */
+export const PRESS_DIGITS = 5
+
 /** A book's settings as this app reads them. A later version may keep more in the file; what this one does not know it leaves as it found it. */
 export interface BookSettings {
   /** Where the book stands among its owner's books, lowest first; none where it was never placed. */
   readonly order: number | undefined
   /** The hour its owner's business day turns over at; none where it was never written. */
   readonly businessDayTurn: BusinessDayTurn | undefined
+  /** What a press adds at each corner, by what the corner is called (`cornerOf`: `4円パチ`); none set at a corner, none kept. */
+  readonly presses: Readonly<Record<string, PressAmounts>>
 }
 
 type Fields = Readonly<Record<string, unknown>>
@@ -63,12 +74,26 @@ const orderOf = (value: unknown): number | undefined => (typeof value === "numbe
 
 const businessDayTurnOf = (value: unknown): BusinessDayTurn | undefined => (typeof value === "number" && isBusinessDayTurn(value) ? value : undefined)
 
+const isPressAmount = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value > 0 && value < 10 ** PRESS_DIGITS
+
+const amountsOf = (value: unknown): PressAmounts | undefined => {
+  if (!isFields(value) || Object.values(value).some((amount) => !isPressAmount(amount))) return undefined
+  return { ...(isPressAmount(value["rental"]) ? { rental: value["rental"] } : {}), ...(isPressAmount(value["draw"]) ? { draw: value["draw"] } : {}) }
+}
+
+const pressesOf = (value: unknown): BookSettings["presses"] | undefined => {
+  if (!isFields(value)) return undefined
+  const read = Object.entries(value).flatMap(([corner, amounts]) => ((found) => (found === undefined ? [] : [[corner, found] as const]))(amountsOf(amounts)))
+  return read.length === Object.keys(value).length ? Object.fromEntries(read) : undefined
+}
+
 /** A book's settings, or that its file is there and does not read: a field it has that this app reads must read as this app writes it. */
 export const bookSettingsOf = (text: string | undefined): Result<BookSettings, SettingsUnreadable> =>
   andThen(fieldsOf(text), (fields) => {
-    const [order, businessDayTurn] = [fieldOf(fields["order"], orderOf), fieldOf(fields["businessDayTurn"], businessDayTurnOf)]
+    const [order, businessDayTurn, presses] = [fieldOf(fields["order"], orderOf), fieldOf(fields["businessDayTurn"], businessDayTurnOf), fieldOf(fields["presses"], pressesOf)]
     if (!order.ok) return order
-    return businessDayTurn.ok ? Ok({ order: order.value, businessDayTurn: businessDayTurn.value }) : businessDayTurn
+    if (!businessDayTurn.ok) return businessDayTurn
+    return presses.ok ? Ok({ order: order.value, businessDayTurn: businessDayTurn.value, presses: presses.value ?? {} }) : presses
   })
 
 const written = (fields: Fields): string => `${JSON.stringify(fields, undefined, 2)}\n`
@@ -79,3 +104,10 @@ export const withOrder = (text: string | undefined, order: number): Result<strin
 /** The file with the hour a business day turns over at written in it, every other field as it was; a file that does not read is not written over. */
 export const withBusinessDayTurn = (text: string | undefined, businessDayTurn: BusinessDayTurn): Result<string, SettingsUnreadable> =>
   mapOk(fieldsOf(text), (fields) => written({ ...fields, businessDayTurn }))
+
+/** The file with what a press adds at one corner written in it, every other corner and field as it was; a file that does not read is not written over. */
+export const withPresses = (text: string | undefined, corner: string, amounts: PressAmounts): Result<string, SettingsUnreadable> =>
+  andThen(fieldsOf(text), (fields) => {
+    const kept = fieldOf(fields["presses"], pressesOf)
+    return mapOk(kept, (presses) => written({ ...fields, presses: { ...presses, [corner]: amounts } }))
+  })

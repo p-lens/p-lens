@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import type { BookId } from "../../../src/core/book/book"
 import { inOrder, swappedWithNext, type Placed } from "../../../src/core/book/order"
-import { BOOK_SETTINGS_FILE, bookSettingsOf, withBusinessDayTurn, withOrder } from "../../../src/core/book/settings"
+import { BOOK_SETTINGS_FILE, bookSettingsOf, withBusinessDayTurn, withOrder, withPresses } from "../../../src/core/book/settings"
 
 const book = (id: string, order?: number): Placed => ({ id: id as BookId, order })
 
@@ -63,13 +63,13 @@ describe("a book's settings", () => {
 
   test("are a file of the book's, read for the place it was given", () => {
     expect(BOOK_SETTINGS_FILE).toBe("settings.json")
-    expect(bookSettingsOf('{\n  "order": 3\n}\n')).toEqual({ ok: true, value: { order: 3, businessDayTurn: undefined } })
+    expect(bookSettingsOf('{\n  "order": 3\n}\n')).toEqual({ ok: true, value: { order: 3, businessDayTurn: undefined, presses: {} } })
   })
 
   test("say nothing where there is no file or it is empty, and read two run together as the later says", () => {
-    expect(bookSettingsOf(undefined)).toEqual({ ok: true, value: { order: undefined, businessDayTurn: undefined } })
-    expect(bookSettingsOf("")).toEqual({ ok: true, value: { order: undefined, businessDayTurn: undefined } })
-    expect(bookSettingsOf('{\n  "order": 1\n}\n{\n  "order": 2,\n  "businessDayTurn": 6\n}\n')).toEqual({ ok: true, value: { order: 2, businessDayTurn: 6 } })
+    expect(bookSettingsOf(undefined)).toEqual({ ok: true, value: { order: undefined, businessDayTurn: undefined, presses: {} } })
+    expect(bookSettingsOf("")).toEqual({ ok: true, value: { order: undefined, businessDayTurn: undefined, presses: {} } })
+    expect(bookSettingsOf('{\n  "order": 1\n}\n{\n  "order": 2,\n  "businessDayTurn": 6\n}\n')).toEqual({ ok: true, value: { order: 2, businessDayTurn: 6, presses: {} } })
   })
 
   test("do not read where the file is no object, or a field it has does not read as this app writes it", () => {
@@ -82,9 +82,19 @@ describe("a book's settings", () => {
     expect(bookSettingsOf('{"businessDayTurn":"5"}')).toEqual(unreadable)
   })
 
+  test("keep what a press adds at each corner, one corner written without touching another", () => {
+    const first = withPresses('{"order":3}', "4円パチ", { rental: 500, draw: 125 })
+    expect(first).toEqual({ ok: true, value: '{\n  "order": 3,\n  "presses": {\n    "4円パチ": {\n      "rental": 500,\n      "draw": 125\n    }\n  }\n}\n' })
+    const second = first.ok ? withPresses(first.value, "20円スロ", { rental: 1000 }) : first
+    expect(second.ok && bookSettingsOf(second.value)).toEqual({ ok: true, value: { order: 3, businessDayTurn: undefined, presses: { "4円パチ": { rental: 500, draw: 125 }, "20円スロ": { rental: 1000 } } } })
+    expect(bookSettingsOf('{"presses":{"4円パチ":{"rental":0}}}')).toEqual(unreadable)
+    expect(bookSettingsOf('{"presses":{"4円パチ":{"rental":"500"}}}')).toEqual(unreadable)
+    expect(withPresses("{{", "4円パチ", { rental: 500 })).toEqual(unreadable)
+  })
+
   test("say the hour a business day turns over at where one that can be is written, beside the place", () => {
-    expect(bookSettingsOf('{"order":3,"businessDayTurn":7}')).toEqual({ ok: true, value: { order: 3, businessDayTurn: 7 } })
-    expect(bookSettingsOf('{"businessDayTurn":0}')).toEqual({ ok: true, value: { order: undefined, businessDayTurn: 0 } })
+    expect(bookSettingsOf('{"order":3,"businessDayTurn":7}')).toEqual({ ok: true, value: { order: 3, businessDayTurn: 7, presses: {} } })
+    expect(bookSettingsOf('{"businessDayTurn":0}')).toEqual({ ok: true, value: { order: undefined, businessDayTurn: 0, presses: {} } })
     expect(withBusinessDayTurn('{"order":3}', 7)).toEqual({ ok: true, value: '{\n  "order": 3,\n  "businessDayTurn": 7\n}\n' })
     expect(withOrder('{"order":3,"businessDayTurn":7}', 1)).toEqual({ ok: true, value: '{\n  "order": 1,\n  "businessDayTurn": 7\n}\n' })
   })

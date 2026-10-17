@@ -24,6 +24,8 @@ export type ChangeIntent =
   | { readonly type: "book-placed"; readonly order: number }
   /** The hour its owner's business day turns over at, written in the book's settings: no change to what the book records, a tally already written keeping its day. */
   | { readonly type: "business-day-turn-set"; readonly turn: BusinessDayTurn }
+  /** What a press of a live play's buttons adds at a corner, written in the book's settings: no change to what the book records. */
+  | { readonly type: "presses-set"; readonly corner: string }
   | { readonly type: "file-edited"; readonly path: string }
   /** A pool's savings registered as they stood on a day: so many tokens. */
   | { readonly type: "savings-opened"; readonly parlor: string; readonly tier: string; readonly date: IsoDate; readonly kind: TokenKind; readonly tokens: Decimal }

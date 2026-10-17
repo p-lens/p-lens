@@ -371,6 +371,39 @@ describe("an AT machine's grounds, reasoned", () => {
     expect(links.filter((each) => Math.abs(each.left - each.right) > each.spread * 1.01 + 1e-9 * Math.max(1, Math.abs(each.left)))).toEqual([])
   })
 
+  test("an AT間天井 that brings the trigger counts it in the cycle and the 初当たり, and pays its bonus whole", async () => {
+    const cz = czSpec as SpecDto
+    const { payout: _, ...rest } = cz.components
+    const rates = [
+      { settingLevel: 1, value: 9750 },
+      { settingLevel: 6, value: 11000 },
+    ]
+    const shares = [
+      { settingLevel: 1, value: 5000 },
+      { settingLevel: 6, value: 6000 },
+    ]
+    const bonus: SpecDto = { ...cz, components: { ...rest, label: { at: "AT", cz: "ボーナス" }, payout: { cz: 100 }, netPerGame: { at: 4, cz: 5 }, rate: { at: rates }, ceilingTriggers: ["at"] } }
+    const staged: SpecDto = { ...bonus, components: { ...bonus.components, label: { at: "AT", cz: "CZ" }, bonusShare: { cz: shares } } }
+    const forced: SpecDto = { ...staged, components: { ...staged.components, sinceAtCeiling: { cz: 800 } } }
+    const reasoned = await Promise.all(
+      [bonus, staged, forced].map(async (spec) => {
+        const { basis, analysis } = solved(spec)
+        expect(basis.normalized.atRules?.ceilingAt).toBe("triggered")
+        expect(analysis.settingLevels.every((figures) => (figures.at?.ceilingTriggers ?? 0) > 0)).toBe(true)
+        const proof = await proved(basis, analysis)
+        return { proof, lines: groundsLines(proof, groundsNamingOf(basis)) }
+      }),
+    )
+    expect(reasoned.map(({ proof }) => amiss(proof))).toEqual([[], [], [["unverified_forced_cycle", "unverified"]]])
+    reasoned.forEach(({ proof }) => expect(findingsIn(proof).filter((finding) => finding.rule === "check_chance").map((finding) => finding.standing)).toEqual(["holds", "holds"]))
+    const [bonusLines, stagedLines, takenLines] = reasoned.map(({ lines }) => lines.map((line) => plainOf(line.parts)))
+    expect(bonusLines?.some((line) => line.startsWith("天井を除いたボーナス確率 ") && /うちAT間天井で当たるボーナス [\d.]+回）$/u.test(line))).toBe(true)
+    expect(stagedLines?.some((line) => /^1周期のボーナスの獲得 ＝（（CZ [\d.]+回 − AT間天井 [\d.]+回）× CZ成功率 0\.3 ＋ AT間天井 [\d.]+回）× 100枚 ＝ /u.test(line))).toBe(true)
+    expect(takenLines?.some((line) => /^1周期のボーナスの獲得 ＝（（CZ [\d.]+回 − AT間天井 [\d.]+回）× CZ成功率 0\.3 ＋ AT間天井 /u.test(line))).toBe(true)
+    const links = reasoned.flatMap(({ lines }) => lines.flatMap(equalities))
+    expect(links.filter((each) => Math.abs(each.left - each.right) > each.spread * 1.01 + 1e-9 * Math.max(1, Math.abs(each.left)))).toEqual([])
+  })
+
   test("a machine drawing at zones takes the engine's cycle, said to be unchecked, with an AT間天井 or without one", async () => {
     const cz = czSpec as SpecDto
     const gates = {
@@ -474,6 +507,17 @@ describe("an AT machine's grounds, reasoned", () => {
     expect(amiss(proof)).toEqual([["unverified_forced_cycle", "unverified"]])
     const lines = groundsLines(proof, groundsNamingOf(basis)).map((line) => plainOf(line.parts))
     expect(lines.some((line) => line.startsWith("1周期の通常ゲーム数 ") && line.endsWith("（計算エンジンの値）"))).toBe(true)
+    expect(lines.filter((line) => line.startsWith("検算：CZ ") && line.includes("と一致")).length).toBe(2)
+  })
+
+  test("a trigger forced sooner from the AT after a setting change takes the engine's cycle too, and comes back to the 初当たり", async () => {
+    const cz = czSpec as SpecDto
+    const forced: SpecDto = { ...cz, components: { ...cz.components, sinceAtCeiling: { cz: 800 }, resetSinceAtCeiling: { cz: 250 }, netPerGame: { at: 4 } } }
+    const { basis, analysis } = solved(forced)
+    expect(basis.normalized.atRules?.modes.map((mode) => mode.sinceAtCeiling)).toEqual([800, 250])
+    const proof = await proved(basis, analysis)
+    expect(amiss(proof)).toEqual([["unverified_forced_cycle", "unverified"]])
+    const lines = groundsLines(proof, groundsNamingOf(basis)).map((line) => plainOf(line.parts))
     expect(lines.filter((line) => line.startsWith("検算：CZ ") && line.includes("と一致")).length).toBe(2)
   })
 

@@ -60,7 +60,7 @@ describe("the 解析値 form", () => {
     const form = {
       settingLevels: [1, 6],
       bet: "3",
-      rows: [{ key: "big", label: "BIG", kind: "bonus" as const, of: "", trials: "", payout: "２５２", chances: { "1": "1/273.1", "6": "２５５" }, ceiling: "", resetCeiling: "", atCeiling: "", resetAllotment: {}, success: {}, misses: "", net: "", unitCeiling: "", resetUnitCeiling: "", atUnitCeiling: "", trigger: "cz" as const, bonusShares: {}, bonusMiss: "counted" as const, forcedCz: "drawn" as const, gates: [], redraw: {}, ceilingRedraw: {}, triggerChances: {}, expiryGames: "", expiryTo: "", sinceAtCeiling: "", law: EMPTY_LAW }],
+      rows: [{ key: "big", label: "BIG", kind: "bonus" as const, of: "", trials: "", payout: "２５２", chances: { "1": "1/273.1", "6": "２５５" }, ceiling: "", resetCeiling: "", atCeiling: "", resetAllotment: {}, success: {}, misses: "", net: "", unitCeiling: "", resetUnitCeiling: "", atUnitCeiling: "", trigger: "cz" as const, bonusShares: {}, bonusMiss: "counted" as const, forcedCz: "drawn" as const, ceilingAt: "outright" as const, gates: [], redraw: {}, ceilingRedraw: {}, triggerChances: {}, expiryGames: "", expiryTo: "", sinceAtCeiling: "", resetSinceAtCeiling: "", law: EMPTY_LAW }],
       base: "",
       lcdRate: "",
       unitName: "",
@@ -385,6 +385,57 @@ describe("an AT machine typed in by hand", () => {
     const form = manualFormOf(forced, measured)
     expect(form.world.rows.find((row) => row.kind === "cz")?.sinceAtCeiling).toBe("800")
     expect(readManualForm(form)).toEqual({ ok: true, value: { spec: forced, conditions: measured } })
+  })
+
+  test("a CZ keeps its ceiling counted from the AT after a setting change, and reads back the same", () => {
+    const madeUp = czSpec as SpecDto
+    const shortened: SpecDto = { ...madeUp, components: { ...madeUp.components, sinceAtCeiling: { cz: 979 }, resetSinceAtCeiling: { cz: 579 } } }
+    const form = manualFormOf(shortened, measured)
+    expect(form.world.rows.find((row) => row.kind === "cz")?.resetSinceAtCeiling).toBe("579")
+    expect(readManualForm(form)).toEqual({ ok: true, value: { spec: shortened, conditions: measured } })
+    const mistyped = { ...form, world: { ...form.world, rows: form.world.rows.map((row) => (row.kind === "cz" ? { ...row, resetSinceAtCeiling: "x" } : row)) } }
+    const read = readManualForm(mistyped)
+    expect(!read.ok && read.error).toEqual([{ field: "CZ リセット後のATから数える天井", reason: "not-a-number" }])
+  })
+
+  test("an AT whose AT間天井 brings the CZ keeps it, reads back the same, and lets it go with the AT間天井", () => {
+    const madeUp = czSpec as SpecDto
+    const triggered: SpecDto = { ...madeUp, components: { ...madeUp.components, ceilingTriggers: ["at"] } }
+    const form = manualFormOf(triggered, measured)
+    expect(form.world.rows.find((row) => row.kind === "at")?.ceilingAt).toBe("triggered")
+    expect(readManualForm(form)).toEqual({ ok: true, value: { spec: triggered, conditions: measured } })
+    expect(manualFormOf(madeUp, measured).world.rows.find((row) => row.kind === "at")?.ceilingAt).toBe("outright")
+    const unceiled = { ...form, world: { ...form.world, rows: form.world.rows.map((row) => (row.kind === "at" ? { ...row, ceiling: "", resetCeiling: "" } : row)) } }
+    const read = readManualForm(unceiled)
+    expect(read.ok && read.value.spec.components.ceilingTriggers).toBeUndefined()
+  })
+
+  test("a mode of a CZ machine keeps a ceiling counted from the AT of its own, which makes the CZ's sure one, and the CZ's after a setting change is the modes'", () => {
+    const madeUp = czSpec as SpecDto
+    const { ceiling, resetCeiling, ...rest } = madeUp.components
+    const share = (points: number) => [1, 6].map((settingLevel) => ({ settingLevel, value: points }))
+    const moded: SpecDto = {
+      ...madeUp,
+      entities: [...madeUp.entities, "normal", "reset"],
+      components: {
+        ...rest,
+        ceiling: { at: ceiling?.["at"] ?? 1000, normal: 600, reset: 600 },
+        label: { ...rest.label, normal: "通常", reset: "リセット" },
+        mode: ["normal", "reset"],
+        allotment: { normal: share(10_000), reset: share(0) },
+        resetAllotment: { normal: share(0), reset: share(10_000) },
+        sinceAtCeiling: { reset: 579 },
+        ceilingWins: ["cz"],
+      },
+    }
+    const form = manualFormOf(moded, measured)
+    expect(form.world.rows.find((row) => row.key === "reset")?.sinceAtCeiling).toBe("579")
+    expect(form.world.rows.find((row) => row.kind === "cz")?.forcedCz).toBe("wins")
+    expect(readManualForm(form)).toEqual({ ok: true, value: { spec: moded, conditions: measured } })
+    const typedOnCz = { ...form, world: { ...form.world, rows: form.world.rows.map((row) => (row.kind === "cz" ? { ...row, resetSinceAtCeiling: "400" } : row)) } }
+    const read = readManualForm(typedOnCz)
+    expect(read.ok && read.value.spec.components.resetSinceAtCeiling).toBeUndefined()
+    expect(resetCeiling?.["cz"]).toBe(300)
   })
 
   test("a mode of a CZ machine keeps a スルー天井 of its own, and reads back the same", () => {

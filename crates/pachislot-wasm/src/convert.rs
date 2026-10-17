@@ -7,8 +7,9 @@ use std::num::{NonZeroU32, NonZeroU64};
 use pachislot_domain::conditions::{PayoutBasis, PayoutRate, PlayConditions};
 use pachislot_domain::distribution::Distribution;
 use pachislot_domain::normalized::{
-    Allotments, AtRules, AtTable, BonusMiss, CueChance, Event, EventKind, Expiry, ForcedCz, Gate,
-    ModeRule, NormalizedSpec, PayoutLaw, SettingLevelTable, TriggerPayout, WatchRule,
+    Allotments, AtRules, AtTable, BonusMiss, CeilingAt, CueChance, Event, EventKind, Expiry,
+    ForcedCz, Gate, ModeRule, NormalizedSpec, PayoutLaw, SettingLevelTable, TriggerPayout,
+    WatchRule,
 };
 use pachislot_domain::observation::{
     AtSeen, Leg, LegEnd, Path, PathStart, Segment, ToldLeg, ToldPath,
@@ -31,13 +32,13 @@ use pachislot_simulator::session::{Plan, Progress};
 
 use crate::dto::{
     AllotmentsDto, AnalysisDto, AtFigureDto, AtRulesDto, AtTableDto, BonusFigureDto, BonusMissDto,
-    BucketDto, BySettingLevelDto, ComponentsDto, ConditionsDto, ContributionDto, CueDto,
-    DistributionDto, ErrorDto, EstimateProgressDto, EstimateSummaryDto, EventDto, EventKindDto,
-    ExpiryDto, ForcedCzDto, GateChanceDto, GateDto, LawRowDto, LegEndDto, ModeRuleDto,
-    NormalizedSpecDto, PathDto, PathStartDto, PayoutBasisDto, PayoutLawDto, PayoutRowDto, PlayDto,
-    PosteriorDto, ProbabilityDto, ProbabilityProblemDto, ProgressDto, SegmentDto,
-    SettingLevelEstimateDto, SettingLevelFiguresDto, SpecDto, SummaryDto, TableDto, TallyDto,
-    TheoreticalValueDto, ToldPathDto, TriggerPayoutDto, WatchDto, WeightDto,
+    BucketDto, BySettingLevelDto, CeilingAtDto, ComponentsDto, ConditionsDto, ContributionDto,
+    CueDto, DistributionDto, ErrorDto, EstimateProgressDto, EstimateSummaryDto, EventDto,
+    EventKindDto, ExpiryDto, ForcedCzDto, GateChanceDto, GateDto, LawRowDto, LegEndDto,
+    ModeRuleDto, NormalizedSpecDto, PathDto, PathStartDto, PayoutBasisDto, PayoutLawDto,
+    PayoutRowDto, PlayDto, PosteriorDto, ProbabilityDto, ProbabilityProblemDto, ProgressDto,
+    SegmentDto, SettingLevelEstimateDto, SettingLevelFiguresDto, SpecDto, SummaryDto, TableDto,
+    TallyDto, TheoreticalValueDto, ToldPathDto, TriggerPayoutDto, WatchDto, WeightDto,
 };
 
 fn invalid(field: &str) -> ErrorDto {
@@ -190,6 +191,7 @@ fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
         cz: listed(&dto.cz, "spec.components.cz")?,
         restart: listed(&dto.restart, "spec.components.restart")?,
         ceiling_wins: listed(&dto.ceiling_wins, "spec.components.ceilingWins")?,
+        ceiling_triggers: listed(&dto.ceiling_triggers, "spec.components.ceilingTriggers")?,
         success: table(&dto.success, "spec.components.success", |values, at| {
             shares(values, at)
         })?,
@@ -259,6 +261,11 @@ fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
         since_at_ceiling: table(
             &dto.since_at_ceiling,
             "spec.components.sinceAtCeiling",
+            |games, at| NonZeroU32::new(*games).ok_or_else(|| invalid(at)),
+        )?,
+        reset_since_at_ceiling: table(
+            &dto.reset_since_at_ceiling,
+            "spec.components.resetSinceAtCeiling",
             |games, at| NonZeroU32::new(*games).ok_or_else(|| invalid(at)),
         )?,
         trigger_chance: table(
@@ -480,6 +487,10 @@ fn at_rules(dto: &AtRulesDto, shape: SchemaVersion) -> Result<AtRules, ErrorDto>
         forced_cz: match dto.forced_cz {
             ForcedCzDto::Drawn => ForcedCz::Drawn,
             ForcedCzDto::Wins => ForcedCz::Wins,
+        },
+        ceiling_at: match dto.ceiling_at {
+            CeilingAtDto::Outright => CeilingAt::Outright,
+            CeilingAtDto::Triggered => CeilingAt::Triggered,
         },
         modes: dto
             .modes
@@ -823,6 +834,10 @@ pub fn normalized_dto(spec: &NormalizedSpec) -> NormalizedSpecDto {
                 ForcedCz::Drawn => ForcedCzDto::Drawn,
                 ForcedCz::Wins => ForcedCzDto::Wins,
             },
+            ceiling_at: match rules.ceiling_at {
+                CeilingAt::Outright => CeilingAtDto::Outright,
+                CeilingAt::Triggered => CeilingAtDto::Triggered,
+            },
             trigger: rules.trigger.as_ref().map(named),
             at_ceiling: None,
             misses: None,
@@ -1088,6 +1103,8 @@ fn component_name(component: Component) -> String {
         Component::AtUnitCeiling => "atUnitCeiling",
         Component::TriggerChance => "triggerChance",
         Component::Expiry => "expiry",
+        Component::ResetSinceAtCeiling => "resetSinceAtCeiling",
+        Component::CeilingTriggers => "ceilingTriggers",
     }
     .to_owned()
 }
@@ -1218,8 +1235,21 @@ pub fn spec_error_dto(error: &SpecError) -> ErrorDto {
         SpecError::DirectWithoutCz { entity } => ErrorDto::DirectWithoutCz {
             entity: named(entity),
         },
+        SpecError::CeilingTriggersWithoutCz { entity } => ErrorDto::CeilingTriggersWithoutCz {
+            entity: named(entity),
+        },
         SpecError::SinceAtCeilingBeyondAtCeiling { entity } => {
             ErrorDto::SinceAtCeilingBeyondAtCeiling {
+                entity: named(entity),
+            }
+        }
+        SpecError::ResetSinceAtCeilingWithoutSinceAtCeiling { entity } => {
+            ErrorDto::ResetSinceAtCeilingWithoutSinceAtCeiling {
+                entity: named(entity),
+            }
+        }
+        SpecError::ResetSinceAtCeilingBesideModes { entity } => {
+            ErrorDto::ResetSinceAtCeilingBesideModes {
                 entity: named(entity),
             }
         }
@@ -1373,6 +1403,7 @@ pub fn analysis_dto(analysis: &Analysis, spec: &NormalizedSpec) -> AnalysisDto {
                 at: figures.at.map(|at| AtFigureDto {
                     gain: at.gain,
                     completion: at.completion,
+                    ceiling_triggers: at.ceiling_triggers,
                 }),
             })
             .collect(),

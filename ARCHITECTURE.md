@@ -1301,6 +1301,16 @@ only the primitives, the core and the application.
   not start again. Every waiting trigger comes on that game; it needs an
   AT間天井 at it or beyond, so that a cycle ends. The grounds do not play
   such a cycle out: they take the engine's, and say it is unchecked.
+  A setting change may shorten it — 979G from the AT, 579G after a reset:
+  on a machine without modes the CZ's `resetSinceAtCeiling` is the
+  ceiling of the mode a setting change plays, and makes one where nothing
+  else would, never without a `sinceAtCeiling` beside it
+  (`reset-since-at-ceiling-without-since-at-ceiling`). On a machine of
+  modes a mode carries its own `sinceAtCeiling` in place of the CZ's, so
+  a mode only a setting change enters holds the shorter one, and the CZ
+  takes no `resetSinceAtCeiling` (`reset-since-at-ceiling-beside-modes`).
+  Each mode's is held to its own AT間天井, and `ceilingWins` needs one,
+  the CZ's or a mode's.
   An AT a CZ brings may also be won outright (`direct`, a chance a regular
   game below the ceilings, under every setting level), drawn before the
   CZ: a cycle is the CZ's walk with each game reached only where none
@@ -1354,8 +1364,28 @@ only the primitives, the core and the application.
   (`atRules.triggerPayout`); medals given mark it a bonus too. The 機械割 counts each cycle's bonuses
   besides its AT, so the AT's gain worked from it is the AT's alone; the
   walk and the hunt pay a bonus at its chance a game. An AT won on the
-  AT間天井 is no bonus's and pays none, and a bonus's medals are not
-  counted towards the 有利区間's cap.
+  AT間天井 is no bonus's and pays none — unless the AT間天井 brings the
+  trigger, below — and a bonus's medals are not counted towards the
+  有利区間's cap.
+- **An AT間天井 may bring the trigger.** On many machines the AT間天井
+  gives no AT outright but the trigger with the AT certain — BIRDIE WING's
+  BB with its ST at 10 周期, 7 after a reset — and the published 合算
+  counts those bonuses. The AT says so (`ceilingTriggers`, in the rules
+  `atRules.ceilingAt`: `outright` where left out, `triggered`): every
+  AT間天井 then, after an AT and after a setting change, in games or in
+  the unit, a mode's own included, wins by a trigger that certainly wins.
+  It is one of the cycle's triggers (`Cycle::ceiled` among `triggers`),
+  so the 合算 the chance below the ceilings is read back from takes it in,
+  and the chance comes out lower than it would where the ceiling's
+  triggers were left out; and it pays the trigger's medals in full — a CZ
+  on it certainly succeeds into its bonus, which certainly wins — in the
+  cycle's 機械割, the walk, the hunt and the chain alike. The AT on it is
+  still the AT間天井's for the hunt's `by_ceiling` and a told history's
+  legs. Only an AT a CZ brings may say so
+  (`ceiling-triggers-without-cz`), and only beside an AT間天井. The grounds
+  play the ceiling's triggers out with the rest where they play a cycle
+  out, and take the engine's (`atFigure.ceilingTriggers`) where they take
+  its cycle.
 - **Zones are drawn on games counted from the AT.** A mode — or the CZ
   of a machine without modes — may have `gates`: regular games since the
   last AT (100G, 200G, a 周期 every so many games) on which play still
@@ -1892,6 +1922,17 @@ put right by hand.
   given does not, an hour nobody chose there being nothing to overrule the
   one a book put back later brings. Another person's book is neither
   written nor read for it.
+- **What a press adds at a corner** is kept for good in the book a live
+  play is kept in — the one said for it, else the book in use
+  (`presses`; `application/presses`, `useCornerPresses`): by what the
+  corner is called (`cornerOf`: `4円パチ`, `2円パチ`, `20円スロ`, `8円スロ`
+  — the dearest rate it rents at or above, with its game), not by parlor
+  or day, so every play at a corner of that rate starts from it. Each set
+  is one change to the book (`presses-set`), of which the activity says
+  nothing, and it is read, as the rest of the settings are, from a
+  person's own books. It was kept before in the day's parlor setting on
+  the device, and lost with the day; what is kept there is now left
+  unread.
 - **The owner's alone.** Only a person's own books are placed. On the
   device of someone let into a book its `order` is not read: where a book
   stands among another person's books says nothing of where it stands
