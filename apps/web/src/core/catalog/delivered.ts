@@ -63,6 +63,7 @@ export const pachislotFormulaOf = (dto: PachislotContract.FormulaDto): Pachislot
     machineId: dto.machineId as MachineId,
     figures: dto.figures.map((figures) => settingLevelFiguresOf(figures, labels)),
     derivedFrom: dto.derivedFrom as Pachislot.FormulaId | undefined,
+    unchecked: dto.unchecked === true,
     createdAt: dto.createdAt,
   }
   return dto.kind === "sampled" && dto.sampling !== undefined ? { ...common, kind: "sampled", basis: dto.basis, sampling: dto.sampling } : { ...common, kind: dto.kind === "sampled" ? "simulated" : dto.kind, basis: dto.basis }
@@ -187,7 +188,8 @@ export const pachinkoFormulaDto = (formula: NewPachinkoFormula): PachinkoContrac
   ...(formula.derivedFrom === undefined ? {} : { derivedFrom: formula.derivedFrom }),
 })
 
-export const pachislotFormulaDto = (formula: NewPachislotFormula): PachislotContract.NewFormulaDto => ({
+/** A pachislot formula as it is sent: with the normalised spec this device made where the shared catalog found its 解析値 too heavy to solve. */
+export const pachislotFormulaDto = (formula: NewPachislotFormula, onDevice: boolean): PachislotContract.NewFormulaDto => ({
   kind: formula.kind,
   figures: formula.figures.map((figures) => ({
     settingLevel: figures.settingLevel,
@@ -196,7 +198,7 @@ export const pachislotFormulaDto = (formula: NewPachislotFormula): PachislotCont
     combinedOneIn: figures.combinedOneIn,
     ...(figures.at === undefined ? {} : { at: figures.at }),
   })),
-  basis: { spec: formula.basis.spec, conditions: formula.basis.conditions },
+  basis: { spec: formula.basis.spec, conditions: formula.basis.conditions, ...(onDevice ? { normalized: formula.basis.normalized } : {}) },
   ...(formula.derivedFrom === undefined ? {} : { derivedFrom: formula.derivedFrom }),
 })
 

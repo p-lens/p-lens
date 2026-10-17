@@ -46,8 +46,22 @@ export type CatalogError =
   | { readonly type: "not-markable"; readonly mark: Mark }
   /** This device, or its address, has registered as much of a kind as the shared catalog takes for now: `nextAt` is from when it takes the next. */
   | { readonly type: "quota-reached"; readonly kind: RegistrationKind; readonly nextAt: string }
+  /**
+   * The shared catalog could not solve the formula's 解析値 to check them:
+   * too heavy for the work one request may take, as it said, or as its
+   * giving up without a word (503) shows. Sent again with what this device
+   * solved, it is taken unchecked.
+   */
+  | { readonly type: "too-heavy" }
   /** The shared catalog would not take it, as it said. */
   | { readonly type: "refused"; readonly reason: string }
+
+/**
+ * Who solves a pachislot formula's 解析値 as it is sent: the shared catalog,
+ * which checks the figures by them — or, where they are too heavy for it,
+ * this device, whose normalised spec goes with them to be kept unchecked.
+ */
+export type Solved = "by-catalog" | "on-device"
 
 /**
  * The shared catalog of both games as this device holds it: delivered whole,
@@ -60,8 +74,8 @@ export type CatalogError =
 export interface Catalog {
   readonly search: (query: string, gameKind: GameKind) => Promise<Result<readonly MachineSummary[], CatalogError>>
   readonly read: (machineId: string) => Promise<Result<MachineEntry, CatalogError>>
-  readonly register: (machine: NewMachine, formula: NewFormula) => Promise<Result<Submitted, CatalogError>>
-  readonly addFormula: (machineId: MachineId, formula: NewFormula) => Promise<Result<Submitted, CatalogError>>
+  readonly register: (machine: NewMachine, formula: NewFormula, solved?: Solved) => Promise<Result<Submitted, CatalogError>>
+  readonly addFormula: (machineId: MachineId, formula: NewFormula, solved?: Solved) => Promise<Result<Submitted, CatalogError>>
   readonly addDistribution: (machineId: MachineId, distribution: NewSettingDistribution) => Promise<Result<Submitted, CatalogError>>
   /** Where this device stands against the quotas on registering: asked of the shared catalog each time, never kept. */
   readonly quota: () => Promise<Result<Quota, CatalogError>>

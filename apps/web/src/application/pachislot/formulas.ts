@@ -9,11 +9,11 @@ import { figuresFromAnalysis, type SettingLevelFigures } from "../../core/pachis
 import type { NewMachine, NewPachislotFormula, NewSettingDistribution, PachislotFormulaDetail, PachislotMachineDetail } from "../../core/catalog/catalog"
 import type { MachineId } from "../../core/machine/machine"
 import type { Basis } from "../../core/pachislot/formula"
-import { Err, Ok, mapOk } from "../../core/result/result"
+import { Err, Ok, mapOk, type Result } from "../../core/result/result"
 import { tidyTyped } from "../../core/text/tidy"
 import type { EngineClient, RunningRun } from "../../pachislot-engine/client/client"
 import type { RunEvent } from "../../pachislot-engine/protocol/messages"
-import type { Catalog, Submitted } from "../../catalog/port/catalog"
+import type { Catalog, CatalogError, Solved, Submitted } from "../../catalog/port/catalog"
 import { loadEntry } from "../catalog"
 import type { Outcome } from "../errors"
 import { fromCatalog, fromPachislotEngine } from "../lift"
@@ -27,15 +27,33 @@ export const loadFormula = async (catalog: Catalog, machineId: string, formulaId
   return listing === undefined ? Err({ type: "catalog", error: { type: "formula-missing", id: formulaId } }) : Ok({ machine: detail.value.machine, listing })
 }
 
+/** A formula the shared catalog took: where, and whether it took it unchecked (検算なし), as this device solved it. */
+export interface Shared extends Submitted {
+  readonly unchecked: boolean
+}
+
+/**
+ * A formula sent to be shared, and sent again with the normalised spec this
+ * device made where the shared catalog found its 解析値 too heavy to solve:
+ * a person who typed in that much is not turned away for it. `onResending`
+ * is told as it goes again, so the wait can be shown for what it is.
+ */
+const sentSolving = async (send: (solved: Solved) => Promise<Result<Submitted, CatalogError>>, onResending: () => void): Promise<Outcome<Shared>> => {
+  const first = await send("by-catalog")
+  if (first.ok || first.error.type !== "too-heavy") return fromCatalog(mapOk(first, (sent) => ({ ...sent, unchecked: false })))
+  onResending()
+  return fromCatalog(mapOk(await send("on-device"), (sent) => ({ ...sent, unchecked: true })))
+}
+
 /**
  * A new pachislot machine and its first formula, sent together: no machine
  * is ever without one. The name is tidied however it was typed.
  */
-export const registerMachine = async (catalog: Catalog, machine: NewMachine, formula: NewPachislotFormula): Promise<Outcome<Submitted>> =>
-  fromCatalog(await catalog.register({ ...machine, name: tidyTyped(machine.name) }, { gameKind: "pachislot", formula }))
+export const registerMachine = (catalog: Catalog, machine: NewMachine, formula: NewPachislotFormula, onResending: () => void): Promise<Outcome<Shared>> =>
+  sentSolving((solved) => catalog.register({ ...machine, name: tidyTyped(machine.name) }, { gameKind: "pachislot", formula }, solved), onResending)
 
-export const addFormula = async (catalog: Catalog, machineId: MachineId, formula: NewPachislotFormula): Promise<Outcome<Submitted>> =>
-  fromCatalog(await catalog.addFormula(machineId, { gameKind: "pachislot", formula }))
+export const addFormula = (catalog: Catalog, machineId: MachineId, formula: NewPachislotFormula, onResending: () => void): Promise<Outcome<Shared>> =>
+  sentSolving((solved) => catalog.addFormula(machineId, { gameKind: "pachislot", formula }, solved), onResending)
 
 export const addSettingDistribution = async (catalog: Catalog, machineId: MachineId, distribution: NewSettingDistribution): Promise<Outcome<Submitted>> =>
   fromCatalog(await catalog.addDistribution(machineId, { ...distribution, label: tidyTyped(distribution.label) }))

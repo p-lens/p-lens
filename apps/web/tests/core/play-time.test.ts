@@ -10,6 +10,8 @@ describe("a play's time", () => {
     expect(playSecondsOf({ started: { hour: 10, minute: 0 }, finished: { hour: 15, minute: 30 } }, hours("2"))).toEqual(decimal(19_800n, 0))
     expect(playSecondsOf({ started: { hour: 22, minute: 0 }, finished: { hour: 1, minute: 15 } }, undefined)).toEqual(decimal(11_700n, 0))
     expect(playSecondsOf({ started: { hour: 10, minute: 0 }, finished: undefined }, hours("3.25"))).toEqual(decimal(11_700n, 0))
+    expect(playSecondsOf(undefined, hours("5.33"))).toEqual(decimal(19_200n, 0))
+    expect(playSecondsOf(undefined, hours("0.17"))).toEqual(decimal(600n, 0))
     expect(playSecondsOf({ started: { hour: 10, minute: 0 }, finished: { hour: 10, minute: 0 } }, undefined)).toBeUndefined()
     expect(playSecondsOf(undefined, undefined)).toBeUndefined()
   })

@@ -53,6 +53,8 @@ export type Formula = {
   readonly machineId: MachineId
   readonly figures: readonly SettingLevelFigures[]
   readonly derivedFrom: FormulaId | undefined
+  /** 検算なし: kept as its maker's device solved it, its 解析値 too heavy for the shared catalog to check. */
+  readonly unchecked: boolean
   readonly createdAt: string
 } & FormulaMaking
 

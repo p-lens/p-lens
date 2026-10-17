@@ -670,3 +670,19 @@ fn an_at_won_outright_beside_its_cz_is_carried_on_each_setting() {
     let plain = ok(&normalize(&json!({ "spec": value(CZ_SPEC) }).to_string()));
     assert_eq!(plain["tables"][0]["at"].get("direct"), None);
 }
+
+const HEAVY: &str =
+    include_str!("../../../packages/contracts/fixtures/pachislot/made-up-heavy/spec.json");
+
+#[test]
+fn a_spec_past_the_steps_it_is_given_is_too_heavy_and_one_given_none_is_solved() {
+    let spec = value(HEAVY);
+    let limited = json!({ "spec": spec, "steps": 100_000 }).to_string();
+    assert_eq!(error(&normalize(&limited)), json!({ "type": "too-heavy" }));
+    let unlimited = json!({ "spec": spec }).to_string();
+    let normalized = ok(&normalize(&unlimited));
+    let analysed = json!({ "source": { "type": "normalized", "normalized": normalized }, "conditions": from_spec(), "steps": 100_000 }).to_string();
+    assert_eq!(error(&analyze(&analysed)), json!({ "type": "too-heavy" }));
+    let light = json!({ "spec": value(SPEC), "steps": 100_000 }).to_string();
+    ok(&normalize(&light));
+}

@@ -21,10 +21,16 @@ export interface FormulaSettingLevelFiguresDto {
 export interface SentBasisDto {
   readonly spec: SpecDto
   readonly conditions: ConditionsDto
+  /**
+   * The normalised spec the sender's device made, sent again after the API
+   * answered that solving the 解析値 was too heavy for it: the API then
+   * stores this one, unchecked. Never read otherwise.
+   */
+  readonly normalized?: NormalizedSpecDto
 }
 
 /** A formula's 解析値 as stored, with the normalised spec the API made of it. */
-export interface BasisDto extends SentBasisDto {
+export interface BasisDto extends Omit<SentBasisDto, "normalized"> {
   readonly normalized: NormalizedSpecDto
   readonly engineSchemaVersion: number
 }
@@ -56,6 +62,8 @@ export interface FormulaDto {
   readonly basis: BasisDto
   readonly sampling?: SamplingDto
   readonly derivedFrom?: string
+  /** Stored as its sender's device solved it, its 解析値 too heavy for the API to check: 検算なし. Left out where the API checked it. */
+  readonly unchecked?: true
   readonly contentHash: string
   readonly createdAt: string
   readonly standing: StandingDto

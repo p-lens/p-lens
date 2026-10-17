@@ -10,7 +10,7 @@ import { spinPerformancesOf, type SpinPerformancesByMachine } from "../core/repo
 import { andThen, mapOk } from "../core/result/result"
 import type { JournalAccess } from "../hledger/client/client"
 import { accountsRequest, actualCutRequest, sentTalliesRequest, spinPerformancesRequest, actualRequest, inferredCutRequest, inferredRequest, playTimeCutRequest, playTimeRequest, theoreticalCutRequest, theoreticalRequest } from "../hledger/query/requests"
-import { combine, untaggedTerm } from "../hledger/query/terms"
+import { combine, talliesTerm, untaggedTerm } from "../hledger/query/terms"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
 import { fromHledger, fromReport } from "./lift"
@@ -104,10 +104,11 @@ const grouped = async (journal: JournalAccess, dimension: Dimension, query: stri
  * values (`--pivot`) for a machine, a parlor or a game, and by
  * period (`-Y`, `-M`, `-D`) for a year, a month or a day. It has no
  * grouping by the day of the week, so that one is its daily report folded
- * into seven.
+ * into seven. Only tallies are grouped: what is no play's — 失効損 — is
+ * said under the breakdown, in その他損益, and never as a group of its own.
  */
 export const loadBreakdown = (session: BookSession, bookId: BookId, dimension: Dimension, query: string): Promise<Outcome<readonly Group[]>> =>
-  session.read(bookId, async (journal) => mapOk(await grouped(journal, dimension, query), (groups) => inOrder(groups, dimension)))
+  session.read(bookId, async (journal) => mapOk(await grouped(journal, dimension, combine(talliesTerm, query)), (groups) => inOrder(groups, dimension)))
 
 /**
  * A book's tallies' spin performances for a period, by machine: what the
@@ -124,7 +125,7 @@ export const loadSpinPerformances = (session: BookSession, bookId: BookId, query
  * and plays taken in before senders were written — as the unnamed group.
  */
 export const loadSenderBreakdown = (session: BookSession, bookId: BookId, query: string): Promise<Outcome<readonly Group[]>> =>
-  session.read(bookId, (journal) => byTags(journal, query, [TALLY_TAGS.senderId]))
+  session.read(bookId, (journal) => byTags(journal, combine(talliesTerm, query), [TALLY_TAGS.senderId]))
 
 /** Who sent a book's plays, each by the name on their last tally, whatever the period: the name a person goes by now. */
 export const loadSenderNames = (session: BookSession, bookId: BookId): Promise<Outcome<SenderNames>> =>

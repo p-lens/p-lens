@@ -26,8 +26,8 @@ export const insertFormula = async (database: Database, effects: Effects, user: 
   database
     .prepare(
       `INSERT INTO formulas (id, machine_id, kind, figures_json, basis_json, normalized_spec_json, engine_schema_version,
-         sampling_json, derived_from, content_hash, created_by, created_at, bonuses_json)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)`,
+         sampling_json, derived_from, content_hash, created_by, created_at, bonuses_json, checked)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)`,
     )
     .bind(
       id,
@@ -43,6 +43,7 @@ export const insertFormula = async (database: Database, effects: Effects, user: 
       user,
       effects.now(),
       json(formula.bonuses),
+      formula.checked ? 1 : 0,
     )
 
 export const addFormula = async (database: Database, effects: Effects, user: UserId, machineId: string, formula: StoredFormula): Promise<Result<CreatedDto, ApiError>> => {
@@ -82,6 +83,7 @@ export interface FormulaRow extends StandingRow {
   readonly derived_from: string | null
   readonly content_hash: string
   readonly created_at: string
+  readonly checked: number
 }
 
 /** A stored formula as served, in its machine's game's shape; SQL's nulls stop here, and absent fields are left out. */
@@ -96,6 +98,7 @@ export const formulaOf = <F extends PachinkoContract.FormulaDto | PachislotContr
       : { basis: { ...JSON.parse(row.basis_json), normalized: JSON.parse(row.normalized_spec_json), engineSchemaVersion: row.engine_schema_version } }),
     ...(row.sampling_json === null ? {} : { sampling: JSON.parse(row.sampling_json) }),
     ...(row.derived_from === null ? {} : { derivedFrom: row.derived_from }),
+    ...(row.checked === 0 ? { unchecked: true } : {}),
     contentHash: row.content_hash,
     createdAt: row.created_at,
     standing: standingOf(row),

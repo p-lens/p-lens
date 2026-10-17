@@ -25,12 +25,14 @@ import { useMoves } from "../../../navigation/moves"
 import type { FormulaTab, Place } from "../../../navigation/place"
 import { describeDescriptionProblem, describeReleaseDateError, quotaStandingText } from "../../../wording/catalog"
 import { describeError } from "../../../wording/errors"
+import { SHARED_UNCHECKED } from "../../../wording/pachislot/formula"
 import { useStartForm } from "../../live/start-form"
 import { ViewHeader } from "../../shell/ViewHeader"
 import { CopyFromMachine } from "./CopyFromMachine"
 import { FiguresTable } from "./FiguresTable"
 import { remadeIn } from "./remaking"
 import { SamplingRun } from "./SamplingRun"
+import { Resending, RESENDING_SHOWN_FOR } from "./Resending"
 import { ManualEditor, WorldEditor } from "./WorldEditor"
 import {
   type FormProblem,
@@ -125,7 +127,8 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachislot-for
   const [manual, setManual] = createSignal(props.start.manual)
   const [world, setWorld] = createSignal(props.start.world)
   const [failure, setFailure] = createSignal<ApplicationError | undefined>(undefined)
-  const [saving, setSaving] = createSignal(false)
+  /** Where sending the formula stands: not sent, being sent, or being sent again with what this device solved. */
+  const [sending, setSending] = createSignal<"idle" | "sending" | "resending">("idle")
   /** What saving here registers, and where this device stands against its quota: asked once the editor opens, and again after a save is refused. */
   const registrationKind = (): RegistrationKind => (pachislot().machine.type === "catalog" ? "addition" : "machine")
   const [quota, { refetch: askQuotaAgain }] = createResource(() => loadQuota(app.services.catalog))
@@ -171,17 +174,17 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachislot-for
   }
 
   /** Where a formula is shared: added to the machine chosen, or registered with a new one — or nowhere yet, if the new one is not filled in. */
-  type Saved = Outcome<{ readonly machineId: MachineId; readonly name: string; readonly formulaId: string }>
-  const saveTo = async (formula: NewPachislotFormula): Promise<Saved | undefined> => {
+  type Saved = Outcome<{ readonly machineId: MachineId; readonly name: string; readonly formulaId: string; readonly unchecked: boolean }>
+  const saveTo = async (formula: NewPachislotFormula, onResending: () => void): Promise<Saved | undefined> => {
     const machine = pachislot().machine
     if (machine.type === "catalog")
-      return addFormula(app.services.catalog, machine.machineId, formula).then((done) =>
-        done.ok ? Ok({ machineId: machine.machineId, name: machine.name, formulaId: done.value.id }) : done,
+      return addFormula(app.services.catalog, machine.machineId, formula, onResending).then((done) =>
+        done.ok ? Ok({ machineId: machine.machineId, name: machine.name, formulaId: done.value.id, unchecked: done.value.unchecked }) : done,
       )
     const registering = newMachine()
     if (registering === undefined) return undefined
-    return registerMachine(app.services.catalog, registering, formula).then((done) =>
-      done.ok ? Ok({ machineId: done.value.machineId, name: bookNameOf(registering), formulaId: done.value.id }) : done,
+    return registerMachine(app.services.catalog, registering, formula, onResending).then((done) =>
+      done.ok ? Ok({ machineId: done.value.machineId, name: bookNameOf(registering), formulaId: done.value.id, unchecked: done.value.unchecked }) : done,
     )
   }
 
@@ -201,12 +204,18 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachislot-for
 
   const save = async (): Promise<void> => {
     settleTyping()
-    if (saving() || nudgeWhatIsMissing()) return
+    if (sending() !== "idle" || nudgeWhatIsMissing()) return
     const formula = proposed()
     if (formula === undefined) return
-    setSaving(true)
-    const saved = await saveTo(formula)
-    setSaving(false)
+    setFailure(undefined)
+    setSending("sending")
+    const held: { shown: Promise<void> | undefined } = { shown: undefined }
+    const saved = await saveTo(formula, () => {
+      setSending("resending")
+      held.shown = new Promise((resolve) => setTimeout(resolve, RESENDING_SHOWN_FOR))
+    })
+    await held.shown
+    setSending("idle")
     if (saved === undefined) return
     if (!saved.ok) {
       keepDraft(app.services.preferences, { target: draftTarget(), formula: { gameKind: "pachislot", formula } })
@@ -215,6 +224,7 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachislot-for
       return
     }
     dropDraft(app.services.preferences, "pachislot")
+    if (saved.value.unchecked) toast({ ...SHARED_UNCHECKED, stays: "read" })
     app.delivery.awaitShared()
     startForm.updatePachislot({
       machine: { type: "catalog", machineId: saved.value.machineId, name: saved.value.name },
@@ -330,6 +340,9 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachislot-for
             <Preview />
           </TabsContent>
         </section>
+        <Show when={sending() === "resending"}>
+          <Resending />
+        </Show>
         <Show when={failure()} keyed>
           {(error) => <p role="alert" class="text-sm text-negative">{describeError(error)}</p>}
         </Show>

@@ -17,6 +17,8 @@ export interface StoredFormula {
   /** A pachinko formula's bonuses; none for a pachislot one, whose bonuses are its world's. */
   readonly bonuses: unknown
   readonly derivedFrom: string | undefined
+  /** Whether the API checked it: false only for a pachislot formula too heavy to solve here, stored as its sender's device solved it. */
+  readonly checked: boolean
 }
 
 /** A prepared formula of either game, said with its game so it is stored on a machine of that game. */
@@ -26,7 +28,7 @@ export type PreparedOfGame =
 
 const storedPachinko = (formula: Pachinko.PreparedFormula): StoredFormula =>
   formula.kind === "manual"
-    ? { kind: "manual", figures: formula.figures, basis: undefined, normalized: undefined, engineSchemaVersion: undefined, bonuses: formula.bonuses, derivedFrom: formula.derivedFrom }
+    ? { kind: "manual", figures: formula.figures, basis: undefined, normalized: undefined, engineSchemaVersion: undefined, bonuses: formula.bonuses, derivedFrom: formula.derivedFrom, checked: true }
     : {
         kind: formula.kind,
         figures: formula.figures,
@@ -35,6 +37,7 @@ const storedPachinko = (formula: Pachinko.PreparedFormula): StoredFormula =>
         engineSchemaVersion: formula.engineSchemaVersion,
         bonuses: formula.bonuses,
         derivedFrom: formula.derivedFrom,
+        checked: true,
       }
 
 const storedPachislot = (formula: Pachislot.PreparedFormula): StoredFormula => ({
@@ -45,6 +48,7 @@ const storedPachislot = (formula: Pachislot.PreparedFormula): StoredFormula => (
   engineSchemaVersion: formula.engineSchemaVersion,
   bonuses: undefined,
   derivedFrom: formula.derivedFrom,
+  checked: formula.checked,
 })
 
 export const storedOf = (prepared: PreparedOfGame): StoredFormula =>

@@ -19,12 +19,15 @@ use crate::at::{
 };
 
 /// One mode and count of misses: where its trigger's games began, the
-/// running sum over them, and how much of play is in it.
+/// running sum over them, how much of play is in it, and whether any play
+/// ever came into it — a mode and count play never reaches has nothing to
+/// draw, and a game passes it by.
 #[derive(Clone)]
 struct Stream {
     source: Vec<f64>,
     running: f64,
     alive: f64,
+    fed: bool,
 }
 
 /// The games since its trigger play moved into or seated in a mode is
@@ -58,6 +61,7 @@ impl Stream {
             self.running += mass / risk;
         }
         self.alive += mass;
+        self.fed |= mass != 0.0;
     }
 
     /// Play that has gone the whole of its mode's span to its expiry before
@@ -86,6 +90,7 @@ impl Stream {
         let ceiling = between.on_ceiling(&self.source, at);
         let (running, here) = between.step(&self.source, self.running, at);
         let (running, here) = if share > 0.0 {
+            crate::budget::spend(self.source.len());
             for before in &mut self.source {
                 *before *= 1.0 - share;
             }
@@ -122,6 +127,33 @@ pub(crate) struct Game {
     pub(crate) ended_by: Vec<f64>,
 }
 
+/// Where a missed trigger in one mode moves play: a mode it reaches, and
+/// the share of play that goes there from a miss off the mode's ceiling
+/// and from one on it.
+#[derive(Clone, Copy)]
+struct Move {
+    to: usize,
+    off_ceiling: f64,
+    on_ceiling: f64,
+}
+
+/// Each mode's moves, the modes a miss reaches and no other: most modes
+/// keep play in themselves, and a game walks every mode's every count.
+fn moves_of(odds: Odds<'_>, modes: usize) -> Vec<Vec<Move>> {
+    (0..modes)
+        .map(|from| {
+            (0..modes)
+                .map(|to| Move {
+                    to,
+                    off_ceiling: odds.moved(from, to),
+                    on_ceiling: odds.moved_from_ceiling(from, to),
+                })
+                .filter(|each| each.off_ceiling != 0.0 || each.on_ceiling != 0.0)
+                .collect()
+        })
+        .collect()
+}
+
 /// The chain as it stands: its streams, mode by mode and count by count,
 /// and the game it plays next, counted from the AT.
 pub(crate) struct Chain<'a> {
@@ -131,6 +163,7 @@ pub(crate) struct Chain<'a> {
     between: Vec<Between>,
     streams: Vec<Stream>,
     pending: Vec<f64>,
+    moves: Vec<Vec<Move>>,
     game: usize,
     /// Whether a CZ's success ends the chain at its bonus, play starting
     /// again from it, rather than winning the AT at the bonus's share.
@@ -178,10 +211,12 @@ impl<'a> Chain<'a> {
                     source: Vec::new(),
                     running: 0.0,
                     alive: 0.0,
+                    fed: false,
                 };
                 streams
             ],
             pending: vec![0.0; streams],
+            moves: moves_of(odds, rules.modes.len()),
             game: 0,
             restarting: rules.restarts(),
         }
@@ -333,7 +368,11 @@ impl<'a> Chain<'a> {
             let share = drawn_on(mode, gates, at);
             let between = self.between.get(index).copied();
             for count in 0..counts {
-                let Some(stream) = self.streams.get_mut(index * counts + count) else {
+                let Some(stream) = self
+                    .streams
+                    .get_mut(index * counts + count)
+                    .filter(|stream| stream.fed)
+                else {
                     continue;
                 };
                 let ended_by = game.ended_by.get_mut(count);
@@ -378,10 +417,9 @@ impl<'a> Chain<'a> {
                     (here - unsure_ceiling - forced) * (1.0 - wins) + forced * (1.0 - sure_wins);
                 let lost_on_ceiling = unsure_ceiling * (1.0 - wins);
                 let next = (count + 1).min(counts - 1);
-                for to in 0..modes {
-                    if let Some(cell) = moved.get_mut(to * counts + next) {
-                        *cell += lost * self.odds.moved(index, to)
-                            + lost_on_ceiling * self.odds.moved_from_ceiling(index, to);
+                for each in self.moves.get(index).map_or(&[][..], Vec::as_slice) {
+                    if let Some(cell) = moved.get_mut(each.to * counts + next) {
+                        *cell += lost * each.off_ceiling + lost_on_ceiling * each.on_ceiling;
                     }
                 }
             }
@@ -391,6 +429,7 @@ impl<'a> Chain<'a> {
             let began = *pending + moved;
             stream.source.push(began);
             stream.alive += began;
+            stream.fed |= began != 0.0;
             *pending = 0.0;
         }
         self.game += 1;
@@ -413,7 +452,8 @@ fn walked(
     let mut bonuses = Vec::new();
     while horizon.map_or(arrived.len() < LONGEST_WALK, |horizon| {
         arrived.len() <= horizon
-    }) {
+    }) && crate::budget::spend(chain.streams.len())
+    {
         let game = chain.play();
         arrived.push(game.arrived);
         ended.push(game.ended);

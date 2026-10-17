@@ -7,6 +7,7 @@ import type { Overall } from "../core/report/overall"
 import { mergedSenderNames, type SenderNames } from "../core/report/senders"
 import { mergedSpinPerformances, type SpinPerformancesByMachine } from "../core/report/spin-performance"
 import { mapOk } from "../core/result/result"
+import { combine, talliesTerm } from "../hledger/query/terms"
 import type { BookSession } from "./book-session"
 import { loadBreakdown, loadSenderBreakdown, loadSenderNames, loadSpinPerformances } from "./breakdown"
 import type { Outcome } from "./errors"
@@ -51,9 +52,9 @@ const ofChosen = async <T>(session: BookSession, chosen: readonly BookId[] | und
   return mapOk(listed, () => books)
 }
 
-/** A book's results for a period as one group, the book itself: what the period made and was worth, as hledger sums it. */
+/** A book's results for a period as one group, the book itself: what the period's tallies made and were worth, as hledger sums them. */
 const whole = async (session: BookSession, book: ListedBook, query: string): Promise<Outcome<readonly Group[]>> =>
-  mapOk(await loadOverview(session, book.id, query), (overview) => [{ key: book.id, actual: overview.actual, theoretical: overview.theoretical, inferred: overview.inferred, seconds: overview.playSeconds ?? ZERO }])
+  mapOk(await loadOverview(session, book.id, combine(talliesTerm, query)), (overview) => [{ key: book.id, actual: overview.actual, theoretical: overview.theoretical, inferred: overview.inferred, seconds: overview.playSeconds ?? ZERO }])
 
 /** The books chosen taken as one, for a period: each book's own figures, added — a day played in several books one day. */
 export const loadConsolidatedOverall = async (session: BookSession, chosen: readonly BookId[] | undefined, query: string): Promise<Outcome<readonly ConsolidatedBook<Overall>[]>> =>

@@ -5,6 +5,7 @@ use std::num::NonZeroU64;
 
 use pachislot_domain::normalized::NormalizedSpec;
 use pachislot_engine::analysis::{Analysis, analyze as solve};
+use pachislot_engine::budget::within;
 use pachislot_engine::normalize::normalize as normalise;
 use pachislot_engine::posterior::{posterior as infer, posterior_told};
 use pachislot_engine::theoretical::{
@@ -65,17 +66,33 @@ fn positive_count(value: u64, field: &str) -> Result<NonZeroU64, ErrorDto> {
     })
 }
 
+/// A call run within the steps its request gives, too heavy where it would
+/// take more; run as far as it needs where the request gives none.
+fn metered<T>(
+    steps: Option<u64>,
+    call: impl FnOnce() -> Result<T, ErrorDto>,
+) -> Result<T, ErrorDto> {
+    match steps {
+        Some(steps) => within(steps, call).map_err(|_| ErrorDto::TooHeavy)?,
+        None => call(),
+    }
+}
+
 fn normalized(request: &NormalizeRequest) -> Result<NormalizedSpecDto, ErrorDto> {
     let spec = convert::spec(&request.spec)?;
-    normalise(&spec)
-        .map(|normalized| convert::normalized_dto(&normalized))
-        .map_err(|error| convert::spec_error_dto(&error))
+    metered(request.steps, || {
+        normalise(&spec)
+            .map(|normalized| convert::normalized_dto(&normalized))
+            .map_err(|error| convert::spec_error_dto(&error))
+    })
 }
 
 fn analysis(request: &AnalyzeRequest) -> Result<AnalysisDto, ErrorDto> {
-    let spec = source(&request.source)?;
-    let analysis = solved(&spec, &request.conditions)?;
-    Ok(convert::analysis_dto(&analysis, &spec))
+    metered(request.steps, || {
+        let spec = source(&request.source)?;
+        let analysis = solved(&spec, &request.conditions)?;
+        Ok(convert::analysis_dto(&analysis, &spec))
+    })
 }
 
 fn posterior_of(request: &PosteriorRequest) -> Result<PosteriorDto, ErrorDto> {

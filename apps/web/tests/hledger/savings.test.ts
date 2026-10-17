@@ -2,8 +2,10 @@ import { describe, expect, test } from "bun:test"
 
 import { firstBook } from "../../src/app/composition/first-book"
 import { loadActivity } from "../../src/application/activity"
+import { loadBreakdown } from "../../src/application/breakdown"
 import { createBookSession } from "../../src/application/book-session"
 import { loadHoldings } from "../../src/application/holdings"
+import { loadOtherGains } from "../../src/application/other-gains"
 import { loadOverview } from "../../src/application/overview"
 import { adjustBalance, recordForfeiture, recordPrizeExchange, registerOpeningBalance } from "../../src/application/savings"
 import type { BookId } from "../../src/core/book/book"
@@ -169,6 +171,16 @@ describe("savings a parlor took back", () => {
     expect(files?.[BOOK_FILES.transactions]).not.toContain("資産:現金                         -14000")
     const activity = await loadActivity(session, history, BOOK)
     expect(activity.ok && activity.value.lines.map((line) => line.did).at(-1)).toBe("savings-forfeited")
+  })
+
+  test("are no group of a breakdown, but その他損益 under it", async () => {
+    const { session } = await madeUpBook()
+    const before = await loadBreakdown(session, BOOK, "machine", "")
+    await recordForfeiture(session, BOOK, FORFEITURE)
+    const after = await loadBreakdown(session, BOOK, "machine", "")
+    expect(after).toEqual(before)
+    const gains = await loadOtherGains(session, BOOK, "")
+    expect(gains.ok && toPlainString(gains.value.forfeited)).toBe("14000")
   })
 
   test("declare their account once, however many are recorded", async () => {

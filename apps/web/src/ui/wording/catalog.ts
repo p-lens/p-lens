@@ -39,6 +39,8 @@ export const describeCatalogError = (error: CatalogError): string => {
       return `共有カタログにつながりません: ${error.detail}`
     case "unreadable-answer":
       return "共有カタログの応答を読めませんでした。通信状況を確かめて、もう一度試してください。"
+    case "too-heavy":
+      return "共有カタログが混み合っていて、受け付けられませんでした。入力した内容はこの端末に残してあるので、少し時間をおいてもう一度登録を押してください。"
     case "unreadable-kept":
       return "この端末に保存された共有カタログのデータが壊れていて読めません。データの消去で端末のデータを消すと、また使えるようになります。"
     case "no-catalog":

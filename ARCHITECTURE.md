@@ -36,7 +36,8 @@ fixes.
 6. **A theoretical figure is never real.** The theoretical value (期待値) is
    an unbalanced virtual posting, `(統計:期待値)`, on an account with no
    type: hledger sums it when asked and leaves it out of every balanced
-   report.
+   report. Play time is kept the same way, `(統計:時間)` in `秒`: a
+   statistic hledger adds up, never money.
 7. **Valuation at the posting date and at the period end are kept apart** —
    in the wire format (`posting-date` / `period-end`), in the domain
    (`Valuation`), and on screen (each figure says which it is).
@@ -342,7 +343,9 @@ was spent.
 - **Play time** (`(統計:時間)`, in `秒`) is a virtual posting too: the
   seconds a play lasted, from its clock where both its start and its
   finish are said (the finish on the day after where it is the earlier),
-  else from the hours told of it, and none where neither says. Kept in
+  else from the hours told of it to the nearest minute (hours are kept to a
+  hundredth, 36 seconds, so 5時間20分 is 5.33 and comes back as 320
+  minutes), and none where neither says. Kept in
   seconds so that a book's plays add up, over any period, in hledger. A
   tally set right writes it again from its clock and hours, never from
   the posting.
@@ -1048,8 +1051,22 @@ users ─┬─ machines (game_kind ∈ pachinko | pachislot) ── machine_key
   spec itself and solves it, and refuses figures that are not what the basis
   comes to, each figure exactly: a sampled formula, whose figure could only
   be held to a margin its sender stated, is not taken (`sampling_json` is
-  written by nothing now, and read for the ones stored before). It is never
-  accepted from the client.
+  written by nothing now, and read for the ones stored before). It is
+  accepted from the client in one case alone, below.
+- **A pachislot formula too heavy to check is kept unchecked** (`checked`,
+  served as `unchecked`; 検算なし on screen). The free plan gives a request
+  a few milliseconds of CPU, and a spec of many modes crossed with many
+  counts of misses takes far more to solve. So the API asks its engine
+  calls for so many steps of work (`steps`; the engine's `budget` counts
+  the steps its game-by-game walks take, and answers `too-heavy` past
+  them), never the browser's, which solve as far as they need. Answered
+  too heavy, the app sends the formula again with the normalised spec its
+  own device made (`basis.normalized`), showing for a few seconds that it
+  is doing so, and the API stores that one, unchecked — but only when its
+  own metered try comes out too heavy again: a light formula is checked
+  whatever it is sent with. A 503 is taken the same way, a request that ran
+  out of time looking just so. Every reader solves the stored spec on
+  their own device, and anyone may verify or refute it as any other.
 - Taggings are polymorphic, so their target has no foreign key; the API checks
   the target exists for its type before writing.
 - Each mark and use has a table for formulas and one for 設定配分, so every
@@ -1996,11 +2013,13 @@ A tally in the book is set right, or taken out, from its detail
 A book's results by where they came from (集計, in a book's list;
 `core/report/breakdown`, `application/breakdown`): grouped by machine,
 parlor, day of the week, game, year, month or day, each group with
-what its plays made and what they were worth.
+what its plays made, what they were worth, and how long they were played
+for.
 
 - **hledger groups and sums.** By a tag's values it is `--pivot`
-  (`pivot` on a request): an income statement and a balance of theoretical
-  values, each pivoted on `machine`, `parlor-id` or `game-kind`, whose
+  (`pivot` on a request): an income statement, a balance of theoretical
+  values, a balance of the inferred among them and a balance of
+  `統計:時間`, each pivoted on `machine`, `parlor-id` or `game-kind`, whose
   rows are the groups. By period it is the report
   interval (`interval`: `-Y`, `-M`, `-D`), whose columns are. Nothing is
   added up on the device but what hledger has no grouping for, below.
@@ -2014,8 +2033,19 @@ what its plays made and what they were worth.
   first, what carries none of it is hledger's unnamed row, and that row
   alone is grouped again by the next (`byTags`). A parlor's group is named
   as the book names the id its plays carry.
+- **Only tallies are grouped** (`tag:play-id` beside the period): an entry
+  that is no play's — 失効損 — would otherwise be a group of no machine; it
+  is said in その他損益 below instead.
 - **The day of the week** is the one grouping hledger does not have: its
   daily report, each day its own sum, folded into seven (`byWeekday`).
+- **Play time beside each group** (`Group.seconds`): the seconds its
+  tallies kept, read from the same cut of `統計:時間` (`secondsIn`), shown
+  in hours and minutes, `--` where none kept any. Whichever way a period
+  is cut, the groups' seconds come to the same total.
+- **その他損益 under every breakdown** (`OtherGains`, `loadOtherGains`,
+  a book's or several books'): 失効損, which 収支 holds, and 評価損益,
+  which it does not, a line to each and never summed, shown only where
+  there is any.
 - **Which grouping and which period are the address's**:
   `/books/:id/breakdown/weekday`, with `q` the period.
 - **A period is two days and nothing else** (`ui/features/period`,
@@ -2074,14 +2104,22 @@ played them (集計).
   worth, what they took in (通算投資: the 費用 branch) and gave back
   (通算回収: the 収益 branch), each posting at its own day's rate — the one
   less the other being what they made — the loss on renting tokens
-  (通算貸玉差額), the time they were played for (通算時間, `統計:時間`;
-  集計なし where no entry keeps any), the cash spent, the special and odd
-  prizes taken home, and the savings tallies drew on (`amt:<0` on the
-  savings accounts, each at its own day's rate). The app counts tallies,
-  days, and those that came out ahead, and divides for the averages. What
-  is only added up is listed a line to each, as a trial balance is; what
-  is worked out from it stands in tiles below. Several books are added, a day
-  played in two books one day its results added (`mergedOverall`).
+  (貸玉差額) and the fee on replaying them (再プレイ手数料), the time they
+  were played for (通算時間, `統計:時間`; 集計なし where no entry keeps
+  any), the cash spent, the special and odd prizes and the
+  換算調整勘定 taken home, and the savings tallies drew on (`amt:<0` on
+  the savings accounts, each at its own day's rate). The app counts
+  tallies, days, and those that came out ahead, and divides for the
+  averages. What is only added up is listed a line to each, as a trial
+  balance is, under three heads — 稼働 (台数, 日数, 時間), 収支 (通算投資
+  with うち貸玉差額 and うち再プレイ手数料, 通算回収, 通算収支, 通算期待値)
+  and 現金と景品 (現金投資, 貯玉利用, and 景品等合計 with its special
+  prizes, odd prizes and 換算調整勘定 beneath) — side by side on a wide
+  screen; what is worked out from it stands in tiles below. Every figure
+  is in whole yen, never in 万 or 億, and a total's parts are rounded by
+  the largest remainder (`apportioned`), so they add up to it as it is
+  shown. Several books are added, a day played in two books one day its
+  results added (`mergedOverall`).
 - **By who played them** (打ち手別, `/consolidated/breakdown/sender`):
   each sender's tallies over every book added, by the `sender-id` they
   carry (`loadSenderBreakdown`), and named by the `sender` on their last

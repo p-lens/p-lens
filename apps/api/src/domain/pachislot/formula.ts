@@ -21,12 +21,15 @@ export interface SentFormula {
   readonly spec: Body
   readonly conditions: ConditionsDto
   readonly derivedFrom: string | undefined
+  /** The normalised spec the sender's device made, sent again after the API found the 解析値 too heavy to solve. */
+  readonly solvedOnDevice: NormalizedSpecDto | undefined
 }
 
-/** A pachislot formula ready to store: with the normalised spec made here. */
+/** A pachislot formula ready to store: with the normalised spec made here, or — where solving it was too heavy here — the one its sender's device made, unchecked. */
 export interface PreparedFormula extends SentFormula {
   readonly normalized: NormalizedSpecDto
   readonly engineSchemaVersion: number
+  readonly checked: boolean
 }
 
 const KINDS: readonly NewFormulaKindDto[] = ["manual", "simulated"]
@@ -99,6 +102,18 @@ const isBasisPoints = (value: unknown): value is number => typeof value === "num
 
 const isRate = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value > 0
 
+/**
+ * The normalised spec a sender's device made, where one was sent: read for
+ * its outline only — a version and a table a setting — since it is taken
+ * only where the engine cannot solve the 解析値 here to check it by.
+ */
+const readSolvedOnDevice = (value: unknown): Result<NormalizedSpecDto | undefined, ApiError> => {
+  if (value === undefined) return Ok(undefined)
+  if (!isBody(value)) return invalid("basis.normalized", "not-json")
+  if (!isPositive(value["schemaVersion"]) || !Number.isInteger(value["schemaVersion"])) return invalid("basis.normalized.schemaVersion")
+  return Array.isArray(value["tables"]) && value["tables"].length > 0 ? Ok(value as unknown as NormalizedSpecDto) : invalid("basis.normalized.tables")
+}
+
 const readConditions = (body: Body): Result<ConditionsDto, ApiError> => {
   const rate = body["payoutRate"]
   if (!isBody(rate)) return invalid("basis.conditions.payoutRate")
@@ -134,6 +149,8 @@ export const readFormula = (body: Body): Result<SentFormula, ApiError> => {
   if (!figures.ok) return figures
   const parts = all({ spec: object(head.value.basis, "spec"), conditions: object(head.value.basis, "conditions") })
   if (!parts.ok) return parts
+  const solvedOnDevice = readSolvedOnDevice(head.value.basis["normalized"])
+  if (!solvedOnDevice.ok) return solvedOnDevice
   const conditions = readConditions(parts.value.conditions)
   if (!conditions.ok) return conditions
   if (statesRate(parts.value.spec, conditions.value) !== (head.value.kind === "manual")) return invalid("kind")
@@ -143,6 +160,7 @@ export const readFormula = (body: Body): Result<SentFormula, ApiError> => {
     spec: parts.value.spec,
     conditions: conditions.value,
     derivedFrom: head.value.derivedFrom,
+    solvedOnDevice: solvedOnDevice.value,
   })
 }
 
@@ -173,10 +191,26 @@ const disagreement = (sent: SentFormula, analysis: AnalysisDto): string | undefi
   return found
 }
 
+/** Whether the engine gave up on the 解析値 as too heavy to solve within the work it was given. */
+const tooHeavy = (error: EngineErrorDto): boolean => error.type === "too-heavy"
+
+/**
+ * A pachislot formula whose 解析値 are too heavy to solve here: stored as
+ * its sender's device solved them, unchecked, where it sent that; refused
+ * as too heavy where it did not, so that it sends it.
+ */
+const unchecked = (sent: SentFormula): Result<PreparedFormula, ApiError> =>
+  sent.solvedOnDevice === undefined
+    ? Err({ type: "basis-rejected", error: { type: "too-heavy" } })
+    : Ok({ ...sent, normalized: sent.solvedOnDevice, engineSchemaVersion: sent.solvedOnDevice.schemaVersion, checked: false })
+
 /**
  * A pachislot formula made ready to store. Its 解析値 are normalised here, by
  * the engine, and its figures checked against what they come to: what is
- * stored is derived from the 解析値, never taken on trust.
+ * stored is derived from the 解析値, never taken on trust. Only where they
+ * take more work to solve than the engine is given here is the normalised
+ * spec its sender's device made taken instead, and the formula stored as
+ * unchecked: a light formula is checked whatever it was sent with.
  */
 export const prepareFormula = (
   sent: SentFormula,
@@ -186,12 +220,12 @@ export const prepareFormula = (
   },
 ): Result<PreparedFormula, ApiError> => {
   const normalized = engine.normalize(sent.spec)
-  if (!normalized.ok) return Err({ type: "basis-rejected", error: normalized.error })
+  if (!normalized.ok) return tooHeavy(normalized.error) ? unchecked(sent) : Err({ type: "basis-rejected", error: normalized.error })
   const analysis = engine.analyze(normalized.value, sent.conditions)
-  if (!analysis.ok) return Err({ type: "basis-rejected", error: analysis.error })
+  if (!analysis.ok) return tooHeavy(analysis.error) ? unchecked(sent) : Err({ type: "basis-rejected", error: analysis.error })
   const field = disagreement(sent, analysis.value)
   return field === undefined
-    ? Ok({ ...sent, normalized: normalized.value, engineSchemaVersion: normalized.value.schemaVersion })
+    ? Ok({ ...sent, normalized: normalized.value, engineSchemaVersion: normalized.value.schemaVersion, checked: true })
     : Err({ type: "figures-disagree-with-basis", field })
 }
 

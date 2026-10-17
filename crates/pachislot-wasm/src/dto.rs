@@ -590,6 +590,10 @@ pub struct PlayDto {
 #[serde(rename_all = "camelCase")]
 pub struct NormalizeRequest {
     pub spec: SpecDto,
+    /// The work the call may take, in steps of walking play game by game;
+    /// none where it may take as much as it needs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub steps: Option<u64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -597,6 +601,9 @@ pub struct NormalizeRequest {
 pub struct AnalyzeRequest {
     pub source: SourceDto,
     pub conditions: ConditionsDto,
+    /// The work the call may take, as for normalising.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub steps: Option<u64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -972,6 +979,9 @@ pub enum ErrorDto {
     MalformedRequest {
         detail: String,
     },
+    /// Solving the spec would take more work than the call was given: its
+    /// modes, counts of misses and ceilings too many together.
+    TooHeavy,
     /// A value the engine cannot take, named by its path in the request.
     InvalidValue {
         field: String,

@@ -14,7 +14,7 @@ import type { Place } from "../../../navigation/place"
 import { formulaIdText } from "../../../wording/catalog"
 import { describeError } from "../../../wording/errors"
 import { formatCount } from "../../../wording/numbers"
-import { kindName } from "../../../wording/pachislot/formula"
+import { kindName, UNCHECKED } from "../../../wording/pachislot/formula"
 import { useStartForm } from "../../live/start-form"
 import { ViewHeader } from "../../shell/ViewHeader"
 import { FiguresTable } from "./FiguresTable"
@@ -60,6 +60,9 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
                 </Show>
                 <dl class="flex flex-wrap gap-x-6 gap-y-1 text-sm">
                   <div class="flex gap-2"><dt class="text-text-muted">種類</dt><dd class="text-text-primary">{kindName(formula().kind)}</dd></div>
+                  <Show when={formula().unchecked}>
+                    <div class="flex gap-2"><dt class="text-text-muted">共有カタログ</dt><dd class="text-text-primary">{UNCHECKED}</dd></div>
+                  </Show>
                   <Show when={samplingOf(formula())} keyed>
                     {(sampling) => (
                       <>

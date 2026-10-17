@@ -304,12 +304,13 @@ pub(crate) fn drawn(here: f64, running: f64, p: f64, share: f64) -> f64 {
 /// trigger still waiting.
 fn convolved(f: &[f64], p: f64, mode: &ModeRule, gates: &[Gate]) -> Vec<f64> {
     let between = Between::of(p, mode.ceiling);
-    let (_, _, next) = (0..f.len()).fold(
+    let (_, _, next) = (0..f.len()).take_while(|_| crate::budget::spend(1)).fold(
         (f.to_vec(), 0.0_f64, Vec::with_capacity(f.len())),
         |(mut waiting, running, mut next), at| {
             let (running, here) = between.step(&waiting, running, at);
             let share = drawn_on(mode, gates, at);
             let (running, here) = if share > 0.0 {
+                crate::budget::spend(at);
                 waiting
                     .iter_mut()
                     .take(at)
@@ -350,37 +351,41 @@ fn ended_by(
     let wins: Vec<f64> = (1..=streams)
         .map(|j| success_of(u32::try_from(j).unwrap_or(u32::MAX), success, misses))
         .collect();
-    let (_, _, _, arrived, ended) = (0..length).fold(
-        (
-            (0..streams)
-                .map(|_| Vec::with_capacity(length))
-                .collect::<Vec<Vec<f64>>>(),
-            vec![0.0_f64; streams],
-            vec![0.0_f64; streams],
-            Vec::with_capacity(length),
-            Vec::with_capacity(length),
-        ),
-        |(mut sources, mut running, mut here, mut arrived, mut ended), at| {
-            let share = drawn_on(mode, gates, at);
-            for ((source, running), here) in sources.iter_mut().zip(&mut running).zip(&mut here) {
-                (*running, *here) = between.step(source, *running, at);
-                if share > 0.0 {
-                    (*running, *here) =
-                        ((1.0 - share) * *running, drawn(*here, *running, p, share));
-                    for before in source.iter_mut() {
-                        *before *= 1.0 - share;
+    let (_, _, _, arrived, ended) = (0..length)
+        .take_while(|_| crate::budget::spend(streams))
+        .fold(
+            (
+                (0..streams)
+                    .map(|_| Vec::with_capacity(length))
+                    .collect::<Vec<Vec<f64>>>(),
+                vec![0.0_f64; streams],
+                vec![0.0_f64; streams],
+                Vec::with_capacity(length),
+                Vec::with_capacity(length),
+            ),
+            |(mut sources, mut running, mut here, mut arrived, mut ended), at| {
+                let share = drawn_on(mode, gates, at);
+                for ((source, running), here) in sources.iter_mut().zip(&mut running).zip(&mut here)
+                {
+                    (*running, *here) = between.step(source, *running, at);
+                    if share > 0.0 {
+                        crate::budget::spend(source.len());
+                        (*running, *here) =
+                            ((1.0 - share) * *running, drawn(*here, *running, p, share));
+                        for before in source.iter_mut() {
+                            *before *= 1.0 - share;
+                        }
                     }
                 }
-            }
-            for (stream, source) in sources.iter_mut().enumerate() {
-                let start = if stream == 0 && at == 0 { 1.0 } else { 0.0 };
-                source.push(start + fed(&wins, &here, stream));
-            }
-            ended.push(here.iter().zip(&wins).map(|(here, wins)| here * wins).sum());
-            arrived.push(here.iter().sum());
-            (sources, running, here, arrived, ended)
-        },
-    );
+                for (stream, source) in sources.iter_mut().enumerate() {
+                    let start = if stream == 0 && at == 0 { 1.0 } else { 0.0 };
+                    source.push(start + fed(&wins, &here, stream));
+                }
+                ended.push(here.iter().zip(&wins).map(|(here, wins)| here * wins).sum());
+                arrived.push(here.iter().sum());
+                (sources, running, here, arrived, ended)
+            },
+        );
     with_direct(Walk { arrived, ended }, |game| {
         direct_on(direct, gates, game)
     })

@@ -158,3 +158,18 @@ export const describeStepRefusal = (refusal: RevisionRefusal, bonusLabel: (id: s
 
 /** A bonus as a list of bonuses names it: by its name, or — until it is given one — by where it stands among the bonuses, ボーナス2. */
 export const bonusTitle = (label: string, position: number): string => (label.trim() === "" ? `ボーナス${position}` : label.trim())
+
+/** What is said while a formula too heavy for the shared catalog to check is sent again, with what this device solved. */
+export const RESENDING = {
+  title: "この端末の計算結果を添えて、送り直しています",
+  note: "計算が重く、共有カタログでは検算しきれませんでした。この端末で解いた結果を一緒に送って、「検算なし」として登録します。",
+} as const
+
+/** What is said once such a formula is taken. */
+export const SHARED_UNCHECKED = {
+  title: "「検算なし」で登録しました",
+  description: "共有カタログでは検算できなかったため、この端末で解いた結果のまま登録しています。ほかの人も、それぞれの端末で計算根拠を確かめられます。",
+} as const
+
+/** The mark on a formula the shared catalog took unchecked. */
+export const UNCHECKED = "検算なし"

@@ -7,8 +7,8 @@ import type { PlayClock } from "./tally"
 /** Minutes in a day: a play finishing at an earlier time than it began finished on the day after. */
 const DAY_MINUTES = 24 * 60
 
-/** Seconds in an hour. */
-const HOUR_SECONDS = decimal(3600n, 0)
+/** Minutes in an hour, and seconds in a minute. */
+const SIXTY = decimal(60n, 0)
 
 /** The minutes from a play's start to its finish, by the clock: none where either is unsaid, or both are one time. */
 const clockMinutes = (clock: PlayClock | undefined): number | undefined => {
@@ -19,13 +19,15 @@ const clockMinutes = (clock: PlayClock | undefined): number | undefined => {
 
 /**
  * The seconds a tally's play lasted: by its clock where both its start and
- * its finish are said, else by the hours told of it; none where neither
- * says.
+ * its finish are said, else by the hours told of it, to the nearest whole
+ * minute; none where neither says. Hours are kept to a hundredth, which is
+ * 36 seconds — 5時間20分 is 5.33 — so the nearest minute is the one told,
+ * where the seconds themselves would be 19,188 for 19,200.
  */
 export const playSecondsOf = (clock: PlayClock | undefined, hours: Decimal | undefined): Decimal | undefined => {
   const minutes = clockMinutes(clock)
   if (minutes !== undefined) return decimal(BigInt(minutes * 60), 0)
-  return hours === undefined ? undefined : rounded(multiply(hours, HOUR_SECONDS), 0)
+  return hours === undefined ? undefined : multiply(rounded(multiply(hours, SIXTY), 0), SIXTY)
 }
 
 /** A play's time, in seconds, as a posting of statistics beside its tally: virtual, so it balances nothing. */

@@ -18,7 +18,7 @@ import type { Mark } from "../../core/formula/standing"
 import { Err, Ok, andThen, collect, mapOk, type Result } from "../../core/result/result"
 import { CATALOG, CATALOG_OUTBOX, type Connection, completionOf, resultOf } from "../../storage/browser/database"
 import type { StorageError } from "../../storage/port/book-storage"
-import type { Catalog, CatalogError } from "../port/catalog"
+import type { Catalog, CatalogError, Solved } from "../port/catalog"
 import type { ApiFailure, CatalogApi, CatalogRequest } from "../port/catalog-api"
 
 /** The delivered catalog as kept: one record, its version and the whole of it. */
@@ -80,6 +80,16 @@ type Sending =
 const OTHER: Sending = { type: "other" }
 
 /**
+ * Whether the shared catalog could not solve a formula's 解析値: it said
+ * they were too heavy, or gave up on them with no answer of its own, as a
+ * request that ran out of time does (503).
+ */
+const tooHeavy = (failure: Extract<ApiFailure, { type: "answered" }>): boolean =>
+  failure.status === 503 || (failure.error.type === "basis-rejected" && isJson(failure.error["error"]) && failure.error["error"]["type"] === "too-heavy")
+
+const isJson = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === "object" && value !== null && !Array.isArray(value)
+
+/**
  * What the shared catalog's answer means here. A name already taken is told
  * with the machine that has it, if it has been delivered.
  */
@@ -98,6 +108,7 @@ const fromApi = (failure: ApiFailure, sending: Sending): CatalogError => {
         return { type: "name-taken", name: sending.machine.name, existing: machineNamed(sending.machines, sending.machine.name, sending.machine.gameKind) }
       if (error.type === "not-found" && sending.type === "to-machine") return { type: "machine-missing", id: sending.machineId }
       if (error.type === "not-verifiable") return { type: "not-verifiable" }
+      if (sending.type !== "other" && tooHeavy(failure)) return { type: "too-heavy" }
       if (error.type === "check-stands") return { type: "check-stands" }
       if (error.type === "quota-reached" && typeof error["nextAt"] === "string" && (error["kind"] === "machine" || error["kind"] === "addition"))
         return { type: "quota-reached", kind: error["kind"], nextAt: error["nextAt"] }
@@ -115,7 +126,8 @@ const forGood = (failure: ApiFailure): boolean => failure.type === "answered" &&
 
 const pathOf = (target: CatalogTarget): string => `/${target.type === "formula" ? "formulas" : "distributions"}/${encodeURIComponent(target.id)}`
 
-const newFormulaDto = (formula: NewFormula) => (formula.gameKind === "pachinko" ? pachinkoFormulaDto(formula.formula) : pachislotFormulaDto(formula.formula))
+const newFormulaDto = (formula: NewFormula, solved: Solved) =>
+  formula.gameKind === "pachinko" ? pachinkoFormulaDto(formula.formula) : pachislotFormulaDto(formula.formula, solved === "on-device")
 
 /** A new machine's description as it is sent: what was left out is left out, never sent empty. */
 const describedAs = (machine: NewMachine) => ({
@@ -126,10 +138,10 @@ const describedAs = (machine: NewMachine) => ({
   releasedOn: machine.releasedOn,
 })
 
-const registration = (machine: NewMachine, formula: NewFormula): RegisterMachineDto =>
+const registration = (machine: NewMachine, formula: NewFormula, solved: Solved): RegisterMachineDto =>
   formula.gameKind === "pachinko"
     ? { ...describedAs(machine), gameKind: "pachinko", formula: pachinkoFormulaDto(formula.formula) }
-    : { ...describedAs(machine), gameKind: "pachislot", formula: pachislotFormulaDto(formula.formula) }
+    : { ...describedAs(machine), gameKind: "pachislot", formula: pachislotFormulaDto(formula.formula, solved === "on-device") }
 
 /**
  * The shared catalog as this device holds it, in IndexedDB: delivered whole,
@@ -169,16 +181,16 @@ export const createDeliveredCatalog = (database: Connection, api: CatalogApi, ef
     return Ok(entryOf(detail))
   }
 
-  const register: Catalog["register"] = async (machine, formula) => {
-    const dto = registration(machine, formula)
+  const register: Catalog["register"] = async (machine, formula, solved = "by-catalog") => {
+    const dto = registration(machine, formula, solved)
     const sent = await api.register(dto)
     if (sent.ok) return Ok({ machineId: sent.value.machineId as MachineId, id: sent.value.formulaId })
     const delivered = await machines()
     return Err(fromApi(sent.error, { type: "registering", machine: dto, machines: delivered.ok ? delivered.value : [] }))
   }
 
-  const addFormula: Catalog["addFormula"] = async (machineId, formula) => {
-    const sent = await api.addFormula(machineId, newFormulaDto(formula))
+  const addFormula: Catalog["addFormula"] = async (machineId, formula, solved = "by-catalog") => {
+    const sent = await api.addFormula(machineId, newFormulaDto(formula, solved))
     return sent.ok ? Ok({ machineId, id: sent.value.id }) : Err(fromApi(sent.error, { type: "to-machine", machineId }))
   }
 

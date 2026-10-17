@@ -5,7 +5,7 @@ import { combinedTellsMore } from "../../../../core/pachislot/figures"
 import type { Formula, SettingDistribution } from "../../../../core/pachislot/formula"
 import { HandIcon, HandOffIcon, HeartIcon, QuestionIcon, ShieldIcon, ShieldOffIcon } from "../../../primitives/icons"
 import { formulaIdText } from "../../../wording/catalog"
-import { oddsText, formulaText, payoutRateText, sharesText } from "../../../wording/pachislot/formula"
+import { oddsText, formulaText, payoutRateText, sharesText, UNCHECKED } from "../../../wording/pachislot/formula"
 import { KindMark } from "./KindMark"
 
 /** A count of what people did; a check either way is shown in its colour once there is one. */
@@ -85,7 +85,10 @@ export function FormulaCard(props: {
         <KindMark kind={props.listing.formula.kind} />
         <div class="min-w-0 flex-1">
           <h3 class="truncate font-semibold tabular-nums text-text-primary">{formulaText(props.listing.formula.figures)}</h3>
-          <p class="text-[11px] tabular-nums text-text-muted">ID {formulaIdText(props.listing.formula.id)}</p>
+          <p class="text-[11px] tabular-nums text-text-muted">
+            ID {formulaIdText(props.listing.formula.id)}
+            <Show when={props.listing.formula.unchecked}>{` ・${UNCHECKED}`}</Show>
+          </p>
         </div>
         <Favorite on={props.favorite} label="この算出条件をお気に入りにする" onToggle={props.onToggleFavorite} />
         <button

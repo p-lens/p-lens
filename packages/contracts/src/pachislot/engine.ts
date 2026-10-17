@@ -333,6 +333,8 @@ export interface PlayDto {
 export interface AnalyzeRequest {
   readonly source: SourceDto
   readonly conditions: ConditionsDto
+  /** The work the call may take, in steps of walking play game by game; none where it may take as much as it needs. */
+  readonly steps?: number
 }
 
 export interface BonusFigureDto {
@@ -563,6 +565,8 @@ export interface EstimateResponse {
 
 export type EngineErrorDto =
   | { readonly type: "malformed-request"; readonly detail: string }
+  /** Solving the 解析値 would take more work than the call was given. */
+  | { readonly type: "too-heavy" }
   | { readonly type: "invalid-value"; readonly field: string }
   | { readonly type: "unsupported-component"; readonly field: string }
   | { readonly type: "unsupported-spec-version"; readonly version: number; readonly known: number }

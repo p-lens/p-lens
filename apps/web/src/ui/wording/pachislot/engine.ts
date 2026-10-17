@@ -58,6 +58,8 @@ const describeEngineError = (error: EngineErrorDto): string => {
   switch (error.type) {
     case "malformed-request":
       return `計算エンジンが入力を読めませんでした: ${error.detail}`
+    case "too-heavy":
+      return "計算が重すぎて、時間内に解ききれませんでした。モードやスルー回数の組み合わせを減らすと軽くなります。"
     case "invalid-value":
       return `値が正しくありません（${error.field}）。`
     case "unsupported-component":
