@@ -152,6 +152,34 @@ export const spinPerformanceOf = (measured: Measured, terms: PlayTerms): number 
 export const measuredSpinPerformance = (ordered: readonly Checkpoint[], terms: PlayTerms): number | undefined =>
   ((measured) => (measured === undefined ? undefined : spinPerformanceOf(measured, terms)))(consumptionOf(ordered, terms).measured)
 
+/** The spin performance between two points the hand was known at; none where no regular game, or no ball, came between. */
+const stretchBetween = (from: Known, to: Known, terms: PlayTerms): number | undefined => {
+  const spins = to.regularSpins - from.regularSpins
+  const balls = playedOf(to) - playedOf(from)
+  return spins > 0 && balls > 0 ? spinPerformanceOf({ spins, balls, rentedBalls: 0, replayedBalls: 0 }, terms) : undefined
+}
+
+/**
+ * The spin performance of each line's own stretch, by its place in the
+ * log: from the last point before it the hand was known at — a line, or
+ * one inside a folded line — to the line, where the line knows the hand
+ * and was played in regular games. None for any other line — the seat,
+ * the finish, a 時短 or 確変 line — nor across a jackpot whose bonus the
+ * log does not say: what it paid is unknown, so the balls played over it
+ * are.
+ */
+export const stretchPerformancesOf = (ordered: readonly Checkpoint[], terms: PlayTerms): readonly (number | undefined)[] =>
+  standingsOf(ordered, terms).reduce<{ readonly rates: readonly (number | undefined)[]; readonly last: Known | undefined }>(
+    (walked, { standing, hands }, index) => {
+      const line = ordered[index]
+      const untold = line !== undefined && isUntold(line)
+      const from = untold ? undefined : (hands.at(-1) ?? walked.last)
+      const rate = from === undefined || !isKnown(standing) || line?.phase !== "regular" ? undefined : stretchBetween(from, standing, terms)
+      return { rates: [...walked.rates, rate], last: isKnown(standing) ? standing : untold ? undefined : (hands.at(-1) ?? walked.last) }
+    },
+    { rates: [], last: { ...START, held: 0 } },
+  ).rates
+
 /** Regular games the hand may be played that long without a count before a person is asked to count it again. */
 export const RECOUNT_AFTER = 75
 

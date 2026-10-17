@@ -28,6 +28,7 @@ import { settleTyping, TextField } from "../../../primitives/text-field"
 import { toast } from "../../../primitives/toast"
 import { useMoves } from "../../../navigation/moves"
 import { describeError } from "../../../wording/errors"
+import { FIELD_PROBLEM_TEXT, UNWRITABLE_TEXT } from "../../../wording/fields"
 import { LOCATE_REQUEST, parlorNote, typedParlorRefused } from "../../../wording/parlor"
 import { FormulaPicker, PriorPicker } from "./ChoiceFields"
 import { SeatFields, useSeat } from "./Seat"
@@ -219,7 +220,7 @@ function ParlorField(props: {
 }
 
 /** Why a field's text cannot be written, if it cannot. Leaving a field empty is not one of these. */
-const unwritable = (text: string): string | undefined => (isWritableText(text) ? undefined : "「,」「;」や改行は使えません。")
+const unwritable = (text: string): string | undefined => (isWritableText(text) ? undefined : UNWRITABLE_TEXT)
 
 /**
  * Starting a pachislot play, in three parts: the parlor with its corner's
@@ -275,7 +276,7 @@ export function Start(props: {
   /** The medals the play is begun with in hand: what the day's play before left at this place, unless typed over. */
   const carriedShown = (): string => carriedInShown(start.form().carriedIn, tokensCarriedTo(app.services.preferences.tokensInHand(), app.services.businessDay(), venue(), "slot"))
   const carriedUnread = (): boolean => readCarriedIn(carriedShown()).type === "unread"
-  const textProblems = (): readonly (string | undefined)[] => [carriedUnread() ? "整数で入力してください。" : undefined, unwritable(start.form().cabinetNumber)]
+  const textProblems = (): readonly (string | undefined)[] => [carriedUnread() ? FIELD_PROBLEM_TEXT["not-a-count"] : undefined, unwritable(start.form().cabinetNumber)]
   /** The corner's terms as read, for weighing the seat: none until they read. */
   const terms = (): PlayTerms | undefined => {
     const read = readTerms(start.form().terms.slot, "slot")

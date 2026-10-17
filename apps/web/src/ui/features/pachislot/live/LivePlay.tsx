@@ -28,9 +28,11 @@ import { createNudge } from "../../../primitives/nudge"
 import { Loaded } from "../../../primitives/states"
 import { settleTyping, TextField } from "../../../primitives/text-field"
 import { toast } from "../../../primitives/toast"
+import { feelTap } from "../../../primitives/vibration"
 import { useMoves } from "../../../navigation/moves"
 import type { Place } from "../../../navigation/place"
 import { describeError, describePlayLogError } from "../../../wording/errors"
+import { FIELD_PROBLEM_TEXT } from "../../../wording/fields"
 import { formatCount } from "../../../wording/numbers"
 import { describeCounterRefusal, observedOneInText, priorName } from "../../../wording/pachislot/formula"
 import { CHANGED_SINCE_MERGED, CHANGED_SINCE_REMOVED, MERGE_FAILED, MERGED, READING_REMOVED, REMOVAL_TAKEN_BACK, TAKE_BACK, TAKE_BACK_FAILED, UNMERGED } from "../../../wording/pachislot/play"
@@ -134,7 +136,7 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
     const found = read()
     return found.ok ? undefined : found.error.find((problem) => JSON.stringify(problem.field) === JSON.stringify(field))
   }
-  const errorOf = (field: ReadingField): string | undefined => (problemOf(field)?.reason === "not-a-count" ? "整数で入力してください。" : undefined)
+  const errorOf = (field: ReadingField): string | undefined => (problemOf(field)?.reason === "not-a-count" ? FIELD_PROBLEM_TEXT["not-a-count"] : undefined)
   const invalid = (field: ReadingField): boolean => nudge.red() && problemOf(field) !== undefined
   const typed = (change: Partial<ReadingForm>): void => {
     setTouched(true)
@@ -216,7 +218,7 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
         />
       </div>
       <div>
-        <Button type="submit">記録</Button>
+        <Button type="submit" onClick={feelTap}>記録</Button>
       </div>
     </form>
   )

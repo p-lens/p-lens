@@ -39,6 +39,7 @@ import { settleTyping, TextField } from "../../../primitives/text-field"
 import { toast } from "../../../primitives/toast"
 import { useMoves } from "../../../navigation/moves"
 import { describeError } from "../../../wording/errors"
+import { FIELD_PROBLEM_TEXT, UNWRITABLE_TEXT } from "../../../wording/fields"
 import { LOCATE_REQUEST, parlorNote, typedParlorRefused } from "../../../wording/parlor"
 import { borderText, formulaHandle, formulaNameAmong } from "../../../wording/pachinko/formula"
 import { KindMark } from "../formulas/KindMark"
@@ -393,7 +394,7 @@ function ParlorField(props: {
 const COUNT = /^\d+$/
 
 /** Why a field's text cannot be written, if it cannot. Leaving a field empty is not one of these. */
-const unwritable = (text: string): string | undefined => (isWritableText(text) ? undefined : "「,」「;」や改行は使えません。")
+const unwritable = (text: string): string | undefined => (isWritableText(text) ? undefined : UNWRITABLE_TEXT)
 
 /** A count as typed at the seat, none typed being none yet. */
 const countTyped = (text: string): number => Number(tidyTyped(text) || "0")
@@ -401,7 +402,7 @@ const countTyped = (text: string): number => Number(tidyTyped(text) || "0")
 /** The spins toward the 遊タイム as typed at the seat: the 遊 counter where one was typed, else the data counter. */
 const seatGaugeTyped = (counter: string, gauge: string): string => (tidyTyped(gauge) === "" ? counter : gauge)
 
-const notACount = (text: string): string | undefined => (tidyTyped(text) === "" || COUNT.test(tidyTyped(text)) ? undefined : "整数で入力してください。")
+const notACount = (text: string): string | undefined => (tidyTyped(text) === "" || COUNT.test(tidyTyped(text)) ? undefined : FIELD_PROBLEM_TEXT["not-a-count"])
 
 /**
  * Starting a pachinko play, in three parts: the parlor with its corner's
@@ -484,7 +485,7 @@ export function Start(props: {
   const carriedShown = (): string => carriedInShown(start.form().carriedIn, tokensCarriedTo(app.services.preferences.tokensInHand(), app.services.businessDay(), venue(), "pachinko"))
   const carriedUnread = (): boolean => readCarriedIn(carriedShown()).type === "unread"
   const textProblems = (): readonly (string | undefined)[] => [
-    carriedUnread() ? "整数で入力してください。" : undefined,
+    carriedUnread() ? FIELD_PROBLEM_TEXT["not-a-count"] : undefined,
     unwritable(start.form().cabinetNumber),
     notACount(start.form().startCounter),
     notACount(start.form().pachinko.seatTotal),

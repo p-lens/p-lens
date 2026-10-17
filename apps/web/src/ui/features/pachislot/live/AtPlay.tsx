@@ -15,6 +15,7 @@ import { toast } from "../../../primitives/toast"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
 import { feelHold, feelTap } from "../../../primitives/vibration"
 import { describeError } from "../../../wording/errors"
+import { FIELD_PROBLEM_TEXT } from "../../../wording/fields"
 import { formatCount } from "../../../wording/numbers"
 import { describeAtReadingRefusal, describeTakeBackRefusal } from "../../../wording/pachislot/formula"
 import { triggerWordsOf, type TriggerWords } from "../../../wording/pachislot/trigger"
@@ -179,7 +180,7 @@ function AtResultComposer(props: { readonly write: Write; readonly normalized: N
               inputMode="numeric"
               suffix="セット"
               placeholder="初期のみは0"
-              error={problemOf("sets") === undefined ? undefined : "整数で入力してください。"}
+              error={problemOf("sets") === undefined ? undefined : FIELD_PROBLEM_TEXT["not-a-count"]}
               invalid={nudge.red() && problemOf("sets") !== undefined}
               onFocus={nudge.settle}
             />
@@ -190,14 +191,14 @@ function AtResultComposer(props: { readonly write: Write; readonly normalized: N
             onChange={(medals) => typed({ medals })}
             inputMode="numeric"
             suffix="枚"
-            error={problemOf("medals") === undefined ? undefined : "整数で入力してください。"}
+            error={problemOf("medals") === undefined ? undefined : FIELD_PROBLEM_TEXT["not-a-count"]}
             invalid={nudge.red() && problemOf("medals") !== undefined}
             onFocus={nudge.settle}
           />
         </div>
       </Show>
       <div>
-        <Button type="submit">結果を記録</Button>
+        <Button type="submit" onClick={feelTap}>結果を記録</Button>
       </div>
     </form>
   )
@@ -334,7 +335,7 @@ export const createAtReading = (standing: () => AtStanding, trigger: () => Trigg
  * medals drawn from savings so far.
  */
 export function AtReadingComposer(props: { readonly reading: AtReading }): JSX.Element {
-  const errorOf = (field: keyof AtReadingForm): string | undefined => (props.reading.problemOf(field)?.reason === "not-a-count" ? "整数で入力してください。" : undefined)
+  const errorOf = (field: keyof AtReadingForm): string | undefined => (props.reading.problemOf(field)?.reason === "not-a-count" ? FIELD_PROBLEM_TEXT["not-a-count"] : undefined)
   const invalid = (field: keyof AtReadingForm): boolean => props.reading.red() && props.reading.problemOf(field) !== undefined
   return (
     <form autocomplete="off"
@@ -377,7 +378,7 @@ export function AtReadingComposer(props: { readonly reading: AtReading }): JSX.E
         />
       </div>
       <div>
-        <Button type="submit">記録</Button>
+        <Button type="submit" onClick={feelTap}>記録</Button>
       </div>
     </form>
   )

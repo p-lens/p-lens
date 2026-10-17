@@ -17,8 +17,9 @@ import { holdsTypedOnly } from "../../primitives/combobox"
 import { createNudge } from "../../primitives/nudge"
 import { settleTyping } from "../../primitives/text-field"
 import { describeTallyError } from "../../wording/errors"
+import { FIELD_PROBLEM_TEXT } from "../../wording/fields"
 import { formatSignedYen, formatTokens, toneOf, tokenUnit, UNSEEN_ACTUAL } from "../../wording/numbers"
-import { machineChoicesOf, REASONS, type FieldProblem, type FormField, type SubmitWords } from "./finish-tally-reading"
+import { machineChoicesOf, type FieldProblem, type FormField, type SubmitWords } from "./finish-tally-reading"
 import { FinishTallyForm, type FinishTallyEditing } from "./FinishTallyForm"
 import { pricesPlayedOn, readFinishTokenTallyForm, type FinishTokenTallyForm, type PlayedOnTerms } from "./finish-token-tally-form"
 import { createFollowedWorth, heldTyped, type WorthAt } from "./followed-worth"
@@ -74,7 +75,7 @@ export function FinishTokenTallyEditor(props: {
   }
   const problemOf = (field: FormField): string | undefined => {
     const problem = problemAt(field)
-    return problem === undefined || problem.reason === "required" ? undefined : REASONS[problem.reason]
+    return problem === undefined || problem.reason === "required" ? undefined : FIELD_PROBLEM_TEXT[problem.reason]
   }
   const tally = (): TokenTally | undefined => {
     const found = read()
@@ -127,13 +128,19 @@ export function FinishTokenTallyEditor(props: {
   const submit = async (event: SubmitEvent): Promise<void> => {
     event.preventDefault()
     settleTyping()
-    const found = read()
     if (submission().type === "saving") return
-    if (!found.ok || preview()?.ok !== true || machineMissing() || machineTypedOnly()) {
+    if (!read().ok || preview()?.ok !== true || machineMissing() || machineTypedOnly()) {
       nudge.nudge()
       return
     }
     setSubmission({ type: "saving" })
+    await worth.settled()
+    const found = read()
+    if (!found.ok) {
+      setSubmission({ type: "editing" })
+      nudge.nudge()
+      return
+    }
     const recorded = await props.submit(found.value)
     if (!recorded.ok) {
       setSubmission({ type: "failed", error: recorded.error })

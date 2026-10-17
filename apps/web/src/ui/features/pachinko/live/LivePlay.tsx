@@ -26,7 +26,7 @@ import { LiveFigures } from "./LiveFigures"
 import { LiveHyenaHunt } from "./LiveHyenaHunt"
 import { ReadingComposer } from "./ReadingComposer"
 import { SeatComposer } from "./SeatComposer"
-import { Timeline, type Revised } from "./Timeline"
+import { samePressed, Timeline, type Revised } from "./Timeline"
 
 /** A merging as it was done: the log it was made from, and the play as it left it. */
 interface Merged {
@@ -201,7 +201,7 @@ export function LivePlay(props: { readonly place: Place; readonly draft: PlayDra
                       </Show>
                     )}
                   />
-                  <Timeline checkpoints={checkpoints} revising={revised()} onRevise={setWork} onMerge={(span) => merge(checkpoints, span)} />
+                  <Timeline checkpoints={checkpoints} terms={terms} revising={revised()} onRevise={(pressed) => (samePressed(pressed, revised()) ? done() : setWork(pressed))} onMerge={(span) => merge(checkpoints, span)} />
                 </div>
                 <div class="sticky bottom-0">
                   <Show when={work()} keyed fallback={<ReadingComposer draft={props.draft} ordered={checkpoints} revising={undefined} inserting={undefined} onRevised={done} onInsertBefore={insertBefore} />}>

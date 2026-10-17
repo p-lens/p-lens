@@ -20,6 +20,7 @@ import { DetailButton } from "../../primitives/detail-button"
 import { createNudge, redText } from "../../primitives/nudge"
 import { settleTyping, TextField } from "../../primitives/text-field"
 import { describeError, describeTallyError } from "../../wording/errors"
+import { FIELD_PROBLEM_TEXT } from "../../wording/fields"
 import { formatSignedYen, formatTokens, toneOf, tokenUnit, UNSEEN_ACTUAL } from "../../wording/numbers"
 import { typedMachineRefused } from "../../wording/parlor"
 import { IN_HAND_LABELS, machineChoicesOf, pricesPlayedAt, readTokenTallyForm, type FieldProblem, type FormField, type PlayedAt, type TokenTallyForm, type SubmitWords } from "./form"
@@ -29,12 +30,6 @@ type Submission =
   | { readonly type: "editing" }
   | { readonly type: "saving" }
   | { readonly type: "failed"; readonly error: ApplicationError }
-
-/** Words for a field typed wrong. A field left empty gets none: it is only nudged, when a press needed it. */
-const REASONS: Readonly<Record<Exclude<FieldProblem["reason"], "required">, string>> = {
-  "not-a-number": "数字で入力してください。",
-  "not-a-date": "日付を入力してください。",
-}
 
 /** What the two counts are called where they are typed: the tokens an outlay rented, and the savings a replay took. */
 const COUNT_LABELS: Readonly<Record<TokenKind, { readonly rented: string; readonly deducted: string }>> = {
@@ -77,7 +72,7 @@ export function TokenTallyEditor(props: {
   }
   const problemOf = (field: FormField): string | undefined => {
     const problem = problemAt(field)
-    return problem === undefined || problem.reason === "required" ? undefined : REASONS[problem.reason]
+    return problem === undefined || problem.reason === "required" ? undefined : FIELD_PROBLEM_TEXT[problem.reason]
   }
   const tally = (): TokenTally | undefined => {
     const found = read()

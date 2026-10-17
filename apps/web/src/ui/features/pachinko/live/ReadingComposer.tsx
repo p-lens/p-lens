@@ -22,7 +22,9 @@ import { Select, type SelectOption } from "../../../primitives/select"
 import { settleTyping, TextField } from "../../../primitives/text-field"
 import { toast } from "../../../primitives/toast"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
+import { feelTap } from "../../../primitives/vibration"
 import { describeError, describeReadingRefusal } from "../../../wording/errors"
+import { FIELD_PROBLEM_TEXT } from "../../../wording/fields"
 import { formatCount } from "../../../wording/numbers"
 import { CHANGED_SINCE_REMOVED, describeRevisionRefusal, PHASE_NAMES, recountText, READING_REMOVED, REMOVAL_TAKEN_BACK, REMOVE_READING, signedBalls, TAKE_BACK, TAKE_BACK_FAILED, UNTOLD_JACKPOT } from "../../../wording/pachinko/play"
 import { DriftButton } from "./DriftButton"
@@ -179,7 +181,7 @@ export function ReadingComposer(props: {
     }
     setForm(readingFrom(form().phase, beforeIn([...props.ordered, ...checkpoints.value])))
     setSending({ type: "typing" })
-    toast(wonInRegularGames(reading.value) ? { title: "記録しました", description: "キリの良いところで、持ち玉を入力してください。" } : { title: "記録しました", stays: "glance" })
+    toast(wonInRegularGames(reading.value) ? { title: "記録しました", description: "キリの良いところで、持ち玉を調整ください。" } : { title: "記録しました", stays: "glance" })
     app.wrote()
   }
 
@@ -292,7 +294,7 @@ export function ReadingComposer(props: {
         {(inserting) => <p class="text-xs font-bold text-warning">{inserting.before + 1}件目の前に記録を追加中</p>}
       </Show>
       <ToggleGroup
-        class="w-full"
+        class="w-full p-0.5"
         value={form().phase}
         onChange={(value: string | null) => {
           const phase = PHASES.find((candidate) => candidate === value)
@@ -302,7 +304,7 @@ export function ReadingComposer(props: {
       >
         <For each={PHASES}>
           {(phase) => (
-            <ToggleGroupItem value={phase} class="flex-1">
+            <ToggleGroupItem value={phase} class="h-7 flex-1">
               {PHASE_NAMES[phase]}
             </ToggleGroupItem>
           )}
@@ -338,7 +340,7 @@ export function ReadingComposer(props: {
         )}
       </Show>
       <Show when={unread()}>
-        <p class="text-xs text-negative">整数で入力してください。</p>
+        <p class="text-xs text-negative">{FIELD_PROBLEM_TEXT["not-a-count"]}</p>
       </Show>
       <Show when={behind()}>
         <p class="text-xs text-negative">貸玉と貯玉引出は累計です。これまでより少なくはできません。</p>
@@ -352,7 +354,7 @@ export function ReadingComposer(props: {
               <Show
                 when={props.inserting}
                 fallback={
-                  <Button type="submit" class="h-10 shrink-0 px-5">
+                  <Button type="submit" class="h-10 shrink-0 px-5" onClick={feelTap}>
                     記録
                   </Button>
                 }

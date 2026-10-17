@@ -29,6 +29,7 @@ import { Select } from "../../../primitives/select"
 import { settleTyping, TextField } from "../../../primitives/text-field"
 import { toast } from "../../../primitives/toast"
 import { describeError } from "../../../wording/errors"
+import { UNWRITABLE_TEXT } from "../../../wording/fields"
 import { formulaHandle, formulaNameAmong } from "../../../wording/pachislot/formula"
 import { useBookFavorites } from "../../live/book-favorites"
 import { useStartForm, type CabinetChoice } from "../../live/start-form"
@@ -151,7 +152,7 @@ export function Cabinet(props: { readonly place: Place; readonly draft: PlayDraf
               機種設定
             </h2>
             <PencilledBubble text={`${cabinetNumber().trim() === "" ? "---" : cabinetNumber().trim()}番台`} says="台番号を入力する" invalid={unwritable()}>
-              <TextField label="台番号" value={cabinetNumber()} onChange={(typed) => choose({ cabinetNumber: typed })} inputMode="numeric" error={unwritable() ? "「,」「;」や改行は使えません。" : undefined} onFocus={nudge.settle} compact />
+              <TextField label="台番号" value={cabinetNumber()} onChange={(typed) => choose({ cabinetNumber: typed })} inputMode="numeric" error={unwritable() ? UNWRITABLE_TEXT : undefined} onFocus={nudge.settle} compact />
             </PencilledBubble>
           </div>
           <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 sm:gap-2">

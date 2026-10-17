@@ -72,13 +72,13 @@ export const byColumn = (report: BalanceReport, period: Period, reading: Reading
  * alike, each say of them.
  * An income statement's total is turned over, as it is read: revenue is a
  * credit. A group one report has and another lacks stands at nothing in
- * the other, and a group that made nothing and was worth nothing is no
- * group.
+ * the other, and a group that made nothing, was worth nothing and was
+ * played for no time is no group: one played to ±¥0 is still one.
  */
 export const groupsOf = (statement: Figures, theoretical: Figures, inferred: Figures, seconds: Figures): readonly Group[] =>
-  [...new Set([...statement.keys(), ...theoretical.keys()])]
+  [...new Set([...statement.keys(), ...theoretical.keys(), ...seconds.keys()])]
     .map((key) => ({ key, actual: negate(statement.get(key) ?? ZERO), theoretical: theoretical.get(key) ?? ZERO, inferred: inferred.get(key) ?? ZERO, seconds: seconds.get(key) ?? ZERO }))
-    .filter((group) => compare(group.actual, ZERO) !== 0 || compare(group.theoretical, ZERO) !== 0)
+    .filter((group) => compare(group.actual, ZERO) !== 0 || compare(group.theoretical, ZERO) !== 0 || compare(group.seconds, ZERO) !== 0)
 
 const together = (key: string, groups: readonly Group[]): Group =>
   groups.reduce(

@@ -16,12 +16,6 @@ export interface FieldProblem {
 
 export type Read<T> = Result<T, FieldProblem>
 
-/** Words for a field typed wrong. A field left empty gets none: it is only nudged, when a press needed it. */
-export const REASONS: Readonly<Record<Exclude<FieldProblem["reason"], "required">, string>> = {
-  "not-a-number": "数字で入力してください。",
-  "not-a-date": "日付を入力してください。",
-}
-
 export const problemOf = (read: Read<unknown>): readonly FieldProblem[] => (read.ok ? [] : [read.error])
 
 /** A theoretical figure left empty was not worked out, which is not the same as zero. */

@@ -1,5 +1,5 @@
 import type { MachineBonus } from "../../../../core/catalog/catalog"
-import type { Jackpot, Reading } from "../../../../core/pachinko/reading"
+import type { Jackpot, Reading, ReadingHand } from "../../../../core/pachinko/reading"
 import type { Before } from "../../../../core/pachinko/revision"
 import type { Phase } from "../../../../core/play-log/checkpoint"
 import { Err, Ok, type Result } from "../../../../core/result/result"
@@ -17,7 +17,9 @@ export type Drift = "gain" | "loss"
  * none, the jackpot a machine with no bonuses listed has, or a listed
  * bonus by its name. `gauge` is the cabinet's own 遊タイム counter a reading
  * set right already said, kept as it was: it is said in the 遊タイム狙い,
- * never typed here.
+ * never typed here. `handsBefore` are where a reading set right that was
+ * made of several knew the hand inside it, kept as they were: never typed
+ * either, and none for a new reading.
  */
 export interface ReadingForm {
   readonly phase: Phase
@@ -30,6 +32,7 @@ export interface ReadingForm {
   readonly drift: Drift
   readonly jackpot: string
   readonly gauge: number | undefined
+  readonly handsBefore: readonly ReadingHand[]
 }
 
 export type ReadingField = "counter" | "held" | "rented" | "replayed" | "supported"
@@ -54,6 +57,7 @@ export const readingFrom = (phase: Phase, before: Before): ReadingForm => ({
   drift: "loss",
   jackpot: NO_JACKPOT,
   gauge: undefined,
+  handsBefore: [],
 })
 
 const COUNT = /^\d+$/
@@ -106,6 +110,7 @@ export const formOfReading = (reading: Reading, before: Before): ReadingForm => 
   drift: reading.supported > 0 ? "gain" : "loss",
   jackpot: chosenOf(reading.jackpot),
   gauge: reading.gauge,
+  handsBefore: reading.handsBefore ?? [],
 })
 
 /** The choice in the bonus list as a list keys it: a listed bonus by its name, which its machine has once. */
@@ -138,8 +143,13 @@ export const readReadingForm = (form: ReadingForm, bonuses: readonly MachineBonu
     held: held.value,
     jackpot: jackpotOf(form.jackpot, bonuses),
     ...(form.gauge === undefined ? {} : { gauge: form.gauge }),
+    ...((hands) => (hands.length === 0 ? {} : { handsBefore: hands }))(handsWithin(form.handsBefore, counter.value, rented.value, replayed.value)),
   })
 }
+
+/** The hands a reading made of several knew inside it that still stand inside it as it is set right: none further on than its counter, nor having rented or drawn more than it did. */
+const handsWithin = (hands: readonly ReadingHand[], counterSpins: number, rented: number, replayed: number): readonly ReadingHand[] =>
+  hands.filter((hand) => hand.counterSpins <= counterSpins && hand.rented <= rented && hand.replayed <= replayed)
 
 /** Whether a reading says nothing the play did not already: the counter where it stood, nothing bought, drifted, counted or won. */
 export const saysNothingNew = (reading: Omit<Reading, "at">, before: Before): boolean =>

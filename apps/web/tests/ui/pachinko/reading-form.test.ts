@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test"
 
-import { standingBefore } from "../../../src/core/pachinko/revision"
+import { consumptionOf } from "../../../src/core/pachinko/consumption"
+import { withReadingsMerged } from "../../../src/core/pachinko/merging"
+import { checkpointsForReading, type Reading } from "../../../src/core/pachinko/reading"
+import { standingBefore, takenOf, withReadingRevised } from "../../../src/core/pachinko/revision"
+import type { PlayTerms } from "../../../src/core/parlor/terms"
 import type { Checkpoint } from "../../../src/core/play-log/checkpoint"
 import { formOfReading, readingFrom, readReadingForm, saysNothingNew } from "../../../src/ui/features/pachinko/live/reading-form"
 
@@ -71,5 +75,34 @@ describe("the 遊 counter of a pachinko reading set right", () => {
     const said = formOfReading({ counterSpins: 200, phase: "regular", rented: 0, replayed: 0, supported: 0, held: undefined, jackpot: { type: "none" }, at: "", gauge: 15 }, before)
     const read = readReadingForm(said, [], before)
     expect(read.ok && read.value.gauge).toBe(15)
+  })
+})
+
+describe("a pachinko reading made of several, set right", () => {
+  const TERMS: PlayTerms = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 100, tokens: 28 }, replay: { paidOut: 125, deducted: 125 } }
+  const reading = (fields: Partial<Reading> & Pick<Reading, "counterSpins">): Reading => ({ phase: "regular", rented: 0, replayed: 0, supported: 0, held: undefined, jackpot: { type: "none" }, at: "2026-10-18T12:00:00.000Z", ...fields })
+  const played = [reading({ counterSpins: 100, rented: 2000 }), reading({ counterSpins: 150, held: 120 }), reading({ counterSpins: 200 })].reduce<readonly Checkpoint[]>(
+    (log, each) => ((added) => (added.ok ? [...log, ...added.value] : log))(checkpointsForReading(log, each, false)),
+    [{ spins: 0, outlay: 0, counter: { spins: 0 } }],
+  )
+  const merged = ((made) => (made.ok ? made.value : []))(withReadingsMerged(played, { from: 0, to: 2 }))
+  const before = standingBefore(merged, 0)
+  const taken = takenOf(merged)[0]
+  const resaved = (change: (form: ReturnType<typeof formOfReading>) => ReturnType<typeof formOfReading>): readonly Checkpoint[] => {
+    if (taken === undefined) return []
+    const read = readReadingForm(change(formOfReading(taken.reading, before)), [], before)
+    const revised = read.ok ? withReadingRevised(merged, 0, { ...read.value, at: taken.reading.at }) : undefined
+    return revised?.ok === true ? revised.value : []
+  }
+
+  test("keeps where it knew the hand inside it, so it is measured and told as before", () => {
+    const kept = resaved((form) => form)
+    expect(consumptionOf(kept, TERMS).measured).toEqual(consumptionOf(merged, TERMS).measured)
+    expect(standingBefore(kept, 1).held).toBe(120)
+  })
+
+  test("lets go of a hand inside it further on than the counter it is set right to", () => {
+    const kept = resaved((form) => ({ ...form, counter: "140" }))
+    expect(takenOf(kept)[0]?.reading.handsBefore?.some((hand) => hand.counterSpins > 140)).not.toBe(true)
   })
 })

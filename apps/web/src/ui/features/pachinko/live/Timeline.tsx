@@ -1,6 +1,8 @@
-import { createSignal, For, Show, type JSX } from "solid-js"
+import { createMemo, createSignal, For, Show, type JSX } from "solid-js"
 
+import { stretchPerformancesOf } from "../../../../core/pachinko/consumption"
 import { mergeableSpan, type Span } from "../../../../core/pachinko/merging"
+import type { PlayTerms } from "../../../../core/parlor/terms"
 import type { Checkpoint } from "../../../../core/play-log/checkpoint"
 import { ConfirmPopover } from "../../../primitives/popover"
 import { createSpanPress, inSpan, spanRow } from "../../../primitives/span-press"
@@ -8,7 +10,7 @@ import { feelTap } from "../../../primitives/vibration"
 import { formatMoment } from "../../../wording/dates"
 import { formatCount } from "../../../wording/numbers"
 import { jackpotsText } from "../../../wording/pachinko/machine"
-import { MERGE_READINGS, mergeSays, PHASE_NAMES, signedBalls, UNTOLD_JACKPOT } from "../../../wording/pachinko/play"
+import { MERGE_READINGS, mergeSays, PHASE_NAMES, signedBalls, STRETCH_RATE_UNIT, stretchRateText, UNTOLD_JACKPOT } from "../../../wording/pachinko/play"
 
 /**
  * A line and the one before it, which says what the line added to the
@@ -18,6 +20,8 @@ import { MERGE_READINGS, mergeSays, PHASE_NAMES, signedBalls, UNTOLD_JACKPOT } f
  */
 interface Step {
   readonly checkpoint: Checkpoint
+  /** Whether the line is the seat as it was found: the log's first. */
+  readonly seat: boolean
   readonly reading: number | undefined
   readonly rented: number
   readonly replayed: number
@@ -35,7 +39,7 @@ const stepsOf = (ordered: readonly Checkpoint[]): readonly Step[] =>
       const replay = checkpoint.replay ?? walked.replay
       const support = checkpoint.support ?? walked.support
       const reading = isReading(checkpoint, line) ? walked.readings : undefined
-      const step: Step = { checkpoint, reading, rented: outlay - walked.outlay, replayed: replay - walked.replay, supported: support - walked.support }
+      const step: Step = { checkpoint, seat: line === 0, reading, rented: outlay - walked.outlay, replayed: replay - walked.replay, supported: support - walked.support }
       return { steps: [...walked.steps, step], outlay, replay, support, readings: walked.readings + (reading === undefined ? 0 : 1) }
     },
     { steps: [], outlay: 0, replay: 0, support: 0, readings: 0 },
@@ -65,21 +69,36 @@ const ROW = "flex w-full flex-col gap-0.5 rounded px-2 py-1.5 text-left"
 /** What the line that finishes a recorded play is called, where a reading says the state the cabinet was in. */
 const FINISH_NAME = "終了"
 
-function Line(props: { readonly step: Step }): JSX.Element {
+/** What the seat as it was found is called, where a reading says the state the cabinet was in. */
+const SEAT_NAME = "着席"
+
+/** What a line is called before its counter: the seat, the finish, or the state the cabinet was in. */
+const nameOf = (step: Step): string => (step.seat ? SEAT_NAME : isFinish(step.checkpoint) ? FINISH_NAME : PHASE_NAMES[step.checkpoint.phase ?? "regular"])
+
+/** One line of the log: its moment, its name, its counter, its own stretch's spin performance where it has one, and its bonus — cut short where it would not fit — over what it did to the balls. */
+function Line(props: { readonly step: Step; readonly rate: number | undefined }): JSX.Element {
   const checkpoint = (): Checkpoint => props.step.checkpoint
   return (
     <>
       <div class="flex items-baseline gap-2">
         <time class="w-10 shrink-0 text-xs tabular-nums text-text-muted">{checkpoint().at === undefined ? "--:--" : formatMoment(checkpoint().at ?? "").slice(-5)}</time>
-        <span class="w-8 shrink-0 text-xs text-text-secondary">{isFinish(checkpoint()) ? FINISH_NAME : PHASE_NAMES[checkpoint().phase ?? "regular"]}</span>
+        <span class="w-8 shrink-0 text-xs text-text-secondary">{nameOf(props.step)}</span>
         <Show when={!isFinish(checkpoint()) || checkpoint().counter?.spins !== undefined}>
           <span class="shrink-0 tabular-nums text-text-primary">{checkpoint().counter?.spins === undefined ? "--" : formatCount(checkpoint().counter?.spins ?? 0)} 回転</span>
         </Show>
         <Show when={checkpoint().counter?.gauge !== undefined}>
           <span class="shrink-0 text-xs tabular-nums text-text-secondary">遊 {formatCount(checkpoint().counter?.gauge ?? 0)}</span>
         </Show>
+        <Show when={props.rate} keyed>
+          {(rate) => (
+            <span class="shrink-0 text-xs tabular-nums text-text-muted">
+              {stretchRateText(rate)}
+              <span class="text-[0.5rem]">{STRETCH_RATE_UNIT}</span>
+            </span>
+          )}
+        </Show>
         <Show when={jackpotText(checkpoint())} keyed>
-          {(won) => <span class="ml-auto shrink-0 rounded bg-accent px-1.5 py-0.5 text-xs font-semibold text-accent-contrast">{won}</span>}
+          {(won) => <span class="ml-auto min-w-0 truncate rounded bg-accent px-1.5 py-0.5 text-xs font-semibold text-accent-contrast">{won}</span>}
         </Show>
       </div>
       <Show when={ballsText(props.step)} keyed>
@@ -94,13 +113,14 @@ export type Revised = { readonly type: "reading"; readonly index: number } | { r
 
 const pressedOf = (step: Step, line: number): Revised | undefined => (step.reading !== undefined ? { type: "reading", index: step.reading } : line === 0 ? { type: "seat" } : undefined)
 
-const samePressed = (left: Revised | undefined, right: Revised | undefined): boolean =>
+/** Whether two presses take up the same line. */
+export const samePressed = (left: Revised | undefined, right: Revised | undefined): boolean =>
   left !== undefined && right !== undefined && left.type === right.type && (left.type !== "reading" || right.type !== "reading" || left.index === right.index)
 
 const pressLabel = (pressed: Revised): string => (pressed.type === "seat" ? "開始時データを修正" : `${pressed.index + 1}件目の記録を修正`)
 
 /** One line of the log, tinted by what it is — a jackpot blue, 時短 yellow-green, 確変 purple. A reading, or the seat as it was found, is pressed to set it right; a jackpot found missing is only shown. A reading in the run being made one is marked. */
-function Row(props: { readonly step: Step; readonly pressed: Revised | undefined; readonly revising: boolean; readonly merging: boolean; readonly onRevise: (pressed: Revised) => void }): JSX.Element {
+function Row(props: { readonly step: Step; readonly rate: number | undefined; readonly pressed: Revised | undefined; readonly revising: boolean; readonly merging: boolean; readonly onRevise: (pressed: Revised) => void }): JSX.Element {
   const jackpot = (): boolean => props.step.checkpoint.event?.kind === "jackpot"
   /** Whether the row is neither being set right nor in a run being made one: only then does it wear what it is. */
   const resting = (): boolean => !props.revising && !props.merging
@@ -111,7 +131,7 @@ function Row(props: { readonly step: Step; readonly pressed: Revised | undefined
         keyed
         fallback={
           <div class={ROW}>
-            <Line step={props.step} />
+            <Line step={props.step} rate={props.rate} />
           </div>
         }
       >
@@ -129,7 +149,7 @@ function Row(props: { readonly step: Step; readonly pressed: Revised | undefined
               "bg-accent/30": props.merging,
             }}
           >
-            <Line step={props.step} />
+            <Line step={props.step} rate={props.rate} />
           </button>
         )}
       </Show>
@@ -142,7 +162,8 @@ function Row(props: { readonly step: Step; readonly pressed: Revised | undefined
  * each reading with the state the cabinet was in, the counter as it was
  * read, the bonus where it was a jackpot, and under it what the reading
  * did to the balls. Pressing a reading, or the seat as it was found, takes
- * it up to be set right — in a play in progress. A recorded play's log is
+ * it up to be set right — in a play in progress — and pressing the line
+ * being set right again lets it go, as stopping does. A recorded play's log is
  * only read: given no way to revise, no line is pressed, and the line that
  * finished the play is shown as its last.
  *
@@ -152,10 +173,13 @@ function Row(props: { readonly step: Step; readonly pressed: Revised | undefined
  */
 export function Timeline(props: {
   readonly checkpoints: readonly Checkpoint[]
+  /** The corner's terms the play was on, which each line's own stretch's spin performance is worked out by; none where they are unknown. */
+  readonly terms: PlayTerms | undefined
   readonly revising: Revised | undefined
   readonly onRevise: ((pressed: Revised) => void) | undefined
   readonly onMerge: ((span: Span) => Promise<void>) | undefined
 }): JSX.Element {
+  const rates = createMemo((): readonly (number | undefined)[] => (props.terms === undefined ? [] : stretchPerformancesOf(props.checkpoints, props.terms)))
   const press = createSpanPress((anchor, reached) => mergeableSpan(props.checkpoints, anchor, reached))
   const [merging, setMerging] = createSignal(false)
   const merge = async (span: Span): Promise<void> => {
@@ -180,6 +204,7 @@ export function Timeline(props: {
             return (
               <Row
                 step={step}
+                rate={rates()[line()]}
                 pressed={pressed}
                 revising={samePressed(pressed, props.revising)}
                 merging={inSpan(press.span(), step.reading)}

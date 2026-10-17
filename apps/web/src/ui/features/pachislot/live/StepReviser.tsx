@@ -10,6 +10,7 @@ import { settleTyping, TextField } from "../../../primitives/text-field"
 import { toast } from "../../../primitives/toast"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
 import { describeError } from "../../../wording/errors"
+import { FIELD_PROBLEM_TEXT } from "../../../wording/fields"
 import { describeStepRefusal } from "../../../wording/pachislot/formula"
 import { REMOVE_READING } from "../../../wording/pachislot/play"
 import type { TriggerWords } from "../../../wording/pachislot/trigger"
@@ -177,7 +178,7 @@ export function StepReviser(props: {
         </div>
       </Show>
       <Show when={unread()}>
-        <p class="text-xs text-negative">整数で入力してください。</p>
+        <p class="text-xs text-negative">{FIELD_PROBLEM_TEXT["not-a-count"]}</p>
       </Show>
       <div class="flex items-center gap-2">
         <Button type="submit">保存</Button>

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { consumptionOf, handDriftOf, spinPerformanceOf } from "../../../src/core/pachinko/consumption"
+import { consumptionOf, handDriftOf, spinPerformanceOf, stretchPerformancesOf } from "../../../src/core/pachinko/consumption"
 import { checkpointsForReading, type Reading } from "../../../src/core/pachinko/reading"
 import { rentalPressOf } from "../../../src/core/pachinko/rental-press"
 import { heldAsToldOf, seatOf, takenOf, withReadingInserted, withReadingRemoved, withReadingRevised, withSeatRevised } from "../../../src/core/pachinko/revision"
@@ -252,5 +252,27 @@ describe("a play begun with balls in hand", () => {
     const log = playedWith(1500, [reading({ counterSpins: 220, held: 250 })])
     expect(consumptionOf(log, TERMS)).toEqual({ regularSpins: 100, measured: { spins: 100, balls: 1250, rentedBalls: 0, replayedBalls: 0 } })
     expect(heldAsToldOf(log)).toBe(250)
+  })
+})
+
+describe("each line's own stretch of a pachinko play", () => {
+  test("is the spin performance from the last point the hand was known at to the line, where the line knows it", () => {
+    const log = played([reading({ counterSpins: 230, rented: 5000 }), reading({ counterSpins: 270 }), reading({ counterSpins: 335, rented: 5000 })])
+    expect(stretchPerformancesOf(log, TERMS)).toEqual([undefined, 22, undefined, 21])
+  })
+
+  test("runs to a jackpot whose balls were bought at it, and is none for a line with no regular game since", () => {
+    const log = played([reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 257, rented: 1000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }), reading({ counterSpins: 30, phase: "rapid", held: 1300 })])
+    expect(stretchPerformancesOf(log, TERMS)).toEqual([undefined, 20, 37, undefined])
+  })
+
+  test("is shown on a line played in regular games alone, never on a 時短 line that counted the hand after them", () => {
+    const log = played([reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 260 }), reading({ counterSpins: 300, phase: "rapid", held: 200 })])
+    expect(stretchPerformancesOf(log, TERMS)).toEqual([undefined, 20, undefined, undefined])
+  })
+
+  test("is none across a jackpot whose bonus the log does not say, and runs again from the hand known after it", () => {
+    const log = played([reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 260, jackpot: { type: "untold" }, held: 1000 }), reading({ counterSpins: 50, rented: 1000, held: 0 })])
+    expect(stretchPerformancesOf(log, TERMS)).toEqual([undefined, 20, undefined, 10])
   })
 })

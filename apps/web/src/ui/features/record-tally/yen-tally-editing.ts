@@ -24,6 +24,7 @@ import { holdsTypedOnly } from "../../primitives/combobox"
 import { toast } from "../../primitives/toast"
 import { settleTyping } from "../../primitives/text-field"
 import { describeTallyError } from "../../wording/errors"
+import { FIELD_PROBLEM_TEXT } from "../../wording/fields"
 import { formatSignedYen, toneOf, UNSEEN_ACTUAL } from "../../wording/numbers"
 import type { TypedNameRefused } from "../../wording/parlor"
 import type { Submission as KeptSubmission } from "../../../parlors/port/submission-store"
@@ -39,12 +40,6 @@ type Submission =
   | { readonly type: "editing" }
   | { readonly type: "saving" }
   | { readonly type: "failed"; readonly error: ApplicationError }
-
-/** Words for a field typed wrong. A field left empty gets none: it is only nudged, when a press needed it. */
-const REASONS: Readonly<Record<Exclude<FieldProblem["reason"], "required">, string>> = {
-  "not-a-number": "数字で入力してください。",
-  "not-a-date": "日付を入力してください。",
-}
 
 /** What a press that reads a play needs of the form and has not got, field by field: 推定期待値を算出する for pachinko, the setting level's for pachislot. */
 export type Lacking = Readonly<Record<"hours" | "machine" | "outlay" | "theoretical" | "counter" | "terms", boolean>>
@@ -187,7 +182,7 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
   }
   const problemOf = (field: FormField): string | undefined => {
     const problem = problemAt(field)
-    return problem === undefined || problem.reason === "required" ? undefined : REASONS[problem.reason]
+    return problem === undefined || problem.reason === "required" ? undefined : FIELD_PROBLEM_TEXT[problem.reason]
   }
   /** The catalog's id of the machine chosen, as a value of its own. */
   const machineId = createMemo((): string | undefined => machines().find((machine) => bookNameOf(machine) === form().machine)?.id)

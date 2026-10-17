@@ -90,6 +90,10 @@ describe("a book's settings", () => {
     expect(bookSettingsOf('{"presses":{"4円パチ":{"rental":0}}}')).toEqual(unreadable)
     expect(bookSettingsOf('{"presses":{"4円パチ":{"rental":"500"}}}')).toEqual(unreadable)
     expect(withPresses("{{", "4円パチ", { rental: 500 })).toEqual(unreadable)
+    expect(withPresses('{"presses":{"4円パチ":{"rental":500,"hold":3},"1円パチ":{"draw":250,"hold":0}}}', "4円パチ", { draw: 125 })).toEqual({
+      ok: true,
+      value: '{\n  "presses": {\n    "4円パチ": {\n      "hold": 3,\n      "draw": 125\n    },\n    "1円パチ": {\n      "draw": 250,\n      "hold": 0\n    }\n  }\n}\n',
+    })
   })
 
   test("keep the terms a tally typed in by hand was weighed on, one for each game, one game written without touching the other", () => {

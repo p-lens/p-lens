@@ -152,7 +152,7 @@ export function TallyDetail(props: { readonly place: Place; readonly bookId: Boo
                 <Switch>
                   <Match when={found.log.type === "read" && found.log.checkpoints} keyed>
                     {(log) => (
-                      <Show when={found.summary.gameKind === "slot"} fallback={<PachinkoViews.Timeline checkpoints={log} revising={undefined} onRevise={undefined} onMerge={undefined} />}>
+                      <Show when={found.summary.gameKind === "slot"} fallback={<PachinkoViews.Timeline checkpoints={log} terms={found.terms} revising={undefined} onRevise={undefined} onMerge={undefined} />}>
                         <PachislotViews.Timeline checkpoints={log} bonuses={undefined} revising={undefined} onRevise={undefined} onMerge={undefined} />
                       </Show>
                     )}

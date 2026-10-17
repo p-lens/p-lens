@@ -88,8 +88,9 @@ const businessDayTurnOf = (value: unknown): BusinessDayTurn | undefined => (type
 
 const isPressAmount = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value > 0 && value < 10 ** PRESS_DIGITS
 
+/** A corner's amounts: each this app knows must read, and what it does not know is left as it was found. */
 const amountsOf = (value: unknown): PressAmounts | undefined => {
-  if (!isFields(value) || Object.values(value).some((amount) => !isPressAmount(amount))) return undefined
+  if (!isFields(value) || [value["rental"], value["draw"]].some((amount) => amount !== undefined && !isPressAmount(amount))) return undefined
   return { ...(isPressAmount(value["rental"]) ? { rental: value["rental"] } : {}), ...(isPressAmount(value["draw"]) ? { draw: value["draw"] } : {}) }
 }
 
@@ -133,11 +134,13 @@ export const withOrder = (text: string | undefined, order: number): Result<strin
 export const withBusinessDayTurn = (text: string | undefined, businessDayTurn: BusinessDayTurn): Result<string, SettingsUnreadable> =>
   mapOk(fieldsOf(text), (fields) => written({ ...fields, businessDayTurn }))
 
-/** The file with what a press adds at one corner written in it, every other corner and field as it was; a file that does not read is not written over. */
+/** The file with what a press adds at one corner written in it, every other corner and field as it was, and what this app does not know at that corner too; a file that does not read is not written over. */
 export const withPresses = (text: string | undefined, corner: string, amounts: PressAmounts): Result<string, SettingsUnreadable> =>
   andThen(fieldsOf(text), (fields) => {
     const kept = fieldOf(fields["presses"], pressesOf)
-    return mapOk(kept, (presses) => written({ ...fields, presses: { ...presses, [corner]: amounts } }))
+    const presses = isFields(fields["presses"]) ? fields["presses"] : {}
+    const { rental: _rental, draw: _draw, ...unknown } = isFields(presses[corner]) ? presses[corner] : {}
+    return mapOk(kept, () => written({ ...fields, presses: { ...presses, [corner]: { ...unknown, ...amounts } } }))
   })
 
 /** The file with the terms a game's tally typed in by hand was weighed on written in it, every other game and field as it was; a file that does not read is not written over. */

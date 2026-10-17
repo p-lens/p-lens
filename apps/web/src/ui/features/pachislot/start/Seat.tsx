@@ -17,6 +17,7 @@ import { Loaded } from "../../../primitives/states"
 import { TextField } from "../../../primitives/text-field"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
 import { priorName } from "../../../wording/pachislot/formula"
+import { SEAT_PROBLEM_TEXT } from "../../../wording/pachislot/play"
 import { triggerWordsOf } from "../../../wording/pachislot/trigger"
 import { useBookFavorites } from "../../live/book-favorites"
 import { useStartForm } from "../../live/start-form"
@@ -133,12 +134,6 @@ function ResetChoice(): JSX.Element {
 }
 
 const isField = (problem: SeatProblem, field: SeatProblem["field"]): boolean => JSON.stringify(problem.field) === JSON.stringify(field)
-
-/** What a field's problem says under it; a bonus left empty is only nudged. */
-const SEAT_PROBLEM_TEXT: Readonly<Record<Exclude<SeatProblem["reason"], "required">, string>> = {
-  "not-a-count": "整数で入力してください。",
-  "below-since-bonus": "AT間のゲーム数以上にしてください。",
-}
 
 /**
  * The seat's data counter: the day's games, each bonus the formula's counter

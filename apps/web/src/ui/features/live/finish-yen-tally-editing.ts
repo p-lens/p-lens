@@ -17,8 +17,9 @@ import { createNudge } from "../../primitives/nudge"
 import { holdsTypedOnly } from "../../primitives/combobox"
 import { settleTyping } from "../../primitives/text-field"
 import { describeTallyError } from "../../wording/errors"
+import { FIELD_PROBLEM_TEXT } from "../../wording/fields"
 import { formatSignedYen, toneOf, UNSEEN_ACTUAL } from "../../wording/numbers"
-import { machineChoicesOf, REASONS, type FieldProblem, type FormField } from "./finish-tally-reading"
+import { machineChoicesOf, type FieldProblem, type FormField } from "./finish-tally-reading"
 import { heldIn, offBookDeductedOf, readFinishYenTallyForm, rentedOf, resultOfFinishYenTally, type FinishYenTallyForm } from "./finish-yen-tally-form"
 import { createFollowedWorth, type WorthAt } from "./followed-worth"
 import type { FinishTallyEditing } from "./FinishTallyForm"
@@ -103,7 +104,7 @@ export const createFinishYenTallyEditing = (given: FinishYenTallyEditingGiven): 
   }
   const problemOf = (field: FormField): string | undefined => {
     const problem = problemAt(field)
-    return problem === undefined || problem.reason === "required" ? undefined : REASONS[problem.reason]
+    return problem === undefined || problem.reason === "required" ? undefined : FIELD_PROBLEM_TEXT[problem.reason]
   }
   const nudge = createNudge()
   const preview = createMemo((): Result<Entry, TallyError> | undefined => {
@@ -115,13 +116,19 @@ export const createFinishYenTallyEditing = (given: FinishYenTallyEditingGiven): 
   const submit = async (event: SubmitEvent): Promise<void> => {
     event.preventDefault()
     settleTyping()
-    const tally = read()
     if (submission().type === "saving") return
-    if (!tally.ok || preview()?.ok !== true || given.parlor.typedOnly() || machineTypedOnly()) {
+    if (!read().ok || preview()?.ok !== true || given.parlor.typedOnly() || machineTypedOnly()) {
       nudge.nudge()
       return
     }
     setSubmission({ type: "saving" })
+    await worth.settled()
+    const tally = read()
+    if (!tally.ok) {
+      setSubmission({ type: "editing" })
+      nudge.nudge()
+      return
+    }
     const recorded = await given.submit(tally.value, held())
     if (!recorded.ok) {
       setSubmission({ type: "failed", error: recorded.error })

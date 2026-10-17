@@ -1,3 +1,5 @@
+import { FIELD_PROBLEM_TEXT } from "../fields"
+
 /** What making a run of a play's readings one line is called, on the button that does it. */
 export const MERGE_READINGS = "履歴をまとめる"
 
@@ -33,3 +35,9 @@ export const REMOVAL_TAKEN_BACK = "削除を取り消しました"
 
 /** Why a removal could not be taken back: the play's log is no longer as the removal left it. */
 export const CHANGED_SINCE_REMOVED = "削除したあとに記録が変わっています。"
+
+/** What a seat's counter field says under it where it cannot be taken: a count that is no count, or games since the AT across bonuses fewer than those since the last bonus. */
+export const SEAT_PROBLEM_TEXT: Readonly<Record<"not-a-count" | "below-since-bonus", string>> = {
+  "not-a-count": FIELD_PROBLEM_TEXT["not-a-count"],
+  "below-since-bonus": "AT間のゲーム数以上にしてください。",
+}

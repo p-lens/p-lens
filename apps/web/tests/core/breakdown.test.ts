@@ -28,8 +28,9 @@ describe("a report pivoted on a tag", () => {
     expect(bestFirst(groups).map((group) => toPlainString(group.seconds))).toEqual(["7200", "0", "0"])
   })
 
-  test("has no group for what comes to nothing in both reports, and one for what only the theoretical values have", () => {
+  test("has no group for what comes to nothing in both reports and was played for no time, and one for what only the theoretical values or the play time have", () => {
     expect(read(groupsOf(figures(pivoted([["流星", 0]])), figures(pivoted([["森物語", 500]])), figures(pivoted([])), new Map()))).toEqual([["森物語", "0", "500"]])
+    expect(read(groupsOf(figures(pivoted([["流星", 0]])), figures(pivoted([])), figures(pivoted([])), new Map([["流星", dec("3600")]])))).toEqual([["流星", "0", "0"]])
   })
 
   test("reads play time as seconds", () => {
