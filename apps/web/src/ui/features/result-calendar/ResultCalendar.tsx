@@ -7,6 +7,7 @@ import { isZero, type Decimal } from "../../../core/decimal/decimal"
 import { totalOf, type Group } from "../../../core/report/breakdown"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
+import { Refreshing } from "../../primitives/states"
 import type { Place } from "../../navigation/place"
 import { inferredShareText, NOT_TALLIED } from "../../wording/breakdown"
 import { describeError } from "../../wording/errors"
@@ -92,6 +93,8 @@ export function ResultCalendar(props: {
   readonly onMonth: (month: IsoMonth) => void
   readonly days: Outcome<readonly Group[]> | undefined
   readonly whole: Outcome<readonly Group[]> | undefined
+  /** Whether the month's days or its whole are being asked for: the calendar stays, with the sign of waiting over it. */
+  readonly loading: boolean
   readonly theoreticalKept: boolean
   readonly onOpen: (day: IsoDate) => void
   /** Whose tallies the calendar is of, chosen at the end of the month's row. */
@@ -120,41 +123,47 @@ export function ResultCalendar(props: {
             </Button>
             {props.filter}
           </div>
-          <dl class="grid grid-cols-2 gap-2">
-            <Figure label="実収支" value={total().actual} kind="actual" />
-            <Figure
-              label="期待値"
-              value={total().theoretical}
-              kind="theoretical"
-              instead={props.theoreticalKept ? undefined : NOT_TALLIED}
-              {...(props.theoreticalKept && !isZero(total().inferred) ? { caption: inferredShareText(total().inferred) } : {})}
-            />
-          </dl>
-          <Show when={failure()} keyed>
-            {(words) => (
-              <p role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-text-primary">
-                {words}
-              </p>
-            )}
-          </Show>
-          <div class="flex flex-col gap-1">
-            <div class="grid grid-cols-7 gap-1">
-              <For each={WEEKDAYS}>{(weekday) => <span class="text-center text-xs font-bold text-text-muted">{weekday}</span>}</For>
-            </div>
-            <For each={weeks()}>
-              {(week) => (
+          <Refreshing loading={props.loading}>
+            <div class="flex flex-col gap-4">
+              <dl class="grid grid-cols-2 gap-2">
+                <Figure label="実収支" value={total().actual} kind="actual" />
+                <Figure
+                  label="期待値"
+                  value={total().theoretical}
+                  kind="theoretical"
+                  instead={props.theoreticalKept ? undefined : NOT_TALLIED}
+                  {...(props.theoreticalKept && !isZero(total().inferred) ? { caption: inferredShareText(total().inferred) } : {})}
+                />
+              </dl>
+              <Show when={failure()} keyed>
+                {(words) => (
+                  <p role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-text-primary">
+                    {words}
+                  </p>
+                )}
+              </Show>
+              <div class="flex flex-col gap-1">
                 <div class="grid grid-cols-7 gap-1">
-                  <For each={week}>
-                    {(cell: Cell) => (
-                      <Show when={cell} keyed fallback={<div />}>
-                        {(day) => <Day day={day} figures={figures().get(day)} theoreticalKept={props.theoreticalKept} today={day === app.services.businessDay()} onOpen={() => props.onOpen(day)} />}
-                      </Show>
-                    )}
-                  </For>
+                  <For each={WEEKDAYS}>{(weekday) => <span class="text-center text-xs font-bold text-text-muted">{weekday}</span>}</For>
                 </div>
-              )}
-            </For>
-          </div>
+                <For each={weeks()}>
+                  {(week) => (
+                    <div class="grid grid-cols-7 gap-1">
+                      <For each={week}>
+                        {(cell: Cell) => (
+                          <Show when={cell} keyed fallback={<div />}>
+                            {(day) => (
+                              <Day day={day} figures={figures().get(day)} theoreticalKept={props.theoreticalKept} today={day === app.services.businessDay()} onOpen={() => props.onOpen(day)} />
+                            )}
+                          </Show>
+                        )}
+                      </For>
+                    </div>
+                  )}
+                </For>
+              </div>
+            </div>
+          </Refreshing>
         </div>
       </div>
     </MainContent>

@@ -5,7 +5,7 @@ set -euo pipefail
 
 WASM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PREFIX="${PREFIX:-$HOME/.ghc-wasm}"
-HLEDGER_TAG="${HLEDGER_TAG:-1.52.1}"
+HLEDGER_TAG="${HLEDGER_TAG:-1.99.5}"
 VENDOR="$WASM_DIR/vendor/hledger"
 
 # ghc-wasm-meta's bootstrap starts with `rm -rf $PREFIX`, so it only runs when

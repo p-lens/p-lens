@@ -39,7 +39,7 @@ const parlorOf = (transaction: Transaction, parlors: readonly Parlor[]): Parlor 
 
 /** The statistics an entry may carry beside its money: its theoretical value, in yen, and its play's time, in seconds — which its clock or the hours told of it say again whenever it is written. */
 export const statisticsStand = (transaction: Transaction): boolean =>
-  keptTo(postedIn(transaction.tpostings.filter((posting) => posting.ptype !== "RegularPosting")), {
+  keptTo(postedIn(transaction.tpostings.filter((posting) => posting.preal !== "RealPosting")), {
     [ACCOUNTS.theoreticalValue]: YEN,
     [ACCOUNTS.inferredTheoreticalValue]: YEN,
     [ACCOUNTS.playTime]: SECONDS,
@@ -207,7 +207,7 @@ export const recordedTallyOf = (transaction: Transaction, parlors: readonly Parl
   const parlor = parlorOf(transaction, parlors)
   if (summary === undefined || summary.gameKind === undefined || parlor === undefined || !statisticsStand(transaction) || isImported(transaction) || !tagsRead(transaction)) return undefined
   const head = withAside<TallyHead>({ id: summary.id, date: summary.date, gameKind: summary.gameKind, machine: summary.machine ?? "", cabinetNumber: summary.cabinetNumber, theoreticalValue: summary.theoreticalValue }, asideOf((name) => tagged(transaction, name)))
-  const real = postedIn(transaction.tpostings.filter((posting) => posting.ptype === "RegularPosting"))
+  const real = postedIn(transaction.tpostings.filter((posting) => posting.preal === "RealPosting"))
   const [commodity, ...others] = [...new Set(real.map((each) => each.commodity).filter((each) => each !== YEN))]
   if (commodity === undefined) return yenTallyOf(head, real, parlor, toldOf(transaction, summary.inferredValue))
   const carriedIn = carriedInOf(transaction)

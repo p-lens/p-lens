@@ -2106,7 +2106,9 @@ and never in the address or a book's settings.
 A pool's savings are read day by day by pressing its row (貯玉・貯メダル),
 in the detail pane (`passbook` place, `PassbookPanel`, `loadPassbook`,
 `core/report/passbook`): each day its account moved or its rate was set,
-newest first, with the tokens taken out (払出), put in (預入) and left
+newest first (a price that repeats the rate in force sets nothing, and is
+not shown; the app writes none, `openingText` and `rateChangeLine` leaving
+out a rate already in force), with the tokens taken out (払出), put in (預入) and left
 (残高), and, pressed, what moved them, a tally by its machine and an
 entry about savings by what it was. It is read from the entries that post
 to the pool's account and the book's prices, and nothing is kept for it.

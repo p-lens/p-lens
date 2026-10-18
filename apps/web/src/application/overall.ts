@@ -4,19 +4,16 @@ import { ACCOUNTS, EXPENSE_ROOT, REVENUE_ROOT } from "../core/journal/accounts"
 import { byColumn, byRow } from "../core/report/breakdown"
 import { actualOf, secondsOf, statisticTotalOf, yenOf, type ReportError } from "../core/report/figures"
 import type { Overall } from "../core/report/overall"
-import { tallySummariesOf } from "../core/report/tallies"
+import { tallyDaysOf } from "../core/report/tallies"
 import { andThen, collect, mapOk, type Result } from "../core/result/result"
 import { TALLY_TAGS } from "../core/tally/tally"
 import type { JournalAccess } from "../hledger/client/client"
 import type { BalanceReport } from "../hledger/protocol/wire"
-import { accountRequest, actualCutRequest, actualRequest, branchRequest, inferredRequest, playTimeRequest, rentalSpreadRequest, savingsDrawnRequest, talliesRequest, theoreticalRequest } from "../hledger/query/requests"
+import { accountRequest, actualCutRequest, actualRequest, branchRequest, inferredRequest, playTimeRequest, rentalSpreadRequest, savingsDrawnRequest, tallyHeadsRequest, theoreticalRequest } from "../hledger/query/requests"
 import { combine, talliesTerm } from "../hledger/query/terms"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
 import { fromHledger, fromReport } from "./lift"
-
-/** Every tally of a period at once: they are counted, never summed here. */
-const EVERY_TALLY = { limit: 1_000_000, offset: 0 } as const
 
 /** A balance's total in yen, as hledger sums it. */
 const totalOf = (report: Outcome<BalanceReport>): Outcome<Decimal> => andThen(report, (found) => fromReport(yenOf(found.prTotals.prrTotal)))
@@ -39,10 +36,10 @@ export const loadOverall = (session: BookSession, bookId: BookId, query: string)
   session.read(bookId, async (journal: JournalAccess) => {
     const played = combine(talliesTerm, query)
     const [entries, statement, perTally, perDay, theoretical, inferred, time, ...yen] = await Promise.all([
-      journal.ask(talliesRequest(query, EVERY_TALLY)),
+      journal.ask(tallyHeadsRequest(query)),
       journal.ask(actualRequest(query)),
       journal.ask(actualCutRequest(played, { pivot: TALLY_TAGS.playId })),
-      journal.ask(actualCutRequest(played, { interval: "daily" })),
+      journal.ask(actualCutRequest(played, { interval: "daily", totalsOnly: true })),
       journal.ask(theoreticalRequest(query)),
       journal.ask(inferredRequest(query)),
       journal.ask(playTimeRequest(query)),
@@ -56,7 +53,7 @@ export const loadOverall = (session: BookSession, bookId: BookId, query: string)
       journal.ask(rentalSpreadRequest(query)),
       journal.ask(branchRequest(ACCOUNTS.replayFee, query)),
     ])
-    const tallies = mapOk(fromHledger(entries), (page) => tallySummariesOf(page.items))
+    const tallies = mapOk(fromHledger(entries), (page) => tallyDaysOf(page.items))
     const days = andThen(fromHledger(perDay), (report) => fromReport(byColumn(report, "daily")))
     const statistic = (report: Outcome<BalanceReport>): Outcome<Decimal> => andThen(report, (found) => fromReport(statisticTotalOf(found)))
     return andThen(tallies, (found) =>

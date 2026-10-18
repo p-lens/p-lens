@@ -1,4 +1,4 @@
-import { Match, Switch, type JSX } from "solid-js"
+import { Match, Show, Switch, type JSX } from "solid-js"
 
 import type { Outcome } from "../../application/errors"
 import { describeError } from "../wording/errors"
@@ -41,6 +41,30 @@ export function Loaded<T>(props: {
         {(ready) => props.children(ready.value)}
       </Match>
     </Switch>
+  )
+}
+
+/**
+ * Something shown while a new answer for it is on its way: left where it
+ * is, faded, with the sign of waiting laid over it — so a screen asked
+ * anew, for another period or another month, keeps its shape rather than
+ * going blank. A wait too short to notice is passed over in silence.
+ */
+export function Refreshing(props: { readonly loading: boolean; readonly children: JSX.Element }): JSX.Element {
+  const wait = createWait(() => props.loading)
+  return (
+    <div class="relative">
+      <div class="transition-opacity" classList={{ "opacity-40": wait().type === "shown" }}>
+        {props.children}
+      </div>
+      <Show when={wait().type === "shown"}>
+        <div class="absolute inset-0 flex items-start justify-center pt-16">
+          <p class="rounded-md border border-border bg-surface-2 px-3 py-1.5 text-sm text-text-secondary shadow-lg" role="status">
+            読み込み中…
+          </p>
+        </div>
+      </Show>
+    </div>
   )
 }
 

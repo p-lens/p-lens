@@ -1,6 +1,6 @@
 import type { Tag, Transaction } from "../../hledger/protocol/wire"
 import { parseIsoDate, type IsoDate } from "../calendar/calendar"
-import { isNegative, negate, sum, ZERO, type Decimal } from "../decimal/decimal"
+import { compare, isNegative, negate, sum, ZERO, type Decimal } from "../decimal/decimal"
 import { SAVINGS_TAG } from "../savings/balance"
 import { TALLY_TAGS } from "../tally/tally"
 import type { PricePoint } from "../valuation/valuation"
@@ -82,11 +82,16 @@ const linesOf = (moved: readonly Moved[]): readonly PassbookLine[] =>
     return { cause: same[0]?.cause ?? { type: "other", description: "" }, entries: same.length, deposited: sum(same.map((each) => each.deposited)), withdrawn: sum(same.map((each) => each.withdrawn)) }
   })
 
-/** The rate set on each day the pool's commodity has a price, the later written winning, beside the one before it. */
+/**
+ * The rate set on each day the pool's commodity has a price, the later
+ * written winning, beside the one before it. A day whose price repeats the
+ * rate in force set nothing, and is left out.
+ */
 const ratesSetOf = (prices: readonly PricePoint[], commodity: string): ReadonlyMap<IsoDate, RateSet> => {
   const ordered = prices.map((point, at) => ({ point, at })).filter(({ point }) => point.commodity === commodity).sort((left, right) => (left.point.date < right.point.date ? -1 : left.point.date > right.point.date ? 1 : left.at - right.at))
   const lastOfDay = ordered.filter(({ point }, index) => ordered[index + 1]?.point.date !== point.date).map(({ point }) => point)
-  return new Map(lastOfDay.map((point, index) => [point.date, { rate: point.rate, before: lastOfDay[index - 1]?.rate }]))
+  const changed = lastOfDay.filter((point, index) => ((before) => before === undefined || compare(before.rate, point.rate) !== 0)(lastOfDay[index - 1]))
+  return new Map(changed.map((point, index) => [point.date, { rate: point.rate, before: changed[index - 1]?.rate }]))
 }
 
 /**

@@ -41,8 +41,9 @@ const kept = (opening: PoolOpening, parlors: readonly Parlor[]): boolean =>
 
 /**
  * What opening a pool writes into a book: its commodity and account, if the
- * book does not keep that pool yet, and the day's rate, if the book's rate for
- * the day is not already that. Either may be nothing.
+ * book does not keep that pool yet, and the day's rate, if the rate in force
+ * on the day is not already that, whichever day it was set. Either may be
+ * nothing.
  */
 export interface OpeningText {
   readonly declarations: string | undefined
@@ -61,7 +62,7 @@ export const openingText = (opening: PoolOpening, parlors: readonly Parlor[], pr
           "",
         ].join("\n"),
     price:
-      current !== undefined && current.date === opening.date && compare(current.rate, opening.rate) === 0
+      current !== undefined && compare(current.rate, opening.rate) === 0
         ? undefined
         : renderPricePoint({ date: opening.date, commodity, rate: opening.rate }),
   }

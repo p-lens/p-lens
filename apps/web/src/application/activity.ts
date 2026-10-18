@@ -18,17 +18,15 @@ export interface Activity {
 /**
  * What happened to a book, as the book itself says in its activity log —
  * or, for a book written before it kept one, as this device's history
- * says, until the book is next written and given its log.
+ * says, until the book is next written and given its log. The history,
+ * every commit with its changes, is read only for such a book.
  */
 export const loadActivity = async (session: BookSession, history: HistoryPort, bookId: BookId): Promise<Outcome<Activity>> => {
-  const [files, commits, books] = await Promise.all([
-    session.read(bookId, async (_journal, stored) => Ok(stored.files)),
-    history.log(bookId).then(fromHistory),
-    session.books(),
-  ])
-  return andThen(files, (held) =>
-    andThen(commits, (found) =>
-      mapOk(books, (all) => ({ lines: activityOf(held, activityLinesOf(found).toReversed()), book: all.find((book) => book.id === bookId), unreadable: unreadableActivityLines(held[ACTIVITY_LOG] ?? "") })),
-    ),
+  const files = await session.read(bookId, async (_journal, stored) => Ok(stored.files))
+  if (!files.ok) return files
+  const held = files.value
+  const [commits, books] = await Promise.all([held[ACTIVITY_LOG] === undefined ? history.log(bookId).then(fromHistory) : Promise.resolve(Ok([])), session.books()])
+  return andThen(commits, (found) =>
+    mapOk(books, (all) => ({ lines: activityOf(held, activityLinesOf(found).toReversed()), book: all.find((book) => book.id === bookId), unreadable: unreadableActivityLines(held[ACTIVITY_LOG] ?? "") })),
   )
 }

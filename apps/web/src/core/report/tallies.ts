@@ -1,4 +1,4 @@
-import type { BalanceReport, Tag, Transaction } from "../../hledger/protocol/wire"
+import type { BalanceReport, EntryHead, Tag, Transaction } from "../../hledger/protocol/wire"
 import { parseIsoDate, type IsoDate } from "../calendar/calendar"
 import { YEN } from "../commodity/commodity"
 import { ZERO, negate, sum, type Decimal } from "../decimal/decimal"
@@ -36,6 +36,20 @@ const statisticOf = (transaction: Transaction, account: string): Decimal | undef
   const postings = transaction.tpostings.filter((posting) => posting.paccount === account)
   return postings.length === 0 ? undefined : sum(postings.map((posting) => quantityIn(posting.pamount, YEN)))
 }
+
+/** A tally as its entry's head says it: its id and its day, all that counting tallies and their days takes. */
+export interface TallyDay {
+  readonly id: PlayId
+  readonly date: IsoDate
+}
+
+/** The tallies entries' heads record: a head without a `play-id` or with a day hledger should never have produced is no tally's. */
+export const tallyDaysOf = (heads: readonly EntryHead[]): readonly TallyDay[] =>
+  heads.flatMap((head) => {
+    const id = tagValue(head.ttags, TALLY_TAGS.playId)
+    const date = parseIsoDate(head.tdate)
+    return id === undefined || id === "" || !date.ok ? [] : [{ id: id as PlayId, date: date.value }]
+  })
 
 /**
  * The tally an entry records, if it records one: an entry without a

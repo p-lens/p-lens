@@ -17,6 +17,7 @@ import { railLetters, type RailLetters } from "../../theme/rail-letters"
 import { bookTitle } from "../../wording/book"
 import { destinationLabel } from "../../wording/sync"
 import { consolidationShown } from "../consolidated/shown"
+import { useSampleBook } from "../sample-book/SampleBook"
 
 /** The semipro colour on the rail: the consolidation is of that kind, as the button that turns it on is, and is told from the books by it. */
 const SEMIPRO = { chosen: "bg-semipro text-on-semipro", hovered: "hover:bg-semipro hover:text-on-semipro" } as const
@@ -121,22 +122,27 @@ export function SpacesRail(props: {
       ? [{ id: "consolidated", label: "連結", icon: <ConsolidatedIcon />, colour: SEMIPRO, selected: inConsolidation(props.place), onSelect: () => moves.go({ kind: "consolidated" }) }]
       : [],
   ]
-  const footer = (): readonly RailItem[] => [
-    { id: "settings", label: "設定", icon: <SettingsIcon />, selected: inSettings(props.place), onSelect: () => moves.go({ kind: "settings" }) },
+  const sampleBook = useSampleBook(() => books().map(bookTitle))
+  const footer = (): readonly (readonly RailItem[])[] => [
+    [sampleBook.item()],
+    [{ id: "settings", label: "設定", icon: <SettingsIcon />, selected: inSettings(props.place), onSelect: () => moves.go({ kind: "settings" }) }],
   ]
   return (
-    <RailBar
-      label="スペース"
-      groups={groups()}
-      footer={footer()}
-      renderTooltip={(label, trigger) => (
-        <Tooltip placement="right">
-          <TooltipTrigger as="div" class="w-full">
-            {trigger}
-          </TooltipTrigger>
-          <TooltipContent>{label}</TooltipContent>
-        </Tooltip>
-      )}
-    />
+    <>
+      {sampleBook.view()}
+      <RailBar
+        label="スペース"
+        groups={groups()}
+        footer={footer()}
+        renderTooltip={(label, trigger) => (
+          <Tooltip placement="right">
+            <TooltipTrigger as="div" class="w-full">
+              {trigger}
+            </TooltipTrigger>
+            <TooltipContent>{label}</TooltipContent>
+          </Tooltip>
+        )}
+      />
+    </>
   )
 }

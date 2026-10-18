@@ -26,8 +26,9 @@ const RESTING = "bg-surface-2 text-text-primary"
 
 /**
  * The column of spaces down the left edge. Spaces come in groups, a divider
- * between each group that has any, and `footer` items are held at the foot
- * however few spaces there are above them.
+ * between each group that has any, and the `footer` groups are held at the
+ * foot however few spaces there are above them, divided from those above
+ * and from each other alike.
  *
  * The chosen space is marked by a pill on the edge and a squarer icon, so it
  * reads at a glance without a label. A space's `badge` sits on its corner,
@@ -37,7 +38,7 @@ const RESTING = "bg-surface-2 text-text-primary"
  */
 export function RailBar(props: {
   readonly groups: readonly (readonly RailItem[])[]
-  readonly footer?: readonly RailItem[]
+  readonly footer?: readonly (readonly RailItem[])[]
   readonly label: string
   readonly renderTooltip?: (label: string, trigger: JSX.Element) => JSX.Element
 }): JSX.Element {
@@ -53,10 +54,16 @@ export function RailBar(props: {
           </>
         )}
       </For>
-      <Show when={props.footer !== undefined && props.footer.length > 0}>
+      <Show when={(props.footer ?? []).some((group) => group.length > 0)}>
         <div class="mt-auto flex w-full flex-col items-center gap-2 pt-1">
-          <div class="h-0.5 w-8 rounded-full bg-border" aria-hidden="true" />
-          <For each={props.footer}>{(item) => <RailButton item={item} renderTooltip={props.renderTooltip} />}</For>
+          <For each={(props.footer ?? []).filter((group) => group.length > 0)}>
+            {(group) => (
+              <>
+                <div class="h-0.5 w-8 rounded-full bg-border" aria-hidden="true" />
+                <For each={group}>{(item) => <RailButton item={item} renderTooltip={props.renderTooltip} />}</For>
+              </>
+            )}
+          </For>
         </div>
       </Show>
     </nav>

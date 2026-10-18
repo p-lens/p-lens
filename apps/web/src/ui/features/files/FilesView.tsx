@@ -9,6 +9,7 @@ import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import { ChevronDownIcon, CloseIcon, EditIcon } from "../../primitives/icons"
 import { toast } from "../../primitives/toast"
+import { Revealed } from "../../primitives/revealed"
 import { EmptyState, Loaded } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
@@ -209,7 +210,9 @@ export function FileDetail(props: { readonly place: Place; readonly bookId: Book
                       </div>
                     </Show>
                     <Show when={file.text !== ""} fallback={<EmptyState title="このファイルは空です" />}>
-                      <pre class="overflow-x-auto p-4 font-mono text-xs leading-relaxed text-text-secondary">{file.text}</pre>
+                      {((lines) => (
+                        <Revealed count={lines.length}>{(shown) => <pre class="overflow-x-auto p-4 font-mono text-xs leading-relaxed text-text-secondary">{lines.slice(0, shown()).join("\n")}</pre>}</Revealed>
+                      ))(file.text.split("\n"))}
                     </Show>
                   </div>
                 }

@@ -12,7 +12,7 @@ import { hasOtherGains, type OtherGains } from "../../../core/report/other-gains
 import { allSpinPerformances, averageOf, type SpinPerformances, type SpinPerformancesByMachine } from "../../../core/report/spin-performance"
 import { useApp } from "../../context"
 import { Select } from "../../primitives/select"
-import { EmptyState, Loaded } from "../../primitives/states"
+import { EmptyState, Loaded, Refreshing } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { DIMENSION_NAMES, OVERALL_NAME, groupName, INFERRED_SPIN_AVERAGE, inferredShareText, NOT_TALLIED, PLAY_TIME, playTimeText, SPIN_AVERAGE, spinAverageText } from "../../wording/breakdown"
@@ -140,26 +140,30 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
             <PeriodPicker by={props.by} query={props.query} today={app.services.businessDay()} onTyped={(query) => moves.refine(props.place, query)} onPressed={(query) => moves.go(props.place, query)} />
           </div>
           <Show when={props.by === OVERALL}>
-            <Loaded outcome={overall()}>
-              {(found) => (
-                <Show when={found.plays > 0} fallback={<EmptyState title="この期間の収支はありません" />}>
-                  <OverallCard overall={found} theoreticalKept={theoreticalKept()} />
-                </Show>
-              )}
-            </Loaded>
-          </Show>
-          <Show when={grouping()} keyed>
-            {(dimension) => (
-              <Loaded outcome={groups()}>
+            <Refreshing loading={overall.state === "refreshing"}>
+              <Loaded outcome={overall()}>
                 {(found) => (
-                  <Show when={found.length > 0} fallback={<EmptyState title="この期間の収支はありません" />}>
-                    <ul class="flex flex-col gap-1">
-                      <GroupRow name="合計" group={totalOf(found)} strong theoreticalKept={theoreticalKept()} spins={((all) => (all === undefined ? undefined : allSpinPerformances(all)))(spins())} />
-                      <For each={found}>{(group) => <GroupRow name={groupName(dimension, group.key, app.machineNames())} group={group} strong={false} theoreticalKept={theoreticalKept()} spins={spins()?.get(group.key)} />}</For>
-                    </ul>
+                  <Show when={found.plays > 0} fallback={<EmptyState title="この期間の収支はありません" />}>
+                    <OverallCard overall={found} theoreticalKept={theoreticalKept()} />
                   </Show>
                 )}
               </Loaded>
+            </Refreshing>
+          </Show>
+          <Show when={grouping()} keyed>
+            {(dimension) => (
+              <Refreshing loading={groups.state === "refreshing"}>
+                <Loaded outcome={groups()}>
+                  {(found) => (
+                    <Show when={found.length > 0} fallback={<EmptyState title="この期間の収支はありません" />}>
+                      <ul class="flex flex-col gap-1">
+                        <GroupRow name="合計" group={totalOf(found)} strong theoreticalKept={theoreticalKept()} spins={((all) => (all === undefined ? undefined : allSpinPerformances(all)))(spins())} />
+                        <For each={found}>{(group) => <GroupRow name={groupName(dimension, group.key, app.machineNames())} group={group} strong={false} theoreticalKept={theoreticalKept()} spins={spins()?.get(group.key)} />}</For>
+                      </ul>
+                    </Show>
+                  )}
+                </Loaded>
+              </Refreshing>
             )}
           </Show>
           <Show when={otherGains()} keyed>

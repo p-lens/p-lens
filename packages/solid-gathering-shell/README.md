@@ -41,7 +41,7 @@ Hidden panes stay mounted, so a list comes back scrolled where it was left.
 |---|---|
 | `GatheringShell` | The frame. Props: `arrangement`, `focus`, `topBar?`, `rail`, `side`, `aux?`, `children` (main). |
 | `TopBar` | The thin bar across the top: an optional `title`, with optional `leading` and `trailing` either side. |
-| `RailBar` / `RailItem` | The column of spaces, in `groups` divided from each other. The chosen one gets a pill and a squarer icon; an item's `badge` sits on its corner; `footer` items sit at the foot. |
+| `RailBar` / `RailItem` | The column of spaces, in `groups` divided from each other. The chosen one gets a pill and a squarer icon; an item's `badge` sits on its corner; `footer` groups sit at the foot, divided alike. |
 | `SidePanel` | The list beside the rail. Resizable in a wide arrangement, full screen in a narrow one. |
 | `MainContent` | The pane taking the room left over, with an optional `header`. |
 | `Breadcrumb` / `Crumb` | A trail for the main content's header: the steps that led to where it is, the earlier ones going back — as a thread shows its channel. |
@@ -60,7 +60,7 @@ const arrangement = createArrangement({ narrowBelow: 768 })
   arrangement={arrangement()}
   focus={focusFromAddress()}
   topBar={<TopBar title="Title" />}
-  rail={<RailBar label="Spaces" groups={[home(), spaces()]} footer={[settings()]} />}
+  rail={<RailBar label="Spaces" groups={[home(), spaces()]} footer={[[settings()]]} />}
   side={<SidePanel header={<h2>Lists</h2>}>{/* … */}</SidePanel>}
   aux={selected() ? <AuxPanel>{/* … */}</AuxPanel> : undefined}
 >

@@ -72,7 +72,7 @@ function Postings(props: { readonly postings: readonly Posting[] }): JSX.Element
         <For each={props.postings}>
           {(posting) => (
             <li class="flex justify-between gap-6">
-              <span class="text-text-secondary">{posting.ptype === "RegularPosting" ? posting.paccount : `(${posting.paccount})`}</span>
+              <span class="text-text-secondary">{posting.preal === "RealPosting" ? posting.paccount : `(${posting.paccount})`}</span>
               <span class="shrink-0 tabular-nums text-text-primary">
                 {posting.pamount.map((amount) => formatCommodityAmount(asRead(posting.paccount, decimalOfQuantity(amount.aquantity)), amount.acommodity)).join(", ")}
               </span>

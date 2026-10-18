@@ -29,6 +29,7 @@ import { createIndexedDbSubmissions } from "../../parlors/local/indexed-db-submi
 import { createReasonerClient } from "../../reasoning/client/client"
 import * as PachinkoEngine from "../../pachinko-engine/client/client"
 import * as PachislotEngine from "../../pachislot-engine/client/client"
+import { createSampleMakerClient } from "../../sample-book/client/client"
 import type { UuidV7 } from "@p-lens/uuidv7"
 
 import { DEPLOYMENT } from "../../branding/deployment"
@@ -217,5 +218,6 @@ export const createServices = (): Services => {
       () => new Worker(new URL("../../pachislot-engine/worker/pachislot-worker.ts", import.meta.url), { type: "module" }),
     ),
     pachislotReasoner: createReasonerClient(() => new Worker(new URL("../../reasoning/pachislot/reasoner-worker.ts", import.meta.url), { type: "module" })),
+    sampleMaker: createSampleMakerClient(() => new Worker(new URL("../../sample-book/worker/sample-worker.ts", import.meta.url), { type: "module" })),
   }
 }

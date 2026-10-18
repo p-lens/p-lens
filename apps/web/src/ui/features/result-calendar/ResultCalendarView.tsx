@@ -1,9 +1,10 @@
 import { createResource, createSignal, type JSX } from "solid-js"
 
-import { loadBreakdownOf, loadSenderNames, type Players } from "../../../application/breakdown"
+import { loadDaysAndWhole, loadSenderNames, type Players } from "../../../application/breakdown"
 import { keepsTheoreticalValues } from "../../../application/theoretical"
 import type { BookId } from "../../../core/book/book"
 import { monthOf, type IsoMonth } from "../../../core/calendar/calendar"
+import { mapOk } from "../../../core/result/result"
 import { UNSENT, type SenderNames } from "../../../core/report/senders"
 import { rangeTerm } from "../../../hledger/query/terms"
 import { useApp } from "../../context"
@@ -33,8 +34,8 @@ const playersOffered = (names: SenderNames): readonly string[] => [UNSENT, ...na
  * A book's results a month at a time, as a calendar. The month shown is
  * this screen's own and is in no address: it opens on the month of the
  * business day, and a day pressed goes to that day's tallies. hledger does
- * every sum: the days are its breakdown by day and the month's two
- * figures its breakdown by month, both asked for the one month. Where
+ * every sum: the days are its breakdown by day, and the month's two
+ * figures the totals of that same breakdown, asked once for the month. Where
  * someone has sent plays to the book, a funnel at the end of the month's
  * row chooses whose tallies are shown — the book's own, that name no
  * sender, and each sender's by the name on their last — and hledger is
@@ -50,8 +51,7 @@ export function ResultCalendarView(props: { readonly place: Place; readonly book
   const names = (): SenderNames => ((answer) => (answer?.ok === true ? answer.value : NO_NAMES))(named())
   const players = (): Players => ({ chosen: props.senders, offered: playersOffered(names()) })
   const asked = (): Asked => ({ bookId: props.bookId, month: month(), players: players(), revision: app.revision() })
-  const [days] = createResource(asked, (source) => loadBreakdownOf(app.services.session, source.bookId, "day", monthQuery(source.month), source.players))
-  const [whole] = createResource(asked, (source) => loadBreakdownOf(app.services.session, source.bookId, "month", monthQuery(source.month), source.players))
+  const [results] = createResource(asked, (source) => loadDaysAndWhole(app.services.session, source.bookId, monthQuery(source.month), source.players))
   const [kept] = createResource(() => ({ bookId: props.bookId, revision: app.revision() }), (source) => keepsTheoreticalValues(app.services.session, source.bookId))
   /** Whether the book keeps theoretical values: taken to until hledger says it does not. */
   const theoreticalKept = (): boolean => ((answer) => answer?.ok !== true || answer.value)(kept())
@@ -63,8 +63,9 @@ export function ResultCalendarView(props: { readonly place: Place; readonly book
       place={props.place}
       month={month()}
       onMonth={setMonth}
-      days={days()}
-      whole={whole()}
+      days={((found) => found && mapOk(found, (month) => month.days))(results())}
+      whole={((found) => found && mapOk(found, (month) => month.whole))(results())}
+      loading={results.loading}
       theoreticalKept={theoreticalKept()}
       onOpen={(day) => moves.go({ kind: "book-view", bookId: props.bookId, view: "tallies" }, rangeTerm(day, day))}
       filter={

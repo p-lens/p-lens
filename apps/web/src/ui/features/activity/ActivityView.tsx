@@ -5,6 +5,7 @@ import { loadActivity } from "../../../application/activity"
 import type { Book, BookId } from "../../../core/book/book"
 import { ACTIVITY_LOG, type ActivityLine } from "../../../core/activity/activity"
 import { useApp } from "../../context"
+import { Revealed } from "../../primitives/revealed"
 import { EmptyState, Loaded } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
@@ -69,9 +70,9 @@ export function ActivityView(props: { readonly place: Place; readonly bookId: Bo
               </Show>
               <Show when={found.lines.length > 0} fallback={<EmptyState title="操作履歴はまだありません">収支を記録すると、ここに並びます。</EmptyState>}>
                 <ul class="flex flex-col gap-0.5 p-2">
-                  <For each={found.lines}>
-                    {(line) => <ActivityRow line={line} author={authorName(found.book, line)} onOpenTally={openerOf(line)} />}
-                  </For>
+                  <Revealed count={found.lines.length}>
+                    {(shown) => <For each={found.lines.slice(0, shown())}>{(line) => <ActivityRow line={line} author={authorName(found.book, line)} onOpenTally={openerOf(line)} />}</For>}
+                  </Revealed>
                 </ul>
               </Show>
             </>

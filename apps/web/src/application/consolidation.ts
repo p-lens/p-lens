@@ -9,7 +9,7 @@ import { mergedSpinPerformances, type SpinPerformancesByMachine } from "../core/
 import { mapOk } from "../core/result/result"
 import { combine, talliesTerm } from "../hledger/query/terms"
 import type { BookSession } from "./book-session"
-import { loadBreakdown, loadSenderBreakdown, loadSenderNames, loadSpinPerformances } from "./breakdown"
+import { loadBreakdown, loadDaysAndWhole, loadSenderBreakdown, loadSenderNames, loadSpinPerformances, type DaysAndWhole } from "./breakdown"
 import type { Outcome } from "./errors"
 import { loadHoldings } from "./holdings"
 import { loadOtherGains } from "./other-gains"
@@ -70,6 +70,10 @@ export const loadConsolidation = (session: BookSession, chosen: readonly BookId[
     if (by === "book") return whole(session, book, query)
     return by === "sender" ? loadSenderBreakdown(session, book.id, query) : loadBreakdown(session, book.id, by, query)
   })
+
+/** The results of the books chosen for a period, day by day and as one, book by book: what a calendar of several books shows, every player's tallies. */
+export const loadConsolidatedDaysAndWhole = (session: BookSession, chosen: readonly BookId[] | undefined, query: string): Promise<Outcome<readonly ConsolidatedBook<DaysAndWhole>[]>> =>
+  ofChosen(session, chosen, (book) => loadDaysAndWhole(session, book.id, query, { chosen: undefined, offered: [] }))
 
 /** The savings of the books chosen, as of the end of the query's period, book by book: each book's pools at its own rates. */
 export const loadConsolidatedHoldings = (session: BookSession, chosen: readonly BookId[] | undefined, query: string): Promise<Outcome<readonly ConsolidatedBook<Holdings>[]>> =>

@@ -16,14 +16,14 @@ import { rateChangeLine, type RateChange } from "../core/savings/rate-change"
 import { passbookOf, type PassbookDay } from "../core/report/passbook"
 import { parlorDaysOf, parlorPassbookOf, type ParlorPassbookDay, type PoolPassbook } from "../core/report/parlor-passbook"
 import { byColumn } from "../core/report/breakdown"
-import { statisticTotalOf } from "../core/report/figures"
+import { yenByDayOf } from "../core/report/figures"
 import { readSavingsAccount } from "../core/journal/accounts"
 import { negate } from "../core/decimal/decimal"
 import type { Transaction } from "../hledger/protocol/wire"
 import { compare } from "../core/decimal/decimal"
-import { openingBalanceRequest, parlorEntriesRequest, parlorMovedRequest, poolEntriesRequest, pricesRequest, savingsValueRequest } from "../hledger/query/requests"
+import { openingBalanceRequest, parlorEntriesRequest, parlorMovedRequest, parlorSavingsByDayRequest, poolEntriesRequest, pricesRequest } from "../hledger/query/requests"
 import { savingsAccount } from "../core/journal/accounts"
-import { parlorSavingsTerm, untilTerm } from "../hledger/query/terms"
+import { untilTerm } from "../hledger/query/terms"
 import { rateOn } from "../core/valuation/valuation"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
@@ -213,8 +213,8 @@ const poolPassbooksOf = (entries: readonly Transaction[], parlorName: string, pr
 /**
  * A parlor's passbook: every pool's days together, newest first, valued in
  * yen by hledger — what came in and went out at each day's rate, and what
- * was held at each day's end at the rate in force then, one question a
- * day. A figure some token had no rate for is left unsaid.
+ * was held at each day's end at the rate in force then, asked once for a
+ * column a day. A figure some token had no rate for is left unsaid.
  */
 export const loadParlorPassbook = (session: BookSession, bookId: BookId, parlorName: string): Promise<Outcome<readonly ParlorPassbookDay[]>> =>
   session.read(bookId, async (journal) => {
@@ -222,7 +222,8 @@ export const loadParlorPassbook = (session: BookSession, bookId: BookId, parlorN
     const read = andThen(fromHledger(entries), (page) => mapOk(fromHledger(prices), (directives) => poolPassbooksOf(page.items, parlorName, pricePointsOf(directives))))
     if (!read.ok) return read
     const days = parlorDaysOf(read.value)
-    const balances = await Promise.all(days.map(async (date) => [date, ((answer) => (answer.ok ? ((total) => (total.ok ? total.value : undefined))(statisticTotalOf(answer.value)) : undefined))(fromHledger(await journal.ask(savingsValueRequest(untilTerm(date), parlorSavingsTerm(parlorName)))))] as const))
+    const [newest, oldest] = [days[0], days.at(-1)]
+    const balances = newest === undefined || oldest === undefined ? new Map() : ((answer) => (answer.ok ? yenByDayOf(answer.value) : new Map()))(fromHledger(await journal.ask(parlorSavingsByDayRequest(parlorName, oldest, newest))))
     const inYen = (answer: Awaited<ReturnType<typeof journal.ask<"balance">>>, turned: boolean) => ((report) => (report.ok ? ((figures) => (figures.ok ? new Map([...figures.value].map(([day, yen]) => [day, turned ? negate(yen) : yen])) : undefined))(byColumn(report.value, "daily")) : undefined))(fromHledger(answer))
-    return Ok(parlorPassbookOf(read.value, { deposited: inYen(deposited, false), withdrawn: inYen(withdrawn, true), balances: new Map(balances) }))
+    return Ok(parlorPassbookOf(read.value, { deposited: inYen(deposited, false), withdrawn: inYen(withdrawn, true), balances }))
   })

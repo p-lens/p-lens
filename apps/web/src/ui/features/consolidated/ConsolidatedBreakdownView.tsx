@@ -12,7 +12,7 @@ import type { SenderNames } from "../../../core/report/senders"
 import { allSpinPerformances, type SpinPerformancesByMachine } from "../../../core/report/spin-performance"
 import { useApp } from "../../context"
 import { Select } from "../../primitives/select"
-import { EmptyState, Loaded } from "../../primitives/states"
+import { EmptyState, Loaded, Refreshing } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { bookTitle } from "../../wording/book"
@@ -117,25 +117,29 @@ export function ConsolidatedBreakdownView(props: { readonly place: Place; readon
             <ConsolidatedBooks bookIds={props.bookIds} unread={(id) => (props.by === OVERALL ? unreadIn(overall(), id) : unreadIn(consolidation(), id))} onChosen={(bookIds) => moves.go({ kind: "consolidated-breakdown", by: props.by, bookIds }, props.query)} />
           </div>
           <Show when={props.by === OVERALL}>
-            <Loaded outcome={overall()}>
-              {(books) => (
-                <Show when={mergedOverall(readOf(books)).plays > 0} fallback={<EmptyState title="この期間の収支はありません" />}>
-                  <OverallCard overall={mergedOverall(readOf(books))} theoreticalKept={theoreticalKept()} />
-                </Show>
-              )}
-            </Loaded>
+            <Refreshing loading={overall.state === "refreshing"}>
+              <Loaded outcome={overall()}>
+                {(books) => (
+                  <Show when={mergedOverall(readOf(books)).plays > 0} fallback={<EmptyState title="この期間の収支はありません" />}>
+                    <OverallCard overall={mergedOverall(readOf(books))} theoreticalKept={theoreticalKept()} />
+                  </Show>
+                )}
+              </Loaded>
+            </Refreshing>
           </Show>
           <Show when={grouping() !== undefined}>
-            <Loaded outcome={consolidation()}>
-              {() => (
-                <Show when={(groups() ?? []).length > 0} fallback={<EmptyState title="この期間の収支はありません" />}>
-                  <ul class="flex flex-col gap-1">
-                    <GroupRow name="合計" group={totalOf((groups() ?? []).map((each) => each.group))} strong theoreticalKept={theoreticalKept()} spins={((all) => (all === undefined ? undefined : allSpinPerformances(all)))(spins())} />
-                    <For each={groups() ?? []}>{(each) => <GroupRow name={each.name} group={each.group} strong={false} theoreticalKept={theoreticalKept()} spins={spins()?.get(each.group.key)} />}</For>
-                  </ul>
-                </Show>
-              )}
-            </Loaded>
+            <Refreshing loading={consolidation.state === "refreshing"}>
+              <Loaded outcome={consolidation()}>
+                {() => (
+                  <Show when={(groups() ?? []).length > 0} fallback={<EmptyState title="この期間の収支はありません" />}>
+                    <ul class="flex flex-col gap-1">
+                      <GroupRow name="合計" group={totalOf((groups() ?? []).map((each) => each.group))} strong theoreticalKept={theoreticalKept()} spins={((all) => (all === undefined ? undefined : allSpinPerformances(all)))(spins())} />
+                      <For each={groups() ?? []}>{(each) => <GroupRow name={each.name} group={each.group} strong={false} theoreticalKept={theoreticalKept()} spins={spins()?.get(each.group.key)} />}</For>
+                    </ul>
+                  </Show>
+                )}
+              </Loaded>
+            </Refreshing>
           </Show>
           <Show when={otherGains()} keyed>
             {(found) => <OtherGainsSection gains={found} />}

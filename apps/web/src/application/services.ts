@@ -24,6 +24,7 @@ import type { Preferences } from "../preferences/port/preferences"
 import type { DestinationStore } from "../sync/port/destination-store"
 import type { InvitationStore } from "../sync/port/invitation-store"
 import type { SyncPorts } from "./sync"
+import type { SampleMaker } from "../sample-book/port/sample-maker"
 
 /**
  * Everything the screens are handed: the session every use case runs in, the
@@ -54,6 +55,8 @@ export interface Services {
   readonly pachislot: PachislotEngine.EngineClient
   /** The reasoner an AT machine's grounds are proved by, with pachislot's rules, started the first time they are opened. */
   readonly pachislotReasoner: ReasonerClient
+  /** Where a sample book's days are played, a worker of their own each time one is made. */
+  readonly sampleMaker: SampleMaker
   /** What syncing a book between a person's devices reaches. */
   readonly sync: SyncPorts
   /** Whom this device's owner has let into their books, as the device remembers them. */

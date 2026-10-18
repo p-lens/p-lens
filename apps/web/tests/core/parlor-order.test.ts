@@ -6,7 +6,7 @@ import type { ParlorHolding } from "../../src/core/report/holdings"
 import { holdsNothing, inShowingOrder, lastMovedOf, namedLike } from "../../src/core/report/parlor-order"
 import { dec } from "../support/values"
 
-const entry = (date: string, ...accounts: readonly string[]): Transaction => ({ tdate: date, tdescription: "", ttags: [], tpostings: accounts.map((paccount) => ({ paccount, pamount: [], ptype: "RegularPosting", ptags: [] }) as never) })
+const entry = (date: string, ...accounts: readonly string[]): Transaction => ({ tdate: date, tdescription: "", ttags: [], tpostings: accounts.map((paccount) => ({ paccount, pamount: [], preal: "RealPosting", ptags: [] }) as never) })
 
 const holding = (parlorName: string, quantity = dec("100")): ParlorHolding => ({ parlorName, parlor: undefined, tokens: [{ kind: "ball", tier: "4円", commodity: "", quantity, value: ZERO, rate: undefined }], value: ZERO })
 

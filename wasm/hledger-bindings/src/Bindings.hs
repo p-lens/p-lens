@@ -6,30 +6,35 @@
 -- the root of this repository, and at <https://www.gnu.org/licenses/>.
 
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE JavaScriptFFI #-}
 
 -- | What binds hledger to JavaScript.
 --
 -- Derived from choai's bindings. hledger does the accounting; this module only
 -- makes it reachable from a browser and changes nothing about it. It holds one
--- piece of state, the parsed journal, because parsing grows with the journal
--- while answering a report from one in memory does not.
+-- piece of state, the parsed journal and its price oracle, because parsing
+-- grows with the journal while answering a report from one in memory does not.
 --
--- Reports leave through hledger's own ToJSON instances, so the wire format is
--- the one @hledger --output-format=json@ produces.
+-- Reports leave in the shape @hledger --output-format=json@ gives them, with
+-- what P-Lens never reads of a transaction, a posting or an amount left out
+-- ('Lean').
 module Main (main) where
 
 import Control.Exception (SomeException, displayException, try)
 import Data.Aeson ((.:), (.:?), (.=))
 import qualified Data.Aeson as A
-import qualified Data.Aeson.Text as A (encodeToLazyText)
 import qualified Data.Aeson.Types as A
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import qualified Data.Map.Strict as M
+import Data.MemoUgly (memo)
+import Data.Decimal (decimalMantissa, decimalPlaces)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
-import qualified Data.Text.Lazy as TL
-import GHC.Wasm.Prim (JSString (..), fromJSString, toJSString)
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString.Unsafe as BU
+import Foreign.C.String (CString)
+import GHC.Wasm.Prim (JSString (..), fromJSString)
 import System.Directory (doesFileExist)
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -57,8 +62,46 @@ failureJson failure = case failure of
   where
     tagged kind rest = A.object (("kind" .= (kind :: Text)) : rest)
 
+-- | A journal as it is kept between questions: the journal, and the price
+-- oracle every report values it with. hledger builds an oracle for each
+-- report unless given one, and remembers each price it looks up only in
+-- that oracle: kept with the journal, a price looked up for one question is
+-- there for every one after, as hledger's own commands that run several
+-- reports share one (@multiBalanceReportWith@).
+--
+-- And it keeps the journal valued at each posting's own day, by the
+-- commodity it was valued into, once asked: @--value=then@ values a posting
+-- at its date and nothing else, so a report of the journal so valued, asked
+-- without a valuation, is the report asked with it — and the multiplying,
+-- most of what valuing costs, is done once rather than for every report.
+data Kept = Kept
+  { keptJournal :: Journal
+  , keptOracle :: PriceOracle
+  , keptValuedThen :: CommoditySymbol -> Journal
+  }
+
+-- | A journal kept: its oracle made once, and its valuation at each
+-- posting's day made the first time a commodity is asked for and remembered
+-- ('memo', as hledger's oracle remembers its prices). The two other days
+-- 'postingApplyValuation' takes are a period's last and today, which a
+-- valuation at the posting's day reads neither of.
+keep :: Journal -> Kept
+keep journal = Kept journal oracle (memo valuedInto)
+  where
+    oracle = journalPriceOracle (infer_prices_ defreportopts) journal
+    styles = journalCommodityStyles journal
+    valuedInto commodity = journalMapPostings (\leg -> postingApplyValuation oracle styles (postingDate leg) (postingDate leg) (AtThen (Just commodity)) leg) journal
+
+-- | The journal a request is answered from, and the request as it is asked of
+-- it: one valued at each posting's own day is asked of the journal so valued,
+-- with no valuation; any other, of the journal as it is.
+answeredFrom :: Kept -> Request -> (Journal, Request)
+answeredFrom kept request = case reqValuation request of
+  Just (AtThen (Just commodity)) -> (keptValuedThen kept commodity, request {reqValuation = Nothing})
+  _ -> (keptJournal kept, request)
+
 {-# NOINLINE journalRef #-}
-journalRef :: IORef (Maybe Journal)
+journalRef :: IORef (Maybe Kept)
 journalRef = unsafePerformIO (newIORef Nothing)
 
 foreign export javascript "hledgerLoad" jsLoad :: JSString -> IO JSString
@@ -86,7 +129,7 @@ readAndKeep path = do
       result <- runExceptT (readJournalFile definputopts {strict_ = True} path)
       case result of
         Left detail -> pure (Left (ReadFailed (T.pack detail)))
-        Right journal -> writeIORef journalRef (Just journal) >> pure (Right journal)
+        Right journal -> writeIORef journalRef (Just (keep journal)) >> pure (Right journal)
 
 summarise :: Journal -> A.Value
 summarise journal =
@@ -111,7 +154,7 @@ runRequest (Right request) = do
   loaded <- readIORef journalRef
   case loaded of
     Nothing -> pure (Left NoJournal)
-    Just journal -> report journal request
+    Just kept -> report kept request
 
 data Request = Request
   { reqKind :: Text
@@ -127,6 +170,12 @@ data Request = Request
   , reqInterval :: Maybe Interval
   -- ^ hledger's report interval (@-D@, @-M@, @-Y@): a balance report then has
   -- a column a period. Absent means one column over the whole query.
+  , reqAccumulation :: BalanceAccumulation
+  -- ^ hledger's @--historical@: each period's column is the balance at its
+  -- end, everything before it counted. Absent means what each period moved.
+  , reqTotalsOnly :: Bool
+  -- ^ A balance report's totals row alone, its rows left out: for a caller
+  -- that reads each period's total and nothing by account.
   }
 
 parseRequest :: A.Value -> A.Parser Request
@@ -139,6 +188,14 @@ parseRequest = A.withObject "request" $ \o ->
     <*> (o .:? "valuation" >>= traverse parseValuation)
     <*> o .:? "pivot"
     <*> (o .:? "interval" >>= traverse parseInterval)
+    <*> (maybe PerPeriod id <$> (o .:? "accumulation" >>= traverse parseAccumulation))
+    <*> (maybe False id <$> o .:? "totalsOnly")
+
+-- | @--historical@, the one accumulation P-Lens reads balances by.
+parseAccumulation :: Text -> A.Parser BalanceAccumulation
+parseAccumulation written = case written of
+  "historical" -> pure Historical
+  other -> fail ("unknown accumulation: " <> T.unpack other)
 
 -- | @-D@, @-M@ or @-Y@, the three periods P-Lens reads results by.
 parseInterval :: Text -> A.Parser Interval
@@ -165,17 +222,20 @@ parseValuation = A.withObject "valuation" $ \o -> do
 --
 -- Balance reports are flat: P-Lens reads rows by account name, and a parent
 -- row standing beside its children would be counted twice by anyone summing.
-report :: Journal -> Request -> IO (Either Failure A.Value)
-report journal request = case reqKind request of
-  "entries" -> withSpec [] (\spec -> page request (entriesReport spec journal))
-  "balance" -> withSpec [] (balanceOver request journal)
-  "incomestatement" -> withSpec ["type:RX"] (balanceOver request journal)
-  "revaluation" -> revaluation journal request
-  "prices" -> withSpec [] (\spec -> A.toJSON (filter (matchesPriceDirective (_rsQuery spec)) (jpricedirectives journal)))
+report :: Kept -> Request -> IO (Either Failure A.Value)
+report kept request = case reqKind request of
+  "entries" -> withSpec [] (\spec -> page request (map transactionJson (entriesReport spec journal)))
+  "heads" -> withSpec [] (\spec -> page request (map headJson (entriesReport spec journal)))
+  "balance" -> balanceOf []
+  "incomestatement" -> balanceOf ["type:RX"]
+  "revaluation" -> revaluation kept request
+  "prices" -> withSpec [] (\spec -> A.toJSON (map priceJson (filter (matchesPriceDirective (_rsQuery spec)) (jpricedirectives journal))))
   "accounts" -> pure (Right (declaredAccounts journal))
   other -> pure (Left (UnknownReport other))
   where
+    journal = keptJournal kept
     withSpec extra render = fmap (fmap render) (specFor request extra id)
+    balanceOf extra = let (valued, asked) = answeredFrom kept request in fmap (fmap (balanceOver asked valued (keptOracle kept))) (specFor asked extra id)
 
 -- | A balance report over the journal, grouped by a tag's values where the
 -- request pivots.
@@ -187,14 +247,16 @@ report journal request = case reqKind request of
 -- are then put in place of the accounts of those alone, and the report is
 -- made over them with what is left of the query to ask — its dates, which
 -- say the period. The grouping and every sum are hledger's.
-balanceOver :: Request -> Journal -> ReportSpec -> A.Value
-balanceOver request journal spec = case reqPivot request of
-  Nothing -> A.toJSON (multiBalanceReport spec journal)
+balanceOver :: Request -> Journal -> PriceOracle -> ReportSpec -> A.Value
+balanceOver request journal oracle spec = case reqPivot request of
+  Nothing -> reportJson (reqTotalsOnly request) (multiBalanceReportWith spec journal oracle)
   Just tag ->
-    A.toJSON
-      ( multiBalanceReport
+    reportJson
+      (reqTotalsOnly request)
+      ( multiBalanceReportWith
           spec {_rsQuery = filterQuery queryIsDateOrDate2 (_rsQuery spec)}
           (journalPivot tag (filterJournalPostings (_rsQuery spec) journal))
+          oracle
       )
 
 -- | What the accounts of a query gained or lost in a commodity by prices
@@ -209,15 +271,16 @@ balanceOver request journal spec = case reqPivot request of
 -- posting's cost, and what P-Lens asks this of — savings — is posted with
 -- none. Both reports are hledger's, and so is the arithmetic between them
 -- ('maMinus'): no sum is made outside it.
-revaluation :: Journal -> Request -> IO (Either Failure A.Value)
-revaluation journal request = case reqValuation request of
+revaluation :: Kept -> Request -> IO (Either Failure A.Value)
+revaluation kept request = case reqValuation request of
   Just (AtEnd (Just commodity)) -> do
     moved <- specFor request {reqValuation = Just (AtEnd (Just commodity))} [] (\options -> options {balancecalc_ = CalcValueChange})
-    posted <- specFor request {reqValuation = Just (AtThen (Just commodity))} [] id
-    pure (A.toJSON <$> (lessPosted <$> (reportOf <$> moved) <*> (reportOf <$> posted)))
+    let (valued, asked) = answeredFrom kept request {reqValuation = Just (AtThen (Just commodity))}
+    posted <- specFor asked [] id
+    pure (reportJson False <$> (lessPosted <$> (reportOf (keptJournal kept) <$> moved) <*> (reportOf valued <$> posted)))
   _ -> pure (Left (MalformedRequest "a revaluation is asked with a valuation at the period's end"))
   where
-    reportOf spec = multiBalanceReport spec journal
+    reportOf journal spec = multiBalanceReportWith spec journal (keptOracle kept)
 
 -- | A report less another, account by account and period by period: each
 -- row of the first less the row of the same account in the second, a row
@@ -274,6 +337,7 @@ specFor request extra calculating = do
         , accountlistmode_ = ALFlat
         , value_ = reqValuation request
         , interval_ = maybe NoInterval id (reqInterval request)
+        , balanceaccum_ = reqAccumulation request
         }
 
 -- | A window of a report, newest first, with how many rows there were in all.
@@ -292,15 +356,91 @@ page request rows =
 respond :: IO (Either Failure A.Value) -> IO JSString
 respond act = do
   result <- try act
-  pure (encode (either (Left . crashed) id result))
+  encode (either (Left . crashed) id result)
   where
     crashed e = Crashed (T.pack (displayException (e :: SomeException)))
 
-encode :: Either Failure A.Value -> JSString
-encode outcome =
-  toJSString . TL.unpack . A.encodeToLazyText $ case outcome of
-    Right answer -> A.object ["ok" .= True, "data" .= answer]
-    Left failure -> A.object ["ok" .= False, "error" .= failureJson failure]
+-- | An answer as JavaScript's string: aeson's UTF-8 bytes read straight out
+-- of the module's memory by the host's decoder. Going by a Haskell 'String'
+-- instead walks a list a character long, and a few years of a book is
+-- megabytes of characters.
+encode :: Either Failure A.Value -> IO JSString
+encode outcome = BU.unsafeUseAsCStringLen (BL.toStrict (A.encode envelope)) (uncurry utf8String)
+  where
+    envelope = case outcome of
+      Right answer -> A.object ["ok" .= True, "data" .= answer]
+      Left failure -> A.object ["ok" .= False, "error" .= failureJson failure]
+
+foreign import javascript unsafe "(new TextDecoder('utf-8')).decode(new Uint8Array(__exports.memory.buffer, $1, $2))"
+  utf8String :: CString -> Int -> IO JSString
+
+-- | A sum as P-Lens reads it: each commodity's amount, its commodity and
+-- its quantity, and nothing beside. hledger's own JSON carries a display
+-- style and a cost with every amount, and works each quantity out again as
+-- a floating point number nobody here reads: a few years of a book come to
+-- megabytes of it a question, and most of the time spent answering.
+newtype Lean = Lean MixedAmount
+
+instance A.ToJSON Lean where
+  toJSON (Lean total) = A.toJSON (map amountJson (amountsRaw total))
+
+-- | An amount's commodity and its quantity as hledger's Decimal is written:
+-- its mantissa and its places, never a float.
+amountJson :: Amount -> A.Value
+amountJson amount =
+  A.object
+    [ "acommodity" .= acommodity amount
+    , "aquantity" .= A.object ["decimalMantissa" .= decimalMantissa (aquantity amount), "decimalPlaces" .= decimalPlaces (aquantity amount)]
+    ]
+
+-- | A balance report as P-Lens reads it: its periods, each row's account,
+-- amount a period and total, and the totals row the same — or the totals
+-- row alone, where only it was asked for. A row's average, which nothing
+-- here reads, is left out, and is never worked out.
+reportJson :: Bool -> MultiBalanceReport -> A.Value
+reportJson totalsOnly balances =
+  A.object
+    [ "prDates" .= prDates balances
+    , "prRows" .= if totalsOnly then [] else map rowJson (prRows balances)
+    , "prTotals" .= totalsJson (prTotals balances)
+    ]
+  where
+    rowJson row = A.object ["prrName" .= displayFull (prrName row), "prrAmounts" .= map Lean (prrAmounts row), "prrTotal" .= Lean (prrTotal row)]
+    totalsJson row = A.object ["prrName" .= ([] :: [Text]), "prrAmounts" .= map Lean (prrAmounts row), "prrTotal" .= Lean (prrTotal row)]
+
+-- | A transaction's head: its date and its tags, and nothing of its postings,
+-- for a caller that only counts entries and their days.
+headJson :: Transaction -> A.Value
+headJson entry = A.object ["tdate" .= tdate entry, "ttags" .= ttags entry]
+
+-- | A transaction as P-Lens reads it: its date, description, tags and postings.
+transactionJson :: Transaction -> A.Value
+transactionJson entry =
+  A.object
+    [ "tdate" .= tdate entry
+    , "tdescription" .= tdescription entry
+    , "ttags" .= ttags entry
+    , "tpostings" .= map postingJson (tpostings entry)
+    ]
+
+-- | A posting as P-Lens reads it: its account, amount, whether it is real, and tags.
+postingJson :: Posting -> A.Value
+postingJson leg =
+  A.object
+    [ "paccount" .= paccount leg
+    , "pamount" .= Lean (pamount leg)
+    , "preal" .= preal leg
+    , "ptags" .= ptags leg
+    ]
+
+-- | A price directive as P-Lens reads it: its day, the commodity priced, and the price.
+priceJson :: PriceDirective -> A.Value
+priceJson directive =
+  A.object
+    [ "pddate" .= pddate directive
+    , "pdcommodity" .= pdcommodity directive
+    , "pdamount" .= amountJson (pdamount directive)
+    ]
 
 main :: IO ()
 main = pure ()

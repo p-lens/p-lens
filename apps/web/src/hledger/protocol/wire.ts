@@ -2,7 +2,9 @@
  * The shapes crossing to and from hledger, mirroring `wasm/hledger-bindings`.
  *
  * Answers are hledger's own JSON — what `hledger --output-format=json` emits —
- * so they follow upstream rather than a format invented here. A new report
+ * so they follow upstream rather than a format invented here, less what the
+ * app never reads of a transaction, a posting or an amount: the fields below
+ * are all that crosses. A new report
  * means editing `Bindings.hs` and this file together.
  */
 
@@ -24,12 +26,12 @@ export type MixedAmount = readonly Amount[]
 export type Tag = readonly [name: string, value: string]
 
 /** How a posting takes part in the balance, as hledger names it. */
-export type PostingType = "RegularPosting" | "VirtualPosting" | "BalancedVirtualPosting"
+export type PostingRealness = "RealPosting" | "VirtualPosting" | "BalancedVirtualPosting"
 
 export interface Posting {
   readonly paccount: string
   readonly pamount: MixedAmount
-  readonly ptype: PostingType
+  readonly preal: PostingRealness
   readonly ptags: readonly Tag[]
 }
 
@@ -38,6 +40,12 @@ export interface Transaction {
   readonly tdescription: string
   readonly ttags: readonly Tag[]
   readonly tpostings: readonly Posting[]
+}
+
+/** A transaction's head: its date and its tags, for what only counts entries and their days. */
+export interface EntryHead {
+  readonly tdate: string
+  readonly ttags: readonly Tag[]
 }
 
 /**
@@ -96,11 +104,16 @@ export type IntervalRequest = "daily" | "monthly" | "yearly"
  * How a balance report is cut, where it is: `pivot` is hledger's `--pivot`,
  * a tag whose values stand in place of accounts, so the report's rows are
  * the tag's values, and what was posted with no such tag is one row with an
- * empty name; `interval` gives the report a column a period.
+ * empty name; `interval` gives the report a column a period; `accumulation`
+ * is hledger's `--historical`, each period's column the balance at its end,
+ * everything before it counted; `totalsOnly` leaves the rows out, the totals
+ * row alone answered.
  */
 export interface Cut {
   readonly pivot?: string
   readonly interval?: IntervalRequest
+  readonly accumulation?: "historical"
+  readonly totalsOnly?: true
 }
 
 /** hledger's `--value`, always into a named commodity. */
@@ -111,6 +124,7 @@ export interface ValuationRequest {
 
 export type Request =
   | { readonly kind: "entries"; readonly query: string; readonly limit: number; readonly offset: number }
+  | { readonly kind: "heads"; readonly query: string; readonly limit: number; readonly offset: number }
   | ({ readonly kind: "balance"; readonly query: string; readonly valuation?: ValuationRequest } & Cut)
   | ({ readonly kind: "incomestatement"; readonly query: string; readonly valuation?: ValuationRequest } & Cut)
   /**
@@ -125,6 +139,7 @@ export type Request =
 
 export interface Answer {
   readonly entries: Page<Transaction>
+  readonly heads: Page<EntryHead>
   readonly balance: BalanceReport
   readonly incomestatement: BalanceReport
   readonly revaluation: BalanceReport

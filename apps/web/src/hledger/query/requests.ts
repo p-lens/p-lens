@@ -1,9 +1,10 @@
+import type { IsoDate } from "../../core/calendar/calendar"
 import { YEN, type TokenKind } from "../../core/commodity/commodity"
 import { TALLY_TAGS } from "../../core/tally/tally"
 import type { PlayId } from "../../core/play/play"
 import type { Valuation } from "../../core/valuation/valuation"
 import type { Cut, Request, ValuationRequest } from "../protocol/wire"
-import { accountTerm, branchTerm, parlorSavingsTerm, cashTerm, combine, playTimeTerm, rentalSpreadTerm, drawnTerm, inferredValueTerm, openingBalanceTerm, talliesAmongTerm, talliesTerm, savingsTerm, sentTalliesTerm, spinPerformanceTerm, theoreticalValueTerm } from "./terms"
+import { accountTerm, branchTerm, parlorSavingsTerm, cashTerm, combine, playTimeTerm, rentalSpreadTerm, drawnTerm, inferredValueTerm, openingBalanceTerm, talliesAmongTerm, talliesTerm, savingsTerm, sentTalliesTerm, spinPerformanceTerm, theoreticalValueTerm, rangeTerm } from "./terms"
 
 type RequestOf<K extends Request["kind"]> = Extract<Request, { kind: K }>
 
@@ -79,6 +80,13 @@ export const savingsValueRequest = (query: string, accounts: string = savingsTer
   valuation: inYen({ at: "period-end" }),
 })
 
+/** What a parlor's savings were worth at the end of each day from one to another, everything before it counted, each day at the rate in force then: a column a day. */
+export const parlorSavingsByDayRequest = (parlorName: string, from: IsoDate, through: IsoDate): RequestOf<"balance"> => ({
+  ...savingsValueRequest(rangeTerm(from, through), parlorSavingsTerm(parlorName)),
+  interval: "daily",
+  accumulation: "historical",
+})
+
 /** 評価損益: what savings gained or lost in yen over the query's period by their rates changing, a row a savings account. */
 export const savingsRevaluationRequest = (query: string): RequestOf<"revaluation"> => ({
   kind: "revaluation",
@@ -93,6 +101,9 @@ export const talliesRequest = (query: string, page: { readonly limit: number; re
   query: combine(talliesTerm, query),
   ...page,
 })
+
+/** Every tally of a query by its head alone, its day and tags, however many. */
+export const tallyHeadsRequest = (query: string): RequestOf<"heads"> => ({ kind: "heads", query: combine(talliesTerm, query), limit: 1_000_000, offset: 0 })
 
 /** Every tally of a query that says a spin performance, measured or inferred, however many: hledger keeps the tags and does not add them up. */
 export const spinPerformancesRequest = (query: string): RequestOf<"entries"> => ({ kind: "entries", query: combine(talliesTerm, spinPerformanceTerm, query), limit: 1_000_000, offset: 0 })

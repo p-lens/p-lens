@@ -72,6 +72,15 @@ export const secondsOf = (balance: BalanceReport): Decimal | undefined =>
   balance.prTotals.prrTotal.some((amount) => amount.acommodity === SECONDS) ? quantityIn(balance.prTotals.prrTotal, SECONDS) : undefined
 
 /** A statistics account — the theoretical value — as hledger summed it in a balance report. */
+/** A report's columns by the day each begins, each its total in yen, where it is all yen: a column some token of had no rate is nothing. */
+export const yenByDayOf = (report: BalanceReport): ReadonlyMap<IsoDate, Decimal | undefined> =>
+  new Map(
+    report.prDates.flatMap((span, index) => {
+      const began = parseIsoDate(span[0]?.contents ?? "")
+      return began.ok ? [[began.value, ((yen) => (yen.ok ? yen.value : undefined))(yenOf(report.prTotals.prrAmounts[index] ?? []))] as const] : []
+    }),
+  )
+
 export const statisticTotalOf = (balance: BalanceReport): Result<Decimal, ReportError> => yenOf(balance.prTotals.prrTotal)
 
 /**

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import { createBookSession } from "../../src/application/book-session"
-import { loadBreakdownOf, loadSenderBreakdown } from "../../src/application/breakdown"
+import { loadDaysAndWhole, loadSenderBreakdown } from "../../src/application/breakdown"
 import { loadHoldings } from "../../src/application/holdings"
 import { recordTokenTally } from "../../src/application/record-tally"
 import { registerOpeningBalance } from "../../src/application/savings"
@@ -31,13 +31,13 @@ const sent = (session: Session, id: string, date: string, sender: { readonly id:
 const OFFERED = [UNSENT, "grant-kenji", "grant-taro"]
 
 const monthOf = async (session: Session, chosen: readonly string[] | undefined) => {
-  const found = await loadBreakdownOf(session, BOOK, "month", "date:2026-10", { chosen, offered: OFFERED })
-  return found.ok ? found.value.map((group) => [group.key, toPlainString(group.actual)]) : found
+  const found = await loadDaysAndWhole(session, BOOK, "date:2026-10", { chosen, offered: OFFERED })
+  return found.ok ? found.value.whole.map((group) => toPlainString(group.actual)) : found
 }
 
 const daysOf = async (session: Session, chosen: readonly string[] | undefined) => {
-  const found = await loadBreakdownOf(session, BOOK, "day", "date:2026-10", { chosen, offered: OFFERED })
-  return found.ok ? found.value.map((group) => group.key).toSorted() : found
+  const found = await loadDaysAndWhole(session, BOOK, "date:2026-10", { chosen, offered: OFFERED })
+  return found.ok ? found.value.days.map((group) => group.key).toSorted() : found
 }
 
 describe("a book's calendar narrowed to who played it", () => {
@@ -51,12 +51,12 @@ describe("a book's calendar narrowed to who played it", () => {
     const actualOf = (key: string): Decimal | undefined => (bySender.ok ? bySender.value.find((group) => group.key === key)?.actual : undefined)
     const one = toPlainString(actualOf("grant-taro") ?? dec("0"))
     expect(one).not.toBe("0")
-    expect(await monthOf(session, ["grant-kenji"])).toEqual([["2026-10", toPlainString(actualOf("grant-kenji") ?? dec("0"))]])
-    expect(await monthOf(session, ["grant-kenji"])).toEqual([["2026-10", toPlainString(dec(String(Number(one) * 2)))]])
+    expect(await monthOf(session, ["grant-kenji"])).toEqual([toPlainString(actualOf("grant-kenji") ?? dec("0"))])
+    expect(await monthOf(session, ["grant-kenji"])).toEqual([toPlainString(dec(String(Number(one) * 2)))])
     expect(await daysOf(session, ["grant-kenji"])).toEqual(["2026-10-05", "2026-10-07"])
     expect(await daysOf(session, [UNSENT])).toEqual(["2026-10-01", "2026-10-03", "2026-10-08"])
     expect(await daysOf(session, [UNSENT, "grant-taro"])).toEqual(["2026-10-01", "2026-10-03", "2026-10-06", "2026-10-08"])
-    expect(await monthOf(session, [UNSENT])).toEqual([["2026-10", toPlainString(actualOf("") ?? dec("0"))]])
+    expect(await monthOf(session, [UNSENT])).toEqual([toPlainString(actualOf("") ?? dec("0"))])
     expect(await daysOf(session, undefined)).toEqual(["2026-10-01", "2026-10-03", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08"])
     expect(await daysOf(session, [])).toEqual([])
   })

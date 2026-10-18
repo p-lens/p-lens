@@ -18,8 +18,11 @@ executable hledger-bindings
   build-depends:
     , aeson
     , base
+    , bytestring
     , containers
+    , Decimal
     , directory
     , ghc-experimental
     , hledger-lib
     , text
+    , uglymemo

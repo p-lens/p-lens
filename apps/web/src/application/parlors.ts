@@ -30,8 +30,8 @@ const nothingToWrite = (text: OpeningText): boolean => text.declarations === und
 /**
  * Make a book ready for a play at a parlor's pool, as one commit: the pool's
  * commodity and savings account in `accounts.journal` if the book does not
- * keep it yet, and the day's exchange rate in `prices.journal` if the book's
- * rate for the day is not already that. A book that has both is left alone.
+ * keep it yet, and the day's exchange rate in `prices.journal` if the rate in
+ * force on the day is not already that. A book that has both is left alone.
  * Checked against the book as it is at the moment of writing.
  */
 export const openPool = async (session: BookSession, bookId: BookId, opening: PoolOpening): Promise<Outcome<Parlor>> => {

@@ -16,7 +16,7 @@ const amount = (quantity: string, commodity: string = COMMODITY): MixedAmount =>
   return [{ acommodity: commodity, aquantity: { decimalMantissa: Number(value.mantissa), decimalPlaces: value.places, floatingPoint: Number(quantity) } } as never]
 }
 
-const posting = (account: string, quantity: string): Posting => ({ paccount: account, pamount: amount(quantity), ptype: "RegularPosting", ptags: [] }) as never
+const posting = (account: string, quantity: string): Posting => ({ paccount: account, pamount: amount(quantity), preal: "RealPosting", ptags: [] }) as never
 
 const entry = (date: string, tags: readonly (readonly [string, string])[], ...quantities: readonly string[]): Transaction => ({
   tdate: date,
@@ -59,6 +59,20 @@ describe("a pool's passbook", () => {
     ])
   })
 
+  test("says no rate set on a day whose price repeats the rate in force, nor lists the day for it alone", () => {
+    const days = passbookOf(
+      [entry("2026-10-01", [["savings", "opening"]], "1000"), entry("2026-10-03", [["play-id", "p1"], ["machine", "海物語"]], "200")],
+      ACCOUNT,
+      COMMODITY,
+      [price("2026-10-01", "3.5"), price("2026-10-03", "3.50"), price("2026-10-04", "3.5"), price("2026-10-06", "3.4")],
+    )
+    expect(shown(days).map((day) => [day.date, day.rate])).toEqual([
+      ["2026-10-06", ["3.5", "3.4"]],
+      ["2026-10-03", undefined],
+      ["2026-10-01", [undefined, "3.5"]],
+    ])
+  })
+
   test("is empty for a pool nothing has moved and no rate was set for", () => {
     expect(passbookOf([], ACCOUNT, COMMODITY, [price("2026-10-01", "3.5")].map((point) => ({ ...point, commodity: "玉(4円・難波)" })))).toEqual([])
   })
@@ -70,6 +84,7 @@ describe("setting a pool's rate", () => {
   test("writes the price line for the day, and nothing where the day already has that rate", () => {
     expect(rateChangeLine(change, [price("2026-10-01", "3.571429")])).toEqual({ ok: true, value: `P 2026-10-10 "${COMMODITY}" 3.5 JPY\n` })
     expect(rateChangeLine(change, [price("2026-10-10", "3.5")])).toEqual({ ok: true, value: undefined })
+    expect(rateChangeLine(change, [price("2026-10-01", "3.5")])).toEqual({ ok: true, value: undefined })
     expect(rateChangeLine({ ...change, rate: dec("0") }, [])).toEqual({ ok: false, error: { type: "rate-not-positive" } })
   })
 })
