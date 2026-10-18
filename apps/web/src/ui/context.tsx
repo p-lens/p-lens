@@ -12,6 +12,7 @@ import { syncAll, type Synced } from "../application/sync"
 import { toast } from "./primitives/toast"
 import type { ThemeState } from "./theme/theme"
 import { unreadableArrivalsText } from "./wording/sync"
+import { warmConsolidationWhileShown } from "./features/consolidated/warm"
 
 /** Where the installed app stands against the newest published; supplied by the PWA layer. */
 export interface UpdateState {
@@ -104,6 +105,7 @@ export function AppProvider(props: {
     setRevision((count) => count + 1)
   }
   createEffect(on(revision, () => void adoptBusinessDayTurn(props.services.session, props.services.preferences)))
+  warmConsolidationWhileShown(props.services, revision)
   const [machinesRead] = createResource(
     () => ({ revision: revision() }),
     () => loadMachineNames(props.services.catalog),

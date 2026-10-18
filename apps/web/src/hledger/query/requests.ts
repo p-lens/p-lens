@@ -1,5 +1,6 @@
 import type { IsoDate } from "../../core/calendar/calendar"
 import { YEN, type TokenKind } from "../../core/commodity/commodity"
+import { ACCOUNTS, EXPENSE_ROOT, REVENUE_ROOT } from "../../core/journal/accounts"
 import { TALLY_TAGS } from "../../core/tally/tally"
 import type { PlayId } from "../../core/play/play"
 import type { Valuation } from "../../core/valuation/valuation"
@@ -56,6 +57,21 @@ export const playTimeCutRequest = (query: string, cut: Cut): RequestOf<"balance"
 
 /** The loss on renting tokens above their exchange value over a query, in yen. */
 export const rentalSpreadRequest = (query: string): RequestOf<"balance"> => ({ kind: "balance", query: combine(rentalSpreadTerm, query) })
+
+/**
+ * What each account a period taken as one reads came to, in one report:
+ * the cash, the prizes and the part of a yen beside them, the theoretical
+ * value and its inferred part, the play time, and the expenses and revenue
+ * with every account under them, the replay fee among them — each posting
+ * at its own day's rate. A tree, so each branch's row is hledger's sum of
+ * it and none is summed here.
+ */
+export const periodTotalsRequest = (query: string): RequestOf<"balance"> => ({
+  kind: "balance",
+  query: combine(cashTerm, accountTerm(ACCOUNTS.specialPrizes), accountTerm(ACCOUNTS.oddPrizes), accountTerm(ACCOUNTS.translationAdjustment), theoreticalValueTerm, playTimeTerm, branchTerm(EXPENSE_ROOT), branchTerm(REVENUE_ROOT), query),
+  valuation: inYen({ at: "posting-date" }),
+  tree: true,
+})
 
 /** What one account of a query came to, as hledger sums it: the cash spent, or the prizes taken home. */
 export const accountRequest = (account: string, query: string): RequestOf<"balance"> => ({ kind: "balance", query: combine(accountTerm(account), query) })

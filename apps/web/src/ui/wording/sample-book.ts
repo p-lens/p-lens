@@ -33,7 +33,8 @@ export const REDRAW_LABEL = "絵柄を引き直す"
 
 export const WAITING_LINE = "しばらくお待ちください…"
 
-export const LOCATING_LINE = "現在地を確かめています…"
+/** What is said, one after another, while the device finds where it is and the parlors near it are read: a wait a phone can make long. */
+export const LOCATING_LINES = ["現在地を確かめています…", "地図を広げています…", "通いやすいホールを探しています…"] as const
 
 export const UNLOCATED_LINE = "位置情報が取れないため、全国からランダムにホールを選びます…"
 

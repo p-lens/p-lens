@@ -1,15 +1,16 @@
 import type { BookId } from "../core/book/book"
+import { SECONDS } from "../core/commodity/commodity"
 import { ZERO, compare, negate, type Decimal } from "../core/decimal/decimal"
 import { ACCOUNTS, EXPENSE_ROOT, REVENUE_ROOT } from "../core/journal/accounts"
 import { byColumn, byRow } from "../core/report/breakdown"
-import { actualOf, secondsOf, statisticTotalOf, yenOf, type ReportError } from "../core/report/figures"
+import { actualOf, quantityIn, rowTotalOf, yenOf, type ReportError } from "../core/report/figures"
 import type { Overall } from "../core/report/overall"
 import { tallyDaysOf } from "../core/report/tallies"
 import { andThen, collect, mapOk, type Result } from "../core/result/result"
 import { TALLY_TAGS } from "../core/tally/tally"
 import type { JournalAccess } from "../hledger/client/client"
 import type { BalanceReport } from "../hledger/protocol/wire"
-import { accountRequest, actualCutRequest, actualRequest, branchRequest, inferredRequest, playTimeRequest, rentalSpreadRequest, savingsDrawnRequest, tallyHeadsRequest, theoreticalRequest } from "../hledger/query/requests"
+import { actualCutRequest, actualRequest, periodTotalsRequest, rentalSpreadRequest, savingsDrawnRequest, tallyHeadsRequest } from "../hledger/query/requests"
 import { combine, talliesTerm } from "../hledger/query/terms"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
@@ -35,34 +36,27 @@ const wonOf = (statement: BalanceReport): Result<number, ReportError> =>
 export const loadOverall = (session: BookSession, bookId: BookId, query: string): Promise<Outcome<Overall>> =>
   session.read(bookId, async (journal: JournalAccess) => {
     const played = combine(talliesTerm, query)
-    const [entries, statement, perTally, perDay, theoretical, inferred, time, ...yen] = await Promise.all([
+    const [entries, statement, perTally, perDay, totals, ...yen] = await Promise.all([
       journal.ask(tallyHeadsRequest(query)),
       journal.ask(actualRequest(query)),
       journal.ask(actualCutRequest(played, { pivot: TALLY_TAGS.playId })),
       journal.ask(actualCutRequest(played, { interval: "daily", totalsOnly: true })),
-      journal.ask(theoreticalRequest(query)),
-      journal.ask(inferredRequest(query)),
-      journal.ask(playTimeRequest(query)),
-      journal.ask(accountRequest(ACCOUNTS.cash, query)),
-      journal.ask(accountRequest(ACCOUNTS.specialPrizes, query)),
-      journal.ask(accountRequest(ACCOUNTS.oddPrizes, query)),
-      journal.ask(accountRequest(ACCOUNTS.translationAdjustment, query)),
+      journal.ask(periodTotalsRequest(query)),
       journal.ask(savingsDrawnRequest(query)),
-      journal.ask(branchRequest(EXPENSE_ROOT, query)),
-      journal.ask(branchRequest(REVENUE_ROOT, query)),
       journal.ask(rentalSpreadRequest(query)),
-      journal.ask(branchRequest(ACCOUNTS.replayFee, query)),
     ])
     const tallies = mapOk(fromHledger(entries), (page) => tallyDaysOf(page.items))
     const days = andThen(fromHledger(perDay), (report) => fromReport(byColumn(report, "daily")))
-    const statistic = (report: Outcome<BalanceReport>): Outcome<Decimal> => andThen(report, (found) => fromReport(statisticTotalOf(found)))
+    const totalled = fromHledger(totals)
+    const yenIn = (account: string): Outcome<Decimal> => andThen(totalled, (report) => fromReport(yenOf(rowTotalOf(report, account) ?? [])))
+    const accounts = [ACCOUNTS.theoreticalValue, ACCOUNTS.inferredTheoreticalValue, ACCOUNTS.cash, ACCOUNTS.specialPrizes, ACCOUNTS.oddPrizes, ACCOUNTS.translationAdjustment, EXPENSE_ROOT, REVENUE_ROOT, ACCOUNTS.replayFee]
     return andThen(tallies, (found) =>
       andThen(andThen(fromHledger(statement), (report) => fromReport(actualOf(report))), (actual) =>
         andThen(andThen(fromHledger(perTally), (report) => fromReport(wonOf(report))), (playsWon) =>
           andThen(days, (byDay) =>
-            andThen(collect([statistic(fromHledger(theoretical)), statistic(fromHledger(inferred))]), ([theoreticalValue = ZERO, inferredValue = ZERO]) =>
-              andThen(mapOk(fromHledger(time), secondsOf), (playSeconds) =>
-                mapOk(collect(yen.map((report) => totalOf(fromHledger(report)))), ([cash = ZERO, specialPrizes = ZERO, oddPrizes = ZERO, translationAdjustment = ZERO, drawn = ZERO, spent = ZERO, credited = ZERO, rentalSpread = ZERO, replayFee = ZERO]) => ({
+            andThen(collect(accounts.map(yenIn)), ([theoreticalValue = ZERO, inferredValue = ZERO, cash = ZERO, specialPrizes = ZERO, oddPrizes = ZERO, translationAdjustment = ZERO, spent = ZERO, credited = ZERO, replayFee = ZERO]) =>
+              andThen(mapOk(totalled, (report) => ((time) => (time === undefined ? undefined : quantityIn(time, SECONDS)))(rowTotalOf(report, ACCOUNTS.playTime))), (playSeconds) =>
+                mapOk(collect(yen.map((report) => totalOf(fromHledger(report)))), ([drawn = ZERO, rentalSpread = ZERO]) => ({
                   plays: found.length,
                   playsWon,
                   days: [...new Set(found.map((tally) => tally.date))].toSorted().map((day) => ({ day, actual: negate(byDay.get(day) ?? ZERO) })),

@@ -25,7 +25,7 @@ import {
   makingText,
   ofDaysText,
   OPEN,
-  LOCATING_LINE,
+  LOCATING_LINES,
   PASSING_LINES,
   STARTING_LINES,
   WRITING_LINES,
@@ -125,8 +125,8 @@ const STEP_PAUSE = 1400
 
 const PASSING_EVERY = 650
 
-/** How often the next of the lines said before the first day comes, and of those said while the years are written. */
-const STARTING_EVERY = 1100
+/** How often the next of the lines said in turn in a long wait comes, and of those said while the years are written. */
+const STAGED_EVERY = 1100
 
 const WRITING_EVERY = 1500
 
@@ -136,7 +136,7 @@ const LINES_SHOWN = 5
 const linesOf = (report: SampleReport): readonly Line[] => {
   switch (report.type) {
     case "locating":
-      return [{ kind: "said", text: LOCATING_LINE }]
+      return [{ kind: "said", text: LOCATING_LINES[0] }]
     case "placed":
       return [...(report.located ? [] : [{ kind: "said", text: UNLOCATED_LINE } as const]), { kind: "said", text: placedLine(report.prefecture, report.parlors) }]
     case "gathering":
@@ -148,6 +148,9 @@ const linesOf = (report: SampleReport): readonly Line[] => {
       return []
   }
 }
+
+/** The waits that are long, by the step they follow, and what is said through each in turn, its first as it begins: finding where the device is and the parlors, and the days about to be played. */
+const STAGED: Partial<Readonly<Record<SampleReport["type"], readonly string[]>>> = { locating: LOCATING_LINES, starting: STARTING_LINES }
 
 const withLines = (lines: readonly Line[], added: readonly Line[]): readonly Line[] =>
   added.reduce((all, line) => (line.kind === "gathering" && all.at(-1)?.kind === "gathering" ? [...all.slice(0, -1), line] : [...all, line]), lines)
@@ -214,17 +217,18 @@ function SampleBookDialog(props: { readonly open: boolean; readonly titles: read
   const [unnamed, setUnnamed] = createSignal(app.services.unnamedTitle(props.titles))
   const [lines, setLines] = createSignal<readonly Line[]>([])
   /** The making under way, by what stops it: a making stopped and another begun, the first's end is not this screen's to show. */
-  const held: { making: AbortController | undefined; passing: number; starting: number } = { making: undefined, passing: Math.floor(Math.random() * PASSING_LINES.length), starting: 0 }
+  const held: { making: AbortController | undefined; passing: number; staged: number } = { making: undefined, passing: Math.floor(Math.random() * PASSING_LINES.length), staged: 0 }
   const title = (): string => sampleTitleOf(unnamed())
   const preparing = (): boolean => ((current) => current.type === "running" && current.report?.type !== "making" && current.report?.type !== "writing")(stage())
-  const starting = (): boolean => ((current) => current.type === "running" && current.report?.type === "starting")(stage())
-  /** Whether the lines before the first day are still being said, in their order, rather than those in passing. */
-  const startingSaid = (): boolean => starting() && held.starting < STARTING_LINES.length
+  /** The lines of the long wait it stands in, where it stands in one. */
+  const staged = (): readonly string[] | undefined => ((current) => (current.type === "running" && current.report !== undefined ? STAGED[current.report.type] : undefined))(stage())
+  /** Whether a long wait's lines are still being said, in their order, rather than those in passing. */
+  const stagedSaid = (): boolean => ((lines) => lines !== undefined && held.staged < lines.length)(staged())
   createEffect(
     on(preparing, (now) => {
       if (!now) return
       const timer = setInterval(() => {
-        if (startingSaid()) return
+        if (stagedSaid()) return
         held.passing += 1
         setLines((said) => withLines(said, [{ kind: "said", text: PASSING_LINES[held.passing % PASSING_LINES.length] ?? "" }]))
       }, PASSING_EVERY)
@@ -232,14 +236,14 @@ function SampleBookDialog(props: { readonly open: boolean; readonly titles: read
     }),
   )
   createEffect(
-    on(starting, (now) => {
-      if (!now) return
-      held.starting = 1
+    on(staged, (lines) => {
+      if (lines === undefined) return
+      held.staged = 1
       const timer = setInterval(() => {
-        const next = STARTING_LINES[held.starting]
-        held.starting += 1
+        const next = lines[held.staged]
+        held.staged += 1
         if (next !== undefined) setLines((said) => withLines(said, [{ kind: "said", text: next }]))
-      }, STARTING_EVERY)
+      }, STAGED_EVERY)
       onCleanup(() => clearInterval(timer))
     }),
   )

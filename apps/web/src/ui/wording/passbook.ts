@@ -19,3 +19,9 @@ export const passbookCauseText = (cause: PassbookCause, names: MachineNames): st
       return shownDescription(cause.description) || "手入力の仕訳"
   }
 }
+
+/** Beside a parlor several books keep savings at, how many: what is shown of it is theirs added. */
+export const booksKeptText = (books: number): string => `(${String(books)}冊分)`
+
+/** The rates a pool across books was valued at: one, or the lowest to the highest where the books value it differently. */
+export const ratesText = (rates: readonly string[]): string => (rates.length === 0 ? "交換率なし" : rates.length === 1 ? `@ ${rates[0] ?? ""}` : `@ ${rates[0] ?? ""}〜${rates.at(-1) ?? ""}`)

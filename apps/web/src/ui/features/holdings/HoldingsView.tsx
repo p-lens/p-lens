@@ -33,7 +33,7 @@ type Opened = "none" | "prize-exchange" | "adjustment"
 const ROW_BUTTON = "shrink-0 rounded border border-border px-2 py-0.5 text-xs text-text-secondary hover:border-text-secondary hover:text-text-primary"
 
 /** One pool's savings on a line: how many, at what rate, worth what. */
-export function TokenFigures(props: { readonly token: TokenHolding }): JSX.Element {
+function TokenFigures(props: { readonly token: TokenHolding }): JSX.Element {
   return (
     <div class="flex items-baseline justify-between gap-3">
       <span class="w-12 shrink-0 text-xs text-text-muted">{props.token.tier}</span>
@@ -95,7 +95,7 @@ function TokenRow(props: { readonly bookId: BookId; readonly place: Place; reado
  * given, the heading is pressed to open the parlor's passbook, and marked
  * while it is `open`.
  */
-export function ParlorCard(props: { readonly holding: ParlorHolding; readonly onOpen?: () => void; readonly open?: boolean; readonly children: (token: TokenHolding) => JSX.Element }): JSX.Element {
+function ParlorCard(props: { readonly holding: ParlorHolding; readonly onOpen?: () => void; readonly open?: boolean; readonly children: (token: TokenHolding) => JSX.Element }): JSX.Element {
   const heading = (): JSX.Element => (
     <>
       <h2 class="font-semibold text-text-primary">{props.holding.parlorName}</h2>

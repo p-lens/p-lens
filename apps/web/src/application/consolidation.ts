@@ -95,3 +95,19 @@ export const loadConsolidatedSpinPerformances = async (session: BookSession, cho
 /** Who sent the plays of the books chosen, each by the name on their last tally in any of them. A book that could not be read names no one. */
 export const loadConsolidatedSenderNames = async (session: BookSession, chosen: readonly BookId[] | undefined): Promise<Outcome<SenderNames>> =>
   mapOk(await ofChosen(session, chosen, (book) => loadSenderNames(session, book.id)), (books) => mergedSenderNames(books.flatMap((each) => (each.read.ok ? [each.read.value] : []))))
+
+/**
+ * What the consolidation opens on, asked ahead and let go: 総合 and その他損益
+ * over every book and every day, a month of its calendar, and the books'
+ * savings. hledger keeps the journals it read and the answers it gave, so
+ * once these are asked the consolidation shows them at once; a book
+ * written since is the only one asked again. Each book is read in its turn,
+ * so a screen asked meanwhile waits a book at most.
+ */
+export const warmConsolidation = async (session: BookSession, month: string): Promise<void> => {
+  await consolidationKeepsTheoreticalValues(session, undefined)
+  await loadConsolidatedOverall(session, undefined, "")
+  await loadConsolidatedOtherGains(session, undefined, "")
+  await loadConsolidatedDaysAndWhole(session, undefined, month)
+  await loadConsolidatedHoldings(session, undefined, "")
+}

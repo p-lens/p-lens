@@ -228,6 +228,11 @@ data Request = Request
   , reqTotalsOnly :: Bool
   -- ^ A balance report's totals row alone, its rows left out: for a caller
   -- that reads each period's total and nothing by account.
+  , reqTree :: Bool
+  -- ^ hledger's @--tree --no-elide@: a row for every account and each of its
+  -- parents, a parent with one child too, a parent's row what it and every
+  -- account under it came to, summed by hledger — so a caller reads a
+  -- branch's total off its row. Absent means flat rows, each an account's own.
   }
 
 parseRequest :: A.Value -> A.Parser Request
@@ -242,6 +247,7 @@ parseRequest = A.withObject "request" $ \o ->
     <*> (o .:? "interval" >>= traverse parseInterval)
     <*> (maybe PerPeriod id <$> (o .:? "accumulation" >>= traverse parseAccumulation))
     <*> (maybe False id <$> o .:? "totalsOnly")
+    <*> (maybe False id <$> o .:? "tree")
 
 -- | @--historical@, the one accumulation P-Lens reads balances by.
 parseAccumulation :: Text -> A.Parser BalanceAccumulation
@@ -272,8 +278,10 @@ parseValuation = A.withObject "valuation" $ \o -> do
 
 -- | Run the report a request names.
 --
--- Balance reports are flat: P-Lens reads rows by account name, and a parent
--- row standing beside its children would be counted twice by anyone summing.
+-- Balance reports are flat unless a tree is asked for: P-Lens reads rows by
+-- account name, and a parent row standing beside its children would be
+-- counted twice by anyone summing; a tree is read a row at a time, never
+-- summed.
 report :: Kept -> Request -> IO (Either Failure A.Value)
 report kept request = case reqKind request of
   "entries" -> withSpec [] (\spec -> page request (map transactionJson (entriesReport spec journal)))
@@ -386,7 +394,8 @@ specFor request extra calculating = do
     options =
       defreportopts
         { querystring_ = extra <> words'' queryprefixes (reqQuery request)
-        , accountlistmode_ = ALFlat
+        , accountlistmode_ = if reqTree request then ALTree else ALFlat
+        , no_elide_ = reqTree request
         , value_ = reqValuation request
         , interval_ = maybe NoInterval id (reqInterval request)
         , balanceaccum_ = reqAccumulation request

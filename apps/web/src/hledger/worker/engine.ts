@@ -17,7 +17,8 @@ export type EngineReply =
 
 /**
  * One running hledger, asking of one parsed journal at a time and keeping a
- * few read lately, so a journal opened again is not parsed again.
+ * few read lately, so a journal opened again is not parsed again — and the
+ * answers it gave lately, so a question asked again is not answered again.
  *
  * Effects only: the module is compiled by whoever starts it, so the worker can
  * fetch it and a test can read it off disk.
@@ -78,6 +79,24 @@ const keyOf = async (files: Readonly<Record<string, string>>, entry: string): Pr
   return [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("")
 }
 
+/**
+ * How much of hledger's answers are kept, in characters as they came: the
+ * reports of several screens of a dozen books, a few megabytes in all.
+ */
+const ANSWERS_KEPT = 20_000_000
+
+/** An answer kept: what it was, and how large it came. */
+interface KeptAnswer {
+  readonly reply: EngineReply
+  readonly size: number
+}
+
+/**
+ * The key an answer is kept under: the journal asked, the day it was asked
+ * on — a report of an open period may end today — and the question.
+ */
+const answerKeyOf = (journal: string, request: Request): string => `${journal}\n${new Date().toDateString()}\n${JSON.stringify(request)}`
+
 const unreachable = (cause: unknown): EngineReply => ({ ok: false, trouble: { kind: "unreachable", detail: String(cause) } })
 
 /**
@@ -115,14 +134,46 @@ export const startEngine = async (module: WebAssembly.Module): Promise<Engine> =
     treeOf(Object.entries(files)).forEach(([name, entry]) => directory.set(name, entry))
   }
 
+  /**
+   * The journal questions are asked of, by its key, and the answers given
+   * lately, newest last: a journal does not change under its key, so the
+   * same question of it is answered as it was before, with no report made.
+   */
+  const held: { journal: string | undefined; answers: Map<string, KeptAnswer>; size: number } = { journal: undefined, answers: new Map(), size: 0 }
+
+  /** An answer kept, and the oldest let go of while those kept come to more than `ANSWERS_KEPT`, the newest kept however large. */
+  const remember = (key: string, raw: string, reply: EngineReply): void => {
+    held.answers.set(key, { reply, size: raw.length })
+    held.size += raw.length
+    for (const [gone, answer] of held.answers) {
+      if (held.size <= ANSWERS_KEPT || held.answers.size <= 1) return
+      held.answers.delete(gone)
+      held.size -= answer.size
+    }
+  }
+
+  const opened = (key: string, reply: EngineReply): EngineReply => {
+    if (reply.ok) held.journal = key
+    return reply
+  }
+
   return {
     open: async (files, entry) => {
       const key = await keyOf(files, entry)
       const kept = await hledger.hledgerSelect(key).then(openEnvelope, unreachable)
-      if (kept.ok) return kept
+      if (kept.ok) return opened(key, kept)
       replaceFiles(files)
-      return hledger.hledgerLoad(entry, key).then(openEnvelope, unreachable)
+      return opened(key, await hledger.hledgerLoad(entry, key).then(openEnvelope, unreachable))
     },
-    query: (request) => hledger.hledgerQuery(JSON.stringify(request)).then(openEnvelope, unreachable),
+    query: async (request) => {
+      const key = held.journal === undefined ? undefined : answerKeyOf(held.journal, request)
+      const kept = key === undefined ? undefined : held.answers.get(key)
+      if (kept !== undefined) return kept.reply
+      const raw = await hledger.hledgerQuery(JSON.stringify(request)).catch((cause: unknown) => cause)
+      if (typeof raw !== "string") return unreachable(raw)
+      const reply = openEnvelope(raw)
+      if (reply.ok && key !== undefined) remember(key, raw, reply)
+      return reply
+    },
   }
 }

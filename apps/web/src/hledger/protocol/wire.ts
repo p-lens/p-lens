@@ -107,13 +107,15 @@ export type IntervalRequest = "daily" | "monthly" | "yearly"
  * empty name; `interval` gives the report a column a period; `accumulation`
  * is hledger's `--historical`, each period's column the balance at its end,
  * everything before it counted; `totalsOnly` leaves the rows out, the totals
- * row alone answered.
+ * row alone answered; `tree` is hledger's `--tree --no-elide`, a row for each account
+ * and each of its parents, a parent's what it and those under it came to.
  */
 export interface Cut {
   readonly pivot?: string
   readonly interval?: IntervalRequest
   readonly accumulation?: "historical"
   readonly totalsOnly?: true
+  readonly tree?: true
 }
 
 /** hledger's `--value`, always into a named commodity. */

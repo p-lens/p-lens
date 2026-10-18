@@ -81,6 +81,9 @@ export const yenByDayOf = (report: BalanceReport): ReadonlyMap<IsoDate, Decimal 
     }),
   )
 
+/** What an account's row of a report came to, as hledger summed it; none where the report has no row for it — nothing was posted there. */
+export const rowTotalOf = (report: BalanceReport, account: string): MixedAmount | undefined => report.prRows.find((row) => row.prrName === account)?.prrTotal
+
 export const statisticTotalOf = (balance: BalanceReport): Result<Decimal, ReportError> => yenOf(balance.prTotals.prrTotal)
 
 /**
