@@ -274,6 +274,14 @@ export const FilterIcon = (props: { readonly filled: boolean }) => (
   </Icon>
 )
 
+/** A search: a magnifying glass. */
+export const SearchIcon = () => (
+  <Icon>
+    <circle cx="11" cy="11" r="6" />
+    <path d="m20 20-4.5-4.5" />
+  </Icon>
+)
+
 /** A breakdown: results set out in rows of differing length, group by group. */
 export const BreakdownIcon = () => (
   <Icon>

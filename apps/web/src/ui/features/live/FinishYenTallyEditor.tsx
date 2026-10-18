@@ -1,4 +1,4 @@
-import { Show, type Accessor, type JSX } from "solid-js"
+import { For, Show, type Accessor, type JSX } from "solid-js"
 
 import type { Outcome } from "../../../application/errors"
 import type { PlayTerms } from "../../../core/parlor/terms"
@@ -6,13 +6,25 @@ import { tokenKindOf, type PlayGameKind, type PlayId } from "../../../core/play/
 import type { TallyAside, YenTally } from "../../../core/tally/tally"
 import { TextField } from "../../primitives/text-field"
 import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
-import { formatTokens, tokenUnit } from "../../wording/numbers"
+import { formatTokens, formatYen, tokenUnit } from "../../wording/numbers"
+import { EXCHANGE_OFF_THE_RATE } from "../../wording/tallies"
 import type { SubmitWords } from "./finish-tally-reading"
 import { createFinishYenTallyEditing } from "./finish-yen-tally-editing"
 import { heldIn, type FinishYenTallyForm } from "./finish-yen-tally-form"
 import { FinishTallyForm } from "./FinishTallyForm"
 import type { WorthAt } from "./followed-worth"
 import type { ParlorChoice } from "./parlor-choice"
+
+/** The prizes an exchange asks for, opening downward and fading in as 景品に交換した is pressed. */
+function Unfolding(props: { readonly children: JSX.Element }): JSX.Element {
+  return (
+    <div class="grid animate-[spread_260ms_ease-out]">
+      <div class="-m-1 min-h-0 overflow-hidden p-1">
+        <div class="flex flex-col gap-1">{props.children}</div>
+      </div>
+    </div>
+  )
+}
 
 /**
  * The form a play followed live at no parlor is recorded with, laid out
@@ -73,10 +85,20 @@ export function FinishYenTallyEditor(props: {
                   </ToggleGroup>
                 </div>
                 <Show when={editing.exchanged()}>
-                  <div class="grid grid-cols-2 gap-2">
-                    <TextField label="特殊景品額" value={editing.specialPrizes()} onChange={editing.setSpecialPrizes} inputMode="numeric" suffix="円" error={editing.tally.problemOf("special-prizes")} invalid={editing.tally.nudged("special-prizes")} onFocus={editing.tally.nudge.settle} />
-                    <TextField label="端玉景品額" value={editing.oddPrizes()} onChange={editing.setOddPrizes} inputMode="numeric" suffix="円" placeholder="0" error={editing.tally.problemOf("odd-prizes")} invalid={editing.tally.nudged("odd-prizes")} onFocus={editing.tally.nudge.settle} />
-                  </div>
+                  <Unfolding>
+                    <div class="grid grid-cols-2 gap-2">
+                      <TextField label="交換数" value={editing.exchangedTokens()} onChange={editing.setExchangedTokens} inputMode="numeric" suffix={tokenUnit(tokenKindOf(props.gameKind))} error={editing.tally.problemOf("exchanged-tokens")} invalid={editing.tally.nudged("exchanged-tokens")} onFocus={editing.tally.nudge.settle} />
+                      <TextField label="特殊景品額" value={editing.specialPrizes()} onChange={editing.setSpecialPrizes} inputMode="numeric" suffix="円" error={editing.tally.problemOf("special-prizes")} invalid={editing.tally.nudged("special-prizes")} onFocus={editing.tally.nudge.settle} />
+                    </div>
+                    <Show when={editing.oddPrizes()} keyed>
+                      {(odd) => <span class="text-xs text-text-muted">端玉景品 {formatYen(odd)}（交換率から）</span>}
+                    </Show>
+                    <Show when={editing.offTheRate()}>
+                      <p class="flex flex-col text-xs text-warning">
+                        <For each={EXCHANGE_OFF_THE_RATE}>{(line) => <span>{line}</span>}</For>
+                      </p>
+                    </Show>
+                  </Unfolding>
                 </Show>
               </div>
             ),

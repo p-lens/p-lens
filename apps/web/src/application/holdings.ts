@@ -3,7 +3,10 @@ import { ZERO } from "../core/decimal/decimal"
 import { parlorsFromDeclarations, type Parlor } from "../core/parlor/parlor"
 import { holdingsOf, type Holdings } from "../core/report/holdings"
 import { andThen, Ok } from "../core/result/result"
-import { accountsRequest, pricesRequest, savingsQuantityRequest, savingsValueRequest } from "../hledger/query/requests"
+import { accountsRequest, pricesRequest, savingsEntriesRequest, savingsQuantityRequest, savingsValueRequest } from "../hledger/query/requests"
+import { lastMovedOf } from "../core/report/parlor-order"
+import type { IsoDate } from "../core/calendar/calendar"
+import { mapOk } from "../core/result/result"
 import { savingsAtTerm, savingsTerm } from "../hledger/query/terms"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
@@ -42,3 +45,7 @@ export const loadHoldings = (session: BookSession, bookId: BookId, query: string
     )
   })
 }
+
+/** The last day each parlor's savings moved within the query's period, by its name: what the savings are shown in the order of. */
+export const loadLastMoved = (session: BookSession, bookId: BookId, query: string): Promise<Outcome<ReadonlyMap<string, IsoDate>>> =>
+  session.read(bookId, async (journal) => mapOk(fromHledger(await journal.ask(savingsEntriesRequest(query))), (page) => lastMovedOf(page.items)))

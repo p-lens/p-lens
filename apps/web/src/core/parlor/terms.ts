@@ -43,6 +43,12 @@ export const exchangeOfStated = (gameKind: PlayGameKind, typed: string): PlayTer
   return tokens > 0 ? { yen: yen * scale, tokens } : undefined
 }
 
+/** A rate in yen for a token as a game states an exchange, tokens for ¥100, to the places it is said to: 3.571429 yen is 28.0 balls. */
+export const statedExchangeOfRate = (gameKind: PlayGameKind, rate: Decimal): string => {
+  const { yen, places } = EXCHANGE_STATED[gameKind]
+  return (yen / Number(toPlainString(rate))).toFixed(places)
+}
+
 /** An exchange as stated for a game, to every place it is said to, however it is kept: 510 for ¥10,000 and 52 for ¥1,000 at pachislot are 5.10 and 5.20, 280 for ¥1,000 at pachinko 28.0. */
 export const statedExchangeOf = (gameKind: PlayGameKind, exchange: PlayTerms["exchange"]): string => {
   const { yen, places } = EXCHANGE_STATED[gameKind]
@@ -55,7 +61,7 @@ const RATE_PLACES = 6
 const whole = (value: number): Decimal => decimal(BigInt(value), 0)
 
 /** Yen per token the corner exchanges at, as the journal writes a rate. */
-export const exchangeRateOf = (terms: PlayTerms): Decimal => quotient(whole(terms.exchange.yen), whole(terms.exchange.tokens), RATE_PLACES)
+export const exchangeRateOf = (terms: Pick<PlayTerms, "exchange">): Decimal => quotient(whole(terms.exchange.yen), whole(terms.exchange.tokens), RATE_PLACES)
 
 /** The rental rates parlors advertise, in yen per token, dearest first, for each game. */
 const TIERS: Readonly<Record<PlayGameKind, readonly number[]>> = {

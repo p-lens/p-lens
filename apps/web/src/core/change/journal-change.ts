@@ -39,6 +39,8 @@ export type ChangeIntent =
   | { readonly type: "savings-forfeited"; readonly parlor: string; readonly tier: string; readonly date: IsoDate; readonly kind: TokenKind; readonly tokens: Decimal }
   /** A pool made ready in the book, exchanging at a rate from a day. */
   | { readonly type: "pool-opened"; readonly parlor: string; readonly tier: string; readonly date: IsoDate; readonly rate: Decimal }
+  /** A pool's exchange rate set from a day. */
+  | { readonly type: "rate-changed"; readonly parlor: string; readonly tier: string; readonly date: IsoDate; readonly rate: Decimal }
   | { readonly type: "parlors-linked"; readonly names: readonly string[] }
   | { readonly type: "conflict-settled"; readonly paths: readonly string[] }
   | {

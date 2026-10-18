@@ -1,16 +1,20 @@
 import { createResource, createSignal, For, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
-import { loadHoldings } from "../../../application/holdings"
+import { loadHoldings, loadLastMoved } from "../../../application/holdings"
 import { loadRecordingContext } from "../../../application/record-tally"
 import type { BookId } from "../../../core/book/book"
 import { parseIsoDate } from "../../../core/calendar/calendar"
+import { savingsAccount } from "../../../core/journal/accounts"
 import type { Parlor } from "../../../core/parlor/parlor"
 import type { ParlorHolding, TokenHolding } from "../../../core/report/holdings"
+import { holdsNothing, inShowingOrder, namedLike } from "../../../core/report/parlor-order"
+import type { IsoDate } from "../../../core/calendar/calendar"
 import { untilTerm } from "../../../hledger/query/terms"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
-import { TickFilter, type Offered } from "../../primitives/filter"
+import { filterButtonClass, TickFilter, type Offered } from "../../primitives/filter"
+import { ChevronDownIcon, SearchIcon } from "../../primitives/icons"
 import { EmptyState, Loaded } from "../../primitives/states"
 import { TextField } from "../../primitives/text-field"
 import { useMoves } from "../../navigation/moves"
@@ -19,12 +23,12 @@ import { formatDay } from "../../wording/dates"
 import { formatRate, formatTokens, formatYen } from "../../wording/numbers"
 import { createOffered } from "../parlor-offers/offered"
 import { ViewHeader } from "../shell/ViewHeader"
-import { BalanceAdjustmentForm, ForfeitureForm, PrizeExchangeForm, OpeningBalanceForm } from "./SavingsForms"
+import { BalanceAdjustmentForm, PrizeExchangeForm, OpeningBalanceForm } from "./SavingsForms"
 
 const UNITS = { ball: "玉", medal: "枚" } as const
 
-/** What is open under a pool's row: nothing, the form that records a prize exchange, the one that puts the count right, or the one that records what a parlor took back. */
-type Opened = "none" | "prize-exchange" | "adjustment" | "forfeiture"
+/** What is open under a pool's row: nothing, the form that records a prize exchange, or the one that puts the count right. */
+type Opened = "none" | "prize-exchange" | "adjustment"
 
 const ROW_BUTTON = "shrink-0 rounded border border-border px-2 py-0.5 text-xs text-text-secondary hover:border-text-secondary hover:text-text-primary"
 
@@ -41,17 +45,30 @@ export function TokenFigures(props: { readonly token: TokenHolding }): JSX.Eleme
 }
 
 /**
- * One pool's savings and, where the book knows whose they are, the ways
- * to record a prize exchange and to put the count right, each opened
- * under the row. The figures keep a line of their own and the two small
+ * One pool's savings, pressed to open its passbook beside them, marked
+ * while it is open, and, where the book knows whose they are, the ways to
+ * record a prize exchange and to put the count right, each opened under
+ * the row. The figures keep a line of their own and the two small
  * buttons the end of the next, so neither is squeezed on a phone.
  */
-function TokenRow(props: { readonly bookId: BookId; readonly parlor: Parlor | undefined; readonly token: TokenHolding }): JSX.Element {
+function TokenRow(props: { readonly bookId: BookId; readonly place: Place; readonly parlorName: string; readonly parlor: Parlor | undefined; readonly token: TokenHolding }): JSX.Element {
+  const moves = useMoves()
   const [opened, setOpened] = createSignal<Opened>("none")
   const pool = () => ({ kind: props.token.kind, tier: props.token.tier })
+  const account = (): string => savingsAccount(props.token.kind, props.parlorName, props.token.tier)
+  const shown = (): boolean => props.place.kind === "passbook" && props.place.account === account()
   return (
     <li class="flex flex-col gap-2 py-1.5">
-      <TokenFigures token={props.token} />
+      <button
+        type="button"
+        aria-label={`${props.parlorName} ${props.token.tier}の通帳`}
+        aria-current={shown() ? "true" : undefined}
+        class="-mx-2 rounded px-2 py-1 text-left hover:bg-surface-3"
+        classList={{ "bg-surface-3": shown() }}
+        onClick={() => moves.go({ kind: "passbook", bookId: props.bookId, account: account() })}
+      >
+        <TokenFigures token={props.token} />
+      </button>
       <Show when={props.parlor !== undefined && opened() === "none"}>
         <div class="flex justify-end gap-2">
           <button type="button" class={ROW_BUTTON} onClick={() => setOpened("prize-exchange")}>
@@ -59,9 +76,6 @@ function TokenRow(props: { readonly bookId: BookId; readonly parlor: Parlor | un
           </button>
           <button type="button" class={ROW_BUTTON} onClick={() => setOpened("adjustment")}>
             残高調整
-          </button>
-          <button type="button" class={ROW_BUTTON} onClick={() => setOpened("forfeiture")}>
-            失効
           </button>
         </div>
       </Show>
@@ -71,20 +85,40 @@ function TokenRow(props: { readonly bookId: BookId; readonly parlor: Parlor | un
       <Show when={opened() === "adjustment" ? props.parlor : undefined} keyed>
         {(parlor) => <BalanceAdjustmentForm bookId={props.bookId} parlor={parlor} pool={pool()} unit={UNITS[props.token.kind]} held={props.token.quantity} onDone={() => setOpened("none")} />}
       </Show>
-      <Show when={opened() === "forfeiture" ? props.parlor : undefined} keyed>
-        {(parlor) => <ForfeitureForm bookId={props.bookId} parlor={parlor} pool={pool()} unit={UNITS[props.token.kind]} held={props.token.quantity} onDone={() => setOpened("none")} />}
-      </Show>
     </li>
   )
 }
 
-/** One parlor's savings: its name and what they are worth, over its pools, each drawn as whoever shows the card draws a pool. */
-export function ParlorCard(props: { readonly holding: ParlorHolding; readonly children: (token: TokenHolding) => JSX.Element }): JSX.Element {
+/**
+ * One parlor's savings: its name and what they are worth, over its pools,
+ * each drawn as whoever shows the card draws a pool. Where `onOpen` is
+ * given, the heading is pressed to open the parlor's passbook, and marked
+ * while it is `open`.
+ */
+export function ParlorCard(props: { readonly holding: ParlorHolding; readonly onOpen?: () => void; readonly open?: boolean; readonly children: (token: TokenHolding) => JSX.Element }): JSX.Element {
+  const heading = (): JSX.Element => (
+    <>
+      <h2 class="font-semibold text-text-primary">{props.holding.parlorName}</h2>
+      <span class="text-lg font-bold tabular-nums text-text-primary">{formatYen(props.holding.value)}</span>
+    </>
+  )
   return (
     <article class="rounded-lg bg-surface-1 px-4 py-3">
-      <header class="flex items-baseline justify-between gap-3 border-b border-border pb-2">
-        <h2 class="font-semibold text-text-primary">{props.holding.parlorName}</h2>
-        <span class="text-lg font-bold tabular-nums text-text-primary">{formatYen(props.holding.value)}</span>
+      <header class="border-b border-border pb-2">
+        <Show when={props.onOpen} keyed fallback={<div class="flex items-baseline justify-between gap-3">{heading()}</div>}>
+          {(onOpen) => (
+            <button
+              type="button"
+              aria-label={`${props.holding.parlorName}の通帳`}
+              aria-current={props.open === true ? "true" : undefined}
+              class="-mx-2 flex w-[calc(100%+1rem)] items-baseline justify-between gap-3 rounded px-2 py-1 text-left hover:bg-surface-3"
+              classList={{ "bg-surface-3": props.open === true }}
+              onClick={onOpen}
+            >
+              {heading()}
+            </button>
+          )}
+        </Show>
       </header>
       <ul>
         <For each={props.holding.tokens}>{(token) => props.children(token)}</For>
@@ -104,7 +138,9 @@ const NO_PARLORS = "貯玉・貯メダルのある店舗がないため、絞り
  * began the book, registered once, and a pool's count put right — and to
  * record a pool's savings exchanged for prizes.
  * Choosing a day writes `date:..` into the query, so a past valuation is an
- * address like any other. A funnel at the end of that row chooses which
+ * address like any other. Parlors are shown by the day their savings last
+ * moved, latest first — nobody orders them by hand — those holding nothing
+ * folded away under them, and a name typed finds any of them. A funnel at the end of that row chooses which
  * parlors' savings are shown, the total over theirs alone, hledger asked
  * of their accounts; which are chosen is the address's too.
  */
@@ -131,6 +167,29 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
     () => ({ bookId: props.bookId, revision: app.revision() }),
     (source) => loadRecordingContext(app.services.session, source.bookId, app.services.member),
   )
+  const [lastMoved] = createResource(
+    () => ({ bookId: props.bookId, query: props.query, revision: app.revision() }),
+    (source) => loadLastMoved(app.services.session, source.bookId, source.query),
+  )
+  /** The last day each parlor's savings moved: none known while it is read, or where it cannot be. */
+  const moved = (): ReadonlyMap<string, IsoDate> => ((found) => (found?.ok === true ? found.value : new Map<string, IsoDate>()))(lastMoved())
+  /** What is typed to find a parlor by its name: kept on screen alone, never in the address. */
+  const [typed, setTyped] = createSignal("")
+  /** Whether the search's row is open under the controls: opened by the magnifying glass, and closed by it again, forgetting what was typed. */
+  const [seeking, setSeeking] = createSignal(false)
+  const toggleSeeking = (): void => {
+    if (seeking()) setTyped("")
+    setSeeking((was) => !was)
+  }
+  const [emptyShown, setEmptyShown] = createSignal(false)
+  const searching = (): boolean => typed().trim() !== ""
+  /** The parlors shown as cards: those found by the name typed, or, with nothing typed, those holding anything; latest moved first. */
+  const shownOf = (parlors: readonly ParlorHolding[]): readonly ParlorHolding[] => ((ordered) => (searching() ? ordered : ordered.filter((holding) => !holdsNothing(holding))))(namedLike(inShowingOrder(parlors, moved()), typed()))
+  /** The parlors holding nothing, folded away under the rest; none while a name is typed, which finds them among the rest. */
+  const emptyOf = (parlors: readonly ParlorHolding[]): readonly ParlorHolding[] => (searching() ? [] : inShowingOrder(parlors, moved()).filter(holdsNothing))
+  const cardOf = (holding: ParlorHolding): JSX.Element => (
+    <ParlorCard holding={holding} onOpen={() => moves.go({ kind: "parlor-passbook", bookId: props.bookId, parlorName: holding.parlorName })} open={props.place.kind === "parlor-passbook" && props.place.parlorName === holding.parlorName}>{(token) => <TokenRow bookId={props.bookId} place={props.place} parlorName={holding.parlorName} parlor={holding.parlor} token={token} />}</ParlorCard>
+  )
   const listedParlors = createOffered()
   const [opening, setOpening] = createSignal(false)
   /** What registering savings needs of the book, once it is read and the book may be written. */
@@ -149,17 +208,29 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
     <MainContent header={<ViewHeader place={props.place} title="貯玉・貯メダル" />}>
       <div class="max-w-5xl">
         <div class="flex flex-col gap-4 p-4">
-          <div class="flex flex-wrap items-end gap-3">
+          <div class="flex flex-wrap items-end gap-2">
             <div class="w-[8.5rem]">
               <TextField label="評価日" type="date" value={valuedOn()} onChange={chooseDay} />
             </div>
             <Show when={writable() !== undefined && !opening()}>
-              <Button onClick={() => setOpening(true)}>
+              <Button size="small" onClick={() => setOpening(true)}>
                 開始残高を登録
               </Button>
             </Show>
-            <TickFilter label={BY_PARLOR} offered={offered()} none={NO_PARLORS} chosen={props.parlors} onChosen={(parlors) => moves.go({ kind: "book-view", bookId: props.bookId, view: "holdings", parlors }, props.query)} class="ml-auto" />
+            <div class="ml-auto flex gap-1.5">
+              <button type="button" aria-label="店舗を検索" title="店舗を検索" aria-expanded={seeking()} class={filterButtonClass(searching())} onClick={toggleSeeking}>
+                <SearchIcon />
+              </button>
+              <TickFilter label={BY_PARLOR} offered={offered()} none={NO_PARLORS} chosen={props.parlors} onChosen={(parlors) => moves.go({ kind: "book-view", bookId: props.bookId, view: "holdings", parlors }, props.query)} />
+            </div>
           </div>
+          <Show when={seeking()}>
+            <div class="grid animate-[spread_260ms_ease-out]">
+              <div class="-m-1 min-h-0 overflow-hidden p-1">
+                <TextField label="店舗を検索" value={typed()} onChange={setTyped} focusedOnShow />
+              </div>
+            </div>
+          </Show>
           <Show when={opening() ? writable() : undefined} keyed>
             {(found) => <OpeningBalanceForm bookId={props.bookId} context={found} list={listedParlors.list()} submissions={listedParlors.submissions()} onDone={() => setOpening(false)} />}
           </Show>
@@ -177,9 +248,24 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
                   合計 <span class="font-semibold tabular-nums text-text-primary">{formatYen(found.total)}</span>
                   {found.valuedOn === undefined ? "" : `（${formatDay(found.valuedOn)}時点の交換率）`}
                 </p>
-                <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                  <For each={found.parlors}>{(holding) => <ParlorCard holding={holding}>{(token) => <TokenRow bookId={props.bookId} parlor={holding.parlor} token={token} />}</ParlorCard>}</For>
-                </div>
+                <Show when={shownOf(found.parlors).length > 0 || !searching()} fallback={<EmptyState title="当てはまる店舗はありません">店舗の名前の一部で探せます。</EmptyState>}>
+                  <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                    <For each={shownOf(found.parlors)}>{cardOf}</For>
+                  </div>
+                </Show>
+                <Show when={emptyOf(found.parlors).length > 0}>
+                  <button type="button" aria-expanded={emptyShown()} class="flex items-center gap-1 self-start text-sm text-text-secondary hover:text-text-primary" onClick={() => setEmptyShown((was) => !was)}>
+                    <span class="inline-flex transition-transform [&_svg]:size-4" classList={{ "rotate-180": emptyShown() }}>
+                      <ChevronDownIcon />
+                    </span>
+                    残高0の店舗（{emptyOf(found.parlors).length}）
+                  </button>
+                  <Show when={emptyShown()}>
+                    <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                      <For each={emptyOf(found.parlors)}>{cardOf}</For>
+                    </div>
+                  </Show>
+                </Show>
               </Show>
             )}
           </Loaded>

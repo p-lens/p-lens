@@ -2,14 +2,14 @@ import { createMemo, createResource, createSignal, Show, type JSX } from "solid-
 
 import type { ApplicationError } from "../../../application/errors"
 import type { RecordingContext } from "../../../application/record-tally"
-import { adjustBalance, exchangeRateOn, recordForfeiture, recordPrizeExchange, registerOpeningBalance } from "../../../application/savings"
+import { adjustBalance, changeExchangeRate, exchangeRateOn, recordForfeiture, recordPrizeExchange, registerOpeningBalance } from "../../../application/savings"
 import type { BookId } from "../../../core/book/book"
 import { parseIsoDate } from "../../../core/calendar/calendar"
-import { decimal, isNegative, multiply, negate, toPlainString, type Decimal } from "../../../core/decimal/decimal"
+import { compare, decimal, isNegative, multiply, negate, toPlainString, type Decimal } from "../../../core/decimal/decimal"
 import { identityKey, type Parlor, type SavingsPool } from "../../../core/parlor/parlor"
 import { oddPrizesAt } from "../../../core/savings/prize-exchange"
 import type { ParlorList } from "../../../core/parlor/shared"
-import { exchangeOfStated, exchangeRateOf, poolOf, type PlayTerms } from "../../../core/parlor/terms"
+import { exchangeOfStated, exchangeRateOf, poolOf, statedExchangeOfRate, type PlayTerms } from "../../../core/parlor/terms"
 import type { PlayGameKind } from "../../../core/play/play"
 import { tidyTyped } from "../../../core/text/tidy"
 import type { Submission } from "../../../parlors/port/submission-store"
@@ -37,6 +37,9 @@ const countOf = (text: string): number | undefined => {
 }
 
 const whole = (count: number): Decimal => decimal(BigInt(count), 0)
+
+/** The largest step special prizes come in at any parlor: odd prizes beyond it suggest the book's rate is off. */
+const LARGEST_PRIZE_STEP = decimal(1000n, 0)
 
 /** The rates a corner usually has, for each game, what the form opens with: the tokens ¥1,000 rents, and the tokens ¥100 is exchanged for. */
 const USUAL: Readonly<Record<PlayGameKind, { readonly rental: string; readonly exchange: string; readonly unit: string }>> = {
@@ -268,8 +271,9 @@ export function BalanceAdjustmentForm(props: {
  * the part of a yen left over as the translation adjustment. Where the
  * special prizes are worth more than the tokens were at the book's rate
  * for the day, a line says so and by how much, as soon as both are typed:
- * a digit mistyped, or a rate that is not the parlor's. It is said and not
- * refused — the person may record it as it is.
+ * a digit mistyped, or a rate that is not the parlor's. Where the odd
+ * prizes come to more than ¥1,000, another line says the rate may be off.
+ * Either is said and not refused — the person may record it as it is.
  */
 export function PrizeExchangeForm(props: {
   readonly bookId: BookId
@@ -299,6 +303,12 @@ export function PrizeExchangeForm(props: {
     if (count === undefined || special === undefined || found?.ok !== true || found.value === undefined) return undefined
     const odd = oddPrizesAt(whole(count), found.value, whole(special))
     return isNegative(odd) ? { rate: found.value, worth: multiply(whole(count), found.value), by: negate(odd) } : undefined
+  }
+  /** Whether the odd prizes come to more than ¥1,000, the largest step special prizes come in: the book's rate is then likely off the parlor's. */
+  const oddOverStep = (): boolean => {
+    const [count, special, found] = [exchanged(), countOf(prizes()), rate()]
+    if (count === undefined || special === undefined || found?.ok !== true || found.value === undefined) return false
+    return compare(oddPrizesAt(whole(count), found.value, whole(special)), LARGEST_PRIZE_STEP) > 0
   }
   const save = async (): Promise<void> => {
     settleTyping()
@@ -340,6 +350,13 @@ export function PrizeExchangeForm(props: {
             特殊景品額が、払出数の評価額 {formatYen(over().worth)}（交換率 {formatRate(over().rate)}）を {formatYen(over().by)} 上回っています。端玉景品は {formatYen(negate(over().by))} で記帳されます。入力や帳簿の交換率に間違いがないか確かめてください。このまま記録することもできます。
           </p>
         )}
+      </Show>
+      <Show when={oddOverStep()}>
+        <p role="status" class="flex flex-col text-xs text-warning">
+          <span>1000円超の端玉景品が出ています。</span>
+          <span>レートがズレている可能性があります。</span>
+          <span>このままでも記録はできます。</span>
+        </p>
       </Show>
       <Failure saving={saving()} />
       <div class="flex gap-2">
@@ -413,6 +430,73 @@ export function ForfeitureForm(props: {
       <div class="flex gap-2">
         <Button type="submit" size="small">
           {saving().type === "saving" ? "記録中…" : "記録する"}
+        </Button>
+        <Button variant="ghost" size="small" onClick={() => props.onDone()}>
+          やめる
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+/** The game whose tokens a pool keeps: what its exchange is stated in. */
+const GAME_OF: Readonly<Record<SavingsPool["kind"], PlayGameKind>> = { ball: "pachinko", medal: "slot" }
+
+/**
+ * Setting one pool's exchange rate from a day: the day, and the tokens
+ * ¥100 is exchanged for, begun as the rate the pool has now. The savings
+ * are valued at it from that day on; nothing else is written.
+ */
+export function RateChangeForm(props: {
+  readonly bookId: BookId
+  readonly parlorName: string
+  readonly pool: SavingsPool
+  readonly unit: string
+  readonly current: Decimal | undefined
+  readonly onDone: () => void
+}): JSX.Element {
+  const app = useApp()
+  const game = (): PlayGameKind => GAME_OF[props.pool.kind]
+  const [exchange, setExchange] = createSignal(props.current === undefined ? "" : statedExchangeOfRate(game(), props.current))
+  const [date, setDate] = createSignal<string>(app.services.businessDay())
+  const [saving, setSaving] = createSignal<Saving>({ type: "typing" })
+  const nudge = createNudge()
+  const stated = (): PlayTerms["exchange"] | undefined => exchangeOfStated(game(), tidyTyped(exchange()).replaceAll(",", ""))
+  const save = async (): Promise<void> => {
+    settleTyping()
+    const [typed, on] = [stated(), parseIsoDate(date())]
+    if (saving().type === "saving") return
+    if (typed === undefined || !on.ok) {
+      nudge.nudge()
+      return
+    }
+    setSaving({ type: "saving" })
+    const changed = await changeExchangeRate(app.services.session, props.bookId, { parlorName: props.parlorName, pool: props.pool, date: on.value, rate: exchangeRateOf({ exchange: typed }) })
+    if (!changed.ok) {
+      setSaving({ type: "failed", error: changed.error })
+      return
+    }
+    toast({ title: "交換率を変更しました", description: `${props.parlorName} ${props.pool.tier} 100円あたり${statedExchangeOfRate(game(), exchangeRateOf({ exchange: typed }))}${props.unit}` })
+    app.wrote()
+    props.onDone()
+  }
+  return (
+    <form autocomplete="off"
+      class="flex flex-col gap-2 rounded-md border border-border p-2"
+      onSubmit={(event) => {
+        event.preventDefault()
+        void save()
+      }}
+    >
+      <div class="grid grid-cols-2 items-end gap-1.5">
+        <TextField label="変更日" type="date" value={date()} onChange={setDate} invalid={nudge.red() && !parseIsoDate(date()).ok} onFocus={nudge.settle} compact />
+        <TextField label="交換(100円)" value={exchange()} onChange={setExchange} inputMode="decimal" suffix={props.unit} invalid={nudge.red() && stated() === undefined} onFocus={nudge.settle} compact />
+      </div>
+      <p class="text-xs text-text-muted">変更日から、この交換率で貯玉・貯メダルを評価します。</p>
+      <Failure saving={saving()} />
+      <div class="flex gap-2">
+        <Button type="submit" size="small">
+          {saving().type === "saving" ? "変更中…" : "変更する"}
         </Button>
         <Button variant="ghost" size="small" onClick={() => props.onDone()}>
           やめる

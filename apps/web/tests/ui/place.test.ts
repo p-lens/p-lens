@@ -21,6 +21,8 @@ const PLACES: readonly Place[] = [
   { kind: "document", document: "terms" },
   { kind: "document", document: "privacy" },
   { kind: "book-file", bookId: "made-up" as never, path: "logs/a b.jsonl" },
+  { kind: "passbook", bookId: "made-up" as never, account: "資産:貯玉:梅田/本店:4円" },
+  { kind: "parlor-passbook", bookId: "made-up" as never, parlorName: "梅田/本店" },
   { kind: "destination", lineId: "line-1" },
 ]
 
@@ -39,7 +41,7 @@ describe("places", () => {
   })
 
   test("a narrow window goes selection, content, detail", () => {
-    expect(PLACES.map(focusOf)).toEqual(["selection", "content", "content", "content", "content", "content", "selection", "content", "detail", "content", "content", "selection", "content", "content", "content", "content", "detail", "selection"])
+    expect(PLACES.map(focusOf)).toEqual(["selection", "content", "content", "content", "content", "content", "selection", "content", "detail", "content", "content", "selection", "content", "content", "content", "content", "detail", "detail", "detail", "selection"])
   })
 
   test("one step up from a tally is its list, then the book", () => {
@@ -156,6 +158,15 @@ describe("a book's files", () => {
     expect(placeOf("/books/made-up/files")).toEqual({ kind: "book-view", bookId: "made-up", view: "files" } as never)
     expect(placeOf("/books/made-up/files/logs%2Fx.jsonl")).toEqual({ kind: "book-file", bookId: "made-up", path: "logs/x.jsonl" } as never)
     expect(parentOf({ kind: "book-file", bookId: "made-up" as never, path: "main.journal" })).toEqual({ kind: "book-view", bookId: "made-up", view: "files" } as never)
+  })
+})
+
+describe("a pool's passbook", () => {
+  test("is shown beside the book's savings, and steps back to them", () => {
+    expect(placeOf("/books/made-up/passbooks/%E8%B3%87%E7%94%A3%3A%E8%B2%AF%E7%8E%89%3A%E6%A2%85%E7%94%B0%3A4%E5%86%86")).toEqual({ kind: "passbook", bookId: "made-up", account: "資産:貯玉:梅田:4円" } as never)
+    expect(focusOf({ kind: "passbook", bookId: "made-up" as never, account: "資産:貯玉:梅田:4円" })).toBe("detail")
+    expect(parentOf({ kind: "passbook", bookId: "made-up" as never, account: "資産:貯玉:梅田:4円" })).toEqual({ kind: "book-view", bookId: "made-up", view: "holdings" } as never)
+    expect(parentOf({ kind: "parlor-passbook", bookId: "made-up" as never, parlorName: "梅田" })).toEqual({ kind: "book-view", bookId: "made-up", view: "holdings" } as never)
   })
 })
 

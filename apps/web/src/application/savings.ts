@@ -12,9 +12,18 @@ import { andThen } from "../core/result/result"
 import { balanceAdjustmentEntry, openingBalanceEntry, prependEntry, withEquityDeclared } from "../core/savings/balance"
 import { forfeitureEntry, withForfeitureDeclared, type Forfeiture } from "../core/savings/forfeiture"
 import { prizeExchangeEntry, withPrizesDeclared, type PrizeExchange } from "../core/savings/prize-exchange"
+import { rateChangeLine, type RateChange } from "../core/savings/rate-change"
+import { passbookOf, type PassbookDay } from "../core/report/passbook"
+import { parlorDaysOf, parlorPassbookOf, type ParlorPassbookDay, type PoolPassbook } from "../core/report/parlor-passbook"
+import { byColumn } from "../core/report/breakdown"
+import { statisticTotalOf } from "../core/report/figures"
+import { readSavingsAccount } from "../core/journal/accounts"
+import { negate } from "../core/decimal/decimal"
+import type { Transaction } from "../hledger/protocol/wire"
 import { compare } from "../core/decimal/decimal"
-import { openingBalanceRequest, pricesRequest } from "../hledger/query/requests"
-import { untilTerm } from "../hledger/query/terms"
+import { openingBalanceRequest, parlorEntriesRequest, parlorMovedRequest, poolEntriesRequest, pricesRequest, savingsValueRequest } from "../hledger/query/requests"
+import { savingsAccount } from "../core/journal/accounts"
+import { parlorSavingsTerm, untilTerm } from "../hledger/query/terms"
 import { rateOn } from "../core/valuation/valuation"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
@@ -157,3 +166,63 @@ export const recordForfeiture = async (session: BookSession, bookId: BookId, for
     () => undefined,
   )
 }
+
+/**
+ * Set a pool's exchange rate from a day, as one price line and one commit.
+ * A rate the book already has on that day is left alone.
+ */
+export const changeExchangeRate = async (session: BookSession, bookId: BookId, change: RateChange): Promise<Outcome<void>> => {
+  const line = await session.read(bookId, async (journal) => mapOk(fromHledger(await journal.ask(pricesRequest(""))), (directives) => rateChangeLine(change, pricePointsOf(directives))))
+  if (!line.ok) return line
+  if (!line.value.ok) return Err({ type: "rate-change", problem: line.value.error })
+  if (line.value.value === undefined) return Ok(undefined)
+  const written = line.value.value
+  return mapOk(
+    await session.write(bookId, async (_journal, stored) =>
+      Ok({
+        files: { ...stored.files, [BOOK_FILES.prices]: appendEntry(stored.files[BOOK_FILES.prices] ?? "", written) },
+        intent: { type: "rate-changed" as const, parlor: change.parlorName, tier: change.pool.tier, date: change.date, rate: change.rate },
+      }),
+    ),
+    () => undefined,
+  )
+}
+
+/** A pool's passbook: its days, newest first, read from the entries that post to it and the book's prices. */
+export const loadPassbook = (session: BookSession, bookId: BookId, parlorName: string, pool: SavingsPool): Promise<Outcome<readonly PassbookDay[]>> =>
+  session.read(bookId, async (journal) => {
+    const account = savingsAccount(pool.kind, parlorName, pool.tier)
+    const [entries, prices] = await Promise.all([journal.ask(poolEntriesRequest(account)), journal.ask(pricesRequest(""))])
+    return andThen(fromHledger(entries), (page) => mapOk(fromHledger(prices), (directives) => passbookOf(page.items, account, tokenCommodity(pool.kind, parlorName, pool.tier), pricePointsOf(directives))))
+  })
+
+/** The pools a parlor's entries move, each once, balls before medals and each by its account's name. */
+const poolsMovedIn = (entries: readonly Transaction[], parlorName: string): readonly SavingsPool[] =>
+  [...new Set(entries.flatMap((entry) => entry.tpostings.map((posting) => posting.paccount)))]
+    .sort()
+    .flatMap((account) => ((read) => (read !== undefined && read.parlorName === parlorName ? [{ kind: read.kind, tier: read.tier }] : []))(readSavingsAccount(account)))
+    .sort((left, right) => (left.kind === right.kind ? 0 : left.kind === "ball" ? -1 : 1))
+
+/** Each of a parlor's pools as its own passbook, from the parlor's entries: an entry belongs to a pool where it posts to its account. */
+const poolPassbooksOf = (entries: readonly Transaction[], parlorName: string, prices: Parameters<typeof passbookOf>[3]): readonly PoolPassbook[] =>
+  poolsMovedIn(entries, parlorName).map((pool) => {
+    const account = savingsAccount(pool.kind, parlorName, pool.tier)
+    return { pool, days: passbookOf(entries.filter((entry) => entry.tpostings.some((posting) => posting.paccount === account)), account, tokenCommodity(pool.kind, parlorName, pool.tier), prices) }
+  })
+
+/**
+ * A parlor's passbook: every pool's days together, newest first, valued in
+ * yen by hledger — what came in and went out at each day's rate, and what
+ * was held at each day's end at the rate in force then, one question a
+ * day. A figure some token had no rate for is left unsaid.
+ */
+export const loadParlorPassbook = (session: BookSession, bookId: BookId, parlorName: string): Promise<Outcome<readonly ParlorPassbookDay[]>> =>
+  session.read(bookId, async (journal) => {
+    const [entries, prices, deposited, withdrawn] = await Promise.all([journal.ask(parlorEntriesRequest(parlorName)), journal.ask(pricesRequest("")), journal.ask(parlorMovedRequest(parlorName, "amt:>0")), journal.ask(parlorMovedRequest(parlorName, "amt:<0"))])
+    const read = andThen(fromHledger(entries), (page) => mapOk(fromHledger(prices), (directives) => poolPassbooksOf(page.items, parlorName, pricePointsOf(directives))))
+    if (!read.ok) return read
+    const days = parlorDaysOf(read.value)
+    const balances = await Promise.all(days.map(async (date) => [date, ((answer) => (answer.ok ? ((total) => (total.ok ? total.value : undefined))(statisticTotalOf(answer.value)) : undefined))(fromHledger(await journal.ask(savingsValueRequest(untilTerm(date), parlorSavingsTerm(parlorName)))))] as const))
+    const inYen = (answer: Awaited<ReturnType<typeof journal.ask<"balance">>>, turned: boolean) => ((report) => (report.ok ? ((figures) => (figures.ok ? new Map([...figures.value].map(([day, yen]) => [day, turned ? negate(yen) : yen])) : undefined))(byColumn(report.value, "daily")) : undefined))(fromHledger(answer))
+    return Ok(parlorPassbookOf(read.value, { deposited: inYen(deposited, false), withdrawn: inYen(withdrawn, true), balances: new Map(balances) }))
+  })

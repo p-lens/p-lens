@@ -1,8 +1,9 @@
 import { parseIsoDate, type IsoDate } from "../../../core/calendar/calendar"
-import { ZERO, add, decimal, isZero, parseDecimal, subtract, toPlainString, type Decimal } from "../../../core/decimal/decimal"
+import { ZERO, add, compare, decimal, isNegative, isZero, parseDecimal, subtract, toPlainString, type Decimal } from "../../../core/decimal/decimal"
 import type { PlayDraft } from "../../../core/live-play/draft"
 import type { Parlor } from "../../../core/parlor/parlor"
-import { savingsDeductedFor, tokensRentedFor, tokenValueOf, type PlayTerms } from "../../../core/parlor/terms"
+import { exchangeRateOf, savingsDeductedFor, tokensRentedFor, tokenValueOf, type PlayTerms } from "../../../core/parlor/terms"
+import { oddPrizesAt } from "../../../core/savings/prize-exchange"
 import type { Settlement, YenTally } from "../../../core/tally/tally"
 import type { PlayGameKind, PlayId } from "../../../core/play/play"
 import { Err, Ok, type Result } from "../../../core/result/result"
@@ -34,10 +35,10 @@ export interface FinishYenTallyForm {
   readonly takings: string
   /** Where the play has terms: whether the tokens in hand at the finish were exchanged for prizes at the counter, rather than carried on. */
   readonly exchanged: boolean
+  /** The tokens handed over at the counter, as the counter counted them, read only where they were exchanged. */
+  readonly exchangedTokens: string
   /** The special prizes they were exchanged for, in yen, read only where they were. */
   readonly specialPrizes: string
-  /** The odd prizes they were exchanged for, in yen; none where left empty. */
-  readonly oddPrizes: string
   readonly theoreticalValue: string
 }
 
@@ -48,12 +49,45 @@ const readOutlay = (text: string): Read<Decimal> => {
   return parsed.ok ? parsed : Err({ field: "outlay", reason: "not-a-number" })
 }
 
-/** Prizes in yen, whole: the special ones must be given where the tokens were exchanged, the odd ones are none where left empty. */
-const readPrizes = (text: string, field: "special-prizes" | "odd-prizes"): Read<Decimal> => {
-  if (tidyTyped(text) === "") return field === "special-prizes" ? Err({ field, reason: "required" }) : Ok(ZERO)
+/** The special prizes in yen, which must be given where the tokens were exchanged. */
+const readSpecialPrizes = (text: string): Read<Decimal> => {
+  if (tidyTyped(text) === "") return Err({ field: "special-prizes", reason: "required" })
   const parsed = parseDecimal(tidyTyped(text).replaceAll(",", ""))
-  return parsed.ok ? parsed : Err({ field, reason: "not-a-number" })
+  return parsed.ok ? parsed : Err({ field: "special-prizes", reason: "not-a-number" })
 }
+
+/**
+ * The odd prizes the tokens in hand came to beside the special ones, worked
+ * out at the play's exchange rate as a parlor's exchange is, in whole yen:
+ * nobody counts the sweets. None where the special prizes are worth as much
+ * or more, the rate typed being then lower than the parlor's.
+ */
+const oddPrizesFor = (held: Decimal, terms: PlayTerms, special: Decimal): Decimal => ((odd) => (isNegative(odd) ? ZERO : odd))(oddPrizesAt(held, exchangeRateOf(terms), special))
+
+/** The odd prizes the tokens handed over and the special prizes typed come to, shown beside them; none while either does not read. */
+export const oddPrizesOf = (form: Pick<FinishYenTallyForm, "exchangedTokens" | "specialPrizes">, terms: PlayTerms): Decimal | undefined => {
+  const [handed, special] = [readCount(form.exchangedTokens, "exchanged-tokens"), readSpecialPrizes(form.specialPrizes)]
+  return handed.ok && special.ok ? oddPrizesFor(handed.value, terms, special.value) : undefined
+}
+
+/** The largest step special prizes come in at any parlor: odd prizes beyond it suggest the rate is off. */
+const LARGEST_PRIZE_STEP = decimal(1000n, 0)
+
+/**
+ * Whether the count handed over and the special prizes typed cannot have
+ * been an exchange at the play's rate: the special prizes worth more than
+ * the tokens were, or leaving odd prizes beyond the largest step special
+ * ones come in. Only said, never refused: the rate may be what was typed wrong.
+ */
+export const offTheRate = (form: Pick<FinishYenTallyForm, "exchangedTokens" | "specialPrizes">, terms: PlayTerms): boolean => {
+  const [handed, special] = [readCount(form.exchangedTokens, "exchanged-tokens"), readSpecialPrizes(form.specialPrizes)]
+  if (!handed.ok || !special.ok || isZero(handed.value)) return false
+  const odd = oddPrizesAt(handed.value, exchangeRateOf(terms), special.value)
+  return isNegative(odd) || compare(odd, LARGEST_PRIZE_STEP) > 0
+}
+
+/** The form with its tokens in hand said to be exchanged, the count handed over begun as the tokens in hand. */
+export const exchangedFrom = (form: FinishYenTallyForm): FinishYenTallyForm => ({ ...form, exchanged: true, exchangedTokens: form.payout })
 
 /** Yen left empty are none. */
 const readTakings = (text: string): Read<Decimal> => {
@@ -65,7 +99,7 @@ const readTakings = (text: string): Read<Decimal> => {
 const COUNT = /^\d+$/
 
 /** Tokens counted: a whole number, none where left empty. */
-const readCount = (text: string, field: "replay-paid-out" | "carried-in" | "payout"): Read<Decimal> => {
+const readCount = (text: string, field: "replay-paid-out" | "carried-in" | "payout" | "exchanged-tokens"): Read<Decimal> => {
   const plain = tidyTyped(text).replaceAll(",", "")
   if (plain === "") return Ok(ZERO)
   return COUNT.test(plain) ? Ok(decimal(BigInt(plain), 0)) : Err({ field, reason: "not-a-number" })
@@ -99,8 +133,8 @@ export const offBookDeductedOf = (form: Pick<FinishYenTallyForm, "replayPaidOut"
  * but the cash from and to savings the book does not keep, so the plays of
  * a day at no parlor hand their tokens on through them and cash falls by
  * the cash spent alone — unless the tokens in hand were exchanged for
- * prizes at the counter, when what came back is the prizes typed, special
- * and odd. With none: the cash spent, and the yen typed as come back, the
+ * prizes at the counter, when what came back is the special prizes typed
+ * and the odd ones they leave at the rate beside the count handed over. With none: the cash spent, and the yen typed as come back, the
  * prizes taken home.
  */
 const readSides = (form: FinishYenTallyForm, terms: PlayTerms | undefined): Result<Sides, readonly FieldProblem[]> => {
@@ -116,10 +150,11 @@ const readSides = (form: FinishYenTallyForm, terms: PlayTerms | undefined): Resu
   if (!outlay.ok || !paidOut.ok || !carriedIn.ok || !payout.ok) return Err([outlay, paidOut, carriedIn, payout].flatMap(problemOf))
   const drawn = yenOf(decimal(BigInt(savingsDeductedFor(terms, Number(toPlainString(paidOut.value)))), 0), tokenValue)
   if (form.exchanged) {
-    const special = readPrizes(form.specialPrizes, "special-prizes")
-    const odd = readPrizes(form.oddPrizes, "odd-prizes")
-    if (!special.ok || !odd.ok) return Err([special, odd].flatMap(problemOf))
-    return Ok({ outlay: add(add(outlay.value, drawn), yenOf(carriedIn.value, tokenValue)), takings: add(special.value, odd.value), settlement: { type: "off-book-exchanged", cash: outlay.value, oddPrizes: odd.value } })
+    const handed = readCount(form.exchangedTokens, "exchanged-tokens")
+    const special = readSpecialPrizes(form.specialPrizes)
+    if (!handed.ok || !special.ok) return Err([handed, special].flatMap(problemOf))
+    const odd = oddPrizesFor(handed.value, terms, special.value)
+    return Ok({ outlay: add(add(outlay.value, drawn), yenOf(carriedIn.value, tokenValue)), takings: add(special.value, odd), settlement: { type: "off-book-exchanged", cash: outlay.value, oddPrizes: odd } })
   }
   return Ok({ outlay: add(add(outlay.value, drawn), yenOf(carriedIn.value, tokenValue)), takings: yenOf(payout.value, tokenValue), settlement: { type: "off-book-savings", cash: outlay.value } })
 }
@@ -176,7 +211,7 @@ export const finishYenTallyFormOf = (draft: PlayDraft, played: PlayedSoFar): Fin
   payout: filled(played.held),
   takings: "",
   exchanged: false,
+  exchangedTokens: "",
   specialPrizes: "",
-  oddPrizes: "",
   theoreticalValue: played.theoreticalValue === undefined ? "" : toPlainString(theoreticalDecimalOf(played.theoreticalValue)),
 })

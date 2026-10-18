@@ -7,6 +7,9 @@ export const NO_MACHINE = "機種指定なし"
 /** What stands where a tally names no parlor. */
 export const NO_PARLOR = "店舗名なし"
 
+/** What is said under an exchange that cannot have been at the play's rate, a line to a sentence. */
+export const EXCHANGE_OFF_THE_RATE = ["入力したレートと合いません。", "稼働入力画面に戻ってレート変更可能です。", "このままでも記録はできます。"] as const
+
 /**
  * An entry's description as a person reads it: the payee and the note on
  * either side of hledger's bar, each where it is there, with the bar

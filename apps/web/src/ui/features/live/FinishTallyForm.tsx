@@ -1,4 +1,4 @@
-import { Match, Show, Switch, type JSX } from "solid-js"
+import { createEffect, createSignal, Match, Show, Switch, type JSX } from "solid-js"
 
 import type { ApplicationError } from "../../../application/errors"
 import type { Decimal } from "../../../core/decimal/decimal"
@@ -49,6 +49,36 @@ export interface FinishTallyEditing {
   readonly failure: () => ApplicationError | undefined
   readonly saving: () => boolean
   readonly submit: (event: SubmitEvent) => Promise<void>
+}
+
+/**
+ * The entry the form writes, or why it cannot yet. While it cannot, the
+ * place keeps the height the entry was last shown at: on a phone scrolled
+ * to the end, the page would otherwise shrink under the thumb and jump.
+ */
+function EntryPreview(props: { readonly editing: FinishTallyEditing }): JSX.Element {
+  const editing = props.editing
+  const [shown, setShown] = createSignal<number | undefined>(undefined)
+  return (
+    <div style={{ "min-height": editing.previewText() === undefined && shown() !== undefined ? `${shown()}px` : undefined }}>
+      <Switch fallback={<p class="text-sm text-text-muted">入力を直すと、ここに仕訳が表示されます。</p>}>
+        <Match when={editing.previewText()}>
+          {(text) => (
+            <pre ref={(pre) => createEffect(() => text() && setShown(pre.offsetHeight))} class="overflow-x-auto rounded-md bg-surface-0 p-3 font-mono text-xs leading-relaxed text-text-secondary">
+              {text()}
+            </pre>
+          )}
+        </Match>
+        <Match when={editing.previewProblem()} keyed>
+          {(problem) => (
+            <p class="text-sm" classList={redText(editing.nudge.red())}>
+              {problem}
+            </p>
+          )}
+        </Match>
+      </Switch>
+    </div>
+  )
 }
 
 /**
@@ -151,18 +181,7 @@ export function FinishTallyForm(props: {
       </div>
       <section class="flex flex-col gap-2">
         <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">書き込まれる仕訳</h2>
-        <Switch fallback={<p class="text-sm text-text-muted">入力を直すと、ここに仕訳が表示されます。</p>}>
-          <Match when={editing.previewText()}>
-            {(text) => <pre class="overflow-x-auto rounded-md bg-surface-0 p-3 font-mono text-xs leading-relaxed text-text-secondary">{text()}</pre>}
-          </Match>
-          <Match when={editing.previewProblem()} keyed>
-            {(problem) => (
-              <p class="text-sm" classList={redText(editing.nudge.red())}>
-                {problem}
-              </p>
-            )}
-          </Match>
-        </Switch>
+        <EntryPreview editing={editing} />
       </section>
       <Show when={editing.failure()} keyed>
         {(error) => (

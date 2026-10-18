@@ -50,6 +50,9 @@ export const drawnTerm = "amt:<0"
 /** Every savings account of every kind of token, at every parlor. */
 export const savingsTerm = `^(${escapeRegex(savingsRoot("ball"))}|${escapeRegex(savingsRoot("medal"))}):`
 
+/** Every pool of savings at one parlor, balls and medals alike. */
+export const parlorSavingsTerm = (parlorName: string): string => `^(${escapeRegex(savingsRoot("ball"))}|${escapeRegex(savingsRoot("medal"))}):${escapeRegex(parlorName)}:`
+
 /** The entries that registered the savings a pool began with. */
 export const openingBalanceTerm = (kind: TokenKind, parlorName: string, tier: string): string => `tag:${SAVINGS_TAG}=^opening$ ^${escapeRegex(savingsAccount(kind, parlorName, tier))}$`
 

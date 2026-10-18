@@ -124,8 +124,8 @@ export interface YenTally extends TallyHead {
  * - `off-book-exchanged`: counted in tokens on its terms, the outlay as
  *   with `off-book-savings`, but the tokens it had left exchanged for
  *   prizes at the counter: its takings are the prizes taken home, the
- *   special prizes and `oddPrizes` — what a parlor not in the list gives
- *   is typed as it was given, there being no rate of its to work it out.
+ *   special prizes, typed as they were given, and `oddPrizes`, what the
+ *   tokens left beside them at the play's own exchange rate.
  * - `cash-and-prizes`: counted in yen alone: the outlay was cash, and the
  *   takings the special prizes taken home.
  */
@@ -196,6 +196,7 @@ export type NumericField =
   | "takings"
   | "special-prizes"
   | "odd-prizes"
+  | "exchanged-tokens"
   | "theoretical-value"
   | "jackpots"
 

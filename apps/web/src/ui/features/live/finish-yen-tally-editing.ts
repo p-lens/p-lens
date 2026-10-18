@@ -20,7 +20,7 @@ import { describeTallyError } from "../../wording/errors"
 import { FIELD_PROBLEM_TEXT } from "../../wording/fields"
 import { formatSignedYen, toneOf, UNSEEN_ACTUAL } from "../../wording/numbers"
 import { machineChoicesOf, type FieldProblem, type FormField } from "./finish-tally-reading"
-import { heldIn, offBookDeductedOf, readFinishYenTallyForm, rentedOf, resultOfFinishYenTally, type FinishYenTallyForm } from "./finish-yen-tally-form"
+import { exchangedFrom, heldIn, offBookDeductedOf, oddPrizesOf, offTheRate, readFinishYenTallyForm, rentedOf, resultOfFinishYenTally, type FinishYenTallyForm } from "./finish-yen-tally-form"
 import { createFollowedWorth, type WorthAt } from "./followed-worth"
 import type { FinishTallyEditing } from "./FinishTallyForm"
 import type { ParlorChoice } from "./parlor-choice"
@@ -60,10 +60,15 @@ interface FinishYenTallyEditing {
   /** Whether the tokens in hand were exchanged for prizes at the counter, and the prizes typed. */
   readonly exchanged: () => boolean
   readonly setExchanged: (exchanged: boolean) => void
+  /** The count handed over at the counter: begun as the tokens in hand each time the tokens are said to be exchanged. */
+  readonly exchangedTokens: () => string
+  readonly setExchangedTokens: (typed: string) => void
   readonly specialPrizes: () => string
   readonly setSpecialPrizes: (typed: string) => void
-  readonly oddPrizes: () => string
-  readonly setOddPrizes: (typed: string) => void
+  /** The odd prizes worked out at the rate beside the special prizes typed; none while they do not read. */
+  readonly oddPrizes: () => Decimal | undefined
+  /** Whether the exchange typed cannot have been at the play's rate. */
+  readonly offTheRate: () => boolean
 }
 
 /**
@@ -172,10 +177,12 @@ export const createFinishYenTallyEditing = (given: FinishYenTallyEditingGiven): 
     setTakings: set("takings"),
     payout: () => form().payout,
     exchanged: () => form().exchanged,
-    setExchanged: set("exchanged"),
+    setExchanged: (exchanged) => setForm((current) => (exchanged ? exchangedFrom(current) : { ...current, exchanged })),
+    exchangedTokens: () => form().exchangedTokens,
+    setExchangedTokens: set("exchangedTokens"),
     specialPrizes: () => form().specialPrizes,
     setSpecialPrizes: set("specialPrizes"),
-    oddPrizes: () => form().oddPrizes,
-    setOddPrizes: set("oddPrizes"),
+    oddPrizes: () => (given.terms === undefined ? undefined : oddPrizesOf(form(), given.terms)),
+    offTheRate: () => given.terms !== undefined && offTheRate(form(), given.terms),
   }
 }

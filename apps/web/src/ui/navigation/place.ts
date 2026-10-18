@@ -36,7 +36,10 @@ const isFormulaTab = (segment: string): segment is FormulaTab => (FORMULA_TABS a
  * `tally-new` adds a tally to a book by hand, by its totals in yen;
  * `tally-revise` sets a recorded tally right; `book-breakdown` groups a
  * book's results by what its last segment names; `book-file`
- * shows one of its files as it is kept, its path one encoded segment.
+ * shows one of its files as it is kept, its path one encoded segment;
+ * `passbook` shows one pool's savings day by day beside them all, the
+ * pool named by its account, one encoded segment, and `parlor-passbook`
+ * every pool of one parlor together, in yen.
  *
  * `book-view` is one of a book's views; its savings may be of some of its
  * parlors, and its calendar of some of those who played it, named by a
@@ -87,6 +90,10 @@ export type Place =
   | { readonly kind: "tally-new"; readonly bookId: BookId }
   | { readonly kind: "tally-revise"; readonly bookId: BookId; readonly playId: PlayId }
   | { readonly kind: "book-file"; readonly bookId: BookId; readonly path: string }
+  /** One pool's passbook beside the book's savings, named by the pool's savings account. */
+  | { readonly kind: "passbook"; readonly bookId: BookId; readonly account: string }
+  /** A parlor's passbook beside the book's savings, every pool of it together in yen, named by the parlor. */
+  | { readonly kind: "parlor-passbook"; readonly bookId: BookId; readonly parlorName: string }
   | { readonly kind: "pachinko-machine-search" }
   | { readonly kind: "parlor-submitted" }
   | { readonly kind: "pachinko-machine"; readonly machineId: string }
@@ -196,6 +203,8 @@ const placeOfSegments = (segments: readonly string[], path: string): Place => {
     return { kind: "book-breakdown", bookId: second as BookId, by: fourth ?? OVERALL }
   if (first === "books" && second !== undefined && third === "tallies" && fourth === "new") return { kind: "tally-new", bookId: second as BookId }
   if (first === "books" && second !== undefined && third === "files" && fourth !== undefined) return { kind: "book-file", bookId: second as BookId, path: fourth }
+  if (first === "books" && second !== undefined && third === "passbooks" && fourth !== undefined) return { kind: "passbook", bookId: second as BookId, account: fourth }
+  if (first === "books" && second !== undefined && third === "parlor-passbooks" && fourth !== undefined) return { kind: "parlor-passbook", bookId: second as BookId, parlorName: fourth }
   if (first === "books" && second !== undefined && third === "tallies" && fourth !== undefined)
     return { kind: "tally", bookId: second as BookId, playId: fourth as PlayId }
   if (first === "parlors" && second === "submitted" && third === undefined) return { kind: "parlor-submitted" }
@@ -254,6 +263,10 @@ export const pathOf = (place: Place): string => {
       return `/books/${encode(place.bookId)}/tallies/${encode(place.playId)}/revise`
     case "book-file":
       return `/books/${encode(place.bookId)}/files/${encode(place.path)}`
+    case "passbook":
+      return `/books/${encode(place.bookId)}/passbooks/${encode(place.account)}`
+    case "parlor-passbook":
+      return `/books/${encode(place.bookId)}/parlor-passbooks/${encode(place.parlorName)}`
     case "pachinko-machine-search":
       return "/pachinko/machines"
     case "parlor-submitted":
@@ -314,6 +327,8 @@ export const focusOf = (place: Place): Focus => {
       return "selection"
     case "tally":
     case "book-file":
+    case "passbook":
+    case "parlor-passbook":
       return "detail"
     case "live-new":
     case "live-play":
@@ -361,6 +376,9 @@ export const parentOf = (place: Place): Place | undefined => {
       return { kind: "tally", bookId: place.bookId, playId: place.playId }
     case "book-file":
       return { kind: "book-view", bookId: place.bookId, view: "files" }
+    case "passbook":
+    case "parlor-passbook":
+      return { kind: "book-view", bookId: place.bookId, view: "holdings" }
     case "book-view":
     case "book-breakdown":
       return { kind: "book", bookId: place.bookId }
@@ -411,7 +429,7 @@ export const parentOf = (place: Place): Place | undefined => {
 
 /** The book a place is inside, if it is inside one. */
 export const bookOf = (place: Place): BookId | undefined =>
-  place.kind === "book" || place.kind === "book-view" || place.kind === "book-breakdown" || place.kind === "tally" || place.kind === "tally-new" || place.kind === "tally-revise" || place.kind === "book-file" ? place.bookId : undefined
+  place.kind === "book" || place.kind === "book-view" || place.kind === "book-breakdown" || place.kind === "tally" || place.kind === "tally-new" || place.kind === "tally-revise" || place.kind === "book-file" || place.kind === "passbook" || place.kind === "parlor-passbook" ? place.bookId : undefined
 
 /**
  * Places under the live space at the top of the rail: plays in progress, and

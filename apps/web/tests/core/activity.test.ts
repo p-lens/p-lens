@@ -71,6 +71,7 @@ describe("a line of a book's activity", () => {
       at("savings-exchanged", ',"savings":{"date":"2026-10-05","kind":"medal","tokens":"1000"},"prizes":{"specialPrizes":"5000"}'),
       at("savings-forfeited", ',"savings":{"date":"2026-10-05","kind":"ball","tokens":"300"}'),
       at("pool-opened", ',"rate":{"date":"2026-10-01","rate":"3.5714"}'),
+      at("rate-changed", ',"rate":{"date":"2026-10-15","rate":"3.5"}'),
       at("savings-opened", ""),
     ].join("\n")
     expect(activityOfText(text).map(describeActivity)).toEqual([
@@ -78,6 +79,7 @@ describe("a line of a book's activity", () => {
       "梅田の4円を1,000枚交換払出（特殊景品額 ¥5,000）",
       "梅田の4円の300玉の失効を記録",
       "梅田の4円を帳簿に用意（交換率 3.57円）",
+      "梅田の4円の交換率を3.50円に変更（2026年10月15日(木)から）",
       "梅田の4円の開始残高を登録",
     ])
   })

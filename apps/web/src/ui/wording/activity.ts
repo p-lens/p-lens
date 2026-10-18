@@ -1,4 +1,5 @@
 import type { ActivityLine } from "../../core/activity/activity"
+import { formatDay } from "./dates"
 import { sourceName } from "./import"
 import { formatCount, formatRate, formatTokens, formatYen } from "./numbers"
 import { shownDescription } from "./tallies"
@@ -36,6 +37,8 @@ export const describeActivity = (line: ActivityLine): string => {
       return pool === undefined ? SOMETHING_DONE : `${pool.parlor}の${pool.tier}${tokens === undefined ? "" : `の${tokens}`}の失効を記録`
     case "pool-opened":
       return pool === undefined ? SOMETHING_DONE : `${pool.parlor}の${pool.tier}を帳簿に用意${rate === undefined ? "" : `（交換率 ${formatRate(rate.rate)}円）`}`
+    case "rate-changed":
+      return pool === undefined ? SOMETHING_DONE : `${pool.parlor}の${pool.tier}の交換率を${rate === undefined ? "" : `${formatRate(rate.rate)}円に`}変更${rate === undefined ? "" : `（${formatDay(rate.date)}から）`}`
     case "conflict-settled":
       return "ほかの端末と食い違った箇所を選び直し"
     case "play-recorded":

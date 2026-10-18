@@ -3,7 +3,7 @@ import { TALLY_TAGS } from "../../core/tally/tally"
 import type { PlayId } from "../../core/play/play"
 import type { Valuation } from "../../core/valuation/valuation"
 import type { Cut, Request, ValuationRequest } from "../protocol/wire"
-import { accountTerm, branchTerm, cashTerm, combine, playTimeTerm, rentalSpreadTerm, drawnTerm, inferredValueTerm, openingBalanceTerm, talliesAmongTerm, talliesTerm, savingsTerm, sentTalliesTerm, spinPerformanceTerm, theoreticalValueTerm } from "./terms"
+import { accountTerm, branchTerm, parlorSavingsTerm, cashTerm, combine, playTimeTerm, rentalSpreadTerm, drawnTerm, inferredValueTerm, openingBalanceTerm, talliesAmongTerm, talliesTerm, savingsTerm, sentTalliesTerm, spinPerformanceTerm, theoreticalValueTerm } from "./terms"
 
 type RequestOf<K extends Request["kind"]> = Extract<Request, { kind: K }>
 
@@ -99,6 +99,23 @@ export const spinPerformancesRequest = (query: string): RequestOf<"entries"> => 
 
 /** Every tally of a play someone sent, whenever it was played, newest first: who sent each is named by their last. */
 export const sentTalliesRequest: RequestOf<"entries"> = { kind: "entries", query: combine(talliesTerm, sentTalliesTerm), limit: 1_000_000, offset: 0 }
+
+/** Every entry that moves any savings within a query, however many. */
+export const savingsEntriesRequest = (query: string): RequestOf<"entries"> => ({ kind: "entries", query: combine(savingsTerm, query), limit: 1_000_000, offset: 0 })
+
+/** Every entry that moves a parlor's savings, of any pool, however many. */
+export const parlorEntriesRequest = (parlorName: string): RequestOf<"entries"> => ({ kind: "entries", query: parlorSavingsTerm(parlorName), limit: 1_000_000, offset: 0 })
+
+/** What went into a parlor's savings, or came out of them, day by day, in yen at the rate of each day: `amt:>0` or `amt:<0` says which. */
+export const parlorMovedRequest = (parlorName: string, way: "amt:>0" | "amt:<0"): RequestOf<"balance"> => ({
+  kind: "balance",
+  query: combine(parlorSavingsTerm(parlorName), way),
+  interval: "daily",
+  valuation: inYen({ at: "posting-date" }),
+})
+
+/** Every entry that moves one pool's savings, however many. */
+export const poolEntriesRequest = (account: string): RequestOf<"entries"> => ({ kind: "entries", query: accountTerm(account), limit: 1_000_000, offset: 0 })
 
 /** Whether a pool's opening balance is registered: one entry is enough to say so. */
 export const openingBalanceRequest = (kind: TokenKind, parlorName: string, tier: string): RequestOf<"entries"> => ({

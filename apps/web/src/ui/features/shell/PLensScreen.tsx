@@ -13,6 +13,8 @@ import { ActivityView } from "../activity/ActivityView"
 import { CabinetView } from "../live/CabinetView"
 import { DestinationSide } from "../live/DestinationSide"
 import { HoldingsView } from "../holdings/HoldingsView"
+import { ParlorPassbookPanel } from "../holdings/ParlorPassbookPanel"
+import { PassbookPanel } from "../holdings/PassbookPanel"
 import { FinishPlayView } from "../live/FinishPlayView"
 import { LivePlayView } from "../live/LivePlayView"
 import { LiveSide } from "../live/LiveSide"
@@ -108,6 +110,9 @@ const mainFor = (place: Place, query: () => string, live: () => Place): JSX.Elem
       return <ReviseTallyView place={place} bookId={place.bookId} playId={place.playId} />
     case "book-file":
       return <FilesView place={place} bookId={place.bookId} />
+    case "passbook":
+    case "parlor-passbook":
+      return <HoldingsView place={place} bookId={place.bookId} parlors={undefined} query={query()} />
     case "pachinko-machine-search":
       return <PachinkoViews.MachineSearchView place={place} query={query()} />
     case "parlor-submitted":
@@ -210,9 +215,11 @@ const sideFor = (place: Place, books: Outcome<readonly ListedBook[]> | undefined
   return <BookSpaceSide place={place} bookId={bookId} book={book} />
 }
 
-/** The detail pane: a tally's, or a file's text. */
+/** The detail pane: a tally's, a pool's or a parlor's passbook, or a file's text. */
 const auxFor = (place: Place, query: () => string): JSX.Element | undefined => {
   if (place.kind === "tally") return <TallyDetail place={place} bookId={place.bookId} playId={place.playId} query={query()} />
+  if (place.kind === "passbook") return <PassbookPanel place={place} bookId={place.bookId} account={place.account} />
+  if (place.kind === "parlor-passbook") return <ParlorPassbookPanel place={place} bookId={place.bookId} parlorName={place.parlorName} />
   return place.kind === "book-file" ? <FileDetail place={place} bookId={place.bookId} path={place.path} /> : undefined
 }
 

@@ -346,9 +346,13 @@ a day at no parlor hand their tokens on, each one's takings the next one's
 outlay, and come together to what the last left, exchanged, less all that
 was spent. Where the person says the tokens in hand were exchanged at the
 counter (「景品に交換した」 beside 「持ち越す（簿外）」), what came back is
-the special and odd prizes typed as given instead (`off-book-exchanged`):
-the parlor is none whose rate the book knows, so the prizes are what the
-tokens fetched, nothing goes back to 簿外貯玉, and the tokens are not kept
+the special prizes typed as given instead, and the odd prizes they leave
+beside the count handed over (交換数, begun as the tokens in hand) at the
+play's own exchange rate, worked out as a parlor's exchange's are
+and none where the special prizes come to more (`off-book-exchanged`):
+nobody counts the sweets; where the two cannot have been an exchange at
+that rate — odd prizes below nothing or over ¥1,000 — the form says
+so, and records it all the same. Nothing goes back to 簿外貯玉, and the tokens are not kept
 for the day's next play.
 - **Theoretical value** (期待値) is the virtual posting, written only when
   given: what the play was worth by its formula, whatever it came to.
@@ -2088,6 +2092,42 @@ chooses. Nothing is ever sent on its own.
   book as its files and its id and nothing of what it records, and only
   `backup/google-drive` knows Google; `tests/boundary.test.ts` holds both.
 
+## Savings shown
+
+The savings screen shows a card a parlor, never in an order a person sets:
+by the day the parlor's savings last moved, latest first (`loadLastMoved`,
+`core/report/parlor-order`), alike days by name. Parlors holding nothing
+are folded under the rest (残高0の店舗), and a name typed (店舗を検索, a row opened by the magnifying glass beside the funnel,
+`namedLike`, the catalog's `searchKeyOf`) finds any of them, kept on screen
+and never in the address or a book's settings.
+
+## Passbook
+
+A pool's savings are read day by day by pressing its row (貯玉・貯メダル),
+in the detail pane (`passbook` place, `PassbookPanel`, `loadPassbook`,
+`core/report/passbook`): each day its account moved or its rate was set,
+newest first, with the tokens taken out (払出), put in (預入) and left
+(残高), and, pressed, what moved them, a tally by its machine and an
+entry about savings by what it was. It is read from the entries that post
+to the pool's account and the book's prices, and nothing is kept for it.
+
+- **A parlor's passbook is in yen.** Pressing a parlor's heading opens
+  every pool of it as one passbook (`parlor-passbook`,
+  `ParlorPassbookPanel`, `loadParlorPassbook`): tokens of different pools
+  are never added, so a day's row is in yen to two places — what came in
+  and went out valued at the day's rate (a daily balance report split by
+  `amt:>0` and `amt:<0`, `--value=then`), and what was held at the day's
+  end at the rate then (a balance up to that day, `--value=end`, a
+  question a day) — all of it hledger's arithmetic. Pressed, the day shows
+  each pool's tokens and what moved them. A figure some token has no rate
+  for is dashes.
+- **A rate is a price line, and nothing more.** 交換率を変更 writes one
+  `P` line for the pool's commodity from a day (`changeExchangeRate`,
+  `core/savings/rate-change`, the `rate-changed` activity): the savings
+  are valued at it from then on, and what they gained or lost by it is
+  the revaluation hledger works out. A rate the day already has is left
+  alone.
+
 ## Prize exchange
 
 Savings exchanged at a parlor's counter are recorded from a pool's row
@@ -2119,8 +2159,8 @@ back are worth, and the day.
 
 ## Forfeiture
 
-Savings a parlor took back are recorded from a pool's row
-(貯玉・貯メダル → 失効; `core/savings/forfeiture`,
+Savings a parlor took back are recorded from a pool's passbook
+(貯玉・貯メダル → 通帳 → 失効, at its end; `core/savings/forfeiture`,
 `recordForfeiture`): how many tokens — all the pool holds, until fewer
 are said — and the day. Savings left past the day a parlor keeps them
 to have lapsed; a membership withdrawn takes the card and what is on

@@ -33,6 +33,7 @@ const NUMERIC_FIELDS: Readonly<Record<NumericField, string>> = {
   takings: "回収額",
   "special-prizes": "特殊景品額",
   "odd-prizes": "端玉景品額",
+  "exchanged-tokens": "交換数",
   "theoretical-value": "期待値",
   jackpots: "大当り回数",
 }
@@ -247,6 +248,8 @@ export const describeError = (error: ApplicationError): string => {
       return describePrizeExchangeProblem(error.problem)
     case "forfeiture":
       return describeForfeitureProblem(error.problem)
+    case "rate-change":
+      return "交換率は0より大きい数で入力してください。"
     case "import":
       return describeImportProblem(error.problem)
     case "tally-missing":

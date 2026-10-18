@@ -12,6 +12,7 @@ import type { OpeningProblem } from "../core/parlor/opening"
 import type { TallyError } from "../core/tally/tally"
 import type { ForfeitureProblem } from "../core/savings/forfeiture"
 import type { PrizeExchangeProblem } from "../core/savings/prize-exchange"
+import type { RateChangeError } from "../core/savings/rate-change"
 import type { ReportError } from "../core/report/figures"
 import type { CodecProblem } from "../core/sync/codec"
 import type { PairingProblem } from "../core/sync/pairing"
@@ -102,6 +103,7 @@ export type ApplicationError =
   | { readonly type: "forbidden"; readonly capability: Capability }
   | { readonly type: "prize-exchange"; readonly problem: PrizeExchangeProblem }
   | { readonly type: "forfeiture"; readonly problem: ForfeitureProblem }
+  | { readonly type: "rate-change"; readonly problem: RateChangeError }
   | { readonly type: "import"; readonly problem: ImportProblem }
   | { readonly type: "tally-missing" }
   | { readonly type: "tally-unreadable" }
