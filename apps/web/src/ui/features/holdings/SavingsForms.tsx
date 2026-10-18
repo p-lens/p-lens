@@ -355,6 +355,7 @@ export function PrizeExchangeForm(props: {
         <p role="status" class="flex flex-col text-xs text-warning">
           <span>1000円超の端玉景品が出ています。</span>
           <span>レートがズレている可能性があります。</span>
+          <span>通帳から交換率を変更できます。</span>
           <span>このままでも記録はできます。</span>
         </p>
       </Show>
