@@ -16,7 +16,7 @@ export const inProcessMaker = (): SampleMaker => ({
     const order: SampleOrder = { ...work, playIdOn }
     const held: { making: Making; tallied: Tallied; entries: Entry[] } = { making: makingOf(order), tallied: NOTHING_TALLIED, entries: [] }
     while (!madeAll(held.making)) {
-      if (watch.cancelled()) return Ok(undefined)
+      if (watch.stopped.aborted) return Ok(undefined)
       const next = nextDayOf(order, held.making)
       if (!next.ok) return Err({ type: "day", problem: next.error })
       held.making = next.value.making

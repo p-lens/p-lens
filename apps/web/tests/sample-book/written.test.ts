@@ -106,7 +106,7 @@ describe("a sample book made", () => {
       {
         onReport: (report) => reports.push(report),
         pause: async () => undefined,
-        cancelled: () => false,
+        stopped: new AbortController().signal,
       },
     )
     expect(made.ok && made.value.ok && made.value.value.type).toBe("made")
@@ -123,6 +123,28 @@ describe("a sample book made", () => {
     expect((await session.books()).ok).toBe(true)
   }, 120_000)
 
+  test("stops at once where the person stops it while its days are played, and leaves nothing", async () => {
+    const { storage, ports } = await setUp()
+    const making = new AbortController()
+    const days: number[] = []
+    const made = await makeSampleBook(
+      ports,
+      { title: "🍀サンプル帳簿", fresh: firstBook("halfway" as BookId, ME, "マイ帳簿"), businessDayTurn: DEFAULT_BUSINESS_DAY_TURN, through: "2025-06-30" as IsoDate, seed: "halfway" },
+      {
+        onReport: (report) => {
+          if (report.type !== "making") return
+          days.push(report.done)
+          if (report.done === 5) making.abort()
+        },
+        pause: async () => undefined,
+        stopped: making.signal,
+      },
+    )
+    expect(made).toEqual(Ok(Ok({ type: "cancelled" })))
+    expect(days.at(-1)).toBe(5)
+    expect(storage.peek("halfway" as BookId)).toBeUndefined()
+  })
+
   test("is nothing at all where the person stops it before it is written", async () => {
     const { storage, ports } = await setUp()
     const made = await makeSampleBook(
@@ -137,7 +159,7 @@ describe("a sample book made", () => {
       {
         onReport: () => undefined,
         pause: async () => undefined,
-        cancelled: () => true,
+        stopped: AbortSignal.abort(),
       },
     )
     expect(made).toEqual(Ok(Ok({ type: "cancelled" })))

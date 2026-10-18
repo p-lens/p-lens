@@ -46,11 +46,13 @@ export interface SampleRequest {
   readonly seed: string
 }
 
-/** How far making a sample book has got: finding where the device is, the parlors chosen and whether that was by where it is, machines read from the catalog, days played, years written. */
+/** How far making a sample book has got: finding where the device is, the parlors chosen and whether that was by where it is, machines read from the catalog, the days about to be played, days played, years written. */
 export type SampleReport =
   | { readonly type: "locating" }
   | { readonly type: "placed"; readonly located: boolean; readonly prefecture: string | undefined; readonly parlors: number }
   | { readonly type: "gathering"; readonly done: number; readonly of: number }
+  /** The days about to be played: the wait before the first is told of. */
+  | { readonly type: "starting" }
   | {
       readonly type: "making"
       readonly done: number
@@ -61,12 +63,14 @@ export type SampleReport =
     }
   | { readonly type: "writing"; readonly done: number; readonly of: number }
 
-/** Who is told how far it has got, a pause after each step of getting ready so the telling is seen, and whether the person stopped it. */
+/** Who is told how far it has got, a pause after each step of getting ready so the telling is seen, and the signal the person stops it by. */
 export interface SampleWatch {
   readonly onReport: (report: SampleReport) => void
   readonly pause: () => Promise<void>
-  readonly cancelled: () => boolean
+  readonly stopped: AbortSignal
 }
+
+const CANCELLED: Outcome<Result<SampleEnd, SampleProblem>> = Ok(Ok({ type: "cancelled" }))
 
 /** Why no sample book was made: no parlors or no machines to play, a title that cannot be written, or the place its days are played in out of reach. */
 export type SampleProblem = { readonly type: "no-parlors" } | { readonly type: "no-machines" } | { readonly type: "title"; readonly problem: TitleProblem } | { readonly type: "unreachable" }
@@ -139,7 +143,7 @@ const seatedOf = async (catalog: Catalog, machine: MachineSummary): Promise<Seat
 /** Every machine read, a few at a time, each read told. */
 const lineupOf = async (catalog: Catalog, machines: readonly MachineSummary[], watch: SampleWatch): Promise<Lineup> => {
   const read = async (from: number, seated: readonly Seated[]): Promise<readonly Seated[]> => {
-    if (from >= machines.length) return seated
+    if (from >= machines.length || watch.stopped.aborted) return seated
     const batch = await Promise.all(machines.slice(from, from + READ_AT_ONCE).map((machine) => seatedOf(catalog, machine)))
     watch.onReport({
       type: "gathering",
@@ -205,6 +209,7 @@ export const makeSampleBook = async (ports: SamplePorts, request: SampleRequest,
   const from = threeYearsTo(request.through)
   watch.onReport({ type: "locating" })
   await watch.pause()
+  if (watch.stopped.aborted) return CANCELLED
   const here = await hereOf(ports.locate)
   const listed = fromDirectory(await ports.parlors.list())
   if (!listed.ok) return listed
@@ -212,18 +217,21 @@ export const makeSampleBook = async (ports: SamplePorts, request: SampleRequest,
   if (parlors.length === 0) return Ok(Err({ type: "no-parlors" }))
   watch.onReport({ type: "placed", located: here !== undefined, prefecture, parlors: parlors.length })
   await watch.pause()
+  if (watch.stopped.aborted) return CANCELLED
   const summaries = await summariesOf(ports.catalog, from, request.through)
   if (!summaries.ok) return summaries
   const lineup = await lineupOf(ports.catalog, summaries.value, watch)
   if (lineup.pachinko.length === 0 && lineup.slot.length === 0) return Ok(Err({ type: "no-machines" }))
   await watch.pause()
+  if (watch.stopped.aborted) return CANCELLED
   const order: SampleWork = { from, through: request.through, parlors, lineup, seed: request.seed }
+  watch.onReport({ type: "starting" })
   const played = await ports.maker.play(order, {
     onDay: (made) => watch.onReport({ type: "making", done: made.done, of: made.of, day: made.day, result: made.tallied.result, theoreticalValue: made.tallied.theoreticalValue }),
-    cancelled: watch.cancelled,
+    stopped: watch.stopped,
   })
   if (!played.ok) return played.error.type === "day" ? Err(dayProblemOf(played.error.problem)) : Ok(Err({ type: "unreachable" }))
-  if (played.value === undefined) return Ok(Ok({ type: "cancelled" }))
+  if (played.value === undefined || watch.stopped.aborted) return CANCELLED
   const added = await addBook(ports.session, request.fresh, request.title, request.businessDayTurn)
   if (!added.ok) return added
   if (!added.value.ok) return Ok(Err({ type: "title", problem: added.value.error }))

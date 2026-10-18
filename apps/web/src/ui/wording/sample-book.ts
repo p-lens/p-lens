@@ -43,6 +43,41 @@ export const PASSING_LINES = [
   "缶コーヒーを買っています…",
   "会員カードの残高を確かめています…",
   "閉店時間を調べています…",
+  "駐車場の空きを探しています…",
+  "傘立てに傘を置いています…",
+  "おしぼりを受け取っています…",
+  "整理券の番号を確かめています…",
+  "景品カウンターの場所を覚えています…",
+  "データランプの見方を覚えています…",
+  "新台の初打ちに備えています…",
+  "ハンドルの握り心地を確かめています…",
+  "レバーの重さを確かめています…",
+  "目押しの練習をしています…",
+  "リールの絵柄を覚えています…",
+  "上皿を拭いています…",
+  "ホールのBGMに耳を傾けています…",
+  "休憩所でひと息ついています…",
+  "台移動の合図を覚えています…",
+  "イベント日のカレンダーを調べています…",
+  "電卓を用意しています…",
+  "帳簿の紙を揃えています…",
+] as const
+
+/** What is said, one after another, while the days are about to be played: the long wait before the first. */
+export const STARTING_LINES = ["3年分のカレンダーをめくっています…", "サイコロを3年分振る準備をしています…", "まもなく開店です…"] as const
+
+/** What is said, by turns, while a sample book's years are written and hledger checks each. */
+export const WRITING_LINES = [
+  "hledger が電卓を叩いています…",
+  "足し算と引き算を確かめています…",
+  "1円でも合わない数字がないか見ています…",
+  "現金が増えていないか見張っています…",
+  "貯玉を数え直しています…",
+  "端玉景品を数えています…",
+  "交換率の表をめくっています…",
+  "仕訳を清書しています…",
+  "そろばんを弾いています…",
+  "インクが乾くのを待っています…",
 ] as const
 
 export const gatheringText = (done: number, of: number): string => `機種を集めています… ${formatCount(done)}/${formatCount(of)}`
@@ -60,6 +95,8 @@ export const RESULT_LABEL = "収支"
 export const THEORETICAL_LABEL = "期待値"
 
 export const MADE_TOAST = "サンプル帳簿を作成しました"
+
+export const STOPPING_TEXT = "中止しています…"
 
 export const STOPPED_TEXT = "中止しました。帳簿は作っていません。"
 

@@ -27,6 +27,8 @@ import {
   OPEN,
   LOCATING_LINE,
   PASSING_LINES,
+  STARTING_LINES,
+  WRITING_LINES,
   placedLine,
   UNLOCATED_LINE,
   WAITING_LINE,
@@ -38,6 +40,7 @@ import {
   SAMPLE_LINES,
   STOP,
   STOPPED_TEXT,
+  STOPPING_TEXT,
   THEORETICAL_LABEL,
   writingText,
 } from "../../wording/sample-book"
@@ -48,10 +51,11 @@ const TONES = {
   neutral: "text-text-primary",
 } as const
 
-/** Where making a sample book is: not begun, under way and how far, made, stopped before anything was written, or failed and why. */
+/** Where making a sample book is: not begun, under way and how far, being stopped, made, stopped before anything was written, or failed and why. */
 type Stage =
   | { readonly type: "ready" }
   | { readonly type: "running"; readonly report: SampleReport | undefined }
+  | { readonly type: "stopping" }
   | {
       readonly type: "made"
       readonly end: Extract<SampleEnd, { readonly type: "made" }>
@@ -120,6 +124,11 @@ const STEP_PAUSE = 1400
 
 const PASSING_EVERY = 650
 
+/** How often the next of the lines said before the first day comes, and of those said while the years are written. */
+const STARTING_EVERY = 1100
+
+const WRITING_EVERY = 1500
+
 /** How many of the lines said are kept in sight, the newest last. */
 const LINES_SHOWN = 5
 
@@ -131,6 +140,8 @@ const linesOf = (report: SampleReport): readonly Line[] => {
       return [...(report.located ? [] : [{ kind: "said", text: UNLOCATED_LINE } as const]), { kind: "said", text: placedLine(report.prefecture, report.parlors) }]
     case "gathering":
       return [{ kind: "gathering", text: gatheringText(report.done, report.of) }]
+    case "starting":
+      return [{ kind: "said", text: STARTING_LINES[0] }]
     case "making":
     case "writing":
       return []
@@ -159,13 +170,30 @@ function Preparing(props: { readonly lines: readonly Line[] }): JSX.Element {
   )
 }
 
+/** The years being written, and while hledger checks each, something said by turns beside a turning mark, so the wait is not a still one. */
+function Writing(props: { readonly report: Extract<SampleReport, { readonly type: "writing" }> }): JSX.Element {
+  const [said, setSaid] = createSignal(Math.floor(Math.random() * WRITING_LINES.length))
+  const timer = setInterval(() => setSaid((now) => now + 1), WRITING_EVERY)
+  onCleanup(() => clearInterval(timer))
+  return (
+    <div class="flex flex-col gap-3" aria-live="polite">
+      <p class="text-sm text-text-secondary">{writingText(props.report.done, props.report.of)}</p>
+      <div class="h-2 w-full overflow-hidden rounded-full bg-surface-3" aria-hidden="true">
+        <div class="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${String(((props.report.done + 0.5) / Math.max(1, props.report.of)) * 100)}%` }} />
+      </div>
+      <p class="flex items-center gap-2 text-sm text-text-primary">
+        <span class="size-3.5 shrink-0 animate-spin rounded-full border-2 border-accent border-t-transparent" aria-hidden="true" />
+        <span class="min-w-0 truncate">{WRITING_LINES[said() % WRITING_LINES.length]}</span>
+      </p>
+    </div>
+  )
+}
+
 function Running(props: { readonly report: SampleReport | undefined; readonly lines: readonly Line[] }): JSX.Element {
   return (
     <Switch fallback={<Preparing lines={props.lines} />}>
       <Match when={props.report?.type === "making" ? props.report : undefined}>{(report) => <Making report={report()} />}</Match>
-      <Match when={props.report?.type === "writing" ? props.report : undefined} keyed>
-        {(report) => <p class="text-sm text-text-secondary">{writingText(report.done, report.of)}</p>}
-      </Match>
+      <Match when={props.report?.type === "writing" ? props.report : undefined}>{(report) => <Writing report={report()} />}</Match>
     </Switch>
   )
 }
@@ -184,29 +212,53 @@ function SampleBookDialog(props: { readonly open: boolean; readonly titles: read
   const [stage, setStage] = createSignal<Stage>({ type: "ready" })
   const [unnamed, setUnnamed] = createSignal(app.services.unnamedTitle(props.titles))
   const [lines, setLines] = createSignal<readonly Line[]>([])
-  const held: { cancelled: boolean; passing: number } = { cancelled: false, passing: Math.floor(Math.random() * PASSING_LINES.length) }
+  /** The making under way, by what stops it: a making stopped and another begun, the first's end is not this screen's to show. */
+  const held: { making: AbortController | undefined; passing: number; starting: number } = { making: undefined, passing: Math.floor(Math.random() * PASSING_LINES.length), starting: 0 }
   const title = (): string => sampleTitleOf(unnamed())
   const preparing = (): boolean => ((current) => current.type === "running" && current.report?.type !== "making" && current.report?.type !== "writing")(stage())
+  const starting = (): boolean => ((current) => current.type === "running" && current.report?.type === "starting")(stage())
+  /** Whether the lines before the first day are still being said, in their order, rather than those in passing. */
+  const startingSaid = (): boolean => starting() && held.starting < STARTING_LINES.length
   createEffect(
     on(preparing, (now) => {
       if (!now) return
       const timer = setInterval(() => {
+        if (startingSaid()) return
         held.passing += 1
         setLines((said) => withLines(said, [{ kind: "said", text: PASSING_LINES[held.passing % PASSING_LINES.length] ?? "" }]))
       }, PASSING_EVERY)
       onCleanup(() => clearInterval(timer))
     }),
   )
+  createEffect(
+    on(starting, (now) => {
+      if (!now) return
+      held.starting = 1
+      const timer = setInterval(() => {
+        const next = STARTING_LINES[held.starting]
+        held.starting += 1
+        if (next !== undefined) setLines((said) => withLines(said, [{ kind: "said", text: next }]))
+      }, STARTING_EVERY)
+      onCleanup(() => clearInterval(timer))
+    }),
+  )
   const writing = (): boolean => ((current) => current.type === "running" && current.report?.type === "writing")(stage())
+  /** Stop the making at once, wherever it stands but in writing, which goes on to its end: nothing is offered to stop it there. */
+  const stop = (): void => {
+    if (writing() || stage().type !== "running") return
+    held.making?.abort()
+    setStage({ type: "stopping" })
+  }
   const close = (): void => {
     if (writing()) return
-    held.cancelled = true
-    if (stage().type !== "running") setStage({ type: "ready" })
+    if (stage().type === "running") stop()
+    else if (stage().type !== "stopping") setStage({ type: "ready" })
     props.onClose()
   }
   const make = async (): Promise<void> => {
-    if (stage().type === "running") return
-    held.cancelled = false
+    if (stage().type === "running" || stage().type === "stopping") return
+    const making = new AbortController()
+    held.making = making
     setLines([{ kind: "said", text: WAITING_LINE }])
     setStage({ type: "running", report: undefined })
     const services = app.services
@@ -228,13 +280,26 @@ function SampleBookDialog(props: { readonly open: boolean; readonly titles: read
       },
       {
         onReport: (report) => {
+          if (making.signal.aborted) return
           setLines((said) => withLines(said, linesOf(report)))
           setStage({ type: "running", report })
         },
-        pause: () => new Promise((resolve) => setTimeout(resolve, STEP_PAUSE)),
-        cancelled: () => held.cancelled,
+        pause: () =>
+          new Promise((resolve) => {
+            const timer = setTimeout(resolve, STEP_PAUSE)
+            making.signal.addEventListener(
+              "abort",
+              () => {
+                clearTimeout(timer)
+                resolve()
+              },
+              { once: true },
+            )
+          }),
+        stopped: making.signal,
       },
     )
+    if (held.making !== making) return
     if (!made.ok)
       return void setStage({
         type: "failed",
@@ -308,13 +373,19 @@ function SampleBookDialog(props: { readonly open: boolean; readonly titles: read
                     <Running report={running().report} lines={lines()} />
                     <Show when={!writing()}>
                       <div class="flex justify-end">
-                        <Button type="button" variant="secondary" onClick={close}>
+                        <Button type="button" variant="secondary" onClick={stop}>
                           {STOP}
                         </Button>
                       </div>
                     </Show>
                   </>
                 )}
+              </Match>
+              <Match when={stage().type === "stopping"}>
+                <p class="flex items-center gap-2 text-sm text-text-secondary" role="status">
+                  <span class="size-3.5 shrink-0 animate-spin rounded-full border-2 border-accent border-t-transparent" aria-hidden="true" />
+                  {STOPPING_TEXT}
+                </p>
               </Match>
               <Match when={((current) => (current.type === "made" ? current.end : undefined))(stage())} keyed>
                 {(end) => (

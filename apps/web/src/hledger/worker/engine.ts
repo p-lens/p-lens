@@ -5,7 +5,8 @@ import ghcJsffi from "./ghc-jsffi.mjs"
 
 interface Exports {
   hs_init(argc: number, argv: number): void
-  hledgerLoad(path: string): Promise<string>
+  hledgerLoad(path: string, key: string): Promise<string>
+  hledgerSelect(key: string): Promise<string>
   hledgerQuery(request: string): Promise<string>
 }
 
@@ -15,7 +16,8 @@ export type EngineReply =
   | { readonly ok: false; readonly trouble: Trouble }
 
 /**
- * One running hledger, holding one parsed journal.
+ * One running hledger, asking of one parsed journal at a time and keeping a
+ * few read lately, so a journal opened again is not parsed again.
  *
  * Effects only: the module is compiled by whoever starts it, so the worker can
  * fetch it and a test can read it off disk.
@@ -65,6 +67,17 @@ const openEnvelope = (raw: string): EngineReply => {
   }
 }
 
+/**
+ * The key a journal read from these files is kept under: a digest of them
+ * and of the one read first. The same files give the same key, and any
+ * change to any of them another.
+ */
+const keyOf = async (files: Readonly<Record<string, string>>, entry: string): Promise<string> => {
+  const written = JSON.stringify([entry, Object.entries(files).toSorted(([left], [right]) => left.localeCompare(right))])
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(written)))
+  return [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("")
+}
+
 const unreachable = (cause: unknown): EngineReply => ({ ok: false, trouble: { kind: "unreachable", detail: String(cause) } })
 
 /**
@@ -103,9 +116,12 @@ export const startEngine = async (module: WebAssembly.Module): Promise<Engine> =
   }
 
   return {
-    open: (files, entry) => {
+    open: async (files, entry) => {
+      const key = await keyOf(files, entry)
+      const kept = await hledger.hledgerSelect(key).then(openEnvelope, unreachable)
+      if (kept.ok) return kept
       replaceFiles(files)
-      return hledger.hledgerLoad(entry).then(openEnvelope, unreachable)
+      return hledger.hledgerLoad(entry, key).then(openEnvelope, unreachable)
     },
     query: (request) => hledger.hledgerQuery(JSON.stringify(request)).then(openEnvelope, unreachable),
   }

@@ -1,9 +1,12 @@
 # hledger-bindings
 
-hledger-lib compiled to wasm32-wasi as a reactor module with two exports:
+hledger-lib compiled to wasm32-wasi as a reactor module with three exports:
 
-- `hledgerLoad(path)` — read a journal from the WASI filesystem, with hledger's
-  strict checks, and keep it.
+- `hledgerLoad(path, key)` — read a journal from the WASI filesystem, with
+  hledger's strict checks, and keep it under `key` (a digest of its files),
+  beside a few read lately.
+- `hledgerSelect(key)` — ask of the journal kept under `key` again, with no
+  parse; no journal where none is.
 - `hledgerQuery(json)` — answer a report about the journal kept: `entries`,
   `heads` (entries' dates and tags alone), `balance` and `incomestatement` (each optionally with
   `valuation: { at: "posting-date" | "period-end", commodity }`, with

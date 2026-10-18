@@ -12,8 +12,9 @@
 --
 -- Derived from choai's bindings. hledger does the accounting; this module only
 -- makes it reachable from a browser and changes nothing about it. It holds one
--- piece of state, the parsed journal and its price oracle, because parsing
--- grows with the journal while answering a report from one in memory does not.
+-- piece of state, the parsed journal and its price oracle — and a few read
+-- lately beside it — because parsing grows with the journal while answering
+-- a report from one in memory does not.
 --
 -- Reports leave in the shape @hledger --output-format=json@ gives them, with
 -- what P-Lens never reads of a transaction, a posting or an amount left out
@@ -104,12 +105,44 @@ answeredFrom kept request = case reqValuation request of
 journalRef :: IORef (Maybe Kept)
 journalRef = unsafePerformIO (newIORef Nothing)
 
-foreign export javascript "hledgerLoad" jsLoad :: JSString -> IO JSString
+-- | Journals read lately, each under the key its caller gave it — a digest
+-- of its files — newest first, so that going back to a book read a moment
+-- ago, or putting back the one a refused trial replaced, is no new parse.
+-- Parsing is most of what opening costs, and a book does not change under
+-- its key.
+{-# NOINLINE keptRef #-}
+keptRef :: IORef [(Text, Kept)]
+keptRef = unsafePerformIO (newIORef [])
+
+-- | How many journals are kept read at once: a few books and a trial.
+keptAtMost :: Int
+keptAtMost = 4
+
+-- | A journal kept under its key, made the one questions are asked of, and
+-- the oldest let go of past 'keptAtMost'.
+keepUnder :: Text -> Kept -> IO ()
+keepUnder key kept = do
+  writeIORef journalRef (Just kept)
+  lately <- readIORef keptRef
+  writeIORef keptRef (take keptAtMost ((key, kept) : filter ((/= key) . fst) lately))
+
+foreign export javascript "hledgerLoad" jsLoad :: JSString -> JSString -> IO JSString
+foreign export javascript "hledgerSelect" jsSelect :: JSString -> IO JSString
 foreign export javascript "hledgerQuery" jsQuery :: JSString -> IO JSString
 
--- | Parse the journal at this path on the WASI filesystem and keep it.
-jsLoad :: JSString -> IO JSString
-jsLoad path = respond (fmap (fmap summarise) (readAndKeep (fromJSString path)))
+-- | Parse the journal at this path on the WASI filesystem and keep it, under
+-- the key given for it.
+jsLoad :: JSString -> JSString -> IO JSString
+jsLoad path key = respond (fmap (fmap summarise) (readAndKeep (fromJSString path) (T.pack (fromJSString key))))
+
+-- | Make the journal kept under this key the one questions are asked of,
+-- with no parse; no journal where none is kept under it.
+jsSelect :: JSString -> IO JSString
+jsSelect key = respond $ do
+  lately <- readIORef keptRef
+  case lookup (T.pack (fromJSString key)) lately of
+    Nothing -> pure (Left NoJournal)
+    Just kept -> keepUnder (T.pack (fromJSString key)) kept >> pure (Right (summarise (keptJournal kept)))
 
 -- | Read a journal under hledger's strict checks, telling a missing file apart
 -- from one that is there and wrong.
@@ -120,8 +153,8 @@ jsLoad path = respond (fmap (fmap summarise) (readAndKeep (fromJSString path)))
 --
 -- Existence is checked first because hledger calls @error@ for a missing file,
 -- which would reach the caller as a crash.
-readAndKeep :: FilePath -> IO (Either Failure Journal)
-readAndKeep path = do
+readAndKeep :: FilePath -> Text -> IO (Either Failure Journal)
+readAndKeep path key = do
   present <- doesFileExist (snd (splitReaderPrefix path))
   if not present
     then pure (Left (FileMissing path))
@@ -129,7 +162,7 @@ readAndKeep path = do
       result <- runExceptT (readJournalFile definputopts {strict_ = True} path)
       case result of
         Left detail -> pure (Left (ReadFailed (T.pack detail)))
-        Right journal -> writeIORef journalRef (Just (keep journal)) >> pure (Right journal)
+        Right journal -> keepUnder key (keep journal) >> pure (Right journal)
 
 summarise :: Journal -> A.Value
 summarise journal =

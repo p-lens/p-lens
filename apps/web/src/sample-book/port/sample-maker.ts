@@ -25,10 +25,10 @@ export interface Played {
   readonly tallied: Tallied
 }
 
-/** Who is told of each day as it is played, and whether the person stopped it. */
+/** Who is told of each day as it is played, and the signal the person stops it by: stopped, the days stop at once. */
 export interface DaysWatch {
   readonly onDay: (made: DaysMade) => void
-  readonly cancelled: () => boolean
+  readonly stopped: AbortSignal
 }
 
 /** Why the days could not be played: a day that could not be written, or the place they are played in that could not be reached. */
