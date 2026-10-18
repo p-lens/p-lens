@@ -7,6 +7,7 @@ import type { DayPlayed } from "../../src/core/sample-book/day"
 import { drawsFrom, type Draws } from "../../src/core/sample-book/draws"
 import * as Pachinko from "../../src/core/sample-book/pachinko"
 import * as Pachislot from "../../src/core/sample-book/pachislot"
+import { settingLevelOf } from "../../src/core/sample-book/pachislot/setting-level"
 import { sampleParlorsOf } from "../../src/core/sample-book/parlors"
 import { daysBetween, playDaysOf, threeYearsTo } from "../../src/core/sample-book/schedule"
 import type { Sitting } from "../../src/core/sample-book/sitting"
@@ -122,6 +123,22 @@ describe("a sample book's days", () => {
         entry.postings.filter((posting) => posting.account === "資産:現金").forEach((posting) => expect(posting.amount.quantity.mantissa < 0n).toBe(true))
       })
     tallies(days).forEach((entry) => expect(entry.description).toMatch(/^.+ホール\d+ \| .+ \d+番台$/))
+  })
+})
+
+describe("a pachislot machine's setting level", () => {
+  const level = (settingLevel: number) => ({ settingLevel, payoutRate: 1, bonuses: [], combinedOneIn: 100 })
+  test("is one of 4 to 6, each drawn, and the highest where the machine has none of them", () => {
+    const six = [1, 2, 3, 4, 5, 6].map(level)
+    const drawn = Array.from({ length: 300 }).reduce<readonly [readonly number[], Draws]>(
+      ([seen, draws]) => {
+        const [figures, next] = settingLevelOf(six, draws)
+        return [[...seen, figures?.settingLevel ?? 0], next]
+      },
+      [[], drawsFrom("levels")],
+    )[0]
+    expect([...new Set(drawn)].toSorted()).toEqual([4, 5, 6])
+    expect(settingLevelOf([1, 2, 3].map(level), drawsFrom("low"))[0]?.settingLevel).toBe(3)
   })
 })
 

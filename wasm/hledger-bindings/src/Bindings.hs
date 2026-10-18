@@ -27,6 +27,7 @@ import qualified Data.Aeson as A
 import qualified Data.Aeson.Types as A
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import qualified Data.Map.Strict as M
+import qualified Data.Set as S
 import Data.MemoUgly (memo)
 import Data.Decimal (decimalMantissa, decimalPlaces)
 import Data.Text (Text)
@@ -84,14 +85,24 @@ data Kept = Kept
 -- | A journal kept: its oracle made once, and its valuation at each
 -- posting's day made the first time a commodity is asked for and remembered
 -- ('memo', as hledger's oracle remembers its prices). The two other days
--- 'postingApplyValuation' takes are a period's last and today, which a
+-- 'mixedAmountApplyValuation' takes are a period's last and today, which a
 -- valuation at the posting's day reads neither of.
+--
+-- Only amounts in a commodity some price names are valued: the oracle finds
+-- no price for any other, and leaves it as it was — but only after looking
+-- through every price for it, day by day. A book's play time, in seconds,
+-- on every tally, made that most of a book's first valued question.
 keep :: Journal -> Kept
 keep journal = Kept journal oracle (memo valuedInto)
   where
     oracle = journalPriceOracle (infer_prices_ defreportopts) journal
     styles = journalCommodityStyles journal
-    valuedInto commodity = journalMapPostings (\leg -> postingApplyValuation oracle styles (postingDate leg) (postingDate leg) (AtThen (Just commodity)) leg) journal
+    priced = S.fromList (concatMap (\directive -> [pdcommodity directive, acommodity (pdamount directive)]) (jpricedirectives journal))
+    isPriced amount = acommodity amount `S.member` priced
+    valuedAt day commodity total =
+      mixedAmountApplyValuation oracle styles day day day (AtThen (Just commodity)) (filterMixedAmount isPriced total)
+        `maPlus` filterMixedAmount (not . isPriced) total
+    valuedInto commodity = journalMapPostings (\leg -> postingTransformAmount (valuedAt (postingDate leg) commodity) leg) journal
 
 -- | The journal a request is answered from, and the request as it is asked of
 -- it: one valued at each posting's own day is asked of the journal so valued,
@@ -114,17 +125,25 @@ journalRef = unsafePerformIO (newIORef Nothing)
 keptRef :: IORef [(Text, Kept)]
 keptRef = unsafePerformIO (newIORef [])
 
--- | How many journals are kept read at once: a few books and a trial.
-keptAtMost :: Int
-keptAtMost = 4
+-- | How many transactions the journals kept read may hold between them: a
+-- dozen books of a few years — each of which a consolidation reads in turn,
+-- so that keeping fewer than it reads would keep none it reads next — in
+-- about as much memory as a phone gives a page without a second thought.
+keptTransactions :: Int
+keptTransactions = 15000
 
 -- | A journal kept under its key, made the one questions are asked of, and
--- the oldest let go of past 'keptAtMost'.
+-- the oldest let go of once those kept hold more than 'keptTransactions';
+-- the newest is kept however large.
 keepUnder :: Text -> Kept -> IO ()
 keepUnder key kept = do
   writeIORef journalRef (Just kept)
   lately <- readIORef keptRef
-  writeIORef keptRef (take keptAtMost ((key, kept) : filter ((/= key) . fst) lately))
+  writeIORef keptRef (withinBudget ((key, kept) : filter ((/= key) . fst) lately))
+  where
+    withinBudget (newest : older) = newest : map snd (takeWhile ((<= keptTransactions) . fst) (zip (drop 1 (scanl (+) (sizeOf newest) (map sizeOf older))) older))
+    withinBudget [] = []
+    sizeOf = length . jtxns . keptJournal . snd
 
 foreign export javascript "hledgerLoad" jsLoad :: JSString -> JSString -> IO JSString
 foreign export javascript "hledgerSelect" jsSelect :: JSString -> IO JSString

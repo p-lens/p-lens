@@ -35,6 +35,7 @@ import {
   REDRAW_LABEL,
   RESULT_LABEL,
   SAMPLE_ABOUT,
+  SAMPLE_TERMS,
   SAMPLE_HEADING,
   SAMPLE_LABEL,
   SAMPLE_LINES,
@@ -338,6 +339,9 @@ function SampleBookDialog(props: { readonly open: boolean; readonly titles: read
               <Match when={stage().type === "ready" || stage().type === "stopped" || stage().type === "failed"}>
                 <DialogPrimitive.Description as="div" class="flex flex-col gap-2 text-sm leading-relaxed text-text-secondary">
                   <p>{SAMPLE_ABOUT}</p>
+                  <ul class="flex list-disc flex-col gap-0.5 pl-5 text-xs text-text-muted">
+                    <For each={SAMPLE_TERMS}>{(term) => <li>{term}</li>}</For>
+                  </ul>
                 </DialogPrimitive.Description>
                 <div class="flex items-center gap-2">
                   <span class="min-w-0 flex-1 truncate text-sm font-semibold text-text-primary">{title()}</span>

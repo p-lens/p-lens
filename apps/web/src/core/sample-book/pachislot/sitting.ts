@@ -1,13 +1,11 @@
 import type { SettingLevelFigures } from "../../pachislot/figures"
-import type { SettingLevelShare } from "../../pachislot/formula"
 import { chance, exponential, triesToWin, type Draws, type Drawn } from "../draws"
 import type { Leaving, Sitting, SittingTerms, Stretch } from "../sitting"
 import { settingLevelOf } from "./setting-level"
 
-/** What a pachislot machine's sittings are drawn from: its formula's figures at each setting level, and its 設定配分 where it has one. */
+/** What a pachislot machine's sittings are drawn from: its formula's figures at each setting level. */
 export interface Seat {
   readonly levels: readonly SettingLevelFigures[]
-  readonly shares: readonly SettingLevelShare[] | undefined
 }
 
 const MEDALS_A_GAME = 3
@@ -39,7 +37,7 @@ const withStretch = (stretches: readonly Stretch[], stretch: Stretch): readonly 
 
 /**
  * A sitting at a pachislot machine, game after game to each bonus: at a
- * setting level drawn by its 設定配分, each bonus one in its 合算 and
+ * high setting level, 4 to 6, each bonus one in its 合算 and
  * gaining what its AT gains on average or, where the formula does not say,
  * what makes up its 機械割 above what a game pays back between bonuses —
  * more or less by chance — so that a game comes, over many sittings, to
@@ -47,7 +45,7 @@ const withStretch = (stretches: readonly Stretch[], stretch: Stretch): readonly 
  * have lost so much since a win, or now and then as a run ends.
  */
 export const sittingOf = (seat: Seat, terms: SittingTerms, draws: Draws): Drawn<Sitting> => {
-  const [level, drawing] = settingLevelOf(seat.levels, seat.shares, draws)
+  const [level, drawing] = settingLevelOf(seat.levels, draws)
   const payoutRate = level?.payoutRate ?? 1
   const combinedOneIn = level?.combinedOneIn ?? Number.POSITIVE_INFINITY
   const gain = level?.at?.gain ?? Math.max(0, (MEDALS_A_GAME * payoutRate - RETURN_BETWEEN_BONUSES) * combinedOneIn)

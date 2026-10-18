@@ -11,6 +11,16 @@ export const SAMPLE_HEADING = "サンプル帳簿を作る"
 
 export const SAMPLE_ABOUT = "近くのホールで新台を打った3年分の収支を、この端末で作ります。"
 
+/** How a sample book's plays are made, as a person is told before making one: honestly, that they are made up and made to win. */
+export const SAMPLE_TERMS = [
+  "その日に出ている新しい機種を中心に打ちます",
+  "10時から18〜21時まで、1日8〜11時間打ちます",
+  "パチンコはボーダーの6〜28%上の台です",
+  "パチスロは設定4〜6の台です",
+  "貯玉を使い、ときどき交換払出します",
+  "抽選で作った架空の収支で、実際より勝ちやすい条件です",
+] as const
+
 export const MAKE = "作成"
 
 export const STOP = "中止"

@@ -112,7 +112,7 @@ const summariesOf = async (catalog: Catalog, from: IsoDate, through: IsoDate): P
 
 type Seated = { readonly gameKind: "pachinko"; readonly onSale: OnSale<Pachinko.Seat> } | { readonly gameKind: "slot"; readonly onSale: OnSale<Pachislot.Seat> }
 
-/** A machine as a sample book sits at it: its first formula, and its first 設定配分 where it is pachislot and has one. None where it cannot be read or has no formula. */
+/** A machine as a sample book sits at it: its first formula. None where it cannot be read or has no formula. */
 const seatedOf = async (catalog: Catalog, machine: MachineSummary): Promise<Seated | undefined> => {
   const onSale = {
     id: machine.id,
@@ -132,10 +132,7 @@ const seatedOf = async (catalog: Catalog, machine: MachineSummary): Promise<Seat
         gameKind: "slot",
         onSale: {
           ...onSale,
-          seat: {
-            levels,
-            shares: entry.value.distributions[0]?.formula.shares,
-          },
+          seat: { levels },
         },
       }
 }

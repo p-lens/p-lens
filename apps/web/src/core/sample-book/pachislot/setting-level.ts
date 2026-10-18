@@ -1,21 +1,17 @@
 import type { SettingLevelFigures } from "../../pachislot/figures"
-import type { SettingLevelShare } from "../../pachislot/formula"
 import { weighted, type Draws, type Drawn } from "../draws"
 
-/** How a parlor is taken to spread its setting levels where the machine has no 設定配分: most at the lowest, a few at the highest. */
-const SPREAD_UNSTATED: Readonly<Record<number, number>> = {
-  1: 50,
-  2: 20,
-  3: 15,
-  4: 8,
-  5: 5,
-  6: 2,
-}
+/** The setting levels a sample book's pachislot is played at: the high ones, 4 to 6. */
+const HIGH_LEVELS = [4, 5, 6] as const
 
-/** The setting level a sitting's machine was at, drawn by the machine's 設定配分 where it has one, or by a spread most at the lowest. */
-export const settingLevelOf = (levels: readonly SettingLevelFigures[], shares: readonly SettingLevelShare[] | undefined, draws: Draws): Drawn<SettingLevelFigures | undefined> => {
-  const weightOf = (figures: SettingLevelFigures): number =>
-    shares === undefined ? (SPREAD_UNSTATED[figures.settingLevel] ?? 1) : (shares.find((share) => share.settingLevel === figures.settingLevel)?.basisPoints ?? 0)
-  const [drawn, next] = weighted(draws, levels, weightOf)
-  return [drawn ?? levels[0], next]
+/**
+ * The setting level a sitting's machine was at: one of its high levels,
+ * 4 to 6, each as likely — a sample book plays the high settings and
+ * nothing else — or its highest where it has none of them.
+ */
+export const settingLevelOf = (levels: readonly SettingLevelFigures[], draws: Draws): Drawn<SettingLevelFigures | undefined> => {
+  const high = levels.filter((figures) => (HIGH_LEVELS as readonly number[]).includes(figures.settingLevel))
+  const highest = levels.toSorted((left, right) => right.settingLevel - left.settingLevel)[0]
+  const [drawn, next] = weighted(draws, high, () => 1)
+  return [drawn ?? highest, next]
 }

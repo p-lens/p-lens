@@ -21,7 +21,6 @@ export const PACHISLOT_SEAT: Pachislot.Seat = {
     { settingLevel: 1, payoutRate: 0.97, bonuses: [], combinedOneIn: 150 },
     { settingLevel: 6, payoutRate: 1.1, bonuses: [], combinedOneIn: 120 },
   ],
-  shares: undefined,
 }
 
 export const LINEUP: Lineup = {
