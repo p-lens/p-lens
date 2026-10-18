@@ -152,6 +152,10 @@ const linesOf = (report: SampleReport): readonly Line[] => {
 /** The waits that are long, by the step they follow, and what is said through each in turn, its first as it begins: finding where the device is and the parlors, and the days about to be played. */
 const STAGED: Partial<Readonly<Record<SampleReport["type"], readonly string[]>>> = { locating: LOCATING_LINES, starting: STARTING_LINES }
 
+/** Lines in an order of chance, so those alike in kind do not come one after another; a fresh order each time a book is made. */
+const shuffledLines = (lines: readonly string[]): readonly string[] =>
+  lines.reduce<readonly string[]>((placed, line) => ((at) => [...placed.slice(0, at), line, ...placed.slice(at)])(Math.floor(Math.random() * (placed.length + 1))), [])
+
 const withLines = (lines: readonly Line[], added: readonly Line[]): readonly Line[] =>
   added.reduce((all, line) => (line.kind === "gathering" && all.at(-1)?.kind === "gathering" ? [...all.slice(0, -1), line] : [...all, line]), lines)
 
@@ -176,7 +180,8 @@ function Preparing(props: { readonly lines: readonly Line[] }): JSX.Element {
 
 /** The years being written, and while hledger checks each, something said by turns beside a turning mark, so the wait is not a still one. */
 function Writing(props: { readonly report: Extract<SampleReport, { readonly type: "writing" }> }): JSX.Element {
-  const [said, setSaid] = createSignal(Math.floor(Math.random() * WRITING_LINES.length))
+  const lines = shuffledLines(WRITING_LINES)
+  const [said, setSaid] = createSignal(0)
   const timer = setInterval(() => setSaid((now) => now + 1), WRITING_EVERY)
   onCleanup(() => clearInterval(timer))
   return (
@@ -187,7 +192,7 @@ function Writing(props: { readonly report: Extract<SampleReport, { readonly type
       </div>
       <p class="flex items-center gap-2 text-sm text-text-primary">
         <span class="size-3.5 shrink-0 animate-spin rounded-full border-2 border-accent border-t-transparent" aria-hidden="true" />
-        <span class="min-w-0 truncate">{WRITING_LINES[said() % WRITING_LINES.length]}</span>
+        <span class="min-w-0 truncate">{lines[said() % lines.length]}</span>
       </p>
     </div>
   )
@@ -217,7 +222,12 @@ function SampleBookDialog(props: { readonly open: boolean; readonly titles: read
   const [unnamed, setUnnamed] = createSignal(app.services.unnamedTitle(props.titles))
   const [lines, setLines] = createSignal<readonly Line[]>([])
   /** The making under way, by what stops it: a making stopped and another begun, the first's end is not this screen's to show. */
-  const held: { making: AbortController | undefined; passing: number; staged: number } = { making: undefined, passing: Math.floor(Math.random() * PASSING_LINES.length), staged: 0 }
+  const held: { making: AbortController | undefined; passing: number; passingLines: readonly string[]; staged: number } = {
+    making: undefined,
+    passing: 0,
+    passingLines: shuffledLines(PASSING_LINES),
+    staged: 0,
+  }
   const title = (): string => sampleTitleOf(unnamed())
   const preparing = (): boolean => ((current) => current.type === "running" && current.report?.type !== "making" && current.report?.type !== "writing")(stage())
   /** The lines of the long wait it stands in, where it stands in one. */
@@ -230,7 +240,7 @@ function SampleBookDialog(props: { readonly open: boolean; readonly titles: read
       const timer = setInterval(() => {
         if (stagedSaid()) return
         held.passing += 1
-        setLines((said) => withLines(said, [{ kind: "said", text: PASSING_LINES[held.passing % PASSING_LINES.length] ?? "" }]))
+        setLines((said) => withLines(said, [{ kind: "said", text: held.passingLines[held.passing % held.passingLines.length] ?? "" }]))
       }, PASSING_EVERY)
       onCleanup(() => clearInterval(timer))
     }),
@@ -264,6 +274,8 @@ function SampleBookDialog(props: { readonly open: boolean; readonly titles: read
     if (stage().type === "running" || stage().type === "stopping") return
     const making = new AbortController()
     held.making = making
+    held.passingLines = shuffledLines(PASSING_LINES)
+    held.passing = 0
     setLines([{ kind: "said", text: WAITING_LINE }])
     setStage({ type: "running", report: undefined })
     const services = app.services

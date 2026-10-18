@@ -70,6 +70,14 @@ describe("the parlors a sample book plays at", () => {
     expect(parlors.map((sample) => sample.pull).slice(0, 4)).toEqual([5, 3, 2, 1])
   })
 
+  test("are chosen from every parlor in the country in a moment, a name two parlors share kept once", () => {
+    const many = Array.from({ length: 8000 }, (_, index) => ({ ...PARLOR_LIST[index % PARLOR_LIST.length], id: `many-${String(index)}`, name: `ホール${String(index % 7000)}`, prefecture: index % 2 === 0 ? "東京都" : "大阪府" }) as (typeof PARLOR_LIST)[number])
+    const started = performance.now()
+    const [{ parlors }] = sampleParlorsOf(many, TOKYO, FROM, THROUGH, drawsFrom("many"))
+    expect(performance.now() - started).toBeLessThan(500)
+    expect(new Set(parlors.map((sample) => sample.parlor.name)).size).toBe(parlors.length)
+  })
+
   test("are of a prefecture with enough of them where the device does not know where it is", () => {
     const [{ parlors }] = sampleParlorsOf(PARLOR_LIST, undefined, FROM, THROUGH, drawsFrom("anywhere"))
     expect(parlors.every((sample) => sample.parlor.name.startsWith("東京都"))).toBe(true)

@@ -69,12 +69,20 @@ const openEnvelope = (raw: string): EngineReply => {
 }
 
 /**
- * The key a journal read from these files is kept under: a digest of them
- * and of the one read first. The same files give the same key, and any
- * change to any of them another.
+ * The files hledger reads of a book's: its journals, which include one
+ * another. The rest — the activity log, the settings, the plays' logs —
+ * hledger never reads, and a book's activity log is about as large as its
+ * journals, so neither digesting them nor handing them over is done.
+ */
+const journalsOf = (files: Readonly<Record<string, string>>): readonly (readonly [string, string])[] => Object.entries(files).filter(([path]) => path.endsWith(".journal"))
+
+/**
+ * The key a journal read from these files is kept under: a digest of their
+ * journals and of the one read first. The same journals give the same key,
+ * and any change to any of them another.
  */
 const keyOf = async (files: Readonly<Record<string, string>>, entry: string): Promise<string> => {
-  const written = JSON.stringify([entry, Object.entries(files).toSorted(([left], [right]) => left.localeCompare(right))])
+  const written = JSON.stringify([entry, journalsOf(files).toSorted(([left], [right]) => left.localeCompare(right))])
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(written)))
   return [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("")
 }
@@ -131,7 +139,7 @@ export const startEngine = async (module: WebAssembly.Module): Promise<Engine> =
 
   const replaceFiles = (files: Readonly<Record<string, string>>): void => {
     directory.clear()
-    treeOf(Object.entries(files)).forEach(([name, entry]) => directory.set(name, entry))
+    treeOf(journalsOf(files)).forEach(([name, entry]) => directory.set(name, entry))
   }
 
   /**

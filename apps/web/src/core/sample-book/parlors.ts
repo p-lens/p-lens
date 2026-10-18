@@ -2,7 +2,7 @@ import type { IsoDate } from "../calendar/calendar"
 import type { Decimal } from "../decimal/decimal"
 import { nearestFirst } from "../parlor/distance"
 import type { Parlor, ParlorId, SavingsPool } from "../parlor/parlor"
-import { sameParlorName } from "../parlor/search"
+import { searchKeyOf } from "../text/search-key"
 import { isWritableParlorName, type Coordinates, type Prefecture, type SharedParlor } from "../parlor/shared"
 import { exchangeRateOf, poolOf, type PlayTerms } from "../parlor/terms"
 import type { PlayGameKind } from "../play/play"
@@ -133,9 +133,17 @@ const sampleParlorOf = (shared: SharedParlor, pull: number, days: readonly IsoDa
   ]
 }
 
-/** Parlors whose names a book can be written with, each name once. */
-const writable = (parlors: readonly SharedParlor[]): readonly SharedParlor[] =>
-  parlors.filter((parlor) => isWritableParlorName(parlor.name)).filter((parlor, index, all) => all.findIndex((other) => sameParlorName(other.name, parlor.name)) === index)
+/**
+ * Parlors whose names a book can be written with, each name once — the
+ * first going by it — each name's key worked out once: the list is every
+ * parlor in the country, and setting each against every other held the
+ * screen up for seconds.
+ */
+const writable = (parlors: readonly SharedParlor[]): readonly SharedParlor[] => {
+  const named = parlors.filter((parlor) => isWritableParlorName(parlor.name)).map((parlor) => [searchKeyOf(parlor.name), parlor] as const)
+  const first = new Map(named.toReversed())
+  return named.filter(([key, parlor]) => first.get(key) === parlor).map(([, parlor]) => parlor)
+}
 
 /**
  * The prefecture a sample book is played in: the nearest parlor's, where
