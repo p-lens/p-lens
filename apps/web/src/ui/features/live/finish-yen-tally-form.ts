@@ -32,6 +32,12 @@ export interface FinishYenTallyForm {
   readonly payout: string
   /** What came back in yen, read only where no token value is known. */
   readonly takings: string
+  /** Where the play has terms: whether the tokens in hand at the finish were exchanged for prizes at the counter, rather than carried on. */
+  readonly exchanged: boolean
+  /** The special prizes they were exchanged for, in yen, read only where they were. */
+  readonly specialPrizes: string
+  /** The odd prizes they were exchanged for, in yen; none where left empty. */
+  readonly oddPrizes: string
   readonly theoreticalValue: string
 }
 
@@ -40,6 +46,13 @@ const readOutlay = (text: string): Read<Decimal> => {
   if (tidyTyped(text) === "") return Err({ field: "outlay", reason: "required" })
   const parsed = parseDecimal(tidyTyped(text))
   return parsed.ok ? parsed : Err({ field: "outlay", reason: "not-a-number" })
+}
+
+/** Prizes in yen, whole: the special ones must be given where the tokens were exchanged, the odd ones are none where left empty. */
+const readPrizes = (text: string, field: "special-prizes" | "odd-prizes"): Read<Decimal> => {
+  if (tidyTyped(text) === "") return field === "special-prizes" ? Err({ field, reason: "required" }) : Ok(ZERO)
+  const parsed = parseDecimal(tidyTyped(text).replaceAll(",", ""))
+  return parsed.ok ? parsed : Err({ field, reason: "not-a-number" })
 }
 
 /** Yen left empty are none. */
@@ -85,8 +98,10 @@ export const offBookDeductedOf = (form: Pick<FinishYenTallyForm, "replayPaidOut"
  * at the exchange, and the tokens in hand at the finish came back — all
  * but the cash from and to savings the book does not keep, so the plays of
  * a day at no parlor hand their tokens on through them and cash falls by
- * the cash spent alone. With none: the cash spent, and the yen typed as
- * come back, the prizes taken home.
+ * the cash spent alone — unless the tokens in hand were exchanged for
+ * prizes at the counter, when what came back is the prizes typed, special
+ * and odd. With none: the cash spent, and the yen typed as come back, the
+ * prizes taken home.
  */
 const readSides = (form: FinishYenTallyForm, terms: PlayTerms | undefined): Result<Sides, readonly FieldProblem[]> => {
   const outlay = readOutlay(form.outlay)
@@ -100,6 +115,12 @@ const readSides = (form: FinishYenTallyForm, terms: PlayTerms | undefined): Resu
   const payout = readCount(form.payout, "payout")
   if (!outlay.ok || !paidOut.ok || !carriedIn.ok || !payout.ok) return Err([outlay, paidOut, carriedIn, payout].flatMap(problemOf))
   const drawn = yenOf(decimal(BigInt(savingsDeductedFor(terms, Number(toPlainString(paidOut.value)))), 0), tokenValue)
+  if (form.exchanged) {
+    const special = readPrizes(form.specialPrizes, "special-prizes")
+    const odd = readPrizes(form.oddPrizes, "odd-prizes")
+    if (!special.ok || !odd.ok) return Err([special, odd].flatMap(problemOf))
+    return Ok({ outlay: add(add(outlay.value, drawn), yenOf(carriedIn.value, tokenValue)), takings: add(special.value, odd.value), settlement: { type: "off-book-exchanged", cash: outlay.value, oddPrizes: odd.value } })
+  }
   return Ok({ outlay: add(add(outlay.value, drawn), yenOf(carriedIn.value, tokenValue)), takings: yenOf(payout.value, tokenValue), settlement: { type: "off-book-savings", cash: outlay.value } })
 }
 
@@ -154,5 +175,8 @@ export const finishYenTallyFormOf = (draft: PlayDraft, played: PlayedSoFar): Fin
   carriedIn: filled(played.carriedIn),
   payout: filled(played.held),
   takings: "",
+  exchanged: false,
+  specialPrizes: "",
+  oddPrizes: "",
   theoreticalValue: played.theoreticalValue === undefined ? "" : toPlainString(theoreticalDecimalOf(played.theoreticalValue)),
 })

@@ -5,6 +5,7 @@ import type { PlayTerms } from "../../../core/parlor/terms"
 import { tokenKindOf, type PlayGameKind, type PlayId } from "../../../core/play/play"
 import type { TallyAside, YenTally } from "../../../core/tally/tally"
 import { TextField } from "../../primitives/text-field"
+import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
 import { formatTokens, tokenUnit } from "../../wording/numbers"
 import type { SubmitWords } from "./finish-tally-reading"
 import { createFinishYenTallyEditing } from "./finish-yen-tally-editing"
@@ -60,7 +61,26 @@ export function FinishYenTallyEditor(props: {
       }
       {...(props.terms === undefined
         ? { takings: <TextField label="回収額" value={editing.takings()} onChange={editing.setTakings} inputMode="numeric" suffix="円" error={editing.tally.problemOf("takings")} invalid={editing.tally.nudged("takings")} onFocus={editing.tally.nudge.settle} /> }
-        : { savings: { deducted: editing.deducted } })}
+        : {
+            savings: { deducted: editing.deducted },
+            afterHand: (
+              <div class="flex flex-col gap-2">
+                <div class="flex flex-col gap-1.5">
+                  <span class="text-xs font-bold tracking-wide text-text-secondary">{`持ち${tokenUnit(tokenKindOf(props.gameKind))}`}</span>
+                  <ToggleGroup value={editing.exchanged() ? "exchanged" : "carried"} onChange={(value: string | null) => value !== null && editing.setExchanged(value === "exchanged")} aria-label={`持ち${tokenUnit(tokenKindOf(props.gameKind))}`}>
+                    <ToggleGroupItem value="carried">持ち越す（簿外）</ToggleGroupItem>
+                    <ToggleGroupItem value="exchanged">景品に交換した</ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
+                <Show when={editing.exchanged()}>
+                  <div class="grid grid-cols-2 gap-2">
+                    <TextField label="特殊景品額" value={editing.specialPrizes()} onChange={editing.setSpecialPrizes} inputMode="numeric" suffix="円" error={editing.tally.problemOf("special-prizes")} invalid={editing.tally.nudged("special-prizes")} onFocus={editing.tally.nudge.settle} />
+                    <TextField label="端玉景品額" value={editing.oddPrizes()} onChange={editing.setOddPrizes} inputMode="numeric" suffix="円" placeholder="0" error={editing.tally.problemOf("odd-prizes")} invalid={editing.tally.nudged("odd-prizes")} onFocus={editing.tally.nudge.settle} />
+                  </div>
+                </Show>
+              </div>
+            ),
+          })}
     />
   )
 }

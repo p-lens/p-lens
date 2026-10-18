@@ -226,22 +226,24 @@ function Restore(props: { readonly store: BackupStore | undefined }): JSX.Elemen
                       <For each={backups}>
                         {(each) => (
                           <li class="flex items-start gap-3 rounded-md bg-surface-1 p-3">
-                            <Show when={!each.here} fallback={<HereMark />}>
-                              <input
-                                type="checkbox"
-                                aria-label={`${each.backup.name} を戻す`}
-                                checked={chosen().includes(each.backup.id)}
-                                onChange={(event) => choose(each.backup.id, event.currentTarget.checked)}
-                                class="mt-0.5 size-5 shrink-0 accent-accent"
-                              />
-                            </Show>
-                            <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-                              <span class="break-words text-sm font-medium text-text-primary">{each.backup.name}</span>
-                              <span class="text-xs text-text-muted">
-                                {formatMoment(each.backup.savedAt)}
-                                {each.here ? "・この端末にあります" : ""}
-                              </span>
-                            </div>
+                            <label class="flex min-w-0 flex-1 items-start gap-3" classList={{ "cursor-pointer": !each.here }}>
+                              <Show when={!each.here} fallback={<HereMark />}>
+                                <input
+                                  type="checkbox"
+                                  aria-label={`${each.backup.name} を戻す`}
+                                  checked={chosen().includes(each.backup.id)}
+                                  onChange={(event) => choose(each.backup.id, event.currentTarget.checked)}
+                                  class="mt-0.5 size-5 shrink-0 accent-accent"
+                                />
+                              </Show>
+                              <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+                                <span class="break-words text-sm font-medium text-text-primary">{each.backup.name}</span>
+                                <span class="text-xs text-text-muted">
+                                  {formatMoment(each.backup.savedAt)}
+                                  {each.here ? "・この端末にあります" : ""}
+                                </span>
+                              </div>
+                            </label>
                             <button
                               type="button"
                               aria-label={`${each.backup.name} を${destinationName(answered.store.destination)}から削除`}

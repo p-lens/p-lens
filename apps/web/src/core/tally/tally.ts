@@ -121,10 +121,18 @@ export interface YenTally extends TallyHead {
  *   drew from savings — came from savings the book does not keep (簿外貯玉),
  *   and the tokens it had left, its takings, went back to them. No prize
  *   is written: the tokens never stopped being tokens.
+ * - `off-book-exchanged`: counted in tokens on its terms, the outlay as
+ *   with `off-book-savings`, but the tokens it had left exchanged for
+ *   prizes at the counter: its takings are the prizes taken home, the
+ *   special prizes and `oddPrizes` — what a parlor not in the list gives
+ *   is typed as it was given, there being no rate of its to work it out.
  * - `cash-and-prizes`: counted in yen alone: the outlay was cash, and the
  *   takings the special prizes taken home.
  */
-export type Settlement = { readonly type: "off-book-savings"; readonly cash: Decimal } | { readonly type: "cash-and-prizes" }
+export type Settlement =
+  | { readonly type: "off-book-savings"; readonly cash: Decimal }
+  | { readonly type: "off-book-exchanged"; readonly cash: Decimal; readonly oddPrizes: Decimal }
+  | { readonly type: "cash-and-prizes" }
 
 /**
  * What a person tells of a play with a tally in yen, beside its two sides:
@@ -186,6 +194,8 @@ export type NumericField =
   | "carried-in"
   | "payout"
   | "takings"
+  | "special-prizes"
+  | "odd-prizes"
   | "theoretical-value"
   | "jackpots"
 
@@ -205,6 +215,10 @@ export type TallyError =
   | { readonly type: "replay-below-payout" }
   /** A tally in yen whose cash was more than it put in all told. */
   | { readonly type: "cash-beyond-outlay" }
+  /** Prizes a play at no parlor was exchanged for, given in parts of a yen: prizes are whole yen. */
+  | { readonly type: "fractional-prizes" }
+  /** Odd prizes a play at no parlor was exchanged for, more than all the prizes it took home. */
+  | { readonly type: "odd-prizes-beyond-takings" }
   /** A tally in yen at a parlor said to have been settled against savings the book does not keep: a parlor's savings are its own. */
   | { readonly type: "off-book-at-parlor" }
   | { readonly type: "no-exchange-rate"; readonly commodity: string; readonly date: IsoDate }

@@ -1,5 +1,5 @@
 import * as PopoverPrimitive from "@kobalte/core/popover"
-import { createEffect, createUniqueId, For, Show, type JSX } from "solid-js"
+import { createEffect, For, Show, type JSX } from "solid-js"
 
 import { buttonVariants } from "./button"
 import { isNarrowed, isTicked, tickedAll, tickedOne, tickStateOf, type Chosen } from "./choice"
@@ -40,34 +40,34 @@ export interface Offered {
  */
 function Ticks(props: { readonly offered: readonly Offered[]; readonly chosen: Chosen; readonly onChosen: (chosen: Chosen) => void }): JSX.Element {
   const every = (): readonly string[] => props.offered.map((each) => each.key)
-  const all = createUniqueId()
   return (
     <ul class="flex max-h-[min(24rem,60vh)] flex-col gap-1 overflow-y-auto">
-      <li class="flex items-center gap-2 border-b border-border py-2 pl-1 pr-1">
-        <input
-          type="checkbox"
-          id={all}
-          checked={tickStateOf(every(), props.chosen) === "all"}
-          ref={(input) => createEffect(() => (input.indeterminate = tickStateOf(every(), props.chosen) === "some"))}
-          onChange={(event) => props.onChosen(tickedAll(event.currentTarget.checked))}
-          class="size-5 shrink-0 accent-accent"
-        />
-        <label for={all} class="flex-1 text-sm font-semibold text-text-primary">
-          すべて選択
+      <li class="border-b border-border">
+        <label class="flex cursor-pointer items-center gap-2 py-2 pl-1 pr-1">
+          <input
+            type="checkbox"
+            checked={tickStateOf(every(), props.chosen) === "all"}
+            ref={(input) => createEffect(() => (input.indeterminate = tickStateOf(every(), props.chosen) === "some"))}
+            onChange={(event) => props.onChosen(tickedAll(event.currentTarget.checked))}
+            class="size-5 shrink-0 accent-accent"
+          />
+          <span class="flex-1 text-sm font-semibold text-text-primary">すべて選択</span>
         </label>
       </li>
       <For each={props.offered}>
         {(each) => (
-          <li class="flex items-start gap-2 rounded-md py-1.5 pl-1 pr-1">
-            <input type="checkbox" aria-label={each.label} checked={isTicked(props.chosen, each.key)} onChange={(event) => props.onChosen(tickedOne(every(), props.chosen, each.key, event.currentTarget.checked))} class="mt-0.5 size-5 shrink-0 accent-accent" />
-            <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span class="break-words text-sm font-medium" classList={{ "text-text-primary": isTicked(props.chosen, each.key), "text-text-muted": !isTicked(props.chosen, each.key) }}>
-                {each.label}
-              </span>
-              <Show when={isTicked(props.chosen, each.key) ? each.note : undefined} keyed>
-                {(note) => <span class="text-xs text-negative">{note}</span>}
-              </Show>
-            </div>
+          <li>
+            <label class="flex cursor-pointer items-start gap-2 rounded-md py-1.5 pl-1 pr-1">
+              <input type="checkbox" checked={isTicked(props.chosen, each.key)} onChange={(event) => props.onChosen(tickedOne(every(), props.chosen, each.key, event.currentTarget.checked))} class="mt-0.5 size-5 shrink-0 accent-accent" />
+              <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span class="break-words text-sm font-medium" classList={{ "text-text-primary": isTicked(props.chosen, each.key), "text-text-muted": !isTicked(props.chosen, each.key) }}>
+                  {each.label}
+                </span>
+                <Show when={isTicked(props.chosen, each.key) ? each.note : undefined} keyed>
+                  {(note) => <span class="text-xs text-negative">{note}</span>}
+                </Show>
+              </div>
+            </label>
           </li>
         )}
       </For>

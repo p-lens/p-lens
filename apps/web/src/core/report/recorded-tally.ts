@@ -77,8 +77,10 @@ const toldOf = (transaction: Transaction, inferredValue: Decimal | undefined): T
 }
 
 /**
- * How a tally in yen's two sides were settled, as its entry says: against
- * savings the book does not keep where it posts to them; in cash and
+ * How a tally in yen's two sides were settled, as its entry says: from
+ * savings the book does not keep and exchanged for prizes where it posts
+ * prizes beside them, or odd prizes at all; against savings the book does
+ * not keep where it posts to them alone; in cash and
  * prizes where it takes all its outlay from cash and puts all its takings
  * to prizes, both; and unknown otherwise — an entry that wrote only what
  * lay between, which is what an entry settled either way and coming to
@@ -86,6 +88,9 @@ const toldOf = (transaction: Transaction, inferredValue: Decimal | undefined): T
  */
 const settlementOf = (real: readonly Posted[], offBook: string, outlay: Decimal, takings: Decimal): Settlement | undefined => {
   const cash = negate(at(real, ACCOUNTS.cash))
+  const odd = at(real, ACCOUNTS.oddPrizes)
+  const exchanged = !isZero(at(real, ACCOUNTS.specialPrizes)) || !isZero(odd)
+  if (exchanged && (!isZero(at(real, offBook)) || !isZero(odd))) return { type: "off-book-exchanged", cash, oddPrizes: odd }
   if (!isZero(at(real, offBook))) return { type: "off-book-savings", cash }
   const prizes = sum([at(real, ACCOUNTS.specialPrizes), at(real, ACCOUNTS.translationAdjustment)])
   return !isZero(cash) && !isZero(prizes) && isZero(subtract(cash, outlay)) && isZero(subtract(prizes, takings)) ? { type: "cash-and-prizes" } : undefined
@@ -95,7 +100,7 @@ const yenTallyOf = (head: TallyHead, real: readonly Posted[], parlor: Parlor | "
   const offBook = offBookSavingsAccount(tokenKindOf(head.gameKind))
   const outlay = at(real, ACCOUNTS.playExpense)
   const takings = negate(at(real, ACCOUNTS.playRevenue))
-  return keptTo(real, { [ACCOUNTS.cash]: YEN, [ACCOUNTS.playExpense]: YEN, [ACCOUNTS.playRevenue]: YEN, [ACCOUNTS.specialPrizes]: YEN, [ACCOUNTS.translationAdjustment]: YEN, [offBook]: YEN }) && !isNegative(outlay) && !isNegative(takings)
+  return keptTo(real, { [ACCOUNTS.cash]: YEN, [ACCOUNTS.playExpense]: YEN, [ACCOUNTS.playRevenue]: YEN, [ACCOUNTS.specialPrizes]: YEN, [ACCOUNTS.oddPrizes]: YEN, [ACCOUNTS.translationAdjustment]: YEN, [offBook]: YEN }) && !isNegative(outlay) && !isNegative(takings)
     ? { type: "yen", tally: { ...head, parlor: parlor === "none" ? undefined : parlor, outlay, takings, settlement: settlementOf(real, offBook, outlay, takings), told } }
     : undefined
 }

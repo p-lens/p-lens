@@ -57,6 +57,13 @@ interface FinishYenTallyEditing {
   readonly setTakings: (typed: string) => void
   /** The tokens in hand as typed. */
   readonly payout: () => string
+  /** Whether the tokens in hand were exchanged for prizes at the counter, and the prizes typed. */
+  readonly exchanged: () => boolean
+  readonly setExchanged: (exchanged: boolean) => void
+  readonly specialPrizes: () => string
+  readonly setSpecialPrizes: (typed: string) => void
+  readonly oddPrizes: () => string
+  readonly setOddPrizes: (typed: string) => void
 }
 
 /**
@@ -164,5 +171,11 @@ export const createFinishYenTallyEditing = (given: FinishYenTallyEditingGiven): 
     takings: () => form().takings,
     setTakings: set("takings"),
     payout: () => form().payout,
+    exchanged: () => form().exchanged,
+    setExchanged: set("exchanged"),
+    specialPrizes: () => form().specialPrizes,
+    setSpecialPrizes: set("specialPrizes"),
+    oddPrizes: () => form().oddPrizes,
+    setOddPrizes: set("oddPrizes"),
   }
 }

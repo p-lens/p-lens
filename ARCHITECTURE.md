@@ -344,7 +344,12 @@ and the tokens it was begun with, at its terms' exchange, and what came
 back is the tokens in hand at the finish (`sidesFromTokens`), so the plays of
 a day at no parlor hand their tokens on, each one's takings the next one's
 outlay, and come together to what the last left, exchanged, less all that
-was spent.
+was spent. Where the person says the tokens in hand were exchanged at the
+counter (「景品に交換した」 beside 「持ち越す（簿外）」), what came back is
+the special and odd prizes typed as given instead (`off-book-exchanged`):
+the parlor is none whose rate the book knows, so the prizes are what the
+tokens fetched, nothing goes back to 簿外貯玉, and the tokens are not kept
+for the day's next play.
 - **Theoretical value** (期待値) is the virtual posting, written only when
   given: what the play was worth by its formula, whatever it came to.
 - **Play time** (`(統計:時間)`, in `秒`) is a virtual posting too: the

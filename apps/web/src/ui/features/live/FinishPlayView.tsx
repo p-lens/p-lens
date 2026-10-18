@@ -298,7 +298,7 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
                       recorded(record.id)
                     }}
                     onRecordedInYen={(play, held) => {
-                      if (held !== undefined) keepInHand(leftAt(draft.venue, draft.gameKind, play.date, held))
+                      if (held !== undefined && play.settlement?.type !== "off-book-exchanged") keepInHand(leftAt(draft.venue, draft.gameKind, play.date, held))
                       recorded(play.id)
                     }}
                   />

@@ -46,6 +46,23 @@ export const sidePostingsOffBook = (outlay: Decimal, takings: Decimal, cash: Dec
 ]
 
 /**
+ * The two sides of a play at no parlor counted in tokens whose tokens left
+ * were exchanged for prizes: the cash of its outlay leaves cash, the rest
+ * of its outlay — tokens begun with and drawn from savings — comes from
+ * savings the book does not keep, and its takings are the prizes taken
+ * home, the odd prizes as given and the rest special prizes. Cash falls by
+ * the cash spent, and nothing goes back to savings the book does not keep.
+ */
+export const sidePostingsOffBookExchanged = (outlay: Decimal, takings: Decimal, cash: Decimal, oddPrizes: Decimal, offBookAccount: string): readonly Posting[] => [
+  ...real(ACCOUNTS.playExpense, outlay),
+  ...real(ACCOUNTS.playRevenue, negate(takings)),
+  ...real(ACCOUNTS.cash, negate(cash)),
+  ...real(offBookAccount, negate(subtract(outlay, cash))),
+  ...real(ACCOUNTS.specialPrizes, subtract(takings, oddPrizes)),
+  ...real(ACCOUNTS.oddPrizes, oddPrizes),
+]
+
+/**
  * The two sides of a play at no parlor counted in yen alone: its outlay
  * leaves cash, and its takings are the special prizes taken home — in
  * whole yen, the part of one over the translation adjustment.

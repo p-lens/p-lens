@@ -71,14 +71,16 @@ function BookRow(props: { readonly book: ListedBook; readonly ticked: boolean; r
   return (
     <li class="flex flex-col gap-2 rounded-md bg-surface-1 py-2 pl-3 pr-2">
       <div class="flex items-center gap-2">
-        <input
-          type="checkbox"
-          aria-label={`${bookTitle(props.book)} を zip に入れる`}
-          checked={props.ticked}
-          onChange={(event) => props.onTick(event.currentTarget.checked)}
-          class="size-5 shrink-0 accent-accent"
-        />
-        <span class="min-w-0 flex-1 break-words text-sm font-medium text-text-primary">{bookTitle(props.book)}</span>
+        <label class="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            aria-label={`${bookTitle(props.book)} を zip に入れる`}
+            checked={props.ticked}
+            onChange={(event) => props.onTick(event.currentTarget.checked)}
+            class="size-5 shrink-0 accent-accent"
+          />
+          <span class="min-w-0 flex-1 break-words text-sm font-medium text-text-primary">{bookTitle(props.book)}</span>
+        </label>
         <WritingNote working={writing.working()} />
         <Button variant="outline" size="small" class="shrink-0" onClick={() => void writing.write(() => exportSingleJournal(app.services.export, props.book.id))}>
           journal
@@ -120,16 +122,18 @@ function Books(props: { readonly books: readonly ListedBook[] }): JSX.Element {
   return (
     <section class="flex flex-col gap-2">
       <div class="flex items-center gap-2 py-1 pl-3 pr-2">
-        <input
-          type="checkbox"
-          aria-label="すべての帳簿を選ぶ"
-          checked={every()}
-          onChange={(event) => setLeftOut(event.currentTarget.checked ? [] : props.books.map((book) => book.id))}
-          class="size-5 shrink-0 accent-accent"
-        />
-        <span class="min-w-0 flex-1 text-xs font-bold tracking-wide" classList={{ ...redText(nudge.red()), "text-text-muted": !nudge.red() }}>
-          帳簿（{ticked().length}/{props.books.length}）
-        </span>
+        <label class="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            aria-label="すべての帳簿を選ぶ"
+            checked={every()}
+            onChange={(event) => setLeftOut(event.currentTarget.checked ? [] : props.books.map((book) => book.id))}
+            class="size-5 shrink-0 accent-accent"
+          />
+          <span class="min-w-0 flex-1 text-xs font-bold tracking-wide" classList={{ ...redText(nudge.red()), "text-text-muted": !nudge.red() }}>
+            帳簿（{ticked().length}/{props.books.length}）
+          </span>
+        </label>
         <WritingNote working={together.working()} />
         <Button variant="outline" size="small" class="shrink-0" onClick={zip}>
           まとめて zip

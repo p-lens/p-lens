@@ -31,6 +31,8 @@ const NUMERIC_FIELDS: Readonly<Record<NumericField, string>> = {
   "carried-in": "開始時の持ち玉・持ちメダル",
   payout: "持ち玉・持ちメダル",
   takings: "回収額",
+  "special-prizes": "特殊景品額",
+  "odd-prizes": "端玉景品額",
   "theoretical-value": "期待値",
   jackpots: "大当り回数",
 }
@@ -55,6 +57,10 @@ export const describeTallyError = (error: TallyError): string => {
       return "再プレイで減った貯玉が、払い出された数より少なくなっています。"
     case "cash-beyond-outlay":
       return "現金で出した額が、投資額を超えています。"
+    case "fractional-prizes":
+      return "景品の額は円単位で入力してください。"
+    case "odd-prizes-beyond-takings":
+      return "端玉景品の額が、景品の合計を超えています。"
     case "off-book-at-parlor":
       return "店舗を指定した収支は、簿外貯玉を使えません。その店舗の貯玉から引き出してください。"
     case "pool-not-kept":

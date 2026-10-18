@@ -85,6 +85,14 @@ describe("a play followed live, as it is recorded", () => {
     expect(sides({ ...form, replayPaidOut: "", carriedIn: "" })).toEqual(["5000", "0"])
   })
 
+  test("with no parlor, takes the prizes typed as what came back where the tokens left were exchanged, and asks for the special prizes", () => {
+    const form = { ...finishYenTallyFormOf(NOWHERE, { ...PLAYED, outlay: 5000, replay: 250, carriedIn: 1000, held: 4000 }), exchanged: true, specialPrizes: "２３,０００", oddPrizes: "500" }
+    const read = readFinishYenTallyForm(form, TERMS, undefined, "live-1" as PlayId)
+    expect(read.ok && [toPlainString(read.value.outlay), toPlainString(read.value.takings), read.value.settlement]).toEqual(["10000", "23500", { type: "off-book-exchanged", cash: dec("5000"), oddPrizes: dec("500") }])
+    const unsaid = readFinishYenTallyForm({ ...form, specialPrizes: "" }, TERMS, undefined, "live-1" as PlayId)
+    expect(!unsaid.ok && unsaid.error).toEqual([{ field: "special-prizes", reason: "required" }])
+  })
+
   test("with no parlor, shows the tokens its cash rented, as a play at a parlor does", () => {
     expect(rentedOf({ outlay: "11,000" }, TERMS)).toEqual(dec("2750"))
     expect(rentedOf({ outlay: "0" }, TERMS)).toBeUndefined()

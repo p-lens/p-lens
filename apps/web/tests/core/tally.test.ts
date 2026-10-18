@@ -176,6 +176,27 @@ describe("composeYenTallyEntry", () => {
     })
   })
 
+  test("at no parlor counted in tokens whose tokens were exchanged, takes the rest of its outlay from savings the book does not keep and puts its takings to the prizes as given", () => {
+    const head = "2026-10-04 | e風の剣豪  ; play-id: tally-1004, game-kind: pachinko, machine: e風の剣豪"
+    expect(mapOk(composeYenTallyEntry({ ...TALLIED, outlay: dec("6000"), takings: dec("23500"), theoreticalValue: undefined, settlement: { type: "off-book-exchanged", cash: dec("5000"), oddPrizes: dec("500") } }), renderEntry)).toEqual({
+      ok: true,
+      value: [
+        head,
+        "    費用:遊技                           6000 JPY",
+        "    収益:遊技                           -23500 JPY",
+        "    資産:現金                           -5000 JPY",
+        "    純資産:簿外貯玉                     -1000 JPY",
+        "    純資産:特殊景品                     23000 JPY",
+        "    純資産:端玉景品                     500 JPY",
+        "",
+      ].join("\n"),
+    })
+    const exchanged = { ...TALLIED, outlay: dec("6000"), takings: dec("23500"), settlement: { type: "off-book-exchanged" as const, cash: dec("5000"), oddPrizes: dec("500") } }
+    expect(composeYenTallyEntry({ ...exchanged, takings: dec("23500.5") })).toEqual({ ok: false, error: { type: "fractional-prizes" } })
+    expect(composeYenTallyEntry({ ...exchanged, settlement: { ...exchanged.settlement, oddPrizes: dec("30000") } })).toEqual({ ok: false, error: { type: "odd-prizes-beyond-takings" } })
+    expect(composeYenTallyEntry({ ...exchanged, parlor: UMEDA })).toEqual({ ok: false, error: { type: "off-book-at-parlor" } })
+  })
+
   test("at no parlor counted in yen alone, takes all its outlay from cash and puts all its takings to the special prizes", () => {
     expect(mapOk(composeYenTallyEntry({ ...TALLIED, takings: dec("30000.4"), theoreticalValue: undefined, settlement: { type: "cash-and-prizes" } }), renderEntry)).toEqual({
       ok: true,

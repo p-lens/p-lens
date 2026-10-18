@@ -70,6 +70,8 @@ export function FinishTallyForm(props: {
   /** What drawing on savings took, where the play counts tokens: the savings field stands after the cash. */
   readonly savings?: { readonly deducted: () => Decimal | undefined }
   readonly takings?: JSX.Element
+  /** What follows the tokens in hand, on a row of its own: how they were settled, where that is asked. */
+  readonly afterHand?: JSX.Element
   readonly words: SubmitWords
 }): JSX.Element {
   const editing = props.editing
@@ -126,6 +128,7 @@ export function FinishTallyForm(props: {
           {props.takings}
         </Show>
       </div>
+      {props.afterHand}
       <div class={`flex items-start justify-between gap-3 ${ROW_ON_A_WIDE_SCREEN}`}>
         <div class="flex min-w-0 flex-col gap-1.5">
           <span class="text-xs font-bold uppercase tracking-wide text-text-secondary">実収支（自動計算）</span>
