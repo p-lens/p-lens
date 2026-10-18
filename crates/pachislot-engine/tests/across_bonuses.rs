@@ -378,6 +378,7 @@ fn a_side_bonus_is_paid_on_each_game_a_seat_past_bonuses_plays_to_the_ceiling_fr
     for (since_bonus, since_at, since_side) in [(100, 1_500, 30), (300, 900, 299), (0, 0, 120)] {
         let seat = PathStart {
             since_side_bonus: Some(since_side),
+            mode: None,
             ..past_a_bonus(since_bonus, since_at)
         };
         let hunted = hunt(seat, &machine, &held).expect("comes");

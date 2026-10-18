@@ -139,6 +139,8 @@ export interface ComponentsDto {
   readonly sinceAtCeiling?: Readonly<Record<string, number>>
   /** On the CZ of a machine without modes: its `sinceAtCeiling` after a setting change, until the first AT — 979G from the AT, 579G after a reset. Only beside `sinceAtCeiling`; with modes, each mode carries its own. */
   readonly resetSinceAtCeiling?: Readonly<Record<string, number>>
+  /** On a CZ: a meter its misses fill — 宿怨ポイント — the points that fill it, and what a miss adds, each so many points at its share of misses in hundredths of a percent under each setting; the rest add none. Full, it makes the next trigger certainly win the AT; an AT empties it. */
+  readonly meter?: Readonly<Record<string, MeterDto>>
   /** ゾーン: on a mode, or on the CZ of a machine without modes, the regular games since the last AT it draws at besides its chance a game. */
   readonly gates?: Readonly<Record<string, readonly GateDto[]>>
   /** On a mode: where a missed trigger in it moves play — the mode drawn again at each failed CZ — each mode it may go to with its share under each setting, the whole of it. A mode without stays. */
@@ -216,6 +218,12 @@ export interface GateDto {
 }
 
 /** One mode a missed trigger may move play to, and how often, in hundredths of a percent under each setting. */
+/** A meter a CZ's misses fill: the points that fill it, and what a miss adds. */
+export interface MeterDto {
+  readonly full: number
+  readonly gains: readonly { readonly points: number; readonly share: readonly BySettingLevelDto<number>[] }[]
+}
+
 export interface RedrawDto {
   readonly to: string
   readonly share: readonly BySettingLevelDto<number>[]
@@ -257,6 +265,8 @@ export interface AtTableDto {
   readonly ownChances?: readonly (number | null)[]
   /** The side bonus's chance a regular game below its ceiling; left out where the machine has none. */
   readonly sideChance?: number
+  /** Where the trigger has a meter: the chance the trigger after so many misses since the AT comes with it full, the last holding past it; left out where it has none. */
+  readonly meterWins?: readonly number[]
   /**
    * How play is allotted between the modes after an AT and after a setting
    * change; where the modes are allotted by how an AT ended, each ending's
@@ -446,6 +456,8 @@ export interface PathDto {
     readonly ending?: string
     /** The regular games since the last side bonus, where the machine has one and the seat says; left out, its next is as likely on any game as in the long run. */
     readonly sinceSideBonus?: number
+    /** The mode play is in, by the mode's id, where the person knows it — the shortened ceiling after a ceiling CZ, a 天国 told on screen: play is taken to be in it, whatever the allotment and the games since would have made likely, and past its trigger's ceiling stands just short of it. */
+    readonly mode?: string
   }
   readonly legs: readonly LegDto[]
 }
@@ -665,6 +677,7 @@ export type EngineErrorDto =
   /** A mode's allotment after an AT beside one after every ending that is not the endings' mix (`mix`, in basis points). */
   | { readonly type: "allotment-against-endings"; readonly entity: string; readonly settingLevel: number; readonly mix: number }
   | { readonly type: "unknown-ending"; readonly ending: string }
+  | { readonly type: "unknown-mode"; readonly mode: string }
   /** A seat with more games since the last CZ than since the last AT. */
   | { readonly type: "seat-trigger-above-since-at"; readonly sinceTrigger: number; readonly sinceAt: number }
   /** A seat with fewer games since the AT itself, across bonuses, than since the last bonus. */
@@ -693,6 +706,7 @@ export type EngineErrorDto =
   | { readonly type: "needs-cz"; readonly entity: string; readonly component: string }
   | { readonly type: "redraw-to-unknown"; readonly entity: string; readonly to: string }
   | { readonly type: "redraw-not-whole"; readonly entity: string; readonly settingLevel: number; readonly sum: number }
+  | { readonly type: "meter-gains-over-whole"; readonly entity: string; readonly settingLevel: number; readonly sum: number }
   | { readonly type: "empty-set"; readonly entity: string }
   | { readonly type: "empty-net-per-game"; readonly entity: string }
   | { readonly type: "other-net-beyond-whole"; readonly entity: string; readonly sum: number }

@@ -17,8 +17,8 @@ use pachislot_domain::observation::{
 use pachislot_domain::probability::{BasisPoints, Denominator, Probability, ProbabilitySource};
 use pachislot_domain::setting_level::{PerSettingLevel, SettingLevel};
 use pachislot_domain::spec::{
-    Base, CeilingUnit, Component, Components, EntityId, Gate as SpecGate, LcdRate, Medals,
-    OtherNet, PayoutRow, Redraw, Resources, Sets, Spec, SpecExpiry,
+    Base, CeilingUnit, Component, Components, EntityId, Gate as SpecGate, LcdRate, Medals, Meter,
+    MeterGain, OtherNet, PayoutRow, Redraw, Resources, Sets, Spec, SpecExpiry,
 };
 use pachislot_domain::version::{SchemaVersion, SpecVersion};
 use pachislot_engine::analysis::Analysis;
@@ -295,6 +295,23 @@ fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
             "spec.components.resetSinceAtCeiling",
             |games, at| NonZeroU32::new(*games).ok_or_else(|| invalid(at)),
         )?,
+        meter: table(&dto.meter, "spec.components.meter", |meter, at| {
+            Ok(Meter {
+                full: NonZeroU32::new(meter.full).ok_or_else(|| invalid(&format!("{at}.full")))?,
+                gains: meter
+                    .gains
+                    .iter()
+                    .enumerate()
+                    .map(|(index, gain)| {
+                        Ok(MeterGain {
+                            points: NonZeroU32::new(gain.points)
+                                .ok_or_else(|| invalid(&format!("{at}.gains[{index}].points")))?,
+                            share: shares(&gain.share, &format!("{at}.gains[{index}].share"))?,
+                        })
+                    })
+                    .collect::<Result<_, ErrorDto>>()?,
+            })
+        })?,
         trigger_chance: table(
             &dto.trigger_chance,
             "spec.components.triggerChance",
@@ -675,6 +692,14 @@ fn at_table(dto: &AtTableDto, field: &str) -> Result<AtTable, ErrorDto> {
             })
             .collect::<Result<_, _>>()?,
         side_chance: probability(dto.side_chance, &format!("{field}.sideChance"))?,
+        meter_wins: dto
+            .meter_wins
+            .iter()
+            .enumerate()
+            .map(|(index, chance)| {
+                probability(*chance, &format!("{field}.meterWins[{index}]")).map(Probability::value)
+            })
+            .collect::<Result<_, _>>()?,
         allotments: allotments(&dto.allotments, &format!("{field}.allotments"))?,
         payout: payout_law(&dto.payout, &format!("{field}.payout"))?,
     })
@@ -1000,6 +1025,7 @@ fn at_table_dto(each: &AtTable) -> AtTableDto {
             .map(|chance| chance.map(Probability::value))
             .collect(),
         side_chance: each.side_chance.value(),
+        meter_wins: each.meter_wins.clone(),
         allotments: AllotmentsDto {
             after_at: each.allotments.after_at.clone(),
             after_reset: each.allotments.after_reset.clone(),
@@ -1054,14 +1080,39 @@ fn ending_of(named: Option<&str>, endings: &[EntityId]) -> Result<Option<usize>,
         .transpose()
 }
 
-/// Where play stood at a seat, the ending it names read as its place among
-/// `endings`, the machine's.
+/// A mode named, read as its place among the machine's modes: none where
+/// none is named.
+fn mode_of(named: Option<&str>, rules: Option<&AtRules>) -> Result<Option<usize>, ErrorDto> {
+    named
+        .map(|named| {
+            rules
+                .and_then(|rules| {
+                    rules
+                        .modes
+                        .iter()
+                        .position(|mode| mode.id.as_str() == named)
+                })
+                .ok_or_else(|| ErrorDto::UnknownMode {
+                    mode: named.to_owned(),
+                })
+        })
+        .transpose()
+}
+
+/// The endings of the machine's AT, where it has one.
+fn endings_in(rules: Option<&AtRules>) -> &[EntityId] {
+    rules.map_or(&[], |rules| rules.endings.as_slice())
+}
+
+/// Where play stood at a seat, the ending and the mode it names read as
+/// their places among the machine's.
 ///
 /// # Errors
 /// When it names an ending the machine does not have, on a machine that
-/// has endings.
-pub fn path_start(dto: &PathStartDto, endings: &[EntityId]) -> Result<PathStart, ErrorDto> {
-    let ending = ending_of(dto.ending.as_deref(), endings)?;
+/// has endings, or a mode it does not have.
+pub fn path_start(dto: &PathStartDto, rules: Option<&AtRules>) -> Result<PathStart, ErrorDto> {
+    let ending = ending_of(dto.ending.as_deref(), endings_in(rules))?;
+    let mode = mode_of(dto.mode.as_deref(), rules)?;
     Ok(PathStart {
         since_trigger: dto.since_trigger,
         since_at: dto.since_at,
@@ -1071,6 +1122,7 @@ pub fn path_start(dto: &PathStartDto, endings: &[EntityId]) -> Result<PathStart,
         since_at_across_bonuses: dto.since_at_across_bonuses,
         ending,
         since_side_bonus: dto.since_side_bonus,
+        mode,
     })
 }
 
@@ -1085,14 +1137,15 @@ fn at_seen(dto: Option<&AtSeenDto>, endings: &[EntityId]) -> Result<AtSeen, Erro
     })
 }
 
-/// A path as the engine walks it, the endings its start and its ATs name
-/// read among `endings`.
+/// A path as the engine walks it, the endings and the mode its start and
+/// its ATs name read among the machine's.
 ///
 /// # Errors
-/// When its start or an AT names an ending the machine does not have.
-pub fn path(dto: &PathDto, endings: &[EntityId]) -> Result<Path, ErrorDto> {
+/// When its start or an AT names an ending the machine does not have, or
+/// its start a mode.
+pub fn path(dto: &PathDto, rules: Option<&AtRules>) -> Result<Path, ErrorDto> {
     Ok(Path {
-        start: path_start(&dto.start, endings)?,
+        start: path_start(&dto.start, rules)?,
         legs: dto
             .legs
             .iter()
@@ -1103,7 +1156,9 @@ pub fn path(dto: &PathDto, endings: &[EntityId]) -> Result<Path, ErrorDto> {
                         LegEndDto::Going => LegEnd::Going,
                         LegEndDto::Missed => LegEnd::Missed,
                         LegEndDto::Bonus => LegEnd::Bonus,
-                        LegEndDto::WonAt => LegEnd::WonAt(at_seen(leg.at.as_ref(), endings)?),
+                        LegEndDto::WonAt => {
+                            LegEnd::WonAt(at_seen(leg.at.as_ref(), endings_in(rules))?)
+                        }
                     },
                 })
             })
@@ -1261,6 +1316,7 @@ fn component_name(component: Component) -> String {
         Component::CeilingTriggers => "ceilingTriggers",
         Component::CeilingAcrossBonuses => "ceilingAcrossBonuses",
         Component::CeilingPayout => "ceilingPayout",
+        Component::Meter => "meter",
         Component::Ending => "ending",
         Component::EndingAllotment => "endingAllotment",
     }
@@ -1537,6 +1593,15 @@ pub fn spec_error_dto(error: &SpecError) -> ErrorDto {
             setting_level,
             sum,
         } => ErrorDto::RedrawNotWhole {
+            entity: named(entity),
+            setting_level: setting_level.get(),
+            sum: *sum,
+        },
+        SpecError::MeterGainsOverWhole {
+            entity,
+            setting_level,
+            sum,
+        } => ErrorDto::MeterGainsOverWhole {
             entity: named(entity),
             setting_level: setting_level.get(),
             sum: *sum,

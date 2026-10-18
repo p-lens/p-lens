@@ -132,6 +132,8 @@ export interface Counter {
    * the seat, `spins` counting from the last of them.
    */
   readonly sinceAtAcrossBonuses?: number
+  /** The mode a pachislot play was in at the seat, by the mode's id in its formula's spec, where the person knew it: a shortened ceiling after a ceiling CZ, a 天国 told on screen. */
+  readonly mode?: string
   /**
    * What a pachinko cabinet's own 遊タイム counter (遊カウンター) showed, where
    * it was read and said: the spins it has counted toward the 遊タイム. It
@@ -213,6 +215,7 @@ const isCounter = (value: unknown): value is Counter =>
   (value["misses"] === undefined || isCount(value["misses"])) &&
   (value["held"] === undefined || isCount(value["held"])) &&
   (value["sinceAtAcrossBonuses"] === undefined || isCount(value["sinceAtAcrossBonuses"])) &&
+  (value["mode"] === undefined || (typeof value["mode"] === "string" && value["mode"] !== "")) &&
   (value["gauge"] === undefined || isCount(value["gauge"]))
 
 const isAtEnded = (value: Fields): boolean =>

@@ -16,6 +16,8 @@ export interface Seat {
   readonly held: number | undefined
   /** The games since the AT itself across the bonuses that started the counter again; none when left empty: no such bonus since. */
   readonly sinceAtAcrossBonuses: number | undefined
+  /** The mode play is in, by its id, where the person knows it; none where not. */
+  readonly mode: string | undefined
 }
 
 /**
@@ -23,7 +25,8 @@ export interface Seat {
  * games since the last bonus — the last AT, on an AT machine — and on one a
  * CZ brings, the games since the last CZ and the CZs missed since the AT;
  * and on one whose AT間天井 counts across the bonuses that start the counter
- * again, the games since the AT itself.
+ * again, the games since the AT itself; and on one with modes, the mode
+ * play is in where known, empty where not.
  */
 export interface SeatForm {
   readonly total: string
@@ -33,6 +36,7 @@ export interface SeatForm {
   readonly misses: string
   readonly held: string
   readonly sinceAtAcrossBonuses: string
+  readonly mode: string
 }
 
 /**
@@ -63,7 +67,7 @@ export const seatCountOf = (text: string): number | undefined => {
  * from the day's games and bonuses.
  */
 export const seatLineOf = (atMachine: boolean, seat: Seat, afterReset: boolean, at: string): Checkpoint =>
-  atMachine ? atSeatCheckpoint({ sinceAt: seat.sinceBonus, sinceCz: seat.sinceCz, misses: seat.misses, afterReset, held: seat.held, sinceAtAcrossBonuses: seat.sinceAtAcrossBonuses }, at) : seatCheckpoint(seat, at)
+  atMachine ? atSeatCheckpoint({ sinceAt: seat.sinceBonus, sinceCz: seat.sinceCz, misses: seat.misses, afterReset, held: seat.held, sinceAtAcrossBonuses: seat.sinceAtAcrossBonuses, mode: seat.mode }, at) : seatCheckpoint(seat, at)
 
 /** The seat's counter read, the bonuses being those the formula's counter shows; or every field that cannot be. */
 export const readSeat = (form: SeatForm, bonusIds: readonly string[]): Result<Seat, readonly SeatProblem[]> => {
@@ -91,5 +95,5 @@ export const readSeat = (form: SeatForm, bonusIds: readonly string[]): Result<Se
     ),
   ]
   if (problems.length > 0 || total === undefined || sinceBonus === undefined || misses === undefined) return Err(problems)
-  return Ok({ total, sinceBonus, sinceCz, misses, held, sinceAtAcrossBonuses, bonuses: Object.fromEntries(bonuses.map((bonus) => [bonus.id, bonus.count ?? 0])) })
+  return Ok({ total, sinceBonus, sinceCz, misses, held, sinceAtAcrossBonuses, mode: form.mode === "" ? undefined : form.mode, bonuses: Object.fromEntries(bonuses.map((bonus) => [bonus.id, bonus.count ?? 0])) })
 }

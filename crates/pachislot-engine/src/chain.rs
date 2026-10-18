@@ -17,7 +17,7 @@ use pachislot_domain::observation::{PathStart, ToldLeg};
 use crate::at::{
     Between, Cycle, LONGEST_WALK, Odds, Standing, WALKED, Walk, across_bonuses_of,
     cycle_to_ceiling, direct_on, drawn, drawn_on, expires, fresh, gate_on, is_forced, normalised,
-    passed_unbrought, success_of, with_direct,
+    passed_unbrought, streams_of, success_of, with_direct,
 };
 
 /// One mode and count of misses: where its trigger's games began, the
@@ -182,14 +182,13 @@ pub(crate) struct Chain<'a> {
 }
 
 /// The counts of misses a chain tells apart: as far as the deepest スルー天井
-/// makes them matter, and at least `least`, the last holding every count
-/// from it on.
-fn counts_of(rules: &AtRules, least: usize) -> usize {
+/// and the meter make them matter, and at least `least`, the last holding
+/// every count from it on.
+fn counts_of(rules: &AtRules, odds: Odds<'_>, least: usize) -> usize {
     rules
         .modes
         .iter()
-        .filter_map(|mode| mode.misses)
-        .map(|limit| limit.get() as usize + 1)
+        .map(|mode| streams_of(mode.misses, odds.meter))
         .max()
         .unwrap_or(1)
         .max(least)
@@ -263,7 +262,7 @@ impl<'a> Chain<'a> {
         shares: &[f64],
         least: usize,
     ) -> Self {
-        let mut chain = Self::empty(rules, odds, counts_of(rules, least));
+        let mut chain = Self::empty(rules, odds, counts_of(rules, odds, least));
         for (mode, share) in shares.iter().enumerate() {
             if let Some(pending) = chain.pending.get_mut(mode * chain.counts) {
                 *pending += share;
@@ -281,7 +280,7 @@ impl<'a> Chain<'a> {
         (since_trigger, since_at, misses): (u32, u32, u32),
         weights: &[f64],
     ) -> Self {
-        let mut chain = Self::empty(rules, odds, counts_of(rules, misses as usize + 1));
+        let mut chain = Self::empty(rules, odds, counts_of(rules, odds, misses as usize + 1));
         let now = since_at as usize;
         let count = (misses as usize).min(chain.counts - 1);
         for stream in &mut chain.streams {
@@ -432,7 +431,7 @@ impl<'a> Chain<'a> {
                     stream.triggered(between, at, share, self.odds.chance_in(index));
                 let forced = if sure { here } else { 0.0 };
                 let tries = u32::try_from(count + 1).unwrap_or(u32::MAX);
-                let wins = success_of(tries, success, mode.misses);
+                let wins = success_of(tries, success, mode.misses, self.odds.meter);
                 if mode.misses.is_some_and(|limit| tries > limit.get()) {
                     game.through += here;
                 } else {

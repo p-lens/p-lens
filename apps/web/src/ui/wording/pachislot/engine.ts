@@ -148,6 +148,8 @@ const describeEngineError = (error: EngineErrorDto): string => {
       return `モード「${error.entity}」の${settingLevel(error.settingLevel)}のAT後の振り分けが、終わり方ごとの振り分けを終わり方の割合で混ぜた ${(error.mix / 100).toFixed(2)}% と合いません。どのモードにも全部の終わり方のあとの振り分けを入れたときは、AT後の振り分けは空けてかまいません。`
     case "unknown-ending":
       return `この機種にないATの終わり方「${error.ending}」が指定されました。`
+    case "unknown-mode":
+      return `この機種にないモード「${error.mode}」が指定されました。`
     case "seat-trigger-above-since-at":
       return `CZ後のゲーム数（${error.sinceTrigger}G）が、AT間のゲーム数（${error.sinceAt}G）より多くなっています。`
     case "seat-across-bonuses-below-since-at":
@@ -178,6 +180,8 @@ const describeEngineError = (error: EngineErrorDto): string => {
       return `モード「${error.entity}」のCZ失敗後の移り先「${error.to}」が、この機種のモードにありません。`
     case "redraw-not-whole":
       return `モード「${error.entity}」のCZ失敗後の移り先の割合が、${settingLevel(error.settingLevel)}で合計${error.sum / 100}%です。100%にしてください。`
+    case "meter-gains-over-whole":
+      return `「${error.entity}」のメーターの貯まり方の割合が、${settingLevel(error.settingLevel)}で合計${error.sum / 100}%です。100%以下にしてください。`
     case "unit-ceiling-without-unit":
       return `「${error.entity}」にptや周期で数える天井がありますが、天井の単位が入っていません。`
     case "direct-without-cz":

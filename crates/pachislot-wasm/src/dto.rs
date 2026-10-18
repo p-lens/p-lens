@@ -175,6 +175,10 @@ pub struct ComponentsDto {
     /// change, until the first AT.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub reset_since_at_ceiling: BTreeMap<String, u32>,
+    /// On a CZ: a meter its misses fill, which full makes the next trigger
+    /// certainly win the AT.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub meter: BTreeMap<String, MeterDto>,
     /// On an AT a CZ brings: how often a regular game wins it outright, under each setting.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub direct: BTreeMap<String, Vec<BySettingLevelDto<ProbabilityDto>>>,
@@ -215,6 +219,24 @@ pub struct ComponentsDto {
 #[serde(rename_all = "camelCase")]
 pub struct RedrawDto {
     pub to: String,
+    pub share: Vec<BySettingLevelDto<u32>>,
+}
+
+/// A meter a CZ's misses fill: the points that fill it, and what a miss
+/// adds, each so many points at its share of misses in hundredths of a
+/// percent under each setting; the rest add none.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MeterDto {
+    pub full: u32,
+    pub gains: Vec<MeterGainDto>,
+}
+
+/// So many points a missed trigger adds, and how often under each setting.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MeterGainDto {
+    pub points: u32,
     pub share: Vec<BySettingLevelDto<u32>>,
 }
 
@@ -376,6 +398,11 @@ pub struct AtTableDto {
     /// The side bonus's chance a regular game below its ceiling; none where the machine has none.
     #[serde(default, skip_serializing_if = "is_none")]
     pub side_chance: f64,
+    /// Where the trigger has a meter: the chance the trigger after so many
+    /// misses since the AT comes with it full, the last holding past it;
+    /// none where it has no meter.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub meter_wins: Vec<f64>,
     pub allotments: AllotmentsDto,
     pub payout: PayoutLawDto,
 }
@@ -815,6 +842,9 @@ pub struct PathStartDto {
     /// run where it does not.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub since_side_bonus: Option<u32>,
+    /// The mode play is in, by its name, where the person knows it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -1260,6 +1290,10 @@ pub enum ErrorDto {
     UnknownEnding {
         ending: String,
     },
+    /// A seat that says play is in a mode the machine does not have.
+    UnknownMode {
+        mode: String,
+    },
     /// A seat with more games since the last CZ than since the last AT.
     SeatTriggerAboveSinceAt {
         since_trigger: u32,
@@ -1367,6 +1401,11 @@ pub enum ErrorDto {
         to: String,
     },
     RedrawNotWhole {
+        entity: String,
+        setting_level: u8,
+        sum: u32,
+    },
+    MeterGainsOverWhole {
         entity: String,
         setting_level: u8,
         sum: u32,

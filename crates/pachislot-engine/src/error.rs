@@ -325,6 +325,13 @@ pub enum SpecError {
         setting_level: SettingLevel,
         sum: u32,
     },
+    /// A meter whose gains' shares come to more than the whole under a
+    /// setting.
+    MeterGainsOverWhole {
+        entity: EntityId,
+        setting_level: SettingLevel,
+        sum: u32,
+    },
 }
 
 /// What makes a seat one play cannot stand at, on the machine it is on.

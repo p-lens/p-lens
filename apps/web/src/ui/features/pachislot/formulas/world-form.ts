@@ -1,4 +1,4 @@
-import type { BySettingLevelDto, ConditionsDto, GateDto, OtherNetDto, SpecDto, PayoutRowDto, ProbabilityDto, RedrawDto } from "@p-lens/contracts/pachislot"
+import type { BySettingLevelDto, ConditionsDto, GateDto, MeterDto, OtherNetDto, SpecDto, PayoutRowDto, ProbabilityDto, RedrawDto } from "@p-lens/contracts/pachislot"
 import { SPEC_VERSION } from "@p-lens/contracts/pachislot"
 
 import { Err, Ok, type Result } from "../../../../core/result/result"
@@ -91,6 +91,10 @@ export interface EntityRow {
   readonly sinceAtCeiling: string
   /** A CZ's ceiling counted from the last AT after a setting change, on a machine without modes, as typed; empty for the same. */
   readonly resetSinceAtCeiling: string
+  /** A CZ's meter: the points that fill it, as typed; empty for none. */
+  readonly meterFull: string
+  /** What a failed CZ adds to its meter, in the order typed. */
+  readonly meterGains: readonly MeterGainForm[]
   /** A mode's 振り分け after a setting change, in percent by the level; empty for the same as after an AT. */
   readonly resetAllotment: Readonly<Record<string, string>>
   /** An AT's endings — the ways it ends that its modes are allotted by — in the order typed; empty where it has none. */
@@ -116,6 +120,15 @@ export interface GateForm {
   readonly trigger: Readonly<Record<string, string>>
   readonly at: Readonly<Record<string, string>>
 }
+
+/** What a failed CZ adds to its meter, as typed: so many points, at its share of failures in percent by the level. */
+export interface MeterGainForm {
+  readonly points: string
+  readonly shares: Readonly<Record<string, string>>
+}
+
+/** A meter gain not yet typed. */
+export const EMPTY_METER_GAIN: MeterGainForm = { points: "", shares: {} }
 
 /** How a chance is typed: as published, its ceilings included, or a regular game's below them. */
 export type ChanceKind = "combined" | "below"
@@ -228,6 +241,8 @@ const row = (key: string, label: string, kind: EntityKindName, payout = ""): Ent
   expiryTo: "",
   sinceAtCeiling: "",
   resetSinceAtCeiling: "",
+  meterFull: "",
+  meterGains: [],
   endings: [],
   endingAllotment: {},
   law: EMPTY_LAW,
@@ -427,6 +442,29 @@ const gateOf = (form: WorldForm, gate: GateForm, name: string): Read<GateDto> =>
   return Ok({ game: game.value, ...(span.value === undefined || span.value === 1 ? {} : { span: span.value }), trigger: valuesOf(trigger), ...(at === undefined ? {} : { at: valuesOf(at) }) })
 }
 
+/**
+ * A CZ's meter read: the points that fill it, a whole number, and each gain
+ * its points and its shares under every level; none where nothing is
+ * typed; the first thing wrong with it otherwise.
+ */
+const meterOf = (form: WorldForm, entity: EntityRow, name: string): Read<MeterDto | undefined> => {
+  if (tidyTyped(entity.meterFull) === "" && entity.meterGains.length === 0) return Ok(undefined)
+  const full = ceilingOf(entity.meterFull, `${name} メーター満タン`)
+  if (!full.ok) return full
+  if (full.value === undefined) return Err({ field: `${name} メーター満タン`, reason: "required" })
+  const gains = entity.meterGains.map((gain, index): Read<MeterDto["gains"][number]> => {
+    const field = `${name} メーター ${String(index + 1)}つ目`
+    const points = ceilingOf(gain.points, `${field} pt`)
+    if (!points.ok) return points
+    if (points.value === undefined) return Err({ field: `${field} pt`, reason: "required" })
+    const shares = sharesOf(form, gain.shares, field, false) ?? []
+    const [problem] = problemsOf(shares)
+    return problem === undefined ? Ok({ points: points.value, share: valuesOf(shares) }) : Err(problem)
+  })
+  const [problem] = problemsOf(gains)
+  return problem === undefined ? Ok({ full: full.value, gains: valuesOf(gains) }) : Err(problem)
+}
+
 /** Where a failed CZ in a mode moves play, read: each mode some share is typed for, with its shares under every level; none where nothing is typed and play stays. */
 const redrawOf = (form: WorldForm, typed: EntityRow["redraw"], name: string): readonly Read<RedrawDto>[] =>
   form.rows
@@ -494,6 +532,8 @@ interface ReadRow {
   readonly sinceAtCeiling: number | undefined
   /** A CZ's ceiling counted from the last AT after a setting change, where given. */
   readonly resetSinceAtCeiling: number | undefined
+  /** A CZ's meter, where it has one. */
+  readonly meter: MeterDto | undefined
   /** An AT's AT間天井 counted from the last AT across the bonuses that start play again, where given. */
   readonly ceilingAcrossBonuses: number | undefined
   /** What the bonus an AT's AT間天井 brings pays, where given. */
@@ -687,6 +727,7 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
   const net: Read<number | undefined> = (isCz || isSide) && tidyTyped(entity.net) !== "" ? setOf(entity.net, `${name} 純増`) : Ok(undefined)
   const sinceAtCeiling = isCz || (isMode && hasCz(form)) ? ceilingOf(entity.sinceAtCeiling, `${name} ATから数える天井`) : Ok(undefined)
   const resetSinceAtCeiling = isCz && !hasModes(form) ? ceilingOf(entity.resetSinceAtCeiling, `${name} リセット後のATから数える天井`) : Ok(undefined)
+  const meter = isCz ? meterOf(form, entity, name) : Ok(undefined)
   const ceilingAcrossBonuses = brought && restartsAtBonus(form) ? ceilingOf(entity.ceilingAcrossBonuses, `${name} ATから数えるAT間天井`) : Ok(undefined)
   const ceilingPayout: Read<number | undefined> =
     brought && entity.ceilingAt === "triggered" && ceilingBringsBonus(form) && tidyTyped(entity.ceilingPayout) !== "" ? medalsOf(entity.ceilingPayout, `${name} 天井で当たるボーナスの枚数`) : Ok(undefined)
@@ -711,7 +752,7 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
   const problems = [
     ...endings.flatMap((read) => (read.ok ? [] : read.error)),
     ...problemsOf(endingAllotment),
-    ...problemsOf([label, payout, of, trials, net, sinceAtCeiling, resetSinceAtCeiling, ceilingAcrossBonuses, ceilingPayout, ...direct, ...directBonus, ceiling, resetCeiling, atCeiling, unitCeiling, resetUnitCeiling, atUnitCeiling, misses, ...chances, ...(allotment ?? []), ...(resetAllotment ?? []), ...success, ...bonusShare, ...gates, ...redraw, ...ceilingRedraw, ...triggerChance, expiry]),
+    ...problemsOf([label, payout, of, trials, net, sinceAtCeiling, resetSinceAtCeiling, meter, ceilingAcrossBonuses, ceilingPayout, ...direct, ...directBonus, ceiling, resetCeiling, atCeiling, unitCeiling, resetUnitCeiling, atUnitCeiling, misses, ...chances, ...(allotment ?? []), ...(resetAllotment ?? []), ...success, ...bonusShare, ...gates, ...redraw, ...ceilingRedraw, ...triggerChance, expiry]),
     ...(law.ok ? [] : law.error),
   ]
   if (problems.length > 0 || !law.ok) return Err(problems)
@@ -741,6 +782,7 @@ const readRow = (form: WorldForm, entity: EntityRow, payoutRule: (entity: Entity
     net: net.ok ? net.value : undefined,
     sinceAtCeiling: sinceAtCeiling.ok ? sinceAtCeiling.value : undefined,
     resetSinceAtCeiling: resetSinceAtCeiling.ok ? resetSinceAtCeiling.value : undefined,
+    meter: meter.ok ? meter.value : undefined,
     ceilingAcrossBonuses: ceilingAcrossBonuses.ok ? ceilingAcrossBonuses.value : undefined,
     ceilingPayout: ceilingPayout.ok ? ceilingPayout.value : undefined,
     endings: endings.length > 0 ? endings.flatMap((read) => (read.ok ? [read.value] : [])) : undefined,
@@ -792,6 +834,7 @@ const worldOf = (form: WorldForm, bet: number, at: MachineResources | undefined,
   const successes = keyed((read) => read.success)
   const bonusShares = keyed((read) => read.bonusShare)
   const gates = keyed((read) => read.gates)
+  const meters = keyed((read) => read.meter)
   const redraws = keyed((read) => read.redraw)
   const ceilingRedraws = keyed((read) => read.ceilingRedraw)
   const triggerChances = keyed((read) => read.triggerChance)
@@ -858,6 +901,7 @@ const worldOf = (form: WorldForm, bet: number, at: MachineResources | undefined,
       ...(Object.keys(directs).length > 0 ? { direct: directs } : {}),
       ...(Object.keys(directBonuses).length > 0 ? { directBonus: directBonuses } : {}),
       ...(Object.keys(gates).length > 0 ? { gates } : {}),
+      ...(Object.keys(meters).length > 0 ? { meter: meters } : {}),
       ...(Object.keys(redraws).length > 0 ? { redraw: redraws } : {}),
       ...(Object.keys(ceilingRedraws).length > 0 ? { ceilingRedraw: ceilingRedraws } : {}),
       ...(Object.keys(triggerChances).length > 0 ? { triggerChance: triggerChances } : {}),
@@ -1062,6 +1106,8 @@ export const worldFormOf = (spec: SpecDto): WorldForm => ({
     expiryTo: spec.components.expiry?.[entity]?.to ?? "",
     sinceAtCeiling: spec.components.sinceAtCeiling?.[entity] === undefined ? "" : String(spec.components.sinceAtCeiling[entity]),
     resetSinceAtCeiling: typedCount(spec.components.resetSinceAtCeiling?.[entity]),
+    meterFull: typedCount(spec.components.meter?.[entity]?.full),
+    meterGains: (spec.components.meter?.[entity]?.gains ?? []).map((gain) => ({ points: String(gain.points), shares: Object.fromEntries(gain.share.map((each) => [String(each.settingLevel), String(each.value / 100)])) })),
     endings: endingsFormOf(spec, entity),
     endingAllotment: endingAllotmentFormOf(spec, entity),
     law: lawFormOf(spec, entity),

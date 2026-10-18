@@ -203,6 +203,7 @@ fn path(since_side_bonus: Option<u32>, games: u32) -> Path {
     Path {
         start: PathStart {
             since_side_bonus,
+            mode: None,
             ..start(0, 0, 0)
         },
         legs: vec![Leg {
@@ -259,6 +260,7 @@ fn a_hunt_pays_the_side_bonus_on_each_game_it_is_still_played_walked_or_chained(
             let hunted = hunt(
                 PathStart {
                     since_side_bonus: Some(since),
+                    mode: None,
                     ..start(0, 0, 0)
                 },
                 &rules,
@@ -291,6 +293,7 @@ fn a_machine_without_a_side_bonus_hunts_as_it_did_whatever_the_seat_says_of_one(
     let table = normalized.tables[0].at.as_ref().expect("an AT");
     let said = PathStart {
         since_side_bonus: Some(40),
+        mode: None,
         ..start(10, 10, 0)
     };
     assert_eq!(

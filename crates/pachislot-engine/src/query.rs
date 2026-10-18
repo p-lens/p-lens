@@ -94,6 +94,7 @@ fn check_entities(spec: &Spec) -> Result<(), SpecError> {
             &components.reset_since_at_ceiling,
             Component::ResetSinceAtCeiling,
         ))
+        .chain(keyed(&components.meter, Component::Meter))
         .chain(keyed(&components.direct_bonus, Component::DirectBonus))
         .chain(keyed(&components.bonus_share, Component::BonusShare))
         .chain(keyed(&components.gates, Component::Gates))
@@ -337,7 +338,8 @@ fn misplaced(spec: &Spec, entity: &EntityId, kinds: &[Component]) -> Option<Comp
             || (!mode && components.gates.contains_key(entity))
             || (!mode && components.misses.contains_key(entity))
             || (!mode && components.since_at_ceiling.contains_key(entity))
-            || components.reset_since_at_ceiling.contains_key(entity))
+            || components.reset_since_at_ceiling.contains_key(entity)
+            || components.meter.contains_key(entity))
     {
         return Some(Component::Cz);
     }
@@ -396,6 +398,7 @@ fn cz(spec: &Spec, entity: &EntityId) -> Result<Cz, SpecError> {
         net_per_game,
         bonus_share,
         gates: components.gates.get(entity).cloned().unwrap_or_default(),
+        meter: components.meter.get(entity).cloned(),
     })
 }
 

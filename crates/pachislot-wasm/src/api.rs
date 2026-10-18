@@ -5,7 +5,6 @@ use std::num::NonZeroU64;
 
 use pachislot_domain::normalized::NormalizedSpec;
 use pachislot_domain::observation::{Path, PathStart};
-use pachislot_domain::spec::EntityId;
 use pachislot_engine::analysis::{Analysis, analyze as solve};
 use pachislot_engine::budget::within;
 use pachislot_engine::normalize::normalize as normalise;
@@ -55,12 +54,6 @@ fn source(source: &SourceDto) -> Result<NormalizedSpec, ErrorDto> {
 }
 
 /// The ways an AT of the machine ends, where it allots its modes by them.
-fn endings_of(spec: &NormalizedSpec) -> &[EntityId] {
-    spec.at_rules
-        .as_ref()
-        .map_or(&[], |rules| rules.endings.as_slice())
-}
-
 fn solved(spec: &NormalizedSpec, conditions: &ConditionsDto) -> Result<Analysis, ErrorDto> {
     solve(spec, &convert::conditions(conditions)?)
         .map_err(|error| convert::analysis_error_dto(&error))
@@ -129,11 +122,10 @@ fn posterior_of(request: &PosteriorRequest) -> Result<PosteriorDto, ErrorDto> {
         .map(convert::distribution)
         .transpose()?;
     let segments = convert::segments(&request.segments)?;
-    let endings = endings_of(&spec);
     let path = request
         .path
         .as_ref()
-        .map(|path| path_on(&spec, convert::path(path, endings)?))
+        .map(|path| path_on(&spec, convert::path(path, spec.at_rules.as_ref())?))
         .transpose()?;
     match &request.told {
         Some(told) => posterior_told(&spec, prior.as_ref(), &convert::told(told)),
@@ -158,7 +150,7 @@ fn theoretical_value_of(
             &analysis,
             &weights,
             play,
-            &path_on(&spec, convert::path(path, endings_of(&spec))?)?,
+            &path_on(&spec, convert::path(path, Some(rules))?)?,
         ),
         _ => return Err(ErrorDto::PlayedMismatch),
     };
@@ -179,7 +171,7 @@ fn hunts(request: &HuntRequest) -> Result<Vec<HuntDto>, ErrorDto> {
                 rules,
                 &weights,
                 play,
-                seat_on(&spec, convert::path_start(seat, &rules.endings)?)?,
+                seat_on(&spec, convert::path_start(seat, Some(rules))?)?,
             )
             .map(|value| HuntDto {
                 games: value.games,

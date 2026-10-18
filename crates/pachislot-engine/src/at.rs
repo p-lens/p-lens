@@ -59,6 +59,9 @@ pub struct Odds<'a> {
     pub bonus_share: f64,
     /// Each mode's own chance a game brings the trigger, where it has one.
     pub own_chances: &'a [Option<Probability>],
+    /// Where the trigger has a meter, the chance the trigger after so many
+    /// misses comes with it full; none where it has none.
+    pub meter: &'a [f64],
 }
 
 impl<'a> Odds<'a> {
@@ -74,6 +77,7 @@ impl<'a> Odds<'a> {
             ceiling_redraws: &table.ceiling_redraws,
             bonus_share: table.bonus_share.value(),
             own_chances: &table.own_chances,
+            meter: &table.meter_wins,
         }
     }
 
@@ -236,13 +240,29 @@ pub(crate) fn games_between(p: f64, ceiling: Option<NonZeroU32>) -> f64 {
     }
 }
 
-/// The chance the `j`th trigger since the last AT wins it.
-pub(crate) fn success_of(j: u32, success: f64, misses: Option<NonZeroU32>) -> f64 {
+/// The chance the `j`th trigger since the last AT wins it: certainly past
+/// the スルー天井, and where the meter is full — at its chance for that
+/// count — and at the trigger's success otherwise.
+pub(crate) fn success_of(j: u32, success: f64, misses: Option<NonZeroU32>, meter: &[f64]) -> f64 {
     if misses.is_some_and(|misses| j > misses.get()) {
-        1.0
-    } else {
-        success
+        return 1.0;
     }
+    let full = usize::try_from(j.saturating_sub(1))
+        .ok()
+        .and_then(|index| meter.get(index))
+        .or_else(|| meter.last())
+        .copied()
+        .unwrap_or(0.0);
+    full + (1.0 - full) * success
+}
+
+/// The counts of misses since the AT a walk tells apart: as far as the
+/// スルー天井 and the meter make them matter, the last holding every count
+/// from it on.
+pub(crate) fn streams_of(misses: Option<NonZeroU32>, meter: &[f64]) -> usize {
+    misses
+        .map_or(1, |misses| misses.get() as usize + 1)
+        .max(meter.len())
 }
 
 /// The games between triggers in a mode, as a running sum carries them:
@@ -362,12 +382,13 @@ fn ended_by(
         chance: p,
         success,
         direct,
+        meter,
         ..
     } = odds;
     let between = Between::of(p, mode.ceiling);
-    let streams = misses.map_or(1, |misses| misses.get() as usize + 1);
+    let streams = streams_of(misses, meter);
     let wins: Vec<f64> = (1..=streams)
-        .map(|j| success_of(u32::try_from(j).unwrap_or(u32::MAX), success, misses))
+        .map(|j| success_of(u32::try_from(j).unwrap_or(u32::MAX), success, misses, meter))
         .collect();
     let (_, _, _, arrived, ended) = (0..length)
         .take_while(|_| crate::budget::spend_walk_game(streams))
@@ -1183,9 +1204,31 @@ pub(crate) fn passed_unbrought(rules: &AtRules, mode: &ModeRule, start: PathStar
 /// about — misses given with no games between — the games since the last
 /// trigger alone weigh the modes.
 pub(crate) fn started(rules: &AtRules, table: &AtTable, start: PathStart) -> Standing {
-    if chained(rules, Odds::of(table)) {
-        return crate::chain::started(rules, table, start);
+    let weighed = if chained(rules, Odds::of(table)) {
+        crate::chain::started(rules, table, start)
+    } else {
+        weighed_start(rules, table, start)
+    };
+    told(weighed, start.mode)
+}
+
+/// Where play stands with the mode the seat says it is in, where it says
+/// one: all of play in it.
+fn told(standing: Standing, mode: Option<usize>) -> Standing {
+    match mode.filter(|mode| *mode < standing.modes.len()) {
+        Some(mode) => Standing {
+            modes: (0..standing.modes.len())
+                .map(|index| if index == mode { 1.0 } else { 0.0 })
+                .collect(),
+            ..standing
+        },
+        None => standing,
     }
+}
+
+/// How likely each mode is where play was first seen, by the allotment and
+/// the counts, on a machine whose modes are not walked as a chain.
+fn weighed_start(rules: &AtRules, table: &AtTable, start: PathStart) -> Standing {
     let shares = table.allotments.starting(start.after_reset, start.ending);
     let chance = table.chance.value();
     let between = start.since_at.checked_sub(start.since_trigger);
@@ -1666,7 +1709,7 @@ pub fn walk(path: &Path, rules: &AtRules, table: &AtTable) -> Walked {
 /// chance every trigger before it missed — stopped once no more can come.
 fn triggers_by_count(
     p: f64,
-    success: f64,
+    (success, meter): (f64, &[f64]),
     (mode, gates): (&ModeRule, &[Gate]),
     horizon: usize,
     misses: Option<NonZeroU32>,
@@ -1683,7 +1726,7 @@ fn triggers_by_count(
             return counts;
         }
         let at = convolved(&previous, p, mode, gates);
-        let wins = success_of(j, success, misses);
+        let wins = success_of(j, success, misses, meter);
         counts.push((at, alive * (1.0 - wins)));
         counts
     })
@@ -1711,6 +1754,7 @@ fn told_leg_in_mode(odds: Odds<'_>, (mode, zones): (&ModeRule, &[Gate]), leg: To
         chance: p,
         success,
         direct,
+        meter,
         ..
     } = odds;
     let games = leg.games as usize;
@@ -1724,7 +1768,14 @@ fn told_leg_in_mode(odds: Odds<'_>, (mode, zones): (&ModeRule, &[Gate]), leg: To
         .map_or(u32::try_from(games).unwrap_or(u32::MAX), |misses| {
             misses + 1
         });
-    let counts = triggers_by_count(p, success, (mode, zones), games + 1, mode.misses, most);
+    let counts = triggers_by_count(
+        p,
+        (success, meter),
+        (mode, zones),
+        games + 1,
+        mode.misses,
+        most,
+    );
     let alive = |j: usize| counts.get(j).map_or(0.0, |(_, alive)| *alive);
     let won_at = |j: usize, game: usize| -> f64 {
         counts
@@ -1733,7 +1784,12 @@ fn told_leg_in_mode(odds: Odds<'_>, (mode, zones): (&ModeRule, &[Gate]), leg: To
             .copied()
             .unwrap_or(0.0)
             * alive(j - 1)
-            * success_of(u32::try_from(j).unwrap_or(u32::MAX), success, mode.misses)
+            * success_of(
+                u32::try_from(j).unwrap_or(u32::MAX),
+                success,
+                mode.misses,
+                meter,
+            )
     };
     let quiet = |k: usize, through: usize| {
         alive(k) * (reached_by(&counts, k, through) - reached_by(&counts, k + 1, through))

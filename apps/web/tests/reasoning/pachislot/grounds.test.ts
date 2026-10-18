@@ -431,6 +431,19 @@ describe("an AT machine's grounds, reasoned", () => {
     expect(links.filter((each) => Math.abs(each.left - each.right) > each.spread * 1.01 + 1e-9 * Math.max(1, Math.abs(each.left)))).toEqual([])
   })
 
+  test("a machine whose CZ fills a meter takes the engine's cycle, said to be unchecked", async () => {
+    const cz = czSpec as SpecDto
+    const share = [
+      { settingLevel: 1, value: 5000 },
+      { settingLevel: 6, value: 5000 },
+    ]
+    const metered = solved({ ...cz, components: { ...cz.components, netPerGame: { at: 4 }, meter: { cz: { full: 3, gains: [{ points: 1, share }] } } } })
+    const proof = await proved(metered.basis, metered.analysis)
+    expect(amiss(proof).filter(([, standing]) => standing !== "holds")).toEqual([["unverified_metered_cycle", "unverified"]])
+    const lines = groundsLines(proof, groundsNamingOf(metered.basis)).map((line) => plainOf(line.parts))
+    expect(lines).toContain("未確認：CZに失敗するたびに貯まるメーターが満タンになると、次のCZが確定で成功する機種の1周期は、計算エンジンが解いた値をそのまま使っています")
+  })
+
   test("a machine drawing at zones takes the engine's cycle, said to be unchecked, with an AT間天井 or without one", async () => {
     const cz = czSpec as SpecDto
     const gates = {

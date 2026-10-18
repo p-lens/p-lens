@@ -48,6 +48,12 @@ pub struct PathStart {
     /// one and the seat says: none where it is not said, the side bonus's
     /// next then as likely on any game as in the long run.
     pub since_side_bonus: Option<u32>,
+    /// The mode play is in, by its place among the rules' modes, where the
+    /// person knows it — the shortened ceiling after a ceiling CZ, a 天国
+    /// told on screen: play is taken to be in it, whatever the allotment
+    /// and the games since would have made likely. None where it is not
+    /// said.
+    pub mode: Option<usize>,
 }
 
 /// So many regular games, the last of which ended as it says.

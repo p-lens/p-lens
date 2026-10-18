@@ -1,11 +1,12 @@
 //! Where play stands at a seat, checked against the machine it is on. A
 //! seat the machine could not stand at is refused, by what makes it so; a
 //! seat past a ceiling that brings something certainly — a CZ counted from
-//! the AT, a side bonus — stands at the game before it, the ceiling's `+α`
-//! being games the cabinet plays out before what it brings shows: it comes
-//! on the next game, as an AT does past an AT間天井. A field the machine has
-//! no use for — games across bonuses where nothing counts across them,
-//! games since a side bonus it lacks or that has no ceiling — is let go of,
+//! the AT, a side bonus, the trigger of the mode the seat says play is in —
+//! stands at the game before it, the ceiling's `+α` being games the
+//! cabinet plays out before what it brings shows: it comes on the next
+//! game, as an AT does past an AT間天井. A field the machine has no use
+//! for — games across bonuses where nothing counts across them, games
+//! since a side bonus it lacks or that has no ceiling — is let go of,
 //! whatever it says.
 
 use std::num::NonZeroU32;
@@ -58,6 +59,10 @@ pub fn seated(
             across,
         });
     }
+    let start = said_mode_ceiling(rules, start).map_or(start, |ceiling| PathStart {
+        since_trigger: start.since_trigger.min(ceiling.get() - 1),
+        ..start
+    });
     Ok(forced_game(spec, rules, start).map_or(start, |game| {
         let before = game.get() - 1;
         PathStart {
@@ -66,6 +71,16 @@ pub fn seated(
             ..start
         }
     }))
+}
+
+/// The trigger's ceiling in games of the mode the seat says play is in,
+/// where it says one and the mode has one: a seat past it stands just short
+/// of it, the trigger coming on the next game.
+fn said_mode_ceiling(rules: &AtRules, start: PathStart) -> Option<NonZeroU32> {
+    start
+        .mode
+        .and_then(|mode| rules.modes.get(mode))
+        .and_then(|mode| mode.ceiling)
 }
 
 /// Where every mode the seat's allotment reaches under some setting is
@@ -83,8 +98,11 @@ fn forced_game(spec: &NormalizedSpec, rules: &AtRules, start: PathStart) -> Opti
                 .modes
                 .iter()
                 .zip(table.allotments.starting(start.after_reset, start.ending))
-                .filter(|(_, share)| **share > 0.0)
-                .map(|(mode, _)| mode)
+                .enumerate()
+                .filter(|(index, (_, share))| {
+                    start.mode.map_or(**share > 0.0, |mode| mode == *index)
+                })
+                .map(|(_, (mode, _))| mode)
         })
         .collect();
     if reached.is_empty()

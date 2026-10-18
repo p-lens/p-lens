@@ -61,7 +61,7 @@ describe("the 解析値 form", () => {
     const form = {
       settingLevels: [1, 6],
       bet: "3",
-      rows: [{ key: "big", label: "BIG", kind: "bonus" as const, of: "", trials: "", payout: "２５２", chances: { "1": "1/273.1", "6": "２５５" }, chanceKind: "combined" as const, ceiling: "", resetCeiling: "", atCeiling: "", resetAllotment: {}, success: {}, misses: "", net: "", unitCeiling: "", resetUnitCeiling: "", atUnitCeiling: "", trigger: "cz" as const, bonusShares: {}, bonusMiss: "counted" as const, forcedCz: "drawn" as const, ceilingAt: "outright" as const, ceilingPayout: "", ceilingAcrossBonuses: "", gates: [], redraw: {}, ceilingRedraw: {}, triggerChances: {}, directBonuses: {}, expiryGames: "", expiryTo: "", sinceAtCeiling: "", resetSinceAtCeiling: "", endings: [], endingAllotment: {}, law: EMPTY_LAW }],
+      rows: [{ key: "big", label: "BIG", kind: "bonus" as const, of: "", trials: "", payout: "２５２", chances: { "1": "1/273.1", "6": "２５５" }, chanceKind: "combined" as const, ceiling: "", resetCeiling: "", atCeiling: "", resetAllotment: {}, success: {}, misses: "", net: "", unitCeiling: "", resetUnitCeiling: "", atUnitCeiling: "", trigger: "cz" as const, bonusShares: {}, bonusMiss: "counted" as const, forcedCz: "drawn" as const, ceilingAt: "outright" as const, ceilingPayout: "", ceilingAcrossBonuses: "", gates: [], redraw: {}, ceilingRedraw: {}, triggerChances: {}, directBonuses: {}, expiryGames: "", expiryTo: "", sinceAtCeiling: "", resetSinceAtCeiling: "", meterFull: "", meterGains: [], endings: [], endingAllotment: {}, law: EMPTY_LAW }],
       base: "",
       lcdRate: "",
       unitName: "",
@@ -374,6 +374,22 @@ describe("an AT machine typed in by hand", () => {
     const unplaced = { ...form, world: { ...form.world, rows: form.world.rows.map((each) => (each.kind === "cz" ? { ...each, gates: [{ ...EMPTY_GATE, trigger: { "1": "10", "6": "10" } }] } : each)) } }
     const read = readManualForm(unplaced)
     expect(!read.ok && read.error).toEqual([{ field: "CZ ゾーン ゲーム数", reason: "required" }])
+  })
+
+  test("a CZ's meter its failures fill reads back the same, and a gain with no points is refused", () => {
+    const madeUp = czSpec as SpecDto
+    const share = [
+      { settingLevel: 1, value: 3_000 },
+      { settingLevel: 6, value: 4_000 },
+    ]
+    const metered: SpecDto = { ...madeUp, components: { ...madeUp.components, meter: { cz: { full: 10, gains: [{ points: 1, share }, { points: 3, share }] } } } }
+    const form = manualFormOf(metered, measured)
+    const row = form.world.rows.find((each) => each.kind === "cz")
+    expect([row?.meterFull, row?.meterGains]).toEqual(["10", [{ points: "1", shares: { "1": "30", "6": "40" } }, { points: "3", shares: { "1": "30", "6": "40" } }]])
+    expect(readManualForm(form)).toEqual({ ok: true, value: { spec: metered, conditions: measured } })
+    const pointless = { ...form, world: { ...form.world, rows: form.world.rows.map((each) => (each.kind === "cz" ? { ...each, meterGains: [{ points: "", shares: { "1": "10", "6": "10" } }] } : each)) } }
+    const read = readManualForm(pointless)
+    expect(!read.ok && read.error).toEqual([{ field: "CZ メーター 1つ目 pt", reason: "required" }])
   })
 
   test("a CZ whose bonus restarts play, its ceiling from the AT a sure one, reads back the same", () => {

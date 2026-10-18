@@ -355,6 +355,7 @@ pub fn odds(chance: f64, success: f64, direct: f64) -> Odds<'static> {
         redraws: &[],
         ceiling_redraws: &[],
         own_chances: &[],
+        meter: &[],
         bonus_share: 1.0,
     }
 }
@@ -375,6 +376,7 @@ pub fn table(chance: f64, success: f64, after_at: Vec<f64>, after_reset: Vec<f64
         ceiling_redraws: Vec::new(),
         own_chances: Vec::new(),
         side_chance: Probability::NONE,
+        meter_wins: Vec::new(),
         allotments: Allotments {
             after_at,
             after_reset,
@@ -396,6 +398,7 @@ pub fn start(since_trigger: u32, since_at: u32, misses: u32) -> PathStart {
         since_at_across_bonuses: None,
         ending: None,
         since_side_bonus: None,
+        mode: None,
     }
 }
 

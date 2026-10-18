@@ -6,13 +6,14 @@ import { autoSelect, selectById, type Selection } from "../../../../core/formula
 import { type Formula, worthOf } from "../../../../core/pachislot/formula"
 import { snapshotOf } from "../../../../core/pachislot/snapshot"
 import { selectPrior, type PriorSelection } from "../../../../core/pachislot/prior"
-import { hasCz, resetMatters } from "../../../../core/pachislot/path"
+import { atModesOf, hasCz, resetMatters, type AtMode } from "../../../../core/pachislot/path"
 import { counterBonusesOf, type Countable, type Weighing } from "../../../../core/pachislot/weighing"
 import type { PlayTerms } from "../../../../core/parlor/terms"
 import type { Checkpoint } from "../../../../core/play-log/checkpoint"
 import type { Result } from "../../../../core/result/result"
 import type { PachislotMachineDetail } from "../../../../core/catalog/catalog"
 import { useApp } from "../../../context"
+import { Select } from "../../../primitives/select"
 import { Loaded } from "../../../primitives/states"
 import { TextField } from "../../../primitives/text-field"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
@@ -34,6 +35,8 @@ export interface SeatState {
   readonly seat: Accessor<Result<Seat, readonly SeatProblem[]>>
   /** Whether the formula chosen is of an AT machine, read from the games since its last AT. */
   readonly atMachine: Accessor<boolean>
+  /** The formula's modes the seat may say play is in, where it has more than one. */
+  readonly modes: Accessor<readonly AtMode[]>
   /** The play's first line, from the seat as read, at a moment; none while the seat does not read. */
   readonly firstLine: (at: string) => Checkpoint | undefined
 }
@@ -92,6 +95,8 @@ export const useSeat = (): SeatState => {
     const found = weighing()
     return found === undefined || atMachine() ? [] : counterBonusesOf(found.formula)
   })
+  /** The machine's modes the seat may say play is in, where it has more than one. */
+  const modes = createMemo((): readonly AtMode[] => ((found) => (found === undefined ? [] : atModesOf(found.formula.normalized, found.formula.labels)))(weighing()))
   const seatForm = createMemo(
     (): SeatForm => ({
       total: start.form().pachislot.seatTotal,
@@ -101,6 +106,7 @@ export const useSeat = (): SeatState => {
       misses: start.form().pachislot.seatMisses,
       held: start.form().pachislot.seatHeld,
       sinceAtAcrossBonuses: weighing()?.formula.normalized.atRules?.ceilingAcrossBonuses === undefined ? "" : start.form().pachislot.seatSinceAtAcrossBonuses,
+      mode: modes().some((mode) => mode.id === start.form().pachislot.seatMode) ? start.form().pachislot.seatMode : "",
     }),
     undefined,
     { equals: sameJson },
@@ -110,7 +116,7 @@ export const useSeat = (): SeatState => {
     const read = seat()
     return read.ok ? seatLineOf(atMachine(), read.value, start.form().pachislot.seatAfterReset, at) : undefined
   }
-  return { detail, formulaSelection, priorSelection, weighing, counterBonuses, seat, atMachine, firstLine }
+  return { detail, formulaSelection, priorSelection, weighing, counterBonuses, seat, atMachine, modes, firstLine }
 }
 
 /**
@@ -132,6 +138,9 @@ function ResetChoice(): JSX.Element {
     </div>
   )
 }
+
+/** What the mode choice holds while the mode is not known: no mode's id. */
+const UNKNOWN_MODE = "?unknown"
 
 const isField = (problem: SeatProblem, field: SeatProblem["field"]): boolean => JSON.stringify(problem.field) === JSON.stringify(field)
 
@@ -251,6 +260,16 @@ function SeatCounter(props: { readonly state: SeatState; readonly nudged: boolea
               invalid={invalid("held")}
               onFocus={props.onFocus}
               compact
+            />
+          </Show>
+          <Show when={props.state.modes().length > 0}>
+            <Select
+              label="モード（分かれば）"
+              options={[{ value: UNKNOWN_MODE, label: "わからない" }, ...props.state.modes().map((mode) => ({ value: mode.id, label: mode.label }))]}
+              value={start.form().pachislot.seatMode === "" ? UNKNOWN_MODE : start.form().pachislot.seatMode}
+              onChange={(chosen) => start.updatePachislot({ seatMode: chosen === UNKNOWN_MODE ? "" : chosen })}
+              placeholder="わからない"
+              onFocus={props.onFocus}
             />
           </Show>
         </div>

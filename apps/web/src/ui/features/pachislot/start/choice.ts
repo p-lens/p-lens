@@ -13,6 +13,7 @@ const FORGOTTEN_SEAT = {
   seatMisses: "",
   seatHeld: "",
   seatSinceAtAcrossBonuses: "",
+  seatMode: "",
 } as const
 
 /**

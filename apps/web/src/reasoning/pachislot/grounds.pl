@@ -100,6 +100,7 @@ rule(unplayed_forced, unplayed, given(forced_from_at)).
 rule(unplayed_direct, unplayed, given(direct_at)).
 rule(unplayed_gated, unplayed, given(gated)).
 rule(unplayed_redrawn, unplayed, given(redrawn)).
+rule(unplayed_metered, unplayed, given(metered)).
 rule(unplayed_restarted, unplayed, given(restarted)).
 rule(cycle_free, cycle(Level, Games, Triggers),
      ( \+ cut_short(Level), \+ unplayed, given(chance(Level, Chance)), triggers(Level, Triggers), ceilings(Ceilings), shares(Level, Shares),
@@ -295,6 +296,7 @@ rule(unverified_direct_cycle, remark(direct_cycle), given(direct_at)).
 rule(unverified_direct_bonuses, remark(direct_bonuses), given(direct_bonus)).
 rule(unverified_gated_cycle, remark(gated_cycle), given(gated)).
 rule(unverified_redrawn_cycle, remark(redrawn_cycle), given(redrawn)).
+rule(unverified_metered_cycle, remark(metered_cycle), given(metered)).
 rule(unverified_restarted_cycle, remark(restarted_cycle), given(restarted)).
 rule(unverified_capped_gain, remark(capped_gain(Cap)), ( given(cap(Cap)), given(level(Level)), gain_taken(Level) )).
 rule(unverified_completion, remark(completion),

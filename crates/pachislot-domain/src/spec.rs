@@ -291,6 +291,11 @@ pub struct Components {
     /// the settings are changed, until the first AT — 979G from the AT, 579G
     /// after a setting change. Beside modes, each mode carries its own.
     pub reset_since_at_ceiling: BTreeMap<EntityId, NonZeroU32>,
+    /// On a CZ: a meter beside the games — 宿怨ポイント — that a missed
+    /// trigger fills by so many points, at a share of misses under each
+    /// setting, and that, full, makes the next trigger certainly win the
+    /// AT. An AT empties it.
+    pub meter: BTreeMap<EntityId, Meter>,
     /// An AT paid in sets: the medals of its first, and of each set it
     /// carries on to.
     pub sets: BTreeMap<EntityId, Sets>,
@@ -404,6 +409,23 @@ pub enum Component {
     Ending,
     EndingAllotment,
     SideBonus,
+    Meter,
+}
+
+/// A meter a CZ's misses fill: the points that fill it, and what a miss
+/// adds, each so many points at a share of misses; the rest add none.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Meter {
+    pub full: NonZeroU32,
+    pub gains: Vec<MeterGain>,
+}
+
+/// So many points a missed trigger adds to a meter, and how often under
+/// each setting.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MeterGain {
+    pub points: NonZeroU32,
+    pub share: PerSettingLevel<BasisPoints>,
 }
 
 /// A mode left when so many games since its last trigger bring none: the
@@ -563,6 +585,8 @@ pub struct Cz {
     pub bonus_share: Option<PerSettingLevel<BasisPoints>>,
     /// The zones it draws at, on a machine without modes.
     pub gates: Vec<Gate>,
+    /// The meter its misses fill, where it has one.
+    pub meter: Option<Meter>,
 }
 
 /// A mode between ATs: its ceiling and its own AT間天井, if it has them,

@@ -94,6 +94,8 @@ export interface PachislotStart {
   readonly seatHeld: string
   /** On an AT machine whose AT間天井 counts across the bonuses that start the counter again: the games since the AT itself. */
   readonly seatSinceAtAcrossBonuses: string
+  /** On an AT machine with modes: the mode play is in, by its id, where the person knows it; empty where not. */
+  readonly seatMode: string
 }
 
 export const EMPTY_PACHISLOT_START: PachislotStart = {
@@ -112,6 +114,7 @@ export const EMPTY_PACHISLOT_START: PachislotStart = {
   seatMisses: "",
   seatHeld: "",
   seatSinceAtAcrossBonuses: "",
+  seatMode: "",
 }
 
 /**

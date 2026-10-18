@@ -24,6 +24,8 @@ import {
   type EntityKindName,
   type EntityRow,
   type GateForm,
+  EMPTY_METER_GAIN,
+  type MeterGainForm,
   hasAtCeiling,
   hasCz,
   everyEndingAllotted,
@@ -659,6 +661,16 @@ function RowEditor(props: {
       <Show when={takesGates(props.form, props.row)}>
         <Zones name={name(props.row.kind === "cz" ? "CZ" : "モード")} levels={props.form.settingLevels} gates={props.row.gates} onChange={(gates) => props.onChange({ ...props.row, gates })} />
       </Show>
+      <Show when={props.row.kind === "cz"}>
+        <Meter
+          name={name("CZ")}
+          levels={props.form.settingLevels}
+          full={props.row.meterFull}
+          gains={props.row.meterGains}
+          onFull={(meterFull) => props.onChange({ ...props.row, meterFull })}
+          onGains={(meterGains) => props.onChange({ ...props.row, meterGains })}
+        />
+      </Show>
     </section>
   )
 }
@@ -802,6 +814,60 @@ function ModeChain(props: { readonly row: EntityRow; readonly form: WorldForm; r
       <p class="text-xs text-text-muted">
         CZに失敗するたびにモードを選び直す機種は、移り先ごとの割合を入れます（設定ごとに合計100%）。空けたモードは、失敗してもATまでそのままです。天井で入ったCZの失敗で次の天井が変わる機種は、その移り先を天井の欄に入れます（空けると普通の失敗と同じ）。CZ失敗後に成功率の上がる高確は、成功率を入れたモードにします。CZのあとしばらくCZが来やすいCZ連は、CZ確率と抜けるまでのゲーム数を入れたモードにして、CZ失敗の移り先にします。公表されていなければ予想で入れてかまいません。
       </p>
+    </div>
+  )
+}
+
+/**
+ * A CZ's meter — 宿怨ポイント — that its failures fill: the points that
+ * fill it, and each gain, so many points at its share of failures under
+ * each setting; full, the next CZ certainly wins the AT. Gains are an
+ * `<Index>`, so typing never remounts a field.
+ */
+function Meter(props: {
+  readonly name: string
+  readonly levels: readonly number[]
+  readonly full: string
+  readonly gains: readonly MeterGainForm[]
+  readonly onFull: (full: string) => void
+  readonly onGains: (gains: readonly MeterGainForm[]) => void
+}): JSX.Element {
+  return (
+    <div class="flex flex-col gap-2">
+      <div class="w-40">
+        <TextField label="メーター満タン（任意）" value={props.full} onChange={props.onFull} inputMode="numeric" suffix="pt" placeholder="なし" />
+      </div>
+      <Index each={props.gains}>
+        {(gain, index) => (
+          <div class="flex flex-col gap-1.5 rounded-md border border-border p-2">
+            <div class="flex items-end gap-3">
+              <div class="w-32">
+                <TextField
+                  label="CZ失敗で貯まる"
+                  value={gain().points}
+                  onChange={(points) => props.onGains(replaced(props.gains, index, { ...gain(), points }))}
+                  inputMode="numeric"
+                  suffix="pt"
+                  placeholder="1"
+                />
+              </div>
+              <Button variant="outline" size="icon" class="ml-auto" aria-label={`${props.name}のメーターの貯まり方を削除`} title="この貯まり方を削除" onClick={() => props.onGains(props.gains.filter((_, at) => at !== index))}>
+                <TrashIcon />
+              </Button>
+            </div>
+            <span class={LABEL}>CZ失敗のうちこれだけ貯まる割合</span>
+            <LevelCells name={`${props.name} メーター`} levels={props.levels} values={gain().shares} suffix="%" placeholder="" onChange={(shares) => props.onGains(replaced(props.gains, index, { ...gain(), shares }))} />
+          </div>
+        )}
+      </Index>
+      <div class="flex flex-wrap items-center gap-2">
+        <Button variant="ghost" size="small" onClick={() => props.onGains([...props.gains, EMPTY_METER_GAIN])}>
+          貯まり方を足す
+        </Button>
+        <p class="basis-full text-xs text-text-muted">
+          CZに失敗するたびに貯まるメーター（宿怨ポイントなど）が満タンになると、次のCZが確定でATに当たります。貯まる量ごとに、CZ失敗のうちその量が貯まる割合を入れます。残りの割合は貯まりません。ATに当たると空に戻ります。公表されていなければ予想で入れてかまいません。
+        </p>
+      </div>
     </div>
   )
 }

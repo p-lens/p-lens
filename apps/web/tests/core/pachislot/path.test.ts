@@ -2,14 +2,14 @@ import { describe, expect, test } from "bun:test"
 
 import type { NormalizedSpecDto } from "@p-lens/contracts/pachislot"
 
-import { atEndingsOf, atSeatCheckpoint, ceilingsOf, czMissedAt, hasCz, huntSeatsOf, inAt, pathOf, resetMatters, standingOf, withLastTakenBack } from "../../../src/core/pachislot/path"
+import { atEndingsOf, atModesOf, atSeatCheckpoint, ceilingsOf, czMissedAt, hasCz, huntSeatsOf, inAt, pathOf, resetMatters, standingOf, withLastTakenBack } from "../../../src/core/pachislot/path"
 import { parsePlayLog, type Checkpoint } from "../../../src/core/play-log/checkpoint"
 
 const at = "2026-10-05T10:00:00.000Z"
 
 const log = (...lines: readonly Checkpoint[]): readonly Checkpoint[] => lines
 
-const seat = (sinceAt: number, sinceCz?: number, misses = 0, afterReset = false): Checkpoint => atSeatCheckpoint({ sinceAt, sinceCz, misses, afterReset, held: undefined, sinceAtAcrossBonuses: undefined }, at)
+const seat = (sinceAt: number, sinceCz?: number, misses = 0, afterReset = false): Checkpoint => atSeatCheckpoint({ sinceAt, sinceCz, misses, afterReset, held: undefined, sinceAtAcrossBonuses: undefined, mode: undefined }, at)
 
 const machine = (atRules: NonNullable<NormalizedSpecDto["atRules"]>, afterAt: readonly number[], afterReset: readonly number[]): NormalizedSpecDto => ({
   schemaVersion: 1,
@@ -92,12 +92,12 @@ describe("an AT machine's play as the path the engine walks", () => {
   })
 
   test("the seat may give the games since the AT itself across the bonuses that started the counter again, and the path starts from them", () => {
-    const first = atSeatCheckpoint({ sinceAt: 120, sinceCz: undefined, misses: 0, afterReset: false, held: undefined, sinceAtAcrossBonuses: 900 }, at)
+    const first = atSeatCheckpoint({ sinceAt: 120, sinceCz: undefined, misses: 0, afterReset: false, held: undefined, sinceAtAcrossBonuses: 900, mode: undefined }, at)
     expect(first.counter).toEqual({ spins: 120, sinceAtAcrossBonuses: 900 })
     expect(parsePlayLog(`${JSON.stringify(first)}\n`)).toEqual({ ok: true, value: [first] })
     expect(pathOf(log(first, { spins: 30 }))?.start).toEqual({ sinceTrigger: 120, sinceAt: 120, misses: 0, afterReset: false, sinceAtAcrossBonuses: 900 })
     expect(pathOf(log(seat(120)))?.start.sinceAtAcrossBonuses).toBeUndefined()
-    const below = atSeatCheckpoint({ sinceAt: 120, sinceCz: undefined, misses: 0, afterReset: false, held: undefined, sinceAtAcrossBonuses: 80 }, at)
+    const below = atSeatCheckpoint({ sinceAt: 120, sinceCz: undefined, misses: 0, afterReset: false, held: undefined, sinceAtAcrossBonuses: 80, mode: undefined }, at)
     expect(pathOf(log(below))?.start.sinceAtAcrossBonuses).toBe(120)
     const across = machine({ base: 40, at: "at", trigger: "cz", modes: [{ id: "cz", atCeiling: 800 }], bonusMiss: "restarts", ceilingAcrossBonuses: 1600 }, [1], [1])
     const path = pathOf(log(first, { spins: 30, event: { kind: "bonus-missed" } }, { spins: 50 }))
@@ -231,7 +231,7 @@ describe("an AT's result and the 有利区間 it leaves", () => {
   test("an AT won back in the window holds what the zone already held as well as its own", () => {
     const back = pathOf(
       log(
-        atSeatCheckpoint({ sinceAt: 10, sinceCz: undefined, misses: 0, afterReset: false, held: 1500, sinceAtAcrossBonuses: undefined }, at),
+        atSeatCheckpoint({ sinceAt: 10, sinceCz: undefined, misses: 0, afterReset: false, held: 1500, sinceAtAcrossBonuses: undefined, mode: undefined }, at),
         { spins: 5, event: { kind: "jackpot" } },
         { spins: 5, event: { kind: "at-ended", completed: false, sets: 4 } },
       ),
@@ -244,7 +244,7 @@ describe("an AT's result and the 有利区間 it leaves", () => {
   test("an AT that reached the cap leaves nothing held, and the seat may say what is", () => {
     const done = pathOf(log(seat(0), { spins: 5, event: { kind: "jackpot" } }, { spins: 5, event: { kind: "at-ended", completed: true, medals: 2400 } }))
     expect(done === undefined ? undefined : standingOf(done, paid).held).toBeUndefined()
-    expect(pathOf(log(atSeatCheckpoint({ sinceAt: 5, sinceCz: undefined, misses: 0, afterReset: false, held: 900, sinceAtAcrossBonuses: undefined }, at)))?.start.held).toBe(900)
+    expect(pathOf(log(atSeatCheckpoint({ sinceAt: 5, sinceCz: undefined, misses: 0, afterReset: false, held: 900, sinceAtAcrossBonuses: undefined, mode: undefined }, at)))?.start.held).toBe(900)
     expect(ceilingsOf({ sinceTrigger: 40, sinceAt: 40, misses: 0, afterReset: false, held: 900 }, capped).zone).toBeUndefined()
   })
 })
@@ -371,5 +371,29 @@ describe("the seats 天井狙い is tabled at", () => {
       { id: "rest", label: "rest" },
     ])
     expect(atEndingsOf(direct, {})).toEqual([])
+  })
+})
+
+describe("a seat that says the mode play is in", () => {
+  const rules = { base: 40, at: "at", trigger: "cz", modes: [{ id: "long", ceiling: 599 }, { id: "short", ceiling: 299 }], misses: 6 }
+  const kept = machine(rules, [0.9, 0.1], [0.5, 0.5])
+  const moving: NormalizedSpecDto = { ...kept, tables: kept.tables.map((table) => (table.at === undefined ? table : { ...table, at: { ...table.at, redraws: [[1, 0], [1, 0]], ceilingRedraws: [[0, 1], [0, 1]] } })) }
+  const said = atSeatCheckpoint({ sinceAt: 250, sinceCz: undefined, misses: 0, afterReset: false, held: undefined, sinceAtAcrossBonuses: undefined, mode: "short" }, at)
+
+  test("starts the path in it, reaches its ceiling alone, and offers it among the machine's modes", () => {
+    const path = pathOf(log(said))
+    expect(path?.start.mode).toBe("short")
+    expect(path === undefined ? undefined : ceilingsOf(path.start, kept).trigger).toBe(49)
+    expect(huntSeatsOf(kept, false, 0, undefined, undefined, "short").every((seat) => seat.mode === "short" && seat.sinceAt < 299)).toBe(true)
+    expect(atModesOf(kept, { long: "599G", short: "299G" })).toEqual([{ id: "long", label: "599G" }, { id: "short", label: "299G" }])
+  })
+
+  test("is kept past a missed CZ where play stays in its mode, and let go of where a miss may move it, or at an AT", () => {
+    const missed = log(said, { spins: 30, counter: { spins: 280 }, event: { kind: "cz-missed" } })
+    const keptPath = pathOf(missed)
+    expect(keptPath === undefined ? undefined : standingOf(keptPath, kept).mode).toBe("short")
+    expect(keptPath === undefined ? undefined : standingOf(keptPath, moving).mode).toBeUndefined()
+    const won = pathOf(log(said, { spins: 30, counter: { spins: 280 }, event: { kind: "jackpot" } }))
+    expect(won === undefined ? undefined : standingOf(won, kept).mode).toBeUndefined()
   })
 })

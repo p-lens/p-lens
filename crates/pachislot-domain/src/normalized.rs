@@ -323,6 +323,11 @@ pub struct AtTable {
     /// The side bonus's chance a regular game below its ceiling; none where
     /// the machine has none.
     pub side_chance: Probability,
+    /// Where the trigger has a meter: the chance the trigger after so many
+    /// misses since the AT — none, one, two, … — comes with the meter full,
+    /// among play that has missed them all, so that it certainly wins; the
+    /// last holding for every count past it. None where it has no meter.
+    pub meter_wins: Vec<f64>,
     pub allotments: Allotments,
     pub payout: PayoutLaw,
 }

@@ -2,7 +2,7 @@ import { createMemo, createResource, createSignal, For, Show, type JSX } from "s
 
 import { huntTable } from "../../../../application/pachislot/hunt"
 import type { Basis } from "../../../../core/pachislot/formula"
-import { atEndingsOf, deepestMisses, huntSeatsOf, resetMatters } from "../../../../core/pachislot/path"
+import { atEndingsOf, atModesOf, deepestMisses, huntSeatsOf, resetMatters } from "../../../../core/pachislot/path"
 import { DEFAULT_PRIOR } from "../../../../core/pachislot/prior"
 import { useApp } from "../../../context"
 import { Loaded } from "../../../primitives/states"
@@ -18,6 +18,9 @@ import { seatCountOf } from "../start/seat-form"
 
 /** The toggle's value for a last AT however it ended. */
 const ANY_ENDING = "any"
+
+/** What the mode choice holds while no mode is said: no mode's id. */
+const ANY_MODE = "?any"
 
 /** What sets an ending's toggle value apart from the one for any ending. */
 const ENDING_PREFIX = "ending:"
@@ -36,7 +39,8 @@ const typedSince = (text: string): number | undefined => (text.trim() === "" ? u
  * and, where the machine allots its modes by how an AT ended, after a last
  * AT that ended a given way, or however it ended (指定なし); and where
  * the machine has a side bonus, so many games since the last of it, or not
- * knowing how many. Weighed under the stock spread a play starts with, on the slot terms the
+ * knowing how many; and where it has modes, in one known (a shortened
+ * ceiling after a ceiling CZ, a 天国 told on screen), or not said. Weighed under the stock spread a play starts with, on the slot terms the
  * start screen holds.
  */
 export function HuntTable(props: { readonly basis: Basis }): JSX.Element {
@@ -46,13 +50,16 @@ export function HuntTable(props: { readonly basis: Basis }): JSX.Element {
   const [misses, setMisses] = createSignal(0)
   const [ending, setEnding] = createSignal<string | undefined>(undefined)
   const [sinceSide, setSinceSide] = createSignal("")
+  const [mode, setMode] = createSignal<string | undefined>(undefined)
+  const modes = createMemo(() => atModesOf(props.basis.normalized, props.basis.spec.components.label ?? {}))
+  const modeLabel = (): string | undefined => ((id) => (id === undefined ? undefined : modes().find((each) => each.id === id)?.label))(mode())
   const side = (): string | undefined => ((rules) => (rules?.sideBonus === undefined ? undefined : props.basis.spec.components.label?.[rules.sideBonus.id] || "別枠ボーナス"))(props.basis.normalized.atRules)
   const endings = createMemo(() => atEndingsOf(props.basis.normalized, props.basis.spec.components.label ?? {}))
   const endingLabel = (): string | undefined => ((id) => (id === undefined || afterReset() ? undefined : endings().find((each) => each.id === id)?.label))(ending())
   const limit = (): number | undefined =>
     ((rules) => (rules === undefined ? undefined : deepestMisses(rules)))(props.basis.normalized.atRules)
   const terms = createMemo(() => ((read) => (read.ok ? read.value : undefined))(readTerms(start.form().terms.slot, "slot")))
-  const seats = createMemo(() => huntSeatsOf(props.basis.normalized, afterReset(), misses(), ending(), typedSince(sinceSide())))
+  const seats = createMemo(() => huntSeatsOf(props.basis.normalized, afterReset(), misses(), ending(), typedSince(sinceSide()), mode()))
   const [rows] = createResource(
     () => ((found) => (found === undefined ? undefined : { terms: found, seats: seats() }))(terms()),
     (asked) => huntTable(app.services.pachislot, props.basis, asked.terms, asked.seats),
@@ -74,6 +81,17 @@ export function HuntTable(props: { readonly basis: Basis }): JSX.Element {
               <ToggleGroupItem value={ANY_ENDING}>指定なし</ToggleGroupItem>
               <For each={endings()}>{(each) => <ToggleGroupItem value={`${ENDING_PREFIX}${each.id}`}>{each.label}</ToggleGroupItem>}</For>
             </ToggleGroup>
+          </div>
+        </Show>
+        <Show when={modes().length > 0}>
+          <div class="w-44">
+            <Select
+              label="モード"
+              placeholder="指定なし"
+              options={[{ value: ANY_MODE, label: "指定なし" }, ...modes().map((each) => ({ value: each.id, label: each.label }))]}
+              value={mode() ?? ANY_MODE}
+              onChange={(value) => setMode(value === ANY_MODE ? undefined : value)}
+            />
           </div>
         </Show>
         <Show when={side()}>
@@ -129,6 +147,7 @@ export function HuntTable(props: { readonly basis: Basis }): JSX.Element {
         設定配分「{priorName(DEFAULT_PRIOR)}」のもとで、通常時は現金で打ち、次のATが終わるまでの平均です。
         {misses() > 0 ? ((trigger) => `${trigger.name}スルーは、${trigger.missed}の直後として出しています。`)(triggerWordsOf(props.basis.normalized)) : ""}
         {((label) => (label === undefined ? "" : `前のATが${label}だった場合の値です。`))(endingLabel())}
+        {((label) => (label === undefined ? "" : `モードが「${label}」と分かっている場合の値です。`))(modeLabel())}
         {((label) => (label === undefined || typedSince(sinceSide()) !== undefined ? "" : `${label}は、前回からのG数が分からないものとして平均の確率で入れています。`))(side())}
       </p>
     </section>

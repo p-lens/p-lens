@@ -150,6 +150,7 @@ fn table(payout: PayoutLaw) -> AtTable {
         ceiling_redraws: Vec::new(),
         own_chances: Vec::new(),
         side_chance: chance(0.0),
+        meter_wins: Vec::new(),
         allotments: Allotments {
             after_at: vec![1.0],
             after_reset: vec![1.0],
@@ -169,6 +170,7 @@ fn start(held: Option<u32>, since_at: u32) -> PathStart {
         since_at_across_bonuses: None,
         ending: None,
         since_side_bonus: None,
+        mode: None,
     }
 }
 

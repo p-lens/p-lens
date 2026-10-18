@@ -1200,6 +1200,97 @@ fn direct_of(
 /// The side bonus's chance a regular game below its ceiling under a
 /// setting: as given, or read back from its published 合算; none where the
 /// machine has no side bonus.
+/// The most misses since the AT a meter's chances are told apart over:
+/// past them, the last holds.
+const METER_COUNTS: usize = 64;
+
+/// Where the trigger has a meter: the chance the trigger after so many
+/// misses since the AT comes with the meter full, among play that has
+/// missed them all. Each miss short of full adds a gain at its share, or
+/// nothing; a meter filled makes the next trigger certainly win, so play
+/// that misses again had one short of full. None where it has no meter.
+fn meter_wins_of(
+    machine: &AtMachine<'_>,
+    setting_level: SettingLevel,
+) -> Result<Vec<f64>, SpecError> {
+    let Some((cz, meter)) = machine
+        .cz
+        .and_then(|cz| cz.meter.as_ref().map(|meter| (cz, meter)))
+    else {
+        return Ok(Vec::new());
+    };
+    let gains = meter
+        .gains
+        .iter()
+        .map(|gain| {
+            gain.share
+                .get(setting_level)
+                .map(|share| (gain.points.get() as usize, share))
+                .ok_or_else(|| SpecError::MissingSettingLevel {
+                    at: cz.id.clone(),
+                    setting_level,
+                })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let sum: u32 = gains.iter().map(|(_, share)| share.get()).sum();
+    if sum > BasisPoints::WHOLE.get() {
+        return Err(SpecError::MeterGainsOverWhole {
+            entity: cz.id.clone(),
+            setting_level,
+            sum,
+        });
+    }
+    let full = meter.full.get() as usize;
+    let none = 1.0 - f64::from(sum) / f64::from(BasisPoints::WHOLE.get());
+    let filled = |levels: &[f64]| -> Vec<f64> {
+        levels
+            .iter()
+            .enumerate()
+            .fold(vec![0.0; full + 1], |mut next, (level, mass)| {
+                if let Some(stay) = next.get_mut(level) {
+                    *stay += mass * none;
+                }
+                for (points, share) in &gains {
+                    if let Some(to) = next.get_mut((level + points).min(full)) {
+                        *to += mass * share.probability().value();
+                    }
+                }
+                next
+            })
+    };
+    let (wins, _) = (1..METER_COUNTS).fold(
+        (vec![0.0], {
+            let mut start = vec![0.0; full];
+            if let Some(empty) = start.first_mut() {
+                *empty = 1.0;
+            }
+            start
+        }),
+        |(mut wins, levels), _| {
+            let next = filled(&levels);
+            let full_share = next.get(full).copied().unwrap_or(0.0);
+            wins.push(full_share);
+            let short = 1.0 - full_share;
+            if short <= f64::EPSILON {
+                return (wins, levels);
+            }
+            let levels = next.iter().take(full).map(|mass| mass / short).collect();
+            (wins, levels)
+        },
+    );
+    Ok(settled_wins(wins))
+}
+
+/// A meter's chances with the counts past where they stop changing left
+/// off, the last holding for them.
+fn settled_wins(wins: Vec<f64>) -> Vec<f64> {
+    let kept = wins
+        .windows(2)
+        .rposition(|pair| matches!(pair, [before, after] if (after - before).abs() > 1e-12))
+        .map_or(1, |changed| changed + 2);
+    wins.into_iter().take(kept).collect()
+}
+
 fn side_chance_of(
     machine: &AtMachine<'_>,
     setting_level: SettingLevel,
@@ -1610,6 +1701,7 @@ fn table_paying(
     let (redraws, ceiling_redraws) = redraws_of(machine, setting_level)?;
     let own_chances = own_chances_of(machine, setting_level)?;
     let side_chance = side_chance_of(machine, setting_level)?;
+    let meter_wins = meter_wins_of(machine, setting_level)?;
     let odds = Odds {
         chance: 0.0,
         success,
@@ -1620,6 +1712,7 @@ fn table_paying(
         ceiling_redraws: &ceiling_redraws,
         bonus_share: bonus_share.value(),
         own_chances: &own_chances,
+        meter: &meter_wins,
     };
     let beyond = || SpecError::FirstHitBeyondCeiling {
         at: id.clone(),
@@ -1644,6 +1737,7 @@ fn table_paying(
         ceiling_redraws,
         own_chances,
         side_chance,
+        meter_wins,
         allotments,
         payout,
     })

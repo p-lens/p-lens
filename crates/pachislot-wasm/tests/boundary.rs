@@ -1234,3 +1234,76 @@ fn a_bonus_the_at_ceiling_brings_carries_its_own_medals_through_the_stored_spec(
         json!({ "type": "ceiling-payout-without-ceiling-triggers", "entity": "at" })
     );
 }
+
+#[test]
+fn a_seat_may_say_the_mode_play_is_in_and_stands_short_of_its_ceiling_past_it() {
+    let spec = value(MODES_SPEC);
+    let said =
+        |mode: &str, since: u32| hunted(&spec, &seat_at(since, since, &json!({ "mode": mode })));
+    let unsaid = |since: u32| hunted(&spec, &seat_at(since, since, &json!({})));
+    assert_eq!(ok(&said("normal", 150)), ok(&unsaid(150)));
+    assert_ne!(ok(&said("normal", 50)), ok(&unsaid(50)));
+    assert_ne!(ok(&said("heaven", 50)), ok(&unsaid(50)));
+    assert_eq!(ok(&said("heaven", 150)), ok(&said("heaven", 99)));
+    assert_eq!(
+        error(&said("hell", 50)),
+        json!({ "type": "unknown-mode", "mode": "hell" })
+    );
+}
+
+fn metered(full: u32, gains: &[(u32, u32)]) -> Value {
+    let mut spec = value(CZ_SPEC);
+    spec["components"]
+        .as_object_mut()
+        .expect("components")
+        .remove("misses");
+    spec["components"]["meter"] = json!({ "cz": {
+        "full": full,
+        "gains": gains.iter().map(|(points, share)| json!({
+            "points": points,
+            "share": [{ "settingLevel": 1, "value": share }, { "settingLevel": 6, "value": share }]
+        })).collect::<Vec<_>>()
+    } });
+    spec
+}
+
+fn at_chance(spec: &Value) -> f64 {
+    let analysis = ok(&analyze(
+        &json!({ "source": { "type": "spec", "spec": spec }, "conditions": measured() })
+            .to_string(),
+    ));
+    analysis["settingLevels"][0]["bonuses"]
+        .as_array()
+        .and_then(|bonuses| bonuses.last())
+        .and_then(|bonus| bonus["chance"].as_f64())
+        .expect("the AT's chance")
+}
+
+#[test]
+fn a_meter_its_misses_fill_makes_the_next_trigger_win_once_full() {
+    let wins = |spec: &Value| {
+        ok(&normalize(&json!({ "spec": spec }).to_string()))["tables"][0]["at"]["meterWins"].clone()
+    };
+    assert_eq!(wins(&metered(1, &[(1, 10_000)])), json!([0.0, 1.0]));
+    let halves = wins(&metered(2, &[(1, 5_000)]));
+    for (index, want) in [0.0, 0.0, 0.25].iter().enumerate() {
+        assert!(close(&halves[index], &json!(want)), "{halves}");
+    }
+    let mut plain = value(CZ_SPEC);
+    plain["components"]
+        .as_object_mut()
+        .expect("components")
+        .remove("misses");
+    assert!(at_chance(&metered(2, &[(1, 5_000)])) > at_chance(&plain));
+    assert!(at_chance(&metered(1, &[(1, 10_000)])) > at_chance(&metered(2, &[(1, 5_000)])));
+    ok(&hunted(
+        &metered(2, &[(1, 5_000)]),
+        &seat_at(50, 300, &json!({ "misses": 2 })),
+    ));
+    assert_eq!(
+        error(&normalize(
+            &json!({ "spec": metered(2, &[(1, 6_000), (2, 6_000)]) }).to_string()
+        )),
+        json!({ "type": "meter-gains-over-whole", "entity": "cz", "settingLevel": 1, "sum": 12000 })
+    );
+}

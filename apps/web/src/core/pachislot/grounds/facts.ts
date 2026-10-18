@@ -193,6 +193,9 @@ const directFacts = (basis: Basis): readonly string[] => {
 /** Whether a mode draws at zones: a cycle the reasoner takes from the engine, and says so. */
 const gatedFacts = (basis: Basis): readonly string[] => (basis.normalized.tables.some((table) => (table.at?.gates ?? []).some((gates) => gates.length > 0)) ? [given("gated")] : [])
 
+/** Whether the trigger has a meter its misses fill, which full makes the next trigger certainly win: a cycle the reasoner takes from the engine, and says so. */
+const meteredFacts = (basis: Basis): readonly string[] => (basis.normalized.tables.some((table) => (table.at?.meterWins ?? []).length > 0) ? [given("metered")] : [])
+
 /** Whether play starts again at a bonus that misses the AT, or a ceiling's CZ certainly succeeds: a cycle the reasoner takes from the engine, and says so. */
 const restartedFacts = (rules: AtRulesDto): readonly string[] => (rules.bonusMiss === "restarts" || rules.forcedCz === "wins" ? [given("restarted")] : [])
 
@@ -271,6 +274,7 @@ export const groundsFacts = (basis: Basis, analysis: AnalysisDto, figures: reado
     ...machineFacts(basis.spec, rules),
     ...directFacts(basis),
     ...gatedFacts(basis),
+    ...meteredFacts(basis),
     ...redrawnFacts(basis),
     ...restartedFacts(rules),
     ...modeFacts(basis.spec, rules, analysis.settingLevels.map((solved) => solved.settingLevel)),

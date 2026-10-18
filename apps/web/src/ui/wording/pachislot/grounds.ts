@@ -1087,6 +1087,8 @@ const lineOf = (step: Step, naming: GroundsNaming): Said | undefined => {
       return { parts: said("未確認：ATなしボーナスで天井やスルーを数え直す機種や、天井のCZが必ず成功する機種の1周期は、計算エンジンが解いた値をそのまま使っています"), tone: "unverified" }
     case "unverified_redrawn_cycle":
       return { parts: said(`未確認：${triggerWord(naming)}に失敗するとモードが移る機種や、モードごとに${triggerWord(naming)}の確率や成功率が違う機種の1周期は、計算エンジンが解いた値をそのまま使っています`), tone: "unverified" }
+    case "unverified_metered_cycle":
+      return { parts: said(`未確認：${triggerWord(naming)}に失敗するたびに貯まるメーターが満タンになると、次の${triggerWord(naming)}が確定で成功する機種の1周期は、計算エンジンが解いた値をそのまま使っています`), tone: "unverified" }
     case "unverified_gated_cycle":
       return { parts: said(`未確認：ゾーンで${triggerWord(naming)}やATを抽選する機種の1周期は、計算エンジンが解いた値をそのまま使っています`), tone: "unverified" }
     case "unverified_direct_cycle":

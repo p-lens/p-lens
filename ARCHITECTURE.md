@@ -1371,6 +1371,22 @@ only the primitives, the core and the application.
   the CZ's or a mode's. An AT such a CZ wins where it certainly succeeds
   — at its bonus's share, where its success brings one — is won by the
   ceiling, in the hunt's `by_ceiling` as an AT間天井's or a スルー天井's is.
+  A CZ may have a meter its failures fill (`meter`: 宿怨ポイント), whose
+  `full` points make the next CZ certainly win the AT; each failure adds
+  one of its `gains`, so many points at its share of failures under every
+  setting, or nothing for the rest, and an AT empties it. How a meter
+  fills depends on neither when a CZ comes nor how likely it is to win,
+  so normalising works out for each setting the chance the CZ after so
+  many failures since the AT comes with it full, among play that failed
+  them all (`tables[].at.meterWins`, the last holding past it), and every
+  walk takes a CZ's success after `j` failures as that chance or, short
+  of it, the CZ's own — telling apart as many failures as the meter needs,
+  as it does those a スルー天井 counts. Points a meter gains on other
+  occasions — ハマり, a lost 連続演出 — are typed as part of a failure's
+  gain. A gain's shares coming to more than the whole are refused
+  (`meter-gains-over-whole`). The grounds take such a cycle from the engine
+  and say so (`unverified_metered_cycle`); the formula editor writes it as
+  「メーター満タン」 and 「CZ失敗で貯まる」 on the CZ.
   An AT a CZ brings may also be won outright (`direct`, a chance a regular
   game below the ceilings, under every setting level), drawn before the
   CZ: a cycle is the CZ's walk with each game reached only where none
@@ -1666,6 +1682,16 @@ only the primitives, the core and the application.
   or more. The games walked from such a seat are walked from that game, so
   a path that goes on past it without what it brings is contradictory
   evidence, as one past an AT間天井 is.
+- **A seat may say the mode play is in.** Where the person knows it — the
+  shortened ceiling after a ceiling CZ (頭文字D 2nd's 299G), a 天国 told on
+  screen — the seat names the mode by its id (`mode`, chosen at the seat
+  form as 「モード（分かれば）」 and in the hunt table as 「モード」, on a
+  machine with more than one). The engine takes play to be all in it,
+  whatever the allotment and the games since would have made likely, and a
+  seat past its trigger's ceiling stands just short of it; a mode the
+  machine lacks is `unknown-mode`. It is kept on the first line
+  (`counter.mode`) and along the path until an AT, a bonus that starts play
+  again, or a missed trigger on a machine whose misses may move play.
   Where only some modes are past such a CZ, they are ruled out and the
   others weighed. A field the machine has no use for is let go of,
   whatever it says: games across bonuses where no AT間天井 counts across
