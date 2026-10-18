@@ -44,6 +44,7 @@ import {
   STOPPING_TEXT,
   THEORETICAL_LABEL,
   writingText,
+  type SaidSometimes,
 } from "../../wording/sample-book"
 
 const TONES = {
@@ -152,9 +153,28 @@ const linesOf = (report: SampleReport): readonly Line[] => {
 /** The waits that are long, by the step they follow, and what is said through each in turn, its first as it begins: finding where the device is and the parlors, and the days about to be played. */
 const STAGED: Partial<Readonly<Record<SampleReport["type"], readonly string[]>>> = { locating: LOCATING_LINES, starting: STARTING_LINES }
 
-/** Lines in an order of chance, so those alike in kind do not come one after another; a fresh order each time a book is made. */
-const shuffledLines = (lines: readonly string[]): readonly string[] =>
-  lines.reduce<readonly string[]>((placed, line) => ((at) => [...placed.slice(0, at), line, ...placed.slice(at)])(Math.floor(Math.random() * (placed.length + 1))), [])
+/** How many of the lines said lately are not said again yet. */
+const NOT_AGAIN_WITHIN = 10
+
+/**
+ * The next line of those said sometimes: a kind drawn by how often its
+ * lines are said, then one of its lines not said lately, where it has one.
+ */
+const nextLine = (kinds: readonly SaidSometimes[], lately: readonly string[]): string => {
+  const drawn = Math.random() * kinds.reduce((total, kind) => total + kind.weight, 0)
+  const chosen =
+    kinds.reduce<{ readonly passed: number; readonly kind: SaidSometimes | undefined }>(
+      (walk, kind) => (walk.kind !== undefined ? walk : walk.passed + kind.weight > drawn ? { passed: walk.passed, kind } : { passed: walk.passed + kind.weight, kind: undefined }),
+      { passed: 0, kind: undefined },
+    ).kind ?? kinds[0]
+  const lines = chosen?.lines ?? []
+  const fresh = lines.filter((line) => !lately.includes(line))
+  const from = fresh.length > 0 ? fresh : lines
+  return from[Math.floor(Math.random() * from.length)] ?? ""
+}
+
+/** The lines said lately, with one more: the newest last, as many as are kept from being said again. */
+const withLately = (lately: readonly string[], line: string): readonly string[] => [...lately, line].slice(-NOT_AGAIN_WITHIN)
 
 const withLines = (lines: readonly Line[], added: readonly Line[]): readonly Line[] =>
   added.reduce((all, line) => (line.kind === "gathering" && all.at(-1)?.kind === "gathering" ? [...all.slice(0, -1), line] : [...all, line]), lines)
@@ -180,9 +200,14 @@ function Preparing(props: { readonly lines: readonly Line[] }): JSX.Element {
 
 /** The years being written, and while hledger checks each, something said by turns beside a turning mark, so the wait is not a still one. */
 function Writing(props: { readonly report: Extract<SampleReport, { readonly type: "writing" }> }): JSX.Element {
-  const lines = shuffledLines(WRITING_LINES)
-  const [said, setSaid] = createSignal(0)
-  const timer = setInterval(() => setSaid((now) => now + 1), WRITING_EVERY)
+  const held: { lately: readonly string[] } = { lately: [] }
+  const say = (): string => {
+    const line = nextLine(WRITING_LINES, held.lately)
+    held.lately = withLately(held.lately, line)
+    return line
+  }
+  const [said, setSaid] = createSignal(say())
+  const timer = setInterval(() => setSaid(say()), WRITING_EVERY)
   onCleanup(() => clearInterval(timer))
   return (
     <div class="flex flex-col gap-3" aria-live="polite">
@@ -192,7 +217,7 @@ function Writing(props: { readonly report: Extract<SampleReport, { readonly type
       </div>
       <p class="flex items-center gap-2 text-sm text-text-primary">
         <span class="size-3.5 shrink-0 animate-spin rounded-full border-2 border-accent border-t-transparent" aria-hidden="true" />
-        <span class="min-w-0 truncate">{lines[said() % lines.length]}</span>
+        <span class="min-w-0 truncate">{said()}</span>
       </p>
     </div>
   )
@@ -222,10 +247,9 @@ function SampleBookDialog(props: { readonly open: boolean; readonly titles: read
   const [unnamed, setUnnamed] = createSignal(app.services.unnamedTitle(props.titles))
   const [lines, setLines] = createSignal<readonly Line[]>([])
   /** The making under way, by what stops it: a making stopped and another begun, the first's end is not this screen's to show. */
-  const held: { making: AbortController | undefined; passing: number; passingLines: readonly string[]; staged: number } = {
+  const held: { making: AbortController | undefined; lately: readonly string[]; staged: number } = {
     making: undefined,
-    passing: 0,
-    passingLines: shuffledLines(PASSING_LINES),
+    lately: [],
     staged: 0,
   }
   const title = (): string => sampleTitleOf(unnamed())
@@ -239,8 +263,9 @@ function SampleBookDialog(props: { readonly open: boolean; readonly titles: read
       if (!now) return
       const timer = setInterval(() => {
         if (stagedSaid()) return
-        held.passing += 1
-        setLines((said) => withLines(said, [{ kind: "said", text: held.passingLines[held.passing % held.passingLines.length] ?? "" }]))
+        const line = nextLine(PASSING_LINES, held.lately)
+        held.lately = withLately(held.lately, line)
+        setLines((said) => withLines(said, [{ kind: "said", text: line }]))
       }, PASSING_EVERY)
       onCleanup(() => clearInterval(timer))
     }),
@@ -274,8 +299,7 @@ function SampleBookDialog(props: { readonly open: boolean; readonly titles: read
     if (stage().type === "running" || stage().type === "stopping") return
     const making = new AbortController()
     held.making = making
-    held.passingLines = shuffledLines(PASSING_LINES)
-    held.passing = 0
+    held.lately = []
     setLines([{ kind: "said", text: WAITING_LINE }])
     setStage({ type: "running", report: undefined })
     const services = app.services
