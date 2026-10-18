@@ -3,8 +3,12 @@ import { createEffect, on, onCleanup, type Accessor } from "solid-js"
 import { warmConsolidation } from "../../../application/consolidation"
 import type { Services } from "../../../application/services"
 import { monthOf } from "../../../core/calendar/calendar"
+import { queryOf, shortcutsOn } from "../period/periods"
 import { monthQuery } from "../result-calendar"
 import { consolidationShown } from "./shown"
+
+/** The periods asked ahead besides every day, by their shortcuts: those most looked at. */
+const WARMED_PERIODS: readonly string[] = ["month", "year"]
 
 /** How long after the app starts, or after a book is written, the consolidation is asked ahead: once the screen asked for has its answers. */
 const WARM_AFTER = 3000
@@ -24,7 +28,11 @@ export const warmConsolidationWhileShown = (services: Services, revision: Access
       return
     }
     held.running = true
-    void warmConsolidation(services.session, monthQuery(monthOf(services.businessDay()))).finally(() => {
+    const today = services.businessDay()
+    const periods = shortcutsOn(today)
+      .filter((shortcut) => WARMED_PERIODS.includes(shortcut.id))
+      .map((shortcut) => queryOf(shortcut.range))
+    void warmConsolidation(services.session, { month: monthQuery(monthOf(today)), periods }).finally(() => {
       held.running = false
       if (!held.again) return
       held.again = false

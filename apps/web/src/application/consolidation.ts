@@ -96,18 +96,34 @@ export const loadConsolidatedSpinPerformances = async (session: BookSession, cho
 export const loadConsolidatedSenderNames = async (session: BookSession, chosen: readonly BookId[] | undefined): Promise<Outcome<SenderNames>> =>
   mapOk(await ofChosen(session, chosen, (book) => loadSenderNames(session, book.id)), (books) => mergedSenderNames(books.flatMap((each) => (each.read.ok ? [each.read.value] : []))))
 
-/**
- * What the consolidation opens on, asked ahead and let go: 総合 and その他損益
- * over every book and every day, a month of its calendar, and the books'
- * savings. hledger keeps the journals it read and the answers it gave, so
- * once these are asked the consolidation shows them at once; a book
- * written since is the only one asked again. Each book is read in its turn,
- * so a screen asked meanwhile waits a book at most.
- */
-export const warmConsolidation = async (session: BookSession, month: string): Promise<void> => {
-  await consolidationKeepsTheoreticalValues(session, undefined)
-  await loadConsolidatedOverall(session, undefined, "")
-  await loadConsolidatedOtherGains(session, undefined, "")
-  await loadConsolidatedDaysAndWhole(session, undefined, month)
-  await loadConsolidatedHoldings(session, undefined, "")
+/** What the consolidation is asked ahead about: the month its calendar opens on, and the periods most looked at besides every day — this month and this year — each as the screens ask it. */
+export interface Warming {
+  readonly month: string
+  readonly periods: readonly string[]
 }
+
+/**
+ * What the consolidation opens on, asked ahead and let go, what it opens on
+ * first: 総合 and その他損益 over every book and every day, a month of its
+ * calendar and the books' savings; then 総合 and その他損益 over each period
+ * most looked at; then the tallies by machine, with their spin performances,
+ * over every day and each of those periods. hledger keeps the journals it
+ * read and the answers it gave, so once these are asked the consolidation
+ * shows them at once; a book written since is the only one asked again.
+ * Each book is read in its turn, so a screen asked meanwhile waits a book at
+ * most.
+ */
+export const warmConsolidation = (session: BookSession, warming: Warming): Promise<void> =>
+  oneAfterAnother([
+    () => consolidationKeepsTheoreticalValues(session, undefined),
+    () => loadConsolidatedOverall(session, undefined, ""),
+    () => loadConsolidatedOtherGains(session, undefined, ""),
+    () => loadConsolidatedDaysAndWhole(session, undefined, warming.month),
+    () => loadConsolidatedHoldings(session, undefined, ""),
+    ...warming.periods.flatMap((period) => [() => loadConsolidatedOverall(session, undefined, period), () => loadConsolidatedOtherGains(session, undefined, period)]),
+    ...["", ...warming.periods].flatMap((period) => [() => loadConsolidation(session, undefined, "machine", period), () => loadConsolidatedSpinPerformances(session, undefined, period)]),
+  ])
+
+/** Things asked one after another, each once the one before has its answer, the answers let go. */
+const oneAfterAnother = (asks: readonly (() => Promise<unknown>)[]): Promise<void> =>
+  asks.reduce<Promise<void>>((before, ask) => before.then(async () => void (await ask())), Promise.resolve())
