@@ -310,14 +310,6 @@ export function ReadingComposer(props: {
           )}
         </For>
       </ToggleGroup>
-      <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-1.5">
-        <TextField label="回転数" value={form().counter} onChange={(counter) => change({ counter })} inputMode="numeric" invalid={nudged("counter")} onFocus={nudge.settle} compact />
-        <TextField label="持ち玉" value={form().held} onChange={(held) => change({ held, heldCarried: false })} inputMode="numeric" suffix="玉" invalid={nudged("held")} onFocus={nudge.settle} compact />
-        <DriftButton drift={form().drift} supported={form().supported} invalid={nudged("supported")} onDrift={(drift) => change({ drift })} onSupported={(supported) => change({ supported })} onFocus={nudge.settle} />
-      </div>
-      <Show when={recount()} keyed>
-        {(drift) => <p class="text-xs text-warning">{recountText(drift.estimate)}</p>}
-      </Show>
       <div class="grid grid-cols-2 items-end gap-1.5">
         <div class="flex items-end gap-1">
           <div class="min-w-0 flex-1">
@@ -339,11 +331,19 @@ export function ReadingComposer(props: {
           </p>
         )}
       </Show>
-      <Show when={unread()}>
-        <p class="text-xs text-negative">{FIELD_PROBLEM_TEXT["not-a-count"]}</p>
-      </Show>
       <Show when={behind()}>
         <p class="text-xs text-negative">貸玉と貯玉引出は累計です。これまでより少なくはできません。</p>
+      </Show>
+      <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-1.5">
+        <TextField label="回転数" value={form().counter} onChange={(counter) => change({ counter })} inputMode="numeric" invalid={nudged("counter")} onFocus={nudge.settle} compact />
+        <TextField label="持ち玉" value={form().held} onChange={(held) => change({ held, heldCarried: false })} inputMode="numeric" suffix="玉" invalid={nudged("held")} onFocus={nudge.settle} compact />
+        <DriftButton drift={form().drift} supported={form().supported} invalid={nudged("supported")} onDrift={(drift) => change({ drift })} onSupported={(supported) => change({ supported })} onFocus={nudge.settle} />
+      </div>
+      <Show when={recount()} keyed>
+        {(drift) => <p class="text-xs text-warning">{recountText(drift.estimate)}</p>}
+      </Show>
+      <Show when={unread()}>
+        <p class="text-xs text-negative">{FIELD_PROBLEM_TEXT["not-a-count"]}</p>
       </Show>
       <div class="grid grid-cols-2 items-end gap-2">
         <div class="flex min-w-0 items-end gap-1">
