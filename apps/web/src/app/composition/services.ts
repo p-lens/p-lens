@@ -39,6 +39,7 @@ import { freshFraction, freshSeed, freshUuidV7, uuidV7On, voterOf } from "./ids"
 import { createConnection } from "../../storage/browser/database"
 import { createBrowserStorageKeeper } from "../../storage/browser/storage-keeper"
 import { createBrowserDeviceData } from "../../storage/browser/device-data"
+import { createLocalStorageWelcomeStore } from "../../onboarding/local/local-storage-welcome-store"
 import { createLocalStoragePreferences } from "../../preferences/local/local-storage-preferences"
 import { createIndexedDbDrafts, createIndexedDbStorage } from "../../storage/browser/indexed-db"
 import { createHttpRelay } from "../../sync/http/http-relay"
@@ -120,6 +121,7 @@ export const createServices = (): Services => {
   const database = createConnection()
   const history = createIndexedDbHistory(database, freshUuidV7)
   const preferences = createLocalStoragePreferences()
+  const welcome = createLocalStorageWelcomeStore(() => Math.floor(clock().getTime() / 1000))
   const storage = createIndexedDbStorage(database)
   const me: Member = { id: LOCAL_MEMBER, displayName: "自分", role: "owner" }
   const hledgerWorker = (): Worker => new Worker(new URL("../../hledger/worker/worker.ts", import.meta.url), { type: "module" })
@@ -197,6 +199,7 @@ export const createServices = (): Services => {
     today: () => localDayOf(clock()),
     businessDay: () => businessDayOf(clock(), preferences.businessDayTurn()),
     preferences,
+    welcome,
     now: () => clock().toISOString(),
     newPlayId: () => freshUuidV7() as string as PlayId,
     unnamedTitle: (taken) => unnamedTitle(taken, freshFraction()),

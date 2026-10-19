@@ -467,12 +467,12 @@ function SampleLetters(): JSX.Element {
 }
 
 /**
- * Making a sample book from the rail: its place on the rail, a space of
- * its own above settings that opens it, and what it opens, to be set
- * beside the rail. The books there are what a new one's picture is kept
- * apart from.
+ * Making a sample book: its place on the rail, a space of its own above
+ * settings that opens it, what it opens, to be set on the screen, and a
+ * way to open it from elsewhere — the welcome leads to it.
+ * The books there are what a new one's picture is kept apart from.
  */
-export const useSampleBook = (titles: Accessor<readonly string[]>): { readonly item: () => RailItem; readonly view: () => JSX.Element } => {
+export const useSampleBook = (titles: Accessor<readonly string[]>): { readonly item: () => RailItem; readonly view: () => JSX.Element; readonly open: () => void } => {
   const [open, setOpen] = createSignal(false)
   return {
     item: () => ({
@@ -483,5 +483,6 @@ export const useSampleBook = (titles: Accessor<readonly string[]>): { readonly i
       onSelect: () => setOpen(true),
     }),
     view: () => <SampleBookDialog open={open()} titles={titles()} onClose={() => setOpen(false)} />,
+    open: () => setOpen(true),
   }
 }

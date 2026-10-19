@@ -22,6 +22,7 @@ import type { StoppedAtWork } from "../consolidation/port/lanes"
 import type { ConsolidationPorts } from "./consolidation"
 import type { VoterOf } from "./marks"
 import type { ExportPorts } from "./export"
+import type { WelcomeStore } from "../onboarding/port/welcome-store"
 import type { Preferences } from "../preferences/port/preferences"
 import type { DestinationStore } from "../sync/port/destination-store"
 import type { InvitationStore } from "../sync/port/invitation-store"
@@ -96,6 +97,8 @@ export interface Services {
   readonly businessDay: () => IsoDate
   /** What the person has set for this device. */
   readonly preferences: Preferences
+  /** What the device keeps of its own arrival at the app, for welcoming it once. */
+  readonly welcome: WelcomeStore
   /** The moment, as an ISO 8601 timestamp. */
   readonly now: () => string
   readonly newPlayId: () => PlayId

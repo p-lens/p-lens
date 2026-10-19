@@ -26,6 +26,8 @@ import { SubmissionReturnView } from "../live/SubmissionReturnView"
 import { DocumentView } from "../documents/DocumentView"
 import { NotFound } from "../not-found/NotFound"
 import { OddPrizeCalculatorSide } from "../odd-prize-calculator/OddPrizeCalculatorSide"
+import { WelcomeProvider } from "../onboarding/welcome"
+import { useSampleBook } from "../sample-book/SampleBook"
 import * as PachislotViews from "../pachislot"
 import { TallyDetail } from "../tallies/TallyDetail"
 import { TalliesView } from "../tallies/TalliesView"
@@ -59,6 +61,7 @@ import { ViewHeader } from "./ViewHeader"
 import { RefreshButton } from "./RefreshButton"
 import { UpdateNotice } from "./UpdateNotice"
 import { ODD_PRIZE_CALCULATOR_LABEL } from "../../wording/odd-prize-calculator"
+import { bookTitle } from "../../wording/book"
 
 /** Below this width the panes are shown one at a time. */
 const NARROW_BELOW = 768
@@ -235,7 +238,8 @@ const auxFor = (place: Place, query: () => string): JSX.Element | undefined => {
  * The whole screen, read off the address: which place, which hledger query,
  * and from those which panes show what. The books are asked for once here,
  * since the rail and a book's side panel both name them, and the books that
- * are only sent to likewise.
+ * are only sent to likewise. Making a sample book is held here too, since
+ * both the rail and the welcome open it.
  */
 export function PLensScreen(): JSX.Element {
   const location = useLocation()
@@ -246,33 +250,37 @@ export function PLensScreen(): JSX.Element {
   const app = useApp()
   const [books] = createResource(() => app.revision(), () => app.services.session.books())
   const [destinations] = createResource(() => app.revision(), () => destinationsOf(app.services.destinations))
+  const sampleBook = useSampleBook(() => ((listed) => (listed?.ok === true ? listed.value.map(bookTitle) : []))(books()))
 
   return (
     <StartFormProvider>
-      <GatheringShell
-        arrangement={arrangement()}
-        focus={focusOf(place())}
-        topBar={
-          <TopBar
-            title={app.services.name}
-            trailing={
-              <div class="flex items-center gap-1">
-                <BackupNotice />
-                <UpdateNotice />
-                <RefreshButton />
-                <AboutButton />
-              </div>
-            }
-          />
-        }
-        rail={<SpacesRail place={place()} books={books()} destinations={destinations()} />}
-        side={sideFor(place(), books(), destinations())}
-        aux={auxFor(place(), query)}
-      >
-        <Show when={screenOf(place())} keyed>
-          {(_screen) => mainFor(untrack(place), query, place)}
-        </Show>
-      </GatheringShell>
+      <WelcomeProvider onSample={sampleBook.open}>
+        <GatheringShell
+          arrangement={arrangement()}
+          focus={focusOf(place())}
+          topBar={
+            <TopBar
+              title={app.services.name}
+              trailing={
+                <div class="flex items-center gap-1">
+                  <BackupNotice />
+                  <UpdateNotice />
+                  <RefreshButton />
+                  <AboutButton />
+                </div>
+              }
+            />
+          }
+          rail={<SpacesRail place={place()} books={books()} destinations={destinations()} sampleBook={sampleBook.item()} />}
+          side={sideFor(place(), books(), destinations())}
+          aux={auxFor(place(), query)}
+        >
+          <Show when={screenOf(place())} keyed>
+            {(_screen) => mainFor(untrack(place), query, place)}
+          </Show>
+        </GatheringShell>
+        {sampleBook.view()}
+      </WelcomeProvider>
       <ToastRegion />
       <StoppedNotice />
     </StartFormProvider>

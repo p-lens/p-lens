@@ -7,7 +7,6 @@ const BUSINESS_DAY_TURN = "p-lens.business-day-turn"
 const PARLOR_SETTING = "p-lens.parlor-setting"
 const TOKENS_IN_HAND = "p-lens.tokens-in-hand"
 const CONSOLIDATION_SHOWN = "p-lens.consolidation-shown"
-const FIRST_OPENED = "p-lens.first-opened"
 const STAGE_STEP = "p-lens.stage-step"
 const FIGURES_UNFOLDED: Readonly<Record<GameKind, string>> = { pachinko: "p-lens.figures-unfolded.pachinko", pachislot: "p-lens.figures-unfolded.pachislot" }
 const FORMULA_DRAFT: Readonly<Record<GameKind, string>> = { pachinko: "p-lens.formula-draft.pachinko", pachislot: "p-lens.formula-draft.pachislot" }
@@ -41,21 +40,10 @@ const forget = (key: string): void => {
 }
 
 /**
- * When the device first opened the app, in UNIX seconds, kept where nothing
- * is kept yet. It is written ahead of anything that reads it, so that a
- * first-opening guide added later knows a device opened before it from a new
- * one, rather than greeting everyone the day it ships.
- */
-const markFirstOpened = (): void => {
-  if (stored(FIRST_OPENED) === undefined) keep(FIRST_OPENED, String(Math.floor(Date.now() / 1000)))
-}
-
-/**
  * Preferences kept in localStorage, read once and held: where storage
  * refuses a change, the change still holds for as long as the page is open.
  */
 export const createLocalStoragePreferences = (): Preferences => {
-  markFirstOpened()
   const held: { businessDayTurn: BusinessDayTurn; parlorSetting: string | undefined; tokensInHand: string | undefined; consolidationShown: boolean; stageStep: StageStep; figuresUnfolded: Record<GameKind, boolean>; formulaDraft: Record<GameKind, string | undefined> } = {
     businessDayTurn: readBusinessDayTurn(stored(BUSINESS_DAY_TURN)),
     parlorSetting: stored(PARLOR_SETTING),

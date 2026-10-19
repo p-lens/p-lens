@@ -84,7 +84,7 @@ describe("dependency direction", () => {
 
   test("screens reach storage and hledger only through the application, naming at most a port's types", async () => {
     expect(
-      await offending(`${WEB}src/ui/`, /\/(app|pwa)\/|storage\/(?!port\/)|history\/(?!port\/)|hledger\/(client|worker)|pachinko-engine\/worker|reasoning\/(worker|pachinko)|sync\/(http|local|web-crypto)|(?<!core\/)backup\/(?!port\/)|preferences\/local|pachislot-engine\/worker|(?<!core\/)(catalog|parlors)\/(local|jsonl|absent|http|delivered)|location\/browser|@p-lens\/pachinko-engine/),
+      await offending(`${WEB}src/ui/`, /\/(app|pwa)\/|storage\/(?!port\/)|history\/(?!port\/)|hledger\/(client|worker)|pachinko-engine\/worker|reasoning\/(worker|pachinko)|sync\/(http|local|web-crypto)|(?<!core\/)backup\/(?!port\/)|preferences\/local|onboarding\/local|pachislot-engine\/worker|(?<!core\/)(catalog|parlors)\/(local|jsonl|absent|http|delivered)|location\/browser|@p-lens\/pachinko-engine/),
     ).toEqual([])
   })
 
@@ -96,8 +96,8 @@ describe("dependency direction", () => {
   test("only the composition names concrete adapters", async () => {
     const outside = (
       await Promise.all(
-        ["application", "core", "ui", "hledger", "sync/port", "backup/port", "preferences/port", "pachinko-engine", "catalog/port", "parlors/port", "pachislot-engine", "consolidation/port"].map((layer) =>
-          offending(`${WEB}src/${layer}/`, /storage\/browser|history\/adapters|(?<!core\/)(catalog|parlors)\/(local|jsonl|absent|http|delivered)|sync\/(http|local|web-crypto)|(?<!core\/)backup\/(zip|google-drive|browser|web-crypto|local)|preferences\/local|location\/browser|consolidation\/(memory|absent|web-crypto|local|tiered|lanes)/),
+        ["application", "core", "ui", "hledger", "sync/port", "backup/port", "preferences/port", "onboarding/port", "pachinko-engine", "catalog/port", "parlors/port", "pachislot-engine", "consolidation/port"].map((layer) =>
+          offending(`${WEB}src/${layer}/`, /storage\/browser|history\/adapters|(?<!core\/)(catalog|parlors)\/(local|jsonl|absent|http|delivered)|sync\/(http|local|web-crypto)|(?<!core\/)backup\/(zip|google-drive|browser|web-crypto|local)|preferences\/local|onboarding\/local|location\/browser|consolidation\/(memory|absent|web-crypto|local|tiered|lanes)/),
         ),
       )
     ).flat()

@@ -636,13 +636,14 @@ core ──► hledger/protocol/wire (types only)
 
 | Directory | Holds | May import |
 |---|---|---|
-| `core/` | pure domain: decimal, calendar, commodity, text, result, parlor, play, tally, play-log, live-play, valuation, theoretical, journal, report, book, access, change, backup, export, document, favorites, marks; the catalog's machine, catalog, formula (a formula's standing) and grounds (a proof read back); and each game's own, pachinko and pachislot | itself, `hledger/protocol/wire` types |
+| `core/` | pure domain: decimal, calendar, commodity, text, result, parlor, play, tally, play-log, live-play, valuation, theoretical, journal, report, book, access, change, backup, export, document, favorites, marks, onboarding; the catalog's machine, catalog, formula (a formula's standing) and grounds (a proof read back); and each game's own, pachinko and pachislot | itself, `hledger/protocol/wire` types |
 | `hledger/protocol/` | the wire format, mirroring `Bindings.hs`; worker messages | nothing |
 | `hledger/query/` | hledger query terms and requests P-Lens writes | `core`, `hledger/protocol` |
 | `hledger/client/` | the only way to the worker; one queue (`inTurn`) | `hledger/protocol`, `core/result` |
 | `hledger/worker/` | the engine (WASI, one parsed journal) and the worker loop | `hledger/protocol` |
 | `storage/`, `history/` | `port/` interfaces (books, drafts, history, whether the browser keeps what is stored); `browser/` or `adapters/` implementations | `core` |
 | `preferences/` | `port/` (what a person has set for this device), `local/` (kept in localStorage) | `core` |
+| `onboarding/` | `port/` (what a device keeps of its own arrival at the app: when it first opened it, and whether it has been welcomed), `local/` (kept in localStorage, the first opening written as the app starts) | `core` |
 | `sync/` | `port/` (the relay, the sealing, a book's link to its line), `http/` (a relay by URL), `web-crypto/` (sealing by the browser's cryptography), `local/` (links in IndexedDB) | `core`, contracts |
 | `backup/` | `port/` (the archive, a store away from the device, a file handed over, a fingerprint, the receipts), `zip/` (archives as zip files), `google-drive/` (a store in a person's Google Drive, and its sign-in), `browser/` (a file handed over by the browser), `web-crypto/` (fingerprints by the browser's cryptography), `local/` (receipts in IndexedDB) | `core` |
 | `application/` | use cases, the `BookSession`, `Services` | `core`, `hledger/query`, ports |

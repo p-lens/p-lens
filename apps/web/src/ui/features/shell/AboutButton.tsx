@@ -5,6 +5,8 @@ import { useApp } from "../../context"
 import { useMoves } from "../../navigation/moves"
 import { CloseIcon, QuestionIcon } from "../../primitives/icons"
 import { documentTitle } from "../../wording/documents"
+import { WELCOME_AGAIN } from "../../wording/onboarding"
+import { useWelcome } from "../onboarding/welcome"
 
 /**
  * A question mark in the top bar's corner that says what P-Lens is — a
@@ -17,14 +19,16 @@ import { documentTitle } from "../../wording/documents"
  * product's own site is. Its words
  * are those of the release: sharing is named
  * before it is built, and the app is not released until it is. It drops down from the mark and stays
- * until closed, with nothing darkened behind it. The documents the
- * deployment puts before people, its terms and its privacy policy, are
- * linked from its foot where there are any, and under them who runs the
+ * until closed, with nothing darkened behind it. The welcome is opened
+ * again from its foot, before the documents the
+ * deployment puts before people, its terms and its privacy policy, which
+ * are linked from there where there are any, and under them who runs the
  * deployment and the version of the app this copy was built from.
  */
 export function AboutButton(): JSX.Element {
   const moves = useMoves()
   const app = useApp()
+  const welcome = useWelcome()
   const [open, setOpen] = createSignal(false)
   return (
     <div class="relative">
@@ -60,6 +64,16 @@ export function AboutButton(): JSX.Element {
             <p>帳簿は会計ソフト hledger のテキスト形式で、この端末に保存されます。仲間うちで共有して、連結会計もできます。</p>
           </section>
           <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-border pt-3 text-sm">
+            <button
+              type="button"
+              class="text-accent hover:underline"
+              onClick={() => {
+                setOpen(false)
+                welcome.show()
+              }}
+            >
+              {WELCOME_AGAIN}
+            </button>
             <For each={DOCUMENT_KINDS.filter((kind) => app.services.documents[kind] !== undefined)}>
               {(kind) => (
                 <button
