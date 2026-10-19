@@ -787,10 +787,26 @@ fn event(dto: &EventDto, field: &str) -> Result<Event, ErrorDto> {
 }
 
 /// # Errors
-/// When the stored spec is not one this adapter wrote.
+/// A stored normalised spec is read in any shape up to the latest this
+/// engine knows, each as its version says. One stored by a later engine is
+/// refused by its number, never read as if it were in a shape known here,
+/// and one that says no shape at all is no normalised spec.
+fn schema_version(dto: &NormalizedSpecDto) -> Result<SchemaVersion, ErrorDto> {
+    let known = SchemaVersion::CURRENT.get();
+    match dto.schema_version {
+        0 => Err(invalid("normalized.schemaVersion")),
+        version if version > known => Err(ErrorDto::UnsupportedSchemaVersion { version, known }),
+        version => Ok(SchemaVersion::new(version)),
+    }
+}
+
+/// # Errors
+/// When the stored spec is not one this adapter wrote, or is in a shape
+/// this engine does not read yet.
 pub fn normalized_spec(dto: &NormalizedSpecDto) -> Result<NormalizedSpec, ErrorDto> {
+    let shape = schema_version(dto)?;
     endings_matched(NormalizedSpec {
-        schema_version: SchemaVersion::new(dto.schema_version),
+        schema_version: shape,
         bet: dto.bet,
         tables: dto
             .tables
@@ -826,7 +842,7 @@ pub fn normalized_spec(dto: &NormalizedSpecDto) -> Result<NormalizedSpec, ErrorD
         at_rules: dto
             .at_rules
             .as_ref()
-            .map(|rules| at_rules(rules, SchemaVersion::new(dto.schema_version)))
+            .map(|rules| at_rules(rules, shape))
             .transpose()?,
         watches: dto
             .watches

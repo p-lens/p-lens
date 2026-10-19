@@ -14,6 +14,13 @@ export interface StoredFormula {
   readonly basis: unknown
   readonly normalized: unknown
   readonly engineSchemaVersion: number | undefined
+  /**
+   * The version of the engine that checked the figures against the basis,
+   * so that formulas checked by an engine that has since come to other
+   * figures can be found; none where nothing checked them — a formula typed
+   * in, or one stored as its sender's device solved it.
+   */
+  readonly engineVersion: number | undefined
   /** A pachinko formula's bonuses; none for a pachislot one, whose bonuses are its world's. */
   readonly bonuses: unknown
   readonly derivedFrom: string | undefined
@@ -28,13 +35,14 @@ export type PreparedOfGame =
 
 const storedPachinko = (formula: Pachinko.PreparedFormula): StoredFormula =>
   formula.kind === "manual"
-    ? { kind: "manual", figures: formula.figures, basis: undefined, normalized: undefined, engineSchemaVersion: undefined, bonuses: formula.bonuses, derivedFrom: formula.derivedFrom, checked: true }
+    ? { kind: "manual", figures: formula.figures, basis: undefined, normalized: undefined, engineSchemaVersion: undefined, engineVersion: undefined, bonuses: formula.bonuses, derivedFrom: formula.derivedFrom, checked: true }
     : {
         kind: formula.kind,
         figures: formula.figures,
         basis: { spec: Pachinko.specOf(formula), conditions: formula.conditions },
         normalized: formula.normalized,
         engineSchemaVersion: formula.engineSchemaVersion,
+        engineVersion: formula.engineVersion,
         bonuses: formula.bonuses,
         derivedFrom: formula.derivedFrom,
         checked: true,
@@ -46,6 +54,7 @@ const storedPachislot = (formula: Pachislot.PreparedFormula): StoredFormula => (
   basis: { spec: Pachislot.specOf(formula), conditions: formula.conditions },
   normalized: formula.normalized,
   engineSchemaVersion: formula.engineSchemaVersion,
+  engineVersion: formula.engineVersion,
   bonuses: undefined,
   derivedFrom: formula.derivedFrom,
   checked: formula.checked,

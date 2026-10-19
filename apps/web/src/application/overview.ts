@@ -21,7 +21,7 @@ export interface Overview {
   readonly savingsValuedOn: IsoDate | undefined
 }
 
-/** The period's results in one view, every figure from hledger. */
+/** The period's results in one view, every figure from hledger: the savings as they stand now, whatever the period, so the whole book is read. */
 export const loadOverview = (session: BookSession, bookId: BookId, query: string): Promise<Outcome<Overview>> =>
   session.read(bookId, async (journal) => {
     const [statement, theoretical, inferred, time, savings] = await Promise.all([

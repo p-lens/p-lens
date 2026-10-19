@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test"
 
 import type { IsoDate } from "../../src/core/calendar/calendar"
-import { awaitsSending, deliveryOf, withCabinetNumber, withMachine, type PlayDraft } from "../../src/core/live-play/draft"
+import { awaitsSending, deliveryOf, withCabinetNumber, withMachine, type PachinkoDraft } from "../../src/core/live-play/draft"
 import { withJackpotsUntold } from "../../src/core/pachinko/revision"
 import { appendCheckpoint, parsePlayLog } from "../../src/core/play-log/checkpoint"
 import type { PlayId } from "../../src/core/play/play"
 
 const LINE = "line-1"
 
-const DRAFT: PlayDraft = {
+const DRAFT: PachinkoDraft = {
   id: "p-1" as PlayId,
   date: "2026-10-09" as IsoDate,
   venue: { type: "none", terms: undefined },
@@ -20,7 +20,7 @@ const DRAFT: PlayDraft = {
   log: '{"spins":0,"outlay":0}\n',
 }
 
-const sentAs = (log: string, lineId: string): PlayDraft => ({ ...DRAFT, sent: [{ lineId, at: "2026-10-09T02:00:00.000Z", log }] })
+const sentAs = (log: string, lineId: string): PachinkoDraft => ({ ...DRAFT, sent: [{ lineId, at: "2026-10-09T02:00:00.000Z", log }] })
 
 describe("how a play stands with an inbox", () => {
   test("a play never sent there is unsent, and waits", () => {
@@ -57,7 +57,7 @@ describe("a play said anew to be on another machine", () => {
   const moved = withMachine({ ...DRAFT, log }, { type: "pachinko", name: "made-up 199", formula, bonuses: [{ name: "4R", payout: 400, spent: 40 }] as never, readings: withJackpotsUntold(lines) })
 
   test("is weighed by that machine's formula and chooses its jackpots from that machine's bonuses", () => {
-    expect([moved.machine, moved.pachinko, moved.bonuses]).toEqual(["made-up 199", formula, [{ name: "4R", payout: 400, spent: 40 }]] as never)
+    expect(moved).toMatchObject({ gameKind: "pachinko", machine: "made-up 199", pachinko: formula, bonuses: [{ name: "4R", payout: 400, spent: 40 }] })
   })
 
   test("keeps every reading where it was, its jackpots no longer saying which bonus they were", () => {
@@ -70,10 +70,11 @@ describe("a play said anew to be on another machine", () => {
     ])
   })
 
-  test("a play whose log does not read keeps it as it is, and a cabinet's number is the play's alone", () => {
+  test("a play whose log does not read keeps it as it is, is of the machine's game and keeps nothing of the other's, and a cabinet's number is the play's alone", () => {
     const weighing = { formula: { id: "s-2" }, prior: { type: "even" } } as never
-    const slot = withMachine({ ...DRAFT, gameKind: "slot", log }, { type: "pachislot", name: "made-up slot", weighing, readings: undefined })
-    expect([slot.machine, slot.pachislot, slot.log]).toEqual(["made-up slot", weighing, log] as never)
+    const slot = withMachine({ ...DRAFT, log }, { type: "pachislot", name: "made-up slot", weighing, readings: undefined })
+    expect(slot).toMatchObject({ gameKind: "slot", machine: "made-up slot", pachislot: weighing, log })
+    expect("pachinko" in slot || "bonuses" in slot).toBe(false)
     expect(withCabinetNumber(DRAFT, "123").cabinetNumber).toBe("123")
     expect(withCabinetNumber({ ...DRAFT, cabinetNumber: "123" }, undefined).cabinetNumber).toBeUndefined()
   })

@@ -28,7 +28,7 @@ fixes.
    valuation is `--value`, sums are balance reports. No figure a book comes
    to is worked out here.
 4. **Each parlor's tokens at each rental rate are their own commodity.**
-   `玉(4円・マレハン第3新東京店)`, `玉(1円・マレハン第3新東京店)` and `玉(4円・723小宇宙店)`
+   `玉(4円・マレハン東京皇国店)`, `玉(1円・マレハン東京皇国店)` and `玉(4円・723修羅の国店)`
    cannot be exchanged for each other, so they are different commodities,
    held as real assets.
 5. **Exchange rates are only ever added.** A changed rate is a new `P` directive
@@ -60,13 +60,15 @@ fixes.
 
 ## The books
 
-A book is four files, named in `core/journal/layout.ts`:
+A book is its journals, named in `core/journal/layout.ts` and
+`core/journal/filing.ts`:
 
 ```text
-main.journal          includes the other three by name, never by pattern
-accounts.journal      commodity and account declarations; a parlor is declared here
-prices.journal        P directives, only appended to
-transactions.journal  one entry per tally
+main.journal               includes the others by name, never by pattern: the years in order, then transactions.journal
+accounts.journal           commodity and account declarations; a parlor is declared here
+prices.journal             P directives, only appended to
+transactions/<year>.journal  one entry per tally, and the savings' own entries, each in its day's year
+transactions.journal       entries not filed by year: what a hand, or an app from before the years, wrote
 pachinko-play/<play-id>.jsonl   a pachinko play's head line and checkpoints, written when a play followed live is recorded
 pachislot-play/<play-id>.jsonl  a pachislot play's, the same
 logs/activity.jsonl             what was done to the book: who, when, what, and the lines it changed, a line a change
@@ -148,7 +150,7 @@ The account tree is deliberately small:
 
 ```text
 資産:現金
-資産:貯玉:<parlor>:<rate>      tagged parlor-id, e.g. 資産:貯玉:マレハン第3新東京店:4円
+資産:貯玉:<parlor>:<rate>      tagged parlor-id, e.g. 資産:貯玉:マレハン東京皇国店:4円
 資産:貯メダル:<parlor>:<rate>  tagged parlor-id
 収益:遊技
 費用:遊技
@@ -165,9 +167,56 @@ The account tree is deliberately small:
 統計:時間                   seconds a play lasted, virtual postings only; declared with 秒 in every new book, and in an older one when it first has one
 ```
 
+**The book is one timeline; the years are only where entries are kept.** An
+entry goes into the file of its day's year (`withEntryFiled`), and the year's
+file is included the moment it is first written. Nothing is written where one
+year ends and the next begins — no closing and no carrying forward, in the
+transactions or anywhere else, nor any entry that exists only when the app
+reads the book — and any period is asked of hledger by its days, a balance by
+its last: the whole book is the years one after another, read as it always
+was. A tally set right stays where it stands while its day stays in that
+file's year, and moves to its new year's file otherwise; one among the
+transactions not filed by year stays there, a book being filed by year all
+at once.
+
+**hledger reads a book file by file** (`readPiecewise` in the bindings) where
+its `main.journal` is nothing but comments, blank lines and includes by name:
+each file parsed in the state the include would hand it, joined as the include
+joins it, and the whole finalised and checked once, so the book is the one
+hledger would read whole. Each file's latest parse is kept with its text and
+that state and taken again while both are as they were, so a book written in
+one year's file is parsed again in that file alone: a ten-year book opens
+again after a write in 0.6s where it took 1.3s, the rest being the
+finalising, which is the whole book's. Any other main journal is read whole,
+as hledger reads it.
+
+**A question about some days is asked of a view** (`core/journal/views`,
+`application/book-views`), alone or consolidated, each reading use case saying
+what it counts: the book's files with those of its transactions left
+out where no entry of theirs can count — none within the days for what moved
+(総合, a breakdown, the calendar, spin performances), none before their end
+for what stood (savings, その他損益, whose revaluation counts what was held
+when the days began). A file is judged by its entries' own days, never by its
+name, and a book whose transactions hold anything the app does not write is
+read whole. So a year's question reads that year's file, and is answered as
+the whole book would answer it; every day reads the whole book, and so does
+the overview, whose savings are those standing now whatever the period.
+
+**A book is filed by year once, by the app, after the page's first sync
+round** (`application/file-by-year`): each year's entries among
+`transactions.journal` are moved into that year's file as they were written,
+the oldest year first and at most two hundred entries a commit
+(`year-filed`), which the activity tells, so that each fits the relay's box. A move is kept only where hledger reads the book after it, entry for
+entry and account for account, as it did before. A book is left as it is
+where its `transactions.journal` holds anything the app does not write — a
+directive, a comment of a line's own, a day not written as the app writes
+it, a posting with a day of its own — where this member may not write it,
+or where it is synced and holds commits not yet on its line, so that what
+two devices file is what both had and comes to the same commits.
+
 Savings are set in two ways, both against equity so that neither is any
 play's result: an opening balance, one entry tagged `savings: opening` kept
-at the head of `transactions.journal`, and an adjustment, tagged
+at the head of its year's file, and an adjustment, tagged
 `savings: adjustment` and dated the day the count was put right. A book made
 before either existed has the two accounts declared when it first needs them.
 
@@ -283,19 +332,19 @@ rate for the day differs.
 ### One tally, one entry
 
 ```hledger
-2026-09-05 マレハン第3新東京店 | 流星 123番台  ; play-id: …, parlor-id: hoshizora-umeda, game-kind: pachinko, machine: 流星, cabinet-number: 123
+2026-09-05 マレハン東京皇国店 | 流星 123番台  ; play-id: …, parlor-id: malehan-tokyokoukoku, game-kind: pachinko, machine: 流星, cabinet-number: 123
     資産:現金                         -12000 JPY
     費用:貸玉差額                       1290 JPY
-    費用:遊技                           3000 "玉(4円・マレハン第3新東京店)" @ 3.57 JPY
-    資産:貯玉:マレハン第3新東京店:4円        4800 "玉(4円・マレハン第3新東京店)"
-    収益:遊技                          -4800 "玉(4円・マレハン第3新東京店)"
+    費用:遊技                           3000 "玉(4円・マレハン東京皇国店)" @ 3.57 JPY
+    資産:貯玉:マレハン東京皇国店:4円        4800 "玉(4円・マレハン東京皇国店)"
+    収益:遊技                          -4800 "玉(4円・マレハン東京皇国店)"
     (統計:期待値)                       5500 JPY
 ```
 
 - **The description** is hledger's `payee | note` (`describedBy`): the
   parlor is the payee, the machine and its cabinet the note, so `payee:`
   groups a book by parlor outside the app too. Savings entries are the
-  same — `マレハン第3新東京店 | 景品交換` — and an imported tally's payee is the
+  same — `マレハン東京皇国店 | 景品交換` — and an imported tally's payee is the
   parlor as the other app named it. The bar is written always: a tally with
   no parlor is `| e風の剣豪`, its payee empty rather than its machine — a
   description with no bar is its own payee whole — and with no machine
@@ -603,7 +652,7 @@ core ──► hledger/protocol/wire (types only)
 | `pwa/` | service-worker registration and update state | — |
 | `catalog/` | `port/` (the shared catalog as delivered, and the API it comes from), `delivered/` (the delivered catalog in IndexedDB, with the outbox), `http/` (the API by URL), `absent/` (no catalog), `local/` (the device id) | `core`, contracts |
 | `parlors/` | `port/` (the parlor list and its cache), `jsonl/` (the list by URL), `absent/` (no list), `local/` (the IndexedDB cache) | `core` |
-| `consolidation/` | `port/` (each book's answers kept for the consolidation, keyed by a digest of its journals, the day and the question), `memory/` (kept in memory), `local/` (kept in IndexedDB, read back only by the build that kept it), `tiered/` (memory in front of IndexedDB), `absent/` (nothing kept: every answer asked of hledger), `web-crypto/` (the digest by the browser's cryptography); a personal book never goes through it. A screen is answered at once with what each book was last answered today, and the book is read after: one found written since is asked again, and the screen told (`OutdatedNotice`) asks again too. Asking ahead asks each book everything before the next, so hledger opens it once, and waits for each book to be read | `core` |
+| `consolidation/` | `port/` (each book's answers kept for the consolidation, keyed by a digest of its journals, the day and the question), `memory/` (kept in memory), `local/` (kept in IndexedDB, read back only by the build that kept it), `tiered/` (memory in front of IndexedDB), `absent/` (nothing kept: every answer asked of hledger), `web-crypto/` (the digest by the browser's cryptography); a personal book never goes through it. A screen is answered at once with what each book was last answered today, and the book is read after: one found written since is asked again, and the screen told (`OutdatedNotice`) asks again too. A question about a period reads a view of each book, the files it can count (`core/journal/views`), as one book's own screens do. Asking ahead goes over the books twice, the periods most looked at first and every day after, each book asked everything of a round before the next, and waits for each book to be read | `core` |
 | `pachinko-engine/` | `protocol/`, `client/` (the only way to the pachinko engine), `worker/` (the only importer of `@p-lens/pachinko-engine`) | contracts |
 | `reasoning/` | `protocol/`, `client/` (the only way to a reasoner), `worker/` (the reasoner itself, of no game, and the only importer of `trealla`), `pachinko/` and `pachislot/` (each game's grounds in Prolog, and the worker that serves them) | `core/result` |
 | `pachislot-engine/` | `protocol/`, `client/` (the only way to the pachislot engine), `worker/` (the only importer of `@p-lens/pachislot-engine`) | contracts |
@@ -969,7 +1018,18 @@ walking down the trail and back keeps the work in hand.
   five standard errors on the mean result). Same seed and input, same result,
   however it is chunked.
 - `EngineVersion` and `SchemaVersion` are separate: a stored normalised spec
-  says its schema, and is solved as that schema.
+  says its schema, and is solved as that schema. A formula keeps the
+  `EngineVersion` that checked its figures (`engine_version`, none where
+  nothing did), so those checked by an engine that has since come to other
+  figures can be found.
+- **A normalised shape changes in one of two ways, by what changes.** A value
+  that moves without changing what it means — the machine's one value
+  becoming each mode's, the old read as every mode's — keeps the schema: the
+  old place stays, read and never written, and a spec with both is refused
+  (a pachislot mode's スルー天井, `misses`). A value whose reading changes
+  raises `SchemaVersion`, and a stored spec is read as its version says (a
+  pachislot mode's AT間天井, shape 3: a mode a setting change enters holds it
+  only until the first AT, which the machine's one never did).
 - **A spec says which shape it is written in.** `SpecVersion`, the spec's
   own `v`, is the version of the world's shape — its entities, a table per
   component, its resources — as a person's spec is sent and stored, apart
@@ -2175,9 +2235,9 @@ a group made off with were not lost to the parlor, and the pool is put
 right to what is there (残高調整).
 
 ```hledger
-2026-10-04 マレハン第3新東京店 | 失効  ; parlor-id: hoshizora-umeda, savings: forfeiture
-    費用:失効損                        4000 "玉(4円・マレハン第3新東京店)"
-    資産:貯玉:マレハン第3新東京店:4円      -4000 "玉(4円・マレハン第3新東京店)"
+2026-10-04 マレハン東京皇国店 | 失効  ; parlor-id: malehan-tokyokoukoku, savings: forfeiture
+    費用:失効損                        4000 "玉(4円・マレハン東京皇国店)"
+    資産:貯玉:マレハン東京皇国店:4円      -4000 "玉(4円・マレハン東京皇国店)"
 ```
 
 - It is an expense, in tokens only, as a replay's fee is: what it comes
@@ -2373,8 +2433,9 @@ A tally in the book is set right, or taken out, from its detail
   makes, one a hand has changed, is refused as unreadable and is set right
   in the book's own file.
 - **Written anew where it stands** (`core/tally/in-journal`): the entry is
-  found by its `play-id` in `transactions.journal` and replaced, every
-  other line as it was, in one commit (`play-revised`, the word data
+  found by its `play-id` in whichever file of the transactions holds it and
+  replaced, every other line as it was — moved to its new year's file where
+  its day moved to another year (`withTallyFiled`) — in one commit (`play-revised`, the word data
   already written). The tally keeps its id and its play's log. A rental
   is split at the book's rate for the day the tally now says, as at
   recording. A day before any rate the book has for the pool — a tally

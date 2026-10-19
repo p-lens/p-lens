@@ -107,6 +107,8 @@ export type ApplicationError =
   | { readonly type: "import"; readonly problem: ImportProblem }
   | { readonly type: "tally-missing" }
   | { readonly type: "tally-unreadable" }
+  /** A year's entries not moved into its file, since hledger would read the book otherwise after it. */
+  | { readonly type: "filing-differs"; readonly year: string }
   | SettingsUnreadable
   | { readonly type: "opening-balance-registered"; readonly parlor: string; readonly tier: string }
   | { readonly type: "catalog"; readonly error: CatalogError }

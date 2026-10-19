@@ -18,7 +18,7 @@ const machine = (name: string, gameKind: "pachinko" | "pachislot"): MachineSumma
 
 /** The lists as a device has them: one parlor listed under its own name, one machine of each game catalogued. */
 const PORTS: NamePorts = {
-  parlors: { list: async () => Ok({ parlors: [{ id: "osm-9", name: "ホシゾラなんば新館", reading: "ほしぞらなんばしんかん", keywords: [], prefecture: "大阪府", address: "大阪市", location: undefined, submissions: [] } as never], rejections: [] }) },
+  parlors: { list: async () => Ok({ parlors: [{ id: "osm-9", name: "ダイナモなんかつ新館", reading: "だいなもなんかつしんかん", keywords: [], prefecture: "大阪府", address: "大阪市", location: undefined, submissions: [] } as never], rejections: [] }) },
   submissions: { list: async () => Ok([]), keep: async () => Ok(undefined) },
   catalog: { search: async (_query: string, gameKind: string) => Ok([machine("森物語", "pachinko"), machine("ハッピーピエロットEX", "pachislot")].filter((each) => each.gameKind === gameKind)) } as unknown as Catalog,
 }
@@ -70,11 +70,11 @@ describe("a book's file edited by hand", () => {
     const accounts = text(BOOK_FILES.accounts)
     const declared = (name: string, id: string): string => `${accounts}\ncommodity 1. "玉(4円・${name})"\naccount 資産:貯玉:${name}:4円  ; parlor-id: ${id}\n`
     expect(await editFile(session, PORTS, BOOK, BOOK_FILES.accounts, declared("近所の店", "mine-1"))).toEqual({ ok: false, error: { type: "unknown-names", problems: [{ type: "parlor-unlisted", name: "近所の店" }] } })
-    expect(await editFile(session, PORTS, BOOK, BOOK_FILES.accounts, declared("ホシゾラ難波", "osm-9"))).toEqual({
+    expect(await editFile(session, PORTS, BOOK, BOOK_FILES.accounts, declared("ダイナモ南葛", "osm-9"))).toEqual({
       ok: false,
-      error: { type: "unknown-names", problems: [{ type: "parlor-misnamed", name: "ホシゾラ難波", listed: "ホシゾラなんば新館" }] },
+      error: { type: "unknown-names", problems: [{ type: "parlor-misnamed", name: "ダイナモ南葛", listed: "ダイナモなんかつ新館" }] },
     })
-    expect((await editFile(session, PORTS, BOOK, BOOK_FILES.accounts, declared("ホシゾラなんば新館", "osm-9"))).ok).toBe(true)
+    expect((await editFile(session, PORTS, BOOK, BOOK_FILES.accounts, declared("ダイナモなんかつ新館", "osm-9"))).ok).toBe(true)
   })
 
   test("is refused, and the book left as it was, where it raises cash: a gain is prizes taken home, never cash", async () => {

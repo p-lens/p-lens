@@ -8,8 +8,8 @@ export const comparableName = (name: string): string => name.normalize("NFKC").t
 /**
  * A machine's name as it is kept, however it was typed: letters, digits
  * and marks at half width and kana at full, one space where there were
- * several, and none between the letter a name opens with — P, e, L, S —
- * and the Japanese it stands before. `Ｐ　流星無双　Ⅱ！` is kept as
+ * several, and none between the letter a name opens with — P, e, L, S, in
+ * either case as it was typed — and the Japanese it stands before. `Ｐ　流星無双　Ⅱ！` is kept as
  * `P流星無双 II!`; `P FABLE TALE` keeps its space, there being no telling
  * the letter from the word without it. The wave dash is a tilde as the
  * full-width tilde is: `〜焔の紋章〜` and `～焔の紋章～` are both
@@ -26,7 +26,7 @@ export const keptName = (name: string): string =>
     .replace(/\s+/g, " ")
     .replace(/ ?\/ ?/g, "/")
     .replace(/:{2,}/g, ":")
-    .replace(/^([PeLS]) (?=[^\x00-\x7f])/, "$1")
+    .replace(/^([PeLS]) (?=[^\x00-\x7f])/i, "$1")
 
 /**
  * A machine's 大当り確率 as a spec sheet writes it, `1/319.7`: one in so

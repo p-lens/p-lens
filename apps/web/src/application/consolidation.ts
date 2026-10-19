@@ -225,36 +225,43 @@ export interface Warming {
 }
 
 /**
- * What the consolidation opens on, asked ahead and let go, book by book:
- * each book is asked everything before the next is, so hledger opens it
- * once, not once a question. What it is asked, in the order the screens
- * want it: 総合 and その他損益 over each period most looked at, the one
- * 集計 opens on first, then over every day; a month of the calendar and
- * the savings; then the tallies by machine, with their spin performances,
- * over the same periods in the same order. Each book's answers are kept,
- * so once these are asked the consolidation shows them at once; a book
- * written since is the only one asked again. Each answer waits for its
- * book to be read, so nothing is left to be asked after, and a screen
- * asked meanwhile waits a question of one book at most.
+ * What the consolidation opens on, asked ahead and let go, in two rounds
+ * over the books: first everything about the periods most looked at — 総合
+ * and その他損益 over each, the one 集計 opens on first, a month of the
+ * calendar, the savings, and the tallies by machine with their spin
+ * performances over each period — then the same over every day. A period's
+ * questions are each asked of the files they count, so the first round is
+ * quick and the consolidation opens on it at once; every day reads every
+ * book whole, and comes after. Within a round each book is asked
+ * everything before the next is, so hledger opens it once a round. Each
+ * book's answers are kept, so once these are asked the consolidation shows
+ * them at once; a book written since is the only one asked again. Each
+ * answer waits for its book to be read, so nothing is left to be asked
+ * after, and a screen asked meanwhile waits a question of one book at most.
  */
 export const warmConsolidation = async (screens: ConsolidationPorts, warming: Warming): Promise<void> => {
   const ports: ConsolidationPorts = { ...screens, answering: "when-checked" }
   const listed = await ports.session.books()
   if (!listed.ok) return
-  return oneAfterAnother(listed.value.flatMap((book) => asksAhead(ports, [book.id], warming)))
+  return oneAfterAnother([...listed.value.flatMap((book) => periodsAhead(ports, [book.id], warming)), ...listed.value.flatMap((book) => everyDayAhead(ports, [book.id]))])
 }
 
-/** What the books chosen are asked ahead, in the order the screens want it. */
-const asksAhead = (ports: ConsolidationPorts, chosen: readonly BookId[], warming: Warming): readonly (() => Promise<unknown>)[] => {
-  const periods = [...warming.periods, ""]
-  return [
-    () => consolidationKeepsTheoreticalValues(ports, chosen),
-    ...periods.flatMap((period) => [() => loadConsolidatedOverall(ports, chosen, period), () => loadConsolidatedOtherGains(ports, chosen, period)]),
-    () => loadConsolidatedDaysAndWhole(ports, chosen, warming.month),
-    () => loadConsolidatedHoldings(ports, chosen, ""),
-    ...periods.flatMap((period) => [() => loadConsolidation(ports, chosen, "machine", period), () => loadConsolidatedSpinPerformances(ports, chosen, period)]),
-  ]
-}
+/** What the books chosen are asked ahead about the periods most looked at, in the order the screens want it. */
+const periodsAhead = (ports: ConsolidationPorts, chosen: readonly BookId[], warming: Warming): readonly (() => Promise<unknown>)[] => [
+  () => consolidationKeepsTheoreticalValues(ports, chosen),
+  ...warming.periods.flatMap((period) => [() => loadConsolidatedOverall(ports, chosen, period), () => loadConsolidatedOtherGains(ports, chosen, period)]),
+  () => loadConsolidatedDaysAndWhole(ports, chosen, warming.month),
+  () => loadConsolidatedHoldings(ports, chosen, ""),
+  ...warming.periods.flatMap((period) => [() => loadConsolidation(ports, chosen, "machine", period), () => loadConsolidatedSpinPerformances(ports, chosen, period)]),
+]
+
+/** What the books chosen are asked ahead about every day. */
+const everyDayAhead = (ports: ConsolidationPorts, chosen: readonly BookId[]): readonly (() => Promise<unknown>)[] => [
+  () => loadConsolidatedOverall(ports, chosen, ""),
+  () => loadConsolidatedOtherGains(ports, chosen, ""),
+  () => loadConsolidation(ports, chosen, "machine", ""),
+  () => loadConsolidatedSpinPerformances(ports, chosen, ""),
+]
 
 /** Things asked one after another, each once the one before has its answer, the answers let go. */
 const oneAfterAnother = (asks: readonly (() => Promise<unknown>)[]): Promise<void> =>

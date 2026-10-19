@@ -14,7 +14,9 @@
 -- makes it reachable from a browser and changes nothing about it. It holds one
 -- piece of state, the parsed journal and its price oracle — and a few read
 -- lately beside it — because parsing grows with the journal while answering
--- a report from one in memory does not.
+-- a report from one in memory does not; and, for a book whose main journal
+-- only includes its files, each file's own parse, so that a book written in
+-- one file is parsed again in that file alone.
 --
 -- Reports leave in the shape @hledger --output-format=json@ gives them, with
 -- what P-Lens never reads of a transaction, a posting or an amount left out
@@ -37,11 +39,19 @@ import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Unsafe as BU
 import Foreign.C.String (CString)
 import GHC.Wasm.Prim (JSString (..), fromJSString)
-import System.Directory (doesFileExist)
+import System.Directory (canonicalizePath, doesFileExist)
 import System.IO.Unsafe (unsafePerformIO)
 
 import Hledger
 import Hledger.Data.Json ()
+import Hledger.Read.JournalReader (journalp)
+import Control.Monad (foldM, unless, when)
+import Control.Monad.Except (ExceptT, liftEither, throwError)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.State.Strict (evalStateT)
+import Data.Maybe (listToMaybe)
+import Data.Time.Calendar (toGregorian)
+import Text.Megaparsec (runParserT)
 
 -- | Why a call did not produce an answer, as a tag and its particulars so the
 -- caller chooses its own wording.
@@ -178,10 +188,147 @@ readAndKeep path key = do
   if not present
     then pure (Left (FileMissing path))
     else do
-      result <- runExceptT (readJournalFile definputopts {strict_ = True} path)
+      result <- runExceptT (readBook definputopts {strict_ = True} path)
       case result of
         Left detail -> pure (Left (ReadFailed (T.pack detail)))
         Right journal -> keepUnder key (keep journal) >> pure (Right journal)
+
+-- | A book read from its main journal. One whose main journal is nothing
+-- but comments, blank lines and includes by name — every book the app
+-- writes — is read file by file ('readPiecewise'), each file's own parse
+-- kept and taken again while its text and what it is read after are as
+-- they were; any other is read as hledger reads it, whole.
+readBook :: InputOpts -> FilePath -> ExceptT String IO Journal
+readBook iopts path = do
+  text <- liftIO (readFilePortably path)
+  case includesOf text of
+    Just included@(_ : _) -> readPiecewise iopts path text included
+    _ -> readJournalFile iopts path
+
+-- | The files a main journal includes, in order, where it is nothing but
+-- comments, blank lines and includes of a file by its name; none where it
+-- holds anything else, or includes by a pattern.
+includesOf :: Text -> Maybe [FilePath]
+includesOf text = concat <$> traverse included (T.lines text)
+  where
+    included line
+      | T.null (T.strip line) || T.isPrefixOf ";" line || T.isPrefixOf "#" line = Just []
+      | Just rest <- T.stripPrefix "include " line, Just file <- byName (T.strip rest) = Just [T.unpack file]
+      | otherwise = Nothing
+    byName file = if T.null file || T.any (`elem` ("*?[{;" :: String)) file then Nothing else Just file
+
+-- | A main journal read as hledger reads one that includes its files,
+-- each file parsed on its own in the state the include would hand it and
+-- joined to what was read before it as the include joins it, then the
+-- whole finalised once and checked. What a file's parse comes to depends
+-- on nothing but its text and that state, so a file whose text and state
+-- are those of a parse kept is not parsed again.
+readPiecewise :: InputOpts -> FilePath -> Text -> [FilePath] -> ExceptT String IO Journal
+readPiecewise iopts path text included = do
+  canonical <- liftIO (canonicalizePath path)
+  let (year, _, _) = toGregorian (_ioDay iopts)
+      mainState = nulljournal {jparsedefaultyear = Just year, jparseincludefilestack = [(path, canonical)]}
+  own <- parsedFrom iopts path (T.unlines (map withoutInclude (T.lines text))) mainState
+  joined <- foldM (includedInto iopts) own included
+  journal <- journalFinalise iopts path text joined
+  when (strict_ iopts) (liftEither (journalStrictChecks journal))
+  pure journal
+  where
+    withoutInclude line = if T.isPrefixOf "include " line then "" else line
+
+-- | A file parsed as an include parses it, from a state, its parse errors
+-- said as hledger says them.
+parsedFrom :: InputOpts -> FilePath -> Text -> Journal -> ExceptT String IO Journal
+parsedFrom iopts path text state = do
+  result <- liftIO (runExceptT (runParserT (evalStateT (journalp iopts) state) path text))
+  case result of
+    Left final -> throwError (finalErrorBundlePretty (attachSource path text final))
+    Right (Left bundle) -> throwError (customErrorBundlePretty bundle)
+    Right (Right journal) -> pure journal
+
+-- | What an include hands the file it includes of what was read before
+-- it: everything that bears on how the file's lines read.
+data HandedOn = HandedOn
+  { handedYear :: Maybe Year
+  , handedCommodity :: Maybe (CommoditySymbol, AmountStyle)
+  , handedDecimalMark :: Maybe DecimalMark
+  , handedParents :: [AccountName]
+  , handedAliases :: [AccountAlias]
+  , handedTimeclock :: [TimeclockEntry]
+  , handedCommodities :: M.Map CommoditySymbol Commodity
+  }
+  deriving (Eq)
+
+handedOnBy :: Journal -> HandedOn
+handedOnBy parent =
+  HandedOn
+    (jparsedefaultyear parent)
+    (jparsedefaultcommodity parent)
+    (jparsedecimalmark parent)
+    (jparseparentaccounts parent)
+    (jparsealiases parent)
+    (jparsetimeclockentries parent)
+    (jdeclaredcommodities parent)
+
+-- | A file included after what was read before it: parsed in the state
+-- the include hands it — or its parse kept, where that is the same file,
+-- text and state — and joined to what came before as the include joins it.
+includedInto :: InputOpts -> Journal -> FilePath -> ExceptT String IO Journal
+includedInto iopts parent path = do
+  present <- liftIO (doesFileExist path)
+  unless present (throwError ("failed to read a file: " <> path <> " is not there"))
+  text <- liftIO (readFilePortably path)
+  canonical <- liftIO (canonicalizePath path)
+  let handed = handedOnBy parent
+      state =
+        nulljournal
+          { jparsedefaultyear = handedYear handed
+          , jparsedefaultcommodity = handedCommodity handed
+          , jparseparentaccounts = handedParents handed
+          , jparsedecimalmark = handedDecimalMark handed
+          , jparsealiases = handedAliases handed
+          , jdeclaredcommodities = handedCommodities handed
+          , jparsetimeclockentries = handedTimeclock handed
+          , jparseincludefilestack = (path, canonical) : jparseincludefilestack parent
+          }
+  kept <- liftIO (parseKept path text handed)
+  child <- maybe (parsedFrom iopts path text state >>= \parsed -> liftIO (keepParse path text handed parsed)) pure kept
+  pure (journalAddFile (path, text) child `journalConcat` parent)
+
+-- | A file's own parse as it is kept: the file, its text, what it was read
+-- after, and the journal it came to before being joined to anything.
+data Parse = Parse FilePath Text HandedOn Journal
+
+-- | Files' own parses, newest first and one for each file — its latest — so
+-- that a book read again after one of its files changed parses that file
+-- alone. A file of the same name in another book takes its place: books
+-- read in turn, as a consolidation reads them, are each parsed whole, as
+-- they would be with nothing kept.
+{-# NOINLINE parsesRef #-}
+parsesRef :: IORef [Parse]
+parsesRef = unsafePerformIO (newIORef [])
+
+-- | How many transactions the parses kept may hold between them: a book of
+-- many years, its files one parse each.
+keptParsedTransactions :: Int
+keptParsedTransactions = 20000
+
+parseKept :: FilePath -> Text -> HandedOn -> IO (Maybe Journal)
+parseKept path text handed = do
+  parses <- readIORef parsesRef
+  pure (listToMaybe [journal | Parse p t h journal <- parses, p == path, h == handed, t == text])
+
+-- | A file's parse kept in place of the one kept of that file, newest first,
+-- the oldest let go once those kept hold more than 'keptParsedTransactions';
+-- the newest is kept however large.
+keepParse :: FilePath -> Text -> HandedOn -> Journal -> IO Journal
+keepParse path text handed journal = do
+  parses <- readIORef parsesRef
+  let others = filter (\(Parse p _ _ _) -> p /= path) parses
+      sizes = scanl1 (+) (map (\(Parse _ _ _ j) -> length (jtxns j)) others)
+      within = map fst (takeWhile ((<= keptParsedTransactions) . (+ length (jtxns journal)) . snd) (zip others sizes))
+  writeIORef parsesRef (Parse path text handed journal : within)
+  pure journal
 
 summarise :: Journal -> A.Value
 summarise journal =

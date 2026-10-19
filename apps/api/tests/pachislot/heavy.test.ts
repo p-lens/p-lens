@@ -9,13 +9,14 @@ const ALICE = device(1_759_000_000_001)
 const CONDITIONS = { payoutRate: { type: "from-spec" } } as const
 
 /** What a device makes of a spec, as much work as it takes: its normalised spec and its figures. */
-const solvedOnDevice = async (fixture: string): Promise<{ readonly normalized: NormalizedSpecDto; readonly figures: readonly FormulaSettingLevelFiguresDto[] }> => {
+const solvedOnDevice = async (fixture: string): Promise<{ readonly normalized: NormalizedSpecDto; readonly figures: readonly FormulaSettingLevelFiguresDto[]; readonly engineVersion: number }> => {
   await realPachislotEngine()
   const spec = await pachislotFixture(fixture, "spec.json")
   const normalized = JSON.parse(normalize(JSON.stringify({ spec }))).value as NormalizedSpecDto
   const analysis = JSON.parse(analyze(JSON.stringify({ source: { type: "normalized", normalized }, conditions: CONDITIONS }))).value as AnalysisDto
   return {
     normalized,
+    engineVersion: analysis.engineVersion,
     figures: analysis.settingLevels.map((solved) => ({
       settingLevel: solved.settingLevel,
       payoutRate: solved.payoutRate,
@@ -55,6 +56,7 @@ describe("a formula too heavy to check", () => {
     const [formula] = (await client.call("GET", `/machines/${made.body.machineId}`)).body.formulas
     expect(formula.unchecked).toBe(true)
     expect(formula.basis.normalized).toEqual(solved.normalized)
+    expect((client.sqlite.query("SELECT engine_version AS version FROM formulas WHERE id = ?1").get(formula.id) as { version: number | null }).version).toBeNull()
   })
 
   test("a light formula sent with a normalised spec is checked all the same, and stores the API's own", async () => {
@@ -65,5 +67,6 @@ describe("a formula too heavy to check", () => {
     const [formula] = (await client.call("GET", `/machines/${made.body.machineId}`)).body.formulas
     expect(formula.unchecked).toBeUndefined()
     expect(formula.basis.normalized).toEqual(solved.normalized)
+    expect((client.sqlite.query("SELECT engine_version AS version FROM formulas WHERE id = ?1").get(formula.id) as { version: number | null }).version).toBe(solved.engineVersion)
   })
 })

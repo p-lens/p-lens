@@ -13,7 +13,7 @@ import type { MachineId } from "../../src/core/machine/machine"
 import { BOOK_FILES } from "../../src/core/journal/layout"
 import { Err, Ok } from "../../src/core/result/result"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
-import { ME, inProcessHledger, memoryDrafts, memoryStorage } from "../support/in-process"
+import { ME, inProcessHledger, memoryDrafts, memoryStorage, transactionsOf } from "../support/in-process"
 import { LINEUP, PARLOR_LIST } from "./fixtures"
 import { inProcessMaker } from "./in-process-maker"
 
@@ -111,7 +111,7 @@ describe("a sample book made", () => {
     )
     expect(made.ok && made.value.ok && made.value.value.type).toBe("made")
     const stored = storage.peek("sample" as BookId)
-    const transactions = stored?.files[BOOK_FILES.transactions] ?? ""
+    const transactions = transactionsOf(stored?.files)
     expect(transactions.split("\n").filter((line) => line.includes("play-id:")).length).toBeGreaterThan(500)
     expect(transactions).toContain("景品交換")
     expect(stored?.files[BOOK_FILES.main]).toContain("🍀サンプル帳簿")

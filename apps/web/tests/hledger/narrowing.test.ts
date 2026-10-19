@@ -79,10 +79,10 @@ describe("a book's savings narrowed to some parlors", () => {
 
   test("find a parlor whose name holds a space", async () => {
     const session = await setUp()
-    const opening = { identity: { type: "listed", id: "osm-9" as ParlorId }, parlorName: "ホシゾラ なんば", pool: { kind: "ball", tier: "4円" }, rate: dec("4"), date: "2026-10-01" as IsoDate } as const
+    const opening = { identity: { type: "listed", id: "osm-9" as ParlorId }, parlorName: "ダイナモ なんかつ", pool: { kind: "ball", tier: "4円" }, rate: dec("4"), date: "2026-10-01" as IsoDate } as const
     expect((await registerOpeningBalance(session, BOOK, opening, dec("5000"))).ok).toBe(true)
-    const narrowed = await loadHoldings(session, BOOK, "", ["ホシゾラ なんば"])
-    expect(narrowed.ok && narrowed.value.parlors.map((holding) => [holding.parlorName, holding.tokens.map((token) => toPlainString(token.quantity))])).toEqual([["ホシゾラ なんば", ["5000"]]])
+    const narrowed = await loadHoldings(session, BOOK, "", ["ダイナモ なんかつ"])
+    expect(narrowed.ok && narrowed.value.parlors.map((holding) => [holding.parlorName, holding.tokens.map((token) => toPlainString(token.quantity))])).toEqual([["ダイナモ なんかつ", ["5000"]]])
     expect(narrowed.ok && toPlainString(narrowed.value.total)).toBe("20000")
   })
 })

@@ -61,6 +61,12 @@ export interface BookSession {
   readonly books: () => Promise<Outcome<readonly ListedBook[]>>
   readonly createBook: (stored: StoredBook) => Promise<Outcome<CommitId>>
   readonly read: <T>(bookId: BookId, work: (journal: JournalAccess, stored: StoredBook) => Promise<Outcome<T>>) => Promise<Outcome<T>>
+  /**
+   * A book read as hledger is to read it for one question: its files as
+   * `view` sees them, which may leave some out. The work is given the book
+   * as it is stored.
+   */
+  readonly readViewed: <T>(bookId: BookId, view: (files: BookFiles) => BookFiles, work: (journal: JournalAccess, stored: StoredBook) => Promise<Outcome<T>>) => Promise<Outcome<T>>
   /** A book as it is stored, without opening it in hledger: for what needs only to know which journals it holds. */
   readonly stored: (bookId: BookId) => Promise<Outcome<StoredBook>>
   readonly write: (
@@ -194,6 +200,14 @@ export const createBookSession = (ports: SessionPorts): BookSession => {
       ports.hledger.inTurn(async (journal) => {
         const stored = await openBook(journal, bookId)
         return stored.ok ? work(journal, stored.value) : stored
+      }),
+
+    readViewed: (bookId, view, work) =>
+      ports.hledger.inTurn(async (journal) => {
+        const stored = fromStorage(await ports.storage.readBook(bookId))
+        if (!stored.ok) return stored
+        const holding = await hold(journal, view(stored.value.files))
+        return holding.ok ? work(journal, stored.value) : holding
       }),
 
     stored: async (bookId) => fromStorage(await ports.storage.readBook(bookId)),

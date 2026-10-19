@@ -9,8 +9,17 @@ const sourcesUnder = async (directory: string): Promise<readonly string[]> =>
     .filter((path) => /\.(ts|tsx)$/.test(path))
     .map((path) => `${directory}${path}`)
 
-const importsOf = async (path: string): Promise<readonly string[]> =>
-  [...(await readFile(path, "utf8")).matchAll(/^\s*import[^"']*["']([^"']+)["']/gm)].map((found) => found[1] ?? "")
+/**
+ * The ways a file reaches another: an import, with bindings or for its
+ * effect alone, over as many lines as it takes; an export from one; and
+ * an import asked for as the program runs.
+ */
+const REACHES = [/^\s*import\s+(?:[^"'`;]*?\s+from\s+)?["']([^"']+)["']/gm, /^\s*export\s+[^"'`;]*?\s+from\s+["']([^"']+)["']/gm, /\bimport\(\s*["']([^"']+)["']\s*\)/g] as const
+
+/** What a source's text reaches, each as written. */
+const reachedBy = (text: string): readonly string[] => REACHES.flatMap((way) => [...text.matchAll(way)].map((found) => found[1] ?? ""))
+
+const importsOf = async (path: string): Promise<readonly string[]> => reachedBy(await readFile(path, "utf8"))
 
 /** Every import from the files under `directory` that `forbidden` matches, as `file -> import`. */
 const offending = async (directory: string, forbidden: RegExp): Promise<readonly string[]> => {
@@ -20,6 +29,23 @@ const offending = async (directory: string, forbidden: RegExp): Promise<readonly
   )
   return found.flat()
 }
+
+describe("what a source reaches", () => {
+  test("is every import and export from another, written any way, and nothing else", () => {
+    const text = [
+      'import type { Formula } from "../pachislot"',
+      "import {\n  weighingOf,\n  type Weighing,\n} from \"../../core/pachislot/formula\"",
+      'import type { FormulaDto } from "@p-lens/contracts/pachislot"',
+      'import "./theme.css"',
+      'export { weighingOf } from "../pachislot/weighing"',
+      'export * from "../pachislot/all"',
+      'const engine = await import("../../pachislot-engine/client")',
+      "const url = new URL(\"./worker.ts\", import.meta.url)",
+      'export const named = "../not-a-source"',
+    ].join("\n")
+    expect(reachedBy(text).toSorted()).toEqual(["../../core/pachislot/formula", "../../pachislot-engine/client", "../pachislot", "../pachislot/all", "../pachislot/weighing", "./theme.css", "@p-lens/contracts/pachislot"])
+  })
+})
 
 describe("dependency direction", () => {
   test("only the pachinko engine's worker loads its engine", async () => {

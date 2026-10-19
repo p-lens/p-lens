@@ -5,7 +5,7 @@ import { addCheckpoints, reviseCheckpoints } from "../../../../application/live-
 import { loadMachine } from "../../../../application/pachinko/formulas"
 import { bonusGain } from "../../../../core/catalog/bonuses"
 import type { MachineBonus } from "../../../../core/catalog/catalog"
-import type { PlayDraft } from "../../../../core/live-play/draft"
+import type { PachinkoDraft, PlayDraft } from "../../../../core/live-play/draft"
 import { checkpointsForReading, type ReadingRefusal } from "../../../../core/pachinko/reading"
 import { handDriftOf, RECOUNT_AFTER, type HandDrift } from "../../../../core/pachinko/consumption"
 import { rentalPressOf } from "../../../../core/pachinko/rental-press"
@@ -76,7 +76,7 @@ const jackpotOptions = (bonuses: readonly MachineBonus[]): readonly SelectOption
  * after it is made again.
  */
 export function ReadingComposer(props: {
-  readonly draft: PlayDraft
+  readonly draft: PachinkoDraft
   readonly ordered: readonly Checkpoint[]
   /** The reading being set right, by its place among the play's readings; none while a new one is typed. */
   readonly revising: { readonly index: number; readonly taken: Taken } | undefined

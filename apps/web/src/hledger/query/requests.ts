@@ -144,6 +144,10 @@ export const parlorMovedRequest = (parlorName: string, way: "amt:>0" | "amt:<0",
 /** Every entry that moves one pool's savings, however many, of those `query` matches: its days. */
 export const poolEntriesRequest = (account: string, query: string = ""): RequestOf<"entries"> => ({ kind: "entries", query: combine(accountTerm(account), query), limit: 1_000_000, offset: 0 })
 
+/** Every entry of the book, however many, and every account's balance in its own commodities: what a book reads as, entry by entry and account by account. */
+export const everyEntryRequest: RequestOf<"entries"> = { kind: "entries", query: "", limit: 1_000_000, offset: 0 }
+export const everyBalanceRequest: RequestOf<"balance"> = { kind: "balance", query: "" }
+
 /** The newest entry a query matches, and how many it matches: whether there is any, and when the last was. */
 export const newestEntryRequest = (query: string): RequestOf<"entries"> => ({ kind: "entries", query, limit: 1, offset: 0 })
 

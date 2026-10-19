@@ -3,13 +3,14 @@ import { parseIsoDate, previousDay, type IsoDate } from "../core/calendar/calend
 import { tokenCommodity } from "../core/commodity/commodity"
 import { isZero, subtract, ZERO, type Decimal, decimal } from "../core/decimal/decimal"
 import { renderEntry } from "../core/journal/entry"
+import { withEntryFiled } from "../core/journal/filing"
 import { appendEntry, BOOK_FILES } from "../core/journal/layout"
 import type { PoolOpening } from "../core/parlor/opening"
 import type { Parlor, SavingsPool } from "../core/parlor/parlor"
 import { Err, Ok, mapOk } from "../core/result/result"
 import { pricePointsOf } from "../core/report/holdings"
 import { andThen } from "../core/result/result"
-import { balanceAdjustmentEntry, openingBalanceEntry, prependEntry, withEquityDeclared } from "../core/savings/balance"
+import { balanceAdjustmentEntry, openingBalanceEntry, withEquityDeclared } from "../core/savings/balance"
 import { forfeitureEntry, withForfeitureDeclared, type Forfeiture } from "../core/savings/forfeiture"
 import { prizeExchangeEntry, withPrizesDeclared, type PrizeExchange } from "../core/savings/prize-exchange"
 import { rateChangeLine, type RateChange } from "../core/savings/rate-change"
@@ -58,11 +59,7 @@ export const registerOpeningBalance = async (session: BookSession, bookId: BookI
   return mapOk(
     await session.write(bookId, async (_journal, stored) =>
       Ok({
-        files: {
-          ...stored.files,
-          [BOOK_FILES.accounts]: withEquityDeclared(stored.files[BOOK_FILES.accounts] ?? ""),
-          [BOOK_FILES.transactions]: prependEntry(stored.files[BOOK_FILES.transactions] ?? "", entry),
-        },
+        files: withEntryFiled({ ...stored.files, [BOOK_FILES.accounts]: withEquityDeclared(stored.files[BOOK_FILES.accounts] ?? "") }, opening.date, entry, "head"),
         intent: { type: "savings-opened" as const, parlor: opening.parlorName, tier: opening.pool.tier, date: opening.date, kind: opening.pool.kind, tokens },
       }),
     ),
@@ -94,11 +91,7 @@ export const adjustBalance = async (session: BookSession, bookId: BookId, parlor
   return mapOk(
     await session.write(bookId, async (_journal, stored) =>
       Ok({
-        files: {
-          ...stored.files,
-          [BOOK_FILES.accounts]: withEquityDeclared(stored.files[BOOK_FILES.accounts] ?? ""),
-          [BOOK_FILES.transactions]: appendEntry(stored.files[BOOK_FILES.transactions] ?? "", entry),
-        },
+        files: withEntryFiled({ ...stored.files, [BOOK_FILES.accounts]: withEquityDeclared(stored.files[BOOK_FILES.accounts] ?? "") }, date, entry),
         intent: { type: "savings-adjusted" as const, parlor: parlor.name, tier: pool.tier, date, kind: pool.kind, tokens: actual },
       }),
     ),
@@ -127,11 +120,7 @@ export const recordPrizeExchange = async (session: BookSession, bookId: BookId, 
         const entry = prizeExchangeEntry(exchange, pricePointsOf(directives))
         return entry.ok
           ? Ok({
-              files: {
-                ...stored.files,
-                [BOOK_FILES.accounts]: withPrizesDeclared(stored.files[BOOK_FILES.accounts] ?? ""),
-                [BOOK_FILES.transactions]: appendEntry(stored.files[BOOK_FILES.transactions] ?? "", renderEntry(entry.value)),
-              },
+              files: withEntryFiled({ ...stored.files, [BOOK_FILES.accounts]: withPrizesDeclared(stored.files[BOOK_FILES.accounts] ?? "") }, exchange.date, renderEntry(entry.value)),
               intent: { type: "savings-exchanged", parlor: exchange.parlor.name, tier: exchange.pool.tier, date: exchange.date, kind: exchange.pool.kind, tokens: exchange.tokens, specialPrizes: exchange.specialPrizes },
             })
           : Err({ type: "prize-exchange", problem: entry.error })
@@ -156,11 +145,7 @@ export const recordForfeiture = async (session: BookSession, bookId: BookId, for
   return mapOk(
     await session.write(bookId, async (_journal, stored) =>
       Ok({
-        files: {
-          ...stored.files,
-          [BOOK_FILES.accounts]: withForfeitureDeclared(stored.files[BOOK_FILES.accounts] ?? ""),
-          [BOOK_FILES.transactions]: appendEntry(stored.files[BOOK_FILES.transactions] ?? "", renderEntry(entry.value)),
-        },
+        files: withEntryFiled({ ...stored.files, [BOOK_FILES.accounts]: withForfeitureDeclared(stored.files[BOOK_FILES.accounts] ?? "") }, forfeiture.date, renderEntry(entry.value)),
         intent: { type: "savings-forfeited" as const, parlor: forfeiture.parlor.name, tier: forfeiture.pool.tier, date: forfeiture.date, kind: forfeiture.pool.kind, tokens: forfeiture.tokens },
       }),
     ),

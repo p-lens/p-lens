@@ -4,9 +4,9 @@ import type { IsoDate } from "../../src/core/calendar/calendar"
 import { toPlainString } from "../../src/core/decimal/decimal"
 import { renderEntry } from "../../src/core/journal/entry"
 import { oddPrizesAt, prizeExchangeEntry, withPrizesDeclared, type PrizeExchange } from "../../src/core/savings/prize-exchange"
-import { PRICES, UMEDA, dec } from "../support/values"
+import { PRICES, MALEHAN, dec } from "../support/values"
 
-const EXCHANGE: PrizeExchange = { parlor: UMEDA, pool: { kind: "ball", tier: "4円" }, date: "2026-10-04" as IsoDate, tokens: dec("4800"), specialPrizes: dec("16500") }
+const EXCHANGE: PrizeExchange = { parlor: MALEHAN, pool: { kind: "ball", tier: "4円" }, date: "2026-10-04" as IsoDate, tokens: dec("4800"), specialPrizes: dec("16500") }
 
 const rendered = (exchange: PrizeExchange): string => ((entry) => (entry.ok ? renderEntry(entry.value) : entry.error.type))(prizeExchangeEntry(exchange, PRICES))
 
@@ -14,8 +14,8 @@ describe("a prize exchange as an entry", () => {
   test("takes the tokens out at the day's rate, as special prizes and, for what lies between, odd prizes — and moves no cash", () => {
     expect(rendered(EXCHANGE)).toBe(
       [
-        "2026-10-04 マレハン第3新東京店 | 景品交換  ; parlor-id: hoshizora-umeda, savings: prize-exchange",
-        '    資産:貯玉:マレハン第3新東京店:4円   -4800 "玉(4円・マレハン第3新東京店)" @ 3.5 JPY',
+        "2026-10-04 マレハン東京皇国店 | 景品交換  ; parlor-id: malehan-tokyokoukoku, savings: prize-exchange",
+        '    資産:貯玉:マレハン東京皇国店:4円    -4800 "玉(4円・マレハン東京皇国店)" @ 3.5 JPY',
         "    純資産:特殊景品                     16500 JPY",
         "    純資産:端玉景品                     300 JPY",
         "",

@@ -13,6 +13,7 @@ import type { BalanceReport } from "../hledger/protocol/wire"
 import { actualCutRequest, actualRequest, periodTotalsRequest, rentalSpreadRequest, savingsDrawnRequest, tallyHeadsRequest } from "../hledger/query/requests"
 import { combine, talliesTerm } from "../hledger/query/terms"
 import type { BookSession } from "./book-session"
+import { viewedFor } from "./book-views"
 import type { Outcome } from "./errors"
 import { fromHledger, fromReport } from "./lift"
 
@@ -34,7 +35,7 @@ const wonOf = (statement: BalanceReport): Result<number, ReportError> =>
  * the tallies, the days, and those of each that made something.
  */
 export const loadOverall = (session: BookSession, bookId: BookId, query: string): Promise<Outcome<Overall>> =>
-  session.read(bookId, async (journal: JournalAccess) => {
+  viewedFor(session, query, "moved").read(bookId, async (journal: JournalAccess) => {
     const played = combine(talliesTerm, query)
     const [entries, statement, perTally, perDay, totals, ...yen] = await Promise.all([
       journal.ask(tallyHeadsRequest(query)),

@@ -29,6 +29,8 @@ export interface SentFormula {
 export interface PreparedFormula extends SentFormula {
   readonly normalized: NormalizedSpecDto
   readonly engineSchemaVersion: number
+  /** The version of the engine that checked its figures here; none where it was stored unchecked. */
+  readonly engineVersion: number | undefined
   readonly checked: boolean
 }
 
@@ -202,7 +204,7 @@ const tooHeavy = (error: EngineErrorDto): boolean => error.type === "too-heavy"
 const unchecked = (sent: SentFormula): Result<PreparedFormula, ApiError> =>
   sent.solvedOnDevice === undefined
     ? Err({ type: "basis-rejected", error: { type: "too-heavy" } })
-    : Ok({ ...sent, normalized: sent.solvedOnDevice, engineSchemaVersion: sent.solvedOnDevice.schemaVersion, checked: false })
+    : Ok({ ...sent, normalized: sent.solvedOnDevice, engineSchemaVersion: sent.solvedOnDevice.schemaVersion, engineVersion: undefined, checked: false })
 
 /**
  * A pachislot formula made ready to store. Its 解析値 are normalised here, by
@@ -225,7 +227,7 @@ export const prepareFormula = (
   if (!analysis.ok) return tooHeavy(analysis.error) ? unchecked(sent) : Err({ type: "basis-rejected", error: analysis.error })
   const field = disagreement(sent, analysis.value)
   return field === undefined
-    ? Ok({ ...sent, normalized: normalized.value, engineSchemaVersion: normalized.value.schemaVersion, checked: true })
+    ? Ok({ ...sent, normalized: normalized.value, engineSchemaVersion: normalized.value.schemaVersion, engineVersion: analysis.value.engineVersion, checked: true })
     : Err({ type: "figures-disagree-with-basis", field })
 }
 

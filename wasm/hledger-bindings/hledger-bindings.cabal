@@ -24,5 +24,8 @@ executable hledger-bindings
     , directory
     , ghc-experimental
     , hledger-lib
+    , megaparsec
+    , mtl
+    , time
     , text
     , uglymemo

@@ -8,7 +8,7 @@ import { loadMachine } from "../../../../application/pachinko/formulas"
 import { bookNameOf, shownNameOf, type MachineSummary } from "../../../../core/catalog/catalog"
 import { machineMatches } from "../../../../core/catalog/description"
 import { autoSelect, selectById, type Selection } from "../../../../core/formula/standing"
-import { tokenValueOfDraft, type MachineChange, type PlayDraft } from "../../../../core/live-play/draft"
+import { tokenValueOfDraft, type MachineChange, type PachinkoDraft } from "../../../../core/live-play/draft"
 import { worthOf, type Formula } from "../../../../core/pachinko/formula"
 import { borderOf } from "../../../../core/pachinko/theoretical-value"
 import { withJackpotsUntold } from "../../../../core/pachinko/revision"
@@ -54,7 +54,7 @@ type Saving = { readonly type: "typing" } | { readonly type: "keeping" } | { rea
  * chosen is kept with the start form, so a look at a formula's grounds and
  * back does not lose it.
  */
-export function Cabinet(props: { readonly place: Place; readonly draft: PlayDraft }): JSX.Element {
+export function Cabinet(props: { readonly place: Place; readonly draft: PachinkoDraft }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   const start = useStartForm()

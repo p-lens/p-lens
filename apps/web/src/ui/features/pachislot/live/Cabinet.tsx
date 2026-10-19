@@ -8,7 +8,7 @@ import { loadMachine } from "../../../../application/pachislot/formulas"
 import { bookNameOf, shownNameOf, type MachineSummary } from "../../../../core/catalog/catalog"
 import { machineMatches } from "../../../../core/catalog/description"
 import { autoSelect, selectById, type Selection } from "../../../../core/formula/standing"
-import type { MachineChange, PlayDraft } from "../../../../core/live-play/draft"
+import type { MachineChange, PachislotDraft } from "../../../../core/live-play/draft"
 import { worthOf, type Formula } from "../../../../core/pachislot/formula"
 import { selectPrior } from "../../../../core/pachislot/prior"
 import { snapshotOf } from "../../../../core/pachislot/snapshot"
@@ -54,7 +54,7 @@ type Saving = { readonly type: "typing" } | { readonly type: "keeping" } | { rea
  * the start form, so a look at a formula's grounds and back does not lose
  * it.
  */
-export function Cabinet(props: { readonly place: Place; readonly draft: PlayDraft }): JSX.Element {
+export function Cabinet(props: { readonly place: Place; readonly draft: PachislotDraft }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   const start = useStartForm()

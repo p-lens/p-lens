@@ -4,7 +4,7 @@ import { distanceInMetres, nearestFirst } from "../../src/core/parlor/distance"
 import { linkedText, linksFor } from "../../src/core/parlor/linking"
 import type { Parlor, SubmissionId } from "../../src/core/parlor/parlor"
 import type { SharedParlor, SharedParlorId } from "../../src/core/parlor/shared"
-import { UMEDA } from "../support/values"
+import { MALEHAN } from "../support/values"
 
 const listed = (id: string, latitude: number, longitude: number, submissions: readonly string[] = []): SharedParlor => ({
   id: id as SharedParlorId,
@@ -12,7 +12,7 @@ const listed = (id: string, latitude: number, longitude: number, submissions: re
   reading: "よみ",
   keywords: [],
   prefecture: "大阪府",
-  address: "大阪市中央区難波1-2-3",
+  address: "見滝原市1-2-3",
   location: { latitude, longitude },
   submissions: submissions as readonly SubmissionId[],
 })
@@ -27,9 +27,9 @@ describe("how far a parlor is", () => {
 
   test("orders parlors nearest first", () => {
     const here = { latitude: 34.6659, longitude: 135.5013 }
-    expect(nearestFirst([listed("umeda", 34.7025, 135.4959), listed("namba", 34.666, 135.5015), listed("tokyo", 35.68, 139.76)], here).map((near) => near.parlor.id)).toEqual([
-      "namba",
-      "umeda",
+    expect(nearestFirst([listed("malehan", 34.7025, 135.4959), listed("mitakihara", 34.666, 135.5015), listed("tokyo", 35.68, 139.76)], here).map((near) => near.parlor.id)).toEqual([
+      "mitakihara",
+      "malehan",
       "tokyo",
     ] as never)
   })
@@ -39,8 +39,8 @@ describe("a parlor the list has not placed", () => {
   test("comes after every placed one, with no distance to give", () => {
     const here = { latitude: 34.6659, longitude: 135.5013 }
     const unplaced: SharedParlor = { ...listed("unplaced", 0, 0), location: undefined }
-    expect(nearestFirst([unplaced, listed("tokyo", 35.68, 139.76), listed("namba", 34.666, 135.5015)], here).map((near) => [near.parlor.id, near.metres === undefined])).toEqual([
-      ["namba", false],
+    expect(nearestFirst([unplaced, listed("tokyo", 35.68, 139.76), listed("mitakihara", 34.666, 135.5015)], here).map((near) => [near.parlor.id, near.metres === undefined])).toEqual([
+      ["mitakihara", false],
       ["tokyo", false],
       ["unplaced", true],
     ] as never)
@@ -49,7 +49,7 @@ describe("a parlor the list has not placed", () => {
 
 describe("linking a submission the list has taken", () => {
   test("finds the book's waiting parlors that a listed parlor was made from, and no other", () => {
-    expect(linksFor([WAITING, UMEDA], [listed("osm-9", 34.6, 135.5, ["sub_01"])])).toEqual([{ submission: "sub_01", id: "osm-9", name: "新店" }] as never)
+    expect(linksFor([WAITING, MALEHAN], [listed("osm-9", 34.6, 135.5, ["sub_01"])])).toEqual([{ submission: "sub_01", id: "osm-9", name: "新店" }] as never)
     expect(linksFor([WAITING], [listed("osm-9", 34.6, 135.5, ["sub_99"])])).toEqual([])
   })
 

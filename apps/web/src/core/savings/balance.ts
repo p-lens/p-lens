@@ -47,10 +47,3 @@ export const openingBalanceEntry = (at: SavingsAt, tokens: Decimal): Entry => se
 
 /** A pool's savings put right by so many tokens, more or fewer, as one entry: what the parlor says is there, where the book had drifted from it. */
 export const balanceAdjustmentEntry = (at: SavingsAt, difference: Decimal): Entry => settingEntry(at, "adjustment", "残高調整", ACCOUNTS.balanceAdjustment, difference)
-
-/**
- * A transactions file with an entry put before all the others: opening
- * balances are a book's beginning and are kept together at its head,
- * whenever they are written.
- */
-export const prependEntry = (text: string, entry: string): string => (text.trim() === "" ? entry : `${entry}\n${text.replace(/^\n+/, "")}`)

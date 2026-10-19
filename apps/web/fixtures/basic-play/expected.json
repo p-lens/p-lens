@@ -10,13 +10,13 @@
       "valuedOn": "2026-10-03",
       "total": "68808",
       "parlors": [
-        { "parlor": "723小宇宙店", "value": "52008", "tokens": [
-          { "commodity": "枚(20円・723小宇宙店)", "quantity": "1650", "rate": "18.2", "value": "30030" },
-          { "commodity": "玉(4円・723小宇宙店)", "quantity": "6600", "rate": "3.33", "value": "21978" }
+        { "parlor": "723修羅の国店", "value": "52008", "tokens": [
+          { "commodity": "枚(20円・723修羅の国店)", "quantity": "1650", "rate": "18.2", "value": "30030" },
+          { "commodity": "玉(4円・723修羅の国店)", "quantity": "6600", "rate": "3.33", "value": "21978" }
         ] },
-        { "parlor": "マレハン第3新東京店", "value": "16800", "tokens": [
-          { "commodity": "玉(4円・マレハン第3新東京店)", "quantity": "4800", "rate": "3.5", "value": "16800" },
-          { "commodity": "枚(20円・マレハン第3新東京店)", "quantity": "0", "rate": "17.86", "value": "0" }
+        { "parlor": "マレハン東京皇国店", "value": "16800", "tokens": [
+          { "commodity": "玉(4円・マレハン東京皇国店)", "quantity": "4800", "rate": "3.5", "value": "16800" },
+          { "commodity": "枚(20円・マレハン東京皇国店)", "quantity": "0", "rate": "17.86", "value": "0" }
         ] }
       ]
     },
@@ -24,13 +24,13 @@
       "valuedOn": "2026-09-20",
       "total": "71142",
       "parlors": [
-        { "parlor": "723小宇宙店", "value": "54006", "tokens": [
-          { "commodity": "枚(20円・723小宇宙店)", "quantity": "1650", "rate": "18.2", "value": "30030" },
-          { "commodity": "玉(4円・723小宇宙店)", "quantity": "7200", "rate": "3.33", "value": "23976" }
+        { "parlor": "723修羅の国店", "value": "54006", "tokens": [
+          { "commodity": "枚(20円・723修羅の国店)", "quantity": "1650", "rate": "18.2", "value": "30030" },
+          { "commodity": "玉(4円・723修羅の国店)", "quantity": "7200", "rate": "3.33", "value": "23976" }
         ] },
-        { "parlor": "マレハン第3新東京店", "value": "17136", "tokens": [
-          { "commodity": "玉(4円・マレハン第3新東京店)", "quantity": "4800", "rate": "3.57", "value": "17136" },
-          { "commodity": "枚(20円・マレハン第3新東京店)", "quantity": "0", "rate": "17.86", "value": "0" }
+        { "parlor": "マレハン東京皇国店", "value": "17136", "tokens": [
+          { "commodity": "玉(4円・マレハン東京皇国店)", "quantity": "4800", "rate": "3.57", "value": "17136" },
+          { "commodity": "枚(20円・マレハン東京皇国店)", "quantity": "0", "rate": "17.86", "value": "0" }
         ] }
       ]
     }

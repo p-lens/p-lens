@@ -9,7 +9,7 @@ import type { PlayedSoFar } from "../../src/ui/features/live/finish-tally-readin
 import { finishTokenTallyFormOf } from "../../src/ui/features/live/finish-token-tally-form"
 import { exchangedFrom, finishYenTallyFormOf, heldIn, oddPrizesOf, offTheRate, rentedOf, readFinishYenTallyForm, resultOfFinishYenTally, type FinishYenTallyForm } from "../../src/ui/features/live/finish-yen-tally-form"
 import { toPlainString } from "../../src/core/decimal/decimal"
-import { UMEDA, dec } from "../support/values"
+import { MALEHAN, dec } from "../support/values"
 
 const TERMS: PlayTerms = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 250 }, replay: { paidOut: 250, deducted: 250 } }
 
@@ -17,7 +17,7 @@ const DRAFT: PlayDraft = {
   id: "live-1" as PlayId,
   bookId: "live" as BookId,
   date: "2026-10-04" as IsoDate,
-  venue: { type: "parlor", parlor: UMEDA, terms: TERMS },
+  venue: { type: "parlor", parlor: MALEHAN, terms: TERMS },
   gameKind: "pachinko",
   machine: "流星",
   pachinko: undefined,

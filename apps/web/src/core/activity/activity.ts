@@ -51,6 +51,8 @@ export interface Parts {
   readonly play?: { readonly id: PlayId; readonly description: string }
   readonly theoretical?: { readonly value: Decimal }
   readonly imported?: { readonly from: string; readonly count: number }
+  /** A year whose entries were moved into its own file, and how many. */
+  readonly filed?: { readonly year: number; readonly count: number }
   /** The day a thing done to savings was on, and the tokens it named, balls or medals: the count registered or put right to, or the tokens exchanged or taken back. */
   readonly savings?: { readonly date: IsoDate; readonly kind: TokenKind; readonly tokens: Decimal }
   /** What special prizes tokens were exchanged for were worth, in yen. */
@@ -112,6 +114,8 @@ const saidOf = (intent: ChangeIntent): Pick<ActivityLine, "did" | "parts"> | und
       return { did: intent.type, parts: { files: { paths: intent.paths } } }
     case "plays-imported":
       return { did: intent.type, parts: { imported: { from: intent.from, count: intent.count } } }
+    case "year-filed":
+      return { did: intent.type, parts: { filed: { year: intent.year, count: intent.count } } }
     case "play-removed":
       return { did: intent.type, parts: { play: { id: intent.playId, description: intent.description } } }
     case "play-recorded":
@@ -182,6 +186,7 @@ const partsOf = (line: Readonly<Record<string, unknown>>): Parts => ({
   ...part("parlors", ({ names }) => (isNames(names) ? { names } : undefined), line),
   ...part("play", ({ id, description }) => (typeof id === "string" && typeof description === "string" ? { id: id as PlayId, description } : undefined), line),
   ...part("imported", ({ from, count }) => (typeof from === "string" && typeof count === "number" ? { from, count } : undefined), line),
+  ...part("filed", ({ year, count }) => (typeof year === "number" && typeof count === "number" ? { year, count } : undefined), line),
   ...part("theoretical", ({ value }) => ((found) => (found === undefined ? undefined : { value: found }))(decimalOf(value)), line),
   ...part("savings", ({ date, kind, tokens }) => ((day, count) => (day === undefined || count === undefined || !isTokenKind(kind) ? undefined : { date: day, kind, tokens: count }))(dateOf(date), decimalOf(tokens)), line),
   ...part("prizes", ({ specialPrizes }) => ((found) => (found === undefined ? undefined : { specialPrizes: found }))(decimalOf(specialPrizes)), line),

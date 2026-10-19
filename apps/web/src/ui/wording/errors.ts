@@ -255,7 +255,9 @@ export const describeError = (error: ApplicationError): string => {
     case "tally-missing":
       return "この収支は帳簿にありません。"
     case "tally-unreadable":
-      return "この収支はフォームでは直せません（取り込んだ収支か、手で書き換えた仕訳です）。生ファイルの transactions.journal で直してください。"
+      return "この収支はフォームでは直せません（取り込んだ収支か、手で書き換えた仕訳です）。生ファイルの、その年の transactions のファイルで直してください。"
+    case "filing-differs":
+      return `${error.year}年の仕訳を年のファイルに移すと帳簿の読み方が変わるため、移していません。`
     case "settings-unreadable":
       return "この帳簿の settings.json が壊れていて読めないため、書き換えていません。生ファイルの settings.json で直してください。"
     case "catalog":

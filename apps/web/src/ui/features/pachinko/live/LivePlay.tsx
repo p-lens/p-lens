@@ -4,7 +4,7 @@ import { MainContent } from "solid-gathering-shell"
 import { reviseCheckpoints } from "../../../../application/live-play"
 import { loadFormula } from "../../../../application/pachinko/formulas"
 import { reliefDriveOf } from "../../../../application/pachinko/hyena-hunt"
-import { tokenValueOfDraft, type PlayDraft } from "../../../../core/live-play/draft"
+import { tokenValueOfDraft, type PachinkoDraft, type PlayDraft } from "../../../../core/live-play/draft"
 import { consumptionOf, spinPerformanceOf } from "../../../../core/pachinko/consumption"
 import { withReadingsMerged, type Span } from "../../../../core/pachinko/merging"
 import { basisOf, type Basis } from "../../../../core/pachinko/formula"
@@ -43,7 +43,7 @@ type Work = Revised | { readonly type: "inserting"; readonly before: number }
  * — or, a line pressed, to set it right, take it away, or put a reading
  * in before it. A run of readings held and dragged over is made one line.
  */
-export function LivePlay(props: { readonly place: Place; readonly draft: PlayDraft; readonly title: string }): JSX.Element {
+export function LivePlay(props: { readonly place: Place; readonly draft: PachinkoDraft; readonly title: string }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   const parsed = createMemo(() => parsePlayLog(props.draft.log))

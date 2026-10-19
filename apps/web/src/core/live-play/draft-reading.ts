@@ -6,10 +6,10 @@ import type { PlayTerms } from "../parlor/terms"
 import type { PlayGameKind } from "../play/play"
 import { parsePlayLog } from "../play-log/checkpoint"
 import type { Finish } from "../play-log/finish"
-import type { Operation, PlayDraft, PlayVenue, Receipt, Sending } from "./draft"
+import type { DraftOfAnyGame, Operation, PlayDraft, PlayOfGame, PlayVenue, Receipt, Sending } from "./draft"
 
 /** A play as it is kept and as it is sent: everything of a draft but what the device keeps of it for itself. */
-export type Play = Omit<PlayDraft, "bookId" | "recorded" | "sent" | "received">
+export type Play = PlayOfGame & Omit<DraftOfAnyGame, "bookId" | "recorded" | "sent" | "received">
 
 type Fields = Readonly<Record<string, unknown>>
 
@@ -132,8 +132,19 @@ const isDraft = (value: unknown): value is PlayDraft =>
   isOptional(value["received"], isReceipt) &&
   isPlay(value)
 
-/** A play read from what was kept or sent, or none where any part of it that is there does not read. */
-export const readPlay = (value: unknown): Play | undefined => (isPlay(value) ? value : undefined)
+/**
+ * A play's parts of its own game alone: a part of the other game's, which a
+ * play of its game never reads, is let go once it has read like any other
+ * part — a draft kept before a play's game said which it holds could name
+ * both.
+ */
+const ofItsGame = (value: Fields): Fields => {
+  const { pachinko, bonuses, pachislot, ...rest } = value
+  return value["gameKind"] === "pachinko" ? { ...rest, pachinko, ...(bonuses === undefined ? {} : { bonuses }) } : { ...rest, ...(pachislot === undefined ? {} : { pachislot }) }
+}
 
-/** A draft read from what the device kept, or none where any part of it that is there does not read. */
-export const readPlayDraft = (value: unknown): PlayDraft | undefined => (isDraft(value) ? value : undefined)
+/** A play read from what was kept or sent, its own game's parts alone, or none where any part of it that is there does not read. */
+export const readPlay = (value: unknown): Play | undefined => (isPlay(value) && isFields(value) ? ((own) => (isPlay(own) ? own : undefined))(ofItsGame(value)) : undefined)
+
+/** A draft read from what the device kept, its own game's parts alone, or none where any part of it that is there does not read. */
+export const readPlayDraft = (value: unknown): PlayDraft | undefined => (isDraft(value) && isFields(value) ? ((own) => (isDraft(own) ? own : undefined))(ofItsGame(value)) : undefined)

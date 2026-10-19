@@ -5,6 +5,7 @@ import { loadMachineNames, refreshCatalog } from "../application/catalog"
 import type { ApplicationError } from "../application/errors"
 import type { Services } from "../application/services"
 import type { MachineNames } from "../core/catalog/catalog"
+import { fileEveryBookByYear } from "../application/file-by-year"
 import { receiveArrivals, type Arrivals } from "../application/inbox"
 import { restoreEveryGrant } from "../application/invitations"
 import { keepStorage } from "../application/storage-keeping"
@@ -138,7 +139,7 @@ export function AppProvider(props: {
     refresh()
   }
   const [syncState, setSyncState] = createSignal<SyncState>({ type: "idle" })
-  const syncing: { running: boolean; again: boolean; waiting: ReturnType<typeof setTimeout> | undefined; grantsRestored: boolean } = { running: false, again: false, waiting: undefined, grantsRestored: false }
+  const syncing: { running: boolean; again: boolean; waiting: ReturnType<typeof setTimeout> | undefined; grantsRestored: boolean; filed: boolean } = { running: false, again: false, waiting: undefined, grantsRestored: false, filed: false }
   /** Plays that arrived: the day's plays read again where any was taken in, and a word where any could not be read. */
   const told = (arrived: Arrivals): void => {
     if (arrived.taken > 0) setRevision((count) => count + 1)
@@ -159,6 +160,12 @@ export function AppProvider(props: {
       if (done.ok && !syncing.grantsRestored) {
         syncing.grantsRestored = true
         void restoreEveryGrant({ links: props.services.sync.links, relay: props.services.sync.relay, sealer: props.services.sync.sealer, invitations: props.services.invitations, now: props.services.now, newId: () => crypto.randomUUID() })
+      }
+      if (!syncing.filed) {
+        syncing.filed = true
+        void fileEveryBookByYear({ session: props.services.session, history: props.services.sync.history, links: props.services.sync.links, member: props.services.member }).then((years) => {
+          if (years.ok && years.value > 0) wroteAndSync()
+        })
       }
       if (syncing.again) {
         syncing.again = false

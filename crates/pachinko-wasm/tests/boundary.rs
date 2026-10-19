@@ -78,6 +78,25 @@ fn a_stored_normalised_spec_solves_to_the_same_figures_as_its_spec() {
 }
 
 #[test]
+fn a_stored_normalised_spec_of_a_later_shape_is_refused_by_its_number() {
+    let mut normalized =
+        value(&normalize(&json!({ "spec": value(SPEC) }).to_string()))["value"].clone();
+    let known = normalized["schemaVersion"].clone();
+    normalized["schemaVersion"] = json!(known.as_u64().expect("a shape") + 1);
+    let reply = value(&analyze(
+        &json!({
+            "source": { "type": "normalized", "normalized": normalized },
+            "conditions": { "roundPayout": { "type": "from-spec" } },
+        })
+        .to_string(),
+    ));
+    assert_eq!(
+        reply["error"],
+        json!({ "type": "unsupported-schema-version", "version": known.as_u64().expect("a shape") + 1, "known": known })
+    );
+}
+
+#[test]
 fn malformed_json_comes_back_as_an_envelope() {
     let reply = value(&analyze("{ not json"));
     assert_eq!(reply["ok"], json!(false));

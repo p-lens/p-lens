@@ -1,22 +1,22 @@
 import { describe, expect, test } from "bun:test"
 
 import type { IsoDate } from "../../src/core/calendar/calendar"
-import type { PlayDraft } from "../../src/core/live-play/draft"
+import type { PachinkoDraft } from "../../src/core/live-play/draft"
 import { readPlayDraft } from "../../src/core/live-play/draft-reading"
 import type { PlayTerms } from "../../src/core/parlor/terms"
 import type { PlayId } from "../../src/core/play/play"
 import { readSentDraft, sentDraftOf, sentDraftText } from "../../src/core/sync/sent-draft"
-import { UMEDA } from "../support/values"
+import { MALEHAN } from "../support/values"
 
 const TERMS: PlayTerms = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 250 }, replay: { paidOut: 250, deducted: 250 } }
 
-const DRAFT: PlayDraft = {
+const DRAFT: PachinkoDraft = {
   id: "p-1" as PlayId,
   date: "2026-10-09" as IsoDate,
-  venue: { type: "parlor", parlor: UMEDA, terms: TERMS },
+  venue: { type: "parlor", parlor: MALEHAN, terms: TERMS },
   gameKind: "pachinko",
   machine: "made-up",
-  pachinko: { id: "f-1", machineId: "m-1", kind: "manual", figures: { roundChanceOneIn: 30, payoutPerRound: 140, totalChanceOneIn: undefined, spinsPerHour: 200 } } as PlayDraft["pachinko"],
+  pachinko: { id: "f-1", machineId: "m-1", kind: "manual", figures: { roundChanceOneIn: 30, payoutPerRound: 140, totalChanceOneIn: undefined, spinsPerHour: 200 } } as PachinkoDraft["pachinko"],
   bonuses: [{ name: "10R", payout: 1400, spent: 100 }],
   cabinetNumber: "123",
   startedAt: "2026-10-09T01:00:00.000Z",
@@ -32,9 +32,16 @@ const keptWith = (part: string, value: unknown): unknown => ({ ...structuredClon
 describe("a draft read back from the device", () => {
   test("reads whole where every part reads, and where the parts a play may leave out are left out", () => {
     expect(readPlayDraft(structuredClone(DRAFT))).toEqual(DRAFT)
-    const bare: PlayDraft = { ...DRAFT, venue: { type: "none", terms: undefined }, pachinko: undefined, cabinetNumber: undefined }
+    const bare: PachinkoDraft = { ...DRAFT, venue: { type: "none", terms: undefined }, pachinko: undefined, cabinetNumber: undefined }
     const { bonuses: _bonuses, history: _history, recorded: _recorded, sent: _sent, ...plain } = bare
     expect(readPlayDraft(structuredClone(plain))).toEqual(plain)
+  })
+
+  test("keeps its own game's parts alone: a pachislot play kept with a pachinko formula is read without it", () => {
+    const kept = { ...structuredClone(DRAFT), gameKind: "slot" }
+    const read = readPlayDraft(kept)
+    expect(read?.gameKind).toBe("slot")
+    expect(read !== undefined && ("pachinko" in read || "bonuses" in read)).toBe(false)
   })
 
   test("does not read where its finish is kept under another name, or is not one", () => {
@@ -53,7 +60,7 @@ describe("a draft read back from the device", () => {
   test("does not read where a part it is shown or written by is missing or of another shape", () => {
     expect(readPlayDraft(keptWith("startedAt", 1700000000))).toBeUndefined()
     expect(readPlayDraft(keptWith("venue", undefined))).toBeUndefined()
-    expect(readPlayDraft(keptWith("venue", { type: "parlor", parlor: UMEDA, terms: { rental: "500" } }))).toBeUndefined()
+    expect(readPlayDraft(keptWith("venue", { type: "parlor", parlor: MALEHAN, terms: { rental: "500" } }))).toBeUndefined()
     expect(readPlayDraft(keptWith("history", "x"))).toBeUndefined()
     expect(readPlayDraft(keptWith("history", [{ at: "2026-10-09T01:10:00.000Z" }]))).toBeUndefined()
     expect(readPlayDraft(keptWith("sent", {}))).toBeUndefined()
@@ -70,7 +77,7 @@ describe("a play read back as it was sent", () => {
   test("reads whole, its parlor's pools left to the book that takes it in", () => {
     const read = readSentDraft(sentDraftText(sent))
     expect(read?.finished).toEqual(DRAFT.recorded?.finish)
-    expect(read?.play.venue).toEqual({ type: "parlor", parlor: { ...UMEDA, pools: [] }, terms: TERMS })
+    expect(read?.play.venue).toEqual({ type: "parlor", parlor: { ...MALEHAN, pools: [] }, terms: TERMS })
     expect(read?.play.history).toEqual(DRAFT.history)
   })
 

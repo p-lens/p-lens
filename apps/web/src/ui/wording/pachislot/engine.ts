@@ -74,6 +74,8 @@ const describeEngineError = (error: EngineErrorDto): string => {
       return `この計算エンジンが知らない種類の解析値があります（${error.field}）。アプリを更新してください。`
     case "unsupported-spec-version":
       return `この解析値は別の版の形式（v${error.version}）で書かれています。この計算エンジンが読めるのは v${error.known} です。アプリを更新してください。`
+    case "unsupported-schema-version":
+      return `この算出条件は新しい計算エンジンで作られています（形式 v${error.version}）。この計算エンジンが読めるのは v${error.known} までです。アプリを更新してください。`
     case "no-setting-levels":
       return "設定がひとつもありません。"
     case "duplicate-setting-level":

@@ -2,7 +2,7 @@ import { createResource, Show, type JSX } from "solid-js"
 
 import { loadDraft } from "../../../application/live-play"
 import { shownNameOf, type MachineNames } from "../../../core/catalog/catalog"
-import { parlorOf, type PlayDraft } from "../../../core/live-play/draft"
+import { parlorOf, type PachislotDraft, type PlayDraft } from "../../../core/live-play/draft"
 import type { PlayId } from "../../../core/play/play"
 import { useApp } from "../../context"
 import { Loaded } from "../../primitives/states"
@@ -25,7 +25,7 @@ export function LivePlayView(props: { readonly place: Place; readonly playId: Pl
     (source) => loadDraft(app.services.drafts, source.playId),
   )
   /** A pachislot play, kept on screen across reloads of its draft: its counting tiles are tapped faster than a screen could be rebuilt. */
-  const slotDraft = (): PlayDraft | undefined => {
+  const slotDraft = (): PachislotDraft | undefined => {
     const found = draft()
     return found?.ok === true && found.value.gameKind === "slot" ? found.value : undefined
   }
@@ -34,7 +34,7 @@ export function LivePlayView(props: { readonly place: Place; readonly playId: Pl
       when={slotDraft()}
       fallback={
         <Loaded outcome={draft()}>
-          {(found) => <PachinkoViews.LivePlay place={props.place} draft={found} title={titleOf(found, app.machineNames())} />}
+          {(found) => (found.gameKind === "pachinko" ? <PachinkoViews.LivePlay place={props.place} draft={found} title={titleOf(found, app.machineNames())} /> : undefined)}
         </Loaded>
       }
     >

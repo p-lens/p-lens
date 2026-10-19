@@ -4,7 +4,8 @@ import type { BusinessDayTurn, IsoDate } from "../../core/calendar/calendar"
 import { bookNameOf, CATALOG_GAMES, type MachineSummary } from "../../core/catalog/catalog"
 import type { TitleProblem } from "../../core/journal/title"
 import { renderEntry, type Entry } from "../../core/journal/entry"
-import { appendEntry, BOOK_FILES } from "../../core/journal/layout"
+import { withEntriesFiled } from "../../core/journal/filing"
+import { BOOK_FILES } from "../../core/journal/layout"
 import type { Coordinates } from "../../core/parlor/shared"
 import { Err, Ok, type Result } from "../../core/result/result"
 import { openingOf, type SampleWork } from "../../core/sample-book/book"
@@ -171,10 +172,10 @@ const writeYear = (session: BookSession, bookId: BookId, order: SampleWork, entr
         }
       : stored.files
     return Ok<ProposedChange>({
-      files: {
-        ...entries.reduce(withAccountsFor, files),
-        [BOOK_FILES.transactions]: appendEntry(files[BOOK_FILES.transactions] ?? "", entries.map(renderEntry).join("\n")),
-      },
+      files: withEntriesFiled(
+        entries.reduce(withAccountsFor, files),
+        entries.map((entry) => ({ date: entry.date, text: renderEntry(entry) })),
+      ),
       intent: {
         type: "plays-imported",
         from: SAMPLE_SOURCE,

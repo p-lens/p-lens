@@ -13,24 +13,24 @@ const holding = (parlorName: string, quantity = dec("100")): ParlorHolding => ({
 describe("parlors as they are shown", () => {
   test("go by the day their savings last moved, latest first, a parlor that never moved last, and alike ones by name", () => {
     const moved = lastMovedOf([
-      entry("2026-10-01", "資産:貯玉:梅田:4円", "収益:遊技"),
-      entry("2026-10-05", "資産:貯メダル:難波:20円"),
-      entry("2026-09-20", "資産:貯玉:難波:4円"),
-      entry("2026-10-01", "資産:貯玉:京橋:1円"),
+      entry("2026-10-01", "資産:貯玉:東京皇国:4円", "収益:遊技"),
+      entry("2026-10-05", "資産:貯メダル:見滝原:20円"),
+      entry("2026-09-20", "資産:貯玉:見滝原:4円"),
+      entry("2026-10-01", "資産:貯玉:ジオン公国支店:1円"),
       entry("2026-10-09", "費用:遊技"),
     ])
-    expect([...moved].map(([name, day]) => [name, String(day)]).sort()).toEqual([["京橋", "2026-10-01"], ["梅田", "2026-10-01"], ["難波", "2026-10-05"]])
-    expect(inShowingOrder([holding("梅田"), holding("天王寺"), holding("難波"), holding("京橋")], moved).map((each) => each.parlorName)).toEqual(["難波", "京橋", "梅田", "天王寺"])
+    expect([...moved].map(([name, day]) => [name, String(day)]).sort()).toEqual([["ジオン公国支店", "2026-10-01"], ["東京皇国", "2026-10-01"], ["見滝原", "2026-10-05"]])
+    expect(inShowingOrder([holding("東京皇国"), holding("AB℃ルグニカ王国本店"), holding("見滝原"), holding("ジオン公国支店")], moved).map((each) => each.parlorName)).toEqual(["見滝原", "ジオン公国支店", "東京皇国", "AB℃ルグニカ王国本店"])
   })
 
   test("are found by part of a name, widths, case and kana aside, and every one is found by nothing typed", () => {
-    const parlors = [holding("マルハン梅田"), holding("ＤＳＴＡＴＩＯＮ難波"), holding("キコーナ京橋")]
-    expect(namedLike(parlors, "まるはん").map((each) => each.parlorName)).toEqual(["マルハン梅田"])
-    expect(namedLike(parlors, "d station").map((each) => each.parlorName)).toEqual(["ＤＳＴＡＴＩＯＮ難波"])
+    const parlors = [holding("マレハン東京皇国"), holding("ジーステーション第3新東京"), holding("キコーネジオン公国支店")]
+    expect(namedLike(parlors, "まれはん").map((each) => each.parlorName)).toEqual(["マレハン東京皇国"])
+    expect(namedLike(parlors, "ｼﾞｰ ｽﾃｰｼｮﾝ").map((each) => each.parlorName)).toEqual(["ジーステーション第3新東京"])
     expect(namedLike(parlors, " ")).toHaveLength(3)
   })
 
   test("hold nothing only where every pool stands at none", () => {
-    expect([holdsNothing(holding("梅田", ZERO)), holdsNothing(holding("梅田"))]).toEqual([true, false])
+    expect([holdsNothing(holding("東京皇国", ZERO)), holdsNothing(holding("東京皇国"))]).toEqual([true, false])
   })
 })

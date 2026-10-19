@@ -1,8 +1,7 @@
 import { memberCan, type BookId, type MemberId } from "../core/book/book"
 import { renderEntry } from "../core/journal/entry"
-import { BOOK_FILES } from "../core/journal/layout"
 import { parlorsFromDeclarations } from "../core/parlor/parlor"
-import { withoutTallyEntry, withTallyEntry } from "../core/tally/in-journal"
+import { withoutTallyFiled, withTallyFiled } from "../core/journal/filing"
 import type { TallyHead, TokenTally, YenTally } from "../core/tally/tally"
 import type { PlayId } from "../core/play/play"
 import { playLogPath } from "../core/play-log/checkpoint"
@@ -47,10 +46,10 @@ export const loadRecordedTally = (session: BookSession, bookId: BookId, member: 
 
 /** The book's files with a tally's entry put in place of the one it has, if it has one, and the rate its day lacked beside it. */
 const revised = (files: ProposedChange["files"], head: TallyHead, { entry, price }: ComposedTally, log: string | undefined): Outcome<ProposedChange> => {
-  const transactions = withTallyEntry(files[BOOK_FILES.transactions] ?? "", head.id, renderEntry(entry))
-  return transactions === undefined
+  const filed = withTallyFiled(withPrice(withAccountsFor(files, entry), price), head.id, entry.date, renderEntry(entry))
+  return filed === undefined
     ? Err({ type: "tally-missing" })
-    : Ok({ files: { ...withPrice(withAccountsFor(files, entry), price), [BOOK_FILES.transactions]: transactions, ...(log === undefined ? {} : { [playLogPath(head.gameKind, head.id)]: log }) }, intent: { type: "play-revised", playId: head.id, description: entry.description, theoreticalValue: head.theoreticalValue } })
+    : Ok({ files: { ...filed, ...(log === undefined ? {} : { [playLogPath(head.gameKind, head.id)]: log }) }, intent: { type: "play-revised", playId: head.id, description: entry.description, theoreticalValue: head.theoreticalValue } })
 }
 
 const revise = (session: BookSession, bookId: BookId, head: TallyHead, compose: Composer, log: string | undefined): Promise<Outcome<CommitId>> =>
@@ -80,10 +79,10 @@ export const reviseYenTally = (session: BookSession, bookId: BookId, tally: YenT
 export const removeTally = (session: BookSession, bookId: BookId, id: PlayId): Promise<Outcome<CommitId>> =>
   session.write(bookId, async (journal, stored) =>
     andThen(fromHledger(await journal.ask(talliesRequest(tallyTerm(id), { limit: 1, offset: 0 }))), (page): Outcome<ProposedChange> => {
-      const transactions = withoutTallyEntry(stored.files[BOOK_FILES.transactions] ?? "", id)
+      const files = withoutTallyFiled(stored.files, id)
       const transaction = page.items[0]
-      return transactions === undefined || transaction === undefined
+      return files === undefined || transaction === undefined
         ? Err({ type: "tally-missing" })
-        : Ok({ files: { ...stored.files, [BOOK_FILES.transactions]: transactions }, intent: { type: "play-removed", playId: id, description: transaction.tdescription } })
+        : Ok({ files, intent: { type: "play-removed", playId: id, description: transaction.tdescription } })
     }),
   )

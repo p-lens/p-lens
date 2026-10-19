@@ -17,7 +17,8 @@ const MAIN = `; A P-Lens book: pachinko and pachislot play, kept as a plain-text
 ; What is where:
 ;   accounts.journal      commodities and accounts; a parlor is the savings accounts tagged parlor-id
 ;   prices.journal        P directives: what a parlor's tokens exchange for, by day
-;   transactions.journal  one entry per play, tagged play-id, game-kind and machine
+;   transactions/2026.journal  one entry per play, tagged play-id, game-kind and machine: a file a year, by the entry's date
+;   transactions.journal  entries not filed by year, as a hand or an app from before the years wrote them
 ;   pachinko-play/        a pachinko play's readings as JSON Lines, in a file named by its play-id
 ;   pachislot-play/       a pachislot play's, the same
 ;   logs/activity.jsonl   what was done to the book, as JSON Lines: who, when and what, a line a change
@@ -25,7 +26,9 @@ const MAIN = `; A P-Lens book: pachinko and pachislot play, kept as a plain-text
 ; (app.p-lens.jp reads that list as it is published at https://parlors.p-lens.jp). Machines are named as P-Lens's catalog names them.
 ; The layout, the accounts and every tag are described in ARCHITECTURE.md in the P-Lens repository.
 ;
-; Point hledger at this file: hledger -f main.journal bal
+; Point hledger at this file: hledger -f main.journal bal, or for a year: hledger -f main.journal bal date:2026
+; A year's file alone has none of the declarations, so it is read through this one. Nothing closes a year: the
+; years are only where entries are kept, and the book is all of them, one after another.
 ; book-title-p:
 
 include accounts.journal

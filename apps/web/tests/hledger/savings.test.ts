@@ -1,3 +1,4 @@
+import { yearFileOf } from "../../src/core/journal/filing"
 import { describe, expect, test } from "bun:test"
 
 import { firstBook } from "../../src/app/composition/first-book"
@@ -15,8 +16,8 @@ import { BOOK_FILES } from "../../src/core/journal/layout"
 import type { PoolOpening } from "../../src/core/parlor/opening"
 import type { ParlorId } from "../../src/core/parlor/parlor"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
-import { ME, fixtureBook, inProcessHledger, memoryStorage } from "../support/in-process"
-import { UMEDA, dec, saidIn } from "../support/values"
+import { ME, fixtureBook, inProcessHledger, memoryStorage, transactionsOf } from "../support/in-process"
+import { MALEHAN, dec, saidIn } from "../support/values"
 
 const BOOK = "mine" as BookId
 
@@ -30,7 +31,7 @@ const setUp = async (stored = firstBook(BOOK, ME, "マイ帳簿")) => {
 
 const NAMBA: PoolOpening = {
   identity: { type: "listed", id: "osm-9" as ParlorId },
-  parlorName: "ホシゾラなんば新館",
+  parlorName: "ダイナモなんかつ新館",
   pool: { kind: "ball", tier: "4円" },
   rate: dec("3.571429"),
   date: "2026-10-01" as IsoDate,
@@ -45,11 +46,11 @@ describe("the savings a person already had", () => {
   test("are registered at a pool the book did not keep yet, and are no play's result", async () => {
     const { session, storage, history } = await setUp()
     expect(await registerOpeningBalance(session, BOOK, NAMBA, dec("5000"))).toEqual({ ok: true, value: undefined })
-    expect(await held(session)).toEqual([["ホシゾラなんば新館", "4円", "5000"]])
+    expect(await held(session)).toEqual([["ダイナモなんかつ新館", "4円", "5000"]])
     const overview = await loadOverview(session, BOOK, "")
     expect(overview.ok && toPlainString(overview.value.actual)).toBe("0")
     const stored = await storage.readBook(BOOK)
-    expect(stored.ok && stored.value.files[BOOK_FILES.transactions]).toContain("2026-10-01 ホシゾラなんば新館 | 開始残高  ; parlor-id: osm-9, savings: opening\n")
+    expect(stored.ok && transactionsOf(stored.value.files)).toContain("2026-10-01 ダイナモなんかつ新館 | 開始残高  ; parlor-id: osm-9, savings: opening\n")
     const activity = await loadActivity(session, history, BOOK)
     expect(activity.ok && activity.value.lines.map((line) => line.did)).toContain("savings-opened")
   })
@@ -58,7 +59,7 @@ describe("the savings a person already had", () => {
     const { session, storage } = await setUp(await fixtureBook("basic-play", { id: BOOK, members: [{ id: ME, displayName: "me", role: "owner" }] }))
     expect((await registerOpeningBalance(session, BOOK, NAMBA, dec("1200"))).ok).toBe(true)
     const stored = await storage.readBook(BOOK)
-    expect(stored.ok && stored.value.files[BOOK_FILES.transactions]?.startsWith("2026-10-01 ホシゾラなんば新館 | 開始残高")).toBe(true)
+    expect(stored.ok && stored.value.files[yearFileOf("2026-10-01" as IsoDate)]?.startsWith("2026-10-01 ダイナモなんかつ新館 | 開始残高")).toBe(true)
     expect(stored.ok && stored.value.files[BOOK_FILES.accounts]).toContain("account 純資産:開始残高\n")
     expect((await registerOpeningBalance(session, BOOK, { ...NAMBA, pool: { kind: "medal", tier: "20円" }, rate: dec("17.857143") }, dec("300"))).ok).toBe(true)
     const again = await storage.readBook(BOOK)
@@ -70,12 +71,12 @@ describe("the savings a person already had", () => {
     await registerOpeningBalance(session, BOOK, NAMBA, dec("5000"))
     expect(await registerOpeningBalance(session, BOOK, { ...NAMBA, rate: dec("4") }, dec("3000"))).toEqual({
       ok: false,
-      error: { type: "opening-balance-registered", parlor: "ホシゾラなんば新館", tier: "4円" },
+      error: { type: "opening-balance-registered", parlor: "ダイナモなんかつ新館", tier: "4円" },
     })
     expect((await registerOpeningBalance(session, BOOK, { ...NAMBA, pool: { kind: "medal", tier: "20円" }, rate: dec("17.857143") }, dec("300"))).ok).toBe(true)
     expect(await held(session)).toEqual([
-      ["ホシゾラなんば新館", "20円", "300"],
-      ["ホシゾラなんば新館", "4円", "5000"],
+      ["ダイナモなんかつ新館", "20円", "300"],
+      ["ダイナモなんかつ新館", "4円", "5000"],
     ])
   })
 })
@@ -87,13 +88,13 @@ describe("a pool's savings put right", () => {
     const parlor = { identity: NAMBA.identity, name: NAMBA.parlorName, pools: [NAMBA.pool] }
     const down = await adjustBalance(session, BOOK, parlor, NAMBA.pool, "2026-10-05" as IsoDate, dec("4820"))
     expect(down.ok && down.value.type === "adjusted" && toPlainString(down.value.difference)).toBe("-180")
-    expect(await held(session)).toEqual([["ホシゾラなんば新館", "4円", "4820"]])
+    expect(await held(session)).toEqual([["ダイナモなんかつ新館", "4円", "4820"]])
     const up = await adjustBalance(session, BOOK, parlor, NAMBA.pool, "2026-10-06" as IsoDate, dec("4900"))
     expect(up.ok && up.value.type === "adjusted" && toPlainString(up.value.difference)).toBe("80")
     const overview = await loadOverview(session, BOOK, "")
     expect(overview.ok && toPlainString(overview.value.actual)).toBe("0")
     const stored = await storage.readBook(BOOK)
-    expect(stored.ok && stored.value.files[BOOK_FILES.transactions]).toContain("2026-10-05 ホシゾラなんば新館 | 残高調整  ; parlor-id: osm-9, savings: adjustment\n")
+    expect(stored.ok && transactionsOf(stored.value.files)).toContain("2026-10-05 ダイナモなんかつ新館 | 残高調整  ; parlor-id: osm-9, savings: adjustment\n")
   })
 
   test("are told in the activity as the count they were set to on the day, and not as the difference", async () => {
@@ -102,7 +103,7 @@ describe("a pool's savings put right", () => {
     const parlor = { identity: NAMBA.identity, name: NAMBA.parlorName, pools: [NAMBA.pool] }
     await adjustBalance(session, BOOK, parlor, NAMBA.pool, "2026-10-05" as IsoDate, dec("4820"))
     const activity = await loadActivity(session, history, BOOK)
-    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).at(-1)).toEqual(["savings-adjusted", { pool: { parlor: "ホシゾラなんば新館", tier: "4円" }, savings: { date: "2026-10-05" as IsoDate, kind: "ball", tokens: dec("4820") } }])
+    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).at(-1)).toEqual(["savings-adjusted", { pool: { parlor: "ダイナモなんかつ新館", tier: "4円" }, savings: { date: "2026-10-05" as IsoDate, kind: "ball", tokens: dec("4820") } }])
   })
 
   test("are counted as of the day said, and left alone where the book already has the count", async () => {
@@ -118,20 +119,20 @@ describe("a pool's savings put right", () => {
 
 describe("savings exchanged for prizes", () => {
   const madeUpBook = async () => setUp(await fixtureBook("basic-play", { id: BOOK, members: [{ id: ME, displayName: "me", role: "owner" }] }))
-  const EXCHANGE = { parlor: UMEDA, pool: { kind: "ball", tier: "4円" } as const, date: "2026-10-04" as IsoDate, tokens: dec("4000"), specialPrizes: dec("13800") }
+  const EXCHANGE = { parlor: MALEHAN, pool: { kind: "ball", tier: "4円" } as const, date: "2026-10-04" as IsoDate, tokens: dec("4000"), specialPrizes: dec("13800") }
   const results = async (session: Awaited<ReturnType<typeof setUp>>["session"], query: string) =>
     ((overview) => overview.ok && [toPlainString(overview.value.actual), toPlainString(overview.value.theoretical), toPlainString(overview.value.savings)])(await loadOverview(session, BOOK, query))
 
   test("leave the pool as prizes, and are no result of any day", async () => {
     const { session, storage, history } = await madeUpBook()
     expect(await recordPrizeExchange(session, BOOK, EXCHANGE)).toEqual({ ok: true, value: undefined })
-    expect(await held(session)).toContainEqual(["マレハン第3新東京店", "4円", "800"])
+    expect(await held(session)).toContainEqual(["マレハン東京皇国店", "4円", "800"])
     expect(await results(session, "date:2026-10-04")).toEqual(["0", "0", "54808"])
     const files = storage.peek(BOOK)?.files
     expect(files?.[BOOK_FILES.accounts]).toContain("account 純資産:特殊景品\naccount 純資産:端玉景品\naccount 純資産:換算調整勘定")
-    expect(files?.[BOOK_FILES.transactions]).toContain("2026-10-04 マレハン第3新東京店 | 景品交換  ; parlor-id: hoshizora-umeda, savings: prize-exchange")
+    expect(transactionsOf(files)).toContain("2026-10-04 マレハン東京皇国店 | 景品交換  ; parlor-id: malehan-tokyokoukoku, savings: prize-exchange")
     const activity = await loadActivity(session, history, BOOK)
-    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).at(-1)).toEqual(["savings-exchanged", { pool: { parlor: "マレハン第3新東京店", tier: "4円" }, savings: { date: "2026-10-04" as IsoDate, kind: "ball", tokens: dec("4000") }, prizes: { specialPrizes: dec("13800") } }])
+    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).at(-1)).toEqual(["savings-exchanged", { pool: { parlor: "マレハン東京皇国店", tier: "4円" }, savings: { date: "2026-10-04" as IsoDate, kind: "ball", tokens: dec("4000") }, prizes: { specialPrizes: dec("13800") } }])
   })
 
   test("leave every result as it was", async () => {
@@ -153,7 +154,7 @@ describe("savings exchanged for prizes", () => {
 
 describe("savings a parlor took back", () => {
   const madeUpBook = async () => setUp(await fixtureBook("basic-play", { id: BOOK, members: [{ id: ME, displayName: "me", role: "owner" }] }))
-  const FORFEITURE = { parlor: UMEDA, pool: { kind: "ball", tier: "4円" } as const, date: "2026-10-04" as IsoDate, tokens: dec("4000") }
+  const FORFEITURE = { parlor: MALEHAN, pool: { kind: "ball", tier: "4円" } as const, date: "2026-10-04" as IsoDate, tokens: dec("4000") }
   const results = async (session: Awaited<ReturnType<typeof setUp>>["session"], query: string) =>
     ((overview) => overview.ok && [toPlainString(overview.value.actual), toPlainString(overview.value.theoretical)])(await loadOverview(session, BOOK, query))
 
@@ -161,14 +162,14 @@ describe("savings a parlor took back", () => {
     const { session, storage, history } = await madeUpBook()
     const before = await results(session, "")
     expect(await recordForfeiture(session, BOOK, FORFEITURE)).toEqual({ ok: true, value: undefined })
-    expect(await held(session)).toContainEqual(["マレハン第3新東京店", "4円", "800"])
+    expect(await held(session)).toContainEqual(["マレハン東京皇国店", "4円", "800"])
     expect(await results(session, "date:2026-10-04")).toEqual(["-14000", "0"])
     const after = await results(session, "")
     expect(before && after && [Number(after[0]) - Number(before[0]), Number(after[1]) - Number(before[1])]).toEqual([-14000, 0])
     const files = storage.peek(BOOK)?.files
     expect(files?.[BOOK_FILES.accounts]).toContain("account 費用:失効損\n")
-    expect(files?.[BOOK_FILES.transactions]).toContain("2026-10-04 マレハン第3新東京店 | 失効  ; parlor-id: hoshizora-umeda, savings: forfeiture")
-    expect(files?.[BOOK_FILES.transactions]).not.toContain("資産:現金                         -14000")
+    expect(transactionsOf(files)).toContain("2026-10-04 マレハン東京皇国店 | 失効  ; parlor-id: malehan-tokyokoukoku, savings: forfeiture")
+    expect(transactionsOf(files)).not.toContain("資産:現金                         -14000")
     const activity = await loadActivity(session, history, BOOK)
     expect(activity.ok && activity.value.lines.map((line) => line.did).at(-1)).toBe("savings-forfeited")
   })

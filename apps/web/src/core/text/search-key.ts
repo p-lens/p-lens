@@ -10,8 +10,8 @@ const withoutV = (hiragana: string): string => hiragana.replace(/ゔ[ぁぃぇ�
 
 /**
  * Text as a search compares it: widths and case aside, katakana as hiragana,
- * ヴ as the バ row, and no spaces or marks — so D'station, D station and
- * Dstation, ルミナ and るみな, ゲンキ and げんき, ヴヴヴ and ブブブ, are each
+ * ヴ as the バ row, and no spaces or marks — so ジーステーション, ジー・ステーション
+ * and ｼﾞｰ ｽﾃｰｼｮﾝ, メガコンドル and めがこんどる, ゲンキ and げんき, ヴヴヴ and ブブブ, are each
  * one thing.
  */
 export const searchKeyOf = (text: string): string =>

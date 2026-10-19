@@ -12,13 +12,13 @@ import { playedOnTerms, pricesPlayedOn, readFinishTokenTallyForm, type FinishTok
 import type { MachineSummary } from "../../src/core/catalog/catalog"
 import type { MachineId } from "../../src/core/machine/machine"
 import type { IsoDate } from "../../src/core/calendar/calendar"
-import { PRICES, UMEDA, dec } from "../support/values"
+import { PRICES, MALEHAN, dec } from "../support/values"
 
 const ID = "new" as PlayId
 
 const TERMS: PlayTerms = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 250, deducted: 275 } }
 
-const AT: PlayedOnTerms = playedOnTerms(UMEDA, TERMS, "pachinko")
+const AT: PlayedOnTerms = playedOnTerms(MALEHAN, TERMS, "pachinko")
 
 const FORM: FinishTokenTallyForm = {
   date: "2026-10-03",
@@ -39,7 +39,7 @@ describe("the form a play followed live at a parlor is recorded with", () => {
   })
 
   test("composes a tally of cash at a pool the book has yet to hear of, on the rate its terms state", () => {
-    const elsewhere = playedOnTerms({ ...UMEDA, name: "スーパーホール", pools: [] }, TERMS, "pachinko")
+    const elsewhere = playedOnTerms({ ...MALEHAN, name: "スーパーホール", pools: [] }, TERMS, "pachinko")
     const read = readFinishTokenTallyForm({ ...FORM, date: "2026-10-11", outlay: "5000" }, elsewhere, ID)
     expect(read.ok && composeTokenTallyEntry(read.value, []).ok).toBe(false)
     expect(read.ok && composeTokenTallyEntry(read.value, pricesPlayedOn(elsewhere, read.value.date, [])).ok).toBe(true)

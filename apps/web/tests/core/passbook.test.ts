@@ -6,8 +6,8 @@ import { passbookOf, type PassbookDay } from "../../src/core/report/passbook"
 import type { PricePoint } from "../../src/core/valuation/valuation"
 import { rateChangeLine } from "../../src/core/savings/rate-change"
 
-const ACCOUNT = "資産:貯玉:梅田:4円"
-const COMMODITY = "玉(4円・梅田)"
+const ACCOUNT = "資産:貯玉:東京皇国:4円"
+const COMMODITY = "玉(4円・東京皇国)"
 
 const dec = (text: string): Decimal => ((parsed) => (parsed.ok ? parsed.value : (() => { throw new Error(text) })()))(parseDecimal(text))
 
@@ -20,7 +20,7 @@ const posting = (account: string, quantity: string): Posting => ({ paccount: acc
 
 const entry = (date: string, tags: readonly (readonly [string, string])[], ...quantities: readonly string[]): Transaction => ({
   tdate: date,
-  tdescription: "梅田 | ",
+  tdescription: "東京皇国 | ",
   ttags: tags,
   tpostings: [...quantities.map((quantity) => posting(ACCOUNT, quantity)), posting("収益:遊技", "0")],
 })
@@ -74,12 +74,12 @@ describe("a pool's passbook", () => {
   })
 
   test("is empty for a pool nothing has moved and no rate was set for", () => {
-    expect(passbookOf([], ACCOUNT, COMMODITY, [price("2026-10-01", "3.5")].map((point) => ({ ...point, commodity: "玉(4円・難波)" })))).toEqual([])
+    expect(passbookOf([], ACCOUNT, COMMODITY, [price("2026-10-01", "3.5")].map((point) => ({ ...point, commodity: "玉(4円・見滝原)" })))).toEqual([])
   })
 })
 
 describe("setting a pool's rate", () => {
-  const change = { parlorName: "梅田", pool: { kind: "ball" as const, tier: "4円" }, date: "2026-10-10" as never, rate: dec("3.5") }
+  const change = { parlorName: "東京皇国", pool: { kind: "ball" as const, tier: "4円" }, date: "2026-10-10" as never, rate: dec("3.5") }
 
   test("writes the price line for the day, and nothing where the day already has that rate", () => {
     expect(rateChangeLine(change, [price("2026-10-01", "3.571429")])).toEqual({ ok: true, value: `P 2026-10-10 "${COMMODITY}" 3.5 JPY\n` })

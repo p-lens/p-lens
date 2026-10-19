@@ -639,6 +639,7 @@ export type EngineErrorDto =
   | { readonly type: "invalid-value"; readonly field: string }
   | { readonly type: "unsupported-component"; readonly field: string }
   | { readonly type: "unsupported-spec-version"; readonly version: number; readonly known: number }
+  | { readonly type: "unsupported-schema-version"; readonly version: number; readonly known: number }
   | { readonly type: "no-setting-levels" }
   | { readonly type: "duplicate-setting-level"; readonly at?: string; readonly settingLevel: number }
   | { readonly type: "missing-setting-level"; readonly at: string; readonly settingLevel: number }

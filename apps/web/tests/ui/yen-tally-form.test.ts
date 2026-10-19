@@ -6,14 +6,14 @@ import * as Pachinko from "../../src/core/pachinko"
 import * as Pachislot from "../../src/core/pachislot"
 import type { YenTally } from "../../src/core/tally/tally"
 import { atToldOf, emptyYenTallyForm, medalTermsFormOf, pachislotToldOf, readMedalTerms, readWeighingTerms, termsTypedOf, withInferred, yenTallyFormOf, HOUR_CHOICES, hoursOfMinutes, MINUTE_CHOICES, minutesToldIn, readYenTallyForm, resultOfYenTally } from "../../src/ui/features/record-tally/yen-tally-form"
-import { UMEDA, dec } from "../support/values"
+import { MALEHAN, dec } from "../support/values"
 
 const ID = "new" as PlayId
 
 describe("the tally form", () => {
   test("reads what went in, what came back and a theoretical value, with no parlor named", () => {
     const form = { ...emptyYenTallyForm("2026-10-04", {}), machine: "e風の剣豪", outlay: "12,000", takings: "３０００", theoreticalValue: "8000" }
-    expect(readYenTallyForm(form, [UMEDA], () => ID)).toEqual({
+    expect(readYenTallyForm(form, [MALEHAN], () => ID)).toEqual({
       ok: true,
       value: {
         id: ID,
@@ -31,9 +31,9 @@ describe("the tally form", () => {
   })
 
   test("leaves the theoretical value out when empty, takes nothing back where no takings are typed, and names the parlor chosen", () => {
-    const form = { ...emptyYenTallyForm("2026-10-04", {}), parlorKey: "listed:hoshizora-umeda", machine: "流星", outlay: "0" }
-    const read = readYenTallyForm(form, [UMEDA], () => ID)
-    expect(read.ok && [read.value.parlor, read.value.outlay, read.value.takings, read.value.theoreticalValue]).toEqual([UMEDA, dec("0"), dec("0"), undefined])
+    const form = { ...emptyYenTallyForm("2026-10-04", {}), parlorKey: "listed:malehan-tokyokoukoku", machine: "流星", outlay: "0" }
+    const read = readYenTallyForm(form, [MALEHAN], () => ID)
+    expect(read.ok && [read.value.parlor, read.value.outlay, read.value.takings, read.value.theoreticalValue]).toEqual([MALEHAN, dec("0"), dec("0"), undefined])
   })
 
   test("comes to the takings less the outlay, and to nothing said while either does not read", () => {
@@ -45,7 +45,7 @@ describe("the tally form", () => {
 
   test("needs an outlay, and reports every field it could not read", () => {
     const form = { ...emptyYenTallyForm("2026-13-01", {}), parlorKey: "listed:gone", takings: "x", theoreticalValue: "x" }
-    expect(readYenTallyForm(form, [UMEDA], () => ID)).toEqual({
+    expect(readYenTallyForm(form, [MALEHAN], () => ID)).toEqual({
       ok: false,
       error: [
         { field: "date", reason: "not-a-date" },
@@ -59,7 +59,7 @@ describe("the tally form", () => {
 
   test("names the tally for the day its play was played, once that day is read", () => {
     const form = { ...emptyYenTallyForm("2026-09-30", {}), outlay: "1000" }
-    const read = readYenTallyForm(form, [UMEDA], (date) => `play-on-${date}` as never)
+    const read = readYenTallyForm(form, [MALEHAN], (date) => `play-on-${date}` as never)
     expect(read.ok && read.value.id).toBe("play-on-2026-09-30" as never)
   })
 

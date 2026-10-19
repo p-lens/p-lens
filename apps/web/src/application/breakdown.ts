@@ -13,6 +13,7 @@ import type { BalanceReport } from "../hledger/protocol/wire"
 import { accountsRequest, actualCutRequest, sentTalliesRequest, spinPerformancesRequest, actualRequest, inferredCutRequest, inferredRequest, playTimeCutRequest, playTimeRequest, theoreticalCutRequest, theoreticalRequest } from "../hledger/query/requests"
 import { combine, sendersTerm, talliesTerm, untaggedTerm } from "../hledger/query/terms"
 import type { BookSession } from "./book-session"
+import { viewedFor } from "./book-views"
 import type { Outcome } from "./errors"
 import { fromHledger, fromReport } from "./lift"
 
@@ -120,7 +121,7 @@ const grouped = async (journal: JournalAccess, dimension: Dimension, query: stri
  * said under the breakdown, in その他損益, and never as a group of its own.
  */
 export const loadBreakdown = (session: BookSession, bookId: BookId, dimension: Dimension, query: string): Promise<Outcome<readonly Group[]>> =>
-  session.read(bookId, async (journal) => mapOk(await grouped(journal, dimension, combine(talliesTerm, query)), (groups) => inOrder(groups, dimension)))
+  viewedFor(session, query, "moved").read(bookId, async (journal) => mapOk(await grouped(journal, dimension, combine(talliesTerm, query)), (groups) => inOrder(groups, dimension)))
 
 /** Who of those that played a book its tallies are asked of: every one, or those chosen of those offered, by sender id and `UNSENT`. */
 export interface Players {
@@ -146,7 +147,7 @@ const WHOLE_PERIOD = "whole"
 export const loadDaysAndWhole = (session: BookSession, bookId: BookId, query: string, players: Players): Promise<Outcome<DaysAndWhole>> => {
   const term = players.chosen === undefined ? "" : sendersTerm(players.chosen, players.offered)
   if (term === undefined) return Promise.resolve(Ok({ days: [], whole: [] }))
-  return session.read(bookId, async (journal) => {
+  return viewedFor(session, query, "moved").read(bookId, async (journal) => {
     const reports = await periodReports(journal, combine(talliesTerm, query, term), "daily")
     return andThen(byColumns("daily", reports), (days) => mapOk(totalsAsOne(WHOLE_PERIOD, reports), (whole) => ({ days: inOrder(days, "day"), whole })))
   })
@@ -159,7 +160,7 @@ export const loadDaysAndWhole = (session: BookSession, bookId: BookId, query: st
  * the app's.
  */
 export const loadSpinPerformances = (session: BookSession, bookId: BookId, query: string): Promise<Outcome<SpinPerformancesByMachine>> =>
-  session.read(bookId, async (journal) => mapOk(fromHledger(await journal.ask(spinPerformancesRequest(query))), (page) => spinPerformancesOf(page.items)))
+  viewedFor(session, query, "moved").read(bookId, async (journal) => mapOk(fromHledger(await journal.ask(spinPerformancesRequest(query))), (page) => spinPerformancesOf(page.items)))
 
 /**
  * A book's results for a period, by who played them: each sender by the id
@@ -167,7 +168,7 @@ export const loadSpinPerformances = (session: BookSession, bookId: BookId, query
  * and plays taken in before senders were written — as the unnamed group.
  */
 export const loadSenderBreakdown = (session: BookSession, bookId: BookId, query: string): Promise<Outcome<readonly Group[]>> =>
-  session.read(bookId, (journal) => byTags(journal, combine(talliesTerm, query), [TALLY_TAGS.senderId]))
+  viewedFor(session, query, "moved").read(bookId, (journal) => byTags(journal, combine(talliesTerm, query), [TALLY_TAGS.senderId]))
 
 /** Who sent a book's plays, each by the name on their last tally, whatever the period: the name a person goes by now. */
 export const loadSenderNames = (session: BookSession, bookId: BookId): Promise<Outcome<SenderNames>> =>

@@ -6,12 +6,12 @@ const NOW = "2026-10-04T12:00:00.000Z"
 
 describe("coming back from survey.p-lens.jp", () => {
   test("reads the submission to keep and the game to return to", () => {
-    const query = new URLSearchParams({ submission: "sub_01J9XYZ", name: " ルミナ難波店 ", prefecture: "大阪府", game: "slot" })
+    const query = new URLSearchParams({ submission: "sub_01J9XYZ", name: " メガコンドル見滝原店 ", prefecture: "大阪府", game: "slot" })
     expect(returnedFrom(query, NOW)).toEqual({
       ok: true,
-      value: { type: "submitted", submission: { submission: "sub_01J9XYZ", name: "ルミナ難波店", prefecture: "大阪府", submittedAt: NOW }, from: { type: "start", game: "slot" } },
+      value: { type: "submitted", submission: { submission: "sub_01J9XYZ", name: "メガコンドル見滝原店", prefecture: "大阪府", submittedAt: NOW }, from: { type: "start", game: "slot" } },
     } as never)
-    expect(returnedFrom(new URLSearchParams({ submission: "sub_01J9XYZ", name: "ルミナ難波店", prefecture: "大阪府" }), NOW).ok && "pachinko").toBe("pachinko")
+    expect(returnedFrom(new URLSearchParams({ submission: "sub_01J9XYZ", name: "メガコンドル見滝原店", prefecture: "大阪府" }), NOW).ok && "pachinko").toBe("pachinko")
   })
 
   test("reads the id survey.p-lens.jp files a report under", () => {
@@ -25,8 +25,8 @@ describe("coming back from survey.p-lens.jp", () => {
   })
 
   test("refuses it whole if any of it is not what it should be", () => {
-    const good = { submission: "sub_01J9XYZ", name: "ルミナ難波店", prefecture: "大阪府" }
-    for (const bad of [{ submission: "x" }, { submission: "sub 01 <script>" }, { name: "" }, { name: "梅田:本店" }, { prefecture: "大阪" }, { name: "店".repeat(61) }])
+    const good = { submission: "sub_01J9XYZ", name: "メガコンドル見滝原店", prefecture: "大阪府" }
+    for (const bad of [{ submission: "x" }, { submission: "sub 01 <script>" }, { name: "" }, { name: "東京皇国:本店" }, { prefecture: "大阪" }, { name: "店".repeat(61) }])
       expect(returnedFrom(new URLSearchParams({ ...good, ...bad }), NOW)).toEqual({ ok: false, error: "unreadable" })
   })
 })

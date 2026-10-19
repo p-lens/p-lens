@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
+import { analyze } from "@p-lens/pachinko-engine/pachinko.js"
+
 import { api, device, formulasOf, pachinkoFixture } from "../support/harness"
 import { bonusesOf, manual, registered, simulated } from "../support/pachinko/formulas"
 
@@ -89,6 +91,15 @@ describe("a simulated formula", () => {
     const reply = await client.call("POST", `/machines/${device(1_759_000_000_009)}/formulas`, { as: ALICE, body: manual() })
     expect(reply.status).toBe(404)
     expect(reply.body.error).toEqual({ type: "not-found", what: "machine" })
+  })
+
+  test("keeps the version of the engine that checked its figures, where one a formula typed in has none", async () => {
+    const { client, manualId, simulatedId } = await registered(ALICE)
+    const normalized = await pachinkoFixture("made-up", "normalized.json")
+    const checking = JSON.parse(analyze(JSON.stringify({ source: { type: "normalized", normalized }, conditions: { roundPayout: { type: "from-spec" } } }))).value.engineVersion
+    const versionOf = (id: string) => (client.sqlite.query("SELECT engine_version AS version FROM formulas WHERE id = ?1").get(id) as { version: number | null }).version
+    expect([versionOf(simulatedId), versionOf(manualId)]).toEqual([checking, null])
+    expect(checking).toBeGreaterThan(0)
   })
 
   test("is never changed or deleted once stored", async () => {

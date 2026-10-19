@@ -33,7 +33,7 @@ describe("評価損益", () => {
   })
 
   test("is a gain where a rate rose, and counts the savings held on the day it changed, not those played since", async () => {
-    const session = await setUp('\nP 2026-10-05 "玉(4円・723小宇宙店)" 3.43 JPY\n')
+    const session = await setUp('\nP 2026-10-05 "玉(4円・723修羅の国店)" 3.43 JPY\n')
     expect(await revalued(session, "date:2026-10-01..2026-11-01")).toBe("660")
     expect(await revalued(session, "")).toBe("324")
   })

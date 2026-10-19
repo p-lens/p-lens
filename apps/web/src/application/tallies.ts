@@ -14,6 +14,7 @@ import type { Transaction } from "../hledger/protocol/wire"
 import { tallyTerm } from "../hledger/query/terms"
 import { accountsRequest, actualByTallyRequest, actualRequest, talliesRequest, theoreticalRequest } from "../hledger/query/requests"
 import type { BookSession } from "./book-session"
+import { viewedFor } from "./book-views"
 import type { Outcome } from "./errors"
 import { fromHledger, fromReport } from "./lift"
 import { tallyNamesOf, type TallyNames } from "./tally-lines"
@@ -31,7 +32,7 @@ const PAGE_SIZE = 50
  * tallies alone, a row a tally. A page of none asks for no statement.
  */
 export const loadTallies = (session: BookSession, bookId: BookId, query: string, offset: number): Promise<Outcome<TallyList>> =>
-  session.read(bookId, async (journal) => {
+  viewedFor(session, query, "moved").read(bookId, async (journal) => {
     const page = fromHledger(await journal.ask(talliesRequest(query, { limit: PAGE_SIZE, offset })))
     if (!page.ok) return page
     const tallies = tallySummariesOf(page.value.items)

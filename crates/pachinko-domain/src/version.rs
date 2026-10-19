@@ -1,8 +1,9 @@
 /// The shape a spec is written in: its entities, a table per component and
-/// its resources. A spec says which in `v`, so an engine met with one from
-/// a later version refuses it by that number rather than misread it. A
-/// component added is no new version — a table an engine does not know is
-/// refused by its name — only a change to the shape itself is.
+/// its resources. A spec says which in `v`, and an engine reads the one
+/// shape it knows: a spec in any other version, later or earlier, is
+/// refused by that number rather than misread. A component added is no new
+/// version — a table an engine does not know is refused by its name — only
+/// a change to the shape itself is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct SpecVersion(u32);
 

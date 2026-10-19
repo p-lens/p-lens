@@ -12,7 +12,7 @@ import type { PlayId } from "../../src/core/play/play"
 import { balanceAdjustmentEntry, openingBalanceEntry } from "../../src/core/savings/balance"
 import { forfeitureEntry } from "../../src/core/savings/forfeiture"
 import { prizeExchangeEntry } from "../../src/core/savings/prize-exchange"
-import { PRICES, RENTED_PLAY, UMEDA, dec } from "../support/values"
+import { PRICES, RENTED_PLAY, MALEHAN, dec } from "../support/values"
 
 const SRC = new URL("../../src/", import.meta.url).pathname
 
@@ -32,7 +32,7 @@ const SIDES: readonly (readonly [string, string])[] = [
 
 const TALLIED: YenTally = { id: "tally" as PlayId, date: DAY, parlor: undefined, gameKind: "pachinko", machine: "e風の剣豪", cabinetNumber: undefined, outlay: dec("0"), takings: dec("0"), settlement: undefined, theoreticalValue: undefined, told: undefined }
 
-const SOURCE: SourceTally = { date: DAY, parlor: { name: "マレハン第3新東京店", code: "S123" }, machine: { name: "流星の剣", code: "M9", maker: "ミナト" }, cabinetNumber: "123", outlay: dec("0"), takings: dec("0"), memo: "", hours: undefined }
+const SOURCE: SourceTally = { date: DAY, parlor: { name: "マレハン東京皇国店", code: "S123" }, machine: { name: "流星の剣", code: "M9", maker: "ミナト" }, cabinetNumber: "123", outlay: dec("0"), takings: dec("0"), memo: "", hours: undefined }
 
 const made = (entry: { readonly ok: true; readonly value: Entry } | { readonly ok: false }): readonly Entry[] => (entry.ok ? [entry.value] : [])
 
@@ -47,11 +47,11 @@ const ENTRIES: readonly Entry[] = [
   ...SIDES.flatMap(([outlay, takings]) => made(composeYenTallyEntry({ ...TALLIED, outlay: dec(outlay), takings: dec(takings), settlement: { type: "cash-and-prizes" } }))),
   ...SIDES.flatMap(([outlay, takings]) => made(composeYenTallyEntry({ ...TALLIED, outlay: dec(outlay), takings: dec(takings).places > 0 ? dec("0") : dec(takings), settlement: { type: "off-book-exchanged", cash: dec("0"), oddPrizes: dec("0") } }))),
   ...SIDES.map(([outlay, takings]) => importedTallyEntry({ id: "taken-in" as PlayId, from: "precord", source: { ...SOURCE, outlay: dec(outlay), takings: dec(takings) }, machine: undefined, inferred: undefined })),
-  ...["16500", "16800", "17000", "0"].flatMap((specialPrizes) => made(prizeExchangeEntry({ parlor: UMEDA, pool: POOL, date: DAY, tokens: dec("4800"), specialPrizes: dec(specialPrizes) }, PRICES))),
-  openingBalanceEntry({ parlor: UMEDA, pool: POOL, date: DAY }, dec("12000")),
-  balanceAdjustmentEntry({ parlor: UMEDA, pool: POOL, date: DAY }, dec("300")),
-  balanceAdjustmentEntry({ parlor: UMEDA, pool: POOL, date: DAY }, dec("-300")),
-  ...made(forfeitureEntry({ parlor: UMEDA, pool: POOL, date: DAY, tokens: dec("4800") })),
+  ...["16500", "16800", "17000", "0"].flatMap((specialPrizes) => made(prizeExchangeEntry({ parlor: MALEHAN, pool: POOL, date: DAY, tokens: dec("4800"), specialPrizes: dec(specialPrizes) }, PRICES))),
+  openingBalanceEntry({ parlor: MALEHAN, pool: POOL, date: DAY }, dec("12000")),
+  balanceAdjustmentEntry({ parlor: MALEHAN, pool: POOL, date: DAY }, dec("300")),
+  balanceAdjustmentEntry({ parlor: MALEHAN, pool: POOL, date: DAY }, dec("-300")),
+  ...made(forfeitureEntry({ parlor: MALEHAN, pool: POOL, date: DAY, tokens: dec("4800") })),
 ]
 
 const sourceFiles = async (): Promise<readonly string[]> => (await readdir(SRC, { recursive: true })).filter((path) => /\.tsx?$/.test(path)).sort()

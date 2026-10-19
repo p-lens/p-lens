@@ -9,13 +9,12 @@ import { recordTokenTally, recordYenTally } from "../../src/application/record-t
 import type { BookId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { toPlainString } from "../../src/core/decimal/decimal"
-import { BOOK_FILES } from "../../src/core/journal/layout"
 import type { ParlorId } from "../../src/core/parlor/parlor"
 import type { YenTally } from "../../src/core/tally/tally"
 import type { PlayId } from "../../src/core/play/play"
 import { mapOk } from "../../src/core/result/result"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
-import { ME, fixtureBook, inProcessHledger, memoryStorage } from "../support/in-process"
+import { ME, fixtureBook, inProcessHledger, memoryStorage, transactionsOf } from "../support/in-process"
 import { RENTED_PLAY, dec, saidIn } from "../support/values"
 
 const BOOK = "record" as BookId
@@ -41,7 +40,7 @@ describe("recording a tally", () => {
     const { session, storage } = await setUp("owner")
     const recorded = await recordTokenTally(session, BOOK, TODAY_PLAY)
     expect(recorded.ok).toBe(true)
-    expect(storage.peek(BOOK)?.files[BOOK_FILES.transactions]).toContain("2026-10-04 マレハン第3新東京店 | 流星 123番台  ; play-id: today,")
+    expect(transactionsOf(storage.peek(BOOK)?.files)).toContain("2026-10-04 マレハン東京皇国店 | 流星 123番台  ; play-id: today,")
     const overview = await loadOverview(session, BOOK, "date:2026-10-04")
     expect(mapOk(overview, (found) => [toPlainString(found.actual), toPlainString(found.theoretical)])).toEqual({
       ok: true,
@@ -53,7 +52,7 @@ describe("recording a tally", () => {
     const { session } = await setUp("owner")
     await recordTokenTally(session, BOOK, TODAY_PLAY)
     const found = async (query: string) => mapOk(await loadTallies(session, BOOK, query, 0), (list) => list.tallies.map((tally) => tally.id))
-    expect(await found("payee:^マレハン第3新東京店$ date:2026-10-04")).toEqual({ ok: true, value: ["today" as PlayId] })
+    expect(await found("payee:^マレハン東京皇国店$ date:2026-10-04")).toEqual({ ok: true, value: ["today" as PlayId] })
     expect(await found("'note:^流星 123番台$' date:2026-10-04")).toEqual({ ok: true, value: ["today" as PlayId] })
     expect(await found("payee:流星 date:2026-10-04")).toEqual({ ok: true, value: [] })
   })
@@ -64,7 +63,7 @@ describe("recording a tally", () => {
     const activity = await loadActivity(session, history, BOOK)
     expect(mapOk(activity, (found) => found.lines.map((line) => [line.did, saidIn(line.parts)]))).toEqual({
       ok: true,
-      value: [["play-recorded", { play: { id: "today" as PlayId, description: "マレハン第3新東京店 | 流星 123番台" }, theoretical: { value: dec("5500") } }]],
+      value: [["play-recorded", { play: { id: "today" as PlayId, description: "マレハン東京皇国店 | 流星 123番台" }, theoretical: { value: dec("5500") } }]],
     })
   })
 

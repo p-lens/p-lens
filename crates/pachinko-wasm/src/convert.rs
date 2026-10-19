@@ -300,10 +300,26 @@ fn outcomes(
 }
 
 /// # Errors
-/// A value the domain refuses, named by its path.
+/// A stored normalised spec is read in any shape up to the latest this
+/// engine knows, each as its version says. One stored by a later engine is
+/// refused by its number, never read as if it were in a shape known here,
+/// and one that says no shape at all is no normalised spec.
+fn schema_version(dto: &NormalizedSpecDto) -> Result<SchemaVersion, ErrorDto> {
+    let known = SchemaVersion::CURRENT.get();
+    match dto.schema_version {
+        0 => Err(invalid("normalized.schemaVersion")),
+        version if version > known => Err(ErrorDto::UnsupportedSchemaVersion { version, known }),
+        version => Ok(SchemaVersion::new(version)),
+    }
+}
+
+/// # Errors
+/// A value the domain refuses, named by its path, or a shape this engine
+/// does not read yet.
 pub fn normalized_spec(dto: &NormalizedSpecDto) -> Result<NormalizedSpec, ErrorDto> {
+    let shape = schema_version(dto)?;
     Ok(NormalizedSpec {
-        schema_version: SchemaVersion::new(dto.schema_version),
+        schema_version: shape,
         hit_chance: probability(dto.hit_chance, "normalized.hitChance")?,
         entry: outcomes(&dto.entry, dto.net_balls_per_round, "normalized.entry")?,
         states: dto

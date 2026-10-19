@@ -54,6 +54,21 @@ fn normalising_the_made_up_still_gives_the_stored_fixture() {
 }
 
 #[test]
+fn a_stored_normalised_spec_of_a_later_shape_is_refused_by_its_number() {
+    let mut normalized = ok(&normalize(&json!({ "spec": value(SPEC) }).to_string()));
+    let known = normalized["schemaVersion"].as_u64().expect("a shape");
+    normalized["schemaVersion"] = json!(known + 1);
+    let reply = value(&analyze(
+        &json!({ "source": { "type": "normalized", "normalized": normalized }, "conditions": from_spec() })
+            .to_string(),
+    ));
+    assert_eq!(
+        reply["error"],
+        json!({ "type": "unsupported-schema-version", "version": known + 1, "known": known })
+    );
+}
+
+#[test]
 fn the_made_up_solves_to_the_expected_figures_from_either_source() {
     let expected = value(EXPECTED);
     let stored = json!({ "type": "normalized", "normalized": value(NORMALIZED) });

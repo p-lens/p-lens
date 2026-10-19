@@ -86,7 +86,7 @@ export interface SharedParlor {
   readonly name: string
   /** The name as it is read, in hiragana. */
   readonly reading: string
-  /** Other words it is searched by: D station, Dステ. */
+  /** Other words it is searched by: G'station, Gステ. */
   readonly keywords: readonly string[]
   readonly prefecture: Prefecture
   readonly address: string

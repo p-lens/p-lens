@@ -6,7 +6,7 @@ import { PRECORD, readPrecord } from "../core/import/precord"
 import { withAccountsFor } from "./record-tally"
 import { importedIdsOf, importedTallyEntry, type ImportedTally, type MatchedMachine, type SourceTally } from "../core/import/source-tally"
 import { renderEntry } from "../core/journal/entry"
-import { appendEntry, BOOK_FILES } from "../core/journal/layout"
+import { withEntriesFiled } from "../core/journal/filing"
 import type { PlayGameKind, PlayId } from "../core/play/play"
 import { tallySummariesOf } from "../core/report/tallies"
 import { Err, Ok, andThen, mapOk } from "../core/result/result"
@@ -183,7 +183,7 @@ const importTallies = async (ports: ImportPorts, bookId: BookId, from: string, s
       return fresh.length === 0
         ? Err({ type: "import", problem: { type: "nothing-new", count: tallies.length } })
         : Ok({
-            files: ((entries) => ({ ...entries.reduce(withAccountsFor, stored.files), [BOOK_FILES.transactions]: entries.reduce((text, entry) => appendEntry(text, renderEntry(entry)), stored.files[BOOK_FILES.transactions] ?? "") }))(fresh.map(importedTallyEntry)),
+            files: ((entries) => withEntriesFiled(entries.reduce(withAccountsFor, stored.files), entries.map((entry) => ({ date: entry.date, text: renderEntry(entry) }))))(fresh.map(importedTallyEntry)),
             intent: { type: "plays-imported", from, count: fresh.length },
           })
     }),

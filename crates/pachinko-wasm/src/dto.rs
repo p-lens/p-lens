@@ -737,6 +737,12 @@ pub enum ErrorDto {
         version: u32,
         known: u32,
     },
+    /// A normalised spec stored in a shape later than any this engine reads:
+    /// its version, and the latest the engine reads.
+    UnsupportedSchemaVersion {
+        version: u32,
+        known: u32,
+    },
     InvalidProbability {
         at: LocationDto,
         problem: String,

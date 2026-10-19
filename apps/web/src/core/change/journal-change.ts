@@ -57,6 +57,8 @@ export type ChangeIntent =
     }
   | { readonly type: "play-removed"; readonly playId: PlayId; readonly description: string }
   | { readonly type: "plays-imported"; readonly from: string; readonly count: number }
+  /** A year's entries moved, as they were written, from the transactions not filed by year into that year's file: so many of them. */
+  | { readonly type: "year-filed"; readonly year: number; readonly count: number }
   /** A formula or a 設定配分 kept handy in the book, or let go: written in the book's favourites, which is its own record of it. */
   | { readonly type: "favorite-kept"; readonly target: "formula" | "distribution"; readonly id: string }
   | { readonly type: "favorite-let-go"; readonly target: "formula" | "distribution"; readonly id: string }

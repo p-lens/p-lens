@@ -6,7 +6,7 @@ import type * as Pachislot from "../pachislot"
 import type { Parlor } from "../parlor/parlor"
 import { tokenValueOf, type PlayTerms } from "../parlor/terms"
 import type { Sender, TallyHead } from "../tally/tally"
-import type { PlayGameKind, PlayId } from "../play/play"
+import type { PlayId } from "../play/play"
 import type { Checkpoint } from "../play-log/checkpoint"
 import type { Finish } from "../play-log/finish"
 import type { PlayLogHead } from "../play-log/head"
@@ -22,7 +22,29 @@ import { appendCheckpoint } from "../play-log/checkpoint"
  * `log` is the play log's JSONL text itself, so what is recorded is exactly
  * what was kept.
  */
-export interface PlayDraft {
+export type PlayDraft = PlayOfGame & DraftOfAnyGame
+
+/** A pachinko play still being played. */
+export type PachinkoDraft = Extract<PlayDraft, { readonly gameKind: "pachinko" }>
+
+/** A pachislot play still being played. */
+export type PachislotDraft = Extract<PlayDraft, { readonly gameKind: "slot" }>
+
+/**
+ * What a play is weighed by, by its game. A pachinko play from the catalog
+ * is weighed by its formula, as it was when the play began, and chooses a
+ * jackpot from the bonuses its machine listed then: what a jackpot is chosen
+ * from, offline, whatever happens to the catalog meanwhile. A pachislot one
+ * by its formula and its prior, as they were. A machine typed in by name has
+ * neither; nor have drafts kept before machines listed bonuses, or before
+ * pachislot formulas were.
+ */
+export type PlayOfGame =
+  | { readonly gameKind: "pachinko"; readonly pachinko: Pachinko.FormulaSnapshot | undefined; readonly bonuses?: readonly MachineBonus[] }
+  | { readonly gameKind: "slot"; readonly pachislot?: Pachislot.Weighing }
+
+/** What a play still being played is, whatever its game. */
+export interface DraftOfAnyGame {
   readonly id: PlayId
   /**
    * The book said for the play: the one chosen as it is recorded, the one
@@ -32,26 +54,7 @@ export interface PlayDraft {
   readonly bookId?: BookId
   readonly date: IsoDate
   readonly venue: PlayVenue
-  readonly gameKind: PlayGameKind
   readonly machine: string
-  /**
-   * What a pachinko play from the catalog is weighed by: its formula, as it
-   * was when the play began. None for a machine typed in by name, or for a
-   * pachislot play, which keeps its own in `pachislot`.
-   */
-  readonly pachinko: Pachinko.FormulaSnapshot | undefined
-  /**
-   * The bonuses a pachinko play's machine lists, as they were when the play
-   * began: what a jackpot is chosen from, offline, whatever happens to the
-   * catalog meanwhile. Absent from drafts kept before machines listed any.
-   */
-  readonly bonuses?: readonly MachineBonus[]
-  /**
-   * What a pachislot play from the catalog is weighed by: its formula and its
-   * prior, as they were when it began. Absent for a machine typed in by name,
-   * and from drafts kept before pachislot formulas were.
-   */
-  readonly pachislot?: Pachislot.Weighing
   readonly cabinetNumber: string | undefined
   /** When the play began, as an ISO 8601 timestamp. */
   readonly startedAt: string
@@ -140,8 +143,8 @@ export const headOf = (draft: PlayDraft, entry: TallyHead & { readonly parlor: P
   terms: draft.venue.terms,
   machine: entry.machine,
   cabinetNumber: entry.cabinetNumber,
-  formulaId: draft.pachinko?.id ?? draft.pachislot?.formula.id,
-  prior: draft.pachislot === undefined ? undefined : priorSaid(draft.pachislot.prior),
+  formulaId: draft.gameKind === "pachinko" ? draft.pachinko?.id : draft.pachislot?.formula.id,
+  prior: draft.gameKind === "slot" && draft.pachislot !== undefined ? priorSaid(draft.pachislot.prior) : undefined,
 })
 
 /** The parlor a play is at, if it is at one. */
@@ -158,13 +161,13 @@ const priorSaid = (prior: Pachislot.Weighing["prior"]): NonNullable<PlayLogHead[
 }
 
 /** The draft with more lines at the end of its log. */
-export const withCheckpoints = (draft: PlayDraft, checkpoints: readonly Checkpoint[]): PlayDraft => ({
+export const withCheckpoints = <D extends PlayDraft>(draft: D, checkpoints: readonly Checkpoint[]): D => ({
   ...draft,
   log: checkpoints.reduce(appendCheckpoint, draft.log),
 })
 
 /** The draft with its log made of these checkpoints and no others: a reading set right or taken away. */
-export const withLog = (draft: PlayDraft, checkpoints: readonly Checkpoint[]): PlayDraft => ({ ...draft, log: checkpoints.reduce(appendCheckpoint, "") })
+export const withLog = <D extends PlayDraft>(draft: D, checkpoints: readonly Checkpoint[]): D => ({ ...draft, log: checkpoints.reduce(appendCheckpoint, "") })
 
 /**
  * The machine a play is said anew to be on, with what it is weighed by: a
@@ -178,10 +181,22 @@ export type MachineChange = (
   | { readonly type: "pachislot"; readonly name: string; readonly weighing: Pachislot.Weighing }
 ) & { readonly readings: readonly Checkpoint[] | undefined }
 
-/** The draft on another machine, its log as that machine reads it. */
+/** What a draft is whatever its game, its game's parts left out. */
+const ofAnyGame = (draft: PlayDraft): DraftOfAnyGame => {
+  if (draft.gameKind === "pachinko") {
+    const { gameKind: _game, pachinko: _formula, bonuses: _bonuses, ...rest } = draft
+    return rest
+  }
+  const { gameKind: _game, pachislot: _weighing, ...rest } = draft
+  return rest
+}
+
+/** The draft on another machine, of the machine's game and weighed by what it is, its log as that machine reads it. */
 export const withMachine = (draft: PlayDraft, machine: MachineChange): PlayDraft => {
-  const read = machine.readings === undefined ? draft : withLog(draft, machine.readings)
-  return machine.type === "pachinko" ? { ...read, machine: machine.name, pachinko: machine.formula, bonuses: machine.bonuses } : { ...read, machine: machine.name, pachislot: machine.weighing }
+  const read = ofAnyGame(machine.readings === undefined ? draft : withLog(draft, machine.readings))
+  return machine.type === "pachinko"
+    ? { ...read, gameKind: "pachinko", machine: machine.name, pachinko: machine.formula, bonuses: machine.bonuses }
+    : { ...read, gameKind: "slot", machine: machine.name, pachislot: machine.weighing }
 }
 
 /** The draft at a cabinet of another number, or of none. */

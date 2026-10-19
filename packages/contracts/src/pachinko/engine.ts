@@ -403,6 +403,7 @@ export type EngineErrorDto =
   | { readonly type: "invalid-value"; readonly field: string }
   | { readonly type: "unsupported-component"; readonly field: string }
   | { readonly type: "unsupported-spec-version"; readonly version: number; readonly known: number }
+  | { readonly type: "unsupported-schema-version"; readonly version: number; readonly known: number }
   | { readonly type: "invalid-probability"; readonly at: LocationDto; readonly problem: "not-finite" | "out-of-range" | "zero" }
   | { readonly type: "invalid-distribution"; readonly at: LocationDto; readonly sumBasisPoints: number }
   | { readonly type: "duplicate-mode"; readonly mode: string }

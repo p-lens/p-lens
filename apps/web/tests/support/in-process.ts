@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises"
 
 import type { Book, BookId, MemberId } from "../../src/core/book/book"
-import { BOOK_FILES } from "../../src/core/journal/layout"
+import { isTransactionsFile } from "../../src/core/journal/filing"
+import { BOOK_FILES, type BookFiles } from "../../src/core/journal/layout"
 import { Err, Ok } from "../../src/core/result/result"
 import type { HledgerClient, JournalAccess } from "../../src/hledger/client/client"
 import { startEngine } from "../../src/hledger/worker/engine"
@@ -102,3 +103,11 @@ export const memoryDrafts = (): DraftStorage => {
     },
   }
 }
+
+/** Every file of a book's transactions as one text, the years in order and those not filed by year after them: where a test looks for an entry written, whichever file it went to. */
+export const transactionsOf = (files: BookFiles | undefined): string =>
+  Object.keys(files ?? {})
+    .filter(isTransactionsFile)
+    .toSorted((left, right) => Number(left === BOOK_FILES.transactions) - Number(right === BOOK_FILES.transactions) || left.localeCompare(right))
+    .map((path) => files?.[path] ?? "")
+    .join("\n")

@@ -17,8 +17,8 @@ import type { TokenTally, YenTally } from "../../src/core/tally/tally"
 import type { PlayId } from "../../src/core/play/play"
 import { Ok, mapOk } from "../../src/core/result/result"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
-import { ME, fixtureBook, inProcessHledger, memoryStorage } from "../support/in-process"
-import { RENTED_PLAY, UMEDA, dec, saidIn } from "../support/values"
+import { ME, fixtureBook, inProcessHledger, memoryStorage, transactionsOf } from "../support/in-process"
+import { RENTED_PLAY, MALEHAN, dec, saidIn } from "../support/values"
 
 const BOOK = "revise" as BookId
 
@@ -35,7 +35,7 @@ const TODAY: TokenTally = { ...RENTED_PLAY, id: "today" as PlayId, date: "2026-1
 /** A tally that rented, replayed at a fee and left tokens: every sum a record can carry. */
 const FULL: TokenTally = { ...TODAY, id: "full" as PlayId, rental: { outlay: dec("2000"), tokens: dec("500") }, replay: { paidOut: dec("1000"), deducted: dec("1100") }, payout: dec("2500"), cabinetNumber: undefined, theoreticalValue: undefined }
 
-const TALLIED: YenTally = { id: "tally" as PlayId, date: "2026-10-04" as IsoDate, parlor: UMEDA, gameKind: "slot", machine: "スマスロ流星", cabinetNumber: "7", outlay: dec("15000"), takings: dec("3000"), settlement: undefined, theoreticalValue: dec("8000") , told: undefined}
+const TALLIED: YenTally = { id: "tally" as PlayId, date: "2026-10-04" as IsoDate, parlor: MALEHAN, gameKind: "slot", machine: "スマスロ流星", cabinetNumber: "7", outlay: dec("15000"), takings: dec("3000"), settlement: undefined, theoreticalValue: dec("8000") , told: undefined}
 
 const figures = async (session: Awaited<ReturnType<typeof setUp>>["session"], query: string) =>
   mapOk(await loadOverview(session, BOOK, query), (found) => [toPlainString(found.actual), toPlainString(found.theoretical)])
@@ -105,7 +105,7 @@ describe("a recorded tally, read back from its entry", () => {
     const before = await figures(session, "")
     expect((await recordYenTally(session, BOOK, told)).ok).toBe(true)
     expect(await recordedOf(session, "told")).toEqual({ ok: true, value: { type: "yen", tally: told } })
-    const text = storage.peek(BOOK)?.files[BOOK_FILES.transactions] ?? ""
+    const text = transactionsOf(storage.peek(BOOK)?.files)
     expect(text).toContain("hours: 4.25, jackpots: 8, inferred-formula: formula-1, token-rental: 4, token-exchange: 28")
     expect(text).toContain("(統計:期待値:推定)")
     const after = await figures(session, "")
@@ -126,7 +126,7 @@ describe("a recorded tally, read back from its entry", () => {
     const read = { ...TALLIED, id: "read" as PlayId, theoreticalValue: undefined, told: { hours: undefined, jackpots: undefined, inferred: { value: dec("-2100"), formulaId: "formula-2", tokenRental: dec("21.73913"), tokenExchange: dec("5.1"), spinPerformance: undefined } } }
     expect((await recordYenTally(session, BOOK, read)).ok).toBe(true)
     expect(await recordedOf(session, "read")).toEqual({ ok: true, value: { type: "yen", tally: read } })
-    const text = storage.peek(BOOK)?.files[BOOK_FILES.transactions] ?? ""
+    const text = transactionsOf(storage.peek(BOOK)?.files)
     expect(text).toContain("cabinet-number: 7, inferred-formula: formula-2, token-rental: 21.73913, token-exchange: 5.1")
     expect(text).toContain("(統計:期待値:推定)")
   })
@@ -152,8 +152,8 @@ describe("a recorded tally, read back from its entry", () => {
     const asWritten = await recordedOf(session, "made-up-0905")
     const text = storage.peek(BOOK)?.files[BOOK_FILES.transactions] ?? ""
     const older = text.replace(
-      '    費用:遊技                        3000 "玉(4円・マレハン第3新東京店)" @ 3.57 JPY\n',
-      '    資産:貯玉:マレハン第3新東京店:4円         3000 "玉(4円・マレハン第3新東京店)" @ 3.57 JPY\n    資産:貯玉:マレハン第3新東京店:4円         -3000 "玉(4円・マレハン第3新東京店)"\n    費用:遊技                        3000 "玉(4円・マレハン第3新東京店)"\n',
+      '    費用:遊技                        3000 "玉(4円・マレハン東京皇国店)" @ 3.57 JPY\n',
+      '    資産:貯玉:マレハン東京皇国店:4円         3000 "玉(4円・マレハン東京皇国店)" @ 3.57 JPY\n    資産:貯玉:マレハン東京皇国店:4円         -3000 "玉(4円・マレハン東京皇国店)"\n    費用:遊技                        3000 "玉(4円・マレハン東京皇国店)"\n',
     )
     expect(older).not.toBe(text)
     const edited = await session.write(BOOK, async (_journal, stored) => Ok({ files: { ...stored.files, [BOOK_FILES.transactions]: older }, intent: { type: "file-edited", path: BOOK_FILES.transactions } }))
@@ -182,7 +182,7 @@ describe("a recorded tally, read back from its entry", () => {
   test("is refused where its entry was changed by hand into what no form makes, and where the book has no such tally", async () => {
     const { session, storage } = await setUp()
     const text = storage.peek(BOOK)?.files[BOOK_FILES.transactions] ?? ""
-    const byHand = text.replace("    費用:遊技                        3000 \"玉(4円・マレハン第3新東京店)\" @ 3.57 JPY\n", "    費用:遊技                        2000 \"玉(4円・マレハン第3新東京店)\" @ 3.57 JPY\n    費用:再プレイ手数料                  1000 \"玉(4円・マレハン第3新東京店)\" @ 3.57 JPY\n")
+    const byHand = text.replace("    費用:遊技                        3000 \"玉(4円・マレハン東京皇国店)\" @ 3.57 JPY\n", "    費用:遊技                        2000 \"玉(4円・マレハン東京皇国店)\" @ 3.57 JPY\n    費用:再プレイ手数料                  1000 \"玉(4円・マレハン東京皇国店)\" @ 3.57 JPY\n")
     expect(byHand).not.toBe(text)
     const edited = await session.write(BOOK, async (_journal, stored) => Ok({ files: { ...stored.files, [BOOK_FILES.transactions]: byHand }, intent: { type: "file-edited", path: BOOK_FILES.transactions } }))
     expect(edited.ok).toBe(true)
@@ -215,10 +215,10 @@ describe("setting a recorded tally right", () => {
     const revised = await reviseTokenTally(session, BOOK, { ...TODAY, machine: "森物語", rental: { outlay: dec("16000"), tokens: dec("4000") }, theoreticalValue: dec("1000") })
     expect(revised.ok).toBe(true)
     expect(await figures(session, "date:2026-10-04")).toEqual({ ok: true, value: ["-11200", "9000"] })
-    const transactions = storage.peek(BOOK)?.files[BOOK_FILES.transactions] ?? ""
+    const transactions = transactionsOf(storage.peek(BOOK)?.files)
     expect(transactions.match(/play-id: today,/g)?.length).toBe(1)
     expect(transactions.indexOf("play-id: today,")).toBeLessThan(transactions.indexOf("play-id: tally,"))
-    expect(mapOk(await loadTally(session, BOOK, "today" as PlayId), (found) => found.summary.description)).toEqual({ ok: true, value: "マレハン第3新東京店 | 森物語 123番台" })
+    expect(mapOk(await loadTally(session, BOOK, "today" as PlayId), (found) => found.summary.description)).toEqual({ ok: true, value: "マレハン東京皇国店 | 森物語 123番台" })
   })
 
   test("moves a tally to the day it now says, at that day's rate", async () => {
@@ -234,7 +234,7 @@ describe("setting a recorded tally right", () => {
     await recordTokenTally(session, BOOK, TODAY)
     const pricesBefore = storage.peek(BOOK)?.files[BOOK_FILES.prices] ?? ""
     expect((await reviseTokenTally(session, BOOK, { ...TODAY, date: "2016-10-11" as IsoDate })).ok).toBe(true)
-    expect(storage.peek(BOOK)?.files[BOOK_FILES.prices]).toBe(`${pricesBefore}\nP 2016-10-11 "玉(4円・マレハン第3新東京店)" 3.57 JPY\n`)
+    expect(storage.peek(BOOK)?.files[BOOK_FILES.prices]).toBe(`${pricesBefore}\nP 2016-10-11 "玉(4円・マレハン東京皇国店)" 3.57 JPY\n`)
     expect(await recordedOf(session, "today")).toEqual({ ok: true, value: { type: "token", tally: { ...TODAY, date: "2016-10-11" as IsoDate } } })
     expect((await recordTokenTally(session, BOOK, { ...TODAY, id: "older" as PlayId, date: "2016-10-10" as IsoDate })).ok).toBe(true)
   })
@@ -254,8 +254,8 @@ describe("setting a recorded tally right", () => {
     expect(mapOk(activity, (found) => found.lines.map((line) => [line.did, saidIn(line.parts)]))).toEqual({
       ok: true,
       value: [
-        ["play-recorded", { play: { id: "today" as PlayId, description: "マレハン第3新東京店 | 流星 123番台" }, theoretical: { value: dec("5500") } }],
-        ["play-revised", { play: { id: "today" as PlayId, description: "マレハン第3新東京店 | 流星 123番台" } }],
+        ["play-recorded", { play: { id: "today" as PlayId, description: "マレハン東京皇国店 | 流星 123番台" }, theoretical: { value: dec("5500") } }],
+        ["play-revised", { play: { id: "today" as PlayId, description: "マレハン東京皇国店 | 流星 123番台" } }],
       ],
     })
     expect(await reviseTokenTally(session, BOOK, { ...TODAY, id: "nowhere" as PlayId })).toEqual({ ok: false, error: { type: "tally-missing" } })

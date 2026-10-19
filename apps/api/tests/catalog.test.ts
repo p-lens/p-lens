@@ -49,6 +49,13 @@ describe("registering a machine", () => {
     expect((await client.call("GET", "/machines")).body.map((machine: { name: string }) => machine.name)).toEqual(["P流星無双 II!", "P FABLE TALE", "CR銀狼~焔の紋章~"])
   })
 
+  test("a name opening with its letter in lower case is closed up as one in upper case is, so the two are one name", async () => {
+    const client = await api()
+    expect((await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A7", hitChance: "1/319.7", name: "P流星無双", releasedOn: "2026-08-04", formula: manual() } })).status).toBe(201)
+    const again = await client.call("POST", "/machines", { as: BOB, body: { gameKind: "pachinko", modelName: "型式A8", hitChance: "1/319.7", name: "p 流星無双", releasedOn: "2026-08-04", formula: manual() } })
+    expect([again.status, again.body.error]).toEqual([409, { type: "conflict", what: "machine-name" }])
+  })
+
   test("a model name is kept as a name is", async () => {
     const client = await api()
     await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", name: "Pラブ嬢", modelName: " Ｐ　ラブ嬢３Ｈ１ＹＺ６　〜極〜 ", hitChance: "1/319.7", releasedOn: "2026-08-04", formula: manual() } })
@@ -124,6 +131,14 @@ describe("a machine's model name", () => {
     const again = await client.call("POST", "/machines", { as: CAROL, body: registering("e団長 別名", "E/押忍団長/a03") })
     expect([again.status, again.body.error]).toEqual([409, { type: "conflict", what: "model-name" }])
     expect((await client.call("POST", "/machines", { as: CAROL, body: registering("e団長 別名", "e/押忍団長/M03") })).status).toBe(201)
+  })
+
+  test("is one machine's even registered twice in the same instant: the table holds it, and the second is told of the model name", async () => {
+    const { client } = await registered(ALICE)
+    const both = await Promise.all([client.call("POST", "/machines", { as: BOB, body: registering("同時の機種", "同時/A01") }), client.call("POST", "/machines", { as: CAROL, body: registering("同時の別機種", "同時/a01") })])
+    expect(both.map((each) => each.status).toSorted()).toEqual([201, 409])
+    expect(both.find((each) => each.status === 409)?.body.error).toEqual({ type: "conflict", what: "model-name" })
+    expect(() => client.sqlite.exec("UPDATE machines SET comparable_model_name = '同時/a01'")).toThrow(/UNIQUE/)
   })
 })
 

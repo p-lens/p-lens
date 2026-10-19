@@ -24,26 +24,26 @@ const CREATED = lineOf("a1", { at: "2026-10-01T10:00:00.000Z", author: ME, inten
 const PLAYED = lineOf("a2", {
   at: "2026-10-04T12:00:00.000Z",
   author: ME,
-  intent: { type: "play-recorded", playId: "p1" as PlayId, description: "梅田 流星", theoreticalValue: dec("-1234.5") },
+  intent: { type: "play-recorded", playId: "p1" as PlayId, description: "東京皇国 流星", theoreticalValue: dec("-1234.5") },
   files: [],
 })
 const UNWEIGHED = lineOf("a3", { at: "2026-10-05T12:00:00.000Z", author: ME, intent: { type: "play-recorded", playId: "p2" as PlayId, description: "流星", theoreticalValue: undefined }, files: [] })
 const RENAMED = lineOf("a4", { at: "2026-10-06T09:00:00.000Z", author: ME, intent: { type: "book-renamed", title: "勝負帳" }, files: [] })
-const OPENED = lineOf("a5", { at: "2026-10-07T09:00:00.000Z", author: ME, intent: { type: "savings-opened", parlor: "梅田", tier: "4円", date: "2026-10-07" as IsoDate, kind: "ball", tokens: dec("1200") }, files: [] })
+const OPENED = lineOf("a5", { at: "2026-10-07T09:00:00.000Z", author: ME, intent: { type: "savings-opened", parlor: "東京皇国", tier: "4円", date: "2026-10-07" as IsoDate, kind: "ball", tokens: dec("1200") }, files: [] })
 
 const logOf = (...lines: readonly ActivityLine[]): string => lines.reduce<BookFiles>((files, line) => withActivity(files, [], line), {})[ACTIVITY_LOG] ?? ""
 
 describe("a line of a book's activity", () => {
   test("says what a change did as a word and the parts it was done to, each part there or not", () => {
-    expect<unknown>(PLAYED).toEqual({ id: "a2", at: "2026-10-04T12:00:00.000Z", by: ME, did: "play-recorded", parts: { play: { id: "p1", description: "梅田 流星" }, theoretical: { value: dec("-1234.5") } } })
+    expect<unknown>(PLAYED).toEqual({ id: "a2", at: "2026-10-04T12:00:00.000Z", by: ME, did: "play-recorded", parts: { play: { id: "p1", description: "東京皇国 流星" }, theoretical: { value: dec("-1234.5") } } })
     expect<unknown>(UNWEIGHED.parts).toEqual({ play: { id: "p2", description: "流星" } })
-    expect([CREATED.parts, RENAMED.parts, OPENED.parts]).toEqual([{}, { book: { title: "勝負帳" } }, { pool: { parlor: "梅田", tier: "4円" }, savings: { date: "2026-10-07" as IsoDate, kind: "ball", tokens: dec("1200") } }])
+    expect([CREATED.parts, RENAMED.parts, OPENED.parts]).toEqual([{}, { book: { title: "勝負帳" } }, { pool: { parlor: "東京皇国", tier: "4円" }, savings: { date: "2026-10-07" as IsoDate, kind: "ball", tokens: dec("1200") } }])
   })
 
   test("is written with its parts beside its id, when, by whom and what, a decimal as its digits, and reads back as it was", () => {
     const text = logOf(CREATED, PLAYED, UNWEIGHED, RENAMED, OPENED)
-    expect(text.split("\n")[1]).toBe('{"v":1,"id":"a2","at":"2026-10-04T12:00:00.000Z","by":"me","did":"play-recorded","play":{"id":"p1","description":"梅田 流星"},"theoretical":{"value":"-1234.5"}}')
-    expect(text.split("\n")[4]).toBe('{"v":1,"id":"a5","at":"2026-10-07T09:00:00.000Z","by":"me","did":"savings-opened","pool":{"parlor":"梅田","tier":"4円"},"savings":{"date":"2026-10-07","kind":"ball","tokens":"1200"}}')
+    expect(text.split("\n")[1]).toBe('{"v":1,"id":"a2","at":"2026-10-04T12:00:00.000Z","by":"me","did":"play-recorded","play":{"id":"p1","description":"東京皇国 流星"},"theoretical":{"value":"-1234.5"}}')
+    expect(text.split("\n")[4]).toBe('{"v":1,"id":"a5","at":"2026-10-07T09:00:00.000Z","by":"me","did":"savings-opened","pool":{"parlor":"東京皇国","tier":"4円"},"savings":{"date":"2026-10-07","kind":"ball","tokens":"1200"}}')
     expect(text.endsWith("\n")).toBe(true)
     expect(activityOfText(text)).toEqual([CREATED, PLAYED, UNWEIGHED, RENAMED, OPENED])
   })
@@ -65,7 +65,7 @@ describe("a line of a book's activity", () => {
   })
 
   test("says what a thing done to savings set or moved, and says it without the figures where a line written before kept none", () => {
-    const at = (did: string, parts: string): string => `{"v":1,"id":"${did}","at":"2026-10-12T00:00:00.000Z","by":"me","did":"${did}","pool":{"parlor":"梅田","tier":"4円"}${parts}}`
+    const at = (did: string, parts: string): string => `{"v":1,"id":"${did}","at":"2026-10-12T00:00:00.000Z","by":"me","did":"${did}","pool":{"parlor":"東京皇国","tier":"4円"}${parts}}`
     const text = [
       at("savings-adjusted", ',"savings":{"date":"2026-10-05","kind":"ball","tokens":"4820"}'),
       at("savings-exchanged", ',"savings":{"date":"2026-10-05","kind":"medal","tokens":"1000"},"prizes":{"specialPrizes":"5000"}'),
@@ -75,19 +75,19 @@ describe("a line of a book's activity", () => {
       at("savings-opened", ""),
     ].join("\n")
     expect(activityOfText(text).map(describeActivity)).toEqual([
-      "梅田の4円の残高を4,820玉に調整",
-      "梅田の4円を1,000枚交換払出（特殊景品額 ¥5,000）",
-      "梅田の4円の300玉の失効を記録",
-      "梅田の4円を帳簿に用意（交換率 3.57円）",
-      "梅田の4円の交換率を3.50円に変更（2026年10月15日(木)から）",
-      "梅田の4円の開始残高を登録",
+      "東京皇国の4円の残高を4,820玉に調整",
+      "東京皇国の4円を1,000枚交換払出（特殊景品額 ¥5,000）",
+      "東京皇国の4円の300玉の失効を記録",
+      "東京皇国の4円を帳簿に用意（交換率 3.57円）",
+      "東京皇国の4円の交換率を3.50円に変更（2026年10月15日(木)から）",
+      "東京皇国の4円の開始残高を登録",
     ])
   })
 
   test("is asked about a play, or a parlor, by that part alone, whatever was done", () => {
     const lines = activityOfText(logOf(CREATED, PLAYED, UNWEIGHED, RENAMED, OPENED))
     expect<unknown>(lines.filter((line) => line.parts.play?.id === "p1").map((line) => line.id)).toEqual(["a2"])
-    expect(lines.filter((line) => line.parts.pool?.parlor === "梅田").map((line) => line.did)).toEqual(["savings-opened"])
+    expect(lines.filter((line) => line.parts.pool?.parlor === "東京皇国").map((line) => line.did)).toEqual(["savings-opened"])
   })
 })
 

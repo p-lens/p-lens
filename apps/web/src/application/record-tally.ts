@@ -1,5 +1,6 @@
 import { memberCan, type BookId, type MemberId } from "../core/book/book"
 import type { KeptInferenceTerms } from "../core/book/settings"
+import { withEntryFiled } from "../core/journal/filing"
 import { appendEntry, BOOK_FILES } from "../core/journal/layout"
 import { renderEntry, type Entry } from "../core/journal/entry"
 import { parlorsFromDeclarations, type Parlor } from "../core/parlor/parlor"
@@ -85,8 +86,7 @@ const writeTally = (session: BookSession, bookId: BookId, head: TallyHead, compo
     andThen(fromHledger(await journal.ask(pricesRequest(""))), (directives) =>
       mapOk(fromTally(compose(pricePointsOf(directives))), ({ entry, price }): ProposedChange => ({
         files: {
-          ...withPrice(withAccountsFor(stored.files, entry), price),
-          [BOOK_FILES.transactions]: appendEntry(stored.files[BOOK_FILES.transactions] ?? "", renderEntry(entry)),
+          ...withEntryFiled(withPrice(withAccountsFor(stored.files, entry), price), entry.date, renderEntry(entry)),
           ...(log === undefined ? {} : { [playLogPath(head.gameKind, head.id)]: log }),
         },
         intent: { type: "play-recorded", playId: head.id, description: entry.description, theoreticalValue: head.theoreticalValue },

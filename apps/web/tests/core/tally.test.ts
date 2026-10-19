@@ -7,7 +7,7 @@ import { composeTokenTallyEntry, composeYenTallyEntry } from "../../src/core/tal
 import type { YenTally } from "../../src/core/tally/tally"
 import type { PlayId } from "../../src/core/play/play"
 import { mapOk } from "../../src/core/result/result"
-import { PRICES, RENTED_PLAY, UMEDA, dec } from "../support/values"
+import { PRICES, RENTED_PLAY, MALEHAN, dec } from "../support/values"
 
 const rendered = (record: typeof RENTED_PLAY) => mapOk(composeTokenTallyEntry(record, PRICES), renderEntry)
 
@@ -16,12 +16,12 @@ describe("composeTokenTallyEntry", () => {
     expect(rendered(RENTED_PLAY)).toEqual({
       ok: true,
       value: [
-        "2026-09-05 マレハン第3新東京店 | 流星 123番台  ; play-id: made-up-0905, parlor-id: hoshizora-umeda, game-kind: pachinko, machine: 流星, cabinet-number: 123",
+        "2026-09-05 マレハン東京皇国店 | 流星 123番台  ; play-id: made-up-0905, parlor-id: malehan-tokyokoukoku, game-kind: pachinko, machine: 流星, cabinet-number: 123",
         "    資産:現金                           -12000 JPY",
         "    費用:貸玉差額                       1290 JPY",
-        '    費用:遊技                           3000 "玉(4円・マレハン第3新東京店)" @ 3.57 JPY',
-        '    資産:貯玉:マレハン第3新東京店:4円   4800 "玉(4円・マレハン第3新東京店)"',
-        '    収益:遊技                           -4800 "玉(4円・マレハン第3新東京店)"',
+        '    費用:遊技                           3000 "玉(4円・マレハン東京皇国店)" @ 3.57 JPY',
+        '    資産:貯玉:マレハン東京皇国店:4円    4800 "玉(4円・マレハン東京皇国店)"',
+        '    収益:遊技                           -4800 "玉(4円・マレハン東京皇国店)"',
         "    (統計:期待値)                       5500 JPY",
         "",
       ].join("\n"),
@@ -42,9 +42,9 @@ describe("composeTokenTallyEntry", () => {
     const replay = { ...RENTED_PLAY, rental: undefined, replay: { paidOut: dec("4000"), deducted: dec("4000") }, payout: dec("4000"), theoreticalValue: undefined }
     const entry = composeTokenTallyEntry(replay, PRICES)
     expect(entry.ok && entry.value.postings.map((posting) => posting.account)).toEqual([
-      "資産:貯玉:マレハン第3新東京店:4円",
+      "資産:貯玉:マレハン東京皇国店:4円",
       "費用:遊技",
-      "資産:貯玉:マレハン第3新東京店:4円",
+      "資産:貯玉:マレハン東京皇国店:4円",
       "収益:遊技",
     ])
   })
@@ -53,12 +53,12 @@ describe("composeTokenTallyEntry", () => {
     const carried = { ...RENTED_PLAY, rental: undefined, replay: { paidOut: dec("1000"), deducted: dec("1100") }, carriedIn: dec("1500"), payout: dec("2000"), theoreticalValue: undefined }
     const entry = composeTokenTallyEntry(carried, PRICES)
     expect(entry.ok && entry.value.postings.map((posting) => [posting.account, posting.amount.quantity])).toEqual([
-      ["資産:貯玉:マレハン第3新東京店:4円", dec("-1100")],
+      ["資産:貯玉:マレハン東京皇国店:4円", dec("-1100")],
       ["費用:遊技", dec("1000")],
       ["費用:再プレイ手数料", dec("100")],
-      ["資産:貯玉:マレハン第3新東京店:4円", dec("-1500")],
+      ["資産:貯玉:マレハン東京皇国店:4円", dec("-1500")],
       ["費用:遊技", dec("1500")],
-      ["資産:貯玉:マレハン第3新東京店:4円", dec("2000")],
+      ["資産:貯玉:マレハン東京皇国店:4円", dec("2000")],
       ["収益:遊技", dec("-2000")],
     ])
     expect(entry.ok && entry.value.tags.at(-1)).toEqual(["carried-in", "1500"])
@@ -71,7 +71,7 @@ describe("composeTokenTallyEntry", () => {
     const replay = { ...RENTED_PLAY, rental: undefined, replay: { paidOut: dec("1000"), deducted: dec("1100") }, payout: dec("0"), theoreticalValue: undefined }
     const entry = composeTokenTallyEntry(replay, PRICES)
     expect(entry.ok && entry.value.postings.map((posting) => [posting.account, posting.amount.quantity])).toEqual([
-      ["資産:貯玉:マレハン第3新東京店:4円", dec("-1100")],
+      ["資産:貯玉:マレハン東京皇国店:4円", dec("-1100")],
       ["費用:遊技", dec("1000")],
       ["費用:再プレイ手数料", dec("100")],
     ])
@@ -108,18 +108,18 @@ describe("composeTokenTallyEntry", () => {
     ).toEqual({ ok: false, error: { type: "nothing-played" } })
     expect(composeTokenTallyEntry({ ...RENTED_PLAY, date: "2026-08-01" as IsoDate }, PRICES)).toEqual({
       ok: false,
-      error: { type: "no-exchange-rate", commodity: "玉(4円・マレハン第3新東京店)", date: "2026-08-01" as IsoDate },
+      error: { type: "no-exchange-rate", commodity: "玉(4円・マレハン東京皇国店)", date: "2026-08-01" as IsoDate },
     })
   })
 
   test("a pool the parlor does not keep, or of another game's token, cannot be played", () => {
     expect(composeTokenTallyEntry({ ...RENTED_PLAY, pool: { kind: "ball", tier: "1円" } }, PRICES)).toEqual({
       ok: false,
-      error: { type: "pool-not-kept", parlor: UMEDA, pool: { kind: "ball", tier: "1円" } },
+      error: { type: "pool-not-kept", parlor: MALEHAN, pool: { kind: "ball", tier: "1円" } },
     })
     expect(composeTokenTallyEntry({ ...RENTED_PLAY, gameKind: "slot" }, PRICES)).toEqual({
       ok: false,
-      error: { type: "pool-not-kept", parlor: UMEDA, pool: { kind: "ball", tier: "4円" } },
+      error: { type: "pool-not-kept", parlor: MALEHAN, pool: { kind: "ball", tier: "4円" } },
     })
   })
 })
@@ -194,7 +194,7 @@ describe("composeYenTallyEntry", () => {
     const exchanged = { ...TALLIED, outlay: dec("6000"), takings: dec("23500"), settlement: { type: "off-book-exchanged" as const, cash: dec("5000"), oddPrizes: dec("500") } }
     expect(composeYenTallyEntry({ ...exchanged, takings: dec("23500.5") })).toEqual({ ok: false, error: { type: "fractional-prizes" } })
     expect(composeYenTallyEntry({ ...exchanged, settlement: { ...exchanged.settlement, oddPrizes: dec("30000") } })).toEqual({ ok: false, error: { type: "odd-prizes-beyond-takings" } })
-    expect(composeYenTallyEntry({ ...exchanged, parlor: UMEDA })).toEqual({ ok: false, error: { type: "off-book-at-parlor" } })
+    expect(composeYenTallyEntry({ ...exchanged, parlor: MALEHAN })).toEqual({ ok: false, error: { type: "off-book-at-parlor" } })
   })
 
   test("at no parlor counted in yen alone, takes all its outlay from cash and puts all its takings to the special prizes", () => {
@@ -215,7 +215,7 @@ describe("composeYenTallyEntry", () => {
   test("is refused settled against savings the book does not keep at a parlor, or with more cash than its outlay", () => {
     const settled = { ...TALLIED, outlay: dec("6000"), settlement: { type: "off-book-savings" as const, cash: dec("7000") } }
     expect(composeYenTallyEntry(settled)).toEqual({ ok: false, error: { type: "cash-beyond-outlay" } })
-    expect(composeYenTallyEntry({ ...settled, parlor: UMEDA, settlement: { type: "off-book-savings", cash: dec("1000") } })).toEqual({ ok: false, error: { type: "off-book-at-parlor" } })
+    expect(composeYenTallyEntry({ ...settled, parlor: MALEHAN, settlement: { type: "off-book-savings", cash: dec("1000") } })).toEqual({ ok: false, error: { type: "off-book-at-parlor" } })
   })
 
   test("is refused with a side below nothing", () => {
@@ -233,10 +233,10 @@ describe("composeYenTallyEntry", () => {
   })
 
   test("a gain with nothing put in is revenue taken as prizes, and names the parlor when there is one", () => {
-    const entry = composeYenTallyEntry({ ...TALLIED, parlor: UMEDA, outlay: dec("0"), takings: dec("20000"), theoreticalValue: undefined })
+    const entry = composeYenTallyEntry({ ...TALLIED, parlor: MALEHAN, outlay: dec("0"), takings: dec("20000"), theoreticalValue: undefined })
     expect(entry.ok && [entry.value.description, entry.value.tags[1], entry.value.postings]).toEqual([
-      "マレハン第3新東京店 | e風の剣豪",
-      ["parlor-id", "hoshizora-umeda"],
+      "マレハン東京皇国店 | e風の剣豪",
+      ["parlor-id", "malehan-tokyokoukoku"],
       [
         { account: "収益:遊技", amount: { quantity: dec("-20000"), commodity: "JPY" }, kind: "real" },
         { account: "純資産:特殊景品", amount: { quantity: dec("20000"), commodity: "JPY" }, kind: "real" },

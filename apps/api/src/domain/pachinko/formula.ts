@@ -22,7 +22,7 @@ export type SentFormula = {
 /** A formula ready to store: for one worked out from a basis, the normalised spec made here. */
 export type PreparedFormula =
   | (SentFormula & { readonly kind: "manual" })
-  | (SentFormula & FromBasis & { readonly normalized: NormalizedSpecDto; readonly engineSchemaVersion: number })
+  | (SentFormula & FromBasis & { readonly normalized: NormalizedSpecDto; readonly engineSchemaVersion: number; readonly engineVersion: number })
 
 const invalid = (field: string): Result<never, ApiError> => Err({ type: "invalid-body", field, reason: "unknown-value" })
 
@@ -106,8 +106,8 @@ const bonusesAgree = (sent: readonly MachineBonusDto[], spec: SpecDto): boolean 
  * A formula made ready to store. A simulated one is normalised here, by the
  * engine, and its figures checked against what that comes to: what is stored
  * is derived from the basis, never taken on trust — its bonuses' balls
- * among them. One typed in has no basis to take them from, and states at
- * least one.
+ * among them, and it keeps the version of the engine that checked them. One
+ * typed in has no basis to take them from, and states at least one.
  */
 export const prepareFormula = (
   sent: SentFormula,
@@ -124,7 +124,7 @@ export const prepareFormula = (
   if (!analysis.ok) return Err({ type: "basis-rejected", error: analysis.error })
   const field = disagreement(sent, analysis.value)
   return field === undefined
-    ? Ok({ ...sent, normalized: normalized.value, engineSchemaVersion: normalized.value.schemaVersion })
+    ? Ok({ ...sent, normalized: normalized.value, engineSchemaVersion: normalized.value.schemaVersion, engineVersion: analysis.value.engineVersion })
     : Err({ type: "figures-disagree-with-basis", field })
 }
 

@@ -5,17 +5,17 @@ import type { PlayVenue } from "../../src/core/live-play/draft"
 import type { TokenTally } from "../../src/core/tally/tally"
 import type { PlayId } from "../../src/core/play/play"
 import { carriedInShown, leftAt, leftBy, readCarriedIn, recalledTokensInHand, tokensCarriedTo, tokensInHandUnreadable, tokensKeptAfter, tokensStillInHand, writtenTokensInHand, type TokensInHand } from "../../src/ui/features/live/tokens-in-hand"
-import { RENTED_PLAY, UMEDA, dec } from "../support/values"
+import { RENTED_PLAY, MALEHAN, dec } from "../support/values"
 
 const DAY = "2026-10-12" as IsoDate
 
 const TERMS = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 125, deducted: 125 } }
 
-const IN_HAND: TokensInHand = { identity: UMEDA.identity, pool: { kind: "ball", tier: "4円" }, count: 1500, from: "a" as PlayId }
+const IN_HAND: TokensInHand = { identity: MALEHAN.identity, pool: { kind: "ball", tier: "4円" }, count: 1500, from: "a" as PlayId }
 
 const KEPT = writtenTokensInHand(DAY, IN_HAND)
 
-const AT_UMEDA: PlayVenue = { type: "parlor", parlor: UMEDA, terms: TERMS }
+const AT_MALEHAN: PlayVenue = { type: "parlor", parlor: MALEHAN, terms: TERMS }
 
 const PLAYED: TokenTally = { ...RENTED_PLAY, date: DAY, payout: dec("1500") }
 
@@ -34,7 +34,7 @@ describe("the tokens in hand between two plays of a day", () => {
     expect(recalledTokensInHand(counted("500"), DAY)).toEqual({ type: "unreadable" })
     expect(tokensInHandUnreadable(counted("500"), DAY)).toBe(true)
     expect(tokensInHandUnreadable(KEPT, DAY)).toBe(false)
-    expect(tokensCarriedTo(counted("500"), DAY, AT_UMEDA, "pachinko")).toBeUndefined()
+    expect(tokensCarriedTo(counted("500"), DAY, AT_MALEHAN, "pachinko")).toBeUndefined()
   })
 
   test("stay kept on their day, or while what is kept does not read, and are let go of once the day has turned over", () => {
@@ -45,12 +45,12 @@ describe("the tokens in hand between two plays of a day", () => {
   })
 
   test("are what the next play at that parlor and of that pool is begun with, and no other play", () => {
-    expect(tokensCarriedTo(KEPT, DAY, AT_UMEDA, "pachinko")).toBe(1500)
-    expect(tokensCarriedTo(KEPT, DAY, { ...AT_UMEDA, terms: { ...TERMS, rental: { yen: 1000, tokens: 1000 }, exchange: { yen: 1000, tokens: 1000 } } }, "pachinko")).toBeUndefined()
-    expect(tokensCarriedTo(KEPT, DAY, AT_UMEDA, "slot")).toBeUndefined()
-    expect(tokensCarriedTo(KEPT, DAY, { ...AT_UMEDA, parlor: { ...UMEDA, identity: { type: "listed", id: "elsewhere" as never } } }, "pachinko")).toBeUndefined()
+    expect(tokensCarriedTo(KEPT, DAY, AT_MALEHAN, "pachinko")).toBe(1500)
+    expect(tokensCarriedTo(KEPT, DAY, { ...AT_MALEHAN, terms: { ...TERMS, rental: { yen: 1000, tokens: 1000 }, exchange: { yen: 1000, tokens: 1000 } } }, "pachinko")).toBeUndefined()
+    expect(tokensCarriedTo(KEPT, DAY, AT_MALEHAN, "slot")).toBeUndefined()
+    expect(tokensCarriedTo(KEPT, DAY, { ...AT_MALEHAN, parlor: { ...MALEHAN, identity: { type: "listed", id: "elsewhere" as never } } }, "pachinko")).toBeUndefined()
     expect(tokensCarriedTo(KEPT, DAY, { type: "none", terms: TERMS }, "pachinko")).toBeUndefined()
-    expect(tokensCarriedTo(KEPT, "2026-10-13" as IsoDate, AT_UMEDA, "pachinko")).toBeUndefined()
+    expect(tokensCarriedTo(KEPT, "2026-10-13" as IsoDate, AT_MALEHAN, "pachinko")).toBeUndefined()
   })
 
   test("are what a play left as it is recorded, and nothing where it left none", () => {
@@ -72,7 +72,7 @@ describe("the tokens in hand between two plays of a day", () => {
     expect(left).toEqual({ identity: undefined, pool: { kind: "ball", tier: "4円" }, date: DAY, count: 25 })
     expect(recalledTokensInHand(kept, DAY)).toEqual({ type: "kept", inHand: { identity: undefined, pool: { kind: "ball", tier: "4円" }, count: 25, from: "n" as PlayId } })
     expect(tokensCarriedTo(kept, DAY, nowhere, "pachinko")).toBe(25)
-    expect(tokensCarriedTo(kept, DAY, AT_UMEDA, "pachinko")).toBeUndefined()
+    expect(tokensCarriedTo(kept, DAY, AT_MALEHAN, "pachinko")).toBeUndefined()
     expect(tokensCarriedTo(KEPT, DAY, nowhere, "pachinko")).toBeUndefined()
     expect(tokensCarriedTo(kept, DAY, { type: "none", terms: undefined }, "pachinko")).toBeUndefined()
     expect(leftAt({ type: "none", terms: undefined }, "pachinko", DAY, 25)).toBeUndefined()

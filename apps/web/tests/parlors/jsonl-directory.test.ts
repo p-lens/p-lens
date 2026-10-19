@@ -5,31 +5,31 @@ import { Ok } from "../../src/core/result/result"
 import { createJsonlDirectory, parlorsOfJsonl, rejectionsOfJsonl } from "../../src/parlors/jsonl/jsonl-directory"
 import type { KeptList, ParlorCache } from "../../src/parlors/port/parlor-cache"
 
-const LUMINA_LINE = { id: "osm-1", name: "ルミナ難波店", reading: "るみななんばてん", keywords: ["ルミナ難波"], prefecture: "大阪府", address: "大阪市中央区難波1-2-3", lat: 34.665, lon: 135.501, submissions: ["sub_01"] }
-const SAPPORO_LINE = { id: "osm-2", name: "ホシゾラ札幌店", reading: "ほしぞらさっぽろてん", prefecture: "北海道", address: "札幌市中央区北1条西2-3", lat: 43.06, lon: 141.35 }
+const MEGA_CONDOR_LINE = { id: "osm-1", name: "メガコンドル見滝原店", reading: "めがこんどるみたきはらてん", keywords: ["メガコンドル見滝原"], prefecture: "大阪府", address: "見滝原市1-2-3", lat: 34.665, lon: 135.501, submissions: ["sub_01"] }
+const NANKATSU_LINE = { id: "osm-2", name: "ダイナモ南葛店", reading: "だいなもなんかつてん", prefecture: "北海道", address: "南葛市1-2-3", lat: 43.06, lon: 141.35 }
 
-const LUMINA = {
+const MEGA_CONDOR = {
   id: "osm-1",
-  name: "ルミナ難波店",
-  reading: "るみななんばてん",
-  keywords: ["ルミナ難波"],
+  name: "メガコンドル見滝原店",
+  reading: "めがこんどるみたきはらてん",
+  keywords: ["メガコンドル見滝原"],
   prefecture: "大阪府",
-  address: "大阪市中央区難波1-2-3",
+  address: "見滝原市1-2-3",
   location: { latitude: 34.665, longitude: 135.501 },
   submissions: ["sub_01"],
 }
-const SAPPORO = {
+const NANKATSU = {
   id: "osm-2",
-  name: "ホシゾラ札幌店",
-  reading: "ほしぞらさっぽろてん",
+  name: "ダイナモ南葛店",
+  reading: "だいなもなんかつてん",
   keywords: [],
   prefecture: "北海道",
-  address: "札幌市中央区北1条西2-3",
+  address: "南葛市1-2-3",
   location: { latitude: 43.06, longitude: 141.35 },
   submissions: [],
 }
 
-const PARLORS = [JSON.stringify(LUMINA_LINE), JSON.stringify(SAPPORO_LINE)].join("\n")
+const PARLORS = [JSON.stringify(MEGA_CONDOR_LINE), JSON.stringify(NANKATSU_LINE)].join("\n")
 const REJECTIONS = JSON.stringify({ submission: "sub_02", reason: "閉店しています" })
 
 const memoryCache = (initial: ParlorList = EMPTY_PARLOR_LIST, version?: string): ParlorCache & { readonly kept: () => ParlorList; readonly version: () => string | undefined } => {
@@ -67,30 +67,30 @@ const directory = (request: (url: string, init: RequestInit) => Promise<Response
 
 describe("reading the parlor list", () => {
   test("reads one parlor a line, with where it is and the submissions it came from", () => {
-    expect(parlorsOfJsonl(`${PARLORS}\n\n`)).toEqual([LUMINA, SAPPORO] as never)
+    expect(parlorsOfJsonl(`${PARLORS}\n\n`)).toEqual([MEGA_CONDOR, NANKATSU] as never)
   })
 
   test("passes over a line that is not a parlor — no place, a place outside Japan, a bad name — and keeps the rest", () => {
-    const { lat: _lat, ...placeless } = LUMINA_LINE
-    const lines = ["not json", JSON.stringify(placeless), JSON.stringify({ ...LUMINA_LINE, lat: 51.5, lon: -0.1 }), JSON.stringify({ ...LUMINA_LINE, name: "梅田:本店" }), JSON.stringify(SAPPORO_LINE)]
-    expect(parlorsOfJsonl(lines.join("\n"))).toEqual([SAPPORO] as never)
+    const { lat: _lat, ...placeless } = MEGA_CONDOR_LINE
+    const lines = ["not json", JSON.stringify(placeless), JSON.stringify({ ...MEGA_CONDOR_LINE, lat: 51.5, lon: -0.1 }), JSON.stringify({ ...MEGA_CONDOR_LINE, name: "東京皇国:本店" }), JSON.stringify(NANKATSU_LINE)]
+    expect(parlorsOfJsonl(lines.join("\n"))).toEqual([NANKATSU] as never)
   })
 
   test("reads a line with no position as a parlor the list has not placed yet", () => {
-    const { lat: _lat, lon: _lon, ...unplaced } = SAPPORO_LINE
-    expect(parlorsOfJsonl(JSON.stringify(unplaced))).toEqual([{ ...SAPPORO, location: undefined }] as never)
+    const { lat: _lat, lon: _lon, ...unplaced } = NANKATSU_LINE
+    expect(parlorsOfJsonl(JSON.stringify(unplaced))).toEqual([{ ...NANKATSU, location: undefined }] as never)
   })
 
   test("keeps a parlor listed twice under one id once, as first listed", () => {
-    expect(parlorsOfJsonl([JSON.stringify(LUMINA_LINE), JSON.stringify({ ...LUMINA_LINE, name: "別の名前店" })].join("\n"))).toEqual([LUMINA] as never)
+    expect(parlorsOfJsonl([JSON.stringify(MEGA_CONDOR_LINE), JSON.stringify({ ...MEGA_CONDOR_LINE, name: "別の名前店" })].join("\n"))).toEqual([MEGA_CONDOR] as never)
   })
 
   test("names a parlor by its official name where the list gives one, still found by the list's name", () => {
-    const named = (officialName: unknown) => parlorsOfJsonl(JSON.stringify({ ...SAPPORO_LINE, officialName }))
-    expect(named("ホシゾラ札幌駅前店")).toEqual([{ ...SAPPORO, name: "ホシゾラ札幌駅前店", keywords: ["ホシゾラ札幌店"] }] as never)
-    expect(named("ホシゾラ札幌店")).toEqual([SAPPORO] as never)
-    expect(named("  ")).toEqual([SAPPORO] as never)
-    expect(named("ホシゾラ:札幌店")).toEqual([SAPPORO] as never)
+    const named = (officialName: unknown) => parlorsOfJsonl(JSON.stringify({ ...NANKATSU_LINE, officialName }))
+    expect(named("ダイナモ南葛駅前店")).toEqual([{ ...NANKATSU, name: "ダイナモ南葛駅前店", keywords: ["ダイナモ南葛店"] }] as never)
+    expect(named("ダイナモ南葛店")).toEqual([NANKATSU] as never)
+    expect(named("  ")).toEqual([NANKATSU] as never)
+    expect(named("ダイナモ:南葛店")).toEqual([NANKATSU] as never)
   })
 
   test("reads the rejections, with their reasons where given", () => {
@@ -105,24 +105,24 @@ describe("the parlor list where it is published", () => {
   test("lists the parlors north to south with the rejections, and keeps both on the device", async () => {
     const cache = memoryCache()
     const read = await directory(published({ "parlors.jsonl": [200, PARLORS], "rejections.jsonl": [200, REJECTIONS] }), cache).list()
-    expect(read).toEqual({ ok: true, value: { parlors: [SAPPORO, LUMINA], rejections: [{ submission: "sub_02", reason: "閉店しています" }] } } as never)
+    expect(read).toEqual({ ok: true, value: { parlors: [NANKATSU, MEGA_CONDOR], rejections: [{ submission: "sub_02", reason: "閉店しています" }] } } as never)
     expect(cache.kept().parlors.map((parlor) => parlor.id)).toEqual(["osm-1", "osm-2"] as never)
   })
 
   test("lists the parlors not yet placed with the placed, and does without them where their file is missing or fails", async () => {
-    const { lat: _lat, lon: _lon, ...line } = { ...SAPPORO_LINE, id: "op-3", name: "未確認店" }
-    const unplaced = { ...SAPPORO, id: "op-3", name: "未確認店", location: undefined }
+    const { lat: _lat, lon: _lon, ...line } = { ...NANKATSU_LINE, id: "op-3", name: "未確認店" }
+    const unplaced = { ...NANKATSU, id: "op-3", name: "未確認店", location: undefined }
     const files = { "parlors.jsonl": [200, PARLORS], "rejections.jsonl": [200, ""] } as const
-    expect(await directory(published({ ...files, "unplaced.jsonl": [200, JSON.stringify(line)] })).list()).toMatchObject({ ok: true, value: { parlors: [SAPPORO, unplaced, LUMINA] } })
-    expect(await directory(published({ ...files, "unplaced.jsonl": [500, ""] })).list()).toMatchObject({ ok: true, value: { parlors: [SAPPORO, LUMINA] } })
+    expect(await directory(published({ ...files, "unplaced.jsonl": [200, JSON.stringify(line)] })).list()).toMatchObject({ ok: true, value: { parlors: [NANKATSU, unplaced, MEGA_CONDOR] } })
+    expect(await directory(published({ ...files, "unplaced.jsonl": [500, ""] })).list()).toMatchObject({ ok: true, value: { parlors: [NANKATSU, MEGA_CONDOR] } })
   })
 
   test("takes no rejections file as none yet", async () => {
-    expect(await directory(published({ "parlors.jsonl": [200, PARLORS] })).list()).toEqual({ ok: true, value: { parlors: [SAPPORO, LUMINA], rejections: [] } } as never)
+    expect(await directory(published({ "parlors.jsonl": [200, PARLORS] })).list()).toEqual({ ok: true, value: { parlors: [NANKATSU, MEGA_CONDOR], rejections: [] } } as never)
   })
 
   test("with no network, no answer in time, or a list not published, lists the device's copy", async () => {
-    const kept: ParlorList = { parlors: [LUMINA as never], rejections: [] }
+    const kept: ParlorList = { parlors: [MEGA_CONDOR as never], rejections: [] }
     for (const request of [offline, silent, published({})]) expect(await directory(request, memoryCache(kept)).list()).toEqual({ ok: true, value: kept } as never)
   })
 
@@ -133,22 +133,22 @@ describe("the parlor list where it is published", () => {
   })
 
   test("lists the device's copy at once where it has one, and reads the published list behind it for the next asking", async () => {
-    const cache = memoryCache({ parlors: [LUMINA as never], rejections: [] })
+    const cache = memoryCache({ parlors: [MEGA_CONDOR as never], rejections: [] })
     const asked: string[] = []
     const answering = published({ "parlors.jsonl": [200, PARLORS], "rejections.jsonl": [200, ""] })
     const listed = directory(async (url, init) => {
       asked.push(url)
       return answering(url, init)
     }, cache)
-    expect(await listed.list()).toMatchObject({ ok: true, value: { parlors: [LUMINA] } })
+    expect(await listed.list()).toMatchObject({ ok: true, value: { parlors: [MEGA_CONDOR] } })
     await new Promise((resolve) => setTimeout(resolve, 10))
     expect(asked.length).toBe(3)
-    expect(await listed.list()).toMatchObject({ ok: true, value: { parlors: [SAPPORO, LUMINA] } })
+    expect(await listed.list()).toMatchObject({ ok: true, value: { parlors: [NANKATSU, MEGA_CONDOR] } })
     expect(cache.kept().parlors.length).toBe(2)
   })
 
   test("does not wait on a network that never answers once it has a copy, nor read again while a reading stands", async () => {
-    const waiting = directory(silent, memoryCache({ parlors: [LUMINA as never], rejections: [] }))
+    const waiting = directory(silent, memoryCache({ parlors: [MEGA_CONDOR as never], rejections: [] }))
     expect(await Promise.race([waiting.list(), new Promise((resolve) => setTimeout(() => resolve("waited"), 20))])).toMatchObject({ ok: true })
 
     const clock = { now: 0 }
@@ -171,7 +171,7 @@ describe("the parlor list where it is published", () => {
   test("asks only for the published files' versions, and reads the files where one has moved", async () => {
     const clock = { now: 0 }
     const asked: string[] = []
-    const files: { now: Parameters<typeof published>[0] } = { now: { "parlors.jsonl": [200, JSON.stringify(LUMINA_LINE), "p1"], "unplaced.jsonl": [200, "", "u1"], "rejections.jsonl": [200, "", "r1"] } }
+    const files: { now: Parameters<typeof published>[0] } = { now: { "parlors.jsonl": [200, JSON.stringify(MEGA_CONDOR_LINE), "p1"], "unplaced.jsonl": [200, "", "u1"], "rejections.jsonl": [200, "", "r1"] } }
     const cache = memoryCache()
     const listed = directory(
       async (url, init) => {
@@ -183,7 +183,7 @@ describe("the parlor list where it is published", () => {
     )
     const settle = () => new Promise((resolve) => setTimeout(resolve, 10))
 
-    expect(await listed.list()).toMatchObject({ ok: true, value: { parlors: [LUMINA] } })
+    expect(await listed.list()).toMatchObject({ ok: true, value: { parlors: [MEGA_CONDOR] } })
     expect(cache.version()).toBe("p1 u1 r1")
 
     clock.now = 1000
@@ -196,7 +196,7 @@ describe("the parlor list where it is published", () => {
     await listed.list()
     await settle()
     expect(asked.slice(6)).toEqual(["HEAD parlors.jsonl", "HEAD unplaced.jsonl", "HEAD rejections.jsonl", "GET parlors.jsonl", "GET unplaced.jsonl", "GET rejections.jsonl"])
-    expect(await listed.list()).toMatchObject({ ok: true, value: { parlors: [SAPPORO, LUMINA] } })
+    expect(await listed.list()).toMatchObject({ ok: true, value: { parlors: [NANKATSU, MEGA_CONDOR] } })
     expect(cache.version()).toBe("p2 u1 r1")
   })
 

@@ -24,7 +24,7 @@ import { toPlainString } from "../../src/core/decimal/decimal"
 import type { PlayId } from "../../src/core/play/play"
 import type { Destination, DestinationStore } from "../../src/sync/port/destination-store"
 import { memoryInvitations, memoryLinks, memoryRelay } from "../support/sync"
-import { RENTED_PLAY, UMEDA, dec } from "../support/values"
+import { RENTED_PLAY, MALEHAN, dec } from "../support/values"
 
 const BOOK = "group" as BookId
 const RELAY_URL = "https://relay.test"
@@ -184,7 +184,7 @@ describe("a person let in only to send plays", () => {
     id: PLAY,
     bookId: "own" as BookId,
     date: "2026-10-09" as IsoDate,
-    venue: { type: "parlor", parlor: UMEDA, terms: { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 250, deducted: 275 } } },
+    venue: { type: "parlor", parlor: MALEHAN, terms: { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 250, deducted: 275 } } },
     gameKind: "pachinko",
     machine: "流星",
     pachinko: undefined,
@@ -253,7 +253,7 @@ describe("a person let in only to send plays", () => {
     expect(afterItFinished(arrived as PlayDraft).map((operation) => operation.at)).toEqual(["2026-10-09T05:00:00.000Z"])
     const moved = await chooseBook(mine.drafts, arrived as PlayDraft, LEDGER)
     expect(moved.ok && moved.value.bookId).toBe(LEDGER)
-    const record = { ...RECORD, parlor: moved.ok && moved.value.venue.type === "parlor" ? { ...moved.value.venue.parlor, pools: [RECORD.pool] } : UMEDA }
+    const record = { ...RECORD, parlor: moved.ok && moved.value.venue.type === "parlor" ? { ...moved.value.venue.parlor, pools: [RECORD.pool] } : MALEHAN }
     expect((await finishPlay(mine.session, mine.drafts, moved.ok ? moved.value : DRAFT, LEDGER, record, { at: "2026-10-09T03:00:00.000Z", counter: undefined }, "2026-10-09T12:00:00.000Z")).ok).toBe(true)
     const overview = await loadOverview(mine.session, LEDGER, "")
     expect(overview.ok && toPlainString(overview.value.theoretical)).toBe("5500")

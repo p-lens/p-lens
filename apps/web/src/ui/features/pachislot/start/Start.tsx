@@ -316,7 +316,6 @@ export function Start(props: {
       venue: venue(),
       gameKind: "slot",
       machine: chosenMachine()?.name ?? "",
-      pachinko: undefined,
       ...(weighing === undefined ? {} : { pachislot: weighing }),
       cabinetNumber: form.cabinetNumber.trim() === "" ? undefined : form.cabinetNumber.trim(),
       startedAt,

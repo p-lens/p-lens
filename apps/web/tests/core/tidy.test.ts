@@ -19,7 +19,7 @@ describe("typed text as it is kept", () => {
   })
 
   test("half-width kana become full-width, voiced marks joined", () => {
-    expect(tidyTyped("ｸﾞﾘﾌﾟﾝ ﾎｼｿﾞﾗ")).toBe("グリプン ホシゾラ")
+    expect(tidyTyped("ｸﾞﾘﾌﾟﾝ ﾀﾞｲﾅﾓ")).toBe("グリプン ダイナモ")
   })
 
   test("kanji, kana and the long vowel are left as typed", () => {

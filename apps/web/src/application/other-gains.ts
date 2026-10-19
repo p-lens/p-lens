@@ -6,6 +6,7 @@ import { revaluationOf } from "../core/report/revaluation"
 import { andThen, mapOk } from "../core/result/result"
 import { branchRequest, savingsRevaluationRequest } from "../hledger/query/requests"
 import type { BookSession } from "./book-session"
+import { viewedFor } from "./book-views"
 import type { Outcome } from "./errors"
 import { fromHledger, fromReport } from "./lift"
 
@@ -16,7 +17,7 @@ import { fromHledger, fromReport } from "./lift"
  * by parlor. The query says the period, by its dates.
  */
 export const loadOtherGains = (session: BookSession, bookId: BookId, query: string): Promise<Outcome<OtherGains>> =>
-  session.read(bookId, async (journal) => {
+  viewedFor(session, query, "stood").read(bookId, async (journal) => {
     const [forfeited, revalued] = await Promise.all([journal.ask(branchRequest(ACCOUNTS.forfeiture, query)), journal.ask(savingsRevaluationRequest(query))])
     return andThen(andThen(fromHledger(forfeited), (report) => fromReport(yenOf(report.prTotals.prrTotal))), (forfeitedYen) =>
       andThen(fromHledger(revalued), (report) => mapOk(fromReport(revaluationOf(report)), (revaluation) => ({ forfeited: forfeitedYen, revaluation }))),

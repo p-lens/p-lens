@@ -9,6 +9,7 @@ import type { IsoDate } from "../core/calendar/calendar"
 import { mapOk } from "../core/result/result"
 import { savingsAtTerm, savingsTerm } from "../hledger/query/terms"
 import type { BookSession } from "./book-session"
+import { viewedFor } from "./book-views"
 import type { Outcome } from "./errors"
 import { fromHledger, fromReport } from "./lift"
 
@@ -27,7 +28,7 @@ const amongDeclared = (parlors: readonly Parlor[], names: readonly string[] | un
 export const loadHoldings = (session: BookSession, bookId: BookId, query: string, parlorNames?: readonly string[]): Promise<Outcome<Holdings>> => {
   const accounts = parlorNames === undefined ? savingsTerm : savingsAtTerm(parlorNames)
   if (accounts === undefined) return Promise.resolve(Ok(NO_HOLDINGS))
-  return session.read(bookId, async (journal) => {
+  return viewedFor(session, query, "stood").read(bookId, async (journal) => {
     const [declarations, quantities, values, prices] = await Promise.all([
       journal.ask(accountsRequest),
       journal.ask(savingsQuantityRequest(query, accounts)),
@@ -48,4 +49,4 @@ export const loadHoldings = (session: BookSession, bookId: BookId, query: string
 
 /** The last day each parlor's savings moved within the query's period, by its name: what the savings are shown in the order of. */
 export const loadLastMoved = (session: BookSession, bookId: BookId, query: string): Promise<Outcome<ReadonlyMap<string, IsoDate>>> =>
-  session.read(bookId, async (journal) => mapOk(fromHledger(await journal.ask(savingsEntriesRequest(query))), (page) => lastMovedOf(page.items)))
+  viewedFor(session, query, "stood").read(bookId, async (journal) => mapOk(fromHledger(await journal.ask(savingsEntriesRequest(query))), (page) => lastMovedOf(page.items)))

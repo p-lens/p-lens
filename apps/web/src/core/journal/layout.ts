@@ -24,6 +24,13 @@ export type BookFiles = Readonly<Record<string, string>>
 export const appendEntry = (text: string, entry: string): string =>
   text.trim() === "" ? entry : `${text.replace(/\n*$/, "")}\n\n${entry}`
 
+/**
+ * Put an entry before all the others in a file's text: opening balances
+ * are a book's beginning and are kept together at its head, whenever they
+ * are written.
+ */
+export const prependEntry = (text: string, entry: string): string => (text.trim() === "" ? entry : `${entry}\n${text.replace(/^\n+/, "")}`)
+
 const BOOK_ORDER: readonly string[] = [BOOK_FILES.main, BOOK_FILES.accounts, BOOK_FILES.prices, BOOK_FILES.transactions]
 
 /** A book's paths as a person reads them: the four journal files in the order main includes them, then the rest by path. */

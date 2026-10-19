@@ -12,8 +12,8 @@ import type { ParlorId, SubmissionId } from "../../src/core/parlor/parlor"
 import type { PlayId } from "../../src/core/play/play"
 import { mapOk } from "../../src/core/result/result"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
-import { ME, fixtureBook, inProcessHledger, memoryDrafts, memoryStorage } from "../support/in-process"
-import { RENTED_PLAY, UMEDA, dec } from "../support/values"
+import { ME, fixtureBook, inProcessHledger, memoryDrafts, memoryStorage, transactionsOf } from "../support/in-process"
+import { RENTED_PLAY, MALEHAN, dec } from "../support/values"
 
 const BOOK = "live" as BookId
 const ID = "live-1" as PlayId
@@ -21,7 +21,7 @@ const ID = "live-1" as PlayId
 const DRAFT: PlayDraft = {
   id: ID,
   date: "2026-10-04" as IsoDate,
-  venue: { type: "parlor", parlor: UMEDA, terms: { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 250, deducted: 275 } } },
+  venue: { type: "parlor", parlor: MALEHAN, terms: { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 250, deducted: 275 } } },
   gameKind: "pachinko",
   machine: "流星",
   pachinko: undefined,
@@ -80,13 +80,13 @@ describe("a play followed live", () => {
       gameKind: "pachinko",
       date: "2026-10-04",
       startedAt: "2026-10-04T12:00:00.000Z",
-      parlor: { name: "マレハン第3新東京店", id: "hoshizora-umeda" },
+      parlor: { name: "マレハン東京皇国店", id: "malehan-tokyokoukoku" },
       terms: { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 250, deducted: 275 } },
       machine: "流星",
       cabinetNumber: "123",
     })
     expect(readings.join("\n")).toBe(`${DRAFT.log}{"spins":30,"at":"2026-10-04T14:30:00.000Z","counter":{"spins":150},"held":4800,"event":{"kind":"finished"}}\n`)
-    expect(storage.peek(BOOK)?.files["transactions.journal"]).toContain("play-id: live-1")
+    expect(transactionsOf(storage.peek(BOOK)?.files)).toContain("play-id: live-1")
     expect(mapOk(await loadTodaysPlays(drafts, "2026-10-04" as IsoDate), (found) => found.map((draft) => [draft.id, draft.recorded, draft.log]))).toEqual({ ok: true, value: [[ID, { at: NOW, finish: FINISH }, DRAFT.log]] })
   })
 
@@ -130,9 +130,9 @@ describe("a play followed live", () => {
     const [kept] = ((found) => (found.ok ? found.value : []))(await loadTodaysPlays(drafts, "2026-10-04" as IsoDate))
     const added = await addCheckpoints(drafts, kept as PlayDraft, [{ spins: 20, outlay: 500 }])
     expect((await finishPlay(session, drafts, added.ok ? added.value : DRAFT, BOOK, { ...RECORD, payout: dec("6000") }, FINISH, NOW)).ok).toBe(true)
-    const transactions = storage.peek(BOOK)?.files["transactions.journal"] ?? ""
+    const transactions = transactionsOf(storage.peek(BOOK)?.files)
     expect(transactions.match(/play-id: live-1,/g)?.length).toBe(1)
-    expect(transactions).toContain('6000 "玉(4円・マレハン第3新東京店)"')
+    expect(transactions).toContain('6000 "玉(4円・マレハン東京皇国店)"')
     expect(storage.peek(BOOK)?.files[`pachinko-play/${ID}.jsonl`]).toContain('{"spins":20,"outlay":500}')
   })
 
@@ -166,7 +166,7 @@ describe("a play followed live", () => {
   test("keeps the draft when the book refuses the record", async () => {
     const { drafts, session } = await setUp()
     await startPlay(drafts, DRAFT)
-    const nowhere = { ...UMEDA, name: "未登録店" }
+    const nowhere = { ...MALEHAN, name: "未登録店" }
     const refused = await finishPlay(session, drafts, DRAFT, BOOK, { ...RECORD, parlor: nowhere, rental: undefined, replay: { paidOut: dec("10"), deducted: dec("10") }, payout: dec("0") }, { at: undefined, counter: undefined }, NOW)
     expect(refused.ok === false && refused.error.type).toBe("journal-rejected")
     expect(mapOk(await loadDrafts(drafts), (found) => found.map((draft) => draft.id))).toEqual({ ok: true, value: [ID] })
@@ -199,47 +199,47 @@ describe("a play with no parlor", () => {
   })
 })
 
-const LUMINA_1 = { identity: { type: "listed" as const, id: "lumina" as ParlorId }, parlorName: "ルミナ難波店", pool: { kind: "ball" as const, tier: "1円" }, rate: dec("0.892857"), date: "2026-10-04" as IsoDate }
+const MEGA_CONDOR_1 = { identity: { type: "listed" as const, id: "mega-condor" as ParlorId }, parlorName: "メガコンドル見滝原店", pool: { kind: "ball" as const, tier: "1円" }, rate: dec("0.892857"), date: "2026-10-04" as IsoDate }
 
 describe("a pool the book does not keep", () => {
   test("is opened with the day's rate, and then played like any other", async () => {
     const { storage, session } = await setUp()
-    const opened = await openPool(session, BOOK, LUMINA_1)
-    expect(opened).toEqual({ ok: true, value: { identity: { type: "listed", id: "lumina" }, name: "ルミナ難波店", pools: [{ kind: "ball", tier: "1円" }] } } as never)
+    const opened = await openPool(session, BOOK, MEGA_CONDOR_1)
+    expect(opened).toEqual({ ok: true, value: { identity: { type: "listed", id: "mega-condor" }, name: "メガコンドル見滝原店", pools: [{ kind: "ball", tier: "1円" }] } } as never)
     const context = await loadRecordingContext(session, BOOK, ME)
-    expect(mapOk(context, (found) => found.parlors.map((parlor) => parlor.name))).toEqual({ ok: true, value: ["マレハン第3新東京店", "723小宇宙店", "ルミナ難波店"] })
-    const lumina = opened.ok ? opened.value : UMEDA
-    const rented = { ...RECORD, parlor: lumina, pool: { kind: "ball" as const, tier: "1円" }, rental: { outlay: dec("1000"), tokens: dec("890") } }
+    expect(mapOk(context, (found) => found.parlors.map((parlor) => parlor.name))).toEqual({ ok: true, value: ["マレハン東京皇国店", "723修羅の国店", "メガコンドル見滝原店"] })
+    const megaCondor = opened.ok ? opened.value : MALEHAN
+    const rented = { ...RECORD, parlor: megaCondor, pool: { kind: "ball" as const, tier: "1円" }, rental: { outlay: dec("1000"), tokens: dec("890") } }
     expect((await recordTokenTally(session, BOOK, rented)).ok).toBe(true)
-    expect(storage.peek(BOOK)?.files["transactions.journal"]).toMatch(/費用:遊技 +890 "玉\(1円・ルミナ難波店\)" @ 0.892857 JPY/)
+    expect(transactionsOf(storage.peek(BOOK)?.files)).toMatch(/費用:遊技 +890 "玉\(1円・メガコンドル見滝原店\)" @ 0.892857 JPY/)
   })
 
   test("opened again on the same day at the same rate writes nothing more", async () => {
     const { storage, session } = await setUp()
-    await openPool(session, BOOK, LUMINA_1)
+    await openPool(session, BOOK, MEGA_CONDOR_1)
     const before = storage.peek(BOOK)?.files
-    expect((await openPool(session, BOOK, LUMINA_1)).ok).toBe(true)
+    expect((await openPool(session, BOOK, MEGA_CONDOR_1)).ok).toBe(true)
     expect(storage.peek(BOOK)?.files).toEqual(before as never)
   })
 
   test("is refused under a name another parlor of the book has, and nothing is written", async () => {
     const { storage, session } = await setUp()
     const before = storage.peek(BOOK)?.files
-    const refused = await openPool(session, BOOK, { ...LUMINA_1, parlorName: "マレハン第3新東京店" })
-    expect(refused).toEqual({ ok: false, error: { type: "parlor", error: { type: "name-taken", name: "マレハン第3新東京店" } } })
+    const refused = await openPool(session, BOOK, { ...MEGA_CONDOR_1, parlorName: "マレハン東京皇国店" })
+    expect(refused).toEqual({ ok: false, error: { type: "parlor", error: { type: "name-taken", name: "マレハン東京皇国店" } } })
     expect(storage.peek(BOOK)?.files).toEqual(before as never)
   })
 })
 
 describe("a parlor submitted and waiting on the list", () => {
-  const SUBMITTED = { ...LUMINA_1, identity: { type: "submitted" as const, submission: "sub_01" as SubmissionId }, parlorName: "新しい店" }
+  const SUBMITTED = { ...MEGA_CONDOR_1, identity: { type: "submitted" as const, submission: "sub_01" as SubmissionId }, parlorName: "新しい店" }
   const LISTED = {
     id: "osm-9" as never,
     name: "新しい店",
     reading: "あたらしいみせ",
     keywords: [],
     prefecture: "大阪府" as const,
-    address: "大阪市中央区難波1-2-3",
+    address: "見滝原市1-2-3",
     location: { latitude: 34.66, longitude: 135.5 },
     submissions: ["sub_01" as SubmissionId],
   }
@@ -247,14 +247,14 @@ describe("a parlor submitted and waiting on the list", () => {
   test("is played at like any parlor, and linked once the list has taken it", async () => {
     const { storage, session } = await setUp()
     const opened = await openPool(session, BOOK, SUBMITTED)
-    const waiting = opened.ok ? opened.value : UMEDA
+    const waiting = opened.ok ? opened.value : MALEHAN
     const played = { ...RECORD, parlor: waiting, pool: { kind: "ball" as const, tier: "1円" }, rental: { outlay: dec("1000"), tokens: dec("890") } }
     expect((await recordTokenTally(session, BOOK, played)).ok).toBe(true)
     expect(await linkSubmissions(session, BOOK, [])).toEqual({ ok: true, value: 0 })
     expect(await linkSubmissions(session, BOOK, [LISTED])).toEqual({ ok: true, value: 1 })
     const files = storage.peek(BOOK)?.files ?? {}
     expect(files["accounts.journal"]).toContain("parlor-submission: sub_01, parlor-id: osm-9")
-    expect(files["transactions.journal"]).toContain("parlor-submission: sub_01, parlor-id: osm-9")
+    expect(transactionsOf(files)).toContain("parlor-submission: sub_01, parlor-id: osm-9")
     const context = await loadRecordingContext(session, BOOK, ME)
     expect(mapOk(context, (found) => found.parlors.find((parlor) => parlor.name === "新しい店")?.identity)).toEqual({ ok: true, value: { type: "listed", id: "osm-9" } } as never)
     expect(await linkSubmissions(session, BOOK, [LISTED])).toEqual({ ok: true, value: 0 })

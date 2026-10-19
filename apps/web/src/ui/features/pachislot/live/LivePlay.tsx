@@ -4,7 +4,7 @@ import { MainContent } from "solid-gathering-shell"
 import type { ApplicationError } from "../../../../application/errors"
 import { addCheckpoints, reviseCheckpoints } from "../../../../application/live-play"
 import { weighPlay } from "../../../../application/pachislot/weighing"
-import type { PlayDraft } from "../../../../core/live-play/draft"
+import type { PachislotDraft, PlayDraft } from "../../../../core/live-play/draft"
 import { daySeenOf } from "../../../../core/pachislot/observation"
 import { atEndingsOf, atResultMatters, type AtEnding, inAt } from "../../../../core/pachislot/path"
 import {
@@ -267,7 +267,7 @@ function Counting(props: { readonly weighing: Weighing; readonly ordered: readon
 }
 
 /** The setting levels' odds and what the play is worth, inferred again whenever the log changes. */
-function Outlook(props: { readonly draft: PlayDraft; readonly weighing: Weighing; readonly ordered: readonly Checkpoint[] }): JSX.Element {
+function Outlook(props: { readonly draft: PachislotDraft; readonly weighing: Weighing; readonly ordered: readonly Checkpoint[] }): JSX.Element {
   const app = useApp()
   const [outlook] = createResource(
     () => ({ weighing: props.weighing, ordered: props.ordered, terms: props.draft.venue.terms }),
@@ -300,12 +300,12 @@ interface Rewritten {
  * the log's last line, whatever it is, can be taken away a line at a time.
  * A run of readings held and dragged over is made one line.
  */
-export function LivePlay(props: { readonly place: Place; readonly draft: PlayDraft; readonly title: string }): JSX.Element {
+export function LivePlay(props: { readonly place: Place; readonly draft: PachislotDraft; readonly title: string }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   /** The draft as this screen last wrote it, with the log the screen had been given when it did: it stands until the screen is given a log that has caught up. */
-  const [mine, setMine] = createSignal<{ readonly draft: PlayDraft; readonly over: string } | undefined>(undefined)
-  const current = (): PlayDraft => {
+  const [mine, setMine] = createSignal<{ readonly draft: PachislotDraft; readonly over: string } | undefined>(undefined)
+  const current = (): PachislotDraft => {
     const local = mine()
     if (local === undefined || local.draft.id !== props.draft.id) return props.draft
     return local.draft.log.length > props.draft.log.length || local.over === props.draft.log ? local.draft : props.draft

@@ -48,12 +48,12 @@ describe("an account whose amounts are written turned over", () => {
 
 describe("an entry's description", () => {
   test("is the payee, a bar and the note", () => {
-    expect(describedBy("マレハン第3新東京店", "流星 123番台")).toBe("マレハン第3新東京店 | 流星 123番台")
+    expect(describedBy("マレハン東京皇国店", "流星 123番台")).toBe("マレハン東京皇国店 | 流星 123番台")
   })
 
   test("keeps its bar where a side is missing, so a note is never read as the payee", () => {
     expect(describedBy(undefined, "流星 123番台")).toBe("| 流星 123番台")
-    expect(describedBy("マレハン第3新東京店", "")).toBe("マレハン第3新東京店 |")
+    expect(describedBy("マレハン東京皇国店", "")).toBe("マレハン東京皇国店 |")
     expect(describedBy(undefined, "")).toBe("|")
     expect(describedBy("  ", "  ")).toBe("|")
   })

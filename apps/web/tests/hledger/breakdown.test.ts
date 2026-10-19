@@ -59,7 +59,7 @@ describe("the basic-play book, broken down by the real hledger module", () => {
   })
 
   test("by parlor, under the name the book gives each", async () => {
-    expect(await read("parlor")).toEqual([["723小宇宙店", "34008", "5900"], ["マレハン第3新東京店", "5136", "7300"]])
+    expect(await read("parlor")).toEqual([["723修羅の国店", "34008", "5900"], ["マレハン東京皇国店", "5136", "7300"]])
   })
 
   test("by year, month and day, newest first, and by the day of the week from Monday", async () => {

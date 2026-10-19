@@ -36,11 +36,11 @@ export const startPlay = async (drafts: DraftStorage, draft: PlayDraft): Promise
  * Add checkpoints to a play in progress. Written against the log as it was
  * read, so a line another tab wrote meanwhile is reported, not overwritten.
  */
-export const addCheckpoints = async (
+export const addCheckpoints = async <D extends PlayDraft>(
   drafts: DraftStorage,
-  draft: PlayDraft,
+  draft: D,
   checkpoints: readonly Checkpoint[],
-): Promise<Outcome<PlayDraft>> => {
+): Promise<Outcome<D>> => {
   const next = withCheckpoints(draft, checkpoints)
   return mapOk(fromDraft(await drafts.updateDraft(next, draft.log)), () => next)
 }
@@ -53,7 +53,7 @@ export const addCheckpoints = async (
  * recording it again. Written against the log
  * as it was read, like any other change.
  */
-export const reviseCheckpoints = async (drafts: DraftStorage, draft: PlayDraft, checkpoints: readonly Checkpoint[]): Promise<Outcome<PlayDraft>> => {
+export const reviseCheckpoints = async <D extends PlayDraft>(drafts: DraftStorage, draft: D, checkpoints: readonly Checkpoint[]): Promise<Outcome<D>> => {
   const next = withLog(draft, checkpoints)
   return mapOk(fromDraft(await drafts.updateDraft(next, draft.log)), () => next)
 }

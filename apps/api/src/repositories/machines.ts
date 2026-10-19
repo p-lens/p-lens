@@ -89,16 +89,23 @@ export const gameOfMachine = async (database: Database, id: string): Promise<Res
  * Whether a model name is another machine's already, as compared: a model
  * name is one machine's, of whichever game, since it is the name a machine
  * goes into a book under. A hidden machine lets its model name go as it
- * does its name. Asked before a machine is written; two registered in the
- * same instant are not told apart here.
+ * does its name. Asked before a machine is written, so the conflict is
+ * said as such; two registered in the same instant are held apart by the
+ * table, which keeps model names as compared unique.
  */
 const modelNameTaken = async (database: Database, modelName: string | undefined, but: string | undefined): Promise<Result<boolean, ApiError>> => {
   if (modelName === undefined) return Ok(false)
   const found = await firstRow<{ id: string }>(
-    database.prepare("SELECT id FROM machines WHERE hidden_at IS NULL AND LOWER(model_name) = ?1 AND (?2 IS NULL OR id <> ?2) LIMIT 1").bind(comparableName(modelName), but ?? null),
+    database.prepare("SELECT id FROM machines WHERE hidden_at IS NULL AND comparable_model_name = ?1 AND (?2 IS NULL OR id <> ?2) LIMIT 1").bind(comparableName(modelName), but ?? null),
   )
   return found.ok ? Ok(found.value !== undefined) : Err(unexpected(found.error))
 }
+
+/** A model name as it is compared and held unique, or none for a machine without one. */
+const comparableModelName = (modelName: string | undefined): string | null => (modelName === undefined ? null : comparableName(modelName))
+
+/** Which name a machine written clashed on, by the index the table refused it by: its model name, or its name. */
+const nameClashed = (detail: string): "model-name" | "machine-name" => (/comparable_model_name/.test(detail) ? "model-name" : "machine-name")
 
 /**
  * A machine and its first formula, written as one batch: both or neither, so
@@ -121,13 +128,13 @@ export const registerMachine = async (
   const now = effects.now()
   const done = await executeAll(database, [
     database
-      .prepare("INSERT INTO machines (id, game_kind, name, comparable_name, model_name, hit_chance, released_on, created_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)")
-      .bind(machineId, machine.gameKind, machine.name, comparableName(machine.name), machine.modelName ?? null, machine.hitChance ?? null, machine.releasedOn, user, now),
+      .prepare("INSERT INTO machines (id, game_kind, name, comparable_name, model_name, comparable_model_name, hit_chance, released_on, created_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)")
+      .bind(machineId, machine.gameKind, machine.name, comparableName(machine.name), machine.modelName ?? null, comparableModelName(machine.modelName), machine.hitChance ?? null, machine.releasedOn, user, now),
     ...keywordInserts(database, machineId, machine.keywords, now),
     await insertFormula(database, effects, user, formulaId, machineId, formula),
   ])
   if (done.ok) return Ok({ machineId, formulaId })
-  return Err(done.error.type === "unique" ? { type: "conflict", what: "machine-name" } : unexpected(done.error))
+  return Err(done.error.type === "unique" ? { type: "conflict", what: nameClashed(done.error.detail) } : unexpected(done.error))
 }
 
 /**
@@ -148,13 +155,13 @@ export const describeMachine = async (database: Database, effects: Effects, id: 
   const now = effects.now()
   const done = await executeAll(database, [
     database
-      .prepare("UPDATE machines SET name = ?2, comparable_name = ?3, model_name = ?4, hit_chance = ?5, described_at = ?6 WHERE id = ?1")
-      .bind(id, described.name, comparableName(described.name), described.modelName ?? null, described.hitChance ?? null, now),
+      .prepare("UPDATE machines SET name = ?2, comparable_name = ?3, model_name = ?4, comparable_model_name = ?5, hit_chance = ?6, described_at = ?7 WHERE id = ?1")
+      .bind(id, described.name, comparableName(described.name), described.modelName ?? null, comparableModelName(described.modelName), described.hitChance ?? null, now),
     database.prepare("DELETE FROM machine_keywords WHERE machine_id = ?1").bind(id),
     ...keywordInserts(database, id, described.keywords, now),
   ])
   if (done.ok) return Ok(undefined)
-  return Err(done.error.type === "unique" ? { type: "conflict", what: "machine-name" } : unexpected(done.error))
+  return Err(done.error.type === "unique" ? { type: "conflict", what: nameClashed(done.error.detail) } : unexpected(done.error))
 }
 
 /** A machine with its formulas, and a pachislot machine with its 設定配分: the game is the machine's, and decides the shape. */
@@ -230,16 +237,13 @@ export const readCatalog = async (database: Database): Promise<Result<readonly M
   if (!formulas.ok) return Err(unexpected(formulas.error))
   const distributions = await allRows<DistributionRow>(database.prepare(`SELECT d.*, ${DISTRIBUTION_STANDING} FROM distributions d WHERE d.hidden_at IS NULL ORDER BY d.created_at`))
   if (!distributions.ok) return Err(unexpected(distributions.error))
-  return Ok(
-    machines.value.map((machine) =>
-      detailOf(
-        machine,
-        formulas.value.filter((row) => row.machine_id === machine.id),
-        distributions.value.filter((row) => row.machine_id === machine.id),
-      ),
-    ),
-  )
+  const [formulasOf, distributionsOf] = [byMachine(formulas.value), byMachine(distributions.value)]
+  return Ok(machines.value.map((machine) => detailOf(machine, formulasOf.get(machine.id) ?? [], distributionsOf.get(machine.id) ?? [])))
 }
+
+/** Rows by the machine they are of, each machine's in the order they came. */
+const byMachine = <R extends { readonly machine_id: string }>(rows: readonly R[]): ReadonlyMap<string, readonly R[]> =>
+  rows.reduce((grouped, row) => grouped.set(row.machine_id, [...(grouped.get(row.machine_id) ?? []), row]), new Map<string, R[]>())
 
 export const favoriteMachine = async (database: Database, effects: Effects, user: UserId, machineId: string, on: boolean): Promise<Result<void, ApiError>> => {
   const done = await execute(
