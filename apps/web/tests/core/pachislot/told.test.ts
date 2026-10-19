@@ -18,7 +18,7 @@ describe("a pachislot play told by its totals", () => {
 
   test("keeps what its setting level made it worth with the terms it stood on, and gives the terms back as typed", () => {
     const worth = inferredWorthOf("f", 1234.5678912, MEDAL_TERMS_BY_DEFAULT)
-    expect([toPlainString(worth.value), worth.formulaId, toPlainString(worth.tokenRental), toPlainString(worth.tokenExchange), worth.spinPerformance]).toEqual(["1234.567891", "f", "21.73913", "5.1", undefined])
+    expect([toPlainString(worth.value), worth.formulaId, toPlainString(worth.tokenRental), toPlainString(worth.tokenExchange), worth.spinPerformance]).toEqual(["1234.567891", "f", "21.73913", "5.2", undefined])
     expect(medalTermsOf(worth)).toEqual(MEDAL_TERMS_BY_DEFAULT)
   })
 })

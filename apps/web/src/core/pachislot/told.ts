@@ -76,8 +76,8 @@ export interface MedalTerms {
   readonly exchangedPerHundred: number
 }
 
-/** A 20-yen corner as most are: 46 medals for ¥1,000, the tax on top, and 5.1 exchanged for ¥100. */
-export const MEDAL_TERMS_BY_DEFAULT: MedalTerms = { rentedPerThousand: 46, exchangedPerHundred: 5.1 }
+/** A 20-yen corner as most are: 46 medals for ¥1,000, the tax on top, and 5.2 exchanged for ¥100. */
+export const MEDAL_TERMS_BY_DEFAULT: MedalTerms = { rentedPerThousand: 46, exchangedPerHundred: 5.2 }
 
 /**
  * A told play's terms as a play's are, in whole medals — the exchange as so
