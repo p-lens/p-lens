@@ -10,6 +10,8 @@ import { mergedSpinPerformances, type SpinPerformancesByMachine } from "../core/
 import { Ok, mapOk } from "../core/result/result"
 import { combine, talliesTerm } from "../hledger/query/terms"
 import type { JournalsDigest, Summaries } from "../consolidation/port/summaries"
+import { daysOfQuery } from "../core/journal/views"
+import { lastRateDayOf } from "../core/valuation/rates-day"
 import type { BookSession } from "./book-session"
 import { loadBreakdown, loadDaysAndWhole, loadSenderBreakdown, loadSenderNames, loadSpinPerformances, type DaysAndWhole } from "./breakdown"
 import type { Outcome } from "./errors"
@@ -74,7 +76,7 @@ export const createOutdatedNotice = (): OutdatedNotice => {
  */
 export interface ConsolidationPorts extends ConsolidationParts {
   /**
-   * `at-once` answers with what a book was last answered, today, without
+   * `at-once` answers with what a book was last answered, without
    * reading it, and checks it after: a screen shown. `when-checked` answers
    * once the book is read: asking ahead, which must not leave work behind.
    */
@@ -96,7 +98,7 @@ export const consolidationPorts = (parts: ConsolidationParts): ConsolidationPort
   return { ...parts, answering: "at-once", digestNow }
 }
 
-/** What a book was last answered to a question, today: the answer, and the digest of the journals it was answered from. */
+/** What a book was last answered to a question: the answer, and the digest of the journals it was answered from. */
 interface LastAnswered<T> {
   readonly digest: string
   readonly answer: T
@@ -104,38 +106,64 @@ interface LastAnswered<T> {
 
 const isLastAnswered = (value: unknown): value is LastAnswered<unknown> => typeof value === "object" && value !== null && typeof (value as Partial<LastAnswered<unknown>>).digest === "string" && "answer" in value
 
-/** Where a book's answer is kept: under the digest of its journals, or as the book's last, by its id. */
-const answerKey = (digest: string, today: IsoDate, question: string): string => `${digest}\n${today}\n${question}`
-const lastKey = (book: ListedBook, today: IsoDate, question: string): string => `last\n${book.id}\n${today}\n${question}`
+/**
+ * Where a book's answer is kept: under the digest of its journals, or as
+ * the book's last, by its id. A question whose answer the day can change
+ * says the day that matters to it (`asOfToday`); any other is kept whatever
+ * the day.
+ */
+const answerKey = (digest: string, question: string): string => `${digest}\n${question}`
+const lastKey = (book: ListedBook, question: string): string => `last\n${book.id}\n${question}`
+
+/**
+ * Whether a question of what stood as of a query's end is asked as of
+ * today: where the query leaves its end open, savings are valued at the
+ * rate in force today. Everything else the consolidation asks counts each
+ * posting at its own day's rate, or stands at a day the query says, and is
+ * the same answer whatever day it is asked on.
+ */
+const asOfToday = (query: string): boolean => daysOfQuery(query)?.until === undefined
+
+/**
+ * A question as a book's answer to it is kept: as asked, or, for one asked
+ * as of today, with the last day on or before today the book sets a rate
+ * on — the day that a value standing today is read at — so that it is
+ * asked again only when a rate since then is in force, not every day.
+ */
+const keyedFor = async (ports: ConsolidationPorts, question: string, dated: boolean, book: ListedBook): Promise<string> => {
+  if (!dated) return question
+  const stored = await ports.session.stored(book.id)
+  return `${question}\n${stored.ok ? lastRateDayOf(stored.value.files, ports.today()) : ports.today()}`
+}
 
 /**
  * A book's answer for its journals as they stand: the one kept under their
- * digest, today, where there is one — the book not opened in hledger at
- * all — or else hledger's, kept for the next time and as the book's last.
- * What could not be answered is not kept.
+ * digest where there is one — the book not opened in hledger at all — or
+ * else hledger's, kept for the next time and as the book's last. What
+ * could not be answered is not kept.
  */
 const answered = async <T>(ports: ConsolidationPorts, question: string, read: (book: ListedBook) => Promise<Outcome<T>>, book: ListedBook, digest: string | undefined): Promise<Outcome<T>> => {
   if (digest === undefined) return read(book)
-  const today = ports.today()
-  const kept = await ports.summaries.kept(answerKey(digest, today, question))
+  const kept = await ports.summaries.kept(answerKey(digest, question))
   const answer = kept !== undefined ? Ok(kept as T) : await read(book)
   if (!answer.ok) return answer
-  if (kept === undefined) await ports.summaries.keep(answerKey(digest, today, question), answer.value)
-  await ports.summaries.keep(lastKey(book, today, question), { digest, answer: answer.value } satisfies LastAnswered<T>)
+  if (kept === undefined) await ports.summaries.keep(answerKey(digest, question), answer.value)
+  await ports.summaries.keep(lastKey(book, question), { digest, answer: answer.value } satisfies LastAnswered<T>)
   return answer
 }
 
 /**
  * A book's answer to a question as the consolidation asks it. Answering at
- * once, a book answered before today gives that answer straight away and is
+ * once, a book answered before gives that answer straight away and is
  * read after: where its journals have changed since, it is answered again
  * and whoever showed the old answer is told. Otherwise the book is read
  * first, and its answer is the one for its journals as they stand.
  */
 const summarized =
-  <T>(ports: ConsolidationPorts, question: string, read: (book: ListedBook) => Promise<Outcome<T>>) =>
+  <T>(ports: ConsolidationPorts, asked: string, read: (book: ListedBook) => Promise<Outcome<T>>, dated: boolean) =>
   async (book: ListedBook): Promise<Outcome<T>> => {
-    const last = await ports.summaries.kept(lastKey(book, ports.today(), question))
+    const question = await keyedFor(ports, asked, dated, book)
+    const last = await ports.summaries.kept(lastKey(book, question))
     const checked = async (): Promise<Outcome<T>> => {
       const digest = await ports.digestNow(book.id)
       if (isLastAnswered(last) && last.digest === digest) return Ok(last.answer as T)
@@ -164,12 +192,18 @@ const inTurn = async <T>(books: readonly ListedBook[], read: (book: ListedBook) 
  * parlor at different rates each keep their own. A book that is chosen
  * and not on the device is passed over.
  */
-const ofChosen = async <T>(ports: ConsolidationPorts, chosen: readonly BookId[] | undefined, question: string, read: (book: ListedBook) => Promise<Outcome<T>>): Promise<Outcome<readonly ConsolidatedBook<T>[]>> => {
+const ofChosen = async <T>(
+  ports: ConsolidationPorts,
+  chosen: readonly BookId[] | undefined,
+  question: string,
+  read: (book: ListedBook) => Promise<Outcome<T>>,
+  dated: boolean = false,
+): Promise<Outcome<readonly ConsolidatedBook<T>[]>> => {
   const listed = await ports.session.books()
   if (!listed.ok) return listed
   const books = await inTurn(
     listed.value.filter((book) => chosen === undefined || chosen.includes(book.id)),
-    summarized(ports, question, read),
+    summarized(ports, question, read, dated),
   )
   return mapOk(listed, () => books)
 }
@@ -184,7 +218,7 @@ export const loadConsolidatedOverall = async (ports: ConsolidationPorts, chosen:
 
 /** その他損益 of the books chosen, for a period, book by book. */
 export const loadConsolidatedOtherGains = (ports: ConsolidationPorts, chosen: readonly BookId[] | undefined, query: string): Promise<Outcome<readonly ConsolidatedBook<OtherGains>[]>> =>
-  ofChosen(ports, chosen, `other-gains\n${query}`, (book) => loadOtherGains(ports.session, book.id, query))
+  ofChosen(ports, chosen, `other-gains\n${query}`, (book) => loadOtherGains(ports.session, book.id, query), asOfToday(query))
 
 /** The results of the books chosen, for a period, grouped, book by book. */
 export const loadConsolidation = (ports: ConsolidationPorts, chosen: readonly BookId[] | undefined, by: ConsolidatedGrouping, query: string): Promise<Outcome<readonly ConsolidatedBook<readonly Group[]>[]>> =>
@@ -199,7 +233,7 @@ export const loadConsolidatedDaysAndWhole = (ports: ConsolidationPorts, chosen: 
 
 /** The savings of the books chosen, as of the end of the query's period, book by book: each book's pools at its own rates. */
 export const loadConsolidatedHoldings = (ports: ConsolidationPorts, chosen: readonly BookId[] | undefined, query: string): Promise<Outcome<readonly ConsolidatedBook<Holdings>[]>> =>
-  ofChosen(ports, chosen, `holdings\n${query}`, (book) => loadHoldings(ports.session, book.id, query))
+  ofChosen(ports, chosen, `holdings\n${query}`, (book) => loadHoldings(ports.session, book.id, query), asOfToday(query))
 
 /**
  * Whether any of the books chosen has a theoretical value written in it.

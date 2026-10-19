@@ -1,4 +1,4 @@
-import { For, Show, type JSX } from "solid-js"
+import { Index, Show, type JSX } from "solid-js"
 
 /** One space on the rail. */
 export interface RailItem {
@@ -30,6 +30,10 @@ const RESTING = "bg-surface-2 text-text-primary"
  * foot however few spaces there are above them, divided from those above
  * and from each other alike.
  *
+ * Spaces are laid out by their places, not remade when a new list of them
+ * comes: the column keeps where it was scrolled to when a space far down it
+ * is chosen, and its buttons stand where they were.
+ *
  * The chosen space is marked by a pill on the edge and a squarer icon, so it
  * reads at a glance without a label. A space's `badge` sits on its corner,
  * over the shape and not cut by it. Labels surface through `renderTooltip`,
@@ -44,26 +48,26 @@ export function RailBar(props: {
 }): JSX.Element {
   return (
     <nav aria-label={props.label} class="flex w-[72px] shrink-0 flex-col items-center gap-2 overflow-y-auto bg-surface-0 py-3">
-      <For each={props.groups.filter((group) => group.length > 0)}>
+      <Index each={props.groups.filter((group) => group.length > 0)}>
         {(group, index) => (
           <>
-            <Show when={index() > 0}>
+            <Show when={index > 0}>
               <div class="h-0.5 w-8 shrink-0 rounded-full bg-border" aria-hidden="true" />
             </Show>
-            <For each={group}>{(item) => <RailButton item={item} renderTooltip={props.renderTooltip} />}</For>
+            <Index each={group()}>{(item) => <RailButton item={item()} renderTooltip={props.renderTooltip} />}</Index>
           </>
         )}
-      </For>
+      </Index>
       <Show when={(props.footer ?? []).some((group) => group.length > 0)}>
         <div class="mt-auto flex w-full flex-col items-center gap-2 pt-1">
-          <For each={(props.footer ?? []).filter((group) => group.length > 0)}>
+          <Index each={(props.footer ?? []).filter((group) => group.length > 0)}>
             {(group) => (
               <>
                 <div class="h-0.5 w-8 rounded-full bg-border" aria-hidden="true" />
-                <For each={group}>{(item) => <RailButton item={item} renderTooltip={props.renderTooltip} />}</For>
+                <Index each={group()}>{(item) => <RailButton item={item()} renderTooltip={props.renderTooltip} />}</Index>
               </>
             )}
-          </For>
+          </Index>
         </div>
       </Show>
     </nav>
@@ -102,5 +106,5 @@ function RailButton(props: {
       </div>
     </div>
   )
-  return props.renderTooltip === undefined ? button : props.renderTooltip(props.item.label, button)
+  return <>{props.renderTooltip === undefined ? button : props.renderTooltip(props.item.label, button)}</>
 }

@@ -1,3 +1,4 @@
+import { lastRateDayOf } from "../../src/core/valuation/rates-day"
 import { describe, expect, test } from "bun:test"
 
 import type { IsoDate } from "../../src/core/calendar/calendar"
@@ -42,5 +43,14 @@ describe("price points", () => {
 
   test("a rate is written as the directive that states it", () => {
     expect(renderPricePoint(point("2016-10-11", "玉(東京皇国)", 357n))).toBe('P 2016-10-11 "玉(東京皇国)" 3.57 JPY\n')
+  })
+})
+
+describe("the last day a book sets a rate on", () => {
+  const files = { "prices.journal": 'P 2026-09-01 "玉(4円・店)" 3.57 JPY\nP 2026-10-12 "玉(4円・店)" 3.2 JPY\n', "accounts.journal": "commodity 1. JPY\n" }
+
+  test("is the latest price day on or before the day, none before any, and the day itself where a price line is not one the app writes", () => {
+    expect([lastRateDayOf(files, "2026-10-11" as IsoDate), lastRateDayOf(files, "2026-10-12" as IsoDate), lastRateDayOf(files, "2026-08-31" as IsoDate)]).toEqual(["2026-09-01", "2026-10-12", "none"])
+    expect(lastRateDayOf({ ...files, "accounts.journal": "P 2026/10/01 X 1 JPY\n" }, "2026-10-11" as IsoDate)).toBe("2026-10-11")
   })
 })

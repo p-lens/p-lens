@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test"
+import { Ok } from "../../src/core/result/result"
+import { BOOK_FILES } from "../../src/core/journal/layout"
 
 import { createBookSession } from "../../src/application/book-session"
 import { consolidationKeepsTheoreticalValues, loadConsolidatedHoldings, loadConsolidatedSenderNames, loadConsolidation, type ConsolidatedGrouping } from "../../src/application/consolidation"
@@ -174,5 +176,33 @@ describe("a consolidation keeping each book's answers", () => {
     expect(opened.every((id) => id === MINE)).toBe(true)
     expect(told.times).toBeGreaterThan(0)
     expect(await actualOf("at-once")).toEqual(checked)
+  })
+})
+
+describe("a consolidation asked again the next day", () => {
+  test("answers what no day changes from what it kept, and what stands as of today until a rate since is in force", async () => {
+    const session = await setUp()
+    const opened: string[] = []
+    const watched: BookSession = { ...session, read: (bookId, work) => (opened.push(bookId), session.read(bookId, work)) }
+    const day = { today: "2026-10-09" as IsoDate }
+    const ports = { ...consolidationPorts({ session: watched, summaries: createMemorySummaries(), digest: webCryptoJournalsDigest, today: () => day.today, afterShown: (work) => work(), outdated: createOutdatedNotice() }), answering: "when-checked" as const }
+    const overall = await loadConsolidatedOverall(ports, [MINE as BookId], "")
+    await loadConsolidatedHoldings(ports, [MINE as BookId], "")
+    day.today = "2026-10-10" as IsoDate
+    opened.length = 0
+    expect(await loadConsolidatedOverall(ports, [MINE as BookId], "")).toEqual(overall)
+    await loadConsolidatedHoldings(ports, [MINE as BookId], "")
+    expect(opened).toEqual([])
+    const stored = await session.stored(MINE as BookId)
+    const prices = stored.ok ? (stored.value.files[BOOK_FILES.prices] ?? "") : ""
+    const rate = prices.split("\n").find((line) => line.startsWith("P ")) ?? ""
+    await session.write(MINE as BookId, async (_journal, kept) => Ok({ files: { ...kept.files, [BOOK_FILES.prices]: `${prices}${rate.replace(/^P \S+/, "P 2026-10-12").replace(/ [\d.]+ JPY$/, " 3.2 JPY")}\n` }, intent: { type: "file-edited", path: BOOK_FILES.prices } }))
+    opened.length = 0
+    await loadConsolidatedHoldings(ports, [MINE as BookId], "")
+    expect(opened).toEqual([MINE as BookId])
+    day.today = "2026-10-12" as IsoDate
+    opened.length = 0
+    await loadConsolidatedHoldings(ports, [MINE as BookId], "")
+    expect(opened).toEqual([MINE as BookId])
   })
 })
