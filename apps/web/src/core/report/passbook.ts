@@ -94,25 +94,36 @@ const ratesSetOf = (prices: readonly PricePoint[], commodity: string): ReadonlyM
   return new Map(changed.map((point, index) => [point.date, { rate: point.rate, before: changed[index - 1]?.rate }]))
 }
 
+/** The day a passbook is shown from, and what the pool held at the end of the day before: the balance its days count on from. */
+export interface ShownFrom {
+  readonly from: IsoDate
+  readonly held: Decimal
+}
+
 /**
  * A pool's passbook, newest day first: every day its account moved or its
  * rate was set, what moved in and out, by cause, and what it held at the
  * day's end. Read from the entries that post to the account and the book's
- * prices; nothing is worked out that hledger keeps.
+ * prices; nothing is worked out that hledger keeps. Shown from a day, it is
+ * given the entries from that day on and what the pool held before it, and
+ * its days begin there.
  */
-export const passbookOf = (transactions: readonly Transaction[], account: string, commodity: string, prices: readonly PricePoint[]): readonly PassbookDay[] => {
+export const passbookOf = (transactions: readonly Transaction[], account: string, commodity: string, prices: readonly PricePoint[], shownFrom?: ShownFrom): readonly PassbookDay[] => {
   const moved: readonly Moved[] = transactions.flatMap((transaction) => {
     const date = parseIsoDate(transaction.tdate)
     return date.ok ? [{ date: date.value, cause: causeOf(transaction), ...movementOf(transaction, account, commodity) }] : []
   })
   const rates = ratesSetOf(prices, commodity)
-  const days = [...new Set([...moved.map((each) => each.date), ...rates.keys()])].sort()
+  const days = [...new Set([...moved.map((each) => each.date), ...[...rates.keys()].filter((date) => shownFrom === undefined || date >= shownFrom.from)])].sort()
   const ascending = days.reduce<readonly PassbookDay[]>((built, date) => {
     const ofDay = moved.filter((each) => each.date === date)
     const deposited = sum(ofDay.map((each) => each.deposited))
     const withdrawn = sum(ofDay.map((each) => each.withdrawn))
-    const balance = sum([built.at(-1)?.balance ?? ZERO, deposited, negate(withdrawn)])
+    const balance = sum([built.at(-1)?.balance ?? shownFrom?.held ?? ZERO, deposited, negate(withdrawn)])
     return [...built, { date, deposited, withdrawn, balance, lines: linesOf(ofDay), rateSet: rates.get(date) }]
   }, [])
   return [...ascending].reverse()
 }
+
+/** The rate a pool was last set to, where it was ever set, however far back. */
+export const rateLastSet = (prices: readonly PricePoint[], commodity: string): Decimal | undefined => [...ratesSetOf(prices, commodity).values()].at(-1)?.rate

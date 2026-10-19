@@ -1,4 +1,5 @@
 import { createBookSession } from "../../application/book-session"
+import { consolidationPorts, createOutdatedNotice } from "../../application/consolidation"
 import { createBrowserHandover } from "../../backup/browser/browser-handover"
 import { createGoogleAuthorizer } from "../../backup/google-drive/google-authorizer"
 import { createGoogleDriveStore, DRIVE_SCOPE } from "../../backup/google-drive/google-drive-store"
@@ -43,6 +44,10 @@ import { createIndexedDbDrafts, createIndexedDbStorage } from "../../storage/bro
 import { createHttpRelay } from "../../sync/http/http-relay"
 import { createIndexedDbLinkStore } from "../../sync/local/indexed-db-link-store"
 import { createWebCryptoSealer } from "../../sync/web-crypto/web-crypto-sealer"
+import { createIndexedDbSummaries } from "../../consolidation/local/indexed-db-summaries"
+import { createMemorySummaries } from "../../consolidation/memory/memory-summaries"
+import { createTieredSummaries } from "../../consolidation/tiered/tiered-summaries"
+import { webCryptoJournalsDigest } from "../../consolidation/web-crypto/journals-digest"
 
 /**
  * The person using this device, as every book on it knows them. One fixed
@@ -99,6 +104,9 @@ const ANSWER_WITHIN = 8000
 /** How long a reading of the parlor list stands before it is read again behind the device's copy: the list changes a few times a week. */
 const PARLORS_FRESH_FOR = 10 * 60 * 1000
 
+/** How long after the consolidation shows what each book was last answered it reads the books to check them: once the screen is drawn. */
+const CHECKED_AFTER_SHOWN = 300
+
 /**
  * The one place that names concrete adapters. Everything else knows ports.
  * The engines' and the reasoner's workers are only spawned the first time
@@ -126,6 +134,14 @@ export const createServices = (): Services => {
   const archiver = createZipArchiver()
   return {
     session,
+    consolidation: consolidationPorts({
+      session,
+      summaries: createTieredSummaries(createMemorySummaries(), createIndexedDbSummaries(database, import.meta.env.VITE_APP_VERSION as string)),
+      digest: webCryptoJournalsDigest,
+      today: () => businessDayOf(clock(), preferences.businessDayTurn()),
+      afterShown: (work) => void setTimeout(work, CHECKED_AFTER_SHOWN),
+      outdated: createOutdatedNotice(),
+    }),
     history,
     sync: {
       session,

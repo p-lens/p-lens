@@ -42,12 +42,16 @@ import type { StorageError } from "../port/book-storage"
  * - `destinations`: the books of other people this device may send plays
  *   to, each by the invitation that lets it, keyed by the inbox line.
  *   Added in version 11.
+ * - `consolidation-answers`: what the consolidation was answered of each
+ *   book, keyed by what it is of (the book's journals, the day and the
+ *   question), indexed by when it was kept so the oldest go first; nothing
+ *   in it is a book's, and it can be dropped whole. Added in version 13.
  */
 const DATABASE = "p-lens"
 /** Where a device once kept its own marks on the catalog; a person's marks are in their book now. */
 const MARKS_ONCE_KEPT = "catalog-mine"
 
-const VERSION = 12
+const VERSION = 13
 export const BOOKS = "books"
 export const FILES = "files"
 export const FILES_BY_BOOK = "by-book"
@@ -64,6 +68,8 @@ export const BACKUP_RECEIPTS = "backup-receipts"
 export const INVITATIONS = "invitations"
 export const INVITATIONS_BY_BOOK = "by-book"
 export const DESTINATIONS = "destinations"
+export const CONSOLIDATION_ANSWERS = "consolidation-answers"
+export const CONSOLIDATION_ANSWERS_BY_KEPT = "by-kept"
 
 /** The pachinko stores version 3 made, dropped with the pachislot ones when the catalog became one. */
 const PACHINKO_STORES = ["machines", "formulas", "formula-marks", "formula-uses"] as const
@@ -166,6 +172,9 @@ const MIGRATIONS: readonly ((database: IDBDatabase, transaction: IDBTransaction)
   },
   (database) => {
     database.deleteObjectStore(MARKS_ONCE_KEPT)
+  },
+  (database) => {
+    database.createObjectStore(CONSOLIDATION_ANSWERS, { keyPath: "key" }).createIndex(CONSOLIDATION_ANSWERS_BY_KEPT, "kept")
   },
 ]
 

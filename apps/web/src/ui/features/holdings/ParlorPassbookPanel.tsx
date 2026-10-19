@@ -3,6 +3,7 @@ import { createResource, createSignal, For, Show, type JSX } from "solid-js"
 
 import { loadParlorPassbook } from "../../../application/savings"
 import type { BookId } from "../../../core/book/book"
+import type { IsoDate } from "../../../core/calendar/calendar"
 import { isZero, type Decimal } from "../../../core/decimal/decimal"
 import type { ParlorPassbookDay, PoolDay } from "../../../core/report/parlor-passbook"
 import { useApp } from "../../context"
@@ -12,7 +13,8 @@ import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { formatDayOfYear } from "../../wording/dates"
 import { formatRate, formatTokens, formatYenToHundredths } from "../../wording/numbers"
-import { COLUMNS, Lines } from "./PassbookPanel"
+import { yearOf } from "../period/periods"
+import { COLUMNS, Earlier, Lines } from "./PassbookPanel"
 
 /** Yen a token had no rate for: dashes in the figure's shape. */
 const UNVALUED = "¥--.--"
@@ -82,15 +84,18 @@ function Day(props: { readonly day: ParlorPassbookDay; readonly yearShown: boole
  * row for each day any of them moved or had its rate set, newest first,
  * in yen to two places — what went out and came in at the day's rate, and
  * what was held at the day's end at the rate then — and pressed, each
- * pool's tokens that day, machine by machine. Tokens of different pools
- * are never added: only yen, and by hledger.
+ * pool's tokens that day, machine by machine. It opens on this year,
+ * what was held before it under the last row, and goes back a year that
+ * moved at a time. Tokens of different pools are never added: only yen,
+ * and by hledger.
  */
 export function ParlorPassbookPanel(props: { readonly place: Place; readonly bookId: BookId; readonly parlorName: string }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
+  const [from, setFrom] = createSignal<IsoDate | undefined>(yearOf(app.services.businessDay()).from)
   const [days] = createResource(
-    () => ({ bookId: props.bookId, parlorName: props.parlorName, revision: app.revision() }),
-    (source) => loadParlorPassbook(app.services.session, source.bookId, source.parlorName),
+    () => ({ bookId: props.bookId, parlorName: props.parlorName, from: from(), revision: app.revision() }),
+    (source) => loadParlorPassbook(app.services.session, source.bookId, source.parlorName, source.from),
   )
   return (
     <AuxPanel
@@ -107,8 +112,8 @@ export function ParlorPassbookPanel(props: { readonly place: Place; readonly boo
       <Loaded outcome={days()}>
         {(passbook) => (
           <div class="flex flex-col gap-3 p-4">
-            <Show when={passbook.length > 0} fallback={<EmptyState title="出し入れはまだありません" />}>
-              <p class="text-lg font-bold tabular-nums text-text-primary">{passbook[0]?.balance === undefined ? UNVALUED : formatYenToHundredths(passbook[0].balance)}</p>
+            <Show when={passbook.days.length > 0 || passbook.before !== undefined} fallback={<EmptyState title="出し入れはまだありません" />}>
+              <p class="text-lg font-bold tabular-nums text-text-primary">{((now) => (now === undefined ? UNVALUED : formatYenToHundredths(now)))(passbook.days.length > 0 ? passbook.days[0]?.balance : passbook.before?.balance)}</p>
               <div class={`${COLUMNS} border-b border-border pb-1 text-xs text-text-muted`}>
                 <span>日付</span>
                 <span class="text-right">払出</span>
@@ -116,8 +121,11 @@ export function ParlorPassbookPanel(props: { readonly place: Place; readonly boo
                 <span class="text-right">残高</span>
               </div>
               <ul class="flex flex-col">
-                <For each={passbook}>{(day, at) => <Day day={day} yearShown={at() === 0 || passbook[at() - 1]?.date.slice(0, 4) !== day.date.slice(0, 4)} />}</For>
+                <For each={passbook.days}>{(day, at) => <Day day={day} yearShown={at() === 0 || passbook.days[at() - 1]?.date.slice(0, 4) !== day.date.slice(0, 4)} />}</For>
               </ul>
+              <Show when={passbook.before} keyed>
+                {(before) => <Earlier through={before.through} lastMoved={before.lastMoved} balance={<Yen value={before.balance} strong />} onEarlier={setFrom} />}
+              </Show>
             </Show>
           </div>
         )}

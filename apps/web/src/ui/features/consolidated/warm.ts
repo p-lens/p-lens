@@ -7,8 +7,8 @@ import { queryOf, shortcutsOn } from "../period/periods"
 import { monthQuery } from "../result-calendar"
 import { consolidationShown } from "./shown"
 
-/** The periods asked ahead besides every day, by their shortcuts: those most looked at. */
-const WARMED_PERIODS: readonly string[] = ["month", "year"]
+/** The periods asked ahead besides every day, by their shortcuts: those most looked at, the one 集計 opens on first. */
+const WARMED_PERIODS: readonly string[] = ["year", "month"]
 
 /** How long after the app starts, or after a book is written, the consolidation is asked ahead: once the screen asked for has its answers. */
 const WARM_AFTER = 3000
@@ -29,10 +29,9 @@ export const warmConsolidationWhileShown = (services: Services, revision: Access
     }
     held.running = true
     const today = services.businessDay()
-    const periods = shortcutsOn(today)
-      .filter((shortcut) => WARMED_PERIODS.includes(shortcut.id))
-      .map((shortcut) => queryOf(shortcut.range))
-    void warmConsolidation(services.session, { month: monthQuery(monthOf(today)), periods }).finally(() => {
+    const shortcuts = shortcutsOn(today)
+    const periods = WARMED_PERIODS.flatMap((id) => shortcuts.filter((shortcut) => shortcut.id === id).map((shortcut) => queryOf(shortcut.range)))
+    void warmConsolidation(services.consolidation, { month: monthQuery(monthOf(today)), periods }).finally(() => {
       held.running = false
       if (!held.again) return
       held.again = false

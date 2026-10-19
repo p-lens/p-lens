@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import type { IsoDate } from "../../src/core/calendar/calendar"
-import { EVERY_DAY, queryFor, queryOf, rangeOf, sameRange, shortcutsOn, widened, widenedFor, type DateRange } from "../../src/ui/features/period/periods"
+import { EVERY_DAY, openingQueryOn, queryFor, queryOf, rangeOf, sameRange, shortcutsOn, widened, widenedFor, type DateRange } from "../../src/ui/features/period/periods"
 
 const day = (text: string): IsoDate => text as IsoDate
 
@@ -55,6 +55,10 @@ describe("the periods offered by name", () => {
   test("are each told from the others by their days, so that one is marked only while the fields say it", () => {
     expect(shortcuts.filter((shortcut) => sameRange(shortcut.range, range("2026-10-01", "2026-10-31"))).map((shortcut) => shortcut.id)).toEqual(["month"])
     expect(shortcuts.filter((shortcut) => sameRange(shortcut.range, range("2026-10-02", "2026-10-31")))).toEqual([])
+  })
+  test("open 集計 on the business day's year, which its shortcut then marks", () => {
+    expect(openingQueryOn(day("2026-10-12"))).toBe("date:2026-01-01..2027-01-01")
+    expect(rangeOf(openingQueryOn(day("2026-10-12")))).toEqual(named("year"))
   })
 })
 

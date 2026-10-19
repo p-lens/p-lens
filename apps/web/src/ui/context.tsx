@@ -12,7 +12,9 @@ import { syncAll, type Synced } from "../application/sync"
 import { toast } from "./primitives/toast"
 import type { ThemeState } from "./theme/theme"
 import { unreadableArrivalsText } from "./wording/sync"
+import { heardOutdated } from "./features/consolidated/outdated"
 import { warmConsolidationWhileShown } from "./features/consolidated/warm"
+import { savingsShownAfterWrites, type SavingsShown } from "./features/holdings/shown"
 
 /** Where the installed app stands against the newest published; supplied by the PWA layer. */
 export interface UpdateState {
@@ -80,6 +82,14 @@ export interface AppContext {
    * of hledger is asked again after the book changes.
    */
   readonly revision: Accessor<number>
+  /**
+   * Counts the times the consolidation found an answer it showed to be of a
+   * book written since, a while after the last of them: its views read it
+   * so that they ask again and show the books as they stand.
+   */
+  readonly consolidationOutdated: Accessor<number>
+  /** What 貯玉・貯メダル last showed, shown at once when it is opened again while it asks anew, and asked again a while after each write. */
+  readonly savingsShown: SavingsShown
   readonly wrote: () => void
   readonly delivery: CatalogDelivery
   /**
@@ -106,6 +116,8 @@ export function AppProvider(props: {
   }
   createEffect(on(revision, () => void adoptBusinessDayTurn(props.services.session, props.services.preferences)))
   warmConsolidationWhileShown(props.services, revision)
+  const consolidationOutdated = heardOutdated(props.services)
+  const savingsShown = savingsShownAfterWrites(revision)
   const [machinesRead] = createResource(
     () => ({ revision: revision() }),
     () => loadMachineNames(props.services.catalog),
@@ -187,6 +199,8 @@ export function AppProvider(props: {
         theme: props.theme,
         updates: props.updates,
         revision,
+        consolidationOutdated,
+        savingsShown,
         wrote: wroteAndSync,
         delivery: { state, refresh, awaitShared },
         machineNames,

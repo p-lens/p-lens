@@ -66,8 +66,8 @@ export function ConsolidatedHoldingsView(props: { readonly place: Place; readonl
   const app = useApp()
   const moves = useMoves()
   const [holdings] = createResource(
-    () => ({ bookIds: props.bookIds, query: props.query, revision: app.revision() }),
-    (source) => loadConsolidatedHoldings(app.services.session, source.bookIds, source.query),
+    () => ({ bookIds: props.bookIds, query: props.query, revision: app.revision(), outdated: app.consolidationOutdated() }),
+    (source) => loadConsolidatedHoldings(app.services.consolidation, source.bookIds, source.query),
   )
   const read = createMemo(() => ((found) => (found?.ok === true ? readOf(found.value) : []))(holdings()))
   const parlors = createMemo(() => parlorsAcross(read()))

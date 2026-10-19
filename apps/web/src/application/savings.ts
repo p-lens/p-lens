@@ -1,7 +1,7 @@
 import type { BookId } from "../core/book/book"
-import type { IsoDate } from "../core/calendar/calendar"
+import { parseIsoDate, previousDay, type IsoDate } from "../core/calendar/calendar"
 import { tokenCommodity } from "../core/commodity/commodity"
-import { isZero, subtract, type Decimal, decimal } from "../core/decimal/decimal"
+import { isZero, subtract, ZERO, type Decimal, decimal } from "../core/decimal/decimal"
 import { renderEntry } from "../core/journal/entry"
 import { appendEntry, BOOK_FILES } from "../core/journal/layout"
 import type { PoolOpening } from "../core/parlor/opening"
@@ -13,17 +13,18 @@ import { balanceAdjustmentEntry, openingBalanceEntry, prependEntry, withEquityDe
 import { forfeitureEntry, withForfeitureDeclared, type Forfeiture } from "../core/savings/forfeiture"
 import { prizeExchangeEntry, withPrizesDeclared, type PrizeExchange } from "../core/savings/prize-exchange"
 import { rateChangeLine, type RateChange } from "../core/savings/rate-change"
-import { passbookOf, type PassbookDay } from "../core/report/passbook"
+import { passbookOf, rateLastSet, type PassbookDay } from "../core/report/passbook"
 import { parlorDaysOf, parlorPassbookOf, type ParlorPassbookDay, type PoolPassbook } from "../core/report/parlor-passbook"
 import { byColumn } from "../core/report/breakdown"
-import { yenByDayOf } from "../core/report/figures"
+import { quantityIn, rowTotalOf, yenByDayOf } from "../core/report/figures"
 import { readSavingsAccount } from "../core/journal/accounts"
 import { negate } from "../core/decimal/decimal"
 import type { Transaction } from "../hledger/protocol/wire"
 import { compare } from "../core/decimal/decimal"
-import { openingBalanceRequest, parlorEntriesRequest, parlorMovedRequest, parlorSavingsByDayRequest, poolEntriesRequest, pricesRequest } from "../hledger/query/requests"
+import { newestEntryRequest, openingBalanceRequest, parlorEntriesRequest, parlorMovedRequest, parlorSavingsByDayRequest, poolEntriesRequest, pricesRequest, savingsQuantityRequest } from "../hledger/query/requests"
 import { savingsAccount } from "../core/journal/accounts"
-import { untilTerm } from "../hledger/query/terms"
+import { accountTerm, combine, parlorSavingsTerm, rangeTerm, untilTerm } from "../hledger/query/terms"
+import type { JournalAccess } from "../hledger/client/client"
 import { rateOn } from "../core/valuation/valuation"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
@@ -188,12 +189,63 @@ export const changeExchangeRate = async (session: BookSession, bookId: BookId, c
   )
 }
 
-/** A pool's passbook: its days, newest first, read from the entries that post to it and the book's prices. */
-export const loadPassbook = (session: BookSession, bookId: BookId, parlorName: string, pool: SavingsPool): Promise<Outcome<readonly PassbookDay[]>> =>
+/** What a passbook shown from a day held before it: at the end of which day, how much, and the last day anything moved before then. */
+export interface HeldBefore<B> {
+  readonly through: IsoDate
+  readonly balance: B
+  readonly lastMoved: IsoDate
+}
+
+/**
+ * A passbook as far back as it is shown: its days from the day it is shown
+ * from, newest first, and what was held before that day, where anything
+ * moved before it — whence earlier days are to be had. Shown from no day,
+ * it is every day there is, and nothing was held before.
+ */
+export interface PassbookFrom<D, B> {
+  readonly days: readonly D[]
+  readonly before: HeldBefore<B> | undefined
+}
+
+/** A pool's passbook from a day, and the rate the pool was last set to, however far back. */
+export interface PoolPassbookFrom extends PassbookFrom<PassbookDay, Decimal> {
+  readonly rate: Decimal | undefined
+}
+
+/** The day before the one a passbook is shown from, and the newest entry before it of those `query` matches, where there is one. */
+const lastMovedBefore = async (journal: JournalAccess, query: string, from: IsoDate | undefined): Promise<Outcome<{ readonly through: IsoDate; readonly lastMoved: IsoDate } | undefined>> => {
+  if (from === undefined) return Ok(undefined)
+  const through = previousDay(from)
+  return mapOk(fromHledger(await journal.ask(newestEntryRequest(combine(query, rangeTerm(undefined, through))))), (page) =>
+    ((newest) => (newest === undefined || !newest.ok ? undefined : { through, lastMoved: newest.value }))(page.items[0] === undefined ? undefined : parseIsoDate(page.items[0].tdate)),
+  )
+}
+
+/** The tokens each of a parlor's pools, or one pool, held at the end of a day, as hledger sums them, by account. */
+const tokensHeldOn = async (journal: JournalAccess, accounts: string, through: IsoDate): Promise<Outcome<(account: string, commodity: string) => Decimal>> =>
+  mapOk(fromHledger(await journal.ask(savingsQuantityRequest(rangeTerm(undefined, through), accounts))), (report) => (account, commodity) => ((total) => (total === undefined ? ZERO : quantityIn(total, commodity)))(rowTotalOf(report, account)))
+
+/**
+ * A pool's passbook from a day — this year's, as it opens — read from the
+ * entries that post to it from then and the book's prices, its balances
+ * counted on from what hledger says the pool held the day before. Shown
+ * from no day, it is every day there is.
+ */
+export const loadPassbook = (session: BookSession, bookId: BookId, parlorName: string, pool: SavingsPool, from: IsoDate | undefined): Promise<Outcome<PoolPassbookFrom>> =>
   session.read(bookId, async (journal) => {
     const account = savingsAccount(pool.kind, parlorName, pool.tier)
-    const [entries, prices] = await Promise.all([journal.ask(poolEntriesRequest(account)), journal.ask(pricesRequest(""))])
-    return andThen(fromHledger(entries), (page) => mapOk(fromHledger(prices), (directives) => passbookOf(page.items, account, tokenCommodity(pool.kind, parlorName, pool.tier), pricePointsOf(directives))))
+    const commodity = tokenCommodity(pool.kind, parlorName, pool.tier)
+    const [entries, prices, moved] = await Promise.all([journal.ask(poolEntriesRequest(account, rangeTerm(from, undefined))), journal.ask(pricesRequest("")), lastMovedBefore(journal, accountTerm(account), from)])
+    if (!moved.ok) return moved
+    const held = moved.value === undefined ? Ok(undefined) : mapOk(await tokensHeldOn(journal, accountTerm(account), moved.value.through), (heldBy) => heldBy(account, commodity))
+    if (!held.ok) return held
+    const before = moved.value === undefined || held.value === undefined ? undefined : { ...moved.value, balance: held.value }
+    return andThen(fromHledger(entries), (page) =>
+      mapOk(fromHledger(prices), (directives) => {
+        const points = pricePointsOf(directives)
+        return { days: passbookOf(page.items, account, commodity, points, from === undefined ? undefined : { from, held: before?.balance ?? ZERO }), before, rate: rateLastSet(points, commodity) }
+      }),
+    )
   })
 
 /** The pools a parlor's entries move, each once, balls before medals and each by its account's name. */
@@ -203,27 +255,41 @@ const poolsMovedIn = (entries: readonly Transaction[], parlorName: string): read
     .flatMap((account) => ((read) => (read !== undefined && read.parlorName === parlorName ? [{ kind: read.kind, tier: read.tier }] : []))(readSavingsAccount(account)))
     .sort((left, right) => (left.kind === right.kind ? 0 : left.kind === "ball" ? -1 : 1))
 
-/** Each of a parlor's pools as its own passbook, from the parlor's entries: an entry belongs to a pool where it posts to its account. */
-const poolPassbooksOf = (entries: readonly Transaction[], parlorName: string, prices: Parameters<typeof passbookOf>[3]): readonly PoolPassbook[] =>
+/** Each of a parlor's pools as its own passbook, from the parlor's entries: an entry belongs to a pool where it posts to its account. Shown from a day, each counts on from what its pool held the day before. */
+const poolPassbooksOf = (entries: readonly Transaction[], parlorName: string, prices: Parameters<typeof passbookOf>[3], from: IsoDate | undefined, heldBy: (account: string, commodity: string) => Decimal): readonly PoolPassbook[] =>
   poolsMovedIn(entries, parlorName).map((pool) => {
     const account = savingsAccount(pool.kind, parlorName, pool.tier)
-    return { pool, days: passbookOf(entries.filter((entry) => entry.tpostings.some((posting) => posting.paccount === account)), account, tokenCommodity(pool.kind, parlorName, pool.tier), prices) }
+    const commodity = tokenCommodity(pool.kind, parlorName, pool.tier)
+    return { pool, days: passbookOf(entries.filter((entry) => entry.tpostings.some((posting) => posting.paccount === account)), account, commodity, prices, from === undefined ? undefined : { from, held: heldBy(account, commodity) }) }
   })
 
 /**
- * A parlor's passbook: every pool's days together, newest first, valued in
- * yen by hledger — what came in and went out at each day's rate, and what
- * was held at each day's end at the rate in force then, asked once for a
- * column a day. A figure some token had no rate for is left unsaid.
+ * A parlor's passbook from a day — this year's, as it opens — every
+ * pool's days together, newest first, valued in yen by hledger: what came
+ * in and went out at each day's rate, and what was held at each day's end
+ * at the rate in force then, asked once for a column a day, the day before
+ * the first among them where anything moved before it. A figure some token
+ * had no rate for is left unsaid. Shown from no day, it is every day there
+ * is.
  */
-export const loadParlorPassbook = (session: BookSession, bookId: BookId, parlorName: string): Promise<Outcome<readonly ParlorPassbookDay[]>> =>
+export const loadParlorPassbook = (session: BookSession, bookId: BookId, parlorName: string, from: IsoDate | undefined): Promise<Outcome<PassbookFrom<ParlorPassbookDay, Decimal | undefined>>> =>
   session.read(bookId, async (journal) => {
-    const [entries, prices, deposited, withdrawn] = await Promise.all([journal.ask(parlorEntriesRequest(parlorName)), journal.ask(pricesRequest("")), journal.ask(parlorMovedRequest(parlorName, "amt:>0")), journal.ask(parlorMovedRequest(parlorName, "amt:<0"))])
-    const read = andThen(fromHledger(entries), (page) => mapOk(fromHledger(prices), (directives) => poolPassbooksOf(page.items, parlorName, pricePointsOf(directives))))
+    const since = rangeTerm(from, undefined)
+    const [entries, prices, deposited, withdrawn, moved] = await Promise.all([
+      journal.ask(parlorEntriesRequest(parlorName, since)),
+      journal.ask(pricesRequest("")),
+      journal.ask(parlorMovedRequest(parlorName, "amt:>0", since)),
+      journal.ask(parlorMovedRequest(parlorName, "amt:<0", since)),
+      lastMovedBefore(journal, parlorSavingsTerm(parlorName), from),
+    ])
+    if (!moved.ok) return moved
+    const held = moved.value === undefined ? Ok(() => ZERO) : await tokensHeldOn(journal, parlorSavingsTerm(parlorName), moved.value.through)
+    if (!held.ok) return held
+    const read = andThen(fromHledger(entries), (page) => mapOk(fromHledger(prices), (directives) => poolPassbooksOf(page.items, parlorName, pricePointsOf(directives), from, held.value)))
     if (!read.ok) return read
     const days = parlorDaysOf(read.value)
-    const [newest, oldest] = [days[0], days.at(-1)]
+    const [newest, oldest] = [days[0] ?? moved.value?.through, moved.value?.through ?? days.at(-1)]
     const balances = newest === undefined || oldest === undefined ? new Map() : ((answer) => (answer.ok ? yenByDayOf(answer.value) : new Map()))(fromHledger(await journal.ask(parlorSavingsByDayRequest(parlorName, oldest, newest))))
     const inYen = (answer: Awaited<ReturnType<typeof journal.ask<"balance">>>, turned: boolean) => ((report) => (report.ok ? ((figures) => (figures.ok ? new Map([...figures.value].map(([day, yen]) => [day, turned ? negate(yen) : yen])) : undefined))(byColumn(report.value, "daily")) : undefined))(fromHledger(answer))
-    return Ok(parlorPassbookOf(read.value, { deposited: inYen(deposited, false), withdrawn: inYen(withdrawn, true), balances }))
+    return Ok({ days: parlorPassbookOf(read.value, { deposited: inYen(deposited, false), withdrawn: inYen(withdrawn, true), balances }), before: moved.value === undefined ? undefined : { ...moved.value, balance: balances.get(moved.value.through) } })
   })

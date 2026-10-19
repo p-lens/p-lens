@@ -68,31 +68,31 @@ export function ConsolidatedBreakdownView(props: { readonly place: Place; readon
   /** What the books' tallies are grouped by; none where they are taken as one. */
   const grouping = (): ConsolidatedGrouping | undefined => (props.by === OVERALL ? undefined : props.by)
   const [consolidation] = createResource(
-    () => ((by) => (by === undefined ? undefined : { bookIds: props.bookIds, by, query: props.query, revision: app.revision() }))(grouping()),
-    (source) => loadConsolidation(app.services.session, source.bookIds, source.by, queryFor(source.by, source.query)),
+    () => ((by) => (by === undefined ? undefined : { bookIds: props.bookIds, by, query: props.query, revision: app.revision(), outdated: app.consolidationOutdated() }))(grouping()),
+    (source) => loadConsolidation(app.services.consolidation, source.bookIds, source.by, queryFor(source.by, source.query)),
   )
   const [overall] = createResource(
-    () => (props.by === OVERALL ? { bookIds: props.bookIds, query: props.query, revision: app.revision() } : undefined),
-    (source) => loadConsolidatedOverall(app.services.session, source.bookIds, source.query),
+    () => (props.by === OVERALL ? { bookIds: props.bookIds, query: props.query, revision: app.revision(), outdated: app.consolidationOutdated() } : undefined),
+    (source) => loadConsolidatedOverall(app.services.consolidation, source.bookIds, source.query),
   )
-  const [kept] = createResource(() => ({ bookIds: props.bookIds, revision: app.revision() }), (source) => consolidationKeepsTheoreticalValues(app.services.session, source.bookIds))
+  const [kept] = createResource(() => ({ bookIds: props.bookIds, revision: app.revision(), outdated: app.consolidationOutdated() }), (source) => consolidationKeepsTheoreticalValues(app.services.consolidation, source.bookIds))
   /** Whether any of the books keeps theoretical values: taken to until hledger says none does. */
   const theoreticalKept = (): boolean => ((answer) => answer?.ok !== true || answer.value)(kept())
   const [spun] = createResource(
-    () => (props.by === "machine" ? { bookIds: props.bookIds, query: props.query, revision: app.revision() } : undefined),
-    (source) => loadConsolidatedSpinPerformances(app.services.session, source.bookIds, queryFor("machine", source.query)),
+    () => (props.by === "machine" ? { bookIds: props.bookIds, query: props.query, revision: app.revision(), outdated: app.consolidationOutdated() } : undefined),
+    (source) => loadConsolidatedSpinPerformances(app.services.consolidation, source.bookIds, queryFor("machine", source.query)),
   )
   /** The machines' spin performances over the books, while the tallies are grouped by machine and once they are read. */
   const spins = (): SpinPerformancesByMachine | undefined => ((answer) => (props.by === "machine" && answer?.ok === true ? answer.value : undefined))(spun())
   const [named] = createResource(
-    () => (props.by === "sender" ? { bookIds: props.bookIds, revision: app.revision() } : undefined),
-    (source) => loadConsolidatedSenderNames(app.services.session, source.bookIds),
+    () => (props.by === "sender" ? { bookIds: props.bookIds, revision: app.revision(), outdated: app.consolidationOutdated() } : undefined),
+    (source) => loadConsolidatedSenderNames(app.services.consolidation, source.bookIds),
   )
   /** Who sent the plays, by their last names, while the tallies are grouped by who played them and once they are read. */
   const names = (): SenderNames => ((answer) => (answer?.ok === true ? answer.value : NO_NAMES))(named())
   const [othered] = createResource(
-    () => (props.by === OVERALL ? { bookIds: props.bookIds, query: props.query, revision: app.revision() } : undefined),
-    (source) => loadConsolidatedOtherGains(app.services.session, source.bookIds, source.query),
+    () => (props.by === OVERALL ? { bookIds: props.bookIds, query: props.query, revision: app.revision(), outdated: app.consolidationOutdated() } : undefined),
+    (source) => loadConsolidatedOtherGains(app.services.consolidation, source.bookIds, source.query),
   )
   /** その他損益 over the books, added, under 総合 alone and only where there is any: 総合 stands without it. */
   const otherGains = (): OtherGains | undefined => ((answer) => (answer?.ok === true ? ((gains) => (hasOtherGains(gains) ? gains : undefined))(mergedOtherGains(readOf(answer.value))) : undefined))(othered())

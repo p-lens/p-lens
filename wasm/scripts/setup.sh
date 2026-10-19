@@ -27,3 +27,13 @@ else
   git clone --depth 1 --branch "$HLEDGER_TAG" https://github.com/simonmichael/hledger.git "$VENDOR"
 fi
 echo "vendor: hledger at $(git -C "$VENDOR" describe --tags --always)"
+
+# Each patch is applied once: one that would apply in reverse is in already.
+for patch in "$WASM_DIR"/patches/*.patch; do
+  if git -C "$VENDOR" apply --reverse --check "$patch" 2>/dev/null; then
+    echo "patch: $(basename "$patch") already applied"
+  else
+    git -C "$VENDOR" apply "$patch"
+    echo "patch: $(basename "$patch") applied"
+  fi
+done

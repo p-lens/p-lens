@@ -130,19 +130,22 @@ export const sentTalliesRequest: RequestOf<"entries"> = { kind: "entries", query
 /** Every entry that moves any savings within a query, however many. */
 export const savingsEntriesRequest = (query: string): RequestOf<"entries"> => ({ kind: "entries", query: combine(savingsTerm, query), limit: 1_000_000, offset: 0 })
 
-/** Every entry that moves a parlor's savings, of any pool, however many. */
-export const parlorEntriesRequest = (parlorName: string): RequestOf<"entries"> => ({ kind: "entries", query: parlorSavingsTerm(parlorName), limit: 1_000_000, offset: 0 })
+/** Every entry that moves a parlor's savings, of any pool, however many, of those `query` matches: its days. */
+export const parlorEntriesRequest = (parlorName: string, query: string = ""): RequestOf<"entries"> => ({ kind: "entries", query: combine(parlorSavingsTerm(parlorName), query), limit: 1_000_000, offset: 0 })
 
-/** What went into a parlor's savings, or came out of them, day by day, in yen at the rate of each day: `amt:>0` or `amt:<0` says which. */
-export const parlorMovedRequest = (parlorName: string, way: "amt:>0" | "amt:<0"): RequestOf<"balance"> => ({
+/** What went into a parlor's savings, or came out of them, day by day, in yen at the rate of each day: `amt:>0` or `amt:<0` says which, and `query` the days. */
+export const parlorMovedRequest = (parlorName: string, way: "amt:>0" | "amt:<0", query: string = ""): RequestOf<"balance"> => ({
   kind: "balance",
-  query: combine(parlorSavingsTerm(parlorName), way),
+  query: combine(parlorSavingsTerm(parlorName), way, query),
   interval: "daily",
   valuation: inYen({ at: "posting-date" }),
 })
 
-/** Every entry that moves one pool's savings, however many. */
-export const poolEntriesRequest = (account: string): RequestOf<"entries"> => ({ kind: "entries", query: accountTerm(account), limit: 1_000_000, offset: 0 })
+/** Every entry that moves one pool's savings, however many, of those `query` matches: its days. */
+export const poolEntriesRequest = (account: string, query: string = ""): RequestOf<"entries"> => ({ kind: "entries", query: combine(accountTerm(account), query), limit: 1_000_000, offset: 0 })
+
+/** The newest entry a query matches, and how many it matches: whether there is any, and when the last was. */
+export const newestEntryRequest = (query: string): RequestOf<"entries"> => ({ kind: "entries", query, limit: 1, offset: 0 })
 
 /** Whether a pool's opening balance is registered: one entry is enough to say so. */
 export const openingBalanceRequest = (kind: TokenKind, parlorName: string, tier: string): RequestOf<"entries"> => ({

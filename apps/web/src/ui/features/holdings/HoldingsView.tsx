@@ -142,20 +142,29 @@ const NO_PARLORS = "貯玉・貯メダルのある店舗がないため、絞り
  * moved, latest first — nobody orders them by hand — those holding nothing
  * folded away under them, and a name typed finds any of them. A funnel at the end of that row chooses which
  * parlors' savings are shown, the total over theirs alone, hledger asked
- * of their accounts; which are chosen is the address's too.
+ * of their accounts; which are chosen is the address's too. Opened again,
+ * it shows at once what it last showed for the same book, day and parlors,
+ * while it asks hledger anew behind it.
  */
 export function HoldingsView(props: { readonly place: Place; readonly bookId: BookId; readonly parlors: readonly string[] | undefined; readonly query: string }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
-  const [every] = createResource(
+  const shown = app.savingsShown
+  /** What is asked of the book's savings, as what was last shown is kept under it: the book, the day, and the parlors where some are chosen. */
+  const keyOf = (bookId: BookId, query: string, parlors?: readonly string[]): string => [bookId, query, ...(parlors === undefined ? [] : ["", ...parlors])].join("\n")
+  const [asked] = createResource(
     () => ({ bookId: props.bookId, query: props.query, revision: app.revision() }),
-    (source) => loadHoldings(app.services.session, source.bookId, source.query),
+    (source) => shown.holdings.asked(keyOf(source.bookId, source.query), () => loadHoldings(app.services.session, source.bookId, source.query)),
   )
-  const [narrowed] = createResource(
+  const [narrowedAsked] = createResource(
     () => (props.parlors === undefined ? undefined : { bookId: props.bookId, query: props.query, parlors: props.parlors, revision: app.revision() }),
-    (source) => loadHoldings(app.services.session, source.bookId, source.query, source.parlors),
+    (source) => shown.holdings.asked(keyOf(source.bookId, source.query, source.parlors), () => loadHoldings(app.services.session, source.bookId, source.query, source.parlors)),
   )
-  /** The savings shown: at every parlor, or at those chosen, hledger asked of theirs alone. */
+  /** The savings at every parlor: as hledger answers, or until it has, as last shown. */
+  const every = () => asked() ?? shown.holdings.kept(keyOf(props.bookId, props.query))
+  /** The savings at the parlors chosen, hledger asked of theirs alone, or until it has, as last shown. */
+  const narrowed = () => narrowedAsked() ?? (props.parlors === undefined ? undefined : shown.holdings.kept(keyOf(props.bookId, props.query, props.parlors)))
+  /** The savings shown: at every parlor, or at those chosen. */
   const holdings = () => (props.parlors === undefined ? every() : narrowed())
   /** The parlors the book holds savings at, whatever is chosen: what the funnel offers. */
   const offered = (): readonly Offered[] => ((found) => (found?.ok === true ? found.value.parlors.map((holding) => ({ key: holding.parlorName, label: holding.parlorName })) : []))(every())
@@ -169,10 +178,10 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
   )
   const [lastMoved] = createResource(
     () => ({ bookId: props.bookId, query: props.query, revision: app.revision() }),
-    (source) => loadLastMoved(app.services.session, source.bookId, source.query),
+    (source) => shown.lastMoved.asked(keyOf(source.bookId, source.query), () => loadLastMoved(app.services.session, source.bookId, source.query)),
   )
-  /** The last day each parlor's savings moved: none known while it is read, or where it cannot be. */
-  const moved = (): ReadonlyMap<string, IsoDate> => ((found) => (found?.ok === true ? found.value : new Map<string, IsoDate>()))(lastMoved())
+  /** The last day each parlor's savings moved, as last shown until it is read again: none known where it never was, or cannot be. */
+  const moved = (): ReadonlyMap<string, IsoDate> => ((found) => (found?.ok === true ? found.value : new Map<string, IsoDate>()))(lastMoved() ?? shown.lastMoved.kept(keyOf(props.bookId, props.query)))
   /** What is typed to find a parlor by its name: kept on screen alone, never in the address. */
   const [typed, setTyped] = createSignal("")
   /** Whether the search's row is open under the controls: opened by the magnifying glass, and closed by it again, forgetting what was typed. */

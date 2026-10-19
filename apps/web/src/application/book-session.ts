@@ -61,6 +61,8 @@ export interface BookSession {
   readonly books: () => Promise<Outcome<readonly ListedBook[]>>
   readonly createBook: (stored: StoredBook) => Promise<Outcome<CommitId>>
   readonly read: <T>(bookId: BookId, work: (journal: JournalAccess, stored: StoredBook) => Promise<Outcome<T>>) => Promise<Outcome<T>>
+  /** A book as it is stored, without opening it in hledger: for what needs only to know which journals it holds. */
+  readonly stored: (bookId: BookId) => Promise<Outcome<StoredBook>>
   readonly write: (
     bookId: BookId,
     propose: (journal: JournalAccess, stored: StoredBook) => Promise<Outcome<ProposedChange>>,
@@ -193,6 +195,8 @@ export const createBookSession = (ports: SessionPorts): BookSession => {
         const stored = await openBook(journal, bookId)
         return stored.ok ? work(journal, stored.value) : stored
       }),
+
+    stored: async (bookId) => fromStorage(await ports.storage.readBook(bookId)),
 
     fold: (bookId, work) =>
       ports.hledger.inTurn(async (journal) => {

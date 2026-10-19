@@ -20,6 +20,7 @@ interface Asked {
   readonly bookIds: readonly BookId[] | undefined
   readonly month: IsoMonth
   readonly revision: number
+  readonly outdated: number
 }
 
 /** One part of each book's month, its days or its whole, as the books are merged by. */
@@ -39,9 +40,9 @@ export function ConsolidatedResultCalendarView(props: { readonly place: Place; r
   const app = useApp()
   const moves = useMoves()
   const [month, setMonth] = createSignal<IsoMonth>(monthOf(app.services.businessDay()))
-  const asked = (): Asked => ({ bookIds: props.bookIds, month: month(), revision: app.revision() })
-  const [results] = createResource(asked, (source) => loadConsolidatedDaysAndWhole(app.services.session, source.bookIds, monthQuery(source.month)))
-  const [kept] = createResource(() => ({ bookIds: props.bookIds, revision: app.revision() }), (source) => consolidationKeepsTheoreticalValues(app.services.session, source.bookIds))
+  const asked = (): Asked => ({ bookIds: props.bookIds, month: month(), revision: app.revision(), outdated: app.consolidationOutdated() })
+  const [results] = createResource(asked, (source) => loadConsolidatedDaysAndWhole(app.services.consolidation, source.bookIds, monthQuery(source.month)))
+  const [kept] = createResource(() => ({ bookIds: props.bookIds, revision: app.revision(), outdated: app.consolidationOutdated() }), (source) => consolidationKeepsTheoreticalValues(app.services.consolidation, source.bookIds))
   /** Whether any of the books keeps theoretical values: taken to until hledger says none does. */
   const theoreticalKept = (): boolean => ((answer) => answer?.ok !== true || answer.value)(kept())
   return (

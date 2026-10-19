@@ -2,8 +2,9 @@ import { AuxPanel } from "solid-gathering-shell"
 import { createResource, createSignal, For, Show, type JSX } from "solid-js"
 
 import { loadRecordingContext } from "../../../application/record-tally"
-import { loadPassbook } from "../../../application/savings"
+import { loadPassbook, type PoolPassbookFrom } from "../../../application/savings"
 import type { BookId } from "../../../core/book/book"
+import type { IsoDate } from "../../../core/calendar/calendar"
 import type { TokenKind } from "../../../core/commodity/commodity"
 import { isZero, ZERO, type Decimal } from "../../../core/decimal/decimal"
 import { readSavingsAccount } from "../../../core/journal/accounts"
@@ -13,9 +14,10 @@ import { CloseIcon } from "../../primitives/icons"
 import { EmptyState, Loaded } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
-import { formatDayOfYear } from "../../wording/dates"
+import { formatDay, formatDayOfYear } from "../../wording/dates"
 import { formatRate, formatTokens } from "../../wording/numbers"
 import { passbookCauseText } from "../../wording/passbook"
+import { yearOf } from "../period/periods"
 import { ForfeitureForm, RateChangeForm } from "./SavingsForms"
 
 const UNITS = { ball: "玉", medal: "枚" } as const
@@ -25,12 +27,34 @@ const ROW_BUTTON = "shrink-0 rounded border border-border px-2 py-0.5 text-xs te
 /** The columns a passbook's rows line up in: the day, then what went out, what came in, and what was left. */
 export const COLUMNS = "grid grid-cols-[minmax(0,1.2fr)_repeat(3,minmax(0,1fr))] items-baseline gap-2"
 
-/** The rate the pool was last set to, where it was ever set: the passbook's newest day that set one. */
-const currentRate = (passbook: readonly PassbookDay[]): Decimal | undefined => passbook.find((day) => day.rateSet !== undefined)?.rateSet?.rate
+/** What the pool holds now: its newest day's balance, or what it held before the days shown where none moved since. */
+const heldNow = (passbook: PoolPassbookFrom): Decimal => passbook.days[0]?.balance ?? passbook.before?.balance ?? ZERO
 
 /** Tokens in a column: muted where none moved. */
 function Count(props: { readonly value: Decimal; readonly kind: TokenKind; readonly class?: string }): JSX.Element {
   return <span class={`text-right tabular-nums ${isZero(props.value) ? "text-text-muted" : (props.class ?? "text-text-primary")}`}>{formatTokens(props.value, props.kind)}</span>
+}
+
+/**
+ * The end of a passbook shown from a day: what was held at the end of the
+ * day before, and the way to the year anything last moved in before then,
+ * shown from that year's first day.
+ */
+export function Earlier(props: { readonly through: IsoDate; readonly lastMoved: IsoDate; readonly balance: JSX.Element; readonly onEarlier: (from: IsoDate) => void }): JSX.Element {
+  const year = (): string => props.lastMoved.slice(0, 4)
+  return (
+    <div class="flex flex-col gap-2">
+      <div class={`${COLUMNS} text-sm`}>
+        <span class="col-span-3 min-w-0 truncate text-text-secondary">{formatDay(props.through)}までの残高</span>
+        {props.balance}
+      </div>
+      <div class="flex justify-end">
+        <button type="button" class={ROW_BUTTON} onClick={() => props.onEarlier(`${year()}-01-01` as IsoDate)}>
+          {Number(year())}年も見る
+        </button>
+      </div>
+    </div>
+  )
 }
 
 /** What moved a day's savings, a cause to a line: what it took out and put in, and how many entries it was where more than one. */
@@ -88,7 +112,8 @@ function Day(props: { readonly day: PassbookDay; readonly kind: TokenKind; reado
  * One pool's savings as a passbook, beside the book's savings: a row for
  * each day they moved or their rate was set, newest first, with what went
  * out, what came in and what was left, and pressed, what moved them that
- * day, machine by machine. Above, the balance and the rate the pool has
+ * day, machine by machine. It opens on this year, what was held before
+ * it under the last row, and goes back a year that moved at a time. Above, the balance and the rate the pool has
  * now, and the way to set that rate anew; at the end, the way to record
  * savings the parlor took back, kept off the savings' cards since it is
  * seldom wanted.
@@ -97,9 +122,10 @@ export function PassbookPanel(props: { readonly place: Place; readonly bookId: B
   const app = useApp()
   const moves = useMoves()
   const pool = () => readSavingsAccount(props.account)
+  const [from, setFrom] = createSignal<IsoDate | undefined>(yearOf(app.services.businessDay()).from)
   const [days] = createResource(
-    () => ((found) => (found === undefined ? undefined : { found, bookId: props.bookId, revision: app.revision() }))(pool()),
-    (source) => loadPassbook(app.services.session, source.bookId, source.found.parlorName, { kind: source.found.kind, tier: source.found.tier }),
+    () => ((found) => (found === undefined ? undefined : { found, bookId: props.bookId, from: from(), revision: app.revision() }))(pool()),
+    (source) => loadPassbook(app.services.session, source.bookId, source.found.parlorName, { kind: source.found.kind, tier: source.found.tier }, source.from),
   )
   const [context] = createResource(
     () => ({ bookId: props.bookId, revision: app.revision() }),
@@ -128,8 +154,8 @@ export function PassbookPanel(props: { readonly place: Place; readonly bookId: B
             {(passbook) => (
               <div class="flex flex-col gap-3 p-4">
                 <div class="flex items-baseline gap-3">
-                  <span class="text-lg font-bold tabular-nums text-text-primary">{formatTokens(passbook[0]?.balance ?? ZERO, found.kind)}</span>
-                  <span class="flex-1 text-sm text-text-muted">{((rate) => (rate === undefined ? "交換率なし" : `@ ${formatRate(rate)}`))(currentRate(passbook))}</span>
+                  <span class="text-lg font-bold tabular-nums text-text-primary">{formatTokens(heldNow(passbook), found.kind)}</span>
+                  <span class="flex-1 text-sm text-text-muted">{((rate) => (rate === undefined ? "交換率なし" : `@ ${formatRate(rate)}`))(passbook.rate)}</span>
                   <Show when={writable() && !changing()}>
                     <button type="button" class={ROW_BUTTON} onClick={() => setChanging(true)}>
                       交換率を変更
@@ -137,9 +163,9 @@ export function PassbookPanel(props: { readonly place: Place; readonly bookId: B
                   </Show>
                 </div>
                 <Show when={changing()}>
-                  <RateChangeForm bookId={props.bookId} parlorName={found.parlorName} pool={{ kind: found.kind, tier: found.tier }} unit={UNITS[found.kind]} current={currentRate(passbook)} onDone={() => setChanging(false)} />
+                  <RateChangeForm bookId={props.bookId} parlorName={found.parlorName} pool={{ kind: found.kind, tier: found.tier }} unit={UNITS[found.kind]} current={passbook.rate} onDone={() => setChanging(false)} />
                 </Show>
-                <Show when={passbook.length > 0} fallback={<EmptyState title="出し入れはまだありません" />}>
+                <Show when={passbook.days.length > 0 || passbook.before !== undefined} fallback={<EmptyState title="出し入れはまだありません" />}>
                   <div class={`${COLUMNS} border-b border-border pb-1 text-xs text-text-muted`}>
                     <span>日付</span>
                     <span class="text-right">払出</span>
@@ -147,8 +173,11 @@ export function PassbookPanel(props: { readonly place: Place; readonly bookId: B
                     <span class="text-right">残高</span>
                   </div>
                   <ul class="flex flex-col">
-                    <For each={passbook}>{(day, at) => <Day day={day} kind={found.kind} yearShown={at() === 0 || passbook[at() - 1]?.date.slice(0, 4) !== day.date.slice(0, 4)} />}</For>
+                    <For each={passbook.days}>{(day, at) => <Day day={day} kind={found.kind} yearShown={at() === 0 || passbook.days[at() - 1]?.date.slice(0, 4) !== day.date.slice(0, 4)} />}</For>
                   </ul>
+                  <Show when={passbook.before} keyed>
+                    {(before) => <Earlier through={before.through} lastMoved={before.lastMoved} balance={<span class="text-right font-semibold tabular-nums text-text-primary">{formatTokens(before.balance, found.kind)}</span>} onEarlier={setFrom} />}
+                  </Show>
                 </Show>
                 <Show when={keptParlor(found.parlorName)} keyed>
                   {(parlor) => (
@@ -162,7 +191,7 @@ export function PassbookPanel(props: { readonly place: Place; readonly bookId: B
                         </div>
                       }
                     >
-                      <ForfeitureForm bookId={props.bookId} parlor={parlor} pool={{ kind: found.kind, tier: found.tier }} unit={UNITS[found.kind]} held={passbook[0]?.balance ?? ZERO} onDone={() => setForfeiting(false)} />
+                      <ForfeitureForm bookId={props.bookId} parlor={parlor} pool={{ kind: found.kind, tier: found.tier }} unit={UNITS[found.kind]} held={heldNow(passbook)} onDone={() => setForfeiting(false)} />
                     </Show>
                   )}
                 </Show>

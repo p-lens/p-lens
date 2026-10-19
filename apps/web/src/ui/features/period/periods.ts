@@ -96,5 +96,15 @@ export interface Shortcut {
 export const shortcutsOn = (today: IsoDate): readonly Shortcut[] => [
   { id: "today", label: "本日", range: { from: today, to: today } },
   { id: "month", label: "今月", range: { from: `${today.slice(0, 7)}-01` as IsoDate, to: lastDayOfMonth(today) } },
-  { id: "year", label: "今年", range: { from: `${today.slice(0, 4)}-01-01` as IsoDate, to: `${today.slice(0, 4)}-12-31` as IsoDate } },
+  { id: "year", label: "今年", range: yearOf(today) },
 ]
+
+/** The year a business day is in, from its first day to its last. */
+export const yearOf = (today: IsoDate): DateRange => ({ from: `${today.slice(0, 4)}-01-01` as IsoDate, to: `${today.slice(0, 4)}-12-31` as IsoDate })
+
+/**
+ * What 集計 opens on, alone and consolidated, when it is opened rather than
+ * gone to with a period: the year of the business day. Every day there is
+ * reads every book through, where a year reads that year's.
+ */
+export const openingQueryOn = (today: IsoDate): string => queryOf(yearOf(today))

@@ -34,3 +34,18 @@ export const inBookOrder = (paths: readonly string[]): readonly string[] => {
   }
   return paths.toSorted((left, right) => rank(left) - rank(right) || left.localeCompare(right))
 }
+
+/**
+ * The files hledger reads of a book's: its journals, which include one
+ * another. The rest — the activity log, the settings, the plays' logs —
+ * hledger never reads.
+ */
+export const journalsOf = (files: BookFiles): readonly (readonly [string, string])[] => Object.entries(files).filter(([path]) => path.endsWith(".journal"))
+
+/**
+ * A book's journals written out as one text, in an order that does not
+ * depend on how they were kept, with the one read first: what a digest is
+ * made of to tell whether what hledger would read has changed, and what
+ * hledger's answers about the book are kept under.
+ */
+export const journalsTextOf = (files: BookFiles, entry: string): string => JSON.stringify([entry, journalsOf(files).toSorted(([left], [right]) => left.localeCompare(right))])
