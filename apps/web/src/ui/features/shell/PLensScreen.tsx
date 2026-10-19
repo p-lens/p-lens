@@ -7,7 +7,7 @@ import { destinationsOf } from "../../../application/sending"
 import type { ListedBook } from "../../../core/book/book"
 import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
-import { bookOf, focusOf, inConsolidation, inSettings, placeOf, screenOf, type Place } from "../../navigation/place"
+import { bookOf, focusOf, inConsolidation, inOddPrizeCalculator, inSettings, placeOf, screenOf, type Place } from "../../navigation/place"
 import { EmptyState } from "../../primitives/states"
 import { ActivityView } from "../activity/ActivityView"
 import { CabinetView } from "../live/CabinetView"
@@ -25,6 +25,7 @@ import { StartPlayView } from "../live/StartPlayView"
 import { SubmissionReturnView } from "../live/SubmissionReturnView"
 import { DocumentView } from "../documents/DocumentView"
 import { NotFound } from "../not-found/NotFound"
+import { OddPrizeCalculatorSide } from "../odd-prize-calculator/OddPrizeCalculatorSide"
 import * as PachislotViews from "../pachislot"
 import { TallyDetail } from "../tallies/TallyDetail"
 import { TalliesView } from "../tallies/TalliesView"
@@ -57,6 +58,7 @@ import { ToastRegion } from "../../primitives/toast"
 import { ViewHeader } from "./ViewHeader"
 import { RefreshButton } from "./RefreshButton"
 import { UpdateNotice } from "./UpdateNotice"
+import { ODD_PRIZE_CALCULATOR_LABEL } from "../../wording/odd-prize-calculator"
 
 /** Below this width the panes are shown one at a time. */
 const NARROW_BELOW = 768
@@ -152,6 +154,10 @@ const mainFor = (place: Place, query: () => string, live: () => Place): JSX.Elem
       return <ConsolidatedResultCalendarView place={liveAs(live, place)} bookIds={liveAs(live, place).bookIds} />
     case "consolidated-breakdown":
       return <ConsolidatedBreakdownView place={liveAs(live, place)} by={place.by} bookIds={liveAs(live, place).bookIds} query={query()} />
+    case "odd-prize-calculator":
+      return <ChooseFromList place={place} title={ODD_PRIZE_CALCULATOR_LABEL} hint="左のリストからパチンコかスロットを選んでください。" />
+    case "odd-prize-calculator-game":
+      return place.game === "pachinko" ? <PachinkoViews.OddPrizeCalculator place={place} /> : <PachislotViews.OddPrizeCalculator place={place} />
     case "settings":
       return <ChooseFromList place={place} title="設定" hint="左のリストから項目を選んでください。" />
     case "settings-section":
@@ -205,9 +211,10 @@ const bookViewFor = (place: Extract<Place, { kind: "book-view" }>, query: () => 
   }
 }
 
-/** The side panel for a place: the live space's plays, a book's views, the plays to send to a book that is only sent to, or settings. */
+/** The side panel for a place: the live space's plays, a book's views, the plays to send to a book that is only sent to, the odd-prize calculator's games, or settings. */
 const sideFor = (place: Place, books: Outcome<readonly ListedBook[]> | undefined, destinations: Outcome<readonly Destination[]> | undefined): JSX.Element => {
   if (inSettings(place)) return <SettingsSide place={place} />
+  if (inOddPrizeCalculator(place)) return <OddPrizeCalculatorSide place={place} />
   if (place.kind === "destination") return <DestinationSide lineId={place.lineId} destinations={destinations} />
   if (inConsolidation(place)) return <ConsolidatedSide place={place} />
   const bookId = bookOf(place)

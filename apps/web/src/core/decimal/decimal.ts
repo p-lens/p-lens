@@ -86,7 +86,7 @@ export const rounded = (value: Decimal, places: number): Decimal => {
 }
 
 /** A value rounded down to a number of places, towards minus infinity. */
-const floored = (value: Decimal, places: number): Decimal => {
+export const floored = (value: Decimal, places: number): Decimal => {
   if (value.places <= places) return value
   const divisor = 10n ** BigInt(value.places - places)
   const down = value.mantissa / divisor

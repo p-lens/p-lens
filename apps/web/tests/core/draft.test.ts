@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import type { IsoDate } from "../../src/core/calendar/calendar"
-import { awaitsSending, deliveryOf, withCabinetNumber, withMachine, type PachinkoDraft } from "../../src/core/live-play/draft"
+import { awaitsSending, deliveryOf, latestTermsOf, withCabinetNumber, withMachine, type PachinkoDraft, type PlayDraft } from "../../src/core/live-play/draft"
 import { withJackpotsUntold } from "../../src/core/pachinko/revision"
 import { appendCheckpoint, parsePlayLog } from "../../src/core/play-log/checkpoint"
 import type { PlayId } from "../../src/core/play/play"
@@ -77,5 +77,19 @@ describe("a play said anew to be on another machine", () => {
     expect("pachinko" in slot || "bonuses" in slot).toBe(false)
     expect(withCabinetNumber(DRAFT, "123").cabinetNumber).toBe("123")
     expect(withCabinetNumber({ ...DRAFT, cabinetNumber: "123" }, undefined).cabinetNumber).toBeUndefined()
+  })
+})
+
+describe("the latest terms of a game", () => {
+  const terms = (exchangeTokens: number) => ({ rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: exchangeTokens }, replay: { paidOut: 125, deducted: 125 } })
+  const at = (startedAt: string, exchangeTokens: number | undefined): PachinkoDraft => ({ ...DRAFT, startedAt, venue: { type: "none", terms: exchangeTokens === undefined ? undefined : terms(exchangeTokens) } })
+
+  test("are the newest play's of the game that has any, never a play sent from someone else's device", () => {
+    const slot = { ...at("2026-10-09T09:00:00.000Z", 51), gameKind: "slot" } as PlayDraft
+    const received = { ...at("2026-10-09T08:00:00.000Z", 300), received: { sender: "仲間", log: "", finished: undefined } } as PlayDraft
+    const drafts: readonly PlayDraft[] = [at("2026-10-09T02:00:00.000Z", 280), slot, received, at("2026-10-09T05:00:00.000Z", 275), at("2026-10-09T07:00:00.000Z", undefined)]
+    expect(latestTermsOf(drafts, "pachinko")?.exchange.tokens).toBe(275)
+    expect(latestTermsOf(drafts, "slot")?.exchange.tokens).toBe(51)
+    expect(latestTermsOf([], "pachinko")).toBeUndefined()
   })
 })

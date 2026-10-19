@@ -1,10 +1,10 @@
 import type { BookId, MemberId, ListedBook } from "../core/book/book"
 import { memberCan } from "../core/book/book"
 import type { IsoDate } from "../core/calendar/calendar"
-import { bookOf, headOf, isPast, withCabinetNumber, withCheckpoints, withLog, withMachine, type MachineChange, type PlayDraft } from "../core/live-play/draft"
+import { bookOf, headOf, isPast, latestTermsOf, withCabinetNumber, withCheckpoints, withLog, withMachine, type MachineChange, type PlayDraft } from "../core/live-play/draft"
 import { exchangeRateOf, poolOf, type PlayTerms } from "../core/parlor/terms"
 import type { TokenTally, YenTally } from "../core/tally/tally"
-import type { PlayId } from "../core/play/play"
+import type { PlayGameKind, PlayId } from "../core/play/play"
 import type { Checkpoint } from "../core/play-log/checkpoint"
 import { toPlainString } from "../core/decimal/decimal"
 import * as Pachinko from "../core/pachinko"
@@ -26,6 +26,9 @@ import { reviseTokenTally, reviseYenTally } from "./revise-tally"
 
 export const loadDrafts = async (drafts: DraftStorage): Promise<Outcome<readonly PlayDraft[]>> =>
   mapOk(fromDraft(await drafts.listDrafts()), (found) => found.toSorted((left, right) => right.startedAt.localeCompare(left.startedAt)))
+
+/** The terms of the latest play of a game begun on this device, where one is still kept. */
+export const loadLatestTerms = async (drafts: DraftStorage, gameKind: PlayGameKind): Promise<Outcome<PlayTerms | undefined>> => mapOk(await loadDrafts(drafts), (found) => latestTermsOf(found, gameKind))
 
 export const loadDraft = async (drafts: DraftStorage, id: PlayId): Promise<Outcome<PlayDraft>> => fromDraft(await drafts.readDraft(id))
 

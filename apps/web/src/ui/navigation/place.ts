@@ -57,6 +57,11 @@ const isFormulaTab = (segment: string): segment is FormulaTab => (FORMULA_TABS a
  * `live-record` records it into its book, and `live-cabinet` says anew
  * which cabinet and machine it is on.
  *
+ * `odd-prize-calculator` is the space where tokens are reckoned at a
+ * counter, `odd-prize-calculator-game` the calculator of one game: what
+ * so many tokens come to as special prizes and odd prizes. It keeps
+ * nothing and writes nothing.
+ *
  * `destination` is another person's book this device may only send plays
  * to, named by the inbox line they are put on: its side panel is the day's
  * plays and how each stands with it, and nothing of the book.
@@ -109,6 +114,8 @@ export type Place =
   | { readonly kind: "pachislot-formula-new"; readonly tab: FormulaTab }
   | { readonly kind: "pachislot-distribution-new"; readonly machineId: string }
   | { readonly kind: "destination"; readonly lineId: string }
+  | { readonly kind: "odd-prize-calculator" }
+  | { readonly kind: "odd-prize-calculator-game"; readonly game: PlayGameKind }
   | { readonly kind: "consolidated" }
   | { readonly kind: "consolidated-holdings"; readonly bookIds: readonly BookId[] | undefined }
   | { readonly kind: "consolidated-result-calendar"; readonly bookIds: readonly BookId[] | undefined }
@@ -209,6 +216,8 @@ const placeOfSegments = (segments: readonly string[], path: string): Place => {
     return { kind: "tally", bookId: second as BookId, playId: fourth as PlayId }
   if (first === "parlors" && second === "submitted" && third === undefined) return { kind: "parlor-submitted" }
   if (first === "destinations" && second !== undefined && third === undefined) return { kind: "destination", lineId: second }
+  if (first === "odd-prize-calculator" && second === undefined) return { kind: "odd-prize-calculator" }
+  if (first === "odd-prize-calculator" && (second === "pachinko" || second === "slot") && third === undefined) return { kind: "odd-prize-calculator-game", game: second }
   if (first === "consolidated" && second === undefined) return { kind: "consolidated" }
   if (first === "consolidated" && second === "holdings" && fourth === undefined) return { kind: "consolidated-holdings", bookIds: bookIdsIn(third) }
   if (first === "consolidated" && second === "result-calendar" && fourth === undefined) return { kind: "consolidated-result-calendar", bookIds: bookIdsIn(third) }
@@ -297,6 +306,10 @@ export const pathOf = (place: Place): string => {
       return `/pachislot/machines/${encode(place.machineId)}/distributions/new`
     case "destination":
       return `/destinations/${encode(place.lineId)}`
+    case "odd-prize-calculator":
+      return "/odd-prize-calculator"
+    case "odd-prize-calculator-game":
+      return `/odd-prize-calculator/${place.game}`
     case "consolidated":
       return "/consolidated"
     case "consolidated-holdings":
@@ -322,6 +335,7 @@ export const focusOf = (place: Place): Focus => {
     case "live":
     case "book":
     case "destination":
+    case "odd-prize-calculator":
     case "consolidated":
     case "settings":
       return "selection"
@@ -355,6 +369,7 @@ export const focusOf = (place: Place): Focus => {
     case "consolidated-holdings":
     case "consolidated-result-calendar":
     case "consolidated-breakdown":
+    case "odd-prize-calculator-game":
     case "settings-section":
     case "document":
     case "not-found":
@@ -417,9 +432,12 @@ export const parentOf = (place: Place): Place | undefined => {
     case "consolidated-result-calendar":
     case "consolidated-breakdown":
       return { kind: "consolidated" }
+    case "odd-prize-calculator-game":
+      return { kind: "odd-prize-calculator" }
     case "live":
     case "book":
     case "destination":
+    case "odd-prize-calculator":
     case "consolidated":
     case "settings":
     case "not-found":
@@ -465,6 +483,9 @@ export const inConsolidation = (place: Place): boolean =>
 /** The books a place of the consolidation is of: those its address names, or `undefined` for every book on the device — as it is anywhere else. */
 export const consolidatedBooksOf = (place: Place): readonly BookId[] | undefined =>
   place.kind === "consolidated-holdings" || place.kind === "consolidated-result-calendar" || place.kind === "consolidated-breakdown" ? place.bookIds : undefined
+
+/** Whether a place is in the space where tokens are reckoned at a counter. */
+export const inOddPrizeCalculator = (place: Place): boolean => place.kind === "odd-prize-calculator" || place.kind === "odd-prize-calculator-game"
 
 export const inSettings = (place: Place): boolean => place.kind === "settings" || place.kind === "settings-section" || place.kind === "document"
 

@@ -3,9 +3,9 @@ import { describe, expect, test } from "bun:test"
 import { tokenValueOf } from "../../src/core/parlor/terms"
 import { readTerms, replayFeeOf, replayPaysMoreThanItTakes, termsAsOpened, termsFormOf } from "../../src/ui/features/live/start-terms"
 
-const OPENED = termsAsOpened({ rentalTokens: "250", exchange: "28.0", replayTokens: "125" })
+const OPENED = termsAsOpened({ rentalTokens: "250", exchange: "28", replayTokens: "125" })
 
-const FILLED = { rentalTokens: "250", exchange: "28.0", replayPaidOut: "250", replayDeducted: "275" }
+const FILLED = { rentalTokens: "250", exchange: "28", replayPaidOut: "250", replayDeducted: "275" }
 
 describe("the start form's terms", () => {
   test("read the tokens ¥1,000 rents, the tokens ¥100 is exchanged for, and a replay's counts, into a corner's terms", () => {
@@ -18,7 +18,7 @@ describe("the start form's terms", () => {
   test("are set out again from a corner's terms as they were typed, whatever sum the terms were stated for", () => {
     const read = readTerms(FILLED, "pachinko")
     expect(read.ok && termsFormOf(read.value, "pachinko")).toEqual(FILLED)
-    expect(termsFormOf({ rental: { yen: 500, tokens: 125 }, exchange: { yen: 100, tokens: 28 }, replay: { paidOut: 125, deducted: 133 } }, "pachinko")).toEqual({ rentalTokens: "250", exchange: "28.0", replayPaidOut: "125", replayDeducted: "133" })
+    expect(termsFormOf({ rental: { yen: 500, tokens: 125 }, exchange: { yen: 100, tokens: 28 }, replay: { paidOut: 125, deducted: 133 } }, "pachinko")).toEqual({ rentalTokens: "250", exchange: "28", replayPaidOut: "125", replayDeducted: "133" })
   })
 
   test("read numbers typed full-width as the numbers they are", () => {
@@ -35,7 +35,7 @@ describe("the start form's terms", () => {
   })
 
   test("open with the usual rates and a replay that takes what it pays out, so a usual corner needs nothing typed", () => {
-    expect(OPENED).toEqual({ rentalTokens: "250", exchange: "28.0", replayPaidOut: "125", replayDeducted: "125" })
+    expect(OPENED).toEqual({ rentalTokens: "250", exchange: "28", replayPaidOut: "125", replayDeducted: "125" })
     expect(readTerms(OPENED, "pachinko")).toEqual({
       ok: true,
       value: { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 125, deducted: 125 } },
@@ -61,7 +61,7 @@ describe("a pachislot corner's exchange, stated for ¥100", () => {
   })
 
   test("sets terms kept for ¥1,000 out as stated for ¥100, to both places: 52枚 is 5.20", () => {
-    expect(termsFormOf({ rental: { yen: 1000, tokens: 46 }, exchange: { yen: 1000, tokens: 52 }, replay: { paidOut: 23, deducted: 23 } }, "slot").exchange).toBe("5.20")
+    expect(termsFormOf({ rental: { yen: 1000, tokens: 46 }, exchange: { yen: 1000, tokens: 52 }, replay: { paidOut: 23, deducted: 23 } }, "slot").exchange).toBe("5.2")
   })
 
   test("refuses more than two places, none, and nothing; pachinko's is said to one", () => {

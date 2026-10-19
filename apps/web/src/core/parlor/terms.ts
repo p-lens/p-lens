@@ -43,16 +43,19 @@ export const exchangeOfStated = (gameKind: PlayGameKind, typed: string): PlayTer
   return tokens > 0 ? { yen: yen * scale, tokens } : undefined
 }
 
-/** A rate in yen for a token as a game states an exchange, tokens for ¥100, to the places it is said to: 3.571429 yen is 28.0 balls. */
+/** A number to the places a game states an exchange to, without the zeros a board leaves off: 28.0 is 28, 5.10 is 5.1. */
+const asStated = (value: number, places: number): string => value.toFixed(places).replace(/\.?0+$/, "")
+
+/** A rate in yen for a token as a game states an exchange, tokens for ¥100, to the places it is said to: 3.571429 yen is 28 balls. */
 export const statedExchangeOfRate = (gameKind: PlayGameKind, rate: Decimal): string => {
   const { yen, places } = EXCHANGE_STATED[gameKind]
-  return (yen / Number(toPlainString(rate))).toFixed(places)
+  return asStated(yen / Number(toPlainString(rate)), places)
 }
 
-/** An exchange as stated for a game, to every place it is said to, however it is kept: 510 for ¥10,000 and 52 for ¥1,000 at pachislot are 5.10 and 5.20, 280 for ¥1,000 at pachinko 28.0. */
+/** An exchange as stated for a game, however it is kept: 510 for ¥10,000 and 52 for ¥1,000 at pachislot are 5.1 and 5.2, 280 for ¥1,000 at pachinko 28, 275 27.5. */
 export const statedExchangeOf = (gameKind: PlayGameKind, exchange: PlayTerms["exchange"]): string => {
   const { yen, places } = EXCHANGE_STATED[gameKind]
-  return ((exchange.tokens * yen) / exchange.yen).toFixed(places)
+  return asStated((exchange.tokens * yen) / exchange.yen, places)
 }
 
 /** How many places an exchange rate is kept to; 1000 yen for 280 balls is 3.571429. */

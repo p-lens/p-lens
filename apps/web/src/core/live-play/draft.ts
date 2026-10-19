@@ -6,7 +6,7 @@ import type * as Pachislot from "../pachislot"
 import type { Parlor } from "../parlor/parlor"
 import { tokenValueOf, type PlayTerms } from "../parlor/terms"
 import type { Sender, TallyHead } from "../tally/tally"
-import type { PlayId } from "../play/play"
+import type { PlayGameKind, PlayId } from "../play/play"
 import type { Checkpoint } from "../play-log/checkpoint"
 import type { Finish } from "../play-log/finish"
 import type { PlayLogHead } from "../play-log/head"
@@ -153,6 +153,17 @@ export const parlorOf = (draft: PlayDraft): Parlor | undefined => (draft.venue.t
 /** Yen a token of the play is worth by its terms, when it has terms. */
 export const tokenValueOfDraft = (draft: PlayDraft): number | undefined =>
   draft.venue.terms === undefined ? undefined : tokenValueOf(draft.venue.terms)
+
+/**
+ * The terms of the latest play of a game this device began that has any:
+ * the corner a person is most likely still at. Plays sent from someone
+ * else's device are another person's corner.
+ */
+export const latestTermsOf = (drafts: readonly PlayDraft[], gameKind: PlayGameKind): PlayTerms | undefined =>
+  drafts
+    .filter((draft) => draft.gameKind === gameKind && draft.received === undefined)
+    .toSorted((left, right) => right.startedAt.localeCompare(left.startedAt))
+    .find((draft) => draft.venue.terms !== undefined)?.venue.terms
 
 /** A play's prior as its log's head says it: which one, never its shares. */
 const priorSaid = (prior: Pachislot.Weighing["prior"]): NonNullable<PlayLogHead["prior"]> => {

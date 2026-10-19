@@ -12,9 +12,10 @@ import { createHourStruck } from "../../primitives/hour"
 import { ConsolidatedIcon, LiveIcon, SendIcon, SettingsIcon } from "../../primitives/icons"
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../primitives/tooltip"
 import { useMoves } from "../../navigation/moves"
-import { bookOf, inConsolidation, inLiveSpace, inSettings, type Place } from "../../navigation/place"
+import { bookOf, inConsolidation, inLiveSpace, inOddPrizeCalculator, inSettings, type Place } from "../../navigation/place"
 import { railLetters, type RailLetters } from "../../theme/rail-letters"
 import { bookTitle } from "../../wording/book"
+import { ODD_PRIZE_CALCULATOR_LABEL, ODD_PRIZE_CALCULATOR_LINES } from "../../wording/odd-prize-calculator"
 import { destinationLabel } from "../../wording/sync"
 import { consolidationShown } from "../consolidated/shown"
 import { useSampleBook } from "../sample-book/SampleBook"
@@ -61,6 +62,15 @@ function Initials(props: { readonly title: string }): JSX.Element {
   )
 }
 
+/** The odd-prize calculator on the rail, as two lines of two characters. */
+function CalculatorLetters(): JSX.Element {
+  return (
+    <span class="flex flex-col items-center gap-y-[3px] text-[16px] font-semibold leading-none tracking-tighter">
+      <For each={ODD_PRIZE_CALCULATOR_LINES}>{(line) => <span>{line}</span>}</For>
+    </span>
+  )
+}
+
 const ownedBy = (member: MemberId) => (book: Book): boolean => roleIn(book, member) === "owner"
 
 /**
@@ -69,7 +79,8 @@ const ownedBy = (member: MemberId) => (book: Book): boolean => roleIn(book, memb
  * you into; then the books you may only send plays to, each an outline
  * with a paper plane, wearing the number of the day's plays that wait to
  * be sent there; then all of the books together, consolidated, where a
- * person has turned that on; settings at the foot. Machines and formulas
+ * person has turned that on; the odd-prize calculator and making a
+ * sample book near the foot, and settings at it. Machines and formulas
  * are reached from starting a play.
  */
 export function SpacesRail(props: {
@@ -124,7 +135,10 @@ export function SpacesRail(props: {
   ]
   const sampleBook = useSampleBook(() => books().map(bookTitle))
   const footer = (): readonly (readonly RailItem[])[] => [
-    [sampleBook.item()],
+    [
+      { id: "odd-prize-calculator", label: ODD_PRIZE_CALCULATOR_LABEL, icon: <CalculatorLetters />, selected: inOddPrizeCalculator(props.place), onSelect: () => moves.go({ kind: "odd-prize-calculator" }) },
+      sampleBook.item(),
+    ],
     [{ id: "settings", label: "設定", icon: <SettingsIcon />, selected: inSettings(props.place), onSelect: () => moves.go({ kind: "settings" }) }],
   ]
   return (

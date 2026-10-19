@@ -1,5 +1,6 @@
 import { type BusinessDayTurn, readBusinessDayTurn } from "../../core/calendar/calendar"
 import type { GameKind } from "../../core/catalog/catalog"
+import { readStageStep, type StageStep } from "../../core/savings/odd-prize-reckoning"
 import type { Preferences } from "../port/preferences"
 
 const BUSINESS_DAY_TURN = "p-lens.business-day-turn"
@@ -7,6 +8,7 @@ const PARLOR_SETTING = "p-lens.parlor-setting"
 const TOKENS_IN_HAND = "p-lens.tokens-in-hand"
 const CONSOLIDATION_SHOWN = "p-lens.consolidation-shown"
 const FIRST_OPENED = "p-lens.first-opened"
+const STAGE_STEP = "p-lens.stage-step"
 const FIGURES_UNFOLDED: Readonly<Record<GameKind, string>> = { pachinko: "p-lens.figures-unfolded.pachinko", pachislot: "p-lens.figures-unfolded.pachislot" }
 const FORMULA_DRAFT: Readonly<Record<GameKind, string>> = { pachinko: "p-lens.formula-draft.pachinko", pachislot: "p-lens.formula-draft.pachislot" }
 
@@ -54,11 +56,12 @@ const markFirstOpened = (): void => {
  */
 export const createLocalStoragePreferences = (): Preferences => {
   markFirstOpened()
-  const held: { businessDayTurn: BusinessDayTurn; parlorSetting: string | undefined; tokensInHand: string | undefined; consolidationShown: boolean; figuresUnfolded: Record<GameKind, boolean>; formulaDraft: Record<GameKind, string | undefined> } = {
+  const held: { businessDayTurn: BusinessDayTurn; parlorSetting: string | undefined; tokensInHand: string | undefined; consolidationShown: boolean; stageStep: StageStep; figuresUnfolded: Record<GameKind, boolean>; formulaDraft: Record<GameKind, string | undefined> } = {
     businessDayTurn: readBusinessDayTurn(stored(BUSINESS_DAY_TURN)),
     parlorSetting: stored(PARLOR_SETTING),
     tokensInHand: stored(TOKENS_IN_HAND),
     consolidationShown: stored(CONSOLIDATION_SHOWN) === ON,
+    stageStep: readStageStep(stored(STAGE_STEP)),
     figuresUnfolded: { pachinko: stored(FIGURES_UNFOLDED.pachinko) === ON, pachislot: stored(FIGURES_UNFOLDED.pachislot) === ON },
     formulaDraft: { pachinko: stored(FORMULA_DRAFT.pachinko), pachislot: stored(FORMULA_DRAFT.pachislot) },
   }
@@ -94,6 +97,11 @@ export const createLocalStoragePreferences = (): Preferences => {
     setConsolidationShown: (shown) => {
       held.consolidationShown = shown
       keep(CONSOLIDATION_SHOWN, shown ? ON : "off")
+    },
+    stageStep: () => held.stageStep,
+    setStageStep: (step) => {
+      held.stageStep = step
+      keep(STAGE_STEP, String(step))
     },
   }
 }

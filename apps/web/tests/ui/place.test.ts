@@ -176,3 +176,16 @@ describe("coming back from a submission", () => {
     expect(parentOf({ kind: "parlor-submitted" })).toEqual({ kind: "live-new", game: "pachinko" })
   })
 })
+
+describe("the odd-prize calculator", () => {
+  test("is a space with its two games listed beside it, each a step below it", () => {
+    expect(placeOf("/odd-prize-calculator")).toEqual({ kind: "odd-prize-calculator" })
+    expect(placeOf("/odd-prize-calculator/pachinko")).toEqual({ kind: "odd-prize-calculator-game", game: "pachinko" })
+    expect(placeOf("/odd-prize-calculator/slot")).toEqual({ kind: "odd-prize-calculator-game", game: "slot" })
+    expect(placeOf("/odd-prize-calculator/mahjong")).toEqual({ kind: "not-found", path: "/odd-prize-calculator/mahjong" })
+    expect(focusOf({ kind: "odd-prize-calculator" })).toBe("selection")
+    expect(focusOf({ kind: "odd-prize-calculator-game", game: "slot" })).toBe("content")
+    expect(parentOf({ kind: "odd-prize-calculator-game", game: "slot" })).toEqual({ kind: "odd-prize-calculator" })
+    expect(parentOf({ kind: "odd-prize-calculator" })).toBeUndefined()
+  })
+})

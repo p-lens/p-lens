@@ -1,5 +1,6 @@
 import type { BusinessDayTurn } from "../../core/calendar/calendar"
 import type { GameKind } from "../../core/catalog/catalog"
+import type { StageStep } from "../../core/savings/odd-prize-reckoning"
 
 /**
  * What a person has set for this device, beyond how it looks: kept on the
@@ -27,4 +28,7 @@ export interface Preferences {
   /** Whether the consolidation of several books is shown on the rail; not, until it is turned on. */
   readonly consolidationShown: () => boolean
   readonly setConsolidationShown: (shown: boolean) => void
+  /** The step the odd-prize calculator's stages go by, as last chosen, either game alike. */
+  readonly stageStep: () => StageStep
+  readonly setStageStep: (step: StageStep) => void
 }
