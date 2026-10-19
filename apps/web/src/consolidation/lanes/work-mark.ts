@@ -24,19 +24,25 @@ const quietly = (work: (storage: Storage) => void): void => {
 /**
  * A mark kept on the device while the page reads on several hledgers, and
  * what the mark said when the page opened. The mark is set as such reading
- * begins and taken away as the last of it ends and as the page is put out
- * of sight, where a phone may end it with no word: a page that finds the
- * mark stopped in the middle of it, and the mark is taken away once that is
- * told.
+ * begins and taken away as the last of it ends, as the page is put out of
+ * sight, where a phone may end it with no word, and as the page is left: a
+ * page that finds the mark stopped in the middle of it, and the mark is
+ * taken away once that is told.
  */
 export const createWorkMark = (): StoppedAtWork & { readonly working: (busy: boolean) => void } => {
-  const held: { stopped: boolean; busy: number } = { stopped: false, busy: 0 }
+  const held: { stopped: boolean; busy: number; left: boolean } = { stopped: false, busy: 0, left: false }
   quietly((storage) => {
     held.stopped = storage.getItem(AT_WORK) !== null
   })
   const visible = (): boolean => globalThis.document?.visibilityState !== "hidden"
-  const mark = (): void => quietly((storage) => (held.busy > 0 && visible() ? storage.setItem(AT_WORK, String(Math.floor(Date.now() / 1000))) : storage.removeItem(AT_WORK)))
+  const mark = (): void => quietly((storage) => (held.busy > 0 && visible() && !held.left ? storage.setItem(AT_WORK, String(Math.floor(Date.now() / 1000))) : storage.removeItem(AT_WORK)))
+  const leaving = (left: boolean) => (): void => {
+    held.left = left
+    mark()
+  }
   globalThis.document?.addEventListener("visibilitychange", mark)
+  globalThis.addEventListener?.("pagehide", leaving(true))
+  globalThis.addEventListener?.("pageshow", leaving(false))
   return {
     stopped: () => held.stopped,
     told: () => quietly((storage) => storage.removeItem(AT_WORK)),

@@ -95,6 +95,23 @@ describe("the mark of reading on several hledgers", () => {
     expect(createWorkMark().stopped()).toBe(false)
   })
 
+  test("is taken away as the page is left, and set again should it be shown again", () => {
+    const storage = storageOf()
+    withStorage(storage)
+    const page = new EventTarget()
+    const own = globalThis.addEventListener
+    Object.defineProperty(globalThis, "addEventListener", { value: page.addEventListener.bind(page), configurable: true })
+    try {
+      createWorkMark().working(true)
+      page.dispatchEvent(new Event("pagehide"))
+      expect(storage.getItem("p-lens.consolidation-at-work")).toBeNull()
+      page.dispatchEvent(new Event("pageshow"))
+      expect(storage.getItem("p-lens.consolidation-at-work")).not.toBeNull()
+    } finally {
+      Object.defineProperty(globalThis, "addEventListener", { value: own, configurable: true })
+    }
+  })
+
   test("is nothing where the device lets no storage be reached", () => {
     const mark = createWorkMark()
     mark.working(true)
