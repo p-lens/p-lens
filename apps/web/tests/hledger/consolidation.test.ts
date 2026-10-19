@@ -20,13 +20,13 @@ import { createAbsentSummaries } from "../../src/consolidation/absent/absent-sum
 import { createMemorySummaries } from "../../src/consolidation/memory/memory-summaries"
 import { webCryptoJournalsDigest } from "../../src/consolidation/web-crypto/journals-digest"
 import type { BookSession } from "../../src/application/book-session"
-import { consolidationPorts, createOutdatedNotice, loadConsolidatedOverall } from "../../src/application/consolidation"
+import { consolidationPorts, oneLane, createOutdatedNotice, loadConsolidatedOverall, warmConsolidation } from "../../src/application/consolidation"
 
 const [MINE, THEIRS, EMPTY] = ["mine", "theirs", "empty"] as BookId[]
 
 /** The consolidation as these tests ask it: keeping nothing, so every figure is hledger's of the books as they stand. */
 const consolidated = (session: BookSession) =>
-  consolidationPorts({ session, summaries: createAbsentSummaries(), digest: webCryptoJournalsDigest, today: () => "2026-10-09" as IsoDate, afterShown: (work) => work(), outdated: createOutdatedNotice() })
+  consolidationPorts({ session, lanes: oneLane(session), summaries: createAbsentSummaries(), digest: webCryptoJournalsDigest, today: () => "2026-10-09" as IsoDate, afterShown: (work) => work(), outdated: createOutdatedNotice() })
 
 const setUp = async () => {
   const session = createBookSession({
@@ -145,7 +145,7 @@ describe("a consolidation keeping each book's answers", () => {
     const outdated = createOutdatedNotice()
     const told = { times: 0 }
     outdated.heard(() => (told.times += 1))
-    const ports = consolidationPorts({ session: watched, summaries: createMemorySummaries(), digest: webCryptoJournalsDigest, today: () => "2026-10-09" as IsoDate, afterShown: (work) => work(), outdated })
+    const ports = consolidationPorts({ session: watched, lanes: oneLane(watched), summaries: createMemorySummaries(), digest: webCryptoJournalsDigest, today: () => "2026-10-09" as IsoDate, afterShown: (work) => work(), outdated })
     const actualOf = async (answering: "at-once" | "when-checked") =>
       ((found) => (found.ok ? found.value.map((each) => [each.book.id, each.read.ok ? toPlainString(each.read.value.actual) : "unread"]) : found))(
         await loadConsolidatedOverall({ ...ports, answering }, undefined, ""),
@@ -185,7 +185,7 @@ describe("a consolidation asked again the next day", () => {
     const opened: string[] = []
     const watched: BookSession = { ...session, read: (bookId, work) => (opened.push(bookId), session.read(bookId, work)) }
     const day = { today: "2026-10-09" as IsoDate }
-    const ports = { ...consolidationPorts({ session: watched, summaries: createMemorySummaries(), digest: webCryptoJournalsDigest, today: () => day.today, afterShown: (work) => work(), outdated: createOutdatedNotice() }), answering: "when-checked" as const }
+    const ports = { ...consolidationPorts({ session: watched, lanes: oneLane(watched), summaries: createMemorySummaries(), digest: webCryptoJournalsDigest, today: () => day.today, afterShown: (work) => work(), outdated: createOutdatedNotice() }), answering: "when-checked" as const }
     const overall = await loadConsolidatedOverall(ports, [MINE as BookId], "")
     await loadConsolidatedHoldings(ports, [MINE as BookId], "")
     day.today = "2026-10-10" as IsoDate
@@ -204,5 +204,54 @@ describe("a consolidation asked again the next day", () => {
     opened.length = 0
     await loadConsolidatedHoldings(ports, [MINE as BookId], "")
     expect(opened).toEqual([MINE as BookId])
+  })
+})
+
+describe("a consolidation read on several hledgers", () => {
+  test("deals the books out among them, answers as one hledger reading them in turn would, in the books' order, and says when it works on several", async () => {
+    const storage = memoryStorage()
+    const sessionOn = async () =>
+      createBookSession({ hledger: await inProcessHledger(), storage, history: createMemoryHistory(() => crypto.randomUUID()), clock: () => new Date("2026-10-09T20:00:00+09:00"), newId: () => crypto.randomUUID(), member: ME })
+    const [first, second] = [await sessionOn(), await sessionOn()]
+    await first.createBook(await fixtureBook("basic-play", { id: MINE as BookId, members: [{ id: ME, displayName: "me", role: "owner" }] }))
+    await first.createBook(await fixtureBook("basic-play", { id: THEIRS as BookId, members: [{ id: ME, displayName: "me", role: "viewer" }] }))
+    await first.createBook(firstBook(EMPTY as BookId, ME, "マイ帳簿"))
+    const opened: string[] = []
+    const watchedOn = (session: BookSession, lane: string): BookSession => ({ ...session, read: (bookId, work) => (opened.push(`${lane}:${bookId}`), session.read(bookId, work)) })
+    const working: boolean[] = []
+    const lanes = { sessionsFor: () => [watchedOn(first, "first"), watchedOn(second, "second")], working: (busy: boolean) => void working.push(busy) }
+    const portsOn = (laned: boolean) => ({ ...consolidationPorts({ session: first, lanes: laned ? lanes : oneLane(first), summaries: createAbsentSummaries(), digest: webCryptoJournalsDigest, today: () => "2026-10-09" as IsoDate, afterShown: (work) => work(), outdated: createOutdatedNotice() }), answering: "when-checked" as const })
+    const [several, one] = [await loadConsolidatedOverall(portsOn(true), undefined, ""), await loadConsolidatedOverall(portsOn(false), undefined, "")]
+    expect(several).toEqual(one)
+    expect(several.ok && several.value.map((each) => each.book.id)).toEqual([MINE, THEIRS, EMPTY] as never)
+    expect(opened.toSorted()).toEqual([`first:${String(EMPTY)}`, `first:${String(MINE)}`, `second:${String(THEIRS)}`])
+    expect(working).toEqual([true, false])
+  })
+})
+
+describe("a consolidation asked ahead on several hledgers", () => {
+  test("asks each book on the hledger a screen would read it on, all of them side by side", async () => {
+    const storage = memoryStorage()
+    const sessionOn = async () =>
+      createBookSession({ hledger: await inProcessHledger(), storage, history: createMemoryHistory(() => crypto.randomUUID()), clock: () => new Date("2026-10-09T20:00:00+09:00"), newId: () => crypto.randomUUID(), member: ME })
+    const [first, second] = [await sessionOn(), await sessionOn()]
+    await first.createBook(await fixtureBook("basic-play", { id: MINE as BookId, members: [{ id: ME, displayName: "me", role: "owner" }] }))
+    await first.createBook(await fixtureBook("basic-play", { id: THEIRS as BookId, members: [{ id: ME, displayName: "me", role: "viewer" }] }))
+    const opened = new Set<string>()
+    const watchedOn = (session: BookSession, lane: string): BookSession => ({ ...session, read: (bookId, work) => (opened.add(`${lane}:${bookId}`), session.read(bookId, work)), readViewed: (bookId, view, work) => (opened.add(`${lane}:${bookId}`), session.readViewed(bookId, view, work)) })
+    const working: boolean[] = []
+    const lanes = { sessionsFor: () => [watchedOn(first, "first"), watchedOn(second, "second")], working: (busy: boolean) => void working.push(busy) }
+    const ports = consolidationPorts({ session: first, lanes, summaries: createMemorySummaries(), digest: webCryptoJournalsDigest, today: () => "2026-10-09" as IsoDate, afterShown: (work) => work(), outdated: createOutdatedNotice() })
+    await warmConsolidation(ports, { month: "date:2026-10", periods: ["date:2026-01-01..2027-01-01"] })
+    expect([...opened].toSorted()).toEqual([`first:${String(MINE)}`, `second:${String(THEIRS)}`])
+    expect(working).toEqual([true, false])
+  })
+
+  test("lists the books once, not once for each question of each book", async () => {
+    const session = await setUp()
+    const listings = { count: 0 }
+    const counted: BookSession = { ...session, books: () => ((listings.count += 1), session.books()) }
+    await warmConsolidation(consolidated(counted), { month: "date:2026-10", periods: ["date:2026-01-01..2027-01-01"] })
+    expect(listings.count).toBe(1)
   })
 })

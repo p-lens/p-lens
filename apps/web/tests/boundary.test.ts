@@ -97,7 +97,7 @@ describe("dependency direction", () => {
     const outside = (
       await Promise.all(
         ["application", "core", "ui", "hledger", "sync/port", "backup/port", "preferences/port", "pachinko-engine", "catalog/port", "parlors/port", "pachislot-engine", "consolidation/port"].map((layer) =>
-          offending(`${WEB}src/${layer}/`, /storage\/browser|history\/adapters|(?<!core\/)(catalog|parlors)\/(local|jsonl|absent|http|delivered)|sync\/(http|local|web-crypto)|(?<!core\/)backup\/(zip|google-drive|browser|web-crypto|local)|preferences\/local|location\/browser|consolidation\/(memory|absent|web-crypto|local|tiered)/),
+          offending(`${WEB}src/${layer}/`, /storage\/browser|history\/adapters|(?<!core\/)(catalog|parlors)\/(local|jsonl|absent|http|delivered)|sync\/(http|local|web-crypto)|(?<!core\/)backup\/(zip|google-drive|browser|web-crypto|local)|preferences\/local|location\/browser|consolidation\/(memory|absent|web-crypto|local|tiered|lanes)/),
         ),
       )
     ).flat()

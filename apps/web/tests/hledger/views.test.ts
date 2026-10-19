@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import { createBookSession } from "../../src/application/book-session"
 import {
-  consolidationPorts,
+  consolidationPorts, oneLane,
   createOutdatedNotice,
   loadConsolidatedDaysAndWhole,
   loadConsolidatedHoldings,
@@ -67,6 +67,7 @@ const setUp = async (): Promise<ConsolidationPorts & { readonly session: ReturnT
   return {
     ...consolidationPorts({
       session,
+      lanes: oneLane(session),
       summaries: createAbsentSummaries(),
       digest: webCryptoJournalsDigest,
       today: () => "2026-10-19" as IsoDate,

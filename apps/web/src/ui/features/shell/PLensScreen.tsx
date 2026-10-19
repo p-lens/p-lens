@@ -51,6 +51,7 @@ import { AboutButton } from "./AboutButton"
 import { BackupNotice } from "./BackupNotice"
 import { BookSpaceSide } from "./BookSpaceSide"
 import { SettingsSide } from "./SettingsSide"
+import { StoppedNotice } from "../consolidated/StoppedNotice"
 import { SpacesRail } from "./SpacesRail"
 import { ToastRegion } from "../../primitives/toast"
 import { ViewHeader } from "./ViewHeader"
@@ -266,6 +267,7 @@ export function PLensScreen(): JSX.Element {
         </Show>
       </GatheringShell>
       <ToastRegion />
+      <StoppedNotice />
     </StartFormProvider>
   )
 }

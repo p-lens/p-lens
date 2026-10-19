@@ -18,6 +18,7 @@ import type * as PachinkoEngine from "../pachinko-engine/client/client"
 import type * as PachislotEngine from "../pachislot-engine/client/client"
 import type { BackupPorts } from "./backup"
 import type { BookSession } from "./book-session"
+import type { StoppedAtWork } from "../consolidation/port/lanes"
 import type { ConsolidationPorts } from "./consolidation"
 import type { VoterOf } from "./marks"
 import type { ExportPorts } from "./export"
@@ -36,8 +37,10 @@ import type { SampleMaker } from "../sample-book/port/sample-maker"
  */
 export interface Services {
   readonly session: BookSession
-  /** What a consolidation reaches: the books, and what it keeps of each one's answers. */
+  /** What a consolidation reaches: the books, the hledgers it reads them on, and what it keeps of each one's answers. */
   readonly consolidation: ConsolidationPorts
+  /** Whether the page before stopped while the consolidation read on several hledgers: told once, and this page reads on one. */
+  readonly consolidationStopped: StoppedAtWork
   readonly history: HistoryPort
   readonly drafts: DraftStorage
   /** The shared catalog of both games, as delivered to this device. */

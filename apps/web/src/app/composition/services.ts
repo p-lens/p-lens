@@ -1,4 +1,4 @@
-import { createBookSession } from "../../application/book-session"
+import { createBookSession, type BookSession } from "../../application/book-session"
 import { consolidationPorts, createOutdatedNotice } from "../../application/consolidation"
 import { createBrowserHandover } from "../../backup/browser/browser-handover"
 import { createGoogleAuthorizer } from "../../backup/google-drive/google-authorizer"
@@ -15,7 +15,7 @@ import { unnamedTitle } from "../../core/book/unnamed-title"
 import { firstBook } from "./first-book"
 import { businessDayOf, localDayOf } from "../../core/calendar/calendar"
 import type { PlayId } from "../../core/play/play"
-import { createHledgerClient } from "../../hledger/client/client"
+import { createHledgerClient, type HledgerClient } from "../../hledger/client/client"
 import { createIndexedDbHistory } from "../../history/adapters/indexed-db-history"
 import { createAbsentCatalogApi } from "../../catalog/absent/absent-catalog-api"
 import { createDeliveredCatalog } from "../../catalog/delivered/delivered-catalog"
@@ -44,6 +44,9 @@ import { createIndexedDbDrafts, createIndexedDbStorage } from "../../storage/bro
 import { createHttpRelay } from "../../sync/http/http-relay"
 import { createIndexedDbLinkStore } from "../../sync/local/indexed-db-link-store"
 import { createWebCryptoSealer } from "../../sync/web-crypto/web-crypto-sealer"
+import { lanesFor } from "../../consolidation/lanes/lanes-plan"
+import { createManyLanes } from "../../consolidation/lanes/many-lanes"
+import { createWorkMark } from "../../consolidation/lanes/work-mark"
 import { createIndexedDbSummaries } from "../../consolidation/local/indexed-db-summaries"
 import { createMemorySummaries } from "../../consolidation/memory/memory-summaries"
 import { createTieredSummaries } from "../../consolidation/tiered/tiered-summaries"
@@ -119,14 +122,10 @@ export const createServices = (): Services => {
   const preferences = createLocalStoragePreferences()
   const storage = createIndexedDbStorage(database)
   const me: Member = { id: LOCAL_MEMBER, displayName: "自分", role: "owner" }
-  const session = createBookSession({
-    hledger: createHledgerClient(() => new Worker(new URL("../../hledger/worker/worker.ts", import.meta.url), { type: "module" })),
-    storage,
-    history,
-    clock,
-    newId: freshUuidV7,
-    member: LOCAL_MEMBER,
-  })
+  const hledgerWorker = (): Worker => new Worker(new URL("../../hledger/worker/worker.ts", import.meta.url), { type: "module" })
+  const sessionOn = (hledger: HledgerClient): BookSession => createBookSession({ hledger, storage, history, clock, newId: freshUuidV7, member: LOCAL_MEMBER })
+  const session = sessionOn(createHledgerClient(hledgerWorker))
+  const workMark = createWorkMark()
   const links = createIndexedDbLinkStore(database)
   const drafts = keepingHistory(createIndexedDbDrafts(database), () => clock().toISOString())
   const receipts = createIndexedDbReceiptStore(database)
@@ -136,12 +135,21 @@ export const createServices = (): Services => {
     session,
     consolidation: consolidationPorts({
       session,
+      lanes: createManyLanes({
+        first: session,
+        another: () => sessionOn(createHledgerClient(hledgerWorker)),
+        plan: (books) => lanesFor(books, { cores: navigator.hardwareConcurrency, memoryGigabytes: (navigator as { readonly deviceMemory?: number }).deviceMemory }),
+        on: () => preferences.consolidationShown(),
+        stopped: workMark,
+        working: workMark.working,
+      }),
       summaries: createTieredSummaries(createMemorySummaries(), createIndexedDbSummaries(database, import.meta.env.VITE_APP_VERSION as string)),
       digest: webCryptoJournalsDigest,
       today: () => businessDayOf(clock(), preferences.businessDayTurn()),
       afterShown: (work) => void setTimeout(work, CHECKED_AFTER_SHOWN),
       outdated: createOutdatedNotice(),
     }),
+    consolidationStopped: workMark,
     history,
     sync: {
       session,
