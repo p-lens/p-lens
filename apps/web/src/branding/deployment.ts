@@ -16,7 +16,7 @@ export const DEPLOYMENT: {
   /** Its address, ending in a slash. */
   readonly address: string
   readonly landingPage: string | undefined
-  /** Who runs it, as a page of theirs where they can be found. */
+  /** Who runs it, as a page of theirs that says so and where they are written to. */
   readonly operatorPage: string
 } = {
   name: "P-Lens",
@@ -25,5 +25,5 @@ export const DEPLOYMENT: {
   tagline: "パチンコ・パチスロの帳簿",
   address: "https://app.p-lens.jp/",
   landingPage: "https://p-lens.jp",
-  operatorPage: "https://github.com/p-lens",
+  operatorPage: "https://p-lens.jp/about/",
 }

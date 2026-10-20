@@ -761,8 +761,10 @@ puts them there (`vite.config.ts`), and they are not among the app's public
 files, which hold only what is the app's. The deployment's name is its own
 too: the page's title, the installed app's name, the top bar, the card and
 every sentence that names the app read it from `branding/deployment.ts`
-(`Services.name`), with who runs it, shown at the foot of the top bar's
-question mark (`Services.operatorPage`), what the page says of itself, the address a shared
+(`Services.name`), with the page of who runs it and how to write to them,
+linked as 運営元・お問い合わせ at the foot of the top bar's question mark and
+under the settings (`Services.operatorPage`), what the page says of
+itself, the address a shared
 link needs and the landing page the top bar's question mark links where
 there is one. A fork replaces the drawing and renders again, and gives its
 own name and address.

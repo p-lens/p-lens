@@ -4,7 +4,7 @@ import { DOCUMENT_KINDS } from "../../../core/document/document"
 import { useApp } from "../../context"
 import { useMoves } from "../../navigation/moves"
 import { CloseIcon, QuestionIcon } from "../../primitives/icons"
-import { documentTitle } from "../../wording/documents"
+import { documentTitle, OPERATOR_PAGE } from "../../wording/documents"
 import { WELCOME_AGAIN } from "../../wording/onboarding"
 import { useWelcome } from "../onboarding/welcome"
 
@@ -108,9 +108,8 @@ export function AboutButton(): JSX.Element {
           </div>
           <div class="flex flex-col gap-0.5 text-xs text-text-muted">
             <p>
-              運営者：
               <a href={app.services.operatorPage} target="_blank" rel="noreferrer" class="text-accent hover:underline">
-                {new URL(app.services.operatorPage).host + new URL(app.services.operatorPage).pathname}
+                {OPERATOR_PAGE}
               </a>
             </p>
             <p class="tabular-nums">バージョン {app.services.version}</p>

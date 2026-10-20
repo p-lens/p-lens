@@ -5,7 +5,7 @@ import { BackupIcon, BooksIcon, ClosingIcon, ConsolidatedIcon, ExportIcon, FileI
 import { DOCUMENT_KINDS } from "../../../core/document/document"
 import { useApp } from "../../context"
 import { useMoves } from "../../navigation/moves"
-import { documentTitle } from "../../wording/documents"
+import { documentTitle, OPERATOR_PAGE } from "../../wording/documents"
 import type { Place } from "../../navigation/place"
 import { SideList } from "./SideList"
 import { UnhatchedEgg } from "../../../unhatched-egg"
@@ -124,7 +124,12 @@ export function SettingsSide(props: { readonly place: Place }): JSX.Element {
           })),
         ]}
       />
-      <p class="px-4 pt-4 text-xs tabular-nums text-text-muted"><UnhatchedEgg>バージョン {app.services.version}</UnhatchedEgg></p>
+      <p class="px-4 pt-4 text-xs">
+        <a href={app.services.operatorPage} target="_blank" rel="noreferrer" class="text-accent hover:underline">
+          {OPERATOR_PAGE}
+        </a>
+      </p>
+      <p class="px-4 pt-2 text-xs tabular-nums text-text-muted"><UnhatchedEgg>バージョン {app.services.version}</UnhatchedEgg></p>
     </SidePanel>
   )
 }
