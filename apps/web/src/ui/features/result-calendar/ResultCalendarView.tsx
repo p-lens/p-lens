@@ -67,6 +67,7 @@ export function ResultCalendarView(props: { readonly place: Place; readonly book
       whole={((found) => found && mapOk(found, (month) => month.whole))(results())}
       loading={results.loading}
       theoreticalKept={theoreticalKept()}
+      of="book"
       onOpen={(day) => moves.go({ kind: "book-view", bookId: props.bookId, view: "tallies" }, rangeTerm(day, day))}
       filter={
         <TickFilter label={BY_PLAYERS} offered={names().size > 0 ? offered() : []} none={NO_PLAYERS} chosen={props.senders} onChosen={(senders) => moves.go({ kind: "book-view", bookId: props.bookId, view: "result-calendar", senders })} />

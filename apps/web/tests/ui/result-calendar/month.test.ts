@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import type { IsoMonth } from "../../../src/core/calendar/calendar"
-import { fittedSize } from "../../../src/ui/features/result-calendar/fit"
+import { fittedSize, fittedSizeOfBook } from "../../../src/ui/features/result-calendar/fit"
 import { byDay, monthAfter, monthBefore, weeksOf } from "../../../src/ui/features/result-calendar/month"
 import { cellResult, cellWorth, dayNumber, daySays, monthTitle } from "../../../src/ui/features/result-calendar/wording"
 import { dec } from "../../support/values"
@@ -45,7 +45,16 @@ describe("the result calendar's words", () => {
     expect(dayNumber("2026-10-03" as never)).toBe("3")
     expect(cellResult(dec("12340"))).toBe("+12,340")
     expect(cellResult(dec("-560"))).toBe("-560")
-    expect(cellResult(dec("0"))).toBe("0")
+    expect(cellResult(dec("0"))).toBe("±0")
+    expect(cellResult(dec("0.28"))).toBe("±0")
+    expect(cellResult(dec("-0.28"))).toBe("±0")
+    expect(cellResult(dec("0.49"))).toBe("±0")
+    expect(cellResult(dec("-0.49"))).toBe("±0")
+    expect(cellResult(dec("0.5"))).toBe("+1")
+    expect(cellResult(dec("-0.5"))).toBe("-1")
+    expect(cellWorth(dec("0.28"))).toBe("±0")
+    expect(cellWorth(dec("-0.28"))).toBe("±0")
+    expect(cellWorth(dec("-0.5"))).toBe("-1")
     expect(cellWorth(dec("1240.4"))).toBe("+1,240")
     expect(cellWorth(dec("-380"))).toBe("-380")
     expect(cellWorth(dec("0.2"))).toBe("±0")
@@ -57,6 +66,20 @@ describe("the result calendar's words", () => {
     expect(fittedSize(cellResult(dec("360000")))).toBe("min(0.75rem, calc(100cqw / 5.12))")
     expect(fittedSize(cellResult(dec("-1360000")))).toBe("min(0.75rem, calc(100cqw / 6.40))")
     expect(fittedSize("")).toBe("min(0.75rem, calc(100cqw / 5.12))")
+  })
+
+  test("are a little larger in one book's calendar, +999,999 only just fitting before a longer one is smaller", () => {
+    expect(fittedSizeOfBook(cellResult(dec("0")))).toBe("min(0.875rem, calc(100cqw / 4.64))")
+    expect(fittedSizeOfBook(cellResult(dec("1")))).toBe("min(0.875rem, calc(100cqw / 4.64))")
+    expect(fittedSizeOfBook(cellResult(dec("-1")))).toBe("min(0.875rem, calc(100cqw / 4.64))")
+    expect(fittedSizeOfBook(cellResult(dec("718")))).toBe("min(0.875rem, calc(100cqw / 4.64))")
+    expect(fittedSizeOfBook(cellResult(dec("10000")))).toBe("min(0.875rem, calc(100cqw / 4.64))")
+    expect(fittedSizeOfBook(cellResult(dec("100000")))).toBe("min(0.875rem, calc(100cqw / 4.64))")
+    expect(fittedSizeOfBook(cellResult(dec("-999999")))).toBe("min(0.875rem, calc(100cqw / 4.64))")
+    expect(fittedSizeOfBook(cellResult(dec("-1000000")))).toBe("min(0.875rem, calc(100cqw / 5.80))")
+    expect(fittedSizeOfBook(cellResult(dec("1000000")))).toBe("min(0.875rem, calc(100cqw / 5.80))")
+    expect(fittedSizeOfBook(cellResult(dec("999999")))).toBe("min(0.875rem, calc(100cqw / 4.64))")
+    expect(fittedSizeOfBook(cellResult(dec("9999999")))).toBe("min(0.875rem, calc(100cqw / 5.80))")
   })
 
   test("say a day aloud, with what it made or that it had no plays", () => {

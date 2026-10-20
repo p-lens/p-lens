@@ -1,5 +1,5 @@
 import type { IsoDate, IsoMonth } from "../../../core/calendar/calendar"
-import type { Decimal } from "../../../core/decimal/decimal"
+import { isZero, rounded, type Decimal } from "../../../core/decimal/decimal"
 import { formatSignedYen, formatTheoreticalYen } from "../../wording/numbers"
 
 /** What the calendar is called in a book's list of views. */
@@ -23,8 +23,8 @@ export const monthTitle = (month: IsoMonth): string => {
 /** `2026-10-03` as `3`: a day in its cell, where the month is said above. */
 export const dayNumber = (day: IsoDate): string => String(Number(day.slice(8)))
 
-/** A day's result as its cell has room for: signed and grouped, the yen sign left to the figures above. */
-export const cellResult = (value: Decimal): string => formatSignedYen(value).replace("¥", "")
+/** A day's result as its cell has room for: signed and grouped, `±0` where it came to nothing, the yen sign left to the figures above. */
+export const cellResult = (value: Decimal): string => (isZero(rounded(value, 0)) ? "±0" : formatSignedYen(value).replace("¥", ""))
 
 /** What a day's tallies were worth as its cell has room for, under what they made: marked the way it went, the yen sign left to the figures above. */
 export const cellWorth = (value: Decimal): string => formatTheoreticalYen(value).replace("¥", "")

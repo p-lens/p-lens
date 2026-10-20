@@ -16,7 +16,7 @@ import { Figure } from "../tallies/Figure"
 import { ViewHeader } from "../shell/ViewHeader"
 import { EarlierIcon, LaterIcon } from "./icons"
 import { byDay, monthAfter, monthBefore, weeksOf, type Cell } from "./month"
-import { fittedSize } from "./fit"
+import { FITTED_SIZE, type CalendarOf } from "./fit"
 import { cellResult, cellWorth, dayNumber, daySays, monthTitle, RESULT_CALENDAR, WEEKDAYS } from "./wording"
 
 const TONES = { positive: "text-positive", negative: "text-negative", neutral: "text-text-secondary" } as const
@@ -32,10 +32,10 @@ const CELL = "flex min-h-[3.75rem] min-w-0 flex-col gap-0.5 rounded-[3px] px-0.5
  * the day's tallies had any — uncoloured, being a reckoning and no gain or
  * loss. A day with tallies is pressed to see them; a day without is only its
  * number. The business day it now is wears a ring. Each figure is written
- * as small as its cell asks (`fittedSize`), in one size up to six digits,
+ * as small as its cell asks (`FITTED_SIZE`), in one size up to six digits,
  * so only a great win is in smaller figures, and none is cut short.
  */
-function Day(props: { readonly day: IsoDate; readonly figures: Group | undefined; readonly theoreticalKept: boolean; readonly today: boolean; readonly onOpen: () => void }): JSX.Element {
+function Day(props: { readonly day: IsoDate; readonly figures: Group | undefined; readonly theoreticalKept: boolean; readonly today: boolean; readonly of: CalendarOf; readonly onOpen: () => void }): JSX.Element {
   const worth = (): Decimal | undefined => (props.figures === undefined || !props.theoreticalKept || isZero(props.figures.theoretical) ? undefined : props.figures.theoretical)
   const number = (): JSX.Element => <span class="text-xs tabular-nums text-text-muted">{dayNumber(props.day)}</span>
   return (
@@ -58,12 +58,12 @@ function Day(props: { readonly day: IsoDate; readonly figures: Group | undefined
         >
           {number()}
           <span class="block w-full [container-type:inline-size]">
-            <span class={`block whitespace-nowrap text-right font-bold leading-tight tabular-nums ${TONES[toneOf(figures.actual)]}`} style={{ "font-size": fittedSize(cellResult(figures.actual)) }}>
+            <span class={`block whitespace-nowrap text-right font-bold leading-tight tabular-nums ${TONES[toneOf(figures.actual)]}`} style={{ "font-size": FITTED_SIZE[props.of](cellResult(figures.actual)) }}>
               {cellResult(figures.actual)}
             </span>
             <Show when={worth()} keyed>
               {(value) => (
-                <span class="block whitespace-nowrap text-right leading-tight tabular-nums text-text-primary" style={{ "font-size": fittedSize(cellWorth(value)) }}>
+                <span class="block whitespace-nowrap text-right leading-tight tabular-nums text-text-primary" style={{ "font-size": FITTED_SIZE[props.of](cellWorth(value)) }}>
                   {cellWorth(value)}
                 </span>
               )}
@@ -96,6 +96,8 @@ export function ResultCalendar(props: {
   /** Whether the month's days or its whole are being asked for: the calendar stays, with the sign of waiting over it. */
   readonly loading: boolean
   readonly theoreticalKept: boolean
+  /** Whose calendar it is: one book's figures are written a little larger than several books'. */
+  readonly of: CalendarOf
   readonly onOpen: (day: IsoDate) => void
   /** Whose tallies the calendar is of, chosen at the end of the month's row. */
   readonly filter?: JSX.Element
@@ -153,7 +155,7 @@ export function ResultCalendar(props: {
                         {(cell: Cell) => (
                           <Show when={cell} keyed fallback={<div />}>
                             {(day) => (
-                              <Day day={day} figures={figures().get(day)} theoreticalKept={props.theoreticalKept} today={day === app.services.businessDay()} onOpen={() => props.onOpen(day)} />
+                              <Day day={day} figures={figures().get(day)} theoreticalKept={props.theoreticalKept} today={day === app.services.businessDay()} of={props.of} onOpen={() => props.onOpen(day)} />
                             )}
                           </Show>
                         )}
