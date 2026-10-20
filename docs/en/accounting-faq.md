@@ -1,14 +1,14 @@
 ---
 title: Appendix A — Official Interpretations
 lang: en
-version: "1.0"
-enacted: "2026-10-13"
+version: "1.0.1"
+enacted: "2026-10-20"
 translationOf: ja
 ---
 
 # Appendix A — Official Interpretations
 
-These interpretations set out how the P-Lens Accounting Standards (PLAS), Edition 1.0 (enacted 13 October 2026; hereinafter "the Standards"), are to be read. This text is a translation; the Japanese text is the original, and where the two differ the Japanese holds.
+These interpretations set out how the P-Lens Accounting Standards (PLAS), Edition 1.0.1 (enacted 13 October 2026, amended 20 October 2026; hereinafter "the Standards"), are to be read. This text is a translation; the Japanese text is the original, and where the two differ the Japanese holds.
 
 ### Q1. Why are special prizes not entered as assets?
 

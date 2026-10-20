@@ -1,8 +1,8 @@
 ---
 title: Appendix B — An Important Declaration on the Accounting
 lang: en
-version: "1.0"
-enacted: "2026-10-13"
+version: "1.0.1"
+enacted: "2026-10-20"
 translationOf: ja
 ---
 

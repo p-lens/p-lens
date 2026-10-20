@@ -38,7 +38,7 @@ A book is kept by double entry in hledger, in an account tree that is small on p
 純資産:開始残高                savings a person already had when the book began
 純資産:残高調整                a count of savings put right to what the parlor says
 純資産:特殊景品                what the special prizes of a prize exchange are worth
-純資産:端玉景品                the general prizes the rest of a prize exchange was given as, in whole yen
+純資産:端玉景品                what the odd tokens a prize exchange leaves are worth, in whole yen, a prize taken or not
 純資産:換算調整勘定            the part of a yen a prize exchange leaves over
 統計:期待値                    the theoretical value (virtual postings only)
 ```

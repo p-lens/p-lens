@@ -1,8 +1,8 @@
 ---
 title: P-Lens Accounting Standards
 lang: en
-version: "1.0"
-enacted: "2026-10-13"
+version: "1.0.1"
+enacted: "2026-10-20"
 translationOf: ja
 ---
 
@@ -12,8 +12,9 @@ translationOf: ja
 
 Pレンズ遊技会計基準 (PLAS)
 
-- Edition: 1.0
+- Edition: 1.0.1
 - Enacted: 13 October 2026
+- Amended: 20 October 2026
 - Scope: P-Lens and those who use its accounting model
 - Base currencies: Japanese yen, and the balls and medals particular to each parlor
 - Basic principles: debits equal credits, honesty of the record, silence after the prize exchange
@@ -123,11 +124,13 @@ These Standards make that boundary clear.
 
 ### Article 8 (Accounting for prizes)
 
-1. Where tokens are exchanged for prizes, the booking of those prizes ends with that exchange.
+1. Where tokens are exchanged for prizes, the booking of those tokens ends with that exchange.
 
-2. Prizes shall be divided into special prizes and general prizes, and each shall be entered in the terminal account laid down in the next Article and in Article 10.
+2. The tokens of a prize exchange shall be divided into those exchanged for special prizes and the remainder short of a special prize (hereinafter "odd tokens"), and each shall be entered in the terminal account laid down in the next Article and in Article 10.
 
-3. The terminal accounts of the preceding paragraph are a classification of management accounting particular to this system, and do not alter the definition of equity in general financial accounting.
+3. The entry of the preceding paragraph is made at the value at the prize exchange, whether or not the player actually received a prize.
+
+4. The terminal accounts of paragraph 2 are a classification of management accounting particular to this system, and do not alter the definition of equity in general financial accounting.
 
 ### Article 9 (Special prizes)
 
@@ -147,15 +150,21 @@ These Standards make that boundary clear.
 
 ### Article 10 (Odd prizes)
 
-1. General prizes acquired with the quantity of tokens remaining short of a special prize shall be entered in the following terminal account.
+1. Odd tokens are terminated at the prize exchange, and their value is entered in the following terminal account (hereinafter "the odd-prize account").
 
    `純資産:端玉景品` (equity: odd prizes)
 
-2. The prizes entered in the account of the preceding paragraph include sweets, drinks, food, daily goods and other articles, and the same applies to Yakult.
+2. The odd-prize account records the value of the odd tokens terminated at the prize exchange, and does not require that a prize actually be received.
 
-3. Even where the market price of a prize and its value at the exchange do not agree, the receipt of the prize shall not be denied for that reason alone.
+3. For example, where at a parlor with an exchange rate of 3.57 yen 1,405 balls are given out in a prize exchange, 1,400 of them taking special prizes worth 5,000 yen and 5 left as odd tokens, the parlor offers two pieces of ramune candy as the general prize for those 5 balls. Not a few players decline to receive them. In that case too, the value of the 5 balls is entered in the odd-prize account.
 
-4. That sweets received as a prize worth 40 balls are sold for less at a shop nearby is not a material accounting issue under these Standards; provided, however, that the player is not precluded from being dissatisfied.
+4. In the case of the preceding paragraph, the ramune stays at the parlor and the odd tokens leave the book. This system does not follow what becomes of the ramune thereafter.
+
+5. The general prizes received in place of odd tokens include sweets, drinks, food, daily goods and other articles, and the same applies to ramune.
+
+6. Even where the market price of a prize and its value at the exchange do not agree, the amount entered in the odd-prize account shall not be changed for that reason alone.
+
+7. That a drink received as a prize worth 15 balls is sold for less at a shop nearby is not a material accounting issue under these Standards; provided, however, that the player is not precluded from being dissatisfied.
 
 ### Article 11 (Prizes of higher grade)
 
@@ -286,10 +295,11 @@ An amendment of these Standards does not require a retrospective stocktaking of 
 ## History of Amendments
 
 - Edition 1.0, 13 October 2026: enacted
+- Edition 1.0.1, 20 October 2026: Articles 8 and 10 amended, to state that the odd-prize account records the value of odd tokens and does not require that a prize actually be received
 
 ---
 
-P-Lens Accounting Standards (PLAS), Edition 1.0, enacted 13 October 2026
+P-Lens Accounting Standards (PLAS), Edition 1.0.1, enacted 13 October 2026, amended 20 October 2026
 
 Enacted by: the P-Lens project
 
