@@ -69,17 +69,17 @@ describe("the result calendar's words", () => {
   })
 
   test("are a little larger in one book's calendar, +999,999 fitting with a hair to spare before a longer one is smaller", () => {
-    expect(fittedSizeOfBook(cellResult(dec("0")))).toBe("min(0.875rem, calc(100cqw / 4.80))")
-    expect(fittedSizeOfBook(cellResult(dec("1")))).toBe("min(0.875rem, calc(100cqw / 4.80))")
-    expect(fittedSizeOfBook(cellResult(dec("-1")))).toBe("min(0.875rem, calc(100cqw / 4.80))")
-    expect(fittedSizeOfBook(cellResult(dec("718")))).toBe("min(0.875rem, calc(100cqw / 4.80))")
-    expect(fittedSizeOfBook(cellResult(dec("10000")))).toBe("min(0.875rem, calc(100cqw / 4.80))")
-    expect(fittedSizeOfBook(cellResult(dec("100000")))).toBe("min(0.875rem, calc(100cqw / 4.80))")
-    expect(fittedSizeOfBook(cellResult(dec("-999999")))).toBe("min(0.875rem, calc(100cqw / 4.80))")
-    expect(fittedSizeOfBook(cellResult(dec("-1000000")))).toBe("min(0.875rem, calc(100cqw / 6.00))")
-    expect(fittedSizeOfBook(cellResult(dec("1000000")))).toBe("min(0.875rem, calc(100cqw / 6.00))")
-    expect(fittedSizeOfBook(cellResult(dec("999999")))).toBe("min(0.875rem, calc(100cqw / 4.80))")
-    expect(fittedSizeOfBook(cellResult(dec("9999999")))).toBe("min(0.875rem, calc(100cqw / 6.00))")
+    expect(fittedSizeOfBook(cellResult(dec("0")))).toBe("min(0.875rem, calc(100cqw / 4.96))")
+    expect(fittedSizeOfBook(cellResult(dec("1")))).toBe("min(0.875rem, calc(100cqw / 4.96))")
+    expect(fittedSizeOfBook(cellResult(dec("-1")))).toBe("min(0.875rem, calc(100cqw / 4.96))")
+    expect(fittedSizeOfBook(cellResult(dec("718")))).toBe("min(0.875rem, calc(100cqw / 4.96))")
+    expect(fittedSizeOfBook(cellResult(dec("10000")))).toBe("min(0.875rem, calc(100cqw / 4.96))")
+    expect(fittedSizeOfBook(cellResult(dec("100000")))).toBe("min(0.875rem, calc(100cqw / 4.96))")
+    expect(fittedSizeOfBook(cellResult(dec("-999999")))).toBe("min(0.875rem, calc(100cqw / 4.96))")
+    expect(fittedSizeOfBook(cellResult(dec("-1000000")))).toBe("min(0.875rem, calc(100cqw / 6.20))")
+    expect(fittedSizeOfBook(cellResult(dec("1000000")))).toBe("min(0.875rem, calc(100cqw / 6.20))")
+    expect(fittedSizeOfBook(cellResult(dec("999999")))).toBe("min(0.875rem, calc(100cqw / 4.96))")
+    expect(fittedSizeOfBook(cellResult(dec("9999999")))).toBe("min(0.875rem, calc(100cqw / 6.20))")
   })
 
   test("say a day aloud, with what it made or that it had no plays", () => {

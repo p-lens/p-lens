@@ -16,8 +16,8 @@ interface Room {
 /** Several books' calendar: room to spare in every cell, since their days often run to a million. */
 const BOOKS: Room = { largestRems: 0.75, characterEms: 0.64 }
 
-/** One book's calendar: a little larger, `+999,999` fitting its cell with a hair to spare on an iPhone SE, whose bold digits are wider than they were taken to be at 0.58. */
-const BOOK: Room = { largestRems: 0.875, characterEms: 0.6 }
+/** One book's calendar: a little larger, `+999,999` fitting its cell with a hair to spare on an iPhone SE, whose bold digits ran a little over even at 0.60. */
+const BOOK: Room = { largestRems: 0.875, characterEms: 0.62 }
 
 const sizedIn =
   (room: Room) =>
