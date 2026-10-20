@@ -8,6 +8,7 @@ import { useMoves } from "../../navigation/moves"
 import { documentTitle } from "../../wording/documents"
 import type { Place } from "../../navigation/place"
 import { SideList } from "./SideList"
+import { UnhatchedEgg } from "../../../unhatched-egg"
 
 /**
  * The settings, as a list: the app's own first, then what is done to the
@@ -123,7 +124,7 @@ export function SettingsSide(props: { readonly place: Place }): JSX.Element {
           })),
         ]}
       />
-      <p class="px-4 pt-4 text-xs tabular-nums text-text-muted">バージョン {app.services.version}</p>
+      <p class="px-4 pt-4 text-xs tabular-nums text-text-muted"><UnhatchedEgg>バージョン {app.services.version}</UnhatchedEgg></p>
     </SidePanel>
   )
 }

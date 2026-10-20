@@ -5,45 +5,36 @@ import type { Outcome } from "../../../application/errors"
 import { huddleCodeOf, huddleNameOf, type Huddle } from "../../../core/huddle/huddle"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
-import { copyText } from "../../primitives/clipboard"
-import { NoticeDialog } from "../../primitives/dialog"
+import { PanelDialog } from "../../primitives/dialog"
 import { QrCode } from "../../primitives/qr-code"
+import { qrInImage } from "../../primitives/qr-image"
 import { QrScanner } from "../../primitives/qr-scanner"
 import { TextField } from "../../primitives/text-field"
 import { toast } from "../../primitives/toast"
 import { describeError } from "../../wording/errors"
 import {
-  COPY_HUDDLE_CODE,
   HUDDLE_ABOUT,
-  HUDDLE_CODE_COPIED,
-  HUDDLE_CODE_FIELD,
   HUDDLE_HEADING,
   HUDDLE_NAME,
   HUDDLE_NAME_NEEDED,
   HUDDLE_NO_CAMERA,
+  HUDDLE_NOT_IN_IMAGE,
   HUDDLE_SCANNING,
   HUDDLE_SHOW_CODE,
-  JOIN_BY_CODE,
+  JOIN_BY_IMAGE,
   JOIN_HUDDLE,
   LEAVE_HUDDLE,
   START_HUDDLE,
 } from "../../wording/huddle"
 import { huddlePortsOf } from "./huddle-board"
 
-/** The huddle this device is in: its QR code for the others to read, its code to copy, and the way out. */
+/** The huddle this device is in: its QR code for the others to read — on this screen, or as a screenshot sent on — and the way out. */
 function JoinedHuddle(props: { readonly huddle: Huddle; readonly onLeave: () => void }): JSX.Element {
-  const copy = async (): Promise<void> => {
-    const copied = await copyText(huddleCodeOf(props.huddle))
-    if (copied.ok) toast({ title: HUDDLE_CODE_COPIED })
-  }
   return (
     <div class="flex flex-col gap-3">
       <QrCode text={huddleCodeOf(props.huddle)} label={HUDDLE_HEADING} class="mx-auto w-56 max-w-full" />
       <p>{HUDDLE_SHOW_CODE}</p>
       <div class="flex flex-wrap justify-end gap-2">
-        <Button variant="outline" size="small" onClick={() => void copy()}>
-          {COPY_HUDDLE_CODE}
-        </Button>
         <Button variant="outline" size="small" onClick={props.onLeave}>
           {LEAVE_HUDDLE}
         </Button>
@@ -52,12 +43,12 @@ function JoinedHuddle(props: { readonly huddle: Huddle; readonly onLeave: () => 
   )
 }
 
-/** A huddle not yet joined: the name to go by, and a huddle begun, or joined by reading its code — or by pasting it, where the camera cannot be used. */
+/** A huddle not yet joined: the name to go by, and a huddle begun, or joined by reading its QR code — by the camera, or out of an image such as a screenshot sent in a chat. */
 function NewHuddle(props: { readonly onJoined: (made: Outcome<Huddle>) => void }): JSX.Element {
   const app = useApp()
   const ports = huddlePortsOf(app.services)
   const [typed, setTyped] = createSignal("")
-  const [pasted, setPasted] = createSignal("")
+  const picker: { input: HTMLInputElement | undefined } = { input: undefined }
   const [scanning, setScanning] = createSignal(false)
   const [nameMissed, setNameMissed] = createSignal(false)
   const named = (then: (name: string) => void): void => {
@@ -66,6 +57,14 @@ function NewHuddle(props: { readonly onJoined: (made: Outcome<Huddle>) => void }
     if (name !== undefined) then(name)
   }
   const join = (code: string): void => named((name) => props.onJoined(joinHuddle(ports, code, name, app.services.businessDay())))
+  const picked = async (input: HTMLInputElement): Promise<void> => {
+    const image = input.files?.[0]
+    input.value = ""
+    if (image === undefined) return
+    const code = await qrInImage(image)
+    if (code === undefined) toast({ title: HUDDLE_NOT_IN_IMAGE, tone: "error" })
+    else join(code)
+  }
   return (
     <div class="flex flex-col gap-3">
       <p>{HUDDLE_ABOUT}</p>
@@ -74,6 +73,9 @@ function NewHuddle(props: { readonly onJoined: (made: Outcome<Huddle>) => void }
         when={scanning()}
         fallback={
           <div class="flex flex-wrap justify-end gap-2">
+            <Button variant="outline" size="small" onClick={() => named(() => picker.input?.click())}>
+              {JOIN_BY_IMAGE}
+            </Button>
             <Button variant="outline" size="small" onClick={() => named(() => setScanning(true))}>
               {JOIN_HUDDLE}
             </Button>
@@ -96,14 +98,7 @@ function NewHuddle(props: { readonly onJoined: (made: Outcome<Huddle>) => void }
           }}
         />
       </Show>
-      <div class="flex items-end gap-2">
-        <div class="min-w-0 flex-1">
-          <TextField label={HUDDLE_CODE_FIELD} value={pasted()} onChange={setPasted} />
-        </div>
-        <Button variant="outline" size="small" onClick={() => join(pasted())}>
-          {JOIN_BY_CODE}
-        </Button>
-      </div>
+      <input ref={(element) => (picker.input = element)} type="file" accept="image/*" class="hidden" onChange={(event) => void picked(event.currentTarget)} />
     </div>
   )
 }
@@ -127,10 +122,10 @@ export function HuddleDialog(props: { readonly open: boolean; readonly onClosed:
     props.onClosed()
   }
   return (
-    <NoticeDialog open={props.open} title={HUDDLE_HEADING} acknowledge="閉じる" onAcknowledged={props.onClosed}>
+    <PanelDialog open={props.open} title={HUDDLE_HEADING} onClosed={props.onClosed}>
       <Show when={app.huddle.now()} keyed fallback={<NewHuddle onJoined={joined} />}>
         {(huddle) => <JoinedHuddle huddle={huddle} onLeave={leave} />}
       </Show>
-    </NoticeDialog>
+    </PanelDialog>
   )
 }

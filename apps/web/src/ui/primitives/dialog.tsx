@@ -2,6 +2,7 @@ import * as DialogPrimitive from "@kobalte/core/dialog"
 import type { JSX } from "solid-js"
 
 import { Button } from "./button"
+import { CloseIcon } from "./icons"
 
 /**
  * Something a person is to read before they go on: laid over the screen,
@@ -33,6 +34,39 @@ export function NoticeDialog(props: {
             <div class="flex justify-end">
               <Button onClick={props.onAcknowledged}>{props.acknowledge}</Button>
             </div>
+          </DialogPrimitive.Content>
+        </div>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  )
+}
+
+/**
+ * A panel laid over the screen to do something in, its own buttons doing
+ * it: closed by the cross in its corner, by a press outside it, or by
+ * Escape, and by nothing else — it has no button of its own to close it.
+ */
+export function PanelDialog(props: { readonly open: boolean; readonly title: string; readonly onClosed: () => void; readonly children: JSX.Element }): JSX.Element {
+  return (
+    <DialogPrimitive.Root
+      open={props.open}
+      onOpenChange={(open) => {
+        if (!open) props.onClosed()
+      }}
+    >
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay class="fixed inset-0 z-50 bg-surface-0/80" />
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <DialogPrimitive.Content class="flex max-h-full w-[min(30rem,100%)] flex-col gap-4 overflow-y-auto rounded-md border border-border bg-surface-1 p-5 shadow-lg outline-none">
+            <div class="flex items-start gap-2">
+              <DialogPrimitive.Title class="flex-1 text-base font-semibold text-text-primary">{props.title}</DialogPrimitive.Title>
+              <DialogPrimitive.CloseButton aria-label="閉じる" class="-mr-1 -mt-1 flex size-7 items-center justify-center rounded text-text-muted hover:bg-surface-3 hover:text-text-primary [&_svg]:size-4">
+                <CloseIcon label="閉じる" />
+              </DialogPrimitive.CloseButton>
+            </div>
+            <DialogPrimitive.Description as="div" class="flex flex-col gap-3 text-sm leading-relaxed text-text-secondary">
+              {props.children}
+            </DialogPrimitive.Description>
           </DialogPrimitive.Content>
         </div>
       </DialogPrimitive.Portal>

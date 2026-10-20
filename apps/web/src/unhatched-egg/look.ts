@@ -39,7 +39,7 @@ html[${MARK}]::after {
 }
 .${SAYS} {
   position: fixed;
-  top: 2.5rem;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   z-index: 2147483647;
@@ -50,6 +50,7 @@ html[${MARK}]::after {
   background: rgba(40, 8, 12, 0.92);
   color: #ffe9ea;
   font-size: 0.875rem;
+  max-width: calc(100vw - 2rem);
   box-shadow: 0 0 16px rgba(255, 32, 48, 0.45);
 }
 @media (prefers-reduced-motion: reduce) {

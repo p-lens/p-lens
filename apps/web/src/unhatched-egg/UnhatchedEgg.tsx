@@ -21,8 +21,8 @@ const HELD = 5_000
 const SAID_FOR = 1_600
 
 /**
- * What it is given — the top bar's name — as it was, and the egg beneath
- * it: ten presses in a row, or one held five seconds, open it, and the
+ * What it is given — the version shown under the settings — as it was,
+ * and the egg beneath it: ten presses in a row, or one held five seconds, open it, and the
  * same close it again; from the seventh press the presses left are
  * counted down, as Android does. Nothing about it shows until then, and
  * while it is open the screen's edges glow red, cast over the whole page

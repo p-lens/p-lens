@@ -10,9 +10,7 @@ export const huddleShownAt = (moment: string): string => `${moment} 時点`
 export const START_HUDDLE = "ノリ打ちを始める"
 export const JOIN_HUDDLE = "QRコードで入る"
 export const LEAVE_HUDDLE = "ノリ打ちを抜ける"
-export const COPY_HUDDLE_CODE = "コードをコピー"
-export const HUDDLE_CODE_COPIED = "コードをコピーしました"
-export const JOIN_BY_CODE = "コードで入る"
+export const JOIN_BY_IMAGE = "画像から読み取る"
 
 /** The field a person says what they are called in a huddle with. */
 export const HUDDLE_NAME = "表示名"
@@ -24,16 +22,16 @@ export const HUDDLE_NAME_NEEDED = "表示名を入れてください。"
 export const HUDDLE_ABOUT = "同じ店で打つ仲間どうしで、いまの稼働を見せ合います。帳簿には何も書きません。その営業日が終わると閉じます。"
 
 /** What the dialog says beside a huddle's QR code. */
-export const HUDDLE_SHOW_CODE = "仲間にこのQRコードを読み取ってもらってください。ライブ計測でパチンコの稼働を開いている間、その稼働を見せ合います。"
+export const HUDDLE_SHOW_CODE = "仲間にこのQRコードを読み取ってもらってください。スクリーンショットを送っても読み取れます。ライブ計測でパチンコの稼働を開いている間、その稼働を見せ合います。"
 
 /** What is said while the camera looks for a QR code. */
 export const HUDDLE_SCANNING = "仲間の画面のQRコードを写してください。"
 
 /** Why the camera could not be used to read a code. */
-export const HUDDLE_NO_CAMERA = "カメラを使えませんでした。コードを貼り付けて入ってください。"
+export const HUDDLE_NO_CAMERA = "カメラを使えませんでした。QRコードのスクリーンショットを「画像から読み取る」で選んでください。"
 
-/** What a huddle's code is pasted into, where the camera is not used. */
-export const HUDDLE_CODE_FIELD = "ノリ打ちのコード"
+/** Why an image chosen to join by gave no huddle. */
+export const HUDDLE_NOT_IN_IMAGE = "画像からQRコードを読み取れませんでした。QRコード全体が写った画像を選んでください。"
 
 /** What the rail's button says while the device is in a huddle: who it is in it as. */
 export const huddleJoinedAs = (name: string): string => `ノリ打ち中（${name}）`

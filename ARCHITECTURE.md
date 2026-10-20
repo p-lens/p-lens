@@ -2111,7 +2111,8 @@ wherever its player records it, as it would be without the huddle.
   (`Sealer.huddleKeysOf`): a book's secret given there opens nothing of
   the book's. Its code (`huddleCodeOf`) is the secret marked as a
   huddle's, so neither is ever taken for the other; it is shown as a QR
-  code and read by the camera, or copied and pasted. Whoever has it reads
+  code and read by the camera, or out of an image — a screenshot of it
+  sent in a chat. It is never shown as text to copy. Whoever has it reads
   and adds to the line with the same token, so nobody is let in one by
   one, and the relay is changed in nothing.
 - **Nobody leads it.** Whoever began a huddle is a member like the others
@@ -2144,17 +2145,17 @@ wherever its player records it, as it would be without the huddle.
 新機能実験モード, the unhatched egg (`unhatched-egg/`), is what is tried
 out on the live app before it is anyone's: there only on a device it was
 opened on, and on no other at all, not even hidden. It is opened, and
-closed again, by pressing the top bar's name ten times in a row — the
-presses left counted down from the seventh, as Android does — or by
-holding it five seconds, and says so plainly (実験モードに移行しました). It
-is kept nowhere: loading the page again closes it.
+closed again, by pressing the version under the settings ten times in a
+row — the presses left counted down from the seventh, as Android does —
+or by holding it five seconds, and says so plainly (実験モードに移行しました).
+It is kept nowhere: loading the page again closes it.
 
 - **Walled off.** All of it is in its folder, and the folder reaches
   nothing of the app — `solid-js` alone, its words its own — while the app
   reaches it only through its `index.ts`. `tests/boundary.test.ts` holds
   both.
 - **Named once at each place, and asked nowhere.** The app names it where
-  the name is pressed (`<UnhatchedEgg>` around the top bar's title) and
+  the version is pressed (`<UnhatchedEgg>` around the settings' version) and
   around what is still in it (`<Unhatched>`), a line each; nothing in the
   app asks whether it is open, and nothing branches on it. Its one cell
   is the page's, as nothing else in the app is: it is meant to be the
