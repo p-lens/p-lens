@@ -161,6 +161,8 @@
   --color-qr-paper: var(--qr-paper);
   /* The device's own interface font first: its digits and Latin letters are the same weight on every phone, and the page's language picks its Japanese. No font is shipped, so one named ahead of it would be met on some devices and not on others. */
   --font-sans: system-ui, -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif;
+  /* Figures read down a column, as a calendar's are: a Latin face first, whose digits are each as wide as the next of themselves and whose commas and signs stay narrow. A Japanese face's digits are not, whatever is asked of them, and a phone set to Japanese writes digits in it. */
+  --font-figures: -apple-system, "Helvetica Neue", "Roboto", "Segoe UI", Arial, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Menlo", "Consolas", "Noto Sans Mono CJK JP", monospace;
 }
 

@@ -4,8 +4,9 @@ const COMMON_CHARACTERS = 8
 /**
  * How a calendar's figures are sized: the largest they are written at
  * where a cell has room to spare, in rems, and how wide a character of a
- * result is taken to be, in ems — a bold tabular digit, the widest a
- * result holds, with a little to spare or none.
+ * result is taken to be, in ems: the figures are in the face for figures,
+ * whose digits are each a little over half an em and whose commas are
+ * narrower, so a digit's width with a little to spare.
  */
 interface Room {
   readonly largestRems: number
@@ -15,7 +16,7 @@ interface Room {
 /** Several books' calendar: room to spare in every cell, since their days often run to a million. */
 const BOOKS: Room = { largestRems: 0.75, characterEms: 0.64 }
 
-/** One book's calendar: a little larger, `+999,999` only just fitting its cell. */
+/** One book's calendar: a little larger, `+999,999` fitting its cell with a hair to spare. */
 const BOOK: Room = { largestRems: 0.875, characterEms: 0.58 }
 
 const sizedIn =

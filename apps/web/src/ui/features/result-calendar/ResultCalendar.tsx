@@ -32,7 +32,10 @@ const CELL = "flex min-h-[3.75rem] min-w-0 flex-col gap-0.5 rounded-[3px] px-0.5
  * the day's tallies had any — uncoloured, being a reckoning and no gain or
  * loss. A day with tallies is pressed to see them; a day without is only its
  * number. The business day it now is wears a ring. Each figure is written
- * as small as its cell asks (`FITTED_SIZE`), in one size up to six digits,
+ * in the face for figures, its digits each as wide as the next and its
+ * commas narrow — a Japanese face's digits are not, and a phone set to
+ * Japanese wrote them so — as small as its cell asks (`FITTED_SIZE`), in
+ * one size up to six digits,
  * so only a great win is in smaller figures, and none is cut short.
  */
 function Day(props: { readonly day: IsoDate; readonly figures: Group | undefined; readonly theoreticalKept: boolean; readonly today: boolean; readonly of: CalendarOf; readonly onOpen: () => void }): JSX.Element {
@@ -58,12 +61,12 @@ function Day(props: { readonly day: IsoDate; readonly figures: Group | undefined
         >
           {number()}
           <span class="block w-full [container-type:inline-size]">
-            <span class={`block whitespace-nowrap text-right font-bold leading-tight tabular-nums ${TONES[toneOf(figures.actual)]}`} style={{ "font-size": FITTED_SIZE[props.of](cellResult(figures.actual)) }}>
+            <span class={`block whitespace-nowrap text-right font-figures font-bold leading-tight tabular-nums ${TONES[toneOf(figures.actual)]}`} style={{ "font-size": FITTED_SIZE[props.of](cellResult(figures.actual)) }}>
               {cellResult(figures.actual)}
             </span>
             <Show when={worth()} keyed>
               {(value) => (
-                <span class="block whitespace-nowrap text-right leading-tight tabular-nums text-text-primary" style={{ "font-size": FITTED_SIZE[props.of](cellWorth(value)) }}>
+                <span class="block whitespace-nowrap text-right font-figures leading-tight tabular-nums text-text-primary" style={{ "font-size": FITTED_SIZE[props.of](cellWorth(value)) }}>
                   {cellWorth(value)}
                 </span>
               )}

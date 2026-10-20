@@ -68,7 +68,7 @@ describe("the result calendar's words", () => {
     expect(fittedSize("")).toBe("min(0.75rem, calc(100cqw / 5.12))")
   })
 
-  test("are a little larger in one book's calendar, +999,999 only just fitting before a longer one is smaller", () => {
+  test("are a little larger in one book's calendar, +999,999 fitting with a hair to spare before a longer one is smaller", () => {
     expect(fittedSizeOfBook(cellResult(dec("0")))).toBe("min(0.875rem, calc(100cqw / 4.64))")
     expect(fittedSizeOfBook(cellResult(dec("1")))).toBe("min(0.875rem, calc(100cqw / 4.64))")
     expect(fittedSizeOfBook(cellResult(dec("-1")))).toBe("min(0.875rem, calc(100cqw / 4.64))")
