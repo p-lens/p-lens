@@ -90,7 +90,7 @@ const settlementOf = (real: readonly Posted[], offBook: string, outlay: Decimal,
   const cash = negate(at(real, ACCOUNTS.cash))
   const odd = at(real, ACCOUNTS.oddPrizes)
   const exchanged = !isZero(at(real, ACCOUNTS.specialPrizes)) || !isZero(odd)
-  if (exchanged && (!isZero(at(real, offBook)) || !isZero(odd))) return { type: "off-book-exchanged", cash, oddPrizes: odd }
+  if (exchanged && (!isZero(at(real, offBook)) || !isZero(odd))) return { type: "off-book-exchanged", cash, specialPrizes: at(real, ACCOUNTS.specialPrizes), oddPrizes: odd }
   if (!isZero(at(real, offBook))) return { type: "off-book-savings", cash }
   const prizes = sum([at(real, ACCOUNTS.specialPrizes), at(real, ACCOUNTS.translationAdjustment)])
   return !isZero(cash) && !isZero(prizes) && isZero(subtract(cash, outlay)) && isZero(subtract(prizes, takings)) ? { type: "cash-and-prizes" } : undefined

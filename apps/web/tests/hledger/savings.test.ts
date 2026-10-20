@@ -7,6 +7,7 @@ import { loadBreakdown } from "../../src/application/breakdown"
 import { createBookSession } from "../../src/application/book-session"
 import { loadHoldings } from "../../src/application/holdings"
 import { loadOtherGains } from "../../src/application/other-gains"
+import { loadOverall } from "../../src/application/overall"
 import { loadOverview } from "../../src/application/overview"
 import { adjustBalance, recordForfeiture, recordPrizeExchange, registerOpeningBalance } from "../../src/application/savings"
 import type { BookId } from "../../src/core/book/book"
@@ -133,6 +134,20 @@ describe("savings exchanged for prizes", () => {
     expect(transactionsOf(files)).toContain("2026-10-04 マレハン東京皇国店 | 景品交換  ; parlor-id: malehan-tokyokoukoku, savings: prize-exchange")
     const activity = await loadActivity(session, history, BOOK)
     expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).at(-1)).toEqual(["savings-exchanged", { pool: { parlor: "マレハン東京皇国店", tier: "4円" }, savings: { date: "2026-10-04" as IsoDate, kind: "ball", tokens: dec("4000") }, prizes: { specialPrizes: dec("13800") } }])
+  })
+
+  test("give the odd tokens as odd prizes at the rental price, and leave hledger to balance the translation adjustment", async () => {
+    const { session } = await madeUpBook()
+    await recordPrizeExchange(session, BOOK, EXCHANGE)
+    const overall = await loadOverall(session, BOOK, "date:2026-10-04")
+    expect(overall.ok && [toPlainString(overall.value.specialPrizes), toPlainString(overall.value.oddPrizes), toPlainString(overall.value.translationAdjustment)]).toEqual(["13800", "228", "-28"])
+  })
+
+  test("keep the part of a yen hledger balances the translation adjustment to", async () => {
+    const { session } = await madeUpBook()
+    expect(await recordPrizeExchange(session, BOOK, { ...EXCHANGE, date: "2026-09-20" as IsoDate, tokens: dec("1455"), specialPrizes: dec("5000") })).toEqual({ ok: true, value: undefined })
+    const overall = await loadOverall(session, BOOK, "date:2026-09-20")
+    expect(overall.ok && [toPlainString(overall.value.oddPrizes), toPlainString(overall.value.translationAdjustment)]).toEqual(["220", "-25.65"])
   })
 
   test("leave every result as it was", async () => {

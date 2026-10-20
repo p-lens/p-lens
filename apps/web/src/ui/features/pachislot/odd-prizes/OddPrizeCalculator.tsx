@@ -1,13 +1,12 @@
 import { createSignal, For, Index, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
-import { isZero } from "../../../../core/decimal/decimal"
 import { oddPrizeReckoningOf, stagesOf, STAGE_STEPS, type Stage, type OddPrizeReckoning, type StageStep } from "../../../../core/savings/odd-prize-reckoning"
 import { useApp } from "../../../context"
 import { TextField } from "../../../primitives/text-field"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
 import type { Place } from "../../../navigation/place"
-import { formatCount, formatSignedYen, formatYen } from "../../../wording/numbers"
+import { formatCount, formatYen } from "../../../wording/numbers"
 import { readCalculator, type CalculatorField, type CalculatorForm } from "../../odd-prize-calculator/calculator-form"
 import { useOpeningCalculator } from "../../odd-prize-calculator/opening"
 import { ViewHeader } from "../../shell/ViewHeader"
@@ -48,7 +47,7 @@ function Field(props: {
 /** Rows of dashes in the shape of the stages, before the medals and the corner's rates read. */
 const UNREAD_STAGES = [undefined, undefined, undefined, undefined] as const
 
-/** The counts of medals to stop at, the nearest first and none left last: how many to keep, the special prizes they come to with any odd prizes beside, and how many to play first. */
+/** The counts of medals to stop at, the nearest first and none left last: how many to keep, the special prizes they come to, and how many to play first. */
 function Stages(props: { readonly stages: readonly Stage[] | undefined }): JSX.Element {
   const rows = (): readonly (Stage | undefined)[] => props.stages ?? UNREAD_STAGES
   return (
@@ -67,9 +66,6 @@ function Stages(props: { readonly stages: readonly Stage[] | undefined }): JSX.E
               <td class="py-1.5 text-base font-semibold text-text-primary">{((found) => (found === undefined ? UNREAD.medals : `${formatCount(found.kept)}枚`))(stage())}</td>
               <td class="py-1.5 pl-3 text-right">
                 {((found) => (found === undefined ? UNREAD.yen : formatYen(found.specialPrizes)))(stage())}
-                <Show when={((found) => (found === undefined || isZero(found.oddPrizes) ? undefined : found.oddPrizes))(stage())} keyed>
-                  {(odd) => <span class="block text-[11px] text-text-muted">{formatSignedYen(odd)}</span>}
-                </Show>
               </td>
               <td class="py-1.5 pl-3 text-right text-base font-semibold text-text-primary">{((found) => (found === undefined ? UNREAD.medals : `${formatCount(found.toPlay)}枚`))(stage())}</td>
             </tr>

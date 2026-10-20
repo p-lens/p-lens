@@ -85,17 +85,17 @@ describe("a play followed live, as it is recorded", () => {
     expect(sides({ ...form, replayPaidOut: "", carriedIn: "" })).toEqual(["5000", "0"])
   })
 
-  test("with no parlor, takes the special prizes typed and the odd ones they leave at the rate as what came back where the tokens left were exchanged, and asks for the special prizes", () => {
+  test("with no parlor, takes the tokens handed over at the rate as what came back where the tokens left were exchanged, leaving as the special prizes typed and the odd ones at the rental price, and asks for the special prizes", () => {
     const form = { ...exchangedFrom(finishYenTallyFormOf(NOWHERE, { ...PLAYED, outlay: 5000, replay: 250, carriedIn: 1000, held: 4000 })), specialPrizes: "１５,０００" }
     expect(form.exchangedTokens).toBe("4000")
     const read = readFinishYenTallyForm(form, TERMS, undefined, "live-1" as PlayId)
-    expect(read.ok && [toPlainString(read.value.outlay), toPlainString(read.value.takings), read.value.settlement]).toEqual(["10000", "16000", { type: "off-book-exchanged", cash: dec("5000"), oddPrizes: dec("1000") }])
+    expect(read.ok && [toPlainString(read.value.outlay), toPlainString(read.value.takings), read.value.settlement]).toEqual(["10000", "16000", { type: "off-book-exchanged", cash: dec("5000"), specialPrizes: dec("15000"), oddPrizes: dec("1000") }])
     expect(oddPrizesOf(form, TERMS)).toEqual(dec("1000"))
     expect([form, { ...form, specialPrizes: "14900" }, { ...form, specialPrizes: "16000" }, { ...form, specialPrizes: "16100" }, { ...form, specialPrizes: "" }].map((each) => offTheRate(each, TERMS))).toEqual([false, true, false, true, false])
     const beyond = readFinishYenTallyForm({ ...form, specialPrizes: "17000" }, TERMS, undefined, "live-1" as PlayId)
-    expect(beyond.ok && [toPlainString(beyond.value.takings), beyond.value.settlement]).toEqual(["17000", { type: "off-book-exchanged", cash: dec("5000"), oddPrizes: dec("0") }])
+    expect(beyond.ok && [toPlainString(beyond.value.takings), beyond.value.settlement]).toEqual(["16000", { type: "off-book-exchanged", cash: dec("5000"), specialPrizes: dec("17000"), oddPrizes: dec("0") }])
     const counted = readFinishYenTallyForm({ ...form, exchangedTokens: "3,800" }, TERMS, undefined, "live-1" as PlayId)
-    expect(counted.ok && [toPlainString(counted.value.takings), counted.value.settlement]).toEqual(["15200", { type: "off-book-exchanged", cash: dec("5000"), oddPrizes: dec("200") }])
+    expect(counted.ok && [toPlainString(counted.value.takings), counted.value.settlement]).toEqual(["15200", { type: "off-book-exchanged", cash: dec("5000"), specialPrizes: dec("15000"), oddPrizes: dec("200") }])
     const unsaid = readFinishYenTallyForm({ ...form, specialPrizes: "" }, TERMS, undefined, "live-1" as PlayId)
     expect(!unsaid.ok && unsaid.error).toEqual([{ field: "special-prizes", reason: "required" }])
   })

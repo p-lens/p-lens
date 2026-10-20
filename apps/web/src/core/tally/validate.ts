@@ -61,7 +61,7 @@ const checkPoolKept: Check = (tally) =>
 /**
  * Savings the book does not keep are a play's at no parlor alone, and the
  * cash of its outlay never more than the outlay; prizes it was exchanged
- * for are whole yen, the odd ones none below nothing nor more than all.
+ * for are whole yen and none below nothing.
  */
 const checkSettlement: Check<YenTally> = (tally) => {
   const settlement = tally.settlement
@@ -70,9 +70,9 @@ const checkSettlement: Check<YenTally> = (tally) => {
   if (isNegative(settlement.cash)) return Err({ type: "negative-amount", field: "outlay" })
   if (compare(settlement.cash, tally.outlay) > 0) return Err({ type: "cash-beyond-outlay" })
   if (settlement.type === "off-book-savings") return Ok(tally)
-  if (tally.takings.places > 0 || settlement.oddPrizes.places > 0) return Err({ type: "fractional-prizes" })
-  if (isNegative(settlement.oddPrizes)) return Err({ type: "negative-amount", field: "odd-prizes" })
-  return compare(settlement.oddPrizes, tally.takings) > 0 ? Err({ type: "odd-prizes-beyond-takings" }) : Ok(tally)
+  if (settlement.specialPrizes.places > 0 || settlement.oddPrizes.places > 0) return Err({ type: "fractional-prizes" })
+  if (isNegative(settlement.specialPrizes)) return Err({ type: "negative-amount", field: "special-prizes" })
+  return isNegative(settlement.oddPrizes) ? Err({ type: "negative-amount", field: "odd-prizes" }) : Ok(tally)
 }
 
 /** What every tally must say well enough to be written, however its result is kept. */

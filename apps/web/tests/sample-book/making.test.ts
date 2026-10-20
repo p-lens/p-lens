@@ -113,7 +113,7 @@ describe("a sample book's days", () => {
 
   test("replay no more than a day's cap, spend cash, carry tokens from machine to machine, and now and then exchange for prizes", () => {
     const replayedOf = (entry: Entry): number =>
-      -entry.postings.filter((posting) => posting.account.startsWith("資産:貯") && posting.amount.quantity.mantissa < 0n).reduce((sum, posting) => sum + Number(posting.amount.quantity.mantissa), 0) -
+      -entry.postings.flatMap((posting) => (posting.kind === "balancing" ? [] : [posting])).filter((posting) => posting.account.startsWith("資産:貯") && posting.amount.quantity.mantissa < 0n).reduce((sum, posting) => sum + Number(posting.amount.quantity.mantissa), 0) -
       Number(tagOf(entry, "carried-in") ?? "0")
     const replays = days.map((day) => day.entries.filter((entry) => tagOf(entry, "play-id") !== undefined).reduce((sum, entry) => sum + replayedOf(entry), 0))
     expect(replays.every((replayed) => replayed >= 0 && replayed <= 2000)).toBe(true)
@@ -128,7 +128,7 @@ describe("a sample book's days", () => {
     days
       .flatMap((day) => day.entries)
       .forEach((entry) => {
-        entry.postings.filter((posting) => posting.account === "資産:現金").forEach((posting) => expect(posting.amount.quantity.mantissa < 0n).toBe(true))
+        entry.postings.flatMap((posting) => (posting.kind === "balancing" ? [] : [posting])).filter((posting) => posting.account === "資産:現金").forEach((posting) => expect(posting.amount.quantity.mantissa < 0n).toBe(true))
       })
     tallies(days).forEach((entry) => expect(entry.description).toMatch(/^.+ホール\d+ \| .+ \d+番台$/))
   })

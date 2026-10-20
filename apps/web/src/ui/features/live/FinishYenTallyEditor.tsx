@@ -91,7 +91,7 @@ export function FinishYenTallyEditor(props: {
                       <TextField label="特殊景品額" value={editing.specialPrizes()} onChange={editing.setSpecialPrizes} inputMode="numeric" suffix="円" error={editing.tally.problemOf("special-prizes")} invalid={editing.tally.nudged("special-prizes")} onFocus={editing.tally.nudge.settle} />
                     </div>
                     <Show when={editing.oddPrizes()} keyed>
-                      {(odd) => <span class="text-xs text-text-muted">端玉景品 {formatYen(odd)}（交換率から）</span>}
+                      {(odd) => <span class="text-xs text-text-muted">端玉景品 {formatYen(odd)}（貸出レートで）</span>}
                     </Show>
                     <Show when={editing.offTheRate()}>
                       <p class="flex flex-col text-xs text-warning">

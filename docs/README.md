@@ -7,7 +7,7 @@ The documents that lay down P-Lens's accounting model. **The Japanese text (`ja/
 | 文書 / Document | 日本語（正本） | English (translation) |
 |---|---|---|
 | Pレンズ遊技会計基準（PLAS）本則：前文、全7章19条、附則、改正履歴 | [ja/accounting-policy.md](ja/accounting-policy.md) | [en/accounting-policy.md](en/accounting-policy.md) |
-| 付録A　公式会計解釈集（Q1〜Q15） | [ja/accounting-faq.md](ja/accounting-faq.md) | [en/accounting-faq.md](en/accounting-faq.md) |
+| 付録A　公式会計解釈集（Q1〜Q21） | [ja/accounting-faq.md](ja/accounting-faq.md) | [en/accounting-faq.md](en/accounting-faq.md) |
 | 付録B　会計処理に関する重要な宣言 | [ja/accounting-declaration.md](ja/accounting-declaration.md) | [en/accounting-declaration.md](en/accounting-declaration.md) |
 
 ## 公式サイトとの関係

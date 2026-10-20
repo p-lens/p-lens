@@ -123,15 +123,17 @@ export interface YenTally extends TallyHead {
  *   is written: the tokens never stopped being tokens.
  * - `off-book-exchanged`: counted in tokens on its terms, the outlay as
  *   with `off-book-savings`, but the tokens it had left exchanged for
- *   prizes at the counter: its takings are the prizes taken home, the
- *   special prizes, typed as they were given, and `oddPrizes`, what the
- *   tokens left beside them at the play's own exchange rate.
+ *   prizes at the counter: its takings are the tokens handed over, at the
+ *   play's exchange rate, and they leave as the prizes taken home — the
+ *   special prizes, typed as they were given, and `oddPrizes`, the tokens
+ *   left beside them at the play's rental price — with the translation
+ *   adjustment between, for hledger to balance.
  * - `cash-and-prizes`: counted in yen alone: the outlay was cash, and the
  *   takings the special prizes taken home.
  */
 export type Settlement =
   | { readonly type: "off-book-savings"; readonly cash: Decimal }
-  | { readonly type: "off-book-exchanged"; readonly cash: Decimal; readonly oddPrizes: Decimal }
+  | { readonly type: "off-book-exchanged"; readonly cash: Decimal; readonly specialPrizes: Decimal; readonly oddPrizes: Decimal }
   | { readonly type: "cash-and-prizes" }
 
 /**
@@ -218,8 +220,6 @@ export type TallyError =
   | { readonly type: "cash-beyond-outlay" }
   /** Prizes a play at no parlor was exchanged for, given in parts of a yen: prizes are whole yen. */
   | { readonly type: "fractional-prizes" }
-  /** Odd prizes a play at no parlor was exchanged for, more than all the prizes it took home. */
-  | { readonly type: "odd-prizes-beyond-takings" }
   /** A tally in yen at a parlor said to have been settled against savings the book does not keep: a parlor's savings are its own. */
   | { readonly type: "off-book-at-parlor" }
   | { readonly type: "no-exchange-rate"; readonly commodity: string; readonly date: IsoDate }

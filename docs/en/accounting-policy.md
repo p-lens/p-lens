@@ -1,8 +1,8 @@
 ---
 title: P-Lens Accounting Standards
 lang: en
-version: "1.0.1"
-enacted: "2026-10-20"
+version: "1.0.2"
+enacted: "2026-10-21"
 translationOf: ja
 ---
 
@@ -12,9 +12,9 @@ translationOf: ja
 
 Pレンズ遊技会計基準 (PLAS)
 
-- Edition: 1.0.1
+- Edition: 1.0.2
 - Enacted: 13 October 2026
-- Amended: 20 October 2026
+- Amended: 21 October 2026
 - Scope: P-Lens and those who use its accounting model
 - Base currencies: Japanese yen, and the balls and medals particular to each parlor
 - Basic principles: debits equal credits, honesty of the record, silence after the prize exchange
@@ -296,10 +296,11 @@ An amendment of these Standards does not require a retrospective stocktaking of 
 
 - Edition 1.0, 13 October 2026: enacted
 - Edition 1.0.1, 20 October 2026: Articles 8 and 10 amended, to state that the odd-prize account records the value of odd tokens and does not require that a prize actually be received
+- Edition 1.0.2, 21 October 2026: Q16 to Q21 added to Appendix A, to state how odd prizes are worked out, how the tokens that went to special prizes are counted, and how the amount of the translation adjustment is arrived at
 
 ---
 
-P-Lens Accounting Standards (PLAS), Edition 1.0.1, enacted 13 October 2026, amended 20 October 2026
+P-Lens Accounting Standards (PLAS), Edition 1.0.2, enacted 13 October 2026, amended 21 October 2026
 
 Enacted by: the P-Lens project
 

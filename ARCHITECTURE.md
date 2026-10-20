@@ -161,8 +161,8 @@ The account tree is deliberately small:
 純資産:開始残高             savings a person already had when the book began
 純資産:残高調整             a pool's count put right to what the parlor says
 純資産:特殊景品             what the special prizes of a prize exchange are worth
-純資産:端玉景品             the rest of a prize exchange, in whole yen
-純資産:換算調整勘定         the part of a yen a prize exchange leaves over
+純資産:端玉景品             the odd tokens of a prize exchange at the rental price, in whole yen
+純資産:換算調整勘定         what prizes taken home leave over, balanced by hledger
 統計:期待値                 no type, virtual postings only
 統計:時間                   seconds a play lasted, virtual postings only; declared with 秒 in every new book, and in an older one when it first has one
 ```
@@ -395,11 +395,12 @@ a day at no parlor hand their tokens on, each one's takings the next one's
 outlay, and come together to what the last left, exchanged, less all that
 was spent. Where the person says the tokens in hand were exchanged at the
 counter (「景品に交換した」 beside 「持ち越す（簿外）」), what came back is
-the special prizes typed as given instead, and the odd prizes they leave
-beside the count handed over (交換数, begun as the tokens in hand) at the
-play's own exchange rate, worked out as a parlor's exchange's are
-and none where the special prizes come to more (`off-book-exchanged`):
-nobody counts the sweets; where the two cannot have been an exchange at
+the count handed over (交換数, begun as the tokens in hand) at the play's
+own exchange rate instead, and it leaves as the special prizes typed as
+given and the odd prizes they leave beside it at the play's rental price,
+worked out as a parlor's exchange's are and none where the special prizes
+take every token or more, with the translation adjustment between for
+hledger to balance (`off-book-exchanged`): nobody counts the sweets; where the two cannot have been an exchange at
 that rate — odd prizes below nothing or over ¥1,000 — the form says
 so, and records it all the same. Nothing goes back to 簿外貯玉, and the tokens are not kept
 for the day's next play.
@@ -442,7 +443,8 @@ A tally can also be kept by its totals in yen alone (`YenTally`,
 `composeYenTallyEntry`): what went in (投資額, `outlay`) to `費用:遊技`, what
 came back (回収額, `takings`) from `収益:遊技`, and what lies between: a
 loss out of `資産:現金`, a gain into `純資産:特殊景品` in whole yen, with the
-part of a yen left over in `純資産:換算調整勘定`. So the income statement
+part of a yen left over in `純資産:換算調整勘定`, a posting with no amount
+for hledger to balance. So the income statement
 counts it like any tally, both sides are kept and no savings move.
 
 **Cash never rises.** Nothing the app writes puts a positive amount to
@@ -2296,10 +2298,14 @@ back are worth, and the day.
   opening balance is, so no income statement counts any and no earlier
   figure moves. They are declared in a book the first time they are needed.
 - **Prizes in whole yen.** A prize is worth whole yen; a token's rate is
-  not. The odd prizes are what lies between to the nearest yen, and the
-  part of a yen left over is written to `純資産:換算調整勘定`, the
-  translation adjustment (`translationAdjustment`): equity too, named as
-  the difference left by restating one unit in another is. A rental spread
+  not. The special prizes count out the fewest whole tokens by the board
+  the book's rate was rounded from (28 balls to ¥100 for 3.57), the odd
+  tokens beside them are the odd prizes at the pool's rental price (the
+  rate where its tier names none), to the nearest yen, and what is left
+  is written to `純資産:換算調整勘定`, the translation adjustment
+  (`translationAdjustment`), as a posting with no amount for hledger to
+  balance: equity too, named as the difference left by restating one
+  unit in another is. A rental spread
   keeps its fraction, being a cost as large as it is.
 - **Never more than the pool holds** by the end of the day said: that is
   refused before anything is written.

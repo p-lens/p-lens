@@ -71,14 +71,16 @@ describe("a recorded tally, read back from its entry", () => {
     const carried: YenTally = { ...TALLIED, id: "carried" as PlayId, parlor: undefined, outlay: dec("1000"), takings: dec("4000"), settlement: { type: "off-book-savings", cash: dec("1000") } }
     const spent: YenTally = { ...TALLIED, id: "spent" as PlayId, parlor: undefined, outlay: dec("6000"), takings: dec("0"), settlement: { type: "off-book-savings", cash: dec("1000") } }
     const prized: YenTally = { ...TALLIED, id: "prized" as PlayId, parlor: undefined, outlay: dec("12000"), takings: dec("30000"), settlement: { type: "cash-and-prizes" } }
-    const exchanged: YenTally = { ...TALLIED, id: "exchanged" as PlayId, parlor: undefined, outlay: dec("6000"), takings: dec("23500"), settlement: { type: "off-book-exchanged", cash: dec("5000"), oddPrizes: dec("500") } }
-    const exchangedEven: YenTally = { ...TALLIED, id: "exchanged-even" as PlayId, parlor: undefined, outlay: dec("5000"), takings: dec("23000"), settlement: { type: "off-book-exchanged", cash: dec("5000"), oddPrizes: dec("0") } }
-    for (const tally of [carried, spent, prized, exchanged, exchangedEven]) expect((await recordYenTally(session, BOOK, tally)).ok).toBe(true)
+    const prizedInPart: YenTally = { ...TALLIED, id: "prized-in-part" as PlayId, parlor: undefined, outlay: dec("12000"), takings: dec("30000.4"), settlement: { type: "cash-and-prizes" } }
+    const exchanged: YenTally = { ...TALLIED, id: "exchanged" as PlayId, parlor: undefined, outlay: dec("6000"), takings: dec("23500"), settlement: { type: "off-book-exchanged", cash: dec("5000"), specialPrizes: dec("23000"), oddPrizes: dec("500") } }
+    const exchangedEven: YenTally = { ...TALLIED, id: "exchanged-even" as PlayId, parlor: undefined, outlay: dec("5000"), takings: dec("23000"), settlement: { type: "off-book-exchanged", cash: dec("5000"), specialPrizes: dec("23000"), oddPrizes: dec("0") } }
+    for (const tally of [carried, spent, prized, prizedInPart, exchanged, exchangedEven]) expect((await recordYenTally(session, BOOK, tally)).ok).toBe(true)
     expect(await recordedOf(session, "exchanged")).toEqual({ ok: true, value: { type: "yen", tally: exchanged } })
     expect(await recordedOf(session, "exchanged-even")).toEqual({ ok: true, value: { type: "yen", tally: { ...exchangedEven, settlement: { type: "cash-and-prizes" } } } })
     expect(await recordedOf(session, "carried")).toEqual({ ok: true, value: { type: "yen", tally: carried } })
     expect(await recordedOf(session, "spent")).toEqual({ ok: true, value: { type: "yen", tally: spent } })
     expect(await recordedOf(session, "prized")).toEqual({ ok: true, value: { type: "yen", tally: prized } })
+    expect(await recordedOf(session, "prized-in-part")).toEqual({ ok: true, value: { type: "yen", tally: prizedInPart } })
     expect(storage.peek(BOOK)?.files[BOOK_FILES.accounts]).toContain("account 純資産:簿外貯メダル")
   })
 

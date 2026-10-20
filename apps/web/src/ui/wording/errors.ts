@@ -60,8 +60,6 @@ export const describeTallyError = (error: TallyError): string => {
       return "現金で出した額が、投資額を超えています。"
     case "fractional-prizes":
       return "景品の額は円単位で入力してください。"
-    case "odd-prizes-beyond-takings":
-      return "端玉景品の額が、景品の合計を超えています。"
     case "off-book-at-parlor":
       return "店舗を指定した収支は、簿外貯玉を使えません。その店舗の貯玉から引き出してください。"
     case "pool-not-kept":

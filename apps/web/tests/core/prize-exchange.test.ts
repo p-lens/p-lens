@@ -3,44 +3,36 @@ import { describe, expect, test } from "bun:test"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { toPlainString } from "../../src/core/decimal/decimal"
 import { renderEntry } from "../../src/core/journal/entry"
-import { oddPrizesAt, prizeExchangeEntry, withPrizesDeclared, type PrizeExchange } from "../../src/core/savings/prize-exchange"
+import { rentalPriceOfTier } from "../../src/core/parlor/terms"
+import { exchangedOddPrizes, prizeExchangeEntry, withPrizesDeclared, type PrizeExchange } from "../../src/core/savings/prize-exchange"
 import { PRICES, MALEHAN, dec } from "../support/values"
 
-const EXCHANGE: PrizeExchange = { parlor: MALEHAN, pool: { kind: "ball", tier: "4円" }, date: "2026-10-04" as IsoDate, tokens: dec("4800"), specialPrizes: dec("16500") }
+const EXCHANGE: PrizeExchange = { parlor: MALEHAN, pool: { kind: "ball", tier: "4円" }, date: "2026-09-10" as IsoDate, tokens: dec("1455"), specialPrizes: dec("5000") }
 
 const rendered = (exchange: PrizeExchange): string => ((entry) => (entry.ok ? renderEntry(entry.value) : entry.error.type))(prizeExchangeEntry(exchange, PRICES))
 
 describe("a prize exchange as an entry", () => {
-  test("takes the tokens out at the day's rate, as special prizes and, for what lies between, odd prizes — and moves no cash", () => {
+  test("takes the tokens out at the day's rate, as special prizes, the odd tokens left as odd prizes at the rental price, and the translation adjustment for hledger to balance — and moves no cash", () => {
     expect(rendered(EXCHANGE)).toBe(
       [
-        "2026-10-04 マレハン東京皇国店 | 景品交換  ; parlor-id: malehan-tokyokoukoku, savings: prize-exchange",
-        '    資産:貯玉:マレハン東京皇国店:4円    -4800 "玉(4円・マレハン東京皇国店)" @ 3.5 JPY',
-        "    純資産:特殊景品                     16500 JPY",
-        "    純資産:端玉景品                     300 JPY",
+        "2026-09-10 マレハン東京皇国店 | 景品交換  ; parlor-id: malehan-tokyokoukoku, savings: prize-exchange",
+        '    資産:貯玉:マレハン東京皇国店:4円    -1455 "玉(4円・マレハン東京皇国店)" @ 3.57 JPY',
+        "    純資産:特殊景品                     5000 JPY",
+        "    純資産:端玉景品                     220 JPY",
+        "    純資産:換算調整勘定",
         "",
       ].join("\n"),
     )
     expect(rendered(EXCHANGE)).not.toContain("現金")
   })
 
-  test("writes no odd prizes where the special prizes are what the rate gives, and negative ones where they are more", () => {
-    expect(rendered({ ...EXCHANGE, specialPrizes: dec("16800") })).not.toContain("端玉景品")
-    expect(rendered({ ...EXCHANGE, specialPrizes: dec("17000") })).toContain("純資産:端玉景品                     -200 JPY")
-  })
-
-  test("writes the odd prizes in whole yen, and the part of a yen left over as the translation adjustment", () => {
-    const over = rendered({ ...EXCHANGE, date: "2026-09-10" as IsoDate, tokens: dec("4801"), specialPrizes: dec("16500") })
-    expect(over).toContain("純資産:端玉景品                     640 JPY")
-    expect(over).toContain("純資産:換算調整勘定                 -0.43 JPY")
-    const under = rendered({ ...EXCHANGE, date: "2026-09-10" as IsoDate, tokens: dec("4799"), specialPrizes: dec("16500") })
-    expect(under).toContain("純資産:端玉景品                     632 JPY")
-    expect(under).toContain("純資産:換算調整勘定                 0.43 JPY")
-    expect(rendered(EXCHANGE)).not.toContain("換算調整勘定")
+  test("writes no odd prizes where the special prizes took every token, and negative ones where they took more", () => {
+    expect(rendered({ ...EXCHANGE, tokens: dec("1400") })).not.toContain("端玉景品")
+    expect(rendered({ ...EXCHANGE, tokens: dec("1400"), specialPrizes: dec("5100") })).toContain("純資産:端玉景品                     -112 JPY")
   })
 
   test("uses the rate in force on its own day", () => {
-    expect(rendered({ ...EXCHANGE, date: "2026-09-10" as IsoDate, specialPrizes: dec("17136") })).toContain("@ 3.57 JPY")
+    expect(rendered({ ...EXCHANGE, date: "2026-10-04" as IsoDate })).toContain("@ 3.5 JPY")
   })
 
   test("is refused with nothing exchanged, part of a token, prizes below nothing, or no rate for the day", () => {
@@ -48,6 +40,30 @@ describe("a prize exchange as an entry", () => {
     expect(rendered({ ...EXCHANGE, tokens: dec("10.5") })).toBe("fractional-tokens")
     expect(rendered({ ...EXCHANGE, specialPrizes: dec("-1") })).toBe("negative-prizes")
     expect(rendered({ ...EXCHANGE, date: "2026-08-01" as IsoDate })).toBe("no-exchange-rate")
+  })
+})
+
+describe("the odd prizes of an exchange", () => {
+  const odd = (tokens: string, rate: string, specialPrizes: string, tier: string): string => toPlainString(exchangedOddPrizes(dec(tokens), dec(rate), dec(specialPrizes), rentalPriceOfTier(tier)))
+
+  test("count the special prizes' tokens by the board the rate was rounded from, down or up, to two places or six", () => {
+    expect(odd("1455", "3.57", "5000", "4円")).toBe("220")
+    expect(odd("1455", "3.571429", "5000", "4円")).toBe("220")
+    expect(odd("300", "17.86", "5000", "20円")).toBe("400")
+    expect(odd("300", "17.857143", "5000", "20円")).toBe("400")
+  })
+
+  test("count the fewest whole tokens a special prize is exchanged from", () => {
+    expect(odd("500", "19.42", "9500", "20円")).toBe("200")
+    expect(odd("4800", "3.5", "16500", "4円")).toBe("340")
+  })
+
+  test("are the odd tokens at the rate where the tier names no rental price", () => {
+    expect(odd("55", "3.57", "0", "レート不明")).toBe("196")
+  })
+
+  test("are what lies between at a rate of nothing, which only a hand can write", () => {
+    expect(odd("100", "0", "300", "4円")).toBe("-300")
   })
 })
 
@@ -59,15 +75,3 @@ describe("the accounts of a prize exchange", () => {
   })
 })
 
-describe("the odd prizes an exchange comes to", () => {
-  test("are what lies between the tokens' worth and the special prizes, in whole yen", () => {
-    expect(toPlainString(oddPrizesAt(dec("4800"), dec("3.5"), dec("16500")))).toBe("300")
-    expect(toPlainString(oddPrizesAt(dec("4800"), dec("3.5"), dec("16800")))).toBe("0")
-    expect(toPlainString(oddPrizesAt(dec("5000"), dec("3.571429"), dec("17500")))).toBe("357")
-  })
-
-  test("are below nothing where the special prizes are worth more than the tokens were: a digit mistyped, or a rate lower than the parlor's", () => {
-    expect(toPlainString(oddPrizesAt(dec("4800"), dec("3.5"), dec("17000")))).toBe("-200")
-    expect(toPlainString(oddPrizesAt(dec("4800"), dec("3.5"), dec("165000")))).toBe("-148200")
-  })
-})

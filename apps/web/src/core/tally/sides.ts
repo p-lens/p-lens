@@ -5,17 +5,18 @@ import type { Posting } from "../journal/entry"
 
 const real = (account: string, quantity: Decimal): readonly Posting[] => (isZero(quantity) ? [] : [{ account, amount: { quantity, commodity: YEN }, kind: "real" }])
 
+/** The translation adjustment, written with no amount for hledger to balance: the app never works it out. */
+const TRANSLATION_ADJUSTMENT: Posting = { account: ACCOUNTS.translationAdjustment, kind: "balancing" }
+
 /**
  * What lies between a tally's two sides in yen. A loss is cash spent. A gain
  * is never cash received — cash in a book only ever falls: it is prizes
  * taken home, the special prizes in whole yen and the part of a yen left
- * over the translation adjustment, as a prize exchange writes them.
+ * over the translation adjustment for hledger to balance, as a prize
+ * exchange writes them.
  */
-const betweenPostings = (between: Decimal): readonly Posting[] => {
-  if (isNegative(between)) return real(ACCOUNTS.cash, between)
-  const prizes = rounded(between, 0)
-  return [...real(ACCOUNTS.specialPrizes, prizes), ...real(ACCOUNTS.translationAdjustment, subtract(between, prizes))]
-}
+const betweenPostings = (between: Decimal): readonly Posting[] =>
+  isNegative(between) ? real(ACCOUNTS.cash, between) : isZero(between) ? [] : [...real(ACCOUNTS.specialPrizes, rounded(between, 0)), TRANSLATION_ADJUSTMENT]
 
 /**
  * The two sides of a tally in yen, typed in by hand or taken in from
@@ -49,31 +50,30 @@ export const sidePostingsOffBook = (outlay: Decimal, takings: Decimal, cash: Dec
  * The two sides of a play at no parlor counted in tokens whose tokens left
  * were exchanged for prizes: the cash of its outlay leaves cash, the rest
  * of its outlay — tokens begun with and drawn from savings — comes from
- * savings the book does not keep, and its takings are the prizes taken
- * home, the odd prizes as given and the rest special prizes. Cash falls by
- * the cash spent, and nothing goes back to savings the book does not keep.
+ * savings the book does not keep, and its takings leave as the prizes
+ * taken home, special and odd as given, with the translation adjustment
+ * between for hledger to balance. Cash falls by the cash spent, and
+ * nothing goes back to savings the book does not keep.
  */
-export const sidePostingsOffBookExchanged = (outlay: Decimal, takings: Decimal, cash: Decimal, oddPrizes: Decimal, offBookAccount: string): readonly Posting[] => [
+export const sidePostingsOffBookExchanged = (outlay: Decimal, takings: Decimal, cash: Decimal, prizes: { readonly specialPrizes: Decimal; readonly oddPrizes: Decimal }, offBookAccount: string): readonly Posting[] => [
   ...real(ACCOUNTS.playExpense, outlay),
   ...real(ACCOUNTS.playRevenue, negate(takings)),
   ...real(ACCOUNTS.cash, negate(cash)),
   ...real(offBookAccount, negate(subtract(outlay, cash))),
-  ...real(ACCOUNTS.specialPrizes, subtract(takings, oddPrizes)),
-  ...real(ACCOUNTS.oddPrizes, oddPrizes),
+  ...real(ACCOUNTS.specialPrizes, prizes.specialPrizes),
+  ...real(ACCOUNTS.oddPrizes, prizes.oddPrizes),
+  TRANSLATION_ADJUSTMENT,
 ]
 
 /**
  * The two sides of a play at no parlor counted in yen alone: its outlay
  * leaves cash, and its takings are the special prizes taken home — in
- * whole yen, the part of one over the translation adjustment.
+ * whole yen, the part of one over the translation adjustment for hledger
+ * to balance.
  */
-export const sidePostingsInCashAndPrizes = (outlay: Decimal, takings: Decimal): readonly Posting[] => {
-  const prizes = rounded(takings, 0)
-  return [
-    ...real(ACCOUNTS.playExpense, outlay),
-    ...real(ACCOUNTS.playRevenue, negate(takings)),
-    ...real(ACCOUNTS.cash, negate(outlay)),
-    ...real(ACCOUNTS.specialPrizes, prizes),
-    ...real(ACCOUNTS.translationAdjustment, subtract(takings, prizes)),
-  ]
-}
+export const sidePostingsInCashAndPrizes = (outlay: Decimal, takings: Decimal): readonly Posting[] => [
+  ...real(ACCOUNTS.playExpense, outlay),
+  ...real(ACCOUNTS.playRevenue, negate(takings)),
+  ...real(ACCOUNTS.cash, negate(outlay)),
+  ...(isZero(takings) ? [] : [...real(ACCOUNTS.specialPrizes, rounded(takings, 0)), TRANSLATION_ADJUSTMENT]),
+]

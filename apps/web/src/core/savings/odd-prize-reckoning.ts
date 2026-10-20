@@ -1,6 +1,5 @@
 import { decimal, floored, multiply, quotient, type Decimal } from "../decimal/decimal"
 import { exchangeRateOf, type PlayTerms } from "../parlor/terms"
-import { oddPrizesAt } from "./prize-exchange"
 
 /** The special prizes the stages may step down by, in yen: a counter's smallest special prize is one of them. */
 export const STAGE_STEPS = [100, 500, 1000] as const
@@ -18,15 +17,13 @@ const MOST_STAGES = 20
 
 /**
  * A count of tokens to stop at so that they exchange for a sum of special
- * prizes and as little else as can be: the tokens kept, the special prizes
- * they come to, the odd prizes left beside them, in whole yen — none
- * where the sum is whole tokens, less than a token's worth where it is not
- * — and the tokens to be played before them.
+ * prizes and no odd prizes: the tokens kept, the special prizes they come
+ * to — the fewest whole tokens the counter counts out for them, so none
+ * is left to be given as sweets — and the tokens to be played before them.
  */
 export interface Stage {
   readonly kept: number
   readonly specialPrizes: Decimal
-  readonly oddPrizes: Decimal
   readonly toPlay: number
 }
 
@@ -53,12 +50,7 @@ export const stagesOf = (tokens: number, exchange: PlayTerms["exchange"], step: 
   const most = (BigInt(tokens) * BigInt(exchange.yen)) / (BigInt(step) * BigInt(exchange.tokens))
   return Array.from({ length: Math.min(Number(most) + 1, MOST_STAGES) }, (_, below) => (most - BigInt(below)) * BigInt(step)).map((yen) => {
     const kept = tokensFor(yen, exchange)
-    return {
-      kept: Number(kept),
-      specialPrizes: whole(yen),
-      oddPrizes: oddPrizesAt(whole(kept), exchangeRateOf({ exchange }), whole(yen)),
-      toPlay: tokens - Number(kept),
-    }
+    return { kept: Number(kept), specialPrizes: whole(yen), toPlay: tokens - Number(kept) }
   })
 }
 

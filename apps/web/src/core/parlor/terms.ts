@@ -1,4 +1,4 @@
-import { decimal, quotient, toPlainString, type Decimal } from "../decimal/decimal"
+import { decimal, isNegative, isZero, parseDecimal, quotient, toPlainString, type Decimal } from "../decimal/decimal"
 import { tokenKindOf, type PlayGameKind } from "../play/play"
 import type { SavingsPool } from "./parlor"
 
@@ -131,6 +131,15 @@ export const UNKNOWN_TIER = "レート不明"
 export const tierOf = (gameKind: PlayGameKind, terms: PlayTerms): string => {
   const rented = rentalTier(gameKind, terms)
   return rented !== undefined && rented === exchangeTier(gameKind, terms) ? `${String(rented)}円` : UNKNOWN_TIER
+}
+
+/** What renting a token costs on these terms, in yen to six places. */
+export const rentalPriceOf = (terms: Pick<PlayTerms, "rental">): Decimal => quotient(whole(terms.rental.yen), whole(terms.rental.tokens), RATE_PLACES)
+
+/** What renting a token costs at the rate a tier names — 4 at `4円`, 0.5 at `0.5円` — and nothing where it names none, as a rate unknown does. */
+export const rentalPriceOfTier = (tier: string): Decimal | undefined => {
+  const named = tier.endsWith("円") ? parseDecimal(tier.slice(0, -1)) : undefined
+  return named?.ok === true && !isZero(named.value) && !isNegative(named.value) ? named.value : undefined
 }
 
 /** The savings a play on these terms draws on and pays into. */

@@ -1,7 +1,7 @@
 import { YEN, tokenCommodity, type TokenKind } from "../commodity/commodity"
 import { isZero, multiply, negate, subtract, toPlainString, type Decimal } from "../decimal/decimal"
 import { ACCOUNTS, offBookSavingsAccount, rentalSpreadAccount, savingsAccount } from "../journal/accounts"
-import { describedBy, type Entry, type Posting } from "../journal/entry"
+import { describedBy, type Entry, type Posting, type StatedPosting } from "../journal/entry"
 import { Err, Ok, andThen, mapOk, type Result } from "../result/result"
 import { inferredTheoreticalValuePosting, theoreticalValuePosting } from "../theoretical/theoretical"
 import { playSecondsOf, playTimePosting } from "./play-time"
@@ -13,7 +13,7 @@ import { asideTags } from "./aside"
 import { sidePostings, sidePostingsInCashAndPrizes, sidePostingsOffBook, sidePostingsOffBookExchanged } from "./sides"
 import { validateTokenTally, validateYenTally } from "./validate"
 
-const real = (account: string, quantity: Decimal, commodity: string): Posting => ({
+const real = (account: string, quantity: Decimal, commodity: string): StatedPosting => ({
   account,
   amount: { quantity, commodity },
   kind: "real",
@@ -181,7 +181,7 @@ const yenSidePostings = (tally: YenTally): readonly Posting[] => {
     case "off-book-savings":
       return sidePostingsOffBook(tally.outlay, tally.takings, settlement.cash, offBookSavingsAccount(tokenKindOf(tally.gameKind)))
     case "off-book-exchanged":
-      return sidePostingsOffBookExchanged(tally.outlay, tally.takings, settlement.cash, settlement.oddPrizes, offBookSavingsAccount(tokenKindOf(tally.gameKind)))
+      return sidePostingsOffBookExchanged(tally.outlay, tally.takings, settlement.cash, settlement, offBookSavingsAccount(tokenKindOf(tally.gameKind)))
     case "cash-and-prizes":
       return sidePostingsInCashAndPrizes(tally.outlay, tally.takings)
   }

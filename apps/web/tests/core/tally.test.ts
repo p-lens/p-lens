@@ -52,7 +52,7 @@ describe("composeTokenTallyEntry", () => {
   test("tokens carried in leave savings and are spent with no fee, and the entry says how many", () => {
     const carried = { ...RENTED_PLAY, rental: undefined, replay: { paidOut: dec("1000"), deducted: dec("1100") }, carriedIn: dec("1500"), payout: dec("2000"), theoreticalValue: undefined }
     const entry = composeTokenTallyEntry(carried, PRICES)
-    expect(entry.ok && entry.value.postings.map((posting) => [posting.account, posting.amount.quantity])).toEqual([
+    expect(entry.ok && entry.value.postings.map((posting) => [posting.account, posting.kind === "balancing" ? undefined : posting.amount.quantity])).toEqual([
       ["資産:貯玉:マレハン東京皇国店:4円", dec("-1100")],
       ["費用:遊技", dec("1000")],
       ["費用:再プレイ手数料", dec("100")],
@@ -70,7 +70,7 @@ describe("composeTokenTallyEntry", () => {
   test("a replay's fee is what savings lost beyond what was paid out, written apart from the tally's play", () => {
     const replay = { ...RENTED_PLAY, rental: undefined, replay: { paidOut: dec("1000"), deducted: dec("1100") }, payout: dec("0"), theoreticalValue: undefined }
     const entry = composeTokenTallyEntry(replay, PRICES)
-    expect(entry.ok && entry.value.postings.map((posting) => [posting.account, posting.amount.quantity])).toEqual([
+    expect(entry.ok && entry.value.postings.map((posting) => [posting.account, posting.kind === "balancing" ? undefined : posting.amount.quantity])).toEqual([
       ["資産:貯玉:マレハン東京皇国店:4円", dec("-1100")],
       ["費用:遊技", dec("1000")],
       ["費用:再プレイ手数料", dec("100")],
@@ -159,6 +159,7 @@ describe("composeYenTallyEntry", () => {
         "    費用:遊技                           12000 JPY",
         "    収益:遊技                           -30000 JPY",
         "    純資産:特殊景品                     18000 JPY",
+        "    純資産:換算調整勘定",
         "",
       ].join("\n"),
     })
@@ -176,9 +177,9 @@ describe("composeYenTallyEntry", () => {
     })
   })
 
-  test("at no parlor counted in tokens whose tokens were exchanged, takes the rest of its outlay from savings the book does not keep and puts its takings to the prizes as given", () => {
+  test("at no parlor counted in tokens whose tokens were exchanged, takes the rest of its outlay from savings the book does not keep and puts its takings to the prizes as given, the translation adjustment for hledger to balance", () => {
     const head = "2026-10-04 | e風の剣豪  ; play-id: tally-1004, game-kind: pachinko, machine: e風の剣豪"
-    expect(mapOk(composeYenTallyEntry({ ...TALLIED, outlay: dec("6000"), takings: dec("23500"), theoreticalValue: undefined, settlement: { type: "off-book-exchanged", cash: dec("5000"), oddPrizes: dec("500") } }), renderEntry)).toEqual({
+    expect(mapOk(composeYenTallyEntry({ ...TALLIED, outlay: dec("6000"), takings: dec("23500"), theoreticalValue: undefined, settlement: { type: "off-book-exchanged", cash: dec("5000"), specialPrizes: dec("23000"), oddPrizes: dec("500") } }), renderEntry)).toEqual({
       ok: true,
       value: [
         head,
@@ -188,12 +189,13 @@ describe("composeYenTallyEntry", () => {
         "    純資産:簿外貯玉                     -1000 JPY",
         "    純資産:特殊景品                     23000 JPY",
         "    純資産:端玉景品                     500 JPY",
+        "    純資産:換算調整勘定",
         "",
       ].join("\n"),
     })
-    const exchanged = { ...TALLIED, outlay: dec("6000"), takings: dec("23500"), settlement: { type: "off-book-exchanged" as const, cash: dec("5000"), oddPrizes: dec("500") } }
-    expect(composeYenTallyEntry({ ...exchanged, takings: dec("23500.5") })).toEqual({ ok: false, error: { type: "fractional-prizes" } })
-    expect(composeYenTallyEntry({ ...exchanged, settlement: { ...exchanged.settlement, oddPrizes: dec("30000") } })).toEqual({ ok: false, error: { type: "odd-prizes-beyond-takings" } })
+    const exchanged = { ...TALLIED, outlay: dec("6000"), takings: dec("23500"), settlement: { type: "off-book-exchanged" as const, cash: dec("5000"), specialPrizes: dec("23000"), oddPrizes: dec("500") } }
+    expect(composeYenTallyEntry({ ...exchanged, settlement: { ...exchanged.settlement, specialPrizes: dec("23000.5") } })).toEqual({ ok: false, error: { type: "fractional-prizes" } })
+    expect(composeYenTallyEntry({ ...exchanged, settlement: { ...exchanged.settlement, oddPrizes: dec("-1") } })).toEqual({ ok: false, error: { type: "negative-amount", field: "odd-prizes" } })
     expect(composeYenTallyEntry({ ...exchanged, parlor: MALEHAN })).toEqual({ ok: false, error: { type: "off-book-at-parlor" } })
   })
 
@@ -206,7 +208,7 @@ describe("composeYenTallyEntry", () => {
         "    収益:遊技                           -30000.4 JPY",
         "    資産:現金                           -12000 JPY",
         "    純資産:特殊景品                     30000 JPY",
-        "    純資産:換算調整勘定                 0.4 JPY",
+        "    純資産:換算調整勘定",
         "",
       ].join("\n"),
     })
@@ -223,12 +225,12 @@ describe("composeYenTallyEntry", () => {
     expect(composeYenTallyEntry({ ...TALLIED, takings: dec("-1") })).toEqual({ ok: false, error: { type: "negative-amount", field: "takings" } })
   })
 
-  test("puts the part of a yen a gain leaves over to the translation adjustment, the prizes being whole yen", () => {
+  test("leaves the part of a yen a gain leaves over to the translation adjustment for hledger to balance, the prizes being whole yen", () => {
     const entry = composeYenTallyEntry({ ...TALLIED, outlay: dec("0"), takings: dec("100.4"), theoreticalValue: undefined })
-    expect(entry.ok && entry.value.postings.map((posting) => [posting.account, posting.amount.quantity])).toEqual([
+    expect(entry.ok && entry.value.postings.map((posting) => [posting.account, posting.kind === "balancing" ? undefined : posting.amount.quantity])).toEqual([
       ["収益:遊技", dec("-100.4")],
       ["純資産:特殊景品", dec("100")],
-      ["純資産:換算調整勘定", dec("0.4")],
+      ["純資産:換算調整勘定", undefined],
     ])
   })
 
@@ -240,6 +242,7 @@ describe("composeYenTallyEntry", () => {
       [
         { account: "収益:遊技", amount: { quantity: dec("-20000"), commodity: "JPY" }, kind: "real" },
         { account: "純資産:特殊景品", amount: { quantity: dec("20000"), commodity: "JPY" }, kind: "real" },
+        { account: "純資産:換算調整勘定", kind: "balancing" },
       ],
     ])
   })
@@ -267,7 +270,7 @@ describe("composeYenTallyEntry", () => {
     expect(mapOk(composeYenTallyEntry(told), renderEntry)).toEqual({
       ok: true,
       value: [
-        "2026-10-04 | マイジャグラーVI  ; play-id: tally-1004, game-kind: slot, machine: マイジャグラーVI, hours: 3.5, inferred-formula: formula-1, token-rental: 21.73913, token-exchange: 5.1",
+        "2026-10-04 | マイジャグラーVI  ; play-id: tally-1004, game-kind: slot, machine: マイジャグラーVI, hours: 3.5, inferred-formula: formula-1, token-rental: 21.73913, token-exchange: 5.2",
         "    費用:遊技                           12000 JPY",
         "    資産:現金                           -12000 JPY",
         "    (統計:時間)                         12600 秒",

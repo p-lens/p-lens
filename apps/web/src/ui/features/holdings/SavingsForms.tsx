@@ -5,9 +5,10 @@ import type { RecordingContext } from "../../../application/record-tally"
 import { adjustBalance, changeExchangeRate, exchangeRateOn, recordForfeiture, recordPrizeExchange, registerOpeningBalance } from "../../../application/savings"
 import type { BookId } from "../../../core/book/book"
 import { parseIsoDate } from "../../../core/calendar/calendar"
-import { compare, decimal, isNegative, multiply, negate, toPlainString, type Decimal } from "../../../core/decimal/decimal"
+import { compare, decimal, isNegative, multiply, subtract, toPlainString, type Decimal } from "../../../core/decimal/decimal"
 import { identityKey, type Parlor, type SavingsPool } from "../../../core/parlor/parlor"
-import { oddPrizesAt } from "../../../core/savings/prize-exchange"
+import { rentalPriceOfTier } from "../../../core/parlor/terms"
+import { exchangedOddPrizes } from "../../../core/savings/prize-exchange"
 import type { ParlorList } from "../../../core/parlor/shared"
 import { exchangeOfStated, exchangeRateOf, poolOf, statedExchangeOfRate, type PlayTerms } from "../../../core/parlor/terms"
 import type { PlayGameKind } from "../../../core/play/play"
@@ -266,9 +267,10 @@ export function BalanceAdjustmentForm(props: {
  * Recording savings exchanged for prizes at one pool, 交換払出: the day,
  * how many tokens were paid out over the counter (払出数), and what the
  * special prizes handed back are worth (特殊景品額). The line under the
- * fields says where the rest goes: what lies between that and the tokens'
- * worth at the exchange rate is written as odd prizes, in whole yen, and
- * the part of a yen left over as the translation adjustment. Where the
+ * fields says where the rest goes: the tokens short of a special prize are
+ * written as odd prizes at the rental price, in whole yen, and what that
+ * leaves against the tokens' worth at the exchange rate as the translation
+ * adjustment. Where the
  * special prizes are worth more than the tokens were at the book's rate
  * for the day, a line says so and by how much, as soon as both are typed:
  * a digit mistyped, or a rate that is not the parlor's. Where the odd
@@ -297,18 +299,19 @@ export function PrizeExchangeForm(props: {
     () => ((on) => (on.ok ? ([on.value, app.revision()] as const) : undefined))(parseIsoDate(date())),
     ([on]) => exchangeRateOn(app.services.session, props.bookId, props.parlor, props.pool, on),
   )
-  /** What the special prizes are worth beyond what the tokens were, where they are worth more: the odd prizes would be written below nothing. */
-  const beyond = (): { readonly rate: Decimal; readonly worth: Decimal; readonly by: Decimal } | undefined => {
+  /** What the special prizes are worth beyond what the tokens were, where they took more tokens than were paid out: the odd prizes would be written below nothing. */
+  const beyond = (): { readonly rate: Decimal; readonly worth: Decimal; readonly by: Decimal; readonly odd: Decimal } | undefined => {
     const [count, special, found] = [exchanged(), countOf(prizes()), rate()]
     if (count === undefined || special === undefined || found?.ok !== true || found.value === undefined) return undefined
-    const odd = oddPrizesAt(whole(count), found.value, whole(special))
-    return isNegative(odd) ? { rate: found.value, worth: multiply(whole(count), found.value), by: negate(odd) } : undefined
+    const odd = exchangedOddPrizes(whole(count), found.value, whole(special), rentalPriceOfTier(props.pool.tier))
+    const worth = multiply(whole(count), found.value)
+    return isNegative(odd) ? { rate: found.value, worth, by: subtract(whole(special), worth), odd } : undefined
   }
   /** Whether the odd prizes come to more than ¥1,000, the largest step special prizes come in: the book's rate is then likely off the parlor's. */
   const oddOverStep = (): boolean => {
     const [count, special, found] = [exchanged(), countOf(prizes()), rate()]
     if (count === undefined || special === undefined || found?.ok !== true || found.value === undefined) return false
-    return compare(oddPrizesAt(whole(count), found.value, whole(special)), LARGEST_PRIZE_STEP) > 0
+    return compare(exchangedOddPrizes(whole(count), found.value, whole(special), rentalPriceOfTier(props.pool.tier)), LARGEST_PRIZE_STEP) > 0
   }
   const save = async (): Promise<void> => {
     settleTyping()
@@ -343,11 +346,11 @@ export function PrizeExchangeForm(props: {
         <TextField label="払出数" value={tokens()} onChange={setTokens} inputMode="numeric" suffix={props.unit} invalid={nudge.red() && exchanged() === undefined} onFocus={nudge.settle} compact />
         <TextField label="特殊景品額" value={prizes()} onChange={setPrizes} inputMode="numeric" suffix="円" invalid={nudge.red() && countOf(prizes()) === undefined} onFocus={nudge.settle} compact />
       </div>
-      <p class="text-xs text-text-muted">交換率との差額は端玉景品として、円未満の端数は換算調整勘定として記帳します。</p>
+      <p class="text-xs text-text-muted">特殊景品に届かなかった分は貸出レートで端玉景品に、交換率との差額は換算調整勘定に記帳します。</p>
       <Show when={beyond()}>
         {(over) => (
           <p role="status" class="text-xs text-warning">
-            特殊景品額が、払出数の評価額 {formatYen(over().worth)}（交換率 {formatRate(over().rate)}）を {formatYen(over().by)} 上回っています。端玉景品は {formatYen(negate(over().by))} で記帳されます。入力や帳簿の交換率に間違いがないか確かめてください。このまま記録することもできます。
+            特殊景品額が、払出数の評価額 {formatYen(over().worth)}（交換率 {formatRate(over().rate)}）を {formatYen(over().by)} 上回っています。端玉景品は {formatYen(over().odd)} で記帳されます。入力や帳簿の交換率に間違いがないか確かめてください。このまま記録することもできます。
           </p>
         )}
       </Show>

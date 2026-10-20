@@ -22,11 +22,23 @@ export interface UnitCost {
  * and leaves it out of every balanced report. P-Lens uses it for the
  * theoretical value, which is a figure worth summing and not money.
  */
-export interface Posting {
+export type Posting = StatedPosting | BalancingPosting
+
+export interface StatedPosting {
   readonly account: string
   readonly amount: Amount
   readonly cost?: UnitCost
   readonly kind: "real" | "virtual"
+}
+
+/**
+ * A real posting written with no amount, for hledger to work out as
+ * whatever balances the entry: the arithmetic is hledger's, and the app
+ * never repeats it. One at most in an entry.
+ */
+export interface BalancingPosting {
+  readonly account: string
+  readonly kind: "balancing"
 }
 
 export interface Entry {
@@ -64,7 +76,7 @@ const renderAmount = (amount: Amount): string => `${toPlainString(amount.quantit
 const renderCost = (cost: UnitCost | undefined): string =>
   cost === undefined ? "" : ` @ ${toPlainString(cost.rate)} ${renderCommodity(cost.commodity)}`
 
-const renderAccount = (posting: Posting): string => (posting.kind === "virtual" ? `(${posting.account})` : posting.account)
+const renderAccount = (posting: StatedPosting): string => (posting.kind === "virtual" ? `(${posting.account})` : posting.account)
 
 /** The column amounts start at, so a block of postings reads as a table. */
 const AMOUNT_COLUMN = 36
@@ -73,6 +85,7 @@ const visualWidth = (text: string): number =>
   [...text].reduce((width, character) => width + (character.charCodeAt(0) > 0x2e7f ? 2 : 1), 0)
 
 const renderPosting = (posting: Posting): string => {
+  if (posting.kind === "balancing") return `    ${posting.account}`
   const account = renderAccount(posting)
   const gap = " ".repeat(Math.max(2, AMOUNT_COLUMN - visualWidth(account)))
   return `    ${account}${gap}${renderAmount(posting.amount)}${renderCost(posting.cost)}`

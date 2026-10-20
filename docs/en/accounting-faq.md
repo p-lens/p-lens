@@ -1,14 +1,14 @@
 ---
 title: Appendix A — Official Interpretations
 lang: en
-version: "1.0.1"
-enacted: "2026-10-20"
+version: "1.0.2"
+enacted: "2026-10-21"
 translationOf: ja
 ---
 
 # Appendix A — Official Interpretations
 
-These interpretations set out how the P-Lens Accounting Standards (PLAS), Edition 1.0.1 (enacted 13 October 2026, amended 20 October 2026; hereinafter "the Standards"), are to be read. This text is a translation; the Japanese text is the original, and where the two differ the Japanese holds.
+These interpretations set out how the P-Lens Accounting Standards (PLAS), Edition 1.0.2 (enacted 13 October 2026, amended 21 October 2026; hereinafter "the Standards"), are to be read. This text is a translation; the Japanese text is the original, and where the two differ the Japanese holds.
 
 ### Q1. Why are special prizes not entered as assets?
 
@@ -69,6 +69,30 @@ A. There are not.
 ### Q15. Is it necessary to be so categorical?
 
 A. It is, so that no ambiguity is left in the interpretation of the Standards.
+
+### Q16. How is the amount of odd prizes worked out?
+
+A. As the number of odd tokens multiplied by the rental price (Article 10, paragraph 1 of the Standards). For savings at 4 yen, for example, each odd ball is 4 yen: this system values odd tokens at the rental price, as a matter of its own choosing. Where the rental price is not known, the exchange rate is used instead.
+
+### Q17. How is the number of tokens that went to special prizes decided?
+
+A. By turning the amount of the special prizes into tokens at the exchange rate of the day. The rate a book keeps is the parlor's exchange terms rounded, so this system works back to the terms before rounding and counts by them. For example, where special prizes worth 5,000 yen are taken at a parlor whose exchange rate is 3.57 yen (28 balls to 100 yen), that is 1,400 balls.
+
+### Q18. Then what is entered in the translation adjustment?
+
+A. The difference between what the tokens taken out for the exchange were worth at the exchange rate and the amount of the special prizes and odd prizes together (Article 13, paragraph 1 of the Standards). For example, where 1,455 balls are taken out at a parlor whose exchange rate is 3.57 yen and special prizes worth 5,000 yen are taken, the odd tokens are 55 balls, the odd prizes 220 yen, and the translation adjustment −25.65 yen. This system does not work that amount out; hledger arrives at it by balancing the entry.
+
+### Q19. Can the translation adjustment be negative?
+
+A. It can. Odd prizes are valued at the rental price and tokens at the exchange rate, so wherever there are odd tokens it is ordinarily negative.
+
+### Q20. Were those 25.65 yen lost?
+
+A. No. A difference arising on translation does not necessarily coincide with the player's winning or losing (Article 13, paragraph 3 of the Standards).
+
+### Q21. Are 25.65 yen not rather large to be called a fraction?
+
+A. Article 13, paragraph 1 of the Standards covers, besides the part of a yen, "other differences arising from the valuation and translation of tokens". Size does not enter into it.
 
 ---
 
