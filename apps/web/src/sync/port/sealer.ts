@@ -28,6 +28,12 @@ export interface Sealer {
    */
   readonly inboxKeysOf: (secret: string) => Promise<Result<LineKeys, SealFailure>>
   /**
+   * Everything that opens a huddle's line, drawn from the huddle's secret
+   * for a huddle alone: a book's secret given here opens no line of the
+   * book's, so nothing a huddle carries is ever put on a book.
+   */
+  readonly huddleKeysOf: (secret: string) => Promise<Result<LineKeys, SealFailure>>
+  /**
    * An invitation made from a book's secret: a fresh token for one person,
    * and the id and key of the line they are let into — the book's own for
    * an editor or a viewer, its inbox for a sender, whose invitation also

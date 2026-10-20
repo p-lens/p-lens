@@ -131,6 +131,12 @@ describe("dependency direction", () => {
     expect(files.filter((_, index) => /\sdisabled[={\s]/.test(texts[index] ?? ""))).toEqual([])
   })
 
+  test("the unhatched egg reaches nothing of the app, and the app reaches it only through its index", async () => {
+    expect(await offending(`${WEB}src/unhatched-egg/`, /^(?!solid-js(\/web)?$|\.\/)/)).toEqual([])
+    const outside = (await Promise.all(["app", "application", "core", "ui", "sync", "storage", "preferences"].map((layer) => offending(`${WEB}src/${layer}/`, /unhatched-egg\/./)))).flat()
+    expect(outside).toEqual([])
+  })
+
   test("the shell package knows nothing of P-Lens", async () => {
     const files = await sourcesUnder(SHELL)
     const texts = await Promise.all(files.map((file) => readFile(file, "utf8")))

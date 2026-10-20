@@ -6,6 +6,7 @@ import type { Preferences } from "../port/preferences"
 const BUSINESS_DAY_TURN = "p-lens.business-day-turn"
 const PARLOR_SETTING = "p-lens.parlor-setting"
 const TOKENS_IN_HAND = "p-lens.tokens-in-hand"
+const HUDDLE = "p-lens.huddle"
 const CONSOLIDATION_SHOWN = "p-lens.consolidation-shown"
 const STAGE_STEP = "p-lens.stage-step"
 const FIGURES_UNFOLDED: Readonly<Record<GameKind, string>> = { pachinko: "p-lens.figures-unfolded.pachinko", pachislot: "p-lens.figures-unfolded.pachislot" }
@@ -44,10 +45,11 @@ const forget = (key: string): void => {
  * refuses a change, the change still holds for as long as the page is open.
  */
 export const createLocalStoragePreferences = (): Preferences => {
-  const held: { businessDayTurn: BusinessDayTurn; parlorSetting: string | undefined; tokensInHand: string | undefined; consolidationShown: boolean; stageStep: StageStep; figuresUnfolded: Record<GameKind, boolean>; formulaDraft: Record<GameKind, string | undefined> } = {
+  const held: { businessDayTurn: BusinessDayTurn; parlorSetting: string | undefined; tokensInHand: string | undefined; huddle: string | undefined; consolidationShown: boolean; stageStep: StageStep; figuresUnfolded: Record<GameKind, boolean>; formulaDraft: Record<GameKind, string | undefined> } = {
     businessDayTurn: readBusinessDayTurn(stored(BUSINESS_DAY_TURN)),
     parlorSetting: stored(PARLOR_SETTING),
     tokensInHand: stored(TOKENS_IN_HAND),
+    huddle: stored(HUDDLE),
     consolidationShown: stored(CONSOLIDATION_SHOWN) === ON,
     stageStep: readStageStep(stored(STAGE_STEP)),
     figuresUnfolded: { pachinko: stored(FIGURES_UNFOLDED.pachinko) === ON, pachislot: stored(FIGURES_UNFOLDED.pachislot) === ON },
@@ -69,6 +71,12 @@ export const createLocalStoragePreferences = (): Preferences => {
       held.tokensInHand = written
       if (written === undefined) forget(TOKENS_IN_HAND)
       else keep(TOKENS_IN_HAND, written)
+    },
+    huddle: () => held.huddle,
+    setHuddle: (written) => {
+      held.huddle = written
+      if (written === undefined) forget(HUDDLE)
+      else keep(HUDDLE, written)
     },
     formulaDraft: (gameKind) => held.formulaDraft[gameKind],
     setFormulaDraft: (gameKind, written) => {

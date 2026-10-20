@@ -26,6 +26,7 @@ import type { WelcomeStore } from "../onboarding/port/welcome-store"
 import type { Preferences } from "../preferences/port/preferences"
 import type { DestinationStore } from "../sync/port/destination-store"
 import type { InvitationStore } from "../sync/port/invitation-store"
+import type { Packer } from "../sync/port/packer"
 import type { SyncPorts } from "./sync"
 import type { SampleMaker } from "../sample-book/port/sample-maker"
 
@@ -72,6 +73,8 @@ export interface Services {
   readonly destinations: DestinationStore
   /** The relay a book starts syncing through; none in a build that names none, where a book can still be joined by its code. */
   readonly relayUrl: string | undefined
+  /** What packs a play small, to be shown to a huddle. */
+  readonly packer: Packer
   /** What backing a book up, and putting one back, reaches. */
   readonly backup: BackupPorts
   /** The store away from the device a book is backed up to; none in a build that names none, where a book is still backed up to a file. */

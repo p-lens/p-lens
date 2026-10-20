@@ -31,6 +31,9 @@
  * best, then red, purple, green and blue above it, yellow at it and red
  * under it: they say a grade and nothing else, so they are names of
  * their own and never `positive` or `negative`.
+ *
+ * A QR code is black on white in either theme (`qr-…`): a camera reads
+ * one so, and not every reader reads it the other way round.
  */
 :root,
 [data-theme="light"] {
@@ -71,6 +74,8 @@
   --mark-green: #1f9a55;
   --mark-blue: #2f6fe0;
   --mark-yellow: #a89400;
+  --qr-ink: #000000;
+  --qr-paper: #ffffff;
 }
 
 [data-theme="dark"] {
@@ -111,6 +116,8 @@
   --mark-green: #23a55a;
   --mark-blue: #5b9bf8;
   --mark-yellow: #f2e14a;
+  --qr-ink: #000000;
+  --qr-paper: #ffffff;
 }
 
 @theme inline {
@@ -150,6 +157,8 @@
   --color-mark-green: var(--mark-green);
   --color-mark-blue: var(--mark-blue);
   --color-mark-yellow: var(--mark-yellow);
+  --color-qr-ink: var(--qr-ink);
+  --color-qr-paper: var(--qr-paper);
   /* The device's own interface font first: its digits and Latin letters are the same weight on every phone, and the page's language picks its Japanese. No font is shipped, so one named ahead of it would be met on some devices and not on others. */
   --font-sans: system-ui, -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Menlo", "Consolas", "Noto Sans Mono CJK JP", monospace;

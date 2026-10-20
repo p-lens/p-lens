@@ -49,6 +49,8 @@ export const describeSyncProblem = (problem: SyncProblem): string => {
       return "このアプリには中継サーバが設定されていません。"
     case "book-here":
       return "この帳簿はすでにこの端末にあります。"
+    case "not-a-huddle-code":
+      return "ノリ打ちのQRコードとして読めません。仲間の画面のQRコードを読み取ってください。"
   }
 }
 

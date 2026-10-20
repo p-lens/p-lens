@@ -5,7 +5,9 @@ import { loadMachineNames, refreshCatalog } from "../application/catalog"
 import type { ApplicationError } from "../application/errors"
 import type { Services } from "../application/services"
 import type { MachineNames } from "../core/catalog/catalog"
+import type { Huddle } from "../core/huddle/huddle"
 import { fileEveryBookByYear } from "../application/file-by-year"
+import { huddleNow } from "../application/huddle"
 import { receiveArrivals, type Arrivals } from "../application/inbox"
 import { restoreEveryGrant } from "../application/invitations"
 import { keepStorage } from "../application/storage-keeping"
@@ -65,6 +67,16 @@ export interface BackupsMade {
   readonly made: () => void
 }
 
+/**
+ * The huddle this device is in on the business day it is, read again
+ * whenever a screen joins or leaves one: the rail's ノリ打ち and the plays
+ * it shows and is shown read the same.
+ */
+export interface HuddleJoined {
+  readonly now: Accessor<Huddle | undefined>
+  readonly changed: () => void
+}
+
 /** What a book's machines are shown as before the catalog's machines are read: each as the book says it. */
 const NO_MACHINE_NAMES: MachineNames = new Map()
 
@@ -101,6 +113,7 @@ export interface AppContext {
   readonly machineNames: Accessor<MachineNames>
   readonly sync: BookSync
   readonly backups: BackupsMade
+  readonly huddle: HuddleJoined
 }
 
 const Context = createContext<AppContext>()
@@ -124,6 +137,11 @@ export function AppProvider(props: {
     () => loadMachineNames(props.services.catalog),
   )
   const machineNames = (): MachineNames => machinesRead.latest ?? NO_MACHINE_NAMES
+  const [huddleChanges, setHuddleChanges] = createSignal(0)
+  const huddle = (): Huddle | undefined => {
+    huddleChanges()
+    return huddleNow(props.services.preferences, props.services.businessDay())
+  }
   const [state, setState] = createSignal<DeliveryState>({ type: "idle" })
   const timers: { pending: readonly ReturnType<typeof setTimeout>[] } = { pending: [] }
   const refresh = (): void => {
@@ -213,6 +231,7 @@ export function AppProvider(props: {
         machineNames,
         sync: { state: syncState, run: runSync },
         backups: { count: backupsMade, made: backupMade },
+        huddle: { now: huddle, changed: () => setHuddleChanges((count) => count + 1) },
       }}>
       {props.children}
     </Context.Provider>

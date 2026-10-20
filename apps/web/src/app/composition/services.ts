@@ -42,6 +42,7 @@ import { createBrowserDeviceData } from "../../storage/browser/device-data"
 import { createLocalStorageWelcomeStore } from "../../onboarding/local/local-storage-welcome-store"
 import { createLocalStoragePreferences } from "../../preferences/local/local-storage-preferences"
 import { createIndexedDbDrafts, createIndexedDbStorage } from "../../storage/browser/indexed-db"
+import { createDeflatePacker } from "../../sync/deflate/deflate-packer"
 import { createHttpRelay } from "../../sync/http/http-relay"
 import { createIndexedDbLinkStore } from "../../sync/local/indexed-db-link-store"
 import { createWebCryptoSealer } from "../../sync/web-crypto/web-crypto-sealer"
@@ -166,6 +167,7 @@ export const createServices = (): Services => {
     invitations: createIndexedDbInvitationStore(database),
     destinations: createIndexedDbDestinationStore(database),
     relayUrl: RELAY_URL === undefined || RELAY_URL === "" ? undefined : RELAY_URL.replace(/\/+$/, ""),
+    packer: createDeflatePacker(),
     backup: {
       storage,
       session,

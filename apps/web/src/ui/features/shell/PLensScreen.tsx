@@ -62,6 +62,7 @@ import { RefreshButton } from "./RefreshButton"
 import { UpdateNotice } from "./UpdateNotice"
 import { ODD_PRIZE_CALCULATOR_LABEL } from "../../wording/odd-prize-calculator"
 import { bookTitle } from "../../wording/book"
+import { UnhatchedEgg } from "../../../unhatched-egg"
 
 /** Below this width the panes are shown one at a time. */
 const NARROW_BELOW = 768
@@ -260,7 +261,7 @@ export function PLensScreen(): JSX.Element {
           focus={focusOf(place())}
           topBar={
             <TopBar
-              title={app.services.name}
+              title={<UnhatchedEgg>{app.services.name}</UnhatchedEgg>}
               trailing={
                 <div class="flex items-center gap-1">
                   <BackupNotice />

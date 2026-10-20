@@ -636,7 +636,7 @@ core ──► hledger/protocol/wire (types only)
 
 | Directory | Holds | May import |
 |---|---|---|
-| `core/` | pure domain: decimal, calendar, commodity, text, result, parlor, play, tally, play-log, live-play, valuation, theoretical, journal, report, book, access, change, backup, export, document, favorites, marks, onboarding; the catalog's machine, catalog, formula (a formula's standing) and grounds (a proof read back); and each game's own, pachinko and pachislot | itself, `hledger/protocol/wire` types |
+| `core/` | pure domain: decimal, calendar, commodity, text, result, parlor, play, tally, play-log, live-play, valuation, theoretical, journal, report, book, access, change, backup, export, document, favorites, marks, onboarding, huddle; the catalog's machine, catalog, formula (a formula's standing) and grounds (a proof read back); and each game's own, pachinko and pachislot | itself, `hledger/protocol/wire` types |
 | `hledger/protocol/` | the wire format, mirroring `Bindings.hs`; worker messages | nothing |
 | `hledger/query/` | hledger query terms and requests P-Lens writes | `core`, `hledger/protocol` |
 | `hledger/client/` | the only way to the worker; one queue (`inTurn`) | `hledger/protocol`, `core/result` |
@@ -644,13 +644,14 @@ core ──► hledger/protocol/wire (types only)
 | `storage/`, `history/` | `port/` interfaces (books, drafts, history, whether the browser keeps what is stored); `browser/` or `adapters/` implementations | `core` |
 | `preferences/` | `port/` (what a person has set for this device), `local/` (kept in localStorage) | `core` |
 | `onboarding/` | `port/` (what a device keeps of its own arrival at the app: when it first opened it, and whether it has been welcomed), `local/` (kept in localStorage, the first opening written as the app starts) | `core` |
-| `sync/` | `port/` (the relay, the sealing, a book's link to its line), `http/` (a relay by URL), `web-crypto/` (sealing by the browser's cryptography), `local/` (links in IndexedDB) | `core`, contracts |
+| `sync/` | `port/` (the relay, the sealing, the packing of what a huddle carries, a book's link to its line), `http/` (a relay by URL), `web-crypto/` (sealing by the browser's cryptography), `deflate/` (packing by DEFLATE), `local/` (links in IndexedDB) | `core`, contracts |
 | `backup/` | `port/` (the archive, a store away from the device, a file handed over, a fingerprint, the receipts), `zip/` (archives as zip files), `google-drive/` (a store in a person's Google Drive, and its sign-in), `browser/` (a file handed over by the browser), `web-crypto/` (fingerprints by the browser's cryptography), `local/` (receipts in IndexedDB) | `core` |
 | `application/` | use cases, the `BookSession`, `Services` | `core`, `hledger/query`, ports |
 | `ui/` | screens, navigation, wording, theme, primitives | `application`, `core`, port types |
 | `app/` | entry, `App`, composition (the only place naming adapters) | everything |
 | `branding/` | what is the deployment's own and not the app's, and not under the app's licence (`LICENSE`): the documents it puts before people (`terms.md`, `privacy.md`), what it goes by, where it is and where its landing page is (`deployment.ts`), the drawing its icons are made from (`icon.png`) and the files served at its root as they are — its icons and the card a link to it is shown as (`served/`) | `core/document` |
 | `pwa/` | service-worker registration and update state | — |
+| `unhatched-egg/` | 新機能実験モード: what is tried out on the live app before it is anyone's, opened on one device (see *The unhatched egg*) | `solid-js` alone |
 | `catalog/` | `port/` (the shared catalog as delivered, and the API it comes from), `delivered/` (the delivered catalog in IndexedDB, with the outbox), `http/` (the API by URL), `absent/` (no catalog), `local/` (the device id) | `core`, contracts |
 | `parlors/` | `port/` (the parlor list and its cache), `jsonl/` (the list by URL), `absent/` (no list), `local/` (the IndexedDB cache) | `core` |
 | `consolidation/` | `port/` (each book's answers kept for the consolidation, keyed by a digest of its journals and the question, and for what stands as of today — savings and その他損益 with an open end — the last day on or before today the book sets a rate on (`lastRateDayOf`), so that it is asked again when a new rate comes into force rather than every day, since everything else counts each posting at its own day's rate and is the same answer whatever day it is asked on), `memory/` (kept in memory), `local/` (kept in IndexedDB, read back only by the build that kept it), `tiered/` (memory in front of IndexedDB), `absent/` (nothing kept: every answer asked of hledger), `web-crypto/` (the digest by the browser's cryptography), `lanes/` (more hledgers beside the one every screen reads on, for a consolidation of many books: one for three books or fewer, two from four, three from twelve and four from twenty, held to the device's cores beside the page's own and to two gigabytes of its memory each — two where it says nothing of it — started the first time wanted and only while the consolidation is on; and a mark kept on the device while it reads on several, taken away as the page is hidden or left, so that a page finding the mark tells once that the last one stopped at work, offers a backup, and reads on one); a personal book never goes through it, and a person with few books, or none consolidated, never has more than the one hledger. A screen is answered at once with what each book was last answered, and the book is read after: one found written since is asked again, and the screen told (`OutdatedNotice`) asks again too. A question about a period reads a view of each book, the files it can count (`core/journal/views`), as one book's own screens do. Books are dealt out among the lanes by their places, each read on the same hledger every time, and asking ahead deals them out alike. Asking ahead goes over the books twice, the periods most looked at first and every day after, each book asked everything of a round before the next, and waits for each book to be read | `core` |
@@ -2099,6 +2100,77 @@ since it rides on it.
   receives nothing after. An invitation handed on to someone else lets that
   person in as the same grant: this is for people who know each other.
 
+## Huddles
+
+A huddle (ノリ打ち) is people playing together, each shown the others'
+plays live. It is no book's and writes in none: each play is recorded
+wherever its player records it, as it would be without the huddle.
+
+- **One line, one secret.** A huddle is a line on the relay drawn from a
+  secret of its own, by keys a huddle alone is drawn under
+  (`Sealer.huddleKeysOf`): a book's secret given there opens nothing of
+  the book's. Its code (`huddleCodeOf`) is the secret marked as a
+  huddle's, so neither is ever taken for the other; it is shown as a QR
+  code and read by the camera, or copied and pasted. Whoever has it reads
+  and adds to the line with the same token, so nobody is let in one by
+  one, and the relay is changed in nothing.
+- **Nobody leads it.** Whoever began a huddle is a member like the others
+  once it is begun: anyone in it shows its code to someone joining, and
+  leaving it is each person's own. Nobody is put out of one, and none is
+  closed: each device lets go of it as its day turns. This is meant — a
+  huddle is people who know each other, at one parlor — and is kept.
+- **Kept by the device for its business day** (`Preferences.huddle`,
+  `p-lens.huddle`): the secret, the business day it was joined on, the
+  member the device is in it — a random id, kept when the same code is
+  read again — and the name its person goes by there. Once the day turns
+  it is let go of; the line, untouched, is let go of by the relay as any
+  idle line is.
+- **A post** (`core/huddle/post`) is a play as its device has it — its
+  readings, where and on what it is played, what it is weighed by —
+  without its book, its marks or its history, under the member and the
+  name. It is packed by DEFLATE (`Packer`) and sealed, a commit of its
+  own on the line: a play shown again and again stays far under what
+  the relay counts as a large sending.
+- **Shown and read while a play's screen is open**
+  (`ui/features/live/huddle-board`): the play is shown as the screen opens
+  and each time its log changes, at most once every 20 seconds, the latest
+  of it then; the line is read as the screen opens and every 15 seconds.
+  Each of the others is a card of their latest post (`othersLatest`), in
+  the order they first showed anything, with the figures a folded play
+  shows and its border mark. Pachinko's screen shows pachinko's posts.
+
+## The unhatched egg
+
+新機能実験モード, the unhatched egg (`unhatched-egg/`), is what is tried
+out on the live app before it is anyone's: there only on a device it was
+opened on, and on no other at all, not even hidden. It is opened, and
+closed again, by pressing the top bar's name ten times in a row — the
+presses left counted down from the seventh, as Android does — or by
+holding it five seconds, and says so plainly (実験モードに移行しました). It
+is kept nowhere: loading the page again closes it.
+
+- **Walled off.** All of it is in its folder, and the folder reaches
+  nothing of the app — `solid-js` alone, its words its own — while the app
+  reaches it only through its `index.ts`. `tests/boundary.test.ts` holds
+  both.
+- **Named once at each place, and asked nowhere.** The app names it where
+  the name is pressed (`<UnhatchedEgg>` around the top bar's title) and
+  around what is still in it (`<Unhatched>`), a line each; nothing in the
+  app asks whether it is open, and nothing branches on it. Its one cell
+  is the page's, as nothing else in the app is: it is meant to be the
+  odd one out, so that the rest need not be.
+- **A look of its own, cast from inside.** While it is open the screen's
+  four edges glow a faint red: the egg puts a stylesheet of its own into
+  the document's head and a mark on the document (`castLook`), so the
+  whole page wears it while no part of the app draws it or knows of it.
+  What the egg says is styled by the same sheet, borrowing none of the
+  app's styles; its colours are written in the folder and match no theme
+  on purpose: a device with the egg open is never taken for one without.
+- **In it now**: ノリ打ち's way in on the live rail, and its cards beside
+  a pachinko play — which are what shows the play to the huddle and reads
+  it, so that with the egg closed nothing is shown or read, even by a
+  device still in a huddle.
+
 ## Backup
 
 A book is backed up by hand, as its hledger files, to somewhere the person
@@ -2830,6 +2902,8 @@ is not written out here a second time.
 | 貸玉レート / 交換率（千円あたり） / 再プレイ手数料 | rental / exchange / replay, a corner's `PlayTerms` |
 | 4円・1円…（コーナーのレート） | tier; with the kind of token, a pool |
 | 稼働 | play (`PlayId`, `play-id`): what is played, followed live — the live space, its drafts and logs |
+| ノリ打ち | huddle (`Huddle`, `core/huddle`): people playing together, shown each other's plays live, by a QR code; no book's |
+| 新機能実験モード | the unhatched egg (`unhatched-egg/`): what is tried out on the live app, opened on one device until the page is loaded again |
 | ライブ計測 | the live space by name on screen: the rail, its list of the day's plays and its empty pane |
 | 収支 | tally (`TokenTally`, `YenTally`): what a book keeps of a play, under its play's id — the list, its details and its forms |
 | 営業日 | business day: the day a play belongs to, turning over at the hour set, 05:00 by default (`businessDayOf`) |

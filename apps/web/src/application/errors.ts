@@ -61,6 +61,7 @@ export type SyncProblem =
   | { readonly type: "nothing-to-join" }
   | { readonly type: "book-here"; readonly bookId: BookId }
   | { readonly type: "unsettled" }
+  | { readonly type: "not-a-huddle-code" }
 
 /**
  * Why a book could not be backed up, or put back.

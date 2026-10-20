@@ -19,7 +19,10 @@ import type { Place } from "../../navigation/place"
 import { businessDayNote, formatMoment } from "../../wording/dates"
 import { describeError } from "../../wording/errors"
 import { parlorText } from "../../wording/parlor"
+import { HUDDLE_HEADING, huddleJoinedAs } from "../../wording/huddle"
+import { HuddleDialog } from "./HuddleDialog"
 import { sendingPortsOf } from "./sending-ports"
+import { Unhatched } from "../../../unhatched-egg"
 
 const openPlay = (place: Place): string | undefined =>
   place.kind === "live-play" || place.kind === "live-record" || place.kind === "live-cabinet" ? place.playId : undefined
@@ -138,6 +141,8 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
   }
   /** The play a person asked to give up, until they say yes or no. */
   const [abandoning, setAbandoning] = createSignal<PlayDraft | undefined>(undefined)
+  /** Whether ノリ打ち is open. */
+  const [huddling, setHuddling] = createSignal(false)
   /** What a person asked to send, while they are asked where to. */
   const [choosing, setChoosing] = createSignal<Sending | undefined>(undefined)
   const abandon = async (draft: PlayDraft): Promise<void> => {
@@ -171,6 +176,16 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
         <Button onClick={() => moves.go({ kind: "live-new", game: "pachinko" })}>パチンコ開始</Button>
         <Button onClick={() => moves.go({ kind: "live-new", game: "slot" })}>スロット開始</Button>
       </div>
+      <Unhatched>
+        <Show when={app.services.relayUrl !== undefined}>
+          <div class="flex justify-end px-2 pt-2">
+            <Button variant="outline" size="small" onClick={() => setHuddling(true)}>
+              {((huddle) => (huddle === undefined ? HUDDLE_HEADING : huddleJoinedAs(huddle.name)))(app.huddle.now())}
+            </Button>
+          </div>
+          <HuddleDialog open={huddling()} onClosed={() => setHuddling(false)} />
+        </Show>
+      </Unhatched>
       <section class="px-2 pt-4">
         <div class="flex items-center justify-between px-2 pb-1">
           <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">

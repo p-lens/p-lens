@@ -22,11 +22,13 @@ import { describeError, describePlayLogError } from "../../../wording/errors"
 import { CHANGED_SINCE_MERGED, FOLD_FIGURES, MERGE_FAILED, MERGED, UNFOLD_FIGURES, TAKE_BACK, TAKE_BACK_FAILED, UNMERGED } from "../../../wording/pachinko/play"
 import { ViewHeader } from "../../shell/ViewHeader"
 import { CornerTerms } from "./CornerTerms"
+import { HuddleCards } from "./HuddleCards"
 import { LiveFigures } from "./LiveFigures"
 import { LiveHyenaHunt } from "./LiveHyenaHunt"
 import { ReadingComposer } from "./ReadingComposer"
 import { SeatComposer } from "./SeatComposer"
 import { samePressed, Timeline, type Revised } from "./Timeline"
+import { Unhatched } from "../../../../unhatched-egg"
 
 /** A merging as it was done: the log it was made from, and the play as it left it. */
 interface Merged {
@@ -202,6 +204,7 @@ export function LivePlay(props: { readonly place: Place; readonly draft: Pachink
                       </Show>
                     )}
                   />
+                  <Unhatched><HuddleCards draft={props.draft} /></Unhatched>
                   <Timeline checkpoints={checkpoints} terms={terms} revising={revised()} onRevise={(pressed) => (samePressed(pressed, revised()) ? done() : setWork(pressed))} onMerge={(span) => merge(checkpoints, span)} />
                 </div>
                 <div class="sticky bottom-0">
