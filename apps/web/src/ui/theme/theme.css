@@ -217,6 +217,17 @@
   }
 }
 
+/* A mark that stands far above its border: it lights up slowly in its own colour and dims again, as a held spin of great promise does. */
+@keyframes shine {
+  0%,
+  100% {
+    text-shadow: 0 0 0 transparent;
+  }
+  50% {
+    text-shadow: 0 0 0.5rem currentColor;
+  }
+}
+
 /* A share drawn out from its start, as a bar is filled. */
 @keyframes extend {
   from {

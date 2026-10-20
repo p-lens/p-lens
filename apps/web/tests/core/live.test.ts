@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import { parsePlayLog, type Checkpoint } from "../../src/core/play-log/checkpoint"
-import { afterMissedJackpot, checkpointsForReading, liveSummary, missingJackpots, readCounter } from "../../src/core/play-log/live"
+import { afterMissedJackpot, checkpointsForReading, liveSummary, minutesPlayedOf, missingJackpots, readCounter } from "../../src/core/play-log/live"
 import { performanceAcross } from "../../src/core/play-log/performance"
 
 const SAT_DOWN: Checkpoint = { spins: 0, outlay: 0, counter: { spins: 120 } }
@@ -136,5 +136,23 @@ describe("the jackpots a log records", () => {
     const line = '{"spins":110,"event":{"kind":"jackpot","bonus":{"name":"20R","payout":3000,"spent":200,"jackpots":2}}}'
     expect(parsePlayLog(line)).toEqual({ ok: true, value: [{ spins: 110, event: { kind: "jackpot", bonus: TWICE } }] })
     expect(parsePlayLog(line.replace('"jackpots":2', '"jackpots":0')).ok).toBe(false)
+  })
+})
+
+describe("how long a play has gone on", () => {
+  const started = "2026-10-20T10:00:00+09:00"
+
+  test("runs from its start to the latest line written with a time", () => {
+    const log: readonly Checkpoint[] = [
+      { spins: 0, at: "2026-10-20T10:00:00+09:00" },
+      { spins: 120, at: "2026-10-20T11:40:00+09:00" },
+      { spins: 90, at: "2026-10-20T11:00:00+09:00" },
+      { spins: 150 },
+    ]
+    expect(minutesPlayedOf(started, log)).toBe(100)
+  })
+
+  test("is nothing where no line has a time", () => {
+    expect(minutesPlayedOf(started, [{ spins: 0 }, { spins: 310 }])).toBeUndefined()
   })
 })

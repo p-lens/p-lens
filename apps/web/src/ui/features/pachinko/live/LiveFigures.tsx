@@ -6,27 +6,30 @@ import { playTheoreticalValue } from "../../../../core/pachinko/theoretical-valu
 import { tokenValueOf, type PlayTerms } from "../../../../core/parlor/terms"
 import type { FormulaSnapshot } from "../../../../core/pachinko/snapshot"
 import { missingJackpots, type LiveSummary } from "../../../../core/play-log/live"
+import { CrownIcon } from "../../../primitives/icons"
 import { formulaText } from "../../../wording/pachinko/formula"
 import { formatCount, theoreticalFigureText, theoreticalFractionText } from "../../../wording/numbers"
 import { borderMarkSays } from "../../../wording/pachinko/play"
 
 const rateOf = (perThousand: number | undefined): string => (perThousand === undefined ? "--" : perThousand.toFixed(1))
 
-const MARKS: Readonly<Record<BorderGrade, { readonly shape: string; readonly colour: string }>> = {
-  outstanding: { shape: "★", colour: "text-mark-gold" },
-  excellent: { shape: "★", colour: "text-mark-red" },
-  strong: { shape: "▲", colour: "text-mark-purple" },
-  professional: { shape: "▲", colour: "text-mark-green" },
-  modest: { shape: "▲", colour: "text-mark-blue" },
-  near: { shape: "▼", colour: "text-mark-yellow" },
-  short: { shape: "▼", colour: "text-mark-red" },
+const MARKS: Readonly<Record<BorderGrade, { readonly shape: () => JSX.Element; readonly look: string }>> = {
+  crowned: { shape: () => <CrownIcon />, look: "text-mark-gold [&_svg]:inline [&_svg]:size-3.5 [&_svg]:align-[-0.15em]" },
+  shining: { shape: () => "★", look: "text-mark-gold motion-safe:animate-[shine_2.4s_ease-in-out_infinite]" },
+  outstanding: { shape: () => "★", look: "text-mark-gold" },
+  excellent: { shape: () => "★", look: "text-mark-red" },
+  strong: { shape: () => "▲", look: "text-mark-purple" },
+  professional: { shape: () => "▲", look: "text-mark-green" },
+  modest: { shape: () => "▲", look: "text-mark-blue" },
+  near: { shape: () => "▼", look: "text-mark-yellow" },
+  short: { shape: () => "▼", look: "text-mark-red" },
 }
 
 /** A mark that says where the play stands against its border and how far, by its shape and colour and, for whoever cannot see them, in words. */
 function StandingMark(props: { readonly mark: BorderMark }): JSX.Element {
   return (
-    <span role="img" aria-label={borderMarkSays(props.mark)} title={borderMarkSays(props.mark)} class={`mr-0.5 align-middle text-xs ${MARKS[props.mark.grade].colour}`}>
-      {MARKS[props.mark.grade].shape}
+    <span role="img" aria-label={borderMarkSays(props.mark)} title={borderMarkSays(props.mark)} class={`mr-0.5 align-middle text-xs ${MARKS[props.mark.grade].look}`}>
+      {MARKS[props.mark.grade].shape()}
     </span>
   )
 }
@@ -62,9 +65,11 @@ function Tile(props: { readonly label: string; readonly value: string; readonly 
  * and the spin performance wears a mark that says where the play stands
  * against its border, which is itself out of sight, and how far: graded
  * by what a spin is worth over an hour, never by the spin performance set
- * against the border (`borderMarkOf`) — a gold or red star, a purple,
+ * against the border (`borderMarkOf`) — a gold crown, a gold star that
+ * shines, a gold or red star, a purple,
  * green or blue triangle above it, a yellow one pointing down at it or a
- * little under, a red one below; none where the play has no worth yet.
+ * little under, a red one below, the gold ones only once 300 spins have
+ * been measured over 90 minutes; none where the play has no worth yet.
  * Unfolded, the border is there to be read, and the mark is not. What the
  * play is worth has its tiles from the start, each holding the shape of
  * its figure with nothing in it until a reading gives one: a figure
@@ -74,6 +79,8 @@ export function LiveFigures(props: {
   readonly summary: LiveSummary
   /** The balls drawn from savings since the play began. */
   readonly replayed: number
+  /** Minutes from the play's start to its latest line written with a time. */
+  readonly minutesPlayed: number | undefined
   readonly consumption: Consumption | undefined
   readonly formula: FormulaSnapshot | undefined
   readonly terms: PlayTerms | undefined
@@ -87,7 +94,7 @@ export function LiveFigures(props: {
   }
   const theoretical = () =>
     props.formula === undefined || props.consumption === undefined ? undefined : playTheoreticalValue(props.formula.figures, props.terms, props.consumption)
-  const mark = (): BorderMark | undefined => (props.folded ? borderMarkOf(theoretical()?.yenPerSpin) : undefined)
+  const mark = (): BorderMark | undefined => (props.folded ? borderMarkOf(theoretical()?.yenPerSpin, { spins: props.consumption?.measured?.spins ?? 0, minutes: props.minutesPlayed }) : undefined)
   return (
     <section class="flex flex-col gap-2">
       <dl class="grid grid-cols-3 gap-1.5" classList={{ "sm:grid-cols-6": !props.folded }}>

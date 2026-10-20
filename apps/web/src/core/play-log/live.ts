@@ -169,3 +169,11 @@ export const checkpointsForReading = (
   if (!missedJackpot) return Err(reading)
   return Ok(afterMissedJackpot(ordered, input.counterSpins, readingFields(input)))
 }
+
+const instantOf = (checkpoint: Checkpoint): number | undefined => (checkpoint.at === undefined ? undefined : Date.parse(checkpoint.at))
+
+/** Minutes from when a play began to the latest of its lines written with a time; none where no line has one. */
+export const minutesPlayedOf = (startedAt: string, ordered: readonly Checkpoint[]): number | undefined => {
+  const instants = ordered.map(instantOf).filter((instant): instant is number => instant !== undefined)
+  return instants.length === 0 ? undefined : (Math.max(...instants) - Date.parse(startedAt)) / 60_000
+}

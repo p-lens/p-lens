@@ -213,6 +213,13 @@ export const SwapIcon = () => (
   </Icon>
 )
 
+/** A crown, filled: the best a play can stand above its border. */
+export const CrownIcon = () => (
+  <Icon>
+    <path d="M3 18l1.5-11 5 5L12 5l2.5 7 5-5L21 18z" fill="currentColor" />
+  </Icon>
+)
+
 /** Change: an arrow head pointing down, at what opens a list to choose again from. */
 export const ChevronDownIcon = () => (
   <Icon>

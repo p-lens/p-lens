@@ -10,7 +10,7 @@ import { withReadingsMerged, type Span } from "../../../../core/pachinko/merging
 import { basisOf, type Basis } from "../../../../core/pachinko/formula"
 import { gaugeNowOf, standingBefore, takenOf } from "../../../../core/pachinko/revision"
 import { parsePlayLog, type Checkpoint, type PlayLogError } from "../../../../core/play-log/checkpoint"
-import { liveSummary } from "../../../../core/play-log/live"
+import { liveSummary, minutesPlayedOf } from "../../../../core/play-log/live"
 import { inPlayOrder } from "../../../../core/play-log/performance"
 import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
@@ -181,6 +181,7 @@ export function LivePlay(props: { readonly place: Place; readonly draft: Pachink
                   <LiveFigures
                     summary={summary}
                     replayed={standingBefore(checkpoints, takenOf(checkpoints).length).replay}
+                    minutesPlayed={minutesPlayedOf(props.draft.startedAt, checkpoints)}
                     consumption={consumption}
                     formula={props.draft.pachinko}
                     terms={terms}
