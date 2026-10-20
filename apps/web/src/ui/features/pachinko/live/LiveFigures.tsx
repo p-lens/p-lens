@@ -1,6 +1,6 @@
 import { Show, type JSX } from "solid-js"
 
-import { borderStandingOf, type BorderStanding } from "../../../../core/pachinko/border-standing"
+import { borderMarkOf, type BorderGrade, type BorderMark } from "../../../../core/pachinko/border-standing"
 import { spinPerformanceOf, type Consumption } from "../../../../core/pachinko/consumption"
 import { playTheoreticalValue } from "../../../../core/pachinko/theoretical-value"
 import { tokenValueOf, type PlayTerms } from "../../../../core/parlor/terms"
@@ -8,15 +8,27 @@ import type { FormulaSnapshot } from "../../../../core/pachinko/snapshot"
 import { missingJackpots, type LiveSummary } from "../../../../core/play-log/live"
 import { formulaText } from "../../../wording/pachinko/formula"
 import { formatCount, theoreticalFigureText, theoreticalFractionText } from "../../../wording/numbers"
-import { BORDER_STANDING_SAYS } from "../../../wording/pachinko/play"
+import { borderMarkSays } from "../../../wording/pachinko/play"
 
 const rateOf = (perThousand: number | undefined): string => (perThousand === undefined ? "--" : perThousand.toFixed(1))
 
-const DOTS: Readonly<Record<BorderStanding, string>> = { above: "bg-positive", below: "bg-negative", level: "bg-text-muted" }
+const MARKS: Readonly<Record<BorderGrade, { readonly shape: string; readonly colour: string }>> = {
+  outstanding: { shape: "★", colour: "text-mark-gold" },
+  excellent: { shape: "★", colour: "text-mark-red" },
+  strong: { shape: "▲", colour: "text-mark-purple" },
+  professional: { shape: "▲", colour: "text-mark-green" },
+  modest: { shape: "▲", colour: "text-mark-blue" },
+  near: { shape: "▼", colour: "text-mark-yellow" },
+  short: { shape: "▼", colour: "text-mark-red" },
+}
 
-/** A dot that says where the spin performance stands against the border, by its colour and, for whoever cannot see it, in words. */
-function StandingDot(props: { readonly standing: BorderStanding }): JSX.Element {
-  return <span role="img" aria-label={BORDER_STANDING_SAYS[props.standing]} title={BORDER_STANDING_SAYS[props.standing]} class={`mr-1 inline-block size-2 rounded-full align-middle ${DOTS[props.standing]}`} />
+/** A mark that says where the play stands against its border and how far, by its shape and colour and, for whoever cannot see them, in words. */
+function StandingMark(props: { readonly mark: BorderMark }): JSX.Element {
+  return (
+    <span role="img" aria-label={borderMarkSays(props.mark)} title={borderMarkSays(props.mark)} class={`mr-0.5 align-middle text-xs ${MARKS[props.mark.grade].colour}`}>
+      {MARKS[props.mark.grade].shape}
+    </span>
+  )
 }
 
 /** One figure under its name, small enough that three sit side by side on a phone: the figures must leave room for the readings under them. What it is given to wear stands before its value. */
@@ -47,10 +59,13 @@ function Tile(props: { readonly label: string; readonly value: string; readonly 
  *
  * Folded, as a play is until a person unfolds it, it is the three figures
  * anyone reads first — cash spent, balls drawn, the spin performance —
- * and the spin performance wears a dot that says where it stands against
- * the border, which is itself out of sight: green above it, red below,
- * grey level with it, none where there is no border to stand against.
- * Unfolded, the border is there to be read, and the dot is not. What the
+ * and the spin performance wears a mark that says where the play stands
+ * against its border, which is itself out of sight, and how far: graded
+ * by what a spin is worth over an hour, never by the spin performance set
+ * against the border (`borderMarkOf`) — a gold or red star, a purple,
+ * green or blue triangle above it, a yellow one pointing down at it or a
+ * little under, a red one below; none where the play has no worth yet.
+ * Unfolded, the border is there to be read, and the mark is not. What the
  * play is worth has its tiles from the start, each holding the shape of
  * its figure with nothing in it until a reading gives one: a figure
  * arriving changes a tile, and never the lay of the screen.
@@ -72,7 +87,7 @@ export function LiveFigures(props: {
   }
   const theoretical = () =>
     props.formula === undefined || props.consumption === undefined ? undefined : playTheoreticalValue(props.formula.figures, props.terms, props.consumption)
-  const standing = (): BorderStanding | undefined => (props.folded ? borderStandingOf(spinPerformance(), theoretical()?.border) : undefined)
+  const mark = (): BorderMark | undefined => (props.folded ? borderMarkOf(theoretical()?.yenPerSpin) : undefined)
   return (
     <section class="flex flex-col gap-2">
       <dl class="grid grid-cols-3 gap-1.5" classList={{ "sm:grid-cols-6": !props.folded }}>
@@ -88,8 +103,8 @@ export function LiveFigures(props: {
           value={rateOf(spinPerformance())}
           unit="回転/千円"
           wears={
-            <Show when={standing()} keyed>
-              {(found) => <StandingDot standing={found} />}
+            <Show when={mark()} keyed>
+              {(found) => <StandingMark mark={found} />}
             </Show>
           }
         />

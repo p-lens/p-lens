@@ -1,18 +1,29 @@
 import { describe, expect, test } from "bun:test"
 
-import { borderStandingOf } from "../../../src/core/pachinko/border-standing"
+import { borderMarkOf } from "../../../src/core/pachinko/border-standing"
 
-describe("where a spin performance stands against a border", () => {
-  test("is above, below or level, by the rates as they are told to one place", () => {
-    expect(borderStandingOf(18.2, 17.6)).toBe("above")
-    expect(borderStandingOf(17.1, 17.6)).toBe("below")
-    expect(borderStandingOf(17.6, 17.6)).toBe("level")
-    expect(borderStandingOf(17.64, 17.56)).toBe("level")
-    expect(borderStandingOf(17.65, 17.56)).toBe("above")
+describe("where a play stands against its border", () => {
+  test("is graded by what a spin is worth over an hour of 200 spins", () => {
+    expect(borderMarkOf(22.5)).toEqual({ standing: "above", grade: "outstanding" })
+    expect(borderMarkOf(22.49)).toEqual({ standing: "above", grade: "excellent" })
+    expect(borderMarkOf(17.5)).toEqual({ standing: "above", grade: "excellent" })
+    expect(borderMarkOf(17.49)).toEqual({ standing: "above", grade: "strong" })
+    expect(borderMarkOf(12.5)).toEqual({ standing: "above", grade: "strong" })
+    expect(borderMarkOf(12.49)).toEqual({ standing: "above", grade: "professional" })
+    expect(borderMarkOf(7.5)).toEqual({ standing: "above", grade: "professional" })
+    expect(borderMarkOf(7.49)).toEqual({ standing: "above", grade: "modest" })
+    expect(borderMarkOf(0.005)).toEqual({ standing: "above", grade: "modest" })
+    expect(borderMarkOf(-1.5)).toEqual({ standing: "below", grade: "near" })
+    expect(borderMarkOf(-1.51)).toEqual({ standing: "below", grade: "short" })
   })
 
-  test("is nothing where either is not known", () => {
-    expect(borderStandingOf(undefined, 17.6)).toBeUndefined()
-    expect(borderStandingOf(18.2, undefined)).toBeUndefined()
+  test("is level with the border where an hour comes to nothing to the yen", () => {
+    expect(borderMarkOf(0)).toEqual({ standing: "level", grade: "near" })
+    expect(borderMarkOf(0.002)).toEqual({ standing: "level", grade: "near" })
+    expect(borderMarkOf(-0.002)).toEqual({ standing: "level", grade: "near" })
+  })
+
+  test("is nothing where what a spin is worth is not known", () => {
+    expect(borderMarkOf(undefined)).toBeUndefined()
   })
 })

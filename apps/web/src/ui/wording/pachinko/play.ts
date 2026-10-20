@@ -1,4 +1,4 @@
-import type { BorderStanding } from "../../../core/pachinko/border-standing"
+import type { BorderGrade, BorderMark, BorderStanding } from "../../../core/pachinko/border-standing"
 import type { StretchRate } from "../../../core/pachinko/consumption"
 import type { RevisionRefusal } from "../../../core/pachinko/revision"
 import type { Phase } from "../../../core/play-log/checkpoint"
@@ -52,8 +52,21 @@ export const REMOVAL_TAKEN_BACK = "削除を取り消しました"
 /** Why a removal could not be taken back: the play's log is no longer as the removal left it. */
 export const CHANGED_SINCE_REMOVED = "削除したあとに記録が変わっています。"
 
-/** What the dot beside a play's spin performance says, for whoever cannot see its colour. */
-export const BORDER_STANDING_SAYS: Readonly<Record<BorderStanding, string>> = { above: "ボーダーを上回っています", below: "ボーダーを下回っています", level: "ちょうどボーダーです" }
+const STANDING_SAYS: Readonly<Record<BorderStanding, string>> = { above: "ボーダーを上回っています", below: "ボーダーを下回っています", level: "ちょうどボーダーです" }
+
+const GRADE_SPAN: Readonly<Record<BorderGrade, string>> = {
+  outstanding: "4,500円以上",
+  excellent: "3,500〜4,500円",
+  strong: "2,500〜3,500円",
+  professional: "1,500〜2,500円",
+  modest: "0〜1,500円",
+  near: "−300〜0円",
+  short: "−300円未満",
+}
+
+/** What the mark beside a play's spin performance says, for whoever cannot see its colour or its shape. */
+export const borderMarkSays = (mark: BorderMark): string =>
+  mark.standing === "level" ? STANDING_SAYS.level : `${STANDING_SAYS[mark.standing]}（時給換算 ${GRADE_SPAN[mark.grade]}）`
 
 /** What the button that unfolds a play's figures, and folds them again, is called. */
 export const UNFOLD_FIGURES = "すべての数値を表示"

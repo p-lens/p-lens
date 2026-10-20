@@ -25,6 +25,12 @@
  * surface — a link, an icon, an outline — takes its `-ink`, which is the
  * same colour kept low enough to read there. Changing who gets which
  * colour is done here and nowhere else.
+ *
+ * The marks a play wears for how far it stands above or below its border
+ * (`mark-…`) are a pachinko screen's held-spin colours too, gold the
+ * best, then red, purple, green and blue above it, yellow at it and red
+ * under it: they say a grade and nothing else, so they are names of
+ * their own and never `positive` or `negative`.
  */
 :root,
 [data-theme="light"] {
@@ -59,6 +65,12 @@
   --nerdpro-ink: #6f47bd;
   --rapid: #86d426;
   --special: #a985f2;
+  --mark-gold: #c27c0e;
+  --mark-red: #e8383e;
+  --mark-purple: #8a4fd8;
+  --mark-green: #1f9a55;
+  --mark-blue: #2f6fe0;
+  --mark-yellow: #a89400;
 }
 
 [data-theme="dark"] {
@@ -93,6 +105,12 @@
   --nerdpro-ink: #9a74dc;
   --rapid: #9be22d;
   --special: #b794f6;
+  --mark-gold: #f0a92e;
+  --mark-red: #f23f43;
+  --mark-purple: #b794f6;
+  --mark-green: #23a55a;
+  --mark-blue: #5b9bf8;
+  --mark-yellow: #f2e14a;
 }
 
 @theme inline {
@@ -126,6 +144,12 @@
   --color-nerdpro-hover: var(--nerdpro-hover);
   --color-on-nerdpro: var(--on-nerdpro);
   --color-nerdpro-ink: var(--nerdpro-ink);
+  --color-mark-gold: var(--mark-gold);
+  --color-mark-red: var(--mark-red);
+  --color-mark-purple: var(--mark-purple);
+  --color-mark-green: var(--mark-green);
+  --color-mark-blue: var(--mark-blue);
+  --color-mark-yellow: var(--mark-yellow);
   /* The device's own interface font first: its digits and Latin letters are the same weight on every phone, and the page's language picks its Japanese. No font is shipped, so one named ahead of it would be met on some devices and not on others. */
   --font-sans: system-ui, -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Menlo", "Consolas", "Noto Sans Mono CJK JP", monospace;
