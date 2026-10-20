@@ -55,10 +55,10 @@ export const CHANGED_SINCE_REMOVED = "削除したあとに記録が変わって
 const STANDING_SAYS: Readonly<Record<BorderStanding, string>> = { above: "ボーダーを上回っています", below: "ボーダーを下回っています", level: "ちょうどボーダーです" }
 
 const GRADE_SPAN: Readonly<Record<BorderGrade, string>> = {
-  outstanding: "4,500円以上",
-  excellent: "3,500〜4,500円",
-  strong: "2,500〜3,500円",
-  professional: "1,500〜2,500円",
+  outstanding: "2,500円以上",
+  excellent: "2,000〜2,500円",
+  strong: "1,750〜2,000円",
+  professional: "1,500〜1,750円",
   modest: "0〜1,500円",
   near: "−300〜0円",
   short: "−300円未満",

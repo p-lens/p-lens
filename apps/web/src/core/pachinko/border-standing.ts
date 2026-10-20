@@ -5,7 +5,7 @@ export type BorderStanding = "above" | "below" | "level"
 
 /**
  * How far above or below its border a play stands, by what it is worth
- * an hour: from 4,500 yen up, 3,500, 2,500, 1,500 — the hour a
+ * an hour: from 2,500 yen up, 2,000, 1,750, 1,500 — the hour a
  * professional moves for — anything above nothing, down to 300 yen
  * under nothing with the border itself, and below that.
  */
@@ -18,9 +18,9 @@ export interface BorderMark {
 }
 
 const FLOORS: readonly (readonly [BorderGrade, number])[] = [
-  ["outstanding", 4500],
-  ["excellent", 3500],
-  ["strong", 2500],
+  ["outstanding", 2500],
+  ["excellent", 2000],
+  ["strong", 1750],
   ["professional", 1500],
   ["modest", 1],
   ["near", -300],
