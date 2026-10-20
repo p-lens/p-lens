@@ -2136,9 +2136,16 @@ wherever its player records it, as it would be without the huddle.
   (`ui/features/live/huddle-board`): the play is shown as the screen opens
   and each time its log changes, at most once every 20 seconds, the latest
   of it then; the line is read as the screen opens and every 15 seconds.
-  Each of the others is a card of their latest post (`othersLatest`), in
-  the order they first showed anything, with the figures a folded play
-  shows and its border mark. Pachinko's screen shows pachinko's posts.
+  What has been read, and when the play was last shown, are the page's
+  (`HuddleLine`, on the context), so a play's screen made again on each
+  write goes on from them. Each of the others is a card of their latest
+  post (`othersLatest`), in the order they first showed anything,
+  whichever game each plays: the cards are the live space's
+  (`ui/features/live/HuddleCards`), each with the figures its own game
+  shows (`HuddleFigures` of `ui/features/pachinko` or `pachislot`) — a
+  pachinko play's folded figures and border mark, a pachislot play's
+  standing and its bonuses or AT. Each game's play screen is handed the
+  cards to stand where its own figures end.
 
 ## The unhatched egg
 
@@ -2168,7 +2175,8 @@ It is kept nowhere: loading the page again closes it.
   app's styles; its colours are written in the folder and match no theme
   on purpose: a device with the egg open is never taken for one without.
 - **In it now**: ノリ打ち's way in on the live rail, and its cards beside
-  a pachinko play — which are what shows the play to the huddle and reads
+  a play of either game, named where the live space hands them to the
+  play's screen (`LivePlayView`) — which are what shows the play to the huddle and reads
   it, so that with the egg closed nothing is shown or read, even by a
   device still in a huddle.
 

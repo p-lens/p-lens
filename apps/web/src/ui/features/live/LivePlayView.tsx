@@ -10,6 +10,8 @@ import type { Place } from "../../navigation/place"
 import { parlorText } from "../../wording/parlor"
 import * as PachinkoViews from "../pachinko"
 import * as PachislotViews from "../pachislot"
+import { HuddleCards } from "./HuddleCards"
+import { Unhatched } from "../../../unhatched-egg"
 
 const titleOf = (draft: PlayDraft, machineNames: MachineNames): string =>
   `${shownNameOf(machineNames, draft.machine)}${draft.cabinetNumber === undefined ? "" : ` ${draft.cabinetNumber}番台`}（${parlorText(parlorOf(draft))}）`
@@ -34,11 +36,11 @@ export function LivePlayView(props: { readonly place: Place; readonly playId: Pl
       when={slotDraft()}
       fallback={
         <Loaded outcome={draft()}>
-          {(found) => (found.gameKind === "pachinko" ? <PachinkoViews.LivePlay place={props.place} draft={found} title={titleOf(found, app.machineNames())} /> : undefined)}
+          {(found) => (found.gameKind === "pachinko" ? <PachinkoViews.LivePlay place={props.place} draft={found} title={titleOf(found, app.machineNames())} huddle={<Unhatched><HuddleCards draft={found} /></Unhatched>} /> : undefined)}
         </Loaded>
       }
     >
-      {(slot) => <PachislotViews.LivePlay place={props.place} draft={slot()} title={titleOf(slot(), app.machineNames())} />}
+      {(slot) => <PachislotViews.LivePlay place={props.place} draft={slot()} title={titleOf(slot(), app.machineNames())} huddle={<Unhatched><HuddleCards draft={slot()} /></Unhatched>} />}
     </Show>
   )
 }

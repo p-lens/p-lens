@@ -22,13 +22,11 @@ import { describeError, describePlayLogError } from "../../../wording/errors"
 import { CHANGED_SINCE_MERGED, FOLD_FIGURES, MERGE_FAILED, MERGED, UNFOLD_FIGURES, TAKE_BACK, TAKE_BACK_FAILED, UNMERGED } from "../../../wording/pachinko/play"
 import { ViewHeader } from "../../shell/ViewHeader"
 import { CornerTerms } from "./CornerTerms"
-import { HuddleCards } from "./HuddleCards"
 import { LiveFigures } from "./LiveFigures"
 import { LiveHyenaHunt } from "./LiveHyenaHunt"
 import { ReadingComposer } from "./ReadingComposer"
 import { SeatComposer } from "./SeatComposer"
 import { samePressed, Timeline, type Revised } from "./Timeline"
-import { Unhatched } from "../../../../unhatched-egg"
 
 /** A merging as it was done: the log it was made from, and the play as it left it. */
 interface Merged {
@@ -45,7 +43,13 @@ type Work = Revised | { readonly type: "inserting"; readonly before: number }
  * — or, a line pressed, to set it right, take it away, or put a reading
  * in before it. A run of readings held and dragged over is made one line.
  */
-export function LivePlay(props: { readonly place: Place; readonly draft: PachinkoDraft; readonly title: string }): JSX.Element {
+export function LivePlay(props: {
+  readonly place: Place
+  readonly draft: PachinkoDraft
+  readonly title: string
+  /** What stands between where the play stands and its readings: the huddle, where there is one. */
+  readonly huddle: JSX.Element
+}): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   const parsed = createMemo(() => parsePlayLog(props.draft.log))
@@ -204,7 +208,7 @@ export function LivePlay(props: { readonly place: Place; readonly draft: Pachink
                       </Show>
                     )}
                   />
-                  <Unhatched><HuddleCards draft={props.draft} /></Unhatched>
+                  {props.huddle}
                   <Timeline checkpoints={checkpoints} terms={terms} revising={revised()} onRevise={(pressed) => (samePressed(pressed, revised()) ? done() : setWork(pressed))} onMerge={(span) => merge(checkpoints, span)} />
                 </div>
                 <div class="sticky bottom-0">

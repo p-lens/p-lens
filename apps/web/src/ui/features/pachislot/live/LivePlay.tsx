@@ -56,9 +56,9 @@ const revisedStepOf = (ordered: readonly Checkpoint[], index: number): RevisedSt
 }
 
 /** A machine with no tables, for the moment no formula is known. */
-const NO_MACHINE = { schemaVersion: 0, bet: 0, tables: [] }
+export const NO_MACHINE = { schemaVersion: 0, bet: 0, tables: [] }
 
-const NO_BONUSES = (): string | undefined => undefined
+export const NO_BONUSES = (): string | undefined => undefined
 
 function Tile(props: { readonly label: string; readonly value: string; readonly note?: string }): JSX.Element {
   return (
@@ -78,7 +78,7 @@ function Tile(props: { readonly label: string; readonly value: string; readonly 
 const replayOf = (ordered: readonly Checkpoint[]): number | undefined => ordered.findLast((checkpoint) => checkpoint.replay !== undefined)?.replay
 
 /** Where the play stands by its log, three to a row: the cash spent, the games played and the day's, the medals drawn from savings, and each bonus of the day with how often it has come. */
-function PlayFigures(props: { readonly ordered: readonly Checkpoint[]; readonly bonuses: readonly Countable[]; readonly day: { readonly games: number; readonly bonuses: Counts } | undefined }): JSX.Element {
+export function PlayFigures(props: { readonly ordered: readonly Checkpoint[]; readonly bonuses: readonly Countable[]; readonly day: { readonly games: number; readonly bonuses: Counts } | undefined }): JSX.Element {
   const outlay = (): number | undefined => props.ordered.findLast((checkpoint) => checkpoint.outlay !== undefined)?.outlay
   const replay = (): number | undefined => replayOf(props.ordered)
   const dayGames = (): number => props.day?.games ?? totalNowOf(props.ordered)
@@ -300,7 +300,13 @@ interface Rewritten {
  * the log's last line, whatever it is, can be taken away a line at a time.
  * A run of readings held and dragged over is made one line.
  */
-export function LivePlay(props: { readonly place: Place; readonly draft: PachislotDraft; readonly title: string }): JSX.Element {
+export function LivePlay(props: {
+  readonly place: Place
+  readonly draft: PachislotDraft
+  readonly title: string
+  /** What stands under where the play stands: the huddle, where there is one. */
+  readonly huddle: JSX.Element
+}): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   /** The draft as this screen last wrote it, with the log the screen had been given when it did: it stands until the screen is given a log that has caught up. */
@@ -466,6 +472,7 @@ export function LivePlay(props: { readonly place: Place; readonly draft: Pachisl
                   <Show when={atRules()} fallback={<PlayFigures ordered={found()} bonuses={bonuses()} day={day()} />}>
                     <AtFigures ordered={found()} normalized={weighing()?.formula.normalized ?? NO_MACHINE} />
                   </Show>
+                  {props.huddle}
                   <Show when={weighing()}>
                     {(weighed) => (
                       <>
