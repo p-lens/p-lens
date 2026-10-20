@@ -12,7 +12,7 @@ import { openingOf, type SampleWork } from "../../core/sample-book/book"
 import type { DayProblem, Lineup } from "../../core/sample-book/day"
 import { drawsFrom } from "../../core/sample-book/draws"
 import type { OnSale } from "../../core/sample-book/lineup"
-import type * as Pachinko from "../../core/sample-book/pachinko"
+import * as Pachinko from "../../core/sample-book/pachinko"
 import type * as Pachislot from "../../core/sample-book/pachislot"
 import { sampleParlorsOf } from "../../core/sample-book/parlors"
 import { daysBetween, threeYearsTo } from "../../core/sample-book/schedule"
@@ -113,7 +113,7 @@ const summariesOf = async (catalog: Catalog, from: IsoDate, through: IsoDate): P
 
 type Seated = { readonly gameKind: "pachinko"; readonly onSale: OnSale<Pachinko.Seat> } | { readonly gameKind: "slot"; readonly onSale: OnSale<Pachislot.Seat> }
 
-/** A machine as a sample book sits at it: its first formula. None where it cannot be read or has no formula. */
+/** A machine as a sample book sits at it: its first formula. None where it cannot be read or has no formula, or where a pachinko machine's border is under 16 (`seatsAt`). */
 const seatedOf = async (catalog: Catalog, machine: MachineSummary): Promise<Seated | undefined> => {
   const onSale = {
     id: machine.id,
@@ -123,7 +123,7 @@ const seatedOf = async (catalog: Catalog, machine: MachineSummary): Promise<Seat
   if (machine.gameKind === "pachinko") {
     const entry = await loadEntry(catalog, machine.id, "pachinko")
     const figures = entry.ok ? entry.value.formulas[0]?.formula.figures : undefined
-    return figures === undefined ? undefined : { gameKind: "pachinko", onSale: { ...onSale, seat: { figures } } }
+    return figures === undefined || !Pachinko.seatsAt(figures) ? undefined : { gameKind: "pachinko", onSale: { ...onSale, seat: { figures } } }
   }
   const entry = await loadEntry(catalog, machine.id, "pachislot")
   const levels = entry.ok ? entry.value.formulas[0]?.formula.figures : undefined
