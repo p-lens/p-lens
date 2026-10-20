@@ -1,0 +1,28 @@
+name: 要望
+description: あったらいいものを知らせる
+labels: [enhancement]
+body:
+  - type: textarea
+    id: wanted
+    attributes:
+      label: ほしいもの
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: それで何が楽になるか
+      description: 困っている場面や、今どうしているか
+    validations:
+      required: true
+  - type: dropdown
+    id: game
+    attributes:
+      label: 遊技
+      options:
+        - パチンコ
+        - パチスロ
+        - どちらにも
+        - どちらでもない
+    validations:
+      required: true

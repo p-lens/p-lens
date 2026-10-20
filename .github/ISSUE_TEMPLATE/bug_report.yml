@@ -1,0 +1,57 @@
+name: 不具合の報告
+description: 思ったとおりに動かないところを知らせる
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        報告ありがとうございます。帳簿の中身や画面写真を載せるときは、店名・金額など人に見せたくないところを消してからにしてください。Issue は誰でも読めます。
+  - type: textarea
+    id: happened
+    attributes:
+      label: 何が起きたか
+      description: 見えたもの、出たメッセージ
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: どうなるはずだったか
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 起きるまでの手順
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: false
+  - type: dropdown
+    id: game
+    attributes:
+      label: 遊技
+      options:
+        - パチンコ
+        - パチスロ
+        - どちらにも
+        - どちらでもない
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: バージョン
+      description: 上のバーの「?」か、設定の下に出ています
+      placeholder: 0.9.19
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: 端末とブラウザ
+      placeholder: iPhone 15 / Safari、ホーム画面に追加して使用
+    validations:
+      required: true
