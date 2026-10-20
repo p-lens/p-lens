@@ -76,7 +76,7 @@ export const EditIcon = (props: { readonly label: string }) => (
   </Icon>
 )
 
-/** Worked out from a machine's figures: a calculator. */
+/** Worked out from a machine's figures, or the odd-prize calculator: a calculator. */
 export const CalculatorIcon = (props: { readonly label?: string }) => (
   <Icon label={props.label}>
     <rect x="5" y="3" width="14" height="18" rx="2" />
