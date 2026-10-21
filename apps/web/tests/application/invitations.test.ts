@@ -7,7 +7,7 @@ import { receiveArrivals, takeSentAgain, type InboxPorts } from "../../src/appli
 import { INBOX_OPENING, invitationsOf, invite, restoreGrants, uninvite, type InvitationPorts } from "../../src/application/invitations"
 import { loadOverview } from "../../src/application/overview"
 import { chooseBook, finishPlay, loadDrafts, reviseCheckpoints, startPlay } from "../../src/application/live-play"
-import { destinationsOf, sendDraft, sendTodaysPlays, type SendingPorts } from "../../src/application/sending"
+import { destinationsOf, sendDraft, type SendingPorts } from "../../src/application/sending"
 import { renameBook } from "../../src/application/rename-book"
 import { joinByCode, joinSync, startSync, syncBook, type SyncPorts } from "../../src/application/sync"
 import { roleIn, type BookId, type MemberId } from "../../src/core/book/book"
@@ -276,15 +276,6 @@ describe("a person let in only to send plays", () => {
     expect([kept?.log, kept?.received?.again?.log]).toEqual([touched.ok ? touched.value.log : "", '{"spins":0,"outlay":0}\n{"spins":400,"outlay":1000}\n'])
     await takeSentAgain(mine.drafts, kept as PlayDraft)
     expect((await mineOf(mine))[0]?.log).toBe('{"spins":0,"outlay":0}\n{"spins":400,"outlay":1000}\n')
-  })
-
-  test("sends every play of the day not yet sent as it stands, with one press", async () => {
-    const { mine, theirs, destination } = await both()
-    await startPlay(theirs.drafts, { ...DRAFT, id: "sent-2" as PlayId, cabinetNumber: "200", startedAt: "2026-10-09T02:30:00.000Z" })
-    expect(await sendTodaysPlays(theirs.sending, destination, "2026-10-09" as IsoDate)).toEqual({ ok: true, value: 2 })
-    expect(await sendTodaysPlays(theirs.sending, destination, "2026-10-09" as IsoDate)).toEqual({ ok: true, value: 0 })
-    expect(await receiveArrivals(mine.inbox)).toEqual({ taken: 2, unreadable: 0 })
-    expect((await mineOf(mine)).map((draft) => draft.cabinetNumber).toSorted()).toEqual(["123", "200"])
   })
 
   test("reads nothing of the inbox or the book, and sends nothing once taken back out", async () => {

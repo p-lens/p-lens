@@ -3,7 +3,7 @@ import { SidePanel } from "solid-gathering-shell"
 
 import type { Outcome } from "../../../application/errors"
 import { loadTodaysPlays } from "../../../application/live-play"
-import { forgetDestination, sendDraft, sendTodaysPlays } from "../../../application/sending"
+import { forgetDestination, sendDraft } from "../../../application/sending"
 import { shownNameOf } from "../../../core/catalog/catalog"
 import { awaitsSending, deliveryOf, parlorOf, type PlayDraft } from "../../../core/live-play/draft"
 import type { Destination } from "../../../sync/port/destination-store"
@@ -53,7 +53,8 @@ function DeliveryRow(props: { readonly draft: PlayDraft; readonly lineId: string
 
 /**
  * The day's plays of this device's own, and how each stands with one book
- * they may be sent to: sent with a plane each, or all that wait at once.
+ * they may be sent to, each sent with its own plane: none are sent at
+ * once, as a play is sent as it is played.
  * Below them, the way to let go of the book.
  */
 function Outbox(props: { readonly destination: Destination }): JSX.Element {
@@ -70,17 +71,15 @@ function Outbox(props: { readonly destination: Destination }): JSX.Element {
   }
   /** Whether the person is being asked if the book is to be let go of. */
   const [forgetting, setForgetting] = createSignal(false)
-  const told = <T,>(sent: Outcome<T>, title: (value: T) => string): void => {
+  const sendOne = async (draft: PlayDraft): Promise<void> => {
+    const sent = await sendDraft(sendingPortsOf(app.services), draft, props.destination)
     if (!sent.ok) {
       toast({ title: "送れませんでした", description: describeError(sent.error), tone: "error" })
       return
     }
-    toast({ title: title(sent.value), description: props.destination.title })
+    toast({ title: "送りました", description: props.destination.title })
     app.wrote()
   }
-  const sendOne = async (draft: PlayDraft): Promise<void> => told(await sendDraft(sendingPortsOf(app.services), draft, props.destination), () => "送りました")
-  const sendAll = async (): Promise<void> =>
-    told(await sendTodaysPlays(sendingPortsOf(app.services), props.destination, app.services.businessDay()), (count) => (count === 0 ? "送る稼働はありません" : `${count}件を送りました`))
   const forget = async (): Promise<void> => {
     setForgetting(false)
     const gone = await forgetDestination(app.services.destinations, props.destination)
@@ -98,7 +97,7 @@ function Outbox(props: { readonly destination: Destination }): JSX.Element {
         <Loaded outcome={drafts()}>
           {(found) => (
             <>
-              <div class="flex min-h-8 items-center justify-between gap-2 px-2 pb-1">
+              <div class="flex min-h-8 items-center px-2 pb-1">
                 <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">
                   本日
                   <Show when={dayNote()} keyed>
@@ -106,11 +105,6 @@ function Outbox(props: { readonly destination: Destination }): JSX.Element {
                   </Show>
                   の稼働
                 </h2>
-                <Show when={own(found).some((draft) => awaitsSending(draft, props.destination.lineId))}>
-                  <Button size="small" class="shrink-0" onClick={() => void sendAll()}>
-                    まとめて送る
-                  </Button>
-                </Show>
               </div>
               <Show when={own(found).length > 0} fallback={<p class="px-2 py-1.5 text-sm text-text-muted">本日の稼働はありません。</p>}>
                 <ul class="flex flex-col gap-0.5">

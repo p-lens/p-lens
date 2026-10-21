@@ -5,16 +5,16 @@ import { TALLY_TAGS } from "../../core/tally/tally"
 import type { PlayId } from "../../core/play/play"
 import type { Valuation } from "../../core/valuation/valuation"
 import type { Cut, Request, ValuationRequest } from "../protocol/wire"
-import { accountTerm, branchTerm, parlorSavingsTerm, cashTerm, combine, playTimeTerm, rentalSpreadTerm, drawnTerm, inferredValueTerm, openingBalanceTerm, talliesAmongTerm, talliesTerm, savingsTerm, sentTalliesTerm, spinPerformanceTerm, theoreticalValueTerm, rangeTerm } from "./terms"
+import { accountTerm, branchTerm, parlorSavingsTerm, cashTerm, combine, notForfeitureTerm, playTimeTerm, rentalSpreadTerm, drawnTerm, inferredValueTerm, openingBalanceTerm, talliesAmongTerm, talliesTerm, savingsTerm, sentTalliesTerm, spinPerformanceTerm, theoreticalValueTerm, rangeTerm } from "./terms"
 
 type RequestOf<K extends Request["kind"]> = Extract<Request, { kind: K }>
 
 const inYen = (valuation: Valuation): ValuationRequest => ({ at: valuation.at, commodity: YEN })
 
-/** What the tallies in a query actually made or lost, each posting at its own day's rate. */
+/** What the tallies in a query actually made or lost, each posting at its own day's rate: 収支, which a forfeiture is no part of. */
 export const actualRequest = (query: string): RequestOf<"incomestatement"> => ({
   kind: "incomestatement",
-  query,
+  query: combine(query, notForfeitureTerm),
   valuation: inYen({ at: "posting-date" }),
 })
 
@@ -68,7 +68,7 @@ export const rentalSpreadRequest = (query: string): RequestOf<"balance"> => ({ k
  */
 export const periodTotalsRequest = (query: string): RequestOf<"balance"> => ({
   kind: "balance",
-  query: combine(cashTerm, accountTerm(ACCOUNTS.specialPrizes), accountTerm(ACCOUNTS.oddPrizes), accountTerm(ACCOUNTS.translationAdjustment), theoreticalValueTerm, playTimeTerm, branchTerm(EXPENSE_ROOT), branchTerm(REVENUE_ROOT), query),
+  query: combine(cashTerm, accountTerm(ACCOUNTS.specialPrizes), accountTerm(ACCOUNTS.oddPrizes), accountTerm(ACCOUNTS.translationAdjustment), theoreticalValueTerm, playTimeTerm, branchTerm(EXPENSE_ROOT), branchTerm(REVENUE_ROOT), query, notForfeitureTerm),
   valuation: inYen({ at: "posting-date" }),
   tree: true,
 })

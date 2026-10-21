@@ -2,7 +2,7 @@ import { createSignal, onCleanup, Show, type JSX } from "solid-js"
 import { Portal } from "solid-js/web"
 
 import { isOpen, turnOver } from "./hatched"
-import { castLook, PRESSED, SAYS } from "./look"
+import { castLook, PRESSED, SAYS, sheetPut } from "./look"
 import { stillToGo, turnedOver } from "./words"
 
 /** Presses in a row that open or close the egg. */
@@ -25,8 +25,8 @@ const SAID_FOR = 1_600
  * and the egg beneath it: ten presses in a row, or one held five seconds, open it, and the
  * same close it again; from the seventh press the presses left are
  * counted down, as Android does. Nothing about it shows until then, and
- * while it is open the screen's edges glow red, cast over the whole page
- * from here (`castLook`).
+ * while it is open the screen's edges glow red on every screen, cast over
+ * the whole page from here as it turns over (`castLook`).
  */
 export function UnhatchedEgg(props: { readonly children: JSX.Element }): JSX.Element {
   const held: { presses: number; lastAt: number; holding: ReturnType<typeof setTimeout> | undefined; heldLong: boolean; saying: ReturnType<typeof setTimeout> | undefined } = {
@@ -37,7 +37,7 @@ export function UnhatchedEgg(props: { readonly children: JSX.Element }): JSX.Ele
     saying: undefined,
   }
   const [said, setSaid] = createSignal<string | undefined>()
-  castLook()
+  sheetPut()
   const say = (words: string): void => {
     clearTimeout(held.saying)
     setSaid(words)
@@ -45,7 +45,9 @@ export function UnhatchedEgg(props: { readonly children: JSX.Element }): JSX.Ele
   }
   const turn = (): void => {
     held.presses = 0
-    say(turnedOver(turnOver()))
+    const open = turnOver()
+    castLook(open)
+    say(turnedOver(open))
   }
   const press = (): void => {
     const now = Date.now()

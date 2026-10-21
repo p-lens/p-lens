@@ -22,7 +22,8 @@ import { ForfeitureForm, RateChangeForm } from "./SavingsForms"
 
 const UNITS = { ball: "玉", medal: "枚" } as const
 
-const ROW_BUTTON = "shrink-0 rounded border border-border px-2 py-0.5 text-xs text-text-secondary hover:border-text-secondary hover:text-text-primary"
+/** A small framed button at a row's end, as the passbooks' own actions are. */
+export const ROW_BUTTON = "shrink-0 rounded border border-border px-2 py-0.5 text-xs text-text-secondary hover:border-text-secondary hover:text-text-primary"
 
 /** The columns a passbook's rows line up in: the day, then what went out, what came in, and what was left. */
 export const COLUMNS = "grid grid-cols-[minmax(0,1.2fr)_repeat(3,minmax(0,1fr))] items-baseline gap-2"

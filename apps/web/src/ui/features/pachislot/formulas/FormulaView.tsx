@@ -4,10 +4,11 @@ import { MainContent } from "solid-gathering-shell"
 import type { ApplicationError } from "../../../../application/errors"
 import { loadFormula } from "../../../../application/pachislot/formulas"
 import { bookNameOf } from "../../../../core/catalog/catalog"
+import { usesWeighTheirMost, type Mark } from "../../../../core/formula/standing"
 import type { Formula, Sampling } from "../../../../core/pachislot/formula"
 import { useApp } from "../../../context"
 import { Button, SemiproLink } from "../../../primitives/button"
-import { HandIcon, HandOffIcon, HeartIcon, ShieldIcon, ShieldOffIcon } from "../../../primitives/icons"
+import { BoltIcon, HandIcon, HandOffIcon, HeartIcon, ShieldIcon, ShieldOffIcon } from "../../../primitives/icons"
 import { Loaded } from "../../../primitives/states"
 import { useMoves } from "../../../navigation/moves"
 import type { Place } from "../../../navigation/place"
@@ -15,6 +16,7 @@ import { formulaIdText } from "../../../wording/catalog"
 import { describeError } from "../../../wording/errors"
 import { formatCount } from "../../../wording/numbers"
 import { kindName, UNCHECKED } from "../../../wording/pachislot/formula"
+import { useBookFavorites } from "../../live/book-favorites"
 import { useStartForm } from "../../live/start-form"
 import { ViewHeader } from "../../shell/ViewHeader"
 import { FiguresTable } from "./FiguresTable"
@@ -22,6 +24,7 @@ import { HuntTable } from "./HuntTable"
 import { remadeIn } from "./remaking"
 import { trailTo } from "./trail"
 import { useActions } from "./use-actions"
+import { isMine, OWN_LINES, paintOf } from "./vote-fill"
 
 const samplingOf = (formula: Formula): Sampling | undefined => (formula.kind === "sampled" ? formula.sampling : undefined)
 
@@ -36,6 +39,11 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
   const moves = useMoves()
   const start = useStartForm()
   const actions = useActions()
+  const favorites = useBookFavorites()
+  /** Whether the person's own mark is among a formula's count of it. */
+  const own = (mark: Mark, formulaId: string): boolean => isMine(mark, actions.mine(formulaId), favorites.keeps(formulaId))
+  /** A count's look: drawn in the text's own colour inside its painted icon where the person's own mark is among it. */
+  const countLook = (mark: Mark, formulaId: string): string => `flex items-center gap-1 [&_svg]:size-4 ${own(mark, formulaId) ? OWN_LINES : ""}`
   const [failure, setFailure] = createSignal<ApplicationError | undefined>(undefined)
   const [detail] = createResource(
     () => ({ machineId: props.machineId, formulaId: props.formulaId, revision: app.revision() }),
@@ -74,12 +82,12 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
                   <div class="flex gap-2"><dt class="text-text-muted">ID</dt><dd class="tabular-nums text-text-primary">{formulaIdText(formula().id)}</dd></div>
                 </dl>
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-text-secondary">
-                  <span class="flex items-center gap-1 [&_svg]:size-4"><ShieldIcon /> 検証OK {listing().standing.verifications}</span>
-                  <span class="flex items-center gap-1 [&_svg]:size-4"><ShieldOffIcon /> 検証NG {listing().standing.refutations}</span>
-                  <span class="flex items-center gap-1 [&_svg]:size-4"><HandIcon /> イチオシ {listing().standing.adoptions}</span>
-                  <span class="flex items-center gap-1 [&_svg]:size-4"><HandOffIcon /> 非推奨 {listing().standing.rejections}</span>
-                  <span class="flex items-center gap-1 [&_svg]:size-4"><HeartIcon filled={false} /> お気に入り {listing().standing.favorites}</span>
-                  <span>利用 {listing().standing.uses}回</span>
+                  <span class={countLook("verification", formula().id)}><ShieldIcon paint={paintOf("verification", own("verification", formula().id))} /> 検証OK {listing().standing.verifications}</span>
+                  <span class={countLook("refutation", formula().id)}><ShieldOffIcon paint={paintOf("refutation", own("refutation", formula().id))} /> 検証NG {listing().standing.refutations}</span>
+                  <span class={countLook("adoption", formula().id)}><HandIcon paint={paintOf("adoption", own("adoption", formula().id))} /> イチオシ {listing().standing.adoptions}</span>
+                  <span class={countLook("rejection", formula().id)}><HandOffIcon paint={paintOf("rejection", own("rejection", formula().id))} /> 非推奨 {listing().standing.rejections}</span>
+                  <span class={countLook("favorite", formula().id)}><HeartIcon filled={own("favorite", formula().id)} /> お気に入り {listing().standing.favorites}</span>
+                  <span class="flex items-center gap-1 [&_svg]:size-4" classList={{ [OWN_LINES]: usesWeighTheirMost(listing().standing) }}><BoltIcon filled={usesWeighTheirMost(listing().standing)} /> 利用 {listing().standing.uses}回</span>
                 </div>
                 <Show when={failure()} keyed>
                   {(error) => <p role="alert" class="text-sm text-negative">{describeError(error)}</p>}

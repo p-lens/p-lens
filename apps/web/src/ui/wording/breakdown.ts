@@ -61,7 +61,7 @@ export const FORFEITED = "失効損"
 export const REVALUATION = "評価損益"
 
 /** What is said beside 失効損: what it is, and that 収支 holds it. */
-export const FORFEITED_NOTE = "失効した貯玉・貯メダルの分。収支に含みます。"
+export const FORFEITED_NOTE = "失効した貯玉・貯メダルの分。収支には含みません。"
 
 /** What is said beside 評価損益: what moved, and that 収支 does not hold it. */
 export const REVALUATION_NOTE = "交換率が変わって貯玉・貯メダルの価値が動いた分。収支には含みません。"

@@ -434,7 +434,7 @@ against a posting's cost, and savings are posted with none. `loadOtherGains`
 asks it of a period's savings; `revaluationOf` reads its total. On screen
 it is 評価損益, a line of その他損益 (`OtherGains`) under 総合 (集計), a
 book's or several books', and never part of 収支. その他損益 lists beside it 失効損, which 収支 does
-hold, and is never summed, each line saying which it is. A rate seldom
+not hold either, and is never summed, each line saying so. A rate seldom
 changes and savings seldom lapse, so その他損益 is there only where there
 is any. `tests/hledger/revaluation.test.ts` holds it
 against the real hledger.
@@ -2331,8 +2331,9 @@ right to what is there (残高調整).
 ```
 
 - It is an expense, in tokens only, as a replay's fee is: what it comes
-  to in yen is hledger's to say at the rate of its day, and the income
-  statement counts it — 実収支 falls by it, under its parlor.
+  to in yen is hledger's to say at the rate of its day. It is no part of
+  収支: every question of 収支 leaves its account out
+  (`notForfeitureTerm`), and it is a line of その他損益 alone.
 - It is no play: it carries no `play-id`, stands under no machine, and
   is in no list of plays. Tokens taken from a person in the middle of a
   play are that play's, recorded with nothing left at its finish.
@@ -2578,9 +2579,9 @@ for.
   in hours and minutes, `--` where none kept any. Whichever way a period
   is cut, the groups' seconds come to the same total.
 - **その他損益 under every breakdown** (`OtherGains`, `loadOtherGains`,
-  a book's or several books'): 失効損, which 収支 holds, and 評価損益,
-  which it does not, a line to each and never summed, shown only where
-  there is any.
+  a book's or several books'): 失効損 and 評価損益, neither of which
+  収支 holds, a line to each and never summed, shown only where there
+  is any.
 - **Which grouping and which period are the address's**:
   `/books/:id/breakdown/weekday`, with `q` the period.
 - **A period is two days and nothing else** (`ui/features/period`,

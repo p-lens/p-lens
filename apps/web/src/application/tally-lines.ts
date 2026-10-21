@@ -3,6 +3,7 @@ import { identityIn, parlorsFromDeclarations, sameIdentity, type Parlor } from "
 import { actualOf, sidesOf } from "../core/report/figures"
 import type { TallyLine } from "../core/report/tally-line"
 import { tallySummaryOf, type TallySummary } from "../core/report/tallies"
+import { tallyNotesOf } from "../core/report/tally-notes"
 import { Ok, andThen, collect, mapOk } from "../core/result/result"
 import type { JournalAccess } from "../hledger/client/client"
 import type { Transaction } from "../hledger/protocol/wire"
@@ -61,6 +62,7 @@ const lineOf = async (journal: JournalAccess, parlors: readonly Parlor[], transa
         tally,
         ...tallyNamesOf(parlors, transaction, tally),
         maker: tagOf(transaction, SOURCE_TAGS.maker),
+        notes: tallyNotesOf(transaction),
         sides,
         actual,
       })),

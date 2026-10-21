@@ -33,5 +33,5 @@ export const HUDDLE_NO_CAMERA = "カメラを使えませんでした。QRコー
 /** Why an image chosen to join by gave no huddle. */
 export const HUDDLE_NOT_IN_IMAGE = "画像からQRコードを読み取れませんでした。QRコード全体が写った画像を選んでください。"
 
-/** What the rail's button says while the device is in a huddle: who it is in it as. */
-export const huddleJoinedAs = (name: string): string => `ノリ打ち中（${name}）`
+/** What the button to a huddle says while the device is in one, before the name it is in it as, which is shown in brackets after. */
+export const HUDDLE_JOINED = "ノリ打ち中"

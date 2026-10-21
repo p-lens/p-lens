@@ -1,22 +1,24 @@
 import { Index, Show, type JSX } from "solid-js"
 
-import type { FormulaListing } from "../../../../core/formula/standing"
+import { usesWeighTheirMost, type FormulaListing, type Mark, type MyMarks } from "../../../../core/formula/standing"
 import { combinedTellsMore } from "../../../../core/pachislot/figures"
 import type { Formula, SettingDistribution } from "../../../../core/pachislot/formula"
-import { HandIcon, HandOffIcon, HeartIcon, QuestionIcon, ShieldIcon, ShieldOffIcon } from "../../../primitives/icons"
+import { BoltIcon, HandIcon, HandOffIcon, HeartIcon, QuestionIcon, ShieldIcon, ShieldOffIcon } from "../../../primitives/icons"
 import { formulaIdText } from "../../../wording/catalog"
 import { oddsText, formulaText, payoutRateText, sharesText, UNCHECKED } from "../../../wording/pachislot/formula"
 import { KindMark } from "./KindMark"
+import { isMine, OWN_LINES, paintOf } from "./vote-fill"
 
-/** A count of what people did; a check either way is shown in its colour once there is one. */
-function Count(props: { readonly icon: JSX.Element; readonly count: number; readonly label: string; readonly tone?: "positive" | "negative" }): JSX.Element {
+/** A count of what people did; a check either way is shown in its colour once there is one, and a filled count — the person's own mark among it, or uses that weigh their most — is drawn in the text's own colour, its icon painted in the mark's where it has one. */
+function Count(props: { readonly icon: JSX.Element; readonly count: number; readonly label: string; readonly filled: boolean; readonly tone?: "positive" | "negative" }): JSX.Element {
   return (
     <span
       class="flex items-center gap-1 tabular-nums [&_svg]:size-4"
       classList={{
-        "text-positive": props.tone === "positive" && props.count > 0,
-        "text-negative": props.tone === "negative" && props.count > 0,
-        "text-text-muted": props.tone === undefined || props.count === 0,
+        [OWN_LINES]: props.filled,
+        "text-positive": !props.filled && props.tone === "positive" && props.count > 0,
+        "text-negative": !props.filled && props.tone === "negative" && props.count > 0,
+        "text-text-muted": !props.filled && (props.tone === undefined || props.count === 0),
       }}
       aria-label={`${props.label} ${props.count}`}
       title={props.label}
@@ -43,21 +45,28 @@ function Favorite(props: { readonly on: boolean; readonly label: string; readonl
   )
 }
 
-function Standing(props: { readonly listing: FormulaListing<Formula> | FormulaListing<SettingDistribution>; readonly verifiable: boolean; readonly onUse: () => void }): JSX.Element {
+function Standing(props: {
+  readonly listing: FormulaListing<Formula> | FormulaListing<SettingDistribution>
+  readonly mine: MyMarks
+  readonly favorite: boolean
+  readonly verifiable: boolean
+  readonly onUse: () => void
+}): JSX.Element {
+  const filled = (mark: Mark): boolean => isMine(mark, props.mine, props.favorite)
   return (
     <footer class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
       <Show when={props.verifiable}>
-        <Count icon={<ShieldIcon />} count={props.listing.standing.verifications} label="検証OK" tone="positive" />
+        <Count icon={<ShieldIcon paint={paintOf("verification", filled("verification"))} />} count={props.listing.standing.verifications} label="検証OK" filled={filled("verification")} tone="positive" />
         <Show when={props.listing.standing.refutations > 0}>
-          <Count icon={<ShieldOffIcon />} count={props.listing.standing.refutations} label="検証NG" tone="negative" />
+          <Count icon={<ShieldOffIcon paint={paintOf("refutation", filled("refutation"))} />} count={props.listing.standing.refutations} label="検証NG" filled={filled("refutation")} tone="negative" />
         </Show>
       </Show>
-      <Count icon={<HandIcon />} count={props.listing.standing.adoptions} label="イチオシ" />
+      <Count icon={<HandIcon paint={paintOf("adoption", filled("adoption"))} />} count={props.listing.standing.adoptions} label="イチオシ" filled={filled("adoption")} />
       <Show when={props.listing.standing.rejections > 0}>
-        <Count icon={<HandOffIcon />} count={props.listing.standing.rejections} label="非推奨" />
+        <Count icon={<HandOffIcon paint={paintOf("rejection", filled("rejection"))} />} count={props.listing.standing.rejections} label="非推奨" filled={filled("rejection")} />
       </Show>
-      <Count icon={<HeartIcon filled={false} />} count={props.listing.standing.favorites} label="お気に入り" />
-      <span class="whitespace-nowrap text-text-muted tabular-nums">利用 {props.listing.standing.uses}回</span>
+      <Count icon={<HeartIcon filled={filled("favorite")} />} count={props.listing.standing.favorites} label="お気に入り" filled={filled("favorite")} />
+      <Count icon={<BoltIcon filled={usesWeighTheirMost(props.listing.standing)} />} count={props.listing.standing.uses} label="利用" filled={usesWeighTheirMost(props.listing.standing)} />
       <button type="button" onClick={() => props.onUse()} class="ml-auto shrink-0 whitespace-nowrap rounded bg-amateur px-3 py-1 text-sm font-medium text-on-amateur hover:bg-amateur-hover">
         これを使う
       </button>
@@ -75,6 +84,8 @@ export function FormulaCard(props: {
   readonly listing: FormulaListing<Formula>
   /** Whether the book in use keeps it as a favourite. */
   readonly favorite: boolean
+  /** What this member has done with it, as the book in use says. */
+  readonly mine: MyMarks
   readonly onHelp: () => void
   readonly onToggleFavorite: () => void
   readonly onUse: () => void
@@ -113,7 +124,7 @@ export function FormulaCard(props: {
           )}
         </Index>
       </ul>
-      <Standing listing={props.listing} verifiable onUse={props.onUse} />
+      <Standing listing={props.listing} mine={props.mine} favorite={props.favorite} verifiable onUse={props.onUse} />
     </article>
   )
 }
@@ -123,8 +134,8 @@ export function SettingDistributionCard(props: {
   readonly listing: FormulaListing<SettingDistribution>
   /** Whether the book in use keeps it as a favourite. */
   readonly favorite: boolean
-  /** Whether this member adopts it, as the book in use says. */
-  readonly adopted: boolean
+  /** What this member has done with it, as the book in use says. */
+  readonly mine: MyMarks
   readonly onToggleFavorite: () => void
   readonly onToggleAdoption: () => void
   readonly onUse: () => void
@@ -136,16 +147,16 @@ export function SettingDistributionCard(props: {
         <button
           type="button"
           onClick={() => props.onToggleAdoption()}
-          aria-pressed={props.adopted}
+          aria-pressed={props.mine.adopted}
           class="rounded px-2 py-1 text-xs hover:bg-surface-3"
-          classList={{ "text-accent font-semibold": props.adopted, "text-text-muted": !props.adopted }}
+          classList={{ "text-accent font-semibold": props.mine.adopted, "text-text-muted": !props.mine.adopted }}
         >
-          {props.adopted ? "イチオシ中" : "イチオシにする"}
+          {props.mine.adopted ? "イチオシ中" : "イチオシにする"}
         </button>
         <Favorite on={props.favorite} label="この設定配分をお気に入りにする" onToggle={props.onToggleFavorite} />
       </header>
       <p class="text-xs tabular-nums text-text-secondary">{sharesText(props.listing.formula.shares)}</p>
-      <Standing listing={props.listing} verifiable={false} onUse={props.onUse} />
+      <Standing listing={props.listing} mine={props.mine} favorite={props.favorite} verifiable={false} onUse={props.onUse} />
     </article>
   )
 }

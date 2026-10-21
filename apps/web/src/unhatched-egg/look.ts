@@ -1,16 +1,14 @@
-import { createEffect, onCleanup } from "solid-js"
-
-import { isOpen } from "./hatched"
-
 /**
  * The egg's own look, cast over the whole page from here: a stylesheet of
  * its own put into the document's head, and a mark put on the document
  * itself while the egg is open, under which the screen's four edges glow
  * a faint, blurred red, slowly brighter and dimmer, over everything and
  * in the way of nothing; and what the egg says, and the name it is opened
- * by, styled by the same sheet. No part of the app draws it, or knows of
- * it, and none of the app's styles are borrowed: it matches no theme on
- * purpose, and stays still where a device asks for less motion.
+ * by, styled by the same sheet. The mark is put on and taken off as the
+ * egg turns over and by nothing else, so it stays on whichever screen the
+ * page goes to. No part of the app draws it, or knows of it, and none of
+ * the app's styles are borrowed: it matches no theme on purpose, and
+ * stays still where a device asks for less motion.
  */
 const SHEET = "unhatched-egg"
 const MARK = "data-unhatched-egg"
@@ -58,7 +56,8 @@ html[${MARK}]::after {
 }
 `
 
-const sheetPut = (): void => {
+/** Put the egg's stylesheet into the document's head, once for the page. */
+export const sheetPut = (): void => {
   if (document.getElementById(SHEET) !== null) return
   const sheet = document.createElement("style")
   sheet.id = SHEET
@@ -66,9 +65,8 @@ const sheetPut = (): void => {
   document.head.append(sheet)
 }
 
-/** Cast the egg's look over the page for as long as the one casting it stays: the mark on while the egg is open, off once it is closed, and off as it goes. */
-export const castLook = (): void => {
+/** Cast the egg's look over the page, or take it off: the mark on the document while the egg is open, whichever screen is shown. */
+export const castLook = (open: boolean): void => {
   sheetPut()
-  createEffect(() => document.documentElement.toggleAttribute(MARK, isOpen()))
-  onCleanup(() => document.documentElement.removeAttribute(MARK))
+  document.documentElement.toggleAttribute(MARK, open)
 }

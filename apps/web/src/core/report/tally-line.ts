@@ -1,6 +1,7 @@
 import type { Decimal } from "../decimal/decimal"
 import type { Sides } from "./figures"
 import type { TallySummary } from "./tallies"
+import type { TallyNotes } from "./tally-notes"
 
 /**
  * One tally with what hledger made of it in yen at its own day's rate,
@@ -16,6 +17,7 @@ export interface TallyLine {
   readonly machineName: string | undefined
   /** The machine's maker, which only a tally taken in from another app says. */
   readonly maker: string | undefined
+  readonly notes: TallyNotes
   readonly sides: Sides
   readonly actual: Decimal
 }

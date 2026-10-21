@@ -71,6 +71,7 @@ export function MachineView(props: { readonly place: Place; readonly machineId: 
                     <FormulaCard
                       listing={listing}
                       favorite={favorites.keeps(listing.formula.id)}
+                      mine={actions.mine(listing.formula.id)}
                       onHelp={() => moves.go({ kind: "pachislot-formula", machineId: found.machine.id, formulaId: listing.formula.id })}
                       onToggleFavorite={() => favorites.press({ type: "formula", id: listing.formula.id }, setFailure)}
                       onUse={() => actions.useFormula(listing.formula, bookNameOf(found.machine))}
@@ -92,7 +93,7 @@ export function MachineView(props: { readonly place: Place; readonly machineId: 
                       <SettingDistributionCard
                         listing={listing}
                         favorite={favorites.keeps(listing.formula.id)}
-                        adopted={actions.mine(listing.formula.id).adopted}
+                        mine={actions.mine(listing.formula.id)}
                         onToggleFavorite={() => favorites.press({ type: "distribution", id: listing.formula.id }, setFailure)}
                         onToggleAdoption={() => actions.toggle("distribution", listing, "adoption", setFailure)}
                         onUse={() => actions.useDistribution(listing.formula, bookNameOf(found.machine))}

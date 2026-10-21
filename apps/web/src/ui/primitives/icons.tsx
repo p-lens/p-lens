@@ -28,27 +28,59 @@ export const HeartIcon = (props: { readonly filled: boolean }) => (
   </svg>
 )
 
+/**
+ * The colour an icon is painted in, as classes naming one colour token:
+ * its inside (`fill-verification`), drawn as a shape of its own beneath the
+ * strokes, and its rim (`stroke-verification`), the outermost outline drawn
+ * again over them, so that the icon is one shape in the colour and what
+ * is drawn inside it — a tick, a cross, the lines between fingers — stays
+ * as it is.
+ */
+export interface Paint {
+  readonly inside: string
+  readonly rim: string
+}
+
+type Painted = { readonly paint?: Paint | undefined }
+
+/** An icon's inside in the paint's colour, and nothing where it has none: always drawn, so that only its colour follows the paint. */
+const Inside = (props: { readonly d: string } & Painted): JSX.Element => <path d={props.d} class={props.paint?.inside} stroke="none" />
+
+/** An icon's outermost outline in the paint's colour, over the strokes it is drawn with, and nothing where it has none. */
+const Rim = (props: { readonly d: string } & Painted): JSX.Element => <path d={props.d} class={props.paint?.rim} stroke="none" />
+
+const SHIELD = "M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"
+
 /** Verified: a shield with a tick. */
-export const ShieldIcon = () => (
+export const ShieldIcon = (props: Painted) => (
   <Icon>
-    <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" />
+    <Inside d={SHIELD} paint={props.paint} />
+    <path d={SHIELD} />
+    <Rim d={SHIELD} paint={props.paint} />
     <path d="M9 12l2 2 4-4" />
   </Icon>
 )
 
 /** Refuted: a shield with a cross. */
-export const ShieldOffIcon = () => (
+export const ShieldOffIcon = (props: Painted) => (
   <Icon>
-    <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" />
+    <Inside d={SHIELD} paint={props.paint} />
+    <path d={SHIELD} />
+    <Rim d={SHIELD} paint={props.paint} />
     <path d="M9.5 9.5l5 5M14.5 9.5l-5 5" />
   </Icon>
 )
 
+/** The outermost outline of a hand held up, as one closed shape. */
+const HAND_HELD_UP = "M9 14V6a1.5 1.5 0 0 1 3 0V5a1.5 1.5 0 0 1 3 0V7a1.5 1.5 0 0 1 3 0V16a4 4 0 0 1-4 4H12.5A5 5 0 0 1 8.5 18.5L5 14a1.5 1.5 0 0 1 2-2z"
+
 /** Rejected: a hand held up, crossed. */
-export const HandOffIcon = () => (
+export const HandOffIcon = (props: Painted) => (
   <Icon>
-    <path d="M4 4l16 16" />
+    <Inside d={HAND_HELD_UP} paint={props.paint} />
     <path d="M18 11V7a1.5 1.5 0 0 0-3 0v4M15 10V5a1.5 1.5 0 0 0-3 0v5M12 9.5V6a1.5 1.5 0 0 0-3 0v8l-2-2a1.5 1.5 0 0 0-2 2l3.5 4.5A5 5 0 0 0 12.5 20H14a4 4 0 0 0 4-4v-5" />
+    <Rim d={HAND_HELD_UP} paint={props.paint} />
+    <path d="M4 4l16 16" />
   </Icon>
 )
 
@@ -101,10 +133,22 @@ export const FistIcon = (props: { readonly label?: string }) => (
   </Icon>
 )
 
+/** The outermost outline of a raised hand, as one closed shape. */
+const HAND_RAISED = "M8 16V5a1.5 1.5 0 0 1 3 0V4a1.5 1.5 0 0 1 3 0V5.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-.5a6 6 0 0 1-5-2.7L3 15.5a1.5 1.5 0 0 1 2.5-1.6z"
+
 /** Adopted: a raised hand. */
-export const HandIcon = () => (
+export const HandIcon = (props: Painted) => (
   <Icon>
+    <Inside d={HAND_RAISED} paint={props.paint} />
     <path d="M8 13V5a1.5 1.5 0 0 1 3 0v6M11 11V4a1.5 1.5 0 0 1 3 0v7M14 11V5.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-.5a6 6 0 0 1-5-2.7L3 15.5a1.5 1.5 0 0 1 2.5-1.6L8 16" />
+    <Rim d={HAND_RAISED} paint={props.paint} />
+  </Icon>
+)
+
+/** Used: a bolt of lightning, flat along its top, filled whole where it is asked to be. */
+export const BoltIcon = (props: { readonly filled: boolean }) => (
+  <Icon>
+    <path d="M9 2h7l-4 8h6L8 22l2-9H5z" fill={props.filled ? "currentColor" : "none"} />
   </Icon>
 )
 
@@ -372,5 +416,23 @@ export const PaletteIcon = () => (
     <circle cx="7.5" cy="11" r="1" />
     <circle cx="10" cy="7" r="1" />
     <circle cx="15" cy="7" r="1" />
+  </Icon>
+)
+
+/** A notepad held by its spiral at the top: who runs this copy, and how to reach them. */
+export const NotepadIcon = () => (
+  <Icon>
+    <rect x="5" y="5" width="14" height="16" rx="2" />
+    <path d="M9 3v4M12 3v4M15 3v4" />
+    <path d="M9 12h6M9 16h4" />
+  </Icon>
+)
+
+/** Leaves the app: an arrow out of the corner of a box. */
+export const ExternalLinkIcon = () => (
+  <Icon>
+    <path d="M14 4h6v6" />
+    <path d="M20 4l-9 9" />
+    <path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
   </Icon>
 )

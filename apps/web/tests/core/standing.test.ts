@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import { worthOf as pachinkoWorthOf } from "../../src/core/pachinko/formula"
 import { worthOf as pachislotWorthOf } from "../../src/core/pachislot/formula"
-import { autoSelect, ranked, sameWorth, scoreOf, selectById, type FormulaListing, type Making, type Ranked, type Standing } from "../../src/core/formula/standing"
+import { autoSelect, ranked, sameWorth, scoreOf, selectById, usesWeighTheirMost, type FormulaListing, type Making, type Ranked, type Standing } from "../../src/core/formula/standing"
 
 const listing = (id: string, standing: Partial<Standing>, createdAt = "2026-10-01T00:00:00.000Z"): FormulaListing<Ranked> => ({
   formula: { id, createdAt },
@@ -30,6 +30,7 @@ describe("ranking formulas", () => {
     expect([scoreOf(listing("x", { uses: 1_599 })), scoreOf(listing("x", { uses: 1_600 })), scoreOf(listing("x", { uses: 1_000_000 }))]).toEqual([1_599, 1_599, 1_599])
     expect(ids(ranked([made("typed", "manual", { uses: 1_000_000 }), made("worked", "simulated", {})], sameWorth))).toEqual(["worked", "typed"])
     expect(ids(ranked([made("worked", "simulated", {}), made("typed", "manual", { uses: 1_000_000, adoptions: 1 })], sameWorth))).toEqual(["typed", "worked"])
+    expect([1_598, 1_599, 1_600].map((uses) => usesWeighTheirMost(listing("x", { uses }).standing))).toEqual([false, true, true])
   })
 
   test("all a maker can give their own formula never lifts it over the making above, and one more person's adoption does over one nobody marked", () => {

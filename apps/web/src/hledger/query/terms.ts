@@ -64,6 +64,9 @@ export const inferredValueTerm = `^${escapeRegex(ACCOUNTS.inferredTheoreticalVal
 
 export const talliesTerm = `tag:${TALLY_TAGS.playId}`
 
+/** Every posting but a forfeiture's: 失効損 is a line of その他損益, never part of 収支. */
+export const notForfeitureTerm = `not:${accountTerm(ACCOUNTS.forfeiture)}`
+
 /** The tallies of plays someone sent: those that name their sender by id. */
 export const sentTalliesTerm = `tag:^${escapeRegex(TALLY_TAGS.senderId)}$`
 

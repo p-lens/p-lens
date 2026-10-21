@@ -130,6 +130,9 @@ const WEIGHTS = { verification: 1_000, adoption: 200, use: 1 } as const
  */
 const MOST_FROM_USES = 1_599
 
+/** Whether a formula's uses weigh their most in its score already, so that more of them lift it no further. */
+export const usesWeighTheirMost = (standing: Standing): boolean => standing.uses * WEIGHTS.use >= MOST_FROM_USES
+
 /**
  * What a formula's making weighs in its score before anyone has done
  * anything with it, in the same hundredths: one worked out from a basis

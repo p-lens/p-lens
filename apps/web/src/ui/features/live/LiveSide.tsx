@@ -2,7 +2,7 @@ import { createResource, createSignal, For, Show, type JSX } from "solid-js"
 import { SidePanel } from "solid-gathering-shell"
 
 import { abandonPlay, loadTodaysPlays } from "../../../application/live-play"
-import { destinationsOf, sendDraft, sendTodaysPlays } from "../../../application/sending"
+import { destinationsOf, sendDraft } from "../../../application/sending"
 import { shownNameOf, type MachineNames } from "../../../core/catalog/catalog"
 import { afterItFinished, isLeftOver, isSentAsItStands, parlorOf, type PlayDraft } from "../../../core/live-play/draft"
 import type { Destination } from "../../../sync/port/destination-store"
@@ -19,7 +19,7 @@ import type { Place } from "../../navigation/place"
 import { businessDayNote, formatMoment } from "../../wording/dates"
 import { describeError } from "../../wording/errors"
 import { parlorText } from "../../wording/parlor"
-import { HUDDLE_HEADING, huddleJoinedAs } from "../../wording/huddle"
+import { HUDDLE_HEADING, HUDDLE_JOINED } from "../../wording/huddle"
 import { HuddleDialog } from "./HuddleDialog"
 import { sendingPortsOf } from "./sending-ports"
 import { Unhatched } from "../../../unhatched-egg"
@@ -113,9 +113,6 @@ const draftName = (draft: PlayDraft, machineNames: MachineNames): string => {
   return machine === "" ? parlorText(parlorOf(draft)) : machine
 }
 
-/** What is waiting to be sent while the person says where to: one play, or every play of the day not yet sent as it stands. */
-type Sending = { readonly type: "one"; readonly draft: PlayDraft } | { readonly type: "all" }
-
 /**
  * The day's plays on this device, newest begun first, and the way to start
  * another of either game: every play still to be recorded, and those
@@ -123,8 +120,9 @@ type Sending = { readonly type: "one"; readonly draft: PlayDraft } | { readonly 
  * recorded again. A play left over from a day before is marked red, and
  * the list ends by saying what the mark is and what to do about it — a
  * mark alone tells a person seeing it for the first time nothing. Where the device may send plays to someone, each has its
- * paper plane and the list has one for all of them; with more than one
- * place to send to, the person is asked which, and only then.
+ * paper plane, and none sends them all at once: a play is sent as it is
+ * played; with more than one place to send to, the person is asked
+ * which, and only then.
  */
 export function LiveSide(props: { readonly place: Place }): JSX.Element {
   const app = useApp()
@@ -143,8 +141,8 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
   const [abandoning, setAbandoning] = createSignal<PlayDraft | undefined>(undefined)
   /** Whether ノリ打ち is open. */
   const [huddling, setHuddling] = createSignal(false)
-  /** What a person asked to send, while they are asked where to. */
-  const [choosing, setChoosing] = createSignal<Sending | undefined>(undefined)
+  /** The play a person asked to send, while they are asked where to. */
+  const [choosing, setChoosing] = createSignal<PlayDraft | undefined>(undefined)
   const abandon = async (draft: PlayDraft): Promise<void> => {
     setAbandoning(undefined)
     const gone = await abandonPlay(app.services.drafts, draft.id)
@@ -155,20 +153,20 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
     app.wrote()
     if (openPlay(props.place) === draft.id) moves.go({ kind: "live" })
   }
-  const sendTo = async (sending: Sending, destination: Destination): Promise<void> => {
+  const sendTo = async (draft: PlayDraft, destination: Destination): Promise<void> => {
     setChoosing(undefined)
-    const sent = sending.type === "one" ? await sendDraft(sendingPortsOf(app.services), sending.draft, destination) : await sendTodaysPlays(sendingPortsOf(app.services), destination, app.services.businessDay())
+    const sent = await sendDraft(sendingPortsOf(app.services), draft, destination)
     if (!sent.ok) {
       toast({ title: "送れませんでした", description: describeError(sent.error), tone: "error" })
       return
     }
-    toast(typeof sent.value === "number" ? { title: sent.value === 0 ? "送る稼働はありません" : `${sent.value}件を送りました`, description: destination.title } : { title: "送りました", description: destination.title })
+    toast({ title: "送りました", description: destination.title })
     app.wrote()
   }
-  const send = (sending: Sending): void => {
+  const send = (draft: PlayDraft): void => {
     const [only, ...others] = sendingTo()
-    if (only !== undefined && others.length === 0) void sendTo(sending, only)
-    else setChoosing(sending)
+    if (only !== undefined && others.length === 0) void sendTo(draft, only)
+    else setChoosing(draft)
   }
   return (
     <SidePanel header={<span class="font-semibold text-text-primary">ライブ計測</span>} resizeLabel="サイドパネルの幅を変える">
@@ -176,39 +174,38 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
         <Button onClick={() => moves.go({ kind: "live-new", game: "pachinko" })}>パチンコ開始</Button>
         <Button onClick={() => moves.go({ kind: "live-new", game: "slot" })}>スロット開始</Button>
       </div>
-      <Unhatched>
-        <Show when={app.services.relayUrl !== undefined}>
-          <div class="flex justify-end px-2 pt-2">
-            <Button variant="outline" size="small" onClick={() => setHuddling(true)}>
-              {((huddle) => (huddle === undefined ? HUDDLE_HEADING : huddleJoinedAs(huddle.name)))(app.huddle.now())}
-            </Button>
-          </div>
-          <HuddleDialog open={huddling()} onClosed={() => setHuddling(false)} />
-        </Show>
-      </Unhatched>
       <section class="px-2 pt-4">
-        <div class="flex items-center justify-between px-2 pb-1">
-          <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">
+        <div class="flex items-center gap-2 px-2 pb-1">
+          <h2 class="mr-auto shrink-0 text-xs font-bold uppercase tracking-wide text-text-muted">
             本日
             <Show when={dayNote()} keyed>
               {(note) => <span class="mx-1 font-normal tabular-nums">{note}</span>}
             </Show>
             の稼働
           </h2>
-          <Show when={sendingTo().length > 0}>
-            <button type="button" onClick={() => send({ type: "all" })} class="flex size-7 items-center justify-center rounded text-text-secondary hover:bg-surface-3 hover:text-text-primary [&_svg]:size-4">
-              <SendIcon label="本日の稼働をまとめて送る" />
-            </button>
-          </Show>
+          <Unhatched>
+            <Show when={app.services.relayUrl !== undefined}>
+              <Button variant="outline" size="small" class="h-7 min-w-0 px-2" onClick={() => setHuddling(true)}>
+                <Show when={app.huddle.now()} keyed fallback={HUDDLE_HEADING}>
+                  {(huddle) => (
+                    <span class="flex min-w-0">
+                      {HUDDLE_JOINED}（<span class="truncate">{huddle.name}</span>）
+                    </span>
+                  )}
+                </Show>
+              </Button>
+              <HuddleDialog open={huddling()} onClosed={() => setHuddling(false)} />
+            </Show>
+          </Unhatched>
         </div>
         <Show when={choosing()} keyed>
-          {(sending) => (
+          {(draft) => (
             <div class="mb-2 flex flex-col gap-1 rounded-md border border-border p-2">
               <span class="text-xs text-text-muted">どこに送りますか？</span>
               <div class="flex flex-wrap gap-1.5">
                 <For each={sendingTo()}>
                   {(destination) => (
-                    <Button variant="outline" size="small" onClick={() => void sendTo(sending, destination)}>
+                    <Button variant="outline" size="small" onClick={() => void sendTo(draft, destination)}>
                       {destination.title}
                     </Button>
                   )}
@@ -233,7 +230,7 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
                       selected={openPlay(props.place) === draft.id}
                       onSelect={() => moves.go({ kind: "live-play", playId: draft.id })}
                       onAbandon={() => setAbandoning(draft)}
-                      onSend={() => send({ type: "one", draft })}
+                      onSend={() => send(draft)}
                     />
                   )}
                 </For>

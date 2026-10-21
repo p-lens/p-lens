@@ -429,7 +429,7 @@ export function ForfeitureForm(props: {
         <TextField label="失効した数" value={tokens()} onChange={setTokens} inputMode="numeric" suffix={props.unit} invalid={nudge.red() && forfeited() === undefined} onFocus={nudge.settle} compact />
         <TextField label="日付" type="date" value={date()} onChange={setDate} invalid={nudge.red() && !parseIsoDate(date()).ok} onFocus={nudge.settle} compact />
       </div>
-      <p class="text-xs text-text-muted">期限切れや会員資格の取り消しで、店に戻った貯玉・貯メダルです。その日の交換率で損失として収支に入ります。稼働にはなりません。</p>
+      <p class="text-xs text-text-muted">期限切れや会員資格の取り消しで、店に戻った貯玉・貯メダルです。その日の交換率で、収支とは別のその他損益（失効損）になります。稼働にはなりません。</p>
       <Failure saving={saving()} />
       <div class="flex gap-2">
         <Button type="submit" size="small">

@@ -154,6 +154,33 @@ export const recordForfeiture = async (session: BookSession, bookId: BookId, for
   )
 }
 
+/** A pool and the tokens it held, as forfeited whole. */
+export interface PoolForfeited {
+  readonly pool: SavingsPool
+  readonly tokens: Decimal
+}
+
+/** Record forfeitures one after another, each as its own entry and commit: the first that cannot be recorded stops the rest. */
+const forfeitEach = async (session: BookSession, bookId: BookId, parlor: Parlor, date: IsoDate, pools: readonly PoolForfeited[]): Promise<Outcome<void>> => {
+  const [first, ...rest] = pools
+  if (first === undefined) return Ok(undefined)
+  const recorded = await recordForfeiture(session, bookId, { parlor, pool: first.pool, date, tokens: first.tokens })
+  return recorded.ok ? forfeitEach(session, bookId, parlor, date, rest) : recorded
+}
+
+/**
+ * Record everything a parlor holds as forfeited, by the end of a day:
+ * each pool holding any tokens forfeited whole, as its own forfeiture —
+ * one entry and one commit a pool, as a pool's is recorded alone. A pool
+ * holding none, or below none, has nothing to lose. The pools forfeited.
+ */
+export const recordParlorForfeiture = async (session: BookSession, bookId: BookId, parlor: Parlor, date: IsoDate): Promise<Outcome<readonly PoolForfeited[]>> => {
+  const holdings = await loadHoldings(session, bookId, untilTerm(date), [parlor.name])
+  if (!holdings.ok) return holdings
+  const pools = holdings.value.parlors.flatMap((held) => held.tokens).filter((token) => compare(token.quantity, ZERO) > 0).map((token) => ({ pool: { kind: token.kind, tier: token.tier }, tokens: token.quantity }))
+  return mapOk(await forfeitEach(session, bookId, parlor, date, pools), () => pools)
+}
+
 /**
  * Set a pool's exchange rate from a day, as one price line and one commit.
  * A rate the book already has on that day is left alone.

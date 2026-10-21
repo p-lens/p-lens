@@ -1,5 +1,4 @@
-import type { IsoDate } from "../core/calendar/calendar"
-import { awaitsSending, type PlayDraft } from "../core/live-play/draft"
+import type { PlayDraft } from "../core/live-play/draft"
 import { Err, Ok, mapErr, type Result } from "../core/result/result"
 import { readInvitation } from "../core/sync/invitation"
 import { sentDraftOf, sentDraftText } from "../core/sync/sent-draft"
@@ -9,7 +8,6 @@ import { accessOf, type Sealer } from "../sync/port/sealer"
 import type { DraftStorage } from "../storage/port/draft-storage"
 import type { Outcome, SyncProblem } from "./errors"
 import { fromDraft } from "./lift"
-import { loadTodaysPlays } from "./live-play"
 import { linksProblemOf } from "./kept-links"
 
 /** Everything sending a play to another person reaches: the day's plays, the relay, the sealing, and the moment and a fresh id for what is sent. */
@@ -78,22 +76,4 @@ export const sendDraft = async (ports: SendingPorts, play: PlayDraft, destinatio
   const marked: PlayDraft = { ...draft, sent: [...(draft.sent ?? []), { lineId: destination.lineId, at, log: draft.log }] }
   const written = fromDraft(await ports.drafts.updateDraft(marked, draft.log))
   return written.ok ? Ok(marked) : written
-}
-
-/**
- * Send every play of the day that has not gone to a destination as it now
- * stands: those never sent there, and those set right since. How many went.
- * The first that cannot be sent stops the rest, which wait for another press.
- */
-export const sendTodaysPlays = async (ports: SendingPorts, destination: Destination, businessDay: IsoDate): Promise<Outcome<number>> => {
-  const plays = await loadTodaysPlays(ports.drafts, businessDay)
-  if (!plays.ok) return plays
-  return plays.value
-    .filter((draft) => awaitsSending(draft, destination.lineId))
-    .reduce<Promise<Outcome<number>>>(async (so, draft) => {
-      const sent = await so
-      if (!sent.ok) return sent
-      const one = await sendDraft(ports, draft, destination)
-      return one.ok ? Ok(sent.value + 1) : one
-    }, Promise.resolve(Ok(0)))
 }

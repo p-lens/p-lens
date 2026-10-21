@@ -65,6 +65,7 @@ export function MachineView(props: { readonly place: Place; readonly machineId: 
                   <FormulaCard
                     listing={listing}
                     favorite={favorites.keeps(listing.formula.id)}
+                    mine={actions.mine(listing.formula.id)}
                     ballValue={ballValue()}
                     onHelp={() => moves.go({ kind: "pachinko-formula", machineId: found.machine.id, formulaId: listing.formula.id })}
                     onToggleFavorite={() => favorites.press({ type: "formula", id: listing.formula.id }, setFailure)}

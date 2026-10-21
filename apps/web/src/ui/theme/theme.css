@@ -32,6 +32,12 @@
  * under it: they say a grade and nothing else, so they are names of
  * their own and never `positive` or `negative`.
  *
+ * The marks a person puts on a formula have colours of their own, shown
+ * where the mark is the person's own: 検証OK (`verification`), 検証NG
+ * (`refutation`), イチオシ (`adoption`) and 非推奨 (`rejection`). They are
+ * the same as other colours today and names of their own so that they need
+ * not stay so, as `amateur` is.
+ *
  * A QR code is black on white in either theme (`qr-…`): a camera reads
  * one so, and not every reader reads it the other way round.
  */
@@ -73,6 +79,10 @@
   --mark-purple: #8a4fd8;
   --mark-green: #1f9a55;
   --mark-blue: #2f6fe0;
+  --verification: #1f9a55;
+  --refutation: #e8383e;
+  --adoption: #2f6fe0;
+  --rejection: #e8383e;
   --mark-yellow: #a89400;
   --qr-ink: #000000;
   --qr-paper: #ffffff;
@@ -115,6 +125,10 @@
   --mark-purple: #b794f6;
   --mark-green: #23a55a;
   --mark-blue: #5b9bf8;
+  --verification: #23a55a;
+  --refutation: #f23f43;
+  --adoption: #5b9bf8;
+  --rejection: #f23f43;
   --mark-yellow: #f2e14a;
   --qr-ink: #000000;
   --qr-paper: #ffffff;
@@ -156,6 +170,10 @@
   --color-mark-purple: var(--mark-purple);
   --color-mark-green: var(--mark-green);
   --color-mark-blue: var(--mark-blue);
+  --color-verification: var(--verification);
+  --color-refutation: var(--refutation);
+  --color-adoption: var(--adoption);
+  --color-rejection: var(--rejection);
   --color-mark-yellow: var(--mark-yellow);
   --color-qr-ink: var(--qr-ink);
   --color-qr-paper: var(--qr-paper);

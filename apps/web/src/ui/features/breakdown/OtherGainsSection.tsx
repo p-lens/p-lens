@@ -22,8 +22,8 @@ function Line(props: { readonly label: string; readonly value: Decimal; readonly
 
 /**
  * その他損益 under 総合: what the period gained or lost besides its plays,
- * a line to each and never summed, each saying whether 収支 holds it —
- * 失効損, which it does, and 評価損益, which it does not.
+ * a line to each and never summed, each saying that 収支 holds neither —
+ * 失効損 and 評価損益.
  */
 export function OtherGainsSection(props: { readonly gains: OtherGains }): JSX.Element {
   return (

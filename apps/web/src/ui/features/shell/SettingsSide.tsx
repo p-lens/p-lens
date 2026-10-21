@@ -1,7 +1,7 @@
 import type { JSX } from "solid-js"
 import { SidePanel } from "solid-gathering-shell"
 
-import { BackupIcon, BooksIcon, ClosingIcon, ConsolidatedIcon, ExportIcon, FileIcon, ImportIcon, PaletteIcon, PeopleIcon, RefreshIcon, TrashIcon } from "../../primitives/icons"
+import { BackupIcon, BooksIcon, ClosingIcon, ConsolidatedIcon, ExportIcon, FileIcon, ImportIcon, NotepadIcon, PaletteIcon, PeopleIcon, RefreshIcon, TrashIcon } from "../../primitives/icons"
 import { DOCUMENT_KINDS } from "../../../core/document/document"
 import { useApp } from "../../context"
 import { useMoves } from "../../navigation/moves"
@@ -12,8 +12,9 @@ import { UnhatchedEgg } from "../../../unhatched-egg"
 
 /**
  * The settings, as a list: the app's own first, then what is done to the
- * books, then what is read — the licences and the deployment's documents —
- * and at its foot the version of the app this copy was built from.
+ * books, then what is read — the licences, the deployment's documents and
+ * the page of who runs it — and, set apart at its foot, the version of the
+ * app this copy was built from.
  */
 export function SettingsSide(props: { readonly place: Place }): JSX.Element {
   const moves = useMoves()
@@ -122,14 +123,10 @@ export function SettingsSide(props: { readonly place: Place }): JSX.Element {
             selected: props.place.kind === "document" && props.place.document === kind,
             onSelect: () => moves.go({ kind: "document", document: kind }),
           })),
+          { id: "operator", label: OPERATOR_PAGE, icon: <NotepadIcon />, href: app.services.operatorPage },
         ]}
       />
-      <p class="px-4 pt-4 text-xs">
-        <a href={app.services.operatorPage} target="_blank" rel="noreferrer" class="text-accent hover:underline">
-          {OPERATOR_PAGE}
-        </a>
-      </p>
-      <p class="px-4 pt-2 text-xs tabular-nums text-text-muted"><UnhatchedEgg>バージョン {app.services.version}</UnhatchedEgg></p>
+      <p class="px-4 pt-8 pb-8 text-xs tabular-nums text-text-muted"><UnhatchedEgg>バージョン {app.services.version}</UnhatchedEgg></p>
     </SidePanel>
   )
 }
