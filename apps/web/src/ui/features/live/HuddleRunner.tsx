@@ -1,11 +1,14 @@
-import { createEffect, on, onCleanup, type JSX } from "solid-js"
+import { createEffect, createMemo, on, onCleanup, type JSX } from "solid-js"
 
 import type { Outcome } from "../../../application/errors"
 import { readHuddleAfter, showToHuddle } from "../../../application/huddle"
 import { loadTodaysPlays } from "../../../application/live-play"
 import type { Huddle } from "../../../core/huddle/huddle"
+import { othersPlays } from "../../../core/huddle/post"
+import { jackpotsNow } from "../../../core/huddle/standing"
 import type { PlayDraft } from "../../../core/live-play/draft"
 import { useApp } from "../../context"
+import type { Place } from "../../navigation/place"
 import { huddlePortsOf } from "./huddle-ports"
 
 /** How often the huddle's line is read, in milliseconds. */
@@ -25,8 +28,13 @@ const changedSince = (drafts: readonly PlayDraft[], shown: ReadonlyMap<string, s
  * it changes — at once, or 20 seconds after the last showing, the latest
  * of each then. Nothing is read or shown where the device is in no huddle,
  * and nothing is drawn.
+ *
+ * It also says when the way back to the day's list is urged: as who of the
+ * others is in a jackpot changes — one wins one, one's ends — and not while
+ * one goes on, until the list is looked at, which is anywhere but one's
+ * own play.
  */
-export function HuddleRunner(): JSX.Element {
+export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
   const app = useApp()
   const ports = huddlePortsOf(app.services)
   const line = app.huddle.line
@@ -43,6 +51,7 @@ export function HuddleRunner(): JSX.Element {
       held.shown = new Map()
       line.setPosts([])
       line.setProblem(undefined)
+      line.setUrged(false)
     }
     return huddle
   }
@@ -95,6 +104,14 @@ export function HuddleRunner(): JSX.Element {
     void read()
     showSoon()
   }))
+  const jackpots = createMemo(() => ((huddle) => (huddle === undefined ? "" : jackpotsNow(othersPlays(line.posts(), huddle.member))))(app.huddle.now()))
+  const onOwnPlay = (): boolean => props.place.kind === "live-play" || props.place.kind === "live-record" || props.place.kind === "live-cabinet"
+  createEffect(on(jackpots, (now, before) => {
+    if (before !== undefined && now !== before && onOwnPlay()) line.setUrged(true)
+  }))
+  createEffect(() => {
+    if (!onOwnPlay()) line.setUrged(false)
+  })
   const reading = setInterval(() => void read(), READ_EVERY)
   onCleanup(() => {
     clearInterval(reading)

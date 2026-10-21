@@ -4,7 +4,7 @@ import type { BookId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { huddleCodeOf, huddleNameOf, huddleOn, huddleText, readHuddle, secretOfHuddleCode, type Huddle } from "../../src/core/huddle/huddle"
 import { huddlePostOf, huddlePostText, othersPlays, readHuddlePost, type HuddlePost } from "../../src/core/huddle/post"
-import { anyInJackpot, huddleStandingOf } from "../../src/core/huddle/standing"
+import { huddleStandingOf, jackpotStreakOf, jackpotsNow } from "../../src/core/huddle/standing"
 import type { PachinkoDraft } from "../../src/core/live-play/draft"
 import type { PlayTerms } from "../../src/core/parlor/terms"
 import type { PlayId } from "../../src/core/play/play"
@@ -127,16 +127,36 @@ describe("where one of the others' plays stands", () => {
   })
 })
 
-describe("whether any of the others is in a jackpot", () => {
+describe("who of the others is in a jackpot", () => {
   const JACKPOT = '{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot"}}\n'
-  const shown = (log: string, latest: boolean) => ({ post: { ...post("b", "2026-10-20T01:00:00Z"), play: withLog(log) }, latest })
+  const AGAIN = '{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot"}}\n{"spins":125,"outlay":3000,"event":{"kind":"jackpot"}}\n'
+  const OVER = '{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot"}}\n{"spins":220,"outlay":3000,"phase":"rapid"}\n'
+  const shown = (member: string, log: string, latest = true) => ({ post: { ...post(member, "2026-10-20T01:00:00Z"), play: withLog(log) }, latest })
 
-  test("is so where one is, on the play they are on", () => {
-    expect(anyInJackpot([shown('{"spins":0,"outlay":0}\n', true), shown(JACKPOT, true)])).toBe(true)
+  test("stays the same while a jackpot goes on, and changes as it ends or another wins one", () => {
+    const first = jackpotsNow([shown("b", JACKPOT)])
+    expect(jackpotsNow([shown("b", AGAIN)])).toBe(first)
+    expect(jackpotsNow([shown("b", OVER)])).not.toBe(first)
+    expect(jackpotsNow([shown("b", AGAIN), shown("c", JACKPOT)])).not.toBe(first)
   })
 
-  test("is not so for a play left behind in one, nor with nobody", () => {
-    expect(anyInJackpot([shown(JACKPOT, false)])).toBe(false)
-    expect(anyInJackpot([])).toBe(false)
+  test("is nobody for a play left behind in one, or with nobody there", () => {
+    expect(jackpotsNow([shown("b", JACKPOT, false)])).toBe("")
+    expect(jackpotsNow([])).toBe("")
+  })
+})
+
+describe("the jackpots one of the others' plays won in a row", () => {
+  test("are those since its last reading of regular games, readings in 時短 between them or not", () => {
+    expect(jackpotStreakOf(withLog('{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot"}}\n{"spins":150,"outlay":3000,"phase":"rapid"}\n{"spins":160,"outlay":3000,"event":{"kind":"jackpot"}}\n{"spins":170,"outlay":3000,"event":{"kind":"jackpot"}}\n'))).toBe(3)
+  })
+
+  test("count a bonus won over several jackpots as each of them", () => {
+    expect(jackpotStreakOf(withLog('{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot","bonus":{"name":"20R","payout":3000,"spent":200,"jackpots":2}}}\n'))).toBe(2)
+  })
+
+  test("begin again at a reading of regular games, and are none before a jackpot", () => {
+    expect(jackpotStreakOf(withLog('{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot"}}\n{"spins":300,"outlay":6000}\n{"spins":350,"outlay":7000,"event":{"kind":"jackpot"}}\n'))).toBe(1)
+    expect(jackpotStreakOf(withLog('{"spins":0,"outlay":0}\n{"spins":30,"outlay":1000}\n'))).toBe(0)
   })
 })

@@ -2152,18 +2152,27 @@ wherever its player records it, as it would be without the huddle.
   (`huddleStandingOf`): 大当り中 where its last reading won a jackpot (an
   AT, on a pachislot AT machine), 時短中 where a pachinko play's last
   reading ran in 時短, 終了 once its log says it finished; 確変 is not
-  said, nobody counting it. One's own play's screen draws none of them:
+  said, nobody counting it. Beside 大当り中 and 時短中 stand the jackpots
+  won in a row as a round chip, red in a jackpot and grey in 時短
+  (`jackpotStreakOf`): those since the play's last reading of regular
+  games, readings in 時短 between them or not, each bonus counted as the
+  jackpots it was won over, not as the lines it took. One's own play's screen draws none of them:
   six people in a huddle would leave it no room.
 - **Opened only to be looked at** (`live-huddle-play`,
   `/play/huddle/:member/:playId`, `HuddlePlayView`): who and on what,
   when it was last shown, and the play as its own game draws it
   (`HuddlePlay` of `ui/features/pachinko` or `pachislot`) — its figures and
   its readings, with no line to press or hold and nothing to type.
-- **The way back is urged while one of them is in a jackpot**
-  (`useOthersInJackpot`, `anyInJackpot`): on one's own play's screen the
-  back button, in a narrow window, becomes a red <<< jabbing at the list
-  (`ViewHeader`'s `urged`, the `urge` keyframes), and stays still where a
-  device asks for less motion.
+- **The way back is urged as the game turns** (`jackpotsNow`,
+  `HuddleLine.urged`, set by `HuddleRunner`): when who of the others is
+  in a jackpot on the play they are on changes — one wins one, one's ends,
+  another wins one while the first goes on — and not while one goes on.
+  In a huddle of four to six, each turn urges once. On one's own play's
+  screen the back button, in a narrow window, becomes a red <<< jabbing at
+  the list (`ViewHeader`'s `urged`, the `urge` keyframes), still where a
+  device asks for less motion, until the list is looked at — anywhere but
+  one's own play — so a jackpot won and over before one looks is not
+  missed.
 
 ## The unhatched egg
 

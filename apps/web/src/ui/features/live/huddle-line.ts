@@ -21,11 +21,15 @@ export interface HuddleLine {
   readonly setPosts: Setter<readonly HuddlePost[]>
   readonly problem: Accessor<ApplicationError | undefined>
   readonly setProblem: Setter<ApplicationError | undefined>
+  /** Whether who of the others is in a jackpot changed since the day's list was last looked at: one's own play's screen urges the way back to it until it is. */
+  readonly urged: Accessor<boolean>
+  readonly setUrged: Setter<boolean>
   readonly held: { secret: string | undefined; read: number; lineEnd: number; shownAt: number; shown: ReadonlyMap<string, string>; reading: boolean }
 }
 
 export const createHuddleLine = (): HuddleLine => {
   const [posts, setPosts] = createSignal<readonly HuddlePost[]>([])
   const [problem, setProblem] = createSignal<ApplicationError | undefined>()
-  return { posts, setPosts, problem, setProblem, held: { secret: undefined, read: 0, lineEnd: 0, shownAt: 0, shown: new Map(), reading: false } }
+  const [urged, setUrged] = createSignal(false)
+  return { posts, setPosts, problem, setProblem, urged, setUrged, held: { secret: undefined, read: 0, lineEnd: 0, shownAt: 0, shown: new Map(), reading: false } }
 }

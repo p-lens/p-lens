@@ -289,7 +289,7 @@ export function PLensScreen(): JSX.Element {
       <ToastRegion />
       <StoppedNotice />
       <Unhatched>
-        <HuddleRunner />
+        <HuddleRunner place={place()} />
       </Unhatched>
     </StartFormProvider>
   )
