@@ -9,7 +9,8 @@ import { othersPlaysFor, type HuddlePlay } from "../../../core/huddle/post"
 import { afterItFinished, isLeftOver, isSentAsItStands, parlorOf, type PlayDraft } from "../../../core/live-play/draft"
 import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
-import { Button } from "../../primitives/button"
+import { Button, SWITCHED_ON } from "../../primitives/button"
+import { cn } from "../../primitives/cn"
 import { ConfirmDialog } from "../../primitives/dialog"
 import { createHourStruck } from "../../primitives/hour"
 import { CloseIcon, SendIcon } from "../../primitives/icons"
@@ -202,7 +203,7 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
           </h2>
           <Unhatched>
             <Show when={app.services.relayUrl !== undefined}>
-              <Button variant="outline" size="small" class="h-7 min-w-0 px-2" onClick={() => setHuddling(true)}>
+              <Button variant="outline" size="small" class={cn("h-7 min-w-0 px-2", app.huddle.now() !== undefined && SWITCHED_ON)} onClick={() => setHuddling(true)}>
                 <Show when={app.huddle.now()} keyed fallback={HUDDLE_HEADING}>
                   {(huddle) => (
                     <span class="flex min-w-0">

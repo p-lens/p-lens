@@ -7,7 +7,7 @@ export const HUDDLE_HEADING = "ノリ打ち"
 export const HUDDLE_STANDINGS: Readonly<Record<HuddleStanding, string | undefined>> = { finished: "終了", jackpot: "大当り中", rapid: "時短中", playing: undefined }
 
 /** The mark of one of the others' plays they have left for another machine. */
-export const HUDDLE_MOVED = "移動"
+export const HUDDLE_MOVED = "移動済"
 
 /** Letting one of the others' plays go from this device's list: what its cross is called, what is asked, and what is said of it. */
 export const HUDDLE_DISMISS = "一覧から消す"

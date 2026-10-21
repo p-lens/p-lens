@@ -108,19 +108,21 @@ export interface HuddlePlay {
 const laterOf = (found: HuddlePost | undefined, post: HuddlePost): HuddlePost => (found !== undefined && found.postedAt > post.postedAt ? found : post)
 
 /**
- * Each of the others' plays as it was last shown, the others in the order
- * they first showed anything and each one's plays newest shown first: a
- * person moving to another machine keeps the play they left, and the one
- * they are on is their latest; a play they took back is gone. This
- * device's own are left out, its plays being in its own list.
+ * Each of the others' plays as it was last shown: first the one each is on
+ * — their latest — in the order they first showed anything, then those
+ * they left for another machine, newest shown first, at the end. A play
+ * they took back is gone. This device's own are left out, its plays being
+ * in its own list.
  */
 export const othersPlays = (entries: readonly HuddleEntry[], member: string): readonly HuddlePlay[] => {
   const others = standingShown(entries).filter((post) => post.member !== member)
   const byPlay = others.reduce((found, post) => new Map(found).set(keyOf(post.member, post.play.id), laterOf(found.get(keyOf(post.member, post.play.id)), post)), new Map<string, HuddlePost>())
-  return [...new Set(others.map((post) => post.member))].flatMap((who) => {
+  const marked = [...new Set(others.map((post) => post.member))].flatMap((who) => {
     const theirs = [...byPlay.values()].filter((post) => post.member === who).toSorted((left, right) => right.postedAt.localeCompare(left.postedAt))
     return theirs.map((post, at) => ({ post, latest: at === 0 }))
   })
+  const left = marked.filter((shown) => !shown.latest).toSorted((one, other) => other.post.postedAt.localeCompare(one.post.postedAt))
+  return [...marked.filter((shown) => shown.latest), ...left]
 }
 
 /** The others' plays as this device's list has them: as they were shown (`othersPlays`), less those it let go of. */

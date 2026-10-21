@@ -5,7 +5,7 @@ import { readHuddleAfter, showToHuddle, withdrawFromHuddle } from "../../../appl
 import { loadTodaysPlays } from "../../../application/live-play"
 import type { Huddle } from "../../../core/huddle/huddle"
 import { givenUp, othersPlaysFor } from "../../../core/huddle/post"
-import { jackpotsNow } from "../../../core/huddle/standing"
+import { huddleTurnOf, jackpotsNow, louderTurn } from "../../../core/huddle/standing"
 import type { PlayDraft } from "../../../core/live-play/draft"
 import type { PlayId } from "../../../core/play/play"
 import { useApp } from "../../context"
@@ -53,7 +53,7 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
       held.shown = new Map()
       line.setEntries([])
       line.setProblem(undefined)
-      line.setUrged(false)
+      line.setUrged(undefined)
     }
     return huddle
   }
@@ -119,10 +119,10 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
   const jackpots = createMemo(() => ((huddle) => (huddle === undefined ? "" : jackpotsNow(othersPlaysFor(line.entries(), huddle))))(app.huddle.now()))
   const onOwnPlay = (): boolean => props.place.kind === "live-play" || props.place.kind === "live-record" || props.place.kind === "live-cabinet"
   createEffect(on(jackpots, (now, before) => {
-    if (before !== undefined && now !== before && onOwnPlay()) line.setUrged(true)
+    if (before !== undefined && onOwnPlay()) line.setUrged((so) => louderTurn(so, huddleTurnOf(before, now)))
   }))
   createEffect(() => {
-    if (!onOwnPlay()) line.setUrged(false)
+    if (!onOwnPlay()) line.setUrged(undefined)
   })
   const reading = setInterval(() => void read(), READ_EVERY)
   onCleanup(() => {

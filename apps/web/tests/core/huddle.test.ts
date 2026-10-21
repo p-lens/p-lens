@@ -4,7 +4,7 @@ import type { BookId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { huddleCodeOf, huddleNameOf, huddleOn, huddleText, readHuddle, secretOfHuddleCode, type Huddle } from "../../src/core/huddle/huddle"
 import { givenUp, huddleEntryText, huddlePostOf, huddleWithdrawalOf, othersPlays, othersPlaysFor, readHuddleEntry, type HuddlePost } from "../../src/core/huddle/post"
-import { huddleStandingOf, jackpotStreakOf, jackpotsNow } from "../../src/core/huddle/standing"
+import { huddleStandingOf, huddleTurnOf, jackpotStreakOf, jackpotsNow, louderTurn } from "../../src/core/huddle/standing"
 import type { PachinkoDraft } from "../../src/core/live-play/draft"
 import type { PlayTerms } from "../../src/core/parlor/terms"
 import type { PlayId } from "../../src/core/play/play"
@@ -112,6 +112,15 @@ describe("the others' plays", () => {
     ])
   })
 
+  test("put each one's latest first, in the order they first showed anything, and the plays left for another machine after them all", () => {
+    const posts = [post("b", "2026-10-20T01:00:00Z", "b left"), post("c", "2026-10-20T01:01:00Z", "c on"), post("b", "2026-10-20T02:00:00Z", "b on", "p-2")]
+    expect(othersPlays(posts, "me").map(({ post: shown, latest }) => [shown.play.machine, latest])).toEqual([
+      ["b on", true],
+      ["c on", true],
+      ["b left", false],
+    ])
+  })
+
   test("keep a play left for another machine, the one moved to the latest and first", () => {
     const posts = [post("b", "2026-10-20T01:00:00Z", "left"), post("b", "2026-10-20T02:00:00Z", "moved to", "p-2")]
     expect(othersPlays(posts, "me").map(({ post: shown, latest }) => [shown.play.machine, latest])).toEqual([
@@ -190,5 +199,26 @@ describe("the plays this device gave up", () => {
   test("are those it showed, never took back and no longer keeps", () => {
     const entries = [post("me", "2026-10-20T01:00:00Z"), post("me", "2026-10-20T01:01:00Z", "made-up", "p-2"), post("me", "2026-10-20T01:02:00Z", "made-up", "p-3"), post("b", "2026-10-20T01:03:00Z", "made-up", "p-4"), { member: "me", name: "me", postedAt: "2026-10-20T01:04:00Z", withdrawn: "p-3" as PlayId }]
     expect(givenUp(entries, "me", new Set(["p-2"]))).toEqual(["p-1" as PlayId])
+  })
+})
+
+describe("how the huddle's game turned", () => {
+  test("is a jackpot won where someone is in one who was not, from regular games or beside another's", () => {
+    expect(huddleTurnOf("", "b p-1")).toBe("won")
+    expect(huddleTurnOf("b p-1", "b p-1\nc p-2")).toBe("won")
+    expect(huddleTurnOf("b p-1", "c p-2")).toBe("won")
+  })
+
+  test("is one ended where only those in one came out of it, and nothing where nobody moved", () => {
+    expect(huddleTurnOf("b p-1\nc p-2", "c p-2")).toBe("ended")
+    expect(huddleTurnOf("b p-1", "")).toBe("ended")
+    expect(huddleTurnOf("b p-1", "b p-1")).toBeUndefined()
+  })
+
+  test("keeps a jackpot won the louder until it is looked at", () => {
+    expect(louderTurn("won", "ended")).toBe("won")
+    expect(louderTurn("ended", "won")).toBe("won")
+    expect(louderTurn(undefined, "ended")).toBe("ended")
+    expect(louderTurn("ended", undefined)).toBe("ended")
   })
 })

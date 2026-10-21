@@ -9,7 +9,8 @@ import { isZero, type Decimal } from "../../../core/decimal/decimal"
 import type { Parlor } from "../../../core/parlor/parlor"
 import type { ParlorPassbookDay, PoolDay } from "../../../core/report/parlor-passbook"
 import { useApp } from "../../context"
-import { Button } from "../../primitives/button"
+import { Button, SWITCHED_ON } from "../../primitives/button"
+import { cn } from "../../primitives/cn"
 import { ConfirmDialog } from "../../primitives/dialog"
 import { CloseIcon } from "../../primitives/icons"
 import { TextField } from "../../primitives/text-field"
@@ -86,9 +87,6 @@ function Day(props: { readonly day: ParlorPassbookDay; readonly yearShown: boole
   )
 }
 
-/** The look of 遊技を除く while it is pressed: the tint a detail button wears while something is set in it (`DetailButton`), so that a passbook read without its plays is not taken for the whole. */
-const SET_APART = "shrink-0 border-transparent bg-accent/30 text-text-primary hover:border-transparent hover:bg-accent/40"
-
 /**
  * Every pool of one parlor as one passbook, beside the book's savings: a
  * row for each day any of them moved or had its rate set, newest first,
@@ -149,7 +147,7 @@ export function ParlorPassbookPanel(props: { readonly place: Place; readonly boo
           <Button
             variant="outline"
             size="small"
-            class={shown() === "every" ? "shrink-0" : SET_APART}
+            class={cn("shrink-0", shown() !== "every" && SWITCHED_ON)}
             aria-pressed={shown() !== "every"}
             onClick={() => setShown((was) => (was === "every" ? "without-tallies" : "every"))}
           >

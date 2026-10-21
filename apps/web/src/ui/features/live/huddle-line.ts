@@ -2,6 +2,7 @@ import { createSignal, type Accessor, type Setter } from "solid-js"
 
 import type { ApplicationError } from "../../../application/errors"
 import type { HuddleEntry } from "../../../core/huddle/post"
+import type { HuddleTurn } from "../../../core/huddle/standing"
 
 /**
  * What the page has of a huddle's line, kept for as long as the page is
@@ -21,15 +22,15 @@ export interface HuddleLine {
   readonly setEntries: Setter<readonly HuddleEntry[]>
   readonly problem: Accessor<ApplicationError | undefined>
   readonly setProblem: Setter<ApplicationError | undefined>
-  /** Whether who of the others is in a jackpot changed since the day's list was last looked at: one's own play's screen urges the way back to it until it is. */
-  readonly urged: Accessor<boolean>
-  readonly setUrged: Setter<boolean>
+  /** How who of the others is in a jackpot turned since the day's list was last looked at — a jackpot won, or only ended — or nothing: one's own play's screen urges the way back to it until it is. */
+  readonly urged: Accessor<HuddleTurn | undefined>
+  readonly setUrged: Setter<HuddleTurn | undefined>
   readonly held: { secret: string | undefined; read: number; lineEnd: number; shownAt: number; shown: ReadonlyMap<string, string>; reading: boolean }
 }
 
 export const createHuddleLine = (): HuddleLine => {
   const [entries, setEntries] = createSignal<readonly HuddleEntry[]>([])
   const [problem, setProblem] = createSignal<ApplicationError | undefined>()
-  const [urged, setUrged] = createSignal(false)
+  const [urged, setUrged] = createSignal<HuddleTurn | undefined>(undefined)
   return { entries, setEntries, problem, setProblem, urged, setUrged, held: { secret: undefined, read: 0, lineEnd: 0, shownAt: 0, shown: new Map(), reading: false } }
 }

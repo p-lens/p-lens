@@ -2160,7 +2160,8 @@ wherever its player records it, as it would be without the huddle.
 - **In the day's list, not on one's own screen.** Each of the others'
   plays is the latest post of it (`othersPlays`), the others in the order
   they first showed anything, each one's plays newest shown first: a play
-  left for another machine stays, marked 移動, and the one they are on is
+  left for another machine stays, marked 移動済 and put after every
+  one's latest, and the one they are on is
   their latest. A row (`HuddleRow`) says who as a chip on its third line, where a
   sent play names its sender, so it is never
   taken for a play sent to this device, and marks where the play stands
@@ -2182,8 +2183,11 @@ wherever its player records it, as it would be without the huddle.
   `HuddleLine.urged`, set by `HuddleRunner`): when who of the others is
   in a jackpot on the play they are on changes — one wins one, one's ends,
   another wins one while the first goes on — and not while one goes on.
-  In a huddle of four to six, each turn urges once. On one's own play's
-  screen the back button, in a narrow window, becomes a red <<< — the
+  In a huddle of four to six, each turn urges once: red where someone
+  won one (`huddleTurnOf`, `won`), in the text's own colour where only
+  ones that went on ended (`ended`), a win staying red until it is looked
+  at (`louderTurn`), the jab the same either way. On one's own play's
+  screen the back button, in a narrow window, becomes a <<< — the
   back chevron three times over, each as large as it alone
   (`UrgedBackIcon`) — jabbing at the list (`ViewHeader`'s `urged`, the
   `urge` keyframes), still where a

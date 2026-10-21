@@ -5,6 +5,11 @@ import { BackIcon, UrgedBackIcon } from "../../primitives/icons"
 import { useMoves } from "../../navigation/moves"
 import { parentOf, type Place } from "../../navigation/place"
 
+/** How loudly the way back is urged: hot, or only to be looked at. */
+export type Urge = "loud" | "quiet"
+
+const URGE_LOOKS: Readonly<Record<Urge, string>> = { loud: "text-negative", quiet: "text-text-primary" }
+
 /**
  * The title of what is on screen, with a way back up in a narrow window,
  * where the list it was chosen from is not beside it. The hardware back
@@ -18,8 +23,8 @@ export function ViewHeader(props: {
   readonly title: string
   readonly trail?: readonly Crumb[] | undefined
   readonly actions?: JSX.Element
-  /** Whether the way back is urged on: drawn as <<<, each as large as the chevron alone, red, jabbing at the list, while something there wants looking at. */
-  readonly urged?: boolean
+  /** Whether the way back is urged on, and how loud: drawn as <<<, each as large as the chevron alone, jabbing at the list while something there wants looking at — red where it is hot, in the text's own colour where it is not. */
+  readonly urged?: Urge | undefined
 }): JSX.Element {
   const arrangement = useArrangement()
   const moves = useMoves()
@@ -29,13 +34,15 @@ export function ViewHeader(props: {
         <button
           type="button"
           class="-ml-2 flex h-8 items-center justify-center rounded text-text-secondary hover:bg-surface-3 hover:text-text-primary"
-          classList={{ "w-8": props.urged !== true, "px-0.5": props.urged === true }}
+          classList={{ "w-8": props.urged === undefined, "px-0.5": props.urged !== undefined }}
           onClick={() => moves.up(props.place)}
         >
-          <Show when={props.urged === true} fallback={<BackIcon label="戻る" />}>
-            <span class="flex text-negative animate-[urge_1.2s_ease-out_infinite] motion-reduce:animate-none">
-              <UrgedBackIcon label="戻る" />
-            </span>
+          <Show when={props.urged} keyed fallback={<BackIcon label="戻る" />}>
+            {(urge) => (
+              <span class={`flex animate-[urge_1.2s_ease-out_infinite] motion-reduce:animate-none ${URGE_LOOKS[urge]}`}>
+                <UrgedBackIcon label="戻る" />
+              </span>
+            )}
           </Show>
         </button>
       </Show>

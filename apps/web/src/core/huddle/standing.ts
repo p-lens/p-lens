@@ -48,3 +48,21 @@ export const jackpotsNow = (plays: readonly HuddlePlay[]): string =>
     .map((shown) => `${shown.post.member} ${shown.post.play.id}`)
     .toSorted()
     .join("\n")
+
+/**
+ * How the huddle's game turned between who was in a jackpot and who is
+ * now: one won one — from regular games, or one more beside another's —
+ * or only ones that went on ended; nothing where it did not turn.
+ */
+export type HuddleTurn = "won" | "ended"
+
+const rosterOf = (jackpots: string): ReadonlySet<string> => new Set(jackpots === "" ? [] : jackpots.split("\n"))
+
+export const huddleTurnOf = (before: string, now: string): HuddleTurn | undefined => {
+  if (before === now) return undefined
+  const was = rosterOf(before)
+  return [...rosterOf(now)].some((who) => !was.has(who)) ? "won" : "ended"
+}
+
+/** A turn seen on top of one not yet looked at: a jackpot won stays the louder until the list is looked at. */
+export const louderTurn = (so: HuddleTurn | undefined, now: HuddleTurn | undefined): HuddleTurn | undefined => (so === "won" || now === "won" ? "won" : (now ?? so))

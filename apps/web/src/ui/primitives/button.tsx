@@ -40,6 +40,14 @@ export const Button = <T extends ValidComponent = "button">(props: PolymorphicPr
 }
 
 /**
+ * A button that turns something on, while it is on: the tint a detail
+ * button wears while something is set in it (`DetailButton`), laid over an
+ * outline button so that what is switched on is never taken for what is
+ * not — 遊技を除く, ノリ打ち中.
+ */
+export const SWITCHED_ON = "border-transparent bg-accent/30 text-text-primary hover:border-transparent hover:bg-accent/40"
+
+/**
  * A way on, written as a link, to somewhere a formula is worked out: its
  * grounds, its basis. In the semipro colour, as the buttons there are.
  */
