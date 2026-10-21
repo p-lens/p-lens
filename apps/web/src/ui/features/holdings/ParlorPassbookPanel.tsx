@@ -1,12 +1,13 @@
 import { AuxPanel } from "solid-gathering-shell"
 import { createResource, createSignal, For, Show, type JSX } from "solid-js"
 
-import { loadParlorPassbook } from "../../../application/savings"
+import { loadParlorPassbook, type ParlorPassbookShown } from "../../../application/savings"
 import type { BookId } from "../../../core/book/book"
 import type { IsoDate } from "../../../core/calendar/calendar"
 import { isZero, type Decimal } from "../../../core/decimal/decimal"
 import type { ParlorPassbookDay, PoolDay } from "../../../core/report/parlor-passbook"
 import { useApp } from "../../context"
+import { Button } from "../../primitives/button"
 import { CloseIcon } from "../../primitives/icons"
 import { EmptyState, Loaded } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
@@ -87,21 +88,26 @@ function Day(props: { readonly day: ParlorPassbookDay; readonly yearShown: boole
  * pool's tokens that day, machine by machine. It opens on this year,
  * what was held before it under the last row, and goes back a year that
  * moved at a time. Tokens of different pools are never added: only yen,
- * and by hledger.
+ * and by hledger. Pressed, the top bar's 遊技を除く leaves the plays'
+ * tallies out, so what moved the savings otherwise reads alone.
  */
 export function ParlorPassbookPanel(props: { readonly place: Place; readonly bookId: BookId; readonly parlorName: string }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   const [from, setFrom] = createSignal<IsoDate | undefined>(yearOf(app.services.businessDay()).from)
+  const [shown, setShown] = createSignal<ParlorPassbookShown>("every")
   const [days] = createResource(
-    () => ({ bookId: props.bookId, parlorName: props.parlorName, from: from(), revision: app.revision() }),
-    (source) => loadParlorPassbook(app.services.session, source.bookId, source.parlorName, source.from),
+    () => ({ bookId: props.bookId, parlorName: props.parlorName, from: from(), shown: shown(), revision: app.revision() }),
+    (source) => loadParlorPassbook(app.services.session, source.bookId, source.parlorName, source.from, source.shown),
   )
   return (
     <AuxPanel
       header={
         <div class="flex min-w-0 flex-1 items-center gap-2">
           <h2 class="min-w-0 flex-1 truncate font-semibold text-text-primary">{props.parlorName}の通帳</h2>
+          <Button variant={shown() === "every" ? "outline" : "primary"} size="small" class="shrink-0" aria-pressed={shown() !== "every"} onClick={() => setShown((was) => (was === "every" ? "without-tallies" : "every"))}>
+            遊技を除く
+          </Button>
           <button type="button" class="flex size-8 items-center justify-center rounded text-text-secondary hover:bg-surface-3 hover:text-text-primary" onClick={() => moves.up(props.place)}>
             <CloseIcon label="閉じる" />
           </button>

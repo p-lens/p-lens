@@ -1,13 +1,14 @@
 import { describe, expect, test } from "bun:test"
 
 import { createBookSession } from "../../src/application/book-session"
-import { changeExchangeRate, loadParlorPassbook, loadPassbook } from "../../src/application/savings"
+import { changeExchangeRate, loadParlorPassbook, loadPassbook, recordForfeiture } from "../../src/application/savings"
 import type { BookId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
+import type { ParlorPassbookDay } from "../../src/core/report/parlor-passbook"
 import { toPlainString, type Decimal } from "../../src/core/decimal/decimal"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
 import { ME, fixtureBook, inProcessHledger, memoryStorage } from "../support/in-process"
-import { dec } from "../support/values"
+import { dec, MALEHAN } from "../support/values"
 
 const BOOK = "passbook" as BookId
 
@@ -23,7 +24,7 @@ const yen = (value: Decimal | undefined): string | undefined => (value === undef
 describe("a parlor's passbook", () => {
   test("values each day's tokens out and in at that day's rate, and what every pool held at its end at the rate then, by hledger", async () => {
     const session = await setUp()
-    const found = await loadParlorPassbook(session, BOOK, "723修羅の国店", undefined)
+    const found = await loadParlorPassbook(session, BOOK, "723修羅の国店", undefined, "every")
     expect(found.ok && found.value.days.map((day) => [day.date, yen(day.withdrawn), yen(day.deposited), yen(day.balance), day.pools.map((part) => part.pool.tier)])).toEqual([
       ["2026-10-03", "9990", "7992", "52008", ["4円"]],
       ["2026-09-20", "0", "23976", "54006", ["4円"]],
@@ -34,9 +35,24 @@ describe("a parlor's passbook", () => {
 
   test("shows a rate set anew on a day nothing moved, the savings valued at it from then", async () => {
     const session = await setUp()
-    const found = await loadParlorPassbook(session, BOOK, "マレハン東京皇国店", undefined)
+    const found = await loadParlorPassbook(session, BOOK, "マレハン東京皇国店", undefined, "every")
     const day = found.ok ? found.value.days.find((each) => each.date === "2026-09-25") : undefined
     expect([yen(day?.balance), day?.pools.map((part) => part.day.rateSet && [toPlainString(part.day.rateSet.before ?? dec("0")), toPlainString(part.day.rateSet.rate)])]).toEqual(["16800", [["3.57", "3.5"]]])
+  })
+})
+
+describe("a parlor's passbook without tallies", () => {
+  test("has only what moved the savings otherwise, valued by hledger, the balances still what was held, and the days a rate was set", async () => {
+    const session = await setUp()
+    await recordForfeiture(session, BOOK, { parlor: MALEHAN, pool: { kind: "ball", tier: "4円" }, date: "2026-10-04" as IsoDate, tokens: dec("1000") })
+    const [every, without] = [await loadParlorPassbook(session, BOOK, "マレハン東京皇国店", undefined, "every"), await loadParlorPassbook(session, BOOK, "マレハン東京皇国店", undefined, "without-tallies")]
+    const rows = (days: readonly ParlorPassbookDay[]) => days.map((day) => [day.date, yen(day.withdrawn), yen(day.deposited), yen(day.balance), day.pools.flatMap((part) => part.day.lines.map((line) => line.cause.type))])
+    expect(without.ok && rows(without.value.days)).toEqual([
+      ["2026-10-04", "3500", "0", "13300", ["forfeiture"]],
+      ["2026-09-25", "0", "0", "16800", []],
+      ["2026-09-01", "0", "0", "0", []],
+    ])
+    expect(every.ok && without.ok && without.value.days.map((day) => yen(day.balance))).toEqual(every.ok ? every.value.days.filter((day) => without.ok && without.value.days.some((kept) => kept.date === day.date)).map((day) => yen(day.balance)) : [])
   })
 })
 
@@ -45,7 +61,7 @@ describe("a passbook shown from a day", () => {
 
   test("of a parlor, has the days from then, the same as every day's, and what was held the day before, in yen by hledger", async () => {
     const session = await setUp()
-    const [every, shown] = [await loadParlorPassbook(session, BOOK, "723修羅の国店", undefined), await loadParlorPassbook(session, BOOK, "723修羅の国店", FROM)]
+    const [every, shown] = [await loadParlorPassbook(session, BOOK, "723修羅の国店", undefined, "every"), await loadParlorPassbook(session, BOOK, "723修羅の国店", FROM, "every")]
     const rows = (days: readonly { readonly date: string; readonly balance: Decimal | undefined }[]) => days.map((day) => [day.date, yen(day.balance)])
     expect(shown.ok && rows(shown.value.days)).toEqual(every.ok ? rows(every.value.days.filter((day) => day.date >= FROM)) : [])
     expect(shown.ok && shown.value.before && [shown.value.before.through, yen(shown.value.before.balance), shown.value.before.lastMoved]).toEqual(["2026-09-14", "30030", "2026-09-12"])
@@ -63,7 +79,7 @@ describe("a passbook shown from a day", () => {
 
   test("from before anything moved, has nothing held before it", async () => {
     const session = await setUp()
-    const found = await loadParlorPassbook(session, BOOK, "723修羅の国店", "2026-01-01" as IsoDate)
+    const found = await loadParlorPassbook(session, BOOK, "723修羅の国店", "2026-01-01" as IsoDate, "every")
     expect(found.ok && found.value.before).toBeUndefined()
   })
 })

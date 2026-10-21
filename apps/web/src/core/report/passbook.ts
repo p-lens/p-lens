@@ -127,3 +127,14 @@ export const passbookOf = (transactions: readonly Transaction[], account: string
 
 /** The rate a pool was last set to, where it was ever set, however far back. */
 export const rateLastSet = (prices: readonly PricePoint[], commodity: string): Decimal | undefined => [...ratesSetOf(prices, commodity).values()].at(-1)?.rate
+
+/**
+ * A passbook as it reads without its tallies, newest day first: each day
+ * only what moved its savings otherwise, its balance still what the pool
+ * held; a day nothing else moved nor set a rate on is left out.
+ */
+export const passbookWithoutTallies = (days: readonly PassbookDay[]): readonly PassbookDay[] =>
+  days.flatMap((day) => {
+    const lines = day.lines.filter((line) => line.cause.type !== "tally")
+    return lines.length === 0 && day.rateSet === undefined ? [] : [{ ...day, lines, deposited: sum(lines.map((line) => line.deposited)), withdrawn: sum(lines.map((line) => line.withdrawn)) }]
+  })

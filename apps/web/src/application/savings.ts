@@ -14,7 +14,7 @@ import { balanceAdjustmentEntry, openingBalanceEntry, withEquityDeclared } from 
 import { forfeitureEntry, withForfeitureDeclared, type Forfeiture } from "../core/savings/forfeiture"
 import { prizeExchangeEntry, withPrizesDeclared, type PrizeExchange } from "../core/savings/prize-exchange"
 import { rateChangeLine, type RateChange } from "../core/savings/rate-change"
-import { passbookOf, rateLastSet, type PassbookDay } from "../core/report/passbook"
+import { passbookOf, passbookWithoutTallies, rateLastSet, type PassbookDay } from "../core/report/passbook"
 import { parlorDaysOf, parlorPassbookOf, type ParlorPassbookDay, type PoolPassbook } from "../core/report/parlor-passbook"
 import { byColumn } from "../core/report/breakdown"
 import { quantityIn, rowTotalOf, yenByDayOf } from "../core/report/figures"
@@ -24,7 +24,8 @@ import type { Transaction } from "../hledger/protocol/wire"
 import { compare } from "../core/decimal/decimal"
 import { newestEntryRequest, openingBalanceRequest, parlorEntriesRequest, parlorMovedRequest, parlorSavingsByDayRequest, poolEntriesRequest, pricesRequest, savingsQuantityRequest } from "../hledger/query/requests"
 import { savingsAccount } from "../core/journal/accounts"
-import { accountTerm, combine, parlorSavingsTerm, rangeTerm, untilTerm } from "../hledger/query/terms"
+import { accountTerm, combine, parlorSavingsTerm, rangeTerm, untaggedTerm, untilTerm } from "../hledger/query/terms"
+import { TALLY_TAGS } from "../core/tally/tally"
 import type { JournalAccess } from "../hledger/client/client"
 import { rateOn } from "../core/valuation/valuation"
 import type { BookSession } from "./book-session"
@@ -248,6 +249,9 @@ const poolPassbooksOf = (entries: readonly Transaction[], parlorName: string, pr
     return { pool, days: passbookOf(entries.filter((entry) => entry.tpostings.some((posting) => posting.paccount === account)), account, commodity, prices, from === undefined ? undefined : { from, held: heldBy(account, commodity) }) }
   })
 
+/** What a parlor's passbook shows: every movement of its savings, or all but its tallies'. */
+export type ParlorPassbookShown = "every" | "without-tallies"
+
 /**
  * A parlor's passbook from a day — this year's, as it opens — every
  * pool's days together, newest first, valued in yen by hledger: what came
@@ -255,22 +259,27 @@ const poolPassbooksOf = (entries: readonly Transaction[], parlorName: string, pr
  * at the rate in force then, asked once for a column a day, the day before
  * the first among them where anything moved before it. A figure some token
  * had no rate for is left unsaid. Shown from no day, it is every day there
- * is.
+ * is. Without tallies, only what moved the savings otherwise is shown and
+ * valued, the balances still what was held.
  */
-export const loadParlorPassbook = (session: BookSession, bookId: BookId, parlorName: string, from: IsoDate | undefined): Promise<Outcome<PassbookFrom<ParlorPassbookDay, Decimal | undefined>>> =>
+export const loadParlorPassbook = (session: BookSession, bookId: BookId, parlorName: string, from: IsoDate | undefined, shown: ParlorPassbookShown): Promise<Outcome<PassbookFrom<ParlorPassbookDay, Decimal | undefined>>> =>
   session.read(bookId, async (journal) => {
     const since = rangeTerm(from, undefined)
+    const moves = shown === "every" ? since : combine(since, untaggedTerm(TALLY_TAGS.playId))
     const [entries, prices, deposited, withdrawn, moved] = await Promise.all([
       journal.ask(parlorEntriesRequest(parlorName, since)),
       journal.ask(pricesRequest("")),
-      journal.ask(parlorMovedRequest(parlorName, "amt:>0", since)),
-      journal.ask(parlorMovedRequest(parlorName, "amt:<0", since)),
+      journal.ask(parlorMovedRequest(parlorName, "amt:>0", moves)),
+      journal.ask(parlorMovedRequest(parlorName, "amt:<0", moves)),
       lastMovedBefore(journal, parlorSavingsTerm(parlorName), from),
     ])
     if (!moved.ok) return moved
     const held = moved.value === undefined ? Ok(() => ZERO) : await tokensHeldOn(journal, parlorSavingsTerm(parlorName), moved.value.through)
     if (!held.ok) return held
-    const read = andThen(fromHledger(entries), (page) => mapOk(fromHledger(prices), (directives) => poolPassbooksOf(page.items, parlorName, pricePointsOf(directives), from, held.value)))
+    const read = mapOk(
+      andThen(fromHledger(entries), (page) => mapOk(fromHledger(prices), (directives) => poolPassbooksOf(page.items, parlorName, pricePointsOf(directives), from, held.value))),
+      (pools) => (shown === "every" ? pools : pools.map((each) => ({ ...each, days: passbookWithoutTallies(each.days) }))),
+    )
     if (!read.ok) return read
     const days = parlorDaysOf(read.value)
     const [newest, oldest] = [days[0] ?? moved.value?.through, moved.value?.through ?? days.at(-1)]
