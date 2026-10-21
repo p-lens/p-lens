@@ -140,12 +140,13 @@ export const registerMachine = async (
 /**
  * Describe a machine anew: its name, its model name, its 大当り確率 and
  * the words it is searched by, all at once, as an administrator sets them
- * right.
+ * right, and its release date where one is given — left as it is where
+ * none is, since a machine always has one.
  * Its formulas are left as they are. A name another machine of its game
  * goes by is a conflict, and so is a model name another machine has; a
  * hidden machine is described like any other.
  */
-export const describeMachine = async (database: Database, effects: Effects, id: string, described: MachineDescription): Promise<Result<void, ApiError>> => {
+export const describeMachine = async (database: Database, effects: Effects, id: string, described: MachineDescription, releasedOn: string | undefined): Promise<Result<void, ApiError>> => {
   const found = await firstRow<{ id: string }>(database.prepare("SELECT id FROM machines WHERE id = ?1").bind(id))
   if (!found.ok) return Err(unexpected(found.error))
   if (found.value === undefined) return Err({ type: "not-found", what: "machine" })
@@ -155,8 +156,8 @@ export const describeMachine = async (database: Database, effects: Effects, id: 
   const now = effects.now()
   const done = await executeAll(database, [
     database
-      .prepare("UPDATE machines SET name = ?2, comparable_name = ?3, model_name = ?4, comparable_model_name = ?5, hit_chance = ?6, described_at = ?7 WHERE id = ?1")
-      .bind(id, described.name, comparableName(described.name), described.modelName ?? null, comparableModelName(described.modelName), described.hitChance ?? null, now),
+      .prepare("UPDATE machines SET name = ?2, comparable_name = ?3, model_name = ?4, comparable_model_name = ?5, hit_chance = ?6, described_at = ?7, released_on = COALESCE(?8, released_on) WHERE id = ?1")
+      .bind(id, described.name, comparableName(described.name), described.modelName ?? null, comparableModelName(described.modelName), described.hitChance ?? null, now, releasedOn ?? null),
     database.prepare("DELETE FROM machine_keywords WHERE machine_id = ?1").bind(id),
     ...keywordInserts(database, id, described.keywords, now),
   ])

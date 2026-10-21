@@ -331,7 +331,7 @@ export function Start(props: {
     if (weighing !== undefined) await recordUses(weighing)
     start.update({ cabinetNumber: "", startCounter: "", carriedIn: undefined, pachislot: EMPTY_PACHISLOT_START })
     app.wrote()
-    moves.go({ kind: "live-play", playId: draft.id })
+    moves.replace({ kind: "live-play", playId: draft.id })
   }
 
   return (

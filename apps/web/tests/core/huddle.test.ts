@@ -3,7 +3,8 @@ import { describe, expect, test } from "bun:test"
 import type { BookId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { huddleCodeOf, huddleNameOf, huddleOn, huddleText, readHuddle, secretOfHuddleCode, type Huddle } from "../../src/core/huddle/huddle"
-import { huddlePostOf, huddlePostText, othersLatest, readHuddlePost, type HuddlePost } from "../../src/core/huddle/post"
+import { huddlePostOf, huddlePostText, othersPlays, readHuddlePost, type HuddlePost } from "../../src/core/huddle/post"
+import { anyInJackpot, huddleStandingOf } from "../../src/core/huddle/standing"
 import type { PachinkoDraft } from "../../src/core/live-play/draft"
 import type { PlayTerms } from "../../src/core/parlor/terms"
 import type { PlayId } from "../../src/core/play/play"
@@ -30,7 +31,9 @@ const DRAFT: PachinkoDraft = {
   recorded: { at: "2026-10-20T03:00:10.000Z", finish: { at: "2026-10-20T03:00:00.000Z", counter: 300 } },
 }
 
-const post = (member: string, postedAt: string, machine = "made-up"): HuddlePost => ({ member, name: member, postedAt, play: { ...huddlePostOf(DRAFT, HUDDLE, postedAt).play, machine } })
+const post = (member: string, postedAt: string, machine = "made-up", playId = "p-1"): HuddlePost => ({ member, name: member, postedAt, play: { ...huddlePostOf(DRAFT, HUDDLE, postedAt).play, id: playId as PlayId, machine } })
+
+const withLog = (log: string, gameKind: "pachinko" | "slot" = "pachinko"): HuddlePost["play"] => ({ ...huddlePostOf(DRAFT, HUDDLE, DAY).play, log, gameKind }) as HuddlePost["play"]
 
 describe("a huddle's code", () => {
   test("carries its secret, marked as a huddle's, and gives it back however it was pasted", () => {
@@ -85,16 +88,55 @@ describe("a play shown to a huddle", () => {
   })
 })
 
-describe("what the others last showed", () => {
-  test("is each one's latest, in the order they first showed anything, this device's own left out", () => {
-    const posts = [post("b", "2026-10-20T01:00:00Z"), post("me", "2026-10-20T01:01:00Z"), post("c", "2026-10-20T01:02:00Z"), post("b", "2026-10-20T01:03:00Z", "other")]
-    expect(othersLatest(posts, "me").map((shown) => [shown.member, shown.play.machine])).toEqual([
-      ["b", "other"],
-      ["c", "made-up"],
+describe("the others' plays", () => {
+  test("are each play's latest showing, the others in the order they first showed anything, this device's own left out", () => {
+    const posts = [post("b", "2026-10-20T01:00:00Z"), post("me", "2026-10-20T01:01:00Z"), post("c", "2026-10-20T01:02:00Z"), post("b", "2026-10-20T01:03:00Z", "same play later")]
+    expect(othersPlays(posts, "me").map(({ post: shown, latest }) => [shown.member, shown.play.machine, latest])).toEqual([
+      ["b", "same play later", true],
+      ["c", "made-up", true],
     ])
   })
 
-  test("keeps the later of two showings that arrived out of order", () => {
-    expect(othersLatest([post("b", "2026-10-20T01:03:00Z", "later"), post("b", "2026-10-20T01:00:00Z")], "me").map((shown) => shown.play.machine)).toEqual(["later"])
+  test("keep a play left for another machine, the one moved to the latest and first", () => {
+    const posts = [post("b", "2026-10-20T01:00:00Z", "left"), post("b", "2026-10-20T02:00:00Z", "moved to", "p-2")]
+    expect(othersPlays(posts, "me").map(({ post: shown, latest }) => [shown.play.machine, latest])).toEqual([
+      ["moved to", true],
+      ["left", false],
+    ])
+  })
+
+  test("keep the later of two showings of a play that arrived out of order", () => {
+    expect(othersPlays([post("b", "2026-10-20T01:03:00Z", "later"), post("b", "2026-10-20T01:00:00Z")], "me").map(({ post: shown }) => shown.play.machine)).toEqual(["later"])
+  })
+})
+
+describe("where one of the others' plays stands", () => {
+  test("is a jackpot where its last reading won one, and 時短 where a pachinko play's last reading ran in it", () => {
+    expect(huddleStandingOf(withLog('{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot"}}\n'))).toBe("jackpot")
+    expect(huddleStandingOf(withLog('{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot"}}\n{"spins":220,"outlay":3000,"phase":"rapid"}\n'))).toBe("rapid")
+    expect(huddleStandingOf(withLog('{"spins":0,"outlay":0}\n{"spins":30,"outlay":1000}\n'))).toBe("playing")
+  })
+
+  test("is over once its log says so, whatever came before", () => {
+    expect(huddleStandingOf(withLog('{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot"}}\n{"spins":120,"outlay":3000,"event":{"kind":"finished"}}\n'))).toBe("finished")
+  })
+
+  test("says nothing of 確変, nor of 時短 on a pachislot play", () => {
+    expect(huddleStandingOf(withLog('{"spins":0,"outlay":0}\n{"spins":80,"outlay":1000,"phase":"special"}\n'))).toBe("playing")
+    expect(huddleStandingOf(withLog('{"spins":0,"outlay":0}\n{"spins":80,"outlay":1000,"phase":"rapid"}\n', "slot"))).toBe("playing")
+  })
+})
+
+describe("whether any of the others is in a jackpot", () => {
+  const JACKPOT = '{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot"}}\n'
+  const shown = (log: string, latest: boolean) => ({ post: { ...post("b", "2026-10-20T01:00:00Z"), play: withLog(log) }, latest })
+
+  test("is so where one is, on the play they are on", () => {
+    expect(anyInJackpot([shown('{"spins":0,"outlay":0}\n', true), shown(JACKPOT, true)])).toBe(true)
+  })
+
+  test("is not so for a play left behind in one, nor with nobody", () => {
+    expect(anyInJackpot([shown(JACKPOT, false)])).toBe(false)
+    expect(anyInJackpot([])).toBe(false)
   })
 })

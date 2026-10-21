@@ -10,7 +10,7 @@ describe("a machine's release date as typed", () => {
     expect(readReleaseDate("2026-09-01", TODAY)).toEqual({ ok: true, value: "2026-09-01" as IsoDate })
     expect(readReleaseDate("2027-10-06", TODAY).ok).toBe(true)
     expect(readReleaseDate("2027-10-07", TODAY)).toEqual({ ok: false, error: { type: "too-far-ahead" } })
-    expect(readReleaseDate("1959-12-31", TODAY)).toEqual({ ok: false, error: { type: "too-early" } })
+    expect(readReleaseDate("1969-12-31", TODAY)).toEqual({ ok: false, error: { type: "too-early" } })
   })
 
   test("tells none typed apart from one that is not a day", () => {

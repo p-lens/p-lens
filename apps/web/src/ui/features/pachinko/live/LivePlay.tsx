@@ -21,6 +21,7 @@ import type { Place } from "../../../navigation/place"
 import { describeError, describePlayLogError } from "../../../wording/errors"
 import { CHANGED_SINCE_MERGED, FOLD_FIGURES, MERGE_FAILED, MERGED, UNFOLD_FIGURES, TAKE_BACK, TAKE_BACK_FAILED, UNMERGED } from "../../../wording/pachinko/play"
 import { ViewHeader } from "../../shell/ViewHeader"
+import { useOthersInJackpot } from "../../live/huddle-jackpot"
 import { CornerTerms } from "./CornerTerms"
 import { LiveFigures } from "./LiveFigures"
 import { LiveHyenaHunt } from "./LiveHyenaHunt"
@@ -47,11 +48,10 @@ export function LivePlay(props: {
   readonly place: Place
   readonly draft: PachinkoDraft
   readonly title: string
-  /** What stands between where the play stands and its readings: the huddle, where there is one. */
-  readonly huddle: JSX.Element
 }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
+  const othersInJackpot = useOthersInJackpot()
   const parsed = createMemo(() => parsePlayLog(props.draft.log))
   const [found] = createResource(
     () => (props.draft.pachinko === undefined ? undefined : { machineId: props.draft.pachinko.machineId, formulaId: props.draft.pachinko.id }),
@@ -137,6 +137,7 @@ export function LivePlay(props: {
         <ViewHeader
           place={props.place}
           title={props.title}
+          urged={othersInJackpot()}
           actions={
             <Button size="small" onClick={() => moves.go({ kind: "live-record", playId: props.draft.id })}>
               遊技を終了
@@ -208,7 +209,6 @@ export function LivePlay(props: {
                       </Show>
                     )}
                   />
-                  {props.huddle}
                   <Timeline checkpoints={checkpoints} terms={terms} revising={revised()} onRevise={(pressed) => (samePressed(pressed, revised()) ? done() : setWork(pressed))} onMerge={(span) => merge(checkpoints, span)} />
                 </div>
                 <div class="sticky bottom-0">

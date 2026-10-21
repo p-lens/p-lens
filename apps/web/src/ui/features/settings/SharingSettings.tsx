@@ -106,7 +106,7 @@ function Destinations(props: { readonly changed: number; readonly onChanged: () 
               )}
             </For>
           </ul>
-          <p class="text-xs text-text-muted">左の列の送り先か、「本日の稼働」の紙ヒコーキで送れます。相手の帳簿の中身は、この端末からは見えません。</p>
+          <p class="text-xs text-text-muted">左の列の送り先から、または「本日の稼働」で送りたい稼働の紙ヒコーキを押して送れます。相手の帳簿の中身は、この端末からは見えません。</p>
         </section>
       </Show>
     </>

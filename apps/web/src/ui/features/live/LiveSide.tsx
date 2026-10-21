@@ -4,6 +4,7 @@ import { SidePanel } from "solid-gathering-shell"
 import { abandonPlay, loadTodaysPlays } from "../../../application/live-play"
 import { destinationsOf, sendDraft } from "../../../application/sending"
 import { shownNameOf, type MachineNames } from "../../../core/catalog/catalog"
+import { othersPlays, type HuddlePlay } from "../../../core/huddle/post"
 import { afterItFinished, isLeftOver, isSentAsItStands, parlorOf, type PlayDraft } from "../../../core/live-play/draft"
 import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
@@ -21,6 +22,7 @@ import { describeError } from "../../wording/errors"
 import { parlorText } from "../../wording/parlor"
 import { HUDDLE_HEADING, HUDDLE_JOINED } from "../../wording/huddle"
 import { HuddleDialog } from "./HuddleDialog"
+import { HuddleRow } from "./HuddleRow"
 import { sendingPortsOf } from "./sending-ports"
 import { Unhatched } from "../../../unhatched-egg"
 
@@ -119,7 +121,9 @@ const draftName = (draft: PlayDraft, machineNames: MachineNames): string => {
  * recorded since the business day turned, which stay to be set right and
  * recorded again. A play left over from a day before is marked red, and
  * the list ends by saying what the mark is and what to do about it — a
- * mark alone tells a person seeing it for the first time nothing. Where the device may send plays to someone, each has its
+ * mark alone tells a person seeing it for the first time nothing. In a
+ * huddle, the others' plays follow the device's own, each under who plays
+ * it, to be opened and looked at. Where the device may send plays to someone, each has its
  * paper plane, and none sends them all at once: a play is sent as it is
  * played; with more than one place to send to, the person is asked
  * which, and only then.
@@ -139,6 +143,8 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
   }
   /** The play a person asked to give up, until they say yes or no. */
   const [abandoning, setAbandoning] = createSignal<PlayDraft | undefined>(undefined)
+  /** The others' plays in the huddle the device is in, as the line was last read: none where it is in none. */
+  const others = (): readonly HuddlePlay[] => ((huddle) => (huddle === undefined ? [] : othersPlays(app.huddle.line.posts(), huddle.member)))(app.huddle.now())
   /** Whether ノリ打ち is open. */
   const [huddling, setHuddling] = createSignal(false)
   /** The play a person asked to send, while they are asked where to. */
@@ -245,6 +251,21 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
             </Show>
           )}
         </Loaded>
+        <Unhatched>
+          <Show when={others().length > 0}>
+            <ul class="mt-2 flex flex-col gap-0.5 border-t border-border pt-2" aria-label={HUDDLE_HEADING}>
+              <For each={others()}>
+                {(shown) => (
+                  <HuddleRow
+                    shown={shown}
+                    selected={props.place.kind === "live-huddle-play" && props.place.member === shown.post.member && props.place.playId === shown.post.play.id}
+                    onSelect={() => moves.go({ kind: "live-huddle-play", member: shown.post.member, playId: shown.post.play.id })}
+                  />
+                )}
+              </For>
+            </ul>
+          </Show>
+        </Unhatched>
       </section>
       <ConfirmDialog
         open={abandoning() !== undefined}

@@ -130,7 +130,7 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
     start.update({ cabinet: undefined })
     toast({ title: "保存しました", stays: "glance" })
     app.wrote()
-    moves.go({ kind: "live-play", playId: props.draft.id })
+    moves.replace({ kind: "live-play", playId: props.draft.id })
   }
   return (
     <MainContent header={<ViewHeader place={props.place} title="台・機種の変更" />}>

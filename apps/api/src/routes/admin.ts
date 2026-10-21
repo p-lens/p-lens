@@ -1,4 +1,4 @@
-import { type Body, oneOf, text } from "../domain/body"
+import { type Body, oneOf, optionalReleaseDay, text } from "../domain/body"
 import { describeMachine } from "../repositories/machines"
 import { HIDDEN_TARGETS, hideAllBy, recentlyRegistered, setHidden } from "../repositories/moderation"
 import { descriptionOf, type Handler, noContent, ok, param, readBody } from "./handlers"
@@ -46,7 +46,9 @@ const describe: Handler = async (context) => {
   if (!body.ok) return body
   const described = descriptionOf(body.value)
   if (!described.ok) return described
-  return noContent(await describeMachine(context.database, context.effects, param(context, "id"), described.value))
+  const releasedOn = optionalReleaseDay(body.value, "releasedOn", context.effects.now().slice(0, 10))
+  if (!releasedOn.ok) return releasedOn
+  return noContent(await describeMachine(context.database, context.effects, param(context, "id"), described.value, releasedOn.value))
 }
 
 /**
@@ -54,7 +56,8 @@ const describe: Handler = async (context) => {
  * what was registered lately, hide what vandals registered — one thing, or
  * everything one device registered — and set right how a machine is
  * described, when someone writes in: its name, its model name, its
- * 大当り確率 and the words it is searched by. Nothing is ever deleted;
+ * 大当り確率, the words it is searched by and, where one is given, its
+ * release date. Nothing is ever deleted;
  * whatever is hidden can be shown again, and a formula is never changed. A
  * device's route comes first, as its path also fits the one for a single
  * thing.

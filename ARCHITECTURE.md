@@ -1170,8 +1170,9 @@ users ─┬─ machines (game_kind ∈ pachinko | pachislot) ── machine_key
   name, with the release date and the 大当り確率 at the far end; what is not
   known is shown as dashes, never a blank. A formula is never changed, but
   a description is set right by an administrator when someone writes in
-  (`PUT /admin/machines/:id/description`), and every device takes it with
-  the next delivery.
+  (`PUT /admin/machines/:id/description`) — its release date too, where
+  one is given, kept as it was where none is — and every device takes it
+  with the next delivery.
 - A machine and its first formula are written in one batch: both or neither.
   A name is unique as compared (`comparableName`: NFKC, trimmed, lower case,
   spaces collapsed).
@@ -1319,7 +1320,7 @@ is set right by stating a new formula from its basis, as any is.
 
 Still of bonuses: the formulas registered before took their machine's
 list as it stood, and `machine_bonuses` is read no more. A machine's release date is checked here, not only on the
-screen: no earlier than 1960 and at most a year ahead of the day it is
+screen: no earlier than 1970, the first day a UNIX time holds, and at most a year ahead of the day it is
 registered (`releaseDateProblem` in the contracts, which the screen uses
 too). A deployment's ids and origins live in `wrangler.production.jsonc`,
 kept out of git; the README says how to make one.
@@ -2136,20 +2137,33 @@ wherever its player records it, as it would be without the huddle.
   name. It is packed by DEFLATE (`Packer`) and sealed, a commit of its
   own on the line: a play shown again and again stays far under what
   the relay counts as a large sending.
-- **Shown and read while a play's screen is open**
-  (`ui/features/live/huddle-board`): the play is shown as the screen opens
-  and each time its log changes, at most once every 20 seconds, the latest
-  of it then; the line is read as the screen opens and every 15 seconds.
-  What has been read, and when the play was last shown, are the page's
-  (`HuddleLine`, on the context), so a play's screen made again on each
-  write goes on from them. Each of the others is a card of their latest
-  post (`othersLatest`), in the order they first showed anything,
-  whichever game each plays: the cards are the live space's
-  (`ui/features/live/HuddleCards`), each with the figures its own game
-  shows (`HuddleFigures` of `ui/features/pachinko` or `pachislot`) — a
-  pachinko play's folded figures and border mark, a pachislot play's
-  standing and its bonuses or AT. Each game's play screen is handed the
-  cards to stand where its own figures end.
+- **Shown and read wherever the app is** (`HuddleRunner`, once, in the
+  shell): each of the day's own plays is shown when its log changes, at
+  most once every 20 seconds, the latest of each then — a play that came
+  from someone else is theirs to show — and the line is read at once and
+  every 15 seconds. What has been read, and which log of each play was
+  last shown, are the page's (`HuddleLine`, on the context).
+- **In the day's list, not on one's own screen.** Each of the others'
+  plays is the latest post of it (`othersPlays`), the others in the order
+  they first showed anything, each one's plays newest shown first: a play
+  left for another machine stays, marked 移動, and the one they are on is
+  their latest. A row (`HuddleRow`) says who as a chip, so it is never
+  taken for a play sent to this device, and marks where the play stands
+  (`huddleStandingOf`): 大当り中 where its last reading won a jackpot (an
+  AT, on a pachislot AT machine), 時短中 where a pachinko play's last
+  reading ran in 時短, 終了 once its log says it finished; 確変 is not
+  said, nobody counting it. One's own play's screen draws none of them:
+  six people in a huddle would leave it no room.
+- **Opened only to be looked at** (`live-huddle-play`,
+  `/play/huddle/:member/:playId`, `HuddlePlayView`): who and on what,
+  when it was last shown, and the play as its own game draws it
+  (`HuddlePlay` of `ui/features/pachinko` or `pachislot`) — its figures and
+  its readings, with no line to press or hold and nothing to type.
+- **The way back is urged while one of them is in a jackpot**
+  (`useOthersInJackpot`, `anyInJackpot`): on one's own play's screen the
+  back button, in a narrow window, becomes a red <<< jabbing at the list
+  (`ViewHeader`'s `urged`, the `urge` keyframes), and stays still where a
+  device asks for less motion.
 
 ## The unhatched egg
 
@@ -2178,11 +2192,11 @@ It is kept nowhere: loading the page again closes it.
   What the egg says is styled by the same sheet, borrowing none of the
   app's styles; its colours are written in the folder and match no theme
   on purpose: a device with the egg open is never taken for one without.
-- **In it now**: ノリ打ち's way in on the live rail, and its cards beside
-  a play of either game, named where the live space hands them to the
-  play's screen (`LivePlayView`) — which are what shows the play to the huddle and reads
-  it, so that with the egg closed nothing is shown or read, even by a
-  device still in a huddle.
+- **In it now**: ノリ打ち's way in at the end of the day's plays heading, the others' plays in
+  the day's list, and what keeps the huddle up (`HuddleRunner`, in the
+  shell) — which is what shows one's plays to the huddle and reads it, so
+  that with the egg closed nothing is shown or read, even by a device
+  still in a huddle.
 
 ## Backup
 

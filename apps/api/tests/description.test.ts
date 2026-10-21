@@ -100,6 +100,19 @@ describe("an administrator setting right how a machine is described", () => {
     expect(after.formulas).toEqual(formulas)
   })
 
+  test("sets a release date where one is given, keeps it where none is, and refuses one no machine could have", async () => {
+    const client = await api({ adminToken: TOKEN })
+    const made = await register(client, GENKI)
+    const at = `/admin/machines/${made.body.machineId}/description`
+    expect((await client.call("PUT", at, { headers: AS_ADMIN, body: { ...described, releasedOn: "2025-02-17" } })).status).toBe(204)
+    expect((await client.call("GET", `/machines/${made.body.machineId}`)).body.machine.releasedOn).toBe("2025-02-17")
+    await client.call("PUT", at, { headers: AS_ADMIN, body: described })
+    expect((await client.call("GET", `/machines/${made.body.machineId}`)).body.machine.releasedOn).toBe("2025-02-17")
+    expect((await client.call("PUT", at, { headers: AS_ADMIN, body: { ...described, releasedOn: "2025-02-30" } })).body.error).toEqual({ type: "invalid-body", field: "releasedOn", reason: "not-a-date" })
+    expect((await client.call("PUT", at, { headers: AS_ADMIN, body: { ...described, releasedOn: "1969-12-31" } })).body.error).toEqual({ type: "invalid-body", field: "releasedOn", reason: "too-early" })
+    expect((await client.call("GET", "/catalog")).body.machines[0].machine.releasedOn).toBe("2025-02-17")
+  })
+
   test("frees the old name, and cannot take a name another machine of the game goes by", async () => {
     const client = await api({ adminToken: TOKEN })
     const first = await register(client, GENKI)

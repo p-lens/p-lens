@@ -26,7 +26,7 @@ import {
   LEAVE_HUDDLE,
   START_HUDDLE,
 } from "../../wording/huddle"
-import { huddlePortsOf } from "./huddle-board"
+import { huddlePortsOf } from "./huddle-ports"
 
 /** The huddle this device is in: its QR code for the others to read — on this screen, or as a screenshot sent on — and the way out. */
 function JoinedHuddle(props: { readonly huddle: Huddle; readonly onLeave: () => void }): JSX.Element {

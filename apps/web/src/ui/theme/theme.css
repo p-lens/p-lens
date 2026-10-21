@@ -296,6 +296,20 @@
   }
 }
 
+/* The way back while one of the others is in a jackpot: it jabs left twice and rests, again and again — 押せッ、押せッ. */
+@keyframes urge {
+  0%,
+  30%,
+  60%,
+  100% {
+    transform: translateX(0);
+  }
+  10%,
+  40% {
+    transform: translateX(-0.25rem) scale(1.15);
+  }
+}
+
 html,
 body {
   margin: 0;

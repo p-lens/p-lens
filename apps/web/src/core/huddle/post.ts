@@ -46,13 +46,26 @@ export const readHuddlePost = (written: string): HuddlePost | undefined => {
   }
 }
 
+/** One of the others' plays as it was last shown, and whether it is the latest they showed: the one they are on, or were last. */
+export interface HuddlePlay {
+  readonly post: HuddlePost
+  readonly latest: boolean
+}
+
+const laterOf = (found: HuddlePost | undefined, post: HuddlePost): HuddlePost => (found !== undefined && found.postedAt > post.postedAt ? found : post)
+
 /**
- * What each of the others last showed, in the order they first showed
- * anything: a person moving to another machine shows that play from then
- * on, and keeps their place among the cards. This device's own are left
- * out, its plays being on its own screen.
+ * Each of the others' plays as it was last shown, the others in the order
+ * they first showed anything and each one's plays newest shown first: a
+ * person moving to another machine keeps the play they left, and the one
+ * they are on is their latest. This device's own are left out, its plays
+ * being in its own list.
  */
-export const othersLatest = (posts: readonly HuddlePost[], member: string): readonly HuddlePost[] => {
-  const latest = posts.reduce((found, post) => (post.member === member || (found.get(post.member)?.postedAt ?? "") > post.postedAt ? found : new Map(found).set(post.member, post)), new Map<string, HuddlePost>())
-  return [...new Set(posts.map((post) => post.member))].flatMap((who) => latest.get(who) ?? [])
+export const othersPlays = (posts: readonly HuddlePost[], member: string): readonly HuddlePlay[] => {
+  const others = posts.filter((post) => post.member !== member)
+  const byPlay = others.reduce((found, post) => new Map(found).set(`${post.member} ${post.play.id}`, laterOf(found.get(`${post.member} ${post.play.id}`), post)), new Map<string, HuddlePost>())
+  return [...new Set(others.map((post) => post.member))].flatMap((who) => {
+    const theirs = [...byPlay.values()].filter((post) => post.member === who).toSorted((left, right) => right.postedAt.localeCompare(left.postedAt))
+    return theirs.map((post, at) => ({ post, latest: at === 0 }))
+  })
 }

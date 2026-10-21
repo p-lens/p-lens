@@ -16,6 +16,8 @@ import { HoldingsView } from "../holdings/HoldingsView"
 import { ParlorPassbookPanel } from "../holdings/ParlorPassbookPanel"
 import { PassbookPanel } from "../holdings/PassbookPanel"
 import { FinishPlayView } from "../live/FinishPlayView"
+import { HuddlePlayView } from "../live/HuddlePlayView"
+import { HuddleRunner } from "../live/HuddleRunner"
 import { LivePlayView } from "../live/LivePlayView"
 import { LiveSide } from "../live/LiveSide"
 import * as PachinkoViews from "../pachinko"
@@ -56,6 +58,7 @@ import { BookSpaceSide } from "./BookSpaceSide"
 import { SettingsSide } from "./SettingsSide"
 import { StoppedNotice } from "../consolidated/StoppedNotice"
 import { SpacesRail } from "./SpacesRail"
+import { Unhatched } from "../../../unhatched-egg"
 import { ToastRegion } from "../../primitives/toast"
 import { ViewHeader } from "./ViewHeader"
 import { RefreshButton } from "./RefreshButton"
@@ -102,6 +105,8 @@ const mainFor = (place: Place, query: () => string, live: () => Place): JSX.Elem
       return <FinishPlayView place={place} playId={place.playId} />
     case "live-cabinet":
       return <CabinetView place={place} playId={place.playId} />
+    case "live-huddle-play":
+      return <HuddlePlayView place={place} member={place.member} playId={place.playId} />
     case "book":
       return <ChooseFromList place={place} title="帳簿" hint="左のリストからビューを選んでください。" />
     case "book-view":
@@ -283,6 +288,9 @@ export function PLensScreen(): JSX.Element {
       </WelcomeProvider>
       <ToastRegion />
       <StoppedNotice />
+      <Unhatched>
+        <HuddleRunner />
+      </Unhatched>
     </StartFormProvider>
   )
 }

@@ -137,6 +137,10 @@ export const releaseDay = (body: Body, field: string, today: string): Result<str
   return problem === undefined ? read : invalid(field, problem)
 }
 
+/** A machine's release date where one is given, as `releaseDay` takes it; absent where none is. */
+export const optionalReleaseDay = (body: Body, field: string, today: string): Result<string | undefined, ApiError> =>
+  body[field] === undefined ? Ok(undefined) : releaseDay(body, field, today)
+
 /** A nested JSON object the engine or a later reader will judge; here only that it is one. */
 export const object = (body: Body, field: string): Result<Body, ApiError> => {
   const value = body[field]

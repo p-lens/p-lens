@@ -38,6 +38,7 @@ import { describeCounterRefusal, observedOneInText, priorName } from "../../../w
 import { CHANGED_SINCE_MERGED, CHANGED_SINCE_REMOVED, MERGE_FAILED, MERGED, READING_REMOVED, REMOVAL_TAKEN_BACK, TAKE_BACK, TAKE_BACK_FAILED, UNMERGED } from "../../../wording/pachislot/play"
 import { triggerWordsOf } from "../../../wording/pachislot/trigger"
 import { ViewHeader } from "../../shell/ViewHeader"
+import { useOthersInJackpot } from "../../live/huddle-jackpot"
 import { AtCounting, AtFigures, AtReadingComposer, createAtReading } from "./AtPlay"
 import { awaitsAtResult } from "./at-result-form"
 import { CornerTerms } from "./CornerTerms"
@@ -304,11 +305,10 @@ export function LivePlay(props: {
   readonly place: Place
   readonly draft: PachislotDraft
   readonly title: string
-  /** What stands under where the play stands: the huddle, where there is one. */
-  readonly huddle: JSX.Element
 }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
+  const othersInJackpot = useOthersInJackpot()
   /** The draft as this screen last wrote it, with the log the screen had been given when it did: it stands until the screen is given a log that has caught up. */
   const [mine, setMine] = createSignal<{ readonly draft: PachislotDraft; readonly over: string } | undefined>(undefined)
   const current = (): PachislotDraft => {
@@ -432,6 +432,7 @@ export function LivePlay(props: {
         <ViewHeader
           place={props.place}
           title={props.title}
+          urged={othersInJackpot()}
           actions={
             <Button size="small" onClick={() => moves.go({ kind: "live-record", playId: props.draft.id })}>
               遊技を終了
@@ -472,7 +473,6 @@ export function LivePlay(props: {
                   <Show when={atRules()} fallback={<PlayFigures ordered={found()} bonuses={bonuses()} day={day()} />}>
                     <AtFigures ordered={found()} normalized={weighing()?.formula.normalized ?? NO_MACHINE} />
                   </Show>
-                  {props.huddle}
                   <Show when={weighing()}>
                     {(weighed) => (
                       <>

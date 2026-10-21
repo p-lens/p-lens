@@ -533,7 +533,7 @@ export function Start(props: {
     if (formula !== undefined) await recordUse(app.services.catalog, { type: "formula", id: formula.id })
     start.update({ cabinetNumber: "", startCounter: "", carriedIn: undefined, pachinko: { ...EMPTY_PACHINKO_START, remakeFrom: start.form().pachinko.remakeFrom } })
     app.wrote()
-    moves.go({ kind: "live-play", playId: draft.id })
+    moves.replace({ kind: "live-play", playId: draft.id })
   }
 
   return (

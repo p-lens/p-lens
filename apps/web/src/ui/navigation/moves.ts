@@ -20,6 +20,13 @@ export interface Moves {
   /** Go somewhere new: one entry in the history, which back undoes. */
   readonly go: (place: Place, query?: string) => void
   /**
+   * Go somewhere new in place of where the app is, the screen left being a
+   * step on the way there that back does not return to: a play's start,
+   * once it is begun, and its cabinet changed, once it is saved. The entry
+   * keeps where it was come to from.
+   */
+  readonly replace: (place: Place) => void
+  /**
    * Go one step up from where the app is. When the step before was exactly
    * that, it is taken back rather than taken again, so closing a detail and
    * then pressing back leaves the list instead of reopening the detail.
@@ -39,6 +46,7 @@ export const useMoves = (): Moves => {
 
   return {
     go: (place, query) => navigate(hrefOf(place, query), { state: { from: current() } satisfies Came }),
+    replace: (place) => navigate(hrefOf(place), { replace: true, state: location.state }),
     up: (here, query) => {
       const parent = parentOf(here)
       if (parent === undefined) return

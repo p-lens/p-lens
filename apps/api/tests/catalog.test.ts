@@ -89,7 +89,7 @@ describe("registering a machine", () => {
     expect((await register({ releasedOn: "2025-09-01" })).body.error).toEqual({ type: "invalid-body", field: "name", reason: "missing" })
     expect((await register({ name: "  　", releasedOn: "2025-09-01" })).body.error).toEqual({ type: "invalid-body", field: "name", reason: "missing" })
     expect((await register({ name: "日付空", releasedOn: "" })).body.error).toEqual({ type: "invalid-body", field: "releasedOn", reason: "missing" })
-    expect((await register({ name: "大昔", releasedOn: "1959-12-31" })).body.error).toEqual({ type: "invalid-body", field: "releasedOn", reason: "too-early" })
+    expect((await register({ name: "大昔", releasedOn: "1969-12-31" })).body.error).toEqual({ type: "invalid-body", field: "releasedOn", reason: "too-early" })
     expect((await register({ name: "遠い未来", releasedOn: "2099-01-01" })).body.error).toEqual({ type: "invalid-body", field: "releasedOn", reason: "too-far-ahead" })
     expect(countOf(client, "machines")).toBe(machines)
     expect((await register({ name: "来年の新台", releasedOn: "2026-10-01" })).status).toBe(201)

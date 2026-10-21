@@ -1,8 +1,10 @@
 /**
  * When a machine can have come out. Pachinko and pachislot machines as they
  * are kept here begin long after this; a date before it is a typing slip.
+ * It is the first day a UNIX time holds, so that every release date can
+ * become one — and a UUIDv7, whose moment is one.
  */
-export const EARLIEST_RELEASE = "1960-01-01"
+export const EARLIEST_RELEASE = "1970-01-01"
 
 /**
  * How far ahead of today a release date may be. A machine is announced and
