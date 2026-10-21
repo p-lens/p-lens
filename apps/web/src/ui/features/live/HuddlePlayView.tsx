@@ -9,7 +9,7 @@ import { useApp } from "../../context"
 import { EmptyState } from "../../primitives/states"
 import type { Place } from "../../navigation/place"
 import { formatMoment } from "../../wording/dates"
-import { HUDDLE_WATCHING, huddleShownAt } from "../../wording/huddle"
+import { huddleShownAt } from "../../wording/huddle"
 import { parlorText } from "../../wording/parlor"
 import * as PachinkoViews from "../pachinko"
 import * as PachislotViews from "../pachislot"
@@ -38,8 +38,6 @@ export function HuddlePlayView(props: { readonly place: Place; readonly member: 
           <div class="flex max-w-5xl flex-col gap-3 p-3">
             <p class="text-xs text-text-muted">
               {parlorText(parlorOf(post.play))}・{huddleShownAt(formatMoment(post.postedAt))}
-              <br />
-              {HUDDLE_WATCHING}
             </p>
             {post.play.gameKind === "pachinko" ? <PachinkoViews.HuddlePlay play={post.play} /> : <PachislotViews.HuddlePlay play={post.play} />}
           </div>

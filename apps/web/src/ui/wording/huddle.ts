@@ -17,9 +17,6 @@ export const HUDDLE_DISMISS_SAYS = "この端末の一覧から消すだけで�
 /** What giving up one's own play says in a huddle: the others let it go too. */
 export const HUDDLE_GIVEN_UP = "ノリ打ちの仲間の画面からも消えます。"
 
-/** What is said over one of the others' plays, opened: it is theirs to write, and only to be looked at here. */
-export const HUDDLE_WATCHING = "仲間の稼働です。見るだけで、ここからは書き込めません。"
-
 /** When a play was last shown to the huddle. */
 export const huddleShownAt = (moment: string): string => `${moment} 時点`
 

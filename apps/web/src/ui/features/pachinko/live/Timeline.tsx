@@ -170,6 +170,9 @@ function Row(props: { readonly step: Step; readonly rate: StretchRate | undefine
  * Given a way to merge, a reading held and dragged from marks a run of
  * readings, as far as they may be made one (`mergeableSpan`), and letting
  * go asks beside it whether to: nothing is merged by the dragging itself.
+ *
+ * A line's room is left empty after the last, so the newest reading is
+ * never the very bottom of what can be scrolled to.
  */
 export function Timeline(props: {
   readonly checkpoints: readonly Checkpoint[]
@@ -218,6 +221,9 @@ export function Timeline(props: {
           }}
         </For>
       </ol>
+      <div aria-hidden="true" class={`${ROW} mt-0.5`}>
+        <span class="invisible">--</span>
+      </div>
       <ConfirmPopover
         anchor={press.chosen()?.row}
         says={((span) => (span === undefined ? "" : mergeSays(span.to - span.from + 1)))(press.chosen()?.span)}
