@@ -2,9 +2,10 @@ import { createResource, createSignal, For, Show, type JSX } from "solid-js"
 import { SidePanel } from "solid-gathering-shell"
 
 import { abandonPlay, loadTodaysPlays } from "../../../application/live-play"
+import { dismissHuddlePlay } from "../../../application/huddle"
 import { destinationsOf, sendDraft } from "../../../application/sending"
 import { shownNameOf, type MachineNames } from "../../../core/catalog/catalog"
-import { othersPlays, type HuddlePlay } from "../../../core/huddle/post"
+import { othersPlaysFor, type HuddlePlay } from "../../../core/huddle/post"
 import { afterItFinished, isLeftOver, isSentAsItStands, parlorOf, type PlayDraft } from "../../../core/live-play/draft"
 import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
@@ -20,7 +21,7 @@ import type { Place } from "../../navigation/place"
 import { businessDayNote, formatMoment } from "../../wording/dates"
 import { describeError } from "../../wording/errors"
 import { parlorText } from "../../wording/parlor"
-import { HUDDLE_HEADING, HUDDLE_JOINED } from "../../wording/huddle"
+import { HUDDLE_DISMISS, HUDDLE_DISMISS_ASK, HUDDLE_DISMISS_SAYS, HUDDLE_GIVEN_UP, HUDDLE_HEADING, HUDDLE_JOINED } from "../../wording/huddle"
 import { HuddleDialog } from "./HuddleDialog"
 import { HuddleRow } from "./HuddleRow"
 import { sendingPortsOf } from "./sending-ports"
@@ -144,7 +145,17 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
   /** The play a person asked to give up, until they say yes or no. */
   const [abandoning, setAbandoning] = createSignal<PlayDraft | undefined>(undefined)
   /** The others' plays in the huddle the device is in, as the line was last read: none where it is in none. */
-  const others = (): readonly HuddlePlay[] => ((huddle) => (huddle === undefined ? [] : othersPlays(app.huddle.line.posts(), huddle.member)))(app.huddle.now())
+  const others = (): readonly HuddlePlay[] => ((huddle) => (huddle === undefined ? [] : othersPlaysFor(app.huddle.line.entries(), huddle)))(app.huddle.now())
+  /** One of the others' plays a person asked to let go of from the list, until they say yes or no. */
+  const [dismissing, setDismissing] = createSignal<HuddlePlay | undefined>(undefined)
+  const dismiss = (shown: HuddlePlay): void => {
+    setDismissing(undefined)
+    const huddle = app.huddle.now()
+    if (huddle === undefined) return
+    dismissHuddlePlay(app.services.preferences, huddle, shown.post.member, shown.post.play.id)
+    app.huddle.changed()
+    if (props.place.kind === "live-huddle-play" && props.place.member === shown.post.member && props.place.playId === shown.post.play.id) moves.go({ kind: "live" })
+  }
   /** Whether ノリ打ち is open. */
   const [huddling, setHuddling] = createSignal(false)
   /** The play a person asked to send, while they are asked where to. */
@@ -260,6 +271,7 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
                     shown={shown}
                     selected={props.place.kind === "live-huddle-play" && props.place.member === shown.post.member && props.place.playId === shown.post.play.id}
                     onSelect={() => moves.go({ kind: "live-huddle-play", member: shown.post.member, playId: shown.post.play.id })}
+                    onDismiss={() => setDismissing(shown)}
                   />
                 )}
               </For>
@@ -280,6 +292,22 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
       >
         <p>{((draft) => (draft === undefined ? "" : draftName(draft, app.machineNames())))(abandoning())}</p>
         <p>{abandoning()?.recorded === undefined ? "ここまでの記録は帳簿に書かれずに消えます。元には戻せません。" : "本日の稼働から外します。帳簿に記帳した分はそのまま残ります。"}</p>
+        <Unhatched>
+          <Show when={app.huddle.now() !== undefined && abandoning()?.received === undefined}>
+            <p>{HUDDLE_GIVEN_UP}</p>
+          </Show>
+        </Unhatched>
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={dismissing() !== undefined}
+        title={HUDDLE_DISMISS_ASK}
+        confirm={HUDDLE_DISMISS}
+        decline="やめる"
+        onConfirmed={() => ((shown) => shown !== undefined && dismiss(shown))(dismissing())}
+        onDeclined={() => setDismissing(undefined)}
+      >
+        <p>{((shown) => (shown === undefined ? "" : `${shown.post.name}・${draftName(shown.post.play, app.machineNames())}`))(dismissing())}</p>
+        <p>{HUDDLE_DISMISS_SAYS}</p>
       </ConfirmDialog>
     </SidePanel>
   )

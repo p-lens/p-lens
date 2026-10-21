@@ -15,7 +15,12 @@ export interface Huddle {
   readonly member: string
   /** What this person is called in the huddle, as they said. */
   readonly name: string
+  /** The others' plays this device let go of from its own list, each a member and a play's id (`huddlePlayKey`): theirs to keep, gone from here alone. */
+  readonly dismissed: readonly string[]
 }
+
+/** One of the others' plays as the device names it: who showed it, and its id. */
+export const huddlePlayKey = (member: string, playId: string): string => `${member} ${playId}`
 
 /** The longest a name in a huddle may be: a card's heading, on a phone. */
 export const HUDDLE_NAME_LENGTH = 12
@@ -50,16 +55,20 @@ export const huddleText = (huddle: Huddle): string => JSON.stringify(huddle)
 
 const isText = (value: unknown): value is string => typeof value === "string"
 
+/** What was let go of, as kept: none where a device kept no list, as one that joined before any could be. */
+const dismissedOf = (kept: unknown): readonly string[] | undefined => (kept === undefined ? [] : Array.isArray(kept) && kept.every(isText) ? kept : undefined)
+
 /** A huddle read back from what the device kept, or none where it is not one. */
 export const readHuddle = (written: string | undefined): Huddle | undefined => {
   if (written === undefined) return undefined
   try {
     const kept: unknown = JSON.parse(written)
     if (typeof kept !== "object" || kept === null) return undefined
-    const { secret, businessDay, member, name } = kept as Readonly<Record<string, unknown>>
+    const { secret, businessDay, member, name, dismissed } = kept as Readonly<Record<string, unknown>>
     const day = isText(businessDay) ? parseIsoDate(businessDay) : undefined
-    return isText(secret) && SECRET.test(secret) && day?.ok === true && isText(member) && member !== "" && isText(name) && huddleNameOf(name) === name
-      ? { secret, businessDay: day.value, member, name }
+    const letGo = dismissedOf(dismissed)
+    return isText(secret) && SECRET.test(secret) && day?.ok === true && isText(member) && member !== "" && isText(name) && huddleNameOf(name) === name && letGo !== undefined
+      ? { secret, businessDay: day.value, member, name, dismissed: letGo }
       : undefined
   } catch {
     return undefined

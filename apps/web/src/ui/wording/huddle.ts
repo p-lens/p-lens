@@ -9,6 +9,14 @@ export const HUDDLE_STANDINGS: Readonly<Record<HuddleStanding, string | undefine
 /** The mark of one of the others' plays they have left for another machine. */
 export const HUDDLE_MOVED = "移動"
 
+/** Letting one of the others' plays go from this device's list: what its cross is called, what is asked, and what is said of it. */
+export const HUDDLE_DISMISS = "一覧から消す"
+export const HUDDLE_DISMISS_ASK = "この稼働を一覧から消しますか？"
+export const HUDDLE_DISMISS_SAYS = "この端末の一覧から消すだけで、仲間の記録はそのまま残ります。元には戻せません。"
+
+/** What giving up one's own play says in a huddle: the others let it go too. */
+export const HUDDLE_GIVEN_UP = "ノリ打ちの仲間の画面からも消えます。"
+
 /** What is said over one of the others' plays, opened: it is theirs to write, and only to be looked at here. */
 export const HUDDLE_WATCHING = "仲間の稼働です。見るだけで、ここからは書き込めません。"
 

@@ -28,19 +28,21 @@ const MARKS: Readonly<Record<BorderGrade, { readonly shape: () => JSX.Element; r
 /** A mark that says where the play stands against its border and how far, by its shape and colour and, for whoever cannot see them, in words. */
 function StandingMark(props: { readonly mark: BorderMark }): JSX.Element {
   return (
-    <span role="img" aria-label={borderMarkSays(props.mark)} title={borderMarkSays(props.mark)} class={`mr-0.5 align-middle text-xs ${MARKS[props.mark.grade].look}`}>
+    <span role="img" aria-label={borderMarkSays(props.mark)} title={borderMarkSays(props.mark)} class={`ml-1 align-middle text-xs ${MARKS[props.mark.grade].look}`}>
       {MARKS[props.mark.grade].shape()}
     </span>
   )
 }
 
-/** One figure under its name, small enough that three sit side by side on a phone: the figures must leave room for the readings under them. What it is given to wear stands before its value. */
+/** One figure under its name, small enough that three sit side by side on a phone: the figures must leave room for the readings under them. What it is given to wear stands after its name. */
 function Tile(props: { readonly label: string; readonly value: string; readonly unit?: string; readonly wears?: JSX.Element }): JSX.Element {
   return (
     <div class="flex min-w-0 flex-col rounded-md border border-border px-2 py-1.5">
-      <dt class="truncate text-[10px] font-bold tracking-wide text-text-muted">{props.label}</dt>
-      <dd class="truncate text-base font-bold tabular-nums text-text-primary">
+      <dt class="truncate text-[10px] font-bold tracking-wide text-text-muted">
+        {props.label}
         {props.wears}
+      </dt>
+      <dd class="truncate text-base font-bold tabular-nums text-text-primary">
         {props.value}
         <Show when={props.unit}>
           <span class="ml-0.5 text-[10px] font-normal text-text-muted">{props.unit}</span>
@@ -61,16 +63,16 @@ function Tile(props: { readonly label: string; readonly value: string; readonly 
  * the one read against the other.
  *
  * Folded, as a play is until a person unfolds it, it is the three figures
- * anyone reads first — cash spent, balls drawn, the spin performance —
- * and the spin performance wears a mark that says where the play stands
- * against its border, which is itself out of sight, and how far: graded
+ * anyone reads first — cash spent, balls drawn, the spin performance.
+ * Folded or not, the spin performance's name wears a mark after it that
+ * says where the play stands against its border, and how far: graded
  * by what a spin is worth over an hour, never by the spin performance set
  * against the border (`borderMarkOf`) — a gold crown, a gold star that
  * shines, a gold or red star, a purple,
  * green or blue triangle above it, a yellow one pointing down at it or a
  * little under, a red one below, the gold ones only once 300 spins have
  * been measured over 90 minutes; none where the play has no worth yet.
- * Unfolded, the border is there to be read, and the mark is not. What the
+ * Unfolded, the border is there to be read as well. What the
  * play is worth has its tiles from the start, each holding the shape of
  * its figure with nothing in it until a reading gives one: a figure
  * arriving changes a tile, and never the lay of the screen.
@@ -94,7 +96,7 @@ export function LiveFigures(props: {
   }
   const theoretical = () =>
     props.formula === undefined || props.consumption === undefined ? undefined : playTheoreticalValue(props.formula.figures, props.terms, props.consumption)
-  const mark = (): BorderMark | undefined => (props.folded ? borderMarkOf(theoretical()?.yenPerSpin, { spins: props.consumption?.measured?.spins ?? 0, minutes: props.minutesPlayed }) : undefined)
+  const mark = (): BorderMark | undefined => borderMarkOf(theoretical()?.yenPerSpin, { spins: props.consumption?.measured?.spins ?? 0, minutes: props.minutesPlayed })
   return (
     <section class="flex flex-col gap-2">
       <dl class="grid grid-cols-3 gap-1.5" classList={{ "sm:grid-cols-6": !props.folded }}>

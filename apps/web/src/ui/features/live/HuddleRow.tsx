@@ -5,8 +5,10 @@ import type { HuddlePlay } from "../../../core/huddle/post"
 import { huddleStandingOf, jackpotStreakOf } from "../../../core/huddle/standing"
 import { parlorOf } from "../../../core/live-play/draft"
 import { useApp } from "../../context"
+import { CloseIcon } from "../../primitives/icons"
+import { createLongPress } from "../../primitives/long-press"
 import { formatMoment } from "../../wording/dates"
-import { HUDDLE_MOVED, HUDDLE_STANDINGS } from "../../wording/huddle"
+import { HUDDLE_DISMISS, HUDDLE_MOVED, HUDDLE_STANDINGS } from "../../wording/huddle"
 import { parlorText } from "../../wording/parlor"
 
 /**
@@ -48,26 +50,36 @@ function MarkShown(props: { readonly mark: Mark }): JSX.Element {
 }
 
 /**
- * One of the others' plays in the day's list: who plays it, as a chip, so
- * that it is not taken for a play sent to this device, on what and where,
- * and a mark for a jackpot or 時短 with the jackpots won in a row, a play
- * over or one left. Pressed, it
- * opens to be looked at; it is not held, sent or given up.
+ * One of the others' plays in the day's list: on what, with a mark for a
+ * jackpot or 時短 and the jackpots won in a row, a play over or one left;
+ * where and since when; and on the third line who plays it, where a play
+ * sent to this device names its sender — but as a chip, so that it is not
+ * taken for one, and with the line's width to itself. Pressed, it opens to
+ * be looked at; held — or by a small cross where a pointer hovers — it asks
+ * to be let go of from this device's list alone. It is not sent.
  */
-export function HuddleRow(props: { readonly shown: HuddlePlay; readonly selected: boolean; readonly onSelect: () => void }): JSX.Element {
+export function HuddleRow(props: { readonly shown: HuddlePlay; readonly selected: boolean; readonly onSelect: () => void; readonly onDismiss: () => void }): JSX.Element {
   const app = useApp()
+  const hold = createLongPress(() => props.onDismiss())
   const play = () => props.shown.post.play
   return (
-    <li>
+    <li class="group relative">
       <button
         type="button"
         aria-current={props.selected ? "page" : undefined}
-        onClick={() => props.onSelect()}
-        class="flex w-full flex-col gap-0.5 rounded px-2 py-1.5 text-left transition-colors"
+        onClick={() => {
+          if (!hold.wasLong()) props.onSelect()
+        }}
+        onPointerDown={hold.onPointerDown}
+        onPointerMove={hold.onPointerMove}
+        onPointerUp={hold.onPointerUp}
+        onPointerLeave={hold.onPointerLeave}
+        onPointerCancel={hold.onPointerCancel}
+        onContextMenu={hold.onContextMenu}
+        class="flex w-full select-none flex-col gap-0.5 rounded px-2 py-1.5 text-left transition-colors [-webkit-touch-callout:none]"
         classList={{ "bg-surface-3 text-text-primary": props.selected, "text-text-muted hover:bg-surface-3/60 hover:text-text-secondary": !props.selected }}
       >
         <span class="flex min-w-0 items-center gap-1.5 text-[15px]">
-          <span class="max-w-[7em] shrink-0 truncate rounded-full bg-accent/30 px-2 text-[11px] font-semibold leading-5 text-text-primary">{props.shown.post.name}</span>
           <span class="truncate">
             {shownNameOf(app.machineNames(), play().machine)}
             {play().cabinetNumber === undefined ? "" : ` ${play().cabinetNumber}番台`}
@@ -79,6 +91,18 @@ export function HuddleRow(props: { readonly shown: HuddlePlay; readonly selected
         <span class="truncate text-xs text-text-muted">
           {parlorText(parlorOf(play()))}・{formatMoment(play().startedAt)}〜
         </span>
+        <span class="flex min-w-0">
+          <span class="truncate rounded-full bg-accent/30 px-2 text-[11px] font-semibold leading-5 text-text-primary">{props.shown.post.name}</span>
+        </span>
+      </button>
+      <button
+        type="button"
+        aria-label={HUDDLE_DISMISS}
+        title={HUDDLE_DISMISS}
+        onClick={() => props.onDismiss()}
+        class="absolute bottom-0.5 right-0.5 hidden size-5 items-center justify-center rounded text-text-muted hover:bg-surface-0 hover:text-text-primary focus-visible:flex group-hover:flex [&_svg]:size-3.5"
+      >
+        <CloseIcon label="" />
       </button>
     </li>
   )

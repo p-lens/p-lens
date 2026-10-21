@@ -2134,7 +2134,8 @@ wherever its player records it, as it would be without the huddle.
 - **A post** (`core/huddle/post`) is a play as its device has it — its
   readings, where and on what it is played, what it is weighed by —
   without its book, its marks or its history, under the member and the
-  name. It is packed by DEFLATE (`Packer`) and sealed, a commit of its
+  name. It is an entry on the line (`HuddleEntry`), as a play taken back
+  is. It is packed by DEFLATE (`Packer`) and sealed, a commit of its
   own on the line: a play shown again and again stays far under what
   the relay counts as a large sending.
 - **Shown and read wherever the app is** (`HuddleRunner`, once, in the
@@ -2143,11 +2144,25 @@ wherever its player records it, as it would be without the huddle.
   from someone else is theirs to show — and the line is read at once and
   every 15 seconds. What has been read, and which log of each play was
   last shown, are the page's (`HuddleLine`, on the context).
+- **A play given up is taken back** (`HuddleWithdrawal`, `givenUp`,
+  `withdrawFromHuddle`): an entry of its id alone, under who took it
+  back, so the others let it go too — a play begun on the wrong machine,
+  say. The runner takes back each play the line says this device showed
+  and it no longer keeps, whichever screen gave it up and whenever, the
+  page loaded again or not: what it showed is on the line to be read.
+- **Let go of from one's own list** (`dismissHuddlePlay`,
+  `Huddle.dismissed`, `othersPlaysFor`): one of the others' plays, held or
+  by its cross, goes from this device's list alone, kept with the huddle
+  so that it does not come back as the line is read again, and forgotten
+  with it as the day turns. Nothing is put on the line: theirs and the
+  others' stay. Leaving a huddle takes nothing back either, so a play is
+  there to be looked over after the fun is had.
 - **In the day's list, not on one's own screen.** Each of the others'
   plays is the latest post of it (`othersPlays`), the others in the order
   they first showed anything, each one's plays newest shown first: a play
   left for another machine stays, marked 移動, and the one they are on is
-  their latest. A row (`HuddleRow`) says who as a chip, so it is never
+  their latest. A row (`HuddleRow`) says who as a chip on its third line, where a
+  sent play names its sender, so it is never
   taken for a play sent to this device, and marks where the play stands
   (`huddleStandingOf`): 大当り中 where its last reading won a jackpot (an
   AT, on a pachislot AT machine), 時短中 where a pachinko play's last

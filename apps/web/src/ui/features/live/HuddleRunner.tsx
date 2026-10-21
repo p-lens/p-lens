@@ -1,12 +1,13 @@
 import { createEffect, createMemo, on, onCleanup, type JSX } from "solid-js"
 
 import type { Outcome } from "../../../application/errors"
-import { readHuddleAfter, showToHuddle } from "../../../application/huddle"
+import { readHuddleAfter, showToHuddle, withdrawFromHuddle } from "../../../application/huddle"
 import { loadTodaysPlays } from "../../../application/live-play"
 import type { Huddle } from "../../../core/huddle/huddle"
-import { othersPlays } from "../../../core/huddle/post"
+import { givenUp, othersPlaysFor } from "../../../core/huddle/post"
 import { jackpotsNow } from "../../../core/huddle/standing"
 import type { PlayDraft } from "../../../core/live-play/draft"
+import type { PlayId } from "../../../core/play/play"
 import { useApp } from "../../context"
 import type { Place } from "../../navigation/place"
 import { huddlePortsOf } from "./huddle-ports"
@@ -26,8 +27,9 @@ const changedSince = (drafts: readonly PlayDraft[], shown: ReadonlyMap<string, s
  * line read at once and every 15 seconds after, into the page's
  * `HuddleLine`, and each of the day's own plays shown to the others when
  * it changes — at once, or 20 seconds after the last showing, the latest
- * of each then. Nothing is read or shown where the device is in no huddle,
- * and nothing is drawn.
+ * of each then — and each it showed and has since given up taken back, so
+ * the others let it go too, whichever screen gave it up. Nothing is read
+ * or shown where the device is in no huddle, and nothing is drawn.
  *
  * It also says when the way back to the day's list is urged: as who of the
  * others is in a jackpot changes — one wins one, one's ends — and not while
@@ -49,7 +51,7 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
       held.lineEnd = 0
       held.shownAt = 0
       held.shown = new Map()
-      line.setPosts([])
+      line.setEntries([])
       line.setProblem(undefined)
       line.setUrged(false)
     }
@@ -71,7 +73,7 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
     if (!settled(huddle, found) || !found.ok) return
     held.read = found.value.head
     held.lineEnd = Math.max(held.lineEnd, found.value.head)
-    if (found.value.posts.length > 0) line.setPosts((so) => [...so, ...found.value.posts])
+    if (found.value.entries.length > 0) line.setEntries((so) => [...so, ...found.value.entries])
   }
 
   const showEach = async (huddle: Huddle, drafts: readonly PlayDraft[]): Promise<void> => {
@@ -84,6 +86,15 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
     await showEach(huddle, rest)
   }
 
+  const withdrawEach = async (huddle: Huddle, playIds: readonly PlayId[]): Promise<void> => {
+    const [playId, ...rest] = playIds
+    if (playId === undefined) return
+    const withdrawn = await withdrawFromHuddle(ports, huddle, playId, held.lineEnd)
+    if (!settled(huddle, withdrawn) || !withdrawn.ok) return
+    held.lineEnd = Math.max(held.lineEnd, withdrawn.value)
+    await withdrawEach(huddle, rest)
+  }
+
   const show = async (): Promise<void> => {
     waiting.timer = undefined
     const huddle = joined()
@@ -91,6 +102,7 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
     const found = await loadTodaysPlays(app.services.drafts, app.services.businessDay())
     if (!found.ok) return
     held.shownAt = Date.now()
+    await withdrawEach(huddle, givenUp(line.entries(), huddle.member, new Set(found.value.map((draft) => draft.id))))
     await showEach(huddle, changedSince(found.value, held.shown))
   }
 
@@ -104,7 +116,7 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
     void read()
     showSoon()
   }))
-  const jackpots = createMemo(() => ((huddle) => (huddle === undefined ? "" : jackpotsNow(othersPlays(line.posts(), huddle.member))))(app.huddle.now()))
+  const jackpots = createMemo(() => ((huddle) => (huddle === undefined ? "" : jackpotsNow(othersPlaysFor(line.entries(), huddle))))(app.huddle.now()))
   const onOwnPlay = (): boolean => props.place.kind === "live-play" || props.place.kind === "live-record" || props.place.kind === "live-cabinet"
   createEffect(on(jackpots, (now, before) => {
     if (before !== undefined && now !== before && onOwnPlay()) line.setUrged(true)

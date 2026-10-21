@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test"
 
-import { huddleNow, joinHuddle, leaveHuddle, readHuddleAfter, showToHuddle, startHuddle, type HuddlePorts } from "../../src/application/huddle"
+import { dismissHuddlePlay, huddleNow, joinHuddle, leaveHuddle, readHuddleAfter, showToHuddle, startHuddle, withdrawFromHuddle, type HuddlePorts } from "../../src/application/huddle"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { huddleCodeOf, type Huddle } from "../../src/core/huddle/huddle"
+import { isShown, othersPlays } from "../../src/core/huddle/post"
 import type { PachinkoDraft } from "../../src/core/live-play/draft"
 import type { PlayId } from "../../src/core/play/play"
 import { createDeflatePacker } from "../../src/sync/deflate/deflate-packer"
@@ -58,24 +59,39 @@ describe("a huddle", () => {
 
     const read = unwrapped(await readHuddleAfter(theirs, joined, 0))
     expect(read.head).toBe(3)
-    expect(read.posts.map((post) => [post.name, post.play.machine])).toEqual([
+    expect(read.entries.filter(isShown).map((post) => [post.name, post.play.machine])).toEqual([
       ["アキラ", "made-up"],
       ["ミサト", "theirs"],
       ["アキラ", "made-up"],
     ])
-    expect(unwrapped(await readHuddleAfter(theirs, joined, 2)).posts.map((post) => post.play.log)).toEqual(['{"spins":0,"outlay":0}\n{"spins":20,"outlay":1000}\n'])
+    expect(unwrapped(await readHuddleAfter(theirs, joined, 2)).entries.filter(isShown).map((post) => post.play.log)).toEqual(['{"spins":0,"outlay":0}\n{"spins":20,"outlay":1000}\n'])
+  })
+
+  test("lets a play taken back go from the others' lists", async () => {
+    const relay = memoryRelay()
+    const mine = deviceOn(relay, ["member-a", "commit-a1-xxxxxxxxxxxx", "commit-a2-xxxxxxxxxxxx"])
+    const theirs = deviceOn(relay, ["member-b"])
+    const begun: Huddle = unwrapped(startHuddle(mine, "アキラ", DAY))
+    const joined: Huddle = unwrapped(joinHuddle(theirs, huddleCodeOf(begun), "ミサト", DAY))
+    await showToHuddle(mine, begun, DRAFT, 0)
+    expect(othersPlays(unwrapped(await readHuddleAfter(theirs, joined, 0)).entries, joined.member)).toHaveLength(1)
+    expect(unwrapped(await withdrawFromHuddle(mine, begun, DRAFT.id, 1))).toBe(2)
+    expect(othersPlays(unwrapped(await readHuddleAfter(theirs, joined, 0)).entries, joined.member)).toEqual([])
   })
 
   test("is an empty line until anything is shown on it", async () => {
     const device = deviceOn(memoryRelay(), ["member-a"])
     const begun = unwrapped(startHuddle(device, "アキラ", DAY))
-    expect(unwrapped(await readHuddleAfter(device, begun, 0))).toEqual({ head: 0, posts: [] })
+    expect(unwrapped(await readHuddleAfter(device, begun, 0))).toEqual({ head: 0, entries: [] })
   })
 
   test("keeps a device the member it was when it reads the same code again, and is let go of on leaving", () => {
     const device = deviceOn(memoryRelay(), ["member-a", "member-b"])
     const begun = unwrapped(startHuddle(device, "アキラ", DAY))
-    expect(unwrapped(joinHuddle(device, huddleCodeOf(begun), "アキ", DAY)).member).toBe("member-a")
+    dismissHuddlePlay(device.preferences, begun, "member-c", "p-9" as PlayId)
+    const again = unwrapped(joinHuddle(device, huddleCodeOf(begun), "アキ", DAY))
+    expect([again.member, again.dismissed]).toEqual(["member-a", ["member-c p-9"]])
+    expect(huddleNow(device.preferences, DAY)?.dismissed).toEqual(["member-c p-9"])
     leaveHuddle(device.preferences)
     expect(huddleNow(device.preferences, DAY)).toBeUndefined()
   })

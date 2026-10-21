@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test"
 import type { BookId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { huddleCodeOf, huddleNameOf, huddleOn, huddleText, readHuddle, secretOfHuddleCode, type Huddle } from "../../src/core/huddle/huddle"
-import { huddlePostOf, huddlePostText, othersPlays, readHuddlePost, type HuddlePost } from "../../src/core/huddle/post"
+import { givenUp, huddleEntryText, huddlePostOf, huddleWithdrawalOf, othersPlays, othersPlaysFor, readHuddleEntry, type HuddlePost } from "../../src/core/huddle/post"
 import { huddleStandingOf, jackpotStreakOf, jackpotsNow } from "../../src/core/huddle/standing"
 import type { PachinkoDraft } from "../../src/core/live-play/draft"
 import type { PlayTerms } from "../../src/core/parlor/terms"
@@ -12,7 +12,7 @@ import { MALEHAN } from "../support/values"
 
 const SECRET = "a".repeat(43)
 const DAY = "2026-10-20" as IsoDate
-const HUDDLE: Huddle = { secret: SECRET, businessDay: DAY, member: "me", name: "アキラ" }
+const HUDDLE: Huddle = { secret: SECRET, businessDay: DAY, member: "me", name: "アキラ", dismissed: [] }
 
 const TERMS: PlayTerms = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 250, deducted: 250 } }
 
@@ -63,6 +63,14 @@ describe("the huddle a device is in", () => {
     expect(huddleOn(HUDDLE, "2026-10-21" as IsoDate)).toBeUndefined()
   })
 
+  test("keeps the others' plays it let go of, and has let go of none where it kept no list", () => {
+    const letGo = { ...HUDDLE, dismissed: ["b p-1"] }
+    expect(readHuddle(huddleText(letGo))).toEqual(letGo)
+    const { dismissed: _none, ...before } = HUDDLE
+    expect(readHuddle(JSON.stringify(before))).toEqual(HUDDLE)
+    expect(readHuddle(JSON.stringify({ ...HUDDLE, dismissed: [1] }))).toBeUndefined()
+  })
+
   test("is none where what was kept is not one", () => {
     expect(readHuddle(undefined)).toBeUndefined()
     expect(readHuddle("{")).toBeUndefined()
@@ -77,14 +85,21 @@ describe("a play shown to a huddle", () => {
     expect(shown.member).toBe("me")
     expect(shown.name).toBe("アキラ")
     expect(Object.keys(shown.play).toSorted()).toEqual(["cabinetNumber", "date", "gameKind", "id", "log", "machine", "pachinko", "startedAt", "venue"])
-    expect(readHuddlePost(huddlePostText(shown))).toEqual(shown)
+    expect(readHuddleEntry(huddleEntryText(shown))).toEqual(shown)
+  })
+
+  test("taken back is its id alone, under who took it back", () => {
+    const withdrawn = huddleWithdrawalOf("p-1" as PlayId, HUDDLE, "2026-10-20T02:00:00.000Z")
+    expect(withdrawn).toEqual({ member: "me", name: "アキラ", postedAt: "2026-10-20T02:00:00.000Z", withdrawn: "p-1" as PlayId })
+    expect(readHuddleEntry(huddleEntryText(withdrawn))).toEqual(withdrawn)
+    expect(readHuddleEntry(JSON.stringify({ format: 1, ...withdrawn, play: post("a", "t").play }))).toBeUndefined()
   })
 
   test("is none where its text is not one this app reads", () => {
-    expect(readHuddlePost("not json")).toBeUndefined()
-    expect(readHuddlePost(JSON.stringify({ format: 2, ...post("a", "t") }))).toBeUndefined()
-    expect(readHuddlePost(JSON.stringify({ format: 1, ...post("a", "t"), more: 1 }))).toBeUndefined()
-    expect(readHuddlePost(JSON.stringify({ format: 1, ...post("a", "t"), play: { id: "p" } }))).toBeUndefined()
+    expect(readHuddleEntry("not json")).toBeUndefined()
+    expect(readHuddleEntry(JSON.stringify({ format: 2, ...post("a", "t") }))).toBeUndefined()
+    expect(readHuddleEntry(JSON.stringify({ format: 1, ...post("a", "t"), more: 1 }))).toBeUndefined()
+    expect(readHuddleEntry(JSON.stringify({ format: 1, ...post("a", "t"), play: { id: "p" } }))).toBeUndefined()
   })
 })
 
@@ -103,6 +118,16 @@ describe("the others' plays", () => {
       ["moved to", true],
       ["left", false],
     ])
+  })
+
+  test("leave out a play taken back, and only that one", () => {
+    const posts = [post("b", "2026-10-20T01:00:00Z", "wrong machine"), post("b", "2026-10-20T01:05:00Z", "right machine", "p-2"), { member: "b", name: "b", postedAt: "2026-10-20T01:06:00Z", withdrawn: "p-1" as PlayId }]
+    expect(othersPlays(posts, "me").map(({ post: shown, latest }) => [shown.play.machine, latest])).toEqual([["right machine", true]])
+  })
+
+  test("in this device's list leave out those it let go of, and only those", () => {
+    const posts = [post("b", "2026-10-20T01:00:00Z", "let go"), post("b", "2026-10-20T01:05:00Z", "kept", "p-2")]
+    expect(othersPlaysFor(posts, { ...HUDDLE, dismissed: ["b p-1"] }).map(({ post: shown }) => shown.play.machine)).toEqual(["kept"])
   })
 
   test("keep the later of two showings of a play that arrived out of order", () => {
@@ -158,5 +183,12 @@ describe("the jackpots one of the others' plays won in a row", () => {
   test("begin again at a reading of regular games, and are none before a jackpot", () => {
     expect(jackpotStreakOf(withLog('{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot"}}\n{"spins":300,"outlay":6000}\n{"spins":350,"outlay":7000,"event":{"kind":"jackpot"}}\n'))).toBe(1)
     expect(jackpotStreakOf(withLog('{"spins":0,"outlay":0}\n{"spins":30,"outlay":1000}\n'))).toBe(0)
+  })
+})
+
+describe("the plays this device gave up", () => {
+  test("are those it showed, never took back and no longer keeps", () => {
+    const entries = [post("me", "2026-10-20T01:00:00Z"), post("me", "2026-10-20T01:01:00Z", "made-up", "p-2"), post("me", "2026-10-20T01:02:00Z", "made-up", "p-3"), post("b", "2026-10-20T01:03:00Z", "made-up", "p-4"), { member: "me", name: "me", postedAt: "2026-10-20T01:04:00Z", withdrawn: "p-3" as PlayId }]
+    expect(givenUp(entries, "me", new Set(["p-2"]))).toEqual(["p-1" as PlayId])
   })
 })
