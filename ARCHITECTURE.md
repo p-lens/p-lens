@@ -2183,8 +2183,10 @@ wherever its player records it, as it would be without the huddle.
   in a jackpot on the play they are on changes — one wins one, one's ends,
   another wins one while the first goes on — and not while one goes on.
   In a huddle of four to six, each turn urges once. On one's own play's
-  screen the back button, in a narrow window, becomes a red <<< jabbing at
-  the list (`ViewHeader`'s `urged`, the `urge` keyframes), still where a
+  screen the back button, in a narrow window, becomes a red <<< — the
+  back chevron three times over, each as large as it alone
+  (`UrgedBackIcon`) — jabbing at the list (`ViewHeader`'s `urged`, the
+  `urge` keyframes), still where a
   device asks for less motion, until the list is looked at — anywhere but
   one's own play — so a jackpot won and over before one looks is not
   missed.

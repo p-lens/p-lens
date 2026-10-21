@@ -277,6 +277,13 @@ export const BackIcon = (props: { readonly label: string }) => (
   </Icon>
 )
 
+/** The way back, urged on: the back chevron three times over, each as large as the one alone, drawn a little closer together. */
+export const UrgedBackIcon = (props: { readonly label: string }) => (
+  <svg viewBox="0 0 34 24" width="34" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label={props.label}>
+    <path d="M13 18l-6-6 6-6M20 18l-6-6 6-6M27 18l-6-6 6-6" />
+  </svg>
+)
+
 export const CloseIcon = (props: { readonly label: string }) => (
   <Icon label={props.label}>
     <path d="M6 6l12 12M18 6L6 18" />

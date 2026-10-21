@@ -1,7 +1,7 @@
 import { Show, type JSX } from "solid-js"
 import { Breadcrumb, type Crumb, useArrangement } from "solid-gathering-shell"
 
-import { BackIcon } from "../../primitives/icons"
+import { BackIcon, UrgedBackIcon } from "../../primitives/icons"
 import { useMoves } from "../../navigation/moves"
 import { parentOf, type Place } from "../../navigation/place"
 
@@ -18,7 +18,7 @@ export function ViewHeader(props: {
   readonly title: string
   readonly trail?: readonly Crumb[] | undefined
   readonly actions?: JSX.Element
-  /** Whether the way back is urged on: drawn as <<<, red, jabbing at the list, while something there wants looking at. */
+  /** Whether the way back is urged on: drawn as <<<, each as large as the chevron alone, red, jabbing at the list, while something there wants looking at. */
   readonly urged?: boolean
 }): JSX.Element {
   const arrangement = useArrangement()
@@ -28,12 +28,13 @@ export function ViewHeader(props: {
       <Show when={arrangement() === "narrow" && parentOf(props.place) !== undefined}>
         <button
           type="button"
-          class="-ml-2 flex size-8 items-center justify-center rounded text-text-secondary hover:bg-surface-3 hover:text-text-primary"
+          class="-ml-2 flex h-8 items-center justify-center rounded text-text-secondary hover:bg-surface-3 hover:text-text-primary"
+          classList={{ "w-8": props.urged !== true, "px-0.5": props.urged === true }}
           onClick={() => moves.up(props.place)}
         >
           <Show when={props.urged === true} fallback={<BackIcon label="戻る" />}>
-            <span aria-label="戻る" class="font-bold tracking-tighter text-negative animate-[urge_1.2s_ease-out_infinite] motion-reduce:animate-none">
-              &lt;&lt;&lt;
+            <span class="flex text-negative animate-[urge_1.2s_ease-out_infinite] motion-reduce:animate-none">
+              <UrgedBackIcon label="戻る" />
             </span>
           </Show>
         </button>
