@@ -2186,7 +2186,9 @@ wherever its player records it, as it would be without the huddle.
   In a huddle of four to six, each turn urges once: red where someone
   won one (`huddleTurnOf`, `won`), in the text's own colour where only
   ones that went on ended (`ended`), a win staying red until it is looked
-  at (`louderTurn`), the jab the same either way. On one's own play's
+  at (`louderTurn`): a red one swells to 1.3 and springs back twice, as a
+  heartbeat does (`urge-loud`), a quiet one only jabs; each swells from
+  its right end, so that the swelling too pushes toward the list. On one's own play's
   screen the back button, in a narrow window, becomes a <<< — the
   back chevron three times over, each as large as it alone
   (`UrgedBackIcon`) — jabbing at the list (`ViewHeader`'s `urged`, the

@@ -8,7 +8,11 @@ import { parentOf, type Place } from "../../navigation/place"
 /** How loudly the way back is urged: hot, or only to be looked at. */
 export type Urge = "loud" | "quiet"
 
-const URGE_LOOKS: Readonly<Record<Urge, string>> = { loud: "text-negative", quiet: "text-text-primary" }
+/** How each urge is drawn: red with a heartbeat where it is hot, in the text's own colour with a jab where it is not; either swells from its right end, so that swelling too pushes toward the list. */
+const URGE_LOOKS: Readonly<Record<Urge, string>> = {
+  loud: "text-negative animate-[urge-loud_1.2s_ease-out_infinite]",
+  quiet: "text-text-primary animate-[urge_1.2s_ease-out_infinite]",
+}
 
 /**
  * The title of what is on screen, with a way back up in a narrow window,
@@ -23,7 +27,7 @@ export function ViewHeader(props: {
   readonly title: string
   readonly trail?: readonly Crumb[] | undefined
   readonly actions?: JSX.Element
-  /** Whether the way back is urged on, and how loud: drawn as <<<, each as large as the chevron alone, jabbing at the list while something there wants looking at — red where it is hot, in the text's own colour where it is not. */
+  /** Whether the way back is urged on, and how loud: drawn as <<<, each as large as the chevron alone, jabbing at the list while something there wants looking at — red and swelling like a heartbeat where it is hot, in the text's own colour where it is not. */
   readonly urged?: Urge | undefined
 }): JSX.Element {
   const arrangement = useArrangement()
@@ -39,7 +43,7 @@ export function ViewHeader(props: {
         >
           <Show when={props.urged} keyed fallback={<BackIcon label="戻る" />}>
             {(urge) => (
-              <span class={`flex animate-[urge_1.2s_ease-out_infinite] motion-reduce:animate-none ${URGE_LOOKS[urge]}`}>
+              <span class={`flex origin-right motion-reduce:animate-none ${URGE_LOOKS[urge]}`}>
                 <UrgedBackIcon label="戻る" />
               </span>
             )}
