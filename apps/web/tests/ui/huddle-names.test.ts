@@ -26,8 +26,8 @@ describe("huddle name suggestions", () => {
     expect(plainDraws.map((draws) => suggestedHuddleName(drawing(draws))).filter((name) => huddleNameOf(name) !== name)).toEqual([])
   })
 
-  test("every mood has animals and beasts enough beside it for a redraw to change the name", () => {
-    expect(HUDDLE_NAME_MOODS.filter((mood) => fittingBeside(mood, HUDDLE_NAME_ANIMALS) < 2 || fittingBeside(mood, HUDDLE_NAME_BEASTS) < 2)).toEqual([])
+  test("every mood has an animal and a beast that fit beside it", () => {
+    expect(HUDDLE_NAME_MOODS.filter((mood) => fittingBeside(mood, HUDDLE_NAME_ANIMALS) === 0 || fittingBeside(mood, HUDDLE_NAME_BEASTS) === 0)).toEqual([])
   })
 
   test("nothing is offered twice", () => {
@@ -49,14 +49,5 @@ describe("huddle name suggestions", () => {
   test("a first draw within the beast share gives a mood and a beast", () => {
     expect(suggestedHuddleName(drawing([HUDDLE_JOKE_SHARE, 0, 0]))).toBe(`${HUDDLE_NAME_MOODS.at(0) ?? ""}${HUDDLE_NAME_BEASTS.at(0) ?? ""}`)
     expect(suggestedHuddleName(drawing([HUDDLE_JOKE_SHARE + HUDDLE_BEAST_SHARE - 0.000_001, 0, 0.999_999]))).toBe(`${HUDDLE_NAME_MOODS.at(0) ?? ""}${HUDDLE_NAME_BEASTS.at(-1) ?? ""}`)
-  })
-})
-
-describe("drawing another suggestion", () => {
-  test("never gives back the name the field holds", () => {
-    const joke = HUDDLE_JOKE_NAMES.at(0) ?? ""
-    const plain = `${HUDDLE_NAME_MOODS.at(0) ?? ""}${HUDDLE_NAME_ANIMALS.at(0) ?? ""}`
-    expect(suggestedHuddleName(drawing([0, 0]), joke)).not.toBe(joke)
-    expect(suggestedHuddleName(drawing([HUDDLE_JOKE_SHARE + HUDDLE_BEAST_SHARE, 0, 0]), plain)).not.toBe(plain)
   })
 })

@@ -1,6 +1,6 @@
 import { HUDDLE_NAME_LENGTH } from "../../core/huddle/huddle"
 
-/** Names a huddle offers to go by, so nobody has to think one up: one is drawn as the field's first value, to keep or type over, and the die beside it draws another. Each fits `HUDDLE_NAME_LENGTH`. */
+/** Names a huddle offers to go by, so nobody has to think one up: one is drawn as the field's first value, to keep or type over. Each fits `HUDDLE_NAME_LENGTH`. */
 
 /** The jokes, drawn now and then. */
 export const HUDDLE_JOKE_NAMES: readonly string[] = [
@@ -318,11 +318,11 @@ const fits = (mood: string, kind: string): boolean => [...`${mood}${kind}`].leng
 /** One of `from` at a fraction `drawn` in [0, 1) of the way along it. */
 const at = (from: readonly string[], drawn: number): string => from[Math.floor(drawn * from.length)] ?? from[0] ?? ""
 
-/** A suggestion from `random` — a joke, a mood and a beast, or a mood and an animal, by their shares, the second half always one that fits beside the mood — leaving out the name the field holds so a redraw always changes it. */
-export const suggestedHuddleName = (random: () => number, holding = ""): string => {
+/** A suggestion from `random` — a joke, a mood and a beast, or a mood and an animal, by their shares, the second half always one that fits beside the mood. */
+export const suggestedHuddleName = (random: () => number): string => {
   const drawn = random()
-  if (drawn < HUDDLE_JOKE_SHARE) return at(HUDDLE_JOKE_NAMES.filter((name) => name !== holding), random())
+  if (drawn < HUDDLE_JOKE_SHARE) return at(HUDDLE_JOKE_NAMES, random())
   const kinds = drawn < HUDDLE_JOKE_SHARE + HUDDLE_BEAST_SHARE ? HUDDLE_NAME_BEASTS : HUDDLE_NAME_ANIMALS
   const mood = at(HUDDLE_NAME_MOODS, random())
-  return `${mood}${at(kinds.filter((kind) => fits(mood, kind) && `${mood}${kind}` !== holding), random())}`
+  return `${mood}${at(kinds.filter((kind) => fits(mood, kind)), random())}`
 }

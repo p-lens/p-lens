@@ -49,9 +49,6 @@ export const JOIN_BY_IMAGE = "画像から読み取る"
 /** The field a person says what they are called in a huddle with. */
 export const HUDDLE_NAME = "表示名"
 
-/** The die beside the name, drawing another suggestion. */
-export const HUDDLE_REDRAW_NAME = "別の名前"
-
 /** Why a huddle cannot be begun or joined yet: no name. */
 export const HUDDLE_NAME_NEEDED = "表示名を入れてください。"
 

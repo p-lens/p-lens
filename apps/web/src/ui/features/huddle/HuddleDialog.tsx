@@ -5,7 +5,6 @@ import type { Outcome } from "../../../application/errors"
 import { huddleCodeOf, huddleNameOf, type Huddle } from "../../../core/huddle/huddle"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
-import { DiceIcon } from "../../primitives/icons"
 import { PanelDialog } from "../../primitives/dialog"
 import { QrCode } from "../../primitives/qr-code"
 import { qrInImage } from "../../primitives/qr-image"
@@ -20,7 +19,6 @@ import {
   HUDDLE_NAME_NEEDED,
   HUDDLE_NO_CAMERA,
   HUDDLE_NOT_IN_IMAGE,
-  HUDDLE_REDRAW_NAME,
   HUDDLE_SCANNING,
   HUDDLE_SHOW_CODE,
   JOIN_BY_IMAGE,
@@ -71,25 +69,7 @@ function NewHuddle(props: { readonly onJoined: (made: Outcome<Huddle>) => void }
   return (
     <div class="flex flex-col gap-3">
       <p>{HUDDLE_ABOUT}</p>
-      <div class="flex items-start gap-2">
-        <div class="min-w-0 flex-1">
-          <TextField label={HUDDLE_NAME} value={typed()} onChange={setTyped} required error={nameMissed() ? HUDDLE_NAME_NEEDED : undefined} />
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          class="mt-6 shrink-0"
-          aria-label={HUDDLE_REDRAW_NAME}
-          title={HUDDLE_REDRAW_NAME}
-          onClick={() => {
-            setTyped(suggestedHuddleName(Math.random, typed()))
-            setNameMissed(false)
-          }}
-        >
-          <DiceIcon />
-        </Button>
-      </div>
+      <TextField label={HUDDLE_NAME} value={typed()} onChange={setTyped} required error={nameMissed() ? HUDDLE_NAME_NEEDED : undefined} />
       <Show
         when={scanning()}
         fallback={
