@@ -611,6 +611,16 @@ then deletes the draft; a record the book refuses keeps it.
   the last point the hand was known at (`stretchPerformancesOf`): a folded
   line its whole run, and a jackpot's line the stretch closed by the first
   count after its bonus, `-----` until then.
+- **A bonus counted as it ended says what it paid** (`countedPayoutsOf`,
+  `payoutDifferencesOf`, `payoutRatioOf`): a jackpot counted as it came,
+  followed at once by a line that only counts the balls again — no spin,
+  nothing bought, drawn or drifted — paid the difference between the two
+  counts, not what its machine says. What it paid beyond that (出玉差, on
+  that line) comes to hand there, so an over-entry is never taken for
+  regular games costing less; and the counted bonuses' paid over told, as
+  a ratio, is what every round pays in the play's theoretical value, so
+  an over-entry lowers its border and a slack attacker raises it. It is
+  never asked for: a professional counts there, and nobody else meets it.
 - **The value follows the finish form.** What the play was worth is
   worked out from its log with the line it would finish on — the counter
   and the tokens in hand the form says (`theoreticalValueAtFinish`) — as

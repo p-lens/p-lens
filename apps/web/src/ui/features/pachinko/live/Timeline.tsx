@@ -2,6 +2,7 @@ import { createMemo, createSignal, For, Show, type JSX } from "solid-js"
 
 import { stretchPerformancesOf, type StretchRate } from "../../../../core/pachinko/consumption"
 import { mergeableSpan, type Span } from "../../../../core/pachinko/merging"
+import { payoutDifferencesOf } from "../../../../core/pachinko/payout"
 import type { PlayTerms } from "../../../../core/parlor/terms"
 import type { Checkpoint } from "../../../../core/play-log/checkpoint"
 import { ConfirmPopover } from "../../../primitives/popover"
@@ -26,24 +27,28 @@ interface Step {
   readonly rented: number
   readonly replayed: number
   readonly supported: number
+  /** What a bonus counted as it ended paid beyond what it was told to, on the line it was counted at (`payoutDifferencesOf`): below nought where it paid less. */
+  readonly overPaid: number | undefined
 }
 
 const isFinish = (checkpoint: Checkpoint): boolean => checkpoint.event?.kind === "finished"
 
 const isReading = (checkpoint: Checkpoint, line: number): boolean => line > 0 && !isFinish(checkpoint) && !(checkpoint.event?.kind === "jackpot" && checkpoint.event.approximate === true)
 
-const stepsOf = (ordered: readonly Checkpoint[]): readonly Step[] =>
-  ordered.reduce<{ readonly steps: readonly Step[]; readonly outlay: number; readonly replay: number; readonly support: number; readonly readings: number }>(
+const stepsOf = (ordered: readonly Checkpoint[]): readonly Step[] => {
+  const differences = payoutDifferencesOf(ordered)
+  return ordered.reduce<{ readonly steps: readonly Step[]; readonly outlay: number; readonly replay: number; readonly support: number; readonly readings: number }>(
     (walked, checkpoint, line) => {
       const outlay = checkpoint.outlay ?? walked.outlay
       const replay = checkpoint.replay ?? walked.replay
       const support = checkpoint.support ?? walked.support
       const reading = isReading(checkpoint, line) ? walked.readings : undefined
-      const step: Step = { checkpoint, seat: line === 0, reading, rented: outlay - walked.outlay, replayed: replay - walked.replay, supported: support - walked.support }
+      const step: Step = { checkpoint, seat: line === 0, reading, rented: outlay - walked.outlay, replayed: replay - walked.replay, supported: support - walked.support, overPaid: differences.get(line) }
       return { steps: [...walked.steps, step], outlay, replay, support, readings: walked.readings + (reading === undefined ? 0 : 1) }
     },
     { steps: [], outlay: 0, replay: 0, support: 0, readings: 0 },
   ).steps
+}
 
 /** What a jackpot's line calls it: its bonus with what it added to the hand, and the jackpots it was won over where they were more than one; or a jackpot whose bonus was not told — found missing, or on a machine that lists none. */
 const jackpotText = (checkpoint: Checkpoint): string | undefined => {
@@ -53,13 +58,14 @@ const jackpotText = (checkpoint: Checkpoint): string | undefined => {
   return event.approximate === true ? `${UNTOLD_JACKPOT}（推定）` : UNTOLD_JACKPOT
 }
 
-/** What a line did to the balls, each where it did anything: rented, drawn, drifted, counted. */
+/** What a line did to the balls, each where it did anything: rented, drawn, drifted, counted, and — counted as a bonus ended — what it paid beyond what it was told to. */
 const ballsText = (step: Step): string =>
   [
     step.rented > 0 ? `貸玉 ¥${formatCount(step.rented)}` : undefined,
     step.replayed > 0 ? `貯玉 ${formatCount(step.replayed)}玉` : undefined,
     step.supported !== 0 ? `電サポ ${signedBalls(step.supported)}` : undefined,
     step.checkpoint.held === undefined ? undefined : `持ち玉 ${formatCount(step.checkpoint.held)}玉`,
+    step.overPaid === undefined ? undefined : `出玉差 ${signedBalls(step.overPaid)}`,
   ]
     .filter((text): text is string => text !== undefined)
     .join("　")

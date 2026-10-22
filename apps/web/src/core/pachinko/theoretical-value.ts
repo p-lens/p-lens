@@ -65,15 +65,21 @@ const costOf = (measured: Measured, terms: PlayTerms): number => {
 const borderAt = (figures: Figures, terms: PlayTerms, yenPerBall: number): number =>
   (yenPerBall / (ballsPerSpin(figures) * tokenValueOf(terms))) * ((terms.rental.tokens * 1000) / terms.rental.yen)
 
+/** The figures as a play's counted bonuses paid them: every round paying as much more, or less, as those counted did than they were told to. */
+const asPaid = (figures: Figures, ratio: number | undefined): Figures => (ratio === undefined ? figures : { ...figures, payoutPerRound: figures.payoutPerRound * ratio })
+
 /**
  * A play's theoretical value, once its corner's terms are known and a
  * stretch of its regular games has been measured; undefined until then.
  * What a regular spin wins, exchanged, less what the measured ones cost,
- * carried over every regular spin of the play.
+ * carried over every regular spin of the play. Where the play counted a
+ * bonus as it ended, a round wins what those counted paid — an over-entry
+ * lowers the border, balls lost to a slack attacker raise it.
  */
-export const playTheoreticalValue = (figures: Figures, terms: PlayTerms | undefined, consumption: Consumption): PlayTheoreticalValue | undefined => {
+export const playTheoreticalValue = (told: Figures, terms: PlayTerms | undefined, consumption: Consumption): PlayTheoreticalValue | undefined => {
   const measured = consumption.measured
   if (terms === undefined || measured === undefined) return undefined
+  const figures = asPaid(told, consumption.payoutRatio)
   const ballValue = tokenValueOf(terms)
   const cost = costOf(measured, terms)
   const perSpin = ballsPerSpin(figures) * ballValue - cost / measured.spins

@@ -1,5 +1,6 @@
 import type { PlayTerms } from "../parlor/terms"
 import type { Checkpoint } from "../play-log/checkpoint"
+import { payoutDifferencesOf, payoutRatioOf } from "./payout"
 
 /**
  * What a play's regular games were measured to cost in balls: so many
@@ -14,10 +15,16 @@ export interface Measured {
   readonly replayedBalls: number
 }
 
-/** Where a play's regular games stand: how many there were, and what they were measured to cost, once there is a stretch to measure. */
+/**
+ * Where a play's regular games stand: how many there were, what they were
+ * measured to cost, once there is a stretch to measure, and how much more
+ * its bonuses paid than they were told to, where any was counted as it
+ * ended (`payoutRatioOf`).
+ */
 export interface Consumption {
   readonly regularSpins: number
   readonly measured: Measured | undefined
+  readonly payoutRatio: number | undefined
 }
 
 /** A play at one line: its running totals, and what the line says of the balls in hand. */
@@ -61,14 +68,18 @@ interface Stood {
  * is in hand. A line made of readings folded
  * together says, besides, where the hand was known inside it
  * (`handsBefore`), each a standing of its own before the line's; what was
- * bought by the last of them was bought there, not at the line.
+ * bought by the last of them was bought there, not at the line. A bonus
+ * counted as it ended (`payoutDifferencesOf`) paid what was counted, not
+ * what it was told to: what it paid beyond that came to hand at the count,
+ * so an over-entry is never taken for regular games costing less.
  */
-const standingsOf = (ordered: readonly Checkpoint[], terms: PlayTerms): readonly Stood[] =>
-  ordered.reduce<{ readonly stood: readonly Stood[]; readonly before: Standing; readonly spins: number; readonly bonuses: number }>(
-    (walked, checkpoint) => {
+const standingsOf = (ordered: readonly Checkpoint[], terms: PlayTerms): readonly Stood[] => {
+  const differences = payoutDifferencesOf(ordered)
+  return ordered.reduce<{ readonly stood: readonly Stood[]; readonly before: Standing; readonly spins: number; readonly bonuses: number }>(
+    (walked, checkpoint, line) => {
       const rentedBalls = checkpoint.outlay === undefined ? walked.before.rentedBalls : rentedBallsOf(checkpoint.outlay, terms)
       const replayedBalls = checkpoint.replay ?? walked.before.replayedBalls
-      const bonuses = walked.bonuses + bonusGainOf(checkpoint)
+      const bonuses = walked.bonuses + bonusGainOf(checkpoint) + (differences.get(line) ?? 0)
       const regularSince = (spins: number): number => walked.before.regularSpins + (isRegular(checkpoint) ? spins - walked.spins : 0)
       const hands = (checkpoint.handsBefore ?? []).map(
         (hand): Known => ({
@@ -92,6 +103,7 @@ const standingsOf = (ordered: readonly Checkpoint[], terms: PlayTerms): readonly
     },
     { stood: [], before: START, spins: ordered.at(0)?.spins ?? 0, bonuses: 0 },
   ).stood
+}
 
 type Known = Standing & { readonly held: number }
 
@@ -146,7 +158,7 @@ const measuredOf = (walked: Walked): Measured | undefined => {
  */
 export const consumptionOf = (ordered: readonly Checkpoint[], terms: PlayTerms): Consumption => {
   const walked = walkedOf(ordered, terms)
-  return { regularSpins: walked.last?.regularSpins ?? 0, measured: measuredOf(walked) }
+  return { regularSpins: walked.last?.regularSpins ?? 0, measured: measuredOf(walked), payoutRatio: payoutRatioOf(ordered) }
 }
 
 /** The spin performance a measurement comes to: regular spins for the balls ¥1,000 rents, the player's own balls counted as rented ones are. */
