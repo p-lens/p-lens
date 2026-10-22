@@ -5,6 +5,7 @@ import type { Outcome } from "../../../application/errors"
 import { huddleCodeOf, huddleNameOf, type Huddle } from "../../../core/huddle/huddle"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
+import { DiceIcon } from "../../primitives/icons"
 import { PanelDialog } from "../../primitives/dialog"
 import { QrCode } from "../../primitives/qr-code"
 import { qrInImage } from "../../primitives/qr-image"
@@ -19,6 +20,7 @@ import {
   HUDDLE_NAME_NEEDED,
   HUDDLE_NO_CAMERA,
   HUDDLE_NOT_IN_IMAGE,
+  HUDDLE_REDRAW_NAME,
   HUDDLE_SCANNING,
   HUDDLE_SHOW_CODE,
   JOIN_BY_IMAGE,
@@ -26,6 +28,7 @@ import {
   LEAVE_HUDDLE,
   START_HUDDLE,
 } from "../../wording/huddle"
+import { suggestedHuddleName } from "../../wording/huddle-names"
 import { huddlePortsOf } from "./huddle-ports"
 
 /** The huddle this device is in: its QR code for the others to read — on this screen, or as a screenshot sent on — and the way out. */
@@ -43,11 +46,11 @@ function JoinedHuddle(props: { readonly huddle: Huddle; readonly onLeave: () => 
   )
 }
 
-/** A huddle not yet joined: the name to go by — the one gone by in a huddle left that day, to come back as — and a huddle begun, or joined by reading its QR code — by the camera, or out of an image such as a screenshot sent in a chat. */
+/** A huddle not yet joined: the name to go by — the one gone by in a huddle left that day, to come back as, or else one drawn from the suggestions — and a huddle begun, or joined by reading its QR code — by the camera, or out of an image such as a screenshot sent in a chat. */
 function NewHuddle(props: { readonly onJoined: (made: Outcome<Huddle>) => void }): JSX.Element {
   const app = useApp()
   const ports = huddlePortsOf(app.services)
-  const [typed, setTyped] = createSignal(huddleLeftOn(app.services.preferences, app.services.businessDay())?.name ?? "")
+  const [typed, setTyped] = createSignal(huddleLeftOn(app.services.preferences, app.services.businessDay())?.name ?? suggestedHuddleName(Math.random))
   const picker: { input: HTMLInputElement | undefined } = { input: undefined }
   const [scanning, setScanning] = createSignal(false)
   const [nameMissed, setNameMissed] = createSignal(false)
@@ -68,7 +71,25 @@ function NewHuddle(props: { readonly onJoined: (made: Outcome<Huddle>) => void }
   return (
     <div class="flex flex-col gap-3">
       <p>{HUDDLE_ABOUT}</p>
-      <TextField label={HUDDLE_NAME} value={typed()} onChange={setTyped} required error={nameMissed() ? HUDDLE_NAME_NEEDED : undefined} />
+      <div class="flex items-start gap-2">
+        <div class="min-w-0 flex-1">
+          <TextField label={HUDDLE_NAME} value={typed()} onChange={setTyped} required error={nameMissed() ? HUDDLE_NAME_NEEDED : undefined} />
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          class="mt-6 shrink-0"
+          aria-label={HUDDLE_REDRAW_NAME}
+          title={HUDDLE_REDRAW_NAME}
+          onClick={() => {
+            setTyped(suggestedHuddleName(Math.random, typed()))
+            setNameMissed(false)
+          }}
+        >
+          <DiceIcon />
+        </Button>
+      </div>
       <Show
         when={scanning()}
         fallback={
