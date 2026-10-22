@@ -5,7 +5,8 @@ import { TextField } from "../../../primitives/text-field"
 
 /**
  * What a bonus paid beyond what its machine lists, behind a small [差]
- * button beside the bonus chosen: an over-entry, or below nought balls
+ * button after the bonus list, there whether a bonus is chosen or not —
+ * what is typed with none chosen says nothing: an over-entry, or below nought balls
  * lost to a slack attacker. Few say it — those who count — and the rest
  * never open it. It comes filled in by the person's usual over-entry at
  * the cabinet where they said one, to be set right where this bonus paid
