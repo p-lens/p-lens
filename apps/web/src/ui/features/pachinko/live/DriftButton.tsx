@@ -2,6 +2,7 @@ import type { JSX } from "solid-js"
 
 import { DetailButton } from "../../../primitives/detail-button"
 import { TextField } from "../../../primitives/text-field"
+import { feelHot } from "../../../primitives/vibration"
 import type { Drift } from "./reading-form"
 
 /**
@@ -12,7 +13,8 @@ import type { Drift } from "./reading-form"
  * 電サポ's balls out of their spin performance; inside it, the sign and
  * the field's name are in the text's own colour while it says the balls
  * went down, and in the nerdpro colour once it is turned to a gain: balls
- * won on the 電サポ by one's own hand, the hardest of play.
+ * won on the 電サポ by one's own hand, the hardest of play. Turned so, it
+ * buzzes as a held spin turning purple does, where the device can.
  */
 export function DriftButton(props: {
   readonly drift: Drift
@@ -30,7 +32,10 @@ export function DriftButton(props: {
       <button
         type="button"
         aria-label={props.drift === "loss" ? "電サポで減った（押すと増えたに切替）" : "電サポで増えた（押すと減ったに切替）"}
-        onClick={() => props.onDrift(props.drift === "loss" ? "gain" : "loss")}
+        onClick={() => {
+          if (!gained()) feelHot()
+          props.onDrift(gained() ? "loss" : "gain")
+        }}
         class="flex h-10 w-7 shrink-0 items-center justify-center rounded-[3px] bg-surface-input text-base font-bold focus-visible:outline-2 focus-visible:outline-focus-ring"
         classList={{ "text-text-primary": !gained(), "text-nerdpro-ink": gained() }}
       >
