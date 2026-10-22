@@ -24,7 +24,9 @@ const PLACES: readonly Place[] = [
   { kind: "passbook", bookId: "made-up" as never, account: "資産:貯玉:東京皇国/本店:4円" },
   { kind: "parlor-passbook", bookId: "made-up" as never, parlorName: "東京皇国/本店" },
   { kind: "destination", lineId: "line-1" },
-  { kind: "live-huddle-play", member: "m 1/x", playId: "p-1" as never },
+  { kind: "huddle" },
+  { kind: "huddle-total" },
+  { kind: "huddle-play", member: "m 1/x", playId: "p-1" as never },
 ]
 
 describe("places", () => {
@@ -42,7 +44,7 @@ describe("places", () => {
   })
 
   test("a narrow window goes selection, content, detail", () => {
-    expect(PLACES.map(focusOf)).toEqual(["selection", "content", "content", "content", "content", "content", "selection", "content", "detail", "content", "content", "selection", "content", "content", "content", "content", "detail", "detail", "detail", "selection", "content"])
+    expect(PLACES.map(focusOf)).toEqual(["selection", "content", "content", "content", "content", "content", "selection", "content", "detail", "content", "content", "selection", "content", "content", "content", "content", "detail", "detail", "detail", "selection", "selection", "content", "content"])
   })
 
   test("one step up from a tally is its list, then the book", () => {
@@ -57,7 +59,8 @@ describe("places", () => {
     expect(parentOf({ kind: "live-record", playId: "p-1" as never })).toEqual({ kind: "live-play", playId: "p-1" } as never)
     expect(parentOf({ kind: "live-cabinet", playId: "p-1" as never })).toEqual({ kind: "live-play", playId: "p-1" } as never)
     expect(parentOf({ kind: "live-play", playId: "p-1" as never })).toEqual({ kind: "live" })
-    expect(parentOf({ kind: "live-huddle-play", member: "m-1", playId: "p-1" as never })).toEqual({ kind: "live" })
+    expect(parentOf({ kind: "huddle-play", member: "m-1", playId: "p-1" as never })).toEqual({ kind: "huddle" })
+    expect(parentOf({ kind: "huddle-total" })).toEqual({ kind: "huddle" })
     expect(parentOf({ kind: "live" })).toBeUndefined()
   })
 

@@ -365,6 +365,31 @@ body {
   }
 }
 
+/* A space coming onto the rail: its place opens from nothing as the space springs up into it, stretched tall past its size and back, a little short and back again, pushing what is below it down. */
+@keyframes board {
+  0% {
+    max-height: 0;
+    transform: scaleY(0);
+  }
+  45% {
+    max-height: 3rem;
+    transform: scaleY(1.35);
+  }
+  65% {
+    transform: scaleY(0.85);
+  }
+  80% {
+    transform: scaleY(1.1);
+  }
+  92% {
+    transform: scaleY(0.97);
+  }
+  100% {
+    max-height: 3rem;
+    transform: scaleY(1);
+  }
+}
+
 /* A line that was not there a moment ago: it opens downwards as it fades in, so what is below it is eased away, not jolted. */
 @keyframes unroll {
   from {

@@ -16,6 +16,8 @@ export interface RailItem {
   readonly colour?: { readonly chosen: string; readonly hovered: string; readonly resting?: string }
   /** What the space wears at its corner, outside its shape: a count of what waits there. */
   readonly badge?: JSX.Element
+  /** The classes the space is drawn with as it comes onto the rail, where it should be seen to come rather than be there: an animation, say. */
+  readonly arriving?: string
 }
 
 /** A space in the accent: what one is drawn in unless it says otherwise. */
@@ -79,7 +81,7 @@ function RailButton(props: {
   readonly renderTooltip: ((label: string, trigger: JSX.Element) => JSX.Element) | undefined
 }): JSX.Element {
   const button = (
-    <div class="group relative flex w-full justify-center">
+    <div class={`group relative flex w-full justify-center ${props.item.arriving ?? ""}`}>
       <span
         aria-hidden="true"
         class="absolute left-0 top-1/2 w-1 -translate-y-1/2 rounded-r-full bg-text-primary transition-all"

@@ -6,6 +6,19 @@ export const HUDDLE_HEADING = "ノリ打ち"
 /** What a mark beside one of the others' plays in the day's list says of where it stands; nothing where it is being played. */
 export const HUDDLE_STANDINGS: Readonly<Record<HuddleStanding, string | undefined>> = { finished: "終了", jackpot: "大当り中", rapid: "時短中", playing: undefined }
 
+/** The room on the rail, with how many of the others are in a jackpot where any are. */
+export const huddleRoomLabel = (inJackpot: number): string => (inJackpot === 0 ? HUDDLE_HEADING : `${HUDDLE_HEADING}（大当り中 ${inJackpot} 人）`)
+
+/** The room's words: who one is among its members, the total of their plays, the way to narrow them, to one's own alone, and the code to show. */
+export const HUDDLE_OWN = "自分"
+export const HUDDLE_TOTAL = "メンバー合算"
+export const HUDDLE_NARROW = "メンバーで絞り込む"
+export const HUDDLE_OWN_ONLY = "自分のみ"
+export const HUDDLE_CODE = "QRコード"
+
+/** A member as the room's filter offers them: one's own name said as one's own. */
+export const roomMemberText = (name: string, own: boolean): string => (own ? `${HUDDLE_OWN}（${name}）` : name)
+
 /** The mark of one of the others' plays they have left for another machine. */
 export const HUDDLE_MOVED = "移動済"
 

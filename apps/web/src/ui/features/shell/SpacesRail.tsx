@@ -18,6 +18,7 @@ import { bookTitle } from "../../wording/book"
 import { ODD_PRIZE_CALCULATOR_LABEL, ODD_PRIZE_CALCULATOR_LINES } from "../../wording/odd-prize-calculator"
 import { destinationLabel } from "../../wording/sync"
 import { consolidationShown } from "../consolidated/shown"
+import { CountBadge, useHuddleRoomItem } from "../huddle/room-rail"
 
 /** The nerdpro colour on the rail: the consolidation is of that kind, as the button that turns it on is, and is told from the books by it. */
 const NERDPRO = { chosen: "bg-nerdpro text-on-nerdpro", hovered: "hover:bg-nerdpro hover:text-on-nerdpro" } as const
@@ -74,7 +75,8 @@ const ownedBy = (member: MemberId) => (book: Book): boolean => roleIn(book, memb
 
 /**
  * The spaces down the left: plays in progress at the top, where they are
- * reached from anywhere; then your own books; then the books others have let
+ * reached from anywhere, and below them the room of the huddle the device
+ * is in; then your own books; then the books others have let
  * you into; then the books you may only send plays to, each an outline
  * with a paper plane, wearing the number of the day's plays that wait to
  * be sent there; then all of the books together, consolidated, where a
@@ -114,7 +116,7 @@ export function SpacesRail(props: {
     colour: DESTINATION,
     ...(waitingFor(destination) === 0
       ? {}
-      : { badge: <span class="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-negative px-1 text-[11px] font-bold tabular-nums text-accent-contrast ring-2 ring-surface-0">{waitingFor(destination)}</span> }),
+      : { badge: <CountBadge count={waitingFor(destination)} /> }),
     selected: props.place.kind === "destination" && props.place.lineId === destination.lineId,
     onSelect: () => moves.go({ kind: "destination", lineId: destination.lineId }),
   })
@@ -125,8 +127,9 @@ export function SpacesRail(props: {
     selected: bookOf(props.place) === book.id,
     onSelect: () => moves.go({ kind: "book", bookId: book.id }),
   })
+  const room = useHuddleRoomItem(() => props.place)
   const groups = (): readonly (readonly RailItem[])[] => [
-    [{ id: "live", label: "ライブ計測", icon: <LiveIcon />, selected: inLiveSpace(props.place), onSelect: () => moves.go({ kind: "live" }) }],
+    [{ id: "live", label: "ライブ計測", icon: <LiveIcon />, selected: inLiveSpace(props.place), onSelect: () => moves.go({ kind: "live" }) }, ...((item) => (item === undefined ? [] : [item]))(room())],
     books().filter(ownedBy(app.services.member)).map(bookItem),
     books().filter((book) => !ownedBy(app.services.member)(book)).map(bookItem),
     destinations().map(destinationItem),

@@ -2157,14 +2157,34 @@ wherever its player records it, as it would be without the huddle.
   with it as the day turns. Nothing is put on the line: theirs and the
   others' stay. Leaving a huddle takes nothing back either, so a play is
   there to be looked over after the fun is had.
-- **In the day's list, not on one's own screen.** Each of the others'
-  plays is the latest post of it (`othersPlays`), the others in the order
+- **Leaving is said, and coming back is the same member**
+  (`HuddleDeparture`, `leaveHuddle`, `Huddle.left`): a device that leaves
+  puts an entry saying so on the line, and keeps the huddle that day as
+  left, showing and shown nothing. The others mark the play it was on
+  離脱, whatever it was doing, put it after those still in the huddle, and
+  are urged by none of its jackpots. Whoever's last word on the line is
+  that they left is gone (`departedOn`); the same code read again that day
+  makes the device the member it was, its name already filled in, and its
+  plays shown again are a later word, which lifts the mark.
+- **A room on the rail** (`huddle`, `/huddle`; `HuddleSide`,
+  `useHuddleRoomItem`): while the runner keeps a huddle up
+  (`HuddleLine.keptUp`) it is a space below the live space, in the semipro
+  colour, two people hand in hand (`HuddleIcon`), wearing in red how many
+  of the others are in a jackpot (`othersInJackpot`). A huddle joined while
+  the page is open is seen to come: half a beat after, its place springs
+  open slowly, stretched past its height and back (`board`, the rail
+  item's `arriving`). The live space's list keeps one's own plays alone;
+  its ノリ打ち button begins or joins one, and leads to the room once in.
+- **Everyone in the room, oneself first** (`roomPlaysOf`,
+  `roomMembersOf`): one's own plays, newest begun first and not those sent
+  to the device, under 自分, opening in the live space where they are
+  played; then each of the others' plays as the latest post of it
+  (`othersPlays`), the others in the order
   they first showed anything, each one's plays newest shown first: a play
   left for another machine stays, marked 移動済 and put after every
   one's latest, and the one they are on is
-  their latest. A row (`HuddleRow`) says who as a chip on its third line, where a
-  sent play names its sender, so it is never
-  taken for a play sent to this device, and marks where the play stands
+  their latest. A filter of its members (`RoomChoices.listed`) narrows the
+  list. A row (`HuddleRow`) says who as a chip on its third line, and marks where the play stands
   (`huddleStandingOf`): 大当り中 where its last reading won a jackpot (an
   AT, on a pachislot AT machine), 時短中 where a pachinko play's last
   reading ran in 時短, 終了 once its log says it finished; 確変 is not
@@ -2174,8 +2194,15 @@ wherever its player records it, as it would be without the huddle.
   games, readings in 時短 between them or not, each bonus counted as the
   jackpots it was won over, not as the lines it took. One's own play's screen draws none of them:
   six people in a huddle would leave it no room.
-- **Opened only to be looked at** (`live-huddle-play`,
-  `/play/huddle/:member/:playId`, `HuddlePlayView`): who and on what,
+- **What the members come to together** (`huddle-total`, `/huddle/total`,
+  `HuddleTotalView`, `roomTotalOf`): the cash spent on every play of the
+  day, and the balls and medals in hand apart, on the play each is on
+  alone — what was in hand on a play moved from went on to the next —
+  each with what it comes to at its corner's exchange rate. It has a
+  filter of its own (`RoomChoices.totalled`), and 自分のみ beside it, a
+  press for ticking oneself alone and another for everyone again.
+- **Opened only to be looked at** (`huddle-play`,
+  `/huddle/:member/:playId`, `HuddlePlayView`): who and on what,
   when it was last shown, and the play as its own game draws it
   (`HuddlePlay` of `ui/features/pachinko` or `pachislot`) — its figures and
   its readings, with no line to press or hold and nothing to type.
@@ -2224,11 +2251,11 @@ It is kept nowhere: loading the page again closes it.
   What the egg says is styled by the same sheet, borrowing none of the
   app's styles; its colours are written in the folder and match no theme
   on purpose: a device with the egg open is never taken for one without.
-- **In it now**: ノリ打ち's way in at the end of the day's plays heading, the others' plays in
-  the day's list, and what keeps the huddle up (`HuddleRunner`, in the
-  shell) — which is what shows one's plays to the huddle and reads it, so
-  that with the egg closed nothing is shown or read, even by a device
-  still in a huddle.
+- **In it now**: ノリ打ち's way in at the end of the day's plays heading,
+  and what keeps the huddle up (`HuddleRunner`, in the shell) — which is
+  what shows one's plays to the huddle and reads it, so that with the egg
+  closed nothing is shown or read, even by a device still in a huddle, and
+  the room is on the rail only while it keeps one up.
 
 ## Backup
 

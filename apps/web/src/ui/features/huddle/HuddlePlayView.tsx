@@ -16,7 +16,7 @@ import * as PachislotViews from "../pachislot"
 import { ViewHeader } from "../shell/ViewHeader"
 
 /**
- * One of the others' plays in a huddle, opened from the day's list: who
+ * One of the others' plays in a huddle, opened from its room: who
  * plays it and on what, when it was last shown, and the play as its game
  * draws it, only to be looked at. Nothing where the huddle has not shown
  * it, or the device is in none.

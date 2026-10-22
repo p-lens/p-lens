@@ -54,6 +54,7 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
       line.setEntries([])
       line.setProblem(undefined)
       line.setUrged(undefined)
+      line.setKeptUp(huddle?.secret)
     }
     return huddle
   }
@@ -126,6 +127,7 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
   })
   const reading = setInterval(() => void read(), READ_EVERY)
   onCleanup(() => {
+    line.setKeptUp(undefined)
     clearInterval(reading)
     clearTimeout(waiting.timer)
   })

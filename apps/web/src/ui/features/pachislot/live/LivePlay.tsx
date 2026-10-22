@@ -38,7 +38,7 @@ import { describeCounterRefusal, observedOneInText, priorName } from "../../../w
 import { CHANGED_SINCE_MERGED, CHANGED_SINCE_REMOVED, MERGE_FAILED, MERGED, READING_REMOVED, REMOVAL_TAKEN_BACK, TAKE_BACK, TAKE_BACK_FAILED, UNMERGED } from "../../../wording/pachislot/play"
 import { triggerWordsOf } from "../../../wording/pachislot/trigger"
 import { ViewHeader } from "../../shell/ViewHeader"
-import { useHuddleUrge } from "../../live/huddle-urge"
+import { useHuddleUrge } from "../../huddle/huddle-urge"
 import { AtCounting, AtFigures, AtReadingComposer, createAtReading } from "./AtPlay"
 import { awaitsAtResult } from "./at-result-form"
 import { CornerTerms } from "./CornerTerms"

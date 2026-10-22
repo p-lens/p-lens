@@ -36,6 +36,12 @@ export const jackpotStreakOf = (play: Play): number => {
   return ordered.slice(since + 1).reduce((count, checkpoint) => (checkpoint.event?.kind === "jackpot" ? count + (checkpoint.event.bonus?.jackpots ?? 1) : count), 0)
 }
 
+/** The others' plays in a jackpot: each the one its player is on, while they are still in the huddle. */
+const inJackpot = (plays: readonly HuddlePlay[]): readonly HuddlePlay[] => plays.filter((shown) => shown.latest && !shown.departed && huddleStandingOf(shown.post.play) === "jackpot")
+
+/** How many of the others are in a jackpot now: what the room wears on the rail. */
+export const othersInJackpot = (plays: readonly HuddlePlay[]): number => inJackpot(plays).length
+
 /**
  * Who of the others still in the huddle is in a jackpot on the play they
  * are on, as one word —
@@ -44,8 +50,7 @@ export const jackpotStreakOf = (play: Play): number => {
  * and not while one goes on.
  */
 export const jackpotsNow = (plays: readonly HuddlePlay[]): string =>
-  plays
-    .filter((shown) => shown.latest && !shown.departed && huddleStandingOf(shown.post.play) === "jackpot")
+  inJackpot(plays)
     .map((shown) => `${shown.post.member} ${shown.post.play.id}`)
     .toSorted()
     .join("\n")

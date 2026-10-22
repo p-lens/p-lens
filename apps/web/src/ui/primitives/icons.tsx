@@ -417,6 +417,17 @@ export const PeopleIcon = () => (
   </Icon>
 )
 
+/** A huddle: two people side by side, as tall as each other, hand in hand. */
+export const HuddleIcon = () => (
+  <Icon>
+    <circle cx="6.500" cy="6" r="2.500" />
+    <circle cx="17.500" cy="6" r="2.500" />
+    <path d="M3 21v-7a3.500 3.500 0 0 1 7 0v7" />
+    <path d="M14 21v-7a3.500 3.500 0 0 1 7 0v7" />
+    <path d="M10 15.500h4" />
+  </Icon>
+)
+
 export const PaletteIcon = () => (
   <Icon>
     <path d="M12 3a9 9 0 1 0 0 18c1 0 1.5-.8 1.5-1.5 0-.9-.7-1.3-.7-2.2 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4c0-4.7-4-8.5-9-8.5z" />

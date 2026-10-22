@@ -18,7 +18,8 @@ import { unreadableArrivalsText } from "./wording/sync"
 import { heardOutdated } from "./features/consolidated/outdated"
 import { warmConsolidationWhileShown } from "./features/consolidated/warm"
 import { savingsShownAfterWrites, type SavingsShown } from "./features/holdings/shown"
-import { createHuddleLine, type HuddleLine } from "./features/live/huddle-line"
+import { createHuddleLine, type HuddleLine } from "./features/huddle/huddle-line"
+import { createRoomChoices, type RoomChoices } from "./features/huddle/room-choices"
 
 /** Where the installed app stands against the newest published; supplied by the PWA layer. */
 export interface UpdateState {
@@ -78,6 +79,8 @@ export interface HuddleJoined {
   readonly changed: () => void
   /** What the page has read of its line, and when it last showed a play there. */
   readonly line: HuddleLine
+  /** Whose plays its room lists and adds up. */
+  readonly chosen: RoomChoices
 }
 
 /** What a book's machines are shown as before the catalog's machines are read: each as the book says it. */
@@ -142,6 +145,7 @@ export function AppProvider(props: {
   const machineNames = (): MachineNames => machinesRead.latest ?? NO_MACHINE_NAMES
   const [huddleChanges, setHuddleChanges] = createSignal(0)
   const huddleLine = createHuddleLine()
+  const roomChoices = createRoomChoices()
   const huddle = (): Huddle | undefined => {
     huddleChanges()
     return huddleNow(props.services.preferences, props.services.businessDay())
@@ -235,7 +239,7 @@ export function AppProvider(props: {
         machineNames,
         sync: { state: syncState, run: runSync },
         backups: { count: backupsMade, made: backupMade },
-        huddle: { now: huddle, changed: () => setHuddleChanges((count) => count + 1), line: huddleLine },
+        huddle: { now: huddle, changed: () => setHuddleChanges((count) => count + 1), line: huddleLine, chosen: roomChoices },
       }}>
       {props.children}
     </Context.Provider>

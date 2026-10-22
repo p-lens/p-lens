@@ -7,7 +7,7 @@ import { destinationsOf } from "../../../application/sending"
 import type { ListedBook } from "../../../core/book/book"
 import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
-import { bookOf, focusOf, inConsolidation, inOddPrizeCalculator, inSettings, placeOf, screenOf, type Place } from "../../navigation/place"
+import { bookOf, focusOf, inConsolidation, inHuddleRoom, inOddPrizeCalculator, inSettings, placeOf, screenOf, type Place } from "../../navigation/place"
 import { EmptyState } from "../../primitives/states"
 import { ActivityView } from "../activity/ActivityView"
 import { CabinetView } from "../live/CabinetView"
@@ -16,8 +16,10 @@ import { HoldingsView } from "../holdings/HoldingsView"
 import { ParlorPassbookPanel } from "../holdings/ParlorPassbookPanel"
 import { PassbookPanel } from "../holdings/PassbookPanel"
 import { FinishPlayView } from "../live/FinishPlayView"
-import { HuddlePlayView } from "../live/HuddlePlayView"
-import { HuddleRunner } from "../live/HuddleRunner"
+import { HuddlePlayView } from "../huddle/HuddlePlayView"
+import { HuddleSide } from "../huddle/HuddleSide"
+import { HuddleTotalView } from "../huddle/HuddleTotalView"
+import { HuddleRunner } from "../huddle/HuddleRunner"
 import { LivePlayView } from "../live/LivePlayView"
 import { LiveSide } from "../live/LiveSide"
 import * as PachinkoViews from "../pachinko"
@@ -105,7 +107,11 @@ const mainFor = (place: Place, query: () => string, live: () => Place): JSX.Elem
       return <FinishPlayView place={place} playId={place.playId} />
     case "live-cabinet":
       return <CabinetView place={place} playId={place.playId} />
-    case "live-huddle-play":
+    case "huddle":
+      return <ChooseFromList place={place} title="ノリ打ち" hint="左のリストから稼働を選ぶか、メンバー合算を開いてください。" />
+    case "huddle-total":
+      return <HuddleTotalView place={place} />
+    case "huddle-play":
       return <HuddlePlayView place={place} member={place.member} playId={place.playId} />
     case "book":
       return <ChooseFromList place={place} title="帳簿" hint="左のリストからビューを選んでください。" />
@@ -219,12 +225,13 @@ const bookViewFor = (place: Extract<Place, { kind: "book-view" }>, query: () => 
   }
 }
 
-/** The side panel for a place: the live space's plays, a book's views, the plays to send to a book that is only sent to, the odd-prize calculator's games, or settings. */
+/** The side panel for a place: the live space's plays, the huddle's room, a book's views, the plays to send to a book that is only sent to, the odd-prize calculator's games, or settings. */
 const sideFor = (place: Place, books: Outcome<readonly ListedBook[]> | undefined, destinations: Outcome<readonly Destination[]> | undefined): JSX.Element => {
   if (inSettings(place)) return <SettingsSide place={place} />
   if (inOddPrizeCalculator(place)) return <OddPrizeCalculatorSide place={place} />
   if (place.kind === "destination") return <DestinationSide lineId={place.lineId} destinations={destinations} />
   if (inConsolidation(place)) return <ConsolidatedSide place={place} />
+  if (inHuddleRoom(place)) return <HuddleSide place={place} />
   const bookId = bookOf(place)
   if (bookId === undefined) return <LiveSide place={place} />
   const book = books?.ok === true ? books.value.find((candidate) => candidate.id === bookId) : undefined
