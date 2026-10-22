@@ -52,7 +52,7 @@ export const emptyYenTallyForm = (date: string, kept: KeptInferenceTerms): YenTa
   weighingTerms: weighingTermsFormOf(kept.pachinko ?? Pachinko.TERMS_BY_DEFAULT),
   counterGames: "",
   counterBonuses: {},
-  medalTerms: medalTermsFormOf(kept.slot ?? Pachislot.MEDAL_TERMS_BY_DEFAULT),
+  medalTerms: medalTermsFormOf(kept.pachislot ?? Pachislot.MEDAL_TERMS_BY_DEFAULT),
   atHistory: EMPTY_AT_HISTORY,
   settlement: undefined,
 })
@@ -288,5 +288,5 @@ export const yenTallyFormOf = (tally: YenTally, kept: KeptInferenceTerms): YenTa
   counterGames: "",
   counterBonuses: {},
   atHistory: EMPTY_AT_HISTORY,
-  medalTerms: medalTermsFormOf(((inferred) => (inferred === undefined || tally.gameKind !== "slot" ? undefined : Pachislot.medalTermsOf(inferred)))(tally.told?.inferred) ?? kept.slot ?? Pachislot.MEDAL_TERMS_BY_DEFAULT),
+  medalTerms: medalTermsFormOf(((inferred) => (inferred === undefined || tally.gameKind !== "pachislot" ? undefined : Pachislot.medalTermsOf(inferred)))(tally.told?.inferred) ?? kept.pachislot ?? Pachislot.MEDAL_TERMS_BY_DEFAULT),
 })

@@ -56,7 +56,7 @@ const withReplayFee = (form: TermsForm, fee: "none" | "charged"): TermsForm => {
 }
 
 /**
- * The corner's slot terms: what renting costs, what exchanging pays, and
+ * The corner's pachislot terms: what renting costs, what exchanging pays, and
  * what a replay takes, with the rate they come to. A replay is first only
  * asked about — a fee or none — since few corners take one; said to take
  * one, the question gives its place to the replay's two counts and a cross,
@@ -82,8 +82,8 @@ export function Terms(props: {
     props.onChange(withReplayFee(props.form, fee))
   }
   const tier = (): string | undefined => {
-    const read = readTerms(props.form, "slot")
-    return read.ok ? tierOf("slot", read.value) : undefined
+    const read = readTerms(props.form, "pachislot")
+    return read.ok ? tierOf("pachislot", read.value) : undefined
   }
   return (
     <div class="grid grid-cols-1 gap-x-2 sm:grid-cols-2">

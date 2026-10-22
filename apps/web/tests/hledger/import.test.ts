@@ -42,7 +42,7 @@ describe("a pRecord file taken into a book", () => {
     expect(before.ok && toPlainString(before.value.actual)).toBe("41142")
     const tallies = await loadTallies(session, BOOK, "date:2019", 0)
     expect(tallies.ok && tallies.value.tallies.map((tally) => [tally.date, tally.description, tally.gameKind, tally.machine, tally.cabinetNumber])).toEqual([
-      ["2019-01-05", "駅前ホール | ピエロット 45番台", "slot", "ピエロット", "45"],
+      ["2019-01-05", "駅前ホール | ピエロット 45番台", "pachislot", "ピエロット", "45"],
       ["2019-01-02", "駅前ホール | 昔の台 123番台", undefined, undefined, "123"],
     ] as never)
   })
@@ -113,7 +113,7 @@ describe("a pRecord file taken into a book", () => {
     const tallies = await loadTallies(session, BOOK, "date:2019-03", 0)
     expect(tallies.ok && tallies.value.tallies.map((tally) => [tally.date, tally.gameKind, tally.machine])).toEqual([
       ["2019-03-04", undefined, undefined],
-      ["2019-03-03", "slot", "ピエロット"],
+      ["2019-03-03", "pachislot", "ピエロット"],
       ["2019-03-02", "pachinko", "森物語"],
     ] as never)
   })

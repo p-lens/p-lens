@@ -40,7 +40,7 @@ export const unsentName = (bookTitle: string): string => `${bookTitle}（送信�
 
 const WEEKDAYS = ["月曜", "火曜", "水曜", "木曜", "金曜", "土曜", "日曜"] as const
 
-const GAMES: Readonly<Record<string, string>> = { pachinko: "パチンコ", slot: "スロット" }
+const GAMES: Readonly<Record<string, string>> = { pachinko: "パチンコ", pachislot: "スロット" }
 
 /** What is said beside a sum of theoretical values where part of it was inferred: how much of it is not measurement. */
 export const inferredShareText = (inferred: Decimal): string => `うち推定 ${formatTheoreticalYen(inferred)}`

@@ -36,12 +36,12 @@ const summaryOf = (
   formulaCount: 1,
 })
 
-const SUMMARIES: readonly MachineSummary[] = [...LINEUP.pachinko.map((machine) => summaryOf(machine, "pachinko")), ...LINEUP.slot.map((machine) => summaryOf(machine, "pachislot"))]
+const SUMMARIES: readonly MachineSummary[] = [...LINEUP.pachinko.map((machine) => summaryOf(machine, "pachinko")), ...LINEUP.pachislot.map((machine) => summaryOf(machine, "pachislot"))]
 
 const entryOf = (id: string): MachineEntry | undefined => {
   const summary = SUMMARIES.find((machine) => machine.id === id)
   const pachinko = LINEUP.pachinko.find((machine) => machine.id === id)
-  const slot = LINEUP.slot.find((machine) => machine.id === id)
+  const pachislot = LINEUP.pachislot.find((machine) => machine.id === id)
   if (summary === undefined) return undefined
   if (pachinko !== undefined)
     return {
@@ -49,11 +49,11 @@ const entryOf = (id: string): MachineEntry | undefined => {
       machine: summary,
       formulas: [{ formula: { figures: pachinko.seat.figures }, standing: {} }],
     } as never
-  if (slot !== undefined)
+  if (pachislot !== undefined)
     return {
       gameKind: "pachislot",
       machine: summary,
-      formulas: [{ formula: { figures: slot.seat.levels }, standing: {} }],
+      formulas: [{ formula: { figures: pachislot.seat.levels }, standing: {} }],
       distributions: [],
     } as never
   return undefined

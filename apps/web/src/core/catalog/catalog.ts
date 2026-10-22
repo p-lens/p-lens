@@ -6,7 +6,6 @@ import type { MachineId } from "../machine/machine"
 import type { FormulaListing } from "../formula/standing"
 import { writableText } from "../journal/entry"
 import type * as Pachislot from "../pachislot"
-import type { PlayGameKind } from "../play/play"
 
 /**
  * The shared catalog as the screens take it: one catalog for both games, a
@@ -16,9 +15,6 @@ import type { PlayGameKind } from "../play/play"
 
 /** Which game a machine is: a component of the machine, deciding the shape of all hung on it. */
 export type GameKind = "pachinko" | "pachislot"
-
-/** The catalog's game a play's is: a book says `slot` for pachislot, it being data already written. */
-export const CATALOG_GAMES: Readonly<Record<PlayGameKind, GameKind>> = { pachinko: "pachinko", slot: "pachislot" }
 
 /** One of a pachinko machine's bonuses, as a formula of it states them. */
 export type MachineBonus = Pachinko.Bonus

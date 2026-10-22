@@ -6,7 +6,7 @@ import type { RecordingContext } from "../../../application/record-tally"
 import { findMachines } from "../../../application/catalog"
 import type { Weighing, WeighingAsked } from "../../../application/pachinko/inference"
 import { loadInferable, type Inferable, type SettingInference } from "../../../application/pachislot/setting-inference"
-import { bookNameOf, CATALOG_GAMES, type MachineSummary } from "../../../core/catalog/catalog"
+import { bookNameOf, type MachineSummary } from "../../../core/catalog/catalog"
 import * as Pachinko from "../../../core/pachinko"
 import * as Pachislot from "../../../core/pachislot"
 import type { ParlorList } from "../../../core/parlor/shared"
@@ -157,7 +157,7 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
   /** The catalog's machines of the game chosen: all a tally added by its totals may name. */
   const [catalogued] = createResource(
     () => form().gameKind,
-    (gameKind) => findMachines(app.services.catalog, "", CATALOG_GAMES[gameKind]),
+    (gameKind) => findMachines(app.services.catalog, "", gameKind),
   )
   const machines = (): readonly MachineSummary[] => {
     const found = catalogued()
@@ -199,7 +199,7 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
   const weighing = weigher.weighing
   /** The formula a pachislot machine chosen reads its setting level by. */
   const [inferableFound] = createResource(
-    () => (form().gameKind === "slot" ? machineId() : undefined),
+    () => (form().gameKind === "pachislot" ? machineId() : undefined),
     (chosen) => loadInferable(app.services.catalog, chosen),
   )
   const inferable = (): Inferable | undefined => ((found) => (found?.ok === true ? found.value : undefined))(inferableFound())
@@ -218,14 +218,14 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
     const found = inferable()
     const terms = readMedalTerms(form().medalTerms)
     const told = settingTold()
-    if (!tally.ok || tally.value.gameKind !== "slot" || tally.value.theoreticalValue !== undefined || found?.type !== "inferable" || terms === undefined || told === undefined) return undefined
+    if (!tally.ok || tally.value.gameKind !== "pachislot" || tally.value.theoreticalValue !== undefined || found?.type !== "inferable" || terms === undefined || told === undefined) return undefined
     return { formula: found.formula, told, terms }
   })
   const settingInferer = PachislotViews.createSettingInference(settingAsked)
   const settingInference = settingInferer.inference
   /** What a press of 推定期待値を算出する needs of the form and has not got: the play's hours, its machine, the cash it took — and no theoretical value typed in, which is the tally's own and leaves nothing to infer. */
   const lacking = (): Lacking =>
-    form().gameKind === "slot"
+    form().gameKind === "pachislot"
       ? {
           hours: !atMachine() && form().hours === "",
           machine: inferable()?.type !== "inferable",
@@ -249,7 +249,7 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
   /** Begin the weighing; where the form has not got what it needs, that is shown in red and nothing is begun — and where what stops it is anything else of the form, that is shown as a press to record shows it. */
   const weigh = (): void => {
     settleTyping()
-    if (form().gameKind === "slot" && settingAsked() !== undefined) return settingInferer.infer()
+    if (form().gameKind === "pachislot" && settingAsked() !== undefined) return settingInferer.infer()
     if (form().gameKind === "pachinko" && asked() !== undefined) return weigher.weigh()
     if (Object.values(lacking()).some((lacks) => lacks)) return weighNudge.nudge()
     nudge.nudge()
@@ -261,7 +261,7 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
     const setting = settingInference()
     const terms = readMedalTerms(form().medalTerms)
     const weighingTerms = readWeighingTerms(form().weighingTerms)
-    if (tally.ok && tally.value.gameKind === "slot" && setting.type === "inferred" && terms !== undefined) return { ok: true as const, value: withInferred(tally.value, Pachislot.inferredWorthOf(setting.inferred.formulaId, setting.inferred.theoreticalValue, terms)) }
+    if (tally.ok && tally.value.gameKind === "pachislot" && setting.type === "inferred" && terms !== undefined) return { ok: true as const, value: withInferred(tally.value, Pachislot.inferredWorthOf(setting.inferred.formulaId, setting.inferred.theoreticalValue, terms)) }
     return tally.ok && tally.value.gameKind === "pachinko" && now.type === "weighed" && weighingTerms !== undefined ? { ok: true as const, value: withInferred(tally.value, Pachinko.inferredWorthOf(now.weighed, now.formulaId, weighingTerms)) } : tally
   })
   const preview = createMemo((): Result<Entry, TallyError> | undefined => {

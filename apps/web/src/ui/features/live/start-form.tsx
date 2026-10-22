@@ -153,12 +153,12 @@ export interface StartForm {
 /** What a corner usually has, for each game: 250玉 rented for ¥1,000 and 28玉 exchanged for ¥100, or 46枚 rented — what a 20-yen corner gives with the tax on top — and 5.2枚 exchanged; and a replay stated for half the rental. */
 const USUAL_TERMS: Readonly<Record<PlayGameKind, { readonly rentalTokens: string; readonly exchange: string; readonly replayTokens: string }>> = {
   pachinko: { rentalTokens: "250", exchange: "28", replayTokens: "125" },
-  slot: { rentalTokens: "46", exchange: "5.2", replayTokens: "23" },
+  pachislot: { rentalTokens: "46", exchange: "5.2", replayTokens: "23" },
 }
 
 const EMPTY_START_FORM: StartForm = {
   parlor: { type: "none" },
-  terms: { pachinko: termsAsOpened(USUAL_TERMS.pachinko), slot: termsAsOpened(USUAL_TERMS.slot) },
+  terms: { pachinko: termsAsOpened(USUAL_TERMS.pachinko), pachislot: termsAsOpened(USUAL_TERMS.pachislot) },
   pachinko: EMPTY_PACHINKO_START,
   pachislot: EMPTY_PACHISLOT_START,
   cabinetNumber: "",
@@ -177,7 +177,7 @@ const filledTerms = (recalled: TermsForm, opened: TermsForm): TermsForm => ({
 
 const recalledTerms = (recalled: Readonly<Record<PlayGameKind, TermsForm>>): Readonly<Record<PlayGameKind, TermsForm>> => ({
   pachinko: filledTerms(recalled.pachinko, EMPTY_START_FORM.terms.pachinko),
-  slot: filledTerms(recalled.slot, EMPTY_START_FORM.terms.slot),
+  pachislot: filledTerms(recalled.pachislot, EMPTY_START_FORM.terms.pachislot),
 })
 
 export interface StartFormState {

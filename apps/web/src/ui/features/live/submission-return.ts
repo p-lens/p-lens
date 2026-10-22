@@ -29,20 +29,18 @@ const LONGEST_NAME = 60
 /** What the return address carries when the person left to report where a listed parlor is. */
 const LOCATED = "located"
 
-const SURVEY_GAMES: Readonly<Record<PlayGameKind, string>> = { pachinko: "pachinko", slot: "slot" }
-
 /** What the return address carries when the person left from a book's play added by hand: the book. */
 const BOOK = "book"
 
 const returnAddress = (origin: string, from: LeftFrom): URL => {
   const address = new URL("/parlors/submitted", origin)
-  address.searchParams.set("game", SURVEY_GAMES[from.game])
+  address.searchParams.set("game", from.game)
   if (from.type === "entry") address.searchParams.set(BOOK, from.bookId)
   return address
 }
 
 const leftFrom = (query: URLSearchParams): LeftFrom => {
-  const game: PlayGameKind = query.get("game") === "slot" ? "slot" : "pachinko"
+  const game: PlayGameKind = query.get("game") === "pachislot" ? "pachislot" : "pachinko"
   const book = query.get(BOOK) ?? ""
   return BOOK_ID.test(book) ? { type: "entry", game, bookId: book as BookId } : { type: "start", game }
 }

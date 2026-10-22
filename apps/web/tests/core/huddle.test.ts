@@ -33,7 +33,7 @@ const DRAFT: PachinkoDraft = {
 
 const post = (member: string, postedAt: string, machine = "made-up", playId = "p-1"): HuddlePost => ({ member, name: member, postedAt, play: { ...huddlePostOf(DRAFT, HUDDLE, postedAt).play, id: playId as PlayId, machine } })
 
-const withLog = (log: string, gameKind: "pachinko" | "slot" = "pachinko"): HuddlePost["play"] => ({ ...huddlePostOf(DRAFT, HUDDLE, DAY).play, log, gameKind }) as HuddlePost["play"]
+const withLog = (log: string, gameKind: "pachinko" | "pachislot" = "pachinko"): HuddlePost["play"] => ({ ...huddlePostOf(DRAFT, HUDDLE, DAY).play, log, gameKind }) as HuddlePost["play"]
 
 describe("a huddle's code", () => {
   test("carries its secret, marked as a huddle's, and gives it back however it was pasted", () => {
@@ -157,7 +157,7 @@ describe("where one of the others' plays stands", () => {
 
   test("says nothing of 確変, nor of 時短 on a pachislot play", () => {
     expect(huddleStandingOf(withLog('{"spins":0,"outlay":0}\n{"spins":80,"outlay":1000,"phase":"special"}\n'))).toBe("playing")
-    expect(huddleStandingOf(withLog('{"spins":0,"outlay":0}\n{"spins":80,"outlay":1000,"phase":"rapid"}\n', "slot"))).toBe("playing")
+    expect(huddleStandingOf(withLog('{"spins":0,"outlay":0}\n{"spins":80,"outlay":1000,"phase":"rapid"}\n', "pachislot"))).toBe("playing")
   })
 })
 

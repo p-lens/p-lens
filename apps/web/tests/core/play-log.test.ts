@@ -18,7 +18,7 @@ const LOG = [
 describe("play log", () => {
   test("lives beside the journal, named by the play", () => {
     expect(playLogPath("pachinko", "abc" as PlayId)).toBe("pachinko-play/abc.jsonl")
-    expect(playLogPath("slot", "abc" as PlayId)).toBe("pachislot-play/abc.jsonl")
+    expect(playLogPath("pachislot", "abc" as PlayId)).toBe("pachislot-play/abc.jsonl")
   })
 
   test("a line remembered later is read in its place by spins", () => {
@@ -134,9 +134,9 @@ describe("the line that finishes a play", () => {
   test("follows a pachislot counter by the day's games where it was read by them, and by the games since the last AT where not", () => {
     const byTotal = '{"spins":0,"counter":{"total":2400}}\n{"spins":200,"counter":{"total":2600}}\n'
     const sinceAt = '{"spins":0,"counter":{"spins":80}}\n{"spins":150,"counter":{"spins":230}}\n'
-    expect(finishCounterOf(byTotal, "slot")).toEqual({ figure: "total", count: 2600 })
-    expect(withFinish(byTotal, { at: undefined, counter: 2650 }, "slot", undefined)).toBe(`${byTotal}{"spins":250,"counter":{"total":2650},"event":{"kind":"finished"}}\n`)
-    expect(finishCounterOf(sinceAt, "slot")).toEqual({ figure: "spins", count: 230 })
+    expect(finishCounterOf(byTotal, "pachislot")).toEqual({ figure: "total", count: 2600 })
+    expect(withFinish(byTotal, { at: undefined, counter: 2650 }, "pachislot", undefined)).toBe(`${byTotal}{"spins":250,"counter":{"total":2650},"event":{"kind":"finished"}}\n`)
+    expect(finishCounterOf(sinceAt, "pachislot")).toEqual({ figure: "spins", count: 230 })
   })
 
   test("finishes an empty log at no games, and leaves a log that does not read alone", () => {

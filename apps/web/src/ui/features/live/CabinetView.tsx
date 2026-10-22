@@ -20,5 +20,5 @@ export function CabinetView(props: { readonly place: Place; readonly playId: Pla
     () => props.playId,
     (playId) => loadDraft(app.services.drafts, playId),
   )
-  return <Loaded outcome={draft()}>{(found) => (found.gameKind === "slot" ? <PachislotViews.Cabinet place={props.place} draft={found} /> : <PachinkoViews.Cabinet place={props.place} draft={found} />)}</Loaded>
+  return <Loaded outcome={draft()}>{(found) => (found.gameKind === "pachislot" ? <PachislotViews.Cabinet place={props.place} draft={found} /> : <PachinkoViews.Cabinet place={props.place} draft={found} />)}</Loaded>
 }

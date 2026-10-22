@@ -38,10 +38,14 @@ describe("a draft read back from the device", () => {
   })
 
   test("keeps its own game's parts alone: a pachislot play kept with a pachinko formula is read without it", () => {
-    const kept = { ...structuredClone(DRAFT), gameKind: "slot" }
+    const kept = { ...structuredClone(DRAFT), gameKind: "pachislot" }
     const read = readPlayDraft(kept)
-    expect(read?.gameKind).toBe("slot")
+    expect(read?.gameKind).toBe("pachislot")
     expect(read !== undefined && ("pachinko" in read || "bonuses" in read)).toBe(false)
+  })
+
+  test("reads a play kept as `slot`, before pachislot's name was settled, as pachislot", () => {
+    expect(readPlayDraft({ ...structuredClone(DRAFT), gameKind: "slot" })?.gameKind).toBe("pachislot")
   })
 
   test("does not read where its finish is kept under another name, or is not one", () => {

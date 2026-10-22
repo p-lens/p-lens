@@ -384,7 +384,7 @@ export function FormulaEditorView(props: { readonly place: Place & { readonly ki
   const trail = createMemo(() => {
     const chosen = machine()
     return [
-      { label: "スロット開始", onSelect: () => moves.go({ kind: "live-new", game: "slot" }) },
+      { label: "スロット開始", onSelect: () => moves.go({ kind: "live-new", game: "pachislot" }) },
       chosen.type === "catalog" ? { label: shownNameOf(app.machineNames(), chosen.name), onSelect: () => moves.go({ kind: "pachislot-machine", machineId: chosen.machineId }) } : { label: "新しい機種" },
       { label: "算出条件を作る" },
     ]

@@ -205,8 +205,8 @@ fn arriving(held: &[f64], arrivals: &[f64], loss: f64) -> Vec<f64> {
         .fold(vec![0.0; held.len()], |mut arriving, (medals, mass)| {
             arrivals.iter().zip(0_u32..).for_each(|(arrival, since)| {
                 let start = whole(medals as f64 - loss * f64::from(since));
-                if let Some(slot) = arriving.get_mut(start) {
-                    *slot += mass * arrival;
+                if let Some(there) = arriving.get_mut(start) {
+                    *there += mass * arrival;
                 }
             });
             arriving
@@ -260,8 +260,8 @@ fn round_of(outcomes: &[(f64, f64)], cap: f64, held: &[f64], arrivals: &[f64], l
 )]
 fn landed(short: &[(f64, f64)], start: usize, mass: f64, held: Vec<f64>) -> Vec<f64> {
     short.iter().fold(held, |mut held, (medals, chance)| {
-        if let Some(slot) = held.get_mut(whole(start as f64 + medals)) {
-            *slot += mass * chance;
+        if let Some(there) = held.get_mut(whole(start as f64 + medals)) {
+            *there += mass * chance;
         }
         held
     })

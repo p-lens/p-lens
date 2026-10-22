@@ -28,7 +28,7 @@ export type PlayDraft = PlayOfGame & DraftOfAnyGame
 export type PachinkoDraft = Extract<PlayDraft, { readonly gameKind: "pachinko" }>
 
 /** A pachislot play still being played. */
-export type PachislotDraft = Extract<PlayDraft, { readonly gameKind: "slot" }>
+export type PachislotDraft = Extract<PlayDraft, { readonly gameKind: "pachislot" }>
 
 /**
  * What a play is weighed by, by its game. A pachinko play from the catalog
@@ -41,7 +41,7 @@ export type PachislotDraft = Extract<PlayDraft, { readonly gameKind: "slot" }>
  */
 export type PlayOfGame =
   | { readonly gameKind: "pachinko"; readonly pachinko: Pachinko.FormulaSnapshot | undefined; readonly bonuses?: readonly MachineBonus[] }
-  | { readonly gameKind: "slot"; readonly pachislot?: Pachislot.Weighing }
+  | { readonly gameKind: "pachislot"; readonly pachislot?: Pachislot.Weighing }
 
 /** What a play still being played is, whatever its game. */
 export interface DraftOfAnyGame {
@@ -144,7 +144,7 @@ export const headOf = (draft: PlayDraft, entry: TallyHead & { readonly parlor: P
   machine: entry.machine,
   cabinetNumber: entry.cabinetNumber,
   formulaId: draft.gameKind === "pachinko" ? draft.pachinko?.id : draft.pachislot?.formula.id,
-  prior: draft.gameKind === "slot" && draft.pachislot !== undefined ? priorSaid(draft.pachislot.prior) : undefined,
+  prior: draft.gameKind === "pachislot" && draft.pachislot !== undefined ? priorSaid(draft.pachislot.prior) : undefined,
 })
 
 /** The parlor a play is at, if it is at one. */
@@ -207,7 +207,7 @@ export const withMachine = (draft: PlayDraft, machine: MachineChange): PlayDraft
   const read = ofAnyGame(machine.readings === undefined ? draft : withLog(draft, machine.readings))
   return machine.type === "pachinko"
     ? { ...read, gameKind: "pachinko", machine: machine.name, pachinko: machine.formula, bonuses: machine.bonuses }
-    : { ...read, gameKind: "slot", machine: machine.name, pachislot: machine.weighing }
+    : { ...read, gameKind: "pachislot", machine: machine.name, pachislot: machine.weighing }
 }
 
 /** The draft at a cabinet of another number, or of none. */

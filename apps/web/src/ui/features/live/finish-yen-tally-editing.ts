@@ -2,7 +2,7 @@ import { createMemo, createResource, createSignal, type Accessor } from "solid-j
 
 import type { ApplicationError, Outcome } from "../../../application/errors"
 import { findMachines } from "../../../application/catalog"
-import { bookNameOf, CATALOG_GAMES, type MachineSummary } from "../../../core/catalog/catalog"
+import { bookNameOf, type MachineSummary } from "../../../core/catalog/catalog"
 import { machineMatches } from "../../../core/catalog/description"
 import type { Decimal } from "../../../core/decimal/decimal"
 import { renderEntry, type Entry } from "../../../core/journal/entry"
@@ -99,7 +99,7 @@ export const createFinishYenTallyEditing = (given: FinishYenTallyEditingGiven): 
   /** The catalog's machines of the play's game: all it may name. */
   const [catalogued] = createResource(
     () => form().gameKind,
-    (gameKind) => findMachines(app.services.catalog, "", CATALOG_GAMES[gameKind]),
+    (gameKind) => findMachines(app.services.catalog, "", gameKind),
   )
   const machines = (): readonly MachineSummary[] => {
     const found = catalogued()

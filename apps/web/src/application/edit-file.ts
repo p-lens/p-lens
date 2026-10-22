@@ -1,6 +1,6 @@
 import type { Catalog } from "../catalog/port/catalog"
 import type { BookId } from "../core/book/book"
-import { bookNameOf, CATALOG_GAMES } from "../core/catalog/catalog"
+import { bookNameOf } from "../core/catalog/catalog"
 import { writableText } from "../core/journal/entry"
 import { broughtIn, nameProblems, type KnownNames, type NameProblem } from "../core/names/known"
 import { identityKey, parlorsFromDeclarations, type ParlorId } from "../core/parlor/parlor"
@@ -32,7 +32,7 @@ export interface NamePorts {
 const EVERY_TALLY = { limit: 1_000_000, offset: 0 } as const
 
 const machinesOf = async (catalog: Catalog, gameKind: PlayGameKind): Promise<Outcome<ReadonlySet<string>>> =>
-  mapOk(fromCatalog(await catalog.search("", CATALOG_GAMES[gameKind])), (machines) => new Set(machines.flatMap((machine) => [bookNameOf(machine), writableText(machine.name)])))
+  mapOk(fromCatalog(await catalog.search("", gameKind)), (machines) => new Set(machines.flatMap((machine) => [bookNameOf(machine), writableText(machine.name)])))
 
 /** The names a book may hold, as the lists stand on this device now. */
 const knownNames = async (ports: NamePorts): Promise<Outcome<KnownNames>> => {
@@ -40,15 +40,15 @@ const knownNames = async (ports: NamePorts): Promise<Outcome<KnownNames>> => {
   if (!list.ok) return list
   const submissions = await ports.submissions.list()
   if (!submissions.ok) return Err(submissionsProblemOf(submissions.error))
-  const [pachinko, slot] = await Promise.all([machinesOf(ports.catalog, "pachinko"), machinesOf(ports.catalog, "slot")])
+  const [pachinko, pachislot] = await Promise.all([machinesOf(ports.catalog, "pachinko"), machinesOf(ports.catalog, "pachislot")])
   if (!pachinko.ok) return pachinko
-  if (!slot.ok) return slot
+  if (!pachislot.ok) return pachislot
   return Ok({
     parlors: new Map([
       ...list.value.parlors.map((parlor) => [identityKey({ type: "listed", id: parlor.id as string as ParlorId }), parlor.name] as const),
       ...submissions.value.map((kept) => [identityKey({ type: "submitted", submission: kept.submission }), kept.name] as const),
     ]),
-    machines: { pachinko: pachinko.value, slot: slot.value },
+    machines: { pachinko: pachinko.value, pachislot: pachislot.value },
   })
 }
 

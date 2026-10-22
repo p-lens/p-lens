@@ -3,7 +3,7 @@ import { createMemo, createResource, createSignal, Show, type Accessor, type JSX
 import type { ApplicationError, Outcome } from "../../../application/errors"
 import type { RecordingContext } from "../../../application/record-tally"
 import { findMachines } from "../../../application/catalog"
-import { bookNameOf, CATALOG_GAMES, type MachineSummary } from "../../../core/catalog/catalog"
+import { bookNameOf, type MachineSummary } from "../../../core/catalog/catalog"
 import { machineMatches } from "../../../core/catalog/description"
 import { renderEntry } from "../../../core/journal/entry"
 import { composeTokenTallyEntry } from "../../../core/tally/compose"
@@ -108,7 +108,7 @@ export function FinishTokenTallyEditor(props: {
   /** The catalog's machines of the tally's game: all it may name, beside the one it names already. */
   const [catalogued] = createResource(
     () => props.at.gameKind,
-    (gameKind) => findMachines(app.services.catalog, "", CATALOG_GAMES[gameKind]),
+    (gameKind) => findMachines(app.services.catalog, "", gameKind),
   )
   const machines = (): readonly MachineSummary[] => {
     const found = catalogued()

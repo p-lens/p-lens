@@ -16,7 +16,7 @@ export interface Corner {
   readonly terms: PlayTerms
   /** Yen one press of the rental button takes. */
   readonly cashStep: number
-  /** Tokens a day may be drawn out of savings to play (再プレー上限). */
+  /** Tokens a day may be drawn out of savings to play (再プレイ上限). */
   readonly replayCap: number
   readonly rates: readonly { readonly from: IsoDate; readonly rate: Decimal }[]
 }
@@ -48,12 +48,12 @@ const MEDAL_RENTALS = [50, 47, 46] as const
 /** Tokens a day may be replayed: 2,000 balls, and the medals the same yen rents. */
 const REPLAY_CAPS: Readonly<Record<PlayGameKind, number>> = {
   pachinko: 2000,
-  slot: 400,
+  pachislot: 400,
 }
 
 const CASH_STEPS: Readonly<Record<PlayGameKind, number>> = {
   pachinko: 500,
-  slot: 1000,
+  pachislot: 1000,
 }
 
 /** How likely a parlor is to change its exchange once in the three years, and how long after the first day and before the last it may. */
@@ -118,18 +118,18 @@ const cornerOf = (gameKind: PlayGameKind, days: readonly IsoDate[], draws: Draws
 
 const sampleParlorOf = (shared: SharedParlor, pull: number, days: readonly IsoDate[], draws: Draws): Drawn<SampleParlor> => {
   const [pachinko, afterPachinko] = cornerOf("pachinko", days, draws)
-  const [slot, afterSlot] = cornerOf("slot", days, afterPachinko)
+  const [pachislot, afterPachislot] = cornerOf("pachislot", days, afterPachinko)
   return [
     {
       parlor: {
         identity: { type: "listed", id: shared.id as string as ParlorId },
         name: shared.name,
-        pools: [pachinko.pool, slot.pool],
+        pools: [pachinko.pool, pachislot.pool],
       },
-      corners: { pachinko, slot },
+      corners: { pachinko, pachislot },
       pull,
     },
-    afterSlot,
+    afterPachislot,
   ]
 }
 

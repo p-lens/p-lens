@@ -18,7 +18,7 @@ import { ViewHeader } from "../shell/ViewHeader"
 import * as PachinkoViews from "../pachinko"
 import * as PachislotViews from "../pachislot"
 
-const TITLES: Readonly<Record<PlayGameKind, string>> = { pachinko: "パチンコ開始", slot: "スロット開始" }
+const TITLES: Readonly<Record<PlayGameKind, string>> = { pachinko: "パチンコ開始", pachislot: "スロット開始" }
 
 /**
  * Starting a play of one game: that game's own form, and no book asked for
@@ -86,7 +86,7 @@ export function StartPlayView(props: { readonly place: Place; readonly game: Pla
                   <Match when={listsWait().type === "over" && props.game === "pachinko"}>
                     <PachinkoViews.Start list={list()} submissions={kept()} />
                   </Match>
-                  <Match when={listsWait().type === "over" && props.game === "slot"}>
+                  <Match when={listsWait().type === "over" && props.game === "pachislot"}>
                     <PachislotViews.Start list={list()} submissions={kept()} />
                   </Match>
                 </Switch>

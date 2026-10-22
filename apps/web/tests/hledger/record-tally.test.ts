@@ -105,7 +105,7 @@ const TALLIED: YenTally = {
   id: "tally" as PlayId,
   date: "2026-10-04" as IsoDate,
   parlor: undefined,
-  gameKind: "slot",
+  gameKind: "pachislot",
   machine: "スマスロ流星",
   cabinetNumber: undefined,
   outlay: dec("15000"),

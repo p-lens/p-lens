@@ -31,7 +31,7 @@ export interface Making {
   readonly draws: Draws
 }
 
-const GAME_KINDS: readonly PlayGameKind[] = ["pachinko", "slot"]
+const GAME_KINDS: readonly PlayGameKind[] = ["pachinko", "pachislot"]
 
 /** Every exchange rate of the parlors, as the book's prices keep them. */
 const pricesOf = (parlors: readonly SampleParlor[]): readonly PricePoint[] =>

@@ -11,7 +11,7 @@ import { AtFigures } from "./AtPlay"
 import { NO_BONUSES, NO_MACHINE, PlayFigures } from "./LivePlay"
 import { Timeline } from "./Timeline"
 
-type Shown = Extract<Play, { readonly gameKind: "slot" }>
+type Shown = Extract<Play, { readonly gameKind: "pachislot" }>
 
 const checkpointsOf = (play: Shown): readonly Checkpoint[] | undefined => {
   const log = parsePlayLog(play.log)

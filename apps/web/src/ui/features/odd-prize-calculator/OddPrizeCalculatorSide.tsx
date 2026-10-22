@@ -9,7 +9,7 @@ import { SideList } from "../shell/SideList"
 
 const GAMES: readonly { readonly game: PlayGameKind; readonly label: string }[] = [
   { game: "pachinko", label: "パチンコ端玉電卓" },
-  { game: "slot", label: "スロット端玉電卓" },
+  { game: "pachislot", label: "スロット端玉電卓" },
 ]
 
 /** The odd-prize calculator's games, one calculator each. */

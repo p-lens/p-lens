@@ -90,7 +90,7 @@ export function FormulaPicker(props: {
   return (
     <div class="flex items-end gap-1">
       <div class="flex min-w-0 flex-1 flex-col gap-1.5">
-        <span class="flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-text-secondary" id="slot-formula-field-label">
+        <span class="flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-text-secondary" id="pachislot-formula-field-label">
           算出条件
           <Show when={props.selection} keyed>
             {(selected) => <ChoiceReason by={selected.by} />}
@@ -98,7 +98,7 @@ export function FormulaPicker(props: {
         </span>
         <button
           type="button"
-          aria-labelledby="slot-formula-field-label"
+          aria-labelledby="pachislot-formula-field-label"
           aria-invalid={empty.red()}
           onClick={press}
           onFocus={empty.settle}

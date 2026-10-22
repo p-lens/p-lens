@@ -99,17 +99,17 @@ describe("a book's settings", () => {
   test("keep the terms a tally typed in by hand was weighed on, one for each game, one game written without touching the other", () => {
     const first = withInferenceTerms('{"order":3}', "pachinko", { rentedPerThousand: 240, exchangedPerHundred: 27.5 })
     expect(first).toEqual({ ok: true, value: '{\n  "order": 3,\n  "inferenceTerms": {\n    "pachinko": {\n      "rentedPerThousand": 240,\n      "exchangedPerHundred": 27.5\n    }\n  }\n}\n' })
-    const second = first.ok ? withInferenceTerms(first.value, "slot", { rentedPerThousand: 47, exchangedPerHundred: 5.6 }) : first
+    const second = first.ok ? withInferenceTerms(first.value, "pachislot", { rentedPerThousand: 47, exchangedPerHundred: 5.6 }) : first
     const third = second.ok ? withInferenceTerms(second.value, "pachinko", { rentedPerThousand: 250, exchangedPerHundred: 28 }) : second
-    expect(third.ok && bookSettingsOf(third.value)).toEqual({ ok: true, value: { order: 3, businessDayTurn: undefined, presses: {}, inferenceTerms: { pachinko: { rentedPerThousand: 250, exchangedPerHundred: 28 }, slot: { rentedPerThousand: 47, exchangedPerHundred: 5.6 } } } })
+    expect(third.ok && bookSettingsOf(third.value)).toEqual({ ok: true, value: { order: 3, businessDayTurn: undefined, presses: {}, inferenceTerms: { pachinko: { rentedPerThousand: 250, exchangedPerHundred: 28 }, pachislot: { rentedPerThousand: 47, exchangedPerHundred: 5.6 } } } })
     expect(bookSettingsOf('{"inferenceTerms":{"mahjong":{"rentedPerThousand":1}}}')).toEqual({ ok: true, value: { order: undefined, businessDayTurn: undefined, presses: {}, inferenceTerms: {} } })
-    expect(withInferenceTerms('{"inferenceTerms":{"mahjong":1}}', "slot", { rentedPerThousand: 46, exchangedPerHundred: 5.1 })).toEqual({ ok: true, value: '{\n  "inferenceTerms": {\n    "mahjong": 1,\n    "slot": {\n      "rentedPerThousand": 46,\n      "exchangedPerHundred": 5.1\n    }\n  }\n}\n' })
+    expect(withInferenceTerms('{"inferenceTerms":{"mahjong":1}}', "pachislot", { rentedPerThousand: 46, exchangedPerHundred: 5.1 })).toEqual({ ok: true, value: '{\n  "inferenceTerms": {\n    "mahjong": 1,\n    "pachislot": {\n      "rentedPerThousand": 46,\n      "exchangedPerHundred": 5.1\n    }\n  }\n}\n' })
     expect(bookSettingsOf('{"inferenceTerms":{"pachinko":{"rentedPerThousand":0,"exchangedPerHundred":28}}}')).toEqual(unreadable)
     expect(bookSettingsOf('{"inferenceTerms":{"pachinko":{"rentedPerThousand":250.5,"exchangedPerHundred":28}}}')).toEqual(unreadable)
-    expect(bookSettingsOf('{"inferenceTerms":{"slot":{"rentedPerThousand":46,"exchangedPerHundred":"5.1"}}}')).toEqual(unreadable)
-    expect(bookSettingsOf('{"inferenceTerms":{"slot":{"rentedPerThousand":46}}}')).toEqual(unreadable)
+    expect(bookSettingsOf('{"inferenceTerms":{"pachislot":{"rentedPerThousand":46,"exchangedPerHundred":"5.1"}}}')).toEqual(unreadable)
+    expect(bookSettingsOf('{"inferenceTerms":{"pachislot":{"rentedPerThousand":46}}}')).toEqual(unreadable)
     expect(bookSettingsOf('{"inferenceTerms":[1]}')).toEqual(unreadable)
-    expect(withInferenceTerms('{"inferenceTerms":{"pachinko":1}}', "slot", { rentedPerThousand: 46, exchangedPerHundred: 5.1 })).toEqual(unreadable)
+    expect(withInferenceTerms('{"inferenceTerms":{"pachinko":1}}', "pachislot", { rentedPerThousand: 46, exchangedPerHundred: 5.1 })).toEqual(unreadable)
   })
 
   test("say the hour a business day turns over at where one that can be is written, beside the place", () => {

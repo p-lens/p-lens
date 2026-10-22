@@ -10,7 +10,7 @@ export type Depth = "machine" | "formula" | "grounds" | "basis"
 const DEPTHS: readonly Depth[] = ["machine", "formula", "grounds", "basis"]
 
 /**
- * The breadcrumb from starting a slot play down to a depth: the machine, its
+ * The breadcrumb from starting a pachislot play down to a depth: the machine, its
  * 算出条件, the 計算根拠, the 解析値. Each step but the last goes back.
  */
 export const trailTo = (
@@ -21,7 +21,7 @@ export const trailTo = (
 ): readonly Crumb[] => {
   const reach = DEPTHS.indexOf(depth)
   const steps: readonly (Crumb | undefined)[] = [
-    { label: "スロット開始", onSelect: () => moves.go({ kind: "live-new", game: "slot" }) },
+    { label: "スロット開始", onSelect: () => moves.go({ kind: "live-new", game: "pachislot" }) },
     { label: machine.name, onSelect: () => moves.go({ kind: "pachislot-machine", machineId: machine.id }) },
     formula === undefined || reach < 1
       ? undefined

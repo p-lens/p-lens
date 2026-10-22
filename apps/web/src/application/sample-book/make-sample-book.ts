@@ -1,7 +1,7 @@
 import type { Catalog } from "../../catalog/port/catalog"
 import type { BookId } from "../../core/book/book"
 import type { BusinessDayTurn, IsoDate } from "../../core/calendar/calendar"
-import { bookNameOf, CATALOG_GAMES, type MachineSummary } from "../../core/catalog/catalog"
+import { bookNameOf, type MachineSummary } from "../../core/catalog/catalog"
 import type { TitleProblem } from "../../core/journal/title"
 import { renderEntry, type Entry } from "../../core/journal/entry"
 import { withEntriesFiled } from "../../core/journal/filing"
@@ -103,15 +103,15 @@ const hereOf = async (locate: Locator): Promise<Coordinates | undefined> => ((fo
 
 /** The catalog's machines of both games with a formula, out by the last day and not long before the first. */
 const summariesOf = async (catalog: Catalog, from: IsoDate, through: IsoDate): Promise<Outcome<readonly MachineSummary[]>> => {
-  const [pachinko, slot] = await Promise.all([catalog.search("", CATALOG_GAMES.pachinko), catalog.search("", CATALOG_GAMES.slot)])
+  const [pachinko, pachislot] = await Promise.all([catalog.search("", "pachinko"), catalog.search("", "pachislot")])
   const balls = fromCatalog(pachinko)
   if (!balls.ok) return balls
-  const medals = fromCatalog(slot)
+  const medals = fromCatalog(pachislot)
   if (!medals.ok) return medals
   return Ok([...balls.value, ...medals.value].filter((machine) => machine.formulaCount > 0 && machine.releasedOn <= through && daysBetween(machine.releasedOn, from) <= OLDEST_MACHINE_DAYS))
 }
 
-type Seated = { readonly gameKind: "pachinko"; readonly onSale: OnSale<Pachinko.Seat> } | { readonly gameKind: "slot"; readonly onSale: OnSale<Pachislot.Seat> }
+type Seated = { readonly gameKind: "pachinko"; readonly onSale: OnSale<Pachinko.Seat> } | { readonly gameKind: "pachislot"; readonly onSale: OnSale<Pachislot.Seat> }
 
 /** A machine as a sample book sits at it: its first formula. None where it cannot be read or has no formula, or where a pachinko machine's border is under 16 (`seatsAt`). */
 const seatedOf = async (catalog: Catalog, machine: MachineSummary): Promise<Seated | undefined> => {
@@ -130,7 +130,7 @@ const seatedOf = async (catalog: Catalog, machine: MachineSummary): Promise<Seat
   return levels === undefined || !entry.ok
     ? undefined
     : {
-        gameKind: "slot",
+        gameKind: "pachislot",
         onSale: {
           ...onSale,
           seat: { levels },
@@ -153,7 +153,7 @@ const lineupOf = async (catalog: Catalog, machines: readonly MachineSummary[], w
   const seated = await read(0, [])
   return {
     pachinko: seated.flatMap((found) => (found.gameKind === "pachinko" ? [found.onSale] : [])),
-    slot: seated.flatMap((found) => (found.gameKind === "slot" ? [found.onSale] : [])),
+    pachislot: seated.flatMap((found) => (found.gameKind === "pachislot" ? [found.onSale] : [])),
   }
 }
 
@@ -219,7 +219,7 @@ export const makeSampleBook = async (ports: SamplePorts, request: SampleRequest,
   const summaries = await summariesOf(ports.catalog, from, request.through)
   if (!summaries.ok) return summaries
   const lineup = await lineupOf(ports.catalog, summaries.value, watch)
-  if (lineup.pachinko.length === 0 && lineup.slot.length === 0) return Ok(Err({ type: "no-machines" }))
+  if (lineup.pachinko.length === 0 && lineup.pachislot.length === 0) return Ok(Err({ type: "no-machines" }))
   await watch.pause()
   if (watch.stopped.aborted) return CANCELLED
   const order: SampleWork = { from, through: request.through, parlors, lineup, seed: request.seed }

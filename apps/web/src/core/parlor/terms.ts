@@ -23,7 +23,7 @@ export interface PlayTerms {
  */
 const EXCHANGE_STATED: Readonly<Record<PlayGameKind, { readonly yen: number; readonly places: number }>> = {
   pachinko: { yen: 100, places: 1 },
-  slot: { yen: 100, places: 2 },
+  pachislot: { yen: 100, places: 2 },
 }
 
 const statedNumber = (places: number): RegExp => new RegExp(`^\\d+(\\.\\d{1,${String(places)}})?$`)
@@ -69,7 +69,7 @@ export const exchangeRateOf = (terms: Pick<PlayTerms, "exchange">): Decimal => q
 /** The rental rates parlors advertise, in yen per token, dearest first, for each game. */
 const TIERS: Readonly<Record<PlayGameKind, readonly number[]>> = {
   pachinko: [4, 2, 1, 0.5, 0.25, 0.2],
-  slot: [20, 10, 5, 2, 1, 0.5],
+  pachislot: [20, 10, 5, 2, 1, 0.5],
 }
 
 /** Rates are compared with room for the float a division leaves: 1000 / 250 is 4, not 3.9999…. */
@@ -103,10 +103,10 @@ const exchangeTier = (gameKind: PlayGameKind, terms: PlayTerms): number | undefi
  */
 const CORNER_RATES: Readonly<Record<PlayGameKind, readonly number[]>> = {
   pachinko: [4, 2, 1, 0.5, 0.25, 0.2],
-  slot: [20, 10, 8, 5, 2, 1, 0.5],
+  pachislot: [20, 10, 8, 5, 2, 1, 0.5],
 }
 
-const GAME_SHORT: Readonly<Record<PlayGameKind, string>> = { pachinko: "パチ", slot: "スロ" }
+const GAME_SHORT: Readonly<Record<PlayGameKind, string>> = { pachinko: "パチ", pachislot: "スロ" }
 
 /**
  * A corner as a player calls it — `4円パチ`, `20円スロ` — by the dearest

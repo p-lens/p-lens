@@ -15,7 +15,7 @@ export interface Finish {
 }
 
 /** A pachislot counter is followed by the day's games where it was read by them, and by the games since the last AT where not; a pachinko counter by its spins since the last jackpot. */
-const figureOf = (gameKind: PlayGameKind, counter: Counter): FinishCounter["figure"] => (gameKind === "slot" && counter.total !== undefined ? "total" : "spins")
+const figureOf = (gameKind: PlayGameKind, counter: Counter): FinishCounter["figure"] => (gameKind === "pachislot" && counter.total !== undefined ? "total" : "spins")
 
 const lastRead = (ordered: readonly Checkpoint[], gameKind: PlayGameKind): FinishCounter | undefined => {
   const counter = ordered.findLast((checkpoint) => checkpoint.counter !== undefined)?.counter

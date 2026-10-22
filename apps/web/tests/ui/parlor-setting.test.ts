@@ -10,7 +10,7 @@ const SETTING: ParlorSetting = {
   parlor: { type: "listed", id: "p1" as SharedParlorId },
   terms: {
     pachinko: { rentalTokens: "250", exchange: "28.0", replayPaidOut: "125", replayDeducted: "133" },
-    slot: { rentalTokens: "", exchange: "", replayPaidOut: "25", replayDeducted: "25" },
+    pachislot: { rentalTokens: "", exchange: "", replayPaidOut: "25", replayDeducted: "25" },
   },
 }
 

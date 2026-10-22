@@ -35,7 +35,7 @@ const TODAY: TokenTally = { ...RENTED_PLAY, id: "today" as PlayId, date: "2026-1
 /** A tally that rented, replayed at a fee and left tokens: every sum a record can carry. */
 const FULL: TokenTally = { ...TODAY, id: "full" as PlayId, rental: { outlay: dec("2000"), tokens: dec("500") }, replay: { paidOut: dec("1000"), deducted: dec("1100") }, payout: dec("2500"), cabinetNumber: undefined, theoreticalValue: undefined }
 
-const TALLIED: YenTally = { id: "tally" as PlayId, date: "2026-10-04" as IsoDate, parlor: MALEHAN, gameKind: "slot", machine: "スマスロ流星", cabinetNumber: "7", outlay: dec("15000"), takings: dec("3000"), settlement: undefined, theoreticalValue: dec("8000") , told: undefined}
+const TALLIED: YenTally = { id: "tally" as PlayId, date: "2026-10-04" as IsoDate, parlor: MALEHAN, gameKind: "pachislot", machine: "スマスロ流星", cabinetNumber: "7", outlay: dec("15000"), takings: dec("3000"), settlement: undefined, theoreticalValue: dec("8000") , told: undefined}
 
 const figures = async (session: Awaited<ReturnType<typeof setUp>>["session"], query: string) =>
   mapOk(await loadOverview(session, BOOK, query), (found) => [toPlainString(found.actual), toPlainString(found.theoretical)])

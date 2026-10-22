@@ -90,7 +90,7 @@ window.__made = { state: "running", started: performance.now(), progress: 0 };
     const dates = Array.from({ length: 48 }, (_, i) => `${2014 + Math.floor(i / 4)}-${String((i % 4) * 3 + 1).padStart(2, "0")}-05`)
     const LINEUP = {
       pachinko: dates.filter((_, i) => i % 2 === 0).map((releasedOn, i) => ({ id: `p${i}`, name: `P機種${i}`, releasedOn, seat: F.PACHINKO_SEAT })),
-      slot: dates.filter((_, i) => i % 2 === 1).map((releasedOn, i) => ({ id: `s${i}`, name: `S機種${i}`, releasedOn, seat: F.PACHISLOT_SEAT })),
+      pachislot: dates.filter((_, i) => i % 2 === 1).map((releasedOn, i) => ({ id: `s${i}`, name: `S機種${i}`, releasedOn, seat: F.PACHISLOT_SEAT })),
     }
     const playsOf = (seed, parlors) => {
       const counter = { next: 0 }

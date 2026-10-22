@@ -3,7 +3,7 @@ import type * as Pachinko from "../pachinko"
 import type * as Pachislot from "../pachislot"
 import type { Parlor, ParlorIdentity, SavingsPool } from "../parlor/parlor"
 import type { PlayTerms } from "../parlor/terms"
-import type { PlayGameKind } from "../play/play"
+import { readGameKind, type PlayGameKind } from "../play/play"
 import { parsePlayLog } from "../play-log/checkpoint"
 import type { Finish } from "../play-log/finish"
 import type { DraftOfAnyGame, Operation, PlayDraft, PlayOfGame, PlayVenue, Receipt, Sending } from "./draft"
@@ -47,7 +47,10 @@ const isVenue = (value: unknown): value is PlayVenue =>
   isFields(value) &&
   ((value["type"] === "parlor" && isParlor(value["parlor"]) && isTerms(value["terms"])) || (value["type"] === "none" && isOptional(value["terms"], isTerms)))
 
-const isGameKind = (value: unknown): value is PlayGameKind => value === "pachinko" || value === "slot"
+const isGameKind = (value: unknown): value is PlayGameKind => value === "pachinko" || value === "pachislot"
+
+/** A play with its game as this app names it: one kept or sent before pachislot's name was settled names it as it was written then. */
+const withGameNamed = (value: unknown): unknown => (isFields(value) ? { ...value, gameKind: readGameKind(value["gameKind"]) ?? value["gameKind"] } : value)
 
 const isFigures = (value: unknown): value is Pachinko.Figures =>
   isFields(value) && isFigure(value["roundChanceOneIn"]) && isFigure(value["payoutPerRound"]) && isOptional(value["totalChanceOneIn"], isFigure) && isOptional(value["spinsPerHour"], isFigure)
@@ -144,7 +147,7 @@ const ofItsGame = (value: Fields): Fields => {
 }
 
 /** A play read from what was kept or sent, its own game's parts alone, or none where any part of it that is there does not read. */
-export const readPlay = (value: unknown): Play | undefined => (isPlay(value) && isFields(value) ? ((own) => (isPlay(own) ? own : undefined))(ofItsGame(value)) : undefined)
+export const readPlay = (kept: unknown): Play | undefined => ((value) => (isPlay(value) && isFields(value) ? ((own) => (isPlay(own) ? own : undefined))(ofItsGame(value)) : undefined))(withGameNamed(kept))
 
 /** A draft read from what the device kept, its own game's parts alone, or none where any part of it that is there does not read. */
-export const readPlayDraft = (value: unknown): PlayDraft | undefined => (isDraft(value) && isFields(value) ? ((own) => (isDraft(own) ? own : undefined))(ofItsGame(value)) : undefined)
+export const readPlayDraft = (kept: unknown): PlayDraft | undefined => ((value) => (isDraft(value) && isFields(value) ? ((own) => (isDraft(own) ? own : undefined))(ofItsGame(value)) : undefined))(withGameNamed(kept))

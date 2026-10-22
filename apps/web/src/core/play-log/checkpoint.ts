@@ -173,7 +173,7 @@ export type PlayLogError =
   | { readonly type: "non-monotonic"; readonly field: "outlay"; readonly spins: number }
 
 /** The folder each game's play logs are kept in: a game is a folder, here as everywhere. */
-const PLAY_LOG_FOLDERS: Readonly<Record<PlayGameKind, string>> = { pachinko: "pachinko-play", slot: "pachislot-play" }
+const PLAY_LOG_FOLDERS: Readonly<Record<PlayGameKind, string>> = { pachinko: "pachinko-play", pachislot: "pachislot-play" }
 
 /**
  * Where a play's log is kept beside the book's journal files: in its

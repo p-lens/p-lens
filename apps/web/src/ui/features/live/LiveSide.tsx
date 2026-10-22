@@ -190,7 +190,7 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
     <SidePanel header={<span class="font-semibold text-text-primary">ライブ計測</span>} resizeLabel="サイドパネルの幅を変える">
       <div class="grid grid-cols-2 gap-2 px-2 pt-3">
         <Button onClick={() => moves.go({ kind: "live-new", game: "pachinko" })}>パチンコ開始</Button>
-        <Button onClick={() => moves.go({ kind: "live-new", game: "slot" })}>スロット開始</Button>
+        <Button onClick={() => moves.go({ kind: "live-new", game: "pachislot" })}>スロット開始</Button>
       </div>
       <section class="px-2 pt-4">
         <div class="flex items-center gap-2 px-2 pb-1">

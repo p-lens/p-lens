@@ -47,7 +47,7 @@ describe("the tokens in hand between two plays of a day", () => {
   test("are what the next play at that parlor and of that pool is begun with, and no other play", () => {
     expect(tokensCarriedTo(KEPT, DAY, AT_MALEHAN, "pachinko")).toBe(1500)
     expect(tokensCarriedTo(KEPT, DAY, { ...AT_MALEHAN, terms: { ...TERMS, rental: { yen: 1000, tokens: 1000 }, exchange: { yen: 1000, tokens: 1000 } } }, "pachinko")).toBeUndefined()
-    expect(tokensCarriedTo(KEPT, DAY, AT_MALEHAN, "slot")).toBeUndefined()
+    expect(tokensCarriedTo(KEPT, DAY, AT_MALEHAN, "pachislot")).toBeUndefined()
     expect(tokensCarriedTo(KEPT, DAY, { ...AT_MALEHAN, parlor: { ...MALEHAN, identity: { type: "listed", id: "elsewhere" as never } } }, "pachinko")).toBeUndefined()
     expect(tokensCarriedTo(KEPT, DAY, { type: "none", terms: TERMS }, "pachinko")).toBeUndefined()
     expect(tokensCarriedTo(KEPT, "2026-10-13" as IsoDate, AT_MALEHAN, "pachinko")).toBeUndefined()

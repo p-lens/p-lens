@@ -6,7 +6,7 @@ import { ACCOUNTS } from "../journal/accounts"
 import { PARLOR_ID_TAG, type ParlorId } from "../parlor/parlor"
 import { SOURCE_TAGS } from "../import/source-tally"
 import { TALLY_TAGS } from "../tally/tally"
-import type { PlayGameKind, PlayId } from "../play/play"
+import { readGameKind, type PlayGameKind, type PlayId } from "../play/play"
 import { quantityIn, yenOf } from "./figures"
 
 /** A tally as the journal holds it, read off its entry. */
@@ -27,9 +27,6 @@ export interface TallySummary {
 }
 
 const tagValue = (tags: readonly Tag[], name: string): string | undefined => tags.find(([tag]) => tag === name)?.[1]
-
-const gameKindOf = (text: string | undefined): PlayGameKind | undefined =>
-  text === "pachinko" || text === "slot" ? text : undefined
 
 /** What an entry wrote on one statistics account, or undefined if it wrote nothing there. */
 const statisticOf = (transaction: Transaction, account: string): Decimal | undefined => {
@@ -65,7 +62,7 @@ export const tallySummaryOf = (transaction: Transaction): TallySummary | undefin
         date: date.value,
         description: transaction.tdescription,
         parlorId: tagValue(transaction.ttags, PARLOR_ID_TAG) as ParlorId | undefined,
-        gameKind: gameKindOf(tagValue(transaction.ttags, TALLY_TAGS.gameKind)),
+        gameKind: readGameKind(tagValue(transaction.ttags, TALLY_TAGS.gameKind)),
         machine: tagValue(transaction.ttags, TALLY_TAGS.machine),
         cabinetNumber: tagValue(transaction.ttags, TALLY_TAGS.cabinetNumber),
         importedFrom: tagValue(transaction.ttags, SOURCE_TAGS.from),

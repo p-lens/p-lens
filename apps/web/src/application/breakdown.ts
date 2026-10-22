@@ -1,5 +1,6 @@
 import type { BookId } from "../core/book/book"
 import { SOURCE_TAGS } from "../core/import/source-tally"
+import { readGameKind } from "../core/play/play"
 import { PARLOR_ID_TAG, PARLOR_SUBMISSION_TAG, parlorsFromDeclarations, type Parlor } from "../core/parlor/parlor"
 import { TALLY_TAGS } from "../core/tally/tally"
 import { UNSAID, byColumn, byRow, byWeekday, groupsOf, inOrder, merged, type Dimension, type Group, type Period } from "../core/report/breakdown"
@@ -92,6 +93,10 @@ const byParlor = async (journal: JournalAccess, query: string): Promise<Outcome<
   return groups.ok ? mapOk(await parlorsIn(journal), (parlors) => named(groups.value, parlors)) : groups
 }
 
+/** The tallies of a query grouped by game: what a book wrote before pachislot's name was settled is one game with what it writes now. */
+const byGame = async (journal: JournalAccess, query: string): Promise<Outcome<readonly Group[]>> =>
+  mapOk(await byTags(journal, query, [TALLY_TAGS.gameKind]), (groups) => merged([groups.map((group) => ({ ...group, key: readGameKind(group.key) ?? group.key }))]))
+
 const grouped = async (journal: JournalAccess, dimension: Dimension, query: string): Promise<Outcome<readonly Group[]>> => {
   switch (dimension) {
     case "machine":
@@ -99,7 +104,7 @@ const grouped = async (journal: JournalAccess, dimension: Dimension, query: stri
     case "parlor":
       return byParlor(journal, query)
     case "game":
-      return byTags(journal, query, [TALLY_TAGS.gameKind])
+      return byGame(journal, query)
     case "year":
       return byPeriod(journal, query, "yearly")
     case "month":

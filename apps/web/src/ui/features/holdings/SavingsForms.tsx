@@ -45,7 +45,7 @@ const LARGEST_PRIZE_STEP = decimal(1000n, 0)
 /** The rates a corner usually has, for each game, what the form opens with: the tokens ¥1,000 rents, and the tokens ¥100 is exchanged for. */
 const USUAL: Readonly<Record<PlayGameKind, { readonly rental: string; readonly exchange: string; readonly unit: string }>> = {
   pachinko: { rental: "250", exchange: "28", unit: "玉" },
-  slot: { rental: "46", exchange: "5.2", unit: "枚" },
+  pachislot: { rental: "46", exchange: "5.2", unit: "枚" },
 }
 
 /** The terms a corner's rates make, as far as a pool needs them: its rate names the pool, its exchange values the savings. A replay is none of a balance's business. */
@@ -169,12 +169,12 @@ export function OpeningBalanceForm(props: {
       <ToggleGroup
         value={game()}
         onChange={(value: string | null) => {
-          if ((value === "pachinko" || value === "slot") && value !== game()) play(value)
+          if ((value === "pachinko" || value === "pachislot") && value !== game()) play(value)
         }}
         aria-label="種別"
       >
         <ToggleGroupItem value="pachinko">貯玉</ToggleGroupItem>
-        <ToggleGroupItem value="slot">貯メダル</ToggleGroupItem>
+        <ToggleGroupItem value="pachislot">貯メダル</ToggleGroupItem>
       </ToggleGroup>
       <div class="grid grid-cols-4 items-end gap-1.5">
         <TextField label="貸(千円)" value={rental()} onChange={setRental} inputMode="numeric" suffix={USUAL[game()].unit} invalid={missing("rental")} onFocus={nudge.settle} compact />
@@ -444,7 +444,7 @@ export function ForfeitureForm(props: {
 }
 
 /** The game whose tokens a pool keeps: what its exchange is stated in. */
-const GAME_OF: Readonly<Record<SavingsPool["kind"], PlayGameKind>> = { ball: "pachinko", medal: "slot" }
+const GAME_OF: Readonly<Record<SavingsPool["kind"], PlayGameKind>> = { ball: "pachinko", medal: "pachislot" }
 
 /**
  * Setting one pool's exchange rate from a day: the day, and the tokens

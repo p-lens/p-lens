@@ -25,20 +25,20 @@ export function LivePlayView(props: { readonly place: Place; readonly playId: Pl
     (source) => loadDraft(app.services.drafts, source.playId),
   )
   /** A pachislot play, kept on screen across reloads of its draft: its counting tiles are tapped faster than a screen could be rebuilt. */
-  const slotDraft = (): PachislotDraft | undefined => {
+  const pachislotDraft = (): PachislotDraft | undefined => {
     const found = draft()
-    return found?.ok === true && found.value.gameKind === "slot" ? found.value : undefined
+    return found?.ok === true && found.value.gameKind === "pachislot" ? found.value : undefined
   }
   return (
     <Show
-      when={slotDraft()}
+      when={pachislotDraft()}
       fallback={
         <Loaded outcome={draft()}>
           {(found) => (found.gameKind === "pachinko" ? <PachinkoViews.LivePlay place={props.place} draft={found} title={titleOf(found, app.machineNames())} /> : undefined)}
         </Loaded>
       }
     >
-      {(slot) => <PachislotViews.LivePlay place={props.place} draft={slot()} title={titleOf(slot(), app.machineNames())} />}
+      {(pachislot) => <PachislotViews.LivePlay place={props.place} draft={pachislot()} title={titleOf(pachislot(), app.machineNames())} />}
     </Show>
   )
 }

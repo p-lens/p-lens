@@ -1,6 +1,6 @@
 import type { Catalog } from "../catalog/port/catalog"
 import type { BookId } from "../core/book/book"
-import { bookNameOf, CATALOG_GAMES, type MachineSummary } from "../core/catalog/catalog"
+import { bookNameOf, type MachineSummary } from "../core/catalog/catalog"
 import { machineKeyOf } from "../core/catalog/description"
 import { PRECORD, readPrecord } from "../core/import/precord"
 import { withAccountsFor } from "./record-tally"
@@ -48,7 +48,7 @@ export interface Imported {
   readonly alreadyHere: number
 }
 
-const GAME_KINDS: readonly PlayGameKind[] = ["pachinko", "slot"]
+const GAME_KINDS: readonly PlayGameKind[] = ["pachinko", "pachislot"]
 
 /** The catalog's machines of both games, and each by every writing it alone goes by. */
 interface Catalogue {
@@ -67,10 +67,10 @@ const keysOf = (machine: MachineSummary): readonly string[] => [...new Set([mach
  * says nothing of which was played, and names neither.
  */
 const catalogueOf = async (catalog: Catalog): Promise<Outcome<Catalogue>> => {
-  const [pachinko, slot] = await Promise.all(GAME_KINDS.map((gameKind) => catalog.search("", CATALOG_GAMES[gameKind])))
-  if (pachinko === undefined || slot === undefined) return Ok({ machines: [], byKey: new Map() })
+  const [pachinko, pachislot] = await Promise.all(GAME_KINDS.map((gameKind) => catalog.search("", gameKind)))
+  if (pachinko === undefined || pachislot === undefined) return Ok({ machines: [], byKey: new Map() })
   return andThen(fromCatalog(pachinko), (balls) =>
-    mapOk(fromCatalog(slot), (medals) => {
+    mapOk(fromCatalog(pachislot), (medals) => {
       const machines = [...balls, ...medals]
       const claims = machines.flatMap((machine) => keysOf(machine).map((key) => [key, machine] as const))
       return { machines, byKey: new Map(claims.filter(([key]) => claims.filter(([other]) => other === key).length === 1)) }
@@ -78,7 +78,7 @@ const catalogueOf = async (catalog: Catalog): Promise<Outcome<Catalogue>> => {
   )
 }
 
-const matchedOf = (machine: MachineSummary): MatchedMachine => ({ name: bookNameOf(machine), gameKind: machine.gameKind === "pachinko" ? "pachinko" : "slot" })
+const matchedOf = (machine: MachineSummary): MatchedMachine => ({ name: bookNameOf(machine), gameKind: machine.gameKind === "pachinko" ? "pachinko" : "pachislot" })
 
 /** The machines a person said a source's names are, by the name as the source wrote it: each a machine of the catalog, by its id. */
 export type Named = ReadonlyMap<string, string>

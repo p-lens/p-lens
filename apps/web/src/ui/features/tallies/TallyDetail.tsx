@@ -31,7 +31,7 @@ import * as PachislotViews from "../pachislot"
 
 const asRead = (account: string, quantity: Decimal): Decimal => (isWrittenReversed(account) ? negate(quantity) : quantity)
 
-const GAME_KINDS = { pachinko: "パチンコ", slot: "スロット" } as const
+const GAME_KINDS = { pachinko: "パチンコ", pachislot: "スロット" } as const
 
 /** What a tally was, under its machine's name: the model name the book keeps it under, when, where and at which cabinet, then its game and the rate its play was on, as its play's log says it in its head. Each is said even where the tally names none: no parlor in words, the rest as dashes. */
 function Facts(props: { readonly tally: TallySummary; readonly parlorName: string | undefined; readonly modelName: string | undefined; readonly terms: PlayTerms | undefined }): JSX.Element {
@@ -152,7 +152,7 @@ export function TallyDetail(props: { readonly place: Place; readonly bookId: Boo
                 <Switch>
                   <Match when={found.log.type === "read" && found.log.checkpoints} keyed>
                     {(log) => (
-                      <Show when={found.summary.gameKind === "slot"} fallback={<PachinkoViews.Timeline checkpoints={log} terms={found.terms} revising={undefined} onRevise={undefined} onMerge={undefined} />}>
+                      <Show when={found.summary.gameKind === "pachislot"} fallback={<PachinkoViews.Timeline checkpoints={log} terms={found.terms} revising={undefined} onRevise={undefined} onMerge={undefined} />}>
                         <PachislotViews.Timeline checkpoints={log} bonuses={undefined} revising={undefined} onRevise={undefined} onMerge={undefined} />
                       </Show>
                     )}

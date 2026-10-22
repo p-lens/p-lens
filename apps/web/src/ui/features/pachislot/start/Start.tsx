@@ -51,12 +51,12 @@ function MachineField(props: {
   const app = useApp()
   return (
     <div class="flex min-w-0 flex-col gap-1.5">
-      <span class="text-xs font-bold uppercase tracking-wide text-text-secondary" id="slot-machine-field-label">
+      <span class="text-xs font-bold uppercase tracking-wide text-text-secondary" id="pachislot-machine-field-label">
         機種
       </span>
       <button
         type="button"
-        aria-labelledby="slot-machine-field-label"
+        aria-labelledby="pachislot-machine-field-label"
         aria-invalid={props.invalid}
         onClick={() => props.onOpen()}
         onFocus={() => props.onFocus()}
@@ -157,7 +157,7 @@ function ParlorField(props: {
       toast({ title: "店舗の申請はまだ準備中です", description: "一覧にない店舗は、店舗名なしで記録できます。" })
       return
     }
-    window.location.assign(submitAddress(props.surveyUrl, window.location.origin, { type: "start", game: "slot" }))
+    window.location.assign(submitAddress(props.surveyUrl, window.location.origin, { type: "start", game: "pachislot" }))
   }
   /**
    * The chosen parlor, where the list has it without a position, and there
@@ -208,7 +208,7 @@ function ParlorField(props: {
       <Show when={unplaced()} keyed>
         {(found) => (
           <a
-            href={locateAddress(found.survey, window.location.origin, { type: "start", game: "slot" }, found.parlor)}
+            href={locateAddress(found.survey, window.location.origin, { type: "start", game: "pachislot" }, found.parlor)}
             class="col-start-1 animate-[emerge_1.6s_ease-out] text-xs text-text-secondary underline underline-offset-2 hover:text-text-primary"
           >
             {LOCATE_REQUEST}
@@ -263,23 +263,23 @@ export function Start(props: {
   const machineMissing = (): boolean => chosenMachine() === undefined
   /** Where the play is: the chosen parlor on the corner's terms, with the pool they make, or none. No book hears of it until the play is recorded. */
   const venue = (): PlayVenue => {
-    const read = readTerms(start.form().terms.slot, "slot")
+    const read = readTerms(start.form().terms.pachislot, "pachislot")
     const terms = read.ok ? read.value : undefined
     const parlor = chosenParlor()
-    return parlor === undefined || terms === undefined ? { type: "none", terms } : { type: "parlor", parlor: { ...parlor, pools: [poolOf("slot", terms)] }, terms }
+    return parlor === undefined || terms === undefined ? { type: "none", terms } : { type: "parlor", parlor: { ...parlor, pools: [poolOf("pachislot", terms)] }, terms }
   }
   /** The terms' fields that do not read: a play is not started without its corner's terms, at a parlor or at none. */
   const termsProblems = (): readonly TermsField[] => {
-    const read = readTerms(start.form().terms.slot, "slot")
+    const read = readTerms(start.form().terms.pachislot, "pachislot")
     return read.ok ? [] : read.error
   }
   /** The medals the play is begun with in hand: what the day's play before left at this place, unless typed over. */
-  const carriedShown = (): string => carriedInShown(start.form().carriedIn, tokensCarriedTo(app.services.preferences.tokensInHand(), app.services.businessDay(), venue(), "slot"))
+  const carriedShown = (): string => carriedInShown(start.form().carriedIn, tokensCarriedTo(app.services.preferences.tokensInHand(), app.services.businessDay(), venue(), "pachislot"))
   const carriedUnread = (): boolean => readCarriedIn(carriedShown()).type === "unread"
   const textProblems = (): readonly (string | undefined)[] => [carriedUnread() ? FIELD_PROBLEM_TEXT["not-a-count"] : undefined, unwritable(start.form().cabinetNumber)]
   /** The corner's terms as read, for weighing the seat: none until they read. */
   const terms = (): PlayTerms | undefined => {
-    const read = readTerms(start.form().terms.slot, "slot")
+    const read = readTerms(start.form().terms.pachislot, "pachislot")
     return read.ok ? read.value : undefined
   }
 
@@ -307,14 +307,14 @@ export function Start(props: {
     const form = start.form()
     const weighing = seat.weighing()
     const startedAt = app.services.now()
-    const kept = tokensCarriedTo(app.services.preferences.tokensInHand(), app.services.businessDay(), venue(), "slot")
+    const kept = tokensCarriedTo(app.services.preferences.tokensInHand(), app.services.businessDay(), venue(), "pachislot")
     const said = readCarriedIn(carriedShown())
     const carriedIn = said.type === "count" ? said.count : undefined
     const draft: PlayDraft = {
       id: app.services.newPlayId(),
       date: app.services.businessDay(),
       venue: venue(),
-      gameKind: "slot",
+      gameKind: "pachislot",
       machine: chosenMachine()?.name ?? "",
       ...(weighing === undefined ? {} : { pachislot: weighing }),
       cabinetNumber: form.cabinetNumber.trim() === "" ? undefined : form.cabinetNumber.trim(),
@@ -349,10 +349,10 @@ export function Start(props: {
           onChoose={(parlor) => start.update({ parlor })}
         />
         <Terms
-          form={start.form().terms.slot}
+          form={start.form().terms.pachislot}
           invalid={termsNudge.red() ? termsProblems() : []}
           onFocus={termsNudge.settle}
-          onChange={(form) => start.update({ terms: { ...start.form().terms, slot: form } })}
+          onChange={(form) => start.update({ terms: { ...start.form().terms, pachislot: form } })}
         />
       </section>
       <section class="flex flex-col gap-4" aria-labelledby="start-machine">

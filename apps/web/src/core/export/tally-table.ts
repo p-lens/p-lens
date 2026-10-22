@@ -38,7 +38,7 @@ const COLUMNS = [
   "取込元",
 ] as const
 
-const GAME_KINDS: Readonly<Record<PlayGameKind, string>> = { pachinko: "パチンコ", slot: "スロット" }
+const GAME_KINDS: Readonly<Record<PlayGameKind, string>> = { pachinko: "パチンコ", pachislot: "スロット" }
 
 /** What is not known is an empty cell, which a spreadsheet leaves out of a sum; a dash would be text in a column of numbers. */
 const UNKNOWN = ""

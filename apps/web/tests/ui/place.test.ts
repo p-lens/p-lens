@@ -6,7 +6,7 @@ import type { BookId } from "../../src/core/book/book"
 const PLACES: readonly Place[] = [
   { kind: "live" },
   { kind: "live-new", game: "pachinko" },
-  { kind: "live-new", game: "slot" },
+  { kind: "live-new", game: "pachislot" },
   { kind: "live-play", playId: "p-1" as never },
   { kind: "live-record", playId: "p-1" as never },
   { kind: "live-cabinet", playId: "p-1" as never },
@@ -62,7 +62,7 @@ describe("places", () => {
   })
 
   test("`new` is the page that starts a play, never a play's id", () => {
-    expect(placeOf("/play/new/slot")).toEqual({ kind: "live-new", game: "slot" })
+    expect(placeOf("/play/new/pachislot")).toEqual({ kind: "live-new", game: "pachislot" })
     expect(placeOf("/play/new")).toEqual({ kind: "not-found", path: "/play/new" })
     expect(placeOf("/play/new/record")).toEqual({ kind: "not-found", path: "/play/new/record" })
   })
@@ -183,11 +183,11 @@ describe("the odd-prize calculator", () => {
   test("is a space with its two games listed beside it, each a step below it", () => {
     expect(placeOf("/odd-prize-calculator")).toEqual({ kind: "odd-prize-calculator" })
     expect(placeOf("/odd-prize-calculator/pachinko")).toEqual({ kind: "odd-prize-calculator-game", game: "pachinko" })
-    expect(placeOf("/odd-prize-calculator/slot")).toEqual({ kind: "odd-prize-calculator-game", game: "slot" })
+    expect(placeOf("/odd-prize-calculator/pachislot")).toEqual({ kind: "odd-prize-calculator-game", game: "pachislot" })
     expect(placeOf("/odd-prize-calculator/mahjong")).toEqual({ kind: "not-found", path: "/odd-prize-calculator/mahjong" })
     expect(focusOf({ kind: "odd-prize-calculator" })).toBe("selection")
-    expect(focusOf({ kind: "odd-prize-calculator-game", game: "slot" })).toBe("content")
-    expect(parentOf({ kind: "odd-prize-calculator-game", game: "slot" })).toEqual({ kind: "odd-prize-calculator" })
+    expect(focusOf({ kind: "odd-prize-calculator-game", game: "pachislot" })).toBe("content")
+    expect(parentOf({ kind: "odd-prize-calculator-game", game: "pachislot" })).toEqual({ kind: "odd-prize-calculator" })
     expect(parentOf({ kind: "odd-prize-calculator" })).toBeUndefined()
   })
 })

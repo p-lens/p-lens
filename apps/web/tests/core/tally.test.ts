@@ -117,7 +117,7 @@ describe("composeTokenTallyEntry", () => {
       ok: false,
       error: { type: "pool-not-kept", parlor: MALEHAN, pool: { kind: "ball", tier: "1円" } },
     })
-    expect(composeTokenTallyEntry({ ...RENTED_PLAY, gameKind: "slot" }, PRICES)).toEqual({
+    expect(composeTokenTallyEntry({ ...RENTED_PLAY, gameKind: "pachislot" }, PRICES)).toEqual({
       ok: false,
       error: { type: "pool-not-kept", parlor: MALEHAN, pool: { kind: "ball", tier: "4円" } },
     })
@@ -266,11 +266,11 @@ describe("composeYenTallyEntry", () => {
   })
 
   test("a pachislot tally told by its hours keeps what its setting level was read to be worth as inferred, with the formula and the terms it stood on", () => {
-    const told = { ...TALLIED, gameKind: "slot" as const, machine: "マイジャグラーVI", theoreticalValue: undefined, told: { hours: dec("3.5"), jackpots: undefined, inferred: inferredWorthOf("formula-1", -1234.5, MEDAL_TERMS_BY_DEFAULT) } }
+    const told = { ...TALLIED, gameKind: "pachislot" as const, machine: "マイジャグラーVI", theoreticalValue: undefined, told: { hours: dec("3.5"), jackpots: undefined, inferred: inferredWorthOf("formula-1", -1234.5, MEDAL_TERMS_BY_DEFAULT) } }
     expect(mapOk(composeYenTallyEntry(told), renderEntry)).toEqual({
       ok: true,
       value: [
-        "2026-10-04 | マイジャグラーVI  ; play-id: tally-1004, game-kind: slot, machine: マイジャグラーVI, hours: 3.5, inferred-formula: formula-1, token-rental: 21.73913, token-exchange: 5.2",
+        "2026-10-04 | マイジャグラーVI  ; play-id: tally-1004, game-kind: pachislot, machine: マイジャグラーVI, hours: 3.5, inferred-formula: formula-1, token-rental: 21.73913, token-exchange: 5.2",
         "    費用:遊技                           12000 JPY",
         "    資産:現金                           -12000 JPY",
         "    (統計:時間)                         12600 秒",
@@ -281,13 +281,13 @@ describe("composeYenTallyEntry", () => {
   })
 
   test("a pachislot tally's theoretical value typed in is its own, and nothing inferred is written beside it", () => {
-    const told = { ...TALLIED, gameKind: "slot" as const, machine: "マイジャグラーVI", told: { hours: dec("3.5"), jackpots: undefined, inferred: inferredWorthOf("formula-1", -1234.5, MEDAL_TERMS_BY_DEFAULT) } }
+    const told = { ...TALLIED, gameKind: "pachislot" as const, machine: "マイジャグラーVI", told: { hours: dec("3.5"), jackpots: undefined, inferred: inferredWorthOf("formula-1", -1234.5, MEDAL_TERMS_BY_DEFAULT) } }
     const entry = composeYenTallyEntry(told)
     expect(entry.ok && entry.value.postings.map((posting) => posting.account)).toEqual(["費用:遊技", "資産:現金", "統計:期待値", "統計:時間"])
   })
 
   test("an AT machine's tally read by its history keeps what it was inferred to be worth, its hours left unsaid", () => {
-    const told = { ...TALLIED, gameKind: "slot" as const, machine: "スマスロ東京リベンジャーズ", theoreticalValue: undefined, told: { hours: undefined, jackpots: undefined, inferred: inferredWorthOf("formula-1", -2100, MEDAL_TERMS_BY_DEFAULT) } }
+    const told = { ...TALLIED, gameKind: "pachislot" as const, machine: "スマスロ東京リベンジャーズ", theoreticalValue: undefined, told: { hours: undefined, jackpots: undefined, inferred: inferredWorthOf("formula-1", -2100, MEDAL_TERMS_BY_DEFAULT) } }
     const entry = composeYenTallyEntry(told)
     expect(entry.ok && [entry.value.tags.map(([name]) => name), entry.value.postings.map((posting) => posting.account)]).toEqual([
       ["play-id", "game-kind", "machine", "inferred-formula", "token-rental", "token-exchange"],

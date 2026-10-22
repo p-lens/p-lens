@@ -100,7 +100,7 @@ const pressesOf = (value: unknown): BookSettings["presses"] | undefined => {
   return read.length === Object.keys(value).length ? Object.fromEntries(read) : undefined
 }
 
-const GAMES: readonly PlayGameKind[] = ["pachinko", "slot"]
+const GAMES: readonly PlayGameKind[] = ["pachinko", "pachislot"]
 
 const termsOf = (value: unknown): InferenceTerms | undefined => {
   if (!isFields(value)) return undefined

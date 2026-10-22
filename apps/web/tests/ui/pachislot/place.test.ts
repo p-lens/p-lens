@@ -27,9 +27,9 @@ describe("pachislot places", () => {
     })
   })
 
-  test("a step back climbs to the slot start screen, one depth at a time", () => {
-    expect(parentOf({ kind: "pachislot-machine-search" })).toEqual({ kind: "live-new", game: "slot" })
-    expect(parentOf({ kind: "pachislot-formula-new", tab: "manual" })).toEqual({ kind: "live-new", game: "slot" })
+  test("a step back climbs to the pachislot start screen, one depth at a time", () => {
+    expect(parentOf({ kind: "pachislot-machine-search" })).toEqual({ kind: "live-new", game: "pachislot" })
+    expect(parentOf({ kind: "pachislot-formula-new", tab: "manual" })).toEqual({ kind: "live-new", game: "pachislot" })
     expect(parentOf({ kind: "pachislot-distribution-new", machineId: "m1" })).toEqual({ kind: "pachislot-machine", machineId: "m1" })
     expect(parentOf({ kind: "pachislot-formula-basis", machineId: "m1", formulaId: "f1" })).toEqual({
       kind: "pachislot-formula-grounds",

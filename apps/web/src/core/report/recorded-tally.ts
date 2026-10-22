@@ -4,7 +4,7 @@ import { ZERO, isNegative, isZero, negate, parseDecimal, subtract, sum, type Dec
 import { ACCOUNTS, offBookSavingsAccount, rentalSpreadAccount, savingsAccount } from "../journal/accounts"
 import { PARLOR_ID_TAG, PARLOR_SUBMISSION_TAG, identityIn, sameIdentity, type Parlor } from "../parlor/parlor"
 import { TALLY_TAGS, type InferredWorth, type Settlement, type TallyHead, type TokenTally, type TallyTold, type YenTally } from "../tally/tally"
-import { tokenKindOf } from "../play/play"
+import { readGameKind, tokenKindOf } from "../play/play"
 import { SOURCE_TAGS } from "../import/source-tally"
 import { asideOf, withAside } from "../tally/aside"
 import { readClockText } from "../tally/clock"
@@ -161,7 +161,7 @@ const isTime = (text: string): boolean => readClockText(text) !== undefined
 /** How each tag a form writes on a tally's entry must read; a tag not here is none a form writes. */
 const TAG_READS: Readonly<Record<string, (text: string) => boolean>> = {
   [TALLY_TAGS.playId]: isSaid,
-  [TALLY_TAGS.gameKind]: (text) => text === "pachinko" || text === "slot",
+  [TALLY_TAGS.gameKind]: (text) => readGameKind(text) !== undefined,
   [TALLY_TAGS.machine]: () => true,
   [TALLY_TAGS.cabinetNumber]: () => true,
   [TALLY_TAGS.started]: isTime,

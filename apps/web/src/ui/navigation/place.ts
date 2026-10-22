@@ -198,7 +198,7 @@ const placeOfSegments = (segments: readonly string[], path: string): Place => {
   if (fifth !== undefined) return { kind: "not-found", path }
   if (first === "play" && second === undefined) return { kind: "live" }
   if (first === "play" && second === "huddle" && third !== undefined && fourth !== undefined) return { kind: "live-huddle-play", member: third, playId: fourth as PlayId }
-  if (first === "play" && second === "new" && (third === "pachinko" || third === "slot") && fourth === undefined) return { kind: "live-new", game: third }
+  if (first === "play" && second === "new" && (third === "pachinko" || third === "pachislot") && fourth === undefined) return { kind: "live-new", game: third }
   if (first === "play" && second !== undefined && second !== "new" && third === undefined)
     return { kind: "live-play", playId: second as PlayId }
   if (first === "play" && second !== undefined && second !== "new" && third === "record" && fourth === undefined)
@@ -221,7 +221,7 @@ const placeOfSegments = (segments: readonly string[], path: string): Place => {
   if (first === "parlors" && second === "submitted" && third === undefined) return { kind: "parlor-submitted" }
   if (first === "destinations" && second !== undefined && third === undefined) return { kind: "destination", lineId: second }
   if (first === "odd-prize-calculator" && second === undefined) return { kind: "odd-prize-calculator" }
-  if (first === "odd-prize-calculator" && (second === "pachinko" || second === "slot") && third === undefined) return { kind: "odd-prize-calculator-game", game: second }
+  if (first === "odd-prize-calculator" && (second === "pachinko" || second === "pachislot") && third === undefined) return { kind: "odd-prize-calculator-game", game: second }
   if (first === "consolidated" && second === undefined) return { kind: "consolidated" }
   if (first === "consolidated" && second === "holdings" && fourth === undefined) return { kind: "consolidated-holdings", bookIds: bookIdsIn(third) }
   if (first === "consolidated" && second === "result-calendar" && fourth === undefined) return { kind: "consolidated-result-calendar", bookIds: bookIdsIn(third) }
@@ -428,7 +428,7 @@ export const parentOf = (place: Place): Place | undefined => {
     case "pachislot-machine-search":
     case "pachislot-machine":
     case "pachislot-formula-new":
-      return { kind: "live-new", game: "slot" }
+      return { kind: "live-new", game: "pachislot" }
     case "pachislot-formula":
     case "pachislot-distribution-new":
       return { kind: "pachislot-machine", machineId: place.machineId }

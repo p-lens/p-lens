@@ -6,7 +6,7 @@ import type { PlayGameKind } from "../../core/play/play"
 /** A play's parlor by name, or the words for having none. */
 export const parlorText = (parlor: Parlor | undefined): string => parlor?.name ?? "店舗名なし"
 
-const TOKENS: Readonly<Record<PlayGameKind, string>> = { pachinko: "玉", slot: "枚" }
+const TOKENS: Readonly<Record<PlayGameKind, string>> = { pachinko: "玉", pachislot: "枚" }
 
 /** A corner's terms in a line: what ¥1,000 rents, the exchange as the game states it, and what a replay pays out and takes. */
 const termsText = (gameKind: PlayGameKind, terms: PlayTerms): string =>

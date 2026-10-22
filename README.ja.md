@@ -263,7 +263,7 @@ curl -X PUT -H "$AUTH" -d '{"name":"e星都幻鬼","modelName":"e星都幻鬼W",
 | `about` | この行が見出し行であることの説明（英語） |
 | `v` | プレイログのスキーマバージョン。いまは `1` |
 | `playId` | 稼働の ID。仕訳の `play-id` タグと同じ |
-| `gameKind` | `pachinko` か `slot` |
+| `gameKind` | `pachinko` か `pachislot`（名前が決まる前に書かれたログでは `slot`） |
 | `date` | 稼働の営業日（`YYYY-MM-DD`） |
 | `startedAt` | 打ち始めた時刻（ISO 8601） |
 | `parlor` | 店舗。`name` と、店舗リストの `id` か申請中の `submission`。店舗なしの稼働にはありません |

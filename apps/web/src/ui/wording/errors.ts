@@ -137,7 +137,7 @@ const describeDraftError = (error: DraftError): string => {
 const describeHistoryError = (error: HistoryError): string =>
   error.type === "unreadable" ? "この端末に保存された変更の履歴が壊れていて読めません。データの消去で端末のデータを消すと、また使えるようになります。" : `履歴を残せませんでした: ${error.detail}`
 
-const GAME_NAMES: Readonly<Record<PlayGameKind, string>> = { pachinko: "パチンコ", slot: "スロット" }
+const GAME_NAMES: Readonly<Record<PlayGameKind, string>> = { pachinko: "パチンコ", pachislot: "スロット" }
 
 /** Why a forfeiture could not be written, as a person is told. */
 const describeForfeitureProblem = (problem: ForfeitureProblem): string => {

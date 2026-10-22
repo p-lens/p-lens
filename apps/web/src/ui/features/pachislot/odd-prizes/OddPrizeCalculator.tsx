@@ -86,7 +86,7 @@ function Stages(props: { readonly stages: readonly Stage[] | undefined }): JSX.E
  */
 function Calculator(props: { readonly opening: CalculatorForm }): JSX.Element {
   const [form, setForm] = createSignal(props.opening)
-  const read = () => readCalculator(form(), "slot")
+  const read = () => readCalculator(form(), "pachislot")
   const reckoning = (): OddPrizeReckoning | undefined => ((found) => (found.ok ? oddPrizeReckoningOf(found.value.tokens, found.value.terms) : undefined))(read())
   const app = useApp()
   const [step, setStep] = createSignal<StageStep>(app.services.preferences.stageStep())
@@ -131,7 +131,7 @@ function Calculator(props: { readonly opening: CalculatorForm }): JSX.Element {
 
 /** The pachislot odd-prize calculator, opening on the latest pachislot play's corner. It keeps and writes nothing. */
 export function OddPrizeCalculator(props: { readonly place: Place }): JSX.Element {
-  const opening = useOpeningCalculator("slot")
+  const opening = useOpeningCalculator("pachislot")
   return (
     <MainContent header={<ViewHeader place={props.place} title="スロットの端玉計算" />}>
       <Show when={opening()} keyed>

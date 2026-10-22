@@ -51,13 +51,13 @@ const playedOf = async (engine: PachislotEngine.EngineClient, draft: PlayDraft, 
   const summary = liveSummary(ordered)
   const replay = ordered.findLast((checkpoint) => checkpoint.replay !== undefined)?.replay
   const carriedIn = carriedInOf(ordered)
-  const held = draft.gameKind === "slot" ? ordered.at(-1)?.held : Pachinko.heldAsToldOf(ordered)
+  const held = draft.gameKind === "pachislot" ? ordered.at(-1)?.held : Pachinko.heldAsToldOf(ordered)
   const terms = draft.venue.terms
-  const spinPerformance = draft.gameKind === "slot" || terms === undefined ? undefined : Pachinko.measuredSpinPerformance(ordered, terms)
+  const spinPerformance = draft.gameKind === "pachislot" || terms === undefined ? undefined : Pachinko.measuredSpinPerformance(ordered, terms)
   return { outlay: summary.outlay, replay, carriedIn, held, theoreticalValue: await theoreticalValueAtFinish(engine, draft, finish, held), spinPerformance }
 }
 
-const COUNTER_LABELS: Readonly<Record<PlayDraft["gameKind"], string>> = { pachinko: "終了時回転数", slot: "終了時ゲーム数" }
+const COUNTER_LABELS: Readonly<Record<PlayDraft["gameKind"], string>> = { pachinko: "終了時回転数", pachislot: "終了時ゲーム数" }
 
 /**
  * When the play began and how it finished, above the form it is recorded

@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, test } from "bun:test"
 import { createBookSession, type BookSession } from "../../src/application/book-session"
 import { loadBreakdown } from "../../src/application/breakdown"
 import { loadOverall } from "../../src/application/overall"
+import { loadTallies } from "../../src/application/tallies"
 import { importPrecord } from "../../src/application/import"
 import type { BookId } from "../../src/core/book/book"
 import { toPlainString } from "../../src/core/decimal/decimal"
@@ -55,7 +56,7 @@ describe("the basic-play book, broken down by the real hledger module", () => {
 
   test("by machine and by game, each group hledger's own sum, best first", async () => {
     expect(await read("machine")).toEqual([["ピエロット", "20030", "1800"], ["森物語", "13978", "4100"], ["流星", "5136", "7300"]])
-    expect(await read("game")).toEqual([["slot", "20030", "1800"], ["pachinko", "19114", "11400"]])
+    expect(await read("game")).toEqual([["pachislot", "20030", "1800"], ["pachinko", "19114", "11400"]])
   })
 
   test("by parlor, under the name the book gives each", async () => {
@@ -90,5 +91,21 @@ describe("the basic-play book, broken down by the real hledger module", () => {
     await importPrecord({ session: session(), catalog: { search: async () => Ok([]) } as never }, BOOK, file, new Map(), undefined)
     expect(await read("machine", "date:2019")).toEqual([["昔の台", "-7000", "0"]])
     expect(await read("parlor", "date:2019")).toEqual([["駅前ホール", "-7000", "0"]])
+  })
+})
+
+describe("a book that wrote pachislot as `slot`, before the name was settled", () => {
+  test("is read as pachislot, its plays one game with those written since", async () => {
+    const OLDER = "older-play" as BookId
+    const storage = memoryStorage()
+    const session = createBookSession({ hledger: await inProcessHledger(), storage, history: createMemoryHistory(() => crypto.randomUUID()), clock: () => new Date("2026-10-09T12:00:00+09:00"), newId: () => crypto.randomUUID(), member: ME })
+    const fixture = await fixtureBook("basic-play", { id: OLDER, members: [{ id: ME, displayName: "me", role: "owner" }] })
+    const transactions = fixture.files["transactions.journal"] ?? ""
+    const earlier = (transactions.split("\n\n").find((entry) => entry.includes("game-kind: pachislot")) ?? "").replace("play-id: made-up-0912", "play-id: made-up-0911").replace("2026-09-12", "2026-09-11").replace("game-kind: pachislot", "game-kind: slot")
+    await session.createBook({ ...fixture, files: { ...fixture.files, "transactions.journal": `${earlier}\n\n${transactions}` } })
+    const found = await loadBreakdown(session, OLDER, "game", "")
+    expect(found.ok && found.value.map((group) => [group.key, toPlainString(group.actual)])).toEqual([["pachislot", "40060"], ["pachinko", "19114"]])
+    const tallies = await loadTallies(session, OLDER, "date:2026-09-11", 0)
+    expect(tallies.ok && tallies.value.tallies.map((tally) => tally.gameKind)).toEqual(["pachislot"])
   })
 })

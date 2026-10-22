@@ -49,9 +49,9 @@ describe("the terms a tally typed in by hand was weighed on", () => {
 
     const revising = await loadRecordedTally(session, BOOK, ME, "typed" as PlayId)
     expect(revising.ok && revising.value.recorded.type === "yen" && yenTallyFormOf(revising.value.recorded.tally, revising.value.context.inferenceTerms).weighingTerms).toEqual({ rentedPerThousand: "240", exchangedPerHundred: "27.5" })
-    expect((await writtenKeepingTerms(session, BOOK, reviseYenTally(session, BOOK, { ...TYPED, gameKind: "slot" }), { game: "slot", terms: { rentedPerThousand: 47, exchangedPerHundred: 5.6 } })).ok).toBe(true)
+    expect((await writtenKeepingTerms(session, BOOK, reviseYenTally(session, BOOK, { ...TYPED, gameKind: "pachislot" }), { game: "pachislot", terms: { rentedPerThousand: 47, exchangedPerHundred: 5.6 } })).ok).toBe(true)
     const both = await loadRecordingContext(session, BOOK, ME)
-    expect(both.ok && both.value.inferenceTerms).toEqual({ pachinko: { rentedPerThousand: 240, exchangedPerHundred: 27.5 }, slot: { rentedPerThousand: 47, exchangedPerHundred: 5.6 } })
+    expect(both.ok && both.value.inferenceTerms).toEqual({ pachinko: { rentedPerThousand: 240, exchangedPerHundred: 27.5 }, pachislot: { rentedPerThousand: 47, exchangedPerHundred: 5.6 } })
 
     const activity = await loadActivity(session, history, BOOK)
     expect(activity.ok && activity.value.lines.some((line) => line.did === "inference-terms-set")).toBe(false)

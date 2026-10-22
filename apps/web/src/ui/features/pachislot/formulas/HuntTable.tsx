@@ -40,7 +40,7 @@ const typedSince = (text: string): number | undefined => (text.trim() === "" ? u
  * AT that ended a given way, or however it ended (指定なし); and where
  * the machine has a side bonus, so many games since the last of it, or not
  * knowing how many; and where it has modes, in one known (a shortened
- * ceiling after a ceiling CZ, a 天国 told on screen), or not said. Weighed under the stock spread a play starts with, on the slot terms the
+ * ceiling after a ceiling CZ, a 天国 told on screen), or not said. Weighed under the stock spread a play starts with, on the pachislot terms the
  * start screen holds.
  */
 export function HuntTable(props: { readonly basis: Basis }): JSX.Element {
@@ -58,7 +58,7 @@ export function HuntTable(props: { readonly basis: Basis }): JSX.Element {
   const endingLabel = (): string | undefined => ((id) => (id === undefined || afterReset() ? undefined : endings().find((each) => each.id === id)?.label))(ending())
   const limit = (): number | undefined =>
     ((rules) => (rules === undefined ? undefined : deepestMisses(rules)))(props.basis.normalized.atRules)
-  const terms = createMemo(() => ((read) => (read.ok ? read.value : undefined))(readTerms(start.form().terms.slot, "slot")))
+  const terms = createMemo(() => ((read) => (read.ok ? read.value : undefined))(readTerms(start.form().terms.pachislot, "pachislot")))
   const seats = createMemo(() => huntSeatsOf(props.basis.normalized, afterReset(), misses(), ending(), typedSince(sinceSide()), mode()))
   const [rows] = createResource(
     () => ((found) => (found === undefined ? undefined : { terms: found, seats: seats() }))(terms()),

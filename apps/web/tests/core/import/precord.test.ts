@@ -76,7 +76,7 @@ describe("an imported tally", () => {
   test("names the catalog's machine and its game only where it was matched, and writes no posting that moves nothing", () => {
     const text = renderEntry(importedTallyEntry({ id: "x" as never, from: "precord", source: second as never, machine: undefined, inferred: undefined }))
     expect(text).toBe("2019-01-05 名もなき店 |  ; play-id: x, imported-from: precord, source-parlor: 名もなき店\n    費用:遊技                           5000 JPY\n    資産:現金                           -5000 JPY\n")
-    expect(renderEntry(importedTallyEntry({ id: "x" as never, from: "precord", source: first as never, machine: { name: "流星の剣", gameKind: "slot" }, inferred: undefined }))).toContain("play-id: x, game-kind: slot, machine: 流星の剣, cabinet-number: 123, imported-from")
+    expect(renderEntry(importedTallyEntry({ id: "x" as never, from: "precord", source: first as never, machine: { name: "流星の剣", gameKind: "pachislot" }, inferred: undefined }))).toContain("play-id: x, game-kind: pachislot, machine: 流星の剣, cabinet-number: 123, imported-from")
   })
 
   test("goes by an id the same tally always gets, twins told apart by their order", () => {

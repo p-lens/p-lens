@@ -313,7 +313,7 @@ columns.
 | `about` | A sentence saying this line is the header |
 | `v` | The play log's schema version, `1` for now |
 | `playId` | The play's id, the same as its entry's `play-id` tag |
-| `gameKind` | `pachinko` or `slot` |
+| `gameKind` | `pachinko` or `pachislot` (`slot` in a log written before the name was settled) |
 | `date` | The play's business day (`YYYY-MM-DD`) |
 | `startedAt` | When the play began (ISO 8601) |
 | `parlor` | The parlor: its `name`, and its `id` on the parlor list or the `submission` it waits on. Absent from a play at no parlor |

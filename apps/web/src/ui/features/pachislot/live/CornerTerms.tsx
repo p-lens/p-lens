@@ -38,22 +38,22 @@ export function CornerTerms(props: { readonly draft: PlayDraft }): JSX.Element {
   const moves = useMoves()
   const start = useStartForm()
   const [look, setLook] = createSignal<"standing" | "changing">("standing")
-  const [form, setForm] = createSignal<TermsForm>(start.form().terms.slot)
+  const [form, setForm] = createSignal<TermsForm>(start.form().terms.pachislot)
   const [failure, setFailure] = createSignal<ApplicationError | undefined>(undefined)
   const nudge = createNudge()
   const problems = (): readonly TermsField[] => {
-    const read = readTerms(form(), "slot")
+    const read = readTerms(form(), "pachislot")
     return read.ok ? [] : read.error
   }
   const open = (): void => {
     const terms = props.draft.venue.terms
-    setForm(terms === undefined ? start.form().terms.slot : termsFormOf(terms, "slot"))
+    setForm(terms === undefined ? start.form().terms.pachislot : termsFormOf(terms, "pachislot"))
     setFailure(undefined)
     setLook("changing")
   }
   const apply = async (): Promise<void> => {
     settleTyping()
-    const read = readTerms(form(), "slot")
+    const read = readTerms(form(), "pachislot")
     if (!read.ok) {
       nudge.nudge()
       return
@@ -63,7 +63,7 @@ export function CornerTerms(props: { readonly draft: PlayDraft }): JSX.Element {
       setFailure(changed.error)
       return
     }
-    start.update({ terms: { ...start.form().terms, slot: form() } })
+    start.update({ terms: { ...start.form().terms, pachislot: form() } })
     setLook("standing")
     app.wrote()
   }
@@ -73,7 +73,7 @@ export function CornerTerms(props: { readonly draft: PlayDraft }): JSX.Element {
       fallback={
         <div class="flex items-center justify-between gap-2">
           <button type="button" onClick={open} class={PENCILLED}>
-            {props.draft.venue.terms === undefined ? "レート指定なし" : `${tierOf("slot", props.draft.venue.terms)}コーナー`}
+            {props.draft.venue.terms === undefined ? "レート指定なし" : `${tierOf("pachislot", props.draft.venue.terms)}コーナー`}
             <span class="text-text-secondary group-hover:text-text-primary">
               <EditIcon label={CHANGE_TERMS} />
             </span>

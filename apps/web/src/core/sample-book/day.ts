@@ -19,7 +19,7 @@ import type { Sitting, SittingTerms, Stretch } from "./sitting"
 /** The machines a sample book may play, of each game, each from the day it went on sale. */
 export interface Lineup {
   readonly pachinko: readonly OnSale<Pachinko.Seat>[]
-  readonly slot: readonly OnSale<Pachislot.Seat>[]
+  readonly pachislot: readonly OnSale<Pachislot.Seat>[]
 }
 
 /** Everything a day of a sample book is played from, the same every day. */
@@ -62,7 +62,7 @@ const LEAVING_AFTER_RUN = 0.05
 /** How many tokens a pool holds before its savings are now and then exchanged, how likely that is at a day's end, and the cabinets' numbers. */
 const EXCHANGE_FLOORS: Readonly<Record<PlayGameKind, number>> = {
   pachinko: 5000,
-  slot: 1000,
+  pachislot: 1000,
 }
 
 const EXCHANGING = 0.15
@@ -110,14 +110,14 @@ const tableOf = <S>(gameKind: PlayGameKind, lineup: readonly OnSale<S>[], sittin
 
 const tablesOf = (lineup: Lineup): Readonly<Record<PlayGameKind, Table>> => ({
   pachinko: tableOf("pachinko", lineup.pachinko, Pachinko.sittingOf),
-  slot: tableOf("slot", lineup.slot, Pachislot.sittingOf),
+  pachislot: tableOf("pachislot", lineup.pachislot, Pachislot.sittingOf),
 })
 
 /** The game a day is played at: pachinko more often than not, and the other where nothing of the one is out yet. */
 const tableOn = (lineup: Lineup, day: IsoDate, draws: Draws): Drawn<Table | undefined> => {
   const tables = tablesOf(lineup)
   const [pachinko, next] = chance(draws, PACHINKO_SHARE)
-  const [first, second] = pachinko ? [tables.pachinko, tables.slot] : [tables.slot, tables.pachinko]
+  const [first, second] = pachinko ? [tables.pachinko, tables.pachislot] : [tables.pachislot, tables.pachinko]
   return [first.onSale(day) > 0 ? first : second.onSale(day) > 0 ? second : undefined, next]
 }
 

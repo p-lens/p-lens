@@ -104,7 +104,7 @@ describe("a sample book's days", () => {
       expect(finished <= "21:00").toBe(true)
       expect(new Set(day.machines).size).toBe(day.machines.length)
       day.machines.forEach((name) =>
-        expect(((LINEUP.pachinko.find((machine) => machine.name === name) ?? LINEUP.slot.find((machine) => machine.name === name))?.releasedOn ?? "9999") <= day.date).toBe(true),
+        expect(((LINEUP.pachinko.find((machine) => machine.name === name) ?? LINEUP.pachislot.find((machine) => machine.name === name))?.releasedOn ?? "9999") <= day.date).toBe(true),
       )
     })
     expect(days.some((day) => day.machines.length >= 3)).toBe(true)

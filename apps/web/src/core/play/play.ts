@@ -7,13 +7,12 @@ import type { TokenKind } from "../commodity/commodity"
  */
 export type PlayId = string & { readonly __brand: "PlayId" }
 
-/**
- * The game a play is of, as its book says in `game-kind`: pachislot is `slot`
- * there, data already written, where the catalog's `GameKind` says
- * `pachislot`. Pachinko is played with balls, pachislot with medals.
- */
-export type PlayGameKind = "pachinko" | "slot"
+/** The game a play is of, as its book says in `game-kind`. Pachinko is played with balls, pachislot with medals. */
+export type PlayGameKind = "pachinko" | "pachislot"
 
-const TOKENS_OF: Readonly<Record<PlayGameKind, TokenKind>> = { pachinko: "ball", slot: "medal" }
+/** A game as a book or a device says it, read: `slot` is pachislot as written before the name was settled, data already written. */
+export const readGameKind = (text: unknown): PlayGameKind | undefined => (text === "pachinko" || text === "pachislot" ? text : text === "slot" ? "pachislot" : undefined)
+
+const TOKENS_OF: Readonly<Record<PlayGameKind, TokenKind>> = { pachinko: "ball", pachislot: "medal" }
 
 export const tokenKindOf = (kind: PlayGameKind): TokenKind => TOKENS_OF[kind]

@@ -13,9 +13,9 @@ export interface Actions {
   readonly toggle: (target: CatalogTarget["type"], listing: FormulaListing<Formula | SettingDistribution>, mark: HeldMark, failed: (error: ApplicationError) => void) => void
   /** This member's check either way on a formula, given once and standing; `checked` is told once the catalog and the book have it. */
   readonly check: (formula: Formula, mark: CheckMark, failed: (error: ApplicationError) => void, checked?: () => void) => void
-  /** Take a formula into the slot start form, and go back to starting the play. */
+  /** Take a formula into the pachislot start form, and go back to starting the play. */
   readonly useFormula: (formula: Formula, machineName: string) => void
-  /** Take a 設定配分 into the slot start form, and go back to starting the play. */
+  /** Take a 設定配分 into the pachislot start form, and go back to starting the play. */
   readonly useDistribution: (distribution: SettingDistribution, machineName: string) => void
 }
 
@@ -30,11 +30,11 @@ export const useActions = (): Actions => {
     check: (formula, mark, failed, checked) => marks.press({ type: "formula", id: formula.id }, formula.machineId, mark, true, failed, checked),
     useFormula: (formula, machineName) => {
       start.updatePachislot({ machine: { type: "catalog", machineId: formula.machineId, name: machineName }, formulaId: formula.id })
-      moves.go({ kind: "live-new", game: "slot" })
+      moves.go({ kind: "live-new", game: "pachislot" })
     },
     useDistribution: (distribution, machineName) => {
       start.updatePachislot({ machine: { type: "catalog", machineId: distribution.machineId, name: machineName }, prior: { type: "distribution", id: distribution.id } })
-      moves.go({ kind: "live-new", game: "slot" })
+      moves.go({ kind: "live-new", game: "pachislot" })
     },
   }
 }

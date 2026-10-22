@@ -203,7 +203,7 @@ export const theoreticalValueAtFinish = async (engine: PachislotEngine.EngineCli
   const terms = draft.venue.terms
   if (!parsed.ok) return undefined
   const ordered = inPlayOrder(parsed.value)
-  if (draft.gameKind === "slot") {
+  if (draft.gameKind === "pachislot") {
     if (draft.pachislot === undefined) return undefined
     const outlook = await weighPachislotPlay(engine, draft.pachislot, ordered, terms)
     return outlook.ok ? outlook.value.theoreticalValue : undefined

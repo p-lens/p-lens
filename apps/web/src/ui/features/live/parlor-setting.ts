@@ -43,8 +43,8 @@ const settingOf = (kept: Readonly<Record<string, unknown>>): ParlorSetting | und
   const parlor = parlorOf(kept["parlor"])
   const terms = isRecord(kept["terms"]) ? kept["terms"] : {}
   const pachinko = termsOf(terms["pachinko"])
-  const slot = termsOf(terms["slot"])
-  return parlor === undefined || pachinko === undefined || slot === undefined ? undefined : { parlor, terms: { pachinko, slot } }
+  const pachislot = termsOf(terms["pachislot"])
+  return parlor === undefined || pachinko === undefined || pachislot === undefined ? undefined : { parlor, terms: { pachinko, pachislot } }
 }
 
 /** The parlor setting kept, if it was made on this business day and reads as one: yesterday's is not today's parlor. */

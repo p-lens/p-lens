@@ -6,10 +6,10 @@ const NOW = "2026-10-04T12:00:00.000Z"
 
 describe("coming back from survey.p-lens.jp", () => {
   test("reads the submission to keep and the game to return to", () => {
-    const query = new URLSearchParams({ submission: "sub_01J9XYZ", name: " メガコンドル見滝原店 ", prefecture: "大阪府", game: "slot" })
+    const query = new URLSearchParams({ submission: "sub_01J9XYZ", name: " メガコンドル見滝原店 ", prefecture: "大阪府", game: "pachislot" })
     expect(returnedFrom(query, NOW)).toEqual({
       ok: true,
-      value: { type: "submitted", submission: { submission: "sub_01J9XYZ", name: "メガコンドル見滝原店", prefecture: "大阪府", submittedAt: NOW }, from: { type: "start", game: "slot" } },
+      value: { type: "submitted", submission: { submission: "sub_01J9XYZ", name: "メガコンドル見滝原店", prefecture: "大阪府", submittedAt: NOW }, from: { type: "start", game: "pachislot" } },
     } as never)
     expect(returnedFrom(new URLSearchParams({ submission: "sub_01J9XYZ", name: "メガコンドル見滝原店", prefecture: "大阪府" }), NOW).ok && "pachinko").toBe("pachinko")
   })
@@ -20,7 +20,7 @@ describe("coming back from survey.p-lens.jp", () => {
   })
 
   test("brings nothing but the game when no submission is named", () => {
-    expect(returnedFrom(new URLSearchParams({ game: "slot" }), NOW)).toEqual({ ok: true, value: { type: "nothing", from: { type: "start", game: "slot" } } })
+    expect(returnedFrom(new URLSearchParams({ game: "pachislot" }), NOW)).toEqual({ ok: true, value: { type: "nothing", from: { type: "start", game: "pachislot" } } })
     expect(returnedFrom(new URLSearchParams(), NOW)).toEqual({ ok: true, value: { type: "nothing", from: { type: "start", game: "pachinko" } } })
   })
 
@@ -36,9 +36,9 @@ describe("leaving for survey.p-lens.jp", () => {
   const APP = "https://app.test"
 
   test("to submit a parlor, says where to come back to", () => {
-    const address = new URL(submitAddress(SURVEY, APP, { type: "start", game: "slot" }))
+    const address = new URL(submitAddress(SURVEY, APP, { type: "start", game: "pachislot" }))
     expect(address.origin + address.pathname).toBe(SURVEY)
-    expect(address.searchParams.get("return")).toBe("https://app.test/parlors/submitted?game=slot")
+    expect(address.searchParams.get("return")).toBe("https://app.test/parlors/submitted?game=pachislot")
   })
 
   test("to report where a listed parlor is, opens the list searched for its whole name", () => {
@@ -49,19 +49,19 @@ describe("leaving for survey.p-lens.jp", () => {
   })
 
   test("coming back from reporting a position brings nothing but the game: the parlor is listed and chosen already", () => {
-    const back = new URL(new URL(locateAddress(SURVEY, APP, { type: "start", game: "slot" }, { id: "op:eagle:1" as never, name: "イーグル厚別店" })).searchParams.get("return") ?? "")
+    const back = new URL(new URL(locateAddress(SURVEY, APP, { type: "start", game: "pachislot" }, { id: "op:eagle:1" as never, name: "イーグル厚別店" })).searchParams.get("return") ?? "")
     back.searchParams.set("submission", "sub_01J9XYZ")
     back.searchParams.set("name", "イーグル厚別店")
     back.searchParams.set("prefecture", "北海道")
-    expect(returnedFrom(back.searchParams, NOW)).toEqual({ ok: true, value: { type: "nothing", from: { type: "start", game: "slot" } } })
+    expect(returnedFrom(back.searchParams, NOW)).toEqual({ ok: true, value: { type: "nothing", from: { type: "start", game: "pachislot" } } })
   })
 
   test("from a book's play added by hand, comes back to that book's form", () => {
-    const from = { type: "entry", game: "slot", bookId: "01a11a19-1d86-7b07" } as never
+    const from = { type: "entry", game: "pachislot", bookId: "01a11a19-1d86-7b07" } as never
     const back = new URL(new URL(submitAddress(SURVEY, APP, from)).searchParams.get("return") ?? "")
-    expect(back.pathname + back.search).toBe("/parlors/submitted?game=slot&book=01a11a19-1d86-7b07")
+    expect(back.pathname + back.search).toBe("/parlors/submitted?game=pachislot&book=01a11a19-1d86-7b07")
     expect(returnedFrom(back.searchParams, NOW)).toEqual({ ok: true, value: { type: "nothing", from } })
     back.searchParams.set("book", "../../settings")
-    expect(returnedFrom(back.searchParams, NOW)).toEqual({ ok: true, value: { type: "nothing", from: { type: "start", game: "slot" } } })
+    expect(returnedFrom(back.searchParams, NOW)).toEqual({ ok: true, value: { type: "nothing", from: { type: "start", game: "pachislot" } } })
   })
 })

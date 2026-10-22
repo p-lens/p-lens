@@ -25,7 +25,7 @@ import { useStartForm } from "../../live/start-form"
 import { OutlookPanel } from "../live/OutlookPanel"
 import { readSeat, type Seat, type SeatForm, type SeatProblem, seatLineOf } from "./seat-form"
 
-/** What the slot start form has come to for a machine from the catalog: what it is weighed by, and the seat's counter as read. */
+/** What the pachislot start form has come to for a machine from the catalog: what it is weighed by, and the seat's counter as read. */
 export interface SeatState {
   readonly detail: Accessor<PachislotMachineDetail | undefined>
   readonly formulaSelection: Accessor<Selection<Formula> | undefined>
@@ -47,7 +47,7 @@ const NO_MACHINE = { schemaVersion: 0, bet: 0, tables: [] }
 const sameJson = <T,>(left: T, right: T): boolean => JSON.stringify(left) === JSON.stringify(right)
 
 /**
- * The slot start form's machine from the catalog, loaded, with its formula
+ * The pachislot start form's machine from the catalog, loaded, with its formula
  * and prior chosen — by hand, or for you — and the seat's counter read. Each
  * value depends on the few fields it reads, so typing elsewhere asks nothing
  * of the catalog or the engine again.

@@ -54,20 +54,20 @@ describe("a pachislot corner's exchange, stated for ¥100", () => {
   const SLOT = { rentalTokens: "46", exchange: "5.15", replayPaidOut: "23", replayDeducted: "23" }
 
   test("reads to two places as whole medals for ¥10,000, and is set out again as it was stated", () => {
-    const read = readTerms(SLOT, "slot")
+    const read = readTerms(SLOT, "pachislot")
     expect(read).toEqual({ ok: true, value: { rental: { yen: 1000, tokens: 46 }, exchange: { yen: 10_000, tokens: 515 }, replay: { paidOut: 23, deducted: 23 } } })
-    expect(read.ok && termsFormOf(read.value, "slot")).toEqual(SLOT)
-    expect(readTerms({ ...SLOT, exchange: "５．１" }, "slot")).toMatchObject({ ok: true, value: { exchange: { yen: 10_000, tokens: 510 } } })
+    expect(read.ok && termsFormOf(read.value, "pachislot")).toEqual(SLOT)
+    expect(readTerms({ ...SLOT, exchange: "５．１" }, "pachislot")).toMatchObject({ ok: true, value: { exchange: { yen: 10_000, tokens: 510 } } })
   })
 
   test("sets terms kept for ¥1,000 out as stated for ¥100, to both places: 52枚 is 5.20", () => {
-    expect(termsFormOf({ rental: { yen: 1000, tokens: 46 }, exchange: { yen: 1000, tokens: 52 }, replay: { paidOut: 23, deducted: 23 } }, "slot").exchange).toBe("5.2")
+    expect(termsFormOf({ rental: { yen: 1000, tokens: 46 }, exchange: { yen: 1000, tokens: 52 }, replay: { paidOut: 23, deducted: 23 } }, "pachislot").exchange).toBe("5.2")
   })
 
   test("refuses more than two places, none, and nothing; pachinko's is said to one", () => {
-    expect(readTerms({ ...SLOT, exchange: "5.155" }, "slot")).toEqual({ ok: false, error: ["exchange"] })
-    expect(readTerms({ ...SLOT, exchange: "0.00" }, "slot")).toEqual({ ok: false, error: ["exchange"] })
-    expect(readTerms({ ...SLOT, exchange: "5." }, "slot")).toEqual({ ok: false, error: ["exchange"] })
+    expect(readTerms({ ...SLOT, exchange: "5.155" }, "pachislot")).toEqual({ ok: false, error: ["exchange"] })
+    expect(readTerms({ ...SLOT, exchange: "0.00" }, "pachislot")).toEqual({ ok: false, error: ["exchange"] })
+    expect(readTerms({ ...SLOT, exchange: "5." }, "pachislot")).toEqual({ ok: false, error: ["exchange"] })
     expect(readTerms({ ...FILLED, exchange: "27.55" }, "pachinko")).toEqual({ ok: false, error: ["exchange"] })
   })
 })

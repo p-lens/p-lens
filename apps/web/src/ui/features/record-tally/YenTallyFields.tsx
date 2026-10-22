@@ -31,7 +31,7 @@ const ROUND_BUTTON = "flex size-10 shrink-0 items-center justify-center rounded-
 /** What a form's rows are kept to on a screen with room: half the form's width, as a play started live gives its parlor — a name, or a pair of sums with what they come to under them, being read better short of a whole row. */
 const HALF_ON_A_WIDE_SCREEN = "sm:w-[calc(50%-0.25rem)]"
 
-const isGameKind = (value: string | null): value is PlayGameKind => value === "pachinko" || value === "slot"
+const isGameKind = (value: string | null): value is PlayGameKind => value === "pachinko" || value === "pachislot"
 
 /** The day a play is said to have been played, and how long it lasted, in hours and five minutes. */
 export function DayAndHours(props: { readonly editing: YenTallyEditing }): JSX.Element {
@@ -133,7 +133,7 @@ export function GameKindField(props: { readonly editing: YenTallyEditing }): JSX
         aria-label="種別"
       >
         <ToggleGroupItem value="pachinko">パチンコ</ToggleGroupItem>
-        <ToggleGroupItem value="slot">スロット</ToggleGroupItem>
+        <ToggleGroupItem value="pachislot">スロット</ToggleGroupItem>
       </ToggleGroup>
     </div>
   )
@@ -355,7 +355,7 @@ export function ResultAndWeighing(props: { readonly editing: YenTallyEditing }):
           </Show>
           <WeighingTermsButton editing={editing} />
         </Show>
-        <Show when={editing.form().gameKind === "slot"}>
+        <Show when={editing.form().gameKind === "pachislot"}>
           <Show
             when={editing.settingInference().type !== "inferring"}
             fallback={
@@ -379,7 +379,7 @@ export function ResultAndWeighing(props: { readonly editing: YenTallyEditing }):
           </Show>
         </div>
       </Show>
-      <Show when={editing.form().gameKind === "slot" && editing.settingInference().type !== "resting"}>
+      <Show when={editing.form().gameKind === "pachislot" && editing.settingInference().type !== "resting"}>
         <div class={HALF_ON_A_WIDE_SCREEN}>
           <PachislotViews.SettingInferenceLine inference={editing.settingInference()} />
           <Show when={editing.missesWouldSharpen()}>

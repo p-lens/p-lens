@@ -72,9 +72,9 @@ describe("a play said anew to be on another machine", () => {
 
   test("a play whose log does not read keeps it as it is, is of the machine's game and keeps nothing of the other's, and a cabinet's number is the play's alone", () => {
     const weighing = { formula: { id: "s-2" }, prior: { type: "even" } } as never
-    const slot = withMachine({ ...DRAFT, log }, { type: "pachislot", name: "made-up slot", weighing, readings: undefined })
-    expect(slot).toMatchObject({ gameKind: "slot", machine: "made-up slot", pachislot: weighing, log })
-    expect("pachinko" in slot || "bonuses" in slot).toBe(false)
+    const pachislot = withMachine({ ...DRAFT, log }, { type: "pachislot", name: "made-up pachislot", weighing, readings: undefined })
+    expect(pachislot).toMatchObject({ gameKind: "pachislot", machine: "made-up pachislot", pachislot: weighing, log })
+    expect("pachinko" in pachislot || "bonuses" in pachislot).toBe(false)
     expect(withCabinetNumber(DRAFT, "123").cabinetNumber).toBe("123")
     expect(withCabinetNumber({ ...DRAFT, cabinetNumber: "123" }, undefined).cabinetNumber).toBeUndefined()
   })
@@ -85,11 +85,11 @@ describe("the latest terms of a game", () => {
   const at = (startedAt: string, exchangeTokens: number | undefined): PachinkoDraft => ({ ...DRAFT, startedAt, venue: { type: "none", terms: exchangeTokens === undefined ? undefined : terms(exchangeTokens) } })
 
   test("are the newest play's of the game that has any, never a play sent from someone else's device", () => {
-    const slot = { ...at("2026-10-09T09:00:00.000Z", 51), gameKind: "slot" } as PlayDraft
+    const pachislot = { ...at("2026-10-09T09:00:00.000Z", 51), gameKind: "pachislot" } as PlayDraft
     const received = { ...at("2026-10-09T08:00:00.000Z", 300), received: { sender: "仲間", log: "", finished: undefined } } as PlayDraft
-    const drafts: readonly PlayDraft[] = [at("2026-10-09T02:00:00.000Z", 280), slot, received, at("2026-10-09T05:00:00.000Z", 275), at("2026-10-09T07:00:00.000Z", undefined)]
+    const drafts: readonly PlayDraft[] = [at("2026-10-09T02:00:00.000Z", 280), pachislot, received, at("2026-10-09T05:00:00.000Z", 275), at("2026-10-09T07:00:00.000Z", undefined)]
     expect(latestTermsOf(drafts, "pachinko")?.exchange.tokens).toBe(275)
-    expect(latestTermsOf(drafts, "slot")?.exchange.tokens).toBe(51)
+    expect(latestTermsOf(drafts, "pachislot")?.exchange.tokens).toBe(51)
     expect(latestTermsOf([], "pachinko")).toBeUndefined()
   })
 })

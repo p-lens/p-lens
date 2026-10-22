@@ -714,7 +714,7 @@ The place is read off the address (`ui/navigation/place.ts`):
 | Address | Place | Narrow focus |
 |---|---|---|
 | `/play` | plays in progress on this device | selection |
-| `/play/new/{pachinko,slot}` | starting a play of a game | content |
+| `/play/new/{pachinko,pachislot}` | starting a play of a game | content |
 | `/play/:play` | a play in progress | content |
 | `/play/:play/record` | recording it into its book (収支を記帳) | content |
 | `/play/:play/cabinet` | saying anew which cabinet and machine it is on | content |
@@ -2972,7 +2972,7 @@ is not written out here a second time.
 | 収支 | tally (`TokenTally`, `YenTally`): what a book keeps of a play, under its play's id — the list, its details and its forms |
 | 営業日 | business day: the day a play belongs to, turning over at the hour set, 05:00 by default (`businessDayOf`) |
 | 機種 / 台 / 台番号 | machine / cabinet / `cabinet-number` |
-| パチンコ / スロット | `game-kind: pachinko \| slot` |
+| パチンコ / スロット | `game-kind: pachinko \| pachislot` (`slot`, as written before, read as pachislot) |
 | 玉 / 枚 | ball / medal (`TokenKind`) |
 | 貯玉・貯メダル | savings |
 | 再プレイ | savings withdrawal (`withdrawal`) |

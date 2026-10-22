@@ -44,7 +44,7 @@ export const LINEUP: Lineup = {
       seat: PACHINKO_SEAT,
     },
   ],
-  slot: [
+  pachislot: [
     {
       id: "s-old",
       name: "S旧台",
