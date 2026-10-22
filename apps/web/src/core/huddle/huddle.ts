@@ -6,7 +6,9 @@ import { parseIsoDate, type IsoDate } from "../calendar/calendar"
  * still recorded wherever its player records it. One line on the relay
  * carries it, drawn from a secret that its QR code is all of, so
  * whoever reads the code may read and add to the line, and nobody else.
- * It lasts the business day it was joined on.
+ * It lasts the business day it was joined on. A device that left it keeps
+ * it that day, as left, so that the same code read again makes it the
+ * same member it was.
  */
 export interface Huddle {
   readonly secret: string
@@ -17,6 +19,8 @@ export interface Huddle {
   readonly name: string
   /** The others' plays this device let go of from its own list, each a member and a play's id (`huddlePlayKey`): theirs to keep, gone from here alone. */
   readonly dismissed: readonly string[]
+  /** Whether this device left it: it shows and is shown nothing until it joins again. */
+  readonly left?: true
 }
 
 /** One of the others' plays as the device names it: who showed it, and its id. */
@@ -47,8 +51,11 @@ export const huddleNameOf = (typed: string): string | undefined => {
   return name === "" ? undefined : name
 }
 
-/** The huddle a device is in on a business day: the one it joined that day, and none once the day has turned. */
+/** The huddle a device joined on a business day, left since or not, and none once the day has turned. */
 export const huddleOn = (huddle: Huddle | undefined, businessDay: IsoDate): Huddle | undefined => (huddle?.businessDay === businessDay ? huddle : undefined)
+
+/** The huddle a device is in on a business day: the one it joined that day and has not left. */
+export const huddleInOn = (huddle: Huddle | undefined, businessDay: IsoDate): Huddle | undefined => ((found) => (found?.left === true ? undefined : found))(huddleOn(huddle, businessDay))
 
 /** A huddle as the device keeps it. */
 export const huddleText = (huddle: Huddle): string => JSON.stringify(huddle)
@@ -64,11 +71,11 @@ export const readHuddle = (written: string | undefined): Huddle | undefined => {
   try {
     const kept: unknown = JSON.parse(written)
     if (typeof kept !== "object" || kept === null) return undefined
-    const { secret, businessDay, member, name, dismissed } = kept as Readonly<Record<string, unknown>>
+    const { secret, businessDay, member, name, dismissed, left } = kept as Readonly<Record<string, unknown>>
     const day = isText(businessDay) ? parseIsoDate(businessDay) : undefined
     const letGo = dismissedOf(dismissed)
-    return isText(secret) && SECRET.test(secret) && day?.ok === true && isText(member) && member !== "" && isText(name) && huddleNameOf(name) === name && letGo !== undefined
-      ? { secret, businessDay: day.value, member, name, dismissed: letGo }
+    return isText(secret) && SECRET.test(secret) && day?.ok === true && isText(member) && member !== "" && isText(name) && huddleNameOf(name) === name && letGo !== undefined && (left === undefined || left === true)
+      ? { secret, businessDay: day.value, member, name, dismissed: letGo, ...(left === true ? { left } : {}) }
       : undefined
   } catch {
     return undefined

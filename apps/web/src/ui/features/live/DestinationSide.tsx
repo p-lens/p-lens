@@ -5,7 +5,7 @@ import type { Outcome } from "../../../application/errors"
 import { loadTodaysPlays } from "../../../application/live-play"
 import { forgetDestination, sendDraft } from "../../../application/sending"
 import { shownNameOf } from "../../../core/catalog/catalog"
-import { awaitsSending, deliveryOf, parlorOf, type PlayDraft } from "../../../core/live-play/draft"
+import { awaitsSending, deliveryOf, type PlayDraft } from "../../../core/live-play/draft"
 import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
@@ -15,10 +15,10 @@ import { SendIcon } from "../../primitives/icons"
 import { Loaded } from "../../primitives/states"
 import { toast } from "../../primitives/toast"
 import { useMoves } from "../../navigation/moves"
-import { businessDayNote, formatMoment } from "../../wording/dates"
+import { businessDayNote } from "../../wording/dates"
 import { describeError } from "../../wording/errors"
-import { parlorText } from "../../wording/parlor"
 import { deliveryText } from "../../wording/sync"
+import { captionOf } from "./play-caption"
 import { sendingPortsOf } from "./sending-ports"
 
 /**
@@ -31,13 +31,8 @@ function DeliveryRow(props: { readonly draft: PlayDraft; readonly lineId: string
   return (
     <li class="flex items-center gap-1 rounded px-2 py-1.5">
       <div class="flex min-w-0 flex-1 flex-col">
-        <span class="truncate text-[15px] text-text-primary">
-          {shownNameOf(app.machineNames(), props.draft.machine)}
-          {props.draft.cabinetNumber === undefined ? "" : ` ${props.draft.cabinetNumber}番台`}
-        </span>
-        <span class="truncate text-xs text-text-muted">
-          {parlorText(parlorOf(props.draft))}・{formatMoment(props.draft.startedAt)}〜
-        </span>
+        <span class="truncate text-[15px] text-text-primary">{shownNameOf(app.machineNames(), props.draft.machine)}</span>
+        <span class="truncate text-xs text-text-muted">{captionOf(props.draft, app.services.businessDay())}</span>
         <span class="truncate text-xs" classList={{ "text-text-secondary": awaitsSending(props.draft, props.lineId), "text-text-muted": !awaitsSending(props.draft, props.lineId) }}>
           {deliveryText(deliveryOf(props.draft, props.lineId))}
         </span>

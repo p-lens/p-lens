@@ -19,12 +19,13 @@ import { Loaded } from "../../primitives/states"
 import { toast } from "../../primitives/toast"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
-import { businessDayNote, formatMoment } from "../../wording/dates"
+import { businessDayNote } from "../../wording/dates"
 import { describeError } from "../../wording/errors"
 import { parlorText } from "../../wording/parlor"
 import { HUDDLE_DISMISS, HUDDLE_DISMISS_ASK, HUDDLE_DISMISS_SAYS, HUDDLE_GIVEN_UP, HUDDLE_HEADING, HUDDLE_JOINED } from "../../wording/huddle"
 import { HuddleDialog } from "./HuddleDialog"
 import { HuddleRow } from "./HuddleRow"
+import { captionOf } from "./play-caption"
 import { sendingPortsOf } from "./sending-ports"
 import { Unhatched } from "../../../unhatched-egg"
 
@@ -81,14 +82,9 @@ function DraftRow(props: {
           <Show when={flagged()}>
             <span class="size-2 shrink-0 rounded-full bg-negative" role="img" aria-label={props.leftOver ? "前の日の、まだ記帳していない稼働" : "終了後に変更のある稼働"} />
           </Show>
-          <span class="truncate">
-            {shownNameOf(app.machineNames(), props.draft.machine)}
-            {props.draft.cabinetNumber === undefined ? "" : ` ${props.draft.cabinetNumber}番台`}
-          </span>
+          <span class="truncate">{shownNameOf(app.machineNames(), props.draft.machine)}</span>
         </span>
-        <span class="truncate text-xs text-text-muted">
-          {parlorText(parlorOf(props.draft))}・{formatMoment(props.draft.startedAt)}〜
-        </span>
+        <span class="truncate text-xs text-text-muted">{captionOf(props.draft, app.services.businessDay())}</span>
         <Show when={marksOf(props.draft, props.destinations).length > 0}>
           <span class="truncate text-xs text-text-secondary">{marksOf(props.draft, props.destinations).join("・")}</span>
         </Show>

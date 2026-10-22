@@ -37,7 +37,7 @@ export function ConsolidationSettings(props: { readonly place: Place }): JSX.Ele
       <div class="max-w-5xl">
         <div class="flex flex-col items-start gap-3 p-4">
           <p class="text-sm text-text-muted">複数の帳簿の収支を合算する「連結」を、レールメニューに出します。</p>
-          <Button variant="semipro" onClick={turn}>
+          <Button variant="nerdpro" onClick={turn}>
             {shown() ? "連結会計を無効にする" : "連結会計を有効にする"}
           </Button>
           <Show when={turnedOn()}>

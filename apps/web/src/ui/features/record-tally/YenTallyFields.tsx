@@ -157,7 +157,7 @@ function MachineChoice(props: { readonly editing: YenTallyEditing }): JSX.Elemen
       }}
       onTyped={editing.setMachineTyped}
       beside={
-        <PencilledBubble text={`${editing.form().cabinetNumber.trim() === "" ? "---" : editing.form().cabinetNumber.trim()}番台`} says="台番号を入力する" invalid={false}>
+        <PencilledBubble text={`${editing.form().cabinetNumber.trim() === "" ? "----" : editing.form().cabinetNumber.trim()}番台`} says="台番号を入力する" invalid={false}>
           <TextField label="台番号" value={editing.form().cabinetNumber} onChange={editing.set("cabinetNumber")} inputMode="numeric" compact />
         </PencilledBubble>
       }

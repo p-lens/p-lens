@@ -19,8 +19,8 @@ import { ODD_PRIZE_CALCULATOR_LABEL, ODD_PRIZE_CALCULATOR_LINES } from "../../wo
 import { destinationLabel } from "../../wording/sync"
 import { consolidationShown } from "../consolidated/shown"
 
-/** The semipro colour on the rail: the consolidation is of that kind, as the button that turns it on is, and is told from the books by it. */
-const SEMIPRO = { chosen: "bg-semipro text-on-semipro", hovered: "hover:bg-semipro hover:text-on-semipro" } as const
+/** The nerdpro colour on the rail: the consolidation is of that kind, as the button that turns it on is, and is told from the books by it. */
+const NERDPRO = { chosen: "bg-nerdpro text-on-nerdpro", hovered: "hover:bg-nerdpro hover:text-on-nerdpro" } as const
 
 /**
  * A book this device may only send plays to, on the rail: an outline with
@@ -131,7 +131,7 @@ export function SpacesRail(props: {
     books().filter((book) => !ownedBy(app.services.member)(book)).map(bookItem),
     destinations().map(destinationItem),
     consolidationShown(app.services.preferences)
-      ? [{ id: "consolidated", label: "連結", icon: <ConsolidatedIcon />, colour: SEMIPRO, selected: inConsolidation(props.place), onSelect: () => moves.go({ kind: "consolidated" }) }]
+      ? [{ id: "consolidated", label: "連結", icon: <ConsolidatedIcon />, colour: NERDPRO, selected: inConsolidation(props.place), onSelect: () => moves.go({ kind: "consolidated" }) }]
       : [],
   ]
   const footer = (): readonly (readonly RailItem[])[] => [

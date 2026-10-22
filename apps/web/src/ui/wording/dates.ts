@@ -25,6 +25,13 @@ export const formatDay = (date: IsoDate): string => `${Number(date.slice(0, 4))}
  */
 export const businessDayNote = (businessDay: IsoDate, today: IsoDate): string | undefined => (businessDay === today ? undefined : formatDayOfYear(businessDay))
 
+/** An ISO timestamp as the local time of day it was, `13:42`. */
+export const formatClock = (timestamp: string): string => {
+  const moment = new Date(timestamp)
+  const pad = (value: number): string => String(value).padStart(2, "0")
+  return `${pad(moment.getHours())}:${pad(moment.getMinutes())}`
+}
+
 /** An ISO timestamp as the local date and time it was, `10/3 13:42`. */
 export const formatMoment = (timestamp: string): string => {
   const moment = new Date(timestamp)

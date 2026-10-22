@@ -8,12 +8,13 @@ import { loadMachine } from "../../../../application/pachinko/formulas"
 import { bookNameOf, shownNameOf, type MachineSummary } from "../../../../core/catalog/catalog"
 import { machineMatches } from "../../../../core/catalog/description"
 import { autoSelect, selectById, type Selection } from "../../../../core/formula/standing"
-import { tokenValueOfDraft, type MachineChange, type PachinkoDraft } from "../../../../core/live-play/draft"
+import { jackpotCountingOf, tokenValueOfDraft, withJackpotCounting, type MachineChange, type PachinkoDraft } from "../../../../core/live-play/draft"
 import { worthOf, type Formula } from "../../../../core/pachinko/formula"
 import { borderOf } from "../../../../core/pachinko/theoretical-value"
 import { withJackpotsUntold } from "../../../../core/pachinko/revision"
 import { snapshotOf } from "../../../../core/pachinko/snapshot"
 import { parsePlayLog } from "../../../../core/play-log/checkpoint"
+import type { JackpotCounting } from "../../../../core/play-log/live"
 import { isWritableText } from "../../../../core/tally/validate"
 import { useApp } from "../../../context"
 import { useMoves } from "../../../navigation/moves"
@@ -23,10 +24,9 @@ import { copyText } from "../../../primitives/clipboard"
 import { Combobox, holdsTypedOnly } from "../../../primitives/combobox"
 import { CopyIcon, QuestionIcon } from "../../../primitives/icons"
 import { createNudge } from "../../../primitives/nudge"
-import { PencilledBubble } from "../../../primitives/pencilled-bubble"
 import { HintedIconButton } from "../../../primitives/popover"
 import { Select } from "../../../primitives/select"
-import { settleTyping, TextField } from "../../../primitives/text-field"
+import { settleTyping } from "../../../primitives/text-field"
 import { toast } from "../../../primitives/toast"
 import { describeError } from "../../../wording/errors"
 import { UNWRITABLE_TEXT } from "../../../wording/fields"
@@ -50,9 +50,11 @@ type Saving = { readonly type: "typing" } | { readonly type: "keeping" } | { rea
  * machine's; each is said again by setting its reading right. It is laid
  * out as the start screen's machine is — the machine, its formula beside
  * it with the buttons that copy it and open its grounds — with the
- * cabinet's number across from the heading, behind its pencil. What is
+ * cabinet's number across from the heading, a small field left open, since
+ * the number is what the screen is most often come to for. What is
  * chosen is kept with the start form, so a look at a formula's grounds and
- * back does not lose it.
+ * back does not lose it. Under the machine is how the cabinet's counter
+ * counts jackpots, ticked where it counts each bonus as one.
  */
 export function Cabinet(props: { readonly place: Place; readonly draft: PachinkoDraft }): JSX.Element {
   const app = useApp()
@@ -68,6 +70,7 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
   const formulaId = createMemo(() => chosen().formulaId)
   const cabinetNumber = createMemo(() => chosen().cabinetNumber)
   const [machineTyped, setMachineTyped] = createSignal("")
+  const [counting, setCounting] = createSignal<JackpotCounting>(jackpotCountingOf(props.draft))
   const [saving, setSaving] = createSignal<Saving>({ type: "typing" })
   const nudge = createNudge()
   const [catalogued] = createResource(() => findMachines(app.services.catalog, "", "pachinko"))
@@ -122,7 +125,7 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
       return
     }
     setSaving({ type: "keeping" })
-    const changed = await changeCabinet(app.services.drafts, props.draft, { cabinetNumber: cabinetNumber().trim() === "" ? undefined : cabinetNumber().trim(), machine: machineChange() })
+    const changed = await changeCabinet(app.services.drafts, withJackpotCounting(props.draft, counting()), { cabinetNumber: cabinetNumber().trim() === "" ? undefined : cabinetNumber().trim(), machine: machineChange() })
     if (!changed.ok) {
       setSaving({ type: "failed", error: changed.error })
       return
@@ -148,9 +151,21 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
             <h2 id="cabinet-machine" class="text-sm font-bold text-text-primary">
               機種設定
             </h2>
-            <PencilledBubble text={`${cabinetNumber().trim() === "" ? "---" : cabinetNumber().trim()}番台`} says="台番号を入力する" invalid={unwritable()}>
-              <TextField label="台番号" value={cabinetNumber()} onChange={(typed) => choose({ cabinetNumber: typed })} inputMode="numeric" error={unwritable() ? UNWRITABLE_TEXT : undefined} onFocus={nudge.settle} compact />
-            </PencilledBubble>
+            <div class="flex h-6 shrink-0 items-center gap-1 text-xs font-bold" classList={{ "text-text-primary": !unwritable(), "text-negative": unwritable() }}>
+              <input
+                aria-label="台番号"
+                aria-invalid={unwritable()}
+                title={unwritable() ? UNWRITABLE_TEXT : undefined}
+                value={cabinetNumber()}
+                onInput={(event) => choose({ cabinetNumber: event.currentTarget.value })}
+                onFocus={nudge.settle}
+                inputMode="numeric"
+                placeholder="----"
+                class="h-6 w-14 rounded-[3px] bg-surface-input px-1.5 text-right tabular-nums outline-none placeholder:text-text-muted focus-visible:outline-2 focus-visible:outline-focus-ring"
+                classList={{ "ring-1 ring-negative": unwritable() }}
+              />
+              番台
+            </div>
           </div>
           <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 sm:gap-2">
             <Combobox
@@ -205,6 +220,10 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
               </Switch>
             </div>
           </div>
+          <label class="flex cursor-pointer items-center gap-2 self-start text-sm text-text-primary">
+            <input type="checkbox" checked={counting() === "per-bonus"} onChange={(event) => setCounting(event.currentTarget.checked ? "per-bonus" : "per-jackpot")} class="size-5 shrink-0 accent-accent" />
+            どのボーナスも1回でカウント
+          </label>
         </section>
         <Show when={machineChange() !== undefined}>
           <p class="text-xs leading-5 text-text-muted">機種や算出条件を変えると、回転率・ボーダー・期待値をその内容で計算し直します。記録済みの大当りは「内容不明」になるので、履歴の行を開いてボーナスを選び直してください。</p>

@@ -9,6 +9,9 @@ export const HUDDLE_STANDINGS: Readonly<Record<HuddleStanding, string | undefine
 /** The mark of one of the others' plays they have left for another machine. */
 export const HUDDLE_MOVED = "移動済"
 
+/** The mark of the play one of the others was on as they left the huddle. */
+export const HUDDLE_DEPARTED = "離脱"
+
 /** Letting one of the others' plays go from this device's list: what its cross is called, what is asked, and what is said of it. */
 export const HUDDLE_DISMISS = "一覧から消す"
 export const HUDDLE_DISMISS_ASK = "この稼働を一覧から消しますか？"

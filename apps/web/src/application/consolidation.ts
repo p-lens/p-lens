@@ -282,7 +282,7 @@ export const loadConsolidatedSpinPerformances = async (ports: ConsolidationPorts
 export const loadConsolidatedSenderNames = async (ports: ConsolidationPorts, chosen: readonly BookId[] | undefined): Promise<Outcome<SenderNames>> =>
   mapOk(await ofChosen(ports, chosen, "sender-names", (session, book) => loadSenderNames(session, book.id)), (books) => mergedSenderNames(books.flatMap((each) => (each.read.ok ? [each.read.value] : []))))
 
-/** What the consolidation is asked ahead about: the month its calendar opens on, and the periods most looked at, the one 集計 opens on first — this year, then this month — each as the screens ask it. */
+/** What the consolidation is asked ahead about: the month its calendar opens on, and the periods most looked at, the one 集計 opens on first — today, then this month and this year — each as the screens ask it. */
 export interface Warming {
   readonly month: string
   readonly periods: readonly string[]

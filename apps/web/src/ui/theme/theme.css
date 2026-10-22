@@ -17,7 +17,7 @@
  * name of its own so that it need not stay so. `semipro` is for looking
  * into a formula and making one — its grounds, a simulation, finding its
  * basis right — in
- * the yellow-green a pachinko screen holds a spin in. `nerdpro` is for
+ * the green a terminal draws its cursor in. `nerdpro` is for
  * finding a basis wrong, which only someone who has worked it through can
  * say, in that screen's purple. Each has the shade it takes under a
  * pointer and what is written on it (`on-…`). A button is filled with the
@@ -53,25 +53,25 @@
   --text-secondary: #4e5058;
   --text-muted: #5c5e66;
   --border: #e1e2e4;
-  --accent: #5865f2;
-  --accent-hover: #4752c4;
+  --accent: #5b66d9;
+  --accent-hover: #4f58bd;
   --accent-contrast: #ffffff;
   --positive: #1f9a55;
   --negative: #e8383e;
   --warning: #a8650a;
   --focus-ring: #00a8fc;
-  --amateur: #5865f2;
-  --amateur-hover: #4752c4;
+  --amateur: #5b66d9;
+  --amateur-hover: #4f58bd;
   --on-amateur: #ffffff;
-  --semipro: #86d426;
-  --semipro-hover: #76bf1c;
+  --semipro: #52cc52;
+  --semipro-hover: #4bbd4b;
   --on-semipro: #0c1405;
-  --semipro-ink: #3f7d14;
-  --semipro-ink-hover: #33680f;
-  --nerdpro: #a985f2;
-  --nerdpro-hover: #9870e6;
+  --semipro-ink: #007500;
+  --semipro-ink-hover: #006100;
+  --nerdpro: #b673e6;
+  --nerdpro-hover: #ae6edb;
   --on-nerdpro: #100a1c;
-  --nerdpro-ink: #6f47bd;
+  --nerdpro-ink: #7a1fd6;
   --rapid: #86d426;
   --special: #a985f2;
   --mark-gold: #c27c0e;
@@ -109,15 +109,15 @@
   --amateur: #5865f2;
   --amateur-hover: #4752c4;
   --on-amateur: #ffffff;
-  --semipro: #9be22d;
-  --semipro-hover: #b0ee4f;
+  --semipro: #00e000;
+  --semipro-hover: #33ff33;
   --on-semipro: #0c1405;
-  --semipro-ink: #7fb63c;
-  --semipro-ink-hover: #94cb4f;
-  --nerdpro: #b794f6;
-  --nerdpro-hover: #c8acf9;
+  --semipro-ink: #00e000;
+  --semipro-ink-hover: #4dff4d;
+  --nerdpro: #b84dff;
+  --nerdpro-hover: #c266ff;
   --on-nerdpro: #100a1c;
-  --nerdpro-ink: #9a74dc;
+  --nerdpro-ink: #bb84ff;
   --rapid: #9be22d;
   --special: #b794f6;
   --mark-gold: #f0a92e;

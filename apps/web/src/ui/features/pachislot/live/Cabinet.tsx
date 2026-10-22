@@ -23,10 +23,9 @@ import { copyText } from "../../../primitives/clipboard"
 import { Combobox, holdsTypedOnly } from "../../../primitives/combobox"
 import { CopyIcon, QuestionIcon } from "../../../primitives/icons"
 import { createNudge } from "../../../primitives/nudge"
-import { PencilledBubble } from "../../../primitives/pencilled-bubble"
 import { HintedIconButton } from "../../../primitives/popover"
 import { Select } from "../../../primitives/select"
-import { settleTyping, TextField } from "../../../primitives/text-field"
+import { settleTyping } from "../../../primitives/text-field"
 import { toast } from "../../../primitives/toast"
 import { describeError } from "../../../wording/errors"
 import { UNWRITABLE_TEXT } from "../../../wording/fields"
@@ -50,7 +49,8 @@ type Saving = { readonly type: "typing" } | { readonly type: "keeping" } | { rea
  * it, and is let go of where that formula does not. It is laid out as the
  * start screen's machine is — the machine, its formula beside it with the
  * buttons that copy it and open its grounds — with the cabinet's number
- * across from the heading, behind its pencil. What is chosen is kept with
+ * across from the heading, a small field left open, since the number
+ * is what the screen is most often come to for. What is chosen is kept with
  * the start form, so a look at a formula's grounds and back does not lose
  * it.
  */
@@ -151,9 +151,21 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachislo
             <h2 id="cabinet-machine" class="text-sm font-bold text-text-primary">
               機種設定
             </h2>
-            <PencilledBubble text={`${cabinetNumber().trim() === "" ? "---" : cabinetNumber().trim()}番台`} says="台番号を入力する" invalid={unwritable()}>
-              <TextField label="台番号" value={cabinetNumber()} onChange={(typed) => choose({ cabinetNumber: typed })} inputMode="numeric" error={unwritable() ? UNWRITABLE_TEXT : undefined} onFocus={nudge.settle} compact />
-            </PencilledBubble>
+            <div class="flex h-6 shrink-0 items-center gap-1 text-xs font-bold" classList={{ "text-text-primary": !unwritable(), "text-negative": unwritable() }}>
+              <input
+                aria-label="台番号"
+                aria-invalid={unwritable()}
+                title={unwritable() ? UNWRITABLE_TEXT : undefined}
+                value={cabinetNumber()}
+                onInput={(event) => choose({ cabinetNumber: event.currentTarget.value })}
+                onFocus={nudge.settle}
+                inputMode="numeric"
+                placeholder="----"
+                class="h-6 w-14 rounded-[3px] bg-surface-input px-1.5 text-right tabular-nums outline-none placeholder:text-text-muted focus-visible:outline-2 focus-visible:outline-focus-ring"
+                classList={{ "ring-1 ring-negative": unwritable() }}
+              />
+              番台
+            </div>
           </div>
           <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 sm:gap-2">
             <Combobox

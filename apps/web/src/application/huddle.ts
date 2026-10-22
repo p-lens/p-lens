@@ -1,6 +1,6 @@
 import type { IsoDate } from "../core/calendar/calendar"
-import { huddleOn, huddlePlayKey, huddleText, readHuddle, secretOfHuddleCode, type Huddle } from "../core/huddle/huddle"
-import { huddleEntryText, huddlePostOf, huddleWithdrawalOf, readHuddleEntry, type HuddleEntry } from "../core/huddle/post"
+import { huddleInOn, huddleOn, huddlePlayKey, huddleText, readHuddle, secretOfHuddleCode, type Huddle } from "../core/huddle/huddle"
+import { huddleDepartureOf, huddleEntryText, huddlePostOf, huddleWithdrawalOf, readHuddleEntry, type HuddleEntry } from "../core/huddle/post"
 import type { PlayDraft } from "../core/live-play/draft"
 import type { PlayId } from "../core/play/play"
 import { Err, Ok, mapErr, type Result } from "../core/result/result"
@@ -31,8 +31,11 @@ const problem = (found: SyncProblem): Outcome<never> => Err({ type: "sync", prob
 
 const fromSync = <T>(result: Result<T, SyncProblem>): Outcome<T> => mapErr(result, (found) => ({ type: "sync", problem: found }))
 
-/** The huddle this device is in on a business day; none where it joined none, or joined one on a day gone by. */
-export const huddleNow = (preferences: Pick<Preferences, "huddle">, businessDay: IsoDate): Huddle | undefined => huddleOn(readHuddle(preferences.huddle()), businessDay)
+/** The huddle this device is in on a business day; none where it joined none, left the one it joined, or joined one on a day gone by. */
+export const huddleNow = (preferences: Pick<Preferences, "huddle">, businessDay: IsoDate): Huddle | undefined => huddleInOn(readHuddle(preferences.huddle()), businessDay)
+
+/** The huddle this device left on a business day, to be come back to by its code: none where it is still in one, or left none that day. */
+export const huddleLeftOn = (preferences: Pick<Preferences, "huddle">, businessDay: IsoDate): Huddle | undefined => ((found) => (found?.left === true ? found : undefined))(huddleOn(readHuddle(preferences.huddle()), businessDay))
 
 const kept = (ports: Pick<HuddlePorts, "preferences">, huddle: Huddle): Outcome<Huddle> => {
   ports.preferences.setHuddle(huddleText(huddle))
@@ -45,15 +48,16 @@ export const startHuddle = (ports: HuddlePorts, name: string, businessDay: IsoDa
 
 /**
  * Join a huddle by its code, under a name. A device that reads the code of
- * the huddle it is already in stays the member it was, under the name
- * given now, so that it is still one to the others, and keeps what it let
- * go of from its list.
+ * the huddle it is already in, or left that day, stays the member it was,
+ * under the name given now, so that it is still one to the others, and
+ * keeps what it let go of from its list. Come back, it shows its plays
+ * again, and the others no longer mark it as left.
  */
 export const joinHuddle = (ports: HuddlePorts, code: string, name: string, businessDay: IsoDate): Outcome<Huddle> => {
   const secret = secretOfHuddleCode(code)
   if (secret === undefined) return problem({ type: "not-a-huddle-code" })
   if (ports.relayUrl === undefined) return problem({ type: "no-relay" })
-  const already = huddleNow(ports.preferences, businessDay)
+  const already = huddleOn(readHuddle(ports.preferences.huddle()), businessDay)
   const same = already?.secret === secret ? already : undefined
   return kept(ports, { secret, businessDay, member: same?.member ?? ports.newId(), name, dismissed: same?.dismissed ?? [] })
 }
@@ -66,8 +70,6 @@ export const dismissHuddlePlay = (preferences: Pick<Preferences, "setHuddle">, h
   return letGo
 }
 
-/** Leave the huddle: the device forgets it, and shows and is shown nothing more. What it showed stays on the line for the others. */
-export const leaveHuddle = (preferences: Pick<Preferences, "setHuddle">): void => preferences.setHuddle(undefined)
 
 const lineOf = async (ports: HuddlePorts, huddle: Huddle): Promise<Outcome<{ readonly access: LineAccess; readonly keys: LineKeys }>> => {
   if (ports.relayUrl === undefined) return problem({ type: "no-relay" })
@@ -104,6 +106,17 @@ export const showToHuddle = (ports: HuddlePorts, huddle: Huddle, draft: PlayDraf
 
 /** Take a play back from the huddle, as one is shown: the others let it go. Where the line then ends. */
 export const withdrawFromHuddle = (ports: HuddlePorts, huddle: Huddle, playId: PlayId, after: number): Promise<Outcome<number>> => putEntry(ports, huddle, huddleWithdrawalOf(playId, huddle, ports.now()), after)
+
+/**
+ * Leave the huddle: the device keeps it as left, and shows and is shown
+ * nothing more, and says so on the line, so that the others mark the play
+ * it was on as left. What it showed stays there for them. Where the line
+ * then ends; the device has left it whether the line was reached or not.
+ */
+export const leaveHuddle = (ports: HuddlePorts, huddle: Huddle, after: number): Promise<Outcome<number>> => {
+  ports.preferences.setHuddle(huddleText({ ...huddle, left: true }))
+  return putEntry(ports, huddle, huddleDepartureOf(huddle, ports.now()), after)
+}
 
 const opened = async (ports: HuddlePorts, keys: LineKeys, entry: { readonly commitId: string; readonly box: string }): Promise<HuddleEntry | undefined> => {
   const text = await ports.sealer.open(keys, entry.commitId, entry.box)

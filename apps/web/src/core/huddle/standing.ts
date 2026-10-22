@@ -37,14 +37,15 @@ export const jackpotStreakOf = (play: Play): number => {
 }
 
 /**
- * Who of the others is in a jackpot on the play they are on, as one word —
+ * Who of the others still in the huddle is in a jackpot on the play they
+ * are on, as one word —
  * each one's member and play, in order — the same for the same people in
  * the same jackpots: it changes as one of them wins one, or one's ends,
  * and not while one goes on.
  */
 export const jackpotsNow = (plays: readonly HuddlePlay[]): string =>
   plays
-    .filter((shown) => shown.latest && huddleStandingOf(shown.post.play) === "jackpot")
+    .filter((shown) => shown.latest && !shown.departed && huddleStandingOf(shown.post.play) === "jackpot")
     .map((shown) => `${shown.post.member} ${shown.post.play.id}`)
     .toSorted()
     .join("\n")

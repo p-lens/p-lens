@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import type { IsoDate } from "../../src/core/calendar/calendar"
-import { awaitsSending, deliveryOf, latestTermsOf, withCabinetNumber, withMachine, type PachinkoDraft, type PlayDraft } from "../../src/core/live-play/draft"
+import { awaitsSending, deliveryOf, jackpotCountingOf, latestTermsOf, withCabinetNumber, withJackpotCounting, withMachine, type PachinkoDraft, type PlayDraft } from "../../src/core/live-play/draft"
 import { withJackpotsUntold } from "../../src/core/pachinko/revision"
 import { appendCheckpoint, parsePlayLog } from "../../src/core/play-log/checkpoint"
 import type { PlayId } from "../../src/core/play/play"
@@ -77,6 +77,14 @@ describe("a play said anew to be on another machine", () => {
     expect("pachinko" in pachislot || "bonuses" in pachislot).toBe(false)
     expect(withCabinetNumber(DRAFT, "123").cabinetNumber).toBe("123")
     expect(withCabinetNumber({ ...DRAFT, cabinetNumber: "123" }, undefined).cabinetNumber).toBeUndefined()
+  })
+
+  test("keeps how the cabinet's counter counts jackpots, which is the cabinet's and not the machine's", () => {
+    const counted = withJackpotCounting({ ...DRAFT, log }, "per-bonus")
+    const again = withMachine(counted, { type: "pachinko", name: "made-up 199", formula, bonuses: [], readings: undefined })
+    expect(again.gameKind === "pachinko" && jackpotCountingOf(again)).toBe("per-bonus")
+    expect("jackpotCounting" in withJackpotCounting(counted, "per-jackpot")).toBe(false)
+    expect(jackpotCountingOf(DRAFT)).toBe("per-jackpot")
   })
 })
 

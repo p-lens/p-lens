@@ -132,6 +132,17 @@ describe("the jackpots a log records", () => {
     expect(missingJackpots(liveSummary([log[0] as Checkpoint, { spins: 110, counter: { spins: 30, jackpots: 12 }, event: { kind: "jackpot", bonus: { ...TWICE, jackpots: 1 } } }]))).toBe(2)
   })
 
+  test("are one for each bonus where the cabinet's counter counts each bonus as one, and are compared with it so", () => {
+    const log: readonly Checkpoint[] = [
+      { spins: 0, counter: { spins: 120, jackpots: 9 } },
+      { spins: 80, event: { kind: "jackpot", bonus: TWICE } },
+      { spins: 110, counter: { spins: 30, jackpots: 11 }, event: { kind: "jackpot", bonus: TWICE } },
+    ]
+    expect(liveSummary(log, "per-bonus").jackpots).toBe(2)
+    expect(missingJackpots(liveSummary(log, "per-bonus"))).toBe(0)
+    expect(liveSummary(log).jackpots).toBe(4)
+  })
+
   test("are read back from a line as it was written, and a line that says none of a bonus is refused", () => {
     const line = '{"spins":110,"event":{"kind":"jackpot","bonus":{"name":"20R","payout":3000,"spent":200,"jackpots":2}}}'
     expect(parsePlayLog(line)).toEqual({ ok: true, value: [{ spins: 110, event: { kind: "jackpot", bonus: TWICE } }] })

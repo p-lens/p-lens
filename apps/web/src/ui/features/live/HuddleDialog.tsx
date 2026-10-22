@@ -1,6 +1,6 @@
 import { createSignal, Show, type JSX } from "solid-js"
 
-import { joinHuddle, leaveHuddle, startHuddle } from "../../../application/huddle"
+import { huddleLeftOn, joinHuddle, leaveHuddle, startHuddle } from "../../../application/huddle"
 import type { Outcome } from "../../../application/errors"
 import { huddleCodeOf, huddleNameOf, type Huddle } from "../../../core/huddle/huddle"
 import { useApp } from "../../context"
@@ -43,11 +43,11 @@ function JoinedHuddle(props: { readonly huddle: Huddle; readonly onLeave: () => 
   )
 }
 
-/** A huddle not yet joined: the name to go by, and a huddle begun, or joined by reading its QR code — by the camera, or out of an image such as a screenshot sent in a chat. */
+/** A huddle not yet joined: the name to go by — the one gone by in a huddle left that day, to come back as — and a huddle begun, or joined by reading its QR code — by the camera, or out of an image such as a screenshot sent in a chat. */
 function NewHuddle(props: { readonly onJoined: (made: Outcome<Huddle>) => void }): JSX.Element {
   const app = useApp()
   const ports = huddlePortsOf(app.services)
-  const [typed, setTyped] = createSignal("")
+  const [typed, setTyped] = createSignal(huddleLeftOn(app.services.preferences, app.services.businessDay())?.name ?? "")
   const picker: { input: HTMLInputElement | undefined } = { input: undefined }
   const [scanning, setScanning] = createSignal(false)
   const [nameMissed, setNameMissed] = createSignal(false)
@@ -116,15 +116,18 @@ export function HuddleDialog(props: { readonly open: boolean; readonly onClosed:
     }
     app.huddle.changed()
   }
-  const leave = (): void => {
-    leaveHuddle(app.services.preferences)
+  const leave = (huddle: Huddle): void => {
+    const said = leaveHuddle(huddlePortsOf(app.services), huddle, app.huddle.line.held.lineEnd)
     app.huddle.changed()
     props.onClosed()
+    void said.then((outcome) => {
+      if (!outcome.ok) toast({ title: HUDDLE_HEADING, description: describeError(outcome.error), tone: "error" })
+    })
   }
   return (
     <PanelDialog open={props.open} title={HUDDLE_HEADING} onClosed={props.onClosed}>
       <Show when={app.huddle.now()} keyed fallback={<NewHuddle onJoined={joined} />}>
-        {(huddle) => <JoinedHuddle huddle={huddle} onLeave={leave} />}
+        {(huddle) => <JoinedHuddle huddle={huddle} onLeave={() => leave(huddle)} />}
       </Show>
     </PanelDialog>
   )

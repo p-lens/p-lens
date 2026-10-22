@@ -81,7 +81,7 @@ export function CornerTerms(props: { readonly draft: PlayDraft; readonly between
           </button>
           {props.between}
           <button type="button" onClick={() => moves.go({ kind: "live-cabinet", playId: props.draft.id })} class={PENCILLED}>
-            {props.draft.cabinetNumber ?? "---"}番台
+            {props.draft.cabinetNumber ?? "----"}番台
             <span class="text-text-secondary group-hover:text-text-primary">
               <EditIcon label={CHANGE_CABINET} />
             </span>

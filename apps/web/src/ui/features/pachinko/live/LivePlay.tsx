@@ -4,7 +4,7 @@ import { MainContent } from "solid-gathering-shell"
 import { reviseCheckpoints } from "../../../../application/live-play"
 import { loadFormula } from "../../../../application/pachinko/formulas"
 import { reliefDriveOf } from "../../../../application/pachinko/hyena-hunt"
-import { tokenValueOfDraft, type PachinkoDraft, type PlayDraft } from "../../../../core/live-play/draft"
+import { jackpotCountingOf, tokenValueOfDraft, type PachinkoDraft, type PlayDraft } from "../../../../core/live-play/draft"
 import { consumptionOf, spinPerformanceOf } from "../../../../core/pachinko/consumption"
 import { withReadingsMerged, type Span } from "../../../../core/pachinko/merging"
 import { basisOf, type Basis } from "../../../../core/pachinko/formula"
@@ -161,7 +161,7 @@ export function LivePlay(props: {
           }
         >
           {(checkpoints) => {
-            const summary = liveSummary(checkpoints)
+            const summary = liveSummary(checkpoints, jackpotCountingOf(props.draft))
             const terms = props.draft.venue.terms
             const consumption = terms === undefined ? undefined : consumptionOf(checkpoints, terms)
             const measured = consumption?.measured

@@ -360,7 +360,7 @@ export function Start(props: {
           <h2 id="start-machine" class="text-sm font-bold text-text-primary">
             機種設定
           </h2>
-          <PencilledBubble text={`${start.form().cabinetNumber.trim() === "" ? "---" : start.form().cabinetNumber.trim()}番台`} says="台番号を入力する" invalid={unwritable(start.form().cabinetNumber) !== undefined}>
+          <PencilledBubble text={`${start.form().cabinetNumber.trim() === "" ? "----" : start.form().cabinetNumber.trim()}番台`} says="台番号を入力する" invalid={unwritable(start.form().cabinetNumber) !== undefined}>
             <TextField label="台番号" value={start.form().cabinetNumber} onChange={(cabinetNumber) => start.update({ cabinetNumber })} inputMode="numeric" error={unwritable(start.form().cabinetNumber)} compact />
           </PencilledBubble>
         </div>

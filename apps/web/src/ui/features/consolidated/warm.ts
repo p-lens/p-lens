@@ -7,8 +7,8 @@ import { queryOf, shortcutsOn } from "../period/periods"
 import { monthQuery } from "../result-calendar"
 import { consolidationShown } from "./shown"
 
-/** The periods asked ahead besides every day, by their shortcuts: those most looked at, the one 集計 opens on first. */
-const WARMED_PERIODS: readonly string[] = ["year", "month"]
+/** The periods asked ahead besides every day, by their shortcuts: the one 集計 opens on first, then the others a press away. */
+const WARMED_PERIODS: readonly string[] = ["today", "month", "year"]
 
 /** How long after the app starts, or after a book is written, the consolidation is asked ahead: once the screen asked for has its answers. */
 const WARM_AFTER = 3000

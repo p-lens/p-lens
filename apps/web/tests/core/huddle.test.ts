@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test"
 
 import type { BookId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
-import { huddleCodeOf, huddleNameOf, huddleOn, huddleText, readHuddle, secretOfHuddleCode, type Huddle } from "../../src/core/huddle/huddle"
-import { givenUp, huddleEntryText, huddlePostOf, huddleWithdrawalOf, othersPlays, othersPlaysFor, readHuddleEntry, type HuddlePost } from "../../src/core/huddle/post"
+import { huddleCodeOf, huddleInOn, huddleNameOf, huddleOn, huddleText, readHuddle, secretOfHuddleCode, type Huddle } from "../../src/core/huddle/huddle"
+import { givenUp, huddleDepartureOf, huddleEntryText, huddlePostOf, huddleWithdrawalOf, othersPlays, othersPlaysFor, readHuddleEntry, type HuddlePost } from "../../src/core/huddle/post"
 import { huddleStandingOf, huddleTurnOf, jackpotStreakOf, jackpotsNow, louderTurn } from "../../src/core/huddle/standing"
 import type { PachinkoDraft } from "../../src/core/live-play/draft"
 import type { PlayTerms } from "../../src/core/parlor/terms"
@@ -63,6 +63,15 @@ describe("the huddle a device is in", () => {
     expect(huddleOn(HUDDLE, "2026-10-21" as IsoDate)).toBeUndefined()
   })
 
+  test("is none once it has left, though it keeps the huddle that day, as left", () => {
+    const left: Huddle = { ...HUDDLE, left: true }
+    expect(readHuddle(huddleText(left))).toEqual(left)
+    expect(huddleOn(left, DAY)).toEqual(left)
+    expect(huddleInOn(left, DAY)).toBeUndefined()
+    expect(huddleInOn(HUDDLE, DAY)).toEqual(HUDDLE)
+    expect(readHuddle(JSON.stringify({ ...HUDDLE, left: false }))).toBeUndefined()
+  })
+
   test("keeps the others' plays it let go of, and has let go of none where it kept no list", () => {
     const letGo = { ...HUDDLE, dismissed: ["b p-1"] }
     expect(readHuddle(huddleText(letGo))).toEqual(letGo)
@@ -93,6 +102,14 @@ describe("a play shown to a huddle", () => {
     expect(withdrawn).toEqual({ member: "me", name: "アキラ", postedAt: "2026-10-20T02:00:00.000Z", withdrawn: "p-1" as PlayId })
     expect(readHuddleEntry(huddleEntryText(withdrawn))).toEqual(withdrawn)
     expect(readHuddleEntry(JSON.stringify({ format: 1, ...withdrawn, play: post("a", "t").play }))).toBeUndefined()
+  })
+
+  test("of a member leaving is who left, and nothing else", () => {
+    const left = huddleDepartureOf(HUDDLE, "2026-10-20T03:00:00.000Z")
+    expect(left).toEqual({ member: "me", name: "アキラ", postedAt: "2026-10-20T03:00:00.000Z", left: true })
+    expect(readHuddleEntry(huddleEntryText(left))).toEqual(left)
+    expect(readHuddleEntry(JSON.stringify({ format: 1, ...left, left: false }))).toBeUndefined()
+    expect(readHuddleEntry(JSON.stringify({ format: 1, ...left, withdrawn: "p-1" }))).toBeUndefined()
   })
 
   test("is none where its text is not one this app reads", () => {
@@ -139,6 +156,22 @@ describe("the others' plays", () => {
     expect(othersPlaysFor(posts, { ...HUDDLE, dismissed: ["b p-1"] }).map(({ post: shown }) => shown.play.machine)).toEqual(["kept"])
   })
 
+  test("mark the plays of one who left the huddle, and put the one they were on after those still in it", () => {
+    const left = { member: "b", name: "b", postedAt: "2026-10-20T01:10:00Z", left: true as const }
+    const posts = [post("b", "2026-10-20T01:00:00Z", "b moved from"), post("b", "2026-10-20T01:01:00Z", "b on", "p-2"), post("c", "2026-10-20T01:02:00Z", "c on"), left]
+    expect(othersPlays(posts, "me").map(({ post: shown, latest, departed }) => [shown.play.machine, latest, departed])).toEqual([
+      ["c on", true, false],
+      ["b on", true, true],
+      ["b moved from", false, true],
+    ])
+  })
+
+  test("no longer mark one who came back and showed anything since", () => {
+    const left = { member: "b", name: "b", postedAt: "2026-10-20T01:10:00Z", left: true as const }
+    const posts = [post("b", "2026-10-20T01:00:00Z"), left, post("b", "2026-10-20T01:20:00Z")]
+    expect(othersPlays(posts, "me").map(({ departed }) => departed)).toEqual([false])
+  })
+
   test("keep the later of two showings of a play that arrived out of order", () => {
     expect(othersPlays([post("b", "2026-10-20T01:03:00Z", "later"), post("b", "2026-10-20T01:00:00Z")], "me").map(({ post: shown }) => shown.play.machine)).toEqual(["later"])
   })
@@ -165,7 +198,7 @@ describe("who of the others is in a jackpot", () => {
   const JACKPOT = '{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot"}}\n'
   const AGAIN = '{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot"}}\n{"spins":125,"outlay":3000,"event":{"kind":"jackpot"}}\n'
   const OVER = '{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot"}}\n{"spins":220,"outlay":3000,"phase":"rapid"}\n'
-  const shown = (member: string, log: string, latest = true) => ({ post: { ...post(member, "2026-10-20T01:00:00Z"), play: withLog(log) }, latest })
+  const shown = (member: string, log: string, latest = true, departed = false) => ({ post: { ...post(member, "2026-10-20T01:00:00Z"), play: withLog(log) }, latest, departed })
 
   test("stays the same while a jackpot goes on, and changes as it ends or another wins one", () => {
     const first = jackpotsNow([shown("b", JACKPOT)])
@@ -174,8 +207,9 @@ describe("who of the others is in a jackpot", () => {
     expect(jackpotsNow([shown("b", AGAIN), shown("c", JACKPOT)])).not.toBe(first)
   })
 
-  test("is nobody for a play left behind in one, or with nobody there", () => {
+  test("is nobody for a play left behind in one, one whose player left the huddle, or with nobody there", () => {
     expect(jackpotsNow([shown("b", JACKPOT, false)])).toBe("")
+    expect(jackpotsNow([shown("b", JACKPOT, true, true)])).toBe("")
     expect(jackpotsNow([])).toBe("")
   })
 })

@@ -104,7 +104,7 @@ export const yearOf = (today: IsoDate): DateRange => ({ from: `${today.slice(0, 
 
 /**
  * What 集計 opens on, alone and consolidated, when it is opened rather than
- * gone to with a period: the year of the business day. Every day there is
- * reads every book through, where a year reads that year's.
+ * gone to with a period: the business day itself, 本日. Its month and its
+ * year are a shortcut away.
  */
-export const openingQueryOn = (today: IsoDate): string => queryOf(yearOf(today))
+export const openingQueryOn = (today: IsoDate): string => queryOf({ from: today, to: today })

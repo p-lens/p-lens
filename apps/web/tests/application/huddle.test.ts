@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { dismissHuddlePlay, huddleNow, joinHuddle, leaveHuddle, readHuddleAfter, showToHuddle, startHuddle, withdrawFromHuddle, type HuddlePorts } from "../../src/application/huddle"
+import { dismissHuddlePlay, huddleLeftOn, huddleNow, joinHuddle, leaveHuddle, readHuddleAfter, showToHuddle, startHuddle, withdrawFromHuddle, type HuddlePorts } from "../../src/application/huddle"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { huddleCodeOf, type Huddle } from "../../src/core/huddle/huddle"
 import { isShown, othersPlays } from "../../src/core/huddle/post"
@@ -85,15 +85,33 @@ describe("a huddle", () => {
     expect(unwrapped(await readHuddleAfter(device, begun, 0))).toEqual({ head: 0, entries: [] })
   })
 
-  test("keeps a device the member it was when it reads the same code again, and is let go of on leaving", () => {
+  test("keeps a device the member it was when it reads the same code again, and is let go of on leaving", async () => {
     const device = deviceOn(memoryRelay(), ["member-a", "member-b"])
     const begun = unwrapped(startHuddle(device, "アキラ", DAY))
     dismissHuddlePlay(device.preferences, begun, "member-c", "p-9" as PlayId)
     const again = unwrapped(joinHuddle(device, huddleCodeOf(begun), "アキ", DAY))
     expect([again.member, again.dismissed]).toEqual(["member-a", ["member-c p-9"]])
     expect(huddleNow(device.preferences, DAY)?.dismissed).toEqual(["member-c p-9"])
-    leaveHuddle(device.preferences)
+    await leaveHuddle(device, again, 0)
     expect(huddleNow(device.preferences, DAY)).toBeUndefined()
+  })
+
+  test("marks the play of one who left as left for the others, until they come back by the same code and show it again", async () => {
+    const relay = memoryRelay()
+    const mine = deviceOn(relay, ["member-a", "commit-a1-xxxxxxxxxxxx", "commit-a2-xxxxxxxxxxxx", "commit-a3-xxxxxxxxxxxx"])
+    const theirs = deviceOn(relay, ["member-b"])
+    const begun = unwrapped(startHuddle(mine, "アキラ", DAY))
+    const joined = unwrapped(joinHuddle(theirs, huddleCodeOf(begun), "ミサト", DAY))
+    await showToHuddle(mine, begun, DRAFT, 0)
+    expect(unwrapped(await leaveHuddle(mine, begun, 1))).toBe(2)
+    const departedNow = async (): Promise<readonly boolean[]> => othersPlays(unwrapped(await readHuddleAfter(theirs, joined, 0)).entries, joined.member).map((shown) => shown.departed)
+    expect(await departedNow()).toEqual([true])
+    expect(huddleLeftOn(mine.preferences, DAY)?.name).toBe("アキラ")
+    const back = unwrapped(joinHuddle(mine, huddleCodeOf(begun), "アキラ", DAY))
+    expect([back.member, back.left]).toEqual(["member-a", undefined])
+    expect(huddleLeftOn(mine.preferences, DAY)).toBeUndefined()
+    await showToHuddle(mine, back, DRAFT, 2)
+    expect(await departedNow()).toEqual([false])
   })
 
   test("is not joined by a book's code, nor begun where the build names no relay", () => {

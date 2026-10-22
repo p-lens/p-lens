@@ -31,10 +31,25 @@ export interface HuddleWithdrawal {
   readonly withdrawn: PlayId
 }
 
-/** What a huddle's line carries: a play shown, or one taken back. */
-export type HuddleEntry = HuddlePost | HuddleWithdrawal
+/**
+ * A member leaving a huddle: the others mark the play they were on as
+ * left, whatever it was doing, until the member shows anything again —
+ * having come back by the same code the same day.
+ */
+export interface HuddleDeparture {
+  readonly member: string
+  readonly name: string
+  /** ISO 8601. */
+  readonly postedAt: string
+  readonly left: true
+}
+
+/** What a huddle's line carries: a play shown, one taken back, or a member leaving. */
+export type HuddleEntry = HuddlePost | HuddleWithdrawal | HuddleDeparture
 
 export const isShown = (entry: HuddleEntry): entry is HuddlePost => "play" in entry
+
+const isWithdrawal = (entry: HuddleEntry): entry is HuddleWithdrawal => "withdrawn" in entry
 
 /** The shape an entry is written in, counted up when one an older app could not read is made. */
 const FORMAT = 1
@@ -48,11 +63,16 @@ export const huddlePostOf = (draft: PlayDraft, huddle: Huddle, postedAt: string)
 /** A play taken back from a huddle, by its id. */
 export const huddleWithdrawalOf = (playId: PlayId, huddle: Huddle, postedAt: string): HuddleWithdrawal => ({ member: huddle.member, name: huddle.name, postedAt, withdrawn: playId })
 
+/** This device leaving a huddle. */
+export const huddleDepartureOf = (huddle: Huddle, postedAt: string): HuddleDeparture => ({ member: huddle.member, name: huddle.name, postedAt, left: true })
+
 export const huddleEntryText = (entry: HuddleEntry): string => JSON.stringify({ format: FORMAT, ...entry })
 
 const SHOWN_PARTS: ReadonlySet<string> = new Set(["format", "member", "name", "postedAt", "play"])
 
 const WITHDRAWN_PARTS: ReadonlySet<string> = new Set(["format", "member", "name", "postedAt", "withdrawn"])
+
+const DEPARTED_PARTS: ReadonlySet<string> = new Set(["format", "member", "name", "postedAt", "left"])
 
 const isText = (value: unknown): value is string => typeof value === "string" && value !== ""
 
@@ -64,6 +84,7 @@ const entryOf = (fields: Fields): HuddleEntry | undefined => {
   const [member, name, postedAt] = [fields["member"], fields["name"], fields["postedAt"]]
   if (fields["format"] !== FORMAT || !isText(member) || !isText(name) || !isText(postedAt)) return undefined
   if ("withdrawn" in fields) return partsAre(fields, WITHDRAWN_PARTS) && isText(fields["withdrawn"]) ? { member, name, postedAt, withdrawn: fields["withdrawn"] as PlayId } : undefined
+  if ("left" in fields) return partsAre(fields, DEPARTED_PARTS) && fields["left"] === true ? { member, name, postedAt, left: true } : undefined
   const play = readPlay(fields["play"])
   return partsAre(fields, SHOWN_PARTS) && play !== undefined ? { member, name, postedAt, play } : undefined
 }
@@ -82,7 +103,7 @@ const keyOf = huddlePlayKey
 
 /** The plays taken back on a line, by member and id. */
 const withdrawnOn = (entries: readonly HuddleEntry[]): ReadonlySet<string> =>
-  new Set(entries.flatMap((entry) => (isShown(entry) ? [] : [keyOf(entry.member, entry.withdrawn)])))
+  new Set(entries.filter(isWithdrawal).map((entry) => keyOf(entry.member, entry.withdrawn)))
 
 /** The plays shown on a line and never taken back. */
 const standingShown = (entries: readonly HuddleEntry[]): readonly HuddlePost[] => {
@@ -99,30 +120,39 @@ export const givenUp = (entries: readonly HuddleEntry[], member: string, kept: R
   ...new Set(standingShown(entries).flatMap((post) => (post.member === member && !kept.has(post.play.id) ? [post.play.id] : []))),
 ]
 
-/** One of the others' plays as it was last shown, and whether it is the latest they showed: the one they are on, or were last. */
+/** One of the others' plays as it was last shown, whether it is the latest they showed — the one they are on, or were last — and whether they have since left the huddle. */
 export interface HuddlePlay {
   readonly post: HuddlePost
   readonly latest: boolean
+  readonly departed: boolean
+}
+
+/** The members whose last word on the line is that they left: one who came back has shown something since. */
+const departedOn = (entries: readonly HuddleEntry[]): ReadonlySet<string> => {
+  const lastWords = entries.reduce((last, entry) => new Map(last).set(entry.member, entry), new Map<string, HuddleEntry>())
+  return new Set([...lastWords.values()].filter((entry) => "left" in entry).map((entry) => entry.member))
 }
 
 const laterOf = (found: HuddlePost | undefined, post: HuddlePost): HuddlePost => (found !== undefined && found.postedAt > post.postedAt ? found : post)
 
 /**
  * Each of the others' plays as it was last shown: first the one each is on
- * — their latest — in the order they first showed anything, then those
- * they left for another machine, newest shown first, at the end. A play
- * they took back is gone. This device's own are left out, its plays being
- * in its own list.
+ * — their latest — in the order they first showed anything, those who
+ * left the huddle after those still in it, then those they left for
+ * another machine, newest shown first, at the end. A play they took back
+ * is gone. This device's own are left out, its plays being in its own list.
  */
 export const othersPlays = (entries: readonly HuddleEntry[], member: string): readonly HuddlePlay[] => {
   const others = standingShown(entries).filter((post) => post.member !== member)
   const byPlay = others.reduce((found, post) => new Map(found).set(keyOf(post.member, post.play.id), laterOf(found.get(keyOf(post.member, post.play.id)), post)), new Map<string, HuddlePost>())
+  const departed = departedOn(entries)
   const marked = [...new Set(others.map((post) => post.member))].flatMap((who) => {
     const theirs = [...byPlay.values()].filter((post) => post.member === who).toSorted((left, right) => right.postedAt.localeCompare(left.postedAt))
-    return theirs.map((post, at) => ({ post, latest: at === 0 }))
+    return theirs.map((post, at) => ({ post, latest: at === 0, departed: departed.has(who) }))
   })
-  const left = marked.filter((shown) => !shown.latest).toSorted((one, other) => other.post.postedAt.localeCompare(one.post.postedAt))
-  return [...marked.filter((shown) => shown.latest), ...left]
+  const latest = marked.filter((shown) => shown.latest)
+  const moved = marked.filter((shown) => !shown.latest).toSorted((one, other) => other.post.postedAt.localeCompare(one.post.postedAt))
+  return [...latest.filter((shown) => !shown.departed), ...latest.filter((shown) => shown.departed), ...moved]
 }
 
 /** The others' plays as this device's list has them: as they were shown (`othersPlays`), less those it let go of. */

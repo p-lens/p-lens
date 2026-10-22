@@ -56,9 +56,9 @@ describe("the periods offered by name", () => {
     expect(shortcuts.filter((shortcut) => sameRange(shortcut.range, range("2026-10-01", "2026-10-31"))).map((shortcut) => shortcut.id)).toEqual(["month"])
     expect(shortcuts.filter((shortcut) => sameRange(shortcut.range, range("2026-10-02", "2026-10-31")))).toEqual([])
   })
-  test("open 集計 on the business day's year, which its shortcut then marks", () => {
-    expect(openingQueryOn(day("2026-10-12"))).toBe("date:2026-01-01..2027-01-01")
-    expect(rangeOf(openingQueryOn(day("2026-10-12")))).toEqual(named("year"))
+  test("open 集計 on the business day, which its shortcut then marks", () => {
+    expect(openingQueryOn(day("2026-10-12"))).toBe("date:2026-10-12..2026-10-13")
+    expect(rangeOf(openingQueryOn(day("2026-10-12")))).toEqual(named("today"))
   })
 })
 
