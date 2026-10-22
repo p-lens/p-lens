@@ -1,6 +1,6 @@
 import type { PlayTerms } from "../parlor/terms"
 import type { Checkpoint } from "../play-log/checkpoint"
-import { payoutDifferencesOf, payoutRatioOf } from "./payout"
+import { gainOf, payoutDifferencesOf, payoutRatioOf } from "./payout"
 
 /**
  * What a play's regular games were measured to cost in balls: so many
@@ -44,8 +44,7 @@ const rentedBallsOf = (outlay: number, terms: PlayTerms): number => (outlay * te
 
 const isRegular = (checkpoint: Checkpoint): boolean => checkpoint.phase === undefined || checkpoint.phase === "regular"
 
-const bonusGainOf = (checkpoint: Checkpoint): number =>
-  checkpoint.event?.kind === "jackpot" && checkpoint.event.bonus !== undefined ? checkpoint.event.bonus.payout - checkpoint.event.bonus.spent : 0
+const bonusGainOf = (checkpoint: Checkpoint): number => (checkpoint.event?.kind === "jackpot" && checkpoint.event.bonus !== undefined ? gainOf(checkpoint.event.bonus) : 0)
 
 /** A jackpot whose bonus the log does not say: what it paid is unknown, so the balls cannot be followed past it. */
 const isUntold = (checkpoint: Checkpoint): boolean => checkpoint.event?.kind === "jackpot" && checkpoint.event.bonus === undefined
@@ -69,9 +68,10 @@ interface Stood {
  * together says, besides, where the hand was known inside it
  * (`handsBefore`), each a standing of its own before the line's; what was
  * bought by the last of them was bought there, not at the line. A bonus
- * counted as it ended (`payoutDifferencesOf`) paid what was counted, not
- * what it was told to: what it paid beyond that came to hand at the count,
- * so an over-entry is never taken for regular games costing less.
+ * paid what its machine lists and what the person said it paid beyond
+ * that (`gainOf`); one counted as it ended (`payoutDifferencesOf`) paid
+ * what was counted: what it paid beyond what was said came to hand at the
+ * count, so an over-entry is never taken for regular games costing less.
  */
 const standingsOf = (ordered: readonly Checkpoint[], terms: PlayTerms): readonly Stood[] => {
   const differences = payoutDifferencesOf(ordered)

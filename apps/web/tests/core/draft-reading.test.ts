@@ -44,6 +44,16 @@ describe("a draft read back from the device", () => {
     expect(read !== undefined && ("pachinko" in read || "bonuses" in read)).toBe(false)
   })
 
+  test("keeps how a pachinko play's counter counts and its usual over-entry, reads no other shape of them, and lets them go from a pachislot play", () => {
+    expect(readPlayDraft(keptWith("jackpotCounting", "per-bonus"))).toMatchObject({ jackpotCounting: "per-bonus" })
+    expect(readPlayDraft(keptWith("overEntry", -2))).toMatchObject({ overEntry: -2 })
+    expect(readPlayDraft(keptWith("jackpotCounting", "per-jackpot"))).toBeUndefined()
+    expect(readPlayDraft(keptWith("overEntry", 0))).toBeUndefined()
+    expect(readPlayDraft(keptWith("overEntry", 1.5))).toBeUndefined()
+    const pachislot = readPlayDraft({ ...(keptWith("overEntry", 2) as object), gameKind: "pachislot", pachinko: undefined })
+    expect(pachislot !== undefined && "overEntry" in pachislot).toBe(false)
+  })
+
   test("reads a play kept as `slot`, before pachislot's name was settled, as pachislot", () => {
     expect(readPlayDraft({ ...structuredClone(DRAFT), gameKind: "slot" })?.gameKind).toBe("pachislot")
   })

@@ -122,6 +122,8 @@ const isPlay = (value: unknown): value is Play =>
   isOptional(value["pachinko"], isPachinkoSnapshot) &&
   isOptional(value["bonuses"], (bonuses): bonuses is readonly Pachinko.Bonus[] => isEvery(bonuses, isBonus)) &&
   isOptional(value["pachislot"], isWeighing) &&
+  isOptional(value["jackpotCounting"], (counting): counting is "per-bonus" => counting === "per-bonus") &&
+  isOptional(value["overEntry"], (over): over is number => typeof over === "number" && Number.isInteger(over) && over !== 0) &&
   isOptional(value["cabinetNumber"], isText) &&
   isText(value["startedAt"]) &&
   isLog(value["log"]) &&
@@ -142,8 +144,10 @@ const isDraft = (value: unknown): value is PlayDraft =>
  * both.
  */
 const ofItsGame = (value: Fields): Fields => {
-  const { pachinko, bonuses, pachislot, ...rest } = value
-  return value["gameKind"] === "pachinko" ? { ...rest, pachinko, ...(bonuses === undefined ? {} : { bonuses }) } : { ...rest, ...(pachislot === undefined ? {} : { pachislot }) }
+  const { pachinko, bonuses, jackpotCounting, overEntry, pachislot, ...rest } = value
+  return value["gameKind"] === "pachinko"
+    ? { ...rest, pachinko, ...(bonuses === undefined ? {} : { bonuses }), ...(jackpotCounting === undefined ? {} : { jackpotCounting }), ...(overEntry === undefined ? {} : { overEntry }) }
+    : { ...rest, ...(pachislot === undefined ? {} : { pachislot }) }
 }
 
 /** A play read from what was kept or sent, its own game's parts alone, or none where any part of it that is there does not read. */

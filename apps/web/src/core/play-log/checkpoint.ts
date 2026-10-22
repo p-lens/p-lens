@@ -100,13 +100,17 @@ export type Phase = "regular" | "special" | "rapid"
  * what was spent winning it. Kept whole in the line, so the log still says
  * what was won whatever the catalog says later. `jackpots` is how many
  * jackpots it was won over, left out where it was one: the parlor's counter
- * counts each, and so does the play.
+ * counts each, and so does the play. `over` is what the person says it
+ * paid beyond what its machine lists — an over-entry, or below nought
+ * balls lost to a slack attacker — left out where they said nothing: the
+ * bonus then paid what it is listed to.
  */
 export interface BonusWon {
   readonly name: string
   readonly payout: number
   readonly spent: number
   readonly jackpots?: number
+  readonly over?: number
 }
 
 /**
@@ -231,7 +235,8 @@ const isBonusWon = (value: unknown): value is BonusWon =>
   value["name"] !== "" &&
   isCount(value["payout"]) &&
   isCount(value["spent"]) &&
-  (value["jackpots"] === undefined || (isCount(value["jackpots"]) && value["jackpots"] > 0))
+  (value["jackpots"] === undefined || (isCount(value["jackpots"]) && value["jackpots"] > 0)) &&
+  (value["over"] === undefined || (isWhole(value["over"]) && value["over"] !== 0))
 
 const isPhase = (value: unknown): value is Phase => value === "regular" || value === "special" || value === "rapid"
 

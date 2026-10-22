@@ -27,11 +27,12 @@ export function HuddlePlay(props: { readonly play: Extract<Play, { readonly game
         return (
           <div class="flex flex-col gap-3">
             <LiveFigures
-              summary={liveSummary(checkpoints)}
+              summary={liveSummary(checkpoints, props.play.jackpotCounting ?? "per-jackpot")}
               replayed={standingBefore(checkpoints, takenOf(checkpoints).length).replay}
               minutesPlayed={minutesPlayedOf(props.play.startedAt, checkpoints)}
               consumption={terms === undefined ? undefined : consumptionOf(checkpoints, terms)}
               formula={props.play.pachinko}
+              overEntry={props.play.overEntry}
               terms={terms}
               folded={false}
               beside={() => undefined}

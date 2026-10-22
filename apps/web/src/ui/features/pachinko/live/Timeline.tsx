@@ -2,7 +2,7 @@ import { createMemo, createSignal, For, Show, type JSX } from "solid-js"
 
 import { stretchPerformancesOf, type StretchRate } from "../../../../core/pachinko/consumption"
 import { mergeableSpan, type Span } from "../../../../core/pachinko/merging"
-import { payoutDifferencesOf } from "../../../../core/pachinko/payout"
+import { gainOf, overPaidOf } from "../../../../core/pachinko/payout"
 import type { PlayTerms } from "../../../../core/parlor/terms"
 import type { Checkpoint } from "../../../../core/play-log/checkpoint"
 import { ConfirmPopover } from "../../../primitives/popover"
@@ -27,7 +27,7 @@ interface Step {
   readonly rented: number
   readonly replayed: number
   readonly supported: number
-  /** What a bonus counted as it ended paid beyond what it was told to, on the line it was counted at (`payoutDifferencesOf`): below nought where it paid less. */
+  /** What a bonus counted as it ended paid beyond what its machine lists, on the line it was counted at (`overPaidOf`): below nought where it paid less. */
   readonly overPaid: number | undefined
 }
 
@@ -36,7 +36,7 @@ const isFinish = (checkpoint: Checkpoint): boolean => checkpoint.event?.kind ===
 const isReading = (checkpoint: Checkpoint, line: number): boolean => line > 0 && !isFinish(checkpoint) && !(checkpoint.event?.kind === "jackpot" && checkpoint.event.approximate === true)
 
 const stepsOf = (ordered: readonly Checkpoint[]): readonly Step[] => {
-  const differences = payoutDifferencesOf(ordered)
+  const differences = overPaidOf(ordered)
   return ordered.reduce<{ readonly steps: readonly Step[]; readonly outlay: number; readonly replay: number; readonly support: number; readonly readings: number }>(
     (walked, checkpoint, line) => {
       const outlay = checkpoint.outlay ?? walked.outlay
@@ -50,11 +50,11 @@ const stepsOf = (ordered: readonly Checkpoint[]): readonly Step[] => {
   ).steps
 }
 
-/** What a jackpot's line calls it: its bonus with what it added to the hand, and the jackpots it was won over where they were more than one; or a jackpot whose bonus was not told — found missing, or on a machine that lists none. */
+/** What a jackpot's line calls it: its bonus with what it added to the hand — what was said it paid beyond its machine's with it — and the jackpots it was won over where they were more than one; or a jackpot whose bonus was not told — found missing, or on a machine that lists none. */
 const jackpotText = (checkpoint: Checkpoint): string | undefined => {
   const event = checkpoint.event
   if (event?.kind !== "jackpot") return undefined
-  if (event.bonus !== undefined) return [event.bonus.name, signedBalls(event.bonus.payout - event.bonus.spent), jackpotsText(event.bonus)].filter((part) => part !== undefined).join(" ")
+  if (event.bonus !== undefined) return [event.bonus.name, signedBalls(gainOf(event.bonus)), event.bonus.over === undefined ? undefined : `(差${signedBalls(event.bonus.over)})`, jackpotsText(event.bonus)].filter((part) => part !== undefined).join(" ")
   return event.approximate === true ? `${UNTOLD_JACKPOT}（推定）` : UNTOLD_JACKPOT
 }
 

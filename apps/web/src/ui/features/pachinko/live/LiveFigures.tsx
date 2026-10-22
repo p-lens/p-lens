@@ -85,6 +85,8 @@ export function LiveFigures(props: {
   readonly minutesPlayed: number | undefined
   readonly consumption: Consumption | undefined
   readonly formula: FormulaSnapshot | undefined
+  /** The person's usual over-entry at the cabinet, in balls a round: the border falls by it until a bonus says how much more they pay. */
+  readonly overEntry: number | undefined
   readonly terms: PlayTerms | undefined
   readonly folded: boolean
   /** What stands beside the line naming the formula: a small way to more about it, out of the figures' way. */
@@ -95,7 +97,7 @@ export function LiveFigures(props: {
     return measured === undefined || props.terms === undefined ? undefined : spinPerformanceOf(measured, props.terms)
   }
   const theoretical = () =>
-    props.formula === undefined || props.consumption === undefined ? undefined : playTheoreticalValue(props.formula.figures, props.terms, props.consumption)
+    props.formula === undefined || props.consumption === undefined ? undefined : playTheoreticalValue(props.formula.figures, props.terms, props.consumption, props.overEntry)
   const mark = (): BorderMark | undefined => borderMarkOf(theoretical()?.yenPerSpin, { spins: props.consumption?.measured?.spins ?? 0, minutes: props.minutesPlayed })
   return (
     <section class="flex flex-col gap-2">

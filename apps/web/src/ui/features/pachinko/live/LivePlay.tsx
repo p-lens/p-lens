@@ -191,6 +191,7 @@ export function LivePlay(props: {
                     minutesPlayed={minutesPlayedOf(props.draft.startedAt, checkpoints)}
                     consumption={consumption}
                     formula={props.draft.pachinko}
+                    overEntry={props.draft.overEntry}
                     terms={terms}
                     folded={!unfolded()}
                     beside={(formula) => (

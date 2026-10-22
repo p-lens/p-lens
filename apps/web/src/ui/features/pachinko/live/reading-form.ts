@@ -15,7 +15,9 @@ export type Drift = "gain" | "loss"
  * the last count carried over and not counted again: they are then not
  * this reading's to say. `jackpot` is the choice made in the bonus list —
  * none, the jackpot a machine with no bonuses listed has, or a listed
- * bonus by its name. `gauge` is the cabinet's own 遊タイム counter a reading
+ * bonus by its name, and `over` what the person says that bonus paid
+ * beyond what its machine lists, in balls, signed — empty where they say
+ * nothing. `gauge` is the cabinet's own 遊タイム counter a reading
  * set right already said, kept as it was: it is said in the 遊タイム狙い,
  * never typed here. `handsBefore` are where a reading set right that was
  * made of several knew the hand inside it, kept as they were: never typed
@@ -31,11 +33,12 @@ export interface ReadingForm {
   readonly supported: string
   readonly drift: Drift
   readonly jackpot: string
+  readonly over: string
   readonly gauge: number | undefined
   readonly handsBefore: readonly ReadingHand[]
 }
 
-export type ReadingField = "counter" | "held" | "rented" | "replayed" | "supported"
+export type ReadingField = "counter" | "held" | "rented" | "replayed" | "supported" | "over"
 
 export interface ReadingProblem {
   readonly field: ReadingField
@@ -56,6 +59,7 @@ export const readingFrom = (phase: Phase, before: Before): ReadingForm => ({
   supported: "",
   drift: "loss",
   jackpot: NO_JACKPOT,
+  over: "",
   gauge: undefined,
   handsBefore: [],
 })
@@ -89,6 +93,15 @@ const readHeld = (text: string): Result<number | undefined, ReadingProblem> => {
   return count === undefined ? Err({ field: "held", reason: "not-a-count" }) : Ok(count)
 }
 
+const SIGNED = /^[+-]?\d+$/
+
+/** Balls a bonus paid beyond its machine's, signed: none where nothing is typed, or nought. */
+const readOver = (text: string): Result<number | undefined, ReadingProblem> => {
+  const plain = tidyTyped(text).replaceAll(",", "")
+  if (plain === "") return Ok(undefined)
+  return SIGNED.test(plain) ? Ok(Number(plain) === 0 ? undefined : Number(plain)) : Err({ field: "over", reason: "not-a-count" })
+}
+
 const readCounter = (text: string): Result<number, ReadingProblem> => {
   const count = tidyTyped(text) === "" ? undefined : readCount(text)
   return count !== undefined ? Ok(count) : Err({ field: "counter", reason: tidyTyped(text) === "" ? "required" : "not-a-count" })
@@ -109,6 +122,7 @@ export const formOfReading = (reading: Reading, before: Before): ReadingForm => 
   supported: typed(Math.abs(reading.supported)),
   drift: reading.supported > 0 ? "gain" : "loss",
   jackpot: chosenOf(reading.jackpot),
+  over: reading.jackpot.type === "bonus" && reading.jackpot.bonus.over !== undefined ? String(reading.jackpot.bonus.over) : "",
   gauge: reading.gauge,
   handsBefore: reading.handsBefore ?? [],
 })
@@ -116,10 +130,10 @@ export const formOfReading = (reading: Reading, before: Before): ReadingForm => 
 /** The choice in the bonus list as a list keys it: a listed bonus by its name, which its machine has once. */
 export const bonusKey = (name: string): string => `bonus:${name}`
 
-const jackpotOf = (chosen: string, bonuses: readonly MachineBonus[]): Jackpot => {
+const jackpotOf = (chosen: string, bonuses: readonly MachineBonus[], over: number | undefined): Jackpot => {
   if (chosen === UNTOLD) return { type: "untold" }
   const bonus = bonuses.find((candidate) => bonusKey(candidate.name) === chosen)
-  return bonus === undefined ? { type: "none" } : { type: "bonus", bonus }
+  return bonus === undefined ? { type: "none" } : { type: "bonus", bonus: over === undefined ? bonus : { ...bonus, over } }
 }
 
 /** Yen or tokens typed, with so many more: what a press of the rental or the savings button puts in its field. */
@@ -132,8 +146,9 @@ export const readReadingForm = (form: ReadingForm, bonuses: readonly MachineBonu
   const rented = readSince(form.rented, "rented", before.outlay)
   const replayed = readSince(form.replayed, "replayed", before.replay)
   const supported = readOrNone(form.supported, "supported")
-  if (!counter.ok || !held.ok || !rented.ok || !replayed.ok || !supported.ok)
-    return Err([counter, held, rented, replayed, supported].flatMap((read) => (read.ok ? [] : [read.error])))
+  const over = readOver(form.over)
+  if (!counter.ok || !held.ok || !rented.ok || !replayed.ok || !supported.ok || !over.ok)
+    return Err([counter, held, rented, replayed, supported, over].flatMap((read) => (read.ok ? [] : [read.error])))
   return Ok({
     counterSpins: counter.value,
     phase: form.phase,
@@ -141,7 +156,7 @@ export const readReadingForm = (form: ReadingForm, bonuses: readonly MachineBonu
     replayed: replayed.value,
     supported: form.drift === "loss" && supported.value !== 0 ? -supported.value : supported.value,
     held: held.value,
-    jackpot: jackpotOf(form.jackpot, bonuses),
+    jackpot: jackpotOf(form.jackpot, bonuses, over.value),
     ...(form.gauge === undefined ? {} : { gauge: form.gauge }),
     ...((hands) => (hands.length === 0 ? {} : { handsBefore: hands }))(handsWithin(form.handsBefore, counter.value, rented.value, replayed.value)),
   })

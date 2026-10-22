@@ -8,7 +8,7 @@ import { loadMachine } from "../../../../application/pachinko/formulas"
 import { bookNameOf, shownNameOf, type MachineSummary } from "../../../../core/catalog/catalog"
 import { machineMatches } from "../../../../core/catalog/description"
 import { autoSelect, selectById, type Selection } from "../../../../core/formula/standing"
-import { jackpotCountingOf, tokenValueOfDraft, withJackpotCounting, type MachineChange, type PachinkoDraft } from "../../../../core/live-play/draft"
+import { jackpotCountingOf, tokenValueOfDraft, withJackpotCounting, withOverEntry, type MachineChange, type PachinkoDraft } from "../../../../core/live-play/draft"
 import { worthOf, type Formula } from "../../../../core/pachinko/formula"
 import { borderOf } from "../../../../core/pachinko/theoretical-value"
 import { withJackpotsUntold } from "../../../../core/pachinko/revision"
@@ -16,6 +16,7 @@ import { snapshotOf } from "../../../../core/pachinko/snapshot"
 import { parsePlayLog } from "../../../../core/play-log/checkpoint"
 import type { JackpotCounting } from "../../../../core/play-log/live"
 import { isWritableText } from "../../../../core/tally/validate"
+import { tidyTyped } from "../../../../core/text/tidy"
 import { useApp } from "../../../context"
 import { useMoves } from "../../../navigation/moves"
 import type { Place } from "../../../navigation/place"
@@ -26,7 +27,7 @@ import { CopyIcon, QuestionIcon } from "../../../primitives/icons"
 import { createNudge } from "../../../primitives/nudge"
 import { HintedIconButton } from "../../../primitives/popover"
 import { Select } from "../../../primitives/select"
-import { settleTyping } from "../../../primitives/text-field"
+import { settleTyping, TextField } from "../../../primitives/text-field"
 import { toast } from "../../../primitives/toast"
 import { describeError } from "../../../wording/errors"
 import { UNWRITABLE_TEXT } from "../../../wording/fields"
@@ -35,6 +36,13 @@ import { useBookFavorites } from "../../live/book-favorites"
 import { useStartForm, type CabinetChoice } from "../../live/start-form"
 import { ViewHeader } from "../../shell/ViewHeader"
 import { SelectionReason } from "../formulas/SelectionReason"
+
+/** A usual over-entry as typed, in balls a round, signed: none where nothing is typed, or nought; `unread` where it is not a whole number. */
+const overEntryTyped = (typed: string): number | undefined | "unread" => {
+  const plain = tidyTyped(typed).replaceAll(",", "")
+  if (plain === "") return undefined
+  return /^[+-]?\d+$/.test(plain) ? (Number(plain) === 0 ? undefined : Number(plain)) : "unread"
+}
 
 /** Where saying a play's cabinet anew is: being typed, being kept, or failed to be kept. */
 type Saving = { readonly type: "typing" } | { readonly type: "keeping" } | { readonly type: "failed"; readonly error: ApplicationError }
@@ -71,6 +79,7 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
   const cabinetNumber = createMemo(() => chosen().cabinetNumber)
   const [machineTyped, setMachineTyped] = createSignal("")
   const [counting, setCounting] = createSignal<JackpotCounting>(jackpotCountingOf(props.draft))
+  const [overEntry, setOverEntry] = createSignal(props.draft.overEntry === undefined ? "" : `${props.draft.overEntry > 0 ? "+" : ""}${props.draft.overEntry}`)
   const [saving, setSaving] = createSignal<Saving>({ type: "typing" })
   const nudge = createNudge()
   const [catalogued] = createResource(() => findMachines(app.services.catalog, "", "pachinko"))
@@ -120,12 +129,13 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
   const save = async (): Promise<void> => {
     settleTyping()
     if (saving().type === "keeping") return
-    if (unwritable() || machineTypedOnly() || waitingOnFormula()) {
+    const over = overEntryTyped(overEntry())
+    if (unwritable() || machineTypedOnly() || waitingOnFormula() || over === "unread") {
       nudge.nudge()
       return
     }
     setSaving({ type: "keeping" })
-    const changed = await changeCabinet(app.services.drafts, withJackpotCounting(props.draft, counting()), { cabinetNumber: cabinetNumber().trim() === "" ? undefined : cabinetNumber().trim(), machine: machineChange() })
+    const changed = await changeCabinet(app.services.drafts, withOverEntry(withJackpotCounting(props.draft, counting()), over), { cabinetNumber: cabinetNumber().trim() === "" ? undefined : cabinetNumber().trim(), machine: machineChange() })
     if (!changed.ok) {
       setSaving({ type: "failed", error: changed.error })
       return
@@ -224,6 +234,12 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
             <input type="checkbox" checked={counting() === "per-bonus"} onChange={(event) => setCounting(event.currentTarget.checked ? "per-bonus" : "per-jackpot")} class="size-5 shrink-0 accent-accent" />
             どのボーナスも1回でカウント
           </label>
+          <div class="flex flex-col gap-1">
+            <div class="w-40">
+              <TextField label="いつものオーバー入賞" value={overEntry()} onChange={setOverEntry} inputMode="text" placeholder="+0" suffix="玉/R" invalid={nudge.red() && overEntryTyped(overEntry()) === "unread"} onFocus={nudge.settle} compact />
+            </div>
+            <p class="text-xs leading-5 text-text-muted">1Rあたり、公称より多く出る玉数です。ボーナスを選ぶとその出玉差に自動で入り、実質ボーダーも下がります。</p>
+          </div>
         </section>
         <Show when={machineChange() !== undefined}>
           <p class="text-xs leading-5 text-text-muted">機種や算出条件を変えると、回転率・ボーダー・期待値をその内容で計算し直します。記録済みの大当りは「内容不明」になるので、履歴の行を開いてボーナスを選び直してください。</p>

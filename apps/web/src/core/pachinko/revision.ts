@@ -1,5 +1,6 @@
 import type { Checkpoint } from "../play-log/checkpoint"
 import { Err, Ok, type Result } from "../result/result"
+import { gainOf } from "./payout"
 import { checkpointsForReading, type Jackpot, type Reading, type ReadingRefusal } from "./reading"
 
 /**
@@ -105,8 +106,8 @@ export interface Before {
   readonly gaugeOffset: number | undefined
 }
 
-/** What a bonus a reading won paid beyond what it took to win: what it added to the hand. */
-const bonusGainOf = (reading: Reading): number => (reading.jackpot.type === "bonus" ? Math.max(0, reading.jackpot.bonus.payout - reading.jackpot.bonus.spent) : 0)
+/** What a bonus a reading won paid beyond what it took to win, as the person said it did: what it added to the hand. */
+const bonusGainOf = (reading: Reading): number => (reading.jackpot.type === "bonus" ? Math.max(0, gainOf(reading.jackpot.bonus)) : 0)
 
 /**
  * The balls in hand after a reading, from those before it: what it counted

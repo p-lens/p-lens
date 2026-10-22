@@ -611,16 +611,25 @@ then deletes the draft; a record the book refuses keeps it.
   the last point the hand was known at (`stretchPerformancesOf`): a folded
   line its whole run, and a jackpot's line the stretch closed by the first
   count after its bonus, `-----` until then.
-- **A bonus counted as it ended says what it paid** (`countedPayoutsOf`,
-  `payoutDifferencesOf`, `payoutRatioOf`): a jackpot counted as it came,
-  followed at once by a line that only counts the balls again — no spin,
-  nothing bought, drawn or drifted — paid the difference between the two
-  counts, not what its machine says. What it paid beyond that (出玉差, on
-  that line) comes to hand there, so an over-entry is never taken for
-  regular games costing less; and the counted bonuses' paid over told, as
-  a ratio, is what every round pays in the play's theoretical value, so
-  an over-entry lowers its border and a slack attacker raises it. It is
-  never asked for: a professional counts there, and nobody else meets it.
+- **A bonus pays what is said of it, or what was counted** (`gainOf`,
+  `countedPayoutsOf`, `payoutDifferencesOf`, `payoutRatioOf`): a bonus
+  adds to the hand what its machine lists and what the person says it
+  paid beyond that (`BonusWon.over`, 出玉差, behind the [差] button beside
+  the bonus chosen) — the hand carried on, the spin performance and the
+  rest all take it so. Where the person keeps a usual over-entry at the
+  cabinet (`overEntry`, balls a round, on the cabinet screen), a bonus
+  chosen comes with its 出玉差 filled in by it, over the rounds the bonus
+  pays for. A jackpot counted as it came, followed at once by a line that
+  only counts the balls again — no spin, nothing bought, drawn or drifted
+  — paid the difference between the two counts, whatever was said: what
+  it paid beyond what was said comes to hand there, so an over-entry is
+  never taken for regular games costing less, and the line shows what it
+  paid beyond its machine's. What every round pays in the theoretical
+  value is, as a ratio to what the machine lists, what the counted
+  bonuses paid where any was counted, else what was said of the bonuses
+  won, else the usual over-entry: an over-entry lowers the border, a
+  slack attacker raises it. None of it is asked for: a professional says
+  it, and nobody else meets it.
 - **The value follows the finish form.** What the play was worth is
   worked out from its log with the line it would finish on — the counter
   and the tokens in hand the form says (`theoreticalValueAtFinish`) — as

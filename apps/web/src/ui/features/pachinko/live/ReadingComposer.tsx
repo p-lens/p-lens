@@ -29,6 +29,7 @@ import { formatCount } from "../../../wording/numbers"
 import { CHANGED_SINCE_REMOVED, describeRevisionRefusal, PHASE_NAMES, recountText, READING_REMOVED, REMOVAL_TAKEN_BACK, REMOVE_READING, signedBalls, TAKE_BACK, TAKE_BACK_FAILED, UNTOLD_JACKPOT } from "../../../wording/pachinko/play"
 import { DriftButton } from "./DriftButton"
 import { PressButton } from "./PressButton"
+import { OverButton } from "./OverButton"
 import { bonusKey, formOfReading, NO_JACKPOT, readingFrom, readReadingForm, saysNothingNew, UNTOLD, withMore, type ReadingField, type ReadingForm } from "./reading-form"
 
 /** Where an entry of a reading is: being typed, being kept, refused, or failed to be kept. */
@@ -131,6 +132,17 @@ export function ReadingComposer(props: {
   const change = (changed: Partial<ReadingForm>): void => {
     setForm((current) => ({ ...current, ...changed }))
     setSending({ type: "typing" })
+  }
+  /** Whether a bonus its machine lists is chosen: only that says what it paid, and so beyond it. */
+  const bonusChosen = (): boolean => bonuses().some((bonus) => bonusKey(bonus.name) === form().jackpot)
+  /** What a bonus chosen paid beyond its machine's by the person's usual over-entry at the cabinet, as the field opens filled: as many more balls a round as they said, over as many rounds as the bonus pays for. Empty where they said none, or the formula says nothing of a round. */
+  const usualOver = (chosen: string): string => {
+    const bonus = bonuses().find((candidate) => bonusKey(candidate.name) === chosen)
+    const overEntry = props.draft.overEntry
+    const perRound = props.draft.pachinko?.figures.payoutPerRound
+    if (bonus === undefined || overEntry === undefined || perRound === undefined || perRound <= 0) return ""
+    const over = Math.round((bonusGain(bonus) * overEntry) / perRound)
+    return over === 0 ? "" : `${over > 0 ? "+" : ""}${over}`
   }
   const nudge = createNudge()
   /** Red for a while after a press that this field stopped: a count that cannot be read, a total gone back, or the counter left where it stood with nothing else new. */
@@ -383,8 +395,13 @@ export function ReadingComposer(props: {
             )}
           </Show>
         </div>
-        <div class="min-w-0">
-          <Select label="ボーナス" placeholder="なし" options={jackpotOptions(bonuses())} value={form().jackpot} onChange={(jackpot) => change({ jackpot })} />
+        <div class="flex min-w-0 items-end gap-1">
+          <Show when={bonusChosen()}>
+            <OverButton over={form().over} invalid={nudged("over")} onOver={(over) => change({ over })} onFocus={nudge.settle} />
+          </Show>
+          <div class="min-w-0 flex-1">
+            <Select label="ボーナス" placeholder="なし" options={jackpotOptions(bonuses())} value={form().jackpot} onChange={(jackpot) => change({ jackpot, over: usualOver(jackpot) })} />
+          </div>
         </div>
       </div>
     </form>

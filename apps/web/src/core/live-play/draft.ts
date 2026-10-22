@@ -40,10 +40,13 @@ export type PachislotDraft = Extract<PlayDraft, { readonly gameKind: "pachislot"
  * neither; nor have drafts kept before machines listed bonuses, or before
  * pachislot formulas were. A pachinko play also says how the counter at its
  * cabinet counts jackpots, where it counts each bonus as one; left out, it
- * counts each jackpot.
+ * counts each jackpot. And it says the person's usual over-entry at the
+ * cabinet, in balls a round beyond what its machine lists, where they
+ * said one: each bonus won is said to pay so much more, and the border
+ * falls by it from the seat on.
  */
 export type PlayOfGame =
-  | { readonly gameKind: "pachinko"; readonly pachinko: Pachinko.FormulaSnapshot | undefined; readonly bonuses?: readonly MachineBonus[]; readonly jackpotCounting?: "per-bonus" }
+  | { readonly gameKind: "pachinko"; readonly pachinko: Pachinko.FormulaSnapshot | undefined; readonly bonuses?: readonly MachineBonus[]; readonly jackpotCounting?: "per-bonus"; readonly overEntry?: number }
   | { readonly gameKind: "pachislot"; readonly pachislot?: Pachislot.Weighing }
 
 /** What a play still being played is, whatever its game. */
@@ -198,17 +201,17 @@ export type MachineChange = (
 /** What a draft is whatever its game, its game's parts left out. */
 const ofAnyGame = (draft: PlayDraft): DraftOfAnyGame => {
   if (draft.gameKind === "pachinko") {
-    const { gameKind: _game, pachinko: _formula, bonuses: _bonuses, jackpotCounting: _counting, ...rest } = draft
+    const { gameKind: _game, pachinko: _formula, bonuses: _bonuses, jackpotCounting: _counting, overEntry: _over, ...rest } = draft
     return rest
   }
   const { gameKind: _game, pachislot: _weighing, ...rest } = draft
   return rest
 }
 
-/** The draft on another machine, of the machine's game and weighed by what it is, its log as that machine reads it. How its counter counts jackpots stays: the counter is the cabinet's, not the machine's. */
+/** The draft on another machine, of the machine's game and weighed by what it is, its log as that machine reads it. How its counter counts jackpots, and the person's usual over-entry there, stay: they are the cabinet's, not the machine's. */
 export const withMachine = (draft: PlayDraft, machine: MachineChange): PlayDraft => {
   const read = ofAnyGame(machine.readings === undefined ? draft : withLog(draft, machine.readings))
-  const counting = draft.gameKind === "pachinko" && draft.jackpotCounting !== undefined ? { jackpotCounting: draft.jackpotCounting } : {}
+  const counting = draft.gameKind === "pachinko" ? { ...(draft.jackpotCounting === undefined ? {} : { jackpotCounting: draft.jackpotCounting }), ...(draft.overEntry === undefined ? {} : { overEntry: draft.overEntry }) } : {}
   return machine.type === "pachinko"
     ? { ...read, gameKind: "pachinko", machine: machine.name, pachinko: machine.formula, bonuses: machine.bonuses, ...counting }
     : { ...read, gameKind: "pachislot", machine: machine.name, pachislot: machine.weighing }
@@ -221,6 +224,12 @@ export const jackpotCountingOf = (draft: PachinkoDraft): JackpotCounting => draf
 export const withJackpotCounting = (draft: PachinkoDraft, counting: JackpotCounting): PachinkoDraft => {
   const { jackpotCounting: _counting, ...rest } = draft
   return counting === "per-bonus" ? { ...rest, jackpotCounting: "per-bonus" } : rest
+}
+
+/** The pachinko draft with the person's usual over-entry at its cabinet, in balls a round, or none. */
+export const withOverEntry = (draft: PachinkoDraft, overEntry: number | undefined): PachinkoDraft => {
+  const { overEntry: _over, ...rest } = draft
+  return overEntry === undefined || overEntry === 0 ? rest : { ...rest, overEntry }
 }
 
 /** The draft at a cabinet of another number, or of none. */
