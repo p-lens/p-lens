@@ -60,7 +60,8 @@ const isFormulaTab = (segment: string): segment is FormulaTab => (FORMULA_TABS a
  * `huddle` is the room of the huddle the device is in, below the live
  * space on the rail while it is in one: its side panel lists the plays of
  * everyone in it, one's own first. `huddle-total` is what the members'
- * plays come to together, and `huddle-play` one of the others' plays, by
+ * plays come to together, `huddle-settlement` them settled up evenly, and
+ * `huddle-play` one of the others' plays, by
  * who they are in it and its id: only to be looked at.
  *
  * `odd-prize-calculator` is the space where tokens are reckoned at a
@@ -92,6 +93,7 @@ export type Place =
   | { readonly kind: "live-cabinet"; readonly playId: PlayId }
   | { readonly kind: "huddle" }
   | { readonly kind: "huddle-total" }
+  | { readonly kind: "huddle-settlement" }
   | { readonly kind: "huddle-play"; readonly member: string; readonly playId: PlayId }
   | { readonly kind: "book"; readonly bookId: BookId }
   | { readonly kind: "book-view"; readonly bookId: BookId; readonly view: WholeBookView }
@@ -205,6 +207,7 @@ const placeOfSegments = (segments: readonly string[], path: string): Place => {
   if (first === "play" && second === undefined) return { kind: "live" }
   if (first === "huddle" && second === undefined) return { kind: "huddle" }
   if (first === "huddle" && second === "total" && third === undefined) return { kind: "huddle-total" }
+  if (first === "huddle" && second === "settlement" && third === undefined) return { kind: "huddle-settlement" }
   if (first === "huddle" && second !== undefined && third !== undefined && fourth === undefined) return { kind: "huddle-play", member: second, playId: third as PlayId }
   if (first === "play" && second === "new" && (third === "pachinko" || third === "pachislot") && fourth === undefined) return { kind: "live-new", game: third }
   if (first === "play" && second !== undefined && second !== "new" && third === undefined)
@@ -274,6 +277,8 @@ export const pathOf = (place: Place): string => {
       return "/huddle"
     case "huddle-total":
       return "/huddle/total"
+    case "huddle-settlement":
+      return "/huddle/settlement"
     case "huddle-play":
       return `/huddle/${encode(place.member)}/${encode(place.playId)}`
     case "book":
@@ -368,6 +373,7 @@ export const focusOf = (place: Place): Focus => {
     case "live-record":
     case "live-cabinet":
     case "huddle-total":
+    case "huddle-settlement":
     case "huddle-play":
     case "pachinko-machine-search":
     case "parlor-submitted":
@@ -427,6 +433,8 @@ export const parentOf = (place: Place): Place | undefined => {
     case "huddle-total":
     case "huddle-play":
       return { kind: "huddle" }
+    case "huddle-settlement":
+      return { kind: "huddle-total" }
     case "live-record":
     case "live-cabinet":
       return { kind: "live-play", playId: place.playId }
@@ -502,7 +510,7 @@ export const inLiveSpace = (place: Place): boolean =>
   ].includes(place.kind)
 
 /** Whether a place is in the room of the huddle the device is in. */
-export const inHuddleRoom = (place: Place): boolean => place.kind === "huddle" || place.kind === "huddle-total" || place.kind === "huddle-play"
+export const inHuddleRoom = (place: Place): boolean => place.kind === "huddle" || place.kind === "huddle-total" || place.kind === "huddle-settlement" || place.kind === "huddle-play"
 
 /** Whether a place is in the space where several books are read as one. */
 export const inConsolidation = (place: Place): boolean =>

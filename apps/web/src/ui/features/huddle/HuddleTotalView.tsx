@@ -8,8 +8,9 @@ import { Button, SWITCHED_ON } from "../../primitives/button"
 import { cn } from "../../primitives/cn"
 import { TickFilter } from "../../primitives/filter"
 import { createHourStruck } from "../../primitives/hour"
+import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
-import { HUDDLE_NARROW, HUDDLE_OWN_ONLY, HUDDLE_TOTAL } from "../../wording/huddle"
+import { HUDDLE_NARROW, HUDDLE_OWN_ONLY, HUDDLE_SETTLE, HUDDLE_TOTAL } from "../../wording/huddle"
 import { formatCount } from "../../wording/numbers"
 import { ViewHeader } from "../shell/ViewHeader"
 import { offeredMembers } from "./HuddleSide"
@@ -40,18 +41,20 @@ const tokensOf = (held: HeldTotal): { readonly value: string; readonly yen: numb
  * and medals in hand on the play each is on, with what they come to at
  * its corner's exchange rate. Above, 自分のみ narrows it to one's own at
  * a press — and back to everyone at another — as the filter beside it
- * would by ticking oneself alone.
+ * would by ticking oneself alone; and across from them, the way to those
+ * chosen settled up evenly (精算する).
  */
 export function HuddleTotalView(props: { readonly place: Place }): JSX.Element {
   const app = useApp()
+  const moves = useMoves()
   const hour = createHourStruck()
   const [drafts] = createResource(() => [app.revision(), hour()] as const, () => loadTodaysPlays(app.services.drafts, app.services.businessDay()))
-  const members = (): readonly RoomMember[] => ((huddle) => (huddle === undefined ? [] : roomMembersOf(huddle, app.huddle.others())))(app.huddle.now())
+  const members = (): readonly RoomMember[] => ((huddle) => (huddle === undefined ? [] : roomMembersOf(huddle, app.huddle.counted())))(app.huddle.now())
   const total = (): RoomTotal | undefined => {
     const huddle = app.huddle.now()
     const found = drafts()
     if (huddle === undefined) return undefined
-    return roomTotalOf(playsOfChosen(roomPlaysOf(huddle, found?.ok === true ? found.value : [], app.huddle.others(), app.huddle.idle()), app.huddle.chosen.totalled()))
+    return roomTotalOf(playsOfChosen(roomPlaysOf(huddle, found?.ok === true ? found.value : [], app.huddle.counted(), app.huddle.idle()), app.huddle.chosen.totalled()))
   }
   const ownOnly = (): readonly string[] => ((huddle) => (huddle === undefined ? [] : [huddle.member]))(app.huddle.now())
   const isOwnOnly = (): boolean => ((chosen) => chosen !== undefined && chosen.length === 1 && chosen[0] === ownOnly()[0])(app.huddle.chosen.totalled())
@@ -59,6 +62,9 @@ export function HuddleTotalView(props: { readonly place: Place }): JSX.Element {
     <MainContent header={<ViewHeader place={props.place} title={HUDDLE_TOTAL} />}>
       <div class="flex max-w-5xl flex-col gap-3 p-4">
         <div class="flex items-center justify-end gap-2">
+          <Button variant="semipro" size="small" class="mr-auto" onClick={() => moves.go({ kind: "huddle-settlement" })}>
+            {HUDDLE_SETTLE}
+          </Button>
           <Button variant="outline" size="small" class={cn(isOwnOnly() && SWITCHED_ON)} aria-pressed={isOwnOnly()} onClick={() => app.huddle.chosen.setTotalled(isOwnOnly() ? undefined : ownOnly())}>
             {HUDDLE_OWN_ONLY}
           </Button>

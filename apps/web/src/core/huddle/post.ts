@@ -175,6 +175,5 @@ export const othersPlays = (entries: readonly HuddleEntry[], member: string): re
   return [...latest.filter((shown) => !shown.departed), ...latest.filter((shown) => shown.departed), ...moved]
 }
 
-/** The others' plays as this device's list has them: as they were shown (`othersPlays`), less those it let go of. */
-export const othersPlaysFor = (entries: readonly HuddleEntry[], huddle: Huddle): readonly HuddlePlay[] =>
-  othersPlays(entries, huddle.member).filter(({ post }) => !huddle.dismissed.includes(huddlePlayKey(post.member, post.play.id)))
+/** The others' plays as this device's list has them: those given, less those it let go of. Letting go is the list's alone: what the plays came to together still counts them. */
+export const listedFor = (plays: readonly HuddlePlay[], huddle: Huddle): readonly HuddlePlay[] => plays.filter(({ post }) => !huddle.dismissed.includes(huddlePlayKey(post.member, post.play.id)))

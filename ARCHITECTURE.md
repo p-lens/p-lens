@@ -2160,7 +2160,9 @@ wherever its player records it, as it would be without the huddle.
   by its cross, goes from this device's list alone, kept with the huddle
   so that it does not come back as the line is read again, and forgotten
   with it as the day turns. Nothing is put on the line: theirs and the
-  others' stay. Leaving a huddle takes nothing back either, so a play is
+  others' stay. It is the list's alone (`listedFor`): the total and the
+  settling up count every play (`HuddleJoined.counted`), since letting one
+  go from the list takes nothing it spent out of them. Leaving a huddle takes nothing back either, so a play is
   there to be looked over after the fun is had.
 - **Leaving is said, and coming back is the same member**
   (`HuddleDeparture`, `leaveHuddle`, `Huddle.left`): a device that leaves
@@ -2216,6 +2218,21 @@ wherever its player records it, as it would be without the huddle.
   each with what it comes to at its corner's exchange rate. It has a
   filter of its own (`RoomChoices.totalled`), and 自分のみ beside it, a
   press for ticking oneself alone and another for everyone again.
+- **Settled up evenly** (`huddle-settlement`, `/huddle/settlement`,
+  `HuddleSettlementView`, `settlementOf`): the members chosen for the
+  total, each having spent their cash and the savings they drew on (in
+  yen, at the play's exchange rate) and taken home special prizes — typed
+  in there, kept on the page alone (`RoomChoices.prizes`), or else what
+  the balls and medals in hand on the play they are on come to. What they
+  came to together is shared evenly in whole yen, the yen left over one
+  each to those first in the list, and the payments that settle them are
+  the greatest owing paying the greatest owed, one after another. Balls
+  passed from one to another come out even, since only what each spent
+  and took home is reckoned. One who left is settled up with the rest,
+  marked 離脱, until they are unticked in the total's filter, having
+  settled up apart. Nothing is written anywhere: no book, no
+  line; it is reckoned for people to settle by hand, and the cash account
+  is never touched.
 - **Opened only to be looked at** (`huddle-play`,
   `/huddle/:member/:playId`, `HuddlePlayView`): who and on what,
   when it was last shown, and the play as its own game draws it

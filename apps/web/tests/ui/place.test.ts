@@ -26,6 +26,7 @@ const PLACES: readonly Place[] = [
   { kind: "destination", lineId: "line-1" },
   { kind: "huddle" },
   { kind: "huddle-total" },
+  { kind: "huddle-settlement" },
   { kind: "huddle-play", member: "m 1/x", playId: "p-1" as never },
 ]
 
@@ -44,7 +45,7 @@ describe("places", () => {
   })
 
   test("a narrow window goes selection, content, detail", () => {
-    expect(PLACES.map(focusOf)).toEqual(["selection", "content", "content", "content", "content", "content", "selection", "content", "detail", "content", "content", "selection", "content", "content", "content", "content", "detail", "detail", "detail", "selection", "selection", "content", "content"])
+    expect(PLACES.map(focusOf)).toEqual(["selection", "content", "content", "content", "content", "content", "selection", "content", "detail", "content", "content", "selection", "content", "content", "content", "content", "detail", "detail", "detail", "selection", "selection", "content", "content", "content"])
   })
 
   test("one step up from a tally is its list, then the book", () => {
@@ -61,6 +62,7 @@ describe("places", () => {
     expect(parentOf({ kind: "live-play", playId: "p-1" as never })).toEqual({ kind: "live" })
     expect(parentOf({ kind: "huddle-play", member: "m-1", playId: "p-1" as never })).toEqual({ kind: "huddle" })
     expect(parentOf({ kind: "huddle-total" })).toEqual({ kind: "huddle" })
+    expect(parentOf({ kind: "huddle-settlement" })).toEqual({ kind: "huddle-total" })
     expect(parentOf({ kind: "live" })).toBeUndefined()
   })
 

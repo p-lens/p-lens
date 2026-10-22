@@ -6,7 +6,7 @@ import type { ApplicationError } from "../application/errors"
 import type { Services } from "../application/services"
 import type { MachineNames } from "../core/catalog/catalog"
 import type { Huddle } from "../core/huddle/huddle"
-import { othersPlaysFor, type HuddlePlay } from "../core/huddle/post"
+import { listedFor, othersPlays, type HuddlePlay } from "../core/huddle/post"
 import { idleMembers } from "../core/huddle/standing"
 import { fileEveryBookByYear } from "../application/file-by-year"
 import { huddleNow } from "../application/huddle"
@@ -84,8 +84,10 @@ export interface HuddleJoined {
   readonly line: HuddleLine
   /** Whose plays its room lists and adds up. */
   readonly chosen: RoomChoices
-  /** The others' plays as the line was last read (`othersPlaysFor`), worked out once for every screen that shows them: none where the device is in no huddle. */
+  /** The others' plays as the line was last read and the list has them (`listedFor`), worked out once for every screen that shows them: none where the device is in no huddle. */
   readonly others: Accessor<readonly HuddlePlay[]>
+  /** Every one of the others' plays, those let go of from the list too (`othersPlays`): what the total and the settling up count, since letting a play go from the list takes nothing it spent out of them. */
+  readonly counted: Accessor<readonly HuddlePlay[]>
   /** The members who have said nothing for long (`idleMembers`), looked at once a minute while the device is in a huddle. */
   readonly idle: Accessor<ReadonlySet<string>>
 }
@@ -174,7 +176,8 @@ export function AppProvider(props: {
   }
   const minute = createMinuteStruck()
   const huddleIdle = createMemo((): ReadonlySet<string> => (huddle() === undefined ? new Set() : idleMembers(huddleLine.entries(), minute())))
-  const huddleOthers = createMemo((): readonly HuddlePlay[] => ((joined) => (joined === undefined ? [] : othersPlaysFor(huddleLine.entries(), joined)))(huddle()))
+  const huddleCounted = createMemo((): readonly HuddlePlay[] => ((joined) => (joined === undefined ? [] : othersPlays(huddleLine.entries(), joined.member)))(huddle()))
+  const huddleOthers = createMemo((): readonly HuddlePlay[] => ((joined) => (joined === undefined ? [] : listedFor(huddleCounted(), joined)))(huddle()))
   const [state, setState] = createSignal<DeliveryState>({ type: "idle" })
   const timers: { pending: readonly ReturnType<typeof setTimeout>[] } = { pending: [] }
   const refresh = (): void => {
@@ -265,7 +268,7 @@ export function AppProvider(props: {
         machineNames,
         sync: { state: syncState, run: runSync },
         backups: { count: backupsMade, made: backupMade },
-        huddle: { now: huddle, changed: () => setHuddleChanges((count) => count + 1), line: huddleLine, chosen: roomChoices, others: huddleOthers, idle: huddleIdle },
+        huddle: { now: huddle, changed: () => setHuddleChanges((count) => count + 1), line: huddleLine, chosen: roomChoices, others: huddleOthers, counted: huddleCounted, idle: huddleIdle },
       }}>
       {props.children}
     </Context.Provider>

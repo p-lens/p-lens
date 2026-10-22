@@ -63,12 +63,14 @@ export interface HeldTotal {
 
 /**
  * What a room's plays come to together: the cash spent on every one of
- * them, and the tokens in hand of each game — on the play each person is
+ * them, the savings drawn on every one at its exchange rate, in yen, and
+ * the tokens in hand of each game — on the play each person is
  * on alone, as last counted there, since what they had on a play they
  * moved from went with them to the next.
  */
 export interface RoomTotal {
   readonly outlay: number
+  readonly savings: number
   readonly held: Readonly<Record<PlayGameKind, HeldTotal>>
 }
 
@@ -83,12 +85,16 @@ const heldOf = (play: Play): HeldTotal => {
   return { tokens, yen: terms === undefined ? 0 : Math.round(tokens * tokenValueOf(terms)) }
 }
 
+/** The savings a play drew on, at its exchange rate, in yen: none where its corner is not known. */
+const savingsOf = (play: Play): number => ((terms) => (terms === undefined ? 0 : Math.round(lastOf(checkpointsOf(play), (checkpoint) => checkpoint.replay) * tokenValueOf(terms))))(play.venue.terms)
+
 const NO_TOKENS: HeldTotal = { tokens: 0, yen: 0 }
 
 const together = (one: HeldTotal, other: HeldTotal): HeldTotal => ({ tokens: one.tokens + other.tokens, yen: one.yen + other.yen })
 
 export const roomTotalOf = (plays: readonly RoomPlay[]): RoomTotal => ({
   outlay: plays.reduce((sum, { play }) => sum + lastOf(checkpointsOf(play), (checkpoint) => checkpoint.outlay), 0),
+  savings: plays.reduce((sum, { play }) => sum + savingsOf(play), 0),
   held: {
     pachinko: plays.filter(({ play, latest }) => latest && play.gameKind === "pachinko").map(({ play }) => heldOf(play)).reduce(together, NO_TOKENS),
     pachislot: plays.filter(({ play, latest }) => latest && play.gameKind === "pachislot").map(({ play }) => heldOf(play)).reduce(together, NO_TOKENS),

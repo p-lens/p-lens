@@ -17,6 +17,7 @@ import { ParlorPassbookPanel } from "../holdings/ParlorPassbookPanel"
 import { PassbookPanel } from "../holdings/PassbookPanel"
 import { FinishPlayView } from "../live/FinishPlayView"
 import { HuddlePlayView } from "../huddle/HuddlePlayView"
+import { HuddleSettlementView } from "../huddle/HuddleSettlementView"
 import { HuddleSide } from "../huddle/HuddleSide"
 import { HuddleTotalView } from "../huddle/HuddleTotalView"
 import { HuddleRunner } from "../huddle/HuddleRunner"
@@ -111,6 +112,8 @@ const mainFor = (place: Place, query: () => string, live: () => Place): JSX.Elem
       return <ChooseFromList place={place} title="ノリ打ち" hint="左のリストから稼働を選ぶか、メンバー合算を開いてください。" />
     case "huddle-total":
       return <HuddleTotalView place={place} />
+    case "huddle-settlement":
+      return <HuddleSettlementView place={place} />
     case "huddle-play":
       return <HuddlePlayView place={place} member={place.member} playId={place.playId} />
     case "book":

@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test"
 import type { BookId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { huddleCodeOf, huddleInOn, huddleNameOf, huddleOn, huddleText, readHuddle, secretOfHuddleCode, type Huddle } from "../../src/core/huddle/huddle"
-import { givenUp, huddleDepartureOf, latestEntries, huddleEntryText, huddlePostOf, huddleWithdrawalOf, othersPlays, othersPlaysFor, readHuddleEntry, type HuddlePost } from "../../src/core/huddle/post"
+import { givenUp, huddleDepartureOf, latestEntries, huddleEntryText, huddlePostOf, huddleWithdrawalOf, listedFor, othersPlays, readHuddleEntry, type HuddlePost } from "../../src/core/huddle/post"
 import { huddleStandingOf, huddleTurnOf, jackpotStreakOf, jackpotsNow, louderTurn } from "../../src/core/huddle/standing"
 import type { PachinkoDraft } from "../../src/core/live-play/draft"
 import type { PlayTerms } from "../../src/core/parlor/terms"
@@ -152,9 +152,10 @@ describe("the others' plays", () => {
     expect(othersPlays(posts, "me").map(({ post: shown, latest }) => [shown.play.machine, latest])).toEqual([["right machine", true]])
   })
 
-  test("in this device's list leave out those it let go of, and only those", () => {
+  test("in this device's list leave out those it let go of, and only those, while every one is still there to be counted", () => {
     const posts = [post("b", "2026-10-20T01:00:00Z", "let go"), post("b", "2026-10-20T01:05:00Z", "kept", "p-2")]
-    expect(othersPlaysFor(posts, { ...HUDDLE, dismissed: ["b p-1"] }).map(({ post: shown }) => shown.play.machine)).toEqual(["kept"])
+    expect(listedFor(othersPlays(posts, "me"), { ...HUDDLE, dismissed: ["b p-1"] }).map(({ post: shown }) => shown.play.machine)).toEqual(["kept"])
+    expect(othersPlays(posts, "me")).toHaveLength(2)
   })
 
   test("mark the plays of one who left the huddle, and put the one they were on after those still in it", () => {
