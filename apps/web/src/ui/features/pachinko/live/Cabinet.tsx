@@ -62,7 +62,8 @@ type Saving = { readonly type: "typing" } | { readonly type: "keeping" } | { rea
  * the number is what the screen is most often come to for. What is
  * chosen is kept with the start form, so a look at a formula's grounds and
  * back does not lose it. Under the machine is how the cabinet's counter
- * counts jackpots, ticked where it counts each bonus as one.
+ * counts jackpots, ticked where it counts each bonus as one; and below a
+ * rule, apart from the cabinet's own, the person's usual over-entry there.
  */
 export function Cabinet(props: { readonly place: Place; readonly draft: PachinkoDraft }): JSX.Element {
   const app = useApp()
@@ -234,6 +235,7 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
             <input type="checkbox" checked={counting() === "per-bonus"} onChange={(event) => setCounting(event.currentTarget.checked ? "per-bonus" : "per-jackpot")} class="size-5 shrink-0 accent-accent" />
             どのボーナスも1回でカウント
           </label>
+          <hr class="border-border" />
           <div class="flex flex-col gap-1">
             <div class="w-40">
               <TextField label="いつものオーバー入賞" tone="nerdpro" value={overEntry()} onChange={setOverEntry} inputMode="text" placeholder="+0" suffix="玉/R" invalid={nudge.red() && overEntryTyped(overEntry()) === "unread"} onFocus={nudge.settle} compact />

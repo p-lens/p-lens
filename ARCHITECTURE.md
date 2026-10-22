@@ -2236,7 +2236,7 @@ wherever its player records it, as it would be without the huddle.
   each with what it comes to at its corner's exchange rate. It has a
   filter of its own (`RoomChoices.totalled`), and 自分のみ beside it, a
   press for ticking oneself alone and another for everyone again.
-- **Settled up evenly** (`huddle-settlement`, `/huddle/settlement`,
+- **Settled up evenly, as a guide** (精算目安; `huddle-settlement`, `/huddle/settlement`,
   `HuddleSettlementView`, `settlementOf`): the members chosen for the
   total, each having spent their cash and the savings they drew on (in
   yen, at the play's exchange rate) and taken home special prizes — typed

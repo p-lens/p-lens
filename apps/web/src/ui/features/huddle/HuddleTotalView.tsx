@@ -42,7 +42,7 @@ const tokensOf = (held: HeldTotal): { readonly value: string; readonly yen: numb
  * its corner's exchange rate. Above, 自分のみ narrows it to one's own at
  * a press — and back to everyone at another — as the filter beside it
  * would by ticking oneself alone; and across from them, the way to those
- * chosen settled up evenly (精算する).
+ * chosen settled up evenly, as a guide (精算目安を表示).
  */
 export function HuddleTotalView(props: { readonly place: Place }): JSX.Element {
   const app = useApp()

@@ -15,8 +15,8 @@ export const HUDDLE_TOTAL = "メンバー合算"
 export const HUDDLE_NARROW = "メンバーで絞り込む"
 export const HUDDLE_OWN_ONLY = "自分のみ"
 export const HUDDLE_CODE = "QRコード"
-export const HUDDLE_SETTLE = "精算する"
-export const HUDDLE_SETTLEMENT = "精算"
+export const HUDDLE_SETTLE = "精算目安を表示"
+export const HUDDLE_SETTLEMENT = "精算目安"
 
 /** A member as the room's filter offers them: one's own name said as one's own. */
 export const roomMemberText = (name: string, own: boolean): string => (own ? `${HUDDLE_OWN}（${name}）` : name)
