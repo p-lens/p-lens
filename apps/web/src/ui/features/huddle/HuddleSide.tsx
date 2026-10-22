@@ -4,7 +4,7 @@ import { SidePanel } from "solid-gathering-shell"
 import { dismissHuddlePlay } from "../../../application/huddle"
 import { loadTodaysPlays } from "../../../application/live-play"
 import { shownNameOf } from "../../../core/catalog/catalog"
-import { othersPlaysFor, type HuddlePlay } from "../../../core/huddle/post"
+import type { HuddlePlay } from "../../../core/huddle/post"
 import { playsOfChosen, roomMembersOf, roomPlaysOf, type RoomMember, type RoomPlay } from "../../../core/huddle/room"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
@@ -15,7 +15,7 @@ import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { HUDDLE_CODE, HUDDLE_DISMISS, HUDDLE_DISMISS_ASK, HUDDLE_DISMISS_SAYS, HUDDLE_HEADING, HUDDLE_NARROW, HUDDLE_OWN, HUDDLE_TOTAL, roomMemberText } from "../../wording/huddle"
 import { HuddleDialog } from "./HuddleDialog"
-import { HuddleRow } from "./HuddleRow"
+import { HuddleRow, type Presence } from "./HuddleRow"
 
 /** The members of a room as its filters offer them, one's own first. */
 export const offeredMembers = (members: readonly RoomMember[]): readonly Offered[] => members.map((each) => ({ key: each.member, label: roomMemberText(each.name, each.own) }))
@@ -35,12 +35,13 @@ export function HuddleSide(props: { readonly place: Place }): JSX.Element {
   /** The hours as they strike: the day the plays are of may turn on any of them. */
   const hour = createHourStruck()
   const [drafts] = createResource(() => [app.revision(), hour()] as const, () => loadTodaysPlays(app.services.drafts, app.services.businessDay()))
-  const others = (): readonly HuddlePlay[] => ((huddle) => (huddle === undefined ? [] : othersPlaysFor(app.huddle.line.entries(), huddle)))(app.huddle.now())
-  const plays = (): readonly RoomPlay[] => ((huddle, found) => (huddle === undefined ? [] : roomPlaysOf(huddle, found?.ok === true ? found.value : [], others())))(app.huddle.now(), drafts())
+  const others = (): readonly HuddlePlay[] => app.huddle.others()
+  const plays = (): readonly RoomPlay[] => ((huddle, found) => (huddle === undefined ? [] : roomPlaysOf(huddle, found?.ok === true ? found.value : [], others(), app.huddle.idle())))(app.huddle.now(), drafts())
   const members = (): readonly RoomMember[] => ((huddle) => (huddle === undefined ? [] : roomMembersOf(huddle, others())))(app.huddle.now())
   const own = (shown: RoomPlay): boolean => shown.member === app.huddle.now()?.member
   const whoPlays = (shown: RoomPlay): string => (own(shown) ? HUDDLE_OWN : (members().find((each) => each.member === shown.member)?.name ?? ""))
-  const departed = (member: string): boolean => others().some((shown) => shown.post.member === member && shown.departed)
+  const presenceOf = (member: string): Presence =>
+    others().some((shown) => shown.post.member === member && shown.departed) ? "departed" : member !== app.huddle.now()?.member && app.huddle.idle().has(member) ? "idle" : "here"
   const [showingCode, setShowingCode] = createSignal(false)
   /** One of the others' plays a person asked to let go of from the list, until they say yes or no. */
   const [dismissing, setDismissing] = createSignal<RoomPlay | undefined>(undefined)
@@ -76,7 +77,7 @@ export function HuddleSide(props: { readonly place: Place }): JSX.Element {
                 <HuddleRow
                   shown={shown}
                   who={whoPlays(shown)}
-                  departed={departed(shown.member)}
+                  presence={presenceOf(shown.member)}
                   selected={props.place.kind === "huddle-play" && props.place.member === shown.member && props.place.playId === shown.play.id}
                   onSelect={() => open(shown)}
                   onDismiss={own(shown) ? undefined : () => setDismissing(shown)}

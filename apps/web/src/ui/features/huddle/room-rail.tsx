@@ -1,7 +1,6 @@
 import { createEffect, createSignal, on, onCleanup, type JSX } from "solid-js"
 import type { RailItem } from "solid-gathering-shell"
 
-import { othersPlaysFor } from "../../../core/huddle/post"
 import { othersInJackpot } from "../../../core/huddle/standing"
 import { useApp } from "../../context"
 import { HuddleIcon } from "../../primitives/icons"
@@ -26,7 +25,8 @@ export function CountBadge(props: { readonly count: number }): JSX.Element {
 /**
  * The room of the huddle the device is in, as a space on the rail: there
  * while the huddle is kept up (`HuddleLine.keptUp`), in the semipro
- * colour, wearing how many of the others are in a jackpot. A huddle joined
+ * colour, wearing how many of the others are in a jackpot — those gone
+ * quiet left out. A huddle joined
  * while the page is open is seen to come, below the live space; one the
  * device was already in as the page opened is simply there.
  */
@@ -51,7 +51,7 @@ export const useHuddleRoomItem = (place: () => Place): (() => RailItem | undefin
   return () => {
     const huddle = app.huddle.now()
     if (huddle === undefined || app.huddle.line.keptUp() !== huddle.secret) return undefined
-    const inJackpot = othersInJackpot(othersPlaysFor(app.huddle.line.entries(), huddle))
+    const inJackpot = othersInJackpot(app.huddle.others(), app.huddle.idle())
     return {
       id: "huddle",
       label: huddleRoomLabel(inJackpot),

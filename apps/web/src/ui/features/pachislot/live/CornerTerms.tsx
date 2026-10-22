@@ -65,7 +65,7 @@ export function CornerTerms(props: { readonly draft: PlayDraft }): JSX.Element {
     }
     start.update({ terms: { ...start.form().terms, pachislot: form() } })
     setLook("standing")
-    app.wrote()
+    app.played()
   }
   return (
     <Show

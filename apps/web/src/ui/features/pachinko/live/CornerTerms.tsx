@@ -66,7 +66,7 @@ export function CornerTerms(props: { readonly draft: PlayDraft; readonly between
     }
     start.update({ terms: { ...start.form().terms, pachinko: form() } })
     setLook("standing")
-    app.wrote()
+    app.played()
   }
   return (
     <Show

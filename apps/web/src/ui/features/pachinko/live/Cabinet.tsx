@@ -132,7 +132,7 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
     }
     start.update({ cabinet: undefined })
     toast({ title: "保存しました", stays: "glance" })
-    app.wrote()
+    app.played()
     moves.replace({ kind: "live-play", playId: props.draft.id })
   }
   return (

@@ -246,7 +246,7 @@
   }
 }
 
-/* A mark that stands far above its border: it lights up slowly in its own colour and dims again, as a held spin of great promise does. */
+/* A mark that stands far above its border: it lights up slowly in its own colour and dims again, as a held spin of great promise does, a few times as it comes. */
 @keyframes shine {
   0%,
   100% {
@@ -296,7 +296,7 @@
   }
 }
 
-/* The way back while one of the others is in a jackpot: it jabs left twice and rests, again and again — 押せッ、押せッ. */
+/* The way back while one of the others is in a jackpot: it jabs left twice and rests, a few times over — 押せッ、押せッ. */
 @keyframes urge {
   0%,
   30%,

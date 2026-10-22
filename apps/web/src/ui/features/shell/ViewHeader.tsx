@@ -8,10 +8,10 @@ import { parentOf, type Place } from "../../navigation/place"
 /** How loudly the way back is urged: hot, or only to be looked at. */
 export type Urge = "loud" | "quiet"
 
-/** How each urge is drawn: red with a heartbeat where it is hot, in the text's own colour with a jab where it is not; either swells from its right end, so that swelling too pushes toward the list. */
+/** How each urge is drawn: red with a heartbeat where it is hot, in the text's own colour with a jab where it is not, four beats and then still, its colour staying; either swells from its right end, so that swelling too pushes toward the list. Never on and on: a page moving without end runs a phone down. */
 const URGE_LOOKS: Readonly<Record<Urge, string>> = {
-  loud: "text-negative animate-[urge-loud_1.2s_ease-out_infinite]",
-  quiet: "text-text-primary animate-[urge_1.2s_ease-out_infinite]",
+  loud: "text-negative animate-[urge-loud_1.2s_ease-out_4]",
+  quiet: "text-text-primary animate-[urge_1.2s_ease-out_4]",
 }
 
 /**

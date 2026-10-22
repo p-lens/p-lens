@@ -2,7 +2,6 @@ import { createResource, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import { loadTodaysPlays } from "../../../application/live-play"
-import { othersPlaysFor } from "../../../core/huddle/post"
 import { playsOfChosen, roomMembersOf, roomPlaysOf, roomTotalOf, type HeldTotal, type RoomMember, type RoomTotal } from "../../../core/huddle/room"
 import { useApp } from "../../context"
 import { Button, SWITCHED_ON } from "../../primitives/button"
@@ -47,12 +46,12 @@ export function HuddleTotalView(props: { readonly place: Place }): JSX.Element {
   const app = useApp()
   const hour = createHourStruck()
   const [drafts] = createResource(() => [app.revision(), hour()] as const, () => loadTodaysPlays(app.services.drafts, app.services.businessDay()))
-  const members = (): readonly RoomMember[] => ((huddle) => (huddle === undefined ? [] : roomMembersOf(huddle, othersPlaysFor(app.huddle.line.entries(), huddle))))(app.huddle.now())
+  const members = (): readonly RoomMember[] => ((huddle) => (huddle === undefined ? [] : roomMembersOf(huddle, app.huddle.others())))(app.huddle.now())
   const total = (): RoomTotal | undefined => {
     const huddle = app.huddle.now()
     const found = drafts()
     if (huddle === undefined) return undefined
-    return roomTotalOf(playsOfChosen(roomPlaysOf(huddle, found?.ok === true ? found.value : [], othersPlaysFor(app.huddle.line.entries(), huddle)), app.huddle.chosen.totalled()))
+    return roomTotalOf(playsOfChosen(roomPlaysOf(huddle, found?.ok === true ? found.value : [], app.huddle.others(), app.huddle.idle()), app.huddle.chosen.totalled()))
   }
   const ownOnly = (): readonly string[] => ((huddle) => (huddle === undefined ? [] : [huddle.member]))(app.huddle.now())
   const isOwnOnly = (): boolean => ((chosen) => chosen !== undefined && chosen.length === 1 && chosen[0] === ownOnly()[0])(app.huddle.chosen.totalled())

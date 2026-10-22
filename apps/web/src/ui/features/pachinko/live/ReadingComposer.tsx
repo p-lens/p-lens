@@ -182,7 +182,7 @@ export function ReadingComposer(props: {
     setForm(readingFrom(form().phase, beforeIn([...props.ordered, ...checkpoints.value])))
     setSending({ type: "typing" })
     toast(wonInRegularGames(reading.value) ? { title: "記録しました", description: "キリの良いところで、持ち玉を調整ください。" } : { title: "記録しました", stays: "glance" })
-    app.wrote()
+    app.played()
   }
 
   /** Keeps the play's log made again with a reading set right, put in or taken away, says so where there are words for it, and leaves the revising; the play as kept, where it was. */
@@ -199,7 +199,7 @@ export function ReadingComposer(props: {
       return undefined
     }
     if (said !== undefined) toast({ title: said, stays: "blink" })
-    app.wrote()
+    app.played()
     props.onRevised()
     return kept.value
   }
@@ -213,7 +213,7 @@ export function ReadingComposer(props: {
       return
     }
     toast({ title: REMOVAL_TAKEN_BACK, stays: "glance" })
-    app.wrote()
+    app.played()
   }
 
   /** Takes a reading away, and says so with the way to take it back until the word is closed. */

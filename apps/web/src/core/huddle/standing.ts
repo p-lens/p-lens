@@ -1,5 +1,5 @@
 import type { Play } from "../live-play/draft-reading"
-import type { HuddlePlay } from "./post"
+import type { HuddleEntry, HuddlePlay } from "./post"
 import { parsePlayLog, type Checkpoint } from "../play-log/checkpoint"
 import { inPlayOrder } from "../play-log/performance"
 
@@ -39,8 +39,22 @@ export const jackpotStreakOf = (play: Play): number => {
 /** The others' plays in a jackpot: each the one its player is on, while they are still in the huddle. */
 const inJackpot = (plays: readonly HuddlePlay[]): readonly HuddlePlay[] => plays.filter((shown) => shown.latest && !shown.departed && huddleStandingOf(shown.post.play) === "jackpot")
 
-/** How many of the others are in a jackpot now: what the room wears on the rail. */
-export const othersInJackpot = (plays: readonly HuddlePlay[]): number => inJackpot(plays).length
+/** How many of the others are in a jackpot now, those who have said nothing for long left out — theirs is likely over by now: what the room wears on the rail. */
+export const othersInJackpot = (plays: readonly HuddlePlay[], idle: ReadonlySet<string>): number => inJackpot(plays).filter((shown) => !idle.has(shown.post.member)).length
+
+/** How long a member says nothing before the others are told so, in milliseconds: a play is shown as its log changes, and an hour and a half without a reading is a long while at a cabinet. */
+export const IDLE_AFTER = 90 * 60_000
+
+/**
+ * The members who have put nothing on the line for `IDLE_AFTER` up to a
+ * moment, in milliseconds: no play shown, taken back or left. It says
+ * nothing is being typed in, not that nobody is playing — a long run
+ * may go untyped — so it is said as 動きなし, never as having left.
+ */
+export const idleMembers = (entries: readonly HuddleEntry[], now: number): ReadonlySet<string> => {
+  const lastSaid = entries.reduce((latest, entry) => ((said) => (said !== undefined && said >= entry.postedAt ? latest : new Map(latest).set(entry.member, entry.postedAt)))(latest.get(entry.member)), new Map<string, string>())
+  return new Set([...lastSaid].filter(([, said]) => now - Date.parse(said) >= IDLE_AFTER).map(([member]) => member))
+}
 
 /**
  * Who of the others still in the huddle is in a jackpot on the play they

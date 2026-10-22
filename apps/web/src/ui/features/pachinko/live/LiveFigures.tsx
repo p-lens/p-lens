@@ -15,7 +15,7 @@ const rateOf = (perThousand: number | undefined): string => (perThousand === und
 
 const MARKS: Readonly<Record<BorderGrade, { readonly shape: () => JSX.Element; readonly look: string }>> = {
   crowned: { shape: () => <CrownIcon />, look: "text-mark-gold [&_svg]:inline [&_svg]:size-3.5 [&_svg]:align-[-0.15em]" },
-  shining: { shape: () => "★", look: "text-mark-gold motion-safe:animate-[shine_2.4s_ease-in-out_infinite]" },
+  shining: { shape: () => "★", look: "text-mark-gold motion-safe:animate-[shine_2.4s_ease-in-out_3]" },
   outstanding: { shape: () => "★", look: "text-mark-gold" },
   excellent: { shape: () => "★", look: "text-mark-red" },
   strong: { shape: () => "▲", look: "text-mark-purple" },

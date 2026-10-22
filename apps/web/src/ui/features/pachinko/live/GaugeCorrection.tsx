@@ -52,7 +52,7 @@ export function GaugeCorrection(props: { readonly draft: PlayDraft; readonly ord
     }
     setTyped("")
     toast({ title: "遊カウンターを直しました", stays: "glance" })
-    app.wrote()
+    app.played()
   }
   return (
     <DetailButton says={`遊カウンター（${props.gaugeNow}回転）`} face={<span class="text-base font-bold leading-none">遊</span>} marked={apart()} invalid={wrong()} placement="bottom-end" fitted>

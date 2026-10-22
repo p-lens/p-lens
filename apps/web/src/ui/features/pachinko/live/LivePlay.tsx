@@ -100,7 +100,7 @@ export function LivePlay(props: {
     }
     setWork(undefined)
     toast({ title: UNMERGED, stays: "glance" })
-    app.wrote()
+    app.played()
   }
   /**
    * Keeps the play's log with a run of its readings made one, and lets go
@@ -121,7 +121,7 @@ export function LivePlay(props: {
     }
     setWork(undefined)
     toast({ title: MERGED, action: { label: TAKE_BACK, onPress: () => void unmerge({ before: checkpoints, left: kept.value }) } })
-    app.wrote()
+    app.played()
   }
   const ordered = (): readonly Checkpoint[] | undefined => {
     const log = parsed()

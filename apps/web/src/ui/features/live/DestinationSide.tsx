@@ -73,7 +73,7 @@ function Outbox(props: { readonly destination: Destination }): JSX.Element {
       return
     }
     toast({ title: "送りました", description: props.destination.title })
-    app.wrote()
+    app.played()
   }
   const forget = async (): Promise<void> => {
     setForgetting(false)
@@ -82,7 +82,7 @@ function Outbox(props: { readonly destination: Destination }): JSX.Element {
       toast({ title: "送り先から外せませんでした", description: describeError(gone.error), tone: "error" })
       return
     }
-    app.wrote()
+    app.played()
     moves.go({ kind: "live" })
   }
   return (

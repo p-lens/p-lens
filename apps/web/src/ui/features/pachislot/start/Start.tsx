@@ -330,7 +330,7 @@ export function Start(props: {
     if (kept !== undefined) app.services.preferences.setTokensInHand(undefined)
     if (weighing !== undefined) await recordUses(weighing)
     start.update({ cabinetNumber: "", startCounter: "", carriedIn: undefined, pachislot: EMPTY_PACHISLOT_START })
-    app.wrote()
+    app.played()
     moves.replace({ kind: "live-play", playId: draft.id })
   }
 

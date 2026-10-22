@@ -6,7 +6,7 @@ import { huddleStandingOf, jackpotStreakOf } from "../../../core/huddle/standing
 import { useApp } from "../../context"
 import { CloseIcon } from "../../primitives/icons"
 import { createLongPress } from "../../primitives/long-press"
-import { HUDDLE_DEPARTED, HUDDLE_DISMISS, HUDDLE_MOVED, HUDDLE_STANDINGS } from "../../wording/huddle"
+import { HUDDLE_DEPARTED, HUDDLE_DISMISS, HUDDLE_IDLE, HUDDLE_MOVED, HUDDLE_STANDINGS } from "../../wording/huddle"
 import { captionOf } from "../live/play-caption"
 
 /**
@@ -23,9 +23,14 @@ type Mark =
 
 const STREAK_LOOKS = { jackpot: "bg-negative text-accent-contrast", rapid: "bg-surface-0 text-text-secondary" } as const
 
-const markOf = (shown: RoomPlay, departed: boolean): Mark | undefined => {
+/** How a play's player stands in the huddle, past what the play says: still in it and heard from, gone quiet, or gone. */
+export type Presence = "here" | "idle" | "departed"
+
+const PRESENCE_WORDS: Readonly<Record<Exclude<Presence, "here">, string>> = { departed: HUDDLE_DEPARTED, idle: HUDDLE_IDLE }
+
+const markOf = (shown: RoomPlay, presence: Presence): Mark | undefined => {
   const standing = huddleStandingOf(shown.play)
-  if (standing !== "finished" && shown.latest && departed) return { type: "chip", words: HUDDLE_DEPARTED }
+  if (standing !== "finished" && shown.latest && presence !== "here") return { type: "chip", words: PRESENCE_WORDS[presence] }
   switch (standing) {
     case "jackpot":
     case "rapid":
@@ -53,7 +58,9 @@ function MarkShown(props: { readonly mark: Mark }): JSX.Element {
 /**
  * One play in a huddle's room: on what, with a mark for a jackpot or 時短
  * and the jackpots won in a row, a play over, one left for another
- * machine or by one who left the huddle; where and since when; and on the
+ * machine, by one who left the huddle, or by one who has said nothing for
+ * long (動きなし) — what the play said last being likely over by then;
+ * where and since when; and on the
  * third line who plays it as a chip, with the line's width to itself.
  * Pressed, it opens. One of the others' is only to be looked at, and held
  * — or by a small cross where a pointer hovers — asks to be let go of from
@@ -64,8 +71,8 @@ export function HuddleRow(props: {
   readonly shown: RoomPlay
   /** Who plays it, as the chip says. */
   readonly who: string
-  /** Whether its player has left the huddle. */
-  readonly departed: boolean
+  /** Whether its player is still in the huddle and heard from lately, has gone quiet, or has left. */
+  readonly presence: Presence
   readonly selected: boolean
   readonly onSelect: () => void
   readonly onDismiss: (() => void) | undefined
@@ -92,7 +99,7 @@ export function HuddleRow(props: {
       >
         <span class="flex min-w-0 items-center gap-1.5 text-[15px]">
           <span class="truncate">{shownNameOf(app.machineNames(), play().machine)}</span>
-          <Show when={markOf(props.shown, props.departed)} keyed>
+          <Show when={markOf(props.shown, props.presence)} keyed>
             {(mark) => <MarkShown mark={mark} />}
           </Show>
         </span>

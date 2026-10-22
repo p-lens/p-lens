@@ -2,13 +2,14 @@
  * The egg's own look, cast over the whole page from here: a stylesheet of
  * its own put into the document's head, and a mark put on the document
  * itself while the egg is open, under which the screen's four edges glow
- * a faint, blurred red, slowly brighter and dimmer, over everything and
- * in the way of nothing; and what the egg says, and the name it is opened
- * by, styled by the same sheet. The mark is put on and taken off as the
+ * a faint, blurred red, over everything and in the way of nothing; and
+ * what the egg says, and the name it is opened by, styled by the same
+ * sheet. The glow is still: a blurred shadow over the whole screen,
+ * breathing, was drawn again every frame, and ran a phone's battery down
+ * over a day of play. The mark is put on and taken off as the
  * egg turns over and by nothing else, so it stays on whichever screen the
  * page goes to. No part of the app draws it, or knows of it, and none of
- * the app's styles are borrowed: it matches no theme on purpose, and
- * stays still where a device asks for less motion.
+ * the app's styles are borrowed: it matches no theme on purpose.
  */
 const SHEET = "unhatched-egg"
 const MARK = "data-unhatched-egg"
@@ -24,11 +25,7 @@ html[${MARK}]::after {
   inset: 0;
   z-index: 2147483647;
   pointer-events: none;
-  box-shadow: inset 0 0 32px 4px rgba(255, 32, 48, 0.22);
-  animation: unhatched-egg-breath 3.2s ease-in-out infinite;
-}
-@keyframes unhatched-egg-breath {
-  50% { box-shadow: inset 0 0 48px 8px rgba(255, 32, 48, 0.38); }
+  box-shadow: inset 0 0 40px 6px rgba(255, 32, 48, 0.3);
 }
 .${PRESSED} {
   user-select: none;
@@ -50,9 +47,6 @@ html[${MARK}]::after {
   font-size: 0.875rem;
   max-width: calc(100vw - 2rem);
   box-shadow: 0 0 16px rgba(255, 32, 48, 0.45);
-}
-@media (prefers-reduced-motion: reduce) {
-  html[${MARK}]::after { animation: none; }
 }
 `
 

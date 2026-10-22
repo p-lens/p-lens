@@ -2140,9 +2140,14 @@ wherever its player records it, as it would be without the huddle.
   the relay counts as a large sending.
 - **Shown and read wherever the app is** (`HuddleRunner`, once, in the
   shell): each of the day's own plays is shown when its log changes, at
-  most once every 20 seconds, the latest of each then — a play that came
+  most once every 30 seconds, the latest of each then — a play that came
   from someone else is theirs to show — and the line is read at once and
-  every 15 seconds. What has been read, and which log of each play was
+  every 30 seconds while the page is in sight, not while it is away, and at
+  once as it comes back: a phone's radio asked more often is never let
+  rest. What is read is kept as each play's latest showing alone, with
+  every play taken back and member leaving (`latestEntries`), since each
+  showing carries the play's whole log; the others' plays are worked out
+  from it once for every screen (`HuddleJoined.others`). What has been read, and which log of each play was
   last shown, are the page's (`HuddleLine`, on the context).
 - **A play given up is taken back** (`HuddleWithdrawal`, `givenUp`,
   `withdrawFromHuddle`): an entry of its id alone, under who took it
@@ -2162,10 +2167,18 @@ wherever its player records it, as it would be without the huddle.
   puts an entry saying so on the line, and keeps the huddle that day as
   left, showing and shown nothing. The others mark the play it was on
   離脱, whatever it was doing, put it after those still in the huddle, and
-  are urged by none of its jackpots. Whoever's last word on the line is
-  that they left is gone (`departedOn`); the same code read again that day
+  are urged by none of its jackpots. Whoever's latest word, by when it
+  was said, is that they left is gone (`departedOn`); the same code read again that day
   makes the device the member it was, its name already filled in, and its
   plays shown again are a later word, which lifts the mark.
+- **Gone quiet is said, not guessed at** (`idleMembers`, `IDLE_AFTER`,
+  `HuddleJoined.idle`): one of the others who has put nothing on the line
+  for an hour and a half has the play they are on marked 動きなし — after
+  終了 and 離脱, before 大当り中 — and is left out of the jackpots the room
+  wears, what they said last being likely over. It says nothing was typed
+  in, not that they left: a long run may go untyped. It is looked at once
+  a minute (`createMinuteStruck`), and nothing is sent to keep anyone
+  heard from: the line stays as quiet as the plays are.
 - **A room on the rail** (`huddle`, `/huddle`; `HuddleSide`,
   `useHuddleRoomItem`): while the runner keeps a huddle up
   (`HuddleLine.keptUp`) it is a space below the live space, in the semipro
@@ -2179,11 +2192,13 @@ wherever its player records it, as it would be without the huddle.
   `roomMembersOf`): one's own plays, newest begun first and not those sent
   to the device, under 自分, opening in the live space where they are
   played; then each of the others' plays as the latest post of it
-  (`othersPlays`), the others in the order
-  they first showed anything, each one's plays newest shown first: a play
+  (`othersPlays`), the others in the order they began their first play of
+  the day, each one's plays the one begun last first: a play
   left for another machine stays, marked 移動済 and put after every
-  one's latest, and the one they are on is
-  their latest. A filter of its members (`RoomChoices.listed`) narrows the
+  one's latest, the one begun last first, and the one they are on is
+  the one they began last. Every place is by when a play began, which no
+  showing moves, so the list stands still however often each is shown
+  again; one gone quiet goes down to just above the plays moved from. A filter of its members (`RoomChoices.listed`) narrows the
   list. A row (`HuddleRow`) says who as a chip on its third line, and marks where the play stands
   (`huddleStandingOf`): 大当り中 where its last reading won a jackpot (an
   AT, on a pachislot AT machine), 時短中 where a pachinko play's last
@@ -2218,11 +2233,13 @@ wherever its player records it, as it would be without the huddle.
   its right end, so that the swelling too pushes toward the list. On one's own play's
   screen the back button, in a narrow window, becomes a <<< — the
   back chevron three times over, each as large as it alone
-  (`UrgedBackIcon`) — jabbing at the list (`ViewHeader`'s `urged`, the
+  (`UrgedBackIcon`) — jabbing at the list four beats and then standing
+  in its colour (`ViewHeader`'s `urged`, the
   `urge` keyframes), still where a
   device asks for less motion, until the list is looked at — anywhere but
   one's own play — so a jackpot won and over before one looks is not
-  missed.
+  missed. Nothing moves on and on: a page in motion without end runs a
+  phone down over a day of play.
 
 ## The unhatched egg
 
@@ -2245,7 +2262,8 @@ It is kept nowhere: loading the page again closes it.
   is the page's, as nothing else in the app is: it is meant to be the
   odd one out, so that the rest need not be.
 - **A look of its own, cast from inside.** While it is open the screen's
-  four edges glow a faint red: the egg puts a stylesheet of its own into
+  four edges glow a faint red, still — a glow breathing over the whole
+  screen was drawn again every frame and ran a phone's battery down: the egg puts a stylesheet of its own into
   the document's head and a mark on the document (`castLook`), so the
   whole page wears it while no part of the app draws it or knows of it.
   What the egg says is styled by the same sheet, borrowing none of the

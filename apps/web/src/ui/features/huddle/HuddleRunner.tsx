@@ -4,19 +4,23 @@ import type { Outcome } from "../../../application/errors"
 import { readHuddleAfter, showToHuddle, withdrawFromHuddle } from "../../../application/huddle"
 import { loadTodaysPlays } from "../../../application/live-play"
 import type { Huddle } from "../../../core/huddle/huddle"
-import { givenUp, othersPlaysFor } from "../../../core/huddle/post"
+import { givenUp, latestEntries } from "../../../core/huddle/post"
 import { huddleTurnOf, jackpotsNow, louderTurn } from "../../../core/huddle/standing"
 import type { PlayDraft } from "../../../core/live-play/draft"
 import type { PlayId } from "../../../core/play/play"
 import { useApp } from "../../context"
 import type { Place } from "../../navigation/place"
+import { onShownAgain } from "../../primitives/shown-again"
 import { huddlePortsOf } from "./huddle-ports"
 
-/** How often the huddle's line is read, in milliseconds. */
-const READ_EVERY = 15_000
+/** How often the huddle's line is read while the page is before the person, in milliseconds: a phone's radio asked more often than this is never let rest. */
+const READ_EVERY = 30_000
 
 /** The least time between two showings of one's own plays, in milliseconds: readings typed in a row go as one. */
-const SHOWN_AT_MOST_EVERY = 20_000
+const SHOWN_AT_MOST_EVERY = 30_000
+
+/** Whether the page is out of sight: another app or tab before it, or the screen off. */
+const away = (): boolean => document.visibilityState === "hidden"
 
 /** One's own plays of the day that changed since they were last shown: those that came from someone else are theirs to show. */
 const changedSince = (drafts: readonly PlayDraft[], shown: ReadonlyMap<string, string>): readonly PlayDraft[] =>
@@ -24,9 +28,10 @@ const changedSince = (drafts: readonly PlayDraft[], shown: ReadonlyMap<string, s
 
 /**
  * The huddle kept up for as long as the app is open, wherever it is: its
- * line read at once and every 15 seconds after, into the page's
- * `HuddleLine`, and each of the day's own plays shown to the others when
- * it changes — at once, or 20 seconds after the last showing, the latest
+ * line read at once and every 30 seconds after, into the page's
+ * `HuddleLine`, while the page is in sight — not while it is away, and at
+ * once as it is back — and each of the day's own plays shown to the others when
+ * it changes — at once, or 30 seconds after the last showing, the latest
  * of each then — and each it showed and has since given up taken back, so
  * the others let it go too, whichever screen gave it up. Nothing is read
  * or shown where the device is in no huddle, and nothing is drawn.
@@ -67,14 +72,14 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
 
   const read = async (): Promise<void> => {
     const huddle = joined()
-    if (huddle === undefined || held.reading) return
+    if (huddle === undefined || held.reading || away()) return
     held.reading = true
     const found = await readHuddleAfter(ports, huddle, held.read)
     held.reading = false
     if (!settled(huddle, found) || !found.ok) return
     held.read = found.value.head
     held.lineEnd = Math.max(held.lineEnd, found.value.head)
-    if (found.value.entries.length > 0) line.setEntries((so) => [...so, ...found.value.entries])
+    if (found.value.entries.length > 0) line.setEntries((so) => latestEntries([...so, ...found.value.entries]))
   }
 
   const showEach = async (huddle: Huddle, drafts: readonly PlayDraft[]): Promise<void> => {
@@ -117,7 +122,7 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
     void read()
     showSoon()
   }))
-  const jackpots = createMemo(() => ((huddle) => (huddle === undefined ? "" : jackpotsNow(othersPlaysFor(line.entries(), huddle))))(app.huddle.now()))
+  const jackpots = createMemo(() => jackpotsNow(app.huddle.others()))
   const onOwnPlay = (): boolean => props.place.kind === "live-play" || props.place.kind === "live-record" || props.place.kind === "live-cabinet"
   createEffect(on(jackpots, (now, before) => {
     if (before !== undefined && onOwnPlay()) line.setUrged((so) => louderTurn(so, huddleTurnOf(before, now)))
@@ -126,7 +131,9 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
     if (!onOwnPlay()) line.setUrged(undefined)
   })
   const reading = setInterval(() => void read(), READ_EVERY)
+  const stopListening = onShownAgain(() => void read())
   onCleanup(() => {
+    stopListening()
     line.setKeptUp(undefined)
     clearInterval(reading)
     clearTimeout(waiting.timer)

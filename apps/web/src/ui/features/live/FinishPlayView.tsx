@@ -107,7 +107,7 @@ function BookField(props: { readonly draft: PlayDraft; readonly bookId: BookId; 
   const app = useApp()
   const choose = async (bookId: BookId): Promise<void> => {
     const chosen = await chooseBook(app.services.drafts, props.draft, bookId)
-    if (chosen.ok) app.wrote()
+    if (chosen.ok) app.played()
   }
   return (
     <Show when={props.draft.recorded === undefined && props.books.length > 1}>
@@ -132,7 +132,7 @@ function BookField(props: { readonly draft: PlayDraft; readonly bookId: BookId; 
 function Arrived(props: { readonly draft: PlayDraft; readonly sender: string | undefined }): JSX.Element {
   const app = useApp()
   const settled = (outcome: { readonly ok: boolean }): void => {
-    if (outcome.ok) app.wrote()
+    if (outcome.ok) app.played()
   }
   return (
     <>

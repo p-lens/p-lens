@@ -340,7 +340,7 @@ export function LivePlay(props: {
       return { type: "failed", error: kept.error }
     }
     setMine({ draft: kept.value, over: props.draft.log })
-    app.wrote()
+    app.played()
     return { type: "written" }
   }
   const held: { chain: Promise<unknown> } = { chain: Promise.resolve() }

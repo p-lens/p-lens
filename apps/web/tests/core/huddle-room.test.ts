@@ -4,7 +4,7 @@ import type { IsoDate } from "../../src/core/calendar/calendar"
 import type { Huddle } from "../../src/core/huddle/huddle"
 import type { HuddlePlay } from "../../src/core/huddle/post"
 import { playsOfChosen, roomMembersOf, roomPlaysOf, roomTotalOf } from "../../src/core/huddle/room"
-import { othersInJackpot } from "../../src/core/huddle/standing"
+import { IDLE_AFTER, idleMembers, othersInJackpot } from "../../src/core/huddle/standing"
 import type { PachinkoDraft, PachislotDraft } from "../../src/core/live-play/draft"
 import type { PlayTerms } from "../../src/core/parlor/terms"
 import type { PlayId } from "../../src/core/play/play"
@@ -39,12 +39,18 @@ describe("a huddle's room", () => {
   const others = [theirs("b", "b-2", '{"spins":0,"outlay":0}\n{"spins":50,"outlay":1000,"held":280}\n', true), theirs("b", "b-1", '{"spins":0,"outlay":0}\n{"spins":300,"outlay":7000,"held":1000}\n', false)]
 
   test("lists this device's own plays first, newest begun first and the one it is on, then the others', and leaves out what was sent to it", () => {
-    expect(roomPlaysOf(HUDDLE, [...own, received], others).map(({ member, play, latest }) => [member, play.id, latest])).toEqual([
+    expect(roomPlaysOf(HUDDLE, [...own, received], others, new Set()).map(({ member, play, latest }) => [member, play.id, latest])).toEqual([
       ["me", "mine-2", true],
       ["me", "mine-1", false],
       ["b", "b-2", true],
       ["b", "b-1", false],
     ])
+  })
+
+  test("puts the play each who has gone quiet is on just above the plays left for another machine, below those who left", () => {
+    const listed = [theirs("c", "c-1", "", true), theirs("d", "d-1", "", true), theirs("e", "e-1", "", true, true), theirs("c", "c-0", "", false)]
+    expect(roomPlaysOf(HUDDLE, [], listed, new Set(["d", "e"])).map(({ play }) => String(play.id))).toEqual(["c-1", "e-1", "d-1", "c-0"])
+    expect(roomPlaysOf(HUDDLE, [], listed, new Set()).map(({ play }) => String(play.id))).toEqual(["c-1", "d-1", "e-1", "c-0"])
   })
 
   test("has this device first among its members, then each of the others once", () => {
@@ -55,7 +61,7 @@ describe("a huddle's room", () => {
   })
 
   test("adds up the cash of every play, and the balls in hand of the play each is on alone, with what they come to at its exchange rate", () => {
-    const total = roomTotalOf(roomPlaysOf(HUDDLE, own, others))
+    const total = roomTotalOf(roomPlaysOf(HUDDLE, own, others, new Set()))
     expect(total.outlay).toBe(5000 + 2000 + 1000 + 7000)
     expect(total.held.pachinko).toEqual({ tokens: 560 + 280, yen: 2000 + 1000 })
     expect(total.held.pachislot).toEqual({ tokens: 0, yen: 0 })
@@ -63,18 +69,28 @@ describe("a huddle's room", () => {
 
   test("counts medals apart from balls, and nothing in yen where the corner is not known", () => {
     const medals: PachislotDraft = { ...draft("slot", "2026-10-20T05:00:00Z", '{"spins":0,"outlay":0}\n{"spins":100,"outlay":3000,"held":150}\n'), gameKind: "pachislot", venue: { type: "none", terms: undefined } }
-    expect(roomTotalOf(roomPlaysOf(HUDDLE, [medals], [])).held).toEqual({ pachinko: { tokens: 0, yen: 0 }, pachislot: { tokens: 150, yen: 0 } })
+    expect(roomTotalOf(roomPlaysOf(HUDDLE, [medals], [], new Set())).held).toEqual({ pachinko: { tokens: 0, yen: 0 }, pachislot: { tokens: 150, yen: 0 } })
   })
 
   test("adds up only those chosen, and everyone where nothing is left out", () => {
-    const plays = roomPlaysOf(HUDDLE, own, others)
+    const plays = roomPlaysOf(HUDDLE, own, others, new Set())
     expect(roomTotalOf(playsOfChosen(plays, ["me"])).outlay).toBe(7000)
     expect(playsOfChosen(plays, undefined)).toBe(plays)
     expect(playsOfChosen(plays, [])).toEqual([])
   })
 
-  test("wears on the rail how many of the others still in it are in a jackpot on the play they are on", () => {
+  test("wears on the rail how many of the others still in it and heard from lately are in a jackpot on the play they are on", () => {
     const jackpot = '{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot"}}\n'
-    expect(othersInJackpot([theirs("b", "b-1", jackpot, true), theirs("c", "c-1", jackpot, true), theirs("d", "d-1", jackpot, false), theirs("e", "e-1", jackpot, true, true)])).toBe(2)
+    const plays = [theirs("b", "b-1", jackpot, true), theirs("c", "c-1", jackpot, true), theirs("d", "d-1", jackpot, false), theirs("e", "e-1", jackpot, true, true)]
+    expect(othersInJackpot(plays, new Set())).toBe(2)
+    expect(othersInJackpot(plays, new Set(["c"]))).toBe(1)
+  })
+
+  test("tells who has put nothing on the line for an hour and a half, by the latest thing each said", () => {
+    const now = Date.parse("2026-10-20T05:00:00Z")
+    const said = (member: string, postedAt: string) => ({ member, name: member, postedAt, left: true as const })
+    const entries = [said("b", "2026-10-20T03:00:00Z"), said("b", "2026-10-20T04:00:00Z"), said("c", "2026-10-20T03:30:00Z"), said("d", "2026-10-20T03:29:59Z")]
+    expect([...idleMembers(entries, now)].toSorted()).toEqual(["c", "d"])
+    expect(IDLE_AFTER).toBe(90 * 60_000)
   })
 })

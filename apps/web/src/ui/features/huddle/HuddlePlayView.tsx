@@ -2,7 +2,7 @@ import { MainContent } from "solid-gathering-shell"
 import { Show, type JSX } from "solid-js"
 
 import { shownNameOf } from "../../../core/catalog/catalog"
-import { othersPlaysFor, type HuddlePlay } from "../../../core/huddle/post"
+import type { HuddlePlay } from "../../../core/huddle/post"
 import { parlorOf } from "../../../core/live-play/draft"
 import type { PlayId } from "../../../core/play/play"
 import { useApp } from "../../context"
@@ -25,7 +25,7 @@ export function HuddlePlayView(props: { readonly place: Place; readonly member: 
   const app = useApp()
   const found = (): HuddlePlay | undefined => {
     const huddle = app.huddle.now()
-    return huddle === undefined ? undefined : othersPlaysFor(app.huddle.line.entries(), huddle).find(({ post }) => post.member === props.member && post.play.id === props.playId)
+    return huddle === undefined ? undefined : app.huddle.others().find(({ post }) => post.member === props.member && post.play.id === props.playId)
   }
   const title = (): string => {
     const shown = found()?.post

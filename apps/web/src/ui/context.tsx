@@ -1,4 +1,4 @@
-import { createContext, createEffect, createResource, createSignal, on, onCleanup, onMount, useContext, type Accessor, type JSX } from "solid-js"
+import { createContext, createEffect, createMemo, createResource, createSignal, on, onCleanup, onMount, useContext, type Accessor, type JSX } from "solid-js"
 
 import { adoptBusinessDayTurn } from "../application/business-day-turn"
 import { loadMachineNames, refreshCatalog } from "../application/catalog"
@@ -6,12 +6,15 @@ import type { ApplicationError } from "../application/errors"
 import type { Services } from "../application/services"
 import type { MachineNames } from "../core/catalog/catalog"
 import type { Huddle } from "../core/huddle/huddle"
+import { othersPlaysFor, type HuddlePlay } from "../core/huddle/post"
+import { idleMembers } from "../core/huddle/standing"
 import { fileEveryBookByYear } from "../application/file-by-year"
 import { huddleNow } from "../application/huddle"
 import { receiveArrivals, type Arrivals } from "../application/inbox"
 import { restoreEveryGrant } from "../application/invitations"
 import { keepStorage } from "../application/storage-keeping"
 import { syncAll, type Synced } from "../application/sync"
+import { createMinuteStruck } from "./primitives/minute"
 import { toast } from "./primitives/toast"
 import type { ThemeState } from "./theme/theme"
 import { unreadableArrivalsText } from "./wording/sync"
@@ -81,6 +84,10 @@ export interface HuddleJoined {
   readonly line: HuddleLine
   /** Whose plays its room lists and adds up. */
   readonly chosen: RoomChoices
+  /** The others' plays as the line was last read (`othersPlaysFor`), worked out once for every screen that shows them: none where the device is in no huddle. */
+  readonly others: Accessor<readonly HuddlePlay[]>
+  /** The members who have said nothing for long (`idleMembers`), looked at once a minute while the device is in a huddle. */
+  readonly idle: Accessor<ReadonlySet<string>>
 }
 
 /** What a book's machines are shown as before the catalog's machines are read: each as the book says it. */
@@ -97,8 +104,9 @@ export interface AppContext {
   readonly theme: ThemeState
   readonly updates: UpdateState
   /**
-   * Counts writes made from this page. Views read it so that what they asked
-   * of hledger is asked again after the book changes.
+   * Counts writes made from this page, to a book or to a play in progress.
+   * Views read it so that what they asked of hledger, or of the day's
+   * plays, is asked again after it changes.
    */
   readonly revision: Accessor<number>
   /**
@@ -109,7 +117,15 @@ export interface AppContext {
   readonly consolidationOutdated: Accessor<number>
   /** What 貯玉・貯メダル last showed, shown at once when it is opened again while it asks anew, and asked again a while after each write. */
   readonly savingsShown: SavingsShown
+  /** A book, or the catalog, was written: everything is read again, and the books are synced a while after. */
   readonly wrote: () => void
+  /**
+   * A play in progress was written, and nothing else: the day's plays are
+   * read again, and nothing that is of the books — no sync, nothing asked
+   * of hledger ahead — since a reading typed in, or a small role tapped,
+   * changes none of them, and doing it all after each ran a phone down.
+   */
+  readonly played: () => void
   readonly delivery: CatalogDelivery
   /**
    * The catalog's machines by the name a book keeps each under, read again
@@ -131,15 +147,21 @@ export function AppProvider(props: {
   readonly children: JSX.Element
 }): JSX.Element {
   const [revision, setRevision] = createSignal(0)
-  const wrote = (): void => {
+  /** Counts the writes to books and the catalog alone: what is of them is read again, ahead or behind, after these and not after a play's. */
+  const [written, setWritten] = createSignal(0)
+  const played = (): void => {
     setRevision((count) => count + 1)
   }
-  createEffect(on(revision, () => void adoptBusinessDayTurn(props.services.session, props.services.preferences)))
-  warmConsolidationWhileShown(props.services, revision)
+  const wrote = (): void => {
+    setWritten((count) => count + 1)
+    played()
+  }
+  createEffect(on(written, () => void adoptBusinessDayTurn(props.services.session, props.services.preferences)))
+  warmConsolidationWhileShown(props.services, written)
   const consolidationOutdated = heardOutdated(props.services)
-  const savingsShown = savingsShownAfterWrites(revision)
+  const savingsShown = savingsShownAfterWrites(written)
   const [machinesRead] = createResource(
-    () => ({ revision: revision() }),
+    () => ({ written: written() }),
     () => loadMachineNames(props.services.catalog),
   )
   const machineNames = (): MachineNames => machinesRead.latest ?? NO_MACHINE_NAMES
@@ -150,6 +172,9 @@ export function AppProvider(props: {
     huddleChanges()
     return huddleNow(props.services.preferences, props.services.businessDay())
   }
+  const minute = createMinuteStruck()
+  const huddleIdle = createMemo((): ReadonlySet<string> => (huddle() === undefined ? new Set() : idleMembers(huddleLine.entries(), minute())))
+  const huddleOthers = createMemo((): readonly HuddlePlay[] => ((joined) => (joined === undefined ? [] : othersPlaysFor(huddleLine.entries(), joined)))(huddle()))
   const [state, setState] = createSignal<DeliveryState>({ type: "idle" })
   const timers: { pending: readonly ReturnType<typeof setTimeout>[] } = { pending: [] }
   const refresh = (): void => {
@@ -181,7 +206,7 @@ export function AppProvider(props: {
     void syncAll(props.services.sync).then((done) => {
       syncing.running = false
       setSyncState(done.ok ? { type: "synced", synced: done.value } : { type: "failed", error: done.error })
-      if (done.ok && done.value.received > 0) setRevision((count) => count + 1)
+      if (done.ok && done.value.received > 0) wrote()
       if (done.ok) void receiveArrivals({ links: props.services.sync.links, relay: props.services.sync.relay, sealer: props.services.sync.sealer, invitations: props.services.invitations, drafts: props.services.drafts }).then(told)
       if (done.ok && !syncing.grantsRestored) {
         syncing.grantsRestored = true
@@ -235,11 +260,12 @@ export function AppProvider(props: {
         consolidationOutdated,
         savingsShown,
         wrote: wroteAndSync,
+        played,
         delivery: { state, refresh, awaitShared },
         machineNames,
         sync: { state: syncState, run: runSync },
         backups: { count: backupsMade, made: backupMade },
-        huddle: { now: huddle, changed: () => setHuddleChanges((count) => count + 1), line: huddleLine, chosen: roomChoices },
+        huddle: { now: huddle, changed: () => setHuddleChanges((count) => count + 1), line: huddleLine, chosen: roomChoices, others: huddleOthers, idle: huddleIdle },
       }}>
       {props.children}
     </Context.Provider>

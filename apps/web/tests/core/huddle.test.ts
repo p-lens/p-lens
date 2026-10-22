@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test"
 import type { BookId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { huddleCodeOf, huddleInOn, huddleNameOf, huddleOn, huddleText, readHuddle, secretOfHuddleCode, type Huddle } from "../../src/core/huddle/huddle"
-import { givenUp, huddleDepartureOf, huddleEntryText, huddlePostOf, huddleWithdrawalOf, othersPlays, othersPlaysFor, readHuddleEntry, type HuddlePost } from "../../src/core/huddle/post"
+import { givenUp, huddleDepartureOf, latestEntries, huddleEntryText, huddlePostOf, huddleWithdrawalOf, othersPlays, othersPlaysFor, readHuddleEntry, type HuddlePost } from "../../src/core/huddle/post"
 import { huddleStandingOf, huddleTurnOf, jackpotStreakOf, jackpotsNow, louderTurn } from "../../src/core/huddle/standing"
 import type { PachinkoDraft } from "../../src/core/live-play/draft"
 import type { PlayTerms } from "../../src/core/parlor/terms"
@@ -31,7 +31,8 @@ const DRAFT: PachinkoDraft = {
   recorded: { at: "2026-10-20T03:00:10.000Z", finish: { at: "2026-10-20T03:00:00.000Z", counter: 300 } },
 }
 
-const post = (member: string, postedAt: string, machine = "made-up", playId = "p-1"): HuddlePost => ({ member, name: member, postedAt, play: { ...huddlePostOf(DRAFT, HUDDLE, postedAt).play, id: playId as PlayId, machine } })
+/** A play shown, begun when it was first shown unless said otherwise: what the list is put in order by. */
+const post = (member: string, postedAt: string, machine = "made-up", playId = "p-1", startedAt = postedAt): HuddlePost => ({ member, name: member, postedAt, play: { ...huddlePostOf(DRAFT, HUDDLE, postedAt).play, id: playId as PlayId, machine, startedAt } })
 
 const withLog = (log: string, gameKind: "pachinko" | "pachislot" = "pachinko"): HuddlePost["play"] => ({ ...huddlePostOf(DRAFT, HUDDLE, DAY).play, log, gameKind }) as HuddlePost["play"]
 
@@ -121,15 +122,15 @@ describe("a play shown to a huddle", () => {
 })
 
 describe("the others' plays", () => {
-  test("are each play's latest showing, the others in the order they first showed anything, this device's own left out", () => {
-    const posts = [post("b", "2026-10-20T01:00:00Z"), post("me", "2026-10-20T01:01:00Z"), post("c", "2026-10-20T01:02:00Z"), post("b", "2026-10-20T01:03:00Z", "same play later")]
+  test("are each play's latest showing, the others in the order they began their first play, this device's own left out", () => {
+    const posts = [post("b", "2026-10-20T01:00:00Z"), post("me", "2026-10-20T01:01:00Z"), post("c", "2026-10-20T01:02:00Z"), post("b", "2026-10-20T01:03:00Z", "same play later", "p-1", "2026-10-20T01:00:00Z")]
     expect(othersPlays(posts, "me").map(({ post: shown, latest }) => [shown.member, shown.play.machine, latest])).toEqual([
       ["b", "same play later", true],
       ["c", "made-up", true],
     ])
   })
 
-  test("put each one's latest first, in the order they first showed anything, and the plays left for another machine after them all", () => {
+  test("put each one's latest first, in the order they began their first play, and the plays left for another machine after them all", () => {
     const posts = [post("b", "2026-10-20T01:00:00Z", "b left"), post("c", "2026-10-20T01:01:00Z", "c on"), post("b", "2026-10-20T02:00:00Z", "b on", "p-2")]
     expect(othersPlays(posts, "me").map(({ post: shown, latest }) => [shown.play.machine, latest])).toEqual([
       ["b on", true],
@@ -170,6 +171,22 @@ describe("the others' plays", () => {
     const left = { member: "b", name: "b", postedAt: "2026-10-20T01:10:00Z", left: true as const }
     const posts = [post("b", "2026-10-20T01:00:00Z"), left, post("b", "2026-10-20T01:20:00Z")]
     expect(othersPlays(posts, "me").map(({ departed }) => departed)).toEqual([false])
+  })
+
+  test("keep the latest showing of each play alone, with every play taken back and member leaving in its place, and read the same from what is kept", () => {
+    const left = { member: "b", name: "b", postedAt: "2026-10-20T01:10:00Z", left: true as const }
+    const withdrawn = { member: "c", name: "c", postedAt: "2026-10-20T01:06:00Z", withdrawn: "p-1" as PlayId }
+    const entries = [post("b", "2026-10-20T01:00:00Z", "first"), post("c", "2026-10-20T01:01:00Z"), post("b", "2026-10-20T01:05:00Z", "later"), withdrawn, left, post("b", "2026-10-20T01:04:00Z", "late to arrive")]
+    expect(latestEntries(entries)).toEqual([post("c", "2026-10-20T01:01:00Z"), post("b", "2026-10-20T01:05:00Z", "later"), withdrawn, left])
+    expect(othersPlays(latestEntries(entries), "me")).toEqual(othersPlays(entries, "me"))
+  })
+
+  test("stand still however often each play is shown again, and however much of the line is kept", () => {
+    const first = [post("b", "2026-10-20T01:00:00Z", "b on"), post("c", "2026-10-20T01:01:00Z", "c on"), post("d", "2026-10-20T01:02:00Z", "d moved from"), post("d", "2026-10-20T01:30:00Z", "d on", "p-2")]
+    const again = [...first, post("c", "2026-10-20T02:00:00Z", "c on", "p-1", "2026-10-20T01:01:00Z"), post("d", "2026-10-20T02:01:00Z", "d moved from", "p-1", "2026-10-20T01:02:00Z"), post("b", "2026-10-20T02:02:00Z", "b on", "p-1", "2026-10-20T01:00:00Z")]
+    const order = (entries: readonly HuddlePost[]) => othersPlays(latestEntries(entries), "me").map(({ post: shown }) => shown.play.machine)
+    expect(order(first)).toEqual(["b on", "c on", "d on", "d moved from"])
+    expect(order(again)).toEqual(order(first))
   })
 
   test("keep the later of two showings of a play that arrived out of order", () => {

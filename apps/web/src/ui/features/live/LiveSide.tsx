@@ -149,7 +149,7 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
       toast({ title: "稼働を削除できませんでした", description: describeError(gone.error), tone: "error" })
       return
     }
-    app.wrote()
+    app.played()
     if (openPlay(props.place) === draft.id) moves.go({ kind: "live" })
   }
   const sendTo = async (draft: PlayDraft, destination: Destination): Promise<void> => {
@@ -160,7 +160,7 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
       return
     }
     toast({ title: "送りました", description: destination.title })
-    app.wrote()
+    app.played()
   }
   const send = (draft: PlayDraft): void => {
     const [only, ...others] = sendingTo()

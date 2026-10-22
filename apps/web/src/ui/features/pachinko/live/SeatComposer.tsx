@@ -89,7 +89,7 @@ export function SeatComposer(props: { readonly draft: PlayDraft; readonly ordere
       setSending({ type: "failed", error: kept.error })
       return
     }
-    app.wrote()
+    app.played()
     props.onDone()
   }
   const held: { form: HTMLFormElement | undefined } = { form: undefined }

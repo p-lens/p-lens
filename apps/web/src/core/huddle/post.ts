@@ -105,6 +105,17 @@ const keyOf = huddlePlayKey
 const withdrawnOn = (entries: readonly HuddleEntry[]): ReadonlySet<string> =>
   new Set(entries.filter(isWithdrawal).map((entry) => keyOf(entry.member, entry.withdrawn)))
 
+/**
+ * A line's entries with every showing of a play but its latest let go:
+ * what is kept of a line read all day, since each showing carries the
+ * play's whole log. Plays taken back and members leaving are kept, all of
+ * them and in their places, so nothing read from the line changes.
+ */
+export const latestEntries = (entries: readonly HuddleEntry[]): readonly HuddleEntry[] => {
+  const latest = entries.filter(isShown).reduce((found, post) => ((kept) => (kept !== undefined && kept.postedAt > post.postedAt ? found : new Map(found).set(keyOf(post.member, post.play.id), post)))(found.get(keyOf(post.member, post.play.id))), new Map<string, HuddlePost>())
+  return entries.filter((entry) => !isShown(entry) || latest.get(keyOf(entry.member, entry.play.id)) === entry)
+}
+
 /** The plays shown on a line and never taken back. */
 const standingShown = (entries: readonly HuddleEntry[]): readonly HuddlePost[] => {
   const withdrawn = withdrawnOn(entries)
@@ -127,31 +138,40 @@ export interface HuddlePlay {
   readonly departed: boolean
 }
 
-/** The members whose last word on the line is that they left: one who came back has shown something since. */
+/** The members whose last word is that they left — the latest said, whenever it reached the line: one who came back has shown something since. */
 const departedOn = (entries: readonly HuddleEntry[]): ReadonlySet<string> => {
-  const lastWords = entries.reduce((last, entry) => new Map(last).set(entry.member, entry), new Map<string, HuddleEntry>())
+  const lastWords = entries.reduce((last, entry) => ((said) => (said !== undefined && said.postedAt > entry.postedAt ? last : new Map(last).set(entry.member, entry)))(last.get(entry.member)), new Map<string, HuddleEntry>())
   return new Set([...lastWords.values()].filter((entry) => "left" in entry).map((entry) => entry.member))
 }
+
+/** Plays the later begun first, by when each began, and then by who and which, so that two begun at once always stand the same way. */
+const begunLaterFirst = (one: HuddlePost, other: HuddlePost): number =>
+  other.play.startedAt.localeCompare(one.play.startedAt) || one.member.localeCompare(other.member) || one.play.id.localeCompare(other.play.id)
+
+/** When a member began their first play of those shown. */
+const firstBegun = (shown: readonly HuddlePost[], member: string): string => shown.findLast((post) => post.member === member)?.play.startedAt ?? ""
 
 const laterOf = (found: HuddlePost | undefined, post: HuddlePost): HuddlePost => (found !== undefined && found.postedAt > post.postedAt ? found : post)
 
 /**
  * Each of the others' plays as it was last shown: first the one each is on
- * — their latest — in the order they first showed anything, those who
- * left the huddle after those still in it, then those they left for
- * another machine, newest shown first, at the end. A play they took back
- * is gone. This device's own are left out, its plays being in its own list.
+ * — the one they began last — in the order they began their first play of
+ * the day, those who left the huddle after those still in it, then those
+ * they left for another machine, the one begun last first, at the end.
+ * Every place is by when a play began, which a showing never moves, so the
+ * list stands still however often each is shown again. A play they took
+ * back is gone. This device's own are left out, its plays being in its own
+ * list.
  */
 export const othersPlays = (entries: readonly HuddleEntry[], member: string): readonly HuddlePlay[] => {
   const others = standingShown(entries).filter((post) => post.member !== member)
   const byPlay = others.reduce((found, post) => new Map(found).set(keyOf(post.member, post.play.id), laterOf(found.get(keyOf(post.member, post.play.id)), post)), new Map<string, HuddlePost>())
   const departed = departedOn(entries)
-  const marked = [...new Set(others.map((post) => post.member))].flatMap((who) => {
-    const theirs = [...byPlay.values()].filter((post) => post.member === who).toSorted((left, right) => right.postedAt.localeCompare(left.postedAt))
-    return theirs.map((post, at) => ({ post, latest: at === 0, departed: departed.has(who) }))
-  })
-  const latest = marked.filter((shown) => shown.latest)
-  const moved = marked.filter((shown) => !shown.latest).toSorted((one, other) => other.post.postedAt.localeCompare(one.post.postedAt))
+  const shown = [...byPlay.values()].toSorted(begunLaterFirst)
+  const members = [...new Set(shown.toReversed().map((post) => post.member))].toSorted((one, other) => firstBegun(shown, one).localeCompare(firstBegun(shown, other)) || one.localeCompare(other))
+  const marked = members.flatMap((who) => shown.filter((post) => post.member === who).map((post, at) => ({ post, latest: at === 0, departed: departed.has(who) })))
+  const latest = marked.filter((each) => each.latest)
+  const moved = marked.filter((each) => !each.latest).toSorted((one, other) => begunLaterFirst(one.post, other.post))
   return [...latest.filter((shown) => !shown.departed), ...latest.filter((shown) => shown.departed), ...moved]
 }
 

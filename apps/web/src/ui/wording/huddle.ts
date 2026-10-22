@@ -22,6 +22,9 @@ export const roomMemberText = (name: string, own: boolean): string => (own ? `${
 /** The mark of one of the others' plays they have left for another machine. */
 export const HUDDLE_MOVED = "移動済"
 
+/** The mark of the play one of the others is on where they have said nothing for long: nothing typed in, not that they left. */
+export const HUDDLE_IDLE = "動きなし"
+
 /** The mark of the play one of the others was on as they left the huddle. */
 export const HUDDLE_DEPARTED = "離脱"
 
