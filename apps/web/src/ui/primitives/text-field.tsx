@@ -69,6 +69,8 @@ export function TextField(props: {
   readonly tidied?: (typed: string) => string
   /** Named for assistive technology only, where what surrounds it — a fieldset's legend, a suffix — already says it on screen. */
   readonly labelHidden?: boolean
+  /** Its label drawn in the colour of whom the field is for — the nerdpro colour, for those who set a machine's own figures by their hand — or in the label's usual colour where left out. */
+  readonly tone?: "nerdpro"
   /** Takes the focus as it appears, the caret after what it holds: the one field a screen is opened to type in. */
   readonly focusedOnShow?: boolean
 }): JSX.Element {
@@ -134,7 +136,7 @@ export function TextField(props: {
       required={props.required ?? false}
       class="flex flex-col gap-1.5"
     >
-      <TextFieldPrimitive.Label as="span" class="text-xs font-bold uppercase tracking-wide text-text-secondary" classList={{ "sr-only": props.labelHidden === true }}>{props.label}</TextFieldPrimitive.Label>
+      <TextFieldPrimitive.Label as="span" class="text-xs font-bold uppercase tracking-wide" classList={{ "sr-only": props.labelHidden === true, "text-text-secondary": props.tone === undefined, "text-nerdpro-ink": props.tone === "nerdpro" }}>{props.label}</TextFieldPrimitive.Label>
       <div
         class="flex items-center rounded-[3px] bg-surface-input focus-within:outline-2 focus-within:outline-focus-ring"
         classList={redRing(props.invalid === true)}

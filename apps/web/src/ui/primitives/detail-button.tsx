@@ -25,8 +25,8 @@ export function DetailButton(props: {
   readonly says: string
   readonly marked: boolean
   readonly invalid: boolean
-  /** Its icon drawn in the colour of whom what it holds is for — the semipro colour, for those who work their figures out themselves — or in the text's colour where left out. The button itself is drawn and marked as any other. */
-  readonly tone?: "semipro"
+  /** Its icon drawn in the colour of whom what it holds is for — the semipro colour, for those who work their figures out themselves; the nerdpro colour, for those who set a machine's own figures by their hand — or in the text's colour where left out. The button itself is drawn and marked as any other. */
+  readonly tone?: "semipro" | "nerdpro"
   /** What was just asked for is to be found here: the frame comes slowly red and goes again, once each time this becomes so. */
   readonly beckoning?: boolean
   /** What would make an answer better is to be found here: an amber light comes softly about it and goes again, once each time this becomes so. */
@@ -60,6 +60,7 @@ export function DetailButton(props: {
             "bg-accent/30": props.marked && !props.invalid,
             "text-text-primary": props.tone === undefined && !props.invalid,
             "text-semipro-ink": props.tone === "semipro" && !props.invalid,
+            "text-nerdpro-ink": props.tone === "nerdpro" && !props.invalid,
             "bg-surface-3 text-negative outline outline-2 outline-negative": props.invalid,
             "animate-[beckon_2.4s_ease-in-out]": props.beckoning === true && !props.invalid,
             "animate-[glimmer_2.4s_ease-in-out]": props.glimmering === true && props.beckoning !== true && !props.invalid,

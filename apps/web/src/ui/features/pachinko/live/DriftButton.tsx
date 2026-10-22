@@ -8,7 +8,9 @@ import type { Drift } from "./reading-form"
  * What the 電サポ gained or lost, behind the reading's small button: few
  * readings have any. Its bubble holds which way the balls went and how
  * many, and what is typed there is the reading's from the moment it is
- * typed.
+ * typed. In the semipro colour, for those who keep the 電サポ's balls out
+ * of their spin performance; in the nerdpro colour once it is turned to a
+ * gain — balls won on the 電サポ by one's own hand, the hardest of play.
  */
 export function DriftButton(props: {
   readonly drift: Drift
@@ -21,7 +23,7 @@ export function DriftButton(props: {
   const set = (): boolean => props.supported.trim() !== ""
   const sign = (): string => (props.drift === "loss" ? "−" : "＋")
   return (
-    <DetailButton label="詳細" says={set() ? `詳細（電サポ増減 ${sign()}${props.supported}玉）` : "詳細（電サポ増減）"} marked={set()} invalid={props.invalid} placement="top-end" onOpen={props.onFocus}>
+    <DetailButton label="詳細" says={set() ? `詳細（電サポ増減 ${sign()}${props.supported}玉）` : "詳細（電サポ増減）"} marked={set()} invalid={props.invalid} placement="top-end" tone={props.drift === "gain" ? "nerdpro" : "semipro"} onOpen={props.onFocus}>
       <button
         type="button"
         aria-label={props.drift === "loss" ? "電サポで減った（押すと増えたに切替）" : "電サポで増えた（押すと減ったに切替）"}

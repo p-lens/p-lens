@@ -9,7 +9,9 @@ import { TextField } from "../../../primitives/text-field"
  * lost to a slack attacker. Few say it — those who count — and the rest
  * never open it. It comes filled in by the person's usual over-entry at
  * the cabinet where they said one, to be set right where this bonus paid
- * otherwise. Typed with a sign, so on a keyboard that has one.
+ * otherwise. Typed with a sign, so on a keyboard that has one. In the
+ * nerdpro colour: setting what a machine pays by one's own hand is the
+ * hardest of play.
  */
 export function OverButton(props: { readonly over: string; readonly invalid: boolean; readonly onOver: (over: string) => void; readonly onFocus?: () => void }): JSX.Element {
   const typed = (): boolean => props.over.trim() !== ""
@@ -20,6 +22,7 @@ export function OverButton(props: { readonly over: string; readonly invalid: boo
       marked={typed()}
       invalid={props.invalid}
       placement="top-end"
+      tone="nerdpro"
       fitted
       {...(props.onFocus === undefined ? {} : { onOpen: props.onFocus })}
     >

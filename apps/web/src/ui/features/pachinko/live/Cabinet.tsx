@@ -236,7 +236,7 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
           </label>
           <div class="flex flex-col gap-1">
             <div class="w-40">
-              <TextField label="いつものオーバー入賞" value={overEntry()} onChange={setOverEntry} inputMode="text" placeholder="+0" suffix="玉/R" invalid={nudge.red() && overEntryTyped(overEntry()) === "unread"} onFocus={nudge.settle} compact />
+              <TextField label="いつものオーバー入賞" tone="nerdpro" value={overEntry()} onChange={setOverEntry} inputMode="text" placeholder="+0" suffix="玉/R" invalid={nudge.red() && overEntryTyped(overEntry()) === "unread"} onFocus={nudge.settle} compact />
             </div>
             <p class="text-xs leading-5 text-text-muted">1Rあたり、公称より多く出る玉数です。ボーナスを選ぶとその出玉差に自動で入り、実質ボーダーも下がります。</p>
           </div>
