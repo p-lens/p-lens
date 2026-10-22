@@ -30,30 +30,39 @@ export interface RoomPlay {
   readonly latest: boolean
 }
 
-/**
- * The others' plays in the order the room lists them: as they are listed
- * (`othersPlays`), except that the play each who has gone quiet is on goes
- * down to just above those left for another machine, out of the way of
- * those being played.
- */
-const inRoomOrder = (others: readonly HuddlePlay[], idle: ReadonlySet<string>): readonly HuddlePlay[] => {
-  const quiet = (shown: HuddlePlay): boolean => shown.latest && !shown.departed && idle.has(shown.post.member)
-  return [...others.filter((shown) => shown.latest && !quiet(shown)), ...others.filter(quiet), ...others.filter((shown) => !shown.latest)]
-}
+/** A play in the room with whether its player left the huddle, while it is put in its place. */
+type Placed = RoomPlay & { readonly departed: boolean }
+
+/** Plays the later begun first, then by who and which, so that two begun at once always stand the same way. */
+const begunLaterFirst = (one: Placed, other: Placed): number =>
+  other.play.startedAt.localeCompare(one.play.startedAt) || one.member.localeCompare(other.member) || one.play.id.localeCompare(other.play.id)
 
 /**
- * The plays in a huddle's room: this device's own first, newest begun
- * first, the newest the one it is on — those sent to it from someone else
- * are theirs, and left out — then the others', those gone quiet
- * (`idleMembers`) just above the plays left for another machine.
+ * The plays in a huddle's room, this device's own among everyone's: first
+ * the play each is on — the one they began last — in the order they began
+ * their first play of the day, then those of the others who left, then
+ * those gone quiet (`idleMembers`), then every play left for another
+ * machine, the one begun last first. Every place is by when a play began,
+ * so the list stands still however often a play is shown again. Of this
+ * device's own, those sent to it from someone else are theirs, and left
+ * out; it is never gone quiet to itself.
  */
-export const roomPlaysOf = (huddle: Huddle, drafts: readonly PlayDraft[], others: readonly HuddlePlay[], idle: ReadonlySet<string>): readonly RoomPlay[] => [
-  ...drafts
+export const roomPlaysOf = (huddle: Huddle, drafts: readonly PlayDraft[], others: readonly HuddlePlay[], idle: ReadonlySet<string>): readonly RoomPlay[] => {
+  const own = drafts
     .filter((draft) => draft.received === undefined)
     .toSorted((one, other) => other.startedAt.localeCompare(one.startedAt))
-    .map((play, at) => ({ member: huddle.member, play, latest: at === 0 })),
-  ...inRoomOrder(others, idle).map(({ post, latest }) => ({ member: post.member, play: post.play, latest })),
-]
+    .map((play, at): Placed => ({ member: huddle.member, play, latest: at === 0, departed: false }))
+  const placed = [...own, ...others.map(({ post, latest, departed }): Placed => ({ member: post.member, play: post.play, latest, departed }))].toSorted(begunLaterFirst)
+  const firstBegun = (member: string): string => placed.findLast((each) => each.member === member)?.play.startedAt ?? ""
+  const current = placed.filter((each) => each.latest).toSorted((one, other) => firstBegun(one.member).localeCompare(firstBegun(other.member)) || one.member.localeCompare(other.member))
+  const quiet = (each: Placed): boolean => !each.departed && each.member !== huddle.member && idle.has(each.member)
+  return [
+    ...current.filter((each) => !each.departed && !quiet(each)),
+    ...current.filter((each) => each.departed),
+    ...current.filter(quiet),
+    ...placed.filter((each) => !each.latest),
+  ].map(({ member, play, latest }) => ({ member, play, latest }))
+}
 
 /** The tokens in hand of one game across a room: how many, and what those whose corner is known come to at its exchange rate. */
 export interface HeldTotal {

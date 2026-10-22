@@ -59,7 +59,7 @@ const isFormulaTab = (segment: string): segment is FormulaTab => (FORMULA_TABS a
  *
  * `huddle` is the room of the huddle the device is in, below the live
  * space on the rail while it is in one: its side panel lists the plays of
- * everyone in it, one's own first. `huddle-total` is what the members'
+ * everyone in it, one's own among them. `huddle-total` is what the members'
  * plays come to together, `huddle-settlement` them settled up evenly, and
  * `huddle-play` one of the others' plays, by
  * who they are in it and its id: only to be looked at.

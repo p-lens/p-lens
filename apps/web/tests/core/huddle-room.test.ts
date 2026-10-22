@@ -27,8 +27,8 @@ const draft = (id: string, startedAt: string, log: string): PachinkoDraft => ({
   log,
 })
 
-const theirs = (member: string, id: string, log: string, latest: boolean, departed = false): HuddlePlay => ({
-  post: { member, name: `name-${member}`, postedAt: "2026-10-20T02:00:00Z", play: draft(id, "2026-10-20T01:00:00Z", log) },
+const theirs = (member: string, id: string, log: string, latest: boolean, departed = false, startedAt = "2026-10-20T01:00:00Z"): HuddlePlay => ({
+  post: { member, name: `name-${member}`, postedAt: "2026-10-20T02:00:00Z", play: draft(id, startedAt, log) },
   latest,
   departed,
 })
@@ -38,11 +38,12 @@ describe("a huddle's room", () => {
   const received = { ...draft("sent-to-me", "2026-10-20T04:00:00Z", '{"spins":0,"outlay":9000}\n'), received: { sender: "仲間", log: "", finished: undefined } }
   const others = [theirs("b", "b-2", '{"spins":0,"outlay":0}\n{"spins":50,"outlay":1000,"held":280}\n', true), theirs("b", "b-1", '{"spins":0,"outlay":0}\n{"spins":300,"outlay":7000,"held":1000}\n', false)]
 
-  test("lists this device's own plays first, newest begun first and the one it is on, then the others', and leaves out what was sent to it", () => {
-    expect(roomPlaysOf(HUDDLE, [...own, received], others, new Set()).map(({ member, play, latest }) => [member, play.id, latest])).toEqual([
+  test("lists everyone's plays alike, this device's own among them: the one each is on in the order they began, then every play moved from, the one begun last first; and leaves out what was sent to it", () => {
+    const listed = [theirs("b", "b-2", "", true, false, "2026-10-20T02:00:00Z"), theirs("b", "b-1", "", false, false, "2026-10-20T00:30:00Z")]
+    expect(roomPlaysOf(HUDDLE, [...own, received], listed, new Set()).map(({ member, play, latest }) => [member, String(play.id), latest])).toEqual([
+      ["b", "b-2", true],
       ["me", "mine-2", true],
       ["me", "mine-1", false],
-      ["b", "b-2", true],
       ["b", "b-1", false],
     ])
   })

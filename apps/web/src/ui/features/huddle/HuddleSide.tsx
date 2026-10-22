@@ -24,9 +24,10 @@ export const offeredMembers = (members: readonly RoomMember[]): readonly Offered
  * The room of the huddle the device is in: the way to what its members'
  * plays come to together, its QR code to show someone joining — and the
  * way out — and a filter of its members; then the plays of those chosen,
- * one's own first, each under who plays it. One's own opens in the live
- * space, where it is played; the others' open here, only to be looked at,
- * and one is let go of from this device's list as it was from the live
+ * one's own among everyone's, by when each began (`roomPlaysOf`), each
+ * under who plays it. Each opens here as everyone sees it, one's own
+ * too, only to be looked at — one's own is played in the live space — and
+ * one of the others' is let go of from this device's list as it was from the live
  * space's. Left, the room is gone, and so is the person from it.
  */
 export function HuddleSide(props: { readonly place: Place }): JSX.Element {
@@ -53,7 +54,7 @@ export function HuddleSide(props: { readonly place: Place }): JSX.Element {
     app.huddle.changed()
     if (props.place.kind === "huddle-play" && props.place.member === shown.member && props.place.playId === shown.play.id) moves.go({ kind: "huddle" })
   }
-  const open = (shown: RoomPlay): void => moves.go(own(shown) ? { kind: "live-play", playId: shown.play.id } : { kind: "huddle-play", member: shown.member, playId: shown.play.id })
+  const open = (shown: RoomPlay): void => moves.go({ kind: "huddle-play", member: shown.member, playId: shown.play.id })
   createEffect(() => {
     if (app.huddle.now() === undefined) moves.replace({ kind: "live" })
   })

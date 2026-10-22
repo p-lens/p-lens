@@ -2190,17 +2190,16 @@ wherever its player records it, as it would be without the huddle.
   open slowly, stretched past its height and back (`board`, the rail
   item's `arriving`). The live space's list keeps one's own plays alone;
   its ノリ打ち button begins or joins one, and leads to the room once in.
-- **Everyone in the room, oneself first** (`roomPlaysOf`,
-  `roomMembersOf`): one's own plays, newest begun first and not those sent
-  to the device, under 自分, opening in the live space where they are
-  played; then each of the others' plays as the latest post of it
-  (`othersPlays`), the others in the order they began their first play of
-  the day, each one's plays the one begun last first: a play
-  left for another machine stays, marked 移動済 and put after every
-  one's latest, the one begun last first, and the one they are on is
-  the one they began last. Every place is by when a play began, which no
-  showing moves, so the list stands still however often each is shown
-  again; one gone quiet goes down to just above the plays moved from. A filter of its members (`RoomChoices.listed`) narrows the
+- **Everyone in the room, oneself among them** (`roomPlaysOf`,
+  `roomMembersOf`): one's own plays — not those sent to the device —
+  under 自分, and each
+  of the others' plays as the latest post of it (`othersPlays`), all put
+  in place alike: first the play each is on — the one they began last —
+  in the order they began their first play of the day, then those of
+  whoever left, then those gone quiet, then every play left for another
+  machine, marked 移動済, the one begun last first. Every place is by
+  when a play began, which no showing moves, so the list stands still
+  however often each is shown again. A filter of its members (`RoomChoices.listed`) narrows the
   list. A row (`HuddleRow`) says who as a chip on its third line, and marks where the play stands
   (`huddleStandingOf`): 大当り中 where its last reading won a jackpot (an
   AT, on a pachislot AT machine), 時短中 where a pachinko play's last
@@ -2233,8 +2232,10 @@ wherever its player records it, as it would be without the huddle.
   settled up apart. Nothing is written anywhere: no book, no
   line; it is reckoned for people to settle by hand, and the cash account
   is never touched.
-- **Opened only to be looked at** (`huddle-play`,
-  `/huddle/:member/:playId`, `HuddlePlayView`): who and on what,
+- **Opened only to be looked at, one's own as well** (`huddle-play`,
+  `/huddle/:member/:playId`, `HuddlePlayView`): one's own play is opened
+  the same, as the device has it now, so it is set beside the others' as
+  they see it; it is played in the live space. For each, who and on what,
   when it was last shown, and the play as its own game draws it
   (`HuddlePlay` of `ui/features/pachinko` or `pachislot`) — its figures and
   its readings, with no line to press or hold and nothing to type.
