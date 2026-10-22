@@ -2306,11 +2306,9 @@ It is kept nowhere: loading the page again closes it.
   What the egg says is styled by the same sheet, borrowing none of the
   app's styles; its colours are written in the folder and match no theme
   on purpose: a device with the egg open is never taken for one without.
-- **In it now**: ノリ打ち's way in at the end of the day's plays heading,
-  and what keeps the huddle up (`HuddleRunner`, in the shell) — which is
-  what shows one's plays to the huddle and reads it, so that with the egg
-  closed nothing is shown or read, even by a device still in a huddle, and
-  the room is on the rail only while it keeps one up.
+- **In it now**: nothing. ノリ打ち hatched from it on 2026-10-23 (0.9.44)
+  and is everyone's; the egg, `<Unhatched>` and all, is kept as it is for
+  the next feature to be tried out before it is anyone's.
 
 ## Backup
 

@@ -24,7 +24,6 @@ import { HUDDLE_GIVEN_UP, HUDDLE_HEADING, HUDDLE_JOINED } from "../../wording/hu
 import { HuddleDialog } from "../huddle/HuddleDialog"
 import { captionOf } from "./play-caption"
 import { sendingPortsOf } from "./sending-ports"
-import { Unhatched } from "../../../unhatched-egg"
 
 const openPlay = (place: Place): string | undefined =>
   place.kind === "live-play" || place.kind === "live-record" || place.kind === "live-cabinet" ? place.playId : undefined
@@ -182,20 +181,18 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
             </Show>
             の稼働
           </h2>
-          <Unhatched>
-            <Show when={app.services.relayUrl !== undefined}>
-              <Button variant="outline" size="small" class={cn("h-7 min-w-0 px-2", app.huddle.now() !== undefined && SWITCHED_ON)} onClick={() => (app.huddle.now() === undefined ? setHuddling(true) : moves.go({ kind: "huddle" }))}>
-                <Show when={app.huddle.now()} keyed fallback={HUDDLE_HEADING}>
-                  {(huddle) => (
-                    <span class="flex min-w-0">
-                      {HUDDLE_JOINED}（<span class="truncate">{huddle.name}</span>）
-                    </span>
-                  )}
-                </Show>
-              </Button>
-              <HuddleDialog open={huddling()} onClosed={() => setHuddling(false)} />
-            </Show>
-          </Unhatched>
+          <Show when={app.services.relayUrl !== undefined}>
+            <Button variant="outline" size="small" class={cn("h-7 min-w-0 px-2", app.huddle.now() !== undefined && SWITCHED_ON)} onClick={() => (app.huddle.now() === undefined ? setHuddling(true) : moves.go({ kind: "huddle" }))}>
+              <Show when={app.huddle.now()} keyed fallback={HUDDLE_HEADING}>
+                {(huddle) => (
+                  <span class="flex min-w-0">
+                    {HUDDLE_JOINED}（<span class="truncate">{huddle.name}</span>）
+                  </span>
+                )}
+              </Show>
+            </Button>
+            <HuddleDialog open={huddling()} onClosed={() => setHuddling(false)} />
+          </Show>
         </div>
         <Show when={choosing()} keyed>
           {(draft) => (
@@ -258,11 +255,9 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
       >
         <p>{((draft) => (draft === undefined ? "" : draftName(draft, app.machineNames())))(abandoning())}</p>
         <p>{abandoning()?.recorded === undefined ? "ここまでの記録は帳簿に書かれずに消えます。元には戻せません。" : "本日の稼働から外します。帳簿に記帳した分はそのまま残ります。"}</p>
-        <Unhatched>
-          <Show when={app.huddle.now() !== undefined && abandoning()?.received === undefined}>
-            <p>{HUDDLE_GIVEN_UP}</p>
-          </Show>
-        </Unhatched>
+        <Show when={app.huddle.now() !== undefined && abandoning()?.received === undefined}>
+          <p>{HUDDLE_GIVEN_UP}</p>
+        </Show>
       </ConfirmDialog>
     </SidePanel>
   )

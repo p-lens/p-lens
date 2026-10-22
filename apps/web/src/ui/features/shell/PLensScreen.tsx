@@ -61,7 +61,6 @@ import { BookSpaceSide } from "./BookSpaceSide"
 import { SettingsSide } from "./SettingsSide"
 import { StoppedNotice } from "../consolidated/StoppedNotice"
 import { SpacesRail } from "./SpacesRail"
-import { Unhatched } from "../../../unhatched-egg"
 import { ToastRegion } from "../../primitives/toast"
 import { ViewHeader } from "./ViewHeader"
 import { RefreshButton } from "./RefreshButton"
@@ -298,9 +297,7 @@ export function PLensScreen(): JSX.Element {
       </WelcomeProvider>
       <ToastRegion />
       <StoppedNotice />
-      <Unhatched>
-        <HuddleRunner place={place()} />
-      </Unhatched>
+      <HuddleRunner place={place()} />
     </StartFormProvider>
   )
 }
