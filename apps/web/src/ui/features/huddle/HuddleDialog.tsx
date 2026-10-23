@@ -70,30 +70,25 @@ function Renaming(props: { readonly huddle: Huddle; readonly onDone: () => void 
   )
 }
 
-/** The huddle this device is in: its QR code for the others to read — on this screen, or as a screenshot sent on — the name it is in it as, to be changed, and the way out. */
+/** The huddle this device is in: the name it is in it as, changed where it stands at the top so that no keyboard hides the field, its QR code for the others to read — on this screen, or as a screenshot sent on — and below, the way to change the name and the way out. */
 function JoinedHuddle(props: { readonly huddle: Huddle; readonly onLeave: () => void }): JSX.Element {
   const [renaming, setRenaming] = createSignal(false)
   return (
     <div class="flex flex-col gap-3">
-      <p>{HUDDLE_SHOW_CODE}</p>
-      <QrCode text={huddleCodeOf(props.huddle)} label={HUDDLE_HEADING} class="mx-auto w-56 max-w-full" />
-      <Show
-        when={renaming()}
-        fallback={
-          <>
-            <p class="font-semibold text-text-primary">{huddleJoinedAs(props.huddle.name)}</p>
-            <div class="flex flex-wrap justify-between gap-2">
-              <Button variant="outline" size="small" onClick={() => setRenaming(true)}>
-                {RENAME_IN_HUDDLE}
-              </Button>
-              <Button variant="outline" size="small" onClick={props.onLeave}>
-                {LEAVE_HUDDLE}
-              </Button>
-            </div>
-          </>
-        }
-      >
+      <Show when={renaming()} fallback={<p class="font-semibold text-text-primary">{huddleJoinedAs(props.huddle.name)}</p>}>
         <Renaming huddle={props.huddle} onDone={() => setRenaming(false)} />
+      </Show>
+      <QrCode text={huddleCodeOf(props.huddle)} label={HUDDLE_HEADING} class="mx-auto w-56 max-w-full" />
+      <p>{HUDDLE_SHOW_CODE}</p>
+      <Show when={!renaming()}>
+        <div class="flex flex-wrap justify-between gap-2">
+          <Button variant="outline" size="small" onClick={() => setRenaming(true)}>
+            {RENAME_IN_HUDDLE}
+          </Button>
+          <Button variant="outline" size="small" onClick={props.onLeave}>
+            {LEAVE_HUDDLE}
+          </Button>
+        </div>
       </Show>
     </div>
   )

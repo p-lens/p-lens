@@ -53,7 +53,7 @@ export const JOIN_BY_IMAGE = "画像から読み取る"
 export const HUDDLE_NAME = "表示名"
 
 /** What the dialog says of the name the device is in a huddle as. */
-export const huddleJoinedAs = (name: string): string => `${name}として参加中`
+export const huddleJoinedAs = (name: string): string => `${name} として参加中`
 
 /** Going by another name in a huddle: the way to it, and the two ways out of it. */
 export const RENAME_IN_HUDDLE = "表示名を変更する"
@@ -66,7 +66,7 @@ export const HUDDLE_NAME_NEEDED = "表示名を入れてください。"
 /** What the dialog says of a huddle before one is joined. */
 export const HUDDLE_ABOUT = "同じ店で打つ仲間どうしで、いまの稼働を見せ合います。帳簿には何も書きません。その営業日が終わると閉じます。"
 
-/** What the dialog says above a huddle's QR code. */
+/** What the dialog says below a huddle's QR code. */
 export const HUDDLE_SHOW_CODE = "仲間に読み取ってもらってください。スクリーンショットでも読み取れます。"
 
 /** What is said while the camera looks for a QR code. */
