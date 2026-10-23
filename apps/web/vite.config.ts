@@ -88,6 +88,7 @@ const branding = (): Plugin => ({
   },
   transformIndexHtml: (html) =>
     html
+      .replaceAll("%DEPLOYMENT_PAGE_TITLE%", DEPLOYMENT.pageTitle)
       .replaceAll("%DEPLOYMENT_NAME_IN_JAPANESE%", DEPLOYMENT.nameInJapanese)
       .replaceAll("%DEPLOYMENT_NAME%", DEPLOYMENT.name)
       .replaceAll("%DEPLOYMENT_DESCRIPTION%", DEPLOYMENT.description)

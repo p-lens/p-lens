@@ -9,6 +9,8 @@ export const DEPLOYMENT: {
   readonly name: string
   /** Its name as it is written in Japanese: what a tab, a home screen and an installed app are called. */
   readonly nameInJapanese: string
+  /** What the page is called: a browser's tab and a search's result. */
+  readonly pageTitle: string
   /** What it is, in a line, for whoever finds it by a search. */
   readonly description: string
   /** What it is, in a few words, for a card where a link to it is shared. */
@@ -21,7 +23,8 @@ export const DEPLOYMENT: {
 } = {
   name: "P-Lens",
   nameInJapanese: "Pレンズ",
-  description: "hledger を会計カーネルにした、パチンコ・パチスロの帳簿",
+  pageTitle: "Pレンズ｜アプリスタート",
+  description: "パチンコ・パチスロの収支をつける帳簿アプリ。ライブ計測、貯玉・貯メダル、カレンダー、集計で収支を振り返れます。データは端末の中に、会計は hledger で。",
   tagline: "パチンコ・パチスロの帳簿",
   address: "https://app.p-lens.jp/",
   landingPage: "https://p-lens.jp",
