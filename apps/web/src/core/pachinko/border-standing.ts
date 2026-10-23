@@ -7,10 +7,10 @@ export type BorderStanding = "above" | "below" | "level"
  * How far above or below its border a play stands, by what it is worth
  * an hour: from 5,000 yen up, 4,000, 3,000, 2,000, 1,750, 1,500 — the hour a
  * professional moves for — anything above nothing, down to 300 yen
- * under nothing with the border itself, down to 1,000 under, to 2,000
- * under, and below that.
+ * under nothing with the border itself, down to 1,000 under, to 2,000,
+ * to 3,000, and below that.
  */
-export type BorderGrade = "crowned" | "shining" | "outstanding" | "excellent" | "strong" | "professional" | "modest" | "near" | "short" | "shorter" | "shortest"
+export type BorderGrade = "crowned" | "shining" | "outstanding" | "excellent" | "strong" | "professional" | "modest" | "near" | "short" | "shorter" | "deep" | "deepest"
 
 /** Where a play stands against its border, and how far. */
 export interface BorderMark {
@@ -29,6 +29,7 @@ const FLOORS: readonly (readonly [BorderGrade, number])[] = [
   ["near", -300],
   ["short", -1000],
   ["shorter", -2000],
+  ["deep", -3000],
 ]
 
 /** How long a play has gone on: the regular spins measured, and the minutes from its start to its latest line written with a time. */
@@ -47,7 +48,7 @@ export interface PlayedSoFar {
 const SPINS_BEFORE_OUTSTANDING = 300
 const MINUTES_BEFORE_OUTSTANDING = 90
 
-const gradeOf = (hourly: number): BorderGrade => FLOORS.find(([, floor]) => hourly >= floor)?.[0] ?? "shortest"
+const gradeOf = (hourly: number): BorderGrade => FLOORS.find(([, floor]) => hourly >= floor)?.[0] ?? "deepest"
 
 const longEnough = (played: PlayedSoFar): boolean =>
   played.spins >= SPINS_BEFORE_OUTSTANDING && played.minutes !== undefined && played.minutes >= MINUTES_BEFORE_OUTSTANDING

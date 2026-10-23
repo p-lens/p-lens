@@ -65,7 +65,8 @@ const GRADE_SPAN: Readonly<Record<BorderGrade, string>> = {
   near: "−300〜0円",
   short: "−1,000〜−300円",
   shorter: "−2,000〜−1,000円",
-  shortest: "−2,000円未満",
+  deep: "−3,000〜−2,000円",
+  deepest: "−3,000円未満",
 }
 
 /** What the mark beside a play's spin performance says, for whoever cannot see its colour or its shape. */

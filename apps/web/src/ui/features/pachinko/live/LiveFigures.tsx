@@ -26,7 +26,8 @@ const MARKS: Readonly<Record<BorderGrade, { readonly shape: () => JSX.Element; r
   near: { shape: () => <TrianglesDownIcon count={1} />, look: `text-mark-yellow ${DRAWN}` },
   short: { shape: () => <TrianglesDownIcon count={1} />, look: `text-mark-red ${DRAWN}` },
   shorter: { shape: () => <TrianglesDownIcon count={2} />, look: `text-mark-red ${DRAWN}` },
-  shortest: { shape: () => <TrianglesDownIcon count={3} />, look: `text-mark-red ${DRAWN}` },
+  deep: { shape: () => <TrianglesDownIcon count={3} />, look: `text-mark-red ${DRAWN}` },
+  deepest: { shape: () => <TrianglesDownIcon count={4} />, look: `text-mark-red ${DRAWN}` },
 }
 
 /** A mark that says where the play stands against its border and how far, by its shape and colour and, for whoever cannot see them, in words. */
@@ -74,7 +75,7 @@ function Tile(props: { readonly label: string; readonly value: string; readonly 
  * against the border (`borderMarkOf`) — a gold crown, a gold star that
  * shines, a gold or red star, a purple,
  * green or blue triangle above it, a yellow one pointing down at it or a
- * little under, and below it one, two or three red ones side by side, by
+ * little under, and below it one to four red ones side by side, by
  * how far, the gold ones only once 300 spins have
  * been measured over 90 minutes; none where the play has no worth yet.
  * Unfolded, the border is there to be read as well. What the
