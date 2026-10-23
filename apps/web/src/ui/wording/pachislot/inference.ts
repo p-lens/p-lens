@@ -2,7 +2,7 @@ import type { TriggerWords } from "./trigger"
 import type { SettingInference } from "../../../application/pachislot/setting-inference"
 
 /** The press that reads a told play's setting level, as its button says it at rest. */
-const SETTING_INFERENCE_PRESS = "設定をベイズ推定する"
+const SETTING_INFERENCE_PRESS = "台の設定を推測する"
 
 /** What the press says, as the reading stands. */
 export const settingInferenceButtonText = (inference: SettingInference): string => {
