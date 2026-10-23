@@ -3,13 +3,15 @@ import { MainContent } from "solid-gathering-shell"
 
 import { loadTodaysPlays } from "../../../application/live-play"
 import { playsOfChosen, roomMembersOf, roomPlaysOf, roomTotalOf, type RoomMember, type RoomPlay } from "../../../core/huddle/room"
-import { settlementOf, type Contribution, type Settlement } from "../../../core/huddle/settlement"
+import { SETTLING_STEP, settlementOf, type Contribution, type Settlement } from "../../../core/huddle/settlement"
 import { tidyTyped } from "../../../core/text/tidy"
 import { useApp } from "../../context"
+import { Button, SWITCHED_ON } from "../../primitives/button"
+import { cn } from "../../primitives/cn"
 import { createHourStruck } from "../../primitives/hour"
 import { TextField } from "../../primitives/text-field"
 import type { Place } from "../../navigation/place"
-import { HUDDLE_DEPARTED, HUDDLE_SETTLEMENT, roomMemberText } from "../../wording/huddle"
+import { HUDDLE_DEPARTED, HUDDLE_SETTLE_EXACT, HUDDLE_SETTLEMENT, roomMemberText } from "../../wording/huddle"
 import { formatCount, yenFigureText } from "../../wording/numbers"
 import { ViewHeader } from "../shell/ViewHeader"
 
@@ -47,10 +49,12 @@ const dueText = (due: number): string => (due > 0 ? `¥${formatCount(due)} 払�
 /**
  * The members chosen for the total, settled up evenly: what everyone came
  * to together and each one's share; the payments that settle them, who to
- * whom and how much, as few as can be; and each member — what they spent,
+ * whom and how much, as few as can be — in thousands, those who came to
+ * most holding the odd yen, unless 厳密計算 is switched on to settle to
+ * the yen; and each member — what they spent,
  * cash and savings drawn on, the special prizes they took home, typed in
  * here and kept on the page, or else what the balls and medals in hand
- * come to, and what they pay or are paid. Balls passed from one to
+ * come to, what they pay or are paid, and what that leaves them. Balls passed from one to
  * another come out even, since only what each took home and spent is
  * reckoned. Nothing is written anywhere: it is reckoned to be settled by
  * hand. One who left the huddle is settled up with the rest, marked 離脱,
@@ -65,7 +69,8 @@ export function HuddleSettlementView(props: { readonly place: Place }): JSX.Elem
   const members = (): readonly RoomMember[] =>
     ((huddle, chosen) => (huddle === undefined ? [] : roomMembersOf(huddle, app.huddle.counted()).filter((each) => chosen === undefined || chosen.includes(each.member))))(app.huddle.now(), app.huddle.chosen.totalled())
   const reckoned = (): readonly Reckoned[] => members().map((member) => reckonedOf(member, plays(), app.huddle.chosen.prizes().get(member.member)))
-  const settlement = (): Settlement | undefined => settlementOf(reckoned().map((each) => each.contribution))
+  const exact = (): boolean => app.huddle.chosen.settling() === "exact"
+  const settlement = (): Settlement | undefined => settlementOf(reckoned().map((each) => each.contribution), exact() ? 1 : SETTLING_STEP)
   const nameOf = (member: string): string => ((found) => (found === undefined ? "" : roomMemberText(found.name, found.own)))(members().find((each) => each.member === member))
   const dueOf = (member: string): number => settlement()?.members.find((each) => each.member === member)?.due ?? 0
   const resultOf = (member: string): number => settlement()?.members.find((each) => each.member === member)?.result ?? 0
@@ -84,9 +89,14 @@ export function HuddleSettlementView(props: { readonly place: Place }): JSX.Elem
             )}
           </Show>
           <section class="flex flex-col gap-1.5" aria-labelledby="settlement-transfers">
-            <h2 id="settlement-transfers" class="text-xs font-bold tracking-wide text-text-muted">
-              受け渡し
-            </h2>
+            <div class="flex items-center gap-2">
+              <h2 id="settlement-transfers" class="mr-auto text-xs font-bold tracking-wide text-text-muted">
+                受け渡し
+              </h2>
+              <Button variant="outline" size="small" class={cn(exact() && SWITCHED_ON)} aria-pressed={exact()} onClick={() => app.huddle.chosen.setSettling(exact() ? "rounded" : "exact")}>
+                {HUDDLE_SETTLE_EXACT}
+              </Button>
+            </div>
             <Show when={(settlement()?.transfers.length ?? 0) > 0} fallback={<p class="text-sm text-text-muted">受け渡しはありません。</p>}>
               <ul class="flex flex-col gap-1">
                 <For each={settlement()?.transfers ?? []}>
@@ -133,6 +143,10 @@ export function HuddleSettlementView(props: { readonly place: Place }): JSX.Elem
                         <dt>収支</dt>
                         <dd class="tabular-nums">{yenFigureText(resultOf(each().member.member))}</dd>
                       </div>
+                      <div class="flex justify-between gap-2">
+                        <dt>精算後</dt>
+                        <dd class="tabular-nums">{yenFigureText(resultOf(each().member.member) - dueOf(each().member.member))}</dd>
+                      </div>
                     </dl>
                     <TextField
                       label="特殊景品額"
@@ -150,7 +164,7 @@ export function HuddleSettlementView(props: { readonly place: Place }): JSX.Elem
             </Index>
           </section>
           <p class="text-xs leading-5 text-text-muted">
-            特殊景品額を入れていないメンバーは、いま打っている台の持ち玉・持ちメダルをその台の交換率で円にした目安で計算しています。貯玉再プレイも交換率での目安です。入れた金額はこの画面を開いている間だけ覚えていて、帳簿には書きません。出玉を分け合っていても、全員の合計は変わらないので精算は合います。
+            受け渡しは1,000円単位で、端数は収支の多いメンバーから順に持ちます。1円単位で分けるときは「{HUDDLE_SETTLE_EXACT}」を押してください。特殊景品額を入れていないメンバーは、いま打っている台の持ち玉・持ちメダルをその台の交換率で円にした目安で計算しています。貯玉再プレイも交換率での目安です。入れた金額はこの画面を開いている間だけ覚えていて、帳簿には書きません。出玉を分け合っていても、全員の合計は変わらないので精算は合います。
           </p>
         </Show>
       </div>

@@ -9,7 +9,7 @@ export interface Contribution {
   readonly prizes: number
 }
 
-/** One member settled: what they came to alone, and what they pay in (above nought) or are paid (below it) to come to the share. */
+/** One member settled: what they came to alone, and what they pay in (above nought) or are paid (below it) to come to their part. */
 export interface Settled {
   readonly member: string
   readonly result: number
@@ -36,15 +36,29 @@ export interface Settlement {
   readonly transfers: readonly Transfer[]
 }
 
+/** The step every payment of a settling up is whole numbers of unless it is settled exactly: a thousand yen, notes passed by hand. */
+export const SETTLING_STEP = 1_000
+
 /**
- * Each member's share of a whole, in whole yen: the whole divided evenly,
- * rounded down, and the yen left over given one each to the members first
- * in the list, so that the shares come to the whole exactly.
+ * What each member comes to once settled, whole steps away from what they
+ * came to alone, so that every payment is whole steps: the most at or
+ * below the even share each can come to so, and the steps left over
+ * given one each to those who came to most, the first in the list among
+ * equals — those who brought in most hold the odd yen. With a step of a
+ * yen, it is the even share, the yen left over going the same way.
  */
-const sharesOf = (whole: number, count: number): readonly number[] => {
-  const each = Math.floor(whole / count)
-  const left = whole - each * count
-  return Array.from({ length: count }, (_, at) => each + (at < left ? 1 : 0))
+const partsOf = (results: readonly number[], step: number): readonly number[] => {
+  const whole = results.reduce((sum, each) => sum + each, 0)
+  const bases = results.map((each) => each - step * Math.ceil((each * results.length - whole) / (step * results.length)))
+  const left = (whole - bases.reduce((sum, each) => sum + each, 0)) / step
+  const favoured = new Set(
+    results
+      .map((each, at) => ({ each, at }))
+      .toSorted((one, other) => other.each - one.each)
+      .slice(0, left)
+      .map(({ at }) => at),
+  )
+  return bases.map((each, at) => each + (favoured.has(at) ? step : 0))
 }
 
 const byMostFirst = (one: Settled, other: Settled): number => Math.abs(other.due) - Math.abs(one.due)
@@ -59,16 +73,16 @@ const transfersOf = (owing: readonly Settled[], owed: readonly Settled[]): reado
   return [{ from: payer.member, to: payee.member, yen }, ...transfersOf([...rest(payer, -yen), ...payers], [...rest(payee, yen), ...payees])]
 }
 
-/** A huddle's members settled up evenly, in the order given; none where nobody is given. */
-export const settlementOf = (contributions: readonly Contribution[]): Settlement | undefined => {
+/** A huddle's members settled up evenly, in the order given, every payment whole steps of yen; none where nobody is given. */
+export const settlementOf = (contributions: readonly Contribution[], step: number): Settlement | undefined => {
   if (contributions.length === 0) return undefined
   const results = contributions.map((each) => each.prizes - each.spent)
   const result = results.reduce((sum, each) => sum + each, 0)
-  const shares = sharesOf(result, contributions.length)
-  const members = contributions.map((each, at) => ({ member: each.member, result: results[at] ?? 0, due: (results[at] ?? 0) - (shares[at] ?? 0) }))
+  const parts = partsOf(results, step)
+  const members = contributions.map((each, at) => ({ member: each.member, result: results[at] ?? 0, due: (results[at] ?? 0) - (parts[at] ?? 0) }))
   return {
     result,
-    share: shares.at(-1) ?? 0,
+    share: Math.floor(result / contributions.length),
     members,
     transfers: transfersOf(
       members.filter((each) => each.due > 0),

@@ -18,6 +18,9 @@ export const HUDDLE_CODE = "QRコード"
 export const HUDDLE_SETTLE = "精算目安を表示"
 export const HUDDLE_SETTLEMENT = "精算目安"
 
+/** Settling up to the yen rather than in thousands: what its switch says. */
+export const HUDDLE_SETTLE_EXACT = "厳密計算"
+
 /** A member as the room's filter offers them: one's own name said as one's own. */
 export const roomMemberText = (name: string, own: boolean): string => (own ? `${HUDDLE_OWN}（${name}）` : name)
 
