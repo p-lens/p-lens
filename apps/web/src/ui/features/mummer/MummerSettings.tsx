@@ -4,7 +4,7 @@ import { MainContent } from "solid-gathering-shell"
 import { isMumming, turnMumming } from "../../../mummer"
 import { useApp } from "../../context"
 import type { Place } from "../../navigation/place"
-import { INSTALL_GUIDE, MUMMER_ADDRESS_SHOWN, MUMMER_EXPLAINED, MUMMER_HEADING, MUMMER_TURN } from "../../wording/mummer"
+import { INSTALL_GUIDE, MUMMER_ADDRESS_SHOWN, MUMMER_CHOOSE_FIRST, MUMMER_EXPLAINED, MUMMER_HEADING, MUMMER_TURN } from "../../wording/mummer"
 import { ViewHeader } from "../shell/ViewHeader"
 import { isInstalled } from "./installed"
 
@@ -20,6 +20,7 @@ export function MummerSettings(props: { readonly place: Place }): JSX.Element {
             <span class="min-w-0 flex-1 text-sm font-medium text-text-primary">{MUMMER_TURN}</span>
           </label>
           <p class="text-xs text-text-muted">{MUMMER_EXPLAINED}</p>
+          <p class="text-xs text-text-muted">{MUMMER_CHOOSE_FIRST}</p>
           <Show when={!isInstalled()}>
             <p class="text-xs text-warning">
               {MUMMER_ADDRESS_SHOWN}

@@ -40,7 +40,7 @@ import { toast } from "../../../primitives/toast"
 import { useMoves } from "../../../navigation/moves"
 import { describeError } from "../../../wording/errors"
 import { FIELD_PROBLEM_TEXT, UNWRITABLE_TEXT } from "../../../wording/fields"
-import { chosenParlorText, LOCATE_REQUEST, parlorChoiceNote, parlorChoiceText, parlorNote, typedParlorRefused } from "../../../wording/parlor"
+import { chosenParlorText, LOCATE_REQUEST, parlorChoiceText, parlorNote, typedParlorRefused } from "../../../wording/parlor"
 import { borderText, formulaHandle, formulaNameAmong } from "../../../wording/pachinko/formula"
 import { KindMark } from "../formulas/KindMark"
 import { HyenaHuntByRate } from "../formulas/HyenaHuntByRate"
@@ -378,9 +378,6 @@ function ParlorField(props: {
         <p role="alert" class="col-start-1 text-xs text-negative">
           {typedParlorRefused("starting")}
         </p>
-      </Show>
-      <Show when={parlorChoiceNote()}>
-        {(note) => <p class="col-start-1 text-xs text-text-muted">{note()}</p>}
       </Show>
       <Show when={unplaced()} keyed>
         {(found) => (

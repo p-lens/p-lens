@@ -23,12 +23,6 @@ export const parlorNameText = (name: ParlorName): string => veil.text(name, (sho
  */
 export const parlorChoiceText = (name: ParlorName): string => veil.text(name, (shown) => shown, "•".repeat(veil.length(name, (shown) => [...shown].length, [...VEILED_NAME].length)))
 
-/** What is said under the field a play's parlor is chosen in while parlors are veiled: choose before the stream, and the day keeps it. */
-const CHOOSE_BEFORE = "配信モード中は店舗名を伏せています。配信前に一度選んでおくと、その日は選んだままになります。"
-
-/** What is said under the field a play's parlor is chosen in: nothing, unless parlors are veiled. */
-export const parlorChoiceNote = (): string => veil.text(seal.parlor(""), () => "", CHOOSE_BEFORE)
-
 /** What a field a parlor is chosen in holds once one is chosen, to tell a choice from a name typed and choosing nothing: its label in the list, veiled as the list veils it. */
 export const chosenParlorText = (name: string | undefined): string | undefined => (name === undefined ? undefined : parlorChoiceText(seal.parlor(name)))
 

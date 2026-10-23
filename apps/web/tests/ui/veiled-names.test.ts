@@ -5,7 +5,7 @@ import { seal, turnMumming } from "../../src/mummer"
 import { accountText } from "../../src/ui/wording/accounts"
 import { cabinetFieldMasked, cabinetText } from "../../src/ui/wording/cabinet"
 import { commodityText } from "../../src/ui/wording/commodities"
-import { parlorChoiceNote, parlorChoiceText, parlorNameText, parlorNote } from "../../src/ui/wording/parlor"
+import { parlorChoiceText, parlorNameText, parlorNote } from "../../src/ui/wording/parlor"
 import { memberNameText, titleFieldMasked, titleText } from "../../src/ui/wording/book"
 import { groupName } from "../../src/ui/wording/breakdown"
 import { shownDescription } from "../../src/ui/wording/tallies"
@@ -57,14 +57,6 @@ describe("a parlor's tokens as a commodity", () => {
     expect(commodityText("玉(4円・マレハン東京皇国店)")).toBe("玉(4円・マレハン東京皇国店)")
     turnMumming(true)
     expect([commodityText("玉(4円・マレハン東京皇国店)"), commodityText("JPY")]).toEqual(["玉(4円・••••店)", "JPY"])
-  })
-})
-
-describe("the field a play's parlor is chosen in", () => {
-  test("says nothing outside mumming, and while mumming that a parlor chosen before the stream stays the day", () => {
-    expect(parlorChoiceNote()).toBe("")
-    turnMumming(true)
-    expect(parlorChoiceNote()).toContain("配信前に一度選んでおくと")
   })
 })
 

@@ -13,6 +13,9 @@ export const MUMMER_ADDRESS_SHOWN = "ブラウザで開いているときは、�
 /** What leads from that to the site's page on installing, where the deployment has one. */
 export const INSTALL_GUIDE = "詳しい操作方法は公式サイトで解説しています。"
 
+/** What the setting says to do before a stream: a play's parlor is veiled in the list it is chosen from, and one chosen beforehand stays chosen for the day, in pachinko and pachislot alike. */
+export const MUMMER_CHOOSE_FIRST = "配信の前に、稼働開始の画面で店を一度選んでおくと、その日はパチンコでもパチスロでもその店が選ばれた状態で始まります。配信中は店の一覧も伏せ字になります。"
+
 /** The setting's own line. */
 export const MUMMER_TURN = "配信モードにする"
 
