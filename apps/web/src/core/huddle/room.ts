@@ -1,9 +1,11 @@
 import type { PlayDraft } from "../live-play/draft"
 import type { Play } from "../live-play/draft-reading"
+import { toPlainString } from "../decimal/decimal"
 import { tokenValueOf } from "../parlor/terms"
 import { parsePlayLog, type Checkpoint } from "../play-log/checkpoint"
 import { inPlayOrder } from "../play-log/performance"
 import type { PlayGameKind } from "../play/play"
+import { stagesOf, type StageStep } from "../savings/odd-prize-reckoning"
 import type { Huddle } from "./huddle"
 import type { HuddlePlay } from "./post"
 
@@ -109,6 +111,18 @@ export const roomTotalOf = (plays: readonly RoomPlay[]): RoomTotal => ({
     pachislot: plays.filter(({ play, latest }) => latest && play.gameKind === "pachislot").map(({ play }) => heldOf(play)).reduce(together, NO_TOKENS),
   },
 })
+
+/** The special prizes the tokens in hand on a play would exchange for, a smallest special prize of the step apart, in yen: none where its corner is not known. */
+const specialPrizesHeldOn = (play: Play, step: StageStep): number =>
+  ((terms, stage) => (terms === undefined || stage === undefined ? 0 : Number(toPlainString(stage.specialPrizes))))(play.venue.terms, play.venue.terms === undefined ? undefined : stagesOf(lastOf(checkpointsOf(play), (checkpoint) => checkpoint.held), play.venue.terms.exchange, step)[0])
+
+/**
+ * The special prizes the tokens in hand on the plays people are on would
+ * exchange for, in yen, a smallest special prize of the step apart: the
+ * odd tokens beside them left out, as each keeps their own odd prizes.
+ */
+export const heldSpecialPrizesOf = (plays: readonly RoomPlay[], step: StageStep): number =>
+  plays.filter(({ latest }) => latest).reduce((sum, { play }) => sum + specialPrizesHeldOn(play, step), 0)
 
 /** The plays of those chosen out of a room: every one's where nothing is left out. */
 export const playsOfChosen = (plays: readonly RoomPlay[], chosen: readonly string[] | undefined): readonly RoomPlay[] =>

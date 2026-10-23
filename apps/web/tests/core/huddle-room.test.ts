@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import type { Huddle } from "../../src/core/huddle/huddle"
 import type { HuddlePlay } from "../../src/core/huddle/post"
-import { playsOfChosen, roomMembersOf, roomPlaysOf, roomTotalOf } from "../../src/core/huddle/room"
+import { heldSpecialPrizesOf, playsOfChosen, roomMembersOf, roomPlaysOf, roomTotalOf } from "../../src/core/huddle/room"
 import { IDLE_AFTER, idleMembers, othersInJackpot } from "../../src/core/huddle/standing"
 import type { PachinkoDraft, PachislotDraft } from "../../src/core/live-play/draft"
 import type { PlayTerms } from "../../src/core/parlor/terms"
@@ -71,6 +71,14 @@ describe("a huddle's room", () => {
   test("counts medals apart from balls, and nothing in yen where the corner is not known", () => {
     const medals: PachislotDraft = { ...draft("slot", "2026-10-20T05:00:00Z", '{"spins":0,"outlay":0}\n{"spins":100,"outlay":3000,"held":150}\n'), gameKind: "pachislot", venue: { type: "none", terms: undefined } }
     expect(roomTotalOf(roomPlaysOf(HUDDLE, [medals], [], new Set())).held).toEqual({ pachinko: { tokens: 0, yen: 0 }, pachislot: { tokens: 150, yen: 0 } })
+  })
+
+  test("reckons the balls in hand on the play each is on as the special prizes they exchange for, the odd balls left out", () => {
+    expect(heldSpecialPrizesOf(roomPlaysOf(HUDDLE, own, others, new Set()), 500)).toBe(2000 + 1000)
+    const odd = draft("odd", "2026-10-20T05:00:00Z", '{"spins":0,"outlay":0}\n{"spins":100,"outlay":1000,"held":300}\n')
+    expect(heldSpecialPrizesOf(roomPlaysOf(HUDDLE, [odd], [], new Set()), 500)).toBe(1000)
+    expect(heldSpecialPrizesOf(roomPlaysOf(HUDDLE, [odd], [], new Set()), 100)).toBe(1000)
+    expect(heldSpecialPrizesOf(roomPlaysOf(HUDDLE, [{ ...odd, venue: { type: "none", terms: undefined } }], [], new Set()), 500)).toBe(0)
   })
 
   test("adds up only those chosen, and everyone where nothing is left out", () => {
