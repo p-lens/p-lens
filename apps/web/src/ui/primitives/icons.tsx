@@ -295,6 +295,20 @@ export const ChevronDownIcon = () => (
   </Icon>
 )
 
+/** Open every row: two arrow heads pointing apart. */
+export const UnfoldIcon = (props: { readonly label: string }) => (
+  <Icon label={props.label}>
+    <path d="M7 9l5-5 5 5M7 15l5 5 5-5" />
+  </Icon>
+)
+
+/** Close every row: two arrow heads pointing together. */
+export const FoldIcon = (props: { readonly label: string }) => (
+  <Icon label={props.label}>
+    <path d="M7 4l5 5 5-5M7 20l5-5 5 5" />
+  </Icon>
+)
+
 export const BackIcon = (props: { readonly label: string }) => (
   <Icon label={props.label}>
     <path d="M15 18l-6-6 6-6" />

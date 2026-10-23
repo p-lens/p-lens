@@ -15,12 +15,6 @@ export const formatYen = (value: Decimal): string => {
   return isNegative(whole) ? `-¥${grouped(negate(whole))}` : `¥${grouped(whole)}`
 }
 
-/** Yen to two places, for figures tokens were worth at a rate: never rounded to whole yen, since they are not prizes. */
-export const formatYenToHundredths = (value: Decimal): string => {
-  const [whole = "0", fraction = ""] = toPlainString(rounded(value, 2)).replace("-", "").split(".")
-  return `${isNegative(rounded(value, 2)) ? "-" : ""}¥${groupDigits(whole)}.${fraction.padEnd(2, "0")}`
-}
-
 /** Yen for a result, always signed, so a gain and a loss never look alike. */
 export const formatSignedYen = (value: Decimal): string => {
   const whole = rounded(value, 0)
@@ -43,7 +37,8 @@ const TOKEN_UNITS: Readonly<Record<TokenKind, string>> = { ball: "玉", medal: "
 
 export const tokenUnit = (kind: TokenKind): string => TOKEN_UNITS[kind]
 
-export const formatTokens = (value: Decimal, kind: TokenKind): string => `${grouped(value)}${TOKEN_UNITS[kind]}`
+/** Tokens as whole ones, rounded half up: a count hledger hands back with places of its own never shows them. */
+export const formatTokens = (value: Decimal, kind: TokenKind): string => `${grouped(rounded(value, 0))}${TOKEN_UNITS[kind]}`
 
 /** An exchange rate, always with at least two decimal places: `3.50`. */
 /**

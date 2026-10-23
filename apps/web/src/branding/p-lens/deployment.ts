@@ -4,9 +4,9 @@ import type { Deployment } from "../deployment"
 export const DEPLOYMENT: Deployment = {
   name: "P-Lens",
   nameInJapanese: "Pレンズ",
-  pageTitle: "Pレンズ｜アプリスタート",
-  description: "パチンコ・パチスロの収支をつける帳簿アプリ。ライブ計測、貯玉・貯メダル、カレンダー、集計で収支を振り返れます。データは端末の中に、会計は hledger で。",
-  tagline: "パチンコ・パチスロの帳簿",
+  pageTitle: "Pレンズ｜パチンコ・パチスロの収支アプリをすぐ開く",
+  description: "パチンコ・パチスロの収支を記録・管理する無料アプリ。登録不要で、打ちながらのライブ計測、ノリ打ち、期待値、貯玉・貯メダル、カレンダーと集計での振り返りまで。データは端末の中に。",
+  tagline: "パチンコ・パチスロの収支アプリ。無料・登録不要",
   indexed: true,
   themeColor: "#102075",
   address: "https://app.p-lens.jp/",

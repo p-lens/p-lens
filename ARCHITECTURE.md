@@ -791,6 +791,10 @@ itself, the address a shared
 link needs and the landing page the top bar's question mark links where
 there is one.
 
+The page's title (`pageTitle`) is for `/` alone, the way in a search finds;
+once past it, every screen's tab is called by the name in Japanese alone
+(`Services.screenTitle`, set as the screen opens).
+
 A build takes the branding `BRANDING` names, from the environment or an
 `.env` file, and `default` when it names none: a plain name (マイレンズ), a
 drawing of no one's, no documents, an address that is nobody's, and a page
@@ -2399,13 +2403,18 @@ to the pool's account and the book's prices, and nothing is kept for it.
 - **A parlor's passbook is in yen.** Pressing a parlor's heading opens
   every pool of it as one passbook (`parlor-passbook`,
   `ParlorPassbookPanel`, `loadParlorPassbook`): tokens of different pools
-  are never added, so a day's row is in yen to two places — what came in
+  are never added, so a day's row is in yen — what came in
   and went out valued at the day's rate (a daily balance report split by
   `amt:>0` and `amt:<0`, `--value=then`), and what was held at the day's
   end at the rate then (a balance up to that day, `--value=end`, a
-  question a day) — all of it hledger's arithmetic. Pressed, the day shows
-  each pool's tokens and what moved them. A figure some token has no rate
-  for is dashes.
+  question a day) — all of it hledger's arithmetic, shown in whole yen
+  rounded half up, so a day's rows need not add up to its balance to the
+  yen. Pressed, the day shows each pool's tokens and what moved them. A
+  figure some token has no rate for is dashes.
+- **A passbook's days open together.** Beside 日付 in either passbook's
+  headings, where the day column has room to spare, a small button opens
+  every day that opens onto anything, and closes them all once all are
+  (`Headings`): it takes no row and no width from the figures.
 - **A rate is a price line, and nothing more.** 交換率を変更 writes one
   `P` line for the pool's commodity from a day (`changeExchangeRate`,
   `core/savings/rate-change`, the `rate-changed` activity): the savings

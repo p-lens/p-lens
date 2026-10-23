@@ -195,6 +195,7 @@ export const createServices = (): Services => {
     voter: voterOf,
     documents: brandedDocuments(),
     name: DEPLOYMENT.name,
+    screenTitle: DEPLOYMENT.nameInJapanese,
     operatorPage: DEPLOYMENT.operatorPage,
     landingPage: DEPLOYMENT.landingPage,
     version: import.meta.env.VITE_APP_VERSION as string,

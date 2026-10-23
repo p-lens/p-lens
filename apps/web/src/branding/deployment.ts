@@ -10,7 +10,7 @@ export type Deployment = {
   readonly name: string
   /** Its name as it is written in Japanese: what a home screen and an installed app are called. */
   readonly nameInJapanese: string
-  /** What the page is called: a browser's tab and a search's result. */
+  /** What the page is called at `/`, the way in: a search's result. Every screen past it is called by `nameInJapanese` alone. */
   readonly pageTitle: string
   /** What it is, in a line, for whoever finds it by a search. */
   readonly description: string

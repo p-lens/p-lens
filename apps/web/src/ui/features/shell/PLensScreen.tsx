@@ -1,5 +1,5 @@
 import { useLocation, useSearchParams } from "@solidjs/router"
-import { createMemo, createResource, Show, untrack, type JSX } from "solid-js"
+import { createMemo, createResource, onMount, Show, untrack, type JSX } from "solid-js"
 import { createArrangement, GatheringShell, MainContent, TopBar } from "solid-gathering-shell"
 
 import type { Outcome } from "../../../application/errors"
@@ -253,7 +253,8 @@ const auxFor = (place: Place, query: () => string): JSX.Element | undefined => {
  * and from those which panes show what. The books are asked for once here,
  * since the rail and a book's side panel both name them, and the books that
  * are only sent to likewise. Making a sample book is held here too, since
- * both the rail and the welcome open it.
+ * both the rail and the welcome open it. Once past `/`, the tab is called
+ * by the app's name alone: the page's title is for the way in a search finds.
  */
 export function PLensScreen(): JSX.Element {
   const location = useLocation()
@@ -264,6 +265,9 @@ export function PLensScreen(): JSX.Element {
   const app = useApp()
   const [books] = createResource(() => app.revision(), () => app.services.session.books())
   const [destinations] = createResource(() => app.revision(), () => destinationsOf(app.services.destinations))
+  onMount(() => {
+    document.title = app.services.screenTitle
+  })
   const sampleBook = useSampleBook(() => ((listed) => (listed?.ok === true ? listed.value.map(bookTitle) : []))(books()))
 
   return (

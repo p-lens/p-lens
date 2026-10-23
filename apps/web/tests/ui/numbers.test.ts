@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import { decimal } from "../../src/core/decimal/decimal"
-import { formatMan, formatTheoreticalYen, theoreticalFigureText, theoreticalFractionText } from "../../src/ui/wording/numbers"
+import { formatMan, formatTheoreticalYen, formatTokens, theoreticalFigureText, theoreticalFractionText } from "../../src/ui/wording/numbers"
 
 describe("large counts as they are said", () => {
   test("in 万 from ten thousand up, as they are below", () => {
@@ -10,6 +10,14 @@ describe("large counts as they are said", () => {
     expect(formatMan(10_000_000)).toBe("1,000万")
     expect(formatMan(100_000_000)).toBe("1億")
     expect(formatMan(1_250_000_000)).toBe("12億5,000万")
+  })
+})
+
+describe("tokens", () => {
+  test("are whole, whatever places hledger hands them back with, rounded half up", () => {
+    expect(formatTokens(decimal(123400n, 2), "ball")).toBe("1,234玉")
+    expect(formatTokens(decimal(125n, 1), "medal")).toBe("13枚")
+    expect(formatTokens(decimal(-12340n, 1), "ball")).toBe("-1,234玉")
   })
 })
 

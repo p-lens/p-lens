@@ -5,7 +5,7 @@ import { loadRecordingContext } from "../../../application/record-tally"
 import { loadParlorPassbook, recordParlorForfeiture, type ParlorPassbookShown } from "../../../application/savings"
 import type { BookId } from "../../../core/book/book"
 import { parseIsoDate, type IsoDate } from "../../../core/calendar/calendar"
-import { isZero, type Decimal } from "../../../core/decimal/decimal"
+import { isZero, rounded, type Decimal } from "../../../core/decimal/decimal"
 import type { Parlor } from "../../../core/parlor/parlor"
 import type { ParlorPassbookDay, PoolDay } from "../../../core/report/parlor-passbook"
 import { useApp } from "../../context"
@@ -20,21 +20,21 @@ import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { formatDayOfYear } from "../../wording/dates"
 import { describeError } from "../../wording/errors"
-import { formatRate, formatTokens, formatYenToHundredths } from "../../wording/numbers"
+import { formatRate, formatTokens, formatYen } from "../../wording/numbers"
 import { yearOf } from "../period/periods"
-import { COLUMNS, Earlier, Lines, ROW_BUTTON } from "./PassbookPanel"
+import { COLUMNS, Earlier, Headings, Lines, ROW_BUTTON, toggledDay, type OpenDays } from "./PassbookPanel"
 
 /** Yen a token had no rate for: dashes in the figure's shape. */
-const UNVALUED = "¥--.--"
+const UNVALUED = "¥-,---"
 
-/** Yen in a column, to two places: muted where none moved, dashes where some token had no rate. */
+/** Yen in a column, rounded half up to whole yen: muted where it comes to none, dashes where some token had no rate. */
 function Yen(props: { readonly value: Decimal | undefined; readonly strong?: boolean }): JSX.Element {
   return (
     <span
       class="text-right text-xs tabular-nums"
-      classList={{ "text-text-muted": props.value === undefined || isZero(props.value), "text-text-primary": props.value !== undefined && !isZero(props.value), "font-semibold": props.strong === true }}
+      classList={{ "text-text-muted": props.value === undefined || isZero(rounded(props.value, 0)), "text-text-primary": props.value !== undefined && !isZero(rounded(props.value, 0)), "font-semibold": props.strong === true }}
     >
-      {props.value === undefined ? UNVALUED : formatYenToHundredths(props.value)}
+      {props.value === undefined ? UNVALUED : formatYen(props.value)}
     </span>
   )
 }
@@ -65,20 +65,19 @@ function PoolPart(props: { readonly part: PoolDay }): JSX.Element {
 }
 
 /** One day of a parlor's passbook: a row in yen that opens, when pressed, onto each pool's tokens that day and what moved them. */
-function Day(props: { readonly day: ParlorPassbookDay; readonly yearShown: boolean }): JSX.Element {
-  const [open, setOpen] = createSignal(false)
+function Day(props: { readonly day: ParlorPassbookDay; readonly yearShown: boolean; readonly open: boolean; readonly onToggle: () => void }): JSX.Element {
   return (
     <li class="flex flex-col gap-1 border-b border-border py-2">
       <Show when={props.yearShown}>
         <span class="text-xs font-bold text-text-muted">{props.day.date.slice(0, 4)}年</span>
       </Show>
-      <button type="button" aria-expanded={open()} class={`${COLUMNS} rounded text-left hover:bg-surface-3`} onClick={() => setOpen((was) => !was)}>
+      <button type="button" aria-expanded={props.open} class={`${COLUMNS} rounded text-left hover:bg-surface-3`} onClick={() => props.onToggle()}>
         <span class="min-w-0 truncate text-sm text-text-primary">{formatDayOfYear(props.day.date)}</span>
         <Yen value={props.day.withdrawn} />
         <Yen value={props.day.deposited} />
         <Yen value={props.day.balance} strong />
       </button>
-      <Show when={open()}>
+      <Show when={props.open}>
         <ul class="flex flex-col gap-2 pt-1">
           <For each={props.day.pools}>{(part) => <PoolPart part={part} />}</For>
         </ul>
@@ -90,7 +89,7 @@ function Day(props: { readonly day: ParlorPassbookDay; readonly yearShown: boole
 /**
  * Every pool of one parlor as one passbook, beside the book's savings: a
  * row for each day any of them moved or had its rate set, newest first,
- * in yen to two places — what went out and came in at the day's rate, and
+ * in whole yen, rounded half up — what went out and came in at the day's rate, and
  * what was held at the day's end at the rate then — and pressed, each
  * pool's tokens that day, machine by machine. It opens on this year,
  * what was held before it under the last row, and goes back a year that
@@ -105,6 +104,7 @@ export function ParlorPassbookPanel(props: { readonly place: Place; readonly boo
   const app = useApp()
   const moves = useMoves()
   const [from, setFrom] = createSignal<IsoDate | undefined>(yearOf(app.services.businessDay()).from)
+  const [openDays, setOpenDays] = createSignal<OpenDays>(new Set())
   const [shown, setShown] = createSignal<ParlorPassbookShown>("every")
   const [days] = createResource(
     () => ({ bookId: props.bookId, parlorName: props.parlorName, from: from(), shown: shown(), revision: app.revision() }),
@@ -164,15 +164,19 @@ export function ParlorPassbookPanel(props: { readonly place: Place; readonly boo
         {(passbook) => (
           <div class="flex flex-col gap-3 p-4">
             <Show when={passbook.days.length > 0 || passbook.before !== undefined} fallback={<EmptyState title="出し入れはまだありません" />}>
-              <p class="text-lg font-bold tabular-nums text-text-primary">{((now) => (now === undefined ? UNVALUED : formatYenToHundredths(now)))(passbook.days.length > 0 ? passbook.days[0]?.balance : passbook.before?.balance)}</p>
-              <div class={`${COLUMNS} border-b border-border pb-1 text-xs text-text-muted`}>
-                <span>日付</span>
-                <span class="text-right">払出</span>
-                <span class="text-right">預入</span>
-                <span class="text-right">残高</span>
-              </div>
+              <p class="text-lg font-bold tabular-nums text-text-primary">{((now) => (now === undefined ? UNVALUED : formatYen(now)))(passbook.days.length > 0 ? passbook.days[0]?.balance : passbook.before?.balance)}</p>
+              <Headings openable={passbook.days.map((day) => day.date)} open={openDays()} onOpen={setOpenDays} />
               <ul class="flex flex-col">
-                <For each={passbook.days}>{(day, at) => <Day day={day} yearShown={at() === 0 || passbook.days[at() - 1]?.date.slice(0, 4) !== day.date.slice(0, 4)} />}</For>
+                <For each={passbook.days}>
+                  {(day, at) => (
+                    <Day
+                      day={day}
+                      yearShown={at() === 0 || passbook.days[at() - 1]?.date.slice(0, 4) !== day.date.slice(0, 4)}
+                      open={openDays().has(day.date)}
+                      onToggle={() => setOpenDays((was) => toggledDay(was, day.date))}
+                    />
+                  )}
+                </For>
               </ul>
               <Show when={passbook.before} keyed>
                 {(before) => <Earlier through={before.through} lastMoved={before.lastMoved} balance={<Yen value={before.balance} strong />} onEarlier={setFrom} />}
