@@ -1,6 +1,6 @@
 import { createSignal, Show, type JSX } from "solid-js"
 
-import { huddleLeftOn, joinHuddle, leaveHuddle, startHuddle } from "../../../application/huddle"
+import { huddleLeftOn, joinHuddle, leaveHuddle, renameInHuddle, startHuddle } from "../../../application/huddle"
 import type { Outcome } from "../../../application/errors"
 import { huddleCodeOf, huddleNameOf, type Huddle } from "../../../core/huddle/huddle"
 import { useApp } from "../../context"
@@ -9,7 +9,7 @@ import { PanelDialog } from "../../primitives/dialog"
 import { QrCode } from "../../primitives/qr-code"
 import { qrInImage } from "../../primitives/qr-image"
 import { QrScanner } from "../../primitives/qr-scanner"
-import { TextField } from "../../primitives/text-field"
+import { settleTyping, TextField } from "../../primitives/text-field"
 import { toast } from "../../primitives/toast"
 import { describeError } from "../../wording/errors"
 import {
@@ -21,25 +21,80 @@ import {
   HUDDLE_NOT_IN_IMAGE,
   HUDDLE_SCANNING,
   HUDDLE_SHOW_CODE,
+  huddleJoinedAs,
   JOIN_BY_IMAGE,
   JOIN_HUDDLE,
   LEAVE_HUDDLE,
+  RENAME_IN_HUDDLE,
+  RENAME_IN_HUDDLE_DONE,
+  RENAME_IN_HUDDLE_LEFT_ALONE,
   START_HUDDLE,
 } from "../../wording/huddle"
 import { suggestedHuddleName } from "../../wording/huddle-names"
 import { huddlePortsOf } from "./huddle-ports"
 
-/** The huddle this device is in: its QR code for the others to read — on this screen, or as a screenshot sent on — and the way out. */
-function JoinedHuddle(props: { readonly huddle: Huddle; readonly onLeave: () => void }): JSX.Element {
+/** Typing the name to go by in the huddle instead, from the one gone by now: kept by Enter or its button, or left alone. */
+function Renaming(props: { readonly huddle: Huddle; readonly onDone: () => void }): JSX.Element {
+  const app = useApp()
+  const [typed, setTyped] = createSignal(props.huddle.name)
+  const [nameMissed, setNameMissed] = createSignal(false)
+  const rename = (): void => {
+    settleTyping()
+    const name = huddleNameOf(typed())
+    setNameMissed(name === undefined)
+    if (name === undefined) return
+    if (name !== props.huddle.name) renameInHuddle(app.services.preferences, props.huddle, name)
+    app.huddle.changed()
+    props.onDone()
+  }
   return (
-    <div class="flex flex-col gap-3">
-      <QrCode text={huddleCodeOf(props.huddle)} label={HUDDLE_HEADING} class="mx-auto w-56 max-w-full" />
-      <p>{HUDDLE_SHOW_CODE}</p>
+    <form
+      autocomplete="off"
+      class="flex flex-col gap-3"
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault()
+        rename()
+      }}
+    >
+      <TextField label={HUDDLE_NAME} value={typed()} onChange={setTyped} required focusedOnShow error={nameMissed() ? HUDDLE_NAME_NEEDED : undefined} />
       <div class="flex flex-wrap justify-end gap-2">
-        <Button variant="outline" size="small" onClick={props.onLeave}>
-          {LEAVE_HUDDLE}
+        <Button type="button" variant="outline" size="small" onClick={props.onDone}>
+          {RENAME_IN_HUDDLE_LEFT_ALONE}
+        </Button>
+        <Button type="submit" size="small">
+          {RENAME_IN_HUDDLE_DONE}
         </Button>
       </div>
+    </form>
+  )
+}
+
+/** The huddle this device is in: its QR code for the others to read — on this screen, or as a screenshot sent on — the name it is in it as, to be changed, and the way out. */
+function JoinedHuddle(props: { readonly huddle: Huddle; readonly onLeave: () => void }): JSX.Element {
+  const [renaming, setRenaming] = createSignal(false)
+  return (
+    <div class="flex flex-col gap-3">
+      <p>{HUDDLE_SHOW_CODE}</p>
+      <QrCode text={huddleCodeOf(props.huddle)} label={HUDDLE_HEADING} class="mx-auto w-56 max-w-full" />
+      <Show
+        when={renaming()}
+        fallback={
+          <>
+            <p class="font-semibold text-text-primary">{huddleJoinedAs(props.huddle.name)}</p>
+            <div class="flex flex-wrap justify-between gap-2">
+              <Button variant="outline" size="small" onClick={() => setRenaming(true)}>
+                {RENAME_IN_HUDDLE}
+              </Button>
+              <Button variant="outline" size="small" onClick={props.onLeave}>
+                {LEAVE_HUDDLE}
+              </Button>
+            </div>
+          </>
+        }
+      >
+        <Renaming huddle={props.huddle} onDone={() => setRenaming(false)} />
+      </Show>
     </div>
   )
 }

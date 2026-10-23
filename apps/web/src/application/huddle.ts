@@ -62,6 +62,13 @@ export const joinHuddle = (ports: HuddlePorts, code: string, name: string, busin
   return kept(ports, { secret, businessDay, member: same?.member ?? ports.newId(), name, dismissed: same?.dismissed ?? [] })
 }
 
+/** Go by another name in the huddle this device is in: its plays are shown again under it, so the others see it too. */
+export const renameInHuddle = (preferences: Pick<Preferences, "setHuddle">, huddle: Huddle, name: string): Huddle => {
+  const renamed = { ...huddle, name }
+  preferences.setHuddle(huddleText(renamed))
+  return renamed
+}
+
 /** Let one of the others' plays go from this device's list: theirs, and the others', stay as they are. */
 export const dismissHuddlePlay = (preferences: Pick<Preferences, "setHuddle">, huddle: Huddle, member: string, playId: PlayId): Huddle => {
   const key = huddlePlayKey(member, playId)

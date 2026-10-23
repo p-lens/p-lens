@@ -32,8 +32,9 @@ const changedSince = (drafts: readonly PlayDraft[], shown: ReadonlyMap<string, s
  * `HuddleLine`, while the page is in sight — not while it is away, and at
  * once as it is back — and each of the day's own plays shown to the others when
  * it changes — at once, or 30 seconds after the last showing, the latest
- * of each then — and each it showed and has since given up taken back, so
- * the others let it go too, whichever screen gave it up. Nothing is read
+ * of each then — every one again under a new name the person goes by, and
+ * each it showed and has since given up taken back, so the others let it go
+ * too, whichever screen gave it up. Nothing is read
  * or shown where the device is in no huddle, and nothing is drawn.
  *
  * It also says when the way back to the day's list is urged: as who of the
@@ -122,6 +123,11 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
     void read()
     showSoon()
   }))
+  createEffect(on(() => app.huddle.now()?.name, (name, before) => {
+    if (before === undefined || name === undefined || name === before) return
+    held.shown = new Map()
+    showSoon()
+  }, { defer: true }))
   const jackpots = createMemo(() => jackpotsNow(app.huddle.others()))
   const onOwnPlay = (): boolean => props.place.kind === "live-play" || props.place.kind === "live-record" || props.place.kind === "live-cabinet"
   createEffect(on(jackpots, (now, before) => {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { dismissHuddlePlay, huddleLeftOn, huddleNow, joinHuddle, leaveHuddle, readHuddleAfter, showToHuddle, startHuddle, withdrawFromHuddle, type HuddlePorts } from "../../src/application/huddle"
+import { dismissHuddlePlay, huddleLeftOn, huddleNow, joinHuddle, leaveHuddle, readHuddleAfter, renameInHuddle, showToHuddle, startHuddle, withdrawFromHuddle, type HuddlePorts } from "../../src/application/huddle"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { huddleCodeOf, type Huddle } from "../../src/core/huddle/huddle"
 import { isShown, othersPlays } from "../../src/core/huddle/post"
@@ -94,6 +94,13 @@ describe("a huddle", () => {
     expect(huddleNow(device.preferences, DAY)?.dismissed).toEqual(["member-c p-9"])
     await leaveHuddle(device, again, 0)
     expect(huddleNow(device.preferences, DAY)).toBeUndefined()
+  })
+
+  test("goes by a new name in the same huddle, as the same member, keeping what was let go of", () => {
+    const device = deviceOn(memoryRelay(), ["member-a"])
+    const begun = dismissHuddlePlay(device.preferences, unwrapped(startHuddle(device, "アキラ", DAY)), "member-c", "p-9" as PlayId)
+    renameInHuddle(device.preferences, begun, "アキ")
+    expect(huddleNow(device.preferences, DAY)).toEqual({ ...begun, name: "アキ" })
   })
 
   test("marks the play of one who left as left for the others, until they come back by the same code and show it again", async () => {
