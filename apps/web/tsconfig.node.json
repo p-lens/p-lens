@@ -5,5 +5,5 @@
     "lib": ["ES2023"],
     "types": ["bun"]
   },
-  "include": ["vite.config.ts", "scripts", "src/branding/deployment.ts"]
+  "include": ["vite.config.ts", "scripts", "src/branding/brandings.ts", "src/branding/deployment.ts", "src/branding/*/deployment.ts"]
 }

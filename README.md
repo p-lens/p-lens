@@ -126,6 +126,23 @@ backed up to a file.
 You can run your own catalog and app, apart from the official app.p-lens.jp.
 URLs and account values stay out of the repository, in files git ignores.
 
+### 0. Your own name and logo
+
+The name, the logo, the page's title and whether search engines index it are set by a folder in `apps/web/src/branding/`, which `BRANDING` chooses at build time.
+
+| `BRANDING` | Folder | What it is |
+|---|---|---|
+| unset (the default) | `default/` | the name "My Lens" (マイレンズ), a plain logo, no terms, and not indexed by search engines (`noindex`) |
+| `p-lens` | `p-lens/` | "P-Lens" at app.p-lens.jp. **For its operator alone; a fork does not use it** |
+
+**A fork makes `default/` its own.** Left alone, it is served as "マイレンズ" and kept out of search results. No right to use the names and the logo in `p-lens/` is granted ([`apps/web/src/branding/p-lens/LICENSE`](apps/web/src/branding/p-lens/LICENSE)).
+
+| File in `default/` | What to replace |
+|---|---|
+| `deployment.ts` | `name`; `nameInJapanese` (the home screen); `pageTitle` (the tab and a search's result); `description` (a search's result); `tagline` (the card a shared link is shown as); `indexed` (`true` to be indexed by search engines); `themeColor` (the browser's bars); `address` (where it is served); `landingPage` (`undefined` if there is none); `operatorPage` (who runs it) |
+| `icon.png` | the drawing. Then `bun --cwd=apps/web run icons` renders the icons in `served/` and the sharing card (`og.png`, which carries the name); it needs ImageMagick and Noto Sans CJK JP. Run it again when the name in `deployment.ts` changes |
+| `terms.md`, `privacy.md` | the terms of use and the privacy policy; the default has none. A file put there is shown, and one not there is not |
+
 ### 1. The shared catalog (Cloudflare Workers + D1)
 
 The API sits under `/api` on the app's own origin (for example
@@ -362,9 +379,9 @@ building the app alone does not need it.
 
 GPL-3.0-or-later. `packages/solid-gathering-shell` is MIT.
 
-What is in `apps/web/src/branding/` — the names "P-Lens" and "Pレンズ", the
-logo and icons, the text of the terms of use and the privacy policy, and the
-address the deployment is served at — is not the software. It belongs to the
-operator of app.p-lens.jp and is not covered by the GPL. To serve a fork,
-replace what is in that folder with your own. See
-[`apps/web/src/branding/LICENSE`](apps/web/src/branding/LICENSE).
+What is in `apps/web/src/branding/p-lens/` — the names "P-Lens" and "Pレンズ",
+the logo and icons, the text of the terms of use and the privacy policy, and
+the address the deployment is served at — is not the software. It belongs to
+the operator of app.p-lens.jp and is not covered by the GPL. To serve a fork,
+leave that folder out and make `default/` your own (step 0 of "Hosting your
+own"). See [`apps/web/src/branding/p-lens/LICENSE`](apps/web/src/branding/p-lens/LICENSE).

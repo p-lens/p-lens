@@ -89,7 +89,7 @@ describe("dependency direction", () => {
   })
 
   test("only the composition names what is the deployment's own: its documents come to the screens through the services", async () => {
-    const outside = (await Promise.all(["application", "core", "ui", "catalog", "storage", "sync", "backup"].map((layer) => offending(`${WEB}src/${layer}/`, /\/branding\//)))).flat()
+    const outside = (await Promise.all(["application", "core", "ui", "catalog", "storage", "sync", "backup"].map((layer) => offending(`${WEB}src/${layer}/`, /(^@|\/)branding\//)))).flat()
     expect(outside).toEqual([])
   })
 

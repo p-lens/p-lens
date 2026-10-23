@@ -670,7 +670,7 @@ core ──► hledger/protocol/wire (types only)
 | `application/` | use cases, the `BookSession`, `Services` | `core`, `hledger/query`, ports |
 | `ui/` | screens, navigation, wording, theme, primitives | `application`, `core`, port types |
 | `app/` | entry, `App`, composition (the only place naming adapters) | everything |
-| `branding/` | what is the deployment's own and not the app's, and not under the app's licence (`LICENSE`): the documents it puts before people (`terms.md`, `privacy.md`), what it goes by, where it is and where its landing page is (`deployment.ts`), the drawing its icons are made from (`icon.png`) and the files served at its root as they are — its icons and the card a link to it is shown as (`served/`) | `core/document` |
+| `branding/` | what is a deployment's own and not the app's, a folder for each (`default/`, `p-lens/`), of which the build takes the one `BRANDING` names (`brandings.ts`; `default` when it names none) and the app reads it as `@branding`: the documents it puts before people (`terms.md`, `privacy.md`), what it goes by, where it is, whether it is indexed and where its landing page is (`deployment.ts`), the drawing its icons are made from (`icon.png`) and the files served at its root as they are — its icons and the card a link to it is shown as (`served/`). `p-lens/` is not under the app's licence (`p-lens/LICENSE`) | `core/document` |
 | `pwa/` | service-worker registration and update state | — |
 | `unhatched-egg/` | 新機能実験モード: what is tried out on the live app before it is anyone's, opened on one device (see *The unhatched egg*) | `solid-js` alone |
 | `catalog/` | `port/` (the shared catalog as delivered, and the API it comes from), `delivered/` (the delivered catalog in IndexedDB, with the outbox), `http/` (the API by URL), `absent/` (no catalog), `local/` (the device id) | `core`, contracts |
@@ -762,7 +762,8 @@ The place is read off the address (`ui/navigation/place.ts`):
 The terms a deployment is used under and its privacy policy are its own,
 not the app's: whoever runs a copy — this one, or a fork — writes them. So
 the app has a place for each (`core/document`: `terms`, `privacy`) and no
-words of its own to put there. The words are the files in `branding/`,
+words of its own to put there. The words are the files in the branding
+the build took (`branding/<name>/`),
 `terms.md` and `privacy.md`, written plainly — `#` headings to three deep,
 `-` lists, paragraphs, each set off by a blank line — and read into blocks
 (`blocksOf`), so nobody writing one has a markup language to learn and the
@@ -772,28 +773,37 @@ is there has an address of its own at the root, `/terms` or `/privacy` —
 where anyone asked for a link to it would look — and is linked from the
 foot of the top bar's question mark and from the settings list under the
 licences. One that is not there has no link, and its address says so. A
-fork replaces the two files, or takes them away, and touches nothing else.
+fork writes the two files into its branding, or leaves them out, and touches
+nothing else.
 
 The deployment's images are its own in the same way, and are kept in the
-same place: `branding/icon.png` is the one drawing, and `bun run icons`
-renders from it into `branding/served/` the icons and the card a link is
-shown as. Those files are served at the site's root as they are — the build
+same place: a branding's `icon.png` is the one drawing, and `bun run icons`
+renders from it into that branding's `served/` the icons and the card a link
+is shown as. Those files are served at the site's root as they are — the build
 puts them there (`vite.config.ts`), and they are not among the app's public
 files, which hold only what is the app's. The deployment's name is its own
 too: the page's title, the installed app's name, the top bar, the card and
-every sentence that names the app read it from `branding/deployment.ts`
+every sentence that names the app read it from the branding's `deployment.ts`
 (`Services.name`), with the page of who runs it and how to write to them,
 linked as 運営元・お問い合わせ at the foot of the top bar's question mark and
 under the settings (`Services.operatorPage`), what the page says of
 itself, the address a shared
 link needs and the landing page the top bar's question mark links where
-there is one. A fork replaces the drawing and renders again, and gives its
-own name and address.
+there is one.
 
-What is in `branding/` is not the software and is not under its licence: the
-names, the logo and the texts are the operator's, all rights reserved, and
-the GPL's section 7(e) is used to grant no right to the marks
-(`branding/LICENSE`). The names of the formats the software writes — a
+A build takes the branding `BRANDING` names, from the environment or an
+`.env` file, and `default` when it names none: a plain name (マイレンズ), a
+drawing of no one's, no documents, an address that is nobody's, and a page
+that asks search engines not to index it. So a copy built as it came goes
+out under no one's name and is not found in their place; app.p-lens.jp is
+built with `BRANDING=p-lens`, set where Cloudflare builds it, and is indexed.
+A fork makes `default/` its own, or adds a folder beside it and names it in
+`brandings.ts`.
+
+What is in `branding/p-lens/` is not the software and is not under its
+licence: the names, the logo and the texts are the operator's, all rights
+reserved, and the GPL's section 7(e) is used to grant no right to the marks
+(`branding/p-lens/LICENSE`). `default/` is the software's, under its licence. The names of the formats the software writes — a
 P-Lens book's opening comment, a play log's header, the header a device is
 named in — are the software's, and stay whatever a fork is called, so that
 what one copy writes another reads.

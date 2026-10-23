@@ -33,7 +33,7 @@ import * as PachislotEngine from "../../pachislot-engine/client/client"
 import { createSampleMakerClient } from "../../sample-book/client/client"
 import type { UuidV7 } from "@p-lens/uuidv7"
 
-import { DEPLOYMENT } from "../../branding/deployment"
+import { DEPLOYMENT } from "@branding/deployment"
 import { brandedDocuments } from "../../branding/documents"
 import { freshFraction, freshSeed, freshUuidV7, uuidV7On, voterOf } from "./ids"
 import { createConnection } from "../../storage/browser/database"

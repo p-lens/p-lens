@@ -16,15 +16,14 @@
 名称とロゴは運営者の標章です。GPL 第 7 条 (e) にもとづき、これらを使う権利は
 許諾しません。
 
-このソフトウェアをフォークして配信するときは、このフォルダの中身を自分のもの
-に置き換えてください。名称と運営者は deployment.ts に、画像は icon.png に（`bun run
-icons` で served/ に描き出します）、文章は terms.md と privacy.md にあります。
-置き換えたあとのソフトウェア本体は、GPL-3.0-or-later のもとで自由に使い、
-変更し、再配布できます。
+このソフトウェアをフォークして配信するときは、このフォルダは使わず、隣の
+default/ を自分のものにしてください。BRANDING を付けずにビルドすると default/
+が使われます（README の「自分で立てる」の 0）。このフォルダを使わなければ、
+ソフトウェア本体は GPL-3.0-or-later のもとで自由に使い、変更し、再配布できます。
 
-このフォルダの TypeScript のファイル（deployment.ts、documents.ts）は、値を
-読み込むためのコードで、ソフトウェア本体と同じ GPL-3.0-or-later です。そこに
-書かれている名称とアドレスそのものは、上のとおり運営者のものです。
+このフォルダの deployment.ts は値を書き並べるコードの形をしていて、その形は
+ソフトウェア本体と同じ GPL-3.0-or-later です。そこに書かれている名称と
+アドレスそのものは、上のとおり運営者のものです。
 
 ------------------------------------------------------------------------
 
@@ -45,13 +44,11 @@ Not covered:
 The names and the logo are the operator's marks. Under section 7(e) of the
 GPL, no right to use them is granted.
 
-To serve a fork of this software, replace what is in this folder with your
-own. The name and the operator are in deployment.ts, the drawing is icon.png (`bun run icons`
-renders it into served/), and the texts are terms.md and privacy.md. With
-those replaced, the software itself is yours to use, change and redistribute
-under GPL-3.0-or-later.
+To serve a fork of this software, leave this folder out and make default/,
+beside it, your own: a build given no BRANDING takes default/ (step 0 of
+"Hosting your own" in the README). With this folder left out, the software
+itself is yours to use, change and redistribute under GPL-3.0-or-later.
 
-The TypeScript files in this folder (deployment.ts, documents.ts) are code
-that reads those values, and are under GPL-3.0-or-later like the rest of the
-software. The names and addresses written in them are the operator's, as
-above.
+The shape of deployment.ts in this folder, code setting out values, is
+under GPL-3.0-or-later like the rest of the software. The names and
+addresses written in it are the operator's, as above.

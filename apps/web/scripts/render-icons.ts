@@ -1,8 +1,11 @@
 /**
- * Render the deployment's icons from the one drawing in src/branding/icon.png,
- * into src/branding/served/, which is served at the site's root as it is.
+ * Render a branding's icons from the one drawing in its folder of
+ * src/branding/, `icon.png`, into its `served/`, which is served at the
+ * site's root as it is. The branding is the one `BRANDING` names, as for a
+ * build: `default` when it names none.
  *
- *   bun run icons      needs ImageMagick (`magick`) on the PATH
+ *   bun run icons                      needs ImageMagick (`magick`) on the PATH
+ *   BRANDING=p-lens bun run icons
  *
  * The drawing is a square, its background running to the edges. From it:
  *
@@ -20,12 +23,14 @@
  * when the drawing changes.
  */
 
-import { DEPLOYMENT } from "../src/branding/deployment"
+import { brandingOf } from "../src/branding/brandings"
 
-const SOURCE = "src/branding/icon.png"
+const { folder, deployment: DEPLOYMENT } = brandingOf(process.env.BRANDING)
+
+const SOURCE = `${folder}icon.png`
 
 /** Where the rendered files go: beside the drawing, with everything else that is the deployment's own. */
-const SERVED = "src/branding/served"
+const SERVED = `${folder}served`
 
 /** How round a corner is, as a share of the icon's side. */
 const CORNER = 0.22

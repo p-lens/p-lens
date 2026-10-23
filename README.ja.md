@@ -115,6 +115,23 @@ Google ドライブへのバックアップを試すなら、Google Cloud で OA
 公式の app.p-lens.jp とは別に、自分のカタログとアプリを立てられます。
 URL やアカウントの値はリポジトリに入れず、git に無視されるファイルに書きます。
 
+### 0. 名前とロゴを自分のものにする
+
+名前やロゴ、ページのタイトル、検索に出るかどうかは、`apps/web/src/branding/` の中のフォルダで決まります。ビルドするときの `BRANDING` でどのフォルダを使うかを選びます。
+
+| `BRANDING` | 使うフォルダ | 中身 |
+|---|---|---|
+| なし（初期設定） | `default/` | 名前は「マイレンズ」。汎用のロゴ、規約なし、検索エンジンには載せない（`noindex`） |
+| `p-lens` | `p-lens/` | app.p-lens.jp の「Pレンズ」。**運営者専用です。フォークでは使わないでください** |
+
+**フォークでは `default/` を自分のものにします。** 何もしなければ「マイレンズ」の名前で、検索に出ない状態で配信されます。名前とロゴは `p-lens/` のものを使う権利を許諾していません（[`apps/web/src/branding/p-lens/LICENSE`](apps/web/src/branding/p-lens/LICENSE)）。
+
+| `default/` のファイル | 置き換えるもの |
+|---|---|
+| `deployment.ts` | `name`（名前）、`nameInJapanese`（日本語の名前。ホーム画面）、`pageTitle`（ページのタイトル。タブと検索結果）、`description`（検索結果の説明文）、`tagline`（リンクを共有したときのカードの一言）、`indexed`（検索エンジンに載せるなら `true`）、`themeColor`（ブラウザのバーの色）、`address`（配信先のアドレス）、`landingPage`（紹介ページ。なければ `undefined`）、`operatorPage`（運営者のページ） |
+| `icon.png` | ロゴの絵。置き換えたら `bun --cwd=apps/web run icons` で `served/` のアイコンと共有カード（`og.png`、名前入り）を描き出します。ImageMagick と Noto Sans CJK JP が要ります。`deployment.ts` の名前を変えたときも描き出し直します |
+| `terms.md`、`privacy.md` | 利用規約とプライバシーポリシー。初期設定にはありません。置けば表示され、なければ表示されません |
+
 ### 1. 共有カタログ（Cloudflare Workers + D1）
 
 API はアプリと同じオリジンの `/api` の下に置きます（例: `https://app.example.com/api/*`）。
@@ -309,4 +326,4 @@ curl -X PUT -H "$AUTH" -d '{"name":"e星都幻鬼","modelName":"e星都幻鬼W",
 
 GPL-3.0-or-later です。`packages/solid-gathering-shell` は MIT です。
 
-`apps/web/src/branding/` にあるもの（名称「P-Lens」「Pレンズ」、ロゴとアイコン、利用規約とプライバシーポリシーの文章、配信先のアドレス）は、ソフトウェア本体ではなく app.p-lens.jp の運営者のもので、GPL の対象ではありません。フォークして配信するときは、このフォルダの中身を自分のものに置き換えてください。詳しくは [`apps/web/src/branding/LICENSE`](apps/web/src/branding/LICENSE) にあります。
+`apps/web/src/branding/p-lens/` にあるもの（名称「P-Lens」「Pレンズ」、ロゴとアイコン、利用規約とプライバシーポリシーの文章、配信先のアドレス）は、ソフトウェア本体ではなく app.p-lens.jp の運営者のもので、GPL の対象ではありません。フォークして配信するときはこのフォルダを使わず、`default/` を自分のものにしてください（「自分で立てる」の 0）。詳しくは [`apps/web/src/branding/p-lens/LICENSE`](apps/web/src/branding/p-lens/LICENSE) にあります。
