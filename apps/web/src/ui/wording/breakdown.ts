@@ -4,6 +4,9 @@ import { toPlainString, type Decimal } from "../../core/decimal/decimal"
 import { UNSAID, type Dimension } from "../../core/report/breakdown"
 import type { SenderNames } from "../../core/report/senders"
 import { formatCount, formatTheoreticalYen } from "./numbers"
+import { seal } from "../../mummer"
+import { parlorNameText } from "./parlor"
+import { memberNameText } from "./book"
 
 /** What taking the tallies as one, rather than grouping them, is called: the breakdown's first choice. */
 export const OVERALL_NAME = "総合"
@@ -33,7 +36,7 @@ export const BY_BOOK = "帳簿別"
 export const BY_SENDER = "打ち手別"
 
 /** A sender as their group is called: by the name on their last tally. */
-export const senderName = (names: SenderNames, id: string): string => ((named) => (named === "" ? "--" : named))(names.get(id)?.name ?? "")
+export const senderName = (names: SenderNames, id: string): string => ((named) => (named === "" ? "--" : memberNameText(named)))(names.get(id)?.name ?? "")
 
 /** What a book's tallies that name no sender are called, among senders: the plays of its owner, and any taken in before a sender was written. */
 export const unsentName = (bookTitle: string): string => `${bookTitle}（送信者なし）`
@@ -43,7 +46,7 @@ const WEEKDAYS = ["月曜", "火曜", "水曜", "木曜", "金曜", "土曜", "�
 const GAMES: Readonly<Record<string, string>> = { pachinko: "パチンコ", pachislot: "スロット" }
 
 /** What is said beside a sum of theoretical values where part of it was inferred: how much of it is not measurement. */
-export const inferredShareText = (inferred: Decimal): string => `うち推定 ${formatTheoreticalYen(inferred)}`
+export const inferredShareText = (inferred: Decimal): string => `うち推定 ${formatTheoreticalYen(seal.tally(inferred))}`
 
 /** What a machine's tallies' spin performances are called, averaged: those their plays' logs measured, and those tallies typed in by hand were inferred to have had. */
 export const SPIN_AVERAGE = "平均回転率"
@@ -101,5 +104,6 @@ export const groupName = (dimension: Dimension, key: string, machineNames: Machi
   if (dimension === "weekday") return WEEKDAYS[Number(key)] ?? key
   if (dimension === "game") return GAMES[key] ?? key
   if (dimension === "month") return `${key.slice(0, 4)}年${Number(key.slice(5, 7))}月`
+  if (dimension === "parlor") return parlorNameText(seal.parlor(key))
   return dimension === "year" ? `${key}年` : key
 }

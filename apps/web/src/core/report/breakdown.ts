@@ -127,11 +127,11 @@ const ORDERS: Readonly<Record<Dimension, (left: Group, right: Group) => number>>
   day: (left, right) => byKey(right, left),
 }
 
+/** Whether a dimension's groups are read for what made most, rather than as time runs. */
+export const isRanked = (dimension: Dimension): boolean => ORDERS[dimension] === byActual
+
 /** Groups in the order their dimension is read in. */
 export const inOrder = (groups: readonly Group[], dimension: Dimension): readonly Group[] => groups.toSorted(ORDERS[dimension])
-
-/** Groups best first: the order of anything that is not time. */
-export const bestFirst = (groups: readonly Group[]): readonly Group[] => groups.toSorted(byActual)
 
 /** Every group of a breakdown together: what they come to. */
 export const totalOf = (groups: readonly Group[]): Group => together(UNSAID, groups)

@@ -1,6 +1,7 @@
 import type { IsoDate, IsoMonth } from "../../../core/calendar/calendar"
-import { isZero, rounded, type Decimal } from "../../../core/decimal/decimal"
+import type { Decimal } from "../../../core/decimal/decimal"
 import { formatSignedYen, formatTheoreticalYen } from "../../wording/numbers"
+import { seal } from "../../../mummer"
 
 /** What the calendar is called in a book's list of views. */
 export const RESULT_CALENDAR = "カレンダー"
@@ -24,14 +25,14 @@ export const monthTitle = (month: IsoMonth): string => {
 export const dayNumber = (day: IsoDate): string => String(Number(day.slice(8)))
 
 /** A day's result as its cell has room for: signed and grouped, `±0` where it came to nothing, the yen sign left to the figures above. */
-export const cellResult = (value: Decimal): string => (isZero(rounded(value, 0)) ? "±0" : formatSignedYen(value).replace("¥", ""))
+export const cellResult = (value: Decimal): string => formatTheoreticalYen(seal.tally(value)).replace("¥", "")
 
 /** What a day's tallies were worth as its cell has room for, under what they made: marked the way it went, the yen sign left to the figures above. */
-export const cellWorth = (value: Decimal): string => formatTheoreticalYen(value).replace("¥", "")
+export const cellWorth = (value: Decimal): string => formatTheoreticalYen(seal.tally(value)).replace("¥", "")
 
 /** What a day's cell says to whoever cannot see it: what its tallies made, and what they were worth where the cell shows that. */
 export const daySays = (day: IsoDate, result: Decimal | undefined, worth: Decimal | undefined): string => {
   const [, monthOfYear = 0, dayOfMonth = 0] = day.split("-").map(Number)
   if (result === undefined) return `${monthOfYear}月${dayOfMonth}日 収支なし`
-  return `${monthOfYear}月${dayOfMonth}日 実収支 ${formatSignedYen(result)}${worth === undefined ? "" : ` 期待値 ${formatTheoreticalYen(worth)}`}`
+  return `${monthOfYear}月${dayOfMonth}日 実収支 ${formatSignedYen(seal.tally(result))}${worth === undefined ? "" : ` 期待値 ${formatTheoreticalYen(seal.tally(worth))}`}`
 }

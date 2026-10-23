@@ -13,6 +13,7 @@ import type { MachineSummary } from "../../src/core/catalog/catalog"
 import type { MachineId } from "../../src/core/machine/machine"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { PRICES, MALEHAN, dec } from "../support/values"
+import { seal } from "../../src/mummer"
 
 const ID = "new" as PlayId
 
@@ -72,7 +73,7 @@ describe("the form a play followed live at a parlor is recorded with", () => {
   })
 
   test("comes to a result in yen by the play's terms: what is left over the savings a replay took, exchanged, less the cash spent", () => {
-    const result = (form: Partial<FinishTokenTallyForm>): string => ((read) => (read.ok ? formatSignedYen(tokenTallyResultOf(read.value, exchangeRateOf(TERMS))) : "unread"))(readFinishTokenTallyForm({ ...FORM, ...form }, AT, ID))
+    const result = (form: Partial<FinishTokenTallyForm>): string => ((read) => (read.ok ? formatSignedYen(seal.play(tokenTallyResultOf(read.value, exchangeRateOf(TERMS)))) : "unread"))(readFinishTokenTallyForm({ ...FORM, ...form }, AT, ID))
     expect(result({ outlay: "12,000", replayPaidOut: "1000", payout: "4000" })).toBe("-¥1,643")
     expect(result({ outlay: "5000" })).toBe("-¥5,000")
     expect(result({})).toBe("¥0")

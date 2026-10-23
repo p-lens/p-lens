@@ -14,6 +14,8 @@ import { describeError } from "../../../wording/errors"
 import { useStartForm } from "../../live/start-form"
 import { readTerms, termsFormOf, type TermsField, type TermsForm } from "../../live/start-terms"
 import { Terms } from "../start/Terms"
+import { cabinetText } from "../../../wording/cabinet"
+import { seal } from "../../../../mummer"
 
 const CHANGE_TERMS = "レートを変更する"
 
@@ -79,7 +81,7 @@ export function CornerTerms(props: { readonly draft: PlayDraft }): JSX.Element {
             </span>
           </button>
           <button type="button" onClick={() => moves.go({ kind: "live-cabinet", playId: props.draft.id })} class={PENCILLED}>
-            {props.draft.cabinetNumber ?? "----"}番台
+            {cabinetText(props.draft.cabinetNumber === undefined ? undefined : seal.cabinet(props.draft.cabinetNumber))}
             <span class="text-text-secondary group-hover:text-text-primary">
               <EditIcon label={CHANGE_CABINET} />
             </span>

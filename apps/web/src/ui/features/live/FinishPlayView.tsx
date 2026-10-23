@@ -26,12 +26,13 @@ import { Select } from "../../primitives/select"
 import { Loaded } from "../../primitives/states"
 import { TextField } from "../../primitives/text-field"
 import { TimeField, type TimeOfDay } from "../../primitives/time-field"
+import { toast } from "../../primitives/toast"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { createOffered } from "../parlor-offers/offered"
-import { bookTitle } from "../../wording/book"
+import { bookTitle, memberNameText } from "../../wording/book"
 import { ViewHeader } from "../shell/ViewHeader"
-import { RECORDING, RECORDING_AGAIN, type PlayedSoFar, type SubmitWords } from "./finish-tally-reading"
+import { RECORDING, RECORDING_AGAIN, SEE_IN_BOOK, type PlayedSoFar, type SubmitWords } from "./finish-tally-reading"
 import { finishTokenTallyFormOf, playedOnTerms, type PlayedOnTerms } from "./finish-token-tally-form"
 import { finishYenTallyFormOf } from "./finish-yen-tally-form"
 import { FinishTokenTallyEditor } from "./FinishTokenTallyEditor"
@@ -137,7 +138,7 @@ function Arrived(props: { readonly draft: PlayDraft; readonly sender: string | u
   return (
     <>
       <div class="flex flex-col gap-3 px-4 pt-4">
-        <p class="text-sm text-text-secondary">{props.sender === undefined ? "届いた稼働" : `${props.sender}さんから届いた稼働`}</p>
+        <p class="text-sm text-text-secondary">{props.sender === undefined ? "届いた稼働" : `${memberNameText(props.sender)}さんから届いた稼働`}</p>
         <Show when={props.draft.received?.again !== undefined}>
           <div role="alert" class="flex flex-col gap-2 rounded-md border border-warning/50 bg-surface-1 p-3">
             <p class="text-sm text-text-primary">この稼働の送り直しが届いています。こちらで直した内容と、どちらを使いますか？</p>
@@ -269,7 +270,8 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
             }
             const recorded = (playId: PlayId): void => {
               app.wrote()
-              moves.go({ kind: "tally", bookId, playId })
+              moves.replace({ kind: "live" })
+              toast({ title: words.done, stays: "offer", action: { label: SEE_IN_BOOK, onPress: () => moves.go({ kind: "tally", bookId, playId }) } })
             }
             return (
               <>

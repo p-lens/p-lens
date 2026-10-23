@@ -20,6 +20,7 @@ import { describeError } from "../../wording/errors"
 import { deliveryText } from "../../wording/sync"
 import { captionOf } from "./play-caption"
 import { sendingPortsOf } from "./sending-ports"
+import { titleText } from "../../wording/book"
 
 /**
  * One of the day's plays as it stands with a book it may be sent to: what
@@ -72,7 +73,7 @@ function Outbox(props: { readonly destination: Destination }): JSX.Element {
       toast({ title: "送れませんでした", description: describeError(sent.error), tone: "error" })
       return
     }
-    toast({ title: "送りました", description: props.destination.title })
+    toast({ title: "送りました", description: titleText(props.destination.title) })
     app.played()
   }
   const forget = async (): Promise<void> => {
@@ -116,7 +117,7 @@ function Outbox(props: { readonly destination: Destination }): JSX.Element {
         </Button>
       </div>
       <ConfirmDialog open={forgetting()} title="この送り先を外しますか？" confirm="外す" decline="やめる" onConfirmed={() => void forget()} onDeclined={() => setForgetting(false)}>
-        <p>{props.destination.title}</p>
+        <p>{titleText(props.destination.title)}</p>
         <p>もう一度送るには、招待コードをあらためて追加します。すでに送った稼働は相手に残ります。</p>
       </ConfirmDialog>
     </>
@@ -131,7 +132,7 @@ function Outbox(props: { readonly destination: Destination }): JSX.Element {
 export function DestinationSide(props: { readonly lineId: string; readonly destinations: Outcome<readonly Destination[]> | undefined }): JSX.Element {
   const destination = (): Destination | undefined => (props.destinations?.ok === true ? props.destinations.value.find((candidate) => candidate.lineId === props.lineId) : undefined)
   return (
-    <SidePanel header={<span class="truncate font-semibold text-text-primary">{destination()?.title ?? "稼働の送り先"}</span>} resizeLabel="サイドパネルの幅を変える">
+    <SidePanel header={<span class="truncate font-semibold text-text-primary">{((found) => (found === undefined ? "稼働の送り先" : titleText(found.title)))(destination())}</span>} resizeLabel="サイドパネルの幅を変える">
       <Loaded outcome={props.destinations}>
         {() => (
           <Show when={destination()} keyed fallback={<p class="px-4 py-3 text-sm text-text-muted">この送り先は、この端末にありません。</p>}>

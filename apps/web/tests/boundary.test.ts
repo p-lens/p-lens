@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { readdir, readFile } from "node:fs/promises"
+import { dirname, resolve } from "node:path"
 
 const WEB = new URL("../", import.meta.url).pathname
 const SHELL = new URL("../../../packages/solid-gathering-shell/src/", import.meta.url).pathname
@@ -135,6 +136,15 @@ describe("dependency direction", () => {
     expect(await offending(`${WEB}src/unhatched-egg/`, /^(?!solid-js(\/web)?$|\.\/)/)).toEqual([])
     const outside = (await Promise.all(["app", "application", "core", "ui", "sync", "storage", "preferences"].map((layer) => offending(`${WEB}src/${layer}/`, /unhatched-egg\/./)))).flat()
     expect(outside).toEqual([])
+  })
+
+  test("the mummer reaches nothing of the app, and only the screens reach it, through its index", async () => {
+    expect(await offending(`${WEB}src/mummer/`, /^(?!solid-js$|\.\/)/)).toEqual([])
+    const outside = (await Promise.all(["app", "application", "core", "hledger", "sync", "storage", "preferences", "backup", "catalog", "parlors", "unhatched-egg"].map((layer) => offending(`${WEB}src/${layer}/`, /(^|\/)mummer(\/|$)/)))).flat()
+    expect(outside).toEqual([])
+    const screens = await sourcesUnder(`${WEB}src/ui/`)
+    const inside = (await Promise.all(screens.map(async (file) => (await importsOf(file)).filter((name) => name.startsWith(".")).map((name) => resolve(dirname(file), name)).filter((path) => path.startsWith(`${WEB}src/mummer/`)).map((path) => `${file.replace(WEB, "")} -> ${path.replace(WEB, "")}`)))).flat()
+    expect(inside).toEqual([])
   })
 
   test("the shell package knows nothing of P-Lens", async () => {

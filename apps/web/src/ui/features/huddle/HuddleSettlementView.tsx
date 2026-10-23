@@ -13,7 +13,8 @@ import { createHourStruck } from "../../primitives/hour"
 import { TextField } from "../../primitives/text-field"
 import type { Place } from "../../navigation/place"
 import { HUDDLE_DEPARTED, HUDDLE_SETTLE_EXACT, HUDDLE_SETTLEMENT, roomMemberText } from "../../wording/huddle"
-import { formatCount, yenFigureText } from "../../wording/numbers"
+import { amountText, figureToneOf, formatCount, yenFigureText, type Amount } from "../../wording/numbers"
+import { seal, Secret } from "../../../mummer"
 import { ViewHeader } from "../shell/ViewHeader"
 
 /** Yen as typed: digits, full-width or with commas, and nothing else; none where it is not that. */
@@ -45,8 +46,13 @@ function Figure(props: { readonly label: string; readonly value: string }): JSX.
   )
 }
 
-/** What a member pays in or is paid, in words: nothing where they are at their share. */
-const dueText = (due: number): string => (due > 0 ? `¥${formatCount(due)} 渡す` : due < 0 ? `¥${formatCount(-due)} もらう` : "精算なし")
+/** What a member pays in or is paid, in words, by the way it goes: nothing where they are at their share. */
+const DUE_WORDS = { positive: "渡す", negative: "もらう", neutral: "精算なし" } as const
+
+/** How what a member pays in or is paid is coloured: paying in as a loss, being paid as a gain. */
+const DUE_LOOKS = { positive: "text-negative", negative: "text-positive", neutral: "text-text-muted" } as const
+
+const dueText = (due: Amount<number>): string => ((tone) => (tone === "neutral" ? DUE_WORDS.neutral : `¥${amountText(Secret.map(due, Math.abs))} ${DUE_WORDS[tone]}`))(figureToneOf(due))
 
 /**
  * The members chosen for the total, settled up evenly: what everyone came
@@ -87,8 +93,8 @@ export function HuddleSettlementView(props: { readonly place: Place }): JSX.Elem
           <Show when={settlement()} keyed>
             {(found) => (
               <dl class="grid grid-cols-2 gap-2">
-                <Figure label="合計収支" value={yenFigureText(found.result)} />
-                <Figure label={`一人あたり（${members().length}人）`} value={yenFigureText(found.share)} />
+                <Figure label="合計収支" value={yenFigureText(seal.play(found.result))} />
+                <Figure label={`一人あたり（${members().length}人）`} value={yenFigureText(seal.play(found.share))} />
               </dl>
             )}
           </Show>
@@ -109,7 +115,7 @@ export function HuddleSettlementView(props: { readonly place: Place }): JSX.Elem
                       <span class="min-w-0 truncate">{nameOf(transfer.from)}</span>
                       <span class="shrink-0 text-text-muted">→</span>
                       <span class="min-w-0 truncate">{nameOf(transfer.to)}</span>
-                      <span class="ml-auto shrink-0 font-bold tabular-nums">¥{formatCount(transfer.yen)}</span>
+                      <span class="ml-auto shrink-0 font-bold tabular-nums">¥{amountText(seal.play(transfer.yen))}</span>
                     </li>
                   )}
                 </For>
@@ -129,27 +135,27 @@ export function HuddleSettlementView(props: { readonly place: Place }): JSX.Elem
                       <span class="shrink-0 rounded-full border border-border px-1.5 text-[11px] font-semibold leading-5 text-text-muted">{HUDDLE_DEPARTED}</span>
                     </Show>
                     <span class="flex-1" />
-                    <span class="shrink-0 text-sm font-bold tabular-nums" classList={{ "text-negative": dueOf(each().member.member) > 0, "text-positive": dueOf(each().member.member) < 0, "text-text-muted": dueOf(each().member.member) === 0 }}>
-                      {dueText(dueOf(each().member.member))}
+                    <span class={`shrink-0 text-sm font-bold tabular-nums ${DUE_LOOKS[figureToneOf(seal.play(dueOf(each().member.member)))]}`}>
+                      {dueText(seal.play(dueOf(each().member.member)))}
                     </span>
                   </div>
                   <div class="grid grid-cols-2 items-end gap-2">
                     <dl class="flex flex-col gap-0.5 text-xs text-text-secondary">
                       <div class="flex justify-between gap-2">
                         <dt>現金投資</dt>
-                        <dd class="tabular-nums">¥{formatCount(each().cash)}</dd>
+                        <dd class="tabular-nums">¥{amountText(seal.play(each().cash))}</dd>
                       </div>
                       <div class="flex justify-between gap-2">
                         <dt>貯玉再プレイ</dt>
-                        <dd class="tabular-nums">≒ ¥{formatCount(each().savings)}</dd>
+                        <dd class="tabular-nums">≒ ¥{amountText(seal.play(each().savings))}</dd>
                       </div>
                       <div class="flex justify-between gap-2">
                         <dt>収支</dt>
-                        <dd class="tabular-nums">{yenFigureText(resultOf(each().member.member))}</dd>
+                        <dd class="tabular-nums">{yenFigureText(seal.play(resultOf(each().member.member)))}</dd>
                       </div>
                       <div class="flex justify-between gap-2">
                         <dt>精算後</dt>
-                        <dd class="tabular-nums">{yenFigureText(resultOf(each().member.member) - dueOf(each().member.member))}</dd>
+                        <dd class="tabular-nums">{yenFigureText(seal.play(resultOf(each().member.member) - dueOf(each().member.member)))}</dd>
                       </div>
                     </dl>
                     <TextField
@@ -157,7 +163,7 @@ export function HuddleSettlementView(props: { readonly place: Place }): JSX.Elem
                       value={app.huddle.chosen.prizes().get(each().member.member) ?? ""}
                       onChange={(typed) => type(each().member.member, typed)}
                       inputMode="numeric"
-                      placeholder={`≒ ${formatCount(each().estimate)}`}
+                      placeholder={`≒ ${amountText(seal.play(each().estimate))}`}
                       suffix="円"
                       invalid={((typed) => typed.trim() !== "" && yenTyped(typed) === undefined)(app.huddle.chosen.prizes().get(each().member.member) ?? "")}
                       compact

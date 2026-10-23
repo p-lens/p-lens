@@ -18,6 +18,7 @@ import { EarlierIcon, LaterIcon } from "./icons"
 import { byDay, monthAfter, monthBefore, weeksOf, type Cell } from "./month"
 import { FITTED_SIZE, type CalendarOf } from "./fit"
 import { cellResult, cellWorth, dayNumber, daySays, monthTitle, RESULT_CALENDAR, WEEKDAYS } from "./wording"
+import { seal } from "../../../mummer"
 
 const TONES = { positive: "text-positive", negative: "text-negative", neutral: "text-text-secondary" } as const
 
@@ -63,7 +64,7 @@ function Day(props: { readonly day: IsoDate; readonly figures: Group | undefined
         >
           {number()}
           <span class="block w-full [container-type:inline-size]">
-            <span class={`block whitespace-nowrap text-right font-figures font-bold leading-tight tracking-[-0.02em] tabular-nums ${TONES[toneOf(figures.actual)]}`} style={{ "font-size": FITTED_SIZE[props.of](cellResult(figures.actual)) }}>
+            <span class={`block whitespace-nowrap text-right font-figures font-bold leading-tight tracking-[-0.02em] tabular-nums ${TONES[toneOf(seal.tally(figures.actual))]}`} style={{ "font-size": FITTED_SIZE[props.of](cellResult(figures.actual)) }}>
               {cellResult(figures.actual)}
             </span>
             <Show when={worth()} keyed>

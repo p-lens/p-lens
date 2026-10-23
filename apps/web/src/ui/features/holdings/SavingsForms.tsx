@@ -22,9 +22,11 @@ import { settleTyping, TextField } from "../../primitives/text-field"
 import { toast } from "../../primitives/toast"
 import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
 import { describeError } from "../../wording/errors"
-import { formatRate, formatYen } from "../../wording/numbers"
-import { typedParlorRefused } from "../../wording/parlor"
+import { amountText, formatRate, formatYen, signedAmountText } from "../../wording/numbers"
+import { chosenParlorText, parlorChoiceText, parlorNameText, typedParlorRefused } from "../../wording/parlor"
 import { offersByKey, parlorOffers } from "../parlor-offers/parlor-offers"
+import { seal } from "../../../mummer"
+import { Withheld } from "../mummer/Withheld"
 
 /** Where a form's saving is: being typed, being written, or failed. */
 type Saving = { readonly type: "typing" } | { readonly type: "saving" } | { readonly type: "failed"; readonly error: ApplicationError }
@@ -94,7 +96,7 @@ export function OpeningBalanceForm(props: {
   const [saving, setSaving] = createSignal<Saving>({ type: "typing" })
   const nudge = createNudge()
   const chosen = (): Parlor | undefined => offerOf().get(parlorKey())?.parlor
-  const typedOnly = (): boolean => holdsTypedOnly(typed(), chosen()?.name)
+  const typedOnly = (): boolean => holdsTypedOnly(typed(), chosenParlorText(chosen()?.name))
   const positive = (text: string): number | undefined => {
     const count = countOf(text)
     return count !== undefined && count > 0 ? count : undefined
@@ -134,66 +136,68 @@ export function OpeningBalanceForm(props: {
       setSaving({ type: "failed", error: registered.error })
       return
     }
-    toast({ title: "開始残高を登録しました", description: `${parlor.name} ${held.toLocaleString("ja-JP")}${USUAL[game()].unit}` })
+    toast({ title: "開始残高を登録しました", description: `${parlorNameText(seal.parlor(parlor.name))} ${amountText(seal.savings(held))}${USUAL[game()].unit}` })
     app.wrote()
     props.onDone()
   }
   return (
-    <form autocomplete="off"
-      class="flex flex-col gap-3 rounded-lg bg-surface-1 p-3 lg:w-2/3"
-      onSubmit={(event) => {
-        event.preventDefault()
-        void save()
-      }}
-    >
-      <h2 class="text-sm font-bold text-text-primary">開始残高の登録</h2>
-      <p class="text-xs text-text-muted">帳簿をつけ始める前から持っていた貯玉・貯メダルです。収支には入りません。</p>
-      <div class="flex flex-col gap-1.5">
-        <Combobox
-          label="店舗"
-          placeholder="店舗を選ぶ"
-          options={offers().map((offer) => ({ value: identityKey(offer.parlor.identity), label: offer.parlor.name, note: offer.note, foundFirst: offer.unplaced !== undefined }))}
-          value={parlorKey() === "" ? undefined : parlorKey()}
-          onChange={(key) => setParlorKey(key ?? "")}
-          matches={(key, text) => offerOf().get(key)?.matches(text) ?? false}
-          invalid={typedOnly() || missing("parlor")}
-          onFocus={nudge.settle}
-          onTyped={setTyped}
-        />
-        <Show when={typedOnly()}>
-          <p role="alert" class="text-xs text-negative">
-            {typedParlorRefused("registering")}
-          </p>
-        </Show>
-      </div>
-      <ToggleGroup
-        value={game()}
-        onChange={(value: string | null) => {
-          if ((value === "pachinko" || value === "pachislot") && value !== game()) play(value)
+    <Withheld kind="savings">
+      <form autocomplete="off"
+        class="flex flex-col gap-3 rounded-lg bg-surface-1 p-3 lg:w-2/3"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void save()
         }}
-        aria-label="種別"
       >
-        <ToggleGroupItem value="pachinko">貯玉</ToggleGroupItem>
-        <ToggleGroupItem value="pachislot">貯メダル</ToggleGroupItem>
-      </ToggleGroup>
-      <div class="grid grid-cols-4 items-end gap-1.5">
-        <TextField label="貸(千円)" value={rental()} onChange={setRental} inputMode="numeric" suffix={USUAL[game()].unit} invalid={missing("rental")} onFocus={nudge.settle} compact />
-        <TextField label="交換(100円)" value={exchange()} onChange={setExchange} inputMode="decimal" suffix={USUAL[game()].unit} invalid={missing("exchange")} onFocus={nudge.settle} compact />
-        <div class="col-span-2">
-          <TextField label="残高" value={tokens()} onChange={setTokens} inputMode="numeric" suffix={USUAL[game()].unit} invalid={missing("tokens")} onFocus={nudge.settle} compact />
+        <h2 class="text-sm font-bold text-text-primary">開始残高の登録</h2>
+        <p class="text-xs text-text-muted">帳簿をつけ始める前から持っていた貯玉・貯メダルです。収支には入りません。</p>
+        <div class="flex flex-col gap-1.5">
+          <Combobox
+            label="店舗"
+            placeholder="店舗を選ぶ"
+            options={offers().map((offer) => ({ value: identityKey(offer.parlor.identity), label: parlorChoiceText(seal.parlor(offer.parlor.name)), note: offer.note, foundFirst: offer.unplaced !== undefined }))}
+            value={parlorKey() === "" ? undefined : parlorKey()}
+            onChange={(key) => setParlorKey(key ?? "")}
+            matches={(key, text) => offerOf().get(key)?.matches(text) ?? false}
+            invalid={typedOnly() || missing("parlor")}
+            onFocus={nudge.settle}
+            onTyped={setTyped}
+          />
+          <Show when={typedOnly()}>
+            <p role="alert" class="text-xs text-negative">
+              {typedParlorRefused("registering")}
+            </p>
+          </Show>
         </div>
-      </div>
-      <div class="w-48">
-        <TextField label="日付" type="date" value={date()} onChange={setDate} invalid={missing("date")} onFocus={nudge.settle} />
-      </div>
-      <Failure saving={saving()} />
-      <div class="flex gap-2">
-        <Button type="submit">{saving().type === "saving" ? "登録中…" : "登録する"}</Button>
-        <Button variant="ghost" onClick={() => props.onDone()}>
-          やめる
-        </Button>
-      </div>
-    </form>
+        <ToggleGroup
+          value={game()}
+          onChange={(value: string | null) => {
+            if ((value === "pachinko" || value === "pachislot") && value !== game()) play(value)
+          }}
+          aria-label="種別"
+        >
+          <ToggleGroupItem value="pachinko">貯玉</ToggleGroupItem>
+          <ToggleGroupItem value="pachislot">貯メダル</ToggleGroupItem>
+        </ToggleGroup>
+        <div class="grid grid-cols-4 items-end gap-1.5">
+          <TextField label="貸(千円)" value={rental()} onChange={setRental} inputMode="numeric" suffix={USUAL[game()].unit} invalid={missing("rental")} onFocus={nudge.settle} compact />
+          <TextField label="交換(100円)" value={exchange()} onChange={setExchange} inputMode="decimal" suffix={USUAL[game()].unit} invalid={missing("exchange")} onFocus={nudge.settle} compact />
+          <div class="col-span-2">
+            <TextField label="残高" value={tokens()} onChange={setTokens} inputMode="numeric" suffix={USUAL[game()].unit} invalid={missing("tokens")} onFocus={nudge.settle} compact />
+          </div>
+        </div>
+        <div class="w-48">
+          <TextField label="日付" type="date" value={date()} onChange={setDate} invalid={missing("date")} onFocus={nudge.settle} />
+        </div>
+        <Failure saving={saving()} />
+        <div class="flex gap-2">
+          <Button type="submit">{saving().type === "saving" ? "登録中…" : "登録する"}</Button>
+          <Button variant="ghost" onClick={() => props.onDone()}>
+            やめる
+          </Button>
+        </div>
+      </form>
+    </Withheld>
   )
 }
 
@@ -233,33 +237,35 @@ export function BalanceAdjustmentForm(props: {
     toast(
       adjusted.value.type === "unchanged"
         ? { title: "帳簿の残高と同じでした", description: "調整は書き込んでいません。" }
-        : { title: "残高を調整しました", description: `${props.parlor.name} ${adjusted.value.difference.mantissa < 0n ? "" : "+"}${toPlainString(adjusted.value.difference)}${props.unit}` },
+        : { title: "残高を調整しました", description: `${parlorNameText(seal.parlor(props.parlor.name))} ${signedAmountText(seal.savings(Number(toPlainString(adjusted.value.difference))))}${props.unit}` },
     )
     app.wrote()
     props.onDone()
   }
   return (
-    <form autocomplete="off"
-      class="flex flex-col gap-2 rounded-md border border-border p-2"
-      onSubmit={(event) => {
-        event.preventDefault()
-        void save()
-      }}
-    >
-      <div class="grid grid-cols-2 items-end gap-1.5">
-        <TextField label="実際の残高" value={actual()} onChange={setActual} inputMode="numeric" suffix={props.unit} invalid={nudge.red() && countOf(actual()) === undefined} onFocus={nudge.settle} compact />
-        <TextField label="日付" type="date" value={date()} onChange={setDate} invalid={nudge.red() && !parseIsoDate(date()).ok} onFocus={nudge.settle} compact />
-      </div>
-      <Failure saving={saving()} />
-      <div class="flex gap-2">
-        <Button type="submit" size="small">
-          {saving().type === "saving" ? "調整中…" : "調整する"}
-        </Button>
-        <Button variant="ghost" size="small" onClick={() => props.onDone()}>
-          やめる
-        </Button>
-      </div>
-    </form>
+    <Withheld kind="savings">
+      <form autocomplete="off"
+        class="flex flex-col gap-2 rounded-md border border-border p-2"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void save()
+        }}
+      >
+        <div class="grid grid-cols-2 items-end gap-1.5">
+          <TextField label="実際の残高" value={actual()} onChange={setActual} inputMode="numeric" suffix={props.unit} invalid={nudge.red() && countOf(actual()) === undefined} onFocus={nudge.settle} compact />
+          <TextField label="日付" type="date" value={date()} onChange={setDate} invalid={nudge.red() && !parseIsoDate(date()).ok} onFocus={nudge.settle} compact />
+        </div>
+        <Failure saving={saving()} />
+        <div class="flex gap-2">
+          <Button type="submit" size="small">
+            {saving().type === "saving" ? "調整中…" : "調整する"}
+          </Button>
+          <Button variant="ghost" size="small" onClick={() => props.onDone()}>
+            やめる
+          </Button>
+        </div>
+      </form>
+    </Withheld>
   )
 }
 
@@ -327,51 +333,53 @@ export function PrizeExchangeForm(props: {
       setSaving({ type: "failed", error: recorded.error })
       return
     }
-    toast({ title: "交換払出を記録しました", description: `${props.parlor.name} ${count.toLocaleString("ja-JP")}${props.unit} → 特殊景品 ${formatYen(whole(special))}` })
+    toast({ title: "交換払出を記録しました", description: `${parlorNameText(seal.parlor(props.parlor.name))} ${amountText(seal.savings(count))}${props.unit} → 特殊景品 ${formatYen(seal.savings(whole(special)))}` })
     app.wrote()
     props.onDone()
   }
   return (
-    <form autocomplete="off"
-      class="flex flex-col gap-2 rounded-md border border-border p-2"
-      onSubmit={(event) => {
-        event.preventDefault()
-        void save()
-      }}
-    >
-      <div class="w-40">
-        <TextField label="日付" type="date" value={date()} onChange={setDate} invalid={nudge.red() && !parseIsoDate(date()).ok} onFocus={nudge.settle} compact />
-      </div>
-      <div class="grid grid-cols-2 items-end gap-1.5">
-        <TextField label="払出数" value={tokens()} onChange={setTokens} inputMode="numeric" suffix={props.unit} invalid={nudge.red() && exchanged() === undefined} onFocus={nudge.settle} compact />
-        <TextField label="特殊景品額" value={prizes()} onChange={setPrizes} inputMode="numeric" suffix="円" invalid={nudge.red() && countOf(prizes()) === undefined} onFocus={nudge.settle} compact />
-      </div>
-      <p class="text-xs text-text-muted">特殊景品に届かなかった分は貸出レートで端玉景品に、交換率との差額は換算調整勘定に記帳します。</p>
-      <Show when={beyond()}>
-        {(over) => (
-          <p role="status" class="text-xs text-warning">
-            特殊景品額が、払出数の評価額 {formatYen(over().worth)}（交換率 {formatRate(over().rate)}）を {formatYen(over().by)} 上回っています。端玉景品は {formatYen(over().odd)} で記帳されます。入力や帳簿の交換率に間違いがないか確かめてください。このまま記録することもできます。
+    <Withheld kind="savings">
+      <form autocomplete="off"
+        class="flex flex-col gap-2 rounded-md border border-border p-2"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void save()
+        }}
+      >
+        <div class="w-40">
+          <TextField label="日付" type="date" value={date()} onChange={setDate} invalid={nudge.red() && !parseIsoDate(date()).ok} onFocus={nudge.settle} compact />
+        </div>
+        <div class="grid grid-cols-2 items-end gap-1.5">
+          <TextField label="払出数" value={tokens()} onChange={setTokens} inputMode="numeric" suffix={props.unit} invalid={nudge.red() && exchanged() === undefined} onFocus={nudge.settle} compact />
+          <TextField label="特殊景品額" value={prizes()} onChange={setPrizes} inputMode="numeric" suffix="円" invalid={nudge.red() && countOf(prizes()) === undefined} onFocus={nudge.settle} compact />
+        </div>
+        <p class="text-xs text-text-muted">特殊景品に届かなかった分は貸出レートで端玉景品に、交換率との差額は換算調整勘定に記帳します。</p>
+        <Show when={beyond()}>
+          {(over) => (
+            <p role="status" class="text-xs text-warning">
+              特殊景品額が、払出数の評価額 {formatYen(seal.savings(over().worth))}（交換率 {formatRate(over().rate)}）を {formatYen(seal.savings(over().by))} 上回っています。端玉景品は {formatYen(seal.savings(over().odd))} で記帳されます。入力や帳簿の交換率に間違いがないか確かめてください。このまま記録することもできます。
+            </p>
+          )}
+        </Show>
+        <Show when={oddOverStep()}>
+          <p role="status" class="flex flex-col text-xs text-warning">
+            <span>1000円超の端玉景品が出ています。</span>
+            <span>レートがズレている可能性があります。</span>
+            <span>通帳から交換率を変更できます。</span>
+            <span>このままでも記録はできます。</span>
           </p>
-        )}
-      </Show>
-      <Show when={oddOverStep()}>
-        <p role="status" class="flex flex-col text-xs text-warning">
-          <span>1000円超の端玉景品が出ています。</span>
-          <span>レートがズレている可能性があります。</span>
-          <span>通帳から交換率を変更できます。</span>
-          <span>このままでも記録はできます。</span>
-        </p>
-      </Show>
-      <Failure saving={saving()} />
-      <div class="flex gap-2">
-        <Button type="submit" size="small">
-          {saving().type === "saving" ? "記録中…" : "記録する"}
-        </Button>
-        <Button variant="ghost" size="small" onClick={() => props.onDone()}>
-          やめる
-        </Button>
-      </div>
-    </form>
+        </Show>
+        <Failure saving={saving()} />
+        <div class="flex gap-2">
+          <Button type="submit" size="small">
+            {saving().type === "saving" ? "記録中…" : "記録する"}
+          </Button>
+          <Button variant="ghost" size="small" onClick={() => props.onDone()}>
+            やめる
+          </Button>
+        </div>
+      </form>
+    </Withheld>
   )
 }
 
@@ -413,33 +421,35 @@ export function ForfeitureForm(props: {
       setSaving({ type: "failed", error: recorded.error })
       return
     }
-    toast({ title: "失効を記録しました", description: `${props.parlor.name} ${count.toLocaleString("ja-JP")}${props.unit}` })
+    toast({ title: "失効を記録しました", description: `${parlorNameText(seal.parlor(props.parlor.name))} ${amountText(seal.savings(count))}${props.unit}` })
     app.wrote()
     props.onDone()
   }
   return (
-    <form autocomplete="off"
-      class="flex flex-col gap-2 rounded-md border border-border p-2"
-      onSubmit={(event) => {
-        event.preventDefault()
-        void save()
-      }}
-    >
-      <div class="grid grid-cols-2 items-end gap-1.5">
-        <TextField label="失効した数" value={tokens()} onChange={setTokens} inputMode="numeric" suffix={props.unit} invalid={nudge.red() && forfeited() === undefined} onFocus={nudge.settle} compact />
-        <TextField label="日付" type="date" value={date()} onChange={setDate} invalid={nudge.red() && !parseIsoDate(date()).ok} onFocus={nudge.settle} compact />
-      </div>
-      <p class="text-xs text-text-muted">期限切れや会員資格の取り消しで、店に戻った貯玉・貯メダルです。その日の交換率で、収支とは別のその他損益（失効損）になります。稼働にはなりません。</p>
-      <Failure saving={saving()} />
-      <div class="flex gap-2">
-        <Button type="submit" size="small">
-          {saving().type === "saving" ? "記録中…" : "記録する"}
-        </Button>
-        <Button variant="ghost" size="small" onClick={() => props.onDone()}>
-          やめる
-        </Button>
-      </div>
-    </form>
+    <Withheld kind="savings">
+      <form autocomplete="off"
+        class="flex flex-col gap-2 rounded-md border border-border p-2"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void save()
+        }}
+      >
+        <div class="grid grid-cols-2 items-end gap-1.5">
+          <TextField label="失効した数" value={tokens()} onChange={setTokens} inputMode="numeric" suffix={props.unit} invalid={nudge.red() && forfeited() === undefined} onFocus={nudge.settle} compact />
+          <TextField label="日付" type="date" value={date()} onChange={setDate} invalid={nudge.red() && !parseIsoDate(date()).ok} onFocus={nudge.settle} compact />
+        </div>
+        <p class="text-xs text-text-muted">期限切れや会員資格の取り消しで、店に戻った貯玉・貯メダルです。その日の交換率で、収支とは別のその他損益（失効損）になります。稼働にはなりません。</p>
+        <Failure saving={saving()} />
+        <div class="flex gap-2">
+          <Button type="submit" size="small">
+            {saving().type === "saving" ? "記録中…" : "記録する"}
+          </Button>
+          <Button variant="ghost" size="small" onClick={() => props.onDone()}>
+            やめる
+          </Button>
+        </div>
+      </form>
+    </Withheld>
   )
 }
 
@@ -480,7 +490,7 @@ export function RateChangeForm(props: {
       setSaving({ type: "failed", error: changed.error })
       return
     }
-    toast({ title: "交換率を変更しました", description: `${props.parlorName} ${props.pool.tier} 100円あたり${statedExchangeOfRate(game(), exchangeRateOf({ exchange: typed }))}${props.unit}` })
+    toast({ title: "交換率を変更しました", description: `${parlorNameText(seal.parlor(props.parlorName))} ${props.pool.tier} 100円あたり${statedExchangeOfRate(game(), exchangeRateOf({ exchange: typed }))}${props.unit}` })
     app.wrote()
     props.onDone()
   }

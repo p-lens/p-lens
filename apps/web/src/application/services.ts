@@ -92,6 +92,8 @@ export interface Services {
   readonly operatorPage: string
   /** Where the deployment's product is introduced at length, where it has such a page. */
   readonly landingPage: string | undefined
+  /** Where the deployment's site shows how to install the app, where it has such a page. */
+  readonly installGuide: string | undefined
   /** The version of the app this copy was built from, as its package says it. */
   readonly version: string
   /** The name a member of a book is counted under in the shared catalog. */

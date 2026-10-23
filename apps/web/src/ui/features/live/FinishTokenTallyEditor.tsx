@@ -23,6 +23,8 @@ import { machineChoicesOf, type FieldProblem, type FormField, type SubmitWords }
 import { FinishTallyForm, type FinishTallyEditing } from "./FinishTallyForm"
 import { pricesPlayedOn, readFinishTokenTallyForm, type FinishTokenTallyForm, type PlayedOnTerms } from "./finish-token-tally-form"
 import { createFollowedWorth, heldTyped, type WorthAt } from "./followed-worth"
+import { seal } from "../../../mummer"
+import { parlorNameText } from "../../wording/parlor"
 
 /** Where a submission is: being typed, being written, or refused with why. */
 type Submission =
@@ -91,7 +93,7 @@ export function FinishTokenTallyEditor(props: {
   })
   const resultTone = (): ReturnType<typeof toneOf> | undefined => {
     const yen = result()
-    return yen === undefined ? undefined : toneOf(yen)
+    return yen === undefined ? undefined : toneOf(seal.play(yen))
   }
   const previewText = (): string | undefined => {
     const entry = preview()
@@ -162,7 +164,7 @@ export function FinishTokenTallyEditor(props: {
     machineTypedOnly,
     machineLacked: () => nudge.red() && machineMissing(),
     machineRequired: true,
-    resultText: () => ((yen) => (yen === undefined ? UNSEEN_ACTUAL : formatSignedYen(yen)))(result()),
+    resultText: () => ((yen) => (yen === undefined ? UNSEEN_ACTUAL : formatSignedYen(seal.play(yen))))(result()),
     resultTone,
     previewText,
     previewProblem,
@@ -178,14 +180,14 @@ export function FinishTokenTallyEditor(props: {
       place={
         <Show when={props.namesPlace}>
           <p class="text-sm text-text-secondary">
-            {props.at.parlor.name}・{props.at.pool.tier}
+            {parlorNameText(seal.parlor(props.at.parlor.name))}・{props.at.pool.tier}
             {props.at.gameKind === "pachinko" ? "パチンコ" : "スロット"}
           </p>
         </Show>
       }
       outlayBeside={
         <Show when={tally()?.rental} keyed>
-          {(rental) => <span class="text-xs text-text-muted">貸{unit()} {formatTokens(rental.tokens, kind())}</span>}
+          {(rental) => <span class="text-xs text-text-muted">貸{unit()} {formatTokens(seal.play(rental.tokens), kind())}</span>}
         </Show>
       }
       savings={{ deducted: () => tally()?.replay.deducted }}

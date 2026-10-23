@@ -24,6 +24,9 @@ import { formatRate, formatTokens, formatYen } from "../../wording/numbers"
 import { createOffered } from "../parlor-offers/offered"
 import { ViewHeader } from "../shell/ViewHeader"
 import { BalanceAdjustmentForm, PrizeExchangeForm, OpeningBalanceForm } from "./SavingsForms"
+import { seal } from "../../../mummer"
+import { parlorChoiceText, parlorNameText } from "../../wording/parlor"
+import { Withheld } from "../mummer/Withheld"
 
 const UNITS = { ball: "玉", medal: "枚" } as const
 
@@ -37,9 +40,9 @@ function TokenFigures(props: { readonly token: TokenHolding }): JSX.Element {
   return (
     <div class="flex items-baseline justify-between gap-3">
       <span class="w-12 shrink-0 text-xs text-text-muted">{props.token.tier}</span>
-      <span class="tabular-nums text-text-primary">{formatTokens(props.token.quantity, props.token.kind)}</span>
+      <span class="tabular-nums text-text-primary">{formatTokens(seal.savings(props.token.quantity), props.token.kind)}</span>
       <span class="flex-1 text-sm text-text-muted">{props.token.rate === undefined ? "交換率なし" : `@ ${formatRate(props.token.rate.rate)}`}</span>
-      <span class="tabular-nums text-text-secondary">{formatYen(props.token.value)}</span>
+      <span class="tabular-nums text-text-secondary">{formatYen(seal.savings(props.token.value))}</span>
     </div>
   )
 }
@@ -61,7 +64,7 @@ function TokenRow(props: { readonly bookId: BookId; readonly place: Place; reado
     <li class="flex flex-col gap-2 py-1.5">
       <button
         type="button"
-        aria-label={`${props.parlorName} ${props.token.tier}の通帳`}
+        aria-label={`${parlorNameText(seal.parlor(props.parlorName))} ${props.token.tier}の通帳`}
         aria-current={shown() ? "true" : undefined}
         class="-mx-2 rounded px-2 py-1 text-left hover:bg-surface-3"
         classList={{ "bg-surface-3": shown() }}
@@ -70,14 +73,16 @@ function TokenRow(props: { readonly bookId: BookId; readonly place: Place; reado
         <TokenFigures token={props.token} />
       </button>
       <Show when={props.parlor !== undefined && opened() === "none"}>
-        <div class="flex justify-end gap-2">
-          <button type="button" class={ROW_BUTTON} onClick={() => setOpened("prize-exchange")}>
-            交換払出
-          </button>
-          <button type="button" class={ROW_BUTTON} onClick={() => setOpened("adjustment")}>
-            残高調整
-          </button>
-        </div>
+        <Withheld kind="savings" silent>
+          <div class="flex justify-end gap-2">
+            <button type="button" class={ROW_BUTTON} onClick={() => setOpened("prize-exchange")}>
+              交換払出
+            </button>
+            <button type="button" class={ROW_BUTTON} onClick={() => setOpened("adjustment")}>
+              残高調整
+            </button>
+          </div>
+        </Withheld>
       </Show>
       <Show when={opened() === "prize-exchange" ? props.parlor : undefined} keyed>
         {(parlor) => <PrizeExchangeForm bookId={props.bookId} parlor={parlor} pool={pool()} unit={UNITS[props.token.kind]} onDone={() => setOpened("none")} />}
@@ -98,8 +103,8 @@ function TokenRow(props: { readonly bookId: BookId; readonly place: Place; reado
 function ParlorCard(props: { readonly holding: ParlorHolding; readonly onOpen?: () => void; readonly open?: boolean; readonly children: (token: TokenHolding) => JSX.Element }): JSX.Element {
   const heading = (): JSX.Element => (
     <>
-      <h2 class="font-semibold text-text-primary">{props.holding.parlorName}</h2>
-      <span class="text-lg font-bold tabular-nums text-text-primary">{formatYen(props.holding.value)}</span>
+      <h2 class="font-semibold text-text-primary">{parlorNameText(seal.parlor(props.holding.parlorName))}</h2>
+      <span class="text-lg font-bold tabular-nums text-text-primary">{formatYen(seal.savings(props.holding.value))}</span>
     </>
   )
   return (
@@ -109,7 +114,7 @@ function ParlorCard(props: { readonly holding: ParlorHolding; readonly onOpen?: 
           {(onOpen) => (
             <button
               type="button"
-              aria-label={`${props.holding.parlorName}の通帳`}
+              aria-label={`${parlorNameText(seal.parlor(props.holding.parlorName))}の通帳`}
               aria-current={props.open === true ? "true" : undefined}
               class="-mx-2 flex w-[calc(100%+1rem)] items-baseline justify-between gap-3 rounded px-2 py-1 text-left hover:bg-surface-3"
               classList={{ "bg-surface-3": props.open === true }}
@@ -167,7 +172,7 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
   /** The savings shown: at every parlor, or at those chosen. */
   const holdings = () => (props.parlors === undefined ? every() : narrowed())
   /** The parlors the book holds savings at, whatever is chosen: what the funnel offers. */
-  const offered = (): readonly Offered[] => ((found) => (found?.ok === true ? found.value.parlors.map((holding) => ({ key: holding.parlorName, label: holding.parlorName })) : []))(every())
+  const offered = (): readonly Offered[] => ((found) => (found?.ok === true ? found.value.parlors.map((holding) => ({ key: holding.parlorName, label: parlorChoiceText(seal.parlor(holding.parlorName)) })) : []))(every())
   const valuedOn = (): string => {
     const found = holdings()
     return found?.ok === true ? (found.value.valuedOn ?? "") : ""
@@ -222,9 +227,11 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
               <TextField label="評価日" type="date" value={valuedOn()} onChange={chooseDay} />
             </div>
             <Show when={writable() !== undefined && !opening()}>
-              <Button size="small" onClick={() => setOpening(true)}>
-                開始残高を登録
-              </Button>
+              <Withheld kind="savings" silent>
+                <Button size="small" onClick={() => setOpening(true)}>
+                  開始残高を登録
+                </Button>
+              </Withheld>
             </Show>
             <div class="ml-auto flex gap-1.5">
               <button type="button" aria-label="店舗を検索" title="店舗を検索" aria-expanded={seeking()} class={filterButtonClass(searching())} onClick={toggleSeeking}>
@@ -254,7 +261,7 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
                 }
               >
                 <p class="text-sm text-text-muted">
-                  合計 <span class="font-semibold tabular-nums text-text-primary">{formatYen(found.total)}</span>
+                  合計 <span class="font-semibold tabular-nums text-text-primary">{formatYen(seal.savings(found.total))}</span>
                   {found.valuedOn === undefined ? "" : `（${formatDay(found.valuedOn)}時点の交換率）`}
                 </p>
                 <Show when={shownOf(found.parlors).length > 0 || !searching()} fallback={<EmptyState title="当てはまる店舗はありません">店舗の名前の一部で探せます。</EmptyState>}>

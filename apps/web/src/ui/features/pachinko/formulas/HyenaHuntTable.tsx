@@ -11,6 +11,7 @@ import { TextField } from "../../../primitives/text-field"
 import { formatCount, theoreticalFigureText } from "../../../wording/numbers"
 import { useStartBallValue } from "../../live/start-form"
 import { HyenaHuntRun } from "./HyenaHuntRun"
+import { seal } from "../../../../mummer"
 
 const positiveOf = (text: string): number | undefined => {
   const value = Number(tidyTyped(text))
@@ -78,7 +79,7 @@ export function HyenaHuntTable(props: { readonly basis: Basis; readonly reliefDr
                         </button>
                       </td>
                       <td class="py-1.5 text-right font-semibold">
-                        {theoreticalFigureText(row.yen)}
+                        {theoreticalFigureText(seal.formula(row.yen))}
                       </td>
                       <td class="py-1.5 text-right">{(row.reliefDriveProbability * 100).toFixed(1)}%</td>
                       <td class="py-1.5 text-right">{formatCount(Math.round(row.spins))}回転</td>

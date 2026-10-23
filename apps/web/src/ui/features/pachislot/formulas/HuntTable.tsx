@@ -15,6 +15,7 @@ import { TextField } from "../../../primitives/text-field"
 import { readTerms } from "../../live/start-terms"
 import { useStartForm } from "../../live/start-form"
 import { seatCountOf } from "../start/seat-form"
+import { seal } from "../../../../mummer"
 
 /** The toggle's value for a last AT however it ended. */
 const ANY_ENDING = "any"
@@ -132,7 +133,7 @@ export function HuntTable(props: { readonly basis: Basis }): JSX.Element {
                   {(row) => (
                     <tr class="border-t border-border">
                       <td class="py-1.5">AT間 {formatCount(row.seat.sinceAt)}G</td>
-                      <td class="py-1.5 text-right font-semibold">{theoreticalFigureText(row.hunt.yen)}</td>
+                      <td class="py-1.5 text-right font-semibold">{theoreticalFigureText(seal.formula(row.hunt.yen))}</td>
                       <td class="py-1.5 text-right">{aboutText(row.hunt.games, "G")}</td>
                       <td class="py-1.5 text-right">{shareText(row.hunt.byCeiling)}</td>
                     </tr>

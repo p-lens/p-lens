@@ -24,10 +24,11 @@ const SHOWN_FOR = 4000
  * How long a toast stays where it is not the usual few seconds: a glance is
  * long enough to read a word by and gone before the next thing is typed; a
  * blink is shorter still, for a press the screen itself answers by
- * changing; a read is long enough for a few lines that explain what
- * happened and why.
+ * changing; an offer is long enough to take one thing it offers, and a
+ * thing not taken in that long would not be; a read is long enough for a
+ * few lines that explain what happened and why.
  */
-const SHOWN_OTHERWISE_FOR: Readonly<Record<"glance" | "blink" | "read", number>> = { glance: 1200, blink: 700, read: 12000 }
+const SHOWN_OTHERWISE_FOR: Readonly<Record<"glance" | "blink" | "offer" | "read", number>> = { glance: 1200, blink: 700, offer: 2500, read: 12000 }
 
 /** How far a toast must be swiped, in pixels, before letting go throws it away rather than puts it back. */
 const SWIPE_AWAY = 50
@@ -69,20 +70,21 @@ export function ToastRegion(): JSX.Element {
  * next. One given an `action` says what was just done and offers one thing
  * to do about it — taking it back: it stays until it is closed, by its
  * cross or by being swiped away, and pressing its button does the thing
- * and closes it. One said to stay a read explains something that was done
+ * and closes it; said to stay an offer, what it offers is only a way on —
+ * to see what was done — and it goes on its own. One said to stay a read explains something that was done
  * on a person's behalf, and stays long enough to be read through.
  */
 export const toast = (message: {
   readonly title: string
   readonly description?: string
   readonly tone?: ToastTone
-  readonly stays?: "glance" | "blink" | "read"
+  readonly stays?: "glance" | "blink" | "offer" | "read"
   readonly action?: { readonly label: string; readonly onPress: () => void }
 }): void => {
   toaster.show((props) => (
     <ToastPrimitive.Root
       toastId={props.toastId}
-      {...(message.action !== undefined ? { persistent: true } : message.stays === undefined ? {} : { duration: SHOWN_OTHERWISE_FOR[message.stays] })}
+      {...(message.stays !== undefined ? { duration: SHOWN_OTHERWISE_FOR[message.stays] } : message.action !== undefined ? { persistent: true } : {})}
       class={`flex items-start gap-3 rounded-md border border-l-4 border-border bg-surface-1 px-4 py-3 shadow-lg ${TONES[message.tone ?? "info"]} ${MOTION}`}
     >
       <div class="min-w-0 flex-1">

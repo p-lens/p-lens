@@ -25,12 +25,13 @@ import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
 import { feelTap } from "../../../primitives/vibration"
 import { describeError, describeReadingRefusal } from "../../../wording/errors"
 import { FIELD_PROBLEM_TEXT } from "../../../wording/fields"
-import { formatCount } from "../../../wording/numbers"
+import { amountText } from "../../../wording/numbers"
 import { CHANGED_SINCE_REMOVED, describeRevisionRefusal, PHASE_NAMES, recountText, READING_REMOVED, REMOVAL_TAKEN_BACK, REMOVE_READING, signedBalls, TAKE_BACK, TAKE_BACK_FAILED, UNTOLD_JACKPOT } from "../../../wording/pachinko/play"
 import { DriftButton } from "./DriftButton"
 import { PressButton } from "./PressButton"
 import { OverButton } from "./OverButton"
 import { bonusKey, formOfReading, NO_JACKPOT, readingFrom, readReadingForm, saysNothingNew, UNTOLD, withMore, type ReadingField, type ReadingForm } from "./reading-form"
+import { seal } from "../../../../mummer"
 
 /** Where an entry of a reading is: being typed, being kept, refused, or failed to be kept. */
 type Sending =
@@ -56,7 +57,7 @@ const USUAL_DRAW = 125
 /** The bonuses to choose a jackpot from: none first, then the machine's, each with what it adds to the hand — or, where the machine lists none, a jackpot untold. */
 const jackpotOptions = (bonuses: readonly MachineBonus[]): readonly SelectOption[] => [
   { value: NO_JACKPOT, label: "なし" },
-  ...(bonuses.length === 0 ? [{ value: UNTOLD, label: UNTOLD_JACKPOT }] : bonuses.map((bonus) => ({ value: bonusKey(bonus.name), label: `${bonus.name}（${signedBalls(bonusGain(bonus))}）` }))),
+  ...(bonuses.length === 0 ? [{ value: UNTOLD, label: UNTOLD_JACKPOT }] : bonuses.map((bonus) => ({ value: bonusKey(bonus.name), label: `${bonus.name}（${signedBalls(seal.formula(bonusGain(bonus)))}）` }))),
 ]
 
 /**
@@ -337,7 +338,7 @@ export function ReadingComposer(props: {
       <Show when={drawn()} keyed>
         {(taken) => (
           <p class="text-xs tabular-nums text-text-muted">
-            貯玉から {formatCount(taken.deducted)}玉（うち手数料 {formatCount(taken.deducted - taken.paidOut)}玉）
+            貯玉から {amountText(seal.play(taken.deducted))}玉（うち手数料 {amountText(seal.play(taken.deducted - taken.paidOut))}玉）
           </p>
         )}
       </Show>
@@ -350,7 +351,7 @@ export function ReadingComposer(props: {
         <DriftButton drift={form().drift} supported={form().supported} invalid={nudged("supported")} onDrift={(drift) => change({ drift })} onSupported={(supported) => change({ supported })} onFocus={nudge.settle} />
       </div>
       <Show when={recount()} keyed>
-        {(drift) => <p class="text-xs text-warning">{recountText(drift.estimate)}</p>}
+        {(drift) => <p class="text-xs text-warning">{recountText(drift.estimate === undefined ? undefined : seal.play(drift.estimate))}</p>}
       </Show>
       <Show when={unread()}>
         <p class="text-xs text-negative">{FIELD_PROBLEM_TEXT["not-a-count"]}</p>

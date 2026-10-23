@@ -14,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "../../primitives/toolti
 import { useMoves } from "../../navigation/moves"
 import { bookOf, inConsolidation, inLiveSpace, inOddPrizeCalculator, inSettings, type Place } from "../../navigation/place"
 import { railLetters, type RailLetters } from "../../theme/rail-letters"
-import { bookTitle } from "../../wording/book"
+import { bookTitle, titleText } from "../../wording/book"
 import { ODD_PRIZE_CALCULATOR_LABEL, ODD_PRIZE_CALCULATOR_LINES } from "../../wording/odd-prize-calculator"
 import { destinationLabel } from "../../wording/sync"
 import { consolidationShown } from "../consolidated/shown"
@@ -104,10 +104,10 @@ export function SpacesRail(props: {
   const waitingFor = (destination: Destination): number => ((found) => (found?.ok === true ? found.value.filter((draft) => awaitsSending(draft, destination.lineId)).length : 0))(drafts())
   const destinationItem = (destination: Destination): RailItem => ({
     id: destination.lineId,
-    label: destinationLabel(destination.title, waitingFor(destination)),
+    label: destinationLabel(titleText(destination.title), waitingFor(destination)),
     icon: (
       <span class="relative flex size-full items-center justify-center">
-        <Initials title={destination.title} />
+        <Initials title={titleText(destination.title)} />
         <span class="absolute bottom-1.5 right-1.5 [&_svg]:size-3">
           <SendIcon />
         </span>

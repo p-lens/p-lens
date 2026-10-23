@@ -5,6 +5,7 @@ import type { PlayOutlook } from "../../../../application/pachislot/weighing"
 import { theoreticalFigureText } from "../../../wording/numbers"
 import { aboutText, medalsPerGameText, payoutRateText, shareText, signedMedalsText, UNSEEN } from "../../../wording/pachislot/formula"
 import { SettingLevelOdds } from "./SettingLevelOdds"
+import { seal } from "../../../../mummer"
 
 function Tile(props: { readonly label: string; readonly value: string }): JSX.Element {
   return (
@@ -27,7 +28,7 @@ function Hunt(props: { readonly hunt: HuntDto; readonly priced: boolean; readonl
     <section class="flex flex-col gap-2">
       <h3 class="text-xs font-bold uppercase tracking-wide text-text-secondary">天井狙い（AT終了まで）</h3>
       <dl class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Tile label="期待値" value={props.priced ? shown(theoreticalFigureText(props.hunt.yen), UNSEEN.yen) : shown(signedMedalsText(props.hunt.medals), UNSEEN.medals)} />
+        <Tile label="期待値" value={props.priced ? shown(theoreticalFigureText(seal.play(props.hunt.yen)), UNSEEN.yen) : shown(signedMedalsText(seal.play(props.hunt.medals)), UNSEEN.medals)} />
         <Tile label="ATまで" value={shown(aboutText(props.hunt.games, "G"), UNSEEN.games)} />
         <Tile label="ATの獲得" value={shown(aboutText(props.hunt.atMedals, "枚"), UNSEEN.medals)} />
         <Show when={props.hunt.triggerMedals > 0}>
@@ -57,10 +58,10 @@ export function OutlookPanel(props: { readonly outlook: PlayOutlook; readonly pr
           <Tile label="1Gあたり" value={props.outlook.grounded ? medalsPerGameText(props.outlook.netPerGame ?? 0) : UNSEEN.medalsPerGame} />
         </Show>
         <Show when={props.outlook.theoreticalValuePerHour !== undefined}>
-          <Tile label="期待値（時給）" value={props.outlook.grounded ? theoreticalFigureText(props.outlook.theoreticalValuePerHour ?? 0) : UNSEEN.yen} />
+          <Tile label="期待値（時給）" value={props.outlook.grounded ? theoreticalFigureText(seal.play(props.outlook.theoreticalValuePerHour ?? 0)) : UNSEEN.yen} />
         </Show>
         <Show when={props.outlook.theoreticalValue !== undefined}>
-          <Tile label="期待値（ここまで）" value={props.outlook.grounded ? theoreticalFigureText(props.outlook.theoreticalValue ?? 0) : UNSEEN.yen} />
+          <Tile label="期待値（ここまで）" value={props.outlook.grounded ? theoreticalFigureText(seal.play(props.outlook.theoreticalValue ?? 0)) : UNSEEN.yen} />
         </Show>
       </dl>
       <Show when={props.outlook.hunt} keyed>

@@ -673,6 +673,7 @@ core ──► hledger/protocol/wire (types only)
 | `branding/` | what is a deployment's own and not the app's, a folder for each (`default/`, `p-lens/`), of which the build takes the one `BRANDING` names (`brandings.ts`; `default` when it names none) and the app reads it as `@branding`: the documents it puts before people (`terms.md`, `privacy.md`), what it goes by, where it is, whether it is indexed and where its landing page is (`deployment.ts`), the drawing its icons are made from (`icon.png`) and the files served at its root as they are — its icons and the card a link to it is shown as (`served/`). `p-lens/` is not under the app's licence (`p-lens/LICENSE`) | `core/document` |
 | `pwa/` | service-worker registration and update state | — |
 | `unhatched-egg/` | 新機能実験モード: what is tried out on the live app before it is anyone's, opened on one device (see *The unhatched egg*) | `solid-js` alone |
+| `mummer/` | 配信モード: what a device showing the app to an audience veils, sealed as what it is and shown through `veil` as `POLICY` says (see *The mummer*); reached by `ui/` alone, through its index | `solid-js` alone |
 | `catalog/` | `port/` (the shared catalog as delivered, and the API it comes from), `delivered/` (the delivered catalog in IndexedDB, with the outbox), `http/` (the API by URL), `absent/` (no catalog), `local/` (the device id) | `core`, contracts |
 | `parlors/` | `port/` (the parlor list and its cache), `jsonl/` (the list by URL), `absent/` (no list), `local/` (the IndexedDB cache) | `core` |
 | `consolidation/` | `port/` (each book's answers kept for the consolidation, keyed by a digest of its journals and the question, and for what stands as of today — savings and その他損益 with an open end — the last day on or before today the book sets a rate on (`lastRateDayOf`), so that it is asked again when a new rate comes into force rather than every day, since everything else counts each posting at its own day's rate and is the same answer whatever day it is asked on), `memory/` (kept in memory), `local/` (kept in IndexedDB, read back only by the build that kept it), `tiered/` (memory in front of IndexedDB), `absent/` (nothing kept: every answer asked of hledger), `web-crypto/` (the digest by the browser's cryptography), `lanes/` (more hledgers beside the one every screen reads on, for a consolidation of many books: one for three books or fewer, two from four, three from twelve and four from twenty, held to the device's cores beside the page's own and to two gigabytes of its memory each — two where it says nothing of it — started the first time wanted and only while the consolidation is on; and a mark kept on the device while it reads on several, taken away as the page is hidden or left, so that a page finding the mark tells once that the last one stopped at work, offers a backup, and reads on one); a personal book never goes through it, and a person with few books, or none consolidated, never has more than the one hledger. A screen is answered at once with what each book was last answered, and the book is read after: one found written since is asked again, and the screen told (`OutdatedNotice`) asks again too. A question about a period reads a view of each book, the files it can count (`core/journal/views`), as one book's own screens do. Books are dealt out among the lanes by their places, each read on the same hledger every time, and asking ahead deals them out alike. Asking ahead goes over the books twice, the periods most looked at first and every day after, each book asked everything of a round before the next, and waits for each book to be read | `core` |
@@ -735,7 +736,7 @@ The place is read off the address (`ui/navigation/place.ts`):
 | `/play` | plays in progress on this device | selection |
 | `/play/new/{pachinko,pachislot}` | starting a play of a game | content |
 | `/play/:play` | a play in progress | content |
-| `/play/:play/record` | recording it into its book (収支を記帳) | content |
+| `/play/:play/record` | recording it into its book (収支を記帳); once recorded, back to the day's plays with none chosen, the next play a press away, its tally offered for a moment (帳簿で見る) | content |
 | `/play/:play/cabinet` | saying anew which cabinet and machine it is on | content |
 | `/books/:book` | a book, no view chosen | selection |
 | `/books/:book/{tallies,holdings,result-calendar,activity,files}?q=` | a view | content |
@@ -2324,6 +2325,76 @@ It is kept nowhere: loading the page again closes it.
   and is everyone's; the egg, `<Unhatched>` and all, is kept as it is for
   the next feature to be tried out before it is anyone's.
 
+## The mummer
+
+配信モード, the mummer (`mummer/`), is a device showing the app to an
+audience — a stream, a post on X — with where the person plays and what
+their wallet holds veiled, while what they are playing now is shown as
+it is: the numbers on the cabinet are what an audience comes for. It is
+turned on and off at 設定 → 配信モード alone, and kept on the device
+(`p-lens.mummer`), so that loading the page again mid-stream veils as
+before; emptying the device takes it.
+
+- **Sealed, and opened only by `veil`.** A value comes to the words
+  sealed as what it is (`seal.parlor`, `seal.cabinet`, `seal.book`,
+  `seal.member`, `seal.savings`, `seal.tally`, `seal.play`, `seal.formula`,
+  `seal.journal`): a `Secret`, whose value
+  nothing outside the folder reaches and which a screen cannot draw — it
+  is not a `JSX.Element`, and made a string by mistake it gives `•••`
+  whether mumming or not. The one way out is `veil`, facet by facet, and
+  what it gives is something to read or measure by, a string or a number,
+  never the value. Secrets are worked out without being opened
+  (`Secret.map`, `Secret.lift2`), and two kinds are never mixed.
+- **A policy of facets, not a mask.** `POLICY` says, kind by kind, which
+  facets are shown while mumming: a value as written (`text`, `figure`),
+  its first character (`initial`), its length (`length`), the way it went (`tone`), how large it stands
+  beside others (`scale`), and a part of a screen whole (`whole`). So a
+  tally shows `-¥•,•••` in its colour, savings neither sign nor colour,
+  a play and a formula everything; a breakdown is ranked by `scale` and
+  falls to its keys while veiled, so its order tells nothing; a parlor in
+  a list to choose from keeps its length (`•••••••`), so the nearest can
+  still be picked; a book's name keeps its first character, an emoji
+  counted as one, and veils the rest in one shape (`🌱•••`, `titleText`),
+  as many characters as the rail ever shows of it, and so does the name
+  a member of a shared book goes by (`memberNameText`), which may well be
+  their own; a huddle's names are made up to be shown, and are not veiled. A kind or a facet is added to the policy and nowhere
+  else.
+- **The words take only sealed values.** Every number word for money or
+  tokens takes an `Amount` (`ui/wording/numbers`): `formatCount` and
+  `formatMan` are for counts alone. A parlor's name, a cabinet's number,
+  an account and an entry's description are shown through
+  `parlorNameText`, `parlorChoiceText`, `parlorPlaceText`, `cabinetText`,
+  `accountText` and `shownDescription`, which veil the parlor and the
+  cabinets inside them. `tests/mummer/leaks.test.ts` holds that no
+  screen puts a yen mark, a token unit or the locale to a figure past
+  them, nor a parlor, cabinet, account or payee into a template, a child
+  or a control's words; it is shown the shapes leaks once took, so that
+  it is known to find them.
+- **Withheld whole where no veil can stand.** A book's raw files, the
+  codes into a book (端末の同期, 共有) and the forms a book's or savings'
+  figures are typed into are replaced while mumming by one quiet line,
+  配信モード中は表示しません (`<Withheld>`): never a blur, which costs a
+  phone a frame to draw and can be read through. The entry a tally will
+  write (書き込まれる仕訳) is drawn by `JournalText` alone: while mumming,
+  its dark box stands as many lines tall as the entry, blank lines of the
+  same font with the words in the middle, so that a stream can still
+  show where the entry is checked; how many lines it takes is the
+  journal's `length`, shown by the policy. A field a cabinet's number is
+  typed into shows dots, a font's (`masked`).
+- **Marked, and turned off in one place.** While mumming, a mask and
+  its name stand in the top bar's left corner on every screen; pressed,
+  it only goes to the setting, so a press by mistake on a stream shows
+  nothing it veils.
+- **The address is left as it is.** A parlor's passbook names its parlor
+  in the address (`/books/…/parlor-passbooks/…`). The app is meant to
+  be installed, and an installed app shows no address bar. Opened in a
+  browser's tab, the setting says so and asks for it to be installed —
+  added to the home screen, on a phone (`isInstalled`); it is turned all the same, since what it
+  does veil is no less worth veiling.
+- **Walled off.** The folder reaches `solid-js` alone and holds no JSX;
+  only `ui/` reaches it, through its `index.ts`. `tests/boundary.test.ts`
+  holds both.
+
 ## Backup
 
 A book is backed up by hand, as its hledger files, to somewhere the person
@@ -3067,6 +3138,7 @@ is not written out here a second time.
 | 稼働 | play (`PlayId`, `play-id`): what is played, followed live — the live space, its drafts and logs |
 | ノリ打ち | huddle (`Huddle`, `core/huddle`): people playing together, shown each other's plays live, by a QR code; no book's |
 | 新機能実験モード | the unhatched egg (`unhatched-egg/`): what is tried out on the live app, opened on one device until the page is loaded again |
+| 配信モード | the mummer (`mummer/`): where a person plays and what their wallet holds veiled on a device shown to an audience, kept on the device |
 | ライブ計測 | the live space by name on screen: the rail, its list of the day's plays and its empty pane |
 | 収支 | tally (`TokenTally`, `YenTally`): what a book keeps of a play, under its play's id — the list, its details and its forms |
 | 営業日 | business day: the day a play belongs to, turning over at the hour set, 05:00 by default (`businessDayOf`) |

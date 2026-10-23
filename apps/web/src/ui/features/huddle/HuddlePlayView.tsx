@@ -15,6 +15,8 @@ import { parlorText } from "../../wording/parlor"
 import * as PachinkoViews from "../pachinko"
 import * as PachislotViews from "../pachislot"
 import { ViewHeader } from "../shell/ViewHeader"
+import { cabinetText } from "../../wording/cabinet"
+import { seal } from "../../../mummer"
 
 /** A play as the room opens it: whose, under the name they go by, and when it was last shown to the huddle — none for one's own, as it stands on this device. */
 interface Seen {
@@ -44,7 +46,7 @@ export function HuddlePlayView(props: { readonly place: Place; readonly member: 
     if (own()) return ((read) => (read?.ok === true ? { play: read.value, name: HUDDLE_OWN, shownAt: undefined } : undefined))(draft.latest)
     return ((shown) => (shown === undefined ? undefined : { play: shown.post.play, name: shown.post.name, shownAt: shown.post.postedAt }))(app.huddle.counted().find(({ post }) => post.member === props.member && post.play.id === props.playId))
   }
-  const title = (): string => ((seen) => (seen === undefined ? "" : `${seen.name}・${shownNameOf(app.machineNames(), seen.play.machine)}${seen.play.cabinetNumber === undefined ? "" : ` ${seen.play.cabinetNumber}番台`}`))(found())
+  const title = (): string => ((seen) => (seen === undefined ? "" : `${seen.name}・${shownNameOf(app.machineNames(), seen.play.machine)}${seen.play.cabinetNumber === undefined ? "" : ` ${cabinetText(seal.cabinet(seen.play.cabinetNumber))}`}`))(found())
   return (
     <MainContent header={<ViewHeader place={props.place} title={title()} />}>
       <Show when={found()} keyed fallback={<EmptyState title="この稼働は見つかりません" />}>

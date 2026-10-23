@@ -10,6 +10,8 @@ import type { Place } from "../../navigation/place"
 import { ViewHeader } from "../shell/ViewHeader"
 import { useStartForm } from "./start-form"
 import { returnedFrom, type LeftFrom } from "./submission-return"
+import { parlorNameText, parlorPlaceText } from "../../wording/parlor"
+import { seal } from "../../../mummer"
 
 /**
  * Where survey.p-lens.jp sends a person back to: the submission they made
@@ -65,7 +67,7 @@ export function SubmissionReturnView(props: { readonly place: Place }): JSX.Elem
                 <Match when={taken.type === "name-listed" && taken.parlor} keyed>
                   {(parlor) => (
                     <EmptyState title="同じ名前の店舗が一覧にあります">
-                      「{parlor.name}」（{parlor.prefecture}{parlor.address}）が一覧にあります。同じ店舗なら、遊技の開始画面で一覧から選んでください。別の店舗なら、支店名を付けた名前で申請し直してください。
+                      「{parlorNameText(seal.parlor(parlor.name))}」（{parlorPlaceText(`${parlor.prefecture}${parlor.address}`)}）が一覧にあります。同じ店舗なら、遊技の開始画面で一覧から選んでください。別の店舗なら、支店名を付けた名前で申請し直してください。
                     </EmptyState>
                   )}
                 </Match>

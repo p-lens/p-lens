@@ -36,6 +36,8 @@ import { useBookFavorites } from "../../live/book-favorites"
 import { useStartForm, type CabinetChoice } from "../../live/start-form"
 import { ViewHeader } from "../../shell/ViewHeader"
 import { SelectionReason } from "../formulas/SelectionReason"
+import { cabinetFieldMasked } from "../../../wording/cabinet"
+import { seal } from "../../../../mummer"
 
 /** A usual over-entry as typed, in balls a round, signed: none where nothing is typed, or nought; `unread` where it is not a whole number. */
 const overEntryTyped = (typed: string): number | undefined | "unread" => {
@@ -173,7 +175,7 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
                 inputMode="numeric"
                 placeholder="----"
                 class="h-6 w-14 rounded-[3px] bg-surface-input px-1.5 text-right tabular-nums outline-none placeholder:text-text-muted focus-visible:outline-2 focus-visible:outline-focus-ring"
-                classList={{ "ring-1 ring-negative": unwritable() }}
+                classList={{ "ring-1 ring-negative": unwritable(), "[-webkit-text-security:disc]": cabinetFieldMasked(seal.cabinet(cabinetNumber())) }}
               />
               番台
             </div>

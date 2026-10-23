@@ -6,7 +6,8 @@ import type { CounterRefusal } from "../../../core/pachislot/reading"
 import type { RevisionRefusal } from "../../../core/pachislot/revision"
 import type { ReadingRefusal } from "../../../core/play-log/live"
 import { formulaIdText } from "../catalog"
-import { formatCount, UNSEEN_THEORETICAL } from "../numbers"
+import { amountText, formatCount, signedAmountText, UNSEEN_THEORETICAL, type Amount } from "../numbers"
+import { seal } from "../../../mummer"
 import type { TriggerWords } from "./trigger"
 
 const KIND_NAMES: Readonly<Record<FormulaKind, string>> = { manual: "手入力", simulated: "解析値から計算", sampled: "シミュレータ" }
@@ -87,7 +88,7 @@ export const priorName = (prior: Prior): string => {
 export const medalsPerGameText = (medals: number): string => `${medals < 0 ? "-" : "+"}${Math.abs(medals).toFixed(3)}枚`
 
 /** Theoretical medals in whole ones, signed: `+120枚`. */
-export const signedMedalsText = (medals: number): string => `${medals < 0 ? "-" : "+"}${formatCount(Math.round(Math.abs(medals)))}枚`
+export const signedMedalsText = (medals: Amount<number>): string => `${signedAmountText(medals)}枚`
 
 /** Games or medals on average, in whole ones: `約412G`. */
 export const aboutText = (value: number, unit: "G" | "枚"): string => `約${formatCount(Math.round(value))}${unit}`
@@ -98,9 +99,9 @@ export const describeAtReadingRefusal = (refusal: ReadingRefusal): string => {
     case "counter-went-back":
       return `AT間のゲーム数は、少なくとも${formatCount(refusal.expectedAtLeast)}Gのはずです。記録していないATがあったなら、足して記録できます。`
     case "outlay-went-back":
-      return `投資（累計）は、前に記録した¥${formatCount(refusal.atLeast)}より少なくはなりません。`
+      return `投資（累計）は、前に記録した¥${amountText(seal.play(refusal.atLeast))}より少なくはなりません。`
     case "replay-went-back":
-      return `貯メダル（累計）は、前に記録した${formatCount(refusal.atLeast)}枚より少なくはなりません。`
+      return `貯メダル（累計）は、前に記録した${amountText(seal.play(refusal.atLeast))}枚より少なくはなりません。`
   }
 }
 
@@ -133,9 +134,9 @@ export const describeCounterRefusal = (refusal: CounterRefusal, bonusLabel: (id:
     case "total-went-back":
       return `累計ゲーム数は、少なくとも${formatCount(refusal.atLeast)}Gのはずです。データカウンターを読み直してください。`
     case "outlay-went-back":
-      return `投資（累計）は、前に記録した¥${formatCount(refusal.atLeast)}より少なくはなりません。`
+      return `投資（累計）は、前に記録した¥${amountText(seal.play(refusal.atLeast))}より少なくはなりません。`
     case "replay-went-back":
-      return `貯メダル（累計）は、前に記録した${formatCount(refusal.atLeast)}枚より少なくはなりません。`
+      return `貯メダル（累計）は、前に記録した${amountText(seal.play(refusal.atLeast))}枚より少なくはなりません。`
   }
 }
 
@@ -150,9 +151,9 @@ export const describeStepRefusal = (refusal: RevisionRefusal, bonusLabel: (id: s
     case "counter-went-back":
       return `${where}AT間のゲーム数が、少なくとも${formatCount(refusal.expectedAtLeast)}Gのはずになります。`
     case "outlay-went-back":
-      return `${where}投資（累計）が、¥${formatCount(refusal.atLeast)}より少なくなってしまいます。`
+      return `${where}投資（累計）が、¥${amountText(seal.play(refusal.atLeast))}より少なくなってしまいます。`
     case "replay-went-back":
-      return `${where}貯メダル（累計）が、${formatCount(refusal.atLeast)}枚より少なくなってしまいます。`
+      return `${where}貯メダル（累計）が、${amountText(seal.play(refusal.atLeast))}枚より少なくなってしまいます。`
   }
 }
 

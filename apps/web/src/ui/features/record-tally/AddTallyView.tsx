@@ -17,6 +17,7 @@ import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import type { Submission as KeptSubmission } from "../../../parlors/port/submission-store"
 import { ViewHeader } from "../shell/ViewHeader"
+import { Withheld } from "../mummer/Withheld"
 import { RECORDING, type SubmitWords } from "./form"
 import { createOffered } from "../parlor-offers/offered"
 import { createYenTallyEditing } from "./yen-tally-editing"
@@ -87,29 +88,31 @@ export function AddTallyView(props: { readonly place: Place; readonly bookId: Bo
   const offered = createOffered()
   return (
     <MainContent header={<ViewHeader place={props.place} title="収支を追加" />}>
-      <div class="max-w-5xl">
-        <Loaded outcome={context()}>
-          {(found) => (
-            <Show when={found.canWrite} fallback={<EmptyState title="この帳簿は閲覧のみです">記録するには、帳簿の所有者から編集者の権限を受け取ってください。</EmptyState>}>
-              <YenTallyEditor
-                context={found}
-                list={offered.list()}
-                submissions={offered.submissions()}
-                bookId={props.bookId}
-                initial={emptyYenTallyForm(app.services.businessDay(), found.inferenceTerms)}
-                playIdOn={(date) => app.services.playIdOn(fresh, date)}
-                aside={NOTHING_ASIDE}
-                words={RECORDING}
-                submit={(tally, used) => writtenKeepingTerms(app.services.session, props.bookId, recordYenTally(app.services.session, props.bookId, tally), used)}
-                onRecorded={(tally) => {
-                  app.wrote()
-                  moves.go({ kind: "tally", bookId: props.bookId, playId: tally.id })
-                }}
-              />
-            </Show>
-          )}
-        </Loaded>
-      </div>
+      <Withheld kind="tally">
+        <div class="max-w-5xl">
+          <Loaded outcome={context()}>
+            {(found) => (
+              <Show when={found.canWrite} fallback={<EmptyState title="この帳簿は閲覧のみです">記録するには、帳簿の所有者から編集者の権限を受け取ってください。</EmptyState>}>
+                <YenTallyEditor
+                  context={found}
+                  list={offered.list()}
+                  submissions={offered.submissions()}
+                  bookId={props.bookId}
+                  initial={emptyYenTallyForm(app.services.businessDay(), found.inferenceTerms)}
+                  playIdOn={(date) => app.services.playIdOn(fresh, date)}
+                  aside={NOTHING_ASIDE}
+                  words={RECORDING}
+                  submit={(tally, used) => writtenKeepingTerms(app.services.session, props.bookId, recordYenTally(app.services.session, props.bookId, tally), used)}
+                  onRecorded={(tally) => {
+                    app.wrote()
+                    moves.go({ kind: "tally", bookId: props.bookId, playId: tally.id })
+                  }}
+                />
+              </Show>
+            )}
+          </Loaded>
+        </div>
+      </Withheld>
     </MainContent>
   )
 }

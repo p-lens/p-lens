@@ -13,6 +13,7 @@ import { toast } from "../../primitives/toast"
 import type { Place } from "../../navigation/place"
 import { bookTitle } from "../../wording/book"
 import { syncedText } from "../../wording/sync"
+import { Withheld } from "../mummer/Withheld"
 import { ViewHeader } from "../shell/ViewHeader"
 import { ConflictPanel } from "./ConflictPanel"
 import { FailureNote } from "./FailureNote"
@@ -118,53 +119,55 @@ export function SyncSettings(props: { readonly place: Place }): JSX.Element {
   }
   return (
     <MainContent header={<ViewHeader place={props.place} title="端末の同期" />}>
-      <div class="max-w-5xl">
-        <div class="flex flex-col gap-6 p-4">
-          <p class="text-sm text-text-muted">自分の端末どうしで帳簿を揃えます。変更は端末の中で暗号化してから送るので、中継サーバは中身を読めません。同期コードは鍵そのものです。人には渡さないでください。</p>
-          <section class="flex flex-col gap-2">
-            <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">自分の帳簿</h2>
-            <Loaded outcome={listed()}>
-              {(books) => (
-                <ul class="flex flex-col gap-1">
-                  <For each={books}>{(each) => <BookRow listed={each} onChanged={changedHere} />}</For>
-                </ul>
-              )}
-            </Loaded>
-          </section>
-          <section class="flex flex-col gap-2">
-            <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">もう一台の端末の帳簿を追加</h2>
-            <JoinByCode takes="own" onJoined={joined} />
-          </section>
-          <section class="flex flex-col gap-2">
-            <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">いまの状態</h2>
-            <div class="flex flex-wrap items-center gap-3">
-              <Button size="small" variant="secondary" onClick={app.sync.run}>
-                今すぐ同期
-              </Button>
-              <Switch>
-                <Match when={app.sync.state().type === "syncing"}>
-                  <span class="text-sm text-text-muted">同期しています…</span>
-                </Match>
-                <Match when={((state) => (state.type === "synced" ? state : undefined))(app.sync.state())} keyed>
-                  {(state) => <span class="text-sm text-text-muted">{syncedText(state.synced)}</span>}
-                </Match>
-              </Switch>
-            </div>
-            <Show when={((state) => (state.type === "failed" ? state : undefined))(app.sync.state())} keyed>
-              {(state) => <FailureNote error={state.error} />}
-            </Show>
-            <Show when={stuck()}>
-              <Loaded outcome={conflict()}>
-                {(found) => (
-                  <Show when={found} keyed>
-                    {(open) => <ConflictPanel conflict={open} onSettled={settled} />}
-                  </Show>
+      <Withheld kind="invitation">
+        <div class="max-w-5xl">
+          <div class="flex flex-col gap-6 p-4">
+            <p class="text-sm text-text-muted">自分の端末どうしで帳簿を揃えます。変更は端末の中で暗号化してから送るので、中継サーバは中身を読めません。同期コードは鍵そのものです。人には渡さないでください。</p>
+            <section class="flex flex-col gap-2">
+              <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">自分の帳簿</h2>
+              <Loaded outcome={listed()}>
+                {(books) => (
+                  <ul class="flex flex-col gap-1">
+                    <For each={books}>{(each) => <BookRow listed={each} onChanged={changedHere} />}</For>
+                  </ul>
                 )}
               </Loaded>
-            </Show>
-          </section>
+            </section>
+            <section class="flex flex-col gap-2">
+              <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">もう一台の端末の帳簿を追加</h2>
+              <JoinByCode takes="own" onJoined={joined} />
+            </section>
+            <section class="flex flex-col gap-2">
+              <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">いまの状態</h2>
+              <div class="flex flex-wrap items-center gap-3">
+                <Button size="small" variant="secondary" onClick={app.sync.run}>
+                  今すぐ同期
+                </Button>
+                <Switch>
+                  <Match when={app.sync.state().type === "syncing"}>
+                    <span class="text-sm text-text-muted">同期しています…</span>
+                  </Match>
+                  <Match when={((state) => (state.type === "synced" ? state : undefined))(app.sync.state())} keyed>
+                    {(state) => <span class="text-sm text-text-muted">{syncedText(state.synced)}</span>}
+                  </Match>
+                </Switch>
+              </div>
+              <Show when={((state) => (state.type === "failed" ? state : undefined))(app.sync.state())} keyed>
+                {(state) => <FailureNote error={state.error} />}
+              </Show>
+              <Show when={stuck()}>
+                <Loaded outcome={conflict()}>
+                  {(found) => (
+                    <Show when={found} keyed>
+                      {(open) => <ConflictPanel conflict={open} onSettled={settled} />}
+                    </Show>
+                  )}
+                </Loaded>
+              </Show>
+            </section>
+          </div>
         </div>
-      </div>
+      </Withheld>
     </MainContent>
   )
 }

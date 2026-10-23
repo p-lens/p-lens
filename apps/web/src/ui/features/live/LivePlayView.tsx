@@ -10,9 +10,11 @@ import type { Place } from "../../navigation/place"
 import { parlorText } from "../../wording/parlor"
 import * as PachinkoViews from "../pachinko"
 import * as PachislotViews from "../pachislot"
+import { cabinetText } from "../../wording/cabinet"
+import { seal } from "../../../mummer"
 
 const titleOf = (draft: PlayDraft, machineNames: MachineNames): string =>
-  `${shownNameOf(machineNames, draft.machine)}${draft.cabinetNumber === undefined ? "" : ` ${draft.cabinetNumber}番台`}（${parlorText(parlorOf(draft))}）`
+  `${shownNameOf(machineNames, draft.machine)}${draft.cabinetNumber === undefined ? "" : ` ${cabinetText(seal.cabinet(draft.cabinetNumber))}`}（${parlorText(parlorOf(draft))}）`
 
 /**
  * A play in progress, followed at the cabinet: what it comes to so far, its

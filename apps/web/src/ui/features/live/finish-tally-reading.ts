@@ -41,17 +41,21 @@ export const IN_HAND_LABELS: Readonly<Record<TokenKind, { readonly carriedIn: st
   medal: { carriedIn: "開始時の持ちメダル", left: "持ちメダル" },
 }
 
-/** What a form's button says, and says while it is at work. */
+/** What a form's button says, says while it is at work, and what is said once it is done. */
 export interface SubmitWords {
   readonly idle: string
   readonly busy: string
+  readonly done: string
 }
 
 /** A play recorded for the first time. */
-export const RECORDING: SubmitWords = { idle: "記録する", busy: "記録中…" }
+export const RECORDING: SubmitWords = { idle: "記録する", busy: "記録中…", done: "収支を記帳しました" }
 
 /** A play of the day whose tally the book already has, recorded again from its readings as they now are. */
-export const RECORDING_AGAIN: SubmitWords = { idle: "記帳し直す", busy: "記帳中…" }
+export const RECORDING_AGAIN: SubmitWords = { idle: "記帳し直す", busy: "記帳中…", done: "記帳し直しました" }
+
+/** What leads from a play just recorded to its tally in the book, offered for a moment and gone. */
+export const SEE_IN_BOOK = "帳簿で見る"
 
 /**
  * The machines the play may name, each by the name the halls call it: the

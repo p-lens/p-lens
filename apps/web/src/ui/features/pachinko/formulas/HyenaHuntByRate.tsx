@@ -8,6 +8,7 @@ import { sameFields } from "../../../primitives/equality"
 import { Loaded } from "../../../primitives/states"
 import { formatCount, yenFigureText } from "../../../wording/numbers"
 import { borderText } from "../../../wording/pachinko/formula"
+import { seal } from "../../../../mummer"
 
 /** The drawing's own units: its whole size, and the box the curve is drawn in. */
 const FRAME = { width: 320, height: 166, left: 24, right: 312, top: 22, bottom: 142 } as const
@@ -52,10 +53,10 @@ function RateChart(props: { readonly hunt: Hunt; readonly border: number; readon
         ¥0
       </text>
       <text x={FRAME.right} y={FRAME.bottom + 14} text-anchor="end" class="fill-text-muted text-[9px] tabular-nums">
-        {yenFigureText(highest())}
+        {yenFigureText(seal.formula(highest()))}
       </text>
       <text x={FRAME.left} y={FRAME.bottom + 14} text-anchor="start" class="fill-text-muted text-[9px] tabular-nums">
-        {yenFigureText(lowest())}
+        {yenFigureText(seal.formula(lowest()))}
       </text>
       <For each={marksOf(range().from, range().to)}>
         {(mark) => (

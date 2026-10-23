@@ -73,6 +73,8 @@ export function TextField(props: {
   readonly tone?: "nerdpro"
   /** Takes the focus as it appears, the caret after what it holds: the one field a screen is opened to type in. */
   readonly focusedOnShow?: boolean
+  /** Shows each character typed as a dot, as a password's are, without being one: for what must not be read off the screen. A font's dots, never a blur. */
+  readonly masked?: boolean
 }): JSX.Element {
   const invalid = (): boolean => props.invalid === true || props.error !== undefined
   const [typed, setTyped] = createSignal(props.value)
@@ -166,7 +168,7 @@ export function TextField(props: {
             if (event.key === "Enter") flush()
           }}
           class="h-10 min-w-0 flex-1 text-text-primary outline-none placeholder:text-text-muted"
-          classList={{ "px-3": props.compact !== true, "px-2 tabular-nums": props.compact === true, "rounded-[3px] bg-accent/30 caret-transparent": over.waiting(), "bg-transparent": !over.waiting() }}
+          classList={{ "px-3": props.compact !== true, "px-2 tabular-nums": props.compact === true, "rounded-[3px] bg-accent/30 caret-transparent": over.waiting(), "bg-transparent": !over.waiting(), "[-webkit-text-security:disc]": props.masked === true }}
         />
         <Show when={props.suffix}>
           <span class="shrink-0 text-text-muted" classList={{ "pr-3 text-sm": props.compact !== true, "pr-1.5 text-xs": props.compact === true }}>

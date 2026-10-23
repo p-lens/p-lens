@@ -10,6 +10,7 @@ import { toast } from "../../primitives/toast"
 import type { Submission as KeptSubmission } from "../../../parlors/port/submission-store"
 import { offersByKey, parlorOffers, type ParlorOffer } from "../parlor-offers/parlor-offers"
 import { locateAddress, submitAddress } from "./submission-return"
+import { chosenParlorText } from "../../wording/parlor"
 
 /** The parlor a play started at none may still be said to have been at as it is recorded, chosen as a play started live chooses one. */
 export interface ParlorChoice {
@@ -68,7 +69,7 @@ export const createParlorChoice = (given: {
     offers,
     offerOf,
     setTyped,
-    typedOnly: () => holdsTypedOnly(typed(), chosen()?.name),
+    typedOnly: () => holdsTypedOnly(typed(), chosenParlorText(chosen()?.name)),
     locating,
     submitParlor,
   }

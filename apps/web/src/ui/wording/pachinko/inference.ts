@@ -3,6 +3,7 @@ import type { WayDto } from "@p-lens/contracts/pachinko"
 import type { Weighing } from "../../../application/pachinko/inference"
 import { PACE_BY_DEFAULT, type Weighed } from "../../../core/pachinko/inference"
 import { formatCount, formatMan, theoreticalFigureText } from "../numbers"
+import { seal } from "../../../mummer"
 
 /** A spin performance as players say it, to one place. */
 export const spinPerformanceText = (weighed: Weighed): string => `${weighed.spinPerformance.toFixed(1)}回転/千円`
@@ -10,7 +11,7 @@ export const spinPerformanceText = (weighed: Weighed): string => `${weighed.spin
 /** How far a spin performance stands from its border, signed: `ボーダー -2.4`. */
 export const borderGapText = (weighed: Weighed): string => ((gap) => `ボーダー ${gap < 0 ? "-" : "+"}${Math.abs(gap).toFixed(1)}`)(weighed.spinPerformance - weighed.border)
 
-export const inferredValueText = (weighed: Weighed): string => theoreticalFigureText(weighed.theoreticalValue)
+export const inferredValueText = (weighed: Weighed): string => theoreticalFigureText(seal.tally(weighed.theoreticalValue))
 
 /** What a weighing under way is doing: the usual trials, or the many more a play is given that too few of those came near. */
 export const weighingText = (beyond: boolean): string => (beyond ? "通常に加え、追加の推論をしています…" : "推定中…")

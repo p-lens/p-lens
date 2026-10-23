@@ -20,7 +20,7 @@ import { createWait } from "../../primitives/wait"
 import type { Place } from "../../navigation/place"
 import { lastBackupText, standingText } from "../../wording/backup"
 import { LONGEST_TITLE } from "../../../core/journal/title"
-import { bookTitle, describeTitleProblem } from "../../wording/book"
+import { bookTitle, describeTitleProblem, titleFieldMasked } from "../../wording/book"
 import { describeError, unreadableFileText } from "../../wording/errors"
 import { BookTitle } from "../shell/BookTitle"
 import { ViewHeader } from "../shell/ViewHeader"
@@ -300,7 +300,7 @@ function AddBook(props: { readonly titles: readonly string[] }): JSX.Element {
     >
       <div class="flex items-end gap-2">
         <div class="min-w-0 flex-1 sm:max-w-xs">
-          <TextField label="新しい帳簿の名前" value={title()} onChange={setTitle} maxLength={LONGEST_TITLE} placeholder={unnamed()} />
+          <TextField label="新しい帳簿の名前" value={title()} onChange={setTitle} maxLength={LONGEST_TITLE} placeholder={unnamed()} masked={titleFieldMasked()} />
         </div>
         <Button type="button" variant="outline" size="icon" class="shrink-0" aria-label={REDRAW_LABEL} title={REDRAW_LABEL} onClick={() => setUnnamed(app.services.unnamedTitle([...props.titles, unnamed()]))}>
           <DiceIcon />

@@ -11,5 +11,6 @@ export const DEPLOYMENT: Deployment = {
   themeColor: "#102075",
   address: "https://app.p-lens.jp/",
   landingPage: "https://p-lens.jp",
+  installGuide: "https://p-lens.jp/how-to-install/",
   operatorPage: "https://p-lens.jp/about/",
 }

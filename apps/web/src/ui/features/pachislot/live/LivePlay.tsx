@@ -33,7 +33,8 @@ import { useMoves } from "../../../navigation/moves"
 import type { Place } from "../../../navigation/place"
 import { describeError, describePlayLogError } from "../../../wording/errors"
 import { FIELD_PROBLEM_TEXT } from "../../../wording/fields"
-import { formatCount } from "../../../wording/numbers"
+import { amountText, formatCount } from "../../../wording/numbers"
+import { seal } from "../../../../mummer"
 import { describeCounterRefusal, observedOneInText, priorName } from "../../../wording/pachislot/formula"
 import { CHANGED_SINCE_MERGED, CHANGED_SINCE_REMOVED, MERGE_FAILED, MERGED, READING_REMOVED, REMOVAL_TAKEN_BACK, TAKE_BACK, TAKE_BACK_FAILED, UNMERGED } from "../../../wording/pachislot/play"
 import { triggerWordsOf } from "../../../wording/pachislot/trigger"
@@ -85,7 +86,7 @@ export function PlayFigures(props: { readonly ordered: readonly Checkpoint[]; re
   const dayGames = (): number => props.day?.games ?? totalNowOf(props.ordered)
   return (
     <dl class="grid grid-cols-3 gap-2">
-      <Tile label="現金投資" value={outlay() === undefined ? "--" : `¥${formatCount(outlay() ?? 0)}`} />
+      <Tile label="現金投資" value={outlay() === undefined ? "--" : `¥${amountText(seal.play(outlay() ?? 0))}`} />
       <Tile label="打ったゲーム数" value={formatCount(props.ordered.at(-1)?.spins ?? 0)} note="G" />
       <Tile label="累計ゲーム数" value={formatCount(dayGames())} note="G" />
       <Tile label="貯メダル" value={replay() === undefined ? "--" : formatCount(replay() ?? 0)} note="枚" />
@@ -433,6 +434,7 @@ export function LivePlay(props: {
           place={props.place}
           title={props.title}
           urged={urged()}
+          framed
           actions={
             <Button size="small" onClick={() => moves.go({ kind: "live-record", playId: props.draft.id })}>
               遊技を終了

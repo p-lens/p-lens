@@ -24,6 +24,7 @@ import { exchangedFrom, heldIn, offBookDeductedOf, oddPrizesOf, offTheRate, read
 import { createFollowedWorth, type WorthAt } from "./followed-worth"
 import type { FinishTallyEditing } from "./FinishTallyForm"
 import type { ParlorChoice } from "./parlor-choice"
+import { seal } from "../../../mummer"
 
 /** Where a submission is: being typed, being written, or refused with why. */
 type Submission =
@@ -163,8 +164,8 @@ export const createFinishYenTallyEditing = (given: FinishYenTallyEditingGiven): 
       machineTypedOnly,
       machineLacked: () => false,
       machineRequired: false,
-      resultText: () => ((yen) => (yen === undefined ? UNSEEN_ACTUAL : formatSignedYen(yen)))(result()),
-      resultTone: () => ((yen) => (yen === undefined ? undefined : toneOf(yen)))(result()),
+      resultText: () => ((yen) => (yen === undefined ? UNSEEN_ACTUAL : formatSignedYen(seal.play(yen))))(result()),
+      resultTone: () => ((yen) => (yen === undefined ? undefined : toneOf(seal.play(yen))))(result()),
       previewText: () => ((entry) => (entry?.ok === true ? renderEntry(entry.value) : undefined))(preview()),
       previewProblem: () => ((entry) => (entry?.ok === false ? describeTallyError(entry.error) : undefined))(preview()),
       failure: () => ((current) => (current.type === "failed" ? current.error : undefined))(submission()),

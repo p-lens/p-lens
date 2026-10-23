@@ -15,7 +15,7 @@ import { TextField } from "../../primitives/text-field"
 import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
 import { describeError } from "../../wording/errors"
 import * as PachinkoWording from "../../wording/pachinko/inference"
-import { LOCATE_REQUEST, typedMachineRefused, typedParlorRefused } from "../../wording/parlor"
+import { LOCATE_REQUEST, parlorChoiceText, typedMachineRefused, typedParlorRefused } from "../../wording/parlor"
 import * as PachinkoViews from "../pachinko"
 import * as PachislotViews from "../pachislot"
 import * as PachislotWording from "../../wording/pachislot/inference"
@@ -23,6 +23,9 @@ import { triggerWordsOf } from "../../wording/pachislot/trigger"
 import type { SubmitWords } from "./form"
 import type { YenTallyEditing } from "./yen-tally-editing"
 import { HOUR_CHOICES, hoursOfMinutes, MINUTE_CHOICES, minutesToldIn, NEW_AT_WON, type AtHistoryForm, type AtWonForm } from "./yen-tally-form"
+import { seal } from "../../../mummer"
+import { cabinetFieldMasked, cabinetText } from "../../wording/cabinet"
+import { JournalText } from "../mummer/JournalText"
 
 const SUBMIT_PARLOR = "一覧にない店舗を申請する"
 
@@ -82,7 +85,7 @@ export function ParlorField(props: { readonly editing: YenTallyEditing }): JSX.E
           <Combobox
             label="店舗"
             placeholder="指定しない"
-            options={editing.offers().map((offer) => ({ value: identityKey(offer.parlor.identity), label: offer.parlor.name, note: offer.note, foundFirst: offer.unplaced !== undefined }))}
+            options={editing.offers().map((offer) => ({ value: identityKey(offer.parlor.identity), label: parlorChoiceText(seal.parlor(offer.parlor.name)), note: offer.note, foundFirst: offer.unplaced !== undefined }))}
             value={editing.form().parlorKey === "" ? undefined : editing.form().parlorKey}
             onChange={(key) => editing.set("parlorKey")(key ?? "")}
             matches={(key, typed) => editing.offerOf().get(key)?.matches(typed) ?? false}
@@ -157,8 +160,8 @@ function MachineChoice(props: { readonly editing: YenTallyEditing }): JSX.Elemen
       }}
       onTyped={editing.setMachineTyped}
       beside={
-        <PencilledBubble text={`${editing.form().cabinetNumber.trim() === "" ? "----" : editing.form().cabinetNumber.trim()}番台`} says="台番号を入力する" invalid={false}>
-          <TextField label="台番号" value={editing.form().cabinetNumber} onChange={editing.set("cabinetNumber")} inputMode="numeric" compact />
+        <PencilledBubble text={cabinetText(editing.form().cabinetNumber.trim() === "" ? undefined : seal.cabinet(editing.form().cabinetNumber.trim()))} says="台番号を入力する" invalid={false}>
+          <TextField label="台番号" value={editing.form().cabinetNumber} masked={cabinetFieldMasked(seal.cabinet(editing.form().cabinetNumber))} onChange={editing.set("cabinetNumber")} inputMode="numeric" compact />
         </PencilledBubble>
       }
     />
@@ -401,7 +404,7 @@ export function EntryAndSubmit(props: { readonly editing: YenTallyEditing; reado
         <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">書き込まれる仕訳</h2>
         <Switch fallback={<p class="text-sm text-text-muted">入力を直すと、ここに仕訳が表示されます。</p>}>
           <Match when={editing.previewText()}>
-            {(text) => <pre class="overflow-x-auto rounded-md bg-surface-0 p-3 font-mono text-xs leading-relaxed text-text-secondary">{text()}</pre>}
+            {(text) => <JournalText text={seal.journal(text())} />}
           </Match>
           <Match when={editing.previewProblem()} keyed>
             {(problem) => (

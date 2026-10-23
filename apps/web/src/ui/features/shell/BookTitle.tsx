@@ -7,7 +7,7 @@ import { useApp } from "../../context"
 import { CloseIcon, EditIcon } from "../../primitives/icons"
 import { toast } from "../../primitives/toast"
 import { createTypedOver } from "../../primitives/typed-over"
-import { bookTitle, describeTitleProblem } from "../../wording/book"
+import { bookTitle, describeTitleProblem, titleFieldMasked } from "../../wording/book"
 import { describeError } from "../../wording/errors"
 
 const ICON_BUTTON = "flex size-7 shrink-0 items-center justify-center rounded text-text-secondary hover:bg-surface-3 hover:text-text-primary focus-visible:outline-2 focus-visible:outline-focus-ring [&_svg]:size-4"
@@ -84,7 +84,7 @@ export function BookTitle(props: { readonly book: Book & Pick<ListedBook, "title
             over.onKeyDown(event)
             if (event.key === "Escape") setTyped(undefined)
           }}
-          classList={{ "bg-accent/30 caret-transparent": over.waiting(), "bg-surface-input": !over.waiting() }}
+          classList={{ "bg-accent/30 caret-transparent": over.waiting(), "bg-surface-input": !over.waiting(), "[-webkit-text-security:disc]": titleFieldMasked() }}
           class="h-8 min-w-0 flex-1 rounded-[3px] px-2 font-semibold text-text-primary outline-none focus:outline-2 focus:outline-focus-ring"
         />
         <button type="submit" class="h-8 shrink-0 rounded bg-accent px-2 text-xs font-semibold text-accent-contrast">

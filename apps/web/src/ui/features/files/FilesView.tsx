@@ -14,6 +14,7 @@ import { EmptyState, Loaded } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { describeError } from "../../wording/errors"
+import { Withheld } from "../mummer/Withheld"
 import { ViewHeader } from "../shell/ViewHeader"
 import { entriesOf, folderOf, type Listed } from "./folders"
 
@@ -65,43 +66,45 @@ export function FilesView(props: { readonly place: Place; readonly bookId: BookI
   )
   return (
     <MainContent header={<ViewHeader place={props.place} title="生ファイル" />}>
-      <div class="max-w-5xl">
-        <Loaded outcome={files()}>
-          {(found) => (
-            <Show when={found.length > 0} fallback={<EmptyState title="ファイルはありません" />}>
-              <ul class="flex flex-col gap-0.5 p-2">
-                <For each={entriesOf(found)}>
-                  {(entry) =>
-                    entry.type === "file" ? (
-                      row(entry.listed, false)
-                    ) : (
-                      <li>
-                        <button
-                          type="button"
-                          aria-expanded={isOpen(entry.name)}
-                          onClick={() => toggle(entry.name)}
-                          class="flex w-full items-center gap-2 rounded px-3 py-2 text-left transition-colors hover:bg-surface-3/60 [&_svg]:size-4"
-                        >
-                          <span class="min-w-0 flex-1 truncate font-mono text-sm text-text-primary">{entry.name}/</span>
-                          <span class="shrink-0 text-xs tabular-nums text-text-muted">{entry.files.length}件</span>
-                          <span class="shrink-0 text-text-secondary transition-transform" classList={{ "-rotate-90": !isOpen(entry.name) }}>
-                            <ChevronDownIcon />
-                          </span>
-                        </button>
-                        <Show when={isOpen(entry.name)}>
-                          <ul class="flex flex-col gap-0.5 pt-0.5">
-                            <For each={entry.files}>{(listed) => row(listed, true)}</For>
-                          </ul>
-                        </Show>
-                      </li>
-                    )
-                  }
-                </For>
-              </ul>
-            </Show>
-          )}
-        </Loaded>
-      </div>
+      <Withheld kind="journal">
+        <div class="max-w-5xl">
+          <Loaded outcome={files()}>
+            {(found) => (
+              <Show when={found.length > 0} fallback={<EmptyState title="ファイルはありません" />}>
+                <ul class="flex flex-col gap-0.5 p-2">
+                  <For each={entriesOf(found)}>
+                    {(entry) =>
+                      entry.type === "file" ? (
+                        row(entry.listed, false)
+                      ) : (
+                        <li>
+                          <button
+                            type="button"
+                            aria-expanded={isOpen(entry.name)}
+                            onClick={() => toggle(entry.name)}
+                            class="flex w-full items-center gap-2 rounded px-3 py-2 text-left transition-colors hover:bg-surface-3/60 [&_svg]:size-4"
+                          >
+                            <span class="min-w-0 flex-1 truncate font-mono text-sm text-text-primary">{entry.name}/</span>
+                            <span class="shrink-0 text-xs tabular-nums text-text-muted">{entry.files.length}件</span>
+                            <span class="shrink-0 text-text-secondary transition-transform" classList={{ "-rotate-90": !isOpen(entry.name) }}>
+                              <ChevronDownIcon />
+                            </span>
+                          </button>
+                          <Show when={isOpen(entry.name)}>
+                            <ul class="flex flex-col gap-0.5 pt-0.5">
+                              <For each={entry.files}>{(listed) => row(listed, true)}</For>
+                            </ul>
+                          </Show>
+                        </li>
+                      )
+                    }
+                  </For>
+                </ul>
+              </Show>
+            )}
+          </Loaded>
+        </div>
+      </Withheld>
     </MainContent>
   )
 }
@@ -186,73 +189,75 @@ export function FileDetail(props: { readonly place: Place; readonly bookId: Book
       }
       resizeLabel="詳細パネルの幅を変える"
     >
-      <Loaded outcome={files()}>
-        {(found) => (
-          <Show when={fileOf(found)} keyed fallback={<EmptyState title="このファイルは帳簿にありません" />}>
-            {(file) => (
-              <Show
-                when={typed() !== undefined}
-                fallback={
-                  <div class="flex flex-col">
-                    <Show when={isEditable(file.path)}>
-                      <div class="flex items-start justify-between gap-3 px-4 pt-3">
-                        <div class="min-w-0 flex-1">
-                          <SignNote />
+      <Withheld kind="journal">
+        <Loaded outcome={files()}>
+          {(found) => (
+            <Show when={fileOf(found)} keyed fallback={<EmptyState title="このファイルは帳簿にありません" />}>
+              {(file) => (
+                <Show
+                  when={typed() !== undefined}
+                  fallback={
+                    <div class="flex flex-col">
+                      <Show when={isEditable(file.path)}>
+                        <div class="flex items-start justify-between gap-3 px-4 pt-3">
+                          <div class="min-w-0 flex-1">
+                            <SignNote />
+                          </div>
+                          <button
+                            type="button"
+                            class="flex shrink-0 items-center gap-1.5 rounded border border-border px-2.5 py-1 text-xs text-text-secondary hover:border-text-secondary hover:text-text-primary [&_svg]:size-4"
+                            onClick={() => setEditing({ type: "typing", text: file.text })}
+                          >
+                            <EditIcon label="" />
+                            編集
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          class="flex shrink-0 items-center gap-1.5 rounded border border-border px-2.5 py-1 text-xs text-text-secondary hover:border-text-secondary hover:text-text-primary [&_svg]:size-4"
-                          onClick={() => setEditing({ type: "typing", text: file.text })}
-                        >
-                          <EditIcon label="" />
-                          編集
-                        </button>
-                      </div>
-                    </Show>
-                    <Show when={file.text !== ""} fallback={<EmptyState title="このファイルは空です" />}>
-                      {((lines) => (
-                        <Revealed count={lines.length}>{(shown) => <pre class="overflow-x-auto p-4 font-mono text-xs leading-relaxed text-text-secondary">{lines.slice(0, shown()).join("\n")}</pre>}</Revealed>
-                      ))(file.text.split("\n"))}
-                    </Show>
-                  </div>
-                }
-              >
-                <form autocomplete="off"
-                  class="flex h-full flex-col gap-3 p-4"
-                  onSubmit={(event) => {
-                    event.preventDefault()
-                    void save(typed() ?? "")
-                  }}
+                      </Show>
+                      <Show when={file.text !== ""} fallback={<EmptyState title="このファイルは空です" />}>
+                        {((lines) => (
+                          <Revealed count={lines.length}>{(shown) => <pre class="overflow-x-auto p-4 font-mono text-xs leading-relaxed text-text-secondary">{lines.slice(0, shown()).join("\n")}</pre>}</Revealed>
+                        ))(file.text.split("\n"))}
+                      </Show>
+                    </div>
+                  }
                 >
-                  <SignNote />
-                  <textarea
-                    aria-label={`${file.path} の内容`}
-                    value={typed() ?? ""}
-                    onInput={(event) => setEditing({ type: "typing", text: event.currentTarget.value })}
-                    spellcheck={false}
-                    wrap="off"
-                    class="min-h-80 flex-1 resize-y overflow-auto rounded-[3px] bg-surface-input p-3 font-mono text-xs leading-relaxed text-text-primary outline-none focus:outline-2 focus:outline-focus-ring"
-                  />
-                  <Show when={refusal()} keyed>
-                    {(error) => (
-                      <p role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-text-primary">
-                        {describeError(error)}
-                      </p>
-                    )}
-                  </Show>
-                  <p class="text-xs text-text-muted">保存すると hledger が帳簿全体を読み直します。読めない内容や、一覧にない店舗名・機種名は保存されません。</p>
-                  <div class="flex gap-2">
-                    <Button type="submit">{editing().type === "saving" ? "保存中…" : "保存"}</Button>
-                    <Button variant="ghost" onClick={() => setEditing({ type: "reading" })}>
-                      やめる
-                    </Button>
-                  </div>
-                </form>
-              </Show>
-            )}
-          </Show>
-        )}
-      </Loaded>
+                  <form autocomplete="off"
+                    class="flex h-full flex-col gap-3 p-4"
+                    onSubmit={(event) => {
+                      event.preventDefault()
+                      void save(typed() ?? "")
+                    }}
+                  >
+                    <SignNote />
+                    <textarea
+                      aria-label={`${file.path} の内容`}
+                      value={typed() ?? ""}
+                      onInput={(event) => setEditing({ type: "typing", text: event.currentTarget.value })}
+                      spellcheck={false}
+                      wrap="off"
+                      class="min-h-80 flex-1 resize-y overflow-auto rounded-[3px] bg-surface-input p-3 font-mono text-xs leading-relaxed text-text-primary outline-none focus:outline-2 focus:outline-focus-ring"
+                    />
+                    <Show when={refusal()} keyed>
+                      {(error) => (
+                        <p role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-text-primary">
+                          {describeError(error)}
+                        </p>
+                      )}
+                    </Show>
+                    <p class="text-xs text-text-muted">保存すると hledger が帳簿全体を読み直します。読めない内容や、一覧にない店舗名・機種名は保存されません。</p>
+                    <div class="flex gap-2">
+                      <Button type="submit">{editing().type === "saving" ? "保存中…" : "保存"}</Button>
+                      <Button variant="ghost" onClick={() => setEditing({ type: "reading" })}>
+                        やめる
+                      </Button>
+                    </div>
+                  </form>
+                </Show>
+              )}
+            </Show>
+          )}
+        </Loaded>
+      </Withheld>
     </AuxPanel>
   )
 }

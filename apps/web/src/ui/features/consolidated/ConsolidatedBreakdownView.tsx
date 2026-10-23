@@ -4,10 +4,9 @@ import { MainContent } from "solid-gathering-shell"
 import { consolidationKeepsTheoreticalValues, loadConsolidatedOtherGains, loadConsolidatedOverall, loadConsolidatedSenderNames, loadConsolidatedSpinPerformances, loadConsolidation, type ConsolidatedBook, type ConsolidatedBy, type ConsolidatedGrouping } from "../../../application/consolidation"
 import type { MachineNames } from "../../../core/catalog/catalog"
 import type { BookId } from "../../../core/book/book"
-import { bestFirst, inOrder, isDimension, merged, OVERALL, totalOf, UNSAID, type Group } from "../../../core/report/breakdown"
+import { inOrder, isDimension, merged, OVERALL, totalOf, UNSAID, type Group } from "../../../core/report/breakdown"
 import { hasOtherGains, mergedOtherGains, type OtherGains } from "../../../core/report/other-gains"
 import { mergedOverall } from "../../../core/report/overall"
-import { compare } from "../../../core/decimal/decimal"
 import type { SenderNames } from "../../../core/report/senders"
 import { allSpinPerformances, type SpinPerformancesByMachine } from "../../../core/report/spin-performance"
 import { useApp } from "../../context"
@@ -20,6 +19,7 @@ import { BY_BOOK, BY_SENDER, groupName, senderName, unsentName } from "../../wor
 import { BREAKDOWN_OPTIONS, GroupRow } from "../breakdown/BreakdownView"
 import { OtherGainsSection } from "../breakdown/OtherGainsSection"
 import { OverallCard } from "../breakdown/OverallCard"
+import { byShownResult, shownBestFirst, shownOrder } from "../breakdown/shown-order"
 import { PeriodPicker } from "../period/PeriodPicker"
 import { queryFor } from "../period/periods"
 import { ViewHeader } from "../shell/ViewHeader"
@@ -32,7 +32,7 @@ interface Named {
   readonly group: Group
 }
 
-const byBest = (left: Named, right: Named): number => compare(right.group.actual, left.group.actual)
+const byBest = (left: Named, right: Named): number => byShownResult(left.group, right.group) || left.name.localeCompare(right.name)
 
 /**
  * The books' results by who played them, best first: each sender's over
@@ -47,8 +47,8 @@ const bySender = (books: readonly ConsolidatedBook<readonly Group[]>[], names: S
 
 /** The books' results as the list shows them: book by book, each under its title, best first; by who played them; or the books' groups of one key added together, in the order a book's own breakdown is read in. */
 const grouped = (books: readonly ConsolidatedBook<readonly Group[]>[], by: ConsolidatedGrouping, machineNames: MachineNames, names: SenderNames): readonly Named[] => {
-  if (by === "book") return bestFirst(readOf(books).flat()).map((group) => ({ name: ((book) => (book === undefined ? group.key : bookTitle(book.book)))(books.find((each) => each.book.id === group.key)), group }))
-  return by === "sender" ? bySender(books, names) : inOrder(merged(readOf(books)), by).map((group) => ({ name: groupName(by, group.key, machineNames), group }))
+  if (by === "book") return shownBestFirst(readOf(books).flat()).map((group) => ({ name: ((book) => (book === undefined ? group.key : bookTitle(book.book)))(books.find((each) => each.book.id === group.key)), group }))
+  return by === "sender" ? bySender(books, names) : shownOrder(inOrder(merged(readOf(books)), by), by).map((group) => ({ name: groupName(by, group.key, machineNames), group }))
 }
 
 const NO_NAMES: SenderNames = new Map()

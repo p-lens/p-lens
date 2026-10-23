@@ -4,6 +4,7 @@ import { negate, type Decimal } from "../../../core/decimal/decimal"
 import type { OtherGains } from "../../../core/report/other-gains"
 import { FORFEITED, FORFEITED_NOTE, OTHER_GAINS, REVALUATION, REVALUATION_NOTE } from "../../wording/breakdown"
 import { formatSignedYen, toneOf } from "../../wording/numbers"
+import { seal } from "../../../mummer"
 
 const TONES = { positive: "text-positive", negative: "text-negative", neutral: "text-text-primary" } as const
 
@@ -15,7 +16,7 @@ function Line(props: { readonly label: string; readonly value: Decimal; readonly
         <span class="break-words text-sm text-text-secondary">{props.label}</span>
         <Show when={props.note}>{(note) => <span class="text-xs text-text-muted">{note()}</span>}</Show>
       </dt>
-      <dd class={`shrink-0 text-sm font-semibold tabular-nums ${TONES[toneOf(props.value)]}`}>{formatSignedYen(props.value)}</dd>
+      <dd class={`shrink-0 text-sm font-semibold tabular-nums ${TONES[toneOf(seal.savings(props.value))]}`}>{formatSignedYen(seal.savings(props.value))}</dd>
     </div>
   )
 }

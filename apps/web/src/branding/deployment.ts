@@ -23,6 +23,8 @@ export type Deployment = {
   /** Its address, ending in a slash. */
   readonly address: string
   readonly landingPage: string | undefined
+  /** Where its site shows how to install the app — on a computer, and to a phone's home screen — where it has such a page. */
+  readonly installGuide: string | undefined
   /** Who runs it, as a page of theirs that says so and where they are written to. */
   readonly operatorPage: string
 }

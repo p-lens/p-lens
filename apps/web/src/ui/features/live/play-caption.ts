@@ -2,6 +2,8 @@ import type { IsoDate } from "../../../core/calendar/calendar"
 import { parlorOf, type PlayDraft } from "../../../core/live-play/draft"
 import { formatClock, formatMoment } from "../../wording/dates"
 import { parlorText } from "../../wording/parlor"
+import { cabinetText } from "../../wording/cabinet"
+import { seal } from "../../../mummer"
 
 /**
  * The line under a play's machine in a list of the day's plays: its
@@ -10,4 +12,4 @@ import { parlorText } from "../../wording/parlor"
  * begun on a day before.
  */
 export const captionOf = (play: PlayDraft, businessDay: IsoDate): string =>
-  [`${play.cabinetNumber ?? "----"}番台`, parlorText(parlorOf(play)), `${play.date < businessDay ? formatMoment(play.startedAt) : formatClock(play.startedAt)}〜`].join("・")
+  [cabinetText(play.cabinetNumber === undefined ? undefined : seal.cabinet(play.cabinetNumber)), parlorText(parlorOf(play)), `${play.date < businessDay ? formatMoment(play.startedAt) : formatClock(play.startedAt)}〜`].join("・")

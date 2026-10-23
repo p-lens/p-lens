@@ -29,11 +29,13 @@ export function ViewHeader(props: {
   readonly actions?: JSX.Element
   /** Whether the way back is urged on, and how loud: drawn as <<<, each as large as the chevron alone, jabbing at the list while something there wants looking at — red and swelling like a heartbeat where it is hot, in the text's own colour where it is not. */
   readonly urged?: Urge | undefined
+  /** Whether it is kept within the frame the screen's content stands in (`max-w-5xl`, less the header's own room), so that its actions end over the content's right edge rather than the window's: a wide window otherwise leaves them far from what they act on. */
+  readonly framed?: boolean
 }): JSX.Element {
   const arrangement = useArrangement()
   const moves = useMoves()
   return (
-    <div class="flex min-w-0 flex-1 items-center gap-2">
+    <div class="flex min-w-0 flex-1 items-center gap-2" classList={{ "max-w-[62rem]": props.framed === true }}>
       <Show when={arrangement() === "narrow" && parentOf(props.place) !== undefined}>
         <button
           type="button"

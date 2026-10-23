@@ -13,9 +13,10 @@ import { Loaded } from "../../../primitives/states"
 import { HelpPopover } from "../../../primitives/popover"
 import { TextField } from "../../../primitives/text-field"
 import { describeEngineFailure } from "../../../wording/pachinko/engine"
-import { formatCount, formatMan, theoreticalFigureText, yenFigureText } from "../../../wording/numbers"
+import { amountText, formatCount, formatMan, theoreticalFigureText, yenFigureText } from "../../../wording/numbers"
 import { Histogram } from "./Histogram"
 import { seedOf, trialsOf, TRIALS_BY_DEFAULT } from "./sampling-settings"
+import { seal } from "../../../../mummer"
 
 /** Where a hyena hunt is. A finished or stopped one keeps what it had come to. */
 type Run =
@@ -42,16 +43,16 @@ function Sampled(props: { readonly summary: HyenaHuntSummaryDto }): JSX.Element 
     <div class="flex flex-col gap-3">
       <dl class="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
         <Figure label="期待値">
-          <span class="text-lg font-bold">{theoreticalFigureText(props.summary.meanYen)}</span>
+          <span class="text-lg font-bold">{theoreticalFigureText(seal.formula(props.summary.meanYen))}</span>
           <Show when={props.summary.marginYen} keyed>
-            {(margin) => <span class="ml-1 text-xs text-text-muted">±¥{formatCount(Math.round(margin))}</span>}
+            {(margin) => <span class="ml-1 text-xs text-text-muted">±¥{amountText(seal.formula(Math.round(margin)))}</span>}
           </Show>
         </Figure>
         <Figure label="勝率">{percentText(props.summary.winRate)}</Figure>
         <Figure label="遊タイム到達">{percentText(props.summary.reliefDriveRate)}</Figure>
         <Figure label="平均投資">{props.summary.meanSpins === null ? "--" : `${formatCount(Math.round(props.summary.meanSpins))}回転`}</Figure>
-        <Figure label="最大負け">{yenFigureText(props.summary.minYen)}</Figure>
-        <Figure label="最大勝ち">{yenFigureText(props.summary.maxYen)}</Figure>
+        <Figure label="最大負け">{yenFigureText(seal.formula(props.summary.minYen))}</Figure>
+        <Figure label="最大勝ち">{yenFigureText(seal.formula(props.summary.maxYen))}</Figure>
       </dl>
       <Histogram buckets={props.summary.histogram} />
       <p class="text-xs text-text-muted">
@@ -165,7 +166,7 @@ export function HyenaHuntRun(props: {
                 <p>
                   この端末で、{formatCount(props.initialSpins)}回転から座って、初当り（遊タイムの当たりも含む）の連チャンが終わったらやめる、を1回として{formatMan(trialsOf(trials()) ?? TRIALS_BY_DEFAULT)}回くり返します。
                   <Show when={expectedMargin()} keyed fallback="回数が多いほど、期待値の誤差（±）は小さくなります。">
-                    {(margin) => <>いまの結果からすると、この回数なら期待値の誤差（95%の範囲）は ±¥{formatCount(Math.round(margin))} ほどです。</>}
+                    {(margin) => <>いまの結果からすると、この回数なら期待値の誤差（95%の範囲）は ±¥{amountText(seal.formula(Math.round(margin)))} ほどです。</>}
                   </Show>
                 </p>
                 <p>上の期待値は計算エンジンが厳密に解いた値で、シミュレーションは勝率や収支のばらつきを見るためのものです。</p>
@@ -199,7 +200,7 @@ export function HyenaHuntRun(props: {
             <Show when={row} keyed>
               {(found) => (
                 <p class="text-sm text-text-secondary">
-                  {formatCount(props.initialSpins)}回転から打つと 期待値 <span class="font-bold tabular-nums text-text-primary">{theoreticalFigureText(found.yen)}</span>
+                  {formatCount(props.initialSpins)}回転から打つと 期待値 <span class="font-bold tabular-nums text-text-primary">{theoreticalFigureText(seal.formula(found.yen))}</span>
                   <span class="text-xs text-text-muted">（遊タイム到達 {percentText(found.reliefDriveProbability)}・平均投資 {formatCount(Math.round(found.spins))}回転）</span>
                 </p>
               )}

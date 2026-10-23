@@ -46,6 +46,8 @@ import {
   writingText,
   type SaidSometimes,
 } from "../../wording/sample-book"
+import { seal } from "../../../mummer"
+import { parlorNameText } from "../../wording/parlor"
 
 const TONES = {
   positive: "text-positive",
@@ -71,7 +73,7 @@ function SignedYen(props: { readonly label: string; readonly value: number }): J
   return (
     <div class="flex items-baseline justify-between gap-3">
       <dt class="text-xs text-text-muted">{props.label}</dt>
-      <dd class={`text-lg font-semibold tabular-nums ${TONES[toneOf(yenOf(props.value))]}`}>{formatSignedYen(yenOf(props.value))}</dd>
+      <dd class={`text-lg font-semibold tabular-nums ${TONES[toneOf(seal.tally(yenOf(props.value)))]}`}>{formatSignedYen(seal.tally(yenOf(props.value)))}</dd>
     </div>
   )
 }
@@ -98,7 +100,7 @@ function Making(props: { readonly report: Extract<SampleReport, { readonly type:
           {(day) => (
             <>
               <p class="text-xs text-text-muted">
-                {formatDay(day.date)}・{day.parlor}
+                {formatDay(day.date)}・{parlorNameText(seal.parlor(day.parlor))}
               </p>
               <ul class="flex flex-col gap-0.5 text-sm text-text-primary">
                 <Index each={day.machines}>{(machine) => <li class="truncate">{machine()}</li>}</Index>

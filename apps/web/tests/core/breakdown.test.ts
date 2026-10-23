@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import { toPlainString } from "../../src/core/decimal/decimal"
-import { bestFirst, byColumn, byRow, byWeekday, groupsOf, inOrder, merged, totalOf, type Group } from "../../src/core/report/breakdown"
+import { byColumn, byRow, byWeekday, groupsOf, inOrder, merged, totalOf, type Group } from "../../src/core/report/breakdown"
 import { secondsIn } from "../../src/core/report/figures"
 import type { BalanceReport, MixedAmount } from "../../src/hledger/protocol/wire"
 import { dec } from "../support/values"
@@ -23,9 +23,9 @@ const figures = (report: BalanceReport) => ((found) => (found.ok ? found.value :
 describe("a report pivoted on a tag", () => {
   test("is a group a row, its income statement turned over, what carries no such tag under the empty key", () => {
     const groups = groupsOf(figures(pivoted([["流星", -3000], ["", -1000], ["ピエロット", 8000]])), figures(pivoted([["流星", 4000]])), figures(pivoted([["流星", 1500], ["よその台", 900]])), new Map([["流星", dec("7200")]]))
-    expect(read(bestFirst(groups))).toEqual([["流星", "3000", "4000"], ["", "1000", "0"], ["ピエロット", "-8000", "0"]])
-    expect(bestFirst(groups).map((group) => toPlainString(group.inferred))).toEqual(["1500", "0", "0"])
-    expect(bestFirst(groups).map((group) => toPlainString(group.seconds))).toEqual(["7200", "0", "0"])
+    expect(read(inOrder(groups, "machine"))).toEqual([["流星", "3000", "4000"], ["", "1000", "0"], ["ピエロット", "-8000", "0"]])
+    expect(inOrder(groups, "machine").map((group) => toPlainString(group.inferred))).toEqual(["1500", "0", "0"])
+    expect(inOrder(groups, "machine").map((group) => toPlainString(group.seconds))).toEqual(["7200", "0", "0"])
   })
 
   test("has no group for what comes to nothing in both reports and was played for no time, and one for what only the theoretical values or the play time have", () => {

@@ -15,5 +15,6 @@ export const DEPLOYMENT: Deployment = {
   themeColor: "#3f4451",
   address: "https://example.com/",
   landingPage: undefined,
+  installGuide: undefined,
   operatorPage: "https://example.com/",
 }

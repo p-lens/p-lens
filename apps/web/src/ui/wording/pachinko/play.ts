@@ -2,6 +2,7 @@ import type { BorderGrade, BorderMark, BorderStanding } from "../../../core/pach
 import type { StretchRate } from "../../../core/pachinko/consumption"
 import type { RevisionRefusal } from "../../../core/pachinko/revision"
 import type { Phase } from "../../../core/play-log/checkpoint"
+import { amountText, formatCount, signedAmountText, type Amount } from "../numbers"
 
 /** A cabinet's states as a player calls them. */
 export const PHASE_NAMES: Readonly<Record<Phase, string>> = { regular: "通常", special: "確変", rapid: "時短" }
@@ -10,11 +11,11 @@ export const PHASE_NAMES: Readonly<Record<Phase, string>> = { regular: "通常",
 export const UNTOLD_JACKPOT = "大当り"
 
 /** Balls gained or lost, always signed: `+1,400玉`, `-35玉`. */
-export const signedBalls = (balls: number): string => `${balls < 0 ? "-" : "+"}${Math.abs(balls).toLocaleString("ja-JP")}玉`
+export const signedBalls = (balls: Amount<number>): string => `${signedAmountText(balls)}玉`
 
 /** Why a reading cannot be set right or taken away as asked: which reading would then show less on the counter than it must. */
 export const describeRevisionRefusal = (refusal: RevisionRefusal): string =>
-  `この変更だと、${String(refusal.index + 1)}件目の回転数が ${refusal.expectedAtLeast.toLocaleString("ja-JP")} 回転より小さくなってしまいます。大当りの記録か回転数を見直してください。`
+  `この変更だと、${String(refusal.index + 1)}件目の回転数が ${formatCount(refusal.expectedAtLeast)} 回転より小さくなってしまいます。大当りの記録か回転数を見直してください。`
 
 /** What making a run of a play's readings one line is called, on the button that does it. */
 export const MERGE_READINGS = "履歴をまとめる"
@@ -78,7 +79,7 @@ export const UNFOLD_FIGURES = "すべての数値を表示"
 export const FOLD_FIGURES = "数値をたたむ"
 
 /** What is said under a reading's 持ち玉 once the hand has been played long without a count: the hand likely now, where the play has been measured. */
-export const recountText = (estimate: number | undefined): string => `持ち玉を数え直して${estimate === undefined ? "" : `（推定 ${estimate.toLocaleString("ja-JP")}玉）`}`
+export const recountText = (estimate: Amount<number> | undefined): string => `持ち玉を数え直して${estimate === undefined ? "" : `（推定 ${amountText(estimate)}玉）`}`
 
 /** What a line of the log says of its own stretch's spin performance: the figure, to a tenth, or `-----` while it waits on the hand to be counted after a bonus, in the shape of a figure; and its unit beside it. */
 export const stretchRateText = (rate: StretchRate): string => (rate.type === "measured" ? rate.rate.toFixed(1) : "-----")

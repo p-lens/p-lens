@@ -19,6 +19,9 @@ import { formatRate, formatTokens } from "../../wording/numbers"
 import { passbookCauseText } from "../../wording/passbook"
 import { yearOf } from "../period/periods"
 import { ForfeitureForm, RateChangeForm } from "./SavingsForms"
+import { seal } from "../../../mummer"
+import { parlorNameText } from "../../wording/parlor"
+import { Withheld } from "../mummer/Withheld"
 
 const UNITS = { ball: "玉", medal: "枚" } as const
 
@@ -75,7 +78,7 @@ const heldNow = (passbook: PoolPassbookFrom): Decimal => passbook.days[0]?.balan
 
 /** Tokens in a column: muted where none moved. */
 function Count(props: { readonly value: Decimal; readonly kind: TokenKind; readonly class?: string }): JSX.Element {
-  return <span class={`text-right tabular-nums ${isZero(props.value) ? "text-text-muted" : (props.class ?? "text-text-primary")}`}>{formatTokens(props.value, props.kind)}</span>
+  return <span class={`text-right tabular-nums ${isZero(props.value) ? "text-text-muted" : (props.class ?? "text-text-primary")}`}>{formatTokens(seal.savings(props.value), props.kind)}</span>
 }
 
 /**
@@ -133,7 +136,7 @@ function Day(props: { readonly day: PassbookDay; readonly kind: TokenKind; reado
         <span class="min-w-0 truncate text-text-primary">{formatDayOfYear(props.day.date)}</span>
         <Count value={props.day.withdrawn} kind={props.kind} />
         <Count value={props.day.deposited} kind={props.kind} />
-        <span class="text-right font-semibold tabular-nums text-text-primary">{formatTokens(props.day.balance, props.kind)}</span>
+        <span class="text-right font-semibold tabular-nums text-text-primary">{formatTokens(seal.savings(props.day.balance), props.kind)}</span>
       </button>
       <Show when={props.day.rateSet} keyed>
         {(set) => (
@@ -183,7 +186,7 @@ export function PassbookPanel(props: { readonly place: Place; readonly bookId: B
     <AuxPanel
       header={
         <div class="flex min-w-0 flex-1 items-center gap-2">
-          <h2 class="min-w-0 flex-1 truncate font-semibold text-text-primary">{((found) => (found === undefined ? "通帳" : `${found.parlorName} ${found.tier}の通帳`))(pool())}</h2>
+          <h2 class="min-w-0 flex-1 truncate font-semibold text-text-primary">{((found) => (found === undefined ? "通帳" : `${parlorNameText(seal.parlor(found.parlorName))} ${found.tier}の通帳`))(pool())}</h2>
           <button type="button" class="flex size-8 items-center justify-center rounded text-text-secondary hover:bg-surface-3 hover:text-text-primary" onClick={() => moves.up(props.place)}>
             <CloseIcon label="閉じる" />
           </button>
@@ -197,7 +200,7 @@ export function PassbookPanel(props: { readonly place: Place; readonly bookId: B
             {(passbook) => (
               <div class="flex flex-col gap-3 p-4">
                 <div class="flex items-baseline gap-3">
-                  <span class="text-lg font-bold tabular-nums text-text-primary">{formatTokens(heldNow(passbook), found.kind)}</span>
+                  <span class="text-lg font-bold tabular-nums text-text-primary">{formatTokens(seal.savings(heldNow(passbook)), found.kind)}</span>
                   <span class="flex-1 text-sm text-text-muted">{((rate) => (rate === undefined ? "交換率なし" : `@ ${formatRate(rate)}`))(passbook.rate)}</span>
                   <Show when={writable() && !changing()}>
                     <button type="button" class={ROW_BUTTON} onClick={() => setChanging(true)}>
@@ -224,7 +227,7 @@ export function PassbookPanel(props: { readonly place: Place; readonly bookId: B
                     </For>
                   </ul>
                   <Show when={passbook.before} keyed>
-                    {(before) => <Earlier through={before.through} lastMoved={before.lastMoved} balance={<span class="text-right font-semibold tabular-nums text-text-primary">{formatTokens(before.balance, found.kind)}</span>} onEarlier={setFrom} />}
+                    {(before) => <Earlier through={before.through} lastMoved={before.lastMoved} balance={<span class="text-right font-semibold tabular-nums text-text-primary">{formatTokens(seal.savings(before.balance), found.kind)}</span>} onEarlier={setFrom} />}
                   </Show>
                 </Show>
                 <Show when={keptParlor(found.parlorName)} keyed>
@@ -232,11 +235,13 @@ export function PassbookPanel(props: { readonly place: Place; readonly bookId: B
                     <Show
                       when={forfeiting()}
                       fallback={
-                        <div class="flex justify-end">
-                          <button type="button" class={ROW_BUTTON} onClick={() => setForfeiting(true)}>
-                            失効
-                          </button>
-                        </div>
+                        <Withheld kind="savings" silent>
+                          <div class="flex justify-end">
+                            <button type="button" class={ROW_BUTTON} onClick={() => setForfeiting(true)}>
+                              失効
+                            </button>
+                          </div>
+                        </Withheld>
                       }
                     >
                       <ForfeitureForm bookId={props.bookId} parlor={parlor} pool={{ kind: found.kind, tier: found.tier }} unit={UNITS[found.kind]} held={heldNow(passbook)} onDone={() => setForfeiting(false)} />

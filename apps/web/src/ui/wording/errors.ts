@@ -21,7 +21,10 @@ import { describeImportProblem } from "./import"
 import { describeSyncProblem } from "./sync"
 import * as PachinkoWording from "./pachinko/engine"
 import * as PachislotWording from "./pachislot/engine"
-import { formatTokens, tokenUnit } from "./numbers"
+import { amountText, formatTokens, tokenUnit } from "./numbers"
+import { commodityText } from "./commodities"
+import { seal } from "../../mummer"
+import { parlorNameText } from "./parlor"
 
 const NUMERIC_FIELDS: Readonly<Record<NumericField, string>> = {
   outlay: "投資額",
@@ -63,9 +66,9 @@ export const describeTallyError = (error: TallyError): string => {
     case "off-book-at-parlor":
       return "店舗を指定した収支は、簿外貯玉を使えません。その店舗の貯玉から引き出してください。"
     case "pool-not-kept":
-      return `${error.parlor.name}には${error.pool.tier}の${tokenUnit(error.pool.kind)}の貯蓄口座がありません。`
+      return `${parlorNameText(seal.parlor(error.parlor.name))}には${error.pool.tier}の${tokenUnit(error.pool.kind)}の貯蓄口座がありません。`
     case "no-exchange-rate":
-      return `${error.commodity}の${error.date}時点の交換率が帳簿にありません。`
+      return `${commodityText(error.commodity)}の${error.date}時点の交換率が帳簿にありません。`
   }
 }
 
@@ -74,9 +77,9 @@ const describeDirectoryError = (error: DirectoryError): string => `店舗一覧�
 const describeOpeningProblem = (problem: OpeningProblem): string => {
   switch (problem.type) {
     case "name-unwritable":
-      return `店舗名「${problem.name}」には「:」「"」「,」「;」や連続した空白は使えません。`
+      return `店舗名「${parlorNameText(seal.parlor(problem.name))}」には「:」「"」「,」「;」や連続した空白は使えません。`
     case "name-taken":
-      return `この帳簿には同じ名前の別の店舗「${problem.name}」があります。`
+      return `この帳簿には同じ名前の別の店舗「${parlorNameText(seal.parlor(problem.name))}」があります。`
     case "rate-not-positive":
       return "交換率は0より大きい数で入力してください。"
   }
@@ -147,7 +150,7 @@ const describeForfeitureProblem = (problem: ForfeitureProblem): string => {
     case "fractional-tokens":
       return "失効した数は整数で入力してください。"
     case "savings-short":
-      return `その日の残高は${formatTokens(problem.held, problem.kind)}です。それより多くは失効として記録できません。`
+      return `その日の残高は${formatTokens(seal.savings(problem.held), problem.kind)}です。それより多くは失効として記録できません。`
   }
 }
 
@@ -161,9 +164,9 @@ const describePrizeExchangeProblem = (problem: PrizeExchangeProblem): string => 
     case "negative-prizes":
       return "特殊景品額はマイナスにできません。"
     case "no-exchange-rate":
-      return `${problem.commodity}の${problem.date}時点の交換率が帳簿にありません。`
+      return `${commodityText(problem.commodity)}の${problem.date}時点の交換率が帳簿にありません。`
     case "savings-short":
-      return `その日の残高は${formatTokens(problem.held, problem.kind)}です。それより多くは払い出せません。`
+      return `その日の残高は${formatTokens(seal.savings(problem.held), problem.kind)}です。それより多くは払い出せません。`
   }
 }
 
@@ -241,7 +244,7 @@ export const describeError = (error: ApplicationError): string => {
     case "forbidden":
       return error.capability === "rename" ? "帳簿の名前を変えられるのは、帳簿の持ち主だけです。" : "この帳簿を編集する権限がありません。"
     case "opening-balance-registered":
-      return `${error.parlor}（${error.tier}）の開始残高は登録済みです。残高を直すときは、一覧の「残高調整」を使ってください。`
+      return `${parlorNameText(seal.parlor(error.parlor))}（${error.tier}）の開始残高は登録済みです。残高を直すときは、一覧の「残高調整」を使ってください。`
     case "prize-exchange":
       return describePrizeExchangeProblem(error.problem)
     case "forfeiture":
@@ -293,8 +296,8 @@ export const describeReadingRefusal = (refusal: ReadingRefusal): string => {
     case "counter-went-back":
       return `カウンタが ${refusal.expectedAtLeast} 回転より戻っています。大当りの記録漏れかもしれません。`
     case "outlay-went-back":
-      return `投資額は累計で入力してください（これまでで ¥${refusal.atLeast.toLocaleString("ja-JP")}）。`
+      return `投資額は累計で入力してください（これまでで ¥${amountText(seal.play(refusal.atLeast))}）。`
     case "replay-went-back":
-      return `貯玉・貯メダルの引出は累計で入力してください（これまでで ${refusal.atLeast.toLocaleString("ja-JP")}）。`
+      return `貯玉・貯メダルの引出は累計で入力してください（これまでで ${amountText(seal.play(refusal.atLeast))}）。`
   }
 }

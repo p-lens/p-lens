@@ -3,8 +3,9 @@ import { Show, type JSX } from "solid-js"
 import { identityKey } from "../../../core/parlor/parlor"
 import { Combobox } from "../../primitives/combobox"
 import { PlusIcon } from "../../primitives/icons"
-import { LOCATE_REQUEST, typedParlorRefused } from "../../wording/parlor"
+import { LOCATE_REQUEST, parlorChoiceText, typedParlorRefused } from "../../wording/parlor"
 import type { ParlorChoice } from "./parlor-choice"
+import { seal } from "../../../mummer"
 
 const SUBMIT_PARLOR = "一覧にない店舗を申請する"
 
@@ -20,7 +21,7 @@ export function ParlorChoiceField(props: { readonly parlor: ParlorChoice }): JSX
           <Combobox
             label="店舗"
             placeholder="指定しない"
-            options={parlor.offers().map((offer) => ({ value: identityKey(offer.parlor.identity), label: offer.parlor.name, note: offer.note, foundFirst: offer.unplaced !== undefined }))}
+            options={parlor.offers().map((offer) => ({ value: identityKey(offer.parlor.identity), label: parlorChoiceText(seal.parlor(offer.parlor.name)), note: offer.note, foundFirst: offer.unplaced !== undefined }))}
             value={parlor.key() === "" ? undefined : parlor.key()}
             onChange={(key) => parlor.choose(key ?? "")}
             matches={(key, typed) => parlor.offerOf().get(key)?.matches(typed) ?? false}

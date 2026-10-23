@@ -14,6 +14,7 @@ import { heldIn, type FinishYenTallyForm } from "./finish-yen-tally-form"
 import { FinishTallyForm } from "./FinishTallyForm"
 import type { WorthAt } from "./followed-worth"
 import type { ParlorChoice } from "./parlor-choice"
+import { seal } from "../../../mummer"
 
 /** The prizes an exchange asks for, opening downward and fading in as 景品に交換した is pressed. */
 function Unfolding(props: { readonly children: JSX.Element }): JSX.Element {
@@ -68,7 +69,7 @@ export function FinishYenTallyEditor(props: {
       words={props.words}
       outlayBeside={
         <Show when={editing.rented()} keyed>
-          {(rented) => <span class="text-xs text-text-muted">貸{tokenUnit(tokenKindOf(props.gameKind))} {formatTokens(rented, tokenKindOf(props.gameKind))}</span>}
+          {(rented) => <span class="text-xs text-text-muted">貸{tokenUnit(tokenKindOf(props.gameKind))} {formatTokens(seal.play(rented), tokenKindOf(props.gameKind))}</span>}
         </Show>
       }
       {...(props.terms === undefined
@@ -91,7 +92,7 @@ export function FinishYenTallyEditor(props: {
                       <TextField label="特殊景品額" value={editing.specialPrizes()} onChange={editing.setSpecialPrizes} inputMode="numeric" suffix="円" error={editing.tally.problemOf("special-prizes")} invalid={editing.tally.nudged("special-prizes")} onFocus={editing.tally.nudge.settle} />
                     </div>
                     <Show when={editing.oddPrizes()} keyed>
-                      {(odd) => <span class="text-xs text-text-muted">端玉景品 {formatYen(odd)}（貸出レートで）</span>}
+                      {(odd) => <span class="text-xs text-text-muted">端玉景品 {formatYen(seal.play(odd))}（貸出レートで）</span>}
                     </Show>
                     <Show when={editing.offTheRate()}>
                       <p class="flex flex-col text-xs text-warning">

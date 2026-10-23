@@ -6,10 +6,11 @@ import { useApp } from "../../../context"
 import { TextField } from "../../../primitives/text-field"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
 import type { Place } from "../../../navigation/place"
-import { formatCount, formatYen } from "../../../wording/numbers"
+import { amountText, formatCount, formatYen } from "../../../wording/numbers"
 import { readCalculator, type CalculatorField, type CalculatorForm } from "../../odd-prize-calculator/calculator-form"
 import { useOpeningCalculator } from "../../odd-prize-calculator/opening"
 import { ViewHeader } from "../../shell/ViewHeader"
+import { seal } from "../../../../mummer"
 
 /** What each figure shows before the balls and the corner's rates read, in the shape it would have. */
 const UNREAD = { yen: "¥-,---", balls: "---玉" } as const
@@ -63,11 +64,11 @@ function Stages(props: { readonly stages: readonly Stage[] | undefined }): JSX.E
         <Index each={rows()}>
           {(stage) => (
             <tr class="border-t border-border">
-              <td class="py-1.5 text-base font-semibold text-text-primary">{((found) => (found === undefined ? UNREAD.balls : `${formatCount(found.kept)}玉`))(stage())}</td>
+              <td class="py-1.5 text-base font-semibold text-text-primary">{((found) => (found === undefined ? UNREAD.balls : `${amountText(seal.play(found.kept))}玉`))(stage())}</td>
               <td class="py-1.5 pl-3 text-right">
-                {((found) => (found === undefined ? UNREAD.yen : formatYen(found.specialPrizes)))(stage())}
+                {((found) => (found === undefined ? UNREAD.yen : formatYen(seal.play(found.specialPrizes))))(stage())}
               </td>
-              <td class="py-1.5 pl-3 text-right text-base font-semibold text-text-primary">{((found) => (found === undefined ? UNREAD.balls : `${formatCount(found.toPlay)}玉`))(stage())}</td>
+              <td class="py-1.5 pl-3 text-right text-base font-semibold text-text-primary">{((found) => (found === undefined ? UNREAD.balls : `${amountText(seal.play(found.toPlay))}玉`))(stage())}</td>
             </tr>
           )}
         </Index>
@@ -103,11 +104,11 @@ function Calculator(props: { readonly opening: CalculatorForm }): JSX.Element {
       <dl class="grid grid-cols-2 gap-x-3">
         <div class="flex flex-col gap-0.5">
           <dt class="text-xs text-text-muted">交換で</dt>
-          <dd class="text-lg font-semibold tabular-nums text-text-primary">{((found) => (found === undefined ? UNREAD.yen : formatYen(found.exchanged)))(reckoning())}</dd>
+          <dd class="text-lg font-semibold tabular-nums text-text-primary">{((found) => (found === undefined ? UNREAD.yen : formatYen(seal.play(found.exchanged))))(reckoning())}</dd>
         </div>
         <div class="flex flex-col gap-0.5">
           <dt class="text-xs text-text-muted">貸玉換算</dt>
-          <dd class="text-lg font-semibold tabular-nums text-text-secondary">{((found) => (found === undefined ? UNREAD.yen : formatYen(found.rented)))(reckoning())}</dd>
+          <dd class="text-lg font-semibold tabular-nums text-text-secondary">{((found) => (found === undefined ? UNREAD.yen : formatYen(seal.play(found.rented))))(reckoning())}</dd>
         </div>
       </dl>
       <div class="flex flex-col gap-2">

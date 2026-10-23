@@ -8,8 +8,9 @@ import { Button } from "../../../primitives/button"
 import { TextField } from "../../../primitives/text-field"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
 import { describeEngineFailure } from "../../../wording/pachinko/engine"
-import { formatCount, formatMan, yenFigureText } from "../../../wording/numbers"
+import { amountText, formatMan, yenFigureText } from "../../../wording/numbers"
 import { Histogram } from "./Histogram"
+import { seal } from "../../../../mummer"
 
 /** Where a run is. A finished, cancelled or failed run keeps what it had come to. */
 type Run =
@@ -30,11 +31,11 @@ function Results(props: { readonly summary: SummaryDto; readonly exactRounds: nu
     <div class="flex flex-col gap-3">
       <dl class="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
         <div><dt class="text-xs text-text-muted">試行</dt><dd class="tabular-nums">{formatMan(props.summary.sessions)} / {formatMan(props.summary.planned)}</dd></div>
-        <div><dt class="text-xs text-text-muted">平均収支</dt><dd class="tabular-nums">{yenFigureText(props.summary.meanYen)}</dd></div>
-        <div><dt class="text-xs text-text-muted">標準偏差</dt><dd class="tabular-nums">{props.summary.standardDeviationYen === null ? "--" : `¥${formatCount(Math.round(props.summary.standardDeviationYen))}`}</dd></div>
+        <div><dt class="text-xs text-text-muted">平均収支</dt><dd class="tabular-nums">{yenFigureText(seal.formula(props.summary.meanYen))}</dd></div>
+        <div><dt class="text-xs text-text-muted">標準偏差</dt><dd class="tabular-nums">{props.summary.standardDeviationYen === null ? "--" : `¥${amountText(seal.formula(Math.round(props.summary.standardDeviationYen)))}`}</dd></div>
         <div><dt class="text-xs text-text-muted">勝率</dt><dd class="tabular-nums">{props.summary.winRate === null ? "--" : `${(props.summary.winRate * 100).toFixed(1)}%`}</dd></div>
-        <div><dt class="text-xs text-text-muted">最大負け</dt><dd class="tabular-nums">{yenFigureText(props.summary.minYen)}</dd></div>
-        <div><dt class="text-xs text-text-muted">最大勝ち</dt><dd class="tabular-nums">{yenFigureText(props.summary.maxYen)}</dd></div>
+        <div><dt class="text-xs text-text-muted">最大負け</dt><dd class="tabular-nums">{yenFigureText(seal.formula(props.summary.minYen))}</dd></div>
+        <div><dt class="text-xs text-text-muted">最大勝ち</dt><dd class="tabular-nums">{yenFigureText(seal.formula(props.summary.maxYen))}</dd></div>
       </dl>
       <Histogram buckets={props.summary.histogram} />
       <p class="text-xs text-text-muted">

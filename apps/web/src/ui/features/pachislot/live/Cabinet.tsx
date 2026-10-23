@@ -34,6 +34,8 @@ import { useBookFavorites } from "../../live/book-favorites"
 import { useStartForm, type CabinetChoice } from "../../live/start-form"
 import { ViewHeader } from "../../shell/ViewHeader"
 import { ChoiceReason } from "../start/ChoiceFields"
+import { cabinetFieldMasked } from "../../../wording/cabinet"
+import { seal } from "../../../../mummer"
 
 /** Where saying a play's cabinet anew is: being typed, being kept, or failed to be kept. */
 type Saving = { readonly type: "typing" } | { readonly type: "keeping" } | { readonly type: "failed"; readonly error: ApplicationError }
@@ -162,7 +164,7 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachislo
                 inputMode="numeric"
                 placeholder="----"
                 class="h-6 w-14 rounded-[3px] bg-surface-input px-1.5 text-right tabular-nums outline-none placeholder:text-text-muted focus-visible:outline-2 focus-visible:outline-focus-ring"
-                classList={{ "ring-1 ring-negative": unwritable() }}
+                classList={{ "ring-1 ring-negative": unwritable(), "[-webkit-text-security:disc]": cabinetFieldMasked(seal.cabinet(cabinetNumber())) }}
               />
               番台
             </div>

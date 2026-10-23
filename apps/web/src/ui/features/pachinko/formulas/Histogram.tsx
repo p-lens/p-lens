@@ -1,6 +1,7 @@
 import { For, type JSX } from "solid-js"
 
 import { formatCount, yenFigureText } from "../../../wording/numbers"
+import { seal } from "../../../../mummer"
 
 /** One bar of a result histogram: results from one amount to the next, and how many. */
 export interface Bucket {
@@ -20,7 +21,7 @@ export function Histogram(props: { readonly buckets: readonly Bucket[] }): JSX.E
             class="flex-1"
             classList={{ "bg-positive/70": bucket.fromYen >= 0, "bg-negative/70": bucket.fromYen < 0 }}
             style={{ height: `${(bucket.count / tallest()) * 100}%` }}
-            title={`${yenFigureText(bucket.fromYen)} 〜 ${yenFigureText(bucket.toYen)}: ${formatCount(bucket.count)}回`}
+            title={`${yenFigureText(seal.formula(bucket.fromYen))} 〜 ${yenFigureText(seal.formula(bucket.toYen))}: ${formatCount(bucket.count)}回`}
           />
         )}
       </For>

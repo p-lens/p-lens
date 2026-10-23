@@ -8,8 +8,9 @@ import type { FormulaSnapshot } from "../../../../core/pachinko/snapshot"
 import { missingJackpots, type LiveSummary } from "../../../../core/play-log/live"
 import { CrownIcon, StarIcon, TrianglesDownIcon, TriangleUpIcon } from "../../../primitives/icons"
 import { formulaText } from "../../../wording/pachinko/formula"
-import { formatCount, theoreticalFigureText, theoreticalFractionText } from "../../../wording/numbers"
+import { amountText, formatCount, theoreticalFigureText, theoreticalFractionText } from "../../../wording/numbers"
 import { borderMarkSays } from "../../../wording/pachinko/play"
+import { seal } from "../../../../mummer"
 
 const rateOf = (perThousand: number | undefined): string => (perThousand === undefined ? "--" : perThousand.toFixed(1))
 
@@ -113,8 +114,8 @@ export function LiveFigures(props: {
           <Tile label="カウンタ" value={formatCount(props.summary.counterNow)} unit="回転" />
           <Tile label="大当り" value={formatCount(props.summary.jackpots)} unit="回" />
         </Show>
-        <Tile label="現金投資" value={props.summary.outlay === undefined ? "--" : `¥${formatCount(props.summary.outlay)}`} />
-        <Tile label="貯玉投資" value={formatCount(props.replayed)} unit="玉" />
+        <Tile label="現金投資" value={props.summary.outlay === undefined ? "--" : `¥${amountText(seal.play(props.summary.outlay))}`} />
+        <Tile label="貯玉投資" value={amountText(seal.play(props.replayed))} unit="玉" />
         <Tile
           label="回転率"
           value={rateOf(spinPerformance())}
@@ -134,11 +135,11 @@ export function LiveFigures(props: {
               {props.beside(formula)}
             </div>
             <dl class="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
-              <Tile label="期待値（ここまで）" value={theoreticalFigureText(theoretical()?.theoreticalValue)} />
-              <Tile label="期待値（1回転）" value={theoreticalFractionText(theoretical()?.yenPerSpin, 3)} />
+              <Tile label="期待値（ここまで）" value={theoreticalFigureText(seal.play(theoretical()?.theoreticalValue))} />
+              <Tile label="期待値（1回転）" value={theoreticalFractionText(seal.play(theoretical()?.yenPerSpin), 3)} />
               <Tile label="実質ボーダー" value={rateOf(theoretical()?.border)} unit="回転/千円" />
               <Show when={formula.figures.spinsPerHour !== undefined}>
-                <Tile label="期待値（時給）" value={theoreticalFigureText(theoretical()?.yenPerHour)} />
+                <Tile label="期待値（時給）" value={theoreticalFigureText(seal.play(theoretical()?.yenPerHour))} />
               </Show>
             </dl>
           </div>

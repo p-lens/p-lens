@@ -22,8 +22,11 @@ import { settleTyping, TextField } from "../../primitives/text-field"
 import { describeError, describeTallyError } from "../../wording/errors"
 import { FIELD_PROBLEM_TEXT } from "../../wording/fields"
 import { formatSignedYen, formatTokens, toneOf, tokenUnit, UNSEEN_ACTUAL } from "../../wording/numbers"
-import { typedMachineRefused } from "../../wording/parlor"
+import { parlorNameText, typedMachineRefused } from "../../wording/parlor"
 import { IN_HAND_LABELS, machineChoicesOf, pricesPlayedAt, readTokenTallyForm, type FieldProblem, type FormField, type PlayedAt, type TokenTallyForm, type SubmitWords } from "./form"
+import { seal } from "../../../mummer"
+import { cabinetFieldMasked } from "../../wording/cabinet"
+import { JournalText } from "../mummer/JournalText"
 
 /** Where a submission is: being typed, being written, or refused with why. */
 type Submission =
@@ -89,7 +92,7 @@ export function TokenTallyEditor(props: {
   })
   const resultTone = (): ReturnType<typeof toneOf> | undefined => {
     const yen = result()
-    return yen === undefined ? undefined : toneOf(yen)
+    return yen === undefined ? undefined : toneOf(seal.tally(yen))
   }
   const previewText = (): string | undefined => {
     const entry = preview()
@@ -144,7 +147,7 @@ export function TokenTallyEditor(props: {
   return (
     <form autocomplete="off" class="flex flex-col gap-5 p-4" noValidate onSubmit={(event) => void submit(event)}>
       <p class="text-sm text-text-secondary">
-        {props.at.parlor.name}・{props.at.pool.tier}
+        {parlorNameText(seal.parlor(props.at.parlor.name))}・{props.at.pool.tier}
         {props.at.gameKind === "pachinko" ? "パチンコ" : "スロット"}
       </p>
       <div class="grid grid-cols-[minmax(0,1fr)_6rem] gap-x-3 gap-y-4 sm:grid-cols-[12rem_minmax(0,1fr)_6rem]">
@@ -169,7 +172,7 @@ export function TokenTallyEditor(props: {
             </p>
           </Show>
         </div>
-        <TextField label="台番号" value={form().cabinetNumber} onChange={set("cabinetNumber")} inputMode="numeric" />
+        <TextField label="台番号" value={form().cabinetNumber} masked={cabinetFieldMasked(seal.cabinet(form().cabinetNumber))} onChange={set("cabinetNumber")} inputMode="numeric" />
       </div>
       <div class="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-4">
         <div class="flex flex-col gap-1">
@@ -183,7 +186,7 @@ export function TokenTallyEditor(props: {
             }
           >
             <Show when={tally()?.rental} keyed>
-              {(rental) => <span class="text-xs text-text-muted">貸{unit()} {formatTokens(rental.tokens, kind())}</span>}
+              {(rental) => <span class="text-xs text-text-muted">貸{unit()} {formatTokens(seal.tally(rental.tokens), kind())}</span>}
             </Show>
           </Show>
         </div>
@@ -208,7 +211,7 @@ export function TokenTallyEditor(props: {
             }
           >
             <Show when={tally()?.replay.deducted} keyed>
-              {(deducted) => <span class="text-xs text-text-muted">貯{unit()}減 {formatTokens(deducted, kind())}</span>}
+              {(deducted) => <span class="text-xs text-text-muted">貯{unit()}減 {formatTokens(seal.tally(deducted), kind())}</span>}
             </Show>
           </Show>
         </div>
@@ -223,7 +226,7 @@ export function TokenTallyEditor(props: {
             <span class="text-xs font-bold uppercase tracking-wide text-text-secondary">実収支（自動計算）</span>
             <span class="flex h-10 items-center text-lg font-bold tabular-nums" classList={{ "text-positive": resultTone() === "positive", "text-negative": resultTone() === "negative", "text-text-primary": resultTone() === "neutral", "text-text-muted": resultTone() === undefined }}>
               <Show when={result()} keyed fallback={UNSEEN_ACTUAL}>
-                {(yen) => formatSignedYen(yen)}
+                {(yen) => formatSignedYen(seal.tally(yen))}
               </Show>
             </span>
           </div>
@@ -245,7 +248,7 @@ export function TokenTallyEditor(props: {
         <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">書き込まれる仕訳</h2>
         <Switch fallback={<p class="text-sm text-text-muted">入力を直すと、ここに仕訳が表示されます。</p>}>
           <Match when={previewText()}>
-            {(text) => <pre class="overflow-x-auto rounded-md bg-surface-0 p-3 font-mono text-xs leading-relaxed text-text-secondary">{text()}</pre>}
+            {(text) => <JournalText text={seal.journal(text())} />}
           </Match>
           <Match when={previewProblem()} keyed>
             {(problem) => (

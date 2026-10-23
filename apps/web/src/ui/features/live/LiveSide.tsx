@@ -24,13 +24,16 @@ import { HUDDLE_GIVEN_UP, HUDDLE_HEADING, HUDDLE_JOINED } from "../../wording/hu
 import { HuddleDialog } from "../huddle/HuddleDialog"
 import { captionOf } from "./play-caption"
 import { sendingPortsOf } from "./sending-ports"
+import { cabinetText } from "../../wording/cabinet"
+import { seal } from "../../../mummer"
+import { memberNameText, titleText } from "../../wording/book"
 
 const openPlay = (place: Place): string | undefined =>
   place.kind === "live-play" || place.kind === "live-record" || place.kind === "live-cabinet" ? place.playId : undefined
 
 /** What stands beside a play's place and time, each a word: where it is in its day, and whose it is where it came from someone else. */
 const marksOf = (draft: PlayDraft, destinations: readonly Destination[]): readonly string[] => [
-  ...(draft.received === undefined ? [] : [draft.received.sender ?? "届いた稼働"]),
+  ...(draft.received === undefined ? [] : [draft.received.sender === undefined ? "届いた稼働" : memberNameText(draft.received.sender)]),
   ...(draft.recorded === undefined ? [] : ["記帳済み"]),
   ...(destinations.some((destination) => isSentAsItStands(draft, destination.lineId)) ? ["送信済み"] : []),
   ...(draft.received?.again === undefined ? [] : ["送り直しあり"]),
@@ -105,7 +108,7 @@ function DraftRow(props: {
 
 /** A play as a sentence names it: its machine, as the halls call it, and cabinet, or its parlor where it has no machine. */
 const draftName = (draft: PlayDraft, machineNames: MachineNames): string => {
-  const machine = `${shownNameOf(machineNames, draft.machine)}${draft.cabinetNumber === undefined ? "" : ` ${draft.cabinetNumber}番台`}`.trim()
+  const machine = `${shownNameOf(machineNames, draft.machine)}${draft.cabinetNumber === undefined ? "" : ` ${cabinetText(seal.cabinet(draft.cabinetNumber))}`}`.trim()
   return machine === "" ? parlorText(parlorOf(draft)) : machine
 }
 
@@ -158,7 +161,7 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
       toast({ title: "送れませんでした", description: describeError(sent.error), tone: "error" })
       return
     }
-    toast({ title: "送りました", description: destination.title })
+    toast({ title: "送りました", description: titleText(destination.title) })
     app.played()
   }
   const send = (draft: PlayDraft): void => {
@@ -202,7 +205,7 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
                 <For each={sendingTo()}>
                   {(destination) => (
                     <Button variant="outline" size="small" onClick={() => void sendTo(draft, destination)}>
-                      {destination.title}
+                      {titleText(destination.title)}
                     </Button>
                   )}
                 </For>

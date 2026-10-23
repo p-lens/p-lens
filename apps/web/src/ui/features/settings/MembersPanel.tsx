@@ -16,19 +16,20 @@ import { toast } from "../../primitives/toast"
 import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
 import { describeError } from "../../wording/errors"
 import { invitationMessage, roleText } from "../../wording/sync"
+import { memberNameText } from "../../wording/book"
 
 const isRole = (value: string | null): value is InvitedRole => value === "viewer" || value === "editor" || value === "sender"
 
 /** What a person is sent, put on the clipboard as a message ready to paste: how to join, and their code. */
 const sendOff = async (app: string, title: string, invitation: KeptInvitation): Promise<void> => {
   const copied = await copyText(invitationMessage(app, title, invitation.role, invitation.code))
-  toast(copied.ok ? { title: "招待の文面をコピーしました", description: `${invitation.name}さんに、そのまま貼って送ってください。` } : { title: "コピーできませんでした", tone: "error" })
+  toast(copied.ok ? { title: "招待の文面をコピーしました", description: `${memberNameText(invitation.name)}さんに、そのまま貼って送ってください。` } : { title: "コピーできませんでした", tone: "error" })
 }
 
 /** The code alone, put on the clipboard: for whoever was sent the message already and needs only this. */
 const copyCode = async (invitation: KeptInvitation): Promise<void> => {
   const copied = await copyText(invitation.code)
-  toast(copied.ok ? { title: "招待コードをコピーしました", description: `${invitation.name}さんのコードです。` } : { title: "コピーできませんでした", tone: "error" })
+  toast(copied.ok ? { title: "招待コードをコピーしました", description: `${memberNameText(invitation.name)}さんのコードです。` } : { title: "コピーできませんでした", tone: "error" })
 }
 
 /**
@@ -39,7 +40,7 @@ const copyCode = async (invitation: KeptInvitation): Promise<void> => {
 function Member(props: { readonly invitation: KeptInvitation; readonly onRemove: () => void }): JSX.Element {
   return (
     <li class="flex items-center gap-2 py-1">
-      <span class="min-w-0 flex-1 break-words text-sm text-text-primary">{props.invitation.name}</span>
+      <span class="min-w-0 flex-1 break-words text-sm text-text-primary">{memberNameText(props.invitation.name)}</span>
       <span class="shrink-0 text-xs text-text-muted">{roleText(props.invitation.role)}</span>
       <Button variant="outline" size="small" class="shrink-0" onClick={() => void copyCode(props.invitation)}>
         コード
@@ -103,7 +104,7 @@ export function MembersPanel(props: { readonly bookId: BookId; readonly title: s
     const gone = await uninvite(ports(), invitation)
     setFailure(gone.ok ? undefined : gone.error)
     if (!gone.ok) return
-    toast({ title: `${invitation.name}さんを外しました` })
+    toast({ title: `${memberNameText(invitation.name)}さんを外しました` })
     setChanged((count) => count + 1)
   }
   return (

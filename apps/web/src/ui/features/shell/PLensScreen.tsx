@@ -56,6 +56,8 @@ import { LicensesView } from "../settings/LicensesView"
 import { SharingSettings } from "../settings/SharingSettings"
 import { SyncSettings } from "../settings/SyncSettings"
 import { AboutButton } from "./AboutButton"
+import { MummingMark } from "../mummer/MummingMark"
+import { MummerSettings } from "../mummer/MummerSettings"
 import { BackupNotice } from "./BackupNotice"
 import { BookSpaceSide } from "./BookSpaceSide"
 import { SettingsSide } from "./SettingsSide"
@@ -189,6 +191,8 @@ const settingsFor = (place: Extract<Place, { kind: "settings-section" }>): JSX.E
   switch (place.section) {
     case "appearance":
       return <AppearanceSettings place={place} />
+    case "mummer":
+      return <MummerSettings place={place} />
     case "business-day":
       return <BusinessDaySettings place={place} />
     case "sync":
@@ -279,6 +283,7 @@ export function PLensScreen(): JSX.Element {
           topBar={
             <TopBar
               title={app.services.name}
+              leading={<MummingMark />}
               trailing={
                 <div class="flex items-center gap-1">
                   <BackupNotice />

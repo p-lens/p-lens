@@ -4,6 +4,7 @@ import { apportioned, isZero, ZERO, type Decimal } from "../../../core/decimal/d
 import { averageOf, daysWonOf, prizesOf, shareOf, type Overall } from "../../../core/report/overall"
 import { inferredShareText, NOT_TALLIED, playTimeText, TOTALS_HEADS } from "../../wording/breakdown"
 import { formatCount, formatSignedYen, formatTheoreticalYen, formatYen, toneOf } from "../../wording/numbers"
+import { seal } from "../../../mummer"
 
 const TONES = { positive: "text-positive", negative: "text-negative", neutral: "text-text-primary" } as const
 
@@ -20,10 +21,10 @@ function Figure(props: { readonly label: string; readonly value: string; readonl
 
 /** A result as a tile shows it, coloured by which way it went; `--` where there is none. */
 const result = (value: Decimal | undefined): { readonly value: string; readonly tone: keyof typeof TONES } =>
-  value === undefined ? { value: "--", tone: "neutral" } : { value: formatSignedYen(value), tone: toneOf(value) }
+  value === undefined ? { value: "--", tone: "neutral" } : { value: formatSignedYen(seal.tally(value)), tone: toneOf(seal.tally(value)) }
 
 /** A theoretical value as a tile shows it: marked either way, `±¥0` for nothing; `--` where there is none. */
-const worth = (value: Decimal | undefined): string => (value === undefined ? "--" : formatTheoreticalYen(value))
+const worth = (value: Decimal | undefined): string => (value === undefined ? "--" : formatTheoreticalYen(seal.tally(value)))
 
 /** A share as a percentage to a tenth, with what it is of; `--` where there is nothing to take a share of. */
 const rateText = (part: number, whole: number): { readonly value: string; readonly note: string | undefined } =>
@@ -81,10 +82,10 @@ export function OverallCard(props: { readonly overall: Overall; readonly theoret
           <Total label="通算時間" value={((seconds) => (seconds === undefined ? NOT_TALLIED : playTimeText(seconds)))(props.overall.playSeconds)} />
         </Totals>
         <Totals head={TOTALS_HEADS.result}>
-          <Total label="通算投資" value={formatYen(props.overall.spent)} />
-          <Total label="うち貸玉差額" value={formatYen(props.overall.rentalSpread)} minor />
-          <Total label="うち再プレイ手数料" value={formatYen(props.overall.replayFee)} minor />
-          <Total label="通算回収" value={formatYen(props.overall.returned)} />
+          <Total label="通算投資" value={formatYen(seal.tally(props.overall.spent))} />
+          <Total label="うち貸玉差額" value={formatYen(seal.tally(props.overall.rentalSpread))} minor />
+          <Total label="うち再プレイ手数料" value={formatYen(seal.tally(props.overall.replayFee))} minor />
+          <Total label="通算回収" value={formatYen(seal.tally(props.overall.returned))} />
           <Total label="通算収支" {...result(props.overall.actual)} />
           <Total
             label="通算期待値"
@@ -93,12 +94,12 @@ export function OverallCard(props: { readonly overall: Overall; readonly theoret
           />
         </Totals>
         <Totals head={TOTALS_HEADS.money}>
-          <Total label="現金投資" value={formatYen(props.overall.cash)} />
-          <Total label="持ち玉投資" value={formatYen(props.overall.savingsDrawn)} />
-          <Total label="景品等合計" value={formatYen(prizesOf(props.overall))} />
-          <Total label="うち特殊景品" value={formatYen(prizeParts()[0] ?? ZERO)} minor />
-          <Total label="うち端玉景品" value={formatYen(prizeParts()[1] ?? ZERO)} minor />
-          <Total label="うち換算調整勘定" value={formatYen(prizeParts()[2] ?? ZERO)} minor />
+          <Total label="現金投資" value={formatYen(seal.tally(props.overall.cash))} />
+          <Total label="持ち玉投資" value={formatYen(seal.tally(props.overall.savingsDrawn))} />
+          <Total label="景品等合計" value={formatYen(seal.tally(prizesOf(props.overall)))} />
+          <Total label="うち特殊景品" value={formatYen(seal.tally(prizeParts()[0] ?? ZERO))} minor />
+          <Total label="うち端玉景品" value={formatYen(seal.tally(prizeParts()[1] ?? ZERO))} minor />
+          <Total label="うち換算調整勘定" value={formatYen(seal.tally(prizeParts()[2] ?? ZERO))} minor />
         </Totals>
       </div>
       <dl class="grid grid-cols-2 gap-1.5 sm:grid-cols-4">

@@ -7,6 +7,7 @@ import { priorName } from "../../../wording/pachislot/formula"
 import { SettingLevelOdds } from "../live/SettingLevelOdds"
 import type { SettingInference } from "../../../../application/pachislot/setting-inference"
 import { DEFAULT_PRIOR } from "../../../../core/pachislot/prior"
+import { seal } from "../../../../mummer"
 
 /** What a reading came to is set in: a dark card with a frame, as a machine would report it. */
 const CARD = "flex flex-col gap-3 rounded-[3px] border border-border bg-surface-0 px-4 py-3"
@@ -38,7 +39,7 @@ export function SettingInferenceLine(props: { readonly inference: SettingInferen
             <div class={CARD} role="status">
               <div class="flex flex-col gap-1 font-mono">
                 <p class="text-xs tracking-widest text-text-secondary">推定期待値</p>
-                <p class="origin-left animate-[reveal_480ms_ease-out] text-2xl font-bold tabular-nums text-text-primary">{theoreticalFigureText(inferred.theoreticalValue)}</p>
+                <p class="origin-left animate-[reveal_480ms_ease-out] text-2xl font-bold tabular-nums text-text-primary">{theoreticalFigureText(seal.tally(inferred.theoreticalValue))}</p>
               </div>
               <SettingLevelOdds settingLevels={inferred.settingLevels} prior={priorName(DEFAULT_PRIOR)} grounded unfolding />
             </div>

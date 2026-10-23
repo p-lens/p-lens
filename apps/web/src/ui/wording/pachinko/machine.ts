@@ -2,6 +2,7 @@ import type { BonusShape } from "@p-lens/contracts/pachinko"
 
 import type { BonusField, BonusProblem } from "../../../core/catalog/bonuses"
 import type { BonusNameProblem } from "../../../core/pachinko/bonuses"
+import { formatCount } from "../numbers"
 
 /** What stands where a machine's 大当り確率 is not known: a row never shows a blank. */
 const NO_HIT_CHANCE = "--/--"
@@ -25,7 +26,7 @@ export const describeBonusProblem = (problem: BonusProblem): string => {
     case "not-a-count":
       return `${where}は整数で入れてください。`
     case "too-large":
-      return `${where}は${problem.most.toLocaleString("ja-JP")}${problem.field === "jackpots" ? "回" : "玉"}までです。`
+      return `${where}は${formatCount(problem.most)}${problem.field === "jackpots" ? "回" : "玉"}までです。`
     case "not-below-payout":
       return `${where}は払出より少なくしてください。`
   }

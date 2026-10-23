@@ -10,9 +10,10 @@ import { ConfirmPopover } from "../../../primitives/popover"
 import { createSpanPress, inSpan, spanRow } from "../../../primitives/span-press"
 import { feelTap } from "../../../primitives/vibration"
 import { formatMoment } from "../../../wording/dates"
-import { formatCount } from "../../../wording/numbers"
+import { amountText, formatCount } from "../../../wording/numbers"
 import { MERGE_READINGS, mergeSays } from "../../../wording/pachislot/play"
 import { triggerWordsOf, type TriggerWords } from "../../../wording/pachislot/trigger"
+import { seal } from "../../../../mummer"
 
 /** A line worth a row: a reading of the counter, the outlay or the medals drawn from savings, or an AT won — not a tap on a tile. */
 const isShown = (checkpoint: Checkpoint): boolean => checkpoint.counter !== undefined || checkpoint.outlay !== undefined || checkpoint.replay !== undefined || checkpoint.event !== undefined
@@ -25,7 +26,7 @@ const atEndedText = (checkpoint: Checkpoint, endings: readonly AtEnding[]): stri
     endings.find((ending) => ending.id === event.ending)?.label,
     event.completed === undefined ? undefined : event.completed ? "完走" : "完走せず",
     event.sets === undefined ? undefined : `${formatCount(event.sets)}セット継続`,
-    event.medals === undefined ? undefined : `${formatCount(event.medals)}枚`,
+    event.medals === undefined ? undefined : `${amountText(seal.play(event.medals))}枚`,
   ].filter((part) => part !== undefined)
   return parts.length === 0 ? "AT終了" : `AT終了（${parts.join("・")}）`
 }
@@ -58,9 +59,9 @@ function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly seat: boo
       </span>
       <span class="shrink-0 tabular-nums text-text-primary" classList={{ "w-20": !props.strip, "font-semibold": props.strip }}>{formatCount(props.checkpoint.spins)} G</span>
       <span class="text-sm tabular-nums text-text-secondary" classList={{ "flex-1": !props.strip, "flex flex-col": props.strip }}>
-        {props.checkpoint.outlay === undefined ? "" : `¥${formatCount(props.checkpoint.outlay)}`}
+        {props.checkpoint.outlay === undefined ? "" : `¥${amountText(seal.play(props.checkpoint.outlay))}`}
         <Show when={props.checkpoint.replay} keyed>
-          {(replay) => <span class="text-text-muted" classList={{ "ml-3": !props.strip }}>貯メダル {formatCount(replay)}枚</span>}
+          {(replay) => <span class="text-text-muted" classList={{ "ml-3": !props.strip }}>貯メダル {amountText(seal.play(replay))}枚</span>}
         </Show>
         <Show when={props.checkpoint.counter?.total} keyed>
           {(total) => <span class="text-text-muted" classList={{ "ml-3": !props.strip }}>累計 {formatCount(total)}G</span>}

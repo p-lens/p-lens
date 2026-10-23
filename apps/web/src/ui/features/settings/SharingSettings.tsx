@@ -11,8 +11,9 @@ import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { Button } from "../../primitives/button"
 import { Loaded } from "../../primitives/states"
-import { bookTitle } from "../../wording/book"
+import { bookTitle, titleText } from "../../wording/book"
 import { syncedText } from "../../wording/sync"
+import { Withheld } from "../mummer/Withheld"
 import { ViewHeader } from "../shell/ViewHeader"
 import { FailureNote } from "./FailureNote"
 import { JoinByCode } from "./JoinByCode"
@@ -88,7 +89,7 @@ function Destinations(props: { readonly changed: number; readonly onChanged: () 
             <For each={found()}>
               {(destination) => (
                 <li class="flex items-center gap-2 rounded-md bg-surface-1 py-2 pl-3 pr-2">
-                  <span class="min-w-0 flex-1 break-words text-sm text-text-primary">{destination.title}</span>
+                  <span class="min-w-0 flex-1 break-words text-sm text-text-primary">{titleText(destination.title)}</span>
                   <Button
                     size="small"
                     variant="outline"
@@ -176,50 +177,52 @@ export function SharingSettings(props: { readonly place: Place }): JSX.Element {
   }
   return (
     <MainContent header={<ViewHeader place={props.place} title="共有" />}>
-      <div class="max-w-5xl">
-        <div class="flex flex-col gap-6 p-4">
-          <div class="flex flex-col gap-2">
-            <p class="text-sm text-text-muted">仲間からもらった招待コードを貼ると、その帳簿がこの端末に追加されます。</p>
-            <SyncStanding />
-          </div>
-          <section class="flex flex-col gap-2">
-            <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">招待コードを入れる</h2>
-            <JoinByCode takes="invitation" onJoined={joined} />
-          </section>
-          <Loaded outcome={listed()}>
-            {(books) => (
-              <Show when={letInto(books).length > 0}>
-                <section class="flex flex-col gap-2">
-                  <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">招待された帳簿</h2>
-                  <ul class="flex flex-col gap-1">
-                    <For each={letInto(books)}>
-                      {(each) => (
-                        <li class="flex flex-wrap items-center gap-2 rounded-md bg-surface-1 px-3 py-3">
-                          <span class="min-w-0 flex-1 truncate text-sm text-text-primary">{bookTitle(each.book)}</span>
-                          <span class="text-xs text-text-muted">{roleIn(each.book, app.services.member) === "editor" ? "編集できます" : "閲覧のみ"}</span>
-                        </li>
-                      )}
-                    </For>
-                  </ul>
-                </section>
-              </Show>
-            )}
-          </Loaded>
-          <Destinations changed={changed()} onChanged={changedHere} />
-          <hr class="border-border" />
-          <section class="flex flex-col gap-2">
-            <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">自分の帳簿に招待</h2>
-            <p class="text-sm text-text-muted">相手ごとに招待コードを作って渡してください。渡すのは招待コードだけで、帳簿そのものの鍵は相手に渡りません。</p>
+      <Withheld kind="invitation">
+        <div class="max-w-5xl">
+          <div class="flex flex-col gap-6 p-4">
+            <div class="flex flex-col gap-2">
+              <p class="text-sm text-text-muted">仲間からもらった招待コードを貼ると、その帳簿がこの端末に追加されます。</p>
+              <SyncStanding />
+            </div>
+            <section class="flex flex-col gap-2">
+              <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">招待コードを入れる</h2>
+              <JoinByCode takes="invitation" onJoined={joined} />
+            </section>
             <Loaded outcome={listed()}>
               {(books) => (
-                <ul class="flex flex-col gap-1">
-                  <For each={own(books)}>{(each) => <OwnBookRow listed={each} onChanged={changedHere} />}</For>
-                </ul>
+                <Show when={letInto(books).length > 0}>
+                  <section class="flex flex-col gap-2">
+                    <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">招待された帳簿</h2>
+                    <ul class="flex flex-col gap-1">
+                      <For each={letInto(books)}>
+                        {(each) => (
+                          <li class="flex flex-wrap items-center gap-2 rounded-md bg-surface-1 px-3 py-3">
+                            <span class="min-w-0 flex-1 truncate text-sm text-text-primary">{bookTitle(each.book)}</span>
+                            <span class="text-xs text-text-muted">{roleIn(each.book, app.services.member) === "editor" ? "編集できます" : "閲覧のみ"}</span>
+                          </li>
+                        )}
+                      </For>
+                    </ul>
+                  </section>
+                </Show>
               )}
             </Loaded>
-          </section>
+            <Destinations changed={changed()} onChanged={changedHere} />
+            <hr class="border-border" />
+            <section class="flex flex-col gap-2">
+              <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">自分の帳簿に招待</h2>
+              <p class="text-sm text-text-muted">相手ごとに招待コードを作って渡してください。渡すのは招待コードだけで、帳簿そのものの鍵は相手に渡りません。</p>
+              <Loaded outcome={listed()}>
+                {(books) => (
+                  <ul class="flex flex-col gap-1">
+                    <For each={own(books)}>{(each) => <OwnBookRow listed={each} onChanged={changedHere} />}</For>
+                  </ul>
+                )}
+              </Loaded>
+            </section>
+          </div>
         </div>
-      </div>
+      </Withheld>
     </MainContent>
   )
 }

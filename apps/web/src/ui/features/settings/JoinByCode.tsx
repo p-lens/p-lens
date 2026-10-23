@@ -8,6 +8,7 @@ import { createNudge } from "../../primitives/nudge"
 import { TextField } from "../../primitives/text-field"
 import { toast } from "../../primitives/toast"
 import { FailureNote } from "./FailureNote"
+import { titleText } from "../../wording/book"
 
 /** Where a press here is: nothing doing, at work, turned away for a code of the other kind, or failed. */
 type Working = { readonly type: "idle" } | { readonly type: "working" } | { readonly type: "misplaced" } | { readonly type: "failed"; readonly error: ApplicationError }
@@ -48,7 +49,7 @@ export function JoinByCode(props: { readonly takes: "own" | "invitation"; readon
     toast(
       joined.value.type === "book"
         ? { title: "帳簿を追加しました", description: "この端末でも同じ帳簿を使えます。" }
-        : { title: "送り先を追加しました", description: `左の列か「本日の稼働」から「${joined.value.title}」に送れます。` },
+        : { title: "送り先を追加しました", description: `左の列か「本日の稼働」から「${titleText(joined.value.title)}」に送れます。` },
     )
     props.onJoined()
   }

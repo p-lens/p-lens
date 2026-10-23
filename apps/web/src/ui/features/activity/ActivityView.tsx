@@ -14,6 +14,7 @@ import { formatMoment } from "../../wording/dates"
 import { unreadableFileText } from "../../wording/errors"
 import { formatTheoreticalYen } from "../../wording/numbers"
 import { ViewHeader } from "../shell/ViewHeader"
+import { seal } from "../../../mummer"
 
 const authorName = (book: Book | undefined, line: ActivityLine): string => book?.members.find((member) => member.id === line.by)?.displayName ?? line.by
 
@@ -27,7 +28,7 @@ function ActivityRow(props: { readonly line: ActivityLine; readonly author: stri
         <span class="text-sm font-semibold text-text-primary">{props.author}</span>
         <span class="text-sm text-text-secondary">{describeActivity(props.line)}</span>
         <Show when={props.line.parts.theoretical} keyed>
-          {(theoretical) => <span class="text-xs text-text-muted">期待値 {formatTheoreticalYen(theoretical.value)}</span>}
+          {(theoretical) => <span class="text-xs text-text-muted">期待値 {formatTheoreticalYen(seal.tally(theoretical.value))}</span>}
         </Show>
       </div>
       <Show when={props.onOpenTally} keyed>

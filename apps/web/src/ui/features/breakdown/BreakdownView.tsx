@@ -22,11 +22,13 @@ import { queryFor } from "../period/periods"
 import { ViewHeader } from "../shell/ViewHeader"
 import { OtherGainsSection } from "./OtherGainsSection"
 import { OverallCard } from "./OverallCard"
+import { shownOrder } from "./shown-order"
+import { seal } from "../../../mummer"
 
 const TONES = { positive: "text-positive", negative: "text-negative", neutral: "text-text-primary" } as const
 
 function Yen(props: { readonly value: Decimal }): JSX.Element {
-  return <span class={`tabular-nums ${TONES[toneOf(props.value)]}`}>{formatSignedYen(props.value)}</span>
+  return <span class={`tabular-nums ${TONES[toneOf(seal.tally(props.value))]}`}>{formatSignedYen(seal.tally(props.value))}</span>
 }
 
 /** A machine's tallies' spin performance, averaged, where any of them said one. */
@@ -66,7 +68,7 @@ export function GroupRow(props: { readonly name: string; readonly group: Group; 
         <span class="flex items-baseline gap-1.5">
           <span class="text-xs text-text-muted">期待値</span>
           <Show when={props.theoreticalKept} fallback={<span class="text-text-muted">{NOT_TALLIED}</span>}>
-            <span class="tabular-nums text-text-primary">{formatTheoreticalYen(props.group.theoretical)}</span>
+            <span class="tabular-nums text-text-primary">{formatTheoreticalYen(seal.tally(props.group.theoretical))}</span>
           </Show>
         </span>
         <Show when={props.theoreticalKept && !isZero(props.group.inferred)}>
@@ -158,7 +160,7 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
                     <Show when={found.length > 0} fallback={<EmptyState title="この期間の収支はありません" />}>
                       <ul class="flex flex-col gap-1">
                         <GroupRow name="合計" group={totalOf(found)} strong theoreticalKept={theoreticalKept()} spins={((all) => (all === undefined ? undefined : allSpinPerformances(all)))(spins())} />
-                        <For each={found}>{(group) => <GroupRow name={groupName(dimension, group.key, app.machineNames())} group={group} strong={false} theoreticalKept={theoreticalKept()} spins={spins()?.get(group.key)} />}</For>
+                        <For each={shownOrder(found, dimension)}>{(group) => <GroupRow name={groupName(dimension, group.key, app.machineNames())} group={group} strong={false} theoreticalKept={theoreticalKept()} spins={spins()?.get(group.key)} />}</For>
                       </ul>
                     </Show>
                   )}

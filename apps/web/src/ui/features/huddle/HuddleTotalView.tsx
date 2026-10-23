@@ -11,7 +11,8 @@ import { createHourStruck } from "../../primitives/hour"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { HUDDLE_NARROW, HUDDLE_OWN_ONLY, HUDDLE_SETTLE, HUDDLE_TOTAL } from "../../wording/huddle"
-import { formatCount } from "../../wording/numbers"
+import { amountText } from "../../wording/numbers"
+import { seal } from "../../../mummer"
 import { ViewHeader } from "../shell/ViewHeader"
 import { offeredMembers } from "./HuddleSide"
 
@@ -27,13 +28,13 @@ function Figure(props: { readonly label: string; readonly value: string; readonl
         </Show>
       </dd>
       <Show when={props.yen} keyed>
-        {(yen) => <dd class="truncate text-xs tabular-nums text-text-secondary">≒ ¥{formatCount(yen)}</dd>}
+        {(yen) => <dd class="truncate text-xs tabular-nums text-text-secondary">≒ ¥{amountText(seal.play(yen))}</dd>}
       </Show>
     </div>
   )
 }
 
-const tokensOf = (held: HeldTotal): { readonly value: string; readonly yen: number | undefined } => ({ value: formatCount(held.tokens), yen: held.tokens === 0 ? undefined : held.yen })
+const tokensOf = (held: HeldTotal): { readonly value: string; readonly yen: number | undefined } => ({ value: amountText(seal.play(held.tokens)), yen: held.tokens === 0 ? undefined : held.yen })
 
 /**
  * What the plays of a huddle's members come to together, the members
@@ -73,7 +74,7 @@ export function HuddleTotalView(props: { readonly place: Place }): JSX.Element {
         <Show when={total()} keyed>
           {(found) => (
             <dl class="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              <Figure label="現金投資" value={`¥${formatCount(found.outlay)}`} />
+              <Figure label="現金投資" value={`¥${amountText(seal.play(found.outlay))}`} />
               <Figure label="持ち玉" {...tokensOf(found.held.pachinko)} unit="玉" />
               <Figure label="持ちメダル" {...tokensOf(found.held.pachislot)} unit="枚" />
             </dl>

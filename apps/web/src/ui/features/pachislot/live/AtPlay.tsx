@@ -16,7 +16,8 @@ import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
 import { feelHold, feelTap } from "../../../primitives/vibration"
 import { describeError } from "../../../wording/errors"
 import { FIELD_PROBLEM_TEXT } from "../../../wording/fields"
-import { formatCount } from "../../../wording/numbers"
+import { amountText, formatCount } from "../../../wording/numbers"
+import { seal } from "../../../../mummer"
 import { describeAtReadingRefusal, describeTakeBackRefusal } from "../../../wording/pachislot/formula"
 import { triggerWordsOf, type TriggerWords } from "../../../wording/pachislot/trigger"
 import type { Post } from "./NoticeBoard"
@@ -59,7 +60,7 @@ export function AtFigures(props: { readonly ordered: readonly Checkpoint[]; read
   }
   return (
     <dl class="grid grid-cols-3 gap-2">
-      <Tile label="現金投資" value={summary().outlay === undefined ? "--" : `¥${formatCount(summary().outlay ?? 0)}`} />
+      <Tile label="現金投資" value={summary().outlay === undefined ? "--" : `¥${amountText(seal.play(summary().outlay ?? 0))}`} />
       <Tile label="打ったゲーム数" value={formatCount(summary().spins)} note="G" />
       <Tile label="AT間のゲーム数" value={formatCount(standing()?.sinceAt ?? 0)} note="G" />
       <Show when={cz()}>

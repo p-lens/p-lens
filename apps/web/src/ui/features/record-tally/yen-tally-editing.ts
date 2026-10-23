@@ -34,6 +34,8 @@ import * as PachislotViews from "../pachislot"
 import { offersByKey, parlorOffers, type ParlorOffer } from "../parlor-offers/parlor-offers"
 import type { FieldProblem, FormField } from "./form"
 import { atToldOf, medalTermsFormOf, pachislotToldOf, readMedalTerms, readWeighingTerms, readYenTallyForm, resultOfYenTally, termsTypedOf, toldFiguresOf, weighingTermsFormOf, withInferred, type YenTallyForm } from "./yen-tally-form"
+import { seal } from "../../../mummer"
+import { chosenParlorText } from "../../wording/parlor"
 
 /** Where a submission is: being typed, being written, or refused with why. */
 type Submission =
@@ -145,7 +147,7 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
     const unplaced = offerOf().get(form().parlorKey)?.unplaced
     return unplaced === undefined || app.services.surveyUrl === undefined ? undefined : locateAddress(app.services.surveyUrl, window.location.origin, given.leftFrom(form().gameKind), unplaced)
   }
-  const typedOnly = (): boolean => holdsTypedOnly(parlorTyped(), chosenName())
+  const typedOnly = (): boolean => holdsTypedOnly(parlorTyped(), chosenParlorText(chosenName()))
   /** Off to survey.p-lens.jp to submit a parlor the list lacks; a build that names no survey says so instead of going nowhere. */
   const submitParlor = (): void => {
     if (app.services.surveyUrl === undefined) {
@@ -301,9 +303,9 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
     return entry?.ok === false ? describeTallyError(entry.error) : undefined
   }
   /** The result the two sides come to, or dashes in its shape while they do not read. */
-  const resultText = (): string => ((result) => (result === undefined ? UNSEEN_ACTUAL : formatSignedYen(result)))(resultOfYenTally(form()))
+  const resultText = (): string => ((result) => (result === undefined ? UNSEEN_ACTUAL : formatSignedYen(seal.tally(result))))(resultOfYenTally(form()))
   /** Which way the result went, or no way while the two sides do not read. */
-  const resultTone = (): ReturnType<typeof toneOf> | undefined => ((result) => (result === undefined ? undefined : toneOf(result)))(resultOfYenTally(form()))
+  const resultTone = (): ReturnType<typeof toneOf> | undefined => ((result) => (result === undefined ? undefined : toneOf(seal.tally(result))))(resultOfYenTally(form()))
   /** Red for a while after a press that a problem here stopped. */
   const nudged = (field: FormField): boolean => nudge.red() && problemAt(field) !== undefined
   const failure = (): ApplicationError | undefined => {

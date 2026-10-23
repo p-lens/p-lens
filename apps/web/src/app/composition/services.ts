@@ -198,6 +198,7 @@ export const createServices = (): Services => {
     screenTitle: DEPLOYMENT.nameInJapanese,
     operatorPage: DEPLOYMENT.operatorPage,
     landingPage: DEPLOYMENT.landingPage,
+    installGuide: DEPLOYMENT.installGuide,
     version: import.meta.env.VITE_APP_VERSION as string,
     today: () => localDayOf(clock()),
     businessDay: () => businessDayOf(clock(), preferences.businessDayTurn()),

@@ -16,6 +16,7 @@ import { formatCount, formatSignedYen, formatTheoreticalYen, toneOf, UNSEEN_ACTU
 import { tallyTitle } from "../../wording/tallies"
 import { PeriodPicker } from "../period/PeriodPicker"
 import { ViewHeader } from "../shell/ViewHeader"
+import { seal } from "../../../mummer"
 
 const TONES = { positive: "text-positive", negative: "text-negative", neutral: "text-text-primary" } as const
 
@@ -46,18 +47,18 @@ function TallyRow(props: { readonly tally: ListedTally; readonly selected: boole
         </div>
         <div class="flex flex-col items-end text-sm tabular-nums text-text-secondary">
           <Show when={props.tally.actual} keyed fallback={<span class="text-text-muted">実収支 {UNSEEN_ACTUAL}</span>}>
-            {(actual) => <span class={TONES[toneOf(actual)]}>実収支 {formatSignedYen(actual)}</span>}
+            {(actual) => <span class={TONES[toneOf(seal.tally(actual))]}>実収支 {formatSignedYen(seal.tally(actual))}</span>}
           </Show>
           <Show
             when={props.tally.theoreticalValue}
             keyed
             fallback={
               <Show when={props.tally.inferredValue} keyed fallback={<span class="text-text-muted">期待値 {UNSEEN_THEORETICAL}</span>}>
-                {(value) => <span>推定期待値 {formatTheoreticalYen(value)}</span>}
+                {(value) => <span>推定期待値 {formatTheoreticalYen(seal.tally(value))}</span>}
               </Show>
             }
           >
-            {(value) => <span>期待値 {formatTheoreticalYen(value)}</span>}
+            {(value) => <span>期待値 {formatTheoreticalYen(seal.tally(value))}</span>}
           </Show>
         </div>
       </button>

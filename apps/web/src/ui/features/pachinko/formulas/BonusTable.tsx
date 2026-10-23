@@ -5,6 +5,8 @@ import { bonusGain } from "../../../../core/catalog/bonuses"
 import type { Bonus } from "../../../../core/pachinko/formula"
 import { BONUS_FIELDS, bonusRoundsText, jackpotsText } from "../../../wording/pachinko/machine"
 import { signedBalls } from "../../../wording/pachinko/play"
+import { formatCount } from "../../../wording/numbers"
+import { seal } from "../../../../mummer"
 
 /** The rounds a bonus is told by, where the basis has exactly one bonus paying out and taking what it does over as many jackpots; none where it has no such bonus, or several. */
 const roundsOf = (bonus: Bonus, shapes: readonly BonusShape[]): BonusShape | undefined => {
@@ -43,9 +45,9 @@ export function BonusTable(props: { readonly bonuses: readonly Bonus[]; readonly
                   {(jackpots) => <span class="block text-[11px] text-text-muted">{jackpots}</span>}
                 </Show>
               </td>
-              <td class="py-1 pl-3 text-right">{bonus.payout.toLocaleString("ja-JP")}玉</td>
-              <td class="py-1 pl-3 text-right">{bonus.spent.toLocaleString("ja-JP")}玉</td>
-              <td class="py-1 pl-3 text-right">{signedBalls(bonusGain(bonus))}</td>
+              <td class="py-1 pl-3 text-right">{formatCount(bonus.payout)}玉</td>
+              <td class="py-1 pl-3 text-right">{formatCount(bonus.spent)}玉</td>
+              <td class="py-1 pl-3 text-right">{signedBalls(seal.formula(bonusGain(bonus)))}</td>
             </tr>
           )}
         </For>

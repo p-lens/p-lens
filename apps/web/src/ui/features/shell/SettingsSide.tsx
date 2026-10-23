@@ -1,18 +1,23 @@
 import type { JSX } from "solid-js"
 import { SidePanel } from "solid-gathering-shell"
 
-import { BackupIcon, BooksIcon, ClosingIcon, ConsolidatedIcon, ExportIcon, FileIcon, ImportIcon, NotepadIcon, PaletteIcon, PeopleIcon, RefreshIcon, TrashIcon } from "../../primitives/icons"
+import { BackupIcon, BooksIcon, ClosingIcon, ConsolidatedIcon, ExportIcon, FileIcon, ImportIcon, MaskIcon, NotepadIcon, PaletteIcon, PeopleIcon, RefreshIcon, TrashIcon } from "../../primitives/icons"
 import { DOCUMENT_KINDS } from "../../../core/document/document"
 import { useApp } from "../../context"
 import { useMoves } from "../../navigation/moves"
 import { documentTitle, OPERATOR_PAGE } from "../../wording/documents"
+import { MUMMER_HEADING } from "../../wording/mummer"
 import type { Place } from "../../navigation/place"
 import { SideList } from "./SideList"
 import { UnhatchedEgg } from "../../../unhatched-egg"
 
+/** The line between the settings' groups: half the room on a phone, where the list has grown longer than the screen, and the list's own room wider. */
+const RULE = "mx-4 mt-2 -mb-2 border-border sm:mt-4 sm:mb-0"
+
 /**
  * The settings, as a list: the app's own first, then what is done to the
- * books, then what is read — the licences, the deployment's documents and
+ * books, then 配信モード on its own, turned day to day as a stream begins
+ * and ends, then what is read — the licences, the deployment's documents and
  * the page of who runs it — and, set apart at its foot, the version of the
  * app this copy was built from.
  */
@@ -68,7 +73,7 @@ export function SettingsSide(props: { readonly place: Place }): JSX.Element {
           },
         ]}
       />
-      <hr class="mx-4 mt-4 border-border" />
+      <hr class={RULE} />
       <SideList
         items={[
           {
@@ -94,7 +99,19 @@ export function SettingsSide(props: { readonly place: Place }): JSX.Element {
           },
         ]}
       />
-      <hr class="mx-4 mt-4 border-border" />
+      <hr class={RULE} />
+      <SideList
+        items={[
+          {
+            id: "mummer",
+            label: MUMMER_HEADING,
+            icon: <MaskIcon />,
+            selected: props.place.kind === "settings-section" && props.place.section === "mummer",
+            onSelect: () => moves.go({ kind: "settings-section", section: "mummer" }),
+          },
+        ]}
+      />
+      <hr class={RULE} />
       <SideList
         items={[
           {
@@ -106,7 +123,7 @@ export function SettingsSide(props: { readonly place: Place }): JSX.Element {
           },
         ]}
       />
-      <hr class="mx-4 mt-4 border-border" />
+      <hr class={RULE} />
       <SideList
         items={[
           {

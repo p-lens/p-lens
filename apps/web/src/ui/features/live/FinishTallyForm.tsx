@@ -14,6 +14,9 @@ import { describeError } from "../../wording/errors"
 import { formatTokens, tokenUnit, type toneOf } from "../../wording/numbers"
 import { typedMachineRefused } from "../../wording/parlor"
 import { IN_HAND_LABELS, type FieldProblem, type FormField, type SubmitWords } from "./finish-tally-reading"
+import { seal } from "../../../mummer"
+import { cabinetFieldMasked } from "../../wording/cabinet"
+import { JournalText } from "../mummer/JournalText"
 
 /** What the tokens drawn from savings are called, for each kind of token. */
 const SAVINGS_DRAWN: Readonly<Record<TokenKind, string>> = { ball: "貯玉引出", medal: "貯メダル引出" }
@@ -64,9 +67,7 @@ function EntryPreview(props: { readonly editing: FinishTallyEditing }): JSX.Elem
       <Switch fallback={<p class="text-sm text-text-muted">入力を直すと、ここに仕訳が表示されます。</p>}>
         <Match when={editing.previewText()}>
           {(text) => (
-            <pre ref={(pre) => createEffect(() => text() && setShown(pre.offsetHeight))} class="overflow-x-auto rounded-md bg-surface-0 p-3 font-mono text-xs leading-relaxed text-text-secondary">
-              {text()}
-            </pre>
+            <JournalText text={seal.journal(text())} measured={(box) => createEffect(() => text() && setShown(box.offsetHeight))} />
           )}
         </Match>
         <Match when={editing.previewProblem()} keyed>
@@ -129,7 +130,7 @@ export function FinishTallyForm(props: {
             </p>
           </Show>
         </div>
-        <TextField label="台番号" value={editing.value("cabinetNumber")} onChange={editing.set("cabinetNumber")} inputMode="numeric" />
+        <TextField label="台番号" value={editing.value("cabinetNumber")} masked={cabinetFieldMasked(seal.cabinet(editing.value("cabinetNumber")))} onChange={editing.set("cabinetNumber")} inputMode="numeric" />
       </div>
       <div class={`grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-4 ${ROW_ON_A_WIDE_SCREEN}`}>
         <div class="flex flex-col gap-1">
@@ -141,7 +142,7 @@ export function FinishTallyForm(props: {
             <div class="flex flex-col gap-1">
               <TextField label={SAVINGS_DRAWN[tokenKindOf(props.gameKind)]} value={editing.value("replayPaidOut")} onChange={editing.set("replayPaidOut")} inputMode="numeric" suffix={unit()} error={editing.problemOf("replay-paid-out")} invalid={editing.nudged("replay-paid-out")} onFocus={editing.nudge.settle} />
               <Show when={savings.deducted()} keyed>
-                {(deducted) => <span class="text-xs text-text-muted">貯{unit()}減 {formatTokens(deducted, tokenKindOf(props.gameKind))}</span>}
+                {(deducted) => <span class="text-xs text-text-muted">貯{unit()}減 {formatTokens(seal.play(deducted), tokenKindOf(props.gameKind))}</span>}
               </Show>
             </div>
           )}

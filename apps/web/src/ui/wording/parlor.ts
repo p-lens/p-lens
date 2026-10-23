@@ -2,9 +2,38 @@ import type { SharedParlor } from "../../core/parlor/shared"
 import type { Parlor } from "../../core/parlor/parlor"
 import { statedExchangeOf, tierOf, type PlayTerms } from "../../core/parlor/terms"
 import type { PlayGameKind } from "../../core/play/play"
+import { seal, veil, type Secret } from "../../mummer"
+
+/** A parlor's name, sealed where it comes to the words: where a person plays is the first thing 配信モード veils. */
+export type ParlorName = Secret<"parlor", string>
+
+/** What stands for a parlor's name while it is veiled: one shape, whatever the name, so that its length tells nothing. */
+const VEILED_NAME = "••••店"
+
+/** What stands for where a parlor is — its prefecture, how far it is — while its name is veiled. */
+const VEILED_WHERE = "--"
+
+/** A parlor's name as a screen shows it. */
+export const parlorNameText = (name: ParlorName): string => veil.text(name, (shown) => shown, VEILED_NAME)
+
+/**
+ * A parlor's name in a list to choose one from: veiled as many characters
+ * long as it is, so that the one a person stands in, nearest first, can
+ * still be told from those beside it.
+ */
+export const parlorChoiceText = (name: ParlorName): string => veil.text(name, (shown) => shown, "•".repeat(veil.length(name, (shown) => [...shown].length, [...VEILED_NAME].length)))
+
+/** What is said under the field a play's parlor is chosen in while parlors are veiled: choose before the stream, and the day keeps it. */
+const CHOOSE_BEFORE = "配信モード中は店舗名を伏せています。配信前に一度選んでおくと、その日は選んだままになります。"
+
+/** What is said under the field a play's parlor is chosen in: nothing, unless parlors are veiled. */
+export const parlorChoiceNote = (): string => veil.text(seal.parlor(""), () => "", CHOOSE_BEFORE)
+
+/** What a field a parlor is chosen in holds once one is chosen, to tell a choice from a name typed and choosing nothing: its label in the list, veiled as the list veils it. */
+export const chosenParlorText = (name: string | undefined): string | undefined => (name === undefined ? undefined : parlorChoiceText(seal.parlor(name)))
 
 /** A play's parlor by name, or the words for having none. */
-export const parlorText = (parlor: Parlor | undefined): string => parlor?.name ?? "店舗名なし"
+export const parlorText = (parlor: Parlor | undefined): string => (parlor === undefined ? "店舗名なし" : parlorNameText(seal.parlor(parlor.name)))
 
 const TOKENS: Readonly<Record<PlayGameKind, string>> = { pachinko: "玉", pachislot: "枚" }
 
@@ -27,7 +56,12 @@ const UNPLACED = "座標未確認"
  * is once the device says where it is, its prefecture until then, and that
  * the list has not placed it — it has no distance to give.
  */
-export const parlorNote = (parlor: Pick<SharedParlor, "prefecture" | "location">, metres: number | undefined): string => {
+export const parlorNote = (parlor: Pick<SharedParlor, "prefecture" | "location">, metres: number | undefined): string => parlorPlaceText(placeOf(parlor, metres))
+
+/** Where a parlor is — its address, its prefecture, how far it is — as a screen shows it: veiled with its name. */
+export const parlorPlaceText = (place: string): string => veil.text(seal.parlor(place), (shown) => shown, VEILED_WHERE)
+
+const placeOf = (parlor: Pick<SharedParlor, "prefecture" | "location">, metres: number | undefined): string => {
   if (parlor.location === undefined) return `${parlor.prefecture}・${UNPLACED}`
   return metres === undefined ? parlor.prefecture : distanceText(metres)
 }

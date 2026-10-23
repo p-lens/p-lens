@@ -23,6 +23,9 @@ import { describeError } from "../../wording/errors"
 import { formatRate, formatTokens, formatYen } from "../../wording/numbers"
 import { yearOf } from "../period/periods"
 import { COLUMNS, Earlier, Headings, Lines, ROW_BUTTON, toggledDay, type OpenDays } from "./PassbookPanel"
+import { seal } from "../../../mummer"
+import { parlorNameText } from "../../wording/parlor"
+import { Withheld } from "../mummer/Withheld"
 
 /** Yen a token had no rate for: dashes in the figure's shape. */
 const UNVALUED = "¥-,---"
@@ -34,7 +37,7 @@ function Yen(props: { readonly value: Decimal | undefined; readonly strong?: boo
       class="text-right text-xs tabular-nums"
       classList={{ "text-text-muted": props.value === undefined || isZero(rounded(props.value, 0)), "text-text-primary": props.value !== undefined && !isZero(rounded(props.value, 0)), "font-semibold": props.strong === true }}
     >
-      {props.value === undefined ? UNVALUED : formatYen(props.value)}
+      {props.value === undefined ? UNVALUED : formatYen(seal.savings(props.value))}
     </span>
   )
 }
@@ -45,9 +48,9 @@ function PoolPart(props: { readonly part: PoolDay }): JSX.Element {
     <li class="flex flex-col gap-1">
       <div class={`${COLUMNS} text-xs`}>
         <span class="font-semibold text-text-secondary">{props.part.pool.tier}</span>
-        <span class="text-right tabular-nums text-text-secondary">{formatTokens(props.part.day.withdrawn, props.part.pool.kind)}</span>
-        <span class="text-right tabular-nums text-text-secondary">{formatTokens(props.part.day.deposited, props.part.pool.kind)}</span>
-        <span class="text-right tabular-nums text-text-muted">{formatTokens(props.part.day.balance, props.part.pool.kind)}</span>
+        <span class="text-right tabular-nums text-text-secondary">{formatTokens(seal.savings(props.part.day.withdrawn), props.part.pool.kind)}</span>
+        <span class="text-right tabular-nums text-text-secondary">{formatTokens(seal.savings(props.part.day.deposited), props.part.pool.kind)}</span>
+        <span class="text-right tabular-nums text-text-muted">{formatTokens(seal.savings(props.part.day.balance), props.part.pool.kind)}</span>
       </div>
       <Show when={props.part.day.rateSet} keyed>
         {(set) => (
@@ -136,14 +139,14 @@ export function ParlorPassbookPanel(props: { readonly place: Place; readonly boo
       toast({ title: "失効を記録できませんでした", description: describeError(recorded.error), tone: "error" })
       return
     }
-    toast(recorded.value.length === 0 ? { title: "失効する貯玉・貯メダルはありません", description: parlor.name } : { title: "失効を記録しました", description: recorded.value.map((each) => `${each.pool.tier} ${formatTokens(each.tokens, each.pool.kind)}`).join("、") })
+    toast(recorded.value.length === 0 ? { title: "失効する貯玉・貯メダルはありません", description: parlorNameText(seal.parlor(parlor.name)) } : { title: "失効を記録しました", description: recorded.value.map((each) => `${each.pool.tier} ${formatTokens(seal.savings(each.tokens), each.pool.kind)}`).join("、") })
     app.wrote()
   }
   return (
     <AuxPanel
       header={
         <div class="flex min-w-0 flex-1 items-center gap-2">
-          <h2 class="min-w-0 flex-1 truncate font-semibold text-text-primary">{props.parlorName}の通帳</h2>
+          <h2 class="min-w-0 flex-1 truncate font-semibold text-text-primary">{parlorNameText(seal.parlor(props.parlorName))}の通帳</h2>
           <Button
             variant="outline"
             size="small"
@@ -164,7 +167,7 @@ export function ParlorPassbookPanel(props: { readonly place: Place; readonly boo
         {(passbook) => (
           <div class="flex flex-col gap-3 p-4">
             <Show when={passbook.days.length > 0 || passbook.before !== undefined} fallback={<EmptyState title="出し入れはまだありません" />}>
-              <p class="text-lg font-bold tabular-nums text-text-primary">{((now) => (now === undefined ? UNVALUED : formatYen(now)))(passbook.days.length > 0 ? passbook.days[0]?.balance : passbook.before?.balance)}</p>
+              <p class="text-lg font-bold tabular-nums text-text-primary">{((now) => (now === undefined ? UNVALUED : formatYen(seal.savings(now))))(passbook.days.length > 0 ? passbook.days[0]?.balance : passbook.before?.balance)}</p>
               <Headings openable={passbook.days.map((day) => day.date)} open={openDays()} onOpen={setOpenDays} />
               <ul class="flex flex-col">
                 <For each={passbook.days}>
@@ -185,12 +188,14 @@ export function ParlorPassbookPanel(props: { readonly place: Place; readonly boo
             <Show when={keptParlor()} keyed>
               {(parlor) => (
                 <>
-                  <div class="flex justify-end">
-                    <button type="button" class={ROW_BUTTON} onClick={askForfeiture}>
-                      失効
-                    </button>
-                  </div>
-                  <ConfirmDialog open={forfeiting()} title={`${parlor.name}の貯玉・貯メダルをすべて失効しますか？`} confirm="失効する" decline="やめる" onConfirmed={() => void forfeit(parlor)} onDeclined={() => setForfeiting(false)}>
+                  <Withheld kind="savings" silent>
+                    <div class="flex justify-end">
+                      <button type="button" class={ROW_BUTTON} onClick={askForfeiture}>
+                        失効
+                      </button>
+                    </div>
+                  </Withheld>
+                  <ConfirmDialog open={forfeiting()} title={`${parlorNameText(seal.parlor(parlor.name))}の貯玉・貯メダルをすべて失効しますか？`} confirm="失効する" decline="やめる" onConfirmed={() => void forfeit(parlor)} onDeclined={() => setForfeiting(false)}>
                     <TextField label="日付" type="date" value={forfeitedOn()} onChange={setForfeitedOn} invalid={forfeitDayMissed() && !parseIsoDate(forfeitedOn()).ok} compact />
                     <p>この日に残っている貯玉・貯メダルを、すべて店に戻ったものとして記録します。その日の交換率で、収支とは別のその他損益（失効損）になります。</p>
                   </ConfirmDialog>

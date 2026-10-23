@@ -138,6 +138,7 @@ export function LivePlay(props: {
           place={props.place}
           title={props.title}
           urged={urged()}
+          framed
           actions={
             <Button size="small" onClick={() => moves.go({ kind: "live-record", playId: props.draft.id })}>
               遊技を終了

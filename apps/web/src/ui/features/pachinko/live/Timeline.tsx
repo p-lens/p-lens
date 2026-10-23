@@ -9,9 +9,10 @@ import { ConfirmPopover } from "../../../primitives/popover"
 import { createSpanPress, inSpan, spanRow } from "../../../primitives/span-press"
 import { feelTap } from "../../../primitives/vibration"
 import { formatMoment } from "../../../wording/dates"
-import { formatCount } from "../../../wording/numbers"
+import { amountText, formatCount } from "../../../wording/numbers"
 import { jackpotsText } from "../../../wording/pachinko/machine"
 import { MERGE_READINGS, mergeSays, PHASE_NAMES, signedBalls, STRETCH_RATE_UNIT, stretchRateText, UNTOLD_JACKPOT } from "../../../wording/pachinko/play"
+import { seal } from "../../../../mummer"
 
 /**
  * A line and the one before it, which says what the line added to the
@@ -54,18 +55,18 @@ const stepsOf = (ordered: readonly Checkpoint[]): readonly Step[] => {
 const jackpotText = (checkpoint: Checkpoint): string | undefined => {
   const event = checkpoint.event
   if (event?.kind !== "jackpot") return undefined
-  if (event.bonus !== undefined) return [event.bonus.name, signedBalls(gainOf(event.bonus)), event.bonus.over === undefined ? undefined : `(差${signedBalls(event.bonus.over)})`, jackpotsText(event.bonus)].filter((part) => part !== undefined).join(" ")
+  if (event.bonus !== undefined) return [event.bonus.name, signedBalls(seal.play(gainOf(event.bonus))), event.bonus.over === undefined ? undefined : `(差${signedBalls(seal.play(event.bonus.over))})`, jackpotsText(event.bonus)].filter((part) => part !== undefined).join(" ")
   return event.approximate === true ? `${UNTOLD_JACKPOT}（推定）` : UNTOLD_JACKPOT
 }
 
 /** What a line did to the balls, each where it did anything: rented, drawn, drifted, counted, and — counted as a bonus ended — what it paid beyond what it was told to. */
 const ballsText = (step: Step): string =>
   [
-    step.rented > 0 ? `貸玉 ¥${formatCount(step.rented)}` : undefined,
-    step.replayed > 0 ? `貯玉 ${formatCount(step.replayed)}玉` : undefined,
-    step.supported !== 0 ? `電サポ ${signedBalls(step.supported)}` : undefined,
-    step.checkpoint.held === undefined ? undefined : `持ち玉 ${formatCount(step.checkpoint.held)}玉`,
-    step.overPaid === undefined ? undefined : `出玉差 ${signedBalls(step.overPaid)}`,
+    step.rented > 0 ? `貸玉 ¥${amountText(seal.play(step.rented))}` : undefined,
+    step.replayed > 0 ? `貯玉 ${amountText(seal.play(step.replayed))}玉` : undefined,
+    step.supported !== 0 ? `電サポ ${signedBalls(seal.play(step.supported))}` : undefined,
+    step.checkpoint.held === undefined ? undefined : `持ち玉 ${amountText(seal.play(step.checkpoint.held))}玉`,
+    step.overPaid === undefined ? undefined : `出玉差 ${signedBalls(seal.play(step.overPaid))}`,
   ]
     .filter((text): text is string => text !== undefined)
     .join("　")

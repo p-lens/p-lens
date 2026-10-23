@@ -29,7 +29,7 @@ import { toast } from "../../../primitives/toast"
 import { useMoves } from "../../../navigation/moves"
 import { describeError } from "../../../wording/errors"
 import { FIELD_PROBLEM_TEXT, UNWRITABLE_TEXT } from "../../../wording/fields"
-import { LOCATE_REQUEST, parlorNote, typedParlorRefused } from "../../../wording/parlor"
+import { chosenParlorText, LOCATE_REQUEST, parlorChoiceNote, parlorChoiceText, parlorNote, typedParlorRefused } from "../../../wording/parlor"
 import { FormulaPicker, PriorPicker } from "./ChoiceFields"
 import { SeatFields, useSeat } from "./Seat"
 import { EMPTY_PACHISLOT_START, type PachislotMachineChoice, type ParlorChoice, useStartForm } from "../../live/start-form"
@@ -37,6 +37,8 @@ import { locateAddress, submitAddress } from "../../live/submission-return"
 import { readTerms, type TermsField } from "../../live/start-terms"
 import { carriedInShown, readCarriedIn, tokensCarriedTo, tokensInHandUnreadable } from "../../live/tokens-in-hand"
 import { Terms } from "./Terms"
+import { seal } from "../../../../mummer"
+import { cabinetFieldMasked, cabinetText } from "../../../wording/cabinet"
 
 /**
  * The machine, as a field that only opens the pachislot machine search: it
@@ -136,8 +138,8 @@ function ParlorField(props: {
       : props.list.parlors.map((parlor) => ({ parlor, note: parlorNote(parlor, undefined) }))
   }
   const options = createMemo(() => [
-    ...listed().map((entry) => ({ value: `listed:${entry.parlor.id}`, label: entry.parlor.name, note: entry.note, foundFirst: entry.parlor.location === undefined })),
-    ...waiting().map((entry) => ({ value: `submitted:${entry.submission.submission}`, label: entry.submission.name, note: entry.rejected ? "申請は却下" : "申請中" })),
+    ...listed().map((entry) => ({ value: `listed:${entry.parlor.id}`, label: parlorChoiceText(seal.parlor(entry.parlor.name)), note: entry.note, foundFirst: entry.parlor.location === undefined })),
+    ...waiting().map((entry) => ({ value: `submitted:${entry.submission.submission}`, label: parlorChoiceText(seal.parlor(entry.submission.name)), note: entry.rejected ? "申請は却下" : "申請中" })),
   ])
   const matches = (key: string, typed: string): boolean => {
     const choice = choiceOf(key)
@@ -204,6 +206,9 @@ function ParlorField(props: {
         <p role="alert" class="col-start-1 text-xs text-negative">
           {typedParlorRefused("starting")}
         </p>
+      </Show>
+      <Show when={parlorChoiceNote()}>
+        {(note) => <p class="col-start-1 text-xs text-text-muted">{note()}</p>}
       </Show>
       <Show when={unplaced()} keyed>
         {(found) => (
@@ -289,7 +294,7 @@ export function Start(props: {
     if (machineMissing()) machineNudge.nudge()
     if (termsProblems().length > 0) termsNudge.nudge()
     if (seatUnread) seatNudge.nudge()
-    return holdsTypedOnly(parlorTyped(), chosenParlor()?.name) || machineMissing() || termsProblems().length > 0 || seatUnread || textProblems().some((problem) => problem !== undefined)
+    return holdsTypedOnly(parlorTyped(), chosenParlorText(chosenParlor()?.name)) || machineMissing() || termsProblems().length > 0 || seatUnread || textProblems().some((problem) => problem !== undefined)
   }
 
   /** The formula and the 設定配分 the play starts with each count one more use. */
@@ -344,7 +349,7 @@ export function Start(props: {
           here={here()}
           choice={start.form().parlor}
           surveyUrl={app.services.surveyUrl}
-        typedOnly={holdsTypedOnly(parlorTyped(), chosenParlor()?.name)}
+        typedOnly={holdsTypedOnly(parlorTyped(), chosenParlorText(chosenParlor()?.name))}
         onTyped={setParlorTyped}
           onChoose={(parlor) => start.update({ parlor })}
         />
@@ -360,8 +365,8 @@ export function Start(props: {
           <h2 id="start-machine" class="text-sm font-bold text-text-primary">
             機種設定
           </h2>
-          <PencilledBubble text={`${start.form().cabinetNumber.trim() === "" ? "----" : start.form().cabinetNumber.trim()}番台`} says="台番号を入力する" invalid={unwritable(start.form().cabinetNumber) !== undefined}>
-            <TextField label="台番号" value={start.form().cabinetNumber} onChange={(cabinetNumber) => start.update({ cabinetNumber })} inputMode="numeric" error={unwritable(start.form().cabinetNumber)} compact />
+          <PencilledBubble text={cabinetText(start.form().cabinetNumber.trim() === "" ? undefined : seal.cabinet(start.form().cabinetNumber.trim()))} says="台番号を入力する" invalid={unwritable(start.form().cabinetNumber) !== undefined}>
+            <TextField label="台番号" value={start.form().cabinetNumber} masked={cabinetFieldMasked(seal.cabinet(start.form().cabinetNumber))} onChange={(cabinetNumber) => start.update({ cabinetNumber })} inputMode="numeric" error={unwritable(start.form().cabinetNumber)} compact />
           </PencilledBubble>
         </div>
         <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 sm:gap-2">
