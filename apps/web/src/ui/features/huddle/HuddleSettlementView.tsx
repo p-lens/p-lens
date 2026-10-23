@@ -46,7 +46,7 @@ function Figure(props: { readonly label: string; readonly value: string }): JSX.
 }
 
 /** What a member pays in or is paid, in words: nothing where they are at their share. */
-const dueText = (due: number): string => (due > 0 ? `¥${formatCount(due)} 払う` : due < 0 ? `¥${formatCount(-due)} もらう` : "精算なし")
+const dueText = (due: number): string => (due > 0 ? `¥${formatCount(due)} 渡す` : due < 0 ? `¥${formatCount(-due)} もらう` : "精算なし")
 
 /**
  * The members chosen for the total, settled up evenly: what everyone came
