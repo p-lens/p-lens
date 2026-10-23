@@ -6,23 +6,27 @@ import { playTheoreticalValue } from "../../../../core/pachinko/theoretical-valu
 import { tokenValueOf, type PlayTerms } from "../../../../core/parlor/terms"
 import type { FormulaSnapshot } from "../../../../core/pachinko/snapshot"
 import { missingJackpots, type LiveSummary } from "../../../../core/play-log/live"
-import { CrownIcon } from "../../../primitives/icons"
+import { CrownIcon, StarIcon, TrianglesDownIcon, TriangleUpIcon } from "../../../primitives/icons"
 import { formulaText } from "../../../wording/pachinko/formula"
 import { formatCount, theoreticalFigureText, theoreticalFractionText } from "../../../wording/numbers"
 import { borderMarkSays } from "../../../wording/pachinko/play"
 
 const rateOf = (perThousand: number | undefined): string => (perThousand === undefined ? "--" : perThousand.toFixed(1))
 
+const DRAWN = "[&_svg]:inline [&_svg]:h-3.5 [&_svg]:w-auto [&_svg]:align-[-0.15em]"
+
 const MARKS: Readonly<Record<BorderGrade, { readonly shape: () => JSX.Element; readonly look: string }>> = {
-  crowned: { shape: () => <CrownIcon />, look: "text-mark-gold [&_svg]:inline [&_svg]:size-3.5 [&_svg]:align-[-0.15em]" },
-  shining: { shape: () => "★", look: "text-mark-gold motion-safe:animate-[shine_2.4s_ease-in-out_3]" },
-  outstanding: { shape: () => "★", look: "text-mark-gold" },
-  excellent: { shape: () => "★", look: "text-mark-red" },
-  strong: { shape: () => "▲", look: "text-mark-purple" },
-  professional: { shape: () => "▲", look: "text-mark-green" },
-  modest: { shape: () => "▲", look: "text-mark-blue" },
-  near: { shape: () => "▼", look: "text-mark-yellow" },
-  short: { shape: () => "▼", look: "text-mark-red" },
+  crowned: { shape: () => <CrownIcon />, look: `text-mark-gold ${DRAWN}` },
+  shining: { shape: () => <StarIcon />, look: `text-mark-gold motion-safe:animate-[shine_2.4s_ease-in-out_3] ${DRAWN}` },
+  outstanding: { shape: () => <StarIcon />, look: `text-mark-gold ${DRAWN}` },
+  excellent: { shape: () => <StarIcon />, look: `text-mark-red ${DRAWN}` },
+  strong: { shape: () => <TriangleUpIcon />, look: `text-mark-purple ${DRAWN}` },
+  professional: { shape: () => <TriangleUpIcon />, look: `text-mark-green ${DRAWN}` },
+  modest: { shape: () => <TriangleUpIcon />, look: `text-mark-blue ${DRAWN}` },
+  near: { shape: () => <TrianglesDownIcon count={1} />, look: `text-mark-yellow ${DRAWN}` },
+  short: { shape: () => <TrianglesDownIcon count={1} />, look: `text-mark-red ${DRAWN}` },
+  shorter: { shape: () => <TrianglesDownIcon count={2} />, look: `text-mark-red ${DRAWN}` },
+  shortest: { shape: () => <TrianglesDownIcon count={3} />, look: `text-mark-red ${DRAWN}` },
 }
 
 /** A mark that says where the play stands against its border and how far, by its shape and colour and, for whoever cannot see them, in words. */
@@ -70,7 +74,8 @@ function Tile(props: { readonly label: string; readonly value: string; readonly 
  * against the border (`borderMarkOf`) — a gold crown, a gold star that
  * shines, a gold or red star, a purple,
  * green or blue triangle above it, a yellow one pointing down at it or a
- * little under, a red one below, the gold ones only once 300 spins have
+ * little under, and below it one, two or three red ones side by side, by
+ * how far, the gold ones only once 300 spins have
  * been measured over 90 minutes; none where the play has no worth yet.
  * Unfolded, the border is there to be read as well. What the
  * play is worth has its tiles from the start, each holding the shape of

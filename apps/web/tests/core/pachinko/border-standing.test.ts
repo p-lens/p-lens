@@ -21,6 +21,10 @@ describe("where a play stands against its border", () => {
     expect(borderMarkOf(0.005, MEASURED)).toEqual({ standing: "above", grade: "modest" })
     expect(borderMarkOf(-1.5, MEASURED)).toEqual({ standing: "below", grade: "near" })
     expect(borderMarkOf(-1.51, MEASURED)).toEqual({ standing: "below", grade: "short" })
+    expect(borderMarkOf(-5, MEASURED)).toEqual({ standing: "below", grade: "short" })
+    expect(borderMarkOf(-5.01, MEASURED)).toEqual({ standing: "below", grade: "shorter" })
+    expect(borderMarkOf(-10, MEASURED)).toEqual({ standing: "below", grade: "shorter" })
+    expect(borderMarkOf(-10.01, MEASURED)).toEqual({ standing: "below", grade: "shortest" })
   })
 
   test("holds the gold star back until 300 spins have been measured over 90 minutes", () => {

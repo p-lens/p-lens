@@ -264,6 +264,30 @@ export const CrownIcon = () => (
   </Icon>
 )
 
+/** Well above: a five-pointed star, as a play far above its border wears. */
+export const StarIcon = () => (
+  <Icon>
+    <path d="M12 2.5l2.9 6.2 6.6.7-5 4.5 1.4 6.6L12 17.2l-5.9 3.3 1.4-6.6-5-4.5 6.6-.7z" fill="currentColor" stroke="none" />
+  </Icon>
+)
+
+/** Above: a triangle pointing up, as a play above its border wears. */
+export const TriangleUpIcon = () => (
+  <Icon>
+    <path d="M12 5.5l8 13H4z" fill="currentColor" stroke="none" />
+  </Icon>
+)
+
+/** A triangle pointing down as wide as the one pointing up, set so many across from the left of a box of the icons' height. */
+const triangleDownAt = (across: number): string => `M${4 + across * 18} 5.5h16l-8 13z`
+
+/** Below, and how far: one, two or three triangles pointing down side by side, as a play below its border wears; as tall as any icon and as wide as they need. */
+export const TrianglesDownIcon = (props: { readonly count: 1 | 2 | 3 }) => (
+  <svg viewBox={`0 0 ${6 + props.count * 18} 24`} width={6 + props.count * 18} height="24" fill="currentColor" aria-hidden="true">
+    <path d={Array.from({ length: props.count }, (_, across) => triangleDownAt(across)).join("")} />
+  </svg>
+)
+
 /** Change: an arrow head pointing down, at what opens a list to choose again from. */
 export const ChevronDownIcon = () => (
   <Icon>

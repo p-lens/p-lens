@@ -63,7 +63,9 @@ const GRADE_SPAN: Readonly<Record<BorderGrade, string>> = {
   professional: "1,500〜1,750円",
   modest: "0〜1,500円",
   near: "−300〜0円",
-  short: "−300円未満",
+  short: "−1,000〜−300円",
+  shorter: "−2,000〜−1,000円",
+  shortest: "−2,000円未満",
 }
 
 /** What the mark beside a play's spin performance says, for whoever cannot see its colour or its shape. */
