@@ -16,8 +16,8 @@ import { seal } from "../../../mummer"
 import { ViewHeader } from "../shell/ViewHeader"
 import { offeredMembers } from "./HuddleSide"
 
-/** One figure of the total under its name, and what it comes to in yen beneath it where it is tokens. */
-function Figure(props: { readonly label: string; readonly value: string; readonly unit?: string; readonly yen?: number | undefined }): JSX.Element {
+/** One figure of the total under its name, and beneath it where it is tokens, the special prizes they come to and the odd ones beside them. */
+function Figure(props: { readonly label: string; readonly value: string; readonly unit?: string; readonly yen?: number | undefined; readonly odd?: number | undefined }): JSX.Element {
   return (
     <div class="flex min-w-0 flex-col gap-0.5 rounded-md border border-border px-3 py-2">
       <dt class="truncate text-xs font-bold tracking-wide text-text-muted">{props.label}</dt>
@@ -30,11 +30,17 @@ function Figure(props: { readonly label: string; readonly value: string; readonl
       <Show when={props.yen} keyed>
         {(yen) => <dd class="truncate text-xs tabular-nums text-text-secondary">≒ ¥{amountText(seal.play(yen))}</dd>}
       </Show>
+      <Show when={props.odd !== undefined}>
+        <dd class="truncate text-xs tabular-nums text-text-muted">
+          端玉 {amountText(seal.play(props.odd ?? 0))}
+          {props.unit}
+        </dd>
+      </Show>
     </div>
   )
 }
 
-const tokensOf = (held: HeldTotal): { readonly value: string; readonly yen: number | undefined } => ({ value: amountText(seal.play(held.tokens)), yen: held.tokens === 0 ? undefined : held.yen })
+const tokensOf = (held: HeldTotal): { readonly value: string; readonly yen: number | undefined; readonly odd: number | undefined } => ({ value: amountText(seal.play(held.tokens)), yen: held.tokens === 0 ? undefined : held.specialPrizes, odd: held.tokens === 0 ? undefined : held.oddTokens })
 
 /**
  * What the plays of a huddle's members come to together, the members
@@ -55,7 +61,7 @@ export function HuddleTotalView(props: { readonly place: Place }): JSX.Element {
     const huddle = app.huddle.now()
     const found = drafts()
     if (huddle === undefined) return undefined
-    return roomTotalOf(playsOfChosen(roomPlaysOf(huddle, found?.ok === true ? found.value : [], app.huddle.counted(), app.huddle.idle()), app.huddle.chosen.totalled()))
+    return roomTotalOf(playsOfChosen(roomPlaysOf(huddle, found?.ok === true ? found.value : [], app.huddle.counted(), app.huddle.idle()), app.huddle.chosen.totalled()), app.services.preferences.stageStep())
   }
   const ownOnly = (): readonly string[] => ((huddle) => (huddle === undefined ? [] : [huddle.member]))(app.huddle.now())
   const isOwnOnly = (): boolean => ((chosen) => chosen !== undefined && chosen.length === 1 && chosen[0] === ownOnly()[0])(app.huddle.chosen.totalled())
@@ -80,7 +86,7 @@ export function HuddleTotalView(props: { readonly place: Place }): JSX.Element {
             </dl>
           )}
         </Show>
-        <p class="text-xs leading-5 text-text-muted">現金投資は本日のすべての稼働の合計です。持ち玉・持ちメダルは、各メンバーがいま打っている台で最後に数えた数で、≒ はその台の交換率での目安です。</p>
+        <p class="text-xs leading-5 text-text-muted">現金投資は本日のすべての稼働の合計です。持ち玉・持ちメダルは、各メンバーがいま打っている台で最後に数えた数です。≒ は端玉電卓の刻みで換算した特殊景品の目安で、精算目安と同じです。</p>
       </div>
     </MainContent>
   )

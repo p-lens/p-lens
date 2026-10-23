@@ -15,8 +15,8 @@ describe("a prize exchange as an entry", () => {
   test("takes the tokens out at the day's rate, as special prizes, the odd tokens left as odd prizes at the rental price, and the translation adjustment for hledger to balance — and moves no cash", () => {
     expect(rendered(EXCHANGE)).toBe(
       [
-        "2026-09-10 マレハン東京皇国店 | 景品交換  ; parlor-id: malehan-tokyokoukoku, savings: prize-exchange",
-        '    資産:貯玉:マレハン東京皇国店:4円    -1455 "玉(4円・マレハン東京皇国店)" @ 3.57 JPY',
+        "2026-09-10 マレハン東京皇国第8支店 | 景品交換  ; parlor-id: malehan-tokyokoukoku, savings: prize-exchange",
+        '    資産:貯玉:マレハン東京皇国第8支店:4円  -1455 "玉(4円・マレハン東京皇国第8支店)" @ 3.57 JPY',
         "    純資産:特殊景品                     5000 JPY",
         "    純資産:端玉景品                     220 JPY",
         "    純資産:換算調整勘定",

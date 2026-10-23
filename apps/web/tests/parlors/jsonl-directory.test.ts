@@ -72,7 +72,7 @@ describe("reading the parlor list", () => {
 
   test("passes over a line that is not a parlor — no place, a place outside Japan, a bad name — and keeps the rest", () => {
     const { lat: _lat, ...placeless } = MEGA_CONDOR_LINE
-    const lines = ["not json", JSON.stringify(placeless), JSON.stringify({ ...MEGA_CONDOR_LINE, lat: 51.5, lon: -0.1 }), JSON.stringify({ ...MEGA_CONDOR_LINE, name: "東京皇国:本店" }), JSON.stringify(NANKATSU_LINE)]
+    const lines = ["not json", JSON.stringify(placeless), JSON.stringify({ ...MEGA_CONDOR_LINE, lat: 51.5, lon: -0.1 }), JSON.stringify({ ...MEGA_CONDOR_LINE, name: "東京皇国:第8支店" }), JSON.stringify(NANKATSU_LINE)]
     expect(parlorsOfJsonl(lines.join("\n"))).toEqual([NANKATSU] as never)
   })
 

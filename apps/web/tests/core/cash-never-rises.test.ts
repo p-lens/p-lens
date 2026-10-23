@@ -32,7 +32,7 @@ const SIDES: readonly (readonly [string, string])[] = [
 
 const TALLIED: YenTally = { id: "tally" as PlayId, date: DAY, parlor: undefined, gameKind: "pachinko", machine: "e風の剣豪", cabinetNumber: undefined, outlay: dec("0"), takings: dec("0"), settlement: undefined, theoreticalValue: undefined, told: undefined }
 
-const SOURCE: SourceTally = { date: DAY, parlor: { name: "マレハン東京皇国店", code: "S123" }, machine: { name: "流星の剣", code: "M9", maker: "ミナト" }, cabinetNumber: "123", outlay: dec("0"), takings: dec("0"), memo: "", hours: undefined }
+const SOURCE: SourceTally = { date: DAY, parlor: { name: "マレハン東京皇国第8支店", code: "S123" }, machine: { name: "流星の剣", code: "M9", maker: "ミナト" }, cabinetNumber: "123", outlay: dec("0"), takings: dec("0"), memo: "", hours: undefined }
 
 const made = (entry: { readonly ok: true; readonly value: Entry } | { readonly ok: false }): readonly Entry[] => (entry.ok ? [entry.value] : [])
 

@@ -8,16 +8,16 @@ describe("parlors", () => {
     expect(
       parlorsFromDeclarations([
         { name: "資産", tags: [["type", "A"]] },
-        { name: "資産:貯玉:マレハン東京皇国店:4円", tags: [["parlor-id", "malehan-tokyokoukoku"]] },
+        { name: "資産:貯玉:マレハン東京皇国第8支店:4円", tags: [["parlor-id", "malehan-tokyokoukoku"]] },
         { name: "資産:貯玉:723修羅の国店:4円", tags: [["parlor-id", "723-shuranokuni"]] },
-        { name: "資産:貯玉:マレハン東京皇国店:1円", tags: [["parlor-id", "malehan-tokyokoukoku"]] },
-        { name: "資産:貯メダル:マレハン東京皇国店:20円", tags: [["parlor-id", "malehan-tokyokoukoku"]] },
+        { name: "資産:貯玉:マレハン東京皇国第8支店:1円", tags: [["parlor-id", "malehan-tokyokoukoku"]] },
+        { name: "資産:貯メダル:マレハン東京皇国第8支店:20円", tags: [["parlor-id", "malehan-tokyokoukoku"]] },
         { name: "資産:貯玉:タグ無し店:4円", tags: [] },
       ]),
     ).toEqual([
       {
         identity: { type: "listed", id: "malehan-tokyokoukoku" },
-        name: "マレハン東京皇国店",
+        name: "マレハン東京皇国第8支店",
         pools: [
           { kind: "ball", tier: "4円" },
           { kind: "ball", tier: "1円" },

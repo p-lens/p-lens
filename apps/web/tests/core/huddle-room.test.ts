@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import type { Huddle } from "../../src/core/huddle/huddle"
 import type { HuddlePlay } from "../../src/core/huddle/post"
-import { heldSpecialPrizesOf, playsOfChosen, roomMembersOf, roomPlaysOf, roomTotalOf } from "../../src/core/huddle/room"
+import { ofHuddleDay, playsOfChosen, roomMembersOf, roomPlaysOf, roomTotalOf } from "../../src/core/huddle/room"
 import { IDLE_AFTER, idleMembers, othersInJackpot } from "../../src/core/huddle/standing"
 import type { PachinkoDraft, PachislotDraft } from "../../src/core/live-play/draft"
 import type { PlayTerms } from "../../src/core/parlor/terms"
@@ -61,29 +61,38 @@ describe("a huddle's room", () => {
     ])
   })
 
-  test("adds up the cash of every play, and the balls in hand of the play each is on alone, with what they come to at its exchange rate", () => {
-    const total = roomTotalOf(roomPlaysOf(HUDDLE, own, others, new Set()))
+  test("adds up the cash of every play, and the balls in hand of the play each is on alone, with the special prizes they exchange for", () => {
+    const total = roomTotalOf(roomPlaysOf(HUDDLE, own, others, new Set()), 500)
     expect(total.outlay).toBe(5000 + 2000 + 1000 + 7000)
-    expect(total.held.pachinko).toEqual({ tokens: 560 + 280, yen: 2000 + 1000 })
-    expect(total.held.pachislot).toEqual({ tokens: 0, yen: 0 })
+    expect(total.held.pachinko).toEqual({ tokens: 560 + 280, specialPrizes: 2000 + 1000, oddTokens: 0 })
+    expect(total.held.pachislot).toEqual({ tokens: 0, specialPrizes: 0, oddTokens: 0 })
   })
 
-  test("counts medals apart from balls, and nothing in yen where the corner is not known", () => {
+  test("counts medals apart from balls, and no special prizes where the corner is not known", () => {
     const medals: PachislotDraft = { ...draft("slot", "2026-10-20T05:00:00Z", '{"spins":0,"outlay":0}\n{"spins":100,"outlay":3000,"held":150}\n'), gameKind: "pachislot", venue: { type: "none", terms: undefined } }
-    expect(roomTotalOf(roomPlaysOf(HUDDLE, [medals], [], new Set())).held).toEqual({ pachinko: { tokens: 0, yen: 0 }, pachislot: { tokens: 150, yen: 0 } })
+    expect(roomTotalOf(roomPlaysOf(HUDDLE, [medals], [], new Set()), 500).held).toEqual({ pachinko: { tokens: 0, specialPrizes: 0, oddTokens: 0 }, pachislot: { tokens: 150, specialPrizes: 0, oddTokens: 0 } })
   })
 
-  test("reckons the balls in hand on the play each is on as the special prizes they exchange for, the odd balls left out", () => {
-    expect(heldSpecialPrizesOf(roomPlaysOf(HUDDLE, own, others, new Set()), 500)).toBe(2000 + 1000)
+  test("counts the balls in hand out as special prizes a smallest one of the step apart, and the odd balls beside them apart", () => {
     const odd = draft("odd", "2026-10-20T05:00:00Z", '{"spins":0,"outlay":0}\n{"spins":100,"outlay":1000,"held":300}\n')
-    expect(heldSpecialPrizesOf(roomPlaysOf(HUDDLE, [odd], [], new Set()), 500)).toBe(1000)
-    expect(heldSpecialPrizesOf(roomPlaysOf(HUDDLE, [odd], [], new Set()), 100)).toBe(1000)
-    expect(heldSpecialPrizesOf(roomPlaysOf(HUDDLE, [{ ...odd, venue: { type: "none", terms: undefined } }], [], new Set()), 500)).toBe(0)
+    expect(roomTotalOf(roomPlaysOf(HUDDLE, [odd], [], new Set()), 500).held.pachinko).toEqual({ tokens: 300, specialPrizes: 1000, oddTokens: 20 })
+    expect(roomTotalOf(roomPlaysOf(HUDDLE, [odd], [], new Set()), 100).held.pachinko).toEqual({ tokens: 300, specialPrizes: 1000, oddTokens: 20 })
+    expect(roomTotalOf(roomPlaysOf(HUDDLE, [{ ...odd, venue: { type: "none", terms: undefined } }], [], new Set()), 500).held.pachinko).toEqual({ tokens: 300, specialPrizes: 0, oddTokens: 0 })
+  })
+
+  test("keeps out plays of a day before, one's own left unrecorded and any a member still shows, from the room and what it comes to", () => {
+    const yesterday = "2026-10-19" as IsoDate
+    const leftOver: PachinkoDraft = { ...draft("mine-0", "2026-10-19T12:00:00Z", '{"spins":0,"outlay":0}\n{"spins":400,"outlay":10000,"held":0}\n'), date: yesterday }
+    const theirsBefore: HuddlePlay = { post: { member: "b", name: "name-b", postedAt: "2026-10-20T02:00:00Z", play: { ...draft("b-0", "2026-10-19T12:00:00Z", '{"spins":0,"outlay":20000}\n'), date: yesterday } }, latest: false, departed: false }
+    const plays = roomPlaysOf(HUDDLE, [...own, leftOver], [...others, theirsBefore], new Set())
+    expect(plays.map(({ play }) => String(play.id)).toSorted()).toEqual(["b-1", "b-2", "mine-1", "mine-2"])
+    expect(roomTotalOf(plays, 500).outlay).toBe(5000 + 2000 + 1000 + 7000)
+    expect([ofHuddleDay(HUDDLE, leftOver), ofHuddleDay(HUDDLE, own[0] ?? leftOver)]).toEqual([false, true])
   })
 
   test("adds up only those chosen, and everyone where nothing is left out", () => {
     const plays = roomPlaysOf(HUDDLE, own, others, new Set())
-    expect(roomTotalOf(playsOfChosen(plays, ["me"])).outlay).toBe(7000)
+    expect(roomTotalOf(playsOfChosen(plays, ["me"]), 500).outlay).toBe(7000)
     expect(playsOfChosen(plays, undefined)).toBe(plays)
     expect(playsOfChosen(plays, [])).toEqual([])
   })

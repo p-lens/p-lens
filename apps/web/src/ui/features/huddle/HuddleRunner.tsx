@@ -4,6 +4,7 @@ import type { Outcome } from "../../../application/errors"
 import { readHuddleAfter, showToHuddle, withdrawFromHuddle } from "../../../application/huddle"
 import { loadTodaysPlays } from "../../../application/live-play"
 import type { Huddle } from "../../../core/huddle/huddle"
+import { ofHuddleDay } from "../../../core/huddle/room"
 import { givenUp, latestEntries } from "../../../core/huddle/post"
 import { huddleTurnOf, jackpotsNow, louderTurn } from "../../../core/huddle/standing"
 import type { PlayDraft } from "../../../core/live-play/draft"
@@ -109,8 +110,9 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
     const found = await loadTodaysPlays(app.services.drafts, app.services.businessDay())
     if (!found.ok) return
     held.shownAt = Date.now()
-    await withdrawEach(huddle, givenUp(line.entries(), huddle.member, new Set(found.value.map((draft) => draft.id))))
-    await showEach(huddle, changedSince(found.value, held.shown))
+    const shown = found.value.filter((draft) => ofHuddleDay(huddle, draft))
+    await withdrawEach(huddle, givenUp(line.entries(), huddle.member, new Set(shown.map((draft) => draft.id))))
+    await showEach(huddle, changedSince(shown, held.shown))
   }
 
   const showSoon = (): void => {

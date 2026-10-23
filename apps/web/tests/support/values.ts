@@ -15,7 +15,7 @@ export const dec = (text: string): Decimal => {
 
 export const MALEHAN: Parlor = {
   identity: { type: "listed", id: "malehan-tokyokoukoku" as ParlorId },
-  name: "マレハン東京皇国店",
+  name: "マレハン東京皇国第8支店",
   pools: [
     { kind: "ball", tier: "4円" },
     { kind: "medal", tier: "20円" },
@@ -23,8 +23,8 @@ export const MALEHAN: Parlor = {
 }
 
 export const PRICES: readonly PricePoint[] = [
-  { date: "2026-09-01" as IsoDate, commodity: "玉(4円・マレハン東京皇国店)", rate: dec("3.57") },
-  { date: "2026-09-25" as IsoDate, commodity: "玉(4円・マレハン東京皇国店)", rate: dec("3.50") },
+  { date: "2026-09-01" as IsoDate, commodity: "玉(4円・マレハン東京皇国第8支店)", rate: dec("3.57") },
+  { date: "2026-09-25" as IsoDate, commodity: "玉(4円・マレハン東京皇国第8支店)", rate: dec("3.50") },
 ]
 
 export const RENTED_PLAY: TokenTally = {

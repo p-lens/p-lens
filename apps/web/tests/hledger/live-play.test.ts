@@ -80,7 +80,7 @@ describe("a play followed live", () => {
       gameKind: "pachinko",
       date: "2026-10-04",
       startedAt: "2026-10-04T12:00:00.000Z",
-      parlor: { name: "マレハン東京皇国店", id: "malehan-tokyokoukoku" },
+      parlor: { name: "マレハン東京皇国第8支店", id: "malehan-tokyokoukoku" },
       terms: { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 250, deducted: 275 } },
       machine: "流星",
       cabinetNumber: "123",
@@ -132,7 +132,7 @@ describe("a play followed live", () => {
     expect((await finishPlay(session, drafts, added.ok ? added.value : DRAFT, BOOK, { ...RECORD, payout: dec("6000") }, FINISH, NOW)).ok).toBe(true)
     const transactions = transactionsOf(storage.peek(BOOK)?.files)
     expect(transactions.match(/play-id: live-1,/g)?.length).toBe(1)
-    expect(transactions).toContain('6000 "玉(4円・マレハン東京皇国店)"')
+    expect(transactions).toContain('6000 "玉(4円・マレハン東京皇国第8支店)"')
     expect(storage.peek(BOOK)?.files[`pachinko-play/${ID}.jsonl`]).toContain('{"spins":20,"outlay":500}')
   })
 
@@ -207,7 +207,7 @@ describe("a pool the book does not keep", () => {
     const opened = await openPool(session, BOOK, MEGA_CONDOR_1)
     expect(opened).toEqual({ ok: true, value: { identity: { type: "listed", id: "mega-condor" }, name: "メガコンドル見滝原店", pools: [{ kind: "ball", tier: "1円" }] } } as never)
     const context = await loadRecordingContext(session, BOOK, ME)
-    expect(mapOk(context, (found) => found.parlors.map((parlor) => parlor.name))).toEqual({ ok: true, value: ["マレハン東京皇国店", "723修羅の国店", "メガコンドル見滝原店"] })
+    expect(mapOk(context, (found) => found.parlors.map((parlor) => parlor.name))).toEqual({ ok: true, value: ["マレハン東京皇国第8支店", "723修羅の国店", "メガコンドル見滝原店"] })
     const megaCondor = opened.ok ? opened.value : MALEHAN
     const rented = { ...RECORD, parlor: megaCondor, pool: { kind: "ball" as const, tier: "1円" }, rental: { outlay: dec("1000"), tokens: dec("890") } }
     expect((await recordTokenTally(session, BOOK, rented)).ok).toBe(true)
@@ -225,8 +225,8 @@ describe("a pool the book does not keep", () => {
   test("is refused under a name another parlor of the book has, and nothing is written", async () => {
     const { storage, session } = await setUp()
     const before = storage.peek(BOOK)?.files
-    const refused = await openPool(session, BOOK, { ...MEGA_CONDOR_1, parlorName: "マレハン東京皇国店" })
-    expect(refused).toEqual({ ok: false, error: { type: "parlor", error: { type: "name-taken", name: "マレハン東京皇国店" } } })
+    const refused = await openPool(session, BOOK, { ...MEGA_CONDOR_1, parlorName: "マレハン東京皇国第8支店" })
+    expect(refused).toEqual({ ok: false, error: { type: "parlor", error: { type: "name-taken", name: "マレハン東京皇国第8支店" } } })
     expect(storage.peek(BOOK)?.files).toEqual(before as never)
   })
 })

@@ -17,9 +17,9 @@ const book = (...parlors: readonly ParlorHolding[]): Holdings => ({ parlors, tot
 
 describe("several books' savings, parlor by parlor", () => {
   test("make a parlor the books keep one, its tokens and their worth added, every rate kept, and the books counted", () => {
-    const across = parlorsAcross([book(parlor("a", "東京皇国店", "1000", "3.57", "3570"), parlor("b", "見滝原店", "200", "4", "800")), book(parlor("a", "東京皇国店", "500", "4", "2000")), book(parlor("a", "東京皇国店", "100", "3.57", "357"))])
+    const across = parlorsAcross([book(parlor("a", "東京皇国第8支店", "1000", "3.57", "3570"), parlor("b", "見滝原店", "200", "4", "800")), book(parlor("a", "東京皇国第8支店", "500", "4", "2000")), book(parlor("a", "東京皇国第8支店", "100", "3.57", "357"))])
     expect(across.map((each) => [each.parlorName, each.books, toPlainString(each.value), each.pools.map((pool) => [pool.tier, toPlainString(pool.quantity), toPlainString(pool.value), pool.rates.map(toPlainString)])])).toEqual([
-      ["東京皇国店", 3, "5927", [["4円", "1600", "5927", ["3.57", "4"]]]],
+      ["東京皇国第8支店", 3, "5927", [["4円", "1600", "5927", ["3.57", "4"]]]],
       ["見滝原店", 1, "800", [["4円", "200", "800", ["4"]]]],
     ])
   })

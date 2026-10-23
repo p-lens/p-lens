@@ -49,12 +49,20 @@ const begunLaterFirst = (one: Placed, other: Placed): number =>
  * device's own, those sent to it from someone else are theirs, and left
  * out; it is never gone quiet to itself.
  */
+/**
+ * Whether a play is of the business day a huddle lasts: one left
+ * unrecorded from a day before is kept in the live space to be recorded,
+ * and is no huddle's of this one — neither shown to the others nor counted
+ * in the room's total or its settling up.
+ */
+export const ofHuddleDay = (huddle: Pick<Huddle, "businessDay">, play: Pick<Play, "date">): boolean => play.date === huddle.businessDay
+
 export const roomPlaysOf = (huddle: Huddle, drafts: readonly PlayDraft[], others: readonly HuddlePlay[], idle: ReadonlySet<string>): readonly RoomPlay[] => {
   const own = drafts
-    .filter((draft) => draft.received === undefined)
+    .filter((draft) => draft.received === undefined && ofHuddleDay(huddle, draft))
     .toSorted((one, other) => other.startedAt.localeCompare(one.startedAt))
     .map((play, at): Placed => ({ member: huddle.member, play, latest: at === 0, departed: false }))
-  const placed = [...own, ...others.map(({ post, latest, departed }): Placed => ({ member: post.member, play: post.play, latest, departed }))].toSorted(begunLaterFirst)
+  const placed = [...own, ...others.filter(({ post }) => ofHuddleDay(huddle, post.play)).map(({ post, latest, departed }): Placed => ({ member: post.member, play: post.play, latest, departed }))].toSorted(begunLaterFirst)
   const firstBegun = (member: string): string => placed.findLast((each) => each.member === member)?.play.startedAt ?? ""
   const current = placed.filter((each) => each.latest).toSorted((one, other) => firstBegun(one.member).localeCompare(firstBegun(other.member)) || one.member.localeCompare(other.member))
   const quiet = (each: Placed): boolean => !each.departed && each.member !== huddle.member && idle.has(each.member)
@@ -66,10 +74,17 @@ export const roomPlaysOf = (huddle: Huddle, drafts: readonly PlayDraft[], others
   ].map(({ member, play, latest }) => ({ member, play, latest }))
 }
 
-/** The tokens in hand of one game across a room: how many, and what those whose corner is known come to at its exchange rate. */
+/**
+ * The tokens in hand of one game across a room: how many, the special
+ * prizes those whose corner is known exchange for, a smallest special
+ * prize of the step apart, in yen — as the odd prizes' calculator counts
+ * them out, and as the settling up takes them — and the odd tokens left
+ * beside those, each member's own.
+ */
 export interface HeldTotal {
   readonly tokens: number
-  readonly yen: number
+  readonly specialPrizes: number
+  readonly oddTokens: number
 }
 
 /**
@@ -90,39 +105,28 @@ const lastOf = (ordered: readonly Checkpoint[], read: (checkpoint: Checkpoint) =
 
 const checkpointsOf = (play: Play): readonly Checkpoint[] => ((read) => (read.ok ? inPlayOrder(read.value) : []))(parsePlayLog(play.log))
 
-const heldOf = (play: Play): HeldTotal => {
+const heldOf = (play: Play, step: StageStep): HeldTotal => {
   const tokens = lastOf(checkpointsOf(play), (checkpoint) => checkpoint.held)
-  const terms = play.venue.terms
-  return { tokens, yen: terms === undefined ? 0 : Math.round(tokens * tokenValueOf(terms)) }
+  const stage = play.venue.terms === undefined ? undefined : stagesOf(tokens, play.venue.terms.exchange, step)[0]
+  return { tokens, specialPrizes: stage === undefined ? 0 : Number(toPlainString(stage.specialPrizes)), oddTokens: stage?.toPlay ?? 0 }
 }
 
 /** The savings a play drew on, at its exchange rate, in yen: none where its corner is not known. */
 const savingsOf = (play: Play): number => ((terms) => (terms === undefined ? 0 : Math.round(lastOf(checkpointsOf(play), (checkpoint) => checkpoint.replay) * tokenValueOf(terms))))(play.venue.terms)
 
-const NO_TOKENS: HeldTotal = { tokens: 0, yen: 0 }
+const NO_TOKENS: HeldTotal = { tokens: 0, specialPrizes: 0, oddTokens: 0 }
 
-const together = (one: HeldTotal, other: HeldTotal): HeldTotal => ({ tokens: one.tokens + other.tokens, yen: one.yen + other.yen })
+const together = (one: HeldTotal, other: HeldTotal): HeldTotal => ({ tokens: one.tokens + other.tokens, specialPrizes: one.specialPrizes + other.specialPrizes, oddTokens: one.oddTokens + other.oddTokens })
 
-export const roomTotalOf = (plays: readonly RoomPlay[]): RoomTotal => ({
+/** What a room's plays come to together, the tokens in hand counted out as special prizes a smallest one of the step apart. */
+export const roomTotalOf = (plays: readonly RoomPlay[], step: StageStep): RoomTotal => ({
   outlay: plays.reduce((sum, { play }) => sum + lastOf(checkpointsOf(play), (checkpoint) => checkpoint.outlay), 0),
   savings: plays.reduce((sum, { play }) => sum + savingsOf(play), 0),
   held: {
-    pachinko: plays.filter(({ play, latest }) => latest && play.gameKind === "pachinko").map(({ play }) => heldOf(play)).reduce(together, NO_TOKENS),
-    pachislot: plays.filter(({ play, latest }) => latest && play.gameKind === "pachislot").map(({ play }) => heldOf(play)).reduce(together, NO_TOKENS),
+    pachinko: plays.filter(({ play, latest }) => latest && play.gameKind === "pachinko").map(({ play }) => heldOf(play, step)).reduce(together, NO_TOKENS),
+    pachislot: plays.filter(({ play, latest }) => latest && play.gameKind === "pachislot").map(({ play }) => heldOf(play, step)).reduce(together, NO_TOKENS),
   },
 })
-
-/** The special prizes the tokens in hand on a play would exchange for, a smallest special prize of the step apart, in yen: none where its corner is not known. */
-const specialPrizesHeldOn = (play: Play, step: StageStep): number =>
-  ((terms, stage) => (terms === undefined || stage === undefined ? 0 : Number(toPlainString(stage.specialPrizes))))(play.venue.terms, play.venue.terms === undefined ? undefined : stagesOf(lastOf(checkpointsOf(play), (checkpoint) => checkpoint.held), play.venue.terms.exchange, step)[0])
-
-/**
- * The special prizes the tokens in hand on the plays people are on would
- * exchange for, in yen, a smallest special prize of the step apart: the
- * odd tokens beside them left out, as each keeps their own odd prizes.
- */
-export const heldSpecialPrizesOf = (plays: readonly RoomPlay[], step: StageStep): number =>
-  plays.filter(({ latest }) => latest).reduce((sum, { play }) => sum + specialPrizesHeldOn(play, step), 0)
 
 /** The plays of those chosen out of a room: every one's where nothing is left out. */
 export const playsOfChosen = (plays: readonly RoomPlay[], chosen: readonly string[] | undefined): readonly RoomPlay[] =>

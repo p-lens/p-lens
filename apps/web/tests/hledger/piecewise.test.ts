@@ -26,7 +26,7 @@ const readingOf = async (journal: JournalAccess): Promise<unknown> => {
     journal.ask(theoreticalRequest("date:2026-09")),
     journal.ask(savingsValueRequest("")),
     journal.ask(savingsRevaluationRequest("date:2026-09-15..")),
-    journal.ask(parlorSavingsByDayRequest("マレハン東京皇国店", "2025-12-30" as IsoDate, "2026-10-04" as IsoDate)),
+    journal.ask(parlorSavingsByDayRequest("マレハン東京皇国第8支店", "2025-12-30" as IsoDate, "2026-10-04" as IsoDate)),
     journal.ask(pricesRequest("")),
   ])
   expect(answers.map((answer) => answer.ok)).toEqual(answers.map(() => true))

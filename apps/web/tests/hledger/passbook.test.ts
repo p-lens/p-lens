@@ -35,7 +35,7 @@ describe("a parlor's passbook", () => {
 
   test("shows a rate set anew on a day nothing moved, the savings valued at it from then", async () => {
     const session = await setUp()
-    const found = await loadParlorPassbook(session, BOOK, "マレハン東京皇国店", undefined, "every")
+    const found = await loadParlorPassbook(session, BOOK, "マレハン東京皇国第8支店", undefined, "every")
     const day = found.ok ? found.value.days.find((each) => each.date === "2026-09-25") : undefined
     expect([yen(day?.balance), day?.pools.map((part) => part.day.rateSet && [toPlainString(part.day.rateSet.before ?? dec("0")), toPlainString(part.day.rateSet.rate)])]).toEqual(["16800", [["3.57", "3.5"]]])
   })
@@ -45,7 +45,7 @@ describe("a parlor's passbook without tallies", () => {
   test("has only what moved the savings otherwise, valued by hledger, the balances still what was held, and the days a rate was set", async () => {
     const session = await setUp()
     await recordForfeiture(session, BOOK, { parlor: MALEHAN, pool: { kind: "ball", tier: "4円" }, date: "2026-10-04" as IsoDate, tokens: dec("1000") })
-    const [every, without] = [await loadParlorPassbook(session, BOOK, "マレハン東京皇国店", undefined, "every"), await loadParlorPassbook(session, BOOK, "マレハン東京皇国店", undefined, "without-tallies")]
+    const [every, without] = [await loadParlorPassbook(session, BOOK, "マレハン東京皇国第8支店", undefined, "every"), await loadParlorPassbook(session, BOOK, "マレハン東京皇国第8支店", undefined, "without-tallies")]
     const rows = (days: readonly ParlorPassbookDay[]) => days.map((day) => [day.date, yen(day.withdrawn), yen(day.deposited), yen(day.balance), day.pools.flatMap((part) => part.day.lines.map((line) => line.cause.type))])
     expect(without.ok && rows(without.value.days)).toEqual([
       ["2026-10-04", "3500", "0", "13300", ["forfeiture"]],
@@ -70,7 +70,7 @@ describe("a passbook shown from a day", () => {
   test("of a pool, counts its balances on from what it held the day before, and keeps the rate it was last set to", async () => {
     const session = await setUp()
     const pool = { kind: "ball" as const, tier: "4円" }
-    const [every, shown] = [await loadPassbook(session, BOOK, "マレハン東京皇国店", pool, undefined), await loadPassbook(session, BOOK, "マレハン東京皇国店", pool, FROM)]
+    const [every, shown] = [await loadPassbook(session, BOOK, "マレハン東京皇国第8支店", pool, undefined), await loadPassbook(session, BOOK, "マレハン東京皇国第8支店", pool, FROM)]
     const rows = (days: readonly { readonly date: string; readonly balance: Decimal }[]) => days.map((day) => [day.date, toPlainString(day.balance)])
     expect(shown.ok && rows(shown.value.days)).toEqual(every.ok ? rows(every.value.days.filter((day) => day.date >= FROM)) : [])
     expect(shown.ok && shown.value.before && [shown.value.before.through, toPlainString(shown.value.before.balance), shown.value.before.lastMoved]).toEqual(["2026-09-14", every.ok ? toPlainString(every.value.days.find((day) => day.date < FROM)?.balance ?? dec("0")) : "", "2026-09-05"])

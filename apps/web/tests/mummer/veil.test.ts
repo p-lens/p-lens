@@ -16,7 +16,7 @@ describe("veil", () => {
       ["-30", "negative", -0.3],
       ["-30", "negative", -0.3],
     ])
-    expect(veil.text(seal.parlor("東京皇国 本店"), (name) => name, "••••店")).toBe("東京皇国 本店")
+    expect(veil.text(seal.parlor("東京皇国 第8支店"), (name) => name, "••••店")).toBe("東京皇国 第8支店")
   })
 
   test("while mumming, shows each facet as the policy says: a play whole, a tally's way only, savings nothing", () => {
@@ -30,8 +30,8 @@ describe("veil", () => {
 
   test("while mumming, veils a parlor's name and a cabinet's number, and lets a name's length be known", () => {
     turnMumming(true)
-    expect(veil.text(seal.parlor("東京皇国 本店"), (name) => name, "••••店")).toBe("••••店")
-    expect(veil.length(seal.parlor("東京皇国 本店"), (name) => name.length, 0)).toBe(7)
+    expect(veil.text(seal.parlor("東京皇国 第8支店"), (name) => name, "••••店")).toBe("••••店")
+    expect(veil.length(seal.parlor("東京皇国 第8支店"), (name) => name.length, 0)).toBe(9)
     expect(veil.text(seal.cabinet("123"), (number) => number, "•••")).toBe("•••")
   })
 

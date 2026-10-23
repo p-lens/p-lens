@@ -2,7 +2,8 @@ import { createResource, For, Index, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import { loadTodaysPlays } from "../../../application/live-play"
-import { heldSpecialPrizesOf, playsOfChosen, roomMembersOf, roomPlaysOf, roomTotalOf, type RoomMember, type RoomPlay } from "../../../core/huddle/room"
+import { playsOfChosen, roomMembersOf, roomPlaysOf, roomTotalOf, type RoomMember, type RoomPlay } from "../../../core/huddle/room"
+import { tokenKindOf, type PlayGameKind } from "../../../core/play/play"
 import type { StageStep } from "../../../core/savings/odd-prize-reckoning"
 import { SETTLING_STEP, settlementOf, type Contribution, type Settlement } from "../../../core/huddle/settlement"
 import { tidyTyped } from "../../../core/text/tidy"
@@ -13,35 +14,55 @@ import { createHourStruck } from "../../primitives/hour"
 import { TextField } from "../../primitives/text-field"
 import type { Place } from "../../navigation/place"
 import { HUDDLE_DEPARTED, HUDDLE_SETTLE_EXACT, HUDDLE_SETTLEMENT, roomMemberText } from "../../wording/huddle"
-import { amountText, figureToneOf, formatCount, yenFigureText, type Amount } from "../../wording/numbers"
+import { amountText, figureToneOf, formatCount, tokenUnit, yenFigureText, type Amount } from "../../wording/numbers"
 import { seal, Secret } from "../../../mummer"
 import { ViewHeader } from "../shell/ViewHeader"
 
 /** Yen as typed: digits, full-width or with commas, and nothing else; none where it is not that. */
 const yenTyped = (typed: string): number | undefined => ((tidied) => (/^\d+$/.test(tidied) ? Number(tidied) : undefined))(tidyTyped(typed).replaceAll(",", ""))
 
-/** One member as the settling up reckons them: who, what they spent, and the special prizes they took home — as typed, or else what the balls and medals in hand on the play they are on would exchange for, the odd ones left out. */
+/** One member as the settling up reckons them: who, what they spent, and the special prizes they took home — as typed, or else what the balls and medals in hand on the play they are on would exchange for — and the odd tokens beside those, of each game they are on, which are their own. */
 interface Reckoned {
   readonly member: RoomMember
   readonly cash: number
   readonly savings: number
   readonly estimate: number
+  readonly odd: readonly { readonly gameKind: PlayGameKind; readonly tokens: number }[]
   readonly contribution: Contribution
 }
 
+const GAME_KINDS: readonly PlayGameKind[] = ["pachinko", "pachislot"]
+
 const reckonedOf = (member: RoomMember, plays: readonly RoomPlay[], typed: string | undefined, step: StageStep): Reckoned => {
   const own = playsOfChosen(plays, [member.member])
-  const total = roomTotalOf(own)
-  const estimate = heldSpecialPrizesOf(own, step)
-  return { member, cash: total.outlay, savings: total.savings, estimate, contribution: { member: member.member, spent: total.outlay + total.savings, prizes: yenTyped(typed ?? "") ?? estimate } }
+  const total = roomTotalOf(own, step)
+  const estimate = total.held.pachinko.specialPrizes + total.held.pachislot.specialPrizes
+  const playing = GAME_KINDS.filter((gameKind) => own.some(({ play, latest }) => latest && play.gameKind === gameKind))
+  return {
+    member,
+    cash: total.outlay,
+    savings: total.savings,
+    estimate,
+    odd: playing.map((gameKind) => ({ gameKind, tokens: total.held[gameKind].oddTokens })),
+    contribution: { member: member.member, spent: total.outlay + total.savings, prizes: yenTyped(typed ?? "") ?? estimate },
+  }
 }
 
-/** A figure of the settling up under its name. */
-function Figure(props: { readonly label: string; readonly value: string }): JSX.Element {
+/** The odd tokens a member keeps, of each game they are on: dashes where they are on none. */
+const oddText = (odd: Reckoned["odd"]): string => (odd.length === 0 ? "--" : odd.map(({ gameKind, tokens }) => `${amountText(seal.play(tokens))}${tokenUnit(tokenKindOf(gameKind))}`).join("・"))
+
+/** How a result is coloured: a gain as one, a loss as one, nothing as nothing. */
+const RESULT_LOOKS = { positive: "text-positive", negative: "text-negative", neutral: "text-text-primary" } as const
+
+/** A result in yen, signed and coloured by the way it went. */
+const resultLook = (yen: number): string => RESULT_LOOKS[figureToneOf(seal.play(yen))]
+
+/** A figure of the settling up under its name, coloured by the way it went. */
+function Figure(props: { readonly label: string; readonly yen: number }): JSX.Element {
   return (
     <div class="flex min-w-0 flex-col gap-0.5 rounded-md border border-border px-3 py-2">
       <dt class="truncate text-xs font-bold tracking-wide text-text-muted">{props.label}</dt>
-      <dd class="truncate text-xl font-bold tabular-nums text-text-primary">{props.value}</dd>
+      <dd class={`truncate text-xl font-bold tabular-nums ${resultLook(props.yen)}`}>{yenFigureText(seal.play(props.yen))}</dd>
     </div>
   )
 }
@@ -93,8 +114,8 @@ export function HuddleSettlementView(props: { readonly place: Place }): JSX.Elem
           <Show when={settlement()} keyed>
             {(found) => (
               <dl class="grid grid-cols-2 gap-2">
-                <Figure label="合計収支" value={yenFigureText(seal.play(found.result))} />
-                <Figure label={`一人あたり（${members().length}人）`} value={yenFigureText(seal.play(found.share))} />
+                <Figure label="合計収支" yen={found.result} />
+                <Figure label={`一人あたり（${members().length}人）`} yen={found.share} />
               </dl>
             )}
           </Show>
@@ -150,12 +171,16 @@ export function HuddleSettlementView(props: { readonly place: Place }): JSX.Elem
                         <dd class="tabular-nums">≒ ¥{amountText(seal.play(each().savings))}</dd>
                       </div>
                       <div class="flex justify-between gap-2">
+                        <dt>端玉</dt>
+                        <dd class="tabular-nums">{oddText(each().odd)}</dd>
+                      </div>
+                      <div class="flex justify-between gap-2">
                         <dt>収支</dt>
-                        <dd class="tabular-nums">{yenFigureText(seal.play(resultOf(each().member.member)))}</dd>
+                        <dd class={`tabular-nums ${resultLook(resultOf(each().member.member))}`}>{yenFigureText(seal.play(resultOf(each().member.member)))}</dd>
                       </div>
                       <div class="flex justify-between gap-2">
                         <dt>精算後</dt>
-                        <dd class="tabular-nums">{yenFigureText(seal.play(resultOf(each().member.member) - dueOf(each().member.member)))}</dd>
+                        <dd class={`tabular-nums ${resultLook(resultOf(each().member.member) - dueOf(each().member.member))}`}>{yenFigureText(seal.play(resultOf(each().member.member) - dueOf(each().member.member)))}</dd>
                       </div>
                     </dl>
                     <TextField
@@ -174,8 +199,8 @@ export function HuddleSettlementView(props: { readonly place: Place }): JSX.Elem
             </Index>
           </section>
           <div class="flex flex-col gap-1 text-xs leading-5 text-text-muted">
-            <p>特殊景品額は持ち玉・持ちメダルからの目安（端玉を除き{formatCount(app.services.preferences.stageStep())}円刻み）です。実際の額は各メンバーの欄に手入力できます。入力した額はこの端末で画面を開いている間だけ覚えていて、帳簿には書きません。</p>
-            <p>受け渡しは1,000円単位で、端数は収支の多いメンバーから順に持ちます。1円単位なら「{HUDDLE_SETTLE_EXACT}」を押してください。端玉景品は各自のもので精算に入りません。貯玉再プレイは交換率での目安です。出玉を分け合っていても精算は合います。</p>
+            <p>特殊景品額は、持ち玉・持ちメダルを端玉電卓の刻み（{formatCount(app.services.preferences.stageStep())}円）で換算した目安です。実際の額を入れると、そちらで計算します。</p>
+            <p>受け渡しは1,000円単位で、端数は収支の多い人が持ちます。端玉は各自のもので、精算に入りません。</p>
           </div>
         </Show>
       </div>

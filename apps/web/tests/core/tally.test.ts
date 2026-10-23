@@ -16,12 +16,12 @@ describe("composeTokenTallyEntry", () => {
     expect(rendered(RENTED_PLAY)).toEqual({
       ok: true,
       value: [
-        "2026-09-05 マレハン東京皇国店 | 流星 123番台  ; play-id: made-up-0905, parlor-id: malehan-tokyokoukoku, game-kind: pachinko, machine: 流星, cabinet-number: 123",
+        "2026-09-05 マレハン東京皇国第8支店 | 流星 123番台  ; play-id: made-up-0905, parlor-id: malehan-tokyokoukoku, game-kind: pachinko, machine: 流星, cabinet-number: 123",
         "    資産:現金                           -12000 JPY",
         "    費用:貸玉差額                       1290 JPY",
-        '    費用:遊技                           3000 "玉(4円・マレハン東京皇国店)" @ 3.57 JPY',
-        '    資産:貯玉:マレハン東京皇国店:4円    4800 "玉(4円・マレハン東京皇国店)"',
-        '    収益:遊技                           -4800 "玉(4円・マレハン東京皇国店)"',
+        '    費用:遊技                           3000 "玉(4円・マレハン東京皇国第8支店)" @ 3.57 JPY',
+        '    資産:貯玉:マレハン東京皇国第8支店:4円  4800 "玉(4円・マレハン東京皇国第8支店)"',
+        '    収益:遊技                           -4800 "玉(4円・マレハン東京皇国第8支店)"',
         "    (統計:期待値)                       5500 JPY",
         "",
       ].join("\n"),
@@ -42,9 +42,9 @@ describe("composeTokenTallyEntry", () => {
     const replay = { ...RENTED_PLAY, rental: undefined, replay: { paidOut: dec("4000"), deducted: dec("4000") }, payout: dec("4000"), theoreticalValue: undefined }
     const entry = composeTokenTallyEntry(replay, PRICES)
     expect(entry.ok && entry.value.postings.map((posting) => posting.account)).toEqual([
-      "資産:貯玉:マレハン東京皇国店:4円",
+      "資産:貯玉:マレハン東京皇国第8支店:4円",
       "費用:遊技",
-      "資産:貯玉:マレハン東京皇国店:4円",
+      "資産:貯玉:マレハン東京皇国第8支店:4円",
       "収益:遊技",
     ])
   })
@@ -53,12 +53,12 @@ describe("composeTokenTallyEntry", () => {
     const carried = { ...RENTED_PLAY, rental: undefined, replay: { paidOut: dec("1000"), deducted: dec("1100") }, carriedIn: dec("1500"), payout: dec("2000"), theoreticalValue: undefined }
     const entry = composeTokenTallyEntry(carried, PRICES)
     expect(entry.ok && entry.value.postings.map((posting) => [posting.account, posting.kind === "balancing" ? undefined : posting.amount.quantity])).toEqual([
-      ["資産:貯玉:マレハン東京皇国店:4円", dec("-1100")],
+      ["資産:貯玉:マレハン東京皇国第8支店:4円", dec("-1100")],
       ["費用:遊技", dec("1000")],
       ["費用:再プレイ手数料", dec("100")],
-      ["資産:貯玉:マレハン東京皇国店:4円", dec("-1500")],
+      ["資産:貯玉:マレハン東京皇国第8支店:4円", dec("-1500")],
       ["費用:遊技", dec("1500")],
-      ["資産:貯玉:マレハン東京皇国店:4円", dec("2000")],
+      ["資産:貯玉:マレハン東京皇国第8支店:4円", dec("2000")],
       ["収益:遊技", dec("-2000")],
     ])
     expect(entry.ok && entry.value.tags.at(-1)).toEqual(["carried-in", "1500"])
@@ -71,7 +71,7 @@ describe("composeTokenTallyEntry", () => {
     const replay = { ...RENTED_PLAY, rental: undefined, replay: { paidOut: dec("1000"), deducted: dec("1100") }, payout: dec("0"), theoreticalValue: undefined }
     const entry = composeTokenTallyEntry(replay, PRICES)
     expect(entry.ok && entry.value.postings.map((posting) => [posting.account, posting.kind === "balancing" ? undefined : posting.amount.quantity])).toEqual([
-      ["資産:貯玉:マレハン東京皇国店:4円", dec("-1100")],
+      ["資産:貯玉:マレハン東京皇国第8支店:4円", dec("-1100")],
       ["費用:遊技", dec("1000")],
       ["費用:再プレイ手数料", dec("100")],
     ])
@@ -108,7 +108,7 @@ describe("composeTokenTallyEntry", () => {
     ).toEqual({ ok: false, error: { type: "nothing-played" } })
     expect(composeTokenTallyEntry({ ...RENTED_PLAY, date: "2026-08-01" as IsoDate }, PRICES)).toEqual({
       ok: false,
-      error: { type: "no-exchange-rate", commodity: "玉(4円・マレハン東京皇国店)", date: "2026-08-01" as IsoDate },
+      error: { type: "no-exchange-rate", commodity: "玉(4円・マレハン東京皇国第8支店)", date: "2026-08-01" as IsoDate },
     })
   })
 
@@ -237,7 +237,7 @@ describe("composeYenTallyEntry", () => {
   test("a gain with nothing put in is revenue taken as prizes, and names the parlor when there is one", () => {
     const entry = composeYenTallyEntry({ ...TALLIED, parlor: MALEHAN, outlay: dec("0"), takings: dec("20000"), theoreticalValue: undefined })
     expect(entry.ok && [entry.value.description, entry.value.tags[1], entry.value.postings]).toEqual([
-      "マレハン東京皇国店 | e風の剣豪",
+      "マレハン東京皇国第8支店 | e風の剣豪",
       ["parlor-id", "malehan-tokyokoukoku"],
       [
         { account: "収益:遊技", amount: { quantity: dec("-20000"), commodity: "JPY" }, kind: "real" },

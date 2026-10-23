@@ -18,14 +18,14 @@ describe("opening a pool in a book", () => {
 
   test("writes only the rate for a pool the book keeps, and nothing when the book already has that rate for the day", () => {
     const malehan: PoolOpening = { identity: MALEHAN.identity, parlorName: MALEHAN.name, pool: { kind: "ball", tier: "4円" }, rate: dec("3.571429"), date: "2026-09-25" as IsoDate }
-    expect(openingText(malehan, [MALEHAN], PRICES)).toEqual({ declarations: undefined, price: 'P 2026-09-25 "玉(4円・マレハン東京皇国店)" 3.571429 JPY\n' })
+    expect(openingText(malehan, [MALEHAN], PRICES)).toEqual({ declarations: undefined, price: 'P 2026-09-25 "玉(4円・マレハン東京皇国第8支店)" 3.571429 JPY\n' })
     expect(openingText({ ...malehan, rate: dec("3.50") }, [MALEHAN], PRICES)).toEqual({ declarations: undefined, price: undefined })
   })
 
   test("writes no rate for a later day whose rate in force is already that, set on an earlier day", () => {
     const malehan: PoolOpening = { identity: MALEHAN.identity, parlorName: MALEHAN.name, pool: { kind: "ball", tier: "4円" }, rate: dec("3.57"), date: "2026-09-10" as IsoDate }
     expect(openingText(malehan, [MALEHAN], PRICES)).toEqual({ declarations: undefined, price: undefined })
-    expect(openingText({ ...malehan, date: "2026-10-12" as IsoDate }, [MALEHAN], PRICES).price).toBe('P 2026-10-12 "玉(4円・マレハン東京皇国店)" 3.57 JPY\n')
+    expect(openingText({ ...malehan, date: "2026-10-12" as IsoDate }, [MALEHAN], PRICES).price).toBe('P 2026-10-12 "玉(4円・マレハン東京皇国第8支店)" 3.57 JPY\n')
   })
 
   test("declares a submitted parlor's pool by its submission while it waits on the list", () => {
@@ -34,10 +34,10 @@ describe("opening a pool in a book", () => {
   })
 
   test("refuses a name it cannot write, a name another parlor of the book has, and a rate not above zero", () => {
-    expect(checkOpening({ ...MEGA_CONDOR, parlorName: "東京皇国:本店" }, [])).toEqual({ ok: false, error: { type: "name-unwritable", name: "東京皇国:本店" } })
+    expect(checkOpening({ ...MEGA_CONDOR, parlorName: "東京皇国:第8支店" }, [])).toEqual({ ok: false, error: { type: "name-unwritable", name: "東京皇国:第8支店" } })
     expect(checkOpening({ ...MEGA_CONDOR, parlorName: MALEHAN.name }, [MALEHAN])).toEqual({ ok: false, error: { type: "name-taken", name: MALEHAN.name } })
-    expect(checkOpening({ ...MEGA_CONDOR, parlorName: "マレハン 東京皇国店" }, [MALEHAN])).toEqual({ ok: false, error: { type: "name-taken", name: "マレハン 東京皇国店" } })
-    expect(checkOpening({ ...MEGA_CONDOR, identity: MALEHAN.identity, parlorName: "マレハン 東京皇国店" }, [MALEHAN]).ok).toBe(true)
+    expect(checkOpening({ ...MEGA_CONDOR, parlorName: "マレハン 東京皇国第8支店" }, [MALEHAN])).toEqual({ ok: false, error: { type: "name-taken", name: "マレハン 東京皇国第8支店" } })
+    expect(checkOpening({ ...MEGA_CONDOR, identity: MALEHAN.identity, parlorName: "マレハン 東京皇国第8支店" }, [MALEHAN]).ok).toBe(true)
     expect(checkOpening({ ...MEGA_CONDOR, rate: dec("0") }, [])).toEqual({ ok: false, error: { type: "rate-not-positive" } })
     expect(checkOpening(MEGA_CONDOR, [MALEHAN])).toEqual({ ok: true, value: MEGA_CONDOR })
   })

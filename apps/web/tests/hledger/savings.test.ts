@@ -127,13 +127,13 @@ describe("savings exchanged for prizes", () => {
   test("leave the pool as prizes, and are no result of any day", async () => {
     const { session, storage, history } = await madeUpBook()
     expect(await recordPrizeExchange(session, BOOK, EXCHANGE)).toEqual({ ok: true, value: undefined })
-    expect(await held(session)).toContainEqual(["マレハン東京皇国店", "4円", "800"])
+    expect(await held(session)).toContainEqual(["マレハン東京皇国第8支店", "4円", "800"])
     expect(await results(session, "date:2026-10-04")).toEqual(["0", "0", "54808"])
     const files = storage.peek(BOOK)?.files
     expect(files?.[BOOK_FILES.accounts]).toContain("account 純資産:特殊景品\naccount 純資産:端玉景品\naccount 純資産:換算調整勘定")
-    expect(transactionsOf(files)).toContain("2026-10-04 マレハン東京皇国店 | 景品交換  ; parlor-id: malehan-tokyokoukoku, savings: prize-exchange")
+    expect(transactionsOf(files)).toContain("2026-10-04 マレハン東京皇国第8支店 | 景品交換  ; parlor-id: malehan-tokyokoukoku, savings: prize-exchange")
     const activity = await loadActivity(session, history, BOOK)
-    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).at(-1)).toEqual(["savings-exchanged", { pool: { parlor: "マレハン東京皇国店", tier: "4円" }, savings: { date: "2026-10-04" as IsoDate, kind: "ball", tokens: dec("4000") }, prizes: { specialPrizes: dec("13800") } }])
+    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).at(-1)).toEqual(["savings-exchanged", { pool: { parlor: "マレハン東京皇国第8支店", tier: "4円" }, savings: { date: "2026-10-04" as IsoDate, kind: "ball", tokens: dec("4000") }, prizes: { specialPrizes: dec("13800") } }])
   })
 
   test("give the odd tokens as odd prizes at the rental price, and leave hledger to balance the translation adjustment", async () => {
@@ -178,7 +178,7 @@ describe("savings a parlor took back", () => {
     const before = await results(session, "")
     const overallBefore = await loadOverall(session, BOOK, "")
     expect(await recordForfeiture(session, BOOK, FORFEITURE)).toEqual({ ok: true, value: undefined })
-    expect(await held(session)).toContainEqual(["マレハン東京皇国店", "4円", "800"])
+    expect(await held(session)).toContainEqual(["マレハン東京皇国第8支店", "4円", "800"])
     expect(await results(session, "date:2026-10-04")).toEqual(["0", "0"])
     expect(await results(session, "")).toEqual(before)
     expect(await loadOverall(session, BOOK, "")).toEqual(overallBefore)
@@ -186,7 +186,7 @@ describe("savings a parlor took back", () => {
     expect(gains.ok && toPlainString(gains.value.forfeited)).toBe("14000")
     const files = storage.peek(BOOK)?.files
     expect(files?.[BOOK_FILES.accounts]).toContain("account 費用:失効損\n")
-    expect(transactionsOf(files)).toContain("2026-10-04 マレハン東京皇国店 | 失効  ; parlor-id: malehan-tokyokoukoku, savings: forfeiture")
+    expect(transactionsOf(files)).toContain("2026-10-04 マレハン東京皇国第8支店 | 失効  ; parlor-id: malehan-tokyokoukoku, savings: forfeiture")
     expect(transactionsOf(files)).not.toContain("資産:現金                         -14000")
     const activity = await loadActivity(session, history, BOOK)
     expect(activity.ok && activity.value.lines.map((line) => line.did).at(-1)).toBe("savings-forfeited")
@@ -219,7 +219,7 @@ describe("savings a parlor took back", () => {
     const { session, history } = await madeUpBook()
     const forfeited = await recordParlorForfeiture(session, BOOK, MALEHAN, "2026-10-04" as IsoDate)
     expect(forfeited.ok && forfeited.value.map((each) => [each.pool.tier, toPlainString(each.tokens)])).toEqual([["4円", "4800"]])
-    expect(await held(session, "date:..2026-10-05")).toEqual([["723修羅の国店", "20円", "1650"], ["723修羅の国店", "4円", "6600"], ["マレハン東京皇国店", "4円", "0"], ["マレハン東京皇国店", "20円", "0"]])
+    expect(await held(session, "date:..2026-10-05")).toEqual([["723修羅の国店", "20円", "1650"], ["723修羅の国店", "4円", "6600"], ["マレハン東京皇国第8支店", "4円", "0"], ["マレハン東京皇国第8支店", "20円", "0"]])
     const activity = await loadActivity(session, history, BOOK)
     expect(activity.ok && activity.value.lines.map((line) => line.did).at(-1)).toBe("savings-forfeited")
     expect(await recordParlorForfeiture(session, BOOK, MALEHAN, "2026-10-04" as IsoDate)).toEqual({ ok: true, value: [] })

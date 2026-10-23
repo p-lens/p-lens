@@ -154,8 +154,8 @@ describe("a recorded tally, read back from its entry", () => {
     const asWritten = await recordedOf(session, "made-up-0905")
     const text = storage.peek(BOOK)?.files[BOOK_FILES.transactions] ?? ""
     const older = text.replace(
-      '    費用:遊技                        3000 "玉(4円・マレハン東京皇国店)" @ 3.57 JPY\n',
-      '    資産:貯玉:マレハン東京皇国店:4円         3000 "玉(4円・マレハン東京皇国店)" @ 3.57 JPY\n    資産:貯玉:マレハン東京皇国店:4円         -3000 "玉(4円・マレハン東京皇国店)"\n    費用:遊技                        3000 "玉(4円・マレハン東京皇国店)"\n',
+      '    費用:遊技                        3000 "玉(4円・マレハン東京皇国第8支店)" @ 3.57 JPY\n',
+      '    資産:貯玉:マレハン東京皇国第8支店:4円         3000 "玉(4円・マレハン東京皇国第8支店)" @ 3.57 JPY\n    資産:貯玉:マレハン東京皇国第8支店:4円         -3000 "玉(4円・マレハン東京皇国第8支店)"\n    費用:遊技                        3000 "玉(4円・マレハン東京皇国第8支店)"\n',
     )
     expect(older).not.toBe(text)
     const edited = await session.write(BOOK, async (_journal, stored) => Ok({ files: { ...stored.files, [BOOK_FILES.transactions]: older }, intent: { type: "file-edited", path: BOOK_FILES.transactions } }))
@@ -184,7 +184,7 @@ describe("a recorded tally, read back from its entry", () => {
   test("is refused where its entry was changed by hand into what no form makes, and where the book has no such tally", async () => {
     const { session, storage } = await setUp()
     const text = storage.peek(BOOK)?.files[BOOK_FILES.transactions] ?? ""
-    const byHand = text.replace("    費用:遊技                        3000 \"玉(4円・マレハン東京皇国店)\" @ 3.57 JPY\n", "    費用:遊技                        2000 \"玉(4円・マレハン東京皇国店)\" @ 3.57 JPY\n    費用:再プレイ手数料                  1000 \"玉(4円・マレハン東京皇国店)\" @ 3.57 JPY\n")
+    const byHand = text.replace("    費用:遊技                        3000 \"玉(4円・マレハン東京皇国第8支店)\" @ 3.57 JPY\n", "    費用:遊技                        2000 \"玉(4円・マレハン東京皇国第8支店)\" @ 3.57 JPY\n    費用:再プレイ手数料                  1000 \"玉(4円・マレハン東京皇国第8支店)\" @ 3.57 JPY\n")
     expect(byHand).not.toBe(text)
     const edited = await session.write(BOOK, async (_journal, stored) => Ok({ files: { ...stored.files, [BOOK_FILES.transactions]: byHand }, intent: { type: "file-edited", path: BOOK_FILES.transactions } }))
     expect(edited.ok).toBe(true)
@@ -220,7 +220,7 @@ describe("setting a recorded tally right", () => {
     const transactions = transactionsOf(storage.peek(BOOK)?.files)
     expect(transactions.match(/play-id: today,/g)?.length).toBe(1)
     expect(transactions.indexOf("play-id: today,")).toBeLessThan(transactions.indexOf("play-id: tally,"))
-    expect(mapOk(await loadTally(session, BOOK, "today" as PlayId), (found) => found.summary.description)).toEqual({ ok: true, value: "マレハン東京皇国店 | 森物語 123番台" })
+    expect(mapOk(await loadTally(session, BOOK, "today" as PlayId), (found) => found.summary.description)).toEqual({ ok: true, value: "マレハン東京皇国第8支店 | 森物語 123番台" })
   })
 
   test("moves a tally to the day it now says, at that day's rate", async () => {
@@ -236,7 +236,7 @@ describe("setting a recorded tally right", () => {
     await recordTokenTally(session, BOOK, TODAY)
     const pricesBefore = storage.peek(BOOK)?.files[BOOK_FILES.prices] ?? ""
     expect((await reviseTokenTally(session, BOOK, { ...TODAY, date: "2016-10-11" as IsoDate })).ok).toBe(true)
-    expect(storage.peek(BOOK)?.files[BOOK_FILES.prices]).toBe(`${pricesBefore}\nP 2016-10-11 "玉(4円・マレハン東京皇国店)" 3.57 JPY\n`)
+    expect(storage.peek(BOOK)?.files[BOOK_FILES.prices]).toBe(`${pricesBefore}\nP 2016-10-11 "玉(4円・マレハン東京皇国第8支店)" 3.57 JPY\n`)
     expect(await recordedOf(session, "today")).toEqual({ ok: true, value: { type: "token", tally: { ...TODAY, date: "2016-10-11" as IsoDate } } })
     expect((await recordTokenTally(session, BOOK, { ...TODAY, id: "older" as PlayId, date: "2016-10-10" as IsoDate })).ok).toBe(true)
   })
@@ -256,8 +256,8 @@ describe("setting a recorded tally right", () => {
     expect(mapOk(activity, (found) => found.lines.map((line) => [line.did, saidIn(line.parts)]))).toEqual({
       ok: true,
       value: [
-        ["play-recorded", { play: { id: "today" as PlayId, description: "マレハン東京皇国店 | 流星 123番台" }, theoretical: { value: dec("5500") } }],
-        ["play-revised", { play: { id: "today" as PlayId, description: "マレハン東京皇国店 | 流星 123番台" } }],
+        ["play-recorded", { play: { id: "today" as PlayId, description: "マレハン東京皇国第8支店 | 流星 123番台" }, theoretical: { value: dec("5500") } }],
+        ["play-revised", { play: { id: "today" as PlayId, description: "マレハン東京皇国第8支店 | 流星 123番台" } }],
       ],
     })
     expect(await reviseTokenTally(session, BOOK, { ...TODAY, id: "nowhere" as PlayId })).toEqual({ ok: false, error: { type: "tally-missing" } })

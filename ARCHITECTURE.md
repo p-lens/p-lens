@@ -28,7 +28,7 @@ fixes.
    valuation is `--value`, sums are balance reports. No figure a book comes
    to is worked out here.
 4. **Each parlor's tokens at each rental rate are their own commodity.**
-   `玉(4円・マレハン東京皇国店)`, `玉(1円・マレハン東京皇国店)` and `玉(4円・723修羅の国店)`
+   `玉(4円・マレハン東京皇国第8支店)`, `玉(1円・マレハン東京皇国第8支店)` and `玉(4円・723修羅の国店)`
    cannot be exchanged for each other, so they are different commodities,
    held as real assets.
 5. **Exchange rates are only ever added.** A changed rate is a new `P` directive
@@ -150,7 +150,7 @@ The account tree is deliberately small:
 
 ```text
 資産:現金
-資産:貯玉:<parlor>:<rate>      tagged parlor-id, e.g. 資産:貯玉:マレハン東京皇国店:4円
+資産:貯玉:<parlor>:<rate>      tagged parlor-id, e.g. 資産:貯玉:マレハン東京皇国第8支店:4円
 資産:貯メダル:<parlor>:<rate>  tagged parlor-id
 収益:遊技
 費用:遊技
@@ -332,19 +332,19 @@ rate for the day differs.
 ### One tally, one entry
 
 ```hledger
-2026-09-05 マレハン東京皇国店 | 流星 123番台  ; play-id: …, parlor-id: malehan-tokyokoukoku, game-kind: pachinko, machine: 流星, cabinet-number: 123
+2026-09-05 マレハン東京皇国第8支店 | 流星 123番台  ; play-id: …, parlor-id: malehan-tokyokoukoku, game-kind: pachinko, machine: 流星, cabinet-number: 123
     資産:現金                         -12000 JPY
     費用:貸玉差額                       1290 JPY
-    費用:遊技                           3000 "玉(4円・マレハン東京皇国店)" @ 3.57 JPY
-    資産:貯玉:マレハン東京皇国店:4円        4800 "玉(4円・マレハン東京皇国店)"
-    収益:遊技                          -4800 "玉(4円・マレハン東京皇国店)"
+    費用:遊技                           3000 "玉(4円・マレハン東京皇国第8支店)" @ 3.57 JPY
+    資産:貯玉:マレハン東京皇国第8支店:4円        4800 "玉(4円・マレハン東京皇国第8支店)"
+    収益:遊技                          -4800 "玉(4円・マレハン東京皇国第8支店)"
     (統計:期待値)                       5500 JPY
 ```
 
 - **The description** is hledger's `payee | note` (`describedBy`): the
   parlor is the payee, the machine and its cabinet the note, so `payee:`
   groups a book by parlor outside the app too. Savings entries are the
-  same — `マレハン東京皇国店 | 景品交換` — and an imported tally's payee is the
+  same — `マレハン東京皇国第8支店 | 景品交換` — and an imported tally's payee is the
   parlor as the other app named it. The bar is written always: a tally with
   no parlor is `| e風の剣豪`, its payee empty rather than its machine — a
   description with no bar is its own payee whole — and with no machine
@@ -2248,24 +2248,38 @@ wherever its player records it, as it would be without the huddle.
   `HuddleTotalView`, `roomTotalOf`): the cash spent on every play of the
   day, and the balls and medals in hand apart, on the play each is on
   alone — what was in hand on a play moved from went on to the next —
-  each with what it comes to at its corner's exchange rate. It has a
+  each with the special prizes it exchanges for at its corner, a
+  smallest special prize of the step last chosen at the odd prizes'
+  calculator apart, and the odd tokens beside them: counted as the
+  settling up counts them, so that one count of tokens is never two sums
+  of yen on two screens. It has a
   filter of its own (`RoomChoices.totalled`), and 自分のみ beside it, a
   press for ticking oneself alone and another for everyone again.
 - **Settled up evenly, as a guide** (精算目安; `huddle-settlement`, `/huddle/settlement`,
   `HuddleSettlementView`, `settlementOf`): the members chosen for the
   total, each having spent their cash and the savings they drew on (in
   yen, at the play's exchange rate) and taken home special prizes — typed
-  in there, kept on the page alone (`RoomChoices.prizes`), or else what
-  the balls and medals in hand on the play they are on come to. What they
-  came to together is shared evenly in whole yen, the yen left over one
-  each to those first in the list, and the payments that settle them are
-  the greatest owing paying the greatest owed, one after another. Balls
+  in there, kept on the page alone (`RoomChoices.prizes`), or else the
+  special prizes the balls and medals in hand on the play they are on
+  exchange for, counted as the total counts them; the odd tokens beside
+  those are shown on each member's card and are their own, never settled
+  up. What they came to together is shared evenly, every payment whole
+  thousands of yen, the odd ones held by those who came to most, unless
+  厳密計算 settles to the yen; and the payments that settle them are the
+  greatest owing paying the greatest owed, one after another. Results are
+  coloured by the way they went. Balls
   passed from one to another come out even, since only what each spent
   and took home is reckoned. One who left is settled up with the rest,
   marked 離脱, until they are unticked in the total's filter, having
   settled up apart. Nothing is written anywhere: no book, no
   line; it is reckoned for people to settle by hand, and the cash account
   is never touched.
+- **Of the huddle's day alone** (`ofHuddleDay`): a play left unrecorded
+  from a day before stays in the live space to be recorded, and is shown
+  to no huddle of a later day nor counted in its room, total or settling
+  up; one shown before the day turned is withdrawn, and one a member
+  still shows from a day before is left out. Every device so counts the
+  same plays, and settles up to the same yen.
 - **Opened only to be looked at, one's own as well** (`huddle-play`,
   `/huddle/:member/:playId`, `HuddlePlayView`): one's own play is opened
   the same, as the device has it now, so it is set beside the others' as
@@ -2541,9 +2555,9 @@ a group made off with were not lost to the parlor, and the pool is put
 right to what is there (残高調整).
 
 ```hledger
-2026-10-04 マレハン東京皇国店 | 失効  ; parlor-id: malehan-tokyokoukoku, savings: forfeiture
-    費用:失効損                        4000 "玉(4円・マレハン東京皇国店)"
-    資産:貯玉:マレハン東京皇国店:4円      -4000 "玉(4円・マレハン東京皇国店)"
+2026-10-04 マレハン東京皇国第8支店 | 失効  ; parlor-id: malehan-tokyokoukoku, savings: forfeiture
+    費用:失効損                        4000 "玉(4円・マレハン東京皇国第8支店)"
+    資産:貯玉:マレハン東京皇国第8支店:4円      -4000 "玉(4円・マレハン東京皇国第8支店)"
 ```
 
 - It is an expense, in tokens only, as a replay's fee is: what it comes

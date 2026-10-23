@@ -15,8 +15,8 @@ describe("coming back from survey.p-lens.jp", () => {
   })
 
   test("reads the id survey.p-lens.jp files a report under", () => {
-    const query = new URLSearchParams({ game: "pachinko", submission: "01a11208-6da3-7519-affc-9829138591c0", name: "ノルテス 喜連瓜破店", prefecture: "大阪府" })
-    expect(returnedFrom(query, NOW)).toMatchObject({ ok: true, value: { type: "submitted", submission: { submission: "01a11208-6da3-7519-affc-9829138591c0", name: "ノルテス 喜連瓜破店" } } })
+    const query = new URLSearchParams({ game: "pachinko", submission: "01a11208-6da3-7519-affc-9829138591c0", name: "AB℃ルグニカ王国本店", prefecture: "大阪府" })
+    expect(returnedFrom(query, NOW)).toMatchObject({ ok: true, value: { type: "submitted", submission: { submission: "01a11208-6da3-7519-affc-9829138591c0", name: "AB℃ルグニカ王国本店" } } })
   })
 
   test("brings nothing but the game when no submission is named", () => {
@@ -26,7 +26,7 @@ describe("coming back from survey.p-lens.jp", () => {
 
   test("refuses it whole if any of it is not what it should be", () => {
     const good = { submission: "sub_01J9XYZ", name: "メガコンドル見滝原店", prefecture: "大阪府" }
-    for (const bad of [{ submission: "x" }, { submission: "sub 01 <script>" }, { name: "" }, { name: "東京皇国:本店" }, { prefecture: "大阪" }, { name: "店".repeat(61) }])
+    for (const bad of [{ submission: "x" }, { submission: "sub 01 <script>" }, { name: "" }, { name: "東京皇国:第8支店" }, { prefecture: "大阪" }, { name: "店".repeat(61) }])
       expect(returnedFrom(new URLSearchParams({ ...good, ...bad }), NOW)).toEqual({ ok: false, error: "unreadable" })
   })
 })
@@ -42,16 +42,16 @@ describe("leaving for survey.p-lens.jp", () => {
   })
 
   test("to report where a listed parlor is, opens the list searched for its whole name", () => {
-    const address = new URL(locateAddress(SURVEY, APP, { type: "start", game: "pachinko" }, { id: "op:eagle:1" as never, name: "イーグル 厚別店" }))
+    const address = new URL(locateAddress(SURVEY, APP, { type: "start", game: "pachinko" }, { id: "op:pigark:1" as never, name: "ピッグアーク 豚の帽子亭店" }))
     expect(address.origin + address.pathname).toBe(SURVEY)
-    expect(address.searchParams.get("find")).toBe("イーグル 厚別店")
-    expect(new URL(address.searchParams.get("return") ?? "").searchParams.get("located")).toBe("op:eagle:1")
+    expect(address.searchParams.get("find")).toBe("ピッグアーク 豚の帽子亭店")
+    expect(new URL(address.searchParams.get("return") ?? "").searchParams.get("located")).toBe("op:pigark:1")
   })
 
   test("coming back from reporting a position brings nothing but the game: the parlor is listed and chosen already", () => {
-    const back = new URL(new URL(locateAddress(SURVEY, APP, { type: "start", game: "pachislot" }, { id: "op:eagle:1" as never, name: "イーグル厚別店" })).searchParams.get("return") ?? "")
+    const back = new URL(new URL(locateAddress(SURVEY, APP, { type: "start", game: "pachislot" }, { id: "op:pigark:1" as never, name: "ピッグアーク豚の帽子亭店" })).searchParams.get("return") ?? "")
     back.searchParams.set("submission", "sub_01J9XYZ")
-    back.searchParams.set("name", "イーグル厚別店")
+    back.searchParams.set("name", "ピッグアーク豚の帽子亭店")
     back.searchParams.set("prefecture", "北海道")
     expect(returnedFrom(back.searchParams, NOW)).toEqual({ ok: true, value: { type: "nothing", from: { type: "start", game: "pachislot" } } })
   })

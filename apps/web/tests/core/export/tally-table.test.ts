@@ -74,8 +74,8 @@ describe("tallies as a table", () => {
     expect(
       tallyTableOf([
         {
-          tally: { id: "two" as PlayId, date: "2026-10-09" as IsoDate, description: "ネルフ第3新東京店 | 稼働", parlorId: "p-1" as never, gameKind: "pachinko", machine: "m-1", cabinetNumber: "101", importedFrom: undefined, theoreticalValue: undefined, inferredValue: yen(1200) },
-          parlorName: "ネルフ第3新東京店",
+          tally: { id: "two" as PlayId, date: "2026-10-09" as IsoDate, description: "ジーステーション第3新東京市店 | 稼働", parlorId: "p-1" as never, gameKind: "pachinko", machine: "m-1", cabinetNumber: "101", importedFrom: undefined, theoreticalValue: undefined, inferredValue: yen(1200) },
+          parlorName: "ジーステーション第3新東京市店",
           machineName: "初号機",
           maker: "ゼーレ",
           notes: {
@@ -92,7 +92,7 @@ describe("tallies as a table", () => {
           actual: yen(3000),
         },
       ])[1],
-    ).toEqual(["2026-10-09", "ネルフ第3新東京店", "パチンコ", "初号機", "101", "5000", "8000", "3000", "", "1200", "ゼーレ", "22:30", "01:05", "2:35", "3", "18.5", "250", "f-1", "4", "28", "17.2", "シンジ", "s-1", "ネルフ第3新東京店 | 稼働", "p-1", "two", ""])
+    ).toEqual(["2026-10-09", "ジーステーション第3新東京市店", "パチンコ", "初号機", "101", "5000", "8000", "3000", "", "1200", "ゼーレ", "22:30", "01:05", "2:35", "3", "18.5", "250", "f-1", "4", "28", "17.2", "シンジ", "s-1", "ジーステーション第3新東京市店 | 稼働", "p-1", "two", ""])
   })
 
   test("what a tally does not say is an empty cell", () => {
@@ -114,7 +114,7 @@ describe("tallies as a table", () => {
 
 describe("rows as CSV", () => {
   test("opens with the mark of UTF-8 and ends each line in CRLF", () => {
-    expect(csvOf([["店舗", "収支"], ["東京皇国", "-500"]])).toBe("﻿店舗,収支\r\n東京皇国,-500\r\n")
+    expect(csvOf([["店舗", "収支"], ["東京皇国第8支店", "-500"]])).toBe("﻿店舗,収支\r\n東京皇国第8支店,-500\r\n")
   })
 
   test("a cell holding a comma, a quote or a line break is quoted, its quotes doubled", () => {

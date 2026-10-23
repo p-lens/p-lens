@@ -13,7 +13,7 @@ const TOKEN_NAMES: Readonly<Record<TokenKind, string>> = { ball: "玉", medal: "
 
 /**
  * The commodity a parlor's tokens are at one rental rate, e.g.
- * `玉(4円・マレハン東京皇国店)`.
+ * `玉(4円・マレハン東京皇国第8支店)`.
  *
  * One commodity per parlor, kind and rental rate, on purpose. A ball at one
  * parlor cannot be exchanged at another, nor a 1-yen ball as a 4-yen one, so
