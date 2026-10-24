@@ -38,3 +38,21 @@ export const holdTheEnd = (anchor: () => HTMLElement | undefined, shown: Accesso
     ),
   )
 }
+
+/** How long a phone's keyboard takes to rise once a field takes the focus, in milliseconds: the scroll waits for the view it leaves. */
+const KEYBOARD_RISES = 300
+
+/**
+ * Scrolls to the very end, quickly, a moment after a field in an element
+ * took the focus — the scroll the element is in, and the page with it, so
+ * that the element's foot is in view: the keyboard that rose for the field
+ * has by then made the view shorter, and would otherwise cover what is
+ * being typed.
+ */
+export const revealAboveTheKeyboard = (element: HTMLElement): void => {
+  setTimeout(() => {
+    const scroller = scrollerOf(element)
+    scroller?.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" })
+    element.scrollIntoView({ block: "end", behavior: "smooth" })
+  }, KEYBOARD_RISES)
+}

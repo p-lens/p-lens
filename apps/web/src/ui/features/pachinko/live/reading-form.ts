@@ -171,9 +171,19 @@ export const readReadingForm = (form: ReadingForm, bonuses: readonly MachineBonu
 export const readRunJackpot = (form: ReadingForm, bonuses: readonly MachineBonus[], before: Before, phase: SupportPhase): Result<Omit<Reading, "at">, readonly ReadingProblem[]> =>
   readReadingForm({ ...readingFrom(phase, before), jackpot: form.jackpot, over: form.over }, bonuses, before)
 
-/** The 電サポ's end as its bar takes it: the spins it ran for by the counter, which must be typed, the balls in hand where they were counted — not where the guide shown is left as it is — and what it drifted, in the state it ran in. */
-export const readSupportEnd = (form: ReadingForm, before: Before, phase: SupportPhase): Result<Omit<Reading, "at">, readonly ReadingProblem[]> =>
-  readReadingForm({ ...readingFrom(phase, before), counter: form.counter, held: form.held, heldCarried: form.heldCarried, supported: form.supported, drift: form.drift }, [], before)
+/**
+ * The 電サポ's end as its bar takes it: the spins it ran for by the
+ * counter, which must be typed, the balls in hand where they were counted
+ * — not where the guide shown is left as it is — and what it drifted, in
+ * the state it ran in. A 遊タイム run out without a jackpot leaves the 遊
+ * counter at nought.
+ */
+export const readSupportEnd = (form: ReadingForm, before: Before, phase: SupportPhase, reliefDriveRanOut: boolean): Result<Omit<Reading, "at">, readonly ReadingProblem[]> =>
+  readReadingForm({ ...readingFrom(phase, before), counter: form.counter, held: form.held, heldCarried: form.heldCarried, supported: form.supported, drift: form.drift, ...(reliefDriveRanOut ? { gauge: 0 } : {}) }, [], before)
+
+/** A reading of regular games as the 遊タイム is reached: the form as typed, its counter where the 遊タイム comes where it was left where it stood. */
+export const readReliefDrive = (form: ReadingForm, bonuses: readonly MachineBonus[], before: Before, reliefDriveAt: number): Result<Omit<Reading, "at">, readonly ReadingProblem[]> =>
+  readReadingForm({ ...form, phase: "regular", jackpot: NO_JACKPOT, rapidBegan: true, ...(readCount(form.counter) === before.counter && reliefDriveAt > before.counter ? { counter: String(reliefDriveAt) } : {}) }, bonuses, before)
 
 /** The hands a reading made of several knew inside it that still stand inside it as it is set right: none further on than its counter, nor having rented or drawn more than it did. */
 const handsWithin = (hands: readonly ReadingHand[], counterSpins: number, rented: number, replayed: number): readonly ReadingHand[] =>

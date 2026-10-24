@@ -10,14 +10,14 @@ import type { Result } from "../../../../core/result/result"
 import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
 import { createNudge } from "../../../primitives/nudge"
-import { holdTheEnd } from "../../../primitives/scroll-end"
+import { holdTheEnd, revealAboveTheKeyboard } from "../../../primitives/scroll-end"
 import { Select } from "../../../primitives/select"
 import { settleTyping, TextField } from "../../../primitives/text-field"
 import { toast } from "../../../primitives/toast"
 import { feelTap } from "../../../primitives/vibration"
 import { describeError, describeReadingRefusal } from "../../../wording/errors"
 import { FIELD_PROBLEM_TEXT } from "../../../wording/fields"
-import { BACK_TO_REGULAR, COUNT_HAND_LATER, SUPPORT_END_ASKS, SUPPORT_NAMES, switchToText } from "../../../wording/pachinko/play"
+import { BACK_TO_REGULAR, RELIEF_DRIVE_NAME, SUPPORT_END_ASKS, SUPPORT_NAMES, switchToText } from "../../../wording/pachinko/play"
 import { jackpotOptions, useBonuses, usualOverOf } from "./bonus-choice"
 import { DriftButton } from "./DriftButton"
 import { OverButton } from "./OverButton"
@@ -51,9 +51,16 @@ const OTHER_PHASE: Readonly<Record<SupportPhase, SupportPhase>> = { special: "ra
  * Switching to 時短 writes the turn at once, so that the others in a
  * huddle see it; switching back takes that line away again, since a run
  * goes back to 確変 only by a jackpot — so a run has one turn however
- * often the bar is pressed, and none while one is being kept.
+ * often the bar is pressed, and none while one is being kept. The 遊タイム
+ * is 時短 reached from regular games, and is never switched.
  */
-export function SupportComposer(props: { readonly draft: PachinkoDraft; readonly ordered: readonly Checkpoint[]; readonly phase: SupportPhase }): JSX.Element {
+export function SupportComposer(props: {
+  readonly draft: PachinkoDraft
+  readonly ordered: readonly Checkpoint[]
+  readonly phase: SupportPhase
+  /** Whether the 時短 is the 遊タイム, with no jackpot since: it is then named so, is never switched, and ended leaves the 遊 counter at nought. */
+  readonly reliefDrive: boolean
+}): JSX.Element {
   const app = useApp()
   const bonuses = useBonuses(() => props.draft)
   const before = createMemo(() => standingBefore(props.ordered, takenOf(props.ordered).length))
@@ -67,7 +74,7 @@ export function SupportComposer(props: { readonly draft: PachinkoDraft; readonly
     setSending({ type: "typing" })
   }
   const read = (): Result<Omit<Reading, "at">, readonly ReadingProblem[]> =>
-    step().type === "ending" ? readSupportEnd(form(), before(), phase()) : readRunJackpot(form(), bonuses(), before(), phase())
+    step().type === "ending" ? readSupportEnd(form(), before(), phase(), props.reliefDrive) : readRunJackpot(form(), bonuses(), before(), phase())
   const nudged = (field: ReadingField): boolean => {
     const found = read()
     return nudge.red() && !found.ok && found.error.some((problem) => problem.field === field)
@@ -79,6 +86,7 @@ export function SupportComposer(props: { readonly draft: PachinkoDraft; readonly
   const startEnding = (): void => {
     change({ counter: "", held: ((held) => (held === undefined ? "" : String(held)))(before().held), heldCarried: before().held !== undefined, supported: "", drift: "loss" })
     setStep({ type: "ending" })
+    if (held.form !== undefined) revealAboveTheKeyboard(held.form)
   }
   const stopEnding = (): void => {
     change(readingFrom(phase(), before()))
@@ -108,7 +116,7 @@ export function SupportComposer(props: { readonly draft: PachinkoDraft; readonly
     const after = [...props.ordered, ...checkpoints.value]
     setForm(readingFrom("special", standingBefore(after, takenOf(after).length)))
     setSending({ type: "typing" })
-    toast(reading.value.jackpot.type === "none" && reading.value.held === undefined ? { title: "記録しました", description: COUNT_HAND_LATER } : { title: "記録しました", stays: "glance" })
+    toast({ title: "記録しました", stays: "glance" })
     app.played()
   }
 
@@ -155,14 +163,23 @@ export function SupportComposer(props: { readonly draft: PachinkoDraft; readonly
       </Show>
       <div
         role="status"
-        class="flex h-20 items-center justify-between gap-3 rounded-lg px-4"
-        classList={{ "bg-special-banner text-on-special-banner": phase() === "special", "bg-rapid-banner text-on-rapid-banner": phase() === "rapid" }}
+        class="flex h-20 items-center justify-between gap-3 rounded-lg bg-linear-110 bg-size-[300%_100%] px-4 motion-safe:animate-[sweep_2.4s_linear_infinite]"
+        classList={{
+          "from-special-banner from-43% via-special-banner-glow via-50% to-special-banner to-57% text-on-special-banner": phase() === "special",
+          "from-rapid-banner from-43% via-rapid-banner-glow via-50% to-rapid-banner to-57% text-on-rapid-banner": phase() === "rapid",
+        }}
       >
-        <span class="text-4xl font-black tracking-[0.15em]">{SUPPORT_NAMES[phase()]}</span>
-        <Show when={step().type === "running"}>
+        <span
+          class="text-4xl font-black tracking-[0.15em]"
+          classList={{ "[text-shadow:0_0_0.75rem_var(--special-banner-glow)]": phase() === "special", "[text-shadow:0_0_0.75rem_var(--rapid-banner-glow)]": phase() === "rapid" }}
+        >
+          {props.reliefDrive ? RELIEF_DRIVE_NAME : SUPPORT_NAMES[phase()]}
+        </span>
+        <Show when={step().type === "running" && !props.reliefDrive}>
           <button
             type="button"
-            class="shrink-0 rounded-md border-2 border-current px-3 py-1.5 text-sm font-bold focus-visible:outline-2 focus-visible:outline-focus-ring"
+            class="shrink-0 rounded-md border-2 px-3 py-2 text-sm font-bold shadow-md active:translate-y-px active:shadow-sm focus-visible:outline-2 focus-visible:outline-focus-ring"
+            classList={{ "border-on-special-banner bg-special-banner text-on-special-banner": phase() === "special", "border-on-rapid-banner bg-rapid-banner text-on-rapid-banner": phase() === "rapid" }}
             onClick={() => {
               feelTap()
               void switchPhase()
@@ -176,19 +193,21 @@ export function SupportComposer(props: { readonly draft: PachinkoDraft; readonly
         when={step().type === "ending"}
         fallback={
           <>
-            <div class="flex items-end gap-1">
-              <div class="min-w-0 flex-1">
-                <Select label="ボーナス" placeholder="なし" options={jackpotOptions(bonuses())} value={form().jackpot} invalid={nudge.red() && form().jackpot === NO_JACKPOT} onChange={(jackpot) => change({ jackpot, over: usualOverOf(props.draft, bonuses(), jackpot) })} />
+            <div class="grid grid-cols-2 items-end gap-2">
+              <div class="flex min-w-0 items-end gap-1">
+                <div class="min-w-0 flex-1">
+                  <Select label="ボーナス" placeholder="なし" options={jackpotOptions(bonuses())} value={form().jackpot} invalid={nudge.red() && form().jackpot === NO_JACKPOT} onChange={(jackpot) => change({ jackpot, over: usualOverOf(props.draft, bonuses(), jackpot) })} />
+                </div>
+                <OverButton over={form().over} invalid={nudged("over")} onOver={(over) => change({ over })} onFocus={nudge.settle} />
               </div>
-              <OverButton over={form().over} invalid={nudged("over")} onOver={(over) => change({ over })} onFocus={nudge.settle} />
-              <Button type="submit" class="h-10 shrink-0 px-5" onClick={feelTap}>
-                記録
-              </Button>
-            </div>
-            <div class="flex justify-end">
-              <Button variant="secondary" class="h-10 px-4" onClick={startEnding}>
-                {BACK_TO_REGULAR}
-              </Button>
+              <div class="flex min-w-0 items-end justify-end gap-1">
+                <Button variant="secondary" class="h-10 shrink-0 px-3" onClick={startEnding}>
+                  {BACK_TO_REGULAR}
+                </Button>
+                <Button type="submit" class="h-10 shrink-0 px-5" onClick={feelTap}>
+                  記録
+                </Button>
+              </div>
             </div>
           </>
         }
@@ -202,12 +221,12 @@ export function SupportComposer(props: { readonly draft: PachinkoDraft; readonly
         <Show when={unread()}>
           <p class="text-xs text-negative">{FIELD_PROBLEM_TEXT["not-a-count"]}</p>
         </Show>
-        <div class="flex items-end gap-1">
-          <Button type="submit" class="h-10 shrink-0 px-5" onClick={feelTap}>
-            記録
-          </Button>
+        <div class="flex items-end justify-end gap-1">
           <Button variant="ghost" class="h-10 shrink-0 px-1.5" onClick={stopEnding}>
             やめる
+          </Button>
+          <Button type="submit" class="h-10 shrink-0 px-5" onClick={feelTap}>
+            記録
           </Button>
         </div>
       </Show>

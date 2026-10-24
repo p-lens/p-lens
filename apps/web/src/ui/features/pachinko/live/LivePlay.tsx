@@ -8,7 +8,7 @@ import { jackpotCountingOf, tokenValueOfDraft, type PachinkoDraft, type PlayDraf
 import { consumptionOf, spinPerformanceOf } from "../../../../core/pachinko/consumption"
 import { withReadingsMerged, type Span } from "../../../../core/pachinko/merging"
 import { basisOf, type Basis } from "../../../../core/pachinko/formula"
-import { supportPhaseOf } from "../../../../core/pachinko/reading"
+import { inReliefDrive, supportPhaseOf } from "../../../../core/pachinko/reading"
 import { gaugeNowOf, standingBefore, takenOf } from "../../../../core/pachinko/revision"
 import { parsePlayLog, type Checkpoint, type PlayLogError } from "../../../../core/play-log/checkpoint"
 import { liveSummary, minutesPlayedOf } from "../../../../core/play-log/live"
@@ -220,8 +220,8 @@ export function LivePlay(props: {
                     when={work()}
                     keyed
                     fallback={
-                      <Show when={supportPhaseOf(checkpoints)} keyed fallback={<ReadingComposer draft={props.draft} ordered={checkpoints} revising={undefined} inserting={undefined} onRevised={done} onInsertBefore={insertBefore} />}>
-                        {(phase) => <SupportComposer draft={props.draft} ordered={checkpoints} phase={phase} />}
+                      <Show when={supportPhaseOf(checkpoints)} keyed fallback={<ReadingComposer draft={props.draft} ordered={checkpoints} revising={undefined} inserting={undefined} onRevised={done} onInsertBefore={insertBefore} reliefDrive={reliefDrive()} />}>
+                        {(phase) => <SupportComposer draft={props.draft} ordered={checkpoints} phase={phase} reliefDrive={inReliefDrive(checkpoints)} />}
                       </Show>
                     }
                   >
@@ -239,6 +239,7 @@ export function LivePlay(props: {
                           inserting={doing.type === "inserting" ? { before, at } : undefined}
                           onRevised={done}
                           onInsertBefore={insertBefore}
+                          reliefDrive={undefined}
                         />
                       )
                     }}

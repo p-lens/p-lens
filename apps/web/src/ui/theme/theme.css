@@ -42,7 +42,10 @@
  * on its screen, so that nobody types a regular reading under it: 確変 in a
  * vivid purple (`special-banner`), 時短 in a vivid yellow-green
  * (`rapid-banner`), each brighter than the soft `special` and `rapid` a
- * line of the play is tinted with.
+ * line of the play is tinted with. The bar is a sign and lights up — a
+ * paler shade of its colour (`-glow`) passing across it — while the one
+ * button on it is the colour laid flat, rimmed and raised, so that the
+ * two are never taken for each other.
  *
  * A QR code is black on white in either theme (`qr-…`): a camera reads
  * one so, and not every reader reads it the other way round.
@@ -81,8 +84,10 @@
   --rapid: #86d426;
   --special: #a985f2;
   --special-banner: #8a1cff;
+  --special-banner-glow: #e0a3ff;
   --on-special-banner: #ffffff;
   --rapid-banner: #9cf200;
+  --rapid-banner-glow: #f0ff9a;
   --on-rapid-banner: #0c1405;
   --mark-gold: #c27c0e;
   --mark-red: #e8383e;
@@ -131,8 +136,10 @@
   --rapid: #9be22d;
   --special: #b794f6;
   --special-banner: #9d2bff;
+  --special-banner-glow: #e8b5ff;
   --on-special-banner: #ffffff;
   --rapid-banner: #a8ff00;
+  --rapid-banner-glow: #f5ffb0;
   --on-rapid-banner: #0c1405;
   --mark-gold: #f0a92e;
   --mark-red: #f23f43;
@@ -171,8 +178,10 @@
   --color-rapid: var(--rapid);
   --color-special: var(--special);
   --color-special-banner: var(--special-banner);
+  --color-special-banner-glow: var(--special-banner-glow);
   --color-on-special-banner: var(--on-special-banner);
   --color-rapid-banner: var(--rapid-banner);
+  --color-rapid-banner-glow: var(--rapid-banner-glow);
   --color-on-rapid-banner: var(--on-rapid-banner);
   --color-semipro: var(--semipro);
   --color-semipro-hover: var(--semipro-hover);
@@ -272,6 +281,16 @@
   }
   50% {
     text-shadow: 0 0 0.5rem currentColor;
+  }
+}
+
+/* The 電サポ's bar, lit: the paler shade drawn across it passes slowly from one end to the other, over and over, as a cabinet's own lamps run. */
+@keyframes sweep {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0% 0;
   }
 }
 

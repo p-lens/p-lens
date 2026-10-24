@@ -81,6 +81,19 @@ const SEAT_NAME = "着席"
 
 const isRapidBegan = (checkpoint: Checkpoint): boolean => checkpoint.event?.kind === "rapid-began"
 
+/**
+ * The counter a line shows: none where it read none, nor where it says a
+ * jackpot of a run, or the turn to 時短, at nought — nobody reads the
+ * counter there, and nobody wins on a counter at nought, so nought there
+ * is where the counter stood, kept for the log's order, and not a count.
+ * A 電サポ ended at nought, a 確変 that fell straight away, shows it.
+ */
+const shownCounterOf = (checkpoint: Checkpoint): number | undefined => {
+  const spins = checkpoint.counter?.spins
+  const unread = spins === 0 && (isRapidBegan(checkpoint) || (checkpoint.event?.kind === "jackpot" && (checkpoint.phase ?? "regular") !== "regular"))
+  return unread ? undefined : spins
+}
+
 /** What a line is called before its counter: the seat, the finish, the 電サポ turning to 時短, or the state the cabinet was in. */
 const nameOf = (step: Step): string =>
   step.seat ? SEAT_NAME : isFinish(step.checkpoint) ? FINISH_NAME : isRapidBegan(step.checkpoint) ? PHASE_NAMES.rapid : PHASE_NAMES[step.checkpoint.phase ?? "regular"]
@@ -94,7 +107,7 @@ function Line(props: { readonly step: Step; readonly rate: StretchRate | undefin
         <time class="w-10 shrink-0 text-xs tabular-nums text-text-muted">{checkpoint().at === undefined ? "--:--" : formatMoment(checkpoint().at ?? "").slice(-5)}</time>
         <span class="w-8 shrink-0 text-xs text-text-secondary">{nameOf(props.step)}</span>
         <Show when={!isFinish(checkpoint()) || checkpoint().counter?.spins !== undefined}>
-          <span class="shrink-0 tabular-nums text-text-primary">{checkpoint().counter?.spins === undefined ? "--" : formatCount(checkpoint().counter?.spins ?? 0)} 回転</span>
+          <span class="shrink-0 tabular-nums text-text-primary">{((shown) => (shown === undefined ? "--" : formatCount(shown)))(shownCounterOf(checkpoint()))} 回転</span>
         </Show>
         <Show when={checkpoint().counter?.gauge !== undefined}>
           <span class="shrink-0 text-xs tabular-nums text-text-secondary">遊 {formatCount(checkpoint().counter?.gauge ?? 0)}</span>

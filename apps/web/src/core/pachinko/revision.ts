@@ -160,6 +160,9 @@ export const standingBefore = (ordered: readonly Checkpoint[], index: number): B
  */
 export const gaugeAt = (counterSpins: number, before: Before): number => counterSpins - (before.gaugeOffset ?? 0)
 
+/** The data counter where the 遊タイム comes, given where the play stood: the spins it comes at, with the lead the data counter has over the 遊 counter. */
+export const reliefDriveCounter = (reliefDrive: number, before: Before): number => reliefDrive + (before.gaugeOffset ?? 0)
+
 /** The spins the play's cabinet stands at toward the 遊タイム now: what its 遊 counter shows, said or followed from where it was said. */
 export const gaugeNowOf = (ordered: readonly Checkpoint[]): number => {
   const now = standingBefore(ordered, takenOf(ordered).length)

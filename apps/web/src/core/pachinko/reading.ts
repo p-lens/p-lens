@@ -23,7 +23,7 @@ export interface Reading {
   readonly handsBefore?: readonly ReadingHand[]
   /** The cabinet's own 遊タイム counter as it showed with the data counter, where it was said: from here to the next jackpot, the spins toward the 遊タイム are the data counter's less the difference between them. */
   readonly gauge?: number
-  /** Whether the reading says the 電サポ turned from 確変 to 時短 there: a line with nothing else on it, and never a jackpot's. */
+  /** Whether the reading says the cabinet turned to 時短 there: from 確変, a line with nothing else on it, or from regular games, the 遊タイム reached; never a jackpot's. */
   readonly rapidBegan?: true
 }
 
@@ -74,6 +74,16 @@ export type SupportPhase = Exclude<Phase, "regular">
 export const supportPhaseOf = (ordered: readonly Checkpoint[]): SupportPhase | undefined => {
   const kind = ordered.at(-1)?.event?.kind
   return kind === "jackpot" ? "special" : kind === "rapid-began" ? "rapid" : undefined
+}
+
+/**
+ * Whether the 時短 the cabinet is in is its 遊タイム, with no jackpot since:
+ * the turn to it was made straight from regular games. Ended without one,
+ * the cabinet's 遊 counter starts over where the data counter does not.
+ */
+export const inReliefDrive = (ordered: readonly Checkpoint[]): boolean => {
+  const last = ordered.at(-1)
+  return last?.event?.kind === "rapid-began" && (last.phase ?? "regular") === "regular"
 }
 
 /** Why a reading cannot be added as it stands: the counter shows less than it must by now, so it started over unseen. */

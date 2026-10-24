@@ -157,9 +157,11 @@ export interface Counter {
  * `bonus-missed` is a bonus a CZ's success brought that did not win the
  * AT, told apart from a CZ that failed (`cz-missed`) on a machine whose CZ
  * brings a bonus before the AT.
- * `rapid-began` is a pachinko run of 電サポ turning from 確変 to 時短, said
- * as the person switches its bar: on the spins the line before it was, since
- * nobody reads the counter there, the spins before it having been in 確変.
+ * `rapid-began` is a pachinko cabinet turning to 時短: a run of 電サポ
+ * turning from 確変, said as the person switches its bar — on the spins
+ * the line before it was, since nobody reads the counter there, the spins
+ * before it having been in 確変 — or the 遊タイム reached in regular games,
+ * on a reading of them.
  * `finished` is the play's last line, written as the play is recorded: its
  * `at` is when the play finished, as the person gave it, and it adds nothing
  * to the totals.

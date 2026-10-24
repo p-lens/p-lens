@@ -11,6 +11,12 @@ export const PHASE_NAMES: Readonly<Record<Phase, string>> = { regular: "通常",
 /** The 電サポ's states as its bar shows them while they last. */
 export const SUPPORT_NAMES: Readonly<Record<SupportPhase, string>> = { special: "確変中", rapid: "時短中" }
 
+/** The bar's name while the 時短 is the 遊タイム, with no jackpot since. */
+export const RELIEF_DRIVE_NAME = "遊タイム中"
+
+/** The button beside 記録 that says the 遊タイム was reached at the counter typed. */
+export const RELIEF_DRIVE_REACHED = "遊タイム"
+
 /** The button on the bar that says the 電サポ is in the other state. */
 export const switchToText = (phase: SupportPhase): string => `${PHASE_NAMES[phase]}に切替`
 
@@ -19,9 +25,6 @@ export const BACK_TO_REGULAR = "通常に戻る"
 
 /** What is asked as the 電サポ ends. */
 export const SUPPORT_END_ASKS = "通常に戻ったときの回転数を入力してください。持ち玉は大当りの出玉から見込んだ目安です。数えたら直してください。"
-
-/** What is said where a reading was kept without the balls in hand counted, after a jackpot has changed them. */
-export const COUNT_HAND_LATER = "キリの良いところで、持ち玉を調整ください。"
 
 /** What a jackpot is called where its machine lists no bonuses to say which it was. */
 export const UNTOLD_JACKPOT = "大当り"

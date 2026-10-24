@@ -2,11 +2,11 @@ import { describe, expect, test } from "bun:test"
 
 import { consumptionOf } from "../../../src/core/pachinko/consumption"
 import { withReadingsMerged } from "../../../src/core/pachinko/merging"
-import { checkpointsForRapid, checkpointsForReading, supportPhaseOf, type Reading } from "../../../src/core/pachinko/reading"
-import { standingBefore, takenOf, withReadingRevised } from "../../../src/core/pachinko/revision"
+import { checkpointsForRapid, checkpointsForReading, inReliefDrive, supportPhaseOf, type Reading } from "../../../src/core/pachinko/reading"
+import { gaugeNowOf, reliefDriveCounter, standingBefore, takenOf, withReadingRevised } from "../../../src/core/pachinko/revision"
 import type { PlayTerms } from "../../../src/core/parlor/terms"
 import type { Checkpoint } from "../../../src/core/play-log/checkpoint"
-import { bonusKey, formOfReading, readingFrom, readReadingForm, readRunJackpot, readSupportEnd, saysNothingNew } from "../../../src/ui/features/pachinko/live/reading-form"
+import { bonusKey, formOfReading, readingFrom, readReadingForm, readReliefDrive, readRunJackpot, readSupportEnd, saysNothingNew } from "../../../src/ui/features/pachinko/live/reading-form"
 
 const TEN_ROUNDS = { name: "10R確変", payout: 1500, spent: 100 }
 
@@ -137,12 +137,39 @@ describe("the 電サポ after a pachinko jackpot", () => {
   })
 
   test("asks the counter as it ends, and takes nought, the hand where counted but not the guide left as it is, and what drifted", () => {
-    expect(readSupportEnd({ ...form, counter: "" }, before, "special")).toEqual({ ok: false, error: [{ field: "counter", reason: "required" }] })
-    const single = readSupportEnd({ ...form, counter: "0", held: "", heldCarried: false }, before, "special")
+    expect(readSupportEnd({ ...form, counter: "" }, before, "special", false)).toEqual({ ok: false, error: [{ field: "counter", reason: "required" }] })
+    const single = readSupportEnd({ ...form, counter: "0", held: "", heldCarried: false }, before, "special", false)
     expect(single.ok && [single.value.counterSpins, single.value.held]).toEqual([0, undefined])
-    const guided = readSupportEnd({ ...form, counter: "100", held: "1550", heldCarried: true }, before, "special")
+    const guided = readSupportEnd({ ...form, counter: "100", held: "1550", heldCarried: true }, before, "special", false)
     expect(guided.ok && guided.value.held).toBeUndefined()
-    const read = readSupportEnd({ ...form, counter: "100", held: "1800", heldCarried: false, supported: "40", drift: "loss" }, before, "rapid")
+    const read = readSupportEnd({ ...form, counter: "100", held: "1800", heldCarried: false, supported: "40", drift: "loss" }, before, "rapid", false)
     expect(read.ok && [read.value.counterSpins, read.value.phase, read.value.held, read.value.supported]).toEqual([100, "rapid", 1800, -40])
+  })
+})
+
+describe("the 遊タイム reached in pachinko regular games", () => {
+  const regular = LOG.slice(0, 2)
+  const before = standingBefore(regular, takenOf(regular).length)
+  const form = readingFrom("regular", before)
+  const at = "2026-10-24T12:00:00+09:00"
+
+  test("is read at the counter where it comes, where the counter was left as it stood, and at the counter typed otherwise", () => {
+    const left = readReliefDrive(form, [], before, reliefDriveCounter(500, before))
+    expect(left.ok && [left.value.counterSpins, left.value.phase, left.value.rapidBegan]).toEqual([500, "regular", true])
+    const typed = readReliefDrive({ ...form, counter: "480" }, [], before, reliefDriveCounter(500, before))
+    expect(typed.ok && typed.value.counterSpins).toBe(480)
+  })
+
+  test("turns the cabinet to 時短 as its 遊タイム, and run out leaves the 遊 counter at nought while the data counter goes on", () => {
+    const read = readReliefDrive(form, [], before, 500)
+    const reached = read.ok ? checkpointsForReading(regular, { ...read.value, at }, false) : undefined
+    const entered = reached?.ok ? [...regular, ...reached.value] : regular
+    expect(entered.at(-1)).toMatchObject({ spins: 380, phase: "regular", event: { kind: "rapid-began" } })
+    expect([supportPhaseOf(entered), inReliefDrive(entered)]).toEqual(["rapid", true])
+    const end = readSupportEnd({ ...readingFrom("rapid", standingBefore(entered, takenOf(entered).length)), counter: "600" }, standingBefore(entered, takenOf(entered).length), "rapid", true)
+    const ended = end.ok ? checkpointsForReading(entered, { ...end.value, at }, false) : undefined
+    const after = ended?.ok ? [...entered, ...ended.value] : entered
+    expect(after.at(-1)).toMatchObject({ spins: 480, phase: "rapid", counter: { spins: 600, gauge: 0 } })
+    expect([supportPhaseOf(after), gaugeNowOf(after)]).toEqual([undefined, 0])
   })
 })

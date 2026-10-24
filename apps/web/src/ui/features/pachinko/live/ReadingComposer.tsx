@@ -6,7 +6,7 @@ import type { PachinkoDraft, PlayDraft } from "../../../../core/live-play/draft"
 import { checkpointsForReading, type ReadingRefusal } from "../../../../core/pachinko/reading"
 import { handDriftOf, RECOUNT_AFTER, type HandDrift } from "../../../../core/pachinko/consumption"
 import { rentalPressOf } from "../../../../core/pachinko/rental-press"
-import { standingBefore, takenOf, withReadingInserted, withReadingRemoved, withReadingRevised, type Before, type RevisionRefusal, type Taken } from "../../../../core/pachinko/revision"
+import { reliefDriveCounter, standingBefore, takenOf, withReadingInserted, withReadingRemoved, withReadingRevised, type Before, type RevisionRefusal, type Taken } from "../../../../core/pachinko/revision"
 import { cornerOf, savingsDeductedFor } from "../../../../core/parlor/terms"
 import type { Checkpoint, Phase } from "../../../../core/play-log/checkpoint"
 import { useApp } from "../../../context"
@@ -23,19 +23,19 @@ import { feelTap } from "../../../primitives/vibration"
 import { describeError, describeReadingRefusal } from "../../../wording/errors"
 import { FIELD_PROBLEM_TEXT } from "../../../wording/fields"
 import { amountText } from "../../../wording/numbers"
-import { CHANGED_SINCE_REMOVED, describeRevisionRefusal, PHASE_NAMES, recountText, READING_REMOVED, REMOVAL_TAKEN_BACK, REMOVE_READING, TAKE_BACK, TAKE_BACK_FAILED } from "../../../wording/pachinko/play"
+import { CHANGED_SINCE_REMOVED, describeRevisionRefusal, PHASE_NAMES, recountText, READING_REMOVED, REMOVAL_TAKEN_BACK, REMOVE_READING, RELIEF_DRIVE_REACHED, TAKE_BACK, TAKE_BACK_FAILED } from "../../../wording/pachinko/play"
 import { jackpotOptions, useBonuses, usualOverOf } from "./bonus-choice"
 import { DriftButton } from "./DriftButton"
 import { PressButton } from "./PressButton"
 import { OverButton } from "./OverButton"
-import { formOfReading, readingFrom, readReadingForm, saysNothingNew, withMore, type ReadingField, type ReadingForm } from "./reading-form"
+import { formOfReading, readingFrom, readReadingForm, readReliefDrive, saysNothingNew, withMore, type ReadingField, type ReadingForm } from "./reading-form"
 import { seal } from "../../../../mummer"
 
 /** Where an entry of a reading is: being typed, being kept, refused, or failed to be kept. */
 type Sending =
   | { readonly type: "typing" }
   | { readonly type: "keeping" }
-  | { readonly type: "refused"; readonly refusal: ReadingRefusal }
+  | { readonly type: "refused"; readonly refusal: ReadingRefusal; readonly toReliefDrive: boolean }
   | { readonly type: "unrevisable"; readonly refusal: RevisionRefusal }
   | { readonly type: "failed"; readonly error: ApplicationError }
 
@@ -73,6 +73,8 @@ export function ReadingComposer(props: {
   readonly onRevised: () => void
   /** Asked while a reading is being set right: put one in before it instead. */
   readonly onInsertBefore: (index: number) => void
+  /** The spins the machine's 遊タイム comes at, for a machine with one: a new reading may then say it was reached. */
+  readonly reliefDrive: number | undefined
 }): JSX.Element {
   const app = useApp()
   const bonuses = useBonuses(() => props.draft)
@@ -125,9 +127,9 @@ export function ReadingComposer(props: {
     const found = read()
     return !found.ok && found.error.some((problem) => problem.reason === "went-back")
   }
-  const refusal = (): ReadingRefusal | undefined => {
+  const refusal = (): Extract<Sending, { readonly type: "refused" }> | undefined => {
     const current = sending()
-    return current.type === "refused" ? current.refusal : undefined
+    return current.type === "refused" ? current : undefined
   }
   const unrevisable = (): RevisionRefusal | undefined => {
     const current = sending()
@@ -138,17 +140,21 @@ export function ReadingComposer(props: {
     return current.type === "failed" ? current.error : undefined
   }
 
-  const send = async (missedJackpot: boolean): Promise<void> => {
+  /** The reading as typed, or — as the 遊タイム is reached — the same turning the cabinet to 時短, its counter where the 遊タイム comes where it was left. */
+  const readFor = (toReliefDrive: boolean): ReturnType<typeof read> =>
+    toReliefDrive && props.reliefDrive !== undefined ? readReliefDrive(form(), bonuses(), before(), reliefDriveCounter(props.reliefDrive, before())) : read()
+
+  const send = async (missedJackpot: boolean, toReliefDrive: boolean): Promise<void> => {
     settleTyping()
-    const reading = read()
+    const reading = readFor(toReliefDrive)
     if (sending().type === "keeping") return
-    if (!reading.ok || saysNothingNew(reading.value, before())) {
+    if (!reading.ok || (!toReliefDrive && saysNothingNew(reading.value, before()))) {
       nudge.nudge()
       return
     }
     const checkpoints = checkpointsForReading(props.ordered, { ...reading.value, at: app.services.now() }, missedJackpot)
     if (!checkpoints.ok) {
-      setSending({ type: "refused", refusal: checkpoints.error })
+      setSending({ type: "refused", refusal: checkpoints.error, toReliefDrive })
       return
     }
     setSending({ type: "keeping" })
@@ -231,14 +237,14 @@ export function ReadingComposer(props: {
         event.preventDefault()
         if (props.revising !== undefined) void saveRevision(props.revising)
         else if (props.inserting !== undefined) void saveInsertion(props.inserting)
-        else void send(false)
+        else void send(false, false)
       }}
     >
       <Show when={refusal()} keyed>
         {(refused) => (
           <div role="alert" class="flex flex-wrap items-center gap-2 rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-sm text-text-primary">
-            <span class="flex-1">{describeReadingRefusal(refused)}</span>
-            <Button size="small" variant="secondary" onClick={() => void send(true)}>
+            <span class="flex-1">{describeReadingRefusal(refused.refusal)}</span>
+            <Button size="small" variant="secondary" onClick={() => void send(true, refused.toReliefDrive)}>
               記録漏れの大当りを足して記録
             </Button>
           </div>
@@ -334,9 +340,23 @@ export function ReadingComposer(props: {
               <Show
                 when={props.inserting}
                 fallback={
-                  <Button type="submit" class="h-10 shrink-0 px-5" onClick={feelTap}>
-                    記録
-                  </Button>
+                  <>
+                    <Button type="submit" class="h-10 shrink-0 px-5" onClick={feelTap}>
+                      記録
+                    </Button>
+                    <Show when={props.reliefDrive !== undefined}>
+                      <Button
+                        variant="secondary"
+                        class="h-10 shrink-0 px-2"
+                        onClick={() => {
+                          feelTap()
+                          void send(false, true)
+                        }}
+                      >
+                        {RELIEF_DRIVE_REACHED}
+                      </Button>
+                    </Show>
+                  </>
                 }
               >
                 <Button type="submit" class="h-10 shrink-0 px-3">
