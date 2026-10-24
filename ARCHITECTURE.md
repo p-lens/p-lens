@@ -614,11 +614,11 @@ then deletes the draft; a record the book refuses keeps it.
 - **A bonus pays what is said of it, or what was counted** (`gainOf`,
   `countedPayoutsOf`, `payoutDifferencesOf`, `payoutRatioOf`): a bonus
   adds to the hand what its machine lists and what the person says it
-  paid beyond that (`BonusWon.over`, 出玉差, behind the [差] button after
+  paid beyond that (`BonusWon.over`, 過出玉, behind the [超] button after
   the bonus list, always there) — the hand carried on, the spin performance and the
   rest all take it so. Where the person keeps a usual over-entry at the
   cabinet (`overEntry`, balls a round, on the cabinet screen), a bonus
-  chosen comes with its 出玉差 filled in by it, over the rounds the bonus
+  chosen comes with its 過出玉 filled in by it, over the rounds the bonus
   pays for. A jackpot counted as it came, followed at once by a line that
   only counts the balls again — no spin, nothing bought, drawn or drifted
   — paid the difference between the two counts, whatever was said: what

@@ -160,7 +160,7 @@ export function Combobox(props: {
             setComposing(false)
             setTyped(event.currentTarget.value)
           }}
-          class="h-10 min-w-0 flex-1 px-3 text-text-primary outline-none placeholder:text-text-muted"
+          class="h-10 min-w-0 flex-1 px-3 text-base text-text-primary outline-none placeholder:text-text-muted"
           classList={{ "rounded-[3px] bg-accent/30 caret-transparent": over.waiting(), "bg-transparent": !over.waiting() }}
         />
         <ComboboxPrimitive.Trigger class="px-3 text-text-muted">

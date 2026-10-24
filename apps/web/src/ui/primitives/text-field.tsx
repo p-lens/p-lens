@@ -41,6 +41,11 @@ export const settleTyping = (): void => {
  * is told so may empty the field while the person is away at another site
  * — WebKit does — though what the field holds is still held here: so
  * whenever the page is before the person again, the field is written back.
+ *
+ * What is typed is drawn at 16px wherever the field is put, never at the
+ * size around it: a phone's Safari zooms in on a field of smaller type as
+ * it takes the focus, and inside a dialog, which holds the page still,
+ * the person is left zoomed in with no way back out.
  */
 export function TextField(props: {
   readonly label: string
@@ -167,7 +172,7 @@ export function TextField(props: {
             over.onKeyDown(event)
             if (event.key === "Enter") flush()
           }}
-          class="h-10 min-w-0 flex-1 text-text-primary outline-none placeholder:text-text-muted"
+          class="h-10 min-w-0 flex-1 text-base text-text-primary outline-none placeholder:text-text-muted"
           classList={{ "px-3": props.compact !== true, "px-2 tabular-nums": props.compact === true, "rounded-[3px] bg-accent/30 caret-transparent": over.waiting(), "bg-transparent": !over.waiting(), "[-webkit-text-security:disc]": props.masked === true }}
         />
         <Show when={props.suffix}>

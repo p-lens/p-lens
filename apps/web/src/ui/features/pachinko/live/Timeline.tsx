@@ -66,7 +66,7 @@ const ballsText = (step: Step): string =>
     step.replayed > 0 ? `貯玉 ${amountText(seal.play(step.replayed))}玉` : undefined,
     step.supported !== 0 ? `電サポ ${signedBalls(seal.play(step.supported))}` : undefined,
     step.checkpoint.held === undefined ? undefined : `持ち玉 ${amountText(seal.play(step.checkpoint.held))}玉`,
-    step.overPaid === undefined ? undefined : `出玉差 ${signedBalls(seal.play(step.overPaid))}`,
+    step.overPaid === undefined ? undefined : `過出玉 ${signedBalls(seal.play(step.overPaid))}`,
   ]
     .filter((text): text is string => text !== undefined)
     .join("　")

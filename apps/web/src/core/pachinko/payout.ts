@@ -53,7 +53,7 @@ export const countedPayoutsOf = (ordered: readonly Checkpoint[]): readonly Count
 /** What the counted bonuses paid beyond what was said of them, by the line each was counted at: below nought where they paid less. What came to hand there beyond the bonus's gain as said. */
 export const payoutDifferencesOf = (ordered: readonly Checkpoint[]): ReadonlyMap<number, number> => new Map(countedPayoutsOf(ordered).map((counted) => [counted.line, counted.paid - counted.said]))
 
-/** What the counted bonuses paid beyond what their machine lists, by the line each was counted at: the 出玉差 the line shows. */
+/** What the counted bonuses paid beyond what their machine lists, by the line each was counted at: the 過出玉 the line shows. */
 export const overPaidOf = (ordered: readonly Checkpoint[]): ReadonlyMap<number, number> => new Map(countedPayoutsOf(ordered).map((counted) => [counted.line, counted.paid - counted.told]))
 
 const ratioOf = (paid: number, told: number): number | undefined => (told > 0 && paid > 0 ? paid / told : undefined)
