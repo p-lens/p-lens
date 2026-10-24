@@ -1,4 +1,4 @@
-import type { EstimateSummaryDto, HyenaHuntSummaryDto, InferenceSummaryDto } from "@p-lens/contracts/pachinko"
+import type { EstimateSummaryDto, HyenaHuntSummaryDto, InferenceSummaryDto, SunkSummaryDto } from "@p-lens/contracts/pachinko"
 
 import { Err, Ok, type Result } from "../../core/result/result"
 import type {
@@ -12,6 +12,7 @@ import type {
   RunEvent,
   SimulationEvent,
   SimulationOrder,
+  SunkOrder,
   ToWorker,
 } from "../protocol/messages"
 
@@ -34,6 +35,8 @@ export interface EngineClient {
   readonly hyenaHunt: (order: HyenaHuntOrder, onEvent: (event: RunEvent<HyenaHuntSummaryDto>) => void) => RunningRun
   /** A play told of afterwards weighed for its spin performance on this device, reported as it goes and stoppable. */
   readonly infer: (order: InferenceOrder, onEvent: (event: RunEvent<InferenceSummaryDto>) => void) => RunningRun
+  /** ハマり台の投資額: a counter's day played out on this device, reported as it goes and stoppable. */
+  readonly sunk: (order: SunkOrder, onEvent: (event: RunEvent<SunkSummaryDto>) => void) => RunningRun
 }
 
 type Listener = (message: FromWorker) => void
@@ -140,5 +143,8 @@ export const createEngineClient = (spawn: () => Worker): EngineClient => {
   const infer: EngineClient["infer"] = (order, onEvent) =>
     chunked((id) => ({ type: "infer", id, order }), (message) => (message.type === "inference" ? message.event : undefined), failed, onEvent)
 
-  return { call, simulate, estimate, hyenaHunt, infer }
+  const sunk: EngineClient["sunk"] = (order, onEvent) =>
+    chunked((id) => ({ type: "sunk", id, order }), (message) => (message.type === "sunk" ? message.event : undefined), failed, onEvent)
+
+  return { call, simulate, estimate, hyenaHunt, infer, sunk }
 }

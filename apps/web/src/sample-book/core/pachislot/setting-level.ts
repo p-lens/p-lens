@@ -1,4 +1,4 @@
-import type { SettingLevelFigures } from "../../pachislot/figures"
+import type { SettingLevelFigures } from "../../../core/pachislot/figures"
 import { weighted, type Draws, type Drawn } from "../draws"
 
 /** The setting levels a sample book's pachislot is played at: the high ones, 4 to 6. */

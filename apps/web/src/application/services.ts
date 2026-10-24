@@ -28,7 +28,7 @@ import type { DestinationStore } from "../sync/port/destination-store"
 import type { InvitationStore } from "../sync/port/invitation-store"
 import type { Packer } from "../sync/port/packer"
 import type { SyncPorts } from "./sync"
-import type { SampleMaker } from "../sample-book/port/sample-maker"
+import type { SampleMaker } from "../sample-book"
 
 /**
  * Everything the screens are handed: the session every use case runs in, the

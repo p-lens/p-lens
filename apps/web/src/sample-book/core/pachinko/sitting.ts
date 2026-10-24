@@ -1,5 +1,5 @@
-import type { Figures } from "../../pachinko/figures"
-import { borderOf, theoreticalValueOf } from "../../pachinko/theoretical-value"
+import type { Figures } from "../../../core/pachinko/figures"
+import { borderOf, theoreticalValueOf } from "../../../core/pachinko/theoretical-value"
 import { chance, exponential, triesToWin, type Draws, type Drawn } from "../draws"
 import type { Leaving, Sitting, SittingTerms, Stretch } from "../sitting"
 import { spinMarginOf } from "./spin-margin"

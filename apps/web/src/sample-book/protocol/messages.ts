@@ -1,5 +1,5 @@
-import type { SampleWork } from "../../core/sample-book/book"
-import type { DayProblem } from "../../core/sample-book/day"
+import type { SampleWork } from "../core/book"
+import type { DayProblem } from "../core/day"
 import type { DaysMade, Played } from "../port/sample-maker"
 
 /** What the page asks the sample book's worker: play these days. */

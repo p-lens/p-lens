@@ -1,7 +1,7 @@
 # 負荷テストの記録
 
 連結（連結会計）を有効にした人が、たくさんの帳簿を何年分も持ったときに、アプリが落ちずに動くか、どれだけ時間がかかるかの記録です。
-帳簿は `core/sample-book` の作成器で作った、それらしい収支です（機種と店は `tests/sample-book/fixtures.ts`）。
+帳簿は `sample-book/core` の作成器で作った、それらしい収支です（機種と店は `tests/sample-book/fixtures.ts`）。
 
 ## まとめ
 
@@ -76,9 +76,9 @@ window.__made = { state: "running", started: performance.now(), progress: 0 };
   try {
     const { books: BOOKS, people: PEOPLE } = window.__shape
     const S = await import("/src/app/composition/services.ts")
-    const B = await import("/src/core/sample-book/book.ts")
-    const P = await import("/src/core/sample-book/parlors.ts")
-    const D = await import("/src/core/sample-book/draws.ts")
+    const B = await import("/src/sample-book/core/book.ts")
+    const P = await import("/src/sample-book/core/parlors.ts")
+    const D = await import("/src/sample-book/core/draws.ts")
     const F = await import("/tests/sample-book/fixtures.ts")
     const FB = await import("/src/app/composition/first-book.ts")
     const RT = await import("/src/application/record-tally.ts")

@@ -1,6 +1,6 @@
-import type { SampleProblem } from "../../application/sample-book/make-sample-book"
-import { describeTitleProblem } from "./book"
-import { formatCount } from "./numbers"
+import type { SampleProblem } from "../application/make-sample-book"
+import { describeTitleProblem } from "../../ui/wording/book"
+import { formatCount } from "../../ui/wording/numbers"
 
 /** Lines of one kind, and how often a line of that kind is said against the others. */
 export interface SaidSometimes {

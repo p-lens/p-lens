@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test"
 import { readdir, readFile } from "node:fs/promises"
+import { relative } from "node:path"
 
-const UI = new URL("../../src/ui/", import.meta.url).pathname
+import { SCREENS } from "../support/screens"
+
+const WEB = new URL("../../", import.meta.url).pathname
+const UI = `${WEB}src/ui/`
 
 /** The words' own home: where amounts are worked into text, and the one place that may. */
 const NUMBERS = "wording/numbers.ts"
@@ -12,8 +16,10 @@ const MACHINE_FIGURES = ["features/pachinko/formulas/", "features/pachislot/form
 /** A count beside 円 that is no one's money: a step to choose prizes by, and the one chosen. */
 const STEPS = ["formatCount(each)", "formatCount(app.services.preferences.stageStep())"] as const
 
+/** Every screen's source, wherever it is, by its path from `src/ui/`: a walled-off feature's as `../its-folder/ui/…`. */
 const sources = async (): Promise<readonly { readonly path: string; readonly text: string }[]> => {
-  const paths = (await readdir(UI, { recursive: true })).filter((path) => /\.(ts|tsx)$/.test(path) && path !== NUMBERS)
+  const files = (await Promise.all(SCREENS.map(async (screens) => (await readdir(`${WEB}${screens}`, { recursive: true })).map((path) => `${WEB}${screens}${path}`)))).flat()
+  const paths = files.map((file) => relative(UI, file)).filter((path) => /\.(ts|tsx)$/.test(path) && path !== NUMBERS)
   return Promise.all(paths.map(async (path) => ({ path, text: await readFile(`${UI}${path}`, "utf8") })))
 }
 

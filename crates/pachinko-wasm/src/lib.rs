@@ -5,6 +5,7 @@
 pub mod api;
 mod convert;
 pub mod dto;
+pub mod sunk;
 
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -41,4 +42,9 @@ pub fn inference_chunk(request: &str) -> String {
 #[wasm_bindgen(js_name = hyenaHuntTable)]
 pub fn hyena_hunt_table(request: &str) -> String {
     api::hyena_hunt_table(request)
+}
+
+#[wasm_bindgen(js_name = sunkChunk)]
+pub fn sunk_chunk(request: &str) -> String {
+    sunk::sunk_chunk(request)
 }

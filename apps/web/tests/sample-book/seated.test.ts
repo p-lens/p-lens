@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { seatsAt } from "../../src/core/sample-book/pachinko"
+import { seatsAt } from "../../src/sample-book/core/pachinko"
 import { PACHINKO_SEAT } from "./fixtures"
 
 const figuresAt = (roundChanceOneIn: number, payoutPerRound: number) => ({ ...PACHINKO_SEAT.figures, roundChanceOneIn, payoutPerRound })

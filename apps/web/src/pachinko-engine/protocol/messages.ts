@@ -3,6 +3,7 @@ import type {
   AnalyzeRequest,
   BeliefDto,
   ConditionsDto,
+  CounterDto,
   EngineErrorDto,
   EstimateSummaryDto,
   HyenaHuntRowDto,
@@ -13,6 +14,7 @@ import type {
   PlayDto,
   SourceDto,
   SummaryDto,
+  SunkSummaryDto,
   ToldDto,
 } from "@p-lens/contracts/pachinko"
 
@@ -57,6 +59,18 @@ export interface HyenaHuntOrder {
   readonly seed: string
 }
 
+/** ハマり台の投資額 as the screen asks for it: a counter's day played out so many times from a seed, until enough match it; the worker decides the chunks. */
+export interface SunkOrder {
+  readonly source: SourceDto
+  readonly conditions: ConditionsDto
+  readonly counter: CounterDto
+  readonly spinPerformance: number
+  readonly rentedPerThousand: number
+  readonly trials: number
+  readonly enough: number
+  readonly seed: string
+}
+
 /** Why the engine could not be reached at all, as opposed to refusing an input. */
 export type WorkerTrouble = { readonly type: "engine-unavailable"; readonly detail: string }
 
@@ -78,6 +92,7 @@ export type ToWorker =
   | { readonly type: "estimate"; readonly id: number; readonly order: EstimateOrder }
   | { readonly type: "hyena-hunt"; readonly id: number; readonly order: HyenaHuntOrder }
   | { readonly type: "infer"; readonly id: number; readonly order: InferenceOrder }
+  | { readonly type: "sunk"; readonly id: number; readonly order: SunkOrder }
   | { readonly type: "cancel"; readonly id: number }
 
 /** What a chunked run reports, in the order it happens. */
@@ -98,3 +113,4 @@ export type FromWorker =
   | { readonly type: "estimate"; readonly id: number; readonly event: RunEvent<EstimateSummaryDto> }
   | { readonly type: "hyena-hunt"; readonly id: number; readonly event: RunEvent<HyenaHuntSummaryDto> }
   | { readonly type: "inference"; readonly id: number; readonly event: RunEvent<InferenceSummaryDto> }
+  | { readonly type: "sunk"; readonly id: number; readonly event: RunEvent<SunkSummaryDto> }

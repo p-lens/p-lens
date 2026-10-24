@@ -5,7 +5,7 @@ import { RANDOM_BYTES, formatUuidV7 } from "@p-lens/uuidv7"
 import type { IsoDate } from "../../core/calendar/calendar"
 import type { Entry } from "../../core/journal/entry"
 import type { PlayId } from "../../core/play/play"
-import { NOTHING_TALLIED, madeAll, makingOf, nextDayOf, withDay, type Making, type SampleOrder, type Tallied } from "../../core/sample-book/book"
+import { NOTHING_TALLIED, madeAll, makingOf, nextDayOf, withDay, type Making, type SampleOrder, type Tallied } from "../core/book"
 import type { SampleCall, SampleMessage } from "../protocol/messages"
 
 /**

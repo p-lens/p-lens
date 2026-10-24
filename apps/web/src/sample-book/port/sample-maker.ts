@@ -1,8 +1,8 @@
 import type { IsoDate } from "../../core/calendar/calendar"
 import type { Entry } from "../../core/journal/entry"
 import type { Result } from "../../core/result/result"
-import type { SampleWork, Tallied } from "../../core/sample-book/book"
-import type { DayProblem } from "../../core/sample-book/day"
+import type { SampleWork, Tallied } from "../core/book"
+import type { DayProblem } from "../core/day"
 
 /** A day of a sample book as it is told while it is made: when, where, and at which machines. */
 export interface DaySeen {

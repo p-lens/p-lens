@@ -1,4 +1,4 @@
-import { leadingGraphemesOf } from "../text/leading-graphemes"
+import { leadingGraphemesOf } from "../../core/text/leading-graphemes"
 
 /** What a sample book is called after its picture. */
 const SAMPLE = "サンプル帳簿"

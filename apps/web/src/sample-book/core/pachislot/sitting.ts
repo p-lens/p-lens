@@ -1,4 +1,4 @@
-import type { SettingLevelFigures } from "../../pachislot/figures"
+import type { SettingLevelFigures } from "../../../core/pachislot/figures"
 import { chance, exponential, triesToWin, type Draws, type Drawn } from "../draws"
 import type { Leaving, Sitting, SittingTerms, Stretch } from "../sitting"
 import { settingLevelOf } from "./setting-level"

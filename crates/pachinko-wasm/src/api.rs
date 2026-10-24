@@ -22,7 +22,7 @@ use crate::dto::{
     SourceDto,
 };
 
-fn parse<T: DeserializeOwned>(json: &str) -> Result<T, ErrorDto> {
+pub(crate) fn parse<T: DeserializeOwned>(json: &str) -> Result<T, ErrorDto> {
     serde_json::from_str(json).map_err(|error| ErrorDto::MalformedRequest {
         detail: error.to_string(),
     })
@@ -30,7 +30,7 @@ fn parse<T: DeserializeOwned>(json: &str) -> Result<T, ErrorDto> {
 
 /// The envelope as JSON. Serialising these types cannot fail; were it ever to,
 /// the answer is still an envelope, never a panic across the boundary.
-fn reply<T: Serialize>(result: Result<T, ErrorDto>) -> String {
+pub(crate) fn reply<T: Serialize>(result: Result<T, ErrorDto>) -> String {
     serde_json::to_string(&Envelope::from(result)).unwrap_or_else(|error| {
         format!(
             r#"{{"ok":false,"error":{{"type":"malformed-request","detail":{}}}}}"#,
@@ -39,7 +39,7 @@ fn reply<T: Serialize>(result: Result<T, ErrorDto>) -> String {
     })
 }
 
-fn source(source: &SourceDto) -> Result<NormalizedSpec, ErrorDto> {
+pub(crate) fn source(source: &SourceDto) -> Result<NormalizedSpec, ErrorDto> {
     match source {
         SourceDto::Spec { spec } => {
             normalise(&convert::spec(spec)?).map_err(|error| convert::spec_error_dto(&error))
@@ -107,7 +107,7 @@ fn estimation(request: &EstimateRequest) -> Result<EstimateResponse, ErrorDto> {
     })
 }
 
-fn positive_count(value: u64, field: &str) -> Result<NonZeroU64, ErrorDto> {
+pub(crate) fn positive_count(value: u64, field: &str) -> Result<NonZeroU64, ErrorDto> {
     NonZeroU64::new(value).ok_or_else(|| ErrorDto::InvalidValue {
         field: field.to_owned(),
     })

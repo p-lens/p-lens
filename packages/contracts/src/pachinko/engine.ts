@@ -426,4 +426,5 @@ export type EngineErrorDto =
 export type Envelope<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: EngineErrorDto }
 
 export type * from "./catalog.ts"
+export type * from "./sunk.ts"
 export { bonusShapesOf, jackpotsOf, roundsOf, type BonusRounds, type BonusShape } from "./bonuses.ts"

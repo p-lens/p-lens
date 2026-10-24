@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test"
 import { readdir, readFile } from "node:fs/promises"
 import { dirname, resolve } from "node:path"
 
+import { SCREENS, WALLED } from "./support/screens"
+
 const WEB = new URL("../", import.meta.url).pathname
 const SHELL = new URL("../../../packages/solid-gathering-shell/src/", import.meta.url).pathname
 
@@ -30,6 +32,9 @@ const offending = async (directory: string, forbidden: RegExp): Promise<readonly
   )
   return found.flat()
 }
+
+/** Every import from the screens, wherever they are, that `forbidden` matches. */
+const screensOffending = async (forbidden: RegExp): Promise<readonly string[]> => (await Promise.all(SCREENS.map((screens) => offending(`${WEB}${screens}`, forbidden)))).flat()
 
 describe("what a source reaches", () => {
   test("is every import and export from another, written any way, and nothing else", () => {
@@ -65,7 +70,7 @@ describe("dependency direction", () => {
   })
 
   test("neither game imports the other", async () => {
-    const packagesOf = (game: string): readonly string[] => [`core/${game}`, `application/${game}`, `${game}-engine`, `ui/features/${game}`, `ui/wording/${game}`]
+    const packagesOf = (game: string): readonly string[] => [`core/${game}`, `application/${game}`, `${game}-engine`, `ui/features/${game}`, `ui/wording/${game}`, `sample-book/core/${game}`]
     const crossing = async (game: string, other: string): Promise<readonly string[]> =>
       (await Promise.all(packagesOf(game).map((layer) => offending(`${WEB}src/${layer}/`, new RegExp(`(^|/)${other}(-engine)?(/|$)`))))).flat()
     expect([...(await crossing("pachinko", "pachislot")), ...(await crossing("pachislot", "pachinko"))]).toEqual([])
@@ -85,7 +90,7 @@ describe("dependency direction", () => {
 
   test("screens reach storage and hledger only through the application, naming at most a port's types", async () => {
     expect(
-      await offending(`${WEB}src/ui/`, /\/(app|pwa)\/|storage\/(?!port\/)|history\/(?!port\/)|hledger\/(client|worker)|pachinko-engine\/worker|reasoning\/(worker|pachinko)|sync\/(http|local|web-crypto)|(?<!core\/)backup\/(?!port\/)|preferences\/local|onboarding\/local|pachislot-engine\/worker|(?<!core\/)(catalog|parlors)\/(local|jsonl|absent|http|delivered)|location\/browser|@p-lens\/pachinko-engine/),
+      await screensOffending(/\/(app|pwa)\/|storage\/(?!port\/)|history\/(?!port\/)|hledger\/(client|worker)|pachinko-engine\/worker|reasoning\/(worker|pachinko)|sync\/(http|local|web-crypto)|(?<!core\/)backup\/(?!port\/)|preferences\/local|onboarding\/local|pachislot-engine\/worker|(?<!core\/)(catalog|parlors)\/(local|jsonl|absent|http|delivered)|location\/browser|@p-lens\/pachinko-engine/),
     ).toEqual([])
   })
 
@@ -127,7 +132,7 @@ describe("dependency direction", () => {
 
   test("nothing drawn turns a control off, a screen or a primitive under it or the shell: a press that cannot go ahead nudges what it waits on, or is passed over", async () => {
     const drawn = async (root: string): Promise<readonly string[]> => (await readdir(root, { recursive: true })).filter((path) => path.endsWith(".tsx")).map((path) => `${root}${path}`)
-    const files = [...(await drawn(`${WEB}src/ui/`)), ...(await drawn(SHELL))]
+    const files = [...(await Promise.all(SCREENS.map((screens) => drawn(`${WEB}${screens}`)))).flat(), ...(await drawn(SHELL))]
     const texts = await Promise.all(files.map((file) => readFile(file, "utf8")))
     expect(files.filter((_, index) => /\sdisabled[={\s]/.test(texts[index] ?? ""))).toEqual([])
   })
@@ -142,9 +147,17 @@ describe("dependency direction", () => {
     expect(await offending(`${WEB}src/mummer/`, /^(?!solid-js$|\.\/)/)).toEqual([])
     const outside = (await Promise.all(["app", "application", "core", "hledger", "sync", "storage", "preferences", "backup", "catalog", "parlors", "unhatched-egg"].map((layer) => offending(`${WEB}src/${layer}/`, /(^|\/)mummer(\/|$)/)))).flat()
     expect(outside).toEqual([])
-    const screens = await sourcesUnder(`${WEB}src/ui/`)
+    const screens = (await Promise.all(SCREENS.map((under) => sourcesUnder(`${WEB}${under}`)))).flat()
     const inside = (await Promise.all(screens.map(async (file) => (await importsOf(file)).filter((name) => name.startsWith(".")).map((name) => resolve(dirname(file), name)).filter((path) => path.startsWith(`${WEB}src/mummer/`)).map((path) => `${file.replace(WEB, "")} -> ${path.replace(WEB, "")}`)))).flat()
     expect(inside).toEqual([])
+  })
+
+  test.each([...WALLED])("%s is reached only through its index, and keeps the layers inside it", async (walled) => {
+    const outside = (await sourcesUnder(`${WEB}src/`)).filter((file) => !file.startsWith(`${WEB}src/${walled}/`))
+    const reaching = (await Promise.all(outside.map(async (file) => (await importsOf(file)).filter((name) => new RegExp(`(^|/)${walled}/.`).test(name)).map((name) => `${file.replace(WEB, "")} -> ${name}`)))).flat()
+    expect(reaching).toEqual([])
+    expect(await offending(`${WEB}src/${walled}/core/`, /^solid-js|^@kobalte|^@solidjs|^\.\.\/(client|worker|protocol)\/|\/(application|ui|app|storage|history|sync|pwa)\/|hledger\/(client|worker|query)/)).toEqual([])
+    expect(await offending(`${WEB}src/${walled}/application/`, /^solid-js|^@kobalte|^\.\.\/(client|worker)\/|\/(ui|app|pwa)\/|storage\/browser|history\/adapters|hledger\/worker/)).toEqual([])
   })
 
   test("the shell package knows nothing of P-Lens", async () => {

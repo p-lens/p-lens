@@ -700,7 +700,9 @@ pub fn solve_error_dto(error: SolveError) -> ErrorDto {
     }
 }
 
-fn generator(rng: &[String; 4]) -> Result<Rng, ErrorDto> {
+/// # Errors
+/// When the carried generator is not one this adapter wrote.
+pub fn generator(rng: &[String; 4]) -> Result<Rng, ErrorDto> {
     let [a, b, c, d] = rng;
     let state = [
         word(a, "progress.rng[0]")?,
@@ -773,7 +775,9 @@ fn amount(value: f64, field: &str) -> Result<f64, ErrorDto> {
         .ok_or_else(|| invalid(field))
 }
 
-fn positive(value: f64, field: &str) -> Result<f64, ErrorDto> {
+/// # Errors
+/// When the value is not a finite figure above nothing.
+pub fn positive(value: f64, field: &str) -> Result<f64, ErrorDto> {
     (value.is_finite() && value > 0.0)
         .then_some(value)
         .ok_or_else(|| invalid(field))

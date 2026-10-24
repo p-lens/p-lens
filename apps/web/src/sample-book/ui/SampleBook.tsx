@@ -2,19 +2,19 @@ import * as DialogPrimitive from "@kobalte/core/dialog"
 import { createEffect, createSignal, For, Index, Match, on, onCleanup, Show, Switch, type Accessor, type JSX } from "solid-js"
 import type { RailItem } from "solid-gathering-shell"
 
-import { makeSampleBook, type SampleEnd, type SampleReport } from "../../../application/sample-book/make-sample-book"
-import type { BookId } from "../../../core/book/book"
-import { previousDay } from "../../../core/calendar/calendar"
-import { decimal } from "../../../core/decimal/decimal"
-import { sampleTitleOf } from "../../../core/sample-book/title"
-import { useApp } from "../../context"
-import { useMoves } from "../../navigation/moves"
-import { Button } from "../../primitives/button"
-import { DiceIcon } from "../../primitives/icons"
-import { toast } from "../../primitives/toast"
-import { formatDay } from "../../wording/dates"
-import { describeError } from "../../wording/errors"
-import { formatSignedYen, toneOf } from "../../wording/numbers"
+import { makeSampleBook, type SampleEnd, type SampleReport } from "../application/make-sample-book"
+import type { BookId } from "../../core/book/book"
+import { previousDay } from "../../core/calendar/calendar"
+import { decimal } from "../../core/decimal/decimal"
+import { sampleTitleOf } from "../core/title"
+import { useApp } from "../../ui/context"
+import { useMoves } from "../../ui/navigation/moves"
+import { Button } from "../../ui/primitives/button"
+import { DiceIcon } from "../../ui/primitives/icons"
+import { toast } from "../../ui/primitives/toast"
+import { formatDay } from "../../ui/wording/dates"
+import { describeError } from "../../ui/wording/errors"
+import { formatSignedYen, toneOf } from "../../ui/wording/numbers"
 import {
   CLOSE,
   describeSampleProblem,
@@ -45,9 +45,9 @@ import {
   THEORETICAL_LABEL,
   writingText,
   type SaidSometimes,
-} from "../../wording/sample-book"
-import { seal } from "../../../mummer"
-import { parlorNameText } from "../../wording/parlor"
+} from "./wording"
+import { seal } from "../../mummer"
+import { parlorNameText } from "../../ui/wording/parlor"
 
 const TONES = {
   positive: "text-positive",

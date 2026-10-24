@@ -11,9 +11,11 @@ import type {
   ProgressDto,
   SimulateRequest,
   SimulateResponse,
+  SunkRequest,
+  SunkResponse,
 } from "@p-lens/contracts/pachinko"
 
-import type { Call, FromWorker, EngineFailure, EstimateOrder, HyenaHuntOrder, InferenceOrder, RunEvent, SimulationOrder, ToWorker } from "../protocol/messages"
+import type { Call, FromWorker, EngineFailure, EstimateOrder, HyenaHuntOrder, InferenceOrder, RunEvent, SimulationOrder, SunkOrder, ToWorker } from "../protocol/messages"
 
 /**
  * The pachinko engine runs here, never on the page's thread: a Monte Carlo
@@ -140,6 +142,15 @@ const infer = async (id: number, order: InferenceOrder): Promise<void> => {
   )
 }
 
+const sunk = async (id: number, order: SunkOrder): Promise<void> => {
+  const run = await engine()
+  await runInChunks<SunkResponse>(
+    id,
+    (chunk, progress) => run.sunkChunk(JSON.stringify({ ...order, chunk, ...progressOf(progress) } satisfies SunkRequest)),
+    (event) => post({ type: "sunk", id, event }),
+  )
+}
+
 const answer = async (id: number, call: Call, request: unknown): Promise<void> => {
   const run = await engine()
   const reply = opened<unknown>(run[call](JSON.stringify(request)))
@@ -158,6 +169,8 @@ const failedAs = (message: ToWorker, failure: EngineFailure): FromWorker | undef
       return { type: "hyena-hunt", id: message.id, event: { type: "failed", failure } }
     case "infer":
       return { type: "inference", id: message.id, event: { type: "failed", failure } }
+    case "sunk":
+      return { type: "sunk", id: message.id, event: { type: "failed", failure } }
     case "cancel":
       return undefined
   }
@@ -176,7 +189,9 @@ self.onmessage = (event: MessageEvent<ToWorker>): void => {
             ? hyenaHunt(message.id, message.order)
             : message.type === "infer"
               ? infer(message.id, message.order)
-              : Promise.resolve(void cancelled.add(message.id))
+              : message.type === "sunk"
+                ? sunk(message.id, message.order)
+                : Promise.resolve(void cancelled.add(message.id))
   work.catch((cause: unknown) => {
     const failure = failedAs(message, unavailable(cause))
     if (failure !== undefined) post(failure)

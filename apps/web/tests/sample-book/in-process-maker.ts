@@ -2,7 +2,7 @@ import type { IsoDate } from "../../src/core/calendar/calendar"
 import type { Entry } from "../../src/core/journal/entry"
 import type { PlayId } from "../../src/core/play/play"
 import { Err, Ok } from "../../src/core/result/result"
-import { NOTHING_TALLIED, madeAll, makingOf, nextDayOf, withDay, type Making, type SampleOrder, type Tallied } from "../../src/core/sample-book/book"
+import { NOTHING_TALLIED, madeAll, makingOf, nextDayOf, withDay, type Making, type SampleOrder, type Tallied } from "../../src/sample-book/core/book"
 import type { SampleMaker } from "../../src/sample-book/port/sample-maker"
 
 /** The days played in this process, as the worker plays them, each play's id counted from one. */

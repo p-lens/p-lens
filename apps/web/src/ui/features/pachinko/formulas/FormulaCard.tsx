@@ -49,12 +49,18 @@ export function FormulaCard(props: {
   readonly onHelp: () => void
   readonly onToggleFavorite: () => void
   readonly onUse?: () => void
+  /**
+   * What is put beside 「これを使う」, where a screen has something more to
+   * do with the formula: on a phone above it, at the right of the figures,
+   * and wider at its left.
+   */
+  readonly besideFigures?: JSX.Element
 }): JSX.Element {
   const figures = (): FormulaListing<Formula>["formula"]["figures"] => props.listing.formula.figures
   const filled = (mark: Mark): boolean => isMine(mark, props.mine, props.favorite)
   return (
-    <article class="flex flex-col gap-2 rounded-lg border border-border px-4 py-3" classList={{ "border-accent bg-accent/5": props.reason !== undefined }}>
-      <header class="flex items-center gap-2">
+    <article class="grid grid-cols-[1fr_auto] items-center gap-2 rounded-lg border border-border px-4 py-3 sm:grid-cols-[1fr_auto_auto]" classList={{ "border-accent bg-accent/5": props.reason !== undefined }}>
+      <header class="col-span-full flex items-center gap-2">
         <Show when={props.reason} keyed>
           {(reason) => <SelectionReason by={reason} class="size-5" />}
         </Show>
@@ -98,7 +104,7 @@ export function FormulaCard(props: {
           <QuestionIcon />
         </button>
       </header>
-      <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
+      <dl class="flex flex-wrap gap-x-6 gap-y-1 text-sm sm:col-span-full">
         <Show when={figures().totalChanceOneIn} keyed>
           {(total) => (
             <div>
@@ -116,6 +122,9 @@ export function FormulaCard(props: {
           )}
         </Show>
       </dl>
+      <Show when={props.besideFigures}>
+        <div class="justify-self-end self-end sm:col-start-2 sm:row-start-3 sm:self-center">{props.besideFigures}</div>
+      </Show>
       <footer class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
         <Count icon={<ShieldIcon paint={paintOf("verification", filled("verification"))} />} count={props.listing.standing.verifications} label="検証OK" filled={filled("verification")} tone="positive" />
         <Show when={props.listing.standing.refutations > 0}>
@@ -127,14 +136,14 @@ export function FormulaCard(props: {
         </Show>
         <Count icon={<HeartIcon filled={filled("favorite")} />} count={props.listing.standing.favorites} label="お気に入り" filled={filled("favorite")} />
         <Count icon={<BoltIcon filled={usesWeighTheirMost(props.listing.standing)} />} count={props.listing.standing.uses} label="利用" filled={usesWeighTheirMost(props.listing.standing)} />
-        <Show when={props.onUse} keyed>
-          {(use) => (
-            <button type="button" onClick={() => use()} class="ml-auto shrink-0 whitespace-nowrap rounded bg-amateur px-3 py-1 text-sm font-medium text-on-amateur hover:bg-amateur-hover">
-              これを使う
-            </button>
-          )}
-        </Show>
       </footer>
+      <Show when={props.onUse} keyed>
+        {(use) => (
+          <button type="button" onClick={() => use()} class="justify-self-end whitespace-nowrap rounded bg-amateur px-3 py-1 text-sm font-medium text-on-amateur hover:bg-amateur-hover">
+            これを使う
+          </button>
+        )}
+      </Show>
     </article>
   )
 }

@@ -1,5 +1,5 @@
-import type { Figures } from "../../pachinko/figures"
-import { borderOf } from "../../pachinko/theoretical-value"
+import type { Figures } from "../../../core/pachinko/figures"
+import { borderOf } from "../../../core/pachinko/theoretical-value"
 
 /** What a ball exchanges for where ¥1,000 rents 250 and 250 come back for ¥1,000: the even exchange a border is usually told at. */
 const EVEN_BALL_VALUE = 4

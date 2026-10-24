@@ -6,6 +6,7 @@ import { loadMachine } from "../../../../application/pachinko/formulas"
 import { bookNameOf } from "../../../../core/catalog/catalog"
 import { ranked } from "../../../../core/formula/standing"
 import { worthOf } from "../../../../core/pachinko/formula"
+import { SunkButton } from "../../../../sunk"
 import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
 import { Loaded } from "../../../primitives/states"
@@ -70,6 +71,7 @@ export function MachineView(props: { readonly place: Place; readonly machineId: 
                     onHelp={() => moves.go({ kind: "pachinko-formula", machineId: found.machine.id, formulaId: listing.formula.id })}
                     onToggleFavorite={() => favorites.press({ type: "formula", id: listing.formula.id }, setFailure)}
                     onUse={() => actions.use(listing.formula, bookNameOf(found.machine))}
+                    besideFigures={<SunkButton formula={listing.formula} ballValue={ballValue()} />}
                   />
                 )}
               </For>

@@ -1,9 +1,9 @@
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import type { PlayId } from "../../src/core/play/play"
 import type { SharedParlor, SharedParlorId } from "../../src/core/parlor/shared"
-import type { Lineup } from "../../src/core/sample-book/day"
-import type * as Pachinko from "../../src/core/sample-book/pachinko"
-import type * as Pachislot from "../../src/core/sample-book/pachislot"
+import type { Lineup } from "../../src/sample-book/core/day"
+import type * as Pachinko from "../../src/sample-book/core/pachinko"
+import type * as Pachislot from "../../src/sample-book/core/pachislot"
 
 /** A pachinko machine of 1/99 to a run of about ten rounds, at a border of 18 a ¥1,000 at 等価. */
 export const PACHINKO_SEAT: Pachinko.Seat = {

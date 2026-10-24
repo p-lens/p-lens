@@ -1,5 +1,5 @@
-import type { IsoDate } from "../calendar/calendar"
-import type { ClockTime } from "../tally/tally"
+import type { IsoDate } from "../../core/calendar/calendar"
+import type { ClockTime } from "../../core/tally/tally"
 import { chance, weighted, wholeBetween, type Draws, type Drawn } from "./draws"
 
 const DAY_MILLIS = 86_400_000

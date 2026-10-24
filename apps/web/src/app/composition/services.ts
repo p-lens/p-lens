@@ -30,7 +30,7 @@ import { createIndexedDbSubmissions } from "../../parlors/local/indexed-db-submi
 import { createReasonerClient } from "../../reasoning/client/client"
 import * as PachinkoEngine from "../../pachinko-engine/client/client"
 import * as PachislotEngine from "../../pachislot-engine/client/client"
-import { createSampleMakerClient } from "../../sample-book/client/client"
+import { createSampleMakerClient } from "../../sample-book"
 import type { UuidV7 } from "@p-lens/uuidv7"
 
 import { DEPLOYMENT } from "@branding/deployment"
