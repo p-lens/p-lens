@@ -5,8 +5,8 @@ import { inPlayOrder } from "../play-log/performance"
 
 /**
  * Where one of the others' plays stands, as its log last says: over, in a
- * jackpot — an AT won, on a pachislot AT machine — in 時短, or being
- * played. 確変 is not said: nobody counts it.
+ * jackpot — an AT won, on a pachislot AT machine, or a pachinko run still
+ * in 確変 — in 時短, as its bar was switched to it, or being played.
  */
 export type HuddleStanding = "finished" | "jackpot" | "rapid" | "playing"
 
@@ -16,7 +16,7 @@ export const huddleStandingOf = (play: Play): HuddleStanding => {
   if (read.value.some((checkpoint) => checkpoint.event?.kind === "finished")) return "finished"
   const last = inPlayOrder(read.value).at(-1)
   if (last?.event?.kind === "jackpot") return "jackpot"
-  return play.gameKind === "pachinko" && last?.phase === "rapid" ? "rapid" : "playing"
+  return last?.event?.kind === "rapid-began" ? "rapid" : "playing"
 }
 
 /** Whether a reading was of regular games: no jackpot or other event on it, and, on a pachinko play, not in 時短 or 確変. */

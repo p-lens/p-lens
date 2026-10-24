@@ -38,6 +38,12 @@
  * the same as other colours today and names of their own so that they need
  * not stay so, as `amateur` is.
  *
+ * The bar a pachinko play shows while the 電サポ runs is the loudest thing
+ * on its screen, so that nobody types a regular reading under it: 確変 in a
+ * vivid purple (`special-banner`), 時短 in a vivid yellow-green
+ * (`rapid-banner`), each brighter than the soft `special` and `rapid` a
+ * line of the play is tinted with.
+ *
  * A QR code is black on white in either theme (`qr-…`): a camera reads
  * one so, and not every reader reads it the other way round.
  */
@@ -74,6 +80,10 @@
   --nerdpro-ink: #7a1fd6;
   --rapid: #86d426;
   --special: #a985f2;
+  --special-banner: #8a1cff;
+  --on-special-banner: #ffffff;
+  --rapid-banner: #9cf200;
+  --on-rapid-banner: #0c1405;
   --mark-gold: #c27c0e;
   --mark-red: #e8383e;
   --mark-purple: #8a4fd8;
@@ -120,6 +130,10 @@
   --nerdpro-ink: #bb84ff;
   --rapid: #9be22d;
   --special: #b794f6;
+  --special-banner: #9d2bff;
+  --on-special-banner: #ffffff;
+  --rapid-banner: #a8ff00;
+  --on-rapid-banner: #0c1405;
   --mark-gold: #f0a92e;
   --mark-red: #f23f43;
   --mark-purple: #b794f6;
@@ -156,6 +170,10 @@
   --color-on-amateur: var(--on-amateur);
   --color-rapid: var(--rapid);
   --color-special: var(--special);
+  --color-special-banner: var(--special-banner);
+  --color-on-special-banner: var(--on-special-banner);
+  --color-rapid-banner: var(--rapid-banner);
+  --color-on-rapid-banner: var(--on-rapid-banner);
   --color-semipro: var(--semipro);
   --color-semipro-hover: var(--semipro-hover);
   --color-on-semipro: var(--on-semipro);

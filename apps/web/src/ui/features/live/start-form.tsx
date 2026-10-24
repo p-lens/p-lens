@@ -46,8 +46,7 @@ export interface PachinkoStart {
   readonly newMachineKeywords: string
   readonly newMachineHitChance: string
   readonly newMachineReleasedOn: string
-  /** The data counter as it was found at the seat, beside the spins since its last jackpot: the day's spins and the day's jackpots. */
-  readonly seatTotal: string
+  /** The data counter as it was found at the seat, beside the spins since its last jackpot: the day's jackpots. */
   readonly seatJackpots: string
   /** The cabinet's own 遊タイム counter, for a machine with a 遊タイム, where it shows otherwise than the data counter; empty, it shows the same. */
   readonly seatGauge: string
@@ -62,7 +61,6 @@ export const EMPTY_PACHINKO_START: PachinkoStart = {
   newMachineKeywords: "",
   newMachineHitChance: "",
   newMachineReleasedOn: "",
-  seatTotal: "",
   seatJackpots: "",
   seatGauge: "",
 }

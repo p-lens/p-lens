@@ -196,9 +196,10 @@ describe("the others' plays", () => {
 })
 
 describe("where one of the others' plays stands", () => {
-  test("is a jackpot where its last reading won one, and 時短 where a pachinko play's last reading ran in it", () => {
+  test("is a jackpot where its last reading won one, 時短 where a pachinko run last turned to it, and played once the run ended", () => {
     expect(huddleStandingOf(withLog('{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot"}}\n'))).toBe("jackpot")
-    expect(huddleStandingOf(withLog('{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot"}}\n{"spins":220,"outlay":3000,"phase":"rapid"}\n'))).toBe("rapid")
+    expect(huddleStandingOf(withLog('{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot"}}\n{"spins":120,"outlay":3000,"phase":"special","event":{"kind":"rapid-began"}}\n'))).toBe("rapid")
+    expect(huddleStandingOf(withLog('{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot"}}\n{"spins":220,"outlay":3000,"phase":"rapid"}\n'))).toBe("playing")
     expect(huddleStandingOf(withLog('{"spins":0,"outlay":0}\n{"spins":30,"outlay":1000}\n'))).toBe("playing")
   })
 
@@ -206,7 +207,7 @@ describe("where one of the others' plays stands", () => {
     expect(huddleStandingOf(withLog('{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot"}}\n{"spins":120,"outlay":3000,"event":{"kind":"finished"}}\n'))).toBe("finished")
   })
 
-  test("says nothing of 確変, nor of 時短 on a pachislot play", () => {
+  test("says nothing of 確変 or 時短 a reading merely ran in", () => {
     expect(huddleStandingOf(withLog('{"spins":0,"outlay":0}\n{"spins":80,"outlay":1000,"phase":"special"}\n'))).toBe("playing")
     expect(huddleStandingOf(withLog('{"spins":0,"outlay":0}\n{"spins":80,"outlay":1000,"phase":"rapid"}\n', "pachislot"))).toBe("playing")
   })

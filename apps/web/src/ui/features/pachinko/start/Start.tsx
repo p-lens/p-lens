@@ -490,7 +490,6 @@ export function Start(props: {
     carriedUnread() ? FIELD_PROBLEM_TEXT["not-a-count"] : undefined,
     unwritable(start.form().cabinetNumber),
     notACount(start.form().startCounter),
-    notACount(start.form().pachinko.seatTotal),
     notACount(start.form().pachinko.seatJackpots),
     hyenaHuntBasis() === undefined ? undefined : notACount(start.form().pachinko.seatGauge),
   ]
@@ -523,7 +522,7 @@ export function Start(props: {
       bonuses: listedBonuses(),
       cabinetNumber: form.cabinetNumber.trim() === "" ? undefined : form.cabinetNumber.trim(),
       startedAt,
-      log: appendCheckpoint("", { spins: 0, outlay: 0, at: startedAt, counter: { spins: countTyped(form.startCounter), total: countTyped(form.pachinko.seatTotal), jackpots: countTyped(form.pachinko.seatJackpots), ...gauge }, ...(carriedIn === undefined ? {} : { held: carriedIn }) }),
+      log: appendCheckpoint("", { spins: 0, outlay: 0, at: startedAt, counter: { spins: countTyped(form.startCounter), jackpots: countTyped(form.pachinko.seatJackpots), ...gauge }, ...(carriedIn === undefined ? {} : { held: carriedIn }) }),
     }
     const started = await startPlay(app.services.drafts, draft)
     setStarting(false)
@@ -588,16 +587,7 @@ export function Start(props: {
       <section class="flex flex-col gap-4" aria-labelledby="start-seat">
         <h2 id="start-seat" class="border-b border-border pb-1 text-sm font-bold text-text-primary">開始時データ</h2>
         <div class="grid grid-cols-1 gap-x-2 sm:grid-cols-2">
-          <div class="grid grid-cols-[repeat(3,minmax(0,1fr))_auto] items-start gap-1.5">
-            <TextField
-              label="総回転数"
-              value={start.form().pachinko.seatTotal}
-              onChange={(seatTotal) => start.updatePachinko({ seatTotal })}
-              inputMode="numeric"
-              placeholder="0"
-              error={notACount(start.form().pachinko.seatTotal)}
-              compact
-            />
+          <div class="grid grid-cols-[repeat(2,minmax(0,1fr))_auto] items-start gap-1.5">
             <TextField
               label="ゲーム数"
               value={start.form().startCounter}

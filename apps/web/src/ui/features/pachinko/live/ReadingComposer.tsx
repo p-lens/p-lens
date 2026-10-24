@@ -1,10 +1,7 @@
-import { createMemo, createResource, createSignal, For, Show, type JSX } from "solid-js"
+import { createMemo, createSignal, For, Show, type JSX } from "solid-js"
 
 import type { ApplicationError } from "../../../../application/errors"
 import { addCheckpoints, reviseCheckpoints } from "../../../../application/live-play"
-import { loadMachine } from "../../../../application/pachinko/formulas"
-import { bonusGain } from "../../../../core/catalog/bonuses"
-import type { MachineBonus } from "../../../../core/catalog/catalog"
 import type { PachinkoDraft, PlayDraft } from "../../../../core/live-play/draft"
 import { checkpointsForReading, type ReadingRefusal } from "../../../../core/pachinko/reading"
 import { handDriftOf, RECOUNT_AFTER, type HandDrift } from "../../../../core/pachinko/consumption"
@@ -18,7 +15,7 @@ import { Button } from "../../../primitives/button"
 import { TrashIcon } from "../../../primitives/icons"
 import { createNudge } from "../../../primitives/nudge"
 import { holdTheEnd } from "../../../primitives/scroll-end"
-import { Select, type SelectOption } from "../../../primitives/select"
+import { Select } from "../../../primitives/select"
 import { settleTyping, TextField } from "../../../primitives/text-field"
 import { toast } from "../../../primitives/toast"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
@@ -26,11 +23,12 @@ import { feelTap } from "../../../primitives/vibration"
 import { describeError, describeReadingRefusal } from "../../../wording/errors"
 import { FIELD_PROBLEM_TEXT } from "../../../wording/fields"
 import { amountText } from "../../../wording/numbers"
-import { CHANGED_SINCE_REMOVED, describeRevisionRefusal, PHASE_NAMES, recountText, READING_REMOVED, REMOVAL_TAKEN_BACK, REMOVE_READING, signedBalls, TAKE_BACK, TAKE_BACK_FAILED, UNTOLD_JACKPOT } from "../../../wording/pachinko/play"
+import { CHANGED_SINCE_REMOVED, describeRevisionRefusal, PHASE_NAMES, recountText, READING_REMOVED, REMOVAL_TAKEN_BACK, REMOVE_READING, TAKE_BACK, TAKE_BACK_FAILED } from "../../../wording/pachinko/play"
+import { jackpotOptions, useBonuses, usualOverOf } from "./bonus-choice"
 import { DriftButton } from "./DriftButton"
 import { PressButton } from "./PressButton"
 import { OverButton } from "./OverButton"
-import { bonusKey, formOfReading, NO_JACKPOT, readingFrom, readReadingForm, saysNothingNew, UNTOLD, withMore, type ReadingField, type ReadingForm } from "./reading-form"
+import { formOfReading, readingFrom, readReadingForm, saysNothingNew, withMore, type ReadingField, type ReadingForm } from "./reading-form"
 import { seal } from "../../../../mummer"
 
 /** Where an entry of a reading is: being typed, being kept, refused, or failed to be kept. */
@@ -43,26 +41,13 @@ type Sending =
 
 const PHASES: readonly Phase[] = ["regular", "special", "rapid"]
 
-/**
- * Whether a reading is a jackpot won in regular games: the balls in hand
- * are then about to change by what the bonus pays and what follows it, so
- * the person is asked to count them once things have settled — a count
- * the play is measured by, and the one most often forgotten.
- */
-const wonInRegularGames = (reading: { readonly phase: Phase; readonly jackpot: { readonly type: string } }): boolean => reading.phase === "regular" && reading.jackpot.type !== "none"
-
 /** Tokens a press of the savings button draws where the play has no terms to say: half of what ¥1,000 rents at the dearest rate. */
 const USUAL_DRAW = 125
 
-/** The bonuses to choose a jackpot from: none first, then the machine's, each with what it adds to the hand — or, where the machine lists none, a jackpot untold. */
-const jackpotOptions = (bonuses: readonly MachineBonus[]): readonly SelectOption[] => [
-  { value: NO_JACKPOT, label: "なし" },
-  ...(bonuses.length === 0 ? [{ value: UNTOLD, label: UNTOLD_JACKPOT }] : bonuses.map((bonus) => ({ value: bonusKey(bonus.name), label: `${bonus.name}（${signedBalls(seal.formula(bonusGain(bonus)))}）` }))),
-]
-
 /**
- * Where readings are typed at the cabinet, one press keeping each: the
- * state the cabinet has been in, the counter as the parlor shows it, the
+ * Where readings are typed at the cabinet in regular games, one press
+ * keeping each — the 電サポ after a jackpot has a bar of its own
+ * (`SupportComposer`): the counter as the parlor shows it, the
  * balls in hand where they were counted, what the 電サポ gained or lost —
  * behind a small button, since few readings have any —
  * and what was rented or drawn from savings since the reading before —
@@ -74,8 +59,9 @@ const jackpotOptions = (bonuses: readonly MachineBonus[]): readonly SelectOption
  *
  * Given a reading already taken, it is that reading typed again, to be
  * set right or taken away; given a place among the readings, what is typed
- * is put in there, a reading never written down. Either way every line
- * after it is made again.
+ * is put in there, a reading never written down. Either is in whichever
+ * state the cabinet was in, so the state is chosen there. Either way every
+ * line after it is made again.
  */
 export function ReadingComposer(props: {
   readonly draft: PachinkoDraft
@@ -89,17 +75,7 @@ export function ReadingComposer(props: {
   readonly onInsertBefore: (index: number) => void
 }): JSX.Element {
   const app = useApp()
-  const [listed] = createResource(
-    () => ((props.draft.bonuses ?? []).length > 0 ? undefined : props.draft.pachinko?.machineId),
-    (machineId) => loadMachine(app.services.catalog, machineId),
-  )
-  /** The bonuses to choose from: those the play took from its formula as it began, or — for a play begun with none — those the catalog has for that formula now. */
-  const bonuses = (): readonly MachineBonus[] => {
-    const kept = props.draft.bonuses ?? []
-    const now = listed()
-    if (kept.length > 0 || now?.ok !== true) return kept
-    return now.value.formulas.find((listing) => listing.formula.id === props.draft.pachinko?.id)?.formula.bonuses ?? []
-  }
+  const bonuses = useBonuses(() => props.draft)
   const corner = useCornerPresses(
     () => props.draft.bookId,
     () => cornerOf("pachinko", props.draft.venue.terms),
@@ -118,7 +94,7 @@ export function ReadingComposer(props: {
     return drift !== undefined && drift.spins >= RECOUNT_AFTER ? drift : undefined
   }
   const [form, setForm] = createSignal<ReadingForm>(
-    props.revising === undefined ? readingFrom(props.ordered.at(-1)?.phase ?? "regular", before()) : formOfReading(props.revising.taken.reading, before()),
+    props.revising === undefined ? readingFrom("regular", before()) : formOfReading(props.revising.taken.reading, before()),
   )
   /** What the tokens typed as drawn take off the savings on the corner's terms, where a replay there takes a fee. */
   const drawn = (): { readonly paidOut: number; readonly deducted: number } | undefined => {
@@ -133,15 +109,6 @@ export function ReadingComposer(props: {
   const change = (changed: Partial<ReadingForm>): void => {
     setForm((current) => ({ ...current, ...changed }))
     setSending({ type: "typing" })
-  }
-  /** What a bonus chosen paid beyond its machine's by the person's usual over-entry at the cabinet, as the field opens filled: as many more balls a round as they said, over as many rounds as the bonus pays for. Empty where they said none, or the formula says nothing of a round. */
-  const usualOver = (chosen: string): string => {
-    const bonus = bonuses().find((candidate) => bonusKey(candidate.name) === chosen)
-    const overEntry = props.draft.overEntry
-    const perRound = props.draft.pachinko?.figures.payoutPerRound
-    if (bonus === undefined || overEntry === undefined || perRound === undefined || perRound <= 0) return ""
-    const over = Math.round((bonusGain(bonus) * overEntry) / perRound)
-    return over === 0 ? "" : `${over > 0 ? "+" : ""}${over}`
   }
   const nudge = createNudge()
   /** Red for a while after a press that this field stopped: a count that cannot be read, a total gone back, or the counter left where it stood with nothing else new. */
@@ -192,7 +159,7 @@ export function ReadingComposer(props: {
     }
     setForm(readingFrom(form().phase, beforeIn([...props.ordered, ...checkpoints.value])))
     setSending({ type: "typing" })
-    toast(wonInRegularGames(reading.value) ? { title: "記録しました", description: "キリの良いところで、持ち玉を調整ください。" } : { title: "記録しました", stays: "glance" })
+    toast({ title: "記録しました", stays: "glance" })
     app.played()
   }
 
@@ -304,23 +271,25 @@ export function ReadingComposer(props: {
       <Show when={props.inserting} keyed>
         {(inserting) => <p class="text-xs font-bold text-warning">{inserting.before + 1}件目の前に記録を追加中</p>}
       </Show>
-      <ToggleGroup
-        class="w-full p-0.5"
-        value={form().phase}
-        onChange={(value: string | null) => {
-          const phase = PHASES.find((candidate) => candidate === value)
-          if (phase !== undefined) change({ phase })
-        }}
-        aria-label="ゲーム状態"
-      >
-        <For each={PHASES}>
-          {(phase) => (
-            <ToggleGroupItem value={phase} class="h-7 flex-1">
-              {PHASE_NAMES[phase]}
-            </ToggleGroupItem>
-          )}
-        </For>
-      </ToggleGroup>
+      <Show when={props.revising !== undefined || props.inserting !== undefined}>
+        <ToggleGroup
+          class="w-full p-0.5"
+          value={form().phase}
+          onChange={(value: string | null) => {
+            const phase = PHASES.find((candidate) => candidate === value)
+            if (phase !== undefined) change({ phase })
+          }}
+          aria-label="ゲーム状態"
+        >
+          <For each={PHASES}>
+            {(phase) => (
+              <ToggleGroupItem value={phase} class="h-7 flex-1">
+                {PHASE_NAMES[phase]}
+              </ToggleGroupItem>
+            )}
+          </For>
+        </ToggleGroup>
+      </Show>
       <div class="grid grid-cols-2 items-end gap-1.5">
         <div class="flex items-end gap-1">
           <div class="min-w-0 flex-1">
@@ -396,7 +365,7 @@ export function ReadingComposer(props: {
         </div>
         <div class="flex min-w-0 items-end gap-1">
           <div class="min-w-0 flex-1">
-            <Select label="ボーナス" placeholder="なし" options={jackpotOptions(bonuses())} value={form().jackpot} onChange={(jackpot) => change({ jackpot, over: usualOver(jackpot) })} />
+            <Select label="ボーナス" placeholder="なし" options={jackpotOptions(bonuses())} value={form().jackpot} onChange={(jackpot) => change({ jackpot, over: usualOverOf(props.draft, bonuses(), jackpot) })} />
           </div>
           <OverButton over={form().over} invalid={nudged("over")} onOver={(over) => change({ over })} onFocus={nudge.settle} />
         </div>

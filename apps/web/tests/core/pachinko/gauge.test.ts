@@ -8,7 +8,7 @@ import { liveSummary } from "../../../src/core/play-log/live"
 
 const TEN_ROUNDS = { name: "10R確変", payout: 1500, spent: 100 }
 
-const seat = (gauge?: number): Checkpoint => ({ spins: 0, outlay: 0, counter: { spins: 55, total: 2400, jackpots: 9, ...(gauge === undefined ? {} : { gauge }) } })
+const seat = (gauge?: number): Checkpoint => ({ spins: 0, outlay: 0, counter: { spins: 55, jackpots: 9, ...(gauge === undefined ? {} : { gauge }) } })
 
 const reading = (fields: Partial<Reading> & Pick<Reading, "counterSpins">): Reading => ({
   phase: "regular",
@@ -98,11 +98,11 @@ describe("a 遊 counter in a pachinko play's log", () => {
 
   test("at the seat is set right with the seat, and let go of where the seat says none", () => {
     const log = played(seat(5), [reading({ counterSpins: 120 })])
-    expect(seatOf(log)).toEqual({ spins: 55, total: 2400, jackpots: 9, gauge: 5 })
-    const changed = made(withSeatRevised(log, { spins: 55, total: 2400, jackpots: 9, gauge: 15 }))
+    expect(seatOf(log)).toEqual({ spins: 55, jackpots: 9, gauge: 5 })
+    const changed = made(withSeatRevised(log, { spins: 55, jackpots: 9, gauge: 15 }))
     expect(gaugeNowOf(changed)).toBe(80)
-    const cleared = made(withSeatRevised(log, { spins: 55, total: 2400, jackpots: 9 }))
-    expect(cleared.at(0)?.counter).toEqual({ spins: 55, total: 2400, jackpots: 9 })
+    const cleared = made(withSeatRevised(log, { spins: 55, jackpots: 9 }))
+    expect(cleared.at(0)?.counter).toEqual({ spins: 55, jackpots: 9 })
     expect(gaugeNowOf(cleared)).toBe(120)
   })
 })

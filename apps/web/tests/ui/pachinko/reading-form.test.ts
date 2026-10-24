@@ -2,11 +2,11 @@ import { describe, expect, test } from "bun:test"
 
 import { consumptionOf } from "../../../src/core/pachinko/consumption"
 import { withReadingsMerged } from "../../../src/core/pachinko/merging"
-import { checkpointsForReading, type Reading } from "../../../src/core/pachinko/reading"
+import { checkpointsForRapid, checkpointsForReading, supportPhaseOf, type Reading } from "../../../src/core/pachinko/reading"
 import { standingBefore, takenOf, withReadingRevised } from "../../../src/core/pachinko/revision"
 import type { PlayTerms } from "../../../src/core/parlor/terms"
 import type { Checkpoint } from "../../../src/core/play-log/checkpoint"
-import { formOfReading, readingFrom, readReadingForm, saysNothingNew } from "../../../src/ui/features/pachinko/live/reading-form"
+import { bonusKey, formOfReading, readingFrom, readReadingForm, readRunJackpot, readSupportEnd, saysNothingNew } from "../../../src/ui/features/pachinko/live/reading-form"
 
 const TEN_ROUNDS = { name: "10R確変", payout: 1500, spent: 100 }
 
@@ -104,5 +104,45 @@ describe("a pachinko reading made of several, set right", () => {
   test("lets go of a hand inside it further on than the counter it is set right to", () => {
     const kept = resaved((form) => ({ ...form, counter: "140" }))
     expect(takenOf(kept)[0]?.reading.handsBefore?.some((hand) => hand.counterSpins > 140)).not.toBe(true)
+  })
+})
+
+describe("the 電サポ after a pachinko jackpot", () => {
+  const before = standingBefore(LOG, takenOf(LOG).length)
+  const form = readingFrom("special", before)
+
+  test("runs in 確変 from a jackpot until a line with none says it ended", () => {
+    expect(supportPhaseOf(LOG.slice(0, 2))).toBeUndefined()
+    expect(supportPhaseOf(LOG)).toBe("special")
+    const ended = checkpointsForReading(LOG, { counterSpins: 12, phase: "special", rented: 0, replayed: 0, supported: 0, held: undefined, jackpot: { type: "none" }, at: "2026-10-24T12:00:00+09:00" }, false)
+    expect(ended.ok && supportPhaseOf([...LOG, ...ended.value])).toBeUndefined()
+  })
+
+  test("turns to 時短 once, on the jackpot's spins, and never from regular games or 時短", () => {
+    const turned = checkpointsForRapid(LOG, "2026-10-24T12:00:00+09:00")
+    expect(turned.ok && turned.value.map((line) => [line.spins, line.phase, line.event?.kind])).toEqual([[180, "special", "rapid-began"]])
+    const after = turned.ok ? [...LOG, ...turned.value] : LOG
+    expect(supportPhaseOf(after)).toBe("rapid")
+    expect(checkpointsForRapid(after, "2026-10-24T12:01:00+09:00")).toEqual({ ok: false, error: { type: "not-in-special" } })
+    expect(checkpointsForRapid(LOG.slice(0, 2), "2026-10-24T12:01:00+09:00")).toEqual({ ok: false, error: { type: "not-in-special" } })
+    const revised = withReadingRevised(after, takenOf(after).length - 1, takenOf(after).at(-1)?.reading as Reading)
+    expect(revised.ok && supportPhaseOf(revised.value)).toBe("rapid")
+  })
+
+  test("takes a jackpot of the run at the counter where it stood, in the state the bar says, with nothing else", () => {
+    const read = readRunJackpot({ ...form, jackpot: bonusKey(TEN_ROUNDS.name), counter: "999", rented: "9000" }, [TEN_ROUNDS], before, "rapid")
+    expect(read.ok && [read.value.counterSpins, read.value.phase, read.value.rented, read.value.held, read.value.jackpot.type]).toEqual([0, "rapid", 0, undefined, "bonus"])
+    const run = read.ok ? checkpointsForReading(LOG, { ...read.value, at: "2026-10-24T12:00:00+09:00" }, false) : undefined
+    expect(run?.ok && run.value.map((line) => [line.spins, line.phase, line.event?.kind])).toEqual([[180, "rapid", "jackpot"]])
+  })
+
+  test("asks the counter as it ends, and takes nought, the hand where counted but not the guide left as it is, and what drifted", () => {
+    expect(readSupportEnd({ ...form, counter: "" }, before, "special")).toEqual({ ok: false, error: [{ field: "counter", reason: "required" }] })
+    const single = readSupportEnd({ ...form, counter: "0", held: "", heldCarried: false }, before, "special")
+    expect(single.ok && [single.value.counterSpins, single.value.held]).toEqual([0, undefined])
+    const guided = readSupportEnd({ ...form, counter: "100", held: "1550", heldCarried: true }, before, "special")
+    expect(guided.ok && guided.value.held).toBeUndefined()
+    const read = readSupportEnd({ ...form, counter: "100", held: "1800", heldCarried: false, supported: "40", drift: "loss" }, before, "rapid")
+    expect(read.ok && [read.value.counterSpins, read.value.phase, read.value.held, read.value.supported]).toEqual([100, "rapid", 1800, -40])
   })
 })

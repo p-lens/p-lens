@@ -79,8 +79,11 @@ const FINISH_NAME = "終了"
 /** What the seat as it was found is called, where a reading says the state the cabinet was in. */
 const SEAT_NAME = "着席"
 
-/** What a line is called before its counter: the seat, the finish, or the state the cabinet was in. */
-const nameOf = (step: Step): string => (step.seat ? SEAT_NAME : isFinish(step.checkpoint) ? FINISH_NAME : PHASE_NAMES[step.checkpoint.phase ?? "regular"])
+const isRapidBegan = (checkpoint: Checkpoint): boolean => checkpoint.event?.kind === "rapid-began"
+
+/** What a line is called before its counter: the seat, the finish, the 電サポ turning to 時短, or the state the cabinet was in. */
+const nameOf = (step: Step): string =>
+  step.seat ? SEAT_NAME : isFinish(step.checkpoint) ? FINISH_NAME : isRapidBegan(step.checkpoint) ? PHASE_NAMES.rapid : PHASE_NAMES[step.checkpoint.phase ?? "regular"]
 
 /** One line of the log: its moment, its name, its counter, its own stretch's spin performance where it has one, and its bonus — cut short where it would not fit — over what it did to the balls. */
 function Line(props: { readonly step: Step; readonly rate: StretchRate | undefined }): JSX.Element {
@@ -126,7 +129,7 @@ export const samePressed = (left: Revised | undefined, right: Revised | undefine
 
 const pressLabel = (pressed: Revised): string => (pressed.type === "seat" ? "開始時データを修正" : `${pressed.index + 1}件目の記録を修正`)
 
-/** One line of the log, tinted by what it is — a jackpot blue, 時短 yellow-green, 確変 purple. A reading, or the seat as it was found, is pressed to set it right; a jackpot found missing is only shown. A reading in the run being made one is marked. */
+/** One line of the log, tinted by what it is — a jackpot blue, 時短 and the turn to it yellow-green, 確変 purple. A reading, or the seat as it was found, is pressed to set it right; a jackpot found missing is only shown. A reading in the run being made one is marked. */
 function Row(props: { readonly step: Step; readonly rate: StretchRate | undefined; readonly pressed: Revised | undefined; readonly revising: boolean; readonly merging: boolean; readonly onRevise: (pressed: Revised) => void }): JSX.Element {
   const jackpot = (): boolean => props.step.checkpoint.event?.kind === "jackpot"
   /** Whether the row is neither being set right nor in a run being made one: only then does it wear what it is. */
@@ -150,8 +153,8 @@ function Row(props: { readonly step: Step; readonly rate: StretchRate | undefine
             class={`${ROW} hover:bg-surface-3/40 focus-visible:outline-2 focus-visible:outline-focus-ring`}
             classList={{
               "bg-accent/10": jackpot() && resting(),
-              "bg-rapid/15": !jackpot() && props.step.checkpoint.phase === "rapid" && resting(),
-              "bg-special/15": !jackpot() && props.step.checkpoint.phase === "special" && resting(),
+              "bg-rapid/15": !jackpot() && (props.step.checkpoint.phase === "rapid" || isRapidBegan(props.step.checkpoint)) && resting(),
+              "bg-special/15": !jackpot() && props.step.checkpoint.phase === "special" && !isRapidBegan(props.step.checkpoint) && resting(),
               "bg-warning/15": props.revising && !props.merging,
               "bg-accent/30": props.merging,
             }}

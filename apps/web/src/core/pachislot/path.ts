@@ -85,6 +85,7 @@ const endOf = (checkpoint: Checkpoint): LegDto["end"] | undefined => {
     case "bonus-missed":
       return "bonus"
     case "at-ended":
+    case "rapid-began":
     case "finished":
     case undefined:
       return undefined

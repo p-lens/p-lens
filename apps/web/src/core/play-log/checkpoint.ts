@@ -157,6 +157,9 @@ export interface Counter {
  * `bonus-missed` is a bonus a CZ's success brought that did not win the
  * AT, told apart from a CZ that failed (`cz-missed`) on a machine whose CZ
  * brings a bonus before the AT.
+ * `rapid-began` is a pachinko run of 電サポ turning from 確変 to 時短, said
+ * as the person switches its bar: on the spins the line before it was, since
+ * nobody reads the counter there, the spins before it having been in 確変.
  * `finished` is the play's last line, written as the play is recorded: its
  * `at` is when the play finished, as the person gave it, and it adds nothing
  * to the totals.
@@ -166,6 +169,7 @@ export type PlayEvent =
   | { readonly kind: "cz-missed" }
   | { readonly kind: "bonus-missed" }
   | { readonly kind: "at-ended"; readonly completed?: boolean; readonly sets?: number; readonly medals?: number; readonly ending?: string }
+  | { readonly kind: "rapid-began" }
   | { readonly kind: "finished" }
 
 /** Counts by name: bonuses on a counter, or small wins a player counted. */
@@ -258,6 +262,7 @@ const isEvent = (value: unknown): value is PlayEvent =>
   ((value["kind"] === "jackpot" && (value["approximate"] === undefined || value["approximate"] === true) && (value["bonus"] === undefined || isBonusWon(value["bonus"]))) ||
     (value["kind"] === "cz-missed" && value["approximate"] === undefined) ||
     (value["kind"] === "bonus-missed" && value["approximate"] === undefined) ||
+    value["kind"] === "rapid-began" ||
     value["kind"] === "finished" ||
     isAtEnded(value))
 

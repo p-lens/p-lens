@@ -64,6 +64,7 @@ export const takenOf = (ordered: readonly Checkpoint[]): readonly Taken[] =>
         held: checkpoint.held,
         jackpot: jackpotOf(checkpoint),
         at: checkpoint.at ?? "",
+        ...(checkpoint.event?.kind === "rapid-began" ? { rapidBegan: true as const } : {}),
         ...(checkpoint.counter?.gauge === undefined ? {} : { gauge: checkpoint.counter.gauge }),
         ...(checkpoint.handsBefore === undefined
           ? {}
@@ -212,10 +213,9 @@ export const withReadingRemoved = (ordered: readonly Checkpoint[], index: number
 export const withReadingInserted = (ordered: readonly Checkpoint[], index: number, reading: Reading): Result<readonly Checkpoint[], RevisionRefusal> =>
   revised(ordered, (taken) => [...taken.slice(0, index), { reading, afterMissedJackpot: false }, ...taken.slice(index)])
 
-/** The data counter as it was found at the seat: the spins since its last jackpot, the day's spins and the day's jackpots. */
+/** The data counter as it was found at the seat: the spins since its last jackpot and the day's jackpots. */
 export interface Seat {
   readonly spins: number
-  readonly total: number
   readonly jackpots: number
   /** The cabinet's own 遊タイム counter, where it was said: none where it shows what the data counter does. */
   readonly gauge?: number
@@ -224,7 +224,7 @@ export interface Seat {
 /** The seat's counter as a log's first line has it; none read is none. */
 export const seatOf = (ordered: readonly Checkpoint[]): Seat => {
   const counter = ordered.at(0)?.counter
-  return { spins: counter?.spins ?? 0, total: counter?.total ?? 0, jackpots: counter?.jackpots ?? 0, ...(counter?.gauge === undefined ? {} : { gauge: counter.gauge }) }
+  return { spins: counter?.spins ?? 0, jackpots: counter?.jackpots ?? 0, ...(counter?.gauge === undefined ? {} : { gauge: counter.gauge }) }
 }
 
 /**

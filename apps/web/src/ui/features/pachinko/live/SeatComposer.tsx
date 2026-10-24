@@ -44,13 +44,13 @@ const gaugeOf = (text: string): { readonly gauge?: number } | undefined => {
 }
 
 const readSeat = (form: SeatForm): Seat | undefined => {
-  const [spins, total, jackpots, gauge] = [countOf(form.spins), countOf(form.total), countOf(form.jackpots), gaugeOf(form.gauge)]
-  return spins === undefined || total === undefined || jackpots === undefined || gauge === undefined ? undefined : { spins, total, jackpots, ...gauge }
+  const [spins, jackpots, gauge] = [countOf(form.spins), countOf(form.jackpots), gaugeOf(form.gauge)]
+  return spins === undefined || jackpots === undefined || gauge === undefined ? undefined : { spins, jackpots, ...gauge }
 }
 
 /**
  * Where the data counter as it was found at the seat is set right: the
- * day's spins, the spins since its last jackpot and the day's jackpots,
+ * spins since its last jackpot and the day's jackpots,
  * as they were typed when the play began, the cabinet's own 遊タイム counter
  * behind its [遊] button for a machine with a 遊タイム, and — behind the small detail
  * button — the balls the play was begun with in hand. Saving makes every
@@ -59,7 +59,7 @@ const readSeat = (form: SeatForm): Seat | undefined => {
 export function SeatComposer(props: { readonly draft: PlayDraft; readonly ordered: readonly Checkpoint[]; readonly reliefDrive: number | undefined; readonly onDone: () => void }): JSX.Element {
   const app = useApp()
   const found = seatOf(props.ordered)
-  const [form, setForm] = createSignal<SeatForm>({ spins: String(found.spins), total: String(found.total), jackpots: String(found.jackpots), gauge: found.gauge === undefined ? "" : String(found.gauge) })
+  const [form, setForm] = createSignal<SeatForm>({ spins: String(found.spins), jackpots: String(found.jackpots), gauge: found.gauge === undefined ? "" : String(found.gauge) })
   const [carriedIn, setCarriedIn] = createSignal(carriedInShown(undefined, carriedInOf(props.ordered)))
   const [sending, setSending] = createSignal<Sending>({ type: "typing" })
   const nudge = createNudge()
@@ -118,8 +118,7 @@ export function SeatComposer(props: { readonly draft: PlayDraft; readonly ordere
         )}
       </Show>
       <p class="text-xs font-bold text-warning">開始時データを修正中</p>
-      <div class="grid grid-cols-[repeat(3,minmax(0,1fr))_auto] items-end gap-1.5">
-        <TextField label="総回転数" value={form().total} onChange={(total) => change({ total })} inputMode="numeric" invalid={wrong("total")} onFocus={nudge.settle} compact />
+      <div class="grid grid-cols-[repeat(2,minmax(0,1fr))_auto] items-end gap-1.5">
         <TextField label="ゲーム数" value={form().spins} onChange={(spins) => change({ spins })} inputMode="numeric" invalid={wrong("spins")} onFocus={nudge.settle} compact />
         <div class="flex min-w-0 items-end gap-1">
           <Show when={props.reliefDrive !== undefined}>

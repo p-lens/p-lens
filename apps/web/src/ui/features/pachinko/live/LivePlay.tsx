@@ -8,6 +8,7 @@ import { jackpotCountingOf, tokenValueOfDraft, type PachinkoDraft, type PlayDraf
 import { consumptionOf, spinPerformanceOf } from "../../../../core/pachinko/consumption"
 import { withReadingsMerged, type Span } from "../../../../core/pachinko/merging"
 import { basisOf, type Basis } from "../../../../core/pachinko/formula"
+import { supportPhaseOf } from "../../../../core/pachinko/reading"
 import { gaugeNowOf, standingBefore, takenOf } from "../../../../core/pachinko/revision"
 import { parsePlayLog, type Checkpoint, type PlayLogError } from "../../../../core/play-log/checkpoint"
 import { liveSummary, minutesPlayedOf } from "../../../../core/play-log/live"
@@ -27,6 +28,7 @@ import { LiveFigures } from "./LiveFigures"
 import { LiveHyenaHunt } from "./LiveHyenaHunt"
 import { ReadingComposer } from "./ReadingComposer"
 import { SeatComposer } from "./SeatComposer"
+import { SupportComposer } from "./SupportComposer"
 import { samePressed, Timeline, type Revised } from "./Timeline"
 
 /** A merging as it was done: the log it was made from, and the play as it left it. */
@@ -214,7 +216,15 @@ export function LivePlay(props: {
                   <Timeline checkpoints={checkpoints} terms={terms} revising={revised()} onRevise={(pressed) => (samePressed(pressed, revised()) ? done() : setWork(pressed))} onMerge={(span) => merge(checkpoints, span)} />
                 </div>
                 <div class="sticky bottom-0">
-                  <Show when={work()} keyed fallback={<ReadingComposer draft={props.draft} ordered={checkpoints} revising={undefined} inserting={undefined} onRevised={done} onInsertBefore={insertBefore} />}>
+                  <Show
+                    when={work()}
+                    keyed
+                    fallback={
+                      <Show when={supportPhaseOf(checkpoints)} keyed fallback={<ReadingComposer draft={props.draft} ordered={checkpoints} revising={undefined} inserting={undefined} onRevised={done} onInsertBefore={insertBefore} />}>
+                        {(phase) => <SupportComposer draft={props.draft} ordered={checkpoints} phase={phase} />}
+                      </Show>
+                    }
+                  >
                     {(doing) => {
                       if (doing.type === "seat") return <SeatComposer draft={props.draft} ordered={checkpoints} reliefDrive={reliefDrive()} onDone={done} />
                       const taken = takenOf(checkpoints)

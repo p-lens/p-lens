@@ -23,6 +23,8 @@ export interface Reading {
   readonly handsBefore?: readonly ReadingHand[]
   /** The cabinet's own 遊タイム counter as it showed with the data counter, where it was said: from here to the next jackpot, the spins toward the 遊タイム are the data counter's less the difference between them. */
   readonly gauge?: number
+  /** Whether the reading says the 電サポ turned from 確変 to 時短 there: a line with nothing else on it, and never a jackpot's. */
+  readonly rapidBegan?: true
 }
 
 /**
@@ -47,15 +49,31 @@ export interface ReadingHand {
  */
 export type Jackpot = { readonly type: "none" } | { readonly type: "untold" } | { readonly type: "bonus"; readonly bonus: BonusWon }
 
-const eventOf = (jackpot: Jackpot): Pick<Checkpoint, "event"> => {
+const eventOf = (jackpot: Jackpot, rapidBegan: boolean): Pick<Checkpoint, "event"> => {
   switch (jackpot.type) {
     case "none":
-      return {}
+      return rapidBegan ? { event: { kind: "rapid-began" } } : {}
     case "untold":
       return { event: { kind: "jackpot" } }
     case "bonus":
       return { event: { kind: "jackpot", bonus: jackpot.bonus } }
   }
+}
+
+/** The states the 電サポ runs in after a jackpot: 確変, or 時短. */
+export type SupportPhase = Exclude<Phase, "regular">
+
+/**
+ * The state the cabinet's 電サポ is in, where it is on one: 確変 where a
+ * jackpot is the last thing the play said, 時短 where the last is its
+ * turning to 時短. A run of jackpots keeps it there, each starting it in
+ * 確変 again, and the reading that says it came back to regular games — a
+ * line in 確変 or 時短 with nothing on it — ends it; nothing else is
+ * written while it lasts. None in regular games.
+ */
+export const supportPhaseOf = (ordered: readonly Checkpoint[]): SupportPhase | undefined => {
+  const kind = ordered.at(-1)?.event?.kind
+  return kind === "jackpot" ? "special" : kind === "rapid-began" ? "rapid" : undefined
 }
 
 /** Why a reading cannot be added as it stands: the counter shows less than it must by now, so it started over unseen. */
@@ -73,7 +91,7 @@ const readingFields = (ordered: readonly Checkpoint[], reading: Reading): Omit<C
     outlay: lastKnown(ordered, (checkpoint) => checkpoint.outlay) + reading.rented,
     at: reading.at,
     counter: reading.gauge === undefined ? { spins: reading.counterSpins } : { spins: reading.counterSpins, gauge: reading.gauge },
-    ...eventOf(reading.jackpot),
+    ...eventOf(reading.jackpot, reading.rapidBegan === true),
     phase: reading.phase,
     ...(replay === 0 ? {} : { replay }),
     ...(support === 0 && supportBefore === 0 ? {} : { support }),
@@ -116,4 +134,20 @@ const withHands = (ordered: readonly Checkpoint[], reading: Reading, made: reado
     }))
     .filter((hand) => hand.spins >= since && hand.spins <= line.spins)
   return hands.length === 0 ? made : [...made.slice(0, -1), { ...line, handsBefore: hands }]
+}
+
+/** Why the 電サポ cannot be turned to 時短: it is not in 確変 — the play is in regular games, or in 時短 already. */
+export interface RapidRefusal {
+  readonly type: "not-in-special"
+}
+
+/**
+ * The line that turns the 電サポ from 確変 to 時短, at a moment: on the
+ * jackpot's own spins, the counter not read. Refused unless the 電サポ is
+ * in 確変, so that however often it is asked for, a run turns to 時短 once.
+ */
+export const checkpointsForRapid = (ordered: readonly Checkpoint[], at: string): Result<readonly Checkpoint[], RapidRefusal> => {
+  if (supportPhaseOf(ordered) !== "special") return Err({ type: "not-in-special" })
+  const made = checkpointsForReading(ordered, { counterSpins: 0, phase: "special", rented: 0, replayed: 0, supported: 0, held: undefined, jackpot: { type: "none" }, at, rapidBegan: true }, false)
+  return made.ok ? made : Err({ type: "not-in-special" })
 }

@@ -1,5 +1,5 @@
 import type { MachineBonus } from "../../../../core/catalog/catalog"
-import type { Jackpot, Reading, ReadingHand } from "../../../../core/pachinko/reading"
+import type { Jackpot, Reading, ReadingHand, SupportPhase } from "../../../../core/pachinko/reading"
 import type { Before } from "../../../../core/pachinko/revision"
 import type { Phase } from "../../../../core/play-log/checkpoint"
 import { Err, Ok, type Result } from "../../../../core/result/result"
@@ -36,6 +36,8 @@ export interface ReadingForm {
   readonly over: string
   readonly gauge: number | undefined
   readonly handsBefore: readonly ReadingHand[]
+  /** Whether a reading set right is the 電サポ turning to 時短, kept as it was: said on the bar, never typed here. */
+  readonly rapidBegan: boolean
 }
 
 export type ReadingField = "counter" | "held" | "rented" | "replayed" | "supported" | "over"
@@ -62,6 +64,7 @@ export const readingFrom = (phase: Phase, before: Before): ReadingForm => ({
   over: "",
   gauge: undefined,
   handsBefore: [],
+  rapidBegan: false,
 })
 
 const COUNT = /^\d+$/
@@ -125,6 +128,7 @@ export const formOfReading = (reading: Reading, before: Before): ReadingForm => 
   over: reading.jackpot.type === "bonus" && reading.jackpot.bonus.over !== undefined ? String(reading.jackpot.bonus.over) : "",
   gauge: reading.gauge,
   handsBefore: reading.handsBefore ?? [],
+  rapidBegan: reading.rapidBegan === true,
 })
 
 /** The choice in the bonus list as a list keys it: a listed bonus by its name, which its machine has once. */
@@ -158,9 +162,18 @@ export const readReadingForm = (form: ReadingForm, bonuses: readonly MachineBonu
     held: held.value,
     jackpot: jackpotOf(form.jackpot, bonuses, over.value),
     ...(form.gauge === undefined ? {} : { gauge: form.gauge }),
+    ...(form.rapidBegan ? { rapidBegan: true as const } : {}),
     ...((hands) => (hands.length === 0 ? {} : { handsBefore: hands }))(handsWithin(form.handsBefore, counter.value, rented.value, replayed.value)),
   })
 }
+
+/** A jackpot on the 電サポ as its bar takes it: the bonus chosen, in the state it came in, at the counter where it stood — nobody reads one in a run — with nothing rented, drawn, counted or drifted. */
+export const readRunJackpot = (form: ReadingForm, bonuses: readonly MachineBonus[], before: Before, phase: SupportPhase): Result<Omit<Reading, "at">, readonly ReadingProblem[]> =>
+  readReadingForm({ ...readingFrom(phase, before), jackpot: form.jackpot, over: form.over }, bonuses, before)
+
+/** The 電サポ's end as its bar takes it: the spins it ran for by the counter, which must be typed, the balls in hand where they were counted — not where the guide shown is left as it is — and what it drifted, in the state it ran in. */
+export const readSupportEnd = (form: ReadingForm, before: Before, phase: SupportPhase): Result<Omit<Reading, "at">, readonly ReadingProblem[]> =>
+  readReadingForm({ ...readingFrom(phase, before), counter: form.counter, held: form.held, heldCarried: form.heldCarried, supported: form.supported, drift: form.drift }, [], before)
 
 /** The hands a reading made of several knew inside it that still stand inside it as it is set right: none further on than its counter, nor having rented or drawn more than it did. */
 const handsWithin = (hands: readonly ReadingHand[], counterSpins: number, rented: number, replayed: number): readonly ReadingHand[] =>

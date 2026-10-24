@@ -16,7 +16,7 @@ const playedWith = (held: number, readings: readonly Reading[]): readonly Checkp
     return added.ok ? [...log, ...added.value] : log
   }, [{ ...SAT_DOWN, held }])
 
-const SAT_DOWN: Checkpoint = { spins: 0, outlay: 0, counter: { spins: 120, total: 2400, jackpots: 9 } }
+const SAT_DOWN: Checkpoint = { spins: 0, outlay: 0, counter: { spins: 120, jackpots: 9 } }
 
 const reading = (fields: Partial<Reading> & Pick<Reading, "counterSpins">): Reading => ({
   phase: "regular",
@@ -192,11 +192,11 @@ describe("setting a play's readings right", () => {
 
   test("sets the seat's counter right, and every reading before the first jackpot counts on from it again", () => {
     const log = played([reading({ counterSpins: 140, rented: 1000 }), reading({ counterSpins: 328, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }), reading({ counterSpins: 50, phase: "special" })])
-    expect(seatOf(log)).toEqual({ spins: 120, total: 2400, jackpots: 9 })
-    const set = withSeatRevised(log, { spins: 100, total: 2380, jackpots: 9 })
+    expect(seatOf(log)).toEqual({ spins: 120, jackpots: 9 })
+    const set = withSeatRevised(log, { spins: 100, jackpots: 9 })
     expect(set.ok && set.value.map((line) => line.spins)).toEqual([0, 40, 228, 278])
-    expect(set.ok && set.value[0]?.counter).toEqual({ spins: 100, total: 2380, jackpots: 9 })
-    expect(withSeatRevised(log, { spins: 150, total: 2400, jackpots: 9 })).toEqual({ ok: false, error: { type: "counter-went-back", index: 0, expectedAtLeast: 150 } })
+    expect(set.ok && set.value[0]?.counter).toEqual({ spins: 100, jackpots: 9 })
+    expect(withSeatRevised(log, { spins: 150, jackpots: 9 })).toEqual({ ok: false, error: { type: "counter-went-back", index: 0, expectedAtLeast: 150 } })
   })
 })
 

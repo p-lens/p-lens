@@ -29,13 +29,19 @@ const weighedOf = (ordered: readonly Checkpoint[]): readonly Weighed[] =>
  * Whether a reading and the one after it may be made one. Not across a
  * jackpot, which starts the counter over and is a line of its own, and
  * not across a change of the state the cabinet was in, which a single
- * line cannot say of two stretches. Nor is either a reading a jackpot
+ * line cannot say of two stretches, nor across the 電サポ turning to 時短,
+ * which is a line of its own too. Nor is either a reading a jackpot
  * nobody wrote down was admitted before: that jackpot is known only by
  * the counter having gone back at that reading, and would be lost with
  * it.
  */
 const joins = (earlier: Taken, later: Taken): boolean =>
-  earlier.reading.jackpot.type === "none" && earlier.reading.phase === later.reading.phase && !earlier.afterMissedJackpot && !later.afterMissedJackpot
+  earlier.reading.jackpot.type === "none" &&
+  earlier.reading.phase === later.reading.phase &&
+  earlier.reading.rapidBegan === undefined &&
+  later.reading.rapidBegan === undefined &&
+  !earlier.afterMissedJackpot &&
+  !later.afterMissedJackpot
 
 /** The place a run from one reading reaches towards another, each reading joined to the next: the other's, or the last before a line that does not join. */
 const stretched = (weighed: readonly Weighed[], at: number, reached: number): number => {
