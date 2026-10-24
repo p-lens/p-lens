@@ -200,14 +200,14 @@ export function SupportComposer(props: {
                 </div>
                 <OverButton over={form().over} invalid={nudged("over")} onOver={(over) => change({ over })} onFocus={nudge.settle} />
               </div>
-              <div class="flex min-w-0 items-end justify-end gap-1">
-                <Button variant="secondary" class="h-10 shrink-0 px-3" onClick={startEnding}>
-                  {BACK_TO_REGULAR}
-                </Button>
-                <Button type="submit" class="h-10 shrink-0 px-5" onClick={feelTap}>
-                  記録
-                </Button>
-              </div>
+            </div>
+            <div class="flex items-end justify-between gap-2">
+              <Button type="submit" class="h-10 shrink-0 px-5" onClick={feelTap}>
+                記録
+              </Button>
+              <Button variant="secondary" class="h-10 shrink-0 px-3" onClick={startEnding}>
+                {BACK_TO_REGULAR}
+              </Button>
             </div>
           </>
         }
