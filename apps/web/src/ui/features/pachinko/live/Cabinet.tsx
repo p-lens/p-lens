@@ -144,7 +144,7 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
       return
     }
     start.update({ cabinet: undefined })
-    toast({ title: "保存しました", stays: "glance" })
+    toast({ title: "保存しました", stays: "blink" })
     app.played()
     moves.replace({ kind: "live-play", playId: props.draft.id })
   }
