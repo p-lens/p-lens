@@ -347,7 +347,7 @@ export function ReadingComposer(props: {
                     <Show when={props.reliefDrive !== undefined}>
                       <Button
                         variant="secondary"
-                        class="h-10 shrink-0 px-2"
+                        class="ml-auto h-10 shrink-0 px-2"
                         onClick={() => {
                           feelTap()
                           void send(false, true)

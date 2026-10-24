@@ -14,6 +14,9 @@ export const SUPPORT_NAMES: Readonly<Record<SupportPhase, string>> = { special: 
 /** The bar's name while the 時短 is the 遊タイム, with no jackpot since. */
 export const RELIEF_DRIVE_NAME = "遊タイム中"
 
+/** How a 遊タイム entered by a slip of the finger is left, on either side of the trash icon it names. */
+export const RELIEF_DRIVE_SLIP = { before: "遊タイムを押し間違えたときは、上の履歴の末尾をタップして、", after: "で削除してください。" } as const
+
 /** The button beside 記録 that says the 遊タイム was reached at the counter typed. */
 export const RELIEF_DRIVE_REACHED = "遊タイム"
 

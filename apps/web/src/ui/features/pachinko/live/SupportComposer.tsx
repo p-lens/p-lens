@@ -9,6 +9,7 @@ import type { Checkpoint } from "../../../../core/play-log/checkpoint"
 import type { Result } from "../../../../core/result/result"
 import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
+import { TrashIcon } from "../../../primitives/icons"
 import { createNudge } from "../../../primitives/nudge"
 import { holdTheEnd, revealAboveTheKeyboard } from "../../../primitives/scroll-end"
 import { Select } from "../../../primitives/select"
@@ -17,7 +18,7 @@ import { toast } from "../../../primitives/toast"
 import { feelTap } from "../../../primitives/vibration"
 import { describeError, describeReadingRefusal } from "../../../wording/errors"
 import { FIELD_PROBLEM_TEXT } from "../../../wording/fields"
-import { BACK_TO_REGULAR, RELIEF_DRIVE_NAME, SUPPORT_END_ASKS, SUPPORT_NAMES, switchToText } from "../../../wording/pachinko/play"
+import { BACK_TO_REGULAR, RELIEF_DRIVE_SLIP, RELIEF_DRIVE_NAME, SUPPORT_END_ASKS, SUPPORT_NAMES, switchToText } from "../../../wording/pachinko/play"
 import { jackpotOptions, useBonuses, usualOverOf } from "./bonus-choice"
 import { DriftButton } from "./DriftButton"
 import { OverButton } from "./OverButton"
@@ -52,7 +53,8 @@ const OTHER_PHASE: Readonly<Record<SupportPhase, SupportPhase>> = { special: "ra
  * huddle see it; switching back takes that line away again, since a run
  * goes back to 確変 only by a jackpot — so a run has one turn however
  * often the bar is pressed, and none while one is being kept. The 遊タイム
- * is 時短 reached from regular games, and is never switched.
+ * is 時短 reached from regular games, and is never switched; it says, in
+ * the warning's colour, how one pressed by a slip is taken away again.
  */
 export function SupportComposer(props: {
   readonly draft: PachinkoDraft
@@ -189,6 +191,13 @@ export function SupportComposer(props: {
           </button>
         </Show>
       </div>
+      <Show when={props.reliefDrive && step().type === "running"}>
+        <p class="text-xs text-warning [&_svg]:inline [&_svg]:size-3.5 [&_svg]:align-[-0.15em]">
+          {RELIEF_DRIVE_SLIP.before}
+          <TrashIcon />
+          {RELIEF_DRIVE_SLIP.after}
+        </p>
+      </Show>
       <Show
         when={step().type === "ending"}
         fallback={
