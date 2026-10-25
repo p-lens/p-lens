@@ -84,13 +84,31 @@ const GRADE_SPAN: Readonly<Record<BorderGrade, string>> = {
   excellent: "2,000〜3,000円",
   strong: "1,750〜2,000円",
   professional: "1,500〜1,750円",
-  modest: "0〜1,500円",
+  modest: "1〜1,500円",
   near: "−300〜0円",
   short: "−1,000〜−300円",
   shorter: "−2,000〜−1,000円",
   deep: "−3,000〜−2,000円",
   deepest: "−3,000円未満",
 }
+
+const GRADE_FLOOR: Readonly<Record<BorderGrade, string>> = {
+  crowned: "5,000円以上",
+  shining: "4,000円以上",
+  outstanding: "3,000円以上",
+  excellent: "2,000円以上",
+  strong: "1,750円以上",
+  professional: "1,500円以上",
+  modest: "1円以上",
+  near: "−300円以上",
+  short: "−1,000円以上",
+  shorter: "−2,000円以上",
+  deep: "−3,000円以上",
+  deepest: "−3,000円未満",
+}
+
+/** Where a grade of mark starts, an hour's worth at 200 spins, as a legend read from the best down says it: `2,000円以上`, and the lowest `−3,000円未満`. */
+export const gradeFloorText = (grade: BorderGrade): string => GRADE_FLOOR[grade]
 
 /** What the mark beside a play's spin performance says, for whoever cannot see its colour or its shape. */
 export const borderMarkSays = (mark: BorderMark): string =>

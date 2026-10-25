@@ -48,6 +48,9 @@ export interface PlayedSoFar {
 const SPINS_BEFORE_OUTSTANDING = 300
 const MINUTES_BEFORE_OUTSTANDING = 90
 
+/** Every grade, the best first: what a legend of the marks lists. */
+export const BORDER_GRADES: readonly BorderGrade[] = [...FLOORS.map(([grade]) => grade), "deepest"]
+
 const gradeOf = (hourly: number): BorderGrade => FLOORS.find(([, floor]) => hourly >= floor)?.[0] ?? "deepest"
 
 const longEnough = (played: PlayedSoFar): boolean =>

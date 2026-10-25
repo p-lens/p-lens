@@ -1,45 +1,18 @@
 import { Show, type JSX } from "solid-js"
 
-import { borderMarkOf, type BorderGrade, type BorderMark } from "../../../../core/pachinko/border-standing"
+import { borderMarkOf, type BorderMark } from "../../../../core/pachinko/border-standing"
 import { spinPerformanceOf, type Consumption } from "../../../../core/pachinko/consumption"
 import { playTheoreticalValue } from "../../../../core/pachinko/theoretical-value"
 import { tokenValueOf, type PlayTerms } from "../../../../core/parlor/terms"
 import type { FormulaSnapshot } from "../../../../core/pachinko/snapshot"
 import { missingJackpots, type LiveSummary } from "../../../../core/play-log/live"
-import { CrownIcon, StarIcon, TrianglesDownIcon, TriangleUpIcon } from "../../../primitives/icons"
 import { HelpPopover } from "../../../primitives/popover"
 import { formulaText } from "../../../wording/pachinko/formula"
 import { amountText, formatCount, theoreticalFigureText, theoreticalFractionText } from "../../../wording/numbers"
-import { borderMarkSays } from "../../../wording/pachinko/play"
 import { seal } from "../../../../mummer"
+import { StandingMark } from "./StandingMark"
 
 const rateOf = (perThousand: number | undefined): string => (perThousand === undefined ? "--" : perThousand.toFixed(1))
-
-const DRAWN = "[&_svg]:inline [&_svg]:h-3.5 [&_svg]:w-auto [&_svg]:align-[-0.15em]"
-
-const MARKS: Readonly<Record<BorderGrade, { readonly shape: () => JSX.Element; readonly look: string }>> = {
-  crowned: { shape: () => <CrownIcon />, look: `text-mark-gold ${DRAWN}` },
-  shining: { shape: () => <StarIcon />, look: `text-mark-gold motion-safe:animate-[shine_2.4s_ease-in-out_3] ${DRAWN}` },
-  outstanding: { shape: () => <StarIcon />, look: `text-mark-gold ${DRAWN}` },
-  excellent: { shape: () => <StarIcon />, look: `text-mark-red ${DRAWN}` },
-  strong: { shape: () => <TriangleUpIcon />, look: `text-mark-purple ${DRAWN}` },
-  professional: { shape: () => <TriangleUpIcon />, look: `text-mark-green ${DRAWN}` },
-  modest: { shape: () => <TriangleUpIcon />, look: `text-mark-blue ${DRAWN}` },
-  near: { shape: () => <TrianglesDownIcon count={1} />, look: `text-mark-yellow ${DRAWN}` },
-  short: { shape: () => <TrianglesDownIcon count={1} />, look: `text-mark-red ${DRAWN}` },
-  shorter: { shape: () => <TrianglesDownIcon count={2} />, look: `text-mark-red ${DRAWN}` },
-  deep: { shape: () => <TrianglesDownIcon count={3} />, look: `text-mark-red ${DRAWN}` },
-  deepest: { shape: () => <TrianglesDownIcon count={4} />, look: `text-mark-red ${DRAWN}` },
-}
-
-/** A mark that says where the play stands against its border and how far, by its shape and colour and, for whoever cannot see them, in words. */
-function StandingMark(props: { readonly mark: BorderMark }): JSX.Element {
-  return (
-    <span role="img" aria-label={borderMarkSays(props.mark)} title={borderMarkSays(props.mark)} class={`ml-1 align-middle text-xs ${MARKS[props.mark.grade].look}`}>
-      {MARKS[props.mark.grade].shape()}
-    </span>
-  )
-}
 
 /** One figure under its name, small enough that three sit side by side on a phone: the figures must leave room for the readings under them. What it is given to wear stands after its name. */
 function Tile(props: { readonly label: string; readonly value: string; readonly unit?: string; readonly wears?: JSX.Element }): JSX.Element {

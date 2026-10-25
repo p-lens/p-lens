@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test"
 
+import { BORDER_GRADES } from "../../../src/core/pachinko/border-standing"
 import type { ModeView } from "../../../src/core/pachinko/world"
 import { kindText, nextText, probabilitiesText, probabilityText, roundPayoutText, shareText } from "../../../src/ui/features/pachinko/formulas/spec-text"
 import { borderText, kindName, formulaHandle, formulaText, formulaNameAmong, oneInText, payoutText } from "../../../src/ui/wording/pachinko/formula"
+import { gradeFloorText } from "../../../src/ui/wording/pachinko/play"
 
 describe("a basis as it reads", () => {
   test("keeps probabilities in the form the sheet wrote them", () => {
@@ -51,3 +53,10 @@ describe("a formula's figures as they read", () => {
     expect(kindName("simulated")).toBe("基礎値から計算")
   })
 })
+
+describe("the legend of the marks beside a live play's spin performance", () => {
+  test("says where each mark starts, read from the best down, the lowest as everything under the one above", () => {
+    expect(BORDER_GRADES.map(gradeFloorText)).toEqual(["5,000円以上", "4,000円以上", "3,000円以上", "2,000円以上", "1,750円以上", "1,500円以上", "1円以上", "−300円以上", "−1,000円以上", "−2,000円以上", "−3,000円以上", "−3,000円未満"])
+  })
+})
+
