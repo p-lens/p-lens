@@ -1,4 +1,4 @@
-import { tokenValueOf, type PlayTerms } from "../parlor/terms"
+import { advertisedRentalOf, tokenValueOf, type PlayTerms } from "../parlor/terms"
 import { spinPerformanceOf, type Consumption, type Measured } from "./consumption"
 import type { Figures } from "./figures"
 
@@ -61,9 +61,9 @@ const costOf = (measured: Measured, terms: PlayTerms): number => {
   return (rented * terms.rental.yen) / terms.rental.tokens + ((replayed * terms.replay.deducted) / terms.replay.paidOut) * ballValue + own * ballValue
 }
 
-/** The spin performance at which balls costing so much each repay themselves: what a ball cost over what a spin wins, in spins for the balls ¥1,000 rents. */
+/** The spin performance at which balls costing so much each repay themselves: what a ball cost over what a spin wins, in spins for the balls ¥1,000 rents at the corner's advertised rate. */
 const borderAt = (figures: Figures, terms: PlayTerms, yenPerBall: number): number =>
-  (yenPerBall / (ballsPerSpin(figures) * tokenValueOf(terms))) * ((terms.rental.tokens * 1000) / terms.rental.yen)
+  (yenPerBall / (ballsPerSpin(figures) * tokenValueOf(terms))) * advertisedRentalOf("pachinko", terms)
 
 /**
  * The figures as a play's bonuses paid them: every round paying as much

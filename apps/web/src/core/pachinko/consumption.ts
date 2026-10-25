@@ -1,4 +1,4 @@
-import type { PlayTerms } from "../parlor/terms"
+import { advertisedRentalOf, type PlayTerms } from "../parlor/terms"
 import type { Checkpoint } from "../play-log/checkpoint"
 import { gainOf, payoutDifferencesOf, payoutRatioOf } from "./payout"
 
@@ -161,8 +161,8 @@ export const consumptionOf = (ordered: readonly Checkpoint[], terms: PlayTerms):
   return { regularSpins: walked.last?.regularSpins ?? 0, measured: measuredOf(walked), payoutRatio: payoutRatioOf(ordered) }
 }
 
-/** The spin performance a measurement comes to: regular spins for the balls ¥1,000 rents, the player's own balls counted as rented ones are. */
-export const spinPerformanceOf = (measured: Measured, terms: PlayTerms): number => (measured.spins / measured.balls) * ((terms.rental.tokens * 1000) / terms.rental.yen)
+/** The spin performance a measurement comes to: regular spins for the balls ¥1,000 rents at the corner's advertised rate (`advertisedRentalOf`), the player's own balls and those drawn from savings counted as rented ones are. */
+export const spinPerformanceOf = (measured: Measured, terms: PlayTerms): number => (measured.spins / measured.balls) * advertisedRentalOf("pachinko", terms)
 
 /** The spin performance a play's log measured, as its live screen shows it: none until there is a stretch to measure. */
 export const measuredSpinPerformance = (ordered: readonly Checkpoint[], terms: PlayTerms): number | undefined =>
