@@ -91,11 +91,11 @@ describe("a run of a pachinko play's readings made one", () => {
   })
 
   test("folds a reading that bought balls into one that knows nothing of the hand, the hand known there kept in it", () => {
-    const log = played([reading({ counterSpins: 320, rented: 10000, replayed: 3000 }), reading({ counterSpins: 400 })])
-    expect(mergeableSpan(log, 0, 1)).toEqual({ from: 0, to: 1 })
-    const made = merged(log, 0, 1)
-    expect(takenOf(made).map((each) => each.reading)).toMatchObject([{ counterSpins: 400, rented: 10000, replayed: 3000, held: undefined, handsBefore: [{ counterSpins: 320, rented: 10000, replayed: 3000, supported: 0, held: 0 }] }])
-    expect(made.at(-1)?.handsBefore).toEqual([{ spins: 200, outlay: 10000, replay: 3000, support: 0, held: 0 }])
+    const log = played([reading({ counterSpins: 120, rented: 10000, replayed: 3000 }), reading({ counterSpins: 320, rented: 1000 }), reading({ counterSpins: 400 })])
+    expect(mergeableSpan(log, 1, 2)).toEqual({ from: 1, to: 2 })
+    const made = merged(log, 1, 2)
+    expect(takenOf(made).map((each) => each.reading).at(-1)).toMatchObject({ counterSpins: 400, rented: 1000, replayed: 0, held: undefined, handsBefore: [{ counterSpins: 320, rented: 1000, replayed: 0, supported: 0, held: 0 }] })
+    expect(made.at(-1)?.handsBefore).toEqual([{ spins: 200, outlay: 11000, replay: 3000, support: 0, held: 0 }])
     expect(consumptionOf(made, TERMS)).toEqual(consumptionOf(log, TERMS))
     expect(consumptionOf(made, TERMS).measured).toEqual({ spins: 200, balls: 5500, rentedBalls: 2500, replayedBalls: 3000 })
     expect(heldAsToldOf(made)).toBe(heldAsToldOf(log))

@@ -34,13 +34,23 @@ interface Standing {
   readonly replayedBalls: number
   /** Every ball that came to hand: rented, drawn, won in bonuses, gained or lost on the 電サポ. */
   readonly gained: number
-  /** The balls in hand, where the line knows: counted, or none because more had to be bought. */
+  /** The balls in hand, where the line knows: counted, or those just bought because the hand had run out. */
   readonly held: number | undefined
+  /** Of the rented and the drawn, those bought here as the hand ran out and so still in hand, none played yet. */
+  readonly unplayed: { readonly rented: number; readonly replayed: number }
 }
 
-const START: Standing = { regularSpins: 0, rentedBalls: 0, replayedBalls: 0, gained: 0, held: 0 }
+const NONE_UNPLAYED = { rented: 0, replayed: 0 } as const
+
+const START: Standing = { regularSpins: 0, rentedBalls: 0, replayedBalls: 0, gained: 0, held: 0, unplayed: NONE_UNPLAYED }
 
 const rentedBallsOf = (outlay: number, terms: PlayTerms): number => (outlay * terms.rental.tokens) / terms.rental.yen
+
+/** What was bought at a point the hand ran out, since the standing before it: the rented and the drawn now in hand. */
+const unplayedOf = (before: Standing, rentedBalls: number, replayedBalls: number): Standing["unplayed"] => ({
+  rented: Math.max(0, rentedBalls - before.rentedBalls),
+  replayed: Math.max(0, replayedBalls - before.replayedBalls),
+})
 
 const isRegular = (checkpoint: Checkpoint): boolean => checkpoint.phase === undefined || checkpoint.phase === "regular"
 
@@ -57,17 +67,19 @@ interface Stood {
 
 /**
  * The standing at each line. A line where balls were rented or drawn is
- * one where the hand had run out, so all that came to hand by then was
- * played — but not a jackpot's line: the jackpot may have come a few
- * spins into what was bought there, and what was left of it is in hand
+ * one where the hand had run out, so all that came to hand before was
+ * played and what was bought there is the hand — but not a jackpot's
+ * line: the jackpot may have come a few spins into what was bought
+ * there, and what was left of it is in hand
  * with what the bonus paid, so that line does not know the hand until it
  * is counted. A line where the balls in hand were counted says so itself
  * — a jackpot's count being the hand as the jackpot came, before its bonus
  * paid, which is then in hand besides; any other line does not know what
  * is in hand. A line made of readings folded
  * together says, besides, where the hand was known inside it
- * (`handsBefore`), each a standing of its own before the line's; what was
- * bought by the last of them was bought there, not at the line. A bonus
+ * (`handsBefore`), each a standing of its own before the line's, one known
+ * by more being bought holding what was bought there; what was bought by
+ * the last of them was bought there, not at the line. A bonus
  * paid what its machine lists and what the person said it paid beyond
  * that (`gainOf`); one counted as it ended (`payoutDifferencesOf`) paid
  * what was counted: what it paid beyond what was said came to hand at the
@@ -81,23 +93,33 @@ const standingsOf = (ordered: readonly Checkpoint[], terms: PlayTerms): readonly
       const replayedBalls = checkpoint.replay ?? walked.before.replayedBalls
       const bonuses = walked.bonuses + bonusGainOf(checkpoint) + (differences.get(line) ?? 0)
       const regularSince = (spins: number): number => walked.before.regularSpins + (isRegular(checkpoint) ? spins - walked.spins : 0)
-      const hands = (checkpoint.handsBefore ?? []).map(
-        (hand): Known => ({
-          regularSpins: regularSince(hand.spins),
-          rentedBalls: rentedBallsOf(hand.outlay, terms),
-          replayedBalls: hand.replay,
-          gained: rentedBallsOf(hand.outlay, terms) + hand.replay + walked.bonuses + hand.support,
-          held: hand.held,
-        }),
-      )
+      const hands = (checkpoint.handsBefore ?? []).reduce<readonly Known[]>((known, hand) => {
+        const before = known.at(-1) ?? walked.before
+        const rentedBalls = rentedBallsOf(hand.outlay, terms)
+        const unplayed = hand.counted === true ? NONE_UNPLAYED : unplayedOf(before, rentedBalls, hand.replay)
+        return [
+          ...known,
+          {
+            regularSpins: regularSince(hand.spins),
+            rentedBalls,
+            replayedBalls: hand.replay,
+            gained: rentedBalls + hand.replay + walked.bonuses + hand.support,
+            held: hand.counted === true ? hand.held : unplayed.rented + unplayed.replayed,
+            unplayed,
+          },
+        ]
+      }, [])
       const latest = hands.at(-1) ?? walked.before
       const bought = rentedBalls > latest.rentedBalls || replayedBalls > latest.replayedBalls
+      const knownByBuying = checkpoint.held === undefined && bought && checkpoint.event?.kind !== "jackpot"
+      const unplayed = knownByBuying ? unplayedOf(latest, rentedBalls, replayedBalls) : NONE_UNPLAYED
       const standing: Standing = {
         regularSpins: regularSince(checkpoint.spins),
         rentedBalls,
         replayedBalls,
         gained: rentedBalls + replayedBalls + bonuses + (checkpoint.support ?? 0),
-        held: checkpoint.held === undefined ? (bought && checkpoint.event?.kind !== "jackpot" ? 0 : undefined) : checkpoint.held + Math.max(0, bonusGainOf(checkpoint)),
+        held: checkpoint.held === undefined ? (knownByBuying ? unplayed.rented + unplayed.replayed : undefined) : checkpoint.held + Math.max(0, bonusGainOf(checkpoint)),
+        unplayed,
       }
       return { stood: [...walked.stood, { standing, hands }], before: standing, spins: checkpoint.spins, bonuses }
     },
@@ -143,7 +165,12 @@ const measuredOf = (walked: Walked): Measured | undefined => {
   const spins = walked.to.regularSpins - walked.from.regularSpins
   const balls = playedOf(walked.to) - playedOf(walked.from)
   return spins > 0 && balls > 0
-    ? { spins, balls, rentedBalls: walked.to.rentedBalls - walked.from.rentedBalls, replayedBalls: walked.to.replayedBalls - walked.from.replayedBalls }
+    ? {
+        spins,
+        balls,
+        rentedBalls: walked.to.rentedBalls - walked.to.unplayed.rented - (walked.from.rentedBalls - walked.from.unplayed.rented),
+        replayedBalls: walked.to.replayedBalls - walked.to.unplayed.replayed - (walked.from.replayedBalls - walked.from.unplayed.replayed),
+      }
     : undefined
 }
 

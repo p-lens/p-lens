@@ -86,7 +86,7 @@ interface Since {
   readonly supported: number
 }
 
-/** A reading's own hand where it knew one: what it counted, or none left as it bought more. */
+/** A reading's own hand where it knew one: what it counted, or, as it bought more, what it bought (`consumptionOf`), kept here as none. */
 const handOf = ({ reading }: Taken, since: Since): ReadingHand => ({
   counterSpins: reading.counterSpins,
   rented: since.rented + reading.rented,
@@ -122,18 +122,22 @@ const pointsOf = (run: readonly Weighed[]): readonly Point[] =>
  * The points a run's one reading must keep for the play to stand as it
  * did: for it to be measured as it was (`consumptionOf`), the last before
  * any regular game, which the measuring may start from, and — where the
- * last reading does not know the hand itself — the last of all, which it
- * may end at; where the last reading counted nothing, the last count,
- * which the hand is told from (`heldAsToldOf`); and the first of all, where
- * a jackpot's stretch before the run closes (`stretchPerformancesOf`). No
- * other is ever read.
+ * last reading did not count the hand — the last of all, which it may end
+ * at, or which what the last reading bought is told from; where the last
+ * reading counted nothing, the last count, which the hand is told from
+ * (`heldAsToldOf`); and the first of all, where
+ * a jackpot's stretch before the run closes (`stretchPerformancesOf`);
+ * and before each of those known by more being bought, the point before
+ * it, what was bought there being told from it. No other is ever read.
  */
 const keptPoints = (points: readonly Point[], last: Taken): readonly ReadingHand[] => {
   const first = points.at(0)
   const start = points.findLast((point) => point.regularSpins === 0)
-  const end = knowsTheHand(last) ? undefined : points.at(-1)
+  const end = last.reading.held === undefined ? points.at(-1) : undefined
   const count = last.reading.held === undefined ? points.findLast((point) => point.hand.counted === true) : undefined
-  return points.filter((point) => point === first || point === start || point === end || point === count).map((point) => point.hand)
+  const read = new Set([first, start, end, count].filter((point) => point !== undefined))
+  const told = new Set(points.filter((_, at) => at + 1 < points.length && ((after) => after !== undefined && read.has(after) && after.hand.counted !== true)(points[at + 1])))
+  return points.filter((point) => read.has(point) || told.has(point)).map((point) => point.hand)
 }
 
 /**

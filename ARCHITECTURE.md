@@ -604,9 +604,11 @@ then deletes the draft; a record the book refuses keeps it.
   A count typed at a jackpot is the hand as the jackpot came, before its
   bonus paid, which is then in hand besides.
 - **A purchase says the hand ran out, a jackpot does not.** A line where
-  balls were rented or drawn had played all that came to hand by then,
-  but a jackpot's may have come a few spins into what was bought there,
-  so it knows no hand until it is counted (`consumptionOf`). Each line
+  balls were rented or drawn had played all that came to hand before it,
+  and what was bought there is the hand, none of it played yet — the
+  balls bought as the play began are measured like any others — but a
+  jackpot's may have come a few spins into what was bought there, so it
+  knows no hand until it is counted (`consumptionOf`). Each line
   played in regular games shows its own stretch's spin performance, from
   the last point the hand was known at (`stretchPerformancesOf`): a folded
   line its whole run, and a jackpot's line the stretch closed by the first
@@ -2726,9 +2728,11 @@ toast's `action`. Each game's `revised` is exported for it alone.
   points that know what was in hand — its start, a count, balls bought as
   the hand ran out — so the one line keeps the points inside the run that
   the measuring may start or end at (`handsBefore`: the last before any
-  regular game, and the last of all where the line itself knows nothing
-  of the hand) and the last count where it counted nothing, which the
-  hand is told from, each as the running totals there. What was bought by the
+  regular game, and the last of all where the line itself counted
+  nothing) and the last count where it counted nothing, which the hand is
+  told from, each as the running totals there, and before each one known
+  by balls bought the point before it, which what was bought there is told
+  from. What was bought by the
   last of them was bought there, not at the line. `consumptionOf`, the
   balls in hand as told and the play's totals come to the same
   before and after, which the tests hold over every run of many generated
