@@ -194,7 +194,7 @@ pub struct Components {
     /// How often play enters a mode after the settings are changed, under
     /// each setting, where that differs.
     pub reset_allotment: BTreeMap<EntityId, PerSettingLevel<BasisPoints>>,
-    /// An ending: one way an AT ends — 駆け抜け, 上位AT, a failed 魔術ボーナス
+    /// An ending: one way an AT ends — 駆け抜け, 上位AT, a failed bonus
     /// — and its share of ATs under each setting, a machine's endings the
     /// whole of them. Only a machine of modes has them, which allots its
     /// modes by how the AT ended.

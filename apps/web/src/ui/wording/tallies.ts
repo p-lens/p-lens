@@ -16,7 +16,7 @@ export const EXCHANGE_OFF_THE_RATE = ["入力したレートと合いません�
 /** What stands for a description written by hand with no bar, while parlors are veiled: what it says is anyone's guess, a parlor's name among it. */
 const VEILED_DESCRIPTION = "••••"
 
-/** A note with the cabinets it names veiled: `北斗 123番台` as `北斗 •••番台` while mumming. */
+/** A note with the cabinets it names veiled: `海 123番台` as `海 •••番台` while mumming. */
 const noteText = (note: string): string => note.replace(/(\S+)番台/g, (_, number: string) => cabinetText(seal.cabinet(number)))
 
 /**

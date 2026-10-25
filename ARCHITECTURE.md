@@ -1685,7 +1685,7 @@ only the primitives, the core and the application.
 - **How an AT ended may allot the modes.** Many machines allot their
   modes after an AT by how it ended — スマスロパリピ孔明's 428G after an AT
   that ended at once, 1009G otherwise; L無職転生's shorter ceiling after a
-  駆け抜け or a failed 魔術ボーナス. A way an AT ends is an entity of its
+  駆け抜け or a failed bonus. A way an AT ends is an entity of its
   own, marked by `ending`, which holds its share of ATs under each setting
   — every ending's together the whole, `endings-not-whole` otherwise — and
   named by its `label`: 駆け抜け 30%, それ以外 70%. A mode may say how often
