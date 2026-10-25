@@ -24,7 +24,7 @@ import { useWelcome } from "../onboarding/welcome"
  * again from its foot, before the documents the
  * deployment puts before people, its terms and its privacy policy, which
  * are linked from there where there are any, then the licences and
- * 仕様説明 in the settings; and under them who runs the deployment and
+ * このアプリの仕様 in the settings; and under them who runs the deployment and
  * the version of the app this copy was built from. It scrolls within
  * itself, its bar hidden, where all that is taller than the screen.
  */
