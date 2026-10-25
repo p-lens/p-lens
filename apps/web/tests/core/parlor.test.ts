@@ -9,7 +9,7 @@ describe("parlors", () => {
       parlorsFromDeclarations([
         { name: "資産", tags: [["type", "A"]] },
         { name: "資産:貯玉:マレハン東京皇国第8支店:4円", tags: [["parlor-id", "malehan-tokyokoukoku"]] },
-        { name: "資産:貯玉:723修羅の国店:4円", tags: [["parlor-id", "723-shuranokuni"]] },
+        { name: "資産:貯玉:723豚の帽子亭店:4円", tags: [["parlor-id", "723-butanoboushitei"]] },
         { name: "資産:貯玉:マレハン東京皇国第8支店:1円", tags: [["parlor-id", "malehan-tokyokoukoku"]] },
         { name: "資産:貯メダル:マレハン東京皇国第8支店:20円", tags: [["parlor-id", "malehan-tokyokoukoku"]] },
         { name: "資産:貯玉:タグ無し店:4円", tags: [] },
@@ -24,7 +24,7 @@ describe("parlors", () => {
           { kind: "medal", tier: "20円" },
         ],
       },
-      { identity: { type: "listed", id: "723-shuranokuni" }, name: "723修羅の国店", pools: [{ kind: "ball", tier: "4円" }] },
+      { identity: { type: "listed", id: "723-butanoboushitei" }, name: "723豚の帽子亭店", pools: [{ kind: "ball", tier: "4円" }] },
     ] as never)
   })
 
@@ -41,8 +41,8 @@ describe("parlors", () => {
   })
 
   test("savings accounts are named and read back the same way", () => {
-    expect(savingsAccount("medal", "723修羅の国店", "20円")).toBe("資産:貯メダル:723修羅の国店:20円")
-    expect(readSavingsAccount("資産:貯メダル:723修羅の国店:20円")).toEqual({ kind: "medal", parlorName: "723修羅の国店", tier: "20円" })
+    expect(savingsAccount("medal", "723豚の帽子亭店", "20円")).toBe("資産:貯メダル:723豚の帽子亭店:20円")
+    expect(readSavingsAccount("資産:貯メダル:723豚の帽子亭店:20円")).toEqual({ kind: "medal", parlorName: "723豚の帽子亭店", tier: "20円" })
     expect(readSavingsAccount("資産:貯玉")).toBeUndefined()
     expect(readSavingsAccount("資産:貯玉:店")).toBeUndefined()
     expect(readSavingsAccount("資産:貯玉:店:4円:奥")).toBeUndefined()

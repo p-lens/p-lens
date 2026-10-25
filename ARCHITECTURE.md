@@ -28,7 +28,7 @@ fixes.
    valuation is `--value`, sums are balance reports. No figure a book comes
    to is worked out here.
 4. **Each parlor's tokens at each rental rate are their own commodity.**
-   `玉(4円・マレハン東京皇国第8支店)`, `玉(1円・マレハン東京皇国第8支店)` and `玉(4円・723修羅の国店)`
+   `玉(4円・マレハン東京皇国第8支店)`, `玉(1円・マレハン東京皇国第8支店)` and `玉(4円・723豚の帽子亭店)`
    cannot be exchanged for each other, so they are different commodities,
    held as real assets.
 5. **Exchange rates are only ever added.** A changed rate is a new `P` directive

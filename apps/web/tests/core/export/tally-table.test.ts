@@ -59,7 +59,7 @@ describe("tallies as a table", () => {
       tallyTableOf([
         {
           tally: { id: "one" as PlayId, date: "2026-10-08" as IsoDate, description: "", parlorId: undefined, gameKind: "pachislot", machine: "ピエロット", cabinetNumber: "45", importedFrom: undefined, theoreticalValue: yen(-800) , inferredValue: undefined},
-          parlorName: "723修羅の国店",
+          parlorName: "723豚の帽子亭店",
           machineName: "ピエロット",
           maker: undefined,
           notes: NO_NOTES,
@@ -67,7 +67,7 @@ describe("tallies as a table", () => {
           actual: decimal(23455n, 1),
         },
       ]),
-    ).toEqual([COLUMNS, ["2026-10-08", "723修羅の国店", "スロット", "ピエロット", "45", "10000", "12345.5", "2345.5", "-800", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "one", ""]])
+    ).toEqual([COLUMNS, ["2026-10-08", "723豚の帽子亭店", "スロット", "ピエロット", "45", "10000", "12345.5", "2345.5", "-800", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "one", ""]])
   })
 
   test("what was written beside a tally follows its figures, its play time in hours and minutes", () => {

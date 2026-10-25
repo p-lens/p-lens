@@ -13,7 +13,7 @@ const point = (date: string, commodity: string, cents: bigint): PricePoint => ({
 
 const POINTS = [
   point("2026-09-01", "玉(東京皇国第8支店)", 357n),
-  point("2026-09-01", "玉(修羅の国)", 333n),
+  point("2026-09-01", "玉(豚の帽子亭)", 333n),
   point("2026-09-25", "玉(東京皇国第8支店)", 350n),
 ]
 

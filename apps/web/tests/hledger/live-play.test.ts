@@ -207,7 +207,7 @@ describe("a pool the book does not keep", () => {
     const opened = await openPool(session, BOOK, MEGA_CONDOR_1)
     expect(opened).toEqual({ ok: true, value: { identity: { type: "listed", id: "mega-condor" }, name: "メガコンドル見滝原店", pools: [{ kind: "ball", tier: "1円" }] } } as never)
     const context = await loadRecordingContext(session, BOOK, ME)
-    expect(mapOk(context, (found) => found.parlors.map((parlor) => parlor.name))).toEqual({ ok: true, value: ["マレハン東京皇国第8支店", "723修羅の国店", "メガコンドル見滝原店"] })
+    expect(mapOk(context, (found) => found.parlors.map((parlor) => parlor.name))).toEqual({ ok: true, value: ["マレハン東京皇国第8支店", "723豚の帽子亭店", "メガコンドル見滝原店"] })
     const megaCondor = opened.ok ? opened.value : MALEHAN
     const rented = { ...RECORD, parlor: megaCondor, pool: { kind: "ball" as const, tier: "1円" }, rental: { outlay: dec("1000"), tokens: dec("890") } }
     expect((await recordTokenTally(session, BOOK, rented)).ok).toBe(true)

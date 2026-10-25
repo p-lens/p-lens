@@ -219,7 +219,7 @@ describe("savings a parlor took back", () => {
     const { session, history } = await madeUpBook()
     const forfeited = await recordParlorForfeiture(session, BOOK, MALEHAN, "2026-10-04" as IsoDate)
     expect(forfeited.ok && forfeited.value.map((each) => [each.pool.tier, toPlainString(each.tokens)])).toEqual([["4円", "4800"]])
-    expect(await held(session, "date:..2026-10-05")).toEqual([["723修羅の国店", "20円", "1650"], ["723修羅の国店", "4円", "6600"], ["マレハン東京皇国第8支店", "4円", "0"], ["マレハン東京皇国第8支店", "20円", "0"]])
+    expect(await held(session, "date:..2026-10-05")).toEqual([["723豚の帽子亭店", "20円", "1650"], ["723豚の帽子亭店", "4円", "6600"], ["マレハン東京皇国第8支店", "4円", "0"], ["マレハン東京皇国第8支店", "20円", "0"]])
     const activity = await loadActivity(session, history, BOOK)
     expect(activity.ok && activity.value.lines.map((line) => line.did).at(-1)).toBe("savings-forfeited")
     expect(await recordParlorForfeiture(session, BOOK, MALEHAN, "2026-10-04" as IsoDate)).toEqual({ ok: true, value: [] })
