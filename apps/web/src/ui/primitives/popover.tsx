@@ -10,17 +10,18 @@ import { CloseIcon, QuestionIcon } from "./icons"
  * A question mark that opens an explanation beside it: what a control does,
  * and the settings that matter only now and then — kept out of the form, at
  * hand for whoever wants them. Where what it explains is how a figure is
- * worked out, it is drawn in the semipro ink; any other question mark keeps
- * the quiet colour of a control.
+ * worked out, it is drawn in the ink it is asked for — the semipro's, or the
+ * nerdpro's where it sits among figures a person reads against each other;
+ * any other question mark keeps the quiet colour of a control.
  */
-export function HelpPopover(props: { readonly label: string; readonly title: string; readonly semipro?: boolean; readonly children: JSX.Element }): JSX.Element {
+export function HelpPopover(props: { readonly label: string; readonly title: string; readonly ink?: "semipro" | "nerdpro"; readonly children: JSX.Element }): JSX.Element {
   return (
     <PopoverPrimitive.Root gutter={8}>
       <PopoverPrimitive.Trigger
         aria-label={props.label}
         title={props.label}
         class="flex size-10 shrink-0 items-center justify-center rounded hover:bg-surface-3 [&_svg]:size-5"
-        classList={{ "text-semipro-ink hover:text-semipro-ink-hover": props.semipro === true, "text-text-muted hover:text-text-primary": props.semipro !== true }}
+        classList={{ "text-semipro-ink hover:text-semipro-ink-hover": props.ink === "semipro", "text-nerdpro-ink hover:text-nerdpro": props.ink === "nerdpro", "text-text-muted hover:text-text-primary": props.ink === undefined }}
       >
         <QuestionIcon />
       </PopoverPrimitive.Trigger>

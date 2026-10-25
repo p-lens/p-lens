@@ -79,6 +79,10 @@ pub struct Components {
     pub lucky_trigger: BTreeMap<ModeId, LuckyTrigger>,
     /// The regular game's 遊タイム.
     pub relief_drive: BTreeMap<ModeId, ReliefDrive>,
+    /// Modes played without the 電サポ — a 潜確 at the heso — whose jackpots
+    /// the support gain does not touch. A leftover queue is played without
+    /// it whether it says so or not.
+    pub without_support: BTreeSet<ModeId>,
 }
 
 /// The component that makes an entity the regular game.
@@ -122,6 +126,7 @@ pub enum Component {
     OnMiss,
     LuckyTrigger,
     ReliefDrive,
+    WithoutSupport,
 }
 
 /// The regular game as the engine queries it from its entity: how often it
@@ -223,6 +228,9 @@ pub struct Mode {
     /// that into the regular game.
     pub on_miss: Next,
     pub lucky_trigger: Option<LuckyTrigger>,
+    /// Whether the mode is played on the 電サポ, shot to the right, so that
+    /// what its jackpots pay out is touched by the support gain.
+    pub supported: bool,
 }
 
 /// How a mode ends, as the engine derives it from its entity's kind component.

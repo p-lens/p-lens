@@ -42,14 +42,29 @@ const readFigures = (body: Body): Result<FiguresDto, ApiError> => {
   })
 }
 
-const readConditions = (body: Body): Result<ConditionsDto, ApiError> => {
+const readRoundPayout = (body: Body): Result<ConditionsDto["roundPayout"], ApiError> => {
   const payout = body["roundPayout"]
   if (!isBody(payout)) return invalid("basis.conditions.roundPayout")
-  if (payout["type"] === "from-spec") return Ok({ roundPayout: { type: "from-spec" } })
+  if (payout["type"] === "from-spec") return Ok({ type: "from-spec" })
   const balls = payout["balls"]
-  return payout["type"] === "measured" && typeof balls === "number" && Number.isFinite(balls) && balls > 0
-    ? Ok({ roundPayout: { type: "measured", balls } })
-    : invalid("basis.conditions.roundPayout")
+  return payout["type"] === "measured" && typeof balls === "number" && Number.isFinite(balls) && balls > 0 ? Ok({ type: "measured", balls }) : invalid("basis.conditions.roundPayout")
+}
+
+/** A support gain in whole basis points above -100% and at most +100%; none where it is left out or nought, so the same conditions are always written alike. */
+const readSupportGain = (body: Body): Result<ConditionsDto["supportGain"], ApiError> => {
+  const gain = body["supportGain"]
+  if (gain === undefined) return Ok(undefined)
+  const points = isBody(gain) ? gain["basisPoints"] : undefined
+  if (typeof points !== "number" || !Number.isInteger(points) || points <= -10_000 || points > 10_000) return invalid("basis.conditions.supportGain")
+  return Ok(points === 0 ? undefined : { basisPoints: points })
+}
+
+const readConditions = (body: Body): Result<ConditionsDto, ApiError> => {
+  const roundPayout = readRoundPayout(body)
+  if (!roundPayout.ok) return roundPayout
+  const supportGain = readSupportGain(body)
+  if (!supportGain.ok) return supportGain
+  return Ok({ roundPayout: roundPayout.value, ...(supportGain.value === undefined ? {} : { supportGain: supportGain.value }) })
 }
 
 /**

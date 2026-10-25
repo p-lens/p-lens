@@ -54,12 +54,15 @@ rule(cycle_spent, cycle_from(spent, Spins, Rounds),
 % 1R 平均出玉: the spec's payout, less the balls that went in, or as measured.
 % Where a share pays its rounds by a prize of its own, a round has no one
 % payout: the figure is every round's gain over every round, over the long
-% run, scaled by what a measured round is of the spec's.
+% run, scaled by what a measured round is of the spec's. So too where a
+% support gain changes the jackpots won on the 電サポ and not the first.
 rule(payout_from_spec, payout_per_round(Balls),
-     ( \+ given(own_payout), \+ given(measured(_)), net_per_round(Balls) )).
-rule(payout_measured, payout_per_round(Balls), ( \+ given(own_payout), given(measured(Balls)) )).
+     ( \+ given(own_payout), \+ given(support_gain(_)), \+ given(measured(_)), net_per_round(Balls) )).
+rule(payout_measured, payout_per_round(Balls), ( \+ given(own_payout), \+ given(support_gain(_)), given(measured(Balls)) )).
 rule(payout_by_share, payout_per_round(Balls),
      ( given(own_payout), balls_per_cycle(B), rounds_per_cycle(R), payout_scale(Scale), Balls is B * Scale / R )).
+rule(payout_with_support_gain, payout_per_round(Balls),
+     ( \+ given(own_payout), given(support_gain(_)), balls_per_cycle(B), rounds_per_cycle(R), payout_scale(Scale), Balls is B * Scale / R )).
 rule(net_per_round, net_per_round(Net), ( given(payout(Prize, Count)), Net is Prize * Count - Count )).
 rule(scale_as_spec, payout_scale(1), \+ given(measured(_))).
 rule(scale_measured, payout_scale(Scale), ( given(measured(Balls)), net_per_round(Net), Net > 0, Scale is Balls / Net )).
@@ -73,12 +76,20 @@ rule(balls_per_cycle_with_relief_drive, balls_per_cycle(B),
      ( given(relief_drive(_, _)), findall(Balls, weighted_balls(_, _, Balls), All), sum_list(All, B) )).
 
 % A first jackpot's balls: each share of its allotment, what its own rounds
-% gain and what the mode it leads to gains from there; a state's likewise.
+% gain and what the mode it leads to gains from there; a state's likewise,
+% its own rounds' gain changed by the support gain where the state is
+% played on the 電サポ — never a first jackpot's, nor a state's played
+% without it.
 rule(balls_per_first_hit, balls_per_first_hit(B), balls_from(first_hit, B)).
 rule(balls_from, balls_from(From, B),
      ( findall(Part, paid(From, Part), Parts), sum_list(Parts, B) )).
 rule(paid, paid(From, Part),
-     ( given(outcome(From, Share, _, Balls, Target, _)), balls_after(Target, After), Part is Share * (Balls + After) )).
+     ( given(outcome(From, Share, _, Balls, Target, _)), gained(From, Balls, Gained), balls_after(Target, After), Part is Share * (Gained + After) )).
+rule(gained_first_hit, gained(first_hit, Balls, Balls), true).
+rule(gained_without_gain, gained(From, Balls, Balls), ( From \== first_hit, \+ given(support_gain(_)) )).
+rule(gained_without_support, gained(From, Balls, Balls), ( given(support_gain(_)), given(without_support(From)) )).
+rule(gained_on_support, gained(From, Balls, Gained),
+     ( From \== first_hit, given(support_gain(Factor)), \+ given(without_support(From)), Gained is Balls * Factor )).
 rule(balls_back_to_regular, balls_after(end, 0), true).
 rule(balls_into_mode, balls_after(state(Index), After), given(state_balls(Index, After))).
 rule(weighted_balls, weighted_balls(Kind, Weight, Weighted),
@@ -122,6 +133,15 @@ rule(made_fills_rapid, made_fills(Index, Spins), ( given(origin(Index, Mode, _))
 rule(made_fills_leftover_queue, made_fills(Index, Draws), ( given(origin(Index, Mode, _)), given(spec_mode(Mode, leftover_queue(Draws))) )).
 rule(made_fills_none, made_fills(Index, 0),
      ( given(origin(Index, Mode, _)), \+ given(spec_mode(Mode, rapid(_))), \+ given(spec_mode(Mode, leftover_queue(_))) )).
+% A state is played without the 電サポ where its mode is a leftover queue or
+% says so, and on it otherwise.
+rule(made_leftover_queue_without_support, made_support(Index, without), ( given(origin(Index, Mode, _)), given(spec_mode(Mode, leftover_queue(_))) )).
+rule(made_said_without_support, made_support(Index, without),
+     ( given(origin(Index, Mode, _)), \+ given(spec_mode(Mode, leftover_queue(_))), given(spec_without_support(Mode)) )).
+rule(made_on_support, made_support(Index, on),
+     ( given(origin(Index, Mode, _)), \+ given(spec_mode(Mode, leftover_queue(_))), \+ given(spec_without_support(Mode)) )).
+rule(stored_without_support, stored_support(Index, without), given(without_support(Index))).
+rule(stored_on_support, stored_support(Index, on), \+ given(without_support(Index))).
 
 % The 遊タイム's long run, checked rather than believed. A point of a combo
 % is a state, the spins filled toward the 遊タイム on the way out, and
@@ -198,6 +218,8 @@ rule(check_state_rounds, state_rounds_check(Index, Mine, Engine, Verdict),
 rule(check_state_balls, state_balls_check(Index, Mine, Engine, Verdict),
      ( given(state_balls(Index, Engine)), balls_from(Index, Mine), Gap is abs(Mine - Engine),
        Limit is 1.0e-9 * max(1, abs(Engine)), verdict(Gap, Limit, Verdict) )).
+rule(check_support, support_check(Index, Made, Stored, Verdict),
+     ( made_support(Index, Made), stored_support(Index, Stored), same(Made, Stored, Verdict) )).
 rule(check_fills, fills_check(Index, Mine, Engine, Verdict),
      ( given(fills(Index, Engine)), made_fills(Index, Mine), Gap is abs(Mine - Engine), verdict(Gap, 0, Verdict) )).
 rule(check_endings, endings_check(Count, Wrong, Verdict),
@@ -255,14 +277,17 @@ rule(long_run, long_run, ( endings_check(_, _, _), points_check(_, _, _), weight
 rule(weight_solved, weight_solved(Kind), ( given(restart(Kind, _)), weight_check(Kind, _, _, _) )).
 rule(state_solved, state_solved(Index),
      ( given(state(Index)), state_rounds_check(Index, _, _, _),
-       ( given(own_payout) -> state_balls_check(Index, _, _, _) ; true ) )).
+       ( balls_vary -> state_balls_check(Index, _, _, _) ; true ) )).
+rule(balls_vary_by_share, balls_vary, given(own_payout)).
+rule(balls_vary_by_support, balls_vary, ( \+ given(own_payout), given(support_gain(_)) )).
 rule(chain, chain,
      ( shares_check(first_hit, _, _), findall(Index, state_whole(Index), _), ends_check(_, _) )).
 rule(state_whole, state_whole(Index), ( given(state(Index)), shares_check(Index, _, _) )).
 rule(made, made,
      ( regular_check(_, _, _), made_check(first_hit, _), findall(Index, state_made(Index), _), relief_drive_check(_, _, _) )).
 rule(state_made, state_made(Index),
-     ( given(state(Index)), made_check(Index, _), ( given(relief_drive(_, _)) -> fills_check(Index, _, _, _) ; true ) )).
+     ( given(state(Index)), made_check(Index, _), ( given(relief_drive(_, _)) -> fills_check(Index, _, _, _) ; true ),
+       ( given(support_gain(_)) -> support_check(Index, _, _, _) ; true ) )).
 rule(remarks, remarks, findall(Remark, remark(Remark), _)).
 
 % prove(Goal, Proof): Goal holds, and Proof says why.

@@ -6,7 +6,7 @@ import type { Basis, Bonus } from "../../../../core/pachinko/formula"
 import { modesOf, regularOf, type ModeView } from "../../../../core/pachinko/world"
 import { jackpotsText } from "../../../wording/pachinko/machine"
 import { BonusTable } from "./BonusTable"
-import { kindText, nextText, ownAttackerText, probabilityText, roundPayoutText, shareText } from "./spec-text"
+import { kindText, nextText, ownAttackerText, probabilityText, roundPayoutText, shareText, supportGainText } from "./spec-text"
 
 function AllotmentTable(props: { readonly allotment: readonly AllotmentDto[]; readonly modes: readonly ModeView[] }): JSX.Element {
   return (
@@ -80,7 +80,7 @@ export function SpecReadout(props: { readonly basis: Basis; readonly bonuses: re
       </Show>
       <For each={modes()}>
         {(mode) => (
-          <Block title={mode.label} subtitle={kindText(mode.kind)}>
+          <Block title={mode.label} subtitle={`${kindText(mode.kind)}${mode.withoutSupport || mode.kind.type === "leftover-queue" ? "・電サポなし" : ""}`}>
             <AllotmentTable allotment={mode.allotment} modes={modes()} />
             <p class="text-sm text-text-secondary">
               終了後: {nextText(mode.onMiss, modes())}
@@ -94,6 +94,9 @@ export function SpecReadout(props: { readonly basis: Basis; readonly bonuses: re
       <Block title="出玉" subtitle={`賞球 ${payout().prizeBalls}個 × ${payout().count}カウント`}>
         <p class="text-sm text-text-secondary">
           計算条件: {roundPayoutText(props.basis.conditions, props.basis.normalized.netBallsPerRound)}
+          <Show when={supportGainText(props.basis.conditions)} keyed>
+            {(gain) => ` ／ ${gain}`}
+          </Show>
           <Show when={props.spinsPerHour} keyed>
             {(speed) => ` ／ 1時間 ${speed}回転`}
           </Show>

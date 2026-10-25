@@ -54,6 +54,9 @@ pub struct State {
     /// runs out without a jackpot: a 時短's or a leftover queue's, played at
     /// the regular game's chance. An ST or a loop fills none.
     pub fills_gauge: u32,
+    /// Whether the state is played on the 電サポ, so that the balls its
+    /// jackpots gain are touched by a formula's support gain.
+    pub supported: bool,
 }
 
 /// Which mode of the spec a state came from, and the combo it stands at in

@@ -19,7 +19,7 @@ use std::num::NonZeroU64;
 
 use pachinko_domain::normalized::NormalizedSpec;
 
-use crate::combo::{ReliefGauge, WaitEnd, combo_following, gauge_after, wait_from};
+use crate::combo::{PayoutYield, ReliefGauge, WaitEnd, combo_following, gauge_after, wait_from};
 use crate::rng::{Rng, Seed};
 
 /// Cash goes in by this many yen at a time.
@@ -38,7 +38,7 @@ pub struct SunkSetup {
     pub spin_performance: f64,
     /// Balls ¥1,000 rents.
     pub rented_per_thousand: f64,
-    pub payout_scale: f64,
+    pub payout: PayoutYield,
 }
 
 /// How a counter is played out.
@@ -146,7 +146,7 @@ fn next(spec: &NormalizedSpec, setup: &SunkSetup, day: &Day) -> Option<Day> {
     }
     let (combo, rng) = combo_following(spec, wait.end, rng);
     Some(Day {
-        balls: after.balls + real(combo.balls) * setup.payout_scale,
+        balls: after.balls + combo.gained(setup.payout),
         jackpots: after.jackpots + combo.hits,
         since_last: if combo.hits > 0 { 0 } else { after.since_last },
         gauge: gauge_after(wait.end, &combo),
@@ -181,7 +181,7 @@ fn played_pinned(spec: &NormalizedSpec, setup: &SunkSetup, since_last: u64, rng:
     let hit = spun(setup, &before, 1);
     let (combo, rng) = combo_following(spec, WaitEnd::Jackpot, before.rng);
     let won = Day {
-        balls: hit.balls + real(combo.balls) * setup.payout_scale,
+        balls: hit.balls + combo.gained(setup.payout),
         jackpots: hit.jackpots + combo.hits,
         since_last: 0,
         rng,
@@ -378,7 +378,7 @@ mod tests {
             since_last,
             spin_performance: 17.0,
             rented_per_thousand: 250.0,
-            payout_scale: 1.0,
+            payout: PayoutYield::AS_SPECIFIED,
         }
     }
 

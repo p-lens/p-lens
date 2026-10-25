@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::num::{NonZeroU32, NonZeroU64};
 
 use pachinko_domain::conditions::{
-    BallValue, CalculationConditions, PlayConditions, RoundPayout, SpinPerformance,
+    BallValue, CalculationConditions, PlayConditions, RoundPayout, SpinPerformance, SupportGain,
 };
 use pachinko_domain::normalized::{
     NormalizedReliefDrive, NormalizedSpec, Outcome, Reward, State, StateIndex, StateOrigin, Target,
@@ -21,7 +21,7 @@ use pachinko_engine::analysis::Analysis;
 use pachinko_engine::error::{Location, ProbabilityProblem, SolveError, SpecError, Unsupported};
 use pachinko_engine::relief_drive::Restart;
 use pachinko_simulator::aggregate::{Aggregate, HISTOGRAM_BUCKET_YEN};
-use pachinko_simulator::combo::ReliefGauge;
+use pachinko_simulator::combo::{PayoutYield, ReliefGauge};
 use pachinko_simulator::estimate::{Estimate, Tally};
 use pachinko_simulator::hyena_hunt::{HyenaHunt, HyenaHuntTally};
 use pachinko_simulator::inference::{
@@ -205,6 +205,12 @@ fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
                 })
             },
         )?,
+        without_support: dto
+            .without_support
+            .iter()
+            .enumerate()
+            .map(|(index, entity)| mode_id(entity, &format!("{AT}.withoutSupport[{index}]")))
+            .collect::<Result<BTreeSet<_>, _>>()?,
         relief_drive: table(
             &dto.relief_drive,
             &format!("{AT}.reliefDrive"),
@@ -334,6 +340,7 @@ pub fn normalized_spec(dto: &NormalizedSpecDto) -> Result<NormalizedSpec, ErrorD
                         &format!("normalized.states[{index}].outcomes"),
                     )?,
                     fills_gauge: state.fills_gauge,
+                    supported: !state.without_support,
                 })
             })
             .collect::<Result<_, ErrorDto>>()?,
@@ -369,6 +376,10 @@ pub fn conditions(dto: &ConditionsDto) -> Result<CalculationConditions, ErrorDto
                 Balls::new(balls).ok_or_else(|| invalid("conditions.roundPayout.balls"))?,
             ),
         },
+        support_gain: dto.support_gain.map_or(Ok(SupportGain::NONE), |gain| {
+            SupportGain::new(gain.basis_points)
+                .ok_or_else(|| invalid("conditions.supportGain.basisPoints"))
+        })?,
     })
 }
 
@@ -384,12 +395,12 @@ pub fn play(dto: &PlayDto) -> Result<PlayConditions, ErrorDto> {
 
 /// # Errors
 /// A value the domain refuses, named by its path.
-pub fn plan(dto: &PlanDto, payout_scale: f64, play: PlayConditions) -> Result<Plan, ErrorDto> {
+pub fn plan(dto: &PlanDto, payout: PayoutYield, play: PlayConditions) -> Result<Plan, ErrorDto> {
     Ok(Plan {
         sessions: NonZeroU64::new(dto.sessions).ok_or_else(|| invalid("plan.sessions"))?,
         setup: pachinko_simulator::session::SessionSetup {
             spins: SpinCount::new(nonzero(dto.spins_per_session, "plan.spinsPerSession")?),
-            payout_scale,
+            payout,
             play,
         },
     })
@@ -497,6 +508,7 @@ pub fn normalized_dto(spec: &NormalizedSpec) -> NormalizedSpecDto {
                     .map(|outcome| outcome_dto(outcome, spec.net_balls_per_round))
                     .collect(),
                 fills_gauge: state.fills_gauge,
+                without_support: !state.supported,
             })
             .collect(),
         origins: spec
@@ -611,6 +623,7 @@ fn component_name(component: Component) -> String {
         Component::OnMiss => "onMiss",
         Component::LuckyTrigger => "luckyTrigger",
         Component::ReliefDrive => "reliefDrive",
+        Component::WithoutSupport => "withoutSupport",
     }
     .to_owned()
 }
@@ -787,7 +800,7 @@ pub fn positive(value: f64, field: &str) -> Result<f64, ErrorDto> {
 /// A figure that is not one a play can have, named by its path.
 pub fn inference_setup(
     request: &InferenceRequest,
-    payout_scale: f64,
+    payout: PayoutYield,
 ) -> Result<InferenceSetup, ErrorDto> {
     Ok(InferenceSetup {
         told: Told {
@@ -803,7 +816,7 @@ pub fn inference_setup(
         spins_per_hour: positive(request.spins_per_hour, "spinsPerHour")?,
         rented_per_thousand: positive(request.rented_per_thousand, "rentedPerThousand")?,
         ball_value: BallValue::new(request.ball_value).ok_or_else(|| invalid("ballValue"))?,
-        payout_scale,
+        payout,
         balls_per_spin: positive(request.balls_per_spin, "ballsPerSpin")?,
     })
 }

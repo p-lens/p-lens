@@ -22,12 +22,18 @@ const outcomeFacts = (from: string, outcomes: readonly OutcomeDto[], normalized:
  * The chain the engine solved, as the formula stores it: the regular game,
  * the first jackpot's outcomes and each state's — its share, rounds, balls,
  * where it leads and the jackpots it is, none for a miss — the spins of a
- * state that fill the relief gauge when they run out, and the 遊タイム.
+ * state that fill the relief gauge when they run out, the states played
+ * without the 電サポ, and the 遊タイム.
  */
 const chainFacts = (normalized: NormalizedSpecDto): readonly string[] => [
   given(`regular_one_in(${prologNumber(1 / normalized.hitChance)})`),
   ...outcomeFacts("first_hit", normalized.entry, normalized),
-  ...normalized.states.flatMap((state, index) => [given(`state(${index})`), given(`fills(${index}, ${state.fillsGauge ?? 0})`), ...outcomeFacts(String(index), state.outcomes, normalized)]),
+  ...normalized.states.flatMap((state, index) => [
+    given(`state(${index})`),
+    given(`fills(${index}, ${state.fillsGauge ?? 0})`),
+    ...(state.withoutSupport === true ? [given(`without_support(${index})`)] : []),
+    ...outcomeFacts(String(index), state.outcomes, normalized),
+  ]),
   ...(paysByShare(normalized) ? [given("own_payout")] : []),
   ...(normalized.reliefDrive === undefined ? [] : [given(`relief_drive(${normalized.reliefDrive.gauge}, ${target(normalized.reliefDrive.target)})`)]),
 ]
@@ -74,6 +80,7 @@ const modeFacts = (mode: ModeView, place: number, spec: SpecDto, places: Places)
   ...shareFacts(`mode(${place})`, mode.allotment, spec, places),
   given(`spec_on_miss(${place}, ${next(mode.onMiss, places)})`),
   ...(mode.luckyTrigger === undefined ? [] : [given(`spec_lucky_trigger(${place}, ${mode.luckyTrigger.atCombo}, ${places.get(mode.luckyTrigger.to) ?? -1})`)]),
+  ...(mode.withoutSupport ? [given(`spec_without_support(${place})`)] : []),
 ]
 
 /**
@@ -138,8 +145,10 @@ const storedFacts = (figures: Figures, sampled: SampledFigure | undefined): read
 /**
  * What the reasoner is told of a formula, as Prolog facts: the spec as its
  * sheet was written, the chain the engine made of it and solved, how a
- * round pays — the machine's payout rule, and a round as measured where it
- * was — what the engine solved, and the figures the formula stores. Only
+ * round pays — the machine's payout rule, a round as measured where it
+ * was, and what the balls won on the 電サポ come to as a factor where a
+ * support gain changes them — what the engine solved, and the figures the
+ * formula stores. Only
  * numbers are written: nothing a person typed reaches the reasoner as text.
  */
 export const groundsFacts = (basis: Basis, analysis: AnalysisDto, figures: Figures, sampled: SampledFigure | undefined): string =>
@@ -148,6 +157,7 @@ export const groundsFacts = (basis: Basis, analysis: AnalysisDto, figures: Figur
     ...chainFacts(basis.normalized),
     given(`payout(${basis.spec.resources.payout.prizeBalls}, ${basis.spec.resources.payout.count})`),
     ...(basis.conditions.roundPayout.type === "measured" ? [given(`measured(${prologNumber(basis.conditions.roundPayout.balls)})`)] : []),
+    ...((points) => (points === undefined || points === 0 ? [] : [given(`support_gain(${prologNumber(1 + points / 10_000)})`)]))(basis.conditions.supportGain?.basisPoints),
     ...solvedFacts(analysis),
     ...storedFacts(figures, sampled),
   ].join("\n")

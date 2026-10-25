@@ -161,6 +161,8 @@ pub struct ComponentsDto {
     pub lucky_trigger: BTreeMap<String, LuckyTriggerDto>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub relief_drive: BTreeMap<String, ReliefDriveDto>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub without_support: Vec<String>,
     #[serde(flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub unsupported: BTreeMap<String, serde_json::Value>,
 }
@@ -199,6 +201,17 @@ pub struct StateDto {
     /// Spins that fill the relief gauge toward the 遊タイム when the state runs out; none is left out.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub fills_gauge: u32,
+    /// Whether the state is played without the 電サポ; left out where it is
+    /// played on it, so a spec normalised before the support gain reads as
+    /// played on it throughout, which no condition it was stored with
+    /// changes.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub without_support: bool,
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref)]
@@ -246,6 +259,17 @@ pub enum RoundPayoutDto {
 #[serde(rename_all = "camelCase")]
 pub struct ConditionsDto {
     pub round_payout: RoundPayoutDto,
+    /// 電サポ中の出玉増減, left out where there is none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub support_gain: Option<SupportGainDto>,
+}
+
+/// What the balls a jackpot won on the 電サポ gains are changed by, in basis
+/// points of them: `-1000` is -10%.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SupportGainDto {
+    pub basis_points: i32,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]

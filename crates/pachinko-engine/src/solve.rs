@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use pachinko_domain::normalized::{NormalizedSpec, Outcome, Reward, StateIndex, Target};
+use pachinko_domain::normalized::{NormalizedSpec, Outcome, Reward, State, StateIndex, Target};
 
 use crate::error::SolveError;
 use crate::linear;
@@ -53,13 +53,14 @@ fn transient_row(spec: &NormalizedSpec, row: usize) -> Vec<f64> {
 }
 
 /// The expected total of a reward from each state until the combo ends:
-/// `(I - Q) v = r`, where `r` is the reward one step yields on average.
+/// `(I - Q) v = r`, where `r` is the reward one step yields on average —
+/// what an outcome yields as the state it comes from has it.
 ///
 /// # Errors
 /// When the spec has outcomes leading nowhere or states that never end.
 pub fn expected_totals(
     spec: &NormalizedSpec,
-    reward: impl Fn(Reward) -> f64,
+    reward: impl Fn(&State, Reward) -> f64,
 ) -> Result<Vec<f64>, SolveError> {
     check_targets(spec)?;
     let matrix: Vec<Vec<f64>> = (0..spec.states.len())
@@ -72,7 +73,7 @@ pub fn expected_totals(
             state
                 .outcomes
                 .iter()
-                .map(|outcome| outcome.probability.value() * reward(outcome.reward))
+                .map(|outcome| outcome.probability.value() * reward(state, outcome.reward))
                 .sum()
         })
         .collect();

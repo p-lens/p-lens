@@ -6,6 +6,7 @@ use pachinko_domain::conditions::BallValue;
 use pachinko_domain::normalized::{NormalizedSpec, Outcome, Reward, Target};
 use pachinko_domain::probability::Probability;
 use pachinko_domain::version::SchemaVersion;
+use pachinko_simulator::combo::PayoutYield;
 use pachinko_simulator::inference::{
     Belief, Inference, InferenceSetup, Reading, Told, Way, advance_inference,
 };
@@ -44,7 +45,7 @@ fn setup(told: Told) -> InferenceSetup {
         spins_per_hour: 200.0,
         rented_per_thousand: 250.0,
         ball_value: BallValue::new(100.0 / 28.0).expect("a value"),
-        payout_scale: 1.0,
+        payout: PayoutYield::AS_SPECIFIED,
         balls_per_spin: 14.0,
     }
 }

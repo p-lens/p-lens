@@ -604,11 +604,9 @@ then deletes the draft; a record the book refuses keeps it.
   A count typed at a jackpot is the hand as the jackpot came, before its
   bonus paid, which is then in hand besides.
 - **A purchase says the hand ran out, a jackpot does not.** A line where
-  balls were rented or drawn had played all that came to hand before it,
-  and what was bought there is the hand, none of it played yet — the
-  balls bought as the play began are measured like any others — but a
-  jackpot's may have come a few spins into what was bought there, so it
-  knows no hand until it is counted (`consumptionOf`). Each line
+  balls were rented or drawn had played all that came to hand by then,
+  but a jackpot's may have come a few spins into what was bought there,
+  so it knows no hand until it is counted (`consumptionOf`). Each line
   played in regular games shows its own stretch's spin performance, from
   the last point the hand was known at (`stretchPerformancesOf`): a folded
   line its whole run, and a jackpot's line the stretch closed by the first
@@ -996,7 +994,9 @@ walking down the trail and back keeps the work in hand.
   `regularGame`, `allotment`, `specialTime` (ST), `rapid` (時短),
   `leftoverQueue` (残保留), `rushing` (a RUSH by its continuation rate),
   `untilHit` (確変 loop), `onMiss`, `luckyTrigger` ("3連で LT" is
-  `atCombo: 3`), `reliefDrive` (遊タイム) and `label`; `payout` is a resource.
+  `atCombo: 3`), `reliefDrive` (遊タイム), `withoutSupport` (a mode played
+  without the 電サポ, a 潜確 at the heso) and `label`; `payout` is a
+  resource.
   A share of an allotment pays its rounds by that rule unless it names its
   own `prizeBalls` or `count` — a 4R through a ten-ball attacker beside a
   10R through a fifteen-ball one — and where one jackpot opens more than one
@@ -1006,7 +1006,21 @@ walking down the trail and back keeps the work in hand.
   carries the balls its rounds gain beside the rounds, every round counted
   whichever attacker it opens, and 1R 平均出玉 is every round's gain over
   every round. A
-  measured round scales every share alike. The JSON is the
+  measured round scales every share alike.
+- **電サポ中の出玉増減 is a condition, never the sheet's.** A formula's
+  conditions may say what the balls a jackpot gains are changed by when it
+  is won on the 電サポ (`supportGain`, basis points: `-1000` is -10%) — balls
+  shot to the right running out, as DMMぱちタウン states it machine by
+  machine. It touches every jackpot after the first won in a state played
+  on the 電サポ, and never a first jackpot, a leftover queue's or a mode's
+  that says `withoutSupport`: a normalised state says so of itself
+  (`withoutSupport`, left out where it is played on it, so a chain stored
+  before reads as played on it throughout, which no condition it was
+  stored with changes). The engine solves each state's balls with the
+  factor in its own equation; the simulators keep the balls won on the
+  電サポ apart (`PayoutYield`), and the grounds put the factor into the
+  same equation, take the 1R 平均出玉 as every round's gain over every
+  round, and check each state's mark against the sheet. The JSON is the
   same shape (`packages/contracts`), and a feature is a component, not a new
   shape. `pachinko_engine::query` is the system that reads it: it assembles
   the regular game and each mode from their components and refuses an entity
@@ -2728,11 +2742,9 @@ toast's `action`. Each game's `revised` is exported for it alone.
   points that know what was in hand — its start, a count, balls bought as
   the hand ran out — so the one line keeps the points inside the run that
   the measuring may start or end at (`handsBefore`: the last before any
-  regular game, and the last of all where the line itself counted
-  nothing) and the last count where it counted nothing, which the hand is
-  told from, each as the running totals there, and before each one known
-  by balls bought the point before it, which what was bought there is told
-  from. What was bought by the
+  regular game, and the last of all where the line itself knows nothing
+  of the hand) and the last count where it counted nothing, which the
+  hand is told from, each as the running totals there. What was bought by the
   last of them was bought there, not at the line. `consumptionOf`, the
   balls in hand as told and the play's totals come to the same
   before and after, which the tests hold over every run of many generated

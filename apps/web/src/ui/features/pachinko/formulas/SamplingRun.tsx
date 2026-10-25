@@ -98,7 +98,7 @@ export function SamplingRun(props: { readonly basis: Basis }): JSX.Element {
         fallback={
           <div class="flex items-center gap-1">
             <Button variant="semipro" onClick={start}>シミュレーション開始</Button>
-            <HelpPopover label="シミュレーションについて" title="シミュレーションについて" semipro>
+            <HelpPopover label="シミュレーションについて" title="シミュレーションについて" ink="semipro">
               <p>
                 この端末で、通常時から初当りを引いてその連チャンが終わるまでを1回として、{formatMan(trialsOf(cycles()) ?? TRIALS_BY_DEFAULT)}回くり返します。
                 <Show when={expectedMargin()} keyed fallback="回数が多いほど、結果の誤差（±）は小さくなります。">

@@ -162,7 +162,7 @@ export function HyenaHuntRun(props: {
               <Button variant="secondary" onClick={start}>
                 シミュレーション
               </Button>
-              <HelpPopover label="遊タイム狙いのシミュレーションについて" title="遊タイム狙いのシミュレーションについて" semipro>
+              <HelpPopover label="遊タイム狙いのシミュレーションについて" title="遊タイム狙いのシミュレーションについて" ink="semipro">
                 <p>
                   この端末で、{formatCount(props.initialSpins)}回転から座って、初当り（遊タイムの当たりも含む）の連チャンが終わったらやめる、を1回として{formatMan(trialsOf(trials()) ?? TRIALS_BY_DEFAULT)}回くり返します。
                   <Show when={expectedMargin()} keyed fallback="回数が多いほど、期待値の誤差（±）は小さくなります。">

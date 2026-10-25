@@ -175,6 +175,10 @@ function ModeEditor(props: {
           <TextField label="何連目で移行" value={props.mode.triggerCombo} onChange={set("triggerCombo")} inputMode="numeric" suffix="連目" />
         </Show>
       </div>
+      <label class="flex cursor-pointer items-center gap-2 self-start text-sm text-text-primary">
+        <input type="checkbox" checked={props.mode.withoutSupport} onChange={(event) => set("withoutSupport")(event.currentTarget.checked)} class="size-5 shrink-0 accent-accent" />
+        電サポなし（潜確など。残保留はいつも電サポなし）
+      </label>
     </section>
   )
 }
@@ -248,8 +252,10 @@ export function BasisEditor(props: { readonly form: BasisForm; readonly onChange
         <TextField label="賞球（機種）" value={props.form.prizeBalls} onChange={set("prizeBalls")} inputMode="numeric" suffix="個" />
         <TextField label="カウント" value={props.form.count} onChange={set("count")} inputMode="numeric" />
         <TextField label="実測の1R出玉" value={props.form.measuredPayout} onChange={set("measuredPayout")} inputMode="decimal" suffix="玉" placeholder="スペック通り" />
+        <TextField label="電サポ中の出玉増減" value={props.form.supportGain} onChange={set("supportGain")} inputMode="text" suffix="%" placeholder="0" />
         <TextField label="1時間の回転数" value={props.form.spinsPerHour} onChange={set("spinsPerHour")} inputMode="numeric" />
       </div>
+      <p class="text-xs text-text-muted">電サポ中の出玉増減は、初当り以外で電サポ中に取った大当りの出玉を、右打ち中のこぼれなどの分だけ増減させます（-10%なら-10）。初当りと、電サポなしのモード（残保留・潜確など）の大当りは変わりません。</p>
     </div>
   )
 }

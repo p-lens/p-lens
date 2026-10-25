@@ -75,6 +75,20 @@ describe("the basis form", () => {
     expect(read.ok && read.value.conditions).toEqual({ roundPayout: { type: "measured", balls: 132.5 } })
   })
 
+  test("a support gain goes into the conditions in basis points, signed as typed, and none where it is left empty or nought", () => {
+    const read = readBasisForm({ ...STARTING_BASIS, supportGain: "−7.5" })
+    expect(read.ok && read.value.conditions).toEqual({ roundPayout: { type: "from-spec" }, supportGain: { basisPoints: -750 } })
+    expect(read.ok && basisFormOf(read.value.spec, read.value.conditions, undefined).supportGain).toBe("-7.5")
+    expect(((each) => each.ok && each.value.conditions)(readBasisForm({ ...STARTING_BASIS, supportGain: "0" }))).toEqual({ roundPayout: { type: "from-spec" } })
+    expect(((each) => (each.ok ? [] : each.error))(readBasisForm({ ...STARTING_BASIS, supportGain: "-100" }))).toEqual([{ field: "電サポ中の出玉増減", reason: "out-of-range" }])
+  })
+
+  test("a mode said to be played without the 電サポ is kept so, and read back so", () => {
+    const read = readBasisForm({ ...STARTING_BASIS, modes: [{ ...STARTING_BASIS.modes[0]!, withoutSupport: true }] })
+    expect(read.ok && read.value.spec.components.withoutSupport).toEqual(["m1"])
+    expect(read.ok && basisFormOf(read.value.spec, read.value.conditions, undefined).modes[0]?.withoutSupport).toBe(true)
+  })
+
   test("refuses a share above 100% and a fractional round count, by name", () => {
     const read = readBasisForm({ ...STARTING_BASIS, firstHit: [{ share: "120", rounds: "2.5", next: "regular", prize: "", count: "", others: [], jackpots: "" }] })
     expect(read.ok ? [] : read.error).toEqual([

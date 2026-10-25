@@ -2,7 +2,7 @@
 
 mod support;
 
-use pachinko_domain::conditions::{CalculationConditions, RoundPayout};
+use pachinko_domain::conditions::{CalculationConditions, RoundPayout, SupportGain};
 use pachinko_domain::quantity::{Balls, RoundCount};
 use pachinko_domain::spec::{Allotment, Next, OtherRounds};
 use pachinko_engine::analysis::{Analysis, analyze};
@@ -12,6 +12,7 @@ use support::*;
 
 const FROM_SPEC: CalculationConditions = CalculationConditions {
     round_payout: RoundPayout::FromSpec,
+    support_gain: SupportGain::NONE,
 };
 
 fn solved(spec: &pachinko_domain::spec::Spec) -> Analysis {
@@ -48,6 +49,7 @@ fn the_made_up_machine_comes_to_what_it_does_by_hand() {
 fn a_measured_round_payout_replaces_the_sheet() {
     let conditions = CalculationConditions {
         round_payout: RoundPayout::Measured(Balls::new(130.0).expect("finite")),
+        support_gain: SupportGain::NONE,
     };
     let normalized = normalize(&made_up()).expect("normalises");
     let analysis = analyze(&normalized, &conditions).expect("solves");
@@ -162,6 +164,7 @@ fn a_share_won_over_several_jackpots_counts_each_and_pays_no_more_for_it() {
 fn a_measured_round_scales_every_share_alike() {
     let conditions = CalculationConditions {
         round_payout: RoundPayout::Measured(Balls::new(126.0).expect("finite")),
+        support_gain: SupportGain::NONE,
     };
     let normalized = normalize(&two_attackers()).expect("normalises");
     let analysis = analyze(&normalized, &conditions).expect("solves");
@@ -300,4 +303,71 @@ proptest! {
         prop_assert!(close(analysis.average_rounds, f64::from(first_rounds) + e * r * f64::from(rush_rounds) / (1.0 - r)));
         prop_assert!(close(analysis.total_chance.value(), 300.0 / analysis.average_combo));
     }
+}
+
+const LESS_A_TENTH: CalculationConditions = CalculationConditions {
+    round_payout: RoundPayout::FromSpec,
+    support_gain: match SupportGain::new(-1000) {
+        Some(gain) => gain,
+        None => SupportGain::NONE,
+    },
+};
+
+fn under(spec: &pachinko_domain::spec::Spec, conditions: &CalculationConditions) -> Analysis {
+    let normalized = normalize(spec).expect("the test spec normalises");
+    analyze(&normalized, conditions).expect("a normalised spec solves")
+}
+
+#[test]
+fn a_support_gain_changes_only_the_jackpots_won_on_the_support() {
+    let analysis = under(&made_up(), &LESS_A_TENTH);
+    assert!(close(analysis.average_payout.value(), 1400.0 + 2800.0 * 0.9));
+    assert!(close(analysis.average_rounds, 30.0));
+    assert!(close(analysis.average_combo, 3.0));
+    assert!(close(analysis.balls_per_round.value(), (1400.0 + 2800.0 * 0.9) / 30.0));
+}
+
+#[test]
+fn a_mode_played_without_the_support_is_not_changed_by_it() {
+    let mut spec = made_up();
+    spec.components.without_support.insert(id("RUSH"));
+    assert!(close(under(&spec, &LESS_A_TENTH).average_payout.value(), 4200.0));
+}
+
+#[test]
+fn a_leftover_queue_is_played_without_the_support() {
+    let queued = machine(
+        one_in(100),
+        vec![share(10_000, 10, to("queue"))],
+        vec![mode(
+            "queue",
+            leftover_queue(4),
+            vec![share(10_000, 10, Next::Regular)],
+            Next::Regular,
+        )],
+    );
+    assert!(close(
+        under(&queued, &LESS_A_TENTH).average_payout.value(),
+        under(&queued, &FROM_SPEC).average_payout.value()
+    ));
+}
+
+#[test]
+fn the_regular_game_is_never_played_without_the_support() {
+    let mut spec = made_up();
+    spec.components.without_support.insert(id("regular"));
+    assert_eq!(
+        normalize(&spec),
+        Err(pachinko_engine::error::SpecError::StrayComponent {
+            entity: id("regular"),
+            component: pachinko_domain::spec::Component::WithoutSupport,
+        })
+    );
+}
+
+#[test]
+fn a_support_gain_is_above_minus_all_and_at_most_doubled() {
+    assert_eq!(SupportGain::new(-10_000), None);
+    assert_eq!(SupportGain::new(10_001), None);
+    assert!(close(SupportGain::new(-500).map_or(0.0, SupportGain::factor), 0.95));
 }

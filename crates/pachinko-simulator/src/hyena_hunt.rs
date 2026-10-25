@@ -10,18 +10,18 @@ use pachinko_domain::conditions::PlayConditions;
 use pachinko_domain::normalized::NormalizedSpec;
 
 use crate::aggregate::Aggregate;
-use crate::combo::{ReliefGauge, WaitEnd, combo_following, wait_from};
+use crate::combo::{PayoutYield, ReliefGauge, WaitEnd, combo_following, wait_from};
 use crate::rng::{Rng, Seed};
 use crate::session::SessionResult;
 
 /// How each sitting is played: from these initial spins, under these conditions, each
-/// ball of the spec's payout yielding `payout_scale`.
+/// ball of the spec's payout yielding as `payout` says.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct HyenaHuntSetup {
     /// Regular-game spins since the cabinet's last jackpot, as its data counter
     /// shows on sitting down: played by whoever sat there before.
     pub initial_spins: u32,
-    pub payout_scale: f64,
+    pub payout: PayoutYield,
     pub play: PlayConditions,
 }
 
@@ -97,7 +97,7 @@ fn sit(spec: &NormalizedSpec, setup: &HyenaHuntSetup, rng: Rng) -> (Sitting, Rng
         rng,
     );
     let (combo, rng) = combo_following(spec, wait.end, rng);
-    let won = real(combo.balls) * setup.payout_scale * setup.play.ball_value.value();
+    let won = combo.gained(setup.payout) * setup.play.ball_value.value();
     let spent = real(wait.spins) * 1000.0 / setup.play.spin_performance.value();
     (
         Sitting {

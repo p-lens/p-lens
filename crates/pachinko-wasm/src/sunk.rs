@@ -7,13 +7,12 @@ use std::collections::BTreeMap;
 use std::num::NonZeroU64;
 
 use pachinko_domain::normalized::NormalizedSpec;
-use pachinko_engine::analysis::analyze as solve;
 use pachinko_simulator::sunk::{
     Sunk, SunkSetup, SunkTally, Way, advance_sunk, dry_one_in, mean_outlay, outlay_at, way_of,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::api::{parse, positive_count, reply, source};
+use crate::api::{parse, payout_yield, positive_count, reply, source};
 use crate::convert;
 use crate::dto::{ConditionsDto, ErrorDto, SourceDto};
 
@@ -185,9 +184,7 @@ fn sunk(request: &SunkRequest) -> Result<SunkResponse, ErrorDto> {
         since_last: request.counter.since_last,
         spin_performance: convert::positive(request.spin_performance, "spinPerformance")?,
         rented_per_thousand: convert::positive(request.rented_per_thousand, "rentedPerThousand")?,
-        payout_scale: solve(&spec, &conditions)
-            .map_err(convert::solve_error_dto)?
-            .payout_scale,
+        payout: payout_yield(&spec, &conditions)?,
     };
     let trials = positive_count(request.trials, "trials")?;
     let enough = positive_count(request.enough, "enough")?;

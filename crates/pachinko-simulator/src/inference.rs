@@ -17,7 +17,9 @@ use std::num::NonZeroU64;
 use pachinko_domain::conditions::BallValue;
 use pachinko_domain::normalized::NormalizedSpec;
 
-use crate::combo::{ComboResult, ReliefGauge, combo_following, gauge_after, wait_from};
+use crate::combo::{
+    ComboResult, PayoutYield, ReliefGauge, combo_following, gauge_after, wait_from,
+};
 use crate::rng::{Rng, Seed};
 
 /// Seconds one round of a jackpot takes, with what is shown around it. Put
@@ -83,7 +85,7 @@ pub struct InferenceSetup {
     /// Balls ¥1,000 rents.
     pub rented_per_thousand: f64,
     pub ball_value: BallValue,
-    pub payout_scale: f64,
+    pub payout: PayoutYield,
     /// Balls a regular spin wins on average, by the play's formula: what a
     /// trial's spins are worth is this, exchanged, less what they cost.
     pub balls_per_spin: f64,
@@ -176,7 +178,7 @@ fn next(
     let hours_left = spun.hours_left - hours_of(&combo);
     Some(Sitting {
         hours_left,
-        balls: spun.balls + real(combo.balls) * setup.payout_scale,
+        balls: spun.balls + combo.gained(setup.payout),
         jackpots: spun.jackpots + combo.hits,
         gauge: gauge_after(wait.end, &combo),
         rng,
@@ -565,7 +567,7 @@ mod tests {
             spins_per_hour: 200.0,
             rented_per_thousand: 250.0,
             ball_value: BallValue::new(100.0 / 28.0).expect("a value"),
-            payout_scale: 1.0,
+            payout: PayoutYield::AS_SPECIFIED,
             balls_per_spin: 14.0,
         }
     }
@@ -610,6 +612,7 @@ mod tests {
                     },
                 ],
                 fills_gauge: 0,
+                supported: true,
             }],
             origins: vec![StateOrigin {
                 mode: ModeId::new("RUSH").expect("a name"),

@@ -10,6 +10,9 @@ pub struct ComboResult {
     pub hits: u64,
     /// Balls the combo's rounds gained, as the spec's payout gives them.
     pub balls: u64,
+    /// Of those, the balls gained by jackpots won on the 電サポ, which a
+    /// formula's support gain changes (`PayoutYield`).
+    pub supported_balls: u64,
     /// The combo was cut off at `COMBO_LIMIT` steps. A normalised spec ends
     /// with certainty, so this counts only freak runs, and is reported rather
     /// than hidden.
@@ -17,6 +20,45 @@ pub struct ComboResult {
     /// Spins filled toward the 遊タイム since the combo's last jackpot: the
     /// 時短s it ran out of on the way back to the regular game.
     pub carry: u64,
+}
+
+/// What a ball of the spec's payout yields under a formula's conditions:
+/// `scale` for every round — one, unless a round's payout was measured —
+/// and `support` besides for those won on the 電サポ, the support gain's
+/// factor.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PayoutYield {
+    pub scale: f64,
+    pub support: f64,
+}
+
+impl PayoutYield {
+    /// The spec's payout as it is: every ball one ball.
+    pub const AS_SPECIFIED: Self = Self {
+        scale: 1.0,
+        support: 1.0,
+    };
+}
+
+impl ComboResult {
+    /// Balls the combo gained under a formula's conditions.
+    #[allow(clippy::cast_precision_loss)]
+    pub fn gained(&self, payout: PayoutYield) -> f64 {
+        (self.balls as f64 + (payout.support - 1.0) * self.supported_balls as f64) * payout.scale
+    }
+
+    /// This combo's totals added to `self`'s, ending where `other` ended.
+    #[must_use]
+    pub fn and_then(&self, other: &Self) -> Self {
+        Self {
+            rounds: self.rounds + other.rounds,
+            hits: self.hits + other.hits,
+            balls: self.balls + other.balls,
+            supported_balls: self.supported_balls + other.supported_balls,
+            truncated: false,
+            carry: other.carry,
+        }
+    }
 }
 
 /// Where regular play stands toward the 遊タイム: the spins filled since the
@@ -106,6 +148,10 @@ fn step(spec: &NormalizedSpec, walk: &Walk) -> Option<Walk> {
         .states
         .get(index.get())
         .map_or(0, |state| u64::from(state.fills_gauge));
+    let supported = spec
+        .states
+        .get(index.get())
+        .is_some_and(|state| state.supported);
     let (outcome, rng) = pick(outcomes, walk.rng);
     Some(Walk {
         next: outcome.map_or(Target::End, |outcome| outcome.next),
@@ -114,6 +160,12 @@ fn step(spec: &NormalizedSpec, walk: &Walk) -> Option<Walk> {
             rounds: walk.result.rounds + u64::from(outcome.reward.rounds),
             hits: walk.result.hits + u64::from(outcome.reward.hits),
             balls: walk.result.balls + u64::from(outcome.reward.balls),
+            supported_balls: walk.result.supported_balls
+                + if supported {
+                    u64::from(outcome.reward.balls)
+                } else {
+                    0
+                },
             truncated: false,
             carry: if outcome.reward.hits > 0 {
                 0
@@ -144,6 +196,7 @@ pub fn run_combo(spec: &NormalizedSpec, rng: Rng) -> (ComboResult, Rng) {
                 rounds: u64::from(outcome.reward.rounds),
                 hits: u64::from(outcome.reward.hits),
                 balls: u64::from(outcome.reward.balls),
+                supported_balls: 0,
                 truncated: false,
                 carry: 0,
             }),

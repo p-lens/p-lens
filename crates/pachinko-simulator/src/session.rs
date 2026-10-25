@@ -2,15 +2,17 @@ use pachinko_domain::conditions::PlayConditions;
 use pachinko_domain::normalized::NormalizedSpec;
 use pachinko_domain::quantity::SpinCount;
 
-use crate::combo::{ComboResult, ReliefGauge, WaitEnd, combo_following, gauge_after, wait_from};
+use crate::combo::{
+    ComboResult, PayoutYield, ReliefGauge, WaitEnd, combo_following, gauge_after, wait_from,
+};
 use crate::rng::Rng;
 
 /// How one session is played: so many regular-game spins, under these
-/// conditions, each ball of the spec's payout yielding `payout_scale`.
+/// conditions, each ball of the spec's payout yielding as `payout` says.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SessionSetup {
     pub spins: SpinCount,
-    pub payout_scale: f64,
+    pub payout: PayoutYield,
     pub play: PlayConditions,
 }
 
@@ -52,13 +54,7 @@ fn next_hit(spec: &NormalizedSpec, played: &Played) -> Option<Played> {
     Some(Played {
         spins_left: played.spins_left - wait.spins,
         first_hits: played.first_hits + u64::from(wait.end == WaitEnd::Jackpot),
-        combos: ComboResult {
-            rounds: played.combos.rounds + combo.rounds,
-            hits: played.combos.hits + combo.hits,
-            balls: played.combos.balls + combo.balls,
-            truncated: false,
-            carry: combo.carry,
-        },
+        combos: played.combos.and_then(&combo),
         gauge: gauge_after(wait.end, &combo),
         truncated_combos: played.truncated_combos + u64::from(combo.truncated),
         rng,
@@ -82,8 +78,7 @@ pub fn play_session(spec: &NormalizedSpec, setup: &SessionSetup, rng: Rng) -> (S
     let end = std::iter::successors(Some(start), |played| next_hit(spec, played))
         .last()
         .unwrap_or(start);
-    #[allow(clippy::cast_precision_loss)]
-    let won = end.combos.balls as f64 * setup.payout_scale * setup.play.ball_value.value();
+    let won = end.combos.gained(setup.payout) * setup.play.ball_value.value();
     #[allow(clippy::cast_precision_loss)]
     let spent = spins as f64 * 1000.0 / setup.play.spin_performance.value();
     (

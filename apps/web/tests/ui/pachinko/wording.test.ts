@@ -17,7 +17,7 @@ describe("a basis as it reads", () => {
   })
 
   test("names a mode by its label, and each kind of mode as its spec sheet does", () => {
-    const modes: readonly ModeView[] = [{ id: "m1", label: "神RUSH", kind: { type: "until-hit" }, allotment: [], onMiss: { type: "regular" }, luckyTrigger: undefined }]
+    const modes: readonly ModeView[] = [{ id: "m1", label: "神RUSH", kind: { type: "until-hit" }, allotment: [], onMiss: { type: "regular" }, luckyTrigger: undefined, withoutSupport: false }]
     expect(nextText({ type: "mode", mode: "m1" }, modes)).toBe("神RUSH")
     expect(nextText({ type: "regular" }, modes)).toBe("通常")
     expect(kindText({ type: "special-time", spins: 100, chance: { type: "ratio", numerator: 1, denominatorHundredths: 5000 } })).toBe("ST 100回転・1/50")

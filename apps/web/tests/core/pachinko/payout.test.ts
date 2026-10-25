@@ -78,7 +78,7 @@ describe("a bonus said to have paid beyond its machine's", () => {
 
   test("lowers the border by the usual over-entry until a bonus says, then by what the bonuses said", () => {
     const figures = { payoutPerRound: 140, roundChanceOneIn: 32 } as never
-    const before: readonly Checkpoint[] = [{ spins: 0, outlay: 0, held: 0 }, { spins: 0, outlay: 5000 }, { spins: 100, outlay: 10000 }]
+    const before: readonly Checkpoint[] = [{ spins: 0, outlay: 0, held: 0 }, { spins: 100, outlay: 5000 }]
     const told = playTheoreticalValue(figures, TERMS, consumptionOf(before, TERMS))?.border ?? 0
     expect(playTheoreticalValue(figures, TERMS, consumptionOf(before, TERMS), 14)?.border).toBeCloseTo(told / 1.1, 10)
     expect(playTheoreticalValue(figures, TERMS, consumptionOf(saidAt(280, 900 + 280), TERMS), 14)?.border).toBeCloseTo((playTheoreticalValue(figures, TERMS, consumptionOf(saidAt(undefined, 900), TERMS))?.border ?? 0) / 1.2, 10)

@@ -34,11 +34,11 @@ const oneYen = (rentedPerThousand: number, exchangedPerThousand: number): PlayTe
   replay: { paidOut: 1000, deducted: 1000 },
 })
 
-/** 20 spins for every 1,000 balls, ¥10,000 of them rented for cash or 10,000 drawn from savings at a time, the first as the play began. */
+/** 20 spins for every 1,000 balls, ¥10,000 of them rented for cash or 10,000 drawn from savings at a time. */
 const figuresOf = (terms: PlayTerms, how: "rented" | "replayed") => {
   const balls = how === "rented" ? (10_000 * terms.rental.tokens) / terms.rental.yen : 10_000
   const fields = how === "rented" ? { rented: 10_000 } : { replayed: 10_000 }
-  const log = played([reading({ counterSpins: 0, ...fields }), reading({ counterSpins: balls / 50, ...fields }), reading({ counterSpins: (balls / 50) * 2, ...fields })])
+  const log = played([reading({ counterSpins: balls / 50, ...fields }), reading({ counterSpins: (balls / 50) * 2, ...fields })])
   const value = playTheoreticalValue(FIGURES, terms, consumptionOf(log, terms))
   return { spinPerformance: Number(value?.spinPerformance.toFixed(2)), border: Number(value?.border.toFixed(2)) }
 }

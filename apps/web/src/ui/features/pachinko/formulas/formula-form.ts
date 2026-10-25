@@ -49,6 +49,17 @@ const percentOf = (text: string, field: string): Read<number> => {
   return read.ok && read.value > 10_000 ? Err({ field, reason: "out-of-range" }) : read
 }
 
+/** A signed percentage to two places as basis points, above -100% and at most +100%: `-10` is `-1000`. Empty is none. */
+const supportGainOf = (text: string, field: string): Read<number> => {
+  const plain = tidyTyped(text).replace(/^[−－]/, "-").replace(/^＋/, "+")
+  if (plain === "") return Ok(0)
+  const negative = plain.startsWith("-")
+  const read = hundredthsOf(plain.replace(/^[+-]/, ""), field)
+  if (!read.ok) return read
+  const points = negative ? -read.value : read.value
+  return points <= -10_000 || points > 10_000 ? Err({ field, reason: "out-of-range" }) : Ok(points)
+}
+
 const countOf = (text: string, field: string): Read<number> => {
   const read = positiveHundredths(text, field)
   return read.ok && read.value % 100 !== 0 ? Err({ field, reason: "not-whole" }) : read.ok ? Ok(read.value / 100) : read
@@ -140,6 +151,8 @@ export interface ModeForm {
   /** The combo at which the lucky trigger moves play on, counting the jackpot that entered the mode. */
   readonly triggerCombo: string
   readonly triggerTo: string
+  /** Whether the mode is played without the 電サポ, a 潜確 at the heso: the support gain leaves its jackpots alone. */
+  readonly withoutSupport: boolean
 }
 
 /** A 期待値基礎値 being entered: the spec, and what a round really yields. */
@@ -154,6 +167,8 @@ export interface BasisForm {
   readonly prizeBalls: string
   readonly count: string
   readonly measuredPayout: string
+  /** 電サポ中の出玉増減 in percent, `-10` for -10%; empty, there is none. */
+  readonly supportGain: string
   readonly spinsPerHour: string
 }
 
@@ -169,6 +184,7 @@ export const newMode = (key: string, label: string): ModeForm => ({
   onMiss: REGULAR,
   triggerCombo: "",
   triggerTo: "",
+  withoutSupport: false,
 })
 
 /** A starting point most specs are a few edits away from: a first jackpot, half into a RUSH. */
@@ -184,6 +200,7 @@ export const STARTING_BASIS: BasisForm = {
   prizeBalls: "15",
   count: "10",
   measuredPayout: "",
+  supportGain: "",
   spinsPerHour: "",
 }
 
@@ -283,6 +300,7 @@ const modeOf = (mode: ModeForm): Result<ModeView, readonly FormProblem[]> => {
     allotment: allotment.value,
     onMiss: nextOf(mode.onMiss),
     luckyTrigger: triggerCombo.value === undefined ? undefined : { atCombo: triggerCombo.value, to: mode.triggerTo },
+    withoutSupport: mode.withoutSupport,
   })
 }
 
@@ -313,22 +331,26 @@ export const readBasisForm = (form: BasisForm): Result<ReadBasis, readonly FormP
   const prize = countOf(form.prizeBalls, "賞球")
   const count = countOf(form.count, "カウント")
   const measured = optionalPositive(form.measuredPayout, "実測の1R出玉")
+  const gain = supportGainOf(form.supportGain, "電サポ中の出玉増減")
   const speed = optionalPositive(form.spinsPerHour, "1時間の回転数")
   const reliefDrive = reliefDriveOf(form)
   const problems = [
-    ...problemsOf([regular, prize, count, measured, speed]),
+    ...problemsOf([regular, prize, count, measured, gain, speed]),
     ...(firstHit.ok ? [] : firstHit.error),
     ...(reliefDrive.ok ? [] : reliefDrive.error),
     ...modes.flatMap((mode) => (mode.ok ? [] : mode.error)),
   ]
-  if (problems.length > 0 || !regular.ok || !firstHit.ok || !prize.ok || !count.ok || !measured.ok || !speed.ok || !reliefDrive.ok) return Err(problems)
+  if (problems.length > 0 || !regular.ok || !firstHit.ok || !prize.ok || !count.ok || !measured.ok || !gain.ok || !speed.ok || !reliefDrive.ok) return Err(problems)
   return Ok({
     spec: assembleWorld(
       { chance: regular.value, allotment: firstHit.value, reliefDrive: reliefDrive.value },
       modes.flatMap((mode) => (mode.ok ? [mode.value] : [])),
       { prizeBalls: prize.value, count: count.value },
     ),
-    conditions: { roundPayout: measured.value === undefined ? { type: "from-spec" } : { type: "measured", balls: measured.value } },
+    conditions: {
+      roundPayout: measured.value === undefined ? { type: "from-spec" } : { type: "measured", balls: measured.value },
+      ...(gain.value === 0 ? {} : { supportGain: { basisPoints: gain.value } }),
+    },
     spinsPerHour: speed.value,
   })
 }
@@ -369,12 +391,14 @@ export const basisFormOf = (spec: SpecDto, conditions: ConditionsDto, spinsPerHo
       onMiss: mode.onMiss.type === "regular" ? REGULAR : mode.onMiss.mode,
       triggerCombo: mode.luckyTrigger === undefined ? "" : String(mode.luckyTrigger.atCombo),
       triggerTo: mode.luckyTrigger?.to ?? "",
+      withoutSupport: mode.withoutSupport,
     })),
     reliefDriveGauge: regular?.reliefDrive === undefined ? "" : String(regular.reliefDrive.gauge),
     reliefDriveTo: regular?.reliefDrive?.to ?? "",
     prizeBalls: String(spec.resources.payout.prizeBalls),
     count: String(spec.resources.payout.count),
     measuredPayout: conditions.roundPayout.type === "measured" ? String(conditions.roundPayout.balls) : "",
+    supportGain: conditions.supportGain === undefined ? "" : hundredthsText(conditions.supportGain.basisPoints),
     spinsPerHour: spinsPerHour === undefined ? "" : String(spinsPerHour),
   }
 }

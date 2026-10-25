@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { readFile } from "node:fs/promises"
 
-import type { AnalysisDto, Envelope, SpecDto } from "@p-lens/contracts/pachinko"
+import type { AnalysisDto, ConditionsDto, Envelope, SpecDto } from "@p-lens/contracts/pachinko"
 import { analyze, initSync } from "@p-lens/pachinko-engine/pachinko.js"
 import { load, Prolog } from "trealla"
 
@@ -19,8 +19,9 @@ const RULES = new URL("../../../src/reasoning/pachinko/grounds.pl", import.meta.
 initSync({ module: await readFile(ENGINE) })
 await load()
 
-const solved = (spec: SpecDto): { readonly basis: Basis; readonly analysis: AnalysisDto } => {
-  const conditions = { roundPayout: { type: "from-spec" } } as const
+const FROM_SPEC: ConditionsDto = { roundPayout: { type: "from-spec" } }
+
+const solved = (spec: SpecDto, conditions: ConditionsDto = FROM_SPEC): { readonly basis: Basis; readonly analysis: AnalysisDto } => {
   const reply = JSON.parse(analyze(JSON.stringify({ source: { type: "spec", spec }, conditions }))) as Envelope<AnalysisDto>
   if (!reply.ok) throw new Error(JSON.stringify(reply.error))
   return { basis: { spec, conditions, normalized: reply.value.normalized, engineSchemaVersion: reply.value.schemaVersion }, analysis: reply.value }
@@ -42,8 +43,13 @@ interface Told {
 const same = (told: Told): Told => told
 
 /** A spec solved and reasoned, with what the reasoner is told altered on the way where a test says how. */
-const reasoned = async (spec: SpecDto, sampled?: SampledFigure, altered: (told: Told) => Told = same): Promise<{ readonly proof: Proof; readonly analysis: AnalysisDto; readonly basis: Basis }> => {
-  const { basis, analysis } = solved(spec)
+const reasoned = async (
+  spec: SpecDto,
+  sampled?: SampledFigure,
+  altered: (told: Told) => Told = same,
+  conditions: ConditionsDto = FROM_SPEC,
+): Promise<{ readonly proof: Proof; readonly analysis: AnalysisDto; readonly basis: Basis }> => {
+  const { basis, analysis } = solved(spec, conditions)
   const told = altered({ basis, analysis, figures: figuresFromAnalysis(analysis, undefined) })
   const prolog = new Prolog()
   await prolog.consultText(await readFile(RULES, "utf8"))
@@ -244,5 +250,35 @@ describe("a formula's grounds, reasoned", () => {
     const exact = solved(specOf(STARTING_BASIS)).analysis.roundChanceOneIn
     const loose = await reasoned(specOf(STARTING_BASIS), { oneIn: exact + 3, margin: 5 })
     expect(amiss(loose.proof)).toEqual([["unverified_wide_margin", "unverified"]])
+  })
+})
+
+describe("a formula's grounds under a support gain", () => {
+  const LESS_A_TENTH: ConditionsDto = { roundPayout: { type: "from-spec" }, supportGain: { basisPoints: -1000 } }
+
+  test("hold, the 1R payout an average over every round, the jackpots won on the 電サポ changed and the first not", async () => {
+    const { proof, analysis, basis } = await reasoned(specOf(STARTING_BASIS), undefined, same, LESS_A_TENTH)
+    expect(amiss(proof)).toEqual([])
+    expect(claimed(proof, "payout_with_support_gain")).toBeCloseTo(analysis.ballsPerRound, 9)
+    expect(analysis.ballsPerRound).toBeLessThan(140)
+    const lines = groundsLines(proof, basis.normalized, new Map([["m1", "RUSH"]])).map((line) => line.text)
+    expect(lines.some((line) => line.startsWith("電サポ中の出玉増減 -10%"))).toBe(true)
+  })
+
+  test("leave a mode played without the 電サポ as the sheet pays it", async () => {
+    const latent = { ...STARTING_BASIS, modes: STARTING_BASIS.modes.map((mode) => ({ ...mode, withoutSupport: true })) }
+    const { proof, analysis } = await reasoned(specOf(latent), undefined, same, LESS_A_TENTH)
+    expect(amiss(proof)).toEqual([])
+    expect(analysis.ballsPerRound).toBeCloseTo(140, 9)
+  })
+
+  test("fail where a state is stored as played on the 電サポ and the sheet says it is not", async () => {
+    const latent = { ...STARTING_BASIS, modes: STARTING_BASIS.modes.map((mode) => ({ ...mode, withoutSupport: true })) }
+    const forgotten = (told: Told): Told => ({
+      ...told,
+      basis: { ...told.basis, normalized: { ...told.basis.normalized, states: told.basis.normalized.states.map(({ withoutSupport: _, ...state }) => state) } },
+    })
+    const { proof } = await reasoned(specOf(latent), undefined, forgotten, LESS_A_TENTH)
+    expect(amiss(proof)).toContainEqual(["check_support", "fails"])
   })
 })

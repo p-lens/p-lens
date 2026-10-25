@@ -302,6 +302,7 @@ fn state_of(
     Ok(State {
         outcomes: hits.into_iter().chain(miss).collect(),
         fills_gauge: fills_gauge(mode.kind),
+        supported: mode.supported,
     })
 }
 

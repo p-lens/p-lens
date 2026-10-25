@@ -17,6 +17,8 @@ export interface ModeView {
   readonly allotment: readonly AllotmentDto[]
   readonly onMiss: NextDto
   readonly luckyTrigger: LuckyTriggerDto | undefined
+  /** Whether the mode is said to be played without the 電サポ — a 潜確 at the heso — so that the support gain does not touch its jackpots; a leftover queue is so whether it says so or not. */
+  readonly withoutSupport: boolean
 }
 
 /** The regular game as a query assembles it from its entity. */
@@ -70,7 +72,7 @@ export const modesOf = (spec: SpecDto): readonly ModeView[] => {
     const onMiss = components.onMiss?.[id]
     return kind === undefined || allotment === undefined || onMiss === undefined
       ? []
-      : [{ id, label: components.label?.[id] ?? id, kind, allotment, onMiss, luckyTrigger: components.luckyTrigger?.[id] }]
+      : [{ id, label: components.label?.[id] ?? id, kind, allotment, onMiss, luckyTrigger: components.luckyTrigger?.[id], withoutSupport: components.withoutSupport?.includes(id) === true }]
   })
 }
 
@@ -96,6 +98,7 @@ export const assembleWorld = (
   const queues = modes.flatMap((mode) => (mode.kind.type === "leftover-queue" ? [[mode.id, { draws: mode.kind.draws }] as const] : []))
   const rushings = modes.flatMap((mode) => (mode.kind.type === "rushing" ? [[mode.id, { continuationRate: mode.kind.continuationRate }] as const] : []))
   const triggers = modes.flatMap((mode) => (mode.luckyTrigger === undefined ? [] : [[mode.id, mode.luckyTrigger] as const]))
+  const unsupported = modes.filter((mode) => mode.withoutSupport).map((mode) => mode.id)
   return {
     v: SPEC_VERSION,
     entities: [REGULAR_ENTITY, ...modes.map((mode) => mode.id)],
@@ -111,6 +114,7 @@ export const assembleWorld = (
       onMiss: record(modes.map((mode) => [mode.id, mode.onMiss] as const)),
       ...(triggers.length === 0 ? {} : { luckyTrigger: record(triggers) }),
       ...(regular.reliefDrive === undefined ? {} : { reliefDrive: record([[REGULAR_ENTITY, regular.reliefDrive]]) }),
+      ...(unsupported.length === 0 ? {} : { withoutSupport: unsupported }),
     },
     resources: { payout },
   }

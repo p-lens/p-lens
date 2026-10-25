@@ -5,6 +5,7 @@ use std::num::NonZeroU64;
 use pachinko_domain::normalized::{NormalizedSpec, Outcome, Reward, Target};
 use pachinko_domain::probability::Probability;
 use pachinko_domain::version::SchemaVersion;
+use pachinko_simulator::combo::PayoutYield;
 use pachinko_simulator::rng::Seed;
 use pachinko_simulator::sunk::{
     Sunk, SunkSetup, Way, advance_sunk, dry_one_in, mean_outlay, outlay_at, way_of,
@@ -40,7 +41,7 @@ fn setup(since_last: Option<u64>) -> SunkSetup {
         since_last,
         spin_performance: 25.0,
         rented_per_thousand: 250.0,
-        payout_scale: 1.0,
+        payout: PayoutYield::AS_SPECIFIED,
     }
 }
 

@@ -7,7 +7,7 @@ import { borderOf } from "../../../../core/pachinko/theoretical-value"
 import type { FormulaSnapshot } from "../../../../core/pachinko/snapshot"
 import type { Checkpoint } from "../../../../core/play-log/checkpoint"
 import { NoticeDialog } from "../../../primitives/dialog"
-import { TargetIcon } from "../../../primitives/icons"
+import { AimIcon } from "../../../primitives/icons"
 import { HyenaHuntByRate } from "../formulas/HyenaHuntByRate"
 import { HyenaHuntRun } from "../formulas/HyenaHuntRun"
 import { GaugeCorrection } from "./GaugeCorrection"
@@ -47,9 +47,9 @@ export function LiveHyenaHunt(props: {
         aria-label="遊タイム狙いを見る"
         title="遊タイム狙い"
         onClick={() => setShown(true)}
-        class="flex size-7 shrink-0 items-center justify-center rounded text-semipro-ink hover:bg-surface-3 hover:text-semipro-ink-hover [&_svg]:size-4"
+        class="flex size-10 shrink-0 items-center justify-center rounded text-semipro-ink hover:bg-surface-3 hover:text-semipro-ink-hover [&_svg]:size-5"
       >
-        <TargetIcon />
+        <AimIcon />
       </button>
       <NoticeDialog open={shown()} title="遊タイム狙い（ここから打ち続けたら）" acknowledge="閉じる" onAcknowledged={() => setShown(false)}>
         <Show when={props.ballValue} keyed>

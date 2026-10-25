@@ -74,7 +74,7 @@ describe("a pachinko reading", () => {
 
 describe("what a play's regular games cost", () => {
   test("is measured from the seat to the last time more was bought: 60 spins for 750 balls is 20 a thousand", () => {
-    const found = consumptionOf(played([reading({ counterSpins: 120, rented: 1000 }), reading({ counterSpins: 140, rented: 1000 }), reading({ counterSpins: 160, rented: 1000 }), reading({ counterSpins: 180, rented: 1000 }), reading({ counterSpins: 190 })]), TERMS)
+    const found = consumptionOf(played([reading({ counterSpins: 140, rented: 1000 }), reading({ counterSpins: 160, rented: 1000 }), reading({ counterSpins: 180, rented: 1000 }), reading({ counterSpins: 190 })]), TERMS)
     expect(found).toEqual({ regularSpins: 70, measured: { spins: 60, balls: 750, rentedBalls: 750, replayedBalls: 0 }, payoutRatio: undefined })
     expect(found.measured && spinPerformanceOf(found.measured, TERMS)).toBe(20)
   })
@@ -84,19 +84,8 @@ describe("what a play's regular games cost", () => {
     expect(found.measured).toEqual({ spins: 20, balls: 250, rentedBalls: 250, replayedBalls: 0 })
   })
 
-  test("counts the balls bought as the play began, measured to a count of the hand", () => {
-    const found = consumptionOf(played([reading({ counterSpins: 120, rented: 1000 }), reading({ counterSpins: 140, held: 50 })]), TERMS)
-    expect(found.measured).toEqual({ spins: 20, balls: 200, rentedBalls: 250, replayedBalls: 0 })
-    expect(found.measured && spinPerformanceOf(found.measured, TERMS)).toBe(25)
-  })
-
-  test("leaves what was bought as the hand ran out in hand, a play begun on balls of its own not charged for it", () => {
-    const found = consumptionOf(playedWith(500, [reading({ counterSpins: 140, rented: 1000 })]), TERMS)
-    expect(found.measured).toEqual({ spins: 20, balls: 500, rentedBalls: 0, replayedBalls: 0 })
-  })
-
   test("counts balls drawn from savings with the rented", () => {
-    const found = consumptionOf(played([reading({ counterSpins: 120, replayed: 125 }), reading({ counterSpins: 130, replayed: 125 }), reading({ counterSpins: 140, replayed: 125 })]), TERMS)
+    const found = consumptionOf(played([reading({ counterSpins: 130, replayed: 125 }), reading({ counterSpins: 140, replayed: 125 })]), TERMS)
     expect(found.measured).toEqual({ spins: 20, balls: 250, rentedBalls: 0, replayedBalls: 250 })
   })
 
@@ -107,10 +96,8 @@ describe("what a play's regular games cost", () => {
 
   test("leaves out 確変 and 時短, and counts what a bonus won less what the 電サポ lost as balls played once they are gone", () => {
     const log = played([
-      reading({ counterSpins: 120, rented: 10000 }),
-      reading({ counterSpins: 320, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }),
+      reading({ counterSpins: 320, rented: 10000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }),
       reading({ counterSpins: 100, phase: "special", supported: -100 }),
-      reading({ counterSpins: 150, rented: 1000 }),
       reading({ counterSpins: 200, rented: 1000 }),
     ])
     const found = consumptionOf(log, TERMS)
@@ -119,10 +106,10 @@ describe("what a play's regular games cost", () => {
   })
 
   test("knows no hand at a jackpot where balls were bought, the jackpot having come before they were all played, until it is counted", () => {
-    const log = played([reading({ counterSpins: 120, rented: 1000 }), reading({ counterSpins: 140, rented: 1000 }), reading({ counterSpins: 160, rented: 1000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } })])
+    const log = played([reading({ counterSpins: 140, rented: 1000 }), reading({ counterSpins: 160, rented: 1000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } })])
     expect(consumptionOf(log, TERMS).measured).toEqual({ spins: 20, balls: 250, rentedBalls: 250, replayedBalls: 0 })
-    const counted = played([reading({ counterSpins: 120, rented: 1000 }), reading({ counterSpins: 140, rented: 1000 }), reading({ counterSpins: 160, rented: 1000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }), reading({ counterSpins: 30, phase: "rapid", held: 1500 })])
-    expect(consumptionOf(counted, TERMS).measured).toEqual({ spins: 40, balls: 750 + 1400 - 1500, rentedBalls: 750, replayedBalls: 0 })
+    const counted = played([reading({ counterSpins: 140, rented: 1000 }), reading({ counterSpins: 160, rented: 1000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }), reading({ counterSpins: 30, phase: "rapid", held: 1500 })])
+    expect(consumptionOf(counted, TERMS).measured).toEqual({ spins: 40, balls: 500 + 1400 - 1500, rentedBalls: 500, replayedBalls: 0 })
   })
 
   test("takes the balls in hand where they were counted, so a play on its own balls is measured before they run out", () => {
@@ -131,7 +118,7 @@ describe("what a play's regular games cost", () => {
   })
 
   test("measures nothing past a jackpot whose bonus is not told: what it paid is not known", () => {
-    const log = played([reading({ counterSpins: 120, rented: 1000 }), reading({ counterSpins: 140, rented: 1000 }), reading({ counterSpins: 160, rented: 1000, jackpot: { type: "untold" } }), reading({ counterSpins: 50, rented: 1000 })])
+    const log = played([reading({ counterSpins: 140, rented: 1000 }), reading({ counterSpins: 160, rented: 1000, jackpot: { type: "untold" } }), reading({ counterSpins: 50, rented: 1000 })])
     const found = consumptionOf(log, TERMS)
     expect(found.regularSpins).toBe(90)
     expect(found.measured).toEqual({ spins: 20, balls: 250, rentedBalls: 250, replayedBalls: 0 })
@@ -277,47 +264,47 @@ describe("each line's own stretch of a pachinko play", () => {
     stretchPerformancesOf(log, terms).map((rate) => (rate === undefined ? undefined : rate.type === "measured" ? rate.rate : rate.type))
 
   test("is the spin performance from the last point the hand was known at to the line, where the line knows it", () => {
-    const log = played([reading({ counterSpins: 120, rented: 5000 }), reading({ counterSpins: 230, rented: 5000 }), reading({ counterSpins: 270 }), reading({ counterSpins: 335, rented: 5000 })])
-    expect(shown(log, TERMS)).toEqual([undefined, undefined, 22, undefined, 21])
+    const log = played([reading({ counterSpins: 230, rented: 5000 }), reading({ counterSpins: 270 }), reading({ counterSpins: 335, rented: 5000 })])
+    expect(shown(log, TERMS)).toEqual([undefined, 22, undefined, 21])
   })
 
   test("is a jackpot's line's from before it to the count after its bonus, what was bought at it not all played, and none until then", () => {
-    const before = played([reading({ counterSpins: 120, rented: 5000 }), reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 257, rented: 1000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } })])
-    expect(shown(before, TERMS)).toEqual([undefined, undefined, 20, "awaited"])
-    const counted = played([reading({ counterSpins: 120, rented: 5000 }), reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 257, rented: 1000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }), reading({ counterSpins: 30, phase: "rapid", held: 1300 })])
+    const before = played([reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 257, rented: 1000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } })])
+    expect(shown(before, TERMS)).toEqual([undefined, 20, "awaited"])
+    const counted = played([reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 257, rented: 1000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }), reading({ counterSpins: 30, phase: "rapid", held: 1300 })])
     const rates = shown(counted, TERMS)
-    expect([rates[0], rates[1], rates[2], rates[4]]).toEqual([undefined, undefined, 20, undefined])
-    expect(rates[3]).toBeCloseTo((37 / (1250 + 250 + 1400 - 1300)) * 250)
+    expect([rates[0], rates[1], rates[3]]).toEqual([undefined, 20, undefined])
+    expect(rates[2]).toBeCloseTo((37 / (250 + 1400 - 1300)) * 250)
   })
 
   test("is a folded line's whole run, as if its readings had been read as one, a jackpot's line's too", () => {
     const merged = (log: readonly Checkpoint[], from: number, to: number): readonly Checkpoint[] => ((made) => (made.ok ? made.value : []))(withReadingsMerged(log, { from, to }))
-    const log = played([reading({ counterSpins: 120, rented: 5000 }), reading({ counterSpins: 220, rented: 2500 }), reading({ counterSpins: 280, rented: 1000 })])
-    expect(shown(log, TERMS)).toEqual([undefined, undefined, 20, 24])
-    expect(shown(merged(log, 1, 2), TERMS)[2]).toBeCloseTo((160 / 1875) * 250)
-    const won = played([reading({ counterSpins: 120, rented: 5000 }), reading({ counterSpins: 220, rented: 1000 }), reading({ counterSpins: 250, rented: 500 }), reading({ counterSpins: 257, rented: 500, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }), reading({ counterSpins: 30, phase: "rapid", held: 1300 })])
+    const log = played([reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 280, rented: 2500 })])
+    expect(shown(log, TERMS)).toEqual([undefined, 20, 24])
+    expect(shown(merged(log, 0, 1), TERMS)[1]).toBeCloseTo((160 / 1875) * 250)
+    const won = played([reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 250, rented: 500 }), reading({ counterSpins: 257, rented: 500, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }), reading({ counterSpins: 30, phase: "rapid", held: 1300 })])
     const unmerged = shown(won, TERMS)
-    expect(shown(merged(won, 2, 3), TERMS)[3]).toBeCloseTo((37 / (250 + 125 + 125 + 1400 - 1300)) * 250)
-    expect(unmerged[4]).toBeCloseTo((7 / (125 + 125 + 1400 - 1300)) * 250)
+    expect(shown(merged(won, 1, 2), TERMS)[2]).toBeCloseTo((37 / (250 + 1400 - 1300)) * 250)
+    expect(unmerged[3]).toBeCloseTo((7 / (125 + 1400 - 1300)) * 250)
   })
 
   test("is shown on a line played in regular games alone, never on a 時短 line that counted the hand after them", () => {
-    const log = played([reading({ counterSpins: 120, rented: 5000 }), reading({ counterSpins: 220, rented: 1000 }), reading({ counterSpins: 260 }), reading({ counterSpins: 300, phase: "rapid", held: 200 })])
-    expect(shown(log, TERMS)).toEqual([undefined, undefined, 20, undefined, undefined])
+    const log = played([reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 260 }), reading({ counterSpins: 300, phase: "rapid", held: 200 })])
+    expect(shown(log, TERMS)).toEqual([undefined, 20, undefined, undefined])
   })
 
   test("is none across a jackpot whose bonus the log does not say, a count at it being before what it paid, and runs again between hands known after it", () => {
-    const log = played([reading({ counterSpins: 120, rented: 5000 }), reading({ counterSpins: 220, rented: 1000 }), reading({ counterSpins: 260, jackpot: { type: "untold" }, held: 1000 }), reading({ counterSpins: 50, rented: 1000 }), reading({ counterSpins: 100, rented: 1000 })])
-    expect(shown(log, TERMS)).toEqual([undefined, undefined, 20, undefined, undefined, 50])
+    const log = played([reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 260, jackpot: { type: "untold" }, held: 1000 }), reading({ counterSpins: 50, rented: 1000, held: 0 }), reading({ counterSpins: 100, rented: 1000 })])
+    expect(shown(log, TERMS)).toEqual([undefined, 20, undefined, undefined, 50])
   })
 
   test("takes a count at a jackpot as the hand when it came, before its bonus paid, so a chain counted along the way is measured", () => {
     const first = { name: "A", payout: 300, spent: 20 }
     const second = { name: "B", payout: 500, spent: 20 }
-    const chain = [reading({ counterSpins: 120, rented: 5000 }), reading({ counterSpins: 220, rented: 500 }), reading({ counterSpins: 225, jackpot: { type: "bonus", bonus: first } }), reading({ counterSpins: 3, phase: "special", held: 379, jackpot: { type: "bonus", bonus: second } })]
-    expect(shown(played([...chain, reading({ counterSpins: 0, held: 859 })]), TERMS)).toEqual([undefined, undefined, 20, (5 / (125 - 99)) * 250, undefined, undefined])
+    const chain = [reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 225, rented: 500, jackpot: { type: "bonus", bonus: first } }), reading({ counterSpins: 3, phase: "special", held: 379, jackpot: { type: "bonus", bonus: second } })]
+    expect(shown(played([...chain, reading({ counterSpins: 0, held: 859 })]), TERMS)).toEqual([undefined, 20, (5 / (125 - 99)) * 250, undefined, undefined])
     const on = shown(played([...chain, reading({ counterSpins: 16, held: 744 })]), TERMS)
-    expect(on[5]).toBeCloseTo((16 / 115) * 250)
+    expect(on[4]).toBeCloseTo((16 / 115) * 250)
     expect(heldAsToldOf(played([...chain, reading({ counterSpins: 16 })]))).toBe(859)
   })
 })

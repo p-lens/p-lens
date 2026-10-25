@@ -106,7 +106,7 @@ export function SamplingRun(props: { readonly basis: Basis; readonly settingLeve
         fallback={
           <div class="flex items-center gap-1">
             <Button variant="semipro" onClick={start}>シミュレーション開始</Button>
-            <HelpPopover label="シミュレーションについて" title="シミュレーションについて" semipro>
+            <HelpPopover label="シミュレーションについて" title="シミュレーションについて" ink="semipro">
               <p>この端末で、設定ごとに通常時を{formatMan(gamesOf(games()) ?? GAMES_BY_DEFAULT)}ゲームずつ回して、機械割を推定します。
                 <Show when={expectedMargin()} keyed fallback="ゲーム数が多いほど、結果の誤差（±）は小さくなります。">
                   {(margin) => <>いまの結果からすると、このゲーム数なら機械割の誤差（95%の範囲）は最大で ±{(margin * 100).toFixed(2)} ほどです。</>}

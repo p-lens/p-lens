@@ -20,7 +20,9 @@ impl EngineVersion {
     /// 3: a leftover queue's draws fill the relief gauge too.
     /// 4: a share of an allotment may pay its rounds by a prize of its own, and
     ///    a count past the 遊タイム finds it spent.
-    pub const CURRENT: Self = Self(4);
+    /// 5: the balls a jackpot won on the 電サポ gains are changed by a formula's
+    ///    support gain.
+    pub const CURRENT: Self = Self(5);
 
     pub fn get(self) -> u32 {
         self.0
@@ -56,7 +58,8 @@ pub struct StateDerivation {
     pub origin: StateOrigin,
     pub average_rounds: f64,
     pub average_combo: f64,
-    /// Balls the state's rounds gain from there on, as the spec's payout gives them.
+    /// Balls the state's rounds gain from there on, as the spec's payout
+    /// gives them and the support gain changes those won on the 電サポ.
     pub average_balls: f64,
 }
 
@@ -70,7 +73,8 @@ pub struct ReliefDriveFigures {
     pub reach_probability: f64,
     pub rounds_after: f64,
     pub combo_after: f64,
-    /// Balls the mode it leads to gains, as the spec's payout gives them.
+    /// Balls the mode it leads to gains, as the spec's payout gives them and
+    /// the support gain changes those won on the 電サポ.
     pub balls_after: f64,
     pub restarts: Vec<RestartFigures>,
     /// From every point of a combo, the chance of each way of starting again:
@@ -197,9 +201,12 @@ pub fn analyze(
     spec: &NormalizedSpec,
     conditions: &CalculationConditions,
 ) -> Result<Analysis, SolveError> {
-    let rounds = expected_totals(spec, |reward| f64::from(reward.rounds))?;
-    let hits = expected_totals(spec, |reward| f64::from(reward.hits))?;
-    let balls = expected_totals(spec, |reward| f64::from(reward.balls))?;
+    let support = conditions.support_gain.factor();
+    let rounds = expected_totals(spec, |_, reward| f64::from(reward.rounds))?;
+    let hits = expected_totals(spec, |_, reward| f64::from(reward.hits))?;
+    let balls = expected_totals(spec, |state, reward| {
+        f64::from(reward.balls) * if state.supported { support } else { 1.0 }
+    })?;
     let average_rounds = from_entry(spec, &rounds, |outcome| f64::from(outcome.reward.rounds));
     let average_combo = from_entry(spec, &hits, |outcome| f64::from(outcome.reward.hits));
     let entry = Yield {

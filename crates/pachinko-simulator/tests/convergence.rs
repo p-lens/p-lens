@@ -3,7 +3,7 @@
 use std::num::{NonZeroU32, NonZeroU64};
 
 use pachinko_domain::conditions::{
-    BallValue, CalculationConditions, PlayConditions, RoundPayout, SpinPerformance,
+    BallValue, CalculationConditions, PlayConditions, RoundPayout, SpinPerformance, SupportGain,
 };
 use pachinko_domain::normalized::NormalizedSpec;
 use pachinko_domain::probability::{BasisPoints, Denominator, ProbabilitySource};
@@ -15,6 +15,7 @@ use pachinko_domain::spec::{
 use pachinko_engine::analysis::analyze;
 use pachinko_engine::hyena_hunt::hyena_hunt;
 use pachinko_engine::normalize::normalize;
+use pachinko_simulator::combo::PayoutYield;
 use pachinko_simulator::estimate::{Estimate, advance_estimate};
 use pachinko_simulator::hyena_hunt::{HyenaHunt, HyenaHuntSetup, advance_hyena_hunt};
 use pachinko_simulator::rng::Seed;
@@ -136,7 +137,7 @@ fn plan(sessions: u64, spins: u32) -> Plan {
         sessions: NonZeroU64::new(sessions).expect("sessions"),
         setup: SessionSetup {
             spins: SpinCount::new(nonzero(spins)),
-            payout_scale: 1.0,
+            payout: PayoutYield::AS_SPECIFIED,
             play: PlayConditions {
                 spin_performance: SpinPerformance::new(18.0).expect("a rate"),
                 ball_value: BallValue::new(4.0).expect("a value"),
@@ -187,6 +188,7 @@ fn chains_converge_on_the_analytical_engine() {
         &spec,
         &CalculationConditions {
             round_payout: RoundPayout::FromSpec,
+            support_gain: SupportGain::NONE,
         },
     )
     .expect("solves");
@@ -218,6 +220,7 @@ fn the_mean_result_lies_within_five_standard_errors_of_the_theoretical_value() {
         &spec,
         &CalculationConditions {
             round_payout: RoundPayout::FromSpec,
+            support_gain: SupportGain::NONE,
         },
     )
     .expect("solves");
@@ -265,6 +268,7 @@ fn the_estimated_round_chance_holds_the_exact_one_within_its_margin() {
         &spec,
         &CalculationConditions {
             round_payout: RoundPayout::FromSpec,
+            support_gain: SupportGain::NONE,
         },
     )
     .expect("solves")
@@ -324,6 +328,7 @@ fn with_relief_drive() -> NormalizedSpec {
 
 const FROM_SPEC: CalculationConditions = CalculationConditions {
     round_payout: RoundPayout::FromSpec,
+    support_gain: SupportGain::NONE,
 };
 
 fn hyena_hunting_play() -> PlayConditions {
@@ -342,7 +347,7 @@ fn hyena_hunted(
 ) -> HyenaHunt {
     let setup = HyenaHuntSetup {
         initial_spins,
-        payout_scale: 1.0,
+        payout: PayoutYield::AS_SPECIFIED,
         play: hyena_hunting_play(),
     };
     let trials = NonZeroU64::new(trials).expect("trials");
@@ -459,5 +464,42 @@ fn counted_time_shortening_and_a_spent_relief_drive_agree_between_sampling_and_t
     assert!(
         (one_in - exact).abs() <= 3.0 * margin,
         "{one_in} ± {margin} against {exact}"
+    );
+}
+
+#[test]
+fn a_support_gain_takes_the_mean_result_where_the_engine_does() {
+    let spec = made_up();
+    let conditions = CalculationConditions {
+        round_payout: RoundPayout::FromSpec,
+        support_gain: SupportGain::new(-1000).expect("-10%"),
+    };
+    let analysis = analyze(&spec, &conditions).expect("solves");
+    let base = plan(4_000, 3_000);
+    let plan = Plan {
+        setup: SessionSetup {
+            payout: PayoutYield {
+                scale: analysis.payout_scale,
+                support: conditions.support_gain.factor(),
+            },
+            ..base.setup
+        },
+        ..base
+    };
+    let progress = run(&spec, &plan, 99, 1_000);
+    let played = plan.setup.play;
+    let yen_per_spin =
+        spec.hit_chance.value() * analysis.average_payout.value() * played.ball_value.value()
+            - 1000.0 / played.spin_performance.value();
+    let expected = yen_per_spin * 3_000.0;
+    let mean = progress.aggregate.mean_yen().expect("sessions ran");
+    let standard_error = progress
+        .aggregate
+        .standard_deviation()
+        .expect("sessions ran")
+        / 4_000_f64.sqrt();
+    assert!(
+        (mean - expected).abs() < 5.0 * standard_error,
+        "mean {mean}, expected {expected}, se {standard_error}"
     );
 }

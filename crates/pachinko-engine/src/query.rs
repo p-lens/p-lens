@@ -47,7 +47,13 @@ fn check_entities(spec: &Spec) -> Result<BTreeSet<&ModeId>, SpecError> {
         )
         .chain(keyed(&components.on_miss, Component::OnMiss))
         .chain(keyed(&components.lucky_trigger, Component::LuckyTrigger))
-        .chain(keyed(&components.relief_drive, Component::ReliefDrive));
+        .chain(keyed(&components.relief_drive, Component::ReliefDrive))
+        .chain(
+            components
+                .without_support
+                .iter()
+                .map(|entity| (entity, Component::WithoutSupport)),
+        );
     named
         .into_iter()
         .find(|(entity, _)| !known.contains(entity))
@@ -124,6 +130,9 @@ pub fn regular_play(spec: &Spec) -> Result<RegularPlay, SpecError> {
     }
     if components.lucky_trigger.contains_key(entity) {
         return Err(stray(entity, Component::LuckyTrigger));
+    }
+    if components.without_support.contains(entity) {
+        return Err(stray(entity, Component::WithoutSupport));
     }
     let game = components
         .regular_game
@@ -226,6 +235,8 @@ fn mode_of(spec: &Spec, entity: &ModeId, regular: ProbabilitySource) -> Result<M
             .cloned()
             .ok_or_else(|| missing(Component::OnMiss))?,
         lucky_trigger: components.lucky_trigger.get(entity).cloned(),
+        supported: !components.without_support.contains(entity)
+            && !components.leftover_queue.contains_key(entity),
     })
 }
 

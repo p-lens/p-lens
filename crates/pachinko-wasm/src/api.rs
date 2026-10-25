@@ -3,10 +3,12 @@
 
 use std::num::NonZeroU64;
 
+use pachinko_domain::conditions::CalculationConditions;
 use pachinko_domain::normalized::NormalizedSpec;
 use pachinko_engine::analysis::analyze as solve;
 use pachinko_engine::hyena_hunt::hyena_hunt_from;
 use pachinko_engine::normalize::normalize as normalise;
+use pachinko_simulator::combo::PayoutYield;
 use pachinko_simulator::estimate::{Estimate, advance_estimate};
 use pachinko_simulator::hyena_hunt::{HyenaHunt, HyenaHuntSetup, advance_hyena_hunt};
 use pachinko_simulator::inference::{Inference, advance_inference};
@@ -62,14 +64,28 @@ fn analysis(request: &AnalyzeRequest) -> Result<AnalysisDto, ErrorDto> {
     Ok(convert::analysis_dto(&analysis, &spec))
 }
 
+/// What a ball of the spec's payout yields under a formula's conditions, for a simulator to play it by.
+pub(crate) fn payout_yield(
+    spec: &NormalizedSpec,
+    conditions: &CalculationConditions,
+) -> Result<PayoutYield, ErrorDto> {
+    Ok(PayoutYield {
+        scale: solve(spec, conditions)
+            .map_err(convert::solve_error_dto)?
+            .payout_scale,
+        support: conditions.support_gain.factor(),
+    })
+}
+
 fn simulation(request: &SimulateRequest) -> Result<SimulateResponse, ErrorDto> {
     let spec = source(&request.source)?;
     let conditions = convert::conditions(&request.conditions)?;
     let play_conditions = convert::play(&request.play)?;
-    let payout_scale = solve(&spec, &conditions)
-        .map_err(convert::solve_error_dto)?
-        .payout_scale;
-    let plan = convert::plan(&request.plan, payout_scale, play_conditions)?;
+    let plan = convert::plan(
+        &request.plan,
+        payout_yield(&spec, &conditions)?,
+        play_conditions,
+    )?;
     let progress = match &request.progress {
         Some(carried) => convert::progress(carried)?,
         None => Progress::start(convert::seed(&request.seed)?),
@@ -118,9 +134,7 @@ fn hyena_hunting(request: &HyenaHuntRequest) -> Result<HyenaHuntResponse, ErrorD
     let conditions = convert::conditions(&request.conditions)?;
     let setup = HyenaHuntSetup {
         initial_spins: request.initial_spins,
-        payout_scale: solve(&spec, &conditions)
-            .map_err(convert::solve_error_dto)?
-            .payout_scale,
+        payout: payout_yield(&spec, &conditions)?,
         play: convert::play(&request.play)?,
     };
     let trials = positive_count(request.trials, "trials")?;
@@ -144,10 +158,7 @@ fn hyena_hunting(request: &HyenaHuntRequest) -> Result<HyenaHuntResponse, ErrorD
 fn inferred(request: &InferenceRequest) -> Result<InferenceResponse, ErrorDto> {
     let spec = source(&request.source)?;
     let conditions = convert::conditions(&request.conditions)?;
-    let payout_scale = solve(&spec, &conditions)
-        .map_err(convert::solve_error_dto)?
-        .payout_scale;
-    let setup = convert::inference_setup(request, payout_scale)?;
+    let setup = convert::inference_setup(request, payout_yield(&spec, &conditions)?)?;
     let trials = positive_count(request.trials, "trials")?;
     let inference = match &request.progress {
         Some(carried) => convert::inference(carried)?,

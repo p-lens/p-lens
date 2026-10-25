@@ -98,6 +98,8 @@ export interface ComponentsDto {
   readonly luckyTrigger?: Readonly<Record<string, LuckyTriggerDto>>
   /** The regular game's 遊タイム. */
   readonly reliefDrive?: Readonly<Record<string, ReliefDriveDto>>
+  /** Modes played without the 電サポ — a 潜確 at the heso — whose jackpots the support gain does not touch; a leftover queue is so whether it is named here or not. */
+  readonly withoutSupport?: readonly string[]
 }
 
 /** A 遊タイム: once its `gauge` of regular-game spins fills without a jackpot, play moves to mode `to`. */
@@ -145,7 +147,8 @@ export interface NormalizedSpecDto {
   readonly schemaVersion: number
   readonly hitChance: number
   readonly entry: readonly OutcomeDto[]
-  readonly states: readonly { readonly outcomes: readonly OutcomeDto[]; readonly fillsGauge?: number }[]
+  /** Each state, `withoutSupport` where it is played without the 電サポ: a spec normalised before the support gain says it of none. */
+  readonly states: readonly { readonly outcomes: readonly OutcomeDto[]; readonly fillsGauge?: number; readonly withoutSupport?: true }[]
   /** The combo each state stands at in its mode, counting the jackpot that entered it. */
   readonly origins: readonly { readonly mode: string; readonly combo: number }[]
   readonly netBallsPerRound: number
@@ -158,6 +161,13 @@ export type SourceDto =
 
 export interface ConditionsDto {
   readonly roundPayout: { readonly type: "from-spec" } | { readonly type: "measured"; readonly balls: number }
+  /**
+   * 電サポ中の出玉増減: what the balls a jackpot won on the 電サポ gains are
+   * changed by, in basis points of them — `-1000` is -10% — after the first
+   * jackpot, and never in a mode played without the 電サポ. Left out where
+   * there is none.
+   */
+  readonly supportGain?: { readonly basisPoints: number }
 }
 
 export interface PlayDto {

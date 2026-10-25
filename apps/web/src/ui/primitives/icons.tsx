@@ -198,10 +198,10 @@ export const SlidersIcon = () => (
 )
 
 /** Something aimed at: a mark at the middle of rings. */
-export const TargetIcon = () => (
+export const AimIcon = () => (
   <Icon>
-    <circle cx="12" cy="12" r="9" />
-    <circle cx="12" cy="12" r="5" />
+    <circle cx="12" cy="12" r="7" />
+    <path d="M12 2v5M12 17v5M2 12h5M17 12h5" />
     <circle cx="12" cy="12" r="1" />
   </Icon>
 )

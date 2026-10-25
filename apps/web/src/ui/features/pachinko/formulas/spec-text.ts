@@ -43,3 +43,9 @@ export const kindText = (kind: ModeKind): string => {
 
 export const roundPayoutText = (conditions: ConditionsDto, specNet: number): string =>
   conditions.roundPayout.type === "from-spec" ? `スペック通り（1R ${specNet}個）` : `実測 1R ${conditions.roundPayout.balls}個`
+
+/** 電サポ中の出玉増減 as the conditions say it, `-10%`; none where there is none. */
+export const supportGainText = (conditions: ConditionsDto): string | undefined => {
+  const points = conditions.supportGain?.basisPoints
+  return points === undefined || points === 0 ? undefined : `電サポ中の出玉増減 ${points > 0 ? "+" : ""}${String(points / 100)}%（初当り以外）`
+}
