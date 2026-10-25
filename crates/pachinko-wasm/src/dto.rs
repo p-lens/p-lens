@@ -491,6 +491,9 @@ pub struct WeighedDto {
     pub weight: f64,
     pub weight_squared: f64,
     pub spins: f64,
+    /// The trials' 持ち玉比率, each by its weight; a run carried from before it was kept has none.
+    #[serde(default)]
+    pub own_share: f64,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -563,6 +566,8 @@ pub struct ReadingDto {
     /// each trial's own, and the middle of those.
     pub value: f64,
     pub effective_trials: f64,
+    /// The share of the balls played that were won in the play, on average: the 持ち玉比率.
+    pub own_share: f64,
 }
 
 /// 遊タイム狙い solved exactly, from each of several initial spins.

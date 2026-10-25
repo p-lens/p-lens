@@ -109,15 +109,46 @@ struct Trial {
     /// is played to its end, which a person would have counted in.
     overrun: f64,
     /// What its regular spins were worth by the formula, at the spin
-    /// performance it was drawn at, every ball of them rented: in yen.
+    /// performance it was drawn at, each ball played costing what it did —
+    /// a rented one what it was rented for, one won in the play what it
+    /// would have exchanged for: in yen.
     value: f64,
+    /// Of the balls its regular spins played, the share won in the play:
+    /// its 持ち玉比率.
+    own_share: f64,
+}
+
+/// The balls in hand, kept apart by where they came from — rented for
+/// cash, or won in the play — and those of each played so far.
+#[derive(Clone, Copy, Default)]
+struct Hand {
+    rented: f64,
+    won: f64,
+    rented_played: f64,
+    won_played: f64,
+}
+
+impl Hand {
+    fn balls(self) -> f64 {
+        self.rented + self.won
+    }
+
+    /// Of the balls played, the share won in the play; none where none were played.
+    fn own_share(self) -> f64 {
+        let played = self.rented_played + self.won_played;
+        if played > 0.0 {
+            self.won_played / played
+        } else {
+            0.0
+        }
+    }
 }
 
 /// A play part-way through its hours.
 #[derive(Clone, Copy)]
 struct Sitting {
     hours_left: f64,
-    balls: f64,
+    hand: Hand,
     outlay: f64,
     spins: u64,
     jackpots: u64,
@@ -131,15 +162,28 @@ fn hours_of(combo: &ComboResult) -> f64 {
     (real(combo.rounds) * ROUND_SECONDS + real(combo.hits) * JACKPOT_SECONDS) / 3600.0
 }
 
-/// The balls and the cash after spins costing `needed` balls: what is in
-/// hand is played first, and cash goes in a lot at a time for the rest.
-fn paid(balls: f64, outlay: f64, needed: f64, lot: f64) -> (f64, f64) {
-    if balls >= needed {
-        (balls - needed, outlay)
+/// The hand and the cash after spins costing `needed` balls: what is in
+/// hand is played first — the rented before the won, as a play's own
+/// measuring takes them — and cash goes in a lot at a time for the rest,
+/// played as it is rented.
+fn paid(hand: Hand, outlay: f64, needed: f64, lot: f64) -> (Hand, f64) {
+    let from_rented = hand.rented.min(needed);
+    let from_won = hand.won.min(needed - from_rented);
+    let short = needed - from_rented - from_won;
+    let lots = if short > 0.0 {
+        (short / lot).ceil()
     } else {
-        let lots = ((needed - balls) / lot).ceil();
-        (balls + lots * lot - needed, outlay + lots * LOT_YEN)
-    }
+        0.0
+    };
+    (
+        Hand {
+            rented: hand.rented - from_rented + lots * lot - short,
+            won: hand.won - from_won,
+            rented_played: hand.rented_played + from_rented + short,
+            won_played: hand.won_played + from_won,
+        },
+        outlay + lots * LOT_YEN,
+    )
 }
 
 /// The play one wait further on: the regular spins until a jackpot — or
@@ -157,15 +201,15 @@ fn next(
     let room = (sitting.hours_left * setup.spins_per_hour).floor().max(0.0);
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let played = wait.spins.min(room as u64);
-    let (balls, outlay) = paid(
-        sitting.balls,
+    let (hand, outlay) = paid(
+        sitting.hand,
         sitting.outlay,
         real(played) * setup.rented_per_thousand / spin_performance,
         setup.rented_per_thousand * LOT_YEN / 1000.0,
     );
     let spun = Sitting {
         hours_left: sitting.hours_left - real(played) / setup.spins_per_hour,
-        balls,
+        hand,
         outlay,
         spins: sitting.spins + played,
         rng,
@@ -178,13 +222,33 @@ fn next(
     let hours_left = spun.hours_left - hours_of(&combo);
     Some(Sitting {
         hours_left,
-        balls: spun.balls + combo.gained(setup.payout),
+        hand: Hand {
+            won: spun.hand.won + combo.gained(setup.payout),
+            ..spun.hand
+        },
         jackpots: spun.jackpots + combo.hits,
         gauge: gauge_after(wait.end, &combo),
         rng,
         over: hours_left <= 0.0,
         ..spun
     })
+}
+
+/// What a trial's regular spins were worth: what they won, exchanged, less
+/// what the balls they played cost — a rented ball what it was rented for,
+/// one won in the play what it would have exchanged for. A trial that
+/// played nothing has its spins charged as rented ones.
+fn worth(setup: &InferenceSetup, spin_performance: f64, spins: u64, hand: Hand) -> f64 {
+    let value = setup.ball_value.value();
+    let won = setup.balls_per_spin * value * real(spins);
+    let rental = 1000.0 / setup.rented_per_thousand;
+    let played = hand.rented_played + hand.won_played;
+    let cost = if played > 0.0 {
+        hand.rented_played * rental + hand.won_played * value
+    } else {
+        1000.0 / spin_performance * real(spins)
+    };
+    won - cost
 }
 
 /// A standard normal draw, by Box and Muller.
@@ -209,7 +273,7 @@ fn play(spec: &NormalizedSpec, setup: &InferenceSetup, rng: Rng) -> (Trial, Rng)
         (setup.belief.mean + setup.belief.deviation * draw).clamp(FLOOR, ceiling() - BIN / 2.0);
     let start = Sitting {
         hours_left: setup.told.hours,
-        balls: 0.0,
+        hand: Hand::default(),
         outlay: 0.0,
         spins: 0,
         jackpots: 0,
@@ -226,12 +290,12 @@ fn play(spec: &NormalizedSpec, setup: &InferenceSetup, rng: Rng) -> (Trial, Rng)
         Trial {
             spin_performance,
             outlay: end.outlay,
-            takings: end.balls * setup.ball_value.value(),
+            takings: end.hand.balls() * setup.ball_value.value(),
             jackpots: end.jackpots,
             spins: end.spins,
             overrun: (-end.hours_left).max(0.0),
-            value: (setup.balls_per_spin * setup.ball_value.value() - 1000.0 / spin_performance)
-                * real(end.spins),
+            value: worth(setup, spin_performance, end.spins, end.hand),
+            own_share: end.hand.own_share(),
         },
         end.rng,
     )
@@ -288,6 +352,8 @@ pub struct Weighed {
     pub weight_squared: f64,
     /// The trials' regular spins, each by its weight.
     pub spins: f64,
+    /// The trials' 持ち玉比率, each by its weight.
+    pub own_share: f64,
 }
 
 impl Default for Weighed {
@@ -298,6 +364,7 @@ impl Default for Weighed {
             weight: 0.0,
             weight_squared: 0.0,
             spins: 0.0,
+            own_share: 0.0,
         }
     }
 }
@@ -343,6 +410,7 @@ impl Weighed {
         self.weight += weight;
         self.weight_squared += weight * weight;
         self.spins += weight * real(trial.spins);
+        self.own_share += weight * trial.own_share;
         self
     }
 
@@ -384,6 +452,9 @@ pub struct Reading {
     pub value: f64,
     /// How many trials of equal weight the reading rests on.
     pub effective_trials: f64,
+    /// The share of the balls played that were won in the play, on
+    /// average: the 持ち玉比率 the play is taken to have had.
+    pub own_share: f64,
 }
 
 /// How many trials went at least as far as what was told, each way a play
@@ -486,6 +557,7 @@ impl InferenceTally {
             spins: self.weighed.spins / self.weighed.weight,
             value: self.weighed.value_at(0.5)?,
             effective_trials: self.weighed.effective_trials(),
+            own_share: self.weighed.own_share / self.weighed.weight,
         })
     }
 }
@@ -570,6 +642,66 @@ mod tests {
             payout: PayoutYield::AS_SPECIFIED,
             balls_per_spin: 14.0,
         }
+    }
+
+    #[test]
+    fn plays_the_rented_in_hand_before_the_won_and_buys_a_lot_only_when_both_run_out() {
+        let hand = Hand {
+            rented: 30.0,
+            won: 100.0,
+            ..Hand::default()
+        };
+        let (after, outlay) = paid(hand, 1000.0, 80.0, 125.0);
+        assert_eq!(
+            (
+                after.rented,
+                after.won,
+                after.rented_played,
+                after.won_played,
+                outlay
+            ),
+            (0.0, 50.0, 30.0, 50.0, 1000.0)
+        );
+        let (bought, outlay) = paid(after, outlay, 100.0, 125.0);
+        assert_eq!(
+            (
+                bought.rented,
+                bought.won,
+                bought.rented_played,
+                bought.won_played,
+                outlay
+            ),
+            (75.0, 0.0, 80.0, 100.0, 1500.0)
+        );
+        assert!((bought.own_share() - 100.0 / 180.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn charges_a_ball_won_in_the_play_what_it_exchanges_for_and_a_rented_one_what_it_was_rented_for()
+     {
+        let at = setup(
+            Told {
+                hours: 1.0,
+                outlay: 0.0,
+                takings: 0.0,
+                jackpots: None,
+            },
+            Belief {
+                mean: 18.0,
+                deviation: 0.0,
+            },
+        );
+        let rented = Hand {
+            rented_played: 250.0,
+            ..Hand::default()
+        };
+        let won = Hand {
+            won_played: 250.0,
+            ..Hand::default()
+        };
+        let gain = 14.0 * 18.0 * 100.0 / 28.0;
+        assert!((worth(&at, 18.0, 18, rented) - (gain - 1000.0)).abs() < 1e-9);
+        assert!((worth(&at, 18.0, 18, won) - (gain - 250.0 * 100.0 / 28.0)).abs() < 1e-9);
     }
 
     /// A machine with a RUSH: one jackpot in 319.7 spins of 450 balls, six in

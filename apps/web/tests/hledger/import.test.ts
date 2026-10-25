@@ -66,7 +66,7 @@ describe("a pRecord file taken into a book", () => {
     const engine = {
       infer: (order: { readonly seed: string; readonly trials: number; readonly told: { readonly hours: number } }, onEvent: (event: unknown) => void) => {
         asked.push({ seed: order.seed, trials: order.trials, hours: order.told.hours })
-        onEvent({ type: "completed", summary: { trials: order.trials, planned: order.trials, finished: true, reading: { lower: 15, middle: 16, upper: 17, spins: 300, value: -15000, effectiveTrials: 1000 }, rarest: order.trials / 10, rarestWay: "result-at-most" } })
+        onEvent({ type: "completed", summary: { trials: order.trials, planned: order.trials, finished: true, reading: { lower: 15, middle: 16, upper: 17, spins: 300, value: -15000, effectiveTrials: 1000, ownShare: 0 }, rarest: order.trials / 10, rarestWay: "result-at-most" } })
         return { cancel: () => undefined }
       },
     }

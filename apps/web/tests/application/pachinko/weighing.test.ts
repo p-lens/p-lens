@@ -18,7 +18,7 @@ const engineAnswering = (effectiveTrials: (trials: number) => number, rarest: (t
     asked,
     infer: (order: { readonly trials: number }, onEvent: (event: unknown) => void) => {
       asked.push(order.trials)
-      queueMicrotask(() => onEvent({ type: "completed", summary: { trials: order.trials, planned: order.trials, finished: true, rarest: rarest(order.trials), rarestWay: "result-at-most", reading: { lower: 16, middle: 17, upper: 18, spins: 800, value: -9000, effectiveTrials: effectiveTrials(order.trials) } } }))
+      queueMicrotask(() => onEvent({ type: "completed", summary: { trials: order.trials, planned: order.trials, finished: true, rarest: rarest(order.trials), rarestWay: "result-at-most", reading: { lower: 16, middle: 17, upper: 18, spins: 800, value: -9000, effectiveTrials: effectiveTrials(order.trials), ownShare: 0 } } }))
       return { cancel: () => undefined }
     },
   }
@@ -37,7 +37,7 @@ describe("a told play weighed", () => {
     const said = await weighed(catalog([FORMULA]), engine)
     expect(engine.asked).toEqual([TRIALS_BY_HAND])
     expect(said.map((each) => each.type)).toEqual(["weighing", "weighed"])
-    expect(said.at(-1)).toEqual({ type: "weighed", formulaId: "formula-1", paceAssumed: true, weighed: { spinPerformance: 17, border: 20, theoreticalValue: -9000 } })
+    expect(said.at(-1)).toEqual({ type: "weighed", formulaId: "formula-1", paceAssumed: true, weighed: { spinPerformance: 17, ownShare: 0, border: 20, theoreticalValue: -9000 } })
   })
 
   test("is played out again, many more times, where too few came near, and read from that", async () => {

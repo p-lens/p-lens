@@ -3,7 +3,7 @@ import { Match, Show, Switch, type JSX } from "solid-js"
 import type { Weighing } from "../../../../application/pachinko/inference"
 import { createKeptRoom } from "../../../primitives/kept-room"
 import { describeError } from "../../../wording/errors"
-import { ANOMALY, borderGapText, frequencyBasisText, frequencyText, inferredValueText, PACE_ASSUMED, spinPerformanceText, UNWEIGHABLE, vagueText, weighingProgressText, weighingText } from "../../../wording/pachinko/inference"
+import { ANOMALY, borderGapText, frequencyBasisText, frequencyText, inferredValueText, ownShareText, PACE_ASSUMED, spinPerformanceText, UNWEIGHABLE, vagueText, weighingProgressText, weighingText } from "../../../wording/pachinko/inference"
 
 /** What a weighing came to is set in: a dark card with a frame, in a machine's own letters, as a machine would report it. */
 const CARD = "flex flex-col gap-1 rounded-[3px] border border-border bg-surface-0 px-4 py-3 font-mono"
@@ -52,6 +52,7 @@ export function WeighingLine(props: { readonly weighing: Weighing }): JSX.Elemen
               <p class="text-[11px] text-text-muted">
                 推定回転率 <span class="tabular-nums text-text-secondary">{spinPerformanceText(now.weighed)}</span>（{borderGapText(now.weighed)}）
               </p>
+              <p class="text-[11px] text-text-muted">{ownShareText(now.weighed)}</p>
               <Show when={now.paceAssumed}>
                 <p class="pt-1 text-[11px] text-text-muted">{PACE_ASSUMED}</p>
               </Show>

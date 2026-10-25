@@ -103,25 +103,37 @@ export const beliefOf = (figures: Figures, terms: WeighingTerms): BeliefDto => {
 
 /**
  * What a told play is taken to have been (推定): its spin performance, the
- * border it is set against, and what it was worth, all of its balls taken
- * as rented. Each is the middle of what the play allows — as likely to be
- * over as under — and each is read from the trials themselves: what it
- * was worth is the middle of what each trial's own spins were worth at
- * its own spin performance, not a figure worked out from the spin
- * performance beside it.
+ * share of its balls won in the play (推定持ち玉比率), the border it is set
+ * against at that share, and what it was worth, each ball played costing
+ * what it did — a rented one what it was rented for, one won in the play
+ * what it would have exchanged for. Each is read from the trials
+ * themselves: the spin performance and what it was worth are the middle
+ * of what the play allows — as likely to be over as under — what it was
+ * worth being the middle of each trial's own, not a figure worked out
+ * from the spin performance beside it; the share is their average.
  */
 export interface Weighed {
   /** Spins for ¥1,000 (推定回転率). */
   readonly spinPerformance: number
+  /** Of the balls played, the share won in the play (推定持ち玉比率), from 0 to 1. */
+  readonly ownShare: number
   readonly border: number
   /** In yen (推定期待値). */
   readonly theoreticalValue: number
 }
 
+/** The border a play breaks even at, spins for ¥1,000, where so much of what it played was its own: what a ball cost — rented, or won and so worth its exchange — over what a spin wins. */
+const borderAtShare = (figures: Figures, terms: WeighingTerms, ownShare: number): number => {
+  const ballValue = ballValueOf(terms)
+  const cost = (1 - ownShare) * (1000 / terms.rentedPerThousand) + ownShare * ballValue
+  return (cost / (ballsPerSpinOf(figures) * ballValue)) * terms.rentedPerThousand
+}
+
 /** A reading of the engine's as what the play is taken to have been, on its own terms. */
 const weighedOf = (figures: Figures, terms: WeighingTerms, reading: ReadingDto): Weighed => ({
   spinPerformance: reading.middle * scaleOf(terms),
-  border: borderOf(figures, ballValueOf(terms)),
+  ownShare: reading.ownShare,
+  border: borderAtShare(figures, terms, reading.ownShare),
   theoreticalValue: reading.value / scaleOf(terms),
 })
 

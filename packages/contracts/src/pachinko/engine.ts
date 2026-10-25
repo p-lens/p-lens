@@ -404,6 +404,8 @@ export interface ReadingDto {
   /** The theoretical value half the trials' weight lies below, in yen: each trial's own — its spins at its spin performance — and the middle of those. */
   readonly value: number
   readonly effectiveTrials: number
+  /** The share of the balls played that were won in the play, on average: the 持ち玉比率 the play is taken to have had. */
+  readonly ownShare: number
 }
 
 export type LocationDto = { readonly type: "regular" } | { readonly type: "mode"; readonly mode: string }

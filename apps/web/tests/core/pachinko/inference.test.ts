@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import type { Figures } from "../../../src/core/pachinko/figures"
 import { TERMS_BY_DEFAULT, ballValueOf, beliefOf, inferredWorthOf, scaledBallValueOf, seedOf, toldDtoOf, verdictOf, weighingTermsOf } from "../../../src/core/pachinko/inference"
+import { borderOf } from "../../../src/core/pachinko/theoretical-value"
 import { decimal, parseDecimal, toPlainString, type Decimal } from "../../../src/core/decimal/decimal"
 import { frequencyBasisText, frequencyText } from "../../../src/ui/wording/pachinko/inference"
 
@@ -10,13 +11,13 @@ const dec = (text: string): Decimal => ((parsed) => (parsed.ok ? parsed.value : 
 /** A machine whose spin wins 14 balls: at 28 to ¥100 its border is 20 spins for ¥1,000. */
 const FIGURES: Figures = { roundChanceOneIn: 10, payoutPerRound: 140, totalChanceOneIn: undefined, spinsPerHour: undefined }
 
-const summary = (reading: { readonly lower: number; readonly upper: number; readonly effectiveTrials?: number } | null, rarest: number) => ({
+const summary = (reading: { readonly lower: number; readonly upper: number; readonly effectiveTrials?: number; readonly ownShare?: number } | null, rarest: number) => ({
   trials: 2_000_000,
   planned: 2_000_000,
   finished: true,
   rarest,
   rarestWay: "takings-at-least" as const,
-  reading: reading === null ? null : { lower: reading.lower, middle: (reading.lower + reading.upper) / 2, upper: reading.upper, spins: 300, value: -3750, effectiveTrials: reading.effectiveTrials ?? 5_000 },
+  reading: reading === null ? null : { lower: reading.lower, middle: (reading.lower + reading.upper) / 2, upper: reading.upper, spins: 300, value: -3750, effectiveTrials: reading.effectiveTrials ?? 5_000, ownShare: reading.ownShare ?? 0 },
 })
 
 describe("the terms a told play is weighed on", () => {
@@ -65,6 +66,15 @@ describe("what a weighing comes to", () => {
     expect(cheaper.type === "weighed" && [cheaper.weighed.spinPerformance, Number(cheaper.weighed.border.toFixed(3)), cheaper.weighed.theoreticalValue]).toEqual([68, 80, -937.5])
   })
 
+  test("sets the border where so much of what was played was the play's own, a won ball costing what it exchanges for", () => {
+    const allRented = verdictOf(FIGURES, TERMS_BY_DEFAULT, summary({ lower: 16, upper: 18, ownShare: 0 }, 400_000))
+    expect(allRented.type === "weighed" && [allRented.weighed.ownShare, Number(allRented.weighed.border.toFixed(3))]).toEqual([0, Number(borderOf(FIGURES, 100 / 28).toFixed(3))])
+    const verdict = verdictOf(FIGURES, TERMS_BY_DEFAULT, summary({ lower: 16, upper: 18, ownShare: 0.5 }, 400_000))
+    expect(verdict.type === "weighed" && [verdict.weighed.ownShare, Number(verdict.weighed.border.toFixed(3))]).toEqual([0.5, Number((((0.5 * 4 + 0.5 * (100 / 28)) / (14 * (100 / 28))) * 250).toFixed(3))])
+    const allOwn = verdictOf(FIGURES, TERMS_BY_DEFAULT, summary({ lower: 16, upper: 18, ownShare: 1 }, 400_000))
+    expect(allOwn.type === "weighed" && Number(allOwn.weighed.border.toFixed(3))).toBe(Number((250 / 14).toFixed(3)))
+  })
+
   test("is an anomaly before anything else where a play so far out comes more seldom than once in a thousand", () => {
     expect(verdictOf(FIGURES, TERMS_BY_DEFAULT, summary({ lower: 16, upper: 18 }, 166))).toEqual({ type: "anomalous", oneIn: 2_000_000 / 166, beyond: false, way: "takings-at-least" })
     expect(verdictOf(FIGURES, TERMS_BY_DEFAULT, summary(null, 0))).toEqual({ type: "anomalous", oneIn: 2_000_000, beyond: true, way: "takings-at-least" })
@@ -81,15 +91,15 @@ describe("what a weighing comes to", () => {
 
 describe("what a play was taken to be worth, as kept", () => {
   test("is yen to six places with the formula and the terms it stood on, and the spin performance it was taken to have had to a tenth", () => {
-    const kept = inferredWorthOf({ spinPerformance: 16.04, border: 20, theoreticalValue: -3749.61234567 }, "formula-1", { rentedPerThousand: 1000, exchangedPerHundred: 120 })
+    const kept = inferredWorthOf({ spinPerformance: 16.04, ownShare: 0, border: 20, theoreticalValue: -3749.61234567 }, "formula-1", { rentedPerThousand: 1000, exchangedPerHundred: 120 })
     expect([toPlainString(kept.value), kept.formulaId, toPlainString(kept.tokenRental), toPlainString(kept.tokenExchange), kept.spinPerformance === undefined ? undefined : toPlainString(kept.spinPerformance)]).toEqual(["-3749.612346", "formula-1", "1", "120", "16"])
   })
 
   test("keep a ball's yen to six places where ¥1,000 does not divide by the balls it rents, and the exchange to its places, and read back as typed", () => {
-    const kept = inferredWorthOf({ spinPerformance: 16, border: 20, theoreticalValue: 0 }, "formula-1", { rentedPerThousand: 240, exchangedPerHundred: 27.5 })
+    const kept = inferredWorthOf({ spinPerformance: 16, ownShare: 0, border: 20, theoreticalValue: 0 }, "formula-1", { rentedPerThousand: 240, exchangedPerHundred: 27.5 })
     expect([toPlainString(kept.tokenRental), toPlainString(kept.tokenExchange)]).toEqual(["4.166667", "27.5"])
     expect(weighingTermsOf(kept)).toEqual({ rentedPerThousand: 240, exchangedPerHundred: 27.5 })
-    expect(weighingTermsOf(inferredWorthOf({ spinPerformance: 16, border: 20, theoreticalValue: 0 }, "formula-1", TERMS_BY_DEFAULT))).toEqual(TERMS_BY_DEFAULT)
+    expect(weighingTermsOf(inferredWorthOf({ spinPerformance: 16, ownShare: 0, border: 20, theoreticalValue: 0 }, "formula-1", TERMS_BY_DEFAULT))).toEqual(TERMS_BY_DEFAULT)
   })
 
   test("is weighed from a seed its id always gives", () => {

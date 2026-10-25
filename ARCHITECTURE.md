@@ -2960,7 +2960,14 @@ cash it took and what came back.
   worth are shown, each as likely to be over the truth as under it, and
   each read from the trials themselves — the worth is the median of what
   each trial's own spins were worth at its own spin performance, never a
-  figure worked out from the two beside it. One assumption is made about
+  figure worked out from the two beside it. A trial's spins are worth what
+  they won, exchanged, less what the balls they played cost: the tray is
+  played before more is rented, the rented in it before the won, a
+  rented ball costing what it was rented for and one won in the play what
+  it would have exchanged for, as a play followed live counts them. The
+  share of the balls played that were won (推定持ち玉比率, `ownShare`) is
+  the trials' weighted average, said beside the figures, and the border
+  shown is the one at that share. One assumption is made about
   a cabinet, and said with its reason: it is believed a spin under its
   border beforehand, give or take a sixth of the border (`beliefOf`,
   `BELIEVED_UNDER`). A cabinet at its border pays back all that is put
@@ -3031,8 +3038,7 @@ cash it took and what came back.
   pachislot's medals are (貸枚(千円), 交換(100円)); a figure that is not
   more than none does not read, and a press shows it in red. They are
   ¥4 a ball, 250 to ¥1,000, exchanged at 28 until a person or the book says
-  otherwise (`TERMS_BY_DEFAULT`), every ball taken as rented: the harsher
-  of the common terms. The engine plays every play at 250 balls to
+  otherwise (`TERMS_BY_DEFAULT`): the harsher of the common terms. The engine plays every play at 250 balls to
   ¥1,000 (`RENTED_PER_THOUSAND`); a corner renting more or fewer is the
   same play with its yen scaled by what it rents over 250 — four times
   at ¥1 a ball, 240/250 at 240 balls — its spin performance scaled the

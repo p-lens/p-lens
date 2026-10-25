@@ -11,6 +11,9 @@ export const spinPerformanceText = (weighed: Weighed): string => `${weighed.spin
 /** How far a spin performance stands from its border, signed: `ボーダー -2.4`. */
 export const borderGapText = (weighed: Weighed): string => ((gap) => `ボーダー ${gap < 0 ? "-" : "+"}${Math.abs(gap).toFixed(1)}`)(weighed.spinPerformance - weighed.border)
 
+/** The share of the play's balls taken to have been its own, and what the border was set at for it: `推定持ち玉比率は42%で、ボーダーはその割合で計算しています。`. */
+export const ownShareText = (weighed: Weighed): string => `推定持ち玉比率は${Math.round(weighed.ownShare * 100)}%で、ボーダーと期待値はその割合で計算しています。`
+
 export const inferredValueText = (weighed: Weighed): string => theoreticalFigureText(seal.tally(weighed.theoreticalValue))
 
 /** What a weighing under way is doing: the usual trials, or the many more a play is given that too few of those came near. */

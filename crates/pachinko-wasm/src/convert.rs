@@ -837,6 +837,7 @@ pub fn inference(dto: &InferenceProgressDto) -> Result<Inference, ErrorDto> {
                 weight: dto.weighed.weight,
                 weight_squared: dto.weighed.weight_squared,
                 spins: dto.weighed.spins,
+                own_share: dto.weighed.own_share,
             },
             beyond: Beyond {
                 outlay_at_least: dto.beyond.outlay_at_least,
@@ -862,6 +863,7 @@ pub fn inference_progress_dto(inference: &Inference) -> InferenceProgressDto {
             weight: weighed.weight,
             weight_squared: weighed.weight_squared,
             spins: weighed.spins,
+            own_share: weighed.own_share,
         },
         beyond: BeyondDto {
             outlay_at_least: beyond.outlay_at_least,
@@ -887,6 +889,7 @@ pub fn inference_summary_dto(inference: &Inference, planned: NonZeroU64) -> Infe
             spins: reading.spins,
             value: reading.value,
             effective_trials: reading.effective_trials,
+            own_share: reading.own_share,
         }),
         rarest,
         rarest_way: match way {
