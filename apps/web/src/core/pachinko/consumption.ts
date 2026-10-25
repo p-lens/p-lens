@@ -1,4 +1,4 @@
-import { advertisedRentalOf, type PlayTerms } from "../parlor/terms"
+import type { PlayTerms } from "../parlor/terms"
 import type { Checkpoint } from "../play-log/checkpoint"
 import { gainOf, payoutDifferencesOf, payoutRatioOf } from "./payout"
 
@@ -45,6 +45,9 @@ const NONE_UNPLAYED = { rented: 0, replayed: 0 } as const
 const START: Standing = { regularSpins: 0, rentedBalls: 0, replayedBalls: 0, gained: 0, held: 0, unplayed: NONE_UNPLAYED }
 
 const rentedBallsOf = (outlay: number, terms: PlayTerms): number => (outlay * terms.rental.tokens) / terms.rental.yen
+
+/** Balls ¥1,000 rents at the corner: what a spin performance and a border are counted in. */
+export const rentedForThousand = (terms: PlayTerms): number => rentedBallsOf(1000, terms)
 
 /** What was bought at a point the hand ran out, since the standing before it: the rented and the drawn now in hand. */
 const unplayedOf = (before: Standing, rentedBalls: number, replayedBalls: number): Standing["unplayed"] => ({
@@ -188,8 +191,13 @@ export const consumptionOf = (ordered: readonly Checkpoint[], terms: PlayTerms):
   return { regularSpins: walked.last?.regularSpins ?? 0, measured: measuredOf(walked), payoutRatio: payoutRatioOf(ordered) }
 }
 
-/** The spin performance a measurement comes to: regular spins for the balls ¥1,000 rents at the corner's advertised rate (`advertisedRentalOf`), the player's own balls and those drawn from savings counted as rented ones are. */
-export const spinPerformanceOf = (measured: Measured, terms: PlayTerms): number => (measured.spins / measured.balls) * advertisedRentalOf("pachinko", terms)
+/**
+ * The spin performance a measurement comes to: regular spins for the balls
+ * ¥1,000 rents at the corner, the player's own balls and those drawn from
+ * savings counted as rented ones are — what a person counts as spins for
+ * ¥1,000. A dear rental shows as fewer of them, never as a border moved.
+ */
+export const spinPerformanceOf = (measured: Measured, terms: PlayTerms): number => (measured.spins / measured.balls) * rentedForThousand(terms)
 
 /** The spin performance a play's log measured, as its live screen shows it: none until there is a stretch to measure. */
 export const measuredSpinPerformance = (ordered: readonly Checkpoint[], terms: PlayTerms): number | undefined =>

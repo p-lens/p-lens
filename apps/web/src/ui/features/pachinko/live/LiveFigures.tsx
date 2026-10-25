@@ -7,6 +7,7 @@ import { tokenValueOf, type PlayTerms } from "../../../../core/parlor/terms"
 import type { FormulaSnapshot } from "../../../../core/pachinko/snapshot"
 import { missingJackpots, type LiveSummary } from "../../../../core/play-log/live"
 import { CrownIcon, StarIcon, TrianglesDownIcon, TriangleUpIcon } from "../../../primitives/icons"
+import { HelpPopover } from "../../../primitives/popover"
 import { formulaText } from "../../../wording/pachinko/formula"
 import { amountText, formatCount, theoreticalFigureText, theoreticalFractionText } from "../../../wording/numbers"
 import { borderMarkSays } from "../../../wording/pachinko/play"
@@ -133,6 +134,11 @@ export function LiveFigures(props: {
             <div class="flex items-center gap-1">
               <p class="min-w-0 text-xs text-text-muted">算出条件「{formulaText(formula.figures)}」{props.terms === undefined ? "（交換率が入っていません）" : `／ 交換率 ${tokenValueOf(props.terms).toFixed(2)}円/玉`}</p>
               {props.beside(formula)}
+              <HelpPopover label="回転率と実質ボーダーについて" title="回転率と実質ボーダーについて" semipro>
+                <p>回転率は、払った1,000円で借りられる玉あたりの回転数です。貯玉や持ち玉で打った分も、貸玉に直して数えます。</p>
+                <p>貸玉が割高な島では、1,000円で借りられる玉が減るぶん回転率が下がり、ボーダーとの差に表れます。</p>
+                <p>実質ボーダーは、打った玉の値段で決まります。現金で借りた玉は借りた値段、貯玉や持ち玉は交換の値段で数えるので、それらで打つほど下がります。</p>
+              </HelpPopover>
             </div>
             <dl class="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
               <Tile label="期待値（ここまで）" value={theoreticalFigureText(seal.play(theoretical()?.theoreticalValue))} />

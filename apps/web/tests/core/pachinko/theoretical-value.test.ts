@@ -43,21 +43,21 @@ const figuresOf = (terms: PlayTerms, how: "rented" | "replayed") => {
   return { spinPerformance: Number(value?.spinPerformance.toFixed(2)), border: Number(value?.border.toFixed(2)) }
 }
 
-describe("a 1-yen play's spin performance and border", () => {
+describe("a 1-yen play's spin performance and border, counted for each ¥1,000 paid", () => {
   test("is 20 against 18 at 等価", () => {
     expect(figuresOf(oneYen(1000, 1000), "rented")).toEqual({ spinPerformance: 20, border: 18 })
   })
 
-  test("keeps its spin performance and raises its border where ¥1,000 rents 890 balls", () => {
-    expect(figuresOf(oneYen(890, 1000), "rented")).toEqual({ spinPerformance: 20, border: 20.22 })
+  test("is fewer spins against the same border where ¥1,000 rents 890 balls", () => {
+    expect(figuresOf(oneYen(890, 1000), "rented")).toEqual({ spinPerformance: 17.8, border: 18 })
   })
 
-  test("keeps its spin performance and raises its border where ¥100 of prizes takes 112 balls", () => {
+  test("is the same spins against a higher border where ¥100 of prizes takes 112 balls", () => {
     expect(figuresOf(oneYen(1000, 1120), "rented")).toEqual({ spinPerformance: 20, border: 20.16 })
   })
 
-  test("keeps its spin performance and lowers its border back to 等価 for balls drawn from savings", () => {
-    expect(figuresOf(oneYen(890, 1000), "replayed")).toEqual({ spinPerformance: 20, border: 18 })
+  test("is set against a border lowered for balls drawn from savings, which cost what they exchange for", () => {
+    expect(figuresOf(oneYen(890, 1000), "replayed")).toEqual({ spinPerformance: 17.8, border: 16.02 })
     expect(figuresOf(oneYen(1000, 1120), "replayed")).toEqual({ spinPerformance: 20, border: 18 })
   })
 })

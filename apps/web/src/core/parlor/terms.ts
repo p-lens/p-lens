@@ -87,19 +87,6 @@ const rentalTier = (gameKind: PlayGameKind, terms: PlayTerms): number | undefine
 }
 
 /**
- * Tokens ¥1,000 rents at the advertised rate a corner rents at: 1000 at a
- * 1-yen corner renting 890 for ¥1,000, 250 at a 4-yen one renting 240. A
- * spin performance is counted in them, so what the corner rents its tokens
- * for, what it exchanges them for and whether they came from savings move
- * the border and never the spin performance. A corner renting below every
- * advertised rate is counted in the tokens it rents.
- */
-export const advertisedRentalOf = (gameKind: PlayGameKind, terms: PlayTerms): number => {
-  const tier = rentalTier(gameKind, terms)
-  return tier === undefined ? (terms.rental.tokens * 1000) / terms.rental.yen : 1000 / tier
-}
-
-/**
  * The advertised rate a corner's exchange belongs to. A parlor exchanges at
  * the advertised rate or cheaper — 280 balls for 1000 yen is 3.57 a ball at a
  * 4-yen corner — so the rate is the cheapest advertised one not below it.
