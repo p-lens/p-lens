@@ -53,6 +53,7 @@ import { ImportSettings } from "../settings/ImportSettings"
 import { BooksSettings } from "../settings/BooksSettings"
 import { BusinessDaySettings } from "../settings/BusinessDaySettings"
 import { LicensesView } from "../settings/LicensesView"
+import { UnderTheHoodView } from "../settings/UnderTheHoodView"
 import { SharingSettings } from "../settings/SharingSettings"
 import { SyncSettings } from "../settings/SyncSettings"
 import { AboutButton } from "./AboutButton"
@@ -213,6 +214,8 @@ const settingsFor = (place: Extract<Place, { kind: "settings-section" }>): JSX.E
       return <ClearDataSettings place={place} />
     case "licenses":
       return <LicensesView place={place} />
+    case "under-the-hood":
+      return <UnderTheHoodView place={place} />
   }
 }
 

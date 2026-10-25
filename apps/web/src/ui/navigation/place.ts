@@ -16,7 +16,7 @@ export type BookView = (typeof BOOK_VIEWS)[number]
 /** A book's views that keep nothing narrowed in their address. */
 type WholeBookView = Exclude<BookView, "holdings" | "result-calendar">
 
-const SETTINGS_SECTIONS = ["appearance", "mummer", "business-day", "sync", "backup", "export", "import", "books", "sharing", "consolidation", "clear-data", "licenses"] as const
+const SETTINGS_SECTIONS = ["appearance", "mummer", "business-day", "sync", "backup", "export", "import", "books", "sharing", "consolidation", "clear-data", "licenses", "under-the-hood"] as const
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]
 

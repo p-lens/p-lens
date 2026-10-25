@@ -6,6 +6,7 @@ import { DOCUMENT_KINDS } from "../../../core/document/document"
 import { useApp } from "../../context"
 import { useMoves } from "../../navigation/moves"
 import { documentTitle, OPERATOR_PAGE } from "../../wording/documents"
+import { UNDER_THE_HOOD_TITLE } from "../../wording/under-the-hood"
 import { MUMMER_HEADING } from "../../wording/mummer"
 import type { Place } from "../../navigation/place"
 import { SideList } from "./SideList"
@@ -126,13 +127,6 @@ export function SettingsSide(props: { readonly place: Place }): JSX.Element {
       <hr class={RULE} />
       <SideList
         items={[
-          {
-            id: "licenses",
-            label: "ライセンス",
-            icon: <FileIcon />,
-            selected: props.place.kind === "settings-section" && props.place.section === "licenses",
-            onSelect: () => moves.go({ kind: "settings-section", section: "licenses" }),
-          },
           ...DOCUMENT_KINDS.filter((kind) => app.services.documents[kind] !== undefined).map((kind) => ({
             id: kind,
             label: documentTitle(kind),
@@ -140,6 +134,20 @@ export function SettingsSide(props: { readonly place: Place }): JSX.Element {
             selected: props.place.kind === "document" && props.place.document === kind,
             onSelect: () => moves.go({ kind: "document", document: kind }),
           })),
+          {
+            id: "licenses",
+            label: "ライセンス",
+            icon: <FileIcon />,
+            selected: props.place.kind === "settings-section" && props.place.section === "licenses",
+            onSelect: () => moves.go({ kind: "settings-section", section: "licenses" }),
+          },
+          {
+            id: "under-the-hood",
+            label: UNDER_THE_HOOD_TITLE,
+            icon: <FileIcon />,
+            selected: props.place.kind === "settings-section" && props.place.section === "under-the-hood",
+            onSelect: () => moves.go({ kind: "settings-section", section: "under-the-hood" }),
+          },
           { id: "operator", label: OPERATOR_PAGE, icon: <NotepadIcon />, href: app.services.operatorPage },
         ]}
       />
