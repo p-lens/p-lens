@@ -75,7 +75,7 @@ describe("a pachinko reading", () => {
 describe("what a play's regular games cost", () => {
   test("is measured from the seat to the last time more was bought: 60 spins for 750 balls is 20 a thousand", () => {
     const found = consumptionOf(played([reading({ counterSpins: 140, rented: 1000 }), reading({ counterSpins: 160, rented: 1000 }), reading({ counterSpins: 180, rented: 1000 }), reading({ counterSpins: 190 })]), TERMS, undefined)
-    expect(found).toEqual({ regularSpins: 70, measured: { spins: 60, balls: 750, rentedBalls: 750, replayedBalls: 0 }, payoutRatio: undefined, supportRatio: undefined })
+    expect(found).toEqual({ regularSpins: 70, hesoSpins: 0, measured: { spins: 60, balls: 750, rentedBalls: 750, replayedBalls: 0 }, payoutRatio: undefined, supportRatio: undefined })
     expect(found.measured && spinPerformanceOf(found.measured, TERMS)).toBe(20)
   })
 
@@ -90,8 +90,8 @@ describe("what a play's regular games cost", () => {
   })
 
   test("is nothing yet while nothing says what was played", () => {
-    expect(consumptionOf([SAT_DOWN], TERMS, undefined)).toEqual({ regularSpins: 0, measured: undefined, payoutRatio: undefined, supportRatio: undefined })
-    expect(consumptionOf(played([reading({ counterSpins: 150 })]), TERMS, undefined)).toEqual({ regularSpins: 30, measured: undefined, payoutRatio: undefined, supportRatio: undefined })
+    expect(consumptionOf([SAT_DOWN], TERMS, undefined)).toEqual({ regularSpins: 0, hesoSpins: 0, measured: undefined, payoutRatio: undefined, supportRatio: undefined })
+    expect(consumptionOf(played([reading({ counterSpins: 150 })]), TERMS, undefined)).toEqual({ regularSpins: 30, hesoSpins: 0, measured: undefined, payoutRatio: undefined, supportRatio: undefined })
   })
 
   test("leaves out 確変 and 時短, and counts what a bonus won less what the 電サポ lost as balls played once they are gone", () => {
@@ -253,7 +253,7 @@ describe("a press of the rental button", () => {
 describe("a play begun with balls in hand", () => {
   test("is measured from them as the player's own, neither rented nor drawn", () => {
     const log = playedWith(1500, [reading({ counterSpins: 220, held: 250 })])
-    expect(consumptionOf(log, TERMS, undefined)).toEqual({ regularSpins: 100, measured: { spins: 100, balls: 1250, rentedBalls: 0, replayedBalls: 0 }, payoutRatio: undefined, supportRatio: undefined })
+    expect(consumptionOf(log, TERMS, undefined)).toEqual({ regularSpins: 100, hesoSpins: 0, measured: { spins: 100, balls: 1250, rentedBalls: 0, replayedBalls: 0 }, payoutRatio: undefined, supportRatio: undefined })
     expect(heldAsToldOf(log)).toBe(250)
   })
 })

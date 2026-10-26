@@ -48,7 +48,7 @@ const LOST = WON_ON_SUPPORT * 0.05
 const WHOLE = 4 * 1400 + 5000 - 600 * 12.5
 
 const worth = (log: readonly Checkpoint[], supportGain: number | undefined) => {
-  const consumption = consumptionOf(log, TERMS, supportGain)
+  const consumption = consumptionOf(log, TERMS, supportGain === undefined ? undefined : { supportGain })
   const measured = consumption.measured
   return { spinPerformance: measured === undefined ? undefined : spinPerformanceOf(measured, TERMS), value: playTheoreticalValue(LOSING, TERMS, consumption) }
 }
@@ -80,5 +80,37 @@ describe("the 電サポ's drift, on a machine whose formula says it loses 5%", (
   test("is written down when said to be none, so that a play counted as losing nothing is told from one not counted", () => {
     expect(played(WHOLE, { supported: 0, driftCounted: true }).some((checkpoint) => checkpoint.support === 0)).toBe(true)
     expect(played(WHOLE, {}).some((checkpoint) => checkpoint.support !== undefined)).toBe(false)
+  })
+})
+
+describe("a CZ played at the heso after a bonus, written as a 時短", () => {
+  const EIGHT_ROUNDS = { name: "8R", payout: 1200, spent: 80 }
+  const FAIR: Figures = { roundChanceOneIn: 30, payoutPerRound: 140, totalChanceOneIn: undefined, spinsPerHour: undefined }
+  /** 400 regular spins on ¥20,000 to a bonus, twenty spins of a CZ written as the person chose, 200 regular spins, and the hand counted. */
+  const played = (cz: "special" | "regular", drift: Partial<Reading>): readonly Checkpoint[] =>
+    [
+      reading({ counterSpins: 400, rented: 20_000, jackpot: { type: "bonus", bonus: EIGHT_ROUNDS } }),
+      reading({ counterSpins: 20, phase: cz, ...drift }),
+      reading({ counterSpins: 220, held: 1120 + 5000 - 620 * 12.5 }),
+    ].reduce<readonly Checkpoint[]>((log, each) => {
+      const added = checkpointsForReading(log, each, false)
+      return added.ok ? [...log, ...added.value] : log
+    }, [SAT_DOWN])
+  const asTime = consumptionOf(played("special", {}), TERMS, { paidSpins: 20 })
+  const asRegular = consumptionOf(played("regular", {}), TERMS, undefined)
+
+  test("costs the play as twenty spins at the heso, as though they had been written as regular games", () => {
+    expect(spinPerformanceOf(asTime.measured ?? { spins: 0, balls: 1, rentedBalls: 0, replayedBalls: 0 }, TERMS)).toBeCloseTo(spinPerformanceOf(asRegular.measured ?? { spins: 0, balls: 1, rentedBalls: 0, replayedBalls: 0 }, TERMS), 9)
+    expect(playTheoreticalValue(FAIR, TERMS, asTime)?.theoreticalValue).toBeCloseTo(playTheoreticalValue(FAIR, TERMS, asRegular)?.theoreticalValue ?? 0, 6)
+  })
+
+  test("keeps them out of the regular games the screen counts", () => {
+    expect(asTime.regularSpins).toBe(600)
+    expect(asTime.hesoSpins).toBe(20)
+    expect(asRegular.regularSpins).toBe(620)
+  })
+
+  test("takes none where the person counted the 電サポ's drift, the CZ's balls being in it", () => {
+    expect(consumptionOf(played("special", { supported: -250, driftCounted: true }), TERMS, { paidSpins: 20 }).hesoSpins).toBe(0)
   })
 })

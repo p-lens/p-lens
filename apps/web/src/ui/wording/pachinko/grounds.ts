@@ -93,9 +93,15 @@ const lineOf = (step: Step, normalized: NormalizedSpecDto, labels: ReadonlyMap<s
       const heso = givenIn(step, "heso")
       const hit = numberOf(heso?.args[2])
       return {
-        text: `${from(step.claim.args[0], normalized, labels)}：ヘソで回す回転 ${spins(arg(step, 1))} ＝（1 −（1 − ${oneIn(hit === undefined ? undefined : 1 / hit)}）の ${numberOf(heso?.args[1]) ?? "--"}乗）÷ ${oneIn(hit === undefined ? undefined : 1 / hit)}の確率`,
+        text: `${from(step.claim.args[0], normalized, labels)}：ヘソで回す回転 ${spins(arg(step, 1))} ＝（1 −（1 − ${oneIn(hit === undefined ? undefined : 1 / hit)}）の ${numberOf(heso?.args[1]) ?? "--"}乗）× ${hit === undefined ? "--" : (1 / hit).toFixed(1)}（${numberOf(heso?.args[1]) ?? "--"}回のうち、当たって終わるまでに回す平均）`,
         tone: "plain",
       }
+    }
+    case "heso_part": {
+      const outcome = givenIn(step, "outcome")
+      const share = numberOf(outcome?.args[1])
+      const after = arg(sub(step, "heso_into_mode"), 1)
+      return after === undefined || after === 0 ? undefined : { text: `${percent(share)}・${destination(outcome?.args[4], normalized, labels)}：その後 ${spins(after)} × ${percent(share)} ＝ ${spins(arg(step, 1))}`, tone: "plain" }
     }
     case "heso_into_mode":
       return { text: `${destination(step.claim.args[0], normalized, labels)}以降にヘソで回す回転 ${spins(arg(step, 1))}（計算エンジンが状態遷移を解いた値。下で検算します）`, tone: "plain" }

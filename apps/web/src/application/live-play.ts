@@ -208,5 +208,5 @@ export const theoreticalValueAtFinish = async (engine: PachislotEngine.EngineCli
     const outlook = await weighPachislotPlay(engine, draft.pachislot, ordered, terms)
     return outlook.ok ? outlook.value.theoreticalValue : undefined
   }
-  return draft.pachinko === undefined || terms === undefined ? undefined : Pachinko.playTheoreticalValue(draft.pachinko.figures, terms, Pachinko.consumptionOf(ordered, terms, draft.pachinko.supportGain), draft.overEntry)?.theoreticalValue
+  return draft.pachinko === undefined || terms === undefined ? undefined : Pachinko.playTheoreticalValue(draft.pachinko.figures, terms, Pachinko.consumptionOf(ordered, terms, draft.pachinko), draft.overEntry)?.theoreticalValue
 }

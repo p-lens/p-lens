@@ -1,6 +1,6 @@
 import { createMemo, createSignal, For, Show, type JSX } from "solid-js"
 
-import { stretchPerformancesOf, type StretchRate } from "../../../../core/pachinko/consumption"
+import { stretchPerformancesOf, type PlayFormula, type StretchRate } from "../../../../core/pachinko/consumption"
 import { mergeableSpan, type Span } from "../../../../core/pachinko/merging"
 import { gainOf, overPaidOf } from "../../../../core/pachinko/payout"
 import type { PlayTerms } from "../../../../core/parlor/terms"
@@ -201,13 +201,13 @@ export function Timeline(props: {
   readonly checkpoints: readonly Checkpoint[]
   /** The corner's terms the play was on, which each line's own stretch's spin performance is worked out by; none where they are unknown. */
   readonly terms: PlayTerms | undefined
-  /** The formula's 電サポ中の出玉増減, in basis points, that the stretches take off jackpots won on the 電サポ where no drift was counted. */
-  readonly supportGain: number | undefined
+  /** What the stretches take of the play's formula where no 電サポ drift was counted: its 電サポ中の出玉増減 and the spins played at the heso after a jackpot. */
+  readonly formula: PlayFormula | undefined
   readonly revising: Revised | undefined
   readonly onRevise: ((pressed: Revised) => void) | undefined
   readonly onMerge: ((span: Span) => Promise<void>) | undefined
 }): JSX.Element {
-  const rates = createMemo((): readonly (StretchRate | undefined)[] => (props.terms === undefined ? [] : stretchPerformancesOf(props.checkpoints, props.terms, props.supportGain)))
+  const rates = createMemo((): readonly (StretchRate | undefined)[] => (props.terms === undefined ? [] : stretchPerformancesOf(props.checkpoints, props.terms, props.formula)))
   const press = createSpanPress((anchor, reached) => mergeableSpan(props.checkpoints, anchor, reached))
   const [merging, setMerging] = createSignal(false)
   const merge = async (span: Span): Promise<void> => {

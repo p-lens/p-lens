@@ -2,7 +2,8 @@ import type { AnalysisDto, ConditionsDto, EstimateSummaryDto, SpecDto } from "@p
 
 import { figuresFromAnalysis } from "../../core/pachinko/figures"
 import type { PachinkoFormulaDetail, NewMachine, NewPachinkoFormula, PachinkoMachineDetail } from "../../core/catalog/catalog"
-import type { Basis } from "../../core/pachinko/formula"
+import { basisOf, type Basis, type Formula } from "../../core/pachinko/formula"
+import { snapshotOf, type FormulaSnapshot } from "../../core/pachinko/snapshot"
 import type { Figures } from "../../core/pachinko/figures"
 import type { MachineId } from "../../core/machine/machine"
 import { Err, Ok, mapOk } from "../../core/result/result"
@@ -69,3 +70,16 @@ export const sampleBasis = (
 /** A simulated formula's 計算根拠: its stored normalised spec solved again, never its spec renormalised. */
 export const groundsOf = async (engine: EngineClient, basis: Basis): Promise<Outcome<AnalysisDto>> =>
   fromPachinkoEngine(await engine.call("analyze", { source: { type: "normalized", normalized: basis.normalized }, conditions: basis.conditions }))
+
+/**
+ * What a play carries of a formula, the spins its combos play at the heso
+ * among it: asked of the engine only where its basis shoots a mode at the
+ * heso, and left out where the engine cannot say.
+ */
+export const playSnapshotOf = async (engine: EngineClient, formula: Formula): Promise<FormulaSnapshot> => {
+  const snapshot = snapshotOf(formula)
+  const basis = basisOf(formula)
+  if (basis === undefined || !basis.normalized.states.some((state) => state.paidSpins !== undefined)) return snapshot
+  const solved = await groundsOf(engine, basis)
+  return solved.ok && solved.value.averagePaidSpins > 0 ? { ...snapshot, paidSpins: solved.value.averagePaidSpins } : snapshot
+}

@@ -19,6 +19,13 @@ export interface FormulaSnapshot {
    * the drift themselves.
    */
   readonly supportGain?: number
+  /**
+   * The spins a first jackpot's combo plays at the heso on average — a CZ
+   * after a bonus, say — as the engine solved them, left out where it plays
+   * none: what a play's measuring counts as played at the heso after each
+   * jackpot won in regular games, which a person writes as a 時短.
+   */
+  readonly paidSpins?: number
 }
 
 export const snapshotOf = (formula: Formula): FormulaSnapshot => ({

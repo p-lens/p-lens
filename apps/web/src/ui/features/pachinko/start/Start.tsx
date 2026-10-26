@@ -4,12 +4,11 @@ import { createMemo, createResource, createSignal, Match, Show, Switch, type JSX
 import type { ApplicationError } from "../../../../application/errors"
 import { startPlay } from "../../../../application/live-play"
 import { recordUse } from "../../../../application/catalog"
-import { loadMachine } from "../../../../application/pachinko/formulas"
+import { loadMachine, playSnapshotOf } from "../../../../application/pachinko/formulas"
 import { reliefDriveOf } from "../../../../application/pachinko/hyena-hunt"
 import { borderOf } from "../../../../core/pachinko/theoretical-value"
 import { basisOf, type Basis, type FormulaId, type Formula, worthOf } from "../../../../core/pachinko/formula"
 import { type Figures } from "../../../../core/pachinko/figures"
-import { snapshotOf } from "../../../../core/pachinko/snapshot"
 import { autoSelect, selectById, type Selection } from "../../../../core/formula/standing"
 import type { PlayDraft, PlayVenue } from "../../../../core/live-play/draft"
 import { nearestFirst } from "../../../../core/parlor/distance"
@@ -518,7 +517,7 @@ export function Start(props: {
       venue: venue(),
       gameKind: "pachinko",
       machine: chosenMachine()?.name ?? "",
-      pachinko: formula === undefined ? undefined : snapshotOf(formula),
+      pachinko: formula === undefined ? undefined : await playSnapshotOf(app.services.pachinko, formula),
       bonuses: listedBonuses(),
       cabinetNumber: form.cabinetNumber.trim() === "" ? undefined : form.cabinetNumber.trim(),
       startedAt,

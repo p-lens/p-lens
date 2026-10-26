@@ -4,7 +4,7 @@ import { MainContent } from "solid-gathering-shell"
 import { findMachines } from "../../../../application/catalog"
 import type { ApplicationError } from "../../../../application/errors"
 import { changeCabinet } from "../../../../application/live-play"
-import { loadMachine } from "../../../../application/pachinko/formulas"
+import { loadMachine, playSnapshotOf } from "../../../../application/pachinko/formulas"
 import { bookNameOf, shownNameOf, type MachineSummary } from "../../../../core/catalog/catalog"
 import { machineMatches } from "../../../../core/catalog/description"
 import { autoSelect, selectById, type Selection } from "../../../../core/formula/standing"
@@ -115,6 +115,11 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
     const read = parsePlayLog(props.draft.log)
     return { type: "pachinko", name: bookNameOf(found.value.machine), formula: snapshotOf(formula), bonuses: formula.bonuses ?? [], readings: read.ok ? withJackpotsUntold(read.value) : undefined }
   }
+  /** The change with its formula's snapshot as a play carries it, the spins its combos play at the heso asked of the engine where it has any. */
+  const withPaidSpins = async (change: MachineChange | undefined): Promise<MachineChange | undefined> => {
+    const formula = selection()?.listing.formula
+    return change === undefined || change.type !== "pachinko" || formula === undefined ? change : { ...change, formula: await playSnapshotOf(app.services.pachinko, formula) }
+  }
   /** A machine chosen whose formula is not yet known: its formulas are still being read, or it has none to weigh a play by. */
   const waitingOnFormula = (): boolean => machineId() !== undefined && selection() === undefined
   /** The chosen formula's id and name, put on the clipboard for passing on. */
@@ -138,7 +143,7 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
       return
     }
     setSaving({ type: "keeping" })
-    const changed = await changeCabinet(app.services.drafts, withOverEntry(withJackpotCounting(props.draft, counting()), over), { cabinetNumber: cabinetNumber().trim() === "" ? undefined : cabinetNumber().trim(), machine: machineChange() })
+    const changed = await changeCabinet(app.services.drafts, withOverEntry(withJackpotCounting(props.draft, counting()), over), { cabinetNumber: cabinetNumber().trim() === "" ? undefined : cabinetNumber().trim(), machine: await withPaidSpins(machineChange()) })
     if (!changed.ok) {
       setSaving({ type: "failed", error: changed.error })
       return

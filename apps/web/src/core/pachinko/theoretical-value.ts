@@ -42,7 +42,7 @@ export interface PlayTheoreticalValue {
    */
   readonly border: number
   readonly yenPerSpin: number
-  /** The theoretical value of the regular spins played so far. */
+  /** The theoretical value of the spins paid for so far: the regular games, and those taken to have been played at the heso. */
   readonly theoreticalValue: number
   readonly yenPerHour: number | undefined
 }
@@ -102,7 +102,7 @@ export const playTheoreticalValue = (told: Figures, terms: PlayTerms | undefined
     spinPerformance: spinPerformanceOf(measured, terms),
     border: borderAt(figures, terms, cost / measured.balls),
     yenPerSpin: perSpin,
-    theoreticalValue: perSpin * consumption.regularSpins,
+    theoreticalValue: perSpin * (consumption.regularSpins + consumption.hesoSpins),
     yenPerHour: figures.spinsPerHour === undefined ? undefined : perSpin * figures.spinsPerHour,
   }
 }

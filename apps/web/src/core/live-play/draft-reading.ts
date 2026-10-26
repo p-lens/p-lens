@@ -56,7 +56,7 @@ const isFigures = (value: unknown): value is Pachinko.Figures =>
   isFields(value) && isFigure(value["roundChanceOneIn"]) && isFigure(value["payoutPerRound"]) && isOptional(value["totalChanceOneIn"], isFigure) && isOptional(value["spinsPerHour"], isFigure)
 
 const isPachinkoSnapshot = (value: unknown): value is Pachinko.FormulaSnapshot =>
-  isFields(value) && isText(value["id"]) && isText(value["machineId"]) && isText(value["kind"]) && isFigures(value["figures"]) && isOptional(value["supportGain"], isFigure)
+  isFields(value) && isText(value["id"]) && isText(value["machineId"]) && isText(value["kind"]) && isFigures(value["figures"]) && isOptional(value["supportGain"], isFigure) && isOptional(value["paidSpins"], isFigure)
 
 const isBonus = (value: unknown): value is Pachinko.Bonus =>
   isFields(value) && isText(value["name"]) && isFigure(value["payout"]) && isFigure(value["spent"]) && isOptional(value["jackpots"], isCount)
