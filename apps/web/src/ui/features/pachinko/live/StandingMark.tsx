@@ -1,14 +1,14 @@
 import { For, type JSX } from "solid-js"
 
 import { BORDER_GRADES, type BorderGrade, type BorderMark } from "../../../../core/pachinko/border-standing"
-import { CrownIcon, StarIcon, TrianglesDownIcon, TriangleUpIcon } from "../../../primitives/icons"
+import { CrownIcon, HexagramIcon, StarIcon, TrianglesDownIcon, TriangleUpIcon } from "../../../primitives/icons"
 import { borderMarkSays, gradeFloorText } from "../../../wording/pachinko/play"
 
 const DRAWN = "[&_svg]:inline [&_svg]:h-3.5 [&_svg]:w-auto [&_svg]:align-[-0.15em]"
 
 const MARKS: Readonly<Record<BorderGrade, { readonly shape: () => JSX.Element; readonly look: string }>> = {
   crowned: { shape: () => <CrownIcon />, look: `text-mark-gold ${DRAWN}` },
-  shining: { shape: () => <StarIcon />, look: `text-mark-gold motion-safe:animate-[shine_2.4s_ease-in-out_3] ${DRAWN}` },
+  shining: { shape: () => <HexagramIcon />, look: `text-mark-gold motion-safe:animate-[shine_2.4s_ease-in-out_3] ${DRAWN}` },
   outstanding: { shape: () => <StarIcon />, look: `text-mark-gold ${DRAWN}` },
   excellent: { shape: () => <StarIcon />, look: `text-mark-red ${DRAWN}` },
   strong: { shape: () => <TriangleUpIcon />, look: `text-mark-purple ${DRAWN}` },
