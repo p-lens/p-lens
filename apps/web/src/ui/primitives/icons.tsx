@@ -264,10 +264,11 @@ export const CrownIcon = () => (
   </Icon>
 )
 
-/** Far above, as few play without bringing their border down: a six-pointed star, a magician's. */
+/** Far above, as few play without bringing their border down: a magician's six-pointed star, drawn as two triangles in outline, one upside down over the other. */
 export const HexagramIcon = () => (
   <Icon>
-    <path d="M12 2.5L14.74 7.25L20.23 7.25L17.48 12L20.23 16.75L14.74 16.75L12 21.5L9.26 16.75L3.77 16.75L6.52 12L3.77 7.25L9.26 7.25z" fill="currentColor" stroke="none" />
+    <path d="M12 2.5l8.23 14.25H3.77z" />
+    <path d="M12 21.5L3.77 7.25h16.46z" />
   </Icon>
 )
 
