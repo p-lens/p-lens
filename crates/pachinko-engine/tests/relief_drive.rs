@@ -140,6 +140,54 @@ fn a_rapid_mode_run_out_fills_the_relief_gauge() {
     assert!(restarts.contains(&Restart::Spent), "{restarts:?}");
 }
 
+/// A 時短 at a chance of its own — a 一種二種混合機's, its small win beside
+/// the regular draw — still fills the relief gauge, and is reached as often
+/// as its own chance says.
+#[test]
+fn a_rapid_mode_at_its_own_chance_fills_the_relief_gauge_too() {
+    let mut spec = with_relief_drive("遊タイム");
+    spec.components
+        .allotment
+        .insert(id("regular"), vec![share(10_000, 10, to("時短"))]);
+    let spec = spawn(
+        spec,
+        mode(
+            "時短",
+            Kind::Rapid(pachinko_domain::spec::Rapid {
+                spins: SpinCount::new(nonzero(30)),
+                chance: Some(one_in(60)),
+            }),
+            vec![share(10_000, 10, Next::Regular)],
+            Next::Regular,
+        ),
+    );
+    let normalized = normalize(&spec).expect("normalises");
+    let state = normalized
+        .origins
+        .iter()
+        .position(|origin| origin.mode == id("時短"))
+        .and_then(|index| normalized.states.get(index))
+        .expect("the 時短's state");
+    assert_eq!(state.fills_gauge, 30);
+    let hit: f64 = state
+        .outcomes
+        .iter()
+        .filter(|outcome| outcome.reward.hits > 0)
+        .map(|outcome| outcome.probability.value())
+        .sum();
+    assert!(close(hit, 1.0 - (59.0_f64 / 60.0).powi(30)), "{hit}");
+    let analysis = analyze(&normalized, &FROM_SPEC).expect("solves");
+    let restarts: Vec<Restart> = analysis
+        .relief_drive
+        .expect("a relief drive")
+        .restarts
+        .iter()
+        .filter(|figures| figures.weight > 0.0)
+        .map(|figures| figures.restart)
+        .collect();
+    assert!(restarts.contains(&Restart::Filled(30)), "{restarts:?}");
+}
+
 /// From every point of a combo play starts again one way or another: the
 /// chances given for each point come to one. In the unbroken 遊タイム a miss
 /// leaves it spent; in the 時短 a jackpot won has broken, a miss leaves the
@@ -225,4 +273,75 @@ fn without_a_relief_drive_hyena_hunting_is_a_first_jackpot_from_anywhere() {
     assert!(close(found.spins, 100.0));
     assert!(close(found.rounds, analysis.average_rounds));
     assert!(close(found.relief_drive_probability, 0.0));
+}
+
+/// 1/100 to a 10R into a 時短 of 100 spins at 1/50 that each spin may end
+/// early at 1/100, back to the regular game; a jackpot there 10R into it
+/// again. With the 遊タイム of 100, an early end fills the gauge by the
+/// middle spin of its step of five, and from the 100th spin on by the whole.
+fn ended_early() -> Spec {
+    let mut spec = with_relief_drive("遊タイム");
+    spec.components
+        .allotment
+        .insert(id("regular"), vec![share(10_000, 10, to("時短"))]);
+    let mut spec = spawn(
+        spec,
+        mode(
+            "時短",
+            Kind::Rapid(pachinko_domain::spec::Rapid {
+                spins: SpinCount::new(nonzero(100)),
+                chance: Some(one_in(50)),
+            }),
+            vec![share(10_000, 10, to("時短"))],
+            Next::Regular,
+        ),
+    );
+    spec.components.early_end.insert(
+        id("時短"),
+        pachinko_domain::spec::EarlyEnd {
+            chance: one_in(100),
+            to: vec![pachinko_domain::spec::EarlyEndShare {
+                share: pachinko_domain::probability::BasisPoints::new(10_000).expect("whole"),
+                next: Next::Regular,
+            }],
+        },
+    );
+    spec
+}
+
+#[test]
+fn a_rapid_mode_ended_early_wins_as_the_race_of_its_spins_says() {
+    let normalized = normalize(&ended_early()).expect("normalises");
+    let state = normalized
+        .origins
+        .iter()
+        .position(|origin| origin.mode == id("時短"))
+        .and_then(|index| normalized.states.get(index))
+        .expect("the 時短's state");
+    let (hit, end) = (1.0 / 50.0, 1.0 / 100.0);
+    let keep: f64 = 1.0 - hit - end;
+    let won = hit * (1.0 - keep.powi(100)) / (hit + end);
+    let ended = end * (1.0 - keep.powi(100)) / (hit + end);
+    let sum = |pick: &dyn Fn(&pachinko_domain::normalized::Outcome) -> bool| -> f64 {
+        state
+            .outcomes
+            .iter()
+            .filter(|outcome| pick(outcome))
+            .map(|outcome| outcome.probability.value())
+            .sum()
+    };
+    assert!(close(sum(&|outcome| outcome.reward.hits > 0), won));
+    assert!(close(sum(&|outcome| outcome.fills.is_some()), ended));
+    assert!(close(sum(&|_| true), 1.0));
+    let fills: Vec<u32> = state
+        .outcomes
+        .iter()
+        .filter_map(|outcome| outcome.fills)
+        .collect();
+    assert_eq!(fills.first(), Some(&3));
+    assert_eq!(fills.get(1), Some(&8));
+    assert_eq!(fills.last(), Some(&100));
+    assert_eq!(fills.len(), 21);
+    let analysis = analyze(&normalized, &FROM_SPEC).expect("solves");
+    assert!(close(analysis.average_combo, 1.0 / (1.0 - won)));
 }

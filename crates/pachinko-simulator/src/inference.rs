@@ -187,7 +187,8 @@ fn paid(hand: Hand, outlay: f64, needed: f64, lot: f64) -> (Hand, f64) {
 }
 
 /// The play one wait further on: the regular spins until a jackpot — or
-/// until its hours run out — and the combo that follows.
+/// until its hours run out — and the combo that follows, the spins it played
+/// at the heso paid for and taking their time as the regular game's do.
 fn next(
     spec: &NormalizedSpec,
     setup: &InferenceSetup,
@@ -219,18 +220,27 @@ fn next(
         return Some(Sitting { over: true, ..spun });
     }
     let (combo, rng) = combo_following(spec, wait.end, rng);
-    let hours_left = spun.hours_left - hours_of(&combo);
+    let won = Hand {
+        won: spun.hand.won + combo.gained(setup.payout),
+        ..spun.hand
+    };
+    let (hand, outlay) = paid(
+        won,
+        spun.outlay,
+        real(combo.paid_spins) * setup.rented_per_thousand / spin_performance,
+        setup.rented_per_thousand * LOT_YEN / 1000.0,
+    );
+    let hours_left =
+        spun.hours_left - hours_of(&combo) - real(combo.paid_spins) / setup.spins_per_hour;
     Some(Sitting {
         hours_left,
-        hand: Hand {
-            won: spun.hand.won + combo.gained(setup.payout),
-            ..spun.hand
-        },
+        hand,
+        outlay,
+        spins: spun.spins + combo.paid_spins,
         jackpots: spun.jackpots + combo.hits,
         gauge: gauge_after(wait.end, &combo),
         rng,
         over: hours_left <= 0.0,
-        ..spun
     })
 }
 
@@ -624,6 +634,7 @@ mod tests {
                     balls: 1400,
                 },
                 next: Target::End,
+                fills: None,
             }],
             states: Vec::new(),
             origins: Vec::new(),
@@ -718,6 +729,7 @@ mod tests {
                 balls: 450,
             },
             next,
+            fills: None,
         };
         NormalizedSpec {
             schema_version: SchemaVersion::CURRENT,
@@ -736,15 +748,18 @@ mod tests {
                             balls: 1500,
                         },
                         next: Target::State(StateIndex::new(0)),
+                        fills: None,
                     },
                     Outcome {
                         probability: chance(0.19),
                         reward: Reward::default(),
                         next: Target::End,
+                        fills: None,
                     },
                 ],
                 fills_gauge: 0,
                 supported: true,
+                paid: None,
             }],
             origins: vec![StateOrigin {
                 mode: ModeId::new("RUSH").expect("a name"),

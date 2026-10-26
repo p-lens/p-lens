@@ -991,7 +991,8 @@ walking down the trail and back keeps the work in hand.
 - **A machine is an ECS world, in pachinko's words.** `Spec` is its
   entities — the regular game and each mode, in the order made — a table per
   component keyed by entity, and resources the whole machine shares:
-  `regularGame`, `allotment`, `specialTime` (ST), `rapid` (時短),
+  `regularGame`, `allotment`, `specialTime` (ST), `rapid` (時短, at the
+  regular game's chance or — a 一種二種混合機's — one of its own),
   `leftoverQueue` (残保留), `rushing` (a RUSH by its continuation rate),
   `untilHit` (確変 loop), `onMiss`, `luckyTrigger` ("3連で LT" is
   `atCombo: 3`), `reliefDrive` (遊タイム), `withoutSupport` (a mode played
@@ -1016,7 +1017,15 @@ walking down the trail and back keeps the work in hand.
   that says `withoutSupport`: a normalised state says so of itself
   (`withoutSupport`, left out where it is played on it, so a chain stored
   before reads as played on it throughout, which no condition it was
-  stored with changes). The engine solves each state's balls with the
+  stored with changes). A mode said `withoutSupport` whose spins run out —
+  a CZ, a 潜確 counted out — is shot at the heso: its spins cost balls as
+  the regular game's do. Its normalised state carries them (`paidSpins`:
+  so many at most, at its chance; a leftover queue's are held already and
+  carry none), the engine counts the spins a combo plays there among the
+  spins the 1R トータル確率 and トータル確率 are over, the simulators draw
+  how many were played and pay for them, and the grounds put them into
+  each state's equation (`heso`) and check the state against the sheet.
+  The engine solves each state's balls with the
   factor in its own equation; the simulators keep the balls won on the
   電サポ apart (`PayoutYield`), and the grounds put the factor into the
   same equation, take the 1R 平均出玉 as every round's gain over every
@@ -1035,9 +1044,19 @@ walking down the trail and back keeps the work in hand.
 - **A 遊タイム is the regular game's relief drive.** Spins at the regular
   game's chance without a jackpot fill the relief gauge; once it holds so
   many, play enters a mode (usually a long 時短) with nothing won. As the
-  machines do: the gauge empties at every jackpot; a 時短's and a leftover
-  queue's spins fill it (`fills_gauge`, from the kind of mode, never inferred
-  from its chance) and an ST's do not; and the 遊タイム comes once between
+  machines do: the gauge empties at every jackpot; a 時短's spins — at the
+  regular game's chance or its own — and a leftover queue's fill it
+  (`fills_gauge`, from the kind of mode, never inferred from its chance) and
+  an ST's do not. A 時短 may end early (`earlyEnd`, a c時短): each spin it
+  wins at its chance, ends at the c時短's, or goes on, and an early end
+  leads where its shares say, filling the gauge by the spins played until
+  then. Those spins are gathered into steps of five (`EARLY_END_STEP`),
+  each filling by its middle spin, and every spin from the 遊タイム's count
+  on as one: the long run keeps a point per step rather than per spin —
+  花の慶次 裂99's border comes out 16.5855 against 16.5861 spin by spin,
+  in under a second against six minutes. A miss's outcome then says the
+  spins it fills (`fills`), and the grounds make the same steps again
+  from the sheet; and the 遊タイム comes once between
   jackpots — missed, it is spent until the next one. A leftover queue is
   drawn at the regular game's chance; a machine that draws it at the ST's is
   written as an ST that many spins longer. Where regular play starts again

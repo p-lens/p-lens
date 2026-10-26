@@ -8,13 +8,14 @@ use pachinko_domain::conditions::{
     BallValue, CalculationConditions, PlayConditions, RoundPayout, SpinPerformance, SupportGain,
 };
 use pachinko_domain::normalized::{
-    NormalizedReliefDrive, NormalizedSpec, Outcome, Reward, State, StateIndex, StateOrigin, Target,
+    NormalizedReliefDrive, NormalizedSpec, Outcome, PaidSpins, Reward, State, StateIndex,
+    StateOrigin, Target,
 };
 use pachinko_domain::probability::{BasisPoints, Denominator, Probability, ProbabilitySource};
 use pachinko_domain::quantity::{Balls, PayoutRule, RoundCount, SpinCount};
 use pachinko_domain::spec::{
-    Allotment, Component, Components, LeftoverQueue, LuckyTrigger, ModeId, Next, OtherRounds,
-    Rapid, RegularGame, ReliefDrive, Resources, Rushing, Spec, SpecialTime,
+    Allotment, Component, Components, EarlyEnd, EarlyEndShare, LeftoverQueue, LuckyTrigger, ModeId,
+    Next, OtherRounds, Rapid, RegularGame, ReliefDrive, Resources, Rushing, Spec, SpecialTime,
 };
 use pachinko_domain::version::{SchemaVersion, SpecVersion};
 use pachinko_engine::analysis::Analysis;
@@ -32,12 +33,12 @@ use pachinko_simulator::simulation::{Plan, Progress};
 
 use crate::dto::{
     AllotmentDto, AnalysisDto, BeyondDto, BucketDto, ComponentsDto, ConditionsDto, DerivationDto,
-    EndingChanceDto, EndingDto, ErrorDto, EstimateProgressDto, EstimateSummaryDto,
+    EarlyEndDto, EndingChanceDto, EndingDto, ErrorDto, EstimateProgressDto, EstimateSummaryDto,
     HyenaHuntProgressDto, HyenaHuntSummaryDto, InferenceProgressDto, InferenceRequest,
     InferenceSummaryDto, LocationDto, ModeEntryDto, NextDto, NormalizedReliefDriveDto,
-    NormalizedSpecDto, OriginDto, OtherRoundsDto, OutcomeDto, PlanDto, PlayDto, ProbabilityDto,
-    ProgressDto, ReadingDto, ReliefDriveFiguresDto, RestartDto, RestartKindDto, RoundPayoutDto,
-    SpecDto, StateDto, SummaryDto, TargetDto, UnsupportedDto, WayDto, WeighedDto,
+    NormalizedSpecDto, OriginDto, OtherRoundsDto, OutcomeDto, PaidSpinsDto, PlanDto, PlayDto,
+    ProbabilityDto, ProgressDto, ReadingDto, ReliefDriveFiguresDto, RestartDto, RestartKindDto,
+    RoundPayoutDto, SpecDto, StateDto, SummaryDto, TargetDto, UnsupportedDto, WayDto, WeighedDto,
 };
 
 fn invalid(field: &str) -> ErrorDto {
@@ -131,6 +132,26 @@ fn table<D, T>(
         .collect()
 }
 
+/// A 時短's early end: its chance on each spin, and the shares of where it leads.
+fn early_end(dto: &EarlyEndDto, at: &str) -> Result<EarlyEnd, ErrorDto> {
+    Ok(EarlyEnd {
+        chance: probability_source(&dto.chance, &format!("{at}.chance"))?,
+        to: dto
+            .to
+            .iter()
+            .enumerate()
+            .map(|(index, share)| -> Result<EarlyEndShare, ErrorDto> {
+                let at = format!("{at}.to[{index}]");
+                Ok(EarlyEndShare {
+                    share: BasisPoints::new(share.share_basis_points)
+                        .map_err(|_| invalid(&format!("{at}.shareBasisPoints")))?,
+                    next: next(&share.next, &format!("{at}.next"))?,
+                })
+            })
+            .collect::<Result<_, _>>()?,
+    })
+}
+
 fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
     const AT: &str = "spec.components";
     if let Some(name) = dto.unsupported.keys().next() {
@@ -167,6 +188,11 @@ fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
         rapid: table(&dto.rapid, &format!("{AT}.rapid"), |rapid, at| {
             Ok(Rapid {
                 spins: SpinCount::new(nonzero(rapid.spins, &format!("{at}.spins"))?),
+                chance: rapid
+                    .chance
+                    .as_ref()
+                    .map(|chance| probability_source(chance, &format!("{at}.chance")))
+                    .transpose()?,
             })
         })?,
         leftover_queue: table(
@@ -211,6 +237,7 @@ fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
             .enumerate()
             .map(|(index, entity)| mode_id(entity, &format!("{AT}.withoutSupport[{index}]")))
             .collect::<Result<BTreeSet<_>, _>>()?,
+        early_end: table(&dto.early_end, &format!("{AT}.earlyEnd"), early_end)?,
         relief_drive: table(
             &dto.relief_drive,
             &format!("{AT}.reliefDrive"),
@@ -291,6 +318,7 @@ fn outcome(dto: &OutcomeDto, net_balls_per_round: u32, field: &str) -> Result<Ou
                 .unwrap_or_else(|| dto.rounds.saturating_mul(net_balls_per_round)),
         },
         next: target(&dto.next),
+        fills: dto.fills,
     })
 }
 
@@ -341,6 +369,18 @@ pub fn normalized_spec(dto: &NormalizedSpecDto) -> Result<NormalizedSpec, ErrorD
                     )?,
                     fills_gauge: state.fills_gauge,
                     supported: !state.without_support,
+                    paid: state
+                        .paid_spins
+                        .map(|paid| -> Result<PaidSpins, ErrorDto> {
+                            Ok(PaidSpins {
+                                spins: paid.spins,
+                                chance: probability(
+                                    paid.chance,
+                                    &format!("normalized.states[{index}].paidSpins.chance"),
+                                )?,
+                            })
+                        })
+                        .transpose()?,
                 })
             })
             .collect::<Result<_, ErrorDto>>()?,
@@ -486,6 +526,7 @@ fn outcome_dto(outcome: &Outcome, net_balls_per_round: u32) -> OutcomeDto {
         hits: outcome.reward.hits,
         next: target_dto(outcome.next),
         balls: (outcome.reward.balls != by_the_machine).then_some(outcome.reward.balls),
+        fills: outcome.fills,
     }
 }
 
@@ -509,6 +550,10 @@ pub fn normalized_dto(spec: &NormalizedSpec) -> NormalizedSpecDto {
                     .collect(),
                 fills_gauge: state.fills_gauge,
                 without_support: !state.supported,
+                paid_spins: state.paid.map(|paid| PaidSpinsDto {
+                    spins: paid.spins,
+                    chance: paid.chance.value(),
+                }),
             })
             .collect(),
         origins: spec
@@ -545,6 +590,7 @@ pub fn analysis_dto(analysis: &Analysis, normalized: &NormalizedSpec) -> Analysi
         balls_per_round: analysis.balls_per_round.value(),
         average_payout: analysis.average_payout.value(),
         payout_scale: analysis.payout_scale,
+        average_paid_spins: analysis.average_paid_spins,
         total_chance_one_in: analysis.total_chance.value(),
         round_chance_one_in: analysis.round_chance.value(),
         mode_entry: analysis
@@ -564,6 +610,7 @@ pub fn analysis_dto(analysis: &Analysis, normalized: &NormalizedSpec) -> Analysi
                 average_rounds: state.average_rounds,
                 average_combo: state.average_combo,
                 average_balls: state.average_balls,
+                average_paid_spins: state.average_paid_spins,
             })
             .collect(),
         normalized: normalized_dto(normalized),
@@ -576,6 +623,7 @@ pub fn analysis_dto(analysis: &Analysis, normalized: &NormalizedSpec) -> Analysi
                 rounds_after: relief_drive.rounds_after,
                 combo_after: relief_drive.combo_after,
                 balls_after: relief_drive.balls_after,
+                paid_spins_after: relief_drive.paid_spins_after,
                 restarts: relief_drive
                     .restarts
                     .iter()
@@ -586,6 +634,7 @@ pub fn analysis_dto(analysis: &Analysis, normalized: &NormalizedSpec) -> Analysi
                         rounds: restart.rounds,
                         hits: restart.hits,
                         balls: restart.balls,
+                        paid_spins: restart.paid_spins,
                     })
                     .collect(),
                 endings: relief_drive
@@ -624,6 +673,7 @@ fn component_name(component: Component) -> String {
         Component::LuckyTrigger => "luckyTrigger",
         Component::ReliefDrive => "reliefDrive",
         Component::WithoutSupport => "withoutSupport",
+        Component::EarlyEnd => "earlyEnd",
     }
     .to_owned()
 }

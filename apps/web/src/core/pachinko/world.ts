@@ -1,10 +1,10 @@
-import type { AllotmentDto, LuckyTriggerDto, NextDto, ComponentsDto, SpecDto, ProbabilityDto, ReliefDriveDto } from "@p-lens/contracts/pachinko"
+import type { AllotmentDto, EarlyEndDto, LuckyTriggerDto, NextDto, ComponentsDto, SpecDto, ProbabilityDto, ReliefDriveDto } from "@p-lens/contracts/pachinko"
 import { SPEC_VERSION } from "@p-lens/contracts/pachinko"
 
 /** What a mode is, as its spec sheet says: which kind component its entity has. */
 export type ModeKind =
   | { readonly type: "special-time"; readonly spins: number; readonly chance: ProbabilityDto }
-  | { readonly type: "rapid"; readonly spins: number }
+  | { readonly type: "rapid"; readonly spins: number; readonly chance: ProbabilityDto | undefined }
   | { readonly type: "leftover-queue"; readonly draws: number }
   | { readonly type: "rushing"; readonly continuationRate: ProbabilityDto }
   | { readonly type: "until-hit" }
@@ -19,6 +19,8 @@ export interface ModeView {
   readonly luckyTrigger: LuckyTriggerDto | undefined
   /** Whether the mode is said to be played without the 電サポ — a 潜確 at the heso — so that the support gain does not touch its jackpots; a leftover queue is so whether it says so or not. */
   readonly withoutSupport: boolean
+  /** How a 時短 may end early, a c時短: its chance on each spin and where play goes then; none for every other mode. */
+  readonly earlyEnd: EarlyEndDto | undefined
 }
 
 /** The regular game as a query assembles it from its entity. */
@@ -55,7 +57,7 @@ const kindOf = (components: ComponentsDto, entity: string): ModeKind | undefined
   const special = components.specialTime?.[entity]
   if (special !== undefined) return { type: "special-time", spins: special.spins, chance: special.chance }
   const rapid = components.rapid?.[entity]
-  if (rapid !== undefined) return { type: "rapid", spins: rapid.spins }
+  if (rapid !== undefined) return { type: "rapid", spins: rapid.spins, chance: rapid.chance }
   const queue = components.leftoverQueue?.[entity]
   if (queue !== undefined) return { type: "leftover-queue", draws: queue.draws }
   const rushing = components.rushing?.[entity]
@@ -72,7 +74,7 @@ export const modesOf = (spec: SpecDto): readonly ModeView[] => {
     const onMiss = components.onMiss?.[id]
     return kind === undefined || allotment === undefined || onMiss === undefined
       ? []
-      : [{ id, label: components.label?.[id] ?? id, kind, allotment, onMiss, luckyTrigger: components.luckyTrigger?.[id], withoutSupport: components.withoutSupport?.includes(id) === true }]
+      : [{ id, label: components.label?.[id] ?? id, kind, allotment, onMiss, luckyTrigger: components.luckyTrigger?.[id], withoutSupport: components.withoutSupport?.includes(id) === true, earlyEnd: components.earlyEnd?.[id] }]
   })
 }
 
@@ -94,11 +96,12 @@ export const assembleWorld = (
   payout: SpecDto["resources"]["payout"],
 ): SpecDto => {
   const specialTimes = modes.flatMap((mode) => (mode.kind.type === "special-time" ? [[mode.id, { spins: mode.kind.spins, chance: mode.kind.chance }] as const] : []))
-  const rapids = modes.flatMap((mode) => (mode.kind.type === "rapid" ? [[mode.id, { spins: mode.kind.spins }] as const] : []))
+  const rapids = modes.flatMap((mode) => (mode.kind.type === "rapid" ? [[mode.id, { spins: mode.kind.spins, ...(mode.kind.chance === undefined ? {} : { chance: mode.kind.chance }) }] as const] : []))
   const queues = modes.flatMap((mode) => (mode.kind.type === "leftover-queue" ? [[mode.id, { draws: mode.kind.draws }] as const] : []))
   const rushings = modes.flatMap((mode) => (mode.kind.type === "rushing" ? [[mode.id, { continuationRate: mode.kind.continuationRate }] as const] : []))
   const triggers = modes.flatMap((mode) => (mode.luckyTrigger === undefined ? [] : [[mode.id, mode.luckyTrigger] as const]))
   const unsupported = modes.filter((mode) => mode.withoutSupport).map((mode) => mode.id)
+  const earlyEnds = modes.flatMap((mode) => (mode.earlyEnd === undefined ? [] : [[mode.id, mode.earlyEnd] as const]))
   return {
     v: SPEC_VERSION,
     entities: [REGULAR_ENTITY, ...modes.map((mode) => mode.id)],
@@ -115,6 +118,7 @@ export const assembleWorld = (
       ...(triggers.length === 0 ? {} : { luckyTrigger: record(triggers) }),
       ...(regular.reliefDrive === undefined ? {} : { reliefDrive: record([[REGULAR_ENTITY, regular.reliefDrive]]) }),
       ...(unsupported.length === 0 ? {} : { withoutSupport: unsupported }),
+      ...(earlyEnds.length === 0 ? {} : { earlyEnd: record(earlyEnds) }),
     },
     resources: { payout },
   }

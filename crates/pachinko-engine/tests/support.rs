@@ -117,6 +117,7 @@ pub fn special_time(count: u32, chance: ProbabilitySource) -> Kind {
 pub fn rapid(count: u32) -> Kind {
     Kind::Rapid(Rapid {
         spins: SpinCount::new(nonzero(count)),
+        chance: None,
     })
 }
 

@@ -22,7 +22,7 @@ function CountTile(props: {
   return (
     <button
       type="button"
-      class="flex min-h-24 select-none flex-col items-center justify-center gap-1 rounded-lg border border-border bg-surface-2 px-2 py-3 transition-colors hover:bg-surface-3 active:bg-surface-0"
+      class="flex min-h-24 select-none flex-col items-center justify-center gap-1 rounded-lg border border-amateur/50 bg-amateur/10 px-2 py-3 shadow-sm transition hover:bg-amateur/20 active:translate-y-px active:bg-amateur/30 active:shadow-none"
       classList={{ "opacity-40": props.held }}
       style={{ "-webkit-touch-callout": "none" }}
       onPointerDown={press.onPointerDown}
@@ -49,7 +49,9 @@ function CountTile(props: {
 
 /**
  * Tiles to count small wins, bonuses and the cues watched for over a bonus
- * with, four to a row, each showing its count and how often it has come up
+ * with, four to a row, drawn as the app's own buttons are — in the colour
+ * every player's buttons wear, sinking as they are pressed — so that on a
+ * phone, with nothing to hover over, they read as pressed rather than read, each showing its count and how often it has come up
  * in what it is counted out of: the games counted, or a cue's trials. A tap adds one, and a long
  * press takes one back; on a keyboard, the digits press the first nine
  * tiles. Held, while what comes up is no regular game's, they are shown

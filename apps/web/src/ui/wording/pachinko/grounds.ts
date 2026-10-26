@@ -82,6 +82,23 @@ const lineOf = (step: Step, normalized: NormalizedSpecDto, labels: ReadonlyMap<s
         text: `1Rトータル確率 ${oneIn(arg(step, 0))} ＝ 通常時の大当り確率 ${oneIn(givenNumber(step, "regular_one_in", 0))} ÷ 初当り1回あたりの平均ラウンド ${rounds(arg(sub(step, "rounds_per_first_hit"), 0))}`,
         tone: "plain",
       }
+    case "round_chance_with_heso":
+      return {
+        text: `1Rトータル確率 ${oneIn(arg(step, 0))} ＝（通常時の大当り確率 ${oneIn(givenNumber(step, "regular_one_in", 0))} ＋ ヘソで回す回転 ${spins(arg(sub(step, "heso_per_first_hit"), 0))}）÷ 初当り1回あたりの平均ラウンド ${rounds(arg(sub(step, "rounds_per_first_hit"), 0))}`,
+        tone: "plain",
+      }
+    case "heso_per_first_hit":
+      return { text: `初当り1回あたりにヘソで回す回転 ${spins(arg(step, 0))}（電サポなしのCZ・潜確などは、通常時と同じく玉を使う）`, tone: "plain" }
+    case "own_heso": {
+      const heso = givenIn(step, "heso")
+      const hit = numberOf(heso?.args[2])
+      return {
+        text: `${from(step.claim.args[0], normalized, labels)}：ヘソで回す回転 ${spins(arg(step, 1))} ＝（1 −（1 − ${oneIn(hit === undefined ? undefined : 1 / hit)}）の ${numberOf(heso?.args[1]) ?? "--"}乗）÷ ${oneIn(hit === undefined ? undefined : 1 / hit)}の確率`,
+        tone: "plain",
+      }
+    }
+    case "heso_into_mode":
+      return { text: `${destination(step.claim.args[0], normalized, labels)}以降にヘソで回す回転 ${spins(arg(step, 1))}（計算エンジンが状態遷移を解いた値。下で検算します）`, tone: "plain" }
     case "round_chance_with_relief_drive": {
       const sums = step.premises.flatMap((premise) => (premise.type === "computed" ? [premise.value] : []))
       return {
@@ -201,6 +218,18 @@ const lineOf = (step: Step, normalized: NormalizedSpecDto, labels: ReadonlyMap<s
         `通常時が${kind}割合 ${percent(arg(step, 2))} は、各始まり方から流れ込む割合の合計 ${percent(arg(step, 1))} と食い違っています（式を満たしません）`,
       )
     }
+    case "check_state_heso": {
+      const where = from(step.claim.args[0], normalized, labels)
+      return checked(
+        step,
+        `${where}以降にヘソで回す回転 ${spins(arg(step, 2))} は、振分ごとの合計と一致（式を満たす）`,
+        `${where}以降にヘソで回す回転 ${spins(arg(step, 2))} は、振分ごとの合計 ${spins(arg(step, 1))} と食い違っています（式を満たしません）`,
+      )
+    }
+    case "check_heso": {
+      const where = from(step.claim.args[0], normalized, labels)
+      return checked(step, `${where}をヘソで回すかどうかは期待値基礎値どおり`, `${where}をヘソで回すかどうかが、期待値基礎値と違います`)
+    }
     case "check_fills": {
       const where = from(step.claim.args[0], normalized, labels)
       return checked(step, `${where}が遊タイムまでの回転数に数える ${arg(step, 2) ?? "--"}回転は期待値基礎値どおり`, `${where}が遊タイムまでの回転数に数える ${arg(step, 2) ?? "--"}回転が、期待値基礎値の ${arg(step, 1) ?? "--"}回転と違います`)
@@ -250,6 +279,11 @@ const lineOf = (step: Step, normalized: NormalizedSpecDto, labels: ReadonlyMap<s
         text: `${modeAt(step.claim.args[0], labels)}：大当りを引く確率 ${percent(arg(step, 1))} ＝ 1 −（1 − ${oneIn(hit === undefined ? undefined : 1 / hit)}）の ${spins ?? "--"}乗（${step.rule === "reach_rapid" ? "時短" : "残保留"}）`,
         tone: "plain",
       }
+    }
+    case "reach_rapid_at": {
+      const kind = compoundOf(givenIn(step, "spec_mode")?.args[1], "rapid_at", 2)
+      const hit = numberOf(kind?.args[1])
+      return { text: `${modeAt(step.claim.args[0], labels)}：大当りを引く確率 ${percent(arg(step, 1))} ＝ 1 −（1 − ${oneIn(hit === undefined ? undefined : 1 / hit)}）の ${numberOf(kind?.args[0]) ?? "--"}乗（時短・独自の確率）`, tone: "plain" }
     }
     case "reach_rushing":
       return { text: `${modeAt(step.claim.args[0], labels)}：継続率 ${percent(arg(step, 1))}（期待値基礎値のまま）`, tone: "plain" }

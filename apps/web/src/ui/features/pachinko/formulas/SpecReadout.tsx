@@ -6,7 +6,7 @@ import type { Basis, Bonus } from "../../../../core/pachinko/formula"
 import { modesOf, regularOf, type ModeView } from "../../../../core/pachinko/world"
 import { jackpotsText } from "../../../wording/pachinko/machine"
 import { BonusTable } from "./BonusTable"
-import { kindText, nextText, ownAttackerText, probabilityText, roundPayoutText, shareText, supportGainText } from "./spec-text"
+import { earlyEndText, kindText, nextText, ownAttackerText, probabilityText, roundPayoutText, shareText, supportGainText } from "./spec-text"
 
 function AllotmentTable(props: { readonly allotment: readonly AllotmentDto[]; readonly modes: readonly ModeView[] }): JSX.Element {
   return (
@@ -86,6 +86,9 @@ export function SpecReadout(props: { readonly basis: Basis; readonly bonuses: re
               終了後: {nextText(mode.onMiss, modes())}
               <Show when={mode.luckyTrigger} keyed>
                 {(trigger) => ` ／ ${trigger.atCombo}連目で ${nextText({ type: "mode", mode: trigger.to }, modes())} へ`}
+              </Show>
+              <Show when={mode.earlyEnd} keyed>
+                {(earlyEnd) => ` ／ ${earlyEndText(earlyEnd, modes())}`}
               </Show>
             </p>
           </Block>

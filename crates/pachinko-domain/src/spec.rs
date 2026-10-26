@@ -83,6 +83,26 @@ pub struct Components {
     /// the support gain does not touch. A leftover queue is played without
     /// it whether it says so or not.
     pub without_support: BTreeSet<ModeId>,
+    /// A 時短 that each spin may end early without a jackpot — a c時短 — and
+    /// where play goes then.
+    pub early_end: BTreeMap<ModeId, EarlyEnd>,
+}
+
+/// A 時短 ended early: on each spin, at `chance`, without a jackpot, play
+/// leaves it for where its shares say — a shorter 時短, most often — before
+/// its spins run out. The spins played until then fill the relief gauge as
+/// any of a 時短's do.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EarlyEnd {
+    pub chance: ProbabilitySource,
+    pub to: Vec<EarlyEndShare>,
+}
+
+/// One share of where an early end leads.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EarlyEndShare {
+    pub share: BasisPoints,
+    pub next: Next,
 }
 
 /// The component that makes an entity the regular game.
@@ -97,9 +117,14 @@ pub struct SpecialTime {
     pub chance: ProbabilitySource,
 }
 
+/// A 時短: so many spins, at the regular game's chance unless it says its
+/// own — a 時短 of a 一種二種混合機, whose small win through the 電チュー
+/// comes beside the regular draw. Either way its spins fill the relief
+/// gauge, as a 時短's do.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rapid {
     pub spins: SpinCount,
+    pub chance: Option<ProbabilitySource>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -127,6 +152,7 @@ pub enum Component {
     LuckyTrigger,
     ReliefDrive,
     WithoutSupport,
+    EarlyEnd,
 }
 
 /// The regular game as the engine queries it from its entity: how often it
@@ -231,6 +257,13 @@ pub struct Mode {
     /// Whether the mode is played on the 電サポ, shot to the right, so that
     /// what its jackpots pay out is touched by the support gain.
     pub supported: bool,
+    /// Whether the mode is shot at the heso, as the regular game is, its
+    /// spins costing balls: a mode said to be played without the 電サポ. A
+    /// leftover queue is off the 電サポ too, but its spins are held already
+    /// and cost nothing.
+    pub at_heso: bool,
+    /// How a 時短 may end early, before its spins run out, without a jackpot.
+    pub early_end: Option<EarlyEnd>,
 }
 
 /// How a mode ends, as the engine derives it from its entity's kind component.

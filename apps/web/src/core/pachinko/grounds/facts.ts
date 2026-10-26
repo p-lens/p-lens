@@ -15,24 +15,34 @@ const ballsOf = (outcome: OutcomeDto, normalized: NormalizedSpecDto): number => 
 /** Whether any share of the spec pays its rounds by a prize of its own: then a round has no one payout to state. */
 const paysByShare = (normalized: NormalizedSpecDto): boolean => [...normalized.entry, ...normalized.states.flatMap((state) => state.outcomes)].some((outcome) => outcome.balls !== undefined)
 
-const outcomeFacts = (from: string, outcomes: readonly OutcomeDto[], normalized: NormalizedSpecDto): readonly string[] =>
-  outcomes.map((outcome) => given(`outcome(${from}, ${prologNumber(outcome.probability)}, ${outcome.rounds}, ${ballsOf(outcome, normalized)}, ${target(outcome.next)}, ${outcome.hits})`))
+/**
+ * Each outcome of a first jackpot or a state: its share, rounds, balls,
+ * where it leads, the jackpots it is, and the spins it fills the relief
+ * gauge by — none for a jackpot, a miss's own where it says them, as a
+ * 時短 ended early does, and its state's otherwise.
+ */
+const outcomeFacts = (from: string, outcomes: readonly OutcomeDto[], normalized: NormalizedSpecDto, stateFills: number): readonly string[] =>
+  outcomes.map((outcome) =>
+    given(`outcome(${from}, ${prologNumber(outcome.probability)}, ${outcome.rounds}, ${ballsOf(outcome, normalized)}, ${target(outcome.next)}, ${outcome.hits}, ${outcome.hits > 0 ? 0 : (outcome.fills ?? stateFills)})`),
+  )
 
 /**
  * The chain the engine solved, as the formula stores it: the regular game,
  * the first jackpot's outcomes and each state's — its share, rounds, balls,
  * where it leads and the jackpots it is, none for a miss — the spins of a
  * state that fill the relief gauge when they run out, the states played
- * without the 電サポ, and the 遊タイム.
+ * without the 電サポ, the spins a state plays at the heso and pays for — so
+ * many at most, at its chance — and the 遊タイム.
  */
 const chainFacts = (normalized: NormalizedSpecDto): readonly string[] => [
   given(`regular_one_in(${prologNumber(1 / normalized.hitChance)})`),
-  ...outcomeFacts("first_hit", normalized.entry, normalized),
+  ...outcomeFacts("first_hit", normalized.entry, normalized, 0),
   ...normalized.states.flatMap((state, index) => [
     given(`state(${index})`),
     given(`fills(${index}, ${state.fillsGauge ?? 0})`),
     ...(state.withoutSupport === true ? [given(`without_support(${index})`)] : []),
-    ...outcomeFacts(String(index), state.outcomes, normalized),
+    ...(state.paidSpins === undefined ? [] : [given(`heso(${index}, ${state.paidSpins.spins}, ${prologNumber(state.paidSpins.chance)})`)]),
+    ...outcomeFacts(String(index), state.outcomes, normalized, state.fillsGauge ?? 0),
   ]),
   ...(paysByShare(normalized) ? [given("own_payout")] : []),
   ...(normalized.reliefDrive === undefined ? [] : [given(`relief_drive(${normalized.reliefDrive.gauge}, ${target(normalized.reliefDrive.target)})`)]),
@@ -65,7 +75,7 @@ const kindFact = (kind: ModeKind): string => {
     case "special-time":
       return `special_time(${kind.spins}, ${prologNumber(chanceOf(kind.chance))})`
     case "rapid":
-      return `rapid(${kind.spins})`
+      return kind.chance === undefined ? `rapid(${kind.spins})` : `rapid_at(${kind.spins}, ${prologNumber(chanceOf(kind.chance))})`
     case "leftover-queue":
       return `leftover_queue(${kind.draws})`
     case "rushing":
@@ -81,6 +91,12 @@ const modeFacts = (mode: ModeView, place: number, spec: SpecDto, places: Places)
   given(`spec_on_miss(${place}, ${next(mode.onMiss, places)})`),
   ...(mode.luckyTrigger === undefined ? [] : [given(`spec_lucky_trigger(${place}, ${mode.luckyTrigger.atCombo}, ${places.get(mode.luckyTrigger.to) ?? -1})`)]),
   ...(mode.withoutSupport ? [given(`spec_without_support(${place})`)] : []),
+  ...(mode.earlyEnd === undefined
+    ? []
+    : [
+        given(`spec_early_end(${place}, ${prologNumber(chanceOf(mode.earlyEnd.chance))})`),
+        ...mode.earlyEnd.to.map((share) => given(`spec_early_end_share(${place}, ${prologNumber(share.shareBasisPoints / 10_000)}, ${next(share.next, places)})`)),
+      ]),
 ]
 
 /**
@@ -110,20 +126,32 @@ export interface SampledFigure {
 const restartOf = (restart: EndingDto["chances"][number]["restart"]): string => (restart.type === "spent" ? "spent" : `filled(${restart.spins})`)
 
 /** A point of a combo as the engine names it, and its chance of each way of starting again it can come to. */
+/**
+ * The number a point of a combo is looked up by: its state, whether the
+ * 遊タイム's first run is unbroken, and the spins filled, in one integer, so
+ * that a long run of thousands of chances is looked up at once rather than
+ * searched. The reasoner works the same number out (`point_key`).
+ */
+const pointKey = (ending: EndingDto): number => (ending.state * 2 + (ending.unbroken ? 1 : 0)) * 100_000 + ending.filled
+
 const endingFacts = (ending: EndingDto): readonly string[] => {
-  const point = `${ending.state}, ${ending.filled}, ${ending.unbroken ? "unbroken" : "broken"}`
-  return [given(`point(${point})`), ...ending.chances.map((each) => given(`ending(${point}, ${restartOf(each.restart)}, ${prologNumber(each.chance)})`))]
+  const key = pointKey(ending)
+  return [
+    given(`point(${key}, ${ending.state}, ${ending.filled}, ${ending.unbroken ? "unbroken" : "broken"})`),
+    ...ending.chances.map((each) => given(`ending(${key}, ${restartOf(each.restart)}, ${prologNumber(each.chance)})`)),
+  ]
 }
 
 /**
  * What the engine solved of the chain: what each state of the combo yields
- * from there on, in rounds and in balls; with a 遊タイム, how often regular
+ * from there on, in rounds, in balls and in spins paid for at the heso; with a 遊タイム, how often regular
  * play starts again each way over the long run, and from every point of a
  * combo the chance of each; and its two figures.
  */
 const solvedFacts = (analysis: AnalysisDto): readonly string[] => [
   ...analysis.derivation.map((state, index) => given(`state_rounds(${index}, ${prologNumber(state.averageRounds)})`)),
   ...analysis.derivation.map((state, index) => given(`state_balls(${index}, ${prologNumber(state.averageBalls)})`)),
+  ...analysis.derivation.map((state, index) => given(`state_heso(${index}, ${prologNumber(state.averagePaidSpins)})`)),
   ...(analysis.reliefDrive?.restarts ?? []).map((restart) =>
     given(`restart(${restartOf(restart.restart)}, ${prologNumber(restart.weight)})`),
   ),

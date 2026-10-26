@@ -1,11 +1,14 @@
 use std::collections::BTreeMap;
 
 use pachinko_domain::normalized::{
-    NormalizedReliefDrive, NormalizedSpec, Outcome, Reward, State, StateIndex, StateOrigin, Target,
+    NormalizedReliefDrive, NormalizedSpec, Outcome, PaidSpins, Reward, State, StateIndex,
+    StateOrigin, Target,
 };
 use pachinko_domain::probability::{BasisPoints, Probability, ProbabilityError, ProbabilitySource};
 use pachinko_domain::quantity::PayoutRule;
-use pachinko_domain::spec::{Allotment, Mode, ModeId, ModeKind, Next, ReliefDrive, Spec};
+use pachinko_domain::spec::{
+    Allotment, EarlyEndShare, Mode, ModeId, ModeKind, Next, ReliefDrive, Spec,
+};
 use pachinko_domain::version::SchemaVersion;
 
 use crate::error::{Location, ProbabilityProblem, SpecError, Unsupported};
@@ -40,10 +43,14 @@ pub fn normalize(spec: &Spec) -> Result<NormalizedSpec, SpecError> {
         .as_ref()
         .map(|relief_drive| relief_drive_of(&layout, relief_drive))
         .transpose()?;
+    let gauge = regular
+        .relief_drive
+        .as_ref()
+        .map(|relief_drive| relief_drive.gauge.get().get());
     let states = layout
         .expanded
         .iter()
-        .map(|&(mode, combo)| state_of(&layout, mode, combo, payout))
+        .map(|&(mode, combo)| state_of(&layout, mode, combo, payout, gauge))
         .collect::<Result<Vec<_>, _>>()?;
     let normalized = NormalizedSpec {
         schema_version: SchemaVersion::CURRENT,
@@ -260,6 +267,7 @@ fn allotment_outcomes(
                     balls: share.net_balls(payout),
                 },
                 next: target(&share.next)?,
+                fills: None,
             })
         })
         .collect()
@@ -278,13 +286,186 @@ fn fills_gauge(kind: ModeKind) -> u32 {
     }
 }
 
+/// The spins a mode plays at the heso and pays for: a mode shot there whose
+/// spins run out, at its own chance. A mode shot there that ends otherwise —
+/// at a jackpot that is certain, or by a continuation rate — says nothing of
+/// how many spins it takes, and costs none.
+fn paid_spins(mode: &Mode, at: &Location) -> Result<Option<PaidSpins>, SpecError> {
+    match mode.kind {
+        ModeKind::Runout { spins, chance, .. } if mode.at_heso => Ok(Some(PaidSpins {
+            spins: spins.get().get(),
+            chance: positive(chance, at)?,
+        })),
+        ModeKind::Runout { .. } | ModeKind::UntilHit | ModeKind::Continuation { .. } => Ok(None),
+    }
+}
+
+/// Spins of a 時短 ended early are gathered into steps of this many, each
+/// filling the relief gauge by the spin at its middle: the long run with a
+/// 遊タイム then has a point for each step rather than each spin, and comes
+/// out the same to well within a thousandth of a border.
+pub const EARLY_END_STEP: u32 = 5;
+
+/// A 時短 that may end early, spin by spin: a jackpot at `hit`, an early end
+/// at `end`, else on to the next spin, for `spins` spins.
+#[derive(Clone, Copy)]
+struct Race {
+    hit: f64,
+    end: f64,
+    spins: u32,
+}
+
+impl Race {
+    fn keep(self) -> f64 {
+        1.0 - self.hit - self.end
+    }
+
+    /// The chance the 時短 is still on at spin `k`, the first being one.
+    fn reached(self, k: u32) -> f64 {
+        self.keep().powf(f64::from(k.saturating_sub(1)))
+    }
+
+    /// The chance of a jackpot before the 時短 ends either way.
+    fn won(self) -> f64 {
+        self.hit * (1.0 - self.keep().powf(f64::from(self.spins))) / (self.hit + self.end)
+    }
+
+    /// The chance it ends early between spin `from` and spin `to`, both counted.
+    fn ended_between(self, from: u32, to: u32) -> f64 {
+        (from..=to).map(|k| self.end * self.reached(k)).sum()
+    }
+}
+
+/// The spins at which a 時短 ended early is taken to have ended, step by
+/// step, each with the spins it fills the relief gauge by: steps of
+/// `EARLY_END_STEP` filling by their middle spin, below the 遊タイム's count;
+/// every spin from that count on as one, filling the gauge whole. Without
+/// a 遊タイム there is no gauge to fill, and the spins are one step, said to
+/// fill by its middle all the same: an early end always says its spins.
+fn early_end_steps(spins: u32, gauge: Option<u32>) -> Vec<(u32, u32, Option<u32>)> {
+    match gauge {
+        None => vec![(1, spins, Some(spins.div_ceil(2)))],
+        Some(gauge) => {
+            let below = spins.min(gauge.saturating_sub(1));
+            let steps = (0..below.div_ceil(EARLY_END_STEP)).map(|step| {
+                let from = step * EARLY_END_STEP + 1;
+                let to = (from + EARLY_END_STEP - 1).min(below);
+                (from, to, Some(u32::midpoint(from, to)))
+            });
+            let rest = (gauge <= spins).then_some((gauge, spins, Some(gauge)));
+            steps.chain(rest).collect()
+        }
+    }
+}
+
+/// The outcomes of a 時短 that may end early: its jackpots, allotted; each
+/// step of an early end, to each place its shares lead; and its spins
+/// running out, where a miss goes.
+fn early_end_outcomes(
+    layout: &Layout<'_>,
+    mode: &Mode,
+    combo: u32,
+    payout: PayoutRule,
+    gauge: Option<u32>,
+    race: Race,
+    at: &Location,
+) -> Result<Vec<Outcome>, SpecError> {
+    let shares: &[EarlyEndShare] = mode
+        .early_end
+        .as_ref()
+        .map_or(&[], |early_end| &early_end.to);
+    let probability = |value: f64| {
+        Probability::new(value.clamp(0.0, 1.0)).map_err(|problem| SpecError::InvalidProbability {
+            at: at.clone(),
+            problem: probability_problem(problem),
+        })
+    };
+    let sum = shares.iter().map(|share| share.share.get()).sum::<u32>();
+    if shares.is_empty()
+        || shares.iter().any(|share| share.share.get() == 0)
+        || sum != BasisPoints::WHOLE.get()
+    {
+        return Err(SpecError::InvalidDistribution {
+            at: at.clone(),
+            sum,
+        });
+    }
+    let hits = allotment_outcomes(
+        &mode.allotment,
+        probability(race.won())?,
+        payout,
+        at,
+        |next| layout.after_hit(mode, combo, next, at),
+    )?;
+    let ends = early_end_steps(race.spins, gauge)
+        .into_iter()
+        .flat_map(|(from, to, fills)| shares.iter().map(move |share| (from, to, fills, share)))
+        .map(|(from, to, fills, share)| -> Result<Outcome, SpecError> {
+            Ok(Outcome {
+                probability: probability(
+                    race.ended_between(from, to) * share.share.probability().value(),
+                )?,
+                reward: Reward::default(),
+                next: layout.entering(&share.next, at)?,
+                fills,
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let ran_out = probability(race.reached(race.spins + 1))?;
+    let miss = (!ran_out.is_impossible())
+        .then(|| -> Result<Outcome, SpecError> {
+            Ok(Outcome {
+                probability: ran_out,
+                reward: Reward::default(),
+                next: layout.entering(&mode.on_miss, at)?,
+                fills: None,
+            })
+        })
+        .transpose()?;
+    Ok(hits.into_iter().chain(ends).chain(miss).collect())
+}
+
 fn state_of(
     layout: &Layout<'_>,
     mode: &Mode,
     combo: u32,
     payout: PayoutRule,
+    gauge: Option<u32>,
 ) -> Result<State, SpecError> {
     let at = Location::Mode(mode.id.clone());
+    if let (Some(early_end), ModeKind::Runout { spins, chance, .. }) = (&mode.early_end, mode.kind)
+    {
+        let race = Race {
+            hit: positive(chance, &at)?.value(),
+            end: positive(early_end.chance, &at)?.value(),
+            spins: spins.get().get(),
+        };
+        if race.keep() < 0.0 {
+            return Err(SpecError::InvalidProbability {
+                at,
+                problem: ProbabilityProblem::OutOfRange,
+            });
+        }
+        return Ok(State {
+            outcomes: early_end_outcomes(layout, mode, combo, payout, gauge, race, &at)?,
+            fills_gauge: fills_gauge(mode.kind),
+            supported: mode.supported,
+            paid: mode
+                .at_heso
+                .then(|| -> Result<PaidSpins, SpecError> {
+                    Ok(PaidSpins {
+                        spins: race.spins,
+                        chance: Probability::new(race.hit + race.end).map_err(|problem| {
+                            SpecError::InvalidProbability {
+                                at: at.clone(),
+                                problem: probability_problem(problem),
+                            }
+                        })?,
+                    })
+                })
+                .transpose()?,
+        });
+    }
     let chance = chance_before_the_end(mode.kind, &at)?;
     let risk = chance.complement();
     let hits = allotment_outcomes(&mode.allotment, chance, payout, &at, |next| {
@@ -296,6 +477,7 @@ fn state_of(
                 probability: risk,
                 reward: Reward::default(),
                 next: layout.entering(&mode.on_miss, &at)?,
+                fills: None,
             })
         })
         .transpose()?;
@@ -303,6 +485,7 @@ fn state_of(
         outcomes: hits.into_iter().chain(miss).collect(),
         fills_gauge: fills_gauge(mode.kind),
         supported: mode.supported,
+        paid: paid_spins(mode, &at)?,
     })
 }
 

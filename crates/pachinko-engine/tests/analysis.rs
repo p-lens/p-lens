@@ -321,17 +321,26 @@ fn under(spec: &pachinko_domain::spec::Spec, conditions: &CalculationConditions)
 #[test]
 fn a_support_gain_changes_only_the_jackpots_won_on_the_support() {
     let analysis = under(&made_up(), &LESS_A_TENTH);
-    assert!(close(analysis.average_payout.value(), 1400.0 + 2800.0 * 0.9));
+    assert!(close(
+        analysis.average_payout.value(),
+        1400.0 + 2800.0 * 0.9
+    ));
     assert!(close(analysis.average_rounds, 30.0));
     assert!(close(analysis.average_combo, 3.0));
-    assert!(close(analysis.balls_per_round.value(), (1400.0 + 2800.0 * 0.9) / 30.0));
+    assert!(close(
+        analysis.balls_per_round.value(),
+        (1400.0 + 2800.0 * 0.9) / 30.0
+    ));
 }
 
 #[test]
 fn a_mode_played_without_the_support_is_not_changed_by_it() {
     let mut spec = made_up();
     spec.components.without_support.insert(id("RUSH"));
-    assert!(close(under(&spec, &LESS_A_TENTH).average_payout.value(), 4200.0));
+    assert!(close(
+        under(&spec, &LESS_A_TENTH).average_payout.value(),
+        4200.0
+    ));
 }
 
 #[test]
@@ -369,5 +378,52 @@ fn the_regular_game_is_never_played_without_the_support() {
 fn a_support_gain_is_above_minus_all_and_at_most_doubled() {
     assert_eq!(SupportGain::new(-10_000), None);
     assert_eq!(SupportGain::new(10_001), None);
-    assert!(close(SupportGain::new(-500).map_or(0.0, SupportGain::factor), 0.95));
+    assert!(close(
+        SupportGain::new(-500).map_or(0.0, SupportGain::factor),
+        0.95
+    ));
+}
+
+/// 1/100 to a 10R into a CZ of twenty spins at 1/50, a jackpot there 10R and
+/// back to the regular game: the CZ shot at the heso, its spins paid for.
+fn with_a_cz(at_heso: bool) -> pachinko_domain::spec::Spec {
+    let mut spec = machine(
+        one_in(100),
+        vec![share(10_000, 10, to("CZ"))],
+        vec![mode(
+            "CZ",
+            special_time(20, one_in(50)),
+            vec![share(10_000, 10, Next::Regular)],
+            Next::Regular,
+        )],
+    );
+    if at_heso {
+        spec.components.without_support.insert(id("CZ"));
+    }
+    spec
+}
+
+#[test]
+fn a_mode_shot_at_the_heso_pays_for_its_spins_as_the_regular_game_does() {
+    let won = 1.0 - (49.0_f64 / 50.0).powi(20);
+    let played = won * 50.0;
+    let rounds = 10.0 + 10.0 * won;
+    let paid = solved(&with_a_cz(true));
+    assert!(
+        close(paid.average_paid_spins, played),
+        "paid {}",
+        paid.average_paid_spins
+    );
+    assert!(close(paid.round_chance.value(), (100.0 + played) / rounds));
+    assert!(close(
+        paid.total_chance.value(),
+        (100.0 + played) / (1.0 + won)
+    ));
+    let free = solved(&with_a_cz(false));
+    assert!(close(free.average_paid_spins, 0.0));
+    assert!(close(free.round_chance.value(), 100.0 / rounds));
+    assert!(close(
+        paid.average_payout.value(),
+        free.average_payout.value()
+    ));
 }

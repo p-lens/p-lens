@@ -98,7 +98,8 @@ fn sit(spec: &NormalizedSpec, setup: &HyenaHuntSetup, rng: Rng) -> (Sitting, Rng
     );
     let (combo, rng) = combo_following(spec, wait.end, rng);
     let won = combo.gained(setup.payout) * setup.play.ball_value.value();
-    let spent = real(wait.spins) * 1000.0 / setup.play.spin_performance.value();
+    let paid = wait.spins + combo.paid_spins;
+    let spent = real(paid) * 1000.0 / setup.play.spin_performance.value();
     (
         Sitting {
             result: SessionResult {
@@ -107,7 +108,7 @@ fn sit(spec: &NormalizedSpec, setup: &HyenaHuntSetup, rng: Rng) -> (Sitting, Rng
                 combos: combo,
                 truncated_combos: u64::from(combo.truncated),
             },
-            spins: wait.spins,
+            spins: paid,
             relief_drive: wait.end == WaitEnd::ReliefDrive,
         },
         rng,

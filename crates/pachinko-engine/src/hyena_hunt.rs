@@ -13,7 +13,8 @@ use pachinko_domain::normalized::NormalizedSpec;
 pub struct HyenaHuntTheoreticalValue {
     /// Yen won, the balls exchanged at the ball value, less the cash spent.
     pub yen: f64,
-    /// Regular-game spins paid for before the first jackpot or the 遊タイム.
+    /// Spins paid for until the first jackpot or the 遊タイム and its combo
+    /// are over: the regular game's, and those its combo plays at the heso.
     pub spins: f64,
     pub rounds: f64,
     /// The chance the count runs out before a jackpot.
@@ -21,7 +22,7 @@ pub struct HyenaHuntTheoreticalValue {
 }
 
 /// Yen a play comes to: the balls its rounds gained, exchanged, less what its
-/// regular-game spins cost. Spins in a mode are taken to cost nothing.
+/// spins paid for cost. Spins in a mode on the 電サポ cost nothing.
 pub fn yen_of(balls: f64, spins: f64, play: PlayConditions) -> f64 {
     balls * play.ball_value.value() - spins * 1000.0 / play.spin_performance.value()
 }
@@ -45,11 +46,17 @@ pub fn hyena_hunt_from(
     });
     let entry_balls = analysis.average_payout.value();
     let (spins, rounds, balls, relief_drive_probability) = ahead.map_or(
-        (1.0 / hit_chance, analysis.average_rounds, entry_balls, 0.0),
+        (
+            1.0 / hit_chance + analysis.average_paid_spins,
+            analysis.average_rounds,
+            entry_balls,
+            0.0,
+        ),
         |(relief_drive, left)| {
             let reach = (1.0 - hit_chance).powf(f64::from(left));
             (
-                (1.0 - reach) / hit_chance,
+                (1.0 - reach) * (1.0 / hit_chance + analysis.average_paid_spins)
+                    + reach * relief_drive.paid_spins_after,
                 (1.0 - reach) * analysis.average_rounds + reach * relief_drive.rounds_after,
                 (1.0 - reach) * entry_balls
                     + reach * relief_drive.balls_after * analysis.payout_scale,

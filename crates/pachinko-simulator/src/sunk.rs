@@ -127,7 +127,8 @@ fn spun(setup: &SunkSetup, day: &Day, spins: u64) -> Day {
 }
 
 /// The day one wait further on: the regular spins until a jackpot — or until
-/// its spins run out — and the combo that follows.
+/// its spins run out — and the combo that follows, the spins it played at
+/// the heso paid for and counted as the counter counts them.
 fn next(spec: &NormalizedSpec, setup: &SunkSetup, day: &Day) -> Option<Day> {
     if day.over {
         return None;
@@ -145,14 +146,18 @@ fn next(spec: &NormalizedSpec, setup: &SunkSetup, day: &Day) -> Option<Day> {
         });
     }
     let (combo, rng) = combo_following(spec, wait.end, rng);
-    Some(Day {
+    let won = Day {
         balls: after.balls + combo.gained(setup.payout),
         jackpots: after.jackpots + combo.hits,
         since_last: if combo.hits > 0 { 0 } else { after.since_last },
         gauge: gauge_after(wait.end, &combo),
         rng,
-        over: after.spins_left == 0,
         ..after
+    };
+    let paid = spun(setup, &won, combo.paid_spins);
+    Some(Day {
+        over: paid.spins_left == 0,
+        ..paid
     })
 }
 
@@ -183,11 +188,18 @@ fn played_pinned(spec: &NormalizedSpec, setup: &SunkSetup, since_last: u64, rng:
     let won = Day {
         balls: hit.balls + combo.gained(setup.payout),
         jackpots: hit.jackpots + combo.hits,
-        since_last: 0,
         rng,
         ..hit
     };
-    spun(setup, &won, since_last)
+    let paid = spun(setup, &won, combo.paid_spins);
+    spun(
+        setup,
+        &Day {
+            since_last: 0,
+            ..paid
+        },
+        since_last,
+    )
 }
 
 fn play(spec: &NormalizedSpec, setup: &SunkSetup, way: Way, rng: Rng) -> (Played, Rng) {

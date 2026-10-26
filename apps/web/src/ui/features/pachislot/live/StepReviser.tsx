@@ -78,10 +78,10 @@ export function StepReviser(props: {
 }): JSX.Element {
   const [reading, setReading] = createSignal<ReadingForm>(
     props.step.type === "reading"
-      ? { total: String(props.step.input.total), bonuses: Object.fromEntries(Object.entries(props.step.input.bonuses).map(([id, count]) => [id, String(count)])), outlay: typed(props.step.input.outlay), replay: typed(props.step.input.replay), held: typed(props.step.input.held) }
-      : { total: "", bonuses: {}, outlay: "", replay: "", held: "" },
+      ? { total: String(props.step.input.total), bonuses: Object.fromEntries(Object.entries(props.step.input.bonuses).map(([id, count]) => [id, String(count)])), outlay: typed(props.step.input.outlay), replay: typed(props.step.input.replay), held: typed(props.step.input.held), heldCarried: false }
+      : { total: "", bonuses: {}, outlay: "", replay: "", held: "", heldCarried: false },
   )
-  const [atReading, setAtReading] = createSignal<AtReadingForm>(props.step.type === "at-reading" ? { sinceAt: String(props.step.input.sinceAt), outlay: typed(props.step.input.outlay), replay: typed(props.step.input.replay), held: typed(props.step.input.held) } : { sinceAt: "", outlay: "", replay: "", held: "" })
+  const [atReading, setAtReading] = createSignal<AtReadingForm>(props.step.type === "at-reading" ? { sinceAt: String(props.step.input.sinceAt), outlay: typed(props.step.input.outlay), replay: typed(props.step.input.replay), held: typed(props.step.input.held), heldCarried: false } : { sinceAt: "", outlay: "", replay: "", held: "", heldCarried: false })
   const [ended, setEnded] = createSignal<Ended>(props.step.type === "at-reading" ? props.step.ended : "going")
   const [state, setState] = createSignal<Revising>({ type: "typing" })
   const nudge = createNudge()
@@ -150,11 +150,11 @@ export function StepReviser(props: {
             >
               <Index each={ENDED.filter((each) => (each !== "cz-missed" || props.trigger !== undefined) && (each !== "bonus-missed" || props.trigger?.bonusMissed !== undefined))}>{(each) => <ToggleGroupItem value={each()}>{endedName(each(), props.trigger)}</ToggleGroupItem>}</Index>
             </ToggleGroup>
-            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <TextField label="AT間のゲーム数" value={atReading().sinceAt} onChange={(sinceAt) => setAtReading({ ...atReading(), sinceAt })} inputMode="numeric" suffix="G" invalid={unread()} onFocus={nudge.settle} />
-              <TextField label="現金投資（累計）" value={atReading().outlay} onChange={(outlay) => setAtReading({ ...atReading(), outlay })} inputMode="numeric" suffix="円" invalid={unread()} onFocus={nudge.settle} />
-              <TextField label="貯メダル（累計）" value={atReading().replay} onChange={(replay) => setAtReading({ ...atReading(), replay })} inputMode="numeric" suffix="枚" invalid={unread()} onFocus={nudge.settle} />
-              <TextField label="持ちメダル" value={atReading().held} onChange={(held) => setAtReading({ ...atReading(), held })} inputMode="numeric" suffix="枚" invalid={unread()} onFocus={nudge.settle} />
+            <div class="grid grid-cols-4 items-end gap-1.5">
+              <TextField label="AT間G" value={atReading().sinceAt} onChange={(sinceAt) => setAtReading({ ...atReading(), sinceAt })} inputMode="numeric" suffix="G" invalid={unread()} onFocus={nudge.settle} compact />
+              <TextField label="投資" value={atReading().outlay} onChange={(outlay) => setAtReading({ ...atReading(), outlay })} inputMode="numeric" suffix="円" invalid={unread()} onFocus={nudge.settle} compact />
+              <TextField label="貯メダル" value={atReading().replay} onChange={(replay) => setAtReading({ ...atReading(), replay })} inputMode="numeric" suffix="枚" invalid={unread()} onFocus={nudge.settle} compact />
+              <TextField label="持ちメダル" value={atReading().held} onChange={(held) => setAtReading({ ...atReading(), held })} inputMode="numeric" suffix="枚" invalid={unread()} onFocus={nudge.settle} compact />
             </div>
           </div>
         }
@@ -177,11 +177,11 @@ export function StepReviser(props: {
               </Index>
             </div>
           </Show>
-          <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <TextField label="累計ゲーム数" value={reading().total} onChange={(total) => setReading({ ...reading(), total })} inputMode="numeric" suffix="G" invalid={unread()} onFocus={nudge.settle} />
-            <TextField label="現金投資（累計）" value={reading().outlay} onChange={(outlay) => setReading({ ...reading(), outlay })} inputMode="numeric" suffix="円" invalid={unread()} onFocus={nudge.settle} />
-            <TextField label="貯メダル（累計）" value={reading().replay} onChange={(replay) => setReading({ ...reading(), replay })} inputMode="numeric" suffix="枚" invalid={unread()} onFocus={nudge.settle} />
-            <TextField label="持ちメダル" value={reading().held} onChange={(held) => setReading({ ...reading(), held })} inputMode="numeric" suffix="枚" invalid={unread()} onFocus={nudge.settle} />
+          <div class="grid grid-cols-4 items-end gap-1.5">
+            <TextField label="累計G" value={reading().total} onChange={(total) => setReading({ ...reading(), total })} inputMode="numeric" suffix="G" invalid={unread()} onFocus={nudge.settle} compact />
+            <TextField label="投資" value={reading().outlay} onChange={(outlay) => setReading({ ...reading(), outlay })} inputMode="numeric" suffix="円" invalid={unread()} onFocus={nudge.settle} compact />
+            <TextField label="貯メダル" value={reading().replay} onChange={(replay) => setReading({ ...reading(), replay })} inputMode="numeric" suffix="枚" invalid={unread()} onFocus={nudge.settle} compact />
+            <TextField label="持ちメダル" value={reading().held} onChange={(held) => setReading({ ...reading(), held })} inputMode="numeric" suffix="枚" invalid={unread()} onFocus={nudge.settle} compact />
           </div>
         </div>
       </Show>

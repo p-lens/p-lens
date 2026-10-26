@@ -1,4 +1,4 @@
-use pachinko_domain::normalized::{NormalizedSpec, Outcome, Target};
+use pachinko_domain::normalized::{NormalizedSpec, Outcome, PaidSpins, Target};
 use pachinko_domain::probability::Probability;
 
 use crate::rng::Rng;
@@ -20,6 +20,9 @@ pub struct ComboResult {
     /// Spins filled toward the 遊タイム since the combo's last jackpot: the
     /// 時短s it ran out of on the way back to the regular game.
     pub carry: u64,
+    /// Spins the combo played at the heso, paid for as regular spins are:
+    /// a CZ or a 潜確 shot there, until its jackpot or its last spin.
+    pub paid_spins: u64,
 }
 
 /// What a ball of the spec's payout yields under a formula's conditions:
@@ -57,6 +60,7 @@ impl ComboResult {
             supported_balls: self.supported_balls + other.supported_balls,
             truncated: false,
             carry: other.carry,
+            paid_spins: self.paid_spins + other.paid_spins,
         }
     }
 }
@@ -115,6 +119,32 @@ pub fn spins_until_hit(probability: Probability, rng: Rng) -> (u64, Rng) {
     (whole, next)
 }
 
+/// The spins a state shot at the heso played before it ended: every one of
+/// them where it ran out, and where a jackpot or an early end stopped it, a
+/// draw from the spins it could have stopped on, each as likely as reaching
+/// it and stopping there makes it.
+fn paid_spins_played(paid: PaidSpins, stopped: bool, rng: Rng) -> (u64, Rng) {
+    let all = u64::from(paid.spins);
+    if !stopped {
+        return (all, rng);
+    }
+    let (draw, next) = rng.next_unit();
+    let miss = paid.chance.complement().value();
+    let reached = 1.0 - miss.powf(f64::from(paid.spins));
+    let spins = if miss <= 0.0 {
+        1.0
+    } else {
+        ((1.0 - draw * reached).ln() / miss.ln()).floor() + 1.0
+    };
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let whole = if spins.is_finite() && spins >= 1.0 {
+        (spins as u64).min(all)
+    } else {
+        all
+    };
+    (whole, next)
+}
+
 /// A combo part-way through: where it goes next, and what it has won so far.
 #[derive(Clone, Copy)]
 struct Walk {
@@ -144,15 +174,22 @@ fn step(spec: &NormalizedSpec, walk: &Walk) -> Option<Walk> {
         .get(index.get())
         .map(|state| state.outcomes.as_slice())
         .unwrap_or_default();
-    let filled = spec
-        .states
-        .get(index.get())
-        .map_or(0, |state| u64::from(state.fills_gauge));
-    let supported = spec
-        .states
-        .get(index.get())
-        .is_some_and(|state| state.supported);
+    let state = spec.states.get(index.get());
+    let supported = state.is_some_and(|state| state.supported);
+    let paid = state.and_then(|state| state.paid);
     let (outcome, rng) = pick(outcomes, walk.rng);
+    let (paid_spins, rng) = match (paid, outcome) {
+        (Some(paid), Some(outcome)) => paid_spins_played(
+            paid,
+            outcome.reward.hits > 0 || outcome.fills.is_some(),
+            rng,
+        ),
+        (Some(_) | None, _) => (0, rng),
+    };
+    let filled = match (state, outcome) {
+        (Some(state), Some(outcome)) => u64::from(outcome.filling(state)),
+        (None, _) | (Some(_), None) => 0,
+    };
     Some(Walk {
         next: outcome.map_or(Target::End, |outcome| outcome.next),
         rng,
@@ -172,6 +209,7 @@ fn step(spec: &NormalizedSpec, walk: &Walk) -> Option<Walk> {
             } else {
                 walk.result.carry + filled
             },
+            paid_spins: walk.result.paid_spins + paid_spins,
         }),
         steps: walk.steps + 1,
     })
@@ -199,6 +237,7 @@ pub fn run_combo(spec: &NormalizedSpec, rng: Rng) -> (ComboResult, Rng) {
                 supported_balls: 0,
                 truncated: false,
                 carry: 0,
+                paid_spins: 0,
             }),
             steps: 0,
         },

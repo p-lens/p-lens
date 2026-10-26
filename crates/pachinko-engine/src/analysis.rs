@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use pachinko_domain::conditions::{CalculationConditions, RoundPayout};
-use pachinko_domain::normalized::{NormalizedSpec, StateIndex, StateOrigin};
+use pachinko_domain::normalized::{NormalizedSpec, PaidSpins, StateIndex, StateOrigin};
 use pachinko_domain::quantity::Balls;
 use pachinko_domain::spec::ModeId;
 use pachinko_domain::version::SchemaVersion;
@@ -22,7 +22,9 @@ impl EngineVersion {
     ///    a count past the 遊タイム finds it spent.
     /// 5: the balls a jackpot won on the 電サポ gains are changed by a formula's
     ///    support gain.
-    pub const CURRENT: Self = Self(5);
+    /// 6: a mode played without the 電サポ whose spins run out is shot at the
+    ///    heso, and its spins are paid for as the regular game's are.
+    pub const CURRENT: Self = Self(6);
 
     pub fn get(self) -> u32 {
         self.0
@@ -61,6 +63,8 @@ pub struct StateDerivation {
     /// Balls the state's rounds gain from there on, as the spec's payout
     /// gives them and the support gain changes those won on the 電サポ.
     pub average_balls: f64,
+    /// Spins played at the heso from there on, paid for as regular spins.
+    pub average_paid_spins: f64,
 }
 
 /// What a 遊タイム adds: how often the count runs out from nothing before a
@@ -76,6 +80,8 @@ pub struct ReliefDriveFigures {
     /// Balls the mode it leads to gains, as the spec's payout gives them and
     /// the support gain changes those won on the 電サポ.
     pub balls_after: f64,
+    /// Spins the mode it leads to plays at the heso, paid for.
+    pub paid_spins_after: f64,
     pub restarts: Vec<RestartFigures>,
     /// From every point of a combo, the chance of each way of starting again:
     /// what the long run was worked out from, given so it can be checked.
@@ -100,9 +106,13 @@ pub struct Analysis {
     /// What a ball of the spec's payout really yields: one, unless a round's
     /// payout was measured, and then the measured round over the spec's.
     pub payout_scale: f64,
-    /// Jackpots per regular-game spin, combos included: the トータル確率.
+    /// Spins a first jackpot's combo plays at the heso on average — a CZ
+    /// or a 潜確 shot there — paid for as regular spins are.
+    pub average_paid_spins: f64,
+    /// Jackpots per spin paid for, combos included: the トータル確率. A spin
+    /// paid for is a regular game's, or one a mode plays at the heso.
     pub total_chance: OneIn,
-    /// Rounds per regular-game spin: the 1R トータル確率.
+    /// Rounds per spin paid for: the 1R トータル確率.
     pub round_chance: OneIn,
     pub mode_entry: Vec<ModeEntry>,
     pub derivation: Vec<StateDerivation>,
@@ -110,7 +120,8 @@ pub struct Analysis {
 }
 
 /// One cycle of play from a jackpot to the next jackpot or the 遊タイム: its
-/// regular-game spins, and the rounds and jackpots that follow, on average.
+/// spins paid for — the regular game's and those its combos play at the
+/// heso — and the rounds and jackpots that follow, on average.
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Cycle {
     spins: f64,
@@ -125,7 +136,7 @@ struct Cycle {
 fn cycle(p: f64, entry: Yield, relief_drive: Option<&ReliefDriveFigures>) -> Cycle {
     relief_drive.map_or(
         Cycle {
-            spins: 1.0 / p,
+            spins: 1.0 / p + entry.paid_spins,
             rounds: entry.rounds,
             hits: entry.hits,
             balls: entry.balls,
@@ -139,7 +150,7 @@ fn cycle(p: f64, entry: Yield, relief_drive: Option<&ReliefDriveFigures>) -> Cyc
                     balls: 0.0,
                 },
                 |sum, restart| Cycle {
-                    spins: sum.spins + restart.weight * restart.spins,
+                    spins: sum.spins + restart.weight * (restart.spins + restart.paid_spins),
                     rounds: sum.rounds + restart.weight * restart.rounds,
                     hits: sum.hits + restart.weight * restart.hits,
                     balls: sum.balls + restart.weight * restart.balls,
@@ -204,6 +215,7 @@ pub fn analyze(
     let support = conditions.support_gain.factor();
     let rounds = expected_totals(spec, |_, reward| f64::from(reward.rounds))?;
     let hits = expected_totals(spec, |_, reward| f64::from(reward.hits))?;
+    let paid = expected_totals(spec, |state, _| state.paid.map_or(0.0, PaidSpins::expected))?;
     let balls = expected_totals(spec, |state, reward| {
         f64::from(reward.balls) * if state.supported { support } else { 1.0 }
     })?;
@@ -213,6 +225,7 @@ pub fn analyze(
         rounds: average_rounds,
         hits: average_combo,
         balls: from_entry(spec, &balls, |outcome| f64::from(outcome.reward.balls)),
+        paid_spins: from_entry(spec, &paid, |_| 0.0),
     };
     let scale = payout_scale(spec, conditions);
     let average_payout = Balls::new(entry.balls * scale).ok_or(SolveError::Singular)?;
@@ -223,6 +236,7 @@ pub fn analyze(
             let rounds_after = at(&rounds, relief_drive.target);
             let combo_after = at(&hits, relief_drive.target);
             let balls_after = at(&balls, relief_drive.target);
+            let paid_after = at(&paid, relief_drive.target);
             let run = long_run(
                 spec,
                 relief_drive,
@@ -231,6 +245,7 @@ pub fn analyze(
                     rounds: rounds_after,
                     hits: combo_after,
                     balls: balls_after,
+                    paid_spins: paid_after,
                 },
             )?;
             Ok(ReliefDriveFigures {
@@ -243,6 +258,7 @@ pub fn analyze(
                 rounds_after,
                 combo_after,
                 balls_after,
+                paid_spins_after: paid_after,
                 restarts: run.restarts,
                 endings: run.endings,
             })
@@ -259,6 +275,7 @@ pub fn analyze(
         balls_per_round: per_round,
         average_payout,
         payout_scale: scale,
+        average_paid_spins: entry.paid_spins,
         total_chance: OneIn::of(per_cycle.hits / per_cycle.spins).ok_or(SolveError::Singular)?,
         round_chance: OneIn::of(per_cycle.rounds / per_cycle.spins).ok_or(SolveError::Singular)?,
         mode_entry: modes_of(spec)
@@ -268,13 +285,19 @@ pub fn analyze(
         derivation: spec
             .origins
             .iter()
-            .zip(rounds.iter().zip(&hits).zip(&balls))
+            .zip(rounds.iter().zip(&hits).zip(&balls).zip(&paid))
             .map(
-                |(origin, ((&average_rounds, &average_combo), &average_balls))| StateDerivation {
-                    origin: origin.clone(),
-                    average_rounds,
-                    average_combo,
-                    average_balls,
+                |(
+                    origin,
+                    (((&average_rounds, &average_combo), &average_balls), &average_paid_spins),
+                )| {
+                    StateDerivation {
+                        origin: origin.clone(),
+                        average_rounds,
+                        average_combo,
+                        average_balls,
+                        average_paid_spins,
+                    }
                 },
             )
             .collect(),

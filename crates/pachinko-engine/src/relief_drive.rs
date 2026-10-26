@@ -21,13 +21,15 @@ pub enum Restart {
     Spent,
 }
 
-/// What a combo yields on average: its rounds, its jackpots, and the balls
-/// its rounds gain as the spec's payout gives them.
+/// What a combo yields on average: its rounds, its jackpots, the balls
+/// its rounds gain as the spec's payout gives them, and the spins it plays
+/// at the heso, which cost balls as regular spins do.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Yield {
     pub rounds: f64,
     pub hits: f64,
     pub balls: f64,
+    pub paid_spins: f64,
 }
 
 impl Yield {
@@ -39,6 +41,7 @@ impl Yield {
             rounds: mine * self.rounds + other_chance * other.rounds,
             hits: mine * self.hits + other_chance * other.hits,
             balls: mine * self.balls + other_chance * other.balls,
+            paid_spins: mine * self.paid_spins + other_chance * other.paid_spins,
         }
     }
 }
@@ -54,6 +57,8 @@ pub struct RestartFigures {
     pub hits: f64,
     /// Balls the cycle's rounds gain, as the spec's payout gives them.
     pub balls: f64,
+    /// Spins its combos play at the heso, beside its regular spins.
+    pub paid_spins: f64,
 }
 
 /// From one point of a combo — a state, the spins filled on the way out,
@@ -94,7 +99,8 @@ enum Step {
 }
 
 /// Where an outcome takes play from a node. A jackpot starts the count again;
-/// a miss adds the state's filled spins, never past the 遊タイム itself.
+/// a miss adds the spins it fills — the state's, or an early end's own —
+/// never past the 遊タイム itself.
 fn step(
     spec: &NormalizedSpec,
     relief_drive: NormalizedReliefDrive,
@@ -114,7 +120,7 @@ fn step(
     let own = spec
         .states
         .get(node.state)
-        .map_or(0, |state| state.fills_gauge);
+        .map_or(0, |state| outcome.filling(state));
     let filled = node.filled.saturating_add(own).min(relief_drive.gauge);
     match outcome.next {
         Target::State(index) => Step::Node(Node {
@@ -405,6 +411,7 @@ pub fn long_run(
                 rounds: yielded.rounds,
                 hits: yielded.hits,
                 balls: yielded.balls,
+                paid_spins: yielded.paid_spins,
             })
             .collect(),
         endings: ends.figures(),

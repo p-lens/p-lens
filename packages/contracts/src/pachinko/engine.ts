@@ -85,8 +85,12 @@ export interface ComponentsDto {
   readonly allotment?: Readonly<Record<string, readonly AllotmentDto[]>>
   /** An ST: so many spins at a raised chance. */
   readonly specialTime?: Readonly<Record<string, { readonly spins: number; readonly chance: ProbabilityDto }>>
-  /** A 時短: so many spins at the regular game's chance, played fast and with tulip support. */
-  readonly rapid?: Readonly<Record<string, { readonly spins: number }>>
+  /**
+   * A 時短: so many spins, played fast and with tulip support, at the regular
+   * game's chance or — a 一種二種混合機's — its own. Either way its spins
+   * fill the relief gauge.
+   */
+  readonly rapid?: Readonly<Record<string, { readonly spins: number; readonly chance?: ProbabilityDto }>>
   /** 残保留: the draws still queued when a mode's spins run out, at the regular game's chance. */
   readonly leftoverQueue?: Readonly<Record<string, { readonly draws: number }>>
   /** A RUSH as many spec sheets summarise it: a continuation rate given directly. */
@@ -100,6 +104,14 @@ export interface ComponentsDto {
   readonly reliefDrive?: Readonly<Record<string, ReliefDriveDto>>
   /** Modes played without the 電サポ — a 潜確 at the heso — whose jackpots the support gain does not touch; a leftover queue is so whether it is named here or not. */
   readonly withoutSupport?: readonly string[]
+  /** A 時短 that each spin may end early without a jackpot — a c時短 — and where play goes then. */
+  readonly earlyEnd?: Readonly<Record<string, EarlyEndDto>>
+}
+
+/** A 時短 ended early: on each spin at `chance`, without a jackpot, to where its shares say; the spins played until then fill the relief gauge. */
+export interface EarlyEndDto {
+  readonly chance: ProbabilityDto
+  readonly to: readonly { readonly shareBasisPoints: number; readonly next: NextDto }[]
 }
 
 /** A 遊タイム: once its `gauge` of regular-game spins fills without a jackpot, play moves to mode `to`. */
@@ -117,6 +129,8 @@ export interface RestartDto {
   readonly hits: number
   /** Balls the cycle's rounds gain, as the spec's payout gives them. */
   readonly balls: number
+  /** Spins its combos play at the heso, paid for beside its regular spins. */
+  readonly paidSpins: number
 }
 
 /**
@@ -141,14 +155,26 @@ export interface OutcomeDto {
   readonly next: TargetDto
   /** Balls the rounds gain, said only where they are not the machine's payout rule times the rounds. */
   readonly balls?: number
+  /** The spins a miss fills the relief gauge by, said only where they are its own — a 時短 ended early, so many spins in — and not its state's. */
+  readonly fills?: number
 }
 
 export interface NormalizedSpecDto {
   readonly schemaVersion: number
   readonly hitChance: number
   readonly entry: readonly OutcomeDto[]
-  /** Each state, `withoutSupport` where it is played without the 電サポ: a spec normalised before the support gain says it of none. */
-  readonly states: readonly { readonly outcomes: readonly OutcomeDto[]; readonly fillsGauge?: number; readonly withoutSupport?: true }[]
+  /**
+   * Each state, `withoutSupport` where it is played without the 電サポ — a
+   * spec normalised before the support gain says it of none — and
+   * `paidSpins` where it plays spins at the heso, paid for as regular spins:
+   * so many until a jackpot, at this chance.
+   */
+  readonly states: readonly {
+    readonly outcomes: readonly OutcomeDto[]
+    readonly fillsGauge?: number
+    readonly withoutSupport?: true
+    readonly paidSpins?: { readonly spins: number; readonly chance: number }
+  }[]
   /** The combo each state stands at in its mode, counting the jackpot that entered it. */
   readonly origins: readonly { readonly mode: string; readonly combo: number }[]
   readonly netBallsPerRound: number
@@ -190,6 +216,8 @@ export interface AnalysisDto {
   readonly averagePayout: number
   /** What a ball of the spec's payout really yields: one, unless a round's payout was measured. */
   readonly payoutScale: number
+  /** Spins a first jackpot's combo plays at the heso on average, paid for: they count among the spins the two chances are over. */
+  readonly averagePaidSpins: number
   readonly totalChanceOneIn: number
   readonly roundChanceOneIn: number
   readonly modeEntry: readonly { readonly mode: string; readonly probability: number }[]
@@ -200,6 +228,8 @@ export interface AnalysisDto {
     readonly averageCombo: number
     /** Balls the state's rounds gain from there on, as the spec's payout gives them. */
     readonly averageBalls: number
+    /** Spins played at the heso from there on, paid for. */
+    readonly averagePaidSpins: number
   }[]
   readonly normalized: NormalizedSpecDto
   /** What the 遊タイム adds, counted from a jackpot. */
@@ -210,6 +240,8 @@ export interface AnalysisDto {
     readonly comboAfter: number
     /** Balls the mode it leads to gains, as the spec's payout gives them. */
     readonly ballsAfter: number
+    /** Spins the mode it leads to plays at the heso, paid for. */
+    readonly paidSpinsAfter: number
     /** Each way regular play starts again over the long run: how often, and what a cycle from it yields. */
     readonly restarts: readonly RestartDto[]
     /** From every point of a combo, the chance of each way of starting again. */

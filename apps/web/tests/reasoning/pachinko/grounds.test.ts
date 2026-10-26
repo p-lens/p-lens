@@ -282,3 +282,135 @@ describe("a formula's grounds under a support gain", () => {
     expect(amiss(proof)).toContainEqual(["check_support", "fails"])
   })
 })
+
+/** 1/100 to a 10R into a CZ of twenty spins at 1/50 shot at the heso, a jackpot there 10R; with a 遊タイム of 300 into the CZ where said. */
+const withACz = (reliefDrive: boolean): SpecDto =>
+  ({
+    v: 1,
+    entities: ["regular", "cz"],
+    components: {
+      regularGame: { regular: { chance: { type: "ratio", numerator: 1, denominatorHundredths: 10_000 } } },
+      label: { cz: "CZ" },
+      allotment: { regular: [{ shareBasisPoints: 10_000, rounds: 10, next: { type: "mode", mode: "cz" } }], cz: [{ shareBasisPoints: 10_000, rounds: 10, next: { type: "regular" } }] },
+      specialTime: { cz: { spins: 20, chance: { type: "ratio", numerator: 1, denominatorHundredths: 5_000 } } },
+      onMiss: { cz: { type: "regular" } },
+      withoutSupport: ["cz"],
+      ...(reliefDrive ? { reliefDrive: { regular: { gauge: 300, to: "cz" } } } : {}),
+    },
+    resources: { payout: { prizeBalls: 15, count: 10 } },
+  }) as unknown as SpecDto
+
+describe("a formula's grounds where a mode is shot at the heso", () => {
+  const won = 1 - (49 / 50) ** 20
+
+  test("hold, its spins paid for among the regular game's in the 1R トータル確率", async () => {
+    const { proof, analysis } = await reasoned(withACz(false))
+    expect(amiss(proof)).toEqual([])
+    expect(claimed(proof, "round_chance_with_heso")).toBeCloseTo((100 + 50 * won) / (10 + 10 * won), 9)
+    expect(analysis.averagePaidSpins).toBeCloseTo(50 * won, 9)
+  })
+
+  test("hold with a 遊タイム, its cycles paying for the spins their combos play there", async () => {
+    const { proof } = await reasoned(withACz(true))
+    expect(amiss(proof)).toEqual([])
+  })
+
+  test("fail where a state is stored as paying for no spins and the sheet shoots it at the heso", async () => {
+    const forgotten = (told: Told): Told => ({
+      ...told,
+      basis: { ...told.basis, normalized: { ...told.basis.normalized, states: told.basis.normalized.states.map(({ paidSpins: _paid, ...state }) => state) } },
+    })
+    const { proof } = await reasoned(withACz(false), undefined, forgotten)
+    expect(amiss(proof)).toContainEqual(["check_heso", "fails"])
+  })
+})
+
+describe("a formula's grounds where a 時短 plays at a chance of its own", () => {
+  /** 1/100 to a 10R into a 時短 of 30 spins at 1/60 that fills the 遊タイム's 200, a jackpot there 10R into the 時短 again. */
+  const ownChance = {
+    v: 1,
+    entities: ["regular", "jitan", "drive"],
+    components: {
+      regularGame: { regular: { chance: { type: "ratio", numerator: 1, denominatorHundredths: 10_000 } } },
+      label: { jitan: "時短", drive: "遊タイム" },
+      allotment: {
+        regular: [{ shareBasisPoints: 10_000, rounds: 10, next: { type: "mode", mode: "jitan" } }],
+        jitan: [{ shareBasisPoints: 10_000, rounds: 10, next: { type: "mode", mode: "jitan" } }],
+        drive: [{ shareBasisPoints: 10_000, rounds: 10, next: { type: "mode", mode: "jitan" } }],
+      },
+      rapid: { jitan: { spins: 30, chance: { type: "ratio", numerator: 1, denominatorHundredths: 6_000 } }, drive: { spins: 100 } },
+      onMiss: { jitan: { type: "regular" }, drive: { type: "regular" } },
+      reliefDrive: { regular: { gauge: 200, to: "drive" } },
+    },
+    resources: { payout: { prizeBalls: 15, count: 10 } },
+  } as unknown as SpecDto
+
+  test("hold, the 時短 reached at its own chance and its spins filling the relief gauge", async () => {
+    const { proof, basis } = await reasoned(ownChance)
+    expect(amiss(proof)).toEqual([])
+    expect(basis.normalized.states.find((state) => state.fillsGauge === 30)).toBeDefined()
+    const lines = groundsLines(proof, basis.normalized, new Map([["jitan", "時短"], ["drive", "遊タイム"]]))
+    expect(lines.some((line) => line.text.includes("時短・独自の確率"))).toBe(true)
+  })
+})
+
+describe("a formula's grounds where a 時短 may end early", () => {
+  /** 1/100 to a 10R into a 時短 1000 at 1/66.8 that a c時短 at 1/156 ends early into a 時短 of 24 at 1/66.8, or back to the regular game; a jackpot anywhere 10R into the 時短 1000; with a 遊タイム of 299 where said. */
+  const cTime = (reliefDrive: boolean): SpecDto =>
+    ({
+      v: 1,
+      entities: ["regular", "main", "fallen", ...(reliefDrive ? ["drive"] : [])],
+      components: {
+        regularGame: { regular: { chance: { type: "ratio", numerator: 1, denominatorHundredths: 9_990 } } },
+        label: { main: "時短1000", fallen: "転落後", ...(reliefDrive ? { drive: "遊タイム" } : {}) },
+        allotment: {
+          regular: [{ shareBasisPoints: 10_000, rounds: 10, next: { type: "mode", mode: "main" } }],
+          main: [{ shareBasisPoints: 10_000, rounds: 10, next: { type: "mode", mode: "main" } }],
+          fallen: [{ shareBasisPoints: 10_000, rounds: 10, next: { type: "mode", mode: "main" } }],
+          ...(reliefDrive ? { drive: [{ shareBasisPoints: 10_000, rounds: 10, next: { type: "mode", mode: "main" } }] } : {}),
+        },
+        rapid: {
+          main: { spins: 1000, chance: { type: "ratio", numerator: 1, denominatorHundredths: 6_680 } },
+          fallen: { spins: 24, chance: { type: "ratio", numerator: 1, denominatorHundredths: 6_680 } },
+          ...(reliefDrive ? { drive: { spins: 1000 } } : {}),
+        },
+        earlyEnd: {
+          main: {
+            chance: { type: "ratio", numerator: 1, denominatorHundredths: 15_600 },
+            to: [
+              { shareBasisPoints: 8_750, next: { type: "mode", mode: "fallen" } },
+              { shareBasisPoints: 1_250, next: { type: "regular" } },
+            ],
+          },
+        },
+        onMiss: { main: { type: "regular" }, fallen: { type: "regular" }, ...(reliefDrive ? { drive: { type: "regular" } } : {}) },
+        ...(reliefDrive ? { reliefDrive: { regular: { gauge: 299, to: "drive" } } } : {}),
+      },
+      resources: { payout: { prizeBalls: 8, count: 10 } },
+    }) as unknown as SpecDto
+
+  test("hold, the chain made again from the race of the 時短's spins", async () => {
+    const { proof } = await reasoned(cTime(false))
+    expect(amiss(proof)).toEqual([])
+  })
+
+  test("hold with a 遊タイム, each step of an early end filling the gauge by its middle spin, the long run put into its own equations", async () => {
+    const { proof, basis } = await reasoned(cTime(true))
+    expect(amiss(proof)).toEqual([])
+    const fills = basis.normalized.states.flatMap((state) => state.outcomes.flatMap((outcome) => (outcome.fills === undefined ? [] : [outcome.fills])))
+    expect(fills).toContain(3)
+    expect(fills).toContain(299)
+  })
+
+  test("fail where an early end is stored as filling the gauge by other spins than the sheet makes it", async () => {
+    const shifted = (told: Told): Told => ({
+      ...told,
+      basis: {
+        ...told.basis,
+        normalized: { ...told.basis.normalized, states: told.basis.normalized.states.map((state) => ({ ...state, outcomes: state.outcomes.map((outcome) => (outcome.fills === 3 ? { ...outcome, fills: 4 } : outcome)) })) },
+      },
+    })
+    const { proof } = await reasoned(cTime(true), undefined, shifted)
+    expect(amiss(proof).map(([rule]) => rule)).toContain("check_made")
+  })
+})

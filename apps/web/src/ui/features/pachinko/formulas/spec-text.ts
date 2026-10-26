@@ -1,4 +1,4 @@
-import type { NextDto, ConditionsDto, OtherRoundsDto, ProbabilityDto } from "@p-lens/contracts/pachinko"
+import type { EarlyEndDto, NextDto, ConditionsDto, OtherRoundsDto, ProbabilityDto } from "@p-lens/contracts/pachinko"
 
 import type { ModeKind, ModeView } from "../../../../core/pachinko/world"
 
@@ -20,6 +20,10 @@ export const shareText = (basisPoints: number): string => `${hundredths(basisPoi
 export const nextText = (next: NextDto, modes: readonly ModeView[]): string =>
   next.type === "regular" ? "通常" : (modes.find((mode) => mode.id === next.mode)?.label ?? next.mode)
 
+/** A 時短's early end, a c時短, as a sheet says it: its chance, and each share of where play goes then. */
+export const earlyEndText = (earlyEnd: EarlyEndDto, modes: readonly ModeView[]): string =>
+  `c時短 ${probabilityText(earlyEnd.chance)} → ${earlyEnd.to.map((share) => `${nextText(share.next, modes)} ${shareText(share.shareBasisPoints)}`).join("・")}`
+
 /** The attacker some rounds open, where it is not the machine's: its prize, its count, or both; nothing where it is. */
 export const ownAttackerText = (rounds: OtherRoundsDto): string | undefined => {
   const parts = [...(rounds.prizeBalls === undefined ? [] : [`賞球${rounds.prizeBalls}個`]), ...(rounds.count === undefined ? [] : [`${rounds.count}C`])]
@@ -31,7 +35,7 @@ export const kindText = (kind: ModeKind): string => {
     case "special-time":
       return `ST ${kind.spins}回転・${probabilityText(kind.chance)}`
     case "rapid":
-      return `時短 ${kind.spins}回転`
+      return kind.chance === undefined ? `時短 ${kind.spins}回転` : `時短 ${kind.spins}回転・${probabilityText(kind.chance)}`
     case "leftover-queue":
       return `残保留 ${kind.draws}個`
     case "rushing":

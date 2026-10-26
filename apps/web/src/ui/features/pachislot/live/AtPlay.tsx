@@ -338,9 +338,9 @@ export function AtReadingComposer(props: { readonly reading: AtReading }): JSX.E
         void props.reading.send("going", false)
       }}
     >
-      <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div class="grid grid-cols-4 items-end gap-1.5">
         <TextField
-          label="AT間のゲーム数"
+          label="AT間G"
           value={props.reading.form().sinceAt}
           onChange={(sinceAt) => props.reading.typed({ sinceAt })}
           inputMode="numeric"
@@ -348,9 +348,10 @@ export function AtReadingComposer(props: { readonly reading: AtReading }): JSX.E
           error={errorOf("sinceAt")}
           invalid={invalid("sinceAt")}
           onFocus={props.reading.settle}
+          compact
         />
         <TextField
-          label="現金投資（累計）"
+          label="投資"
           value={props.reading.form().outlay}
           onChange={(outlay) => props.reading.typed({ outlay })}
           inputMode="numeric"
@@ -358,9 +359,10 @@ export function AtReadingComposer(props: { readonly reading: AtReading }): JSX.E
           error={errorOf("outlay")}
           invalid={invalid("outlay")}
           onFocus={props.reading.settle}
+          compact
         />
         <TextField
-          label="貯メダル（累計）"
+          label="貯メダル"
           value={props.reading.form().replay}
           onChange={(replay) => props.reading.typed({ replay })}
           inputMode="numeric"
@@ -368,16 +370,18 @@ export function AtReadingComposer(props: { readonly reading: AtReading }): JSX.E
           error={errorOf("replay")}
           invalid={invalid("replay")}
           onFocus={props.reading.settle}
+          compact
         />
         <TextField
           label="持ちメダル"
           value={props.reading.form().held}
-          onChange={(held) => props.reading.typed({ held })}
+          onChange={(held) => props.reading.typed({ held, heldCarried: false })}
           inputMode="numeric"
           suffix="枚"
           error={errorOf("held")}
           invalid={invalid("held")}
           onFocus={props.reading.settle}
+          compact
         />
       </div>
       <div>
@@ -396,7 +400,7 @@ function EventTile(props: { readonly label: string; readonly count: number; read
   return (
     <button
       type="button"
-      class="flex min-h-24 select-none flex-col items-center justify-center gap-1 rounded-lg border border-border bg-surface-2 px-2 py-3 transition-colors hover:bg-surface-3 active:bg-surface-0"
+      class="flex min-h-24 select-none flex-col items-center justify-center gap-1 rounded-lg border border-amateur/50 bg-amateur/10 px-2 py-3 shadow-sm transition hover:bg-amateur/20 active:translate-y-px active:bg-amateur/30 active:shadow-none"
       style={{ "-webkit-touch-callout": "none" }}
       onPointerDown={press.onPointerDown}
       onPointerMove={press.onPointerMove}

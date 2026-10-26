@@ -68,6 +68,9 @@ export const NO_BONUSES = (): string | undefined => undefined
 /** The medals the play has drawn from savings so far, where the log says. */
 const replayOf = (ordered: readonly Checkpoint[]): number | undefined => ordered.findLast((checkpoint) => checkpoint.replay !== undefined)?.replay
 
+/** The medals in hand as last counted, where the log counted any. */
+const heldOf = (ordered: readonly Checkpoint[]): number | undefined => ordered.findLast((checkpoint) => checkpoint.held !== undefined)?.held
+
 /** Where the play stands by its log, three to a row: the cash spent, the games played and the day's, the medals drawn from savings, the medals in hand where last counted with what the play had come to there, and each bonus of the day with how often it has come. */
 export function PlayFigures(props: { readonly ordered: readonly Checkpoint[]; readonly terms: PlayTerms | undefined; readonly bonuses: readonly Countable[]; readonly day: { readonly games: number; readonly bonuses: Counts } | undefined }): JSX.Element {
   const outlay = (): number | undefined => props.ordered.findLast((checkpoint) => checkpoint.outlay !== undefined)?.outlay
@@ -179,9 +182,9 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
         void send()
       }}
     >
-      <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div class="grid grid-cols-4 items-end gap-1.5">
         <TextField
-          label="累計ゲーム数"
+          label="累計G"
           value={form().total}
           onChange={(total) => typed({ total })}
           inputMode="numeric"
@@ -189,9 +192,10 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
           error={errorOf("total")}
           invalid={invalid("total")}
           onFocus={nudge.settle}
+          compact
         />
         <TextField
-          label="現金投資（累計）"
+          label="投資"
           value={form().outlay}
           onChange={(outlay) => typed({ outlay })}
           inputMode="numeric"
@@ -199,9 +203,10 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
           error={errorOf("outlay")}
           invalid={invalid("outlay")}
           onFocus={nudge.settle}
+          compact
         />
         <TextField
-          label="貯メダル（累計）"
+          label="貯メダル"
           value={form().replay}
           onChange={(replay) => typed({ replay })}
           inputMode="numeric"
@@ -209,16 +214,18 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
           error={errorOf("replay")}
           invalid={invalid("replay")}
           onFocus={nudge.settle}
+          compact
         />
         <TextField
           label="持ちメダル"
           value={form().held}
-          onChange={(held) => typed({ held })}
+          onChange={(held) => typed({ held, heldCarried: false })}
           inputMode="numeric"
           suffix="枚"
           error={errorOf("held")}
           invalid={invalid("held")}
           onFocus={nudge.settle}
+          compact
         />
       </div>
       <div>
@@ -460,10 +467,10 @@ export function LivePlay(props: {
         >
           {(found) => {
             const day = () => daySeenOf(found(), shownAs())
-            const atReading = createAtReading(() => ({ sinceAt: liveSummary(found()).counterNow, outlay: liveSummary(found()).outlay, replay: replayOf(found()) }), () => triggerWordsOf(weighing()?.formula.normalized), write, board.post)
+            const atReading = createAtReading(() => ({ sinceAt: liveSummary(found()).counterNow, outlay: liveSummary(found()).outlay, replay: replayOf(found()), held: heldOf(found()) }), () => triggerWordsOf(weighing()?.formula.normalized), write, board.post)
             const composers = (): JSX.Element => (
               <Show when={atRules() === undefined} fallback={<AtReadingComposer reading={atReading} />}>
-                <ReadingComposer bonuses={bonuses()} standing={{ total: day()?.games ?? totalNowOf(found()), bonuses: day()?.bonuses ?? {}, outlay: liveSummary(found()).outlay, replay: replayOf(found()) }} write={write} post={board.post} />
+                <ReadingComposer bonuses={bonuses()} standing={{ total: day()?.games ?? totalNowOf(found()), bonuses: day()?.bonuses ?? {}, outlay: liveSummary(found()).outlay, replay: replayOf(found()), held: heldOf(found()) }} write={write} post={board.post} />
               </Show>
             )
             return (

@@ -25,6 +25,7 @@ fn plain() -> NormalizedSpec {
                 balls: 1400,
             },
             next: Target::End,
+            fills: None,
         }],
         states: Vec::new(),
         origins: Vec::new(),

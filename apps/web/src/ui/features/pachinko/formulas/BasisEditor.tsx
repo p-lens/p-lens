@@ -6,7 +6,7 @@ import { Select, type SelectOption } from "../../../primitives/select"
 import { TextField } from "../../../primitives/text-field"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
 import { modeTitle } from "../../../wording/pachinko/formula"
-import { type AllotmentRow, type BasisForm, EMPTY_ROUNDS, EMPTY_ROW, type ModeForm, type ModeKindName, REGULAR, type RoundsRow, freshModeKey, newMode } from "./formula-form"
+import { type AllotmentRow, type BasisForm, type EarlyEndRow, EMPTY_ROUNDS, EMPTY_ROW, type ModeForm, type ModeKindName, REGULAR, type RoundsRow, freshModeKey, newMode } from "./formula-form"
 
 const KINDS: readonly { readonly kind: ModeKindName; readonly label: string }[] = [
   { kind: "rushing", label: "継続率" },
@@ -100,6 +100,46 @@ function AllotmentEditor(props: {
   )
 }
 
+/**
+ * A 時短's early end, a c時短: its chance on each spin, empty where it has
+ * none, and the shares of where play goes then — a shorter 時短 most often.
+ */
+function EarlyEndEditor(props: {
+  readonly mode: ModeForm
+  readonly destinations: readonly SelectOption[]
+  readonly onChange: (change: Pick<ModeForm, "earlyEndChance" | "earlyEndTo">) => void
+}): JSX.Element {
+  const rows = (): readonly EarlyEndRow[] => props.mode.earlyEndTo
+  const setRows = (earlyEndTo: readonly EarlyEndRow[]): void => props.onChange({ earlyEndChance: props.mode.earlyEndChance, earlyEndTo })
+  return (
+    <div class="flex flex-col gap-2">
+      <div class="w-40">
+        <TextField label="c時短の確率 1/" value={props.mode.earlyEndChance} onChange={(earlyEndChance) => props.onChange({ earlyEndChance, earlyEndTo: rows() })} inputMode="decimal" placeholder="なし" />
+      </div>
+      <Index each={rows()}>
+        {(row, index) => (
+          <div class="grid max-w-md grid-cols-[4.5rem_minmax(0,1fr)_2.25rem] items-end gap-1.5 [&>*]:min-w-0">
+            <TextField label="振分" labelHidden={index > 0} value={row().share} onChange={(share) => setRows(replaced(rows(), index, { ...row(), share }))} inputMode="decimal" suffix="%" compact />
+            <Select label="c時短の行き先" labelHidden={index > 0} placeholder="行き先" options={props.destinations} value={row().next} onChange={(next) => setRows(replaced(rows(), index, { ...row(), next }))} />
+            <Show when={rows().length > 1} fallback={<span />}>
+              <Button variant="outline" size="icon" aria-label={`c時短の${index + 1}行目の行き先を削除`} title="この行き先を削除" onClick={() => setRows(rows().filter((_, at) => at !== index))}>
+                <TrashIcon />
+              </Button>
+            </Show>
+          </div>
+        )}
+      </Index>
+      <div>
+        <Button variant="outline" size="small" onClick={() => setRows([...rows(), { share: "", next: REGULAR }])}>
+          <PlusIcon />
+          c時短の行き先
+        </Button>
+      </div>
+      <p class="text-xs text-text-muted">時短中の1回転ごとに、この確率で大当りなしに時短が終わり、行き先へ移ります。終わるまでの回転も遊タイムまでの回転数に数えます。空欄なら c時短はありません。</p>
+    </div>
+  )
+}
+
 function ModeEditor(props: {
   readonly mode: ModeForm
   readonly modes: readonly ModeForm[]
@@ -150,10 +190,12 @@ function ModeEditor(props: {
         </div>
       </Show>
       <Show when={props.mode.kind === "rapid"}>
-        <div class="w-40">
+        <div class="grid max-w-md grid-cols-2 gap-3">
           <TextField label="回転数" value={props.mode.spins} onChange={set("spins")} inputMode="numeric" suffix="回転" />
+          <TextField label="大当り確率 1/" value={props.mode.chance} onChange={set("chance")} inputMode="decimal" />
         </div>
-        <p class="text-xs text-text-muted">大当り確率は通常時と同じです。</p>
+        <p class="text-xs text-text-muted">大当り確率が空欄なら通常時と同じです。一種二種混合機で、時短中は小当りも合わせた確率になる機種は、その確率を入れてください。時短の回転は遊タイムまでの回転数に数えます。</p>
+        <EarlyEndEditor mode={props.mode} destinations={destinations(others(), props.modes)} onChange={(change) => props.onChange({ ...props.mode, ...change })} />
       </Show>
       <Show when={props.mode.kind === "leftover-queue"}>
         <div class="w-40">
@@ -177,7 +219,7 @@ function ModeEditor(props: {
       </div>
       <label class="flex cursor-pointer items-center gap-2 self-start text-sm text-text-primary">
         <input type="checkbox" checked={props.mode.withoutSupport} onChange={(event) => set("withoutSupport")(event.currentTarget.checked)} class="size-5 shrink-0 accent-accent" />
-        電サポなし（潜確など。残保留はいつも電サポなし）
+        電サポなし・ヘソで打つ（CZ・潜確など。回数のあるモードは通常時と同じく玉を使う。残保留はいつも電サポなし）
       </label>
     </section>
   )

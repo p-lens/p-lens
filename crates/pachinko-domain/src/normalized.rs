@@ -37,12 +37,45 @@ pub enum Target {
     End,
 }
 
-/// One way a state can resolve.
+/// One way a state can resolve. A miss fills the relief gauge by its
+/// state's spins; one that says `fills` — a 時短 ended early, so many spins
+/// in — fills it by those instead.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Outcome {
     pub probability: Probability,
     pub reward: Reward,
     pub next: Target,
+    pub fills: Option<u32>,
+}
+
+impl Outcome {
+    /// The spins this outcome fills the relief gauge by, where it is a miss
+    /// out of `state`: its own where it says, the state's otherwise.
+    pub fn filling(&self, state: &State) -> u32 {
+        self.fills.unwrap_or(state.fills_gauge)
+    }
+}
+
+/// Spins a state plays at the heso, off the 電サポ, until a jackpot or
+/// `spins` of them: a CZ or a 潜確 counted out, shot as the regular game is
+/// and costing balls as its spins do.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PaidSpins {
+    pub spins: u32,
+    pub chance: Probability,
+}
+
+impl PaidSpins {
+    /// The spins played on average before a jackpot ends them or they run
+    /// out: one for each spin reached, `(1 - (1 - p)^n) / p`.
+    pub fn expected(self) -> f64 {
+        let p = self.chance.value();
+        if p <= 0.0 {
+            f64::from(self.spins)
+        } else {
+            (1.0 - self.chance.complement().value().powf(f64::from(self.spins))) / p
+        }
+    }
 }
 
 /// A state of the combo that follows a first jackpot. It knows only its
@@ -57,6 +90,10 @@ pub struct State {
     /// Whether the state is played on the 電サポ, so that the balls its
     /// jackpots gain are touched by a formula's support gain.
     pub supported: bool,
+    /// The spins it plays at the heso, costing balls as the regular game's
+    /// do: a mode played off the 電サポ whose spins run out. None for every
+    /// other state, whose spins cost nothing.
+    pub paid: Option<PaidSpins>,
 }
 
 /// Which mode of the spec a state came from, and the combo it stands at in

@@ -53,7 +53,8 @@ fn check_entities(spec: &Spec) -> Result<BTreeSet<&ModeId>, SpecError> {
                 .without_support
                 .iter()
                 .map(|entity| (entity, Component::WithoutSupport)),
-        );
+        )
+        .chain(keyed(&components.early_end, Component::EarlyEnd));
     named
         .into_iter()
         .find(|(entity, _)| !known.contains(entity))
@@ -134,6 +135,9 @@ pub fn regular_play(spec: &Spec) -> Result<RegularPlay, SpecError> {
     if components.without_support.contains(entity) {
         return Err(stray(entity, Component::WithoutSupport));
     }
+    if components.early_end.contains_key(entity) {
+        return Err(stray(entity, Component::EarlyEnd));
+    }
     let game = components
         .regular_game
         .get(entity)
@@ -150,9 +154,10 @@ pub fn regular_play(spec: &Spec) -> Result<RegularPlay, SpecError> {
     })
 }
 
-/// How the mode on `entity` ends, from its one kind component. A 時短 and a
-/// leftover queue play at `regular`, the regular game's chance, and so fill
-/// the relief gauge; an ST plays at its own and does not.
+/// How the mode on `entity` ends, from its one kind component. A 時短 plays
+/// at `regular`, the regular game's chance, or its own where it says one, and
+/// a leftover queue at `regular`; both fill the relief gauge. An ST plays at
+/// its own and does not.
 fn kind_of(
     spec: &Spec,
     entity: &ModeId,
@@ -183,7 +188,7 @@ fn kind_of(
             .get(entity)
             .map(|rapid| ModeKind::Runout {
                 spins: rapid.spins,
-                chance: regular,
+                chance: rapid.chance.unwrap_or(regular),
                 fills_gauge: true,
             })
             .ok_or_else(missing),
@@ -216,6 +221,9 @@ fn mode_of(spec: &Spec, entity: &ModeId, regular: ProbabilitySource) -> Result<M
     if components.relief_drive.contains_key(entity) {
         return Err(stray(entity, Component::ReliefDrive));
     }
+    if components.early_end.contains_key(entity) && !components.rapid.contains_key(entity) {
+        return Err(stray(entity, Component::EarlyEnd));
+    }
     Ok(Mode {
         id: entity.clone(),
         label: components
@@ -237,6 +245,9 @@ fn mode_of(spec: &Spec, entity: &ModeId, regular: ProbabilitySource) -> Result<M
         lucky_trigger: components.lucky_trigger.get(entity).cloned(),
         supported: !components.without_support.contains(entity)
             && !components.leftover_queue.contains_key(entity),
+        at_heso: components.without_support.contains(entity)
+            && !components.leftover_queue.contains_key(entity),
+        early_end: components.early_end.get(entity).cloned(),
     })
 }
 

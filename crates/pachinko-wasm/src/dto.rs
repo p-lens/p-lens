@@ -75,11 +75,28 @@ pub struct SpecialTimeDto {
     pub chance: ProbabilityDto,
 }
 
-/// A 時短: so many spins at the regular game's chance.
+/// A 時短 ended early, a c時短: on each spin at `chance`, without a jackpot, to where its shares say.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct EarlyEndDto {
+    pub chance: ProbabilityDto,
+    pub to: Vec<EarlyEndShareDto>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct EarlyEndShareDto {
+    pub share_basis_points: u32,
+    pub next: NextDto,
+}
+
+/// A 時短: so many spins at the regular game's chance, or its own where it says one.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RapidDto {
     pub spins: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chance: Option<ProbabilityDto>,
 }
 
 /// 残保留: the draws still queued, at the regular game's chance.
@@ -163,6 +180,8 @@ pub struct ComponentsDto {
     pub relief_drive: BTreeMap<String, ReliefDriveDto>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub without_support: Vec<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub early_end: BTreeMap<String, EarlyEndDto>,
     #[serde(flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub unsupported: BTreeMap<String, serde_json::Value>,
 }
@@ -192,6 +211,10 @@ pub struct OutcomeDto {
     /// pay on their own reads as it always did.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub balls: Option<u32>,
+    /// The spins a miss fills the relief gauge by, said only where they are
+    /// its own — a 時短 ended early — and not its state's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fills: Option<u32>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -207,6 +230,19 @@ pub struct StateDto {
     /// changes.
     #[serde(default, skip_serializing_if = "is_false")]
     pub without_support: bool,
+    /// The spins the state plays at the heso, paid for as regular spins;
+    /// left out for every other state, so a spec normalised before reads as
+    /// paying for none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paid_spins: Option<PaidSpinsDto>,
+}
+
+/// Spins played at the heso until a jackpot or the last of them, at this chance.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PaidSpinsDto {
+    pub spins: u32,
+    pub chance: f64,
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref)]
@@ -307,6 +343,7 @@ pub struct DerivationDto {
     pub average_rounds: f64,
     pub average_combo: f64,
     pub average_balls: f64,
+    pub average_paid_spins: f64,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -319,6 +356,7 @@ pub struct AnalysisDto {
     pub balls_per_round: f64,
     pub average_payout: f64,
     pub payout_scale: f64,
+    pub average_paid_spins: f64,
     pub total_chance_one_in: f64,
     pub round_chance_one_in: f64,
     pub mode_entry: Vec<ModeEntryDto>,
@@ -338,6 +376,7 @@ pub struct ReliefDriveFiguresDto {
     pub rounds_after: f64,
     pub combo_after: f64,
     pub balls_after: f64,
+    pub paid_spins_after: f64,
     pub restarts: Vec<RestartDto>,
     pub endings: Vec<EndingDto>,
 }
@@ -379,6 +418,7 @@ pub struct RestartDto {
     pub rounds: f64,
     pub hits: f64,
     pub balls: f64,
+    pub paid_spins: f64,
 }
 
 /// 遊タイム狙い sampled: sittings from initial spins, each played until a first jackpot

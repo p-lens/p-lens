@@ -1,5 +1,5 @@
 import { MACHINE_BONUSES } from "@p-lens/contracts"
-import type { AllotmentDto, NextDto, ConditionsDto, OtherRoundsDto, SpecDto, ProbabilityDto, ReliefDriveDto } from "@p-lens/contracts/pachinko"
+import type { AllotmentDto, EarlyEndDto, NextDto, ConditionsDto, OtherRoundsDto, SpecDto, ProbabilityDto, ReliefDriveDto } from "@p-lens/contracts/pachinko"
 
 import type { Figures } from "../../../../core/pachinko/figures"
 import { assembleWorld, modesOf, regularOf, type ModeKind, type ModeView } from "../../../../core/pachinko/world"
@@ -153,7 +153,19 @@ export interface ModeForm {
   readonly triggerTo: string
   /** Whether the mode is played without the 電サポ, a 潜確 at the heso: the support gain leaves its jackpots alone. */
   readonly withoutSupport: boolean
+  /** A 時短's early end, a c時短: its chance on each spin as 1/x, empty where it has none, and where play goes then. */
+  readonly earlyEndChance: string
+  readonly earlyEndTo: readonly EarlyEndRow[]
 }
+
+/** One share of where a 時短 ended early goes, as text: its share in percent and where. */
+export interface EarlyEndRow {
+  readonly share: string
+  readonly next: string
+}
+
+/** Where a 時短 ended early goes until said otherwise: all of it back to the regular game. */
+export const EARLY_END_ROW: EarlyEndRow = { share: "100", next: REGULAR }
 
 /** A 期待値基礎値 being entered: the spec, and what a round really yields. */
 export interface BasisForm {
@@ -185,6 +197,8 @@ export const newMode = (key: string, label: string): ModeForm => ({
   triggerCombo: "",
   triggerTo: "",
   withoutSupport: false,
+  earlyEndChance: "",
+  earlyEndTo: [EARLY_END_ROW],
 })
 
 /** A starting point most specs are a few edits away from: a first jackpot, half into a RUSH. */
@@ -271,7 +285,10 @@ const kindOf = (mode: ModeForm): Read<ModeKind> => {
     }
     case "rapid": {
       const spins = countOf(mode.spins, `${mode.label}の回転数`)
-      return spins.ok ? Ok({ type: "rapid", spins: spins.value }) : spins
+      if (!spins.ok) return spins
+      if (mode.chance.trim() === "") return Ok({ type: "rapid", spins: spins.value, chance: undefined })
+      const chance = ratioOf(mode.chance, `${mode.label}の確率`)
+      return chance.ok ? Ok({ type: "rapid", spins: spins.value, chance: chance.value }) : chance
     }
     case "leftover-queue": {
       const draws = countOf(mode.draws, `${mode.label}の残保留の数`)
@@ -286,13 +303,24 @@ const kindOf = (mode: ModeForm): Read<ModeKind> => {
   }
 }
 
+/** A 時短's early end as typed: none where its chance is left empty or the mode is no 時短; otherwise its chance and every share of where it goes. */
+const earlyEndOf = (mode: ModeForm): Result<EarlyEndDto | undefined, readonly FormProblem[]> => {
+  if (mode.kind !== "rapid" || tidyTyped(mode.earlyEndChance) === "") return Ok(undefined)
+  const chance = ratioOf(mode.earlyEndChance, `${mode.label}のc時短の確率`)
+  const shares = mode.earlyEndTo.map((row, index) => percentOf(row.share, `${mode.label}のc時短 ${index + 1}行目の振分`))
+  const problems = problemsOf([chance, ...shares])
+  if (!chance.ok || problems.length > 0) return Err(problems)
+  return Ok({ chance: chance.value, to: mode.earlyEndTo.flatMap((row, index) => ((share) => (share?.ok === true ? [{ shareBasisPoints: share.value, next: nextOf(row.next) }] : []))(shares[index])) })
+}
+
 const modeOf = (mode: ModeForm): Result<ModeView, readonly FormProblem[]> => {
   const kind = kindOf(mode)
+  const earlyEnd = earlyEndOf(mode)
   const allotment = allotmentOf(mode.allotment, mode.label)
   const triggerCombo = mode.triggerTo === "" ? Ok(undefined) : countOf(mode.triggerCombo, `${mode.label}のラッキートリガーの連数`)
   const label: Read<string> = mode.label.trim() === "" ? Err({ field: "モード名", reason: "required" }) : Ok(mode.label.trim())
-  const problems = [...problemsOf([kind, triggerCombo, label]), ...(allotment.ok ? [] : allotment.error)]
-  if (!kind.ok || !allotment.ok || !triggerCombo.ok || !label.ok) return Err(problems)
+  const problems = [...problemsOf([kind, triggerCombo, label]), ...(allotment.ok ? [] : allotment.error), ...(earlyEnd.ok ? [] : earlyEnd.error)]
+  if (!kind.ok || !allotment.ok || !triggerCombo.ok || !label.ok || !earlyEnd.ok) return Err(problems)
   return Ok({
     id: mode.key,
     label: label.value,
@@ -301,6 +329,7 @@ const modeOf = (mode: ModeForm): Result<ModeView, readonly FormProblem[]> => {
     onMiss: nextOf(mode.onMiss),
     luckyTrigger: triggerCombo.value === undefined ? undefined : { atCombo: triggerCombo.value, to: mode.triggerTo },
     withoutSupport: mode.withoutSupport,
+    earlyEnd: earlyEnd.value,
   })
 }
 
@@ -384,7 +413,7 @@ export const basisFormOf = (spec: SpecDto, conditions: ConditionsDto, spinsPerHo
       label: mode.label,
       kind: mode.kind.type,
       spins: mode.kind.type === "special-time" || mode.kind.type === "rapid" ? String(mode.kind.spins) : "",
-      chance: mode.kind.type === "special-time" ? probabilityText(mode.kind.chance) : "",
+      chance: ((own) => (own === undefined ? "" : probabilityText(own)))(mode.kind.type === "special-time" || mode.kind.type === "rapid" ? mode.kind.chance : undefined),
       draws: mode.kind.type === "leftover-queue" ? String(mode.kind.draws) : "",
       continuationRate: mode.kind.type === "rushing" ? probabilityText(mode.kind.continuationRate) : "",
       allotment: rowsOf(mode.allotment),
@@ -392,6 +421,8 @@ export const basisFormOf = (spec: SpecDto, conditions: ConditionsDto, spinsPerHo
       triggerCombo: mode.luckyTrigger === undefined ? "" : String(mode.luckyTrigger.atCombo),
       triggerTo: mode.luckyTrigger?.to ?? "",
       withoutSupport: mode.withoutSupport,
+      earlyEndChance: mode.earlyEnd === undefined ? "" : probabilityText(mode.earlyEnd.chance),
+      earlyEndTo: mode.earlyEnd === undefined ? [EARLY_END_ROW] : mode.earlyEnd.to.map((share) => ({ share: hundredthsText(share.shareBasisPoints), next: share.next.type === "regular" ? REGULAR : share.next.mode })),
     })),
     reliefDriveGauge: regular?.reliefDrive === undefined ? "" : String(regular.reliefDrive.gauge),
     reliefDriveTo: regular?.reliefDrive?.to ?? "",

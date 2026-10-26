@@ -91,14 +91,15 @@ impl Tally {
 /// The normal quantile for a two-sided 95% interval.
 const Z_95: f64 = 1.959_964;
 
-/// One cycle from where regular play stands: spins until the first jackpot or
-/// the 遊タイム, the combo after, and where regular play stands then.
+/// One cycle from where regular play stands: the spins paid for — until the
+/// first jackpot or the 遊タイム, and those the combo after plays at the
+/// heso — its rounds, and where regular play stands then.
 fn sample_cycle(spec: &NormalizedSpec, gauge: ReliefGauge, rng: Rng) -> (Cycle, ReliefGauge, Rng) {
     let (wait, rng) = wait_from(spec, gauge, rng);
     let (combo, rng) = combo_following(spec, wait.end, rng);
     (
         Cycle {
-            spins: wait.spins,
+            spins: wait.spins + combo.paid_spins,
             rounds: combo.rounds,
             truncated: combo.truncated,
         },

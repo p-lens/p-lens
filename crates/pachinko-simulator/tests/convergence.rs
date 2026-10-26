@@ -10,7 +10,7 @@ use pachinko_domain::probability::{BasisPoints, Denominator, ProbabilitySource};
 use pachinko_domain::quantity::{PayoutRule, RoundCount, SpinCount};
 use pachinko_domain::spec::{
     Allotment, Components, ModeId, Next, Rapid, RegularGame, RegularPlay, ReliefDrive, Resources,
-    Rushing, Spec,
+    Rushing, Spec, SpecialTime,
 };
 use pachinko_engine::analysis::analyze;
 use pachinko_engine::hyena_hunt::hyena_hunt;
@@ -31,6 +31,7 @@ fn nonzero(value: u32) -> NonZeroU32 {
 enum Kind {
     Rapid(Rapid),
     Rushing(Rushing),
+    SpecialTime(SpecialTime),
 }
 
 /// A mode as these tests write it, before it is spawned as an entity.
@@ -75,6 +76,9 @@ fn world(regular: &RegularPlay, modes: &[TestMode]) -> Spec {
             }
             Kind::Rushing(rushing) => {
                 components.rushing.insert(mode.id.clone(), rushing);
+            }
+            Kind::SpecialTime(special) => {
+                components.special_time.insert(mode.id.clone(), special);
             }
         }
     }
@@ -317,6 +321,7 @@ fn with_relief_drive() -> NormalizedSpec {
                 label: "遊タイム".to_owned(),
                 kind: Kind::Rapid(Rapid {
                     spins: SpinCount::new(nonzero(50)),
+                    chance: None,
                 }),
                 allotment: vec![allot(5000, Next::Regular), allot(5000, Next::Mode(rush()))],
                 on_miss: Next::Regular,
@@ -427,6 +432,7 @@ fn hard_relief_drive() -> NormalizedSpec {
         label: name.to_owned(),
         kind: Kind::Rapid(Rapid {
             spins: SpinCount::new(nonzero(spins)),
+            chance: None,
         }),
         allotment: vec![
             allot(5000, Next::Regular),
@@ -501,5 +507,58 @@ fn a_support_gain_takes_the_mean_result_where_the_engine_does() {
     assert!(
         (mean - expected).abs() < 5.0 * standard_error,
         "mean {mean}, expected {expected}, se {standard_error}"
+    );
+}
+
+/// 1/100 to a 10R into a CZ of twenty spins at 1/50 shot at the heso, a
+/// jackpot there 10R and back to the regular game.
+fn with_a_cz() -> NormalizedSpec {
+    let cz = ModeId::new("CZ").expect("a name");
+    let mut spec = world(
+        &RegularPlay {
+            chance: ProbabilitySource::Ratio {
+                numerator: 1,
+                denominator: Denominator::from_hundredths(nonzero(10_000)),
+            },
+            allotment: vec![allot(10_000, Next::Mode(cz.clone()))],
+            relief_drive: None,
+        },
+        &[TestMode {
+            id: cz.clone(),
+            label: "CZ".to_owned(),
+            kind: Kind::SpecialTime(SpecialTime {
+                spins: SpinCount::new(nonzero(20)),
+                chance: ProbabilitySource::Ratio {
+                    numerator: 1,
+                    denominator: Denominator::from_hundredths(nonzero(5_000)),
+                },
+            }),
+            allotment: vec![allot(10_000, Next::Regular)],
+            on_miss: Next::Regular,
+        }],
+    );
+    spec.components.without_support.insert(cz);
+    normalize(&spec).expect("the machine with a CZ normalises")
+}
+
+#[test]
+fn the_spins_a_cz_plays_at_the_heso_are_paid_for_as_the_exact_engine_pays_for_them() {
+    let spec = with_a_cz();
+    let exact = analyze(
+        &spec,
+        &CalculationConditions {
+            round_payout: RoundPayout::FromSpec,
+            support_gain: SupportGain::NONE,
+        },
+    )
+    .expect("solves")
+    .round_chance
+    .value();
+    let tally = estimate(&spec, 200_000, 2026, 10_000).tally;
+    let one_in = tally.round_chance_one_in().expect("rounds were won");
+    let margin = tally.round_chance_margin().expect("a margin");
+    assert!(
+        (one_in - exact).abs() <= 2.0 * margin,
+        "{one_in} ± {margin} against {exact}"
     );
 }

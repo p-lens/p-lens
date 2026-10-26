@@ -17,11 +17,14 @@ impl SpecVersion {
 
 /// The shape of a normalised spec. A stored spec says which shape it is in,
 /// so a later engine reads it as it was meant rather than as it now would be.
+/// 3: a state may say the spins it plays at the heso, and a miss the spins
+///    it fills the relief gauge by — a 時短 ended early — which an engine
+///    reading 2 would pass over.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct SchemaVersion(u32);
 
 impl SchemaVersion {
-    pub const CURRENT: Self = Self(2);
+    pub const CURRENT: Self = Self(3);
 
     pub fn new(version: u32) -> Self {
         Self(version)
