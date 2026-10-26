@@ -37,14 +37,14 @@ describe("a bonus counted as it ended", () => {
   })
 
   test("leaves the spin performance as it would be had the bonus paid what it was told to, whatever it paid", () => {
-    const told = measuredSpinPerformance(countedAt(1400), TERMS)
-    expect(measuredSpinPerformance(countedAt(1500), TERMS)).toBeCloseTo(told ?? 0, 10)
-    expect(measuredSpinPerformance(countedAt(1300), TERMS)).toBeCloseTo(told ?? 0, 10)
+    const told = measuredSpinPerformance(countedAt(1400), TERMS, undefined)
+    expect(measuredSpinPerformance(countedAt(1500), TERMS, undefined)).toBeCloseTo(told ?? 0, 10)
+    expect(measuredSpinPerformance(countedAt(1300), TERMS, undefined)).toBeCloseTo(told ?? 0, 10)
   })
 
   test("lowers the border by what an over-entry paid beyond what was told, and raises it by what a slack attacker lost", () => {
     const figures = { payoutPerRound: 140, roundChanceOneIn: 32 } as never
-    const borderAt = (afterBonus: number): number => playTheoreticalValue(figures, TERMS, consumptionOf(countedAt(afterBonus), TERMS))?.border ?? 0
+    const borderAt = (afterBonus: number): number => playTheoreticalValue(figures, TERMS, consumptionOf(countedAt(afterBonus), TERMS, undefined))?.border ?? 0
     expect(payoutRatioOf(countedAt(1540))).toBeCloseTo(1.1, 10)
     expect(borderAt(1540)).toBeCloseTo(borderAt(1400) / 1.1, 10)
     expect(borderAt(1260)).toBeGreaterThan(borderAt(1400))
@@ -65,7 +65,7 @@ describe("a bonus said to have paid beyond its machine's", () => {
   })
 
   test("leaves the spin performance as it would be had the bonus paid what was said, and lowers the border by it", () => {
-    expect(measuredSpinPerformance(saidAt(40, 880), TERMS)).toBeCloseTo(measuredSpinPerformance(saidAt(undefined, 840), TERMS) ?? 0, 10)
+    expect(measuredSpinPerformance(saidAt(40, 880), TERMS, undefined)).toBeCloseTo(measuredSpinPerformance(saidAt(undefined, 840), TERMS, undefined) ?? 0, 10)
     expect(payoutRatioOf(saidAt(140, 900))).toBeCloseTo(1.1, 10)
     expect(payoutRatioOf(saidAt(undefined, 900))).toBeUndefined()
   })
@@ -73,15 +73,15 @@ describe("a bonus said to have paid beyond its machine's", () => {
   test("gives way to what a bonus counted as it ended paid", () => {
     const counted: readonly Checkpoint[] = [...countedAt(1540).slice(0, 1), { ...(countedAt(1540)[1] as Checkpoint), event: { kind: "jackpot", bonus: { ...BONUS, over: 400 } } }, ...countedAt(1540).slice(2)]
     expect(payoutRatioOf(counted)).toBeCloseTo(1.1, 10)
-    expect(measuredSpinPerformance(counted, TERMS)).toBeCloseTo(measuredSpinPerformance(countedAt(1400), TERMS) ?? 0, 10)
+    expect(measuredSpinPerformance(counted, TERMS, undefined)).toBeCloseTo(measuredSpinPerformance(countedAt(1400), TERMS, undefined) ?? 0, 10)
   })
 
   test("lowers the border by the usual over-entry until a bonus says, then by what the bonuses said", () => {
     const figures = { payoutPerRound: 140, roundChanceOneIn: 32 } as never
     const before: readonly Checkpoint[] = [{ spins: 0, outlay: 0, held: 0 }, { spins: 100, outlay: 5000 }]
-    const told = playTheoreticalValue(figures, TERMS, consumptionOf(before, TERMS))?.border ?? 0
-    expect(playTheoreticalValue(figures, TERMS, consumptionOf(before, TERMS), 14)?.border).toBeCloseTo(told / 1.1, 10)
-    expect(playTheoreticalValue(figures, TERMS, consumptionOf(saidAt(280, 900 + 280), TERMS), 14)?.border).toBeCloseTo((playTheoreticalValue(figures, TERMS, consumptionOf(saidAt(undefined, 900), TERMS))?.border ?? 0) / 1.2, 10)
+    const told = playTheoreticalValue(figures, TERMS, consumptionOf(before, TERMS, undefined))?.border ?? 0
+    expect(playTheoreticalValue(figures, TERMS, consumptionOf(before, TERMS, undefined), 14)?.border).toBeCloseTo(told / 1.1, 10)
+    expect(playTheoreticalValue(figures, TERMS, consumptionOf(saidAt(280, 900 + 280), TERMS, undefined), 14)?.border).toBeCloseTo((playTheoreticalValue(figures, TERMS, consumptionOf(saidAt(undefined, 900), TERMS, undefined))?.border ?? 0) / 1.2, 10)
   })
 
   test("is kept in the log as it was said, and a nought or a fraction is refused", () => {

@@ -166,7 +166,7 @@ export function LivePlay(props: {
           {(checkpoints) => {
             const summary = liveSummary(checkpoints, jackpotCountingOf(props.draft))
             const terms = props.draft.venue.terms
-            const consumption = terms === undefined ? undefined : consumptionOf(checkpoints, terms)
+            const consumption = terms === undefined ? undefined : consumptionOf(checkpoints, terms, props.draft.pachinko?.supportGain)
             const measured = consumption?.measured
             return (
               <div class="flex flex-1 flex-col">
@@ -213,7 +213,7 @@ export function LivePlay(props: {
                       </Show>
                     )}
                   />
-                  <Timeline checkpoints={checkpoints} terms={terms} revising={revised()} onRevise={(pressed) => (samePressed(pressed, revised()) ? done() : setWork(pressed))} onMerge={(span) => merge(checkpoints, span)} />
+                  <Timeline checkpoints={checkpoints} terms={terms} supportGain={props.draft.pachinko?.supportGain} revising={revised()} onRevise={(pressed) => (samePressed(pressed, revised()) ? done() : setWork(pressed))} onMerge={(span) => merge(checkpoints, span)} />
                 </div>
                 <div class="sticky bottom-0">
                   <Show

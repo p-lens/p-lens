@@ -97,7 +97,7 @@ describe("a pachinko reading made of several, set right", () => {
 
   test("keeps where it knew the hand inside it, so it is measured and told as before", () => {
     const kept = resaved((form) => form)
-    expect(consumptionOf(kept, TERMS).measured).toEqual(consumptionOf(merged, TERMS).measured)
+    expect(consumptionOf(kept, TERMS, undefined).measured).toEqual(consumptionOf(merged, TERMS, undefined).measured)
     expect(standingBefore(kept, 1).held).toBe(120)
   })
 

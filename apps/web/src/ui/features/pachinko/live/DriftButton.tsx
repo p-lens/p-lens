@@ -14,7 +14,9 @@ import type { Drift } from "./reading-form"
  * the field's name are in the text's own colour while it says the balls
  * went down, and in the nerdpro colour once it is turned to a gain: balls
  * won on the 電サポ by one's own hand, the hardest of play. Turned so, it
- * buzzes as a held spin turning purple does, where the device can.
+ * buzzes as a held spin turning purple does, where the device can. Left
+ * empty it was not counted, and the formula's 電サポ中の出玉増減 stands; a
+ * nought typed is a count of none.
  */
 export function DriftButton(props: {
   readonly drift: Drift
@@ -42,7 +44,7 @@ export function DriftButton(props: {
         {sign()}
       </button>
       <div class="min-w-0 flex-1">
-        <TextField label="電サポ増減" {...(gained() ? { tone: "nerdpro" as const } : {})} value={props.supported} onChange={props.onSupported} inputMode="numeric" suffix="玉" invalid={props.invalid} onFocus={props.onFocus} compact />
+        <TextField label="電サポ増減" {...(gained() ? { tone: "nerdpro" as const } : {})} value={props.supported} onChange={props.onSupported} inputMode="numeric" suffix="玉" placeholder="未計測" invalid={props.invalid} onFocus={props.onFocus} compact />
       </div>
     </DetailButton>
   )

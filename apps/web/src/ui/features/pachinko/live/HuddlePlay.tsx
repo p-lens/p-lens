@@ -30,14 +30,14 @@ export function HuddlePlay(props: { readonly play: Extract<Play, { readonly game
               summary={liveSummary(checkpoints, props.play.jackpotCounting ?? "per-jackpot")}
               replayed={standingBefore(checkpoints, takenOf(checkpoints).length).replay}
               minutesPlayed={minutesPlayedOf(props.play.startedAt, checkpoints)}
-              consumption={terms === undefined ? undefined : consumptionOf(checkpoints, terms)}
+              consumption={terms === undefined ? undefined : consumptionOf(checkpoints, terms, props.play.pachinko?.supportGain)}
               formula={props.play.pachinko}
               overEntry={props.play.overEntry}
               terms={terms}
               folded={false}
               beside={() => undefined}
             />
-            <Timeline checkpoints={checkpoints} terms={terms} revising={undefined} onRevise={undefined} onMerge={undefined} />
+            <Timeline checkpoints={checkpoints} terms={terms} supportGain={props.play.pachinko?.supportGain} revising={undefined} onRevise={undefined} onMerge={undefined} />
           </div>
         )
       }}

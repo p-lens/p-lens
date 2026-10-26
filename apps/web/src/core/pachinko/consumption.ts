@@ -25,6 +25,14 @@ export interface Consumption {
   readonly regularSpins: number
   readonly measured: Measured | undefined
   readonly payoutRatio: number | undefined
+  /**
+   * What the play's bonuses came to with the 電サポ's drift the person
+   * counted, over what the formula looks for them to come to — its
+   * 電サポ中の出玉増減 on those won on the 電サポ: a round pays as much more,
+   * or less. None where no drift was counted, the formula's own then
+   * standing; one where it came as the formula said.
+   */
+  readonly supportRatio: number | undefined
 }
 
 /** A play at one line: its running totals, and what the line says of the balls in hand. */
@@ -48,6 +56,24 @@ export const rentedForThousand = (terms: PlayTerms): number => rentedBallsOf(100
 const isRegular = (checkpoint: Checkpoint): boolean => checkpoint.phase === undefined || checkpoint.phase === "regular"
 
 const bonusGainOf = (checkpoint: Checkpoint): number => (checkpoint.event?.kind === "jackpot" && checkpoint.event.bonus !== undefined ? gainOf(checkpoint.event.bonus) : 0)
+
+/** Whether a jackpot's line was won on the 電サポ: in a 確変 or 時短, not in regular games. */
+const wonOnSupport = (checkpoint: Checkpoint): boolean => checkpoint.event?.kind === "jackpot" && !isRegular(checkpoint)
+
+/** Whether the person counted what the balls in hand gained or lost on the 電サポ anywhere in the play, though it came to none: a line says the 電サポ's total only where it was counted or is not none. */
+const driftCounted = (ordered: readonly Checkpoint[]): boolean => ordered.some((checkpoint) => checkpoint.support !== undefined)
+
+/** A formula's 電サポ中の出玉増減, in basis points, as the factor a jackpot won on the 電サポ pays by. */
+const supportFactorOf = (supportGain: number | undefined): number => 1 + (supportGain ?? 0) / 10_000
+
+/**
+ * What a jackpot's bonus brought to hand as the play's measuring takes it:
+ * what it paid, and — one won on the 電サポ, where the person counted no
+ * drift — that changed by the formula's 電サポ中の出玉増減, so that the balls
+ * lost or gained on the 電サポ, already in the hand counted, are the
+ * 電サポ's and never the regular games'.
+ */
+const broughtOf = (checkpoint: Checkpoint, factor: number): number => bonusGainOf(checkpoint) * (wonOnSupport(checkpoint) ? factor : 1)
 
 /** A jackpot whose bonus the log does not say: what it paid is unknown, so the balls cannot be followed past it. */
 const isUntold = (checkpoint: Checkpoint): boolean => checkpoint.event?.kind === "jackpot" && checkpoint.event.bonus === undefined
@@ -76,13 +102,14 @@ interface Stood {
  * what was counted: what it paid beyond what was said came to hand at the
  * count, so an over-entry is never taken for regular games costing less.
  */
-const standingsOf = (ordered: readonly Checkpoint[], terms: PlayTerms): readonly Stood[] => {
+const standingsOf = (ordered: readonly Checkpoint[], terms: PlayTerms, supportGain: number | undefined): readonly Stood[] => {
   const differences = payoutDifferencesOf(ordered)
+  const factor = driftCounted(ordered) ? 1 : supportFactorOf(supportGain)
   return ordered.reduce<{ readonly stood: readonly Stood[]; readonly before: Standing; readonly spins: number; readonly bonuses: number }>(
     (walked, checkpoint, line) => {
       const rentedBalls = checkpoint.outlay === undefined ? walked.before.rentedBalls : rentedBallsOf(checkpoint.outlay, terms)
       const replayedBalls = checkpoint.replay ?? walked.before.replayedBalls
-      const bonuses = walked.bonuses + bonusGainOf(checkpoint) + (differences.get(line) ?? 0)
+      const bonuses = walked.bonuses + broughtOf(checkpoint, factor) + (differences.get(line) ?? 0)
       const regularSince = (spins: number): number => walked.before.regularSpins + (isRegular(checkpoint) ? spins - walked.spins : 0)
       const hands = (checkpoint.handsBefore ?? []).map(
         (hand): Known => ({
@@ -134,9 +161,9 @@ const knownOf = (stood: readonly Stood[], untold: number): readonly Known[] => [
   ...(untold === -1 ? stood : stood.slice(0, untold + 1)).flatMap((each, index) => [...each.hands, ...(index !== untold && isKnown(each.standing) ? [each.standing] : [])]),
 ]
 
-const walkedOf = (ordered: readonly Checkpoint[], terms: PlayTerms): Walked => {
+const walkedOf = (ordered: readonly Checkpoint[], terms: PlayTerms, supportGain: number | undefined): Walked => {
   const untold = ordered.findIndex(isUntold)
-  const stood = standingsOf(ordered, terms)
+  const stood = standingsOf(ordered, terms, supportGain)
   const known = knownOf(stood, untold)
   const from = known.findLast((standing) => standing.regularSpins === 0) ?? { ...START, held: 0 }
   return { last: stood.at(-1)?.standing, from, to: known.at(-1) ?? from, pastUntold: untold !== -1 }
@@ -156,12 +183,30 @@ const measuredOf = (walked: Walked): Measured | undefined => {
  * — or the last line before any regular game was played, where the first
  * balls were bought — and the last line that knows what is in hand, over
  * the regular games between them: 確変 and 時短 are not bought with balls,
- * and what they gain or lose is the 電サポ's. Nothing is measured past a
+ * and what they gain or lose is the 電サポ's — as counted where the person
+ * counted it, and otherwise as the formula's 電サポ中の出玉増減 says
+ * (`broughtOf`), so that a hand counted after a 電サポ that lost balls never
+ * shows as regular games costing more. Nothing is measured past a
  * jackpot whose bonus the log does not say.
  */
-export const consumptionOf = (ordered: readonly Checkpoint[], terms: PlayTerms): Consumption => {
-  const walked = walkedOf(ordered, terms)
-  return { regularSpins: walked.last?.regularSpins ?? 0, measured: measuredOf(walked), payoutRatio: payoutRatioOf(ordered) }
+export const consumptionOf = (ordered: readonly Checkpoint[], terms: PlayTerms, supportGain: number | undefined): Consumption => {
+  const walked = walkedOf(ordered, terms, supportGain)
+  return { regularSpins: walked.last?.regularSpins ?? 0, measured: measuredOf(walked), payoutRatio: payoutRatioOf(ordered), supportRatio: supportRatioOf(ordered, supportGain) }
+}
+
+/**
+ * What the play's bonuses came to with the 電サポ's drift counted, over what
+ * the formula looks for: every bonus at what it paid, the drift on top of
+ * them, against the same bonuses with those won on the 電サポ changed by
+ * the formula's 電サポ中の出玉増減. None where no drift was counted, or no
+ * bonus said what it paid.
+ */
+const supportRatioOf = (ordered: readonly Checkpoint[], supportGain: number | undefined): number | undefined => {
+  if (!driftCounted(ordered)) return undefined
+  const paid = ordered.reduce((sum, checkpoint) => sum + bonusGainOf(checkpoint), 0)
+  const looked = ordered.reduce((sum, checkpoint) => sum + broughtOf(checkpoint, supportFactorOf(supportGain)), 0)
+  const drift = ordered.findLast((checkpoint) => checkpoint.support !== undefined)?.support ?? 0
+  return looked > 0 ? (paid + drift) / looked : undefined
 }
 
 /**
@@ -173,8 +218,8 @@ export const consumptionOf = (ordered: readonly Checkpoint[], terms: PlayTerms):
 export const spinPerformanceOf = (measured: Measured, terms: PlayTerms): number => (measured.spins / measured.balls) * rentedForThousand(terms)
 
 /** The spin performance a play's log measured, as its live screen shows it: none until there is a stretch to measure. */
-export const measuredSpinPerformance = (ordered: readonly Checkpoint[], terms: PlayTerms): number | undefined =>
-  ((measured) => (measured === undefined ? undefined : spinPerformanceOf(measured, terms)))(consumptionOf(ordered, terms).measured)
+export const measuredSpinPerformance = (ordered: readonly Checkpoint[], terms: PlayTerms, supportGain: number | undefined): number | undefined =>
+  ((measured) => (measured === undefined ? undefined : spinPerformanceOf(measured, terms)))(consumptionOf(ordered, terms, supportGain).measured)
 
 /** The spin performance between two points the hand was known at; none where no regular game, or no ball, came between. */
 const stretchBetween = (from: Known, to: Known, terms: PlayTerms): number | undefined => {
@@ -216,8 +261,8 @@ const settled = (rates: readonly (StretchRate | undefined)[], line: number, rate
  * line — nor across a jackpot whose bonus the log does not say: what it
  * paid is unknown, so the balls played over it are.
  */
-export const stretchPerformancesOf = (ordered: readonly Checkpoint[], terms: PlayTerms): readonly (StretchRate | undefined)[] =>
-  standingsOf(ordered, terms).reduce<Stretching>(
+export const stretchPerformancesOf = (ordered: readonly Checkpoint[], terms: PlayTerms, supportGain: number | undefined): readonly (StretchRate | undefined)[] =>
+  standingsOf(ordered, terms, supportGain).reduce<Stretching>(
     (walked, { standing, hands }, index) => {
       const line = ordered[index]
       const waiting = walked.waiting
@@ -285,12 +330,12 @@ const regularSpinsAfter = (ordered: readonly Checkpoint[], spins: number): numbe
  * told to be empty: a hand played down to nothing and said so has nothing
  * left to count, whatever is played on after.
  */
-export const handDriftOf = (ordered: readonly Checkpoint[], terms: PlayTerms, told: number | undefined): HandDrift | undefined => {
+export const handDriftOf = (ordered: readonly Checkpoint[], terms: PlayTerms, told: number | undefined, supportGain: number | undefined): HandDrift | undefined => {
   const counted = lastCountOf(ordered)
   const last = totalsOf(ordered).at(-1)
   if (counted === undefined || last === undefined || told === 0) return undefined
   const spins = regularSpinsAfter(ordered, counted.spins)
-  const measured = consumptionOf(ordered, terms).measured
+  const measured = consumptionOf(ordered, terms, supportGain).measured
   const bought = rentedBallsOf(last.outlay - counted.outlay, terms) + last.replay - counted.replay
   return { spins, estimate: told === undefined || measured === undefined ? undefined : Math.max(0, Math.round(told + bought - (spins * measured.balls) / measured.spins)) }
 }

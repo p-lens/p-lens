@@ -165,6 +165,7 @@ const mergedOf = (run: readonly Weighed[]): Taken | undefined => {
       rented: run.reduce((sum, each) => sum + each.taken.reading.rented, 0),
       replayed: run.reduce((sum, each) => sum + each.taken.reading.replayed, 0),
       supported: run.reduce((sum, each) => sum + each.taken.reading.supported, 0),
+      ...(run.some((each) => each.taken.reading.driftCounted === true) ? { driftCounted: true as const } : {}),
       ...(hands.length === 0 ? {} : { handsBefore: hands }),
       ...(gauge === undefined ? {} : { gauge }),
     },

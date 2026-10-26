@@ -55,7 +55,7 @@ const playedOf = async (engine: PachislotEngine.EngineClient, draft: PlayDraft, 
   const carriedIn = carriedInOf(ordered)
   const terms = draft.venue.terms
   const held = draft.gameKind === "pachislot" ? (draft.pachislot === undefined ? ordered.at(-1)?.held : likelyHeldOf(ordered, draft.pachislot.formula, terms)) : Pachinko.heldAsToldOf(ordered)
-  const spinPerformance = draft.gameKind === "pachislot" || terms === undefined ? undefined : Pachinko.measuredSpinPerformance(ordered, terms)
+  const spinPerformance = draft.gameKind === "pachislot" || terms === undefined ? undefined : Pachinko.measuredSpinPerformance(ordered, terms, draft.pachinko?.supportGain)
   const heldLikely = draft.gameKind === "pachislot" && held !== undefined && ordered.at(-1)?.held === undefined
   return { outlay: summary.outlay, replay, carriedIn, held, heldLikely, theoreticalValue: await theoreticalValueAtFinish(engine, draft, finish, held), spinPerformance }
 }

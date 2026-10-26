@@ -92,7 +92,7 @@ export function ReadingComposer(props: {
   const recount = (): HandDrift | undefined => {
     const terms = props.draft.venue.terms
     if (props.revising !== undefined || props.inserting !== undefined || !form().heldCarried || terms === undefined) return undefined
-    const drift = handDriftOf(props.ordered, terms, before().held)
+    const drift = handDriftOf(props.ordered, terms, before().held, props.draft.pachinko?.supportGain)
     return drift !== undefined && drift.spins >= RECOUNT_AFTER ? drift : undefined
   }
   const [form, setForm] = createSignal<ReadingForm>(

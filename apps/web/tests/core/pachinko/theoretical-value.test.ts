@@ -39,7 +39,7 @@ const figuresOf = (terms: PlayTerms, how: "rented" | "replayed") => {
   const balls = how === "rented" ? (10_000 * terms.rental.tokens) / terms.rental.yen : 10_000
   const fields = how === "rented" ? { rented: 10_000 } : { replayed: 10_000 }
   const log = played([reading({ counterSpins: balls / 50, ...fields }), reading({ counterSpins: (balls / 50) * 2, ...fields })])
-  const value = playTheoreticalValue(FIGURES, terms, consumptionOf(log, terms))
+  const value = playTheoreticalValue(FIGURES, terms, consumptionOf(log, terms, undefined))
   return { spinPerformance: Number(value?.spinPerformance.toFixed(2)), border: Number(value?.border.toFixed(2)) }
 }
 

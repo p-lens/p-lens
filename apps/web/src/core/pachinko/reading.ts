@@ -25,6 +25,8 @@ export interface Reading {
   readonly gauge?: number
   /** Whether the reading says the cabinet turned to 時短 there: from 確変, a line with nothing else on it, or from regular games, the 遊タイム reached; never a jackpot's. */
   readonly rapidBegan?: true
+  /** Whether the person counted the 電サポ's drift at this reading, though it may have come to none: then the line says it, and the play is measured by what was counted rather than by the formula's 電サポ中の出玉増減. */
+  readonly driftCounted?: true
 }
 
 /**
@@ -92,7 +94,7 @@ export type ReadingRefusal = { readonly type: "counter-went-back"; readonly expe
 const lastKnown = (ordered: readonly Checkpoint[], read: (checkpoint: Checkpoint) => number | undefined): number =>
   ordered.map(read).findLast((value): value is number => value !== undefined) ?? 0
 
-/** Everything a reading records except where in the play it falls: the running totals as they stand with it — the 電サポ's too where it has come back to none, a line that says none of a total being read as leaving it as it was. */
+/** Everything a reading records except where in the play it falls: the running totals as they stand with it — the 電サポ's too where it has come back to none, or was counted as none, a line that says none of a total being read as leaving it as it was. */
 const readingFields = (ordered: readonly Checkpoint[], reading: Reading): Omit<Checkpoint, "spins"> => {
   const replay = lastKnown(ordered, (checkpoint) => checkpoint.replay) + reading.replayed
   const supportBefore = lastKnown(ordered, (checkpoint) => checkpoint.support)
@@ -104,7 +106,7 @@ const readingFields = (ordered: readonly Checkpoint[], reading: Reading): Omit<C
     ...eventOf(reading.jackpot, reading.rapidBegan === true),
     phase: reading.phase,
     ...(replay === 0 ? {} : { replay }),
-    ...(support === 0 && supportBefore === 0 ? {} : { support }),
+    ...(support === 0 && supportBefore === 0 && reading.driftCounted !== true ? {} : { support }),
     ...(reading.held === undefined ? {} : { held: reading.held }),
   }
 }

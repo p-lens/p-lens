@@ -76,18 +76,25 @@ const asPaid = (figures: Figures, ratio: number | undefined, overEntry: number |
   return overEntry === undefined ? figures : { ...figures, payoutPerRound: figures.payoutPerRound + overEntry }
 }
 
+/** The figures with a round paying as the 電サポ's counted drift says it did against the formula (`supportRatio`); as they are where none was counted. */
+const asDrifted = (figures: Figures, ratio: number | undefined): Figures => (ratio === undefined ? figures : { ...figures, payoutPerRound: figures.payoutPerRound * ratio })
+
 /**
  * A play's theoretical value, once its corner's terms are known and a
  * stretch of its regular games has been measured; undefined until then.
  * What a regular spin wins, exchanged, less what the measured ones cost,
  * carried over every regular spin of the play. A round wins what the
  * play's bonuses paid, counted or said (`asPaid`) — an over-entry lowers
- * the border, balls lost to a slack attacker raise it.
+ * the border, balls lost to a slack attacker raise it — and as the 電サポ's
+ * drift, where the person counted it, says against the formula's
+ * 電サポ中の出玉増減 (`asDrifted`): more lost raises the border, less lowers
+ * it. The spin performance never moves for either; the theoretical value
+ * is worked out the same way whatever the round pays.
  */
 export const playTheoreticalValue = (told: Figures, terms: PlayTerms | undefined, consumption: Consumption, overEntry?: number): PlayTheoreticalValue | undefined => {
   const measured = consumption.measured
   if (terms === undefined || measured === undefined) return undefined
-  const figures = asPaid(told, consumption.payoutRatio, overEntry)
+  const figures = asDrifted(asPaid(told, consumption.payoutRatio, overEntry), consumption.supportRatio)
   const ballValue = tokenValueOf(terms)
   const cost = costOf(measured, terms)
   const perSpin = ballsPerSpin(figures) * ballValue - cost / measured.spins

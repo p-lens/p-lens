@@ -54,7 +54,7 @@ describe("a run of a pachinko play's readings made one", () => {
     expect(takenOf(log)).toHaveLength(1)
     expect(liveSummary(log).outlay).toBe(liveSummary(RENTED).outlay)
     expect(liveSummary(log).spins).toBe(liveSummary(RENTED).spins)
-    expect(consumptionOf(log, TERMS)).toEqual(consumptionOf(RENTED, TERMS))
+    expect(consumptionOf(log, TERMS, undefined)).toEqual(consumptionOf(RENTED, TERMS, undefined))
   })
 
   test("adds up what the 電サポ gained and lost, and keeps the balls in hand as the last counted them", () => {
@@ -96,8 +96,8 @@ describe("a run of a pachinko play's readings made one", () => {
     const made = merged(log, 0, 1)
     expect(takenOf(made).map((each) => each.reading)).toMatchObject([{ counterSpins: 400, rented: 10000, replayed: 3000, held: undefined, handsBefore: [{ counterSpins: 320, rented: 10000, replayed: 3000, supported: 0, held: 0 }] }])
     expect(made.at(-1)?.handsBefore).toEqual([{ spins: 200, outlay: 10000, replay: 3000, support: 0, held: 0 }])
-    expect(consumptionOf(made, TERMS)).toEqual(consumptionOf(log, TERMS))
-    expect(consumptionOf(made, TERMS).measured).toEqual({ spins: 200, balls: 5500, rentedBalls: 2500, replayedBalls: 3000 })
+    expect(consumptionOf(made, TERMS, undefined)).toEqual(consumptionOf(log, TERMS, undefined))
+    expect(consumptionOf(made, TERMS, undefined).measured).toEqual({ spins: 200, balls: 5500, rentedBalls: 2500, replayedBalls: 3000 })
     expect(heldAsToldOf(made)).toBe(heldAsToldOf(log))
   })
 
@@ -106,7 +106,7 @@ describe("a run of a pachinko play's readings made one", () => {
     expect(mergeableSpan(log, 0, 3)).toEqual({ from: 0, to: 3 })
     const made = merged(log, 0, 3)
     expect(takenOf(made)).toHaveLength(1)
-    expect(consumptionOf(made, TERMS)).toEqual(consumptionOf(log, TERMS))
+    expect(consumptionOf(made, TERMS, undefined)).toEqual(consumptionOf(log, TERMS, undefined))
     expect(heldAsToldOf(made)).toBe(heldAsToldOf(log))
   })
 
@@ -173,19 +173,19 @@ describe("any run that may be made one", () => {
     expect(made.length).toBeGreaterThan(500)
     made.forEach(({ log, after, span }) => {
       expect(takenOf(after)).toHaveLength(takenOf(log).length - (span.to - span.from))
-      expect(consumptionOf(after, TERMS)).toEqual(consumptionOf(log, TERMS))
+      expect(consumptionOf(after, TERMS, undefined)).toEqual(consumptionOf(log, TERMS, undefined))
       expect(heldAsToldOf(after)).toEqual(heldAsToldOf(log))
       const lines = log.flatMap((line, at) => (at > 0 && !(line.event?.kind === "jackpot" && line.event.approximate === true) ? [at] : []))
       const [first, last] = [lines[span.from] ?? 0, lines[span.to] ?? 0]
-      expect(stretchPerformancesOf(after, TERMS).slice(0, first)).toEqual(stretchPerformancesOf(log, TERMS).slice(0, first))
-      expect(stretchPerformancesOf(after, TERMS).slice(first + 1)).toEqual(stretchPerformancesOf(log, TERMS).slice(last + 1))
+      expect(stretchPerformancesOf(after, TERMS, undefined).slice(0, first)).toEqual(stretchPerformancesOf(log, TERMS, undefined).slice(0, first))
+      expect(stretchPerformancesOf(after, TERMS, undefined).slice(first + 1)).toEqual(stretchPerformancesOf(log, TERMS, undefined).slice(last + 1))
       expect(((line) => (line === undefined ? undefined : { ...line, handsBefore: undefined }))(after.at(-1))).toEqual({ ...(log.at(-1) as Checkpoint), handsBefore: undefined })
       expect([liveSummary(after).spins, liveSummary(after).outlay, liveSummary(after).jackpots, liveSummary(after).counterNow]).toEqual([liveSummary(log).spins, liveSummary(log).outlay, liveSummary(log).jackpots, liveSummary(log).counterNow])
     })
   })
 
   test("leaves every figure as it was however often it is folded again, written down and read back, or set right elsewhere", () => {
-    const figures = (log: readonly Checkpoint[]) => [consumptionOf(log, TERMS), heldAsToldOf(log), liveSummary(log).spins, liveSummary(log).outlay, liveSummary(log).jackpots, liveSummary(log).counterNow]
+    const figures = (log: readonly Checkpoint[]) => [consumptionOf(log, TERMS, undefined), heldAsToldOf(log), liveSummary(log).spins, liveSummary(log).outlay, liveSummary(log).jackpots, liveSummary(log).counterNow]
     const written = (log: readonly Checkpoint[]): readonly Checkpoint[] => ((read) => (read.ok ? read.value : []))(parsePlayLog(log.reduce((text, line) => appendCheckpoint(text, line), "")))
     const plays = Array.from({ length: 40 }, (_, seed) => anyPlay(seed + 101, 16))
     const checked = plays.map((log, seed) => {
@@ -216,17 +216,17 @@ describe("any run that may be made one", () => {
       reading({ counterSpins: 120 }),
     ])
     const once = merged(log, 2, 4)
-    expect(stretchPerformancesOf(once, TERMS)[2]).toEqual(stretchPerformancesOf(log, TERMS)[2])
+    expect(stretchPerformancesOf(once, TERMS, undefined)[2]).toEqual(stretchPerformancesOf(log, TERMS, undefined)[2])
     const twice = merged(once, 2, 3)
-    expect(consumptionOf(twice, TERMS)).toEqual(consumptionOf(log, TERMS))
-    expect(stretchPerformancesOf(twice, TERMS)[2]).toEqual(stretchPerformancesOf(log, TERMS)[2])
+    expect(consumptionOf(twice, TERMS, undefined)).toEqual(consumptionOf(log, TERMS, undefined))
+    expect(stretchPerformancesOf(twice, TERMS, undefined)[2]).toEqual(stretchPerformancesOf(log, TERMS, undefined)[2])
   })
 
   test("keeps a 電サポ total that came back to none, so folding reads it as it was", () => {
     const log = played([reading({ counterSpins: 140, rented: 500, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }), reading({ counterSpins: 20, phase: "rapid", supported: 30 }), reading({ counterSpins: 40, phase: "rapid", supported: -30 }), reading({ counterSpins: 60, held: 900 })])
     expect(log.at(3)?.support).toBe(0)
     expect(takenOf(log).map((taken) => taken.reading.supported)).toEqual([0, 30, -30, 0])
-    expect(consumptionOf(merged(log, 0, 0), TERMS)).toEqual(consumptionOf(log, TERMS))
+    expect(consumptionOf(merged(log, 0, 0), TERMS, undefined)).toEqual(consumptionOf(log, TERMS, undefined))
   })
 
   test("keeps the hands of a folded reading through a reading put in or taken out before it", () => {

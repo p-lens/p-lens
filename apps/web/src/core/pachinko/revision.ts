@@ -65,6 +65,7 @@ export const takenOf = (ordered: readonly Checkpoint[]): readonly Taken[] =>
         jackpot: jackpotOf(checkpoint),
         at: checkpoint.at ?? "",
         ...(checkpoint.event?.kind === "rapid-began" ? { rapidBegan: true as const } : {}),
+        ...(checkpoint.support === 0 && walked.totals.support === 0 ? { driftCounted: true as const } : {}),
         ...(checkpoint.counter?.gauge === undefined ? {} : { gauge: checkpoint.counter.gauge }),
         ...(checkpoint.handsBefore === undefined
           ? {}
