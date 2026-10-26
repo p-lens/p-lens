@@ -4,6 +4,10 @@ import type { ApplicationError } from "../../../application/errors"
 import type { Decimal } from "../../../core/decimal/decimal"
 import type { TokenKind } from "../../../core/commodity/commodity"
 import { tokenKindOf, type PlayGameKind } from "../../../core/play/play"
+import { boxSizeAt, readBoxSizes, withBoxSize, writtenBoxSizes } from "../../../core/live-play/box-count"
+import type { ParlorIdentity } from "../../../core/parlor/parlor"
+import { useApp } from "../../context"
+import { BoxCount } from "./BoxCount"
 import { Button } from "../../primitives/button"
 import { Combobox, type ComboboxOption } from "../../primitives/combobox"
 import { DetailButton } from "../../primitives/detail-button"
@@ -13,7 +17,7 @@ import { TextField } from "../../primitives/text-field"
 import { describeError } from "../../wording/errors"
 import { formatTokens, tokenUnit, type toneOf } from "../../wording/numbers"
 import { typedMachineRefused } from "../../wording/parlor"
-import { IN_HAND_LABELS, type FieldProblem, type FormField, type SubmitWords } from "./finish-tally-reading"
+import { HELD_LIKELY, IN_HAND_LABELS, type FieldProblem, type FormField, type SubmitWords } from "./finish-tally-reading"
 import { seal } from "../../../mummer"
 import { cabinetFieldMasked } from "../../wording/cabinet"
 import { JournalText } from "../mummer/JournalText"
@@ -91,7 +95,7 @@ function EntryPreview(props: { readonly editing: FinishTallyEditing }): JSX.Elem
  * writes. What only a play at a parlor or only one at none is asked stands
  * in its own place: `place` above all, `outlayBeside` under the cash,
  * `savings` after it where tokens are counted, and `takings` instead of the tokens where none are
- * counted.
+ * counted. The tokens left may be counted by the box, at the box `parlor` was last counted by.
  */
 export function FinishTallyForm(props: {
   readonly editing: FinishTallyEditing
@@ -103,8 +107,13 @@ export function FinishTallyForm(props: {
   readonly takings?: JSX.Element
   /** What follows the tokens in hand, on a row of its own: how they were settled, where that is asked. */
   readonly afterHand?: JSX.Element
+  /** The parlor played at, whose box the tokens in hand are counted by; none at no parlor. */
+  readonly parlor: ParlorIdentity | undefined
+  /** Whether the tokens in hand opened on what is likely in hand, not a count: said under them, to be counted and typed over. */
+  readonly heldLikely: boolean
   readonly words: SubmitWords
 }): JSX.Element {
+  const app = useApp()
   const editing = props.editing
   const unit = (): string => tokenUnit(tokenKindOf(props.gameKind))
   const theoretical = (): string => editing.value("theoreticalValue").trim()
@@ -152,7 +161,22 @@ export function FinishTallyForm(props: {
           fallback={
             <>
               <TextField label={IN_HAND_LABELS[tokenKindOf(props.gameKind)].carriedIn} value={editing.value("carriedIn")} onChange={editing.set("carriedIn")} inputMode="numeric" suffix={unit()} error={editing.problemOf("carried-in")} invalid={editing.nudged("carried-in")} onFocus={editing.nudge.settle} />
-              <TextField label={IN_HAND_LABELS[tokenKindOf(props.gameKind)].left} value={editing.value("payout")} onChange={editing.set("payout")} inputMode="numeric" suffix={unit()} error={editing.problemOf("payout")} invalid={editing.nudged("payout")} onFocus={editing.nudge.settle} />
+              <div class="flex min-w-0 items-start gap-1.5">
+                <div class="flex min-w-0 flex-1 flex-col gap-1">
+                  <TextField label={IN_HAND_LABELS[tokenKindOf(props.gameKind)].left} value={editing.value("payout")} onChange={editing.set("payout")} inputMode="numeric" suffix={unit()} error={editing.problemOf("payout")} invalid={editing.nudged("payout")} onFocus={editing.nudge.settle} />
+                  <Show when={props.heldLikely}>
+                    <span class="text-xs text-text-muted">{HELD_LIKELY}</span>
+                  </Show>
+                </div>
+                <BoxCount
+                  kind={tokenKindOf(props.gameKind)}
+                  perBox={boxSizeAt(readBoxSizes(app.services.preferences.boxSizes()), props.parlor, tokenKindOf(props.gameKind))}
+                  onCounted={(tokens, perBox) => {
+                    editing.set("payout")(String(tokens))
+                    app.services.preferences.setBoxSizes(writtenBoxSizes(withBoxSize(readBoxSizes(app.services.preferences.boxSizes()), { identity: props.parlor, kind: tokenKindOf(props.gameKind), perBox })))
+                  }}
+                />
+              </div>
             </>
           }
         >

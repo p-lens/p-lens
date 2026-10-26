@@ -31,6 +31,8 @@ export interface PlayedSoFar {
   readonly replay: number | undefined
   readonly carriedIn: number | undefined
   readonly held: number | undefined
+  /** Whether the tokens in hand are what the formula says are likely in hand, not what was counted at the last line. */
+  readonly heldLikely: boolean
   readonly theoreticalValue: number | undefined
   readonly spinPerformance: number | undefined
 }
@@ -40,6 +42,9 @@ export const IN_HAND_LABELS: Readonly<Record<TokenKind, { readonly carriedIn: st
   ball: { carriedIn: "開始時の持ち玉", left: "持ち玉" },
   medal: { carriedIn: "開始時の持ちメダル", left: "持ちメダル" },
 }
+
+/** What is said under tokens in hand opened on what is likely in hand rather than a count. */
+export const HELD_LIKELY = "目安です。数えたら直してください"
 
 /** What a form's button says, says while it is at work, and what is said once it is done. */
 export interface SubmitWords {

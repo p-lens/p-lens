@@ -14,12 +14,13 @@ export const seatCheckpoint = (seat: { readonly total: number; readonly bonuses:
   counter: { spins: seat.sinceBonus, total: seat.total, bonuses: seat.bonuses },
 })
 
-/** One reading of a pachislot data counter at the cabinet: the day's games and bonuses, and the outlay and the medals drawn from savings so far, each if it was given. */
+/** One reading of a pachislot data counter at the cabinet: the day's games and bonuses, the outlay and the medals drawn from savings so far, and the medals in hand, each if it was given. */
 export interface CounterInput {
   readonly total: number
   readonly bonuses: Counts
   readonly outlay: number | undefined
   readonly replay: number | undefined
+  readonly held?: number
   readonly at: string
 }
 
@@ -68,6 +69,7 @@ export const checkpointForReading = (ordered: readonly Checkpoint[], input: Coun
     spins: anchor.spins + input.total - anchor.total,
     ...(input.outlay === undefined ? {} : { outlay: input.outlay }),
     ...(input.replay === undefined ? {} : { replay: input.replay }),
+    ...(input.held === undefined ? {} : { held: input.held }),
     at: input.at,
     counter: { total: input.total, bonuses: input.bonuses },
   })

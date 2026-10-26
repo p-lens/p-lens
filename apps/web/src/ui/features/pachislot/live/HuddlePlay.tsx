@@ -45,8 +45,8 @@ export function HuddlePlay(props: { readonly play: Shown }): JSX.Element {
       {(checkpoints) => (
         <div class="flex flex-col gap-3">
           <Timeline checkpoints={checkpoints} bonuses={bonuses()} trigger={triggerWordsOf(weighing()?.formula.normalized)} endings={endings()} revising={undefined} onRevise={undefined} onMerge={undefined} strip />
-          <Show when={atRules()} fallback={<PlayFigures ordered={checkpoints} bonuses={bonuses()} day={daySeenOf(checkpoints, shownAs())} />}>
-            <AtFigures ordered={checkpoints} normalized={weighing()?.formula.normalized ?? NO_MACHINE} />
+          <Show when={atRules()} fallback={<PlayFigures ordered={checkpoints} terms={props.play.venue.terms} bonuses={bonuses()} day={daySeenOf(checkpoints, shownAs())} />}>
+            <AtFigures ordered={checkpoints} terms={props.play.venue.terms} normalized={weighing()?.formula.normalized ?? NO_MACHINE} />
           </Show>
         </div>
       )}

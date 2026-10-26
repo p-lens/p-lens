@@ -35,6 +35,7 @@ import { ViewHeader } from "../shell/ViewHeader"
 import { RECORDING, RECORDING_AGAIN, SEE_IN_BOOK, type PlayedSoFar, type SubmitWords } from "./finish-tally-reading"
 import { finishTokenTallyFormOf, playedOnTerms, type PlayedOnTerms } from "./finish-token-tally-form"
 import { finishYenTallyFormOf } from "./finish-yen-tally-form"
+import { likelyHeldOf } from "../../../core/pachislot/hand"
 import { FinishTokenTallyEditor } from "./FinishTokenTallyEditor"
 import { FinishYenTallyEditor } from "./FinishYenTallyEditor"
 import type { WorthAt } from "./followed-worth"
@@ -44,18 +45,19 @@ import { createParlorChoice } from "./parlor-choice"
 import { ParlorChoiceField } from "./ParlorChoiceField"
 import { leftAt, leftBy, tokensKeptAfter, type TokensLeft } from "./tokens-in-hand"
 
-/** A log that does not read leaves the form to the draft alone. Its theoretical value is the one it comes to finished as the form opens: on the finish given, with the hand as told. */
+/** A log that does not read leaves the form to the draft alone. A pachislot play's medals in hand are those counted at its last line, or else what its formula says they likely are by then, to be counted and typed over. Its theoretical value is the one it comes to finished as the form opens: on the finish given, with the hand as told. */
 const playedOf = async (engine: PachislotEngine.EngineClient, draft: PlayDraft, finish: Finish): Promise<PlayedSoFar> => {
   const parsed = parsePlayLog(draft.log)
-  if (!parsed.ok) return { outlay: undefined, replay: undefined, carriedIn: undefined, held: undefined, theoreticalValue: undefined, spinPerformance: undefined }
+  if (!parsed.ok) return { outlay: undefined, replay: undefined, carriedIn: undefined, held: undefined, heldLikely: false, theoreticalValue: undefined, spinPerformance: undefined }
   const ordered = inPlayOrder(parsed.value)
   const summary = liveSummary(ordered)
   const replay = ordered.findLast((checkpoint) => checkpoint.replay !== undefined)?.replay
   const carriedIn = carriedInOf(ordered)
-  const held = draft.gameKind === "pachislot" ? ordered.at(-1)?.held : Pachinko.heldAsToldOf(ordered)
   const terms = draft.venue.terms
+  const held = draft.gameKind === "pachislot" ? (draft.pachislot === undefined ? ordered.at(-1)?.held : likelyHeldOf(ordered, draft.pachislot.formula, terms)) : Pachinko.heldAsToldOf(ordered)
   const spinPerformance = draft.gameKind === "pachislot" || terms === undefined ? undefined : Pachinko.measuredSpinPerformance(ordered, terms)
-  return { outlay: summary.outlay, replay, carriedIn, held, theoreticalValue: await theoreticalValueAtFinish(engine, draft, finish, held), spinPerformance }
+  const heldLikely = draft.gameKind === "pachislot" && held !== undefined && ordered.at(-1)?.held === undefined
+  return { outlay: summary.outlay, replay, carriedIn, held, heldLikely, theoreticalValue: await theoreticalValueAtFinish(engine, draft, finish, held), spinPerformance }
 }
 
 const COUNTER_LABELS: Readonly<Record<PlayDraft["gameKind"], string>> = { pachinko: "終了時回転数", pachislot: "終了時ゲーム数" }
@@ -194,6 +196,7 @@ function AtNoParlor(props: {
         fallback={
           <FinishYenTallyEditor
             initial={finishYenTallyFormOf(props.draft, props.played)}
+            heldLikely={props.played.heldLikely}
             gameKind={props.draft.gameKind}
             terms={terms}
             parlor={parlor}
@@ -212,6 +215,7 @@ function AtNoParlor(props: {
             at={at}
             namesPlace={false}
             initial={finishTokenTallyFormOf(props.draft, props.played)}
+            heldLikely={props.played.heldLikely}
             playId={props.draft.id}
             aside={props.aside}
             words={props.words}
@@ -312,6 +316,7 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
                     at={playedOnTerms(venue.parlor, venue.terms, draft.gameKind)}
                     namesPlace
                     initial={finishTokenTallyFormOf(draft, played)}
+                    heldLikely={played.heldLikely}
                     playId={draft.id}
                     aside={aside}
                     words={words}

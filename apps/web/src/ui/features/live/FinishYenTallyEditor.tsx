@@ -37,6 +37,8 @@ function Unfolding(props: { readonly children: JSX.Element }): JSX.Element {
  */
 export function FinishYenTallyEditor(props: {
   readonly initial: FinishYenTallyForm
+  /** Whether the tokens in hand open on what is likely in hand rather than a count, which is said under them. */
+  readonly heldLikely: boolean
   readonly gameKind: PlayGameKind
   readonly terms: PlayTerms | undefined
   /** The parlor chosen above the form, where one is: a play with terms at a parlor is not recorded here. */
@@ -66,6 +68,8 @@ export function FinishYenTallyEditor(props: {
     <FinishTallyForm
       editing={editing.tally}
       gameKind={props.gameKind}
+      parlor={props.parlor.chosen()?.identity}
+      heldLikely={props.heldLikely}
       words={props.words}
       outlayBeside={
         <Show when={editing.rented()} keyed>

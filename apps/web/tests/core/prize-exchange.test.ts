@@ -31,6 +31,19 @@ describe("a prize exchange as an entry", () => {
     expect(rendered({ ...EXCHANGE, tokens: dec("1400"), specialPrizes: dec("5100") })).toContain("純資産:端玉景品                     -112 JPY")
   })
 
+  test("takes tokens exchanged for no special prize at all — sweets or general prizes alone — as odd prizes at the rental price, the rest to the translation adjustment", () => {
+    expect(rendered({ ...EXCHANGE, tokens: dec("1400"), specialPrizes: dec("0") })).toBe(
+      [
+        "2026-09-10 マレハン東京皇国第8支店 | 景品交換  ; parlor-id: malehan-tokyokoukoku, savings: prize-exchange",
+        '    資産:貯玉:マレハン東京皇国第8支店:4円  -1400 "玉(4円・マレハン東京皇国第8支店)" @ 3.57 JPY',
+        "    純資産:端玉景品                     5600 JPY",
+        "    純資産:換算調整勘定",
+        "",
+      ].join("\n"),
+    )
+    expect(rendered({ ...EXCHANGE, tokens: dec("20"), specialPrizes: dec("0") })).toContain("純資産:端玉景品                     80 JPY")
+  })
+
   test("uses the rate in force on its own day", () => {
     expect(rendered({ ...EXCHANGE, date: "2026-10-04" as IsoDate })).toContain("@ 3.5 JPY")
   })

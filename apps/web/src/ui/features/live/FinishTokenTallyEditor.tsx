@@ -45,6 +45,8 @@ export function FinishTokenTallyEditor(props: {
   /** Whether the form says where the play was: not where the parlor was chosen above it as the play was recorded. */
   readonly namesPlace: boolean
   readonly initial: FinishTokenTallyForm
+  /** Whether the tokens in hand open on what is likely in hand rather than a count, which is said under them. */
+  readonly heldLikely: boolean
   readonly playId: PlayId
   /** What is written beside the tally that the form does not ask. */
   readonly aside: () => TallyAside
@@ -176,6 +178,8 @@ export function FinishTokenTallyEditor(props: {
     <FinishTallyForm
       editing={editing}
       gameKind={props.at.gameKind}
+      parlor={props.at.parlor.identity}
+      heldLikely={props.heldLikely}
       words={props.words}
       place={
         <Show when={props.namesPlace}>

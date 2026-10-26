@@ -81,10 +81,12 @@ const LARGEST_PRIZE_STEP = decimal(1000n, 0)
  * been an exchange at the play's rate: the special prizes worth more than
  * the tokens were, or leaving odd prizes beyond the largest step special
  * ones come in. Only said, never refused: the rate may be what was typed wrong.
+ * Not where there are no special prizes: the tokens went for odd and
+ * general prizes alone, as they may.
  */
 export const offTheRate = (form: Pick<FinishYenTallyForm, "exchangedTokens" | "specialPrizes">, terms: PlayTerms): boolean => {
   const [handed, special] = [readCount(form.exchangedTokens, "exchanged-tokens"), readSpecialPrizes(form.specialPrizes)]
-  if (!handed.ok || !special.ok || isZero(handed.value)) return false
+  if (!handed.ok || !special.ok || isZero(handed.value) || isZero(special.value)) return false
   const odd = exchangedOddPrizesOn(handed.value, terms, special.value)
   return isNegative(odd) || compare(odd, LARGEST_PRIZE_STEP) > 0
 }

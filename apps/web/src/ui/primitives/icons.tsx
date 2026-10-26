@@ -117,6 +117,18 @@ export const CalculatorIcon = (props: { readonly label?: string }) => (
   </Icon>
 )
 
+/** Counted by the box: a box of tokens, heaped. */
+export const BoxIcon = (props: { readonly label?: string }) => (
+  <Icon label={props.label}>
+    <path d="M3 13h18l-1.500 7h-15z" />
+    <circle cx="8" cy="10" r="2" />
+    <circle cx="12" cy="10" r="2" />
+    <circle cx="16" cy="10" r="2" />
+    <circle cx="10" cy="6" r="2" />
+    <circle cx="14" cy="6" r="2" />
+  </Icon>
+)
+
 /** Sampled by running it on the device: a computer. */
 export const ComputerIcon = (props: { readonly label?: string }) => (
   <Icon label={props.label}>

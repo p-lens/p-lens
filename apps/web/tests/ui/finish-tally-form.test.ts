@@ -28,7 +28,7 @@ const DRAFT: PlayDraft = {
 
 const NOWHERE: PlayDraft = { ...DRAFT, venue: { type: "none", terms: TERMS } }
 
-const PLAYED: PlayedSoFar = { outlay: 12_000, replay: undefined, carriedIn: undefined, held: 4500, theoreticalValue: undefined, spinPerformance: undefined }
+const PLAYED: PlayedSoFar = { outlay: 12_000, replay: undefined, carriedIn: undefined, held: 4500, heldLikely: false, theoreticalValue: undefined, spinPerformance: undefined }
 
 /** The two sides a form at no parlor comes to, on its terms where it has them. */
 const sidesAt = (terms: PlayTerms | undefined) => (form: FinishYenTallyForm): readonly string[] | undefined =>
@@ -96,6 +96,9 @@ describe("a play followed live, as it is recorded", () => {
     expect(beyond.ok && [toPlainString(beyond.value.takings), beyond.value.settlement]).toEqual(["16000", { type: "off-book-exchanged", cash: dec("5000"), specialPrizes: dec("17000"), oddPrizes: dec("0") }])
     const counted = readFinishYenTallyForm({ ...form, exchangedTokens: "3,800" }, TERMS, undefined, "live-1" as PlayId)
     expect(counted.ok && [toPlainString(counted.value.takings), counted.value.settlement]).toEqual(["15200", { type: "off-book-exchanged", cash: dec("5000"), specialPrizes: dec("15000"), oddPrizes: dec("200") }])
+    const general = readFinishYenTallyForm({ ...form, specialPrizes: "0" }, TERMS, undefined, "live-1" as PlayId)
+    expect(general.ok && general.value.settlement).toEqual({ type: "off-book-exchanged", cash: dec("5000"), specialPrizes: dec("0"), oddPrizes: dec("16000") })
+    expect(offTheRate({ ...form, specialPrizes: "0" }, TERMS)).toBe(false)
     const unsaid = readFinishYenTallyForm({ ...form, specialPrizes: "" }, TERMS, undefined, "live-1" as PlayId)
     expect(!unsaid.ok && unsaid.error).toEqual([{ field: "special-prizes", reason: "required" }])
   })

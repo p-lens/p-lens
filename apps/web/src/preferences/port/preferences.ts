@@ -34,4 +34,7 @@ export interface Preferences {
   /** The step the odd-prize calculator's stages go by, as last chosen, either game alike. */
   readonly stageStep: () => StageStep
   readonly setStageStep: (step: StageStep) => void
+  /** How many tokens one box held at each parlor, as last used to count by the box there, as written, or none yet. */
+  readonly boxSizes: () => string | undefined
+  readonly setBoxSizes: (written: string) => void
 }

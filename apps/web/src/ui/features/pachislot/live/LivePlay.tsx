@@ -49,6 +49,9 @@ import { StepReviser, type RevisedStep } from "./StepReviser"
 import { Timeline } from "./Timeline"
 import { readingFrom, readReadingForm, type ReadingField, type ReadingForm, type Standing } from "./reading-form"
 import { RoleCounter } from "./RoleCounter"
+import type { PlayTerms } from "../../../../core/parlor/terms"
+import { HandTiles } from "./HandTiles"
+import { Tile } from "./Tile"
 import type { Write, Written } from "./write"
 
 /** The reading at a step of the log, where that step is one: what a pressed row is set right from. */
@@ -62,25 +65,11 @@ export const NO_MACHINE = { schemaVersion: 0, bet: 0, tables: [] }
 
 export const NO_BONUSES = (): string | undefined => undefined
 
-function Tile(props: { readonly label: string; readonly value: string; readonly note?: string }): JSX.Element {
-  return (
-    <div class="flex flex-col gap-0.5 rounded-lg border border-border px-3 py-2">
-      <dt class="text-xs font-bold uppercase tracking-wide text-text-muted">{props.label}</dt>
-      <dd class="text-xl font-bold tabular-nums text-text-primary">
-        {props.value}
-        <Show when={props.note}>
-          <span class="ml-1 text-xs font-normal text-text-muted">{props.note}</span>
-        </Show>
-      </dd>
-    </div>
-  )
-}
-
 /** The medals the play has drawn from savings so far, where the log says. */
 const replayOf = (ordered: readonly Checkpoint[]): number | undefined => ordered.findLast((checkpoint) => checkpoint.replay !== undefined)?.replay
 
-/** Where the play stands by its log, three to a row: the cash spent, the games played and the day's, the medals drawn from savings, and each bonus of the day with how often it has come. */
-export function PlayFigures(props: { readonly ordered: readonly Checkpoint[]; readonly bonuses: readonly Countable[]; readonly day: { readonly games: number; readonly bonuses: Counts } | undefined }): JSX.Element {
+/** Where the play stands by its log, three to a row: the cash spent, the games played and the day's, the medals drawn from savings, the medals in hand where last counted with what the play had come to there, and each bonus of the day with how often it has come. */
+export function PlayFigures(props: { readonly ordered: readonly Checkpoint[]; readonly terms: PlayTerms | undefined; readonly bonuses: readonly Countable[]; readonly day: { readonly games: number; readonly bonuses: Counts } | undefined }): JSX.Element {
   const outlay = (): number | undefined => props.ordered.findLast((checkpoint) => checkpoint.outlay !== undefined)?.outlay
   const replay = (): number | undefined => replayOf(props.ordered)
   const dayGames = (): number => props.day?.games ?? totalNowOf(props.ordered)
@@ -90,6 +79,7 @@ export function PlayFigures(props: { readonly ordered: readonly Checkpoint[]; re
       <Tile label="打ったゲーム数" value={formatCount(props.ordered.at(-1)?.spins ?? 0)} note="G" />
       <Tile label="累計ゲーム数" value={formatCount(dayGames())} note="G" />
       <Tile label="貯メダル" value={replay() === undefined ? "--" : formatCount(replay() ?? 0)} note="枚" />
+      <HandTiles ordered={props.ordered} terms={props.terms} />
       <Index each={props.bonuses}>
         {(bonus) => (
           <Tile
@@ -105,7 +95,8 @@ export function PlayFigures(props: { readonly ordered: readonly Checkpoint[]; re
 
 /**
  * Where readings of the data counter are typed, in one row: the day's games,
- * the cash spent and the medals drawn from savings so far — the bonuses
+ * the cash spent and the medals drawn from savings so far, and the medals
+ * in hand, empty until counted — the bonuses
  * being counted on the tiles, a reading takes them as they stand — each opening on where the play stands, to be typed
  * over. Until something is typed the form follows the play — a tap on a
  * tile moves the games it shows — and once a reading is kept it follows
@@ -156,7 +147,8 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
     setSending({ type: "keeping" })
     const at = app.services.now()
     const written = await props.write((ordered) => {
-      const made = checkpointForReading(ordered, { ...reading.value, at })
+      const { held, ...counted } = reading.value
+      const made = checkpointForReading(ordered, { ...counted, ...(held === undefined ? {} : { held }), at })
       return made.ok ? Ok([made.value]) : Err(made.error)
     })
     setSending(written.type === "written" ? { type: "typing" } : written)
@@ -187,7 +179,7 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
         void send()
       }}
     >
-      <div class="grid grid-cols-3 gap-3">
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <TextField
           label="累計ゲーム数"
           value={form().total}
@@ -216,6 +208,16 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
           suffix="枚"
           error={errorOf("replay")}
           invalid={invalid("replay")}
+          onFocus={nudge.settle}
+        />
+        <TextField
+          label="持ちメダル"
+          value={form().held}
+          onChange={(held) => typed({ held })}
+          inputMode="numeric"
+          suffix="枚"
+          error={errorOf("held")}
+          invalid={invalid("held")}
           onFocus={nudge.settle}
         />
       </div>
@@ -472,8 +474,8 @@ export function LivePlay(props: {
                     <hr class="border-border" />
                   </div>
                   <CornerTerms draft={props.draft} />
-                  <Show when={atRules()} fallback={<PlayFigures ordered={found()} bonuses={bonuses()} day={day()} />}>
-                    <AtFigures ordered={found()} normalized={weighing()?.formula.normalized ?? NO_MACHINE} />
+                  <Show when={atRules()} fallback={<PlayFigures ordered={found()} terms={props.draft.venue.terms} bonuses={bonuses()} day={day()} />}>
+                    <AtFigures ordered={found()} terms={props.draft.venue.terms} normalized={weighing()?.formula.normalized ?? NO_MACHINE} />
                   </Show>
                   <Show when={weighing()}>
                     {(weighed) => (

@@ -313,10 +313,10 @@ export function PrizeExchangeForm(props: {
     const worth = multiply(whole(count), found.value)
     return isNegative(odd) ? { rate: found.value, worth, by: subtract(whole(special), worth), odd } : undefined
   }
-  /** Whether the odd prizes come to more than ¥1,000, the largest step special prizes come in: the book's rate is then likely off the parlor's. */
+  /** Whether the odd prizes come to more than ¥1,000, the largest step special prizes come in: the book's rate is then likely off the parlor's. Not where there are no special prizes, the tokens going for odd and general prizes alone, as they may. */
   const oddOverStep = (): boolean => {
     const [count, special, found] = [exchanged(), countOf(prizes()), rate()]
-    if (count === undefined || special === undefined || found?.ok !== true || found.value === undefined) return false
+    if (count === undefined || special === undefined || special === 0 || found?.ok !== true || found.value === undefined) return false
     return compare(exchangedOddPrizes(whole(count), found.value, whole(special), rentalPriceOfTier(props.pool.tier)), LARGEST_PRIZE_STEP) > 0
   }
   const save = async (): Promise<void> => {

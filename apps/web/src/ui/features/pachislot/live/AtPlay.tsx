@@ -23,30 +23,20 @@ import { triggerWordsOf, type TriggerWords } from "../../../wording/pachislot/tr
 import type { Post } from "./NoticeBoard"
 import { type AtReadingForm, type AtReadingProblem, type AtStanding, atReadingFrom, readAtReadingForm } from "./at-reading-form"
 import { type AtResultForm, type AtResultProblem, atResultLine, type Completion, EMPTY_AT_RESULT, endingOfValue, endingValueOf, readAtResultForm, UNSAID_ENDING } from "./at-result-form"
+import type { PlayTerms } from "../../../../core/parlor/terms"
+import { HandTiles } from "./HandTiles"
+import { Tile } from "./Tile"
 import type { Write, Written } from "./write"
-
-function Tile(props: { readonly label: string; readonly value: string; readonly note?: string }): JSX.Element {
-  return (
-    <div class="flex flex-col gap-0.5 rounded-lg border border-border px-3 py-2">
-      <dt class="text-xs font-bold uppercase tracking-wide text-text-muted">{props.label}</dt>
-      <dd class="text-xl font-bold tabular-nums text-text-primary">
-        {props.value}
-        <Show when={props.note}>
-          <span class="ml-1 text-xs font-normal text-text-muted">{props.note}</span>
-        </Show>
-      </dd>
-    </div>
-  )
-}
 
 /**
  * Where an AT machine's play stands by its log, three to a row as a bonus
  * machine's: the cash spent first, its regular games, the games since the
- * last AT and the last CZ, the medals drawn from savings, its ATs, and how
+ * last AT and the last CZ, the medals drawn from savings, the medals in
+ * hand where last counted with what the play had come to there, its ATs, and how
  * far each ceiling the machine has is — the trigger's, the AT間天井 and the
  * スルー天井.
  */
-export function AtFigures(props: { readonly ordered: readonly Checkpoint[]; readonly normalized: NormalizedSpecDto }): JSX.Element {
+export function AtFigures(props: { readonly ordered: readonly Checkpoint[]; readonly terms: PlayTerms | undefined; readonly normalized: NormalizedSpecDto }): JSX.Element {
   const summary = () => liveSummary(props.ordered)
   const cz = () => hasCz(props.normalized)
   const trigger = () => triggerWordsOf(props.normalized)
@@ -67,6 +57,7 @@ export function AtFigures(props: { readonly ordered: readonly Checkpoint[]; read
         <Tile label={`${trigger().name}間のゲーム数`} value={formatCount(standing()?.sinceTrigger ?? 0)} note="G" />
       </Show>
       <Tile label="貯メダル" value={((replay) => (replay === undefined ? "--" : formatCount(replay)))(props.ordered.findLast((checkpoint) => checkpoint.replay !== undefined)?.replay)} note="枚" />
+      <HandTiles ordered={props.ordered} terms={props.terms} />
       <Tile label="AT" value={formatCount(summary().jackpots)} note="回" />
       <Show when={cz()}>
         <Tile
@@ -296,7 +287,7 @@ export const createAtReading = (standing: () => AtStanding, trigger: () => Trigg
       mapOk(
         checkpointsForReading(
           ordered,
-          { counterSpins: reading.value.sinceAt, outlay: reading.value.outlay, replay: reading.value.replay, counterJackpots: undefined, at, jackpot: ended === "at" },
+          { counterSpins: reading.value.sinceAt, outlay: reading.value.outlay, replay: reading.value.replay, ...(reading.value.held === undefined ? {} : { held: reading.value.held }), counterJackpots: undefined, at, jackpot: ended === "at" },
           missedAt,
         ),
         (checkpoints) => (ended === "cz-missed" || ended === "bonus-missed" ? missedOn(checkpoints, ended) : checkpoints),
@@ -333,7 +324,8 @@ export const createAtReading = (standing: () => AtStanding, trigger: () => Trigg
 /**
  * Where an AT machine's counter is typed at the cabinet's foot, in one row as
  * a bonus machine's is: the games since the last AT, the cash spent and the
- * medals drawn from savings so far.
+ * medals drawn from savings so far, and the medals in hand, empty until
+ * counted — on a medalless cabinet, the figure it shows.
  */
 export function AtReadingComposer(props: { readonly reading: AtReading }): JSX.Element {
   const errorOf = (field: keyof AtReadingForm): string | undefined => (props.reading.problemOf(field)?.reason === "not-a-count" ? FIELD_PROBLEM_TEXT["not-a-count"] : undefined)
@@ -346,7 +338,7 @@ export function AtReadingComposer(props: { readonly reading: AtReading }): JSX.E
         void props.reading.send("going", false)
       }}
     >
-      <div class="grid grid-cols-3 gap-3">
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <TextField
           label="AT間のゲーム数"
           value={props.reading.form().sinceAt}
@@ -375,6 +367,16 @@ export function AtReadingComposer(props: { readonly reading: AtReading }): JSX.E
           suffix="枚"
           error={errorOf("replay")}
           invalid={invalid("replay")}
+          onFocus={props.reading.settle}
+        />
+        <TextField
+          label="持ちメダル"
+          value={props.reading.form().held}
+          onChange={(held) => props.reading.typed({ held })}
+          inputMode="numeric"
+          suffix="枚"
+          error={errorOf("held")}
+          invalid={invalid("held")}
           onFocus={props.reading.settle}
         />
       </div>

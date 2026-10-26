@@ -139,6 +139,8 @@ export interface CounterInput {
   readonly outlay: number | undefined
   /** Tokens drawn from savings since the play began, where they were given. */
   readonly replay: number | undefined
+  /** The tokens in hand as the counter was read, where they were counted. */
+  readonly held?: number
   readonly counterJackpots: number | undefined
   readonly at: string
   /** Whether the reading was taken at a jackpot, the moment the counter is about to start over. */
@@ -154,6 +156,7 @@ export type ReadingRefusal =
 const readingFields = (input: CounterInput): Omit<Checkpoint, "spins"> => ({
   ...(input.outlay === undefined ? {} : { outlay: input.outlay }),
   ...(input.replay === undefined ? {} : { replay: input.replay }),
+  ...(input.held === undefined ? {} : { held: input.held }),
   at: input.at,
   counter: input.counterJackpots === undefined ? { spins: input.counterSpins } : { spins: input.counterSpins, jackpots: input.counterJackpots },
   ...(input.jackpot ? { event: { kind: "jackpot" as const } } : {}),

@@ -25,7 +25,8 @@ function Fold(props: { readonly title: string; readonly children: JSX.Element })
  * that cash never rises, when a day turns, how a reading's outlay is
  * counted, how a spin performance and a border are, what the marks beside
  * pachinko's live spin performance stand for, which formula opens first,
- * how many jackpots a bonus is, what stays out of 収支, how 推定期待値
+ * how many jackpots a bonus is, how a pachislot play's medals in hand are
+ * likely reckoned at 収支を記帳, what stays out of 収支, how 推定期待値
  * answers, and when a backup is made. Never how to use the app, which its
  * own site says, nor anything of the catalog, which its users make.
  */
@@ -69,6 +70,11 @@ export function UnderTheHoodView(props: { readonly place: Place }): JSX.Element 
           <Fold title="ボーナスと大当り回数の対応">
             <p>「3000発（1500発×2回）」のように、1つのボーナスが大当り何回分かは機種ごとに決まっていて、大当りはデータカウンタと同じく1回ずつ数えます。</p>
             <p>ホールのデータカウンタが、どのボーナスも1回と数える台では、台の画面の「どのボーナスも1回でカウント」をオンにすると、そちらに合わせられます。</p>
+          </Fold>
+          <Fold title="スロットの持ちメダルの目安（記帳時）">
+            <p>スロットの稼働を記帳するとき、最後の記録で持ちメダルを数えていなければ、持ちメダル欄に目安を入れておきます。数えたら直してください。</p>
+            <p>目安は、最後に数えた持ちメダル（なければ開始時の持ちメダル）に、そこから借りたメダルと貯メダルの引出を足し、その後のゲームの増減を足したものです。</p>
+            <p>ボーナス機は、ボーナス1回あたりの純増と、残りのゲームの増減（設定1の機械割から割り出したもの）で数えます。AT機は、ATの獲得枚数（入れていなければ平均獲得枚数）と、通常時のベースで数えます。</p>
           </Fold>
           <Fold title="失効・交換率変動の扱い（収支に含めない）">
             <p>貯玉の失効や、店の交換率が変わって貯玉の値打ちが増えたり減ったりした分は、「その他損益」として別に出します。稼働の収支には入れません。</p>

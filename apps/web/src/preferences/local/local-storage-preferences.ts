@@ -9,6 +9,7 @@ const TOKENS_IN_HAND = "p-lens.tokens-in-hand"
 const HUDDLE = "p-lens.huddle"
 const CONSOLIDATION_SHOWN = "p-lens.consolidation-shown"
 const STAGE_STEP = "p-lens.stage-step"
+const BOX_SIZES = "p-lens.box-sizes"
 const FIGURES_UNFOLDED: Readonly<Record<GameKind, string>> = { pachinko: "p-lens.figures-unfolded.pachinko", pachislot: "p-lens.figures-unfolded.pachislot" }
 const FORMULA_DRAFT: Readonly<Record<GameKind, string>> = { pachinko: "p-lens.formula-draft.pachinko", pachislot: "p-lens.formula-draft.pachislot" }
 
@@ -45,13 +46,14 @@ const forget = (key: string): void => {
  * refuses a change, the change still holds for as long as the page is open.
  */
 export const createLocalStoragePreferences = (): Preferences => {
-  const held: { businessDayTurn: BusinessDayTurn; parlorSetting: string | undefined; tokensInHand: string | undefined; huddle: string | undefined; consolidationShown: boolean; stageStep: StageStep; figuresUnfolded: Record<GameKind, boolean>; formulaDraft: Record<GameKind, string | undefined> } = {
+  const held: { businessDayTurn: BusinessDayTurn; parlorSetting: string | undefined; tokensInHand: string | undefined; huddle: string | undefined; consolidationShown: boolean; stageStep: StageStep; boxSizes: string | undefined; figuresUnfolded: Record<GameKind, boolean>; formulaDraft: Record<GameKind, string | undefined> } = {
     businessDayTurn: readBusinessDayTurn(stored(BUSINESS_DAY_TURN)),
     parlorSetting: stored(PARLOR_SETTING),
     tokensInHand: stored(TOKENS_IN_HAND),
     huddle: stored(HUDDLE),
     consolidationShown: stored(CONSOLIDATION_SHOWN) === ON,
     stageStep: readStageStep(stored(STAGE_STEP)),
+    boxSizes: stored(BOX_SIZES),
     figuresUnfolded: { pachinko: stored(FIGURES_UNFOLDED.pachinko) === ON, pachislot: stored(FIGURES_UNFOLDED.pachislot) === ON },
     formulaDraft: { pachinko: stored(FORMULA_DRAFT.pachinko), pachislot: stored(FORMULA_DRAFT.pachislot) },
   }
@@ -98,6 +100,11 @@ export const createLocalStoragePreferences = (): Preferences => {
     setStageStep: (step) => {
       held.stageStep = step
       keep(STAGE_STEP, String(step))
+    },
+    boxSizes: () => held.boxSizes,
+    setBoxSizes: (written) => {
+      held.boxSizes = written
+      keep(BOX_SIZES, written)
     },
   }
 }
