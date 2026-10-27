@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { focusOf, inLiveSpace, parentOf, pathOf, placeOf, type Place } from "../../../src/ui/navigation/place"
+import { focusOf, inLiveSpace, parentOf, pathOf, placeOf, screenOf, type Place } from "../../../src/ui/navigation/place"
 
 const PLACES: readonly Place[] = [
   { kind: "pachislot-machine-search" },
@@ -8,6 +8,8 @@ const PLACES: readonly Place[] = [
   { kind: "pachislot-formula", machineId: "m1", formulaId: "f/1" },
   { kind: "pachislot-formula-grounds", machineId: "m1", formulaId: "f1" },
   { kind: "pachislot-formula-basis", machineId: "m1", formulaId: "f1" },
+  { kind: "pachislot-formula-value", machineId: "m1", formulaId: "f/1" },
+  { kind: "pachislot-machine-value", machineId: "m 1" },
   { kind: "pachislot-formula-new", tab: "basis" },
   { kind: "pachislot-distribution-new", machineId: "m1" },
 ]
@@ -42,5 +44,17 @@ describe("pachislot places", () => {
     expect(placeOf("/pachislot")).toEqual({ kind: "not-found", path: "/pachislot" })
     expect(placeOf("/pachislot/machines/m1/formulas/f1/grounds/more")).toEqual({ kind: "not-found", path: "/pachislot/machines/m1/formulas/f1/grounds/more" })
     expect(placeOf("/pachislot/formulas/new/nonsense")).toEqual({ kind: "not-found", path: "/pachislot/formulas/new/nonsense" })
+  })
+
+  test("a formula's 期待値算出 is laid over the formula's own screen, and closing it steps up to the formula", () => {
+    const value: Place = { kind: "pachislot-formula-value", machineId: "m1", formulaId: "f1" }
+    expect(pathOf(value)).toBe("/pachislot/machines/m1/formulas/f1/value")
+    expect(screenOf(value)).toBe(screenOf({ kind: "pachislot-formula", machineId: "m1", formulaId: "f1" }))
+    expect(parentOf(value)).toEqual({ kind: "pachislot-formula", machineId: "m1", formulaId: "f1" })
+  })
+
+  test("the way in from outside names the machine alone, at /value under it", () => {
+    expect(placeOf("/pachislot/machines/m1/value")).toEqual({ kind: "pachislot-machine-value", machineId: "m1" })
+    expect(parentOf({ kind: "pachislot-machine-value", machineId: "m1" })).toEqual({ kind: "pachislot-machine", machineId: "m1" })
   })
 })

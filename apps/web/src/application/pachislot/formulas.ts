@@ -24,7 +24,7 @@ export const loadFormula = async (catalog: Catalog, machineId: string, formulaId
   const detail = await loadMachine(catalog, machineId)
   if (!detail.ok) return detail
   const listing = detail.value.formulas.find((candidate) => candidate.formula.id === formulaId)
-  return listing === undefined ? Err({ type: "catalog", error: { type: "formula-missing", id: formulaId } }) : Ok({ machine: detail.value.machine, listing })
+  return listing === undefined ? Err({ type: "catalog", error: { type: "formula-missing", id: formulaId } }) : Ok({ machine: detail.value.machine, listing, distributions: detail.value.distributions })
 }
 
 /** A formula the shared catalog took: where, and whether it took it unchecked (検算なし), as this device solved it. */

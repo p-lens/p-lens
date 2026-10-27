@@ -88,9 +88,11 @@ export interface PachinkoFormulaDetail {
   readonly listing: FormulaListing<Pachinko.Formula>
 }
 
+/** A pachislot formula with its machine, and the machine's 設定配分 a play of it would weigh it by. */
 export interface PachislotFormulaDetail {
   readonly machine: MachineSummary
   readonly listing: FormulaListing<Pachislot.Formula>
+  readonly distributions: readonly FormulaListing<Pachislot.SettingDistribution>[]
 }
 
 /** A machine about to be registered, with its first formula. */

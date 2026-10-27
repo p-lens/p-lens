@@ -127,6 +127,8 @@ export type Place =
   | { readonly kind: "pachislot-formula"; readonly machineId: string; readonly formulaId: string }
   | { readonly kind: "pachislot-formula-grounds"; readonly machineId: string; readonly formulaId: string }
   | { readonly kind: "pachislot-formula-basis"; readonly machineId: string; readonly formulaId: string }
+  | { readonly kind: "pachislot-formula-value"; readonly machineId: string; readonly formulaId: string }
+  | { readonly kind: "pachislot-machine-value"; readonly machineId: string }
   | { readonly kind: "pachislot-formula-new"; readonly tab: FormulaTab }
   | { readonly kind: "pachislot-distribution-new"; readonly machineId: string }
   | { readonly kind: "destination"; readonly lineId: string }
@@ -173,12 +175,14 @@ const pachislotPlaceOf = (segments: readonly string[], path: string): Place => {
   if (rest.length > 0) return { kind: "not-found", path }
   if (first === "machines" && second === undefined) return { kind: "pachislot-machine-search" }
   if (first === "machines" && second !== undefined && third === undefined) return { kind: "pachislot-machine", machineId: second }
+  if (first === "machines" && second !== undefined && third === "value" && fourth === undefined) return { kind: "pachislot-machine-value", machineId: second }
   if (first === "machines" && second !== undefined && third === "distributions" && fourth === "new" && fifth === undefined)
     return { kind: "pachislot-distribution-new", machineId: second }
   if (first === "machines" && second !== undefined && third === "formulas" && fourth !== undefined) {
     if (fifth === undefined) return { kind: "pachislot-formula", machineId: second, formulaId: fourth }
     if (fifth === "grounds") return { kind: "pachislot-formula-grounds", machineId: second, formulaId: fourth }
     if (fifth === "basis") return { kind: "pachislot-formula-basis", machineId: second, formulaId: fourth }
+    if (fifth === "value") return { kind: "pachislot-formula-value", machineId: second, formulaId: fourth }
   }
   if (first === "formulas" && second === "new" && third !== undefined && fourth === undefined && isFormulaTab(third))
     return { kind: "pachislot-formula-new", tab: third }
@@ -334,6 +338,10 @@ export const pathOf = (place: Place): string => {
       return `/pachislot/machines/${encode(place.machineId)}/formulas/${encode(place.formulaId)}/grounds`
     case "pachislot-formula-basis":
       return `/pachislot/machines/${encode(place.machineId)}/formulas/${encode(place.formulaId)}/basis`
+    case "pachislot-formula-value":
+      return `/pachislot/machines/${encode(place.machineId)}/formulas/${encode(place.formulaId)}/value`
+    case "pachislot-machine-value":
+      return `/pachislot/machines/${encode(place.machineId)}/value`
     case "pachislot-formula-new":
       return `/pachislot/formulas/new/${place.tab}`
     case "pachislot-distribution-new":
@@ -400,6 +408,8 @@ export const focusOf = (place: Place): Focus => {
     case "pachislot-formula":
     case "pachislot-formula-grounds":
     case "pachislot-formula-basis":
+    case "pachislot-formula-value":
+    case "pachislot-machine-value":
     case "pachislot-formula-new":
     case "pachislot-distribution-new":
     case "book-view":
@@ -473,7 +483,10 @@ export const parentOf = (place: Place): Place | undefined => {
     case "pachislot-distribution-new":
       return { kind: "pachislot-machine", machineId: place.machineId }
     case "pachislot-formula-grounds":
+    case "pachislot-formula-value":
       return { kind: "pachislot-formula", machineId: place.machineId, formulaId: place.formulaId }
+    case "pachislot-machine-value":
+      return { kind: "pachislot-machine", machineId: place.machineId }
     case "pachislot-formula-basis":
       return { kind: "pachislot-formula-grounds", machineId: place.machineId, formulaId: place.formulaId }
     case "consolidated-holdings":
@@ -523,6 +536,8 @@ export const inLiveSpace = (place: Place): boolean =>
     "pachislot-formula",
     "pachislot-formula-grounds",
     "pachislot-formula-basis",
+    "pachislot-formula-value",
+    "pachislot-machine-value",
     "pachislot-formula-new",
     "pachislot-distribution-new",
   ].includes(place.kind)
@@ -552,6 +567,8 @@ const unnarrowed = (place: Place): Place => {
       return { ...place, bookIds: undefined }
     case "pachinko-formula-value":
       return { kind: "pachinko-formula", machineId: place.machineId, formulaId: place.formulaId }
+    case "pachislot-formula-value":
+      return { kind: "pachislot-formula", machineId: place.machineId, formulaId: place.formulaId }
     case "book-view":
       return place.view === "holdings" ? { ...place, parlors: undefined } : place.view === "result-calendar" ? { ...place, senders: undefined } : place
     default:

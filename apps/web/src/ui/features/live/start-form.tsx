@@ -241,6 +241,15 @@ export const useStartPachinkoTerms = (): Accessor<PlayTerms | undefined> => {
   })
 }
 
+/** The pachislot terms typed in the start form, once they read. */
+export const useStartPachislotTerms = (): Accessor<PlayTerms | undefined> => {
+  const { form } = useStartForm()
+  return createMemo(() => {
+    const terms = readTerms(form().terms.pachislot, "pachislot")
+    return terms.ok ? terms.value : undefined
+  })
+}
+
 /** Yen a ball exchanges for by the pachinko terms typed in the start form, once they read. */
 export const useStartBallValue = (): Accessor<number | undefined> => {
   const terms = useStartPachinkoTerms()

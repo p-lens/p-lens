@@ -164,7 +164,17 @@ const mainFor = (place: Place, query: () => string, live: () => Place): JSX.Elem
     case "pachislot-machine":
       return <PachislotViews.MachineView place={place} machineId={place.machineId} />
     case "pachislot-formula":
-      return <PachislotViews.FormulaView place={place} machineId={place.machineId} formulaId={place.formulaId} />
+    case "pachislot-formula-value":
+      return (
+        <PachislotViews.FormulaView
+          place={{ kind: "pachislot-formula", machineId: place.machineId, formulaId: place.formulaId }}
+          machineId={place.machineId}
+          formulaId={place.formulaId}
+          valueShown={live().kind === "pachislot-formula-value"}
+        />
+      )
+    case "pachislot-machine-value":
+      return <PachislotViews.MachineValueView place={place} machineId={place.machineId} />
     case "pachislot-formula-grounds":
       return <PachislotViews.GroundsView place={place} machineId={place.machineId} formulaId={place.formulaId} />
     case "pachislot-formula-basis":
@@ -266,7 +276,8 @@ const auxFor = (place: Place, query: () => string): JSX.Element | undefined => {
 }
 
 /** Whether a place lays a formula's 期待値算出 over the screen, or is the way in to one from outside. */
-const valueSheetShown = (place: Place): boolean => place.kind === "pachinko-formula-value" || place.kind === "pachinko-machine-value"
+const valueSheetShown = (place: Place): boolean =>
+  place.kind === "pachinko-formula-value" || place.kind === "pachinko-machine-value" || place.kind === "pachislot-formula-value" || place.kind === "pachislot-machine-value"
 
 /**
  * The whole screen, read off the address: which place, which hledger query,

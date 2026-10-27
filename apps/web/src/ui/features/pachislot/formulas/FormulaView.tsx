@@ -6,6 +6,8 @@ import { loadFormula } from "../../../../application/pachislot/formulas"
 import { bookNameOf } from "../../../../core/catalog/catalog"
 import { usesWeighTheirMost, type Mark } from "../../../../core/formula/standing"
 import type { Formula, Sampling } from "../../../../core/pachislot/formula"
+import { selectPrior, type Prior } from "../../../../core/pachislot/prior"
+import type { PachislotFormulaDetail } from "../../../../core/catalog/catalog"
 import { useApp } from "../../../context"
 import { Button, NerdproLink } from "../../../primitives/button"
 import { BoltIcon, HandIcon, HandOffIcon, HeartIcon, ShieldIcon, ShieldOffIcon } from "../../../primitives/icons"
@@ -24,6 +26,7 @@ import { HuntTable } from "./HuntTable"
 import { remadeIn } from "./remaking"
 import { trailTo } from "./trail"
 import { useActions } from "./use-actions"
+import { ValueSheet } from "./ValueSheet"
 import { isMine, OWN_LINES, paintOf } from "./vote-fill"
 
 const samplingOf = (formula: Formula): Sampling | undefined => (formula.kind === "sampled" ? formula.sampling : undefined)
@@ -32,9 +35,12 @@ const samplingOf = (formula: Formula): Sampling | undefined => (formula.kind ===
  * One pachislot 算出条件: each setting level's 機械割 and bonus odds, at an
  * AT machine 天井狙い down a table, how it was made, and what people have
  * done with it. Adopting it as one's own is
- * done here, a level below where most people stop.
+ * done here, a level below where most people stop. Its 期待値算出 is laid
+ * over it while `valueShown`, weighed by the prior a play of it would
+ * start with; using the formula from there welcomes the device, as a
+ * person come in from outside to that sheet is never greeted over it.
  */
-export function FormulaView(props: { readonly place: Place; readonly machineId: string; readonly formulaId: string }): JSX.Element {
+export function FormulaView(props: { readonly place: Place; readonly machineId: string; readonly formulaId: string; readonly valueShown: boolean }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   const start = useStartForm()
@@ -52,6 +58,14 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
   const trail = () => {
     const found = detail()
     return found?.ok === true ? trailTo(moves, "formula", found.value.machine, found.value.listing.formula) : undefined
+  }
+  const valuePlace = (): Place => ({ kind: "pachislot-formula-value", machineId: props.machineId, formulaId: props.formulaId })
+  /** The prior the start form would weigh a play of this machine by: the one chosen there for it by hand, else a book's favourite, else the ordinary day's. */
+  const priorOf = (found: PachislotFormulaDetail): Prior | undefined => {
+    const kept = favorites.keptAmong(found.distributions.map((listing) => listing.formula.id))
+    const chosen = start.form().pachislot
+    const byHand = chosen.machine.type === "catalog" && chosen.machine.machineId === found.machine.id ? chosen.prior : undefined
+    return kept === undefined ? undefined : selectPrior(found.distributions, byHand, kept).prior
   }
   return (
     <MainContent header={<ViewHeader place={props.place} title="算出条件" trail={trail()} />}>
@@ -92,10 +106,21 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
                 <Show when={failure()} keyed>
                   {(error) => <p role="alert" class="text-sm text-negative">{describeError(error)}</p>}
                 </Show>
-                <div>
+                <div class="flex flex-wrap gap-2">
                   <Button variant="amateur" onClick={() => actions.useFormula(formula(), bookNameOf(found.machine))}>
                     これを使う
                   </Button>
+                  <ValueSheet
+                    formula={formula()}
+                    prior={priorOf(found)}
+                    open={props.valueShown}
+                    onOpen={() => moves.go(valuePlace())}
+                    onClosed={() => moves.up(valuePlace())}
+                    onUse={() => {
+                      app.services.welcome.setWelcomed()
+                      actions.useFormula(formula(), bookNameOf(found.machine))
+                    }}
+                  />
                 </div>
                 <div class="flex flex-wrap gap-2">
                   <Button
