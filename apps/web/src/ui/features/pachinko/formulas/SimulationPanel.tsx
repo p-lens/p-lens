@@ -138,7 +138,7 @@ export function SimulationPanel(props: {
         <Match when={props.play === undefined}>
           <div class="flex flex-col gap-3">
             <div>
-              <Button variant="semipro" onClick={() => props.onUnready()}>シミュレーション開始</Button>
+              <Button variant="secondary" onClick={() => props.onUnready()}>シミュレーション開始</Button>
             </div>
             <p class="text-sm text-text-muted">回転率と交換率を入れると、その条件でシミュレーションできます。</p>
           </div>
@@ -165,7 +165,7 @@ export function SimulationPanel(props: {
           {(play) => (
             <div class="flex flex-col gap-3">
               <div>
-                <Button variant="semipro" onClick={() => start(play)}>シミュレーション開始</Button>
+                <Button variant="secondary" onClick={() => start(play)}>シミュレーション開始</Button>
               </div>
               <Switch>
                 <Match when={finished()} keyed>

@@ -1,25 +1,25 @@
 import { Show, type JSX } from "solid-js"
 
 import { borderOf } from "../../../../core/pachinko/theoretical-value"
-import { usesWeighTheirMost, type FormulaListing, type Mark, type MyMarks, type Selection } from "../../../../core/formula/standing"
+import { netAdoptions, netVerifications, usesWeighTheirMost, type FormulaListing, type Mark, type MyMarks, type Selection } from "../../../../core/formula/standing"
 import type { Formula } from "../../../../core/pachinko/formula"
-import { BoltIcon, HandIcon, HandOffIcon, HeartIcon, QuestionIcon, ShieldIcon, ShieldOffIcon } from "../../../primitives/icons"
+import { BoltIcon, HandIcon, HeartIcon, QuestionIcon, ShieldIcon } from "../../../primitives/icons"
 import { formulaIdText } from "../../../wording/catalog"
-import { borderText, formulaText, oneInText } from "../../../wording/pachinko/formula"
+import { borderText, markedFormulaText, oneInText } from "../../../wording/pachinko/formula"
 import { KindMark } from "./KindMark"
 import { SelectionReason } from "./SelectionReason"
-import { isMine, OWN_LINES, paintOf } from "./vote-fill"
+import { isMine, OWN_LINES, ownPaintOf } from "./vote-fill"
 
-/** A count of what people did; a check either way is shown in its colour once there is one, and a filled count — the person's own mark among it, or uses that weigh their most — is drawn in the text's own colour, its icon painted in the mark's where it has one. */
-function Count(props: { readonly icon: JSX.Element; readonly count: number; readonly label: string; readonly filled: boolean; readonly tone?: "positive" | "negative" }): JSX.Element {
+/** A count of what people did, or of marks set against each other, which may fall below nothing; checks set against each other are shown in the colour of whichever is ahead, and a filled count — the person's own mark among it, or uses that weigh their most — is drawn in the text's own colour, its icon painted in the mark's where it has one. */
+function Count(props: { readonly icon: JSX.Element; readonly count: number; readonly label: string; readonly filled: boolean; readonly signed?: boolean }): JSX.Element {
   return (
     <span
       class="flex items-center gap-1 tabular-nums [&_svg]:size-4"
       classList={{
         [OWN_LINES]: props.filled,
-        "text-positive": !props.filled && props.tone === "positive" && props.count > 0,
-        "text-negative": !props.filled && props.tone === "negative" && props.count > 0,
-        "text-text-muted": !props.filled && (props.tone === undefined || props.count === 0),
+        "text-positive": !props.filled && props.signed === true && props.count > 0,
+        "text-negative": !props.filled && props.signed === true && props.count < 0,
+        "text-text-muted": !props.filled && (props.signed !== true || props.count === 0),
       }}
       aria-label={`${props.label} ${props.count}`}
       title={props.label}
@@ -58,6 +58,8 @@ export function FormulaCard(props: {
 }): JSX.Element {
   const figures = (): FormulaListing<Formula>["formula"]["figures"] => props.listing.formula.figures
   const filled = (mark: Mark): boolean => isMine(mark, props.mine, props.favorite)
+  const checkPaint = () => ownPaintOf(["verification", "refutation"], props.mine)
+  const adoptionPaint = () => ownPaintOf(["adoption", "rejection"], props.mine)
   return (
     <article class="grid grid-cols-[1fr_auto] items-center gap-2 rounded-lg border border-border px-4 py-3 sm:grid-cols-[1fr_auto_auto]" classList={{ "border-accent bg-accent/5": props.reason !== undefined }}>
       <header class="col-span-full flex items-center gap-2">
@@ -66,7 +68,7 @@ export function FormulaCard(props: {
         </Show>
         <KindMark kind={props.listing.formula.kind} />
         <div class="min-w-0 flex-1">
-          <h3 class="truncate font-semibold tabular-nums text-text-primary">{formulaText(props.listing.formula.figures)}</h3>
+          <h3 class="truncate font-semibold tabular-nums text-text-primary">{markedFormulaText(props.listing.formula.figures)}</h3>
           <p class="text-[11px] tabular-nums text-text-muted">ID {formulaIdText(props.listing.formula.id)}</p>
         </div>
         <Show when={props.stronger !== undefined && props.onStronger} keyed>
@@ -126,14 +128,8 @@ export function FormulaCard(props: {
         <div class="justify-self-end self-end sm:col-start-2 sm:row-start-3 sm:self-center">{props.besideFigures}</div>
       </Show>
       <footer class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
-        <Count icon={<ShieldIcon paint={paintOf("verification", filled("verification"))} />} count={props.listing.standing.verifications} label="検証OK" filled={filled("verification")} tone="positive" />
-        <Show when={props.listing.standing.refutations > 0}>
-          <Count icon={<ShieldOffIcon paint={paintOf("refutation", filled("refutation"))} />} count={props.listing.standing.refutations} label="検証NG" filled={filled("refutation")} tone="negative" />
-        </Show>
-        <Count icon={<HandIcon paint={paintOf("adoption", filled("adoption"))} />} count={props.listing.standing.adoptions} label="イチオシ" filled={filled("adoption")} />
-        <Show when={props.listing.standing.rejections > 0}>
-          <Count icon={<HandOffIcon paint={paintOf("rejection", filled("rejection"))} />} count={props.listing.standing.rejections} label="非推奨" filled={filled("rejection")} />
-        </Show>
+        <Count icon={<ShieldIcon paint={checkPaint()} />} count={netVerifications(props.listing.standing)} label="検証OK−検証NG" filled={checkPaint() !== undefined} signed />
+        <Count icon={<HandIcon paint={adoptionPaint()} />} count={netAdoptions(props.listing.standing)} label="イチオシ−非推奨" filled={adoptionPaint() !== undefined} />
         <Count icon={<HeartIcon filled={filled("favorite")} />} count={props.listing.standing.favorites} label="お気に入り" filled={filled("favorite")} />
         <Count icon={<BoltIcon filled={usesWeighTheirMost(props.listing.standing)} />} count={props.listing.standing.uses} label="利用" filled={usesWeighTheirMost(props.listing.standing)} />
       </footer>

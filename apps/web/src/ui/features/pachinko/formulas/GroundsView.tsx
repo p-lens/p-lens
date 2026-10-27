@@ -5,10 +5,11 @@ import { MainContent } from "solid-gathering-shell"
 import { groundsOf, loadFormula } from "../../../../application/pachinko/formulas"
 import type { Figures } from "../../../../core/pachinko/figures"
 import { basisOf, type Formula, type Basis } from "../../../../core/pachinko/formula"
+import { borderOf } from "../../../../core/pachinko/theoretical-value"
 import { labelsOf } from "../../../../core/pachinko/world"
 import type { SampledFigure } from "../../../../core/pachinko/grounds/facts"
 import { useApp } from "../../../context"
-import { SemiproLink } from "../../../primitives/button"
+import { NerdproLink } from "../../../primitives/button"
 import { createNudge } from "../../../primitives/nudge"
 import { EmptyState, Loaded } from "../../../primitives/states"
 import { TextField } from "../../../primitives/text-field"
@@ -26,6 +27,12 @@ const positive = (text: string): number | undefined => {
   return text.trim() !== "" && Number.isFinite(value) && value > 0 ? value : undefined
 }
 
+/** A figure typed, or the one its placeholder shows where nothing is; none where what is typed is not a number above zero. */
+const typedOr = (text: string, shown: number): number | undefined => (text.trim() === "" ? shown : positive(text))
+
+/** The ball value the simulation plays at where neither the exchange typed nor the start form gives one: 4 yen. */
+const USUAL_BALL_VALUE = 4
+
 /** The basis' combo solved again, the spread of play around the theoretical value, then the grounds reasoned out; the way to the basis is always the screen's last line. */
 function Grounds(props: { readonly basis: Basis; readonly figures: Figures; readonly sampled: SampledFigure | undefined; readonly onBasis: () => void }): JSX.Element {
   const app = useApp()
@@ -35,10 +42,13 @@ function Grounds(props: { readonly basis: Basis; readonly figures: Figures; read
   const [grounds] = createResource(() => props.basis, (basis) => groundsOf(app.services.pachinko, basis))
   const labels = (): ReadonlyMap<string, string> => labelsOf(props.basis.spec)
   const unready = createNudge()
-  const exchange = (): number | undefined => positive(value()) ?? ballValue()
+  const shownExchange = (): number => ballValue() ?? USUAL_BALL_VALUE
+  const exchange = (): number | undefined => typedOr(value(), shownExchange())
+  const cashBorder = (): number | undefined => ((exchanged) => (exchanged === undefined ? undefined : Number(borderOf(props.figures, exchanged).toFixed(1))))(exchange())
   const play = createMemo((): PlayDto | undefined => {
-    const spins = positive(rate())
     const exchanged = exchange()
+    const border = cashBorder()
+    const spins = border === undefined ? positive(rate()) : typedOr(rate(), border)
     return spins === undefined || exchanged === undefined ? undefined : { spinPerformance: spins, ballValue: exchanged }
   })
   return (
@@ -49,14 +59,23 @@ function Grounds(props: { readonly basis: Basis; readonly figures: Figures; read
           <section class="flex flex-col gap-3">
             <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">収支の分布（シミュレーション）</h2>
             <div class="grid max-w-xl grid-cols-2 gap-3">
-              <TextField label="回転率" value={rate()} onChange={setRate} inputMode="decimal" suffix="回転/千円" invalid={unready.red() && positive(rate()) === undefined} onFocus={unready.settle} />
+              <TextField
+                label="回転率"
+                value={rate()}
+                onChange={setRate}
+                inputMode="decimal"
+                suffix="回転/千円"
+                placeholder={((border) => (border === undefined ? "" : border.toFixed(1)))(cashBorder())}
+                invalid={unready.red() && play() === undefined && rate().trim() !== ""}
+                onFocus={unready.settle}
+              />
               <TextField
                 label="交換率"
                 value={value()}
                 onChange={setValue}
                 inputMode="decimal"
                 suffix="円/玉"
-                placeholder={ballValue() === undefined ? "4" : String(ballValue())}
+                placeholder={String(Number(shownExchange().toFixed(6)))}
                 invalid={unready.red() && exchange() === undefined}
                 onFocus={unready.settle}
               />
@@ -64,9 +83,9 @@ function Grounds(props: { readonly basis: Basis; readonly figures: Figures; read
             <SimulationPanel normalized={props.basis.normalized} conditions={props.basis.conditions} play={play()} exactRounds={analysis.averageRounds} onUnready={unready.nudge} />
           </section>
           <ReasonedGrounds basis={props.basis} analysis={analysis} figures={props.figures} sampled={props.sampled} />
-          <SemiproLink class="self-start text-sm" onClick={() => props.onBasis()}>
+          <NerdproLink class="self-start text-sm" onClick={() => props.onBasis()}>
             期待値基礎値を見る ›
-          </SemiproLink>
+          </NerdproLink>
         </div>
       )}
     </Loaded>

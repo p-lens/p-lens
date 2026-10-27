@@ -49,11 +49,11 @@ export const SWITCHED_ON = "border-transparent bg-accent/30 text-text-primary ho
 
 /**
  * A way on, written as a link, to somewhere a formula is worked out: its
- * grounds, its basis. In the semipro colour, as the buttons there are.
+ * grounds, its basis. In the nerdpro colour, as the buttons there are.
  */
-export function SemiproLink(props: { readonly onClick: () => void; readonly class?: string; readonly children: JSX.Element }): JSX.Element {
+export function NerdproLink(props: { readonly onClick: () => void; readonly class?: string; readonly children: JSX.Element }): JSX.Element {
   return (
-    <button type="button" class={cn("text-semipro-ink underline-offset-2 hover:text-semipro-ink-hover hover:underline", props.class)} onClick={() => props.onClick()}>
+    <button type="button" class={cn("text-nerdpro-ink underline-offset-2 hover:text-nerdpro-ink-hover hover:underline", props.class)} onClick={() => props.onClick()}>
       {props.children}
     </button>
   )

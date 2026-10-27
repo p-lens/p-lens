@@ -5,7 +5,7 @@ import type { MachineId } from "../../../core/machine/machine"
 import type * as Pachislot from "../../../core/pachislot"
 import type { SubmissionId } from "../../../core/parlor/parlor"
 import type { SharedParlorId } from "../../../core/parlor/shared"
-import { tokenValueOf } from "../../../core/parlor/terms"
+import { tokenValueOf, type PlayTerms } from "../../../core/parlor/terms"
 import type { PlayGameKind, PlayId } from "../../../core/play/play"
 import { useApp } from "../../context"
 import * as PachislotChoice from "../pachislot/start/choice"
@@ -232,11 +232,17 @@ export const useStartForm = (): StartFormState => {
   return found
 }
 
-/** Yen a ball exchanges for by the pachinko terms typed in the start form, once they read. */
-export const useStartBallValue = (): Accessor<number | undefined> => {
+/** The pachinko terms typed in the start form, once they read. */
+export const useStartPachinkoTerms = (): Accessor<PlayTerms | undefined> => {
   const { form } = useStartForm()
   return createMemo(() => {
     const terms = readTerms(form().terms.pachinko, "pachinko")
-    return terms.ok ? tokenValueOf(terms.value) : undefined
+    return terms.ok ? terms.value : undefined
   })
+}
+
+/** Yen a ball exchanges for by the pachinko terms typed in the start form, once they read. */
+export const useStartBallValue = (): Accessor<number | undefined> => {
+  const terms = useStartPachinkoTerms()
+  return createMemo(() => ((found) => (found === undefined ? undefined : tokenValueOf(found)))(terms()))
 }

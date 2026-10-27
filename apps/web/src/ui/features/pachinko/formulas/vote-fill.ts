@@ -33,3 +33,9 @@ export const isMine = (mark: Mark, mine: MyMarks, favorite: boolean): boolean =>
 
 /** What a mark's icon is painted in: its colour where the mark is the person's own, nothing where it is not. */
 export const paintOf = (mark: Filled, filled: boolean): Paint | undefined => (filled ? PAINTS[mark] : undefined)
+
+/** What a count of marks set against each other is painted in: the first of them that is the person's own, nothing where none is. */
+export const ownPaintOf = (marks: readonly Filled[], mine: MyMarks): Paint | undefined => {
+  const own = marks.find((mark) => isMine(mark, mine, false))
+  return own === undefined ? undefined : PAINTS[own]
+}

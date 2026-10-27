@@ -269,25 +269,45 @@ export const SwapIcon = () => (
   </Icon>
 )
 
-/** A crown, filled: the best a play can stand above its border. */
+const CROWN = "M3 16l1.5-11 5 5L12 3l2.5 7 5-5L21 16z"
+
+/** The crown's inside, set 1.5 in from its outline and wound the other way, so that the outline is filled thick inward and no wider. */
+const CROWN_HOLE = "M19.28 14.5 18.42 8.2 13.88 12.74 12 7.46 10.12 12.74 5.58 8.2 4.72 14.5z"
+
+/** A crown in a thick outline over a line: the best a play can stand above its border. */
 export const CrownIcon = () => (
   <Icon>
-    <path d="M3 18l1.5-11 5 5L12 5l2.5 7 5-5L21 18z" fill="currentColor" />
+    <path d={CROWN} />
+    <path d={`${CROWN}${CROWN_HOLE}`} fill="currentColor" fill-rule="evenodd" stroke="none" />
+    <path d="M3.25 21h17.5" stroke-width="2.5" />
   </Icon>
 )
 
-/** Far above, as few play without bringing their border down: a magician's six-pointed star, drawn as two triangles in outline, one upside down over the other. */
+/** Far above, as few play without bringing their border down: a magician's six-pointed star, drawn as two triangles in outline, one upside down over the other, as tall as the icon's box allows. */
 export const HexagramIcon = () => (
   <Icon>
-    <path d="M12 2.5l8.23 14.25H3.77z" />
-    <path d="M12 21.5L3.77 7.25h16.46z" />
+    <path d="M12 1.25l9.31 16.125H2.69z" />
+    <path d="M12 22.75L2.69 6.625h18.62z" />
   </Icon>
 )
 
-/** Well above: a five-pointed star, as a play far above its border wears. */
+const FIVE_POINTED_STAR = "M12 2.5l2.9 6.2 6.6.7-5 4.5 1.4 6.6L12 17.2l-5.9 3.3 1.4-6.6-5-4.5 6.6-.7z"
+
+/** Well above: a five-pointed star, filled, as a play far above its border wears. */
 export const StarIcon = () => (
   <Icon>
-    <path d="M12 2.5l2.9 6.2 6.6.7-5 4.5 1.4 6.6L12 17.2l-5.9 3.3 1.4-6.6-5-4.5 6.6-.7z" fill="currentColor" stroke="none" />
+    <path d={FIVE_POINTED_STAR} fill="currentColor" stroke="none" />
+  </Icon>
+)
+
+/** The star's inside, set 1.5 in from its outline and wound the other way, so that the outline is filled thick inward and no wider. */
+const FIVE_POINTED_STAR_HOLE = "M10.1 10.1 6.01 10.54 9.15 13.36 8.25 17.58 12 15.48 15.75 17.58 14.85 13.36 17.99 10.54 13.9 10.1 12 6.04z"
+
+/** Further above: the same five-pointed star in a thick outline. */
+export const StarOutlineIcon = () => (
+  <Icon>
+    <path d={FIVE_POINTED_STAR} />
+    <path d={`${FIVE_POINTED_STAR}${FIVE_POINTED_STAR_HOLE}`} fill="currentColor" fill-rule="evenodd" stroke="none" />
   </Icon>
 )
 

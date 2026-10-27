@@ -9,7 +9,7 @@ import { reasonsGrounds } from "../../../../core/pachislot/grounds/facts"
 import { Ok } from "../../../../core/result/result"
 import type { MachineSummary } from "../../../../core/catalog/catalog"
 import { useApp } from "../../../context"
-import { SemiproLink } from "../../../primitives/button"
+import { NerdproLink } from "../../../primitives/button"
 import { Loaded } from "../../../primitives/states"
 import { useMoves } from "../../../navigation/moves"
 import type { Place } from "../../../navigation/place"
@@ -151,9 +151,9 @@ export function GroundsView(props: { readonly place: Place; readonly machineId: 
               <Show when={reasonsGrounds(found.formula.basis)}>
                 <ReasonedGrounds basis={found.formula.basis} analysis={found.analysis} figures={found.formula.figures} margins={found.formula.kind === "sampled" ? found.formula.sampling.margins : undefined} />
               </Show>
-              <SemiproLink class="self-start text-sm" onClick={() => moves.go({ kind: "pachislot-formula-basis", machineId: found.machine.id, formulaId: found.formula.id })}>
+              <NerdproLink class="self-start text-sm" onClick={() => moves.go({ kind: "pachislot-formula-basis", machineId: found.machine.id, formulaId: found.formula.id })}>
                 解析値を見る ›
-              </SemiproLink>
+              </NerdproLink>
             </div>
           )}
         </Loaded>

@@ -7,7 +7,7 @@ import { bookNameOf } from "../../../../core/catalog/catalog"
 import { usesWeighTheirMost, type Mark } from "../../../../core/formula/standing"
 import type { Formula, Sampling } from "../../../../core/pachislot/formula"
 import { useApp } from "../../../context"
-import { Button, SemiproLink } from "../../../primitives/button"
+import { Button, NerdproLink } from "../../../primitives/button"
 import { BoltIcon, HandIcon, HandOffIcon, HeartIcon, ShieldIcon, ShieldOffIcon } from "../../../primitives/icons"
 import { Loaded } from "../../../primitives/states"
 import { useMoves } from "../../../navigation/moves"
@@ -112,7 +112,7 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
                 <p class="text-xs text-text-muted">イチオシは1機種につき1つ。人にすすめるならこれ、という算出条件に付けてください。すすめられないものは非推奨に。どちらも共有され、順位に効きます。</p>
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
                   <Button
-                    variant="semipro"
+                    variant="nerdpro"
                     onClick={() => {
                       start.updatePachislot({ machine: { type: "catalog", machineId: found.machine.id, name: bookNameOf(found.machine) }, remakeFrom: formula().id })
                       moves.go({ kind: "pachislot-formula-new", tab: remadeIn(formula()) })
@@ -120,9 +120,9 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
                   >
                     作り直す
                   </Button>
-                  <SemiproLink class="text-sm" onClick={() => moves.go({ kind: "pachislot-formula-grounds", machineId: found.machine.id, formulaId: formula().id })}>
+                  <NerdproLink class="text-sm" onClick={() => moves.go({ kind: "pachislot-formula-grounds", machineId: found.machine.id, formulaId: formula().id })}>
                     計算根拠を見る ›
-                  </SemiproLink>
+                  </NerdproLink>
                 </div>
               </div>
             )

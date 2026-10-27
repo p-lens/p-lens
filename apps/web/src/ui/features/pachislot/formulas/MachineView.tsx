@@ -55,7 +55,7 @@ export function MachineView(props: { readonly place: Place; readonly machineId: 
                 <div class="flex items-center justify-between gap-3">
                   <h2 class={SECTION_TITLE}>算出条件一覧</h2>
                   <Button
-                    variant="semipro"
+                    variant="nerdpro"
                     size="small"
                     onClick={() => {
                       const from = startedFrom(ranked(found.formulas, worthOf).map((listing) => listing.formula))

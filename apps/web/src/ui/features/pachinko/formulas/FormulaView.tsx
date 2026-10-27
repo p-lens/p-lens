@@ -11,7 +11,7 @@ import { bonusShapes } from "../../../../core/pachinko/bonuses"
 import { borderOf } from "../../../../core/pachinko/theoretical-value"
 import { basisOf, type Formula, type Basis, type Sampling } from "../../../../core/pachinko/formula"
 import { useApp } from "../../../context"
-import { Button, SemiproLink } from "../../../primitives/button"
+import { Button, NerdproLink } from "../../../primitives/button"
 import { BoltIcon, HandIcon, HandOffIcon, HeartIcon, ShieldIcon, ShieldOffIcon } from "../../../primitives/icons"
 import { Loaded } from "../../../primitives/states"
 import { useMoves } from "../../../navigation/moves"
@@ -28,6 +28,7 @@ import { HyenaHuntTable } from "./HyenaHuntTable"
 import { remadeIn } from "./remaking"
 import { trailTo } from "./trail"
 import { useActions } from "./use-actions"
+import { ValueSheet } from "./ValueSheet"
 import { isMine, OWN_LINES, paintOf } from "./vote-fill"
 
 function Row(props: { readonly label: string; readonly children: JSX.Element }): JSX.Element {
@@ -126,10 +127,11 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
                 <Show when={failure()} keyed>
                   {(error) => <p role="alert" class="text-sm text-negative">{describeError(error)}</p>}
                 </Show>
-                <div>
+                <div class="flex flex-wrap gap-2">
                   <Button variant="amateur" onClick={() => actions.use(formula(), bookNameOf(found.machine))}>
                     これを使う
                   </Button>
+                  <ValueSheet figures={formula().figures} />
                 </div>
                 <Show when={hyenaHuntable(formula())} keyed>
                   {(hyenaHunt) => <HyenaHuntTable basis={hyenaHunt.basis} reliefDrive={hyenaHunt.reliefDrive} />}
@@ -145,7 +147,7 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
                 <p class="text-xs text-text-muted">イチオシは1機種につき1つ。人にすすめるならこれ、という算出条件に付けてください。すすめられないものは非推奨に。どちらも共有され、順位に効きます。</p>
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
                   <Button
-                    variant="semipro"
+                    variant="nerdpro"
                     onClick={() => {
                       start.updatePachinko({ machine: { type: "catalog", machineId: found.machine.id, name: bookNameOf(found.machine) }, remakeFrom: formula().id })
                       moves.go({ kind: "pachinko-formula-new", tab: remadeIn(formula()) })
@@ -157,9 +159,9 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
                     when={basisOf(formula()) !== undefined}
                     fallback={<p class="text-sm text-text-muted">手入力の算出条件です。計算根拠と期待値基礎値はありません。</p>}
                   >
-                    <SemiproLink class="text-sm" onClick={() => moves.go({ kind: "pachinko-formula-grounds", machineId: found.machine.id, formulaId: formula().id })}>
+                    <NerdproLink class="text-sm" onClick={() => moves.go({ kind: "pachinko-formula-grounds", machineId: found.machine.id, formulaId: formula().id })}>
                       計算根拠を見る ›
-                    </SemiproLink>
+                    </NerdproLink>
                   </Show>
                 </div>
               </div>

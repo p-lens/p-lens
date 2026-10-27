@@ -47,8 +47,8 @@ function Tile(props: { readonly label: string; readonly value: string; readonly 
  * Folded or not, the spin performance's name wears a mark after it that
  * says where the play stands against its border, and how far: graded
  * by what a spin is worth over an hour, never by the spin performance set
- * against the border (`borderMarkOf`) — a gold crown, a gold six-pointed star of two triangles drawn in outline that
- * shines, a gold or red star, a purple,
+ * against the border (`borderMarkOf`) — a gold crown in outline, a gold six-pointed star of two triangles drawn in outline that
+ * shines, a gold star in outline or a red one filled, a purple,
  * green or blue triangle above it, a yellow one pointing down at it or a
  * little under, and below it one to four red ones side by side, by
  * how far, the gold ones only once 300 spins have

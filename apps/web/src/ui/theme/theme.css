@@ -81,6 +81,7 @@
   --nerdpro-hover: #ae6edb;
   --on-nerdpro: #100a1c;
   --nerdpro-ink: #7a1fd6;
+  --nerdpro-ink-hover: #6418b3;
   --rapid: #86d426;
   --special: #a985f2;
   --special-banner: #8a1cff;
@@ -133,6 +134,7 @@
   --nerdpro-hover: #c266ff;
   --on-nerdpro: #100a1c;
   --nerdpro-ink: #bb84ff;
+  --nerdpro-ink-hover: #cfa6ff;
   --rapid: #9be22d;
   --special: #b794f6;
   --special-banner: #9d2bff;
@@ -192,6 +194,7 @@
   --color-nerdpro-hover: var(--nerdpro-hover);
   --color-on-nerdpro: var(--on-nerdpro);
   --color-nerdpro-ink: var(--nerdpro-ink);
+  --color-nerdpro-ink-hover: var(--nerdpro-ink-hover);
   --color-mark-gold: var(--mark-gold);
   --color-mark-red: var(--mark-red);
   --color-mark-purple: var(--mark-purple);

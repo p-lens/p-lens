@@ -17,14 +17,19 @@ type Said = { readonly id: string; readonly figures: { readonly roundChanceOneIn
 /** The two figures the theoretical value rests on, which is what a formula is known by: `1/16.2・140.0玉`. */
 export const formulaText = (figures: Said["figures"]): string => `${oneInText(figures.roundChanceOneIn)}・${payoutText(figures.payoutPerRound)}`
 
+/** The two figures, each marked with what it is, as a formula's card and a box to choose one from show them: `1RT 1/16.2・1RB 140.0玉` — 1Rトータル確率 and 1R平均出玉. */
+export const markedFormulaText = (figures: Said["figures"]): string => `1RT ${oneInText(figures.roundChanceOneIn)}・1RB ${payoutText(figures.payoutPerRound)}`
+
 /**
- * A formula's name among its machine's: its figures — nobody names a
- * formula — and, where another says the same, its id.
+ * A formula's name among its machine's, as a box to choose one shows it:
+ * its figures, marked — nobody names a formula — and, where another says
+ * the same, its id.
  */
 export const formulaNameAmong = (formula: Said, among: readonly Said[]): string => {
   const said = formulaText(formula.figures)
   const twins = among.filter((other) => formulaText(other.figures) === said)
-  return twins.length > 1 ? `${said}（${formulaIdText(formula.id)}）` : said
+  const marked = markedFormulaText(formula.figures)
+  return twins.length > 1 ? `${marked}（${formulaIdText(formula.id)}）` : marked
 }
 
 /** A formula as it is passed on — "use this one": its id, which finds it, then its figures, which say what it is. */

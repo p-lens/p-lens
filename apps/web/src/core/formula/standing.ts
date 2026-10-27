@@ -66,10 +66,10 @@ export const isHeld = (mine: MyMarks, mark: HeldMark): boolean => {
 }
 
 /** Checks that held, less those that did not. */
-const netVerifications = (standing: Standing): number => standing.verifications - standing.refutations
+export const netVerifications = (standing: Standing): number => standing.verifications - standing.refutations
 
 /** Adoptions, less rejections. */
-const netAdoptions = (standing: Standing): number => standing.adoptions - standing.rejections
+export const netAdoptions = (standing: Standing): number => standing.adoptions - standing.rejections
 
 /**
  * Anything people register for a machine and stand behind the way they do a

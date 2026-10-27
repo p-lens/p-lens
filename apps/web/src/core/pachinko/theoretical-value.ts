@@ -106,3 +106,73 @@ export const playTheoreticalValue = (told: Figures, terms: PlayTerms | undefined
     yenPerHour: figures.spinsPerHour === undefined ? undefined : perSpin * figures.spinsPerHour,
   }
 }
+
+/**
+ * A corner as a person types it in to work a formula's theoretical value
+ * out before playing (期待値算出): the balls ¥1,000 rents, the balls ¥100
+ * of prizes takes, and the share of spins played with the player's own
+ * balls, from 0 to 1.
+ */
+export interface SheetCorner {
+  readonly rentedPerThousand: number
+  readonly exchangedPerHundred: number
+  readonly ownShare: number
+}
+
+/** How a person means to play at a corner: their spin performance, the regular spins they mean to play, and the spins an hour where they say. */
+export interface SheetPlay {
+  readonly spinPerformance: number
+  readonly regularSpins: number
+  readonly spinsPerHour: number | undefined
+}
+
+/**
+ * The spin performance a play breaks even at, in spins for the balls
+ * ¥1,000 rents: every ball rented (現金), every ball the player's own,
+ * costing what it exchanges for (持玉), and the two mixed by the share
+ * of own balls (持比).
+ */
+export interface SheetBorders {
+  readonly cash: number
+  readonly mixed: number
+  readonly own: number
+}
+
+/** What a play typed in comes to: the theoretical value over its spins, a spin's, the balls it gains net of those it plays, and an hour's where the spins an hour are said. */
+export interface SheetValue {
+  readonly theoreticalValue: number
+  readonly yenPerSpin: number
+  readonly ballsGained: number
+  readonly yenPerHour: number | undefined
+}
+
+const ballValueAt = (corner: SheetCorner): number => 100 / corner.exchangedPerHundred
+
+export const sheetBordersOf = (figures: Figures, corner: SheetCorner): SheetBorders => {
+  const worth = ballsPerSpin(figures) * ballValueAt(corner)
+  const ownCost = corner.rentedPerThousand * ballValueAt(corner)
+  return {
+    cash: 1000 / worth,
+    mixed: ((1 - corner.ownShare) * 1000 + corner.ownShare * ownCost) / worth,
+    own: ownCost / worth,
+  }
+}
+
+/**
+ * A spin played with rented balls is worth what it wins, exchanged, less
+ * the yen its balls were rented for; one with the player's own balls,
+ * what it wins less the balls it plays, both exchanged. A play is worth
+ * the two mixed by its share of own balls.
+ */
+export const sheetValueOf = (figures: Figures, corner: SheetCorner, play: SheetPlay): SheetValue => {
+  const ballValue = ballValueAt(corner)
+  const gainedPerSpin = ballsPerSpin(figures) - corner.rentedPerThousand / play.spinPerformance
+  const cashPerSpin = ballsPerSpin(figures) * ballValue - 1000 / play.spinPerformance
+  const perSpin = (1 - corner.ownShare) * cashPerSpin + corner.ownShare * gainedPerSpin * ballValue
+  return {
+    theoreticalValue: perSpin * play.regularSpins,
+    yenPerSpin: perSpin,
+    ballsGained: gainedPerSpin * play.regularSpins,
+    yenPerHour: play.spinsPerHour === undefined ? undefined : perSpin * play.spinsPerHour,
+  }
+}
