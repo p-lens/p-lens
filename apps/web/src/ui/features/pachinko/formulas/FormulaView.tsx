@@ -40,11 +40,6 @@ function Row(props: { readonly label: string; readonly children: JSX.Element }):
   )
 }
 
-/**
- * One 算出条件: every figure it holds, where it came from, and what people
- * have done with it. Adopting it as one's own is done here, a level below
- * where most people stop.
- */
 /** A formula's basis and its 遊タイム, when it was made from a basis of a machine that has one. */
 const hyenaHuntable = (formula: Formula): { readonly basis: Basis; readonly reliefDrive: number } | undefined => {
   const basis = basisOf(formula)
@@ -58,7 +53,14 @@ const samplingOf = (formula: Formula): Sampling | undefined => (formula.kind ===
 /** The bonuses a formula's basis's jackpots pay, told by their rounds; none for one typed in. */
 const shapesOf = (formula: Formula): readonly BonusShape[] => ((basis) => (basis === undefined ? [] : bonusShapes(basis.spec)))(basisOf(formula))
 
-export function FormulaView(props: { readonly place: Place; readonly machineId: string; readonly formulaId: string }): JSX.Element {
+/**
+ * One 算出条件: every figure it holds, where it came from, and what people
+ * have done with it. Adopting it as one's own is done here, a level below
+ * where most people stop. Its 期待値算出 is laid over it while
+ * `valueShown`; using the formula from there welcomes the device, as a
+ * person come in from outside to that sheet is never greeted over it.
+ */
+export function FormulaView(props: { readonly place: Place; readonly machineId: string; readonly formulaId: string; readonly valueShown: boolean }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   const start = useStartForm()
@@ -78,6 +80,7 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
     const found = detail()
     return found?.ok === true ? trailTo(moves, "formula", found.value.machine, found.value.listing.formula) : undefined
   }
+  const valuePlace = (): Place => ({ kind: "pachinko-formula-value", machineId: props.machineId, formulaId: props.formulaId })
   return (
     <MainContent header={<ViewHeader place={props.place} title="算出条件" trail={trail()} />}>
       <div class="max-w-5xl">
@@ -131,7 +134,16 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
                   <Button variant="amateur" onClick={() => actions.use(formula(), bookNameOf(found.machine))}>
                     これを使う
                   </Button>
-                  <ValueSheet figures={formula().figures} />
+                  <ValueSheet
+                    figures={formula().figures}
+                    open={props.valueShown}
+                    onOpen={() => moves.go(valuePlace())}
+                    onClosed={() => moves.up(valuePlace())}
+                    onUse={() => {
+                      app.services.welcome.setWelcomed()
+                      actions.use(formula(), bookNameOf(found.machine))
+                    }}
+                  />
                 </div>
                 <Show when={hyenaHuntable(formula())} keyed>
                   {(hyenaHunt) => <HyenaHuntTable basis={hyenaHunt.basis} reliefDrive={hyenaHunt.reliefDrive} />}

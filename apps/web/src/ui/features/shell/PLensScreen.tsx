@@ -142,7 +142,17 @@ const mainFor = (place: Place, query: () => string, live: () => Place): JSX.Elem
     case "pachinko-machine":
       return <PachinkoViews.MachineView place={place} machineId={place.machineId} />
     case "pachinko-formula":
-      return <PachinkoViews.FormulaView place={place} machineId={place.machineId} formulaId={place.formulaId} />
+    case "pachinko-formula-value":
+      return (
+        <PachinkoViews.FormulaView
+          place={{ kind: "pachinko-formula", machineId: place.machineId, formulaId: place.formulaId }}
+          machineId={place.machineId}
+          formulaId={place.formulaId}
+          valueShown={live().kind === "pachinko-formula-value"}
+        />
+      )
+    case "pachinko-machine-value":
+      return <PachinkoViews.MachineValueView place={place} machineId={place.machineId} />
     case "pachinko-formula-grounds":
       return <PachinkoViews.GroundsView place={place} machineId={place.machineId} formulaId={place.formulaId} />
     case "pachinko-formula-basis":
@@ -255,6 +265,9 @@ const auxFor = (place: Place, query: () => string): JSX.Element | undefined => {
   return place.kind === "book-file" ? <FileDetail place={place} bookId={place.bookId} path={place.path} /> : undefined
 }
 
+/** Whether a place lays a formula's 期待値算出 over the screen, or is the way in to one from outside. */
+const valueSheetShown = (place: Place): boolean => place.kind === "pachinko-formula-value" || place.kind === "pachinko-machine-value"
+
 /**
  * The whole screen, read off the address: which place, which hledger query,
  * and from those which panes show what. The books are asked for once here,
@@ -279,7 +292,7 @@ export function PLensScreen(): JSX.Element {
 
   return (
     <StartFormProvider>
-      <WelcomeProvider onSample={sampleBook.open}>
+      <WelcomeProvider onSample={sampleBook.open} held={valueSheetShown(place())}>
         <GatheringShell
           arrangement={arrangement()}
           focus={focusOf(place())}

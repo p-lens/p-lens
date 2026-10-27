@@ -80,6 +80,9 @@ const isFormulaTab = (segment: string): segment is FormulaTab => (FORMULA_TABS a
  * `pachinko-machine` lists its formulas, `pachinko-formula` is one 算出条件,
  * `pachinko-formula-grounds` its 計算根拠, `pachinko-formula-basis` its
  * 期待値基礎値. `pachinko-formula-new` makes one, by hand or by simulation.
+ * `pachinko-formula-value` is a formula with its 期待値算出 laid over it;
+ * `pachinko-machine-value` is the way in to that from outside the app,
+ * naming the machine alone, and stands for its best formula at the time.
  *
  * These are under `/pachinko`. Pachislot machines are under `/pachislot`, the
  * same depths in the same order — `pachislot-formula-basis` is a formula's 解析値 —
@@ -116,6 +119,8 @@ export type Place =
   | { readonly kind: "pachinko-formula"; readonly machineId: string; readonly formulaId: string }
   | { readonly kind: "pachinko-formula-grounds"; readonly machineId: string; readonly formulaId: string }
   | { readonly kind: "pachinko-formula-basis"; readonly machineId: string; readonly formulaId: string }
+  | { readonly kind: "pachinko-formula-value"; readonly machineId: string; readonly formulaId: string }
+  | { readonly kind: "pachinko-machine-value"; readonly machineId: string }
   | { readonly kind: "pachinko-formula-new"; readonly tab: FormulaTab }
   | { readonly kind: "pachislot-machine-search" }
   | { readonly kind: "pachislot-machine"; readonly machineId: string }
@@ -186,10 +191,12 @@ const pachinkoPlaceOf = (segments: readonly string[], path: string): Place => {
   if (rest.length > 0) return { kind: "not-found", path }
   if (first === "machines" && second === undefined) return { kind: "pachinko-machine-search" }
   if (first === "machines" && second !== undefined && third === undefined) return { kind: "pachinko-machine", machineId: second }
+  if (first === "machines" && second !== undefined && third === "value" && fourth === undefined) return { kind: "pachinko-machine-value", machineId: second }
   if (first === "machines" && second !== undefined && third === "formulas" && fourth !== undefined) {
     if (fifth === undefined) return { kind: "pachinko-formula", machineId: second, formulaId: fourth }
     if (fifth === "grounds") return { kind: "pachinko-formula-grounds", machineId: second, formulaId: fourth }
     if (fifth === "basis") return { kind: "pachinko-formula-basis", machineId: second, formulaId: fourth }
+    if (fifth === "value") return { kind: "pachinko-formula-value", machineId: second, formulaId: fourth }
   }
   if (first === "formulas" && second === "new" && third !== undefined && fourth === undefined && isFormulaTab(third))
     return { kind: "pachinko-formula-new", tab: third }
@@ -311,6 +318,10 @@ export const pathOf = (place: Place): string => {
       return `/pachinko/machines/${encode(place.machineId)}/formulas/${encode(place.formulaId)}/grounds`
     case "pachinko-formula-basis":
       return `/pachinko/machines/${encode(place.machineId)}/formulas/${encode(place.formulaId)}/basis`
+    case "pachinko-formula-value":
+      return `/pachinko/machines/${encode(place.machineId)}/formulas/${encode(place.formulaId)}/value`
+    case "pachinko-machine-value":
+      return `/pachinko/machines/${encode(place.machineId)}/value`
     case "pachinko-formula-new":
       return `/pachinko/formulas/new/${place.tab}`
     case "pachislot-machine-search":
@@ -381,6 +392,8 @@ export const focusOf = (place: Place): Focus => {
     case "pachinko-formula":
     case "pachinko-formula-grounds":
     case "pachinko-formula-basis":
+    case "pachinko-formula-value":
+    case "pachinko-machine-value":
     case "pachinko-formula-new":
     case "pachislot-machine-search":
     case "pachislot-machine":
@@ -446,7 +459,10 @@ export const parentOf = (place: Place): Place | undefined => {
     case "pachinko-formula":
       return { kind: "pachinko-machine", machineId: place.machineId }
     case "pachinko-formula-grounds":
+    case "pachinko-formula-value":
       return { kind: "pachinko-formula", machineId: place.machineId, formulaId: place.formulaId }
+    case "pachinko-machine-value":
+      return { kind: "pachinko-machine", machineId: place.machineId }
     case "pachinko-formula-basis":
       return { kind: "pachinko-formula-grounds", machineId: place.machineId, formulaId: place.formulaId }
     case "pachislot-machine-search":
@@ -499,6 +515,8 @@ export const inLiveSpace = (place: Place): boolean =>
     "pachinko-formula",
     "pachinko-formula-grounds",
     "pachinko-formula-basis",
+    "pachinko-formula-value",
+    "pachinko-machine-value",
     "pachinko-formula-new",
     "pachislot-machine-search",
     "pachislot-machine",
@@ -525,13 +543,15 @@ export const inOddPrizeCalculator = (place: Place): boolean => place.kind === "o
 
 export const inSettings = (place: Place): boolean => place.kind === "settings" || place.kind === "settings-section" || place.kind === "document"
 
-/** A place apart from what it is narrowed to: the books a consolidation reads, the parlors a book's savings show, who a book's calendar is of. */
+/** A place apart from what it is narrowed to: the books a consolidation reads, the parlors a book's savings show, who a book's calendar is of, whether a formula's 期待値算出 is laid over it. */
 const unnarrowed = (place: Place): Place => {
   switch (place.kind) {
     case "consolidated-holdings":
     case "consolidated-result-calendar":
     case "consolidated-breakdown":
       return { ...place, bookIds: undefined }
+    case "pachinko-formula-value":
+      return { kind: "pachinko-formula", machineId: place.machineId, formulaId: place.formulaId }
     case "book-view":
       return place.view === "holdings" ? { ...place, parlors: undefined } : place.view === "result-calendar" ? { ...place, senders: undefined } : place
     default:

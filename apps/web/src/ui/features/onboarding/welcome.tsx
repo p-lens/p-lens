@@ -1,4 +1,4 @@
-import { createContext, createResource, createSignal, useContext, type JSX } from "solid-js"
+import { createContext, createEffect, createResource, createSignal, useContext, type JSX } from "solid-js"
 
 import { loadWelcomeDue } from "../../../application/onboarding/welcome"
 import { useApp } from "../../context"
@@ -17,12 +17,17 @@ type Showing = { readonly type: "when-due" } | { readonly type: "asked" } | { re
 /**
  * Holds the welcome: opened by itself once, as a new device that holds
  * nothing but its first book, untouched, opens the app (`loadWelcomeDue`), and again whenever it is
- * asked for. However it is closed, the device has been welcomed. Making a
+ * asked for. While `held` — a 期待値算出 come to from outside — it does not
+ * open by itself, and once held it stays so until the app is opened again:
+ * a person who came for one figure is not greeted on their way out. However it is closed, the device has been welcomed. Making a
  * sample book is the one thing it leads to, and is the caller's to open.
  */
-export function WelcomeProvider(props: { readonly onSample: () => void; readonly children: JSX.Element }): JSX.Element {
+export function WelcomeProvider(props: { readonly onSample: () => void; readonly held: boolean; readonly children: JSX.Element }): JSX.Element {
   const app = useApp()
   const [showing, setShowing] = createSignal<Showing>({ type: "when-due" })
+  createEffect(() => {
+    if (props.held && showing().type === "when-due") setShowing({ type: "closed" })
+  })
   const [due] = createResource(() => loadWelcomeDue(app.services.session, app.services.drafts, app.services.welcome, app.services.firstBook()))
   const open = (): boolean => ((now) => now.type === "asked" || (now.type === "when-due" && due() === true))(showing())
   const close = (): void => {

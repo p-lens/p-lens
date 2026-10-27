@@ -14,8 +14,8 @@ import { useStartPachinkoTerms } from "../../live/start-form"
 /** The balls ¥1,000 rents and ¥100 takes where the start form says nothing: a 4-yen corner exchanging at 28. */
 const USUAL_CORNER = { rentedPerThousand: "250", exchangedPerHundred: "28" } as const
 
-/** The play the sheet starts at: 2,000 regular spins, 60% of them with the player's own balls, 200 spins an hour where the formula says none. */
-const USUAL_PLAY = { regularSpins: "2000", ownShare: "60", spinsPerHour: "200" } as const
+/** The play the sheet starts at: 1,000 regular spins, 65% of them with the player's own balls, 200 spins an hour where the formula says none. */
+const USUAL_PLAY = { regularSpins: "1000", ownShare: "65", spinsPerHour: "200" } as const
 
 const numberOf = (text: string): number | undefined => (tidyTyped(text) === "" ? undefined : ((value) => (Number.isFinite(value) ? value : undefined))(Number(tidyTyped(text))))
 
@@ -50,17 +50,23 @@ function Line(props: { readonly label: string; readonly children: JSX.Element })
 
 /**
  * 期待値算出: a formula's theoretical value at a corner and a play the
- * person types in, as a button that lays the sheet over the screen. The
+ * person types in, as a button that lays the sheet over the screen, open
+ * as the address says, with the formula's use at its foot. The
  * corner starts as the start form's terms where they read, the play at
- * 2,000 spins, 60% of them with own balls, and at the cash border as
+ * 1,000 spins, 65% of them with own balls, and at the cash border as
  * the corner stands while no spin performance is typed; and every
  * figure is worked out as soon as what it needs reads; until then it
  * keeps its shape in dashes.
  */
-export function ValueSheet(props: { readonly figures: Figures }): JSX.Element {
+export function ValueSheet(props: {
+  readonly figures: Figures
+  readonly open: boolean
+  readonly onOpen: () => void
+  readonly onClosed: () => void
+  readonly onUse: () => void
+}): JSX.Element {
   const startTerms = useStartPachinkoTerms()
   const terms = startTerms()
-  const [shown, setShown] = createSignal(false)
   const [rented, setRented] = createSignal(terms === undefined ? USUAL_CORNER.rentedPerThousand : String(tokensRentedFor(terms, 1000)))
   const [exchanged, setExchanged] = createSignal(terms === undefined ? USUAL_CORNER.exchangedPerHundred : statedExchangeOf("pachinko", terms.exchange))
   const [ownShare, setOwnShare] = createSignal<string>(USUAL_PLAY.ownShare)
@@ -79,10 +85,10 @@ export function ValueSheet(props: { readonly figures: Figures }): JSX.Element {
   })
   return (
     <>
-      <Button variant="semipro" onClick={() => setShown(true)}>
+      <Button variant="semipro" onClick={props.onOpen}>
         期待値算出
       </Button>
-      <PanelDialog open={shown()} title="期待値算出" onClosed={() => setShown(false)}>
+      <PanelDialog open={props.open} title="期待値算出" onClosed={props.onClosed}>
         <div class="grid grid-cols-2 gap-x-3 gap-y-2">
           <TextField label="貸玉(千円)" value={rented()} onChange={setRented} inputMode="numeric" suffix="玉" invalid={positiveOf(rented()) === undefined} compact />
           <TextField label="交換(100円)" value={exchanged()} onChange={setExchanged} inputMode="decimal" suffix="玉" invalid={positiveOf(exchanged()) === undefined} compact />
@@ -121,6 +127,11 @@ export function ValueSheet(props: { readonly figures: Figures }): JSX.Element {
           </section>
         </div>
         <p class="text-xs text-text-muted">持ち玉比率は、持ち玉で打つ回転の割合です。差玉は、出玉から打った玉を引いた数です。</p>
+        <div class="flex justify-end">
+          <Button variant="amateur" onClick={props.onUse}>
+            これを使う
+          </Button>
+        </div>
       </PanelDialog>
     </>
   )
