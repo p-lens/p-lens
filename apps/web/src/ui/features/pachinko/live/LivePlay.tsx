@@ -213,7 +213,7 @@ export function LivePlay(props: {
                       </Show>
                     )}
                   />
-                  <Timeline checkpoints={checkpoints} terms={terms} formula={props.draft.pachinko} revising={revised()} onRevise={(pressed) => (samePressed(pressed, revised()) ? done() : setWork(pressed))} onMerge={(span) => merge(checkpoints, span)} />
+                  <Timeline checkpoints={checkpoints} terms={terms} revising={revised()} onRevise={(pressed) => (samePressed(pressed, revised()) ? done() : setWork(pressed))} onMerge={(span) => merge(checkpoints, span)} />
                 </div>
                 <div class="sticky bottom-0">
                   <Show

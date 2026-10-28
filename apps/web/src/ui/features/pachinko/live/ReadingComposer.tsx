@@ -23,7 +23,7 @@ import { feelTap } from "../../../primitives/vibration"
 import { describeError, describeReadingRefusal } from "../../../wording/errors"
 import { FIELD_PROBLEM_TEXT } from "../../../wording/fields"
 import { amountText } from "../../../wording/numbers"
-import { CHANGED_SINCE_REMOVED, describeRevisionRefusal, PHASE_NAMES, recountText, READING_REMOVED, REMOVAL_TAKEN_BACK, REMOVE_READING, RELIEF_DRIVE_REACHED, TAKE_BACK, TAKE_BACK_FAILED } from "../../../wording/pachinko/play"
+import { CHANGED_SINCE_REMOVED, describeRevisionRefusal, PHASE_NAMES, recountText, READING_REMOVED, REMOVAL_TAKEN_BACK, REMOVE_READING, RELIEF_DRIVE_REACHED, TAKE_BACK, TAKE_BACK_FAILED, JACKPOT_HELD_NOTE } from "../../../wording/pachinko/play"
 import { jackpotOptions, useBonuses, usualOverOf } from "./bonus-choice"
 import { DriftButton } from "./DriftButton"
 import { PressButton } from "./PressButton"
@@ -55,7 +55,9 @@ const USUAL_DRAW = 125
  * field, typed over for more at once: a rental press is the cabinet's own,
  * a draw what the corner's terms say a replay pays out, and what a draw
  * takes off the savings, fee and all, is said under it. Choosing a bonus makes the reading a
- * jackpot: the counter is then as it stood when the bonus came.
+ * jackpot: the counter and the balls in hand are then as they stood when
+ * the bonus came, before it paid — said under the bonus always, so that
+ * the form keeps its shape and the hand is never typed with the bonus in it.
  *
  * Given a reading already taken, it is that reading typed again, to be
  * set right or taken away; given a place among the readings, what is typed
@@ -92,7 +94,7 @@ export function ReadingComposer(props: {
   const recount = (): HandDrift | undefined => {
     const terms = props.draft.venue.terms
     if (props.revising !== undefined || props.inserting !== undefined || !form().heldCarried || terms === undefined) return undefined
-    const drift = handDriftOf(props.ordered, terms, before().held, props.draft.pachinko)
+    const drift = handDriftOf(props.ordered, terms, before().held)
     return drift !== undefined && drift.spins >= RECOUNT_AFTER ? drift : undefined
   }
   const [form, setForm] = createSignal<ReadingForm>(
@@ -390,6 +392,7 @@ export function ReadingComposer(props: {
           <OverButton over={form().over} invalid={nudged("over")} onOver={(over) => change({ over })} onFocus={nudge.settle} />
         </div>
       </div>
+      <p class="text-xs text-text-muted">{JACKPOT_HELD_NOTE}</p>
     </form>
   )
 }

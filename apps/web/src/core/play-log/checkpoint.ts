@@ -60,7 +60,10 @@ export interface Checkpoint {
   /**
    * What the balls in hand gained or lost outside regular games and
    * bonuses since the play began — the 電サポ's drift through 確変 and 時短 —
-   * below zero where they lost. Pachinko only.
+   * below zero where they lost. Written only on a line where the person
+   * counted the drift, though it came to none or left the total where it
+   * stood; a line without it carries the total before it on, and says
+   * nothing of the drift. Pachinko only.
    */
   readonly support?: number
   /** The tokens in hand at this point, where they were counted. */

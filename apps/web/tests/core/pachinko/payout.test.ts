@@ -37,9 +37,9 @@ describe("a bonus counted as it ended", () => {
   })
 
   test("leaves the spin performance as it would be had the bonus paid what it was told to, whatever it paid", () => {
-    const told = measuredSpinPerformance(countedAt(1400), TERMS, undefined)
-    expect(measuredSpinPerformance(countedAt(1500), TERMS, undefined)).toBeCloseTo(told ?? 0, 10)
-    expect(measuredSpinPerformance(countedAt(1300), TERMS, undefined)).toBeCloseTo(told ?? 0, 10)
+    const told = measuredSpinPerformance(countedAt(1400), TERMS)
+    expect(measuredSpinPerformance(countedAt(1500), TERMS)).toBeCloseTo(told ?? 0, 10)
+    expect(measuredSpinPerformance(countedAt(1300), TERMS)).toBeCloseTo(told ?? 0, 10)
   })
 
   test("lowers the border by what an over-entry paid beyond what was told, and raises it by what a slack attacker lost", () => {
@@ -65,7 +65,7 @@ describe("a bonus said to have paid beyond its machine's", () => {
   })
 
   test("leaves the spin performance as it would be had the bonus paid what was said, and lowers the border by it", () => {
-    expect(measuredSpinPerformance(saidAt(40, 880), TERMS, undefined)).toBeCloseTo(measuredSpinPerformance(saidAt(undefined, 840), TERMS, undefined) ?? 0, 10)
+    expect(measuredSpinPerformance(saidAt(40, 880), TERMS)).toBeCloseTo(measuredSpinPerformance(saidAt(undefined, 840), TERMS) ?? 0, 10)
     expect(payoutRatioOf(saidAt(140, 900))).toBeCloseTo(1.1, 10)
     expect(payoutRatioOf(saidAt(undefined, 900))).toBeUndefined()
   })
@@ -73,7 +73,7 @@ describe("a bonus said to have paid beyond its machine's", () => {
   test("gives way to what a bonus counted as it ended paid", () => {
     const counted: readonly Checkpoint[] = [...countedAt(1540).slice(0, 1), { ...(countedAt(1540)[1] as Checkpoint), event: { kind: "jackpot", bonus: { ...BONUS, over: 400 } } }, ...countedAt(1540).slice(2)]
     expect(payoutRatioOf(counted)).toBeCloseTo(1.1, 10)
-    expect(measuredSpinPerformance(counted, TERMS, undefined)).toBeCloseTo(measuredSpinPerformance(countedAt(1400), TERMS, undefined) ?? 0, 10)
+    expect(measuredSpinPerformance(counted, TERMS)).toBeCloseTo(measuredSpinPerformance(countedAt(1400), TERMS) ?? 0, 10)
   })
 
   test("lowers the border by the usual over-entry until a bonus says, then by what the bonuses said", () => {

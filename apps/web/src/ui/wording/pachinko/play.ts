@@ -29,6 +29,9 @@ export const BACK_TO_REGULAR = "通常に戻る"
 /** What is asked as the 電サポ ends. */
 export const SUPPORT_END_ASKS = "通常に戻ったときの回転数を入力してください。持ち玉は大当りの出玉から見込んだ目安です。数えたら直してください。"
 
+/** What is said under a reading's bonus, whether or not one is chosen: a jackpot's 持ち玉 is the hand as it came, the bonus not yet paid, which the play adds itself. */
+export const JACKPOT_HELD_NOTE = "ボーナスを選ぶときは、持ち玉に当たった時点の数を入れてください（出玉は含めません）。"
+
 /** What a jackpot is called where its machine lists no bonuses to say which it was. */
 export const UNTOLD_JACKPOT = "大当り"
 

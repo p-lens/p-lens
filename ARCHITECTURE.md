@@ -610,7 +610,24 @@ then deletes the draft; a record the book refuses keeps it.
   played in regular games shows its own stretch's spin performance, from
   the last point the hand was known at (`stretchPerformancesOf`): a folded
   line its whole run, and a jackpot's line the stretch closed by the first
-  count after its bonus, `-----` until then.
+  count after its bonus, `-----` until then — and for good where a 確変 or
+  時短 whose drift was not counted begins first.
+- **The 電サポ's drift moves the border alone, never the spin
+  performance.** A 確変 or 時短 is not bought with balls, and what it gained
+  or lost is in the hand only as the person counted it (電サポ増減,
+  `checkpoint.support`, a running total written only on a line that
+  counted it), each run of 確変 and 時短 lines its own: one counted says
+  nothing of another. The regular games are measured only
+  between known hands with no spins played between them on a 電サポ whose
+  drift was not counted (`measurableAcross`, `unsaidSupportOf`), and the
+  measuring starts again at the first hand known after one — the count
+  as it ended, or balls bought as the hand ran out. The formula's
+  電サポ中の出玉増減 (`supportGain`) is what the 電サポ is looked for to
+  do, never what it did: it is never taken into the measuring, only into
+  the border and against a counted drift (`supportRatioOf`). Spins a
+  combo is taken to play at the heso (`paidSpins`, a CZ or 潜確 played
+  without the 電サポ) are paid for in the theoretical value (`hesoSpins`)
+  after each jackpot whose 電サポ was not counted, and never measured.
 - **A bonus pays what is said of it, or what was counted** (`gainOf`,
   `countedPayoutsOf`, `payoutDifferencesOf`, `payoutRatioOf`): a bonus
   adds to the hand what its machine lists and what the person says it

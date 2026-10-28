@@ -15,8 +15,9 @@ import type { Drift } from "./reading-form"
  * went down, and in the nerdpro colour once it is turned to a gain: balls
  * won on the 電サポ by one's own hand, the hardest of play. Turned so, it
  * buzzes as a held spin turning purple does, where the device can. Left
- * empty it was not counted, and the formula's 電サポ中の出玉増減 stands; a
- * nought typed is a count of none.
+ * empty it was not counted: the border takes the formula's 電サポ中の出玉増減,
+ * and the spin performance is not measured across the 電サポ; a nought
+ * typed is a count of none.
  */
 export function DriftButton(props: {
   readonly drift: Drift

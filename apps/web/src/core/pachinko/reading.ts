@@ -106,7 +106,7 @@ const readingFields = (ordered: readonly Checkpoint[], reading: Reading): Omit<C
     ...eventOf(reading.jackpot, reading.rapidBegan === true),
     phase: reading.phase,
     ...(replay === 0 ? {} : { replay }),
-    ...(support === 0 && supportBefore === 0 && reading.driftCounted !== true ? {} : { support }),
+    ...(reading.driftCounted === true || reading.supported !== 0 ? { support } : {}),
     ...(reading.held === undefined ? {} : { held: reading.held }),
   }
 }

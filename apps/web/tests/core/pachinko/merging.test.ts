@@ -177,9 +177,10 @@ describe("any run that may be made one", () => {
       expect(heldAsToldOf(after)).toEqual(heldAsToldOf(log))
       const lines = log.flatMap((line, at) => (at > 0 && !(line.event?.kind === "jackpot" && line.event.approximate === true) ? [at] : []))
       const [first, last] = [lines[span.from] ?? 0, lines[span.to] ?? 0]
-      expect(stretchPerformancesOf(after, TERMS, undefined).slice(0, first)).toEqual(stretchPerformancesOf(log, TERMS, undefined).slice(0, first))
-      expect(stretchPerformancesOf(after, TERMS, undefined).slice(first + 1)).toEqual(stretchPerformancesOf(log, TERMS, undefined).slice(last + 1))
-      expect(((line) => (line === undefined ? undefined : { ...line, handsBefore: undefined }))(after.at(-1))).toEqual({ ...(log.at(-1) as Checkpoint), handsBefore: undefined })
+      expect(stretchPerformancesOf(after, TERMS).slice(0, first)).toEqual(stretchPerformancesOf(log, TERMS).slice(0, first))
+      expect(stretchPerformancesOf(after, TERMS).slice(first + 1)).toEqual(stretchPerformancesOf(log, TERMS).slice(last + 1))
+      expect(((line) => (line === undefined ? undefined : { ...line, handsBefore: undefined, support: undefined }))(after.at(-1))).toEqual({ ...(log.at(-1) as Checkpoint), handsBefore: undefined, support: undefined })
+      expect(after.findLast((line) => line.support !== undefined)?.support).toEqual(log.findLast((line) => line.support !== undefined)?.support)
       expect([liveSummary(after).spins, liveSummary(after).outlay, liveSummary(after).jackpots, liveSummary(after).counterNow]).toEqual([liveSummary(log).spins, liveSummary(log).outlay, liveSummary(log).jackpots, liveSummary(log).counterNow])
     })
   })
@@ -216,10 +217,10 @@ describe("any run that may be made one", () => {
       reading({ counterSpins: 120 }),
     ])
     const once = merged(log, 2, 4)
-    expect(stretchPerformancesOf(once, TERMS, undefined)[2]).toEqual(stretchPerformancesOf(log, TERMS, undefined)[2])
+    expect(stretchPerformancesOf(once, TERMS)[2]).toEqual(stretchPerformancesOf(log, TERMS)[2])
     const twice = merged(once, 2, 3)
     expect(consumptionOf(twice, TERMS, undefined)).toEqual(consumptionOf(log, TERMS, undefined))
-    expect(stretchPerformancesOf(twice, TERMS, undefined)[2]).toEqual(stretchPerformancesOf(log, TERMS, undefined)[2])
+    expect(stretchPerformancesOf(twice, TERMS)[2]).toEqual(stretchPerformancesOf(log, TERMS)[2])
   })
 
   test("keeps a 電サポ total that came back to none, so folding reads it as it was", () => {

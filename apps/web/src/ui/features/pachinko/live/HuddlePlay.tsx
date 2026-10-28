@@ -37,7 +37,7 @@ export function HuddlePlay(props: { readonly play: Extract<Play, { readonly game
               folded={false}
               beside={() => undefined}
             />
-            <Timeline checkpoints={checkpoints} terms={terms} formula={props.play.pachinko} revising={undefined} onRevise={undefined} onMerge={undefined} />
+            <Timeline checkpoints={checkpoints} terms={terms} revising={undefined} onRevise={undefined} onMerge={undefined} />
           </div>
         )
       }}
