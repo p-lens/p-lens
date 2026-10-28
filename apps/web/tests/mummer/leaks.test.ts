@@ -33,6 +33,41 @@ const found = async (finds: (line: string) => boolean, passed: (path: string, li
       .map(({ at }) => at),
   )
 
+/** The screens a play another of the owner's devices holds is drawn on, as it is watched: the same play's screens, with what stands in for what writes. */
+const FOLLOWED_SCREENS = [
+  "features/live/ContinueBar.tsx",
+  "features/live/LivePlayView.tsx",
+  "features/live/LiveSide.tsx",
+  "features/live/FinishPlayView.tsx",
+  "features/live/play-hold.ts",
+  "features/pachinko/live/LivePlay.tsx",
+  "features/pachinko/live/CornerTerms.tsx",
+  "features/pachinko/live/LiveHyenaHunt.tsx",
+  "features/pachislot/live/LivePlay.tsx",
+  "features/pachislot/live/CornerTerms.tsx",
+  "features/pachislot/live/AtPlay.tsx",
+  "features/pachislot/live/drawn-draft.ts",
+] as const
+
+/** What a screen names to have a play another device holds: the copy, the play as shown, how the screen has it, or the use cases that hand it over. */
+const NAMES_A_FOLLOWED_PLAY = /\b(?:Followed|ShownPlay|LivePlayHold|PlayHold|loadLivePlay|loadFollowedToday|readFollowed|listFollowed)\b|\.followed\b/
+
+describe("a play another device holds", () => {
+  test("is drawn only by the screens listed for it, each among those the checks below look over", async () => {
+    const screens = await sources()
+    const looked = new Set(screens.map(({ path }) => path))
+    const listed: ReadonlySet<string> = new Set(FOLLOWED_SCREENS)
+    expect(screens.filter(({ path, text }) => NAMES_A_FOLLOWED_PLAY.test(text) && !listed.has(path)).map(({ path }) => path)).toEqual([])
+    expect(FOLLOWED_SCREENS.filter((path) => !looked.has(path))).toEqual([])
+  })
+
+  test("is said to be watched, and as of when, with no figure of the play in the words", async () => {
+    const bar = await readFile(`${UI}features/live/ContinueBar.tsx`, "utf8")
+    expect(bar).toContain("followedSinceText(props.shownAt)")
+    expect(bar).not.toMatch(/props\.(?:draft|play|followed)\b/)
+  })
+})
+
 describe("money and tokens reach the screens only sealed", () => {
   test("nothing is written out by the locale, past the words", async () => {
     expect(await found((line) => /toLocaleString\(/.test(line))).toEqual([])

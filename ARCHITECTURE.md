@@ -674,17 +674,17 @@ core ──► hledger/protocol/wire (types only)
 
 | Directory | Holds | May import |
 |---|---|---|
-| `core/` | pure domain: decimal, calendar, commodity, text, result, parlor, play, tally, play-log, live-play, valuation, theoretical, journal, report, book, access, change, backup, export, document, favorites, marks, onboarding, huddle; the catalog's machine, catalog, formula (a formula's standing) and grounds (a proof read back); and each game's own, pachinko and pachislot | itself, `hledger/protocol/wire` types |
+| `core/` | pure domain: decimal, calendar, commodity, text, result, parlor, play, tally, play-log, live-play, valuation, theoretical, journal, report, book, access, change, backup, export, document, favorites, marks, onboarding, huddle; the catalog's machine, catalog, formula (a formula's standing) and grounds (a proof read back); and each game's own, pachinko and pachislot; play-line (a play between one's own devices) | itself, `hledger/protocol/wire` types |
 | `hledger/protocol/` | the wire format, mirroring `Bindings.hs`; worker messages | nothing |
 | `hledger/query/` | hledger query terms and requests P-Lens writes | `core`, `hledger/protocol` |
 | `hledger/client/` | the only way to the worker; one queue (`inTurn`) | `hledger/protocol`, `core/result` |
 | `hledger/worker/` | the engine (WASI, one parsed journal) and the worker loop | `hledger/protocol` |
-| `storage/`, `history/` | `port/` interfaces (books, drafts, history, whether the browser keeps what is stored); `browser/` or `adapters/` implementations | `core` |
+| `storage/`, `history/` | `port/` interfaces (books, drafts, the copies of plays another of one's devices holds (`follow-storage`), history, whether the browser keeps what is stored); `browser/` or `adapters/` implementations, the device's ids among them (`indexed-db-device`: one for the catalog, one for the plays' lines) | `core` |
 | `preferences/` | `port/` (what a person has set for this device), `local/` (kept in localStorage) | `core` |
 | `onboarding/` | `port/` (what a device keeps of its own arrival at the app: when it first opened it, and whether it has been welcomed), `local/` (kept in localStorage, the first opening written as the app starts) | `core` |
-| `sync/` | `port/` (the relay, the sealing, the packing of what a huddle carries, a book's link to its line), `http/` (a relay by URL), `web-crypto/` (sealing by the browser's cryptography), `deflate/` (packing by DEFLATE), `local/` (links in IndexedDB) | `core`, contracts |
+| `sync/` | `port/` (the relay, the sealing, the packing of what a huddle and a plays' line carry, a book's link to its line), `http/` (a relay by URL), `web-crypto/` (sealing by the browser's cryptography), `deflate/` (packing by DEFLATE), `local/` (links in IndexedDB) | `core`, contracts |
 | `backup/` | `port/` (the archive, a store away from the device, a file handed over, a fingerprint, the receipts), `zip/` (archives as zip files), `google-drive/` (a store in a person's Google Drive, and its sign-in), `browser/` (a file handed over by the browser), `web-crypto/` (fingerprints by the browser's cryptography), `local/` (receipts in IndexedDB) | `core` |
-| `application/` | use cases, the `BookSession`, `Services` | `core`, `hledger/query`, ports |
+| `application/` | use cases, the `BookSession`, `Services`; `sealed-line` (packing, sealing and reading a line of the relay's, for a huddle and a plays' line alike) and `play-line` (a play between one's own devices) among them | `core`, `hledger/query`, ports |
 | `ui/` | screens, navigation, wording, theme, primitives | `application`, `core`, port types |
 | `app/` | entry, `App`, composition (the only place naming adapters) | everything |
 | `branding/` | what is a deployment's own and not the app's, a folder for each (`default/`, `p-lens/`), of which the build takes the one `BRANDING` names (`brandings.ts`; `default` when it names none) and the app reads it as `@branding`: the documents it puts before people (`terms.md`, `privacy.md`), what it goes by, where it is, whether it is indexed and where its landing page is (`deployment.ts`), the drawing its icons are made from (`icon.png`) and the files served at its root as they are — its icons and the card a link to it is shown as (`served/`). `p-lens/` is not under the app's licence (`p-lens/LICENSE`) | `core/document` |
@@ -693,7 +693,7 @@ core ──► hledger/protocol/wire (types only)
 | `mummer/` | 配信モード: what a device showing the app to an audience veils, sealed as what it is and shown through `veil` as `POLICY` says (see *The mummer*); reached by `ui/` alone, through its index | `solid-js` alone |
 | `sample-book/` | サンプル帳簿: three years of made-up play written as a book of its own, scaffolding to be taken out whole once the app has spread — `core/` (the days, the parlors, the draws, as pure as `core`), `application/` (making the book), `port/`, `protocol/`, `client/` and `worker/` (where its days are played), `ui/` (its dialog and its words); reached only through its index, by the services, the composition (and its worker by URL) and the screen | `core`, `application`, `ui`, ports, `mummer` |
 | `sunk/` | ハマり台の投資額: what a cabinet took in cash on the day its data counter shows, played out by the machine's formula on the device — `core/` (the counter as typed, what a run says), `application/` (the run asked of the pachinko engine), `ui/` (its card and its words); play for fun, to be taken out whole, reached only through its index, by a formula's card on a machine's page, above 「これを使う」 on a phone and to its left wider. The engine keeps its side in `sunk` files of their own (`pachinko-simulator/src/sunk.rs`, `pachinko-wasm/src/sunk.rs`, `contracts/src/pachinko/sunk.ts`) | `core`, `application`, `ui`, the pachinko engine's client, `mummer` |
-| `catalog/` | `port/` (the shared catalog as delivered, and the API it comes from), `delivered/` (the delivered catalog in IndexedDB, with the outbox), `http/` (the API by URL), `absent/` (no catalog), `local/` (the device id) | `core`, contracts |
+| `catalog/` | `port/` (the shared catalog as delivered, and the API it comes from), `delivered/` (the delivered catalog in IndexedDB, with the outbox), `http/` (the API by URL), `absent/` (no catalog) | `core`, contracts |
 | `parlors/` | `port/` (the parlor list and its cache), `jsonl/` (the list by URL), `absent/` (no list), `local/` (the IndexedDB cache) | `core` |
 | `consolidation/` | `port/` (each book's answers kept for the consolidation, keyed by a digest of its journals and the question, and for what stands as of today — savings and その他損益 with an open end — the last day on or before today the book sets a rate on (`lastRateDayOf`), so that it is asked again when a new rate comes into force rather than every day, since everything else counts each posting at its own day's rate and is the same answer whatever day it is asked on), `memory/` (kept in memory), `local/` (kept in IndexedDB, read back only by the build that kept it), `tiered/` (memory in front of IndexedDB), `absent/` (nothing kept: every answer asked of hledger), `web-crypto/` (the digest by the browser's cryptography), `lanes/` (more hledgers beside the one every screen reads on, for a consolidation of many books: one for three books or fewer, two from four, three from twelve and four from twenty, held to the device's cores beside the page's own and to two gigabytes of its memory each — two where it says nothing of it — started the first time wanted and only while the consolidation is on; and a mark kept on the device while it reads on several, taken away as the page is hidden or left, so that a page finding the mark tells once that the last one stopped at work, offers a backup, and reads on one); a personal book never goes through it, and a person with few books, or none consolidated, never has more than the one hledger. A screen is answered at once with what each book was last answered, and the book is read after: one found written since is asked again, and the screen told (`OutdatedNotice`) asks again too. A question about a period reads a view of each book, the files it can count (`core/journal/views`), as one book's own screens do. Books are dealt out among the lanes by their places, each read on the same hledger every time, and asking ahead deals them out alike. Asking ahead goes over the books twice, the periods most looked at first and every day after, each book asked everything of a round before the next, and waits for each book to be read | `core` |
 | `pachinko-engine/` | `protocol/`, `client/` (the only way to the pachinko engine), `worker/` (the only importer of `@p-lens/pachinko-engine`) | contracts |
@@ -1442,7 +1442,10 @@ decides the shape of all hung on it (`core/catalog`).
   voter, and sent in order on the next refresh; a person's own marks are
   shown from their book; one the API refuses for good is let go, one it cannot reach
   waits.
-- **The device** names itself by a UUIDv7 made once (`device`).
+- **The device** names itself by a UUIDv7 made once (`device`, kept in
+  the `device` store under `device`). It has a second, for its plays'
+  lines, kept beside it (`play-line`) and never sent to the API, so the
+  two are never tied together (`storage/browser/indexed-db-device`).
 - `VITE_CATALOG_URL` names the API; a build without it has no catalog
   delivered and nothing to register, and plays are still recorded by their
   result.
@@ -2064,12 +2067,20 @@ relay that can read none of them.
   nothing caps what a line may come to hold while it is used.
 - **A line is kept while it is used.** The relay only carries commits
   between a book's devices, each of which keeps the book, so a line nobody
-  has read or added to for `LINE_IDLE_DAYS` (7) is let go whole, its
-  commits with it, by a daily cron (`letGoOfIdleLines`); a line's last use
-  is written at most once a day. Nothing says so on a device. Of a line
-  let go the relay keeps whose it was and no more (`owners_kept`: its id
-  and its token's hash), and takes the commits that make it again only
-  with that token: everyone let into a line knows its id, a line belongs
+  has read or added to for `LINE_IDLE_DAYS` is let go whole, its commits
+  with it, by a daily cron (`letGoOfIdleLines`); a line's last use is
+  written at most once a day. Nothing says so on a device. How long is
+  the line's own (`LineKeep`, the `keep` of `lines`), said by the commits
+  that make it, since the relay reads nothing on a line to tell: `lasting`,
+  7 days, a book's line, an inbox's and a huddle's, and any made without
+  saying, as every line was before there were two; `passing`, 3 days, a
+  day's plays (`PLAYS_KEPT`), which nobody makes again once the day is
+  past. A relay that does not know `keep` passes it over and keeps the
+  line as lasting, so the app says it before the relay is deployed to
+  read it. Of a lasting line let go the relay keeps whose it was and no
+  more (`owners_kept`: its id and its token's hash) — of a passing one
+  nothing — and takes the commits that make it again only with that
+  token: everyone let into a line knows its id, a line belongs
   to the token its first commits came with, and an owner cannot move to
   another line while the book's secret stands — so a line anyone else made
   again would shut its owner out of syncing and sharing for good. A line
@@ -2083,6 +2094,18 @@ relay that can read none of them.
   line is gone, and where another device made it again, taking that line
   in as it would one whose answers were lost: a commit both hold is the
   line's, and what only this device has goes on top.
+- **A line is in one database, by its bucket** (`apps/relay/src/placing`).
+  Every request is about one line, and only the cron runs over all of
+  them, so the relay's D1 can be split by line: a line's id gives one of
+  64 buckets (`bucketOf`, FNV-1a, never changed), and a table in code
+  (`Placing`: a `home` binding and the buckets `moved` off it) gives the
+  bound database a bucket is in, its line's commits, grants and owner
+  kept with it. Today every bucket is in `DB`. A bucket is moved by
+  copying its lines' rows to another database, bound beside, and naming
+  it in `moved`; the cron lets go of idle lines in each bound database.
+- **Plays still being played** go between the same devices on lines of
+  their own, drawn from the same secret: see *Plays between one's own
+  devices*.
 
 ## The day's plays
 
@@ -2106,6 +2129,194 @@ after midnight, still today's.
   sent and is shown to whoever receives it — what was done after the play
   was said to be over set apart (`afterItFinished`) — and never on the device
   that keeps it, where it would only be in the way.
+
+## Plays between one's own devices
+
+A play still being played is on one device: it is a draft there, and no
+book has it until it is recorded. The owner's other devices — a second
+phone, a tablet set up to stream — see it as it goes, and any of them may
+take it over (この端末で続ける). It is lines like any other, which the
+relay only keeps for less long.
+
+- **A line per book and business day** (`Sealer.playsKeysOf`): drawn from
+  a synced book's secret by HKDF as the inbox's is, under infos of their
+  own that name the day (`plays line|access|seal <day>`). An invitation
+  draws none (`bad-secret`), so an editor, a viewer or a sender is shown
+  nothing of it: only the owner's own devices, joined by the book's own
+  code, are on it. A device reads the lines of the books of its own it
+  syncs (`ownersLink`); a play that goes to any other book is shown on
+  none and stays on its device, as before. A day's line is made passing
+  (`PLAYS_KEPT`, said by the entries put at its start and by no other):
+  the relay lets it go after three idle days rather than seven, and keeps
+  no owner of it, since nobody makes a past day's line again — a device
+  showing a play left over shows it on today's.
+- **Its own name on them** (`DeviceId`): a UUIDv7 kept in the `device`
+  store under `play-line`, beside the catalog's and never sent to the API.
+- **Five entries** (`core/play-line/entry`, `PlayLineEntry`), each under
+  the device that said it and when: `shown`, the play whole as the device
+  holds it (`ShownPlay`: its readings, where and on what it is played,
+  what it is weighed by, its history and whether it was recorded or
+  received, with its book always said, and without `sent`, which is each
+  device's own); `patched`, the same as a patch of the text of an earlier
+  showing; `claimed`, a device taking it over, at the play's next
+  handover; `withdrawn`, the play deleted where it was held; `moved`, the
+  play now going to another book. Each is written in the oldest format
+  that carries it — `patched` in format 2, the rest still in format 1 — so
+  an app that reads only format 1 passes over the patches and follows a
+  play by its whole showings.
+  Each is packed by DEFLATE and sealed as a commit of its own, as a
+  huddle's posts are (`application/sealed-line`, which the huddle reads
+  and writes through too).
+- **A play goes as what changed** (`core/play-line/showing`): a play
+  shown is a text of a line for each thing in it (`shownTextOf`) — each
+  part by name, in order of name, a list an item to a line and its log a
+  reading to a line — so that a reading put in is a line of the log and
+  one of the history. A holder shows a play whole the first time it shows
+  it on a line (the play begun, a new day's line, a book it moved to),
+  the first time since it took the play up (at another handover than it
+  last showed it at), after nineteen patches in a row, and wherever a
+  patch would come to no less than the play; any other time it puts a
+  patch (`core/change/patch`, the lines taken away and put in) of its own
+  last showing on that line, naming the place the relay gave that one
+  (`on`). A device reading the line takes a patch as the play it makes
+  (`readOnto`), made only on the text of the showing it names — one of
+  that play by that device, holding what the patch takes away — and keeps
+  the line as read with every patch so taken (`LineEntry`), so the fold
+  and everything after it see plays, never patches. A patch that does not
+  fit — a showing missed, or one that could not be opened — is passed
+  over, and so is every one after it: nothing is guessed, the copy stays
+  as it was last shown, and it catches up at the next whole showing,
+  never more than twenty on, with nothing asked of the holder. What a
+  device puts on a line it keeps as any device reads it back, so its next
+  patch is written on the very text every other device has.
+- **Holding is where a play is kept, never a flag.** The device that holds
+  a play keeps it in `drafts`; the others keep a copy in `followed`
+  (`FollowStorage`: the play as last shown, by whom, when, and on which
+  line). Taking a play up and yielding it are each one transaction between
+  the two stores (`takeUp`, `yieldUp`), adding nothing to the play's
+  history. A draft asked for, or written to, where the device keeps only
+  its copy is refused (`held-elsewhere`), so a screen left open on a
+  device that has yielded writes nothing. A copy is never put beside a
+  play held (a claim taken up while a refresh was on its way), and a play
+  is yielded only while its log is the one the yield was weighed on, so a
+  reading typed meanwhile waits for the next reading and is counted.
+- **Handovers** (`PlayDraft.handovers`): how many times a play was taken
+  over. A claim puts the next one, the play taken up carries it, and
+  every showing of it says it; the store keeps it through any write of the
+  play, a later sending's among them, and nothing sent to a friend or a
+  huddle carries it. It is what lets a claim be honoured on lines nobody
+  reads any more: a device claimed from, back days later and showing the
+  play first on a new day's line, shows it at an earlier handover than
+  the device that took it, and is passed over.
+- **Ordered by the relay alone** (`standingsOf`): a book's lines are read
+  as one sequence, day after day and each in the order the relay took its
+  entries; no clock is asked. The latest `claimed` says who holds a play,
+  unless it is at an earlier handover than one already seen; before any,
+  whoever showed it first. A `shown` counts from the device holding the
+  play at its handover, or from any at a later one (the claim that gave
+  it is on a line not read); `withdrawn` and `moved` count only from the
+  device that held the play as they were said; the rest are passed over. `withdrawn` and `moved` end a play on their own
+  book's line only. Across books the later handover says how a play
+  stands, then the line of the latest day; only between two lines of the
+  same day and handover is a clock looked at — a play held over one gone,
+  then the later showing — since nothing of the relay orders two lines.
+- **Read before every append** (`settled`): a device writing to a line
+  reads it to its end, folds it, does what the line says of its own plays
+  first — yielding one claimed since — and only then puts what is still
+  to be said, after the end it read. Told the line moved on (`behind`),
+  it reads and weighs again, up to five times. It never puts the same
+  thing again at the end it is told, as a huddle does: a claim put blind
+  could land behind another and be taken for the winner.
+- **What a device does with what it reads** (`reconcile`): a play held
+  by another that it holds itself is yielded, with the line's play; one
+  it neither holds nor keeps is copied, and a copy refreshed; a copy of
+  a play gone off its book is let go; a play it is said to hold but keeps
+  only a copy of — a claim put, and the device stopped before it moved
+  the play — is taken up. A play it holds at a later handover than the
+  lines say is kept, and shown again. Of its own: one held on its lines
+  and gone from the device was deleted, and is `withdrawn`, whichever day
+  it was last shown on — unless the lines show it recorded on a day after
+  it began, when it was let go of as past; one now going to another book
+  is shown on the new and only then `moved` on the old, so a device
+  syncing both never finds it gone between. Both are put on today's line
+  of the book, which every device reads, and worked out from that book's
+  lines alone.
+- **Nothing is merged.** A device that had yielded while away, its last
+  readings never shown, is told once how many were lost
+  (`unshownCountOf`, diffing the logs as a play's history does) and takes
+  the play as the line has it. There is no screen to choose between them.
+  One exception: a device holding a play it recorded, where the lines
+  have another holding it as shown not yet recorded, does not yield
+  (`claim-back`). The claim came before the recording was seen and the
+  book already has the play, so the device holds it again at the handover
+  after the claim (`FollowStorage.claimBack`) and shows it recorded, and
+  the other yields to it knowing it was recorded.
+- **この端末で続ける** (`continueHere`): the line is read, the copy
+  refreshed from the play's latest showing, a `claimed` put; then the play
+  is taken up and shown at once. Every other device goes back to a copy
+  the next time it reads or shows. With no relay to reach, it does not
+  go: which device claimed last is the relay's to say, and the person is
+  told so. A play deleted or moved meanwhile is let go of here too, said
+  as which (`play-gone`), and the screen goes back to the list.
+- **Recording asks first** (`heldBeforeFinishing`, `finishingHeld`): a
+  play is recorded only after its lines are read, all at once — its own
+  day's with them where it was left over — and the device found still to
+  hold it. Where no line can be reached, the book is not synced, or no
+  line knows the play, it is recorded as before: the device comes first.
+  Nothing more is awaited of the relay: a play of the day is shown
+  recorded by the runner, as any write is. A play left over is shown
+  recorded at once, before it can be let go of as past, so its copies are
+  let go as recorded (この稼働は記帳されました) rather than deleted. A
+  claim landing between the book's write and the play's mark is claimed
+  back, there or at the next reading (`claim-back`): the book has the
+  play as this device's log made it, and the device that claimed it
+  yields, rather than record it a second time from its copy.
+  Two devices recording one play while both are out of reach make two
+  tallies of one play id, which the book's own sync meets as it meets any
+  conflict.
+- **The day turns**: today's line is always read, and the day before on
+  the first reading of a day, while a play left over is held, or while a
+  copy last shown on a day gone by is kept; and with them the play's own
+  day, and the day the copy was last shown on, however long ago, where a
+  claim, a recording or a deletion made elsewhere is on no later line. A
+  play not yet recorded is shown again on today's line by its holder; one
+  recorded on a day gone by is not, being shown once as it is; a copy of
+  it is let go (`loadFollowedToday`), the play being in its book.
+- **Shown and read wherever the app is** (`PlayLineRunner`, beside the
+  huddle's, once in the shell): a held play is shown two seconds after it
+  was written, at most once every four seconds — every thirty where it
+  would go whole and is past what the relay takes as a small body; a
+  patch is small however long the play has grown — and only where it differs
+  from what its line has, in batches the relay takes in one append and
+  under 32 kB, a showing's size reckoned as the sealed body the relay
+  counts (`isLargeShowing`). The lines are read at once as the app opens
+  and comes back in sight, every thirty seconds anywhere in the live
+  space, the line of a copy that is open every five — its book's lines
+  alone (`LinesRead`), a device reading only so many a minute, and the
+  other books' too where it stands moved off that book — and never
+  while the page is away; as it is
+  hidden, what is still to be shown is put once, with no reading and no
+  second try (`flushOnHide`), so a phone about to die still says its last.
+  A device that syncs no book of its own reads no book's files for any
+  of it.
+- **A copy is the play's own screen, with nothing to press**: each game's
+  `LivePlay` draws it, its figures and readings as they were shown, and
+  where readings are typed stands the time it was shown as of and
+  この端末で続ける (`ContinueBar`), laid over the place readings are typed,
+  which stays beneath it unseen and inert, so the band keeps its height.
+  A copy refreshed is drawn again in place, never built anew, so what is
+  scrolled to and what is open stay. 遊技を終了, the pencils, a long press
+  and sending are not there, and the counting tiles answer nothing. The live space lists
+  copies beside the plays held (別の端末で計測中), and 収支を記帳 shows
+  the bar in place of its form.
+- **What else follows**: a play sent to a book while this device holds
+  only a copy of it waits in the inbox, untaken, until the device holds
+  it (`takenIn`'s `deferred`), so no second holder is made — unless the
+  copy shows the holder took that sending in, when it is dealt with as
+  had, and so is one a play held here already has in it; deleting a
+  book lets its copies go; データの消去 empties `followed` with every
+  store. 配信モード veils a copy as it veils the play; since 端末の同期 is
+  hidden while mumming, a device to stream from is joined before.
 
 ## Letting others into a book
 
@@ -2177,7 +2388,7 @@ since it rides on it.
   it came by, addressed to the book it was sent to and with its parlor's
   pool opened there. From then on it is a play of the day like the owner's
   own: its readings set right, recorded into that book or another
-  (`moveDraft`). Its entry says who played it — `sender-id:` the
+  (`chooseBook`). Its entry says who played it — `sender-id:` the
   invitation's id, which a person keeps however they are renamed, and
   `sender:` the name they had as it was recorded — so a book's plays are
   gathered by id and named by the latest entry; a person invited again is
@@ -3162,7 +3373,7 @@ source read.
 
 ## Export
 
-A book is written out as a file on a press (設定 → エクスポート), two
+A book is written out as a file on a press (設定 → エクスポート), three
 ways, each handed over as a backup to a file is (`Handover`). The book
 whole — a play's readings, the activity log — is a backup's to carry, and
 is not written out here a second time.
@@ -3181,6 +3392,22 @@ is not written out here a second time.
   an empty cell where none was. The column names are the file's format, as
   the account names are the journal's. The file opens with a byte order
   mark, which a spreadsheet needs to read it as UTF-8.
+- **For pRecord** (`core/export/precord`, `exportForPrecord`): the tallies
+  as the CSV pRecord's データインポート takes in, newest first — its own
+  export's fourteen columns, every cell quoted, CRLF, UTF-8 with no byte
+  order mark. 店舗コード and 機種コード are pRecord's ids and are left
+  empty, as its guide asks of another app's file. 投資額 is the tally's
+  expenses and 収支 its total, each rounded to the yen as the screens show
+  them, and 回収額 is the two added, so pRecord's 収支 is the app's to the
+  yen; 投資額 is raised where a hand-written entry would leave either side
+  below nothing. メモ is the notes written under the tally's entry
+  (`tallyNotesIn`, read from the journals' text by play id, as hledger
+  keeps an entry's comment to itself), where a tally taken in from another
+  app keeps that app's memo; never the description's note, which is the
+  machine and cabinet the file has columns for. 稼働時間 is the play time in hours and 時給 the
+  収支 over them, `0.0` both where the time is not known; 経費 is `0`. It
+  goes by itself, never in the zip, and the app reads it back as a pRecord
+  file to the same tallies.
 - **Together** (`exportTogether`): the ticked books' two files each, in
   one zip. A book is its id and not its title, so books of one title have
   the part of its id that is the moment it was made — a UUIDv7's first
@@ -3189,7 +3416,8 @@ is not written out here a second time.
   and no backup: nothing is put back from it.
 - **Names** (`core/export/file-name`): a file is named for its book, what
   it is of, and the day it was written out, marked as that and joined by
-  underscores: `帳簿_収支_2026-10-09_exported.csv`.
+  underscores: `帳簿_収支_2026-10-09_exported.csv`,
+  `帳簿_pRecord_2026-10-09_exported.csv`.
 
 ## Not built yet, with the boundary already in place
 

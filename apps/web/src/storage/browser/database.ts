@@ -24,8 +24,10 @@ import type { StorageError } from "../port/book-storage"
  * - `catalog-outbox`: marks and uses waiting to be sent to the shared
  *   catalog, keyed by a UUIDv7 so they go in the order they were made. Added
  *   in version 8.
- * - `device`: this device's own id, made once, the name it writes to the
- *   shared catalog under. Added in version 8.
+ * - `device`: this device's own ids, each made once and kept by what it is
+ *   for: the name it writes to the shared catalog under, and the name it
+ *   goes by on its owner's plays' lines. Added in version 8, with the
+ *   catalog's alone.
  * - `commits`: every change kept of every book, one record a commit, keyed
  *   by a count that only grows — the order they were made in — and indexed
  *   by book. Added in version 9; a book older than that has files and no
@@ -46,12 +48,15 @@ import type { StorageError } from "../port/book-storage"
  *   book, keyed by what it is of (the book's journals, the day and the
  *   question), indexed by when it was kept so the oldest go first; nothing
  *   in it is a book's, and it can be dropped whole. Added in version 13.
+ * - `followed`: copies of the plays the owner's other devices hold, keyed
+ *   by the play's id: a play is here or in `drafts`, never both. Added in
+ *   version 14.
  */
 const DATABASE = "p-lens"
 /** Where a device once kept its own marks on the catalog; a person's marks are in their book now. */
 const MARKS_ONCE_KEPT = "catalog-mine"
 
-const VERSION = 13
+const VERSION = 14
 export const BOOKS = "books"
 export const FILES = "files"
 export const FILES_BY_BOOK = "by-book"
@@ -70,6 +75,7 @@ export const INVITATIONS_BY_BOOK = "by-book"
 export const DESTINATIONS = "destinations"
 export const CONSOLIDATION_ANSWERS = "consolidation-answers"
 export const CONSOLIDATION_ANSWERS_BY_KEPT = "by-kept"
+export const FOLLOWED = "followed"
 
 /** The pachinko stores version 3 made, dropped with the pachislot ones when the catalog became one. */
 const PACHINKO_STORES = ["machines", "formulas", "formula-marks", "formula-uses"] as const
@@ -175,6 +181,9 @@ const MIGRATIONS: readonly ((database: IDBDatabase, transaction: IDBTransaction)
   },
   (database) => {
     database.createObjectStore(CONSOLIDATION_ANSWERS, { keyPath: "key" }).createIndex(CONSOLIDATION_ANSWERS_BY_KEPT, "kept")
+  },
+  (database) => {
+    database.createObjectStore(FOLLOWED, { keyPath: "id" })
   },
 ]
 

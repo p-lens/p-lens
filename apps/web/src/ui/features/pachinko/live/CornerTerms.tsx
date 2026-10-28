@@ -16,6 +16,7 @@ import { readTerms, termsFormOf, type TermsField, type TermsForm } from "../../l
 import { Terms } from "../start/Terms"
 import { cabinetText } from "../../../wording/cabinet"
 import { seal } from "../../../../mummer"
+import type { PlayHold } from "../../live/play-hold"
 
 const CHANGE_TERMS = "レートを変更する"
 
@@ -23,6 +24,9 @@ const CHANGE_CABINET = "台番号・機種を変更する"
 
 /** How a word with a pencil beside it is drawn, the two as one button no taller than the word. */
 const PENCILLED = "group flex h-5 items-center gap-1 rounded-[3px] text-xs font-bold text-text-primary focus-visible:outline-2 focus-visible:outline-focus-ring [&_svg]:size-3.5"
+
+/** The same word where nothing of it can be changed, a play another device holds: as high, and with no pencil. */
+const UNPENCILLED = "flex h-5 items-center text-xs font-bold text-text-primary"
 
 /**
  * The corner a play is on, above everything counted from it, in a line no
@@ -34,9 +38,10 @@ const PENCILLED = "group flex h-5 items-center gap-1 rounded-[3px] text-xs font-
  * corner would be, and is given some the same way. Across from the corner
  * is the cabinet's number, with its own pencil: it leads to where the
  * cabinet and the machine the play is on are said anew. Between the two
- * the line is empty, and holds what it is given to.
+ * the line is empty, and holds what it is given to. A play another device
+ * holds has the corner and the cabinet with no pencils.
  */
-export function CornerTerms(props: { readonly draft: PlayDraft; readonly between: JSX.Element }): JSX.Element {
+export function CornerTerms(props: { readonly draft: PlayDraft; readonly hold: PlayHold; readonly between: JSX.Element }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   const start = useStartForm()
@@ -70,24 +75,30 @@ export function CornerTerms(props: { readonly draft: PlayDraft; readonly between
     setLook("standing")
     app.played()
   }
+  const corner = (): string => (props.draft.venue.terms === undefined ? "レート指定なし" : `${tierOf("pachinko", props.draft.venue.terms)}コーナー`)
+  const cabinet = (): string => cabinetText(props.draft.cabinetNumber === undefined ? undefined : seal.cabinet(props.draft.cabinetNumber))
   return (
     <Show
-      when={look() === "changing"}
+      when={look() === "changing" && props.hold.type === "held"}
       fallback={
         <div class="flex items-center justify-between gap-2">
-          <button type="button" onClick={open} class={PENCILLED}>
-            {props.draft.venue.terms === undefined ? "レート指定なし" : `${tierOf("pachinko", props.draft.venue.terms)}コーナー`}
-            <span class="text-text-secondary group-hover:text-text-primary">
-              <EditIcon label={CHANGE_TERMS} />
-            </span>
-          </button>
+          <Show when={props.hold.type === "held"} fallback={<span class={UNPENCILLED}>{corner()}</span>}>
+            <button type="button" onClick={open} class={PENCILLED}>
+              {corner()}
+              <span class="text-text-secondary group-hover:text-text-primary">
+                <EditIcon label={CHANGE_TERMS} />
+              </span>
+            </button>
+          </Show>
           {props.between}
-          <button type="button" onClick={() => moves.go({ kind: "live-cabinet", playId: props.draft.id })} class={PENCILLED}>
-            {cabinetText(props.draft.cabinetNumber === undefined ? undefined : seal.cabinet(props.draft.cabinetNumber))}
-            <span class="text-text-secondary group-hover:text-text-primary">
-              <EditIcon label={CHANGE_CABINET} />
-            </span>
-          </button>
+          <Show when={props.hold.type === "held"} fallback={<span class={UNPENCILLED}>{cabinet()}</span>}>
+            <button type="button" onClick={() => moves.go({ kind: "live-cabinet", playId: props.draft.id })} class={PENCILLED}>
+              {cabinet()}
+              <span class="text-text-secondary group-hover:text-text-primary">
+                <EditIcon label={CHANGE_CABINET} />
+              </span>
+            </button>
+          </Show>
         </div>
       }
     >

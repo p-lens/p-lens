@@ -39,6 +39,9 @@ import { describeCounterRefusal, observedOneInText, priorName } from "../../../w
 import { CHANGED_SINCE_MERGED, CHANGED_SINCE_REMOVED, MERGE_FAILED, MERGED, READING_REMOVED, REMOVAL_TAKEN_BACK, TAKE_BACK, TAKE_BACK_FAILED, UNMERGED } from "../../../wording/pachislot/play"
 import { triggerWordsOf } from "../../../wording/pachislot/trigger"
 import { ViewHeader } from "../../shell/ViewHeader"
+import { ContinueBar } from "../../live/ContinueBar"
+import type { PlayHold } from "../../live/play-hold"
+import { drawnDraft, type WrittenHere } from "./drawn-draft"
 import { useHuddleUrge } from "../../huddle/huddle-urge"
 import { AtCounting, AtFigures, AtReadingComposer, createAtReading } from "./AtPlay"
 import { awaitsAtResult } from "./at-result-form"
@@ -241,19 +244,21 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
  * from its first game. A tap is kept at once; the next reading of the
  * counter says how many games the counting has covered. On an AT machine only regular
  * games are counted in, so a press while it is in an AT is passed over,
- * and that is said.
+ * and that is said. A play another device holds is counted there: its
+ * tiles show the counts, faint, and a press here does nothing.
  */
-function Counting(props: { readonly weighing: Weighing; readonly ordered: readonly Checkpoint[]; readonly write: Write; readonly post: Post }): JSX.Element {
+function Counting(props: { readonly weighing: Weighing; readonly ordered: readonly Checkpoint[]; readonly hold: PlayHold; readonly write: Write; readonly post: Post }): JSX.Element {
   const app = useApp()
-  const held = (): boolean => props.weighing.formula.normalized.atRules !== undefined && inAt(props.ordered)
+  const inAtNow = (): boolean => props.weighing.formula.normalized.atRules !== undefined && inAt(props.ordered)
+  const inert = (): boolean => inAtNow() || props.hold.type === "followed"
   const [failure, setFailure] = createSignal<ApplicationError | undefined>(undefined)
   const kept = (written: Written<never>): void => {
     setFailure(written.type === "failed" ? written.error : undefined)
   }
   props.post(() => ((error) => (error === undefined ? undefined : { tone: "failed", said: describeError(error) }))(failure()))
-  /** A tap, counted over the play from its first game. None while held. */
+  /** A tap, counted over the play from its first game. None while the tiles are inert. */
   const count = (id: string, by: 1 | -1): void => {
-    if (held()) return
+    if (inert()) return
     const at = app.services.now()
     void props.write((ordered) => Ok([countCheckpoint(ordered, id, by, at)])).then(kept)
   }
@@ -267,10 +272,10 @@ function Counting(props: { readonly weighing: Weighing; readonly ordered: readon
         countables={countablesOf(props.weighing.formula)}
         counts={countsNowOf(props.ordered)}
         outOf={countedOutOf(props.weighing.formula.normalized, countsNowOf(props.ordered), countedGamesOf(props.ordered))}
-        held={held()}
+        inert={inert()}
         onCount={count}
       />
-      <Show when={held()}>
+      <Show when={inAtNow()}>
         <p class="text-xs text-text-muted">AT中は数えません。ATのあとのゲーム数を記録すると、また数えられます。</p>
       </Show>
     </section>
@@ -309,23 +314,31 @@ interface Rewritten {
  * each kept. A reading of the counter, pressed, is set right or taken away
  * where the next one would be typed, and every line after it is made again;
  * the log's last line, whatever it is, can be taken away a line at a time.
- * A run of readings held and dragged over is made one line.
+ * A run of readings held and dragged over is made one line. A play another
+ * of the owner's devices holds is drawn the same, with nothing that
+ * writes within reach — no 遊技を終了, no pencils, no reading to press or
+ * drag over, tiles that count nothing — and in the band where the counter
+ * is read, the way to continue it here.
  */
 export function LivePlay(props: {
   readonly place: Place
   readonly draft: PachislotDraft
+  readonly hold: PlayHold
   readonly title: string
 }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   const urged = useHuddleUrge()
-  /** The draft as this screen last wrote it, with the log the screen had been given when it did: it stands until the screen is given a log that has caught up. */
-  const [mine, setMine] = createSignal<{ readonly draft: PachislotDraft; readonly over: string } | undefined>(undefined)
-  const current = (): PachislotDraft => {
-    const local = mine()
-    if (local === undefined || local.draft.id !== props.draft.id) return props.draft
-    return local.draft.log.length > props.draft.log.length || local.over === props.draft.log ? local.draft : props.draft
-  }
+  /**
+   * The draft as this screen last wrote it, with the log the screen had
+   * been given when it did: it stands until the screen is given a log that
+   * has caught up. A play given up to another device, or taken back from
+   * one, is drawn as the screen is given it: what was written here before
+   * is let go, the line's play standing in its place.
+   */
+  const [mine, setMine] = createSignal<WrittenHere | undefined>(undefined)
+  createEffect(on(() => props.hold.type, () => setMine(undefined), { defer: true }))
+  const current = (): PachislotDraft => drawnDraft(mine(), props.draft, props.hold)
   const ordered = createMemo(() => orderedOf(current()))
   const checkpoints = (): readonly Checkpoint[] | undefined => {
     const found = ordered()
@@ -422,6 +435,7 @@ export function LivePlay(props: {
     setRevising(undefined)
     toast({ title: MERGED, action: { label: TAKE_BACK, onPress: () => void unmerge(done) } })
   }
+  const followed = (): Extract<PlayHold, { readonly type: "followed" }> | undefined => (props.hold.type === "followed" ? props.hold : undefined)
   const weighing = (): Weighing | undefined => props.draft.pachislot
   const shownAs = () => {
     const found = weighing()
@@ -445,9 +459,11 @@ export function LivePlay(props: {
           urged={urged()}
           framed
           actions={
-            <Button size="small" onClick={() => moves.go({ kind: "live-record", playId: props.draft.id })}>
-              遊技を終了
-            </Button>
+            <Show when={props.hold.type === "held"}>
+              <Button size="small" onClick={() => moves.go({ kind: "live-record", playId: props.draft.id })}>
+                遊技を終了
+              </Button>
+            </Show>
           }
         />
       }
@@ -477,10 +493,15 @@ export function LivePlay(props: {
               <div class="flex flex-1 flex-col">
                 <div class="flex flex-1 flex-col gap-5 p-4">
                   <div class="-mb-2 flex flex-col gap-2">
-                    <Timeline checkpoints={found()} bonuses={bonuses()} trigger={triggerWordsOf(weighing()?.formula.normalized)} endings={endings()} revising={revising()?.index} onRevise={(index) => setRevising({ index })} onMerge={merge} strip />
+                    <Show
+                      when={props.hold.type === "held"}
+                      fallback={<Timeline checkpoints={found()} bonuses={bonuses()} trigger={triggerWordsOf(weighing()?.formula.normalized)} endings={endings()} revising={undefined} onRevise={undefined} onMerge={undefined} strip />}
+                    >
+                      <Timeline checkpoints={found()} bonuses={bonuses()} trigger={triggerWordsOf(weighing()?.formula.normalized)} endings={endings()} revising={revising()?.index} onRevise={(index) => setRevising({ index })} onMerge={merge} strip />
+                    </Show>
                     <hr class="border-border" />
                   </div>
-                  <CornerTerms draft={props.draft} />
+                  <CornerTerms draft={props.draft} hold={props.hold} />
                   <Show when={atRules()} fallback={<PlayFigures ordered={found()} terms={props.draft.venue.terms} bonuses={bonuses()} day={day()} />}>
                     <AtFigures ordered={found()} terms={props.draft.venue.terms} normalized={weighing()?.formula.normalized ?? NO_MACHINE} />
                   </Show>
@@ -489,22 +510,31 @@ export function LivePlay(props: {
                       <>
                         <Outlook draft={props.draft} weighing={weighed()} ordered={found()} />
                         <Show when={atRules() !== undefined}>
-                          <AtCounting reading={atReading} ordered={found()} normalized={weighed().formula.normalized} endings={endings()} write={write} rewrite={rewrite} post={board.post} awaitsResult={atResultMatters(weighed().formula.normalized) && awaitsAtResult(found())} />
+                          <AtCounting reading={atReading} hold={props.hold} ordered={found()} normalized={weighed().formula.normalized} endings={endings()} write={write} rewrite={rewrite} post={board.post} awaitsResult={atResultMatters(weighed().formula.normalized) && awaitsAtResult(found())} />
                         </Show>
                         <Show when={countablesOf(weighed().formula).length > 0}>
-                          <Counting weighing={weighed()} ordered={found()} write={write} post={board.post} />
+                          <Counting weighing={weighed()} ordered={found()} hold={props.hold} write={write} post={board.post} />
                         </Show>
                       </>
                     )}
                   </Show>
                 </div>
-                <div class="sticky bottom-0 flex flex-col gap-3 border-t border-border bg-surface-2 p-4">
-                  <NoticeStack notices={board.notices()} />
-                  <Show when={revising()} keyed fallback={composers()}>
-                    {(doing) => (
-                      <Show when={revisedStepOf(found(), doing.index)} fallback={composers()}>
-                        {(step) => <StepReviser index={doing.index} step={step()} bonuses={bonuses()} trigger={atRules()?.trigger === undefined ? undefined : triggerWordsOf(weighing()?.formula.normalized)} rewrite={rewrite} post={board.post} onRemove={() => removeStep(doing.index)} onDone={() => setRevising(undefined)} />}
-                      </Show>
+                <div class="sticky bottom-0 grid border-t border-border bg-surface-2">
+                  <div class="col-start-1 row-start-1 flex flex-col gap-3 p-4" classList={{ invisible: followed() !== undefined }} inert={followed() !== undefined}>
+                    <NoticeStack notices={board.notices()} />
+                    <Show when={revising()} keyed fallback={composers()}>
+                      {(doing) => (
+                        <Show when={revisedStepOf(found(), doing.index)} fallback={composers()}>
+                          {(step) => <StepReviser index={doing.index} step={step()} bonuses={bonuses()} trigger={atRules()?.trigger === undefined ? undefined : triggerWordsOf(weighing()?.formula.normalized)} rewrite={rewrite} post={board.post} onRemove={() => removeStep(doing.index)} onDone={() => setRevising(undefined)} />}
+                        </Show>
+                      )}
+                    </Show>
+                  </div>
+                  <Show when={followed()}>
+                    {(watched) => (
+                      <div class="col-start-1 row-start-1 flex items-center p-4">
+                        <ContinueBar shownAt={watched().shownAt} onContinue={() => watched().onContinue()} />
+                      </div>
                     )}
                   </Show>
                 </div>

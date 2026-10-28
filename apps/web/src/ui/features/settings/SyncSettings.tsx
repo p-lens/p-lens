@@ -12,7 +12,7 @@ import { Loaded } from "../../primitives/states"
 import { toast } from "../../primitives/toast"
 import type { Place } from "../../navigation/place"
 import { bookTitle } from "../../wording/book"
-import { syncedText } from "../../wording/sync"
+import { SYNC_INTRO, syncedText } from "../../wording/sync"
 import { Withheld } from "../mummer/Withheld"
 import { ViewHeader } from "../shell/ViewHeader"
 import { ConflictPanel } from "./ConflictPanel"
@@ -84,7 +84,8 @@ function BookRow(props: { readonly listed: Listed; readonly onChanged: () => voi
  * that stopped is seen and a conflict settled. Letting other people in is
  * another screen's: a book's own code is its key, and nothing here is for
  * handing to anyone. What travels is sealed on the device; the relay in
- * between reads none of it.
+ * between reads none of it. The plays that go to a book go with it, held
+ * by one device at a time and watched on the others.
  */
 export function SyncSettings(props: { readonly place: Place }): JSX.Element {
   const app = useApp()
@@ -122,7 +123,7 @@ export function SyncSettings(props: { readonly place: Place }): JSX.Element {
       <Withheld kind="invitation">
         <div class="max-w-5xl">
           <div class="flex flex-col gap-6 p-4">
-            <p class="text-sm text-text-muted">自分の端末どうしで帳簿を揃えます。変更は端末の中で暗号化してから送るので、中継サーバは中身を読めません。同期コードは鍵そのものです。人には渡さないでください。</p>
+            <p class="text-sm text-text-muted">{SYNC_INTRO}</p>
             <section class="flex flex-col gap-2">
               <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">自分の帳簿</h2>
               <Loaded outcome={listed()}>

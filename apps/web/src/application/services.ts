@@ -28,6 +28,7 @@ import type { DestinationStore } from "../sync/port/destination-store"
 import type { InvitationStore } from "../sync/port/invitation-store"
 import type { Packer } from "../sync/port/packer"
 import type { SyncPorts } from "./sync"
+import type { HeldFinishing, PlayLinePorts } from "./play-line"
 import type { SampleMaker } from "../sample-book"
 
 /**
@@ -45,6 +46,10 @@ export interface Services {
   readonly consolidationStopped: StoppedAtWork
   readonly history: HistoryPort
   readonly drafts: DraftStorage
+  /** What keeping a person's plays in step between their own devices reaches. */
+  readonly playLine: PlayLinePorts
+  /** Recording a play followed live, only while this device still holds it. */
+  readonly finishing: HeldFinishing
   /** The shared catalog of both games, as delivered to this device. */
   readonly catalog: Catalog
   /** Whether this build names a shared catalog to take deliveries from; one that names none has nothing to refresh. */

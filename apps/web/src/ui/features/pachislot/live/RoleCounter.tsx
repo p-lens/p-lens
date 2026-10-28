@@ -12,7 +12,7 @@ function CountTile(props: {
   readonly count: number
   readonly outOf: number
   readonly shortcut: number | undefined
-  readonly held: boolean
+  readonly inert: boolean
   readonly onCount: (id: string, by: 1 | -1) => void
 }): JSX.Element {
   const press = createLongPress(() => {
@@ -23,7 +23,7 @@ function CountTile(props: {
     <button
       type="button"
       class="flex min-h-24 select-none flex-col items-center justify-center gap-1 rounded-lg border border-amateur/50 bg-amateur/10 px-2 py-3 shadow-sm transition hover:bg-amateur/20 active:translate-y-px active:bg-amateur/30 active:shadow-none"
-      classList={{ "opacity-40": props.held }}
+      classList={{ "opacity-40": props.inert }}
       style={{ "-webkit-touch-callout": "none" }}
       onPointerDown={press.onPointerDown}
       onPointerMove={press.onPointerMove}
@@ -54,15 +54,15 @@ function CountTile(props: {
  * phone, with nothing to hover over, they read as pressed rather than read, each showing its count and how often it has come up
  * in what it is counted out of: the games counted, or a cue's trials. A tap adds one, and a long
  * press takes one back; on a keyboard, the digits press the first nine
- * tiles. Held, while what comes up is no regular game's, they are shown
- * faint; what a press then does is the counting's to say. Rows are an
+ * tiles. Inert, while what comes up is no regular game's or the play is
+ * counted on another device, they are shown faint; what a press then does is the counting's to say. Rows are an
  * `<Index>`, so a count changing never remounts a tile.
  */
 export function RoleCounter(props: {
   readonly countables: readonly Countable[]
   readonly counts: Counts
   readonly outOf: (id: string) => number
-  readonly held: boolean
+  readonly inert: boolean
   readonly onCount: (id: string, by: 1 | -1) => void
 }): JSX.Element {
   const pressed = (event: KeyboardEvent): void => {
@@ -83,7 +83,7 @@ export function RoleCounter(props: {
             count={props.counts[countable().id] ?? 0}
             outOf={props.outOf(countable().id)}
             shortcut={index < 9 ? index + 1 : undefined}
-            held={props.held}
+            inert={props.inert}
             onCount={props.onCount}
           />
         )}

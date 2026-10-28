@@ -2,7 +2,7 @@ import { createResource, createSignal, For, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import type { ApplicationError, Outcome } from "../../../application/errors"
-import { exportTallyTable, exportSingleJournal, exportTogether } from "../../../application/export"
+import { exportForPrecord, exportTallyTable, exportSingleJournal, exportTogether } from "../../../application/export"
 import type { BookId, ListedBook } from "../../../core/book/book"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
@@ -37,13 +37,12 @@ const createWriting = (): { readonly working: () => Working; readonly write: (ma
   }
 }
 
+/** 書き出し中… while a file is being made, its room kept when none is, so nothing beside it moves as it comes and goes. */
 function WritingNote(props: { readonly working: Working }): JSX.Element {
   return (
-    <Show when={props.working.type === "working"}>
-      <span class="shrink-0 text-xs text-text-muted" role="status">
-        書き出し中…
-      </span>
-    </Show>
+    <span class="shrink-0 text-xs text-text-muted" classList={{ invisible: props.working.type !== "working" }} role="status">
+      書き出し中…
+    </span>
   )
 }
 
@@ -61,17 +60,19 @@ function Failure(props: { readonly working: Working }): JSX.Element {
 
 /**
  * One book in a line: a tick for taking it into the zip, its title, and at
- * the line's end the two files it is written out as, each a small button
+ * the line's end the three files it is written out as, each a small button
  * its word wide. However many books there are, the ticks stand in a column
- * down the left and the buttons in one down the right.
+ * down the left and the buttons in one down the right. Where the line is
+ * too narrow to leave the title room, as on a phone, the buttons go under
+ * it to the right, together.
  */
 function BookRow(props: { readonly book: ListedBook; readonly ticked: boolean; readonly onTick: (ticked: boolean) => void }): JSX.Element {
   const app = useApp()
   const writing = createWriting()
   return (
     <li class="flex flex-col gap-2 rounded-md bg-surface-1 py-2 pl-3 pr-2">
-      <div class="flex items-center gap-2">
-        <label class="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <label class="flex min-w-0 flex-1 basis-40 cursor-pointer items-center gap-2">
           <input
             type="checkbox"
             aria-label={`${bookTitle(props.book)} を zip に入れる`}
@@ -81,13 +82,18 @@ function BookRow(props: { readonly book: ListedBook; readonly ticked: boolean; r
           />
           <span class="min-w-0 flex-1 break-words text-sm font-medium text-text-primary">{bookTitle(props.book)}</span>
         </label>
-        <WritingNote working={writing.working()} />
-        <Button variant="outline" size="small" class="shrink-0" onClick={() => void writing.write(() => exportSingleJournal(app.services.export, props.book.id))}>
-          journal
-        </Button>
-        <Button variant="outline" size="small" class="shrink-0" onClick={() => void writing.write(() => exportTallyTable(app.services.export, props.book.id))}>
-          CSV
-        </Button>
+        <div class="flex shrink-0 items-center gap-2">
+          <WritingNote working={writing.working()} />
+          <Button variant="outline" size="small" class="shrink-0" onClick={() => void writing.write(() => exportSingleJournal(app.services.export, props.book.id))}>
+            journal
+          </Button>
+          <Button variant="outline" size="small" class="shrink-0" onClick={() => void writing.write(() => exportTallyTable(app.services.export, props.book.id))}>
+            CSV
+          </Button>
+          <Button variant="outline" size="small" class="shrink-0" onClick={() => void writing.write(() => exportForPrecord(app.services.export, props.book.id))}>
+            pRecord
+          </Button>
+        </div>
       </div>
       <Failure working={writing.working()} />
     </li>
@@ -149,9 +155,10 @@ function Books(props: { readonly books: readonly ListedBook[] }): JSX.Element {
 
 /**
  * Writing a book out as a file other than a backup, each on a press and at
- * no other time: its journals as one, for hledger or any editor, and its
- * tallies as a table, for a spreadsheet — a book at a time, or the ticked
- * books' files together in one zip. The book whole, readings and all, is a
+ * no other time: its journals as one, for hledger or any editor, its
+ * tallies as a table, for a spreadsheet, and its tallies as pRecord takes
+ * them in — a book at a time, or the ticked books' journal and table
+ * together in one zip. The book whole, readings and all, is a
  * backup's to carry, and the line under the list is the way there.
  */
 export function ExportSettings(props: { readonly place: Place }): JSX.Element {
@@ -167,6 +174,8 @@ export function ExportSettings(props: { readonly place: Place }): JSX.Element {
             <dd>仕訳を1本にまとめた hledger のテキストファイル。</dd>
             <dt class="font-medium text-text-secondary">CSV</dt>
             <dd>収支の一覧を1件1行の表に。表計算ソフトで開けます。</dd>
+            <dt class="font-medium text-text-secondary">pRecord</dt>
+            <dd>収支を pRecord が読める CSV に。pRecord の「その他 → データインポート」で取り込めます。</dd>
             <dt class="font-medium text-text-secondary">zip</dt>
             <dd>選んだ帳簿の journal と CSV をひとつにまとめます。</dd>
           </dl>

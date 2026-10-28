@@ -23,6 +23,7 @@ import { fixtureBook, inProcessHledger, memoryDrafts, memoryStorage } from "../s
 import { toPlainString } from "../../src/core/decimal/decimal"
 import type { PlayId } from "../../src/core/play/play"
 import type { Destination, DestinationStore } from "../../src/sync/port/destination-store"
+import { memoryFollow } from "../support/play-line"
 import { memoryInvitations, memoryLinks, memoryRelay } from "../support/sync"
 import { RENTED_PLAY, MALEHAN, dec } from "../support/values"
 
@@ -55,7 +56,7 @@ const device = async (name: string, relay: Relay) => {
   const clock = { now: "2026-10-09T02:00:00.000Z" }
   const drafts = keepingHistory(memoryDrafts(), () => clock.now)
   const sending: SendingPorts = { drafts, relay, sealer, now: () => clock.now, newId: () => `${name}-sent-${String((sent.next += 1)).padStart(10, "0")}` }
-  const inbox: InboxPorts = { links, relay, sealer, invitations: inviting.invitations, drafts }
+  const inbox: InboxPorts = { links, relay, sealer, invitations: inviting.invitations, drafts, follow: memoryFollow() }
   const record = (date: string, yen: number, note: string) =>
     session.write(BOOK, async (_journal, stored) =>
       Ok({ files: { ...stored.files, [BOOK_FILES.transactions]: appendEntry(stored.files[BOOK_FILES.transactions] ?? "", entry(date, yen, note)) }, intent: { type: "pool-opened", parlor: note, tier: "4円", date: "2026-10-01" as IsoDate, rate: dec("4") } }),

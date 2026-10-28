@@ -106,7 +106,7 @@ const describeTrouble = (trouble: Trouble): string => {
   }
 }
 
-const KEPT_NAMES: Readonly<Record<KeptKind, string>> = { "book-cover": "帳簿の表紙", draft: "稼働の記録", submission: "店舗の申請の記録", "backup-receipt": "バックアップの記録" }
+const KEPT_NAMES: Readonly<Record<KeptKind, string>> = { "book-cover": "帳簿の表紙", draft: "稼働の記録", followed: "別の端末の稼働の写し", submission: "店舗の申請の記録", "backup-receipt": "バックアップの記録" }
 
 const describeStorageError = (error: StorageError): string => {
   switch (error.type) {
@@ -127,6 +127,8 @@ const describeDraftError = (error: DraftError): string => {
   switch (error.type) {
     case "draft-missing":
       return "この稼働は端末にありません。記録済みか、別の画面で削除されています。"
+    case "held-elsewhere":
+      return "この稼働は別の端末で続けています。"
     case "changed-elsewhere":
       return "この稼働は別の画面で更新されました。開き直してからもう一度入力してください。"
     case "unavailable":
@@ -207,6 +209,9 @@ const describeTallyProblem = (problem: TallyProblem): string => {
   }
 }
 
+/** Said as a play another of the owner's devices held was taken off its book: deleted on the device holding it, or now recorded into a book this device does not sync. */
+export const playGoneText = (reason: "withdrawn" | "moved"): string => (reason === "moved" ? "この稼働は、この端末で同期していない帳簿あてになりました" : "この稼働は削除されました")
+
 export const describeError = (error: ApplicationError): string => {
   switch (error.type) {
     case "storage":
@@ -255,6 +260,8 @@ export const describeError = (error: ApplicationError): string => {
       return describeImportProblem(error.problem)
     case "tally-missing":
       return "この収支は帳簿にありません。"
+    case "play-gone":
+      return playGoneText(error.reason)
     case "tally-unreadable":
       return "この収支はフォームでは直せません（取り込んだ収支か、手で書き換えた仕訳です）。生ファイルの、その年の transactions のファイルで直してください。"
     case "filing-differs":

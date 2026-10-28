@@ -1,9 +1,11 @@
 import type { BookId } from "../core/book/book"
-import type { PlayDraft } from "../core/live-play/draft"
+import type { PlayDraft, Receipt } from "../core/live-play/draft"
 import { Err, Ok, mapErr, mapOk, type Result } from "../core/result/result"
 import { readInvitation } from "../core/sync/invitation"
 import { readSentDraft, type SentDraft } from "../core/sync/sent-draft"
+import type { ShownPlay } from "../core/play-line/entry"
 import type { DraftStorage } from "../storage/port/draft-storage"
+import type { FollowStorage } from "../storage/port/follow-storage"
 import type { InvitationStore, KeptInvitation } from "../sync/port/invitation-store"
 import type { LinkStore, SyncLink } from "../sync/port/link-store"
 import type { LineAccess, Relay } from "../sync/port/relay"
@@ -21,6 +23,7 @@ export interface InboxPorts {
   readonly sealer: Sealer
   readonly invitations: InvitationStore
   readonly drafts: DraftStorage
+  readonly follow: FollowStorage
 }
 
 const problem = (found: SyncProblem): Outcome<never> => Err({ type: "sync", problem: found })
@@ -49,6 +52,19 @@ export interface Arrivals {
 
 const NONE_ARRIVED: Arrivals = { taken: 0, unreadable: 0 }
 
+/**
+ * What became of one sending: taken in; found already in its play, here
+ * or on the device of the owner's that holds it, and so dealt with as it
+ * is; or left on the inbox until this device holds its play again.
+ */
+type Taking = "taken" | "had" | "deferred"
+
+/** What a book's inbox has come to so far: how many arrived, and the ids of the sendings dealt with. */
+interface Handling {
+  readonly arrivals: Arrivals
+  readonly handled: readonly string[]
+}
+
 const together = (left: Arrivals, right: Arrivals): Arrivals => ({ taken: left.taken + right.taken, unreadable: left.unreadable + right.unreadable })
 
 /** What a box holds: none for the line an inbox was begun with, a sent play, or one that does not open or read as one. */
@@ -73,20 +89,38 @@ const inBook = (bookId: BookId | undefined, sent: SentDraft, sender: KeptInvitat
 /** Whether a play this device received has been left as it arrived: not changed, and not recorded. Such a play is the sender's still, and a later sending of it takes its place. */
 const untouched = (draft: PlayDraft): boolean => draft.received !== undefined && draft.recorded === undefined && draft.log === draft.received.log
 
+/** Whether a play arrived as a sending: with its log, finished as it said. */
+const arrivedAs = (receipt: Receipt | undefined, sent: SentDraft): boolean => receipt !== undefined && receipt.log === sent.play.log && JSON.stringify(receipt.finished) === JSON.stringify(sent.finished)
+
+/** Whether a play already has a sending in it: arrived as it, or kept beside it as a later sending to choose. */
+const hasSending = (play: PlayDraft | ShownPlay, sent: SentDraft): boolean => arrivedAs(play.received, sent) || arrivedAs(play.received?.again?.received, sent)
+
+/** A sending of a play another of the owner's devices holds: had where that device took it in already, as this device's copy shows; else waiting. */
+const heldElsewhere = async (ports: InboxPorts, sent: SentDraft): Promise<Outcome<Taking>> =>
+  mapOk(fromDraft(await ports.follow.readFollowed(sent.play.id)), (copy) => (copy !== undefined && hasSending(copy.play, sent) ? "had" : "deferred"))
+
 /**
  * Take one sent play in. A play the device does not have joins the day's
  * plays. One it has, left as it arrived, gives way to the later sending.
  * One it has and has changed, or recorded, is not written over: the later
  * sending is kept beside it for the person to choose between. A play of
- * the device's own under the same id is left alone.
+ * the device's own under the same id is left alone, and so is one that
+ * has the sending in it already — a device that held it took it in. One
+ * another of the owner's devices holds, which this device only keeps a
+ * copy of, is had where the copy shows the holder took the sending in;
+ * otherwise it is left waiting on the inbox: the holder takes it in, and
+ * so does this device once it holds the play again — taking it in here
+ * would make the play held twice.
  */
-const takenIn = async (ports: InboxPorts, bookId: BookId, sent: SentDraft, sender: KeptInvitation | undefined): Promise<Outcome<void>> => {
+const takenIn = async (ports: InboxPorts, bookId: BookId, sent: SentDraft, sender: KeptInvitation | undefined): Promise<Outcome<Taking>> => {
   const has = await ports.drafts.readDraft(sent.play.id)
-  if (!has.ok) return fromDraft(await ports.drafts.createDraft(inBook(bookId, sent, sender)))
+  if (!has.ok && has.error.type === "held-elsewhere") return heldElsewhere(ports, sent)
+  if (!has.ok) return mapOk(fromDraft(await ports.drafts.createDraft(inBook(bookId, sent, sender))), () => "taken" as const)
   const mine = has.value
-  if (mine.received === undefined) return Ok(undefined)
+  if (mine.received === undefined) return Ok("taken")
+  if (hasSending(mine, sent)) return Ok("had")
   const arrived = inBook(mine.bookId, sent, sender)
-  return fromDraft(await ports.drafts.updateDraft(untouched(mine) ? arrived : { ...mine, received: { ...mine.received, again: arrived } }, mine.log))
+  return mapOk(fromDraft(await ports.drafts.updateDraft(untouched(mine) ? arrived : { ...mine, received: { ...mine.received, again: arrived } }, mine.log)), () => "taken" as const)
 }
 
 const handled = async (links: LinkStore, link: SyncLink, ids: readonly string[]): Promise<Outcome<void>> =>
@@ -96,7 +130,8 @@ const handled = async (links: LinkStore, link: SyncLink, ids: readonly string[])
  * The plays waiting in one book's inbox taken into the day's plays, each
  * counted as dealt with: how many there were, and how many could not be
  * read — counted once, and dealt with too, since reading them again would
- * read them no better.
+ * read them no better. A play another of the owner's devices holds is not
+ * dealt with here, and waits.
  */
 const receivedFor = async (ports: InboxPorts, link: SyncLink): Promise<Outcome<Arrivals>> => {
   const invitations = await ports.invitations.list(link.bookId)
@@ -109,15 +144,19 @@ const receivedFor = async (ports: InboxPorts, link: SyncLink): Promise<Outcome<A
   const waiting = boxes.value.filter((sealed) => !(link.inboxHandled ?? []).includes(sealed.id))
   if (waiting.length === 0) return Ok(NONE_ARRIVED)
   const senderOf = (mark: string): KeptInvitation | undefined => senders.find((kept) => readInvitation(kept.code)?.token.slice(0, SENDER_MARK) === mark)
-  const taken = await waiting.reduce<Promise<Outcome<Arrivals>>>(async (so, sealed) => {
+  const taken = await waiting.reduce<Promise<Outcome<Handling>>>(async (so, sealed) => {
     const count = await so
     if (!count.ok) return count
+    const dealt = (arrived: Arrivals): Handling => ({ arrivals: together(count.value.arrivals, arrived), handled: [...count.value.handled, sealed.id] })
     const held = await sentIn(ports.sealer, keys.value, sealed)
-    if (held.type === "opening") return count
-    if (held.type === "unreadable") return Ok(together(count.value, { taken: 0, unreadable: 1 }))
-    return mapOk(await takenIn(ports, link.bookId, held.sent, senderOf(held.sent.sender)), () => together(count.value, { taken: 1, unreadable: 0 }))
-  }, Promise.resolve(Ok(NONE_ARRIVED)))
-  return taken.ok ? mapOk(await handled(ports.links, link, waiting.map((sealed) => sealed.id)), () => taken.value) : taken
+    if (held.type === "opening") return Ok(dealt(NONE_ARRIVED))
+    if (held.type === "unreadable") return Ok(dealt({ taken: 0, unreadable: 1 }))
+    return mapOk(await takenIn(ports, link.bookId, held.sent, senderOf(held.sent.sender)), (taking) => {
+      if (taking === "deferred") return count.value
+      return dealt(taking === "taken" ? { taken: 1, unreadable: 0 } : NONE_ARRIVED)
+    })
+  }, Promise.resolve(Ok({ arrivals: NONE_ARRIVED, handled: [] })))
+  return taken.ok ? mapOk(await handled(ports.links, link, taken.value.handled), () => taken.value.arrivals) : taken
 }
 
 /**

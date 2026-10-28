@@ -23,6 +23,7 @@ import { HuddleTotalView } from "../huddle/HuddleTotalView"
 import { HuddleRunner } from "../huddle/HuddleRunner"
 import { LivePlayView } from "../live/LivePlayView"
 import { LiveSide } from "../live/LiveSide"
+import { PlayLineRunner } from "../live/PlayLineRunner"
 import * as PachinkoViews from "../pachinko"
 import { FileDetail, FilesView } from "../files/FilesView"
 import { StartFormProvider } from "../live/start-form"
@@ -334,6 +335,7 @@ export function PLensScreen(): JSX.Element {
       <ToastRegion />
       <StoppedNotice />
       <HuddleRunner place={place()} />
+      <PlayLineRunner place={place()} />
     </StartFormProvider>
   )
 }

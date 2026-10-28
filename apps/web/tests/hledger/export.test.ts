@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test"
 
 import { createBookSession, type BookSession } from "../../src/application/book-session"
-import { exportTallyTable, exportSingleJournal, exportTogether, type ExportPorts } from "../../src/application/export"
+import { exportForPrecord, exportTallyTable, exportSingleJournal, exportTogether, type ExportPorts } from "../../src/application/export"
 import { loadOverview } from "../../src/application/overview"
 import type { BookId, Member, MemberId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
@@ -53,6 +53,22 @@ describe("the basic-play book, written out", () => {
       "2026-09-20,723豚の帽子亭店,パチンコ,森物語,210,8000,23976,15976,3200,,,,,,,,,,,,,,,723豚の帽子亭店 | 森物語 210番台,723-butanoboushitei,made-up-0920,",
       "2026-09-12,723豚の帽子亭店,スロット,ピエロット,45,10000,30030,20030,1800,,,,,2:30,,,,,,,,,,723豚の帽子亭店 | ピエロット 45番台,723-butanoboushitei,made-up-0912,",
       "2026-09-05,マレハン東京皇国第8支店,パチンコ,流星,123,12000,17136,5136,5500,,,,,3:00,,,,,,,,,,マレハン東京皇国第8支店 | 流星 123番台,malehan-tokyokoukoku,made-up-0905,",
+      "",
+    ])
+  })
+
+  test("its tallies are pRecord's CSV, newest first, their sides hledger's in whole yen", async () => {
+    const handover = memoryHandover()
+    expect(await exportForPrecord(portsWith(handover), BOOK)).toEqual({ ok: true, value: undefined })
+    const [file] = handover.given()
+    expect([file?.name, file?.type]).toEqual(["サンプル帳簿_pRecord_2026-10-09_exported.csv", "text/csv"])
+    expect(decoder.decode(file?.bytes).split("\r\n")).toEqual([
+      '"日付","店舗コード","店舗","メーカー","機種コード","機種","種別","台番号","投資額","回収額","収支","メモ","稼働時間","時給","経費"',
+      '"2026/10/03","","723豚の帽子亭店","","","森物語","パチンコ","210","9990","7992","-1998","","0.0","0.0","0"',
+      '"2026/10/01","","マレハン東京皇国第8支店","","","流星","パチンコ","123","14000","14000","0","","0.0","0.0","0"',
+      '"2026/09/20","","723豚の帽子亭店","","","森物語","パチンコ","210","8000","23976","15976","","0.0","0.0","0"',
+      '"2026/09/12","","723豚の帽子亭店","","","ピエロット","パチスロ","45","10000","30030","20030","","2.5","8012.0","0"',
+      '"2026/09/05","","マレハン東京皇国第8支店","","","流星","パチンコ","123","12000","17136","5136","","3.0","1712.0","0"',
       "",
     ])
   })

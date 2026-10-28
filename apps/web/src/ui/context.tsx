@@ -10,6 +10,8 @@ import { listedFor, othersPlays, type HuddlePlay } from "../core/huddle/post"
 import { idleMembers } from "../core/huddle/standing"
 import { fileEveryBookByYear } from "../application/file-by-year"
 import { huddleNow } from "../application/huddle"
+import { continueHere } from "../application/play-line"
+import type { PlayId } from "../core/play/play"
 import { receiveArrivals, type Arrivals } from "../application/inbox"
 import { restoreEveryGrant } from "../application/invitations"
 import { keepStorage } from "../application/storage-keeping"
@@ -18,6 +20,7 @@ import { createMinuteStruck } from "./primitives/minute"
 import { toast } from "./primitives/toast"
 import type { ThemeState } from "./theme/theme"
 import { unreadableArrivalsText } from "./wording/sync"
+import { CONTINUED_HERE, continueFailedText } from "./wording/play-line"
 import { heardOutdated } from "./features/consolidated/outdated"
 import { warmConsolidationWhileShown } from "./features/consolidated/warm"
 import { savingsShownAfterWrites, type SavingsShown } from "./features/holdings/shown"
@@ -92,6 +95,22 @@ export interface HuddleJoined {
   readonly idle: Accessor<ReadonlySet<string>>
 }
 
+/**
+ * The plays the owner's other devices hold, as the screens meet them: the
+ * one a screen has open, whose line is read more often while it is — a
+ * device set up to stream a play shows it as it goes — and the way to
+ * continue one on this device.
+ */
+export interface PlayLineWatch {
+  readonly watching: Accessor<PlayId | undefined>
+  readonly watch: (playId: PlayId | undefined) => void
+  /** Claims the play for this device and says how that went: once it is here, every screen reads it again as this device's own. Whether it came over, was taken off its book meanwhile — no play to stay on — or could not be brought over now. */
+  readonly continueHere: (playId: PlayId) => Promise<Continuing>
+}
+
+/** What came of continuing a play here: it came over, it was gone from its book, or it could not be brought over now. */
+export type Continuing = "continued" | "gone" | "refused"
+
 /** What a book's machines are shown as before the catalog's machines are read: each as the book says it. */
 const NO_MACHINE_NAMES: MachineNames = new Map()
 
@@ -138,6 +157,7 @@ export interface AppContext {
   readonly sync: BookSync
   readonly backups: BackupsMade
   readonly huddle: HuddleJoined
+  readonly playLine: PlayLineWatch
 }
 
 const Context = createContext<AppContext>()
@@ -178,6 +198,14 @@ export function AppProvider(props: {
   const huddleIdle = createMemo((): ReadonlySet<string> => (huddle() === undefined ? new Set() : idleMembers(huddleLine.entries(), minute())))
   const huddleCounted = createMemo((): readonly HuddlePlay[] => ((joined) => (joined === undefined ? [] : othersPlays(huddleLine.entries(), joined.member)))(huddle()))
   const huddleOthers = createMemo((): readonly HuddlePlay[] => ((joined) => (joined === undefined ? [] : listedFor(huddleCounted(), joined)))(huddle()))
+  const [watching, setWatching] = createSignal<PlayId | undefined>(undefined)
+  const continuedHere = async (playId: PlayId): Promise<Continuing> => {
+    const continued = await continueHere(props.services.playLine, playId)
+    played()
+    toast(continued.ok ? { title: CONTINUED_HERE, stays: "glance" } : { title: continueFailedText(continued.error), tone: "error" })
+    if (continued.ok) return "continued"
+    return continued.error.type === "play-gone" ? "gone" : "refused"
+  }
   const [state, setState] = createSignal<DeliveryState>({ type: "idle" })
   const timers: { pending: readonly ReturnType<typeof setTimeout>[] } = { pending: [] }
   const refresh = (): void => {
@@ -210,7 +238,7 @@ export function AppProvider(props: {
       syncing.running = false
       setSyncState(done.ok ? { type: "synced", synced: done.value } : { type: "failed", error: done.error })
       if (done.ok && done.value.received > 0) wrote()
-      if (done.ok) void receiveArrivals({ links: props.services.sync.links, relay: props.services.sync.relay, sealer: props.services.sync.sealer, invitations: props.services.invitations, drafts: props.services.drafts }).then(told)
+      if (done.ok) void receiveArrivals({ links: props.services.sync.links, relay: props.services.sync.relay, sealer: props.services.sync.sealer, invitations: props.services.invitations, drafts: props.services.drafts, follow: props.services.playLine.follow }).then(told)
       if (done.ok && !syncing.grantsRestored) {
         syncing.grantsRestored = true
         void restoreEveryGrant({ links: props.services.sync.links, relay: props.services.sync.relay, sealer: props.services.sync.sealer, invitations: props.services.invitations, now: props.services.now, newId: () => crypto.randomUUID() })
@@ -269,6 +297,7 @@ export function AppProvider(props: {
         sync: { state: syncState, run: runSync },
         backups: { count: backupsMade, made: backupMade },
         huddle: { now: huddle, changed: () => setHuddleChanges((count) => count + 1), line: huddleLine, chosen: roomChoices, others: huddleOthers, counted: huddleCounted, idle: huddleIdle },
+        playLine: { watching, watch: (playId) => setWatching(playId), continueHere: continuedHere },
       }}>
       {props.children}
     </Context.Provider>

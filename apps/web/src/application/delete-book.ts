@@ -5,19 +5,21 @@ import { Ok, collect, mapErr, mapOk } from "../core/result/result"
 import type { HistoryPort } from "../history/port/history-port"
 import type { BookStorage, StoredBook } from "../storage/port/book-storage"
 import type { DraftStorage } from "../storage/port/draft-storage"
+import type { FollowStorage } from "../storage/port/follow-storage"
 import type { LinkStore } from "../sync/port/link-store"
 import type { Outcome } from "./errors"
 import { fromDraft, fromHistory, fromStorage } from "./lift"
 import { linksProblemOf } from "./kept-links"
 import { receiptsProblemOf } from "./backup"
 
-/** Everywhere a device keeps something of a book: its files, its history, its sync link, its backup's receipt, and the plays still being played for it. */
+/** Everywhere a device keeps something of a book: its files, its history, its sync link, its backup's receipt, the plays still being played for it, and its copies of those its owner's other devices play for it. */
 export interface DeletionPorts {
   readonly storage: BookStorage
   readonly history: HistoryPort
   readonly links: LinkStore
   readonly receipts: ReceiptStore
   readonly drafts: DraftStorage
+  readonly follow: FollowStorage
 }
 
 /** The plays still being played for a book let go of: a play with no book to be recorded in is nobody's. */
@@ -26,6 +28,14 @@ const withoutDrafts = async (ports: DeletionPorts, bookId: BookId): Promise<Outc
   if (!drafts.ok) return drafts
   const deleted = await Promise.all(drafts.value.filter((draft) => draft.bookId === bookId).map(async (draft) => fromDraft(await ports.drafts.deleteDraft(draft.id))))
   return mapOk(collect(deleted), () => undefined)
+}
+
+/** The copies kept of plays the owner's other devices play for a book let go of: the device follows that book's plays no longer. */
+const withoutCopies = async (ports: DeletionPorts, bookId: BookId): Promise<Outcome<void>> => {
+  const followed = fromDraft(await ports.follow.listFollowed())
+  if (!followed.ok) return followed
+  const dropped = await Promise.all(followed.value.filter((each) => each.line.bookId === bookId).map(async (each) => fromDraft(await ports.follow.dropFollowed(each.id))))
+  return mapOk(collect(dropped), () => undefined)
 }
 
 /**
@@ -41,6 +51,8 @@ const withoutDrafts = async (ports: DeletionPorts, bookId: BookId): Promise<Outc
 export const deleteBook = async (ports: DeletionPorts, bookId: BookId): Promise<Outcome<void>> => {
   const drafts = await withoutDrafts(ports, bookId)
   if (!drafts.ok) return drafts
+  const copies = await withoutCopies(ports, bookId)
+  if (!copies.ok) return copies
   const receipt = mapErr(await ports.receipts.remove(bookId), receiptsProblemOf)
   if (!receipt.ok) return receipt
   const link = mapErr(await ports.links.remove(bookId), (error) => ({ type: "sync" as const, problem: linksProblemOf(error) }))

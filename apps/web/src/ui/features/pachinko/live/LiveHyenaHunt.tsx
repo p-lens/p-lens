@@ -1,5 +1,5 @@
 import type { PlayDto } from "@p-lens/contracts/pachinko"
-import { createMemo, createSignal, Show, type JSX } from "solid-js"
+import { createMemo, Show, type JSX } from "solid-js"
 
 import type { PlayDraft } from "../../../../core/live-play/draft"
 import type { Basis } from "../../../../core/pachinko/formula"
@@ -10,6 +10,7 @@ import { NoticeDialog } from "../../../primitives/dialog"
 import { AimIcon } from "../../../primitives/icons"
 import { HyenaHuntByRate } from "../formulas/HyenaHuntByRate"
 import { HyenaHuntRun } from "../formulas/HyenaHuntRun"
+import type { PlayHold } from "../../live/play-hold"
 import { GaugeCorrection } from "./GaugeCorrection"
 
 /**
@@ -24,34 +25,44 @@ import { GaugeCorrection } from "./GaugeCorrection"
  * It is a small mark and no more until pressed: whether a machine is worth
  * hunting is settled before sitting down, and a play in progress has its
  * own figures to show. Pressed, it is laid over the screen; nothing of it
- * is worked out before then.
+ * is worked out before then. Whether it is laid over is kept by the
+ * screen, above what the play's readings rebuild — a play another device
+ * holds has its readings come in as it is watched — so that it stays open
+ * through them. A play another device holds has its 遊 counter shown but
+ * not set right here.
  */
 export function LiveHyenaHunt(props: {
   readonly draft: PlayDraft
+  readonly hold: PlayHold
   readonly ordered: readonly Checkpoint[]
   readonly formula: FormulaSnapshot
   readonly basis: Basis
   readonly gaugeNow: number
   readonly spinPerformance: number | undefined
   readonly ballValue: number | undefined
+  readonly shown: boolean
+  readonly onShown: (shown: boolean) => void
 }): JSX.Element {
   const play = createMemo((): PlayDto | undefined =>
     props.spinPerformance === undefined || props.ballValue === undefined ? undefined : { spinPerformance: props.spinPerformance, ballValue: props.ballValue },
   )
-  const [shown, setShown] = createSignal(false)
-  const correction = (): JSX.Element => <GaugeCorrection draft={props.draft} ordered={props.ordered} gaugeNow={props.gaugeNow} />
+  const correction = (): JSX.Element => (
+    <Show when={props.hold.type === "held"}>
+      <GaugeCorrection draft={props.draft} ordered={props.ordered} gaugeNow={props.gaugeNow} />
+    </Show>
+  )
   return (
     <>
       <button
         type="button"
         aria-label="遊タイム狙いを見る"
         title="遊タイム狙い"
-        onClick={() => setShown(true)}
+        onClick={() => props.onShown(true)}
         class="flex size-10 shrink-0 items-center justify-center rounded text-semipro-ink hover:bg-surface-3 hover:text-semipro-ink-hover [&_svg]:size-5"
       >
         <AimIcon />
       </button>
-      <NoticeDialog open={shown()} title="遊タイム狙い（ここから打ち続けたら）" acknowledge="閉じる" onAcknowledged={() => setShown(false)}>
+      <NoticeDialog open={props.shown} title="遊タイム狙い（ここから打ち続けたら）" acknowledge="閉じる" onAcknowledged={() => props.onShown(false)}>
         <Show when={props.ballValue} keyed>
           {(ballValue) => <HyenaHuntByRate basis={props.basis} initialSpins={props.gaugeNow} ballValue={ballValue} usual={borderOf(props.formula.figures, ballValue)} rate={props.spinPerformance} />}
         </Show>

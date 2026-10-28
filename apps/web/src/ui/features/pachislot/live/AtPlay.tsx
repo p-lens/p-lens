@@ -27,6 +27,7 @@ import type { PlayTerms } from "../../../../core/parlor/terms"
 import { HandTiles } from "./HandTiles"
 import { Tile } from "./Tile"
 import type { Write, Written } from "./write"
+import type { PlayHold } from "../../live/play-hold"
 
 /**
  * Where an AT machine's play stands by its log, three to a row as a bonus
@@ -426,10 +427,12 @@ function EventTile(props: { readonly label: string; readonly count: number; read
  * and one for an AT won, each with how many the play has had, a tap
  * keeping it at the games the row below says, and a long press taking the
  * last one back while nothing follows it; and how the AT just won went,
- * said once it ends.
+ * said once it ends. A play another device holds is counted there: its
+ * tiles show the counts and a press or a long press here does nothing.
  */
 export function AtCounting(props: {
   readonly reading: AtReading
+  readonly hold: PlayHold
   readonly ordered: readonly Checkpoint[]
   readonly normalized: NormalizedSpecDto
   readonly endings: readonly AtEnding[]
@@ -441,12 +444,14 @@ export function AtCounting(props: {
   const counted = (kind: Missed | "jackpot"): number => props.ordered.filter((checkpoint) => checkpoint.event?.kind === kind).length
   const [takingBack, setTakingBack] = createSignal<Written<TakeBackRefusal> | undefined>(undefined)
   const takeBack = (taken: TakenBack): void => {
+    if (props.hold.type === "followed") return
     void props.rewrite((ordered) => withLastTakenBack(ordered, taken)).then((written) => {
       setTakingBack(written)
       if (written.type === "written") toast({ title: "1つ戻しました", stays: "blink" })
     })
   }
   const keep = (ended: "at" | Missed): void => {
+    if (props.hold.type === "followed") return
     setTakingBack(undefined)
     void props.reading.send(ended, false)
   }
@@ -471,7 +476,7 @@ export function AtCounting(props: {
         </Show>
         <EventTile label="AT当選" count={counted("jackpot")} onPress={() => keep("at")} onLongPress={() => takeBack("at")} />
       </div>
-      <Show when={props.awaitsResult}>
+      <Show when={props.awaitsResult && props.hold.type === "held"}>
         <AtResultComposer write={props.write} normalized={props.normalized} endings={props.endings} post={props.post} />
       </Show>
     </section>

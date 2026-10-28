@@ -56,7 +56,7 @@ const FORMAT = 1
 
 /** A play as it is shown to a huddle: what the device keeps of it for itself, and its history, left behind. */
 export const huddlePostOf = (draft: PlayDraft, huddle: Huddle, postedAt: string): HuddlePost => {
-  const { bookId: _book, recorded: _recorded, sent: _sent, received: _received, history: _history, ...play } = draft
+  const { bookId: _book, recorded: _recorded, sent: _sent, received: _received, history: _history, handovers: _handovers, ...play } = draft
   return { member: huddle.member, name: huddle.name, postedAt, play }
 }
 

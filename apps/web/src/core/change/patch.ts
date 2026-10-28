@@ -25,12 +25,13 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 
 const isLines = (value: unknown): boolean => Array.isArray(value) && value.every((line) => typeof line === "string")
 
-const isHunk = (value: unknown): boolean =>
+/** Whether a value read from text is one stretch of a patch: where it begins, and the lines taken and put in there. */
+export const isPatchHunk = (value: unknown): value is PatchHunk =>
   isRecord(value) && typeof value["at"] === "number" && Number.isInteger(value["at"]) && value["at"] >= 0 && isLines(value["removed"]) && isLines(value["added"])
 
 /** Whether a value read from text is a patch: what arrives from elsewhere, or was kept in a file, is not taken on trust. */
 export const isFilePatch = (value: unknown): value is FilePatch =>
-  isRecord(value) && typeof value["path"] === "string" && typeof value["created"] === "boolean" && Array.isArray(value["hunks"]) && value["hunks"].every(isHunk)
+  isRecord(value) && typeof value["path"] === "string" && typeof value["created"] === "boolean" && Array.isArray(value["hunks"]) && value["hunks"].every(isPatchHunk)
 
 /** The text a patch was to be made on, or taken back from, is not the one it was written against. */
 export type PatchProblem = { readonly type: "patch-misfit"; readonly path: string }

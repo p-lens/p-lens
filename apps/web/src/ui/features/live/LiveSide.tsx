@@ -1,10 +1,15 @@
 import { createResource, createSignal, For, Show, type JSX } from "solid-js"
 import { SidePanel } from "solid-gathering-shell"
 
+import type { Outcome } from "../../../application/errors"
 import { abandonPlay, loadTodaysPlays } from "../../../application/live-play"
+import { loadFollowedToday } from "../../../application/play-line"
 import { destinationsOf, sendDraft } from "../../../application/sending"
 import { shownNameOf, type MachineNames } from "../../../core/catalog/catalog"
 import { afterItFinished, isLeftOver, isSentAsItStands, parlorOf, type PlayDraft } from "../../../core/live-play/draft"
+import type { IsoDate } from "../../../core/calendar/calendar"
+import type { Followed } from "../../../core/play-line/following"
+import { Ok } from "../../../core/result/result"
 import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
 import { Button, SWITCHED_ON } from "../../primitives/button"
@@ -27,6 +32,7 @@ import { sendingPortsOf } from "./sending-ports"
 import { cabinetText } from "../../wording/cabinet"
 import { seal } from "../../../mummer"
 import { memberNameText, titleText } from "../../wording/book"
+import { FOLLOWED_CHIP, RECORDED_MARK } from "../../wording/play-line"
 
 const openPlay = (place: Place): string | undefined =>
   place.kind === "live-play" || place.kind === "live-record" || place.kind === "live-cabinet" ? place.playId : undefined
@@ -34,7 +40,7 @@ const openPlay = (place: Place): string | undefined =>
 /** What stands beside a play's place and time, each a word: where it is in its day, and whose it is where it came from someone else. */
 const marksOf = (draft: PlayDraft, destinations: readonly Destination[]): readonly string[] => [
   ...(draft.received === undefined ? [] : [draft.received.sender === undefined ? "届いた稼働" : memberNameText(draft.received.sender)]),
-  ...(draft.recorded === undefined ? [] : ["記帳済み"]),
+  ...(draft.recorded === undefined ? [] : [RECORDED_MARK]),
   ...(destinations.some((destination) => isSentAsItStands(draft, destination.lineId)) ? ["送信済み"] : []),
   ...(draft.received?.again === undefined ? [] : ["送り直しあり"]),
 ]
@@ -106,6 +112,50 @@ function DraftRow(props: {
   )
 }
 
+/**
+ * One of the day's plays another of the owner's devices holds: pressed, it
+ * opens, to be watched there; held, nothing — it is not this device's to
+ * give up — and it has no paper plane, being not this device's to send.
+ * It says, beside its place and time, that it is measured elsewhere.
+ */
+function FollowedRow(props: { readonly followed: Followed; readonly selected: boolean; readonly onSelect: () => void }): JSX.Element {
+  const app = useApp()
+  const marks = (): readonly string[] => [FOLLOWED_CHIP, ...(props.followed.play.recorded === undefined ? [] : [RECORDED_MARK])]
+  return (
+    <li>
+      <button
+        type="button"
+        aria-current={props.selected ? "page" : undefined}
+        onClick={() => props.onSelect()}
+        class="flex w-full select-none flex-col rounded px-2 py-1.5 text-left transition-colors [-webkit-touch-callout:none]"
+        classList={{ "bg-surface-3 text-text-primary": props.selected, "text-text-muted hover:bg-surface-3/60 hover:text-text-secondary": !props.selected }}
+      >
+        <span class="truncate text-[15px]">{shownNameOf(app.machineNames(), props.followed.play.machine)}</span>
+        <span class="truncate text-xs text-text-muted">{captionOf(props.followed.play, app.services.businessDay())}</span>
+        <span class="truncate text-xs text-text-secondary">{marks().join("・")}</span>
+      </button>
+    </li>
+  )
+}
+
+/** A row of the day's list: a play this device holds, or one another of the owner's devices does. */
+type DayRow = { readonly type: "held"; readonly draft: PlayDraft } | { readonly type: "followed"; readonly followed: Followed }
+
+const startedAtOf = (row: DayRow): string => (row.type === "held" ? row.draft.startedAt : row.followed.play.startedAt)
+
+/** The day's plays held here and followed from elsewhere as one list, newest begun first. */
+const dayRowsOf = (held: readonly PlayDraft[], followed: readonly Followed[]): readonly DayRow[] =>
+  [...held.map((draft): DayRow => ({ type: "held", draft })), ...followed.map((each): DayRow => ({ type: "followed", followed: each }))].toSorted((left, right) => startedAtOf(right).localeCompare(startedAtOf(left)))
+
+/** The day's plays on this device, and the copies it keeps of those another of the owner's devices holds. */
+const loadDayRows = async (drafts: Parameters<typeof loadTodaysPlays>[0], follow: Parameters<typeof loadFollowedToday>[0], businessDay: IsoDate): Promise<Outcome<{ readonly held: readonly PlayDraft[]; readonly rows: readonly DayRow[] }>> => {
+  const held = await loadTodaysPlays(drafts, businessDay)
+  if (!held.ok) return held
+  const followed = await loadFollowedToday(follow, businessDay)
+  if (!followed.ok) return followed
+  return Ok({ held: held.value, rows: dayRowsOf(held.value, followed.value) })
+}
+
 /** A play as a sentence names it: its machine, as the halls call it, and cabinet, or its parlor where it has no machine. */
 const draftName = (draft: PlayDraft, machineNames: MachineNames): string => {
   const machine = `${shownNameOf(machineNames, draft.machine)}${draft.cabinetNumber === undefined ? "" : ` ${cabinetText(seal.cabinet(draft.cabinetNumber))}`}`.trim()
@@ -123,14 +173,15 @@ const draftName = (draft: PlayDraft, machineNames: MachineNames): string => {
  * to its room, where the others' plays are. Where the device may send plays to someone, each has its
  * paper plane, and none sends them all at once: a play is sent as it is
  * played; with more than one place to send to, the person is asked
- * which, and only then.
+ * which, and only then. A play another of the owner's devices holds is
+ * listed among them, to be opened and watched, and nothing else.
  */
 export function LiveSide(props: { readonly place: Place }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   /** The hours as they strike: the day the list is of may turn on any of them. */
   const hour = createHourStruck()
-  const [drafts] = createResource(() => [app.revision(), hour()] as const, () => loadTodaysPlays(app.services.drafts, app.services.businessDay()))
+  const [drafts] = createResource(() => [app.revision(), hour()] as const, () => loadDayRows(app.services.drafts, app.services.playLine.follow, app.services.businessDay()))
   const [destinations] = createResource(() => app.revision(), () => destinationsOf(app.services.destinations))
   const sendingTo = (): readonly Destination[] => ((found) => (found?.ok === true ? found.value : []))(destinations())
   /** The business day said after the list's 「本日」 once the device's clock is past midnight, read again as each hour strikes. */
@@ -218,23 +269,27 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
         </Show>
         <Loaded outcome={drafts()}>
           {(found) => (
-            <Show when={found.length > 0} fallback={<p class="px-2 py-1.5 text-sm text-text-muted">本日の稼働はありません。</p>}>
+            <Show when={found.rows.length > 0} fallback={<p class="px-2 py-1.5 text-sm text-text-muted">本日の稼働はありません。</p>}>
               <ul class="flex flex-col gap-0.5">
-                <For each={found}>
-                  {(draft) => (
-                    <DraftRow
-                      draft={draft}
-                      leftOver={isLeftOver(draft, app.services.businessDay())}
-                      destinations={sendingTo()}
-                      selected={openPlay(props.place) === draft.id}
-                      onSelect={() => moves.go({ kind: "live-play", playId: draft.id })}
-                      onAbandon={() => setAbandoning(draft)}
-                      onSend={() => send(draft)}
-                    />
-                  )}
+                <For each={found.rows}>
+                  {(row) =>
+                    row.type === "held" ? (
+                      <DraftRow
+                        draft={row.draft}
+                        leftOver={isLeftOver(row.draft, app.services.businessDay())}
+                        destinations={sendingTo()}
+                        selected={openPlay(props.place) === row.draft.id}
+                        onSelect={() => moves.go({ kind: "live-play", playId: row.draft.id })}
+                        onAbandon={() => setAbandoning(row.draft)}
+                        onSend={() => send(row.draft)}
+                      />
+                    ) : (
+                      <FollowedRow followed={row.followed} selected={openPlay(props.place) === row.followed.id} onSelect={() => moves.go({ kind: "live-play", playId: row.followed.id })} />
+                    )
+                  }
                 </For>
               </ul>
-              <Show when={found.some((draft) => isLeftOver(draft, app.services.businessDay()))}>
+              <Show when={found.held.some((draft) => isLeftOver(draft, app.services.businessDay()))}>
                 <p class="mt-2 px-2 text-xs leading-5 text-text-muted">
                   前の日のまだ記帳していない稼働に
                   <span role="img" aria-label="赤い印" class="mx-0.5 inline-block size-2 rounded-full bg-negative align-baseline" />

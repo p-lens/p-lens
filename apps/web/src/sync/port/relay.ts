@@ -1,4 +1,4 @@
-import type { AppendedDto, GrantDto, LineEntriesDto, NewGrantDto, SealedCommitDto } from "@p-lens/contracts/relay"
+import type { AppendedDto, GrantDto, LineEntriesDto, LineKeep, NewGrantDto, SealedCommitDto } from "@p-lens/contracts/relay"
 
 import type { Result } from "../../core/result/result"
 
@@ -39,8 +39,12 @@ export type RelayFailure =
 export interface Relay {
   /** A line's entries after a place in it, at most as many as the relay hands over at once. */
   readonly entriesAfter: (access: LineAccess, after: number) => Promise<Result<LineEntriesDto, RelayFailure>>
-  /** Put sealed commits on the end of a line that ends at `after`; where it then ends, and when it was begun. */
-  readonly append: (access: LineAccess, after: number, entries: readonly SealedCommitDto[]) => Promise<Result<AppendedDto, RelayFailure>>
+  /**
+   * Put sealed commits on the end of a line that ends at `after`; where it
+   * then ends, and when it was begun. `keep` says how long a line these
+   * commits make is kept; left out, as long as a book's.
+   */
+  readonly append: (access: LineAccess, after: number, entries: readonly SealedCommitDto[], keep?: LineKeep) => Promise<Result<AppendedDto, RelayFailure>>
   /** Everyone a line's owner has let into it, as the relay knows them. The owner's alone to ask. */
   readonly grants: (access: LineAccess) => Promise<Result<readonly GrantDto[], RelayFailure>>
   /** Let one more person into a line, or change what one already in may do: the line's grants after it. */

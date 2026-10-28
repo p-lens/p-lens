@@ -217,6 +217,14 @@ bun run migrate:remote   # create the tables in the production D1
 bun run deploy
 ```
 
+On every update, the migrations go first and the relay after them, never
+the other way round: the relay's code names the columns its migrations add
+(`0005_line_keep.sql` adds `lines.keep`, which every new line and the daily
+clean-up write), and a relay deployed ahead of them answers `storage` to
+each new line. An older relay runs on the migrated database unchanged, so
+going back a version needs no migration undone, and the app may ship
+before the relay: a relay that does not know a line's `keep` keeps it.
+
 A line is opened only by the token its devices work out from their shared
 secret, and its commits only by their key, neither of which the relay ever
 sees. What one address may ask is held to a limit per minute: readings,

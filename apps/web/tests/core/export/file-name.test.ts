@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import type { BookId } from "../../../src/core/book/book"
 import type { IsoDate } from "../../../src/core/calendar/calendar"
-import { bundleName, fileStemsOf, tallyTableName, singleJournalName } from "../../../src/core/export/file-name"
+import { bundleName, fileStemsOf, precordName, tallyTableName, singleJournalName } from "../../../src/core/export/file-name"
 
 const DAY = "2026-10-09" as IsoDate
 
@@ -14,6 +14,7 @@ describe("the names files written out go by", () => {
   test("say the book, what the file is of, and the day it was written out, joined by underscores", () => {
     expect(singleJournalName("サンプル帳簿", DAY)).toBe("サンプル帳簿_2026-10-09_exported.journal")
     expect(tallyTableName("サンプル帳簿", DAY)).toBe("サンプル帳簿_収支_2026-10-09_exported.csv")
+    expect(precordName("サンプル帳簿", DAY)).toBe("サンプル帳簿_pRecord_2026-10-09_exported.csv")
     expect(bundleName(DAY)).toBe("帳簿_2026-10-09_exported.zip")
   })
 

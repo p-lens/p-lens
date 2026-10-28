@@ -57,6 +57,7 @@ describe("a huddle", () => {
     expect(unwrapped(await showToHuddle(theirs, joined, { ...DRAFT, machine: "theirs" }, 0))).toBe(2)
     expect(unwrapped(await showToHuddle(mine, begun, { ...DRAFT, log: '{"spins":0,"outlay":0}\n{"spins":20,"outlay":1000}\n' }, 0))).toBe(3)
 
+    expect(relay.keeps().map((each) => each.keep)).toEqual([undefined, undefined, undefined])
     const read = unwrapped(await readHuddleAfter(theirs, joined, 0))
     expect(read.head).toBe(3)
     expect(read.entries.filter(isShown).map((post) => [post.name, post.play.machine])).toEqual([

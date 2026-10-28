@@ -1,5 +1,6 @@
 import type { Limits } from "./limits"
-import { LINE_IDLE_DAYS, RELAY_LIMITS, type AppendedDto, type GrantDto, type GrantRole, type GrantsDto, type LineEntriesDto, type LineEntryDto, type RelayError, type RelayErrorDto, type SealedCommitDto } from "@p-lens/contracts/relay"
+import type { Databases } from "./placing"
+import { LINE_IDLE_DAYS, RELAY_LIMITS, type AppendedDto, type GrantDto, type GrantRole, type GrantsDto, type LineEntriesDto, type LineEntryDto, type LineKeep, type RelayError, type RelayErrorDto, type SealedCommitDto } from "@p-lens/contracts/relay"
 
 /**
  * The part of D1 the relay uses. D1 satisfies it as it is; the tests satisfy
@@ -21,8 +22,15 @@ export interface Database {
 export type Origins = { readonly type: "any" } | { readonly type: "only"; readonly origins: readonly string[] }
 
 export interface Ports {
-  readonly database: Database
+  readonly databases: Databases
   readonly origins: Origins
+  readonly limits: Limits
+  readonly now: () => string
+}
+
+/** What a request about one line reaches: the database that line is kept in, and nothing of any other. */
+interface LinePorts {
+  readonly database: Database
   readonly limits: Limits
   readonly now: () => string
 }
@@ -110,23 +118,40 @@ const DAY = 86_400_000
 const daysBefore = (moment: string, days: number): string => new Date(Date.parse(moment) - days * DAY).toISOString()
 
 /** Say a line was used now, where it has not been said within a day: a line read every minute is written once a day. */
-const used = (ports: Pick<Ports, "database" | "now">, line: string): Promise<unknown> =>
+const used = (ports: Pick<LinePorts, "database" | "now">, line: string): Promise<unknown> =>
   ports.database.batch([ports.database.prepare("UPDATE lines SET used_at = ? WHERE id = ? AND (used_at IS NULL OR used_at < ?)").bind(ports.now(), line, daysBefore(ports.now(), 1))])
 
+const KEEPS: readonly LineKeep[] = ["lasting", "passing"]
+
+/** Lines kept as they are and idle since a moment: unread and not added to after it. */
+const IDLE = "keep = ? AND COALESCE(used_at, created_at) < ?"
+
 /**
- * Let go of every line nobody has read or added to for `LINE_IDLE_DAYS`,
- * its commits and its grants with it. Nothing is lost by it: each of a book's devices
- * keeps the book, and the first to come back makes the line again. Whose
- * each line was is kept (`owners_kept`), so that only its owner does.
+ * Let go, in one database, of every line kept as it is and nobody has read
+ * or added to for as many days as such a line is kept, its commits and its
+ * grants with it. Whose a lasting line was is kept (`owners_kept`), so that
+ * only its owner makes it again; a passing one is a day's, and nobody does.
  */
-export const letGoOfIdleLines = (ports: Pick<Ports, "database" | "now">): Promise<unknown> => {
-  const idleSince = daysBefore(ports.now(), LINE_IDLE_DAYS)
-  return ports.database.batch([
-    ports.database.prepare("INSERT OR REPLACE INTO owners_kept (line_id, access_hash, let_go_at) SELECT id, access_hash, ? FROM lines WHERE COALESCE(used_at, created_at) < ?").bind(ports.now(), idleSince),
-    ports.database.prepare("DELETE FROM entries WHERE line_id IN (SELECT id FROM lines WHERE COALESCE(used_at, created_at) < ?)").bind(idleSince),
-    ports.database.prepare("DELETE FROM grants WHERE line_id IN (SELECT id FROM lines WHERE COALESCE(used_at, created_at) < ?)").bind(idleSince),
-    ports.database.prepare("DELETE FROM lines WHERE COALESCE(used_at, created_at) < ?").bind(idleSince),
-  ])
+const letGoIn = (database: Database, now: string, keep: LineKeep): readonly Statement[] => {
+  const idleSince = daysBefore(now, LINE_IDLE_DAYS[keep])
+  const owners = keep === "lasting" ? [database.prepare(`INSERT OR REPLACE INTO owners_kept (line_id, access_hash, let_go_at) SELECT id, access_hash, ? FROM lines WHERE ${IDLE}`).bind(now, keep, idleSince)] : []
+  return [
+    ...owners,
+    database.prepare(`DELETE FROM entries WHERE line_id IN (SELECT id FROM lines WHERE ${IDLE})`).bind(keep, idleSince),
+    database.prepare(`DELETE FROM grants WHERE line_id IN (SELECT id FROM lines WHERE ${IDLE})`).bind(keep, idleSince),
+    database.prepare(`DELETE FROM lines WHERE ${IDLE}`).bind(keep, idleSince),
+  ]
+}
+
+/**
+ * Let go of every line left idle, in every database the relay keeps lines
+ * in. Nothing is lost by it: each of a book's devices keeps the book, and
+ * the first to come back makes the line again; a day's plays are each kept
+ * by the device that holds them.
+ */
+export const letGoOfIdleLines = (ports: Pick<Ports, "databases" | "now">): Promise<unknown> => {
+  const now = ports.now()
+  return Promise.all(ports.databases.all.map((database) => database.batch(KEEPS.flatMap((keep) => letGoIn(database, now, keep)))))
 }
 
 /**
@@ -144,7 +169,7 @@ const mayMake = async (database: Database, line: string, token: string): Promise
 const headOf = async (database: Database, line: string): Promise<number> =>
   (await database.prepare("SELECT COALESCE(MAX(seq), 0) AS head FROM entries WHERE line_id = ?").bind(line).first<{ head: number }>())?.head ?? 0
 
-const entriesAfter = async (ports: Ports, line: string, token: string, after: number): Promise<Answer<LineEntriesDto>> => {
+const entriesAfter = async (ports: LinePorts, line: string, token: string, after: number): Promise<Answer<LineEntriesDto>> => {
   const held = await holds(ports.database, line, token)
   if (held === undefined) return refused({ type: "line-missing" })
   if (held === false) return refused({ type: "unauthorized" })
@@ -160,23 +185,27 @@ const entriesAfter = async (ports: Ports, line: string, token: string, after: nu
 const isSealed = (value: unknown): value is SealedCommitDto =>
   typeof value === "object" && value !== null && NAME.test(String((value as SealedCommitDto).commitId)) && typeof (value as SealedCommitDto).box === "string"
 
-const readAppend = (body: unknown): Answer<{ readonly after: number; readonly entries: readonly SealedCommitDto[] }> => {
-  const sent = body as { readonly after?: unknown; readonly entries?: unknown } | null
+/** How a line is kept, as its maker said: lasting where it said nothing, or something this relay does not know. */
+const keepOf = (said: unknown): LineKeep => (said === "passing" ? "passing" : "lasting")
+
+const readAppend = (body: unknown): Answer<{ readonly after: number; readonly entries: readonly SealedCommitDto[]; readonly keep: LineKeep }> => {
+  const sent = body as { readonly after?: unknown; readonly entries?: unknown; readonly keep?: unknown } | null
   if (typeof sent !== "object" || sent === null) return refused({ type: "invalid", field: "body" })
   if (typeof sent.after !== "number" || !Number.isInteger(sent.after) || sent.after < 0) return refused({ type: "invalid", field: "after" })
   if (!Array.isArray(sent.entries) || sent.entries.length === 0 || !sent.entries.every(isSealed)) return refused({ type: "invalid", field: "entries" })
   if (sent.entries.length > RELAY_LIMITS.entriesPerAppend || sent.entries.some((entry) => entry.box.length > RELAY_LIMITS.boxLength)) return refused({ type: "too-large" })
-  return { ok: true, value: { after: sent.after, entries: sent.entries } }
+  return { ok: true, value: { after: sent.after, entries: sent.entries, keep: keepOf(sent.keep) } }
 }
 
 /**
  * Put commits on the end of a line, all or none, only where the sender has
  * every entry before them. Two devices sending at once cannot both land at
  * one place: the second finds the place taken, and is told it is behind.
- * The first commits make the line, whose owner their token then is — and a
- * line let go is made again by the token that made it and no other.
+ * The first commits make the line, whose owner their token then is, kept
+ * as they say — and a line let go is made again by the token that made it
+ * and no other.
  */
-const append = async (ports: Ports, line: string, token: string, body: unknown): Promise<Answer<AppendedDto>> => {
+const append = async (ports: LinePorts, line: string, token: string, body: unknown): Promise<Answer<AppendedDto>> => {
   const sent = readAppend(body)
   if (!sent.ok) return sent
   const held = await holds(ports.database, line, token)
@@ -185,7 +214,7 @@ const append = async (ports: Ports, line: string, token: string, body: unknown):
   if (held === undefined && !(await mayMake(ports.database, line, token))) return refused({ type: "unauthorized" })
   const head = held === undefined ? 0 : await headOf(ports.database, line)
   if (sent.value.after !== head) return refused({ type: "behind", head })
-  const made = ports.database.prepare("INSERT OR IGNORE INTO lines (id, access_hash, created_at) VALUES (?, ?, ?)").bind(line, await hashOf(token), ports.now())
+  const made = ports.database.prepare("INSERT OR IGNORE INTO lines (id, access_hash, created_at, keep) VALUES (?, ?, ?, ?)").bind(line, await hashOf(token), ports.now(), sent.value.keep)
   const remade = ports.database.prepare("DELETE FROM owners_kept WHERE line_id = ?").bind(line)
   const added = sent.value.entries.map((entry, index) =>
     ports.database
@@ -204,14 +233,14 @@ const append = async (ports: Ports, line: string, token: string, body: unknown):
 }
 
 /** The line a token is its owner's on, or why it is not: seeing to a line's grants is its owner's alone. */
-const owned = async (ports: Ports, line: string, token: string): Promise<Answer<Held>> => {
+const owned = async (ports: LinePorts, line: string, token: string): Promise<Answer<Held>> => {
   const held = await holds(ports.database, line, token)
   if (held === undefined) return refused({ type: "line-missing" })
   if (held === false) return refused({ type: "unauthorized" })
   return held.role === "owner" ? { ok: true, value: held } : refused({ type: "forbidden" })
 }
 
-const grantsOf = async (ports: Ports, line: string, token: string): Promise<Answer<GrantsDto>> => {
+const grantsOf = async (ports: LinePorts, line: string, token: string): Promise<Answer<GrantsDto>> => {
   const owner = await owned(ports, line, token)
   if (!owner.ok) return owner
   const rows = await ports.database.prepare("SELECT id, role, created_at AS createdAt FROM grants WHERE line_id = ? ORDER BY created_at, id").bind(line).all<GrantDto>()
@@ -226,7 +255,7 @@ const isRole = (value: unknown): value is GrantRole => value === "editor" || val
  * with what was sent in place of what it had, so a person's role is changed
  * by granting again.
  */
-const grant = async (ports: Ports, line: string, token: string, body: unknown): Promise<Answer<GrantsDto>> => {
+const grant = async (ports: LinePorts, line: string, token: string, body: unknown): Promise<Answer<GrantsDto>> => {
   const sent = body as { readonly id?: unknown; readonly token?: unknown; readonly role?: unknown } | null
   if (typeof sent !== "object" || sent === null) return refused({ type: "invalid", field: "body" })
   if (typeof sent.id !== "string" || !NAME.test(sent.id)) return refused({ type: "invalid", field: "id" })
@@ -244,7 +273,7 @@ const grant = async (ports: Ports, line: string, token: string, body: unknown): 
 }
 
 /** Take a grant away: its token opens nothing from then on. One that is not there is already gone. */
-const revoke = async (ports: Ports, line: string, token: string, id: string): Promise<Answer<GrantsDto>> => {
+const revoke = async (ports: LinePorts, line: string, token: string, id: string): Promise<Answer<GrantsDto>> => {
   const owner = await owned(ports, line, token)
   if (!owner.ok) return owner
   await ports.database.batch([ports.database.prepare("DELETE FROM grants WHERE line_id = ? AND id = ?").bind(line, id)])
@@ -306,7 +335,7 @@ const senderOf = (request: Request): string => request.headers.get("CF-Connectin
  * counted again against the few an address may send — a book's first
  * commits are large, and nothing after them is.
  */
-const sending = async (request: Request, ports: Ports, line: string, token: string): Promise<Answer<AppendedDto>> => {
+const sending = async (request: Request, ports: LinePorts, line: string, token: string): Promise<Answer<AppendedDto>> => {
   const sender = senderOf(request)
   if (!(await ports.limits("write", sender))) return refused({ type: "too-many" })
   const sent = await sentBy(request)
@@ -316,7 +345,7 @@ const sending = async (request: Request, ports: Ports, line: string, token: stri
 }
 
 /** Seeing to a line's grants, held to what one address may ask: a look counted as a reading, a change as a sending. */
-const granting = async (request: Request, ports: Ports, route: Exclude<Route, { of: "entries" }>, token: string): Promise<Answer<GrantsDto>> => {
+const granting = async (request: Request, ports: LinePorts, route: Exclude<Route, { of: "entries" }>, token: string): Promise<Answer<GrantsDto>> => {
   const sender = senderOf(request)
   if (route.of === "grants" && request.method === "GET") return (await ports.limits("read", sender)) ? grantsOf(ports, route.line, token) : refused({ type: "too-many" })
   if (!(await ports.limits("write", sender))) return refused({ type: "too-many" })
@@ -332,12 +361,13 @@ const answer = async (request: Request, ports: Ports): Promise<Answer<unknown>> 
   if (route === undefined || !["GET", "POST", "DELETE"].includes(request.method)) return refused({ type: "not-found" })
   const token = tokenOf(request)
   if (token === undefined) return refused({ type: "unauthorized" })
-  if (route.of !== "entries") return granting(request, ports, route, token)
-  if (request.method === "POST") return sending(request, ports, route.line, token)
+  const here: LinePorts = { database: ports.databases.of(route.line), limits: ports.limits, now: ports.now }
+  if (route.of !== "entries") return granting(request, here, route, token)
+  if (request.method === "POST") return sending(request, here, route.line, token)
   if (request.method !== "GET") return refused({ type: "not-found" })
   if (!(await ports.limits("read", senderOf(request)))) return refused({ type: "too-many" })
   const after = Number(url.searchParams.get("after") ?? "0")
-  return Number.isInteger(after) && after >= 0 ? entriesAfter(ports, route.line, token, after) : refused({ type: "invalid", field: "after" })
+  return Number.isInteger(after) && after >= 0 ? entriesAfter(here, route.line, token, after) : refused({ type: "invalid", field: "after" })
 }
 
 /**
@@ -347,6 +377,8 @@ const answer = async (request: Request, ports: Ports): Promise<Answer<unknown>> 
  * `DELETE /lines/:line/grants/:id` takes one away. Nothing else, and nothing
  * it keeps can it read. Each is held to what one address may ask in a while.
  * A line is kept while it is used, and let go once it has been left idle.
+ * Each line is in one of the relay's databases (`Databases`), and every
+ * request is about one line, so each is answered from that one alone.
  */
 export const handle = async (request: Request, ports: Ports): Promise<Response> => {
   const origin = readableFrom(ports.origins, request)

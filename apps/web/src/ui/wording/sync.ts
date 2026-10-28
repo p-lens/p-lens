@@ -101,3 +101,6 @@ export const invitationMessage = (app: string, title: string, role: InvitedRole,
     "",
     "このコードはあなた専用です。ほかの人に渡さないでください。",
   ].join("\n")
+
+/** What the screen syncing one's own devices says first: what goes between them — the books, and the plays that go to them, played on one device at a time — and that what goes is sealed, and the code is a key. */
+export const SYNC_INTRO = "同じ帳簿を同期している端末どうしで、帳簿と、その帳簿あての稼働を揃えます。稼働を記録できるのは一台ずつで、ほかの端末では見るだけです。変更は端末の中で暗号化してから送るので、中継サーバは中身を読めません。同期コードは鍵そのものです。人には渡さないでください。"

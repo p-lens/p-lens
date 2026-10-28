@@ -4,12 +4,14 @@ import type { BookId } from "../core/book/book"
 import type { IsoDate } from "../core/calendar/calendar"
 import { csvOf } from "../core/export/csv"
 import { fileStemOf } from "../core/book/file-name"
-import { bundleName, fileStemsOf, tallyTableName, singleJournalName } from "../core/export/file-name"
+import { bundleName, fileStemsOf, precordName, tallyTableName, singleJournalName } from "../core/export/file-name"
+import { precordCsvOf } from "../core/export/precord"
 import { tallyTableOf } from "../core/export/tally-table"
 import { singleJournalOf } from "../core/export/single-journal"
-import { BOOK_FILES, type BookFiles } from "../core/journal/layout"
+import { BOOK_FILES, journalsOf, type BookFiles } from "../core/journal/layout"
 import { titleOfMain } from "../core/journal/title"
 import { Ok, mapErr, mapOk } from "../core/result/result"
+import { tallyNotesIn } from "../core/tally/in-journal"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
 import { linesIn } from "./tally-lines"
@@ -61,6 +63,19 @@ const playTable = (ports: ExportPorts, bookId: BookId, stem: Stem): Promise<Outc
 
 /** Hand the person every tally of a book as a table. */
 export const exportTallyTable = async (ports: ExportPorts, bookId: BookId): Promise<Outcome<void>> => handed(ports, await playTable(ports, bookId, ownStem))
+
+/**
+ * Hand the person every tally of a book as pRecord's CSV, newest first, for
+ * pRecord to take in. It goes by itself and never in the zip: it is for
+ * another app, and the table carries the same tallies and more.
+ */
+export const exportForPrecord = async (ports: ExportPorts, bookId: BookId): Promise<Outcome<void>> =>
+  handed(
+    ports,
+    await ports.session.read(bookId, async (journal, stored) =>
+      mapOk(await linesIn(journal, ""), (lines) => ({ name: precordName(ownStem(stored.files, bookId), ports.today()), type: "text/csv", text: precordCsvOf(lines, tallyNotesIn(journalsOf(stored.files).map(([, text]) => text))) })),
+    ),
+  )
 
 /** Both files of each book, one book after another: the first that cannot be made stops the rest. */
 const everyFileOf = async (ports: ExportPorts, bookIds: readonly BookId[], stem: Stem): Promise<Outcome<readonly Written[]>> => {

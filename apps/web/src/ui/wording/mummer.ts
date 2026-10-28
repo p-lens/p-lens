@@ -5,7 +5,7 @@ export const MUMMER_HEADING = "配信モード"
 export const WITHHELD = "配信モード中は表示しません"
 
 /** What the settings say mumming does. */
-export const MUMMER_EXPLAINED = "配信やスクリーンショットのために、店舗名・台番号・帳簿の金額・貯玉を伏せ字にします。いま遊技中の台の数字はそのまま表示します。この端末だけの設定です。"
+export const MUMMER_EXPLAINED = "配信やスクリーンショットのために、店舗名・台番号・帳簿の金額・貯玉を伏せ字にします。いま遊技中の台の数字はそのまま表示します。同期中の別の端末で計測している稼働も、そのまま表示できます。この端末だけの設定です。"
 
 /** What the setting says in a browser's tab, where the address bar may name a parlor: mumming veils the screen, never the address. Said for a computer and a phone alike, each by its own word for installing. */
 export const MUMMER_ADDRESS_SHOWN = "ブラウザで開いているときは、アドレスバーに店舗名が出ることがあります。配信するときは、アプリとしてインストールしてから開いてください（スマホは「ホーム画面に追加」）。"

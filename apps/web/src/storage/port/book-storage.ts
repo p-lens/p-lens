@@ -4,7 +4,7 @@ import type { BookFiles } from "../../core/journal/layout"
 import type { Result } from "../../core/result/result"
 
 /** What a device keeps that can be found broken as it is read back. */
-export type KeptKind = "book-cover" | "draft" | "submission" | "backup-receipt"
+export type KeptKind = "book-cover" | "draft" | "followed" | "submission" | "backup-receipt"
 
 export type StorageError =
   | { readonly type: "unavailable"; readonly detail: string }

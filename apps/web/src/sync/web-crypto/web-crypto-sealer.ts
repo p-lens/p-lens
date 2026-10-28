@@ -87,6 +87,17 @@ export const createWebCryptoSealer = (): Sealer => ({
     }
   },
 
+  playsKeysOf: async (secret, day) => {
+    try {
+      const root = await rootOf(secret)
+      if (root === undefined) return Err({ type: "bad-secret" })
+      const key = await crypto.subtle.deriveKey(drawn(`plays seal ${day}`), root, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"])
+      return Ok({ lineId: await named(root, `plays line ${day}`, 16), token: await named(root, `plays access ${day}`, 24), key })
+    } catch (cause) {
+      return Err({ type: "sealing-unavailable", detail: String(cause) })
+    }
+  },
+
   huddleKeysOf: async (secret) => {
     try {
       const root = await rootOf(secret)

@@ -5,6 +5,7 @@ import type { DigestFailure } from "../backup/port/digest"
 import type { HandoverFailure } from "../backup/port/handover"
 import type { ArchiveProblem } from "../core/backup/archive"
 import type { BookId } from "../core/book/book"
+import type { PlayId } from "../core/play/play"
 import type { PrecordProblem } from "../core/import/precord"
 import type { NameProblem } from "../core/names/known"
 import type { CashRaised } from "../core/report/cash-raised"
@@ -108,6 +109,8 @@ export type ApplicationError =
   | { readonly type: "import"; readonly problem: ImportProblem }
   | { readonly type: "tally-missing" }
   | { readonly type: "tally-unreadable" }
+  /** A play another of the owner's devices held, taken off its book since this device's copy of it was shown: deleted, or now recorded into another book. */
+  | { readonly type: "play-gone"; readonly playId: PlayId; readonly reason: "withdrawn" | "moved" }
   /** A year's entries not moved into its file, since hledger would read the book otherwise after it. */
   | { readonly type: "filing-differs"; readonly year: string }
   | SettingsUnreadable

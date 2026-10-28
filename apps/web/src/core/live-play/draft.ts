@@ -82,6 +82,14 @@ export interface DraftOfAnyGame {
   readonly sent?: readonly Sending[]
   /** The play was sent to this device by someone else: who, as the owner named them, and the log as it arrived — a play not touched since is one a later sending may replace. */
   readonly received?: Receipt
+  /**
+   * How many times the play has been continued on one of the owner's
+   * devices from another: none where it never has. It goes with the play
+   * as it is shown to those devices, so that one which showed the play
+   * before it was taken over is told from the one holding it now, whatever
+   * lines either of them has read.
+   */
+  readonly handovers?: number
 }
 
 /** One change to a play's log: when, and its lines before and after. */
@@ -235,7 +243,8 @@ export const withOverEntry = (draft: PachinkoDraft, overEntry: number | undefine
 /** The draft at a cabinet of another number, or of none. */
 export const withCabinetNumber = (draft: PlayDraft, cabinetNumber: string | undefined): PlayDraft => ({ ...draft, cabinetNumber })
 
-const linesOf = (log: string): readonly string[] => log.split("\n").filter((line) => line.trim() !== "")
+/** A log's lines, as a change of it is told by: those it has, blank ones let go. */
+export const logLinesOf = (log: string): readonly string[] => log.split("\n").filter((line) => line.trim() !== "")
 
 /** How close in time two changes of one line must be to count as one: a count tapped up and up is one change, not twenty. */
 const ONE_CHANGE_WITHIN = 120_000
@@ -251,7 +260,7 @@ const continues = (last: Operation, next: Operation): boolean =>
  * one change, from what it first was to what it now is.
  */
 export const withOperation = (draft: PlayDraft, previousLog: string, at: string): PlayDraft => {
-  const [before, after] = [linesOf(previousLog), linesOf(draft.log)]
+  const [before, after] = [logLinesOf(previousLog), logLinesOf(draft.log)]
   const operation: Operation = { at, removed: before.filter((line) => !after.includes(line)), added: after.filter((line) => !before.includes(line)) }
   if (operation.removed.length === 0 && operation.added.length === 0) return draft
   const history = draft.history ?? []

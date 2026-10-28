@@ -23,7 +23,7 @@ const FORMAT = 1
 
 /** A play as it is sent: what the device keeps of it for itself — its book, and its marks — left behind. */
 export const sentDraftOf = (draft: PlayDraft, sender: string, sentAt: string): SentDraft => {
-  const { bookId: _book, recorded, sent: _sent, received: _received, ...play } = draft
+  const { bookId: _book, recorded, sent: _sent, received: _received, handovers: _handovers, ...play } = draft
   return { play, finished: recorded?.finish, sender, sentAt }
 }
 

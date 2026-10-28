@@ -1,3 +1,4 @@
+import type { IsoDate } from "../../core/calendar/calendar"
 import type { Result } from "../../core/result/result"
 import type { Invitation, InvitedRole } from "../../core/sync/invitation"
 import type { LineAccess } from "./relay"
@@ -27,6 +28,14 @@ export interface Sealer {
    * let in to send put plays that only the owner reads.
    */
   readonly inboxKeysOf: (secret: string) => Promise<Result<LineKeys, SealFailure>>
+  /**
+   * Everything that opens a book's plays' line for one business day, drawn
+   * from the book's own secret: a line of its own for each day, beside the
+   * book's and its inbox's, that only the owner's devices reach. An
+   * invitation is no secret here, so no one let into a book sees its
+   * owner's plays.
+   */
+  readonly playsKeysOf: (secret: string, day: IsoDate) => Promise<Result<LineKeys, SealFailure>>
   /**
    * Everything that opens a huddle's line, drawn from the huddle's secret
    * for a huddle alone: a book's secret given here opens no line of the

@@ -50,3 +50,28 @@ export const withoutTallyEntry = (text: string, id: PlayId): string | undefined 
   const following = lines[span.end] === "" ? 1 : 0
   return [...lines.slice(0, span.start), ...lines.slice(span.end + following)].join("\n")
 }
+
+const playIdOf = (header: string): PlayId | undefined =>
+  ((id) => (id === undefined || id === "" ? undefined : (id as PlayId)))(/^\d/.test(header) ? tagsOf(header).find(([name]) => name === TALLY_TAGS.playId)?.[1] : undefined)
+
+/** A line of comment under an entry that is a note a person wrote: one with a colon in it is tags, which a note never holds. */
+const noteIn = (line: string): string | undefined => ((comment) => (comment.startsWith(";") && !comment.includes(":") ? comment.slice(1).trim() : undefined))(line.trim())
+
+/** A tally's notes from one entry's text, its header and the indented lines under it; none for an entry of no tally, or one with no note. */
+const notedIn = (entry: string): readonly (readonly [PlayId, string])[] => {
+  const [header = "", ...body] = entry.split("\n")
+  const id = playIdOf(header)
+  const notes = body.map(noteIn).filter((note): note is string => note !== undefined && note !== "")
+  return id === undefined || notes.length === 0 ? [] : [[id, notes.join(" ")]]
+}
+
+/**
+ * The notes written under each tally's entry in a book's journals, by its
+ * play's id, several lines one after another: what a person said of a tally
+ * beside its figures, such as the memo a tally taken in from another app
+ * brought with it. hledger keeps an entry's comment to itself, so it is
+ * read from the journals' text, as the app wrote it. A tally with no note
+ * is not in it.
+ */
+export const tallyNotesIn = (journals: readonly string[]): ReadonlyMap<PlayId, string> =>
+  new Map(journals.flatMap((text) => text.split(/\n(?![ \t])/).flatMap(notedIn)))

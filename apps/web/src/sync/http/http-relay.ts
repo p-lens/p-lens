@@ -75,7 +75,7 @@ export const createHttpRelay = (ports: HttpRelayPorts): Relay => {
   }
   return {
     entriesAfter: (access, after) => asked(access, "GET", `entries?after=${after}`, undefined, isEntries),
-    append: (access, after, entries) => asked(access, "POST", "entries", { after, entries }, isAppended),
+    append: (access, after, entries, keep) => asked(access, "POST", "entries", { after, entries, ...(keep === undefined ? {} : { keep }) }, isAppended),
     grants: async (access) => mapOk(await asked(access, "GET", "grants", undefined, isGrants), (answer) => answer.grants),
     grant: async (access, grant) => mapOk(await asked(access, "POST", "grants", grant, isGrants), (answer) => answer.grants),
     revoke: async (access, grantId) => mapOk(await asked(access, "DELETE", `grants/${encodeURIComponent(grantId)}`, undefined, isGrants), (answer) => answer.grants),

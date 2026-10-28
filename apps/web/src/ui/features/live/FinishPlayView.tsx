@@ -1,8 +1,9 @@
-import { createResource, createSignal, Show, type Accessor, type JSX } from "solid-js"
+import { createEffect, createResource, createSignal, onCleanup, Show, type Accessor, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import { keepOwn, takeSentAgain } from "../../../application/inbox"
-import { chooseBook, finishPlay, finishPlayInYen, loadFinishing, theoreticalValueAtFinish } from "../../../application/live-play"
+import { chooseBook, loadFinishing, theoreticalValueAtFinish, type Finishing } from "../../../application/live-play"
+import { loadLivePlay } from "../../../application/play-line"
 import type * as PachislotEngine from "../../../pachislot-engine/client/client"
 import type { BookId, ListedBook } from "../../../core/book/book"
 import { keptSpinPerformance } from "../../../core/tally/aside"
@@ -20,7 +21,7 @@ import { liveSummary } from "../../../core/play-log/live"
 import { carriedInOf } from "../../../core/play-log/carried-in"
 import { inPlayOrder } from "../../../core/play-log/performance"
 import { Ok } from "../../../core/result/result"
-import { useApp } from "../../context"
+import { useApp, type Continuing } from "../../context"
 import { Button } from "../../primitives/button"
 import { Select } from "../../primitives/select"
 import { Loaded } from "../../primitives/states"
@@ -41,6 +42,8 @@ import { FinishYenTallyEditor } from "./FinishYenTallyEditor"
 import type { WorthAt } from "./followed-worth"
 import { counterStands, finishFormOf, readFinishForm, timeOf, type FinishForm } from "./finish-form"
 import { OperationHistory } from "./OperationHistory"
+import { ContinueBar } from "./ContinueBar"
+import type { Followed } from "../../../core/play-line/following"
 import { createParlorChoice } from "./parlor-choice"
 import { ParlorChoiceField } from "./ParlorChoiceField"
 import { leftAt, leftBy, tokensKeptAfter, type TokensLeft } from "./tokens-in-hand"
@@ -59,6 +62,9 @@ const playedOf = async (engine: PachislotEngine.EngineClient, draft: PlayDraft, 
   const heldLikely = draft.gameKind === "pachislot" && held !== undefined && ordered.at(-1)?.held === undefined
   return { outlay: summary.outlay, replay, carriedIn, held, heldLikely, theoreticalValue: await theoreticalValueAtFinish(engine, draft, finish, held), spinPerformance }
 }
+
+/** A play as its recording opens: this device's own, with all its form is filled in from, or a copy of one another device holds. */
+type Opened = { readonly type: "followed"; readonly followed: Followed } | ({ readonly type: "held"; readonly played: PlayedSoFar } & Finishing)
 
 const COUNTER_LABELS: Readonly<Record<PlayDraft["gameKind"], string>> = { pachinko: "終了時回転数", pachislot: "終了時ゲーム数" }
 
@@ -235,7 +241,9 @@ function AtNoParlor(props: {
  * form filled in from the play — in tokens at its parlor, or by its totals
  * in yen when it had none — its log written beside the entry and finished at the
  * moment given here, now unless the person says otherwise, the draft let go
- * of once the book has it.
+ * of once the book has it. A play another of the owner's devices holds is
+ * recorded there: here it has, in place of the form, the way to continue
+ * it on this device, and its line is read more often while it is open.
  */
 export function FinishPlayView(props: { readonly place: Place; readonly playId: PlayId }): JSX.Element {
   const app = useApp()
@@ -243,19 +251,36 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
   const offered = createOffered()
   const [loaded] = createResource(
     () => ({ playId: props.playId, revision: app.revision() }),
-    async (source) => {
+    async (source): Promise<Outcome<Opened>> => {
+      const hold = await loadLivePlay(app.services.drafts, app.services.playLine.follow, source.playId)
+      if (hold.ok && hold.value.type === "followed") return Ok({ type: "followed", followed: hold.value.followed })
       const finishing = await loadFinishing(app.services.session, app.services.drafts, source.playId, app.services.member)
       if (!finishing.ok) return finishing
       const draft = finishing.value.draft
       const played = await playedOf(app.services.pachislot, draft, readFinishForm(finishedAs(draft, app.services.now(), finishCounterOf(draft.log, draft.gameKind)), draft.startedAt))
-      return Ok({ ...finishing.value, played })
+      return Ok({ type: "held", ...finishing.value, played })
     },
   )
+  createEffect(() => {
+    const found = loaded()
+    if (found?.ok === true) app.playLine.watch(found.value.type === "followed" ? found.value.followed.id : undefined)
+  })
+  onCleanup(() => app.playLine.watch(undefined))
+  const leftIfGone = (continuing: Continuing): void => {
+    if (continuing === "gone") moves.replace({ kind: "live" })
+  }
   return (
     <MainContent header={<ViewHeader place={props.place} title="収支を記帳" />}>
       <div class="max-w-5xl">
         <Loaded outcome={loaded()}>
-          {({ draft, bookId, books, context, played }) => {
+          {(found) => {
+            if (found.type === "followed")
+              return (
+                <div class="p-4">
+                  <ContinueBar shownAt={found.followed.shownAt} onContinue={async () => leftIfGone(await app.playLine.continueHere(found.followed.id))} />
+                </div>
+              )
+            const { draft, bookId, books, context, played } = found
             const read = finishCounterOf(draft.log, draft.gameKind)
             const [finish, setFinish] = createSignal(finishedAs(draft, app.services.now(), read))
             const [start, setStart] = createSignal<TimeOfDay>(timeOf(draft.startedAt))
@@ -296,8 +321,8 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
                     submissions={offered.submissions}
                     aside={aside}
                     words={words}
-                    recordInTokens={(record) => finishPlay(app.services.session, app.services.drafts, draft, bookId, record, readFinishForm(finish(), draft.startedAt), app.services.now())}
-                    recordInYen={(play, held) => finishPlayInYen(app.services.session, app.services.drafts, draft, bookId, play, readFinishForm(finish(), draft.startedAt), app.services.now(), held)}
+                    recordInTokens={(record) => app.services.finishing.finishPlay(app.services.session, app.services.drafts, draft, bookId, record, readFinishForm(finish(), draft.startedAt), app.services.now())}
+                    recordInYen={(play, held) => app.services.finishing.finishPlayInYen(app.services.session, app.services.drafts, draft, bookId, play, readFinishForm(finish(), draft.startedAt), app.services.now(), held)}
                     worthAt={worthAt}
                     onRecordedInTokens={(record) => {
                       keepInHand(leftBy(record))
@@ -321,7 +346,7 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
                     aside={aside}
                     words={words}
                     worthAt={worthAt}
-                    submit={(record) => finishPlay(app.services.session, app.services.drafts, draft, bookId, record, readFinishForm(finish(), draft.startedAt), app.services.now())}
+                    submit={(record) => app.services.finishing.finishPlay(app.services.session, app.services.drafts, draft, bookId, record, readFinishForm(finish(), draft.startedAt), app.services.now())}
                     onRecorded={(record) => {
                       keepInHand(leftBy(record))
                       recorded(record.id)

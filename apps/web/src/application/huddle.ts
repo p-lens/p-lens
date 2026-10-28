@@ -1,14 +1,17 @@
+import type { SealedCommitDto } from "@p-lens/contracts/relay"
+
 import type { IsoDate } from "../core/calendar/calendar"
 import { huddleInOn, huddleOn, huddlePlayKey, huddleText, readHuddle, secretOfHuddleCode, type Huddle } from "../core/huddle/huddle"
 import { huddleDepartureOf, huddleEntryText, huddlePostOf, huddleWithdrawalOf, readHuddleEntry, type HuddleEntry } from "../core/huddle/post"
 import type { PlayDraft } from "../core/live-play/draft"
 import type { PlayId } from "../core/play/play"
-import { Err, Ok, mapErr, type Result } from "../core/result/result"
+import { Err, Ok, mapErr, mapOk, type Result } from "../core/result/result"
 import type { Preferences } from "../preferences/port/preferences"
 import type { Packer } from "../sync/port/packer"
-import type { LineAccess, Relay } from "../sync/port/relay"
-import { accessOf, type LineKeys, type Sealer } from "../sync/port/sealer"
+import type { Relay } from "../sync/port/relay"
+import { accessOf, type Sealer } from "../sync/port/sealer"
 import type { Outcome, SyncProblem } from "./errors"
+import { behindAt, putAt, readLineAfter, sealedEntries, type SealedLine } from "./sealed-line"
 
 /** Everything a huddle reaches: the relay its line is on, the sealing and packing of what it carries, where the device keeps it, and the moment and a fresh id. */
 export interface HuddlePorts {
@@ -78,7 +81,7 @@ export const dismissHuddlePlay = (preferences: Pick<Preferences, "setHuddle">, h
 }
 
 
-const lineOf = async (ports: HuddlePorts, huddle: Huddle): Promise<Outcome<{ readonly access: LineAccess; readonly keys: LineKeys }>> => {
+const lineOf = async (ports: HuddlePorts, huddle: Huddle): Promise<Outcome<SealedLine>> => {
   if (ports.relayUrl === undefined) return problem({ type: "no-relay" })
   const keys = fromSync(await ports.sealer.huddleKeysOf(huddle.secret))
   return keys.ok ? Ok({ access: accessOf(ports.relayUrl, keys.value), keys: keys.value }) : keys
@@ -87,11 +90,12 @@ const lineOf = async (ports: HuddlePorts, huddle: Huddle): Promise<Outcome<{ rea
 /** How many times a play is put on a line that moved under it before the showing is given up. */
 const TRIES = 5
 
-const putOn = async (relay: Relay, access: LineAccess, entry: { readonly commitId: string; readonly box: string }, after: number, left: number): Promise<Outcome<number>> => {
-  const put = await relay.append(access, after, [entry])
-  if (put.ok) return Ok(put.value.head)
-  if (put.error.type !== "behind") return problem(put.error)
-  return left > 0 ? putOn(relay, access, entry, put.error.head, left - 1) : problem({ type: "unsettled" })
+/** A huddle's entry put where the line was said to end, should another have put theirs there first: each shows only their own plays, so nothing put since is in its way. */
+const putOn = async (relay: Relay, line: SealedLine, sealed: readonly SealedCommitDto[], after: number, left: number): Promise<Outcome<number>> => {
+  const put = await putAt(relay, line, sealed, after)
+  const head = behindAt(put)
+  if (head === undefined) return put
+  return left > 0 ? putOn(relay, line, sealed, head, left - 1) : problem({ type: "unsettled" })
 }
 
 /**
@@ -102,10 +106,9 @@ const putOn = async (relay: Relay, access: LineAccess, entry: { readonly commitI
 const putEntry = async (ports: HuddlePorts, huddle: Huddle, entry: HuddleEntry, after: number): Promise<Outcome<number>> => {
   const line = await lineOf(ports, huddle)
   if (!line.ok) return line
-  const commitId = ports.newId()
-  const box = fromSync(await ports.sealer.seal(line.value.keys, commitId, ports.packer.pack(huddleEntryText(entry))))
-  if (!box.ok) return box
-  return putOn(ports.relay, line.value.access, { commitId, box: box.value }, after, TRIES)
+  const sealed = await sealedEntries(ports, line.value, [{ commitId: ports.newId(), text: huddleEntryText(entry) }])
+  if (!sealed.ok) return sealed
+  return putOn(ports.relay, line.value, sealed.value, after, TRIES)
 }
 
 /** Show one play to the huddle as it stands. Where the line then ends. */
@@ -125,21 +128,6 @@ export const leaveHuddle = (ports: HuddlePorts, huddle: Huddle, after: number): 
   return putEntry(ports, huddle, huddleDepartureOf(huddle, ports.now()), after)
 }
 
-const opened = async (ports: HuddlePorts, keys: LineKeys, entry: { readonly commitId: string; readonly box: string }): Promise<HuddleEntry | undefined> => {
-  const text = await ports.sealer.open(keys, entry.commitId, entry.box)
-  const unpacked = text.ok ? ports.packer.unpack(text.value) : undefined
-  return unpacked === undefined ? undefined : readHuddleEntry(unpacked)
-}
-
-const readFrom = async (ports: HuddlePorts, line: { readonly access: LineAccess; readonly keys: LineKeys }, so: HuddleRead): Promise<Outcome<HuddleRead>> => {
-  const read = await ports.relay.entriesAfter(line.access, so.head)
-  if (!read.ok) return read.error.type === "line-missing" ? Ok(so) : problem(read.error)
-  if (read.value.entries.length === 0) return Ok(so)
-  const entries = (await Promise.all(read.value.entries.map((entry) => opened(ports, line.keys, entry)))).filter((entry): entry is HuddleEntry => entry !== undefined)
-  const next: HuddleRead = { head: read.value.entries.at(-1)?.seq ?? so.head, entries: [...so.entries, ...entries] }
-  return next.head >= read.value.head ? Ok(next) : readFrom(ports, line, next)
-}
-
 /**
  * What the huddle has shown and taken back since a place on its line, read
  * to its end: a line nobody has put anything on yet is an empty one, and
@@ -147,5 +135,6 @@ const readFrom = async (ports: HuddlePorts, line: { readonly access: LineAccess;
  */
 export const readHuddleAfter = async (ports: HuddlePorts, huddle: Huddle, after: number): Promise<Outcome<HuddleRead>> => {
   const line = await lineOf(ports, huddle)
-  return line.ok ? readFrom(ports, line.value, { head: after, entries: [] }) : line
+  if (!line.ok) return line
+  return mapOk(await readLineAfter(ports, line.value, after, readHuddleEntry), (read) => ({ head: read.head, entries: read.entries.map(({ entry }) => entry) }))
 }

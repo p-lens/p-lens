@@ -33,10 +33,30 @@ export interface LineEntriesDto {
   readonly entries: readonly LineEntryDto[]
 }
 
-/** Commits to put on the end of a line, by a device that has every entry up to `after`. */
+/**
+ * How long a line nobody reads or adds to is kept, said by the device that
+ * makes it, since a relay reads nothing on a line to tell. `lasting`: a
+ * book's line, an inbox's or a huddle's, kept `LINE_IDLE_DAYS.lasting`
+ * and, once let go, made again by its owner alone. `passing`: a line of
+ * one day's plays, kept `LINE_IDLE_DAYS.passing` and then forgotten
+ * whole, its owner with it, since nobody makes it again. A line made
+ * without one is lasting, as every line was before there were two.
+ */
+export type LineKeep = "lasting" | "passing"
+
+/** How many days a line nobody reads or adds to is kept before a relay lets go of it, by how it is kept. */
+export const LINE_IDLE_DAYS: Readonly<Record<LineKeep, number>> = { lasting: 7, passing: 3 }
+
+/**
+ * Commits to put on the end of a line, by a device that has every entry up
+ * to `after`; and, on the commits that make the line, how long it is kept.
+ * A relay that does not know `keep` passes it over, and keeps the line as
+ * it keeps any.
+ */
 export interface AppendDto {
   readonly after: number
   readonly entries: readonly SealedCommitDto[]
+  readonly keep?: LineKeep
 }
 
 export interface AppendedDto {
@@ -100,7 +120,4 @@ export interface RelayErrorDto {
  * a book's first commits are large. And the most people one line's owner
  * may let into it.
  */
-/** How many days a line nobody reads or adds to is kept before a relay lets go of it. */
-export const LINE_IDLE_DAYS = 7
-
 export const RELAY_LIMITS = { entriesPerAppend: 200, boxLength: 2_000_000, bodyBytes: 4_000_000, smallBodyBytes: 32_000, grantsPerLine: 50 } as const

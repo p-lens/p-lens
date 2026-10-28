@@ -27,6 +27,7 @@ import { ACTIVITY_LOG, activityOfText } from "../../src/core/activity/activity"
 import { received, type Changing } from "../../src/core/sync/rebase"
 import { ME, inProcessHledger, memoryStorage } from "../support/in-process"
 import { memoryLinks } from "../support/sync"
+import { B, memoryFollow, playAt } from "../support/play-line"
 import { dec, saidIn } from "../support/values"
 
 const setUp = async () => {
@@ -133,7 +134,7 @@ describe("taking a book off the device", () => {
         return Ok(undefined)
       },
     }
-    return { session, history, storage, links, receipts, drafts, kept }
+    return { session, history, storage, links, receipts, drafts, follow: memoryFollow(), kept }
   }
 
   const draftFor = (id: string, bookId: string): PlayDraft => ({
@@ -149,7 +150,7 @@ describe("taking a book off the device", () => {
     log: "",
   })
 
-  test("lets go of its files, its history, its sync link, its receipt and the plays being played for it, and of nothing else", async () => {
+  test("lets go of its files, its history, its sync link, its receipt, the plays being played for it and the copies of those played elsewhere, and of nothing else", async () => {
     const here = await ports()
     await ensureFirstBook(here.session, make("mine"))
     await here.session.createBook(firstBook("other" as BookId, ME, "マイ帳簿"))
@@ -158,6 +159,9 @@ describe("taking a book off the device", () => {
     await here.receipts.write({ bookId: "other" as BookId, destination: "file", at: "2026-10-08T10:00:00.000Z", fingerprint: "f" })
     await here.drafts.createDraft(draftFor("playing", "mine"))
     await here.drafts.createDraft(draftFor("elsewhere", "other"))
+    const copyOn = (id: string, bookId: string) => ({ id: id as PlayId, play: { ...playAt(1, bookId as BookId), id: id as PlayId }, holder: B, shownAt: "2026-10-08T11:30:00.000Z", line: { bookId: bookId as BookId, day: "2026-10-08" as IsoDate } })
+    await here.follow.putFollowed(copyOn("watched", "mine"))
+    await here.follow.putFollowed(copyOn("watched-elsewhere", "other"))
 
     expect(await deleteBook(here, "mine" as BookId)).toEqual({ ok: true, value: undefined })
 
@@ -170,6 +174,7 @@ describe("taking a book off the device", () => {
     const receipts = await here.receipts.list()
     expect(receipts.ok && receipts.value.map((receipt) => receipt.bookId)).toEqual(["other"] as never)
     expect(here.kept.drafts.map((draft) => draft.id)).toEqual(["elsewhere"] as never)
+    expect(here.follow.kept().map((copy) => copy.id)).toEqual(["watched-elsewhere"] as never)
   })
 
   test("leaves the device a book to keep: the last one deleted, an empty one takes its place", async () => {

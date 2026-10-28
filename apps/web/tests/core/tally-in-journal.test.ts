@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { withoutTallyEntry, withTallyEntry } from "../../src/core/tally/in-journal"
+import { tallyNotesIn, withoutTallyEntry, withTallyEntry } from "../../src/core/tally/in-journal"
 import type { PlayId } from "../../src/core/play/play"
 
 const ONE = "2026-10-01 一  ; play-id: one, game-kind: pachinko\n    資産:現金  -1000 JPY\n    費用:遊技  1000 JPY\n"
@@ -31,5 +31,18 @@ describe("a tally's entry in a journal's text", () => {
   test("that a journal does not hold is nothing to write over or take out", () => {
     expect(withTallyEntry(JOURNAL, "four" as PlayId, NEW)).toBeUndefined()
     expect(withoutTallyEntry(JOURNAL, "four" as PlayId)).toBeUndefined()
+  })
+})
+
+describe("the notes under a book's tallies", () => {
+  test("are each tally's lines of comment under its entry, by its play's id, across journals, tags and other entries passed over", () => {
+    const noted = "2026-10-04 四  ; play-id: four\n    資産:現金  -1000 JPY\n    費用:遊技  1000 JPY\n    ; ちょっと回ってた\n    ; 大当たり1回。\n"
+    const tagged = "2026-10-05 五  ; play-id: five\n    資産:現金  -1000 JPY  ; 手書き\n    費用:遊技  1000 JPY\n    ; parlor-id: 店\n"
+    const other = "2026-10-06 六\n    資産:現金  -1000 JPY\n    費用:遊技  1000 JPY\n    ; 誰のでもない\n"
+    expect(tallyNotesIn([JOURNAL, `${noted}\n${tagged}`, other])).toEqual(new Map([["four" as PlayId, "ちょっと回ってた 大当たり1回。"]]))
+  })
+
+  test("are read from a journal written with CRLF too", () => {
+    expect(tallyNotesIn(["2026-10-04 四  ; play-id: four\r\n    資産:現金  -1000 JPY\r\n    ; メモ\r\n"])).toEqual(new Map([["four" as PlayId, "メモ"]]))
   })
 })

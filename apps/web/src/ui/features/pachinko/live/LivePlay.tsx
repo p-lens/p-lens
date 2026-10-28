@@ -22,6 +22,8 @@ import type { Place } from "../../../navigation/place"
 import { describeError, describePlayLogError } from "../../../wording/errors"
 import { CHANGED_SINCE_MERGED, FOLD_FIGURES, MERGE_FAILED, MERGED, UNFOLD_FIGURES, TAKE_BACK, TAKE_BACK_FAILED, UNMERGED } from "../../../wording/pachinko/play"
 import { ViewHeader } from "../../shell/ViewHeader"
+import { ContinueBar } from "../../live/ContinueBar"
+import type { PlayHold } from "../../live/play-hold"
 import { useHuddleUrge } from "../../huddle/huddle-urge"
 import { CornerTerms } from "./CornerTerms"
 import { LiveFigures } from "./LiveFigures"
@@ -45,10 +47,15 @@ type Work = Revised | { readonly type: "inserting"; readonly before: number }
  * formula allows, its readings in order, and the place to add the next one
  * — or, a line pressed, to set it right, take it away, or put a reading
  * in before it. A run of readings held and dragged over is made one line.
+ * A play another of the owner's devices holds is drawn the same, with
+ * nothing that writes within reach — no 遊技を終了, no pencils, no line to
+ * press or drag over, no correcting the 遊 counter — and where the next
+ * reading would be typed, in the same band, the way to continue it here.
  */
 export function LivePlay(props: {
   readonly place: Place
   readonly draft: PachinkoDraft
+  readonly hold: PlayHold
   readonly title: string
 }): JSX.Element {
   const app = useApp()
@@ -78,6 +85,7 @@ export function LivePlay(props: {
   }
   /** What the composer is doing beside taking the next reading: setting a line right, or putting a reading in before another. */
   const [work, setWork] = createSignal<Work | undefined>(undefined)
+  const [huntShown, setHuntShown] = createSignal(false)
   const revised = (): Revised | undefined => {
     const doing = work()
     return doing === undefined || doing.type === "inserting" ? undefined : doing
@@ -125,6 +133,7 @@ export function LivePlay(props: {
     toast({ title: MERGED, action: { label: TAKE_BACK, onPress: () => void unmerge({ before: checkpoints, left: kept.value }) } })
     app.played()
   }
+  const followed = (): Extract<PlayHold, { readonly type: "followed" }> | undefined => (props.hold.type === "followed" ? props.hold : undefined)
   const ordered = (): readonly Checkpoint[] | undefined => {
     const log = parsed()
     return log.ok ? inPlayOrder(log.value) : undefined
@@ -142,9 +151,11 @@ export function LivePlay(props: {
           urged={urged()}
           framed
           actions={
-            <Button size="small" onClick={() => moves.go({ kind: "live-record", playId: props.draft.id })}>
-              遊技を終了
-            </Button>
+            <Show when={props.hold.type === "held"}>
+              <Button size="small" onClick={() => moves.go({ kind: "live-record", playId: props.draft.id })}>
+                遊技を終了
+              </Button>
+            </Show>
           }
         />
       }
@@ -173,6 +184,7 @@ export function LivePlay(props: {
                 <div class="flex flex-1 flex-col gap-3 p-3">
                   <CornerTerms
                     draft={props.draft}
+                    hold={props.hold}
                     between={
                       <button
                         type="button"
@@ -202,47 +214,61 @@ export function LivePlay(props: {
                         {(basis) => (
                           <LiveHyenaHunt
                             draft={props.draft}
+                            hold={props.hold}
                             ordered={checkpoints}
                             formula={formula}
                             basis={basis()}
                             gaugeNow={gaugeNowOf(checkpoints)}
                             spinPerformance={measured === undefined || terms === undefined ? undefined : spinPerformanceOf(measured, terms)}
                             ballValue={tokenValueOfDraft(props.draft)}
+                            shown={huntShown()}
+                            onShown={setHuntShown}
                           />
                         )}
                       </Show>
                     )}
                   />
-                  <Timeline checkpoints={checkpoints} terms={terms} revising={revised()} onRevise={(pressed) => (samePressed(pressed, revised()) ? done() : setWork(pressed))} onMerge={(span) => merge(checkpoints, span)} />
+                  <Show when={props.hold.type === "held"} fallback={<Timeline checkpoints={checkpoints} terms={terms} revising={undefined} onRevise={undefined} onMerge={undefined} />}>
+                    <Timeline checkpoints={checkpoints} terms={terms} revising={revised()} onRevise={(pressed) => (samePressed(pressed, revised()) ? done() : setWork(pressed))} onMerge={(span) => merge(checkpoints, span)} />
+                  </Show>
                 </div>
-                <div class="sticky bottom-0">
-                  <Show
-                    when={work()}
-                    keyed
-                    fallback={
-                      <Show when={supportPhaseOf(checkpoints)} keyed fallback={<ReadingComposer draft={props.draft} ordered={checkpoints} revising={undefined} inserting={undefined} onRevised={done} onInsertBefore={insertBefore} reliefDrive={reliefDrive()} />}>
-                        {(phase) => <SupportComposer draft={props.draft} ordered={checkpoints} phase={phase} reliefDrive={inReliefDrive(checkpoints)} />}
-                      </Show>
-                    }
-                  >
-                    {(doing) => {
-                      if (doing.type === "seat") return <SeatComposer draft={props.draft} ordered={checkpoints} reliefDrive={reliefDrive()} onDone={done} />
-                      const taken = takenOf(checkpoints)
-                      const before = doing.type === "inserting" ? doing.before : doing.index
-                      const at = taken[before - 1]?.reading.at ?? checkpoints.at(0)?.at ?? ""
-                      const revising = doing.type === "reading" ? taken[doing.index] : undefined
-                      return (
-                        <ReadingComposer
-                          draft={props.draft}
-                          ordered={checkpoints}
-                          revising={revising === undefined ? undefined : { index: before, taken: revising }}
-                          inserting={doing.type === "inserting" ? { before, at } : undefined}
-                          onRevised={done}
-                          onInsertBefore={insertBefore}
-                          reliefDrive={undefined}
-                        />
-                      )
-                    }}
+                <div class="sticky bottom-0 grid">
+                  <div class="col-start-1 row-start-1" classList={{ invisible: followed() !== undefined }} inert={followed() !== undefined}>
+                    <Show
+                      when={work()}
+                      keyed
+                      fallback={
+                        <Show when={supportPhaseOf(checkpoints)} keyed fallback={<ReadingComposer draft={props.draft} ordered={checkpoints} revising={undefined} inserting={undefined} onRevised={done} onInsertBefore={insertBefore} reliefDrive={reliefDrive()} />}>
+                          {(phase) => <SupportComposer draft={props.draft} ordered={checkpoints} phase={phase} reliefDrive={inReliefDrive(checkpoints)} />}
+                        </Show>
+                      }
+                    >
+                      {(doing) => {
+                        if (doing.type === "seat") return <SeatComposer draft={props.draft} ordered={checkpoints} reliefDrive={reliefDrive()} onDone={done} />
+                        const taken = takenOf(checkpoints)
+                        const before = doing.type === "inserting" ? doing.before : doing.index
+                        const at = taken[before - 1]?.reading.at ?? checkpoints.at(0)?.at ?? ""
+                        const revising = doing.type === "reading" ? taken[doing.index] : undefined
+                        return (
+                          <ReadingComposer
+                            draft={props.draft}
+                            ordered={checkpoints}
+                            revising={revising === undefined ? undefined : { index: before, taken: revising }}
+                            inserting={doing.type === "inserting" ? { before, at } : undefined}
+                            onRevised={done}
+                            onInsertBefore={insertBefore}
+                            reliefDrive={undefined}
+                          />
+                        )
+                      }}
+                    </Show>
+                  </div>
+                  <Show when={followed()}>
+                    {(watched) => (
+                      <div class="col-start-1 row-start-1 flex items-center border-t border-border bg-surface-2 p-3">
+                        <ContinueBar shownAt={watched().shownAt} onContinue={() => watched().onContinue()} />
+                      </div>
+                    )}
                   </Show>
                 </div>
               </div>

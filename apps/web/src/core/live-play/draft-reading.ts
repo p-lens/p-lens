@@ -9,7 +9,7 @@ import type { Finish } from "../play-log/finish"
 import type { DraftOfAnyGame, Operation, PlayDraft, PlayOfGame, PlayVenue, Receipt, Sending } from "./draft"
 
 /** A play as it is kept and as it is sent: everything of a draft but what the device keeps of it for itself. */
-export type Play = PlayOfGame & Omit<DraftOfAnyGame, "bookId" | "recorded" | "sent" | "received">
+export type Play = PlayOfGame & Omit<DraftOfAnyGame, "bookId" | "recorded" | "sent" | "received" | "handovers">
 
 type Fields = Readonly<Record<string, unknown>>
 
@@ -135,6 +135,7 @@ const isDraft = (value: unknown): value is PlayDraft =>
   isOptional(value["recorded"], isRecorded) &&
   isOptional(value["sent"], (sent): sent is readonly Sending[] => isEvery(sent, isSending)) &&
   isOptional(value["received"], isReceipt) &&
+  isOptional(value["handovers"], isCount) &&
   isPlay(value)
 
 /**

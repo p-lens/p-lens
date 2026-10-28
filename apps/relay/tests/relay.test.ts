@@ -5,6 +5,7 @@ import { RELAY_LIMITS } from "@p-lens/contracts/relay"
 import { describe, expect, test } from "bun:test"
 
 import type { Limits } from "../src/limits"
+import { BUCKETS, bucketOf, placedIn } from "../src/placing"
 import { type Database, handle, letGoOfIdleLines, type Origins, type Ports, type Statement } from "../src/relay"
 
 interface SqliteStatement extends Statement {
@@ -43,14 +44,18 @@ const limitedTo = (most: Readonly<Record<"read" | "write" | "bulk", number>>): L
   return Object.assign(limits, { asked: () => held.asked })
 }
 
-const relay = async (origins: Origins = { type: "any" }, limits: Limits = unlimited) => {
-  const held: { now: string } = { now: BEGUN }
+const MIGRATIONS = ["0001_lines.sql", "0002_line_use.sql", "0003_grants.sql", "0004_owners_kept.sql", "0005_line_keep.sql"]
+
+/** A database as a relay's is, every migration run. */
+const migrated = async (): Promise<Sqlite> => {
   const sqlite = new Sqlite(":memory:")
-  sqlite.exec(await readFile(new URL("../migrations/0001_lines.sql", import.meta.url).pathname, "utf8"))
-  sqlite.exec(await readFile(new URL("../migrations/0002_line_use.sql", import.meta.url).pathname, "utf8"))
-  sqlite.exec(await readFile(new URL("../migrations/0003_grants.sql", import.meta.url).pathname, "utf8"))
-  sqlite.exec(await readFile(new URL("../migrations/0004_owners_kept.sql", import.meta.url).pathname, "utf8"))
-  const ports: Ports = { database: sqliteDatabase(sqlite), origins, limits, now: () => held.now }
+  for (const migration of MIGRATIONS) sqlite.exec(await readFile(new URL(`../migrations/${migration}`, import.meta.url).pathname, "utf8"))
+  return sqlite
+}
+
+const relay = async (origins: Origins = { type: "any" }, limits: Limits = unlimited, databases?: Ports["databases"]) => {
+  const held: { now: string } = { now: BEGUN }
+  const ports: Ports = { databases: databases ?? placedIn({ DB: sqliteDatabase(await migrated()) }, { home: "DB", moved: {} }), origins, limits, now: () => held.now }
   const ask = async (method: string, path: string, options: { readonly token?: string | undefined; readonly body?: unknown; readonly origin?: string; readonly from?: string } = {}) => {
     const token = "token" in options ? options.token : TOKEN
     const response = await handle(
@@ -278,5 +283,82 @@ describe("letting others into a line", () => {
     expect((await ask("POST", `/lines/${LINE}/grants`, { body: { id: "grant-0000000000001", token: VIEWER, role: "editor" } })).body.grants).toEqual([{ id: "grant-0000000000001", role: "editor", createdAt: BEGUN }])
     expect((await ask("POST", `/lines/${LINE}/grants`, { body: { id: "grant-0000000000009", token: VIEWER, role: "owner" } })).body).toEqual({ error: { type: "invalid", field: "role" } })
     expect((await ask("POST", "/lines/line-that-is-not-there-01/grants", { body: { id: "grant-0000000000001", token: VIEWER, role: "viewer" } })).status).toBe(404)
+  })
+})
+
+describe("how long a line is kept", () => {
+  const PLAYS = "plays-0123456789abcdef"
+  const madeAs = (keep: unknown) => ({ after: 0, entries: [commit(1)], keep })
+
+  test("a day's plays: let go after three idle days, and its owner not kept, so anyone may make it again", async () => {
+    const call = await relay()
+    await call("POST", `/lines/${PLAYS}/entries`, { body: madeAs("passing") })
+    call.at("2026-10-09T23:00:00.000Z")
+    await call.letGoOfIdleLines()
+    expect((await call("GET", `/lines/${PLAYS}/entries`)).body.head).toBe(1)
+    call.at("2026-10-13T00:00:00.000Z")
+    await call.letGoOfIdleLines()
+    expect((await call("GET", `/lines/${PLAYS}/entries`)).body).toEqual({ error: { type: "line-missing" } })
+    expect((await call("POST", `/lines/${PLAYS}/entries`, { token: "another-0123456789abcdef", body: { after: 0, entries: [commit(1)] } })).status).toBe(200)
+  })
+
+  test("a book's: kept past three idle days, let go after seven, and made again by its owner alone", async () => {
+    const call = await relay()
+    await call("POST", `/lines/${LINE}/entries`, { body: madeAs("lasting") })
+    await call("POST", `/lines/${PLAYS}/entries`, { body: madeAs("passing") })
+    call.at("2026-10-11T00:00:00.000Z")
+    await call.letGoOfIdleLines()
+    expect([(await call("GET", `/lines/${LINE}/entries`)).status, (await call("GET", `/lines/${PLAYS}/entries`)).status]).toEqual([200, 404])
+    call.at("2026-10-19T00:00:00.000Z")
+    await call.letGoOfIdleLines()
+    expect((await call("GET", `/lines/${LINE}/entries`)).status).toBe(404)
+    expect((await call("POST", `/lines/${LINE}/entries`, { token: "another-0123456789abcdef", body: { after: 0, entries: [commit(1)] } })).status).toBe(401)
+  })
+
+  test("is said only by the commits that make the line: said later, it changes nothing", async () => {
+    const call = await relay()
+    await call("POST", `/lines/${LINE}/entries`, { body: { after: 0, entries: [commit(1)] } })
+    await call("POST", `/lines/${LINE}/entries`, { body: { after: 1, entries: [commit(2)], keep: "passing" } })
+    call.at("2026-10-12T00:00:00.000Z")
+    await call.letGoOfIdleLines()
+    expect((await call("GET", `/lines/${LINE}/entries`)).body.head).toBe(2)
+  })
+
+  test("is a book's where the maker says nothing, or what this relay does not know", async () => {
+    const call = await relay()
+    const unknown = "plays-fedcba9876543210"
+    expect((await call("POST", `/lines/${LINE}/entries`, { body: { after: 0, entries: [commit(1)] } })).status).toBe(200)
+    expect((await call("POST", `/lines/${unknown}/entries`, { body: madeAs({ days: 1 }) })).status).toBe(200)
+    call.at("2026-10-12T00:00:00.000Z")
+    await call.letGoOfIdleLines()
+    expect([(await call("GET", `/lines/${LINE}/entries`)).status, (await call("GET", `/lines/${unknown}/entries`)).status]).toEqual([200, 200])
+  })
+})
+
+describe("the relay's databases", () => {
+  test("put a line in the same bucket always, worked out from its id alone, and spread lines over every bucket", () => {
+    expect([bucketOf(LINE), bucketOf(LINE), bucketOf("line-fedcba9876543210")]).toEqual([54, 54, 38])
+    const buckets = new Set(Array.from({ length: 4096 }, (_, index) => bucketOf(`line-${String(index).padStart(16, "0")}`)))
+    expect([...buckets].every((bucket) => Number.isInteger(bucket) && bucket >= 0 && bucket < BUCKETS)).toBe(true)
+    expect(buckets.size).toBe(BUCKETS)
+  })
+
+  test("keep a line, its grants and its owner in the database its bucket is placed in, and let go of idle lines in each", async () => {
+    const home = await migrated()
+    const away = await migrated()
+    const moved = "line-moved-0123456789"
+    const stayed = Array.from({ length: 200 }, (_, index) => `line-${String(index).padStart(16, "0")}`).find((line) => bucketOf(line) !== bucketOf(moved)) ?? LINE
+    const databases = placedIn({ HOME: sqliteDatabase(home), AWAY: sqliteDatabase(away) }, { home: "HOME", moved: { [bucketOf(moved)]: "AWAY" } })
+    const call = await relay({ type: "any" }, unlimited, databases)
+    await call("POST", `/lines/${moved}/entries`, { body: { after: 0, entries: [commit(1)] } })
+    await call("POST", `/lines/${stayed}/entries`, { body: { after: 0, entries: [commit(1)] } })
+    await call("POST", `/lines/${moved}/grants`, { body: { id: "grant-0000000000001", token: "viewer-token-0123456789", role: "viewer" } })
+    const count = (sqlite: Sqlite, table: string) => (sqlite.query(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number }).count
+    expect([count(home, "lines"), count(away, "lines"), count(home, "grants"), count(away, "grants")]).toEqual([1, 1, 0, 1])
+    expect((await call("GET", `/lines/${moved}/entries`, { token: "viewer-token-0123456789" })).body.head).toBe(1)
+    call.at("2026-10-27T00:00:00.000Z")
+    await call.letGoOfIdleLines()
+    expect([count(home, "lines"), count(away, "lines"), count(home, "owners_kept"), count(away, "owners_kept")]).toEqual([0, 0, 1, 1])
+    expect(databases.all).toHaveLength(2)
   })
 })

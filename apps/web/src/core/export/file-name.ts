@@ -47,5 +47,8 @@ export const singleJournalName = (stem: string, day: IsoDate): string => `${stem
 /** The name a book's table of tallies goes by: what the book's files are named by, what the table is of, and the day it was written out. */
 export const tallyTableName = (stem: string, day: IsoDate): string => `${stem}_収支_${exportedOn(day)}.csv`
 
+/** The name a book's tallies go by as pRecord takes them in: what the book's files are named by, the app the file is for, and the day it was written out. */
+export const precordName = (stem: string, day: IsoDate): string => `${stem}_pRecord_${exportedOn(day)}.csv`
+
 /** The name several books written out together go by: what they are, and the day. */
 export const bundleName = (day: IsoDate): string => `帳簿_${exportedOn(day)}.zip`

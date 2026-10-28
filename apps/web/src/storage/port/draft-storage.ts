@@ -3,7 +3,12 @@ import type { PlayId } from "../../core/play/play"
 import type { Result } from "../../core/result/result"
 import type { StorageError } from "./book-storage"
 
-export type DraftError = StorageError | { readonly type: "draft-missing"; readonly playId: PlayId }
+/**
+ * What keeping a play can come to besides the device's storage failing: the
+ * play is not on the device, or it is, as a copy of a play another of the
+ * owner's devices holds, which only that device writes.
+ */
+export type DraftError = StorageError | { readonly type: "draft-missing"; readonly playId: PlayId } | { readonly type: "held-elsewhere"; readonly playId: PlayId }
 
 /**
  * Where the day's plays are kept on this device: those still being played,

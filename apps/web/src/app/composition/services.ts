@@ -5,6 +5,8 @@ import { createGoogleAuthorizer } from "../../backup/google-drive/google-authori
 import { createGoogleDriveStore, DRIVE_SCOPE } from "../../backup/google-drive/google-drive-store"
 import { createIndexedDbDestinationStore } from "../../sync/local/indexed-db-destination-store"
 import { keepingHistory } from "../../application/draft-history"
+import { finishingHeld, type PlayLinePorts } from "../../application/play-line"
+import type { DeviceId } from "../../core/play-line/device"
 import { createIndexedDbInvitationStore } from "../../sync/local/indexed-db-invitation-store"
 import { createIndexedDbReceiptStore } from "../../backup/local/indexed-db-receipt-store"
 import { createWebCryptoDigest } from "../../backup/web-crypto/web-crypto-digest"
@@ -20,7 +22,7 @@ import { createIndexedDbHistory } from "../../history/adapters/indexed-db-histor
 import { createAbsentCatalogApi } from "../../catalog/absent/absent-catalog-api"
 import { createDeliveredCatalog } from "../../catalog/delivered/delivered-catalog"
 import { createHttpCatalogApi } from "../../catalog/http/http-catalog-api"
-import { createIndexedDbDevice } from "../../catalog/local/indexed-db-device"
+import { createIndexedDbDevice } from "../../storage/browser/indexed-db-device"
 import { createTurnstileCheck } from "../../catalog/turnstile/turnstile"
 import { createAbsentDirectory } from "../../parlors/absent/absent-directory"
 import { createJsonlDirectory } from "../../parlors/jsonl/jsonl-directory"
@@ -41,7 +43,7 @@ import { createBrowserStorageKeeper } from "../../storage/browser/storage-keeper
 import { createBrowserDeviceData } from "../../storage/browser/device-data"
 import { createLocalStorageWelcomeStore } from "../../onboarding/local/local-storage-welcome-store"
 import { createLocalStoragePreferences } from "../../preferences/local/local-storage-preferences"
-import { createIndexedDbDrafts, createIndexedDbStorage } from "../../storage/browser/indexed-db"
+import { createIndexedDbDrafts, createIndexedDbFollow, createIndexedDbStorage } from "../../storage/browser/indexed-db"
 import { createDeflatePacker } from "../../sync/deflate/deflate-packer"
 import { createHttpRelay } from "../../sync/http/http-relay"
 import { createIndexedDbLinkStore } from "../../sync/local/indexed-db-link-store"
@@ -131,9 +133,28 @@ export const createServices = (): Services => {
   const workMark = createWorkMark()
   const links = createIndexedDbLinkStore(database)
   const drafts = keepingHistory(createIndexedDbDrafts(database), () => clock().toISOString())
+  const follow = createIndexedDbFollow(database)
   const receipts = createIndexedDbReceiptStore(database)
   const handover = createBrowserHandover()
   const archiver = createZipArchiver()
+  const relay = createHttpRelay({ request: (url, init) => fetch(url, init), answerWithin: ANSWER_WITHIN })
+  const sealer = createWebCryptoSealer()
+  const packer = createDeflatePacker()
+  const playLineDevice = createIndexedDbDevice(database, "play-line", freshUuidV7)
+  const playLine: PlayLinePorts = {
+    relay,
+    sealer,
+    packer,
+    links,
+    drafts,
+    follow,
+    device: async () => (await playLineDevice()) as DeviceId,
+    books: () => session.books(),
+    member: LOCAL_MEMBER,
+    now: () => clock().toISOString(),
+    businessDay: () => businessDayOf(clock(), preferences.businessDayTurn()),
+    newId: freshUuidV7,
+  }
   return {
     session,
     consolidation: consolidationPorts({
@@ -158,8 +179,8 @@ export const createServices = (): Services => {
       session,
       history,
       links,
-      relay: createHttpRelay({ request: (url, init) => fetch(url, init), answerWithin: ANSWER_WITHIN }),
-      sealer: createWebCryptoSealer(),
+      relay,
+      sealer,
       me,
       now: () => clock().toISOString(),
       newCommitId: freshUuidV7,
@@ -167,7 +188,7 @@ export const createServices = (): Services => {
     invitations: createIndexedDbInvitationStore(database),
     destinations: createIndexedDbDestinationStore(database),
     relayUrl: RELAY_URL === undefined || RELAY_URL === "" ? undefined : RELAY_URL.replace(/\/+$/, ""),
-    packer: createDeflatePacker(),
+    packer,
     backup: {
       storage,
       session,
@@ -191,6 +212,8 @@ export const createServices = (): Services => {
             newBoundary: () => `backup-${freshUuidV7()}`,
           }),
     drafts,
+    playLine,
+    finishing: finishingHeld(playLine),
     member: LOCAL_MEMBER,
     voter: voterOf,
     documents: brandedDocuments(),
@@ -210,7 +233,7 @@ export const createServices = (): Services => {
     firstBook: () => firstBook(freshUuidV7() as string as BookId, LOCAL_MEMBER, unnamedTitle([], freshFraction())),
     storageKeeper: createBrowserStorageKeeper(),
     deviceData: createBrowserDeviceData(database),
-    deletion: { storage, history, links, receipts, drafts },
+    deletion: { storage, history, links, receipts, drafts, follow },
     playIdOn: (fresh, date) => uuidV7On(fresh as string as UuidV7, date) as string as PlayId,
     newSeed: freshSeed,
     catalog: createDeliveredCatalog(
@@ -221,7 +244,7 @@ export const createServices = (): Services => {
             base: CATALOG_URL.replace(/\/+$/, ""),
             request: (url, init) => fetch(url, init),
             answerWithin: ANSWER_WITHIN,
-            device: createIndexedDbDevice(database, freshUuidV7),
+            device: createIndexedDbDevice(database, "catalog", freshUuidV7),
             humanCheck: TURNSTILE_SITE_KEY === undefined || TURNSTILE_SITE_KEY === "" ? undefined : createTurnstileCheck(TURNSTILE_SITE_KEY),
           }),
       { newId: freshUuidV7, now: () => clock().toISOString() },
