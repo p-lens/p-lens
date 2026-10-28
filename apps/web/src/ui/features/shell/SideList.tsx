@@ -3,7 +3,7 @@ import { For, Show, type JSX } from "solid-js"
 import { ExternalLinkIcon } from "../../primitives/icons"
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../primitives/tooltip"
 
-/** A second thing a row can do, beside opening it: shown as an icon, named by its tooltip. */
+/** A second thing a row can do, beside opening it: shown as an icon on the accent, as a primary button is, named by its tooltip. */
 export interface SideListAction {
   readonly label: string
   readonly icon: JSX.Element
@@ -69,7 +69,7 @@ function PlaceRow(props: { readonly item: SideListItem }): JSX.Element {
               type="button"
               aria-label={action.label}
               onClick={() => action.onSelect()}
-              class="mr-1 flex size-7 shrink-0 items-center justify-center rounded border border-border text-text-secondary hover:border-text-secondary hover:bg-surface-3 hover:text-text-primary [&_svg]:size-4"
+              class="mr-1 flex size-7 shrink-0 items-center justify-center rounded bg-accent text-accent-contrast hover:bg-accent-hover [&_svg]:size-4"
             >
               {action.icon}
             </TooltipTrigger>
