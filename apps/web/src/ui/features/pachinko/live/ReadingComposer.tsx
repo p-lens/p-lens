@@ -324,7 +324,7 @@ export function ReadingComposer(props: {
       </Show>
       <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-1.5">
         <TextField label="回転数" value={form().counter} onChange={(counter) => change({ counter })} inputMode="numeric" invalid={nudged("counter")} onFocus={nudge.settle} compact />
-        <TextField label="持ち玉" value={form().held} onChange={(held) => change({ held, heldCarried: false })} inputMode="numeric" suffix="玉" invalid={nudged("held")} onFocus={nudge.settle} compact />
+        <TextField label="持ち玉" value={form().held} onChange={(held) => change({ held, heldCarried: false })} inputMode="numeric" suffix="玉" invalid={nudged("held")} onFocus={nudge.settle} note={JACKPOT_HELD_NOTE} compact />
         <DriftButton drift={form().drift} supported={form().supported} invalid={nudged("supported")} onDrift={(drift) => change({ drift })} onSupported={(supported) => change({ supported })} onFocus={nudge.settle} />
       </div>
       <Show when={recount()} keyed>
@@ -392,7 +392,6 @@ export function ReadingComposer(props: {
           <OverButton over={form().over} invalid={nudged("over")} onOver={(over) => change({ over })} onFocus={nudge.settle} />
         </div>
       </div>
-      <p class="text-xs text-text-muted">{JACKPOT_HELD_NOTE}</p>
     </form>
   )
 }

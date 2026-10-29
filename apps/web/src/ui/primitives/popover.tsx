@@ -4,7 +4,7 @@ import * as PopoverPrimitive from "@kobalte/core/popover"
 import { createSignal, type JSX } from "solid-js"
 
 import { Button } from "./button"
-import { CloseIcon, QuestionIcon } from "./icons"
+import { CloseIcon, InfoIcon, QuestionIcon } from "./icons"
 
 /**
  * A question mark that opens an explanation beside it: what a control does,
@@ -116,6 +116,43 @@ export function CautionNote(props: { readonly children: string; readonly hint: s
           class="z-50 flex max-w-[min(20rem,calc(100vw-2rem))] origin-[var(--kb-popover-content-transform-origin)] animate-[unfurl_240ms_ease-out] items-start gap-2 rounded-md border border-warning/50 bg-surface-1 py-2 pl-3 pr-2 text-sm text-text-primary shadow-lg outline-none"
         >
           <PopoverPrimitive.Description class="flex-1">{props.hint}</PopoverPrimitive.Description>
+          <PopoverPrimitive.CloseButton aria-label="閉じる" tabIndex={-1} class="flex size-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-3 hover:text-text-primary [&_svg]:size-4">
+            <CloseIcon label="閉じる" />
+          </PopoverPrimitive.CloseButton>
+        </PopoverPrimitive.Content>
+      </PopoverPrimitive.Portal>
+    </PopoverPrimitive.Root>
+  )
+}
+
+/**
+ * A small i beside a name that says, pressed, what the thing named means
+ * or what to put in it: a speech bubble grows out above it, closed by its
+ * cross, by a tap on the bubble or anywhere outside it. What is said is
+ * kept off the screen until it is asked for, and neither the i nor the
+ * bubble takes the focus from a field being typed in.
+ */
+export function InfoNote(props: { readonly label: string; readonly children: JSX.Element }): JSX.Element {
+  const [open, setOpen] = createSignal(false)
+  return (
+    <PopoverPrimitive.Root gutter={6} placement="top-start" open={open()} onOpenChange={setOpen}>
+      <PopoverPrimitive.Trigger
+        aria-label={props.label}
+        title={props.label}
+        tabIndex={-1}
+        onMouseDown={(event) => event.preventDefault()}
+        class="-my-1 flex size-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-3 hover:text-text-primary [&_svg]:size-3.5"
+      >
+        <InfoIcon />
+      </PopoverPrimitive.Trigger>
+      <PopoverPrimitive.Portal>
+        <PopoverPrimitive.Content
+          onClick={() => setOpen(false)}
+          onOpenAutoFocus={(event) => event.preventDefault()}
+          onCloseAutoFocus={(event) => event.preventDefault()}
+          class="z-50 flex max-w-[min(20rem,calc(100vw-2rem))] origin-[var(--kb-popover-content-transform-origin)] animate-[unfurl_240ms_ease-out] items-start gap-2 rounded-md border border-border bg-surface-1 py-2 pl-3 pr-2 text-sm text-text-primary shadow-lg outline-none"
+        >
+          <PopoverPrimitive.Description as="div" class="flex flex-1 flex-col gap-2">{props.children}</PopoverPrimitive.Description>
           <PopoverPrimitive.CloseButton aria-label="閉じる" tabIndex={-1} class="flex size-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-3 hover:text-text-primary [&_svg]:size-4">
             <CloseIcon label="閉じる" />
           </PopoverPrimitive.CloseButton>

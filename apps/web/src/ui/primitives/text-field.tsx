@@ -5,6 +5,7 @@ import { createEffect, createSignal, on, onCleanup, onMount, Show, type JSX } fr
 
 import { tidyTyped } from "../../core/text/tidy"
 import { redRing } from "./nudge"
+import { InfoNote } from "./popover"
 import { DEBOUNCE_FOR } from "./debounce"
 import { onShownAgain } from "./shown-again"
 import { createTypedOver } from "./typed-over"
@@ -76,6 +77,8 @@ export function TextField(props: {
   readonly labelHidden?: boolean
   /** Its label drawn in the colour of whom the field is for — the nerdpro colour, for those who set a machine's own figures by their hand — or in the label's usual colour where left out. */
   readonly tone?: "nerdpro"
+  /** What to put in it, where its name does not say enough: kept behind a small i beside the name, said when the i is pressed. */
+  readonly note?: string
   /** Takes the focus as it appears, the caret after what it holds: the one field a screen is opened to type in. */
   readonly focusedOnShow?: boolean
   /** Shows each character typed as a dot, as a password's are, without being one: for what must not be read off the screen. A font's dots, never a blur. */
@@ -143,7 +146,12 @@ export function TextField(props: {
       required={props.required ?? false}
       class="flex flex-col gap-1.5"
     >
-      <TextFieldPrimitive.Label as="span" class="text-xs font-bold uppercase tracking-wide" classList={{ "sr-only": props.labelHidden === true, "text-text-secondary": props.tone === undefined, "text-nerdpro-ink": props.tone === "nerdpro" }}>{props.label}</TextFieldPrimitive.Label>
+      <div class="flex items-center gap-0.5">
+        <TextFieldPrimitive.Label as="span" class="text-xs font-bold uppercase tracking-wide" classList={{ "sr-only": props.labelHidden === true, "text-text-secondary": props.tone === undefined, "text-nerdpro-ink": props.tone === "nerdpro" }}>{props.label}</TextFieldPrimitive.Label>
+        <Show when={props.note} keyed>
+          {(note) => <InfoNote label={`${props.label}について`}>{note}</InfoNote>}
+        </Show>
+      </div>
       <div
         class="flex items-center rounded-[3px] bg-surface-input focus-within:outline-2 focus-within:outline-focus-ring"
         classList={redRing(props.invalid === true)}
