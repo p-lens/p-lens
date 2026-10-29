@@ -42,6 +42,7 @@ import { createConnection } from "../../storage/browser/database"
 import { createBrowserStorageKeeper } from "../../storage/browser/storage-keeper"
 import { createBrowserDeviceData } from "../../storage/browser/device-data"
 import { createLocalStorageWelcomeStore } from "../../onboarding/local/local-storage-welcome-store"
+import { createLocalStorageFirstTouchStore } from "../../first-touch"
 import { createLocalStoragePreferences } from "../../preferences/local/local-storage-preferences"
 import { createIndexedDbDrafts, createIndexedDbFollow, createIndexedDbStorage } from "../../storage/browser/indexed-db"
 import { createDeflatePacker } from "../../sync/deflate/deflate-packer"
@@ -227,6 +228,7 @@ export const createServices = (): Services => {
     businessDay: () => businessDayOf(clock(), preferences.businessDayTurn()),
     preferences,
     welcome,
+    firstTouch: createLocalStorageFirstTouchStore(),
     now: () => clock().toISOString(),
     newPlayId: () => freshUuidV7() as string as PlayId,
     unnamedTitle: (taken) => unnamedTitle(taken, freshFraction()),

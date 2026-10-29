@@ -34,6 +34,7 @@ import { NotFound } from "../not-found/NotFound"
 import { OddPrizeCalculatorSide } from "../odd-prize-calculator/OddPrizeCalculatorSide"
 import { WelcomeProvider } from "../onboarding/welcome"
 import { useSampleBook } from "../../../sample-book"
+import { FirstTouchSettings } from "../../../first-touch"
 import * as PachislotViews from "../pachislot"
 import { TallyDetail } from "../tallies/TallyDetail"
 import { TalliesView } from "../tallies/TalliesView"
@@ -237,6 +238,8 @@ const settingsFor = (place: Extract<Place, { kind: "settings-section" }>): JSX.E
       return <ConsolidationSettings place={place} />
     case "clear-data":
       return <ClearDataSettings place={place} />
+    case "first-touch":
+      return <FirstTouchSettings place={place} />
     case "licenses":
       return <LicensesView place={place} />
     case "under-the-hood":

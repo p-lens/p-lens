@@ -3,7 +3,7 @@
  * whole: each reached only through its index, its `core/` as pure as the
  * app's and its `application/` knowing no screen.
  */
-export const WALLED = ["sample-book", "sunk"] as const
+export const WALLED = ["sample-book", "sunk", "first-touch"] as const
 
 /**
  * Where screens are, under the app's folder: `src/ui/`, and the screens of

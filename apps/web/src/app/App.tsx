@@ -3,6 +3,7 @@ import { createResource, Match, Switch, type JSX } from "solid-js"
 
 import type { ApplicationError } from "../application/errors"
 import { ensureFirstBook } from "../application/seed"
+import { FirstTouch } from "../first-touch"
 import type { Services } from "../application/services"
 import { createUpdates } from "../pwa/updates"
 import { AppProvider } from "../ui/context"
@@ -51,6 +52,7 @@ export function App(props: { readonly services: Services }): JSX.Element {
             <Route path="/" component={Entrance} />
             <Route path="*" component={PLensScreen} />
           </Router>
+          <FirstTouch />
         </Match>
       </Switch>
     </AppProvider>

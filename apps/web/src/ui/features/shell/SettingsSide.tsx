@@ -11,6 +11,7 @@ import { MUMMER_HEADING } from "../../wording/mummer"
 import type { Place } from "../../navigation/place"
 import { SideList } from "./SideList"
 import { UnhatchedEgg } from "../../../unhatched-egg"
+import { FIRST_TOUCH_RESET } from "../../../first-touch"
 
 /** The line between the settings' groups: half the room on a phone, where the list has grown longer than the screen, and the list's own room wider. */
 const RULE = "mx-4 mt-2 -mb-2 border-border sm:mt-4 sm:mb-0"
@@ -121,6 +122,13 @@ export function SettingsSide(props: { readonly place: Place }): JSX.Element {
             icon: <TrashIcon />,
             selected: props.place.kind === "settings-section" && props.place.section === "clear-data",
             onSelect: () => moves.go({ kind: "settings-section", section: "clear-data" }),
+          },
+          {
+            id: "first-touch",
+            label: FIRST_TOUCH_RESET,
+            icon: <RefreshIcon />,
+            selected: props.place.kind === "settings-section" && props.place.section === "first-touch",
+            onSelect: () => moves.go({ kind: "settings-section", section: "first-touch" }),
           },
         ]}
       />

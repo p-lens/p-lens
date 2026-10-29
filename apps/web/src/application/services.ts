@@ -30,6 +30,7 @@ import type { Packer } from "../sync/port/packer"
 import type { SyncPorts } from "./sync"
 import type { HeldFinishing, PlayLinePorts } from "./play-line"
 import type { SampleMaker } from "../sample-book"
+import type { FirstTouchStore } from "../first-touch"
 
 /**
  * Everything the screens are handed: the session every use case runs in, the
@@ -111,6 +112,8 @@ export interface Services {
   readonly preferences: Preferences
   /** What the device keeps of its own arrival at the app, for welcoming it once. */
   readonly welcome: WelcomeStore
+  /** What the device keeps of 操作の手引き: the notes it has shown. */
+  readonly firstTouch: FirstTouchStore
   /** The moment, as an ISO 8601 timestamp. */
   readonly now: () => string
   readonly newPlayId: () => PlayId

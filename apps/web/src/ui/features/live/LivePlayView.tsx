@@ -1,5 +1,6 @@
 import { createEffect, createResource, onCleanup, Show, type JSX } from "solid-js"
 
+import type { ApplicationError } from "../../../application/errors"
 import { mapOk } from "../../../core/result/result"
 import { loadLivePlay, type LivePlayHold } from "../../../application/play-line"
 import { shownNameOf, type MachineNames } from "../../../core/catalog/catalog"
@@ -15,6 +16,7 @@ import * as PachislotViews from "../pachislot"
 import { cabinetText } from "../../wording/cabinet"
 import { seal } from "../../../mummer"
 import type { PlayHold } from "./play-hold"
+import { PlayUnread } from "./PlayUnread"
 
 const titleOf = (draft: PlayDraft, machineNames: MachineNames): string =>
   `${shownNameOf(machineNames, draft.machine)}${draft.cabinetNumber === undefined ? "" : ` ${cabinetText(seal.cabinet(draft.cabinetNumber))}`}（${parlorText(parlorOf(draft))}）`
@@ -64,7 +66,9 @@ export function LivePlayView(props: { readonly place: Place; readonly playId: Pl
     const found = loaded()
     return found?.ok === true && found.value.draft.gameKind === "pachinko" && found.value.hold.type === "followed" ? { draft: found.value.draft, hold: found.value.hold } : undefined
   }
-  return (
+  const unread = (): ApplicationError | undefined => ((found) => (found?.ok === false ? found.error : undefined))(loaded())
+  /** The play drawn, once it is read. */
+  const playing = (): JSX.Element => (
     <Show
       when={pachislotOpened()}
       fallback={
@@ -81,6 +85,11 @@ export function LivePlayView(props: { readonly place: Place; readonly playId: Pl
       }
     >
       {(pachislot) => <PachislotViews.LivePlay place={props.place} draft={pachislot().draft} hold={pachislot().hold} title={titleOf(pachislot().draft, app.machineNames())} />}
+    </Show>
+  )
+  return (
+    <Show when={unread()} keyed fallback={playing()}>
+      {(error) => <PlayUnread playId={props.playId} error={error} />}
     </Show>
   )
 }

@@ -49,6 +49,10 @@
  *
  * A QR code is black on white in either theme (`qr-…`): a camera reads
  * one so, and not every reader reads it the other way round.
+ *
+ * 操作の手引き is black on a loud yellow in either theme (`first-touch-…`):
+ * it belongs to nothing else on screen, so that it is seen at once for
+ * what it is. Only `first-touch/` uses it, and it goes with that folder.
  */
 :root,
 [data-theme="light"] {
@@ -102,6 +106,8 @@
   --mark-yellow: #a89400;
   --qr-ink: #000000;
   --qr-paper: #ffffff;
+  --first-touch-paper: #ffe14d;
+  --first-touch-ink: #111111;
 }
 
 [data-theme="dark"] {
@@ -155,6 +161,8 @@
   --mark-yellow: #f2e14a;
   --qr-ink: #000000;
   --qr-paper: #ffffff;
+  --first-touch-paper: #ffe14d;
+  --first-touch-ink: #111111;
 }
 
 @theme inline {

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { existsSync } from "node:fs"
 import { readdir, readFile } from "node:fs/promises"
 import { dirname, resolve } from "node:path"
 
@@ -32,6 +33,9 @@ const offending = async (directory: string, forbidden: RegExp): Promise<readonly
   )
   return found.flat()
 }
+
+/** As `offending`, of a layer a walled-off folder may not have: one it lacks reaches nothing. */
+const offendingIfThere = async (directory: string, forbidden: RegExp): Promise<readonly string[]> => (existsSync(directory) ? offending(directory, forbidden) : [])
 
 /** Every import from the screens, wherever they are, that `forbidden` matches. */
 const screensOffending = async (forbidden: RegExp): Promise<readonly string[]> => (await Promise.all(SCREENS.map((screens) => offending(`${WEB}${screens}`, forbidden)))).flat()
@@ -156,8 +160,8 @@ describe("dependency direction", () => {
     const outside = (await sourcesUnder(`${WEB}src/`)).filter((file) => !file.startsWith(`${WEB}src/${walled}/`))
     const reaching = (await Promise.all(outside.map(async (file) => (await importsOf(file)).filter((name) => new RegExp(`(^|/)${walled}/.`).test(name)).map((name) => `${file.replace(WEB, "")} -> ${name}`)))).flat()
     expect(reaching).toEqual([])
-    expect(await offending(`${WEB}src/${walled}/core/`, /^solid-js|^@kobalte|^@solidjs|^\.\.\/(client|worker|protocol)\/|\/(application|ui|app|storage|history|sync|pwa)\/|hledger\/(client|worker|query)/)).toEqual([])
-    expect(await offending(`${WEB}src/${walled}/application/`, /^solid-js|^@kobalte|^\.\.\/(client|worker)\/|\/(ui|app|pwa)\/|storage\/browser|history\/adapters|hledger\/worker/)).toEqual([])
+    expect(await offendingIfThere(`${WEB}src/${walled}/core/`, /^solid-js|^@kobalte|^@solidjs|^\.\.\/(client|worker|protocol)\/|\/(application|ui|app|storage|history|sync|pwa)\/|hledger\/(client|worker|query)/)).toEqual([])
+    expect(await offendingIfThere(`${WEB}src/${walled}/application/`, /^solid-js|^@kobalte|^\.\.\/(client|worker)\/|\/(ui|app|pwa)\/|storage\/browser|history\/adapters|hledger\/worker/)).toEqual([])
   })
 
   test("the shell package knows nothing of P-Lens", async () => {

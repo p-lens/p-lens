@@ -1,5 +1,6 @@
-import { createResource, type JSX } from "solid-js"
+import { createResource, Show, type JSX } from "solid-js"
 
+import type { ApplicationError } from "../../../application/errors"
 import { loadDraft } from "../../../application/live-play"
 import type { PlayId } from "../../../core/play/play"
 import { useApp } from "../../context"
@@ -7,6 +8,7 @@ import type { Place } from "../../navigation/place"
 import { Loaded } from "../../primitives/states"
 import * as PachinkoViews from "../pachinko"
 import * as PachislotViews from "../pachislot"
+import { PlayUnread } from "./PlayUnread"
 
 /**
  * Where a play in progress is said anew to be at another cabinet or on
@@ -20,5 +22,10 @@ export function CabinetView(props: { readonly place: Place; readonly playId: Pla
     () => props.playId,
     (playId) => loadDraft(app.services.drafts, playId),
   )
-  return <Loaded outcome={draft()}>{(found) => (found.gameKind === "pachislot" ? <PachislotViews.Cabinet place={props.place} draft={found} /> : <PachinkoViews.Cabinet place={props.place} draft={found} />)}</Loaded>
+  const unread = (): ApplicationError | undefined => ((found) => (found?.ok === false ? found.error : undefined))(draft())
+  return (
+    <Show when={unread()} keyed fallback={<Loaded outcome={draft()}>{(found) => (found.gameKind === "pachislot" ? <PachislotViews.Cabinet place={props.place} draft={found} /> : <PachinkoViews.Cabinet place={props.place} draft={found} />)}</Loaded>}>
+      {(error) => <PlayUnread playId={props.playId} error={error} />}
+    </Show>
+  )
 }
