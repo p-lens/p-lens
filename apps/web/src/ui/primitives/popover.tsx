@@ -141,7 +141,7 @@ export function InfoNote(props: { readonly label: string; readonly children: JSX
         title={props.label}
         tabIndex={-1}
         onMouseDown={(event) => event.preventDefault()}
-        class="-my-1 flex size-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-3 hover:text-text-primary [&_svg]:size-3.5"
+        class="relative flex size-3.5 shrink-0 items-center justify-center text-text-muted after:absolute after:-inset-[5px] after:content-[''] hover:text-text-primary [&_svg]:size-3.5"
       >
         <InfoIcon />
       </PopoverPrimitive.Trigger>
