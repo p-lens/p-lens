@@ -13,7 +13,7 @@ import { TickFilter, type Offered } from "../../primitives/filter"
 import { createHourStruck } from "../../primitives/hour"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
-import { HUDDLE_CODE, HUDDLE_DISMISS, HUDDLE_DISMISS_ASK, HUDDLE_DISMISS_SAYS, HUDDLE_HEADING, HUDDLE_NARROW, HUDDLE_OWN, HUDDLE_TOTAL, roomMemberText } from "../../wording/huddle"
+import { HUDDLE_DISMISS, HUDDLE_DISMISS_ASK, HUDDLE_DISMISS_SAYS, HUDDLE_HEADING, HUDDLE_MEMBERSHIP, HUDDLE_NARROW, HUDDLE_OWN, HUDDLE_TOTAL, roomMemberText } from "../../wording/huddle"
 import { HuddleDialog } from "./HuddleDialog"
 import { HuddleRow, type Presence } from "./HuddleRow"
 import { HuddleReachNote } from "./HuddleReachNote"
@@ -44,7 +44,7 @@ export function HuddleSide(props: { readonly place: Place }): JSX.Element {
   const whoPlays = (shown: RoomPlay): string => (own(shown) ? HUDDLE_OWN : (members().find((each) => each.member === shown.member)?.name ?? ""))
   const presenceOf = (member: string): Presence =>
     others().some((shown) => shown.post.member === member && shown.departed) ? "departed" : member !== app.huddle.now()?.member && app.huddle.idle().has(member) ? "idle" : "here"
-  const [showingCode, setShowingCode] = createSignal(false)
+  const [showingMembership, setShowingMembership] = createSignal(false)
   /** One of the others' plays a person asked to let go of from the list, until they say yes or no. */
   const [dismissing, setDismissing] = createSignal<RoomPlay | undefined>(undefined)
   const dismiss = (shown: RoomPlay): void => {
@@ -68,12 +68,12 @@ export function HuddleSide(props: { readonly place: Place }): JSX.Element {
         <Button variant="semipro" size="small" onClick={() => moves.go({ kind: "huddle-total" })}>
           {HUDDLE_TOTAL}
         </Button>
-        <Button variant="outline" size="small" class="ml-auto" onClick={() => setShowingCode(true)}>
-          {HUDDLE_CODE}
+        <Button variant="outline" size="small" class="ml-auto" onClick={() => setShowingMembership(true)}>
+          {HUDDLE_MEMBERSHIP}
         </Button>
         <TickFilter label={HUDDLE_NARROW} offered={offeredMembers(members())} chosen={app.huddle.chosen.listed()} onChosen={app.huddle.chosen.setListed} none="まだ誰もいません。" />
       </div>
-      <HuddleDialog open={showingCode()} onClosed={() => setShowingCode(false)} />
+      <HuddleDialog open={showingMembership()} onClosed={() => setShowingMembership(false)} />
       <section class="px-2 pt-3">
         <Show when={playsOfChosen(plays(), app.huddle.chosen.listed()).length > 0} fallback={<p class="px-2 py-1.5 text-sm text-text-muted">表示する稼働はありません。</p>}>
           <ul class="flex flex-col gap-0.5" aria-label={HUDDLE_HEADING}>

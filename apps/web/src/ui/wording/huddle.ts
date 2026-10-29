@@ -13,12 +13,12 @@ export const HUDDLE_STANDINGS: Readonly<Record<HuddleStanding, string | undefine
 /** The room on the rail, with how many of the others are in a jackpot where any are. */
 export const huddleRoomLabel = (inJackpot: number): string => (inJackpot === 0 ? HUDDLE_HEADING : `${HUDDLE_HEADING}（大当り中 ${inJackpot} 人）`)
 
-/** The room's words: who one is among its members, the total of their plays, the way to narrow them, to one's own alone, and the code to show. */
+/** The room's words: who one is among its members, the total of their plays, the way to narrow them, to one's own alone, and the dialog to change one's name, leave or show the invitation QR code. */
 export const HUDDLE_OWN = "自分"
 export const HUDDLE_TOTAL = "メンバー合算"
 export const HUDDLE_NARROW = "メンバーで絞り込む"
 export const HUDDLE_OWN_ONLY = "自分のみ"
-export const HUDDLE_CODE = "QRコード"
+export const HUDDLE_MEMBERSHIP = "参加・招待"
 export const HUDDLE_SETTLE = "精算目安を表示"
 export const HUDDLE_SETTLEMENT = "精算目安"
 

@@ -17,16 +17,23 @@ import type { Submission } from "../../../parlors/port/submission-store"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import { Combobox, holdsTypedOnly } from "../../primitives/combobox"
+import { PlusIcon } from "../../primitives/icons"
+import { leaveFor } from "../../primitives/leaving"
 import { createNudge } from "../../primitives/nudge"
 import { settleTyping, TextField } from "../../primitives/text-field"
 import { toast } from "../../primitives/toast"
 import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
 import { describeError } from "../../wording/errors"
 import { amountText, formatRate, formatYen, signedAmountText } from "../../wording/numbers"
-import { chosenParlorText, locateFailedText, parlorChoiceText, parlorNameText, typedParlorRefused } from "../../wording/parlor"
+import { chosenParlorText, locateFailedText, parlorChoiceText, parlorNameText, SURVEY_OFFLINE, typedParlorRefused } from "../../wording/parlor"
+import { submitAddress } from "../live/submission-return"
 import { offersByKey, parlorOffers } from "../parlor-offers/parlor-offers"
 import { seal } from "../../../mummer"
 import { Withheld } from "../mummer/Withheld"
+
+const SUBMIT_PARLOR = "一覧にない店舗を申請する"
+
+const ROUND_BUTTON = "flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-border text-text-secondary hover:border-text-secondary hover:text-text-primary [&_svg]:size-5"
 
 /** Where a form's saving is: being typed, being written, or failed. */
 type Saving = { readonly type: "typing" } | { readonly type: "saving" } | { readonly type: "failed"; readonly error: ApplicationError }
@@ -69,6 +76,8 @@ function Failure(props: { readonly saving: Saving }): JSX.Element {
  * Registering the savings a person already had at a parlor when they began
  * keeping the book: the parlor, chosen as a play's is and never typed, the
  * corner by its rates, how many tokens, and the day they stood at that.
+ * A parlor the list lacks is submitted at survey.p-lens.jp with the plus,
+ * which brings the person back to this form.
  * In a wide window it takes two thirds of the width, so its fields are not
  * stretched across the screen; a phone gives it the whole width.
  */
@@ -115,6 +124,14 @@ export function OpeningBalanceForm(props: {
     setRental(USUAL[kind].rental)
     setExchange(USUAL[kind].exchange)
   }
+  /** Off to survey.p-lens.jp to submit a parlor the list lacks; a build that names no survey says so instead of going nowhere. */
+  const submitParlor = (): void => {
+    if (app.services.surveyUrl === undefined) {
+      toast({ title: "店舗の申請はまだ準備中です" })
+      return
+    }
+    leaveFor(submitAddress(app.services.surveyUrl, window.location.origin, { type: "savings", game: game(), bookId: props.bookId }), SURVEY_OFFLINE)
+  }
   const save = async (): Promise<void> => {
     settleTyping()
     const parlor = chosen()
@@ -152,17 +169,24 @@ export function OpeningBalanceForm(props: {
         <h2 class="text-sm font-bold text-text-primary">開始残高の登録</h2>
         <p class="text-xs text-text-muted">帳簿をつけ始める前から持っていた貯玉・貯メダルです。収支には入りません。</p>
         <div class="flex flex-col gap-1.5">
-          <Combobox
-            label="店舗"
-            placeholder="店舗を選ぶ"
-            options={offers().map((offer) => ({ value: identityKey(offer.parlor.identity), label: parlorChoiceText(seal.parlor(offer.parlor.name)), note: offer.note, foundFirst: offer.unplaced !== undefined }))}
-            value={parlorKey() === "" ? undefined : parlorKey()}
-            onChange={(key) => setParlorKey(key ?? "")}
-            matches={(key, text) => offerOf().get(key)?.matches(text) ?? false}
-            invalid={typedOnly() || missing("parlor")}
-            onFocus={nudge.settle}
-            onTyped={setTyped}
-          />
+          <div class="flex min-w-0 items-end gap-2">
+            <div class="min-w-0 flex-1">
+              <Combobox
+                label="店舗"
+                placeholder="店舗を選ぶ"
+                options={offers().map((offer) => ({ value: identityKey(offer.parlor.identity), label: parlorChoiceText(seal.parlor(offer.parlor.name)), note: offer.note, foundFirst: offer.unplaced !== undefined }))}
+                value={parlorKey() === "" ? undefined : parlorKey()}
+                onChange={(key) => setParlorKey(key ?? "")}
+                matches={(key, text) => offerOf().get(key)?.matches(text) ?? false}
+                invalid={typedOnly() || missing("parlor")}
+                onFocus={nudge.settle}
+                onTyped={setTyped}
+              />
+            </div>
+            <button type="button" aria-label={SUBMIT_PARLOR} title={SUBMIT_PARLOR} tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={submitParlor} class={ROUND_BUTTON}>
+              <PlusIcon />
+            </button>
+          </div>
           <Show when={((found) => (found?.ok === false ? found.error : undefined))(here())} keyed>
             {(error) => <p class="text-xs text-text-muted">{locateFailedText(error)}</p>}
           </Show>

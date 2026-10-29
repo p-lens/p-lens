@@ -7,6 +7,7 @@ import type { ListedTally } from "../../../core/report/tallies"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import { filterButtonClass, FilterMark } from "../../primitives/filter"
+import { createLongPress } from "../../primitives/long-press"
 import { CloseIcon, PlusIcon } from "../../primitives/icons"
 import { EmptyState, Loaded } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
@@ -28,18 +29,31 @@ const selectedTally = (place: Place): string | undefined => (place.kind === "tal
  * its formula, which has none — said to be inferred where nobody measured
  * it. A tally hledger could not value, and one with no theoretical value
  * written, each keeps the
- * figure's shape with nothing in it.
+ * figure's shape with nothing in it. Held down, as a play in the live
+ * space is to be removed, it shakes its head: a tally is removed from its
+ * detail, not here.
  */
 function TallyRow(props: { readonly tally: ListedTally; readonly selected: boolean; readonly onSelect: () => void }): JSX.Element {
   const app = useApp()
+  const [refusing, setRefusing] = createSignal(false)
+  const hold = createLongPress(() => setRefusing(true))
   return (
     <li>
       <button
         type="button"
         aria-current={props.selected ? "true" : undefined}
-        onClick={() => props.onSelect()}
-        class="flex w-full items-center gap-3 rounded px-3 py-2 text-left transition-colors"
-        classList={{ "bg-surface-3": props.selected, "hover:bg-surface-3/60": !props.selected }}
+        onClick={() => {
+          if (!hold.wasLong()) props.onSelect()
+        }}
+        onPointerDown={hold.onPointerDown}
+        onPointerMove={hold.onPointerMove}
+        onPointerUp={hold.onPointerUp}
+        onPointerLeave={hold.onPointerLeave}
+        onPointerCancel={hold.onPointerCancel}
+        onContextMenu={hold.onContextMenu}
+        onAnimationEnd={() => setRefusing(false)}
+        class="flex w-full select-none items-center gap-3 rounded px-3 py-2 text-left transition-colors [-webkit-touch-callout:none]"
+        classList={{ "bg-surface-3": props.selected, "hover:bg-surface-3/60": !props.selected, "animate-[refuse_480ms_ease-out]": refusing() }}
       >
         <div class="flex min-w-0 flex-1 flex-col">
           <span class="truncate text-text-primary">{tallyTitle(props.tally, app.machineNames())}</span>

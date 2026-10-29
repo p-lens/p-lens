@@ -24,6 +24,7 @@ const PLACES: readonly Place[] = [
   { kind: "book-file", bookId: "made-up" as never, path: "logs/a b.jsonl" },
   { kind: "passbook", bookId: "made-up" as never, account: "資産:貯玉:東京皇国/第8支店:4円" },
   { kind: "parlor-passbook", bookId: "made-up" as never, parlorName: "東京皇国/第8支店" },
+  { kind: "opening-balance-new", bookId: "made-up" as never },
   { kind: "destination", lineId: "line-1" },
   { kind: "huddle" },
   { kind: "huddle-total" },
@@ -46,7 +47,7 @@ describe("places", () => {
   })
 
   test("a narrow window goes selection, content, detail", () => {
-    expect(PLACES.map(focusOf)).toEqual(["selection", "content", "content", "content", "content", "content", "selection", "content", "detail", "content", "content", "content", "selection", "content", "content", "content", "content", "detail", "detail", "detail", "selection", "selection", "content", "content", "content"])
+    expect(PLACES.map(focusOf)).toEqual(["selection", "content", "content", "content", "content", "content", "selection", "content", "detail", "content", "content", "content", "selection", "content", "content", "content", "content", "detail", "detail", "detail", "content", "selection", "selection", "content", "content", "content"])
   })
 
   test("one step up from a tally is its list, then the book", () => {
@@ -79,6 +80,7 @@ describe("the screen a place is drawn on", () => {
     const book = "b1" as BookId
     expect(screenOf({ kind: "book-view", bookId: book, view: "result-calendar", senders: ["s1"] })).toBe(screenOf({ kind: "book-view", bookId: book, view: "result-calendar", senders: undefined }))
     expect(screenOf({ kind: "book-view", bookId: book, view: "holdings", parlors: [] })).toBe(screenOf({ kind: "book-view", bookId: book, view: "holdings", parlors: ["店"] }))
+    expect(screenOf({ kind: "opening-balance-new", bookId: book })).toBe(screenOf({ kind: "book-view", bookId: book, view: "holdings", parlors: undefined }))
     expect(screenOf({ kind: "consolidated-breakdown", by: "machine", bookIds: [book] })).toBe(screenOf({ kind: "consolidated-breakdown", by: "machine", bookIds: undefined }))
     expect(screenOf({ kind: "consolidated-breakdown", by: "machine", bookIds: undefined })).not.toBe(screenOf({ kind: "consolidated-breakdown", by: "parlor", bookIds: undefined }))
     expect(screenOf({ kind: "book-view", bookId: book, view: "holdings", parlors: undefined })).not.toBe(screenOf({ kind: "book-view", bookId: "b2" as BookId, view: "holdings", parlors: undefined }))
@@ -177,6 +179,7 @@ describe("a pool's passbook", () => {
     expect(focusOf({ kind: "passbook", bookId: "made-up" as never, account: "資産:貯玉:東京皇国第8支店:4円" })).toBe("detail")
     expect(parentOf({ kind: "passbook", bookId: "made-up" as never, account: "資産:貯玉:東京皇国第8支店:4円" })).toEqual({ kind: "book-view", bookId: "made-up", view: "holdings" } as never)
     expect(parentOf({ kind: "parlor-passbook", bookId: "made-up" as never, parlorName: "東京皇国第8支店" })).toEqual({ kind: "book-view", bookId: "made-up", view: "holdings" } as never)
+    expect(parentOf({ kind: "opening-balance-new", bookId: "made-up" as never })).toEqual({ kind: "book-view", bookId: "made-up", view: "holdings" } as never)
   })
 })
 

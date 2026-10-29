@@ -7,7 +7,7 @@ import type { PlayTerms } from "../core/parlor/terms"
 import { parsePlayLog, playLogPath, type Checkpoint, type PlayLogError } from "../core/play-log/checkpoint"
 import { termsInHead } from "../core/play-log/head"
 import { inPlayOrder } from "../core/play-log/performance"
-import { actualOf, statisticTotalOf } from "../core/report/figures"
+import { actualOf, sidesOf, statisticTotalOf, type Sides } from "../core/report/figures"
 import { listedTalliesOf, tallySummariesOf, tallySummaryOf, type ListedTally, type TallySummary } from "../core/report/tallies"
 import { Err, Ok, andThen, mapOk } from "../core/result/result"
 import type { Transaction } from "../hledger/protocol/wire"
@@ -49,6 +49,8 @@ export interface TallyDetail {
   /** The corner's terms its play was on, where its log's head says them. */
   readonly terms: PlayTerms | undefined
   readonly transaction: Transaction
+  /** What went into its play — tokens played and the rental spread and replay fee beside them — and what came out, in yen at the play's day. */
+  readonly sides: Sides
   readonly actual: Decimal
   readonly theoretical: Decimal
 }
@@ -95,16 +97,21 @@ export const loadTally = (session: BookSession, bookId: BookId, id: PlayId): Pro
         : Ok({ transaction, summary })
     })
     return andThen(found, ({ transaction, summary }) =>
-      andThen(andThen(fromHledger(statement), (report) => fromReport(actualOf(report))), (actual) =>
-        mapOk(andThen(fromHledger(theoretical), (report) => fromReport(statisticTotalOf(report))), (theoreticalValue) => ({
+      andThen(fromHledger(statement), (report) =>
+        andThen(fromReport(sidesOf(report)), (sides) =>
+          andThen(fromReport(actualOf(report)), (actual) =>
+            mapOk(andThen(fromHledger(theoretical), (report) => fromReport(statisticTotalOf(report))), (theoreticalValue) => ({
           summary,
           names: tallyNamesOf(parlors.value, transaction, summary),
           log: logOf(stored.files, summary),
           terms: termsOf(stored.files, summary),
-          transaction,
-          actual,
-          theoretical: theoreticalValue,
-        })),
+              transaction,
+              sides,
+              actual,
+              theoretical: theoreticalValue,
+            })),
+          ),
+        ),
       ),
     )
   })

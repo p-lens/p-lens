@@ -14,9 +14,13 @@ export type Returned = { readonly type: "submitted"; readonly submission: Submis
 
 /**
  * Where a person left for the survey from, and so where they are brought
- * back to: the start of a game's play, or a book's play added by hand.
+ * back to: the start of a game's play, a book's play added by hand, or a
+ * book's opening balance being registered.
  */
-export type LeftFrom = { readonly type: "start"; readonly game: PlayGameKind } | { readonly type: "entry"; readonly game: PlayGameKind; readonly bookId: BookId }
+export type LeftFrom =
+  | { readonly type: "start"; readonly game: PlayGameKind }
+  | { readonly type: "entry"; readonly game: PlayGameKind; readonly bookId: BookId }
+  | { readonly type: "savings"; readonly game: PlayGameKind; readonly bookId: BookId }
 
 /** A book's id as it may stand in an address: what ids are made of, and no longer than one. */
 const BOOK_ID = /^[A-Za-z0-9_-]{1,64}$/
@@ -32,16 +36,22 @@ const LOCATED = "located"
 /** What the return address carries when the person left from a book's play added by hand: the book. */
 const BOOK = "book"
 
+/** What the return address carries when the person left from a book's opening balance being registered: the book. */
+const SAVINGS = "savings"
+
 const returnAddress = (origin: string, from: LeftFrom): URL => {
   const address = new URL("/parlors/submitted", origin)
   address.searchParams.set("game", from.game)
   if (from.type === "entry") address.searchParams.set(BOOK, from.bookId)
+  if (from.type === "savings") address.searchParams.set(SAVINGS, from.bookId)
   return address
 }
 
 const leftFrom = (query: URLSearchParams): LeftFrom => {
   const game: PlayGameKind = query.get("game") === "pachislot" ? "pachislot" : "pachinko"
   const book = query.get(BOOK) ?? ""
+  const savings = query.get(SAVINGS) ?? ""
+  if (BOOK_ID.test(savings)) return { type: "savings", game, bookId: savings as BookId }
   return BOOK_ID.test(book) ? { type: "entry", game, bookId: book as BookId } : { type: "start", game }
 }
 
@@ -68,8 +78,9 @@ export const locateAddress = (survey: string, origin: string, from: LeftFrom, pa
 
 /**
  * The query survey.p-lens.jp returns with — `submission`, `name`,
- * `prefecture`, the `game` the person left from and the `book` where they
- * left from one's play added by hand — read, or refused whole
+ * `prefecture`, the `game` the person left from, the `book` where they
+ * left from one's play added by hand and the `savings` where they left
+ * from one's opening balance being registered — read, or refused whole
  * if any of it is not what it should be; one that names no submission at
  * all brings nothing but the game, and so does one the person left to
  * report a listed parlor's position, the parlor being listed and chosen

@@ -23,7 +23,7 @@ const VIEWS: readonly { readonly view: BookView; readonly label: string; readonl
 const ADD_TALLY = "収支を追加"
 
 const viewOf = (place: Place): BookView | undefined =>
-  place.kind === "book-view" ? place.view : place.kind === "tally" || place.kind === "tally-new" || place.kind === "tally-revise" ? "tallies" : place.kind === "book-file" ? "files" : place.kind === "passbook" || place.kind === "parlor-passbook" ? "holdings" : place.kind === "tally-days" ? "result-calendar" : undefined
+  place.kind === "book-view" ? place.view : place.kind === "tally" || place.kind === "tally-new" || place.kind === "tally-revise" ? "tallies" : place.kind === "book-file" ? "files" : place.kind === "passbook" || place.kind === "parlor-passbook" || place.kind === "opening-balance-new" ? "holdings" : place.kind === "tally-days" ? "result-calendar" : undefined
 
 /** The side panel of one book: its title, renamed where it stands, and its views, tallies first with the way to add one, and the breakdown of its results, opening on this year, before its files, after everything that shows what it holds and made. */
 export function BookSpaceSide(props: { readonly place: Place; readonly bookId: BookId; readonly book: ListedBook | undefined }): JSX.Element {

@@ -40,7 +40,9 @@ const isFormulaTab = (segment: string): segment is FormulaTab => (FORMULA_TABS a
  * shows one of its files as it is kept, its path one encoded segment;
  * `passbook` shows one pool's savings day by day beside them all, the
  * pool named by its account, one encoded segment, and `parlor-passbook`
- * every pool of one parlor together, in yen.
+ * every pool of one parlor together, in yen. `opening-balance-new` is the
+ * book's savings with the form registering an opening balance open over
+ * them.
  *
  * `book-view` is one of a book's views; its savings may be of some of its
  * parlors, and its calendar of some of those who played it, named by a
@@ -115,6 +117,7 @@ export type Place =
   | { readonly kind: "passbook"; readonly bookId: BookId; readonly account: string }
   /** A parlor's passbook beside the book's savings, every pool of it together in yen, named by the parlor. */
   | { readonly kind: "parlor-passbook"; readonly bookId: BookId; readonly parlorName: string }
+  | { readonly kind: "opening-balance-new"; readonly bookId: BookId }
   | { readonly kind: "pachinko-machine-search" }
   | { readonly kind: "parlor-submitted" }
   | { readonly kind: "pachinko-machine"; readonly machineId: string }
@@ -241,6 +244,7 @@ const placeOfSegments = (segments: readonly string[], path: string): Place => {
   if (first === "books" && second !== undefined && third === "files" && fourth !== undefined) return { kind: "book-file", bookId: second as BookId, path: fourth }
   if (first === "books" && second !== undefined && third === "passbooks" && fourth !== undefined) return { kind: "passbook", bookId: second as BookId, account: fourth }
   if (first === "books" && second !== undefined && third === "parlor-passbooks" && fourth !== undefined) return { kind: "parlor-passbook", bookId: second as BookId, parlorName: fourth }
+  if (first === "books" && second !== undefined && third === "opening-balance" && fourth === undefined) return { kind: "opening-balance-new", bookId: second as BookId }
   if (first === "books" && second !== undefined && third === "tallies" && fourth !== undefined)
     return { kind: "tally", bookId: second as BookId, playId: fourth as PlayId }
   if (first === "parlors" && second === "submitted" && third === undefined) return { kind: "parlor-submitted" }
@@ -315,6 +319,8 @@ export const pathOf = (place: Place): string => {
       return `/books/${encode(place.bookId)}/passbooks/${encode(place.account)}`
     case "parlor-passbook":
       return `/books/${encode(place.bookId)}/parlor-passbooks/${encode(place.parlorName)}`
+    case "opening-balance-new":
+      return `/books/${encode(place.bookId)}/opening-balance`
     case "pachinko-machine-search":
       return "/pachinko/machines"
     case "parlor-submitted":
@@ -419,6 +425,7 @@ export const focusOf = (place: Place): Focus => {
     case "pachislot-distribution-new":
     case "book-view":
     case "book-breakdown":
+    case "opening-balance-new":
     case "tally-new":
     case "tally-days":
     case "tally-revise":
@@ -451,6 +458,7 @@ export const parentOf = (place: Place): Place | undefined => {
       return { kind: "book-view", bookId: place.bookId, view: "files" }
     case "passbook":
     case "parlor-passbook":
+    case "opening-balance-new":
       return { kind: "book-view", bookId: place.bookId, view: "holdings" }
     case "book-view":
     case "book-breakdown":
@@ -517,7 +525,7 @@ export const parentOf = (place: Place): Place | undefined => {
 
 /** The book a place is inside, if it is inside one. */
 export const bookOf = (place: Place): BookId | undefined =>
-  place.kind === "book" || place.kind === "book-view" || place.kind === "book-breakdown" || place.kind === "tally" || place.kind === "tally-new" || place.kind === "tally-days" || place.kind === "tally-revise" || place.kind === "book-file" || place.kind === "passbook" || place.kind === "parlor-passbook" ? place.bookId : undefined
+  place.kind === "book" || place.kind === "book-view" || place.kind === "book-breakdown" || place.kind === "tally" || place.kind === "tally-new" || place.kind === "tally-days" || place.kind === "tally-revise" || place.kind === "book-file" || place.kind === "passbook" || place.kind === "parlor-passbook" || place.kind === "opening-balance-new" ? place.bookId : undefined
 
 /**
  * Places under the live space at the top of the rail: plays in progress, and
@@ -566,7 +574,7 @@ export const inOddPrizeCalculator = (place: Place): boolean => place.kind === "o
 
 export const inSettings = (place: Place): boolean => place.kind === "settings" || place.kind === "settings-section" || place.kind === "document"
 
-/** A place apart from what it is narrowed to: the books a consolidation reads, the parlors a book's savings show, who a book's calendar is of, whether a formula's 期待値算出 is laid over it. */
+/** A place apart from what it is narrowed to: the books a consolidation reads, the parlors a book's savings show, who a book's calendar is of, whether a formula's 期待値算出 is laid over it, whether a book's savings have an opening balance being registered over them. */
 const unnarrowed = (place: Place): Place => {
   switch (place.kind) {
     case "consolidated-holdings":
@@ -577,6 +585,8 @@ const unnarrowed = (place: Place): Place => {
       return { kind: "pachinko-formula", machineId: place.machineId, formulaId: place.formulaId }
     case "pachislot-formula-value":
       return { kind: "pachislot-formula", machineId: place.machineId, formulaId: place.formulaId }
+    case "opening-balance-new":
+      return { kind: "book-view", bookId: place.bookId, view: "holdings" }
     case "book-view":
       return place.view === "holdings" ? { ...place, parlors: undefined } : place.view === "result-calendar" ? { ...place, senders: undefined } : place
     default:

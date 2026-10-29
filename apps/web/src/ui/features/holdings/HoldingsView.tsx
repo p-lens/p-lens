@@ -151,7 +151,7 @@ const NO_PARLORS = "貯玉・貯メダルのある店舗がないため、絞り
  * it shows at once what it last showed for the same book, day and parlors,
  * while it asks hledger anew behind it.
  */
-export function HoldingsView(props: { readonly place: Place; readonly bookId: BookId; readonly parlors: readonly string[] | undefined; readonly query: string }): JSX.Element {
+export function HoldingsView(props: { readonly place: Place; readonly bookId: BookId; readonly parlors: readonly string[] | undefined; readonly query: string; readonly opening: boolean }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   const shown = app.savingsShown
@@ -205,17 +205,19 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
     <ParlorCard holding={holding} onOpen={() => moves.go({ kind: "parlor-passbook", bookId: props.bookId, parlorName: holding.parlorName })} open={props.place.kind === "parlor-passbook" && props.place.parlorName === holding.parlorName}>{(token) => <TokenRow bookId={props.bookId} place={props.place} parlorName={holding.parlorName} parlor={holding.parlor} token={token} />}</ParlorCard>
   )
   const listedParlors = createOffered()
-  const [opening, setOpening] = createSignal(false)
+  const openingPlace = (): Place => ({ kind: "opening-balance-new", bookId: props.bookId })
   /** What registering savings needs of the book, once it is read and the book may be written. */
   const writable = () => {
     const found = context()
     return found?.ok === true && found.value.canWrite ? found.value : undefined
   }
+  /** Where the savings are, with the opening balance form still open over them where it is. */
+  const here = (): Place => (props.opening ? openingPlace() : props.place)
   /** A day chosen to value the savings on, and the field emptied to value them as they stand now. */
   const chooseDay = (text: string): void => {
-    if (text.trim() === "") return void moves.go(props.place)
+    if (text.trim() === "") return void moves.go(here())
     const day = parseIsoDate(text)
-    if (day.ok) moves.go(props.place, untilTerm(day.value))
+    if (day.ok) moves.go(here(), untilTerm(day.value))
   }
 
   return (
@@ -226,9 +228,9 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
             <div class="w-[8.5rem]">
               <TextField label="評価日" type="date" value={valuedOn()} onChange={chooseDay} />
             </div>
-            <Show when={writable() !== undefined && !opening()}>
+            <Show when={writable() !== undefined && !props.opening}>
               <Withheld kind="savings" silent>
-                <Button size="small" onClick={() => setOpening(true)}>
+                <Button size="small" onClick={() => moves.go(openingPlace(), props.query)}>
                   開始残高を登録
                 </Button>
               </Withheld>
@@ -247,8 +249,8 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
               </div>
             </div>
           </Show>
-          <Show when={opening() ? writable() : undefined} keyed>
-            {(found) => <OpeningBalanceForm bookId={props.bookId} context={found} list={listedParlors.list()} submissions={listedParlors.submissions()} onDone={() => setOpening(false)} />}
+          <Show when={props.opening ? writable() : undefined} keyed>
+            {(found) => <OpeningBalanceForm bookId={props.bookId} context={found} list={listedParlors.list()} submissions={listedParlors.submissions()} onDone={() => moves.up(openingPlace(), props.query)} />}
           </Show>
           <Loaded outcome={holdings()}>
             {(found) => (

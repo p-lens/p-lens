@@ -13,12 +13,25 @@ import { returnedFrom, type LeftFrom } from "./submission-return"
 import { parlorNameText, parlorPlaceText } from "../../wording/parlor"
 import { seal } from "../../../mummer"
 
+/** Where the person left from: a game's start, a book's play added by hand, or a book's opening balance being registered. */
+const placeLeftFrom = (from: LeftFrom): Place => {
+  switch (from.type) {
+    case "start":
+      return { kind: "live-new", game: from.game }
+    case "entry":
+      return { kind: "tally-new", bookId: from.bookId }
+    case "savings":
+      return { kind: "opening-balance-new", bookId: from.bookId }
+  }
+}
+
 /**
  * Where survey.p-lens.jp sends a person back to: the submission they made
  * is kept on the device and chosen as the parlor of the play being started,
  * and the start of the game they left from is shown again — or, where they
- * left from a book's play added by hand, that form, where the submission
- * is now among the parlors to choose. A submission
+ * left from a book's play added by hand or an opening balance being
+ * registered, that form, where the submission is now among the parlors to
+ * choose. A submission
  * under a name the list already has is not kept; the screen says which
  * parlor has the name and stays, since choosing for them could choose wrong.
  * Coming back with no submission — a closing or a correction was reported —
@@ -30,8 +43,7 @@ export function SubmissionReturnView(props: { readonly place: Place }): JSX.Elem
   const start = useStartForm()
   const location = useLocation()
   const returned = () => returnedFrom(new URLSearchParams(location.search), app.services.now())
-  /** Back to where the person left from: a game's start, or a book's play added by hand. */
-  const back = (from: LeftFrom): void => moves.refine(from.type === "entry" ? { kind: "tally-new", bookId: from.bookId } : { kind: "live-new", game: from.game }, "")
+  const back = (from: LeftFrom): void => moves.refine(placeLeftFrom(from), "")
   const [kept] = createResource(
     () => {
       const read = returned()

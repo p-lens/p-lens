@@ -95,6 +95,11 @@ describe("the basic-play book, read by the real hledger module", () => {
     ).toEqual({ ok: true, value: figure as never })
   })
 
+  test("one tally's two sides: what went in, rental spread included, and what came out, in yen at its day", async () => {
+    const tally = await loadTally(session(), BOOK, "made-up-0905" as PlayId)
+    expect(mapOk(tally, (found) => ({ spent: toPlainString(found.sides.spent), won: toPlainString(found.sides.won) }))).toEqual({ ok: true, value: { spent: "12000", won: "17136" } })
+  })
+
   test("a tally that is not in the book is missing, not an error of hledger's", async () => {
     expect(await loadTally(session(), BOOK, "no-such-play" as PlayId)).toEqual({ ok: false, error: { type: "tally-missing" } })
   })

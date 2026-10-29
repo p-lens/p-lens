@@ -64,4 +64,12 @@ describe("leaving for survey.p-lens.jp", () => {
     back.searchParams.set("book", "../../settings")
     expect(returnedFrom(back.searchParams, NOW)).toEqual({ ok: true, value: { type: "nothing", from: { type: "start", game: "pachislot" } } })
   })
+  test("from a book's savings, comes back to that book's opening balance form", () => {
+    const from = { type: "savings", game: "pachinko", bookId: "01a11a19-1d86-7b07" } as never
+    const back = new URL(new URL(submitAddress(SURVEY, APP, from)).searchParams.get("return") ?? "")
+    expect(back.pathname + back.search).toBe("/parlors/submitted?game=pachinko&savings=01a11a19-1d86-7b07")
+    expect(returnedFrom(back.searchParams, NOW)).toEqual({ ok: true, value: { type: "nothing", from } })
+    back.searchParams.set("savings", "../../settings")
+    expect(returnedFrom(back.searchParams, NOW)).toEqual({ ok: true, value: { type: "nothing", from: { type: "start", game: "pachinko" } } })
+  })
 })

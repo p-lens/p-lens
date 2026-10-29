@@ -89,7 +89,8 @@ function Postings(props: { readonly postings: readonly Posting[] }): JSX.Element
 
 /**
  * One tally beside the list it was chosen from, under its machine's name:
- * when, where and at which cabinet its play was played, what it came to,
+ * when, where and at which cabinet its play was played, what went into it
+ * and came out of it, what it came to,
  * its play's readings as they were taken where the play was followed live,
  * its entry, and the ways to set it right or take it out of the book — the
  * second only after being asked again.
@@ -141,6 +142,8 @@ export function TallyDetail(props: { readonly place: Place; readonly bookId: Boo
               terms={found.terms}
             />
             <dl class="grid grid-cols-2 gap-2">
+              <Figure label="投資" value={found.sides.spent} kind="sum" caption="貸玉差額・再プレイ手数料を含む" />
+              <Figure label="回収" value={found.sides.won} kind="sum" />
               <Figure label="実収支" value={found.actual} kind="actual" caption="稼働日の交換率で評価" />
               <Figure
                 label={found.summary.theoreticalValue === undefined && found.summary.inferredValue !== undefined ? "推定期待値" : "期待値"}
