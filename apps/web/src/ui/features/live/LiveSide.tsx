@@ -25,7 +25,7 @@ import type { Place } from "../../navigation/place"
 import { businessDayNote } from "../../wording/dates"
 import { describeError } from "../../wording/errors"
 import { parlorText } from "../../wording/parlor"
-import { HUDDLE_GIVEN_UP, HUDDLE_HEADING, HUDDLE_JOINED } from "../../wording/huddle"
+import { HUDDLE_GIVEN_UP, HUDDLE_JOINED, HUDDLE_OPEN } from "../../wording/huddle"
 import { HuddleDialog } from "../huddle/HuddleDialog"
 import { captionOf } from "./play-caption"
 import { cabinetText } from "../../wording/cabinet"
@@ -242,7 +242,7 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
           </h2>
           <Show when={app.services.relayUrl !== undefined}>
             <Button variant="outline" size="small" class={cn("h-7 min-w-0 px-2", app.huddle.now() !== undefined && SWITCHED_ON)} onClick={() => (app.huddle.now() === undefined ? setHuddling(true) : moves.go({ kind: "huddle" }))}>
-              <Show when={app.huddle.now()} keyed fallback={HUDDLE_HEADING}>
+              <Show when={app.huddle.now()} keyed fallback={HUDDLE_OPEN}>
                 {(huddle) => (
                   <span class="flex min-w-0">
                     {HUDDLE_JOINED}（<span class="truncate">{huddle.name}</span>）

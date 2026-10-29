@@ -82,6 +82,9 @@ export const HUDDLE_NO_CAMERA = "カメラを使えませんでした。QRコー
 /** Why an image chosen to join by gave no huddle. */
 export const HUDDLE_NOT_IN_IMAGE = "画像からQRコードを読み取れませんでした。QRコード全体が写った画像を選んでください。"
 
+/** What the button to a huddle says while the device is in none: it opens the dialog a huddle is started or joined in. */
+export const HUDDLE_OPEN = "ノリ打ち開始"
+
 /** What the button to a huddle says while the device is in one, before the name it is in it as, which is shown in brackets after. */
 export const HUDDLE_JOINED = "ノリ打ち中"
 

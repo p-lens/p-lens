@@ -7,7 +7,7 @@ import type { ListedTally } from "../../../core/report/tallies"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import { filterButtonClass, FilterMark } from "../../primitives/filter"
-import { CloseIcon } from "../../primitives/icons"
+import { CloseIcon, PlusIcon } from "../../primitives/icons"
 import { EmptyState, Loaded } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
@@ -77,7 +77,9 @@ const FILTER = "絞り込み"
  * its cross is pressed, so the list is seen narrowing under it, and 解除
  * at its end takes every narrowing off at once. While the
  * list is narrowed the funnel is filled in and wears a dot, so a part is
- * not taken for all the tallies there are.
+ * not taken for all the tallies there are. A book with no tally at all
+ * says where its ＋ is, and offers 収支を追加 under it, a blue outline, as on
+ * a phone the side's ＋ is not in sight.
  */
 export function TalliesView(props: { readonly place: Place; readonly bookId: BookId; readonly query: string }): JSX.Element {
   const app = useApp()
@@ -124,7 +126,13 @@ export function TalliesView(props: { readonly place: Place; readonly bookId: Boo
                 when={found.tallies.length > 0}
                 fallback={
                   <Show when={props.query === ""} fallback={<EmptyState title="この期間の収支はありません" />}>
-                    <EmptyState title="収支はまだありません">収支の横の「＋」（収支を追加）から最初の収支を記録できます。</EmptyState>
+                    <EmptyState title="収支はまだありません">
+                      <p>収支の横の「＋」（収支を追加）から収支を記録できます。</p>
+                      <button type="button" class="mt-3 inline-flex h-8 items-center gap-1 rounded-[3px] border border-accent px-3 text-accent transition-colors hover:bg-accent/10 [&_svg]:size-4" onClick={() => moves.go({ kind: "tally-new", bookId: props.bookId })}>
+                        <PlusIcon />
+                        収支を追加
+                      </button>
+                    </EmptyState>
                   </Show>
                 }
               >
