@@ -36,3 +36,21 @@ export const daySays = (day: IsoDate, result: Decimal | undefined, worth: Decima
   if (result === undefined) return `${monthOfYear}月${dayOfMonth}日 収支なし`
   return `${monthOfYear}月${dayOfMonth}日 実収支 ${formatSignedYen(seal.tally(result))}${worth === undefined ? "" : ` 期待値 ${formatTheoreticalYen(seal.tally(worth))}`}`
 }
+
+/** What typing a month's days' 収支 at a time is called: the calendar's button to it, and its screen's title. */
+export const DAY_ENTRY = "まとめて入力"
+
+/** `2026-10-09` as `10月9日(木)`: the day being typed. */
+export const dayTitle = (day: IsoDate): string => {
+  const [year = 0, monthOfYear = 0, dayOfMonth = 0] = day.split("-").map(Number)
+  return `${monthOfYear}月${dayOfMonth}日(${WEEKDAYS[new Date(Date.UTC(year, monthOfYear - 1, dayOfMonth)).getUTCDay()] ?? ""})`
+}
+
+/** What the days typed come to, beside the button that writes them. */
+export const enteredText = (days: number, total: Decimal): string => `${days}日分 ${formatSignedYen(seal.tally(total))}`
+
+/** What is said once the days typed are written. */
+export const enteredToast = (days: number): string => `${days}日分の収支を追加しました`
+
+/** What the line under a day's field says where what is typed there is no sum of yen. */
+export const NOT_A_SUM = "円の金額を数字で入れてください"

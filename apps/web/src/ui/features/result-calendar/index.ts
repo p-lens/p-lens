@@ -4,8 +4,9 @@
  * that it can be taken out again in one go. Nothing here is imported by
  * anything but the lines that put it on screen — a book's:
  *
- * - `"result-calendar"` among `BOOK_VIEWS` in `ui/navigation/place.ts`;
- * - its case in `bookViewFor`, in `ui/features/shell/PLensScreen.tsx`;
+ * - `"result-calendar"` among `BOOK_VIEWS` in `ui/navigation/place.ts`,
+ *   and `tally-days`, its まとめて入力, with its path and parent there;
+ * - its case in `bookViewFor`, and `tally-days`'s, in `ui/features/shell/PLensScreen.tsx`;
  * - its line in `VIEWS`, in `ui/features/shell/BookSpaceSide.tsx`;
  *
  * and several books' together, which is this calendar given their results
@@ -21,6 +22,7 @@
  */
 export { ResultCalendarIcon } from "./icons"
 export { monthQuery } from "./month"
+export { DayEntryView } from "./DayEntryView"
 export { ResultCalendar } from "./ResultCalendar"
 export { ResultCalendarView } from "./ResultCalendarView"
 export { RESULT_CALENDAR } from "./wording"

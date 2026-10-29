@@ -765,6 +765,7 @@ The place is read off the address (`ui/navigation/place.ts`):
 | `/books/:book/breakdown/:by?q=` | a book's results taken as one (総合, by default) or grouped | content |
 | `/books/:book/files/:path` | one of the book's files as kept, beside the list | detail |
 | `/books/:book/tallies/new` | adding a tally by its totals (収支を追加) | content |
+| `/books/:book/tallies/days` | typing a month's days' 収支 at a time (まとめて入力), from the calendar | content |
 | `/books/:book/tallies/:play?q=` | a tally beside its list | detail |
 | `/books/:book/tallies/:play/revise` | setting a tally right (収支の修正) | content |
 | `/destinations/:line` | a book only sent to: the day's plays and how each stands with it (`deliveryOf`), in the side panel | selection |
@@ -2939,8 +2940,8 @@ with plays is pressed to see them, the plays list asked for that day.
   month in weeks, its words and its icons are all in
   `ui/features/result-calendar`, and its tests in `tests/ui/result-calendar`.
   Nothing imports it but a book's three lines: `"result-calendar"` among `BOOK_VIEWS`
-  (`ui/navigation/place.ts`), its case in `bookViewFor`
-  (`ui/features/shell/PLensScreen.tsx`) and its line in `VIEWS`
+  (`ui/navigation/place.ts`, with `tally-days` beside it), its case in `bookViewFor`
+  (`ui/features/shell/PLensScreen.tsx`, with `tally-days`'s) and its line in `VIEWS`
   (`ui/features/shell/BookSpaceSide.tsx`) — and the consolidation's own
   calendar, which is this one given several books' results added
   (`ConsolidatedResultCalendarView`, with its place, its case in
@@ -2971,6 +2972,18 @@ with plays is pressed to see them, the plays list asked for that day.
   Who is chosen is the address's last segment
   (`/books/:id/result-calendar/unsent,<sender id>`), as a consolidation's
   books are; a personal book has no funnel.
+- **まとめて入力** (`DayEntryView`, `/books/:id/tallies/days`), at the
+  title's other end, over the calendar's right edge: a month's days' 収支
+  typed in at a time, for plays kept in an app with nothing to write them
+  out, or by nobody. A day pressed is typed in the one field under the
+  calendar, ＋ or − beside it, and 次の日 or Enter goes on to the next;
+  what the book already has for a day stands faint in its cell. Each day
+  that came to something is a tally of its own in yen alone, naming no
+  parlor, machine or game (`dayResultEntry`, `| まとめて入力`), its two
+  sides as a tally typed in by hand has them, and the days are written in
+  one commit (`recordDayResults`, `days-entered`). Its writing lives
+  outside the folder (`core/tally/day-results`, `application/day-results`),
+  and stays when the calendar goes: tallies already written are data.
 
 ## Merging a play's readings
 

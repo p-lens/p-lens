@@ -39,7 +39,7 @@ import { TallyDetail } from "../tallies/TallyDetail"
 import { TalliesView } from "../tallies/TalliesView"
 import { ReviseTallyView } from "../record-tally/ReviseTallyView"
 import { AddTallyView } from "../record-tally/AddTallyView"
-import { ResultCalendarView } from "../result-calendar"
+import { DayEntryView, ResultCalendarView } from "../result-calendar"
 import { AppearanceSettings } from "../settings/AppearanceSettings"
 import { BackupSettings } from "../settings/BackupSettings"
 import { BreakdownView } from "../breakdown/BreakdownView"
@@ -129,6 +129,8 @@ const mainFor = (place: Place, query: () => string, live: () => Place): JSX.Elem
       return <TalliesView place={place} bookId={place.bookId} query={query()} />
     case "tally-new":
       return <AddTallyView place={place} bookId={place.bookId} />
+    case "tally-days":
+      return <DayEntryView place={place} bookId={place.bookId} />
     case "tally-revise":
       return <ReviseTallyView place={place} bookId={place.bookId} playId={place.playId} />
     case "book-file":

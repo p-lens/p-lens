@@ -4,6 +4,7 @@ import { describe, expect, test } from "bun:test"
 
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { importedTallyEntry, type SourceTally } from "../../src/core/import/source-tally"
+import { dayResultEntry } from "../../src/core/tally/day-results"
 import { ACCOUNTS } from "../../src/core/journal/accounts"
 import type { Entry } from "../../src/core/journal/entry"
 import { composeTokenTallyEntry, composeYenTallyEntry } from "../../src/core/tally/compose"
@@ -47,6 +48,7 @@ const ENTRIES: readonly Entry[] = [
   ...SIDES.flatMap(([outlay, takings]) => made(composeYenTallyEntry({ ...TALLIED, outlay: dec(outlay), takings: dec(takings), settlement: { type: "cash-and-prizes" } }))),
   ...SIDES.flatMap(([outlay, takings]) => made(composeYenTallyEntry({ ...TALLIED, outlay: dec(outlay), takings: dec(takings), settlement: { type: "off-book-exchanged", cash: dec("0"), specialPrizes: dec(takings).places > 0 ? dec("0") : dec(takings), oddPrizes: dec("0") } }))),
   ...SIDES.map(([outlay, takings]) => importedTallyEntry({ id: "taken-in" as PlayId, from: "precord", source: { ...SOURCE, outlay: dec(outlay), takings: dec(takings) }, machine: undefined, inferred: undefined })),
+  ...["-12000", "8500", "0.5"].map((result) => dayResultEntry("typed-in" as PlayId, { date: DAY, result: dec(result) })),
   ...["16500", "16800", "17000", "0"].flatMap((specialPrizes) => made(prizeExchangeEntry({ parlor: MALEHAN, pool: POOL, date: DAY, tokens: dec("4800"), specialPrizes: dec(specialPrizes) }, PRICES))),
   openingBalanceEntry({ parlor: MALEHAN, pool: POOL, date: DAY }, dec("12000")),
   balanceAdjustmentEntry({ parlor: MALEHAN, pool: POOL, date: DAY }, dec("300")),
@@ -64,7 +66,7 @@ const naming = async (pattern: RegExp): Promise<readonly string[]> => {
 
 describe("cash never rises", () => {
   test("no entry the app composes puts a positive amount to 資産:現金, whatever came back", () => {
-    expect(ENTRIES.length).toBe(47)
+    expect(ENTRIES.length).toBe(50)
     const raised = ENTRIES.flatMap((entry) => entry.postings.flatMap((posting) => (posting.kind === "balancing" ? [] : [posting])).filter((posting) => posting.account === ACCOUNTS.cash && posting.amount.quantity.mantissa > 0n).map((posting) => [entry.description, posting.amount.quantity]))
     expect(raised).toEqual([])
   })

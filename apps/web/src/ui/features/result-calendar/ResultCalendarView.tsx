@@ -8,6 +8,7 @@ import { mapOk } from "../../../core/result/result"
 import { UNSENT, type SenderNames } from "../../../core/report/senders"
 import { rangeTerm } from "../../../hledger/query/terms"
 import { useApp } from "../../context"
+import { Button } from "../../primitives/button"
 import { TickFilter, type Offered } from "../../primitives/filter"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
@@ -15,7 +16,7 @@ import { bookTitle } from "../../wording/book"
 import { senderName, unsentName } from "../../wording/breakdown"
 import { monthQuery } from "./month"
 import { ResultCalendar } from "./ResultCalendar"
-import { BY_PLAYERS, NO_PLAYERS } from "./wording"
+import { BY_PLAYERS, DAY_ENTRY, NO_PLAYERS } from "./wording"
 
 /** What the calendar asks hledger about: a month of a book, of the tallies of those chosen, as the book now stands. */
 interface Asked {
@@ -69,6 +70,11 @@ export function ResultCalendarView(props: { readonly place: Place; readonly book
       theoreticalKept={theoreticalKept()}
       of="book"
       onOpen={(day) => moves.go({ kind: "book-view", bookId: props.bookId, view: "tallies" }, rangeTerm(day, day))}
+      actions={
+        <Button type="button" variant="ghost" size="small" class="shrink-0 text-text-muted" onClick={() => moves.go({ kind: "tally-days", bookId: props.bookId })}>
+          {DAY_ENTRY}
+        </Button>
+      }
       filter={
         <TickFilter label={BY_PLAYERS} offered={names().size > 0 ? offered() : []} none={NO_PLAYERS} chosen={props.senders} onChosen={(senders) => moves.go({ kind: "book-view", bookId: props.bookId, view: "result-calendar", senders })} />
       }

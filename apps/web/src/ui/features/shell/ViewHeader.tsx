@@ -14,6 +14,9 @@ const URGE_LOOKS: Readonly<Record<Urge, string>> = {
   quiet: "text-text-primary animate-[urge_1.2s_ease-out_4]",
 }
 
+/** How wide the content a header is kept over stands: Tailwind's widths, as the content's frame names them. */
+export type Frame = "5xl" | "3xl"
+
 /**
  * The title of what is on screen, with a way back up in a narrow window,
  * where the list it was chosen from is not beside it. The hardware back
@@ -29,13 +32,13 @@ export function ViewHeader(props: {
   readonly actions?: JSX.Element
   /** Whether the way back is urged on, and how loud: drawn as <<<, each as large as the chevron alone, jabbing at the list while something there wants looking at — red and swelling like a heartbeat where it is hot, in the text's own colour where it is not. */
   readonly urged?: Urge | undefined
-  /** Whether it is kept within the frame the screen's content stands in (`max-w-5xl`, less the header's own room), so that its actions end over the content's right edge rather than the window's: a wide window otherwise leaves them far from what they act on. */
-  readonly framed?: boolean
+  /** The frame the screen's content stands in (`max-w-5xl` or `max-w-3xl`), where the header is kept within it, less the header's own room, so that its actions end over the content's right edge rather than the window's: a wide window otherwise leaves them far from what they act on. */
+  readonly framed?: Frame
 }): JSX.Element {
   const arrangement = useArrangement()
   const moves = useMoves()
   return (
-    <div class="flex min-w-0 flex-1 items-center gap-2" classList={{ "max-w-[62rem]": props.framed === true }}>
+    <div class="flex min-w-0 flex-1 items-center gap-2" classList={{ "max-w-[62rem]": props.framed === "5xl", "max-w-[46rem]": props.framed === "3xl" }}>
       <Show when={arrangement() === "narrow" && parentOf(props.place) !== undefined}>
         <button
           type="button"

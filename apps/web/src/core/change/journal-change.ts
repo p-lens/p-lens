@@ -57,6 +57,8 @@ export type ChangeIntent =
     }
   | { readonly type: "play-removed"; readonly playId: PlayId; readonly description: string }
   | { readonly type: "plays-imported"; readonly from: string; readonly count: number }
+  /** Days' 収支 typed in a month at a time (まとめて入力), a tally a day: so many of them. */
+  | { readonly type: "days-entered"; readonly count: number }
   /** Tallies taken in from another app, given afterwards what each was taken to be worth: so many of them. */
   | { readonly type: "imported-weighed"; readonly from: string; readonly count: number }
   /** A year's entries moved, as they were written, from the transactions not filed by year into that year's file: so many of them. */

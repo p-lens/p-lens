@@ -149,7 +149,7 @@ export function LivePlay(props: {
           place={props.place}
           title={props.title}
           urged={urged()}
-          framed
+          framed="5xl"
           actions={
             <Show when={props.hold.type === "held"}>
               <Button size="small" onClick={() => moves.go({ kind: "live-record", playId: props.draft.id })}>

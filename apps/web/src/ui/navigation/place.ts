@@ -34,6 +34,7 @@ const isFormulaTab = (segment: string): segment is FormulaTab => (FORMULA_TABS a
  * back button — a phone's included — walks back through the same places in
  * reverse: a tally's detail, the list it was in, then the book's views.
  * `tally-new` adds a tally to a book by hand, by its totals in yen;
+ * `tally-days` adds a month's days' 収支 at a time, from the calendar;
  * `tally-revise` sets a recorded tally right; `book-breakdown` groups a
  * book's results by what its last segment names; `book-file`
  * shows one of its files as it is kept, its path one encoded segment;
@@ -107,6 +108,7 @@ export type Place =
   | { readonly kind: "book-breakdown"; readonly bookId: BookId; readonly by: BreakdownBy }
   | { readonly kind: "tally"; readonly bookId: BookId; readonly playId: PlayId }
   | { readonly kind: "tally-new"; readonly bookId: BookId }
+  | { readonly kind: "tally-days"; readonly bookId: BookId }
   | { readonly kind: "tally-revise"; readonly bookId: BookId; readonly playId: PlayId }
   | { readonly kind: "book-file"; readonly bookId: BookId; readonly path: string }
   /** One pool's passbook beside the book's savings, named by the pool's savings account. */
@@ -235,6 +237,7 @@ const placeOfSegments = (segments: readonly string[], path: string): Place => {
   if (first === "books" && second !== undefined && third === "breakdown" && fifth === undefined && (fourth === undefined || isBreakdownBy(fourth)))
     return { kind: "book-breakdown", bookId: second as BookId, by: fourth ?? OVERALL }
   if (first === "books" && second !== undefined && third === "tallies" && fourth === "new") return { kind: "tally-new", bookId: second as BookId }
+  if (first === "books" && second !== undefined && third === "tallies" && fourth === "days") return { kind: "tally-days", bookId: second as BookId }
   if (first === "books" && second !== undefined && third === "files" && fourth !== undefined) return { kind: "book-file", bookId: second as BookId, path: fourth }
   if (first === "books" && second !== undefined && third === "passbooks" && fourth !== undefined) return { kind: "passbook", bookId: second as BookId, account: fourth }
   if (first === "books" && second !== undefined && third === "parlor-passbooks" && fourth !== undefined) return { kind: "parlor-passbook", bookId: second as BookId, parlorName: fourth }
@@ -302,6 +305,8 @@ export const pathOf = (place: Place): string => {
       return `/books/${encode(place.bookId)}/tallies/${encode(place.playId)}`
     case "tally-new":
       return `/books/${encode(place.bookId)}/tallies/new`
+    case "tally-days":
+      return `/books/${encode(place.bookId)}/tallies/days`
     case "tally-revise":
       return `/books/${encode(place.bookId)}/tallies/${encode(place.playId)}/revise`
     case "book-file":
@@ -415,6 +420,7 @@ export const focusOf = (place: Place): Focus => {
     case "book-view":
     case "book-breakdown":
     case "tally-new":
+    case "tally-days":
     case "tally-revise":
     case "consolidated-holdings":
     case "consolidated-result-calendar":
@@ -437,6 +443,8 @@ export const parentOf = (place: Place): Place | undefined => {
     case "tally":
     case "tally-new":
       return { kind: "book-view", bookId: place.bookId, view: "tallies" }
+    case "tally-days":
+      return { kind: "book-view", bookId: place.bookId, view: "result-calendar" }
     case "tally-revise":
       return { kind: "tally", bookId: place.bookId, playId: place.playId }
     case "book-file":
@@ -509,7 +517,7 @@ export const parentOf = (place: Place): Place | undefined => {
 
 /** The book a place is inside, if it is inside one. */
 export const bookOf = (place: Place): BookId | undefined =>
-  place.kind === "book" || place.kind === "book-view" || place.kind === "book-breakdown" || place.kind === "tally" || place.kind === "tally-new" || place.kind === "tally-revise" || place.kind === "book-file" || place.kind === "passbook" || place.kind === "parlor-passbook" ? place.bookId : undefined
+  place.kind === "book" || place.kind === "book-view" || place.kind === "book-breakdown" || place.kind === "tally" || place.kind === "tally-new" || place.kind === "tally-days" || place.kind === "tally-revise" || place.kind === "book-file" || place.kind === "passbook" || place.kind === "parlor-passbook" ? place.bookId : undefined
 
 /**
  * Places under the live space at the top of the rail: plays in progress, and

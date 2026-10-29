@@ -128,12 +128,17 @@ describe("tallies as pRecord's CSV", () => {
     expect(precordCsvOf([TOKENS_FOR_PRIZES, IN_YEN, SAVINGS_LOST, NOTED], NOTES)).toBe(
       [
         HEADER,
-        '"2026/10/03","","723豚の帽子亭店","","","森物語","","210","12346","15001","2655","","2.5833333","1027.742","0"\r\n',
-        '"2026/10/02","","天王寺ホール本館","ビスティ","","e 東京喰種","","99","5500","0","-5500","","2.4166667","-2275.862","0"\r\n',
-        '"2026/10/01","","マレハン東京皇国第8支店","","","流星","","123","1785","0","-1785","","0.0","0.0","0"\r\n',
-        '"2026/09/30","","","","","","","","1000","3000","2000","朝イチ, ""設定6""\nたぶん","0.0","0.0","0"\r\n',
+        '"2026/10/03","","723豚の帽子亭店","","","森物語","","210","12346","15001","2655","","2時間35分","1027.742","0"\r\n',
+        '"2026/10/02","","天王寺ホール本館","ビスティ","","e 東京喰種","","99","5500","0","-5500","","2時間25分","-2275.862","0"\r\n',
+        '"2026/10/01","","マレハン東京皇国第8支店","","","流星","","123","1785","0","-1785","","","0.0","0"\r\n',
+        '"2026/09/30","","","","","","","","1000","3000","2000","朝イチ, ""設定6""\nたぶん","","0.0","0"\r\n',
       ].join(""),
     )
+  })
+
+  test("writes 稼働時間 in words to the nearest minute, as pRecord takes it into the memo", () => {
+    const lengths = [7200, 2700, 7229, 7231].map((playSeconds) => lineOf({ ...IN_YEN_SAID, description: "", playSeconds }))
+    expect(precordCsvOf(lengths, NONE).split("\r\n").slice(1, 5).map((row) => row.split(",")[12])).toEqual(['"2時間"', '"45分"', '"2時間"', '"2時間1分"'])
   })
 
   test("is nothing but the header for a book without tallies", () => {
@@ -175,13 +180,13 @@ describe("tallies as pRecord's CSV", () => {
   })
 
   test("carries a tally taken in from pRecord back out with its own memo, the machine its catalog name", () => {
-    const read = readPrecord(`${HEADER}"2026/10/11","7289","天王寺ホール本館","ビスティ","4782","e 東京喰種","パチンコ","99","5500","0","-5500","ちょっと回ってた","2.4166667","-2275.862","0"\r\n`)
+    const read = readPrecord(`${HEADER}"2026/10/11","7289","天王寺ホール本館","ビスティ","4782","e 東京喰種","パチンコ","99","5500","0","-5500","ちょっと回ってた","2時間25分","-2275.862","0"\r\n`)
     const source = read.ok ? read.value[0] : undefined
     if (source === undefined) throw new Error("the row is not read")
     const id = "imported" as PlayId
     const entry = importedTallyEntry({ id, from: "precord", source, machine: { name: "e東京喰種", gameKind: "pachinko" }, inferred: undefined })
     const line = lineOf({ ...IN_YEN_SAID, description: entry.description, machineName: "e東京喰種" })
     const row = precordCsvOf([{ ...line, tally: { ...line.tally, id } }], tallyNotesIn([`; 稼働\n\n${renderEntry(entry)}`])).split("\r\n")[1]
-    expect(row).toBe('"2026/10/02","","天王寺ホール本館","ビスティ","","e東京喰種","","99","5500","0","-5500","ちょっと回ってた","2.4166667","-2275.862","0"')
+    expect(row).toBe('"2026/10/02","","天王寺ホール本館","ビスティ","","e東京喰種","","99","5500","0","-5500","ちょっと回ってた","2時間25分","-2275.862","0"')
   })
 })

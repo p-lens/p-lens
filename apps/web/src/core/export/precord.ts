@@ -21,8 +21,9 @@ const GAME_KINDS: Readonly<Record<PlayGameKind, string>> = { pachinko: "パチ�
 
 const SECONDS_IN_AN_HOUR = decimal(3600n, 0)
 
-/** How many places an hour is written to: a minute is a sixtieth of one, and seven keep a second apart. */
-const HOUR_PLACES = 7
+const SECONDS_IN_A_MINUTE = 60n
+
+const MINUTES_IN_AN_HOUR = 60n
 
 /** How many places pRecord writes its 時給 to. */
 const HOURLY_PLACES = 3
@@ -54,9 +55,22 @@ const wholeSidesOf = (line: TallyLine): WholeSides => {
   return { outlay, takings: add(outlay, result), result }
 }
 
-/** How long a tally's play lasted, in hours, and its 収支 over them, as pRecord writes both; nought for each where its length is not known. */
+/** A length to the nearest minute as a person writes it: `2時間35分`, `2時間`, `45分`. */
+const lengthText = (seconds: Decimal): string => {
+  const minutes = (rounded(seconds, 0).mantissa + SECONDS_IN_A_MINUTE / 2n) / SECONDS_IN_A_MINUTE
+  const hours = minutes / MINUTES_IN_AN_HOUR
+  const left = minutes % MINUTES_IN_AN_HOUR
+  return hours === 0n ? `${left}分` : left === 0n ? `${hours}時間` : `${hours}時間${left}分`
+}
+
+/**
+ * How long a tally's play lasted, and its 収支 an hour. pRecord's import
+ * takes 稼働時間 into the tally's memo, so it is written in words a person
+ * reads there, and left empty where the length is not known; 時給 is
+ * written as pRecord writes it, nought where the length is not known.
+ */
 const timeCellsOf = (seconds: Decimal | undefined, result: Decimal): readonly [string, string] =>
-  seconds === undefined || isZero(seconds) ? [pointed(ZERO), pointed(ZERO)] : [pointed(quotient(seconds, SECONDS_IN_AN_HOUR, HOUR_PLACES)), pointed(quotient(multiply(result, SECONDS_IN_AN_HOUR), seconds, HOURLY_PLACES))]
+  seconds === undefined || isZero(seconds) ? [EMPTY, pointed(ZERO)] : [lengthText(seconds), pointed(quotient(multiply(result, SECONDS_IN_AN_HOUR), seconds, HOURLY_PLACES))]
 
 const rowOf = (notes: ReadonlyMap<PlayId, string>) => (line: TallyLine): readonly string[] => {
   const sides = wholeSidesOf(line)

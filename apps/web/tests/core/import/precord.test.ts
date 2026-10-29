@@ -35,8 +35,9 @@ describe("a pRecord CSV", () => {
   test("reads how long a tally's play lasted as pRecord writes it, hours with their minutes as a fraction, to the hundredth — and none where it says none", () => {
     const hours = (cell: string) => ((read) => (read.ok ? read.value[0]?.hours : "unread"))(readPrecord(`日付,投資額,回収額,稼働時間\n2026/10/11,1000,0,${cell}\n`))
     expect([hours("2.4166667"), hours("1.75"), hours("0.083333336"), hours("2:25")]).toEqual([dec("2.42"), dec("1.75"), dec("0.08"), dec("2.42")])
+    expect([hours("2時間25分"), hours("2時間"), hours("45分")]).toEqual([dec("2.42"), dec("2"), dec("0.75")])
     expect([hours(""), hours("0"), hours("0.001")]).toEqual([undefined, undefined, undefined])
-    expect([hours("長い"), hours("2時間"), hours("-1")]).toEqual(["unread", "unread", "unread"])
+    expect([hours("長い"), hours("時間"), hours("-1")]).toEqual(["unread", "unread", "unread"])
   })
 
   test("finds its columns by name, wherever they stand", () => {

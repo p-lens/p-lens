@@ -19,7 +19,7 @@ const tallyName = (description: string): string => ((shown) => (shown === "" ? "
  * line missing a part its word needs, is still a thing done.
  */
 export const describeActivity = (line: ActivityLine): string => {
-  const { book, file, pool, parlors, play: tally, imported, filed, savings, prizes, rate } = line.parts
+  const { book, file, pool, parlors, play: tally, imported, filed, entered, savings, prizes, rate } = line.parts
   const tokens = savings === undefined ? undefined : formatTokens(seal.savings(savings.tokens), savings.kind)
   switch (line.did) {
     case "book-created":
@@ -54,6 +54,8 @@ export const describeActivity = (line: ActivityLine): string => {
       return imported === undefined ? SOMETHING_DONE : `${sourceName(imported.from)}から取り込んだ${formatCount(imported.count)}件の収支に推定期待値を追加`
     case "play-removed":
       return tally === undefined ? SOMETHING_DONE : `${tallyName(tally.description)}の収支を削除`
+    case "days-entered":
+      return entered === undefined ? SOMETHING_DONE : `まとめて入力で${formatCount(entered.count)}日分の収支を追加`
     case "year-filed":
       return filed === undefined ? SOMETHING_DONE : `${String(filed.year)}年の仕訳${formatCount(filed.count)}件を年のファイルに移し替え`
     default:

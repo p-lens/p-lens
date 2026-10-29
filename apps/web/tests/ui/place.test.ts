@@ -14,6 +14,7 @@ const PLACES: readonly Place[] = [
   { kind: "book-view", bookId: "made-up" as never, view: "holdings" },
   { kind: "tally", bookId: "made-up" as never, playId: "a b/c" as never },
   { kind: "tally-new", bookId: "made-up" as never },
+  { kind: "tally-days", bookId: "made-up" as never },
   { kind: "tally-revise", bookId: "made-up" as never, playId: "p1" as never },
   { kind: "settings" },
   { kind: "settings-section", section: "appearance" },
@@ -45,7 +46,7 @@ describe("places", () => {
   })
 
   test("a narrow window goes selection, content, detail", () => {
-    expect(PLACES.map(focusOf)).toEqual(["selection", "content", "content", "content", "content", "content", "selection", "content", "detail", "content", "content", "selection", "content", "content", "content", "content", "detail", "detail", "detail", "selection", "selection", "content", "content", "content"])
+    expect(PLACES.map(focusOf)).toEqual(["selection", "content", "content", "content", "content", "content", "selection", "content", "detail", "content", "content", "content", "selection", "content", "content", "content", "content", "detail", "detail", "detail", "selection", "selection", "content", "content", "content"])
   })
 
   test("one step up from a tally is its list, then the book", () => {
@@ -110,6 +111,8 @@ describe("adding a tally by hand", () => {
     expect(placeOf("/books/made-up/tallies/new")).toEqual({ kind: "tally-new", bookId: "made-up" } as never)
     expect(parentOf({ kind: "tally-new", bookId: "made-up" as never })).toEqual({ kind: "book-view", bookId: "made-up", view: "tallies" } as never)
     expect(focusOf({ kind: "tally-new", bookId: "made-up" as never })).toBe("content")
+    expect(placeOf("/books/made-up/tallies/days")).toEqual({ kind: "tally-days", bookId: "made-up" } as never)
+    expect(parentOf({ kind: "tally-days", bookId: "made-up" as never })).toEqual({ kind: "book-view", bookId: "made-up", view: "result-calendar" } as never)
     expect(placeOf("/books/made-up/tallies/p1/revise")).toEqual({ kind: "tally-revise", bookId: "made-up", playId: "p1" } as never)
     expect(parentOf({ kind: "tally-revise", bookId: "made-up" as never, playId: "p1" as never })).toEqual({ kind: "tally", bookId: "made-up", playId: "p1" } as never)
     expect(placeOf("/books/made-up/tallies/p1/elsewhere")).toEqual({ kind: "not-found", path: "/books/made-up/tallies/p1/elsewhere" })

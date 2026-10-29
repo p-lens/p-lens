@@ -107,6 +107,8 @@ export function ResultCalendar(props: {
   readonly onOpen: (day: IsoDate) => void
   /** Whose tallies the calendar is of, chosen at the end of the month's row. */
   readonly filter?: JSX.Element
+  /** What else can be done from the calendar, at the title's other end, over the calendar's right edge. */
+  readonly actions?: JSX.Element
 }): JSX.Element {
   const app = useApp()
   const figures = createMemo(() => byDay(groupsIn(props.days)))
@@ -114,7 +116,7 @@ export function ResultCalendar(props: {
   const failure = (): string | undefined => [props.days, props.whole].flatMap((outcome) => (outcome?.ok === false ? [describeError(outcome.error)] : [])).at(0)
   const weeks = createMemo(() => weeksOf(props.month))
   return (
-    <MainContent header={<ViewHeader place={props.place} title={RESULT_CALENDAR} />}>
+    <MainContent header={<ViewHeader place={props.place} title={RESULT_CALENDAR} actions={props.actions} framed="3xl" />}>
       <div class="max-w-3xl">
         <div class="flex flex-col gap-4 p-2 sm:p-4">
           <div class="flex items-center gap-1">
