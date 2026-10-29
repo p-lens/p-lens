@@ -83,7 +83,7 @@ describe("the plain label's words", () => {
     expect(PLAIN_LABEL_CLEAR).toBe("通常表示ラベルを消す")
     expect(PLAIN_LABEL_CLEAR_EXPLAINED).toBe("左上の「通常表示」ラベルは営業日が変われば消えますが、このボタンですぐ消せます。")
     expect(plainLabelClearedText("cleared")).toBe("通常表示ラベルを消しました")
-    expect(plainLabelClearedText("kept-off")).toBe("配信モードを切っても、この営業日は通常表示ラベルを出しません")
+    expect(plainLabelClearedText("kept-off")).toBe("次に配信モードを切ったときは、通常表示ラベルを出しません")
     expect(plainLabelClearedText("not-shown")).toBe("通常表示ラベルは出ていません")
   })
 })

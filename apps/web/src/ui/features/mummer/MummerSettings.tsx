@@ -35,6 +35,7 @@ export function MummerSettings(props: { readonly place: Place }): JSX.Element {
               </Show>
             </p>
           </Show>
+          <hr class="my-2 border-border" />
           <div class="flex items-center gap-3">
             <p class="min-w-0 flex-1 text-xs text-text-muted">{PLAIN_LABEL_CLEAR_EXPLAINED}</p>
             <Button type="button" variant="outline" size="small" class="shrink-0" onClick={() => toast({ title: plainLabelClearedText(clearPlainLabel(app.services.businessDay())) })}>

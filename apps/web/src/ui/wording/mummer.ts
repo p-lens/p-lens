@@ -42,7 +42,7 @@ export const plainLabelClearedText = (cleared: PlainLabelCleared): string => {
     case "cleared":
       return "通常表示ラベルを消しました"
     case "kept-off":
-      return "配信モードを切っても、この営業日は通常表示ラベルを出しません"
+      return "次に配信モードを切ったときは、通常表示ラベルを出しません"
     case "not-shown":
       return "通常表示ラベルは出ていません"
   }
