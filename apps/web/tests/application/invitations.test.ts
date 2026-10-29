@@ -12,7 +12,7 @@ import { renameBook } from "../../src/application/rename-book"
 import { joinByCode, joinSync, startSync, syncBook, type SyncPorts } from "../../src/application/sync"
 import { roleIn, type BookId, type MemberId } from "../../src/core/book/book"
 import { appendEntry, BOOK_FILES } from "../../src/core/journal/layout"
-import { Ok, mapOk } from "../../src/core/result/result"
+import { Err, Ok, mapOk } from "../../src/core/result/result"
 import { readInvitation } from "../../src/core/sync/invitation"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
 import type { Relay } from "../../src/sync/port/relay"
@@ -224,9 +224,19 @@ describe("a person let in only to send plays", () => {
       entriesAfter: async (access, after) =>
         mapOk(await mine.inbox.relay.entriesAfter(access, after), (page) => ({ ...page, entries: page.entries.map((entry) => (entry.commitId.startsWith(INBOX_OPENING) ? entry : { ...entry, box: entry.box.slice(0, 12) })) })),
     }
-    expect(await receiveArrivals({ ...mine.inbox, relay: broken })).toEqual({ taken: 0, unreadable: 1 })
+    expect(await receiveArrivals({ ...mine.inbox, relay: broken })).toEqual({ arrivals: { taken: 0, unreadable: 1 }, failures: [] })
     expect(await mineOf(mine)).toEqual([])
-    expect(await receiveArrivals(mine.inbox)).toEqual({ taken: 0, unreadable: 0 })
+    expect(await receiveArrivals(mine.inbox)).toEqual({ arrivals: { taken: 0, unreadable: 0 }, failures: [] })
+  })
+
+  test("says which book's inbox could not be read for want of a connection, and takes nothing in", async () => {
+    const { mine, theirs, destination } = await both()
+    await sendDraft(theirs.sending, DRAFT, destination)
+    const offline: Relay = { ...mine.inbox.relay, entriesAfter: async () => Err({ type: "unreachable", detail: "TypeError: Failed to fetch" }) }
+    const received = await receiveArrivals({ ...mine.inbox, relay: offline })
+    expect(received.arrivals).toEqual({ taken: 0, unreadable: 0 })
+    expect(received.failures).toEqual([{ bookId: BOOK, error: { type: "sync", problem: { type: "unreachable", detail: "TypeError: Failed to fetch" } } }])
+    expect(await receiveArrivals(mine.inbox)).toEqual({ arrivals: { taken: 1, unreadable: 0 }, failures: [] })
   })
 
   test("sends a play of their day with its history, which joins the owner's day under their name and their invitation's id, in the book it was sent to", async () => {
@@ -234,13 +244,13 @@ describe("a person let in only to send plays", () => {
     const revised = await reviseCheckpoints(theirs.drafts, DRAFT, [{ spins: 0, outlay: 0 }, { spins: 250, outlay: 2000 }])
     const sent = await sendDraft(theirs.sending, revised.ok ? revised.value : DRAFT, destination)
     expect(sent.ok && isSentAsItStands(sent.value, destination.lineId)).toBe(true)
-    expect(await receiveArrivals(mine.inbox)).toEqual({ taken: 1, unreadable: 0 })
+    expect(await receiveArrivals(mine.inbox)).toEqual({ arrivals: { taken: 1, unreadable: 0 }, failures: [] })
     const [arrived] = await mineOf(mine)
     expect([arrived?.id, arrived?.bookId, arrived?.received?.sender, arrived?.log, arrived?.recorded, arrived?.sent]).toEqual([PLAY, BOOK, "けんじ", '{"spins":0,"outlay":0}\n{"spins":250,"outlay":2000}\n', undefined, undefined])
     expect(arrived === undefined ? undefined : senderOf(arrived)).toEqual({ id: kept.id, name: "けんじ" })
     expect(arrived?.history).toEqual([{ at: "2026-10-09T02:00:00.000Z", removed: ['{"spins":250,"outlay":1000}'], added: ['{"spins":250,"outlay":2000}'] }])
     expect(arrived?.venue.type === "parlor" && arrived.venue.parlor.pools).toEqual([])
-    expect(await receiveArrivals(mine.inbox)).toEqual({ taken: 0, unreadable: 0 })
+    expect(await receiveArrivals(mine.inbox)).toEqual({ arrivals: { taken: 0, unreadable: 0 }, failures: [] })
   })
 
   test("is recorded by the owner into a book of their choosing, set right first, and what the sender changed after it finished is told apart", async () => {

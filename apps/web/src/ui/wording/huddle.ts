@@ -1,4 +1,8 @@
+import type { ApplicationError, SyncProblem } from "../../application/errors"
 import type { HuddleStanding } from "../../core/huddle/standing"
+import { NO_CONNECTION, SERVER_TROUBLE, TOO_MANY_TRIES } from "./connection"
+import { formatMoment } from "./dates"
+import { describeSyncProblem, isOffline } from "./sync"
 
 /** What a huddle is called on screen. */
 export const HUDDLE_HEADING = "ノリ打ち"
@@ -80,3 +84,64 @@ export const HUDDLE_NOT_IN_IMAGE = "画像からQRコードを読み取れませ
 
 /** What the button to a huddle says while the device is in one, before the name it is in it as, which is shown in brackets after. */
 export const HUDDLE_JOINED = "ノリ打ち中"
+
+/**
+ * Why something of a huddle could not be done, as a person is told: in a
+ * huddle's own terms — a huddle is no book, has no code to get wrong but
+ * its QR code, and what crowds it is the others' plays.
+ */
+export const describeHuddleProblem = (problem: SyncProblem): string => {
+  switch (problem.type) {
+    case "unreachable":
+    case "unreadable-answer":
+      return NO_CONNECTION
+    case "server-trouble":
+      return SERVER_TROUBLE
+    case "too-many":
+      return TOO_MANY_TRIES
+    case "shut-out":
+    case "unreadable-box":
+    case "unreadable-change":
+      return "このノリ打ちを開けません。仲間の画面のQRコードを読み取り直してください。"
+    case "behind":
+    case "unsettled":
+      return "仲間の書き込みが続いていて、間に合いませんでした。少し待って、もう一度試してください。"
+    case "refused":
+    case "too-large":
+    case "line-missing":
+    case "nothing-to-join":
+    case "not-permitted":
+    case "bad-secret":
+    case "not-a-pairing-code":
+    case "sealing-unavailable":
+    case "diverged":
+    case "line-broken":
+    case "conflict":
+    case "links":
+    case "links-unreadable":
+    case "not-linked":
+    case "no-relay":
+    case "book-here":
+    case "not-a-huddle-code":
+    case "stalled":
+      return describeSyncProblem(problem)
+  }
+}
+
+/** Said quietly in the room while the others' plays cannot be read: as of when they are, and that they are read again by themselves. */
+export const huddleUnheardText = (since: string | undefined, problem: SyncProblem): string => {
+  const asOf = since === undefined ? "仲間の稼働をまだ読めていません。" : `仲間の稼働は ${formatMoment(since)} 時点のままです。`
+  return isOffline(problem) ? `つながらないため、${asOf}電波が戻ると自動で読み直します。` : `${asOf}${describeHuddleProblem(problem)}`
+}
+
+/** Said quietly in the room while this device's own plays cannot be shown to the others: they are sent again by themselves. */
+export const huddleUntoldText = (problem: SyncProblem): string =>
+  isOffline(problem) ? "つながらないため、この端末の稼働を仲間に届けられていません。電波が戻ると自動で送ります。" : `この端末の稼働を仲間に届けられていません。${describeHuddleProblem(problem)}`
+
+/** The room on the rail while the line cannot be read, and why in a word: who is in a jackpot is not known, so none is counted. */
+export const huddleRoomUnheardLabel = (error: ApplicationError): string =>
+  `${HUDDLE_HEADING}（${error.type === "sync" && isOffline(error.problem) ? "つながっていません" : "読めていません"}）`
+
+/** Said where leaving a huddle could not be told to the others: the device has left all the same, with nothing to press again, and the others see it gone quiet in a while. */
+export const huddleLeftUntoldText = (problem: SyncProblem): string =>
+  `このノリ打ちからは抜けました。ただ、${isOffline(problem) ? "つながらないため、" : ""}仲間には抜けたことを伝えられていません。仲間の画面では、しばらくすると「${HUDDLE_IDLE}」になります。`

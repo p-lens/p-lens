@@ -32,9 +32,9 @@ const memoryStore = (): SubmissionStore & { readonly kept: () => readonly Submis
   }
 }
 
-const listing = (parlors: readonly SharedParlor[]): ParlorDirectory => ({ list: async () => Ok({ parlors, rejections: [] }) })
+const listing = (parlors: readonly SharedParlor[]): ParlorDirectory => ({ list: async () => Ok({ parlors, rejections: [] }), readAt: async () => undefined })
 
-const unreadable: ParlorDirectory = { list: async () => Err({ type: "unavailable", detail: "offline" }) }
+const unreadable: ParlorDirectory = { list: async () => Err({ type: "unreachable", detail: "offline" }), readAt: async () => undefined }
 
 describe("a submission that came back", () => {
   test("is kept on the device when the list has no parlor of its name", async () => {

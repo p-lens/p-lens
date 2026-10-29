@@ -17,6 +17,7 @@ import { ViewHeader } from "../../shell/ViewHeader"
 import { SpecReadout } from "./SpecReadout"
 import { trailTo } from "./trail"
 import { useActions } from "./use-actions"
+import { missingUndelivered } from "../../catalog/undelivered"
 
 /** Which way a check just given went. */
 type Verdict = "verified" | "refuted"
@@ -83,7 +84,7 @@ export function BasisView(props: { readonly place: Place; readonly machineId: st
   return (
     <MainContent header={<ViewHeader place={props.place} title="期待値基礎値" trail={trail()} />}>
       <div class="max-w-5xl">
-        <Loaded outcome={detail()}>
+        <Loaded outcome={missingUndelivered(detail(), app.delivery.state())}>
           {() => (
             <Show when={simulated()} keyed fallback={<EmptyState title="期待値基礎値はありません">手入力の算出条件には、期待値基礎値がありません。</EmptyState>}>
               {(found) => (

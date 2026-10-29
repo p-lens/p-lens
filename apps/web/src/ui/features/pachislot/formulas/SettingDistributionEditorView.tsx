@@ -2,6 +2,7 @@ import { createResource, createSignal, For, Index, Show, type JSX } from "solid-
 import { MainContent } from "solid-gathering-shell"
 
 import type { ApplicationError } from "../../../../application/errors"
+import { loadQuota } from "../../../../application/catalog"
 import { addSettingDistribution, loadMachine } from "../../../../application/pachislot/formulas"
 import type { PachislotMachineDetail } from "../../../../core/catalog/catalog"
 import { useApp } from "../../../context"
@@ -16,6 +17,9 @@ import { ViewHeader } from "../../shell/ViewHeader"
 import { type DistributionForm, EMPTY_DISTRIBUTION, readDistributionForm, sharesTotal } from "./distribution-form"
 import { trailTo } from "./trail"
 import type { FormProblem } from "./world-form"
+import { missingUndelivered } from "../../catalog/undelivered"
+import { isUnreached } from "../../catalog/unreached"
+import { REGISTER_OFFLINE_UNKEPT, REGISTRATION_SENDING } from "../../../wording/catalog"
 
 /** The setting levels a machine's formulas have between them, lowest first. */
 const levelsOf = (detail: PachislotMachineDetail): readonly number[] =>
@@ -26,7 +30,13 @@ function Editor(props: { readonly detail: PachislotMachineDetail }): JSX.Element
   const moves = useMoves()
   const [form, setForm] = createSignal<DistributionForm>(EMPTY_DISTRIBUTION)
   const [failure, setFailure] = createSignal<ApplicationError | undefined>(undefined)
-  const [saving, setSaving] = createSignal(false)
+  /** Whether the shared catalog can be reached, asked as the editor opens and again when the device comes back online: said before anything is typed, so nobody types a whole 設定配分 to learn it at the end. */
+  const [reached] = createResource(
+    () => app.reconnected(),
+    () => loadQuota(app.services.catalog),
+  )
+  /** Whether the 設定配分 is on its way to the shared catalog: its button is still until the answer comes. */
+  const [saving, setSaving] = createSignal<"editing" | "sending">("editing")
   const nudge = createNudge()
   const levels = () => levelsOf(props.detail)
   const read = () => readDistributionForm(form(), levels())
@@ -38,14 +48,15 @@ function Editor(props: { readonly detail: PachislotMachineDetail }): JSX.Element
   const save = async (): Promise<void> => {
     settleTyping()
     const current = read()
-    if (saving()) return
+    if (saving() === "sending") return
     if (!current.ok) {
       nudge.nudge()
       return
     }
-    setSaving(true)
+    setFailure(undefined)
+    setSaving("sending")
     const saved = await addSettingDistribution(app.services.catalog, props.detail.machine.id, { ...current.value, derivedFrom: undefined })
-    setSaving(false)
+    setSaving("editing")
     if (!saved.ok) {
       setFailure(saved.error)
       return
@@ -58,6 +69,9 @@ function Editor(props: { readonly detail: PachislotMachineDetail }): JSX.Element
       <p class="text-sm text-text-muted">
         この機種で、店が各設定をどのくらい使っていると見るかです。設定の推測は、この見立てから出発して、実際に出たボーナスや小役で更新されます。
       </p>
+      <Show when={failure() === undefined && isUnreached(reached.latest)}>
+        <p class="text-xs text-text-muted">{REGISTER_OFFLINE_UNKEPT}</p>
+      </Show>
       <div class="max-w-md">
         <TextField label="名前" value={form().label} onChange={(label) => setForm({ ...form(), label })} placeholder="平日・イベント日…" />
       </div>
@@ -87,7 +101,9 @@ function Editor(props: { readonly detail: PachislotMachineDetail }): JSX.Element
         {(error) => <p role="alert" class="text-sm text-negative">{describeError(error)}</p>}
       </Show>
       <div>
-        <Button variant="semipro" onClick={() => void save()}>設定配分を登録する</Button>
+        <Button variant="semipro" onClick={() => void save()} aria-busy={saving() === "sending"}>
+          {saving() === "sending" ? REGISTRATION_SENDING : "設定配分を登録する"}
+        </Button>
       </div>
     </div>
   )
@@ -108,7 +124,7 @@ export function SettingDistributionEditorView(props: { readonly place: Place; re
   return (
     <MainContent header={<ViewHeader place={props.place} title="設定配分を登録" trail={trail()} />}>
       <div class="max-w-5xl">
-        <Loaded outcome={detail()}>{(found) => <Editor detail={found} />}</Loaded>
+        <Loaded outcome={missingUndelivered(detail(), app.delivery.state())}>{(found) => <Editor detail={found} />}</Loaded>
       </div>
     </MainContent>
   )

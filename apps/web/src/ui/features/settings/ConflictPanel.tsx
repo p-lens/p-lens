@@ -8,7 +8,7 @@ import { Button } from "../../primitives/button"
 import { createNudge, redRing } from "../../primitives/nudge"
 import { toast } from "../../primitives/toast"
 import { describeError } from "../../wording/errors"
-import { sideName } from "../../wording/sync"
+import { CONFLICT_MOVED, sideName } from "../../wording/sync"
 
 /** A contested stretch as the panel shows it: the two sides, and the lines just above for bearings. */
 interface Choice {
@@ -75,15 +75,20 @@ function FileChoices(props: {
   )
 }
 
+/** Whether settling found the line or the book moved since the conflict was shown: it is shown again as it now stands, to choose in afresh. */
+const isMoved = (error: ApplicationError): boolean => error.type === "sync" && error.problem.type === "unsettled"
+
 const allPicked = (picks: readonly (Side | undefined)[]): picks is readonly Side[] => picks.every((pick) => pick !== undefined)
 
 /**
  * A conflict laid out for a person: every stretch this device and another
  * rewrote differently, side by side, one of the two to be taken for each.
  * Nothing is kept until every stretch has a side; what both changed
- * elsewhere comes together either way.
+ * elsewhere comes together either way. Where another device sent more
+ * meanwhile, the conflict is looked at again rather than the press failing
+ * the same way each time.
  */
-export function ConflictPanel(props: { readonly conflict: Conflict; readonly onSettled: () => void }): JSX.Element {
+export function ConflictPanel(props: { readonly conflict: Conflict; readonly onSettled: () => void; readonly onMoved: () => void }): JSX.Element {
   const app = useApp()
   const nudge = createNudge()
   const [picks, setPicks] = createSignal<Readonly<Record<string, readonly (Side | undefined)[]>>>({})
@@ -103,6 +108,12 @@ export function ConflictPanel(props: { readonly conflict: Conflict; readonly onS
     }
     setSettling({ type: "settling" })
     const done = await settleConflict(app.services.sync, props.conflict, Object.fromEntries(complete))
+    if (!done.ok && isMoved(done.error)) {
+      setSettling({ type: "choosing" })
+      toast({ title: CONFLICT_MOVED })
+      props.onMoved()
+      return
+    }
     setSettling(done.ok ? { type: "choosing" } : { type: "failed", error: done.error })
     if (!done.ok) return
     toast({ title: "食い違いを解決しました", description: "選んだ内容を、ほかの端末にも送ります。" })
@@ -117,8 +128,8 @@ export function ConflictPanel(props: { readonly conflict: Conflict; readonly onS
       </p>
       <For each={props.conflict.files}>{(file) => <FileChoices file={file} picks={picksOf(file)} nudged={nudge.red()} onPick={(index, side) => pick(file, index, side)} />}</For>
       <div>
-        <Button size="small" onClick={() => void settle()}>
-          この内容で解決する
+        <Button size="small" onClick={() => void settle()} aria-busy={settling().type === "settling"}>
+          {settling().type === "settling" ? "解決しています…" : "この内容で解決する"}
         </Button>
       </div>
       <Show when={settling()} keyed>

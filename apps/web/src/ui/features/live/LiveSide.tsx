@@ -4,7 +4,7 @@ import { SidePanel } from "solid-gathering-shell"
 import type { Outcome } from "../../../application/errors"
 import { abandonPlay, loadTodaysPlays } from "../../../application/live-play"
 import { loadFollowedToday } from "../../../application/play-line"
-import { destinationsOf, sendDraft } from "../../../application/sending"
+import { destinationsOf } from "../../../application/sending"
 import { shownNameOf, type MachineNames } from "../../../core/catalog/catalog"
 import { afterItFinished, isLeftOver, isSentAsItStands, parlorOf, type PlayDraft } from "../../../core/live-play/draft"
 import type { IsoDate } from "../../../core/calendar/calendar"
@@ -28,11 +28,11 @@ import { parlorText } from "../../wording/parlor"
 import { HUDDLE_GIVEN_UP, HUDDLE_HEADING, HUDDLE_JOINED } from "../../wording/huddle"
 import { HuddleDialog } from "../huddle/HuddleDialog"
 import { captionOf } from "./play-caption"
-import { sendingPortsOf } from "./sending-ports"
 import { cabinetText } from "../../wording/cabinet"
 import { seal } from "../../../mummer"
 import { memberNameText, titleText } from "../../wording/book"
-import { FOLLOWED_CHIP, RECORDED_MARK } from "../../wording/play-line"
+import { FOLLOWED_CHIP, FOLLOWED_UNHEARD_MARK, RECORDED_MARK } from "../../wording/play-line"
+import { SENDING } from "../../wording/sync"
 
 const openPlay = (place: Place): string | undefined =>
   place.kind === "live-play" || place.kind === "live-record" || place.kind === "live-cabinet" ? place.playId : undefined
@@ -60,6 +60,8 @@ function DraftRow(props: {
   readonly selected: boolean
   readonly onSelect: () => void
   readonly onAbandon: () => void
+  /** Whether the play is on its way now: its plane is still until the answer comes. */
+  readonly sending: boolean
   readonly onSend: () => void
 }): JSX.Element {
   const app = useApp()
@@ -95,8 +97,14 @@ function DraftRow(props: {
         </Show>
       </button>
       <Show when={sendable()}>
-        <button type="button" onClick={() => props.onSend()} class="absolute bottom-1 right-1 flex size-7 items-center justify-center rounded text-text-secondary hover:bg-surface-0 hover:text-text-primary [&_svg]:size-4">
-          <SendIcon label="この稼働を送る" />
+        <button
+          type="button"
+          onClick={() => props.onSend()}
+          aria-busy={props.sending}
+          class="absolute bottom-1 right-1 flex size-7 items-center justify-center rounded text-text-secondary hover:bg-surface-0 hover:text-text-primary [&_svg]:size-4"
+          classList={{ "animate-pulse opacity-50": props.sending }}
+        >
+          <SendIcon label={props.sending ? SENDING : "この稼働を送る"} />
         </button>
       </Show>
       <button
@@ -116,11 +124,12 @@ function DraftRow(props: {
  * One of the day's plays another of the owner's devices holds: pressed, it
  * opens, to be watched there; held, nothing — it is not this device's to
  * give up — and it has no paper plane, being not this device's to send.
- * It says, beside its place and time, that it is measured elsewhere.
+ * It says, beside its place and time, that it is measured elsewhere, and
+ * that it is not up to date while this device cannot read its line.
  */
 function FollowedRow(props: { readonly followed: Followed; readonly selected: boolean; readonly onSelect: () => void }): JSX.Element {
   const app = useApp()
-  const marks = (): readonly string[] => [FOLLOWED_CHIP, ...(props.followed.play.recorded === undefined ? [] : [RECORDED_MARK])]
+  const marks = (): readonly string[] => [FOLLOWED_CHIP, ...(props.followed.play.recorded === undefined ? [] : [RECORDED_MARK]), ...(app.playLine.heard().type === "unreached" ? [FOLLOWED_UNHEARD_MARK] : [])]
   return (
     <li>
       <button
@@ -205,17 +214,13 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
     app.played()
     if (openPlay(props.place) === draft.id) moves.go({ kind: "live" })
   }
+  const sendingNow = app.sending
   const sendTo = async (draft: PlayDraft, destination: Destination): Promise<void> => {
     setChoosing(undefined)
-    const sent = await sendDraft(sendingPortsOf(app.services), draft, destination)
-    if (!sent.ok) {
-      toast({ title: "送れませんでした", description: describeError(sent.error), tone: "error" })
-      return
-    }
-    toast({ title: "送りました", description: titleText(destination.title) })
-    app.played()
+    await sendingNow.send(draft, destination)
   }
   const send = (draft: PlayDraft): void => {
+    if (sendingNow.busy(draft.id)) return
     const [only, ...others] = sendingTo()
     if (only !== undefined && others.length === 0) void sendTo(draft, only)
     else setChoosing(draft)
@@ -281,6 +286,7 @@ export function LiveSide(props: { readonly place: Place }): JSX.Element {
                         selected={openPlay(props.place) === row.draft.id}
                         onSelect={() => moves.go({ kind: "live-play", playId: row.draft.id })}
                         onAbandon={() => setAbandoning(row.draft)}
+                        sending={sendingNow.busy(row.draft.id)}
                         onSend={() => send(row.draft)}
                       />
                     ) : (

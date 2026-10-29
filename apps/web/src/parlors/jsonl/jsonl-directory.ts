@@ -148,9 +148,18 @@ const versionOf = (versions: readonly (string | undefined)[]): string | undefine
 /** Why the list could not be read: the parlors' own failure first, a list not published, or the rejections' failure. */
 const failureOf = (parlors: Fetched, rejections: Fetched): DirectoryError => {
   if (!parlors.ok) return parlors.error
-  if (parlors.value === undefined) return { type: "unavailable", detail: "parlors.jsonl is not published" }
-  return rejections.ok ? { type: "unavailable", detail: "the list could not be read" } : rejections.error
+  if (parlors.value === undefined) return { type: "unpublished" }
+  return rejections.ok ? { type: "unreadable-answer" } : rejections.error
 }
+
+/** Statuses a gateway or a hall's network answers with in the list's place, when it could not reach it or wants a login first: as good as no connection. */
+const IN_ITS_PLACE: ReadonlySet<number> = new Set([408, 502, 504, 511, 520, 521, 522, 523, 524, 525, 526, 527, 530])
+
+const refusalOf = (file: string, status: number): DirectoryError =>
+  IN_ITS_PLACE.has(status) || status < 500 ? { type: "unreachable", detail: `${file} answered ${String(status)}` } : { type: "server-trouble", status }
+
+/** Whether text that came as a file of the list holds none of it while it holds something: a page a hall's network or a gateway put in its place, which must never take the copy kept. */
+const isNotTheList = (text: string, parlors: readonly SharedParlor[]): boolean => parlors.length === 0 && text.trim() !== ""
 
 /**
  * The parlor list, read from where it is published: the parlors placed on
@@ -164,7 +173,10 @@ const failureOf = (parlors: Fetched, rejections: Fetched): DirectoryError => {
  * `freshFor`: only its files' versions are asked for, a few hundred bytes,
  * and the files themselves are read, and the copy replaced, only where a
  * version has moved. What that brings is listed from the next asking on.
- * Only a device with no copy waits for the network. Everyone reads the
+ * Only a device with no copy waits for the network. A file of the list
+ * that answers with something holding no parlor at all — a hall's login
+ * page, a gateway's error — is not the list, and never takes the place of
+ * the copy. Everyone reads the
  * same files, so which submission a device waits on stays on the device.
  */
 export const createJsonlDirectory = (ports: JsonlDirectoryPorts): ParlorDirectory => {
@@ -178,10 +190,10 @@ export const createJsonlDirectory = (ports: JsonlDirectoryPorts): ParlorDirector
     try {
       const response = await ports.request(`${ports.base}${file}`, { method, signal: AbortSignal.timeout(ports.answerWithin) })
       if (response.status === 404) return Ok(undefined)
-      if (!response.ok) return Err({ type: "unavailable", detail: `${file} answered ${String(response.status)}` })
+      if (!response.ok) return Err(refusalOf(file, response.status))
       return Ok({ text: method === "HEAD" ? "" : await response.text(), version: response.headers.get("ETag") ?? undefined })
     } catch (cause) {
-      return Err({ type: "unavailable", detail: String(cause) })
+      return Err({ type: "unreachable", detail: String(cause) })
     }
   }
 
@@ -194,11 +206,13 @@ export const createJsonlDirectory = (ports: JsonlDirectoryPorts): ParlorDirector
   const read = async (): Promise<Result<ParlorList, DirectoryError>> => {
     const [parlors, unplaced, rejections] = await Promise.all([asked(FILES[0], "GET"), asked(FILES[1], "GET"), asked(FILES[2], "GET")])
     if (!parlors.ok || parlors.value === undefined || !rejections.ok) return Err(failureOf(parlors, rejections))
+    if (isNotTheList(parlors.value.text, parlorsOfJsonl(parlors.value.text))) return Err({ type: "unreadable-answer" })
     const lines = `${parlors.value.text}\n${unplaced.ok ? (unplaced.value?.text ?? "") : ""}`
     const list: ParlorList = { parlors: parlorsOfJsonl(lines), rejections: rejectionsOfJsonl(rejections.value?.text ?? "") }
     const version = versionsOf([parlors, unplaced, rejections])
-    await ports.cache.replace({ list, version })
-    held.kept = { list: { ...list, parlors: inDirectoryOrder(list.parlors) }, version }
+    const readAt = new Date(ports.now()).toISOString()
+    await ports.cache.replace({ list, version, readAt })
+    held.kept = { list: { ...list, parlors: inDirectoryOrder(list.parlors) }, version, readAt }
     held.lookedAt = ports.now()
     return Ok(held.kept.list)
   }
@@ -210,6 +224,9 @@ export const createJsonlDirectory = (ports: JsonlDirectoryPorts): ParlorDirector
     const version = await versionNow()
     if (version !== copy.version) return read()
     held.lookedAt = ports.now()
+    const readAt = new Date(held.lookedAt).toISOString()
+    held.kept = { ...copy, readAt }
+    await ports.cache.confirm(readAt)
     return Ok(copy.list)
   }
 
@@ -225,7 +242,7 @@ export const createJsonlDirectory = (ports: JsonlDirectoryPorts): ParlorDirector
     if (held.kept !== undefined) return held.kept
     const stored = await ports.cache.read()
     if (!stored.ok || stored.value.list.parlors.length === 0) return undefined
-    held.kept = { list: { ...stored.value.list, parlors: inDirectoryOrder(stored.value.list.parlors) }, version: stored.value.version }
+    held.kept = { list: { ...stored.value.list, parlors: inDirectoryOrder(stored.value.list.parlors) }, version: stored.value.version, readAt: stored.value.readAt }
     return held.kept
   }
 
@@ -238,5 +255,7 @@ export const createJsonlDirectory = (ports: JsonlDirectoryPorts): ParlorDirector
     return Ok(copy.list)
   }
 
-  return { list }
+  const readAt: ParlorDirectory["readAt"] = async () => (await kept())?.readAt
+
+  return { list, readAt }
 }

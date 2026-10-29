@@ -54,6 +54,27 @@ export const withoutTallyEntry = (text: string, id: PlayId): string | undefined 
 const playIdOf = (header: string): PlayId | undefined =>
   ((id) => (id === undefined || id === "" ? undefined : (id as PlayId)))(/^\d/.test(header) ? tagsOf(header).find(([name]) => name === TALLY_TAGS.playId)?.[1] : undefined)
 
+/** An entry as it was written, and as it is to be written instead. */
+export interface Rewrite {
+  readonly was: string
+  readonly now: string
+}
+
+/**
+ * A journal's text with tallies' entries written anew, each where it
+ * stands and only where it still reads exactly as it was written — an
+ * entry changed since is left as it is — and the tallies so rewritten.
+ * The text is gone over once, however many there are.
+ */
+export const withTallyEntriesRewritten = (text: string, rewrites: ReadonlyMap<PlayId, Rewrite>): { readonly text: string; readonly rewritten: readonly PlayId[] } => {
+  const entries = text.split(/\n(?![ \t])/).map((entry) => {
+    const id = playIdOf(entry.slice(0, ((end) => (end === -1 ? entry.length : end))(entry.indexOf("\n"))))
+    const rewrite = id === undefined ? undefined : rewrites.get(id)
+    return rewrite !== undefined && entry === rewrite.was.replace(/\n+$/, "") ? { text: rewrite.now.replace(/\n+$/, ""), rewritten: id } : { text: entry, rewritten: undefined }
+  })
+  return { text: entries.map((entry) => entry.text).join("\n"), rewritten: entries.flatMap((entry) => (entry.rewritten === undefined ? [] : [entry.rewritten])) }
+}
+
 /** A line of comment under an entry that is a note a person wrote: one with a colon in it is tags, which a note never holds. */
 const noteIn = (line: string): string | undefined => ((comment) => (comment.startsWith(";") && !comment.includes(":") ? comment.slice(1).trim() : undefined))(line.trim())
 

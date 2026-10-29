@@ -1,60 +1,177 @@
-import { createResource, createSignal, For, Show, type JSX } from "solid-js"
+import { createMemo, createResource, createSignal, For, onCleanup, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import type { ApplicationError, Outcome } from "../../../application/errors"
-import { exportForPrecord, exportTallyTable, exportSingleJournal, exportTogether } from "../../../application/export"
+import { handOver, makeForPrecord, makeSingleJournal, makeTallyTable, makeTogether, type ExportPorts, type ExportReport, type ExportWatch, type Made } from "../../../application/export"
+import type { HandedFile } from "../../../backup/port/handover"
 import type { BookId, ListedBook } from "../../../core/book/book"
+import { Ok } from "../../../core/result/result"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import { createNudge, redText } from "../../primitives/nudge"
 import { Loaded } from "../../primitives/states"
+import { createWait } from "../../primitives/wait"
 import { useMoves } from "../../navigation/moves"
 import { pathOf, type Place } from "../../navigation/place"
 import { bookTitle } from "../../wording/book"
 import { describeError } from "../../wording/errors"
+import { EXPORT_BEGUN, EXPORT_BROKEN, EXPORT_HANDING, EXPORT_READY, EXPORT_SAVE, EXPORT_STOP, exportReportText } from "../../wording/export"
 import { ViewHeader } from "../shell/ViewHeader"
 
 /** Where a book whole is kept and put back: the backup's section of the settings. */
 const BACKUP: Place = { kind: "settings-section", section: "backup" }
 
-/** Where a writing out is: not asked for, being made, or failed with why. */
-type Working = { readonly type: "idle" } | { readonly type: "working" } | { readonly type: "failed"; readonly error: ApplicationError }
+/**
+ * Where a writing out is: not asked for; being made, with how far it has
+ * got where it has said, and the stopping of it; made too long after its
+ * press to hand over without another, waiting for 保存; being handed over;
+ * failed with why; or broken off with nothing said of why.
+ */
+type Working =
+  | { readonly type: "idle" }
+  | { readonly type: "making"; readonly report: ExportReport | undefined; readonly stop: () => void }
+  | { readonly type: "ready"; readonly file: HandedFile }
+  | { readonly type: "handing" }
+  | { readonly type: "failed"; readonly error: ApplicationError }
+  | { readonly type: "broken" }
+
+const IDLE: Working = { type: "idle" }
 
 /** A file the person was asked where to put, and closed the question on: their answer, and nothing to report. */
 const declined = (error: ApplicationError): boolean => error.type === "handover" && error.failure.type === "handover-cancelled"
 
-/** A writing out and where it is, for a row or for the books together: one at a time, a declined one no failure. */
-const createWriting = (): { readonly working: () => Working; readonly write: (made: () => Promise<Outcome<void>>) => Promise<void> } => {
-  const [working, setWorking] = createSignal<Working>({ type: "idle" })
+/** A writing out and where it is: one at a time, stopped by the person or by the screen being left, a file made late handed over on a press of its own, and never left busy whatever befalls it. */
+interface Writing {
+  readonly working: () => Working
+  readonly write: (made: (watch: ExportWatch) => Promise<Outcome<Made>>) => Promise<void>
+  readonly save: () => Promise<void>
+  readonly stop: () => void
+}
+
+const createWriting = (ports: ExportPorts): Writing => {
+  const [working, setWorking] = createSignal<Working>(IDLE)
+  const settled = (written: Outcome<void>): void => {
+    setWorking(written.ok || declined(written.error) ? IDLE : { type: "failed", error: written.error })
+  }
+  const give = async (file: HandedFile): Promise<void> => {
+    setWorking({ type: "handing" })
+    try {
+      settled(await handOver(ports, file))
+    } catch {
+      setWorking({ type: "broken" })
+    }
+  }
+  const stop = (): void => {
+    const current = working()
+    if (current.type === "making") current.stop()
+  }
   return {
     working,
+    stop,
+    save: async () => {
+      const current = working()
+      if (current.type === "ready") await give(current.file)
+    },
     write: async (made) => {
-      if (working().type === "working") return
-      setWorking({ type: "working" })
-      const written = await made()
-      setWorking(written.ok || declined(written.error) ? { type: "idle" } : { type: "failed", error: written.error })
+      if (working().type === "making" || working().type === "handing") return
+      const stopping = new AbortController()
+      const halt = (): void => {
+        stopping.abort()
+        setWorking(IDLE)
+      }
+      setWorking({ type: "making", report: undefined, stop: halt })
+      try {
+        const outcome = await made({ stopped: stopping.signal, onReport: (report) => (stopping.signal.aborted ? undefined : setWorking({ type: "making", report, stop: halt })) })
+        if (stopping.signal.aborted) return
+        if (!outcome.ok) return settled(outcome)
+        if (outcome.value.type === "stopped") return settled(Ok(undefined))
+        if (ports.handover.givesNow()) return give(outcome.value.file)
+        setWorking({ type: "ready", file: outcome.value.file })
+      } catch {
+        if (!stopping.signal.aborted) setWorking({ type: "broken" })
+      }
     },
   }
 }
 
-/** 書き出し中… while a file is being made, its room kept when none is, so nothing beside it moves as it comes and goes. */
-function WritingNote(props: { readonly working: Working }): JSX.Element {
-  return (
-    <span class="shrink-0 text-xs text-text-muted" classList={{ invisible: props.working.type !== "working" }} role="status">
-      書き出し中…
-    </span>
-  )
+/**
+ * Each book's writing out, and the books' together, kept by the screen and
+ * not by their rows: the list of books is read again whenever a book
+ * changes, and a row made anew must still find its writing where it was.
+ * Leaving the screen stops whatever is being made.
+ */
+const createWritings = (ports: ExportPorts): ((key: BookId | "together") => Writing) => {
+  const held = new Map<BookId | "together", Writing>()
+  onCleanup(() => held.forEach((writing) => writing.stop()))
+  return (key) => {
+    const found = held.get(key)
+    if (found !== undefined) return found
+    const made = createWriting(ports)
+    held.set(key, made)
+    return made
+  }
 }
 
-function Failure(props: { readonly working: Working }): JSX.Element {
+/** What is said of a file while it is being made, waits for 保存 or is being handed over; nothing otherwise. */
+const progressText = (working: Working): string | undefined => {
+  switch (working.type) {
+    case "making":
+      return working.report === undefined ? EXPORT_BEGUN : exportReportText(working.report)
+    case "ready":
+      return EXPORT_READY
+    case "handing":
+      return EXPORT_HANDING
+    case "idle":
+    case "failed":
+    case "broken":
+      return undefined
+  }
+}
+
+/** A file being made or handed over: what nobody is asked to do anything about. */
+const isBusy = (working: Working): boolean => working.type === "making" || working.type === "handing"
+
+/**
+ * Under a line, where its file stands while it is anything but idle: how
+ * far it has got and 中止, or 保存 for a file made late; why it failed, or
+ * that it broke off. The buttons stay put as the words beside them change,
+ * so a press is never lost to a report. A file made within the wait's
+ * quiet never shows it was made at all, and one that shows it is being
+ * made says so long enough to be read, with the last it said; 保存 waits
+ * on a press, so it shows at once.
+ */
+function WritingLine(props: { readonly writing: Writing }): JSX.Element {
+  const working = (): Working => props.writing.working()
+  const wait = createWait(() => isBusy(working()))
+  const lastBusy = createMemo<Working>((before) => (isBusy(working()) ? working() : before), IDLE)
+  const shown = (): Working => (working().type === "ready" ? working() : wait().type === "shown" ? lastBusy() : IDLE)
   return (
-    <Show when={props.working.type === "failed" && props.working} keyed>
-      {(failed) => (
-        <p role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-text-primary">
-          {describeError(failed.error)}
-        </p>
-      )}
-    </Show>
+    <>
+      <Show when={progressText(shown()) !== undefined}>
+        <div class="flex items-center justify-end gap-2">
+          <span class="min-w-0 text-xs text-text-muted" role="status">
+            {progressText(shown())}
+          </span>
+          <Show when={shown().type === "making"}>
+            <Button variant="outline" size="small" class="shrink-0" onClick={() => props.writing.stop()}>
+              {EXPORT_STOP}
+            </Button>
+          </Show>
+          <Show when={shown().type === "ready"}>
+            <Button size="small" class="shrink-0" onClick={() => void props.writing.save()}>
+              {EXPORT_SAVE}
+            </Button>
+          </Show>
+        </div>
+      </Show>
+      <Show when={((current) => (current.type === "failed" ? describeError(current.error) : current.type === "broken" ? EXPORT_BROKEN : undefined))(working())} keyed>
+        {(said) => (
+          <p role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-text-primary">
+            {said}
+          </p>
+        )}
+      </Show>
+    </>
   )
 }
 
@@ -66,9 +183,9 @@ function Failure(props: { readonly working: Working }): JSX.Element {
  * too narrow to leave the title room, as on a phone, the buttons go under
  * it to the right, together.
  */
-function BookRow(props: { readonly book: ListedBook; readonly ticked: boolean; readonly onTick: (ticked: boolean) => void }): JSX.Element {
+function BookRow(props: { readonly book: ListedBook; readonly writing: Writing; readonly ticked: boolean; readonly onTick: (ticked: boolean) => void }): JSX.Element {
   const app = useApp()
-  const writing = createWriting()
+  const writing = props.writing
   return (
     <li class="flex flex-col gap-2 rounded-md bg-surface-1 py-2 pl-3 pr-2">
       <div class="flex flex-wrap items-center justify-end gap-2">
@@ -83,19 +200,18 @@ function BookRow(props: { readonly book: ListedBook; readonly ticked: boolean; r
           <span class="min-w-0 flex-1 break-words text-sm font-medium text-text-primary">{bookTitle(props.book)}</span>
         </label>
         <div class="flex shrink-0 items-center gap-2">
-          <WritingNote working={writing.working()} />
-          <Button variant="outline" size="small" class="shrink-0" onClick={() => void writing.write(() => exportSingleJournal(app.services.export, props.book.id))}>
+          <Button variant="outline" size="small" class="shrink-0" onClick={() => void writing.write((watch) => makeSingleJournal(app.services.export, props.book.id, watch))}>
             journal
           </Button>
-          <Button variant="outline" size="small" class="shrink-0" onClick={() => void writing.write(() => exportTallyTable(app.services.export, props.book.id))}>
+          <Button variant="outline" size="small" class="shrink-0" onClick={() => void writing.write((watch) => makeTallyTable(app.services.export, props.book.id, watch))}>
             CSV
           </Button>
-          <Button variant="outline" size="small" class="shrink-0" onClick={() => void writing.write(() => exportForPrecord(app.services.export, props.book.id))}>
+          <Button variant="outline" size="small" class="shrink-0" onClick={() => void writing.write((watch) => makeForPrecord(app.services.export, props.book.id, watch))}>
             pRecord
           </Button>
         </div>
       </div>
-      <Failure working={writing.working()} />
+      <WritingLine writing={writing} />
     </li>
   )
 }
@@ -107,9 +223,9 @@ function BookRow(props: { readonly book: ListedBook; readonly ticked: boolean; r
  * ticks or unticks them all. A press for the zip with none ticked makes
  * nothing, and turns the count red for a while.
  */
-function Books(props: { readonly books: readonly ListedBook[] }): JSX.Element {
+function Books(props: { readonly books: readonly ListedBook[]; readonly writingOf: (key: BookId | "together") => Writing }): JSX.Element {
   const app = useApp()
-  const together = createWriting()
+  const together = props.writingOf("together")
   /** The books unticked: kept as those left out, so a book that appears later is ticked like the rest. */
   const [leftOut, setLeftOut] = createSignal<readonly BookId[]>([])
   const ticked = (): readonly BookId[] => props.books.map((book) => book.id).filter((id) => !leftOut().includes(id))
@@ -123,7 +239,8 @@ function Books(props: { readonly books: readonly ListedBook[] }): JSX.Element {
       nudge.nudge()
       return
     }
-    void together.write(() => exportTogether(app.services.export, ticked()))
+    const chosen = ticked()
+    void together.write((watch) => makeTogether(app.services.export, chosen, watch))
   }
   return (
     <section class="flex flex-col gap-2">
@@ -140,14 +257,15 @@ function Books(props: { readonly books: readonly ListedBook[] }): JSX.Element {
             帳簿（{ticked().length}/{props.books.length}）
           </span>
         </label>
-        <WritingNote working={together.working()} />
         <Button variant="outline" size="small" class="shrink-0" onClick={zip}>
           まとめて zip
         </Button>
       </div>
-      <Failure working={together.working()} />
+      <div class="pr-2">
+        <WritingLine writing={together} />
+      </div>
       <ul class="flex flex-col gap-1">
-        <For each={props.books}>{(book) => <BookRow book={book} ticked={!leftOut().includes(book.id)} onTick={(on) => tick(book.id, on)} />}</For>
+        <For each={props.books}>{(book) => <BookRow book={book} writing={props.writingOf(book.id)} ticked={!leftOut().includes(book.id)} onTick={(on) => tick(book.id, on)} />}</For>
       </ul>
     </section>
   )
@@ -165,6 +283,7 @@ export function ExportSettings(props: { readonly place: Place }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   const [books] = createResource(() => app.revision(), () => app.services.session.books())
+  const writingOf = createWritings(app.services.export)
   return (
     <MainContent header={<ViewHeader place={props.place} title="エクスポート" />}>
       <div class="max-w-5xl">
@@ -179,7 +298,7 @@ export function ExportSettings(props: { readonly place: Place }): JSX.Element {
             <dt class="font-medium text-text-secondary">zip</dt>
             <dd>選んだ帳簿の journal と CSV をひとつにまとめます。</dd>
           </dl>
-          <Loaded outcome={books()}>{(found) => <Books books={found} />}</Loaded>
+          <Loaded outcome={books()}>{(found) => <Books books={found} writingOf={writingOf} />}</Loaded>
           <p class="text-xs text-text-muted">
             帳簿をまるごと保存・復元するなら
             <a

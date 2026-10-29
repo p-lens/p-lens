@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import type { JSX } from "solid-js"
 
-import { isWholeShown, seal, Secret, turnMumming, veil } from "../../src/mummer"
+import { isWholeShown, seal, Secret, startMumming, stopMumming, veil } from "../../src/mummer"
 
-afterEach(() => turnMumming(false))
+afterEach(() => stopMumming("2026-10-29"))
 
 const figureOf = (secret: Secret<"savings" | "tally" | "play", number>): string => veil.figure(secret, (value) => String(value), "•")
 const toneOf = (secret: Secret<"savings" | "tally" | "play", number>): string => veil.tone(secret, (value) => (value < 0 ? "negative" : "positive"), "neutral")
@@ -20,7 +20,7 @@ describe("veil", () => {
   })
 
   test("while mumming, shows each facet as the policy says: a play whole, a tally's way only, savings nothing", () => {
-    turnMumming(true)
+    startMumming("2026-10-29")
     expect([seal.savings(-30), seal.tally(-30), seal.play(-30)].map((secret) => [figureOf(secret), toneOf(secret), scaleOf(secret)])).toEqual([
       ["•", "neutral", 1],
       ["•", "negative", 1],
@@ -29,7 +29,7 @@ describe("veil", () => {
   })
 
   test("while mumming, veils a parlor's name and a cabinet's number, and lets a name's length be known", () => {
-    turnMumming(true)
+    startMumming("2026-10-29")
     expect(veil.text(seal.parlor("東京皇国 第8支店"), (name) => name, "••••店")).toBe("••••店")
     expect(veil.length(seal.parlor("東京皇国 第8支店"), (name) => name.length, 0)).toBe(9)
     expect(veil.text(seal.cabinet("123"), (number) => number, "•••")).toBe("•••")
@@ -37,7 +37,7 @@ describe("veil", () => {
 
   test("while mumming, withholds whole what no veil can stand over: a book's files, the codes into a book, and the forms its figures are typed into", () => {
     expect((["journal", "invitation", "tally", "savings"] as const).map(isWholeShown)).toEqual([true, true, true, true])
-    turnMumming(true)
+    startMumming("2026-10-29")
     expect((["journal", "invitation", "tally", "savings"] as const).map(isWholeShown)).toEqual([false, false, false, false])
   })
 
@@ -45,13 +45,13 @@ describe("veil", () => {
     const written = "2026-10-20 店 | 機種\n    資産:現金  -1000 JPY\n    費用:遊技"
     const entry = seal.journal(written)
     expect([veil.text(entry, (text) => text, ""), veil.length(entry, (text) => text.split("\n").length, 1)]).toEqual([written, 3])
-    turnMumming(true)
+    startMumming("2026-10-29")
     expect([veil.text(entry, (text) => text, ""), veil.length(entry, (text) => text.split("\n").length, 1)]).toEqual(["", 3])
   })
 
   test("follows mumming as it is turned off again", () => {
-    turnMumming(true)
-    turnMumming(false)
+    startMumming("2026-10-29")
+    stopMumming("2026-10-29")
     expect(figureOf(seal.tally(5))).toBe("5")
   })
 })
@@ -63,7 +63,7 @@ describe("a secret", () => {
   })
 
   test("is worked out without opening, keeping its kind", () => {
-    turnMumming(true)
+    startMumming("2026-10-29")
     const doubled = Secret.map(seal.tally(21), (value) => value * 2)
     const summed = Secret.lift2(seal.play(1), seal.play(2), (first, second) => first + second)
     expect([doubled.kind, summed.kind, figureOf(doubled), figureOf(summed)]).toEqual(["tally", "play", "•", "3"])

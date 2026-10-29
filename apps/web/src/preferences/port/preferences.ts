@@ -1,5 +1,7 @@
+import type { BookId } from "../../core/book/book"
 import type { BusinessDayTurn } from "../../core/calendar/calendar"
 import type { GameKind } from "../../core/catalog/catalog"
+import type { PlayId } from "../../core/play/play"
 import type { StageStep } from "../../core/savings/odd-prize-reckoning"
 
 /**
@@ -37,4 +39,7 @@ export interface Preferences {
   /** How many tokens one box held at each parlor, as last used to count by the box there, as written, or none yet. */
   readonly boxSizes: () => string | undefined
   readonly setBoxSizes: (written: string) => void
+  /** A book's tallies taken in from a file that were weighed here and not written with what they were worth: taking the same file in again leaves them be. */
+  readonly weighedUnwritten: (bookId: BookId) => ReadonlySet<PlayId>
+  readonly addWeighedUnwritten: (bookId: BookId, ids: readonly PlayId[]) => void
 }

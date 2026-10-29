@@ -2,10 +2,10 @@ import { afterEach, describe, expect, test } from "bun:test"
 
 import { decimal } from "../../src/core/decimal/decimal"
 import type { Group } from "../../src/core/report/breakdown"
-import { turnMumming } from "../../src/mummer"
+import { startMumming, stopMumming } from "../../src/mummer"
 import { shownOrder } from "../../src/ui/features/breakdown/shown-order"
 
-afterEach(() => turnMumming(false))
+afterEach(() => stopMumming("2026-10-29"))
 
 const group = (key: string, actual: bigint): Group => ({ key, actual: decimal(actual, 0), theoretical: decimal(0n, 0), inferred: decimal(0n, 0), seconds: decimal(0n, 0) })
 
@@ -17,7 +17,7 @@ describe("groups as a list shows them", () => {
   })
 
   test("while mumming, tell nothing of how they stand: by key alone", () => {
-    turnMumming(true)
+    startMumming("2026-10-29")
     expect(shownOrder(GROUPS, "parlor").map((each) => each.key)).toEqual(["アクア", "ピエロット", "森物語", "流星"])
   })
 

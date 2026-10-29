@@ -10,6 +10,14 @@ const fromStorage = <T>(result: Result<T, StorageError>): Result<T, CacheError> 
 /** The one record the list is kept as, whole: replaced each time the list is read. */
 const LIST_KEY = "list"
 
+/** The record beside it of when the list was last read or found the same as the published one: a few bytes written where the list is not. */
+const READ_AT_KEY = "read-at"
+
+interface ReadAtRecord {
+  readonly id: typeof READ_AT_KEY
+  readonly at: string
+}
+
 interface ListRecord extends ParlorList {
   readonly id: typeof LIST_KEY
   /** The published list's version this copy was read from; absent from a copy kept before versions were. */
@@ -34,24 +42,38 @@ const isListRecord = (value: unknown): value is ListRecord =>
   value["rejections"].every(isFields) &&
   (value["version"] === undefined || typeof value["version"] === "string")
 
+const readAtOf = (value: unknown): string | undefined => (isFields(value) && typeof value["at"] === "string" ? value["at"] : undefined)
+
 /** The parlor list as last read, in IndexedDB. A device that never read one has an empty list. */
 export const createIndexedDbParlorCache = (database: Connection): ParlorCache => {
   const read: ParlorCache["read"] = async () => {
     const db = fromStorage(await database())
     if (!db.ok) return db
-    const found = fromStorage(await resultOf<unknown>(db.value.transaction(SHARED_PARLORS).objectStore(SHARED_PARLORS).get(LIST_KEY)))
-    if (!found.ok) return found
-    if (found.value === undefined) return Ok({ list: EMPTY_PARLOR_LIST, version: undefined })
-    return isListRecord(found.value) ? Ok({ list: { parlors: found.value.parlors, rejections: found.value.rejections }, version: found.value.version }) : Err({ detail: "unreadable" })
+    const store = db.value.transaction(SHARED_PARLORS).objectStore(SHARED_PARLORS)
+    const [found, at] = await Promise.all([resultOf<unknown>(store.get(LIST_KEY)), resultOf<unknown>(store.get(READ_AT_KEY))])
+    const list = fromStorage(found)
+    if (!list.ok) return list
+    const readAt = at.ok ? readAtOf(at.value) : undefined
+    if (list.value === undefined) return Ok({ list: EMPTY_PARLOR_LIST, version: undefined, readAt: undefined })
+    return isListRecord(list.value) ? Ok({ list: { parlors: list.value.parlors, rejections: list.value.rejections }, version: list.value.version, readAt }) : Err({ detail: "unreadable" })
   }
 
-  const replace: ParlorCache["replace"] = async ({ list, version }) => {
+  const replace: ParlorCache["replace"] = async ({ list, version, readAt }) => {
     const db = fromStorage(await database())
     if (!db.ok) return db
     const transaction = db.value.transaction(SHARED_PARLORS, "readwrite")
     transaction.objectStore(SHARED_PARLORS).put({ id: LIST_KEY, parlors: list.parlors, rejections: list.rejections, ...(version === undefined ? {} : { version }) } satisfies ListRecord)
+    if (readAt !== undefined) transaction.objectStore(SHARED_PARLORS).put({ id: READ_AT_KEY, at: readAt } satisfies ReadAtRecord)
     return mapOk(fromStorage(await completionOf(transaction)), () => undefined)
   }
 
-  return { read, replace }
+  const confirm: ParlorCache["confirm"] = async (readAt) => {
+    const db = fromStorage(await database())
+    if (!db.ok) return db
+    const transaction = db.value.transaction(SHARED_PARLORS, "readwrite")
+    transaction.objectStore(SHARED_PARLORS).put({ id: READ_AT_KEY, at: readAt } satisfies ReadAtRecord)
+    return mapOk(fromStorage(await completionOf(transaction)), () => undefined)
+  }
+
+  return { read, replace, confirm }
 }

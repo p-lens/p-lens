@@ -36,7 +36,22 @@ const isRegistered = (value: unknown): value is RegisteredDto => hasTexts(value,
 
 const isCreated = (value: unknown): value is CreatedDto => hasTexts(value, "id")
 
-const isAnything = (_value: unknown): _value is unknown => true
+/** What stands for an answer that is not JSON: a page a hall's network or a gateway put in the catalog's place. */
+const NOT_JSON: unique symbol = Symbol("not JSON")
+
+/** Whether an answer is the catalog's own: none at all, or JSON — never a page put in its place, which would have a mark or a use taken as sent. */
+const isFromCatalog = (value: unknown): value is unknown => value !== NOT_JSON
+
+/** Statuses a gateway or a hall's network answers with in the catalog's place, when it could not reach it or wants a login first: as good as no connection. A bare 503 is left out: the catalog itself answers with it when it gives up on work, and it is told as that (`gave-up`), never as too heavy. */
+const IN_ITS_PLACE: ReadonlySet<number> = new Set([408, 502, 504, 511, 520, 521, 522, 523, 524, 525, 526, 527, 530])
+
+/** What stops waiting on the check that a person is registering, whose script may stall on a weak signal as long as the browser lets it: nothing was sent, so it is no connection, not a request unanswered. */
+const givenUpAfter = (milliseconds: number): Promise<never> =>
+  new Promise((_settle, giveUp) => {
+    setTimeout(() => giveUp(new Error("the human check did not answer in time")), milliseconds)
+  })
+
+const isTimeout = (cause: unknown): boolean => cause instanceof DOMException && (cause.name === "TimeoutError" || cause.name === "AbortError")
 
 /** How a request is sent: read, as this device — a write, or a reading that is the device's own — or registering something new, which also carries the check that a person is doing it. */
 type Sending = "read" | "write" | "register"
@@ -50,24 +65,27 @@ const errorOf = (body: unknown, status: number): Extract<ApiFailure, { type: "an
     ? (body["error"] as Extract<ApiFailure, { type: "answered" }>["error"])
     : { type: "unexpected", status }
 
-const jsonOf = async (response: Response): Promise<unknown> => {
+const parsed = (text: string): unknown => {
+  if (text === "") return undefined
   try {
-    return await response.json()
+    return JSON.parse(text)
   } catch {
-    return undefined
+    return NOT_JSON
   }
 }
 
 /**
  * The shared catalog reached over HTTP. A hall's network must never leave the
- * app waiting, so every request gives up after a while; a write names this
+ * app waiting, so every request gives up after a while — and one cut short
+ * as its answer was read, or answered by a gateway that could not reach
+ * the catalog, is as if none came; a write names this
  * device in `X-P-Lens-Device`, and registering something new carries the
  * Turnstile token in `X-Turnstile-Token`.
  */
 export const createHttpCatalogApi = (ports: HttpCatalogPorts): CatalogApi => {
   const checked = async (sending: Sending): Promise<Readonly<Record<string, string>>> => {
     if (sending !== "register" || ports.humanCheck === undefined) return {}
-    const token = await ports.humanCheck()
+    const token = await Promise.race([ports.humanCheck(), givenUpAfter(ports.answerWithin)])
     return token === undefined ? {} : { "X-Turnstile-Token": token }
   }
 
@@ -81,11 +99,12 @@ export const createHttpCatalogApi = (ports: HttpCatalogPorts): CatalogApi => {
         signal: AbortSignal.timeout(ports.answerWithin),
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       })
-      const answer = response.status === 204 ? undefined : await jsonOf(response)
+      const answer = response.status === 204 ? undefined : parsed(await response.text())
+      if (!response.ok && IN_ITS_PLACE.has(response.status) && !isJson(answer)) return Err({ type: "unreachable", detail: `answered ${response.status}` })
       if (!response.ok) return Err({ type: "answered", status: response.status, error: errorOf(answer, response.status) })
       return reads(answer) ? Ok(answer) : Err({ type: "unreadable-answer" })
     } catch (cause) {
-      return Err({ type: "unreachable", detail: String(cause) })
+      return Err(isTimeout(cause) ? { type: "timed-out" } : { type: "unreachable", detail: String(cause) })
     }
   }
 
@@ -100,7 +119,7 @@ export const createHttpCatalogApi = (ports: HttpCatalogPorts): CatalogApi => {
     addFormula: (machineId, formula) => asked("POST", `/machines/${encodeURIComponent(machineId)}/formulas`, formula, "register", isCreated),
     addDistribution: (machineId, distribution) => asked("POST", `/machines/${encodeURIComponent(machineId)}/distributions`, distribution, "register", isCreated),
     send: async (request: CatalogRequest) => {
-      const sent = await asked(request.method, request.path, undefined, "write", isAnything, request.as)
+      const sent = await asked(request.method, request.path, undefined, "write", isFromCatalog, request.as)
       return sent.ok ? Ok(undefined) : sent
     },
   }

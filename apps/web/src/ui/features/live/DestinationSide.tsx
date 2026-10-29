@@ -3,7 +3,7 @@ import { SidePanel } from "solid-gathering-shell"
 
 import type { Outcome } from "../../../application/errors"
 import { loadTodaysPlays } from "../../../application/live-play"
-import { forgetDestination, sendDraft } from "../../../application/sending"
+import { forgetDestination } from "../../../application/sending"
 import { shownNameOf } from "../../../core/catalog/catalog"
 import { awaitsSending, deliveryOf, type PlayDraft } from "../../../core/live-play/draft"
 import type { Destination } from "../../../sync/port/destination-store"
@@ -17,9 +17,8 @@ import { toast } from "../../primitives/toast"
 import { useMoves } from "../../navigation/moves"
 import { businessDayNote } from "../../wording/dates"
 import { describeError } from "../../wording/errors"
-import { deliveryText } from "../../wording/sync"
+import { DESTINATION_KEPT, deliveryText, SENDING } from "../../wording/sync"
 import { captionOf } from "./play-caption"
-import { sendingPortsOf } from "./sending-ports"
 import { titleText } from "../../wording/book"
 
 /**
@@ -27,7 +26,7 @@ import { titleText } from "../../wording/book"
  * and where it is, whether it has gone there, and — where it waits to — the
  * paper plane that sends it.
  */
-function DeliveryRow(props: { readonly draft: PlayDraft; readonly lineId: string; readonly onSend: () => void }): JSX.Element {
+function DeliveryRow(props: { readonly draft: PlayDraft; readonly lineId: string; readonly sending: boolean; readonly onSend: () => void }): JSX.Element {
   const app = useApp()
   return (
     <li class="flex items-center gap-1 rounded px-2 py-1.5">
@@ -39,8 +38,14 @@ function DeliveryRow(props: { readonly draft: PlayDraft; readonly lineId: string
         </span>
       </div>
       <Show when={awaitsSending(props.draft, props.lineId)}>
-        <button type="button" onClick={() => props.onSend()} class="flex size-7 shrink-0 items-center justify-center rounded text-text-secondary hover:bg-surface-3 hover:text-text-primary [&_svg]:size-4">
-          <SendIcon label="この稼働を送る" />
+        <button
+          type="button"
+          onClick={() => props.onSend()}
+          aria-busy={props.sending}
+          class="flex size-7 shrink-0 items-center justify-center rounded text-text-secondary hover:bg-surface-3 hover:text-text-primary [&_svg]:size-4"
+          classList={{ "animate-pulse opacity-50": props.sending }}
+        >
+          <SendIcon label={props.sending ? SENDING : "この稼働を送る"} />
         </button>
       </Show>
     </li>
@@ -67,20 +72,12 @@ function Outbox(props: { readonly destination: Destination }): JSX.Element {
   }
   /** Whether the person is being asked if the book is to be let go of. */
   const [forgetting, setForgetting] = createSignal(false)
-  const sendOne = async (draft: PlayDraft): Promise<void> => {
-    const sent = await sendDraft(sendingPortsOf(app.services), draft, props.destination)
-    if (!sent.ok) {
-      toast({ title: "送れませんでした", description: describeError(sent.error), tone: "error" })
-      return
-    }
-    toast({ title: "送りました", description: titleText(props.destination.title) })
-    app.played()
-  }
+  const sendingNow = app.sending
   const forget = async (): Promise<void> => {
     setForgetting(false)
     const gone = await forgetDestination(app.services.destinations, props.destination)
     if (!gone.ok) {
-      toast({ title: "送り先から外せませんでした", description: describeError(gone.error), tone: "error" })
+      toast({ title: DESTINATION_KEPT, description: describeError(gone.error), tone: "error" })
       return
     }
     app.played()
@@ -104,7 +101,7 @@ function Outbox(props: { readonly destination: Destination }): JSX.Element {
               </div>
               <Show when={own(found).length > 0} fallback={<p class="px-2 py-1.5 text-sm text-text-muted">本日の稼働はありません。</p>}>
                 <ul class="flex flex-col gap-0.5">
-                  <For each={own(found)}>{(draft) => <DeliveryRow draft={draft} lineId={props.destination.lineId} onSend={() => void sendOne(draft)} />}</For>
+                  <For each={own(found)}>{(draft) => <DeliveryRow draft={draft} lineId={props.destination.lineId} sending={sendingNow.busy(draft.id)} onSend={() => void sendingNow.send(draft, props.destination)} />}</For>
                 </ul>
               </Show>
             </>

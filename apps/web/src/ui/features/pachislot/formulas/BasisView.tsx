@@ -15,6 +15,7 @@ import { ViewHeader } from "../../shell/ViewHeader"
 import { trailTo } from "./trail"
 import { useActions } from "./use-actions"
 import { type EntityKindName, manualFormOf, worldFormOf } from "./world-form"
+import { missingUndelivered } from "../../catalog/undelivered"
 
 const KIND_NAMES: Readonly<Record<EntityKindName, string>> = {
   bonus: "ボーナス",
@@ -89,7 +90,7 @@ export function BasisView(props: { readonly place: Place; readonly machineId: st
   return (
     <MainContent header={<ViewHeader place={props.place} title="解析値" trail={trail()} />}>
       <div class="max-w-5xl">
-        <Loaded outcome={detail()}>
+        <Loaded outcome={missingUndelivered(detail(), app.delivery.state())}>
           {(found) => {
             const formula = () => found.listing.formula
             const world = () => worldFormOf(formula().basis.spec)

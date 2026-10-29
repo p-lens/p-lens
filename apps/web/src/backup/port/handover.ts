@@ -21,4 +21,11 @@ export interface HandedFile {
  */
 export interface Handover {
   readonly give: (file: HandedFile) => Promise<Result<void, HandoverFailure>>
+  /**
+   * Whether a file given now reaches the person with no press of its own:
+   * a device that asks where a file goes takes it only on a press, and
+   * a press counts for a moment only, so a file made after it has gone by
+   * waits for another.
+   */
+  readonly givesNow: () => boolean
 }

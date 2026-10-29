@@ -57,6 +57,8 @@ export type ChangeIntent =
     }
   | { readonly type: "play-removed"; readonly playId: PlayId; readonly description: string }
   | { readonly type: "plays-imported"; readonly from: string; readonly count: number }
+  /** Tallies taken in from another app, given afterwards what each was taken to be worth: so many of them. */
+  | { readonly type: "imported-weighed"; readonly from: string; readonly count: number }
   /** A year's entries moved, as they were written, from the transactions not filed by year into that year's file: so many of them. */
   | { readonly type: "year-filed"; readonly year: number; readonly count: number }
   /** A formula or a 設定配分 kept handy in the book, or let go: written in the book's favourites, which is its own record of it. */

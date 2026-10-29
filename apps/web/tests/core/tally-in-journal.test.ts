@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { tallyNotesIn, withoutTallyEntry, withTallyEntry } from "../../src/core/tally/in-journal"
+import { tallyNotesIn, withoutTallyEntry, withTallyEntriesRewritten, withTallyEntry } from "../../src/core/tally/in-journal"
 import type { PlayId } from "../../src/core/play/play"
 
 const ONE = "2026-10-01 一  ; play-id: one, game-kind: pachinko\n    資産:現金  -1000 JPY\n    費用:遊技  1000 JPY\n"
@@ -19,6 +19,14 @@ describe("a tally's entry in a journal's text", () => {
     expect(withTallyEntry(JOURNAL, "three" as PlayId, NEW)).toBe(`; 稼働\n\n${ONE}\n${TWO}\n${NEW}`)
     expect(withTallyEntry(JOURNAL, "tw" as PlayId, NEW)).toBeUndefined()
     expect(withTallyEntry(JOURNAL, "one, game-kind" as PlayId, NEW)).toBeUndefined()
+  })
+
+  test("are written anew several at once, each only where it still reads as it was written", () => {
+    const changed = TWO.replace("2000", "2500")
+    const rewritten = withTallyEntriesRewritten(JOURNAL.replace(TWO, changed), new Map([["one" as PlayId, { was: ONE, now: NEW.replace("two", "one") }], ["two" as PlayId, { was: TWO, now: NEW }], ["three" as PlayId, { was: THREE, now: NEW.replace("two", "three") }]]))
+    expect(rewritten.text).toBe(`; 稼働\n\n${NEW.replace("two", "one")}\n${changed}\n${NEW.replace("two", "three")}`)
+    expect(rewritten.rewritten).toEqual(["one", "three"] as never)
+    expect(withTallyEntriesRewritten(JOURNAL, new Map())).toEqual({ text: JOURNAL, rewritten: [] })
   })
 
   test("is taken out with the blank line that set it apart", () => {

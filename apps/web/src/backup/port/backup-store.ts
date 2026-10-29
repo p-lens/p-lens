@@ -24,6 +24,10 @@ export type StoreFailure =
   | { readonly type: "sign-in-blocked" }
   | { readonly type: "sign-in-declined"; readonly reason: string }
   | { readonly type: "unreachable"; readonly detail: string }
+  /** The store no longer takes the sign-in held: it has run out or been taken back, and the next press asks the person again. */
+  | { readonly type: "signed-out" }
+  /** The store answered that it failed itself, or is asked too often for now: a later try goes through. */
+  | { readonly type: "store-trouble"; readonly status: number }
   | { readonly type: "refused"; readonly status: number; readonly reason: string }
   /** An answer that says it went through and is not what was asked for. */
   | { readonly type: "unreadable-answer" }

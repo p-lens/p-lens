@@ -47,6 +47,9 @@ export const markTarget = async (catalog: Catalog, target: CatalogTarget, mark: 
 
 export const recordUse = async (catalog: Catalog, target: CatalogTarget): Promise<Outcome<void>> => fromCatalog(await catalog.recordUse(target))
 
+/** The formulas and 設定配分 whose marks put on here have not reached the shared catalog yet. */
+export const loadUnsentMarks = async (catalog: Catalog): Promise<Outcome<ReadonlySet<string>>> => fromCatalog(await catalog.unsentMarks())
+
 /** Whatever is waiting sent, and a new delivery taken if the shared catalog has moved on: whether it had. */
 export const refreshCatalog = async (catalog: Catalog): Promise<Outcome<boolean>> => mapOk(fromCatalog(await catalog.refresh()), (done) => done.changed)
 

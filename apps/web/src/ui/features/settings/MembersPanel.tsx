@@ -14,9 +14,11 @@ import { Loaded } from "../../primitives/states"
 import { settleTyping, TextField } from "../../primitives/text-field"
 import { toast } from "../../primitives/toast"
 import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
-import { describeError } from "../../wording/errors"
-import { invitationMessage, roleText } from "../../wording/sync"
+import { invitationMessage, membersFailedText, removeWaitsText, roleText } from "../../wording/sync"
 import { memberNameText } from "../../wording/book"
+
+/** What a press on the panel is doing: nothing, making an invitation, or taking one person out. */
+type Working = { readonly type: "idle" } | { readonly type: "inviting" } | { readonly type: "removing"; readonly id: string }
 
 const isRole = (value: string | null): value is InvitedRole => value === "viewer" || value === "editor" || value === "sender"
 
@@ -37,7 +39,7 @@ const copyCode = async (invitation: KeptInvitation): Promise<void> => {
  * and at the line's end the small buttons that copy their code again and
  * take them back out — the second only after being asked again.
  */
-function Member(props: { readonly invitation: KeptInvitation; readonly onRemove: () => void }): JSX.Element {
+function Member(props: { readonly invitation: KeptInvitation; readonly removing: boolean; readonly onRemove: () => void }): JSX.Element {
   return (
     <li class="flex items-center gap-2 py-1">
       <span class="min-w-0 flex-1 break-words text-sm text-text-primary">{memberNameText(props.invitation.name)}</span>
@@ -45,8 +47,8 @@ function Member(props: { readonly invitation: KeptInvitation; readonly onRemove:
       <Button variant="outline" size="small" class="shrink-0" onClick={() => void copyCode(props.invitation)}>
         コード
       </Button>
-      <Button variant="outline" size="small" class="shrink-0" onClick={() => props.onRemove()}>
-        外す
+      <Button variant="outline" size="small" class="shrink-0" onClick={() => props.onRemove()} aria-busy={props.removing}>
+        {props.removing ? "外しています…" : "外す"}
       </Button>
     </li>
   )
@@ -78,21 +80,22 @@ export function MembersPanel(props: { readonly bookId: BookId; readonly title: s
   )
   const [name, setName] = createSignal("")
   const [role, setRole] = createSignal<InvitedRole>("viewer")
-  const [working, setWorking] = createSignal(false)
+  const [working, setWorking] = createSignal<Working>({ type: "idle" })
   const [failure, setFailure] = createSignal<ApplicationError | undefined>(undefined)
   /** The person the owner asked to take out, until they say yes or no. */
   const [removing, setRemoving] = createSignal<KeptInvitation | undefined>(undefined)
   const nudge = createNudge()
   const add = async (): Promise<void> => {
     settleTyping()
-    if (working()) return
+    if (working().type !== "idle") return
     if (name().trim() === "") {
       nudge.nudge()
       return
     }
-    setWorking(true)
+    setFailure(undefined)
+    setWorking({ type: "inviting" })
     const made = await invite(ports(), props.bookId, props.title, name(), role())
-    setWorking(false)
+    setWorking({ type: "idle" })
     setFailure(made.ok ? undefined : made.error)
     if (!made.ok) return
     setName("")
@@ -101,9 +104,19 @@ export function MembersPanel(props: { readonly bookId: BookId; readonly title: s
   }
   const remove = async (invitation: KeptInvitation): Promise<void> => {
     setRemoving(undefined)
+    const busy = working()
+    if (busy.type !== "idle") {
+      toast({ title: `${memberNameText(invitation.name)}さんはまだ外していません`, description: removeWaitsText(busy.type) })
+      return
+    }
+    setFailure(undefined)
+    setWorking({ type: "removing", id: invitation.id })
     const gone = await uninvite(ports(), invitation)
-    setFailure(gone.ok ? undefined : gone.error)
-    if (!gone.ok) return
+    setWorking({ type: "idle" })
+    if (!gone.ok) {
+      toast({ title: `${memberNameText(invitation.name)}さんを外せませんでした`, description: membersFailedText(gone.error), tone: "error" })
+      return
+    }
     toast({ title: `${memberNameText(invitation.name)}さんを外しました` })
     setChanged((count) => count + 1)
   }
@@ -113,7 +126,7 @@ export function MembersPanel(props: { readonly bookId: BookId; readonly title: s
         {(found) => (
           <Show when={found.length > 0} fallback={<p class="text-xs text-text-muted">まだだれも招待していません。</p>}>
             <ul class="flex flex-col divide-y divide-border">
-              <For each={found}>{(each) => <Member invitation={each} onRemove={() => setRemoving(each)} />}</For>
+              <For each={found}>{(each) => <Member invitation={each} removing={((now) => now.type === "removing" && now.id === each.id)(working())} onRemove={() => setRemoving(each)} />}</For>
             </ul>
           </Show>
         )}
@@ -141,8 +154,8 @@ export function MembersPanel(props: { readonly bookId: BookId; readonly title: s
             <ToggleGroupItem value="editor">{roleText("editor")}</ToggleGroupItem>
             <ToggleGroupItem value="sender">{roleText("sender")}</ToggleGroupItem>
           </ToggleGroup>
-          <Button type="submit" variant="semipro" size="small" class="shrink-0">
-            {working() ? "作成中…" : "招待コードを作る"}
+          <Button type="submit" variant="semipro" size="small" class="shrink-0" aria-busy={working().type === "inviting"}>
+            {working().type === "inviting" ? "作成中…" : "招待コードを作る"}
           </Button>
         </div>
         <p class="text-xs text-text-muted">閲覧は見るだけ、編集は記録もできます。稼働の受信は、帳簿を見せずにその人の稼働を受け取ります。作ると、手順つきの文面がコピーされます。</p>
@@ -150,7 +163,7 @@ export function MembersPanel(props: { readonly bookId: BookId; readonly title: s
       <Show when={failure()} keyed>
         {(error) => (
           <p role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-text-primary">
-            {describeError(error)}
+            {membersFailedText(error)}
           </p>
         )}
       </Show>

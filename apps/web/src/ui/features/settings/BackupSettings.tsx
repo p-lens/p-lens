@@ -11,9 +11,10 @@ import { Button } from "../../primitives/button"
 import { ConfirmDialog } from "../../primitives/dialog"
 import { TrashIcon } from "../../primitives/icons"
 import { EmptyState, Loaded } from "../../primitives/states"
+import { bytesOfFile } from "../../primitives/file-bytes"
 import { toast } from "../../primitives/toast"
 import type { Place } from "../../navigation/place"
-import { destinationName, lastBackupText, standingText } from "../../wording/backup"
+import { destinationName, lastBackupText, restoredChosenText, standingText } from "../../wording/backup"
 import { bookTitle } from "../../wording/book"
 import { formatMoment } from "../../wording/dates"
 import { describeError } from "../../wording/errors"
@@ -120,11 +121,13 @@ function Restore(props: { readonly store: BackupStore | undefined }): JSX.Elemen
   const [working, setWorking] = createSignal<Working>({ type: "idle" })
   /** The store's backups ticked to be put back, by the store's id for each: every one that can be, as the list is read, for the person to untick what they do not want. */
   const [chosen, setChosen] = createSignal<readonly string[]>([])
-  const list = async (store: BackupStore): Promise<void> => {
+  /** Reads the store's backups, ticking every one that can be put back — or, where `keeping` names which, those of them still to be. */
+  const list = async (store: BackupStore, keeping?: readonly string[]): Promise<void> => {
     if (listing().type === "asking") return
     setListing({ type: "asking" })
     const backups = await storedBackups(app.services.backup, store)
-    setChosen(backups.ok ? backups.value.filter((each) => !each.here).map((each) => each.backup.id) : [])
+    const restorable = backups.ok ? backups.value.filter((each) => !each.here).map((each) => each.backup.id) : []
+    setChosen(keeping === undefined ? restorable : restorable.filter((id) => keeping.includes(id)))
     setListing({ type: "answered", store, backups })
   }
   const restore = async (restoring: () => Promise<Outcome<BookId>>): Promise<void> => {
@@ -139,7 +142,7 @@ function Restore(props: { readonly store: BackupStore | undefined }): JSX.Elemen
   const choose = (id: string, on: boolean): void => {
     setChosen((current) => (on ? [...current.filter((each) => each !== id), id] : current.filter((each) => each !== id)))
   }
-  /** Puts back what is ticked, one after another; nothing ticked is said, not done. What was put back before one failed stays, and the list is read again either way. */
+  /** Puts back what is ticked, one after another; nothing ticked is said, not done. What was put back before one failed stays and is counted; the list is read again either way, the books put back shown as on the device and unticked, and the rest left ticked as they were, so a press again goes on from the one that stopped. */
   const restoreChosen = async (store: BackupStore): Promise<void> => {
     if (working().type === "working") return
     const ids = chosen()
@@ -149,10 +152,10 @@ function Restore(props: { readonly store: BackupStore | undefined }): JSX.Elemen
     }
     setWorking({ type: "working" })
     const restored = await restoreChosenFromStore(app.services.backup, store, ids)
-    setWorking(restored.ok ? { type: "idle" } : { type: "failed", error: restored.error })
-    if (restored.ok) toast({ title: `${String(restored.value)}冊の帳簿を戻しました` })
+    setWorking(restored.failure === undefined ? { type: "idle" } : { type: "failed", error: restored.failure })
+    if (restored.restored.length > 0 || restored.failure === undefined) toast({ title: restoredChosenText(restored.restored.length, ids.length) })
     app.wrote()
-    void list(store)
+    void list(store, restored.failure === undefined ? undefined : ids.filter((id) => !restored.restored.includes(id)))
   }
   /** The backup a person pressed to have taken out of the store, held while they are asked whether they mean it. */
   const [removing, setRemoving] = createSignal<{ readonly store: BackupStore; readonly backup: StoredBackup } | undefined>(undefined)
@@ -170,7 +173,7 @@ function Restore(props: { readonly store: BackupStore | undefined }): JSX.Elemen
   const picked = (input: HTMLInputElement): void => {
     const file = input.files?.[0]
     input.value = ""
-    if (file !== undefined) void restore(async () => restoreFromFile(app.services.backup, new Uint8Array(await file.arrayBuffer())))
+    if (file !== undefined) void restore(async () => ((bytes) => (bytes.ok ? restoreFromFile(app.services.backup, bytes.value) : Promise.resolve(bytes)))(await bytesOfFile(file)))
   }
   return (
     <div class="flex flex-col gap-3">

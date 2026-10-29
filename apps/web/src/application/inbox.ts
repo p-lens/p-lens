@@ -10,7 +10,8 @@ import type { InvitationStore, KeptInvitation } from "../sync/port/invitation-st
 import type { LinkStore, SyncLink } from "../sync/port/link-store"
 import type { LineAccess, Relay } from "../sync/port/relay"
 import { accessOf, type LineKeys, type Sealer } from "../sync/port/sealer"
-import type { Outcome, SyncProblem } from "./errors"
+import type { ApplicationError, Outcome, SyncProblem } from "./errors"
+import type { SyncFailure } from "./sync"
 import { INBOX_OPENING, ownersLink } from "./invitations"
 import { fromDraft } from "./lift"
 import { SENDER_MARK } from "./sending"
@@ -51,6 +52,15 @@ export interface Arrivals {
 }
 
 const NONE_ARRIVED: Arrivals = { taken: 0, unreadable: 0 }
+
+/** What a look at every inbox came to: the plays that arrived, and each book whose inbox could not be read now, for the round to say. */
+export interface Received {
+  readonly arrivals: Arrivals
+  readonly failures: readonly SyncFailure[]
+}
+
+/** Whether a book has no inbox for this device to read: one it does not own, or does not sync from here. */
+const isNoInbox = (error: ApplicationError): boolean => error.type === "sync" && (error.problem.type === "not-linked" || error.problem.type === "not-permitted")
 
 /**
  * What became of one sending: taken in; found already in its play, here
@@ -166,14 +176,16 @@ const receivedFor = async (ports: InboxPorts, link: SyncLink): Promise<Outcome<A
  * rest ask their relay nothing. One book's inbox that cannot be read now
  * does not keep the others waiting.
  */
-export const receiveArrivals = async (ports: InboxPorts): Promise<Arrivals> => {
+export const receiveArrivals = async (ports: InboxPorts): Promise<Received> => {
   const links = await ports.links.list()
-  return (links.ok ? links.value : []).reduce<Promise<Arrivals>>(async (so, each) => {
+  if (!links.ok) return { arrivals: NONE_ARRIVED, failures: [{ bookId: undefined, error: { type: "sync", problem: linksProblemOf(links.error) } }] }
+  return links.value.reduce<Promise<Received>>(async (so, each) => {
     const count = await so
     const link = await ownersLink(ports.links, each.bookId)
     const received = link.ok ? await receivedFor(ports, link.value) : link
-    return received.ok ? together(count, received.value) : count
-  }, Promise.resolve(NONE_ARRIVED))
+    if (received.ok) return { arrivals: together(count.arrivals, received.value), failures: count.failures }
+    return isNoInbox(received.error) ? count : { arrivals: count.arrivals, failures: [...count.failures, { bookId: each.bookId, error: received.error }] }
+  }, Promise.resolve({ arrivals: NONE_ARRIVED, failures: [] }))
 }
 
 /** Take the later sending of a play in place of the one this device changed: what was done to it here is given up. */

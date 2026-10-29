@@ -69,19 +69,25 @@ export interface GoogleAuthorizerConfig {
 
 const identityOnPage = (): GoogleIdentity | undefined => (globalThis as { readonly google?: GoogleIdentity }).google
 
+/** How long Google's script is waited on, in milliseconds: on a weak signal, or a hall's network that drops what it does not let through, its request may never end, and the press waiting on it would never be over. */
+const LOADED_WITHIN = 20_000
+
 const loadIdentity = (): Promise<Result<GoogleIdentity, StoreFailure>> =>
   new Promise((settle) => {
     const script = document.createElement("script")
+    const given = (result: Result<GoogleIdentity, StoreFailure>): void => {
+      clearTimeout(waiting)
+      if (!result.ok) script.remove()
+      settle(result)
+    }
+    const waiting = setTimeout(() => given(Err({ type: "sign-in-unavailable", detail: "Google Identity Services did not load in time" })), LOADED_WITHIN)
     script.src = IDENTITY_SCRIPT
     script.async = true
     script.onload = () => {
       const identity = identityOnPage()
-      settle(identity === undefined ? Err({ type: "sign-in-unavailable", detail: "Google Identity Services did not start" }) : Ok(identity))
+      given(identity === undefined ? Err({ type: "sign-in-unavailable", detail: "Google Identity Services did not start" }) : Ok(identity))
     }
-    script.onerror = () => {
-      script.remove()
-      settle(Err({ type: "sign-in-unavailable", detail: "Google Identity Services could not be loaded" }))
-    }
+    script.onerror = () => given(Err({ type: "sign-in-unavailable", detail: "Google Identity Services could not be loaded" }))
     document.head.append(script)
   })
 
@@ -97,7 +103,10 @@ const failureOf = (error: TokenClientError): StoreFailure =>
 /** How long Google's window is waited on, in milliseconds. A window a phone would not open, or one left open and forgotten, sometimes brings no answer at all; without an end to the wait the press that asked would never be over. */
 const ANSWER_WITHIN = 120_000
 
-const asked = (identity: GoogleIdentity, config: GoogleAuthorizerConfig): Promise<Result<Held, StoreFailure>> =>
+/** Whether the browser knows itself offline: Google's window would open on its own offline page, and closing it would read as a refusal. */
+const knownOffline = (): boolean => typeof navigator !== "undefined" && navigator.onLine === false
+
+const windowAsked = (identity: GoogleIdentity, config: GoogleAuthorizerConfig): Promise<Result<Held, StoreFailure>> =>
   new Promise((settle) => {
     const waiting = setTimeout(() => settle(Err({ type: "sign-in-declined", reason: "no answer" })), ANSWER_WITHIN)
     const answer = (result: Result<Held, StoreFailure>): void => {
@@ -113,6 +122,9 @@ const asked = (identity: GoogleIdentity, config: GoogleAuthorizerConfig): Promis
       })
       .requestAccessToken()
   })
+
+const asked = (identity: GoogleIdentity, config: GoogleAuthorizerConfig): Promise<Result<Held, StoreFailure>> =>
+  knownOffline() ? Promise.resolve(Err({ type: "unreachable", detail: "offline" })) : windowAsked(identity, config)
 
 /**
  * Sign-in by Google Identity Services' token model, the way Google gives a

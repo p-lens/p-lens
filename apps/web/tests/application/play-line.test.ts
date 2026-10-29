@@ -64,7 +64,7 @@ const deviceOn = async (relay: Relay, me: DeviceId, synced: readonly BookId[] = 
   }
   const held: { lines: readonly KeptLine[] } = { lines: [] }
   const read = async (): Promise<readonly PlayLineAction[]> => {
-    const lines = unwrapped(await readPlayLines(ports, held.lines))
+    const lines = unwrapped(await readPlayLines(ports, held.lines)).lines
     const followed = unwrapped(await followPlays(ports, lines))
     held.lines = followed.lines
     return followed.acted
@@ -89,7 +89,7 @@ const hold = async (device: Awaited<ReturnType<typeof deviceOn>>): Promise<reado
 /** Who the lines of a book say holds the play, read afresh by a device that syncs it. */
 const holderOn = async (relay: Relay): Promise<DeviceId | undefined> => {
   const reader = await deviceOn(relay, "device-reader" as DeviceId)
-  const standing = standingsOf(unwrapped(await readPlayLines(reader.ports, []))).get(PLAY)
+  const standing = standingsOf(unwrapped(await readPlayLines(reader.ports, [])).lines).get(PLAY)
   return standing?.type === "held" ? standing.by : undefined
 }
 
@@ -228,6 +228,31 @@ describe("continuing a play on another device", () => {
     expect(await continueHere(b.ports, PLAY)).toEqual({ ok: false, error: { type: "sync", problem: { type: "unreachable", detail: "offline" } } })
     expect(await hold(b)).toEqual(["followed", logOf(1)])
   })
+
+  test("comes over where the claim went on the line and only its answer was lost", async () => {
+    const relay = memoryRelay()
+    const a = await deviceOn(relay, A)
+    await begun(a)
+    const answerLost: Relay = { ...relay, append: async (access, after, entries, keep) => ((put) => (put.ok ? Err({ type: "unreachable", detail: "timed out" }) : put))(await relay.append(access, after, entries, keep)) }
+    const b = await deviceOn(answerLost, B)
+    await b.read()
+    expect(unwrapped(await continueHere(b.ports, PLAY)).log).toBe(logOf(1))
+    expect(await hold(b)).toEqual(["held", logOf(1)])
+    expect(await holderOn(relay)).toBe(B)
+  })
+
+  test("says beside the lines it read that one could not be read, keeping the copy as it was", async () => {
+    const relay = memoryRelay()
+    const a = await deviceOn(relay, A)
+    await begun(a)
+    const b = await deviceOn(relay, B)
+    await b.read()
+    const offline = await deviceOn({ ...relay, entriesAfter: async () => Err({ type: "unreachable", detail: "offline" }) }, B)
+    const read = unwrapped(await readPlayLines(offline.ports, b.held.lines))
+    expect(read.missed).toEqual({ type: "sync", problem: { type: "unreachable", detail: "offline" } })
+    expect(read.lines.filter((line) => line.day === TODAY)).toEqual(b.held.lines.filter((line) => line.day === TODAY))
+    expect(unwrapped(await readPlayLines(b.ports, b.held.lines)).missed).toBeUndefined()
+  })
 })
 
 describe("a play its holder", () => {
@@ -283,14 +308,14 @@ describe("recording a play", () => {
     const a = await deviceOn(relay, A)
     const b = await deviceOn(relay, B)
     await begun(a)
-    expect(await heldBeforeFinishing(a.ports, DRAFT)).toEqual({ ok: true, value: undefined })
+    expect(await heldBeforeFinishing(a.ports, DRAFT)).toEqual({ ok: true, value: "checked" })
     await b.read()
     unwrapped(await continueHere(b.ports, PLAY))
     expect(await heldBeforeFinishing(a.ports, DRAFT)).toEqual({ ok: false, error: { type: "draft", error: { type: "held-elsewhere", playId: PLAY } } })
     expect(await hold(a)).toEqual(["followed", logOf(1)])
   })
 
-  test("goes ahead where the relay cannot be reached: the device's own word stands", async () => {
+  test("goes ahead where the relay cannot be reached, saying the other devices could not be asked: the device's own word stands", async () => {
     const relay = memoryRelay()
     const a = await deviceOn(relay, A)
     const b = await deviceOn(relay, B)
@@ -298,8 +323,18 @@ describe("recording a play", () => {
     await b.read()
     unwrapped(await continueHere(b.ports, PLAY))
     const offline: PlayLinePorts = { ...a.ports, relay: { ...relay, entriesAfter: async () => Err({ type: "unreachable", detail: "offline" }) } }
-    expect(await heldBeforeFinishing(offline, DRAFT)).toEqual({ ok: true, value: undefined })
+    expect(await heldBeforeFinishing(offline, DRAFT)).toEqual({ ok: true, value: "unchecked" })
     expect(await hold(a)).toEqual(["held", logOf(1)])
+  })
+
+  test("goes ahead without waiting out a relay that does not answer, saying the other devices could not be asked", async () => {
+    const relay = memoryRelay()
+    const a = await deviceOn(relay, A)
+    await begun(a)
+    const silent: PlayLinePorts = { ...a.ports, relay: { ...relay, entriesAfter: () => new Promise(() => undefined) } }
+    const started = Date.now()
+    expect(await heldBeforeFinishing(silent, DRAFT)).toEqual({ ok: true, value: "unchecked" })
+    expect(Date.now() - started).toBeLessThan(5_000)
   })
 })
 
@@ -328,12 +363,12 @@ describe("a play sent to a book", () => {
     await invitations.write({ id: "invited", bookId: BOOK, name: "友", role: "sender", invitedAt: "2026-10-28T00:00:00.000Z", code: "not-read-here" })
     const inbox: InboxPorts = { links: b.links, relay, sealer, invitations, drafts: b.drafts, follow: b.follow }
 
-    expect(await receiveArrivals(inbox)).toEqual({ taken: 0, unreadable: 0 })
+    expect(await receiveArrivals(inbox)).toEqual({ arrivals: { taken: 0, unreadable: 0 }, failures: [] })
     expect(await b.drafts.readDraft(PLAY)).toEqual({ ok: false, error: { type: "held-elsewhere", playId: PLAY } })
     expect(unwrapped(await b.links.read(BOOK))?.inboxHandled ?? []).toEqual([])
 
     unwrapped(await continueHere(b.ports, PLAY))
-    expect(await receiveArrivals(inbox)).toEqual({ taken: 1, unreadable: 0 })
+    expect(await receiveArrivals(inbox)).toEqual({ arrivals: { taken: 1, unreadable: 0 }, failures: [] })
     expect(unwrapped(await b.links.read(BOOK))?.inboxHandled).toEqual(["sent-000000000001"])
   })
 })
@@ -434,7 +469,7 @@ describe("a copy put as the play was continued here", () => {
         },
       },
     }
-    unwrapped(await followPlays(putting, unwrapped(await readPlayLines(putting, b.held.lines))))
+    unwrapped(await followPlays(putting, unwrapped(await readPlayLines(putting, b.held.lines)).lines))
     expect(await hold(b)).toEqual(["held", logOf(2)])
     expect(await b.follow.listFollowed()).toEqual({ ok: true, value: [] })
     expect(await loadFollowedToday(b.follow, TODAY)).toEqual({ ok: true, value: [] })
@@ -462,7 +497,7 @@ describe("a play given up", () => {
         },
       },
     }
-    const acted = unwrapped(await followPlays(writing, unwrapped(await readPlayLines(writing, a.held.lines)))).acted
+    const acted = unwrapped(await followPlays(writing, unwrapped(await readPlayLines(writing, a.held.lines)).lines)).acted
     expect(kinds(acted)).toEqual([])
     expect(await hold(a)).toEqual(["held", logOf(2)])
     expect(await a.read()).toEqual([expect.objectContaining({ type: "yield-up", unshown: 1 })])
@@ -507,7 +542,7 @@ describe("a play left over from a day gone by", () => {
     await a.read()
     await a.show()
     expect(relay.kept().length).toBeGreaterThan(0)
-    const standing = standingsOf(unwrapped(await readPlayLines((await deviceOn(relay, C)).ports, []))).get(PLAY)
+    const standing = standingsOf(unwrapped(await readPlayLines((await deviceOn(relay, C)).ports, [])).lines).get(PLAY)
     expect(standing).toMatchObject({ type: "held", by: A, play: { recorded: { at: "2026-10-28T03:00:00.000Z" } } })
     expect(kinds(await b.read())).toEqual(["drop-followed"])
     expect(await hold(b)).toBeUndefined()
@@ -542,16 +577,16 @@ describe("a play sent to a book and taken in by the device holding it", () => {
     const a = await deviceOn(relay, A)
     const b = await deviceOn(relay, B)
     await sendingOn(relay, "sent-000000000001")
-    expect(await receiveArrivals(await inboxOf(relay, a))).toEqual({ taken: 1, unreadable: 0 })
+    expect(await receiveArrivals(await inboxOf(relay, a))).toEqual({ arrivals: { taken: 1, unreadable: 0 }, failures: [] })
     const received = unwrapped(await a.drafts.readDraft(PLAY))
     await a.drafts.updateDraft({ ...received, log: logOf(3) }, received.log)
     await a.show()
     await b.read()
     const inbox = await inboxOf(relay, b)
-    expect(await receiveArrivals(inbox)).toEqual({ taken: 0, unreadable: 0 })
+    expect(await receiveArrivals(inbox)).toEqual({ arrivals: { taken: 0, unreadable: 0 }, failures: [] })
     expect(unwrapped(await b.links.read(BOOK))?.inboxHandled).toEqual(["sent-000000000001"])
     unwrapped(await continueHere(b.ports, PLAY))
-    expect(await receiveArrivals(inbox)).toEqual({ taken: 0, unreadable: 0 })
+    expect(await receiveArrivals(inbox)).toEqual({ arrivals: { taken: 0, unreadable: 0 }, failures: [] })
     expect(unwrapped(await b.drafts.readDraft(PLAY)).received?.again).toBeUndefined()
     expect(await hold(b)).toEqual(["held", logOf(3)])
   })
@@ -582,7 +617,7 @@ describe("a play its holder records into another book", () => {
     }
     await a.drafts.updateDraft({ ...DRAFT, bookId: OTHER_BOOK }, DRAFT.log)
     a.clock.now = "2026-10-28T02:00:04.000Z"
-    unwrapped(await followPlays(watching, unwrapped(await readPlayLines(watching, a.held.lines))))
+    unwrapped(await followPlays(watching, unwrapped(await readPlayLines(watching, a.held.lines)).lines))
     expect(seen.first).toBe(otherLine)
     expect(seen.between).not.toContain("drop-followed")
     expect(unwrapped(await c.follow.readFollowed(PLAY))?.line.bookId).toBe(OTHER_BOOK)
@@ -619,7 +654,7 @@ describe("reading the line of a play being watched", () => {
     await b.read()
     const otherLines = b.held.lines.filter((line) => line.bookId === OTHER_BOOK)
     counted.reads = []
-    const lines = unwrapped(await readPlayLines(b.ports, b.held.lines, { type: "book-of", playId: PLAY }))
+    const lines = unwrapped(await readPlayLines(b.ports, b.held.lines, { type: "book-of", playId: PLAY })).lines
     const bookLine = unwrapped(await sealer.playsKeysOf(SECRETS[BOOK] ?? "", TODAY)).lineId
     expect(new Set(counted.reads)).toEqual(new Set([bookLine]))
     expect(lines.filter((line) => line.bookId === OTHER_BOOK)).toEqual(otherLines)
@@ -859,7 +894,7 @@ describe("a device that syncs no book of its own", () => {
       },
     }
     await a.drafts.createDraft(DRAFT)
-    const lines = unwrapped(await readPlayLines(counting, []))
+    const lines = unwrapped(await readPlayLines(counting, [])).lines
     unwrapped(await followPlays(counting, lines))
     unwrapped(await showHeldPlays(counting, lines))
     await flushOnHide(counting, lines)
@@ -910,7 +945,7 @@ describe("a play being watched, its holder moving it to another book this device
     await a.drafts.updateDraft({ ...DRAFT, bookId: OTHER_BOOK }, DRAFT.log)
     a.clock.now = "2026-10-28T02:00:04.000Z"
     await a.read()
-    const lines = unwrapped(await readPlayLines(b.ports, b.held.lines, { type: "book-of", playId: PLAY }))
+    const lines = unwrapped(await readPlayLines(b.ports, b.held.lines, { type: "book-of", playId: PLAY })).lines
     const acted = unwrapped(await followPlays(b.ports, lines)).acted
     expect(kinds(acted)).toEqual(["put-followed"])
     expect(unwrapped(await b.follow.readFollowed(PLAY))?.line.bookId).toBe(OTHER_BOOK)

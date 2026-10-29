@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 
 import { decimal } from "../../src/core/decimal/decimal"
-import { seal, turnMumming } from "../../src/mummer"
+import { seal, startMumming, stopMumming } from "../../src/mummer"
 import { amountText, formatSignedYen, formatMan, formatTheoreticalYen, formatTokens, formatYen, theoreticalFigureText, theoreticalFractionText, toneOf } from "../../src/ui/wording/numbers"
 
 describe("large counts as they are said", () => {
@@ -49,10 +49,10 @@ describe("a theoretical value in yen", () => {
 })
 
 describe("an amount while mumming", () => {
-  afterEach(() => turnMumming(false))
+  afterEach(() => stopMumming("2026-10-29"))
 
   test("is veiled in one shape whatever its size, keeping the way it went where its kind lets that be seen", () => {
-    turnMumming(true)
+    startMumming("2026-10-29")
     expect(formatSignedYen(seal.tally(decimal(-123_456n, 0)))).toBe("-¥•,•••")
     expect(formatSignedYen(seal.tally(decimal(5n, 0)))).toBe("+¥•,•••")
     expect(formatTheoreticalYen(seal.tally(decimal(0n, 0)))).toBe("±¥•,•••")
@@ -63,12 +63,12 @@ describe("an amount while mumming", () => {
   })
 
   test("is coloured by the way it went only where its kind lets that be seen", () => {
-    turnMumming(true)
+    startMumming("2026-10-29")
     expect([toneOf(seal.tally(decimal(-1n, 0))), toneOf(seal.savings(decimal(-1n, 0))), toneOf(seal.play(decimal(-1n, 0)))]).toEqual(["negative", "neutral", "negative"])
   })
 
   test("of a play is shown as it is", () => {
-    turnMumming(true)
+    startMumming("2026-10-29")
     expect([formatSignedYen(seal.play(decimal(-1_643n, 0))), amountText(seal.play(12_340))]).toEqual(["-¥1,643", "12,340"])
   })
 })

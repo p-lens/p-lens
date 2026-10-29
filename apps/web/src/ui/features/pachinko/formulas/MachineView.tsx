@@ -12,6 +12,7 @@ import { Button } from "../../../primitives/button"
 import { Loaded } from "../../../primitives/states"
 import { useMoves } from "../../../navigation/moves"
 import type { Place } from "../../../navigation/place"
+import { MARKS_UNSENT } from "../../../wording/catalog"
 import { describeError } from "../../../wording/errors"
 import { useBookFavorites } from "../../live/book-favorites"
 import { useStartBallValue, useStartForm } from "../../live/start-form"
@@ -20,6 +21,8 @@ import { FormulaCard } from "./FormulaCard"
 import { remadeIn, startedFrom } from "./remaking"
 import { trailTo } from "./trail"
 import { useActions } from "./use-actions"
+import { missingUndelivered } from "../../catalog/undelivered"
+import { useUnsentMarks } from "../../catalog/unsent-marks"
 
 /** Every formula of a machine, best first by verification, then adoption. */
 export function MachineView(props: { readonly place: Place; readonly machineId: string }): JSX.Element {
@@ -27,6 +30,7 @@ export function MachineView(props: { readonly place: Place; readonly machineId: 
   const moves = useMoves()
   const start = useStartForm()
   const actions = useActions()
+  const unsent = useUnsentMarks()
   const favorites = useBookFavorites()
   const ballValue = useStartBallValue()
   const [failure, setFailure] = createSignal<ApplicationError | undefined>(undefined)
@@ -41,7 +45,7 @@ export function MachineView(props: { readonly place: Place; readonly machineId: 
   return (
     <MainContent header={<ViewHeader place={props.place} title="機種" trail={trail()} />}>
       <div class="max-w-5xl">
-        <Loaded outcome={detail()}>
+        <Loaded outcome={missingUndelivered(detail(), app.delivery.state())}>
           {(found) => (
             <div class="flex flex-col gap-3 p-4">
               <div class="flex items-center justify-between gap-3">
@@ -60,6 +64,9 @@ export function MachineView(props: { readonly place: Place; readonly machineId: 
               </div>
               <Show when={failure()} keyed>
                 {(error) => <p role="alert" class="text-sm text-negative">{describeError(error)}</p>}
+              </Show>
+              <Show when={found.formulas.some((listing) => unsent().has(listing.formula.id))}>
+                <p class="text-xs text-text-muted">{MARKS_UNSENT}</p>
               </Show>
               <For each={ranked(found.formulas, worthOf)}>
                 {(listing) => (

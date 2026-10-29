@@ -18,7 +18,7 @@ const machine = (name: string, gameKind: "pachinko" | "pachislot"): MachineSumma
 
 /** The lists as a device has them: one parlor listed under its own name, one machine of each game catalogued. */
 const PORTS: NamePorts = {
-  parlors: { list: async () => Ok({ parlors: [{ id: "osm-9", name: "ダイナモなんかつ新館", reading: "だいなもなんかつしんかん", keywords: [], prefecture: "大阪府", address: "大阪市", location: undefined, submissions: [] } as never], rejections: [] }) },
+  parlors: { list: async () => Ok({ parlors: [{ id: "osm-9", name: "ダイナモなんかつ新館", reading: "だいなもなんかつしんかん", keywords: [], prefecture: "大阪府", address: "大阪市", location: undefined, submissions: [] } as never], rejections: [] }), readAt: async () => undefined },
   submissions: { list: async () => Ok([]), keep: async () => Ok(undefined) },
   catalog: { search: async (_query: string, gameKind: string) => Ok([machine("森物語", "pachinko"), machine("ハッピーピエロットEX", "pachislot")].filter((each) => each.gameKind === gameKind)) } as unknown as Catalog,
 }

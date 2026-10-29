@@ -32,16 +32,21 @@ const NANKATSU = {
 const PARLORS = [JSON.stringify(MEGA_CONDOR_LINE), JSON.stringify(NANKATSU_LINE)].join("\n")
 const REJECTIONS = JSON.stringify({ submission: "sub_02", reason: "閉店しています" })
 
-const memoryCache = (initial: ParlorList = EMPTY_PARLOR_LIST, version?: string): ParlorCache & { readonly kept: () => ParlorList; readonly version: () => string | undefined } => {
-  const held: { kept: KeptList } = { kept: { list: initial, version } }
+const memoryCache = (initial: ParlorList = EMPTY_PARLOR_LIST, version?: string): ParlorCache & { readonly kept: () => ParlorList; readonly version: () => string | undefined; readonly readAt: () => string | undefined } => {
+  const held: { kept: KeptList } = { kept: { list: initial, version, readAt: undefined } }
   return {
     read: async () => Ok(held.kept),
     replace: async (kept) => {
       held.kept = kept
       return Ok(undefined)
     },
+    confirm: async (readAt) => {
+      held.kept = { ...held.kept, readAt }
+      return Ok(undefined)
+    },
     kept: () => held.kept.list,
     version: () => held.kept.version,
+    readAt: () => held.kept.readAt,
   }
 }
 
@@ -127,9 +132,9 @@ describe("the parlor list where it is published", () => {
   })
 
   test("with nothing kept either, says why the list could not be read", async () => {
-    expect(await directory(offline).list()).toEqual({ ok: false, error: { type: "unavailable", detail: "TypeError: Failed to fetch" } })
-    expect(await directory(published({})).list()).toEqual({ ok: false, error: { type: "unavailable", detail: "parlors.jsonl is not published" } })
-    expect(await directory(published({ "parlors.jsonl": [500, ""] })).list()).toEqual({ ok: false, error: { type: "unavailable", detail: "parlors.jsonl answered 500" } })
+    expect(await directory(offline).list()).toEqual({ ok: false, error: { type: "unreachable", detail: "TypeError: Failed to fetch" } })
+    expect(await directory(published({})).list()).toEqual({ ok: false, error: { type: "unpublished" } })
+    expect(await directory(published({ "parlors.jsonl": [500, ""] })).list()).toEqual({ ok: false, error: { type: "server-trouble", status: 500 } })
   })
 
   test("lists the device's copy at once where it has one, and reads the published list behind it for the next asking", async () => {
@@ -145,6 +150,17 @@ describe("the parlor list where it is published", () => {
     expect(asked.length).toBe(3)
     expect(await listed.list()).toMatchObject({ ok: true, value: { parlors: [NANKATSU, MEGA_CONDOR] } })
     expect(cache.kept().parlors.length).toBe(2)
+  })
+
+  test("never takes a hall's login page answering in the list's place for the list, keeping the copy, and says it as no connection", async () => {
+    const cache = memoryCache({ parlors: [MEGA_CONDOR as never], rejections: [] })
+    const login = published({ "parlors.jsonl": [200, "<html>login</html>"], "rejections.jsonl": [200, "<html>login</html>"] })
+    const listed = directory(login, cache)
+    expect(await listed.list()).toMatchObject({ ok: true, value: { parlors: [MEGA_CONDOR] } })
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(cache.kept().parlors.length).toBe(1)
+    expect(await directory(login).list()).toEqual({ ok: false, error: { type: "unreadable-answer" } })
+    expect(await directory(published({ "parlors.jsonl": [511, "<html>login</html>"] })).list()).toEqual({ ok: false, error: { type: "unreachable", detail: "parlors.jsonl answered 511" } })
   })
 
   test("does not wait on a network that never answers once it has a copy, nor read again while a reading stands", async () => {
@@ -185,11 +201,13 @@ describe("the parlor list where it is published", () => {
 
     expect(await listed.list()).toMatchObject({ ok: true, value: { parlors: [MEGA_CONDOR] } })
     expect(cache.version()).toBe("p1 u1 r1")
+    expect(await listed.readAt()).toBe("1970-01-01T00:00:00.000Z")
 
     clock.now = 1000
     await listed.list()
     await settle()
     expect(asked.slice(3)).toEqual(["HEAD parlors.jsonl", "HEAD unplaced.jsonl", "HEAD rejections.jsonl"])
+    expect([await listed.readAt(), cache.readAt()]).toEqual(["1970-01-01T00:00:01.000Z", "1970-01-01T00:00:01.000Z"])
 
     files.now = { ...files.now, "parlors.jsonl": [200, PARLORS, "p2"] }
     clock.now = 2000

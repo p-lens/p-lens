@@ -64,10 +64,7 @@ interface Effects {
   readonly now: () => string
 }
 
-const fromStorageError = (error: StorageError): CatalogError => ({
-  type: "unavailable",
-  detail: error.type === "unavailable" ? error.detail : error.type,
-})
+const fromStorageError = (error: StorageError): CatalogError => (error.type === "unreadable" ? { type: "unreadable-kept" } : { type: "storage-unavailable" })
 
 const fromStorage = <T>(result: Result<T, StorageError>): Result<T, CatalogError> => (result.ok ? result : Err(fromStorageError(result.error)))
 
@@ -79,13 +76,9 @@ type Sending =
 
 const OTHER: Sending = { type: "other" }
 
-/**
- * Whether the shared catalog could not solve a formula's 解析値: it said
- * they were too heavy, or gave up on them with no answer of its own, as a
- * request that ran out of time does (503).
- */
+/** Whether the shared catalog said a formula's 解析値 were too heavy for it to solve: its word alone, never a bare 503, which says nothing of why. */
 const tooHeavy = (failure: Extract<ApiFailure, { type: "answered" }>): boolean =>
-  failure.status === 503 || (failure.error.type === "basis-rejected" && isJson(failure.error["error"]) && failure.error["error"]["type"] === "too-heavy")
+  failure.error.type === "basis-rejected" && isJson(failure.error["error"]) && failure.error["error"]["type"] === "too-heavy"
 
 const isJson = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === "object" && value !== null && !Array.isArray(value)
 
@@ -99,6 +92,8 @@ const fromApi = (failure: ApiFailure, sending: Sending): CatalogError => {
       return { type: "no-catalog" }
     case "unreachable":
       return { type: "unavailable", detail: failure.detail }
+    case "timed-out":
+      return sending.type === "other" ? { type: "unavailable", detail: "timed out" } : { type: "unanswered" }
     case "unreadable-answer":
       return { type: "unreadable-answer" }
     case "answered": {
@@ -109,6 +104,7 @@ const fromApi = (failure: ApiFailure, sending: Sending): CatalogError => {
       if (error.type === "not-found" && sending.type === "to-machine") return { type: "machine-missing", id: sending.machineId }
       if (error.type === "not-verifiable") return { type: "not-verifiable" }
       if (sending.type !== "other" && tooHeavy(failure)) return { type: "too-heavy" }
+      if (sending.type !== "other" && failure.status === 503 && failure.error.type === "unexpected") return { type: "gave-up" }
       if (error.type === "check-stands") return { type: "check-stands" }
       if (error.type === "quota-reached" && typeof error["nextAt"] === "string" && (error["kind"] === "machine" || error["kind"] === "addition"))
         return { type: "quota-reached", kind: error["kind"], nextAt: error["nextAt"] }
@@ -119,10 +115,17 @@ const fromApi = (failure: ApiFailure, sending: Sending): CatalogError => {
 
 /**
  * Whether a failure to send is for good — the shared catalog answered and
- * would answer the same again — or only for now, as when it is unreachable
- * or this device has written too much for the moment (429).
+ * would answer the same again — or only for now, as when it is unreachable,
+ * this device has written too much for the moment (429), or something not
+ * the catalog answered in its place: a 4xx with no error of the catalog's.
  */
-const forGood = (failure: ApiFailure): boolean => failure.type === "answered" && failure.status >= 400 && failure.status < 500 && failure.status !== 429
+const forGood = (failure: ApiFailure): boolean => failure.type === "answered" && failure.status >= 400 && failure.status < 500 && failure.status !== 429 && failure.error.type !== "unexpected"
+
+/** The formula or 設定配分 a request waiting to be sent puts a mark on, by its id: none for a use. */
+const markedIn = (request: CatalogRequest): readonly string[] => {
+  const found = /^\/(?:formulas|distributions)\/([^/]+)\/marks\//.exec(request.path)?.[1]
+  return found === undefined ? [] : [decodeURIComponent(found)]
+}
 
 const pathOf = (target: CatalogTarget): string => `/${target.type === "formula" ? "formulas" : "distributions"}/${encodeURIComponent(target.id)}`
 
@@ -246,11 +249,20 @@ export const createDeliveredCatalog = (database: Connection, api: CatalogApi, ef
     return removed.ok ? sentFrom(db, rest) : removed
   }
 
+  const waitingIn = async (db: IDBDatabase): Promise<Result<readonly OutboxRecord[], CatalogError>> =>
+    andThen(fromStorage(await resultOf<unknown[]>(db.transaction(CATALOG_OUTBOX).objectStore(CATALOG_OUTBOX).getAll())), (kept) => collect((kept ?? []).map((each) => keptAs(each, isOutboxRecord))))
+
   const flush = async (): Promise<Result<void, CatalogError>> => {
     const db = await opened()
     if (!db.ok) return db
-    const waiting = andThen(fromStorage(await resultOf<unknown[]>(db.value.transaction(CATALOG_OUTBOX).objectStore(CATALOG_OUTBOX).getAll())), (kept) => collect((kept ?? []).map((each) => keptAs(each, isOutboxRecord))))
+    const waiting = await waitingIn(db.value)
     return waiting.ok ? sentFrom(db.value, waiting.value) : waiting
+  }
+
+  const unsentMarks: Catalog["unsentMarks"] = async () => {
+    const db = await opened()
+    if (!db.ok) return db
+    return mapOk(await waitingIn(db.value), (waiting) => new Set(waiting.flatMap((record) => markedIn(record.request))))
   }
 
   const deliver = async (catalog: CatalogDto): Promise<Result<void, CatalogError>> => {
@@ -286,5 +298,5 @@ export const createDeliveredCatalog = (database: Connection, api: CatalogApi, ef
     return running
   }
 
-  return { search, read, register, addFormula, addDistribution, quota, mark, recordUse, refresh }
+  return { search, read, register, addFormula, addDistribution, quota, mark, recordUse, refresh, unsentMarks }
 }

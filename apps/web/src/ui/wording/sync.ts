@@ -1,30 +1,39 @@
-import type { SyncProblem } from "../../application/errors"
-import type { Synced } from "../../application/sync"
+import { RELAY_LIMITS } from "@p-lens/contracts/relay"
+
+import type { ApplicationError, SyncProblem } from "../../application/errors"
+import type { SyncFailure, Synced } from "../../application/sync"
+import type { BookId } from "../../core/book/book"
 import type { Delivery } from "../../core/live-play/draft"
 import type { InvitedRole } from "../../core/sync/invitation"
 import type { Side } from "../../core/sync/merge"
+import { NO_CONNECTION, NOT_TAKEN, SERVER_TROUBLE, TOO_MANY_TRIES } from "./connection"
+import { formatMoment } from "./dates"
+import { describeError } from "./errors"
 
-/** Why a book could not be synced or joined, as a person is told. */
+/** Why a book could not be synced or joined, as a person is told. A device that cannot reach the relay reads as having no connection, whatever stopped it; and no cause the browser gave is shown. */
 export const describeSyncProblem = (problem: SyncProblem): string => {
   switch (problem.type) {
     case "unreachable":
-      return "中継サーバにつながりませんでした。通信状況を確かめて、もう一度試してください。"
+    case "unreadable-answer":
+      return NO_CONNECTION
+    case "server-trouble":
+      return SERVER_TROUBLE
+    case "too-many":
+      return TOO_MANY_TRIES
+    case "refused":
+      return NOT_TAKEN
+    case "too-large":
+      return "一度に送れる大きさを超えたため、送れませんでした。"
     case "behind":
     case "unsettled":
-      return "ほかの端末の変更が続いていて、同期が追いつきませんでした。少し待ってもう一度試してください。"
+      return "同じ帳簿への変更がほかから続いていて、間に合いませんでした。少し待って、もう一度試してください。"
     case "line-missing":
     case "nothing-to-join":
-      return "この同期コードの帳簿は、まだ中継サーバに送られていません。元の端末で一度同期してから試してください。"
+      return "この帳簿は、まだ中継サーバに届いていません。帳簿の持ち主の端末でアプリを開いて同期してから、もう一度試してください。"
     case "shut-out":
       return "この帳簿を開けません。共有を外されたか、コードが違います。"
     case "not-permitted":
       return "この帳簿では、その操作は許されていません。"
-    case "too-many":
-      return "同期が多すぎます。1分ほど待ってください。"
-    case "refused":
-      return `中継サーバに断られました。（${problem.status} ${problem.reason}）`
-    case "unreadable-answer":
-      return "中継サーバの応答を読めませんでした。通信状況を確かめて、もう一度試してください。"
     case "bad-secret":
     case "not-a-pairing-code":
       return "同期コード・招待コードとして読めません。もらったコードをそのまま貼り付けてください。"
@@ -32,7 +41,7 @@ export const describeSyncProblem = (problem: SyncProblem): string => {
     case "unreadable-change":
       return "受け取った変更を開けませんでした。同期コードが違うか、データが壊れています。"
     case "sealing-unavailable":
-      return `この端末では暗号化を使えません。（${problem.detail}）`
+      return "このブラウザでは暗号化を使えないため、同期できません。ブラウザを最新にしてください。"
     case "diverged":
       return `この端末の帳簿が履歴と合っていません（${problem.path}）。同期を続けられません。`
     case "line-broken":
@@ -40,7 +49,7 @@ export const describeSyncProblem = (problem: SyncProblem): string => {
     case "conflict":
       return `この端末とほかの端末が、同じ箇所を別々に書き換えています（${problem.path}）。下で残すほうを選んでください。`
     case "links":
-      return `同期の設定を端末に残せませんでした: ${problem.detail}`
+      return "同期と共有の設定を、この端末に読み書きできませんでした。アプリを開き直してください。端末の空き容量が少ないときは、空けてからもう一度試してください。"
     case "links-unreadable":
       return "この端末に保存された同期と共有の設定が壊れていて読めません。データの消去で端末のデータを消すと、また使えるようになります。"
     case "not-linked":
@@ -51,15 +60,87 @@ export const describeSyncProblem = (problem: SyncProblem): string => {
       return "この帳簿はすでにこの端末にあります。"
     case "not-a-huddle-code":
       return "ノリ打ちのQRコードとして読めません。仲間の画面のQRコードを読み取ってください。"
+    case "stalled":
+      return "この端末で同期を続けられなくなりました。アプリを開き直してください。"
   }
 }
 
-/** How a round of syncing went, in a line. */
+/** Said as a conflict being chosen in changed under the person, another device having sent more: it is shown again as it now stands. */
+export const CONFLICT_MOVED = "選んでいる間にほかの端末から変更が届きました。いまの内容で表示し直したので、もう一度選んでください。"
+
+/** Said as a play was sent to a book, and as it could not be. */
+export const SENT = "送りました"
+export const SEND_FAILED = "送れませんでした"
+
+/** What a play's plane is named while it is on its way. */
+export const SENDING = "送っています"
+
+/** Said as the choice between a play sent again and this device's own changes to it could not be kept. */
+export const RESENT_CHOICE_FAILED = "選んだほうにできませんでした"
+
+/** Said as a book this device sends plays to could not be let go of. */
+export const DESTINATION_KEPT = "送り先から外せませんでした"
+
+/**
+ * Why a play could not be sent, as its sender is told. A sender is shut
+ * out both where they were taken off a book and where its owner has not
+ * opened the app for so long that the relay let the inbox go — which only
+ * the owner's device begins again — so the sender is told both; and a
+ * line that kept moving is others' plays arriving first, not their own
+ * devices.
+ */
+export const sendFailedText = (error: ApplicationError): string => {
+  if (error.type !== "sync") return describeError(error)
+  if (error.problem.type === "shut-out") return "帳簿の持ち主がしばらくアプリを開いていないと、送れないことがあります。持ち主にアプリを開いてもらってから、もう一度送ってください。それでも送れないときは、送り先から外されています。"
+  if (error.problem.type === "behind" || error.problem.type === "unsettled") return "ほかの人の稼働が続けて届いていて、間に合いませんでした。少し待って、もう一度送ってください。"
+  return describeSyncProblem(error.problem)
+}
+
+/** What a press of the top bar's refresh that failed is titled. */
+export const REFRESH_FAILED = "更新できませんでした"
+
+/** Said of the last round where a book was left out of date by something a round may get past. */
+export const SYNC_STOPPED = "同期が止まっています。"
+
+/** Said of the last round where every book that stopped waits on a person: a conflict to choose in, or a book its owner let go of. */
+export const BOOK_WAITING = "確認を待っている帳簿があります。"
+
+/** The word beside the top bar's refresh while the books' last round left one out of date: short enough for a phone's bar, its reason told when pressed. */
+export const NOT_SYNCED_MARK = "未同期"
+
+/** Said where 外す was confirmed while the panel was still at something else: what it is at, and that nothing was taken out, so it is pressed again once that is done. */
+export const removeWaitsText = (busy: "inviting" | "removing"): string =>
+  `${busy === "inviting" ? "招待コードを作っています" : "ほかの人を外しています"}。終わってから、もう一度「外す」を押してください。`
+
+/**
+ * Why a person could not be let into a book, or taken out, as its owner
+ * is told: a book lets in only so many, and a line the relay let go of
+ * for being idle is made again by the owner's own round of syncing.
+ */
+export const membersFailedText = (error: ApplicationError): string => {
+  if (error.type !== "sync") return describeError(error)
+  if (error.problem.type === "too-large") return `一つの帳簿に招待できるのは${RELAY_LIMITS.grantsPerLine}人までです。だれかを外してから招待してください。`
+  if (error.problem.type === "line-missing") return "この帳簿は、しばらく使われていなかったため中継サーバから消えています。「端末の同期」で「今すぐ同期」を押してから、もう一度試してください。"
+  if (error.problem.type === "behind" || error.problem.type === "unsettled") return "この帳簿への書き込みが続いていて、間に合いませんでした。少し待って、もう一度試してください。"
+  return describeSyncProblem(error.problem)
+}
+
+/** Whether a problem is the device not reaching the relay, which a background round says quietly and a press says plainly. */
+export const isOffline = (problem: SyncProblem): boolean => problem.type === "unreachable" || problem.type === "unreadable-answer"
+
+/** A failed round as it is told: which book stopped, where it was one of several, and why. */
+export const syncFailedText = (failure: SyncFailure, titleOf: (bookId: BookId) => string | undefined): string =>
+  ((title) => (title === undefined ? describeError(failure.error) : `「${title}」: ${describeError(failure.error)}`))(failure.bookId === undefined ? undefined : titleOf(failure.bookId))
+
+/** Since when the books are out of date, said under a round that failed: the last round on this page that went through, or none since the app was opened. */
+export const lastSyncedText = (at: string | undefined): string => (at === undefined ? "アプリを開いてから、まだ同期できていません" : `${formatMoment(at)} から同期できていません`)
+
 /** What is said of plays sent to this device that could not be read, so the sender can be asked to send them again. */
 export const unreadableArrivalsText = (count: number): string => `届いた稼働のうち${count}件が壊れていて読めませんでした。送った人に送り直してもらってください。`
 
-export const syncedText = (synced: Synced): string =>
-  synced.received === 0 && synced.sent === 0 ? "最新です。" : `受け取り ${synced.received} 件・送信 ${synced.sent} 件。`
+/** How a round of syncing went, in a line. */
+export const syncedText = (synced: Synced, at: string): string =>
+  `${synced.received === 0 && synced.sent === 0 ? "最新です" : `受け取り ${synced.received} 件・送信 ${synced.sent} 件`}（${formatMoment(at)} 時点）。`
 
 /** A book this device may only send plays to, as the rail names it: its title, what it is, and how many of the day's plays wait to be sent there. */
 export const destinationLabel = (title: string, waiting: number): string => `${title}（稼働の送り先${waiting === 0 ? "" : `・未送信 ${waiting} 件`}）`

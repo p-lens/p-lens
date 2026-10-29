@@ -9,8 +9,14 @@ export interface HttpRelayPorts {
   readonly answerWithin: number
 }
 
+/** Statuses a gateway or a hall's network answers with in the relay's place, when it could not reach the relay or wants a login first: as good as no connection. */
+const IN_ITS_PLACE: ReadonlySet<number> = new Set([408, 502, 503, 504, 511, 520, 521, 522, 523, 524, 525, 526, 527, 530])
+
 const failureOf = (status: number, body: unknown): RelayFailure => {
   const error = (body as Partial<RelayErrorDto> | undefined)?.error
+  if (IN_ITS_PLACE.has(status) && error === undefined) return { type: "unreachable", detail: `answered ${status}` }
+  if (error?.type === "too-large" || status === 413) return { type: "too-large" }
+  if (error?.type === "storage" || status >= 500) return { type: "server-trouble", status }
   if (error?.type === "behind") return { type: "behind", head: error.head }
   if (error?.type === "line-missing") return { type: "line-missing" }
   if (error?.type === "too-many") return { type: "too-many" }
@@ -38,9 +44,9 @@ const isGrant = (value: unknown): value is GrantDto => isFields(value) && typeof
 
 const isGrants = (value: unknown): value is GrantsDto => isFields(value) && Array.isArray(value["grants"]) && value["grants"].every(isGrant)
 
-const bodyOf = async (response: Response): Promise<unknown> => {
+const parsed = (text: string): unknown => {
   try {
-    return await response.json()
+    return JSON.parse(text)
   } catch {
     return undefined
   }
@@ -66,7 +72,7 @@ export const createHttpRelay = (ports: HttpRelayPorts): Relay => {
         signal: AbortSignal.timeout(ports.answerWithin),
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       })
-      const answer = await bodyOf(response)
+      const answer = parsed(await response.text())
       if (!response.ok) return Err(failureOf(response.status, answer))
       return reads(answer) ? Ok(answer) : Err({ type: "unreadable-answer" })
     } catch (cause) {

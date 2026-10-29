@@ -48,6 +48,7 @@ import type * as Pachislot from "../core/pachislot"
  * - `nothing-to-join`: the pairing code's line has no commits yet.
  * - `book-here`: the book the code is for is already on this device.
  * - `unsettled`: the line kept moving while this device tried to catch up.
+ * - `stalled`: a round broke off on the device itself, its storage closed under it as a phone sets an app aside; opening the app again mends it.
  */
 export type SyncProblem =
   | RelayFailure
@@ -63,11 +64,13 @@ export type SyncProblem =
   | { readonly type: "book-here"; readonly bookId: BookId }
   | { readonly type: "unsettled" }
   | { readonly type: "not-a-huddle-code" }
+  | { readonly type: "stalled" }
 
 /**
  * Why a book could not be backed up, or put back.
  *
  * - `book-here`: the book the backup is of is already on this device.
+ * - `file-unopened`: the file a person picked could not be read at all.
  */
 export type BackupProblem =
   | ArchiveFailure
@@ -77,6 +80,7 @@ export type BackupProblem =
   | DigestFailure
   | { readonly type: "receipts"; readonly detail: string }
   | { readonly type: "book-here"; readonly bookId: BookId }
+  | { readonly type: "file-unopened" }
 
 /**
  * Why a file of another app's tallies was not taken in.
@@ -108,6 +112,8 @@ export type ApplicationError =
   | { readonly type: "rate-change"; readonly problem: RateChangeError }
   | { readonly type: "import"; readonly problem: ImportProblem }
   | { readonly type: "tally-missing" }
+  /** A play's tally written into its book, and the play then not marked recorded on the device: the book has it, and it is not to be recorded again. */
+  | { readonly type: "recorded-unmarked"; readonly error: DraftError }
   | { readonly type: "tally-unreadable" }
   /** A play another of the owner's devices held, taken off its book since this device's copy of it was shown: deleted, or now recorded into another book. */
   | { readonly type: "play-gone"; readonly playId: PlayId; readonly reason: "withdrawn" | "moved" }

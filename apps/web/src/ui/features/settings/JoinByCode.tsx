@@ -68,8 +68,8 @@ export function JoinByCode(props: { readonly takes: "own" | "invitation"; readon
         onFocus={nudge.settle}
       />
       <div>
-        <Button size="small" onClick={() => void join()}>
-          この端末に追加
+        <Button size="small" onClick={() => void join()} aria-busy={working().type === "working"}>
+          {working().type === "working" ? "追加しています…" : "この端末に追加"}
         </Button>
       </div>
       <Show when={working().type === "misplaced"}>

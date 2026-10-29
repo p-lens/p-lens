@@ -50,6 +50,8 @@ export const describeActivity = (line: ActivityLine): string => {
       return tally === undefined ? SOMETHING_DONE : `${tallyName(tally.description)}の収支を修正`
     case "plays-imported":
       return imported === undefined ? SOMETHING_DONE : `${sourceName(imported.from)}から${formatCount(imported.count)}件の収支を取り込み`
+    case "imported-weighed":
+      return imported === undefined ? SOMETHING_DONE : `${sourceName(imported.from)}から取り込んだ${formatCount(imported.count)}件の収支に推定期待値を追加`
     case "play-removed":
       return tally === undefined ? SOMETHING_DONE : `${tallyName(tally.description)}の収支を削除`
     case "year-filed":

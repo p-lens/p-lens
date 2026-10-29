@@ -113,6 +113,7 @@ const saidOf = (intent: ChangeIntent): Pick<ActivityLine, "did" | "parts"> | und
     case "conflict-settled":
       return { did: intent.type, parts: { files: { paths: intent.paths } } }
     case "plays-imported":
+    case "imported-weighed":
       return { did: intent.type, parts: { imported: { from: intent.from, count: intent.count } } }
     case "year-filed":
       return { did: intent.type, parts: { filed: { year: intent.year, count: intent.count } } }

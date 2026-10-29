@@ -45,11 +45,14 @@ const shared = async (file: File): Promise<Result<void, HandoverFailure>> => {
  * A file handed over by the browser: through the share sheet on a phone or
  * a tablet that takes it — where 「"ファイル"に保存」 reaches iCloud Drive —
  * and as a download everywhere else, which the browser puts where the
- * person has told it downloads go.
+ * person has told it downloads go. A desk downloads whenever it is given
+ * a file; a device used by touch, only while the press that asked for it
+ * still counts, as the browser says — and where it says nothing, never.
  */
 export const createBrowserHandover = (): Handover => ({
   give: async ({ name, type, bytes }) => {
     const file = new File([bytes], name, { type })
     return sharesFiles(file) ? shared(file) : downloaded(file)
   },
+  givesNow: () => navigator.maxTouchPoints === 0 || navigator.userActivation?.isActive === true,
 })

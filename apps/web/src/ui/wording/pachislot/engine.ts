@@ -4,6 +4,7 @@ import type { ObservationProblem } from "../../../core/pachislot/observation"
 import type { PriorProblem } from "../../../core/pachislot/prior"
 import type { EngineFailure } from "../../../pachislot-engine/protocol/messages"
 import { priorName } from "./formula"
+import { ENGINE_UNLOADED } from "../connection"
 
 const settingLevel = (value: number): string => `設定${value}`
 
@@ -240,7 +241,7 @@ const describeEngineError = (error: EngineErrorDto): string => {
 }
 
 export const describeEngineFailure = (failure: EngineFailure): string =>
-  failure.type === "engine" ? describeEngineError(failure.error) : `計算エンジンを起動できませんでした: ${failure.detail}`
+  failure.type === "engine" ? describeEngineError(failure.error) : ENGINE_UNLOADED
 
 export const describePlayProblem = (problem: ObservationProblem | PriorProblem): string => {
   switch (problem.type) {

@@ -10,6 +10,7 @@ import { Loaded } from "../../../primitives/states"
 import { useMoves } from "../../../navigation/moves"
 import type { Place } from "../../../navigation/place"
 import { ViewHeader } from "../../shell/ViewHeader"
+import { missingUndelivered } from "../../catalog/undelivered"
 
 /** A machine not found while the catalog is still being delivered: not yet known to be missing, so still loading. */
 const stillComing = <T,>(outcome: Outcome<T> | undefined, delivery: DeliveryState): Outcome<T> | undefined =>
@@ -42,7 +43,7 @@ export function MachineValueView(props: { readonly place: Place; readonly machin
   })
   return (
     <MainContent header={<ViewHeader place={props.place} title="算出条件" />}>
-      <Loaded outcome={detail.loading ? undefined : stillComing(detail(), app.delivery.state())}>{() => undefined}</Loaded>
+      <Loaded outcome={detail.loading ? undefined : missingUndelivered(stillComing(detail(), app.delivery.state()), app.delivery.state())}>{() => undefined}</Loaded>
     </MainContent>
   )
 }

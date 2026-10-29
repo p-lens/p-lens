@@ -4,7 +4,7 @@ import { createBookSession, type BookSession } from "../../src/application/book-
 import { loadBreakdown } from "../../src/application/breakdown"
 import { loadOverall } from "../../src/application/overall"
 import { loadTallies } from "../../src/application/tallies"
-import { importPrecord } from "../../src/application/import"
+import { importPrecord, previewPrecord } from "../../src/application/import"
 import type { BookId } from "../../src/core/book/book"
 import { toPlainString } from "../../src/core/decimal/decimal"
 import { totalOf, type Dimension } from "../../src/core/report/breakdown"
@@ -88,7 +88,9 @@ describe("the basic-play book, broken down by the real hledger module", () => {
 
   test("with tallies taken in from another app under what that app called their parlor and machine", async () => {
     const file = ["日付,店舗コード,店舗,メーカー,機種コード,機種,台番号,投資額,回収額,収支,メモ,稼働時間,時給,貯玉", "2019/01/05,S1,駅前ホール,メーカーA,M1,昔の台,45,10000,0,-10000,,,,", "2019/01/06,S1,駅前ホール,メーカーA,M1,昔の台,46,1000,4000,3000,,,,", ""].join("\r\n")
-    await importPrecord({ session: session(), catalog: { search: async () => Ok([]) } as never }, BOOK, file, new Map(), undefined)
+    const catalog = { search: async () => Ok([]) } as never
+    const preview = await previewPrecord({ catalog }, file)
+    if (preview.ok) await importPrecord({ session: session(), catalog }, BOOK, preview.value, new Map(), undefined)
     expect(await read("machine", "date:2019")).toEqual([["昔の台", "-7000", "0"]])
     expect(await read("parlor", "date:2019")).toEqual([["駅前ホール", "-7000", "0"]])
   })

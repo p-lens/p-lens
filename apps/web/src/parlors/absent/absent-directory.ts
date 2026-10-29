@@ -7,4 +7,4 @@ import type { ParlorDirectory } from "../port/parlor-directory"
  * someone for themselves. There are no parlors to choose; every play is
  * recorded without one, by its totals.
  */
-export const createAbsentDirectory = (): ParlorDirectory => ({ list: async () => Ok(EMPTY_PARLOR_LIST) })
+export const createAbsentDirectory = (): ParlorDirectory => ({ list: async () => Ok(EMPTY_PARLOR_LIST), readAt: async () => undefined })

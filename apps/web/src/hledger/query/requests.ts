@@ -39,6 +39,15 @@ export const actualCutRequest = (query: string, cut: Cut): RequestOf<"incomestat
 /** What each of several tallies made or lost: an income statement of them alone, its rows the tallies' ids. */
 export const actualByTallyRequest = (ids: readonly PlayId[]): RequestOf<"incomestatement"> => actualCutRequest(talliesAmongTerm(ids), { pivot: TALLY_TAGS.playId })
 
+/** What each tally of a query made or lost, a row a tally: an income statement of every one of them at once, pivoted on the play's id. */
+export const actualEachTallyRequest = (query: string): RequestOf<"incomestatement"> => actualCutRequest(combine(talliesTerm, query), { pivot: TALLY_TAGS.playId })
+
+/** What went into each tally of a query, a row a tally: the same statement of every account but revenue. */
+export const spentEachTallyRequest = (query: string): RequestOf<"incomestatement"> => actualCutRequest(combine(talliesTerm, query, `not:${branchTerm(REVENUE_ROOT)}`), { pivot: TALLY_TAGS.playId })
+
+/** What came out of each tally of a query, a row a tally: the same statement of revenue alone, which arrives negative. */
+export const wonEachTallyRequest = (query: string): RequestOf<"incomestatement"> => actualCutRequest(combine(talliesTerm, query, branchTerm(REVENUE_ROOT)), { pivot: TALLY_TAGS.playId })
+
 /** The theoretical value of the tallies in a query, cut the same way. */
 export const theoreticalCutRequest = (query: string, cut: Cut): RequestOf<"balance"> => ({ ...theoreticalRequest(query), ...cut })
 

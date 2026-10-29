@@ -23,7 +23,8 @@ import { settleTyping, TextField } from "../../../primitives/text-field"
 import { toast } from "../../../primitives/toast"
 import { useMoves } from "../../../navigation/moves"
 import type { FormulaTab, Place } from "../../../navigation/place"
-import { describeDescriptionProblem, describeReleaseDateError, quotaStandingText } from "../../../wording/catalog"
+import { describeDescriptionProblem, describeReleaseDateError, quotaStandingText, REGISTER_OFFLINE, REGISTRATION_SENDING } from "../../../wording/catalog"
+import { isUnreached } from "../../catalog/unreached"
 import { describeError } from "../../../wording/errors"
 import { SHARED_UNCHECKED } from "../../../wording/pachislot/formula"
 import { useStartForm } from "../../live/start-form"
@@ -349,8 +350,13 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachislot-for
         <Show when={refusedForNow() ? undefined : standing()} keyed>
           {(where) => <p class="text-xs text-text-muted">{quotaStandingText(registrationKind(), where)}</p>}
         </Show>
+        <Show when={failure() === undefined && isUnreached(quota())}>
+          <p class="text-xs text-text-muted">{REGISTER_OFFLINE}</p>
+        </Show>
         <div>
-          <Button variant="semipro" onClick={() => void save()}>{pachislot().machine.type === "catalog" ? "この算出条件を追加する" : "機種と算出条件を登録する"}</Button>
+          <Button variant="semipro" onClick={() => void save()} aria-busy={sending() !== "idle"}>
+            {sending() !== "idle" ? REGISTRATION_SENDING : pachislot().machine.type === "catalog" ? "この算出条件を追加する" : "機種と算出条件を登録する"}
+          </Button>
         </div>
       </div>
     </Tabs>

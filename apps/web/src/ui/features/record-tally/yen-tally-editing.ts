@@ -36,6 +36,9 @@ import type { FieldProblem, FormField } from "./form"
 import { atToldOf, medalTermsFormOf, pachislotToldOf, readMedalTerms, readWeighingTerms, readYenTallyForm, resultOfYenTally, termsTypedOf, toldFiguresOf, weighingTermsFormOf, withInferred, type YenTallyForm } from "./yen-tally-form"
 import { seal } from "../../../mummer"
 import { chosenParlorText } from "../../wording/parlor"
+import type { LocateError } from "../../../location/port/locator"
+import { leaveFor } from "../../primitives/leaving"
+import { SURVEY_OFFLINE } from "../../wording/parlor"
 
 /** Where a submission is: being typed, being written, or refused with why. */
 type Submission =
@@ -75,6 +78,8 @@ export interface YenTallyEditing {
   /** Whether the parlor field holds a name that was typed and chose no parlor. */
   readonly typedOnly: () => boolean
   readonly locating: () => string | undefined
+  /** Why the parlors are not offered nearest first, where the device would not or could not say where it is. */
+  readonly locateFailure: () => LocateError | undefined
   readonly submitParlor: () => void
   readonly refused: TypedNameRefused
   readonly machines: () => readonly MachineSummary[]
@@ -154,7 +159,7 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
       toast({ title: "店舗の申請はまだ準備中です", description: "一覧にない店舗は、店舗を指定せずに記録できます。" })
       return
     }
-    window.location.assign(submitAddress(app.services.surveyUrl, window.location.origin, given.leftFrom(form().gameKind)))
+    leaveFor(submitAddress(app.services.surveyUrl, window.location.origin, given.leftFrom(form().gameKind)), SURVEY_OFFLINE)
   }
   /** The catalog's machines of the game chosen: all a tally added by its totals may name. */
   const [catalogued] = createResource(
@@ -340,6 +345,7 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
     setParlorTyped,
     typedOnly,
     locating,
+    locateFailure: () => ((found) => (found?.ok === false ? found.error : undefined))(here()),
     submitParlor,
     refused: given.refused,
     machines,

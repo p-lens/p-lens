@@ -6,13 +6,15 @@ import { destinationsOf, forgetDestination } from "../../../application/sending"
 import { startSync, syncedBooks } from "../../../application/sync"
 import { roleIn, type ListedBook } from "../../../core/book/book"
 import { Ok } from "../../../core/result/result"
-import { useApp } from "../../context"
+import { lagging, useApp } from "../../context"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { Button } from "../../primitives/button"
 import { Loaded } from "../../primitives/states"
+import { toast } from "../../primitives/toast"
+import { describeError } from "../../wording/errors"
 import { bookTitle, titleText } from "../../wording/book"
-import { syncedText } from "../../wording/sync"
+import { BOOK_WAITING, DESTINATION_KEPT, lastSyncedText, SYNC_STOPPED, syncedText } from "../../wording/sync"
 import { Withheld } from "../mummer/Withheld"
 import { ViewHeader } from "../shell/ViewHeader"
 import { FailureNote } from "./FailureNote"
@@ -46,7 +48,7 @@ function OwnBookRow(props: { readonly listed: Listed; readonly onChanged: () => 
       setWorking(started.ok ? { type: "idle" } : { type: "failed", error: started.error })
       if (!started.ok) return
       props.onChanged()
-      app.sync.run()
+      void app.sync.run()
     }
     setInviting(true)
   }
@@ -54,8 +56,8 @@ function OwnBookRow(props: { readonly listed: Listed; readonly onChanged: () => 
     <li class="flex flex-col gap-2 rounded-md bg-surface-1 px-3 py-3">
       <div class="flex flex-wrap items-center gap-2">
         <span class="min-w-0 flex-1 truncate text-sm text-text-primary">{bookTitle(props.listed.book)}</span>
-        <Button size="small" variant="secondary" onClick={() => (inviting() ? setInviting(false) : void open())}>
-          {inviting() ? "招待を閉じる" : "仲間を招待"}
+        <Button size="small" variant="secondary" onClick={() => (inviting() ? setInviting(false) : void open())} aria-busy={working().type === "working"}>
+          {inviting() ? "招待を閉じる" : working().type === "working" ? "準備しています…" : "仲間を招待"}
         </Button>
       </div>
       <Show when={inviting()}>
@@ -95,7 +97,8 @@ function Destinations(props: { readonly changed: number; readonly onChanged: () 
                     variant="outline"
                     class="shrink-0"
                     onClick={() =>
-                      void forgetDestination(app.services.destinations, destination).then(() => {
+                      void forgetDestination(app.services.destinations, destination).then((forgot) => {
+                        if (!forgot.ok) toast({ title: DESTINATION_KEPT, description: describeError(forgot.error), tone: "error" })
                         props.onChanged()
                         app.wrote()
                       })
@@ -130,10 +133,13 @@ function SyncStanding(): JSX.Element {
           <span>同期しています…</span>
         </Match>
         <Match when={((state) => (state.type === "synced" ? state : undefined))(app.sync.state())} keyed>
-          {(state) => <span>{syncedText(state.synced)}</span>}
+          {(state) => <span>{syncedText(state.synced, state.at)}</span>}
         </Match>
         <Match when={app.sync.state().type === "failed"}>
-          <span class="font-bold text-negative">同期が止まっています。</span>
+          <span class="font-bold text-negative">{lagging(app.sync.state()).length > 0 ? SYNC_STOPPED : BOOK_WAITING}</span>
+          <Show when={lagging(app.sync.state()).length > 0}>
+            <span>{lastSyncedText(app.sync.lastSynced())}</span>
+          </Show>
           <button type="button" class="underline underline-offset-2 hover:text-text-primary" onClick={() => moves.go({ kind: "settings-section", section: "sync" })}>
             「端末の同期」で確認する
           </button>

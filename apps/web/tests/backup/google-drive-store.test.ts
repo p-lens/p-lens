@@ -174,10 +174,10 @@ describe("backups in Google Drive", () => {
     expect(drive.asked()).toEqual([])
   })
 
-  test("lets go of a token Drive no longer takes, and says it was refused", async () => {
+  test("lets go of a token Drive no longer takes, and says the sign-in ran out", async () => {
     const drive = fakeDrive("token")
     const authorizer = authorizerGiving("stale")
-    expect(await storeOver(drive, authorizer).list()).toEqual({ ok: false, error: { type: "refused", status: 401, reason: "Invalid Credentials" } })
+    expect(await storeOver(drive, authorizer).list()).toEqual({ ok: false, error: { type: "signed-out" } })
     expect(authorizer.forgotten()).toBe(1)
   })
 
@@ -197,5 +197,25 @@ describe("backups in Google Drive", () => {
       newBoundary: () => "boundary-of-the-test",
     })
     expect(await store.list()).toEqual({ ok: false, error: { type: "unreachable", detail: "TypeError: Failed to fetch" } })
+  })
+
+  const answering = (response: () => Response) =>
+    createGoogleDriveStore({ authorizer: authorizerGiving("token"), request: async () => response(), answerWithin: 1000, folderName: "バックアップ", newBoundary: () => "boundary-of-the-test" })
+
+  test("takes a gateway's or a hall's login page answering in Drive's place as no connection, and Drive's own failing as for now", async () => {
+    expect(await answering(() => new Response("<html>login</html>", { status: 511 })).list()).toEqual({ ok: false, error: { type: "unreachable", detail: "answered 511" } })
+    expect(await answering(() => json({ error: { message: "Backend Error" } }, 503)).list()).toEqual({ ok: false, error: { type: "store-trouble", status: 503 } })
+    expect(await answering(() => json({ error: { message: "Rate Limit Exceeded" } }, 429)).list()).toEqual({ ok: false, error: { type: "store-trouble", status: 429 } })
+  })
+
+  test("says an answer cut short as it was read is no connection, not one it could not read", async () => {
+    const cut = (): Response =>
+      new Response(
+        new ReadableStream({
+          start: (controller) => controller.error(new DOMException("The operation timed out.", "TimeoutError")),
+        }),
+        { status: 200 },
+      )
+    expect(await answering(cut).list()).toMatchObject({ ok: false, error: { type: "unreachable" } })
   })
 })

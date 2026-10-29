@@ -5,7 +5,8 @@
  * the screens seal what they are given as what it is (`seal`), and show
  * it only through `veil`, facet by facet, as `POLICY` says.
  */
-export { isMumming, turnMumming } from "./mumming"
+export { clearPlainLabel, isMumming, isPlainLabelShown, startMumming, stopMumming } from "./mumming"
+export type { PlainLabelCleared } from "./mumming"
 export { seal, Secret } from "./secret"
 export { isWholeShown, veil } from "./veil"
 export type { KindWith } from "./policy"

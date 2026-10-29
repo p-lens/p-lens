@@ -224,6 +224,7 @@ describe("a mark pressed in a book", () => {
         quota: unused,
         recordUse: unused,
         refresh: unused,
+        unsentMarks: unused,
         mark: async (target, mark, on, voter) => {
           if (target.id === "typed" && mark === "verification") return Err({ type: "not-verifiable" })
           told.push(`${voter} ${on ? "sets" : "clears"} ${mark} on ${target.id}`)

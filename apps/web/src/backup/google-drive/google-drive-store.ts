@@ -56,12 +56,32 @@ const reasonOf = (body: unknown): string => {
   return isRecord(error) && typeof error["message"] === "string" ? error["message"] : "unknown"
 }
 
-const jsonOf = async (response: Response): Promise<unknown> => {
+const parsed = (text: string): unknown => {
   try {
-    return await response.json()
+    return JSON.parse(text)
   } catch {
     return undefined
   }
+}
+
+/** An answer's body as JSON — none where it is not — or no connection, where it was cut short or not read in time. */
+const bodyOf = async (response: Response): Promise<Result<unknown, StoreFailure>> => {
+  try {
+    return Ok(parsed(await response.text()))
+  } catch (cause) {
+    return Err({ type: "unreachable", detail: String(cause) })
+  }
+}
+
+/** Statuses a gateway or a hall's network answers with in the store's place, when it could not reach it or wants a login first: as good as no connection. */
+const IN_ITS_PLACE: ReadonlySet<number> = new Set([408, 502, 504, 511])
+
+/** What a store's refusal is, by its status: the sign-in let go, no connection, the store's own trouble, or a no. */
+const refusalOf = (status: number, body: unknown): StoreFailure => {
+  if (status === 401) return { type: "signed-out" }
+  if (IN_ITS_PLACE.has(status)) return { type: "unreachable", detail: `answered ${status}` }
+  if (status === 429 || status >= 500) return { type: "store-trouble", status }
+  return { type: "refused", status, reason: reasonOf(body) }
 }
 
 const storedOf = (file: DriveFile): readonly StoredBackup[] => {
@@ -91,7 +111,8 @@ export const createGoogleDriveStore = (ports: GoogleDrivePorts): BackupStore => 
       const response = await ports.request(url, { ...init, headers: { ...init.headers, Authorization: `Bearer ${token.value}` }, signal: AbortSignal.timeout(ports.answerWithin) })
       if (response.ok) return Ok(response)
       if (response.status === 401) ports.authorizer.forget()
-      return Err({ type: "refused", status: response.status, reason: reasonOf(await jsonOf(response)) })
+      const body = await bodyOf(response)
+      return Err(refusalOf(response.status, body.ok ? body.value : undefined))
     } catch (cause) {
       return Err({ type: "unreachable", detail: String(cause) })
     }
@@ -99,7 +120,7 @@ export const createGoogleDriveStore = (ports: GoogleDrivePorts): BackupStore => 
 
   const described = async (url: string, init: RequestInit): Promise<Result<unknown, StoreFailure>> => {
     const response = await answered(url, init)
-    return response.ok ? Ok(await jsonOf(response.value)) : response
+    return response.ok ? bodyOf(response.value) : response
   }
 
   const found = async (query: string): Promise<Result<readonly DriveFile[], StoreFailure>> => {

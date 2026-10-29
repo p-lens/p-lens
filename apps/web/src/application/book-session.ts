@@ -61,6 +61,8 @@ export interface BookSession {
   readonly books: () => Promise<Outcome<readonly ListedBook[]>>
   readonly createBook: (stored: StoredBook) => Promise<Outcome<CommitId>>
   readonly read: <T>(bookId: BookId, work: (journal: JournalAccess, stored: StoredBook) => Promise<Outcome<T>>) => Promise<Outcome<T>>
+  /** A book read in its turn unless the person stopped it while it waited: none, and the book not opened, where they did — opening a book they no longer want would only push out the one they are looking at. */
+  readonly readUnlessStopped: <T>(bookId: BookId, stopped: AbortSignal, work: (journal: JournalAccess, stored: StoredBook) => Promise<Outcome<T>>) => Promise<Outcome<T | undefined>>
   /**
    * A book read as hledger is to read it for one question: its files as
    * `view` sees them, which may leave some out. The work is given the book
@@ -198,6 +200,13 @@ export const createBookSession = (ports: SessionPorts): BookSession => {
 
     read: (bookId, work) =>
       ports.hledger.inTurn(async (journal) => {
+        const stored = await openBook(journal, bookId)
+        return stored.ok ? work(journal, stored.value) : stored
+      }),
+
+    readUnlessStopped: <T>(bookId: BookId, stopped: AbortSignal, work: (journal: JournalAccess, stored: StoredBook) => Promise<Outcome<T>>) =>
+      ports.hledger.inTurn(async (journal): Promise<Outcome<T | undefined>> => {
+        if (stopped.aborted) return Ok(undefined)
         const stored = await openBook(journal, bookId)
         return stored.ok ? work(journal, stored.value) : stored
       }),

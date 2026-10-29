@@ -16,7 +16,7 @@ import type { LinkStore, LinkStoreError, SyncLink } from "../sync/port/link-stor
 import type { LineAccess, Relay } from "../sync/port/relay"
 import { accessOf, type LineKeys, type Sealer } from "../sync/port/sealer"
 import type { BookSession } from "./book-session"
-import type { Outcome, SyncProblem } from "./errors"
+import type { ApplicationError, Outcome, SyncProblem } from "./errors"
 import { fromHistory } from "./lift"
 import { linksProblemOf } from "./kept-links"
 
@@ -324,16 +324,90 @@ export const syncedBooks = async (links: LinkStore): Promise<Outcome<readonly Bo
 
 const together = (left: Synced, right: Synced): Synced => ({ received: left.received + right.received, sent: left.sent + right.sent })
 
-/** Sync every book this device syncs, one after another, stopping at the first that cannot be. */
-export const syncAll = async (ports: SyncPorts): Promise<Outcome<Synced>> => {
+/** A book whose round failed, and why; none named where the books synced could not be listed at all. */
+export interface SyncFailure {
+  readonly bookId: BookId | undefined
+  readonly error: ApplicationError
+}
+
+/** How a round over every book went: what came and went, each book that went through, and each book that stopped on the way. */
+export interface SyncedAll {
+  readonly synced: Synced
+  readonly through: readonly BookId[]
+  readonly failures: readonly SyncFailure[]
+}
+
+/**
+ * Whether a book stopped for something only a person can change — a
+ * conflict to choose in, or a book its owner let go of — rather than for
+ * the signal or the relay: a round again goes the same way until they act,
+ * so such a book neither keeps the others out of date nor is tried again
+ * and again on its own.
+ */
+const waitsOnPerson = (failure: SyncFailure): boolean =>
+  failure.error.type === "sync" && (failure.error.problem.type === "conflict" || failure.error.problem.type === "shut-out")
+
+/** The failures of a round that a later round may get past by itself. */
+export const laggingOf = (failures: readonly SyncFailure[]): readonly SyncFailure[] => failures.filter((failure) => !waitsOnPerson(failure))
+
+/** Rounds that failed the same way, one after another: the books that stopped and why, and how many rounds running they have. */
+export interface Retrying {
+  readonly failing: string
+  readonly rounds: number
+}
+
+const failingOf = (failures: readonly SyncFailure[]): string =>
+  laggingOf(failures)
+    .map((failure) => `${failure.bookId ?? ""}:${failure.error.type}:${failure.error.type === "sync" ? failure.error.problem.type : ""}`)
+    .toSorted()
+    .join(" ")
+
+/** What started a round: the retry wait running out, or anything else — a write, a press, the page shown again or back online. */
+export type RoundStarted = "by-retry" | "otherwise"
+
+/**
+ * Where retrying stands after a round: none once nothing lags, the count
+ * going on while the same books fail the same way, and starting again when
+ * they change. Only a round the wait started counts one more: rounds a
+ * person's writes or presses start would otherwise stretch the wait by how
+ * busy they were, not by how long the trouble lasted.
+ */
+export const retryingAfter = (was: Retrying | undefined, failures: readonly SyncFailure[], started: RoundStarted): Retrying | undefined => {
+  const failing = failingOf(failures)
+  if (failing === "") return undefined
+  if (was?.failing !== failing) return { failing, rounds: 1 }
+  return { failing, rounds: started === "by-retry" ? was.rounds + 1 : was.rounds }
+}
+
+const failureKey = (failure: SyncFailure): string => `${failure.bookId ?? ""}:${JSON.stringify(failure.error)}`
+
+/** Failures with each book's same trouble said once: a book whose round stopped is asked again at its inbox, and stops there the same way. */
+export const distinctFailures = (failures: readonly SyncFailure[]): readonly SyncFailure[] =>
+  failures.filter((failure, at) => failures.findIndex((other) => failureKey(other) === failureKey(failure)) === at)
+
+/** The most a round failing the same way is waited out before it is tried again, in milliseconds. */
+const LONGEST_RETRY_WAIT = 16 * 60_000
+
+/** How long after a failed round the next is tried, in milliseconds: `first`, doubled for each round more that failed the same way, up to a quarter of an hour and a little. */
+export const retryWait = (retrying: Retrying, first: number): number => Math.min(first * 2 ** (retrying.rounds - 1), LONGEST_RETRY_WAIT)
+
+/**
+ * Sync every book this device syncs, one after another. A book that cannot
+ * be synced stops only itself: one let go of by its owner, or waiting on a
+ * choice, never keeps the rest from going round.
+ */
+export const syncAll = async (ports: SyncPorts): Promise<SyncedAll> => {
   const books = await syncedBooks(ports.links)
-  if (!books.ok) return books
-  return books.value.reduce<Promise<Outcome<Synced>>>(
+  if (!books.ok) return { synced: { received: 0, sent: 0 }, through: [], failures: [{ bookId: undefined, error: books.error }] }
+  return books.value.reduce<Promise<SyncedAll>>(
     async (so, bookId) => {
       const done = await so
-      return done.ok ? mapOk(await syncBook(ports, bookId), (synced) => together(done.value, synced)) : done
+      const synced = await syncBook(ports, bookId)
+      return synced.ok
+        ? { synced: together(done.synced, synced.value), through: [...done.through, bookId], failures: done.failures }
+        : { synced: done.synced, through: done.through, failures: [...done.failures, { bookId, error: synced.error }] }
     },
-    Promise.resolve(Ok({ received: 0, sent: 0 })),
+    Promise.resolve({ synced: { received: 0, sent: 0 }, through: [], failures: [] }),
   )
 }
 
@@ -388,19 +462,6 @@ export const conflictOf = async (ports: SyncPorts, bookId: BookId): Promise<Outc
     if (made.error.type !== "conflict") return problem(made.error)
     return Ok({ bookId, head: looked.value.taken.head, files: contestedFiles(standing.value, stored.files) })
   })
-}
-
-/** The first of this device's synced books whose round would stop at a conflict. */
-export const firstConflict = async (ports: SyncPorts): Promise<Outcome<Conflict | undefined>> => {
-  const books = await syncedBooks(ports.links)
-  if (!books.ok) return books
-  return books.value.reduce<Promise<Outcome<Conflict | undefined>>>(
-    async (so, bookId) => {
-      const found = await so
-      return !found.ok || found.value !== undefined ? found : conflictOf(ports, bookId)
-    },
-    Promise.resolve(Ok(undefined)),
-  )
 }
 
 /** The commit that records what a person chose: from where the line's stood everywhere, to the sides picked. */

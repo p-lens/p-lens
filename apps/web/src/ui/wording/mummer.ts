@@ -1,3 +1,5 @@
+import type { PlainLabelCleared } from "../../mummer"
+
 /** What mumming is called on screen: 配信モード, a stream and a post alike. */
 export const MUMMER_HEADING = "配信モード"
 
@@ -21,3 +23,27 @@ export const MUMMER_TURN = "配信モードにする"
 
 /** What the mark in the top bar is read out as: it goes to where mumming is turned off. */
 export const MUMMER_MARK = "配信モード中（設定を開く）"
+
+/** What stands, faint, where the mark stood, once mumming has been turned off on a business day it was on: it names nothing of the person's, so a stream may show it. */
+export const PLAIN_LABEL = "通常表示"
+
+/** What the plain label is read out as: pressed, it turns mumming straight back on. */
+export const PLAIN_LABEL_READ = "通常表示（押すと配信モードにします）"
+
+/** The setting's button that takes the plain label away before the business day turns. */
+export const PLAIN_LABEL_CLEAR = "通常表示ラベルを消す"
+
+/** What the setting says of the plain label and the button beside it. */
+export const PLAIN_LABEL_CLEAR_EXPLAINED = "左上の「通常表示」ラベルは営業日が変われば消えますが、このボタンですぐ消せます。"
+
+/** What pressing that button came to: the label taken away, kept from coming when mumming is turned off, or none there to take. */
+export const plainLabelClearedText = (cleared: PlainLabelCleared): string => {
+  switch (cleared) {
+    case "cleared":
+      return "通常表示ラベルを消しました"
+    case "kept-off":
+      return "配信モードを切っても、この営業日は通常表示ラベルを出しません"
+    case "not-shown":
+      return "通常表示ラベルは出ていません"
+  }
+}

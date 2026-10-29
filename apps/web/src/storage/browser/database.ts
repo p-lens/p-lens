@@ -251,12 +251,18 @@ export type Connection = () => Promise<Result<IDBDatabase, StorageError>>
 
 /**
  * One connection to the database, kept once it opens. A failure is not kept,
- * so the next call tries again.
+ * so the next call tries again; nor is a connection the browser closed
+ * under the app — as a phone does to an app set aside a while — so the
+ * next call opens another rather than meeting a closed one.
  */
 export const createConnection = (): Connection => {
   const connection: { database: Promise<Result<IDBDatabase, StorageError>> | undefined } = { database: undefined }
+  const forget = (): void => {
+    connection.database = undefined
+  }
   const forgetIfFailed = (opened: Result<IDBDatabase, StorageError>): Result<IDBDatabase, StorageError> => {
-    if (!opened.ok) connection.database = undefined
+    if (!opened.ok) forget()
+    if (opened.ok) opened.value.onclose = forget
     return opened
   }
   return () => {

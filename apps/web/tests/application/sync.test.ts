@@ -1,13 +1,14 @@
 import { describe, expect, test } from "bun:test"
 
 import { createBookSession } from "../../src/application/book-session"
-import { conflictOf, firstConflict, joinSync, settleConflict, startSync, syncBook, type SyncPorts } from "../../src/application/sync"
+import { conflictOf, distinctFailures, joinSync, laggingOf, retryingAfter, retryWait, settleConflict, startSync, syncAll, syncBook, type SyncPorts } from "../../src/application/sync"
 import type { BookId, MemberId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { appendEntry, BOOK_FILES } from "../../src/core/journal/layout"
-import { Ok } from "../../src/core/result/result"
+import { Err, Ok } from "../../src/core/result/result"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
 import type { Relay } from "../../src/sync/port/relay"
+import { accessOf } from "../../src/sync/port/sealer"
 import { createWebCryptoSealer } from "../../src/sync/web-crypto/web-crypto-sealer"
 import { fixtureBook, inProcessHledger, memoryStorage } from "../support/in-process"
 import { memoryLinks, memoryRelay } from "../support/sync"
@@ -75,6 +76,24 @@ describe("a book on two devices", () => {
     expect(await second.ids()).toEqual(await first.ids())
     expect((await second.session.books()).ok).toBe(true)
     expect(await syncBook(second.ports, BOOK)).toEqual({ ok: true, value: { received: 0, sent: 0 } })
+  })
+
+  test("one book that cannot be synced stops only itself, and is named with why", async () => {
+    const relay = memoryRelay()
+    const ghost = "ghost" as BookId
+    const shut = { lineId: "" }
+    const first = await withBook("first", { ...relay, entriesAfter: async (access, after) => (access.lineId === shut.lineId ? Err({ type: "shut-out" }) : relay.entriesAfter(access, after)) })
+    await first.ports.links.write({ bookId: ghost, relayUrl: RELAY_URL, secret: first.ports.sealer.newSecret(), cursor: 0 })
+    const ghostLink = await first.ports.links.read(ghost)
+    const keys = await first.ports.sealer.keysOf(ghostLink.ok && ghostLink.value !== undefined ? ghostLink.value.secret : "")
+    shut.lineId = keys.ok ? accessOf(RELAY_URL, keys.value).lineId : ""
+    await startSync(first.ports, BOOK, RELAY_URL)
+    await first.record("2026-10-03", 3000, "after the ghost")
+    const done = await syncAll(first.ports)
+    expect(done.failures).toEqual([{ bookId: ghost, error: { type: "sync", problem: { type: "shut-out" } } }])
+    expect(done.synced.sent).toBeGreaterThan(0)
+    expect(done.through).toEqual([BOOK])
+    expect(laggingOf(done.failures)).toEqual([])
   })
 
   test("what each recorded apart comes together on both, each commit kept", async () => {
@@ -160,7 +179,7 @@ describe("a book on two devices", () => {
     expect((await syncBook(second.ports, BOOK)).ok).toBe(false)
     expect(await conflictOf(first.ports, BOOK)).toEqual({ ok: true, value: undefined })
 
-    const found = await firstConflict(second.ports)
+    const found = await conflictOf(second.ports, BOOK)
     const conflict = found.ok ? found.value : undefined
     expect(conflict?.files.map((file) => file.path)).toEqual([BOOK_FILES.main])
     expect(conflict?.files[0]?.parts.filter((part) => part.type === "contested")).toEqual([
@@ -232,5 +251,39 @@ describe("a book on two devices", () => {
     expect(await joinSync(second.ports, code.ok ? code.value : "", RELAY_URL)).toEqual({ ok: false, error: { type: "sync", problem: { type: "nothing-to-join" } } })
     await syncBook(first.ports, BOOK)
     expect(await joinSync(first.ports, code.ok ? code.value : "", RELAY_URL)).toEqual({ ok: false, error: { type: "sync", problem: { type: "book-here", bookId: BOOK } } })
+  })
+})
+
+describe("retrying rounds that failed", () => {
+  const offline = { bookId: BOOK, error: { type: "sync", problem: { type: "unreachable", detail: "" } } } as const
+  const shutOut = { bookId: "other" as typeof BOOK, error: { type: "sync", problem: { type: "shut-out" } } } as const
+
+  test("stops once nothing is left that a round could get past by itself", () => {
+    expect(retryingAfter({ failing: "x", rounds: 3 }, [shutOut], "by-retry")).toBeUndefined()
+  })
+
+  test("waits longer for each round more that failed the same way, up to a limit, and starts over when the failure changes", () => {
+    const once = retryingAfter(undefined, [offline, shutOut], "otherwise")
+    const thrice = retryingAfter(retryingAfter(once, [offline], "by-retry"), [offline, shutOut], "by-retry")
+    expect(once === undefined ? undefined : retryWait(once, 60_000)).toBe(60_000)
+    expect(thrice === undefined ? undefined : retryWait(thrice, 60_000)).toBe(240_000)
+    expect(retryWait({ failing: "x", rounds: 30 }, 60_000)).toBe(16 * 60_000)
+    expect(retryingAfter(thrice, [{ ...offline, bookId: "else" as typeof BOOK }], "by-retry")?.rounds).toBe(1)
+  })
+
+  test("never waits longer for rounds that writes, presses or the page shown again started", () => {
+    const once = retryingAfter(undefined, [offline], "otherwise")
+    const afterFiveWrites = [1, 2, 3, 4, 5].reduce((was) => retryingAfter(was, [offline], "otherwise"), once)
+    expect(afterFiveWrites === undefined ? undefined : retryWait(afterFiveWrites, 60_000)).toBe(60_000)
+  })
+})
+
+describe("a round's failures", () => {
+  const troubled = { bookId: BOOK, error: { type: "sync", problem: { type: "server-trouble", status: 503 } } } as const
+  const unlisted = { bookId: undefined, error: { type: "storage", error: { type: "unavailable", detail: "" } } } as const
+
+  test("say a book's same trouble once, though its inbox stopped the same way as its round", () => {
+    const shutOut = { bookId: "other" as typeof BOOK, error: { type: "sync", problem: { type: "shut-out" } } } as const
+    expect(distinctFailures([troubled, shutOut, unlisted, { ...troubled }, { ...unlisted }])).toEqual([troubled, shutOut, unlisted])
   })
 })

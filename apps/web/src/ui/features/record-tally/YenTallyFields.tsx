@@ -15,7 +15,8 @@ import { TextField } from "../../primitives/text-field"
 import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
 import { describeError } from "../../wording/errors"
 import * as PachinkoWording from "../../wording/pachinko/inference"
-import { LOCATE_REQUEST, parlorChoiceText, typedMachineRefused, typedParlorRefused } from "../../wording/parlor"
+import { stayWhileOffline } from "../../primitives/leaving"
+import { LOCATE_REQUEST, locateFailedText, parlorChoiceText, SURVEY_OFFLINE, typedMachineRefused, typedParlorRefused } from "../../wording/parlor"
 import * as PachinkoViews from "../pachinko"
 import * as PachislotViews from "../pachislot"
 import * as PachislotWording from "../../wording/pachislot/inference"
@@ -106,9 +107,12 @@ export function ParlorField(props: { readonly editing: YenTallyEditing }): JSX.E
           <PlusIcon />
         </button>
       </div>
+      <Show when={editing.locateFailure()} keyed>
+        {(error) => <p class="text-xs text-text-muted">{locateFailedText(error)}</p>}
+      </Show>
       <Show when={editing.locating()} keyed>
         {(address) => (
-          <a href={address} class="animate-[emerge_1.6s_ease-out] text-xs text-text-secondary underline underline-offset-2 hover:text-text-primary">
+          <a href={address} onClick={(event) => stayWhileOffline(event, SURVEY_OFFLINE)} class="animate-[emerge_1.6s_ease-out] text-xs text-text-secondary underline underline-offset-2 hover:text-text-primary">
             {LOCATE_REQUEST}
           </a>
         )}

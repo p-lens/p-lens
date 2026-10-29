@@ -15,26 +15,32 @@ import type {
   SunkResponse,
 } from "@p-lens/contracts/pachinko"
 
+import instantiate, * as built from "@p-lens/pachinko-engine/pachinko.js"
+import wasmAddress from "@p-lens/pachinko-engine/pachinko_bg.wasm?url"
+
+import { fetchUnlessStalled } from "../../download/unless-stalled"
 import type { Call, FromWorker, EngineFailure, EstimateOrder, HyenaHuntOrder, InferenceOrder, RunEvent, SimulationOrder, SunkOrder, ToWorker } from "../protocol/messages"
 
 /**
  * The pachinko engine runs here, never on the page's thread: a Monte Carlo
- * run is seconds of arithmetic. The engine itself is imported on the first
- * message, so nothing of it is fetched until a pachinko formula or play
+ * run is seconds of arithmetic. Its wasm is fetched on the first message, so
+ * nothing of it is fetched until a pachinko formula or play
  * needs it.
  */
 
-type Engine = typeof import("@p-lens/pachinko-engine/pachinko.js")
+type Engine = typeof built
+
+/** How long the engine may go without a byte arriving, in milliseconds, where the service worker does not have it yet: a signal gone must not leave a calculation waiting for good, and a slow one must not be cut off while it still brings the engine in. */
+const STALLED_AFTER = 30_000
 
 const loaded: { engine: Promise<Engine> | undefined } = { engine: undefined }
 
 const engine = (): Promise<Engine> => {
   const pending =
     loaded.engine ??
-    import("@p-lens/pachinko-engine/pachinko.js").then(async (module) => {
-      await module.default()
-      return module
-    })
+    WebAssembly.compileStreaming(fetchUnlessStalled(wasmAddress, STALLED_AFTER))
+      .then((module) => instantiate({ module_or_path: module }))
+      .then(() => built)
   loaded.engine = pending
   pending.catch(() => {
     loaded.engine = undefined

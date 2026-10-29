@@ -29,6 +29,7 @@ const catalogOf = (machines: readonly MachineSummary[]): Catalog => ({
   mark: unused,
   recordUse: unused,
   refresh: unused,
+  unsentMarks: unused,
 })
 
 describe("findMachines", () => {

@@ -23,6 +23,12 @@ export interface Submitted {
 
 export type CatalogError =
   | { readonly type: "unavailable"; readonly detail: string }
+  /** Something registered was sent and no answer came in time: it may have been taken, or not. */
+  | { readonly type: "unanswered" }
+  /** This device's own storage, where the delivery and what waits to be sent are kept, could not be used: nothing of the network. */
+  | { readonly type: "storage-unavailable" }
+  /** What was asked for is not on the device, the catalog's last delivery having failed: never delivered, not missing. */
+  | { readonly type: "undelivered" }
   /** The shared catalog's answer was not what was asked for. */
   | { readonly type: "unreadable-answer" }
   /** What this device keeps of the shared catalog — its delivery, or what waits to be sent — does not read. */
@@ -48,11 +54,17 @@ export type CatalogError =
   | { readonly type: "quota-reached"; readonly kind: RegistrationKind; readonly nextAt: string }
   /**
    * The shared catalog could not solve the formula's 解析値 to check them:
-   * too heavy for the work one request may take, as it said, or as its
-   * giving up without a word (503) shows. Sent again with what this device
-   * solved, it is taken unchecked.
+   * too heavy for the work one request may take, as it said. Sent again
+   * with what this device solved, it is taken unchecked.
    */
   | { readonly type: "too-heavy" }
+  /**
+   * The shared catalog gave up on what was sent with no word of its own
+   * (503): out of time, or too busy, or down, and nothing says which. Nothing
+   * is sent again unchecked for it — only the catalog saying it was too
+   * heavy lets a formula in unchecked.
+   */
+  | { readonly type: "gave-up" }
   /** The shared catalog would not take it, as it said. */
   | { readonly type: "refused"; readonly reason: string }
 
@@ -90,4 +102,6 @@ export interface Catalog {
   readonly recordUse: (target: CatalogTarget) => Promise<Result<void, CatalogError>>
   /** Sends what is waiting, and takes a new delivery if the shared catalog has moved on: whether it had. */
   readonly refresh: () => Promise<Result<{ readonly changed: boolean }, CatalogError>>
+  /** The formulas and 設定配分, by id, that a mark — a heart among them — put on here is still waiting to be sent for. */
+  readonly unsentMarks: () => Promise<Result<ReadonlySet<string>, CatalogError>>
 }

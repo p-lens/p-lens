@@ -2,7 +2,7 @@ import { createResource, createSignal, For, Match, Show, Switch, type JSX } from
 import { MainContent } from "solid-gathering-shell"
 
 import type { ApplicationError, Outcome } from "../../../application/errors"
-import { firstConflict, startSync, syncedBooks } from "../../../application/sync"
+import { conflictOf, startSync, syncedBooks } from "../../../application/sync"
 import { roleIn, type BookId, type ListedBook } from "../../../core/book/book"
 import { Ok } from "../../../core/result/result"
 import { useApp } from "../../context"
@@ -18,6 +18,7 @@ import { ViewHeader } from "../shell/ViewHeader"
 import { ConflictPanel } from "./ConflictPanel"
 import { FailureNote } from "./FailureNote"
 import { JoinByCode } from "./JoinByCode"
+import { SyncFailureNote } from "./SyncFailureNote"
 
 /** A book of one's own as the screen lists it: its cover, and whether this device syncs it. */
 interface Listed {
@@ -43,7 +44,7 @@ function BookRow(props: { readonly listed: Listed; readonly onChanged: () => voi
     const code = await coded(props.listed.book.id)
     if (code?.ok !== true) return
     props.onChanged()
-    app.sync.run()
+    void app.sync.run()
   }
   const copyCode = async (): Promise<void> => {
     const code = await coded(props.listed.book.id)
@@ -58,8 +59,8 @@ function BookRow(props: { readonly listed: Listed; readonly onChanged: () => voi
         <Show
           when={props.listed.synced}
           fallback={
-            <Button size="small" variant="secondary" onClick={() => void start()}>
-              同期を始める
+            <Button size="small" variant="secondary" onClick={() => void start()} aria-busy={working().type === "working"}>
+              {working().type === "working" ? "準備しています…" : "同期を始める"}
             </Button>
           }
         >
@@ -99,17 +100,17 @@ export function SyncSettings(props: { readonly place: Place }): JSX.Element {
       return Ok(books.value.filter((book) => roleIn(book, app.services.member) === "owner").map((book) => ({ book, synced: synced.value.includes(book.id) })))
     },
   )
-  const stuck = (): boolean => {
+  const stuck = (): BookId | undefined => {
     const state = app.sync.state()
-    return state.type === "failed" && state.error.type === "sync" && state.error.problem.type === "conflict"
+    return state.type === "failed" ? state.failures.find((failure) => failure.error.type === "sync" && failure.error.problem.type === "conflict")?.bookId : undefined
   }
   const [conflict] = createResource(
-    () => (stuck() ? { revision: app.revision(), changed: changed() } : undefined),
-    () => firstConflict(app.services.sync),
+    () => ((bookId) => (bookId === undefined ? undefined : { bookId, revision: app.revision(), changed: changed() }))(stuck()),
+    (looking) => conflictOf(app.services.sync, looking.bookId),
   )
   const settled = (): void => {
     app.wrote()
-    app.sync.run()
+    void app.sync.run()
   }
   const changedHere = (): void => {
     setChanged((count) => count + 1)
@@ -141,7 +142,7 @@ export function SyncSettings(props: { readonly place: Place }): JSX.Element {
             <section class="flex flex-col gap-2">
               <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">いまの状態</h2>
               <div class="flex flex-wrap items-center gap-3">
-                <Button size="small" variant="secondary" onClick={app.sync.run}>
+                <Button size="small" variant="secondary" onClick={() => void app.sync.run()}>
                   今すぐ同期
                 </Button>
                 <Switch>
@@ -149,18 +150,18 @@ export function SyncSettings(props: { readonly place: Place }): JSX.Element {
                     <span class="text-sm text-text-muted">同期しています…</span>
                   </Match>
                   <Match when={((state) => (state.type === "synced" ? state : undefined))(app.sync.state())} keyed>
-                    {(state) => <span class="text-sm text-text-muted">{syncedText(state.synced)}</span>}
+                    {(state) => <span class="text-sm text-text-muted">{syncedText(state.synced, state.at)}</span>}
                   </Match>
                 </Switch>
               </div>
               <Show when={((state) => (state.type === "failed" ? state : undefined))(app.sync.state())} keyed>
-                {(state) => <FailureNote error={state.error} />}
+                {(state) => <SyncFailureNote failures={state.failures} />}
               </Show>
-              <Show when={stuck()}>
+              <Show when={stuck() !== undefined}>
                 <Loaded outcome={conflict()}>
                   {(found) => (
                     <Show when={found} keyed>
-                      {(open) => <ConflictPanel conflict={open} onSettled={settled} />}
+                      {(open) => <ConflictPanel conflict={open} onSettled={settled} onMoved={changedHere} />}
                     </Show>
                   )}
                 </Loaded>

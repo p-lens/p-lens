@@ -129,9 +129,9 @@ describe("a book backed up to a store", () => {
     const there = await device("there")
     const listed = await storedBackups(there.ports, store)
     const idOf = (key: BookId): string => (listed.ok ? (listed.value.find((each) => each.backup.key === key)?.backup.id ?? "") : "")
-    expect(await restoreChosenFromStore(there.ports, store, [idOf(BOOK), idOf(THIRD)])).toEqual({ ok: true, value: 2 })
+    expect(await restoreChosenFromStore(there.ports, store, [idOf(BOOK), idOf(THIRD)])).toEqual({ restored: [idOf(BOOK), idOf(THIRD)], failure: undefined })
     expect([BOOK, OTHER, THIRD].map((id) => there.storage.peek(id) !== undefined)).toEqual([true, false, true])
-    expect(await restoreChosenFromStore(there.ports, store, [])).toEqual({ ok: true, value: 0 })
+    expect(await restoreChosenFromStore(there.ports, store, [])).toEqual({ restored: [], failure: undefined })
   })
 
   test("stops at the first chosen that cannot be put back, and keeps those before it", async () => {
@@ -142,7 +142,8 @@ describe("a book backed up to a store", () => {
     const listed = await storedBackups(there.ports, store)
     const id = listed.ok ? (listed.value[0]?.backup.id ?? "") : ""
     const restored = await restoreChosenFromStore(there.ports, store, [id, "no-such-backup"])
-    expect(restored.ok).toBe(false)
+    expect(restored.restored).toEqual([id])
+    expect(restored.failure).toBeDefined()
     expect(there.storage.peek(BOOK)).toBeDefined()
   })
 

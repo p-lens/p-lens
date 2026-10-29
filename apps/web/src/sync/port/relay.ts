@@ -17,7 +17,11 @@ export interface LineAccess {
  * - `too-many`: this address has asked, or sent, more than a relay lets one in a while; a later round goes through.
  * - `shut-out`: the token opens the line no longer, or never did: a grant taken away, or a code that is another line's.
  * - `not-permitted`: the token is the line's, and may not do this: a viewer adding to it, or anyone but its owner seeing to who is let in.
+ * - `unreachable`: no answer came: no signal, none in time, or a gateway on the way answering in the relay's place that it could not reach it (502–504, 52x) or that the network wants a login first (511).
+ * - `server-trouble`: the relay answered that it failed itself, its storage or otherwise (5xx): a later try goes through.
+ * - `too-large`: what was sent is more than a relay takes at once, or a line's grants are as many as it lets in.
  * - `refused`: the relay answered, and said no in a way no retry changes.
+ * - `unreadable-answer`: something answered as if it went through and was not the relay: a hall's login page, or an answer cut short.
  */
 export type RelayFailure =
   | { readonly type: "unreachable"; readonly detail: string }
@@ -26,6 +30,8 @@ export type RelayFailure =
   | { readonly type: "too-many" }
   | { readonly type: "shut-out" }
   | { readonly type: "not-permitted" }
+  | { readonly type: "server-trouble"; readonly status: number }
+  | { readonly type: "too-large" }
   | { readonly type: "refused"; readonly status: number; readonly reason: string }
   | { readonly type: "unreadable-answer" }
 

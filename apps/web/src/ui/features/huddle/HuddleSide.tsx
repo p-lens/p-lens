@@ -16,6 +16,7 @@ import type { Place } from "../../navigation/place"
 import { HUDDLE_CODE, HUDDLE_DISMISS, HUDDLE_DISMISS_ASK, HUDDLE_DISMISS_SAYS, HUDDLE_HEADING, HUDDLE_NARROW, HUDDLE_OWN, HUDDLE_TOTAL, roomMemberText } from "../../wording/huddle"
 import { HuddleDialog } from "./HuddleDialog"
 import { HuddleRow, type Presence } from "./HuddleRow"
+import { HuddleReachNote } from "./HuddleReachNote"
 
 /** The members of a room as its filters offer them, one's own first. */
 export const offeredMembers = (members: readonly RoomMember[]): readonly Offered[] => members.map((each) => ({ key: each.member, label: roomMemberText(each.name, each.own) }))
@@ -60,6 +61,9 @@ export function HuddleSide(props: { readonly place: Place }): JSX.Element {
   })
   return (
     <SidePanel header={<span class="font-semibold text-text-primary">{HUDDLE_HEADING}</span>} resizeLabel="サイドパネルの幅を変える">
+      <div class="flex flex-col gap-1 px-2 pt-3 empty:hidden">
+        <HuddleReachNote />
+      </div>
       <div class="flex items-center gap-2 px-4 pt-3">
         <Button variant="semipro" size="small" onClick={() => moves.go({ kind: "huddle-total" })}>
           {HUDDLE_TOTAL}

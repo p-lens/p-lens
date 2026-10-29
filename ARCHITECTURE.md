@@ -678,7 +678,8 @@ core ──► hledger/protocol/wire (types only)
 | `hledger/protocol/` | the wire format, mirroring `Bindings.hs`; worker messages | nothing |
 | `hledger/query/` | hledger query terms and requests P-Lens writes | `core`, `hledger/protocol` |
 | `hledger/client/` | the only way to the worker; one queue (`inTurn`) | `hledger/protocol`, `core/result` |
-| `hledger/worker/` | the engine (WASI, one parsed journal) and the worker loop | `hledger/protocol` |
+| `hledger/worker/` | the engine (WASI, one parsed journal) and the worker loop | `hledger/protocol`, `download` |
+| `download/` | a large file fetched over a weak signal: given up only when nothing of it arrives for a while, never for taking long (`fetchUnlessStalled`); the module hledger and each game's engine are compiled from | — |
 | `storage/`, `history/` | `port/` interfaces (books, drafts, the copies of plays another of one's devices holds (`follow-storage`), history, whether the browser keeps what is stored); `browser/` or `adapters/` implementations, the device's ids among them (`indexed-db-device`: one for the catalog, one for the plays' lines) | `core` |
 | `preferences/` | `port/` (what a person has set for this device), `local/` (kept in localStorage) | `core` |
 | `onboarding/` | `port/` (what a device keeps of its own arrival at the app: when it first opened it, and whether it has been welcomed), `local/` (kept in localStorage, the first opening written as the app starts) | `core` |
@@ -696,9 +697,9 @@ core ──► hledger/protocol/wire (types only)
 | `catalog/` | `port/` (the shared catalog as delivered, and the API it comes from), `delivered/` (the delivered catalog in IndexedDB, with the outbox), `http/` (the API by URL), `absent/` (no catalog) | `core`, contracts |
 | `parlors/` | `port/` (the parlor list and its cache), `jsonl/` (the list by URL), `absent/` (no list), `local/` (the IndexedDB cache) | `core` |
 | `consolidation/` | `port/` (each book's answers kept for the consolidation, keyed by a digest of its journals and the question, and for what stands as of today — savings and その他損益 with an open end — the last day on or before today the book sets a rate on (`lastRateDayOf`), so that it is asked again when a new rate comes into force rather than every day, since everything else counts each posting at its own day's rate and is the same answer whatever day it is asked on), `memory/` (kept in memory), `local/` (kept in IndexedDB, read back only by the build that kept it), `tiered/` (memory in front of IndexedDB), `absent/` (nothing kept: every answer asked of hledger), `web-crypto/` (the digest by the browser's cryptography), `lanes/` (more hledgers beside the one every screen reads on, for a consolidation of many books: one for three books or fewer, two from four, three from twelve and four from twenty, held to the device's cores beside the page's own and to two gigabytes of its memory each — two where it says nothing of it — started the first time wanted and only while the consolidation is on; and a mark kept on the device while it reads on several, taken away as the page is hidden or left, so that a page finding the mark tells once that the last one stopped at work, offers a backup, and reads on one); a personal book never goes through it, and a person with few books, or none consolidated, never has more than the one hledger. A screen is answered at once with what each book was last answered, and the book is read after: one found written since is asked again, and the screen told (`OutdatedNotice`) asks again too. A question about a period reads a view of each book, the files it can count (`core/journal/views`), as one book's own screens do. Books are dealt out among the lanes by their places, each read on the same hledger every time, and asking ahead deals them out alike. Asking ahead goes over the books twice, the periods most looked at first and every day after, each book asked everything of a round before the next, and waits for each book to be read | `core` |
-| `pachinko-engine/` | `protocol/`, `client/` (the only way to the pachinko engine), `worker/` (the only importer of `@p-lens/pachinko-engine`) | contracts |
+| `pachinko-engine/` | `protocol/`, `client/` (the only way to the pachinko engine), `worker/` (the only importer of `@p-lens/pachinko-engine`) | contracts, `download` |
 | `reasoning/` | `protocol/`, `client/` (the only way to a reasoner), `worker/` (the reasoner itself, of no game, and the only importer of `trealla`), `pachinko/` and `pachislot/` (each game's grounds in Prolog, and the worker that serves them) | `core/result` |
-| `pachislot-engine/` | `protocol/`, `client/` (the only way to the pachislot engine), `worker/` (the only importer of `@p-lens/pachislot-engine`) | contracts |
+| `pachislot-engine/` | `protocol/`, `client/` (the only way to the pachislot engine), `worker/` (the only importer of `@p-lens/pachislot-engine`) | contracts, `download` |
 
 A game is a folder, and the folder is its package: `core/pachinko` and
 `core/pachislot`, `application/pachinko` and `application/pachislot`,
@@ -2398,8 +2399,10 @@ since it rides on it.
   it for a choice (`takeSentAgain`, `keepOwn`). Nothing goes back to the
   sender. What was taken in is kept on the book's link (`inboxHandled`).
 - **A relay that let go** of a book's lines has lost their grants too. The
-  owner's device says again whom it let in (`restoreEveryGrant`), once each
-  time the app is opened, after the lines are made again.
+  owner's device says again whom it let in (`restoreGrantsOf`), for each
+  book once each time the app is opened, after a round has taken that book
+  through and its line is made again: a book that keeps failing holds back
+  only its own.
 - **Taken back out**, a person keeps what their device already took, and
   receives nothing after. An invitation handed on to someone else lets that
   person in as the same grant: this is for people who know each other.
@@ -2610,7 +2613,8 @@ It is kept nowhere: loading the page again closes it.
 audience — a stream, a post on X — with where the person plays and what
 their wallet holds veiled, while what they are playing now is shown as
 it is: the numbers on the cabinet are what an audience comes for. It is
-turned on and off at 設定 → 配信モード alone, and kept on the device
+turned off at 設定 → 配信モード alone, and on there or by the plain
+label below, and kept on the device
 (`p-lens.mummer`), so that loading the page again mid-stream veils as
 before; emptying the device takes it.
 
@@ -2664,6 +2668,16 @@ before; emptying the device takes it.
   its name stand in the top bar's left corner on every screen; pressed,
   it only goes to the setting, so a press by mistake on a stream shows
   nothing it veils.
+- **通常表示, the plain label, for the rest of the day.** Turned on,
+  mumming marks the business day it was turned on, by the device's turn
+  (`p-lens.mummed-on`). Off again on that business day, the corner keeps
+  a faint 通常表示, which names nothing of the person's; pressed, it
+  turns mumming straight back on (`startMumming`), while turning it off
+  stays the setting's. One who did not mum that business day sees
+  nothing there, and the day turning takes it away (`plainLabelShown`).
+  The setting's 通常表示ラベルを消す forgets the day at once where the
+  label stands, and says so either way (`clearPlainLabel`); mumming again
+  that day brings it back.
 - **The address is left as it is.** A parlor's passbook names its parlor
   in the address (`/books/…/parlor-passbooks/…`). The app is meant to
   be installed, and an installed app shows no address bar. Opened in a
@@ -3313,11 +3327,18 @@ cash it took and what came back.
 - **A file taken in may be weighed too** (`importPrecord` with a
   `Weighing`; `hoursToldIn`): pRecord's 稼働時間 is read into a play's
   `hours`, and where a file's plays say theirs the person is asked, once,
-  whether to weigh them. The pachinko plays of a machine the catalog has
-  are then weighed one after another, 200,000 trials each
-  (`TRIALS_ON_IMPORT`), on the usual terms, before the one commit that
-  writes the file. A play that cannot be weighed is taken in as it would
-  have been; the hours never enter a play's id, so a file taken in before
+  whether to weigh them. The file is written first, in one commit, as it
+  would be unweighed; the pachinko plays of a machine the catalog has are
+  then weighed one after another, 200,000 trials each
+  (`TRIALS_ON_IMPORT`), on the usual terms, three hundred a commit
+  (`imported-weighed`), each play's entry written anew where it stands and
+  only where it still reads as it was taken in
+  (`withTallyEntriesRewritten`). The screen says how many are done and
+  about how long the rest should take, and 中止 — or leaving the screen —
+  stops the play being weighed at once and keeps those weighed before it:
+  the book is whole after every commit. The same file taken in again
+  writes nothing new and weighs only the plays still unweighed. A play
+  that cannot be weighed stays as it was taken in; the hours never enter a play's id, so a file taken in before
   its hours were read is still known for the same file. The hours are kept
   to the hundredth, as the other app said them — it writes two hours and
   twenty-five minutes as `2.4166667`.
@@ -3366,7 +3387,13 @@ source read.
   Neither that nor tying a parlor is built.
 - **Taken in once.** A play's id is where it came from, its day and a
   digest of everything it says (`importedIdsOf`), so the same file taken in
-  again writes nothing, and a longer one writes only what is new.
+  again writes nothing, and a longer one writes only what is new. Which ids
+  the book has is asked once, inside the write, of the tallies' heads.
+- **Read once.** A file is read, and the catalog looked at, when it is
+  chosen (`previewPrecord`); the taking in goes on that `Preview` and
+  reads neither again. Reading the CSV, the ids and the catalog's keys
+  each go over what they read once, so a file twice as long takes twice
+  as long.
 - **Not set right in a form**: a form holds neither the two sides nor the
   source's names, so an imported play is refused there as unreadable and is
   set right in the book's own file. It can be taken out.
@@ -3378,21 +3405,31 @@ ways, each handed over as a backup to a file is (`Handover`). The book
 whole — a play's readings, the activity log — is a backup's to carry, and
 is not written out here a second time.
 
-- **One journal** (`core/export/single-journal`, `exportSingleJournal`):
-  the main journal with every journal it includes written in where the
+- **Made, then handed over** (`ExportWatch`, `Made`, `handOver`): a
+  file is made first, telling how far it has got — a book being read, its
+  tallies totalled, so many of several books done — and stopped between
+  those by 中止 or by leaving the screen; nothing is written by a making,
+  so a stopped one leaves nothing behind. A device that asks where a file
+  goes takes it only on a press that still counts (`Handover.givesNow`),
+  so a file made after it has gone by waits for a 保存 of its own.
+- **One journal** (`core/export/single-journal`, `makeSingleJournal`):
+  the book's files as stored, never asked of hledger, so it never waits
+  for hledger's turn — the main journal with every journal it includes written in where the
   `include` stood, under a comment naming it, nothing else altered. hledger
   opens it by itself and reads it to the same figures;
   `tests/hledger/export.test.ts` holds that.
-- **A table of tallies** (`core/export/tally-table`, `exportTallyTable`): CSV,
+- **A table of tallies** (`core/export/tally-table`, `makeTallyTable`): CSV,
   a tally a row, newest first — 営業日, 店舗, 種別, 機種, 台番号, 投資, 回収,
-  収支, 期待値. The three figures in yen are hledger's, from the play's own
-  income statement with each posting at its own day's rate: 投資 its
+  収支, 期待値. The three figures in yen are hledger's, each posting at its
+  own day's rate, from three income statements of every tally at once
+  pivoted on the play's id (`linesIn`) — never one a tally, which hledger
+  would answer by going over the whole book each time: 投資 its
   expenses (cash and savings alike), 回収 its revenue, 収支 its total, as
   the play's detail shows it. 期待値 is the amount written on the play, and
   an empty cell where none was. The column names are the file's format, as
   the account names are the journal's. The file opens with a byte order
   mark, which a spreadsheet needs to read it as UTF-8.
-- **For pRecord** (`core/export/precord`, `exportForPrecord`): the tallies
+- **For pRecord** (`core/export/precord`, `makeForPrecord`): the tallies
   as the CSV pRecord's データインポート takes in, newest first — its own
   export's fourteen columns, every cell quoted, CRLF, UTF-8 with no byte
   order mark. 店舗コード and 機種コード are pRecord's ids and are left
@@ -3408,7 +3445,7 @@ is not written out here a second time.
   収支 over them, `0.0` both where the time is not known; 経費 is `0`. It
   goes by itself, never in the zip, and the app reads it back as a pRecord
   file to the same tallies.
-- **Together** (`exportTogether`): the ticked books' two files each, in
+- **Together** (`makeTogether`): the ticked books' two files each, in
   one zip. A book is its id and not its title, so books of one title have
   the part of its id that is the moment it was made — a UUIDv7's first
   twelve digits, as written — in brackets after the title in their files'

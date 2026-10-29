@@ -11,6 +11,8 @@ import type { Result } from "../../core/result/result"
 export type ApiFailure =
   | { readonly type: "absent" }
   | { readonly type: "unreachable"; readonly detail: string }
+  /** Sent, and no answer came in time: what was sent may have been taken, or not. */
+  | { readonly type: "timed-out" }
   | { readonly type: "answered"; readonly status: number; readonly error: { readonly type: string } & Readonly<Record<string, unknown>> }
   /** An answer that says it went through and is not what was asked for: a page a hall's network put in its place, or one cut short. */
   | { readonly type: "unreadable-answer" }

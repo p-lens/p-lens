@@ -15,6 +15,7 @@ import { amountText } from "../../wording/numbers"
 import { seal } from "../../../mummer"
 import { ViewHeader } from "../shell/ViewHeader"
 import { offeredMembers } from "./HuddleSide"
+import { HuddleReachNote } from "./HuddleReachNote"
 
 /** One figure of the total under its name, and beneath it where it is tokens, the special prizes they come to and the odd ones beside them. */
 function Figure(props: { readonly label: string; readonly value: string; readonly unit?: string; readonly yen?: number | undefined; readonly odd?: number | undefined }): JSX.Element {
@@ -68,6 +69,7 @@ export function HuddleTotalView(props: { readonly place: Place }): JSX.Element {
   return (
     <MainContent header={<ViewHeader place={props.place} title={HUDDLE_TOTAL} />}>
       <div class="flex max-w-5xl flex-col gap-3 p-4">
+        <HuddleReachNote />
         <div class="flex items-center justify-end gap-2">
           <Button variant="semipro" size="small" class="mr-auto" onClick={() => moves.go({ kind: "huddle-settlement" })}>
             {HUDDLE_SETTLE}

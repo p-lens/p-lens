@@ -20,6 +20,7 @@ import { ViewHeader } from "../shell/ViewHeader"
 import { Withheld } from "../mummer/Withheld"
 import { RECORDING, type SubmitWords } from "./form"
 import { createOffered } from "../parlor-offers/offered"
+import { ParlorListNote } from "../parlor-offers/ParlorListNote"
 import { createYenTallyEditing } from "./yen-tally-editing"
 import { DayAndHours, EntryAndSubmit, GameKindField, MachineField, ParlorField, ResultAndWeighing, SidesFields } from "./YenTallyFields"
 import { emptyYenTallyForm, type YenTallyForm } from "./yen-tally-form"
@@ -90,6 +91,7 @@ export function AddTallyView(props: { readonly place: Place; readonly bookId: Bo
     <MainContent header={<ViewHeader place={props.place} title="収支を追加" />}>
       <Withheld kind="tally">
         <div class="max-w-5xl">
+          <ParlorListNote failure={offered.failure()} age={offered.age()} />
           <Loaded outcome={context()}>
             {(found) => (
               <Show when={found.canWrite} fallback={<EmptyState title="この帳簿は閲覧のみです">記録するには、帳簿の所有者から編集者の権限を受け取ってください。</EmptyState>}>

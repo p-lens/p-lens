@@ -3,7 +3,7 @@ import { MainContent } from "solid-gathering-shell"
 
 import { keepOwn, takeSentAgain } from "../../../application/inbox"
 import { chooseBook, loadFinishing, theoreticalValueAtFinish, type Finishing } from "../../../application/live-play"
-import { loadLivePlay } from "../../../application/play-line"
+import { loadLivePlay, type ElsewhereChecked, type FinishedHeld } from "../../../application/play-line"
 import type * as PachislotEngine from "../../../pachislot-engine/client/client"
 import type { BookId, ListedBook } from "../../../core/book/book"
 import { keptSpinPerformance } from "../../../core/tally/aside"
@@ -32,6 +32,9 @@ import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { createOffered } from "../parlor-offers/offered"
 import { bookTitle, memberNameText } from "../../wording/book"
+import { describeError } from "../../wording/errors"
+import { ELSEWHERE_UNCHECKED } from "../../wording/play-line"
+import { RESENT_CHOICE_FAILED } from "../../wording/sync"
 import { ViewHeader } from "../shell/ViewHeader"
 import { RECORDING, RECORDING_AGAIN, SEE_IN_BOOK, type PlayedSoFar, type SubmitWords } from "./finish-tally-reading"
 import { finishTokenTallyFormOf, playedOnTerms, type PlayedOnTerms } from "./finish-token-tally-form"
@@ -140,8 +143,9 @@ function BookField(props: { readonly draft: PlayDraft; readonly bookId: BookId; 
  */
 function Arrived(props: { readonly draft: PlayDraft; readonly sender: string | undefined }): JSX.Element {
   const app = useApp()
-  const settled = (outcome: { readonly ok: boolean }): void => {
+  const settled = (outcome: Outcome<void>): void => {
     if (outcome.ok) app.played()
+    else toast({ title: RESENT_CHOICE_FAILED, description: describeError(outcome.error), tone: "error" })
   }
   return (
     <>
@@ -297,10 +301,17 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
               if (draft.received !== undefined || left === undefined) return
               app.services.preferences.setTokensInHand(tokensKeptAfter(app.services.preferences.tokensInHand(), app.services.businessDay(), { id: draft.id, recordedBefore: draft.recorded !== undefined }, left))
             }
+            /** What the last recording could tell of the owner's other devices, said with the word that it went into the book. */
+            const told: { elsewhere: ElsewhereChecked } = { elsewhere: "checked" }
+            const telling = async (recording: Promise<Outcome<FinishedHeld>>): Promise<Outcome<FinishedHeld>> => {
+              const done = await recording
+              if (done.ok) told.elsewhere = done.value.elsewhere
+              return done
+            }
             const recorded = (playId: PlayId): void => {
               app.wrote()
               moves.replace({ kind: "live" })
-              toast({ title: words.done, stays: "offer", action: { label: SEE_IN_BOOK, onPress: () => moves.go({ kind: "tally", bookId, playId }) } })
+              toast({ title: words.done, ...(told.elsewhere === "unchecked" ? { description: ELSEWHERE_UNCHECKED } : {}), stays: "offer", action: { label: SEE_IN_BOOK, onPress: () => moves.go({ kind: "tally", bookId, playId }) } })
             }
             return (
               <>
@@ -321,8 +332,8 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
                     submissions={offered.submissions}
                     aside={aside}
                     words={words}
-                    recordInTokens={(record) => app.services.finishing.finishPlay(app.services.session, app.services.drafts, draft, bookId, record, readFinishForm(finish(), draft.startedAt), app.services.now())}
-                    recordInYen={(play, held) => app.services.finishing.finishPlayInYen(app.services.session, app.services.drafts, draft, bookId, play, readFinishForm(finish(), draft.startedAt), app.services.now(), held)}
+                    recordInTokens={(record) => telling(app.services.finishing.finishPlay(app.services.session, app.services.drafts, draft, bookId, record, readFinishForm(finish(), draft.startedAt), app.services.now()))}
+                    recordInYen={(play, held) => telling(app.services.finishing.finishPlayInYen(app.services.session, app.services.drafts, draft, bookId, play, readFinishForm(finish(), draft.startedAt), app.services.now(), held))}
                     worthAt={worthAt}
                     onRecordedInTokens={(record) => {
                       keepInHand(leftBy(record))
@@ -346,7 +357,7 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
                     aside={aside}
                     words={words}
                     worthAt={worthAt}
-                    submit={(record) => app.services.finishing.finishPlay(app.services.session, app.services.drafts, draft, bookId, record, readFinishForm(finish(), draft.startedAt), app.services.now())}
+                    submit={(record) => telling(app.services.finishing.finishPlay(app.services.session, app.services.drafts, draft, bookId, record, readFinishForm(finish(), draft.startedAt), app.services.now()))}
                     onRecorded={(record) => {
                       keepInHand(leftBy(record))
                       recorded(record.id)

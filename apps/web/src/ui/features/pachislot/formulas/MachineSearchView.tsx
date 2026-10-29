@@ -11,7 +11,7 @@ import { TextField } from "../../../primitives/text-field"
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../../primitives/tooltip"
 import { useMoves } from "../../../navigation/moves"
 import type { Place } from "../../../navigation/place"
-import { modelNameText, slashDay } from "../../../wording/catalog"
+import { modelNameText, slashDay, UNDELIVERED, UNDELIVERED_TITLE } from "../../../wording/catalog"
 import { useStartForm } from "../../live/start-form"
 import { ViewHeader } from "../../shell/ViewHeader"
 
@@ -51,7 +51,7 @@ export function MachineSearchView(props: { readonly place: Place; readonly query
   const app = useApp()
   const moves = useMoves()
   const start = useStartForm()
-  onMount(app.delivery.refresh)
+  onMount(() => void app.delivery.refresh())
   const [finding] = createResource(
     () => ({ query: props.query, revision: app.revision() }),
     (source) => findMachines(app.services.catalog, source.query, "pachislot"),
@@ -97,6 +97,9 @@ export function MachineSearchView(props: { readonly place: Place; readonly query
                   </Match>
                   <Match when={found.type === "no-match"}>
                     <EmptyState title="該当する機種がありません">「{searched()}」の算出条件を作ると、機種も一緒に登録されます。</EmptyState>
+                  </Match>
+                  <Match when={found.type === "none-registered" && app.delivery.state().type === "failed"}>
+                    <EmptyState title={UNDELIVERED_TITLE}>{UNDELIVERED}</EmptyState>
                   </Match>
                   <Match when={found.type === "none-registered"}>
                     <EmptyState title="スロットの機種が1件も登録されていません">算出条件を作ると、その機種も一緒に登録されます。</EmptyState>

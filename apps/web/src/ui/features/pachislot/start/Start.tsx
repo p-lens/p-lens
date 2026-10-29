@@ -39,6 +39,8 @@ import { carriedInShown, readCarriedIn, tokensCarriedTo, tokensInHandUnreadable 
 import { Terms } from "./Terms"
 import { seal } from "../../../../mummer"
 import { cabinetFieldMasked, cabinetText } from "../../../wording/cabinet"
+import { leaveFor, stayWhileOffline } from "../../../primitives/leaving"
+import { locateFailedText, SURVEY_OFFLINE } from "../../../wording/parlor"
 
 /**
  * The machine, as a field that only opens the pachislot machine search: it
@@ -159,7 +161,7 @@ function ParlorField(props: {
       toast({ title: "店舗の申請はまだ準備中です", description: "一覧にない店舗は、店舗名なしで記録できます。" })
       return
     }
-    window.location.assign(submitAddress(props.surveyUrl, window.location.origin, { type: "start", game: "pachislot" }))
+    leaveFor(submitAddress(props.surveyUrl, window.location.origin, { type: "start", game: "pachislot" }), SURVEY_OFFLINE)
   }
   /**
    * The chosen parlor, where the list has it without a position, and there
@@ -202,6 +204,9 @@ function ParlorField(props: {
           <PlusIcon />
         </button>
       </div>
+      <Show when={((here) => (here?.ok === false ? here.error : undefined))(props.here)} keyed>
+        {(error) => <p class="col-start-1 text-xs text-text-muted">{locateFailedText(error)}</p>}
+      </Show>
       <Show when={props.typedOnly}>
         <p role="alert" class="col-start-1 text-xs text-negative">
           {typedParlorRefused("starting")}
@@ -211,6 +216,7 @@ function ParlorField(props: {
         {(found) => (
           <a
             href={locateAddress(found.survey, window.location.origin, { type: "start", game: "pachislot" }, found.parlor)}
+            onClick={(event) => stayWhileOffline(event, SURVEY_OFFLINE)}
             class="col-start-1 animate-[emerge_1.6s_ease-out] text-xs text-text-secondary underline underline-offset-2 hover:text-text-primary"
           >
             {LOCATE_REQUEST}

@@ -8,36 +8,50 @@ export interface CsvProblem {
   readonly line: number
 }
 
-/** Where the reading of a CSV text stands: the rows read, the row and the cell being read, whether the reading is inside quotes or just past a quoted cell, and the line it is on. */
+/**
+ * Where the reading of a CSV text stands, as it goes: the rows read, the
+ * row and the cell being read, whether the reading is inside quotes or
+ * just past a quoted cell, and the line it is on. It lives only while one
+ * text is read, so that each character costs the same however many rows
+ * came before it.
+ */
 interface Reading {
-  readonly rows: readonly (readonly string[])[]
-  readonly row: readonly string[]
-  readonly cell: string
-  readonly quoted: boolean
-  readonly closed: boolean
-  readonly line: number
+  readonly rows: string[][]
+  row: string[]
+  cell: string
+  quoted: boolean
+  closed: boolean
+  line: number
 }
 
-const BEGUN: Reading = { rows: [], row: [], cell: "", quoted: false, closed: false, line: 1 }
+const cellEnded = (reading: Reading): void => {
+  reading.row.push(reading.cell)
+  reading.cell = ""
+  reading.closed = false
+}
 
-const cellEnded = (reading: Reading): Reading => ({ ...reading, row: [...reading.row, reading.cell], cell: "", closed: false })
+const rowEnded = (reading: Reading): void => {
+  cellEnded(reading)
+  reading.rows.push(reading.row)
+  reading.row = []
+}
 
-const rowEnded = (reading: Reading): Reading => ((ended) => ({ ...ended, rows: [...ended.rows, ended.row], row: [] }))(cellEnded(reading))
-
-const lineOf = (reading: Reading, character: string): number => (character === "\n" ? reading.line + 1 : reading.line)
-
-/** One character taken in, with the one after it: a doubled quote inside quotes is one quote, and is marked so its second half is passed over. */
-const taken = (reading: Reading, character: string, next: string | undefined): Result<Reading & { readonly skip?: true }, CsvProblem> => {
-  if (reading.quoted) {
-    if (character !== '"') return Ok({ ...reading, cell: reading.cell + character, line: lineOf(reading, character) })
-    return Ok(next === '"' ? { ...reading, cell: `${reading.cell}"`, skip: true } : { ...reading, quoted: false, closed: true })
+/** One character taken in outside quotes; a problem where it cannot stand there. */
+const takenBare = (reading: Reading, character: string): CsvProblem | undefined => {
+  if (character === ",") {
+    cellEnded(reading)
+    return undefined
   }
-  if (character === ",") return Ok(cellEnded(reading))
-  if (character === "\n") return Ok({ ...rowEnded(reading), line: reading.line + 1 })
-  if (character === "\r") return Ok(reading)
-  if (reading.closed) return Err({ type: "stray-quote", line: reading.line })
-  if (character === '"') return reading.cell === "" ? Ok({ ...reading, quoted: true }) : Err({ type: "stray-quote", line: reading.line })
-  return Ok({ ...reading, cell: reading.cell + character })
+  if (character === "\n") {
+    rowEnded(reading)
+    reading.line += 1
+    return undefined
+  }
+  if (character === "\r") return undefined
+  if (reading.closed || (character === '"' && reading.cell !== "")) return { type: "stray-quote", line: reading.line }
+  if (character === '"') reading.quoted = true
+  else reading.cell += character
+  return undefined
 }
 
 /**
@@ -49,18 +63,25 @@ const taken = (reading: Reading, character: string, next: string | undefined): R
  * every cell after it would be read into the wrong place.
  */
 export const rowsOfCsv = (text: string): Result<readonly (readonly string[])[], CsvProblem> => {
-  const characters = [...(text.startsWith(BYTE_ORDER_MARK) ? text.slice(1) : text)]
-  const read = characters.reduce<Result<{ readonly reading: Reading; readonly skipping: boolean }, CsvProblem>>((state, character, index) => {
-    if (!state.ok) return state
-    if (state.value.skipping) return Ok({ reading: state.value.reading, skipping: false })
-    const next = taken(state.value.reading, character, characters[index + 1])
-    if (!next.ok) return next
-    const { skip, ...reading } = next.value
-    return Ok({ reading, skipping: skip === true })
-  }, Ok({ reading: BEGUN, skipping: false }))
-  if (!read.ok) return read
-  const { reading } = read.value
+  const body = text.startsWith(BYTE_ORDER_MARK) ? text.slice(1) : text
+  const reading: Reading = { rows: [], row: [], cell: "", quoted: false, closed: false, line: 1 }
+  for (let at = 0; at < body.length; at += 1) {
+    const character = body.charAt(at)
+    if (!reading.quoted) {
+      const problem = takenBare(reading, character)
+      if (problem !== undefined) return Err(problem)
+    } else if (character !== '"') {
+      reading.cell += character
+      if (character === "\n") reading.line += 1
+    } else if (body.charAt(at + 1) === '"') {
+      reading.cell += '"'
+      at += 1
+    } else {
+      reading.quoted = false
+      reading.closed = true
+    }
+  }
   if (reading.quoted) return Err({ type: "unclosed-quote", line: reading.line })
-  const rows = reading.cell === "" && reading.row.length === 0 && !reading.closed ? reading.rows : rowEnded(reading).rows
-  return Ok(rows.filter((row) => row.some((cell) => cell.trim() !== "")))
+  if (reading.cell !== "" || reading.row.length > 0 || reading.closed) rowEnded(reading)
+  return Ok(reading.rows.filter((row) => row.some((cell) => cell.trim() !== "")))
 }

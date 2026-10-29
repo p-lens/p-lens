@@ -10,7 +10,7 @@ import { unreadableFilesOf, type UnreadableFile } from "../core/book/unreadable-
 import type { IsoDate } from "../core/calendar/calendar"
 import { BOOK_FILES, type BookFiles } from "../core/journal/layout"
 import { titleOfMain } from "../core/journal/title"
-import { Err, Ok, type Result, collect, mapErr, mapOk } from "../core/result/result"
+import { Err, type Result, collect, mapErr, mapOk } from "../core/result/result"
 import type { BookStorage } from "../storage/port/book-storage"
 import type { BookSession } from "./book-session"
 import type { ApplicationError, BackupProblem, Outcome } from "./errors"
@@ -187,17 +187,25 @@ export const restoreFromStore = async (ports: BackupPorts, store: BackupStore, i
   return bytes.ok ? restored(ports, bytes.value, store.destination) : bytes
 }
 
+/** How putting back what was chosen went: the backups put back, by the store's id for each, and why the one after them could not be, where one could not. */
+export interface RestoredChosen {
+  readonly restored: readonly string[]
+  readonly failure: ApplicationError | undefined
+}
+
 /**
  * Put back each of the backups a person chose from a store, one after
  * another. It stops at the first that cannot be put back and says why;
- * those before it stay put back. How many were.
+ * those before it stay put back, and are named, so a press again goes on
+ * from the one that stopped.
  */
-export const restoreChosenFromStore = async (ports: BackupPorts, store: BackupStore, ids: readonly string[]): Promise<Outcome<number>> =>
-  ids.reduce<Promise<Outcome<number>>>(async (running, id) => {
+export const restoreChosenFromStore = async (ports: BackupPorts, store: BackupStore, ids: readonly string[]): Promise<RestoredChosen> =>
+  ids.reduce<Promise<RestoredChosen>>(async (running, id) => {
     const so = await running
-    if (!so.ok) return so
-    return mapOk(await restoreFromStore(ports, store, id), () => so.value + 1)
-  }, Promise.resolve(Ok(0)))
+    if (so.failure !== undefined) return so
+    const one = await restoreFromStore(ports, store, id)
+    return one.ok ? { restored: [...so.restored, id], failure: undefined } : { restored: so.restored, failure: one.error }
+  }, Promise.resolve({ restored: [], failure: undefined }))
 
 /** Put a book back from a backup file the person chose. */
 export const restoreFromFile = (ports: BackupPorts, bytes: ArchiveBytes): Promise<Outcome<BookId>> => restored(ports, bytes, "file")

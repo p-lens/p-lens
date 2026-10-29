@@ -1,6 +1,7 @@
 import type { EngineErrorDto, LocationDto } from "@p-lens/contracts/pachinko"
 
 import type { EngineFailure } from "../../../pachinko-engine/protocol/messages"
+import { ENGINE_UNLOADED } from "../connection"
 
 const where = (at: LocationDto): string => (at.type === "regular" ? "通常時" : `「${at.mode}」`)
 
@@ -72,5 +73,5 @@ const describeEngineError = (error: EngineErrorDto): string => {
 }
 
 export const describeEngineFailure = (failure: EngineFailure): string =>
-  failure.type === "engine" ? describeEngineError(failure.error) : `計算エンジンを起動できませんでした: ${failure.detail}`
+  failure.type === "engine" ? describeEngineError(failure.error) : ENGINE_UNLOADED
 

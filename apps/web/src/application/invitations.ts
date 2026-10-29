@@ -147,17 +147,19 @@ export const restoreGrants = async (ports: InvitationPorts, bookId: BookId): Pro
 }
 
 /**
- * Put back the grants of every book this device syncs, one book after
- * another, stopping at nothing: a book whose relay cannot be asked now is
- * asked again the next time, and the others are not kept waiting for it.
- * A device does this once each time the app is opened, after its first
- * round that goes through: by then a line its relay let go of has been
- * made again, and those let into it would otherwise stay shut out.
+ * Put back the grants of the books named, one after another, stopping at
+ * nothing: a book whose relay cannot be asked now is asked again the next
+ * time, and the others are not kept waiting for it. A device does this for
+ * each book once a round has taken that book through, every time the app is
+ * opened, and again after each round until the book's grants were put back:
+ * by then a line its relay let go of has been made again, and those let
+ * into it would otherwise stay shut out. A book that keeps failing holds
+ * back only its own. Gives back the books whose grants could not be seen
+ * to now.
  */
-export const restoreEveryGrant = async (ports: InvitationPorts): Promise<void> => {
-  const links = await ports.links.list()
-  await (links.ok ? links.value : []).reduce<Promise<unknown>>(async (so, link) => {
-    await so
-    return restoreGrants(ports, link.bookId)
-  }, Promise.resolve())
-}
+export const restoreGrantsOf = async (ports: InvitationPorts, books: readonly BookId[]): Promise<readonly BookId[]> =>
+  books.reduce<Promise<readonly BookId[]>>(async (so, bookId) => {
+    const missed = await so
+    const restored = await restoreGrants(ports, bookId)
+    return restored.ok ? missed : [...missed, bookId]
+  }, Promise.resolve([]))

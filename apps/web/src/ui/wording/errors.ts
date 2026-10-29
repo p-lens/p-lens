@@ -15,10 +15,11 @@ import type { DirectoryError } from "../../parlors/port/parlor-directory"
 import type { KeptKind, StorageError } from "../../storage/port/book-storage"
 import type { TallyProblem } from "../../core/report/tally-problems"
 import type { DraftError } from "../../storage/port/draft-storage"
-import { describeBackupProblem, describeHandoverFailure } from "./backup"
+import { ARCHIVE_UNWRITABLE, describeBackupProblem, describeHandoverFailure } from "./backup"
 import { describeCatalogError } from "./catalog"
 import { describeImportProblem } from "./import"
 import { describeSyncProblem } from "./sync"
+import { ENGINE_UNLOADED, NO_CONNECTION, SERVER_TROUBLE } from "./connection"
 import * as PachinkoWording from "./pachinko/engine"
 import * as PachislotWording from "./pachislot/engine"
 import { amountText, formatTokens, tokenUnit } from "./numbers"
@@ -72,7 +73,18 @@ export const describeTallyError = (error: TallyError): string => {
   }
 }
 
-const describeDirectoryError = (error: DirectoryError): string => `店舗一覧を読めませんでした: ${error.detail}`
+/** Why the parlor list could not be read, as a person is told: no connection reads the same whatever stopped it. */
+const describeDirectoryError = (error: DirectoryError): string => {
+  switch (error.type) {
+    case "unreachable":
+    case "unreadable-answer":
+      return `店舗の一覧を読めませんでした。${NO_CONNECTION}`
+    case "server-trouble":
+      return `店舗の一覧を読めませんでした。${SERVER_TROUBLE}`
+    case "unpublished":
+      return "店舗の一覧がまだ公開されていません。"
+  }
+}
 
 const describeOpeningProblem = (problem: OpeningProblem): string => {
   switch (problem.type) {
@@ -100,18 +112,21 @@ const describeTrouble = (trouble: Trouble): string => {
     case "crashed":
       return `hledger が停止しました: ${trouble.detail}`
     case "unreachable":
-      return `hledger を起動できませんでした: ${trouble.detail}`
+      return ENGINE_UNLOADED
     case "unreadable-answer":
       return `hledger の応答を読めませんでした: ${trouble.detail}`
   }
 }
+
+/** Said where the device's own storage could not be used: no cause the browser gave is shown, only what to do. */
+const DEVICE_STORAGE_UNAVAILABLE = "この端末の保存領域を使えませんでした。アプリを開き直してください。端末の空き容量が少ないときは、空けてからもう一度試してください。"
 
 const KEPT_NAMES: Readonly<Record<KeptKind, string>> = { "book-cover": "帳簿の表紙", draft: "稼働の記録", followed: "別の端末の稼働の写し", submission: "店舗の申請の記録", "backup-receipt": "バックアップの記録" }
 
 const describeStorageError = (error: StorageError): string => {
   switch (error.type) {
     case "unavailable":
-      return `端末の保存領域を使えません: ${error.detail}`
+      return DEVICE_STORAGE_UNAVAILABLE
     case "unreadable":
       return `この端末に保存された${KEPT_NAMES[error.kept]}が壊れていて読めません。データの消去で端末のデータを消すと、また使えるようになります。`
     case "book-missing":
@@ -140,7 +155,7 @@ const describeDraftError = (error: DraftError): string => {
 }
 
 const describeHistoryError = (error: HistoryError): string =>
-  error.type === "unreadable" ? "この端末に保存された変更の履歴が壊れていて読めません。データの消去で端末のデータを消すと、また使えるようになります。" : `履歴を残せませんでした: ${error.detail}`
+  error.type === "unreadable" ? "この端末に保存された変更の履歴が壊れていて読めません。データの消去で端末のデータを消すと、また使えるようになります。" : `変更の履歴を残せませんでした。${DEVICE_STORAGE_UNAVAILABLE}`
 
 const GAME_NAMES: Readonly<Record<PlayGameKind, string>> = { pachinko: "パチンコ", pachislot: "スロット" }
 
@@ -245,7 +260,7 @@ export const describeError = (error: ApplicationError): string => {
     case "handover":
       return describeHandoverFailure(error.failure)
     case "archive":
-      return `zip を作れませんでした。（${error.failure.detail}）`
+      return ARCHIVE_UNWRITABLE
     case "forbidden":
       return error.capability === "rename" ? "帳簿の名前を変えられるのは、帳簿の持ち主だけです。" : "この帳簿を編集する権限がありません。"
     case "opening-balance-registered":
@@ -260,6 +275,10 @@ export const describeError = (error: ApplicationError): string => {
       return describeImportProblem(error.problem)
     case "tally-missing":
       return "この収支は帳簿にありません。"
+    case "recorded-unmarked":
+      return error.error.type === "held-elsewhere"
+        ? "収支は帳簿に記帳しました。ただ、記帳中にほかの端末がこの稼働を続けたため、この端末では記帳済みにできませんでした。同じ収支が二重にならないよう、ほかの端末ではこの稼働を記帳しないでください。"
+        : `収支は帳簿に記帳しました。ただ、この端末の稼働を記帳済みにできませんでした。もう一度記帳しないでください。${describeDraftError(error.error)}`
     case "play-gone":
       return playGoneText(error.reason)
     case "tally-unreadable":
@@ -273,11 +292,11 @@ export const describeError = (error: ApplicationError): string => {
     case "directory":
       return describeDirectoryError(error.error)
     case "submissions":
-      return `申請した店舗を端末に残せませんでした: ${error.detail}`
+      return `申請した店舗を端末に残せませんでした。${DEVICE_STORAGE_UNAVAILABLE}`
     case "pachinko-engine":
       return PachinkoWording.describeEngineFailure(error.failure)
     case "reasoner":
-      return error.failure.type === "not-proved" ? "計算根拠を推論できませんでした。" : `推論エンジンを読み込めませんでした。（${error.failure.detail}）`
+      return error.failure.type === "not-proved" ? "計算根拠を推論できませんでした。" : ENGINE_UNLOADED
     case "proof":
       return "推論エンジンの答えを読めませんでした。"
     case "pachislot-engine":

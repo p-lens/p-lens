@@ -5,6 +5,7 @@ import type { IsoDate } from "../../core/calendar/calendar"
 import type { DescriptionProblem } from "../../core/catalog/description"
 import type { QuotaStanding, RegistrationKind } from "../../core/catalog/quota"
 import type { ReleaseDateError } from "../../core/catalog/release"
+import { NO_CONNECTION, NOT_TAKEN, SERVER_TROUBLE } from "./connection"
 import { formatMoment } from "./dates"
 
 const GAME_NAMES = { pachinko: "パチンコ", pachislot: "パチスロ" } as const
@@ -27,20 +28,52 @@ const refusal = (reason: string): string => {
     case "figures-disagree-with-basis":
       return "数値が解析値から計算した値と合わないため、共有カタログが受け付けませんでした。"
     case "storage":
-      return "共有カタログが保存できませんでした。しばらくしてからやり直してください。"
+    case "unexpected":
+      return SERVER_TROUBLE
     default:
-      return `共有カタログが受け付けませんでした（${reason}）。`
+      return NOT_TAKEN
   }
 }
+
+/** Said where the device has never got the catalog, for want of a connection. */
+export const UNDELIVERED = `この端末は、機種と算出条件の一覧をまだ受け取れていません。${NO_CONNECTION}一度受け取れば、以後は電波がなくても使えます。`
+
+/** Said where what was asked for is not in what the device has received, the last delivery having failed for want of a connection: true of a device that never received one and of one whose copy is only behind. */
+const NOT_IN_DELIVERY = `この端末にある機種と算出条件の一覧には、まだ入っていません。最新の一覧を受け取れていないためです。${NO_CONNECTION}`
+
+/** What stands over the machines' list where none has ever been delivered, for want of a connection. */
+export const UNDELIVERED_TITLE = "機種の一覧をまだ受け取れていません"
+
+/** Said quietly in an editor opened with no connection to the shared catalog: what is typed is kept, and sent once there is one. */
+export const REGISTER_OFFLINE = "いまは共有カタログにつながりません。入力した内容はこの端末に残るので、電波のある所で登録を押してください。"
+
+/** Said quietly in an editor opened with no connection to the shared catalog where what is typed is not kept: it lasts only while the screen is open. */
+export const REGISTER_OFFLINE_UNKEPT = "いまは共有カタログにつながりません。入力した内容はこの画面を閉じると消えるので、電波のある所で入力して登録してください。"
+
+/** Said quietly under a formula's or a 設定配分's marks while one put on here waits to be sent: nobody else counts it yet. */
+export const MARKS_UNSENT = "イチオシ・非推奨・検証・お気に入りの印は、まだ送れていません。つながったときに送ります。"
+
+/** What a registering button says while what it sends is on its way. */
+export const REGISTRATION_SENDING = "送っています…"
+
+/** Said where something registered got no answer in time: it may be in the catalog already, so the person looks before pressing again rather than sending it twice. */
+const UNANSWERED = "応答が来ないまま時間切れになりました。登録できている場合があります。入力した内容はこの端末に残してあるので、電波のある所で少し待ってから機種を探し、出てこなければもう一度登録を押してください。"
 
 export const describeCatalogError = (error: CatalogError): string => {
   switch (error.type) {
     case "unavailable":
-      return `共有カタログにつながりません: ${error.detail}`
     case "unreadable-answer":
-      return "共有カタログの応答を読めませんでした。通信状況を確かめて、もう一度試してください。"
+      return NO_CONNECTION
+    case "unanswered":
+      return UNANSWERED
+    case "undelivered":
+      return NOT_IN_DELIVERY
+    case "storage-unavailable":
+      return "この端末の保存領域を使えませんでした。アプリを開き直してください。端末の空き容量が少ないときは、空けてからもう一度試してください。"
     case "too-heavy":
       return "共有カタログが混み合っていて、受け付けられませんでした。入力した内容はこの端末に残してあるので、少し時間をおいてもう一度登録を押してください。"
+    case "gave-up":
+      return "共有カタログが応答できず、検算できませんでした。検算していない値のままでは登録しません。少し時間をおいてから、もう一度登録を押してください。"
     case "unreadable-kept":
       return "この端末に保存された共有カタログのデータが壊れていて読めません。データの消去で端末のデータを消すと、また使えるようになります。"
     case "no-catalog":

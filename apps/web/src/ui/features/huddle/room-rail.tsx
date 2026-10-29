@@ -6,7 +6,7 @@ import { useApp } from "../../context"
 import { HuddleIcon } from "../../primitives/icons"
 import { useMoves } from "../../navigation/moves"
 import { inHuddleRoom, type Place } from "../../navigation/place"
-import { huddleRoomLabel } from "../../wording/huddle"
+import { huddleRoomLabel, huddleRoomUnheardLabel } from "../../wording/huddle"
 
 /** The semipro colour on the rail: the room is told from the books by it. */
 const SEMIPRO = { chosen: "bg-semipro text-on-semipro", hovered: "hover:bg-semipro hover:text-on-semipro" } as const
@@ -20,7 +20,8 @@ export function CountBadge(props: { readonly count: number }): JSX.Element {
  * The room of the huddle the device is in, as a space on the rail: there
  * while the huddle is kept up (`HuddleLine.keptUp`), in the semipro
  * colour, wearing how many of the others are in a jackpot — those gone
- * quiet left out. It is simply there, with no wait and no animation:
+ * quiet left out, and none while the line cannot be read, when nobody
+ * knows. It is simply there, with no wait and no animation:
  * the dialog a huddle is joined in covers the rail as it comes.
  */
 export const useHuddleRoomItem = (place: () => Place): (() => RailItem | undefined) => {
@@ -29,10 +30,11 @@ export const useHuddleRoomItem = (place: () => Place): (() => RailItem | undefin
   return () => {
     const huddle = app.huddle.now()
     if (huddle === undefined || app.huddle.line.keptUp() !== huddle.secret) return undefined
-    const inJackpot = othersInJackpot(app.huddle.others(), app.huddle.idle())
+    const heard = app.huddle.line.heard()
+    const inJackpot = heard.type === "unreached" ? 0 : othersInJackpot(app.huddle.others(), app.huddle.idle())
     return {
       id: "huddle",
-      label: huddleRoomLabel(inJackpot),
+      label: heard.type === "unreached" ? huddleRoomUnheardLabel(heard.error) : huddleRoomLabel(inJackpot),
       icon: <HuddleIcon />,
       colour: SEMIPRO,
       ...(inJackpot === 0 ? {} : { badge: <CountBadge count={inJackpot} /> }),

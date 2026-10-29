@@ -98,8 +98,8 @@ export const abandonPlay = async (drafts: DraftStorage, id: PlayId): Promise<Out
  */
 const keptRecorded = async (drafts: DraftStorage, draft: PlayDraft, bookId: BookId, finish: Finish, at: string, recorded: Outcome<CommitId>): Promise<Outcome<CommitId>> => {
   if (!recorded.ok) return recorded
-  const kept = fromDraft(await drafts.updateDraft({ ...draft, bookId, recorded: { at, finish } }, draft.log))
-  return kept.ok ? Ok(recorded.value) : kept
+  const kept = await drafts.updateDraft({ ...draft, bookId, recorded: { at, finish } }, draft.log)
+  return kept.ok ? Ok(recorded.value) : Err({ type: "recorded-unmarked", error: kept.error })
 }
 
 /** A play the book already has, written again in place of what it has; where the book has it no longer — it was taken out there — written as new. */

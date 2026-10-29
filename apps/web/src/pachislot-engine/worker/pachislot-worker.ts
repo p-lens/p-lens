@@ -2,25 +2,31 @@
 
 import type { Envelope, EstimateRequest, EstimateResponse, ProgressDto, SimulateRequest, SimulateResponse } from "@p-lens/contracts/pachislot"
 
+import instantiate, * as built from "@p-lens/pachislot-engine/pachislot.js"
+import wasmAddress from "@p-lens/pachislot-engine/pachislot_bg.wasm?url"
+
+import { fetchUnlessStalled } from "../../download/unless-stalled"
 import type { Call, FromWorker, EngineFailure, EstimateOrder, RunEvent, SimulationOrder, ToWorker } from "../protocol/messages"
 
 /**
- * The pachislot engine runs here, never on the page's thread. It is imported
- * on the first message, so nothing of it is fetched until a pachislot formula
+ * The pachislot engine runs here, never on the page's thread. Its wasm is
+ * fetched on the first message, so nothing of it is fetched until a pachislot formula
  * or play needs it.
  */
 
-type Engine = typeof import("@p-lens/pachislot-engine/pachislot.js")
+type Engine = typeof built
+
+/** How long the engine may go without a byte arriving, in milliseconds, where the service worker does not have it yet: a signal gone must not leave a calculation waiting for good, and a slow one must not be cut off while it still brings the engine in. */
+const STALLED_AFTER = 30_000
 
 const loaded: { engine: Promise<Engine> | undefined } = { engine: undefined }
 
 const engine = (): Promise<Engine> => {
   const pending =
     loaded.engine ??
-    import("@p-lens/pachislot-engine/pachislot.js").then(async (module) => {
-      await module.default()
-      return module
-    })
+    WebAssembly.compileStreaming(fetchUnlessStalled(wasmAddress, STALLED_AFTER))
+      .then((module) => instantiate({ module_or_path: module }))
+      .then(() => built)
   loaded.engine = pending
   pending.catch(() => {
     loaded.engine = undefined

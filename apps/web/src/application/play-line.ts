@@ -10,11 +10,12 @@ import { isAheadOf, reconcile, type HeldPlay, type PlayLineAction } from "../cor
 import { hasShownOn, readOnto, showingOf, shownTextOf } from "../core/play-line/showing"
 import type { PlayId } from "../core/play/play"
 import { Err, Ok, mapErr, mapOk, type Result } from "../core/result/result"
+import type { CommitId } from "../history/port/history-port"
 import type { DraftError, DraftStorage } from "../storage/port/draft-storage"
 import type { FollowStorage } from "../storage/port/follow-storage"
 import type { LinkStore, SyncLink } from "../sync/port/link-store"
 import { accessOf } from "../sync/port/sealer"
-import type { Outcome, SyncProblem } from "./errors"
+import type { ApplicationError, Outcome, SyncProblem } from "./errors"
 import { ownersLink } from "./invitations"
 import { linksProblemOf } from "./kept-links"
 import { fromDraft } from "./lift"
@@ -206,18 +207,24 @@ const booksRead = async (ports: PlayLinePorts, owned: readonly SyncLink[], read:
   return copy.ok && copy.value !== undefined ? owned.filter((link) => link.bookId === copy.value?.line.bookId) : []
 }
 
-/** The lines of some books read on from where each was last read, the other books' lines kept as they were. */
-const readOnBooks = async (ports: PlayLinePorts, footing: Footing, kept: Kept, lines: readonly KeptLine[], books: readonly SyncLink[]): Promise<readonly KeptLine[]> => {
+/** Lines read on as far as they could be, and why any could not be, the first of them. */
+export interface LinesNow {
+  readonly lines: readonly KeptLine[]
+  readonly missed: ApplicationError | undefined
+}
+
+/** The lines of some books read on from where each was last read, the other books' lines kept as they were, and one that could not be read kept as it was too. */
+const readOnBooks = async (ports: PlayLinePorts, footing: Footing, kept: Kept, lines: readonly KeptLine[], books: readonly SyncLink[]): Promise<LinesNow> => {
   const unread = lines.filter((line) => !books.some((link) => link.bookId === line.bookId))
   const wanted = books.flatMap((link) => daysOf(footing, lines, kept, link.bookId).map((day) => ({ link, at: { bookId: link.bookId, day } })))
   const read = await Promise.all(
     wanted.map(async ({ link, at }) => {
       const before = lines.find((line) => line.bookId === at.bookId && line.day === at.day)
       const after = await readKept(ports, link, before ?? lineAt([], at))
-      return after.ok ? [after.value] : before === undefined ? [] : [before]
+      return after.ok ? { lines: [after.value], missed: undefined } : { lines: before === undefined ? [] : [before], missed: after.error }
     }),
   )
-  return [...unread, ...read.flat()]
+  return { lines: [...unread, ...read.flatMap((each) => each.lines)], missed: read.find((each) => each.missed !== undefined)?.missed }
 }
 
 /** Whether the play being watched now stands as moved off its book: shown, it may be, on another book this device syncs, whose lines were not read with it. */
@@ -234,19 +241,21 @@ const movedOffWatched = (lines: readonly KeptLine[], reading: LinesRead): boolea
  * other books are read too, so that one it went to that this device syncs
  * is found, rather than the copy let go. A line of a day no longer read is
  * let go; one that cannot be reached now, or of a book not read this time,
- * stays as it was.
+ * stays as it was — and why one could not be read is said beside the
+ * lines, for what is shown of them to say it is not up to date.
  */
-export const readPlayLines = async (ports: PlayLinePorts, lines: readonly KeptLine[], reading: LinesRead = { type: "every-book" }): Promise<Outcome<readonly KeptLine[]>> => {
+export const readPlayLines = async (ports: PlayLinePorts, lines: readonly KeptLine[], reading: LinesRead = { type: "every-book" }): Promise<Outcome<LinesNow>> => {
   const syncing = await syncingFooting(ports)
   if (!syncing.ok) return syncing
   const footing = syncing.value
-  if (footing === undefined) return Ok(lines)
+  if (footing === undefined) return Ok({ lines, missed: undefined })
   const kept = await keptOf(ports, footing)
   if (!kept.ok) return kept
   const books = await booksRead(ports, footing.owned, reading)
   const read = await readOnBooks(ports, footing, kept.value, lines, books)
-  if (!movedOffWatched(read, reading)) return Ok(read)
-  return Ok(await readOnBooks(ports, footing, kept.value, read, footing.owned.filter((link) => !books.includes(link))))
+  if (!movedOffWatched(read.lines, reading)) return Ok(read)
+  const rest = await readOnBooks(ports, footing, kept.value, read.lines, footing.owned.filter((link) => !books.includes(link)))
+  return Ok({ lines: rest.lines, missed: read.missed ?? rest.missed })
 }
 
 /** What a device does to its own store, of what its lines would have it do, as against what it says on a line. */
@@ -566,7 +575,24 @@ const claimed = async (ports: PlayLinePorts, footing: Footing, link: SyncLink, c
   if (!sealed.ok) return sealed
   const put = await putAt(ports.relay, line.value, sealed.value, today.head, PLAYS_KEPT)
   if (behindAt(put) !== undefined) return left > 0 ? claimed(ports, footing, link, fresh, left - 1) : problem({ type: "unsettled" })
-  return put.ok ? Ok({ copy: { ...fresh, play: { ...fresh.play, handovers: claim.handovers } }, lines: withLine(lines.value, putOn(today, [claim], put.value)) }) : put
+  if (put.ok) return Ok({ copy: { ...fresh, play: { ...fresh.play, handovers: claim.handovers } }, lines: withLine(lines.value, putOn(today, [claim], put.value)) })
+  return isAnswerLost(put.error) ? claimLanded(ports, footing, link, { ...fresh, play: { ...fresh.play, handovers: claim.handovers } }, put.error) : put
+}
+
+/** Whether a put failed in a way that may have reached the relay all the same: its answer lost on the way, or never read in time. */
+const isAnswerLost = (error: ApplicationError): boolean => error.type === "sync" && (error.problem.type === "unreachable" || error.problem.type === "unreadable-answer")
+
+/**
+ * Whether a claim whose answer was lost went on the line all the same: the
+ * line read once more, and the claim as it went where it is there —
+ * else the failure stands, and the claim, should it be there after all,
+ * is taken up at the next reading of the line, as any is.
+ */
+const claimLanded = async (ports: PlayLinePorts, footing: Footing, link: SyncLink, copy: Followed, lost: ApplicationError): Promise<Outcome<{ readonly copy: Followed; readonly lines: readonly KeptLine[] }>> => {
+  const lines = await readAfresh(ports, link, [...new Set([copy.line.day, footing.today])])
+  if (!lines.ok) return Err(lost)
+  const standing = standingsOf(lines.value).get(copy.id)
+  return standing?.type === "held" && standing.by === footing.me ? Ok({ copy, lines: lines.value }) : Err(lost)
 }
 
 /**
@@ -577,7 +603,9 @@ const claimed = async (ports: PlayLinePorts, footing: Footing, link: SyncLink, c
  * the line or would write to it — or, should it never read the line the
  * claim is on, the next time it reads one this device has shown the play
  * on since. Which device claimed last is the relay's to say, so a device
- * that cannot reach it cannot claim. The play as this device now holds it.
+ * that cannot reach it cannot claim; one whose claim's answer was lost
+ * looks once more whether it went on. The play as this device now holds
+ * it.
  */
 export const continueHere = async (ports: PlayLinePorts, id: PlayId): Promise<Outcome<PlayDraft>> => {
   const footing = await footingOf(ports)
@@ -595,6 +623,22 @@ export const continueHere = async (ports: PlayLinePorts, id: PlayId): Promise<Ou
   return taken
 }
 
+/** What recording a play could tell of the owner's other devices: that none of them holds it now, or nothing, its lines not read. */
+export type ElsewhereChecked = "checked" | "unchecked"
+
+/** A play recorded, and what could be told of the owner's other devices as it was. */
+export interface FinishedHeld {
+  readonly commit: CommitId
+  readonly elsewhere: ElsewhereChecked
+}
+
+/** How long the lines are given to say whether another device holds a play about to be recorded, in milliseconds: the person, at the counter, is not kept waiting out a weak signal to write their own book. */
+const CHECKED_WITHIN = 3_000
+
+/** What a promise comes to, or nothing where it has not come to anything within `millis`. */
+const within = <T>(waited: Promise<T>, millis: number): Promise<T | undefined> =>
+  Promise.race([waited, new Promise<undefined>((resume) => setTimeout(() => resume(undefined), millis))])
+
 /**
  * Whether this device still holds a play it is about to record: its
  * book's lines read, all at once, where they can be — the play's own day's
@@ -602,22 +646,24 @@ export const continueHere = async (ports: PlayLinePorts, id: PlayId): Promise<Ou
  * device have claimed it meanwhile: recording it here would record what
  * that device no longer plays. A play recorded here before is held again
  * instead, where the other device took it from a showing not yet recorded.
- * A line that cannot be reached, or a play no line knows, is recorded
- * here: the device's own word stands where nothing says otherwise.
+ * A line that cannot be reached, or not within `CHECKED_WITHIN`, or a
+ * play no line knows, is recorded here: the device's own word stands where
+ * nothing says otherwise — and where its lines could not be read, it says
+ * so, for the person to know no other device was asked.
  */
-export const heldBeforeFinishing = async (ports: PlayLinePorts, draft: PlayDraft): Promise<Outcome<void>> => {
+export const heldBeforeFinishing = async (ports: PlayLinePorts, draft: PlayDraft): Promise<Outcome<ElsewhereChecked>> => {
   const footing = await footingOf(ports)
-  if (!footing.ok) return Ok(undefined)
+  if (!footing.ok) return Ok("unchecked")
   const bookId = syncedBookOf(ports, footing.value, draft)
   const link = footing.value.owned.find((each) => each.bookId === bookId)
-  if (link === undefined) return Ok(undefined)
-  const lines = await readAfresh(ports, link, daysOfPlay(draft, footing.value.today))
-  if (!lines.ok) return Ok(undefined)
+  if (link === undefined) return Ok("checked")
+  const lines = await within(readAfresh(ports, link, daysOfPlay(draft, footing.value.today)), CHECKED_WITHIN)
+  if (lines?.ok !== true) return Ok("unchecked")
   const standing = standingsOf(lines.value).get(draft.id)
-  if (standing?.type !== "held" || standing.by === footing.value.me || isAheadOf(draft, standing)) return Ok(undefined)
+  if (standing?.type !== "held" || standing.by === footing.value.me || isAheadOf(draft, standing)) return Ok("checked")
   const followed = await followedOn(ports, footing.value, lines.value)
   if (!followed.ok) return followed
-  return followed.value.acted.some((action) => action.type === "claim-back") ? Ok(undefined) : heldElsewhere(draft.id)
+  return followed.value.acted.some((action) => action.type === "claim-back") ? Ok("checked") : heldElsewhere(draft.id)
 }
 
 /**
@@ -656,27 +702,30 @@ const claimingBack = (ports: PlayLinePorts, drafts: DraftStorage): DraftStorage 
   },
 })
 
-/** A recording as it went, the play shown as recorded first where it went into the book. */
+/** A recording as it went, the play shown as recorded behind it where it went into the book: the book has it, and the person is not kept waiting on the relay. */
 const afterRecording = async <T>(ports: PlayLinePorts, draft: PlayDraft, recorded: Outcome<T>): Promise<Outcome<T>> => {
-  if (recorded.ok) await shownRecorded(ports, draft)
+  if (recorded.ok) void shownRecorded(ports, draft)
   return recorded
 }
 
-/** Recording a play, as the screens are given it: only while this device still holds the play. */
+/** Recording a play, as the screens are given it: only while this device still holds the play, and saying whether the other devices could be asked. */
 export interface HeldFinishing {
-  readonly finishPlay: typeof finishPlay
-  readonly finishPlayInYen: typeof finishPlayInYen
+  readonly finishPlay: (...recording: Parameters<typeof finishPlay>) => Promise<Outcome<FinishedHeld>>
+  readonly finishPlayInYen: (...recording: Parameters<typeof finishPlayInYen>) => Promise<Outcome<FinishedHeld>>
 }
+
+/** A recording as it went, with what was told of the other devices before it. */
+const tellingElsewhere = (elsewhere: ElsewhereChecked, recorded: Outcome<CommitId>): Outcome<FinishedHeld> => mapOk(recorded, (commit) => ({ commit, elsewhere }))
 
 /** Recording a play, each way, with whether this device still holds it asked first. */
 export const finishingHeld = (ports: PlayLinePorts): HeldFinishing => ({
   finishPlay: async (session, drafts, draft, bookId, tally, finish, at) => {
     const held = await heldBeforeFinishing(ports, draft)
-    return held.ok ? afterRecording(ports, draft, await finishPlay(session, claimingBack(ports, drafts), draft, bookId, tally, finish, at)) : held
+    return held.ok ? tellingElsewhere(held.value, await afterRecording(ports, draft, await finishPlay(session, claimingBack(ports, drafts), draft, bookId, tally, finish, at))) : held
   },
   finishPlayInYen: async (session, drafts, draft, bookId, tally, finish, at, tokens) => {
     const held = await heldBeforeFinishing(ports, draft)
-    return held.ok ? afterRecording(ports, draft, await finishPlayInYen(session, claimingBack(ports, drafts), draft, bookId, tally, finish, at, tokens)) : held
+    return held.ok ? tellingElsewhere(held.value, await afterRecording(ports, draft, await finishPlayInYen(session, claimingBack(ports, drafts), draft, bookId, tally, finish, at, tokens))) : held
   },
 })
 

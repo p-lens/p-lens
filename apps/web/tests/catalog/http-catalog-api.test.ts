@@ -65,8 +65,32 @@ describe("the shared catalog over HTTP", () => {
   })
 
   test("says an answer it cannot read is unexpected", async () => {
-    const { api } = answering(() => new Response("<html>", { status: 502 }))
-    expect(await api.catalog()).toEqual({ ok: false, error: { type: "answered", status: 502, error: { type: "unexpected", status: 502 } } })
+    const { api } = answering(() => new Response("<html>", { status: 503 }))
+    expect(await api.catalog()).toEqual({ ok: false, error: { type: "answered", status: 503, error: { type: "unexpected", status: 503 } } })
+  })
+
+  test("takes a gateway's or a hall's login page answering in the catalog's place as no connection", async () => {
+    expect(await answering(() => new Response("<html>", { status: 502 })).api.catalog()).toEqual({ ok: false, error: { type: "unreachable", detail: "answered 502" } })
+    expect(await answering(() => new Response("<html>login</html>", { status: 511 })).api.version()).toEqual({ ok: false, error: { type: "unreachable", detail: "answered 511" } })
+    expect(await answering(() => new Response("<html>", { status: 524 })).api.quota()).toEqual({ ok: false, error: { type: "unreachable", detail: "answered 524" } })
+  })
+
+  test("never takes a mark or a use as sent where a login page answered in the catalog's place", async () => {
+    const { api } = answering(() => new Response("<html>login</html>", { status: 200, headers: { "Content-Type": "text/html" } }))
+    expect(await api.send({ method: "PUT", path: "/formulas/f1/marks/adoption" })).toEqual({ ok: false, error: { type: "unreadable-answer" } })
+  })
+
+  test("says a request that got no answer in time timed out, for it may have been taken", async () => {
+    const api = createHttpCatalogApi({
+      base: "https://api.example",
+      request: async () => {
+        throw new DOMException("The operation timed out.", "TimeoutError")
+      },
+      answerWithin: 1000,
+      device: async () => "device-1",
+      humanCheck: undefined,
+    })
+    expect(await api.addDistribution("m1", { settings: [] } as never)).toEqual({ ok: false, error: { type: "timed-out" } })
   })
 
   test("says a catalog it cannot reach is unreachable", async () => {

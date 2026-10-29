@@ -1,8 +1,10 @@
 import type { SharedParlor } from "../../core/parlor/shared"
 import type { Parlor } from "../../core/parlor/parlor"
 import { statedExchangeOf, tierOf, type PlayTerms } from "../../core/parlor/terms"
+import { formatMoment } from "./dates"
 import type { PlayGameKind } from "../../core/play/play"
 import { seal, veil, type Secret } from "../../mummer"
+import type { LocateError } from "../../location/port/locator"
 
 /** A parlor's name, sealed where it comes to the words: where a person plays is the first thing 配信モード veils. */
 export type ParlorName = Secret<"parlor", string>
@@ -73,3 +75,26 @@ export const typedParlorRefused = (doing: TypedNameRefused): string => `手入�
 
 /** What is said under the machine field while it holds a name that was typed and chose no machine: a tally names a machine of the catalog, or none. */
 export const typedMachineRefused = (doing: TypedNameRefused): string => `手入力の機種名では${REFUSED[doing]}。一覧から選ぶか、指定しないままにしてください。`
+
+/** Said quietly over a form offering the device's copy of the parlor list, where that copy is old: as of when it is, or that it is the copy kept, where the moment was never kept. */
+export const parlorListAsOfText = (readAt: string | undefined): string =>
+  readAt === undefined ? "店舗一覧は、この端末に保存してあるものです。" : `店舗一覧は ${formatMoment(readAt)} 時点のものです。`
+
+/** Said after why the parlor list could not be read, where a form goes on without it. */
+export const PARLORLESS_STILL = "一覧にない店舗は選べませんが、店舗なしでなら記録できます。"
+
+/** Said as the survey is pressed for while the device is known offline: the app stays, with what was typed. */
+export const SURVEY_OFFLINE = "電波がないため、申請の画面を開けません。入力した内容はそのままなので、電波のある所でもう一度押してください。"
+
+/** Why the parlors are not listed nearest first, said quietly under the field: the device would not say where it is, or could not. */
+export const locateFailedText = (error: LocateError): string => {
+  switch (error.type) {
+    case "denied":
+      return "位置情報が許可されていないため、店舗を都道府県順に並べています。"
+    case "timed-out":
+    case "unavailable":
+      return "現在地がわからなかったため、店舗を都道府県順に並べています。"
+    case "unsupported":
+      return "この端末では現在地を使えないため、店舗を都道府県順に並べています。"
+  }
+}

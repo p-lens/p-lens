@@ -19,6 +19,7 @@ import { tokenTallyFormOf, playedAsRecorded, REVISING } from "./form"
 import { TokenTallyEditor } from "./TokenTallyEditor"
 import { yenTallyFormOf } from "./yen-tally-form"
 import { createOffered } from "../parlor-offers/offered"
+import { ParlorListNote } from "../parlor-offers/ParlorListNote"
 import { YenTallyEditor } from "./AddTallyView"
 
 /**
@@ -47,6 +48,7 @@ export function ReviseTallyView(props: { readonly place: Place; readonly bookId:
     <MainContent header={<ViewHeader place={props.place} title="収支の修正" />}>
       <Withheld kind="tally">
         <div class="max-w-5xl">
+          <ParlorListNote failure={offered.failure()} age={offered.age()} />
           <Loaded outcome={revising()}>
             {(found) => {
               const tally: TallyHead = found.recorded.tally

@@ -23,7 +23,7 @@ import { toast } from "../../primitives/toast"
 import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
 import { describeError } from "../../wording/errors"
 import { amountText, formatRate, formatYen, signedAmountText } from "../../wording/numbers"
-import { chosenParlorText, parlorChoiceText, parlorNameText, typedParlorRefused } from "../../wording/parlor"
+import { chosenParlorText, locateFailedText, parlorChoiceText, parlorNameText, typedParlorRefused } from "../../wording/parlor"
 import { offersByKey, parlorOffers } from "../parlor-offers/parlor-offers"
 import { seal } from "../../../mummer"
 import { Withheld } from "../mummer/Withheld"
@@ -163,6 +163,9 @@ export function OpeningBalanceForm(props: {
             onFocus={nudge.settle}
             onTyped={setTyped}
           />
+          <Show when={((found) => (found?.ok === false ? found.error : undefined))(here())} keyed>
+            {(error) => <p class="text-xs text-text-muted">{locateFailedText(error)}</p>}
+          </Show>
           <Show when={typedOnly()}>
             <p role="alert" class="text-xs text-negative">
               {typedParlorRefused("registering")}

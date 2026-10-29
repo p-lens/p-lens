@@ -17,6 +17,7 @@ import * as PachislotViews from "../pachislot"
 import { ViewHeader } from "../shell/ViewHeader"
 import { cabinetText } from "../../wording/cabinet"
 import { seal } from "../../../mummer"
+import { HuddleReachNote } from "./HuddleReachNote"
 
 /** A play as the room opens it: whose, under the name they go by, and when it was last shown to the huddle — none for one's own, as it stands on this device. */
 interface Seen {
@@ -52,6 +53,7 @@ export function HuddlePlayView(props: { readonly place: Place; readonly member: 
       <Show when={found()} keyed fallback={<EmptyState title="この稼働は見つかりません" />}>
         {(seen) => (
           <div class="flex max-w-5xl flex-col gap-3 p-3">
+            <HuddleReachNote />
             <p class="text-xs text-text-muted">
               {parlorText(parlorOf(seen.play))}
               {seen.shownAt === undefined ? "" : `・${huddleShownAt(formatMoment(seen.shownAt))}`}

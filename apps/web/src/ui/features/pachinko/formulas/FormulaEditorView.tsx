@@ -24,7 +24,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../primitives/ta
 import { toast } from "../../../primitives/toast"
 import { useMoves } from "../../../navigation/moves"
 import type { FormulaTab, Place } from "../../../navigation/place"
-import { describeDescriptionProblem, describeReleaseDateError, quotaStandingText } from "../../../wording/catalog"
+import { describeDescriptionProblem, describeReleaseDateError, quotaStandingText, REGISTER_OFFLINE, REGISTRATION_SENDING } from "../../../wording/catalog"
+import { isUnreached } from "../../catalog/unreached"
 import { describeError } from "../../../wording/errors"
 import { oneInText, payoutText } from "../../../wording/pachinko/formula"
 import { useStartForm } from "../../live/start-form"
@@ -180,7 +181,8 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachinko-form
   const [bonusRows, setBonusRows] = createSignal(props.start.bonusRows)
   const [bonusNames, setBonusNames] = createSignal(props.start.bonusNames)
   const [failure, setFailure] = createSignal<ApplicationError | undefined>(undefined)
-  const [saving, setSaving] = createSignal(false)
+  /** Whether the formula is on its way to the shared catalog: its button is still until the answer comes. */
+  const [saving, setSaving] = createSignal<"editing" | "sending">("editing")
   /** What saving here registers, and where this device stands against its quota: asked once the editor opens, and again after a save is refused. */
   const registrationKind = (): RegistrationKind => (target().type === "catalog" ? "addition" : "machine")
   const [quota, { refetch: askQuotaAgain }] = createResource(() => loadQuota(app.services.catalog))
@@ -285,12 +287,13 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachinko-form
 
   const save = async (): Promise<void> => {
     settleTyping()
-    if (saving() || nudgeWhatIsMissing()) return
+    if (saving() === "sending" || nudgeWhatIsMissing()) return
     const formula = proposed()
     if (formula === undefined) return
-    setSaving(true)
+    setFailure(undefined)
+    setSaving("sending")
     const saved = await saveTo(formula)
-    setSaving(false)
+    setSaving("editing")
     if (saved === undefined) return
     if (!saved.ok) {
       keepDraft(app.services.preferences, { target: draftTarget(), formula: { gameKind: "pachinko", formula } })
@@ -415,9 +418,12 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachinko-form
         <Show when={refusedForNow() ? undefined : standing()} keyed>
           {(where) => <p class="text-xs text-text-muted">{quotaStandingText(registrationKind(), where)}</p>}
         </Show>
+        <Show when={failure() === undefined && isUnreached(quota())}>
+          <p class="text-xs text-text-muted">{REGISTER_OFFLINE}</p>
+        </Show>
         <div>
-          <Button variant="semipro" onClick={() => void save()}>
-            {target().type === "catalog" ? "この算出条件を追加する" : "機種と算出条件を登録する"}
+          <Button variant="semipro" onClick={() => void save()} aria-busy={saving() === "sending"}>
+            {saving() === "sending" ? REGISTRATION_SENDING : target().type === "catalog" ? "この算出条件を追加する" : "機種と算出条件を登録する"}
           </Button>
         </div>
       </div>

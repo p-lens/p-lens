@@ -10,10 +10,11 @@ import type { PlayId } from "../../../core/play/play"
 import { useApp } from "../../context"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
+import { reachAfter } from "../../primitives/reach"
 import { onShownAgain } from "../../primitives/shown-again"
 import { toast } from "../../primitives/toast"
 import { playGoneText } from "../../wording/errors"
-import { FOLLOWED_RECORDED, lostReadingsText, YIELDED } from "../../wording/play-line"
+import { CONTINUED_HERE, FOLLOWED_RECORDED, lostReadingsText, YIELDED } from "../../wording/play-line"
 
 /** How often the clock is looked at to see whether a line is due to be read, in milliseconds: as often as the quickest reading. */
 const TICK = 5_000
@@ -81,10 +82,13 @@ interface Held {
  *
  * Whatever the lines change of the plays kept here has every screen read
  * them again; a play given up to another device is said so, and where
- * readings typed here never reached it, how many, once. A play being
+ * readings typed here never reached it, how many, once; and a play taken
+ * up here by a claim whose answer was lost is said to have come over. A play being
  * watched that was deleted, recorded on a day after it began, or now goes
  * to a book this device does not sync, is left for the day's list, with
- * why. Nothing is read or shown
+ * why. Whether the lines could be read is kept (`PlayLineWatch.heard`),
+ * for what is shown of the other devices' plays to say as of when it is;
+ * they are read at once as the device comes back online. Nothing is read or shown
  * where the app has no relay, and nothing is drawn.
  */
 export function PlayLineRunner(props: { readonly place: Place }): JSX.Element {
@@ -112,6 +116,7 @@ export function PlayLineRunner(props: { readonly place: Place }): JSX.Element {
   const told = (acted: readonly PlayLineAction[]): void => {
     acted.forEach((action) => {
       if (action.type === "yield-up") toast(action.unshown > 0 ? { title: lostReadingsText(action.unshown), tone: "error", stays: "read" } : { title: YIELDED, stays: "glance" })
+      if (action.type === "take-up") toast({ title: CONTINUED_HERE, stays: "glance" })
       leftFor(action)
     })
     if (acted.length > 0) app.played()
@@ -149,9 +154,10 @@ export function PlayLineRunner(props: { readonly place: Place }): JSX.Element {
     held.anyReadAt = Date.now()
     if (reading.type === "every-book") held.readAt = held.anyReadAt
     const lines = await readPlayLines(ports, held.lines, reading)
+    app.playLine.setHeard((was) => reachAfter(was, lines.ok ? lines.value.missed : lines.error, app.services.now()))
     if (!lines.ok) return
-    held.lines = lines.value
-    kept(await followPlays(ports, lines.value))
+    held.lines = lines.value.lines
+    kept(await followPlays(ports, lines.value.lines))
     showSoon()
   }
 
@@ -191,8 +197,10 @@ export function PlayLineRunner(props: { readonly place: Place }): JSX.Element {
     if (reading !== undefined) inTurn(reading.type === "every-book" ? "read" : "watch", readOf(reading))
   }, TICK)
   const stopListening = onShownAgain(readNow)
+  window.addEventListener("online", readNow)
   onCleanup(() => {
     stopListening()
+    window.removeEventListener("online", readNow)
     clearInterval(ticking)
     clearTimeout(held.waiting)
     document.removeEventListener("visibilitychange", turnedAway)

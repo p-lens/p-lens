@@ -11,6 +11,9 @@ import type { Submission as KeptSubmission } from "../../../parlors/port/submiss
 import { offersByKey, parlorOffers, type ParlorOffer } from "../parlor-offers/parlor-offers"
 import { locateAddress, submitAddress } from "./submission-return"
 import { chosenParlorText } from "../../wording/parlor"
+import type { LocateError } from "../../../location/port/locator"
+import { leaveFor } from "../../primitives/leaving"
+import { SURVEY_OFFLINE } from "../../wording/parlor"
 
 /** The parlor a play started at none may still be said to have been at as it is recorded, chosen as a play started live chooses one. */
 export interface ParlorChoice {
@@ -24,6 +27,8 @@ export interface ParlorChoice {
   /** Whether the field holds a name that was typed and chose no parlor: nothing is recorded on it. */
   readonly typedOnly: () => boolean
   readonly locating: () => string | undefined
+  /** Why the parlors are not offered nearest first, where the device would not or could not say where it is. */
+  readonly locateFailure: () => LocateError | undefined
   readonly submitParlor: () => void
 }
 
@@ -60,7 +65,7 @@ export const createParlorChoice = (given: {
       toast({ title: "店舗の申請はまだ準備中です", description: "一覧にない店舗は、店舗を指定せずに記録できます。" })
       return
     }
-    window.location.assign(submitAddress(app.services.surveyUrl, window.location.origin, { type: "start", game: given.gameKind }))
+    leaveFor(submitAddress(app.services.surveyUrl, window.location.origin, { type: "start", game: given.gameKind }), SURVEY_OFFLINE)
   }
   return {
     key,
@@ -71,6 +76,7 @@ export const createParlorChoice = (given: {
     setTyped,
     typedOnly: () => holdsTypedOnly(typed(), chosenParlorText(chosen()?.name)),
     locating,
+    locateFailure: () => ((found) => (found?.ok === false ? found.error : undefined))(here()),
     submitParlor,
   }
 }

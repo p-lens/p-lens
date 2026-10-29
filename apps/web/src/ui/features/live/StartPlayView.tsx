@@ -3,7 +3,7 @@ import { MainContent } from "solid-gathering-shell"
 
 import type { ApplicationError } from "../../../application/errors"
 import { linkSubmissionsInBooks } from "../../../application/parlors"
-import { listSharedParlors } from "../../../application/shared-parlors"
+import { listSharedParlors, parlorListReadAt } from "../../../application/shared-parlors"
 import { listSubmissions } from "../../../application/submissions"
 import { memberCan, type ListedBook } from "../../../core/book/book"
 import { EMPTY_PARLOR_LIST, type ParlorList } from "../../../core/parlor/shared"
@@ -14,7 +14,9 @@ import { EmptyState, Loaded, Loading } from "../../primitives/states"
 import { createWait } from "../../primitives/wait"
 import type { Place } from "../../navigation/place"
 import { describeError } from "../../wording/errors"
+import { parlorListAsOfText } from "../../wording/parlor"
 import { ViewHeader } from "../shell/ViewHeader"
+import { listAgeOf, type ListAge } from "../parlor-offers/offered"
 import * as PachinkoViews from "../pachinko"
 import * as PachislotViews from "../pachislot"
 
@@ -32,8 +34,11 @@ const TITLES: Readonly<Record<PlayGameKind, string>> = { pachinko: "パチンコ
 export function StartPlayView(props: { readonly place: Place; readonly game: PlayGameKind }): JSX.Element {
   const app = useApp()
   const [books] = createResource(() => app.revision(), () => app.services.session.books())
-  const [parlors] = createResource(() => app.revision(), () => listSharedParlors(app.services.parlors))
+  const [parlors] = createResource(() => [app.revision(), app.reconnected()] as const, () => listSharedParlors(app.services.parlors))
   const [submissions] = createResource(() => app.revision(), () => listSubmissions(app.services.submissions))
+  const [readAt] = createResource(() => parlors(), () => parlorListReadAt(app.services.parlors))
+  /** How old the list offered is, said where it is old. */
+  const age = (): ListAge => ((found) => (found?.ok === true && !readAt.loading ? listAgeOf(found.value, readAt(), app.services.now()) : { type: "recent" }))(parlors())
   const writable = (all: readonly ListedBook[]): readonly ListedBook[] => all.filter((book) => memberCan(book, app.services.member, "write"))
   /** The parlor list to choose from; an empty one when it could not be read, since a play may have no parlor. */
   const list = (): ParlorList => {
@@ -74,7 +79,10 @@ export function StartPlayView(props: { readonly place: Place; readonly game: Pla
             {(all) => (
               <Show when={writable(all).length > 0} fallback={<EmptyState title="記録できる帳簿がありません">編集できる帳簿があると、稼働を始められます。</EmptyState>}>
                 <Show when={parlorsFailure()} keyed>
-                  {(error) => <p class="text-xs text-text-muted">店舗の一覧を読めませんでした。店舗名なしでなら始められます。（{describeError(error)}）</p>}
+                  {(error) => <p class="text-xs text-text-muted">{describeError(error)}店舗名なしでなら始められます。</p>}
+                </Show>
+                <Show when={((found) => (found.type === "old" ? found : undefined))(age())} keyed>
+                  {(old) => <p class="text-xs text-text-muted">{parlorListAsOfText(old.readAt)}</p>}
                 </Show>
                 <Show when={linkFailure()} keyed>
                   {(error) => <p class="text-xs text-text-muted">申請した店舗を帳簿に紐付けられませんでした。（{describeError(error)}）</p>}

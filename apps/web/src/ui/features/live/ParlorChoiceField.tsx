@@ -3,7 +3,8 @@ import { Show, type JSX } from "solid-js"
 import { identityKey } from "../../../core/parlor/parlor"
 import { Combobox } from "../../primitives/combobox"
 import { PlusIcon } from "../../primitives/icons"
-import { LOCATE_REQUEST, parlorChoiceText, typedParlorRefused } from "../../wording/parlor"
+import { stayWhileOffline } from "../../primitives/leaving"
+import { LOCATE_REQUEST, locateFailedText, parlorChoiceText, SURVEY_OFFLINE, typedParlorRefused } from "../../wording/parlor"
 import type { ParlorChoice } from "./parlor-choice"
 import { seal } from "../../../mummer"
 
@@ -33,9 +34,12 @@ export function ParlorChoiceField(props: { readonly parlor: ParlorChoice }): JSX
           <PlusIcon />
         </button>
       </div>
+      <Show when={parlor.locateFailure()} keyed>
+        {(error) => <p class="text-xs text-text-muted">{locateFailedText(error)}</p>}
+      </Show>
       <Show when={parlor.locating()} keyed>
         {(address) => (
-          <a href={address} class="animate-[emerge_1.6s_ease-out] text-xs text-text-secondary underline underline-offset-2 hover:text-text-primary">
+          <a href={address} onClick={(event) => stayWhileOffline(event, SURVEY_OFFLINE)} class="animate-[emerge_1.6s_ease-out] text-xs text-text-secondary underline underline-offset-2 hover:text-text-primary">
             {LOCATE_REQUEST}
           </a>
         )}

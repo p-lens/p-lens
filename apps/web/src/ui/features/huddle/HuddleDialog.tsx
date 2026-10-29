@@ -22,6 +22,7 @@ import {
   HUDDLE_SCANNING,
   HUDDLE_SHOW_CODE,
   huddleJoinedAs,
+  huddleLeftUntoldText,
   JOIN_BY_IMAGE,
   JOIN_HUDDLE,
   LEAVE_HUDDLE,
@@ -172,7 +173,7 @@ export function HuddleDialog(props: { readonly open: boolean; readonly onClosed:
     app.huddle.changed()
     props.onClosed()
     void said.then((outcome) => {
-      if (!outcome.ok) toast({ title: HUDDLE_HEADING, description: describeError(outcome.error), tone: "error" })
+      if (!outcome.ok) toast({ title: HUDDLE_HEADING, description: outcome.error.type === "sync" ? huddleLeftUntoldText(outcome.error.problem) : describeError(outcome.error), tone: "error" })
     })
   }
   return (

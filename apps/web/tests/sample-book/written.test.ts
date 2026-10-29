@@ -79,7 +79,7 @@ const setUp = async () => {
     session,
     maker: inProcessMaker(),
     catalog: CATALOG,
-    parlors: { list: async () => Ok({ parlors: PARLOR_LIST, rejections: [] }) },
+    parlors: { list: async () => Ok({ parlors: PARLOR_LIST, rejections: [] }), readAt: async () => undefined },
     locate: async () => Ok({ latitude: 35.6, longitude: 139.7 }),
     deletion: {
       storage,

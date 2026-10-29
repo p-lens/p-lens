@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 
+import { fetchUnlessStalled } from "../../download/unless-stalled"
 import type { WorkerCall, WorkerReply } from "../protocol/messages"
 import { startEngine, type Engine, type EngineReply } from "./engine"
 
@@ -9,12 +10,23 @@ import { startEngine, type Engine, type EngineReply } from "./engine"
  * kept alive between calls so the parsed journal stays in its memory.
  */
 
-const started: { engine?: Promise<Engine> } = {}
+const started: { engine: Promise<Engine> | undefined } = { engine: undefined }
+
+/** How long the module may go without a byte arriving, in milliseconds, where the service worker does not have it yet and it comes over the network: a signal gone must not leave every book waiting for good, and a slow one must not be cut off while it still brings the module in. */
+const STALLED_AFTER = 30_000
+
+/** A start that failed is not kept, so the next call tries again — once the signal is back, or the service worker has the module. */
+const forgotten = (cause: unknown): Promise<never> => {
+  started.engine = undefined
+  return Promise.reject(cause instanceof Error ? cause : new Error(String(cause)))
+}
 
 const engine = (): Promise<Engine> => {
   const running =
     started.engine ??
-    WebAssembly.compileStreaming(fetch(`${import.meta.env.BASE_URL}hledger.wasm`)).then(startEngine)
+    WebAssembly.compileStreaming(fetchUnlessStalled(`${import.meta.env.BASE_URL}hledger.wasm`, STALLED_AFTER))
+      .then(startEngine)
+      .catch(forgotten)
   started.engine = running
   return running
 }

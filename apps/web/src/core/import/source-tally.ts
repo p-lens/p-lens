@@ -121,12 +121,17 @@ const sameAs = (source: SourceTally): string =>
  * The ids a file's tallies go by here, in the file's order: where each came
  * from, its day, and a digest of everything it says — so the same file
  * taken in again gives the same ids, and what the book already has is left
- * alone. Two tallies that say exactly the same are told apart by their order.
+ * alone. Two tallies that say exactly the same are told apart by their order,
+ * each counted against those like it before it as the file is gone over once.
  */
-export const importedIdsOf = (from: string, sources: readonly SourceTally[]): readonly PlayId[] => {
-  const keys = sources.map(sameAs)
-  return sources.map((source, index) => {
-    const earlier = keys.slice(0, index).filter((key) => key === keys[index]).length
-    return `${from}-${source.date.replaceAll("-", "")}-${digest(keys[index] ?? "")}${earlier === 0 ? "" : `-${earlier + 1}`}` as PlayId
-  })
-}
+export const importedIdsOf = (from: string, sources: readonly SourceTally[]): readonly PlayId[] =>
+  sources.reduce<{ readonly ids: PlayId[]; readonly seen: Map<string, number> }>(
+    (built, source) => {
+      const key = sameAs(source)
+      const earlier = built.seen.get(key) ?? 0
+      built.seen.set(key, earlier + 1)
+      built.ids.push(`${from}-${source.date.replaceAll("-", "")}-${digest(key)}${earlier === 0 ? "" : `-${earlier + 1}`}` as PlayId)
+      return built
+    },
+    { ids: [], seen: new Map() },
+  ).ids

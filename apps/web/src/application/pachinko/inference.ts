@@ -143,11 +143,23 @@ export const weighToldPlay = (catalog: Catalog, engine: EngineClient, asked: Wei
   }
 }
 
-/** Weigh a told play and wait for what it comes to; nothing where the engine failed — a play taken in with others is then taken in unweighed. */
-export const verdictOn = (engine: EngineClient, weighable: Weighable, told: Told, terms: WeighingTerms, playId: PlayId, trials: number): Promise<Verdict | undefined> =>
+/**
+ * Weigh a told play and wait for what it comes to; nothing where the engine
+ * failed — a play taken in with others is then left unweighed — or where
+ * the person stopped it, which ends the run at once and is not waited on.
+ */
+export const verdictOn = (engine: EngineClient, weighable: Weighable, told: Told, terms: WeighingTerms, playId: PlayId, trials: number, stopped: AbortSignal): Promise<Verdict | undefined> =>
   new Promise((settle) => {
-    weighPlay(engine, weighable, told, terms, playId, trials, (event) => {
+    if (stopped.aborted) return settle(undefined)
+    const held: { run: RunningRun | undefined } = { run: undefined }
+    const stop = (): void => {
+      held.run?.cancel()
+      settle(undefined)
+    }
+    stopped.addEventListener("abort", stop, { once: true })
+    held.run = weighPlay(engine, weighable, told, terms, playId, trials, (event) => {
       if (event.type === "progress") return
+      stopped.removeEventListener("abort", stop)
       settle(event.type === "completed" ? verdictOf(weighable.formula.figures, terms, event.summary) : undefined)
     })
   })

@@ -14,7 +14,8 @@ import { BoltIcon, HandIcon, HandOffIcon, HeartIcon, ShieldIcon, ShieldOffIcon }
 import { Loaded } from "../../../primitives/states"
 import { useMoves } from "../../../navigation/moves"
 import type { Place } from "../../../navigation/place"
-import { formulaIdText } from "../../../wording/catalog"
+import { formulaIdText, MARKS_UNSENT } from "../../../wording/catalog"
+import { useUnsentMarks } from "../../catalog/unsent-marks"
 import { describeError } from "../../../wording/errors"
 import { formatCount } from "../../../wording/numbers"
 import { kindName, UNCHECKED } from "../../../wording/pachislot/formula"
@@ -28,6 +29,7 @@ import { trailTo } from "./trail"
 import { useActions } from "./use-actions"
 import { ValueSheet } from "./ValueSheet"
 import { isMine, OWN_LINES, paintOf } from "./vote-fill"
+import { missingUndelivered } from "../../catalog/undelivered"
 
 const samplingOf = (formula: Formula): Sampling | undefined => (formula.kind === "sampled" ? formula.sampling : undefined)
 
@@ -45,6 +47,7 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
   const moves = useMoves()
   const start = useStartForm()
   const actions = useActions()
+  const unsent = useUnsentMarks()
   const favorites = useBookFavorites()
   /** Whether the person's own mark is among a formula's count of it. */
   const own = (mark: Mark, formulaId: string): boolean => isMine(mark, actions.mine(formulaId), favorites.keeps(formulaId))
@@ -70,7 +73,7 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
   return (
     <MainContent header={<ViewHeader place={props.place} title="算出条件" trail={trail()} />}>
       <div class="max-w-5xl">
-        <Loaded outcome={detail()}>
+        <Loaded outcome={missingUndelivered(detail(), app.delivery.state())}>
           {(found) => {
             const listing = () => found.listing
             const formula = () => found.listing.formula
@@ -135,6 +138,9 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
                   </Button>
                 </div>
                 <p class="text-xs text-text-muted">イチオシは1機種につき1つ。人にすすめるならこれ、という算出条件に付けてください。すすめられないものは非推奨に。どちらも共有され、順位に効きます。</p>
+                <Show when={unsent().has(formula().id)}>
+                  <p class="text-xs text-text-muted">{MARKS_UNSENT}</p>
+                </Show>
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
                   <Button
                     variant="nerdpro"

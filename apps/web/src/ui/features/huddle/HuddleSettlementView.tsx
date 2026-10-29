@@ -17,6 +17,7 @@ import { HUDDLE_DEPARTED, HUDDLE_SETTLE_EXACT, HUDDLE_SETTLEMENT, roomMemberText
 import { amountText, figureToneOf, formatCount, tokenUnit, yenFigureText, type Amount } from "../../wording/numbers"
 import { seal, Secret } from "../../../mummer"
 import { ViewHeader } from "../shell/ViewHeader"
+import { HuddleReachNote } from "./HuddleReachNote"
 
 /** Yen as typed: digits, full-width or with commas, and nothing else; none where it is not that. */
 const yenTyped = (typed: string): number | undefined => ((tidied) => (/^\d+$/.test(tidied) ? Number(tidied) : undefined))(tidyTyped(typed).replaceAll(",", ""))
@@ -110,6 +111,7 @@ export function HuddleSettlementView(props: { readonly place: Place }): JSX.Elem
   return (
     <MainContent header={<ViewHeader place={props.place} title={HUDDLE_SETTLEMENT} />}>
       <div class="flex max-w-5xl flex-col gap-4 p-4">
+        <HuddleReachNote />
         <Show when={members().length >= 2} fallback={<p class="text-sm text-text-muted">精算は2人以上で行えます。メンバー合算のフィルターで2人以上を選んでください。</p>}>
           <Show when={settlement()} keyed>
             {(found) => (

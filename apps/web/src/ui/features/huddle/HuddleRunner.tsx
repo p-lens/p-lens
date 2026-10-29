@@ -12,6 +12,7 @@ import type { PlayId } from "../../../core/play/play"
 import { useApp } from "../../context"
 import type { Place } from "../../navigation/place"
 import { onShownAgain } from "../../primitives/shown-again"
+import { reachAfter } from "../../primitives/reach"
 import { huddlePortsOf } from "./huddle-ports"
 
 /** How often the huddle's line is read while the page is before the person, in milliseconds: a phone's radio asked more often than this is never let rest. */
@@ -35,7 +36,9 @@ const changedSince = (drafts: readonly PlayDraft[], shown: ReadonlyMap<string, s
  * it changes — at once, or 30 seconds after the last showing, the latest
  * of each then — every one again under a new name the person goes by, and
  * each it showed and has since given up taken back, so the others let it go
- * too, whichever screen gave it up. Nothing is read
+ * too, whichever screen gave it up. What failed to be shown is tried again
+ * at each look, and both are tried at once as the device comes back
+ * online. Nothing is read
  * or shown where the device is in no huddle, and nothing is drawn.
  *
  * It also says when the way back to the day's list is urged: as who of the
@@ -59,16 +62,18 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
       held.shownAt = 0
       held.shown = new Map()
       line.setEntries([])
-      line.setProblem(undefined)
+      line.setHeard({ type: "not-yet" })
+      line.setTold({ type: "not-yet" })
       line.setUrged(undefined)
       line.setKeptUp(huddle?.secret)
     }
     return huddle
   }
 
-  const settled = (huddle: Huddle, outcome: Outcome<unknown>): boolean => {
+  const settled = (huddle: Huddle, outcome: Outcome<unknown>, way: "heard" | "told"): boolean => {
     if (huddle.secret !== held.secret) return false
-    line.setProblem(outcome.ok ? undefined : outcome.error)
+    const set = way === "heard" ? line.setHeard : line.setTold
+    set((was) => reachAfter(was, outcome.ok ? undefined : outcome.error, app.services.now()))
     return outcome.ok
   }
 
@@ -78,7 +83,7 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
     held.reading = true
     const found = await readHuddleAfter(ports, huddle, held.read)
     held.reading = false
-    if (!settled(huddle, found) || !found.ok) return
+    if (!settled(huddle, found, "heard") || !found.ok) return
     held.read = found.value.head
     held.lineEnd = Math.max(held.lineEnd, found.value.head)
     if (found.value.entries.length > 0) line.setEntries((so) => latestEntries([...so, ...found.value.entries]))
@@ -88,7 +93,7 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
     const [draft, ...rest] = drafts
     if (draft === undefined) return
     const shown = await showToHuddle(ports, huddle, draft, held.lineEnd)
-    if (!settled(huddle, shown) || !shown.ok) return
+    if (!settled(huddle, shown, "told") || !shown.ok) return
     held.lineEnd = Math.max(held.lineEnd, shown.value)
     held.shown = new Map(held.shown).set(draft.id, draft.log)
     await showEach(huddle, rest)
@@ -98,7 +103,7 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
     const [playId, ...rest] = playIds
     if (playId === undefined) return
     const withdrawn = await withdrawFromHuddle(ports, huddle, playId, held.lineEnd)
-    if (!settled(huddle, withdrawn) || !withdrawn.ok) return
+    if (!settled(huddle, withdrawn, "told") || !withdrawn.ok) return
     held.lineEnd = Math.max(held.lineEnd, withdrawn.value)
     await withdrawEach(huddle, rest)
   }
@@ -138,10 +143,17 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
   createEffect(() => {
     if (!onOwnPlay()) line.setUrged(undefined)
   })
-  const reading = setInterval(() => void read(), READ_EVERY)
-  const stopListening = onShownAgain(() => void read())
+  /** A look at the line, and another try at showing what has not reached it: a showing that failed is tried again at each, not only after the next write. */
+  const lookAgain = (): void => {
+    void read()
+    if (app.huddle.now() !== undefined && !away()) showSoon()
+  }
+  const reading = setInterval(lookAgain, READ_EVERY)
+  const stopListening = onShownAgain(lookAgain)
+  window.addEventListener("online", lookAgain)
   onCleanup(() => {
     stopListening()
+    window.removeEventListener("online", lookAgain)
     line.setKeptUp(undefined)
     clearInterval(reading)
     clearTimeout(waiting.timer)

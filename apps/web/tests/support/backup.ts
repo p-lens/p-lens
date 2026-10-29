@@ -58,5 +58,6 @@ export const memoryHandover = (failing?: HandoverFailure): Handover & { readonly
       held.files = [...held.files, file]
       return Ok(undefined)
     },
+    givesNow: () => true,
   }
 }
