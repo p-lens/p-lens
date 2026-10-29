@@ -312,11 +312,11 @@
   }
 }
 
-/* A request made quietly under a field: it comes into view slowly, never all at once. */
+/* A request made quietly under a field: it rises into view slowly from below, never all at once. */
 @keyframes emerge {
   from {
     opacity: 0;
-    transform: translateY(-0.25rem);
+    transform: translateY(0.25rem);
   }
 }
 
