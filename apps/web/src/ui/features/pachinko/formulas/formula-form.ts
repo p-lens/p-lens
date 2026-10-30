@@ -11,10 +11,11 @@ import { tidyTyped } from "../../../../core/text/tidy"
  *
  * - `too-fine`: a number written to more places than a spec is kept in, two.
  * - `not-whole`: a count that is not a whole number.
+ * - `no-attacker`: an attacker named for a 0R, which opens none.
  */
 export interface FormProblem {
   readonly field: string
-  readonly reason: "required" | "not-a-number" | "too-fine" | "not-whole" | "out-of-range"
+  readonly reason: "required" | "not-a-number" | "too-fine" | "not-whole" | "out-of-range" | "no-attacker"
 }
 
 type Read<T> = Result<T, FormProblem>
@@ -60,9 +61,15 @@ const supportGainOf = (text: string, field: string): Read<number> => {
   return points <= -10_000 || points > 10_000 ? Err({ field, reason: "out-of-range" }) : Ok(points)
 }
 
-const countOf = (text: string, field: string): Read<number> => {
-  const read = positiveHundredths(text, field)
+/** A whole number, none included: a 0R's rounds. */
+const wholeOf = (text: string, field: string): Read<number> => {
+  const read = hundredthsOf(text, field)
   return read.ok && read.value % 100 !== 0 ? Err({ field, reason: "not-whole" }) : read.ok ? Ok(read.value / 100) : read
+}
+
+const countOf = (text: string, field: string): Read<number> => {
+  const read = wholeOf(text, field)
+  return read.ok && read.value === 0 ? Err({ field, reason: "out-of-range" }) : read
 }
 
 /** A figure above zero, to as many places as it was typed: a figure worked out elsewhere, 1/9.3016, is kept as it came. */
@@ -237,8 +244,8 @@ const rateOf = (text: string, field: string): Read<ProbabilityDto> => {
 /** A count that may be left empty: then it is the machine's. */
 const ownCountOf = (text: string, field: string): Read<number | undefined> => (tidyTyped(text) === "" ? Ok(undefined) : countOf(text, field))
 
-const roundsOf = (row: RoundsRow, at: string): Result<OtherRoundsDto, readonly FormProblem[]> => {
-  const rounds = countOf(row.rounds, `${at}のR数`)
+const roundsOf = (row: RoundsRow, at: string, roundsRead: (text: string, field: string) => Read<number>): Result<OtherRoundsDto, readonly FormProblem[]> => {
+  const rounds = roundsRead(row.rounds, `${at}のR数`)
   const prize = ownCountOf(row.prize, `${at}の賞球`)
   const count = ownCountOf(row.count, `${at}のカウント`)
   return rounds.ok && prize.ok && count.ok
@@ -252,12 +259,26 @@ const jackpotsOf = (text: string, field: string): Read<number | undefined> => {
   return read.ok && read.value !== undefined && read.value > MACHINE_BONUSES.jackpots ? Err({ field, reason: "out-of-range" }) : read
 }
 
+/** What a 0R is given that only an attacker could take: a prize, a count, or rounds through another. */
+const unopenedProblems = (first: OtherRoundsDto, others: readonly unknown[], at: string): readonly FormProblem[] =>
+  first.rounds > 0
+    ? []
+    : [
+        ...(first.prizeBalls === undefined ? [] : [{ field: `${at}の賞球`, reason: "no-attacker" } as const]),
+        ...(first.count === undefined ? [] : [{ field: `${at}のカウント`, reason: "no-attacker" } as const]),
+        ...(others.length === 0 ? [] : [{ field: `${at}の別アタッカー`, reason: "no-attacker" } as const]),
+      ]
+
 const shareOf = (row: AllotmentRow, at: string): Result<AllotmentDto, readonly FormProblem[]> => {
   const share = percentOf(row.share, `${at}の振分`)
-  const first = roundsOf(row, at)
-  const others = row.others.map((other, index) => roundsOf(other, `${at}の別アタッカー${index + 1}`))
+  const first = roundsOf(row, at, wholeOf)
+  const others = row.others.map((other, index) => roundsOf(other, `${at}の別アタッカー${index + 1}`, countOf))
   const jackpots = jackpotsOf(row.jackpots, `${at}の大当り回数`)
-  const problems = [...problemsOf([share, jackpots]), ...(first.ok ? [] : first.error), ...others.flatMap((other) => (other.ok ? [] : other.error))]
+  const problems = [
+    ...problemsOf([share, jackpots]),
+    ...(first.ok ? unopenedProblems(first.value, row.others, at) : first.error),
+    ...others.flatMap((other) => (other.ok ? [] : other.error)),
+  ]
   return share.ok && first.ok && jackpots.ok && problems.length === 0
     ? Ok({
         shareBasisPoints: share.value,

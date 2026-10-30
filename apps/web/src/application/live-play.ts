@@ -1,11 +1,12 @@
 import type { BookId, MemberId, ListedBook } from "../core/book/book"
 import { memberCan } from "../core/book/book"
 import type { IsoDate } from "../core/calendar/calendar"
-import { bookOf, headOf, isPast, latestTermsOf, withCabinetNumber, withCheckpoints, withLog, withMachine, type MachineChange, type PlayDraft } from "../core/live-play/draft"
+import { bookOf, headOf, isPast, latestTermsOf, withCabinetNumber, withCheckpoints, withJackpotCounting, withLog, withMachine, type MachineChange, type PlayDraft } from "../core/live-play/draft"
 import { exchangeRateOf, poolOf, type PlayTerms } from "../core/parlor/terms"
 import type { TokenTally, YenTally } from "../core/tally/tally"
 import type { PlayGameKind, PlayId } from "../core/play/play"
 import type { Checkpoint } from "../core/play-log/checkpoint"
+import type { JackpotCounting } from "../core/play-log/live"
 import { toPlainString } from "../core/decimal/decimal"
 import * as Pachinko from "../core/pachinko"
 import { parsePlayLog } from "../core/play-log/checkpoint"
@@ -78,9 +79,16 @@ export const changeTerms = async (drafts: DraftStorage, draft: PlayDraft, terms:
  * device's — and everything weighed from its readings is weighed anew by
  * the machine it now names. Written against the log as it was read.
  */
-export const changeCabinet = async (drafts: DraftStorage, draft: PlayDraft, change: { readonly cabinetNumber: string | undefined; readonly machine: MachineChange | undefined }): Promise<Outcome<PlayDraft>> => {
+export const changeCabinet = async (
+  drafts: DraftStorage,
+  draft: PlayDraft,
+  change: { readonly cabinetNumber: string | undefined; readonly machine: MachineChange | undefined; readonly counting?: JackpotCounting },
+): Promise<Outcome<PlayDraft>> => {
   const numbered = withCabinetNumber(draft, change.cabinetNumber)
-  const next = change.machine === undefined ? numbered : withMachine(numbered, change.machine)
+  const moved = change.machine === undefined ? numbered : withMachine(numbered, change.machine)
+  const counted = moved.gameKind === "pachinko" && change.counting !== undefined ? withJackpotCounting(moved, change.counting) : Ok(moved)
+  if (!counted.ok) return Err({ type: "recount-refused", refusal: counted.error })
+  const next = counted.value
   return mapOk(fromDraft(await drafts.updateDraft(next, draft.log)), () => next)
 }
 

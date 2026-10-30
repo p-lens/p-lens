@@ -1,5 +1,6 @@
 import { Show, type JSX } from "solid-js"
 
+import { jackpotCountingOf } from "../../../../core/live-play/draft"
 import type { Play } from "../../../../core/live-play/draft-reading"
 import { consumptionOf } from "../../../../core/pachinko/consumption"
 import { standingBefore, takenOf } from "../../../../core/pachinko/revision"
@@ -27,8 +28,8 @@ export function HuddlePlay(props: { readonly play: Extract<Play, { readonly game
         return (
           <div class="flex flex-col gap-3">
             <LiveFigures
-              summary={liveSummary(checkpoints, props.play.jackpotCounting ?? "per-jackpot")}
-              replayed={standingBefore(checkpoints, takenOf(checkpoints).length).replay}
+              summary={liveSummary(checkpoints, jackpotCountingOf(props.play))}
+              replayed={standingBefore(checkpoints, takenOf(checkpoints).length, jackpotCountingOf(props.play)).replay}
               minutesPlayed={minutesPlayedOf(props.play.startedAt, checkpoints)}
               consumption={terms === undefined ? undefined : consumptionOf(checkpoints, terms, props.play.pachinko)}
               formula={props.play.pachinko}

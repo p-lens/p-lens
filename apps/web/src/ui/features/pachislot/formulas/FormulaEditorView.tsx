@@ -423,7 +423,7 @@ export function FormulaEditorView(props: { readonly place: Place & { readonly ki
   /** Starts the editor over from another machine's formula, in the tab it was made in: what is typed after is this machine's own, derived from none. */
   const copy = (formula: Formula, from: string): void => {
     setRestored(startFrom(formula))
-    moves.go({ kind: "pachislot-formula-new", tab: remadeIn(formula) })
+    moves.refine({ kind: "pachislot-formula-new", tab: remadeIn(formula) }, "")
     toast({ title: `「${from}」の算出条件を入れました`, description: "機種名やリリース日はそのままです。数値を直して登録してください。" })
   }
   return (

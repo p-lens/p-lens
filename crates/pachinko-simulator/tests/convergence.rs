@@ -103,7 +103,7 @@ fn rush() -> ModeId {
 fn allot(points: u32, next: Next) -> Allotment {
     Allotment {
         share: BasisPoints::new(points).expect("a share"),
-        rounds: RoundCount::new(nonzero(10)),
+        rounds: RoundCount::new(10),
         next,
         prize_balls: None,
         count: None,

@@ -1,4 +1,5 @@
 import type { Checkpoint } from "../play-log/checkpoint"
+import { isZeroRound, type JackpotCounting } from "../play-log/live"
 import { Err, Ok, type Result } from "../result/result"
 import { gainOf } from "./payout"
 import { checkpointsForReading, type Jackpot, type Reading, type ReadingRefusal } from "./reading"
@@ -124,6 +125,10 @@ const heldAfter = (before: number | undefined, { reading }: Taken): number | und
   return gain === 0 ? from : (from ?? 0) + gain
 }
 
+/** Whether a reading's jackpot is a 0R the parlor's counter takes for none: the counter carries on through it, though the 遊 counter starts over. */
+const passedByCounter = (reading: Reading, counting: JackpotCounting): boolean =>
+  counting.zeroRounds === "uncounted" && reading.jackpot.type === "bonus" && isZeroRound(reading.jackpot.bonus)
+
 /** The data counter's lead over the 遊 counter as the seat found them, where the 遊 counter was said there. */
 const seatGaugeOffset = (seat: Checkpoint | undefined): number | undefined =>
   seat?.counter?.gauge === undefined ? undefined : (seat.counter.spins ?? 0) - seat.counter.gauge
@@ -131,25 +136,33 @@ const seatGaugeOffset = (seat: Checkpoint | undefined): number | undefined =>
 /**
  * The data counter's lead over the 遊 counter after a reading: what the
  * reading said of the two, else what was said before — none past a
- * jackpot, written or found missing, where both start over.
+ * jackpot, written or found missing, where both start over, and all the
+ * data counter shows past a 0R it takes for none, where the 遊 counter
+ * alone starts over.
  */
-const gaugeOffsetAfter = (before: number | undefined, { reading, afterMissedJackpot }: Taken): number | undefined => {
-  if (reading.jackpot.type !== "none") return undefined
-  if (reading.gauge !== undefined) return reading.counterSpins - reading.gauge
-  return afterMissedJackpot ? undefined : before
-}
+const gaugeOffsetAfter =
+  (counting: JackpotCounting) =>
+  (before: number | undefined, { reading, afterMissedJackpot }: Taken): number | undefined => {
+    if (passedByCounter(reading, counting)) return reading.counterSpins
+    if (reading.jackpot.type !== "none") return undefined
+    if (reading.gauge !== undefined) return reading.counterSpins - reading.gauge
+    return afterMissedJackpot ? undefined : before
+  }
+
+/** The data counter after a reading: what it was read at, or none where a jackpot the counter takes started it over. */
+const counterAfter = (reading: Reading, counting: JackpotCounting): number => (reading.jackpot.type === "none" || passedByCounter(reading, counting) ? reading.counterSpins : 0)
 
 /** Where the play stood before its reading at `index` — after them all, where there is none there. */
-export const standingBefore = (ordered: readonly Checkpoint[], index: number): Before => {
+export const standingBefore = (ordered: readonly Checkpoint[], index: number, counting: JackpotCounting): Before => {
   const seat = ordered.at(0)
   const earlier = takenOf(ordered).slice(0, index)
   const last = earlier.at(-1)?.reading
   return {
-    counter: last === undefined ? (seat?.counter?.spins ?? 0) : last.jackpot.type === "none" ? last.counterSpins : 0,
+    counter: last === undefined ? (seat?.counter?.spins ?? 0) : counterAfter(last, counting),
     held: earlier.reduce(heldAfter, seat?.held),
     outlay: earlier.reduce((sum, each) => sum + each.reading.rented, seat?.outlay ?? 0),
     replay: earlier.reduce((sum, each) => sum + each.reading.replayed, seat?.replay ?? 0),
-    gaugeOffset: earlier.reduce(gaugeOffsetAfter, seatGaugeOffset(seat)),
+    gaugeOffset: earlier.reduce(gaugeOffsetAfter(counting), seatGaugeOffset(seat)),
   }
 }
 
@@ -165,8 +178,8 @@ export const gaugeAt = (counterSpins: number, before: Before): number => counter
 export const reliefDriveCounter = (reliefDrive: number, before: Before): number => reliefDrive + (before.gaugeOffset ?? 0)
 
 /** The spins the play's cabinet stands at toward the 遊タイム now: what its 遊 counter shows, said or followed from where it was said. */
-export const gaugeNowOf = (ordered: readonly Checkpoint[]): number => {
-  const now = standingBefore(ordered, takenOf(ordered).length)
+export const gaugeNowOf = (ordered: readonly Checkpoint[], counting: JackpotCounting): number => {
+  const now = standingBefore(ordered, takenOf(ordered).length, counting)
   return gaugeAt(now.counter, now)
 }
 
@@ -175,21 +188,21 @@ export const gaugeNowOf = (ordered: readonly Checkpoint[]): number => {
  * otherwise than it was followed: a reading at the data counter where it
  * stands, in the state last said, that says nothing else.
  */
-export const gaugeSaid = (ordered: readonly Checkpoint[], gauge: number, at: string): Result<readonly Checkpoint[], ReadingRefusal> => {
-  const now = standingBefore(ordered, takenOf(ordered).length)
+export const gaugeSaid = (ordered: readonly Checkpoint[], gauge: number, at: string, counting: JackpotCounting): Result<readonly Checkpoint[], ReadingRefusal> => {
+  const now = standingBefore(ordered, takenOf(ordered).length, counting)
   const reading: Reading = { counterSpins: now.counter, phase: ordered.at(-1)?.phase ?? "regular", rented: 0, replayed: 0, supported: 0, held: undefined, jackpot: { type: "none" }, at, gauge }
-  return checkpointsForReading(ordered, reading, false)
+  return checkpointsForReading(ordered, reading, false, counting)
 }
 
 /** The balls in hand at a play's end as the person told them: the last count, with what each bonus since paid; never estimated down by the regular games since. */
-export const heldAsToldOf = (ordered: readonly Checkpoint[]): number | undefined => standingBefore(ordered, takenOf(ordered).length).held
+export const heldAsToldOf = (ordered: readonly Checkpoint[]): number | undefined => takenOf(ordered).reduce(heldAfter, ordered.at(0)?.held)
 
 /** A log made again from its first line and its readings, each added as it was when taken. */
-const madeFrom = (seat: Checkpoint, taken: readonly Taken[]): Result<readonly Checkpoint[], RevisionRefusal> =>
+const madeFrom = (seat: Checkpoint, taken: readonly Taken[], counting: JackpotCounting): Result<readonly Checkpoint[], RevisionRefusal> =>
   taken.reduce<Result<readonly Checkpoint[], RevisionRefusal>>(
     (made, each, index) => {
       if (!made.ok) return made
-      const added = checkpointsForReading(made.value, each.reading, each.afterMissedJackpot)
+      const added = checkpointsForReading(made.value, each.reading, each.afterMissedJackpot, counting)
       return added.ok ? Ok([...made.value, ...added.value]) : Err({ ...added.error, index })
     },
     Ok([seat]),
@@ -200,22 +213,29 @@ const madeFrom = (seat: Checkpoint, taken: readonly Taken[]): Result<readonly Ch
  * every running total after the change follows from it. Refused where the
  * change leaves a counter going back.
  */
-export const revised = (ordered: readonly Checkpoint[], change: (taken: readonly Taken[]) => readonly Taken[]): Result<readonly Checkpoint[], RevisionRefusal> => {
+export const revised = (ordered: readonly Checkpoint[], change: (taken: readonly Taken[]) => readonly Taken[], counting: JackpotCounting): Result<readonly Checkpoint[], RevisionRefusal> => {
   const seat = ordered.at(0)
-  return seat === undefined ? Ok(ordered) : madeFrom(seat, change(takenOf(ordered)))
+  return seat === undefined ? Ok(ordered) : madeFrom(seat, change(takenOf(ordered)), counting)
 }
 
+/**
+ * The log read anew at a counter that counts jackpots otherwise: each
+ * reading's counter as it was typed, the play's spins made again from
+ * them. Refused where a reading then shows less than it must.
+ */
+export const recounted = (ordered: readonly Checkpoint[], counting: JackpotCounting): Result<readonly Checkpoint[], RevisionRefusal> => revised(ordered, (taken) => taken, counting)
+
 /** The log with the reading at `index` taken as given instead: a mistyped count set right. */
-export const withReadingRevised = (ordered: readonly Checkpoint[], index: number, reading: Reading): Result<readonly Checkpoint[], RevisionRefusal> =>
-  revised(ordered, (taken) => taken.map((each, at) => (at === index ? { ...each, reading } : each)))
+export const withReadingRevised = (ordered: readonly Checkpoint[], index: number, reading: Reading, counting: JackpotCounting): Result<readonly Checkpoint[], RevisionRefusal> =>
+  revised(ordered, (taken) => taken.map((each, at) => (at === index ? { ...each, reading } : each)), counting)
 
 /** The log without the reading at `index`: one taken by mistake. */
-export const withReadingRemoved = (ordered: readonly Checkpoint[], index: number): Result<readonly Checkpoint[], RevisionRefusal> =>
-  revised(ordered, (taken) => taken.filter((_, at) => at !== index))
+export const withReadingRemoved = (ordered: readonly Checkpoint[], index: number, counting: JackpotCounting): Result<readonly Checkpoint[], RevisionRefusal> =>
+  revised(ordered, (taken) => taken.filter((_, at) => at !== index), counting)
 
 /** The log with a reading put in before the one at `index` — after them all, where there is none there: one that was never written down. */
-export const withReadingInserted = (ordered: readonly Checkpoint[], index: number, reading: Reading): Result<readonly Checkpoint[], RevisionRefusal> =>
-  revised(ordered, (taken) => [...taken.slice(0, index), { reading, afterMissedJackpot: false }, ...taken.slice(index)])
+export const withReadingInserted = (ordered: readonly Checkpoint[], index: number, reading: Reading, counting: JackpotCounting): Result<readonly Checkpoint[], RevisionRefusal> =>
+  revised(ordered, (taken) => [...taken.slice(0, index), { reading, afterMissedJackpot: false }, ...taken.slice(index)], counting)
 
 /** The data counter as it was found at the seat: the spins since its last jackpot and the day's jackpots. */
 export interface Seat {
@@ -236,11 +256,11 @@ export const seatOf = (ordered: readonly Checkpoint[]): Seat => {
  * now says it — none, where it says none. Every reading before the
  * first jackpot counts on from the seat, so they are all made again.
  */
-export const withSeatRevised = (ordered: readonly Checkpoint[], seat: Seat): Result<readonly Checkpoint[], RevisionRefusal> => {
+export const withSeatRevised = (ordered: readonly Checkpoint[], seat: Seat, counting: JackpotCounting): Result<readonly Checkpoint[], RevisionRefusal> => {
   const first = ordered.at(0)
   if (first === undefined) return Ok(ordered)
   const { gauge: _, ...counter } = first.counter ?? {}
-  return madeFrom({ ...first, counter: { ...counter, ...seat } }, takenOf(ordered))
+  return madeFrom({ ...first, counter: { ...counter, ...seat } }, takenOf(ordered), counting)
 }
 
 /**

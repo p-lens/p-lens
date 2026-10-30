@@ -6,13 +6,14 @@ import { checkpointsForReading, type Reading } from "../../../src/core/pachinko/
 import { rentalPressOf } from "../../../src/core/pachinko/rental-press"
 import { heldAsToldOf, seatOf, takenOf, withReadingInserted, withReadingRemoved, withReadingRevised, withSeatRevised } from "../../../src/core/pachinko/revision"
 import type { Checkpoint } from "../../../src/core/play-log/checkpoint"
+import { EVERY_JACKPOT } from "../../../src/core/play-log/live"
 
 const TERMS = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 125, deducted: 133 } }
 
 /** A log begun with balls in hand, each reading added in turn. */
 const playedWith = (held: number, readings: readonly Reading[]): readonly Checkpoint[] =>
   readings.reduce<readonly Checkpoint[]>((log, each) => {
-    const added = checkpointsForReading(log, each, false)
+    const added = checkpointsForReading(log, each, false, EVERY_JACKPOT)
     return added.ok ? [...log, ...added.value] : log
   }, [{ ...SAT_DOWN, held }])
 
@@ -32,7 +33,7 @@ const reading = (fields: Partial<Reading> & Pick<Reading, "counterSpins">): Read
 /** A log with each reading added in turn, as the composer adds them. */
 const played = (readings: readonly Reading[]): readonly Checkpoint[] =>
   readings.reduce<readonly Checkpoint[]>((log, each) => {
-    const added = checkpointsForReading(log, each, false)
+    const added = checkpointsForReading(log, each, false, EVERY_JACKPOT)
     return added.ok ? [...log, ...added.value] : log
   }, [SAT_DOWN])
 
@@ -63,8 +64,8 @@ describe("a pachinko reading", () => {
 
   test("is refused where the counter shows less than it must, until a jackpot nobody wrote down is admitted", () => {
     const log = played([reading({ counterSpins: 300, rented: 3000 })])
-    expect(checkpointsForReading(log, reading({ counterSpins: 30 }), false)).toEqual({ ok: false, error: { type: "counter-went-back", expectedAtLeast: 300 } })
-    const admitted = checkpointsForReading(log, reading({ counterSpins: 30 }), true)
+    expect(checkpointsForReading(log, reading({ counterSpins: 30 }), false, EVERY_JACKPOT)).toEqual({ ok: false, error: { type: "counter-went-back", expectedAtLeast: 300 } })
+    const admitted = checkpointsForReading(log, reading({ counterSpins: 30 }), true, EVERY_JACKPOT)
     expect(admitted.ok && admitted.value.map((line) => [line.spins, line.event?.kind])).toEqual([
       [180, "jackpot"],
       [210, undefined],
@@ -165,7 +166,7 @@ describe("setting a play's readings right", () => {
 
   test("keeps a jackpot found missing with the reading it was admitted with", () => {
     const log = played([reading({ counterSpins: 300, rented: 3000 })])
-    const admitted = checkpointsForReading(log, reading({ counterSpins: 30, rented: 500 }), true)
+    const admitted = checkpointsForReading(log, reading({ counterSpins: 30, rented: 500 }), true, EVERY_JACKPOT)
     const taken = takenOf([...log, ...(admitted.ok ? admitted.value : [])])
     expect(taken.map((each) => [each.reading.counterSpins, each.reading.rented, each.afterMissedJackpot])).toEqual([
       [300, 3000, false],
@@ -175,10 +176,10 @@ describe("setting a play's readings right", () => {
 
   test("makes every line after a reading set right again: a bonus told at last, a count mistyped", () => {
     const log = played([reading({ counterSpins: 140, rented: 1000 }), reading({ counterSpins: 328, rented: 5000, jackpot: { type: "untold" } }), reading({ counterSpins: 60, rented: 1000 })])
-    const told = withReadingRevised(log, 1, reading({ counterSpins: 328, rented: 5000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }))
+    const told = withReadingRevised(log, 1, reading({ counterSpins: 328, rented: 5000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }), EVERY_JACKPOT)
     expect(told.ok && told.value[2]?.event).toEqual({ kind: "jackpot", bonus: TEN_ROUNDS })
     expect(told.ok && told.value.map((line) => line.spins)).toEqual(log.map((line) => line.spins))
-    const recounted = withReadingRevised(log, 0, reading({ counterSpins: 150, rented: 2000 }))
+    const recounted = withReadingRevised(log, 0, reading({ counterSpins: 150, rented: 2000 }), EVERY_JACKPOT)
     expect(recounted.ok && recounted.value.map((line) => [line.spins, line.outlay])).toEqual([
       [0, 0],
       [30, 2000],
@@ -188,7 +189,7 @@ describe("setting a play's readings right", () => {
   })
 
   test("takes a reading away, and the lines after it follow", () => {
-    const removed = withReadingRemoved(played(READINGS), 2)
+    const removed = withReadingRemoved(played(READINGS), 2, EVERY_JACKPOT)
     expect(removed.ok && removed.value.map((line) => [line.spins, line.support])).toEqual([
       [0, undefined],
       [20, undefined],
@@ -198,31 +199,31 @@ describe("setting a play's readings right", () => {
   })
 
   test("refuses a change that leaves a counter going back, and says where", () => {
-    expect(withReadingRemoved(played(READINGS), 1)).toEqual({ ok: false, error: { type: "counter-went-back", index: 1, expectedAtLeast: 140 } })
-    expect(withReadingRevised(played(READINGS), 3, reading({ counterSpins: 10 }))).toEqual({ ok: false, error: { type: "counter-went-back", index: 3, expectedAtLeast: 45 } })
+    expect(withReadingRemoved(played(READINGS), 1, EVERY_JACKPOT)).toEqual({ ok: false, error: { type: "counter-went-back", index: 1, expectedAtLeast: 140 } })
+    expect(withReadingRevised(played(READINGS), 3, reading({ counterSpins: 10 }), EVERY_JACKPOT)).toEqual({ ok: false, error: { type: "counter-went-back", index: 3, expectedAtLeast: 45 } })
   })
 
   test("puts in a reading that was never written down, before another or after them all", () => {
     const log = played([reading({ counterSpins: 140, rented: 1000 }), reading({ counterSpins: 200, rented: 1000 })])
-    const between = withReadingInserted(log, 1, reading({ counterSpins: 170, rented: 500 }))
+    const between = withReadingInserted(log, 1, reading({ counterSpins: 170, rented: 500 }), EVERY_JACKPOT)
     expect(between.ok && between.value.map((line) => [line.spins, line.outlay])).toEqual([
       [0, 0],
       [20, 1000],
       [50, 1500],
       [80, 2500],
     ])
-    const last = withReadingInserted(log, 2, reading({ counterSpins: 230 }))
+    const last = withReadingInserted(log, 2, reading({ counterSpins: 230 }), EVERY_JACKPOT)
     expect(last.ok && last.value.at(-1)?.spins).toBe(110)
-    expect(withReadingInserted(log, 1, reading({ counterSpins: 250 }))).toEqual({ ok: false, error: { type: "counter-went-back", index: 2, expectedAtLeast: 250 } })
+    expect(withReadingInserted(log, 1, reading({ counterSpins: 250 }), EVERY_JACKPOT)).toEqual({ ok: false, error: { type: "counter-went-back", index: 2, expectedAtLeast: 250 } })
   })
 
   test("sets the seat's counter right, and every reading before the first jackpot counts on from it again", () => {
     const log = played([reading({ counterSpins: 140, rented: 1000 }), reading({ counterSpins: 328, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }), reading({ counterSpins: 50, phase: "special" })])
     expect(seatOf(log)).toEqual({ spins: 120, jackpots: 9 })
-    const set = withSeatRevised(log, { spins: 100, jackpots: 9 })
+    const set = withSeatRevised(log, { spins: 100, jackpots: 9 }, EVERY_JACKPOT)
     expect(set.ok && set.value.map((line) => line.spins)).toEqual([0, 40, 228, 278])
     expect(set.ok && set.value[0]?.counter).toEqual({ spins: 100, jackpots: 9 })
-    expect(withSeatRevised(log, { spins: 150, jackpots: 9 })).toEqual({ ok: false, error: { type: "counter-went-back", index: 0, expectedAtLeast: 150 } })
+    expect(withSeatRevised(log, { spins: 150, jackpots: 9 }, EVERY_JACKPOT)).toEqual({ ok: false, error: { type: "counter-went-back", index: 0, expectedAtLeast: 150 } })
   })
 })
 
@@ -304,7 +305,7 @@ describe("each line's own stretch of a pachinko play", () => {
   })
 
   test("is a folded line's whole run, as if its readings had been read as one, a jackpot's line's too", () => {
-    const merged = (log: readonly Checkpoint[], from: number, to: number): readonly Checkpoint[] => ((made) => (made.ok ? made.value : []))(withReadingsMerged(log, { from, to }))
+    const merged = (log: readonly Checkpoint[], from: number, to: number): readonly Checkpoint[] => ((made) => (made.ok ? made.value : []))(withReadingsMerged(log, { from, to }, EVERY_JACKPOT))
     const log = played([reading({ counterSpins: 220, rented: 5000 }), reading({ counterSpins: 280, rented: 2500 })])
     expect(shown(log, TERMS)).toEqual([undefined, 20, 24])
     expect(shown(merged(log, 0, 1), TERMS)[1]).toBeCloseTo((160 / 1875) * 250)
@@ -348,7 +349,7 @@ describe("a 電サポ whose drift was not counted", () => {
       reading({ counterSpins: 100, phase: "special", held: 2500 }),
       reading({ counterSpins: 180, held: 1500 }),
     ])
-    const folded = ((made) => (made.ok ? made.value : []))(withReadingsMerged(log, { from: 2, to: 3 }))
+    const folded = ((made) => (made.ok ? made.value : []))(withReadingsMerged(log, { from: 2, to: 3 }, EVERY_JACKPOT))
     expect(measuredOf(log)).toEqual({ spins: 480, balls: 6000, rentedBalls: 5000, replayedBalls: 0 })
     expect(measuredOf(folded)).toEqual(measuredOf(log))
   })
@@ -386,7 +387,7 @@ describe("a 電サポ whose drift was not counted", () => {
       reading({ counterSpins: 100, phase: "special", supported: -30, driftCounted: true, held: 2800 }),
       reading({ counterSpins: 180, held: 1800 }),
     ])
-    const folded = ((made) => (made.ok ? made.value : []))(withReadingsMerged(log, { from: 2, to: 3 }))
+    const folded = ((made) => (made.ok ? made.value : []))(withReadingsMerged(log, { from: 2, to: 3 }, EVERY_JACKPOT))
     expect(measuredOf(log)).toEqual({ spins: 480, balls: 6000, rentedBalls: 5000, replayedBalls: 0 })
     expect(measuredOf(folded)).toEqual(measuredOf(log))
   })
@@ -398,7 +399,7 @@ describe("a 電サポ whose drift was not counted", () => {
       reading({ counterSpins: 100, phase: "special" }),
       reading({ counterSpins: 300, held: 1000 }),
     ])
-    const folded = ((made) => (made.ok ? made.value : []))(withReadingsMerged(log, { from: 1, to: 2 }))
+    const folded = ((made) => (made.ok ? made.value : []))(withReadingsMerged(log, { from: 1, to: 2 }, EVERY_JACKPOT))
     expect(shown(log)[1]).toBeCloseTo((400 / (5000 + 1400 - 1500)) * 250)
     expect(shown(folded)[1]).toEqual(shown(log)[1])
   })

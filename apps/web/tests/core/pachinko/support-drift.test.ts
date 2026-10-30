@@ -5,6 +5,7 @@ import type { Figures } from "../../../src/core/pachinko/figures"
 import { checkpointsForReading, type Reading } from "../../../src/core/pachinko/reading"
 import { playTheoreticalValue } from "../../../src/core/pachinko/theoretical-value"
 import type { Checkpoint } from "../../../src/core/play-log/checkpoint"
+import { EVERY_JACKPOT } from "../../../src/core/play-log/live"
 
 const TERMS = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 125, deducted: 133 } }
 
@@ -29,7 +30,7 @@ const reading = (fields: Partial<Reading> & Pick<Reading, "counterSpins">): Read
 /** A log with each reading added in turn, as the composer adds them. */
 const logged = (readings: readonly Reading[]): readonly Checkpoint[] =>
   readings.reduce<readonly Checkpoint[]>((log, each) => {
-    const added = checkpointsForReading(log, each, false)
+    const added = checkpointsForReading(log, each, false, EVERY_JACKPOT)
     return added.ok ? [...log, ...added.value] : log
   }, [SAT_DOWN])
 

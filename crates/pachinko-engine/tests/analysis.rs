@@ -98,7 +98,7 @@ fn two_attackers_in_one_jackpot() -> pachinko_domain::spec::Spec {
     let first = |next| Allotment {
         prize_balls: Some(nonzero(1)),
         other_rounds: vec![OtherRounds {
-            rounds: RoundCount::new(nonzero(3)),
+            rounds: RoundCount::new(3),
             prize_balls: None,
             count: None,
         }],
@@ -426,4 +426,45 @@ fn a_mode_shot_at_the_heso_pays_for_its_spins_as_the_regular_game_does() {
         paid.average_payout.value(),
         free.average_payout.value()
     ));
+}
+
+/// The made-up machine whose RUSH pays only half its jackpots: 1/100, a 10R
+/// first jackpot, half of them into a RUSH that continues at 80%, its
+/// jackpots half 10R and half a 0R that pays nothing and stays in the RUSH.
+fn a_rush_with_jackpots_of_no_rounds() -> pachinko_domain::spec::Spec {
+    machine(
+        one_in(100),
+        vec![share(5000, 10, to("RUSH")), share(5000, 10, Next::Regular)],
+        vec![mode(
+            "RUSH",
+            rushing(80),
+            vec![share(5000, 10, to("RUSH")), share(5000, 0, to("RUSH"))],
+            Next::Regular,
+        )],
+    )
+}
+
+#[test]
+fn a_jackpot_of_no_rounds_is_counted_and_pays_nothing() {
+    let analysis = solved(&a_rush_with_jackpots_of_no_rounds());
+    let rush_jackpots = 0.8 / 0.2;
+    let rounds = 10.0 + 0.5 * rush_jackpots * 5.0;
+    assert!(close(analysis.average_combo, 1.0 + 0.5 * rush_jackpots));
+    assert!(close(analysis.average_rounds, rounds));
+    assert!(close(analysis.average_payout.value(), rounds * 140.0));
+    assert!(close(analysis.total_chance.value(), 100.0 / 3.0));
+}
+
+#[test]
+fn a_jackpot_of_no_rounds_is_a_jackpot_in_the_combo() {
+    let normalized =
+        normalize(&a_rush_with_jackpots_of_no_rounds()).expect("the test spec normalises");
+    let zero = normalized
+        .states
+        .iter()
+        .flat_map(|state| &state.outcomes)
+        .find(|outcome| outcome.reward.rounds == 0 && outcome.reward.hits > 0)
+        .expect("the RUSH's 0R is an outcome");
+    assert_eq!(zero.reward.balls, 0);
+    assert_eq!(zero.reward.hits, 1);
 }

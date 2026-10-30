@@ -1,4 +1,5 @@
 import type { Checkpoint } from "../play-log/checkpoint"
+import type { JackpotCounting } from "../play-log/live"
 import type { Result } from "../result/result"
 import type { ReadingHand } from "./reading"
 import { revised, takenOf, type RevisionRefusal, type Taken } from "./revision"
@@ -182,11 +183,11 @@ const mergedOf = (run: readonly Weighed[]): Taken | undefined => {
  * jackpot, a change of the cabinet's state — is made one as far as it may
  * be (`mergeableSpan`), from its first reading.
  */
-export const withReadingsMerged = (ordered: readonly Checkpoint[], span: Span): Result<readonly Checkpoint[], RevisionRefusal> => {
+export const withReadingsMerged = (ordered: readonly Checkpoint[], span: Span, counting: JackpotCounting): Result<readonly Checkpoint[], RevisionRefusal> => {
   const { from, to } = mergeableSpan(ordered, span.from, span.to)
   const weighed = weighedOf(ordered)
   return revised(ordered, (taken) => {
     const merged = mergedOf(weighed.slice(from, to + 1))
     return merged === undefined ? taken : [...taken.slice(0, from), merged, ...taken.slice(to + 1)]
-  })
+  }, counting)
 }

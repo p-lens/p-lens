@@ -275,6 +275,8 @@ export const describeError = (error: ApplicationError): string => {
       return describeImportProblem(error.problem)
     case "tally-missing":
       return "この収支は帳簿にありません。"
+    case "recount-refused":
+      return `0Rの数え方を変えると、${error.refusal.index + 1}件目の読み取りでカウンタが ${error.refusal.expectedAtLeast} 回転より戻ります。記録済みのカウンタと合わないため、変えられません。`
     case "recorded-unmarked":
       return error.error.type === "held-elsewhere"
         ? "収支は帳簿に記帳しました。ただ、記帳中にほかの端末がこの稼働を続けたため、この端末では記帳済みにできませんでした。同じ収支が二重にならないよう、ほかの端末ではこの稼働を記帳しないでください。"

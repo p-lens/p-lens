@@ -6,6 +6,7 @@ import type { HandoverFailure } from "../backup/port/handover"
 import type { ArchiveProblem } from "../core/backup/archive"
 import type { BookId } from "../core/book/book"
 import type { PlayId } from "../core/play/play"
+import type { RevisionRefusal } from "../core/pachinko/revision"
 import type { PrecordProblem } from "../core/import/precord"
 import type { NameProblem } from "../core/names/known"
 import type { CashRaised } from "../core/report/cash-raised"
@@ -112,6 +113,8 @@ export type ApplicationError =
   | { readonly type: "rate-change"; readonly problem: RateChangeError }
   | { readonly type: "import"; readonly problem: ImportProblem }
   | { readonly type: "tally-missing" }
+  /** A pachinko play's counter said to count a 0R otherwise, which the counter its readings showed does not bear out: the reading at `index` would show less than it must. */
+  | { readonly type: "recount-refused"; readonly refusal: RevisionRefusal }
   /** A play's tally written into its book, and the play then not marked recorded on the device: the book has it, and it is not to be recorded again. */
   | { readonly type: "recorded-unmarked"; readonly error: DraftError }
   | { readonly type: "tally-unreadable" }

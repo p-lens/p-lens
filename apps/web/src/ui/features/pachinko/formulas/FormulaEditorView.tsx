@@ -56,6 +56,7 @@ const REASONS: Readonly<Record<FormProblem["reason"], string>> = {
   "too-fine": "小数は2桁までです",
   "not-whole": "整数で入れてください",
   "out-of-range": "範囲外です",
+  "no-attacker": "0Rには付けられません",
 }
 
 /** The machine and the formula each sit behind a bar of their own, so it is plain which fields are which without saying so. */
@@ -493,7 +494,7 @@ export function FormulaEditorView(props: { readonly place: Place & { readonly ki
   /** Starts the editor over from another machine's formula, in the tab it was made in: what is typed after is this machine's own, derived from none. */
   const copy = (formula: Formula, from: string): void => {
     setRestored(startFrom(formula))
-    moves.go({ kind: "pachinko-formula-new", tab: remadeIn(formula) })
+    moves.refine({ kind: "pachinko-formula-new", tab: remadeIn(formula) }, "")
     toast({ title: `「${from}」の算出条件を入れました`, description: "機種名やリリース日はそのままです。数値を直して登録してください。" })
   }
   return (

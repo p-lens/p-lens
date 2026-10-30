@@ -183,7 +183,8 @@ pub struct ReliefDrive {
 /// one — the rounds that pay otherwise are its `other_rounds`. `jackpots` is
 /// how many jackpots its rounds are won over: one, unless the machine gives
 /// a run of jackpots as one win, which a parlor's counter still counts each
-/// of. It is stated, never worked out from the rounds.
+/// of. It is stated, never worked out from the rounds. A share of no rounds,
+/// a 0R, opens no attacker, so names no prize, count or other rounds.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Allotment {
     pub share: BasisPoints,
@@ -197,7 +198,8 @@ pub struct Allotment {
 
 /// Rounds of a jackpot that open another attacker than the share's first
 /// rounds do: so many of them, by a prize and a count of their own, each the
-/// machine's where it names none.
+/// machine's where it names none. At least one: an attacker opened for no
+/// rounds is not opened.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct OtherRounds {
     pub rounds: RoundCount,

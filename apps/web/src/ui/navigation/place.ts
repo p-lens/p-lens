@@ -574,7 +574,7 @@ export const inOddPrizeCalculator = (place: Place): boolean => place.kind === "o
 
 export const inSettings = (place: Place): boolean => place.kind === "settings" || place.kind === "settings-section" || place.kind === "document"
 
-/** A place apart from what it is narrowed to: the books a consolidation reads, the parlors a book's savings show, who a book's calendar is of, whether a formula's 期待値算出 is laid over it, whether a book's savings have an opening balance being registered over them. */
+/** A place apart from what it is narrowed to: the books a consolidation reads, the parlors a book's savings show, who a book's calendar is of, whether a formula's 期待値算出 is laid over it, whether a book's savings have an opening balance being registered over them, the tab a new formula is made in. */
 const unnarrowed = (place: Place): Place => {
   switch (place.kind) {
     case "consolidated-holdings":
@@ -587,6 +587,9 @@ const unnarrowed = (place: Place): Place => {
       return { kind: "pachislot-formula", machineId: place.machineId, formulaId: place.formulaId }
     case "opening-balance-new":
       return { kind: "book-view", bookId: place.bookId, view: "holdings" }
+    case "pachinko-formula-new":
+    case "pachislot-formula-new":
+      return { ...place, tab: "manual" }
     case "book-view":
       return place.view === "holdings" ? { ...place, parlors: undefined } : place.view === "result-calendar" ? { ...place, senders: undefined } : place
     default:

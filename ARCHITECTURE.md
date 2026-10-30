@@ -567,6 +567,14 @@ has no name for.
 The parlor's data counter is typed as it reads. Readings count from an anchor:
 the play's first point, whose counter still shows the previous player's spins,
 or the last jackpot, where the counter starts over (`core/play-log/live.ts`).
+How the counter counts is the cabinet's, said on the draft and never in the
+log (`JackpotCounting`): a run of jackpots as each or as one, and whether a
+0R — a bonus that pays out nothing and takes nothing — is a jackpot to it at
+all. One that takes none neither counts the 0R nor starts over at it, though
+the cabinet's 遊 counter does; the 0R is a jackpot line in the log whichever.
+The log keeps what the counter showed, so a 0R said to be counted otherwise
+has the play's spins made again from that (`withJackpotCounting`), refused
+where a reading would then show less than it must.
 A reading below what the counter should show means a jackpot went unrecorded;
 the person can add it, as an `approximate` jackpot at the last known point. A
 counter jackpot count above the log's is pointed out.
@@ -1026,7 +1034,10 @@ walking down the trail and back keeps the work in hand.
   `otherRounds`, each with a prize and a count of its own. So an outcome
   carries the balls its rounds gain beside the rounds, every round counted
   whichever attacker it opens, and 1R 平均出玉 is every round's gain over
-  every round. A
+  every round. A share of no rounds is a 0R: a jackpot that opens no
+  attacker and pays nothing, and is a jackpot still — it counts in the
+  combo, ends the mode it was won in and empties the relief gauge — so it
+  names no prize, count or other rounds. A
   measured round scales every share alike.
 - **電サポ中の出玉増減 is a condition, never the sheet's.** A formula's
   conditions may say what the balls a jackpot gains are changed by when it

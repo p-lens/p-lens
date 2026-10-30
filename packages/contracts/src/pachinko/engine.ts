@@ -26,6 +26,7 @@ export interface OtherRoundsDto {
 
 export interface AllotmentDto {
   readonly shareBasisPoints: number
+  /** None is a 0R: a jackpot that opens no attacker and pays nothing — a ReStart — and so names no `prizeBalls`, `count` or `otherRounds`. */
   readonly rounds: number
   readonly next: NextDto
   /** The prize of the attacker this share's rounds open, where it is not the machine's. */

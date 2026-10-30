@@ -1,24 +1,24 @@
 import { describe, expect, test } from "bun:test"
 
 import { parsePlayLog, type Checkpoint } from "../../src/core/play-log/checkpoint"
-import { afterMissedJackpot, checkpointsForReading, liveSummary, minutesPlayedOf, missingJackpots, readCounter } from "../../src/core/play-log/live"
+import { EVERY_JACKPOT, afterMissedJackpot, checkpointsForReading, liveSummary, minutesPlayedOf, missingJackpots, readCounter } from "../../src/core/play-log/live"
 import { performanceAcross } from "../../src/core/play-log/performance"
 
 const SAT_DOWN: Checkpoint = { spins: 0, outlay: 0, counter: { spins: 120 } }
 
 describe("reading the parlor's counter", () => {
   test("counts from the reading the play began with, not from zero", () => {
-    expect(readCounter([SAT_DOWN], 370)).toEqual({ type: "continues", spins: 250 })
+    expect(readCounter([SAT_DOWN], 370, EVERY_JACKPOT)).toEqual({ type: "continues", spins: 250 })
   })
 
   test("counts from the last jackpot once there has been one, where the counter starts over", () => {
     const log: Checkpoint[] = [SAT_DOWN, { spins: 290, counter: { spins: 410 }, event: { kind: "jackpot" } }]
-    expect(readCounter(log, 50)).toEqual({ type: "continues", spins: 340 })
+    expect(readCounter(log, 50, EVERY_JACKPOT)).toEqual({ type: "continues", spins: 340 })
   })
 
   test("a reading below what the counter should show means a jackpot went unrecorded", () => {
     const log: Checkpoint[] = [SAT_DOWN, { spins: 250, outlay: 1000, counter: { spins: 370 } }]
-    expect(readCounter(log, 30)).toEqual({ type: "counter-went-back", expectedAtLeast: 370 })
+    expect(readCounter(log, 30, EVERY_JACKPOT)).toEqual({ type: "counter-went-back", expectedAtLeast: 370 })
   })
 
   test("a missed jackpot is put where the log last knew of the play, marked approximate", () => {
@@ -138,8 +138,8 @@ describe("the jackpots a log records", () => {
       { spins: 80, event: { kind: "jackpot", bonus: TWICE } },
       { spins: 110, counter: { spins: 30, jackpots: 11 }, event: { kind: "jackpot", bonus: TWICE } },
     ]
-    expect(liveSummary(log, "per-bonus").jackpots).toBe(2)
-    expect(missingJackpots(liveSummary(log, "per-bonus"))).toBe(0)
+    expect(liveSummary(log, { ...EVERY_JACKPOT, runs: "per-bonus" }).jackpots).toBe(2)
+    expect(missingJackpots(liveSummary(log, { ...EVERY_JACKPOT, runs: "per-bonus" }))).toBe(0)
     expect(liveSummary(log).jackpots).toBe(4)
   })
 
@@ -165,5 +165,23 @@ describe("how long a play has gone on", () => {
 
   test("is nothing where no line has a time", () => {
     expect(minutesPlayedOf(started, [{ spins: 0 }, { spins: 310 }])).toBeUndefined()
+  })
+})
+
+describe("a 0R", () => {
+  const ZERO = { name: "0R", payout: 0, spent: 0 }
+  const UNCOUNTED = { ...EVERY_JACKPOT, zeroRounds: "uncounted" } as const
+  const log: readonly Checkpoint[] = [SAT_DOWN, { spins: 100, counter: { spins: 220 }, event: { kind: "jackpot", bonus: ZERO } }]
+
+  test("is a jackpot the counter starts over at, where it counts one", () => {
+    expect(readCounter(log, 30, EVERY_JACKPOT)).toEqual({ type: "continues", spins: 130 })
+    expect(liveSummary(log, EVERY_JACKPOT).jackpots).toBe(1)
+  })
+
+  test("is neither counted nor started over at by a counter that takes none, the line kept all the same", () => {
+    expect(readCounter(log, 250, UNCOUNTED)).toEqual({ type: "continues", spins: 130 })
+    expect(readCounter(log, 30, UNCOUNTED)).toEqual({ type: "counter-went-back", expectedAtLeast: 220 })
+    expect(liveSummary(log, UNCOUNTED).jackpots).toBe(0)
+    expect(liveSummary(log, UNCOUNTED).counterNow).toBe(220)
   })
 })

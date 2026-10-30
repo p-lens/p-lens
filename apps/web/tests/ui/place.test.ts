@@ -82,6 +82,8 @@ describe("the screen a place is drawn on", () => {
     expect(screenOf({ kind: "book-view", bookId: book, view: "holdings", parlors: [] })).toBe(screenOf({ kind: "book-view", bookId: book, view: "holdings", parlors: ["店"] }))
     expect(screenOf({ kind: "opening-balance-new", bookId: book })).toBe(screenOf({ kind: "book-view", bookId: book, view: "holdings", parlors: undefined }))
     expect(screenOf({ kind: "consolidated-breakdown", by: "machine", bookIds: [book] })).toBe(screenOf({ kind: "consolidated-breakdown", by: "machine", bookIds: undefined }))
+    expect(screenOf({ kind: "pachinko-formula-new", tab: "basis" })).toBe(screenOf({ kind: "pachinko-formula-new", tab: "manual" }))
+    expect(screenOf({ kind: "pachislot-formula-new", tab: "basis" })).toBe(screenOf({ kind: "pachislot-formula-new", tab: "manual" }))
     expect(screenOf({ kind: "consolidated-breakdown", by: "machine", bookIds: undefined })).not.toBe(screenOf({ kind: "consolidated-breakdown", by: "parlor", bookIds: undefined }))
     expect(screenOf({ kind: "book-view", bookId: book, view: "holdings", parlors: undefined })).not.toBe(screenOf({ kind: "book-view", bookId: "b2" as BookId, view: "holdings", parlors: undefined }))
   })

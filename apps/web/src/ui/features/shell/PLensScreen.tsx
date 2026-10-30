@@ -164,7 +164,7 @@ const mainFor = (place: Place, query: () => string, live: () => Place): JSX.Elem
     case "pachinko-formula-basis":
       return <PachinkoViews.BasisView place={place} machineId={place.machineId} formulaId={place.formulaId} />
     case "pachinko-formula-new":
-      return <PachinkoViews.FormulaEditorView place={place} />
+      return <PachinkoViews.FormulaEditorView place={liveAs(live, place)} />
     case "pachislot-machine-search":
       return <PachislotViews.MachineSearchView place={place} query={query()} />
     case "pachislot-machine":
@@ -186,7 +186,7 @@ const mainFor = (place: Place, query: () => string, live: () => Place): JSX.Elem
     case "pachislot-formula-basis":
       return <PachislotViews.BasisView place={place} machineId={place.machineId} formulaId={place.formulaId} />
     case "pachislot-formula-new":
-      return <PachislotViews.FormulaEditorView place={place} />
+      return <PachislotViews.FormulaEditorView place={liveAs(live, place)} />
     case "pachislot-distribution-new":
       return <PachislotViews.SettingDistributionEditorView place={place} machineId={place.machineId} />
     case "destination":

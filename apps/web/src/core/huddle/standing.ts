@@ -1,6 +1,8 @@
+import { jackpotCountingOf } from "../live-play/draft"
 import type { Play } from "../live-play/draft-reading"
 import type { HuddleEntry, HuddlePlay } from "./post"
 import { parsePlayLog, type Checkpoint } from "../play-log/checkpoint"
+import { EVERY_JACKPOT, liveSummary } from "../play-log/live"
 import { inPlayOrder } from "../play-log/performance"
 
 /**
@@ -25,15 +27,15 @@ const isRegular = (checkpoint: Checkpoint): boolean => checkpoint.event === unde
 /**
  * How many jackpots one of the others' plays has won in a row: those since
  * its last reading of regular games, however many readings in 時短 came
- * between them, each counted as the jackpots it was won over — the 連チャン
- * a parlor's counter shows. Nought where none followed it.
+ * between them, each counted as its cabinet's counter counts it — the
+ * 連チャン a parlor's counter shows. Nought where none followed it.
  */
 export const jackpotStreakOf = (play: Play): number => {
   const read = parsePlayLog(play.log)
   if (!read.ok) return 0
   const ordered = inPlayOrder(read.value)
   const since = ordered.findLastIndex(isRegular)
-  return ordered.slice(since + 1).reduce((count, checkpoint) => (checkpoint.event?.kind === "jackpot" ? count + (checkpoint.event.bonus?.jackpots ?? 1) : count), 0)
+  return liveSummary(ordered.slice(since + 1), play.gameKind === "pachinko" ? jackpotCountingOf(play) : EVERY_JACKPOT).jackpots
 }
 
 /** The others' plays in a jackpot: each the one its player is on, while they are still in the huddle. */

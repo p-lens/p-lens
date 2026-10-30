@@ -35,7 +35,7 @@ pub fn percent(points: u32) -> ProbabilitySource {
 pub fn share(points: u32, rounds: u32, next: Next) -> Allotment {
     Allotment {
         share: BasisPoints::new(points).expect("test shares are at most 100%"),
-        rounds: RoundCount::new(nonzero(rounds)),
+        rounds: RoundCount::new(rounds),
         next,
         prize_balls: None,
         count: None,
@@ -55,7 +55,7 @@ pub fn share_paying(points: u32, rounds: u32, prize: u32, next: Next) -> Allotme
 /// Rounds of a jackpot through another attacker: its own prize and count.
 pub fn other_rounds(rounds: u32, prize: u32, count: u32) -> OtherRounds {
     OtherRounds {
-        rounds: RoundCount::new(nonzero(rounds)),
+        rounds: RoundCount::new(rounds),
         prize_balls: Some(nonzero(prize)),
         count: Some(nonzero(count)),
     }

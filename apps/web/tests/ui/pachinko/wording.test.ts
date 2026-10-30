@@ -4,6 +4,7 @@ import { BORDER_GRADES } from "../../../src/core/pachinko/border-standing"
 import type { ModeView } from "../../../src/core/pachinko/world"
 import { kindText, nextText, probabilitiesText, probabilityText, roundPayoutText, shareText } from "../../../src/ui/features/pachinko/formulas/spec-text"
 import { borderText, kindName, formulaHandle, formulaText, formulaNameAmong, oneInText, payoutText } from "../../../src/ui/wording/pachinko/formula"
+import { bonusRoundsText } from "../../../src/ui/wording/pachinko/machine"
 import { gradeFloorText } from "../../../src/ui/wording/pachinko/play"
 
 describe("a basis as it reads", () => {
@@ -61,3 +62,10 @@ describe("the legend of the marks beside a live play's spin performance", () => 
   })
 })
 
+
+describe("a bonus's rounds as they read", () => {
+  test("are each run as a spec sheet writes it, and a 0R, opening no attacker, as 0R alone", () => {
+    expect(bonusRoundsText({ key: "", rounds: [{ rounds: 1, prizeBalls: 1, count: 10 }, { rounds: 9, prizeBalls: 15, count: 10 }], payout: 1360, spent: 100, jackpots: 1 })).toBe("1R×1個×10C ＋ 9R×15個×10C")
+    expect(bonusRoundsText({ key: "", rounds: [{ rounds: 0, prizeBalls: 15, count: 10 }], payout: 0, spent: 0, jackpots: 1 })).toBe("0R")
+  })
+})

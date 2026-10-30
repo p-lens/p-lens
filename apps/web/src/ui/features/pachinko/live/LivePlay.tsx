@@ -119,7 +119,7 @@ export function LivePlay(props: {
    * until it is closed.
    */
   const merge = async (checkpoints: readonly Checkpoint[], span: Span): Promise<void> => {
-    const made = withReadingsMerged(checkpoints, span)
+    const made = withReadingsMerged(checkpoints, span, jackpotCountingOf(props.draft))
     if (!made.ok) {
       toast({ title: MERGE_FAILED, tone: "error" })
       return
@@ -202,7 +202,7 @@ export function LivePlay(props: {
                   />
                   <LiveFigures
                     summary={summary}
-                    replayed={standingBefore(checkpoints, takenOf(checkpoints).length).replay}
+                    replayed={standingBefore(checkpoints, takenOf(checkpoints).length, jackpotCountingOf(props.draft)).replay}
                     minutesPlayed={minutesPlayedOf(props.draft.startedAt, checkpoints)}
                     consumption={consumption}
                     formula={props.draft.pachinko}
@@ -218,7 +218,7 @@ export function LivePlay(props: {
                             ordered={checkpoints}
                             formula={formula}
                             basis={basis()}
-                            gaugeNow={gaugeNowOf(checkpoints)}
+                            gaugeNow={gaugeNowOf(checkpoints, jackpotCountingOf(props.draft))}
                             spinPerformance={measured === undefined || terms === undefined ? undefined : spinPerformanceOf(measured, terms)}
                             ballValue={tokenValueOfDraft(props.draft)}
                             shown={huntShown()}

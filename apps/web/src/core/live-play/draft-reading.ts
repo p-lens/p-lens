@@ -123,6 +123,7 @@ const isPlay = (value: unknown): value is Play =>
   isOptional(value["bonuses"], (bonuses): bonuses is readonly Pachinko.Bonus[] => isEvery(bonuses, isBonus)) &&
   isOptional(value["pachislot"], isWeighing) &&
   isOptional(value["jackpotCounting"], (counting): counting is "per-bonus" => counting === "per-bonus") &&
+  isOptional(value["zeroRounds"], (counting): counting is "uncounted" => counting === "uncounted") &&
   isOptional(value["overEntry"], (over): over is number => typeof over === "number" && Number.isInteger(over) && over !== 0) &&
   isOptional(value["cabinetNumber"], isText) &&
   isText(value["startedAt"]) &&
@@ -145,9 +146,16 @@ const isDraft = (value: unknown): value is PlayDraft =>
  * both.
  */
 const ofItsGame = (value: Fields): Fields => {
-  const { pachinko, bonuses, jackpotCounting, overEntry, pachislot, ...rest } = value
+  const { pachinko, bonuses, jackpotCounting, zeroRounds, overEntry, pachislot, ...rest } = value
   return value["gameKind"] === "pachinko"
-    ? { ...rest, pachinko, ...(bonuses === undefined ? {} : { bonuses }), ...(jackpotCounting === undefined ? {} : { jackpotCounting }), ...(overEntry === undefined ? {} : { overEntry }) }
+    ? {
+        ...rest,
+        pachinko,
+        ...(bonuses === undefined ? {} : { bonuses }),
+        ...(jackpotCounting === undefined ? {} : { jackpotCounting }),
+        ...(zeroRounds === undefined ? {} : { zeroRounds }),
+        ...(overEntry === undefined ? {} : { overEntry }),
+      }
     : { ...rest, ...(pachislot === undefined ? {} : { pachislot }) }
 }
 

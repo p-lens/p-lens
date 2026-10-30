@@ -5,7 +5,7 @@ import { mergeableSpan, withReadingsMerged } from "../../../src/core/pachinko/me
 import { checkpointsForReading, type Reading } from "../../../src/core/pachinko/reading"
 import { heldAsToldOf, standingBefore, takenOf, withReadingInserted, withReadingRemoved } from "../../../src/core/pachinko/revision"
 import type { Checkpoint, Phase } from "../../../src/core/play-log/checkpoint"
-import { liveSummary } from "../../../src/core/play-log/live"
+import { EVERY_JACKPOT, liveSummary } from "../../../src/core/play-log/live"
 import { appendCheckpoint, parsePlayLog } from "../../../src/core/play-log/checkpoint"
 
 const TERMS = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 125, deducted: 133 } }
@@ -28,12 +28,12 @@ const reading = (fields: Partial<Reading> & Pick<Reading, "counterSpins">): Read
 /** A log with each reading added in turn, a jackpot nobody wrote down admitted where the counter went back. */
 const played = (readings: readonly Reading[]): readonly Checkpoint[] =>
   readings.reduce<readonly Checkpoint[]>((log, each) => {
-    const added = checkpointsForReading(log, each, false)
-    const admitted = added.ok ? added : checkpointsForReading(log, each, true)
+    const added = checkpointsForReading(log, each, false, EVERY_JACKPOT)
+    const admitted = added.ok ? added : checkpointsForReading(log, each, true, EVERY_JACKPOT)
     return admitted.ok ? [...log, ...admitted.value] : log
   }, [SAT_DOWN])
 
-const merged = (log: readonly Checkpoint[], from: number, to: number): readonly Checkpoint[] => ((made) => (made.ok ? made.value : []))(withReadingsMerged(log, { from, to }))
+const merged = (log: readonly Checkpoint[], from: number, to: number): readonly Checkpoint[] => ((made) => (made.ok ? made.value : []))(withReadingsMerged(log, { from, to }, EVERY_JACKPOT))
 
 describe("a run of a pachinko play's readings made one", () => {
   const RENTED = played([
@@ -113,7 +113,7 @@ describe("a run of a pachinko play's readings made one", () => {
   test("keeps a count folded in as the last count, for the next reading to carry", () => {
     const log = played([reading({ counterSpins: 140, rented: 500 }), reading({ counterSpins: 150, held: 80 }), reading({ counterSpins: 160 })])
     const made = merged(log, 1, 2)
-    expect(standingBefore(made, 2).held).toBe(80)
+    expect(standingBefore(made, 2, EVERY_JACKPOT).held).toBe(80)
     expect(made.at(-1)?.handsBefore).toEqual([{ spins: 30, outlay: 500, replay: 0, support: 0, held: 80, counted: true }])
   })
 
@@ -233,9 +233,9 @@ describe("any run that may be made one", () => {
   test("keeps the hands of a folded reading through a reading put in or taken out before it", () => {
     const log = played([reading({ counterSpins: 140, rented: 500 }), reading({ counterSpins: 320, rented: 10000, replayed: 3000 }), reading({ counterSpins: 400 })])
     const made = merged(log, 1, 2)
-    const without = withReadingRemoved(made, 0)
+    const without = withReadingRemoved(made, 0, EVERY_JACKPOT)
     expect(without.ok && without.value.at(-1)?.handsBefore).toEqual([{ spins: 200, outlay: 10000, replay: 3000, support: 0, held: 0 }])
-    const withMore = withReadingInserted(made, 0, reading({ counterSpins: 130, rented: 500 }))
+    const withMore = withReadingInserted(made, 0, reading({ counterSpins: 130, rented: 500 }), EVERY_JACKPOT)
     expect(withMore.ok && withMore.value.at(-1)?.handsBefore).toEqual([{ spins: 200, outlay: 11000, replay: 3000, support: 0, held: 0 }])
   })
 })

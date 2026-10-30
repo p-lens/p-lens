@@ -8,10 +8,13 @@ import { tokenValueOf, type PlayTerms } from "../parlor/terms"
 import type { Sender, TallyHead } from "../tally/tally"
 import type { PlayGameKind, PlayId } from "../play/play"
 import type { Checkpoint } from "../play-log/checkpoint"
-import type { JackpotCounting } from "../play-log/live"
+import { isZeroRound, type JackpotCounting } from "../play-log/live"
 import type { Finish } from "../play-log/finish"
 import type { PlayLogHead } from "../play-log/head"
-import { appendCheckpoint } from "../play-log/checkpoint"
+import { appendCheckpoint, parsePlayLog } from "../play-log/checkpoint"
+import { inPlayOrder } from "../play-log/performance"
+import { recounted, type RevisionRefusal } from "../pachinko/revision"
+import { Ok, mapOk, type Result } from "../result/result"
 
 /**
  * A play still being played: work in hand on this device, not yet part of any
@@ -46,7 +49,7 @@ export type PachislotDraft = Extract<PlayDraft, { readonly gameKind: "pachislot"
  * falls by it from the seat on.
  */
 export type PlayOfGame =
-  | { readonly gameKind: "pachinko"; readonly pachinko: Pachinko.FormulaSnapshot | undefined; readonly bonuses?: readonly MachineBonus[]; readonly jackpotCounting?: "per-bonus"; readonly overEntry?: number }
+  | { readonly gameKind: "pachinko"; readonly pachinko: Pachinko.FormulaSnapshot | undefined; readonly bonuses?: readonly MachineBonus[]; readonly jackpotCounting?: "per-bonus"; readonly zeroRounds?: "uncounted"; readonly overEntry?: number }
   | { readonly gameKind: "pachislot"; readonly pachislot?: Pachislot.Weighing }
 
 /** What a play still being played is, whatever its game. */
@@ -209,7 +212,7 @@ export type MachineChange = (
 /** What a draft is whatever its game, its game's parts left out. */
 const ofAnyGame = (draft: PlayDraft): DraftOfAnyGame => {
   if (draft.gameKind === "pachinko") {
-    const { gameKind: _game, pachinko: _formula, bonuses: _bonuses, jackpotCounting: _counting, overEntry: _over, ...rest } = draft
+    const { gameKind: _game, pachinko: _formula, bonuses: _bonuses, jackpotCounting: _counting, zeroRounds: _zero, overEntry: _over, ...rest } = draft
     return rest
   }
   const { gameKind: _game, pachislot: _weighing, ...rest } = draft
@@ -219,19 +222,41 @@ const ofAnyGame = (draft: PlayDraft): DraftOfAnyGame => {
 /** The draft on another machine, of the machine's game and weighed by what it is, its log as that machine reads it. How its counter counts jackpots, and the person's usual over-entry there, stay: they are the cabinet's, not the machine's. */
 export const withMachine = (draft: PlayDraft, machine: MachineChange): PlayDraft => {
   const read = ofAnyGame(machine.readings === undefined ? draft : withLog(draft, machine.readings))
-  const counting = draft.gameKind === "pachinko" ? { ...(draft.jackpotCounting === undefined ? {} : { jackpotCounting: draft.jackpotCounting }), ...(draft.overEntry === undefined ? {} : { overEntry: draft.overEntry }) } : {}
+  const counting =
+    draft.gameKind === "pachinko"
+      ? {
+          ...(draft.jackpotCounting === undefined ? {} : { jackpotCounting: draft.jackpotCounting }),
+          ...(draft.zeroRounds === undefined ? {} : { zeroRounds: draft.zeroRounds }),
+          ...(draft.overEntry === undefined ? {} : { overEntry: draft.overEntry }),
+        }
+      : {}
   return machine.type === "pachinko"
     ? { ...read, gameKind: "pachinko", machine: machine.name, pachinko: machine.formula, bonuses: machine.bonuses, ...counting }
     : { ...read, gameKind: "pachislot", machine: machine.name, pachislot: machine.weighing }
 }
 
 /** How the counter at a pachinko play's cabinet counts jackpots. */
-export const jackpotCountingOf = (draft: PachinkoDraft): JackpotCounting => draft.jackpotCounting ?? "per-jackpot"
+export const jackpotCountingOf = (draft: Pick<PachinkoDraft, "jackpotCounting" | "zeroRounds">): JackpotCounting => ({ runs: draft.jackpotCounting ?? "per-jackpot", zeroRounds: draft.zeroRounds ?? "counted" })
 
-/** The pachinko draft at a cabinet whose counter counts jackpots so. */
-export const withJackpotCounting = (draft: PachinkoDraft, counting: JackpotCounting): PachinkoDraft => {
-  const { jackpotCounting: _counting, ...rest } = draft
-  return counting === "per-bonus" ? { ...rest, jackpotCounting: "per-bonus" } : rest
+const countedAs = (draft: PachinkoDraft, counting: JackpotCounting): PachinkoDraft => {
+  const { jackpotCounting: _counting, zeroRounds: _zero, ...rest } = draft
+  return { ...rest, ...(counting.runs === "per-bonus" ? { jackpotCounting: "per-bonus" as const } : {}), ...(counting.zeroRounds === "uncounted" ? { zeroRounds: "uncounted" as const } : {}) }
+}
+
+const isZeroRoundJackpot = (checkpoint: Checkpoint): boolean => checkpoint.event?.kind === "jackpot" && checkpoint.event.bonus !== undefined && isZeroRound(checkpoint.event.bonus)
+
+/**
+ * The pachinko draft at a cabinet whose counter counts jackpots so. The
+ * log says what the counter showed; where a 0R is now counted otherwise,
+ * and the log has one, the play's spins are made again from that, and
+ * refused where a reading then shows less than it must. A log that does
+ * not read is left as it is.
+ */
+export const withJackpotCounting = (draft: PachinkoDraft, counting: JackpotCounting): Result<PachinkoDraft, RevisionRefusal> => {
+  const counted = countedAs(draft, counting)
+  const read = parsePlayLog(draft.log)
+  if (jackpotCountingOf(draft).zeroRounds === counting.zeroRounds || !read.ok || !read.value.some(isZeroRoundJackpot)) return Ok(counted)
+  return mapOk(recounted(inPlayOrder(read.value), counting), (checkpoints) => withLog(counted, checkpoints))
 }
 
 /** The pachinko draft with the person's usual over-entry at its cabinet, in balls a round, or none. */

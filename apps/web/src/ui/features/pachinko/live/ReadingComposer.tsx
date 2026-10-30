@@ -2,7 +2,7 @@ import { createMemo, createSignal, For, Show, type JSX } from "solid-js"
 
 import type { ApplicationError } from "../../../../application/errors"
 import { addCheckpoints, reviseCheckpoints } from "../../../../application/live-play"
-import type { PachinkoDraft, PlayDraft } from "../../../../core/live-play/draft"
+import { jackpotCountingOf, type PachinkoDraft, type PlayDraft } from "../../../../core/live-play/draft"
 import { checkpointsForReading, type ReadingRefusal } from "../../../../core/pachinko/reading"
 import { handDriftOf, RECOUNT_AFTER, type HandDrift } from "../../../../core/pachinko/consumption"
 import { rentalPressOf } from "../../../../core/pachinko/rental-press"
@@ -88,7 +88,7 @@ export function ReadingComposer(props: {
   const press = (): number => corner.presses().rental ?? rentalPressOf(props.draft.venue.terms)
   const draw = (): number => corner.presses().draw ?? props.draft.venue.terms?.replay.paidOut ?? USUAL_DRAW
   /** Where the play stood before the reading being typed: before the one set right, at the place one is put in, or after them all. */
-  const beforeIn = (ordered: readonly Checkpoint[]): Before => standingBefore(ordered, props.revising?.index ?? props.inserting?.before ?? takenOf(ordered).length)
+  const beforeIn = (ordered: readonly Checkpoint[]): Before => standingBefore(ordered, props.revising?.index ?? props.inserting?.before ?? takenOf(ordered).length, jackpotCountingOf(props.draft))
   const before = createMemo(() => beforeIn(props.ordered))
   /** How far the hand has been played since it was last counted, while a new reading carries it over unchanged and long enough to be worth counting again. */
   const recount = (): HandDrift | undefined => {
@@ -154,7 +154,7 @@ export function ReadingComposer(props: {
       nudge.nudge()
       return
     }
-    const checkpoints = checkpointsForReading(props.ordered, { ...reading.value, at: app.services.now() }, missedJackpot)
+    const checkpoints = checkpointsForReading(props.ordered, { ...reading.value, at: app.services.now() }, missedJackpot, jackpotCountingOf(props.draft))
     if (!checkpoints.ok) {
       setSending({ type: "refused", refusal: checkpoints.error, toReliefDrive })
       return
@@ -205,7 +205,7 @@ export function ReadingComposer(props: {
   /** Takes a reading away, and says so with the way to take it back until the word is closed. */
   const remove = async (index: number): Promise<void> => {
     const before = props.ordered
-    const left = await revise(withReadingRemoved(before, index))
+    const left = await revise(withReadingRemoved(before, index, jackpotCountingOf(props.draft)))
     if (left !== undefined) toast({ title: READING_REMOVED, action: { label: TAKE_BACK, onPress: () => void unremove(left, before) } })
   }
 
@@ -216,7 +216,7 @@ export function ReadingComposer(props: {
       nudge.nudge()
       return
     }
-    await revise(withReadingRevised(props.ordered, revising.index, { ...reading.value, at: revising.taken.reading.at }), "保存しました")
+    await revise(withReadingRevised(props.ordered, revising.index, { ...reading.value, at: revising.taken.reading.at }, jackpotCountingOf(props.draft)), "保存しました")
   }
 
   const saveInsertion = async (inserting: { readonly before: number; readonly at: string }): Promise<void> => {
@@ -226,7 +226,7 @@ export function ReadingComposer(props: {
       nudge.nudge()
       return
     }
-    await revise(withReadingInserted(props.ordered, inserting.before, { ...reading.value, at: inserting.at }))
+    await revise(withReadingInserted(props.ordered, inserting.before, { ...reading.value, at: inserting.at }, jackpotCountingOf(props.draft)))
   }
 
   const held: { form: HTMLFormElement | undefined } = { form: undefined }

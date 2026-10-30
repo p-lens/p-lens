@@ -1,16 +1,18 @@
 use std::num::NonZeroU32;
 
-/// Rounds of one jackpot. A jackpot of no rounds is not a jackpot.
+/// Rounds of one jackpot. None is a 0R: a jackpot that opens no attacker
+/// and pays nothing, and is a jackpot still — it ends the mode it was won
+/// in, empties the relief gauge, and a parlor's counter may count it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct RoundCount(NonZeroU32);
+pub struct RoundCount(u32);
 
 impl RoundCount {
-    pub fn new(rounds: NonZeroU32) -> Self {
+    pub fn new(rounds: u32) -> Self {
         Self(rounds)
     }
 
     pub fn get(self) -> u32 {
-        self.0.get()
+        self.0
     }
 }
 

@@ -1,5 +1,5 @@
 import type { BonusWon, Checkpoint, Phase } from "../play-log/checkpoint"
-import { afterMissedJackpot, readCounter } from "../play-log/live"
+import { afterMissedJackpot, counterNowOf, readCounter, type JackpotCounting } from "../play-log/live"
 import { Err, Ok, type Result } from "../result/result"
 
 /**
@@ -117,8 +117,8 @@ const readingFields = (ordered: readonly Checkpoint[], reading: Reading): Omit<C
  * back: a jackpot came that nobody wrote down, so it is written down now,
  * approximately, before the reading.
  */
-export const checkpointsForReading = (ordered: readonly Checkpoint[], reading: Reading, missedJackpot: boolean): Result<readonly Checkpoint[], ReadingRefusal> => {
-  const read = readCounter(ordered, reading.counterSpins)
+export const checkpointsForReading = (ordered: readonly Checkpoint[], reading: Reading, missedJackpot: boolean, counting: JackpotCounting): Result<readonly Checkpoint[], ReadingRefusal> => {
+  const read = readCounter(ordered, reading.counterSpins, counting)
   if (read.type === "continues") return Ok(withHands(ordered, reading, [{ spins: read.spins, ...readingFields(ordered, reading) }]))
   return missedJackpot ? Ok(withHands(ordered, reading, afterMissedJackpot(ordered, reading.counterSpins, readingFields(ordered, reading)))) : Err(read)
 }
@@ -155,11 +155,13 @@ export interface RapidRefusal {
 
 /**
  * The line that turns the 電サポ from 確変 to 時短, at a moment: on the
- * jackpot's own spins, the counter not read. Refused unless the 電サポ is
+ * spins of the line before it, the counter not read but taken to show what
+ * it did there — nought just after a jackpot it started over at. Refused unless the 電サポ is
  * in 確変, so that however often it is asked for, a run turns to 時短 once.
  */
-export const checkpointsForRapid = (ordered: readonly Checkpoint[], at: string): Result<readonly Checkpoint[], RapidRefusal> => {
+export const checkpointsForRapid = (ordered: readonly Checkpoint[], at: string, counting: JackpotCounting): Result<readonly Checkpoint[], RapidRefusal> => {
   if (supportPhaseOf(ordered) !== "special") return Err({ type: "not-in-special" })
-  const made = checkpointsForReading(ordered, { counterSpins: 0, phase: "special", rented: 0, replayed: 0, supported: 0, held: undefined, jackpot: { type: "none" }, at, rapidBegan: true }, false)
+  const reading: Reading = { counterSpins: counterNowOf(ordered, counting), phase: "special", rented: 0, replayed: 0, supported: 0, held: undefined, jackpot: { type: "none" }, at, rapidBegan: true }
+  const made = checkpointsForReading(ordered, reading, false, counting)
   return made.ok ? made : Err({ type: "not-in-special" })
 }

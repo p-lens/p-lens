@@ -85,19 +85,53 @@ fn allotment(dtos: &[AllotmentDto], field: &str) -> Result<Vec<Allotment>, Error
         .enumerate()
         .map(|(index, dto)| {
             let at = format!("{field}[{index}]");
+            let opened = dto.rounds > 0;
             Ok(Allotment {
                 share: BasisPoints::new(dto.share_basis_points)
                     .map_err(|_| invalid(&format!("{at}.shareBasisPoints")))?,
-                rounds: RoundCount::new(nonzero(dto.rounds, &format!("{at}.rounds"))?),
+                rounds: RoundCount::new(dto.rounds),
                 next: next(&dto.next, &format!("{at}.next"))?,
-                prize_balls: optional_nonzero(dto.prize_balls, &format!("{at}.prizeBalls"))?,
-                count: optional_nonzero(dto.count, &format!("{at}.count"))?,
-                other_rounds: other_rounds(&dto.other_rounds, &format!("{at}.otherRounds"))?,
+                prize_balls: opening(
+                    opened,
+                    optional_nonzero(dto.prize_balls, &format!("{at}.prizeBalls"))?,
+                    &format!("{at}.prizeBalls"),
+                )?,
+                count: opening(
+                    opened,
+                    optional_nonzero(dto.count, &format!("{at}.count"))?,
+                    &format!("{at}.count"),
+                )?,
+                other_rounds: opening_rounds(
+                    opened,
+                    other_rounds(&dto.other_rounds, &format!("{at}.otherRounds"))?,
+                    &format!("{at}.otherRounds"),
+                )?,
                 jackpots: optional_nonzero(dto.jackpots, &format!("{at}.jackpots"))?
                     .unwrap_or(NonZeroU32::MIN),
             })
         })
         .collect()
+}
+
+/// What a share's attacker is said to be, which a 0R, opening none, may not say.
+fn opening<T>(opened: bool, value: Option<T>, field: &str) -> Result<Option<T>, ErrorDto> {
+    match value {
+        Some(_) if !opened => Err(invalid(field)),
+        _ => Ok(value),
+    }
+}
+
+/// The other rounds of a share, of which a 0R, opening no attacker, has none.
+fn opening_rounds(
+    opened: bool,
+    rounds: Vec<OtherRounds>,
+    field: &str,
+) -> Result<Vec<OtherRounds>, ErrorDto> {
+    if opened || rounds.is_empty() {
+        Ok(rounds)
+    } else {
+        Err(invalid(field))
+    }
 }
 
 fn optional_nonzero(value: Option<u32>, field: &str) -> Result<Option<NonZeroU32>, ErrorDto> {
@@ -110,7 +144,7 @@ fn other_rounds(dtos: &[OtherRoundsDto], field: &str) -> Result<Vec<OtherRounds>
         .map(|(index, dto)| {
             let at = format!("{field}[{index}]");
             Ok(OtherRounds {
-                rounds: RoundCount::new(nonzero(dto.rounds, &format!("{at}.rounds"))?),
+                rounds: RoundCount::new(nonzero(dto.rounds, &format!("{at}.rounds"))?.get()),
                 prize_balls: optional_nonzero(dto.prize_balls, &format!("{at}.prizeBalls"))?,
                 count: optional_nonzero(dto.count, &format!("{at}.count"))?,
             })

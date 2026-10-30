@@ -1,5 +1,5 @@
 import { Err, Ok, type Result } from "../result/result"
-import type { Checkpoint } from "./checkpoint"
+import type { BonusWon, Checkpoint } from "./checkpoint"
 import { performanceAcross, stretchPerformances, type StretchPerformance } from "./performance"
 
 /**
@@ -26,18 +26,34 @@ export interface LiveSummary {
 }
 
 /**
- * How the parlor's counter at a cabinet counts a bonus a machine gives as a
- * run of jackpots: each jackpot of it, as most counters do, or the bonus as
- * one. A play counts as its counter does, so that the two can be compared.
+ * How the parlor's counter at a cabinet counts jackpots. `runs` is how it
+ * counts a bonus a machine gives as a run of jackpots: each jackpot of it,
+ * as most counters do, or the bonus as one. `zeroRounds` is whether it
+ * takes a 0R — a bonus that pays out nothing and takes nothing — for a
+ * jackpot at all: a counter that does not neither counts it nor starts its
+ * spins over at it, though the cabinet's own 遊 counter starts over there
+ * as at any jackpot. A play counts as its counter does, so that the two
+ * can be compared.
  */
-export type JackpotCounting = "per-jackpot" | "per-bonus"
+export interface JackpotCounting {
+  readonly runs: "per-jackpot" | "per-bonus"
+  readonly zeroRounds: "counted" | "uncounted"
+}
 
-const isJackpot = (checkpoint: Checkpoint): boolean => checkpoint.event?.kind === "jackpot"
+/** A counter that counts every jackpot of a run, and a 0R as a jackpot, as most do. */
+export const EVERY_JACKPOT: JackpotCounting = { runs: "per-jackpot", zeroRounds: "counted" }
 
-/** The jackpots a line records: none, one, or — counted per jackpot — as many as the bonus it names was won over. */
+/** A bonus of no rounds: it pays out nothing and takes nothing to win. */
+export const isZeroRound = (bonus: BonusWon): boolean => bonus.payout === 0 && bonus.spent === 0
+
+/** Whether the parlor's counter takes a line for a jackpot, counting it and starting its spins over there: every jackpot, but a 0R at a counter that takes none. */
+export const counterTakes = (checkpoint: Checkpoint, counting: JackpotCounting): boolean =>
+  checkpoint.event?.kind === "jackpot" && !(counting.zeroRounds === "uncounted" && checkpoint.event.bonus !== undefined && isZeroRound(checkpoint.event.bonus))
+
+/** The jackpots a line records as the counter counts them: none, one, or — counted per jackpot — as many as the bonus it names was won over. */
 const jackpotsAt = (checkpoint: Checkpoint, counting: JackpotCounting): number => {
-  if (checkpoint.event?.kind !== "jackpot") return 0
-  return counting === "per-bonus" ? 1 : (checkpoint.event.bonus?.jackpots ?? 1)
+  if (checkpoint.event?.kind !== "jackpot" || !counterTakes(checkpoint, counting)) return 0
+  return counting.runs === "per-bonus" ? 1 : (checkpoint.event.bonus?.jackpots ?? 1)
 }
 
 /** A point the parlor's counter is read from: the play's spins there, and what the counter showed. */
@@ -48,20 +64,21 @@ interface Anchor {
 
 /**
  * Where counter readings count from. The counter starts over at every
- * jackpot, so after one it is the last jackpot, counter zero; before any, it
- * is the play's first point, whose counter still shows the spins of whoever
- * played the cabinet before.
+ * jackpot it takes, so after one it is the last such jackpot, counter zero;
+ * before any, it is the play's first point, whose counter still shows the
+ * spins of whoever played the cabinet before.
  */
-const anchorOf = (ordered: readonly Checkpoint[]): Anchor => {
-  const jackpot = ordered.findLast(isJackpot)
+const anchorOf = (ordered: readonly Checkpoint[], counting: JackpotCounting): Anchor => {
+  const jackpot = ordered.findLast((checkpoint) => counterTakes(checkpoint, counting))
   const first = ordered.at(0)
   return jackpot !== undefined
     ? { spins: jackpot.spins, counter: 0 }
     : { spins: first?.spins ?? 0, counter: first?.counter?.spins ?? 0 }
 }
 
-const counterNowOf = (ordered: readonly Checkpoint[]): number => {
-  const anchor = anchorOf(ordered)
+/** What the parlor's counter shows at the log's last line: the spins since the anchor, on from what it showed there. */
+export const counterNowOf = (ordered: readonly Checkpoint[], counting: JackpotCounting): number => {
+  const anchor = anchorOf(ordered, counting)
   return anchor.counter + (ordered.at(-1)?.spins ?? 0) - anchor.spins
 }
 
@@ -73,14 +90,14 @@ const jackpotsSinceSeat = (ordered: readonly Checkpoint[]): number | undefined =
   return shown === undefined ? undefined : shown - (ordered.at(0)?.counter?.jackpots ?? 0)
 }
 
-export const liveSummary = (ordered: readonly Checkpoint[], counting: JackpotCounting = "per-jackpot"): LiveSummary => {
+export const liveSummary = (ordered: readonly Checkpoint[], counting: JackpotCounting = EVERY_JACKPOT): LiveSummary => {
   const spins = ordered.at(-1)?.spins ?? 0
   const withOutlay = ordered.filter((checkpoint) => checkpoint.outlay !== undefined)
   const first = withOutlay.at(0)
   const last = withOutlay.at(-1)
   return {
     spins,
-    counterNow: counterNowOf(ordered),
+    counterNow: counterNowOf(ordered, counting),
     outlay: last?.outlay,
     jackpots: ordered.reduce((sum, checkpoint) => sum + jackpotsAt(checkpoint, counting), 0),
     counterJackpots: jackpotsSinceSeat(ordered),
@@ -101,9 +118,9 @@ export type CounterReading =
   | { readonly type: "continues"; readonly spins: number }
   | { readonly type: "counter-went-back"; readonly expectedAtLeast: number }
 
-export const readCounter = (ordered: readonly Checkpoint[], counterSpins: number): CounterReading => {
-  const anchor = anchorOf(ordered)
-  const expected = counterNowOf(ordered)
+export const readCounter = (ordered: readonly Checkpoint[], counterSpins: number, counting: JackpotCounting): CounterReading => {
+  const anchor = anchorOf(ordered, counting)
+  const expected = counterNowOf(ordered, counting)
   return counterSpins < expected
     ? { type: "counter-went-back", expectedAtLeast: expected }
     : { type: "continues", spins: anchor.spins + counterSpins - anchor.counter }
@@ -177,7 +194,7 @@ export const checkpointsForReading = (
     return Err({ type: "outlay-went-back", atLeast: spentBefore })
   const drawnBefore = lastKnown(ordered, (checkpoint) => checkpoint.replay)
   if (input.replay !== undefined && drawnBefore !== undefined && input.replay < drawnBefore) return Err({ type: "replay-went-back", atLeast: drawnBefore })
-  const reading = readCounter(ordered, input.counterSpins)
+  const reading = readCounter(ordered, input.counterSpins, EVERY_JACKPOT)
   if (reading.type === "continues") return Ok([{ spins: reading.spins, ...readingFields(input) }])
   if (!missedJackpot) return Err(reading)
   return Ok(afterMissedJackpot(ordered, input.counterSpins, readingFields(input)))

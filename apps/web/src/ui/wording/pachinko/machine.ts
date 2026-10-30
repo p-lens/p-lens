@@ -38,8 +38,9 @@ export const describeBonusNameProblem = (problem: BonusNameProblem): string => {
   return problem.type === "repeated" ? `${where}が重なっています。` : `${where}は${problem.longest}文字までです。`
 }
 
-/** The rounds a bonus is told by, as a spec sheet writes them: `10R×15個×10C`, one run of rounds after another. */
-export const bonusRoundsText = (shape: BonusShape): string => shape.rounds.map((each) => `${each.rounds}R×${each.prizeBalls}個×${each.count}C`).join(" ＋ ")
+/** The rounds a bonus is told by, as a spec sheet writes them: `10R×15個×10C`, one run of rounds after another; a 0R, opening no attacker, is `0R` alone. */
+export const bonusRoundsText = (shape: BonusShape): string =>
+  shape.rounds.map((each) => (each.rounds === 0 ? "0R" : `${each.rounds}R×${each.prizeBalls}個×${each.count}C`)).join(" ＋ ")
 
 /** How many jackpots a bonus is won over, said only where it is more than one: `大当り5回分`. */
 export const jackpotsText = (won: { readonly jackpots?: number }): string | undefined => (won.jackpots === undefined || won.jackpots === 1 ? undefined : `大当り${String(won.jackpots)}回分`)

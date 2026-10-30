@@ -2,7 +2,7 @@ import { createSignal, Show, type JSX } from "solid-js"
 
 import type { ApplicationError } from "../../../../application/errors"
 import { reviseCheckpoints } from "../../../../application/live-play"
-import type { PlayDraft } from "../../../../core/live-play/draft"
+import { jackpotCountingOf, type PachinkoDraft } from "../../../../core/live-play/draft"
 import { seatOf, withSeatRevised, type RevisionRefusal, type Seat } from "../../../../core/pachinko/revision"
 import { carriedInOf, withCarriedIn } from "../../../../core/play-log/carried-in"
 import type { Checkpoint } from "../../../../core/play-log/checkpoint"
@@ -56,7 +56,7 @@ const readSeat = (form: SeatForm): Seat | undefined => {
  * button — the balls the play was begun with in hand. Saving makes every
  * reading before the first jackpot again, since they count on from here.
  */
-export function SeatComposer(props: { readonly draft: PlayDraft; readonly ordered: readonly Checkpoint[]; readonly reliefDrive: number | undefined; readonly onDone: () => void }): JSX.Element {
+export function SeatComposer(props: { readonly draft: PachinkoDraft; readonly ordered: readonly Checkpoint[]; readonly reliefDrive: number | undefined; readonly onDone: () => void }): JSX.Element {
   const app = useApp()
   const found = seatOf(props.ordered)
   const [form, setForm] = createSignal<SeatForm>({ spins: String(found.spins), jackpots: String(found.jackpots), gauge: found.gauge === undefined ? "" : String(found.gauge) })
@@ -78,7 +78,7 @@ export function SeatComposer(props: { readonly draft: PlayDraft; readonly ordere
       nudge.nudge()
       return
     }
-    const made = withSeatRevised(withCarriedIn(props.ordered, carried.type === "count" ? carried.count : undefined), seat)
+    const made = withSeatRevised(withCarriedIn(props.ordered, carried.type === "count" ? carried.count : undefined), seat, jackpotCountingOf(props.draft))
     if (!made.ok) {
       setSending({ type: "unrevisable", refusal: made.error })
       return

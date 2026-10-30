@@ -5,6 +5,7 @@ import { consumptionOf } from "../../../src/core/pachinko/consumption"
 import { checkpointsForReading, type Reading } from "../../../src/core/pachinko/reading"
 import { playTheoreticalValue } from "../../../src/core/pachinko/theoretical-value"
 import type { Checkpoint } from "../../../src/core/play-log/checkpoint"
+import { EVERY_JACKPOT } from "../../../src/core/play-log/live"
 
 /** A machine whose 等価 border is 18 spins for 1,000 balls: a spin wins 1000 / 18 balls. */
 const FIGURES = { roundChanceOneIn: 100, payoutPerRound: 100_000 / 18, totalChanceOneIn: undefined, spinsPerHour: undefined }
@@ -24,7 +25,7 @@ const reading = (fields: Partial<Reading> & Pick<Reading, "counterSpins">): Read
 
 const played = (readings: readonly Reading[]): readonly Checkpoint[] =>
   readings.reduce<readonly Checkpoint[]>((log, each) => {
-    const added = checkpointsForReading(log, each, false)
+    const added = checkpointsForReading(log, each, false, EVERY_JACKPOT)
     return added.ok ? [...log, ...added.value] : log
   }, [SAT_DOWN])
 

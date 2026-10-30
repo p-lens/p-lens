@@ -132,11 +132,41 @@ fn a_spec_of_another_version_is_refused_by_its_number_and_one_that_says_none_is_
 #[test]
 fn a_refused_value_is_named_by_its_path() {
     let mut spec = value(SPEC);
-    spec["components"]["allotment"]["RUSH"][0]["rounds"] = json!(0);
+    spec["components"]["allotment"]["RUSH"][0]["jackpots"] = json!(0);
     let reply = value(&normalize(&json!({ "spec": spec }).to_string()));
     assert_eq!(
         reply["error"],
-        json!({ "type": "invalid-value", "field": "spec.components.allotment.RUSH[0].rounds" })
+        json!({ "type": "invalid-value", "field": "spec.components.allotment.RUSH[0].jackpots" })
+    );
+}
+
+#[test]
+fn a_share_of_no_rounds_is_a_jackpot_that_pays_nothing() {
+    let mut spec = value(SPEC);
+    spec["components"]["allotment"]["RUSH"][0]["rounds"] = json!(0);
+    let reply = value(&normalize(&json!({ "spec": spec }).to_string()));
+    assert_eq!(reply["ok"], json!(true));
+}
+
+#[test]
+fn a_share_of_no_rounds_names_no_attacker() {
+    let mut spec = value(SPEC);
+    spec["components"]["allotment"]["RUSH"][0]["rounds"] = json!(0);
+    spec["components"]["allotment"]["RUSH"][0]["prizeBalls"] = json!(10);
+    let reply = value(&normalize(&json!({ "spec": spec }).to_string()));
+    assert_eq!(
+        reply["error"],
+        json!({ "type": "invalid-value", "field": "spec.components.allotment.RUSH[0].prizeBalls" })
+    );
+    spec["components"]["allotment"]["RUSH"][0]
+        .as_object_mut()
+        .expect("a share")
+        .remove("prizeBalls");
+    spec["components"]["allotment"]["RUSH"][0]["otherRounds"] = json!([{ "rounds": 2 }]);
+    let reply = value(&normalize(&json!({ "spec": spec }).to_string()));
+    assert_eq!(
+        reply["error"],
+        json!({ "type": "invalid-value", "field": "spec.components.allotment.RUSH[0].otherRounds" })
     );
 }
 

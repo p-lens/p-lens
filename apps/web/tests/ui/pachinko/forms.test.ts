@@ -188,3 +188,29 @@ describe("a jackpot through two attackers", () => {
     expect(refused.ok ? [] : refused.error.map((problem) => problem.field)).toEqual(["初当り 1行目の別アタッカー1のR数", "初当り 1行目の別アタッカー1のカウント"])
   })
 })
+
+describe("a share of no rounds", () => {
+  const share = { share: "100", rounds: "0", next: "m1", prize: "", count: "", others: [], jackpots: "" }
+  const form = { ...STARTING_BASIS, firstHit: [share] }
+
+  test("is a 0R in the spec, and comes back as typed", () => {
+    const read = readBasisForm(form)
+    if (!read.ok) throw new Error("the basis should read")
+    expect(regularOf(read.value.spec)?.allotment).toEqual([{ shareBasisPoints: 10_000, rounds: 0, next: { type: "mode", mode: "m1" } }])
+    expect(basisFormOf(read.value.spec, read.value.conditions, undefined).firstHit).toEqual([share])
+  })
+
+  test("is refused a prize, a count and other rounds by name, as it opens no attacker", () => {
+    const refused = readBasisForm({ ...form, firstHit: [{ ...share, prize: "10", count: "5", others: [{ rounds: "9", prize: "", count: "" }] }] })
+    expect(refused.ok ? [] : refused.error).toEqual([
+      { field: "初当り 1行目の賞球", reason: "no-attacker" },
+      { field: "初当り 1行目のカウント", reason: "no-attacker" },
+      { field: "初当り 1行目の別アタッカー", reason: "no-attacker" },
+    ])
+  })
+
+  test("is no other rounds, which open an attacker for at least one", () => {
+    const refused = readBasisForm({ ...form, firstHit: [{ ...share, rounds: "1", others: [{ rounds: "0", prize: "", count: "" }] }] })
+    expect(refused.ok ? [] : refused.error).toEqual([{ field: "初当り 1行目の別アタッカー1のR数", reason: "out-of-range" }])
+  })
+})

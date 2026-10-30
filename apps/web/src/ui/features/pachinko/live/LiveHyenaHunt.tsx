@@ -1,7 +1,7 @@
 import type { PlayDto } from "@p-lens/contracts/pachinko"
 import { createMemo, Show, type JSX } from "solid-js"
 
-import type { PlayDraft } from "../../../../core/live-play/draft"
+import type { PachinkoDraft } from "../../../../core/live-play/draft"
 import type { Basis } from "../../../../core/pachinko/formula"
 import { borderOf } from "../../../../core/pachinko/theoretical-value"
 import type { FormulaSnapshot } from "../../../../core/pachinko/snapshot"
@@ -32,7 +32,7 @@ import { GaugeCorrection } from "./GaugeCorrection"
  * not set right here.
  */
 export function LiveHyenaHunt(props: {
-  readonly draft: PlayDraft
+  readonly draft: PachinkoDraft
   readonly hold: PlayHold
   readonly ordered: readonly Checkpoint[]
   readonly formula: FormulaSnapshot

@@ -1,7 +1,7 @@
 import { createSignal, type JSX } from "solid-js"
 
 import { addCheckpoints } from "../../../../application/live-play"
-import type { PlayDraft } from "../../../../core/live-play/draft"
+import { jackpotCountingOf, type PachinkoDraft } from "../../../../core/live-play/draft"
 import { gaugeSaid, standingBefore, takenOf } from "../../../../core/pachinko/revision"
 import type { Checkpoint } from "../../../../core/play-log/checkpoint"
 import { tidyTyped } from "../../../../core/text/tidy"
@@ -28,11 +28,11 @@ const countOf = (text: string): number | undefined => {
  * nothing else. The button is marked while it is followed apart from the
  * data counter.
  */
-export function GaugeCorrection(props: { readonly draft: PlayDraft; readonly ordered: readonly Checkpoint[]; readonly gaugeNow: number }): JSX.Element {
+export function GaugeCorrection(props: { readonly draft: PachinkoDraft; readonly ordered: readonly Checkpoint[]; readonly gaugeNow: number }): JSX.Element {
   const app = useApp()
   const [typed, setTyped] = createSignal("")
   const [wrong, setWrong] = createSignal(false)
-  const apart = (): boolean => standingBefore(props.ordered, takenOf(props.ordered).length).counter !== props.gaugeNow
+  const apart = (): boolean => standingBefore(props.ordered, takenOf(props.ordered).length, jackpotCountingOf(props.draft)).counter !== props.gaugeNow
   const keep = async (): Promise<void> => {
     settleTyping()
     const gauge = countOf(typed())
@@ -40,7 +40,7 @@ export function GaugeCorrection(props: { readonly draft: PlayDraft; readonly ord
       setWrong(gauge === undefined)
       return
     }
-    const made = gaugeSaid(props.ordered, gauge, app.services.now())
+    const made = gaugeSaid(props.ordered, gauge, app.services.now(), jackpotCountingOf(props.draft))
     if (!made.ok) {
       toast({ title: describeReadingRefusal(made.error), tone: "error" })
       return

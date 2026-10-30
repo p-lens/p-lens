@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { awaitsSending, deliveryOf, jackpotCountingOf, latestTermsOf, withCabinetNumber, withJackpotCounting, withMachine, type PachinkoDraft, type PlayDraft } from "../../src/core/live-play/draft"
 import { withJackpotsUntold } from "../../src/core/pachinko/revision"
+import { EVERY_JACKPOT } from "../../src/core/play-log/live"
 import { appendCheckpoint, parsePlayLog } from "../../src/core/play-log/checkpoint"
 import type { PlayId } from "../../src/core/play/play"
 
@@ -80,11 +81,13 @@ describe("a play said anew to be on another machine", () => {
   })
 
   test("keeps how the cabinet's counter counts jackpots, which is the cabinet's and not the machine's", () => {
-    const counted = withJackpotCounting({ ...DRAFT, log }, "per-bonus")
-    const again = withMachine(counted, { type: "pachinko", name: "made-up 199", formula, bonuses: [], readings: undefined })
-    expect(again.gameKind === "pachinko" && jackpotCountingOf(again)).toBe("per-bonus")
-    expect("jackpotCounting" in withJackpotCounting(counted, "per-jackpot")).toBe(false)
-    expect(jackpotCountingOf(DRAFT)).toBe("per-jackpot")
+    const counted = withJackpotCounting({ ...DRAFT, log }, { runs: "per-bonus", zeroRounds: "uncounted" })
+    if (!counted.ok) throw new Error("a log of no 0R reads at any counter")
+    const again = withMachine(counted.value, { type: "pachinko", name: "made-up 199", formula, bonuses: [], readings: undefined })
+    expect(again.gameKind === "pachinko" && jackpotCountingOf(again)).toEqual({ runs: "per-bonus", zeroRounds: "uncounted" })
+    const plain = withJackpotCounting(counted.value, EVERY_JACKPOT)
+    expect(plain.ok && ("jackpotCounting" in plain.value || "zeroRounds" in plain.value)).toBe(false)
+    expect(jackpotCountingOf(DRAFT)).toEqual(EVERY_JACKPOT)
   })
 })
 
@@ -99,5 +102,30 @@ describe("the latest terms of a game", () => {
     expect(latestTermsOf(drafts, "pachinko")?.exchange.tokens).toBe(275)
     expect(latestTermsOf(drafts, "pachislot")?.exchange.tokens).toBe(51)
     expect(latestTermsOf([], "pachinko")).toBeUndefined()
+  })
+})
+
+describe("a play's log at a counter said to count a 0R otherwise", () => {
+  const ZERO = { name: "0R", payout: 0, spent: 0 }
+  const seat = { spins: 0, outlay: 0, at: "2026-10-30T10:00:00+09:00", counter: { spins: 120 } }
+  const zero = { kind: "jackpot" as const, bonus: ZERO }
+  const at = "2026-10-30T11:00:00+09:00"
+  const spinsOf = (draft: PlayDraft): readonly (number | undefined)[] => {
+    const read = parsePlayLog(draft.log)
+    return read.ok ? read.value.map((checkpoint) => checkpoint.spins) : []
+  }
+
+  test("has its spins made again from what the counter showed", () => {
+    const carriedOn = [seat, { spins: 100, at, counter: { spins: 220 }, event: zero }, { spins: 130, at, counter: { spins: 250 } }].reduce(appendCheckpoint, "")
+    const draft: PachinkoDraft = { ...DRAFT, log: carriedOn, zeroRounds: "uncounted" }
+    const counted = withJackpotCounting(draft, EVERY_JACKPOT)
+    expect(counted.ok && spinsOf(counted.value)).toEqual([0, 100, 350])
+    const back = counted.ok ? withJackpotCounting(counted.value, { ...EVERY_JACKPOT, zeroRounds: "uncounted" }) : counted
+    expect(back.ok && spinsOf(back.value)).toEqual([0, 100, 130])
+  })
+
+  test("is refused where a reading would then show less than it must", () => {
+    const startedOver = [seat, { spins: 100, at, counter: { spins: 220 }, event: zero }, { spins: 130, at, counter: { spins: 30 } }].reduce(appendCheckpoint, "")
+    expect(withJackpotCounting({ ...DRAFT, log: startedOver }, { ...EVERY_JACKPOT, zeroRounds: "uncounted" })).toEqual({ ok: false, error: { type: "counter-went-back", index: 1, expectedAtLeast: 220 } })
   })
 })

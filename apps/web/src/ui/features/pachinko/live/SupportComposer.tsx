@@ -2,7 +2,7 @@ import { createMemo, createSignal, Show, type JSX } from "solid-js"
 
 import type { ApplicationError } from "../../../../application/errors"
 import { addCheckpoints, reviseCheckpoints } from "../../../../application/live-play"
-import type { PachinkoDraft } from "../../../../core/live-play/draft"
+import { jackpotCountingOf, type PachinkoDraft } from "../../../../core/live-play/draft"
 import { checkpointsForRapid, checkpointsForReading, type Reading, type ReadingRefusal, type SupportPhase } from "../../../../core/pachinko/reading"
 import { standingBefore, takenOf, withReadingRemoved } from "../../../../core/pachinko/revision"
 import type { Checkpoint } from "../../../../core/play-log/checkpoint"
@@ -65,7 +65,7 @@ export function SupportComposer(props: {
 }): JSX.Element {
   const app = useApp()
   const bonuses = useBonuses(() => props.draft)
-  const before = createMemo(() => standingBefore(props.ordered, takenOf(props.ordered).length))
+  const before = createMemo(() => standingBefore(props.ordered, takenOf(props.ordered).length, jackpotCountingOf(props.draft)))
   const phase = (): SupportPhase => props.phase
   const [step, setStep] = createSignal<Step>({ type: "running" })
   const [form, setForm] = createSignal<ReadingForm>(readingFrom(props.phase, before()))
@@ -103,7 +103,7 @@ export function SupportComposer(props: {
       nudge.nudge()
       return
     }
-    const checkpoints = checkpointsForReading(props.ordered, { ...reading.value, at: app.services.now() }, false)
+    const checkpoints = checkpointsForReading(props.ordered, { ...reading.value, at: app.services.now() }, false, jackpotCountingOf(props.draft))
     if (!checkpoints.ok) {
       setSending({ type: "refused", refusal: checkpoints.error })
       return
@@ -116,7 +116,7 @@ export function SupportComposer(props: {
     }
     setStep({ type: "running" })
     const after = [...props.ordered, ...checkpoints.value]
-    setForm(readingFrom("special", standingBefore(after, takenOf(after).length)))
+    setForm(readingFrom("special", standingBefore(after, takenOf(after).length, jackpotCountingOf(props.draft))))
     setSending({ type: "typing" })
     toast({ title: "記録しました", stays: "glance" })
     app.played()
@@ -125,7 +125,7 @@ export function SupportComposer(props: {
   /** Turns the run to 時短, or takes the turn back where it is in 時短: never while something is being kept, so a press twice over writes once. */
   const switchPhase = async (): Promise<void> => {
     if (sending().type === "keeping") return
-    const made = phase() === "special" ? checkpointsForRapid(props.ordered, app.services.now()) : withReadingRemoved(props.ordered, takenOf(props.ordered).length - 1)
+    const made = phase() === "special" ? checkpointsForRapid(props.ordered, app.services.now(), jackpotCountingOf(props.draft)) : withReadingRemoved(props.ordered, takenOf(props.ordered).length - 1, jackpotCountingOf(props.draft))
     if (!made.ok) return
     setSending({ type: "keeping" })
     const kept = phase() === "special" ? await addCheckpoints(app.services.drafts, props.draft, made.value) : await reviseCheckpoints(app.services.drafts, props.draft, made.value)

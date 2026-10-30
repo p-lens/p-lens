@@ -8,7 +8,7 @@ import { loadMachine, playSnapshotOf } from "../../../../application/pachinko/fo
 import { bookNameOf, shownNameOf, type MachineSummary } from "../../../../core/catalog/catalog"
 import { machineMatches } from "../../../../core/catalog/description"
 import { autoSelect, selectById, type Selection } from "../../../../core/formula/standing"
-import { jackpotCountingOf, tokenValueOfDraft, withJackpotCounting, withOverEntry, type MachineChange, type PachinkoDraft } from "../../../../core/live-play/draft"
+import { jackpotCountingOf, tokenValueOfDraft, withOverEntry, type MachineChange, type PachinkoDraft } from "../../../../core/live-play/draft"
 import { worthOf, type Formula } from "../../../../core/pachinko/formula"
 import { borderOf } from "../../../../core/pachinko/theoretical-value"
 import { withJackpotsUntold } from "../../../../core/pachinko/revision"
@@ -143,7 +143,11 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
       return
     }
     setSaving({ type: "keeping" })
-    const changed = await changeCabinet(app.services.drafts, withOverEntry(withJackpotCounting(props.draft, counting()), over), { cabinetNumber: cabinetNumber().trim() === "" ? undefined : cabinetNumber().trim(), machine: await withPaidSpins(machineChange()) })
+    const changed = await changeCabinet(app.services.drafts, withOverEntry(props.draft, over), {
+      cabinetNumber: cabinetNumber().trim() === "" ? undefined : cabinetNumber().trim(),
+      machine: await withPaidSpins(machineChange()),
+      counting: counting(),
+    })
     if (!changed.ok) {
       setSaving({ type: "failed", error: changed.error })
       return
@@ -238,10 +242,16 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
               </Switch>
             </div>
           </div>
-          <label class="flex cursor-pointer items-center gap-2 self-start text-sm text-text-primary">
-            <input type="checkbox" checked={counting() === "per-bonus"} onChange={(event) => setCounting(event.currentTarget.checked ? "per-bonus" : "per-jackpot")} class="size-5 shrink-0 accent-accent" />
-            どのボーナスも1回でカウント
-          </label>
+          <div class="flex flex-col gap-2 self-start">
+            <label class="flex cursor-pointer items-center gap-2 text-sm text-text-primary">
+              <input type="checkbox" checked={counting().runs === "per-bonus"} onChange={(event) => setCounting({ ...counting(), runs: event.currentTarget.checked ? "per-bonus" : "per-jackpot" })} class="size-5 shrink-0 accent-accent" />
+              どのボーナスも1回でカウント
+            </label>
+            <label class="flex cursor-pointer items-center gap-2 text-sm text-text-primary">
+              <input type="checkbox" checked={counting().zeroRounds === "uncounted"} onChange={(event) => setCounting({ ...counting(), zeroRounds: event.currentTarget.checked ? "uncounted" : "counted" })} class="size-5 shrink-0 accent-accent" />
+              0Rボーナスをカウントしない
+            </label>
+          </div>
           <hr class="border-border" />
           <div class="flex flex-col gap-1">
             <div class="w-40">
