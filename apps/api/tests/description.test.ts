@@ -156,12 +156,19 @@ describe("the bonuses a formula states", () => {
     expect((await client.call("GET", `/machines/${made.body.machineId}`)).body.formulas[0].bonuses).toEqual([{ name: "20R", payout: 3000, spent: 200, jackpots: 2 }, { name: "10R", payout: 1500, spent: 100 }])
   })
 
-  test("are refused when one pays out nothing, or less than is shot for it, or shares a name, and a formula typed in states at least one", async () => {
+  test("take a 0R, which pays out nothing and takes nothing", async () => {
+    const client = await api()
+    const made = await register(client, stating([{ name: "10R", payout: 1500, spent: 100 }, { name: "Re:Start", payout: 0, spent: 0 }]))
+    expect(made.status).toBe(201)
+    expect((await client.call("GET", `/machines/${made.body.machineId}`)).body.formulas[0].bonuses).toEqual([{ name: "10R", payout: 1500, spent: 100 }, { name: "Re:Start", payout: 0, spent: 0 }])
+  })
+
+  test("are refused when one pays out nothing for balls shot, or less than is shot for it, or shares a name, and a formula typed in states at least one", async () => {
     const client = await api()
     const refusal = async (bonuses: unknown) => (await register(client, stating(bonuses))).body.error
     expect(await refusal("10R")).toEqual({ type: "invalid-body", field: "bonuses", reason: "not-a-list" })
     expect(await refusal([{ name: "", payout: 1500, spent: 100 }])).toEqual({ type: "invalid-body", field: "bonuses", reason: "missing" })
-    expect(await refusal([{ name: "10R", payout: 0, spent: 0 }])).toEqual({ type: "invalid-body", field: "bonuses", reason: "not-positive" })
+    expect(await refusal([{ name: "0R", payout: 0, spent: 10 }])).toEqual({ type: "invalid-body", field: "bonuses", reason: "not-positive" })
     expect(await refusal([{ name: "10R", payout: 100, spent: 101 }])).toEqual({ type: "invalid-body", field: "bonuses", reason: "not-positive" })
     expect(await refusal([{ name: "10R", payout: 1500.5, spent: 100 }])).toEqual({ type: "invalid-body", field: "bonuses", reason: "not-positive" })
     expect(await refusal([{ name: "20R", payout: 3000, spent: 200, jackpots: 0 }])).toEqual({ type: "invalid-body", field: "bonuses", reason: "not-positive" })

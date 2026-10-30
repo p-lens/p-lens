@@ -52,7 +52,7 @@ const nameProblem = (rows: readonly BonusRow[], row: number, name: string): Bonu
 const payoutProblem = (row: number, typed: string): BonusProblem | undefined => {
   if (tidyTyped(typed) === "") return { type: "missing", row, field: "payout" }
   const payout = countOf(typed)
-  if (payout === undefined || payout === 0) return { type: "not-a-count", row, field: "payout" }
+  if (payout === undefined) return { type: "not-a-count", row, field: "payout" }
   return payout > MACHINE_BONUSES.payout ? { type: "too-large", row, field: "payout", most: MACHINE_BONUSES.payout } : undefined
 }
 
@@ -62,7 +62,7 @@ const spentOf = (typed: string): number | undefined => (tidyTyped(typed) === "" 
 const spentProblem = (row: number, typed: string, payout: number | undefined): BonusProblem | undefined => {
   const spent = spentOf(typed)
   if (spent === undefined) return { type: "not-a-count", row, field: "spent" }
-  return payout !== undefined && payout > 0 && spent >= payout ? { type: "not-below-payout", row, field: "spent" } : undefined
+  return payout !== undefined && (payout === 0 ? spent > 0 : spent >= payout) ? { type: "not-below-payout", row, field: "spent" } : undefined
 }
 
 /** The jackpots a bonus is won over are one where none are typed. */

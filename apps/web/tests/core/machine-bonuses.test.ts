@@ -27,7 +27,8 @@ describe("a machine's bonuses as typed", () => {
         { type: "not-a-count", row: 0, field: "spent" },
       ],
     })
-    expect(readBonuses([{ name: "10R", payout: "0", spent: "", jackpots: "" }])).toEqual({ ok: false, error: [{ type: "not-a-count", row: 0, field: "payout" }] })
+    expect(readBonuses([{ name: "Re:Start", payout: "0", spent: "", jackpots: "" }])).toEqual({ ok: true, value: [{ name: "Re:Start", payout: 0, spent: 0 }] })
+    expect(readBonuses([{ name: "0R", payout: "0", spent: "10", jackpots: "" }])).toEqual({ ok: false, error: [{ type: "not-below-payout", row: 0, field: "spent" }] })
     expect(readBonuses([{ name: "10R", payout: "100001", spent: "", jackpots: "" }])).toEqual({ ok: false, error: [{ type: "too-large", row: 0, field: "payout", most: 100000 }] })
     expect(readBonuses([{ name: "10R", payout: "1500", spent: "1500", jackpots: "" }])).toEqual({ ok: false, error: [{ type: "not-below-payout", row: 0, field: "spent" }] })
     expect(readBonuses([{ name: "あ".repeat(21), payout: "1500", spent: "", jackpots: "" }])).toEqual({ ok: false, error: [{ type: "name-too-long", row: 0, field: "name", longest: 20 }] })
