@@ -2,6 +2,7 @@ import { createBookSession, type BookSession } from "../../application/book-sess
 import { consolidationPorts, createOutdatedNotice } from "../../application/consolidation"
 import { createBrowserHandover } from "../../backup/browser/browser-handover"
 import { createGoogleAuthorizer } from "../../backup/google-drive/google-authorizer"
+import { createGooglePicker } from "../../backup/google-drive/google-picker"
 import { createGoogleDriveStore, DRIVE_SCOPE } from "../../backup/google-drive/google-drive-store"
 import { createIndexedDbDestinationStore } from "../../sync/local/indexed-db-destination-store"
 import { keepingHistory } from "../../application/draft-history"
@@ -78,8 +79,17 @@ const RELAY_URL: string | undefined = import.meta.env.VITE_RELAY_URL
  */
 const GOOGLE_CLIENT_ID: string | undefined = import.meta.env.VITE_GOOGLE_CLIENT_ID
 
+/**
+ * The browser key the Google Picker is shown with, made in the same Google
+ * Cloud project as the OAuth client, with the Picker API enabled there.
+ */
+const GOOGLE_API_KEY: string | undefined = import.meta.env.VITE_GOOGLE_API_KEY
+
 /** The folder, in a person's Google Drive, their backups are put in. */
 const BACKUP_FOLDER = `${DEPLOYMENT.name} バックアップ`
+
+/** What Google's window for choosing backups in a person's Drive is headed with. */
+const BACKUP_PICKER_TITLE = "戻すバックアップを選ぶ"
 
 /** How long Google Drive is waited for: an archive goes up whole, on whatever network a hall has. */
 const DRIVE_ANSWERS_WITHIN = 120_000
@@ -135,6 +145,7 @@ export const createServices = (): Services => {
   const links = createIndexedDbLinkStore(database)
   const drafts = keepingHistory(createIndexedDbDrafts(database), () => clock().toISOString())
   const follow = createIndexedDbFollow(database)
+  const invitations = createIndexedDbInvitationStore(database)
   const receipts = createIndexedDbReceiptStore(database)
   const handover = createBrowserHandover()
   const archiver = createZipArchiver()
@@ -186,7 +197,7 @@ export const createServices = (): Services => {
       now: () => clock().toISOString(),
       newCommitId: freshUuidV7,
     },
-    invitations: createIndexedDbInvitationStore(database),
+    invitations,
     destinations: createIndexedDbDestinationStore(database),
     relayUrl: RELAY_URL === undefined || RELAY_URL === "" ? undefined : RELAY_URL.replace(/\/+$/, ""),
     packer,
@@ -207,6 +218,7 @@ export const createServices = (): Services => {
         ? undefined
         : createGoogleDriveStore({
             authorizer: createGoogleAuthorizer({ clientId: GOOGLE_CLIENT_ID, scope: DRIVE_SCOPE }),
+            picker: createGooglePicker({ clientId: GOOGLE_CLIENT_ID, apiKey: GOOGLE_API_KEY, title: BACKUP_PICKER_TITLE }),
             request: (url, init) => fetch(url, init),
             answerWithin: DRIVE_ANSWERS_WITHIN,
             folderName: BACKUP_FOLDER,
@@ -236,6 +248,7 @@ export const createServices = (): Services => {
     storageKeeper: createBrowserStorageKeeper(),
     deviceData: createBrowserDeviceData(database),
     deletion: { storage, history, links, receipts, drafts, follow },
+    stopping: { links, history, invitations, follow },
     playIdOn: (fresh, date) => uuidV7On(fresh as string as UuidV7, date) as string as PlayId,
     newSeed: freshSeed,
     catalog: createDeliveredCatalog(

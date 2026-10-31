@@ -20,6 +20,7 @@ import { ViewHeader } from "../shell/ViewHeader"
 import { FailureNote } from "./FailureNote"
 import { JoinByCode } from "./JoinByCode"
 import { MembersPanel } from "./MembersPanel"
+import { StopSync } from "./StopSync"
 
 /** A book as the sharing screen lists it: its cover, and whether it is on its way anywhere yet. */
 interface Listed {
@@ -57,7 +58,7 @@ function OwnBookRow(props: { readonly listed: Listed; readonly onChanged: () => 
       <div class="flex flex-wrap items-center gap-2">
         <span class="min-w-0 flex-1 truncate text-sm text-text-primary">{bookTitle(props.listed.book)}</span>
         <Button size="small" variant="secondary" onClick={() => (inviting() ? setInviting(false) : void open())} aria-busy={working().type === "working"}>
-          {inviting() ? "招待を閉じる" : working().type === "working" ? "準備しています…" : "仲間を招待"}
+          {inviting() ? "閉じる" : working().type === "working" ? "準備しています…" : "招待・外す"}
         </Button>
       </div>
       <Show when={inviting()}>
@@ -204,7 +205,10 @@ export function SharingSettings(props: { readonly place: Place }): JSX.Element {
                         {(each) => (
                           <li class="flex flex-wrap items-center gap-2 rounded-md bg-surface-1 px-3 py-3">
                             <span class="min-w-0 flex-1 truncate text-sm text-text-primary">{bookTitle(each.book)}</span>
-                            <span class="text-xs text-text-muted">{roleIn(each.book, app.services.member) === "editor" ? "編集できます" : "閲覧のみ"}</span>
+                            <span class="text-xs text-text-muted">{each.synced ? (roleIn(each.book, app.services.member) === "editor" ? "編集できます" : "閲覧のみ") : "抜けた写し"}</span>
+                            <Show when={each.synced}>
+                              <StopSync book={each.book} way="let-in" onStopped={changedHere} />
+                            </Show>
                           </li>
                         )}
                       </For>
@@ -216,8 +220,8 @@ export function SharingSettings(props: { readonly place: Place }): JSX.Element {
             <Destinations changed={changed()} onChanged={changedHere} />
             <hr class="border-border" />
             <section class="flex flex-col gap-2">
-              <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">自分の帳簿に招待</h2>
-              <p class="text-sm text-text-muted">相手ごとに招待コードを作って渡してください。渡すのは招待コードだけで、帳簿そのものの鍵は相手に渡りません。</p>
+              <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">自分の帳簿の仲間</h2>
+              <p class="text-sm text-text-muted">相手ごとに招待コードを作って渡してください。渡すのは招待コードだけで、帳簿そのものの鍵は相手に渡りません。招待した人を外すのも、ここからです。</p>
               <Loaded outcome={listed()}>
                 {(books) => (
                   <ul class="flex flex-col gap-1">

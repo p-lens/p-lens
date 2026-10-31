@@ -14,6 +14,7 @@ export const memoryBackupStore = (now: () => string): BackupStore => {
     warm: () => undefined,
     signIn: async () => Ok(undefined),
     list: async () => Ok([...kept.values()].map((held) => held.listed)),
+    choose: async () => Ok([...kept.values()].map((held) => held.listed.id)),
     put: async (archive) => {
       const listed = { id: `file-of-${archive.key}`, key: archive.key, name: archive.name, savedAt: now() }
       kept.set(archive.key, { listed, bytes: archive.bytes })

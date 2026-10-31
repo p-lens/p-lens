@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { backUpToFile, backUpToStore, type BackupPorts, bookStandings, removeStoredBackup, restoreChosenFromStore, restoreFromFile, restoreFromStore, storedBackups } from "../../src/application/backup"
+import { backUpToFile, backUpToStore, type BackupPorts, bookStandings, removeStoredBackup, restoreChosenFromStore, restoreFromFile, restoreFromStore, restorePickedFromStore, storedBackups } from "../../src/application/backup"
 import { createBookSession } from "../../src/application/book-session"
 import type { HandoverFailure } from "../../src/backup/port/handover"
 import { createWebCryptoDigest } from "../../src/backup/web-crypto/web-crypto-digest"
@@ -132,6 +132,20 @@ describe("a book backed up to a store", () => {
     expect(await restoreChosenFromStore(there.ports, store, [idOf(BOOK), idOf(THIRD)])).toEqual({ restored: [idOf(BOOK), idOf(THIRD)], failure: undefined })
     expect([BOOK, OTHER, THIRD].map((id) => there.storage.peek(id) !== undefined)).toEqual([true, false, true])
     expect(await restoreChosenFromStore(there.ports, store, [])).toEqual({ restored: [], failure: undefined })
+  })
+
+  test("is put back as the person chooses it in the store's own window, and nothing is where they close it", async () => {
+    const here = await withBook("here")
+    const store = memoryBackupStore(here.ports.now)
+    await backUpToStore(here.ports, store, BOOK)
+    const there = await device("there")
+    const picked = await restorePickedFromStore(there.ports, store)
+    expect(picked.ok && picked.value.picked).toBe(1)
+    expect(picked.ok && picked.value.restored.failure).toBeUndefined()
+    expect(there.storage.peek(BOOK)).toBeDefined()
+    const closed = await device("closed")
+    expect(await restorePickedFromStore(closed.ports, { ...store, choose: async () => Ok([]) })).toEqual({ ok: true, value: { picked: 0, restored: { restored: [], failure: undefined } } })
+    expect(closed.storage.peek(BOOK)).toBeUndefined()
   })
 
   test("stops at the first chosen that cannot be put back, and keeps those before it", async () => {

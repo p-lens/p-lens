@@ -2,6 +2,7 @@ import { Err, Ok, type Result } from "../../core/result/result"
 import type { ArchiveBytes } from "../port/archiver"
 import type { BackupStore, StoredBackup, StoreFailure } from "../port/backup-store"
 import type { GoogleAuthorizer } from "./google-authorizer"
+import type { GoogleFilePicker } from "./google-picker"
 
 /**
  * All the app asks of a person's Drive: the files it made itself. Their
@@ -26,6 +27,8 @@ const FILE_FIELDS = "id,name,modifiedTime,appProperties"
 
 export interface GoogleDrivePorts {
   readonly authorizer: GoogleAuthorizer
+  /** Google's window for choosing files, which opens a file chosen to the app as well. */
+  readonly picker: GoogleFilePicker
   readonly request: (url: string, init: RequestInit) => Promise<Response>
   /** How long Drive has to answer, in milliseconds. */
   readonly answerWithin: number
@@ -171,6 +174,11 @@ export const createGoogleDriveStore = (ports: GoogleDrivePorts): BackupStore => 
     list: async () => {
       const files = await found(`mimeType=${quoted(ARCHIVE_TYPE)}`)
       return files.ok ? Ok(files.value.flatMap(storedOf)) : files
+    },
+
+    choose: async () => {
+      const token = await ports.authorizer.token()
+      return token.ok ? ports.picker.pick(token.value) : token
     },
 
     put: async (archive) => {

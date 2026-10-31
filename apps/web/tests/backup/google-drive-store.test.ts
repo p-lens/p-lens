@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import type { GoogleAuthorizer } from "../../src/backup/google-drive/google-authorizer"
 import { createGoogleDriveStore } from "../../src/backup/google-drive/google-drive-store"
+import { projectNumberOf, type GoogleFilePicker } from "../../src/backup/google-drive/google-picker"
 import type { StoreFailure } from "../../src/backup/port/backup-store"
 import { Err, Ok } from "../../src/core/result/result"
 
@@ -106,8 +107,20 @@ const authorizerGiving = (token: string | StoreFailure): GoogleAuthorizer & { re
   }
 }
 
-const storeOver = (drive: ReturnType<typeof fakeDrive>, authorizer: GoogleAuthorizer) =>
-  createGoogleDriveStore({ authorizer, request: drive.request, answerWithin: 1000, folderName: "バックアップ", newBoundary: () => "boundary-of-the-test" })
+/** A picker the person chooses the given files in, keeping the tokens it was shown with. */
+const pickerChoosing = (ids: readonly string[]): GoogleFilePicker & { readonly shownWith: () => readonly string[] } => {
+  const held: { tokens: readonly string[] } = { tokens: [] }
+  return {
+    shownWith: () => held.tokens,
+    pick: async (token) => {
+      held.tokens = [...held.tokens, token]
+      return Ok(ids)
+    },
+  }
+}
+
+const storeOver = (drive: ReturnType<typeof fakeDrive>, authorizer: GoogleAuthorizer, picker: GoogleFilePicker = pickerChoosing([])) =>
+  createGoogleDriveStore({ authorizer, picker, request: drive.request, answerWithin: 1000, folderName: "バックアップ", newBoundary: () => "boundary-of-the-test" })
 
 const bytes = (...values: number[]): Uint8Array<ArrayBuffer> => new Uint8Array(values)
 
@@ -167,6 +180,30 @@ describe("backups in Google Drive", () => {
     expect(await store.fetch(put.ok ? put.value.id : "")).toEqual({ ok: true, value: bytes(0, 255, 13, 10, 45, 45) })
   })
 
+  test("has the person choose backups in Google's window, shown with the token they signed in with, and fetches one it never made", async () => {
+    const drive = fakeDrive("token")
+    const made = await drive.request("https://www.googleapis.com/drive/v3/files", { method: "POST", headers: { Authorization: "Bearer token" }, body: JSON.stringify({ name: "上げ直した.zip", mimeType: "application/zip" }) })
+    const id = ((await made.json()) as { readonly id: string }).id
+    const picker = pickerChoosing([id])
+    const store = storeOver(drive, authorizerGiving("token"), picker)
+    expect(await store.list()).toEqual({ ok: true, value: [] })
+    expect(await store.choose()).toEqual({ ok: true, value: [id] })
+    expect(picker.shownWith()).toEqual(["token"])
+    expect((await store.fetch(id)).ok).toBe(true)
+  })
+
+  test("shows no window to choose in where the person does not sign in", async () => {
+    const picker = pickerChoosing(["file-1"])
+    const store = storeOver(fakeDrive("token"), authorizerGiving({ type: "sign-in-declined", reason: "popup_closed" }), picker)
+    expect(await store.choose()).toEqual({ ok: false, error: { type: "sign-in-declined", reason: "popup_closed" } })
+    expect(picker.shownWith()).toEqual([])
+  })
+
+  test("opens the files chosen to the Cloud project an OAuth client id is headed with", () => {
+    expect(projectNumberOf("123456789012-abcdefg.apps.googleusercontent.com")).toBe("123456789012")
+    expect(projectNumberOf("not-a-client")).toBeUndefined()
+  })
+
   test("asks nothing of Drive when the person does not sign in", async () => {
     const drive = fakeDrive("token")
     const store = storeOver(drive, authorizerGiving({ type: "sign-in-declined", reason: "popup_closed" }))
@@ -189,6 +226,7 @@ describe("backups in Google Drive", () => {
   test("says Drive could not be reached when the request fails", async () => {
     const store = createGoogleDriveStore({
       authorizer: authorizerGiving("token"),
+      picker: pickerChoosing([]),
       request: async () => {
         throw new TypeError("Failed to fetch")
       },
@@ -200,7 +238,7 @@ describe("backups in Google Drive", () => {
   })
 
   const answering = (response: () => Response) =>
-    createGoogleDriveStore({ authorizer: authorizerGiving("token"), request: async () => response(), answerWithin: 1000, folderName: "バックアップ", newBoundary: () => "boundary-of-the-test" })
+    createGoogleDriveStore({ authorizer: authorizerGiving("token"), picker: pickerChoosing([]), request: async () => response(), answerWithin: 1000, folderName: "バックアップ", newBoundary: () => "boundary-of-the-test" })
 
   test("takes a gateway's or a hall's login page answering in Drive's place as no connection, and Drive's own failing as for now", async () => {
     expect(await answering(() => new Response("<html>login</html>", { status: 511 })).list()).toEqual({ ok: false, error: { type: "unreachable", detail: "answered 511" } })

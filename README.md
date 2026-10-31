@@ -119,7 +119,10 @@ To try backing up to Google Drive, make an OAuth 2.0 client in Google Cloud
 JavaScript origins), enable the Google Drive API in the same project, and add
 `VITE_GOOGLE_CLIENT_ID=<the client id>` to `.env.local`. The app asks only for
 the `drive.file` scope: the files it made itself. Without it, a book is still
-backed up to a file.
+backed up to a file. To put back a backup the app did not make (one uploaded
+to Drive by hand), enable the Google Picker API in the same project, make a
+browser API key restricted to your origin and `https://docs.google.com/*`, and
+add `VITE_GOOGLE_API_KEY=<the key>`.
 
 ## Hosting your own
 
@@ -249,6 +252,7 @@ values, and build.
 | `VITE_TURNSTILE_SITE_KEY` | the Turnstile site key |
 | `VITE_RELAY_URL` | the address of the sync relay of step 2, with no slash at its end; empty if there is none, and then no book is synced or joined |
 | `VITE_GOOGLE_CLIENT_ID` | the OAuth client id for backing up to Google Drive; empty if there is none (a book can still be backed up to a file) |
+| `VITE_GOOGLE_API_KEY` | the browser API key the Google Picker is shown with, for putting back a backup uploaded to Drive by hand |
 
 ```sh
 bun run build    # put apps/web/dist on static hosting (Cloudflare Pages and the like)

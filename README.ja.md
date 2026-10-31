@@ -108,7 +108,10 @@ Google ドライブへのバックアップを試すなら、Google Cloud で OA
 `http://localhost:8136`）を作り、同じプロジェクトで Google Drive API を有効にして、
 `.env.local` に `VITE_GOOGLE_CLIENT_ID=<クライアント ID>` を足します。アプリが求めるのは
 `drive.file` スコープだけで、アプリ自身が作ったファイルしか見えません。なくても、
-帳簿はファイルに書き出してバックアップできます。
+帳簿はファイルに書き出してバックアップできます。アプリが作っていないバックアップ
+（手でドライブに上げ直したもの）を戻せるようにするには、同じプロジェクトで
+Google Picker API を有効にし、自分の生成元と `https://docs.google.com/*` に制限した
+ブラウザ用 API キーを作って、`VITE_GOOGLE_API_KEY=<キー>` を足します。
 
 ## 自分で立てる
 
@@ -212,6 +215,7 @@ bun run deploy
 | `VITE_TURNSTILE_SITE_KEY` | Turnstile のサイトキー |
 | `VITE_RELAY_URL` | 2 の中継サーバのアドレス。末尾に `/` は付けません。なければ空（その場合、同期を始めることも、同期コードで参加することもできません） |
 | `VITE_GOOGLE_CLIENT_ID` | Google ドライブへのバックアップに使う OAuth クライアント ID。なければ空（ファイルへの書き出しだけできます） |
+| `VITE_GOOGLE_API_KEY` | Google Picker を開くためのブラウザ用 API キー。手でドライブに上げ直したバックアップを戻すときに使います |
 
 ```sh
 bun run build    # apps/web/dist を静的ホスティング（Cloudflare Pages など）に置く

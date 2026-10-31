@@ -2064,13 +2064,49 @@ relay that can read none of them.
   and puts the book they leave on the device.
 - A round runs when the app opens, a little after each write, when the
   device comes back online, and when asked (設定 → 端末の同期).
+- **Stopping on one device** (`stopSync`; 同期をやめる at 端末の同期, 抜ける
+  for a book one was let into at 共有): the device lets go of the book's
+  link and nothing is asked of the relay. The book stays as it stands,
+  written to here alone; the line goes on for the owner's other devices
+  and the people let in, its grants with it. What the device remembered of
+  the line goes too — the people it let in, its copies of the plays the
+  other devices play — and none of the book's commits counts as on a line,
+  so syncing it again begins a line of its own from the whole of them, or
+  meets the old one again by its code (below). A device holds the line's
+  secret, the same on each of the owner's devices, so no device can be
+  shut out from another but by a new secret; an invited person is shut out
+  by their grant (外す).
+- **Making a line anew** (`renewSync`; 同期コードを作り直す at 端末の同期):
+  to leave behind a device lost or let go of. What this device wrote goes
+  on the old line first, so a round that cannot be made changes nothing;
+  then the book's whole history goes on a line under a new secret, and
+  everyone this device let in is let in again on it, by the same name and
+  role, with a new code to be sent. The old line is left for the relay to
+  let go of once nobody uses it; the device left behind goes on along it
+  alone, holding no key to the new one.
+- **Joining a book already here** by its own code moves it onto that line
+  (`movedOnto`) rather than refusing: none of its commits counted as on a
+  line, the next round takes in what the line has — a commit it already
+  holds being the line's — and puts on it what was written here. That is
+  how the owner's other devices follow a line made anew, and how a device
+  that stopped syncing comes back. Only a book whose history makes it from
+  nothing is moved; one put back or brought in here, and any book joined by
+  an invitation, is removed and joined afresh.
 - **A commit is small.** A change keeps what it did to each file as a patch
   (`core/change/patch`): the lines it took away and the lines it put in,
   where — never the file whole, twice. A play recorded is its entry and its
   log, a kilobyte or so however long the journal has grown, kept that way in
   history and sent that way. A patch is made, and taken back, only on the
-  text it was written against. The one large commit is a book's first, which
-  holds all it had; the relay takes a commit up to 2 MB.
+  text it was written against. The large commits are a book's first, which
+  holds all it had — a book put back, or older than its history — and the
+  odd one that does much at once, a long import or a file edited at
+  length. The relay takes a commit up to 2 MB sealed and a body up to
+  4 MB, so before a round sends, any unsent commit larger than 750 kB
+  written out is cut into commits made one after another
+  (`fittedChanges`, `core/sync/fitting`): its files' patches in parts,
+  a long stretch a run of lines at a time, each saying what the whole
+  said; and a round puts on the line as many commits at once as a body
+  holds.
 - **What one address may ask** of the relay is held to a limit a minute
   (`apps/relay/src/limits`, Workers rate-limiting bindings as the API's
   are): readings, sendings, and sendings with a body over 32 kB, which only
@@ -2335,7 +2371,7 @@ relay only keeps for less long.
 ## Letting others into a book
 
 A book's owner lets other people into it, each by a code of their own
-(設定 → 共有 → 仲間を招待; `core/sync/invitation`, `application/invitations`).
+(設定 → 共有 → 招待・外す; `core/sync/invitation`, `application/invitations`).
 There is no account over the books: whoever holds a line's secret is its
 owner, and lets others in from there.
 
@@ -2731,8 +2767,15 @@ chooses. Nothing is ever sent on its own.
   the file and then refused it, as an Android browser refuses a zip. That
   is how a backup reaches iCloud Drive — no web app can write there itself
   — and where it went is never learned.
+  A backup the app did not make — one taken down to a device and put back
+  into Drive by hand — is never listed to it under that scope. The person
+  chooses such a file in the Google Picker (`choose`), which opens a file
+  chosen to the app as well, the Cloud project's number taken from the
+  head of the OAuth client id; its script, like the sign-in's, is loaded
+  the first time it is asked for.
   `VITE_GOOGLE_CLIENT_ID` names the deployment's OAuth client; a build
-  without it backs up to a file only.
+  without it backs up to a file only. `VITE_GOOGLE_API_KEY` names the
+  browser key the Picker is shown with.
 - **A receipt** (`core/backup/standing`) is what a backup leaves on the
   device, one a book: where it went, when, and the fingerprint — SHA-256 of
   the files by path — of what it held. A book **stands** against its last
@@ -2745,7 +2788,7 @@ chooses. Nothing is ever sent on its own.
   a word in the corner and a way to the backup screen, never a dialog, and
   nothing is sent because it showed. A narrow window's corner has no room
   for the words, so there it is the backup's mark alone, named by them.
-- **Putting a book back** (`restoreFromStore`, `restoreFromFile`): only a
+- **Putting a book back** (`restoreFromStore`, `restorePickedFromStore`, `restoreFromFile`): only a
   book the device does not have. The archive is unpacked, its manifest read,
   and the book offered to hledger (`BookSession.adoptBook`); it is kept only
   if hledger reads it, with its files and no history, owned here by whoever

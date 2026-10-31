@@ -10,7 +10,7 @@ import { unreadableFilesOf, type UnreadableFile } from "../core/book/unreadable-
 import type { IsoDate } from "../core/calendar/calendar"
 import { BOOK_FILES, type BookFiles } from "../core/journal/layout"
 import { titleOfMain } from "../core/journal/title"
-import { Err, type Result, collect, mapErr, mapOk } from "../core/result/result"
+import { Err, Ok, type Result, collect, mapErr, mapOk } from "../core/result/result"
 import type { BookStorage } from "../storage/port/book-storage"
 import type { BookSession } from "./book-session"
 import type { ApplicationError, BackupProblem, Outcome } from "./errors"
@@ -206,6 +206,22 @@ export const restoreChosenFromStore = async (ports: BackupPorts, store: BackupSt
     const one = await restoreFromStore(ports, store, id)
     return one.ok ? { restored: [...so.restored, id], failure: undefined } : { restored: so.restored, failure: one.error }
   }, Promise.resolve({ restored: [], failure: undefined }))
+
+/** How putting back the backups a person chose in a store's own window went: how many they chose — none where they closed it — and how putting those back went. */
+export interface RestoredPicked {
+  readonly picked: number
+  readonly restored: RestoredChosen
+}
+
+/**
+ * Put back the backups a person chooses in the store's own window: among
+ * them those it does not list, as a backup put back into the store by
+ * hand, which the store never made.
+ */
+export const restorePickedFromStore = async (ports: BackupPorts, store: BackupStore): Promise<Outcome<RestoredPicked>> => {
+  const picked = fromBackup(await store.choose())
+  return picked.ok ? Ok({ picked: picked.value.length, restored: await restoreChosenFromStore(ports, store, picked.value) }) : picked
+}
 
 /** Put a book back from a backup file the person chose. */
 export const restoreFromFile = (ports: BackupPorts, bytes: ArchiveBytes): Promise<Outcome<BookId>> => restored(ports, bytes, "file")

@@ -1,7 +1,7 @@
 import { createSignal, Show, type JSX } from "solid-js"
 
 import type { ApplicationError } from "../../../application/errors"
-import { joinByCode, kindOfCode } from "../../../application/sync"
+import { joinByCode, kindOfCode, type Joined } from "../../../application/sync"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import { createNudge } from "../../primitives/nudge"
@@ -18,6 +18,18 @@ const WORDS = {
   own: { label: "同期コード", placeholder: "もう一台の端末でコピーした同期コード", misplaced: "これは招待コードです。「設定 → 共有」の「招待コードを入れる」に貼ってください。" },
   invitation: { label: "招待コード", placeholder: "仲間からもらった招待コード", misplaced: "これは同期コードです。自分の端末どうしの同期は「設定 → 端末の同期」に貼ってください。" },
 } as const
+
+/** What is said once a code has done its work. */
+const joinedToast = (joined: Joined): { readonly title: string; readonly description: string } => {
+  switch (joined.type) {
+    case "book":
+      return { title: "帳簿を追加しました", description: "この端末でも同じ帳簿を使えます。" }
+    case "moved":
+      return { title: "帳簿をつなぎ直しました", description: "この端末の帳簿は、この同期コードで同期を続けます。この端末で書いたことも合わせて送ります。" }
+    case "destination":
+      return { title: "送り先を追加しました", description: `左の列か「本日の稼働」から「${titleText(joined.title)}」に送れます。` }
+  }
+}
 
 /**
  * A code typed in to put a book on this device, in one of two places that
@@ -46,11 +58,7 @@ export function JoinByCode(props: { readonly takes: "own" | "invitation"; readon
     setWorking(joined.ok ? { type: "idle" } : { type: "failed", error: joined.error })
     if (!joined.ok) return
     setCode("")
-    toast(
-      joined.value.type === "book"
-        ? { title: "帳簿を追加しました", description: "この端末でも同じ帳簿を使えます。" }
-        : { title: "送り先を追加しました", description: `左の列か「本日の稼働」から「${titleText(joined.value.title)}」に送れます。` },
-    )
+    toast(joinedToast(joined.value))
     props.onJoined()
   }
   return (

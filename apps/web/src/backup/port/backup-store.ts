@@ -51,6 +51,13 @@ export interface BackupStore {
    */
   readonly signIn: () => Promise<Result<void, StoreFailure>>
   readonly list: () => Promise<Result<readonly StoredBackup[], StoreFailure>>
+  /**
+   * Have the person choose backups in the store themselves, the store's id
+   * for each: those it lists, and those it does not — a backup put back
+   * into the store by hand, which it never made. None where they chose
+   * nothing.
+   */
+  readonly choose: () => Promise<Result<readonly string[], StoreFailure>>
   readonly put: (archive: { readonly key: string; readonly name: string; readonly bytes: ArchiveBytes }) => Promise<Result<StoredBackup, StoreFailure>>
   readonly fetch: (id: string) => Promise<Result<ArchiveBytes, StoreFailure>>
   /** Take a backup out of the store, by the store's id for it. Where the store has somewhere things taken out are kept a while, it goes there. */

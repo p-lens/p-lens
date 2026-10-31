@@ -18,6 +18,8 @@ import { ViewHeader } from "../shell/ViewHeader"
 import { ConflictPanel } from "./ConflictPanel"
 import { FailureNote } from "./FailureNote"
 import { JoinByCode } from "./JoinByCode"
+import { RenewSync } from "./RenewSync"
+import { StopSync } from "./StopSync"
 import { SyncFailureNote } from "./SyncFailureNote"
 
 /** A book of one's own as the screen lists it: its cover, and whether this device syncs it. */
@@ -54,7 +56,7 @@ function BookRow(props: { readonly listed: Listed; readonly onChanged: () => voi
   }
   return (
     <li class="flex flex-col gap-2 rounded-md bg-surface-1 px-3 py-3">
-      <div class="flex flex-wrap items-center gap-2">
+      <div class="flex flex-wrap items-center justify-end gap-2">
         <span class="min-w-0 flex-1 truncate text-sm text-text-primary">{bookTitle(props.listed.book)}</span>
         <Show
           when={props.listed.synced}
@@ -68,6 +70,8 @@ function BookRow(props: { readonly listed: Listed; readonly onChanged: () => voi
           <Button size="small" variant="secondary" onClick={() => void copyCode()}>
             同期コードをコピー
           </Button>
+          <RenewSync book={props.listed.book} onRenewed={props.onChanged} />
+          <StopSync book={props.listed.book} way="own" onStopped={props.onChanged} />
         </Show>
       </div>
       <Show when={working()} keyed>

@@ -57,7 +57,7 @@ export const describeSyncProblem = (problem: SyncProblem): string => {
     case "no-relay":
       return "このアプリには中継サーバが設定されていません。"
     case "book-here":
-      return "この帳簿はすでにこの端末にあります。"
+      return "この帳簿はすでにこの端末にあります。新しい招待コードで入り直すときは、「帳簿の管理」でこの端末の帳簿を削除してから入れてください。"
     case "not-a-huddle-code":
       return "ノリ打ちのQRコードとして読めません。仲間の画面のQRコードを読み取ってください。"
     case "stalled":
@@ -185,3 +185,48 @@ export const invitationMessage = (app: string, title: string, role: InvitedRole,
 
 /** What the screen syncing one's own devices says first: what goes between them — the books, and the plays that go to them, played on one device at a time — and that what goes is sealed, and the code is a key. */
 export const SYNC_INTRO = "同じ帳簿を同期している端末どうしで、帳簿と、その帳簿あての稼働を揃えます。稼働を記録できるのは一台ずつで、ほかの端末では見るだけです。変更は端末の中で暗号化してから送るので、中継サーバは中身を読めません。同期コードは鍵そのものです。人には渡さないでください。"
+
+/** Which stop a book's syncing comes to on this device: one's own book, its other devices going on; or a book one was let into, left. */
+export type StopSyncWay = "own" | "let-in"
+
+/** The words of stopping a book's syncing here: the button, the question asked before, and what it is told will happen. */
+export const stopSyncWording = (way: StopSyncWay, title: string): { readonly button: string; readonly question: string; readonly body: readonly string[] } => {
+  switch (way) {
+    case "own":
+      return {
+        button: "同期をやめる",
+        question: "この端末で同期をやめますか？",
+        body: [
+          `この端末の「${title}」は、今のまま残ります。ほかの端末の同期は続きますが、この端末とはつながらなくなります。`,
+          "この端末で招待した仲間の一覧は、この端末から消えます。仲間はそのまま帳簿を見られます。",
+          "もう一度つなぐときは、ほかの端末の同期コードを「もう一台の端末の帳簿を追加」に入れてください。この端末で書いたことも合わせて同期します。",
+        ],
+      }
+    case "let-in":
+      return {
+        button: "抜ける",
+        question: `「${title}」から抜けますか？`,
+        body: [
+          "この端末の帳簿は、今のままの写しとして残ります。このあとの変更は届かず、この端末で書いたことも相手に届きません。",
+          "写しが要らなければ、「帳簿の管理」で削除できます。もう一度入るときは、写しを削除してから、招待コードで入り直してください。",
+        ],
+      }
+  }
+}
+
+/** What is said once a book's syncing has stopped here. */
+export const stoppedSyncText = (way: StopSyncWay): string => (way === "own" ? "この端末で同期をやめました" : "帳簿から抜けました")
+
+/** The words of making a book's line anew: the button, the question asked before, and what it is told will happen. */
+export const renewSyncWording = (title: string): { readonly button: string; readonly question: string; readonly body: readonly string[] } => ({
+  button: "同期コードを作り直す",
+  question: "同期コードを作り直しますか？",
+  body: [
+    `「${title}」を新しい同期コードで同期し直します。今の同期コードを持つ端末には、このあとの変更が届かなくなります。なくした端末や手放した端末を切り離すときに使ってください。`,
+    "自分のほかの端末は、新しい同期コードを「もう一台の端末の帳簿を追加」に入れると、帳簿をそのままつなぎ直せます。",
+    "この端末で招待した仲間には、招待コードを作り直します。「設定 → 共有」からコピーして、もう一度渡してください。",
+  ],
+})
+
+/** What is said once a book's line was made anew. */
+export const RENEWED_SYNC = { title: "同期コードを作り直しました", description: "新しい同期コードを、自分のほかの端末の「もう一台の端末の帳簿を追加」に入れてください。" } as const

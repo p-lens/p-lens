@@ -3,6 +3,7 @@ import type { MemberId } from "../core/book/book"
 import type { Documents } from "../core/document/document"
 import type { StoredBook } from "../storage/port/book-storage"
 import type { DeletionPorts } from "./delete-book"
+import type { StopSyncPorts } from "./stop-sync"
 import type { IsoDate } from "../core/calendar/calendar"
 import type { PlayId } from "../core/play/play"
 import type { HistoryPort } from "../history/port/history-port"
@@ -127,6 +128,8 @@ export interface Services {
   readonly deviceData: DeviceData
   /** Everywhere this device keeps something of a book, for taking one off it. */
   readonly deletion: DeletionPorts
+  /** Everything this device keeps of a book's syncing, for stopping it here. */
+  readonly stopping: StopSyncPorts
   /**
    * A fresh play id as the id of a play on a day already past: the same id,
    * placed in that day, so a play added by hand afterwards still sorts by

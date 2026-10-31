@@ -6,6 +6,7 @@ import { patchBetween } from "../core/change/patch"
 import type { BookFiles } from "../core/journal/layout"
 import { Err, Ok, type Result, collect, mapErr, mapOk } from "../core/result/result"
 import { changeOfText, changeText } from "../core/sync/codec"
+import { fittedChanges } from "../core/sync/fitting"
 import { contestedIn, mergeOutline, type MergePart, settledText, type Side } from "../core/sync/merge"
 import { readInvitation } from "../core/sync/invitation"
 import { pairingCode, readPairingCode, roleBy } from "../core/sync/pairing"
@@ -159,6 +160,49 @@ export interface Synced {
 /** How many times a device catches up with a line that moved under it before it gives the round up. */
 const ROUNDS = 5
 
+/**
+ * How many bytes a commit comes to written out at most, as a device puts
+ * it on a line. A commit is sent sealed whole, a third again larger than
+ * its text, and a box may be 2,000,000 characters long
+ * (`RELAY_LIMITS.boxLength`): this keeps one at about half of that, so a
+ * body of the most a relay takes at once (`RELAY_LIMITS.bodyBytes`)
+ * carries three.
+ */
+const COMMIT_BYTES = 750_000
+
+/** What a body puts around the commits it carries: where the line is to end before them, and the names around the list. */
+const BODY_ROOM = 64
+
+/** What a body puts around each commit beside its id and box: the names of its fields, and the marks between them. */
+const ENTRY_ROOM = 32
+
+/** How many of the sealed commits, from the first, go in one append: at least one, however large, and then as many as a relay takes in one body. */
+const batchSize = (boxes: readonly SealedCommitDto[]): number => {
+  const totals = boxes.map((box) => box.box.length + box.commitId.length + ENTRY_ROOM).reduce<readonly number[]>((so, size) => [...so, (so.at(-1) ?? BODY_ROOM) + size], [])
+  return Math.max(1, totals.filter((total) => total <= RELAY_LIMITS.bodyBytes).length)
+}
+
+/** A commit as commits a line takes, made one after another: itself where it fits, its id kept by the first of them. */
+const fittedCommits = (ports: SyncPorts, commit: Commit): readonly Commit[] =>
+  fittedChanges(commit.change, COMMIT_BYTES).map((change, index) => ({ id: index === 0 ? commit.id : (ports.newCommitId() as CommitId), change }))
+
+/**
+ * A book's unsent commits as a line takes them: each too large for a box
+ * — a book put back or made whole, a long import, a file edited at length
+ * — cut into commits made one after another, in its place among the rest.
+ * It is done in the book's turn, so that nothing written meanwhile is lost
+ * when the history is made again.
+ */
+const fitted = async (ports: SyncPorts, bookId: BookId, unsent: readonly Commit[]): Promise<Outcome<readonly Commit[]>> => {
+  if (unsent.every((commit) => fittedChanges(commit.change, COMMIT_BYTES).length === 1)) return Ok(unsent)
+  return ports.session.read(bookId, async () => {
+    const now = fromHistory(await ports.history.unsent(bookId))
+    if (!now.ok) return now
+    const fitting = now.value.flatMap((commit) => fittedCommits(ports, commit))
+    return mapOk(fromHistory(await ports.history.reconcile(bookId, [], fitting)), () => fitting)
+  })
+}
+
 const round = async (ports: SyncPorts, line: Line, bookId: BookId, so: Synced, left: number): Promise<Outcome<Synced>> => {
   const link = fromLinks(await ports.links.read(bookId))
   if (!link.ok) return link
@@ -175,13 +219,15 @@ const round = async (ports: SyncPorts, line: Line, bookId: BookId, so: Synced, l
   if (!folded.ok) return folded
   const counted = { received: so.received + taken.value.commits.length, sent: so.sent }
   if (role === "viewer") return Ok(counted)
-  const unsent = fromHistory(await ports.history.unsent(bookId))
+  const kept = fromHistory(await ports.history.unsent(bookId))
+  if (!kept.ok) return kept
+  if (kept.value.length === 0) return Ok(counted)
+  const unsent = await fitted(ports, bookId, kept.value)
   if (!unsent.ok) return unsent
-  if (unsent.value.length === 0) return Ok(counted)
-  const sending = unsent.value.slice(0, RELAY_LIMITS.entriesPerAppend)
-  const boxes = collect(await Promise.all(sending.map((commit) => sealed(ports.sealer, line.keys, commit))))
+  const boxes = collect(await Promise.all(unsent.value.slice(0, RELAY_LIMITS.entriesPerAppend).map((commit) => sealed(ports.sealer, line.keys, commit))))
   if (!boxes.ok) return boxes
-  const appended = await ports.relay.append(line.access, taken.value.head, boxes.value)
+  const sending = unsent.value.slice(0, batchSize(boxes.value))
+  const appended = await ports.relay.append(line.access, taken.value.head, boxes.value.slice(0, sending.length))
   if (!appended.ok) {
     if (appended.error.type !== "behind") return problem(appended.error)
     return left > 0 ? round(ports, line, bookId, counted, left - 1) : problem({ type: "unsettled" })
@@ -262,12 +308,39 @@ export const startSync = async (ports: SyncPorts, bookId: BookId, relayUrl: stri
 }
 
 /**
+ * Move a book of one's own already on this device onto a line by its
+ * secret, as one moves onto a line made again: none of its commits counted
+ * as on a line, so the next round takes in what the line has — a commit it
+ * already holds being the line's — and puts on it what was written here
+ * and is not there. Only a book whose history makes it from nothing can be
+ * met so; one put back or brought in here, older than its history, is
+ * removed and joined afresh. A book already along that line is here.
+ */
+const movedOnto = (ports: SyncPorts, bookId: BookId, relayUrl: string, secret: string): Promise<Outcome<BookId>> =>
+  ports.session.read(bookId, async (_journal, stored) => {
+    const link = fromLinks(await ports.links.read(bookId))
+    if (!link.ok) return link
+    if (link.value?.secret === secret) return problem({ type: "book-here", bookId })
+    const log = fromHistory(await ports.history.log(bookId))
+    if (!log.ok) return log
+    const before = lineFilesOf(stored.files, log.value.toReversed())
+    if (!before.ok || Object.keys(before.value).length > 0) return problem({ type: "book-here", bookId })
+    const unsent = fromHistory(await ports.history.unsend(bookId))
+    if (!unsent.ok) return unsent
+    return mapOk(fromLinks(await ports.links.write({ bookId, relayUrl, secret, cursor: 0 })), () => bookId)
+  })
+
+/**
  * Join a book from its pairing code, on the relay this build names — the
  * code is the line's secret and names none: its line read whole, its
  * commits made in order from nothing, and the book they leave put on this device, synced
  * from then on. By the line's secret the book is this person's own on one
  * more of their devices; by an invitation it is someone else's, and the
  * person is to it what the invitation says, an editor or a viewer.
+ *
+ * A book of one's own already here, joined by its secret, is moved onto
+ * that line instead (`movedOnto`): the line its owner made anew, or the
+ * one this device stopped syncing along.
  */
 export const joinSync = async (ports: SyncPorts, code: string, relayUrl: string | undefined): Promise<Outcome<BookId>> => {
   const secret = fromSync(readPairingCode(code))
@@ -283,7 +356,7 @@ export const joinSync = async (ports: SyncPorts, code: string, relayUrl: string 
   if (bookId === undefined) return problem({ type: "nothing-to-join" })
   const books = await ports.session.books()
   if (!books.ok) return books
-  if (books.value.some((book) => book.id === bookId)) return problem({ type: "book-here", bookId })
+  if (books.value.some((book) => book.id === bookId)) return role === "owner" ? movedOnto(ports, bookId, relayUrl, secret.value) : problem({ type: "book-here", bookId })
   const files = fromSync(received({}, taken.value.commits))
   if (!files.ok) return files
   const adopted = await ports.session.adoptBook({ book: { id: bookId, members: [{ ...ports.me, role }] }, files: files.value })
@@ -301,18 +374,27 @@ export const joinSync = async (ports: SyncPorts, code: string, relayUrl: string 
  */
 export const kindOfCode = (code: string): "own" | "invitation" => (readInvitation(code) === undefined ? "own" : "invitation")
 
-/** What a code put on a device: a book, joined; or somewhere to send plays to, by what its book is called. */
-export type Joined = { readonly type: "book"; readonly bookId: BookId } | { readonly type: "destination"; readonly title: string }
+/** What a code put on a device: a book, joined; a book already here, moved onto the code's line; or somewhere to send plays to, by what its book is called. */
+export type Joined = { readonly type: "book"; readonly bookId: BookId } | { readonly type: "moved"; readonly bookId: BookId } | { readonly type: "destination"; readonly title: string }
+
+/** A book joined by a code, told apart from one already here and moved onto the code's line. */
+const joinedBook = async (ports: SyncPorts, code: string, relayUrl: string | undefined): Promise<Outcome<Joined>> => {
+  const books = await ports.session.books()
+  if (!books.ok) return books
+  const here = books.value.map((book) => book.id)
+  return mapOk(await joinSync(ports, code, relayUrl), (bookId): Joined => (here.includes(bookId) ? { type: "moved", bookId } : { type: "book", bookId }))
+}
 
 /**
  * Take in whatever a code is: the secret of one's own book or an
- * invitation into someone else's joins that book, as `joinSync` does; an
- * invitation to send is kept as a destination, and puts no book on the
- * device — a sender is shown none.
+ * invitation into someone else's joins that book, or moves one's own
+ * already here onto its line, as `joinSync` does; an invitation to send is
+ * kept as a destination, and puts no book on the device — a sender is
+ * shown none.
  */
 export const joinByCode = async (ports: SyncPorts & { readonly destinations: DestinationStore }, code: string, relayUrl: string | undefined): Promise<Outcome<Joined>> => {
   const invitation = readInvitation(code)
-  if (invitation?.role !== "sender") return mapOk(await joinSync(ports, code, relayUrl), (bookId): Joined => ({ type: "book", bookId }))
+  if (invitation?.role !== "sender") return joinedBook(ports, code, relayUrl)
   if (relayUrl === undefined) return problem({ type: "no-relay" })
   const title = invitation.title ?? ""
   const kept = await ports.destinations.write({ lineId: invitation.lineId, relayUrl, code: code.trim(), title, joinedAt: ports.now() })

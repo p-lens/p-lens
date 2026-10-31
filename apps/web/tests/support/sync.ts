@@ -1,4 +1,4 @@
-import type { LineEntryDto, LineKeep } from "@p-lens/contracts/relay"
+import { RELAY_LIMITS, type LineEntryDto, type LineKeep } from "@p-lens/contracts/relay"
 
 import type { BookId } from "../../src/core/book/book"
 import { Err, Ok } from "../../src/core/result/result"
@@ -8,7 +8,7 @@ import type { Relay } from "../../src/sync/port/relay"
 
 type Granted = { readonly id: string; readonly token: string; readonly role: "editor" | "viewer" | "sender"; readonly createdAt: string }
 
-/** A relay held in memory, with the real one's refusals — a line's owner, those it let in, and what each may do — and a way to see what it was given, and how long each append said to keep its line. */
+/** A relay held in memory, with the real one's refusals — a line's owner, those it let in, what each may do, and how much it takes at once — and a way to see what it was given, and how long each append said to keep its line. */
 export const memoryRelay = (): Relay & { readonly kept: () => readonly LineEntryDto[]; readonly keeps: () => readonly { readonly after: number; readonly keep: LineKeep | undefined }[]; readonly letGo: () => void } => {
   const lines = new Map<string, { readonly token: string; readonly begunAt: string; readonly entries: readonly LineEntryDto[]; readonly grants: readonly Granted[] }>()
   const held: { begun: number; keeps: readonly { readonly after: number; readonly keep: LineKeep | undefined }[] } = { begun: 0, keeps: [] }
@@ -31,6 +31,8 @@ export const memoryRelay = (): Relay & { readonly kept: () => readonly LineEntry
       return Ok({ head: line.entries.length, begunAt: line.begunAt, entries: line.entries.filter((entry) => entry.seq > after).slice(0, 2) })
     },
     append: async (access, after, entries, keep) => {
+      if (entries.length > RELAY_LIMITS.entriesPerAppend || entries.some((entry) => entry.box.length > RELAY_LIMITS.boxLength)) return Err({ type: "too-large" })
+      if (JSON.stringify({ after, entries, keep }).length > RELAY_LIMITS.bodyBytes) return Err({ type: "too-large" })
       held.keeps = [...held.keeps, { after, keep }]
       const line = lines.get(access.lineId) ?? begin(access.token)
       const role = roleOf(line, access.token)

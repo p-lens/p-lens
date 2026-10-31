@@ -1,7 +1,7 @@
 import { createResource, createSignal, For, Match, onMount, Show, Switch, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
-import { backUpToFile, backUpToStore, bookStandings, type BookStanding, type ListedBackup, removeStoredBackup, restoreChosenFromStore, restoreFromFile, storedBackups } from "../../../application/backup"
+import { backUpToFile, backUpToStore, bookStandings, type BookStanding, type ListedBackup, removeStoredBackup, restoreChosenFromStore, restoreFromFile, restorePickedFromStore, storedBackups } from "../../../application/backup"
 import type { ApplicationError, Outcome } from "../../../application/errors"
 import type { BackupStore, StoredBackup } from "../../../backup/port/backup-store"
 import type { Receipt } from "../../../core/backup/standing"
@@ -170,6 +170,22 @@ function Restore(props: { readonly store: BackupStore | undefined }): JSX.Elemen
     app.backups.made()
     void list(asked.store)
   }
+  /** Puts back what the person chooses in the store's own window, as what is ticked is put back; closing the window does nothing. The list, where it was read, is read again. */
+  const restorePicked = async (store: BackupStore): Promise<void> => {
+    if (working().type === "working") return
+    setWorking({ type: "working" })
+    const picked = await restorePickedFromStore(app.services.backup, store)
+    if (!picked.ok) {
+      setWorking({ type: "failed", error: picked.error })
+      return
+    }
+    const { restored } = picked.value
+    setWorking(restored.failure === undefined ? { type: "idle" } : { type: "failed", error: restored.failure })
+    if (picked.value.picked === 0) return
+    if (restored.restored.length > 0 || restored.failure === undefined) toast({ title: restoredChosenText(restored.restored.length, picked.value.picked) })
+    app.wrote()
+    if (listing().type === "answered") void list(store)
+  }
   const picked = (input: HTMLInputElement): void => {
     const file = input.files?.[0]
     input.value = ""
@@ -182,6 +198,13 @@ function Restore(props: { readonly store: BackupStore | undefined }): JSX.Elemen
           {(store) => (
             <Button variant="secondary" onClick={() => void list(store)}>
               {destinationName(store.destination)}のバックアップを見る
+            </Button>
+          )}
+        </Show>
+        <Show when={props.store} keyed>
+          {(store) => (
+            <Button variant="secondary" onClick={() => void restorePicked(store)}>
+              {destinationName(store.destination)}から選んで復元
             </Button>
           )}
         </Show>
