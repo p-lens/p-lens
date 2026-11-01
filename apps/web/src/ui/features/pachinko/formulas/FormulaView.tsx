@@ -9,7 +9,7 @@ import { bookNameOf } from "../../../../core/catalog/catalog"
 import { usesWeighTheirMost, type Mark } from "../../../../core/formula/standing"
 import { bonusShapes } from "../../../../core/pachinko/bonuses"
 import { borderOf } from "../../../../core/pachinko/theoretical-value"
-import { basisOf, type Formula, type Basis, type Sampling } from "../../../../core/pachinko/formula"
+import { assumedSettingLevelOf, basisOf, type Formula, type Basis, type Sampling } from "../../../../core/pachinko/formula"
 import { useApp } from "../../../context"
 import { Button, NerdproLink } from "../../../primitives/button"
 import { BoltIcon, HandIcon, HandOffIcon, HeartIcon, ShieldIcon, ShieldOffIcon } from "../../../primitives/icons"
@@ -20,7 +20,7 @@ import { formulaIdText, MARKS_UNSENT } from "../../../wording/catalog"
 import { useUnsentMarks } from "../../catalog/unsent-marks"
 import { formatCount } from "../../../wording/numbers"
 import { describeError } from "../../../wording/errors"
-import { borderText, kindName, oneInText, payoutText } from "../../../wording/pachinko/formula"
+import { formulaBorderText, kindName, oneInText, payoutText } from "../../../wording/pachinko/formula"
 import { useBookFavorites } from "../../live/book-favorites"
 import { useStartBallValue, useStartForm } from "../../live/start-form"
 import { ViewHeader } from "../../shell/ViewHeader"
@@ -104,7 +104,7 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
                     {(speed) => <Row label="1時間の回転数">{speed}回転</Row>}
                   </Show>
                   <Show when={ballValue()} keyed>
-                    {(value) => <Row label={`ボーダー（${value}円/玉）`}>{borderText(borderOf(formula().figures, value))}</Row>}
+                    {(value) => <Row label={`ボーダー（${value}円/玉）`}>{formulaBorderText(borderOf(formula().figures, value), assumedSettingLevelOf(formula()))}</Row>}
                   </Show>
                   <Show when={samplingOf(formula())} keyed>
                     {(sampling) => (

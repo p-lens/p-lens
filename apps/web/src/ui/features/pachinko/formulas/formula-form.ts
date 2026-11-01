@@ -183,7 +183,7 @@ export interface BasisForm {
   readonly reliefDriveGauge: string
   /** The key of the mode the 遊タイム leads to. */
   readonly reliefDriveTo: string
-  /** The setting level the formula's figures were read at, kept through a remaking; no field writes it. Undefined where none is said. */
+  /** The setting level the formula's figures were read at, said by its toggle and kept through a remaking. Undefined where none is said. */
   readonly assumedSettingLevel: number | undefined
   /** The regular game's c時短: its chance on a spin that is no jackpot as 1/x, empty where it has none, and where play goes then. */
   readonly regularEarlyEndChance: string

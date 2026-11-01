@@ -23,6 +23,10 @@ export const markedFormulaText = (figures: Said["figures"]): string => `1RT ${on
 /** What a formula's figures were read at, on a machine with setting levels its world does not otherwise tell apart. */
 export const assumedSettingLevelText = (settingLevel: number): string => `設定${settingLevel}で計算`
 
+/** A formula's border, with the setting level it was read at where it says one: `20.7回転/千円・設定1で計算`. */
+export const formulaBorderText = (spinPerformance: number, settingLevel: number | undefined): string =>
+  settingLevel === undefined ? borderText(spinPerformance) : `${borderText(spinPerformance)}・${assumedSettingLevelText(settingLevel)}`
+
 /**
  * A formula's name among its machine's, as a box to choose one shows it:
  * its figures, marked — nobody names a formula — and, where another says

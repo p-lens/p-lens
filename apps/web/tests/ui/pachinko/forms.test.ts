@@ -89,7 +89,7 @@ describe("the basis form", () => {
     expect(read.ok && basisFormOf(read.value.spec, read.value.conditions, undefined).modes[0]?.withoutSupport).toBe(true)
   })
 
-  test("the setting level a formula was read at is kept through a remaking, though no field writes it", () => {
+  test("the setting level a formula was read at is kept through a remaking", () => {
     const read = readBasisForm({ ...STARTING_BASIS, assumedSettingLevel: 1 })
     expect(read.ok && read.value.spec.components.assumedSettingLevel).toEqual({ regular: 1 })
     expect(read.ok && basisFormOf(read.value.spec, read.value.conditions, undefined).assumedSettingLevel).toBe(1)

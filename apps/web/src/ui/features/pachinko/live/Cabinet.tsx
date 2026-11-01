@@ -9,7 +9,7 @@ import { bookNameOf, shownNameOf, type MachineSummary } from "../../../../core/c
 import { machineMatches } from "../../../../core/catalog/description"
 import { autoSelect, selectById, type Selection } from "../../../../core/formula/standing"
 import { jackpotCountingOf, tokenValueOfDraft, withOverEntry, type MachineChange, type PachinkoDraft } from "../../../../core/live-play/draft"
-import { worthOf, type Formula } from "../../../../core/pachinko/formula"
+import { assumedSettingLevelOf, worthOf, type Formula } from "../../../../core/pachinko/formula"
 import { borderOf } from "../../../../core/pachinko/theoretical-value"
 import { withJackpotsUntold } from "../../../../core/pachinko/revision"
 import { snapshotOf } from "../../../../core/pachinko/snapshot"
@@ -31,7 +31,7 @@ import { settleTyping, TextField } from "../../../primitives/text-field"
 import { toast } from "../../../primitives/toast"
 import { describeError } from "../../../wording/errors"
 import { UNWRITABLE_TEXT } from "../../../wording/fields"
-import { borderText, formulaHandle, formulaNameAmong } from "../../../wording/pachinko/formula"
+import { formulaBorderText, formulaHandle, formulaNameAmong } from "../../../wording/pachinko/formula"
 import { useBookFavorites } from "../../live/book-favorites"
 import { useStartForm, type CabinetChoice } from "../../live/start-form"
 import { ViewHeader } from "../../shell/ViewHeader"
@@ -232,7 +232,7 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
                 <Match when={selection()} keyed>
                   {(selected) => (
                     <Show when={tokenValueOfDraft(props.draft)} keyed>
-                      {(value) => <p class="text-xs tabular-nums text-text-muted">ボーダー {borderText(borderOf(selected.listing.formula.figures, value))}</p>}
+                      {(value) => <p class="text-xs tabular-nums text-text-muted">ボーダー {formulaBorderText(borderOf(selected.listing.formula.figures, value), assumedSettingLevelOf(selected.listing.formula))}</p>}
                     </Show>
                   )}
                 </Match>

@@ -1,7 +1,7 @@
 import { For, Index, Show, type JSX } from "solid-js"
 
 import { Button } from "../../../primitives/button"
-import { PlusIcon, TrashIcon } from "../../../primitives/icons"
+import { CloseIcon, PlusIcon, TrashIcon } from "../../../primitives/icons"
 import { Select, type SelectOption } from "../../../primitives/select"
 import { TextField } from "../../../primitives/text-field"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
@@ -227,6 +227,51 @@ function ModeEditor(props: {
   )
 }
 
+/** A machine's setting levels as choices: a formula is made for one of them, and another for the next. */
+const SETTING_LEVELS: readonly SelectOption[] = [1, 2, 3, 4, 5, 6].map((settingLevel) => ({ value: String(settingLevel), label: `設定${settingLevel}` }))
+
+/**
+ * Whether the formula is for one setting level of a machine that has them:
+ * なし until said otherwise, as most machines are, so that it is in nobody's
+ * way; あり is the setting level to choose, and its cross goes back.
+ */
+function SettingLevelEditor(props: { readonly form: BasisForm; readonly onChange: (form: BasisForm) => void }): JSX.Element {
+  const say = (assumedSettingLevel: number | undefined): void => props.onChange({ ...props.form, assumedSettingLevel })
+  return (
+    <Show
+      when={props.form.assumedSettingLevel}
+      keyed
+      fallback={
+        <div class="flex flex-col gap-1.5 self-start">
+          <span class="text-xs font-bold uppercase tracking-wide text-text-secondary">設定</span>
+          <ToggleGroup
+            value="none"
+            onChange={(value: string | null) => {
+              if (value === "some") say(1)
+            }}
+            aria-label="設定"
+          >
+            <ToggleGroupItem value="none">なし</ToggleGroupItem>
+            <ToggleGroupItem value="some">あり</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+      }
+    >
+      {(settingLevel) => (
+        <div class="flex flex-col gap-1.5">
+          <div class="grid max-w-xs grid-cols-[minmax(0,1fr)_auto] items-end gap-x-1">
+            <Select label="設定" placeholder="選ぶ" options={SETTING_LEVELS} value={String(settingLevel)} onChange={(value) => say(Number(value))} />
+            <button type="button" onClick={() => say(undefined)} class="flex h-10 w-5 items-center justify-center rounded-[3px] text-text-secondary hover:bg-surface-3 hover:text-text-primary">
+              <CloseIcon label="設定をなしにする" />
+            </button>
+          </div>
+          <p class="text-xs text-text-muted">この算出条件の数値が、どの設定のものかを書きます。設定ごとに算出条件を登録してください。計算には使いません。</p>
+        </div>
+      )}
+    </Show>
+  )
+}
+
 /**
  * The 遊タイム, if the machine has one: its count, and the mode it leads to.
  * Its last choice is always a new one — a 時短 — made and chosen at once.
@@ -291,6 +336,7 @@ export function BasisEditor(props: { readonly form: BasisForm; readonly onChange
           モード
         </Button>
       </div>
+      <SettingLevelEditor form={props.form} onChange={props.onChange} />
       <ReliefDriveEditor form={props.form} onChange={props.onChange} />
       <section class="flex flex-col gap-2">
         <h3 class="text-sm font-semibold text-text-primary">通常時のc時短</h3>

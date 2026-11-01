@@ -2,6 +2,7 @@ import type { ConditionsDto, SpecDto, NormalizedSpecDto } from "@p-lens/contract
 
 import type { MachineId } from "../machine/machine"
 import type { Figures } from "./figures"
+import { regularOf } from "./world"
 
 export type FormulaId = string & { readonly __brand: "FormulaId" }
 
@@ -74,6 +75,12 @@ export type FormulaKind = Formula["kind"]
 
 /** The 期待値基礎値 a formula was made from, if it was made from one. */
 export const basisOf = (making: FormulaMaking): Basis | undefined => (making.kind === "manual" ? undefined : making.basis)
+
+/** The setting level a formula's figures were read at, on a machine with setting levels its world does not otherwise tell apart. */
+export const assumedSettingLevelOf = (making: FormulaMaking): number | undefined => {
+  const basis = basisOf(making)
+  return basis === undefined ? undefined : regularOf(basis.spec)?.assumedSettingLevel
+}
 
 /**
  * What a formula makes a play worth, to rank a harsher formula of a machine

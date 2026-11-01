@@ -7,7 +7,7 @@ import { recordUse } from "../../../../application/catalog"
 import { loadMachine, playSnapshotOf } from "../../../../application/pachinko/formulas"
 import { reliefDriveOf } from "../../../../application/pachinko/hyena-hunt"
 import { borderOf } from "../../../../core/pachinko/theoretical-value"
-import { basisOf, type Basis, type FormulaId, type Formula, worthOf } from "../../../../core/pachinko/formula"
+import { assumedSettingLevelOf, basisOf, type Basis, type FormulaId, type Formula, worthOf } from "../../../../core/pachinko/formula"
 import { type Figures } from "../../../../core/pachinko/figures"
 import { autoSelect, selectById, type Selection } from "../../../../core/formula/standing"
 import type { PlayDraft, PlayVenue } from "../../../../core/live-play/draft"
@@ -40,7 +40,7 @@ import { useMoves } from "../../../navigation/moves"
 import { describeError } from "../../../wording/errors"
 import { FIELD_PROBLEM_TEXT, UNWRITABLE_TEXT } from "../../../wording/fields"
 import { chosenParlorText, LOCATE_REQUEST, parlorChoiceText, parlorNote, typedParlorRefused } from "../../../wording/parlor"
-import { borderText, formulaHandle, formulaNameAmong } from "../../../wording/pachinko/formula"
+import { formulaBorderText, formulaHandle, formulaNameAmong } from "../../../wording/pachinko/formula"
 import { KindMark } from "../formulas/KindMark"
 import { HyenaHuntByRate } from "../formulas/HyenaHuntByRate"
 import { HyenaHuntRun } from "../formulas/HyenaHuntRun"
@@ -182,7 +182,7 @@ function FormulaField(props: {
         <Match when={chosenFigures()} keyed>
           {(chosen) => (
             <Show when={props.ballValue} keyed>
-              {(value) => <p class="text-xs tabular-nums text-text-muted">ボーダー {borderText(borderOf(chosen, value))}</p>}
+              {(value) => <p class="text-xs tabular-nums text-text-muted">ボーダー {formulaBorderText(borderOf(chosen, value), ((selected) => (selected === undefined ? undefined : assumedSettingLevelOf(selected.listing.formula)))(props.selection))}</p>}
             </Show>
           )}
         </Match>
