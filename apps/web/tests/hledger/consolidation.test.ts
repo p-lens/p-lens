@@ -3,7 +3,7 @@ import { Ok } from "../../src/core/result/result"
 import { BOOK_FILES } from "../../src/core/journal/layout"
 
 import { createBookSession } from "../../src/application/book-session"
-import { consolidationKeepsTheoreticalValues, loadConsolidatedHoldings, loadConsolidatedSenderNames, loadConsolidation, type ConsolidatedGrouping } from "../../src/application/consolidation"
+import { consolidationKeepsTheoreticalValues, loadConsolidatedHoldings, loadConsolidatedRates, loadConsolidatedSenderNames, loadConsolidatedSpinPerformances, loadConsolidation, type ConsolidatedGrouping } from "../../src/application/consolidation"
 import { recordTokenTally } from "../../src/application/record-tally"
 import { loadHoldings } from "../../src/application/holdings"
 import { latestValuedOn, totalAcross } from "../../src/core/report/holdings"
@@ -176,6 +176,35 @@ describe("a consolidation keeping each book's answers", () => {
     expect(opened.every((id) => id === MINE)).toBe(true)
     expect(told.times).toBeGreaterThan(0)
     expect(await actualOf("at-once")).toEqual(checked)
+  })
+})
+
+describe("a consolidation narrowed", () => {
+  test("keeps each book to the tallies narrowed to, grouped every way, book by book and taken as one", async () => {
+    const session = await setUp()
+    const ports = consolidated(session)
+    const both = [MINE, THEIRS] as BookId[]
+    const pachislot = { game: ["pachislot"] }
+    const found = await loadConsolidation(ports, both, "machine", "", { rate: ["ball:4円"], parlor: ["723豚の帽子亭店"] })
+    expect(found.ok && found.value.map((each) => each.read.ok && each.read.value.map((group) => [group.key, toPlainString(group.actual)]))).toEqual([[["森物語", "13978"]], [["森物語", "13978"]]])
+    const books = await loadConsolidation(ports, both, "book", "", pachislot)
+    expect(books.ok && books.value.map((each) => each.read.ok && each.read.value.map((group) => [group.key, toPlainString(group.actual)]))).toEqual([[[MINE, "20030"]], [[THEIRS, "20030"]]] as never)
+    const overall = await loadConsolidatedOverall(ports, both, "", pachislot)
+    expect(overall.ok && overall.value.map((each) => each.read.ok && each.read.value.plays)).toEqual([1, 1])
+    const spins = await loadConsolidatedSpinPerformances(ports, both, "", { machine: ["流星"] })
+    expect(spins.ok && [...spins.value.keys()].every((key) => key === "流星")).toBe(true)
+    expect(await loadConsolidatedRates(ports, undefined)).toEqual({ ok: true, value: ["ball:4円", "medal:20円"] })
+  })
+
+  test("is never answered with what was kept for the same question narrowed otherwise", async () => {
+    const session = await setUp()
+    const ports = { ...consolidationPorts({ session, lanes: oneLane(session), summaries: createMemorySummaries(), digest: webCryptoJournalsDigest, today: () => "2026-10-09" as IsoDate, afterShown: (work) => work(), outdated: createOutdatedNotice() }), answering: "when-checked" as const }
+    const keys = async (narrowing: Parameters<typeof loadConsolidation>[4]) =>
+      ((found) => (found.ok ? found.value.flatMap((each) => (each.read.ok ? each.read.value.map((group) => group.key) : [])) : found))(await loadConsolidation(ports, [MINE as BookId], "machine", "", narrowing))
+    expect(await keys(undefined)).toEqual(["ピエロット", "森物語", "流星"])
+    expect(await keys({ game: ["pachislot"] })).toEqual(["ピエロット"])
+    expect(await keys({ game: ["pachinko"] })).toEqual(["森物語", "流星"])
+    expect(await keys(undefined)).toEqual(["ピエロット", "森物語", "流星"])
   })
 })
 

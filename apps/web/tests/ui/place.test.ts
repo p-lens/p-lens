@@ -158,6 +158,13 @@ describe("the consolidation", () => {
     expect(parentOf({ kind: "consolidated-breakdown", by: "book", bookIds: undefined })).toEqual({ kind: "consolidated" })
     expect(focusOf({ kind: "consolidated-breakdown", by: "book", bookIds: undefined })).toBe("content")
     expect(placeOf("/consolidated/elsewhere")).toEqual({ kind: "not-found", path: "/consolidated/elsewhere" })
+    const narrowed: Place = { kind: "consolidated-breakdown", by: "parlor", bookIds: ["a", "b"] as never, narrowing: { game: ["pachinko"], rate: ["ball:4円"] } }
+    expect(placeOf(pathOf(narrowed))).toEqual(narrowed)
+    const everyBook: Place = { kind: "consolidated-breakdown", by: "machine", bookIds: undefined, narrowing: { parlor: ["A=店"] } }
+    expect(placeOf(pathOf(everyBook))).toEqual(everyBook)
+    expect(pathOf({ kind: "consolidated-breakdown", by: "machine", bookIds: [], narrowing: { machine: [] } })).toBe("/consolidated/breakdown/machine/%2C/machine%3D")
+    expect(placeOf("/consolidated/breakdown/machine/a/colour%3Dred")).toEqual({ kind: "not-found", path: "/consolidated/breakdown/machine/a/colour%3Dred" })
+    expect(screenOf(narrowed)).toBe(screenOf({ kind: "consolidated-breakdown", by: "parlor", bookIds: undefined }))
   })
 
   test("has the books' savings and their calendar beside it, each of every book or of the books its address names", () => {

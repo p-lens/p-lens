@@ -199,7 +199,7 @@ const mainFor = (place: Place, query: () => string, live: () => Place): JSX.Elem
     case "consolidated-result-calendar":
       return <ConsolidatedResultCalendarView place={liveAs(live, place)} bookIds={liveAs(live, place).bookIds} />
     case "consolidated-breakdown":
-      return <ConsolidatedBreakdownView place={liveAs(live, place)} by={place.by} bookIds={liveAs(live, place).bookIds} query={query()} />
+      return <ConsolidatedBreakdownView place={liveAs(live, place)} by={place.by} bookIds={liveAs(live, place).bookIds} narrowing={liveAs(live, place).narrowing ?? EVERY_TALLY} query={query()} />
     case "odd-prize-calculator":
       return <ChooseFromList place={place} title={ODD_PRIZE_CALCULATOR_LABEL} hint="左のリストからパチンコかスロットを選んでください。" />
     case "odd-prize-calculator-game":

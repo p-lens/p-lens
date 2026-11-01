@@ -3294,6 +3294,22 @@ played them (集計).
   name their books the same way, each encoded on its own, and a comma
   alone names none. The books ticked go with a person from one view to
   the next (`consolidatedBooksOf`).
+- **Narrowed as a book's breakdown is**: the same four filters under the
+  period, each book asked with the same narrowing term
+  (`loadConsolidation`, `loadConsolidatedOverall`, … take a `Narrowing`),
+  so a consolidation narrowed asks no more of a book than one that is not.
+  The rates offered are every chosen book's, and the parlors and machines
+  those of their tallies of the period, added (`loadConsolidatedRates`).
+  The narrowing is the address's last segment, after the books where
+  they are named: `/consolidated/breakdown/machine/a,b/game=pachinko`, or
+  `/consolidated/breakdown/machine/game=pachinko` for every book — a
+  narrowing holds an equals sign, which a list of books never does. A
+  book's answers are kept by the question asked (`summarized`), so a
+  question narrowed carries its narrowing (`narrowingKey`) and is never
+  answered with what was kept for another; narrowed by nothing it is the
+  question it always was, and keeps what was kept. A group of a game, a
+  parlor, a machine, a year or a month is pressed to look into it, as in
+  a book; a book's and a player's are not.
 - **Out of sight until turned on** (設定 → 連結会計): most people keep one
   book, so the rail shows 連結 only on a device whose owner asked for it.
   The choice is a preference of the device; the address has its screen

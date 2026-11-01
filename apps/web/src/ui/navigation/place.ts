@@ -144,7 +144,8 @@ export type Place =
   | { readonly kind: "consolidated" }
   | { readonly kind: "consolidated-holdings"; readonly bookIds: readonly BookId[] | undefined }
   | { readonly kind: "consolidated-result-calendar"; readonly bookIds: readonly BookId[] | undefined }
-  | { readonly kind: "consolidated-breakdown"; readonly by: ConsolidatedBy; readonly bookIds: readonly BookId[] | undefined }
+  /** The consolidation's breakdown, of the books its next segment names where it names any, narrowed by the last segment where it says a narrowing. */
+  | { readonly kind: "consolidated-breakdown"; readonly by: ConsolidatedBy; readonly bookIds: readonly BookId[] | undefined; readonly narrowing?: Narrowing | undefined }
   | { readonly kind: "settings" }
   | { readonly kind: "settings-section"; readonly section: SettingsSection }
   /** A document the deployment puts before people, at an address of its own so it can be pointed at from outside. */
@@ -181,6 +182,18 @@ const chosenIn = (segment: string | undefined): readonly string[] | undefined =>
 const narrowingIn = (segment: string): Narrowing | undefined => {
   const parts = segment.split(";").map((part) => ({ by: part.slice(0, Math.max(part.indexOf("="), 0)), chosen: chosenIn(part.slice(part.indexOf("=") + 1)) ?? [] }))
   return parts.every(({ by }) => isNarrowedBy(by)) ? Object.fromEntries(parts.map(({ by, chosen }) => [by, chosen])) : undefined
+}
+
+/**
+ * The consolidation's breakdown from the segments after its grouping: the
+ * books, then the narrowing, either left out. A narrowing's segment holds
+ * an equals sign and a list of books never does — each id is encoded on
+ * its own — so one segment alone is told for which it is.
+ */
+const consolidatedBreakdownOf = (by: ConsolidatedBy, books: string | undefined, narrowed: string | undefined, path: string): Place => {
+  const [chosen, said] = narrowed === undefined && books?.includes("=") === true ? [undefined, books] : [books, narrowed]
+  const narrowing = said === undefined ? undefined : narrowingIn(said)
+  return said !== undefined && narrowing === undefined ? { kind: "not-found", path } : { kind: "consolidated-breakdown", by, bookIds: bookIdsIn(chosen), ...(narrowing === undefined ? {} : { narrowing }) }
 }
 
 /** The books a segment names; every book on the device where there is no such segment. */
@@ -233,6 +246,7 @@ const placeOfSegments = (segments: readonly string[], path: string): Place => {
     return { kind: "tally-revise", bookId: second as BookId, playId: fourth as PlayId }
   if (first === "books" && second !== undefined && third === "breakdown" && fourth !== undefined && isBreakdownBy(fourth) && fifth !== undefined)
     return ((narrowing) => (narrowing === undefined ? { kind: "not-found", path } : { kind: "book-breakdown", bookId: second as BookId, by: fourth, narrowing }))(narrowingIn(fifth))
+  if (first === "consolidated" && second === "breakdown" && third !== undefined && isConsolidatedBy(third) && fifth !== undefined) return consolidatedBreakdownOf(third, fourth, fifth, path)
   if (fifth !== undefined) return { kind: "not-found", path }
   if (first === "play" && second === undefined) return { kind: "live" }
   if (first === "huddle" && second === undefined) return { kind: "huddle" }
@@ -268,8 +282,7 @@ const placeOfSegments = (segments: readonly string[], path: string): Place => {
   if (first === "consolidated" && second === undefined) return { kind: "consolidated" }
   if (first === "consolidated" && second === "holdings" && fourth === undefined) return { kind: "consolidated-holdings", bookIds: bookIdsIn(third) }
   if (first === "consolidated" && second === "result-calendar" && fourth === undefined) return { kind: "consolidated-result-calendar", bookIds: bookIdsIn(third) }
-  if (first === "consolidated" && second === "breakdown" && fifth === undefined && (third === undefined || isConsolidatedBy(third)))
-    return { kind: "consolidated-breakdown", by: third ?? OVERALL, bookIds: bookIdsIn(fourth) }
+  if (first === "consolidated" && second === "breakdown" && fifth === undefined && (third === undefined || isConsolidatedBy(third))) return consolidatedBreakdownOf(third ?? OVERALL, fourth, undefined, path)
   if (first === "settings" && second === undefined) return { kind: "settings" }
   if (first === "settings" && second !== undefined && third === undefined && isSettingsSection(second))
     return { kind: "settings-section", section: second }
@@ -388,7 +401,7 @@ export const pathOf = (place: Place): string => {
     case "consolidated-result-calendar":
       return `/consolidated/result-calendar${chosenSegment(place.bookIds)}`
     case "consolidated-breakdown":
-      return `/consolidated/breakdown/${place.by}${chosenSegment(place.bookIds)}`
+      return `/consolidated/breakdown/${place.by}${chosenSegment(place.bookIds)}${narrowingSegment(place.narrowing)}`
     case "settings":
       return "/settings"
     case "settings-section":
@@ -597,8 +610,9 @@ const unnarrowed = (place: Place): Place => {
   switch (place.kind) {
     case "consolidated-holdings":
     case "consolidated-result-calendar":
-    case "consolidated-breakdown":
       return { ...place, bookIds: undefined }
+    case "consolidated-breakdown":
+      return { ...place, bookIds: undefined, narrowing: undefined }
     case "pachinko-formula-value":
       return { kind: "pachinko-formula", machineId: place.machineId, formulaId: place.formulaId }
     case "pachislot-formula-value":

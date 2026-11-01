@@ -23,7 +23,7 @@ import { PeriodPicker } from "../period/PeriodPicker"
 import { queryFor } from "../period/periods"
 import { ViewHeader } from "../shell/ViewHeader"
 import { drilledFrom } from "./drill"
-import { NarrowingFilters } from "./NarrowingFilters"
+import { bookOffers, NarrowingFilters } from "./NarrowingFilters"
 import { OtherGainsSection } from "./OtherGainsSection"
 import { OverallCard } from "./OverallCard"
 import { shownOrder } from "./shown-order"
@@ -179,7 +179,7 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
             </div>
             <PeriodPicker by={props.by} query={props.query} today={app.services.businessDay()} onTyped={(query) => moves.refine(props.place, query)} onPressed={(query) => moves.go(props.place, query)} />
           </div>
-          <NarrowingFilters bookId={props.bookId} query={props.query} narrowing={props.narrowing} onNarrowed={(narrowing) => moves.refine(placed(props.by, narrowing), props.query)} />
+          <NarrowingFilters scope={props.bookId} offersOf={bookOffers(app.services.session, props.bookId)} query={props.query} narrowing={props.narrowing} onNarrowed={(narrowing) => moves.refine(placed(props.by, narrowing), props.query)} />
           <Show when={matchesNothing(props.narrowing)}>
             <EmptyState title={NOTHING_NARROWED} />
           </Show>

@@ -6,7 +6,7 @@ import { TALLY_TAGS } from "../core/tally/tally"
 import { UNSAID, byColumn, byRow, byWeekday, groupsOf, inOrder, merged, type Dimension, type Group, type Period } from "../core/report/breakdown"
 import { negate, ZERO } from "../core/decimal/decimal"
 import { actualOf, secondsIn, secondsOf, statisticTotalOf } from "../core/report/figures"
-import { EVERY_TALLY, NARROWED_BY, rateKey, readRateKey, type NarrowedBy, type Narrowing } from "../core/report/narrowing"
+import { EVERY_TALLY, NARROWED_BY, rateKey, ratesInOrder, readRateKey, type NarrowedBy, type Narrowing } from "../core/report/narrowing"
 import { senderNamesOf, type SenderNames } from "../core/report/senders"
 import { spinPerformancesOf, type SpinPerformancesByMachine } from "../core/report/spin-performance"
 import { andThen, mapOk, Ok } from "../core/result/result"
@@ -138,13 +138,9 @@ export const narrowedTerm = async (journal: JournalAccess, narrowing: Narrowing)
   return mapOk(parlors, (found) => combine(...chosen.map(([by, values]) => termOf(by, values, found))))
 }
 
-/** Every rate the book keeps savings at, of either kind of token, by `rateKey`: what a breakdown can be narrowed to by rate, balls first and each kind's dearest first. */
+/** Every rate the book keeps savings at, of either kind of token, by `rateKey`: what a breakdown can be narrowed to by rate, in `ratesInOrder`. */
 export const loadRates = (session: BookSession, bookId: BookId): Promise<Outcome<readonly string[]>> =>
-  session.read(bookId, async (journal) =>
-    mapOk(await parlorsIn(journal), (parlors) =>
-      [...new Set(parlors.flatMap((parlor) => parlor.pools).toSorted((left, right) => (left.kind === right.kind ? Number.parseFloat(right.tier) - Number.parseFloat(left.tier) : left.kind === "ball" ? -1 : 1)).map(rateKey))],
-    ),
-  )
+  session.read(bookId, async (journal) => mapOk(await parlorsIn(journal), (parlors) => ratesInOrder(parlors.flatMap((parlor) => parlor.pools).map(rateKey))))
 
 const grouped = async (journal: JournalAccess, dimension: Dimension, query: string): Promise<Outcome<readonly Group[]>> => {
   switch (dimension) {
@@ -228,9 +224,13 @@ export const loadSpinPerformances = (session: BookSession, bookId: BookId, query
  * A book's results for a period, by who played them: each sender by the id
  * their tallies carry, and the tallies that name no one — the owner's own,
  * and plays taken in before senders were written — as the unnamed group.
+ * A narrowing keeps to the tallies it chose.
  */
-export const loadSenderBreakdown = (session: BookSession, bookId: BookId, query: string): Promise<Outcome<readonly Group[]>> =>
-  viewedFor(session, query, "moved").read(bookId, (journal) => byTags(journal, combine(talliesTerm, query), [TALLY_TAGS.senderId]))
+export const loadSenderBreakdown = (session: BookSession, bookId: BookId, query: string, narrowing: Narrowing = EVERY_TALLY): Promise<Outcome<readonly Group[]>> =>
+  viewedFor(session, query, "moved").read(bookId, async (journal) => {
+    const narrowed = await narrowedTerm(journal, narrowing)
+    return narrowed.ok ? byTags(journal, combine(talliesTerm, query, narrowed.value), [TALLY_TAGS.senderId]) : narrowed
+  })
 
 /** Who sent a book's plays, each by the name on their last tally, whatever the period: the name a person goes by now. */
 export const loadSenderNames = (session: BookSession, bookId: BookId): Promise<Outcome<SenderNames>> =>

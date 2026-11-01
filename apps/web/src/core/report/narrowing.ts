@@ -37,3 +37,13 @@ export const matchesNothing = (narrowing: Narrowing): boolean => NARROWED_BY.som
 /** A narrowing with one dimension's choice put in place of what it chose before: every one of its groups again where the choice is `undefined`. */
 export const narrowedTo = (narrowing: Narrowing, by: NarrowedBy, chosen: readonly string[] | undefined): Narrowing =>
   Object.fromEntries(NARROWED_BY.flatMap((each) => ((kept) => (kept === undefined ? [] : [[each, kept] as const]))(each === by ? chosen : narrowing[each])))
+
+/** What a narrowing is told apart by where answers are kept: nothing for every tally, so a question narrowed by nothing is asked as it always was. */
+export const narrowingKey = (narrowing: Narrowing): string => (isNarrowed(narrowing) ? `\n${JSON.stringify(NARROWED_BY.map((by) => narrowing[by] ?? null))}` : "")
+
+/** Rates by `rateKey`, each once, balls first and each kind's dearest first: the order a filter offers them in. */
+export const ratesInOrder = (keys: readonly string[]): readonly string[] =>
+  [...new Set(keys)]
+    .flatMap((key) => ((pool) => (pool === undefined ? [] : [pool]))(readRateKey(key)))
+    .toSorted((left, right) => (left.kind === right.kind ? Number.parseFloat(right.tier) - Number.parseFloat(left.tier) : left.kind === "ball" ? -1 : 1))
+    .map(rateKey)
