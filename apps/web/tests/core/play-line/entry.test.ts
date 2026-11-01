@@ -24,7 +24,7 @@ const DRAFT: PachinkoDraft = {
   history: [{ at: "2026-10-28T01:10:00.000Z", removed: [], added: ['{"spins":30,"outlay":1000}'] }],
   recorded: { at: "2026-10-28T03:00:10.000Z", finish: { at: "2026-10-28T03:00:00.000Z", counter: 300 } },
   sent: [{ lineId: "inbox", at: "2026-10-28T02:00:00.000Z", log: '{"spins":0,"outlay":0}\n' }],
-  received: { sender: "ミサト", senderId: "grant-1", log: '{"spins":0,"outlay":0}\n', finished: undefined },
+  received: { sender: "ハンマ", senderId: "grant-1", log: '{"spins":0,"outlay":0}\n', finished: undefined },
 }
 
 const SHOWN: PlayLineEntry = { type: "shown", by: ME, at: "2026-10-28T03:01:00.000Z", play: shownPlayOf(DRAFT, BOOK) }

@@ -96,7 +96,7 @@ describe("a recorded tally, read back from its entry", () => {
 
   test("keeps who sent its play, so a tally a sender played is theirs still once set right", async () => {
     const { session } = await setUp()
-    const sent: TokenTally = { ...TODAY, id: "sent" as PlayId, sender: { id: "grant-1", name: "けんじ" } }
+    const sent: TokenTally = { ...TODAY, id: "sent" as PlayId, sender: { id: "grant-1", name: "ハンマ" } }
     await recordTokenTally(session, BOOK, sent)
     expect(await recordedOf(session, "sent")).toEqual({ ok: true, value: { type: "token", tally: sent } })
   })

@@ -76,10 +76,10 @@ describe("tallies as a table", () => {
         {
           tally: { id: "two" as PlayId, date: "2026-10-09" as IsoDate, description: "ジーステーション第3新東京市店 | 稼働", parlorId: "p-1" as never, gameKind: "pachinko", machine: "m-1", cabinetNumber: "101", importedFrom: undefined, theoreticalValue: undefined, inferredValue: yen(1200) },
           parlorName: "ジーステーション第3新東京市店",
-          machineName: "初号機",
-          maker: "ゼーレ",
+          machineName: "流星",
+          maker: "made-up",
           notes: {
-            aside: { clock: { started: { hour: 22, minute: 30 }, finished: { hour: 1, minute: 5 } }, spinPerformance: decimal(185n, 1), sender: { id: "s-1", name: "シンジ" } },
+            aside: { clock: { started: { hour: 22, minute: 30 }, finished: { hour: 1, minute: 5 } }, spinPerformance: decimal(185n, 1), sender: { id: "s-1", name: "ハンマ" } },
             playSeconds: yen(9300),
             jackpots: 3,
             carriedIn: yen(250),
@@ -92,7 +92,7 @@ describe("tallies as a table", () => {
           actual: yen(3000),
         },
       ])[1],
-    ).toEqual(["2026-10-09", "ジーステーション第3新東京市店", "パチンコ", "初号機", "101", "5000", "8000", "3000", "", "1200", "ゼーレ", "22:30", "01:05", "2:35", "3", "18.5", "250", "f-1", "4", "28", "17.2", "シンジ", "s-1", "ジーステーション第3新東京市店 | 稼働", "p-1", "two", ""])
+    ).toEqual(["2026-10-09", "ジーステーション第3新東京市店", "パチンコ", "流星", "101", "5000", "8000", "3000", "", "1200", "made-up", "22:30", "01:05", "2:35", "3", "18.5", "250", "f-1", "4", "28", "17.2", "ハンマ", "s-1", "ジーステーション第3新東京市店 | 稼働", "p-1", "two", ""])
   })
 
   test("what a tally does not say is an empty cell", () => {

@@ -20,11 +20,11 @@ describe("what is written beside a tally", () => {
   })
 
   test("is who sent its play, by their invitation's id and the name they were given, with nothing that would end a tag", () => {
-    const play = { ...RENTED_PLAY, sender: { id: "grant-1", name: "けんじ, 2号" } }
-    expect(asideTags(play)).toEqual([["sender-id", "grant-1"], ["sender", "けんじ， 2号"]])
-    const tags: Readonly<Record<string, string>> = { "sender-id": "grant-1", sender: "けんじ" }
-    expect(asideOf((name) => tags[name]).sender).toEqual({ id: "grant-1", name: "けんじ" })
-    expect(asideOf((name) => (name === "sender" ? "けんじ" : undefined)).sender).toBeUndefined()
+    const play = { ...RENTED_PLAY, sender: { id: "grant-1", name: "ハンマ, ハナヤマ" } }
+    expect(asideTags(play)).toEqual([["sender-id", "grant-1"], ["sender", "ハンマ， ハナヤマ"]])
+    const tags: Readonly<Record<string, string>> = { "sender-id": "grant-1", sender: "ハンマ" }
+    expect(asideOf((name) => tags[name]).sender).toEqual({ id: "grant-1", name: "ハンマ" })
+    expect(asideOf((name) => (name === "sender" ? "ハンマ" : undefined)).sender).toBeUndefined()
   })
 
   test("is read back from tags, a time that is no time read as none", () => {

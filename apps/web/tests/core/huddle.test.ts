@@ -12,7 +12,7 @@ import { MALEHAN } from "../support/values"
 
 const SECRET = "a".repeat(43)
 const DAY = "2026-10-20" as IsoDate
-const HUDDLE: Huddle = { secret: SECRET, businessDay: DAY, member: "me", name: "アキラ", dismissed: [] }
+const HUDDLE: Huddle = { secret: SECRET, businessDay: DAY, member: "me", name: "ルパン", dismissed: [] }
 
 const TERMS: PlayTerms = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 250, deducted: 250 } }
 
@@ -51,7 +51,7 @@ describe("a huddle's code", () => {
 
 describe("a name in a huddle", () => {
   test("is what was typed, its spaces let go and no longer than a card has room for", () => {
-    expect(huddleNameOf("  アキラ ")).toBe("アキラ")
+    expect(huddleNameOf("  ルパン ")).toBe("ルパン")
     expect(huddleNameOf("あいうえおかきくけこさしすせそ")).toBe("あいうえおかきくけこさし")
     expect(huddleNameOf("   ")).toBeUndefined()
   })
@@ -93,21 +93,21 @@ describe("a play shown to a huddle", () => {
   test("is the play as the device has it, without its book, its marks or its history, under who showed it", () => {
     const shown = huddlePostOf(DRAFT, HUDDLE, "2026-10-20T02:00:00.000Z")
     expect(shown.member).toBe("me")
-    expect(shown.name).toBe("アキラ")
+    expect(shown.name).toBe("ルパン")
     expect(Object.keys(shown.play).toSorted()).toEqual(["cabinetNumber", "date", "gameKind", "id", "log", "machine", "pachinko", "startedAt", "venue"])
     expect(readHuddleEntry(huddleEntryText(shown))).toEqual(shown)
   })
 
   test("taken back is its id alone, under who took it back", () => {
     const withdrawn = huddleWithdrawalOf("p-1" as PlayId, HUDDLE, "2026-10-20T02:00:00.000Z")
-    expect(withdrawn).toEqual({ member: "me", name: "アキラ", postedAt: "2026-10-20T02:00:00.000Z", withdrawn: "p-1" as PlayId })
+    expect(withdrawn).toEqual({ member: "me", name: "ルパン", postedAt: "2026-10-20T02:00:00.000Z", withdrawn: "p-1" as PlayId })
     expect(readHuddleEntry(huddleEntryText(withdrawn))).toEqual(withdrawn)
     expect(readHuddleEntry(JSON.stringify({ format: 1, ...withdrawn, play: post("a", "t").play }))).toBeUndefined()
   })
 
   test("of a member leaving is who left, and nothing else", () => {
     const left = huddleDepartureOf(HUDDLE, "2026-10-20T03:00:00.000Z")
-    expect(left).toEqual({ member: "me", name: "アキラ", postedAt: "2026-10-20T03:00:00.000Z", left: true })
+    expect(left).toEqual({ member: "me", name: "ルパン", postedAt: "2026-10-20T03:00:00.000Z", left: true })
     expect(readHuddleEntry(huddleEntryText(left))).toEqual(left)
     expect(readHuddleEntry(JSON.stringify({ format: 1, ...left, left: false }))).toBeUndefined()
     expect(readHuddleEntry(JSON.stringify({ format: 1, ...left, withdrawn: "p-1" }))).toBeUndefined()

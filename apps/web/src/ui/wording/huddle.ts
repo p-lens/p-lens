@@ -1,5 +1,6 @@
 import type { ApplicationError, SyncProblem } from "../../application/errors"
 import type { HuddleStanding } from "../../core/huddle/standing"
+import type { PlayGameKind } from "../../core/play/play"
 import { NO_CONNECTION, SERVER_TROUBLE, TOO_MANY_TRIES } from "./connection"
 import { formatMoment } from "./dates"
 import { describeSyncProblem, isOffline } from "./sync"
@@ -7,11 +8,26 @@ import { describeSyncProblem, isOffline } from "./sync"
 /** What a huddle is called on screen. */
 export const HUDDLE_HEADING = "ノリ打ち"
 
-/** What a mark beside one of the others' plays in the day's list says of where it stands; nothing where it is being played. */
-export const HUDDLE_STANDINGS: Readonly<Record<HuddleStanding, string | undefined>> = { finished: "終了", jackpot: "大当り中", rapid: "時短中", playing: undefined }
+/** What a jackpot is said as, by the game: on a pachislot machine the jackpot a play stands in is an AT. */
+const IN_JACKPOT: Readonly<Record<PlayGameKind, string>> = { pachinko: "大当り中", pachislot: "AT中" }
 
-/** The room on the rail, with how many of the others are in a jackpot where any are. */
-export const huddleRoomLabel = (inJackpot: number): string => (inJackpot === 0 ? HUDDLE_HEADING : `${HUDDLE_HEADING}（大当り中 ${inJackpot} 人）`)
+/** What a mark beside one of the others' plays in the day's list says of where it stands, where it says anything. */
+export const huddleStandingText = (standing: Exclude<HuddleStanding, "playing">, gameKind: PlayGameKind): string => {
+  switch (standing) {
+    case "finished":
+      return "終了"
+    case "jackpot":
+      return IN_JACKPOT[gameKind]
+    case "rapid":
+      return "時短中"
+  }
+}
+
+/** What the room on the rail calls those in a jackpot: by their game, or by both where both are among them. */
+const inJackpotText = (games: readonly PlayGameKind[]): string => (games.includes("pachinko") && games.includes("pachislot") ? "大当り・AT中" : IN_JACKPOT[games[0] ?? "pachinko"])
+
+/** The room on the rail, with how many of the others are in a jackpot where any are, given the game of each. */
+export const huddleRoomLabel = (inJackpot: readonly PlayGameKind[]): string => (inJackpot.length === 0 ? HUDDLE_HEADING : `${HUDDLE_HEADING}（${inJackpotText(inJackpot)} ${inJackpot.length} 人）`)
 
 /** The room's words: who one is among its members, the total of their plays, the way to narrow them, to one's own alone, and the dialog to change one's name, leave or show the invitation QR code. */
 export const HUDDLE_OWN = "自分"

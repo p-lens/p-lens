@@ -6,7 +6,7 @@ import { huddleStandingOf, jackpotStreakOf } from "../../../core/huddle/standing
 import { useApp } from "../../context"
 import { CloseIcon } from "../../primitives/icons"
 import { createLongPress } from "../../primitives/long-press"
-import { HUDDLE_DEPARTED, HUDDLE_DISMISS, HUDDLE_IDLE, HUDDLE_MOVED, HUDDLE_STANDINGS } from "../../wording/huddle"
+import { HUDDLE_DEPARTED, HUDDLE_DISMISS, HUDDLE_IDLE, HUDDLE_MOVED, huddleStandingText } from "../../wording/huddle"
 import { captionOf } from "../live/play-caption"
 
 /**
@@ -34,9 +34,9 @@ const markOf = (shown: RoomPlay, presence: Presence): Mark | undefined => {
   switch (standing) {
     case "jackpot":
     case "rapid":
-      return { type: "streak", words: HUDDLE_STANDINGS[standing] ?? "", count: jackpotStreakOf(shown.play), look: STREAK_LOOKS[standing] }
+      return { type: "streak", words: huddleStandingText(standing, shown.play.gameKind), count: jackpotStreakOf(shown.play), look: STREAK_LOOKS[standing] }
     case "finished":
-      return { type: "chip", words: HUDDLE_STANDINGS.finished ?? "" }
+      return { type: "chip", words: huddleStandingText(standing, shown.play.gameKind) }
     case "playing":
       return shown.latest ? undefined : { type: "chip", words: HUDDLE_MOVED }
   }

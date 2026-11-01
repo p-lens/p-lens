@@ -4,6 +4,7 @@ import type { HuddleEntry, HuddlePlay } from "./post"
 import { parsePlayLog, type Checkpoint } from "../play-log/checkpoint"
 import { EVERY_JACKPOT, liveSummary } from "../play-log/live"
 import { inPlayOrder } from "../play-log/performance"
+import type { PlayGameKind } from "../play/play"
 
 /**
  * Where one of the others' plays stands, as its log last says: over, in a
@@ -41,8 +42,11 @@ export const jackpotStreakOf = (play: Play): number => {
 /** The others' plays in a jackpot: each the one its player is on, while they are still in the huddle. */
 const inJackpot = (plays: readonly HuddlePlay[]): readonly HuddlePlay[] => plays.filter((shown) => shown.latest && !shown.departed && huddleStandingOf(shown.post.play) === "jackpot")
 
-/** How many of the others are in a jackpot now, those who have said nothing for long left out — theirs is likely over by now: what the room wears on the rail. */
-export const othersInJackpot = (plays: readonly HuddlePlay[], idle: ReadonlySet<string>): number => inJackpot(plays).filter((shown) => !idle.has(shown.post.member)).length
+/** The game of each of the others in a jackpot now, those who have said nothing for long left out — theirs is likely over by now: what the room wears on the rail. */
+export const othersInJackpot = (plays: readonly HuddlePlay[], idle: ReadonlySet<string>): readonly PlayGameKind[] =>
+  inJackpot(plays)
+    .filter((shown) => !idle.has(shown.post.member))
+    .map((shown) => shown.post.play.gameKind)
 
 /** How long a member says nothing before the others are told so, in milliseconds: a play is shown as its log changes, and an hour and a half without a reading is a long while at a cabinet. */
 export const IDLE_AFTER = 90 * 60_000

@@ -2528,7 +2528,7 @@ wherever its player records it, as it would be without the huddle.
 - **Gone quiet is said, not guessed at** (`idleMembers`, `IDLE_AFTER`,
   `HuddleJoined.idle`): one of the others who has put nothing on the line
   for an hour and a half has the play they are on marked 動きなし — after
-  終了 and 離脱, before 大当り中 — and is left out of the jackpots the room
+  終了 and 離脱, before 大当り中 or AT中 — and is left out of the jackpots the room
   wears, what they said last being likely over. It says nothing was typed
   in, not that they left: a long run may go untyped. It is looked at once
   a minute (`createMinuteStruck`), and nothing is sent to keep anyone
@@ -2553,10 +2553,12 @@ wherever its player records it, as it would be without the huddle.
   when a play began, which no showing moves, so the list stands still
   however often each is shown again. A filter of its members (`RoomChoices.listed`) narrows the
   list. A row (`HuddleRow`) says who as a chip on its third line, and marks where the play stands
-  (`huddleStandingOf`): 大当り中 where its last reading won a jackpot (an
-  AT, on a pachislot AT machine), 時短中 where a pachinko play's last
+  (`huddleStandingOf`, `huddleStandingText`): 大当り中 where its last
+  reading won a jackpot, AT中 where that was an AT, on a pachislot AT
+  machine — the room on the rail saying 大当り・AT中 where both are among
+  those it counts — 時短中 where a pachinko play's last
   reading ran in 時短, 終了 once its log says it finished; 確変 is not
-  said, nobody counting it. Beside 大当り中 and 時短中 stand the jackpots
+  said, nobody counting it. Beside these marks of a jackpot and 時短中 stand the jackpots
   won in a row as a round chip, red in a jackpot and grey in 時短
   (`jackpotStreakOf`): those since the play's last reading of regular
   games, readings in 時短 between them or not, each bonus counted as the

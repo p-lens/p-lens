@@ -118,12 +118,12 @@ describe("several books consolidated", () => {
     const session = await setUp()
     const sent = (id: string, date: string, sender: { readonly id: string; readonly name: string }) =>
       recordTokenTally(session, MINE as BookId, { ...RENTED_PLAY, id: id as PlayId, date: date as IsoDate, sender })
-    await sent("kenji-1", "2026-10-01", { id: "grant-kenji", name: "けんじ" })
-    await sent("kenji-2", "2026-10-03", { id: "grant-kenji", name: "けんじ2号" })
-    await sent("taro-1", "2026-10-02", { id: "grant-taro", name: "たろう" })
+    await sent("hanma-1", "2026-10-01", { id: "grant-hanma", name: "ハンマ" })
+    await sent("hanma-2", "2026-10-03", { id: "grant-hanma", name: "ハナヤマ" })
+    await sent("jack-1", "2026-10-02", { id: "grant-jack", name: "ジャック" })
     const found = await read(session, [MINE as BookId], "sender", "date:2026-10")
     const groups = found === false ? [] : (found[0]?.[1] as readonly (readonly string[])[])
-    expect(groups.map((group) => group[0]).toSorted()).toEqual(["", "grant-kenji", "grant-taro"])
+    expect(groups.map((group) => group[0]).toSorted()).toEqual(["", "grant-hanma", "grant-jack"])
     const figuresOf = async (by: ConsolidatedGrouping) =>
       ((found) => (found.ok ? found.value.flatMap((each) => (each.read.ok ? each.read.value.map((group) => [toPlainString(group.actual), toPlainString(group.theoretical)]) : [])) : []))(
         await loadConsolidation(consolidated(session), [MINE as BookId], by, "date:2026-09"),
@@ -131,8 +131,8 @@ describe("several books consolidated", () => {
     expect(await read(session, [MINE as BookId], "sender", "date:2026-09")).toEqual([[MINE, [["", ...((await figuresOf("book"))[0] ?? [])]]]] as never)
     const names = await loadConsolidatedSenderNames(consolidated(session), undefined)
     expect(names.ok && [...names.value].toSorted()).toEqual([
-      ["grant-kenji", { name: "けんじ2号", date: "2026-10-03" }],
-      ["grant-taro", { name: "たろう", date: "2026-10-02" }],
+      ["grant-hanma", { name: "ハナヤマ", date: "2026-10-03" }],
+      ["grant-jack", { name: "ジャック", date: "2026-10-02" }],
     ] as never)
   })
 })

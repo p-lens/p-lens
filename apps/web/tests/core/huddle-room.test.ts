@@ -8,9 +8,10 @@ import { IDLE_AFTER, idleMembers, othersInJackpot } from "../../src/core/huddle/
 import type { PachinkoDraft, PachislotDraft } from "../../src/core/live-play/draft"
 import type { PlayTerms } from "../../src/core/parlor/terms"
 import type { PlayId } from "../../src/core/play/play"
+import { huddleRoomLabel, huddleStandingText } from "../../src/ui/wording/huddle"
 
 const DAY = "2026-10-20" as IsoDate
-const HUDDLE: Huddle = { secret: "a".repeat(43), businessDay: DAY, member: "me", name: "アキラ", dismissed: [] }
+const HUDDLE: Huddle = { secret: "a".repeat(43), businessDay: DAY, member: "me", name: "ルパン", dismissed: [] }
 
 /** 280 balls to ¥1,000: a ball is worth 1000/280 yen. */
 const TERMS: PlayTerms = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: 280 }, replay: { paidOut: 250, deducted: 250 } }
@@ -56,7 +57,7 @@ describe("a huddle's room", () => {
 
   test("has this device first among its members, then each of the others once", () => {
     expect(roomMembersOf(HUDDLE, others)).toEqual([
-      { member: "me", name: "アキラ", own: true },
+      { member: "me", name: "ルパン", own: true },
       { member: "b", name: "name-b", own: false },
     ])
   })
@@ -100,8 +101,16 @@ describe("a huddle's room", () => {
   test("wears on the rail how many of the others still in it and heard from lately are in a jackpot on the play they are on", () => {
     const jackpot = '{"spins":0,"outlay":0}\n{"spins":120,"outlay":3000,"event":{"kind":"jackpot"}}\n'
     const plays = [theirs("b", "b-1", jackpot, true), theirs("c", "c-1", jackpot, true), theirs("d", "d-1", jackpot, false), theirs("e", "e-1", jackpot, true, true)]
-    expect(othersInJackpot(plays, new Set())).toBe(2)
-    expect(othersInJackpot(plays, new Set(["c"]))).toBe(1)
+    expect(othersInJackpot(plays, new Set())).toEqual(["pachinko", "pachinko"])
+    expect(othersInJackpot(plays, new Set(["c"]))).toEqual(["pachinko"])
+  })
+
+  test("says what the others are in by their game, on a row and on the rail", () => {
+    expect([huddleStandingText("jackpot", "pachinko"), huddleStandingText("jackpot", "pachislot"), huddleStandingText("rapid", "pachinko"), huddleStandingText("finished", "pachislot")]).toEqual(["大当り中", "AT中", "時短中", "終了"])
+    expect(huddleRoomLabel([])).toBe("ノリ打ち")
+    expect(huddleRoomLabel(["pachinko", "pachinko"])).toBe("ノリ打ち（大当り中 2 人）")
+    expect(huddleRoomLabel(["pachislot"])).toBe("ノリ打ち（AT中 1 人）")
+    expect(huddleRoomLabel(["pachislot", "pachinko", "pachislot"])).toBe("ノリ打ち（大当り・AT中 3 人）")
   })
 
   test("tells who has put nothing on the line for an hour and a half, by the latest thing each said", () => {

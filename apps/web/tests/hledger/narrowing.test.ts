@@ -28,7 +28,7 @@ type Session = Awaited<ReturnType<typeof setUp>>
 const sent = (session: Session, id: string, date: string, sender: { readonly id: string; readonly name: string } | undefined) =>
   recordTokenTally(session, BOOK, { ...RENTED_PLAY, id: id as PlayId, date: date as IsoDate, ...(sender === undefined ? {} : { sender }) })
 
-const OFFERED = [UNSENT, "grant-kenji", "grant-taro"]
+const OFFERED = [UNSENT, "grant-hanma", "grant-jack"]
 
 const monthOf = async (session: Session, chosen: readonly string[] | undefined) => {
   const found = await loadDaysAndWhole(session, BOOK, "date:2026-10", { chosen, offered: OFFERED })
@@ -43,19 +43,19 @@ const daysOf = async (session: Session, chosen: readonly string[] | undefined) =
 describe("a book's calendar narrowed to who played it", () => {
   test("sums only the tallies of those chosen, hledger asked of theirs alone", async () => {
     const session = await setUp()
-    await sent(session, "kenji-1", "2026-10-05", { id: "grant-kenji", name: "けんじ" })
-    await sent(session, "kenji-2", "2026-10-07", { id: "grant-kenji", name: "けんじ" })
-    await sent(session, "taro-1", "2026-10-06", { id: "grant-taro", name: "たろう" })
+    await sent(session, "hanma-1", "2026-10-05", { id: "grant-hanma", name: "ハンマ" })
+    await sent(session, "hanma-2", "2026-10-07", { id: "grant-hanma", name: "ハンマ" })
+    await sent(session, "jack-1", "2026-10-06", { id: "grant-jack", name: "ジャック" })
     await sent(session, "own-1", "2026-10-08", undefined)
     const bySender = await loadSenderBreakdown(session, BOOK, "date:2026-10")
     const actualOf = (key: string): Decimal | undefined => (bySender.ok ? bySender.value.find((group) => group.key === key)?.actual : undefined)
-    const one = toPlainString(actualOf("grant-taro") ?? dec("0"))
+    const one = toPlainString(actualOf("grant-jack") ?? dec("0"))
     expect(one).not.toBe("0")
-    expect(await monthOf(session, ["grant-kenji"])).toEqual([toPlainString(actualOf("grant-kenji") ?? dec("0"))])
-    expect(await monthOf(session, ["grant-kenji"])).toEqual([toPlainString(dec(String(Number(one) * 2)))])
-    expect(await daysOf(session, ["grant-kenji"])).toEqual(["2026-10-05", "2026-10-07"])
+    expect(await monthOf(session, ["grant-hanma"])).toEqual([toPlainString(actualOf("grant-hanma") ?? dec("0"))])
+    expect(await monthOf(session, ["grant-hanma"])).toEqual([toPlainString(dec(String(Number(one) * 2)))])
+    expect(await daysOf(session, ["grant-hanma"])).toEqual(["2026-10-05", "2026-10-07"])
     expect(await daysOf(session, [UNSENT])).toEqual(["2026-10-01", "2026-10-03", "2026-10-08"])
-    expect(await daysOf(session, [UNSENT, "grant-taro"])).toEqual(["2026-10-01", "2026-10-03", "2026-10-06", "2026-10-08"])
+    expect(await daysOf(session, [UNSENT, "grant-jack"])).toEqual(["2026-10-01", "2026-10-03", "2026-10-06", "2026-10-08"])
     expect(await monthOf(session, [UNSENT])).toEqual([toPlainString(actualOf("") ?? dec("0"))])
     expect(await daysOf(session, undefined)).toEqual(["2026-10-01", "2026-10-03", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08"])
     expect(await daysOf(session, [])).toEqual([])

@@ -30,7 +30,7 @@ const RICH: PachinkoDraft = {
   log: `${reading(0)}\n${reading(1)}\n`,
   history: [{ at: "2026-10-28T01:10:00.000Z", removed: [], added: [reading(1)] }],
   recorded: { at: "2026-10-28T03:00:10.000Z", finish: { at: "2026-10-28T03:00:00.000Z", counter: 300 } },
-  received: { sender: "ミサト", senderId: "grant-1", log: `${reading(0)}\n`, finished: undefined },
+  received: { sender: "ハンマ", senderId: "grant-1", log: `${reading(0)}\n`, finished: undefined },
   handovers: 2,
 }
 

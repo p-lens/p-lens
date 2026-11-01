@@ -31,13 +31,13 @@ export const useHuddleRoomItem = (place: () => Place): (() => RailItem | undefin
     const huddle = app.huddle.now()
     if (huddle === undefined || app.huddle.line.keptUp() !== huddle.secret) return undefined
     const heard = app.huddle.line.heard()
-    const inJackpot = heard.type === "unreached" ? 0 : othersInJackpot(app.huddle.others(), app.huddle.idle())
+    const inJackpot = heard.type === "unreached" ? [] : othersInJackpot(app.huddle.others(), app.huddle.idle())
     return {
       id: "huddle",
       label: heard.type === "unreached" ? huddleRoomUnheardLabel(heard.error) : huddleRoomLabel(inJackpot),
       icon: <HuddleIcon />,
       colour: SEMIPRO,
-      ...(inJackpot === 0 ? {} : { badge: <CountBadge count={inJackpot} /> }),
+      ...(inJackpot.length === 0 ? {} : { badge: <CountBadge count={inJackpot.length} /> }),
       selected: inHuddleRoom(place()),
       onSelect: () => moves.go({ kind: "huddle" }),
     }
