@@ -5,12 +5,15 @@ import { createBookSession } from "../../src/application/book-session"
 import { loadOverview } from "../../src/application/overview"
 import { loadTally, loadTallies } from "../../src/application/tallies"
 import { recordTokenTally, recordYenTally } from "../../src/application/record-tally"
-import { loadRecordedTally, removeTally, reviseTokenTally, reviseYenTally } from "../../src/application/revise-tally"
+import { loadRecordedTally, moveTokenTally, removeTally, reviseTokenTally, reviseYenTally } from "../../src/application/revise-tally"
 import { loadBreakdown, loadSpinPerformances } from "../../src/application/breakdown"
 import type { BookId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { toPlainString } from "../../src/core/decimal/decimal"
 import { BOOK_FILES } from "../../src/core/journal/layout"
+import { playLogPath } from "../../src/core/play-log/checkpoint"
+import { withParlorInHead } from "../../src/core/play-log/head"
+import type { Parlor, ParlorId } from "../../src/core/parlor/parlor"
 import { keptSpinPerformance } from "../../src/core/tally/aside"
 import { allSpinPerformances, averageOf, mergedSpinPerformances, type SpinPerformances } from "../../src/core/report/spin-performance"
 import type { TokenTally, YenTally } from "../../src/core/tally/tally"
@@ -302,5 +305,50 @@ describe("the spin performances of a book's tallies", () => {
     expect(averages(byMachine.get("海"))).toEqual(["20", undefined])
     expect(averages(allSpinPerformances(byMachine))).toEqual(["18.6", "16.4"])
     expect(averages(mergedSpinPerformances([byMachine, byMachine]).get("流星"))).toEqual(["17.9", "16.4"])
+  })
+})
+
+/** A parlor beside the book's own, as the parlor list names it. */
+const ELSEWHERE: Parlor = { name: "マレハン第3新東京市第2支店", identity: { type: "listed", id: "elsewhere" as ParlorId }, pools: [] }
+
+describe("a tally recorded at the wrong parlor", () => {
+  const moved = async () => {
+    const { session, storage } = await setUp()
+    const log = `${JSON.stringify({ header: true, v: 1, playId: FULL.id, parlor: { name: MALEHAN.name, id: "old" }, machine: "e機種" })}\n{"at":"reading"}\n`
+    expect((await recordTokenTally(session, BOOK, FULL, log)).ok).toBe(true)
+    const tally = { ...FULL, parlor: ELSEWHERE }
+    const written = await moveTokenTally(session, BOOK, tally, dec("3.57"))
+    return { session, storage, written, tally }
+  }
+
+  test("is moved to the parlor it was played at, what it counted as it was", async () => {
+    const { session, written, tally } = await moved()
+    expect(written.ok).toBe(true)
+    const found = await recordedOf(session, "full")
+    expect(found.ok && found.value.type === "token" ? found.value.tally.parlor.name : undefined).toBe(ELSEWHERE.name)
+    expect(found.ok && found.value.type === "token" ? { rental: found.value.tally.rental, payout: found.value.tally.payout, replay: found.value.tally.replay } : undefined).toEqual({ rental: tally.rental, payout: tally.payout, replay: tally.replay })
+  })
+
+  test("takes its savings with it, off the parlor it was recorded at", async () => {
+    const { storage } = await moved()
+    const files = storage.peek(BOOK)?.files ?? {}
+    const journal = Object.entries(files).filter(([path]) => path.includes("transactions")).map(([, text]) => text).join("\n")
+    const entry = journal.slice(journal.indexOf("play-id: full") - 200, journal.indexOf("play-id: full") + 800)
+    expect(entry).toContain(ELSEWHERE.name)
+    expect(entry).not.toContain(MALEHAN.name)
+    expect(files[BOOK_FILES.accounts]).toContain(ELSEWHERE.name)
+  })
+
+  test("has its log say so in its head, its readings as they were", async () => {
+    const { storage } = await moved()
+    const log = storage.peek(BOOK)?.files[playLogPath(FULL.gameKind, FULL.id)] ?? ""
+    const [head, reading] = log.split("\n")
+    expect(JSON.parse(head ?? "{}").parlor.name).toBe(ELSEWHERE.name)
+    expect(JSON.parse(head ?? "{}").machine).toBe("e機種")
+    expect(reading).toBe('{"at":"reading"}')
+  })
+
+  test("a log with no head is left as it is", () => {
+    expect(withParlorInHead('{"at":"reading"}\n', { name: "x", identity: { type: "listed", id: "y" as never } })).toBe('{"at":"reading"}\n')
   })
 })

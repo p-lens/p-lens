@@ -173,5 +173,3 @@ export const theoreticalKeptRequest: RequestOf<"entries"> = { kind: "entries", q
 
 export const accountsRequest: RequestOf<"accounts"> = { kind: "accounts" }
 
-/** Every entry that posts to cash, however many: where a book is looked over for cash that rose. */
-export const cashEntriesRequest: RequestOf<"entries"> = { kind: "entries", query: cashTerm, limit: 1_000_000, offset: 0 }

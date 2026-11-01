@@ -82,6 +82,20 @@ const headFields = (text: string): Fields | undefined => {
   return isFields(fields) && fields["header"] === true ? fields : undefined
 }
 
+/**
+ * A recorded play's log with its head saying the parlor its tally now says,
+ * a tally moved to the parlor it was played at. Its readings are left as they
+ * are, and a log with no head has nothing to say it in.
+ */
+export const withParlorInHead = (log: string, parlor: PlayLogHead["parlor"]): string => {
+  const end = log.indexOf("\n")
+  const first = end < 0 ? log : log.slice(0, end)
+  const fields = headFields(first)
+  if (fields === undefined) return log
+  const line = JSON.stringify({ ...fields, parlor: parlor === undefined ? undefined : parlorFields(parlor) })
+  return end < 0 ? line : `${line}${log.slice(end)}`
+}
+
 /** Whether a line says it is a log's head, and so is no reading. */
 export const isHeadLine = (text: string): boolean => headFields(text) !== undefined
 

@@ -1,19 +1,14 @@
 import { createResource, createSignal, For, Show, type JSX } from "solid-js"
 import { AuxPanel, MainContent } from "solid-gathering-shell"
 
-import { editFile } from "../../../application/edit-file"
-import type { ApplicationError } from "../../../application/errors"
 import { loadBookFiles, type BookFile } from "../../../application/files"
 import type { BookId } from "../../../core/book/book"
 import { useApp } from "../../context"
-import { Button } from "../../primitives/button"
-import { ChevronDownIcon, CloseIcon, EditIcon } from "../../primitives/icons"
-import { toast } from "../../primitives/toast"
+import { ChevronDownIcon, CloseIcon } from "../../primitives/icons"
 import { Revealed } from "../../primitives/revealed"
 import { EmptyState, Loaded } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
-import { describeError } from "../../wording/errors"
 import { Withheld } from "../mummer/Withheld"
 import { ViewHeader } from "../shell/ViewHeader"
 import { entriesOf, folderOf, type Listed } from "./folders"
@@ -109,21 +104,12 @@ export function FilesView(props: { readonly place: Place; readonly bookId: BookI
   )
 }
 
-/** Whether a file is one a person may edit by hand: a journal. A play's log is what was kept at the cabinet, and is only read. */
-const isEditable = (path: string): boolean => path.endsWith(".journal")
-
-/** Where an edit of a file is: not begun, being typed, being kept, or refused with why — the typing stays. */
-type Editing =
-  | { readonly type: "reading" }
-  | { readonly type: "typing"; readonly text: string }
-  | { readonly type: "saving"; readonly text: string }
-  | { readonly type: "refused"; readonly text: string; readonly error: ApplicationError }
+/** Whether a file is a journal, whose amounts are signed as hledger signs them. */
+const isJournal = (path: string): boolean => path.endsWith(".journal")
 
 /**
- * How hledger signs an amount, said wherever a journal is read raw or
- * typed into: a book keeps its accounts by double entry, so what the
- * screens show as a win is a negative number in the file, and typing it
- * positive writes a loss. It names only the accounts a book has — a book
+ * How hledger signs an amount, said wherever a journal is read raw: a book keeps its accounts by double entry, so what the
+ * screens show as a win is a negative number in the file. It names only the accounts a book has — a book
  * has no liabilities — and says of equity what a book writes there: prizes
  * taken home, which stand positive.
  */
@@ -138,11 +124,9 @@ function SignNote(): JSX.Element {
 }
 
 /**
- * One file's text exactly as kept, beside the list it was chosen from. A
- * journal is edited where it stands: saved, the whole book is read by
- * hledger with the change before it is kept, and a parlor the list lacks or
- * a machine the catalog has none of is refused — the book's names are the
- * lists'. What is refused stays typed, with why.
+ * One file's text exactly as kept, beside the list it was chosen from, to be
+ * read and no more: a book is set right on the screens made for it, whose
+ * entries hold together, never by a hand in its files.
  */
 export function FileDetail(props: { readonly place: Place; readonly bookId: BookId; readonly path: string }): JSX.Element {
   const app = useApp()
@@ -151,28 +135,7 @@ export function FileDetail(props: { readonly place: Place; readonly bookId: Book
     () => ({ bookId: props.bookId, revision: app.revision() }),
     (source) => loadBookFiles(app.services.session, source.bookId),
   )
-  const [editing, setEditing] = createSignal<Editing>({ type: "reading" })
   const fileOf = (found: readonly BookFile[]): BookFile | undefined => found.find((file) => file.path === props.path)
-  const typed = (): string | undefined => {
-    const current = editing()
-    return current.type === "reading" ? undefined : current.text
-  }
-  const refusal = (): ApplicationError | undefined => {
-    const current = editing()
-    return current.type === "refused" ? current.error : undefined
-  }
-  const save = async (text: string): Promise<void> => {
-    if (editing().type === "saving") return
-    setEditing({ type: "saving", text })
-    const written = await editFile(app.services.session, { parlors: app.services.parlors, submissions: app.services.submissions, catalog: app.services.catalog }, props.bookId, props.path, text)
-    if (!written.ok) {
-      setEditing({ type: "refused", text, error: written.error })
-      return
-    }
-    setEditing({ type: "reading" })
-    toast({ title: "保存しました", description: props.path })
-    app.wrote()
-  }
   return (
     <AuxPanel
       header={
@@ -194,65 +157,18 @@ export function FileDetail(props: { readonly place: Place; readonly bookId: Book
           {(found) => (
             <Show when={fileOf(found)} keyed fallback={<EmptyState title="このファイルは帳簿にありません" />}>
               {(file) => (
-                <Show
-                  when={typed() !== undefined}
-                  fallback={
-                    <div class="flex flex-col">
-                      <Show when={isEditable(file.path)}>
-                        <div class="flex items-start justify-between gap-3 px-4 pt-3">
-                          <div class="min-w-0 flex-1">
-                            <SignNote />
-                          </div>
-                          <button
-                            type="button"
-                            class="flex shrink-0 items-center gap-1.5 rounded border border-border px-2.5 py-1 text-xs text-text-secondary hover:border-text-secondary hover:text-text-primary [&_svg]:size-4"
-                            onClick={() => setEditing({ type: "typing", text: file.text })}
-                          >
-                            <EditIcon label="" />
-                            編集
-                          </button>
-                        </div>
-                      </Show>
-                      <Show when={file.text !== ""} fallback={<EmptyState title="このファイルは空です" />}>
-                        {((lines) => (
-                          <Revealed count={lines.length}>{(shown) => <pre class="overflow-x-auto p-4 font-mono text-xs leading-relaxed text-text-secondary">{lines.slice(0, shown()).join("\n")}</pre>}</Revealed>
-                        ))(file.text.split("\n"))}
-                      </Show>
+                <div class="flex flex-col">
+                  <Show when={isJournal(file.path)}>
+                    <div class="px-4 pt-3">
+                      <SignNote />
                     </div>
-                  }
-                >
-                  <form autocomplete="off"
-                    class="flex h-full flex-col gap-3 p-4"
-                    onSubmit={(event) => {
-                      event.preventDefault()
-                      void save(typed() ?? "")
-                    }}
-                  >
-                    <SignNote />
-                    <textarea
-                      aria-label={`${file.path} の内容`}
-                      value={typed() ?? ""}
-                      onInput={(event) => setEditing({ type: "typing", text: event.currentTarget.value })}
-                      spellcheck={false}
-                      wrap="off"
-                      class="min-h-80 flex-1 resize-y overflow-auto rounded-[3px] bg-surface-input p-3 font-mono text-xs leading-relaxed text-text-primary outline-none focus:outline-2 focus:outline-focus-ring"
-                    />
-                    <Show when={refusal()} keyed>
-                      {(error) => (
-                        <p role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-text-primary">
-                          {describeError(error)}
-                        </p>
-                      )}
-                    </Show>
-                    <p class="text-xs text-text-muted">保存すると hledger が帳簿全体を読み直します。読めない内容や、一覧にない店舗名・機種名は保存されません。</p>
-                    <div class="flex gap-2">
-                      <Button type="submit">{editing().type === "saving" ? "保存中…" : "保存"}</Button>
-                      <Button variant="ghost" onClick={() => setEditing({ type: "reading" })}>
-                        やめる
-                      </Button>
-                    </div>
-                  </form>
-                </Show>
+                  </Show>
+                  <Show when={file.text !== ""} fallback={<EmptyState title="このファイルは空です" />}>
+                    {((lines) => (
+                      <Revealed count={lines.length}>{(shown) => <pre class="overflow-x-auto p-4 font-mono text-xs leading-relaxed text-text-secondary">{lines.slice(0, shown()).join("\n")}</pre>}</Revealed>
+                    ))(file.text.split("\n"))}
+                  </Show>
+                </div>
               )}
             </Show>
           )}

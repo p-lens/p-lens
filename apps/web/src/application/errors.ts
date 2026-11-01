@@ -8,8 +8,6 @@ import type { BookId } from "../core/book/book"
 import type { PlayId } from "../core/play/play"
 import type { RevisionRefusal } from "../core/pachinko/revision"
 import type { PrecordProblem } from "../core/import/precord"
-import type { NameProblem } from "../core/names/known"
-import type { CashRaised } from "../core/report/cash-raised"
 import type { OpeningProblem } from "../core/parlor/opening"
 import type { TallyError } from "../core/tally/tally"
 import type { ForfeitureProblem } from "../core/savings/forfeiture"
@@ -28,8 +26,6 @@ import type { RelayFailure } from "../sync/port/relay"
 import type { SealFailure } from "../sync/port/sealer"
 import type { CatalogError } from "../catalog/port/catalog"
 import type { SettingsUnreadable } from "../core/book/settings"
-import type { UnreadableFile } from "../core/book/unreadable-files"
-import type { TallyProblem } from "../core/report/tally-problems"
 import type { DirectoryError } from "../parlors/port/parlor-directory"
 import type { ProofError } from "../core/grounds/proof"
 import type { ReasonerFailure } from "../reasoning/protocol/messages"
@@ -95,10 +91,6 @@ export type ApplicationError =
   | { readonly type: "draft"; readonly error: DraftError }
   | { readonly type: "hledger"; readonly trouble: Trouble }
   | { readonly type: "journal-rejected"; readonly trouble: Trouble }
-  | { readonly type: "unknown-names"; readonly problems: readonly NameProblem[] }
-  | { readonly type: "tally-problems"; readonly problems: readonly TallyProblem[] }
-  | { readonly type: "file-unreadable"; readonly file: UnreadableFile }
-  | { readonly type: "cash-raised"; readonly raised: readonly CashRaised[] }
   | { readonly type: "report"; readonly error: ReportError }
   | { readonly type: "tally"; readonly error: TallyError }
   | { readonly type: "parlor"; readonly error: OpeningProblem }

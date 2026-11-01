@@ -1,10 +1,12 @@
 import { memberCan, type BookId, type MemberId } from "../core/book/book"
+import type { Decimal } from "../core/decimal/decimal"
 import { renderEntry } from "../core/journal/entry"
-import { parlorsFromDeclarations } from "../core/parlor/parlor"
+import { parlorsFromDeclarations, type Parlor } from "../core/parlor/parlor"
 import { withoutTallyFiled, withTallyFiled } from "../core/journal/filing"
 import type { TallyHead, TokenTally, YenTally } from "../core/tally/tally"
 import type { PlayId } from "../core/play/play"
 import { playLogPath } from "../core/play-log/checkpoint"
+import { withParlorInHead } from "../core/play-log/head"
 import { pricePointsOf } from "../core/report/holdings"
 import { recordedTallyOf, type RecordedTally } from "../core/report/recorded-tally"
 import { Err, Ok, andThen } from "../core/result/result"
@@ -15,6 +17,7 @@ import type { BookSession, ProposedChange } from "./book-session"
 import type { Outcome } from "./errors"
 import { fromHledger, fromTally } from "./lift"
 import { keptInferenceTermsOf } from "./inference-terms"
+import { openPool } from "./parlors"
 import { composedInYen, composedOnBookRates, withAccountsFor, withPrice, type ComposedTally, type Composer, type RecordingContext } from "./record-tally"
 
 /** A recorded tally as it is set right: what the book knows before anything is typed, and the tally read back from its entry. */
@@ -44,17 +47,25 @@ export const loadRecordedTally = (session: BookSession, bookId: BookId, member: 
     )
   })
 
+/** The log a revised tally leaves beside it: the one given, or the one it has with its head saying the tally's parlor; none where it has none. */
+const logAfter = (files: ProposedChange["files"], head: TallyHead, parlor: Parlor | undefined, given: string | undefined): string | undefined => {
+  if (given !== undefined) return given
+  const kept = files[playLogPath(head.gameKind, head.id)]
+  return kept === undefined ? undefined : withParlorInHead(kept, parlor === undefined ? undefined : { name: parlor.name, identity: parlor.identity })
+}
+
 /** The book's files with a tally's entry put in place of the one it has, if it has one, and the rate its day lacked beside it. */
-const revised = (files: ProposedChange["files"], head: TallyHead, { entry, price }: ComposedTally, log: string | undefined): Outcome<ProposedChange> => {
+const revised = (files: ProposedChange["files"], head: TallyHead, parlor: Parlor | undefined, { entry, price }: ComposedTally, given: string | undefined): Outcome<ProposedChange> => {
   const filed = withTallyFiled(withPrice(withAccountsFor(files, entry), price), head.id, entry.date, renderEntry(entry))
+  const log = logAfter(files, head, parlor, given)
   return filed === undefined
     ? Err({ type: "tally-missing" })
     : Ok({ files: { ...filed, ...(log === undefined ? {} : { [playLogPath(head.gameKind, head.id)]: log }) }, intent: { type: "play-revised", playId: head.id, description: entry.description, theoreticalValue: head.theoreticalValue } })
 }
 
-const revise = (session: BookSession, bookId: BookId, head: TallyHead, compose: Composer, log: string | undefined): Promise<Outcome<CommitId>> =>
+const revise = (session: BookSession, bookId: BookId, head: TallyHead, parlor: Parlor | undefined, compose: Composer, log: string | undefined): Promise<Outcome<CommitId>> =>
   session.write(bookId, async (journal, stored) =>
-    andThen(fromHledger(await journal.ask(pricesRequest(""))), (directives) => andThen(fromTally(compose(pricePointsOf(directives))), (composed) => revised(stored.files, head, composed, log))),
+    andThen(fromHledger(await journal.ask(pricesRequest(""))), (directives) => andThen(fromTally(compose(pricePointsOf(directives))), (composed) => revised(stored.files, head, parlor, composed, log))),
   )
 
 /**
@@ -65,10 +76,23 @@ const revise = (session: BookSession, bookId: BookId, head: TallyHead, compose: 
  * one is given: a play recorded again from its readings, set right since,
  * brings them, and they take the place of those the book has.
  */
-export const reviseTokenTally = (session: BookSession, bookId: BookId, tally: TokenTally, log?: string): Promise<Outcome<CommitId>> => revise(session, bookId, tally, composedOnBookRates(tally), log)
+export const reviseTokenTally = (session: BookSession, bookId: BookId, tally: TokenTally, log?: string): Promise<Outcome<CommitId>> => revise(session, bookId, tally, tally.parlor, composedOnBookRates(tally), log)
+
+/**
+ * Set a recorded tally right at the parlor it was played at, where it was
+ * recorded at another: the pool it draws on is opened there, at the rate it
+ * was counted at where that parlor has none for its day, and its entry written
+ * anew, so that its savings and everything else it moved go with it. The tally
+ * says the parlor it moves to; what it was recorded at keeps what it held
+ * otherwise.
+ */
+export const moveTokenTally = async (session: BookSession, bookId: BookId, tally: TokenTally, rate: Decimal): Promise<Outcome<CommitId>> => {
+  const opened = await openPool(session, bookId, { identity: tally.parlor.identity, parlorName: tally.parlor.name, pool: tally.pool, rate, date: tally.date })
+  return opened.ok ? reviseTokenTally(session, bookId, { ...tally, parlor: opened.value }) : opened
+}
 
 /** Set right a tally kept in yen alone: its entry written anew where it stands, as one commit, its log replaced where one is given. */
-export const reviseYenTally = (session: BookSession, bookId: BookId, tally: YenTally, log?: string): Promise<Outcome<CommitId>> => revise(session, bookId, tally, composedInYen(tally), log)
+export const reviseYenTally = (session: BookSession, bookId: BookId, tally: YenTally, log?: string): Promise<Outcome<CommitId>> => revise(session, bookId, tally, tally.parlor, composedInYen(tally), log)
 
 /**
  * Take a recorded tally out of a book, as one commit: its entry leaves the

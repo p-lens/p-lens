@@ -227,9 +227,9 @@ files alone, a program included, is told where to look.
 
 A book's names are not its own. A parlor is named as the parlor list names
 it and a machine as the catalog does, wherever one is written — a play
-started, a play added by hand, savings registered, a file edited by hand. An
-edit that brings in a name the lists lack is refused (`core/names`); a name a
-book already held is left alone.
+started, a play added by hand, savings registered. A book's files are read and
+never edited on screen: a tally at the wrong parlor is moved to the right one on
+its revising screen (`moveTokenTally`), its savings and its log's head with it.
 
 A parlor is not stored anywhere beside the journal: it is the savings
 accounts declared with its `parlor-id`, read back by `parlorsFromDeclarations`

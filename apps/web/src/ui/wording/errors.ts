@@ -1,7 +1,3 @@
-import { toPlainString } from "../../core/decimal/decimal"
-import type { CashRaised } from "../../core/report/cash-raised"
-import type { NameProblem } from "../../core/names/known"
-import type { PlayGameKind } from "../../core/play/play"
 import type { ApplicationError } from "../../application/errors"
 import type { OpeningProblem } from "../../core/parlor/opening"
 import type { NumericField, TallyError, TextField } from "../../core/tally/tally"
@@ -13,7 +9,6 @@ import type { Trouble } from "../../hledger/protocol/wire"
 import type { HistoryError } from "../../history/port/history-port"
 import type { DirectoryError } from "../../parlors/port/parlor-directory"
 import type { KeptKind, StorageError } from "../../storage/port/book-storage"
-import type { TallyProblem } from "../../core/report/tally-problems"
 import type { DraftError } from "../../storage/port/draft-storage"
 import { ARCHIVE_UNWRITABLE, describeBackupProblem, describeHandoverFailure } from "./backup"
 import { describeCatalogError } from "./catalog"
@@ -157,8 +152,6 @@ const describeDraftError = (error: DraftError): string => {
 const describeHistoryError = (error: HistoryError): string =>
   error.type === "unreadable" ? "この端末に保存された変更の履歴が壊れていて読めません。データの消去で端末のデータを消すと、また使えるようになります。" : `変更の履歴を残せませんでした。${DEVICE_STORAGE_UNAVAILABLE}`
 
-const GAME_NAMES: Readonly<Record<PlayGameKind, string>> = { pachinko: "パチンコ", pachislot: "スロット" }
-
 /** Why a forfeiture could not be written, as a person is told. */
 const describeForfeitureProblem = (problem: ForfeitureProblem): string => {
   switch (problem.type) {
@@ -187,20 +180,6 @@ const describePrizeExchangeProblem = (problem: PrizeExchangeProblem): string => 
   }
 }
 
-/** A name a book may not hold, and what to do about it. */
-const describeCashRaised = (raised: CashRaised): string => `${raised.date} ${raised.description}（資産:現金 +${toPlainString(raised.amount)}）。`
-
-const describeNameProblem = (problem: NameProblem): string => {
-  switch (problem.type) {
-    case "parlor-unlisted":
-      return `店舗「${problem.name}」は店舗一覧にありません。店舗は一覧から選ぶか、申請してください。`
-    case "parlor-misnamed":
-      return `店舗「${problem.name}」は店舗一覧の名前「${problem.listed}」と一致しません。`
-    case "machine-uncatalogued":
-      return `${GAME_NAMES[problem.gameKind]}の機種「${problem.name}」は機種カタログにありません。機種と算出条件を登録してください。`
-  }
-}
-
 const LINES_NAMED = 3
 
 /** What is said of a file of a book that does not read: the whole of it, or the lines of it named by number, a few and how many more. */
@@ -208,22 +187,6 @@ export const unreadableFileText = (path: string, lines: readonly number[] | unde
   lines === undefined
     ? `${path} が壊れていて読めません。`
     : `${path} の${lines.slice(0, LINES_NAMED).join("・")}行目${lines.length > LINES_NAMED ? `ほか${lines.length - LINES_NAMED}行` : ""}が壊れていて読めません。`
-
-const describeTallyProblem = (problem: TallyProblem): string => {
-  switch (problem.type) {
-    case "tag-unreadable":
-      return `収支 ${problem.playId} のタグ ${problem.tag} が読めません。`
-    case "play-id-empty":
-      return `${problem.date} の「${problem.description}」の play-id が空です。`
-    case "play-id-twice":
-      return `play-id ${problem.playId} が2つの仕訳にあります。`
-    case "parlor-unknown":
-      return `収支 ${problem.playId} の店舗が帳簿にありません。`
-    case "statistic-not-yen":
-      return `収支 ${problem.playId} の期待値が円で書かれていません。`
-  }
-}
-
 /** Said as a play another of the owner's devices held was taken off its book: deleted on the device holding it, or now recorded into a book this device does not sync. */
 export const playGoneText = (reason: "withdrawn" | "moved"): string => (reason === "moved" ? "この稼働は、この端末で同期していない帳簿あてになりました" : "この稼働は削除されました")
 
@@ -237,14 +200,6 @@ export const describeError = (error: ApplicationError): string => {
       return describeTrouble(error.trouble)
     case "journal-rejected":
       return `hledger がこの変更を受け付けませんでした。帳簿は変更されていません。${describeTrouble(error.trouble)}`
-    case "unknown-names":
-      return `一覧にない名前があるため保存できません。帳簿は変更されていません。${error.problems.map(describeNameProblem).join("")}`
-    case "tally-problems":
-      return `収支の仕訳として読めない箇所があるため保存できません。帳簿は変更されていません。${error.problems.map(describeTallyProblem).join("")}`
-    case "file-unreadable":
-      return `${unreadableFileText(error.file.path, error.file.lines)}保存できません。帳簿は変更されていません。`
-    case "cash-raised":
-      return `資産:現金 を増やす仕訳は保存できません。帳簿は変更されていません。勝ち分は 純資産:特殊景品 にプラスで書いてください。${error.raised.map(describeCashRaised).join("")}`
     case "report":
       return `交換率のない玉・メダルがあり、円に換算できません: ${error.error.commodities.join("、")}`
     case "tally":
@@ -284,11 +239,11 @@ export const describeError = (error: ApplicationError): string => {
     case "play-gone":
       return playGoneText(error.reason)
     case "tally-unreadable":
-      return "この収支はフォームでは直せません（取り込んだ収支か、手で書き換えた仕訳です）。生ファイルの、その年の transactions のファイルで直してください。"
+      return "この収支はフォームでは直せません（取り込んだ収支か、手で書き換えた仕訳です）。収支の詳細から削除して、追加し直してください。"
     case "filing-differs":
       return `${error.year}年の仕訳を年のファイルに移すと帳簿の読み方が変わるため、移していません。`
     case "settings-unreadable":
-      return "この帳簿の settings.json が壊れていて読めないため、書き換えていません。生ファイルの settings.json で直してください。"
+      return "この帳簿の settings.json が壊れていて読めないため、書き換えていません。バックアップから戻してください。"
     case "catalog":
       return describeCatalogError(error.error)
     case "directory":

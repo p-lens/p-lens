@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test"
 
-import { tokenTallyFormOf, machineChoicesOf, playedAsRecorded, readTokenTallyForm, type TokenTallyForm } from "../../src/ui/features/record-tally/form"
+import { tokenTallyFormOf, machineChoicesOf, playedAsRecorded, playedAsRecordedAt, readTokenTallyForm, type TokenTallyForm } from "../../src/ui/features/record-tally/form"
 import { PRICES, RENTED_PLAY, dec } from "../support/values"
 import type { MachineSummary } from "../../src/core/catalog/catalog"
 import type { MachineId } from "../../src/core/machine/machine"
+import type { ParlorId } from "../../src/core/parlor/parlor"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 
 describe("the form of a tally in tokens, setting a recorded tally right", () => {
@@ -47,5 +48,27 @@ describe("the machines a tally at a parlor may name", () => {
   test("keep the one a tally names already where the catalog lacks it", () => {
     expect(machineChoicesOf([STEINS], "海物語").map((option) => option.value)).toEqual(["海物語", "PA STEINS；GATE0"])
     expect(machineChoicesOf([STEINS], "").map((option) => option.value)).toEqual(["PA STEINS；GATE0"])
+  })
+})
+
+describe("a recorded tally set right at another parlor", () => {
+  const ELSEWHERE = { name: "マレハン第3新東京市第2支店", identity: { type: "listed" as const, id: "elsewhere" as ParlorId }, pools: [] }
+
+  test("keeps its pool there, and the rate it was counted at where that parlor has none for its day", () => {
+    const at = playedAsRecordedAt(RENTED_PLAY, ELSEWHERE, PRICES)
+    expect(at.parlor.pools).toEqual([RENTED_PLAY.pool])
+    expect(at.exchangeRateOn(RENTED_PLAY.date)).toEqual(playedAsRecorded(RENTED_PLAY, PRICES).exchangeRateOn(RENTED_PLAY.date))
+  })
+
+  test("goes by the rate that parlor's pool has, where it has one", () => {
+    const own = [...PRICES, { date: RENTED_PLAY.date, commodity: `玉(4円・${ELSEWHERE.name})`, rate: dec("2.50") }]
+    expect(playedAsRecordedAt(RENTED_PLAY, ELSEWHERE, own).exchangeRateOn(RENTED_PLAY.date)).toEqual(dec("2.50"))
+  })
+
+  test("reads into a tally at that parlor, the same sums", () => {
+    const read = readTokenTallyForm(tokenTallyFormOf(RENTED_PLAY), playedAsRecordedAt(RENTED_PLAY, ELSEWHERE, PRICES), RENTED_PLAY.id)
+    expect(read.ok && read.value.parlor.name).toBe(ELSEWHERE.name)
+    expect(read.ok && read.value.rental).toEqual(RENTED_PLAY.rental)
+    expect(read.ok && read.value.payout).toEqual(RENTED_PLAY.payout)
   })
 })

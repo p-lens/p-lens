@@ -2,7 +2,7 @@ import { parseIsoDate, type IsoDate } from "../../../core/calendar/calendar"
 import { bookNameOf, type MachineSummary } from "../../../core/catalog/catalog"
 import { tokenCommodity, type TokenKind } from "../../../core/commodity/commodity"
 import { ZERO, decimal, isZero, parseDecimal, toPlainString, type Decimal } from "../../../core/decimal/decimal"
-import type { Parlor, SavingsPool } from "../../../core/parlor/parlor"
+import { samePool, type Parlor, type SavingsPool } from "../../../core/parlor/parlor"
 import { savingsDeductedFor, tokensRentedFor, type PlayTerms } from "../../../core/parlor/terms"
 import type { NumericField, TokenTally } from "../../../core/tally/tally"
 import type { PlayGameKind, PlayId } from "../../../core/play/play"
@@ -92,6 +92,22 @@ export const playedAsRecorded = (tally: TokenTally, prices: readonly PricePoint[
     return (rateOn(prices, commodity, date) ?? rateReachingBack(prices, commodity, date))?.rate
   },
 })
+
+/**
+ * A recorded tally set right at another parlor, the one it was played at: its
+ * counts and its corner's rate are as they were, and its tokens exchange at
+ * the rate that parlor's pool has for the day, or the rate it was counted at
+ * where that parlor has none.
+ */
+export const playedAsRecordedAt = (tally: TokenTally, parlor: Parlor, prices: readonly PricePoint[]): PlayedAt => {
+  const recorded = playedAsRecorded(tally, prices)
+  const commodity = tokenCommodity(tally.pool.kind, parlor.name, tally.pool.tier)
+  return {
+    ...recorded,
+    parlor: parlor.pools.some((pool) => samePool(pool, tally.pool)) ? parlor : { ...parlor, pools: [...parlor.pools, tally.pool] },
+    exchangeRateOn: (date) => (rateOn(prices, commodity, date) ?? rateReachingBack(prices, commodity, date))?.rate ?? recorded.exchangeRateOn(date),
+  }
+}
 
 /**
  * The book's prices as they will stand when a tally of a day is written:
