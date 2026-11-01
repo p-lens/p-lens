@@ -9,7 +9,7 @@ export type ApiError =
   | {
       readonly type: "invalid-body"
       readonly field: string
-      readonly reason: "missing" | "not-text" | "too-long" | "not-an-id" | "not-json" | "unknown-value" | "not-positive" | "not-a-date" | "too-early" | "too-far-ahead" | "forbidden" | "not-a-list" | "too-many" | "not-a-chance"
+      readonly reason: "missing" | "not-text" | "too-long" | "not-an-id" | "not-json" | "unknown-value" | "not-positive" | "not-a-date" | "too-early" | "too-far-ahead" | "forbidden" | "names-setting-level" | "not-a-list" | "too-many" | "not-a-chance"
     }
   | { readonly type: "unauthenticated" }
   /** A request from anywhere but the pages this deployment serves the app from. */

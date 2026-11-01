@@ -4,6 +4,7 @@ import { For, Show, type JSX } from "solid-js"
 import { bonusShapes } from "../../../../core/pachinko/bonuses"
 import type { Basis, Bonus } from "../../../../core/pachinko/formula"
 import { modesOf, regularOf, type ModeView } from "../../../../core/pachinko/world"
+import { assumedSettingLevelText } from "../../../wording/pachinko/formula"
 import { jackpotsText } from "../../../wording/pachinko/machine"
 import { BonusTable } from "./BonusTable"
 import { earlyEndText, kindText, nextText, ownAttackerText, probabilityText, roundPayoutText, shareText, supportGainText } from "./spec-text"
@@ -73,7 +74,7 @@ export function SpecReadout(props: { readonly basis: Basis; readonly bonuses: re
     <div class="flex flex-col gap-3">
       <Show when={regularOf(props.basis.spec)} keyed>
         {(regular) => (
-          <Block title="通常時" subtitle={`大当り ${probabilityText(regular.chance)}${regular.reliefDrive === undefined ? "" : `・遊タイム ${regular.reliefDrive.gauge}回転`}`}>
+          <Block title="通常時" subtitle={`${regular.assumedSettingLevel === undefined ? "" : `${assumedSettingLevelText(regular.assumedSettingLevel)}・`}大当り ${probabilityText(regular.chance)}${regular.reliefDrive === undefined ? "" : `・遊タイム ${regular.reliefDrive.gauge}回転`}`}>
             <AllotmentTable allotment={regular.allotment} modes={modes()} />
           </Block>
         )}

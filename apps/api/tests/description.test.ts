@@ -26,6 +26,18 @@ describe("how a machine is described", () => {
     expect((await client.call("GET", "/catalog")).body.machines[0].machine).toEqual(machine)
   })
 
+  test("a name or model name saying a setting level is refused, however it is written; a word it is searched by may say one", async () => {
+    const client = await api()
+    for (const name of ["e星都幻鬼 設定2", "e星都幻鬼(設定1)", "e星都幻鬼 設 定 ２", "e星都幻鬼 セッテイ6", "e星都幻鬼 高設定"]) {
+      const refused = await register(client, { ...GENKI, name })
+      expect(refused.status).toBe(400)
+      expect(refused.body.error).toEqual({ type: "invalid-body", field: "name", reason: "names-setting-level" })
+    }
+    const model = await register(client, { ...GENKI, modelName: "e星都幻鬼W設定2" })
+    expect(model.body.error).toEqual({ type: "invalid-body", field: "modelName", reason: "names-setting-level" })
+    expect((await register(client, { ...GENKI, keywords: ["設定付き"] })).status).toBe(201)
+  })
+
   test("is registered with its model name, and a pachinko machine with its 大当り確率; the rest may be left out", async () => {
     const client = await api()
     const bare = { gameKind: "pachinko", name: "名前だけ", releasedOn: "2025-02-03", formula: manual() }

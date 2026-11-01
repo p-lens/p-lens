@@ -89,6 +89,14 @@ describe("the basis form", () => {
     expect(read.ok && basisFormOf(read.value.spec, read.value.conditions, undefined).modes[0]?.withoutSupport).toBe(true)
   })
 
+  test("the setting level a formula was read at is kept through a remaking, though no field writes it", () => {
+    const read = readBasisForm({ ...STARTING_BASIS, assumedSettingLevel: 1 })
+    expect(read.ok && read.value.spec.components.assumedSettingLevel).toEqual({ regular: 1 })
+    expect(read.ok && basisFormOf(read.value.spec, read.value.conditions, undefined).assumedSettingLevel).toBe(1)
+    const none = readBasisForm(STARTING_BASIS)
+    expect(none.ok && none.value.spec.components.assumedSettingLevel).toBeUndefined()
+  })
+
   test("refuses a share above 100% and a fractional round count, by name", () => {
     const read = readBasisForm({ ...STARTING_BASIS, firstHit: [{ share: "120", rounds: "2.5", next: "regular", prize: "", count: "", others: [], jackpots: "" }] })
     expect(read.ok ? [] : read.error).toEqual([

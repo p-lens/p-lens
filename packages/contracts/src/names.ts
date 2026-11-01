@@ -43,3 +43,17 @@ export const MACHINE_KEYWORDS = { count: 10, length: 30 } as const
 
 /** The most bonuses a machine lists, the longest a bonus's name may be, the most balls one may pay out, and the most jackpots one may be won over. */
 export const MACHINE_BONUSES = { count: 20, nameLength: 20, payout: 100_000, jackpots: 50 } as const
+
+/**
+ * Whether a machine's name, or its model name, says a setting level: `設定2`,
+ * however it is written. Setting levels are never told apart by name, as two
+ * machines that could not be made one again; they are one machine, whose formula
+ * says the setting level it was read at.
+ */
+export const namesSettingLevel = (name: string): boolean => {
+  const plain = name
+    .normalize("NFKC")
+    .replace(/[ァ-ヶ]/g, (character) => String.fromCodePoint((character.codePointAt(0) ?? 0) - 0x60))
+    .replace(/[\s\p{P}\p{S}]+/gu, "")
+  return plain.includes("設定") || plain.includes("せってい")
+}

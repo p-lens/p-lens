@@ -20,6 +20,9 @@ export const formulaText = (figures: Said["figures"]): string => `${oneInText(fi
 /** The two figures, each marked with what it is, as a formula's card and a box to choose one from show them: `1RT 1/16.2・1RB 140.0玉` — 1Rトータル確率 and 1R平均出玉. */
 export const markedFormulaText = (figures: Said["figures"]): string => `1RT ${oneInText(figures.roundChanceOneIn)}・1RB ${payoutText(figures.payoutPerRound)}`
 
+/** What a formula's figures were read at, on a machine with setting levels its world does not otherwise tell apart. */
+export const assumedSettingLevelText = (settingLevel: number): string => `設定${settingLevel}で計算`
+
 /**
  * A formula's name among its machine's, as a box to choose one shows it:
  * its figures, marked — nobody names a formula — and, where another says

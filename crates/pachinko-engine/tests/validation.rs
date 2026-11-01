@@ -279,4 +279,25 @@ fn a_component_astray_is_refused_by_name() {
             component: Component::Label,
         })
     );
+    let mut setting_level_on_a_mode = made_up();
+    setting_level_on_a_mode
+        .components
+        .assumed_setting_level
+        .insert(id("RUSH"), nonzero(1));
+    assert_eq!(
+        normalize(&setting_level_on_a_mode),
+        Err(SpecError::StrayComponent {
+            entity: id("RUSH"),
+            component: Component::AssumedSettingLevel,
+        })
+    );
+}
+
+#[test]
+fn the_setting_level_a_formula_was_read_at_changes_no_figure() {
+    let mut said = made_up();
+    said.components
+        .assumed_setting_level
+        .insert(id("regular"), nonzero(1));
+    assert_eq!(normalize(&said), normalize(&made_up()));
 }

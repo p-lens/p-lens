@@ -2,10 +2,11 @@ import { Show, type JSX } from "solid-js"
 
 import { borderOf } from "../../../../core/pachinko/theoretical-value"
 import { netAdoptions, netVerifications, usesWeighTheirMost, type FormulaListing, type Mark, type MyMarks, type Selection } from "../../../../core/formula/standing"
-import type { Formula } from "../../../../core/pachinko/formula"
+import { basisOf, type Formula } from "../../../../core/pachinko/formula"
+import { regularOf } from "../../../../core/pachinko/world"
 import { BoltIcon, HandIcon, HeartIcon, QuestionIcon, ShieldIcon } from "../../../primitives/icons"
 import { formulaIdText } from "../../../wording/catalog"
-import { borderText, markedFormulaText, oneInText } from "../../../wording/pachinko/formula"
+import { assumedSettingLevelText, borderText, markedFormulaText, oneInText } from "../../../wording/pachinko/formula"
 import { KindMark } from "./KindMark"
 import { SelectionReason } from "./SelectionReason"
 import { isMine, OWN_LINES, ownPaintOf } from "./vote-fill"
@@ -57,6 +58,7 @@ export function FormulaCard(props: {
   readonly besideFigures?: JSX.Element
 }): JSX.Element {
   const figures = (): FormulaListing<Formula>["formula"]["figures"] => props.listing.formula.figures
+  const assumedSettingLevel = (): number | undefined => ((basis) => (basis === undefined ? undefined : regularOf(basis.spec)?.assumedSettingLevel))(basisOf(props.listing.formula))
   const filled = (mark: Mark): boolean => isMine(mark, props.mine, props.favorite)
   const checkPaint = () => ownPaintOf(["verification", "refutation"], props.mine)
   const adoptionPaint = () => ownPaintOf(["adoption", "rejection"], props.mine)
@@ -69,7 +71,12 @@ export function FormulaCard(props: {
         <KindMark kind={props.listing.formula.kind} />
         <div class="min-w-0 flex-1">
           <h3 class="truncate font-semibold tabular-nums text-text-primary">{markedFormulaText(props.listing.formula.figures)}</h3>
-          <p class="text-[11px] tabular-nums text-text-muted">ID {formulaIdText(props.listing.formula.id)}</p>
+          <p class="text-[11px] tabular-nums text-text-muted">
+            ID {formulaIdText(props.listing.formula.id)}
+            <Show when={assumedSettingLevel()} keyed>
+              {(settingLevel) => <span class="ml-2 text-text-secondary">{assumedSettingLevelText(settingLevel)}</span>}
+            </Show>
+          </p>
         </div>
         <Show when={props.stronger !== undefined && props.onStronger} keyed>
           {(open) => (

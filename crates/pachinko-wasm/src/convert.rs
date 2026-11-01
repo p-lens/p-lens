@@ -186,6 +186,14 @@ fn early_end(dto: &EarlyEndDto, at: &str) -> Result<EarlyEnd, ErrorDto> {
     })
 }
 
+fn assumed_setting_levels(dto: &ComponentsDto) -> Result<BTreeMap<ModeId, NonZeroU32>, ErrorDto> {
+    table(
+        &dto.assumed_setting_level,
+        "spec.components.assumedSettingLevel",
+        |setting_level, at| nonzero(*setting_level, at),
+    )
+}
+
 fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
     const AT: &str = "spec.components";
     if let Some(name) = dto.unsupported.keys().next() {
@@ -272,6 +280,7 @@ fn components(dto: &ComponentsDto) -> Result<Components, ErrorDto> {
             .map(|(index, entity)| mode_id(entity, &format!("{AT}.withoutSupport[{index}]")))
             .collect::<Result<BTreeSet<_>, _>>()?,
         early_end: table(&dto.early_end, &format!("{AT}.earlyEnd"), early_end)?,
+        assumed_setting_level: assumed_setting_levels(dto)?,
         relief_drive: table(
             &dto.relief_drive,
             &format!("{AT}.reliefDrive"),
@@ -708,6 +717,7 @@ fn component_name(component: Component) -> String {
         Component::ReliefDrive => "reliefDrive",
         Component::WithoutSupport => "withoutSupport",
         Component::EarlyEnd => "earlyEnd",
+        Component::AssumedSettingLevel => "assumedSettingLevel",
     }
     .to_owned()
 }

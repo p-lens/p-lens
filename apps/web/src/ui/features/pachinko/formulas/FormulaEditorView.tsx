@@ -1,3 +1,4 @@
+import { namesSettingLevel } from "@p-lens/contracts"
 import { createMemo, createResource, createSignal, For, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
@@ -24,7 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../primitives/ta
 import { toast } from "../../../primitives/toast"
 import { useMoves } from "../../../navigation/moves"
 import type { FormulaTab, Place } from "../../../navigation/place"
-import { describeDescriptionProblem, describeReleaseDateError, quotaStandingText, REGISTER_OFFLINE, REGISTRATION_SENDING } from "../../../wording/catalog"
+import { describeDescriptionProblem, describeReleaseDateError, quotaStandingText, REGISTER_OFFLINE, REGISTRATION_SENDING, SETTING_LEVEL_IN_NAME } from "../../../wording/catalog"
 import { isUnreached } from "../../catalog/unreached"
 import { describeError } from "../../../wording/errors"
 import { oneInText, payoutText } from "../../../wording/pachinko/formula"
@@ -173,7 +174,7 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachinko-form
     const day = releaseDate()
     const words = keywords()
     const chance = hitChance()
-    return machineName().trim() === "" || !day.ok || !words.ok || !chance.ok
+    return machineName().trim() === "" || namesSettingLevel(machineName()) || namesSettingLevel(modelName()) || !day.ok || !words.ok || !chance.ok
       ? undefined
       : { name: readName(machineName()), modelName: readModelName(modelName()), keywords: words.value, hitChance: chance.value, releasedOn: day.value }
   }
@@ -270,9 +271,9 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachinko-form
   /** Nudges whatever a save is waiting on, and says whether there was anything. */
   const nudgeWhatIsMissing = (): boolean => {
     const registering = target().type === "none"
-    const nameMissing = registering && machineName().trim() === ""
+    const nameMissing = registering && (machineName().trim() === "" || namesSettingLevel(machineName()))
     const dateMissing = registering && !releaseDate().ok
-    const modelMissing = registering && readModelName(modelName()) === undefined
+    const modelMissing = registering && (readModelName(modelName()) === undefined || namesSettingLevel(modelName()))
     const chanceMissing = registering && hitChanceTyped().trim() === ""
     const descriptionWrong = registering && (!keywords().ok || !hitChance().ok)
     const figuresMissing = unstated() === undefined
@@ -341,11 +342,11 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachinko-form
             fallback={
               <div class="flex max-w-md flex-col gap-2">
                 <div class="grid grid-cols-[minmax(0,1fr)_9rem] gap-2">
-                  <TextField label="機種名" value={machineName()} onChange={setMachineName} placeholder="ホールでの呼び名" tidied={readName} required invalid={nameNudge.red()} onFocus={nameNudge.settle} />
+                  <TextField label="機種名" value={machineName()} onChange={setMachineName} placeholder="ホールでの呼び名" tidied={readName} required invalid={nameNudge.red()} error={namesSettingLevel(machineName()) ? SETTING_LEVEL_IN_NAME : undefined} onFocus={nameNudge.settle} />
                   <TextField label="リリース日" type="date" value={releasedOn()} onChange={setReleasedOn} required invalid={dateNudge.red()} error={releaseDateWording()} onFocus={dateNudge.settle} />
                 </div>
                 <div class="grid grid-cols-[minmax(0,1fr)_9rem] gap-2">
-                  <TextField label="型式名" value={modelName()} onChange={(newMachineModelName) => startForm.updatePachinko({ newMachineModelName })} tidied={readName} required invalid={modelNudge.red()} onFocus={modelNudge.settle} />
+                  <TextField label="型式名" value={modelName()} onChange={(newMachineModelName) => startForm.updatePachinko({ newMachineModelName })} tidied={readName} required invalid={modelNudge.red()} error={namesSettingLevel(modelName()) ? SETTING_LEVEL_IN_NAME : undefined} onFocus={modelNudge.settle} />
                   <TextField
                     label="大当り確率"
                     value={hitChanceTyped()}

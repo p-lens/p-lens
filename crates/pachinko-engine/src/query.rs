@@ -54,7 +54,11 @@ fn check_entities(spec: &Spec) -> Result<BTreeSet<&ModeId>, SpecError> {
                 .iter()
                 .map(|entity| (entity, Component::WithoutSupport)),
         )
-        .chain(keyed(&components.early_end, Component::EarlyEnd));
+        .chain(keyed(&components.early_end, Component::EarlyEnd))
+        .chain(keyed(
+            &components.assumed_setting_level,
+            Component::AssumedSettingLevel,
+        ));
     named
         .into_iter()
         .find(|(entity, _)| !known.contains(entity))
@@ -223,6 +227,9 @@ fn mode_of(spec: &Spec, entity: &ModeId, regular: ProbabilitySource) -> Result<M
     }
     if components.early_end.contains_key(entity) && !components.rapid.contains_key(entity) {
         return Err(stray(entity, Component::EarlyEnd));
+    }
+    if components.assumed_setting_level.contains_key(entity) {
+        return Err(stray(entity, Component::AssumedSettingLevel));
     }
     Ok(Mode {
         id: entity.clone(),

@@ -183,6 +183,8 @@ export interface BasisForm {
   readonly reliefDriveGauge: string
   /** The key of the mode the 遊タイム leads to. */
   readonly reliefDriveTo: string
+  /** The setting level the formula's figures were read at, kept through a remaking; no field writes it. Undefined where none is said. */
+  readonly assumedSettingLevel: number | undefined
   readonly prizeBalls: string
   readonly count: string
   readonly measuredPayout: string
@@ -218,6 +220,7 @@ export const STARTING_BASIS: BasisForm = {
   modes: [{ ...newMode("m1", "RUSH"), continuationRate: "80" }],
   reliefDriveGauge: "",
   reliefDriveTo: "",
+  assumedSettingLevel: undefined,
   prizeBalls: "15",
   count: "10",
   measuredPayout: "",
@@ -393,7 +396,7 @@ export const readBasisForm = (form: BasisForm): Result<ReadBasis, readonly FormP
   if (problems.length > 0 || !regular.ok || !firstHit.ok || !prize.ok || !count.ok || !measured.ok || !gain.ok || !speed.ok || !reliefDrive.ok) return Err(problems)
   return Ok({
     spec: assembleWorld(
-      { chance: regular.value, allotment: firstHit.value, reliefDrive: reliefDrive.value },
+      { chance: regular.value, allotment: firstHit.value, reliefDrive: reliefDrive.value, assumedSettingLevel: form.assumedSettingLevel },
       modes.flatMap((mode) => (mode.ok ? [mode.value] : [])),
       { prizeBalls: prize.value, count: count.value },
     ),
@@ -447,6 +450,7 @@ export const basisFormOf = (spec: SpecDto, conditions: ConditionsDto, spinsPerHo
     })),
     reliefDriveGauge: regular?.reliefDrive === undefined ? "" : String(regular.reliefDrive.gauge),
     reliefDriveTo: regular?.reliefDrive?.to ?? "",
+    assumedSettingLevel: regular?.assumedSettingLevel,
     prizeBalls: String(spec.resources.payout.prizeBalls),
     count: String(spec.resources.payout.count),
     measuredPayout: conditions.roundPayout.type === "measured" ? String(conditions.roundPayout.balls) : "",

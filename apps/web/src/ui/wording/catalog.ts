@@ -35,6 +35,9 @@ const refusal = (reason: string): string => {
   }
 }
 
+/** Said under a machine's name or model name that says a setting level, which is never told apart by name. */
+export const SETTING_LEVEL_IN_NAME = "設定は名前に入れられません。設定違いは同じ機種の算出条件として登録してください。"
+
 /** Said where the device has never got the catalog, for want of a connection. */
 export const UNDELIVERED = `この端末は、機種と算出条件の一覧をまだ受け取れていません。${NO_CONNECTION}一度受け取れば、以後は電波がなくても使えます。`
 

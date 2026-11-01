@@ -107,6 +107,8 @@ export interface ComponentsDto {
   readonly withoutSupport?: readonly string[]
   /** A 時短 that each spin may end early without a jackpot — a c時短 — and where play goes then. */
   readonly earlyEnd?: Readonly<Record<string, EarlyEndDto>>
+  /** The setting level the regular game's figures were read at, on a machine with setting levels this world does not otherwise tell apart. It says what the figures are; nothing is worked out from it. */
+  readonly assumedSettingLevel?: Readonly<Record<string, number>>
 }
 
 /** A 時短 ended early: on each spin at `chance`, without a jackpot, to where its shares say; the spins played until then fill the relief gauge. */

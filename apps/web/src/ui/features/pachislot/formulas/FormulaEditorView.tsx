@@ -1,3 +1,4 @@
+import { namesSettingLevel } from "@p-lens/contracts"
 import { createMemo, createResource, createSignal, For, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
@@ -23,7 +24,7 @@ import { settleTyping, TextField } from "../../../primitives/text-field"
 import { toast } from "../../../primitives/toast"
 import { useMoves } from "../../../navigation/moves"
 import type { FormulaTab, Place } from "../../../navigation/place"
-import { describeDescriptionProblem, describeReleaseDateError, quotaStandingText, REGISTER_OFFLINE, REGISTRATION_SENDING } from "../../../wording/catalog"
+import { describeDescriptionProblem, describeReleaseDateError, quotaStandingText, REGISTER_OFFLINE, REGISTRATION_SENDING, SETTING_LEVEL_IN_NAME } from "../../../wording/catalog"
 import { isUnreached } from "../../catalog/unreached"
 import { describeError } from "../../../wording/errors"
 import { SHARED_UNCHECKED } from "../../../wording/pachislot/formula"
@@ -123,7 +124,7 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachislot-for
     const day = releaseDate()
     const words = keywords()
     const name = readName(pachislot().newMachineName)
-    return name === "" || !day.ok || !words.ok ? undefined : { name, modelName: readModelName(pachislot().newMachineModelName), keywords: words.value, hitChance: undefined, releasedOn: day.value }
+    return name === "" || namesSettingLevel(name) || namesSettingLevel(pachislot().newMachineModelName) || !day.ok || !words.ok ? undefined : { name, modelName: readModelName(pachislot().newMachineModelName), keywords: words.value, hitChance: undefined, releasedOn: day.value }
   }
   const [manual, setManual] = createSignal(props.start.manual)
   const [world, setWorld] = createSignal(props.start.world)
@@ -191,9 +192,9 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachislot-for
 
   const nudgeWhatIsMissing = (): boolean => {
     const registering = pachislot().machine.type === "none"
-    const nameMissing = registering && pachislot().newMachineName.trim() === ""
+    const nameMissing = registering && (pachislot().newMachineName.trim() === "" || namesSettingLevel(pachislot().newMachineName))
     const dateMissing = registering && !releaseDate().ok
-    const modelMissing = registering && readModelName(pachislot().newMachineModelName) === undefined
+    const modelMissing = registering && (readModelName(pachislot().newMachineModelName) === undefined || namesSettingLevel(pachislot().newMachineModelName))
     const descriptionWrong = registering && !keywords().ok
     const figuresMissing = proposed() === undefined
     if (nameMissing) nameNudge.nudge()
@@ -289,6 +290,7 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachislot-for
                     tidied={readName}
                     required
                     invalid={nameNudge.red()}
+                    error={namesSettingLevel(pachislot().newMachineName) ? SETTING_LEVEL_IN_NAME : undefined}
                     onFocus={nameNudge.settle}
                   />
                   <TextField
@@ -309,6 +311,7 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachislot-for
                   tidied={readName}
                   required
                   invalid={modelNudge.red()}
+                  error={namesSettingLevel(pachislot().newMachineModelName) ? SETTING_LEVEL_IN_NAME : undefined}
                   onFocus={modelNudge.settle}
                 />
                 <TextField

@@ -5,5 +5,5 @@
  */
 
 export type * from "./catalog.ts"
-export { comparableName, isHitChanceText, keptName, MACHINE_BONUSES, MACHINE_KEYWORDS } from "./names.ts"
+export { comparableName, isHitChanceText, keptName, MACHINE_BONUSES, MACHINE_KEYWORDS, namesSettingLevel } from "./names.ts"
 export { EARLIEST_RELEASE, RELEASE_DAYS_AHEAD, releaseDateProblem, type ReleaseDateProblem } from "./release-date.ts"

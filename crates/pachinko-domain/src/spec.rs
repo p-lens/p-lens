@@ -86,6 +86,10 @@ pub struct Components {
     /// A 時短 that each spin may end early without a jackpot — a c時短 — and
     /// where play goes then.
     pub early_end: BTreeMap<ModeId, EarlyEnd>,
+    /// The setting level the regular game's figures were read at, on a
+    /// machine with setting levels this world does not otherwise tell apart.
+    /// It says what the figures are; nothing is worked out from it.
+    pub assumed_setting_level: BTreeMap<ModeId, NonZeroU32>,
 }
 
 /// A 時短 ended early: on each spin, at `chance`, without a jackpot, play
@@ -153,6 +157,7 @@ pub enum Component {
     ReliefDrive,
     WithoutSupport,
     EarlyEnd,
+    AssumedSettingLevel,
 }
 
 /// The regular game as the engine queries it from its entity: how often it

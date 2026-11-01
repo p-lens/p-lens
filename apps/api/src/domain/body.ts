@@ -1,4 +1,4 @@
-import { comparableName, isHitChanceText, keptName, MACHINE_BONUSES, MACHINE_KEYWORDS, type MachineBonusDto, releaseDateProblem } from "@p-lens/contracts"
+import { comparableName, isHitChanceText, keptName, MACHINE_BONUSES, MACHINE_KEYWORDS, type MachineBonusDto, namesSettingLevel, releaseDateProblem } from "@p-lens/contracts"
 import { isUuidV7, type UuidV7 } from "@p-lens/uuidv7"
 
 import type { ApiError } from "./errors"
@@ -34,7 +34,8 @@ export const decentName = (body: Body, field: string): Result<string, ApiError> 
 /** A machine's name: one others will see, kept as every machine's is (`keptName`) however it was sent. */
 export const machineName = (body: Body, field: string): Result<string, ApiError> => {
   const read = decentName(body, field)
-  return read.ok ? Ok(keptName(read.value)) : read
+  if (!read.ok) return read
+  return namesSettingLevel(read.value) ? invalid(field, "names-setting-level") : Ok(keptName(read.value))
 }
 
 /** A name others will see, or none where the field is left out or left empty. */
@@ -46,7 +47,8 @@ export const optionalDecentName = (body: Body, field: string): Result<string | u
 /** A machine's model name, or none where it is left out or left empty: decent, and written as a machine's name is kept. */
 export const optionalModelName = (body: Body, field: string): Result<string | undefined, ApiError> => {
   const read = optionalDecentName(body, field)
-  return read.ok && read.value !== undefined ? Ok(keptName(read.value)) : read
+  if (!read.ok || read.value === undefined) return read
+  return namesSettingLevel(read.value) ? invalid(field, "names-setting-level") : Ok(keptName(read.value))
 }
 
 /** A 大当り確率 as a spec sheet writes it, `1/319.7`, or none where the field is left out or left empty. */

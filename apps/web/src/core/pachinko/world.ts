@@ -29,6 +29,8 @@ export interface RegularView {
   readonly chance: ProbabilityDto
   readonly allotment: readonly AllotmentDto[]
   readonly reliefDrive: ReliefDriveDto | undefined
+  /** The setting level its figures were read at, on a machine with setting levels this world does not otherwise tell apart. */
+  readonly assumedSettingLevel: number | undefined
 }
 
 /** The entity that is the regular game, by its `regularGame` component. */
@@ -50,7 +52,7 @@ export const regularOf = (spec: SpecDto): RegularView | undefined => {
   const allotment = entity === undefined ? undefined : spec.components.allotment?.[entity]
   return entity === undefined || game === undefined || allotment === undefined
     ? undefined
-    : { entity, chance: game.chance, allotment, reliefDrive: spec.components.reliefDrive?.[entity] }
+    : { entity, chance: game.chance, allotment, reliefDrive: spec.components.reliefDrive?.[entity], assumedSettingLevel: spec.components.assumedSettingLevel?.[entity] }
 }
 
 const kindOf = (components: ComponentsDto, entity: string): ModeKind | undefined => {
@@ -91,7 +93,7 @@ export const REGULAR_ENTITY = "regular"
  * with its components, and one per mode with each component it has.
  */
 export const assembleWorld = (
-  regular: { readonly chance: ProbabilityDto; readonly allotment: readonly AllotmentDto[]; readonly reliefDrive: ReliefDriveDto | undefined },
+  regular: { readonly chance: ProbabilityDto; readonly allotment: readonly AllotmentDto[]; readonly reliefDrive: ReliefDriveDto | undefined; readonly assumedSettingLevel: number | undefined },
   modes: readonly ModeView[],
   payout: SpecDto["resources"]["payout"],
 ): SpecDto => {
@@ -119,6 +121,7 @@ export const assembleWorld = (
       ...(regular.reliefDrive === undefined ? {} : { reliefDrive: record([[REGULAR_ENTITY, regular.reliefDrive]]) }),
       ...(unsupported.length === 0 ? {} : { withoutSupport: unsupported }),
       ...(earlyEnds.length === 0 ? {} : { earlyEnd: record(earlyEnds) }),
+      ...(regular.assumedSettingLevel === undefined ? {} : { assumedSettingLevel: record([[REGULAR_ENTITY, regular.assumedSettingLevel]]) }),
     },
     resources: { payout },
   }

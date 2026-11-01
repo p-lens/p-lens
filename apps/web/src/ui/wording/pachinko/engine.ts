@@ -17,6 +17,7 @@ const COMPONENT_NAMES: Readonly<Record<string, string>> = {
   onMiss: "終了後の行き先",
   luckyTrigger: "ラッキートリガー",
   reliefDrive: "遊タイム",
+  assumedSettingLevel: "計算した設定",
 }
 
 /** A component's name as the form calls it. */

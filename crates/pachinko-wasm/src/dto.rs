@@ -182,6 +182,8 @@ pub struct ComponentsDto {
     pub without_support: Vec<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub early_end: BTreeMap<String, EarlyEndDto>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub assumed_setting_level: BTreeMap<String, u32>,
     #[serde(flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub unsupported: BTreeMap<String, serde_json::Value>,
 }
