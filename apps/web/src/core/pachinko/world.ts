@@ -31,6 +31,8 @@ export interface RegularView {
   readonly reliefDrive: ReliefDriveDto | undefined
   /** The setting level its figures were read at, on a machine with setting levels this world does not otherwise tell apart. */
   readonly assumedSettingLevel: number | undefined
+  /** A c時短: on a spin that is no jackpot, its chance, and where play goes then. */
+  readonly earlyEnd: EarlyEndDto | undefined
 }
 
 /** The entity that is the regular game, by its `regularGame` component. */
@@ -52,7 +54,7 @@ export const regularOf = (spec: SpecDto): RegularView | undefined => {
   const allotment = entity === undefined ? undefined : spec.components.allotment?.[entity]
   return entity === undefined || game === undefined || allotment === undefined
     ? undefined
-    : { entity, chance: game.chance, allotment, reliefDrive: spec.components.reliefDrive?.[entity], assumedSettingLevel: spec.components.assumedSettingLevel?.[entity] }
+    : { entity, chance: game.chance, allotment, reliefDrive: spec.components.reliefDrive?.[entity], assumedSettingLevel: spec.components.assumedSettingLevel?.[entity], earlyEnd: spec.components.earlyEnd?.[entity] }
 }
 
 const kindOf = (components: ComponentsDto, entity: string): ModeKind | undefined => {
@@ -93,7 +95,7 @@ export const REGULAR_ENTITY = "regular"
  * with its components, and one per mode with each component it has.
  */
 export const assembleWorld = (
-  regular: { readonly chance: ProbabilityDto; readonly allotment: readonly AllotmentDto[]; readonly reliefDrive: ReliefDriveDto | undefined; readonly assumedSettingLevel: number | undefined },
+  regular: { readonly chance: ProbabilityDto; readonly allotment: readonly AllotmentDto[]; readonly reliefDrive: ReliefDriveDto | undefined; readonly assumedSettingLevel: number | undefined; readonly earlyEnd: EarlyEndDto | undefined },
   modes: readonly ModeView[],
   payout: SpecDto["resources"]["payout"],
 ): SpecDto => {
@@ -103,7 +105,10 @@ export const assembleWorld = (
   const rushings = modes.flatMap((mode) => (mode.kind.type === "rushing" ? [[mode.id, { continuationRate: mode.kind.continuationRate }] as const] : []))
   const triggers = modes.flatMap((mode) => (mode.luckyTrigger === undefined ? [] : [[mode.id, mode.luckyTrigger] as const]))
   const unsupported = modes.filter((mode) => mode.withoutSupport).map((mode) => mode.id)
-  const earlyEnds = modes.flatMap((mode) => (mode.earlyEnd === undefined ? [] : [[mode.id, mode.earlyEnd] as const]))
+  const earlyEnds = [
+    ...(regular.earlyEnd === undefined ? [] : [[REGULAR_ENTITY, regular.earlyEnd] as const]),
+    ...modes.flatMap((mode) => (mode.earlyEnd === undefined ? [] : [[mode.id, mode.earlyEnd] as const])),
+  ]
   return {
     v: SPEC_VERSION,
     entities: [REGULAR_ENTITY, ...modes.map((mode) => mode.id)],

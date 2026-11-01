@@ -23,6 +23,11 @@ pub fn states_reachable(spec: &NormalizedSpec) -> BTreeSet<StateIndex> {
         .iter()
         .filter_map(live_target)
         .chain(relief_drive)
+        .chain(
+            spec.regular_early_end
+                .iter()
+                .flat_map(|early_end| early_end.outcomes.iter().filter_map(live_target)),
+        )
         .collect();
     let mut reached: BTreeSet<StateIndex> = BTreeSet::new();
     let mut frontier = start;

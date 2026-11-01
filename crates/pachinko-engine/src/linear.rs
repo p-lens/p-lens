@@ -12,6 +12,29 @@ pub fn solve(a: &[Vec<f64>], b: &[f64]) -> Option<Vec<f64>> {
     back_substitute(&reduced, size)
 }
 
+/// Solve `a x = b` for each of `columns` at once, eliminating only the once.
+pub fn solve_each(a: &[Vec<f64>], columns: &[Vec<f64>]) -> Option<Vec<Vec<f64>>> {
+    let size = a.len();
+    let augmented: Vec<Vec<f64>> = a
+        .iter()
+        .enumerate()
+        .map(|(index, row)| {
+            row.iter()
+                .copied()
+                .chain(
+                    columns
+                        .iter()
+                        .map(|column| column.get(index).copied().unwrap_or(0.0)),
+                )
+                .collect()
+        })
+        .collect();
+    let reduced = (0..size).try_fold(augmented, |rows, column| eliminate(&rows, column))?;
+    (0..columns.len())
+        .map(|column| back_substitute_column(&reduced, size, size + column))
+        .collect()
+}
+
 const SINGULAR: f64 = 1e-12;
 
 fn entry(rows: &[Vec<f64>], row: usize, column: usize) -> f64 {
@@ -66,11 +89,15 @@ fn eliminate(rows: &[Vec<f64>], column: usize) -> Option<Vec<Vec<f64>>> {
 }
 
 fn back_substitute(rows: &[Vec<f64>], size: usize) -> Option<Vec<f64>> {
+    back_substitute_column(rows, size, size)
+}
+
+fn back_substitute_column(rows: &[Vec<f64>], size: usize, constant: usize) -> Option<Vec<f64>> {
     (0..size).rev().try_fold(vec![0.0; size], |solved, row| {
         let known: f64 = (row + 1..size)
             .map(|column| entry(rows, row, column) * solved.get(column).copied().unwrap_or(0.0))
             .sum();
-        let value = (entry(rows, row, size) - known) / entry(rows, row, row);
+        let value = (entry(rows, row, constant) - known) / entry(rows, row, row);
         value.is_finite().then(|| {
             solved
                 .iter()
@@ -94,6 +121,21 @@ mod tests {
                 .iter()
                 .zip(expected)
                 .all(|(left, right)| (left - right).abs() < 1e-12)
+        }));
+    }
+
+    #[test]
+    fn solves_for_each_of_several_columns() {
+        let matrix = [vec![2.0, 1.0], vec![1.0, 3.0]];
+        let solutions = solve_each(&matrix, &[vec![5.0, 10.0], vec![3.0, 4.0]]);
+        let expected = [[1.0, 3.0], [1.0, 1.0]];
+        assert!(solutions.is_some_and(|found| {
+            found.iter().zip(expected).all(|(column, wanted)| {
+                column
+                    .iter()
+                    .zip(wanted)
+                    .all(|(left, right)| (left - right).abs() < 1e-12)
+            })
         }));
     }
 

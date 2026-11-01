@@ -103,7 +103,7 @@ fn sample_cycle(spec: &NormalizedSpec, gauge: ReliefGauge, rng: Rng) -> (Cycle, 
             rounds: combo.rounds,
             truncated: combo.truncated,
         },
-        gauge_after(wait.end, &combo),
+        gauge_after(gauge, wait, &combo),
         rng,
     )
 }

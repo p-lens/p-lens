@@ -9,8 +9,8 @@ use pachinko_domain::normalized::NormalizedSpec;
 use pachinko_domain::probability::{BasisPoints, Denominator, ProbabilitySource};
 use pachinko_domain::quantity::{PayoutRule, RoundCount, SpinCount};
 use pachinko_domain::spec::{
-    Allotment, Components, ModeId, Next, Rapid, RegularGame, RegularPlay, ReliefDrive, Resources,
-    Rushing, Spec, SpecialTime,
+    Allotment, Components, EarlyEnd, EarlyEndShare, ModeId, Next, Rapid, RegularGame, RegularPlay,
+    ReliefDrive, Resources, Rushing, Spec, SpecialTime,
 };
 use pachinko_engine::analysis::analyze;
 use pachinko_engine::hyena_hunt::hyena_hunt;
@@ -61,6 +61,11 @@ fn world(regular: &RegularPlay, modes: &[TestMode]) -> Spec {
         components
             .relief_drive
             .insert(regular_id.clone(), relief_drive.clone());
+    }
+    if let Some(early_end) = &regular.early_end {
+        components
+            .early_end
+            .insert(regular_id.clone(), early_end.clone());
     }
     for mode in modes {
         components.label.insert(mode.id.clone(), mode.label.clone());
@@ -122,6 +127,7 @@ fn made_up() -> NormalizedSpec {
             },
             allotment: vec![allot(5000, Next::Regular), allot(5000, Next::Mode(rush()))],
             relief_drive: None,
+            early_end: None,
         },
         &[TestMode {
             id: rush(),
@@ -303,6 +309,7 @@ fn with_relief_drive() -> NormalizedSpec {
                 gauge: SpinCount::new(nonzero(150)),
                 to: relief_drive_mode.clone(),
             }),
+            early_end: None,
         },
         &[
             TestMode {
@@ -451,6 +458,7 @@ fn hard_relief_drive() -> NormalizedSpec {
                 gauge: SpinCount::new(nonzero(120)),
                 to: ModeId::new("遊タイム").expect("a name"),
             }),
+            early_end: None,
         },
         &[rapid("時短", 30), rapid("遊タイム", 40)],
     );
@@ -522,6 +530,7 @@ fn with_a_cz() -> NormalizedSpec {
             },
             allotment: vec![allot(10_000, Next::Mode(cz.clone()))],
             relief_drive: None,
+            early_end: None,
         },
         &[TestMode {
             id: cz.clone(),
@@ -561,4 +570,90 @@ fn the_spins_a_cz_plays_at_the_heso_are_paid_for_as_the_exact_engine_pays_for_th
         (one_in - exact).abs() <= 2.0 * margin,
         "{one_in} ± {margin} against {exact}"
     );
+}
+
+/// A regular game at 1/100 with a c時短 at 1/50 on a spin that is no jackpot,
+/// into a 時短 of 20 or of 60, half each; with a 遊タイム after `gauge` spins into a
+/// 時短 of 40, where it has one.
+fn regular_early_end(gauge: Option<u32>) -> NormalizedSpec {
+    let chance = || ProbabilitySource::Ratio {
+        numerator: 1,
+        denominator: Denominator::from_hundredths(nonzero(10_000)),
+    };
+    let rapid = |name: &str, spins: u32| TestMode {
+        id: ModeId::new(name).expect("a name"),
+        label: name.to_owned(),
+        kind: Kind::Rapid(Rapid {
+            spins: SpinCount::new(nonzero(spins)),
+            chance: None,
+        }),
+        allotment: vec![
+            allot(5000, Next::Regular),
+            allot(5000, Next::Mode(ModeId::new("時短20").expect("a name"))),
+        ],
+        on_miss: Next::Regular,
+    };
+    let share = |name: &str| EarlyEndShare {
+        share: BasisPoints::new(5000).expect("half"),
+        next: Next::Mode(ModeId::new(name).expect("a name")),
+    };
+    let spec = world(
+        &RegularPlay {
+            chance: chance(),
+            allotment: vec![
+                allot(5000, Next::Regular),
+                allot(5000, Next::Mode(ModeId::new("時短20").expect("a name"))),
+            ],
+            relief_drive: gauge.map(|gauge| ReliefDrive {
+                gauge: SpinCount::new(nonzero(gauge)),
+                to: ModeId::new("遊タイム").expect("a name"),
+            }),
+            early_end: Some(EarlyEnd {
+                chance: ProbabilitySource::Ratio {
+                    numerator: 1,
+                    denominator: Denominator::from_hundredths(nonzero(5000)),
+                },
+                to: vec![share("時短20"), share("時短60")],
+            }),
+        },
+        &[
+            rapid("時短20", 20),
+            rapid("時短60", 60),
+            rapid("遊タイム", 40),
+        ],
+    );
+    normalize(&spec).expect("a regular game with a c時短 normalises")
+}
+
+#[test]
+fn a_regular_game_with_a_c_time_shortening_agrees_between_sampling_and_the_exact_figure() {
+    let spec = regular_early_end(Some(300));
+    let exact = analyze(&spec, &FROM_SPEC)
+        .expect("solves")
+        .round_chance
+        .value();
+    let tally = estimate(&spec, 2_000_000, 7, 50_000).tally;
+    let one_in = tally.round_chance_one_in().expect("rounds were won");
+    let margin = tally.round_chance_margin().expect("a margin");
+    assert!(
+        (one_in - exact).abs() <= 3.0 * margin + exact * 0.002,
+        "{one_in} ± {margin} against {exact}"
+    );
+}
+
+#[test]
+fn a_sitting_with_a_c_time_shortening_agrees_between_sampling_and_the_exact_figure() {
+    let spec = regular_early_end(Some(300));
+    for initial_spins in [0, 150, 290] {
+        let exact =
+            hyena_hunt(&spec, &FROM_SPEC, initial_spins, hyena_hunting_play()).expect("solves");
+        let tally = hyena_hunted(&spec, initial_spins, 600_000, 11, 20_000).tally;
+        let mean = tally.aggregate.mean_yen().expect("sittings were had");
+        let margin = tally.margin_yen().expect("a margin");
+        assert!(
+            (mean - exact.yen).abs() <= 3.0 * margin + exact.yen.abs() * 0.01,
+            "from {initial_spins}: {mean} ± {margin} against {}",
+            exact.yen
+        );
+    }
 }

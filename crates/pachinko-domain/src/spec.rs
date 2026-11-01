@@ -84,7 +84,8 @@ pub struct Components {
     /// it whether it says so or not.
     pub without_support: BTreeSet<ModeId>,
     /// A 時短 that each spin may end early without a jackpot — a c時短 — and
-    /// where play goes then.
+    /// where play goes then. On the regular game, the same: a spin of it
+    /// that is no jackpot may lead off to a 時短.
     pub early_end: BTreeMap<ModeId, EarlyEnd>,
     /// The setting level the regular game's figures were read at, on a
     /// machine with setting levels this world does not otherwise tell apart.
@@ -167,6 +168,7 @@ pub struct RegularPlay {
     pub chance: ProbabilitySource,
     pub allotment: Vec<Allotment>,
     pub relief_drive: Option<ReliefDrive>,
+    pub early_end: Option<EarlyEnd>,
 }
 
 /// A 遊タイム: after so many spins at the regular game's chance without a

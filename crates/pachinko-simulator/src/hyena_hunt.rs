@@ -10,7 +10,9 @@ use pachinko_domain::conditions::PlayConditions;
 use pachinko_domain::normalized::NormalizedSpec;
 
 use crate::aggregate::Aggregate;
-use crate::combo::{PayoutYield, ReliefGauge, WaitEnd, combo_following, wait_from};
+use crate::combo::{
+    ComboResult, PayoutYield, ReliefGauge, WaitEnd, combo_following, gauge_after, wait_from,
+};
 use crate::rng::{Rng, Seed};
 use crate::session::SessionResult;
 
@@ -85,34 +87,46 @@ impl HyenaHuntTally {
 /// The normal quantile for a two-sided 95% interval.
 const Z_95: f64 = 1.959_964;
 
+/// A sitting, on until a first jackpot or the 遊タイム and its combo: a c時短
+/// that brings no jackpot brings play back with the gauge further on, and it
+/// goes on from there.
 fn sit(spec: &NormalizedSpec, setup: &HyenaHuntSetup, rng: Rng) -> (Sitting, Rng) {
-    let (wait, rng) = wait_from(
-        spec,
-        ReliefGauge {
-            filled: u64::from(setup.initial_spins),
-            spent: spec
-                .relief_drive
-                .is_some_and(|relief_drive| setup.initial_spins > relief_drive.gauge),
-        },
-        rng,
-    );
-    let (combo, rng) = combo_following(spec, wait.end, rng);
-    let won = combo.gained(setup.payout) * setup.play.ball_value.value();
-    let paid = wait.spins + combo.paid_spins;
-    let spent = real(paid) * 1000.0 / setup.play.spin_performance.value();
-    (
-        Sitting {
-            result: SessionResult {
-                yen: won - spent,
-                first_hits: u64::from(wait.end == WaitEnd::Jackpot),
-                combos: combo,
-                truncated_combos: u64::from(combo.truncated),
-            },
-            spins: paid,
-            relief_drive: wait.end == WaitEnd::ReliefDrive,
-        },
-        rng,
-    )
+    let start = ReliefGauge {
+        filled: u64::from(setup.initial_spins),
+        spent: spec
+            .relief_drive
+            .is_some_and(|relief_drive| setup.initial_spins > relief_drive.gauge),
+    };
+    let mut gauge = start;
+    let mut rng = rng;
+    let mut combos = ComboResult::default();
+    let mut paid = 0;
+    loop {
+        let (wait, after_wait) = wait_from(spec, gauge, rng);
+        let (combo, after_combo) = combo_following(spec, wait.end, after_wait);
+        rng = after_combo;
+        combos = combos.and_then(&combo);
+        paid += wait.spins + combo.paid_spins;
+        let carries_on = matches!(wait.end, WaitEnd::EarlyEnd(_)) && combo.hits == 0;
+        if !carries_on {
+            let won = combos.gained(setup.payout) * setup.play.ball_value.value();
+            let spent = real(paid) * 1000.0 / setup.play.spin_performance.value();
+            return (
+                Sitting {
+                    result: SessionResult {
+                        yen: won - spent,
+                        first_hits: u64::from(wait.end == WaitEnd::Jackpot),
+                        combos,
+                        truncated_combos: u64::from(combos.truncated),
+                    },
+                    spins: paid,
+                    relief_drive: wait.end == WaitEnd::ReliefDrive,
+                },
+                rng,
+            );
+        }
+        gauge = gauge_after(gauge, wait, &combo);
+    }
 }
 
 /// A hyena hunt part-way through: everything needed to resume it, so a long run

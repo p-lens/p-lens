@@ -8,8 +8,8 @@ use pachinko_domain::conditions::{
     BallValue, CalculationConditions, PlayConditions, RoundPayout, SpinPerformance, SupportGain,
 };
 use pachinko_domain::normalized::{
-    NormalizedReliefDrive, NormalizedSpec, Outcome, PaidSpins, Reward, State, StateIndex,
-    StateOrigin, Target,
+    NormalizedRegularEarlyEnd, NormalizedReliefDrive, NormalizedSpec, Outcome, PaidSpins, Reward,
+    State, StateIndex, StateOrigin, Target,
 };
 use pachinko_domain::probability::{BasisPoints, Denominator, Probability, ProbabilitySource};
 use pachinko_domain::quantity::{Balls, PayoutRule, RoundCount, SpinCount};
@@ -35,10 +35,11 @@ use crate::dto::{
     AllotmentDto, AnalysisDto, BeyondDto, BucketDto, ComponentsDto, ConditionsDto, DerivationDto,
     EarlyEndDto, EndingChanceDto, EndingDto, ErrorDto, EstimateProgressDto, EstimateSummaryDto,
     HyenaHuntProgressDto, HyenaHuntSummaryDto, InferenceProgressDto, InferenceRequest,
-    InferenceSummaryDto, LocationDto, ModeEntryDto, NextDto, NormalizedReliefDriveDto,
-    NormalizedSpecDto, OriginDto, OtherRoundsDto, OutcomeDto, PaidSpinsDto, PlanDto, PlayDto,
-    ProbabilityDto, ProgressDto, ReadingDto, ReliefDriveFiguresDto, RestartDto, RestartKindDto,
-    RoundPayoutDto, SpecDto, StateDto, SummaryDto, TargetDto, UnsupportedDto, WayDto, WeighedDto,
+    InferenceSummaryDto, LocationDto, ModeEntryDto, NextDto, NormalizedRegularEarlyEndDto,
+    NormalizedReliefDriveDto, NormalizedSpecDto, OriginDto, OtherRoundsDto, OutcomeDto,
+    PaidSpinsDto, PlanDto, PlayDto, ProbabilityDto, ProgressDto, ReadingDto, ReliefDriveFiguresDto,
+    RestartDto, RestartKindDto, RoundPayoutDto, SpecDto, StateDto, SummaryDto, TargetDto,
+    UnsupportedDto, WayDto, WeighedDto,
 };
 
 fn invalid(field: &str) -> ErrorDto {
@@ -446,6 +447,20 @@ pub fn normalized_spec(dto: &NormalizedSpecDto) -> Result<NormalizedSpec, ErrorD
                 gauge: relief_drive.gauge,
                 target: target(&relief_drive.target),
             }),
+        regular_early_end: dto
+            .regular_early_end
+            .as_ref()
+            .map(|early_end| -> Result<NormalizedRegularEarlyEnd, ErrorDto> {
+                Ok(NormalizedRegularEarlyEnd {
+                    chance: probability(early_end.chance, "normalized.regularEarlyEnd.chance")?,
+                    outcomes: outcomes(
+                        &early_end.outcomes,
+                        dto.net_balls_per_round,
+                        "normalized.regularEarlyEnd.outcomes",
+                    )?,
+                })
+            })
+            .transpose()?,
     })
 }
 
@@ -614,6 +629,16 @@ pub fn normalized_dto(spec: &NormalizedSpec) -> NormalizedSpecDto {
                 gauge: relief_drive.gauge,
                 target: target_dto(relief_drive.target),
             }),
+        regular_early_end: spec.regular_early_end.as_ref().map(|early_end| {
+            NormalizedRegularEarlyEndDto {
+                chance: early_end.chance.value(),
+                outcomes: early_end
+                    .outcomes
+                    .iter()
+                    .map(|outcome| outcome_dto(outcome, spec.net_balls_per_round))
+                    .collect(),
+            }
+        }),
     }
 }
 

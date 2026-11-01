@@ -76,6 +76,9 @@ export function SpecReadout(props: { readonly basis: Basis; readonly bonuses: re
         {(regular) => (
           <Block title="通常時" subtitle={`${regular.assumedSettingLevel === undefined ? "" : `${assumedSettingLevelText(regular.assumedSettingLevel)}・`}大当り ${probabilityText(regular.chance)}${regular.reliefDrive === undefined ? "" : `・遊タイム ${regular.reliefDrive.gauge}回転`}`}>
             <AllotmentTable allotment={regular.allotment} modes={modes()} />
+            <Show when={regular.earlyEnd} keyed>
+              {(earlyEnd) => <p class="text-sm text-text-secondary">{earlyEndText(earlyEnd, modes())}</p>}
+            </Show>
           </Block>
         )}
       </Show>

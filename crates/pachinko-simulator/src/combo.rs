@@ -74,11 +74,23 @@ pub struct ReliefGauge {
 }
 
 /// Where regular play stands after a wait and its combo: counting on from the
-/// combo's carry, or spent if the 遊タイム came and brought no jackpot.
-pub fn gauge_after(end: WaitEnd, combo: &ComboResult) -> ReliefGauge {
-    ReliefGauge {
-        filled: combo.carry,
-        spent: end == WaitEnd::ReliefDrive && combo.hits == 0,
+/// combo's carry, or spent if the 遊タイム came and brought no jackpot. A c時短
+/// that brought none counts on from where the wait left the gauge, spent or
+/// not as it stood.
+pub fn gauge_after(before: ReliefGauge, wait: Wait, combo: &ComboResult) -> ReliefGauge {
+    match wait.end {
+        WaitEnd::EarlyEnd(_) if combo.hits == 0 => ReliefGauge {
+            filled: before.filled + wait.spins + combo.carry,
+            spent: before.spent,
+        },
+        WaitEnd::ReliefDrive => ReliefGauge {
+            filled: combo.carry,
+            spent: combo.hits == 0,
+        },
+        WaitEnd::Jackpot | WaitEnd::EarlyEnd(_) => ReliefGauge {
+            filled: combo.carry,
+            spent: false,
+        },
     }
 }
 
@@ -249,6 +261,8 @@ pub fn run_combo(spec: &NormalizedSpec, rng: Rng) -> (ComboResult, Rng) {
 pub enum WaitEnd {
     Jackpot,
     ReliefDrive,
+    /// A c時短 of the regular game, leading off with no jackpot.
+    EarlyEnd(Target),
 }
 
 /// The regular-game spins waited, and how the wait ended.
@@ -258,25 +272,57 @@ pub struct Wait {
     pub end: WaitEnd,
 }
 
+/// The chance a spin ends the wait, a jackpot or a c時短 on a spin that is none.
+fn either_chance(spec: &NormalizedSpec) -> Probability {
+    let p = spec.hit_chance.value();
+    spec.regular_early_end
+        .as_ref()
+        .and_then(|early_end| {
+            Probability::new(p + spec.hit_chance.complement().value() * early_end.chance.value())
+                .ok()
+        })
+        .unwrap_or(spec.hit_chance)
+}
+
+/// What ended a wait that a jackpot or a c時短 ended: a jackpot as often as it
+/// comes among the two, otherwise one of the c時短's shares.
+fn cut_short_by(spec: &NormalizedSpec, either: Probability, rng: Rng) -> (WaitEnd, Rng) {
+    let Some(early_end) = &spec.regular_early_end else {
+        return (WaitEnd::Jackpot, rng);
+    };
+    let (draw, rng) = rng.next_unit();
+    if draw < spec.hit_chance.value() / either.value() {
+        return (WaitEnd::Jackpot, rng);
+    }
+    let (share, rng) = pick(&early_end.outcomes, rng);
+    (
+        share.map_or(WaitEnd::Jackpot, |share| WaitEnd::EarlyEnd(share.next)),
+        rng,
+    )
+}
+
 /// Regular play from where it stands toward the 遊タイム: the geometric wait,
 /// cut short where the 遊タイム comes first, unless it is spent.
 pub fn wait_from(spec: &NormalizedSpec, gauge: ReliefGauge, rng: Rng) -> (Wait, Rng) {
-    let (gap, rng) = spins_until_hit(spec.hit_chance, rng);
+    let either = either_chance(spec);
+    let (gap, rng) = spins_until_hit(either, rng);
     let left = spec
         .relief_drive
         .filter(|_| !gauge.spent)
         .map(|relief_drive| u64::from(relief_drive.gauge).saturating_sub(gauge.filled));
-    let wait = match left {
-        Some(left) if left < gap => Wait {
-            spins: left,
-            end: WaitEnd::ReliefDrive,
-        },
-        Some(_) | None => Wait {
-            spins: gap,
-            end: WaitEnd::Jackpot,
-        },
-    };
-    (wait, rng)
+    match left {
+        Some(left) if left < gap => (
+            Wait {
+                spins: left,
+                end: WaitEnd::ReliefDrive,
+            },
+            rng,
+        ),
+        Some(_) | None => {
+            let (end, rng) = cut_short_by(spec, either, rng);
+            (Wait { spins: gap, end }, rng)
+        }
+    }
 }
 
 /// The combo after a wait: a first jackpot's, or the mode the 遊タイム leads
@@ -287,6 +333,15 @@ pub fn combo_following(spec: &NormalizedSpec, end: WaitEnd, rng: Rng) -> (ComboR
             spec,
             Walk {
                 next: relief_drive.target,
+                rng,
+                result: ComboResult::default(),
+                steps: 0,
+            },
+        ),
+        (WaitEnd::EarlyEnd(next), _) => walk_out(
+            spec,
+            Walk {
+                next,
                 rng,
                 result: ComboResult::default(),
                 steps: 0,

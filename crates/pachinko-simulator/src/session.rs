@@ -61,7 +61,7 @@ fn next_hit(spec: &NormalizedSpec, played: &Played) -> Option<Played> {
         overrun: played.overrun + combo.paid_spins.saturating_sub(left),
         first_hits: played.first_hits + u64::from(wait.end == WaitEnd::Jackpot),
         combos: played.combos.and_then(&combo),
-        gauge: gauge_after(wait.end, &combo),
+        gauge: gauge_after(played.gauge, wait, &combo),
         truncated_combos: played.truncated_combos + u64::from(combo.truncated),
         rng,
         finished: false,

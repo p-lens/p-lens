@@ -218,24 +218,23 @@ fn endings(
             Step::Node(_) => None,
         })
         .collect();
-    let chances = restarts
-        .into_iter()
+    let direct: Vec<Vec<f64>> = restarts
+        .iter()
         .map(|restart| {
-            let direct: Vec<f64> = steps
+            steps
                 .iter()
                 .map(|moves| {
                     moves
                         .iter()
-                        .filter(|(_, next)| *next == Step::Restart(restart))
+                        .filter(|(_, next)| *next == Step::Restart(*restart))
                         .map(|(chance, _)| chance)
                         .sum()
                 })
-                .collect();
-            linear::solve(&matrix, &direct)
-                .map(|solved| (restart, solved))
-                .ok_or(SolveError::Singular)
+                .collect()
         })
-        .collect::<Result<_, _>>()?;
+        .collect();
+    let solved = linear::solve_each(&matrix, &direct).ok_or(SolveError::Singular)?;
+    let chances = restarts.into_iter().zip(solved).collect();
     Ok(Endings { nodes, chances })
 }
 
@@ -319,10 +318,256 @@ fn stationary(
     linear::solve(&stationary_rows, &constants).ok_or(SolveError::Singular)
 }
 
+/// The spins of a wait gathered as one where a c時短 may cut it: the spin it
+/// came on says how far the gauge stands, and five apart moves a figure by
+/// less than the sixth digit where one spin apart costs minutes.
+const EARLY_END_STEP: u32 = 5;
+
+/// The regular game's c時短 as a cycle sees it: its chance on a spin that is
+/// no jackpot, and what each place it leads to yields.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EarlyEndYields {
+    pub chance: f64,
+    pub shares: Vec<(f64, Target, Yield)>,
+}
+
+/// One cycle of regular play's chances, per spin of it: a jackpot on it, or
+/// a c時短 that is no jackpot, whichever comes first.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RegularRace {
+    pub jackpot: f64,
+    pub early_end: f64,
+}
+
+impl RegularRace {
+    pub fn of(p: f64, early_end: Option<&EarlyEndYields>) -> Self {
+        Self {
+            jackpot: p,
+            early_end: early_end.map_or(0.0, |early_end| (1.0 - p) * early_end.chance),
+        }
+    }
+
+    /// The chance a spin ends the wait.
+    pub fn either(self) -> f64 {
+        self.jackpot + self.early_end
+    }
+
+    /// The chance the wait goes `spins` with neither.
+    pub fn neither_for(self, spins: u32) -> f64 {
+        (1.0 - self.either()).powf(f64::from(spins))
+    }
+}
+
+/// A wait's c時短s from `filled` over the `left` spins before the 遊タイム: where
+/// each lands, with its chance, the spins gathered in steps.
+fn early_end_landings(
+    relief_drive: NormalizedReliefDrive,
+    race: RegularRace,
+    early_end: &EarlyEndYields,
+    filled: u32,
+) -> Vec<(f64, usize, Step)> {
+    let gauge = relief_drive.gauge;
+    let left = gauge.saturating_sub(filled);
+    (0..left.div_ceil(EARLY_END_STEP))
+        .flat_map(|step_index| {
+            let from = step_index * EARLY_END_STEP;
+            let to = (from + EARLY_END_STEP).min(left);
+            let middle = filled + from + (to - from).div_ceil(2);
+            let stands = (middle.div_ceil(EARLY_END_STEP) * EARLY_END_STEP).min(gauge);
+            let chance =
+                (race.neither_for(from) - race.neither_for(to)) * race.early_end / race.either();
+            early_end
+                .shares
+                .iter()
+                .enumerate()
+                .map(move |(index, &(share, target, _))| {
+                    let landing = match target {
+                        Target::State(state) => Step::Node(Node {
+                            state: state.get(),
+                            filled: stands,
+                            unbroken: false,
+                        }),
+                        Target::End => Step::Restart(Restart::Filled(stands)),
+                    };
+                    (chance * share, index, landing)
+                })
+        })
+        .collect()
+}
+
+/// A spent 遊タイム's c時短s: no gauge is counting, so play comes back spent.
+fn spent_landings(early_end: &EarlyEndYields) -> Vec<(f64, usize, Step)> {
+    early_end
+        .shares
+        .iter()
+        .enumerate()
+        .map(|(index, &(share, target, _))| {
+            let landing = match target {
+                Target::State(state) => Step::Node(Node {
+                    state: state.get(),
+                    filled: 0,
+                    unbroken: true,
+                }),
+                Target::End => Step::Restart(Restart::Spent),
+            };
+            (share, index, landing)
+        })
+        .collect()
+}
+
+fn landings_of(
+    relief_drive: NormalizedReliefDrive,
+    race: RegularRace,
+    early_end: Option<&EarlyEndYields>,
+    restart: Restart,
+) -> Vec<(f64, usize, Step)> {
+    early_end.map_or_else(Vec::new, |early_end| match restart {
+        Restart::Spent => spent_landings(early_end),
+        Restart::Filled(filled) => early_end_landings(relief_drive, race, early_end, filled),
+    })
+}
+
+/// Every way of starting again that can come, and the nodes a combo can stand
+/// at: a c時短 may land at a gauge a jackpot's combo never leaves it at, so
+/// the two are grown together until nothing new comes.
+fn grown_starts(
+    spec: &NormalizedSpec,
+    relief_drive: NormalizedReliefDrive,
+    race: RegularRace,
+    early_end: Option<&EarlyEndYields>,
+    first: &[Step],
+) -> (Vec<Node>, BTreeSet<Restart>) {
+    let node_of = |landing: &Step| match landing {
+        Step::Node(node) => Some(*node),
+        Step::Restart(_) => None,
+    };
+    let restart_of = |landing: &Step| match landing {
+        Step::Restart(restart) => Some(*restart),
+        Step::Node(_) => None,
+    };
+    let mut restarts: BTreeSet<Restart> = first.iter().filter_map(restart_of).collect();
+    restarts.insert(Restart::Filled(0));
+    let mut starts: BTreeSet<Node> = first.iter().filter_map(node_of).collect();
+    loop {
+        let landings: Vec<Step> = restarts
+            .iter()
+            .flat_map(|&restart| landings_of(relief_drive, race, early_end, restart))
+            .map(|(_, _, landing)| landing)
+            .collect();
+        starts.extend(landings.iter().filter_map(node_of));
+        let from_nodes: BTreeSet<Restart> = reachable(
+            spec,
+            relief_drive,
+            &starts.iter().copied().collect::<Vec<_>>(),
+        )
+        .into_iter()
+        .flat_map(|node| {
+            outcomes_of(spec, node)
+                .iter()
+                .map(move |outcome| step(spec, relief_drive, node, outcome))
+                .collect::<Vec<_>>()
+        })
+        .filter_map(|next| restart_of(&next))
+        .chain(landings.iter().filter_map(restart_of))
+        .collect();
+        let before = restarts.len();
+        restarts.extend(from_nodes);
+        if restarts.len() == before {
+            return (starts.into_iter().collect(), restarts);
+        }
+    }
+}
+
+/// A cycle from a way of starting again: its regular spins, what it yields,
+/// and the chance of each way of starting again after it.
+type RestartCycle = (f64, Yield, BTreeMap<Restart, f64>);
+
+/// What a cycle's parts add up to, each with its chance.
+fn weighed(parts: &[(f64, Yield)]) -> Yield {
+    parts.iter().fold(
+        Yield {
+            rounds: 0.0,
+            hits: 0.0,
+            balls: 0.0,
+            paid_spins: 0.0,
+        },
+        |sum, (chance, yielded)| Yield {
+            rounds: sum.rounds + chance * yielded.rounds,
+            hits: sum.hits + chance * yielded.hits,
+            balls: sum.balls + chance * yielded.balls,
+            paid_spins: sum.paid_spins + chance * yielded.paid_spins,
+        },
+    )
+}
+
+/// What a cycle of regular play can come to, from any way of starting again.
+struct CycleWays<'run> {
+    relief_drive: NormalizedReliefDrive,
+    race: RegularRace,
+    early_end: Option<&'run EarlyEndYields>,
+    entry: Yield,
+    relief_drive_combo: Yield,
+    ends: &'run Endings,
+    after_entry: &'run BTreeMap<Restart, f64>,
+    after_relief_drive: &'run BTreeMap<Restart, f64>,
+}
+
+impl CycleWays<'_> {
+    fn early_yield(&self, index: usize) -> Yield {
+        self.early_end
+            .and_then(|early_end| early_end.shares.get(index))
+            .map_or(weighed(&[]), |&(_, _, yielded)| yielded)
+    }
+
+    fn cycle(&self, restart: Restart) -> RestartCycle {
+        let race = self.race;
+        let (reach, spins) = match restart {
+            Restart::Spent => (0.0, 1.0 / race.either()),
+            Restart::Filled(filled) => {
+                let reach = race.neither_for(self.relief_drive.gauge.saturating_sub(filled));
+                (reach, (1.0 - reach) / race.either())
+            }
+        };
+        let jackpot = (1.0 - reach) * race.jackpot / race.either();
+        let after_landings: Vec<(f64, usize, BTreeMap<Restart, f64>)> =
+            landings_of(self.relief_drive, race, self.early_end, restart)
+                .iter()
+                .map(|&(chance, index, landing)| {
+                    let chance = match restart {
+                        Restart::Spent => chance * race.early_end / race.either(),
+                        Restart::Filled(_) => chance,
+                    };
+                    (chance, index, self.ends.after(landing))
+                })
+                .collect();
+        let parts: Vec<(f64, Yield)> = [(jackpot, self.entry), (reach, self.relief_drive_combo)]
+            .into_iter()
+            .chain(
+                after_landings
+                    .iter()
+                    .map(|&(chance, index, _)| (chance, self.early_yield(index))),
+            )
+            .collect();
+        let chances: Vec<(f64, &BTreeMap<Restart, f64>)> = [
+            (jackpot, self.after_entry),
+            (reach, self.after_relief_drive),
+        ]
+        .into_iter()
+        .chain(
+            after_landings
+                .iter()
+                .map(|(chance, _, after)| (*chance, after)),
+        )
+        .collect();
+        (spins, weighed(&parts), mixed(&chances))
+    }
+}
+
 /// What the long run comes to with a 遊タイム: each way regular play starts
 /// again, how often, and what a cycle from it yields, with the chances of
 /// each from every point of a combo. `entry` and `relief_drive_combo` are
-/// what a first jackpot's combo and the 遊タイム's combo yield.
+/// what a first jackpot's combo and the 遊タイム's combo yield; `early_end`,
+/// the regular game's c時短 where it has one.
 ///
 /// # Errors
 /// When a system has no solution, which a normalised spec cannot cause.
@@ -331,8 +576,9 @@ pub fn long_run(
     relief_drive: NormalizedReliefDrive,
     entry: Yield,
     relief_drive_combo: Yield,
+    early_end: Option<&EarlyEndYields>,
 ) -> Result<LongRun, SolveError> {
-    let p = spec.hit_chance.value();
+    let race = RegularRace::of(spec.hit_chance.value(), early_end);
     let fresh = |state: usize, unbroken: bool| Node {
         state,
         filled: 0,
@@ -353,15 +599,12 @@ pub fn long_run(
         Target::State(index) => Step::Node(fresh(index.get(), true)),
         Target::End => Step::Restart(Restart::Spent),
     };
-    let starts: Vec<Node> = entry_landings
+    let first: Vec<Step> = entry_landings
         .iter()
         .map(|(_, landing)| *landing)
         .chain(std::iter::once(relief_drive_landing))
-        .filter_map(|landing| match landing {
-            Step::Node(node) => Some(node),
-            Step::Restart(_) => None,
-        })
         .collect();
+    let (starts, restarts) = grown_starts(spec, relief_drive, race, early_end, &first);
     let ends = endings(spec, relief_drive, &starts)?;
     let landed: Vec<(f64, BTreeMap<Restart, f64>)> = entry_landings
         .iter()
@@ -378,26 +621,21 @@ pub fn long_run(
         .keys()
         .chain(after_relief_drive.keys())
         .copied()
-        .chain(std::iter::once(Restart::Filled(0)))
+        .chain(restarts)
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect();
-    let cycle = |restart: Restart| -> (f64, Yield, BTreeMap<Restart, f64>) {
-        match restart {
-            Restart::Spent => (1.0 / p, entry, after_entry.clone()),
-            Restart::Filled(filled) => {
-                let left = relief_drive.gauge.saturating_sub(filled);
-                let reach = (1.0 - p).powf(f64::from(left));
-                (
-                    (1.0 - reach) / p,
-                    entry.mixed_with(relief_drive_combo, reach),
-                    mixed(&[(1.0 - reach, &after_entry), (reach, &after_relief_drive)]),
-                )
-            }
-        }
+    let ways = CycleWays {
+        relief_drive,
+        race,
+        early_end,
+        entry,
+        relief_drive_combo,
+        ends: &ends,
+        after_entry: &after_entry,
+        after_relief_drive: &after_relief_drive,
     };
-    let cycles: Vec<(f64, Yield, BTreeMap<Restart, f64>)> =
-        kinds.iter().map(|&kind| cycle(kind)).collect();
+    let cycles: Vec<RestartCycle> = kinds.iter().map(|&kind| ways.cycle(kind)).collect();
     let weights = stationary(&kinds, &cycles)?;
     Ok(LongRun {
         restarts: kinds

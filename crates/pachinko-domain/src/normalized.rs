@@ -114,6 +114,15 @@ pub struct NormalizedReliefDrive {
     pub target: Target,
 }
 
+/// A c時短 of the regular game: on a spin that is no jackpot, at `chance`, play
+/// leaves for where its outcomes say, each of which is no jackpot: the relief
+/// gauge counts on through it, and the shares among them sum to one.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NormalizedRegularEarlyEnd {
+    pub chance: Probability,
+    pub outcomes: Vec<Outcome>,
+}
+
 /// A spec as a combo of jackpots: how the first one is allotted, and the
 /// states that follow until play returns to the regular game. Every state's
 /// outcomes sum to one, and every state can reach the end.
@@ -131,4 +140,6 @@ pub struct NormalizedSpec {
     pub net_balls_per_round: u32,
     /// The 遊タイム, if the machine has one.
     pub relief_drive: Option<NormalizedReliefDrive>,
+    /// The regular game's c時短, if the machine has one.
+    pub regular_early_end: Option<NormalizedRegularEarlyEnd>,
 }

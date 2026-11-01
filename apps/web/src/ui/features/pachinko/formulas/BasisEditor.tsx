@@ -101,20 +101,22 @@ function AllotmentEditor(props: {
 }
 
 /**
- * A 時短's early end, a c時短: its chance on each spin, empty where it has
- * none, and the shares of where play goes then — a shorter 時短 most often.
+ * An early end, a c時短, of a 時短 or of the regular game: its chance on each
+ * spin, empty where it has none, and the shares of where play goes then — a
+ * 時短 most often.
  */
 function EarlyEndEditor(props: {
-  readonly mode: ModeForm
+  readonly chance: string
+  readonly rows: readonly EarlyEndRow[]
   readonly destinations: readonly SelectOption[]
-  readonly onChange: (change: Pick<ModeForm, "earlyEndChance" | "earlyEndTo">) => void
+  readonly onChange: (chance: string, rows: readonly EarlyEndRow[]) => void
 }): JSX.Element {
-  const rows = (): readonly EarlyEndRow[] => props.mode.earlyEndTo
-  const setRows = (earlyEndTo: readonly EarlyEndRow[]): void => props.onChange({ earlyEndChance: props.mode.earlyEndChance, earlyEndTo })
+  const rows = (): readonly EarlyEndRow[] => props.rows
+  const setRows = (next: readonly EarlyEndRow[]): void => props.onChange(props.chance, next)
   return (
     <div class="flex flex-col gap-2">
       <div class="w-40">
-        <TextField label="c時短の確率 1/" value={props.mode.earlyEndChance} onChange={(earlyEndChance) => props.onChange({ earlyEndChance, earlyEndTo: rows() })} inputMode="decimal" placeholder="なし" />
+        <TextField label="c時短の確率 1/" value={props.chance} onChange={(chance) => props.onChange(chance, rows())} inputMode="decimal" placeholder="なし" />
       </div>
       <Index each={rows()}>
         {(row, index) => (
@@ -195,7 +197,7 @@ function ModeEditor(props: {
           <TextField label="大当り確率 1/" value={props.mode.chance} onChange={set("chance")} inputMode="decimal" />
         </div>
         <p class="text-xs text-text-muted">大当り確率が空欄なら通常時と同じです。一種二種混合機で、時短中は小当りも合わせた確率になる機種は、その確率を入れてください。時短の回転は遊タイムまでの回転数に数えます。</p>
-        <EarlyEndEditor mode={props.mode} destinations={destinations(others(), props.modes)} onChange={(change) => props.onChange({ ...props.mode, ...change })} />
+        <EarlyEndEditor chance={props.mode.earlyEndChance} rows={props.mode.earlyEndTo} destinations={destinations(others(), props.modes)} onChange={(earlyEndChance, earlyEndTo) => props.onChange({ ...props.mode, earlyEndChance, earlyEndTo })} />
       </Show>
       <Show when={props.mode.kind === "leftover-queue"}>
         <div class="w-40">
@@ -290,6 +292,16 @@ export function BasisEditor(props: { readonly form: BasisForm; readonly onChange
         </Button>
       </div>
       <ReliefDriveEditor form={props.form} onChange={props.onChange} />
+      <section class="flex flex-col gap-2">
+        <h3 class="text-sm font-semibold text-text-primary">通常時のc時短</h3>
+        <EarlyEndEditor
+          chance={props.form.regularEarlyEndChance}
+          rows={props.form.regularEarlyEndTo}
+          destinations={destinations(props.form.modes, props.form.modes)}
+          onChange={(regularEarlyEndChance, regularEarlyEndTo) => props.onChange({ ...props.form, regularEarlyEndChance, regularEarlyEndTo })}
+        />
+        <p class="text-xs text-text-muted">通常時のハズレから、大当りなしで時短へ移る機種の確率です。空欄ならありません。遊タイムまでの回転数はリセットされず、数え続けます。</p>
+      </section>
       <div class="grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
         <TextField label="賞球（機種）" value={props.form.prizeBalls} onChange={set("prizeBalls")} inputMode="numeric" suffix="個" />
         <TextField label="カウント" value={props.form.count} onChange={set("count")} inputMode="numeric" />

@@ -275,6 +275,17 @@ pub struct NormalizedSpecDto {
     pub net_balls_per_round: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub relief_drive: Option<NormalizedReliefDriveDto>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub regular_early_end: Option<NormalizedRegularEarlyEndDto>,
+}
+
+/// The regular game's c時短: its chance on a spin that is no jackpot, and
+/// where it leads.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct NormalizedRegularEarlyEndDto {
+    pub chance: f64,
+    pub outcomes: Vec<OutcomeDto>,
 }
 
 /// What a calculation starts from: a spec to normalise, or a spec already

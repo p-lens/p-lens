@@ -468,3 +468,48 @@ fn a_jackpot_of_no_rounds_is_a_jackpot_in_the_combo() {
     assert_eq!(zero.reward.balls, 0);
     assert_eq!(zero.reward.hits, 1);
 }
+
+/// A regular game at 1/100 whose jackpots are 10R and done, with a c時短 at
+/// 1/50 on a spin that is no jackpot into a 時短 of 20 spins at 1/100.
+fn with_a_regular_early_end() -> pachinko_domain::spec::Spec {
+    let mut spec = machine(
+        one_in(100),
+        vec![share(10_000, 10, Next::Regular)],
+        vec![mode(
+            "時短",
+            rapid(20),
+            vec![share(10_000, 10, Next::Regular)],
+            Next::Regular,
+        )],
+    );
+    spec.components.early_end.insert(
+        id("regular"),
+        pachinko_domain::spec::EarlyEnd {
+            chance: one_in(50),
+            to: vec![pachinko_domain::spec::EarlyEndShare {
+                share: pachinko_domain::probability::BasisPoints::new(10_000).expect("whole"),
+                next: to("時短"),
+            }],
+        },
+    );
+    spec
+}
+
+#[test]
+fn a_c_time_shortening_of_the_regular_game_adds_what_its_spins_win_by_hand() {
+    let p = 0.01;
+    let c = (1.0 - p) * 0.02;
+    let won_in_it = 1.0 - 0.99_f64.powi(20);
+    let rounds_per_cycle = (p * 10.0 + c * won_in_it * 10.0) / (p + c);
+    let spins_per_cycle = 1.0 / (p + c);
+    let solved = solved(&with_a_regular_early_end());
+    assert!(
+        close(
+            solved.round_chance.value(),
+            spins_per_cycle / rounds_per_cycle
+        ),
+        "{} against {}",
+        solved.round_chance.value(),
+        spins_per_cycle / rounds_per_cycle
+    );
+}

@@ -1,13 +1,13 @@
 use std::collections::BTreeMap;
 
 use pachinko_domain::normalized::{
-    NormalizedReliefDrive, NormalizedSpec, Outcome, PaidSpins, Reward, State, StateIndex,
-    StateOrigin, Target,
+    NormalizedRegularEarlyEnd, NormalizedReliefDrive, NormalizedSpec, Outcome, PaidSpins, Reward,
+    State, StateIndex, StateOrigin, Target,
 };
 use pachinko_domain::probability::{BasisPoints, Probability, ProbabilityError, ProbabilitySource};
 use pachinko_domain::quantity::PayoutRule;
 use pachinko_domain::spec::{
-    Allotment, EarlyEndShare, Mode, ModeId, ModeKind, Next, ReliefDrive, Spec,
+    Allotment, EarlyEnd, EarlyEndShare, Mode, ModeId, ModeKind, Next, ReliefDrive, Spec,
 };
 use pachinko_domain::version::SchemaVersion;
 
@@ -43,6 +43,11 @@ pub fn normalize(spec: &Spec) -> Result<NormalizedSpec, SpecError> {
         .as_ref()
         .map(|relief_drive| relief_drive_of(&layout, relief_drive))
         .transpose()?;
+    let regular_early_end = regular
+        .early_end
+        .as_ref()
+        .map(|early_end| regular_early_end_of(&layout, early_end))
+        .transpose()?;
     let gauge = regular
         .relief_drive
         .as_ref()
@@ -67,6 +72,7 @@ pub fn normalize(spec: &Spec) -> Result<NormalizedSpec, SpecError> {
         states,
         net_balls_per_round: spec.resources.payout.net_per_round(),
         relief_drive,
+        regular_early_end,
     };
     check_graph(&normalized)?;
     Ok(normalized)
@@ -80,6 +86,41 @@ fn relief_drive_of(
     Ok(NormalizedReliefDrive {
         gauge: relief_drive.gauge.get().get(),
         target: layout.entering(&Next::Mode(relief_drive.to.clone()), &Location::Regular)?,
+    })
+}
+
+/// The regular game's c時短: its chance on a spin that is no jackpot, and each
+/// place its shares lead, every one of them no jackpot.
+fn regular_early_end_of(
+    layout: &Layout<'_>,
+    early_end: &EarlyEnd,
+) -> Result<NormalizedRegularEarlyEnd, SpecError> {
+    let at = Location::Regular;
+    let sum = early_end
+        .to
+        .iter()
+        .map(|share| share.share.get())
+        .sum::<u32>();
+    if early_end.to.is_empty()
+        || early_end.to.iter().any(|share| share.share.get() == 0)
+        || sum != BasisPoints::WHOLE.get()
+    {
+        return Err(SpecError::InvalidDistribution { at, sum });
+    }
+    Ok(NormalizedRegularEarlyEnd {
+        chance: positive(early_end.chance, &at)?,
+        outcomes: early_end
+            .to
+            .iter()
+            .map(|share| -> Result<Outcome, SpecError> {
+                Ok(Outcome {
+                    probability: share.share.probability(),
+                    reward: Reward::default(),
+                    next: layout.entering(&share.next, &at)?,
+                    fills: None,
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?,
     })
 }
 

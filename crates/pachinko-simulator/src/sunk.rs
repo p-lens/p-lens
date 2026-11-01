@@ -58,7 +58,7 @@ pub enum Way {
 
 /// How a counter is played out on a machine.
 pub fn way_of(spec: &NormalizedSpec, setup: &SunkSetup) -> Way {
-    let forgets = spec.relief_drive.is_none();
+    let forgets = spec.relief_drive.is_none() && spec.regular_early_end.is_none();
     match (forgets, setup.jackpots, setup.since_last) {
         (true, 0, since) if since.is_none_or(|since| since == setup.spins) => Way::Dry,
         (true, 1.., Some(since_last)) if since_last < setup.spins => Way::Pinned { since_last },
@@ -150,7 +150,7 @@ fn next(spec: &NormalizedSpec, setup: &SunkSetup, day: &Day) -> Option<Day> {
         balls: after.balls + combo.gained(setup.payout),
         jackpots: after.jackpots + combo.hits,
         since_last: if combo.hits > 0 { 0 } else { after.since_last },
-        gauge: gauge_after(wait.end, &combo),
+        gauge: gauge_after(day.gauge, wait, &combo),
         rng,
         ..after
     };

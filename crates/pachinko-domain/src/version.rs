@@ -20,11 +20,13 @@ impl SpecVersion {
 /// 3: a state may say the spins it plays at the heso, and a miss the spins
 ///    it fills the relief gauge by — a 時短 ended early — which an engine
 ///    reading 2 would pass over.
+/// 4: the regular game may have a c時短, leading off it with no jackpot, which
+///    an engine reading 3 would pass over.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct SchemaVersion(u32);
 
 impl SchemaVersion {
-    pub const CURRENT: Self = Self(3);
+    pub const CURRENT: Self = Self(4);
 
     pub fn new(version: u32) -> Self {
         Self(version)

@@ -32,6 +32,7 @@ fn plain(one_in: f64) -> NormalizedSpec {
         origins: Vec::new(),
         net_balls_per_round: 140,
         relief_drive: None,
+        regular_early_end: None,
     }
 }
 

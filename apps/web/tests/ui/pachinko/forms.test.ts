@@ -97,6 +97,16 @@ describe("the basis form", () => {
     expect(none.ok && none.value.spec.components.assumedSettingLevel).toBeUndefined()
   })
 
+  test("a regular game's c時短 is kept, and read back; left empty, there is none", () => {
+    const read = readBasisForm({ ...STARTING_BASIS, regularEarlyEndChance: "199.8", regularEarlyEndTo: [{ share: "100", next: "m1" }] })
+    expect(read.ok && read.value.spec.components.earlyEnd?.["regular"]).toEqual({ chance: { type: "ratio", numerator: 1, denominatorHundredths: 19980 }, to: [{ shareBasisPoints: 10000, next: { type: "mode", mode: "m1" } }] })
+    const back = read.ok ? basisFormOf(read.value.spec, read.value.conditions, undefined) : undefined
+    expect(back?.regularEarlyEndChance).toBe("199.8")
+    expect(back?.regularEarlyEndTo).toEqual([{ share: "100", next: "m1" }])
+    const none = readBasisForm(STARTING_BASIS)
+    expect(none.ok && none.value.spec.components.earlyEnd).toBeUndefined()
+  })
+
   test("refuses a share above 100% and a fractional round count, by name", () => {
     const read = readBasisForm({ ...STARTING_BASIS, firstHit: [{ share: "120", rounds: "2.5", next: "regular", prize: "", count: "", others: [], jackpots: "" }] })
     expect(read.ok ? [] : read.error).toEqual([

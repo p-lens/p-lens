@@ -238,7 +238,7 @@ fn next(
         outlay,
         spins: spun.spins + combo.paid_spins,
         jackpots: spun.jackpots + combo.hits,
-        gauge: gauge_after(wait.end, &combo),
+        gauge: gauge_after(spun.gauge, wait, &combo),
         rng,
         over: hours_left <= 0.0,
     })
@@ -640,6 +640,7 @@ mod tests {
             origins: Vec::new(),
             net_balls_per_round: 140,
             relief_drive: None,
+            regular_early_end: None,
         }
     }
 
@@ -767,6 +768,7 @@ mod tests {
             }],
             net_balls_per_round: 150,
             relief_drive: None,
+            regular_early_end: None,
         }
     }
 

@@ -160,6 +160,11 @@ pub fn assemble(regular: &RegularPlay, modes: Vec<TestMode>) -> Spec {
             .relief_drive
             .insert(regular_id.clone(), relief_drive.clone());
     }
+    if let Some(early_end) = &regular.early_end {
+        components
+            .early_end
+            .insert(regular_id.clone(), early_end.clone());
+    }
     let world = Spec {
         entities: vec![regular_id],
         components,
@@ -208,6 +213,7 @@ pub fn machine(
             chance: regular,
             allotment,
             relief_drive: None,
+            early_end: None,
         },
         modes,
     )

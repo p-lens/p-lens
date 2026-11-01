@@ -82,7 +82,12 @@ function Grounds(props: { readonly basis: Basis; readonly figures: Figures; read
             </div>
             <SimulationPanel normalized={props.basis.normalized} conditions={props.basis.conditions} play={play()} exactRounds={analysis.averageRounds} onUnready={unready.nudge} />
           </section>
-          <ReasonedGrounds basis={props.basis} analysis={analysis} figures={props.figures} sampled={props.sampled} />
+          <Show
+            when={props.basis.normalized.regularEarlyEnd === undefined}
+            fallback={<p class="text-xs text-text-muted">通常時のc時短がある算出条件は、推論による計算根拠をまだ示せません。数値は計算エンジンが解いたものです。</p>}
+          >
+            <ReasonedGrounds basis={props.basis} analysis={analysis} figures={props.figures} sampled={props.sampled} />
+          </Show>
           <NerdproLink class="self-start text-sm" onClick={() => props.onBasis()}>
             期待値基礎値を見る ›
           </NerdproLink>

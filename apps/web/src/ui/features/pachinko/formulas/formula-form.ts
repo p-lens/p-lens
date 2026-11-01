@@ -185,6 +185,9 @@ export interface BasisForm {
   readonly reliefDriveTo: string
   /** The setting level the formula's figures were read at, kept through a remaking; no field writes it. Undefined where none is said. */
   readonly assumedSettingLevel: number | undefined
+  /** The regular game's c時短: its chance on a spin that is no jackpot as 1/x, empty where it has none, and where play goes then. */
+  readonly regularEarlyEndChance: string
+  readonly regularEarlyEndTo: readonly EarlyEndRow[]
   readonly prizeBalls: string
   readonly count: string
   readonly measuredPayout: string
@@ -221,6 +224,8 @@ export const STARTING_BASIS: BasisForm = {
   reliefDriveGauge: "",
   reliefDriveTo: "",
   assumedSettingLevel: undefined,
+  regularEarlyEndChance: "",
+  regularEarlyEndTo: [EARLY_END_ROW],
   prizeBalls: "15",
   count: "10",
   measuredPayout: "",
@@ -328,14 +333,17 @@ const kindOf = (mode: ModeForm): Read<ModeKind> => {
 }
 
 /** A 時短's early end as typed: none where its chance is left empty or the mode is no 時短; otherwise its chance and every share of where it goes. */
-const earlyEndOf = (mode: ModeForm): Result<EarlyEndDto | undefined, readonly FormProblem[]> => {
-  if (mode.kind !== "rapid" || tidyTyped(mode.earlyEndChance) === "") return Ok(undefined)
-  const chance = ratioOf(mode.earlyEndChance, `${mode.label}のc時短の確率`)
-  const shares = mode.earlyEndTo.map((row, index) => percentOf(row.share, `${mode.label}のc時短 ${index + 1}行目の振分`))
+const earlyEndRead = (typed: string, rows: readonly EarlyEndRow[], label: string): Result<EarlyEndDto | undefined, readonly FormProblem[]> => {
+  if (tidyTyped(typed) === "") return Ok(undefined)
+  const chance = ratioOf(typed, `${label}のc時短の確率`)
+  const shares = rows.map((row, index) => percentOf(row.share, `${label}のc時短 ${index + 1}行目の振分`))
   const problems = problemsOf([chance, ...shares])
   if (!chance.ok || problems.length > 0) return Err(problems)
-  return Ok({ chance: chance.value, to: mode.earlyEndTo.flatMap((row, index) => ((share) => (share?.ok === true ? [{ shareBasisPoints: share.value, next: nextOf(row.next) }] : []))(shares[index])) })
+  return Ok({ chance: chance.value, to: rows.flatMap((row, index) => ((share) => (share?.ok === true ? [{ shareBasisPoints: share.value, next: nextOf(row.next) }] : []))(shares[index])) })
 }
+
+const earlyEndOf = (mode: ModeForm): Result<EarlyEndDto | undefined, readonly FormProblem[]> =>
+  mode.kind === "rapid" ? earlyEndRead(mode.earlyEndChance, mode.earlyEndTo, mode.label) : Ok(undefined)
 
 const modeOf = (mode: ModeForm): Result<ModeView, readonly FormProblem[]> => {
   const kind = kindOf(mode)
@@ -387,16 +395,18 @@ export const readBasisForm = (form: BasisForm): Result<ReadBasis, readonly FormP
   const gain = supportGainOf(form.supportGain, "電サポ中の出玉増減")
   const speed = optionalPositive(form.spinsPerHour, "1時間の回転数")
   const reliefDrive = reliefDriveOf(form)
+  const regularEarlyEnd = earlyEndRead(form.regularEarlyEndChance, form.regularEarlyEndTo, "通常時")
   const problems = [
     ...problemsOf([regular, prize, count, measured, gain, speed]),
     ...(firstHit.ok ? [] : firstHit.error),
     ...(reliefDrive.ok ? [] : reliefDrive.error),
+    ...(regularEarlyEnd.ok ? [] : regularEarlyEnd.error),
     ...modes.flatMap((mode) => (mode.ok ? [] : mode.error)),
   ]
-  if (problems.length > 0 || !regular.ok || !firstHit.ok || !prize.ok || !count.ok || !measured.ok || !gain.ok || !speed.ok || !reliefDrive.ok) return Err(problems)
+  if (problems.length > 0 || !regular.ok || !firstHit.ok || !prize.ok || !count.ok || !measured.ok || !gain.ok || !speed.ok || !reliefDrive.ok || !regularEarlyEnd.ok) return Err(problems)
   return Ok({
     spec: assembleWorld(
-      { chance: regular.value, allotment: firstHit.value, reliefDrive: reliefDrive.value, assumedSettingLevel: form.assumedSettingLevel },
+      { chance: regular.value, allotment: firstHit.value, reliefDrive: reliefDrive.value, assumedSettingLevel: form.assumedSettingLevel, earlyEnd: regularEarlyEnd.value },
       modes.flatMap((mode) => (mode.ok ? [mode.value] : [])),
       { prizeBalls: prize.value, count: count.value },
     ),
@@ -426,6 +436,9 @@ const rowsOf = (allotment: readonly AllotmentDto[]): readonly AllotmentRow[] =>
     jackpots: ownCountText(share.jackpots),
   }))
 
+const earlyEndRowsOf = (earlyEnd: EarlyEndDto | undefined): readonly EarlyEndRow[] =>
+  earlyEnd === undefined ? [EARLY_END_ROW] : earlyEnd.to.map((share) => ({ share: hundredthsText(share.shareBasisPoints), next: share.next.type === "regular" ? REGULAR : share.next.mode }))
+
 /** A stored basis back as a form, for remaking a formula from it: its world read through the queries. */
 export const basisFormOf = (spec: SpecDto, conditions: ConditionsDto, spinsPerHour: number | undefined): BasisForm => {
   const regular = regularOf(spec)
@@ -446,11 +459,13 @@ export const basisFormOf = (spec: SpecDto, conditions: ConditionsDto, spinsPerHo
       triggerTo: mode.luckyTrigger?.to ?? "",
       withoutSupport: mode.withoutSupport,
       earlyEndChance: mode.earlyEnd === undefined ? "" : probabilityText(mode.earlyEnd.chance),
-      earlyEndTo: mode.earlyEnd === undefined ? [EARLY_END_ROW] : mode.earlyEnd.to.map((share) => ({ share: hundredthsText(share.shareBasisPoints), next: share.next.type === "regular" ? REGULAR : share.next.mode })),
+      earlyEndTo: earlyEndRowsOf(mode.earlyEnd),
     })),
     reliefDriveGauge: regular?.reliefDrive === undefined ? "" : String(regular.reliefDrive.gauge),
     reliefDriveTo: regular?.reliefDrive?.to ?? "",
     assumedSettingLevel: regular?.assumedSettingLevel,
+    regularEarlyEndChance: regular?.earlyEnd === undefined ? "" : probabilityText(regular.earlyEnd.chance),
+    regularEarlyEndTo: earlyEndRowsOf(regular?.earlyEnd),
     prizeBalls: String(spec.resources.payout.prizeBalls),
     count: String(spec.resources.payout.count),
     measuredPayout: conditions.roundPayout.type === "measured" ? String(conditions.roundPayout.balls) : "",

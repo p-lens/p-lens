@@ -105,13 +105,13 @@ export interface ComponentsDto {
   readonly reliefDrive?: Readonly<Record<string, ReliefDriveDto>>
   /** Modes played without the 電サポ — a 潜確 at the heso — whose jackpots the support gain does not touch; a leftover queue is so whether it is named here or not. */
   readonly withoutSupport?: readonly string[]
-  /** A 時短 that each spin may end early without a jackpot — a c時短 — and where play goes then. */
+  /** A 時短 that each spin may end early without a jackpot — a c時短 — and where play goes then. On the regular game, the same: a spin of it that is no jackpot may lead off to a 時短, the relief gauge counting on through it. */
   readonly earlyEnd?: Readonly<Record<string, EarlyEndDto>>
   /** The setting level the regular game's figures were read at, on a machine with setting levels this world does not otherwise tell apart. It says what the figures are; nothing is worked out from it. */
   readonly assumedSettingLevel?: Readonly<Record<string, number>>
 }
 
-/** A 時短 ended early: on each spin at `chance`, without a jackpot, to where its shares say; the spins played until then fill the relief gauge. */
+/** A 時短 ended early, or a regular game led off: on each spin at `chance`, without a jackpot, to where its shares say; the spins played until then fill the relief gauge. */
 export interface EarlyEndDto {
   readonly chance: ProbabilityDto
   readonly to: readonly { readonly shareBasisPoints: number; readonly next: NextDto }[]
@@ -182,6 +182,8 @@ export interface NormalizedSpecDto {
   readonly origins: readonly { readonly mode: string; readonly combo: number }[]
   readonly netBallsPerRound: number
   readonly reliefDrive?: { readonly gauge: number; readonly target: TargetDto }
+  /** The regular game's c時短: its chance on a spin that is no jackpot, and where it leads. */
+  readonly regularEarlyEnd?: { readonly chance: number; readonly outcomes: readonly OutcomeDto[] }
 }
 
 export type SourceDto =

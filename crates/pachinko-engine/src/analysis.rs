@@ -1,13 +1,15 @@
 use std::collections::BTreeSet;
 
 use pachinko_domain::conditions::{CalculationConditions, RoundPayout};
-use pachinko_domain::normalized::{NormalizedSpec, PaidSpins, StateIndex, StateOrigin};
+use pachinko_domain::normalized::{NormalizedSpec, PaidSpins, StateIndex, StateOrigin, Target};
 use pachinko_domain::quantity::Balls;
 use pachinko_domain::spec::ModeId;
 use pachinko_domain::version::SchemaVersion;
 
 use crate::error::SolveError;
-use crate::relief_drive::{EndingFigures, RestartFigures, Yield, long_run};
+use crate::relief_drive::{
+    EarlyEndYields, EndingFigures, RegularRace, RestartFigures, Yield, long_run,
+};
 use crate::solve::{at, expected_totals, from_entry, reach_probabilities};
 
 /// Which engine produced a result. Bumped whenever the same input could
@@ -24,7 +26,8 @@ impl EngineVersion {
     ///    support gain.
     /// 6: a mode played without the 電サポ whose spins run out is shot at the
     ///    heso, and its spins are paid for as the regular game's are.
-    pub const CURRENT: Self = Self(6);
+    /// 7: the regular game may lead off to a c時短 with no jackpot.
+    pub const CURRENT: Self = Self(7);
 
     pub fn get(self) -> u32 {
         self.0
@@ -117,6 +120,25 @@ pub struct Analysis {
     pub mode_entry: Vec<ModeEntry>,
     pub derivation: Vec<StateDerivation>,
     pub relief_drive: Option<ReliefDriveFigures>,
+    /// The regular game's c時短, for working out a sitting from a count.
+    pub regular_early_end: Option<EarlyEndFigures>,
+}
+
+/// The regular game's c時短 as a sitting sees it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EarlyEndFigures {
+    pub chance: f64,
+    pub shares: Vec<EarlyEndShareFigures>,
+}
+
+/// One place a c時短 leads: its share, what a jackpot won from it yields, and
+/// the chance it comes back with none and the spins it fills on the way.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct EarlyEndShareFigures {
+    pub share: f64,
+    pub yielded: Yield,
+    pub misses: f64,
+    pub fills: f64,
 }
 
 /// One cycle of play from a jackpot to the next jackpot or the 遊タイム: its
@@ -133,13 +155,38 @@ struct Cycle {
 /// A cycle on average. Without a 遊タイム it is a geometric wait and a first
 /// jackpot's combo; with one, each way of starting again weighs in as often
 /// as it comes.
-fn cycle(p: f64, entry: Yield, relief_drive: Option<&ReliefDriveFigures>) -> Cycle {
+fn cycle(
+    p: f64,
+    entry: Yield,
+    relief_drive: Option<&ReliefDriveFigures>,
+    early_end: Option<&EarlyEndYields>,
+) -> Cycle {
+    let race = RegularRace::of(p, early_end);
+    let jackpot = race.jackpot / race.either();
+    let led_off = race.early_end / race.either();
+    let regular = early_end
+        .map_or(&[][..], |early_end| &early_end.shares)
+        .iter()
+        .fold(
+            Yield {
+                rounds: jackpot * entry.rounds,
+                hits: jackpot * entry.hits,
+                balls: jackpot * entry.balls,
+                paid_spins: jackpot * entry.paid_spins,
+            },
+            |sum, &(share, _, yielded)| Yield {
+                rounds: sum.rounds + led_off * share * yielded.rounds,
+                hits: sum.hits + led_off * share * yielded.hits,
+                balls: sum.balls + led_off * share * yielded.balls,
+                paid_spins: sum.paid_spins + led_off * share * yielded.paid_spins,
+            },
+        );
     relief_drive.map_or(
         Cycle {
-            spins: 1.0 / p + entry.paid_spins,
-            rounds: entry.rounds,
-            hits: entry.hits,
-            balls: entry.balls,
+            spins: 1.0 / race.either() + regular.paid_spins,
+            rounds: regular.rounds,
+            hits: regular.hits,
+            balls: regular.balls,
         },
         |relief_drive| {
             relief_drive.restarts.iter().fold(
@@ -158,6 +205,89 @@ fn cycle(p: f64, entry: Yield, relief_drive: Option<&ReliefDriveFigures>) -> Cyc
             )
         },
     )
+}
+
+/// The most states a way back with no jackpot is followed through: modes that
+/// lead on to one another without a jackpot are few and end.
+const WAY_BACK_LIMIT: u32 = 32;
+
+/// From a place in a combo with no jackpot yet, the chance it comes back to
+/// the regular game with none, and the spins it then fills on average.
+fn way_back(spec: &NormalizedSpec, target: Target, depth: u32) -> (f64, f64) {
+    let Target::State(index) = target else {
+        return (1.0, 0.0);
+    };
+    let Some(state) = spec
+        .states
+        .get(index.get())
+        .filter(|_| depth < WAY_BACK_LIMIT)
+    else {
+        return (0.0, 0.0);
+    };
+    let (misses, weighed) = state
+        .outcomes
+        .iter()
+        .filter(|outcome| outcome.reward.hits == 0)
+        .fold((0.0, 0.0), |(misses, weighed), outcome| {
+            let (further, fills) = way_back(spec, outcome.next, depth + 1);
+            let chance = outcome.probability.value() * further;
+            (
+                misses + chance,
+                weighed + chance * (f64::from(outcome.filling(state)) + fills),
+            )
+        });
+    (misses, if misses > 0.0 { weighed / misses } else { 0.0 })
+}
+
+/// What each place the regular game's c時短 leads to yields, from the totals
+/// worked out for every state.
+fn early_end_yields(
+    spec: &NormalizedSpec,
+    rounds: &[f64],
+    hits: &[f64],
+    balls: &[f64],
+    paid: &[f64],
+) -> Option<EarlyEndYields> {
+    spec.regular_early_end
+        .as_ref()
+        .map(|early_end| EarlyEndYields {
+            chance: early_end.chance.value(),
+            shares: early_end
+                .outcomes
+                .iter()
+                .map(|outcome| {
+                    (
+                        outcome.probability.value(),
+                        outcome.next,
+                        Yield {
+                            rounds: at(rounds, outcome.next),
+                            hits: at(hits, outcome.next),
+                            balls: at(balls, outcome.next),
+                            paid_spins: at(paid, outcome.next),
+                        },
+                    )
+                })
+                .collect(),
+        })
+}
+
+fn early_end_figures(spec: &NormalizedSpec, early_end: &EarlyEndYields) -> EarlyEndFigures {
+    EarlyEndFigures {
+        chance: early_end.chance,
+        shares: early_end
+            .shares
+            .iter()
+            .map(|&(share, target, yielded)| {
+                let (misses, fills) = way_back(spec, target, 0);
+                EarlyEndShareFigures {
+                    share,
+                    yielded,
+                    misses,
+                    fills,
+                }
+            })
+            .collect(),
+    }
 }
 
 /// Every mode named by the states, each once, in the order they appear.
@@ -230,6 +360,7 @@ pub fn analyze(
     let scale = payout_scale(spec, conditions);
     let average_payout = Balls::new(entry.balls * scale).ok_or(SolveError::Singular)?;
     let p = spec.hit_chance.value();
+    let early_end = early_end_yields(spec, &rounds, &hits, &balls, &paid);
     let relief_drive = spec
         .relief_drive
         .map(|relief_drive| -> Result<ReliefDriveFigures, SolveError> {
@@ -247,6 +378,7 @@ pub fn analyze(
                     balls: balls_after,
                     paid_spins: paid_after,
                 },
+                early_end.as_ref(),
             )?;
             Ok(ReliefDriveFigures {
                 gauge: relief_drive.gauge,
@@ -264,7 +396,10 @@ pub fn analyze(
             })
         })
         .transpose()?;
-    let per_cycle = cycle(p, entry, relief_drive.as_ref());
+    let regular_early_end = early_end
+        .as_ref()
+        .map(|early_end| early_end_figures(spec, early_end));
+    let per_cycle = cycle(p, entry, relief_drive.as_ref(), early_end.as_ref());
     let per_round =
         Balls::new(per_cycle.balls * scale / per_cycle.rounds).ok_or(SolveError::Singular)?;
     Ok(Analysis {
@@ -272,6 +407,7 @@ pub fn analyze(
         schema_version: spec.schema_version,
         average_rounds,
         average_combo,
+        regular_early_end,
         balls_per_round: per_round,
         average_payout,
         payout_scale: scale,

@@ -139,9 +139,6 @@ pub fn regular_play(spec: &Spec) -> Result<RegularPlay, SpecError> {
     if components.without_support.contains(entity) {
         return Err(stray(entity, Component::WithoutSupport));
     }
-    if components.early_end.contains_key(entity) {
-        return Err(stray(entity, Component::EarlyEnd));
-    }
     let game = components
         .regular_game
         .get(entity)
@@ -155,6 +152,7 @@ pub fn regular_play(spec: &Spec) -> Result<RegularPlay, SpecError> {
             }
         })?,
         relief_drive: components.relief_drive.get(entity).cloned(),
+        early_end: components.early_end.get(entity).cloned(),
     })
 }
 
