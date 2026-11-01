@@ -1,13 +1,14 @@
 import { beforeAll, describe, expect, test } from "bun:test"
 
 import { createBookSession, type BookSession } from "../../src/application/book-session"
-import { loadBreakdown } from "../../src/application/breakdown"
+import { loadBreakdown, loadRates } from "../../src/application/breakdown"
 import { loadOverall } from "../../src/application/overall"
 import { loadTallies } from "../../src/application/tallies"
 import { importPrecord, previewPrecord } from "../../src/application/import"
 import type { BookId } from "../../src/core/book/book"
 import { toPlainString } from "../../src/core/decimal/decimal"
 import { totalOf, type Dimension } from "../../src/core/report/breakdown"
+import { EVERY_TALLY, type Narrowing } from "../../src/core/report/narrowing"
 import { Ok } from "../../src/core/result/result"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
 import { queryOf } from "../../src/ui/features/period/periods"
@@ -18,7 +19,8 @@ const BOOK = "basic-play" as BookId
 describe("the basic-play book, broken down by the real hledger module", () => {
   const context: { session?: BookSession } = {}
   const session = (): BookSession => context.session as BookSession
-  const read = async (dimension: Dimension, query = "") => ((found) => (found.ok ? found.value.map((group) => [group.key, toPlainString(group.actual), toPlainString(group.theoretical)]) : found))(await loadBreakdown(session(), BOOK, dimension, query))
+  const read = async (dimension: Dimension, query = "", narrowing: Narrowing = EVERY_TALLY) =>
+    ((found) => (found.ok ? found.value.map((group) => [group.key, toPlainString(group.actual), toPlainString(group.theoretical)]) : found))(await loadBreakdown(session(), BOOK, dimension, query, narrowing))
 
   beforeAll(async () => {
     const storage = memoryStorage()
@@ -63,6 +65,29 @@ describe("the basic-play book, broken down by the real hledger module", () => {
     expect(await read("parlor")).toEqual([["723豚の帽子亭店", "34008", "5900"], ["マレハン東京皇国第8支店", "5136", "7300"]])
   })
 
+  test("narrowed to a game, a parlor or a machine, and to several at once, each the tallies that say it", async () => {
+    expect(await read("parlor", "", { game: ["pachinko"] })).toEqual([["723豚の帽子亭店", "13978", "4100"], ["マレハン東京皇国第8支店", "5136", "7300"]])
+    expect(await read("machine", "", { parlor: ["723豚の帽子亭店"] })).toEqual([["ピエロット", "20030", "1800"], ["森物語", "13978", "4100"]])
+    expect(await read("parlor", "", { machine: ["流星", "ピエロット"] })).toEqual([["723豚の帽子亭店", "20030", "1800"], ["マレハン東京皇国第8支店", "5136", "7300"]])
+    expect(await read("machine", "", { game: ["pachislot"], parlor: ["723豚の帽子亭店"] })).toEqual([["ピエロット", "20030", "1800"]])
+    expect(await read("machine", "date:2026-10", { parlor: ["マレハン東京皇国第8支店"] })).toEqual([["流星", "0", "1800"]])
+    expect(await read("month", "", { parlor: ["存在しない店"] })).toEqual([])
+  })
+
+  test("narrowed to a rate, the tallies that played its tokens at any parlor, beside the period and what else is narrowed", async () => {
+    expect(await loadRates(session(), BOOK)).toEqual({ ok: true, value: ["ball:4円", "medal:20円"] })
+    expect(await read("parlor", "", { rate: ["ball:4円"] })).toEqual([["723豚の帽子亭店", "13978", "4100"], ["マレハン東京皇国第8支店", "5136", "7300"]])
+    expect(await read("machine", "", { rate: ["medal:20円"] })).toEqual([["ピエロット", "20030", "1800"]])
+    expect(await read("machine", "date:2026-10", { rate: ["ball:4円"], parlor: ["723豚の帽子亭店"] })).toEqual([["森物語", "-1998", "900"]])
+    expect(await read("machine", "", { rate: ["ball:1円"] })).toEqual([])
+    expect(await read("machine", "", { rate: ["ball:4円", "medal:20円"] })).toEqual([["ピエロット", "20030", "1800"], ["森物語", "13978", "4100"], ["流星", "5136", "7300"]])
+  })
+
+  test("taken as one and narrowed, its tallies counted among those it keeps to", async () => {
+    const found = await loadOverall(session(), BOOK, "", { game: ["pachinko"] })
+    expect(found.ok && [found.value.plays, toPlainString(found.value.actual), toPlainString(found.value.theoretical)]).toEqual([4, "19114", "11400"])
+  })
+
   test("by year, month and day, newest first, and by the day of the week from Monday", async () => {
     expect(await read("year")).toEqual([["2026", "39144", "13200"]])
     expect(await read("month")).toEqual([["2026-10", "-1998", "2700"], ["2026-09", "41142", "10500"]])
@@ -93,6 +118,7 @@ describe("the basic-play book, broken down by the real hledger module", () => {
     if (preview.ok) await importPrecord({ session: session(), catalog }, BOOK, preview.value, new Map(), undefined)
     expect(await read("machine", "date:2019")).toEqual([["昔の台", "-7000", "0"]])
     expect(await read("parlor", "date:2019")).toEqual([["駅前ホール", "-7000", "0"]])
+    expect(await read("machine", "date:2019", { parlor: ["駅前ホール"] })).toEqual([["昔の台", "-7000", "0"]])
   })
 })
 
@@ -107,6 +133,8 @@ describe("a book that wrote pachislot as `slot`, before the name was settled", (
     await session.createBook({ ...fixture, files: { ...fixture.files, "transactions.journal": `${earlier}\n\n${transactions}` } })
     const found = await loadBreakdown(session, OLDER, "game", "")
     expect(found.ok && found.value.map((group) => [group.key, toPlainString(group.actual)])).toEqual([["pachislot", "40060"], ["pachinko", "19114"]])
+    const narrowed = await loadBreakdown(session, OLDER, "day", "", { game: ["pachislot"] })
+    expect(narrowed.ok && narrowed.value.map((group) => group.key)).toEqual(["2026-09-12", "2026-09-11"])
     const tallies = await loadTallies(session, OLDER, "date:2026-09-11", 0)
     expect(tallies.ok && tallies.value.tallies.map((tally) => tally.gameKind)).toEqual(["pachislot"])
   })

@@ -5,6 +5,7 @@ import { createArrangement, GatheringShell, MainContent, TopBar } from "solid-ga
 import type { Outcome } from "../../../application/errors"
 import { destinationsOf } from "../../../application/sending"
 import type { ListedBook } from "../../../core/book/book"
+import { EVERY_TALLY } from "../../../core/report/narrowing"
 import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
 import { bookOf, focusOf, inConsolidation, inHuddleRoom, inOddPrizeCalculator, inSettings, placeOf, screenOf, type Place } from "../../navigation/place"
@@ -125,7 +126,7 @@ const mainFor = (place: Place, query: () => string, live: () => Place): JSX.Elem
     case "book-view":
       return bookViewFor(place, query, live)
     case "book-breakdown":
-      return <BreakdownView place={place} bookId={place.bookId} by={place.by} query={query()} />
+      return <BreakdownView place={liveAs(live, place)} bookId={place.bookId} by={place.by} narrowing={liveAs(live, place).narrowing ?? EVERY_TALLY} query={query()} />
     case "tally":
       return <TalliesView place={place} bookId={place.bookId} query={query()} />
     case "tally-new":

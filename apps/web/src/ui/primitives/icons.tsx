@@ -342,6 +342,13 @@ export const ChevronDownIcon = () => (
   </Icon>
 )
 
+/** Further in: an arrow head pointing right, at the end of a row pressed to go deeper. */
+export const ChevronRightIcon = () => (
+  <Icon>
+    <path d="M9 6l6 6-6 6" />
+  </Icon>
+)
+
 /** Open every row: two arrow heads pointing apart. */
 export const UnfoldIcon = (props: { readonly label: string }) => (
   <Icon label={props.label}>

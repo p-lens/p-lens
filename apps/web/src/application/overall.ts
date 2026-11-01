@@ -4,6 +4,7 @@ import { ZERO, compare, negate, type Decimal } from "../core/decimal/decimal"
 import { ACCOUNTS, EXPENSE_ROOT, REVENUE_ROOT } from "../core/journal/accounts"
 import { byColumn, byRow } from "../core/report/breakdown"
 import { actualOf, quantityIn, rowTotalOf, yenOf, type ReportError } from "../core/report/figures"
+import { EVERY_TALLY, type Narrowing } from "../core/report/narrowing"
 import type { Overall } from "../core/report/overall"
 import { tallyDaysOf } from "../core/report/tallies"
 import { andThen, collect, mapOk, type Result } from "../core/result/result"
@@ -13,6 +14,7 @@ import type { BalanceReport } from "../hledger/protocol/wire"
 import { actualCutRequest, actualRequest, periodTotalsRequest, rentalSpreadRequest, savingsDrawnRequest, tallyHeadsRequest } from "../hledger/query/requests"
 import { combine, talliesTerm } from "../hledger/query/terms"
 import type { BookSession } from "./book-session"
+import { narrowedTerm } from "./breakdown"
 import { viewedFor } from "./book-views"
 import type { Outcome } from "./errors"
 import { fromHledger, fromReport } from "./lift"
@@ -32,10 +34,15 @@ const wonOf = (statement: BalanceReport): Result<number, ReportError> =>
  * the loss on renting tokens, the fee on replaying them, the time they were played for, the cash
  * spent, the special and odd prizes taken home and the part of a yen beside them, and the savings tallies
  * drew on, each at the rate of its own day. What the app does is count:
- * the tallies, the days, and those of each that made something.
+ * the tallies, the days, and those of each that made something. A
+ * narrowing keeps to the tallies of the games, parlors and machines it
+ * chose.
  */
-export const loadOverall = (session: BookSession, bookId: BookId, query: string): Promise<Outcome<Overall>> =>
-  viewedFor(session, query, "moved").read(bookId, async (journal: JournalAccess) => {
+export const loadOverall = (session: BookSession, bookId: BookId, period: string, narrowing: Narrowing = EVERY_TALLY): Promise<Outcome<Overall>> =>
+  viewedFor(session, period, "moved").read(bookId, async (journal: JournalAccess) => {
+    const narrowed = await narrowedTerm(journal, narrowing)
+    if (!narrowed.ok) return narrowed
+    const query = combine(period, narrowed.value)
     const played = combine(talliesTerm, query)
     const [entries, statement, perTally, perDay, totals, ...yen] = await Promise.all([
       journal.ask(tallyHeadsRequest(query)),

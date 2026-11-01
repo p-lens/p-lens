@@ -13,6 +13,9 @@ export type PlayGameKind = "pachinko" | "pachislot"
 /** A game as a book or a device says it, read: `slot` is pachislot as written before the name was settled, data already written. */
 export const readGameKind = (text: unknown): PlayGameKind | undefined => (text === "pachinko" || text === "pachislot" ? text : text === "slot" ? "pachislot" : undefined)
 
+/** Every way a book has said a game, the reading turned round: what a question about the game's tallies is to match. */
+export const writtenGameKinds = (kind: PlayGameKind): readonly string[] => (kind === "pachinko" ? ["pachinko"] : ["pachislot", "slot"])
+
 const TOKENS_OF: Readonly<Record<PlayGameKind, TokenKind>> = { pachinko: "ball", pachislot: "medal" }
 
 export const tokenKindOf = (kind: PlayGameKind): TokenKind => TOKENS_OF[kind]

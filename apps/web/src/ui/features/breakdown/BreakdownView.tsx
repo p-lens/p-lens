@@ -8,18 +8,22 @@ import { keepsTheoreticalValues } from "../../../application/theoretical"
 import type { BookId } from "../../../core/book/book"
 import { isZero, type Decimal } from "../../../core/decimal/decimal"
 import { DIMENSIONS, isBreakdownBy, OVERALL, totalOf, type BreakdownBy, type Dimension, type Group } from "../../../core/report/breakdown"
+import { isNarrowed, matchesNothing, type Narrowing } from "../../../core/report/narrowing"
 import { hasOtherGains, type OtherGains } from "../../../core/report/other-gains"
 import { allSpinPerformances, averageOf, type SpinPerformances, type SpinPerformancesByMachine } from "../../../core/report/spin-performance"
 import { useApp } from "../../context"
+import { ChevronRightIcon } from "../../primitives/icons"
 import { Select } from "../../primitives/select"
 import { EmptyState, Loaded, Refreshing } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
-import { DIMENSION_NAMES, OVERALL_NAME, groupName, INFERRED_SPIN_AVERAGE, inferredShareText, NOT_TALLIED, PLAY_TIME, playTimeText, SPIN_AVERAGE, spinAverageText } from "../../wording/breakdown"
+import { DIMENSION_NAMES, OVERALL_NAME, groupName, INFERRED_SPIN_AVERAGE, inferredShareText, NOT_TALLIED, NOTHING_NARROWED, PLAY_TIME, playTimeText, SPIN_AVERAGE, spinAverageText } from "../../wording/breakdown"
 import { formatSignedYen, formatTheoreticalYen, toneOf } from "../../wording/numbers"
 import { PeriodPicker } from "../period/PeriodPicker"
 import { queryFor } from "../period/periods"
 import { ViewHeader } from "../shell/ViewHeader"
+import { drilledFrom } from "./drill"
+import { NarrowingFilters } from "./NarrowingFilters"
 import { OtherGainsSection } from "./OtherGainsSection"
 import { OverallCard } from "./OverallCard"
 import { shownOrder } from "./shown-order"
@@ -53,10 +57,37 @@ function SpinAverage(props: { readonly label: string; readonly average: Decimal 
  * much, so a figure nobody measured is not taken for one somebody did —
  * then how long its tallies were played for, `--` where none kept it —
  * and, grouped by machine, the spin performances its tallies averaged.
+ * A group that can be looked into is pressed as a whole, an arrow head at
+ * its end (`onOpen`).
  */
-export function GroupRow(props: { readonly name: string; readonly group: Group; readonly strong: boolean; readonly theoreticalKept: boolean; readonly spins?: SpinPerformances | undefined }): JSX.Element {
+export function GroupRow(props: {
+  readonly name: string
+  readonly group: Group
+  readonly strong: boolean
+  readonly theoreticalKept: boolean
+  readonly spins?: SpinPerformances | undefined
+  readonly onOpen?: (() => void) | undefined
+}): JSX.Element {
   return (
-    <li class="flex flex-col gap-0.5 rounded-md px-3 py-2" classList={{ "bg-surface-1": !props.strong, "border border-border": props.strong }}>
+    <li class="rounded-md" classList={{ "bg-surface-1": !props.strong, "border border-border": props.strong }}>
+      <Show when={props.onOpen} keyed fallback={<GroupFigures {...props} />}>
+        {(open) => (
+          <button type="button" onClick={() => open()} class="flex w-full items-center gap-2 rounded-md text-left transition-colors hover:bg-surface-3/60">
+            <GroupFigures {...props} />
+            <span class="mr-2 shrink-0 text-text-muted [&_svg]:size-4">
+              <ChevronRightIcon />
+            </span>
+          </button>
+        )}
+      </Show>
+    </li>
+  )
+}
+
+/** A group's name over its figures, as `GroupRow` lays them out. */
+function GroupFigures(props: { readonly name: string; readonly group: Group; readonly strong: boolean; readonly theoreticalKept: boolean; readonly spins?: SpinPerformances | undefined }): JSX.Element {
+  return (
+    <div class="flex min-w-0 flex-1 flex-col gap-0.5 px-3 py-2">
       <span class="min-w-0 break-words text-sm" classList={{ "font-semibold text-text-primary": props.strong, "text-text-primary": !props.strong }}>
         {props.name}
       </span>
@@ -81,7 +112,7 @@ export function GroupRow(props: { readonly name: string; readonly group: Group; 
         <SpinAverage label={SPIN_AVERAGE} average={props.spins === undefined ? undefined : averageOf(props.spins.measured)} />
         <SpinAverage label={INFERRED_SPIN_AVERAGE} average={props.spins === undefined ? undefined : averageOf(props.spins.inferred)} />
       </div>
-    </li>
+    </div>
   )
 }
 
@@ -92,37 +123,44 @@ export const BREAKDOWN_OPTIONS = [{ value: OVERALL, label: OVERALL_NAME }, ...DI
  * A book's results for a period: taken as one, 総合 — what it opens on —
  * or by where they came from, its tallies grouped by machine, parlor, day
  * of the week, game, year, month or day, each group with what its tallies
- * made and were worth. Which and which period are the address's. hledger
- * does the grouping and the sums; this lays out what it answers.
+ * made and were worth. Which and which period are the address's, and so
+ * are the games, parlors and machines it is narrowed to: a group of those,
+ * a year or a month is pressed to look into it, the breakdown narrowed to
+ * it or over its days. hledger does the grouping and the sums; this lays
+ * out what it answers. その他損益 is no tally's, and is left out while the
+ * breakdown is narrowed.
  */
-export function BreakdownView(props: { readonly place: Place; readonly bookId: BookId; readonly by: BreakdownBy; readonly query: string }): JSX.Element {
+export function BreakdownView(props: { readonly place: Place; readonly bookId: BookId; readonly by: BreakdownBy; readonly narrowing: Narrowing; readonly query: string }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   /** The dimension the tallies are grouped by; none where they are taken as one. */
   const grouping = (): Dimension | undefined => (props.by === OVERALL ? undefined : props.by)
   const [groups] = createResource(
-    () => ((by) => (by === undefined ? undefined : { bookId: props.bookId, by, query: props.query, revision: app.revision() }))(grouping()),
-    (source) => loadBreakdown(app.services.session, source.bookId, source.by, queryFor(source.by, source.query)),
+    () => ((by) => (by === undefined || matchesNothing(props.narrowing) ? undefined : { bookId: props.bookId, by, narrowing: props.narrowing, query: props.query, revision: app.revision() }))(grouping()),
+    (source) => loadBreakdown(app.services.session, source.bookId, source.by, queryFor(source.by, source.query), source.narrowing),
   )
   const [overall] = createResource(
-    () => (props.by === OVERALL ? { bookId: props.bookId, query: props.query, revision: app.revision() } : undefined),
-    (source) => loadOverall(app.services.session, source.bookId, source.query),
+    () => (props.by === OVERALL && !matchesNothing(props.narrowing) ? { bookId: props.bookId, narrowing: props.narrowing, query: props.query, revision: app.revision() } : undefined),
+    (source) => loadOverall(app.services.session, source.bookId, source.query, source.narrowing),
   )
   const [othered] = createResource(
-    () => (props.by === OVERALL ? { bookId: props.bookId, query: props.query, revision: app.revision() } : undefined),
+    () => (props.by === OVERALL && !isNarrowed(props.narrowing) ? { bookId: props.bookId, query: props.query, revision: app.revision() } : undefined),
     (source) => loadOtherGains(app.services.session, source.bookId, source.query),
   )
   /** その他損益 over the period, under 総合 alone and only where there is any: none while it is asked, and none where it could not be read — 総合 stands without it. */
-  const otherGains = (): OtherGains | undefined => ((answer) => (answer?.ok === true && hasOtherGains(answer.value) ? answer.value : undefined))(othered())
+  const otherGains = (): OtherGains | undefined => ((answer) => (props.by === OVERALL && !isNarrowed(props.narrowing) && answer?.ok === true && hasOtherGains(answer.value) ? answer.value : undefined))(othered())
   const [spun] = createResource(
-    () => (props.by === "machine" ? { bookId: props.bookId, query: props.query, revision: app.revision() } : undefined),
-    (source) => loadSpinPerformances(app.services.session, source.bookId, queryFor("machine", source.query)),
+    () => (props.by === "machine" && !matchesNothing(props.narrowing) ? { bookId: props.bookId, narrowing: props.narrowing, query: props.query, revision: app.revision() } : undefined),
+    (source) => loadSpinPerformances(app.services.session, source.bookId, queryFor("machine", source.query), source.narrowing),
   )
   /** The machines' spin performances, while the tallies are grouped by machine and once they are read: the groups stand without them. */
   const spins = (): SpinPerformancesByMachine | undefined => ((answer) => (props.by === "machine" && answer?.ok === true ? answer.value : undefined))(spun())
   const [kept] = createResource(() => ({ bookId: props.bookId, revision: app.revision() }), (source) => keepsTheoreticalValues(app.services.session, source.bookId))
   /** Whether the book keeps theoretical values: taken to until hledger says it does not, so a book that does never flashes otherwise. */
   const theoreticalKept = (): boolean => ((answer) => answer?.ok !== true || answer.value)(kept())
+  const placed = (by: BreakdownBy, narrowing: Narrowing): Place => ({ kind: "book-breakdown", bookId: props.bookId, by, narrowing })
+  const opener = (dimension: Dimension, key: string): (() => void) | undefined =>
+    ((drilled) => (drilled === undefined ? undefined : () => moves.go(placed(drilled.by, drilled.narrowing), drilled.query)))(drilledFrom(dimension, key, props.narrowing, props.query))
   return (
     <MainContent header={<ViewHeader place={props.place} title="集計" />}>
       <div class="max-w-5xl">
@@ -134,14 +172,18 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
                 options={BREAKDOWN_OPTIONS}
                 value={props.by}
                 onChange={(by) => {
-                  if (isBreakdownBy(by)) moves.go({ kind: "book-breakdown", bookId: props.bookId, by }, props.query)
+                  if (isBreakdownBy(by)) moves.go(placed(by, props.narrowing), props.query)
                 }}
                 placeholder="切り口を選ぶ"
               />
             </div>
             <PeriodPicker by={props.by} query={props.query} today={app.services.businessDay()} onTyped={(query) => moves.refine(props.place, query)} onPressed={(query) => moves.go(props.place, query)} />
           </div>
-          <Show when={props.by === OVERALL}>
+          <NarrowingFilters bookId={props.bookId} query={props.query} narrowing={props.narrowing} onNarrowed={(narrowing) => moves.refine(placed(props.by, narrowing), props.query)} />
+          <Show when={matchesNothing(props.narrowing)}>
+            <EmptyState title={NOTHING_NARROWED} />
+          </Show>
+          <Show when={props.by === OVERALL && !matchesNothing(props.narrowing)}>
             <Refreshing loading={overall.state === "refreshing"}>
               <Loaded outcome={overall()}>
                 {(found) => (
@@ -152,7 +194,7 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
               </Loaded>
             </Refreshing>
           </Show>
-          <Show when={grouping()} keyed>
+          <Show when={matchesNothing(props.narrowing) ? undefined : grouping()} keyed>
             {(dimension) => (
               <Refreshing loading={groups.state === "refreshing"}>
                 <Loaded outcome={groups()}>
@@ -160,7 +202,9 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
                     <Show when={found.length > 0} fallback={<EmptyState title="この期間の収支はありません" />}>
                       <ul class="flex flex-col gap-1">
                         <GroupRow name="合計" group={totalOf(found)} strong theoreticalKept={theoreticalKept()} spins={((all) => (all === undefined ? undefined : allSpinPerformances(all)))(spins())} />
-                        <For each={shownOrder(found, dimension)}>{(group) => <GroupRow name={groupName(dimension, group.key, app.machineNames())} group={group} strong={false} theoreticalKept={theoreticalKept()} spins={spins()?.get(group.key)} />}</For>
+                        <For each={shownOrder(found, dimension)}>
+                          {(group) => <GroupRow name={groupName(dimension, group.key, app.machineNames())} group={group} strong={false} theoreticalKept={theoreticalKept()} spins={spins()?.get(group.key)} onOpen={opener(dimension, group.key)} />}
+                        </For>
                       </ul>
                     </Show>
                   )}

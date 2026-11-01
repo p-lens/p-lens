@@ -75,6 +75,10 @@ function Ticks(props: { readonly offered: readonly Offered[]; readonly chosen: C
   )
 }
 
+/** The outline of a filter's button that says in words what it filters, or what it lets through, beside its funnel. */
+const namedFilterButtonClass = (narrowed: boolean): string =>
+  cn(buttonVariants({ variant: "outline", size: "small" }), "relative max-w-[12rem] shrink-0 gap-1.5 [&_svg]:size-4", narrowed && "border-text-secondary text-text-primary")
+
 /**
  * A filter behind a funnel: pressed, it opens beside the button with a
  * tick for each thing offered, and what is ticked is handed on as it is
@@ -83,7 +87,9 @@ function Ticks(props: { readonly offered: readonly Offered[]; readonly chosen: C
  * nothing to narrow by. It stays open while
  * the view narrows, focus moving or not, until the person closes it — by
  * its cross, Escape, or a press outside it. The button's name is the
- * filter's heading. It goes at the end of a row, `class` placing it.
+ * filter's heading. It goes at the end of a row, `class` placing it — or,
+ * where it says in words what it filters (`shown`), among others like it.
+ * What it offers can be read only once it is first opened (`onOpened`).
  */
 export function TickFilter(props: {
   readonly label: string
@@ -93,11 +99,21 @@ export function TickFilter(props: {
   /** What is said in place of the ticks where nothing is offered: why there is nothing to narrow by. */
   readonly none: string
   readonly class?: string
+  /** The words on the button beside its funnel; none for the funnel alone. */
+  readonly shown?: string | undefined
+  readonly onOpened?: () => void
 }): JSX.Element {
   return (
-    <PopoverPrimitive.Root gutter={6} placement="bottom-end">
-      <PopoverPrimitive.Trigger aria-label={props.label} title={props.label} class={cn(filterButtonClass(isNarrowed(props.chosen)), props.class)}>
+    <PopoverPrimitive.Root gutter={6} placement={props.shown === undefined ? "bottom-end" : "bottom-start"} onOpenChange={(open) => open && props.onOpened?.()}>
+      <PopoverPrimitive.Trigger
+        aria-label={props.label}
+        title={props.label}
+        class={cn(props.shown === undefined ? filterButtonClass(isNarrowed(props.chosen)) : namedFilterButtonClass(isNarrowed(props.chosen)), props.class)}
+      >
         <FilterMark narrowed={isNarrowed(props.chosen)} />
+        <Show when={props.shown} keyed>
+          {(shown) => <span class="truncate">{shown}</span>}
+        </Show>
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Content onFocusOutside={(event) => event.preventDefault()} class="z-50 flex w-[min(20rem,calc(100vw-2rem))] flex-col gap-2 rounded-md border border-border bg-surface-1 p-3 text-sm shadow-lg outline-none">

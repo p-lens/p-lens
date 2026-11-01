@@ -1,18 +1,19 @@
 import type { BookId } from "../core/book/book"
 import { SOURCE_TAGS } from "../core/import/source-tally"
-import { readGameKind } from "../core/play/play"
+import { readGameKind, writtenGameKinds } from "../core/play/play"
 import { PARLOR_ID_TAG, PARLOR_SUBMISSION_TAG, parlorsFromDeclarations, type Parlor } from "../core/parlor/parlor"
 import { TALLY_TAGS } from "../core/tally/tally"
 import { UNSAID, byColumn, byRow, byWeekday, groupsOf, inOrder, merged, type Dimension, type Group, type Period } from "../core/report/breakdown"
 import { negate, ZERO } from "../core/decimal/decimal"
 import { actualOf, secondsIn, secondsOf, statisticTotalOf } from "../core/report/figures"
+import { EVERY_TALLY, NARROWED_BY, rateKey, readRateKey, type NarrowedBy, type Narrowing } from "../core/report/narrowing"
 import { senderNamesOf, type SenderNames } from "../core/report/senders"
 import { spinPerformancesOf, type SpinPerformancesByMachine } from "../core/report/spin-performance"
 import { andThen, mapOk, Ok } from "../core/result/result"
 import type { JournalAccess, Reply } from "../hledger/client/client"
 import type { BalanceReport } from "../hledger/protocol/wire"
 import { accountsRequest, actualCutRequest, sentTalliesRequest, spinPerformancesRequest, actualRequest, inferredCutRequest, inferredRequest, playTimeCutRequest, playTimeRequest, theoreticalCutRequest, theoreticalRequest } from "../hledger/query/requests"
-import { combine, sendersTerm, talliesTerm, untaggedTerm } from "../hledger/query/terms"
+import { combine, playedTokensTerm, sendersTerm, taggedAmongTerm, talliesTerm, untaggedTerm } from "../hledger/query/terms"
 import type { BookSession } from "./book-session"
 import { viewedFor } from "./book-views"
 import type { Outcome } from "./errors"
@@ -97,6 +98,54 @@ const byParlor = async (journal: JournalAccess, query: string): Promise<Outcome<
 const byGame = async (journal: JournalAccess, query: string): Promise<Outcome<readonly Group[]>> =>
   mapOk(await byTags(journal, query, [TALLY_TAGS.gameKind]), (groups) => merged([groups.map((group) => ({ ...group, key: readGameKind(group.key) ?? group.key }))]))
 
+/** What a tally carries a tag for among what it can be narrowed by: all of it but its rate, which is in the name of the tokens it played. */
+type Tagged = Exclude<NarrowedBy, "rate">
+
+/** The tags a tally says each of those in, the first it is tied to the lists by and the rest what another app called it. */
+const NARROWING_TAGS: Readonly<Record<Tagged, readonly string[]>> = {
+  game: [TALLY_TAGS.gameKind],
+  parlor: [PARLOR_ID_TAG, PARLOR_SUBMISSION_TAG, SOURCE_TAGS.parlor],
+  machine: [TALLY_TAGS.machine, SOURCE_TAGS.machine],
+}
+
+/** The values chosen groups are written as: a game as each way a book has said it, a parlor by its name and by the id of each parlor of that name, a machine as its key. */
+const writtenAs = (by: Tagged, chosen: readonly string[], parlors: readonly Parlor[]): readonly string[] => {
+  switch (by) {
+    case "game":
+      return chosen.flatMap((key) => ((kind) => (kind === undefined ? [key] : writtenGameKinds(kind)))(readGameKind(key)))
+    case "parlor":
+      return [...chosen, ...parlors.filter((parlor) => chosen.includes(parlor.name)).map((parlor) => (parlor.identity.type === "listed" ? parlor.identity.id : parlor.identity.submission))]
+    case "machine":
+      return chosen
+  }
+}
+
+/** What chosen groups are written as in a term: a rate as the tokens its tallies played, anything else as any of its tags with any of the values the groups are written as. */
+const termOf = (by: NarrowedBy, chosen: readonly string[], parlors: readonly Parlor[]): string =>
+  by === "rate" ? playedTokensTerm(chosen.flatMap((key) => ((pool) => (pool === undefined ? [] : [pool]))(readRateKey(key)))) : taggedAmongTerm(NARROWING_TAGS[by], writtenAs(by, chosen, parlors))
+
+/**
+ * The terms a narrowing asks with, one for each dimension it narrows by:
+ * for a game, a parlor or a machine, a tally carrying any of its tags with
+ * any of the values its chosen groups are written as; for a rate, a tally
+ * that played its tokens, which a tally kept in yen alone never does. The
+ * parlors are read only where some are chosen. A narrowing that matches
+ * nothing is not asked about (`matchesNothing`).
+ */
+export const narrowedTerm = async (journal: JournalAccess, narrowing: Narrowing): Promise<Outcome<string>> => {
+  const chosen = NARROWED_BY.flatMap((by) => ((values) => (values === undefined ? [] : [[by, values] as const]))(narrowing[by]))
+  const parlors = narrowing.parlor === undefined ? Ok([]) : await parlorsIn(journal)
+  return mapOk(parlors, (found) => combine(...chosen.map(([by, values]) => termOf(by, values, found))))
+}
+
+/** Every rate the book keeps savings at, of either kind of token, by `rateKey`: what a breakdown can be narrowed to by rate, balls first and each kind's dearest first. */
+export const loadRates = (session: BookSession, bookId: BookId): Promise<Outcome<readonly string[]>> =>
+  session.read(bookId, async (journal) =>
+    mapOk(await parlorsIn(journal), (parlors) =>
+      [...new Set(parlors.flatMap((parlor) => parlor.pools).toSorted((left, right) => (left.kind === right.kind ? Number.parseFloat(right.tier) - Number.parseFloat(left.tier) : left.kind === "ball" ? -1 : 1)).map(rateKey))],
+    ),
+  )
+
 const grouped = async (journal: JournalAccess, dimension: Dimension, query: string): Promise<Outcome<readonly Group[]>> => {
   switch (dimension) {
     case "machine":
@@ -124,9 +173,14 @@ const grouped = async (journal: JournalAccess, dimension: Dimension, query: stri
  * grouping by the day of the week, so that one is its daily report folded
  * into seven. Only tallies are grouped: what is no play's — 失効損 — is
  * said under the breakdown, in その他損益, and never as a group of its own.
+ * A narrowing keeps to the tallies of the games, parlors and machines it
+ * chose.
  */
-export const loadBreakdown = (session: BookSession, bookId: BookId, dimension: Dimension, query: string): Promise<Outcome<readonly Group[]>> =>
-  viewedFor(session, query, "moved").read(bookId, async (journal) => mapOk(await grouped(journal, dimension, combine(talliesTerm, query)), (groups) => inOrder(groups, dimension)))
+export const loadBreakdown = (session: BookSession, bookId: BookId, dimension: Dimension, query: string, narrowing: Narrowing = EVERY_TALLY): Promise<Outcome<readonly Group[]>> =>
+  viewedFor(session, query, "moved").read(bookId, async (journal) => {
+    const narrowed = await narrowedTerm(journal, narrowing)
+    return narrowed.ok ? mapOk(await grouped(journal, dimension, combine(talliesTerm, query, narrowed.value)), (groups) => inOrder(groups, dimension)) : narrowed
+  })
 
 /** Who of those that played a book its tallies are asked of: every one, or those chosen of those offered, by sender id and `UNSENT`. */
 export interface Players {
@@ -161,11 +215,14 @@ export const loadDaysAndWhole = (session: BookSession, bookId: BookId, query: st
 /**
  * A book's tallies' spin performances for a period, by machine: what the
  * tallies grouped by machine are read beside. hledger finds the tallies that
- * say one; it keeps a tag's value and does not add it up, so the adding is
- * the app's.
+ * say one, of those a narrowing keeps to; it keeps a tag's value and does
+ * not add it up, so the adding is the app's.
  */
-export const loadSpinPerformances = (session: BookSession, bookId: BookId, query: string): Promise<Outcome<SpinPerformancesByMachine>> =>
-  viewedFor(session, query, "moved").read(bookId, async (journal) => mapOk(fromHledger(await journal.ask(spinPerformancesRequest(query))), (page) => spinPerformancesOf(page.items)))
+export const loadSpinPerformances = (session: BookSession, bookId: BookId, query: string, narrowing: Narrowing = EVERY_TALLY): Promise<Outcome<SpinPerformancesByMachine>> =>
+  viewedFor(session, query, "moved").read(bookId, async (journal) => {
+    const narrowed = await narrowedTerm(journal, narrowing)
+    return narrowed.ok ? mapOk(fromHledger(await journal.ask(spinPerformancesRequest(combine(query, narrowed.value)))), (page) => spinPerformancesOf(page.items)) : narrowed
+  })
 
 /**
  * A book's results for a period, by who played them: each sender by the id

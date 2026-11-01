@@ -1,5 +1,6 @@
 import { nextDay, type IsoDate } from "../../core/calendar/calendar"
-import type { TokenKind } from "../../core/commodity/commodity"
+import { tokenCommodityPrefix, type TokenKind } from "../../core/commodity/commodity"
+import type { SavingsPool } from "../../core/parlor/parlor"
 import { ACCOUNTS, rentalSpreadAccount, savingsAccount, savingsRoot } from "../../core/journal/accounts"
 import type { PlayId } from "../../core/play/play"
 import { TALLY_TAGS } from "../../core/tally/tally"
@@ -93,6 +94,27 @@ export const sendersTerm = (chosen: readonly string[], offered: readonly string[
  */
 export const savingsAtTerm = (parlorNames: readonly string[]): string | undefined =>
   parlorNames.length === 0 ? undefined : `"^(${escapeRegex(savingsRoot("ball"))}|${escapeRegex(savingsRoot("medal"))}):(${parlorNames.map((name) => escapeRegex(name).replaceAll('"', ".")).join("|")}):"`
+
+/**
+ * The entries carrying any of several tags with any of several values: each
+ * tag's name and each value held to the whole of it, so `machine` is not
+ * found in `source-machine`. Quoted, for a value may hold a space, and a
+ * quote in one is matched by any letter.
+ */
+export const taggedAmongTerm = (tags: readonly string[], values: readonly string[]): string =>
+  `"tag:^(${tags.map(escapeRegex).join("|")})$=^(${values.map((value) => escapeRegex(value).replaceAll('"', ".")).join("|")})$"`
+
+/**
+ * The entries that played tokens of some kinds and rates, at whichever
+ * parlor, every posting of them: those with any posting whose commodity
+ * begins as `tokenCommodityPrefix` says. A commodity term alone would keep
+ * to those postings; `any:` keeps the entries whole. Inside it a bracket
+ * would end the query, so each rate is a pattern of its own with no group
+ * around them, and no rate at all matches no commodity. Quoted, as a
+ * commodity's name may hold a space.
+ */
+export const playedTokensTerm = (pools: readonly SavingsPool[]): string =>
+  `any:"cur:${pools.length === 0 ? "^$" : pools.map((pool) => `^${escapeRegex(tokenCommodityPrefix(pool.kind, pool.tier))}.*$`).join("|")}"`
 
 /** The tallies that say a spin performance: one their play's log measured, or one their play was inferred to have had. */
 export const spinPerformanceTerm = `tag:^(${escapeRegex(TALLY_TAGS.spinPerformance)}|${escapeRegex(TALLY_TAGS.inferredSpinPerformance)})$`

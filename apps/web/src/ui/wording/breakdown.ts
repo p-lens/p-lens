@@ -2,6 +2,8 @@ import type { IsoDate } from "../../core/calendar/calendar"
 import { shownNameOf, type MachineNames } from "../../core/catalog/catalog"
 import { toPlainString, type Decimal } from "../../core/decimal/decimal"
 import { UNSAID, type Dimension } from "../../core/report/breakdown"
+import type { TokenKind } from "../../core/commodity/commodity"
+import { readRateKey, type NarrowedBy } from "../../core/report/narrowing"
 import type { SenderNames } from "../../core/report/senders"
 import { formatCount, formatTheoreticalYen } from "./numbers"
 import { seal } from "../../mummer"
@@ -107,3 +109,26 @@ export const groupName = (dimension: Dimension, key: string, machineNames: Machi
   if (dimension === "parlor") return parlorNameText(seal.parlor(key))
   return dimension === "year" ? `${key}年` : key
 }
+
+/** What each filter a breakdown is narrowed by is called, on its button and over its ticks. */
+export const NARROWING_NAMES: Readonly<Record<NarrowedBy, string>> = { game: "種別", rate: "レート", parlor: "店", machine: "機種" }
+
+const RATE_GAMES: Readonly<Record<TokenKind, string>> = { ball: "パチンコ", medal: "スロット" }
+
+/** A group a breakdown can be narrowed to as a person reads it: a rate as its price and game, 4円パチンコ, and anything else as the group's name. */
+export const narrowedName = (by: NarrowedBy, key: string, machineNames: MachineNames): string =>
+  by === "rate" ? ((pool) => (pool === undefined ? key : `${pool.tier}${RATE_GAMES[pool.kind]}`))(readRateKey(key)) : groupName(by, key, machineNames)
+
+/** What a filter's button says: its name while it lets every group through, the one group it lets through, or its name and how many. */
+export const narrowingShown = (by: NarrowedBy, names: readonly string[] | undefined): string =>
+  names === undefined ? NARROWING_NAMES[by] : names.length === 1 ? (names[0] ?? NARROWING_NAMES[by]) : `${NARROWING_NAMES[by]} ${formatCount(names.length)}`
+
+/** What a filter says in place of its ticks: that its groups are being read, or that there are none — rates in the book, anything else in the period. */
+export const narrowingNone = (by: NarrowedBy, reading: boolean): string =>
+  reading ? "読み込んでいます…" : by === "rate" ? "レートを決めた店がまだありません。" : `この期間に${NARROWING_NAMES[by]}の分かる収支はありません。`
+
+/** The button that lets every tally through again. */
+export const UNNARROW = "絞り込みを解除"
+
+/** Said where a breakdown is narrowed to no tally at all. */
+export const NOTHING_NARROWED = "絞り込みに合う収支はありません"

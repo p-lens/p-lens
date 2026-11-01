@@ -5,6 +5,7 @@ import { isDocumentKind, type DocumentKind } from "../../core/document/document"
 import type { PlayGameKind, PlayId } from "../../core/play/play"
 import type { ConsolidatedBy } from "../../application/consolidation"
 import { OVERALL, isBreakdownBy, isDimension, type BreakdownBy } from "../../core/report/breakdown"
+import { NARROWED_BY, isNarrowed, isNarrowedBy, type Narrowing } from "../../core/report/narrowing"
 
 const isConsolidatedBy = (text: string): text is ConsolidatedBy => text === OVERALL || text === "book" || text === "sender" || isDimension(text)
 
@@ -107,7 +108,8 @@ export type Place =
   | { readonly kind: "book-view"; readonly bookId: BookId; readonly view: "holdings"; readonly parlors?: readonly string[] | undefined }
   /** A book's calendar, of the tallies of those its last segment names among who played them where it names any. */
   | { readonly kind: "book-view"; readonly bookId: BookId; readonly view: "result-calendar"; readonly senders?: readonly string[] | undefined }
-  | { readonly kind: "book-breakdown"; readonly bookId: BookId; readonly by: BreakdownBy }
+  /** A book's breakdown, of the tallies its last segment narrows it to where it narrows it. */
+  | { readonly kind: "book-breakdown"; readonly bookId: BookId; readonly by: BreakdownBy; readonly narrowing?: Narrowing | undefined }
   | { readonly kind: "tally"; readonly bookId: BookId; readonly playId: PlayId }
   | { readonly kind: "tally-new"; readonly bookId: BookId }
   | { readonly kind: "tally-days"; readonly bookId: BookId }
@@ -171,6 +173,16 @@ const decodeSegment = (segment: string): string | undefined => {
 const chosenIn = (segment: string | undefined): readonly string[] | undefined =>
   segment === undefined ? undefined : segment.split(",").filter((each) => each !== "").flatMap((each) => ((decoded) => (decoded === undefined ? [] : [decoded]))(decodeSegment(each)))
 
+/**
+ * The narrowing a segment says, each dimension narrowed by as its name, an
+ * equals sign and what it chooses, semicolons between them; none for a
+ * segment that does not read as one.
+ */
+const narrowingIn = (segment: string): Narrowing | undefined => {
+  const parts = segment.split(";").map((part) => ({ by: part.slice(0, Math.max(part.indexOf("="), 0)), chosen: chosenIn(part.slice(part.indexOf("=") + 1)) ?? [] }))
+  return parts.every(({ by }) => isNarrowedBy(by)) ? Object.fromEntries(parts.map(({ by, chosen }) => [by, chosen])) : undefined
+}
+
 /** The books a segment names; every book on the device where there is no such segment. */
 const bookIdsIn = (segment: string | undefined): readonly BookId[] | undefined => chosenIn(segment) as readonly BookId[] | undefined
 
@@ -219,6 +231,8 @@ const placeOfSegments = (segments: readonly string[], path: string): Place => {
   if (rest.length > 0) return { kind: "not-found", path }
   if (first === "books" && second !== undefined && third === "tallies" && fourth !== undefined && fourth !== "new" && fifth === "revise")
     return { kind: "tally-revise", bookId: second as BookId, playId: fourth as PlayId }
+  if (first === "books" && second !== undefined && third === "breakdown" && fourth !== undefined && isBreakdownBy(fourth) && fifth !== undefined)
+    return ((narrowing) => (narrowing === undefined ? { kind: "not-found", path } : { kind: "book-breakdown", bookId: second as BookId, by: fourth, narrowing }))(narrowingIn(fifth))
   if (fifth !== undefined) return { kind: "not-found", path }
   if (first === "play" && second === undefined) return { kind: "live" }
   if (first === "huddle" && second === undefined) return { kind: "huddle" }
@@ -276,6 +290,10 @@ const encode = encodeURIComponent
 /** The segment that names what a view is narrowed to, or none for every one; a comma alone for none at all. */
 const chosenSegment = (chosen: readonly string[] | undefined): string => (chosen === undefined ? "" : `/${encode(chosen.length === 0 ? "," : chosen.map(encode).join(","))}`)
 
+/** The segment that says what a breakdown is narrowed to, if it is: each dimension it narrows by as `chosenSegment` names its choice, by name. */
+const narrowingSegment = (narrowing: Narrowing | undefined): string =>
+  narrowing === undefined || !isNarrowed(narrowing) ? "" : `/${encode(NARROWED_BY.flatMap((by) => ((chosen) => (chosen === undefined ? [] : [`${by}=${chosen.map(encode).join(",")}`]))(narrowing[by])).join(";"))}`
+
 /** The segment that names what a book's view is narrowed to, if it is narrowed. */
 const narrowedSegment = (place: Extract<Place, { kind: "book-view" }>): string => (place.view === "holdings" ? chosenSegment(place.parlors) : place.view === "result-calendar" ? chosenSegment(place.senders) : "")
 
@@ -304,7 +322,7 @@ export const pathOf = (place: Place): string => {
     case "book-view":
       return `/books/${encode(place.bookId)}/${place.view}${narrowedSegment(place)}`
     case "book-breakdown":
-      return `/books/${encode(place.bookId)}/breakdown/${place.by}`
+      return `/books/${encode(place.bookId)}/breakdown/${place.by}${narrowingSegment(place.narrowing)}`
     case "tally":
       return `/books/${encode(place.bookId)}/tallies/${encode(place.playId)}`
     case "tally-new":
@@ -574,7 +592,7 @@ export const inOddPrizeCalculator = (place: Place): boolean => place.kind === "o
 
 export const inSettings = (place: Place): boolean => place.kind === "settings" || place.kind === "settings-section" || place.kind === "document"
 
-/** A place apart from what it is narrowed to: the books a consolidation reads, the parlors a book's savings show, who a book's calendar is of, whether a formula's 期待値算出 is laid over it, whether a book's savings have an opening balance being registered over them, the tab a new formula is made in. */
+/** A place apart from what it is narrowed to: the books a consolidation reads, the tallies a book's breakdown is of, the parlors a book's savings show, who a book's calendar is of, whether a formula's 期待値算出 is laid over it, whether a book's savings have an opening balance being registered over them, the tab a new formula is made in. */
 const unnarrowed = (place: Place): Place => {
   switch (place.kind) {
     case "consolidated-holdings":
@@ -590,6 +608,8 @@ const unnarrowed = (place: Place): Place => {
     case "pachinko-formula-new":
     case "pachislot-formula-new":
       return { ...place, tab: "manual" }
+    case "book-breakdown":
+      return { ...place, narrowing: undefined }
     case "book-view":
       return place.view === "holdings" ? { ...place, parlors: undefined } : place.view === "result-calendar" ? { ...place, senders: undefined } : place
     default:

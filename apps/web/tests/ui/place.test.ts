@@ -132,6 +132,18 @@ describe("a book's breakdown", () => {
     expect(parentOf({ kind: "book-breakdown", bookId: "made-up" as never, by: "parlor" })).toEqual({ kind: "book", bookId: "made-up" } as never)
     expect(placeOf("/books/made-up/breakdown/colour")).toEqual({ kind: "not-found", path: "/books/made-up/breakdown/colour" })
   })
+
+  test("is narrowed by a last segment naming each dimension's choice, each encoded on its own, and is drawn on the same screen however it is narrowed", () => {
+    const narrowed: Place = { kind: "book-breakdown", bookId: "b" as never, by: "machine", narrowing: { game: ["pachislot"], rate: ["medal:20円"], parlor: ["A;店=1", "B,店"] } }
+    expect(placeOf(pathOf(narrowed))).toEqual(narrowed)
+    const none: Place = { kind: "book-breakdown", bookId: "b" as never, by: "parlor", narrowing: { machine: [] } }
+    expect(pathOf(none)).toBe("/books/b/breakdown/parlor/machine%3D")
+    expect(placeOf(pathOf(none))).toEqual(none)
+    expect(pathOf({ kind: "book-breakdown", bookId: "b" as never, by: "parlor", narrowing: {} })).toBe("/books/b/breakdown/parlor")
+    expect(placeOf("/books/b/breakdown/parlor/weekday%3D3")).toEqual({ kind: "not-found", path: "/books/b/breakdown/parlor/weekday%3D3" })
+    expect(placeOf("/books/b/breakdown/parlor/nonsense")).toEqual({ kind: "not-found", path: "/books/b/breakdown/parlor/nonsense" })
+    expect(screenOf(narrowed)).toBe(screenOf({ kind: "book-breakdown", bookId: "b" as never, by: "machine" }))
+  })
 })
 
 describe("the consolidation", () => {

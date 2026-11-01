@@ -772,6 +772,7 @@ The place is read off the address (`ui/navigation/place.ts`):
 | `/books/:book/holdings/:parlors?q=` | a book's savings at the parlors named | content |
 | `/books/:book/result-calendar/:senders` | a book's calendar of the tallies of those named among who played it | content |
 | `/books/:book/breakdown/:by?q=` | a book's results taken as one (総合, by default) or grouped | content |
+| `/books/:book/breakdown/:by/:narrowing?q=` | the same, of the tallies of the games, rates, parlors and machines named | content |
 | `/books/:book/files/:path` | one of the book's files as kept, beside the list | detail |
 | `/books/:book/tallies/new` | adding a tally by its totals (収支を追加) | content |
 | `/books/:book/tallies/days` | typing a month's days' 収支 at a time (まとめて入力), from the calendar | content |
@@ -3161,6 +3162,37 @@ for.
   is any.
 - **Which grouping and which period are the address's**:
   `/books/:id/breakdown/weekday`, with `q` the period.
+- **Narrowed by game, rate, parlor and machine** (`core/report/narrowing`,
+  `NarrowingFilters`): four filters under the period, each saying on its
+  button what it lets through (種別, レート, 店, 機種; a parlor's name where
+  one is chosen, the name and a count where several are), so パチスロ by
+  parlor or one parlor by machine is a breakdown like any other. The
+  narrowing is a term beside the period (`narrowedTerm`), one for each
+  dimension narrowed by. A game, a parlor or a machine is a `tag:` term
+  matching any of its tags with any of the values its chosen groups are
+  written as — a game as every way a book has said it, a parlor by its
+  name and the ids of the parlors of that name, a machine as its key
+  (`taggedAmongTerm`). A rate is no tag: it is in the name of the tokens
+  played (`玉(4円・店)`), and a `cur:` term alone would keep to those
+  postings, so it is `any:"cur:^玉\(4円・.*$|…"` — the entries with any
+  posting of such tokens, whole (`playedTokensTerm`); inside `any:` a
+  bracket ends the query, so the rates are patterns side by side with no
+  group around them. A tally kept in yen alone has no rate. Asking for
+  the tallies' ids first and then for those ids was tried and dropped: an
+  alternation of thousands of ids is more than hledger's regex engine
+  matches in any time. The narrowing is the address's last segment,
+  `game=pachislot;rate=medal:20円;parlor=A,B` each value encoded on its
+  own, and is no other screen: a filter ticked follows on the one drawn.
+  The rates a filter offers are those the book keeps savings at
+  (`loadRates`), and the parlors and machines those of the period, each
+  read only once its filter is first opened, so a breakdown looked at is
+  asked nothing more. その他損益 is no tally's, and is left out while
+  narrowed.
+- **A row pressed looks into it** (`drilledFrom`): a game by parlor, a
+  parlor by machine and a machine by parlor, each narrowed to it on top
+  of what was; a year by month and a month by day, over its own days. A
+  day, a day of the week and the group that does not say what is asked
+  go nowhere, and wear no arrow head.
 - **A period is two days and nothing else** (`ui/features/period`,
   `PeriodPicker`): the first and the last, both included, either left
   open, written into the address as hledger's `date:FROM..TO` with the day

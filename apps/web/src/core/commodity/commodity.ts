@@ -23,6 +23,9 @@ const TOKEN_NAMES: Readonly<Record<TokenKind, string>> = { ball: "玉", medal: "
  */
 export const tokenCommodity = (kind: TokenKind, parlorName: string, tier: string): string => `${TOKEN_NAMES[kind]}(${tier}・${parlorName})`
 
+/** What every token commodity of a kind and rate begins with, whichever parlor it is at. */
+export const tokenCommodityPrefix = (kind: TokenKind, tier: string): string => `${TOKEN_NAMES[kind]}(${tier}・`
+
 /** A token commodity read back into what it was written from; undefined for any other commodity. The rate never holds `・`, so the first one ends it. */
 export const readTokenCommodity = (commodity: string): { readonly kind: TokenKind; readonly tier: string; readonly parlorName: string } | undefined =>
   (Object.keys(TOKEN_NAMES) as TokenKind[])
