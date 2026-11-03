@@ -6,6 +6,7 @@ import pachislotWasm from "@p-lens/pachislot-engine/pachislot_bg.wasm"
 import { handle } from "./app"
 import { STANDARD_QUOTAS } from "./domain/quota"
 import { byDevice } from "./infrastructure/auth"
+import { edgeCatalogCache } from "./infrastructure/catalog-cache"
 import { runtimeEffects } from "./infrastructure/effects"
 import { type HumanCheck, NO_HUMAN_CHECK, turnstileThrough } from "./infrastructure/human-check"
 import { limitsThrough, type RateLimiter } from "./infrastructure/limits"
@@ -60,6 +61,7 @@ export default {
   fetch: (request: Request, env: Env): Promise<Response> =>
     handle(request, {
       database: env.DB,
+      catalogCache: edgeCatalogCache(caches.default, new URL(request.url).origin),
       effects: runtimeEffects,
       pachinkoEngine,
       pachislotEngine,

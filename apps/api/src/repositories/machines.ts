@@ -190,42 +190,14 @@ export const readMachine = async (database: Database, id: string): Promise<Resul
 }
 
 /**
- * The shape the catalog's stored things are kept in, said in the catalog's
- * version: raised when a migration rewrites what is stored where it lies,
- * which no count or time in the tables shows, so that every device takes
- * the catalog again. `stated-rates-typed`: a pachislot formula whose 機械割
- * was stated is told it was typed in.
+ * The version of the catalog, one row kept by the database's own triggers, so
+ * a device that holds this version holds this catalog. Any machine, formula,
+ * 設定配分 or mark written, changed or taken back gives a new one; a use, a
+ * statistic never worth a delivery of its own, does not.
  */
-const STORED_SHAPE = "stated-rates-typed"
-
-/** What changes the catalog a device holds: each table's rows and its latest write, uses aside — a statistic, never worth a delivery of its own — what is hidden, and what was described anew. */
-const VERSION_FINGERPRINT = [
-  ["machines", "created_at"],
-  ["machine_keywords", "created_at"],
-  ["formulas", "created_at"],
-  ["distributions", "created_at"],
-  ["formula_adoptions", "adopted_at"],
-  ["formula_rejections", "rejected_at"],
-  ["formula_verifications", "verified_at"],
-  ["formula_favorites", "created_at"],
-  ["distribution_adoptions", "adopted_at"],
-  ["distribution_favorites", "created_at"],
-]
-  .map(([table, time]) => `(SELECT COUNT(*) || ':' || IFNULL(MAX(${time}), '') FROM ${table})`)
-  .concat(["machines", "formulas", "distributions"].map((table) => `(SELECT COUNT(hidden_at) || ':' || IFNULL(MAX(hidden_at), '') FROM ${table})`))
-  .concat(["(SELECT COUNT(described_at) || ':' || IFNULL(MAX(described_at), '') FROM machines)"])
-  .concat([`'${STORED_SHAPE}'`])
-  .join(" || '|' || ")
-
-/**
- * The version of the catalog: a hash of what changes it, so a device that
- * holds this version holds this catalog. Any machine, formula, 設定配分 or
- * mark written, changed or taken back gives a new one.
- */
-export const catalogVersion = async (database: Database, effects: Effects): Promise<Result<string, ApiError>> => {
-  const found = await firstRow<{ fingerprint: string }>(database.prepare(`SELECT ${VERSION_FINGERPRINT} AS fingerprint`))
-  if (!found.ok) return Err(unexpected(found.error))
-  return Ok(await effects.contentHash(found.value?.fingerprint ?? ""))
+export const catalogVersion = async (database: Database): Promise<Result<string, ApiError>> => {
+  const found = await firstRow<{ version: string }>(database.prepare("SELECT version FROM catalog_version WHERE id = 1"))
+  return found.ok ? Ok(found.value?.version ?? "") : Err(unexpected(found.error))
 }
 
 /** The whole catalog, every machine with all it has, newest release first; delivered whole to every device. */

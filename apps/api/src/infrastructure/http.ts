@@ -14,11 +14,19 @@ const corsHeaders = (origin: string | undefined): HeadersInit =>
         Vary: "Origin",
       }
 
-export const replyResponse = (reply: Reply, origin: string | undefined): Response =>
-  new Response(reply.body === undefined ? null : JSON.stringify(reply.body), {
+/** What a reply sends, written out; nothing for one with no body. */
+const writtenOf = (reply: Reply): string | undefined => {
+  if ("written" in reply) return reply.written
+  return reply.body === undefined ? undefined : JSON.stringify(reply.body)
+}
+
+export const replyResponse = (reply: Reply, origin: string | undefined): Response => {
+  const written = writtenOf(reply)
+  return new Response(written ?? null, {
     status: reply.status,
-    headers: { ...corsHeaders(origin), ...(reply.body === undefined ? {} : { "Content-Type": "application/json; charset=utf-8" }) },
+    headers: { ...corsHeaders(origin), ...(written === undefined ? {} : { "Content-Type": "application/json; charset=utf-8" }) },
   })
+}
 
 export const errorResponse = (error: ApiError, origin: string | undefined): Response =>
   new Response(JSON.stringify({ error } satisfies ApiErrorDto), {

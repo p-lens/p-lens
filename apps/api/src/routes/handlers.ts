@@ -9,6 +9,7 @@ import { Err, Ok, type Result } from "../domain/result"
 import { GAME_KINDS, type PreparedOfGame, storedOf } from "../domain/stored-formula"
 import { TARGET_TYPES } from "../domain/tagging"
 import type { Authenticate } from "../infrastructure/auth"
+import type { CatalogCache } from "../infrastructure/catalog-cache"
 import type { Database } from "../infrastructure/database"
 import type { Effects } from "../infrastructure/effects"
 import type * as PachinkoEngine from "../infrastructure/pachinko/engine"
@@ -27,6 +28,7 @@ export interface Context {
   readonly url: URL
   readonly params: Readonly<Record<string, string>>
   readonly database: Database
+  readonly catalogCache: CatalogCache
   readonly effects: Effects
   /** The pachinko engine, started only by the handlers that publish a simulated formula. */
   readonly pachinkoEngine: () => PachinkoEngine.Engine
@@ -39,10 +41,8 @@ export interface Context {
   readonly quotas: Quotas | undefined
 }
 
-export interface Reply {
-  readonly status: number
-  readonly body: unknown
-}
+/** An answer: a body to write out, or one already written, which is sent as it is. */
+export type Reply = { readonly status: number; readonly body: unknown } | { readonly status: number; readonly written: string }
 
 export type Handler = (context: Context) => Promise<Result<Reply, ApiError>>
 
@@ -132,16 +132,21 @@ const requireFound = async (exists: Promise<Result<boolean, ApiError>>, missing:
 }
 
 const getCatalogVersion: Handler = async (context) => {
-  const version = await catalogVersion(context.database, context.effects)
+  const version = await catalogVersion(context.database)
   return version.ok ? ok({ version: version.value } satisfies CatalogVersionDto) : version
 }
 
-/** The whole catalog with the version it is: the version read first, so it is never newer than what it is sent with. */
+/** The whole catalog with the version it is: the version read first, so it is never newer than what it is sent with, and the catalog read only if that version is not kept already. */
 const getCatalog: Handler = async (context) => {
-  const version = await catalogVersion(context.database, context.effects)
+  const version = await catalogVersion(context.database)
   if (!version.ok) return version
+  const kept = await context.catalogCache.read(version.value)
+  if (kept !== undefined) return Ok({ status: 200, written: kept })
   const machines = await readCatalog(context.database)
-  return machines.ok ? ok({ version: version.value, machines: machines.value } satisfies CatalogDto) : machines
+  if (!machines.ok) return machines
+  const written = JSON.stringify({ version: version.value, machines: machines.value } satisfies CatalogDto)
+  await context.catalogCache.keep(version.value, written)
+  return Ok({ status: 200, written })
 }
 
 /** The game a search is narrowed to, if one is named: `?game=pachislot`. */

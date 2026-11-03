@@ -183,9 +183,9 @@ pub enum SpecError {
     MissesWithoutCz {
         entity: EntityId,
     },
-    /// A CZ's ceiling counted from the AT that some mode play may enter has
-    /// no AT間天井 at it or beyond: once it has passed, a cycle would go on
-    /// unbounded past where it can be followed.
+    /// A CZ's ceiling counted from the AT that some mode play may enter is
+    /// beyond that mode's AT間天井: the AT always comes before it, and it is
+    /// never reached.
     SinceAtCeilingBeyondAtCeiling {
         entity: EntityId,
     },

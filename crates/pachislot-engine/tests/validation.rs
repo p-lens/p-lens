@@ -342,8 +342,12 @@ fn a_watchs_cues_never_exceed_certainty_and_are_certain_under_every_setting_or_n
 }
 
 #[test]
-fn a_cz_ceiling_counted_from_the_at_needs_an_at_ceiling_beyond_it() {
+fn a_cz_ceiling_counted_from_the_at_stands_at_or_short_of_an_at_ceiling() {
     let mut beyond = cz_spec();
+    beyond
+        .components
+        .ceiling
+        .insert(id("at"), NonZeroU32::new(1_000).expect("a ceiling"));
     beyond
         .components
         .since_at_ceiling
@@ -351,6 +355,22 @@ fn a_cz_ceiling_counted_from_the_at_needs_an_at_ceiling_beyond_it() {
     assert_eq!(
         normalize(&beyond),
         Err(SpecError::SinceAtCeilingBeyondAtCeiling { entity: id("cz") })
+    );
+    let mut unceiled = cz_spec();
+    unceiled
+        .components
+        .since_at_ceiling
+        .insert(id("cz"), NonZeroU32::new(1_200).expect("a ceiling"));
+    assert!(
+        normalize(&unceiled)
+            .expect("normalises")
+            .at_rules
+            .expect("an AT machine")
+            .modes
+            .iter()
+            .all(
+                |mode| mode.since_at_ceiling == NonZeroU32::new(1_200) && mode.at_ceiling.is_none()
+            )
     );
     let mut within = cz_spec();
     within

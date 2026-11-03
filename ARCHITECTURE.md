@@ -1317,8 +1317,11 @@ users ─┬─ machines (game_kind ∈ pachinko | pachislot) ── machine_key
 ### The API (`apps/api`)
 
 A Cloudflare Worker: the whole catalog delivered to a device (`/catalog`,
-with `/catalog/version` asked first — a hash of what the catalog holds, uses
-aside, so it moves only when there is something new to deliver), search
+with `/catalog/version` asked first — one row, given a fresh random value by
+triggers on every table the catalog delivers, uses aside, so it moves only
+when there is something new to deliver, and written straight at the database
+it moves all the same; a version's catalog is kept written out in the edge's
+cache for a day, so delivering it again reads nothing but that row), search
 (`?game=` narrows it to one game), reads,
 registering a machine of a game with its formula, adding formulas and 設定配分,
 the marks and uses of both, machine favourites, tags. No `/calculate`, no

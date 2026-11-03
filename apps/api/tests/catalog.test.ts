@@ -9,6 +9,38 @@ const CAROL = device(1_759_000_000_003)
 
 const UUIDV7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 
+const DELIVERED_TABLES = ["machines", "machine_keywords", "formulas", "distributions", "formula_adoptions", "formula_rejections", "formula_verifications", "formula_favorites", "distribution_adoptions", "distribution_favorites"]
+
+describe("the catalog's version", () => {
+  test("every table the catalog delivers moves it on any write, and uses have no part in it", async () => {
+    const { client } = await registered(ALICE)
+    const triggers = (client.sqlite.query("SELECT name FROM sqlite_master WHERE type = 'trigger' AND name LIKE '%_moves_catalog_version'").all() as { name: string }[]).map((each) => each.name)
+    expect(triggers.toSorted()).toEqual(DELIVERED_TABLES.flatMap((table) => ["insert", "update", "delete"].map((event) => `${table}_${event}_moves_catalog_version`)).toSorted())
+  })
+
+  test("a write made straight at the database moves it, as an administrator's or a migration's would", async () => {
+    const { client } = await registered(ALICE)
+    const before = (await client.call("GET", "/catalog/version")).body.version
+    client.sqlite.exec("UPDATE machines SET hit_chance = '1/199.9'")
+    expect((await client.call("GET", "/catalog/version")).body.version).not.toBe(before)
+  })
+
+  test("a version already delivered is sent as it was kept, and a new one is read afresh", async () => {
+    const { client, machineId, manualId } = await registered(ALICE)
+    const first = await client.call("GET", "/catalog")
+    const usesOf = (delivered: typeof first): unknown => delivered.body.machines[0].formulas.find((formula: { id: string }) => formula.id === manualId).standing.uses
+    expect(usesOf(first)).toBe(0)
+    await client.call("POST", `/formulas/${manualId}/uses`, { as: BOB })
+    const kept = await client.call("GET", "/catalog")
+    expect(kept.body).toEqual(first.body)
+    expect((await client.call("GET", `/machines/${machineId}`)).body.formulas.find((formula: { id: string }) => formula.id === manualId).standing.uses).toBe(1)
+    await client.call("PUT", `/formulas/${manualId}/marks/favorite`, { as: BOB })
+    const moved = await client.call("GET", "/catalog")
+    expect(moved.body.version).not.toBe(first.body.version)
+    expect(usesOf(moved)).toBe(1)
+  })
+})
+
 describe("registering a machine", () => {
   test("stores the machine and its first formula together, both with UUIDv7 ids", async () => {
     const { client, machineId, manualId } = await registered(ALICE)

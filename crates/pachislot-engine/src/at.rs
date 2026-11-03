@@ -576,11 +576,15 @@ pub(crate) const LONGEST_WALK: usize = 1 << 17;
 /// What is left of a walk under which it is taken as over.
 pub(crate) const WALKED: f64 = 1e-12;
 
-/// A cycle in one mode without an AT間天井 but with zones, which no closed
-/// form follows: walked game by game, twice as far each time, until next
-/// to nothing of it is left.
+/// A cycle in one mode without an AT間天井 but with zones or a ceiling
+/// counted from the AT, which no closed form follows: walked game by game,
+/// twice as far each time, until next to nothing of it is left.
 fn cycle_walked(odds: Odds<'_>, mode: &ModeRule, gates: &[Gate]) -> Cycle {
-    let first = gates.last().map_or(0, |gate| gate.game.get() as usize) + 1024;
+    let last_zone = gates.last().map_or(0, |gate| gate.game.get() as usize);
+    let since_at = mode
+        .since_at_ceiling
+        .map_or(0, |ceiling| ceiling.get() as usize);
+    let first = last_zone.max(since_at) + 1024;
     std::iter::successors(Some(first), |length| Some(length * 2))
         .take_while(|length| *length <= LONGEST_WALK)
         .map(|length| (length, ended_by(odds, mode, gates, length, mode.misses)))
@@ -691,8 +695,9 @@ fn tries_within(g: f64, success: f64, limit: NonZeroU32) -> (f64, f64) {
 }
 
 /// A cycle under one setting, over the modes play may be in as an AT
-/// allots them: in closed form in a mode without an AT間天井, and with one
-/// its trigger's walk cut short there. Modes that share a trigger's
+/// allots them: in closed form in a mode without an AT間天井, zones or a
+/// ceiling counted from the AT, walked in one with them, and with an
+/// AT間天井 its trigger's walk cut short there. Modes that share a trigger's
 /// ceiling share its walk, taken as far as the longest AT間天井 among them.
 pub fn cycle(rules: &AtRules, odds: Odds<'_>, shares: &[f64]) -> Cycle {
     if chained(rules, odds) {
@@ -754,7 +759,7 @@ pub fn cycle(rules: &AtRules, odds: Odds<'_>, shares: &[f64]) -> Cycle {
                         },
                         |(_, walk)| cycle_to_ceiling(walk, at_ceiling, rules.ceiling_triggers()),
                     ),
-                None if gates.is_empty() => {
+                None if gates.is_empty() && mode.since_at_ceiling.is_none() => {
                     cycle_unceiled(odds.chance, odds.success, odds.direct, mode)
                 }
                 None => cycle_walked(odds, mode, gates),

@@ -7,6 +7,7 @@ import { formatUuidV7 } from "@p-lens/uuidv7"
 
 import { handle } from "../../src/app"
 import { byDevice } from "../../src/infrastructure/auth"
+import type { CatalogCache } from "../../src/infrastructure/catalog-cache"
 import type { Database, Statement } from "../../src/infrastructure/database"
 import { type Effects, runtimeEffects } from "../../src/infrastructure/effects"
 import * as PachinkoEngine from "../../src/infrastructure/pachinko/engine"
@@ -105,11 +106,20 @@ export interface Setup {
 
 const OPEN: Omit<Setup, "effects"> = { origins: { type: "any" }, basePath: "", adminToken: undefined, limits: async () => true, humanCheck: async () => true, quotas: undefined }
 
+/** A cache standing in for the edge's: what is kept stays, for the life of a test's API. */
+const heldCatalogCache = (): CatalogCache => {
+  const held = new Map<string, string>()
+  return {
+    read: async (version) => held.get(version),
+    keep: async (version, written) => void held.set(version, written),
+  }
+}
+
 export const api = async (setup: Partial<Setup> = {}): Promise<Api> => {
   const { database, sqlite } = await freshDatabase()
   const pachinkoEngine = await realPachinkoEngine()
   const pachislotEngine = await realPachislotEngine()
-  const ports = { database, effects: countingEffects(), pachinkoEngine: () => pachinkoEngine, pachislotEngine: () => pachislotEngine, authenticate: byDevice, ...OPEN, ...setup }
+  const ports = { database, catalogCache: heldCatalogCache(), effects: countingEffects(), pachinkoEngine: () => pachinkoEngine, pachislotEngine: () => pachislotEngine, authenticate: byDevice, ...OPEN, ...setup }
   return {
     sqlite,
     call: async (method, path, options = {}) => {

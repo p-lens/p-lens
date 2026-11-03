@@ -3,6 +3,7 @@ import type { Quotas } from "./domain/quota"
 import { Err, Ok, type Result } from "./domain/result"
 import { isAdmin } from "./infrastructure/admin"
 import type { Authenticate } from "./infrastructure/auth"
+import type { CatalogCache } from "./infrastructure/catalog-cache"
 import type { Database } from "./infrastructure/database"
 import type { Effects } from "./infrastructure/effects"
 import type * as PachinkoEngine from "./infrastructure/pachinko/engine"
@@ -17,6 +18,7 @@ import { type Route, match } from "./routes/router"
 
 export interface Ports {
   readonly database: Database
+  readonly catalogCache: CatalogCache
   readonly effects: Effects
   readonly pachinkoEngine: () => PachinkoEngine.Engine
   readonly pachislotEngine: () => PachislotEngine.Engine
@@ -63,6 +65,7 @@ const answered = async (routes: readonly Route<Handler>[], request: Request, url
       url,
       params: matched.value.params,
       database: ports.database,
+      catalogCache: ports.catalogCache,
       effects: ports.effects,
       pachinkoEngine: ports.pachinkoEngine,
       pachislotEngine: ports.pachislotEngine,

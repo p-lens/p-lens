@@ -851,20 +851,21 @@ fn ceiling_at_of(at: &At) -> CeilingAt {
     }
 }
 
-/// Every mode with a CZ's ceiling counted from the AT has an AT間天井 at it
-/// or beyond, so that a cycle is followed to its end; on the same game the
-/// AT is won, as an AT間天井 wins it.
+/// Every mode with a CZ's ceiling counted from the AT and an AT間天井 has
+/// the AT間天井 at it or beyond, so that the ceiling is reached; on the same
+/// game the AT is won, as an AT間天井 wins it. A mode without an AT間天井 is
+/// walked game by game past it, until next to nothing of play is left.
 pub(crate) fn check_since_at(rules: &AtRules) -> Result<(), SpecError> {
     if rules.restarts() || rules.ceiling_wins() {
         return Ok(());
     }
-    let unbounded = rules.modes.iter().any(|mode| {
+    let unreached = rules.modes.iter().any(|mode| {
         mode.since_at_ceiling.is_some_and(|since_at| {
             mode.at_ceiling
-                .is_none_or(|at_ceiling| at_ceiling < since_at)
+                .is_some_and(|at_ceiling| at_ceiling < since_at)
         })
     });
-    match (unbounded, rules.trigger.as_ref()) {
+    match (unreached, rules.trigger.as_ref()) {
         (true, Some(trigger)) => Err(SpecError::SinceAtCeilingBeyondAtCeiling {
             entity: trigger.clone(),
         }),

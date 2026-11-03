@@ -192,3 +192,52 @@ fn the_reset_modes_ceiling_from_the_at_is_held_to_its_own_at_ceiling() {
     within.components.reset_ceiling.insert(id("at"), games(500));
     assert!(normalize(&within).is_ok());
 }
+
+/// The machine of スルー天井 modes without an AT間天井, its two-miss mode
+/// given a ceiling of 300 games from the AT: the mode a setting change
+/// enters, which brings the first trigger by then and later ones at the
+/// mode's own ceiling.
+fn forced_without_at_ceiling() -> Spec {
+    let mut spec = drawn_misses_spec();
+    spec.components
+        .since_at_ceiling
+        .insert(id("m2"), games(300));
+    spec
+}
+
+#[test]
+fn a_modes_ceiling_from_the_at_stands_without_an_at_ceiling() {
+    let rules = rules_of(&forced_without_at_ceiling());
+    assert_eq!(
+        rules
+            .modes
+            .iter()
+            .map(|mode| (mode.since_at_ceiling, mode.at_ceiling))
+            .collect::<Vec<_>>(),
+        vec![(Some(games(300)), None), (None, None), (None, None)]
+    );
+}
+
+#[test]
+fn a_modes_ceiling_from_the_at_without_an_at_ceiling_is_walked_to_its_end() {
+    let rules = rules_of(&forced_without_at_ceiling());
+    let sure = odds(0.0, 1.0, 0.0);
+    let forced = cycle(&rules, sure, &[1.0, 0.0, 0.0]);
+    assert!(near(forced.games, 300.0), "{}", forced.games);
+    assert!(near(forced.triggers, 1.0));
+    let p = 0.004;
+    let drawn = cycle(&rules, odds(p, 1.0, 0.0), &[1.0, 0.0, 0.0]);
+    let below = (1.0 - (1.0 - p).powi(300)) / p;
+    assert!(
+        (drawn.games - below).abs() < 1e-6,
+        "{} {below}",
+        drawn.games
+    );
+    let unforced = cycle(&rules, odds(p, 1.0, 0.0), &[0.0, 1.0, 0.0]);
+    let between = (1.0 - (1.0 - p).powi(600)) / p;
+    assert!(
+        (unforced.games - between).abs() < 1e-6,
+        "{} {between}",
+        unforced.games
+    );
+}

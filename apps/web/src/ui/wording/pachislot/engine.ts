@@ -196,7 +196,7 @@ const describeEngineError = (error: EngineErrorDto): string => {
     case "direct-bonus-without-bonus-share":
       return `AT「${error.entity}」の直撃ボーナスは、CZ成功でボーナスに入り、そのボーナスからATに入る機種にだけ入れられます。`
     case "since-at-ceiling-beyond-at-ceiling":
-      return `「${error.entity}」のATから数える天井は、AT間天井と同じか手前にしてください。AT間天井のない機種には入れられません。`
+      return `「${error.entity}」のATから数える天井は、AT間天井と同じか手前にしてください。`
     case "ceiling-triggers-without-cz":
       return `AT「${error.entity}」のAT間天井での当選は、CZやボーナスからATに入る機種にだけ入れられます。CZのない機種は、天井でATそのものに当たります。`
     case "ceiling-across-bonuses-without-restart":
