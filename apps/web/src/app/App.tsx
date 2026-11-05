@@ -5,6 +5,7 @@ import type { ApplicationError } from "../application/errors"
 import { ensureFirstBook } from "../application/seed"
 import { FirstTouch } from "../first-touch"
 import type { Services } from "../application/services"
+import type { CrossingServices } from "../crossing"
 import { createUpdates } from "../pwa/updates"
 import { AppProvider } from "../ui/context"
 import { ClearData } from "../ui/features/settings/ClearDataSettings"
@@ -20,7 +21,7 @@ import { createThemeState } from "../ui/theme/theme"
  * cannot even be listed, nothing else opens, and the way out is emptying
  * the device, offered beside why.
  */
-export function App(props: { readonly services: Services }): JSX.Element {
+export function App(props: { readonly services: Services; readonly crossing: CrossingServices | undefined }): JSX.Element {
   const theme = createThemeState()
   const updates = createUpdates()
   const [seeded] = createResource(() => ensureFirstBook(props.services.session, props.services.firstBook))
@@ -30,7 +31,7 @@ export function App(props: { readonly services: Services }): JSX.Element {
   }
 
   return (
-    <AppProvider services={props.services} theme={theme} updates={updates}>
+    <AppProvider services={props.services} crossing={props.crossing} theme={theme} updates={updates}>
       <Switch>
         <Match when={seeded() === undefined}>
           <p class="p-6 text-sm text-text-muted" role="status">

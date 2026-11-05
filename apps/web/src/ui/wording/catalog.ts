@@ -161,3 +161,12 @@ export const describeReleaseDateError = (error: ReleaseDateError): string | unde
  * unless they were registered within about a minute of each other.
  */
 export const formulaIdText = (id: string): string => id.slice(0, 8)
+
+/** What the top bar's refresh is called: it takes the shared catalog's newest delivery. */
+export const REFRESH_TITLE = "機種・算出条件の更新"
+
+/** What the top bar's refresh says while it takes a delivery. */
+export const REFRESHING = "更新しています"
+
+/** What a press of the top bar's refresh that failed is titled. */
+export const REFRESH_FAILED = "更新できませんでした"

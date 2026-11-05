@@ -2,13 +2,13 @@ import { type Connection, DEVICE, completionOf, resultOf } from "./database"
 
 /**
  * What a device's id is for: the name it writes to the shared catalog
- * under, or the name it goes by on its own plays' lines. Two ids, never
- * one, so that nothing sent to the catalog ties a person's plays to it.
+ * under. An id for another use is one of its own, never this one, so that
+ * nothing sent to the catalog ties anything else to it.
  */
-type DeviceIdUse = "catalog" | "play-line"
+type DeviceIdUse = "catalog"
 
-/** The key each id is kept under: the catalog's is the one it was kept under before the play line had one. */
-const KEPT_UNDER: Readonly<Record<DeviceIdUse, string>> = { catalog: "device", "play-line": "play-line" }
+/** The key each id is kept under. */
+const KEPT_UNDER: Readonly<Record<DeviceIdUse, string>> = { catalog: "device" }
 
 interface DeviceRecord {
   readonly key: string

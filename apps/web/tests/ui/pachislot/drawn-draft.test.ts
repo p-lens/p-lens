@@ -21,7 +21,7 @@ const TAPPED: PachislotDraft = { ...GIVEN, log: `${GIVEN.log}{"games":10,"outlay
 
 const HELD: PlayHold = { type: "held" }
 
-const FOLLOWED: PlayHold = { type: "followed", shownAt: "2026-10-28T02:00:00.000Z", onContinue: async () => undefined }
+const FOLLOWED: PlayHold = { type: "followed", shownAt: Date.parse("2026-10-28T02:00:00.000Z"), unreached: false, onContinue: async () => undefined }
 
 describe("the draft a pachislot screen draws", () => {
   test("is the one it last wrote while its play is held here and the log given has not caught up", () => {

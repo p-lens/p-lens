@@ -45,11 +45,9 @@ export const lastWrittenAt = (log: string): string | undefined => {
  * How long after its last line a play is taken to have gone on, in
  * minutes, where nobody says when it finished. A person following their own
  * play writes a line every few thousand yen — some a quarter of an hour
- * apart — so their play may have run that long past its last line; a play
- * sent by someone else was written to up to the moment it was sent, and
- * is given less.
+ * apart — so their play may have run that long past its last line.
  */
-export const PLAYED_ON_FOR = { own: 15, received: 5 } as const
+export const PLAYED_ON_FOR = 15
 
 /**
  * When a play is taken to have finished, asked at `now`: now, while the play

@@ -3,17 +3,22 @@ import { parseIsoDate, type IsoDate } from "../calendar/calendar"
 /**
  * A huddle (ノリ打ち): people playing together, each shown the others'
  * plays as they go. It is no book's, and writes in none: each play is
- * still recorded wherever its player records it. One line on the relay
- * carries it, drawn from a secret that its QR code is all of, so
- * whoever reads the code may read and add to the line, and nobody else.
- * It lasts the business day it was joined on. A device that left it keeps
- * it that day, as left, so that the same code read again makes it the
- * same member it was.
+ * still recorded wherever its player records it. One line on a relay
+ * carries it, drawn from a secret its QR code carries with the business day
+ * and the relay's address, so whoever reads the code may read and add to
+ * the line, and nobody else. It lasts the business day it was begun on. A
+ * device that left it keeps it that day, as left, so that the same code
+ * read again makes it the same member it was.
  */
 export interface Huddle {
+  /** The huddle's secret, 32 bytes in base64url. */
   readonly secret: string
   readonly businessDay: IsoDate
-  /** This device in the huddle: what its plays go by, so that each person is one card however they are called. */
+  /** The address of the relay its line is at, its label included where the relay gives lines labels. */
+  readonly relay: string
+  /** What this device's key in the huddle is drawn from with the secret, 32 bytes in base64url: kept, so that the same code read again draws the same key. */
+  readonly seed: string
+  /** This device in the huddle: the public key it signs with there, so that each person is one card however they are called, and nobody shows a play as another. */
   readonly member: string
   /** What this person is called in the huddle, as they said. */
   readonly name: string
@@ -29,21 +34,12 @@ export const huddlePlayKey = (member: string, playId: string): string => `${memb
 /** The longest a name in a huddle may be: a card's heading, on a phone. */
 export const HUDDLE_NAME_LENGTH = 12
 
-/** What a huddle's code begins with: no book's code or invitation does, so neither is ever taken for the other. */
-const CODE = "p-lens-huddle:1:"
-
-/** A secret as it is written: 32 bytes in base64url, 43 characters. */
+/** A secret or a seed as it is written: 32 bytes in base64url, 43 characters. */
 const SECRET = /^[A-Za-z0-9_-]{43}$/
 
-/** What a huddle's QR code carries: its secret, marked as a huddle's. */
-export const huddleCodeOf = (huddle: Huddle): string => `${CODE}${huddle.secret}`
+const MEMBER = /^[0-9a-f]{64}$/
 
-/** The secret a code carries, if it is a huddle's, however it was read or pasted. */
-export const secretOfHuddleCode = (code: string): string | undefined => {
-  const written = code.trim()
-  const secret = written.slice(CODE.length)
-  return written.startsWith(CODE) && SECRET.test(secret) ? secret : undefined
-}
+const RELAY = /^wss?:\/\/[^\s]+$/
 
 /** A name as a huddle takes it: its spaces at either end let go, and no longer than a card has room for; none where nothing is left. */
 export const huddleNameOf = (typed: string): string | undefined => {
@@ -71,11 +67,13 @@ export const readHuddle = (written: string | undefined): Huddle | undefined => {
   try {
     const kept: unknown = JSON.parse(written)
     if (typeof kept !== "object" || kept === null) return undefined
-    const { secret, businessDay, member, name, dismissed, left } = kept as Readonly<Record<string, unknown>>
+    const { secret, businessDay, relay, seed, member, name, dismissed, left } = kept as Readonly<Record<string, unknown>>
     const day = isText(businessDay) ? parseIsoDate(businessDay) : undefined
     const letGo = dismissedOf(dismissed)
-    return isText(secret) && SECRET.test(secret) && day?.ok === true && isText(member) && member !== "" && isText(name) && huddleNameOf(name) === name && letGo !== undefined && (left === undefined || left === true)
-      ? { secret, businessDay: day.value, member, name, dismissed: letGo, ...(left === true ? { left } : {}) }
+    const wellFormed =
+      isText(secret) && SECRET.test(secret) && isText(seed) && SECRET.test(seed) && isText(relay) && RELAY.test(relay) && isText(member) && MEMBER.test(member)
+    return wellFormed && day?.ok === true && isText(name) && huddleNameOf(name) === name && letGo !== undefined && (left === undefined || left === true)
+      ? { secret, businessDay: day.value, relay, seed, member, name, dismissed: letGo, ...(left === true ? { left } : {}) }
       : undefined
   } catch {
     return undefined

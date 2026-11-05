@@ -5,7 +5,7 @@ import { describe, expect, test } from "bun:test"
 const ROOT = new URL("../../../", import.meta.url).pathname
 
 /** Where the code of every part lives; the shell is no game's, and its slot is a pane's. */
-const SOURCES = ["apps/web/src/", "apps/api/src/", "apps/relay/src/", "packages/contracts/src/", "crates/", "wasm/hledger-bindings/src/"] as const
+const SOURCES = ["apps/web/src/", "apps/api/src/", "packages/contracts/src/", "crates/", "wasm/hledger-bindings/src/"] as const
 
 /** The one place `slot` is said: the reading of a game as books and devices wrote it before pachislot's name was settled. */
 const READS_SLOT = "apps/web/src/core/play/play.ts"

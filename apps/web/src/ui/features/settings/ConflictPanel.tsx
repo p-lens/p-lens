@@ -1,146 +1,144 @@
 import { createSignal, For, Index, Show, type JSX } from "solid-js"
 
-import type { ApplicationError } from "../../../application/errors"
-import { type Conflict, type FileConflict, settleConflict } from "../../../application/sync"
-import type { MergePart, Side } from "../../../core/sync/merge"
-import { useApp } from "../../context"
+import type { BookFiles } from "../../../core/journal/layout"
+import { outlineOf, settledText, type BookConflict, type FileConflict, type MergePart, type Side } from "../../../crossing"
 import { Button } from "../../primitives/button"
-import { createNudge, redRing } from "../../primitives/nudge"
-import { toast } from "../../primitives/toast"
-import { describeError } from "../../wording/errors"
-import { CONFLICT_MOVED, sideName } from "../../wording/sync"
+import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
+import { CONFLICT_ABOUT, CONFLICT_PLAY_TWICE, CONFLICT_SETTLE, CONFLICT_UNREADABLE, sideName } from "../../wording/sync"
 
-/** A contested stretch as the panel shows it: the two sides, and the lines just above for bearings. */
-interface Choice {
-  readonly above: readonly string[]
-  readonly ours: readonly string[]
-  readonly theirs: readonly string[]
+/** The side of a conflict a choice of "this device" or "the other" is, by which head's id is the lower. */
+const sideOf = (conflict: BookConflict, mine: boolean): Side => ((mine ? conflict.mine : conflict.theirs) < (mine ? conflict.theirs : conflict.mine) ? "first" : "second")
+
+/** A file that would not merge, as a person settles it: stretch by stretch where its lines met, or whole where it is not lines that disagree. */
+interface Contested {
+  readonly conflict: FileConflict
+  readonly parts: readonly MergePart[]
+  readonly whole: boolean
 }
 
-/** How many agreed lines are shown above a contested stretch. */
-const LINES_ABOVE = 2
+const contestedOf = (conflict: BookConflict, each: FileConflict): Contested => {
+  const [first, second] = conflict.mine < conflict.theirs ? [conflict.ours, conflict.others] : [conflict.others, conflict.ours]
+  const parts = outlineOf(each.path, conflict.base[each.path] ?? "", first[each.path] ?? "", second[each.path] ?? "")
+  return { conflict: each, parts, whole: each.why === "play-twice" || !parts.some((part) => part.type === "contested") }
+}
 
-const choicesOf = (parts: readonly MergePart[]): readonly Choice[] =>
-  parts.flatMap((part, index) => {
-    if (part.type !== "contested") return []
-    const before = parts[index - 1]
-    return [{ above: before?.type === "agreed" ? before.lines.slice(-LINES_ABOVE) : [], ours: part.ours, theirs: part.theirs }]
-  })
+/** One stretch's lines on one side, as they read. */
+function Lines(props: { readonly lines: readonly string[] }): JSX.Element {
+  return <pre class="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-surface-1 px-2 py-1.5 font-mono text-xs text-text-secondary">{props.lines.length === 0 ? "（なし）" : props.lines.join("\n")}</pre>
+}
 
-/** What a press on the panel is doing, or how the last one failed. */
-type Settling = { readonly type: "choosing" } | { readonly type: "settling" } | { readonly type: "failed"; readonly error: ApplicationError }
-
-/** One side of a contested stretch, pressed to take it. */
-function SideCard(props: { readonly side: Side; readonly lines: readonly string[]; readonly picked: boolean; readonly onPick: () => void }): JSX.Element {
+/** A choice of one side or the other, this device's first. */
+function SidePick(props: { readonly mineChosen: boolean; readonly onChange: (mine: boolean) => void }): JSX.Element {
   return (
-    <button
-      type="button"
-      aria-pressed={props.picked}
-      class="flex min-w-0 flex-1 flex-col gap-1 rounded-md border border-border bg-surface-0 px-3 py-2 text-left hover:bg-surface-3/60"
-      classList={{ "border-accent bg-accent/5": props.picked }}
-      onClick={props.onPick}
-    >
-      <span class="text-xs font-bold text-text-muted">{sideName(props.side)}</span>
-      <Show when={props.lines.length > 0} fallback={<span class="text-xs text-text-muted">（この箇所を消す）</span>}>
-        <pre class="overflow-x-auto font-mono text-xs leading-relaxed text-text-primary">{props.lines.join("\n")}</pre>
-      </Show>
-    </button>
+    <ToggleGroup value={props.mineChosen ? "mine" : "theirs"} onChange={(value: string | null) => (value === null ? undefined : props.onChange(value === "mine"))}>
+      <ToggleGroupItem value="mine">{sideName(true)}</ToggleGroupItem>
+      <ToggleGroupItem value="theirs">{sideName(false)}</ToggleGroupItem>
+    </ToggleGroup>
   )
 }
 
-/** One file's contested stretches, each with its two sides to choose between. */
-function FileChoices(props: {
-  readonly file: FileConflict
-  readonly picks: readonly (Side | undefined)[]
-  readonly nudged: boolean
-  readonly onPick: (index: number, side: Side) => void
-}): JSX.Element {
-  return (
-    <div class="flex flex-col gap-3">
-      <h3 class="font-mono text-xs text-text-muted">{props.file.path}</h3>
-      <Index each={choicesOf(props.file.parts)}>
-        {(choice, index) => (
-          <div class="flex flex-col gap-1 rounded-md" classList={redRing(props.nudged && props.picks[index] === undefined)}>
-            <Show when={choice().above.length > 0}>
-              <pre class="overflow-x-auto px-3 font-mono text-xs leading-relaxed text-text-muted">{choice().above.join("\n")}</pre>
-            </Show>
-            <div class="flex flex-col gap-2 sm:flex-row">
-              <SideCard side="ours" lines={choice().ours} picked={props.picks[index] === "ours"} onPick={() => props.onPick(index, "ours")} />
-              <SideCard side="theirs" lines={choice().theirs} picked={props.picks[index] === "theirs"} onPick={() => props.onPick(index, "theirs")} />
-            </div>
-          </div>
-        )}
-      </Index>
-    </div>
-  )
+/** Whether a settings file still reads as JSON once its stretches are chosen. */
+const reads = (path: string, text: string): boolean => {
+  if (path !== "settings.json") return true
+  try {
+    JSON.parse(text)
+    return true
+  } catch {
+    return false
+  }
 }
-
-/** Whether settling found the line or the book moved since the conflict was shown: it is shown again as it now stands, to choose in afresh. */
-const isMoved = (error: ApplicationError): boolean => error.type === "sync" && error.problem.type === "unsettled"
-
-const allPicked = (picks: readonly (Side | undefined)[]): picks is readonly Side[] => picks.every((pick) => pick !== undefined)
 
 /**
- * A conflict laid out for a person: every stretch this device and another
- * rewrote differently, side by side, one of the two to be taken for each.
- * Nothing is kept until every stretch has a side; what both changed
- * elsewhere comes together either way. Where another device sent more
- * meanwhile, the conflict is looked at again rather than the press failing
- * the same way each time.
+ * Where this device's book and another's would not merge: each stretch
+ * changed two ways, side by side, for a person to keep one of; a file that
+ * holds one play recorded twice, kept whole from one side; and where what the
+ * two merge to is no book hledger reads, one side's book kept whole. Every
+ * other file is as the two merged. Nothing is chosen for the person: this
+ * device's side is picked to begin with, and nothing is written until they
+ * press.
  */
-export function ConflictPanel(props: { readonly conflict: Conflict; readonly onSettled: () => void; readonly onMoved: () => void }): JSX.Element {
-  const app = useApp()
-  const nudge = createNudge()
-  const [picks, setPicks] = createSignal<Readonly<Record<string, readonly (Side | undefined)[]>>>({})
-  const [settling, setSettling] = createSignal<Settling>({ type: "choosing" })
-  const picksOf = (file: FileConflict): readonly (Side | undefined)[] => picks()[file.path] ?? choicesOf(file.parts).map(() => undefined)
-  const pick = (file: FileConflict, index: number, side: Side): void => {
-    nudge.settle()
-    setPicks((current) => ({ ...current, [file.path]: picksOf(file).map((each, at) => (at === index ? side : each)) }))
+export function ConflictPanel(props: { readonly conflict: BookConflict; readonly onSettle: (files: BookFiles) => void; readonly onUnreadable: () => void }): JSX.Element {
+  const contested = (): readonly Contested[] => (props.conflict.files === "unreadable" ? [] : props.conflict.files.map((each) => contestedOf(props.conflict, each)))
+  const [picks, setPicks] = createSignal<ReadonlyMap<string, readonly boolean[]>>(new Map())
+  const [wholes, setWholes] = createSignal<ReadonlyMap<string, boolean>>(new Map())
+  const [wholeBook, setWholeBook] = createSignal(true)
+  const picked = (path: string, index: number): boolean => picks().get(path)?.[index] ?? true
+  const pick = (path: string, index: number, mine: boolean, count: number): void => {
+    setPicks((was) => new Map(was).set(path, Array.from({ length: count }, (_, at) => (at === index ? mine : (was.get(path)?.[at] ?? true)))))
   }
-  const settle = async (): Promise<void> => {
-    if (settling().type === "settling") return
-    const chosen = props.conflict.files.map((file) => [file.path, picksOf(file)] as const)
-    const complete = chosen.flatMap(([path, sides]) => (allPicked(sides) ? [[path, sides] as const] : []))
-    if (complete.length !== chosen.length) {
-      nudge.nudge()
-      return
-    }
-    setSettling({ type: "settling" })
-    const done = await settleConflict(app.services.sync, props.conflict, Object.fromEntries(complete))
-    if (!done.ok && isMoved(done.error)) {
-      setSettling({ type: "choosing" })
-      toast({ title: CONFLICT_MOVED })
-      props.onMoved()
-      return
-    }
-    setSettling(done.ok ? { type: "choosing" } : { type: "failed", error: done.error })
-    if (!done.ok) return
-    toast({ title: "食い違いを解決しました", description: "選んだ内容を、ほかの端末にも送ります。" })
-    props.onSettled()
+  const contestedCount = (parts: readonly MergePart[]): number => parts.filter((part) => part.type === "contested").length
+  const settledFiles = (): BookFiles | undefined => {
+    if (props.conflict.files === "unreadable") return wholeBook() ? props.conflict.ours : props.conflict.others
+    const chosen = contested().map((each): readonly [string, string | undefined] => {
+      const path = each.conflict.path
+      if (each.whole) return [path, ((wholes().get(path) ?? true) ? props.conflict.ours : props.conflict.others)[path]]
+      return [path, settledText(each.parts, Array.from({ length: contestedCount(each.parts) }, (_, index) => sideOf(props.conflict, picked(path, index))))]
+    })
+    if (chosen.some(([path, text]) => text !== undefined && !reads(path, text))) return undefined
+    return { ...props.conflict.merged, ...Object.fromEntries(chosen.flatMap(([path, text]) => (text === undefined ? [] : [[path, text]]))) }
+  }
+  const settle = (): void => {
+    const files = settledFiles()
+    if (files === undefined) props.onUnreadable()
+    else props.onSettle(files)
   }
   return (
-    <div class="flex flex-col gap-4 rounded-md border border-warning/40 bg-warning/5 px-3 py-3">
-      <p class="text-sm text-text-primary">
-        <Show when={props.conflict.files.length > 0} fallback="同じ箇所の書き換えはありません。ほかの端末の変更を取り込み、この端末の変更をその上に重ねます。">
-          この端末とほかの端末が、同じ箇所を別々に書き換えています。箇所ごとに、残すほうを選んでください。それ以外の変更は、どちらも残ります。
-        </Show>
-      </p>
-      <For each={props.conflict.files}>{(file) => <FileChoices file={file} picks={picksOf(file)} nudged={nudge.red()} onPick={(index, side) => pick(file, index, side)} />}</For>
-      <div>
-        <Button size="small" onClick={() => void settle()} aria-busy={settling().type === "settling"}>
-          {settling().type === "settling" ? "解決しています…" : "この内容で解決する"}
+    <div class="flex flex-col gap-4 rounded-md border border-border px-3 py-3">
+      <Show
+        when={props.conflict.files !== "unreadable"}
+        fallback={
+          <>
+            <p class="text-sm text-text-secondary">{CONFLICT_UNREADABLE}</p>
+            <SidePick mineChosen={wholeBook()} onChange={setWholeBook} />
+          </>
+        }
+      >
+        <p class="text-sm text-text-secondary">{CONFLICT_ABOUT}</p>
+        <For each={contested()}>
+          {(each) => (
+            <section class="flex flex-col gap-2">
+              <h3 class="break-all font-mono text-xs font-bold text-text-muted">{each.conflict.path}</h3>
+              <Show
+                when={!each.whole}
+                fallback={
+                  <>
+                    <p class="text-sm text-text-secondary">{CONFLICT_PLAY_TWICE}</p>
+                    <SidePick mineChosen={wholes().get(each.conflict.path) ?? true} onChange={(mine) => setWholes((was) => new Map(was).set(each.conflict.path, mine))} />
+                  </>
+                }
+              >
+                <Index each={each.parts.filter((part): part is Extract<MergePart, { type: "contested" }> => part.type === "contested")}>
+                  {(part, index) => {
+                    const mineFirst = (): boolean => sideOf(props.conflict, true) === "first"
+                    return (
+                      <div class="flex flex-col gap-2">
+                        <div class="grid gap-2 sm:grid-cols-2">
+                          <div class="flex flex-col gap-1">
+                            <span class="text-xs text-text-muted">{sideName(true)}</span>
+                            <Lines lines={mineFirst() ? part().first : part().second} />
+                          </div>
+                          <div class="flex flex-col gap-1">
+                            <span class="text-xs text-text-muted">{sideName(false)}</span>
+                            <Lines lines={mineFirst() ? part().second : part().first} />
+                          </div>
+                        </div>
+                        <div class="flex justify-end">
+                          <SidePick mineChosen={picked(each.conflict.path, index)} onChange={(mine) => pick(each.conflict.path, index, mine, contestedCount(each.parts))} />
+                        </div>
+                      </div>
+                    )
+                  }}
+                </Index>
+              </Show>
+            </section>
+          )}
+        </For>
+      </Show>
+      <div class="flex justify-end">
+        <Button size="small" onClick={settle}>
+          {CONFLICT_SETTLE}
         </Button>
       </div>
-      <Show when={settling()} keyed>
-        {(state) =>
-          state.type === "failed" ? (
-            <p role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-text-primary">
-              {describeError(state.error)}
-            </p>
-          ) : undefined
-        }
-      </Show>
     </div>
   )
 }

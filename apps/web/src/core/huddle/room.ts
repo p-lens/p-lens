@@ -59,7 +59,7 @@ export const ofHuddleDay = (huddle: Pick<Huddle, "businessDay">, play: Pick<Play
 
 export const roomPlaysOf = (huddle: Huddle, drafts: readonly PlayDraft[], others: readonly HuddlePlay[], idle: ReadonlySet<string>): readonly RoomPlay[] => {
   const own = drafts
-    .filter((draft) => draft.received === undefined && ofHuddleDay(huddle, draft))
+    .filter((draft) => ofHuddleDay(huddle, draft))
     .toSorted((one, other) => other.startedAt.localeCompare(one.startedAt))
     .map((play, at): Placed => ({ member: huddle.member, play, latest: at === 0, departed: false }))
   const placed = [...own, ...others.filter(({ post }) => ofHuddleDay(huddle, post.play)).map(({ post, latest, departed }): Placed => ({ member: post.member, play: post.play, latest, departed }))].toSorted(begunLaterFirst)

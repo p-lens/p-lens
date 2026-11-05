@@ -1,38 +1,22 @@
-import { createResource, For, Match, Switch, type JSX } from "solid-js"
+import { For, Match, Switch, type JSX } from "solid-js"
 import { RailBar, type RailItem } from "solid-gathering-shell"
 
 import type { Outcome } from "../../../application/errors"
-import { loadTodaysPlays } from "../../../application/live-play"
 import { roleIn, type Book, type MemberId, type ListedBook } from "../../../core/book/book"
-import { awaitsSending } from "../../../core/live-play/draft"
 import { leadingGraphemeListOf } from "../../../core/text/leading-graphemes"
-import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
-import { createHourStruck } from "../../primitives/hour"
-import { ConsolidatedIcon, LiveIcon, SendIcon, SettingsIcon } from "../../primitives/icons"
+import { ConsolidatedIcon, LiveIcon, SettingsIcon } from "../../primitives/icons"
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../primitives/tooltip"
 import { useMoves } from "../../navigation/moves"
 import { bookOf, inConsolidation, inLiveSpace, inOddPrizeCalculator, inSettings, type Place } from "../../navigation/place"
 import { railLetters, type RailLetters } from "../../theme/rail-letters"
-import { bookTitle, titleText } from "../../wording/book"
+import { bookTitle } from "../../wording/book"
 import { ODD_PRIZE_CALCULATOR_LABEL, ODD_PRIZE_CALCULATOR_LINES } from "../../wording/odd-prize-calculator"
-import { destinationLabel } from "../../wording/sync"
 import { consolidationShown } from "../consolidated/shown"
-import { CountBadge, useHuddleRoomItem } from "../huddle/room-rail"
+import { useHuddleRoomItem } from "../huddle/room-rail"
 
 /** The nerdpro colour on the rail: the consolidation is of that kind, as the button that turns it on is, and is told from the books by it. */
 const NERDPRO = { chosen: "bg-nerdpro text-on-nerdpro", hovered: "hover:bg-nerdpro hover:text-on-nerdpro" } as const
-
-/**
- * A book this device may only send plays to, on the rail: an outline with
- * nothing in it, since nothing of the book is here, filled only once chosen
- * or under the pointer.
- */
-const DESTINATION = {
-  chosen: "bg-accent text-accent-contrast",
-  hovered: "hover:border-transparent hover:bg-accent hover:text-accent-contrast",
-  resting: "border-2 border-dashed border-text-muted text-text-secondary",
-} as const
 
 /** A book on the rail is its title's first characters, as many as the person chose, as a server is its initials. */
 const initialsOf = (title: string, letters: RailLetters): readonly string[] => ((found) => (found.length === 0 ? ["?"] : found))(leadingGraphemeListOf(title.trim(), letters))
@@ -87,39 +71,12 @@ const ownedBy = (member: MemberId) => (book: Book): boolean => roleIn(book, memb
 export function SpacesRail(props: {
   readonly place: Place
   readonly books: Outcome<readonly ListedBook[]> | undefined
-  readonly destinations: Outcome<readonly Destination[]> | undefined
   /** Making a sample book, on the rail near its foot. */
   readonly sampleBook: RailItem
 }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   const books = (): readonly ListedBook[] => (props.books?.ok === true ? props.books.value : [])
-  const destinations = (): readonly Destination[] => (props.destinations?.ok === true ? props.destinations.value : [])
-  /** The hours as they strike: the day whose plays are counted may turn on any of them. */
-  const hour = createHourStruck()
-  const [drafts] = createResource(
-    () => (destinations().length > 0 ? ([app.revision(), hour()] as const) : undefined),
-    () => loadTodaysPlays(app.services.drafts, app.services.businessDay()),
-  )
-  const waitingFor = (destination: Destination): number => ((found) => (found?.ok === true ? found.value.filter((draft) => awaitsSending(draft, destination.lineId)).length : 0))(drafts())
-  const destinationItem = (destination: Destination): RailItem => ({
-    id: destination.lineId,
-    label: destinationLabel(titleText(destination.title), waitingFor(destination)),
-    icon: (
-      <span class="relative flex size-full items-center justify-center">
-        <Initials title={titleText(destination.title)} />
-        <span class="absolute bottom-1.5 right-1.5 [&_svg]:size-3">
-          <SendIcon />
-        </span>
-      </span>
-    ),
-    colour: DESTINATION,
-    ...(waitingFor(destination) === 0
-      ? {}
-      : { badge: <CountBadge count={waitingFor(destination)} /> }),
-    selected: props.place.kind === "destination" && props.place.lineId === destination.lineId,
-    onSelect: () => moves.go({ kind: "destination", lineId: destination.lineId }),
-  })
   const bookItem = (book: ListedBook): RailItem => ({
     id: book.id,
     label: bookTitle(book),
@@ -132,7 +89,6 @@ export function SpacesRail(props: {
     [{ id: "live", label: "ライブ計測", icon: <LiveIcon />, selected: inLiveSpace(props.place), onSelect: () => moves.go({ kind: "live" }) }, ...((item) => (item === undefined ? [] : [item]))(room())],
     books().filter(ownedBy(app.services.member)).map(bookItem),
     books().filter((book) => !ownedBy(app.services.member)(book)).map(bookItem),
-    destinations().map(destinationItem),
     consolidationShown(app.services.preferences)
       ? [{ id: "consolidated", label: "連結", icon: <ConsolidatedIcon />, colour: NERDPRO, selected: inConsolidation(props.place), onSelect: () => moves.go({ kind: "consolidated" }) }]
       : [],

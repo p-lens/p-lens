@@ -3,17 +3,13 @@ import { unfiledYears, withYearFiled } from "../core/journal/filing"
 import { Err, Ok, andThen, mapOk } from "../core/result/result"
 import type { JournalAccess } from "../hledger/client/client"
 import { everyBalanceRequest, everyEntryRequest } from "../hledger/query/requests"
-import type { HistoryPort } from "../history/port/history-port"
-import type { LinkStore } from "../sync/port/link-store"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
-import { fromHistory, fromHledger } from "./lift"
+import { fromHledger } from "./lift"
 
-/** Everything filing a book by year reaches: the book, its history, whether it is synced, and who files it. */
+/** Everything filing a book by year reaches: the book, and who files it. */
 export interface FilingPorts {
   readonly session: BookSession
-  readonly history: HistoryPort
-  readonly links: LinkStore
   readonly member: MemberId
 }
 
@@ -23,20 +19,11 @@ const readingOf = async (journal: JournalAccess): Promise<Outcome<string>> => {
   return andThen(fromHledger(entries), (page) => mapOk(fromHledger(balances), (report) => JSON.stringify([page, report])))
 }
 
-/**
- * Whether a book may be filed by year here, now: this member may write it,
- * and, where it is synced, every commit of it is on its line, so that what
- * is moved is what every device already has and two devices filing it make
- * the same commits.
- */
+/** Whether a book may be filed by year here: this member may write it. */
 const mayFile = async (ports: FilingPorts, bookId: BookId): Promise<Outcome<boolean>> => {
   const stored = await ports.session.stored(bookId)
   if (!stored.ok) return stored
-  if (!memberCan(stored.value.book, ports.member, "write")) return Ok(false)
-  const link = await ports.links.read(bookId)
-  if (!link.ok) return Ok(false)
-  if (link.value === undefined) return Ok(true)
-  return mapOk(fromHistory(await ports.history.unsent(bookId)), (unsent) => unsent.length === 0)
+  return Ok(memberCan(stored.value.book, ports.member, "write"))
 }
 
 /**
@@ -84,8 +71,7 @@ const fileYear = async (session: BookSession, bookId: BookId, year: string, read
  * it, entry for entry and account for account, as it did before the filing
  * began; one that would read otherwise is not made, nor any after it. A
  * book whose transactions hold anything the app does not write is left as
- * it is, and so is one this member may not write, or one synced and
- * holding commits not yet on its line. The years moved, oldest first.
+ * it is, and so is one this member may not write. The years moved, oldest first.
  */
 export const fileByYear = async (ports: FilingPorts, bookId: BookId): Promise<Outcome<readonly string[]>> => {
   const may = await mayFile(ports, bookId)

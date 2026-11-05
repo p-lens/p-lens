@@ -81,7 +81,7 @@ describe("dependency direction", () => {
   })
 
   test("the core imports no framework, no browser adapter and nothing above it", async () => {
-    expect(await offending(`${WEB}src/core/`, /^solid-js|^@kobalte|^@solidjs|\/(application|ui|app|storage|history|sync|pwa)\/|hledger\/(client|worker|query)/)).toEqual([])
+    expect(await offending(`${WEB}src/core/`, /^solid-js|^@kobalte|^@solidjs|\/(application|ui|app|storage|history|pwa)\/|hledger\/(client|worker|query)/)).toEqual([])
   })
 
   test("the core reaches hledger through its wire types only", async () => {
@@ -94,20 +94,20 @@ describe("dependency direction", () => {
 
   test("screens reach storage and hledger only through the application, naming at most a port's types", async () => {
     expect(
-      await screensOffending(/\/(app|pwa)\/|storage\/(?!port\/)|history\/(?!port\/)|hledger\/(client|worker)|pachinko-engine\/worker|reasoning\/(worker|pachinko)|sync\/(http|local|web-crypto)|(?<!core\/)backup\/(?!port\/)|preferences\/local|onboarding\/local|pachislot-engine\/worker|(?<!core\/)(catalog|parlors)\/(local|jsonl|absent|http|delivered)|location\/browser|@p-lens\/pachinko-engine/),
+      await screensOffending(/\/(app|pwa)\/|storage\/(?!port\/)|history\/(?!port\/)|hledger\/(client|worker)|pachinko-engine\/worker|reasoning\/(worker|pachinko)|(?<!core\/)backup\/(?!port\/)|preferences\/local|onboarding\/local|pachislot-engine\/worker|(?<!core\/)(catalog|parlors)\/(local|jsonl|absent|http|delivered)|location\/browser|@p-lens\/pachinko-engine/),
     ).toEqual([])
   })
 
   test("only the composition names what is the deployment's own: its documents come to the screens through the services", async () => {
-    const outside = (await Promise.all(["application", "core", "ui", "catalog", "storage", "sync", "backup"].map((layer) => offending(`${WEB}src/${layer}/`, /(^@|\/)branding\//)))).flat()
+    const outside = (await Promise.all(["application", "core", "ui", "catalog", "storage", "backup"].map((layer) => offending(`${WEB}src/${layer}/`, /(^@|\/)branding\//)))).flat()
     expect(outside).toEqual([])
   })
 
   test("only the composition names concrete adapters", async () => {
     const outside = (
       await Promise.all(
-        ["application", "core", "ui", "hledger", "sync/port", "backup/port", "preferences/port", "onboarding/port", "pachinko-engine", "catalog/port", "parlors/port", "pachislot-engine", "consolidation/port"].map((layer) =>
-          offending(`${WEB}src/${layer}/`, /storage\/browser|history\/adapters|(?<!core\/)(catalog|parlors)\/(local|jsonl|absent|http|delivered)|sync\/(http|local|web-crypto)|(?<!core\/)backup\/(zip|google-drive|browser|web-crypto|local)|preferences\/local|onboarding\/local|location\/browser|consolidation\/(memory|absent|web-crypto|local|tiered|lanes)/),
+        ["application", "core", "ui", "hledger", "backup/port", "preferences/port", "onboarding/port", "pachinko-engine", "catalog/port", "parlors/port", "pachislot-engine", "consolidation/port"].map((layer) =>
+          offending(`${WEB}src/${layer}/`, /storage\/browser|history\/adapters|(?<!core\/)(catalog|parlors)\/(local|jsonl|absent|http|delivered)|(?<!core\/)backup\/(zip|google-drive|browser|web-crypto|local)|preferences\/local|onboarding\/local|location\/browser|consolidation\/(memory|absent|web-crypto|local|tiered|lanes)/),
         ),
       )
     ).flat()
@@ -143,13 +143,13 @@ describe("dependency direction", () => {
 
   test("the unhatched egg reaches nothing of the app, and the app reaches it only through its index", async () => {
     expect(await offending(`${WEB}src/unhatched-egg/`, /^(?!solid-js(\/web)?$|\.\/)/)).toEqual([])
-    const outside = (await Promise.all(["app", "application", "core", "ui", "sync", "storage", "preferences"].map((layer) => offending(`${WEB}src/${layer}/`, /unhatched-egg\/./)))).flat()
+    const outside = (await Promise.all(["app", "application", "core", "ui", "storage", "preferences"].map((layer) => offending(`${WEB}src/${layer}/`, /unhatched-egg\/./)))).flat()
     expect(outside).toEqual([])
   })
 
   test("the mummer reaches nothing of the app, and only the screens reach it, through its index", async () => {
     expect(await offending(`${WEB}src/mummer/`, /^(?!solid-js$|\.\/)/)).toEqual([])
-    const outside = (await Promise.all(["app", "application", "core", "hledger", "sync", "storage", "preferences", "backup", "catalog", "parlors", "unhatched-egg"].map((layer) => offending(`${WEB}src/${layer}/`, /(^|\/)mummer(\/|$)/)))).flat()
+    const outside = (await Promise.all(["app", "application", "core", "hledger", "storage", "preferences", "backup", "catalog", "parlors", "unhatched-egg"].map((layer) => offending(`${WEB}src/${layer}/`, /(^|\/)mummer(\/|$)/)))).flat()
     expect(outside).toEqual([])
     const screens = (await Promise.all(SCREENS.map((under) => sourcesUnder(`${WEB}${under}`)))).flat()
     const inside = (await Promise.all(screens.map(async (file) => (await importsOf(file)).filter((name) => name.startsWith(".")).map((name) => resolve(dirname(file), name)).filter((path) => path.startsWith(`${WEB}src/mummer/`)).map((path) => `${file.replace(WEB, "")} -> ${path.replace(WEB, "")}`)))).flat()
@@ -160,8 +160,14 @@ describe("dependency direction", () => {
     const outside = (await sourcesUnder(`${WEB}src/`)).filter((file) => !file.startsWith(`${WEB}src/${walled}/`))
     const reaching = (await Promise.all(outside.map(async (file) => (await importsOf(file)).filter((name) => new RegExp(`(^|/)${walled}/.`).test(name)).map((name) => `${file.replace(WEB, "")} -> ${name}`)))).flat()
     expect(reaching).toEqual([])
-    expect(await offendingIfThere(`${WEB}src/${walled}/core/`, /^solid-js|^@kobalte|^@solidjs|^\.\.\/(client|worker|protocol)\/|\/(application|ui|app|storage|history|sync|pwa)\/|hledger\/(client|worker|query)/)).toEqual([])
+    expect(await offendingIfThere(`${WEB}src/${walled}/core/`, /^solid-js|^@kobalte|^@solidjs|^\.\.\/(client|worker|protocol)\/|\/(application|ui|app|storage|history|pwa)\/|hledger\/(client|worker|query)/)).toEqual([])
     expect(await offendingIfThere(`${WEB}src/${walled}/application/`, /^solid-js|^@kobalte|^\.\.\/(client|worker)\/|\/(ui|app|pwa)\/|storage\/browser|history\/adapters|hledger\/worker/)).toEqual([])
+  })
+
+  test("playing alone reaches nothing that crosses devices: only the composition and the screens reach it", async () => {
+    const alone = ["core", "application", "storage", "history", "hledger", "backup", "consolidation", "preferences", "onboarding", "catalog", "parlors", "download", "pachinko-engine", "pachislot-engine", "reasoning", "mummer", "sample-book", "sunk", "first-touch", "unhatched-egg", "pwa"]
+    const reaching = (await Promise.all(alone.map((layer) => offendingIfThere(`${WEB}src/${layer}/`, /(^|\/)crossing(\/|$)/)))).flat()
+    expect(reaching).toEqual([])
   })
 
   test("the shell package knows nothing of P-Lens", async () => {

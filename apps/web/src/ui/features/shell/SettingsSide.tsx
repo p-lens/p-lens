@@ -45,13 +45,24 @@ export function SettingsSide(props: { readonly place: Place }): JSX.Element {
             selected: props.place.kind === "settings-section" && props.place.section === "business-day",
             onSelect: () => moves.go({ kind: "settings-section", section: "business-day" }),
           },
-          {
-            id: "sync",
-            label: "端末の同期",
-            icon: <RefreshIcon />,
-            selected: props.place.kind === "settings-section" && props.place.section === "sync",
-            onSelect: () => moves.go({ kind: "settings-section", section: "sync" }),
-          },
+          ...(app.crossing === undefined
+            ? []
+            : [
+                {
+                  id: "sync",
+                  label: "端末の同期",
+                  icon: <RefreshIcon />,
+                  selected: props.place.kind === "settings-section" && props.place.section === "sync",
+                  onSelect: () => moves.go({ kind: "settings-section", section: "sync" }),
+                },
+                {
+                  id: "sharing",
+                  label: "帳簿の共有",
+                  icon: <PeopleIcon />,
+                  selected: props.place.kind === "settings-section" && props.place.section === "sharing",
+                  onSelect: () => moves.go({ kind: "settings-section", section: "sharing" }),
+                },
+              ]),
           {
             id: "backup",
             label: "バックアップ",
@@ -84,13 +95,6 @@ export function SettingsSide(props: { readonly place: Place }): JSX.Element {
             icon: <BooksIcon />,
             selected: props.place.kind === "settings-section" && props.place.section === "books",
             onSelect: () => moves.go({ kind: "settings-section", section: "books" }),
-          },
-          {
-            id: "sharing",
-            label: "共有",
-            icon: <PeopleIcon />,
-            selected: props.place.kind === "settings-section" && props.place.section === "sharing",
-            onSelect: () => moves.go({ kind: "settings-section", section: "sharing" }),
           },
           {
             id: "consolidation",

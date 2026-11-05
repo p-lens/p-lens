@@ -39,8 +39,8 @@ import { describeCounterRefusal, observedOneInText, priorName } from "../../../w
 import { CHANGED_SINCE_MERGED, CHANGED_SINCE_REMOVED, MERGE_FAILED, MERGED, READING_REMOVED, REMOVAL_TAKEN_BACK, TAKE_BACK, TAKE_BACK_FAILED, UNMERGED } from "../../../wording/pachislot/play"
 import { triggerWordsOf } from "../../../wording/pachislot/trigger"
 import { ViewHeader } from "../../shell/ViewHeader"
-import { ContinueBar } from "../../live/ContinueBar"
-import type { PlayHold } from "../../live/play-hold"
+import { ElsewhereBar } from "../../live/ElsewhereBar"
+import { elsewhereOf, type HeldElsewhere, type PlayHold } from "../../live/play-hold"
 import { drawnDraft, type WrittenHere } from "./drawn-draft"
 import { useHuddleUrge } from "../../huddle/huddle-urge"
 import { AtCounting, AtFigures, AtReadingComposer, createAtReading } from "./AtPlay"
@@ -250,7 +250,7 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
 function Counting(props: { readonly weighing: Weighing; readonly ordered: readonly Checkpoint[]; readonly hold: PlayHold; readonly write: Write; readonly post: Post }): JSX.Element {
   const app = useApp()
   const inAtNow = (): boolean => props.weighing.formula.normalized.atRules !== undefined && inAt(props.ordered)
-  const inert = (): boolean => inAtNow() || props.hold.type === "followed"
+  const inert = (): boolean => inAtNow() || props.hold.type !== "held"
   const [failure, setFailure] = createSignal<ApplicationError | undefined>(undefined)
   const kept = (written: Written<never>): void => {
     setFailure(written.type === "failed" ? written.error : undefined)
@@ -435,7 +435,7 @@ export function LivePlay(props: {
     setRevising(undefined)
     toast({ title: MERGED, action: { label: TAKE_BACK, onPress: () => void unmerge(done) } })
   }
-  const followed = (): Extract<PlayHold, { readonly type: "followed" }> | undefined => (props.hold.type === "followed" ? props.hold : undefined)
+  const elsewhere = (): HeldElsewhere | undefined => elsewhereOf(props.hold)
   const weighing = (): Weighing | undefined => props.draft.pachislot
   const shownAs = () => {
     const found = weighing()
@@ -520,7 +520,7 @@ export function LivePlay(props: {
                   </Show>
                 </div>
                 <div class="sticky bottom-0 grid border-t border-border bg-surface-2">
-                  <div class="col-start-1 row-start-1 flex flex-col gap-3 p-4" classList={{ invisible: followed() !== undefined }} inert={followed() !== undefined}>
+                  <div class="col-start-1 row-start-1 flex flex-col gap-3 p-4" classList={{ invisible: elsewhere() !== undefined }} inert={elsewhere() !== undefined}>
                     <NoticeStack notices={board.notices()} />
                     <Show when={revising()} keyed fallback={composers()}>
                       {(doing) => (
@@ -530,10 +530,10 @@ export function LivePlay(props: {
                       )}
                     </Show>
                   </div>
-                  <Show when={followed()}>
-                    {(watched) => (
+                  <Show when={elsewhere()}>
+                    {(held) => (
                       <div class="col-start-1 row-start-1 flex items-center p-4">
-                        <ContinueBar shownAt={watched().shownAt} onContinue={() => watched().onContinue()} />
+                        <ElsewhereBar hold={held()} />
                       </div>
                     )}
                   </Show>

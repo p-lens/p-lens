@@ -2,7 +2,7 @@ import { Err, Ok, type Result } from "../result/result"
 import { hunksOf, linesOf, textOf } from "../text/line-diff"
 
 /** A stretch of a file's lines replaced: where it began in the text before, the lines that were there, and those there after. */
-export interface PatchHunk {
+interface PatchHunk {
   readonly at: number
   readonly removed: readonly string[]
   readonly added: readonly string[]
@@ -26,7 +26,7 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 const isLines = (value: unknown): boolean => Array.isArray(value) && value.every((line) => typeof line === "string")
 
 /** Whether a value read from text is one stretch of a patch: where it begins, and the lines taken and put in there. */
-export const isPatchHunk = (value: unknown): value is PatchHunk =>
+const isPatchHunk = (value: unknown): value is PatchHunk =>
   isRecord(value) && typeof value["at"] === "number" && Number.isInteger(value["at"]) && value["at"] >= 0 && isLines(value["removed"]) && isLines(value["added"])
 
 /** Whether a value read from text is a patch: what arrives from elsewhere, or was kept in a file, is not taken on trust. */
@@ -65,20 +65,4 @@ const replaced = (
 export const patched = (before: string | undefined, patch: FilePatch): Result<string, PatchProblem> => {
   const made = (before === undefined) === patch.created ? replaced(linesOf(before ?? ""), patch.hunks.map((hunk) => ({ at: hunk.at, taken: hunk.removed, given: hunk.added }))) : undefined
   return made === undefined ? Err({ type: "patch-misfit", path: patch.path }) : Ok(textOf(made))
-}
-
-/** Where each hunk begins in the text after the patch: its place before, moved by what the hunks ahead of it added and took. */
-const placesAfter = (hunks: readonly PatchHunk[]): readonly number[] =>
-  hunks.reduce<{ readonly places: readonly number[]; readonly shift: number }>(
-    (so, hunk) => ({ places: [...so.places, hunk.at + so.shift], shift: so.shift + hunk.added.length - hunk.removed.length }),
-    { places: [], shift: 0 },
-  ).places
-
-/** A file's text with a patch taken back: absent, where the patch had created the file. */
-export const unpatched = (after: string | undefined, patch: FilePatch): Result<string | undefined, PatchProblem> => {
-  const places = placesAfter(patch.hunks)
-  const taken =
-    after === undefined ? undefined : replaced(linesOf(after), patch.hunks.map((hunk, index) => ({ at: places[index] ?? 0, taken: hunk.added, given: hunk.removed })))
-  if (taken === undefined) return Err({ type: "patch-misfit", path: patch.path })
-  return Ok(patch.created ? undefined : textOf(taken))
 }

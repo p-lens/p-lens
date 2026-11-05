@@ -6,10 +6,10 @@ import type { PlayTerms } from "../parlor/terms"
 import { readGameKind, type PlayGameKind } from "../play/play"
 import { parsePlayLog } from "../play-log/checkpoint"
 import type { Finish } from "../play-log/finish"
-import type { DraftOfAnyGame, Operation, PlayDraft, PlayOfGame, PlayVenue, Receipt, Sending } from "./draft"
+import type { DraftOfAnyGame, Operation, PlayDraft, PlayOfGame, PlayVenue } from "./draft"
 
 /** A play as it is kept and as it is sent: everything of a draft but what the device keeps of it for itself. */
-export type Play = PlayOfGame & Omit<DraftOfAnyGame, "bookId" | "recorded" | "sent" | "received" | "handovers">
+export type Play = PlayOfGame & Omit<DraftOfAnyGame, "bookId" | "recorded">
 
 type Fields = Readonly<Record<string, unknown>>
 
@@ -90,18 +90,7 @@ const isOperation = (value: unknown): value is Operation => isFields(value) && i
 
 const isFinish = (value: unknown): value is Finish => isFields(value) && hasOnly(value, "at", "counter") && isOptional(value["at"], isText) && isOptional(value["counter"], isFigure)
 
-const isSending = (value: unknown): value is Sending => isFields(value) && isText(value["lineId"]) && isText(value["at"]) && isText(value["log"])
-
 const isRecorded = (value: unknown): value is NonNullable<PlayDraft["recorded"]> => isFields(value) && hasOnly(value, "at", "finish") && isText(value["at"]) && isFinish(value["finish"])
-
-const isReceipt = (value: unknown): value is Receipt =>
-  isFields(value) &&
-  hasOnly(value, "sender", "senderId", "log", "finished", "again") &&
-  isOptional(value["sender"], isText) &&
-  isOptional(value["senderId"], isText) &&
-  isText(value["log"]) &&
-  isOptional(value["finished"], isFinish) &&
-  isOptional(value["again"], isDraft)
 
 /**
  * Whether a value reads as a play, every part of it that is there: which
@@ -134,9 +123,6 @@ const isDraft = (value: unknown): value is PlayDraft =>
   isFields(value) &&
   isOptional(value["bookId"], isText) &&
   isOptional(value["recorded"], isRecorded) &&
-  isOptional(value["sent"], (sent): sent is readonly Sending[] => isEvery(sent, isSending)) &&
-  isOptional(value["received"], isReceipt) &&
-  isOptional(value["handovers"], isCount) &&
   isPlay(value)
 
 /**
@@ -162,5 +148,17 @@ const ofItsGame = (value: Fields): Fields => {
 /** A play read from what was kept or sent, its own game's parts alone, or none where any part of it that is there does not read. */
 export const readPlay = (kept: unknown): Play | undefined => ((value) => (isPlay(value) && isFields(value) ? ((own) => (isPlay(own) ? own : undefined))(ofItsGame(value)) : undefined))(withGameNamed(kept))
 
+/**
+ * What a draft kept before kept of its sending, its receiving and its
+ * passing between devices, by the relay the app once had: let go of as it
+ * is read, so that a play kept then reads as one kept now.
+ */
+const withoutWhatTheRelayKept = (kept: unknown): unknown => {
+  if (!isFields(kept)) return kept
+  const { sent: _sent, received: _received, handovers: _handovers, ...rest } = kept
+  return rest
+}
+
 /** A draft read from what the device kept, its own game's parts alone, or none where any part of it that is there does not read. */
-export const readPlayDraft = (kept: unknown): PlayDraft | undefined => ((value) => (isDraft(value) && isFields(value) ? ((own) => (isDraft(own) ? own : undefined))(ofItsGame(value)) : undefined))(withGameNamed(kept))
+export const readPlayDraft = (kept: unknown): PlayDraft | undefined =>
+  ((value) => (isDraft(value) && isFields(value) ? ((own) => (isDraft(own) ? own : undefined))(ofItsGame(value)) : undefined))(withGameNamed(withoutWhatTheRelayKept(kept)))

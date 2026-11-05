@@ -73,7 +73,9 @@ export function HuddleSide(props: { readonly place: Place }): JSX.Element {
         </Button>
         <TickFilter label={HUDDLE_NARROW} offered={offeredMembers(members())} chosen={app.huddle.chosen.listed()} onChosen={app.huddle.chosen.setListed} none="まだ誰もいません。" />
       </div>
-      <HuddleDialog open={showingMembership()} onClosed={() => setShowingMembership(false)} />
+      <Show when={app.crossing} keyed>
+        {(crossing) => <HuddleDialog open={showingMembership()} crossing={crossing} onClosed={() => setShowingMembership(false)} />}
+      </Show>
       <section class="px-2 pt-3">
         <Show when={playsOfChosen(plays(), app.huddle.chosen.listed()).length > 0} fallback={<p class="px-2 py-1.5 text-sm text-text-muted">表示する稼働はありません。</p>}>
           <ul class="flex flex-col gap-0.5" aria-label={HUDDLE_HEADING}>

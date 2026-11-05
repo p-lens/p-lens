@@ -3,7 +3,6 @@ import type { MemberId } from "../core/book/book"
 import type { Documents } from "../core/document/document"
 import type { StoredBook } from "../storage/port/book-storage"
 import type { DeletionPorts } from "./delete-book"
-import type { StopSyncPorts } from "./stop-sync"
 import type { IsoDate } from "../core/calendar/calendar"
 import type { PlayId } from "../core/play/play"
 import type { HistoryPort } from "../history/port/history-port"
@@ -25,11 +24,6 @@ import type { VoterOf } from "./marks"
 import type { ExportPorts } from "./export"
 import type { WelcomeStore } from "../onboarding/port/welcome-store"
 import type { Preferences } from "../preferences/port/preferences"
-import type { DestinationStore } from "../sync/port/destination-store"
-import type { InvitationStore } from "../sync/port/invitation-store"
-import type { Packer } from "../sync/port/packer"
-import type { SyncPorts } from "./sync"
-import type { HeldFinishing, PlayLinePorts } from "./play-line"
 import type { SampleMaker } from "../sample-book"
 import type { FirstTouchStore } from "../first-touch"
 
@@ -48,10 +42,6 @@ export interface Services {
   readonly consolidationStopped: StoppedAtWork
   readonly history: HistoryPort
   readonly drafts: DraftStorage
-  /** What keeping a person's plays in step between their own devices reaches. */
-  readonly playLine: PlayLinePorts
-  /** Recording a play followed live, only while this device still holds it. */
-  readonly finishing: HeldFinishing
   /** The shared catalog of both games, as delivered to this device. */
   readonly catalog: Catalog
   /** Whether this build names a shared catalog to take deliveries from; one that names none has nothing to refresh. */
@@ -72,16 +62,6 @@ export interface Services {
   readonly pachislotReasoner: ReasonerClient
   /** Where a sample book's days are played, a worker of their own each time one is made. */
   readonly sampleMaker: SampleMaker
-  /** What syncing a book between a person's devices reaches. */
-  readonly sync: SyncPorts
-  /** Whom this device's owner has let into their books, as the device remembers them. */
-  readonly invitations: InvitationStore
-  /** The books of other people this device may send plays to. */
-  readonly destinations: DestinationStore
-  /** The relay a book starts syncing through; none in a build that names none, where a book can still be joined by its code. */
-  readonly relayUrl: string | undefined
-  /** What packs a play small, to be shown to a huddle. */
-  readonly packer: Packer
   /** What backing a book up, and putting one back, reaches. */
   readonly backup: BackupPorts
   /** The store away from the device a book is backed up to; none in a build that names none, where a book is still backed up to a file. */
@@ -128,8 +108,6 @@ export interface Services {
   readonly deviceData: DeviceData
   /** Everywhere this device keeps something of a book, for taking one off it. */
   readonly deletion: DeletionPorts
-  /** Everything this device keeps of a book's syncing, for stopping it here. */
-  readonly stopping: StopSyncPorts
   /**
    * A fresh play id as the id of a play on a day already past: the same id,
    * placed in that day, so a play added by hand afterwards still sorts by

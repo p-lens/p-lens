@@ -1,0 +1,171 @@
+{
+  "inputs": {
+    "sync": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "epoch": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+    "invitation": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+    "huddle": "606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f",
+    "device": "808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f",
+    "day": "2026-11-04",
+    "playId": "019a4e5c-7b10-7000-8000-000000000001",
+    "nonce": "a0a1a2a3a4a5a6a7a8a9aaab",
+    "sealed": {
+      "parlor": "パチンコ ネルフ 第3新東京店",
+      "machine": "テスト機 A",
+      "tokens": 12345,
+      "yen": -15000
+    },
+    "paddedLengths": [
+      1,
+      32,
+      33,
+      64,
+      65,
+      100,
+      256,
+      257,
+      1000,
+      1024,
+      1025,
+      4096,
+      4097,
+      16384,
+      16385,
+      32000
+    ]
+  },
+  "derive": {
+    "secret": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "label": "owner",
+    "output": "6266358a2327606749d94517da954a8f543c7849853f7721c070a4b47e505c25"
+  },
+  "keys": {
+    "owner": {
+      "name": "owner",
+      "counter": 0,
+      "secret": "fcbac6eea4d188011c47ea1462dad3d61b49aa1c5b95eeaaa672e9c4bae6b743",
+      "pubkey": "e04de70f8acc7dbbb17dbaa0fe9469b8923a4066200b7a3e03e4f75bab9ef82e"
+    },
+    "member": {
+      "name": "member",
+      "counter": 0,
+      "secret": "0d90a86a7194202a94f91ff707977d68048d2442b3987f5a22e1f7de40fdf8d1",
+      "pubkey": "5c8a26c07808ca285af7af3a07bbe53a689783c73ad257c1abe18914e894863c"
+    },
+    "sender": {
+      "name": "sender",
+      "counter": 0,
+      "secret": "afe1ed6927f7f957442c20b960f83b05c60ec550c9063e795bb478d36c0d3b9c",
+      "pubkey": "38247cddfbfe4665cfbca196d44efdce6c117f5b85135e8ac81323d135031a08"
+    },
+    "participant": {
+      "root": "95db7f01b3959543097bac290ddbf344bf13862b63e6f7532c6cbb5159a9e224",
+      "name": "participant:2026-11-04",
+      "counter": 0,
+      "secret": "f1229b713eed798191297aceb5dcb1ff802516b07b9410bf8a4cc2de25012df9",
+      "pubkey": "88259600a2a1720828dc24978a677eda8782db43d8eb131bd61d19b4c852feec"
+    }
+  },
+  "sealKeys": {
+    "vault": "c935768ce05bd4144e2c8fed452634c79fce97026f87cb9b62ac260c1392c4d3",
+    "book": "c33e5ac24dd3ac4770407ccc9eeb7dbad4b61b459040597c4f04da7f12594b69",
+    "plays": "c13913a74077437217a5dd0a5e3977229183c2afa3f1c3017e08269a04772d62",
+    "mailbox": "e1125bbb3047718d7185498498903a915195bca2b35b06320bdc301956b78247",
+    "inbox": "c310ae6926741458f29e9f48ec7e6c688db0a308cd7aa824b79962cb05e405e6",
+    "huddle": "d779fb0fc2fb897a188b8983fbd3085ce350a09fb94c0639d894681204d78487"
+  },
+  "lines": {
+    "book": "da4829de08a53da9dcbeaa3f38d903e1",
+    "plays": "8300bdfb0a0013d31b5b4639991ed4bf",
+    "inbox": "50fab1bb09a57064d6f89bdf395ad0bd",
+    "access": "80a51d54cb4f51ee72daadb129cb02d1",
+    "mailbox": "46be32d97611259cbf8a22726e03bc7a",
+    "huddle": "dceba004750e0ae03de031666c526cbd"
+  },
+  "addresses": {
+    "tip": "ffb9ab3cbbf6b58a62a49deea0f1903e",
+    "sharing": "cbb26235840cf54565a8be5fe70a1eb1",
+    "sending": "18a3113d04067ccba9f59a41741476ef",
+    "mailbox": "d2581ee5087fccc5cd1ad22aa1b05c29",
+    "copy": "614e12f64230968651e811bb0e2acb10",
+    "sent": "e5571670edfdb0eee689ca3bb50484b6"
+  },
+  "paddedLengths": [
+    {
+      "length": 1,
+      "padded": 32
+    },
+    {
+      "length": 32,
+      "padded": 32
+    },
+    {
+      "length": 33,
+      "padded": 64
+    },
+    {
+      "length": 64,
+      "padded": 64
+    },
+    {
+      "length": 65,
+      "padded": 96
+    },
+    {
+      "length": 100,
+      "padded": 128
+    },
+    {
+      "length": 256,
+      "padded": 256
+    },
+    {
+      "length": 257,
+      "padded": 320
+    },
+    {
+      "length": 1000,
+      "padded": 1024
+    },
+    {
+      "length": 1024,
+      "padded": 1024
+    },
+    {
+      "length": 1025,
+      "padded": 1280
+    },
+    {
+      "length": 4096,
+      "padded": 4096
+    },
+    {
+      "length": 4097,
+      "padded": 5120
+    },
+    {
+      "length": 16384,
+      "padded": 16384
+    },
+    {
+      "length": 16385,
+      "padded": 20480
+    },
+    {
+      "length": 32000,
+      "padded": 32768
+    }
+  ],
+  "seal": {
+    "key": "c13913a74077437217a5dd0a5e3977229183c2afa3f1c3017e08269a04772d62",
+    "nonce": "a0a1a2a3a4a5a6a7a8a9aaab",
+    "place": {
+      "kind": 34739,
+      "v": "8300bdfb0a0013d31b5b4639991ed4bf",
+      "d": "614e12f64230968651e811bb0e2acb10",
+      "pubkey": "e04de70f8acc7dbbb17dbaa0fe9469b8923a4066200b7a3e03e4f75bab9ef82e"
+    },
+    "json": "{\"parlor\":\"パチンコ ネルフ 第3新東京店\",\"machine\":\"テスト機 A\",\"tokens\":12345,\"yen\":-15000}",
+    "compressed": "ab562a482ccac92f52b2527adc3cf17173e3e3e6cd8f9b362b3c6eee7ddcbcfa71f35485e76bd6183f9bb6e1d9dc8d4f76ad79ba6bba928e526e627246665e2a584fdbe3a69d8f9b3b9ead9cafe0a8a4a354929f9d9a57ac646568646c62aaa354999aa764a56b686a6060500b00",
+    "content": "AaChoqOkpaanqKmqq5wiuvRBdo9g6ieOFRYnc0zakzzYALk6GnPDD0It96eoko6NZzJFIMDcM2zkVqGRoXSKKDHMX3944G+EKiRPf3zD5U9GNcSl0+R/Ftz+7rjW1Em01dQMumzyVgKZ4KgeDXtXQQWidcLJLkIph4CBimfaaGzNL+/v5+JtNi+X3f+CnZ7K8pYeokgZ9mTfjOLXaPuh"
+  }
+}

@@ -25,7 +25,6 @@ const PLACES: readonly Place[] = [
   { kind: "passbook", bookId: "made-up" as never, account: "資産:貯玉:東京皇国/第8支店:4円" },
   { kind: "parlor-passbook", bookId: "made-up" as never, parlorName: "東京皇国/第8支店" },
   { kind: "opening-balance-new", bookId: "made-up" as never },
-  { kind: "destination", lineId: "line-1" },
   { kind: "huddle" },
   { kind: "huddle-total" },
   { kind: "huddle-settlement" },
@@ -47,7 +46,7 @@ describe("places", () => {
   })
 
   test("a narrow window goes selection, content, detail", () => {
-    expect(PLACES.map(focusOf)).toEqual(["selection", "content", "content", "content", "content", "content", "selection", "content", "detail", "content", "content", "content", "selection", "content", "content", "content", "content", "detail", "detail", "detail", "content", "selection", "selection", "content", "content", "content"])
+    expect(PLACES.map(focusOf)).toEqual(["selection", "content", "content", "content", "content", "content", "selection", "content", "detail", "content", "content", "content", "selection", "content", "content", "content", "content", "detail", "detail", "detail", "content", "selection", "content", "content", "content"])
   })
 
   test("one step up from a tally is its list, then the book", () => {

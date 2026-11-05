@@ -5,7 +5,7 @@ import type { MachineBonus } from "../catalog/catalog"
 import type * as Pachislot from "../pachislot"
 import type { Parlor } from "../parlor/parlor"
 import { tokenValueOf, type PlayTerms } from "../parlor/terms"
-import type { Sender, TallyHead } from "../tally/tally"
+import type { TallyHead } from "../tally/tally"
 import type { PlayGameKind, PlayId } from "../play/play"
 import type { Checkpoint } from "../play-log/checkpoint"
 import { isZeroRound, type JackpotCounting } from "../play-log/live"
@@ -56,9 +56,9 @@ export type PlayOfGame =
 export interface DraftOfAnyGame {
   readonly id: PlayId
   /**
-   * The book said for the play: the one chosen as it is recorded, the one
-   * it was sent to, and, once recorded, the one that has it. Absent until
-   * one is said — a play is started with none.
+   * The book said for the play: the one chosen as it is recorded, and, once
+   * recorded, the one that has it. Absent until one is said — a play is
+   * started with none.
    */
   readonly bookId?: BookId
   readonly date: IsoDate
@@ -71,8 +71,7 @@ export interface DraftOfAnyGame {
   /**
    * Everything done to the play's log since it began, oldest first and only
    * ever added to: each change of it, with the lines it took away and those
-   * it put in. It goes wherever the play is sent, and is shown to whoever
-   * receives it, never on the device that keeps it.
+   * it put in. Kept with the play, never shown on the device that keeps it.
    */
   readonly history?: readonly Operation[]
   /**
@@ -81,18 +80,6 @@ export interface DraftOfAnyGame {
    * log still to be set right and the book's entry made again from it.
    */
   readonly recorded?: { readonly at: string; readonly finish: Finish }
-  /** Where the play was sent, each with the log as it then was: a play sent and changed since is told from one sent as it stands. */
-  readonly sent?: readonly Sending[]
-  /** The play was sent to this device by someone else: who, as the owner named them, and the log as it arrived — a play not touched since is one a later sending may replace. */
-  readonly received?: Receipt
-  /**
-   * How many times the play has been continued on one of the owner's
-   * devices from another: none where it never has. It goes with the play
-   * as it is shown to those devices, so that one which showed the play
-   * before it was taken over is told from the one holding it now, whatever
-   * lines either of them has read.
-   */
-  readonly handovers?: number
 }
 
 /** One change to a play's log: when, and its lines before and after. */
@@ -101,31 +88,6 @@ export interface Operation {
   readonly at: string
   readonly removed: readonly string[]
   readonly added: readonly string[]
-}
-
-/** A play as it was put on someone's inbox. */
-export interface Sending {
-  readonly lineId: string
-  readonly at: string
-  readonly log: string
-}
-
-/** How a play came to this device from someone else's. */
-export interface Receipt {
-  /** Who sent it, by the name the book's owner gave them; none where the device does not remember the token it came by. */
-  readonly sender: string | undefined
-  /** The invitation it came by, by its id, which stays the sender's whatever they are called; none where the device does not remember it, and none on a play received before it was kept. */
-  readonly senderId?: string
-  /** The log as it arrived. */
-  readonly log: string
-  /** How the sender said the play finished, where they had recorded it before sending. */
-  readonly finished: Finish | undefined
-  /**
-   * The same play, sent again after this device had changed the one it
-   * had: kept beside it until the person chooses between them, since
-   * neither is written over the other unasked.
-   */
-  readonly again?: PlayDraft
 }
 
 /**
@@ -173,12 +135,11 @@ export const tokenValueOfDraft = (draft: PlayDraft): number | undefined =>
 
 /**
  * The terms of the latest play of a game this device began that has any:
- * the corner a person is most likely still at. Plays sent from someone
- * else's device are another person's corner.
+ * the corner a person is most likely still at.
  */
 export const latestTermsOf = (drafts: readonly PlayDraft[], gameKind: PlayGameKind): PlayTerms | undefined =>
   drafts
-    .filter((draft) => draft.gameKind === gameKind && draft.received === undefined)
+    .filter((draft) => draft.gameKind === gameKind)
     .toSorted((left, right) => right.startedAt.localeCompare(left.startedAt))
     .find((draft) => draft.venue.terms !== undefined)?.venue.terms
 
@@ -269,7 +230,7 @@ export const withOverEntry = (draft: PachinkoDraft, overEntry: number | undefine
 export const withCabinetNumber = (draft: PlayDraft, cabinetNumber: string | undefined): PlayDraft => ({ ...draft, cabinetNumber })
 
 /** A log's lines, as a change of it is told by: those it has, blank ones let go. */
-export const logLinesOf = (log: string): readonly string[] => log.split("\n").filter((line) => line.trim() !== "")
+const logLinesOf = (log: string): readonly string[] => log.split("\n").filter((line) => line.trim() !== "")
 
 /** How close in time two changes of one line must be to count as one: a count tapped up and up is one change, not twenty. */
 const ONE_CHANGE_WITHIN = 120_000
@@ -300,30 +261,3 @@ export const isLeftOver = (draft: PlayDraft, businessDay: IsoDate): boolean => d
 
 /** Whether a play is done with on this device: recorded, on a business day before this one. It is in its book, and leaves the day's list. */
 export const isPast = (draft: PlayDraft, businessDay: IsoDate): boolean => draft.recorded !== undefined && draft.date < businessDay
-
-/** Whether a play was sent to an inbox as it now stands: sent, and not changed since. */
-export const isSentAsItStands = (draft: PlayDraft, lineId: string): boolean => draft.sent?.findLast((sending) => sending.lineId === lineId)?.log === draft.log
-
-/** Who sent a play, as its tally keeps them: none for a play of the device's own, or one whose invitation the device does not remember. */
-export const senderOf = (draft: PlayDraft): Sender | undefined =>
-  draft.received?.senderId === undefined ? undefined : { id: draft.received.senderId, name: draft.received.sender ?? "" }
-
-/** Whether a play is this device's own and waits to be sent to an inbox: never sent there, or changed since it was. A play someone sent here is not sent on. */
-export const awaitsSending = (draft: PlayDraft, lineId: string): boolean => draft.received === undefined && !isSentAsItStands(draft, lineId)
-
-/** How a play stands with an inbox: never sent there, sent as it now is, or sent and changed since. */
-export type Delivery = "unsent" | "sent" | "changed"
-
-export const deliveryOf = (draft: PlayDraft, lineId: string): Delivery =>
-  isSentAsItStands(draft, lineId) ? "sent" : draft.sent?.some((sending) => sending.lineId === lineId) === true ? "changed" : "unsent"
-
-/**
- * The operations of a play made after it was said to have finished: what was
- * changed once the play was over. For a play someone sent, the finish is the
- * one its sender gave and the changes theirs, whatever the receiver does
- * with it since.
- */
-export const afterItFinished = (draft: PlayDraft): readonly Operation[] => {
-  const finished = draft.received === undefined ? draft.recorded?.finish.at : draft.received.finished?.at
-  return finished === undefined ? [] : (draft.history ?? []).filter((operation) => operation.at > finished)
-}

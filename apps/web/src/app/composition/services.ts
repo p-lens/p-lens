@@ -4,11 +4,7 @@ import { createBrowserHandover } from "../../backup/browser/browser-handover"
 import { createGoogleAuthorizer } from "../../backup/google-drive/google-authorizer"
 import { createGooglePicker } from "../../backup/google-drive/google-picker"
 import { createGoogleDriveStore, DRIVE_SCOPE } from "../../backup/google-drive/google-drive-store"
-import { createIndexedDbDestinationStore } from "../../sync/local/indexed-db-destination-store"
 import { keepingHistory } from "../../application/draft-history"
-import { finishingHeld, type PlayLinePorts } from "../../application/play-line"
-import type { DeviceId } from "../../core/play-line/device"
-import { createIndexedDbInvitationStore } from "../../sync/local/indexed-db-invitation-store"
 import { createIndexedDbReceiptStore } from "../../backup/local/indexed-db-receipt-store"
 import { createWebCryptoDigest } from "../../backup/web-crypto/web-crypto-digest"
 import { createZipArchiver } from "../../backup/zip/zip-archiver"
@@ -42,14 +38,13 @@ import { freshFraction, freshSeed, freshUuidV7, uuidV7On, voterOf } from "./ids"
 import { createConnection } from "../../storage/browser/database"
 import { createBrowserStorageKeeper } from "../../storage/browser/storage-keeper"
 import { createBrowserDeviceData } from "../../storage/browser/device-data"
+import type { DeviceData } from "../../storage/port/device-data"
+import { Err } from "../../core/result/result"
+import { clearCrossingDatabase } from "../../crossing"
 import { createLocalStorageWelcomeStore } from "../../onboarding/local/local-storage-welcome-store"
 import { createLocalStorageFirstTouchStore } from "../../first-touch"
 import { createLocalStoragePreferences } from "../../preferences/local/local-storage-preferences"
-import { createIndexedDbDrafts, createIndexedDbFollow, createIndexedDbStorage } from "../../storage/browser/indexed-db"
-import { createDeflatePacker } from "../../sync/deflate/deflate-packer"
-import { createHttpRelay } from "../../sync/http/http-relay"
-import { createIndexedDbLinkStore } from "../../sync/local/indexed-db-link-store"
-import { createWebCryptoSealer } from "../../sync/web-crypto/web-crypto-sealer"
+import { createIndexedDbDrafts, createIndexedDbStorage } from "../../storage/browser/indexed-db"
 import { lanesFor } from "../../consolidation/lanes/lanes-plan"
 import { createManyLanes } from "../../consolidation/lanes/many-lanes"
 import { createWorkMark } from "../../consolidation/lanes/work-mark"
@@ -65,12 +60,6 @@ import { webCryptoJournalsDigest } from "../../consolidation/web-crypto/journals
  */
 const LOCAL_MEMBER = "local" as MemberId
 
-/**
- * The relay a book starts syncing through, named at build time. A build that
- * names none starts no sync of its own; a book is still joined by its code,
- * which names its relay itself.
- */
-const RELAY_URL: string | undefined = import.meta.env.VITE_RELAY_URL
 
 /**
  * The OAuth client id books are backed up to Google Drive under, made in
@@ -125,6 +114,16 @@ const PARLORS_FRESH_FOR = 10 * 60 * 1000
 /** How long after the consolidation shows what each book was last answered it reads the books to check them: once the screen is drawn. */
 const CHECKED_AFTER_SHOWN = 300
 
+/** The device's data with the lines what crosses devices keeps in a database of its own: both emptied, the app's own first. */
+const withLines = (data: DeviceData): DeviceData => ({
+  clear: async () => {
+    const cleared = await data.clear()
+    if (!cleared.ok) return cleared
+    const lines = await clearCrossingDatabase()
+    return lines.ok ? lines : Err({ type: "unavailable", detail: lines.error.type === "unavailable" ? lines.error.detail : "unreadable" })
+  },
+})
+
 /**
  * The one place that names concrete adapters. Everything else knows ports.
  * The engines' and the reasoner's workers are only spawned the first time
@@ -142,31 +141,10 @@ export const createServices = (): Services => {
   const sessionOn = (hledger: HledgerClient): BookSession => createBookSession({ hledger, storage, history, clock, newId: freshUuidV7, member: LOCAL_MEMBER })
   const session = sessionOn(createHledgerClient(hledgerWorker))
   const workMark = createWorkMark()
-  const links = createIndexedDbLinkStore(database)
   const drafts = keepingHistory(createIndexedDbDrafts(database), () => clock().toISOString())
-  const follow = createIndexedDbFollow(database)
-  const invitations = createIndexedDbInvitationStore(database)
   const receipts = createIndexedDbReceiptStore(database)
   const handover = createBrowserHandover()
   const archiver = createZipArchiver()
-  const relay = createHttpRelay({ request: (url, init) => fetch(url, init), answerWithin: ANSWER_WITHIN })
-  const sealer = createWebCryptoSealer()
-  const packer = createDeflatePacker()
-  const playLineDevice = createIndexedDbDevice(database, "play-line", freshUuidV7)
-  const playLine: PlayLinePorts = {
-    relay,
-    sealer,
-    packer,
-    links,
-    drafts,
-    follow,
-    device: async () => (await playLineDevice()) as DeviceId,
-    books: () => session.books(),
-    member: LOCAL_MEMBER,
-    now: () => clock().toISOString(),
-    businessDay: () => businessDayOf(clock(), preferences.businessDayTurn()),
-    newId: freshUuidV7,
-  }
   return {
     session,
     consolidation: consolidationPorts({
@@ -187,20 +165,6 @@ export const createServices = (): Services => {
     }),
     consolidationStopped: workMark,
     history,
-    sync: {
-      session,
-      history,
-      links,
-      relay,
-      sealer,
-      me,
-      now: () => clock().toISOString(),
-      newCommitId: freshUuidV7,
-    },
-    invitations,
-    destinations: createIndexedDbDestinationStore(database),
-    relayUrl: RELAY_URL === undefined || RELAY_URL === "" ? undefined : RELAY_URL.replace(/\/+$/, ""),
-    packer,
     backup: {
       storage,
       session,
@@ -225,8 +189,6 @@ export const createServices = (): Services => {
             newBoundary: () => `backup-${freshUuidV7()}`,
           }),
     drafts,
-    playLine,
-    finishing: finishingHeld(playLine),
     member: LOCAL_MEMBER,
     voter: voterOf,
     documents: brandedDocuments(),
@@ -246,9 +208,8 @@ export const createServices = (): Services => {
     unnamedTitle: (taken) => unnamedTitle(taken, freshFraction()),
     firstBook: () => firstBook(freshUuidV7() as string as BookId, LOCAL_MEMBER, unnamedTitle([], freshFraction())),
     storageKeeper: createBrowserStorageKeeper(),
-    deviceData: createBrowserDeviceData(database),
-    deletion: { storage, history, links, receipts, drafts, follow },
-    stopping: { links, history, invitations, follow },
+    deviceData: withLines(createBrowserDeviceData(database)),
+    deletion: { storage, history, receipts, drafts },
     playIdOn: (fresh, date) => uuidV7On(fresh as string as UuidV7, date) as string as PlayId,
     newSeed: freshSeed,
     catalog: createDeliveredCatalog(

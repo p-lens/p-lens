@@ -1,93 +1,102 @@
 import { createSignal, Show, type JSX } from "solid-js"
 
-import type { ApplicationError } from "../../../application/errors"
-import { joinByCode, kindOfCode, type Joined } from "../../../application/sync"
+import { joinByCode, type CrossingServices, type Joined } from "../../../crossing"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
-import { createNudge } from "../../primitives/nudge"
-import { TextField } from "../../primitives/text-field"
+import { qrInImage } from "../../primitives/qr-image"
+import { QrScanner } from "../../primitives/qr-scanner"
+import { settleTyping, TextField } from "../../primitives/text-field"
 import { toast } from "../../primitives/toast"
-import { FailureNote } from "./FailureNote"
-import { titleText } from "../../wording/book"
+import { ADD_BY_CODE, describeBookSyncProblem, JOINING, SCAN_SYNC_CODE, SYNC_CODE_BY_IMAGE, SYNC_NO_CAMERA } from "../../wording/sync"
 
-/** Where a press here is: nothing doing, at work, turned away for a code of the other kind, or failed. */
-type Working = { readonly type: "idle" } | { readonly type: "working" } | { readonly type: "misplaced" } | { readonly type: "failed"; readonly error: ApplicationError }
-
-/** What each place that takes a code says: what it takes, where it comes from, and where the other kind goes. */
-const WORDS = {
-  own: { label: "同期コード", placeholder: "もう一台の端末でコピーした同期コード", misplaced: "これは招待コードです。「設定 → 共有」の「招待コードを入れる」に貼ってください。" },
-  invitation: { label: "招待コード", placeholder: "仲間からもらった招待コード", misplaced: "これは同期コードです。自分の端末どうしの同期は「設定 → 端末の同期」に貼ってください。" },
-} as const
-
-/** What is said once a code has done its work. */
-const joinedToast = (joined: Joined): { readonly title: string; readonly description: string } => {
-  switch (joined.type) {
-    case "book":
-      return { title: "帳簿を追加しました", description: "この端末でも同じ帳簿を使えます。" }
-    case "moved":
-      return { title: "帳簿をつなぎ直しました", description: "この端末の帳簿は、この同期コードで同期を続けます。この端末で書いたことも合わせて送ります。" }
-    case "destination":
-      return { title: "送り先を追加しました", description: `左の列か「本日の稼働」から「${titleText(joined.title)}」に送れます。` }
-  }
+/** What a screen joining a book by a code says: what to do, the field's name, what the camera is pointed at, and how it went — a book put on the device, or a book's inbox it now sends plays to. */
+export interface JoinWording {
+  readonly about: string
+  readonly field: string
+  readonly scanning: string
+  readonly notInImage: string
+  readonly joined: (joined: Joined) => { readonly title: string; readonly description?: string }
+  readonly notJoined: string
 }
 
 /**
- * A code typed in to put a book on this device, in one of two places that
- * each take one kind: a book's own code, where a person's devices are
- * synced, or an invitation, where books are shared. A code of the other
- * kind is turned away with where it goes — the two are different things to
- * the person holding them, whatever they share underneath.
+ * A book put on this device from its line, or a book's inbox to send plays
+ * to, by a code: one of the owner's sync codes or a person's invitation
+ * code, read off its QR code by the camera or out of an image, or pasted.
  */
-export function JoinByCode(props: { readonly takes: "own" | "invitation"; readonly onJoined: () => void }): JSX.Element {
+export function JoinByCode(props: { readonly crossing: CrossingServices; readonly wording: JoinWording; readonly onJoined: () => void }): JSX.Element {
   const app = useApp()
-  const nudge = createNudge()
-  const [code, setCode] = createSignal("")
-  const [working, setWorking] = createSignal<Working>({ type: "idle" })
-  const join = async (): Promise<void> => {
-    if (working().type === "working") return
-    if (code().trim() === "") {
-      nudge.nudge()
-      return
-    }
-    if (kindOfCode(code()) !== props.takes) {
-      setWorking({ type: "misplaced" })
-      return
-    }
-    setWorking({ type: "working" })
-    const joined = await joinByCode({ ...app.services.sync, destinations: app.services.destinations }, code(), app.services.relayUrl)
-    setWorking(joined.ok ? { type: "idle" } : { type: "failed", error: joined.error })
-    if (!joined.ok) return
-    setCode("")
-    toast(joinedToast(joined.value))
+  const [typed, setTyped] = createSignal("")
+  const [scanning, setScanning] = createSignal(false)
+  const [joining, setJoining] = createSignal(false)
+  const picker: { input: HTMLInputElement | undefined } = { input: undefined }
+  const join = async (code: string): Promise<void> => {
+    if (joining()) return
+    setJoining(true)
+    const joined = await joinByCode(props.crossing.books, code)
+    setJoining(false)
+    if (!joined.ok) return toast({ title: props.wording.notJoined, description: describeBookSyncProblem(joined.error), tone: "error" })
+    setTyped("")
+    app.bookLines.relinked()
+    app.wrote()
     props.onJoined()
+    toast(props.wording.joined(joined.value))
+  }
+  const picked = async (input: HTMLInputElement): Promise<void> => {
+    const image = input.files?.[0]
+    input.value = ""
+    if (image === undefined) return
+    const code = await qrInImage(image)
+    if (code === undefined) toast({ title: props.wording.notInImage, tone: "error" })
+    else await join(code)
   }
   return (
-    <div class="flex flex-col gap-2">
-      <TextField
-        label={WORDS[props.takes].label}
-        value={code()}
-        onChange={(typed) => {
-          setCode(typed)
-          setWorking({ type: "idle" })
+    <div class="flex flex-col gap-3">
+      <p class="text-sm text-text-muted">{props.wording.about}</p>
+      <Show
+        when={scanning()}
+        fallback={
+          <div class="flex flex-wrap justify-end gap-2">
+            <Button variant="outline" size="small" onClick={() => picker.input?.click()}>
+              {SYNC_CODE_BY_IMAGE}
+            </Button>
+            <Button variant="secondary" size="small" onClick={() => setScanning(true)}>
+              {SCAN_SYNC_CODE}
+            </Button>
+          </div>
+        }
+      >
+        <p class="text-sm">{props.wording.scanning}</p>
+        <QrScanner
+          label={props.wording.scanning}
+          onRead={(code) => {
+            setScanning(false)
+            void join(code)
+          }}
+          onUnavailable={() => {
+            setScanning(false)
+            toast({ title: SYNC_NO_CAMERA, tone: "error" })
+          }}
+        />
+      </Show>
+      <form
+        autocomplete="off"
+        class="flex flex-col gap-2"
+        noValidate
+        onSubmit={(event) => {
+          event.preventDefault()
+          settleTyping()
+          if (typed().trim() !== "") void join(typed())
         }}
-        placeholder={WORDS[props.takes].placeholder}
-        required
-        invalid={(nudge.red() && code().trim() === "") || working().type === "misplaced"}
-        onFocus={nudge.settle}
-      />
-      <div>
-        <Button size="small" onClick={() => void join()} aria-busy={working().type === "working"}>
-          {working().type === "working" ? "追加しています…" : "この端末に追加"}
-        </Button>
-      </div>
-      <Show when={working().type === "misplaced"}>
-        <p role="alert" class="text-xs text-negative">
-          {WORDS[props.takes].misplaced}
-        </p>
-      </Show>
-      <Show when={working()} keyed>
-        {(state) => (state.type === "failed" ? <FailureNote error={state.error} /> : undefined)}
-      </Show>
+      >
+        <TextField label={props.wording.field} value={typed()} onChange={setTyped} />
+        <div class="flex justify-end">
+          <Button type="submit" size="small" variant="secondary" aria-busy={joining()}>
+            {joining() ? JOINING : ADD_BY_CODE}
+          </Button>
+        </div>
+      </form>
+      <input ref={(element) => (picker.input = element)} type="file" accept="image/*" class="hidden" onChange={(event) => void picked(event.currentTarget)} />
     </div>
   )
 }

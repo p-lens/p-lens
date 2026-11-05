@@ -144,6 +144,15 @@ export const loadFinishing = async (session: BookSession, drafts: DraftStorage, 
   }))
 }
 
+/** A play someone sent to a book about to be recorded there: into that book alone, where this member may write it. */
+export const loadSentFinishing = async (session: BookSession, play: PlayDraft, bookId: BookId, member: MemberId): Promise<Outcome<Finishing>> => {
+  const books = await session.books()
+  if (!books.ok) return books
+  const book = books.value.find((each) => each.id === bookId && memberCan(each, member, "write"))
+  if (book === undefined) return Err({ type: "forbidden", capability: "write" })
+  return mapOk(await loadRecordingContext(session, bookId, member), (context) => ({ draft: play, bookId, books: [book], context }))
+}
+
 /**
  * Say which book a play is to be recorded into, in place of the one it
  * would go into unasked. Nothing is written in either book: the play is
@@ -156,17 +165,18 @@ export const chooseBook = async (drafts: DraftStorage, draft: PlayDraft, bookId:
 }
 
 /**
- * Record a finished play into a book as a tally in tokens, its log —
+ * A finished play written into a book as a tally in tokens, its log —
  * finished as the person gave, and headed by what the play was — beside the
  * tally's entry. This is when the book first hears of the play: the pool
  * of the parlor the tally names — where it was started, or one chosen as it
  * is recorded of a play started at none — is opened there on the play's
  * terms, with the rate of the day it is recorded on, and then the entry is
- * written. Its savings are drawn on whatever they hold. Recorded before, its entry and its
- * log in the book are replaced by what the play now comes to: a reading
- * set right after the fact reaches the book by recording again.
+ * written. Its savings are drawn on whatever they hold. Where the play may be
+ * in the book already, its entry and its log there are replaced by what the
+ * play now comes to: a reading set right after the fact reaches the book by
+ * recording again.
  */
-export const finishPlay = async (session: BookSession, drafts: DraftStorage, draft: PlayDraft, bookId: BookId, tally: TokenTally, finish: Finish, at: string): Promise<Outcome<CommitId>> => {
+const writtenInTokens = async (session: BookSession, draft: PlayDraft, bookId: BookId, tally: TokenTally, finish: Finish, before: boolean): Promise<Outcome<CommitId>> => {
   const held = Number(toPlainString(tally.payout))
   const terms = draft.venue.terms
   if (terms !== undefined) {
@@ -175,15 +185,35 @@ export const finishPlay = async (session: BookSession, drafts: DraftStorage, dra
   }
   const log = withHead(withFinish(draft.log, finish, draft.gameKind, held), headOf(draft, tally))
   const write = (): Promise<Outcome<CommitId>> => recordTokenTally(session, bookId, tally, log)
-  return keptRecorded(drafts, draft, bookId, finish, at, draft.recorded === undefined ? await write() : await again(() => reviseTokenTally(session, bookId, tally, log), write))
+  return before ? again(() => reviseTokenTally(session, bookId, tally, log), write) : write()
 }
 
-/** Record a finished play with no parlor as a tally in yen, as `finishPlay` records one at a parlor in tokens: its log beside the tally's entry — finished with the tokens in hand, where it was counted by them — and both replaced where the book already has the tally. */
-export const finishPlayInYen = async (session: BookSession, drafts: DraftStorage, draft: PlayDraft, bookId: BookId, tally: YenTally, finish: Finish, at: string, held: number | undefined): Promise<Outcome<CommitId>> => {
+/** A finished play with no parlor written into a book as a tally in yen, as `writtenInTokens` writes one at a parlor: its log beside the tally's entry — finished with the tokens in hand, where it was counted by them — and both replaced where the book may have the tally already. */
+const writtenInYen = async (session: BookSession, draft: PlayDraft, bookId: BookId, tally: YenTally, finish: Finish, held: number | undefined, before: boolean): Promise<Outcome<CommitId>> => {
   const log = withHead(withFinish(draft.log, finish, draft.gameKind, held), headOf(draft, tally))
   const write = (): Promise<Outcome<CommitId>> => recordYenTally(session, bookId, tally, log)
-  return keptRecorded(drafts, draft, bookId, finish, at, draft.recorded === undefined ? await write() : await again(() => reviseYenTally(session, bookId, tally, log), write))
+  return before ? again(() => reviseYenTally(session, bookId, tally, log), write) : write()
 }
+
+/** Record one of the device's plays into a book as a tally in tokens (`writtenInTokens`), and mark the play recorded there. */
+export const finishPlay = async (session: BookSession, drafts: DraftStorage, draft: PlayDraft, bookId: BookId, tally: TokenTally, finish: Finish, at: string): Promise<Outcome<CommitId>> =>
+  keptRecorded(drafts, draft, bookId, finish, at, await writtenInTokens(session, draft, bookId, tally, finish, draft.recorded !== undefined))
+
+/** Record one of the device's plays with no parlor into a book as a tally in yen (`writtenInYen`), and mark the play recorded there. */
+export const finishPlayInYen = async (session: BookSession, drafts: DraftStorage, draft: PlayDraft, bookId: BookId, tally: YenTally, finish: Finish, at: string, held: number | undefined): Promise<Outcome<CommitId>> =>
+  keptRecorded(drafts, draft, bookId, finish, at, await writtenInYen(session, draft, bookId, tally, finish, held, draft.recorded !== undefined))
+
+/**
+ * Record a play someone sent to the book's owner into the book as a tally in
+ * tokens: the play is the sender's, kept on no device of the owner's, so
+ * nothing marks it; the book has it already where it was recorded before,
+ * and its tally there is replaced.
+ */
+export const recordSentPlay = (session: BookSession, play: PlayDraft, bookId: BookId, tally: TokenTally, finish: Finish): Promise<Outcome<CommitId>> => writtenInTokens(session, play, bookId, tally, finish, true)
+
+/** Record a play someone sent with no parlor into the book as a tally in yen, as `recordSentPlay` does one in tokens. */
+export const recordSentPlayInYen = (session: BookSession, play: PlayDraft, bookId: BookId, tally: YenTally, finish: Finish, held: number | undefined): Promise<Outcome<CommitId>> =>
+  writtenInYen(session, play, bookId, tally, finish, held, true)
 
 /**
  * The day's plays, newest begun first: every play on the device still to be

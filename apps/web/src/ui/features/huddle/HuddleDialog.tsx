@@ -1,8 +1,10 @@
 import { createSignal, Show, type JSX } from "solid-js"
 
-import { huddleLeftOn, joinHuddle, leaveHuddle, renameInHuddle, startHuddle } from "../../../application/huddle"
-import type { Outcome } from "../../../application/errors"
-import { huddleCodeOf, huddleNameOf, type Huddle } from "../../../core/huddle/huddle"
+import { huddleLeftOn, markHuddleLeft, renameInHuddle } from "../../../application/huddle"
+import { huddleNameOf, type Huddle } from "../../../core/huddle/huddle"
+import { huddleDepartureOf } from "../../../core/huddle/post"
+import type { Result } from "../../../core/result/result"
+import { huddleCodeOf, joinHuddle, startHuddle, type CrossingServices, type HuddleProblem } from "../../../crossing"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import { PanelDialog } from "../../primitives/dialog"
@@ -11,7 +13,6 @@ import { qrInImage } from "../../primitives/qr-image"
 import { QrScanner } from "../../primitives/qr-scanner"
 import { settleTyping, TextField } from "../../primitives/text-field"
 import { toast } from "../../primitives/toast"
-import { describeError } from "../../wording/errors"
 import {
   HUDDLE_ABOUT,
   HUDDLE_HEADING,
@@ -21,6 +22,7 @@ import {
   HUDDLE_NOT_IN_IMAGE,
   HUDDLE_SCANNING,
   HUDDLE_SHOW_CODE,
+  describeHuddleProblem,
   huddleJoinedAs,
   huddleLeftUntoldText,
   JOIN_BY_IMAGE,
@@ -32,7 +34,6 @@ import {
   START_HUDDLE,
 } from "../../wording/huddle"
 import { suggestedHuddleName } from "../../wording/huddle-names"
-import { huddlePortsOf } from "./huddle-ports"
 
 /** Typing the name to go by in the huddle instead, from the one gone by now: kept by Enter or its button, or left alone. */
 function Renaming(props: { readonly huddle: Huddle; readonly onDone: () => void }): JSX.Element {
@@ -96,9 +97,8 @@ function JoinedHuddle(props: { readonly huddle: Huddle; readonly onLeave: () => 
 }
 
 /** A huddle not yet joined: the name to go by — the one gone by in a huddle left that day, to come back as, or else one drawn from the suggestions — and a huddle begun, or joined by reading its QR code — by the camera, or out of an image such as a screenshot sent in a chat. */
-function NewHuddle(props: { readonly onJoined: (made: Outcome<Huddle>) => void }): JSX.Element {
+function NewHuddle(props: { readonly crossing: CrossingServices; readonly onJoined: (made: Result<Huddle, HuddleProblem>) => void }): JSX.Element {
   const app = useApp()
-  const ports = huddlePortsOf(app.services)
   const [typed, setTyped] = createSignal(huddleLeftOn(app.services.preferences, app.services.businessDay())?.name ?? suggestedHuddleName(Math.random))
   const picker: { input: HTMLInputElement | undefined } = { input: undefined }
   const [scanning, setScanning] = createSignal(false)
@@ -108,7 +108,7 @@ function NewHuddle(props: { readonly onJoined: (made: Outcome<Huddle>) => void }
     setNameMissed(name === undefined)
     if (name !== undefined) then(name)
   }
-  const join = (code: string): void => named((name) => props.onJoined(joinHuddle(ports, code, name, app.services.businessDay())))
+  const join = (code: string): void => named((name) => void joinHuddle(props.crossing.huddle, code, name, app.services.businessDay()).then(props.onJoined))
   const picked = async (input: HTMLInputElement): Promise<void> => {
     const image = input.files?.[0]
     input.value = ""
@@ -131,7 +131,7 @@ function NewHuddle(props: { readonly onJoined: (made: Outcome<Huddle>) => void }
             <Button variant="outline" size="small" onClick={() => named(() => setScanning(true))}>
               {JOIN_HUDDLE}
             </Button>
-            <Button size="small" onClick={() => named((name) => props.onJoined(startHuddle(ports, name, app.services.businessDay())))}>
+            <Button size="small" onClick={() => named((name) => void startHuddle(props.crossing.huddle, name, app.services.businessDay()).then(props.onJoined))}>
               {START_HUDDLE}
             </Button>
           </div>
@@ -159,26 +159,29 @@ function NewHuddle(props: { readonly onJoined: (made: Outcome<Huddle>) => void }
  * ノリ打ち, opened from the rail: begun or joined where the device is in
  * no huddle, and its QR code shown where it is in one.
  */
-export function HuddleDialog(props: { readonly open: boolean; readonly onClosed: () => void }): JSX.Element {
+export function HuddleDialog(props: { readonly open: boolean; readonly crossing: CrossingServices; readonly onClosed: () => void }): JSX.Element {
   const app = useApp()
-  const joined = (made: Outcome<Huddle>): void => {
+  const joined = (made: Result<Huddle, HuddleProblem>): void => {
     if (!made.ok) {
-      toast({ title: HUDDLE_HEADING, description: describeError(made.error), tone: "error" })
+      toast({ title: HUDDLE_HEADING, description: describeHuddleProblem(made.error), tone: "error" })
       return
     }
     app.huddle.changed()
   }
+  /** Leaving: said on the line while it is still open, and the device left at once whether the others heard or not. */
   const leave = (huddle: Huddle): void => {
-    const said = leaveHuddle(huddlePortsOf(app.services), huddle, app.huddle.line.held.lineEnd)
+    const line = app.huddle.line.held.line
+    const said = line === undefined ? Promise.resolve<Result<void, HuddleProblem>>({ ok: false, error: { type: "unreachable" } }) : line.put(huddleDepartureOf(huddle, app.services.now()))
+    markHuddleLeft(app.services.preferences, huddle)
     app.huddle.changed()
     props.onClosed()
     void said.then((outcome) => {
-      if (!outcome.ok) toast({ title: HUDDLE_HEADING, description: outcome.error.type === "sync" ? huddleLeftUntoldText(outcome.error.problem) : describeError(outcome.error), tone: "error" })
+      if (!outcome.ok) toast({ title: HUDDLE_HEADING, description: huddleLeftUntoldText(outcome.error), tone: "error" })
     })
   }
   return (
     <PanelDialog open={props.open} title={HUDDLE_HEADING} onClosed={props.onClosed}>
-      <Show when={app.huddle.now()} keyed fallback={<NewHuddle onJoined={joined} />}>
+      <Show when={app.huddle.now()} keyed fallback={<NewHuddle crossing={props.crossing} onJoined={joined} />}>
         {(huddle) => <JoinedHuddle huddle={huddle} onLeave={() => leave(huddle)} />}
       </Show>
     </PanelDialog>

@@ -23,16 +23,4 @@ export interface HistoryPort {
   readonly commit: (change: JournalChange) => Promise<Result<CommitId, HistoryError>>
   /** Newest first. */
   readonly log: (book: BookId) => Promise<Result<readonly Commit[], HistoryError>>
-  /** A book's commits that are on no line yet, oldest first: all of them, for a book that is not synced. */
-  readonly unsent: (book: BookId) => Promise<Result<readonly Commit[], HistoryError>>
-  /**
-   * Take in a book's line, as one: the commits received from it, in its
-   * order, then the book's unsent commits as made again on top of them, in
-   * place of the unsent commits as they were.
-   */
-  readonly reconcile: (book: BookId, received: readonly Commit[], rebased: readonly Commit[]) => Promise<Result<void, HistoryError>>
-  /** Say none of a book's commits is on its line: the line is gone, or was made again, and is to be met from its start. */
-  readonly unsend: (book: BookId) => Promise<Result<void, HistoryError>>
-  /** Say these commits of a book are on its line now. */
-  readonly sent: (book: BookId, ids: readonly CommitId[]) => Promise<Result<void, HistoryError>>
 }

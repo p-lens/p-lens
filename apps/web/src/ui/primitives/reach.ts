@@ -1,5 +1,3 @@
-import type { ApplicationError } from "../../application/errors"
-
 /**
  * How reaching a relay one way stands — reading a line, or showing on
  * it: not tried yet, last gone through at a moment, or failing since the
@@ -7,15 +5,15 @@ import type { ApplicationError } from "../../application/errors"
  * why. What is shown from it says, while it fails, that it is not up to
  * date and since when.
  */
-export type Reach =
+export type Reach<E> =
   | { readonly type: "not-yet" }
   | { readonly type: "reached"; readonly at: string }
-  | { readonly type: "unreached"; readonly since: string | undefined; readonly error: ApplicationError }
+  | { readonly type: "unreached"; readonly since: string | undefined; readonly error: E }
 
-export const NOT_YET: Reach = { type: "not-yet" }
+export const NOT_YET = { type: "not-yet" } as const
 
 /** How a way stands after another try: reached now, or unreached since it last was. */
-export const reachAfter = (was: Reach, error: ApplicationError | undefined, now: string): Reach => {
+export const reachAfter = <E>(was: Reach<E>, error: E | undefined, now: string): Reach<E> => {
   if (error === undefined) return { type: "reached", at: now }
   return { type: "unreached", since: was.type === "reached" ? was.at : was.type === "unreached" ? was.since : undefined, error }
 }

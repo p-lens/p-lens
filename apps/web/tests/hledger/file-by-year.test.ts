@@ -9,7 +9,6 @@ import { BOOK_FILES } from "../../src/core/journal/layout"
 import { mapOk } from "../../src/core/result/result"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
 import { ME, fixtureBook, inProcessHledger, memoryStorage } from "../support/in-process"
-import { memoryLinks } from "../support/sync"
 
 const BOOK = "filed" as BookId
 
@@ -25,7 +24,7 @@ const setUp = async (role: "owner" | "viewer", inbox: (transactions: string) => 
   const fixture = await fixtureBook("basic-play", { id: BOOK, members: [{ id: ME, displayName: "me", role }] })
   await storage.createBook({ ...fixture, files: { ...fixture.files, [BOOK_FILES.transactions]: inbox(fixture.files[BOOK_FILES.transactions] ?? "") } })
   const session = createBookSession({ hledger: await inProcessHledger(), storage, history, clock: () => new Date("2026-10-19T12:00:00+09:00"), newId: () => crypto.randomUUID(), member: ME })
-  return { storage, history, session, ports: { session, history, links: memoryLinks(), member: ME } }
+  return { storage, history, session, ports: { session, member: ME } }
 }
 
 describe("a book filed by year", () => {

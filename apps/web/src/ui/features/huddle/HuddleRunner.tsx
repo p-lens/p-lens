@@ -1,64 +1,82 @@
 import { createEffect, createMemo, on, onCleanup, type JSX } from "solid-js"
 
-import type { Outcome } from "../../../application/errors"
-import { readHuddleAfter, showToHuddle, withdrawFromHuddle } from "../../../application/huddle"
 import { loadTodaysPlays } from "../../../application/live-play"
 import type { Huddle } from "../../../core/huddle/huddle"
 import { ofHuddleDay } from "../../../core/huddle/room"
-import { givenUp, latestEntries } from "../../../core/huddle/post"
+import { givenUp, huddlePostOf, huddleWithdrawalOf, latestEntries, type HuddleEntry } from "../../../core/huddle/post"
 import { huddleTurnOf, jackpotsNow, louderTurn } from "../../../core/huddle/standing"
 import type { PlayDraft } from "../../../core/live-play/draft"
 import type { PlayId } from "../../../core/play/play"
+import { openHuddleLine, showingEvery, type CrossingServices, type HuddleLine, type HuddleProblem } from "../../../crossing"
 import { useApp } from "../../context"
 import type { Place } from "../../navigation/place"
 import { onShownAgain } from "../../primitives/shown-again"
 import { reachAfter } from "../../primitives/reach"
-import { huddlePortsOf } from "./huddle-ports"
 
-/** How often the huddle's line is read while the page is before the person, in milliseconds: a phone's radio asked more often than this is never let rest. */
-const READ_EVERY = 30_000
+/** How long a line is kept open after the page goes out of sight, or the huddle is left, in milliseconds: long enough for what was just put on it to be heard kept. */
+const CLOSED_AFTER = 3_000
 
-/** The least time between two showings of one's own plays, in milliseconds: readings typed in a row go as one. */
-const SHOWN_AT_MOST_EVERY = 30_000
+/** An entry to put on the line, and what is noted once it is there. */
+type Putting = { readonly entry: HuddleEntry; readonly done: () => void }
 
 /** Whether the page is out of sight: another app or tab before it, or the screen off. */
 const away = (): boolean => document.visibilityState === "hidden"
 
-/** One's own plays of the day that changed since they were last shown: those that came from someone else are theirs to show. */
-const changedSince = (drafts: readonly PlayDraft[], shown: ReadonlyMap<string, string>): readonly PlayDraft[] =>
-  drafts.filter((draft) => draft.received === undefined && shown.get(draft.id) !== draft.log)
+/** One's own plays of the day that changed since they were last shown. */
+const changedSince = (drafts: readonly PlayDraft[], shown: ReadonlyMap<string, string>): readonly PlayDraft[] => drafts.filter((draft) => shown.get(draft.id) !== draft.log)
 
 /**
  * The huddle kept up for as long as the app is open, wherever it is: its
- * line read at once and every 30 seconds after, into the page's
- * `HuddleLine`, while the page is in sight — not while it is away, and at
- * once as it is back — and each of the day's own plays shown to the others when
- * it changes — at once, or 30 seconds after the last showing, the latest
- * of each then — every one again under a new name the person goes by, and
+ * line kept open on its relay while the page is in sight — the others'
+ * plays coming as they are shown, into the page's `HuddleLine` — and let go
+ * a moment after the page goes away, opened again as it comes back; and each
+ * of the day's own plays shown to the others when it changes — at once, or
+ * as soon after the last showing as the room's size allows, the latest of
+ * each then — every one again under a new name the person goes by, and
  * each it showed and has since given up taken back, so the others let it go
  * too, whichever screen gave it up. What failed to be shown is tried again
- * at each look, and both are tried at once as the device comes back
- * online. Nothing is read
- * or shown where the device is in no huddle, and nothing is drawn.
+ * at each look. Nothing is opened or shown where the device is in no
+ * huddle, and nothing is drawn.
  *
  * It also says when the way back to the day's list is urged: as who of the
  * others is in a jackpot changes — one wins one, one's ends — and not while
  * one goes on, until the list is looked at, which is anywhere but one's
  * own play.
  */
-export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
+export function HuddleRunner(props: { readonly place: Place; readonly crossing: CrossingServices }): JSX.Element {
   const app = useApp()
-  const ports = huddlePortsOf(app.services)
   const line = app.huddle.line
   const held = line.held
-  const waiting: { timer: ReturnType<typeof setTimeout> | undefined } = { timer: undefined }
+  const timers: { showing: ReturnType<typeof setTimeout> | undefined; closing: ReturnType<typeof setTimeout> | undefined } = { showing: undefined, closing: undefined }
+
+  const letGo = (open: HuddleLine | undefined, after: number): void => {
+    if (open === undefined) return
+    clearTimeout(timers.closing)
+    timers.closing = setTimeout(() => open.close(), after)
+  }
+
+  const heardOf = (huddle: Huddle) => (problem: HuddleProblem | undefined): void => {
+    if (huddle.secret === held.secret) line.setHeard((was) => reachAfter(was, problem, app.services.now()))
+  }
+
+  const open = async (huddle: Huddle): Promise<void> => {
+    const opened = await openHuddleLine(props.crossing.huddle.keys, props.crossing.huddle.relays, huddle, {
+      onEntries: (entries) => {
+        if (huddle.secret === held.secret) line.setEntries(latestEntries(entries))
+      },
+      onHeard: heardOf(huddle),
+    })
+    if (huddle.secret !== held.secret || held.line !== undefined) return opened.close()
+    held.line = opened
+    showSoon()
+  }
 
   const joined = (): Huddle | undefined => {
     const huddle = app.huddle.now()
     if (huddle?.secret !== held.secret) {
+      letGo(held.line, CLOSED_AFTER)
       held.secret = huddle?.secret
-      held.read = 0
-      held.lineEnd = 0
+      held.line = undefined
       held.shownAt = 0
       held.shown = new Map()
       line.setEntries([])
@@ -66,69 +84,58 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
       line.setTold({ type: "not-yet" })
       line.setUrged(undefined)
       line.setKeptUp(huddle?.secret)
+      if (huddle !== undefined && !away()) void open(huddle)
     }
     return huddle
   }
 
-  const settled = (huddle: Huddle, outcome: Outcome<unknown>, way: "heard" | "told"): boolean => {
+  const told = (huddle: Huddle, problem: HuddleProblem | undefined): boolean => {
     if (huddle.secret !== held.secret) return false
-    const set = way === "heard" ? line.setHeard : line.setTold
-    set((was) => reachAfter(was, outcome.ok ? undefined : outcome.error, app.services.now()))
-    return outcome.ok
+    line.setTold((was) => reachAfter(was, problem, app.services.now()))
+    return problem === undefined
   }
 
-  const read = async (): Promise<void> => {
-    const huddle = joined()
-    if (huddle === undefined || held.reading || away()) return
-    held.reading = true
-    const found = await readHuddleAfter(ports, huddle, held.read)
-    held.reading = false
-    if (!settled(huddle, found, "heard") || !found.ok) return
-    held.read = found.value.head
-    held.lineEnd = Math.max(held.lineEnd, found.value.head)
-    if (found.value.entries.length > 0) line.setEntries((so) => latestEntries([...so, ...found.value.entries]))
-  }
-
-  const showEach = async (huddle: Huddle, drafts: readonly PlayDraft[]): Promise<void> => {
-    const [draft, ...rest] = drafts
-    if (draft === undefined) return
-    const shown = await showToHuddle(ports, huddle, draft, held.lineEnd)
-    if (!settled(huddle, shown, "told") || !shown.ok) return
-    held.lineEnd = Math.max(held.lineEnd, shown.value)
-    held.shown = new Map(held.shown).set(draft.id, draft.log)
-    await showEach(huddle, rest)
-  }
-
-  const withdrawEach = async (huddle: Huddle, playIds: readonly PlayId[]): Promise<void> => {
-    const [playId, ...rest] = playIds
-    if (playId === undefined) return
-    const withdrawn = await withdrawFromHuddle(ports, huddle, playId, held.lineEnd)
-    if (!settled(huddle, withdrawn, "told") || !withdrawn.ok) return
-    held.lineEnd = Math.max(held.lineEnd, withdrawn.value)
-    await withdrawEach(huddle, rest)
+  const putEach = async (huddle: Huddle, open: HuddleLine, entries: readonly Putting[]): Promise<void> => {
+    const [next, ...rest] = entries
+    if (next === undefined) return
+    const put = await open.put(next.entry)
+    if (!told(huddle, put.ok ? undefined : put.error)) return
+    next.done()
+    await putEach(huddle, open, rest)
   }
 
   const show = async (): Promise<void> => {
-    waiting.timer = undefined
+    timers.showing = undefined
     const huddle = joined()
-    if (huddle === undefined) return
+    const open = held.line
+    if (huddle === undefined || open === undefined) return
     const found = await loadTodaysPlays(app.services.drafts, app.services.businessDay())
     if (!found.ok) return
     held.shownAt = Date.now()
     const shown = found.value.filter((draft) => ofHuddleDay(huddle, draft))
-    await withdrawEach(huddle, givenUp(line.entries(), huddle.member, new Set(shown.map((draft) => draft.id))))
-    await showEach(huddle, changedSince(shown, held.shown))
+    const withdrawn = givenUp(line.entries(), huddle.member, new Set(shown.map((draft) => draft.id))).map((playId: PlayId): Putting => ({
+      entry: huddleWithdrawalOf(playId, huddle, app.services.now()),
+      done: () => undefined,
+    }))
+    const changed = changedSince(shown, held.shown).map((draft): Putting => ({
+      entry: huddlePostOf(draft, huddle, app.services.now()),
+      done: () => {
+        held.shown = new Map(held.shown).set(draft.id, draft.log)
+      },
+    }))
+    await putEach(huddle, open, [...withdrawn, ...changed])
   }
 
+  const members = (): number => new Set(line.entries().map((entry) => entry.member)).size + 1
+
   const showSoon = (): void => {
-    if (waiting.timer !== undefined) return
-    waiting.timer = setTimeout(() => void show(), Math.max(0, held.shownAt + SHOWN_AT_MOST_EVERY - Date.now()))
+    if (timers.showing !== undefined) return
+    timers.showing = setTimeout(() => void show(), Math.max(0, held.shownAt + showingEvery(members()) - Date.now()))
   }
 
   createEffect(on([() => app.huddle.now()?.secret, () => app.revision()], ([secret]) => {
-    if (secret === undefined) return
-    void read()
-    showSoon()
+    joined()
+    if (secret !== undefined) showSoon()
   }))
   createEffect(on(() => app.huddle.now()?.name, (name, before) => {
     if (before === undefined || name === undefined || name === before) return
@@ -143,20 +150,36 @@ export function HuddleRunner(props: { readonly place: Place }): JSX.Element {
   createEffect(() => {
     if (!onOwnPlay()) line.setUrged(undefined)
   })
-  /** A look at the line, and another try at showing what has not reached it: a showing that failed is tried again at each, not only after the next write. */
-  const lookAgain = (): void => {
-    void read()
-    if (app.huddle.now() !== undefined && !away()) showSoon()
+
+  /** Back in sight: the line opened again, and what has not reached it tried again. */
+  const back = (): void => {
+    const huddle = joined()
+    if (huddle === undefined || away()) return
+    clearTimeout(timers.closing)
+    if (held.line === undefined) void open(huddle)
+    else held.line.reopen()
+    showSoon()
   }
-  const reading = setInterval(lookAgain, READ_EVERY)
-  const stopListening = onShownAgain(lookAgain)
-  window.addEventListener("online", lookAgain)
+  /** Gone from sight: what changed shown at once, and the line let go a moment after, so that a phone's radio rests. */
+  const hidden = (): void => {
+    if (!away() || held.line === undefined) return
+    void show()
+    const open = held.line
+    held.line = undefined
+    letGo(open, CLOSED_AFTER)
+  }
+  const stopListening = onShownAgain(back)
+  document.addEventListener("visibilitychange", hidden)
+  window.addEventListener("online", back)
   onCleanup(() => {
     stopListening()
-    window.removeEventListener("online", lookAgain)
+    document.removeEventListener("visibilitychange", hidden)
+    window.removeEventListener("online", back)
     line.setKeptUp(undefined)
-    clearInterval(reading)
-    clearTimeout(waiting.timer)
+    clearTimeout(timers.showing)
+    held.line?.close()
+    held.line = undefined
+    held.secret = undefined
   })
   return undefined
 }

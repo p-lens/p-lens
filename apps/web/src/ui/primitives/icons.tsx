@@ -441,14 +441,6 @@ export const BreakdownIcon = () => (
   </Icon>
 )
 
-/** Sent on its way to someone: a paper plane. */
-export const SendIcon = (props: { readonly label?: string }) => (
-  <Icon label={props.label}>
-    <path d="M21 3L10 14" />
-    <path d="M21 3l-7 18l-4-7l-7-4z" />
-  </Icon>
-)
-
 /** Consolidated: books laid one on another, several as one. */
 export const ConsolidatedIcon = () => (
   <Icon>
@@ -553,5 +545,13 @@ export const MaskIcon = () => (
     <path d="M2.500 8.500c3-1.500 6.500-1.500 9.500.500 3-2 6.500-2 9.500-.500 0 5-2 8.500-5 8.500-2 0-3.500-1.500-4.500-3-1 1.500-2.500 3-4.500 3-3 0-5-3.500-5-8.500z" />
     <path d="M5 11.800c1.300-1.600 3.500-1.600 4.800.200-1.300 1.300-3.500 1.300-4.800-.200z" />
     <path d="M19 11.800c-1.300-1.600-3.500-1.600-4.800.200 1.300 1.300 3.500 1.300 4.800-.200z" />
+  </Icon>
+)
+
+/** Sent on its way to someone: a paper plane. */
+export const SendIcon = (props: { readonly label?: string }) => (
+  <Icon label={props.label}>
+    <path d="M21 3L10 14" />
+    <path d="M21 3l-7 18l-4-7l-7-4z" />
   </Icon>
 )

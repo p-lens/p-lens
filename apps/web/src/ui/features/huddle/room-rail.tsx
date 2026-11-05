@@ -12,7 +12,7 @@ import { huddleRoomLabel, huddleRoomUnheardLabel } from "../../wording/huddle"
 const SEMIPRO = { chosen: "bg-semipro text-on-semipro", hovered: "hover:bg-semipro hover:text-on-semipro" } as const
 
 /** A count on a space's corner, red, as many as wait there. */
-export function CountBadge(props: { readonly count: number }): JSX.Element {
+function CountBadge(props: { readonly count: number }): JSX.Element {
   return <span class="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-negative px-1 text-[11px] font-bold tabular-nums text-accent-contrast ring-2 ring-surface-0">{props.count}</span>
 }
 

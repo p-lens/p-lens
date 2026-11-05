@@ -1,12 +1,12 @@
 import { Show, type JSX } from "solid-js"
 
-import type { SyncProblem } from "../../../application/errors"
+import type { HuddleProblem } from "../../../crossing"
 import { useApp } from "../../context"
 import { huddleUnheardText, huddleUntoldText } from "../../wording/huddle"
 import type { Reach } from "../../primitives/reach"
 
-/** A reach's problem, where it failed for a reason of the relay's. */
-const problemOf = (reach: Reach): SyncProblem | undefined => (reach.type === "unreached" && reach.error.type === "sync" ? reach.error.problem : undefined)
+/** A reach's problem, where it failed. */
+const problemOf = (reach: Reach<HuddleProblem>): HuddleProblem | undefined => (reach.type === "unreached" ? reach.error : undefined)
 
 /**
  * A quiet line over what a huddle's screens show, while the line cannot be

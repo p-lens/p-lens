@@ -22,8 +22,8 @@ import type { Place } from "../../../navigation/place"
 import { describeError, describePlayLogError } from "../../../wording/errors"
 import { CHANGED_SINCE_MERGED, FOLD_FIGURES, MERGE_FAILED, MERGED, UNFOLD_FIGURES, TAKE_BACK, TAKE_BACK_FAILED, UNMERGED } from "../../../wording/pachinko/play"
 import { ViewHeader } from "../../shell/ViewHeader"
-import { ContinueBar } from "../../live/ContinueBar"
-import type { PlayHold } from "../../live/play-hold"
+import { ElsewhereBar } from "../../live/ElsewhereBar"
+import { elsewhereOf, type HeldElsewhere, type PlayHold } from "../../live/play-hold"
 import { useHuddleUrge } from "../../huddle/huddle-urge"
 import { CornerTerms } from "./CornerTerms"
 import { LiveFigures } from "./LiveFigures"
@@ -133,7 +133,7 @@ export function LivePlay(props: {
     toast({ title: MERGED, action: { label: TAKE_BACK, onPress: () => void unmerge({ before: checkpoints, left: kept.value }) } })
     app.played()
   }
-  const followed = (): Extract<PlayHold, { readonly type: "followed" }> | undefined => (props.hold.type === "followed" ? props.hold : undefined)
+  const elsewhere = (): HeldElsewhere | undefined => elsewhereOf(props.hold)
   const ordered = (): readonly Checkpoint[] | undefined => {
     const log = parsed()
     return log.ok ? inPlayOrder(log.value) : undefined
@@ -233,7 +233,7 @@ export function LivePlay(props: {
                   </Show>
                 </div>
                 <div class="sticky bottom-0 grid">
-                  <div class="col-start-1 row-start-1" classList={{ invisible: followed() !== undefined }} inert={followed() !== undefined}>
+                  <div class="col-start-1 row-start-1" classList={{ invisible: elsewhere() !== undefined }} inert={elsewhere() !== undefined}>
                     <Show
                       when={work()}
                       keyed
@@ -263,10 +263,10 @@ export function LivePlay(props: {
                       }}
                     </Show>
                   </div>
-                  <Show when={followed()}>
-                    {(watched) => (
+                  <Show when={elsewhere()}>
+                    {(held) => (
                       <div class="col-start-1 row-start-1 flex items-center border-t border-border bg-surface-2 p-3">
-                        <ContinueBar shownAt={watched().shownAt} onContinue={() => watched().onContinue()} />
+                        <ElsewhereBar hold={held()} />
                       </div>
                     )}
                   </Show>

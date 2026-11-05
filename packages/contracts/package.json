@@ -9,7 +9,6 @@
     ".": "./src/index.ts",
     "./pachinko": "./src/pachinko/engine.ts",
     "./pachislot": "./src/pachislot/engine.ts",
-    "./relay": "./src/relay.ts",
     "./fixtures/*": "./fixtures/*"
   },
   "scripts": {

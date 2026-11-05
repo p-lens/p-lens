@@ -17,7 +17,7 @@ export type BookView = (typeof BOOK_VIEWS)[number]
 /** A book's views that keep nothing narrowed in their address. */
 type WholeBookView = Exclude<BookView, "holdings" | "result-calendar">
 
-const SETTINGS_SECTIONS = ["appearance", "mummer", "business-day", "sync", "backup", "export", "import", "books", "sharing", "consolidation", "clear-data", "first-touch", "licenses", "under-the-hood"] as const
+const SETTINGS_SECTIONS = ["appearance", "mummer", "business-day", "sync", "sharing", "backup", "export", "import", "books", "consolidation", "clear-data", "first-touch", "licenses", "under-the-hood"] as const
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]
 
@@ -72,10 +72,6 @@ const isFormulaTab = (segment: string): segment is FormulaTab => (FORMULA_TABS a
  * counter, `odd-prize-calculator-game` the calculator of one game: what
  * so many tokens come to as special prizes and odd prizes. It keeps
  * nothing and writes nothing.
- *
- * `destination` is another person's book this device may only send plays
- * to, named by the inbox line they are put on: its side panel is the day's
- * plays and how each stands with it, and nothing of the book.
  *
  * A machine and its formulas are reached from starting a play, one depth to
  * an address so a back step climbs one level: `pachinko-machine-search` finds a
@@ -138,7 +134,6 @@ export type Place =
   | { readonly kind: "pachislot-machine-value"; readonly machineId: string }
   | { readonly kind: "pachislot-formula-new"; readonly tab: FormulaTab }
   | { readonly kind: "pachislot-distribution-new"; readonly machineId: string }
-  | { readonly kind: "destination"; readonly lineId: string }
   | { readonly kind: "odd-prize-calculator" }
   | { readonly kind: "odd-prize-calculator-game"; readonly game: PlayGameKind }
   | { readonly kind: "consolidated" }
@@ -276,7 +271,6 @@ const placeOfSegments = (segments: readonly string[], path: string): Place => {
   if (first === "books" && second !== undefined && third === "tallies" && fourth !== undefined)
     return { kind: "tally", bookId: second as BookId, playId: fourth as PlayId }
   if (first === "parlors" && second === "submitted" && third === undefined) return { kind: "parlor-submitted" }
-  if (first === "destinations" && second !== undefined && third === undefined) return { kind: "destination", lineId: second }
   if (first === "odd-prize-calculator" && second === undefined) return { kind: "odd-prize-calculator" }
   if (first === "odd-prize-calculator" && (second === "pachinko" || second === "pachislot") && third === undefined) return { kind: "odd-prize-calculator-game", game: second }
   if (first === "consolidated" && second === undefined) return { kind: "consolidated" }
@@ -388,8 +382,6 @@ export const pathOf = (place: Place): string => {
       return `/pachislot/formulas/new/${place.tab}`
     case "pachislot-distribution-new":
       return `/pachislot/machines/${encode(place.machineId)}/distributions/new`
-    case "destination":
-      return `/destinations/${encode(place.lineId)}`
     case "odd-prize-calculator":
       return "/odd-prize-calculator"
     case "odd-prize-calculator-game":
@@ -419,7 +411,6 @@ export const focusOf = (place: Place): Focus => {
     case "live":
     case "huddle":
     case "book":
-    case "destination":
     case "odd-prize-calculator":
     case "consolidated":
     case "settings":
@@ -545,7 +536,6 @@ export const parentOf = (place: Place): Place | undefined => {
     case "live":
     case "huddle":
     case "book":
-    case "destination":
     case "odd-prize-calculator":
     case "consolidated":
     case "settings":

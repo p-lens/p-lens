@@ -1,13 +1,14 @@
 import { describe, expect, test } from "bun:test"
 
-import { ACTIVITY_LOG, activityLineOf, activityOf, activityOfText, retold, withActivity, type ActivityLine } from "../../src/core/activity/activity"
+import { ACTIVITY_LOG, activityLineOf, activityOf, activityOfText, withActivity, type ActivityLine } from "../../src/core/activity/activity"
 import type { MemberId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { fileChangesBetween, patchesOf, type ChangeIntent } from "../../src/core/change/journal-change"
 import { patchBetween } from "../../src/core/change/patch"
 import type { BookFiles } from "../../src/core/journal/layout"
 import type { PlayId } from "../../src/core/play/play"
-import { received, type Changing } from "../../src/core/sync/rebase"
+import { patched } from "../../src/core/change/patch"
+import { mapOk, Ok, type Result } from "../../src/core/result/result"
 import { describeActivity } from "../../src/ui/wording/activity"
 import { dec } from "../support/values"
 
@@ -133,7 +134,9 @@ const written = (files: BookFiles, id: string, intent: ChangeIntent, next: BookF
 
 /** The files an activity log's lines leave, made in order from nothing. */
 const replayed = (log: string): unknown =>
-  received({}, activityOfText(log).map((line) => ({ change: { files: line.parts.changes?.files ?? [] } }) as Changing))
+  activityOfText(log)
+    .flatMap((line) => line.parts.changes?.files ?? [])
+    .reduce<Result<BookFiles, unknown>>((so, patch) => (so.ok ? mapOk(patched(so.value[patch.path], patch), (text) => ({ ...so.value, [patch.path]: text })) : so), Ok({}))
 
 describe("what a line says its change did", () => {
   const created = written({}, "a1", { type: "book-created" }, { "main.journal": "; title: 帳簿\n", "transactions.journal": "" })
@@ -150,16 +153,5 @@ describe("what a line says its change did", () => {
   test("makes the book again: the lines in order from nothing leave its files as they stand, and the lines up to one as they stood then", () => {
     expect(replayed(renamed[ACTIVITY_LOG] ?? "")).toEqual({ ok: true, value: without(renamed) })
     expect(replayed((renamed[ACTIVITY_LOG] ?? "").split("\n").slice(0, 2).join("\n"))).toEqual({ ok: true, value: without(played) })
-  })
-
-  test("is told again for a commit made again, its own line and no other, whatever else the line holds", () => {
-    const log = `${(played[ACTIVITY_LOG] ?? "").trimEnd().replace(/}$/, ',"later":{"part":1}}')}\n`
-    const added = log.split("\n").slice(1, 2)
-    const again = [patchBetween("transactions.journal", "theirs\n", "theirs\n2026-10-02 流星\n")]
-    const told = retold(log, added, again)
-    expect(told.split("\n")[0]).toBe(log.split("\n")[0] ?? "")
-    expect(activityOfText(told)[1]?.parts.changes).toEqual({ files: again })
-    expect(told.split("\n")[1]).toContain('"later":{"part":1}')
-    expect(retold(log, [], again)).toBe(log)
   })
 })

@@ -13,7 +13,6 @@ import type { DraftError } from "../../storage/port/draft-storage"
 import { ARCHIVE_UNWRITABLE, describeBackupProblem, describeHandoverFailure } from "./backup"
 import { describeCatalogError } from "./catalog"
 import { describeImportProblem } from "./import"
-import { describeSyncProblem } from "./sync"
 import { ENGINE_UNLOADED, NO_CONNECTION, SERVER_TROUBLE } from "./connection"
 import * as PachinkoWording from "./pachinko/engine"
 import * as PachislotWording from "./pachislot/engine"
@@ -137,8 +136,6 @@ const describeDraftError = (error: DraftError): string => {
   switch (error.type) {
     case "draft-missing":
       return "この稼働は端末にありません。記録済みか、別の画面で削除されています。"
-    case "held-elsewhere":
-      return "この稼働は別の端末で続けています。"
     case "changed-elsewhere":
       return "この稼働は別の画面で更新されました。開き直してからもう一度入力してください。"
     case "unavailable":
@@ -187,8 +184,6 @@ export const unreadableFileText = (path: string, lines: readonly number[] | unde
   lines === undefined
     ? `${path} が壊れていて読めません。`
     : `${path} の${lines.slice(0, LINES_NAMED).join("・")}行目${lines.length > LINES_NAMED ? `ほか${lines.length - LINES_NAMED}行` : ""}が壊れていて読めません。`
-/** Said as a play another of the owner's devices held was taken off its book: deleted on the device holding it, or now recorded into a book this device does not sync. */
-export const playGoneText = (reason: "withdrawn" | "moved"): string => (reason === "moved" ? "この稼働は、この端末で同期していない帳簿あてになりました" : "この稼働は削除されました")
 
 export const describeError = (error: ApplicationError): string => {
   switch (error.type) {
@@ -208,8 +203,6 @@ export const describeError = (error: ApplicationError): string => {
       return describeOpeningProblem(error.error)
     case "history":
       return describeHistoryError(error.error)
-    case "sync":
-      return describeSyncProblem(error.problem)
     case "backup":
       return describeBackupProblem(error.problem)
     case "handover":
@@ -233,11 +226,7 @@ export const describeError = (error: ApplicationError): string => {
     case "recount-refused":
       return `0Rの数え方を変えると、${error.refusal.index + 1}件目の読み取りでカウンタが ${error.refusal.expectedAtLeast} 回転より戻ります。記録済みのカウンタと合わないため、変えられません。`
     case "recorded-unmarked":
-      return error.error.type === "held-elsewhere"
-        ? "収支は帳簿に記帳しました。ただ、記帳中にほかの端末がこの稼働を続けたため、この端末では記帳済みにできませんでした。同じ収支が二重にならないよう、ほかの端末ではこの稼働を記帳しないでください。"
-        : `収支は帳簿に記帳しました。ただ、この端末の稼働を記帳済みにできませんでした。もう一度記帳しないでください。${describeDraftError(error.error)}`
-    case "play-gone":
-      return playGoneText(error.reason)
+      return `収支は帳簿に記帳しました。ただ、この端末の稼働を記帳済みにできませんでした。もう一度記帳しないでください。${describeDraftError(error.error)}`
     case "tally-unreadable":
       return "この収支はフォームでは直せません（取り込んだ収支か、手で書き換えた仕訳です）。収支の詳細から削除して、追加し直してください。"
     case "filing-differs":

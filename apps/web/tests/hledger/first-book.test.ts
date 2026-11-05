@@ -24,10 +24,10 @@ import type { PlayId } from "../../src/core/play/play"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
 import { memoryReceipts } from "../support/backup"
 import { ACTIVITY_LOG, activityOfText } from "../../src/core/activity/activity"
-import { received, type Changing } from "../../src/core/sync/rebase"
+import { patched } from "../../src/core/change/patch"
+import type { BookFiles } from "../../src/core/journal/layout"
+import { mapOk, type Result } from "../../src/core/result/result"
 import { ME, inProcessHledger, memoryStorage } from "../support/in-process"
-import { memoryLinks } from "../support/sync"
-import { B, memoryFollow, playAt } from "../support/play-line"
 import { dec, saidIn } from "../support/values"
 
 const setUp = async () => {
@@ -96,7 +96,8 @@ describe("naming a book", () => {
     const { [ACTIVITY_LOG]: log, ...files } = storage.peek("mine" as BookId)?.files ?? {}
     const lines = activityOfText(log ?? "")
     expect(lines.map((line) => line.did)).toEqual(["book-created", "book-renamed"])
-    expect(received({}, lines.map((line) => ({ change: { files: line.parts.changes?.files ?? [] } }) as Changing))).toEqual({ ok: true, value: files })
+    const made = lines.flatMap((line) => line.parts.changes?.files ?? []).reduce<Result<BookFiles, unknown>>((so, patch) => (so.ok ? mapOk(patched(so.value[patch.path], patch), (text) => ({ ...so.value, [patch.path]: text })) : so), Ok({}))
+    expect(made).toEqual({ ok: true, value: files })
   })
 
   test("writes a title where the journal opens with none, and leaves the rest as it is", () => {
@@ -115,7 +116,6 @@ describe("naming a book", () => {
 describe("taking a book off the device", () => {
   const ports = async () => {
     const { storage, history, session } = await setUp()
-    const links = memoryLinks()
     const receipts = memoryReceipts()
     const kept: { drafts: readonly PlayDraft[] } = { drafts: [] }
     const drafts: DraftStorage = {
@@ -134,7 +134,7 @@ describe("taking a book off the device", () => {
         return Ok(undefined)
       },
     }
-    return { session, history, storage, links, receipts, drafts, follow: memoryFollow(), kept }
+    return { session, history, storage, receipts, drafts, kept }
   }
 
   const draftFor = (id: string, bookId: string): PlayDraft => ({
@@ -150,18 +150,14 @@ describe("taking a book off the device", () => {
     log: "",
   })
 
-  test("lets go of its files, its history, its sync link, its receipt, the plays being played for it and the copies of those played elsewhere, and of nothing else", async () => {
+  test("lets go of its files, its history, its receipt and the plays being played for it, and of nothing else", async () => {
     const here = await ports()
     await ensureFirstBook(here.session, make("mine"))
     await here.session.createBook(firstBook("other" as BookId, ME, "マイ帳簿"))
-    await here.links.write({ bookId: "mine" as BookId, relayUrl: "https://relay.test", secret: "s", cursor: 0 } as never)
     await here.receipts.write({ bookId: "mine" as BookId, destination: "file", at: "2026-10-08T10:00:00.000Z", fingerprint: "f" })
     await here.receipts.write({ bookId: "other" as BookId, destination: "file", at: "2026-10-08T10:00:00.000Z", fingerprint: "f" })
     await here.drafts.createDraft(draftFor("playing", "mine"))
     await here.drafts.createDraft(draftFor("elsewhere", "other"))
-    const copyOn = (id: string, bookId: string) => ({ id: id as PlayId, play: { ...playAt(1, bookId as BookId), id: id as PlayId }, holder: B, shownAt: "2026-10-08T11:30:00.000Z", line: { bookId: bookId as BookId, day: "2026-10-08" as IsoDate } })
-    await here.follow.putFollowed(copyOn("watched", "mine"))
-    await here.follow.putFollowed(copyOn("watched-elsewhere", "other"))
 
     expect(await deleteBook(here, "mine" as BookId)).toEqual({ ok: true, value: undefined })
 
@@ -170,11 +166,9 @@ describe("taking a book off the device", () => {
     expect(await here.history.log("mine" as BookId)).toEqual({ ok: true, value: [] })
     const others = await here.history.log("other" as BookId)
     expect(others.ok && others.value.length).toBe(1)
-    expect(await here.links.read("mine" as BookId)).toEqual({ ok: true, value: undefined })
     const receipts = await here.receipts.list()
     expect(receipts.ok && receipts.value.map((receipt) => receipt.bookId)).toEqual(["other"] as never)
     expect(here.kept.drafts.map((draft) => draft.id)).toEqual(["elsewhere"] as never)
-    expect(here.follow.kept().map((copy) => copy.id)).toEqual(["watched-elsewhere"] as never)
   })
 
   test("leaves the device a book to keep: the last one deleted, an empty one takes its place", async () => {

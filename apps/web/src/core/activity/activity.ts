@@ -247,26 +247,6 @@ export const activityOfText = (text: string): readonly ActivityLine[] =>
     }),
   )
 
-/**
- * An activity log's text with the line a commit wrote in it saying what the
- * commit does now: the commit was made again on files that had moved on, so
- * what it did to each is no longer what its line was first given. `added`
- * is the lines the commit put in the log, its own the last of them that
- * tells of changes. Only that part of the line is written over, as text,
- * so a part this version does not know stays as it was.
- */
-export const retold = (text: string, added: readonly string[], files: readonly FilePatch[]): string => {
-  const own = added.map(lineOf).findLast((line) => line?.parts.changes !== undefined)
-  if (own === undefined) return text
-  return text
-    .split("\n")
-    .map((each) => {
-      const value = parsed(each)
-      return isRecord(value) && value["v"] === LINE_VERSION && value["id"] === own.id ? JSON.stringify({ ...value, ...changesOf(files) }) : each
-    })
-    .join("\n")
-}
-
 /** An activity log's text with these lines after what it holds. */
 const withLines = (text: string, lines: readonly ActivityLine[]): string =>
   `${text === "" || text.endsWith("\n") ? text : `${text}\n`}${lines.map((line) => `${lineText(line)}\n`).join("")}`

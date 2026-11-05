@@ -7,13 +7,13 @@ import type { Commit, CommitId, HistoryError, HistoryPort } from "../port/histor
 
 /**
  * A commit as it is kept: beside its book, so a book's are found, under the
- * order IndexedDB counts it in, and with whether it is on its book's line.
+ * order IndexedDB counts it in. One kept by the relay the app once had says
+ * too whether it was on its book's line, which is read past.
  */
 interface CommitRecord {
   readonly order: number
   readonly bookId: BookId
   readonly commit: Commit
-  readonly onLine: boolean
 }
 
 type NewRecord = Omit<CommitRecord, "order">
@@ -43,12 +43,11 @@ const isKeptFile = (value: unknown): boolean => isFields(value) && typeof value[
 
 const isChange = (value: unknown): boolean => isFields(value) && typeof value["at"] === "string" && isFields(value["intent"]) && Array.isArray(value["files"]) && value["files"].every(isKeptFile)
 
-/** Whether a record reads as a commit kept: its place, its book, whether it is on the line, and a change with its files. */
+/** Whether a record reads as a commit kept: its place, its book, and a change with its files. */
 const isRecord = (value: unknown): value is CommitRecord =>
   isFields(value) &&
   typeof value["order"] === "number" &&
   typeof value["bookId"] === "string" &&
-  typeof value["onLine"] === "boolean" &&
   isFields(value["commit"]) &&
   typeof value["commit"]["id"] === "string" &&
   isChange(value["commit"]["change"])
@@ -89,31 +88,12 @@ export const createIndexedDbHistory = (database: Connection, nextId: () => strin
       const id = nextId() as CommitId
       const transaction = opened.value.transaction(COMMITS, "readwrite")
       const done = completionOf(transaction)
-      transaction.objectStore(COMMITS).add({ bookId: change.bookId, commit: { id, change }, onLine: false } satisfies NewRecord)
+      transaction.objectStore(COMMITS).add({ bookId: change.bookId, commit: { id, change } } satisfies NewRecord)
       return mapOk(fromStorage(await done), () => id)
     },
 
     forget: (book) => rewriting(book, (store, records) => records.forEach((record) => store.delete(record.order))),
 
     log: async (book) => mapOk(await reading(book), (records) => records.map(commitOf).toReversed()),
-
-    unsent: async (book) => mapOk(await reading(book), (records) => records.filter((record) => !record.onLine).map(commitOf)),
-
-    reconcile: (book, received, rebased) =>
-      rewriting(book, (store, records) => {
-        records.filter((record) => !record.onLine).forEach((record) => store.delete(record.order))
-        received.forEach((commit) => store.add({ bookId: book, commit, onLine: true } satisfies NewRecord))
-        rebased.forEach((commit) => store.add({ bookId: book, commit, onLine: false } satisfies NewRecord))
-      }),
-
-    unsend: (book) =>
-      rewriting(book, (store, records) => {
-        records.filter((record) => record.onLine).forEach((record) => store.put({ ...record, onLine: false } satisfies CommitRecord))
-      }),
-
-    sent: (book, ids) =>
-      rewriting(book, (store, records) => {
-        records.filter((record) => ids.includes(record.commit.id)).forEach((record) => store.put({ ...record, onLine: true } satisfies CommitRecord))
-      }),
   }
 }

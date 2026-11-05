@@ -93,15 +93,14 @@ bun --cwd=apps/api run dev             # http://localhost:8787
 `apps/web/.env.example` を `apps/web/.env.local` にコピーして
 `VITE_CATALOG_URL=http://localhost:8787` を入れ、`bun run dev` をやり直します。
 
-端末どうしの同期を試すなら、中継サーバも動かします。
+端末どうしの同期、帳簿の共有、稼働の送信、ノリ打ちを試すなら、Nostr の中継サーバも要ります。`p-lens-relay` リポジトリで、本物か、わざと癖を出す模造のどちらかを動かします。
 
 ```sh
-bun --cwd=apps/relay run migrate:local # wrangler のローカル D1 にテーブルを作る
-bun --cwd=apps/relay run dev           # http://localhost:8788
+bun --cwd=hosts/bun run relay                           # p-lens-relay で。本物、ws://127.0.0.1:7780
+FAKE_PRESET=nosflare bun --cwd=testing/fake run serve   # p-lens-relay で。模造、ws://127.0.0.1:7790
 ```
 
-`.env.local` に `VITE_RELAY_URL=http://localhost:8788` を足します。中継サーバは
-暗号化された変更を順番に預かるだけで、帳簿の中身は読めません。
+`.env.local` に `VITE_RELAY_URL=ws://127.0.0.1:7780`（模造なら `7790`）を足します。中継サーバが運ぶのは封をされたイベントだけで、帳簿の中身も稼働も読めません。
 
 Google ドライブへのバックアップを試すなら、Google Cloud で OAuth 2.0 クライアント
 （種類は「ウェブ アプリケーション」、承認済みの JavaScript 生成元に
@@ -177,31 +176,11 @@ bun run deploy
 ほかの場所に置かれたアプリのコピーや、ページを名乗らないリクエストは 403 で断ります。
 空にすると誰でも使えるので、公開する場合は必ず設定してください。
 
-### 2. 同期の中継サーバ（Cloudflare Workers + D1）
+### 2. 中継サーバ（Nostr）
 
-中継サーバは、ひとりの人の端末どうしで帳簿を運びます。運ぶのは暗号化された変更で、中継サーバには読めません。中継サーバは自分のホスト（たとえば `https://relay.example.com`）を持ちます。このアドレスは、そこを通して同期するすべての帳簿に書き込まれます。帳簿を同期し始めたら、変えられないアドレスです。同期コードは帳簿の秘密だけで、中継サーバのアドレスは入っていません。そのため、1 つの帳簿を揃える端末は、同じ中継サーバを指すビルドのアプリを使う必要があります。
+端末どうしの同期、帳簿の共有、稼働の送信、ノリ打ちは、Nostr の中継サーバを通ります。運ぶものは端末で封をされていて、中継サーバには読めません。決まりごと（PLN-1）、中継サーバ、どの中継サーバでも試せる適合テストは、`p-lens-relay` リポジトリにあります。中継サーバは同じコードで、Cloudflare（Workers + Durable Objects、公式はこちら）にも、自分のサーバ（Bun。VPS なら Docker か Podman で、Caddy が証明書を取ります）にも立てられます。立て方はその README のとおりです。PLN-1 の適合テストを通る Nostr の中継サーバなら、strfry など、ほかのものでも動きます。
 
-```sh
-cd apps/relay
-bunx wrangler d1 create p-lens-relay                             # database_id が表示される
-cp wrangler.production.example.jsonc wrangler.production.jsonc   # コミットされません
-```
-
-`wrangler.production.jsonc` の `<…>` を埋めます。
-
-| 項目 | 値 |
-|---|---|
-| `routes` | 中継サーバ自身のホスト。アカウントが持つゾーンのカスタムドメインとして |
-| `database_id` | `wrangler d1 create` が表示した id |
-| `vars.ALLOWED_ORIGINS` | アプリを配信するページのオリジン。複数ならカンマ区切り |
-| `ratelimits` | 1 アドレスあたりの、読み出し・送信・大きな送信の毎分の上限。`namespace_id` はアカウント内で重ならない数 |
-
-```sh
-bun run migrate:remote   # 本番の D1 にテーブルを作る
-bun run deploy
-```
-
-同期の列を開けるのは、端末どうしが共有の秘密から作るトークンだけで、変更を開けるのはその鍵だけです。どちらも中継サーバは目にしません。1 つのアドレスが頼めることには毎分の上限があります。読み出し、送信、そして本文が 32 kB を超える送信（帳簿の最初の変更だけがそうなります）はさらに厳しく。変更は 1 件 2 MB まで、リクエストは 4 MB まで受け付けます。この上限は 1 つのアドレスを遅くするだけで、たくさんのアドレスを持つ相手は止められません。1 本の列がため込める量にも上限はありません。Cloudflare はリクエストが届いた場所の近くで数え、あとから数を合わせるので、上限はおおよそ守られるものです。多くの接続に分けて送られると、数字より少し多く通ります。
+`VITE_RELAY_URL` は、同期を始める帳簿と、始めるノリ打ちが通る中継サーバです。同期コード、招待コード、ノリ打ちの QR には中継サーバのアドレスが入っていて、参加する端末はそのアドレスを使います。始めたあとで変えられるアドレスではありません。
 
 ### 3. アプリ（静的サイト）
 
@@ -213,7 +192,7 @@ bun run deploy
 | `VITE_PARLORS_URL` | 店舗リスト（JSONL）の公開場所、末尾は `/`。なければ空 |
 | `VITE_SURVEY_URL` | 店舗の申請先。なければ空 |
 | `VITE_TURNSTILE_SITE_KEY` | Turnstile のサイトキー |
-| `VITE_RELAY_URL` | 2 の中継サーバのアドレス。末尾に `/` は付けません。なければ空（その場合、同期を始めることも、同期コードで参加することもできません） |
+| `VITE_RELAY_URL` | 2 の中継サーバのアドレス（`wss://…`）。なければ空（その場合、端末をまたぐものはすべて使えず、アプリはひとりで動きます） |
 | `VITE_GOOGLE_CLIENT_ID` | Google ドライブへのバックアップに使う OAuth クライアント ID。なければ空（ファイルへの書き出しだけできます） |
 | `VITE_GOOGLE_API_KEY` | Google Picker を開くためのブラウザ用 API キー。手でドライブに上げ直したバックアップを戻すときに使います |
 

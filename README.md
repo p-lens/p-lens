@@ -104,15 +104,17 @@ bun --cwd=apps/api run dev             # http://localhost:8787
 Copy `apps/web/.env.example` to `apps/web/.env.local`, set
 `VITE_CATALOG_URL=http://localhost:8787`, and run `bun run dev` again.
 
-To try syncing between devices, run the relay too.
+To try syncing between devices, sharing a book, sending plays or a huddle, a
+Nostr relay is needed too: run the real one or the fake, which misbehaves on
+purpose, in the `p-lens-relay` repository.
 
 ```sh
-bun --cwd=apps/relay run migrate:local # create the tables in wrangler's local D1
-bun --cwd=apps/relay run dev           # http://localhost:8788
+bun --cwd=hosts/bun run relay                           # in p-lens-relay; the real one, ws://127.0.0.1:7780
+FAKE_PRESET=nosflare bun --cwd=testing/fake run serve   # in p-lens-relay; the fake, ws://127.0.0.1:7790
 ```
 
-Add `VITE_RELAY_URL=http://localhost:8788` to `.env.local`. The relay only
-keeps sealed changes in order; it cannot read a book.
+Add `VITE_RELAY_URL=ws://127.0.0.1:7780` (`7790` for the fake) to `.env.local`. The relay carries
+sealed events only; it can read neither a book nor a play.
 
 To try backing up to Google Drive, make an OAuth 2.0 client in Google Cloud
 (type "Web application", with `http://localhost:8136` among its authorised
@@ -191,53 +193,22 @@ A copy of the app served from anywhere else, and a request that does not say
 which page it comes from, are refused with 403. Left empty, anyone can use
 it, so always set it when you publish.
 
-### 2. The sync relay (Cloudflare Workers + D1)
+### 2. The relay (Nostr)
 
-The relay carries a book between one person's devices as sealed changes it
-cannot read. It has a host of its own (for example
-`https://relay.example.com`), and that address is written into every book
-synced through it: once books are synced, it is not an address to change.
-A pairing code is the book's secret alone and names no relay, so the devices
-that share a book must run builds naming the same one.
+Syncing between devices, sharing a book, sending plays and huddles go through
+a Nostr relay. What it carries is sealed on the devices, and the relay cannot
+read it. The protocol (PLN-1), the relay and the conformance tests any relay can be
+checked with are in the `p-lens-relay` repository. The relay runs by the same
+code on Cloudflare (Workers + Durable Objects, as the official one does) or on
+a server of one's own (Bun; on a VPS, with Docker or Podman and Caddy getting
+the certificate); its README says how to deploy either. Any
+Nostr relay that passes PLN-1's conformance tests works too, strfry among
+them.
 
-```sh
-cd apps/relay
-bunx wrangler d1 create p-lens-relay                             # prints the database_id
-cp wrangler.production.example.jsonc wrangler.production.jsonc   # not committed
-```
-
-Fill in the `<…>` in `wrangler.production.jsonc`.
-
-| Item | Value |
-|---|---|
-| `routes` | the relay's own host, as a custom domain in a zone the account holds |
-| `database_id` | the id `wrangler d1 create` printed |
-| `vars.ALLOWED_ORIGINS` | the origin of the page the app is served from; comma-separated if several |
-| `ratelimits` | the per-address limits per minute on readings, sendings and large sendings; each `namespace_id` is a number unique within the account |
-
-```sh
-bun run migrate:remote   # create the tables in the production D1
-bun run deploy
-```
-
-On every update, the migrations go first and the relay after them, never
-the other way round: the relay's code names the columns its migrations add
-(`0005_line_keep.sql` adds `lines.keep`, which every new line and the daily
-clean-up write), and a relay deployed ahead of them answers `storage` to
-each new line. An older relay runs on the migrated database unchanged, so
-going back a version needs no migration undone, and the app may ship
-before the relay: a relay that does not know a line's `keep` keeps it.
-
-A line is opened only by the token its devices work out from their shared
-secret, and its commits only by their key, neither of which the relay ever
-sees. What one address may ask is held to a limit per minute: readings,
-sendings, and — more tightly — sendings with a body over 32 kB, which only
-a book's first commits are. A commit is taken up to 2 MB and a request up
-to 4 MB. The limits slow one address down; they do not stop someone with
-many, and nothing caps what a line may come to hold. Cloudflare counts
-them close to where a request lands and brings the counts together
-afterwards, so a limit is roughly kept: requests spread over many
-connections get somewhat more through than the figure says.
+`VITE_RELAY_URL` is the relay a book starts syncing through and a huddle is
+started on. Sync codes, invitation codes and a huddle's QR code carry the
+relay's address, and a device joining by one uses that address. It is not an
+address to change once something has started on it.
 
 ### 3. The app (a static site)
 
@@ -250,7 +221,7 @@ values, and build.
 | `VITE_PARLORS_URL` | where the parlor list (JSONL) is published, ending in `/`; empty if there is none |
 | `VITE_SURVEY_URL` | where a parlor is submitted; empty if there is none |
 | `VITE_TURNSTILE_SITE_KEY` | the Turnstile site key |
-| `VITE_RELAY_URL` | the address of the sync relay of step 2, with no slash at its end; empty if there is none, and then no book is synced or joined |
+| `VITE_RELAY_URL` | the address of the relay of step 2 (`wss://…`); empty if there is none, and then nothing crosses devices and the app plays alone |
 | `VITE_GOOGLE_CLIENT_ID` | the OAuth client id for backing up to Google Drive; empty if there is none (a book can still be backed up to a file) |
 | `VITE_GOOGLE_API_KEY` | the browser API key the Google Picker is shown with, for putting back a backup uploaded to Drive by hand |
 

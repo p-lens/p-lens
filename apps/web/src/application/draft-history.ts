@@ -4,17 +4,15 @@ import type { DraftStorage } from "../storage/port/draft-storage"
 /**
  * A draft about to be kept, with what the device already knows of the play
  * that the hand keeping it may not: its history, with this change of its
- * log written in, and its marks — recorded, sent, received — where the
- * draft being kept says nothing of them. A screen holds a play while it is
+ * log written in, and its mark of being recorded where the draft being
+ * kept says nothing of it. A screen holds a play while it is
  * counted at, and what it then keeps is the log; a mark made meanwhile is
  * not to be lost to it.
  */
 const withWhatIsKept = (stored: PlayDraft | undefined, draft: PlayDraft, previousLog: string, at: string): PlayDraft => {
   const recorded = draft.recorded ?? stored?.recorded
-  const sent = draft.sent ?? stored?.sent
-  const received = draft.received ?? stored?.received
   const history = stored?.history ?? draft.history
-  return withOperation({ ...draft, ...(history === undefined ? {} : { history }), ...(recorded === undefined ? {} : { recorded }), ...(sent === undefined ? {} : { sent }), ...(received === undefined ? {} : { received }) }, previousLog, at)
+  return withOperation({ ...draft, ...(history === undefined ? {} : { history }), ...(recorded === undefined ? {} : { recorded }) }, previousLog, at)
 }
 
 /**

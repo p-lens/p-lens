@@ -96,18 +96,17 @@ describe("when a play is taken to have finished", () => {
 
   test("is now while its log was written to lately", () => {
     expect(lastWrittenAt(log)).toBe("2026-10-12T10:40:00.000Z")
-    expect(finishedBy("2026-10-12T10:48:00.000Z", lastWrittenAt(log), PLAYED_ON_FOR.own)).toBe("2026-10-12T10:48:00.000Z")
-    expect(finishedBy("2026-10-12T10:55:00.000Z", lastWrittenAt(log), PLAYED_ON_FOR.own)).toBe("2026-10-12T10:55:00.000Z")
+    expect(finishedBy("2026-10-12T10:48:00.000Z", lastWrittenAt(log), PLAYED_ON_FOR)).toBe("2026-10-12T10:48:00.000Z")
+    expect(finishedBy("2026-10-12T10:55:00.000Z", lastWrittenAt(log), PLAYED_ON_FOR)).toBe("2026-10-12T10:55:00.000Z")
   })
 
   test("is so long after its last line and no later, less for a play someone sent", () => {
-    expect(finishedBy("2026-10-13T09:00:00.000Z", lastWrittenAt(log), PLAYED_ON_FOR.own)).toBe("2026-10-12T10:55:00.000Z")
-    expect(finishedBy("2026-10-12T10:48:00.000Z", lastWrittenAt(log), PLAYED_ON_FOR.received)).toBe("2026-10-12T10:45:00.000Z")
+    expect(finishedBy("2026-10-13T09:00:00.000Z", lastWrittenAt(log), PLAYED_ON_FOR)).toBe("2026-10-12T10:55:00.000Z")
   })
 
   test("is not counted from the line that finished it before, and is now for a log that says no moment", () => {
     expect(lastWrittenAt(withFinish(log, { at: "2026-10-12T12:00:00.000Z", counter: undefined }, "pachinko", undefined))).toBe("2026-10-12T10:40:00.000Z")
-    expect(finishedBy("2026-10-13T09:00:00.000Z", lastWrittenAt(appendCheckpoint("", { spins: 0 })), PLAYED_ON_FOR.own)).toBe("2026-10-13T09:00:00.000Z")
+    expect(finishedBy("2026-10-13T09:00:00.000Z", lastWrittenAt(appendCheckpoint("", { spins: 0 })), PLAYED_ON_FOR)).toBe("2026-10-13T09:00:00.000Z")
     expect(lastWrittenAt("not a log")).toBeUndefined()
   })
 })

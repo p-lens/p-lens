@@ -1,13 +1,11 @@
 import { describe, expect, test } from "bun:test"
 
 import type { IsoDate } from "../../src/core/calendar/calendar"
-import { awaitsSending, deliveryOf, jackpotCountingOf, latestTermsOf, withCabinetNumber, withJackpotCounting, withMachine, type PachinkoDraft, type PlayDraft } from "../../src/core/live-play/draft"
+import { jackpotCountingOf, latestTermsOf, withCabinetNumber, withJackpotCounting, withMachine, type PachinkoDraft, type PlayDraft } from "../../src/core/live-play/draft"
 import { withJackpotsUntold } from "../../src/core/pachinko/revision"
 import { EVERY_JACKPOT } from "../../src/core/play-log/live"
 import { appendCheckpoint, parsePlayLog } from "../../src/core/play-log/checkpoint"
 import type { PlayId } from "../../src/core/play/play"
-
-const LINE = "line-1"
 
 const DRAFT: PachinkoDraft = {
   id: "p-1" as PlayId,
@@ -21,29 +19,6 @@ const DRAFT: PachinkoDraft = {
   log: '{"spins":0,"outlay":0}\n',
 }
 
-const sentAs = (log: string, lineId: string): PachinkoDraft => ({ ...DRAFT, sent: [{ lineId, at: "2026-10-09T02:00:00.000Z", log }] })
-
-describe("how a play stands with an inbox", () => {
-  test("a play never sent there is unsent, and waits", () => {
-    expect([deliveryOf(DRAFT, LINE), awaitsSending(DRAFT, LINE)]).toEqual(["unsent", true])
-  })
-
-  test("a play sent as it now is has gone, and does not wait", () => {
-    expect([deliveryOf(sentAs(DRAFT.log, LINE), LINE), awaitsSending(sentAs(DRAFT.log, LINE), LINE)]).toEqual(["sent", false])
-  })
-
-  test("a play changed since it was sent waits again", () => {
-    expect([deliveryOf(sentAs("", LINE), LINE), awaitsSending(sentAs("", LINE), LINE)]).toEqual(["changed", true])
-  })
-
-  test("a play sent to another inbox is unsent to this one", () => {
-    expect([deliveryOf(sentAs(DRAFT.log, "line-2"), LINE), awaitsSending(sentAs(DRAFT.log, "line-2"), LINE)]).toEqual(["unsent", true])
-  })
-
-  test("a play someone sent here is not sent on", () => {
-    expect(awaitsSending({ ...DRAFT, received: { sender: "made-up", log: DRAFT.log, finished: undefined } }, LINE)).toBe(false)
-  })
-})
 
 describe("a play said anew to be on another machine", () => {
   const bonus = { name: "10R", payout: 1500, spent: 100 }
@@ -95,10 +70,9 @@ describe("the latest terms of a game", () => {
   const terms = (exchangeTokens: number) => ({ rental: { yen: 1000, tokens: 250 }, exchange: { yen: 1000, tokens: exchangeTokens }, replay: { paidOut: 125, deducted: 125 } })
   const at = (startedAt: string, exchangeTokens: number | undefined): PachinkoDraft => ({ ...DRAFT, startedAt, venue: { type: "none", terms: exchangeTokens === undefined ? undefined : terms(exchangeTokens) } })
 
-  test("are the newest play's of the game that has any, never a play sent from someone else's device", () => {
+  test("are the newest play's of the game that has any", () => {
     const pachislot = { ...at("2026-10-09T09:00:00.000Z", 51), gameKind: "pachislot" } as PlayDraft
-    const received = { ...at("2026-10-09T08:00:00.000Z", 300), received: { sender: "仲間", log: "", finished: undefined } } as PlayDraft
-    const drafts: readonly PlayDraft[] = [at("2026-10-09T02:00:00.000Z", 280), pachislot, received, at("2026-10-09T05:00:00.000Z", 275), at("2026-10-09T07:00:00.000Z", undefined)]
+    const drafts: readonly PlayDraft[] = [at("2026-10-09T02:00:00.000Z", 280), pachislot, at("2026-10-09T05:00:00.000Z", 275), at("2026-10-09T07:00:00.000Z", undefined)]
     expect(latestTermsOf(drafts, "pachinko")?.exchange.tokens).toBe(275)
     expect(latestTermsOf(drafts, "pachislot")?.exchange.tokens).toBe(51)
     expect(latestTermsOf([], "pachinko")).toBeUndefined()

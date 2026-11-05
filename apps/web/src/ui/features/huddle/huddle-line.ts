@@ -2,20 +2,19 @@ import { createSignal, type Accessor, type Setter } from "solid-js"
 
 import type { HuddleEntry } from "../../../core/huddle/post"
 import type { HuddleTurn } from "../../../core/huddle/standing"
+import type { HuddleLine as OpenLine, HuddleProblem } from "../../../crossing"
 import { NOT_YET, type Reach } from "../../primitives/reach"
 
 /**
  * What the page has of a huddle's line, kept for as long as the page is
- * open rather than as long as one screen is: the line is read and the
- * device's plays shown wherever the app is (`HuddleRunner`), and the
- * day's list and the others' plays are drawn from what was read.
+ * open rather than as long as one screen is: the line is kept open and the
+ * device's plays shown wherever the app is (`HuddleRunner`), and the day's
+ * list and the others' plays are drawn from what was read.
  *
  * - `secret`: the huddle the rest is of; another's begins it all again.
- * - `read`: where the line has been read to.
- * - `lineEnd`: where it was last seen to end, read or shown to.
+ * - `line`: the line, open on its relay, while the runner keeps it up.
  * - `shownAt`: when this device last showed its plays, in milliseconds.
  * - `shown`: each of its plays' log as it was last shown, by its id.
- * - `reading`: a reading on its way, which another waits behind.
  *
  * `heard` is how reading the line stands, the others' plays as the page has
  * them; `told` how showing this device's own plays there does. Each is
@@ -28,23 +27,23 @@ import { NOT_YET, type Reach } from "../../primitives/reach"
 export interface HuddleLine {
   readonly entries: Accessor<readonly HuddleEntry[]>
   readonly setEntries: Setter<readonly HuddleEntry[]>
-  readonly heard: Accessor<Reach>
-  readonly setHeard: Setter<Reach>
-  readonly told: Accessor<Reach>
-  readonly setTold: Setter<Reach>
+  readonly heard: Accessor<Reach<HuddleProblem>>
+  readonly setHeard: Setter<Reach<HuddleProblem>>
+  readonly told: Accessor<Reach<HuddleProblem>>
+  readonly setTold: Setter<Reach<HuddleProblem>>
   /** How who of the others is in a jackpot turned since the day's list was last looked at — a jackpot won, or only ended — or nothing: one's own play's screen urges the way back to it until it is. */
   readonly urged: Accessor<HuddleTurn | undefined>
   readonly setUrged: Setter<HuddleTurn | undefined>
   readonly keptUp: Accessor<string | undefined>
   readonly setKeptUp: Setter<string | undefined>
-  readonly held: { secret: string | undefined; read: number; lineEnd: number; shownAt: number; shown: ReadonlyMap<string, string>; reading: boolean }
+  readonly held: { secret: string | undefined; line: OpenLine | undefined; shownAt: number; shown: ReadonlyMap<string, string> }
 }
 
 export const createHuddleLine = (): HuddleLine => {
   const [entries, setEntries] = createSignal<readonly HuddleEntry[]>([])
-  const [heard, setHeard] = createSignal<Reach>(NOT_YET)
-  const [told, setTold] = createSignal<Reach>(NOT_YET)
+  const [heard, setHeard] = createSignal<Reach<HuddleProblem>>(NOT_YET)
+  const [told, setTold] = createSignal<Reach<HuddleProblem>>(NOT_YET)
   const [urged, setUrged] = createSignal<HuddleTurn | undefined>(undefined)
   const [keptUp, setKeptUp] = createSignal<string | undefined>(undefined)
-  return { entries, setEntries, heard, setHeard, told, setTold, urged, setUrged, keptUp, setKeptUp, held: { secret: undefined, read: 0, lineEnd: 0, shownAt: 0, shown: new Map(), reading: false } }
+  return { entries, setEntries, heard, setHeard, told, setTold, urged, setUrged, keptUp, setKeptUp, held: { secret: undefined, line: undefined, shownAt: 0, shown: new Map() } }
 }

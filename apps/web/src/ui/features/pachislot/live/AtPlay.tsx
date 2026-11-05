@@ -444,14 +444,14 @@ export function AtCounting(props: {
   const counted = (kind: Missed | "jackpot"): number => props.ordered.filter((checkpoint) => checkpoint.event?.kind === kind).length
   const [takingBack, setTakingBack] = createSignal<Written<TakeBackRefusal> | undefined>(undefined)
   const takeBack = (taken: TakenBack): void => {
-    if (props.hold.type === "followed") return
+    if (props.hold.type !== "held") return
     void props.rewrite((ordered) => withLastTakenBack(ordered, taken)).then((written) => {
       setTakingBack(written)
       if (written.type === "written") toast({ title: "1つ戻しました", stays: "blink" })
     })
   }
   const keep = (ended: "at" | Missed): void => {
-    if (props.hold.type === "followed") return
+    if (props.hold.type !== "held") return
     setTakingBack(undefined)
     void props.reading.send(ended, false)
   }

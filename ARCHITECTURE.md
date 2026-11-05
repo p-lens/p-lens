@@ -114,15 +114,10 @@ The log is the book's events, and the book can be made again from them.
 itself, as a commit holds it (`FilePatch`: the lines taken away and the
 lines put in, and where). The lines made in order from nothing leave the
 book's journals and play logs as they stand, and the lines up to any one
-leave them as they stood then — the same making a device does of the
-commits it takes from a line (`received`). The history a device keeps says
-the same, but stays on the device and its line; the log goes wherever the
-book's files go, into a backup too. Two things keep it true:
+leave them as they stood then. The history a device keeps says the same,
+but stays on the device; the log goes wherever the book's files go, into a
+backup too. What keeps it true:
 
-- A commit made again on a line that had moved on (`rebased`) does
-  something else to the files than it first did, so its line is told what
-  it does now (`retold`) — the activity is made again last of a commit's
-  files for that — and only that part of the line is written over.
 - What the log does not tell of is not made again from it: the log
   itself, and `logs/favorites.jsonl`, whose own lines are its events.
 
@@ -549,8 +544,7 @@ never in a book, and nothing of it is written in one until it is recorded:
 starting a play asks for no book. The book it goes into is said as it is
 recorded — the book in use, the first the member may write (`bookInUse`),
 unless another is chosen there (`chooseBook`) — and its parlor's pool is
-opened in that book then (`finishPlay`). A play sent by someone else is said
-for the book it was sent to, and is as free to go into another. The terms a
+opened in that book then (`finishPlay`). The terms a
 play is on — what the corner rents and exchanges at, and what a replay takes
 — are the play's until then too, and are set right while it is played
 (`changeTerms`): everything counted from its readings is counted anew. Its `log` is the JSONL text itself.
@@ -674,7 +668,7 @@ app/composition ──────────────► adapters (storage/
 ui/features ──► ui/navigation, ui/wording, ui/primitives ──► solid-gathering-shell, Kobalte
       │
       ▼
-application ──► ports (storage/port, history/port, sync/port, backup/port, hledger/client)
+application ──► ports (storage/port, history/port, backup/port, hledger/client)
       │
       ▼
 core ──► hledger/protocol/wire (types only)
@@ -682,7 +676,7 @@ core ──► hledger/protocol/wire (types only)
 
 | Directory | Holds | May import |
 |---|---|---|
-| `core/` | pure domain: decimal, calendar, commodity, text, result, parlor, play, tally, play-log, live-play, valuation, theoretical, journal, report, book, access, change, backup, export, document, favorites, marks, onboarding, huddle; the catalog's machine, catalog, formula (a formula's standing) and grounds (a proof read back); and each game's own, pachinko and pachislot; play-line (a play between one's own devices) | itself, `hledger/protocol/wire` types |
+| `core/` | pure domain: decimal, calendar, commodity, text, result, parlor, play, tally, play-log, live-play, valuation, theoretical, journal, report, book, access, change, backup, export, document, favorites, marks, onboarding, huddle; the catalog's machine, catalog, formula (a formula's standing) and grounds (a proof read back); and each game's own, pachinko and pachislot | itself, `hledger/protocol/wire` types |
 | `hledger/protocol/` | the wire format, mirroring `Bindings.hs`; worker messages | nothing |
 | `hledger/query/` | hledger query terms and requests P-Lens writes | `core`, `hledger/protocol` |
 | `hledger/client/` | the only way to the worker; one queue (`inTurn`) | `hledger/protocol`, `core/result` |
@@ -691,9 +685,8 @@ core ──► hledger/protocol/wire (types only)
 | `storage/`, `history/` | `port/` interfaces (books, drafts, the copies of plays another of one's devices holds (`follow-storage`), history, whether the browser keeps what is stored); `browser/` or `adapters/` implementations, the device's ids among them (`indexed-db-device`: one for the catalog, one for the plays' lines) | `core` |
 | `preferences/` | `port/` (what a person has set for this device), `local/` (kept in localStorage) | `core` |
 | `onboarding/` | `port/` (what a device keeps of its own arrival at the app: when it first opened it, and whether it has been welcomed), `local/` (kept in localStorage, the first opening written as the app starts) | `core` |
-| `sync/` | `port/` (the relay, the sealing, the packing of what a huddle and a plays' line carry, a book's link to its line), `http/` (a relay by URL), `web-crypto/` (sealing by the browser's cryptography), `deflate/` (packing by DEFLATE), `local/` (links in IndexedDB) | `core`, contracts |
 | `backup/` | `port/` (the archive, a store away from the device, a file handed over, a fingerprint, the receipts), `zip/` (archives as zip files), `google-drive/` (a store in a person's Google Drive, and its sign-in), `browser/` (a file handed over by the browser), `web-crypto/` (fingerprints by the browser's cryptography), `local/` (receipts in IndexedDB) | `core` |
-| `application/` | use cases, the `BookSession`, `Services`; `sealed-line` (packing, sealing and reading a line of the relay's, for a huddle and a plays' line alike) and `play-line` (a play between one's own devices) among them | `core`, `hledger/query`, ports |
+| `application/` | use cases, the `BookSession`, `Services` | `core`, `hledger/query`, ports |
 | `ui/` | screens, navigation, wording, theme, primitives | `application`, `core`, port types |
 | `app/` | entry, `App`, composition (the only place naming adapters) | everything |
 | `branding/` | what is a deployment's own and not the app's, a folder for each (`default/`, `p-lens/`), of which the build takes the one `BRANDING` names (`brandings.ts`; `default` when it names none) and the app reads it as `@branding`: the documents it puts before people (`terms.md`, `privacy.md`), what it goes by, where it is, whether it is indexed and where its landing page is (`deployment.ts`), the drawing its icons are made from (`icon.png`) and the files served at its root as they are — its icons and the card a link to it is shown as (`served/`). `p-lens/` is not under the app's licence (`p-lens/LICENSE`) | `core/document` |
@@ -703,6 +696,7 @@ core ──► hledger/protocol/wire (types only)
 | `sample-book/` | サンプル帳簿: three years of made-up play written as a book of its own, scaffolding to be taken out whole once the app has spread — `core/` (the days, the parlors, the draws, as pure as `core`), `application/` (making the book), `port/`, `protocol/`, `client/` and `worker/` (where its days are played), `ui/` (its dialog and its words); reached only through its index, by the services, the composition (and its worker by URL) and the screen | `core`, `application`, `ui`, ports, `mummer` |
 | `sunk/` | ハマり台の投資額: what a cabinet took in cash on the day its data counter shows, played out by the machine's formula on the device — `core/` (the counter as typed, what a run says), `application/` (the run asked of the pachinko engine), `ui/` (its card and its words); play for fun, to be taken out whole, reached only through its index, by a formula's card on a machine's page, above 「これを使う」 on a phone and to its left wider. The engine keeps its side in `sunk` files of their own (`pachinko-simulator/src/sunk.rs`, `pachinko-wasm/src/sunk.rs`, `contracts/src/pachinko/sunk.ts`) | `core`, `application`, `ui`, the pachinko engine's client, `mummer` |
 | `first-touch/` | 操作の手引き: the first time a person touches a field or a button hard to read at a glance — a running total typed live, a button that does more when held, where a play's tokens go — a loud yellow bubble says what it is, once on the device and never again on any screen — `core/` (the notes, and which thing on which screen each is about, by the names those things already go by), `port/` and `local/` (the notes shown, under a `p-lens.` key), `ui/` (the bubble, its own stylesheet and words, and the settings' screen that forgets the notes). It reads the screens from outside — the address, the names fields and buttons go by for a screen reader — and no screen carries anything for it: a screen that no longer reads as it did is a note no longer shown. Reached only through its index, by the services, the composition, `App` (the bubble, put on the page once) and the settings (its screen); its colours are `first-touch-…` in the theme. May be taken out whole | `core`, `ui`, port types |
+| `crossing/` | what crosses devices, over Nostr by PLN-1 (p-lens-relay's `PROTOCOL.md`) — huddles, a book between one's own devices and their plays, a book shared with others, and plays sent to a book's owner (see *What crosses devices*): `core/` (events and their ids, relays' messages, the names keys are derived under, a seal's padding and what binds it, `book/`: changes, states, the graph, merging, the roster and which changes are taken, invitations and mailboxes, what a line carries, and `plays`: a play's copy, its pieces and who holds it, and `sending`: a play as it is sent), `port/` (the keys, the relays, what the device keeps of its lines), `browser/` (keys by WebCrypto and `@noble/curves`, relays by WebSocket, lines in an IndexedDB database of its own), `memory/` (lines in memory, for the tests). Reached only through its index, and never by anything that plays alone: a person with one device starts, follows, records and reads with every relay down (PROTOCOL.md §1.1) | `core`, ports of its own |
 | `catalog/` | `port/` (the shared catalog as delivered, and the API it comes from), `delivered/` (the delivered catalog in IndexedDB, with the outbox), `http/` (the API by URL), `absent/` (no catalog) | `core`, contracts |
 | `parlors/` | `port/` (the parlor list and its cache), `jsonl/` (the list by URL), `absent/` (no list), `local/` (the IndexedDB cache) | `core` |
 | `consolidation/` | `port/` (each book's answers kept for the consolidation, keyed by a digest of its journals and the question, and for what stands as of today — savings and その他損益 with an open end — the last day on or before today the book sets a rate on (`lastRateDayOf`), so that it is asked again when a new rate comes into force rather than every day, since everything else counts each posting at its own day's rate and is the same answer whatever day it is asked on), `memory/` (kept in memory), `local/` (kept in IndexedDB, read back only by the build that kept it), `tiered/` (memory in front of IndexedDB), `absent/` (nothing kept: every answer asked of hledger), `web-crypto/` (the digest by the browser's cryptography), `lanes/` (more hledgers beside the one every screen reads on, for a consolidation of many books: one for three books or fewer, two from four, three from twelve and four from twenty, held to the device's cores beside the page's own and to two gigabytes of its memory each — two where it says nothing of it — started the first time wanted and only while the consolidation is on; and a mark kept on the device while it reads on several, taken away as the page is hidden or left, so that a page finding the mark tells once that the last one stopped at work, offers a backup, and reads on one); a personal book never goes through it, and a person with few books, or none consolidated, never has more than the one hledger. A screen is answered at once with what each book was last answered, and the book is read after: one found written since is asked again, and the screen told (`OutdatedNotice`) asks again too. A question about a period reads a view of each book, the files it can count (`core/journal/views`), as one book's own screens do. Books are dealt out among the lanes by their places, each read on the same hledger every time, and asking ahead deals them out alike. Asking ahead goes over the books twice, the periods most looked at first and every day after, each book asked everything of a round before the next, and waits for each book to be read | `core` |
@@ -752,10 +746,10 @@ says the app's name.
 
 The rail is shaped like a server list: the live space at the top, where direct
 messages would be; your own books below a divider, one icon each; the books
-others let you into below another; then the books you may only send plays
-to, each an outline with a paper plane, since nothing of such a book is on
-the device, wearing the number of the day's plays that wait to be sent
-there (`awaitsSending`); settings at the foot. A book's side panel
+others let you into below another; settings at the foot. A book you may
+only send plays to has no icon, since nothing of it is on the device: it is
+listed on 設定 → 帳簿の共有, and a play goes to it from the paper plane on
+the play's row in the live list. A book's side panel
 lists its tallies first, with a ＋ beside them to add one by hand.
 
 The place is read off the address (`ui/navigation/place.ts`):
@@ -778,7 +772,6 @@ The place is read off the address (`ui/navigation/place.ts`):
 | `/books/:book/tallies/days` | typing a month's days' 収支 at a time (まとめて入力), from the calendar | content |
 | `/books/:book/tallies/:play?q=` | a tally beside its list | detail |
 | `/books/:book/tallies/:play/revise` | setting a tally right (収支の修正) | content |
-| `/destinations/:line` | a book only sent to: the day's plays and how each stands with it (`deliveryOf`), in the side panel | selection |
 | `/pachinko/machines?q=` | choosing a machine: a search bar over every machine, newest first | content |
 | `/pachinko/machines/:machine` | a machine's formulas, ranked | content |
 | `/pachinko/machines/:machine/formulas/:formula` | 算出条件: figures, marks, adopt, remake | content |
@@ -1460,10 +1453,9 @@ decides the shape of all hung on it (`core/catalog`).
   voter, and sent in order on the next refresh; a person's own marks are
   shown from their book; one the API refuses for good is let go, one it cannot reach
   waits.
-- **The device** names itself by a UUIDv7 made once (`device`, kept in
-  the `device` store under `device`). It has a second, for its plays'
-  lines, kept beside it (`play-line`) and never sent to the API, so the
-  two are never tied together (`storage/browser/indexed-db-device`).
+- **The device** names itself to the catalog by a UUIDv7 made once
+  (`device`, kept in the `device` store under `device`;
+  `storage/browser/indexed-db-device`), and by nothing else of its own.
 - `VITE_CATALOG_URL` names the API; a build without it has no catalog
   delivered and nothing to register, and plays are still recorded by their
   result.
@@ -2020,146 +2012,163 @@ only the primitives, the core and the application.
   walks, how far each ceiling is, and what is left of a 有利区間's window and
   headroom.
 
-## Sync
+## What crosses devices
 
-A book is carried between one person's devices as its commits, through a
-relay that can read none of them.
+Everything that crosses devices is carried over Nostr by PLN-1, the
+protocol p-lens-relay sets out (`PROTOCOL.md`), on any relay that passes its
+conformance tests: the official one, or a person's own. It is all in
+`crossing/`, walled off from everything that plays alone, and the build makes
+it only where `VITE_RELAY_URL` names a relay (`app/composition/crossing`).
 
-- **A line.** Each synced book has a line on a relay: its commits, sealed, in
-  the order the relay took them. `apps/relay` is the relay — a Cloudflare
-  Worker over D1 with two calls, read a line from a place in it and add to
-  its end — and `@p-lens/contracts/relay` is what it speaks. It takes
-  commits only from a device that has every entry before them, so a line has
-  one order however many devices write; one that is behind takes what it
-  missed first. An official relay and a self-hosted one are the same code,
-  and nothing in the app names either: a book's link names its relay.
-- **A secret.** The device that starts syncing a book makes 32 random bytes.
-  From them, by HKDF, come the line's id, the token the relay knows the line
-  by (it keeps only its hash), and the AES-GCM key every commit is sealed
-  with, its id bound in. The pairing code is the secret and nothing else:
-  the relay is the build's to name (`VITE_RELAY_URL`), on the device that
-  starts a book's sync and on the one that joins it, so a code carries no
-  deployment's address and whoever runs their own relay hands codes on like
-  anyone. The relay never sees the secret.
-- **A round** (`application/sync`): what the line has past this device's
-  place in it is opened and taken in, then what the book has that the line
-  has not is sealed and put on its end. Taking in runs inside the book's
-  hledger turn (`BookSession.fold`): the book's unsent commits are taken back
-  off its files, the line's commits made, the unsent ones made again on top,
-  and the files that leaves kept only if hledger reads them.
-- **Merging** (`core/sync`): a commit made again merges what it changed into
-  what the line left, line by line. Entries two devices appended to one
-  journal are both kept, the line's first; the same line added by both is
-  added once; a line both rewrote differently is a conflict, and the round
-  stops with both books as they were. No conflict is settled by guessing.
-- **Settling a conflict** (設定 → 端末の同期): the two texts are laid out as they
-  come together (`mergeOutline`), each stretch both rewrote set apart with
-  its two sides, and a person picks one for each. The line's commits are
-  then taken in, this device's unsent commits made again on them with the
-  line's standing wherever they met, and one more commit
-  (`conflict-settled`) puts the picked sides in place — so what was chosen
-  is itself in the history, and reaches the other devices like any change.
-  A line or a book that moved since the conflict was shown is looked at
-  again, never settled blind.
-- **History** says which commits are on the line (`unsent`, `reconcile`,
-  `sent`). A book older than the `commits` store is given a first commit of
-  what it held before any was kept, so its line can be made from nothing.
-- **Joining** reads the line whole, makes its commits in order from nothing,
-  and puts the book they leave on the device.
-- A round runs when the app opens, a little after each write, when the
-  device comes back online, and when asked (設定 → 端末の同期).
-- **Stopping on one device** (`stopSync`; 同期をやめる at 端末の同期, 抜ける
-  for a book one was let into at 共有): the device lets go of the book's
-  link and nothing is asked of the relay. The book stays as it stands,
-  written to here alone; the line goes on for the owner's other devices
-  and the people let in, its grants with it. What the device remembered of
-  the line goes too — the people it let in, its copies of the plays the
-  other devices play — and none of the book's commits counts as on a line,
-  so syncing it again begins a line of its own from the whole of them, or
-  meets the old one again by its code (below). A device holds the line's
-  secret, the same on each of the owner's devices, so no device can be
-  shut out from another but by a new secret; an invited person is shut out
-  by their grant (外す).
-- **Making a line anew** (`renewSync`; 同期コードを作り直す at 端末の同期):
-  to leave behind a device lost or let go of. What this device wrote goes
-  on the old line first, so a round that cannot be made changes nothing;
-  then the book's whole history goes on a line under a new secret, and
-  everyone this device let in is let in again on it, by the same name and
-  role, with a new code to be sent. The old line is left for the relay to
-  let go of once nobody uses it; the device left behind goes on along it
-  alone, holding no key to the new one.
-- **Joining a book already here** by its own code moves it onto that line
-  (`movedOnto`) rather than refusing: none of its commits counted as on a
-  line, the next round takes in what the line has — a commit it already
-  holds being the line's — and puts on it what was written here. That is
-  how the owner's other devices follow a line made anew, and how a device
-  that stopped syncing comes back. Only a book whose history makes it from
-  nothing is moved; one put back or brought in here, and any book joined by
-  an invitation, is removed and joined afresh.
-- **A commit is small.** A change keeps what it did to each file as a patch
-  (`core/change/patch`): the lines it took away and the lines it put in,
-  where — never the file whole, twice. A play recorded is its entry and its
-  log, a kilobyte or so however long the journal has grown, kept that way in
-  history and sent that way. A patch is made, and taken back, only on the
-  text it was written against. The large commits are a book's first, which
-  holds all it had — a book put back, or older than its history — and the
-  odd one that does much at once, a long import or a file edited at
-  length. The relay takes a commit up to 2 MB sealed and a body up to
-  4 MB, so before a round sends, any unsent commit larger than 750 kB
-  written out is cut into commits made one after another
-  (`fittedChanges`, `core/sync/fitting`): its files' patches in parts,
-  a long stretch a run of lines at a time, each saying what the whole
-  said; and a round puts on the line as many commits at once as a body
-  holds.
-- **What one address may ask** of the relay is held to a limit a minute
-  (`apps/relay/src/limits`, Workers rate-limiting bindings as the API's
-  are): readings, sendings, and sendings with a body over 32 kB, which only
-  a book's first commits are, more tightly. A request's body is read no
-  further than 4 MB. A device told it has asked too much (`too-many`) is
-  let through by a later round. The limits slow one address, roughly —
-  Cloudflare counts near where a request lands and reconciles after — and
-  nothing caps what a line may come to hold while it is used.
-- **A line is kept while it is used.** The relay only carries commits
-  between a book's devices, each of which keeps the book, so a line nobody
-  has read or added to for `LINE_IDLE_DAYS` is let go whole, its commits
-  with it, by a daily cron (`letGoOfIdleLines`); a line's last use is
-  written at most once a day. Nothing says so on a device. How long is
-  the line's own (`LineKeep`, the `keep` of `lines`), said by the commits
-  that make it, since the relay reads nothing on a line to tell: `lasting`,
-  7 days, a book's line, an inbox's and a huddle's, and any made without
-  saying, as every line was before there were two; `passing`, 3 days, a
-  day's plays (`PLAYS_KEPT`), which nobody makes again once the day is
-  past. A relay that does not know `keep` passes it over and keeps the
-  line as lasting, so the app says it before the relay is deployed to
-  read it. Of a lasting line let go the relay keeps whose it was and no
-  more (`owners_kept`: its id and its token's hash) — of a passing one
-  nothing — and takes the commits that make it again only with that
-  token: everyone let into a line knows its id, a line belongs
-  to the token its first commits came with, and an owner cannot move to
-  another line while the book's secret stands — so a line anyone else made
-  again would shut its owner out of syncing and sharing for good. A line
-  never made is still made by whoever sends to it first, and one let go
-  before the relay kept this has no owner kept. A line says
-  when it was begun (`begunAt`), and a link keeps it beside its cursor: a
-  device that finds its line gone, shorter than where it had come to, or
-  begun at another moment counts none of its commits as on the line
-  (`HistoryPort.unsend`) and meets it from its start — putting its whole
-  history there, as many commits a request as the relay takes, where the
-  line is gone, and where another device made it again, taking that line
-  in as it would one whose answers were lost: a commit both hold is the
-  line's, and what only this device has goes on top.
-- **A line is in one database, by its bucket** (`apps/relay/src/placing`).
-  Every request is about one line, and only the cron runs over all of
-  them, so the relay's D1 can be split by line: a line's id gives one of
-  64 buckets (`bucketOf`, FNV-1a, never changed), and a table in code
-  (`Placing`: a `home` binding and the buckets `moved` off it) gives the
-  bound database a bucket is in, its line's commits, grants and owner
-  kept with it. Today every bucket is in `DB`. A bucket is moved by
-  copying its lines' rows to another database, bound beside, and naming
-  it in `moved`; the cron lets go of idle lines in each bound database.
-- **Plays still being played** go between the same devices on lines of
-  their own, drawn from the same secret: see *Plays between one's own
-  devices*.
+- **Playing alone never waits on it** (PROTOCOL.md §1.1). Starting,
+  following and recording a play, and reading and setting right a book, go
+  to the device's own storage and hledger and nowhere else: no relay, key or
+  line is on their path, and a relay that is down, a plan that lapsed or a
+  fault in `crossing/` changes nothing of them. `tests/boundary.test.ts`
+  holds that nothing that plays alone reaches `crossing/`.
+- **The operator reads no book and no play** (PROTOCOL.md §1.2): whatever
+  is carried is sealed on the device, by keys derived from secrets no relay
+  holds; what a relay can read of it is listed there, openly.
+- **Built so far**: huddles (*Huddles*), a book between one's own devices
+  (*A book between one's own devices*), their plays (*Plays between one's
+  own devices*), a book shared with others (*A book shared with others*)
+  and plays sent to a book's owner (*Plays sent to a book's owner*).
+
+## A book between one's own devices
+
+A book is kept on a line of its own (PLN-1 §5), on the relay the build
+names, by its owner's devices: `crossing/application/book-line` keeps it
+there, `crossing/core/book` is what that means, and 設定 → 端末の同期 is
+where a book is put on its line, joined from another device and settled.
+
+- **The book is the truth; the line is derived from it.** A device never
+  writes to its book because of the line except by `BookSession.fold`,
+  which trials what it brings in hledger first and is refused like any
+  write. Whatever the book became on the device — however it got there —
+  is found by comparing its digest with the state of the line's head
+  (the shadow, kept in `crossing`'s database) and written as an edit of
+  its own, a moment after the writes stop (`BookSyncRunner`, on
+  `AppContext.written`). Nothing a person does alone waits on any of it.
+- **Changes, not snapshots.** Each change names its parents and carries
+  what it did to each file as patches that keep the lines they took away
+  (`core/change/patch`), and the digest of the state it leaves, which every
+  device checks it reaches. A base, the book whole, starts a line and
+  comes again after 300 changes or a megabyte of patches; a change too
+  large for one seal goes in parts.
+- **Merged three ways, or put to a person.** Heads beside each other are
+  merged from their merge base (`mergeStates`): what one side changed
+  taken from it, what both did alike once, lines each added kept in a
+  journal or a log, settings merged key by key. A merge any device would
+  make is made the same, with the same id, by whichever makes it. One
+  place changed two ways, a setting set two ways, a play recorded on both
+  sides, or a merge hledger cannot read is a conflict: the book stays
+  writable at its own head, and the person keeps one side stretch by
+  stretch (`ConflictPanel`), written as a merge of their own.
+- **Joining** is by the book's sync code, a QR code or text
+  (`p-lens-sync:1:…`): the code is the book's key, veiled while mumming.
+  The joining device reads every device's tip, then the line from the
+  earliest base they name, keeps the line, and puts the book on the
+  device under the id it has on the others, if hledger reads it. A book
+  already on the device is never joined over.
+- **Stopping** on one device forgets its line there and leaves the book as
+  it is; a book taken off the device lets its line go by itself.
+
+## A book shared with others
+
+The owner lets people into a book's line (PLN-1 §4.2–4.4, §5.6, §5.8) on
+設定 → 帳簿の共有: `crossing/application/book-line` does it in turn with
+everything else the line does, `crossing/core/book/roster`, `sharing` and
+`taking` are what it means, and `crossing/application/book-sharing` writes
+what goes to the relay for it.
+
+- **The roster is part of the line, never of the book.** Who is let in,
+  as an editor or a viewer, is a file of the line's state (`pln:roster`)
+  that a device keeps with its shadow and leaves out of the book a person
+  reads (`bookPartOf`, `stateOfBook`); it merges key by key as settings do.
+  What the owner calls each person, their invitation's secret and the
+  epoch's secret are sealed in it for the owner's devices alone.
+- **What is taken is worked out, not trusted.** Every change of whoever
+  wrote it is held; one is taken only as the roster of what it was made on
+  allows (`takenOf`): the owner's always, an editor's that leaves the
+  roster, the title and the book's place alone, a merge with no writer
+  only where it is the merge its parents come to. A change not taken is
+  never a head, so every device holding the same changes keeps the same
+  book.
+- **Roles on the device are the book's members.** A person joins by their
+  invitation code (`p-lens-invite:1:…`), whose mailbox gives the epoch's
+  secret and their role, and the book is kept with them in that role, so
+  that what may be written is what `Book.members` already says. An
+  editor's devices write as the editor's key; a viewer's write nothing,
+  and what its book became alone is put back. Only the owner's devices
+  carry the book's plays.
+- **Taking a person out moves the book to a new epoch.** The owner's
+  device writes the roster without them and the new epoch on the old
+  line, a base on the new one, the access list, and the mailboxes; the
+  others move as their mailbox or their head's roster says, and carry
+  onto the new line's floor whatever their book has that it lacks, as an
+  edit of their own. The person taken out is told by their mailbox, and
+  their book stays as it stood; so does one that leaves.
+
+## Plays sent to a book's owner
+
+A person the owner invites as a sender (送信, PLN-1 §4.2, §7) plays on their
+own device and sends the plays they choose to the book's inbox; the owner
+records them. `crossing/application/sending-line` sends,
+`crossing/application/inbox-line` reads, and `crossing/core/sending` says
+what of a play goes.
+
+- **A sender has no book.** Their invitation code joins them to the book's
+  inbox, kept as a destination (`Destination`) with the title the mailbox
+  gives, and nothing of the book reaches their device. The owner's roster
+  names them, with the key they sign by, so that the owner's devices open
+  what they send and drop what anyone else does; taking a sender out needs
+  no new epoch.
+- **A play is sent from when the person says, as it changes.** The paper
+  plane on the play's row starts it; the play's state goes as a copy does
+  (§6.1), a few seconds after each change and at most every half minute,
+  less what is the sender's own: their book, their recording, their
+  savings at the parlor. Pressed again, it stops, and the owner's device
+  lets the play go.
+- **The owner records it; nothing of it is kept.** A sent play is listed
+  among the day's plays with whose it is, drawn as it came, and recorded
+  from there into the book it came to, its tally naming the sender
+  (`recordSentPlay`); recorded again, it replaces what the book has. The
+  inbox is read again whenever the app opens: the relay keeps each play
+  until its day is past.
+
+## Plays between one's own devices
+
+The day's plays are copied between the owner's devices on their book's
+plays lines (PLN-1 §6), over the connection the book's line is kept on:
+`crossing/application/plays-line` keeps them there, `crossing/core/plays`
+is what a copy is, and the live list and a play's screens show the plays
+another device holds.
+
+- **The device's plays are the truth; the line is derived from them.** A
+  play is started, followed and recorded in the device's own storage
+  alone. What it became is copied a few seconds after it changes
+  (`BookSyncRunner`, on `AppContext.revision`) and once more as the page
+  is hidden, a copy that cannot go waiting with the play's hold in
+  `crossing`'s database. A play's book is the one said for it, or the one
+  it would be recorded into when it was first copied, kept with its hold.
+- **One device holds a play.** The device of the highest copy (its
+  generation, then a hash every device works out alike) holds it; only it
+  writes the play. Another device follows it: the play shown as its last
+  copy came, with nothing that writes (`PlayHold`) and 「この端末で続ける」
+  where the next reading would be typed, also on the recording screen.
+- **Taking over** is the one thing done alone that needs the relay: the
+  copy is written a generation up and the play kept on the device only
+  once the relay keeps it within three seconds. The device that held it
+  yields as it hears: its draft let go of, the play followed, and how many
+  lines it wrote that the new holder lacks said.
+- **A long log goes in pieces** of whole lines, each within a seal, the
+  last in the copy's head: a log that only grew rewrites the head alone.
+- **Recording waits on nothing.** A play recorded on two devices — one
+  overtaken out of reach — is recorded twice in the book, which its merge
+  puts to the person as a play recorded on both sides.
+- **Leaving**: a play given up, or said for another book, leaves its line,
+  and the devices following it let it go; a recorded play goes with its
+  day.
 
 ## The day's plays
 
@@ -2179,286 +2188,8 @@ after midnight, still today's.
   every change of its log, with the lines taken away and put in, written at
   the one place a draft is kept (`keepingHistory`) so that no way of
   changing a log goes unrecorded. It is not the book's activity log, which
-  a play still to be recorded is no part of. It goes wherever the play is
-  sent and is shown to whoever receives it — what was done after the play
-  was said to be over set apart (`afterItFinished`) — and never on the device
-  that keeps it, where it would only be in the way.
-
-## Plays between one's own devices
-
-A play still being played is on one device: it is a draft there, and no
-book has it until it is recorded. The owner's other devices — a second
-phone, a tablet set up to stream — see it as it goes, and any of them may
-take it over (この端末で続ける). It is lines like any other, which the
-relay only keeps for less long.
-
-- **A line per book and business day** (`Sealer.playsKeysOf`): drawn from
-  a synced book's secret by HKDF as the inbox's is, under infos of their
-  own that name the day (`plays line|access|seal <day>`). An invitation
-  draws none (`bad-secret`), so an editor, a viewer or a sender is shown
-  nothing of it: only the owner's own devices, joined by the book's own
-  code, are on it. A device reads the lines of the books of its own it
-  syncs (`ownersLink`); a play that goes to any other book is shown on
-  none and stays on its device, as before. A day's line is made passing
-  (`PLAYS_KEPT`, said by the entries put at its start and by no other):
-  the relay lets it go after three idle days rather than seven, and keeps
-  no owner of it, since nobody makes a past day's line again — a device
-  showing a play left over shows it on today's.
-- **Its own name on them** (`DeviceId`): a UUIDv7 kept in the `device`
-  store under `play-line`, beside the catalog's and never sent to the API.
-- **Five entries** (`core/play-line/entry`, `PlayLineEntry`), each under
-  the device that said it and when: `shown`, the play whole as the device
-  holds it (`ShownPlay`: its readings, where and on what it is played,
-  what it is weighed by, its history and whether it was recorded or
-  received, with its book always said, and without `sent`, which is each
-  device's own); `patched`, the same as a patch of the text of an earlier
-  showing; `claimed`, a device taking it over, at the play's next
-  handover; `withdrawn`, the play deleted where it was held; `moved`, the
-  play now going to another book. Each is written in the oldest format
-  that carries it — `patched` in format 2, the rest still in format 1 — so
-  an app that reads only format 1 passes over the patches and follows a
-  play by its whole showings.
-  Each is packed by DEFLATE and sealed as a commit of its own, as a
-  huddle's posts are (`application/sealed-line`, which the huddle reads
-  and writes through too).
-- **A play goes as what changed** (`core/play-line/showing`): a play
-  shown is a text of a line for each thing in it (`shownTextOf`) — each
-  part by name, in order of name, a list an item to a line and its log a
-  reading to a line — so that a reading put in is a line of the log and
-  one of the history. A holder shows a play whole the first time it shows
-  it on a line (the play begun, a new day's line, a book it moved to),
-  the first time since it took the play up (at another handover than it
-  last showed it at), after nineteen patches in a row, and wherever a
-  patch would come to no less than the play; any other time it puts a
-  patch (`core/change/patch`, the lines taken away and put in) of its own
-  last showing on that line, naming the place the relay gave that one
-  (`on`). A device reading the line takes a patch as the play it makes
-  (`readOnto`), made only on the text of the showing it names — one of
-  that play by that device, holding what the patch takes away — and keeps
-  the line as read with every patch so taken (`LineEntry`), so the fold
-  and everything after it see plays, never patches. A patch that does not
-  fit — a showing missed, or one that could not be opened — is passed
-  over, and so is every one after it: nothing is guessed, the copy stays
-  as it was last shown, and it catches up at the next whole showing,
-  never more than twenty on, with nothing asked of the holder. What a
-  device puts on a line it keeps as any device reads it back, so its next
-  patch is written on the very text every other device has.
-- **Holding is where a play is kept, never a flag.** The device that holds
-  a play keeps it in `drafts`; the others keep a copy in `followed`
-  (`FollowStorage`: the play as last shown, by whom, when, and on which
-  line). Taking a play up and yielding it are each one transaction between
-  the two stores (`takeUp`, `yieldUp`), adding nothing to the play's
-  history. A draft asked for, or written to, where the device keeps only
-  its copy is refused (`held-elsewhere`), so a screen left open on a
-  device that has yielded writes nothing. A copy is never put beside a
-  play held (a claim taken up while a refresh was on its way), and a play
-  is yielded only while its log is the one the yield was weighed on, so a
-  reading typed meanwhile waits for the next reading and is counted.
-- **Handovers** (`PlayDraft.handovers`): how many times a play was taken
-  over. A claim puts the next one, the play taken up carries it, and
-  every showing of it says it; the store keeps it through any write of the
-  play, a later sending's among them, and nothing sent to a friend or a
-  huddle carries it. It is what lets a claim be honoured on lines nobody
-  reads any more: a device claimed from, back days later and showing the
-  play first on a new day's line, shows it at an earlier handover than
-  the device that took it, and is passed over.
-- **Ordered by the relay alone** (`standingsOf`): a book's lines are read
-  as one sequence, day after day and each in the order the relay took its
-  entries; no clock is asked. The latest `claimed` says who holds a play,
-  unless it is at an earlier handover than one already seen; before any,
-  whoever showed it first. A `shown` counts from the device holding the
-  play at its handover, or from any at a later one (the claim that gave
-  it is on a line not read); `withdrawn` and `moved` count only from the
-  device that held the play as they were said; the rest are passed over. `withdrawn` and `moved` end a play on their own
-  book's line only. Across books the later handover says how a play
-  stands, then the line of the latest day; only between two lines of the
-  same day and handover is a clock looked at — a play held over one gone,
-  then the later showing — since nothing of the relay orders two lines.
-- **Read before every append** (`settled`): a device writing to a line
-  reads it to its end, folds it, does what the line says of its own plays
-  first — yielding one claimed since — and only then puts what is still
-  to be said, after the end it read. Told the line moved on (`behind`),
-  it reads and weighs again, up to five times. It never puts the same
-  thing again at the end it is told, as a huddle does: a claim put blind
-  could land behind another and be taken for the winner.
-- **What a device does with what it reads** (`reconcile`): a play held
-  by another that it holds itself is yielded, with the line's play; one
-  it neither holds nor keeps is copied, and a copy refreshed; a copy of
-  a play gone off its book is let go; a play it is said to hold but keeps
-  only a copy of — a claim put, and the device stopped before it moved
-  the play — is taken up. A play it holds at a later handover than the
-  lines say is kept, and shown again. Of its own: one held on its lines
-  and gone from the device was deleted, and is `withdrawn`, whichever day
-  it was last shown on — unless the lines show it recorded on a day after
-  it began, when it was let go of as past; one now going to another book
-  is shown on the new and only then `moved` on the old, so a device
-  syncing both never finds it gone between. Both are put on today's line
-  of the book, which every device reads, and worked out from that book's
-  lines alone.
-- **Nothing is merged.** A device that had yielded while away, its last
-  readings never shown, is told once how many were lost
-  (`unshownCountOf`, diffing the logs as a play's history does) and takes
-  the play as the line has it. There is no screen to choose between them.
-  One exception: a device holding a play it recorded, where the lines
-  have another holding it as shown not yet recorded, does not yield
-  (`claim-back`). The claim came before the recording was seen and the
-  book already has the play, so the device holds it again at the handover
-  after the claim (`FollowStorage.claimBack`) and shows it recorded, and
-  the other yields to it knowing it was recorded.
-- **この端末で続ける** (`continueHere`): the line is read, the copy
-  refreshed from the play's latest showing, a `claimed` put; then the play
-  is taken up and shown at once. Every other device goes back to a copy
-  the next time it reads or shows. With no relay to reach, it does not
-  go: which device claimed last is the relay's to say, and the person is
-  told so. A play deleted or moved meanwhile is let go of here too, said
-  as which (`play-gone`), and the screen goes back to the list.
-- **Recording asks first** (`heldBeforeFinishing`, `finishingHeld`): a
-  play is recorded only after its lines are read, all at once — its own
-  day's with them where it was left over — and the device found still to
-  hold it. Where no line can be reached, the book is not synced, or no
-  line knows the play, it is recorded as before: the device comes first.
-  Nothing more is awaited of the relay: a play of the day is shown
-  recorded by the runner, as any write is. A play left over is shown
-  recorded at once, before it can be let go of as past, so its copies are
-  let go as recorded (この稼働は記帳されました) rather than deleted. A
-  claim landing between the book's write and the play's mark is claimed
-  back, there or at the next reading (`claim-back`): the book has the
-  play as this device's log made it, and the device that claimed it
-  yields, rather than record it a second time from its copy.
-  Two devices recording one play while both are out of reach make two
-  tallies of one play id, which the book's own sync meets as it meets any
-  conflict.
-- **The day turns**: today's line is always read, and the day before on
-  the first reading of a day, while a play left over is held, or while a
-  copy last shown on a day gone by is kept; and with them the play's own
-  day, and the day the copy was last shown on, however long ago, where a
-  claim, a recording or a deletion made elsewhere is on no later line. A
-  play not yet recorded is shown again on today's line by its holder; one
-  recorded on a day gone by is not, being shown once as it is; a copy of
-  it is let go (`loadFollowedToday`), the play being in its book.
-- **Shown and read wherever the app is** (`PlayLineRunner`, beside the
-  huddle's, once in the shell): a held play is shown two seconds after it
-  was written, at most once every four seconds — every thirty where it
-  would go whole and is past what the relay takes as a small body; a
-  patch is small however long the play has grown — and only where it differs
-  from what its line has, in batches the relay takes in one append and
-  under 32 kB, a showing's size reckoned as the sealed body the relay
-  counts (`isLargeShowing`). The lines are read at once as the app opens
-  and comes back in sight, every thirty seconds anywhere in the live
-  space, the line of a copy that is open every five — its book's lines
-  alone (`LinesRead`), a device reading only so many a minute, and the
-  other books' too where it stands moved off that book — and never
-  while the page is away; as it is
-  hidden, what is still to be shown is put once, with no reading and no
-  second try (`flushOnHide`), so a phone about to die still says its last.
-  A device that syncs no book of its own reads no book's files for any
-  of it.
-- **A copy is the play's own screen, with nothing to press**: each game's
-  `LivePlay` draws it, its figures and readings as they were shown, and
-  where readings are typed stands the time it was shown as of and
-  この端末で続ける (`ContinueBar`), laid over the place readings are typed,
-  which stays beneath it unseen and inert, so the band keeps its height.
-  A copy refreshed is drawn again in place, never built anew, so what is
-  scrolled to and what is open stay. 遊技を終了, the pencils, a long press
-  and sending are not there, and the counting tiles answer nothing. The live space lists
-  copies beside the plays held (別の端末で計測中), and 収支を記帳 shows
-  the bar in place of its form.
-- **What else follows**: a play sent to a book while this device holds
-  only a copy of it waits in the inbox, untaken, until the device holds
-  it (`takenIn`'s `deferred`), so no second holder is made — unless the
-  copy shows the holder took that sending in, when it is dealt with as
-  had, and so is one a play held here already has in it; deleting a
-  book lets its copies go; データの消去 empties `followed` with every
-  store. 配信モード veils a copy as it veils the play; since 端末の同期 is
-  hidden while mumming, a device to stream from is joined before.
-
-## Letting others into a book
-
-A book's owner lets other people into it, each by a code of their own
-(設定 → 共有 → 招待・外す; `core/sync/invitation`, `application/invitations`).
-There is no account over the books: whoever holds a line's secret is its
-owner, and lets others in from there.
-
-To the person these are two things, whatever they share underneath, and
-they are two screens. 端末の同期 is one's own books between one's own
-devices: the book's own code, which is its key and is handed to nobody,
-and the whole of how the last round went, a conflict settled there. 共有
-is other people: who is let into each of one's books, the books one was
-let into, the books one may only send plays to — and never a book's own
-code. Each takes its own kind of code and turns the other's away with
-where it goes (`kindOfCode`). A book not yet on its way is started as its
-first invitation is opened, and 共有 says in a line how syncing stands,
-since it rides on it.
-
-- **An invitation** is a token made for one person, the line's id and the
-  key its commits are sealed with, and what the token may do — write, or
-  only read. It gives no way back to the line's secret, so whoever holds one
-  can neither let others in nor take the line over. The code is those four
-  with dots between; a device keeps it where an owner's keeps the secret,
-  and opens the line by it (`Sealer.keysOf` takes either).
-- **A grant** is what the relay keeps of one (`grants`, by the hash of the
-  token, as a line's own is): `GET` and `POST /lines/:line/grants` list and
-  make them, `DELETE …/grants/:id` takes one away, all three the owner's
-  token's alone. A viewer's token reads and is refused an append
-  (`forbidden`); a token whose grant is gone opens nothing (`unauthorized`,
-  `shut-out` on a device). The relay knows a person by a token and never by
-  name.
-- **Who was let in** is the owner's device's to remember (`InvitationStore`,
-  `invitations` in IndexedDB): a name, the role, the code to hand over
-  again. The names go nowhere, and a second device of the owner's does not
-  have them.
-- **On the device let in** the book is someone else's: its cover names this
-  member an editor or a viewer (`roleBy`), which is what `BookSession.write`
-  goes by, so a viewer's book takes no write. A round for a viewer takes in
-  and sends nothing; and neither kind of invited device makes a line again
-  where its relay let go of it — a line belongs to the token its first
-  commits came with — but waits for the owner's. The relay holds them to
-  it: a line let go is made again by its owner's token alone.
-- **A book's name is its owner's.** A write that gives the book another
-  title — by its name's field, or by a hand in `main.journal` — needs the
-  `rename` capability, which an owner has and an editor does not
-  (`BookSession.write`). The name the owner gives is the name everyone let
-  in sees. It is the app that holds an editor to this: the relay reads no
-  commit, and cannot.
-- **Sent as a message**: making an invitation copies what the person is to
-  be sent — how to join, and their code (`invitationMessage`).
-- **Let in only to send** (`sender`): a person who is shown nothing of the
-  book and sends their own plays to its owner. A book has a second line
-  beside its own, its **inbox**, drawn from the same secret with a key of
-  its own (`Sealer.inboxKeysOf`); a sender's token may add to it and not
-  read it, learning only where it ends. Their invitation carries the book's
-  title, since they never see the book, and is kept on their device as a
-  destination (`DestinationStore`), with no book. It has a place on the
-  rail all the same (`destination`, by its inbox line), which opens the
-  day's plays to send and nothing of the book.
-- **A sent play** (`core/sync/sent-draft`, `sendDraft`) is one of the
-  sender's day, as their device keeps it: its readings, where and on what
-  it was played, what it is weighed by, and its history. Recorded or not
-  makes no difference, and a play set right after it was sent is sent
-  again. It names no book: which it goes into is its receiver's to say.
-- **Taken in by itself** (`application/inbox`, `receiveArrivals`): after
-  each round of syncing, what waits in the inboxes of the books this device
-  owns joins its day's plays, each under the name its owner gave the token
-  it came by, addressed to the book it was sent to and with its parlor's
-  pool opened there. From then on it is a play of the day like the owner's
-  own: its readings set right, recorded into that book or another
-  (`chooseBook`). Its entry says who played it — `sender-id:` the
-  invitation's id, which a person keeps however they are renamed, and
-  `sender:` the name they had as it was recorded — so a book's plays are
-  gathered by id and named by the latest entry; a person invited again is
-  another id. A play of the owner's own says neither. A play sent again
-  takes the place of one left as it arrived; one the owner has changed
-  or recorded is not written over, and the later sending is kept beside
-  it for a choice (`takeSentAgain`, `keepOwn`). Nothing goes back to the
-  sender. What was taken in is kept on the book's link (`inboxHandled`).
-- **A relay that let go** of a book's lines has lost their grants too. The
-  owner's device says again whom it let in (`restoreGrantsOf`), for each
-  book once each time the app is opened, after a round has taken that book
-  through and its line is made again: a book that keeps failing holds back
-  only its own.
-- **Taken back out**, a person keeps what their device already took, and
-  receives nothing after. An invitation handed on to someone else lets that
-  person in as the same grant: this is for people who know each other.
+  a play still to be recorded is no part of. It is not shown on screen,
+  where it would only be in the way.
 
 ## Huddles
 
@@ -2466,44 +2197,48 @@ A huddle (ノリ打ち) is people playing together, each shown the others'
 plays live. It is no book's and writes in none: each play is recorded
 wherever its player records it, as it would be without the huddle.
 
-- **One line, one secret.** A huddle is a line on the relay drawn from a
-  secret of its own, by keys a huddle alone is drawn under
-  (`Sealer.huddleKeysOf`): a book's secret given there opens nothing of
-  the book's. Its code (`huddleCodeOf`) is the secret marked as a
-  huddle's, so neither is ever taken for the other; it is shown as a QR
-  code and read by the camera, or out of an image — a screenshot of it
-  sent in a chat. It is never shown as text to copy. Whoever has it reads
-  and adds to the line with the same token, so nobody is let in one by
-  one, and the relay is changed in nothing.
+- **One line, one secret.** A huddle is a line on a Nostr relay (PLN-1,
+  p-lens-relay's `PROTOCOL.md` §8) drawn from a secret of its own and the
+  business day it was begun on (`crossing/`): a book's secret given there
+  opens nothing of the book's. Its code (`huddleCodeOf`,
+  `p-lens-huddle:2:<secret>:<day>:<relay>`) carries the secret, the day and
+  the relay's address, its label included where the relay gives lines
+  labels, so that whoever joins reaches the same line wherever their own
+  build points; a code of another business day is over. It is shown as a
+  QR code and read by the camera, or out of an image — a screenshot of it
+  sent in a chat. It is never shown as text to copy.
 - **Nobody leads it.** Whoever began a huddle is a member like the others
   once it is begun: anyone in it shows its code to someone joining, and
   leaving it is each person's own. Nobody is put out of one, and none is
   closed: each device lets go of it as its day turns. This is meant — a
   huddle is people who know each other, at one parlor — and is kept.
 - **Kept by the device for its business day** (`Preferences.huddle`,
-  `p-lens.huddle`): the secret, the business day it was joined on, the
-  member the device is in it — a random id, kept when the same code is
-  read again — and the name its person goes by there. Once the day turns
-  it is let go of; the line, untouched, is let go of by the relay as any
-  idle line is.
-- **A post** (`core/huddle/post`) is a play as its device has it — its
-  readings, where and on what it is played, what it is weighed by —
-  without its book, its marks or its history, under the member and the
-  name. It is an entry on the line (`HuddleEntry`), as a play taken back
-  is. It is packed by DEFLATE (`Packer`) and sealed, a commit of its
-  own on the line: a play shown again and again stays far under what
-  the relay counts as a large sending.
+  `p-lens.huddle`): the secret, the business day, the relay, a seed of the
+  device's own, the member the device is in it — the public key it signs
+  with there, drawn from the secret and the seed, so the same code read
+  again the same day is the same member — and the name its person goes by
+  there. Once the day turns it is let go of; the relay lets its states run
+  out two whole days after the day began.
+- **What the line carries** (`core/huddle/post`, `crossing/core/huddle`):
+  each play as its device has it — its readings, where and on what it is
+  played, what it is weighed by — without its book, its marks or its
+  history, under the member and the name, as one addressable state per
+  play, sealed, so that the relay keeps the latest showing of each alone; a
+  play taken back is the same address with its id alone; a member's
+  leaving is an address of its own. Every state is signed by the member's
+  key, and one that says it is another member's is dropped: nobody shows,
+  takes back or leaves for another.
 - **Shown and read wherever the app is** (`HuddleRunner`, once, in the
-  shell): each of the day's own plays is shown when its log changes, at
-  most once every 30 seconds, the latest of each then — a play that came
-  from someone else is theirs to show — and the line is read at once and
-  every 30 seconds while the page is in sight, not while it is away, and at
-  once as it comes back: a phone's radio asked more often is never let
-  rest. What is read is kept as each play's latest showing alone, with
-  every play taken back and member leaving (`latestEntries`), since each
-  showing carries the play's whole log; the others' plays are worked out
-  from it once for every screen (`HuddleJoined.others`). What has been read, and which log of each play was
-  last shown, are the page's (`HuddleLine`, on the context).
+  shell, where the build names a relay): the line is kept open while the
+  page is in sight, every state on it read at once and each new one as it is
+  shown, and let go of a moment after the page goes away, opened again as it
+  comes back. Each of the day's own plays is shown when its log changes, at
+  most every 3 seconds in a room of six, 10 of twenty and 30 beyond
+  (`showingEvery`), the latest of each then — a play that came from someone
+  else is theirs to show — and what changed is shown once more as the page
+  goes away. The others' plays are worked out once for every screen
+  (`HuddleJoined.others`) from what was read, which is the page's
+  (`HuddleLine`, on the context).
 - **A play given up is taken back** (`HuddleWithdrawal`, `givenUp`,
   `withdrawFromHuddle`): an entry of its id alone, under who took it
   back, so the others let it go too — a play begun on the wrong machine,
@@ -2546,8 +2281,7 @@ wherever its player records it, as it would be without the huddle.
   item's `arriving`). The live space's list keeps one's own plays alone;
   its ノリ打ち button begins or joins one, and leads to the room once in.
 - **Everyone in the room, oneself among them** (`roomPlaysOf`,
-  `roomMembersOf`): one's own plays — not those sent to the device —
-  under 自分, and each
+  `roomMembersOf`): one's own plays under 自分, and each
   of the others' plays as the latest post of it (`othersPlays`), all put
   in place alike: first the play each is on — the one they began last —
   in the order they began their first play of the day, then those of

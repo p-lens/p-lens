@@ -43,3 +43,6 @@ export const shownDescription = (description: string): string => {
  * what that app called it, which is all its description is.
  */
 export const tallyTitle = (tally: TallySummary, machineNames: MachineNames): string => (tally.machine === undefined ? undefined : shownNameOf(machineNames, tally.machine)) ?? (tally.importedFrom !== undefined && shownDescription(tally.description) !== "" ? shownDescription(tally.description) : "手入力した収支")
+
+/** What marks a play its book already has, in the day's list. */
+export const RECORDED_MARK = "記帳済み"

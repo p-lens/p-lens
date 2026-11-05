@@ -3,16 +3,13 @@ import { createMemo, createResource, onMount, Show, untrack, type JSX } from "so
 import { createArrangement, GatheringShell, MainContent, TopBar } from "solid-gathering-shell"
 
 import type { Outcome } from "../../../application/errors"
-import { destinationsOf } from "../../../application/sending"
 import type { ListedBook } from "../../../core/book/book"
 import { EVERY_TALLY } from "../../../core/report/narrowing"
-import type { Destination } from "../../../sync/port/destination-store"
 import { useApp } from "../../context"
 import { bookOf, focusOf, inConsolidation, inHuddleRoom, inOddPrizeCalculator, inSettings, placeOf, screenOf, type Place } from "../../navigation/place"
 import { EmptyState } from "../../primitives/states"
 import { ActivityView } from "../activity/ActivityView"
 import { CabinetView } from "../live/CabinetView"
-import { DestinationSide } from "../live/DestinationSide"
 import { HoldingsView } from "../holdings/HoldingsView"
 import { ParlorPassbookPanel } from "../holdings/ParlorPassbookPanel"
 import { PassbookPanel } from "../holdings/PassbookPanel"
@@ -22,9 +19,9 @@ import { HuddleSettlementView } from "../huddle/HuddleSettlementView"
 import { HuddleSide } from "../huddle/HuddleSide"
 import { HuddleTotalView } from "../huddle/HuddleTotalView"
 import { HuddleRunner } from "../huddle/HuddleRunner"
+import { BookSyncRunner } from "../sync/BookSyncRunner"
 import { LivePlayView } from "../live/LivePlayView"
 import { LiveSide } from "../live/LiveSide"
-import { PlayLineRunner } from "../live/PlayLineRunner"
 import * as PachinkoViews from "../pachinko"
 import { FileDetail, FilesView } from "../files/FilesView"
 import { StartFormProvider } from "../live/start-form"
@@ -55,10 +52,10 @@ import { ExportSettings } from "../settings/ExportSettings"
 import { ImportSettings } from "../settings/ImportSettings"
 import { BooksSettings } from "../settings/BooksSettings"
 import { BusinessDaySettings } from "../settings/BusinessDaySettings"
-import { LicensesView } from "../settings/LicensesView"
-import { UnderTheHoodView } from "../settings/UnderTheHoodView"
 import { SharingSettings } from "../settings/SharingSettings"
 import { SyncSettings } from "../settings/SyncSettings"
+import { LicensesView } from "../settings/LicensesView"
+import { UnderTheHoodView } from "../settings/UnderTheHoodView"
 import { AboutButton } from "./AboutButton"
 import { MummingMark } from "../mummer/MummingMark"
 import { MummerSettings } from "../mummer/MummerSettings"
@@ -190,8 +187,6 @@ const mainFor = (place: Place, query: () => string, live: () => Place): JSX.Elem
       return <PachislotViews.FormulaEditorView place={liveAs(live, place)} />
     case "pachislot-distribution-new":
       return <PachislotViews.SettingDistributionEditorView place={place} machineId={place.machineId} />
-    case "destination":
-      return <ChooseFromList place={place} title="稼働の送り先" hint="左のリストから、本日の稼働を送れます。" />
     case "consolidated":
       return <ChooseFromList place={place} title="連結" hint="左のリストからビューを選んでください。" />
     case "consolidated-holdings":
@@ -263,11 +258,10 @@ const bookViewFor = (place: Extract<Place, { kind: "book-view" }>, query: () => 
   }
 }
 
-/** The side panel for a place: the live space's plays, the huddle's room, a book's views, the plays to send to a book that is only sent to, the odd-prize calculator's games, or settings. */
-const sideFor = (place: Place, books: Outcome<readonly ListedBook[]> | undefined, destinations: Outcome<readonly Destination[]> | undefined): JSX.Element => {
+/** The side panel for a place: the live space's plays, the huddle's room, a book's views, the odd-prize calculator's games, or settings. */
+const sideFor = (place: Place, books: Outcome<readonly ListedBook[]> | undefined): JSX.Element => {
   if (inSettings(place)) return <SettingsSide place={place} />
   if (inOddPrizeCalculator(place)) return <OddPrizeCalculatorSide place={place} />
-  if (place.kind === "destination") return <DestinationSide lineId={place.lineId} destinations={destinations} />
   if (inConsolidation(place)) return <ConsolidatedSide place={place} />
   if (inHuddleRoom(place)) return <HuddleSide place={place} />
   const bookId = bookOf(place)
@@ -291,8 +285,7 @@ const valueSheetShown = (place: Place): boolean =>
 /**
  * The whole screen, read off the address: which place, which hledger query,
  * and from those which panes show what. The books are asked for once here,
- * since the rail and a book's side panel both name them, and the books that
- * are only sent to likewise. Making a sample book is held here too, since
+ * since the rail and a book's side panel both name them. Making a sample book is held here too, since
  * both the rail and the welcome open it. Once past `/`, the tab is called
  * by the app's name alone: the page's title is for the way in a search finds.
  */
@@ -304,7 +297,6 @@ export function PLensScreen(): JSX.Element {
   const query = (): string => search.q ?? ""
   const app = useApp()
   const [books] = createResource(() => app.revision(), () => app.services.session.books())
-  const [destinations] = createResource(() => app.revision(), () => destinationsOf(app.services.destinations))
   onMount(() => {
     document.title = app.services.screenTitle
   })
@@ -330,8 +322,8 @@ export function PLensScreen(): JSX.Element {
               }
             />
           }
-          rail={<SpacesRail place={place()} books={books()} destinations={destinations()} sampleBook={sampleBook.item()} />}
-          side={sideFor(place(), books(), destinations())}
+          rail={<SpacesRail place={place()} books={books()} sampleBook={sampleBook.item()} />}
+          side={sideFor(place(), books())}
           aux={auxFor(place(), query)}
         >
           <Show when={screenOf(place())} keyed>
@@ -342,8 +334,14 @@ export function PLensScreen(): JSX.Element {
       </WelcomeProvider>
       <ToastRegion />
       <StoppedNotice />
-      <HuddleRunner place={place()} />
-      <PlayLineRunner place={place()} />
+      <Show when={app.crossing} keyed>
+        {(crossing) => (
+          <>
+            <HuddleRunner place={place()} crossing={crossing} />
+            <BookSyncRunner crossing={crossing} />
+          </>
+        )}
+      </Show>
     </StartFormProvider>
   )
 }
