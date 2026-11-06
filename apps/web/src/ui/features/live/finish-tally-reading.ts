@@ -25,7 +25,7 @@ export const readOptionalYen = (text: string, field: NumericField): Read<Decimal
   return parsed.ok ? parsed : Err({ field, reason: "not-a-number" })
 }
 
-/** What a play followed live comes to by its log, for recording it: yen spent, tokens drawn from savings, the tokens it was begun with in hand, those other players handed in or were handed, the tokens in hand at its last line, its theoretical value and — a pachinko play's — the spin performance it measured, each where the log says. */
+/** What a play followed live comes to by its log, for recording it: yen spent, tokens drawn from savings, the tokens it was begun with in hand, those other players handed in or were handed, the tokens in hand at its last line and — a pachinko play's — the spin performance it measured, each where the log says. Its theoretical value is not among them: the form works it out as it opens, and again as the hand changes (`createFollowedWorth`), so that nothing waits on it. */
 export interface PlayedSoFar {
   readonly outlay: number | undefined
   readonly replay: number | undefined
@@ -35,7 +35,6 @@ export interface PlayedSoFar {
   readonly held: number | undefined
   /** Whether the tokens in hand are what the formula says are likely in hand, not what was counted at the last line. */
   readonly heldLikely: boolean
-  readonly theoreticalValue: number | undefined
   readonly spinPerformance: number | undefined
 }
 

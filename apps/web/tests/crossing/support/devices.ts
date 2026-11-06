@@ -31,6 +31,7 @@ const relays = createWebSocketRelays()
 export interface Opened {
   readonly book: BookLine
   readonly plays: PlaysLine
+  readonly connection: Connection
   readonly close: () => Promise<void>
 }
 
@@ -116,7 +117,7 @@ export const deviceOn = (relayUrl: string, hledger: HledgerClient) => {
       },
     })
     if (!plays.ok) throw new Error(JSON.stringify(plays.error))
-    const opened: Opened = { book: book.value, plays: plays.value, close: async () => void (await Promise.all([book.value.close(), plays.value.close()]).finally(connection.close)) }
+    const opened: Opened = { book: book.value, plays: plays.value, connection, close: async () => void (await Promise.all([book.value.close(), plays.value.close()]).finally(connection.close)) }
     held.opened.push(opened)
     return opened
   }

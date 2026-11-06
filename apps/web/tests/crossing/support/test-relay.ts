@@ -11,7 +11,8 @@ type Filter = { readonly kinds?: number[]; readonly "#v"?: string[]; readonly si
 /**
  * A relay for the tests: NIP-01 at its plainest (keeps every event, gives
  * what a REQ's kinds and `#v` match, passes new ones on), with what a test
- * needs to make it misbehave: drop every socket, forget every event, refuse
+ * needs to count what it handed out and was asked for, and to make it
+ * misbehave: drop every socket, forget every event, refuse
  * with a reason, keep quiet, or hand on an event its author never signed;
  * and, as a capped relay does, refuse a mailbox no access list of its
  * author's holds.
@@ -25,6 +26,8 @@ export const startTestRelay = () => {
     silent: false,
     listedOnly: false,
     next: 0,
+    handedOut: 0,
+    asked: [] as Filter[][],
   }
   const matches = (filters: readonly Filter[], event: NostrEvent): boolean =>
     filters.some(
@@ -83,8 +86,11 @@ export const startTestRelay = () => {
         }
         if (verb === "REQ") {
           const filters = rest as Filter[]
+          held.asked.push(filters)
           held.subscriptions.get(socket)?.set(String(first), filters)
-          stored(filters).forEach((event) => socket.send(JSON.stringify(["EVENT", first, event])))
+          const found = stored(filters)
+          held.handedOut += found.length
+          found.forEach((event) => socket.send(JSON.stringify(["EVENT", first, event])))
           socket.send(JSON.stringify(["EOSE", first]))
         }
         if (verb === "CLOSE") held.subscriptions.get(socket)?.delete(String(first))
@@ -94,6 +100,10 @@ export const startTestRelay = () => {
   return {
     url: `ws://127.0.0.1:${server.port}`,
     events: () => held.events,
+    /** How many kept events REQs have been answered with, live ones aside. */
+    handedOut: () => held.handedOut,
+    /** Every REQ's filters, in the order they came. */
+    asked: () => held.asked,
     dropEverySocket: () => held.sockets.forEach((socket) => socket.close()),
     forgetEverything: () => {
       held.events = []

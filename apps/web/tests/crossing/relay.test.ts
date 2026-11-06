@@ -57,7 +57,7 @@ describe("a connection", () => {
     const reader = connect(server.url)
     const seen: string[] = []
     const caughtUp = { at: -1 }
-    reader.subscribe([{ kinds: [4738], "#v": [LINE] }], {
+    reader.subscribe(() => [{ kinds: [4738], "#v": [LINE] }], {
       onEvent: (arrived) => seen.push(arrived.content),
       onCaughtUp: () => {
         caughtUp.at = seen.length
@@ -74,7 +74,7 @@ describe("a connection", () => {
     const reader = connect(server.url)
     const seen: string[] = []
     const caughtUp = { done: false }
-    reader.subscribe([{ kinds: [4738] }], { onEvent: (arrived) => seen.push(arrived.content), onCaughtUp: () => (caughtUp.done = true) })
+    reader.subscribe(() => [{ kinds: [4738] }], { onEvent: (arrived) => seen.push(arrived.content), onCaughtUp: () => (caughtUp.done = true) })
     await until(() => caughtUp.done)
     const forged = { ...event("real"), content: "forged" }
     server.sendToEvery(["EVENT", "s0", forged])
@@ -89,7 +89,7 @@ describe("a connection", () => {
     const states: ConnectionState["type"][] = []
     connection.onState((state) => states.push(state.type))
     const seen: string[] = []
-    connection.subscribe([{ kinds: [4738] }], { onEvent: (arrived) => seen.push(arrived.content) })
+    connection.subscribe(() => [{ kinds: [4738] }], { onEvent: (arrived) => seen.push(arrived.content) })
     await opened(connection)
     server.dropEverySocket()
     await until(() => connection.state().type === "failing")
@@ -98,6 +98,23 @@ describe("a connection", () => {
     expect(await waiting).toEqual({ ok: true, value: { type: "kept" } })
     expect(states).toEqual(["open", "failing", "connecting", "open"])
     await until(() => seen.includes("sent while down"))
+  })
+
+  test("let rest, opens nothing until asked, then asks each subscription by what it gives at that moment", async () => {
+    const server = relay()
+    const connection = connect(server.url)
+    const since = { at: 100 }
+    connection.subscribe(() => [{ kinds: [4738], since: since.at }], { onEvent: () => undefined })
+    await opened(connection)
+    connection.pause()
+    expect(connection.state()).toEqual({ type: "paused" })
+    await new Promise((resolve) => setTimeout(resolve, 1_200))
+    expect(connection.state()).toEqual({ type: "paused" })
+    since.at = 200
+    const waiting = connection.publish(event("sent while resting"), 5_000)
+    connection.reopen()
+    expect(await waiting).toEqual({ ok: true, value: { type: "kept" } })
+    expect(server.asked().map((filters) => filters[0]?.since)).toEqual([100, 200])
   })
 
   test("gives up waiting for an answer that never comes", async () => {

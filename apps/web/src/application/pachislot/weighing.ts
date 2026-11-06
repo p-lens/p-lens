@@ -4,6 +4,7 @@ import type {
   PlayedDto,
   SegmentDto,
   PathDto,
+  TheoreticalValueDto,
   WeightDto,
 } from "@p-lens/contracts/pachislot"
 
@@ -82,21 +83,23 @@ const observedOf = (weighing: Weighing, ordered: readonly Checkpoint[], played: 
   return Ok({ seen: segments.value.some((segment) => segment.games > 0), segments: segments.value, path: undefined, played: { type: "games", games: played > 0 ? played : GAMES_PER_HOUR } })
 }
 
+/** A play weighed as far as its value: what was seen, the setting levels it makes likely, the terms it was played on, and what its games are worth under them. */
+interface Valued {
+  readonly observed: Observed
+  readonly settingLevels: readonly WeightDto[]
+  readonly play: PlayDto | undefined
+  readonly played: number
+  readonly value: TheoreticalValueDto
+}
+
 /**
- * A pachislot play weighed by its log: the setting levels inferred from what
- * was seen, under the play's prior, then the theoretical value of the games
- * played under those odds — on a machine of bonuses, of an hour's play
- * before any — and on an AT machine what playing on from where it stands
- * until the next AT is over is worth. The outlay and the savings drawn the
- * log last gives say how much of the play was rented for cash and how much
- * drawn from savings.
+ * The setting levels a play's log makes likely, under the play's prior, and
+ * the theoretical value of the games played under those odds — on a machine
+ * of bonuses, of an hour's play before any. The outlay and the savings drawn
+ * the log last gives say how much of the play was rented for cash and how
+ * much drawn from savings.
  */
-export const weighPlay = async (
-  engine: EngineClient,
-  weighing: Weighing,
-  ordered: readonly Checkpoint[],
-  terms: PlayTerms | undefined,
-): Promise<Outcome<PlayOutlook>> => {
+const valuedOf = async (engine: EngineClient, weighing: Weighing, ordered: readonly Checkpoint[], terms: PlayTerms | undefined): Promise<Outcome<Valued>> => {
   const played = ordered.at(-1)?.spins ?? 0
   const observed = observedOf(weighing, ordered, played)
   if (!observed.ok) return observed
@@ -127,31 +130,57 @@ export const weighPlay = async (
     payoutRate: unpriced.value.payoutRate,
   })
   const valued = play === undefined ? unpriced : await weigh(play)
+  return mapOk(valued, (value) => ({ observed: observed.value, settingLevels: posterior.value.settingLevels, play, played, value }))
+}
+
+/**
+ * What the games a pachislot play's log gives are worth, as `weighPlay`
+ * says, and nothing more: none before a game is played, or without terms.
+ * For recording a play, which wants its value alone, not what playing on
+ * would be worth.
+ */
+export const weighTheoreticalValue = async (engine: EngineClient, weighing: Weighing, ordered: readonly Checkpoint[], terms: PlayTerms | undefined): Promise<Outcome<number | undefined>> =>
+  mapOk(await valuedOf(engine, weighing, ordered, terms), (valued) => (valued.play === undefined || valued.played === 0 ? undefined : valued.value.yen))
+
+/**
+ * A pachislot play weighed by its log: its value as `valuedOf` says, and on
+ * an AT machine what playing on from where it stands until the next AT is
+ * over is worth.
+ */
+export const weighPlay = async (
+  engine: EngineClient,
+  weighing: Weighing,
+  ordered: readonly Checkpoint[],
+  terms: PlayTerms | undefined,
+): Promise<Outcome<PlayOutlook>> => {
+  const valued = await valuedOf(engine, weighing, ordered, terms)
   if (!valued.ok) return valued
+  const { observed, settingLevels, play, played, value } = valued.value
   const rules = weighing.formula.normalized.atRules
+  const source = { type: "normalized", normalized: weighing.formula.normalized } as const
   const hunted =
-    path === undefined || rules === undefined
+    observed.path === undefined || rules === undefined
       ? Ok(undefined)
       : mapOk(
           fromPachislotEngine(
             await engine.call("hunt", {
               source,
-              weights: posterior.value.settingLevels,
+              weights: settingLevels,
               play: terms === undefined ? UNPRICED : huntPlayOf(terms, rules, weighing.formula.normalized.bet),
-              seats: [standingOf(path, weighing.formula.normalized)],
+              seats: [standingOf(observed.path, weighing.formula.normalized)],
             }),
           ),
           (rows) => rows[0],
         )
   if (!hunted.ok) return hunted
-  return mapOk(valued, (value) => ({
-    grounded: observed.value.seen || weighing.prior.type !== "even",
-    settingLevels: posterior.value.settingLevels,
+  return Ok({
+    grounded: observed.seen || weighing.prior.type !== "even",
+    settingLevels,
     payoutRate: value.payoutRate,
-    netPerGame: weighing.formula.normalized.atRules !== undefined && played === 0 ? undefined : value.netPerGame,
+    netPerGame: rules !== undefined && played === 0 ? undefined : value.netPerGame,
     theoreticalValuePerHour: play === undefined ? undefined : value.yenPerHour,
     priced: play !== undefined,
     theoreticalValue: play === undefined || played === 0 ? undefined : value.yen,
     hunt: hunted.value,
-  }))
+  })
 }

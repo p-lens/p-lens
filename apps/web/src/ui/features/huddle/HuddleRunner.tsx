@@ -13,7 +13,7 @@ import type { Place } from "../../navigation/place"
 import { onShownAgain } from "../../primitives/shown-again"
 import { reachAfter } from "../../primitives/reach"
 
-/** How long a line is kept open after the page goes out of sight, or the huddle is left, in milliseconds: long enough for what was just put on it to be heard kept. */
+/** How long a line's socket is kept open after the page goes out of sight, or the huddle is left, in milliseconds: long enough for what was just put on it to be heard kept. */
 const CLOSED_AFTER = 3_000
 
 /** An entry to put on the line, and what is noted once it is there. */
@@ -28,8 +28,9 @@ const changedSince = (drafts: readonly PlayDraft[], shown: ReadonlyMap<string, s
 /**
  * The huddle kept up for as long as the app is open, wherever it is: its
  * line kept open on its relay while the page is in sight — the others'
- * plays coming as they are shown, into the page's `HuddleLine` — and let go
- * a moment after the page goes away, opened again as it comes back; that
+ * plays coming as they are shown, into the page's `HuddleLine` — its socket
+ * let rest a moment after the page goes away, everything read kept, and
+ * opened again as it comes back, to read only what came since; that
  * this device came in, said once the line is open and again under a new
  * name, so the others have it in the room before it plays anything; and each
  * of the day's own plays shown to the others when it changes — at once, or
@@ -57,6 +58,11 @@ export function HuddleRunner(props: { readonly place: Place; readonly crossing: 
     timers.closing = setTimeout(() => open.close(), after)
   }
 
+  const letRest = (open: HuddleLine, after: number): void => {
+    clearTimeout(timers.closing)
+    timers.closing = setTimeout(() => open.pause(), after)
+  }
+
   const heardOf = (huddle: Huddle) => (problem: HuddleProblem | undefined): void => {
     if (huddle.secret === held.secret) line.setHeard((was) => reachAfter(was, problem, app.services.now()))
   }
@@ -70,6 +76,7 @@ export function HuddleRunner(props: { readonly place: Place; readonly crossing: 
     })
     if (huddle.secret !== held.secret || held.line !== undefined) return opened.close()
     held.line = opened
+    if (away()) opened.pause()
     showSoon()
   }
 
@@ -174,13 +181,11 @@ export function HuddleRunner(props: { readonly place: Place; readonly crossing: 
     else held.line.reopen()
     showSoon()
   }
-  /** Gone from sight: what changed shown at once, and the line let go a moment after, so that a phone's radio rests. */
+  /** Gone from sight: what changed shown at once, and the line's socket let rest a moment after, so that a phone's radio rests. */
   const hidden = (): void => {
     if (!away() || held.line === undefined) return
     void show()
-    const open = held.line
-    held.line = undefined
-    letGo(open, CLOSED_AFTER)
+    letRest(held.line, CLOSED_AFTER)
   }
   const stopListening = onShownAgain(back)
   document.addEventListener("visibilitychange", hidden)

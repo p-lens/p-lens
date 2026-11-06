@@ -8,6 +8,7 @@ import type { PlayId } from "../../src/core/play/play"
 import type { PlayedSoFar } from "../../src/ui/features/live/finish-tally-reading"
 import { finishTokenTallyFormOf } from "../../src/ui/features/live/finish-token-tally-form"
 import { exchangedFrom, finishYenTallyFormOf, heldIn, oddPrizesOf, offTheRate, rentedOf, readFinishYenTallyForm, resultOfFinishYenTally, type FinishYenTallyForm } from "../../src/ui/features/live/finish-yen-tally-form"
+import { worthTyped } from "../../src/ui/features/live/followed-worth"
 import { toPlainString } from "../../src/core/decimal/decimal"
 import { MALEHAN, dec } from "../support/values"
 
@@ -28,7 +29,7 @@ const DRAFT: PlayDraft = {
 
 const NOWHERE: PlayDraft = { ...DRAFT, venue: { type: "none", terms: TERMS } }
 
-const PLAYED: PlayedSoFar = { outlay: 12_000, replay: undefined, carriedIn: undefined, handed: undefined, held: 4500, heldLikely: false, theoreticalValue: undefined, spinPerformance: undefined }
+const PLAYED: PlayedSoFar = { outlay: 12_000, replay: undefined, carriedIn: undefined, handed: undefined, held: 4500, heldLikely: false, spinPerformance: undefined }
 
 /** The two sides a form at no parlor comes to, on its terms where it has them. */
 const sidesAt = (terms: PlayTerms | undefined) => (form: FinishYenTallyForm): readonly string[] | undefined =>
@@ -55,10 +56,15 @@ describe("a play followed live, as it is recorded", () => {
     expect(finishTokenTallyFormOf(DRAFT, { ...PLAYED, held: undefined }).payout).toBe("")
   })
 
-  test("keeps the theoretical value its formula came to, to six places, whether at a parlor or at none", () => {
-    expect(finishTokenTallyFormOf(DRAFT, { ...PLAYED, theoreticalValue: 1234.56789012 }).theoreticalValue).toBe("1234.56789")
-    expect(finishYenTallyFormOf(NOWHERE, { ...PLAYED, theoreticalValue: -0.1234567 }).theoreticalValue).toBe("-0.123457")
-    expect(finishTokenTallyFormOf(DRAFT, { ...PLAYED, theoreticalValue: 800 }).theoreticalValue).toBe("800")
+  test("opens with its theoretical value left to be worked out, whether at a parlor or at none", () => {
+    expect(finishTokenTallyFormOf(DRAFT, PLAYED).theoreticalValue).toBe("")
+    expect(finishYenTallyFormOf(NOWHERE, PLAYED).theoreticalValue).toBe("")
+  })
+
+  test("writes the theoretical value its formula came to into the field to six places", () => {
+    expect(worthTyped(1234.56789012)).toBe("1234.56789")
+    expect(worthTyped(-0.1234567)).toBe("-0.123457")
+    expect(worthTyped(800)).toBe("800")
   })
 
   test("is begun with the tokens its first line counted in hand, which are not what it made", () => {

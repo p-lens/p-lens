@@ -49,6 +49,9 @@ const CLOSING_WAIT_MS = 3_000
 /** How far before now a live subscription reads: a copy is said to be made up to ten seconds before it is. */
 const LIVE_SLACK = 30
 
+/** How far before the mark a catch-up reads: a copy signed a while before it reached the relay, from a device that was out of reach (PROTOCOL.md §11). */
+const CATCH_UP_SLACK = 120
+
 /**
  * Why a play could not be taken over from the device holding it.
  *
@@ -100,13 +103,18 @@ interface Heard {
   readonly createdAt: number
 }
 
-/** What a plays line holds while it is open. */
+/**
+ * What a plays line holds while it is open; `mark` is when the last catch-up
+ * of its days that finished began, none before the first, so that one after
+ * the socket opens again reads only what came since.
+ */
 interface Line {
   days: readonly DayLine[]
   readonly heads: Map<string, Heard>
   readonly pieces: Map<string, { readonly piece: CopyPiece; readonly createdAt: number }>
   readonly kept: Map<PlayId, KeptPlay>
   caughtUp: boolean
+  mark: number | undefined
   reach: ConnectionState
   closed: boolean
   copyTimer: ReturnType<typeof setTimeout> | undefined
@@ -168,6 +176,7 @@ export const openPlaysLine = async (ports: BookSyncPorts, link: OwnersLink, conn
     pieces: new Map(),
     kept: new Map(all.value.filter((play) => play.bookId === bookId).map((play) => [play.playId, play])),
     caughtUp: false,
+    mark: undefined,
     reach: connection.state(),
     closed: false,
     copyTimer: undefined,
@@ -412,20 +421,24 @@ export const openPlaysLine = async (ports: BookSyncPorts, link: OwnersLink, conn
       await flush()
     })
 
-  /** Every copy on the day's lines read through, and what the device keeps brought into line with them. */
+  /** Every copy on the days' lines since the mark read through, the mark moved to when the reading began, and what the device keeps brought into line with them. */
   const catchUp = async (): Promise<void> => {
-    const read = await readSince(connection, { kinds: [KIND.playCopy], "#v": line.days.map((each) => each.v) })
+    const began = seconds(ports)
+    const filter = { kinds: [KIND.playCopy], "#v": line.days.map((each) => each.v) }
+    const read = await readSince(connection, line.mark === undefined ? filter : { ...filter, since: line.mark - CATCH_UP_SLACK })
     if (!read.ok) return
     for (const event of read.value) await onEvent(event)
+    line.mark = began
     line.caughtUp = true
     await reconcile(true)
   }
 
-  /** The lines of a business day and the two before it, listened to from now. */
+  /** The lines of a business day and the two before it, listened to from now, and read through whole. */
   const watch = async (today: IsoDate): Promise<void> => {
     line.days = await Promise.all(playsDaysOf(today).map(dayLineOf))
+    line.mark = undefined
     line.closeSubscription()
-    const subscription = connection.subscribe([{ kinds: [KIND.playCopy], "#v": line.days.map((each) => each.v), since: seconds(ports) - LIVE_SLACK }], {
+    const subscription = connection.subscribe(() => [{ kinds: [KIND.playCopy], "#v": line.days.map((each) => each.v), since: seconds(ports) - LIVE_SLACK }], {
       onEvent: (event) => void onEvent(event).then(heard),
     })
     line.closeSubscription = subscription.close

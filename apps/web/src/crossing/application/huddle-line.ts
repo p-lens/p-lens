@@ -8,9 +8,16 @@ import type { Place } from "../core/seal"
 import type { Keys } from "../port/keys"
 import type { Connection, ConnectionState, Relays } from "../port/relay"
 import { huddleLineKeysOf, type HuddleLineKeys, type HuddleProblem } from "./huddle"
+import { readSince } from "./line-reading"
 
 /** How long the relay's word that it kept an entry is waited for. */
 const ANSWER_WAIT_MS = 10_000
+
+/** How far before now the live subscription reads, each time the socket opens (PROTOCOL.md §11). */
+const LIVE_SLACK = 30
+
+/** How far before the mark a catch-up reads: a state signed a while before it reached the relay, from a device that was out of reach (PROTOCOL.md §11). */
+const CATCH_UP_SLACK = 120
 
 /** What a huddle's line tells whoever keeps it up: every entry as it now stands, and how reading and showing go. */
 export interface HuddleLineHandlers {
@@ -22,12 +29,26 @@ export interface HuddleLineHandlers {
 /** A huddle's line kept open: what is put on it, and how it is let go. */
 export interface HuddleLine {
   readonly put: (entry: HuddleEntry) => Promise<Result<void, HuddleProblem>>
-  /** Opens again at once, if it dropped: the page came back in sight, or the device online. */
+  /** Opens again at once, if it dropped or rested: the page came back in sight, or the device online. */
   readonly reopen: () => void
+  /** Lets the socket rest, everything read kept, until `reopen`: the page went out of sight. */
+  readonly pause: () => void
   readonly close: () => void
 }
 
-type Held = { readonly states: Map<string, { readonly createdAt: number; readonly entry: HuddleEntry }>; readonly lastWritten: Map<string, number> }
+/**
+ * What a line holds: the latest state of each address, when each of its own
+ * was last written, and its mark — when the last catch-up that finished
+ * began, none before the first — so that a catch-up after the socket opens
+ * again reads only what came since.
+ */
+type Held = {
+  readonly states: Map<string, { readonly createdAt: number; readonly entry: HuddleEntry }>
+  readonly lastWritten: Map<string, number>
+  mark: number | undefined
+}
+
+const seconds = (): number => Math.floor(Date.now() / 1000)
 
 const placeOf = (keys: HuddleLineKeys, d: string, pubkey: string): Place => ({ kind: KIND.huddleState, v: keys.v, d, pubkey })
 
@@ -39,14 +60,16 @@ const newer = (held: { readonly createdAt: number; readonly entry: HuddleEntry }
 
 /**
  * Keeps a huddle's line open on its relay (PROTOCOL.md §8): every state on it
- * read at once and as it comes, each opened and held to its author, the
- * latest of each address kept, and every entry handed on as it changes; and
- * this device's entries sealed and signed by its key in the huddle.
+ * read as the socket first opens, only what came since its mark each time it
+ * opens again, and the rest as it comes; each opened and held to its author,
+ * the latest of each address kept, and every entry handed on as it changes;
+ * and this device's entries sealed and signed by its key in the huddle.
  */
 export const openHuddleLine = async (keys: Keys, relays: Relays, huddle: Huddle, handlers: HuddleLineHandlers): Promise<HuddleLine> => {
   const lineKeys = await huddleLineKeysOf(keys, huddle)
   const connection: Connection = relays.connect(huddle.relay)
-  const held: Held = { states: new Map(), lastWritten: new Map() }
+  const held: Held = { states: new Map(), lastWritten: new Map(), mark: undefined }
+  const lineFilter = { kinds: [KIND.huddleState], "#v": [lineKeys.v] }
   const expiration = String(huddleExpiration(huddle.businessDay))
 
   const handOn = (): void =>
@@ -63,15 +86,26 @@ export const openHuddleLine = async (keys: Keys, relays: Relays, huddle: Huddle,
     handOn()
   }
 
-  connection.onState((state) => handlers.onHeard(heardFrom(state)))
-  connection.subscribe([{ kinds: [KIND.huddleState], "#v": [lineKeys.v] }], {
-    onEvent: (event) => void onEvent(event),
-    onCaughtUp: () => handlers.onHeard(undefined),
+  /** Everything on the line since the mark read through, and the mark moved to when the reading began. */
+  const catchUp = async (): Promise<void> => {
+    const began = seconds()
+    const read = await readSince(connection, held.mark === undefined ? lineFilter : { ...lineFilter, since: held.mark - CATCH_UP_SLACK })
+    if (!read.ok) return
+    for (const event of read.value) await onEvent(event)
+    held.mark = began
+    handlers.onHeard(undefined)
+  }
+
+  connection.onState((state) => {
+    handlers.onHeard(heardFrom(state))
+    if (state.type === "open") void catchUp()
   })
+  connection.subscribe(() => [{ ...lineFilter, since: seconds() - LIVE_SLACK }], { onEvent: (event) => void onEvent(event) })
+  if (connection.state().type === "open") void catchUp()
 
   const signedEntry = async (entry: HuddleEntry): Promise<Result<NostrEvent, HuddleProblem>> => {
     const d = await keys.address(lineKeys.secret, addressNameOf(entry))
-    const createdAt = Math.max(Math.floor(Date.now() / 1000), (held.lastWritten.get(d) ?? 0) + 1)
+    const createdAt = Math.max(seconds(), (held.lastWritten.get(d) ?? 0) + 1)
     const sealed = await keys.sealJson(lineKeys.sealKey, placeOf(lineKeys, d, lineKeys.participant.pubkey), stateOf(entry))
     if (!sealed.ok) return Err({ type: "too-large" })
     held.lastWritten.set(d, createdAt)
@@ -87,6 +121,7 @@ export const openHuddleLine = async (keys: Keys, relays: Relays, huddle: Huddle,
       return answer.value.type === "kept" ? Ok(undefined) : Err({ type: "refused", refusal: answer.value.refusal })
     },
     reopen: connection.reopen,
+    pause: connection.pause,
     close: connection.close,
   }
 }

@@ -619,7 +619,7 @@ export const openBookLine = async (ports: BookSyncPorts, link: BookLink, connect
   /** The book's line listened to as it is written, from a moment ago: the epoch's line, listened to again when the book moves to another. */
   const listen = (): void => {
     line.listening?.close()
-    line.listening = connection.subscribe([{ kinds: [KIND.bookChange, KIND.tip], "#v": [line.keys.v], since: seconds(ports) - LIVE_SLACK }], { onEvent: (event) => void onEvent(event) })
+    line.listening = connection.subscribe(() => [{ kinds: [KIND.bookChange, KIND.tip], "#v": [line.keys.v], since: seconds(ports) - LIVE_SLACK }], { onEvent: (event) => void onEvent(event) })
   }
 
   /**
@@ -715,7 +715,7 @@ export const openBookLine = async (ports: BookSyncPorts, link: BookLink, connect
   const mailboxListening =
     mailbox === undefined
       ? undefined
-      : connection.subscribe([{ ...mailboxFilter(mailbox), since: seconds(ports) - LIVE_SLACK }], {
+      : connection.subscribe(() => [{ ...mailboxFilter(mailbox), since: seconds(ports) - LIVE_SLACK }], {
           onEvent: (event) =>
             void openMailbox(event).then((said) => (said === undefined ? undefined : inTurn(() => onMailbox(said)).then(afterTurn))),
         })

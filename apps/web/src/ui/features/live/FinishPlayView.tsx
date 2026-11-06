@@ -1,8 +1,7 @@
-import { createResource, createSignal, Show, untrack, type Accessor, type JSX } from "solid-js"
+import { createMemo, createResource, createSignal, Show, untrack, type Accessor, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import { chooseBook, finishPlay, finishPlayInYen, loadFinishing, loadSentFinishing, recordSentPlay, recordSentPlayInYen, theoreticalValueAtFinish, type Finishing } from "../../../application/live-play"
-import type * as PachislotEngine from "../../../pachislot-engine/client/client"
 import type { BookId, ListedBook } from "../../../core/book/book"
 import { keptSpinPerformance } from "../../../core/tally/aside"
 import type { TallyAside, TokenTally, YenTally } from "../../../core/tally/tally"
@@ -45,10 +44,10 @@ import { createElsewhereHold, type PlayHold } from "./play-hold"
 import { ParlorChoiceField } from "./ParlorChoiceField"
 import { leftAt, leftBy, tokensKeptAfter, type TokensLeft } from "./tokens-in-hand"
 
-/** A log that does not read leaves the form to the draft alone. What was handed between players is the log's running total at its last. A pachislot play's medals in hand are those counted at its last line, or else what its formula says they likely are by then, to be counted and typed over. Its theoretical value is the one it comes to finished as the form opens: on the finish given, with the hand as told. */
-const playedOf = async (engine: PachislotEngine.EngineClient, draft: PlayDraft, finish: Finish): Promise<PlayedSoFar> => {
+/** A log that does not read leaves the form to the draft alone. What was handed between players is the log's running total at its last. A pachislot play's medals in hand are those counted at its last line, or else what its formula says they likely are by then, to be counted and typed over. */
+const playedOf = (draft: PlayDraft): PlayedSoFar => {
   const parsed = parsePlayLog(draft.log)
-  if (!parsed.ok) return { outlay: undefined, replay: undefined, carriedIn: undefined, handed: undefined, held: undefined, heldLikely: false, theoreticalValue: undefined, spinPerformance: undefined }
+  if (!parsed.ok) return { outlay: undefined, replay: undefined, carriedIn: undefined, handed: undefined, held: undefined, heldLikely: false, spinPerformance: undefined }
   const ordered = inPlayOrder(parsed.value)
   const summary = liveSummary(ordered)
   const replay = ordered.findLast((checkpoint) => checkpoint.replay !== undefined)?.replay
@@ -58,7 +57,7 @@ const playedOf = async (engine: PachislotEngine.EngineClient, draft: PlayDraft, 
   const held = draft.gameKind === "pachislot" ? (draft.pachislot === undefined ? ordered.at(-1)?.held : likelyHeldOf(ordered, draft.pachislot.formula, terms)) : Pachinko.heldAsToldOf(ordered)
   const spinPerformance = draft.gameKind === "pachislot" || terms === undefined ? undefined : Pachinko.measuredSpinPerformance(ordered, terms)
   const heldLikely = draft.gameKind === "pachislot" && held !== undefined && ordered.at(-1)?.held === undefined
-  return { outlay: summary.outlay, replay, carriedIn, handed, held, heldLikely, theoreticalValue: await theoreticalValueAtFinish(engine, draft, finish, held), spinPerformance }
+  return { outlay: summary.outlay, replay, carriedIn, handed, held, heldLikely, spinPerformance }
 }
 
 /** A play as its recording opens, with all its form is filled in from, and who sent it where someone did. */
@@ -220,16 +219,16 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
   /** The play someone sent, as it came when the form opened: what it comes as afterwards never rebuilds the form under the person. */
   const arrived = (): { readonly draft: PlayDraft; readonly hold: Extract<PlayHold, { readonly type: "arrived" }> } | undefined =>
     ((found) => (found?.hold.type === "arrived" ? { draft: found.draft, hold: found.hold } : undefined))(held())
+  /** The play as the form opened on it, read again only as where it is held changes — continued here from another device: what the book or the day's plays become otherwise — a change arriving from another device — never rebuilds the form under the person, nor works it out again. */
+  const holding = createMemo((): PlayHold["type"] => held()?.hold.type ?? "held")
   const [loaded] = createResource(
-    () => ({ playId: props.playId, revision: app.revision(), sent: arrived() !== undefined }),
+    () => ({ playId: props.playId, holding: holding() }),
     async (source): Promise<Outcome<Opened>> => {
-      const sent = source.sent ? untrack(arrived) : undefined
+      const sent = source.holding === "arrived" ? untrack(arrived) : undefined
       const finishing =
         sent === undefined ? await loadFinishing(app.services.session, app.services.drafts, source.playId, app.services.member) : await loadSentFinishing(app.services.session, sent.draft, sent.hold.bookId, app.services.member)
       if (!finishing.ok) return finishing
-      const draft = finishing.value.draft
-      const played = await playedOf(app.services.pachislot, draft, readFinishForm(finishedAs(draft, app.services.now(), finishCounterOf(draft.log, draft.gameKind)), draft.startedAt))
-      return Ok({ ...finishing.value, played, sender: sent?.hold.sender })
+      return Ok({ ...finishing.value, played: playedOf(finishing.value.draft), sender: sent?.hold.sender })
     },
   )
   /** The play another device holds, where this device keeps none of its own to record. */

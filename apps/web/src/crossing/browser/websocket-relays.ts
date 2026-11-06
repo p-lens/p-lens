@@ -17,7 +17,7 @@ type Held = {
   lastOpenAt: number | undefined
   attempts: number
   next: number
-  readonly subscriptions: Map<string, { readonly filters: readonly Filter[]; readonly handlers: SubscriptionHandlers }>
+  readonly subscriptions: Map<string, { readonly asked: () => readonly Filter[]; readonly handlers: SubscriptionHandlers }>
   readonly unsent: Map<string, string>
   readonly waiting: Map<string, Waiting>
   readonly listeners: Set<(state: ConnectionState) => void>
@@ -77,19 +77,19 @@ const connectTo = (url: string, WebSocketOf: typeof WebSocket): Connection => {
   }
 
   const open = (): void => {
-    if (held.state.type === "closed") return
+    if (held.state.type === "closed" || held.state.type === "paused") return
     const socket = new WebSocketOf(url)
     held.socket = socket
     socket.onopen = () => {
       held.attempts = 0
       held.lastOpenAt = Date.now()
       setState({ type: "open" })
-      held.subscriptions.forEach(({ filters }, subscription) => sendNow({ type: "req", subscription, filters }))
+      held.subscriptions.forEach(({ asked }, subscription) => sendNow({ type: "req", subscription, filters: asked() }))
       held.unsent.forEach((raw) => socket.send(raw))
     }
     socket.onmessage = (message) => onMessage(message.data)
     socket.onclose = () => {
-      if (held.socket !== socket || held.state.type === "closed") return
+      if (held.socket !== socket || held.state.type === "closed" || held.state.type === "paused") return
       held.socket = undefined
       held.attempts += 1
       setState({ type: "failing", attempts: held.attempts, lastOpenAt: held.lastOpenAt })
@@ -105,10 +105,10 @@ const connectTo = (url: string, WebSocketOf: typeof WebSocket): Connection => {
       held.listeners.add(listener)
       return () => held.listeners.delete(listener)
     },
-    subscribe: (filters, handlers): Subscription => {
+    subscribe: (asked, handlers): Subscription => {
       const subscription = `s${held.next++}`
-      held.subscriptions.set(subscription, { filters, handlers })
-      sendNow({ type: "req", subscription, filters })
+      held.subscriptions.set(subscription, { asked, handlers })
+      sendNow({ type: "req", subscription, filters: asked() })
       return {
         close: () => {
           if (held.subscriptions.delete(subscription)) sendNow({ type: "close", subscription })
@@ -129,10 +129,17 @@ const connectTo = (url: string, WebSocketOf: typeof WebSocket): Connection => {
         sendNow({ type: "event", event })
       }),
     reopen: () => {
-      if (held.state.type !== "failing") return
+      if (held.state.type !== "failing" && held.state.type !== "paused") return
       clearTimeout(held.reconnect)
       setState({ type: "connecting" })
       open()
+    },
+    pause: () => {
+      if (held.state.type === "closed" || held.state.type === "paused") return
+      clearTimeout(held.reconnect)
+      setState({ type: "paused" })
+      held.socket?.close()
+      held.socket = undefined
     },
     close: () => {
       clearTimeout(held.reconnect)

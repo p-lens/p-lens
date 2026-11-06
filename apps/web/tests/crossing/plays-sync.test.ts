@@ -3,6 +3,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import type { PlayDraft } from "../../src/core/live-play/draft"
 import type { PlayId } from "../../src/core/play/play"
 import type { HledgerClient } from "../../src/hledger/client/client"
+import { KIND } from "../../src/crossing/core/kinds"
 import { inProcessHledger } from "../support/in-process"
 import { closeLines, letEverythingGo, relayOf, TODAY, twoDevices, until, type Device } from "./support/devices"
 
@@ -53,6 +54,24 @@ describe("plays between the owner's devices", () => {
     lineOne.plays.wrote()
     await until(() => followedLog(other, "play-1")?.endsWith('{"spins":99}') === true)
     expect(await draftOf(other, "play-1")).toBeUndefined()
+  }, 30_000)
+
+  test("a device let rest and opened again asks only for what came since, and hears what was added meanwhile", async () => {
+    const { one, other, lineOne, lineOther } = await twoDevices(held.hledgers)
+    await one.drafts.createDraft(playOf("play-1", 3))
+    lineOne.plays.wrote()
+    await until(() => followedLog(other, "play-1") === playOf("play-1", 3).log)
+    lineOther.connection.pause()
+    const askedBefore = relayOf()?.asked().length ?? 0
+    const keptBefore = relayOf()?.events().length ?? 0
+    await append(one, "play-1", '{"spins":99}')
+    lineOne.plays.wrote()
+    await until(() => (relayOf()?.events().length ?? 0) > keptBefore)
+    lineOther.connection.reopen()
+    await until(() => followedLog(other, "play-1")?.endsWith('{"spins":99}') === true)
+    const copies = (relayOf()?.asked() ?? []).slice(askedBefore).flatMap((filters) => filters.filter((filter) => filter.kinds?.includes(KIND.playCopy) === true))
+    expect(copies.length).toBeGreaterThan(0)
+    expect(copies.every((filter) => filter.since !== undefined && filter.since > Math.floor(Date.now() / 1000) - 300)).toBe(true)
   }, 30_000)
 
   test("a play taken over moves to the other device, and the first follows it", async () => {

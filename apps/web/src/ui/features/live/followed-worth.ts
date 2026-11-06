@@ -4,6 +4,9 @@ import { toPlainString } from "../../../core/decimal/decimal"
 import { theoreticalDecimalOf } from "../../../core/theoretical/theoretical"
 import { createDebounced } from "../../primitives/debounce"
 
+/** A theoretical value as the form's field takes it: to six places, as a tally keeps it. */
+export const worthTyped = (value: number): string => toPlainString(theoreticalDecimalOf(value))
+
 /** What a play is worth finished as the form says, for the tokens in hand it says. */
 export type WorthAt = (held: number | undefined) => Promise<number | undefined>
 
@@ -22,7 +25,7 @@ export const createFollowedWorth = (given: {
 }): { readonly typedByPerson: () => void; readonly settled: () => Promise<void> } => {
   const [by, setBy] = createSignal<"play" | "person">("play")
   const filled = (value: number | undefined): void => {
-    if (by() === "play" && value !== undefined) given.fill(toPlainString(theoreticalDecimalOf(value)))
+    if (by() === "play" && value !== undefined) given.fill(worthTyped(value))
   }
   const asked = createDebounced(() => ({ worthAt: given.worthAt(), held: given.held() }))
   const [worked] = createResource(asked, (question) => question.worthAt(question.held))

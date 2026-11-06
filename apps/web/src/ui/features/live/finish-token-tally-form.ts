@@ -1,6 +1,6 @@
 import { parseIsoDate, type IsoDate } from "../../../core/calendar/calendar"
 import { tokenCommodity } from "../../../core/commodity/commodity"
-import { ZERO, decimal, isZero, parseDecimal, toPlainString, type Decimal } from "../../../core/decimal/decimal"
+import { ZERO, decimal, isZero, parseDecimal, type Decimal } from "../../../core/decimal/decimal"
 import type { PlayDraft } from "../../../core/live-play/draft"
 import { samePool, type Parlor, type SavingsPool } from "../../../core/parlor/parlor"
 import { exchangeRateOf, poolOf, savingsDeductedFor, tokensRentedFor, type PlayTerms } from "../../../core/parlor/terms"
@@ -8,7 +8,6 @@ import type { NumericField, TokenTally } from "../../../core/tally/tally"
 import type { PlayGameKind, PlayId } from "../../../core/play/play"
 import { Err, Ok, type Result } from "../../../core/result/result"
 import { tidyTyped } from "../../../core/text/tidy"
-import { theoreticalDecimalOf } from "../../../core/theoretical/theoretical"
 import type { PricePoint } from "../../../core/valuation/valuation"
 import { handedTyped, problemOf, readHanded, readOptionalYen, type FieldProblem, type Handing, type PlayedSoFar, type Read } from "./finish-tally-reading"
 
@@ -142,5 +141,5 @@ export const finishTokenTallyFormOf = (draft: PlayDraft, played: PlayedSoFar): F
   carriedIn: filled(played.carriedIn),
   ...handedTyped(played.handed),
   payout: filled(played.held),
-  theoreticalValue: played.theoreticalValue === undefined ? "" : toPlainString(theoreticalDecimalOf(played.theoreticalValue)),
+  theoreticalValue: "",
 })

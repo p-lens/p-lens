@@ -5,7 +5,7 @@ import atSpec from "@p-lens/contracts/fixtures/pachislot/made-up-at/spec.json"
 import expected from "@p-lens/contracts/fixtures/pachislot/made-up/expected.json"
 import normalized from "@p-lens/contracts/fixtures/pachislot/made-up/normalized.json"
 
-import { weighPlay } from "../../../src/application/pachislot/weighing"
+import { weighPlay, weighTheoreticalValue } from "../../../src/application/pachislot/weighing"
 import type { MachineId } from "../../../src/core/machine/machine"
 import type { FormulaId, SettingDistributionId } from "../../../src/core/pachislot/formula"
 import { seatCheckpoint } from "../../../src/core/pachislot/reading"
@@ -13,6 +13,7 @@ import { atSeatCheckpoint } from "../../../src/core/pachislot/path"
 import { GAMES_PER_HOUR, readableBy, type Weighing } from "../../../src/core/pachislot/weighing"
 import type { PlayTerms } from "../../../src/core/parlor/terms"
 import type { Checkpoint } from "../../../src/core/play-log/checkpoint"
+import type { EngineClient } from "../../../src/pachislot-engine/client/client"
 import { inProcessEngine } from "../../support/pachislot/engine"
 
 const [low, high] = expected.settingLevels
@@ -128,6 +129,21 @@ describe("weighing a pachislot play", () => {
     const medals = chances.map((p) => 600 * (p * 599 + 1) - (50 / 40) * 600)
     expect(outlook.value.settingLevels[0]?.probability).toBeCloseTo(odds[0] ?? Number.NaN, 12)
     expect(outlook.value.theoreticalValue).toBeCloseTo(20 * medals.reduce((sum, each, index) => sum + each * (odds[index] ?? 0), 0), 6)
+  })
+
+  test("an AT machine's play is valued for recording as it is weighed, with nothing asked of what playing on would be worth", async () => {
+    const conditions = { payoutRate: { type: "measured" as const, bySettingLevel: [{ settingLevel: 1, value: 9_700 }, { settingLevel: 6, value: 11_000 }] } }
+    const analysed = await inProcessEngine.call("analyze", { source: { type: "spec", spec: atSpec as SpecDto }, conditions })
+    if (!analysed.ok) throw new Error(JSON.stringify(analysed.error))
+    const machine: Weighing = { ...even, formula: { ...even.formula, normalized: analysed.value.normalized, conditions } }
+    const seat = atSeatCheckpoint({ sinceAt: 400, sinceCz: undefined, misses: 0, afterReset: false, held: undefined, sinceAtAcrossBonuses: undefined, mode: undefined }, at)
+    const played = [seat, { spins: 600, at, event: { kind: "jackpot" as const } }]
+    const asked: string[] = []
+    const counting: EngineClient = { ...inProcessEngine, call: (name, request) => (asked.push(name), inProcessEngine.call(name, request)) }
+    const weighed = await weighPlay(inProcessEngine, machine, played, terms)
+    const valued = await weighTheoreticalValue(counting, machine, played, terms)
+    expect(valued).toEqual({ ok: true, value: weighed.ok ? weighed.value.theoreticalValue : Number.NaN })
+    expect(asked.includes("hunt")).toBe(false)
   })
 
   test("an AT machine's small wins counted in its regular games weigh beside its path", async () => {

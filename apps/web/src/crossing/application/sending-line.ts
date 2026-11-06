@@ -305,7 +305,7 @@ export const openSendingLine = async (ports: BookSyncPorts, destination: Destina
     line.reach = state
     if (state.type === "open" && was !== "open") void catchUp()
   })
-  const mailboxListening = connection.subscribe([{ ...mailboxFilter, since: seconds(ports) - LIVE_SLACK }], {
+  const mailboxListening = connection.subscribe(() => [{ ...mailboxFilter, since: seconds(ports) - LIVE_SLACK }], {
     onEvent: (event) => void openMailbox(event).then((said) => (said === undefined ? undefined : inTurn(() => onMailbox(said)))),
   })
   if (connection.state().type === "open") void catchUp()

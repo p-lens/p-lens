@@ -174,6 +174,21 @@ describe("a huddle's line", () => {
     expect(othersHere(mine.seen.entries, begun.member).map((other) => other.name)).toEqual(["ジゲン", "ゴエモン"])
   })
 
+  test("let rest and opened again, asks only for what came since, and hears what was shown meanwhile", async () => {
+    const { begun, joined, mine, theirs } = await twoDevices()
+    await mine.line.put(huddlePostOf(DRAFT, begun, "2026-10-20T02:00:00.000Z"))
+    await until(() => othersPlays(theirs.seen.entries, joined.member).length === 1)
+    theirs.line.pause()
+    const askedBefore = held.relay?.asked().length ?? 0
+    await mine.line.put(huddlePostOf({ ...DRAFT, id: "p-2" as PlayId }, begun, "2026-10-20T02:01:00.000Z"))
+    theirs.line.reopen()
+    await until(() => othersPlays(theirs.seen.entries, joined.member).length === 2)
+    const now = Math.floor(Date.now() / 1000)
+    const askedAgain = (held.relay?.asked() ?? []).slice(askedBefore).map((filters) => filters[0]?.since)
+    expect(askedAgain.length).toBeGreaterThan(0)
+    expect(askedAgain.every((since) => since !== undefined && since > now - 300)).toBe(true)
+  })
+
   test("gives a device joining late everything shown so far", async () => {
     const { begun, mine } = await twoDevices()
     await mine.line.put(huddlePostOf(DRAFT, begun, "2026-10-20T02:00:00.000Z"))

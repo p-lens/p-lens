@@ -164,19 +164,8 @@ export function FinishTallyForm(props: {
         <Show
           when={props.takings}
           fallback={
-            <>
+            <div class="col-span-2 grid grid-cols-2 gap-x-3 gap-y-4">
               <TextField label={IN_HAND_LABELS[tokenKindOf(props.gameKind)].carriedIn} value={editing.value("carriedIn")} onChange={editing.set("carriedIn")} inputMode="numeric" suffix={unit()} error={editing.problemOf("carried-in")} invalid={editing.nudged("carried-in")} onFocus={editing.nudge.settle} />
-              <HandedField
-                label={IN_HAND_LABELS[tokenKindOf(props.gameKind)].handed}
-                unit={unit()}
-                value={editing.value("handed")}
-                handing={editing.handing()}
-                onValue={editing.set("handed")}
-                onHanding={editing.setHanding}
-                error={editing.problemOf("handed")}
-                invalid={editing.nudged("handed")}
-                onFocus={editing.nudge.settle}
-              />
               <div class="flex min-w-0 items-start gap-1.5">
                 <div class="flex min-w-0 flex-1 flex-col gap-1">
                   <TextField label={IN_HAND_LABELS[tokenKindOf(props.gameKind)].left} value={editing.value("payout")} onChange={editing.set("payout")} inputMode="numeric" suffix={unit()} error={editing.problemOf("payout")} invalid={editing.nudged("payout")} onFocus={editing.nudge.settle} />
@@ -193,7 +182,18 @@ export function FinishTallyForm(props: {
                   }}
                 />
               </div>
-            </>
+              <HandedField
+                label={IN_HAND_LABELS[tokenKindOf(props.gameKind)].handed}
+                unit={unit()}
+                value={editing.value("handed")}
+                handing={editing.handing()}
+                onValue={editing.set("handed")}
+                onHanding={editing.setHanding}
+                error={editing.problemOf("handed")}
+                invalid={editing.nudged("handed")}
+                onFocus={editing.nudge.settle}
+              />
+            </div>
           }
         >
           {props.takings}

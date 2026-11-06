@@ -8,7 +8,6 @@ import type { Settlement, YenTally } from "../../../core/tally/tally"
 import type { PlayGameKind, PlayId } from "../../../core/play/play"
 import { Err, Ok, type Result } from "../../../core/result/result"
 import { tidyTyped } from "../../../core/text/tidy"
-import { theoreticalDecimalOf } from "../../../core/theoretical/theoretical"
 import { handedTyped, problemOf, readHanded, readOptionalYen, type FieldProblem, type Handing, type PlayedSoFar, type Read } from "./finish-tally-reading"
 
 /**
@@ -228,5 +227,5 @@ export const finishYenTallyFormOf = (draft: PlayDraft, played: PlayedSoFar): Fin
   exchanged: false,
   exchangedTokens: "",
   specialPrizes: "",
-  theoreticalValue: played.theoreticalValue === undefined ? "" : toPlainString(theoreticalDecimalOf(played.theoreticalValue)),
+  theoreticalValue: "",
 })

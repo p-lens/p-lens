@@ -2030,6 +2030,15 @@ it only where `VITE_RELAY_URL` names a relay (`app/composition/crossing`).
 - **The operator reads no book and no play** (PROTOCOL.md §1.2): whatever
   is carried is sealed on the device, by keys derived from secrets no relay
   holds; what a relay can read of it is listed there, openly.
+- **Sockets rest; nothing read is read again** (PROTOCOL.md §11). A
+  socket is let rest a moment after the page goes out of sight
+  (`Connection.pause`) and opened again as it comes back; every line it
+  carries stays open in the meantime, everything it read kept. A
+  subscription is asked again by the filters it gives as the socket
+  opens, so a live one asks from that moment, and each line catches up
+  from its mark — when its last catch-up that finished began — reading
+  only what came since: a phone put away between each reading carries
+  only what changed, not the day again.
 - **Built so far**: huddles (*Huddles*), a book between one's own devices
   (*A book between one's own devices*), their plays (*Plays between one's
   own devices*), a book shared with others (*A book shared with others*)
@@ -2232,8 +2241,8 @@ wherever its player records it, as it would be without the huddle.
 - **Shown and read wherever the app is** (`HuddleRunner`, once, in the
   shell, where the build names a relay): the line is kept open while the
   page is in sight, every state on it read at once and each new one as it is
-  shown, and let go of a moment after the page goes away, opened again as it
-  comes back. Each of the day's own plays is shown when its log changes, at
+  shown, its socket let rest a moment after the page goes away and opened
+  again as it comes back, to read only what was shown since. Each of the day's own plays is shown when its log changes, at
   most every 3 seconds in a room of six, 10 of twenty and 30 beyond
   (`showingEvery`), the latest of each then — a play that came from someone
   else is theirs to show — and what changed is shown once more as the page

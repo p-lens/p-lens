@@ -9,8 +9,8 @@ import { toast } from "../../primitives/toast"
 import { lostReadingsText, YIELDED } from "../../wording/play-line"
 import { REMOVED_FROM_BOOK, removedFromSendingText } from "../../wording/sharing"
 
-/** How long the lines are kept open after the page goes out of sight, in milliseconds: long enough for what waits in an outbox to go (PROTOCOL.md §11). */
-const CLOSED_AFTER = 3_000
+/** How long the lines' sockets are kept open after the page goes out of sight, in milliseconds: long enough for what waits in an outbox to go (PROTOCOL.md §11). */
+const RESTED_AFTER = 3_000
 
 /** Whether the page is out of sight: another app or tab before it, or the screen off. */
 const away = (): boolean => document.visibilityState === "hidden"
@@ -23,9 +23,11 @@ const away = (): boolean => document.visibilityState === "hidden"
  * is written here going out a moment after, the plays each device holds
  * copied to the others, and the plays people send to the owner's books read
  * off their inboxes — and each book's inbox this device sends plays to, what
- * the person chose to send going out as it changes; all let go a moment
- * after the page goes away, opened again as it comes back. A book taken off the device lets
- * its lines go, as does a book its owner took this device's person out of.
+ * the person chose to send going out as it changes; each socket let rest a
+ * moment after the page goes away, everything read kept, and opened again
+ * as it comes back, to read only what came since. A book taken off the
+ * device lets its lines go, as does a book its owner took this device's
+ * person out of.
  * Nothing is drawn.
  */
 export function BookSyncRunner(props: { readonly crossing: CrossingServices }): JSX.Element {
@@ -80,7 +82,7 @@ export function BookSyncRunner(props: { readonly crossing: CrossingServices }): 
     const line = book.value
     const inbox = isOwnersLink(link) ? await openInboxLine(props.crossing.books, link, connection, () => line.members(), { onReceived: (received) => lines.setArrived(link.bookId, received) }) : undefined
     lines.keep(link.bookId, { book: line, plays: plays.value, inbox, connection })
-    if (away()) lines.letGo(link.bookId)
+    if (away()) connection.pause()
   }
 
   /** What the device sends and where, read again for the screens. */
@@ -106,7 +108,7 @@ export function BookSyncRunner(props: { readonly crossing: CrossingServices }): 
     held.openingSendings.delete(key)
     if (!line.ok) return connection.close()
     held.sendings.set(key, { line: line.value, connection })
-    if (away()) lines.letSendingGo(key)
+    if (away()) connection.pause()
   }
 
   /** Every line the device keeps opened, and every line it no longer keeps let go of. */
@@ -147,16 +149,16 @@ export function BookSyncRunner(props: { readonly crossing: CrossingServices }): 
     held.sendings.forEach((open) => open.connection.reopen())
     void keepUp()
   }
-  /** Gone from sight: the lines let go a moment after, so that a phone's radio rests. */
+  /** Gone from sight: what changed sent at once, and the sockets let rest a moment after, so that a phone's radio rests. */
   const hidden = (): void => {
     if (!away()) return
     clearTimeout(timers.closing)
     held.lines.forEach((line) => line.plays?.copyNow())
     held.sendings.forEach((open) => open.line.sendNow())
     timers.closing = setTimeout(() => {
-      Array.from(held.lines.keys()).forEach(lines.letGo)
-      Array.from(held.sendings.keys()).forEach(lines.letSendingGo)
-    }, CLOSED_AFTER)
+      held.lines.forEach((line) => line.connection.pause())
+      held.sendings.forEach((open) => open.connection.pause())
+    }, RESTED_AFTER)
   }
   const stopListening = onShownAgain(back)
   document.addEventListener("visibilitychange", hidden)

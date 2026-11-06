@@ -18,7 +18,7 @@ import type { CommitId } from "../history/port/history-port"
 import type { DraftStorage } from "../storage/port/draft-storage"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
-import { weighPlay as weighPachislotPlay } from "./pachislot/weighing"
+import { weighTheoreticalValue as weighPachislotValue } from "./pachislot/weighing"
 import type * as PachislotEngine from "../pachislot-engine/client/client"
 import { fromDraft } from "./lift"
 import { openPool } from "./parlors"
@@ -243,8 +243,8 @@ export const theoreticalValueAtFinish = async (engine: PachislotEngine.EngineCli
   const ordered = inPlayOrder(parsed.value)
   if (draft.gameKind === "pachislot") {
     if (draft.pachislot === undefined) return undefined
-    const outlook = await weighPachislotPlay(engine, draft.pachislot, ordered, terms)
-    return outlook.ok ? outlook.value.theoreticalValue : undefined
+    const value = await weighPachislotValue(engine, draft.pachislot, ordered, terms)
+    return value.ok ? value.value : undefined
   }
   return draft.pachinko === undefined || terms === undefined ? undefined : Pachinko.playTheoreticalValue(draft.pachinko.figures, terms, Pachinko.consumptionOf(ordered, terms, draft.pachinko), draft.overEntry)?.theoreticalValue
 }

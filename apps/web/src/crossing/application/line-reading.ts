@@ -19,7 +19,7 @@ const pageOf = (connection: Connection, filter: Filter): Promise<Result<readonly
       resolve(result)
     }
     const timer = setTimeout(() => ended(Err("unanswered")), PAGE_WAIT_MS)
-    const subscription = connection.subscribe([filter], {
+    const subscription = connection.subscribe(() => [filter], {
       onEvent: (event) => events.push(event),
       onCaughtUp: () => ended(Ok(events)),
       onEnded: () => ended(Err("unanswered")),
