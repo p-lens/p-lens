@@ -1,5 +1,5 @@
-import { createMemo, For, Show, type JSX } from "solid-js"
-import { MainContent } from "solid-gathering-shell"
+import { createMemo, createSignal, For, onCleanup, Show, type JSX } from "solid-js"
+import { MainContent, useArrangement } from "solid-gathering-shell"
 
 import type { Outcome } from "../../../application/errors"
 import { monthOf, type IsoDate, type IsoMonth } from "../../../core/calendar/calendar"
@@ -8,6 +8,7 @@ import { totalOf, type Group } from "../../../core/report/breakdown"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import { Refreshing } from "../../primitives/states"
+import { createSwipe, type Swiped } from "../../primitives/swipe"
 import type { Place } from "../../navigation/place"
 import { inferredShareText, NOT_TALLIED } from "../../wording/breakdown"
 import { describeError } from "../../wording/errors"
@@ -24,6 +25,12 @@ const TONES = { positive: "text-positive", negative: "text-negative", neutral: "
 
 /** The groups an answer holds: none while it is awaited, and none where it failed, which is said apart. */
 const groupsIn = (outcome: Outcome<readonly Group[]> | undefined): readonly Group[] => (outcome?.ok === true ? outcome.value : [])
+
+/** How long the page stands empty after a swipe turns the month, in milliseconds: long enough to see that it turned, with nothing sliding. */
+const BLANK_FOR = 250
+
+/** Whether the calendar is shown, or the page stands empty a moment as a swipe turns the month. */
+type Face = "shown" | "blank"
 
 const CELL = "flex min-h-[3.75rem] min-w-0 flex-col gap-0.5 rounded-[3px] px-0.5 py-1 text-left sm:px-1"
 
@@ -91,7 +98,9 @@ function Day(props: { readonly day: IsoDate; readonly figures: Group | undefined
  * a day to another. Where part of the month's theoretical value was
  * inferred, how much is said under it, so a figure nobody measured is not
  * taken for one somebody did. A filter the caller gives stands at the
- * end of the month's row, after 今月.
+ * end of the month's row, after 今月. At a phone's width a finger drawn
+ * across turns the month, and the page stands empty for a moment as it
+ * does, so the turn is seen without anything sliding.
  */
 export function ResultCalendar(props: {
   readonly place: Place
@@ -115,66 +124,80 @@ export function ResultCalendar(props: {
   const total = createMemo(() => totalOf(groupsIn(props.whole)))
   const failure = (): string | undefined => [props.days, props.whole].flatMap((outcome) => (outcome?.ok === false ? [describeError(outcome.error)] : [])).at(0)
   const weeks = createMemo(() => weeksOf(props.month))
+  const arrangement = useArrangement()
+  const [face, setFace] = createSignal<Face>("shown")
+  const blanking: { timer: ReturnType<typeof setTimeout> | undefined } = { timer: undefined }
+  onCleanup(() => clearTimeout(blanking.timer))
+  const turn = (way: Swiped): void => {
+    if (arrangement() !== "narrow") return
+    props.onMonth(way === "later" ? monthAfter(props.month) : monthBefore(props.month))
+    clearTimeout(blanking.timer)
+    setFace("blank")
+    blanking.timer = setTimeout(() => setFace("shown"), BLANK_FOR)
+  }
+  const swipe = createSwipe(turn)
   return (
     <MainContent header={<ViewHeader place={props.place} title={RESULT_CALENDAR} actions={props.actions} framed="3xl" />}>
-      <div class="max-w-3xl">
-        <div class="flex flex-col gap-4 p-2 sm:p-4">
-          <div class="flex items-center gap-1">
-            <Button type="button" variant="ghost" size="icon" onClick={() => props.onMonth(monthBefore(props.month))}>
-              <EarlierIcon label="前の月" />
-            </Button>
-            <h2 class="min-w-28 text-center text-base font-bold tabular-nums text-text-primary">{monthTitle(props.month)}</h2>
-            <Button type="button" variant="ghost" size="icon" onClick={() => props.onMonth(monthAfter(props.month))}>
-              <LaterIcon label="次の月" />
-            </Button>
-            <div class="flex-1" />
-            <Button type="button" variant="outline" size="small" onClick={() => props.onMonth(monthOf(app.services.businessDay()))}>
-              今月
-            </Button>
-            {props.filter}
-          </div>
-          <Refreshing loading={props.loading}>
-            <div class="flex flex-col gap-4">
-              <dl class="grid grid-cols-2 gap-2">
-                <Figure label="実収支" value={total().actual} kind="actual" />
-                <Figure
-                  label="期待値"
-                  value={total().theoretical}
-                  kind="theoretical"
-                  instead={props.theoreticalKept ? undefined : NOT_TALLIED}
-                  {...(props.theoreticalKept && !isZero(total().inferred) ? { caption: inferredShareText(total().inferred) } : {})}
-                />
-              </dl>
-              <Show when={failure()} keyed>
-                {(words) => (
-                  <p role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-text-primary">
-                    {words}
-                  </p>
-                )}
-              </Show>
-              <div class="flex flex-col gap-1">
-                <div class="grid grid-cols-7 gap-1">
-                  <For each={WEEKDAYS}>{(weekday) => <span class="text-center text-xs font-bold text-text-muted">{weekday}</span>}</For>
-                </div>
-                <For each={weeks()}>
-                  {(week) => (
-                    <div class="grid grid-cols-7 gap-1">
-                      <For each={week}>
-                        {(cell: Cell) => (
-                          <Show when={cell} keyed fallback={<div />}>
-                            {(day) => (
-                              <Day day={day} figures={figures().get(day)} theoreticalKept={props.theoreticalKept} today={day === app.services.businessDay()} of={props.of} onOpen={() => props.onOpen(day)} />
-                            )}
-                          </Show>
-                        )}
-                      </For>
-                    </div>
-                  )}
-                </For>
-              </div>
+      <div class="min-h-full max-w-3xl" onTouchStart={swipe.onTouchStart} onTouchEnd={swipe.onTouchEnd} onTouchCancel={swipe.onTouchCancel}>
+        <Show when={face() === "shown"}>
+          <div class="flex flex-col gap-4 p-2 sm:p-4">
+            <div class="flex items-center gap-1">
+              <Button type="button" variant="ghost" size="icon" onClick={() => props.onMonth(monthBefore(props.month))}>
+                <EarlierIcon label="前の月" />
+              </Button>
+              <h2 class="min-w-28 text-center text-base font-bold tabular-nums text-text-primary">{monthTitle(props.month)}</h2>
+              <Button type="button" variant="ghost" size="icon" onClick={() => props.onMonth(monthAfter(props.month))}>
+                <LaterIcon label="次の月" />
+              </Button>
+              <div class="flex-1" />
+              <Button type="button" variant="outline" size="small" onClick={() => props.onMonth(monthOf(app.services.businessDay()))}>
+                今月
+              </Button>
+              {props.filter}
             </div>
-          </Refreshing>
-        </div>
+            <Refreshing loading={props.loading}>
+              <div class="flex flex-col gap-4">
+                <dl class="grid grid-cols-2 gap-2">
+                  <Figure label="実収支" value={total().actual} kind="actual" />
+                  <Figure
+                    label="期待値"
+                    value={total().theoretical}
+                    kind="theoretical"
+                    instead={props.theoreticalKept ? undefined : NOT_TALLIED}
+                    {...(props.theoreticalKept && !isZero(total().inferred) ? { caption: inferredShareText(total().inferred) } : {})}
+                  />
+                </dl>
+                <Show when={failure()} keyed>
+                  {(words) => (
+                    <p role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-text-primary">
+                      {words}
+                    </p>
+                  )}
+                </Show>
+                <div class="flex flex-col gap-1">
+                  <div class="grid grid-cols-7 gap-1">
+                    <For each={WEEKDAYS}>{(weekday) => <span class="text-center text-xs font-bold text-text-muted">{weekday}</span>}</For>
+                  </div>
+                  <For each={weeks()}>
+                    {(week) => (
+                      <div class="grid grid-cols-7 gap-1">
+                        <For each={week}>
+                          {(cell: Cell) => (
+                            <Show when={cell} keyed fallback={<div />}>
+                              {(day) => (
+                                <Day day={day} figures={figures().get(day)} theoreticalKept={props.theoreticalKept} today={day === app.services.businessDay()} of={props.of} onOpen={() => props.onOpen(day)} />
+                              )}
+                            </Show>
+                          )}
+                        </For>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </div>
+            </Refreshing>
+          </div>
+        </Show>
       </div>
     </MainContent>
   )

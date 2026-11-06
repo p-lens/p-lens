@@ -29,7 +29,7 @@ export const atReadingFrom = (standing: AtStanding): AtReadingForm => ({
   held: standing.held === undefined ? "" : String(standing.held),
   heldCarried: standing.held !== undefined,
   handed: "",
-  handing: "received",
+  handing: "given",
 })
 
 export interface AtReadingProblem {

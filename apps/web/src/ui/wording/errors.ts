@@ -27,7 +27,7 @@ const NUMERIC_FIELDS: Readonly<Record<NumericField, string>> = {
   "replay-paid-out": "再プレイ払出",
   "replay-deducted": "再プレイ減数",
   "carried-in": "開始時の持ち玉・持ちメダル",
-  handed: "持ち玉・持ちメダル調整",
+  handed: "玉・メダルの受渡し",
   payout: "持ち玉・持ちメダル",
   takings: "回収額",
   "special-prizes": "特殊景品額",
@@ -227,7 +227,9 @@ export const describeError = (error: ApplicationError): string => {
     case "tally-in-book":
       return "移動先の帳簿に、同じ稼働の収支がもうあります。"
     case "recount-refused":
-      return `0Rの数え方を変えると、${error.refusal.index + 1}件目の読み取りでカウンタが ${error.refusal.expectedAtLeast} 回転より戻ります。記録済みのカウンタと合わないため、変えられません。`
+      return error.refusal.type === "counter-went-back"
+        ? `0Rの数え方を変えると、${error.refusal.index + 1}件目の読み取りでカウンタが ${error.refusal.expectedAtLeast} 回転より戻ります。記録済みのカウンタと合わないため、変えられません。`
+        : `${error.refusal.index + 1}件目の読み取りで、持ち玉より多くの玉を渡しています。玉の受渡しを直してから、0Rの数え方を変えてください。`
     case "recorded-unmarked":
       return `収支は帳簿に記帳しました。ただ、この端末の稼働を記帳済みにできませんでした。もう一度記帳しないでください。${describeDraftError(error.error)}`
     case "tally-unreadable":
@@ -274,5 +276,7 @@ export const describeReadingRefusal = (refusal: ReadingRefusal): string => {
       return `投資額は累計で入力してください（これまでで ¥${amountText(seal.play(refusal.atLeast))}）。`
     case "replay-went-back":
       return `貯玉・貯メダルの引出は累計で入力してください（これまでで ${amountText(seal.play(refusal.atLeast))}）。`
+    case "handed-beyond-hand":
+      return `持ち玉・持ちメダル（${amountText(seal.play(refusal.held))}）より多くは渡せません。`
   }
 }

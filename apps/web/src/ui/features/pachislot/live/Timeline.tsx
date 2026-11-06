@@ -64,7 +64,7 @@ function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly seat: boo
           {(replay) => <span class="text-text-muted" classList={{ "ml-3": !props.strip }}>貯メダル {amountText(seal.play(replay))}枚</span>}
         </Show>
         <Show when={props.checkpoint.handed} keyed>
-          {(handed) => <span class="text-text-muted" classList={{ "ml-3": !props.strip }}>持ちメダル調整 {handed < 0 ? "−" : "＋"}{amountText(seal.play(Math.abs(handed)))}枚</span>}
+          {(handed) => <span class="text-text-muted" classList={{ "ml-3": !props.strip }}>メダルの受渡し {handed < 0 ? "−" : "＋"}{amountText(seal.play(Math.abs(handed)))}枚</span>}
         </Show>
         <Show when={props.checkpoint.counter?.total} keyed>
           {(total) => <span class="text-text-muted" classList={{ "ml-3": !props.strip }}>累計 {formatCount(total)}G</span>}

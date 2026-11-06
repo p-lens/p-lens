@@ -101,7 +101,7 @@ const atMachineNet = (ordered: readonly Checkpoint[], from: number, to: number, 
 /**
  * The medals likely in hand at a play's last line: where they were counted
  * there, that count; otherwise the last count — or what the play was begun
- * with — with the medals rented and drawn from savings since, and what the
+ * with — with the medals rented, drawn from savings and handed since, and what the
  * games since likely won or lost by the formula. Never below none; none
  * where the play has no terms to rent on, or the formula does not say what
  * its games pay.
@@ -116,5 +116,6 @@ export const likelyHeldOf = (ordered: readonly Checkpoint[], formula: FormulaSna
   if (net === undefined) return undefined
   const rented = tokensRentedFor(terms, runningAt(ordered, last, (checkpoint) => checkpoint.outlay)) - tokensRentedFor(terms, runningAt(ordered, from, (checkpoint) => checkpoint.outlay))
   const drawn = runningAt(ordered, last, (checkpoint) => checkpoint.replay) - runningAt(ordered, from, (checkpoint) => checkpoint.replay)
-  return Math.max(0, Math.round((ordered[from]?.held ?? 0) + rented + drawn + net))
+  const handed = runningAt(ordered, last, (checkpoint) => checkpoint.handed) - runningAt(ordered, from, (checkpoint) => checkpoint.handed)
+  return Math.max(0, Math.round((ordered[from]?.held ?? 0) + rented + drawn + handed + net))
 }

@@ -3,7 +3,8 @@ import { describe, expect, test } from "bun:test"
 import { consumptionOf } from "../../../src/core/pachinko/consumption"
 import { withReadingsMerged } from "../../../src/core/pachinko/merging"
 import { checkpointsForRapid, checkpointsForReading, inReliefDrive, supportPhaseOf, type Reading } from "../../../src/core/pachinko/reading"
-import { gaugeNowOf, reliefDriveCounter, standingBefore, takenOf, withReadingRevised } from "../../../src/core/pachinko/revision"
+import { gaugeNowOf, heldAsToldOf, reliefDriveCounter, standingBefore, takenOf, withReadingRevised } from "../../../src/core/pachinko/revision"
+import { mergeableSpan } from "../../../src/core/pachinko/merging"
 import type { PlayTerms } from "../../../src/core/parlor/terms"
 import type { Checkpoint } from "../../../src/core/play-log/checkpoint"
 import { bonusKey, formOfReading, readingFrom, readReadingForm, readReliefDrive, readRunJackpot, readSupportEnd, saysNothingNew } from "../../../src/ui/features/pachinko/live/reading-form"
@@ -57,10 +58,10 @@ describe("a pachinko reading typed onto where the play stands", () => {
     expect(read.ok && [read.value.rented, read.value.held]).toEqual([1000, 150])
   })
 
-  test("reads balls handed away below none and handed in above, leaving the hand shown as it is", () => {
-    const given = readReadingForm({ ...form, counter: "230", handed: "300", handing: "given" }, [], before)
-    expect(given.ok && [given.value.handed, given.value.held]).toEqual([-300, undefined])
-    const received = readReadingForm({ ...form, counter: "230", handed: "200" }, [], before)
+  test("reads balls handed away below none, as the form opens, and handed in above, leaving a hand not counted to the play", () => {
+    const given = readReadingForm({ ...form, counter: "230", handed: "100" }, [], before)
+    expect(given.ok && [given.value.handed, given.value.held]).toEqual([-100, undefined])
+    const received = readReadingForm({ ...form, counter: "230", handed: "200", handing: "received" }, [], before)
     expect(received.ok && received.value.handed).toBe(200)
     expect(readReadingForm({ ...form, handed: "abc" }, [], before)).toEqual({ ok: false, error: [{ field: "handed", reason: "not-a-count" }] })
     const unchanged = readReadingForm({ ...form, handed: "300" }, [], before)
@@ -198,5 +199,43 @@ describe("the 遊タイム reached in pachinko regular games", () => {
     const after = ended?.ok ? [...entered, ...ended.value] : entered
     expect(after.at(-1)).toMatchObject({ spins: 480, phase: "rapid", counter: { spins: 600, gauge: 0 } })
     expect([supportPhaseOf(after), gaugeNowOf(after, EVERY_JACKPOT)]).toEqual([undefined, 0])
+  })
+})
+
+describe("balls handed at a pachinko reading", () => {
+  const at = "2026-11-06T12:00:00+09:00"
+  const reading = (fields: Partial<Reading> & Pick<Reading, "counterSpins">): Reading => ({ phase: "regular", rented: 0, replayed: 0, supported: 0, handed: 0, held: undefined, jackpot: { type: "none" }, at, ...fields })
+  const played = (readings: readonly Reading[]): readonly Checkpoint[] =>
+    readings.reduce<readonly Checkpoint[]>((log, each) => ((added) => (added.ok ? [...log, ...added.value] : log))(checkpointsForReading(log, each, false, EVERY_JACKPOT)), LOG.slice(0, 2))
+  const given = played([reading({ counterSpins: 230, handed: -100 })])
+
+  test("move the hand from the next reading on where it is not counted, a count being the hand as the cabinet shows it", () => {
+    expect(standingBefore(given, 2, EVERY_JACKPOT).held).toBe(50)
+    expect(readingFrom("regular", standingBefore(given, 2, EVERY_JACKPOT)).held).toBe("50")
+    const counted = played([reading({ counterSpins: 230, handed: 500, held: 900 })])
+    expect(heldAsToldOf(counted)).toBe(900)
+  })
+
+  test("are set right with every line after them following, never kept as a count", () => {
+    const after = [...given, ...((added) => (added.ok ? added.value : []))(checkpointsForReading(given, reading({ counterSpins: 260 }), false, EVERY_JACKPOT))]
+    const revised = withReadingRevised(after, 1, reading({ counterSpins: 230, handed: -30 }), EVERY_JACKPOT)
+    expect(revised.ok && heldAsToldOf(revised.value)).toBe(120)
+  })
+
+  test("are refused where more are handed away than are in hand, as typed and as set right", () => {
+    const before = standingBefore(LOG, 1, EVERY_JACKPOT)
+    const form = readingFrom("regular", before)
+    expect(readReadingForm({ ...form, counter: "230", handed: "151" }, [], before)).toEqual({ ok: false, error: [{ field: "handed", reason: "beyond-hand" }] })
+    expect(readReadingForm({ ...form, counter: "230", rented: "3000", handed: "200" }, [], before)).toEqual({ ok: false, error: [{ field: "handed", reason: "beyond-hand" }] })
+    expect(readReadingForm({ ...form, counter: "230", held: "0", heldCarried: false, handed: "300" }, [], before).ok).toBe(true)
+    const twice = played([reading({ counterSpins: 230, handed: -100 }), reading({ counterSpins: 260, handed: -50 })])
+    expect(withReadingRevised(twice, 1, reading({ counterSpins: 230, handed: -120 }), EVERY_JACKPOT)).toEqual({ ok: false, error: { type: "handed-beyond-hand", index: 2, held: 30 } })
+  })
+
+  test("keep their reading from being merged with another", () => {
+    const log = played([reading({ counterSpins: 230 }), reading({ counterSpins: 260, handed: -100 }), reading({ counterSpins: 290 }), reading({ counterSpins: 320 })])
+    expect(mergeableSpan(log, 1, 4)).toEqual({ from: 1, to: 1 })
+    expect(mergeableSpan(log, 3, 0)).toEqual({ from: 3, to: 3 })
+    expect(mergeableSpan(log, 3, 4)).toEqual({ from: 3, to: 4 })
   })
 })

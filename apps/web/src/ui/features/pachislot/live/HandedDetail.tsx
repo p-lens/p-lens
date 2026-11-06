@@ -6,10 +6,12 @@ import { HANDED_NOTE } from "../../../wording/pachislot/play"
 import type { Handing } from "./reading-form"
 
 /**
- * 持ちメダル調整 behind a reading's small button: medals handed in by
+ * メダルの受渡し behind a reading's small button: medals handed in by
  * other players or handed to them since the reading before, few readings
- * having any. A breakdown of the medals in hand, never added to them — the
- * hand is typed as the cabinet shows it — and kept out of every figure.
+ * having any. A breakdown of the medals in hand — a count typed is the
+ * hand as the cabinet shows it, holding them — which the hand moves by
+ * from the next line on where it is not counted again, and kept out of
+ * every figure.
  * The sign beside the count says the way they went, and is turned by
  * pressing it.
  */
@@ -23,7 +25,7 @@ export function HandedDetail(props: {
   const set = (): boolean => props.handed.trim() !== ""
   const sign = (): string => (props.handing === "given" ? "−" : "＋")
   return (
-    <DetailButton label="詳細" says={set() ? `詳細（持ちメダル調整 ${sign()}${props.handed}枚）` : "詳細（持ちメダル調整）"} marked={set()} invalid={props.invalid} placement="top-end" onOpen={props.onFocus}>
+    <DetailButton label="詳細" says={set() ? `詳細（メダルの受渡し ${sign()}${props.handed}枚）` : "詳細（メダルの受渡し）"} marked={set()} invalid={props.invalid} placement="top-end" onOpen={props.onFocus}>
       <button
         type="button"
         aria-label={props.handing === "received" ? "貰いメダル（押すと渡しメダルに切替）" : "渡しメダル（押すと貰いメダルに切替）"}
@@ -33,7 +35,7 @@ export function HandedDetail(props: {
         {sign()}
       </button>
       <div class="min-w-0 flex-1">
-        <TextField label="持ちメダル調整" value={props.handed} onChange={(handed) => props.onHanded({ handed, handing: props.handing })} inputMode="numeric" suffix="枚" placeholder="0" invalid={props.invalid} onFocus={props.onFocus} note={HANDED_NOTE} compact />
+        <TextField label="メダルの受渡し" value={props.handed} onChange={(handed) => props.onHanded({ handed, handing: props.handing })} inputMode="numeric" suffix="枚" placeholder="0" invalid={props.invalid} onFocus={props.onFocus} note={HANDED_NOTE} compact />
       </div>
     </DetailButton>
   )

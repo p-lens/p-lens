@@ -1,4 +1,5 @@
 import type { Checkpoint, Counts } from "../play-log/checkpoint"
+import { handsBeyondHand, heldNowOf } from "../play-log/held-now"
 import { Err, Ok, type Result } from "../result/result"
 import { countingStartOf } from "./observation"
 
@@ -31,6 +32,7 @@ export type CounterRefusal =
   | { readonly type: "outlay-went-back"; readonly atLeast: number }
   | { readonly type: "replay-went-back"; readonly atLeast: number }
   | { readonly type: "bonus-went-back"; readonly id: string; readonly atLeast: number }
+  | { readonly type: "handed-beyond-hand"; readonly held: number }
 
 /** Where the play's games are told from on the counter: its last reading of the day's games, or the play's start, counted as none. */
 const anchorOf = (ordered: readonly Checkpoint[]): { readonly spins: number; readonly total: number } => {
@@ -54,7 +56,8 @@ const bonusBehind = (ordered: readonly Checkpoint[], bonuses: Counts): { readonl
 
 /**
  * The line a counter reading adds, or why it cannot be added: the day's games
- * do not go back, nor does the outlay, nor the medals drawn from savings, nor the day's count of any bonus. The play's games are the reading's
+ * do not go back, nor does the outlay, nor the medals drawn from savings, nor the day's count of any bonus;
+ * nor are more medals handed away than are in hand with no count of them. The play's games are the reading's
  * games less those the counter showed at the anchor.
  */
 export const checkpointForReading = (ordered: readonly Checkpoint[], input: CounterInput): Result<Checkpoint, CounterRefusal> => {
@@ -66,6 +69,7 @@ export const checkpointForReading = (ordered: readonly Checkpoint[], input: Coun
   if (input.total < shown) return Err({ type: "total-went-back", atLeast: shown })
   const behind = bonusBehind(ordered, input.bonuses)
   if (behind !== undefined) return Err({ type: "bonus-went-back", ...behind })
+  if (handsBeyondHand(ordered, input)) return Err({ type: "handed-beyond-hand", held: heldNowOf(ordered) ?? 0 })
   const anchor = anchorOf(ordered)
   return Ok({
     spins: anchor.spins + input.total - anchor.total,

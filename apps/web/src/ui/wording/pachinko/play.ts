@@ -3,6 +3,7 @@ import type { StretchRate } from "../../../core/pachinko/consumption"
 import type { SupportPhase } from "../../../core/pachinko/reading"
 import type { RevisionRefusal } from "../../../core/pachinko/revision"
 import type { Phase } from "../../../core/play-log/checkpoint"
+import { seal } from "../../../mummer"
 import { amountText, formatCount, signedAmountText, type Amount } from "../numbers"
 
 /** A cabinet's states as a player calls them. */
@@ -38,9 +39,18 @@ export const UNTOLD_JACKPOT = "大当り"
 /** Balls gained or lost, always signed: `+1,400玉`, `-35玉`. */
 export const signedBalls = (balls: Amount<number>): string => `${signedAmountText(balls)}玉`
 
-/** Why a reading cannot be set right or taken away as asked: which reading would then show less on the counter than it must. */
-export const describeRevisionRefusal = (refusal: RevisionRefusal): string =>
-  `この変更だと、${String(refusal.index + 1)}件目の回転数が ${formatCount(refusal.expectedAtLeast)} 回転より小さくなってしまいます。大当りの記録か回転数を見直してください。`
+/** Why a reading cannot be set right or taken away as asked: which reading would then show less on the counter than it must, or hand away more balls than were in hand. */
+export const describeRevisionRefusal = (refusal: RevisionRefusal): string => {
+  switch (refusal.type) {
+    case "counter-went-back":
+      return `この変更だと、${String(refusal.index + 1)}件目の回転数が ${formatCount(refusal.expectedAtLeast)} 回転より小さくなってしまいます。大当りの記録か回転数を見直してください。`
+    case "handed-beyond-hand":
+      return `この変更だと、${String(refusal.index + 1)}件目で渡した玉が、その時の持ち玉（${amountText(seal.play(refusal.held))}玉）より多くなってしまいます。玉の受渡しか持ち玉を見直してください。`
+  }
+}
+
+/** What a reading says under its 玉の受渡し where more balls are handed away than are in hand: the hand would fall below nothing. */
+export const BEYOND_HAND = "持ち玉より多くは渡せません。渡した玉の数か、持ち玉を見直してください。"
 
 /** What making a run of a play's readings one line is called, on the button that does it. */
 export const MERGE_READINGS = "履歴をまとめる"
@@ -131,5 +141,5 @@ export const STRETCH_RATE_UNIT = "回転/千円"
 /** What a reading's 電サポ増減 says behind its i: a breakdown of the hand, never added to it, kept out of the spin rate and put in the border in place of the formula's. */
 export const DRIFT_NOTE = "持ち玉の内訳として記入します。持ち玉欄の数は変わらないので、持ち玉は台の表示を見たまま入れてください。回転率からは除き、ボーダーは機種の電サポ中の出玉増減の代わりにこの数で計算します。"
 
-/** What a reading's 持ち玉調整 says behind its i: balls shared with other players, a breakdown of the hand, reaching no figure. */
-export const HANDED_NOTE = "主に超ノリ打ち時の出玉共有で調整します。持ち玉の内訳として記入し、持ち玉欄の数は変わりません。回転率・ボーダーなど、どの計算にも影響しません。"
+/** What a reading's 玉の受渡し says behind its i: balls shared with other players, a breakdown of the hand, carried into the hand from the next line on, reaching no figure. */
+export const HANDED_NOTE = "主に超ノリ打ち時の出玉共有で記入します。持ち玉の内訳で、持ち玉を数え直さなければ、次の行から受渡し後の持ち玉になります。以後は台間サンドの持玉数をそのまま入れてください。回転率・ボーダーなど、どの計算にも影響しません。"

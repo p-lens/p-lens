@@ -18,7 +18,7 @@ import { toast } from "../../../primitives/toast"
 import { feelTap } from "../../../primitives/vibration"
 import { describeError, describeReadingRefusal } from "../../../wording/errors"
 import { FIELD_PROBLEM_TEXT } from "../../../wording/fields"
-import { BACK_TO_REGULAR, RELIEF_DRIVE_SLIP, RELIEF_DRIVE_NAME, SUPPORT_END_ASKS, SUPPORT_NAMES, switchToText } from "../../../wording/pachinko/play"
+import { BACK_TO_REGULAR, BEYOND_HAND, RELIEF_DRIVE_SLIP, RELIEF_DRIVE_NAME, SUPPORT_END_ASKS, SUPPORT_NAMES, switchToText } from "../../../wording/pachinko/play"
 import { jackpotOptions, useBonuses, usualOverOf } from "./bonus-choice"
 import { ReadingDetail } from "./ReadingDetail"
 import { OverButton } from "./OverButton"
@@ -81,12 +81,17 @@ export function SupportComposer(props: {
     const found = read()
     return nudge.red() && !found.ok && found.error.some((problem) => problem.field === field)
   }
+  /** Whether more balls are handed away than are in hand: said once 記録 is pressed, never while typing. */
+  const beyondHand = (): boolean => {
+    const found = read()
+    return nudge.red() && !found.ok && found.error.some((problem) => problem.reason === "beyond-hand")
+  }
   const unread = (): boolean => {
     const found = read()
     return !found.ok && found.error.some((problem) => problem.reason === "not-a-count")
   }
   const startEnding = (): void => {
-    change({ counter: "", held: ((held) => (held === undefined ? "" : String(held)))(before().held), heldCarried: before().held !== undefined, supported: "", drift: "loss", handed: "", handing: "received" })
+    change({ counter: "", held: ((held) => (held === undefined ? "" : String(held)))(before().held), heldCarried: before().held !== undefined, supported: "", drift: "loss", handed: "", handing: "given" })
     setStep({ type: "ending" })
     if (held.form !== undefined) revealAboveTheKeyboard(held.form)
   }
@@ -240,6 +245,9 @@ export function SupportComposer(props: {
         </div>
         <Show when={unread()}>
           <p class="text-xs text-negative">{FIELD_PROBLEM_TEXT["not-a-count"]}</p>
+        </Show>
+        <Show when={beyondHand()}>
+          <p class="text-xs text-negative">{BEYOND_HAND}</p>
         </Show>
         <div class="flex items-end justify-end gap-1">
           <Button variant="ghost" class="h-10 shrink-0 px-1.5" onClick={stopEnding}>

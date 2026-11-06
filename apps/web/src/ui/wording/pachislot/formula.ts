@@ -102,8 +102,13 @@ export const describeAtReadingRefusal = (refusal: ReadingRefusal): string => {
       return `投資（累計）は、前に記録した¥${amountText(seal.play(refusal.atLeast))}より少なくはなりません。`
     case "replay-went-back":
       return `貯メダル（累計）は、前に記録した${amountText(seal.play(refusal.atLeast))}枚より少なくはなりません。`
+    case "handed-beyond-hand":
+      return handedBeyondText(refusal.held)
   }
 }
+
+/** Why medals handed away cannot be kept: more than the medals in hand, which then stood at so many. */
+const handedBeyondText = (held: number): string => `持ちメダル（${amountText(seal.play(held))}枚）より多くは渡せません。渡したメダルの数か、持ちメダルを見直してください。`
 
 /** What was to be taken back, in the words of the machine's trigger. */
 const takenName = (taken: TakeBackRefusal["taken"], trigger: TriggerWords): string => {
@@ -137,6 +142,8 @@ export const describeCounterRefusal = (refusal: CounterRefusal, bonusLabel: (id:
       return `投資（累計）は、前に記録した¥${amountText(seal.play(refusal.atLeast))}より少なくはなりません。`
     case "replay-went-back":
       return `貯メダル（累計）は、前に記録した${amountText(seal.play(refusal.atLeast))}枚より少なくはなりません。`
+    case "handed-beyond-hand":
+      return handedBeyondText(refusal.held)
   }
 }
 
@@ -154,6 +161,8 @@ export const describeStepRefusal = (refusal: RevisionRefusal, bonusLabel: (id: s
       return `${where}投資（累計）が、¥${amountText(seal.play(refusal.atLeast))}より少なくなってしまいます。`
     case "replay-went-back":
       return `${where}貯メダル（累計）が、${amountText(seal.play(refusal.atLeast))}枚より少なくなってしまいます。`
+    case "handed-beyond-hand":
+      return `${where}渡したメダルが、その時の持ちメダル（${amountText(seal.play(refusal.held))}枚）より多くなってしまいます。`
   }
 }
 

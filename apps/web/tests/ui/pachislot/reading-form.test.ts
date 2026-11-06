@@ -8,7 +8,7 @@ describe("a pachislot reading typed onto where the play stands", () => {
 
   test("opens on the day's games, each bonus and the outlay, and reads back as the play stands", () => {
     const form = readingFrom(standing, ["big", "reg", "extra"])
-    expect(form).toEqual({ total: "2650", bonuses: { big: "8", reg: "5", extra: "0" }, outlay: "3000", replay: "120", held: "", heldCarried: false, handed: "", handing: "received" })
+    expect(form).toEqual({ total: "2650", bonuses: { big: "8", reg: "5", extra: "0" }, outlay: "3000", replay: "120", held: "", heldCarried: false, handed: "", handing: "given" })
     expect(readReadingForm(form, standing.bonuses, ["big", "reg", "extra"])).toEqual({ ok: true, value: { total: 2650, bonuses: { big: 8, reg: 5, extra: 0 }, outlay: 3000, replay: 120, held: undefined, handed: 0 } })
   })
 
@@ -35,11 +35,12 @@ describe("a pachislot reading typed onto where the play stands", () => {
 })
 
 describe("medals handed to or by other players, typed on a pachislot reading", () => {
-  test("are read signed by the way they went, none where nothing is typed, and refused where not a count", () => {
+  test("are read signed by the way they went, away unless turned, none where nothing is typed, and refused where not a count", () => {
     const standing = { total: 2650, bonuses: {}, outlay: undefined, replay: undefined, held: undefined }
     const form = readingFrom(standing, [])
     expect(readReadingForm({ ...form, handed: "120", handing: "given" }, {}, [])).toMatchObject({ ok: true, value: { handed: -120 } })
-    expect(readReadingForm({ ...form, handed: "120" }, {}, [])).toMatchObject({ ok: true, value: { handed: 120 } })
+    expect(readReadingForm({ ...form, handed: "120" }, {}, [])).toMatchObject({ ok: true, value: { handed: -120 } })
+    expect(readReadingForm({ ...form, handed: "120", handing: "received" }, {}, [])).toMatchObject({ ok: true, value: { handed: 120 } })
     expect(readReadingForm(form, {}, [])).toMatchObject({ ok: true, value: { handed: 0 } })
     expect(readReadingForm({ ...form, handed: "百" }, {}, [])).toEqual({ ok: false, error: [{ field: "handed", reason: "not-a-count" }] })
     const at = atReadingFrom({ sinceAt: 10, outlay: undefined, replay: undefined, held: undefined })
@@ -51,8 +52,8 @@ describe("medals handed to or by other players, typed on a pachislot reading", (
 describe("an AT machine's reading typed onto where the play stands", () => {
   test("opens on the games since the last AT and the outlay, and reads back the same", () => {
     const form = atReadingFrom({ sinceAt: 412, outlay: 8000, replay: undefined, held: undefined })
-    expect(form).toEqual({ sinceAt: "412", outlay: "8000", replay: "", held: "", heldCarried: false, handed: "", handing: "received" })
+    expect(form).toEqual({ sinceAt: "412", outlay: "8000", replay: "", held: "", heldCarried: false, handed: "", handing: "given" })
     expect(readAtReadingForm(form)).toEqual({ ok: true, value: { sinceAt: 412, outlay: 8000, replay: undefined, held: undefined, handed: 0 } })
-    expect(atReadingFrom({ sinceAt: 0, outlay: undefined, replay: undefined, held: undefined })).toEqual({ sinceAt: "0", outlay: "", replay: "", held: "", heldCarried: false, handed: "", handing: "received" })
+    expect(atReadingFrom({ sinceAt: 0, outlay: undefined, replay: undefined, held: undefined })).toEqual({ sinceAt: "0", outlay: "", replay: "", held: "", heldCarried: false, handed: "", handing: "given" })
   })
 })

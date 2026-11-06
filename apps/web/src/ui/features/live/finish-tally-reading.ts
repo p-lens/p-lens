@@ -41,8 +41,8 @@ export interface PlayedSoFar {
 
 /** What the tokens in hand are called where they are typed, for each kind of token: those a play was begun with — brought from the play before — those handed between players, and those in hand as it finished, which are what it leaves. */
 export const IN_HAND_LABELS: Readonly<Record<TokenKind, { readonly carriedIn: string; readonly handed: string; readonly left: string }>> = {
-  ball: { carriedIn: "開始時の持ち玉", handed: "持ち玉調整", left: "持ち玉" },
-  medal: { carriedIn: "開始時の持ちメダル", handed: "持ちメダル調整", left: "持ちメダル" },
+  ball: { carriedIn: "開始時の持ち玉", handed: "玉の受渡し", left: "持ち玉" },
+  medal: { carriedIn: "開始時の持ちメダル", handed: "メダルの受渡し", left: "持ちメダル" },
 }
 
 /** Which way tokens went between the person and other players over a play: handed in to them, or handed away. The count typed is how many, never signed. */
@@ -56,10 +56,10 @@ export const readHanded = (text: string, handing: Handing): Read<Decimal> => {
   return Ok(handing === "given" ? negate(parsed.value) : parsed.value)
 }
 
-/** What a play's log says was handed, as a form shows it: the count, and the way it went. */
+/** What a play's log says was handed, as a form shows it: the count, and the way it went — away where nothing was, the giver being the one who types it first. */
 export const handedTyped = (handed: number | undefined): { readonly handed: string; readonly handing: Handing } => ({
   handed: handed === undefined || handed === 0 ? "" : String(Math.abs(handed)),
-  handing: handed !== undefined && handed < 0 ? "given" : "received",
+  handing: handed !== undefined && handed > 0 ? "received" : "given",
 })
 
 /** What is said under tokens in hand opened on what is likely in hand rather than a count. */

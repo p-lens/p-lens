@@ -23,7 +23,7 @@ import { feelTap } from "../../../primitives/vibration"
 import { describeError, describeReadingRefusal } from "../../../wording/errors"
 import { FIELD_PROBLEM_TEXT } from "../../../wording/fields"
 import { amountText } from "../../../wording/numbers"
-import { CHANGED_SINCE_REMOVED, describeRevisionRefusal, PHASE_NAMES, recountText, READING_REMOVED, REMOVAL_TAKEN_BACK, REMOVE_READING, RELIEF_DRIVE_REACHED, TAKE_BACK, TAKE_BACK_FAILED, JACKPOT_HELD_NOTE } from "../../../wording/pachinko/play"
+import { BEYOND_HAND, CHANGED_SINCE_REMOVED, describeRevisionRefusal, PHASE_NAMES, recountText, READING_REMOVED, REMOVAL_TAKEN_BACK, REMOVE_READING, RELIEF_DRIVE_REACHED, TAKE_BACK, TAKE_BACK_FAILED, JACKPOT_HELD_NOTE } from "../../../wording/pachinko/play"
 import { jackpotOptions, useBonuses, usualOverOf } from "./bonus-choice"
 import { ReadingDetail } from "./ReadingDetail"
 import { PressButton } from "./PressButton"
@@ -124,6 +124,11 @@ export function ReadingComposer(props: {
   const unread = (): boolean => {
     const found = read()
     return !found.ok && found.error.some((problem) => problem.reason === "not-a-count")
+  }
+  /** Whether more balls are handed away than are in hand: said once 記録 is pressed, never while typing. */
+  const beyondHand = (): boolean => {
+    const found = read()
+    return !found.ok && found.error.some((problem) => problem.reason === "beyond-hand")
   }
   const behind = (): boolean => {
     const found = read()
@@ -343,6 +348,9 @@ export function ReadingComposer(props: {
       </Show>
       <Show when={unread()}>
         <p class="text-xs text-negative">{FIELD_PROBLEM_TEXT["not-a-count"]}</p>
+      </Show>
+      <Show when={nudge.red() && beyondHand()}>
+        <p class="text-xs text-negative">{BEYOND_HAND}</p>
       </Show>
       <div class="grid grid-cols-2 items-end gap-2">
         <div class="flex min-w-0 items-end gap-1">

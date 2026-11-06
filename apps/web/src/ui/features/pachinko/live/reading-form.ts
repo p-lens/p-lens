@@ -1,6 +1,6 @@
 import type { MachineBonus } from "../../../../core/catalog/catalog"
 import type { Jackpot, Reading, ReadingHand, SupportPhase } from "../../../../core/pachinko/reading"
-import type { Before } from "../../../../core/pachinko/revision"
+import { handsBeyondHand, type Before } from "../../../../core/pachinko/revision"
 import type { Phase } from "../../../../core/play-log/checkpoint"
 import { Err, Ok, type Result } from "../../../../core/result/result"
 import { tidyTyped } from "../../../../core/text/tidy"
@@ -8,7 +8,7 @@ import { tidyTyped } from "../../../../core/text/tidy"
 /** Which way the 電サポ took the balls in hand: the count typed is how many, never signed. */
 export type Drift = "gain" | "loss"
 
-/** Which way balls went between the person and another player: handed in to them, or handed away. The count typed is how many, never signed. */
+/** Which way balls went between the person and another player: handed in to them, or handed away. The count typed is how many, never signed; a form opens on away, the giver typing it first and a slip standing out below nothing. */
 export type Handing = "received" | "given"
 
 /**
@@ -50,7 +50,7 @@ export type ReadingField = "counter" | "held" | "rented" | "replayed" | "support
 
 export interface ReadingProblem {
   readonly field: ReadingField
-  readonly reason: "required" | "not-a-count" | "went-back"
+  readonly reason: "required" | "not-a-count" | "went-back" | "beyond-hand"
 }
 
 export const NO_JACKPOT = "none"
@@ -67,7 +67,7 @@ export const readingFrom = (phase: Phase, before: Before): ReadingForm => ({
   supported: "",
   drift: "loss",
   handed: "",
-  handing: "received",
+  handing: "given",
   jackpot: NO_JACKPOT,
   over: "",
   gauge: undefined,
@@ -110,7 +110,8 @@ const SIGNED = /^[+-]?\d+$/
  * Whether the balls in hand shown are this reading's to say: typed, or
  * carried over where balls were bought with no jackpot — buying with no
  * count would otherwise be taken for the hand run out, though the form
- * showed it standing.
+ * showed it standing. A hand carried over so is said with what was
+ * handed at the reading on it, as one not counted would have moved by it.
  */
 const heldTold = (form: ReadingForm, bought: boolean): boolean => !form.heldCarried || (bought && form.jackpot === NO_JACKPOT)
 
@@ -141,7 +142,7 @@ export const formOfReading = (reading: Reading, before: Before): ReadingForm => 
   supported: reading.driftCounted === true ? String(Math.abs(reading.supported)) : typed(Math.abs(reading.supported)),
   drift: reading.supported > 0 ? "gain" : "loss",
   handed: typed(Math.abs(reading.handed)),
-  handing: reading.handed < 0 ? "given" : "received",
+  handing: reading.handed > 0 ? "received" : "given",
   jackpot: chosenOf(reading.jackpot),
   over: reading.jackpot.type === "bonus" && reading.jackpot.bonus.over !== undefined ? String(reading.jackpot.bonus.over) : "",
   gauge: reading.gauge,
@@ -161,7 +162,7 @@ const jackpotOf = (chosen: string, bonuses: readonly MachineBonus[], over: numbe
 /** Yen or tokens typed, with so many more: what a press of the rental or the savings button puts in its field. */
 export const withMore = (typed: string, more: number): string => String((readCount(typed) ?? 0) + more)
 
-/** The form read into a reading but for its moment — what was rented and drawn since where the play stood before it — or every field that could not be read. */
+/** The form read into a reading but for its moment — what was rented and drawn since where the play stood before it — or every field that could not be read; or the balls handed away, where they are more than the hand held with no count after them. */
 export const readReadingForm = (form: ReadingForm, bonuses: readonly MachineBonus[], before: Before): Result<Omit<Reading, "at">, readonly ReadingProblem[]> => {
   const counter = readCounter(form.counter)
   const rented = readSince(form.rented, "rented", before.outlay)
@@ -173,6 +174,8 @@ export const readReadingForm = (form: ReadingForm, bonuses: readonly MachineBonu
   if (!counter.ok || !held.ok || !rented.ok || !replayed.ok || !supported.ok || !handedCount.ok || !over.ok)
     return Err([counter, held, rented, replayed, supported, handedCount, over].flatMap((read) => (read.ok ? [] : [read.error])))
   const handed = form.handing === "given" && handedCount.value !== 0 ? -handedCount.value : handedCount.value
+  const told = held.value === undefined || !form.heldCarried ? held.value : held.value + handed
+  if ((told !== undefined && told < 0) || handsBeyondHand(before.held, { handed, held: told, handsBefore: form.handsBefore })) return Err([{ field: "handed", reason: "beyond-hand" }])
   return Ok({
     counterSpins: counter.value,
     phase: form.phase,
@@ -181,7 +184,7 @@ export const readReadingForm = (form: ReadingForm, bonuses: readonly MachineBonu
     supported: form.drift === "loss" && supported.value !== 0 ? -supported.value : supported.value,
     ...(tidyTyped(form.supported) === "" ? {} : { driftCounted: true as const }),
     handed,
-    held: held.value,
+    held: told,
     jackpot: jackpotOf(form.jackpot, bonuses, over.value),
     ...(form.gauge === undefined ? {} : { gauge: form.gauge }),
     ...(form.rapidBegan ? { rapidBegan: true as const } : {}),

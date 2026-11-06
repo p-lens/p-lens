@@ -37,7 +37,7 @@ describe("the medals in hand where last counted, and what the play had come to t
   test("is written as the play's running total by a reading of either kind of machine, below none where medals were handed away", () => {
     const bonus = checkpointForReading([seat, { spins: 100, handed: 200, at: AT }], { total: 1700, bonuses: {}, outlay: undefined, replay: undefined, handed: -50, at: AT })
     expect(bonus.ok && bonus.value.handed).toBe(150)
-    const at = checkpointsForReading([{ spins: 0, at: AT, counter: { spins: 0 } }], { counterSpins: 50, outlay: undefined, replay: undefined, handed: -80, counterJackpots: undefined, at: AT, jackpot: false }, false)
+    const at = checkpointsForReading([{ spins: 0, at: AT, held: 100, counter: { spins: 0 } }], { counterSpins: 50, outlay: undefined, replay: undefined, handed: -80, counterJackpots: undefined, at: AT, jackpot: false }, false)
     expect(at.ok && at.value.at(-1)?.handed).toBe(-80)
     const none = checkpointForReading([seat], { total: 1700, bonuses: {}, outlay: undefined, replay: undefined, handed: 0, at: AT })
     expect(none.ok && "handed" in none.value).toBe(false)

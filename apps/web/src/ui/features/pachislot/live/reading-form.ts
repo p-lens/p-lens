@@ -21,7 +21,7 @@ export interface ReadingForm {
   readonly handing: Handing
 }
 
-/** Which way medals went between the person and another player: handed in to them, or handed away. The count typed is how many, never signed. */
+/** Which way medals went between the person and another player: handed in to them, or handed away. The count typed is how many, never signed; a form opens on away, the giver typing it first and a slip standing out below nothing. */
 export type Handing = "received" | "given"
 
 /** Where a play stands as its counter should now show it: the day's games, each bonus, the outlay and the medals drawn from savings, and the medals in hand as last counted, each where it was given. */
@@ -44,7 +44,7 @@ export const readingFrom = (standing: Standing, bonusIds: readonly string[]): Re
   held: standing.held === undefined ? "" : String(standing.held),
   heldCarried: standing.held !== undefined,
   handed: "",
-  handing: "received",
+  handing: "given",
 })
 
 export type ReadingField = "total" | "outlay" | "replay" | "held" | "handed" | { readonly bonus: string }

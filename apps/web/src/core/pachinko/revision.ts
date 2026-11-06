@@ -17,13 +17,13 @@ export interface Taken {
 /**
  * Why a play's readings, changed, do not make a log: the one at `index`
  * shows less on the counter than it must after the one before, so a jackpot
- * would have had to come unseen between them.
+ * would have had to come unseen between them; or it hands away more balls
+ * than were in hand, with no count after them, leaving the hand below
+ * nothing — `held` is the hand there before it.
  */
-export interface RevisionRefusal {
-  readonly type: "counter-went-back"
-  readonly index: number
-  readonly expectedAtLeast: number
-}
+export type RevisionRefusal =
+  | { readonly type: "counter-went-back"; readonly index: number; readonly expectedAtLeast: number }
+  | { readonly type: "handed-beyond-hand"; readonly index: number; readonly held: number }
 
 const isMissedJackpot = (checkpoint: Checkpoint): boolean => checkpoint.event?.kind === "jackpot" && checkpoint.event.approximate === true
 
@@ -118,14 +118,18 @@ const bonusGainOf = (reading: Reading): number => (reading.jackpot.type === "bon
 
 /**
  * The balls in hand after a reading, from those before it: what it counted
- * last — inside it, folded, or at its line — else what was in hand, with
- * its bonus added either way; none where nothing was ever said and nothing
- * was won. A jackpot's count is the hand as the jackpot came, before its
- * bonus paid. What the 電サポ drifted and other players handed is a
- * breakdown of a count, never added to the hand.
+ * last — inside it, folded, or at its line — else what was in hand with
+ * what other players handed since, with its bonus added either way; none
+ * where nothing was ever said, handed or won. A jackpot's count is the
+ * hand as the jackpot came, before its bonus paid. A count is the hand as
+ * the cabinet shows it, so what the 電サポ drifted and what was handed are
+ * a breakdown of it, never added to it; handed with no count, the hand
+ * moves by it, worked out afresh from the readings each time, so a
+ * handing set right carries through every line after it.
  */
 const heldAfter = (before: number | undefined, { reading }: Taken): number | undefined => {
-  const from = reading.held ?? (reading.handsBefore ?? []).findLast((hand) => hand.counted === true)?.held ?? before
+  const counted = reading.held ?? (reading.handsBefore ?? []).findLast((hand) => hand.counted === true)?.held
+  const from = counted ?? (reading.handed === 0 ? before : (before ?? 0) + reading.handed)
   const gain = bonusGainOf(reading)
   return gain === 0 ? from : (from ?? 0) + gain
 }
@@ -202,9 +206,30 @@ export const gaugeSaid = (ordered: readonly Checkpoint[], gauge: number, at: str
 /** The balls in hand at a play's end as the person told them: the last count, with what each bonus since paid; never estimated down by the regular games since. */
 export const heldAsToldOf = (ordered: readonly Checkpoint[]): number | undefined => takenOf(ordered).reduce(heldAfter, ordered.at(0)?.held)
 
-/** A log made again from its first line and its readings, each added as it was when taken. */
-const madeFrom = (seat: Checkpoint, taken: readonly Taken[], counting: JackpotCounting): Result<readonly Checkpoint[], RevisionRefusal> =>
-  taken.reduce<Result<readonly Checkpoint[], RevisionRefusal>>(
+/**
+ * Whether a reading hands away more than the hand held before it: balls
+ * given with no count after them, leaving the hand below nothing. A count
+ * is the hand as the cabinet shows it, never below nothing, so a reading
+ * that counted never does.
+ */
+export const handsBeyondHand = (before: number | undefined, reading: Pick<Reading, "handed" | "held" | "handsBefore">): boolean =>
+  reading.handed < 0 && reading.held === undefined && !(reading.handsBefore ?? []).some((hand) => hand.counted === true) && (before ?? 0) + reading.handed < 0
+
+/** The first reading that hands away more than was in hand, with the hand before it; none where none does. */
+const handedBeyondHand = (seat: Checkpoint, taken: readonly Taken[]): Extract<RevisionRefusal, { readonly type: "handed-beyond-hand" }> | undefined => {
+  const walked = taken.reduce<{ readonly held: number | undefined; readonly found: Extract<RevisionRefusal, { readonly type: "handed-beyond-hand" }> | undefined }>(
+    (walking, each, index) =>
+      walking.found !== undefined ? walking : { held: heldAfter(walking.held, each), found: handsBeyondHand(walking.held, each.reading) ? { type: "handed-beyond-hand", index, held: walking.held ?? 0 } : undefined },
+    { held: seat.held, found: undefined },
+  )
+  return walked.found
+}
+
+/** A log made again from its first line and its readings, each added as it was when taken; refused where a reading then hands away more than was in hand. */
+const madeFrom = (seat: Checkpoint, taken: readonly Taken[], counting: JackpotCounting): Result<readonly Checkpoint[], RevisionRefusal> => {
+  const beyond = handedBeyondHand(seat, taken)
+  if (beyond !== undefined) return Err(beyond)
+  return taken.reduce<Result<readonly Checkpoint[], RevisionRefusal>>(
     (made, each, index) => {
       if (!made.ok) return made
       const added = checkpointsForReading(made.value, each.reading, each.afterMissedJackpot, counting)
@@ -212,11 +237,12 @@ const madeFrom = (seat: Checkpoint, taken: readonly Taken[], counting: JackpotCo
     },
     Ok([seat]),
   )
+}
 
 /**
  * A play's log with its readings changed, made again from the seat on, so
  * every running total after the change follows from it. Refused where the
- * change leaves a counter going back.
+ * change leaves a counter going back, or a hand handed away below nothing.
  */
 export const revised = (ordered: readonly Checkpoint[], change: (taken: readonly Taken[]) => readonly Taken[], counting: JackpotCounting): Result<readonly Checkpoint[], RevisionRefusal> => {
   const seat = ordered.at(0)

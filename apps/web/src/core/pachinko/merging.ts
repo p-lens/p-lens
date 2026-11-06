@@ -34,10 +34,14 @@ const weighedOf = (ordered: readonly Checkpoint[]): readonly Weighed[] =>
  * which is a line of its own too. Nor is either a reading a jackpot
  * nobody wrote down was admitted before: that jackpot is known only by
  * the counter having gone back at that reading, and would be lost with
- * it.
+ * it. Nor is either a reading balls were handed at: the hand moves by
+ * them where it was not counted after, which one line cannot place among
+ * the counts folded inside it.
  */
 const joins = (earlier: Taken, later: Taken): boolean =>
   earlier.reading.jackpot.type === "none" &&
+  earlier.reading.handed === 0 &&
+  later.reading.handed === 0 &&
   earlier.reading.phase === later.reading.phase &&
   earlier.reading.rapidBegan === undefined &&
   later.reading.rapidBegan === undefined &&

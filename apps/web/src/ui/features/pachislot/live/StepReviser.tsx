@@ -61,7 +61,7 @@ const endedName = (ended: Ended, trigger: TriggerWords | undefined): string => {
  * is the play's to make (`onRemove`), with the way to take it back.
  */
 /** What was handed at a reading as its form shows it: the count, and the way it went. */
-const handedForm = (handed: number | undefined): Pick<ReadingForm, "handed" | "handing"> => ({ handed: typed(handed === undefined ? undefined : Math.abs(handed)), handing: handed !== undefined && handed < 0 ? "given" : "received" })
+const handedForm = (handed: number | undefined): Pick<ReadingForm, "handed" | "handing"> => ({ handed: typed(handed === undefined ? undefined : Math.abs(handed)), handing: handed !== undefined && handed > 0 ? "received" : "given" })
 
 /** A reading as read, the medals in hand left out where none were counted. */
 const withHeld = <T extends { readonly held: number | undefined }>(read: T): Omit<T, "held"> & { readonly held?: number } => {

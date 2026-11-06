@@ -1,5 +1,6 @@
 import { Err, Ok, type Result } from "../result/result"
 import type { BonusWon, Checkpoint } from "./checkpoint"
+import { handsBeyondHand, heldNowOf } from "./held-now"
 import { performanceAcross, stretchPerformances, type StretchPerformance } from "./performance"
 
 /**
@@ -170,6 +171,7 @@ export type ReadingRefusal =
   | { readonly type: "counter-went-back"; readonly expectedAtLeast: number }
   | { readonly type: "outlay-went-back"; readonly atLeast: number }
   | { readonly type: "replay-went-back"; readonly atLeast: number }
+  | { readonly type: "handed-beyond-hand"; readonly held: number }
 
 /** Everything a reading records except where in the play it falls: what was handed as the play's running total. */
 const readingFields = (ordered: readonly Checkpoint[], input: CounterInput): Omit<Checkpoint, "spins"> => ({
@@ -197,6 +199,7 @@ export const checkpointsForReading = (
     return Err({ type: "outlay-went-back", atLeast: spentBefore })
   const drawnBefore = lastKnown(ordered, (checkpoint) => checkpoint.replay)
   if (input.replay !== undefined && drawnBefore !== undefined && input.replay < drawnBefore) return Err({ type: "replay-went-back", atLeast: drawnBefore })
+  if (handsBeyondHand(ordered, input)) return Err({ type: "handed-beyond-hand", held: heldNowOf(ordered) ?? 0 })
   const reading = readCounter(ordered, input.counterSpins, EVERY_JACKPOT)
   if (reading.type === "continues") return Ok([{ spins: reading.spins, ...readingFields(ordered, input) }])
   if (!missedJackpot) return Err(reading)

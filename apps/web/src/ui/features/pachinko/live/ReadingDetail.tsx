@@ -12,8 +12,8 @@ const signButtonClass = "flex h-10 w-7 shrink-0 items-center justify-center roun
 /**
  * What a reading says of the balls besides what was bought and counted,
  * behind its small button: few readings have any. Its bubble holds two
- * rows, each a breakdown of the balls in hand, never added to them: the
- * hand is typed as the cabinet shows it. The first is what the 電サポ
+ * rows, each a breakdown of the balls in hand: a count typed is the hand
+ * as the cabinet shows it, holding them. The first is what the 電サポ
  * gained or lost. The sign and the field's name are in the text's
  * own colour while it says the balls went down, and in the nerdpro colour
  * once it is turned to a gain: balls won on the 電サポ by one's own hand,
@@ -21,8 +21,9 @@ const signButtonClass = "flex h-10 w-7 shrink-0 items-center justify-center roun
  * does, where the device can. Left empty it was not counted: the border
  * takes the formula's 電サポ中の出玉増減, and the spin performance is not
  * measured across the 電サポ; a nought typed is a count of none. The second
- * is 持ち玉調整: balls handed in by other players or handed to them, kept
- * out of the spin rate and the border. The button is in the semipro
+ * is 玉の受渡し: balls handed in by other players or handed to them, which
+ * the hand moves by from the next line on where it is not counted again,
+ * kept out of the spin rate and the border. The button is in the semipro
  * colour, for those who keep the 電サポ's balls out of their spin
  * performance.
  */
@@ -44,8 +45,8 @@ export function ReadingDetail(props: {
   const handedSign = (): string => (props.handing === "given" ? "−" : "＋")
   const gained = (): boolean => props.drift === "gain"
   const says = (): string => {
-    const parts = [driftSet() ? `電サポ増減 ${driftSign()}${props.supported}玉` : undefined, handedSet() ? `持ち玉調整 ${handedSign()}${props.handed}玉` : undefined].filter((part) => part !== undefined)
-    return parts.length === 0 ? "詳細（電サポ増減・持ち玉調整）" : `詳細（${parts.join("、")}）`
+    const parts = [driftSet() ? `電サポ増減 ${driftSign()}${props.supported}玉` : undefined, handedSet() ? `玉の受渡し ${handedSign()}${props.handed}玉` : undefined].filter((part) => part !== undefined)
+    return parts.length === 0 ? "詳細（電サポ増減・玉の受渡し）" : `詳細（${parts.join("、")}）`
   }
   return (
     <DetailButton label="詳細" says={says()} marked={driftSet() || handedSet()} invalid={props.supportedInvalid || props.handedInvalid} placement="top-end" tone="semipro" onOpen={props.onFocus}>
@@ -77,7 +78,7 @@ export function ReadingDetail(props: {
             {handedSign()}
           </button>
           <div class="min-w-0 flex-1">
-            <TextField label="持ち玉調整" value={props.handed} onChange={(handed) => props.onHanded({ handed, handing: props.handing })} inputMode="numeric" suffix="玉" placeholder="0" invalid={props.handedInvalid} onFocus={props.onFocus} note={HANDED_NOTE} compact />
+            <TextField label="玉の受渡し" value={props.handed} onChange={(handed) => props.onHanded({ handed, handing: props.handing })} inputMode="numeric" suffix="玉" placeholder="0" invalid={props.handedInvalid} onFocus={props.onFocus} note={HANDED_NOTE} compact />
           </div>
         </div>
       </div>

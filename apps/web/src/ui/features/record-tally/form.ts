@@ -205,15 +205,15 @@ export const tokenTallyFormOf = (tally: TokenTally): TokenTallyForm => ({
   replayDeducted: countText(tally.replay.deducted),
   carriedIn: countText(tally.carriedIn),
   handed: countText(isNegative(tally.handed) ? negate(tally.handed) : tally.handed),
-  handing: isNegative(tally.handed) ? "given" : "received",
+  handing: isNegative(tally.handed) || isZero(tally.handed) ? "given" : "received",
   payout: countText(tally.payout),
   theoreticalValue: tally.theoreticalValue === undefined ? "" : toPlainString(tally.theoreticalValue),
 })
 
 /** What the tokens in hand are called where they are typed, for each kind of token: those a play was begun with — brought from the play before — and those in hand as it finished, which are what it leaves. */
 export const IN_HAND_LABELS: Readonly<Record<TokenKind, { readonly carriedIn: string; readonly handed: string; readonly left: string }>> = {
-  ball: { carriedIn: "開始時の持ち玉", handed: "持ち玉調整", left: "持ち玉" },
-  medal: { carriedIn: "開始時の持ちメダル", handed: "持ちメダル調整", left: "持ちメダル" },
+  ball: { carriedIn: "開始時の持ち玉", handed: "玉の受渡し", left: "持ち玉" },
+  medal: { carriedIn: "開始時の持ちメダル", handed: "メダルの受渡し", left: "持ちメダル" },
 }
 
 /** What a form's button says, and says while it is at work: a tally being recorded, or a recorded one being set right. */

@@ -121,7 +121,7 @@ describe("what a play's regular games cost", () => {
     const given = played([...base, reading({ counterSpins: 50, handed: -300 }), reading({ counterSpins: 100, held: 600 })])
     expect(consumptionOf(received, TERMS, undefined).measured).toEqual(consumptionOf(plain, TERMS, undefined).measured)
     expect(consumptionOf(given, TERMS, undefined).measured).toEqual(consumptionOf(plain, TERMS, undefined).measured)
-    expect(heldAsToldOf(played([...base, reading({ counterSpins: 100, handed: 500 })]))).toBe(1400)
+    expect(heldAsToldOf(played([...base, reading({ counterSpins: 100, handed: 500 })]))).toBe(1900)
   })
 
   test("takes the balls in hand where they were counted, so a play on its own balls is measured before they run out", () => {

@@ -20,6 +20,7 @@ import { stepsOf, withStepRemoved, type RevisionRefusal } from "../../../../core
 import { counterBonusesOf, counterBonusOf, countablesOf, countedOutOf, type Countable, type Weighing } from "../../../../core/pachislot/weighing"
 import { parsePlayLog, type Checkpoint, type PlayLogError, type Counts } from "../../../../core/play-log/checkpoint"
 import { liveSummary } from "../../../../core/play-log/live"
+import { heldNowOf } from "../../../../core/play-log/held-now"
 import { inPlayOrder } from "../../../../core/play-log/performance"
 import { Err, Ok, type Result } from "../../../../core/result/result"
 import { useApp } from "../../../context"
@@ -71,9 +72,6 @@ export const NO_BONUSES = (): string | undefined => undefined
 
 /** The medals the play has drawn from savings so far, where the log says. */
 const replayOf = (ordered: readonly Checkpoint[]): number | undefined => ordered.findLast((checkpoint) => checkpoint.replay !== undefined)?.replay
-
-/** The medals in hand as last counted, where the log counted any. */
-const heldOf = (ordered: readonly Checkpoint[]): number | undefined => ordered.findLast((checkpoint) => checkpoint.held !== undefined)?.held
 
 /** Where the play stands by its log, three to a row: the cash spent, the games played and the day's, the medals drawn from savings, the medals in hand where last counted with what the play had come to there, and each bonus of the day with how often it has come. */
 export function PlayFigures(props: { readonly ordered: readonly Checkpoint[]; readonly terms: PlayTerms | undefined; readonly bonuses: readonly Countable[]; readonly day: { readonly games: number; readonly bonuses: Counts } | undefined }): JSX.Element {
@@ -485,10 +483,10 @@ export function LivePlay(props: {
         >
           {(found) => {
             const day = () => daySeenOf(found(), shownAs())
-            const atReading = createAtReading(() => ({ sinceAt: liveSummary(found()).counterNow, outlay: liveSummary(found()).outlay, replay: replayOf(found()), held: heldOf(found()) }), () => triggerWordsOf(weighing()?.formula.normalized), write, board.post)
+            const atReading = createAtReading(() => ({ sinceAt: liveSummary(found()).counterNow, outlay: liveSummary(found()).outlay, replay: replayOf(found()), held: heldNowOf(found()) }), () => triggerWordsOf(weighing()?.formula.normalized), write, board.post)
             const composers = (): JSX.Element => (
               <Show when={atRules() === undefined} fallback={<AtReadingComposer reading={atReading} />}>
-                <ReadingComposer bonuses={bonuses()} standing={{ total: day()?.games ?? totalNowOf(found()), bonuses: day()?.bonuses ?? {}, outlay: liveSummary(found()).outlay, replay: replayOf(found()), held: heldOf(found()) }} write={write} post={board.post} />
+                <ReadingComposer bonuses={bonuses()} standing={{ total: day()?.games ?? totalNowOf(found()), bonuses: day()?.bonuses ?? {}, outlay: liveSummary(found()).outlay, replay: replayOf(found()), held: heldNowOf(found()) }} write={write} post={board.post} />
               </Show>
             )
             return (

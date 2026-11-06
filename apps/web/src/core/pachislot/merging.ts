@@ -36,10 +36,17 @@ const neighbourOf = (steps: readonly Step[], at: number, toward: 1 | -1): number
  * are of the same kind, each saying all the one before did and more. On
  * an AT machine the earlier must have ended with nothing — a CZ missed or
  * an AT won is a line of its own — and the later not be one an AT nobody
- * wrote down was admitted before.
+ * wrote down was admitted before. Neither may be a reading medals were
+ * handed at: the readings before the last are let go whole, and the hand
+ * moves by what was handed where it was not counted after.
  */
 const joins = (earlier: Step, later: Step): boolean =>
-  (earlier.type === "reading" && later.type === "reading") || (earlier.type === "at-reading" && later.type === "at-reading" && earlier.ended === "going" && !later.afterMissedAt)
+  !handedAt(earlier) &&
+  !handedAt(later) &&
+  ((earlier.type === "reading" && later.type === "reading") || (earlier.type === "at-reading" && later.type === "at-reading" && earlier.ended === "going" && !later.afterMissedAt))
+
+/** Whether a step says medals were handed to or by other players at it. */
+const handedAt = (step: Step): boolean => step.type !== "kept" && step.input.handed !== undefined && step.input.handed !== 0
 
 /** The place a run from one reading reaches towards another, each reading joined to the next: the other's, or the last before a line that does not join. */
 const stretched = (steps: readonly Step[], at: number, reached: number): number => {
