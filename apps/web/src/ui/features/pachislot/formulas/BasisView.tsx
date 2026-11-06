@@ -112,7 +112,6 @@ export function BasisView(props: { readonly place: Place; readonly machineId: st
                             <th class="px-3 py-2 text-left font-normal">名前</th>
                             <th class="px-3 py-2 text-left font-normal">種類</th>
                             <th class="px-3 py-2 text-right font-normal">枚数</th>
-                            <Index each={world().settingLevels}>{(level) => <th class="px-3 py-2 text-right font-normal">設定{level()}</th>}</Index>
                           </tr>
                         </thead>
                         <tbody>
@@ -128,9 +127,6 @@ export function BasisView(props: { readonly place: Place; readonly machineId: st
                                   </Show>
                                 </td>
                                 <td class="px-3 py-2 text-right text-text-primary">{row().payout === "" ? "--" : `${row().payout}枚`}</td>
-                                <Index each={world().settingLevels}>
-                                  {(level) => <td class="px-3 py-2 text-right text-text-primary">{row().chances[String(level())] ?? "--"}</td>}
-                                </Index>
                               </tr>
                             )}
                           </Index>
@@ -138,24 +134,41 @@ export function BasisView(props: { readonly place: Place; readonly machineId: st
                             {(row) => (
                               <tr class="border-t border-border">
                                 <td class="px-3 py-2 text-text-primary">{row().label} 純増</td>
-                                <td />
-                                <td class="px-3 py-2 text-right text-text-primary">{row().law.net}枚/G</td>
-                                <td class="px-3 py-2 text-text-secondary" colSpan={world().settingLevels.length}>
+                                <td class="px-3 py-2 text-text-secondary">
                                   {["獲得は機械割から", ...row().law.otherNets.map((other) => `獲得の${other.share}%は${other.net}枚/G`)].join("、")}
                                 </td>
+                                <td class="px-3 py-2 text-right text-text-primary">{row().law.net}枚/G</td>
                               </tr>
                             )}
                           </Index>
-                          <Show when={Object.keys(rates()).length > 0}>
-                            <tr class="border-t border-border">
-                              <td class="px-3 py-2 text-text-primary">機械割（入力値）</td>
-                              <td />
-                              <td />
-                              <Index each={world().settingLevels}>
-                                {(level) => <td class="px-3 py-2 text-right text-text-primary">{rates()[String(level())] ?? "--"}%</td>}
-                              </Index>
-                            </tr>
-                          </Show>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div class="overflow-x-auto rounded-lg border border-border">
+                      <table class="w-full whitespace-nowrap text-sm tabular-nums">
+                        <thead class="text-xs text-text-muted">
+                          <tr>
+                            <th class="px-3 py-2 text-left font-normal">設定</th>
+                            <Index each={world().rows}>{(row) => <th class="px-3 py-2 text-right font-normal">{row().label}</th>}</Index>
+                            <Show when={Object.keys(rates()).length > 0}>
+                              <th class="px-3 py-2 text-right font-normal">機械割（入力値）</th>
+                            </Show>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <Index each={world().settingLevels}>
+                            {(level) => (
+                              <tr class="border-t border-border">
+                                <td class="px-3 py-2 text-text-secondary">設定{level()}</td>
+                                <Index each={world().rows}>
+                                  {(row) => <td class="px-3 py-2 text-right text-text-primary">{row().chances[String(level())] ?? "--"}</td>}
+                                </Index>
+                                <Show when={Object.keys(rates()).length > 0}>
+                                  <td class="px-3 py-2 text-right text-text-primary">{rates()[String(level())] ?? "--"}%</td>
+                                </Show>
+                              </tr>
+                            )}
+                          </Index>
                         </tbody>
                       </table>
                     </div>
