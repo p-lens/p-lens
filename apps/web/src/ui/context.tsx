@@ -6,7 +6,7 @@ import type { ApplicationError } from "../application/errors"
 import type { Services } from "../application/services"
 import type { MachineNames } from "../core/catalog/catalog"
 import type { Huddle } from "../core/huddle/huddle"
-import { listedFor, othersPlays, type HuddlePlay } from "../core/huddle/post"
+import { listedFor, othersHere, othersPlays, type HuddleOther, type HuddlePlay } from "../core/huddle/post"
 import { idleMembers } from "../core/huddle/standing"
 import { fileEveryBookByYear } from "../application/file-by-year"
 import { huddleNow } from "../application/huddle"
@@ -72,6 +72,8 @@ export interface HuddleJoined {
   readonly counted: Accessor<readonly HuddlePlay[]>
   /** The members who have said nothing for long (`idleMembers`), looked at once a minute while the device is in a huddle. */
   readonly idle: Accessor<ReadonlySet<string>>
+  /** The others come into the huddle and not left, a play shown or none yet (`othersHere`): who the room has in it. */
+  readonly here: Accessor<readonly HuddleOther[]>
 }
 
 /** What a book's machines are shown as before the catalog's machines are read: each as the book says it. */
@@ -168,6 +170,7 @@ export function AppProvider(props: {
   const heardUpTo = (): number => ((heard) => (heard.type === "unreached" && heard.since !== undefined ? Math.min(minute(), Date.parse(heard.since)) : minute()))(huddleLine.heard())
   const huddleIdle = createMemo((): ReadonlySet<string> => (huddle() === undefined ? new Set() : idleMembers(huddleLine.entries(), heardUpTo())))
   const huddleCounted = createMemo((): readonly HuddlePlay[] => ((joined) => (joined === undefined ? [] : othersPlays(huddleLine.entries(), joined.member)))(huddle()))
+  const huddleHere = createMemo((): readonly HuddleOther[] => ((joined) => (joined === undefined ? [] : othersHere(huddleLine.entries(), joined.member)))(huddle()))
   const huddleOthers = createMemo((): readonly HuddlePlay[] => ((joined) => (joined === undefined ? [] : listedFor(huddleCounted(), joined)))(huddle()))
   const [state, setState] = createSignal<DeliveryState>({ type: "idle" })
   const timers: { pending: readonly ReturnType<typeof setTimeout>[] } = { pending: [] }
@@ -241,7 +244,7 @@ export function AppProvider(props: {
         machineNames,
         reconnected,
         backups: { count: backupsMade, made: backupMade },
-        huddle: { now: huddle, changed: () => setHuddleChanges((count) => count + 1), line: huddleLine, chosen: roomChoices, others: huddleOthers, counted: huddleCounted, idle: huddleIdle },
+        huddle: { now: huddle, changed: () => setHuddleChanges((count) => count + 1), line: huddleLine, chosen: roomChoices, others: huddleOthers, counted: huddleCounted, idle: huddleIdle, here: huddleHere },
         bookLines,
       }}>
       {props.children}

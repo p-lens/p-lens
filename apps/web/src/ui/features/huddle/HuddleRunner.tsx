@@ -3,7 +3,7 @@ import { createEffect, createMemo, on, onCleanup, type JSX } from "solid-js"
 import { loadTodaysPlays } from "../../../application/live-play"
 import type { Huddle } from "../../../core/huddle/huddle"
 import { ofHuddleDay } from "../../../core/huddle/room"
-import { givenUp, huddlePostOf, huddleWithdrawalOf, latestEntries, type HuddleEntry } from "../../../core/huddle/post"
+import { givenUp, huddleArrivalOf, huddlePostOf, huddleWithdrawalOf, latestEntries, type HuddleEntry } from "../../../core/huddle/post"
 import { huddleTurnOf, jackpotsNow, louderTurn } from "../../../core/huddle/standing"
 import type { PlayDraft } from "../../../core/live-play/draft"
 import type { PlayId } from "../../../core/play/play"
@@ -29,7 +29,9 @@ const changedSince = (drafts: readonly PlayDraft[], shown: ReadonlyMap<string, s
  * The huddle kept up for as long as the app is open, wherever it is: its
  * line kept open on its relay while the page is in sight — the others'
  * plays coming as they are shown, into the page's `HuddleLine` — and let go
- * a moment after the page goes away, opened again as it comes back; and each
+ * a moment after the page goes away, opened again as it comes back; that
+ * this device came in, said once the line is open and again under a new
+ * name, so the others have it in the room before it plays anything; and each
  * of the day's own plays shown to the others when it changes — at once, or
  * as soon after the last showing as the room's size allows, the latest of
  * each then — every one again under a new name the person goes by, and
@@ -79,6 +81,7 @@ export function HuddleRunner(props: { readonly place: Place; readonly crossing: 
       held.line = undefined
       held.shownAt = 0
       held.shown = new Map()
+      held.arrived = false
       line.setEntries([])
       line.setHeard({ type: "not-yet" })
       line.setTold({ type: "not-yet" })
@@ -113,6 +116,16 @@ export function HuddleRunner(props: { readonly place: Place; readonly crossing: 
     if (!found.ok) return
     held.shownAt = Date.now()
     const shown = found.value.filter((draft) => ofHuddleDay(huddle, draft))
+    const arrival: readonly Putting[] = held.arrived
+      ? []
+      : [
+          {
+            entry: huddleArrivalOf(huddle, app.services.now()),
+            done: () => {
+              held.arrived = true
+            },
+          },
+        ]
     const withdrawn = givenUp(line.entries(), huddle.member, new Set(shown.map((draft) => draft.id))).map((playId: PlayId): Putting => ({
       entry: huddleWithdrawalOf(playId, huddle, app.services.now()),
       done: () => undefined,
@@ -123,7 +136,7 @@ export function HuddleRunner(props: { readonly place: Place; readonly crossing: 
         held.shown = new Map(held.shown).set(draft.id, draft.log)
       },
     }))
-    await putEach(huddle, open, [...withdrawn, ...changed])
+    await putEach(huddle, open, [...arrival, ...withdrawn, ...changed])
   }
 
   const members = (): number => new Set(line.entries().map((entry) => entry.member)).size + 1
@@ -140,6 +153,7 @@ export function HuddleRunner(props: { readonly place: Place; readonly crossing: 
   createEffect(on(() => app.huddle.now()?.name, (name, before) => {
     if (before === undefined || name === undefined || name === before) return
     held.shown = new Map()
+    held.arrived = false
     showSoon()
   }, { defer: true }))
   const jackpots = createMemo(() => jackpotsNow(app.huddle.others()))

@@ -55,10 +55,21 @@ describe("a huddle's room", () => {
   })
 
   test("has this device first among its members, then each of the others once", () => {
-    expect(roomMembersOf(HUDDLE, others)).toEqual([
+    expect(roomMembersOf(HUDDLE, others, [])).toEqual([
       { member: "me", name: "ルパン", own: true },
       { member: "b", name: "name-b", own: false },
     ])
+  })
+
+  test("has those come in who show no play yet after those who do, at nothing spent and nothing won, and nobody twice", () => {
+    const here = [{ member: "b", name: "name-b" }, { member: "c", name: "ゴエモン" }, { member: "me", name: "ルパン" }]
+    const members = roomMembersOf(HUDDLE, others, here)
+    expect(members).toEqual([
+      { member: "me", name: "ルパン", own: true },
+      { member: "b", name: "name-b", own: false },
+      { member: "c", name: "ゴエモン", own: false },
+    ])
+    expect(roomTotalOf(playsOfChosen(roomPlaysOf(HUDDLE, [], others, new Set()), ["c"]), 500).outlay).toBe(0)
   })
 
   test("adds up the cash of every play, and the balls in hand of the play each is on alone, with the special prizes they exchange for", () => {

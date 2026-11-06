@@ -7,7 +7,7 @@ import { inPlayOrder } from "../play-log/performance"
 import type { PlayGameKind } from "../play/play"
 import { stagesOf, type StageStep } from "../savings/odd-prize-reckoning"
 import type { Huddle } from "./huddle"
-import type { HuddlePlay } from "./post"
+import type { HuddleOther, HuddlePlay } from "./post"
 
 /** One of the people in a huddle's room: who they are in it, the name they go by there, and whether they are this device. */
 export interface RoomMember {
@@ -18,11 +18,14 @@ export interface RoomMember {
 
 /**
  * The people in a huddle's room: this device first, then the others in the
- * order their plays are listed, each once, under the name they last went by.
+ * order their plays are listed, each once, under the name they last went
+ * by, and after them those come in who show no play yet (`othersHere`), so
+ * that everyone in can be seen to be, at nothing spent and nothing won.
  */
-export const roomMembersOf = (huddle: Huddle, others: readonly HuddlePlay[]): readonly RoomMember[] => {
+export const roomMembersOf = (huddle: Huddle, others: readonly HuddlePlay[], here: readonly HuddleOther[]): readonly RoomMember[] => {
   const named = others.reduce((found, { post }) => (found.has(post.member) ? found : new Map(found).set(post.member, post.name)), new Map<string, string>())
-  return [{ member: huddle.member, name: huddle.name, own: true }, ...[...named].map(([member, name]) => ({ member, name, own: false }))]
+  const waiting = here.filter((other) => other.member !== huddle.member && !named.has(other.member))
+  return [{ member: huddle.member, name: huddle.name, own: true }, ...[...named].map(([member, name]) => ({ member, name, own: false })), ...waiting.map(({ member, name }) => ({ member, name, own: false }))]
 }
 
 /** A play in a huddle's room, under who plays it, and whether it is the one they are on — their latest — rather than one they moved from. */

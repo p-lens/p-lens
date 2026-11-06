@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test"
 import type { BookId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { huddleInOn, huddleNameOf, huddleOn, huddleText, readHuddle, type Huddle } from "../../src/core/huddle/huddle"
-import { givenUp, huddleDepartureOf, latestEntries, huddleEntryText, huddlePostOf, huddleWithdrawalOf, listedFor, othersPlays, readHuddleEntry, type HuddlePost } from "../../src/core/huddle/post"
+import { givenUp, huddleArrivalOf, huddleDepartureOf, latestEntries, othersHere, huddleEntryText, huddlePostOf, huddleWithdrawalOf, listedFor, othersPlays, readHuddleEntry, type HuddlePost } from "../../src/core/huddle/post"
 import { huddleStandingOf, huddleTurnOf, jackpotStreakOf, jackpotsNow, louderTurn } from "../../src/core/huddle/standing"
 import type { PachinkoDraft } from "../../src/core/live-play/draft"
 import type { PlayTerms } from "../../src/core/parlor/terms"
@@ -103,6 +103,31 @@ describe("a play shown to a huddle", () => {
     expect(readHuddleEntry(huddleEntryText(left))).toEqual(left)
     expect(readHuddleEntry(JSON.stringify({ format: 1, ...left, left: false }))).toBeUndefined()
     expect(readHuddleEntry(JSON.stringify({ format: 1, ...left, withdrawn: "p-1" }))).toBeUndefined()
+  })
+
+  test("of a member coming in is who came, and nothing else", () => {
+    const came = huddleArrivalOf(HUDDLE, "2026-10-20T00:30:00.000Z")
+    expect(came).toEqual({ member: MEMBER, name: "ルパン", postedAt: "2026-10-20T00:30:00.000Z", here: true })
+    expect(readHuddleEntry(huddleEntryText(came))).toEqual(came)
+    expect(readHuddleEntry(JSON.stringify({ format: 1, ...came, here: false }))).toBeUndefined()
+    expect(readHuddleEntry(JSON.stringify({ format: 1, ...came, left: true }))).toBeUndefined()
+  })
+
+  test("has the others come in and not left in the room, a play shown or none yet, under the name they last went by", () => {
+    const came = (member: string, name: string, postedAt: string) => ({ member, name, postedAt, here: true as const })
+    const entries = [
+      came("b", "ジゲン", "2026-10-20T00:10:00.000Z"),
+      post("b", "2026-10-20T00:20:00.000Z"),
+      came("c", "ゴエモン", "2026-10-20T00:30:00.000Z"),
+      came("d", "フジコ", "2026-10-20T00:40:00.000Z"),
+      { member: "d", name: "フジコ", postedAt: "2026-10-20T00:50:00.000Z", left: true as const },
+      came(MEMBER, "ルパン", "2026-10-20T00:00:00.000Z"),
+    ]
+    expect(othersHere(entries, MEMBER)).toEqual([
+      { member: "b", name: "b" },
+      { member: "c", name: "ゴエモン" },
+    ])
+    expect(othersHere([...entries, came("d", "フジコ", "2026-10-20T01:00:00.000Z")], MEMBER).map((other) => other.member)).toEqual(["b", "c", "d"])
   })
 
   test("is none where its text is not one this app reads", () => {

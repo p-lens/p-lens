@@ -11,6 +11,7 @@ import { BoxCount } from "./BoxCount"
 import { Button } from "../../primitives/button"
 import { Combobox, type ComboboxOption } from "../../primitives/combobox"
 import { DetailButton } from "../../primitives/detail-button"
+import { SignFlip } from "../../primitives/sign-flip"
 import { enterLeavesField } from "../../primitives/enter-leaves"
 import { redText, type Nudge } from "../../primitives/nudge"
 import { TextField } from "../../primitives/text-field"
@@ -214,6 +215,7 @@ export function FinishTallyForm(props: {
           tone="semipro"
           placement="bottom-end"
         >
+          <SignFlip value={editing.value("theoreticalValue")} onChange={editing.set("theoreticalValue")} label="期待値の符号を切り替える" />
           <div class="min-w-0 flex-1">
             <TextField label="期待値" value={editing.value("theoreticalValue")} onChange={editing.set("theoreticalValue")} inputMode="decimal" suffix="円" invalid={editing.problemAt("theoretical-value") !== undefined} onFocus={editing.nudge.settle} compact />
           </div>

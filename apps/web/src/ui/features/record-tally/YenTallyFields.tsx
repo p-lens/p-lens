@@ -7,6 +7,7 @@ import type { PlayGameKind } from "../../../core/play/play"
 import { Button } from "../../primitives/button"
 import { Combobox } from "../../primitives/combobox"
 import { DetailButton } from "../../primitives/detail-button"
+import { SignFlip } from "../../primitives/sign-flip"
 import { PlusIcon, TrashIcon } from "../../primitives/icons"
 import { redText } from "../../primitives/nudge"
 import { PencilledBubble } from "../../primitives/pencilled-bubble"
@@ -212,6 +213,7 @@ export function SidesFields(props: { readonly editing: YenTallyEditing }): JSX.E
         placement="bottom-end"
         onOpen={editing.weighNudge.settle}
       >
+        <SignFlip value={editing.form().theoreticalValue} onChange={editing.set("theoreticalValue")} label="期待値の符号を切り替える" />
         <div class="min-w-0 flex-1">
           <TextField label="期待値" value={editing.form().theoreticalValue} onChange={editing.set("theoreticalValue")} inputMode="decimal" suffix="円" invalid={editing.problemAt("theoretical-value") !== undefined} onFocus={editing.nudge.settle} compact />
         </div>

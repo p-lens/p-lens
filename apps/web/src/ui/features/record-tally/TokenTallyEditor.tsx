@@ -17,6 +17,7 @@ import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import { Combobox, holdsTypedOnly } from "../../primitives/combobox"
 import { DetailButton } from "../../primitives/detail-button"
+import { SignFlip } from "../../primitives/sign-flip"
 import { createNudge, redText } from "../../primitives/nudge"
 import { settleTyping, TextField } from "../../primitives/text-field"
 import { describeError, describeTallyError } from "../../wording/errors"
@@ -251,6 +252,7 @@ export function TokenTallyEditor(props: {
             tone="semipro"
             placement="bottom-end"
           >
+            <SignFlip value={form().theoreticalValue} onChange={set("theoreticalValue")} label="期待値の符号を切り替える" />
             <div class="min-w-0 flex-1">
               <TextField label="期待値" value={form().theoreticalValue} onChange={set("theoreticalValue")} inputMode="decimal" suffix="円" invalid={problemAt("theoretical-value") !== undefined} onFocus={nudge.settle} compact />
             </div>

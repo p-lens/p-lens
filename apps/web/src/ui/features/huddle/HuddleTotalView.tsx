@@ -57,7 +57,7 @@ export function HuddleTotalView(props: { readonly place: Place }): JSX.Element {
   const moves = useMoves()
   const hour = createHourStruck()
   const [drafts] = createResource(() => [app.revision(), hour()] as const, () => loadTodaysPlays(app.services.drafts, app.services.businessDay()))
-  const members = (): readonly RoomMember[] => ((huddle) => (huddle === undefined ? [] : roomMembersOf(huddle, app.huddle.counted())))(app.huddle.now())
+  const members = (): readonly RoomMember[] => ((huddle) => (huddle === undefined ? [] : roomMembersOf(huddle, app.huddle.counted(), app.huddle.here())))(app.huddle.now())
   const total = (): RoomTotal | undefined => {
     const huddle = app.huddle.now()
     const found = drafts()

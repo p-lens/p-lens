@@ -44,8 +44,22 @@ export interface HuddleDeparture {
   readonly left: true
 }
 
-/** What a huddle's line carries: a play shown, one taken back, or a member leaving. */
-export type HuddleEntry = HuddlePost | HuddleWithdrawal | HuddleDeparture
+/**
+ * A member come into a huddle: said as their device opens its line, and
+ * again under a new name, so that the others have them in the room, at
+ * nothing spent and nothing won, before they show any play. Kept where a
+ * leaving is, the later of the two standing.
+ */
+export interface HuddleArrival {
+  readonly member: string
+  readonly name: string
+  /** ISO 8601. */
+  readonly postedAt: string
+  readonly here: true
+}
+
+/** What a huddle's line carries: a play shown, one taken back, a member come, or a member leaving. */
+export type HuddleEntry = HuddlePost | HuddleWithdrawal | HuddleArrival | HuddleDeparture
 
 export const isShown = (entry: HuddleEntry): entry is HuddlePost => "play" in entry
 
@@ -63,6 +77,9 @@ export const huddlePostOf = (draft: PlayDraft, huddle: Huddle, postedAt: string)
 /** A play taken back from a huddle, by its id. */
 export const huddleWithdrawalOf = (playId: PlayId, huddle: Huddle, postedAt: string): HuddleWithdrawal => ({ member: huddle.member, name: huddle.name, postedAt, withdrawn: playId })
 
+/** This device come into a huddle. */
+export const huddleArrivalOf = (huddle: Huddle, postedAt: string): HuddleArrival => ({ member: huddle.member, name: huddle.name, postedAt, here: true })
+
 /** This device leaving a huddle. */
 export const huddleDepartureOf = (huddle: Huddle, postedAt: string): HuddleDeparture => ({ member: huddle.member, name: huddle.name, postedAt, left: true })
 
@@ -73,6 +90,8 @@ const SHOWN_PARTS: ReadonlySet<string> = new Set(["format", "member", "name", "p
 const WITHDRAWN_PARTS: ReadonlySet<string> = new Set(["format", "member", "name", "postedAt", "withdrawn"])
 
 const DEPARTED_PARTS: ReadonlySet<string> = new Set(["format", "member", "name", "postedAt", "left"])
+
+const ARRIVED_PARTS: ReadonlySet<string> = new Set(["format", "member", "name", "postedAt", "here"])
 
 const isText = (value: unknown): value is string => typeof value === "string" && value !== ""
 
@@ -85,6 +104,7 @@ const entryOf = (fields: Fields): HuddleEntry | undefined => {
   if (fields["format"] !== FORMAT || !isText(member) || !isText(name) || !isText(postedAt)) return undefined
   if ("withdrawn" in fields) return partsAre(fields, WITHDRAWN_PARTS) && isText(fields["withdrawn"]) ? { member, name, postedAt, withdrawn: fields["withdrawn"] as PlayId } : undefined
   if ("left" in fields) return partsAre(fields, DEPARTED_PARTS) && fields["left"] === true ? { member, name, postedAt, left: true } : undefined
+  if ("here" in fields) return partsAre(fields, ARRIVED_PARTS) && fields["here"] === true ? { member, name, postedAt, here: true } : undefined
   const play = readPlay(fields["play"])
   return partsAre(fields, SHOWN_PARTS) && play !== undefined ? { member, name, postedAt, play } : undefined
 }
@@ -173,6 +193,25 @@ export const othersPlays = (entries: readonly HuddleEntry[], member: string): re
   const latest = marked.filter((each) => each.latest)
   const moved = marked.filter((each) => !each.latest).toSorted((one, other) => begunLaterFirst(one.post, other.post))
   return [...latest.filter((shown) => !shown.departed), ...latest.filter((shown) => shown.departed), ...moved]
+}
+
+/** One of the others in a huddle, as the line last named them. */
+export interface HuddleOther {
+  readonly member: string
+  readonly name: string
+}
+
+/**
+ * The others in a huddle who have said anything on its line and not left
+ * since — a play shown or none yet — in the order they first did, each
+ * under the name they last went by: those come in and playing nothing
+ * among them, at nothing spent and nothing won.
+ */
+export const othersHere = (entries: readonly HuddleEntry[], member: string): readonly HuddleOther[] => {
+  const departed = departedOn(entries)
+  const said = entries.filter((entry) => entry.member !== member).toSorted((one, other) => one.postedAt.localeCompare(other.postedAt))
+  const named = said.reduce((found, entry) => new Map(found).set(entry.member, entry.name), new Map<string, string>())
+  return [...new Set(said.map((entry) => entry.member))].filter((who) => !departed.has(who)).map((who) => ({ member: who, name: named.get(who) ?? "" }))
 }
 
 /** The others' plays as this device's list has them: those given, less those it let go of. Letting go is the list's alone: what the plays came to together still counts them. */

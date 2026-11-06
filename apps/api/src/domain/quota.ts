@@ -25,16 +25,17 @@ export type Quotas = Readonly<Record<RegistrationKind, Quota>>
 const DAY_MILLIS = 86_400_000
 
 /**
- * What a careful person never reaches and a script does at once. A machine
- * takes half an hour to look up and check at the very least and six hours
- * as a rule, so twenty minutes between two and six in a day stop nobody
- * who did the work; an addition to a machine there already — the same
- * formula from a measured round — is minutes of work, so it is looser. An
- * address takes twice a device's day, for two people behind one line.
+ * What a careful person never reaches and a script does at once. New
+ * machines come out every other week, five to twenty and more at a time,
+ * so a device registers up to twenty-four of them, or of additions, in a
+ * day; twenty minutes between two machines stop nobody who looked one up
+ * and checked it, and an addition to a machine there already — the same
+ * formula from a measured round — is minutes of work, so it waits less.
+ * An address takes twice a device's day, for two people behind one line.
  */
 export const STANDARD_QUOTAS: Quotas = {
-  machine: { intervalSeconds: 1_200, perDevice: 6, perAddress: 12 },
-  addition: { intervalSeconds: 300, perDevice: 12, perAddress: 24 },
+  machine: { intervalSeconds: 1_200, perDevice: 24, perAddress: 48 },
+  addition: { intervalSeconds: 300, perDevice: 24, perAddress: 48 },
   tag: { intervalSeconds: 0, perDevice: 20, perAddress: 40 },
 }
 

@@ -39,7 +39,7 @@ export function HuddleSide(props: { readonly place: Place }): JSX.Element {
   const [drafts] = createResource(() => [app.revision(), hour()] as const, () => loadTodaysPlays(app.services.drafts, app.services.businessDay()))
   const others = (): readonly HuddlePlay[] => app.huddle.others()
   const plays = (): readonly RoomPlay[] => ((huddle, found) => (huddle === undefined ? [] : roomPlaysOf(huddle, found?.ok === true ? found.value : [], others(), app.huddle.idle())))(app.huddle.now(), drafts())
-  const members = (): readonly RoomMember[] => ((huddle) => (huddle === undefined ? [] : roomMembersOf(huddle, others())))(app.huddle.now())
+  const members = (): readonly RoomMember[] => ((huddle) => (huddle === undefined ? [] : roomMembersOf(huddle, others(), app.huddle.here())))(app.huddle.now())
   const own = (shown: RoomPlay): boolean => shown.member === app.huddle.now()?.member
   const whoPlays = (shown: RoomPlay): string => (own(shown) ? HUDDLE_OWN : (members().find((each) => each.member === shown.member)?.name ?? ""))
   const presenceOf = (member: string): Presence =>

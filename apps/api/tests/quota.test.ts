@@ -48,21 +48,21 @@ describe("where a device stands against a quota", () => {
   const quota = STANDARD_QUOTAS.machine
 
   test("is its whole day with nothing to wait for before it has registered anything", () => {
-    expect(standingOf(quota, [], [], iso(START))).toEqual({ remaining: 6 })
+    expect(standingOf(quota, [], [], iso(START))).toEqual({ remaining: 24 })
   })
 
   test("waits out the interval after its last, then has the rest of its day", () => {
-    expect(standingOf(quota, [iso(START)], [iso(START)], iso(START + MINUTE))).toEqual({ remaining: 5, nextAt: iso(START + 20 * MINUTE) })
-    expect(standingOf(quota, [iso(START)], [iso(START)], iso(START + 20 * MINUTE))).toEqual({ remaining: 5 })
+    expect(standingOf(quota, [iso(START)], [iso(START)], iso(START + MINUTE))).toEqual({ remaining: 23, nextAt: iso(START + 20 * MINUTE) })
+    expect(standingOf(quota, [iso(START)], [iso(START)], iso(START + 20 * MINUTE))).toEqual({ remaining: 23 })
   })
 
   test("with its day full, waits until its oldest registration is a day old", () => {
-    const mine = [0, 30, 60, 90, 120, 150].map((minutes) => iso(START + minutes * MINUTE))
-    expect(standingOf(quota, mine, mine, iso(START + 400 * MINUTE))).toEqual({ remaining: 0, nextAt: iso(START + 24 * 60 * MINUTE) })
+    const mine = Array.from({ length: 24 }, (_, index) => iso(START + index * 30 * MINUTE))
+    expect(standingOf(quota, mine, mine, iso(START + 800 * MINUTE))).toEqual({ remaining: 0, nextAt: iso(START + 24 * 60 * MINUTE) })
   })
 
   test("waits for its address where others behind it filled the address's day", () => {
-    const others = Array.from({ length: 12 }, (_, index) => iso(START + index * MINUTE))
+    const others = Array.from({ length: 48 }, (_, index) => iso(START + index * MINUTE))
     expect(standingOf(quota, [], others, iso(START + 60 * MINUTE))).toEqual({ remaining: 0, nextAt: iso(START + 24 * 60 * MINUTE) })
   })
 })
@@ -85,7 +85,7 @@ describe("registering against the quotas", () => {
   test("a device is told where it stands before it sets about anything, each kind counted apart", async () => {
     const clock = clocked()
     const client = await api({ quotas: STANDARD_QUOTAS, effects: clock.effects })
-    expect((await client.call("GET", "/quota", { as: ALICE, headers: HOME })).body).toEqual({ type: "limited", machine: { remaining: 6 }, addition: { remaining: 12 }, tag: { remaining: 20 } })
+    expect((await client.call("GET", "/quota", { as: ALICE, headers: HOME })).body).toEqual({ type: "limited", machine: { remaining: 24 }, addition: { remaining: 24 }, tag: { remaining: 20 } })
     expect(countOf(client, "users")).toBe(0)
     const machine = await client.call("POST", "/machines", { as: ALICE, headers: HOME, body: register("一台目") })
     expect((await client.call("POST", "/tags", { as: ALICE, headers: HOME, body: { name: "甘デジ" } })).status).toBe(201)
@@ -93,8 +93,8 @@ describe("registering against the quotas", () => {
     clock.at(START + MINUTE)
     expect((await client.call("GET", "/quota", { as: ALICE, headers: HOME })).body).toEqual({
       type: "limited",
-      machine: { remaining: 5, nextAt: iso(START + 20 * MINUTE) },
-      addition: { remaining: 11, nextAt: iso(START + 5 * MINUTE) },
+      machine: { remaining: 23, nextAt: iso(START + 20 * MINUTE) },
+      addition: { remaining: 23, nextAt: iso(START + 5 * MINUTE) },
       tag: { remaining: 19 },
     })
     expect((await client.call("GET", "/quota", { headers: HOME })).status).toBe(401)

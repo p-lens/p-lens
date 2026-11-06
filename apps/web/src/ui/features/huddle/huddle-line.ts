@@ -15,6 +15,7 @@ import { NOT_YET, type Reach } from "../../primitives/reach"
  * - `line`: the line, open on its relay, while the runner keeps it up.
  * - `shownAt`: when this device last showed its plays, in milliseconds.
  * - `shown`: each of its plays' log as it was last shown, by its id.
+ * - `arrived`: whether it has said it came in, under the name it goes by, since the line was taken up.
  *
  * `heard` is how reading the line stands, the others' plays as the page has
  * them; `told` how showing this device's own plays there does. Each is
@@ -36,7 +37,7 @@ export interface HuddleLine {
   readonly setUrged: Setter<HuddleTurn | undefined>
   readonly keptUp: Accessor<string | undefined>
   readonly setKeptUp: Setter<string | undefined>
-  readonly held: { secret: string | undefined; line: OpenLine | undefined; shownAt: number; shown: ReadonlyMap<string, string> }
+  readonly held: { secret: string | undefined; line: OpenLine | undefined; shownAt: number; shown: ReadonlyMap<string, string>; arrived: boolean }
 }
 
 export const createHuddleLine = (): HuddleLine => {
@@ -45,5 +46,5 @@ export const createHuddleLine = (): HuddleLine => {
   const [told, setTold] = createSignal<Reach<HuddleProblem>>(NOT_YET)
   const [urged, setUrged] = createSignal<HuddleTurn | undefined>(undefined)
   const [keptUp, setKeptUp] = createSignal<string | undefined>(undefined)
-  return { entries, setEntries, heard, setHeard, told, setTold, urged, setUrged, keptUp, setKeptUp, held: { secret: undefined, line: undefined, shownAt: 0, shown: new Map() } }
+  return { entries, setEntries, heard, setHeard, told, setTold, urged, setUrged, keptUp, setKeptUp, held: { secret: undefined, line: undefined, shownAt: 0, shown: new Map(), arrived: false } }
 }

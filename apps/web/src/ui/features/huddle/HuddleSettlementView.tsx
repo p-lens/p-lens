@@ -99,7 +99,7 @@ export function HuddleSettlementView(props: { readonly place: Place }): JSX.Elem
   const [drafts] = createResource(() => [app.revision(), hour()] as const, () => loadTodaysPlays(app.services.drafts, app.services.businessDay()))
   const plays = (): readonly RoomPlay[] => ((huddle, found) => (huddle === undefined ? [] : roomPlaysOf(huddle, found?.ok === true ? found.value : [], app.huddle.counted(), app.huddle.idle())))(app.huddle.now(), drafts())
   const members = (): readonly RoomMember[] =>
-    ((huddle, chosen) => (huddle === undefined ? [] : roomMembersOf(huddle, app.huddle.counted()).filter((each) => chosen === undefined || chosen.includes(each.member))))(app.huddle.now(), app.huddle.chosen.totalled())
+    ((huddle, chosen) => (huddle === undefined ? [] : roomMembersOf(huddle, app.huddle.counted(), app.huddle.here()).filter((each) => chosen === undefined || chosen.includes(each.member))))(app.huddle.now(), app.huddle.chosen.totalled())
   const reckoned = (): readonly Reckoned[] => members().map((member) => reckonedOf(member, plays(), app.huddle.chosen.prizes().get(member.member), app.services.preferences.stageStep()))
   const exact = (): boolean => app.huddle.chosen.settling() === "exact"
   const settlement = (): Settlement | undefined => settlementOf(reckoned().map((each) => each.contribution), exact() ? 1 : SETTLING_STEP)

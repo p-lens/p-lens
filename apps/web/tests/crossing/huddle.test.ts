@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { huddleNow } from "../../src/application/huddle"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { huddleText, type Huddle } from "../../src/core/huddle/huddle"
-import { huddleDepartureOf, huddlePostOf, huddleWithdrawalOf, othersPlays, type HuddleEntry } from "../../src/core/huddle/post"
+import { huddleArrivalOf, huddleDepartureOf, huddlePostOf, huddleWithdrawalOf, othersHere, othersPlays, type HuddleEntry } from "../../src/core/huddle/post"
 import type { PachinkoDraft } from "../../src/core/live-play/draft"
 import type { PlayId } from "../../src/core/play/play"
 import { Ok } from "../../src/core/result/result"
@@ -161,6 +161,17 @@ describe("a huddle's line", () => {
     await until(() => othersPlays(theirs.seen.entries, joined.member)[0]?.departed === true)
     await mine.line.put(huddlePostOf(DRAFT, begun, "2026-10-20T02:10:00.000Z"))
     await until(() => othersPlays(theirs.seen.entries, joined.member)[0]?.departed === false)
+  })
+
+  test("has one come in, playing nothing yet, in the others' room, a third joining by the second's code among them", async () => {
+    const { begun, joined, mine, theirs } = await twoDevices()
+    expect(await theirs.line.put(huddleArrivalOf(joined, "2026-10-20T02:00:00.000Z"))).toEqual({ ok: true, value: undefined })
+    await until(() => othersHere(mine.seen.entries, begun.member).length === 1)
+    const third = unwrapped(await joinHuddle(deviceOn(undefined), huddleCodeOf(joined), "ゴエモン", DAY))
+    const thirds = await opened(third)
+    await thirds.line.put(huddleArrivalOf(third, "2026-10-20T02:05:00.000Z"))
+    await until(() => othersHere(mine.seen.entries, begun.member).length === 2 && othersHere(theirs.seen.entries, joined.member).length === 1)
+    expect(othersHere(mine.seen.entries, begun.member).map((other) => other.name)).toEqual(["ジゲン", "ゴエモン"])
   })
 
   test("gives a device joining late everything shown so far", async () => {
