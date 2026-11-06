@@ -16,6 +16,14 @@ export const inOrder = <B extends { readonly order: number | undefined }>(books:
   return [...placed, ...books.filter((book) => book.order === undefined)]
 }
 
+/**
+ * Books in the order a person put them in on this device: those it names
+ * first, as it names them, then the rest as they came. None named, they
+ * stand as they came.
+ */
+export const onDevice = <B extends { readonly id: BookId }>(books: readonly B[], placed: readonly BookId[] | undefined): readonly B[] =>
+  placed === undefined ? books : [...placed.flatMap((id) => books.filter((book) => book.id === id)), ...books.filter((book) => !placed.includes(book.id))]
+
 /** A place to be written into a book. */
 export interface Placing {
   readonly id: BookId

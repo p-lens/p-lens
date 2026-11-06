@@ -4,7 +4,8 @@ import { appendEntry, BOOK_FILES } from "../../src/core/journal/layout"
 import { Ok } from "../../src/core/result/result"
 import type { HledgerClient } from "../../src/hledger/client/client"
 import { joinByCode } from "../../src/crossing/application/joining"
-import { bookLineKeysOf, eventsOfChange, isOwnersLink, startSync, syncCodeOf } from "../../src/crossing/application/book-sync"
+import { bookLineKeysOf, eventsOfChange, isOwnersLink, ownersKeysOf, startSync, syncCodeOf } from "../../src/crossing/application/book-sync"
+import { mailboxEvent } from "../../src/crossing/application/book-sharing"
 import { changeIdOf, stateDigestOf, type Change, type ChangeId } from "../../src/crossing/core/book/change"
 import { ROSTER_FILE } from "../../src/crossing/core/book/roster"
 import { patchesBetween } from "../../src/crossing/core/book/state"
@@ -157,6 +158,41 @@ describe("a book shared with people the owner lets in", () => {
     expect((await ownerLine.book.members()).map((each) => each.name)).toEqual(["次元"])
     expect(await joinByCode(viewer.ports, gone.code)).toEqual({ ok: false, error: { type: "removed" } })
   }, 60_000)
+
+  test("a person taken out is told so on a relay that takes only the mailboxes an access list holds, and the same name invited again joins", async () => {
+    const { relay, owner, ownerLine, others } = await shared()
+    relay.refuseUnlistedMailboxes(true)
+    const [viewer, again] = others
+    const { member: gone } = await letIn(ownerLine, viewer, "銭形", "viewer")
+    expect(await ownerLine.book.remove(gone.mailbox)).toEqual(Ok(undefined))
+    await until(() => viewer.heard.removed === 1)
+    const invited = await ownerLine.book.invite("銭形", "viewer")
+    if (!invited.ok) throw new Error(JSON.stringify(invited.error))
+    await until(() => owner.last()?.type === "synced")
+    expect(await joinByCode(again.ports, invited.value.code)).toEqual({ ok: true, value: { type: "book", bookId: BOOK } })
+  }, 30_000)
+
+  test("a mailbox the relay will never take is let go of, and stops nothing sent after it", async () => {
+    const relay = startRelay()
+    relay.refuseUnlistedMailboxes(true)
+    const owner = deviceOn(relay.url, hledgerAt(0))
+    const created = await owner.session.createBook(await fixtureBook("basic-play", { id: BOOK, members: [ME] }))
+    if (!created.ok) throw new Error(JSON.stringify(created.error))
+    const started = await startSync(owner.ports, BOOK)
+    if (!started.ok || !isOwnersLink(started.value)) throw new Error(JSON.stringify(started))
+    const keys = createWebCryptoKeys()
+    const owners = await ownersKeysOf(keys, started.value.access.sync)
+    const unlisted = await mailboxEvent(keys, owners.owner, keys.newSecret(), { type: "removed", role: "viewer", stamp: 1 }, Math.floor(Date.now() / 1000))
+    if (unlisted === undefined) throw new Error("no mailbox")
+    expect((await owner.lines.queue(BOOK, [unlisted])).ok).toBe(true)
+    const ownerLine = await owner.open()
+    const invited = await ownerLine.book.invite("次元", "editor")
+    if (!invited.ok) throw new Error(JSON.stringify(invited.error))
+    await until(() => owner.last()?.type === "synced")
+    expect(relay.events().some((event) => event.id === unlisted.id)).toBe(false)
+    const [editor] = [deviceOn(relay.url, hledgerAt(1))]
+    expect(await joinByCode(editor.ports, invited.value.code)).toEqual({ ok: true, value: { type: "book", bookId: BOOK } })
+  }, 30_000)
 
   test("what the owner calls the people let in, and the book, never reach the relay readable", async () => {
     const { relay, ownerLine, others } = await shared()

@@ -40,6 +40,9 @@ export interface Preferences {
   readonly boxSizes: () => string | undefined
   readonly setBoxSizes: (written: string) => void
   /** A book's tallies taken in from a file that were weighed here and not written with what they were worth: taking the same file in again leaves them be. */
+  /** The books in the order a person put them in on this device, by id, or none yet: theirs and those they were let into alike. */
+  readonly bookOrder: () => readonly BookId[] | undefined
+  readonly setBookOrder: (ids: readonly BookId[]) => void
   readonly weighedUnwritten: (bookId: BookId) => ReadonlySet<PlayId>
   readonly addWeighedUnwritten: (bookId: BookId, ids: readonly PlayId[]) => void
 }

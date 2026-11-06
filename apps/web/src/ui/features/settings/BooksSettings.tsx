@@ -154,10 +154,10 @@ const swapOf = (swapping: Swapping): Swap | undefined => (swapping.type === "res
 const SWELL_FOR = 140
 
 /**
- * The books as a list, and at its right edge, on the line between each of
- * the person's own and the row under it, where another of theirs comes
- * after, the arrows that swap the two: both swell where they stand, and
- * settle in each other's place.
+ * The books as a list, and at its right edge, on the line between each
+ * book and the row under it, the arrows that swap the two, whoever's
+ * either is: both swell where they stand, and settle in each other's
+ * place.
  * The edge is kept clear for the arrows whether there are any or not, so
  * a row is as wide with one book as with several, and reaches into the
  * screen's own margin, so the rows give up little.
@@ -178,7 +178,7 @@ function BookList(props: { readonly rows: readonly Row[]; readonly onDeleted: ()
   const [swapping, setSwapping] = createSignal<Swapping>({ type: "resting" })
   const held: { writing: Promise<void>; waiting: number; swell: ReturnType<typeof setTimeout> | undefined } = { writing: Promise.resolve(), waiting: 0, swell: undefined }
   const written = async (upper: BookId): Promise<void> => {
-    const done = await swapWithNext(app.services.session, app.services.member, upper)
+    const done = await swapWithNext(app.services.session, app.services.member, upper, app.services.preferences.setBookOrder)
     held.waiting -= 1
     if (!done.ok) {
       toast({ title: "帳簿を並べ替えられませんでした", description: describeError(done.error), tone: "error" })
@@ -323,7 +323,7 @@ function AddBook(props: { readonly titles: readonly string[] }): JSX.Element {
 /**
  * The books this device keeps: one more added under a name, and each one
  * there in the order books stand in everywhere, changing places with the
- * next where both are the person's own, with how it stands against its backups,
+ * next on this device, with how it stands against its backups,
  * taken off the device only
  * after a second press beside what will be lost. It is the device's copy
  * that goes — a backup of it, and the book on a device that syncs it, stay.
@@ -344,7 +344,7 @@ export function BooksSettings(props: { readonly place: Place }): JSX.Element {
   /** What the device's books are called, for a new one to be told apart from. */
   const titles = createMemo((): readonly string[] => ((books) => (books?.ok === true ? books.value.flatMap((book) => (book.title === undefined ? [] : [book.title])) : []))(ordered()), [], { equals: (before, after) => before.join("\n") === after.join("\n") })
   /** The device's books in the order they stand in everywhere, each with how it stands against its backups, and the book it may change places with. */
-  const rows = (standings: readonly BookStanding[]): readonly Row[] => ((books) => rowsOf(books?.ok === true ? books.value : [], standings, app.services.member))(ordered())
+  const rows = (standings: readonly BookStanding[]): readonly Row[] => ((books) => rowsOf(books?.ok === true ? books.value : [], standings))(ordered())
   const settle = async (): Promise<void> => {
     await ensureFirstBook(app.services.session, app.services.firstBook)
     app.wrote()

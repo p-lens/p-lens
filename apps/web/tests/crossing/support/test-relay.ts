@@ -1,6 +1,9 @@
 import type { ServerWebSocket } from "bun"
 import type { NostrEvent } from "../../../src/crossing/core/event"
 
+const ACCESS_LIST = 34742
+const MAILBOX = 34743
+
 type Socket = ServerWebSocket<{ readonly id: number }>
 
 type Filter = { readonly kinds?: number[]; readonly "#v"?: string[]; readonly since?: number; readonly until?: number; readonly limit?: number }
@@ -9,7 +12,9 @@ type Filter = { readonly kinds?: number[]; readonly "#v"?: string[]; readonly si
  * A relay for the tests: NIP-01 at its plainest (keeps every event, gives
  * what a REQ's kinds and `#v` match, passes new ones on), with what a test
  * needs to make it misbehave: drop every socket, forget every event, refuse
- * with a reason, keep quiet, or hand on an event its author never signed.
+ * with a reason, keep quiet, or hand on an event its author never signed;
+ * and, as a capped relay does, refuse a mailbox no access list of its
+ * author's holds.
  */
 export const startTestRelay = () => {
   const held = {
@@ -18,6 +23,7 @@ export const startTestRelay = () => {
     subscriptions: new Map<Socket, Map<string, Filter[]>>(),
     refusal: undefined as string | undefined,
     silent: false,
+    listedOnly: false,
     next: 0,
   }
   const matches = (filters: readonly Filter[], event: NostrEvent): boolean =>
@@ -33,6 +39,18 @@ export const startTestRelay = () => {
     const found = held.events.filter((event) => matches(filters, event))
     const limit = Math.min(...filters.map((filter) => filter.limit ?? Number.POSITIVE_INFINITY))
     return Number.isFinite(limit) ? found.toSorted((one, other) => other.created_at - one.created_at).slice(0, limit) : found
+  }
+  /** The latest of each access list its author keeps, by `d`. */
+  const accessLists = (pubkey: string): readonly NostrEvent[] => {
+    const lists = held.events.filter((event) => event.kind === ACCESS_LIST && event.pubkey === pubkey)
+    const dOf = (event: NostrEvent): string => event.tags.find((tag) => tag[0] === "d")?.[1] ?? ""
+    return [...new Set(lists.map(dOf))].flatMap((d) => lists.filter((event) => dOf(event) === d).toSorted((one, other) => other.created_at - one.created_at).slice(0, 1))
+  }
+  /** A mailbox no access list of its author's holds, as the latest of each says. */
+  const unlisted = (event: NostrEvent): boolean => {
+    if (event.kind !== MAILBOX) return false
+    const v = event.tags.find((tag) => tag[0] === "v")?.[1]
+    return !accessLists(event.pubkey).some((list) => (JSON.parse(list.content) as { readonly members: readonly { readonly mailbox: string }[] }).members.some((member) => member.mailbox === v))
   }
   const server = Bun.serve<{ readonly id: number }>({
     port: 0,
@@ -52,8 +70,9 @@ export const startTestRelay = () => {
         if (verb === "EVENT") {
           const event = first as NostrEvent
           if (held.silent) return
-          if (held.refusal !== undefined) {
-            socket.send(JSON.stringify(["OK", event.id, false, held.refusal]))
+          const refusal = held.refusal ?? (held.listedOnly && unlisted(event) ? "restricted: not on the access list" : undefined)
+          if (refusal !== undefined) {
+            socket.send(JSON.stringify(["OK", event.id, false, refusal]))
             return
           }
           held.events.push(event)
@@ -84,6 +103,9 @@ export const startTestRelay = () => {
     },
     keepQuiet: (silent: boolean) => {
       held.silent = silent
+    },
+    refuseUnlistedMailboxes: (on: boolean) => {
+      held.listedOnly = on
     },
     sendToEvery: (message: unknown) => held.sockets.forEach((socket) => socket.send(JSON.stringify(message))),
     stop: () => server.stop(true),

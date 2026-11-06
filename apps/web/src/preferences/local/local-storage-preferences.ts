@@ -12,6 +12,7 @@ const HUDDLE = "p-lens.huddle"
 const CONSOLIDATION_SHOWN = "p-lens.consolidation-shown"
 const STAGE_STEP = "p-lens.stage-step"
 const BOX_SIZES = "p-lens.box-sizes"
+const BOOK_ORDER = "p-lens.book-order"
 const FIGURES_UNFOLDED: Readonly<Record<GameKind, string>> = { pachinko: "p-lens.figures-unfolded.pachinko", pachislot: "p-lens.figures-unfolded.pachislot" }
 const FORMULA_DRAFT: Readonly<Record<GameKind, string>> = { pachinko: "p-lens.formula-draft.pachinko", pachislot: "p-lens.formula-draft.pachislot" }
 const weighedUnwrittenKey = (bookId: BookId): string => `p-lens.weighed-unwritten.${bookId}`
@@ -39,6 +40,9 @@ const keep = (key: string, value: string): void => {
 /** Ids kept as a line of words apart by spaces, which no id holds; anything else reads as none. */
 const idsIn = (written: string | undefined): ReadonlySet<PlayId> => new Set((written ?? "").split(" ").filter((id) => id !== "") as PlayId[])
 
+/** Books' ids kept in order as a line of words apart by spaces; none where nothing is kept. */
+const bookIdsIn = (written: string | undefined): readonly BookId[] | undefined => (written === undefined ? undefined : (written.split(" ").filter((id) => id !== "") as BookId[]))
+
 const forget = (key: string): void => {
   try {
     localStorage.removeItem(key)
@@ -54,7 +58,7 @@ const forget = (key: string): void => {
 export const createLocalStoragePreferences = (): Preferences => {
   const weighedUnwritten = new Map<BookId, ReadonlySet<PlayId>>()
   const weighedUnwrittenOf = (bookId: BookId): ReadonlySet<PlayId> => weighedUnwritten.get(bookId) ?? idsIn(stored(weighedUnwrittenKey(bookId)))
-  const held: { businessDayTurn: BusinessDayTurn; parlorSetting: string | undefined; tokensInHand: string | undefined; huddle: string | undefined; consolidationShown: boolean; stageStep: StageStep; boxSizes: string | undefined; figuresUnfolded: Record<GameKind, boolean>; formulaDraft: Record<GameKind, string | undefined> } = {
+  const held: { businessDayTurn: BusinessDayTurn; parlorSetting: string | undefined; tokensInHand: string | undefined; huddle: string | undefined; consolidationShown: boolean; stageStep: StageStep; boxSizes: string | undefined; bookOrder: readonly BookId[] | undefined; figuresUnfolded: Record<GameKind, boolean>; formulaDraft: Record<GameKind, string | undefined> } = {
     businessDayTurn: readBusinessDayTurn(stored(BUSINESS_DAY_TURN)),
     parlorSetting: stored(PARLOR_SETTING),
     tokensInHand: stored(TOKENS_IN_HAND),
@@ -62,6 +66,7 @@ export const createLocalStoragePreferences = (): Preferences => {
     consolidationShown: stored(CONSOLIDATION_SHOWN) === ON,
     stageStep: readStageStep(stored(STAGE_STEP)),
     boxSizes: stored(BOX_SIZES),
+    bookOrder: bookIdsIn(stored(BOOK_ORDER)),
     figuresUnfolded: { pachinko: stored(FIGURES_UNFOLDED.pachinko) === ON, pachislot: stored(FIGURES_UNFOLDED.pachislot) === ON },
     formulaDraft: { pachinko: stored(FORMULA_DRAFT.pachinko), pachislot: stored(FORMULA_DRAFT.pachislot) },
   }
@@ -113,6 +118,11 @@ export const createLocalStoragePreferences = (): Preferences => {
     setBoxSizes: (written) => {
       held.boxSizes = written
       keep(BOX_SIZES, written)
+    },
+    bookOrder: () => held.bookOrder,
+    setBookOrder: (ids) => {
+      held.bookOrder = ids
+      keep(BOOK_ORDER, ids.join(" "))
     },
     weighedUnwritten: weighedUnwrittenOf,
     addWeighedUnwritten: (bookId, ids) => {

@@ -14,28 +14,28 @@ const standing = (listed: ListedBook): BookStanding => ({ book: listed, standing
 describe("the rows of the books' list", () => {
   const books = [book("a", ME), book("theirs", OTHER), book("b", ME), book("c", ME)]
 
-  test("are in the order books are listed, each of a person's own changing places with the next of them, and another's with none", () => {
-    expect(rowsOf(books, books.map(standing), ME).map((row) => [row.standing.book.id, row.swapsWith])).toEqual([
-      ["a", "b"],
-      ["theirs", undefined],
+  test("are in the order books are listed, each changing places with the next, another person's as freely as their own", () => {
+    expect(rowsOf(books, books.map(standing)).map((row) => [row.standing.book.id, row.swapsWith])).toEqual([
+      ["a", "theirs"],
+      ["theirs", "b"],
       ["b", "c"],
       ["c", undefined],
     ] as never)
   })
 
-  test("give an only book of a person's own none to change places with, and leave out a book whose standing is not known yet", () => {
-    expect(rowsOf([book("a", ME)], [standing(book("a", ME))], ME).map((row) => row.swapsWith)).toEqual([undefined])
-    expect(rowsOf([book("a", ME), book("theirs", OTHER)], [book("a", ME), book("theirs", OTHER)].map(standing), ME).map((row) => row.swapsWith)).toEqual([undefined, undefined])
-    expect(rowsOf(books, [standing(book("b", ME))], ME).map((row) => row.standing.book.id)).toEqual(["b"] as never)
+  test("give an only book none to change places with, a book above another person's that one, and leave out a book whose standing is not known yet", () => {
+    expect(rowsOf([book("a", ME)], [standing(book("a", ME))]).map((row) => row.swapsWith)).toEqual([undefined])
+    expect(rowsOf([book("a", ME), book("theirs", OTHER)], [book("a", ME), book("theirs", OTHER)].map(standing)).map((row) => row.swapsWith)).toEqual(["theirs", undefined] as never)
+    expect(rowsOf(books, [standing(book("b", ME))]).map((row) => row.standing.book.id)).toEqual(["b"] as never)
   })
 
-  test("stand where a person has put them ahead of the writing, each of their own changing places with the next as they then stand", () => {
-    const read = rowsOf(books, books.map(standing), ME)
+  test("stand where a person has put them ahead of the writing, each changing places with the next as they then stand", () => {
+    const read = rowsOf(books, books.map(standing))
     const moved = exchangedIn(read.map((row) => row.standing.book.id), { upper: "b" as BookId, lower: "c" as BookId })
     expect(moved).toEqual(["a", "theirs", "c", "b"] as never)
     expect(placedAs(read, moved).map((row) => [row.standing.book.id, row.swapsWith])).toEqual([
-      ["a", "c"],
-      ["theirs", undefined],
+      ["a", "theirs"],
+      ["theirs", "c"],
       ["c", "b"],
       ["b", undefined],
     ] as never)
@@ -43,12 +43,12 @@ describe("the rows of the books' list", () => {
   })
 
   test("keep a book the moved order does not know, after the rest, and pass over one it knows that is gone", () => {
-    const read = rowsOf(books, books.map(standing), ME)
+    const read = rowsOf(books, books.map(standing))
     expect(placedAs(read, ["c", "gone", "a"] as never).map((row) => row.standing.book.id)).toEqual(["c", "a", "theirs", "b"] as never)
   })
 
   test("stand as an order of ids only where every book is where the order has it", () => {
-    const read = rowsOf(books, books.map(standing), ME)
+    const read = rowsOf(books, books.map(standing))
     expect(standAs(read, ["a", "theirs", "b", "c"] as never)).toBe(true)
     expect(standAs(read, ["a", "theirs", "c", "b"] as never)).toBe(false)
     expect(standAs(read, ["a", "theirs", "b"] as never)).toBe(false)
@@ -56,9 +56,9 @@ describe("the rows of the books' list", () => {
 
   test("swell while the two that swap stand as they did, settle once they stand in each other's place, and are still otherwise", () => {
     const swap = { upper: "b" as BookId, lower: "c" as BookId }
-    const motions = (listed: readonly ListedBook[]) => listed.map((each) => motionOf(rowsOf(listed, listed.map(standing), ME), swap, each.id))
+    const motions = (listed: readonly ListedBook[]) => listed.map((each) => motionOf(rowsOf(listed, listed.map(standing)), swap, each.id))
     expect(motions(books)).toEqual(["still", "still", "swelling", "swelling"])
     expect(motions([book("a", ME), book("c", ME), book("b", ME), book("theirs", OTHER)])).toEqual(["still", "settling", "settling", "still"])
-    expect(books.map((each) => motionOf(rowsOf(books, books.map(standing), ME), undefined, each.id))).toEqual(["still", "still", "still", "still"])
+    expect(books.map((each) => motionOf(rowsOf(books, books.map(standing)), undefined, each.id))).toEqual(["still", "still", "still", "still"])
   })
 })

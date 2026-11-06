@@ -1,34 +1,28 @@
 import type { BookStanding } from "../../../application/backup"
-import { roleIn, type BookId, type ListedBook, type MemberId } from "../../../core/book/book"
+import type { BookId, ListedBook } from "../../../core/book/book"
 
-/** One book of the list: how it stands against its backups, and the book it may change places with — the next of the person's own, where there is one. */
+/** One book of the list: how it stands against its backups, and the book it may change places with — the next, where there is one. */
 export interface Row {
   readonly standing: BookStanding
-  /** Whether the book is the person's own: only those change places. */
-  readonly own: boolean
   readonly swapsWith: BookId | undefined
 }
 
 const idOf = (row: Row): BookId => row.standing.book.id
 
-/** Rows as they stand, each of the person's own given the next of them to change places with. */
-const withNeighbours = (rows: readonly Omit<Row, "swapsWith">[]): readonly Row[] => {
-  const own = rows.filter((row) => row.own).map((row) => row.standing.book.id)
-  return rows.map((row) => ({ ...row, swapsWith: row.own ? own[own.indexOf(row.standing.book.id) + 1] : undefined }))
-}
+/** Rows as they stand, each given the next to change places with. */
+const withNeighbours = (rows: readonly Omit<Row, "swapsWith">[]): readonly Row[] => rows.map((row, index) => ({ ...row, swapsWith: rows[index + 1]?.standing.book.id }))
 
 /**
  * The books of the list as rows, in the order they are listed everywhere.
- * A person's own books change places among themselves, each with the next
- * of them; a book another person let them into does not, its place being
- * its owner's. A book whose standing is not yet known is left out until
- * it is.
+ * Each changes places with the next, a book another person let them into
+ * as freely as their own: the order is the device's. A book whose standing
+ * is not yet known is left out until it is.
  */
-export const rowsOf = (books: readonly ListedBook[], standings: readonly BookStanding[], member: MemberId): readonly Row[] =>
+export const rowsOf = (books: readonly ListedBook[], standings: readonly BookStanding[]): readonly Row[] =>
   withNeighbours(
     books.flatMap((book) => {
       const standing = standings.find((each) => each.book.id === book.id)
-      return standing === undefined ? [] : [{ standing, own: roleIn(book, member) === "owner" }]
+      return standing === undefined ? [] : [{ standing }]
     }),
   )
 
@@ -44,8 +38,8 @@ export const exchangedIn = (ids: readonly BookId[], swap: Swap): readonly BookId
 /**
  * Rows in the order a person has put them, ahead of its being written:
  * the rows as read, each where `moved` has its book, and a book `moved`
- * does not know after them, as it came. Each of the person's own changes
- * places with the next as they then stand. With nothing moved they are
+ * does not know after them, as it came. Each changes places with the next
+ * as they then stand. With nothing moved they are
  * the rows as read.
  */
 export const placedAs = (rows: readonly Row[], moved: readonly BookId[] | undefined): readonly Row[] => {

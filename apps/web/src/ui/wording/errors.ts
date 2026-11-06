@@ -224,6 +224,8 @@ export const describeError = (error: ApplicationError): string => {
       return describeImportProblem(error.problem)
     case "tally-missing":
       return "この収支は帳簿にありません。"
+    case "tally-in-book":
+      return "移動先の帳簿に、同じ稼働の収支がもうあります。"
     case "recount-refused":
       return `0Rの数え方を変えると、${error.refusal.index + 1}件目の読み取りでカウンタが ${error.refusal.expectedAtLeast} 回転より戻ります。記録済みのカウンタと合わないため、変えられません。`
     case "recorded-unmarked":

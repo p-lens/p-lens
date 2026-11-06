@@ -138,7 +138,7 @@ export const createServices = (): Services => {
   const storage = createIndexedDbStorage(database)
   const me: Member = { id: LOCAL_MEMBER, displayName: "自分", role: "owner" }
   const hledgerWorker = (): Worker => new Worker(new URL("../../hledger/worker/worker.ts", import.meta.url), { type: "module" })
-  const sessionOn = (hledger: HledgerClient): BookSession => createBookSession({ hledger, storage, history, clock, newId: freshUuidV7, member: LOCAL_MEMBER })
+  const sessionOn = (hledger: HledgerClient): BookSession => createBookSession({ hledger, storage, history, clock, newId: freshUuidV7, member: LOCAL_MEMBER, deviceOrder: preferences.bookOrder })
   const session = sessionOn(createHledgerClient(hledgerWorker))
   const workMark = createWorkMark()
   const drafts = keepingHistory(createIndexedDbDrafts(database), () => clock().toISOString())

@@ -72,6 +72,8 @@ export type ApplicationError =
   | { readonly type: "rate-change"; readonly problem: RateChangeError }
   | { readonly type: "import"; readonly problem: ImportProblem }
   | { readonly type: "tally-missing" }
+  /** A tally moved into a book that has a tally of its play already. */
+  | { readonly type: "tally-in-book" }
   /** A pachinko play's counter said to count a 0R otherwise, which the counter its readings showed does not bear out: the reading at `index` would show less than it must. */
   | { readonly type: "recount-refused"; readonly refusal: RevisionRefusal }
   /** A play's tally written into its book, and the play then not marked recorded on the device: the book has it, and it is not to be recorded again. */

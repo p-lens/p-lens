@@ -127,6 +127,9 @@ interface Line {
   listening: Subscription | undefined
 }
 
+/** Whether a relay will never take an event it refused: a mailbox the access list does not hold, which nothing later puts on it. */
+const neverTaken = (event: NostrEvent, refusal: Refusal): boolean => event.kind === KIND.mailbox && refusal.type === "restricted" && refusal.reason === "other"
+
 const tipPlace = (keys: BookLineKeys, d: string, pubkey: string): Place => ({ kind: KIND.tip, v: keys.v, d, pubkey })
 
 /** Where a line stands, from what it holds. */
@@ -213,21 +216,39 @@ export const openBookLine = async (ports: BookSyncPorts, link: BookLink, connect
     return line.turn
   }
 
+  /** An event let go of from the outbox: sent, or never to be taken. */
+  const letGo = async (event: NostrEvent): Promise<void> => {
+    line.outbox.delete(event.id)
+    await ports.lines.sent(bookId, [event.id])
+  }
+
+  /**
+   * The outbox sent in order, as far as the relay takes it. One event
+   * refused stops nothing after it but where the relay asks for time: it
+   * stays to be sent again at the next flush, and the line says it was
+   * refused. A mailbox refused as one the access list does not hold is let
+   * go of instead (`neverTaken`), since nothing later makes the relay take
+   * it; kept, it was sent again and refused for ever.
+   */
   const flush = async (): Promise<void> => {
     if (line.flushing || line.reach.type !== "open") return
     line.flushing = true
+    const pass: { refusal: Refusal | undefined; through: boolean } = { refusal: undefined, through: true }
     for (const event of [...line.outbox.values()]) {
       const answer = await connection.publish(event, ANSWER_WAIT_MS)
-      if (!answer.ok) break
-      if (answer.value.type === "refused") {
-        line.refusal = answer.value.refusal
-        if (answer.value.refusal.type === "rate-limited") flushLater()
+      if (!answer.ok) {
+        pass.through = false
         break
       }
-      line.refusal = undefined
-      line.outbox.delete(event.id)
-      await ports.lines.sent(bookId, [event.id])
+      if (answer.value.type === "refused" && answer.value.refusal.type === "rate-limited") {
+        pass.refusal = answer.value.refusal
+        flushLater()
+        break
+      }
+      if (answer.value.type === "refused" && !neverTaken(event, answer.value.refusal)) pass.refusal = answer.value.refusal
+      else await letGo(event)
     }
+    if (pass.through || pass.refusal !== undefined) line.refusal = pass.refusal
     line.flushing = false
     told()
   }
@@ -812,8 +833,9 @@ export const openBookLine = async (ports: BookSyncPorts, link: BookLink, connect
     })
 
   /**
-   * A sender taken out: the roster without them, the access list of senders
-   * as it then stands, and their mailbox saying so. A sender holds nothing of
+   * A sender taken out: the roster without them, their mailbox saying so
+   * while the access list of senders still holds them, so that a capped or
+   * gated relay takes it, and the access list as it then stands. A sender holds nothing of
    * the book to move it away from; what they send after is dropped, as their
    * key is in the roster no longer (PROTOCOL.md §7).
    */
@@ -825,7 +847,7 @@ export const openBookLine = async (ports: BookSyncPorts, link: BookLink, connect
     const at = accessTime()
     const said = await mailboxEvent(ports.keys, owner.owner, gone.invitation, { type: "removed", role: "sender", stamp: at }, at)
     if (said === undefined) return Err({ type: "too-large" })
-    return (await queued([await accessListEvent(ports.keys, owner.sync, owner.owner, "sending", next, at), said])) ? Ok(undefined) : Err({ type: "unreachable" })
+    return (await queued([said, await accessListEvent(ports.keys, owner.sync, owner.owner, "sending", next, at)])) ? Ok(undefined) : Err({ type: "unreachable" })
   }
 
   const remove = (mailboxOfMember: string): Promise<Result<void, BookSyncProblem>> =>
@@ -849,13 +871,11 @@ export const openBookLine = async (ports: BookSyncPorts, link: BookLink, connect
       if (!(await settled({ id, files: edit.value.at.files }, [kept(id, base, now)], { type: "at", id }))) return Err({ type: "unreachable" })
       const at = accessTime()
       const staying = shared.flatMap((member) => (member.mailbox !== mailboxOfMember && member.role !== "sender" ? [{ ...member, role: member.role }] : []))
-      const said = await Promise.all([
-        ...staying.map((member) => mailboxEvent(ports.keys, owner.owner, member.invitation, { type: "member", role: member.role, epoch: n, secret, stamp: at }, at)),
-        mailboxEvent(ports.keys, owner.owner, gone.invitation, { type: "removed", role: gone.role, stamp: at }, at),
-      ])
+      const told = await mailboxEvent(ports.keys, owner.owner, gone.invitation, { type: "removed", role: gone.role, stamp: at }, at)
+      const said = await Promise.all(staying.map((member) => mailboxEvent(ports.keys, owner.owner, member.invitation, { type: "member", role: member.role, epoch: n, secret, stamp: at }, at)))
       const mailboxes = said.filter((event): event is NostrEvent => event !== undefined)
-      if (mailboxes.length !== said.length) return Err({ type: "too-large" })
-      return (await queued([await accessListEvent(ports.keys, owner.sync, owner.owner, "sharing", next, at), ...mailboxes])) ? Ok(undefined) : Err({ type: "unreachable" })
+      if (told === undefined || mailboxes.length !== said.length) return Err({ type: "too-large" })
+      return (await queued([told, await accessListEvent(ports.keys, owner.sync, owner.owner, "sharing", next, at), ...mailboxes])) ? Ok(undefined) : Err({ type: "unreachable" })
     })
 
   const members = async (): Promise<readonly SharedMember[]> => {

@@ -1,7 +1,7 @@
 import { ACTIVITY_LOG, activityLineOf, activityLinesOf, withActivity, type ActivityLine } from "../core/activity/activity"
 import type { Capability } from "../core/access/role"
 import { memberCan, roleIn, type Book, type BookId, type ListedBook, type MemberId } from "../core/book/book"
-import { inOrder } from "../core/book/order"
+import { inOrder, onDevice } from "../core/book/order"
 import { BOOK_SETTINGS_FILE, bookSettingsOf } from "../core/book/settings"
 import { fileChangesBetween, patchesOf, type ChangeIntent, type FileChange, type JournalChange } from "../core/change/journal-change"
 import { BOOK_FILES, ENTRY_FILE, type BookFiles } from "../core/journal/layout"
@@ -21,6 +21,8 @@ export interface SessionPorts {
   /** An id nothing else has, for a line of a book's activity. */
   readonly newId: () => string
   readonly member: MemberId
+  /** The order a person put the books in on this device, where they did: it comes before the places a book's own settings give (`onDevice`). */
+  readonly deviceOrder?: () => readonly BookId[] | undefined
 }
 
 /** Who is making a change, when and why. */
@@ -57,7 +59,7 @@ export interface Folded {
  * interleave with anything else.
  */
 export interface BookSession {
-  /** Every book on the device as it is listed, in the order books stand in everywhere: this member's own as they placed them, then the rest as they came. */
+  /** Every book on the device as it is listed, in the order books stand in everywhere: as the person put them on this device, then this member's own as they placed them, then the rest as they came. */
   readonly books: () => Promise<Outcome<readonly ListedBook[]>>
   readonly createBook: (stored: StoredBook) => Promise<Outcome<CommitId>>
   readonly read: <T>(bookId: BookId, work: (journal: JournalAccess, stored: StoredBook) => Promise<Outcome<T>>) => Promise<Outcome<T>>
@@ -186,7 +188,7 @@ export const createBookSession = (ports: SessionPorts): BookSession => {
     books: async () => {
       const covers = fromStorage(await ports.storage.listBooks())
       if (!covers.ok) return covers
-      return mapOk(collect(await Promise.all(covers.value.map(listed))), inOrder)
+      return mapOk(collect(await Promise.all(covers.value.map(listed))), (books) => onDevice(inOrder(books), ports.deviceOrder?.()))
     },
 
     createBook: async (stored) => {
