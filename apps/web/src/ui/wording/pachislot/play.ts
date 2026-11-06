@@ -43,4 +43,4 @@ export const SEAT_PROBLEM_TEXT: Readonly<Record<"not-a-count" | "below-since-bon
 }
 
 /** What a reading's メダルの受渡し says behind its i: medals shared with other players, a breakdown of the hand, carried into the hand from the next line on, reaching no figure. */
-export const HANDED_NOTE = "主に超ノリ打ち時の出玉共有で記入します。持ちメダルの内訳で、持ちメダルを数え直さなければ、次の行から受渡し後の持ちメダルになります。以後は台間サンドの持ちメダル数をそのまま入れてください。差枚や収支など、どの計算にも影響しません。"
+export const HANDED_NOTE = "主に超ノリ打ち時の出玉共有で記入します。持ちメダルを入力後、内訳として入力ください。次の行から受渡し後の持ちメダルになります。以後は台間サンドの持ちメダル数をそのまま入れてください。差枚や収支など、どの計算にも影響しません。"

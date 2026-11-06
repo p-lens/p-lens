@@ -45,12 +45,25 @@ export function ReadingDetail(props: {
   const handedSign = (): string => (props.handing === "given" ? "−" : "＋")
   const gained = (): boolean => props.drift === "gain"
   const says = (): string => {
-    const parts = [driftSet() ? `電サポ増減 ${driftSign()}${props.supported}玉` : undefined, handedSet() ? `玉の受渡し ${handedSign()}${props.handed}玉` : undefined].filter((part) => part !== undefined)
-    return parts.length === 0 ? "詳細（電サポ増減・玉の受渡し）" : `詳細（${parts.join("、")}）`
+    const parts = [handedSet() ? `玉の受渡し ${handedSign()}${props.handed}玉` : undefined, driftSet() ? `電サポ増減 ${driftSign()}${props.supported}玉` : undefined].filter((part) => part !== undefined)
+    return parts.length === 0 ? "詳細（玉の受渡し・電サポ増減）" : `詳細（${parts.join("、")}）`
   }
   return (
     <DetailButton label="詳細" says={says()} marked={driftSet() || handedSet()} invalid={props.supportedInvalid || props.handedInvalid} placement="top-end" tone="semipro" onOpen={props.onFocus}>
       <div class="flex w-full flex-col gap-2">
+        <div class="flex items-end gap-1">
+          <button
+            type="button"
+            aria-label={props.handing === "received" ? "貰い玉（押すと渡し玉に切替）" : "渡し玉（押すと貰い玉に切替）"}
+            onClick={() => props.onHanded({ handed: props.handed, handing: props.handing === "received" ? "given" : "received" })}
+            class={`${signButtonClass} text-text-primary`}
+          >
+            {handedSign()}
+          </button>
+          <div class="min-w-0 flex-1">
+            <TextField label="玉の受渡し" value={props.handed} onChange={(handed) => props.onHanded({ handed, handing: props.handing })} inputMode="numeric" suffix="玉" placeholder="0" invalid={props.handedInvalid} onFocus={props.onFocus} note={HANDED_NOTE} compact />
+          </div>
+        </div>
         <div class="flex items-end gap-1">
           <button
             type="button"
@@ -66,19 +79,6 @@ export function ReadingDetail(props: {
           </button>
           <div class="min-w-0 flex-1">
             <TextField label="電サポ増減" {...(gained() ? { tone: "nerdpro" as const } : {})} value={props.supported} onChange={props.onSupported} inputMode="numeric" suffix="玉" placeholder="未計測" invalid={props.supportedInvalid} onFocus={props.onFocus} note={DRIFT_NOTE} compact />
-          </div>
-        </div>
-        <div class="flex items-end gap-1">
-          <button
-            type="button"
-            aria-label={props.handing === "received" ? "貰い玉（押すと渡し玉に切替）" : "渡し玉（押すと貰い玉に切替）"}
-            onClick={() => props.onHanded({ handed: props.handed, handing: props.handing === "received" ? "given" : "received" })}
-            class={`${signButtonClass} text-text-primary`}
-          >
-            {handedSign()}
-          </button>
-          <div class="min-w-0 flex-1">
-            <TextField label="玉の受渡し" value={props.handed} onChange={(handed) => props.onHanded({ handed, handing: props.handing })} inputMode="numeric" suffix="玉" placeholder="0" invalid={props.handedInvalid} onFocus={props.onFocus} note={HANDED_NOTE} compact />
           </div>
         </div>
       </div>
