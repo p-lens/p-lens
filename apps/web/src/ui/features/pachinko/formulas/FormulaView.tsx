@@ -1,5 +1,5 @@
 import type { BonusShape } from "@p-lens/contracts/pachinko"
-import { createResource, createSignal, Show, type JSX } from "solid-js"
+import { createResource, createSignal, For, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import type { ApplicationError } from "../../../../application/errors"
@@ -20,7 +20,7 @@ import { formulaIdText, MARKS_UNSENT } from "../../../wording/catalog"
 import { useUnsentMarks } from "../../catalog/unsent-marks"
 import { formatCount } from "../../../wording/numbers"
 import { describeError } from "../../../wording/errors"
-import { formulaBorderText, kindName, oneInText, payoutText } from "../../../wording/pachinko/formula"
+import { formulaBorderLines, kindName, oneInText, payoutText } from "../../../wording/pachinko/formula"
 import { useBookFavorites } from "../../live/book-favorites"
 import { useStartBallValue, useStartForm } from "../../live/start-form"
 import { ViewHeader } from "../../shell/ViewHeader"
@@ -104,7 +104,11 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
                     {(speed) => <Row label="1時間の回転数">{speed}回転</Row>}
                   </Show>
                   <Show when={ballValue()} keyed>
-                    {(value) => <Row label={`ボーダー（${value}円/玉）`}>{formulaBorderText(borderOf(formula().figures, value), supportGainOf(formula()), assumedSettingLevelOf(formula()))}</Row>}
+                    {(value) => (
+                      <Row label={`ボーダー（${value}円/玉）`}>
+                        <For each={formulaBorderLines(borderOf(formula().figures, value), supportGainOf(formula()), assumedSettingLevelOf(formula()))}>{(line, index) => <span class={index() === 0 ? "block" : "block text-xs text-text-muted"}>{line}</span>}</For>
+                      </Row>
+                    )}
                   </Show>
                   <Show when={samplingOf(formula())} keyed>
                     {(sampling) => (
