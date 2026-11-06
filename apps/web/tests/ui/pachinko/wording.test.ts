@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test"
 import { BORDER_GRADES } from "../../../src/core/pachinko/border-standing"
 import type { ModeView } from "../../../src/core/pachinko/world"
 import { kindText, nextText, probabilitiesText, probabilityText, roundPayoutText, shareText } from "../../../src/ui/features/pachinko/formulas/spec-text"
-import { borderText, formulaBorderText, kindName, formulaHandle, formulaText, formulaNameAmong, oneInText, payoutText } from "../../../src/ui/wording/pachinko/formula"
+import { borderText, formulaBorderLines, formulaBorderText, kindName, formulaHandle, formulaText, formulaNameAmong, oneInText, payoutText } from "../../../src/ui/wording/pachinko/formula"
 import { bonusRoundsText } from "../../../src/ui/wording/pachinko/machine"
 import { gradeFloorText } from "../../../src/ui/wording/pachinko/play"
 
@@ -71,8 +71,10 @@ describe("a bonus's rounds as they read", () => {
 })
 
 describe("a formula's border", () => {
-  test("says the setting level it was read at, where it says one", () => {
-    expect(formulaBorderText(20.7, 1)).toBe("20.7回転/千円・設定1で計算")
-    expect(formulaBorderText(20.7, undefined)).toBe("20.7回転/千円")
+  test("says its 電サポ増減率 always, and the setting level it was read at where it says one", () => {
+    expect(formulaBorderText(19.9, -500, 1)).toBe("19.9回転/千円・電サポ増減率-5%・設定1で計算")
+    expect(formulaBorderText(20.7, 0, undefined)).toBe("20.7回転/千円・電サポ増減率0%")
+    expect(formulaBorderText(20.7, 350, undefined)).toBe("20.7回転/千円・電サポ増減率+3.5%")
+    expect(formulaBorderLines(19.9, -500, 1)).toEqual(["19.9回転/千円", "電サポ増減率-5%", "設定1で計算"])
   })
 })

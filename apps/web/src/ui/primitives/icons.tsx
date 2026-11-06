@@ -258,6 +258,13 @@ export const PlusIcon = () => (
   </Icon>
 )
 
+export const CirclePlusIcon = () => (
+  <Icon>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 8v8M8 12h8" />
+  </Icon>
+)
+
 /** Draw again: a die, showing three. */
 export const DiceIcon = () => (
   <Icon>

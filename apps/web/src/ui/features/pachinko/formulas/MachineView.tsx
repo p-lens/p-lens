@@ -8,7 +8,7 @@ import { ranked } from "../../../../core/formula/standing"
 import { worthOf } from "../../../../core/pachinko/formula"
 import { SunkButton } from "../../../../sunk"
 import { useApp } from "../../../context"
-import { Button } from "../../../primitives/button"
+import { CirclePlusIcon } from "../../../primitives/icons"
 import { Loaded } from "../../../primitives/states"
 import { useMoves } from "../../../navigation/moves"
 import type { Place } from "../../../navigation/place"
@@ -50,17 +50,19 @@ export function MachineView(props: { readonly place: Place; readonly machineId: 
             <div class="flex flex-col gap-3 p-4">
               <div class="flex items-center justify-between gap-3">
                 <h2 class="text-xs font-bold uppercase tracking-wide text-text-secondary">算出条件一覧</h2>
-                <Button
-                  variant="nerdpro"
-                  size="small"
+                <button
+                  type="button"
+                  aria-label="算出条件を作る"
+                  title="算出条件を作る"
+                  class="flex size-8 items-center justify-center rounded text-nerdpro-ink hover:bg-surface-3 hover:text-nerdpro-ink-hover [&_svg]:size-5"
                   onClick={() => {
                     const from = startedFrom(ranked(found.formulas, worthOf).map((listing) => listing.formula))
                     start.updatePachinko({ machine: { type: "catalog", machineId: found.machine.id, name: bookNameOf(found.machine) }, remakeFrom: from?.id })
                     moves.go({ kind: "pachinko-formula-new", tab: from === undefined ? "manual" : remadeIn(from) })
                   }}
                 >
-                  算出条件を作る
-                </Button>
+                  <CirclePlusIcon />
+                </button>
               </div>
               <Show when={failure()} keyed>
                 {(error) => <p role="alert" class="text-sm text-negative">{describeError(error)}</p>}

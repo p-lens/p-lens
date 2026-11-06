@@ -149,7 +149,7 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
                       moves.go({ kind: "pachislot-formula-new", tab: remadeIn(formula()) })
                     }}
                   >
-                    作り直す
+                    算出条件を作り直す
                   </Button>
                   <NerdproLink class="text-sm" onClick={() => moves.go({ kind: "pachislot-formula-grounds", machineId: found.machine.id, formulaId: formula().id })}>
                     計算根拠を見る ›

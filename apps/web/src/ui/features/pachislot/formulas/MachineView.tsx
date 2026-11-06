@@ -8,6 +8,7 @@ import { ranked, sameWorth } from "../../../../core/formula/standing"
 import { worthOf } from "../../../../core/pachislot/formula"
 import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
+import { CirclePlusIcon } from "../../../primitives/icons"
 import { EmptyState, Loaded } from "../../../primitives/states"
 import { useMoves } from "../../../navigation/moves"
 import type { Place } from "../../../navigation/place"
@@ -61,17 +62,19 @@ export function MachineView(props: { readonly place: Place; readonly machineId: 
               <section class="flex flex-col gap-3">
                 <div class="flex items-center justify-between gap-3">
                   <h2 class={SECTION_TITLE}>算出条件一覧</h2>
-                  <Button
-                    variant="nerdpro"
-                    size="small"
+                  <button
+                    type="button"
+                    aria-label="算出条件を作る"
+                    title="算出条件を作る"
+                    class="flex size-8 items-center justify-center rounded text-nerdpro-ink hover:bg-surface-3 hover:text-nerdpro-ink-hover [&_svg]:size-5"
                     onClick={() => {
                       const from = startedFrom(ranked(found.formulas, worthOf).map((listing) => listing.formula))
                       start.updatePachislot({ machine: { type: "catalog", machineId: found.machine.id, name: bookNameOf(found.machine) }, remakeFrom: from?.id })
                       moves.go({ kind: "pachislot-formula-new", tab: from === undefined ? "manual" : remadeIn(from) })
                     }}
                   >
-                    算出条件を作る
-                  </Button>
+                    <CirclePlusIcon />
+                  </button>
                 </div>
                 <For each={ranked(found.formulas, worthOf)}>
                   {(listing) => (

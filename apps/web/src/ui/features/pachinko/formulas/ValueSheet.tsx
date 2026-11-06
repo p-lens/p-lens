@@ -9,7 +9,7 @@ import { Button } from "../../../primitives/button"
 import { PanelDialog } from "../../../primitives/dialog"
 import { TextField } from "../../../primitives/text-field"
 import { signedAmountText, theoreticalFigureText, theoreticalFractionText } from "../../../wording/numbers"
-import { useStartPachinkoTerms } from "../../live/start-form"
+import { useStartPachinkoTerms, useStartForm } from "../../live/start-form"
 
 /** The balls ¥1,000 rents and ¥100 takes where the start form says nothing: a 4-yen corner exchanging at 28. */
 const USUAL_CORNER = { rentedPerThousand: "250", exchangedPerHundred: "28" } as const
@@ -56,7 +56,8 @@ function Line(props: { readonly label: string; readonly children: JSX.Element })
  * 1,000 spins, 65% of them with own balls, and at the cash border as
  * the corner stands while no spin performance is typed; and every
  * figure is worked out as soon as what it needs reads; until then it
- * keeps its shape in dashes.
+ * keeps its shape in dashes. Going on to the start form takes the
+ * rental and exchange typed here with it, each where it reads.
  */
 export function ValueSheet(props: {
   readonly figures: Figures
@@ -65,6 +66,7 @@ export function ValueSheet(props: {
   readonly onClosed: () => void
   readonly onUse: () => void
 }): JSX.Element {
+  const start = useStartForm()
   const startTerms = useStartPachinkoTerms()
   const terms = startTerms()
   const [rented, setRented] = createSignal(terms === undefined ? USUAL_CORNER.rentedPerThousand : String(tokensRentedFor(terms, 1000)))
@@ -73,6 +75,15 @@ export function ValueSheet(props: {
   const [regularSpins, setRegularSpins] = createSignal<string>(USUAL_PLAY.regularSpins)
   const [spinPerformance, setSpinPerformance] = createSignal("")
   const [spinsPerHour, setSpinsPerHour] = createSignal(props.figures.spinsPerHour === undefined ? USUAL_PLAY.spinsPerHour : String(props.figures.spinsPerHour))
+  const carryCorner = (): void => {
+    const typed = start.form().terms.pachinko
+    const carried = {
+      ...typed,
+      rentalTokens: positiveOf(rented()) === undefined ? typed.rentalTokens : rented(),
+      exchange: positiveOf(exchanged()) === undefined ? typed.exchange : exchanged(),
+    }
+    start.update({ terms: { ...start.form().terms, pachinko: carried } })
+  }
   const corner = createMemo(() => cornerOf(rented(), exchanged(), ownShare()))
   const borders = createMemo((): SheetBorders | undefined => ((found) => (found === undefined ? undefined : sheetBordersOf(props.figures, found)))(corner()))
   const value = createMemo((): SheetValue | undefined => {
@@ -128,8 +139,14 @@ export function ValueSheet(props: {
         </div>
         <p class="text-xs text-text-muted">持ち玉比率は、持ち玉で打つ回転の割合です。差玉は、出玉から打った玉を引いた数です。</p>
         <div class="flex justify-end">
-          <Button variant="amateur" onClick={props.onUse}>
-            これを使う
+          <Button
+            variant="amateur"
+            onClick={() => {
+              carryCorner()
+              props.onUse()
+            }}
+          >
+            ライブ計測の開始設定へ
           </Button>
         </div>
       </PanelDialog>

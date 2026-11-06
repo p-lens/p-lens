@@ -11,7 +11,7 @@ import { PanelDialog } from "../../../primitives/dialog"
 import { TextField } from "../../../primitives/text-field"
 import { theoreticalFigureText } from "../../../wording/numbers"
 import { payoutRateText, priorName, signedMedalsText, UNSEEN } from "../../../wording/pachislot/formula"
-import { useStartPachislotTerms } from "../../live/start-form"
+import { useStartPachislotTerms, useStartForm } from "../../live/start-form"
 
 /** The medals ¥1,000 rents and ¥100 takes where the start form says nothing: the usual 46 rented and 5.2 exchanged, as wherever the app opens on a corner. */
 const USUAL_CORNER = { rentedPerThousand: "46", exchangedPerHundred: "5.2" } as const
@@ -49,7 +49,8 @@ const medalsText = (medals: number | undefined): string => (medals === undefined
  * with the formula's use at its foot. The corner starts as the start
  * form's terms where they read, the play at 3,000 games, 65% of them with
  * own medals, 750 an hour; a figure keeps its shape in dashes until what
- * it needs reads.
+ * it needs reads. Going on to the start form takes the rental and
+ * exchange typed here with it, each where it reads.
  */
 export function ValueSheet(props: {
   readonly formula: Formula
@@ -59,6 +60,7 @@ export function ValueSheet(props: {
   readonly onClosed: () => void
   readonly onUse: () => void
 }): JSX.Element {
+  const start = useStartForm()
   const startTerms = useStartPachislotTerms()
   const terms = startTerms()
   const [rented, setRented] = createSignal(terms === undefined ? USUAL_CORNER.rentedPerThousand : String(tokensRentedFor(terms, 1000)))
@@ -66,6 +68,15 @@ export function ValueSheet(props: {
   const [ownShare, setOwnShare] = createSignal<string>(USUAL_PLAY.ownShare)
   const [games, setGames] = createSignal<string>(USUAL_PLAY.games)
   const [gamesPerHour, setGamesPerHour] = createSignal<string>(USUAL_PLAY.gamesPerHour)
+  const carryCorner = (): void => {
+    const typed = start.form().terms.pachislot
+    const carried = {
+      ...typed,
+      rentalTokens: positiveOf(rented()) === undefined ? typed.rentalTokens : rented(),
+      exchange: positiveOf(exchanged()) === undefined ? typed.exchange : exchanged(),
+    }
+    start.update({ terms: { ...start.form().terms, pachislot: carried } })
+  }
   const corner = createMemo(() => cornerOf(rented(), exchanged(), ownShare()))
   const play = createMemo((): SheetPlay | undefined => ((count) => (count === undefined ? undefined : { bet: props.formula.basis.normalized.bet, games: count, gamesPerHour: positiveOf(gamesPerHour()) }))(positiveOf(games())))
   const priorRate = createMemo(() => (props.prior === undefined ? undefined : priorPayoutRateOf(props.formula.figures, props.prior)))
@@ -118,8 +129,14 @@ export function ValueSheet(props: {
         <p class="text-xs text-text-muted">配分は「{props.prior === undefined ? "--" : priorName(props.prior)}」で重み付けした値です。</p>
         <p class="text-xs text-text-muted">持ちメダル比率は、持ちメダルで打つゲームの割合です。差枚は、出たメダルから打ったメダルを引いた数です。</p>
         <div class="flex justify-end">
-          <Button variant="amateur" onClick={props.onUse}>
-            これを使う
+          <Button
+            variant="amateur"
+            onClick={() => {
+              carryCorner()
+              props.onUse()
+            }}
+          >
+            ライブ計測の開始設定へ
           </Button>
         </div>
       </PanelDialog>

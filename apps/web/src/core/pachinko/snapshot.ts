@@ -1,4 +1,4 @@
-import { basisOf, type Formula, type FormulaId, type FormulaKind } from "./formula"
+import { supportGainOf, type Formula, type FormulaId, type FormulaKind } from "./formula"
 import type { Figures } from "./figures"
 import type { MachineId } from "../machine/machine"
 
@@ -33,5 +33,5 @@ export const snapshotOf = (formula: Formula): FormulaSnapshot => ({
   machineId: formula.machineId,
   kind: formula.kind,
   figures: formula.figures,
-  ...((points) => (points === undefined || points === 0 ? {} : { supportGain: points }))(basisOf(formula)?.conditions.supportGain?.basisPoints),
+  ...((points) => (points === 0 ? {} : { supportGain: points }))(supportGainOf(formula)),
 })

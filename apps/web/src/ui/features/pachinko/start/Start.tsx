@@ -7,7 +7,7 @@ import { recordUse } from "../../../../application/catalog"
 import { loadMachine, playSnapshotOf } from "../../../../application/pachinko/formulas"
 import { reliefDriveOf } from "../../../../application/pachinko/hyena-hunt"
 import { borderOf } from "../../../../core/pachinko/theoretical-value"
-import { assumedSettingLevelOf, basisOf, type Basis, type FormulaId, type Formula, worthOf } from "../../../../core/pachinko/formula"
+import { assumedSettingLevelOf, basisOf, supportGainOf, type Basis, type FormulaId, type Formula, worthOf } from "../../../../core/pachinko/formula"
 import { type Figures } from "../../../../core/pachinko/figures"
 import { autoSelect, selectById, type Selection } from "../../../../core/formula/standing"
 import type { PlayDraft, PlayVenue } from "../../../../core/live-play/draft"
@@ -137,7 +137,7 @@ function FormulaField(props: {
   const openSelected = (): void => {
     if (props.selection !== undefined) open(props.selection.listing.formula.id)
   }
-  const chosenFigures = (): Figures | undefined => props.selection?.listing.formula.figures
+  const chosenFormula = (): Formula | undefined => props.selection?.listing.formula
   return (
     <div class="flex min-w-0 flex-col gap-1.5">
       <div class="flex items-end gap-1">
@@ -178,10 +178,10 @@ function FormulaField(props: {
         </HintedIconButton>
       </div>
       <Switch>
-        <Match when={chosenFigures()} keyed>
+        <Match when={chosenFormula()} keyed>
           {(chosen) => (
             <Show when={props.ballValue} keyed>
-              {(value) => <p class="text-xs tabular-nums text-text-muted">ボーダー {formulaBorderText(borderOf(chosen, value), ((selected) => (selected === undefined ? undefined : assumedSettingLevelOf(selected.listing.formula)))(props.selection))}</p>}
+              {(value) => <p class="text-xs tabular-nums text-text-muted">ボーダー {formulaBorderText(borderOf(chosen.figures, value), supportGainOf(chosen), assumedSettingLevelOf(chosen))}</p>}
             </Show>
           )}
         </Match>

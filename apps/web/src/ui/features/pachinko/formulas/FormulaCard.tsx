@@ -1,11 +1,11 @@
-import { Show, type JSX } from "solid-js"
+import { For, Show, type JSX } from "solid-js"
 
 import { borderOf } from "../../../../core/pachinko/theoretical-value"
 import { netAdoptions, netVerifications, usesWeighTheirMost, type FormulaListing, type Mark, type MyMarks, type Selection } from "../../../../core/formula/standing"
-import { assumedSettingLevelOf, type Formula } from "../../../../core/pachinko/formula"
+import { assumedSettingLevelOf, supportGainOf, type Formula } from "../../../../core/pachinko/formula"
 import { BoltIcon, HandIcon, HeartIcon, QuestionIcon, ShieldIcon } from "../../../primitives/icons"
 import { formulaIdText } from "../../../wording/catalog"
-import { formulaBorderText, markedFormulaText, oneInText } from "../../../wording/pachinko/formula"
+import { formulaBorderLines, markedFormulaText, oneInText } from "../../../wording/pachinko/formula"
 import { KindMark } from "./KindMark"
 import { SelectionReason } from "./SelectionReason"
 import { isMine, OWN_LINES, ownPaintOf } from "./vote-fill"
@@ -119,7 +119,9 @@ export function FormulaCard(props: {
           {(value) => (
             <div>
               <dt class="text-xs text-text-muted">ボーダー</dt>
-              <dd class="tabular-nums text-text-primary">{formulaBorderText(borderOf(figures(), value), assumedSettingLevelOf(props.listing.formula))}</dd>
+              <dd class="flex flex-col tabular-nums text-text-primary">
+                <For each={formulaBorderLines(borderOf(figures(), value), supportGainOf(props.listing.formula), assumedSettingLevelOf(props.listing.formula))}>{(line, index) => <span class={index() === 0 ? undefined : "text-xs text-text-muted"}>{line}</span>}</For>
+              </dd>
             </div>
           )}
         </Show>

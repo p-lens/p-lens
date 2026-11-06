@@ -9,7 +9,7 @@ import { bookNameOf } from "../../../../core/catalog/catalog"
 import { usesWeighTheirMost, type Mark } from "../../../../core/formula/standing"
 import { bonusShapes } from "../../../../core/pachinko/bonuses"
 import { borderOf } from "../../../../core/pachinko/theoretical-value"
-import { assumedSettingLevelOf, basisOf, type Formula, type Basis, type Sampling } from "../../../../core/pachinko/formula"
+import { assumedSettingLevelOf, basisOf, supportGainOf, type Formula, type Basis, type Sampling } from "../../../../core/pachinko/formula"
 import { useApp } from "../../../context"
 import { Button, NerdproLink } from "../../../primitives/button"
 import { BoltIcon, HandIcon, HandOffIcon, HeartIcon, ShieldIcon, ShieldOffIcon } from "../../../primitives/icons"
@@ -104,7 +104,7 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
                     {(speed) => <Row label="1時間の回転数">{speed}回転</Row>}
                   </Show>
                   <Show when={ballValue()} keyed>
-                    {(value) => <Row label={`ボーダー（${value}円/玉）`}>{formulaBorderText(borderOf(formula().figures, value), assumedSettingLevelOf(formula()))}</Row>}
+                    {(value) => <Row label={`ボーダー（${value}円/玉）`}>{formulaBorderText(borderOf(formula().figures, value), supportGainOf(formula()), assumedSettingLevelOf(formula()))}</Row>}
                   </Show>
                   <Show when={samplingOf(formula())} keyed>
                     {(sampling) => (
@@ -171,7 +171,7 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
                       moves.go({ kind: "pachinko-formula-new", tab: remadeIn(formula()) })
                     }}
                   >
-                    作り直す
+                    算出条件を作り直す
                   </Button>
                   <Show
                     when={basisOf(formula()) !== undefined}

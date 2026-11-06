@@ -9,7 +9,7 @@ import { bookNameOf, shownNameOf, type MachineSummary } from "../../../../core/c
 import { machineMatches } from "../../../../core/catalog/description"
 import { autoSelect, selectById, type Selection } from "../../../../core/formula/standing"
 import { jackpotCountingOf, tokenValueOfDraft, withOverEntry, type MachineChange, type PachinkoDraft } from "../../../../core/live-play/draft"
-import { assumedSettingLevelOf, worthOf, type Formula } from "../../../../core/pachinko/formula"
+import { assumedSettingLevelOf, supportGainOf, worthOf, type Formula } from "../../../../core/pachinko/formula"
 import { borderOf } from "../../../../core/pachinko/theoretical-value"
 import { withJackpotsUntold } from "../../../../core/pachinko/revision"
 import { snapshotOf } from "../../../../core/pachinko/snapshot"
@@ -232,7 +232,7 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
                 <Match when={selection()} keyed>
                   {(selected) => (
                     <Show when={tokenValueOfDraft(props.draft)} keyed>
-                      {(value) => <p class="text-xs tabular-nums text-text-muted">ボーダー {formulaBorderText(borderOf(selected.listing.formula.figures, value), assumedSettingLevelOf(selected.listing.formula))}</p>}
+                      {(value) => <p class="text-xs tabular-nums text-text-muted">ボーダー {formulaBorderText(borderOf(selected.listing.formula.figures, value), supportGainOf(selected.listing.formula), assumedSettingLevelOf(selected.listing.formula))}</p>}
                     </Show>
                   )}
                 </Match>
