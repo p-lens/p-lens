@@ -216,6 +216,19 @@ describe("balls handed at a pachinko reading", () => {
     expect(heldAsToldOf(counted)).toBe(900)
   })
 
+  test("take the balls in hand typed beside them as they were before the handing, and show them so when set right", () => {
+    const before = standingBefore(LOG, 1, EVERY_JACKPOT)
+    const form = { ...readingFrom("regular", before), counter: "230", held: "12000", heldCarried: false }
+    const away = readReadingForm({ ...form, handed: "6000", handing: "given" }, [], before)
+    const handedIn = readReadingForm({ ...form, handed: "3000", handing: "received" }, [], before)
+    expect([away.ok && away.value.held, handedIn.ok && handedIn.value.held]).toEqual([6000, 15000])
+    const taken = played([reading({ counterSpins: 230, handed: -6000, held: 6000 })])
+    expect(heldAsToldOf(taken)).toBe(6000)
+    const last = takenOf(taken).length - 1
+    const shown = takenOf(taken).at(last)
+    expect(shown && formOfReading(shown.reading, standingBefore(taken, last, EVERY_JACKPOT)).held).toBe("12000")
+  })
+
   test("are set right with every line after them following, never kept as a count", () => {
     const after = [...given, ...((added) => (added.ok ? added.value : []))(checkpointsForReading(given, reading({ counterSpins: 260 }), false, EVERY_JACKPOT))]
     const revised = withReadingRevised(after, 1, reading({ counterSpins: 230, handed: -30 }), EVERY_JACKPOT)
@@ -227,7 +240,8 @@ describe("balls handed at a pachinko reading", () => {
     const form = readingFrom("regular", before)
     expect(readReadingForm({ ...form, counter: "230", handed: "151" }, [], before)).toEqual({ ok: false, error: [{ field: "handed", reason: "beyond-hand" }] })
     expect(readReadingForm({ ...form, counter: "230", rented: "3000", handed: "200" }, [], before)).toEqual({ ok: false, error: [{ field: "handed", reason: "beyond-hand" }] })
-    expect(readReadingForm({ ...form, counter: "230", held: "0", heldCarried: false, handed: "300" }, [], before).ok).toBe(true)
+    expect(readReadingForm({ ...form, counter: "230", held: "300", heldCarried: false, handed: "300" }, [], before).ok).toBe(true)
+    expect(readReadingForm({ ...form, counter: "230", held: "299", heldCarried: false, handed: "300" }, [], before)).toEqual({ ok: false, error: [{ field: "handed", reason: "beyond-hand" }] })
     const twice = played([reading({ counterSpins: 230, handed: -100 }), reading({ counterSpins: 260, handed: -50 })])
     expect(withReadingRevised(twice, 1, reading({ counterSpins: 230, handed: -120 }), EVERY_JACKPOT)).toEqual({ ok: false, error: { type: "handed-beyond-hand", index: 2, held: 30 } })
   })

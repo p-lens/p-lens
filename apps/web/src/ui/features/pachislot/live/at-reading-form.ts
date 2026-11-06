@@ -54,7 +54,7 @@ const plainOf = (text: string): string => tidyTyped(text).replaceAll(",", "")
 /** Medals handed as typed, signed by the way they went: none where nothing, or nought, is typed. */
 const handedOf = (typed: string, handing: Handing): number => (typed === "" || Number(typed) === 0 ? 0 : handing === "given" ? -Number(typed) : Number(typed))
 
-/** The form read as counts, or every field that cannot be. The games are required; an outlay, a draw on savings or the medals in hand left empty was not read, nor medals in hand carried over and not counted again. */
+/** The form read as counts, or every field that cannot be. The games are required; an outlay, a draw on savings or the medals in hand left empty was not read, nor medals in hand carried over and not counted again. The medals in hand typed are those before the handing, and the reading counts them after it: what was typed with what was handed. */
 export const readAtReadingForm = (form: AtReadingForm): Result<AtReading, readonly AtReadingProblem[]> => {
   const sinceAt = plainOf(form.sinceAt)
   const outlay = plainOf(form.outlay)
@@ -69,5 +69,6 @@ export const readAtReadingForm = (form: AtReadingForm): Result<AtReading, readon
     ...(handed === "" || COUNT.test(handed) ? [] : [{ field: "handed", reason: "not-a-count" } as const]),
   ]
   if (problems.length > 0) return Err(problems)
-  return Ok({ sinceAt: Number(sinceAt), outlay: outlay === "" ? undefined : Number(outlay), replay: replay === "" ? undefined : Number(replay), held: held === "" ? undefined : Number(held), handed: handedOf(handed, form.handing) })
+  const handedCount = handedOf(handed, form.handing)
+  return Ok({ sinceAt: Number(sinceAt), outlay: outlay === "" ? undefined : Number(outlay), replay: replay === "" ? undefined : Number(replay), held: held === "" ? undefined : Number(held) + handedCount, handed: handedCount })
 }

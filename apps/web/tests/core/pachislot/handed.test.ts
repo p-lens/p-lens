@@ -31,6 +31,7 @@ describe("medals handed at a pachislot reading", () => {
     const log = played([{ total: 1300 }])
     expect(checkpointForReading(log, { total: 1400, bonuses: {}, outlay: undefined, replay: undefined, handed: -101, at: AT })).toEqual({ ok: false, error: { type: "handed-beyond-hand", held: 100 } })
     expect(checkpointForReading(log, { total: 1400, bonuses: {}, outlay: undefined, replay: undefined, handed: -101, held: 0, at: AT }).ok).toBe(true)
+    expect(checkpointForReading(log, { total: 1400, bonuses: {}, outlay: undefined, replay: undefined, handed: -101, held: -1, at: AT })).toEqual({ ok: false, error: { type: "handed-beyond-hand", held: 100 } })
     const at = checkpointsForReading([{ spins: 0, at: AT, held: 50, counter: { spins: 0 } }], { counterSpins: 30, outlay: undefined, replay: undefined, handed: -80, counterJackpots: undefined, at: AT, jackpot: false }, false)
     expect(at).toEqual({ ok: false, error: { type: "handed-beyond-hand", held: 50 } })
   })

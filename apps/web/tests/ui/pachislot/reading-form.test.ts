@@ -43,9 +43,12 @@ describe("medals handed to or by other players, typed on a pachislot reading", (
     expect(readReadingForm({ ...form, handed: "120", handing: "received" }, {}, [])).toMatchObject({ ok: true, value: { handed: 120 } })
     expect(readReadingForm(form, {}, [])).toMatchObject({ ok: true, value: { handed: 0 } })
     expect(readReadingForm({ ...form, handed: "百" }, {}, [])).toEqual({ ok: false, error: [{ field: "handed", reason: "not-a-count" }] })
+    expect(readReadingForm({ ...form, held: "1200", handed: "500", handing: "given" }, {}, [])).toMatchObject({ ok: true, value: { held: 700, handed: -500 } })
+    expect(readReadingForm({ ...form, held: "1200", handed: "300", handing: "received" }, {}, [])).toMatchObject({ ok: true, value: { held: 1500, handed: 300 } })
     const at = atReadingFrom({ sinceAt: 10, outlay: undefined, replay: undefined, held: undefined })
     expect(readAtReadingForm({ ...at, handed: "60", handing: "given" })).toMatchObject({ ok: true, value: { handed: -60 } })
     expect(readAtReadingForm({ ...at, handed: "x" })).toEqual({ ok: false, error: [{ field: "handed", reason: "not-a-count" }] })
+    expect(readAtReadingForm({ ...at, held: "800", heldCarried: false, handed: "300", handing: "given" })).toMatchObject({ ok: true, value: { held: 500, handed: -300 } })
   })
 })
 

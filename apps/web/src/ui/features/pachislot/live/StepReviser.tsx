@@ -63,6 +63,9 @@ const endedName = (ended: Ended, trigger: TriggerWords | undefined): string => {
 /** What was handed at a reading as its form shows it: the count, and the way it went. */
 const handedForm = (handed: number | undefined): Pick<ReadingForm, "handed" | "handing"> => ({ handed: typed(handed === undefined ? undefined : Math.abs(handed)), handing: handed !== undefined && handed > 0 ? "received" : "given" })
 
+/** The medals in hand a reading counted as its form shows them: before what it handed, as they were typed. */
+const heldBeforeHanding = (held: number | undefined, handed: number | undefined): number | undefined => (held === undefined ? undefined : held - (handed ?? 0))
+
 /** A reading as read, the medals in hand left out where none were counted. */
 const withHeld = <T extends { readonly held: number | undefined }>(read: T): Omit<T, "held"> & { readonly held?: number } => {
   const { held, ...rest } = read
@@ -82,10 +85,10 @@ export function StepReviser(props: {
 }): JSX.Element {
   const [reading, setReading] = createSignal<ReadingForm>(
     props.step.type === "reading"
-      ? { total: String(props.step.input.total), bonuses: Object.fromEntries(Object.entries(props.step.input.bonuses).map(([id, count]) => [id, String(count)])), outlay: typed(props.step.input.outlay), replay: typed(props.step.input.replay), held: typed(props.step.input.held), heldCarried: false, ...handedForm(props.step.input.handed) }
+      ? { total: String(props.step.input.total), bonuses: Object.fromEntries(Object.entries(props.step.input.bonuses).map(([id, count]) => [id, String(count)])), outlay: typed(props.step.input.outlay), replay: typed(props.step.input.replay), held: typed(heldBeforeHanding(props.step.input.held, props.step.input.handed)), heldCarried: false, ...handedForm(props.step.input.handed) }
       : { total: "", bonuses: {}, outlay: "", replay: "", held: "", heldCarried: false, ...handedForm(undefined) },
   )
-  const [atReading, setAtReading] = createSignal<AtReadingForm>(props.step.type === "at-reading" ? { sinceAt: String(props.step.input.sinceAt), outlay: typed(props.step.input.outlay), replay: typed(props.step.input.replay), held: typed(props.step.input.held), heldCarried: false, ...handedForm(props.step.input.handed) } : { sinceAt: "", outlay: "", replay: "", held: "", heldCarried: false, ...handedForm(undefined) })
+  const [atReading, setAtReading] = createSignal<AtReadingForm>(props.step.type === "at-reading" ? { sinceAt: String(props.step.input.sinceAt), outlay: typed(props.step.input.outlay), replay: typed(props.step.input.replay), held: typed(heldBeforeHanding(props.step.input.held, props.step.input.handed)), heldCarried: false, ...handedForm(props.step.input.handed) } : { sinceAt: "", outlay: "", replay: "", held: "", heldCarried: false, ...handedForm(undefined) })
   const [ended, setEnded] = createSignal<Ended>(props.step.type === "at-reading" ? props.step.ended : "going")
   const [state, setState] = createSignal<Revising>({ type: "typing" })
   const nudge = createNudge()

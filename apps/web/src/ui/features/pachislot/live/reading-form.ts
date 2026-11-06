@@ -78,6 +78,8 @@ const readText = (text: string): Read => {
  * The form read as counts, or every field that cannot be. The day's games are
  * required. A bonus left empty is as the log already knows it — the field
  * shows that count, waiting — and an outlay, a draw on savings or the medals in hand left empty was not read, nor medals in hand carried over and not counted again.
+ * The medals in hand typed are those before the handing, and the reading
+ * counts them after it: what was typed with what was handed.
  */
 export const readReadingForm = (form: ReadingForm, known: Counts, bonusIds: readonly string[]): Result<Reading, readonly ReadingProblem[]> => {
   const total = readText(form.total)
@@ -95,12 +97,13 @@ export const readReadingForm = (form: ReadingForm, known: Counts, bonusIds: read
     ...bonuses.flatMap((bonus): readonly ReadingProblem[] => (bonus.read.type === "not-a-count" ? [{ field: { bonus: bonus.id }, reason: "not-a-count" }] : [])),
   ]
   if (problems.length > 0 || total.type !== "count") return Err(problems)
+  const handedCount = handed.type === "count" && handed.count !== 0 ? (form.handing === "given" ? -handed.count : handed.count) : 0
   return Ok({
     total: total.count,
     outlay: outlay.type === "count" ? outlay.count : undefined,
     replay: replay.type === "count" ? replay.count : undefined,
-    held: held.type === "count" ? held.count : undefined,
-    handed: handed.type === "count" && handed.count !== 0 ? (form.handing === "given" ? -handed.count : handed.count) : 0,
+    held: held.type === "count" ? held.count + handedCount : undefined,
+    handed: handedCount,
     bonuses: Object.fromEntries(bonuses.map((bonus) => [bonus.id, bonus.read.type === "count" ? bonus.read.count : (known[bonus.id] ?? 0)])),
   })
 }

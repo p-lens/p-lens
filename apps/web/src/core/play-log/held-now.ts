@@ -23,10 +23,10 @@ export const heldNowOf = (ordered: readonly Checkpoint[]): number | undefined =>
 }
 
 /**
- * Whether a reading hands away more tokens than the log holds in hand
- * before it, with no count of its own: the hand would fall below nothing,
- * which no cabinet shows. A count is the hand as the cabinet shows it, so a
- * reading that counted never does.
+ * Whether a reading hands away more tokens than were in hand: its count,
+ * the hand after the handing, below nothing — or, with no count of its own,
+ * the hand the log holds before it with the handing taken off. No cabinet
+ * shows a hand below nothing.
  */
 export const handsBeyondHand = (ordered: readonly Checkpoint[], reading: { readonly handed?: number; readonly held?: number }): boolean =>
-  reading.handed !== undefined && reading.handed < 0 && reading.held === undefined && (heldNowOf(ordered) ?? 0) + reading.handed < 0
+  reading.handed !== undefined && reading.handed < 0 && (reading.held === undefined ? (heldNowOf(ordered) ?? 0) + reading.handed < 0 : reading.held < 0)

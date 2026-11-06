@@ -15,7 +15,9 @@ export type Handing = "received" | "given"
  * The reading form as typed. What was rented and drawn are the play's
  * totals, as the form opens showing them, for adding to; what drifted is
  * since the reading before, and so is what was handed to or by other
- * players (`handed`, the way it went `handing`). `heldCarried` says the balls in hand shown are
+ * players (`handed`, the way it went `handing`). The balls in hand are
+ * typed as they were before that handing, which a log's count holds
+ * (`readReadingForm`). `heldCarried` says the balls in hand shown are
  * the last count carried over and not counted again: they are then not
  * this reading's to say. `jackpot` is the choice made in the bonus list —
  * none, the jackpot a machine with no bonuses listed has, or a listed
@@ -131,11 +133,11 @@ const typed = (count: number | undefined): string => (count === undefined || cou
 
 const chosenOf = (jackpot: Jackpot): string => (jackpot.type === "none" ? NO_JACKPOT : jackpot.type === "untold" ? UNTOLD : bonusKey(jackpot.bonus.name))
 
-/** A reading already taken as the form shows it, to be set right: the play as that reading left it. */
+/** A reading already taken as the form shows it, to be set right: the play as that reading left it, its count as it was before what it handed. */
 export const formOfReading = (reading: Reading, before: Before): ReadingForm => ({
   phase: reading.phase,
   counter: String(reading.counterSpins),
-  held: reading.held === undefined ? "" : String(reading.held),
+  held: reading.held === undefined ? "" : String(reading.held - reading.handed),
   heldCarried: false,
   rented: typed(before.outlay + reading.rented),
   replayed: typed(before.replay + reading.replayed),
@@ -162,7 +164,7 @@ const jackpotOf = (chosen: string, bonuses: readonly MachineBonus[], over: numbe
 /** Yen or tokens typed, with so many more: what a press of the rental or the savings button puts in its field. */
 export const withMore = (typed: string, more: number): string => String((readCount(typed) ?? 0) + more)
 
-/** The form read into a reading but for its moment — what was rented and drawn since where the play stood before it — or every field that could not be read; or the balls handed away, where they are more than the hand held with no count after them. */
+/** The form read into a reading but for its moment — what was rented and drawn since where the play stood before it — or every field that could not be read; or the balls handed away, where they are more than the hand held. The balls in hand typed are those before the handing, and the reading counts them after it: what was typed with what was handed. */
 export const readReadingForm = (form: ReadingForm, bonuses: readonly MachineBonus[], before: Before): Result<Omit<Reading, "at">, readonly ReadingProblem[]> => {
   const counter = readCounter(form.counter)
   const rented = readSince(form.rented, "rented", before.outlay)
@@ -174,7 +176,7 @@ export const readReadingForm = (form: ReadingForm, bonuses: readonly MachineBonu
   if (!counter.ok || !held.ok || !rented.ok || !replayed.ok || !supported.ok || !handedCount.ok || !over.ok)
     return Err([counter, held, rented, replayed, supported, handedCount, over].flatMap((read) => (read.ok ? [] : [read.error])))
   const handed = form.handing === "given" && handedCount.value !== 0 ? -handedCount.value : handedCount.value
-  const told = held.value === undefined || !form.heldCarried ? held.value : held.value + handed
+  const told = held.value === undefined ? undefined : held.value + handed
   if ((told !== undefined && told < 0) || handsBeyondHand(before.held, { handed, held: told, handsBefore: form.handsBefore })) return Err([{ field: "handed", reason: "beyond-hand" }])
   return Ok({
     counterSpins: counter.value,
