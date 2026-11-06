@@ -13,6 +13,8 @@ export interface AtInput {
   readonly outlay: number | undefined
   readonly replay: number | undefined
   readonly held?: number
+  /** Medals other players handed in since the reading before, below none where they were handed away. */
+  readonly handed?: number
   readonly at: string
 }
 
@@ -41,12 +43,14 @@ const endedOf = (checkpoint: Checkpoint): Ended => {
   return kind === "jackpot" ? "at" : kind === "cz-missed" || kind === "bonus-missed" ? kind : "going"
 }
 
-const stepOf = (checkpoint: Checkpoint, afterMissedAt: boolean): Step => {
+/** A line read back as the step it was made by; `handedBefore` is what had been handed by the line before, for what the line handed since. */
+const stepOf = (checkpoint: Checkpoint, afterMissedAt: boolean, handedBefore: number): Step => {
   const counter = checkpoint.counter
   const at = checkpoint.at ?? ""
   const held = checkpoint.held === undefined ? {} : { held: checkpoint.held }
-  if (counter?.total !== undefined) return { type: "reading", input: { total: counter.total, bonuses: counter.bonuses ?? {}, outlay: checkpoint.outlay, replay: checkpoint.replay, ...held, at } }
-  if (counter?.spins !== undefined) return { type: "at-reading", input: { sinceAt: counter.spins, outlay: checkpoint.outlay, replay: checkpoint.replay, ...held, at }, ended: endedOf(checkpoint), afterMissedAt }
+  const handed = checkpoint.handed === undefined || checkpoint.handed === handedBefore ? {} : { handed: checkpoint.handed - handedBefore }
+  if (counter?.total !== undefined) return { type: "reading", input: { total: counter.total, bonuses: counter.bonuses ?? {}, outlay: checkpoint.outlay, replay: checkpoint.replay, ...held, ...handed, at } }
+  if (counter?.spins !== undefined) return { type: "at-reading", input: { sinceAt: counter.spins, outlay: checkpoint.outlay, replay: checkpoint.replay, ...held, ...handed, at }, ended: endedOf(checkpoint), afterMissedAt }
   return { type: "kept", line: checkpoint }
 }
 
@@ -56,9 +60,12 @@ const stepOf = (checkpoint: Checkpoint, afterMissedAt: boolean): Step => {
  * its own: it belongs to the reading it was admitted with.
  */
 export const stepsOf = (ordered: readonly Checkpoint[]): readonly Step[] =>
-  ordered.slice(1).reduce<{ readonly steps: readonly Step[]; readonly missed: boolean }>(
-    (walked, checkpoint) => (isMissedAt(checkpoint) ? { ...walked, missed: true } : { steps: [...walked.steps, stepOf(checkpoint, walked.missed)], missed: false }),
-    { steps: [], missed: false },
+  ordered.slice(1).reduce<{ readonly steps: readonly Step[]; readonly missed: boolean; readonly handed: number }>(
+    (walked, checkpoint) =>
+      isMissedAt(checkpoint)
+        ? { ...walked, missed: true }
+        : { steps: [...walked.steps, stepOf(checkpoint, walked.missed, walked.handed)], missed: false, handed: checkpoint.handed ?? walked.handed },
+    { steps: [], missed: false, handed: ordered.at(0)?.handed ?? 0 },
   ).steps
 
 /**
@@ -68,7 +75,7 @@ export const stepsOf = (ordered: readonly Checkpoint[]): readonly Step[] =>
  */
 export const revisableStepAt = (ordered: readonly Checkpoint[], line: number): number | undefined => {
   const checkpoint = ordered[line]
-  if (line < 1 || checkpoint === undefined || isMissedAt(checkpoint) || stepOf(checkpoint, false).type === "kept") return undefined
+  if (line < 1 || checkpoint === undefined || isMissedAt(checkpoint) || stepOf(checkpoint, false, 0).type === "kept") return undefined
   return ordered.slice(1, line).filter((before) => !isMissedAt(before)).length
 }
 
@@ -83,7 +90,7 @@ const linesOf = (log: readonly Checkpoint[], step: Step): Result<readonly Checkp
       return made.ok ? Ok([made.value]) : made
     }
     case "at-reading": {
-      const made = checkpointsForReading(log, { counterSpins: step.input.sinceAt, outlay: step.input.outlay, replay: step.input.replay, ...(step.input.held === undefined ? {} : { held: step.input.held }), counterJackpots: undefined, at: step.input.at, jackpot: step.ended === "at" }, step.afterMissedAt)
+      const made = checkpointsForReading(log, { counterSpins: step.input.sinceAt, outlay: step.input.outlay, replay: step.input.replay, ...(step.input.held === undefined ? {} : { held: step.input.held }), ...(step.input.handed === undefined ? {} : { handed: step.input.handed }), counterJackpots: undefined, at: step.input.at, jackpot: step.ended === "at" }, step.afterMissedAt)
       if (!made.ok) return made
       return Ok(step.ended === "cz-missed" || step.ended === "bonus-missed" ? missedOn(made.value, step.ended) : made.value)
     }

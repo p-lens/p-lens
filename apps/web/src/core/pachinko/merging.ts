@@ -80,11 +80,12 @@ interface Point {
   readonly regularSpins: number
 }
 
-/** What a run's readings before one had rented, drawn and drifted in all. */
+/** What a run's readings before one had rented, drawn, drifted and been handed in all. */
 interface Since {
   readonly rented: number
   readonly replayed: number
   readonly supported: number
+  readonly handed: number
 }
 
 /** A reading's own hand where it knew one: what it counted, or none left as it bought more. */
@@ -93,6 +94,7 @@ const handOf = ({ reading }: Taken, since: Since): ReadingHand => ({
   rented: since.rented + reading.rented,
   replayed: since.replayed + reading.replayed,
   supported: since.supported + reading.supported,
+  handed: since.handed + reading.handed,
   held: reading.held ?? 0,
   ...(reading.held === undefined ? {} : { counted: true as const }),
 })
@@ -107,16 +109,21 @@ const pointsOf = (run: readonly Weighed[]): readonly Point[] =>
     (walked, { taken, regularSpins }, index) => {
       const back = (counterSpins: number): number => regularSpins - (taken.reading.phase === "regular" ? taken.reading.counterSpins - counterSpins : 0)
       const kept = (taken.reading.handsBefore ?? []).map((hand) => ({
-        hand: { ...hand, rented: walked.since.rented + hand.rented, replayed: walked.since.replayed + hand.replayed, supported: walked.since.supported + hand.supported },
+        hand: { ...hand, rented: walked.since.rented + hand.rented, replayed: walked.since.replayed + hand.replayed, supported: walked.since.supported + hand.supported, handed: walked.since.handed + hand.handed },
         regularSpins: back(hand.counterSpins),
       }))
       const own = index < run.length - 1 && knowsTheHand(taken) ? [{ hand: handOf(taken, walked.since), regularSpins }] : []
       return {
         points: [...walked.points, ...kept, ...own],
-        since: { rented: walked.since.rented + taken.reading.rented, replayed: walked.since.replayed + taken.reading.replayed, supported: walked.since.supported + taken.reading.supported },
+        since: {
+          rented: walked.since.rented + taken.reading.rented,
+          replayed: walked.since.replayed + taken.reading.replayed,
+          supported: walked.since.supported + taken.reading.supported,
+          handed: walked.since.handed + taken.reading.handed,
+        },
       }
     },
-    { points: [], since: { rented: 0, replayed: 0, supported: 0 } },
+    { points: [], since: { rented: 0, replayed: 0, supported: 0, handed: 0 } },
   ).points
 
 /**
@@ -150,7 +157,7 @@ const gaugeOfRun = (run: readonly Weighed[], last: Taken): number | undefined =>
 
 /**
  * A run of readings as the one it makes: the last, with all that was
- * rented, drawn and drifted over the run, and the points inside it where
+ * rented, drawn, drifted and handed over the run, and the points inside it where
  * the hand was known that the play is measured by.
  */
 const mergedOf = (run: readonly Weighed[]): Taken | undefined => {
@@ -166,6 +173,7 @@ const mergedOf = (run: readonly Weighed[]): Taken | undefined => {
       rented: run.reduce((sum, each) => sum + each.taken.reading.rented, 0),
       replayed: run.reduce((sum, each) => sum + each.taken.reading.replayed, 0),
       supported: run.reduce((sum, each) => sum + each.taken.reading.supported, 0),
+      handed: run.reduce((sum, each) => sum + each.taken.reading.handed, 0),
       ...(run.some((each) => each.taken.reading.driftCounted === true) ? { driftCounted: true as const } : {}),
       ...(hands.length === 0 ? {} : { handsBefore: hands }),
       ...(gauge === undefined ? {} : { gauge }),

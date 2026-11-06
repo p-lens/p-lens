@@ -21,6 +21,7 @@ import { seal } from "../../../../mummer"
 import { describeAtReadingRefusal, describeTakeBackRefusal } from "../../../wording/pachislot/formula"
 import { triggerWordsOf, type TriggerWords } from "../../../wording/pachislot/trigger"
 import type { Post } from "./NoticeBoard"
+import { HandedDetail } from "./HandedDetail"
 import { type AtReadingForm, type AtReadingProblem, type AtStanding, atReadingFrom, readAtReadingForm } from "./at-reading-form"
 import { type AtResultForm, type AtResultProblem, atResultLine, type Completion, EMPTY_AT_RESULT, endingOfValue, endingValueOf, readAtResultForm, UNSAID_ENDING } from "./at-result-form"
 import type { PlayTerms } from "../../../../core/parlor/terms"
@@ -288,7 +289,7 @@ export const createAtReading = (standing: () => AtStanding, trigger: () => Trigg
       mapOk(
         checkpointsForReading(
           ordered,
-          { counterSpins: reading.value.sinceAt, outlay: reading.value.outlay, replay: reading.value.replay, ...(reading.value.held === undefined ? {} : { held: reading.value.held }), counterJackpots: undefined, at, jackpot: ended === "at" },
+          { counterSpins: reading.value.sinceAt, outlay: reading.value.outlay, replay: reading.value.replay, ...(reading.value.held === undefined ? {} : { held: reading.value.held }), handed: reading.value.handed, counterJackpots: undefined, at, jackpot: ended === "at" },
           missedAt,
         ),
         (checkpoints) => (ended === "cz-missed" || ended === "bonus-missed" ? missedOn(checkpoints, ended) : checkpoints),
@@ -339,7 +340,7 @@ export function AtReadingComposer(props: { readonly reading: AtReading }): JSX.E
         void props.reading.send("going", false)
       }}
     >
-      <div class="grid grid-cols-4 items-end gap-1.5">
+      <div class="grid grid-cols-[repeat(4,minmax(0,1fr))_auto] items-end gap-1.5">
         <TextField
           label="AT間G"
           value={props.reading.form().sinceAt}
@@ -384,6 +385,7 @@ export function AtReadingComposer(props: { readonly reading: AtReading }): JSX.E
           onFocus={props.reading.settle}
           compact
         />
+        <HandedDetail handing={props.reading.form().handing} handed={props.reading.form().handed} invalid={invalid("handed")} onHanded={(change) => props.reading.typed(change)} onFocus={props.reading.settle} />
       </div>
       <div>
         <Button type="submit" onClick={feelTap}>記録</Button>

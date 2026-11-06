@@ -67,6 +67,26 @@ describe("composeTokenTallyEntry", () => {
     expect(composeTokenTallyEntry({ ...carried, carriedIn: dec("-1") }, PRICES)).toEqual({ ok: false, error: { type: "negative-amount", field: "carried-in" } })
   })
 
+  test("tokens handed in by other players come from equity and are spent, those handed away were won and go to it, savings getting what was left", () => {
+    const played = { ...RENTED_PLAY, payout: dec("2500"), theoreticalValue: undefined }
+    const postingsOf = (handed: string) =>
+      ((entry) => (entry.ok ? entry.value.postings.slice(-4).map((posting) => [posting.account, posting.kind === "balancing" ? undefined : posting.amount.quantity]) : undefined))(composeTokenTallyEntry({ ...played, handed: dec(handed) }, PRICES))
+    expect(postingsOf("500")).toEqual([
+      ["純資産:玉の受け渡し", dec("-500")],
+      ["費用:遊技", dec("500")],
+      ["資産:貯玉:マレハン東京皇国第8支店:4円", dec("2500")],
+      ["収益:遊技", dec("-2500")],
+    ])
+    expect(postingsOf("-300")).toEqual([
+      ["純資産:玉の受け渡し", dec("300")],
+      ["収益:遊技", dec("-300")],
+      ["資産:貯玉:マレハン東京皇国第8支店:4円", dec("2500")],
+      ["収益:遊技", dec("-2500")],
+    ])
+    expect(composeTokenTallyEntry({ ...played, handed: dec("0.5") }, PRICES)).toEqual({ ok: false, error: { type: "fractional-tokens", field: "handed" } })
+    expect(composeTokenTallyEntry({ ...played, rental: undefined, payout: dec("0"), handed: dec("500") }, PRICES).ok).toBe(true)
+  })
+
   test("a replay's fee is what savings lost beyond what was paid out, written apart from the tally's play", () => {
     const replay = { ...RENTED_PLAY, rental: undefined, replay: { paidOut: dec("1000"), deducted: dec("1100") }, payout: dec("0"), theoreticalValue: undefined }
     const entry = composeTokenTallyEntry(replay, PRICES)
@@ -188,7 +208,7 @@ describe("composeYenTallyEntry", () => {
         "    資産:現金                           -5000 JPY",
         "    純資産:簿外貯玉                     -1000 JPY",
         "    純資産:特殊景品                     23000 JPY",
-        "    純資産:端玉景品                     500 JPY",
+        "    純資産:端玉景品等                   500 JPY",
         "    純資産:換算調整勘定",
         "",
       ].join("\n"),

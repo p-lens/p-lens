@@ -7,7 +7,8 @@ import { tidyTyped } from "../../../../core/text/tidy"
  * by its id, the outlay and the medals drawn from savings so far, and the
  * medals in hand. `heldCarried` says the medals in hand shown are the last
  * count carried over and not counted again: they are then not this
- * reading's to say.
+ * reading's to say. `handed` is the medals handed to or by other players
+ * since the reading before, the way they went `handing`.
  */
 export interface ReadingForm {
   readonly total: string
@@ -16,7 +17,12 @@ export interface ReadingForm {
   readonly replay: string
   readonly held: string
   readonly heldCarried: boolean
+  readonly handed: string
+  readonly handing: Handing
 }
+
+/** Which way medals went between the person and another player: handed in to them, or handed away. The count typed is how many, never signed. */
+export type Handing = "received" | "given"
 
 /** Where a play stands as its counter should now show it: the day's games, each bonus, the outlay and the medals drawn from savings, and the medals in hand as last counted, each where it was given. */
 export interface Standing {
@@ -37,9 +43,11 @@ export const readingFrom = (standing: Standing, bonusIds: readonly string[]): Re
   replay: typedCount(standing.replay),
   held: standing.held === undefined ? "" : String(standing.held),
   heldCarried: standing.held !== undefined,
+  handed: "",
+  handing: "received",
 })
 
-export type ReadingField = "total" | "outlay" | "replay" | "held" | { readonly bonus: string }
+export type ReadingField = "total" | "outlay" | "replay" | "held" | "handed" | { readonly bonus: string }
 
 export interface ReadingProblem {
   readonly field: ReadingField
@@ -53,6 +61,8 @@ export interface Reading {
   readonly outlay: number | undefined
   readonly replay: number | undefined
   readonly held: number | undefined
+  /** Medals other players handed in since the reading before, below none where they were handed away. */
+  readonly handed: number
 }
 
 const COUNT = /^\d+$/
@@ -74,12 +84,14 @@ export const readReadingForm = (form: ReadingForm, known: Counts, bonusIds: read
   const outlay = readText(form.outlay)
   const replay = readText(form.replay)
   const held = form.heldCarried ? ({ type: "empty" } as const) : readText(form.held)
+  const handed = readText(form.handed)
   const bonuses = bonusIds.map((id) => ({ id, read: readText(form.bonuses[id] ?? "") }))
   const problems: readonly ReadingProblem[] = [
     ...(total.type === "count" ? [] : [{ field: "total", reason: total.type === "empty" ? "required" : "not-a-count" } as const]),
     ...(outlay.type === "not-a-count" ? [{ field: "outlay", reason: "not-a-count" } as const] : []),
     ...(replay.type === "not-a-count" ? [{ field: "replay", reason: "not-a-count" } as const] : []),
     ...(held.type === "not-a-count" ? [{ field: "held", reason: "not-a-count" } as const] : []),
+    ...(handed.type === "not-a-count" ? [{ field: "handed", reason: "not-a-count" } as const] : []),
     ...bonuses.flatMap((bonus): readonly ReadingProblem[] => (bonus.read.type === "not-a-count" ? [{ field: { bonus: bonus.id }, reason: "not-a-count" }] : [])),
   ]
   if (problems.length > 0 || total.type !== "count") return Err(problems)
@@ -88,6 +100,7 @@ export const readReadingForm = (form: ReadingForm, known: Counts, bonusIds: read
     outlay: outlay.type === "count" ? outlay.count : undefined,
     replay: replay.type === "count" ? replay.count : undefined,
     held: held.type === "count" ? held.count : undefined,
+    handed: handed.type === "count" && handed.count !== 0 ? (form.handing === "given" ? -handed.count : handed.count) : 0,
     bonuses: Object.fromEntries(bonuses.map((bonus) => [bonus.id, bonus.read.type === "count" ? bonus.read.count : (known[bonus.id] ?? 0)])),
   })
 }

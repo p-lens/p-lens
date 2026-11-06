@@ -30,6 +30,16 @@ describe("a bonus machine's log", () => {
     expect(withStepRevised(log, 0, first)).toEqual({ ok: true, value: log })
   })
 
+  test("reads back what each reading handed, and keeps the running total when one before it is set right", () => {
+    const first = checkpointForReading([SEAT], { total: 2100, bonuses: { big: 6, reg: 4 }, outlay: 2000, replay: undefined, handed: 300, at: AT })
+    const log = first.ok ? [SEAT, first.value] : [SEAT]
+    const second = checkpointForReading(log, { total: 2200, bonuses: { big: 6, reg: 4 }, outlay: 3000, replay: undefined, handed: -100, at: AT })
+    const both = second.ok ? [...log, second.value] : log
+    expect(stepsOf(both).map((step) => (step.type === "reading" ? step.input.handed : "kept"))).toEqual([300, -100])
+    const revised = withStepRevised(both, 0, { type: "reading", input: { total: 2100, bonuses: { big: 6, reg: 4 }, outlay: 2000, replay: undefined, handed: 500, at: AT } })
+    expect(revised.ok && revised.value.map((line) => line.handed)).toEqual([undefined, 500, 400])
+  })
+
   test("has every line after a reading set right made again: its games, and the taps that stood on them", () => {
     const log = bonusLog()
     const revised = withStepRevised(log, 0, { type: "reading", input: { total: 2150, bonuses: { big: 6, reg: 4 }, outlay: 3000, replay: undefined, at: AT } })

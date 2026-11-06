@@ -156,8 +156,9 @@ The account tree is deliberately small:
 純資産:開始残高             savings a person already had when the book began
 純資産:残高調整             a pool's count put right to what the parlor says
 純資産:特殊景品             what the special prizes of a prize exchange are worth
-純資産:端玉景品             the odd tokens of a prize exchange at the rental price, in whole yen
+純資産:端玉景品等           the odd tokens of a prize exchange at the rental price, in whole yen
 純資産:換算調整勘定         what prizes taken home leave over, balanced by hledger
+純資産:玉の受け渡し         balls handed to or by other players, kept out of every result; 純資産:メダルの受け渡し for medals; declared when a book first has one
 統計:期待値                 no type, virtual postings only
 統計:時間                   seconds a play lasted, virtual postings only; declared with 秒 in every new book, and in an older one when it first has one
 ```
@@ -478,7 +479,7 @@ spent elsewhere, and money coming back, which a parlor never gives.
   the cash brought in from outside the book and spent on play, all told —
   in the place of an owner's contribution (元入金, 事業主借), kept as an
   asset sunk below nothing rather than as equity.
-- `純資産:特殊景品` and `純資産:端玉景品` only rise. Their balances are
+- `純資産:特殊景品` and `純資産:端玉景品等` only rise. Their balances are
   positive: the prizes taken out of the book, all told — in the place of
   an owner's drawings (引出金). A prize is no asset the book keeps, so a
   gain leaves it as prizes, and equity falls by them.
@@ -2598,7 +2599,7 @@ back are worth, and the day.
   were played for, valued at their day's rate. An exchange is one entry
   tagged `savings: prize-exchange`: the tokens leave savings at the book's
   rate for the day (`@`), against `純資産:特殊景品` for what the special
-  prizes are worth and `純資産:端玉景品` for what lies between — the sweets
+  prizes are worth and `純資産:端玉景品等` for what lies between — the sweets
   that tokens short of a special prize are given as. All are equity, as an
   opening balance is, so no income statement counts any and no earlier
   figure moves. They are declared in a book the first time they are needed.

@@ -1,7 +1,7 @@
 import { parseIsoDate, type IsoDate } from "../../../core/calendar/calendar"
 import { bookNameOf, type MachineSummary } from "../../../core/catalog/catalog"
 import { tokenCommodity, type TokenKind } from "../../../core/commodity/commodity"
-import { ZERO, decimal, isZero, parseDecimal, toPlainString, type Decimal } from "../../../core/decimal/decimal"
+import { ZERO, decimal, isNegative, isZero, negate, parseDecimal, toPlainString, type Decimal } from "../../../core/decimal/decimal"
 import { samePool, type Parlor, type SavingsPool } from "../../../core/parlor/parlor"
 import { savingsDeductedFor, tokensRentedFor, type PlayTerms } from "../../../core/parlor/terms"
 import type { NumericField, TokenTally } from "../../../core/tally/tally"
@@ -41,9 +41,15 @@ export interface TokenTallyForm {
   readonly replayDeducted: string
   /** The tokens in hand as the play began, brought from the play before. */
   readonly carriedIn: string
+  /** The tokens other players handed in, or were handed, over the play, the way they went `handing`. */
+  readonly handed: string
+  readonly handing: Handing
   readonly payout: string
   readonly theoreticalValue: string
 }
+
+/** Which way tokens went between the person and other players over a play: handed in to them, or handed away. The count typed is how many, never signed. */
+export type Handing = "received" | "given"
 
 export type FormField = "date" | "parlor" | NumericField
 
@@ -162,12 +168,13 @@ export const readTokenTallyForm = (form: TokenTallyForm, at: PlayedAt, id: PlayI
   const outlay = readCount(form.outlay, "outlay")
   const paidOut = readCount(form.replayPaidOut, "replay-paid-out")
   const carriedIn = readCount(form.carriedIn, "carried-in")
+  const handed = readCount(form.handed, "handed")
   const payout = readCount(form.payout, "payout")
   const theoreticalValue = readOptionalYen(form.theoreticalValue, "theoretical-value")
   const rented = outlay.ok ? readRented(form, at, outlay.value) : Ok(ZERO)
   const deducted = paidOut.ok ? readDeducted(form, at, paidOut.value) : Ok(ZERO)
-  if (!dateRead.ok || !outlay.ok || !rented.ok || !paidOut.ok || !deducted.ok || !carriedIn.ok || !payout.ok || !theoreticalValue.ok)
-    return Err([dateRead, outlay, rented, paidOut, deducted, carriedIn, payout, theoreticalValue].flatMap(problemOf))
+  if (!dateRead.ok || !outlay.ok || !rented.ok || !paidOut.ok || !deducted.ok || !carriedIn.ok || !handed.ok || !payout.ok || !theoreticalValue.ok)
+    return Err([dateRead, outlay, rented, paidOut, deducted, carriedIn, handed, payout, theoreticalValue].flatMap(problemOf))
   return Ok({
     id,
     date: dateRead.value,
@@ -179,6 +186,7 @@ export const readTokenTallyForm = (form: TokenTallyForm, at: PlayedAt, id: PlayI
     rental: isZero(outlay.value) && isZero(rented.value) ? undefined : { outlay: outlay.value, tokens: rented.value },
     replay: { paidOut: paidOut.value, deducted: deducted.value },
     carriedIn: carriedIn.value,
+    handed: form.handing === "given" ? negate(handed.value) : handed.value,
     payout: payout.value,
     theoreticalValue: theoreticalValue.value,
   })
@@ -196,14 +204,16 @@ export const tokenTallyFormOf = (tally: TokenTally): TokenTallyForm => ({
   replayPaidOut: countText(tally.replay.paidOut),
   replayDeducted: countText(tally.replay.deducted),
   carriedIn: countText(tally.carriedIn),
+  handed: countText(isNegative(tally.handed) ? negate(tally.handed) : tally.handed),
+  handing: isNegative(tally.handed) ? "given" : "received",
   payout: countText(tally.payout),
   theoreticalValue: tally.theoreticalValue === undefined ? "" : toPlainString(tally.theoreticalValue),
 })
 
 /** What the tokens in hand are called where they are typed, for each kind of token: those a play was begun with — brought from the play before — and those in hand as it finished, which are what it leaves. */
-export const IN_HAND_LABELS: Readonly<Record<TokenKind, { readonly carriedIn: string; readonly left: string }>> = {
-  ball: { carriedIn: "開始時の持ち玉", left: "持ち玉" },
-  medal: { carriedIn: "開始時の持ちメダル", left: "持ちメダル" },
+export const IN_HAND_LABELS: Readonly<Record<TokenKind, { readonly carriedIn: string; readonly handed: string; readonly left: string }>> = {
+  ball: { carriedIn: "開始時の持ち玉", handed: "持ち玉調整", left: "持ち玉" },
+  medal: { carriedIn: "開始時の持ちメダル", handed: "持ちメダル調整", left: "持ちメダル" },
 }
 
 /** What a form's button says, and says while it is at work: a tally being recorded, or a recorded one being set right. */

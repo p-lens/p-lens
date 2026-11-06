@@ -16,7 +16,7 @@ import { triggerWordsOf, type TriggerWords } from "../../../wording/pachislot/tr
 import { seal } from "../../../../mummer"
 
 /** A line worth a row: a reading of the counter, the outlay or the medals drawn from savings, or an AT won — not a tap on a tile. */
-const isShown = (checkpoint: Checkpoint): boolean => checkpoint.counter !== undefined || checkpoint.outlay !== undefined || checkpoint.replay !== undefined || checkpoint.event !== undefined
+const isShown = (checkpoint: Checkpoint): boolean => checkpoint.counter !== undefined || checkpoint.outlay !== undefined || checkpoint.replay !== undefined || checkpoint.handed !== undefined || checkpoint.event !== undefined
 
 /** An AT's result as a line says it: how it ended where its name is at hand, whether it completed, its sets and its medals, where said. */
 const atEndedText = (checkpoint: Checkpoint, endings: readonly AtEnding[]): string | undefined => {
@@ -62,6 +62,9 @@ function ReadingRow(props: { readonly checkpoint: Checkpoint; readonly seat: boo
         {props.checkpoint.outlay === undefined ? "" : `¥${amountText(seal.play(props.checkpoint.outlay))}`}
         <Show when={props.checkpoint.replay} keyed>
           {(replay) => <span class="text-text-muted" classList={{ "ml-3": !props.strip }}>貯メダル {amountText(seal.play(replay))}枚</span>}
+        </Show>
+        <Show when={props.checkpoint.handed} keyed>
+          {(handed) => <span class="text-text-muted" classList={{ "ml-3": !props.strip }}>持ちメダル調整 {handed < 0 ? "−" : "＋"}{amountText(seal.play(Math.abs(handed)))}枚</span>}
         </Show>
         <Show when={props.checkpoint.counter?.total} keyed>
           {(total) => <span class="text-text-muted" classList={{ "ml-3": !props.strip }}>累計 {formatCount(total)}G</span>}

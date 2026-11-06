@@ -46,7 +46,7 @@ const checkRentalComplete: Check = (tally) =>
     : Ok(tally)
 
 const checkSomethingPlayed: Check = (tally) =>
-  (tally.rental === undefined || isZero(tally.rental.tokens)) && isZero(tally.replay.paidOut) && isZero(tally.carriedIn) && isZero(tally.payout)
+  (tally.rental === undefined || isZero(tally.rental.tokens)) && isZero(tally.replay.paidOut) && isZero(tally.carriedIn) && isZero(tally.handed) && isZero(tally.payout)
     ? Err({ type: "nothing-played" })
     : Ok(tally)
 
@@ -94,6 +94,7 @@ const CHECKS: readonly Check[] = [
   checkWholeTokens("replay-paid-out", (tally) => tally.replay.paidOut),
   checkWholeTokens("replay-deducted", (tally) => tally.replay.deducted),
   checkWholeTokens("carried-in", (tally) => tally.carriedIn),
+  checkWholeTokens("handed", (tally) => tally.handed),
   checkWholeTokens("payout", (tally) => tally.payout),
   checkRentalComplete,
   checkSomethingPlayed,

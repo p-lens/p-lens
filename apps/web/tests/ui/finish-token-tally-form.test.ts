@@ -28,11 +28,25 @@ const FORM: FinishTokenTallyForm = {
   outlay: "",
   replayPaidOut: "",
   carriedIn: "",
+  handed: "",
+  handing: "received",
   payout: "",
   theoreticalValue: "",
 }
 
 describe("the form a play followed live at a parlor is recorded with", () => {
+  test("keeps tokens handed between players out of what the play came to, and opens on what the log said was handed", () => {
+    const plain = readFinishTokenTallyForm({ ...FORM, outlay: "10000", payout: "2000" }, AT, ID)
+    const received = readFinishTokenTallyForm({ ...FORM, outlay: "10000", handed: "500", payout: "2500" }, AT, ID)
+    const given = readFinishTokenTallyForm({ ...FORM, outlay: "10000", handed: "300", handing: "given", payout: "1700" }, AT, ID)
+    expect(received.ok && received.value.handed).toEqual(dec("500"))
+    expect(given.ok && given.value.handed).toEqual(dec("-300"))
+    const result = (read: typeof plain) => (read.ok ? tokenTallyResultOf(read.value, dec("3.5")) : undefined)
+    expect(result(received)).toEqual(result(plain))
+    expect(result(given)).toEqual(result(plain))
+    expect(readFinishTokenTallyForm({ ...FORM, handed: "多め" }, AT, ID)).toMatchObject({ ok: false, error: [{ field: "handed", reason: "not-a-number" }] })
+  })
+
   test("counts the tokens a play was begun with against what it left, at no fee", () => {
     const read = readFinishTokenTallyForm({ ...FORM, carriedIn: "1,500", payout: "2000" }, AT, ID)
     expect(read.ok && [read.value.carriedIn, read.value.replay, read.value.payout]).toEqual([dec("1500"), { paidOut: dec("0"), deducted: dec("0") }, dec("2000")])

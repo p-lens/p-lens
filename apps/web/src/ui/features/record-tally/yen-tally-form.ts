@@ -35,6 +35,8 @@ export interface YenTallyForm {
   readonly atHistory: AtHistoryForm
   /** How a recorded tally's two sides were settled, carried as it was through setting it right: no field asks it. */
   readonly settlement: Settlement | undefined
+  /** What a recorded tally of a play at no parlor said was handed between players, in yen, carried as it was through setting it right: no field asks it. */
+  readonly handed?: Decimal
 }
 
 /** An empty form, on a day, its terms of each game those the book keeps, else the usual ones. */
@@ -153,6 +155,7 @@ export const readYenTallyForm = (form: YenTallyForm, parlors: readonly Parlor[],
     settlement: form.settlement,
     theoreticalValue: theoreticalValue.value,
     told: told.value,
+    ...(form.handed === undefined ? {} : { handed: form.handed }),
   })
 }
 
@@ -284,6 +287,7 @@ export const yenTallyFormOf = (tally: YenTally, kept: KeptInferenceTerms): YenTa
   hours: tally.told?.hours === undefined ? "" : toPlainString(tally.told.hours),
   jackpots: tally.told?.jackpots === undefined ? "" : String(tally.told.jackpots),
   settlement: tally.settlement,
+  ...(tally.handed === undefined ? {} : { handed: tally.handed }),
   weighingTerms: weighingTermsFormOf(((inferred) => (inferred === undefined || tally.gameKind !== "pachinko" ? undefined : Pachinko.weighingTermsOf(inferred)))(tally.told?.inferred) ?? kept.pachinko ?? Pachinko.TERMS_BY_DEFAULT),
   counterGames: "",
   counterBonuses: {},

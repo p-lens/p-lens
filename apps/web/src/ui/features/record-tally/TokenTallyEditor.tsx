@@ -20,7 +20,7 @@ import { DetailButton } from "../../primitives/detail-button"
 import { createNudge, redText } from "../../primitives/nudge"
 import { settleTyping, TextField } from "../../primitives/text-field"
 import { describeError, describeTallyError } from "../../wording/errors"
-import { FIELD_PROBLEM_TEXT } from "../../wording/fields"
+import { FIELD_PROBLEM_TEXT, HANDED_TALLY_NOTE } from "../../wording/fields"
 import { formatSignedYen, formatTokens, toneOf, tokenUnit, UNSEEN_ACTUAL } from "../../wording/numbers"
 import { parlorNameText, typedMachineRefused } from "../../wording/parlor"
 import { IN_HAND_LABELS, machineChoicesOf, pricesPlayedAt, readTokenTallyForm, type FieldProblem, type FormField, type PlayedAt, type TokenTallyForm, type SubmitWords } from "./form"
@@ -218,6 +218,19 @@ export function TokenTallyEditor(props: {
         <TextField label={IN_HAND_LABELS[kind()].carriedIn} value={form().carriedIn} onChange={set("carriedIn")} inputMode="numeric" suffix={unit()} error={problemOf("carried-in")}
           invalid={nudged("carried-in")}
           onFocus={nudge.settle} />
+        <div class="flex min-w-0 items-end gap-1">
+          <button
+            type="button"
+            aria-label={form().handing === "received" ? "貰った（押すと渡したに切替）" : "渡した（押すと貰ったに切替）"}
+            onClick={() => set("handing")(form().handing === "received" ? "given" : "received")}
+            class="flex h-10 w-7 shrink-0 items-center justify-center rounded-[3px] bg-surface-input text-base font-bold text-text-primary focus-visible:outline-2 focus-visible:outline-focus-ring"
+          >
+            {form().handing === "given" ? "−" : "＋"}
+          </button>
+          <div class="min-w-0 flex-1">
+            <TextField label={IN_HAND_LABELS[kind()].handed} value={form().handed} onChange={set("handed")} inputMode="numeric" suffix={unit()} placeholder="0" error={problemOf("handed")} invalid={nudged("handed")} onFocus={nudge.settle} note={HANDED_TALLY_NOTE} />
+          </div>
+        </div>
         <TextField label={IN_HAND_LABELS[kind()].left} value={form().payout} onChange={set("payout")} inputMode="numeric" suffix={unit()} error={problemOf("payout")}
           invalid={nudged("payout")}
           onFocus={nudge.settle} />

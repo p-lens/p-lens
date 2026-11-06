@@ -158,6 +158,8 @@ export interface CounterInput {
   readonly replay: number | undefined
   /** The tokens in hand as the counter was read, where they were counted. */
   readonly held?: number
+  /** Tokens other players handed in since the reading before, below none where they were handed away; none where left out. */
+  readonly handed?: number
   readonly counterJackpots: number | undefined
   readonly at: string
   /** Whether the reading was taken at a jackpot, the moment the counter is about to start over. */
@@ -169,10 +171,11 @@ export type ReadingRefusal =
   | { readonly type: "outlay-went-back"; readonly atLeast: number }
   | { readonly type: "replay-went-back"; readonly atLeast: number }
 
-/** Everything a reading records except where in the play it falls. */
-const readingFields = (input: CounterInput): Omit<Checkpoint, "spins"> => ({
+/** Everything a reading records except where in the play it falls: what was handed as the play's running total. */
+const readingFields = (ordered: readonly Checkpoint[], input: CounterInput): Omit<Checkpoint, "spins"> => ({
   ...(input.outlay === undefined ? {} : { outlay: input.outlay }),
   ...(input.replay === undefined ? {} : { replay: input.replay }),
+  ...(input.handed === undefined || input.handed === 0 ? {} : { handed: (lastKnown(ordered, (checkpoint) => checkpoint.handed) ?? 0) + input.handed }),
   ...(input.held === undefined ? {} : { held: input.held }),
   at: input.at,
   counter: input.counterJackpots === undefined ? { spins: input.counterSpins } : { spins: input.counterSpins, jackpots: input.counterJackpots },
@@ -195,9 +198,9 @@ export const checkpointsForReading = (
   const drawnBefore = lastKnown(ordered, (checkpoint) => checkpoint.replay)
   if (input.replay !== undefined && drawnBefore !== undefined && input.replay < drawnBefore) return Err({ type: "replay-went-back", atLeast: drawnBefore })
   const reading = readCounter(ordered, input.counterSpins, EVERY_JACKPOT)
-  if (reading.type === "continues") return Ok([{ spins: reading.spins, ...readingFields(input) }])
+  if (reading.type === "continues") return Ok([{ spins: reading.spins, ...readingFields(ordered, input) }])
   if (!missedJackpot) return Err(reading)
-  return Ok(afterMissedJackpot(ordered, input.counterSpins, readingFields(input)))
+  return Ok(afterMissedJackpot(ordered, input.counterSpins, readingFields(ordered, input)))
 }
 
 const instantOf = (checkpoint: Checkpoint): number | undefined => (checkpoint.at === undefined ? undefined : Date.parse(checkpoint.at))

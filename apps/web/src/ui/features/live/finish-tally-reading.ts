@@ -1,6 +1,6 @@
 import { bookNameOf, type MachineSummary } from "../../../core/catalog/catalog"
 import type { TokenKind } from "../../../core/commodity/commodity"
-import { parseDecimal, type Decimal } from "../../../core/decimal/decimal"
+import { ZERO, isNegative, negate, parseDecimal, type Decimal } from "../../../core/decimal/decimal"
 import type { NumericField } from "../../../core/tally/tally"
 import { Err, Ok, type Result } from "../../../core/result/result"
 import { tidyTyped } from "../../../core/text/tidy"
@@ -25,11 +25,13 @@ export const readOptionalYen = (text: string, field: NumericField): Read<Decimal
   return parsed.ok ? parsed : Err({ field, reason: "not-a-number" })
 }
 
-/** What a play followed live comes to by its log, for recording it: yen spent, tokens drawn from savings, the tokens it was begun with in hand, the tokens in hand at its last line, its theoretical value and — a pachinko play's — the spin performance it measured, each where the log says. */
+/** What a play followed live comes to by its log, for recording it: yen spent, tokens drawn from savings, the tokens it was begun with in hand, those other players handed in or were handed, the tokens in hand at its last line, its theoretical value and — a pachinko play's — the spin performance it measured, each where the log says. */
 export interface PlayedSoFar {
   readonly outlay: number | undefined
   readonly replay: number | undefined
   readonly carriedIn: number | undefined
+  /** Tokens other players handed in over the play, below none where more were handed to them. */
+  readonly handed: number | undefined
   readonly held: number | undefined
   /** Whether the tokens in hand are what the formula says are likely in hand, not what was counted at the last line. */
   readonly heldLikely: boolean
@@ -37,11 +39,28 @@ export interface PlayedSoFar {
   readonly spinPerformance: number | undefined
 }
 
-/** What the tokens in hand are called where they are typed, for each kind of token: those a play was begun with — brought from the play before — and those in hand as it finished, which are what it leaves. */
-export const IN_HAND_LABELS: Readonly<Record<TokenKind, { readonly carriedIn: string; readonly left: string }>> = {
-  ball: { carriedIn: "開始時の持ち玉", left: "持ち玉" },
-  medal: { carriedIn: "開始時の持ちメダル", left: "持ちメダル" },
+/** What the tokens in hand are called where they are typed, for each kind of token: those a play was begun with — brought from the play before — those handed between players, and those in hand as it finished, which are what it leaves. */
+export const IN_HAND_LABELS: Readonly<Record<TokenKind, { readonly carriedIn: string; readonly handed: string; readonly left: string }>> = {
+  ball: { carriedIn: "開始時の持ち玉", handed: "持ち玉調整", left: "持ち玉" },
+  medal: { carriedIn: "開始時の持ちメダル", handed: "持ちメダル調整", left: "持ちメダル" },
 }
+
+/** Which way tokens went between the person and other players over a play: handed in to them, or handed away. The count typed is how many, never signed. */
+export type Handing = "received" | "given"
+
+/** The tokens handed as typed, signed by the way they went: none where nothing is typed. */
+export const readHanded = (text: string, handing: Handing): Read<Decimal> => {
+  if (tidyTyped(text) === "") return Ok(ZERO)
+  const parsed = parseDecimal(tidyTyped(text))
+  if (!parsed.ok || isNegative(parsed.value)) return Err({ field: "handed", reason: "not-a-number" })
+  return Ok(handing === "given" ? negate(parsed.value) : parsed.value)
+}
+
+/** What a play's log says was handed, as a form shows it: the count, and the way it went. */
+export const handedTyped = (handed: number | undefined): { readonly handed: string; readonly handing: Handing } => ({
+  handed: handed === undefined || handed === 0 ? "" : String(Math.abs(handed)),
+  handing: handed !== undefined && handed < 0 ? "given" : "received",
+})
 
 /** What is said under tokens in hand opened on what is likely in hand rather than a count. */
 export const HELD_LIKELY = "目安です。数えたら直してください"

@@ -64,6 +64,14 @@ describe("play log", () => {
     expect(termsInHead(`{"header":true,"terms":{"rental":{"yen":1000,"tokens":0}}}\n${LOG}`)).toEqual({ type: "unreadable" })
   })
 
+  test("reads back what other players handed, below none where it was handed away, at a line and inside a fold", () => {
+    const line = '{"spins":30,"handed":-300,"held":700,"handsBefore":[{"spins":10,"outlay":0,"replay":0,"support":0,"handed":200,"held":900}]}'
+    const parsed = parsePlayLog(appendCheckpoint('{"spins":0}', { spins: 20, handed: 200 }) + line)
+    expect(parsed.ok && parsed.value.map((checkpoint) => checkpoint.handed)).toEqual([undefined, 200, -300])
+    expect(parsed.ok && parsed.value.at(-1)?.handsBefore?.[0]?.handed).toBe(200)
+    expect(parsePlayLog('{"spins":1,"handed":1.5}')).toEqual({ ok: false, error: { type: "invalid-field", line: 1, field: "handed" } })
+  })
+
   test("a broken line is named by its number", () => {
     expect(parsePlayLog('{"spins":0}\nnot json')).toEqual({ ok: false, error: { type: "unreadable-line", line: 2 } })
     expect(parsePlayLog('{"spins":-1}')).toEqual({ ok: false, error: { type: "invalid-field", line: 1, field: "spins" } })

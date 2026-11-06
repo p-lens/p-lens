@@ -1,8 +1,8 @@
 ---
 title: P-Lens Accounting Standards
 lang: en
-version: "1.0.2"
-enacted: "2026-10-21"
+version: "1.0.4"
+enacted: "2026-11-06"
 translationOf: ja
 ---
 
@@ -12,7 +12,7 @@ translationOf: ja
 
 Pレンズ遊技会計基準 (PLAS)
 
-- Edition: 1.0.2
+- Edition: 1.0.4
 - Enacted: 13 October 2026
 - Amended: 21 October 2026
 - Scope: P-Lens and those who use its accounting model
@@ -152,7 +152,7 @@ These Standards make that boundary clear.
 
 1. Odd tokens are terminated at the prize exchange, and their value is entered in the following terminal account (hereinafter "the odd-prize account").
 
-   `純資産:端玉景品` (equity: odd prizes)
+   `純資産:端玉景品等` (equity: odd prizes)
 
 2. The odd-prize account records the value of the odd tokens terminated at the prize exchange, and does not require that a prize actually be received.
 
@@ -217,6 +217,23 @@ These Standards make that boundary clear.
 6. So long as odd prizes exist, the possibility that Yakult becomes equity also exists.
 
 7. This Article reinforces Article 10.
+
+### Article 14-2 (Tokens handed between players)
+
+1. Where tokens are received from, or handed to, another player (hereinafter "handing"), their number shall be dealt with through the following accounts.
+
+   `純資産:玉の受け渡し` (equity: balls handed)
+   `純資産:メダルの受け渡し` (equity: medals handed)
+
+2. Tokens received shall be taken in from the account in the preceding paragraph and entered as expenses of play, as tokens put to play. Tokens handed over shall be entered as revenue of play, as tokens gained by play, and then paid out to that account.
+
+3. Handing shall not be counted in the win or loss of play. A result shall show only the play between the player and the machine.
+
+4. In the record of tokens in hand during play, handing shall be entered as a breakdown of the tokens in hand, and shall not affect the spin rate, the border or any other figure.
+
+5. Any settling up that follows handing takes place outside the books, and these Standards have no part in it.
+
+6. Nothing prevents a player from being grateful for tokens received; provided, however, that the gratitude shall not be entered as revenue of play.
 
 ## Chapter 5 — Estimation
 
@@ -297,10 +314,12 @@ An amendment of these Standards does not require a retrospective stocktaking of 
 - Edition 1.0, 13 October 2026: enacted
 - Edition 1.0.1, 20 October 2026: Articles 8 and 10 amended, to state that the odd-prize account records the value of odd tokens and does not require that a prize actually be received
 - Edition 1.0.2, 21 October 2026: Q16 to Q21 added to Appendix A, to state how odd prizes are worked out, how the tokens that went to special prizes are counted, and how the amount of the translation adjustment is arrived at
+- Edition 1.0.3, 6 November 2026: the account of Article 10 renamed `純資産:端玉景品等`, making plain that what odd balls are worth is not held to the sweets a parlor offers for them
+- Edition 1.0.4, 6 November 2026: Article 14-2 added, stating that tokens handed between players are not counted in the win or loss of play
 
 ---
 
-P-Lens Accounting Standards (PLAS), Edition 1.0.2, enacted 13 October 2026, amended 21 October 2026
+P-Lens Accounting Standards (PLAS), Edition 1.0.4, enacted 13 October 2026, amended 6 November 2026
 
 Enacted by: the P-Lens project
 

@@ -19,6 +19,7 @@ const reading = (fields: Partial<Reading> & Pick<Reading, "counterSpins">): Read
   rented: 0,
   replayed: 0,
   supported: 0,
+  handed: 0,
   held: undefined,
   jackpot: { type: "none" },
   at: "2026-10-12T12:00:00.000Z",

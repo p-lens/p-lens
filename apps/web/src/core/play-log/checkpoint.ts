@@ -66,6 +66,14 @@ export interface Checkpoint {
    * nothing of the drift. Pachinko only.
    */
   readonly support?: number
+  /**
+   * Tokens other players handed into the hand since the play began, below
+   * zero where more were handed away: balls or medals shared at a ノリ打ち.
+   * Neither bought nor played, so never what a spin rate, a border or a
+   * machine's medals are measured by. Written only on a line where some
+   * were handed; a line without it carries the total before it on.
+   */
+  readonly handed?: number
   /** The tokens in hand at this point, where they were counted. */
   readonly held?: number
   /**
@@ -86,6 +94,8 @@ export interface HandAt {
   readonly outlay: number
   readonly replay: number
   readonly support: number
+  /** Tokens handed in by other players by then, where any had been. */
+  readonly handed?: number
   readonly held: number
   /** Whether the balls were counted there, rather than known by more being bought. */
   readonly counted?: true
@@ -257,6 +267,7 @@ const isHandAt = (value: unknown): value is HandAt =>
   isCount(value["outlay"]) &&
   isCount(value["replay"]) &&
   isWhole(value["support"]) &&
+  (value["handed"] === undefined || isWhole(value["handed"])) &&
   isCount(value["held"]) &&
   (value["counted"] === undefined || value["counted"] === true)
 
@@ -298,6 +309,7 @@ const decodeCheckpoint = (fields: Fields, line: number): Result<Checkpoint, Play
   const phase = optional(fields, "phase", line, isPhase)
   const replay = optional(fields, "replay", line, isCount)
   const support = optional(fields, "support", line, isWhole)
+  const handed = optional(fields, "handed", line, isWhole)
   const held = optional(fields, "held", line, isCount)
   const handsBefore = optional(fields, "handsBefore", line, isHandsBefore)
   if (!outlay.ok) return outlay
@@ -309,6 +321,7 @@ const decodeCheckpoint = (fields: Fields, line: number): Result<Checkpoint, Play
   if (!phase.ok) return phase
   if (!replay.ok) return replay
   if (!support.ok) return support
+  if (!handed.ok) return handed
   if (!held.ok) return held
   if (!handsBefore.ok) return handsBefore
   return Ok(
@@ -323,6 +336,7 @@ const decodeCheckpoint = (fields: Fields, line: number): Result<Checkpoint, Play
       phase: phase.value,
       replay: replay.value,
       support: support.value,
+      handed: handed.value,
       held: held.value,
       handsBefore: handsBefore.value,
     }),

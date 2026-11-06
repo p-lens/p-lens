@@ -9,7 +9,7 @@ import type { PlayGameKind, PlayId } from "../../../core/play/play"
 import { Err, Ok, type Result } from "../../../core/result/result"
 import { tidyTyped } from "../../../core/text/tidy"
 import { theoreticalDecimalOf } from "../../../core/theoretical/theoretical"
-import { problemOf, readOptionalYen, type FieldProblem, type PlayedSoFar, type Read } from "./finish-tally-reading"
+import { handedTyped, problemOf, readHanded, readOptionalYen, type FieldProblem, type Handing, type PlayedSoFar, type Read } from "./finish-tally-reading"
 
 /**
  * The form a play followed live at no parlor is recorded with, as typed:
@@ -29,6 +29,9 @@ export interface FinishYenTallyForm {
   readonly replayPaidOut: string
   /** The tokens in hand as the play began, brought from the play before. */
   readonly carriedIn: string
+  /** The tokens other players handed in, or were handed, over the play, the way they went `handing`: in tokens, read only where the play has terms to value them by. */
+  readonly handed: string
+  readonly handing: Handing
   /** The tokens in hand as the play finished. */
   readonly payout: string
   /** What came back in yen, read only where no token value is known. */
@@ -69,8 +72,8 @@ const oddPrizesFor = (held: Decimal, terms: PlayTerms, special: Decimal): Decima
 
 /** The odd prizes the tokens handed over and the special prizes typed come to, shown beside them; none while either does not read. */
 export const oddPrizesOf = (form: Pick<FinishYenTallyForm, "exchangedTokens" | "specialPrizes">, terms: PlayTerms): Decimal | undefined => {
-  const [handed, special] = [readCount(form.exchangedTokens, "exchanged-tokens"), readSpecialPrizes(form.specialPrizes)]
-  return handed.ok && special.ok ? oddPrizesFor(handed.value, terms, special.value) : undefined
+  const [exchanged, special] = [readCount(form.exchangedTokens, "exchanged-tokens"), readSpecialPrizes(form.specialPrizes)]
+  return exchanged.ok && special.ok ? oddPrizesFor(exchanged.value, terms, special.value) : undefined
 }
 
 /** The largest step special prizes come in at any parlor: odd prizes beyond it suggest the rate is off. */
@@ -85,9 +88,9 @@ const LARGEST_PRIZE_STEP = decimal(1000n, 0)
  * general prizes alone, as they may.
  */
 export const offTheRate = (form: Pick<FinishYenTallyForm, "exchangedTokens" | "specialPrizes">, terms: PlayTerms): boolean => {
-  const [handed, special] = [readCount(form.exchangedTokens, "exchanged-tokens"), readSpecialPrizes(form.specialPrizes)]
-  if (!handed.ok || !special.ok || isZero(handed.value) || isZero(special.value)) return false
-  const odd = exchangedOddPrizesOn(handed.value, terms, special.value)
+  const [exchanged, special] = [readCount(form.exchangedTokens, "exchanged-tokens"), readSpecialPrizes(form.specialPrizes)]
+  if (!exchanged.ok || !special.ok || isZero(exchanged.value) || isZero(special.value)) return false
+  const odd = exchangedOddPrizesOn(exchanged.value, terms, special.value)
   return isNegative(odd) || compare(odd, LARGEST_PRIZE_STEP) > 0
 }
 
@@ -117,6 +120,8 @@ interface Sides {
   readonly outlay: Decimal
   readonly takings: Decimal
   readonly settlement: Settlement
+  /** What the tokens handed between players came to in yen, beside the two sides. */
+  readonly handed: Decimal
 }
 
 /** The tokens the cash spent rented by the play's terms, as a play at a parlor shows them under its outlay; none while the cash does not read, or where none was spent. */
@@ -147,28 +152,30 @@ const readSides = (form: FinishYenTallyForm, terms: PlayTerms | undefined): Resu
   const outlay = readOutlay(form.outlay)
   if (terms === undefined) {
     const takings = readTakings(form.takings)
-    return outlay.ok && takings.ok ? Ok({ outlay: outlay.value, takings: takings.value, settlement: { type: "cash-and-prizes" } }) : Err([outlay, takings].flatMap(problemOf))
+    return outlay.ok && takings.ok ? Ok({ outlay: outlay.value, takings: takings.value, settlement: { type: "cash-and-prizes" }, handed: ZERO }) : Err([outlay, takings].flatMap(problemOf))
   }
   const tokenValue = tokenValueOf(terms)
   const paidOut = readCount(form.replayPaidOut, "replay-paid-out")
   const carriedIn = readCount(form.carriedIn, "carried-in")
   const payout = readCount(form.payout, "payout")
-  if (!outlay.ok || !paidOut.ok || !carriedIn.ok || !payout.ok) return Err([outlay, paidOut, carriedIn, payout].flatMap(problemOf))
+  const handedTokens = readHanded(form.handed, form.handing)
+  if (!outlay.ok || !paidOut.ok || !carriedIn.ok || !payout.ok || !handedTokens.ok) return Err([outlay, paidOut, carriedIn, payout, handedTokens].flatMap(problemOf))
+  const handed = yenOf(handedTokens.value, tokenValue)
   const drawn = yenOf(decimal(BigInt(savingsDeductedFor(terms, Number(toPlainString(paidOut.value)))), 0), tokenValue)
   if (form.exchanged) {
-    const handed = readCount(form.exchangedTokens, "exchanged-tokens")
+    const exchanged = readCount(form.exchangedTokens, "exchanged-tokens")
     const special = readSpecialPrizes(form.specialPrizes)
-    if (!handed.ok || !special.ok) return Err([handed, special].flatMap(problemOf))
-    const odd = oddPrizesFor(handed.value, terms, special.value)
-    return Ok({ outlay: add(add(outlay.value, drawn), yenOf(carriedIn.value, tokenValue)), takings: yenOf(handed.value, tokenValue), settlement: { type: "off-book-exchanged", cash: outlay.value, specialPrizes: special.value, oddPrizes: odd } })
+    if (!exchanged.ok || !special.ok) return Err([exchanged, special].flatMap(problemOf))
+    const odd = oddPrizesFor(exchanged.value, terms, special.value)
+    return Ok({ outlay: add(add(outlay.value, drawn), yenOf(carriedIn.value, tokenValue)), takings: yenOf(exchanged.value, tokenValue), settlement: { type: "off-book-exchanged", cash: outlay.value, specialPrizes: special.value, oddPrizes: odd }, handed })
   }
-  return Ok({ outlay: add(add(outlay.value, drawn), yenOf(carriedIn.value, tokenValue)), takings: yenOf(payout.value, tokenValue), settlement: { type: "off-book-savings", cash: outlay.value } })
+  return Ok({ outlay: add(add(outlay.value, drawn), yenOf(carriedIn.value, tokenValue)), takings: yenOf(payout.value, tokenValue), settlement: { type: "off-book-savings", cash: outlay.value }, handed })
 }
 
-/** What the two sides come to, the takings less the outlay; none while they do not read. */
+/** What the two sides come to, the takings less the outlay and what other players handed in, which the takings hold; none while they do not read. */
 export const resultOfFinishYenTally = (form: FinishYenTallyForm, terms: PlayTerms | undefined): Decimal | undefined => {
   const sides = readSides(form, terms)
-  return sides.ok ? subtract(sides.value.takings, sides.value.outlay) : undefined
+  return sides.ok ? subtract(subtract(sides.value.takings, sides.value.outlay), sides.value.handed) : undefined
 }
 
 /** The form read into a tally in yen at the parlor chosen, or none, or every field that could not be read. Whether the tally can be written is the core's to say afterwards. */
@@ -190,6 +197,7 @@ export const readFinishYenTallyForm = (form: FinishYenTallyForm, terms: PlayTerm
     settlement: sides.value.settlement,
     theoreticalValue: theoreticalValue.value,
     told: undefined,
+    ...(isZero(sides.value.handed) ? {} : { handed: sides.value.handed }),
   })
 }
 
@@ -214,6 +222,7 @@ export const finishYenTallyFormOf = (draft: PlayDraft, played: PlayedSoFar): Fin
   outlay: played.outlay === undefined ? "" : String(played.outlay),
   replayPaidOut: filled(played.replay),
   carriedIn: filled(played.carriedIn),
+  ...handedTyped(played.handed),
   payout: filled(played.held),
   takings: "",
   exchanged: false,

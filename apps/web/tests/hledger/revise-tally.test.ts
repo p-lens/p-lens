@@ -87,6 +87,19 @@ describe("a recorded tally, read back from its entry", () => {
     expect(storage.peek(BOOK)?.files[BOOK_FILES.accounts]).toContain("account 純資産:簿外貯メダル")
   })
 
+  test("keeps what a play at no parlor said was handed between players beside its two sides, either way and however it was settled, out of its result", async () => {
+    const { session, storage } = await setUp()
+    const received: YenTally = { ...TALLIED, id: "yen-received" as PlayId, parlor: undefined, outlay: dec("1000"), takings: dec("4000"), settlement: { type: "off-book-savings", cash: dec("1000") }, handed: dec("1500") }
+    const given: YenTally = { ...TALLIED, id: "yen-given" as PlayId, parlor: undefined, outlay: dec("6000"), takings: dec("23500"), settlement: { type: "off-book-exchanged", cash: dec("5000"), specialPrizes: dec("23000"), oddPrizes: dec("500") }, handed: dec("-800") }
+    for (const tally of [received, given]) expect(await recordYenTally(session, BOOK, tally)).toMatchObject({ ok: true })
+    expect(await recordedOf(session, "yen-received")).toEqual({ ok: true, value: { type: "yen", tally: received } })
+    expect(await recordedOf(session, "yen-given")).toEqual({ ok: true, value: { type: "yen", tally: given } })
+    const tallies = await loadTallies(session, BOOK, "", 0)
+    const madeBy = (id: string): string | undefined => ((actual) => (actual === undefined ? undefined : toPlainString(actual)))((tallies.ok ? tallies.value.tallies : []).find((tally) => tally.id === id)?.actual)
+    expect(["yen-received", "yen-given"].map(madeBy)).toEqual(["1500", "18300"])
+    expect(storage.peek(BOOK)?.files[BOOK_FILES.accounts]).toContain("account 純資産:メダルの受け渡し")
+  })
+
   test("keeps when its play began and finished by the clock, a time written as a book writes one, and the spin performance its log measured", async () => {
     const { session } = await setUp()
     const timed: TokenTally = { ...TODAY, id: "timed" as PlayId, clock: { started: { hour: 9, minute: 5 }, finished: { hour: 23, minute: 40 } }, spinPerformance: keptSpinPerformance(18.234) }
@@ -182,6 +195,17 @@ describe("a recorded tally, read back from its entry", () => {
     expect((await recordTokenTally(session, BOOK, carriedOnly)).ok).toBe(true)
     expect(await recordedOf(session, "carried")).toEqual({ ok: true, value: { type: "token", tally: carried } })
     expect(await recordedOf(session, "carried-only")).toEqual({ ok: true, value: { type: "token", tally: carriedOnly } })
+  })
+
+  test("is the tally it was written from where tokens were handed between players either way, its result the play's alone", async () => {
+    const { session } = await setUp()
+    const received: TokenTally = { ...FULL, id: "received" as PlayId, handed: dec("500") }
+    const given: TokenTally = { ...FULL, id: "given" as PlayId, handed: dec("-300") }
+    const receivedOnly: TokenTally = { ...TODAY, id: "received-only" as PlayId, rental: undefined, handed: dec("500"), payout: dec("200"), theoreticalValue: undefined }
+    for (const tally of [received, given, receivedOnly]) expect(await recordTokenTally(session, BOOK, tally)).toMatchObject({ ok: true })
+    expect(await recordedOf(session, "received")).toEqual({ ok: true, value: { type: "token", tally: received } })
+    expect(await recordedOf(session, "given")).toEqual({ ok: true, value: { type: "token", tally: given } })
+    expect(await recordedOf(session, "received-only")).toEqual({ ok: true, value: { type: "token", tally: receivedOnly } })
   })
 
   test("is refused where its entry was changed by hand into what no form makes, and where the book has no such tally", async () => {

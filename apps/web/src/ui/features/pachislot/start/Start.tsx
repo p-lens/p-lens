@@ -23,7 +23,6 @@ import { Combobox, holdsTypedOnly } from "../../../primitives/combobox"
 import { DetailButton } from "../../../primitives/detail-button"
 import { PlusIcon } from "../../../primitives/icons"
 import { createNudge, redRing } from "../../../primitives/nudge"
-import { PencilledBubble } from "../../../primitives/pencilled-bubble"
 import { settleTyping, TextField } from "../../../primitives/text-field"
 import { toast } from "../../../primitives/toast"
 import { useMoves } from "../../../navigation/moves"
@@ -38,7 +37,7 @@ import { readTerms, type TermsField } from "../../live/start-terms"
 import { carriedInShown, readCarriedIn, tokensCarriedTo, tokensInHandUnreadable } from "../../live/tokens-in-hand"
 import { Terms } from "./Terms"
 import { seal } from "../../../../mummer"
-import { cabinetFieldMasked, cabinetText } from "../../../wording/cabinet"
+import { cabinetFieldMasked } from "../../../wording/cabinet"
 import { leaveFor, stayWhileOffline } from "../../../primitives/leaving"
 import { locateFailedText, SURVEY_OFFLINE } from "../../../wording/parlor"
 
@@ -368,9 +367,20 @@ export function Start(props: {
           <h2 id="start-machine" class="text-sm font-bold text-text-primary">
             機種設定
           </h2>
-          <PencilledBubble text={cabinetText(start.form().cabinetNumber.trim() === "" ? undefined : seal.cabinet(start.form().cabinetNumber.trim()))} says="台番号を入力する" invalid={unwritable(start.form().cabinetNumber) !== undefined}>
-            <TextField label="台番号" value={start.form().cabinetNumber} masked={cabinetFieldMasked(seal.cabinet(start.form().cabinetNumber))} onChange={(cabinetNumber) => start.update({ cabinetNumber })} inputMode="numeric" error={unwritable(start.form().cabinetNumber)} compact />
-          </PencilledBubble>
+          <div class="flex h-6 shrink-0 items-center gap-1 text-xs font-bold" classList={{ "text-text-primary": unwritable(start.form().cabinetNumber) === undefined, "text-negative": unwritable(start.form().cabinetNumber) !== undefined }}>
+            <input
+              aria-label="台番号"
+              aria-invalid={unwritable(start.form().cabinetNumber) !== undefined}
+              title={unwritable(start.form().cabinetNumber)}
+              value={start.form().cabinetNumber}
+              onInput={(event) => start.update({ cabinetNumber: event.currentTarget.value })}
+              inputMode="numeric"
+              placeholder="----"
+              class="h-6 w-14 rounded-[3px] bg-surface-input px-1.5 text-right text-base tabular-nums outline-none placeholder:text-text-muted focus-visible:outline-2 focus-visible:outline-focus-ring"
+              classList={{ "ring-1 ring-negative": unwritable(start.form().cabinetNumber) !== undefined, "[-webkit-text-security:disc]": cabinetFieldMasked(seal.cabinet(start.form().cabinetNumber)) }}
+            />
+            番台
+          </div>
         </div>
         <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 sm:gap-2">
           <MachineField

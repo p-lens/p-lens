@@ -20,7 +20,7 @@ import { describeError, describeReadingRefusal } from "../../../wording/errors"
 import { FIELD_PROBLEM_TEXT } from "../../../wording/fields"
 import { BACK_TO_REGULAR, RELIEF_DRIVE_SLIP, RELIEF_DRIVE_NAME, SUPPORT_END_ASKS, SUPPORT_NAMES, switchToText } from "../../../wording/pachinko/play"
 import { jackpotOptions, useBonuses, usualOverOf } from "./bonus-choice"
-import { DriftButton } from "./DriftButton"
+import { ReadingDetail } from "./ReadingDetail"
 import { OverButton } from "./OverButton"
 import { NO_JACKPOT, readingFrom, readRunJackpot, readSupportEnd, saysNothingNew, type ReadingField, type ReadingForm, type ReadingProblem } from "./reading-form"
 
@@ -86,7 +86,7 @@ export function SupportComposer(props: {
     return !found.ok && found.error.some((problem) => problem.reason === "not-a-count")
   }
   const startEnding = (): void => {
-    change({ counter: "", held: ((held) => (held === undefined ? "" : String(held)))(before().held), heldCarried: before().held !== undefined, supported: "", drift: "loss" })
+    change({ counter: "", held: ((held) => (held === undefined ? "" : String(held)))(before().held), heldCarried: before().held !== undefined, supported: "", drift: "loss", handed: "", handing: "received" })
     setStep({ type: "ending" })
     if (held.form !== undefined) revealAboveTheKeyboard(held.form)
   }
@@ -225,7 +225,18 @@ export function SupportComposer(props: {
         <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-1.5">
           <TextField label="回転数" value={form().counter} onChange={(counter) => change({ counter })} inputMode="numeric" invalid={nudged("counter")} onFocus={nudge.settle} focusedOnShow compact />
           <TextField label="持ち玉" value={form().held} onChange={(held) => change({ held, heldCarried: false })} inputMode="numeric" suffix="玉" invalid={nudged("held")} onFocus={nudge.settle} compact />
-          <DriftButton drift={form().drift} supported={form().supported} invalid={nudged("supported")} onDrift={(drift) => change({ drift })} onSupported={(supported) => change({ supported })} onFocus={nudge.settle} />
+          <ReadingDetail
+          drift={form().drift}
+          supported={form().supported}
+          handing={form().handing}
+          handed={form().handed}
+          supportedInvalid={nudged("supported")}
+          handedInvalid={nudged("handed")}
+          onDrift={(drift) => change({ drift })}
+          onSupported={(supported) => change({ supported })}
+          onHanded={(handed) => change(handed)}
+          onFocus={nudge.settle}
+        />
         </div>
         <Show when={unread()}>
           <p class="text-xs text-negative">{FIELD_PROBLEM_TEXT["not-a-count"]}</p>

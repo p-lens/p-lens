@@ -1,5 +1,5 @@
 import type { IsoDate } from "../../core/calendar/calendar"
-import { decimal, multiply, toPlainString, type Decimal } from "../../core/decimal/decimal"
+import { decimal, multiply, toPlainString, ZERO, type Decimal } from "../../core/decimal/decimal"
 import { savingsAccount } from "../../core/journal/accounts"
 import type { Entry } from "../../core/journal/entry"
 import type { PlayGameKind, PlayId } from "../../core/play/play"
@@ -223,6 +223,7 @@ const sittingsOf = (terms: DayTerms, going: Going, draws: Draws): Drawn<Going> =
     rental: funds.cash === 0 ? undefined : { outlay: whole(funds.cash), tokens: whole(funds.rented) },
     replay: { paidOut: whole(funds.replayed), deducted: whole(funds.replayed) },
     carriedIn: whole(going.funds.hand),
+    handed: ZERO,
     payout: whole(funds.hand),
   }
   const next: Going = {

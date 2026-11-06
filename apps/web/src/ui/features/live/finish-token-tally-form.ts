@@ -10,7 +10,7 @@ import { Err, Ok, type Result } from "../../../core/result/result"
 import { tidyTyped } from "../../../core/text/tidy"
 import { theoreticalDecimalOf } from "../../../core/theoretical/theoretical"
 import type { PricePoint } from "../../../core/valuation/valuation"
-import { problemOf, readOptionalYen, type FieldProblem, type PlayedSoFar, type Read } from "./finish-tally-reading"
+import { handedTyped, problemOf, readHanded, readOptionalYen, type FieldProblem, type Handing, type PlayedSoFar, type Read } from "./finish-tally-reading"
 
 /**
  * The form a play followed live at a parlor is recorded with, as typed:
@@ -27,6 +27,9 @@ export interface FinishTokenTallyForm {
   readonly replayPaidOut: string
   /** The tokens in hand as the play began, brought from the play before. */
   readonly carriedIn: string
+  /** The tokens other players handed in, or were handed, over the play, the way they went `handing`. */
+  readonly handed: string
+  readonly handing: Handing
   readonly payout: string
   readonly theoreticalValue: string
 }
@@ -97,9 +100,11 @@ export const readFinishTokenTallyForm = (form: FinishTokenTallyForm, at: PlayedO
   const outlay = readCount(form.outlay, "outlay")
   const paidOut = readCount(form.replayPaidOut, "replay-paid-out")
   const carriedIn = readCount(form.carriedIn, "carried-in")
+  const handed = readHanded(form.handed, form.handing)
   const payout = readCount(form.payout, "payout")
   const theoreticalValue = readOptionalYen(form.theoreticalValue, "theoretical-value")
-  if (!dateRead.ok || !outlay.ok || !paidOut.ok || !carriedIn.ok || !payout.ok || !theoreticalValue.ok) return Err([dateRead, outlay, paidOut, carriedIn, payout, theoreticalValue].flatMap(problemOf))
+  if (!dateRead.ok || !outlay.ok || !paidOut.ok || !carriedIn.ok || !handed.ok || !payout.ok || !theoreticalValue.ok)
+    return Err([dateRead, outlay, paidOut, carriedIn, handed, payout, theoreticalValue].flatMap(problemOf))
   const rented = rentedFor(at, outlay.value)
   return Ok({
     id,
@@ -112,6 +117,7 @@ export const readFinishTokenTallyForm = (form: FinishTokenTallyForm, at: PlayedO
     rental: isZero(outlay.value) && isZero(rented) ? undefined : { outlay: outlay.value, tokens: rented },
     replay: { paidOut: paidOut.value, deducted: deductedFor(at, paidOut.value) },
     carriedIn: carriedIn.value,
+    handed: handed.value,
     payout: payout.value,
     theoreticalValue: theoreticalValue.value,
   })
@@ -122,7 +128,8 @@ const filled = (count: number | undefined): string => (count === undefined || co
 /**
  * The form filled in from a play followed live at a parlor: its outlay,
  * what it drew from savings — the fee that took follows from the corner's
- * terms, as ever — the tokens it was begun with in hand, the tokens counted
+ * terms, as ever — the tokens it was begun with in hand, those other
+ * players handed in or were handed, the tokens counted
  * in hand at its last line as what it leaves, and the theoretical value
  * its formula comes to, where there is one.
  */
@@ -133,6 +140,7 @@ export const finishTokenTallyFormOf = (draft: PlayDraft, played: PlayedSoFar): F
   outlay: filled(played.outlay),
   replayPaidOut: filled(played.replay),
   carriedIn: filled(played.carriedIn),
+  ...handedTyped(played.handed),
   payout: filled(played.held),
   theoreticalValue: played.theoreticalValue === undefined ? "" : toPlainString(theoreticalDecimalOf(played.theoreticalValue)),
 })

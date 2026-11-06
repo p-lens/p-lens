@@ -24,6 +24,7 @@ const reading = (fields: Partial<Reading> & Pick<Reading, "counterSpins">): Read
   rented: 0,
   replayed: 0,
   supported: 0,
+  handed: 0,
   held: undefined,
   jackpot: { type: "none" },
   at: "2026-10-08T12:00:00.000Z",
@@ -111,6 +112,16 @@ describe("what a play's regular games cost", () => {
     expect(consumptionOf(log, TERMS, undefined).measured).toEqual({ spins: 20, balls: 250, rentedBalls: 250, replayedBalls: 0 })
     const counted = played([reading({ counterSpins: 140, rented: 1000 }), reading({ counterSpins: 160, rented: 1000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } }), reading({ counterSpins: 0, phase: "rapid", held: 1500 })])
     expect(consumptionOf(counted, TERMS, undefined).measured).toEqual({ spins: 40, balls: 500 + 1400 - 1500, rentedBalls: 500, replayedBalls: 0 })
+  })
+
+  test("never takes balls handed in or away by other players for what the regular games cost", () => {
+    const base = [reading({ counterSpins: 320, rented: 10000, jackpot: { type: "bonus", bonus: TEN_ROUNDS } })]
+    const plain = played([...base, reading({ counterSpins: 100, held: 900 })])
+    const received = played([...base, reading({ counterSpins: 100, handed: 500, held: 1400 })])
+    const given = played([...base, reading({ counterSpins: 50, handed: -300 }), reading({ counterSpins: 100, held: 600 })])
+    expect(consumptionOf(received, TERMS, undefined).measured).toEqual(consumptionOf(plain, TERMS, undefined).measured)
+    expect(consumptionOf(given, TERMS, undefined).measured).toEqual(consumptionOf(plain, TERMS, undefined).measured)
+    expect(heldAsToldOf(played([...base, reading({ counterSpins: 100, handed: 500 })]))).toBe(1400)
   })
 
   test("takes the balls in hand where they were counted, so a play on its own balls is measured before they run out", () => {

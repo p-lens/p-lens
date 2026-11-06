@@ -28,6 +28,21 @@ describe("the medals in hand where last counted, and what the play had come to t
     expect(handOf(ordered, TERMS)).toMatchObject({ games: 300, held: 40, net: 40 - 100 - 92 })
   })
 
+  test("leaves the medals other players handed out of what the play came to", () => {
+    const plain = handOf([seat, { spins: 500, outlay: 3000, held: 900, at: AT }], TERMS)
+    const received = handOf([seat, { spins: 300, handed: 400, at: AT }, { spins: 500, outlay: 3000, handed: 400, held: 1300, at: AT }], TERMS)
+    expect(received).toEqual({ games: 500, held: 1300, net: plain?.net, result: plain?.result })
+  })
+
+  test("is written as the play's running total by a reading of either kind of machine, below none where medals were handed away", () => {
+    const bonus = checkpointForReading([seat, { spins: 100, handed: 200, at: AT }], { total: 1700, bonuses: {}, outlay: undefined, replay: undefined, handed: -50, at: AT })
+    expect(bonus.ok && bonus.value.handed).toBe(150)
+    const at = checkpointsForReading([{ spins: 0, at: AT, counter: { spins: 0 } }], { counterSpins: 50, outlay: undefined, replay: undefined, handed: -80, counterJackpots: undefined, at: AT, jackpot: false }, false)
+    expect(at.ok && at.value.at(-1)?.handed).toBe(-80)
+    const none = checkpointForReading([seat], { total: 1700, bonuses: {}, outlay: undefined, replay: undefined, handed: 0, at: AT })
+    expect(none.ok && "handed" in none.value).toBe(false)
+  })
+
   test("gives the medals alone where the play has no terms", () => {
     expect(handOf([seat, { spins: 10, held: 50, at: AT }], undefined)).toEqual({ games: 10, held: 50, net: undefined, result: undefined })
   })

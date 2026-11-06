@@ -25,7 +25,7 @@ import { FIELD_PROBLEM_TEXT } from "../../../wording/fields"
 import { amountText } from "../../../wording/numbers"
 import { CHANGED_SINCE_REMOVED, describeRevisionRefusal, PHASE_NAMES, recountText, READING_REMOVED, REMOVAL_TAKEN_BACK, REMOVE_READING, RELIEF_DRIVE_REACHED, TAKE_BACK, TAKE_BACK_FAILED, JACKPOT_HELD_NOTE } from "../../../wording/pachinko/play"
 import { jackpotOptions, useBonuses, usualOverOf } from "./bonus-choice"
-import { DriftButton } from "./DriftButton"
+import { ReadingDetail } from "./ReadingDetail"
 import { PressButton } from "./PressButton"
 import { OverButton } from "./OverButton"
 import { formOfReading, readingFrom, readReadingForm, readReliefDrive, saysNothingNew, withMore, type ReadingField, type ReadingForm } from "./reading-form"
@@ -325,7 +325,18 @@ export function ReadingComposer(props: {
       <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-1.5">
         <TextField label="回転数" value={form().counter} onChange={(counter) => change({ counter })} inputMode="numeric" invalid={nudged("counter")} onFocus={nudge.settle} compact />
         <TextField label="持ち玉" value={form().held} onChange={(held) => change({ held, heldCarried: false })} inputMode="numeric" suffix="玉" invalid={nudged("held")} onFocus={nudge.settle} note={JACKPOT_HELD_NOTE} compact />
-        <DriftButton drift={form().drift} supported={form().supported} invalid={nudged("supported")} onDrift={(drift) => change({ drift })} onSupported={(supported) => change({ supported })} onFocus={nudge.settle} />
+        <ReadingDetail
+          drift={form().drift}
+          supported={form().supported}
+          handing={form().handing}
+          handed={form().handed}
+          supportedInvalid={nudged("supported")}
+          handedInvalid={nudged("handed")}
+          onDrift={(drift) => change({ drift })}
+          onSupported={(supported) => change({ supported })}
+          onHanded={(handed) => change(handed)}
+          onFocus={nudge.settle}
+        />
       </div>
       <Show when={recount()} keyed>
         {(drift) => <p class="text-xs text-warning">{recountText(drift.estimate === undefined ? undefined : seal.play(drift.estimate))}</p>}

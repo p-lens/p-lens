@@ -24,7 +24,7 @@ export interface CountedPayout {
 const lastKnown = (ordered: readonly Checkpoint[], read: (checkpoint: Checkpoint) => number | undefined): number =>
   ordered.map(read).findLast((value): value is number => value !== undefined) ?? 0
 
-/** Whether a line only counted the balls in hand where the line before left off: no spin, nothing bought, drawn or drifted, nothing happening. */
+/** Whether a line only counted the balls in hand where the line before left off: no spin, nothing bought, drawn, drifted or handed, nothing happening. */
 const onlyCounted = (checkpoint: Checkpoint, before: readonly Checkpoint[], spins: number): boolean =>
   checkpoint.spins === spins &&
   checkpoint.held !== undefined &&
@@ -32,7 +32,8 @@ const onlyCounted = (checkpoint: Checkpoint, before: readonly Checkpoint[], spin
   checkpoint.handsBefore === undefined &&
   (checkpoint.outlay ?? lastKnown(before, (each) => each.outlay)) === lastKnown(before, (each) => each.outlay) &&
   (checkpoint.replay ?? lastKnown(before, (each) => each.replay)) === lastKnown(before, (each) => each.replay) &&
-  (checkpoint.support ?? lastKnown(before, (each) => each.support)) === lastKnown(before, (each) => each.support)
+  (checkpoint.support ?? lastKnown(before, (each) => each.support)) === lastKnown(before, (each) => each.support) &&
+  (checkpoint.handed ?? lastKnown(before, (each) => each.handed)) === lastKnown(before, (each) => each.handed)
 
 /**
  * The bonuses a play counted the balls of as they ended: each jackpot

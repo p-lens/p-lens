@@ -38,8 +38,9 @@ A book is kept by double entry in hledger, in an account tree that is small on p
 純資産:開始残高                savings a person already had when the book began
 純資産:残高調整                a count of savings put right to what the parlor says
 純資産:特殊景品                what the special prizes of a prize exchange are worth
-純資産:端玉景品                what the odd tokens a prize exchange leaves are worth, in whole yen, a prize taken or not
+純資産:端玉景品等              what the odd tokens a prize exchange leaves are worth, in whole yen, a prize taken or not
 純資産:換算調整勘定            the part of a yen a prize exchange leaves over
+純資産:玉の受け渡し            balls handed to or by other players at a ノリ打ち, kept out of results (medals: 純資産:メダルの受け渡し)
 統計:期待値                    the theoretical value (virtual postings only)
 ```
 
@@ -47,7 +48,7 @@ Three things make the model what it is.
 
 - **Equity is the terminal account.** The booking ends with the prize
   exchange: the prizes received are entered not as assets but in
-  `純資産:特殊景品` (special prizes) and `純資産:端玉景品` (odd prizes), and the
+  `純資産:特殊景品` (special prizes) and `純資産:端玉景品等` (odd prizes), and the
   part of a yen left when balls or medals are restated in yen in
   `純資産:換算調整勘定` (the translation adjustment). The keeping, consumption,
   transfer or any other transaction of a prize after it is received is not
@@ -67,7 +68,7 @@ this. Cash does not move.
 2026-10-04 景品交換 マレハン東京皇国第8支店  ; parlor-id: malehan-tokyokoukoku, savings: prize-exchange
     資産:貯玉:マレハン東京皇国第8支店:4円        -4800 "玉(4円・マレハン東京皇国第8支店)" @ 3.5 JPY
     純資産:特殊景品                     16500 JPY
-    純資産:端玉景品                     300 JPY
+    純資産:端玉景品等                   300 JPY
 ```
 
 The balls and medals were already counted in the revenue and expenses of the

@@ -127,3 +127,9 @@ export const recountText = (estimate: Amount<number> | undefined): string => `�
 /** What a line of the log says of its own stretch's spin performance: the figure, to a tenth, or `-----` while it waits on the hand to be counted after a bonus, in the shape of a figure; and its unit beside it. */
 export const stretchRateText = (rate: StretchRate): string => (rate.type === "measured" ? rate.rate.toFixed(1) : "-----")
 export const STRETCH_RATE_UNIT = "回転/千円"
+
+/** What a reading's 電サポ増減 says behind its i: a breakdown of the hand, never added to it, kept out of the spin rate and put in the border in place of the formula's. */
+export const DRIFT_NOTE = "持ち玉の内訳として記入します。持ち玉欄の数は変わらないので、持ち玉は台の表示を見たまま入れてください。回転率からは除き、ボーダーは機種の電サポ中の出玉増減の代わりにこの数で計算します。"
+
+/** What a reading's 持ち玉調整 says behind its i: balls shared with other players, a breakdown of the hand, reaching no figure. */
+export const HANDED_NOTE = "主に超ノリ打ち時の出玉共有で調整します。持ち玉の内訳として記入し、持ち玉欄の数は変わりません。回転率・ボーダーなど、どの計算にも影響しません。"

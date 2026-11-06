@@ -7,3 +7,6 @@ export const FIELD_PROBLEM_TEXT = {
 
 /** What a field says where it holds what a book's line cannot: a comma, a semicolon or a line break. */
 export const UNWRITABLE_TEXT = "「,」「;」や改行は使えません。"
+
+/** What a tally's 持ち玉調整 says behind its i: tokens shared with other players, kept out of the result and set against equity. */
+export const HANDED_TALLY_NOTE = "主に超ノリ打ち時の出玉共有で、他の人と受け渡した玉・メダルです。収支には含めず、純資産の「玉の受け渡し」「メダルの受け渡し」に記帳します。"

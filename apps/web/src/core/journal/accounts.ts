@@ -16,7 +16,7 @@ export const ACCOUNTS = {
   openingBalance: "純資産:開始残高",
   balanceAdjustment: "純資産:残高調整",
   specialPrizes: "純資産:特殊景品",
-  oddPrizes: "純資産:端玉景品",
+  oddPrizes: "純資産:端玉景品等",
   translationAdjustment: "純資産:換算調整勘定",
 } as const
 
@@ -48,6 +48,17 @@ const OFF_BOOK_SAVINGS_ACCOUNTS: Readonly<Record<TokenKind, string>> = {
   medal: "純資産:簿外貯メダル",
 }
 
+/**
+ * Where tokens handed between players are set against (玉の受け渡し,
+ * メダルの受け渡し): balls or medals shared at a ノリ打ち came into a
+ * person's hand or left it unbought and unwon, so they are no play's
+ * revenue or expense but equity, as tokens brought into a book are.
+ */
+const HANDED_ACCOUNTS: Readonly<Record<TokenKind, string>> = {
+  ball: "純資産:玉の受け渡し",
+  medal: "純資産:メダルの受け渡し",
+}
+
 const RENTAL_SPREAD_ACCOUNTS: Readonly<Record<TokenKind, string>> = {
   ball: "費用:貸玉差額",
   medal: "費用:貸メダル差額",
@@ -62,6 +73,11 @@ export const offBookSavingsAccount = (kind: TokenKind): string => OFF_BOOK_SAVIN
 
 /** Whether an account is one savings the book does not keep are set against. */
 export const isOffBookSavingsAccount = (account: string): boolean => (Object.values(OFF_BOOK_SAVINGS_ACCOUNTS) as readonly string[]).includes(account)
+
+export const handedAccount = (kind: TokenKind): string => HANDED_ACCOUNTS[kind]
+
+/** Whether an account is one tokens handed between players are set against. */
+export const isHandedAccount = (account: string): boolean => (Object.values(HANDED_ACCOUNTS) as readonly string[]).includes(account)
 
 /** Where the loss on renting tokens above their exchange value is written. */
 export const rentalSpreadAccount = (kind: TokenKind): string => RENTAL_SPREAD_ACCOUNTS[kind]

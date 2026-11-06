@@ -137,6 +137,9 @@ interface Stood {
  * that (`gainOf`); one counted as it ended (`payoutDifferencesOf`) paid
  * what was counted: what it paid beyond what was said came to hand at the
  * count, so an over-entry is never taken for regular games costing less.
+ * Balls other players handed in, or were handed, came to hand or left it
+ * unbought and unplayed (`handed`), so they are never taken for what the
+ * regular games cost.
  * What the 電サポ gained or lost is in the hand only as the person counted
  * it; where they did not, the hand after it holds it unknown, and the
  * measuring keeps away from it (`measurableAcross`). `atHeso` is the spins
@@ -148,7 +151,7 @@ const standingsOf = (ordered: readonly Checkpoint[], terms: PlayTerms, atHeso: n
   const differences = payoutDifferencesOf(ordered)
   const unsaid = unsaidSupportOf(ordered)
   const saidAfter = (line: number): boolean => ((next) => next !== undefined && !isRegular(next) && unsaid[line + 1] !== true)(ordered[line + 1])
-  return ordered.reduce<{ readonly stood: readonly Stood[]; readonly before: Standing; readonly spins: number; readonly bonuses: number; readonly support: number }>(
+  return ordered.reduce<{ readonly stood: readonly Stood[]; readonly before: Standing; readonly spins: number; readonly bonuses: number; readonly support: number; readonly handed: number }>(
     (walked, checkpoint, line) => {
       const rentedBalls = checkpoint.outlay === undefined ? walked.before.rentedBalls : rentedBallsOf(checkpoint.outlay, terms)
       const replayedBalls = checkpoint.replay ?? walked.before.replayedBalls
@@ -162,11 +165,12 @@ const standingsOf = (ordered: readonly Checkpoint[], terms: PlayTerms, atHeso: n
           hesoSpins: walked.before.hesoSpins,
           rentedBalls: rentedBallsOf(hand.outlay, terms),
           replayedBalls: hand.replay,
-          gained: rentedBallsOf(hand.outlay, terms) + hand.replay + walked.bonuses + hand.support,
+          gained: rentedBallsOf(hand.outlay, terms) + hand.replay + walked.bonuses + hand.support + (hand.handed ?? walked.handed),
           held: hand.held,
           unsaidSupportSpins: unsaidSince(hand.spins),
         }),
       )
+      const handed = checkpoint.handed ?? walked.handed
       const latest = hands.at(-1) ?? walked.before
       const bought = rentedBalls > latest.rentedBalls || replayedBalls > latest.replayedBalls
       const standing: Standing = {
@@ -174,13 +178,13 @@ const standingsOf = (ordered: readonly Checkpoint[], terms: PlayTerms, atHeso: n
         hesoSpins: walked.before.hesoSpins + paidAfter,
         rentedBalls,
         replayedBalls,
-        gained: rentedBalls + replayedBalls + bonuses + (checkpoint.support ?? walked.support),
+        gained: rentedBalls + replayedBalls + bonuses + (checkpoint.support ?? walked.support) + handed,
         held: checkpoint.held === undefined ? (bought && checkpoint.event?.kind !== "jackpot" ? 0 : undefined) : checkpoint.held + Math.max(0, bonusGainOf(checkpoint)),
         unsaidSupportSpins: unsaidSince(checkpoint.spins),
       }
-      return { stood: [...walked.stood, { standing, hands }], before: standing, spins: checkpoint.spins, bonuses, support: checkpoint.support ?? walked.support }
+      return { stood: [...walked.stood, { standing, hands }], before: standing, spins: checkpoint.spins, bonuses, support: checkpoint.support ?? walked.support, handed }
     },
-    { stood: [], before: START, spins: ordered.at(0)?.spins ?? 0, bonuses: 0, support: 0 },
+    { stood: [], before: START, spins: ordered.at(0)?.spins ?? 0, bonuses: 0, support: 0, handed: 0 },
   ).stood
 }
 

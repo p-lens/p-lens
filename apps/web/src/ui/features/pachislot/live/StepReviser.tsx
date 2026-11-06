@@ -15,6 +15,7 @@ import { describeStepRefusal } from "../../../wording/pachislot/formula"
 import { REMOVE_READING } from "../../../wording/pachislot/play"
 import type { TriggerWords } from "../../../wording/pachislot/trigger"
 import { readAtReadingForm, type AtReadingForm } from "./at-reading-form"
+import { HandedDetail } from "./HandedDetail"
 import type { Post } from "./NoticeBoard"
 import { readReadingForm, type ReadingForm } from "./reading-form"
 import type { Write, Written } from "./write"
@@ -59,6 +60,9 @@ const endedName = (ended: Ended, trigger: TriggerWords | undefined): string => {
  * The bin stands apart from saving, at the row's far end, and the removal
  * is the play's to make (`onRemove`), with the way to take it back.
  */
+/** What was handed at a reading as its form shows it: the count, and the way it went. */
+const handedForm = (handed: number | undefined): Pick<ReadingForm, "handed" | "handing"> => ({ handed: typed(handed === undefined ? undefined : Math.abs(handed)), handing: handed !== undefined && handed < 0 ? "given" : "received" })
+
 /** A reading as read, the medals in hand left out where none were counted. */
 const withHeld = <T extends { readonly held: number | undefined }>(read: T): Omit<T, "held"> & { readonly held?: number } => {
   const { held, ...rest } = read
@@ -78,10 +82,10 @@ export function StepReviser(props: {
 }): JSX.Element {
   const [reading, setReading] = createSignal<ReadingForm>(
     props.step.type === "reading"
-      ? { total: String(props.step.input.total), bonuses: Object.fromEntries(Object.entries(props.step.input.bonuses).map(([id, count]) => [id, String(count)])), outlay: typed(props.step.input.outlay), replay: typed(props.step.input.replay), held: typed(props.step.input.held), heldCarried: false }
-      : { total: "", bonuses: {}, outlay: "", replay: "", held: "", heldCarried: false },
+      ? { total: String(props.step.input.total), bonuses: Object.fromEntries(Object.entries(props.step.input.bonuses).map(([id, count]) => [id, String(count)])), outlay: typed(props.step.input.outlay), replay: typed(props.step.input.replay), held: typed(props.step.input.held), heldCarried: false, ...handedForm(props.step.input.handed) }
+      : { total: "", bonuses: {}, outlay: "", replay: "", held: "", heldCarried: false, ...handedForm(undefined) },
   )
-  const [atReading, setAtReading] = createSignal<AtReadingForm>(props.step.type === "at-reading" ? { sinceAt: String(props.step.input.sinceAt), outlay: typed(props.step.input.outlay), replay: typed(props.step.input.replay), held: typed(props.step.input.held), heldCarried: false } : { sinceAt: "", outlay: "", replay: "", held: "", heldCarried: false })
+  const [atReading, setAtReading] = createSignal<AtReadingForm>(props.step.type === "at-reading" ? { sinceAt: String(props.step.input.sinceAt), outlay: typed(props.step.input.outlay), replay: typed(props.step.input.replay), held: typed(props.step.input.held), heldCarried: false, ...handedForm(props.step.input.handed) } : { sinceAt: "", outlay: "", replay: "", held: "", heldCarried: false, ...handedForm(undefined) })
   const [ended, setEnded] = createSignal<Ended>(props.step.type === "at-reading" ? props.step.ended : "going")
   const [state, setState] = createSignal<Revising>({ type: "typing" })
   const nudge = createNudge()
@@ -150,11 +154,12 @@ export function StepReviser(props: {
             >
               <Index each={ENDED.filter((each) => (each !== "cz-missed" || props.trigger !== undefined) && (each !== "bonus-missed" || props.trigger?.bonusMissed !== undefined))}>{(each) => <ToggleGroupItem value={each()}>{endedName(each(), props.trigger)}</ToggleGroupItem>}</Index>
             </ToggleGroup>
-            <div class="grid grid-cols-4 items-end gap-1.5">
+            <div class="grid grid-cols-[repeat(4,minmax(0,1fr))_auto] items-end gap-1.5">
               <TextField label="AT間G" value={atReading().sinceAt} onChange={(sinceAt) => setAtReading({ ...atReading(), sinceAt })} inputMode="numeric" suffix="G" invalid={unread()} onFocus={nudge.settle} compact />
               <TextField label="投資" value={atReading().outlay} onChange={(outlay) => setAtReading({ ...atReading(), outlay })} inputMode="numeric" suffix="円" invalid={unread()} onFocus={nudge.settle} compact />
               <TextField label="貯メダル" value={atReading().replay} onChange={(replay) => setAtReading({ ...atReading(), replay })} inputMode="numeric" suffix="枚" invalid={unread()} onFocus={nudge.settle} compact />
               <TextField label="持ちメダル" value={atReading().held} onChange={(held) => setAtReading({ ...atReading(), held })} inputMode="numeric" suffix="枚" invalid={unread()} onFocus={nudge.settle} compact />
+              <HandedDetail handing={atReading().handing} handed={atReading().handed} invalid={unread()} onHanded={(change) => setAtReading({ ...atReading(), ...change })} onFocus={nudge.settle} />
             </div>
           </div>
         }
@@ -177,11 +182,12 @@ export function StepReviser(props: {
               </Index>
             </div>
           </Show>
-          <div class="grid grid-cols-4 items-end gap-1.5">
+          <div class="grid grid-cols-[repeat(4,minmax(0,1fr))_auto] items-end gap-1.5">
             <TextField label="累計G" value={reading().total} onChange={(total) => setReading({ ...reading(), total })} inputMode="numeric" suffix="G" invalid={unread()} onFocus={nudge.settle} compact />
             <TextField label="投資" value={reading().outlay} onChange={(outlay) => setReading({ ...reading(), outlay })} inputMode="numeric" suffix="円" invalid={unread()} onFocus={nudge.settle} compact />
             <TextField label="貯メダル" value={reading().replay} onChange={(replay) => setReading({ ...reading(), replay })} inputMode="numeric" suffix="枚" invalid={unread()} onFocus={nudge.settle} compact />
             <TextField label="持ちメダル" value={reading().held} onChange={(held) => setReading({ ...reading(), held })} inputMode="numeric" suffix="枚" invalid={unread()} onFocus={nudge.settle} compact />
+            <HandedDetail handing={reading().handing} handed={reading().handed} invalid={unread()} onHanded={(change) => setReading({ ...reading(), ...change })} onFocus={nudge.settle} />
           </div>
         </div>
       </Show>

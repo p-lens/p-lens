@@ -45,19 +45,20 @@ import { createElsewhereHold, type PlayHold } from "./play-hold"
 import { ParlorChoiceField } from "./ParlorChoiceField"
 import { leftAt, leftBy, tokensKeptAfter, type TokensLeft } from "./tokens-in-hand"
 
-/** A log that does not read leaves the form to the draft alone. A pachislot play's medals in hand are those counted at its last line, or else what its formula says they likely are by then, to be counted and typed over. Its theoretical value is the one it comes to finished as the form opens: on the finish given, with the hand as told. */
+/** A log that does not read leaves the form to the draft alone. What was handed between players is the log's running total at its last. A pachislot play's medals in hand are those counted at its last line, or else what its formula says they likely are by then, to be counted and typed over. Its theoretical value is the one it comes to finished as the form opens: on the finish given, with the hand as told. */
 const playedOf = async (engine: PachislotEngine.EngineClient, draft: PlayDraft, finish: Finish): Promise<PlayedSoFar> => {
   const parsed = parsePlayLog(draft.log)
-  if (!parsed.ok) return { outlay: undefined, replay: undefined, carriedIn: undefined, held: undefined, heldLikely: false, theoreticalValue: undefined, spinPerformance: undefined }
+  if (!parsed.ok) return { outlay: undefined, replay: undefined, carriedIn: undefined, handed: undefined, held: undefined, heldLikely: false, theoreticalValue: undefined, spinPerformance: undefined }
   const ordered = inPlayOrder(parsed.value)
   const summary = liveSummary(ordered)
   const replay = ordered.findLast((checkpoint) => checkpoint.replay !== undefined)?.replay
   const carriedIn = carriedInOf(ordered)
+  const handed = ordered.findLast((checkpoint) => checkpoint.handed !== undefined)?.handed
   const terms = draft.venue.terms
   const held = draft.gameKind === "pachislot" ? (draft.pachislot === undefined ? ordered.at(-1)?.held : likelyHeldOf(ordered, draft.pachislot.formula, terms)) : Pachinko.heldAsToldOf(ordered)
   const spinPerformance = draft.gameKind === "pachislot" || terms === undefined ? undefined : Pachinko.measuredSpinPerformance(ordered, terms)
   const heldLikely = draft.gameKind === "pachislot" && held !== undefined && ordered.at(-1)?.held === undefined
-  return { outlay: summary.outlay, replay, carriedIn, held, heldLikely, theoreticalValue: await theoreticalValueAtFinish(engine, draft, finish, held), spinPerformance }
+  return { outlay: summary.outlay, replay, carriedIn, handed, held, heldLikely, theoreticalValue: await theoreticalValueAtFinish(engine, draft, finish, held), spinPerformance }
 }
 
 /** A play as its recording opens, with all its form is filled in from, and who sent it where someone did. */

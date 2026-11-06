@@ -28,6 +28,8 @@ interface Step {
   readonly rented: number
   readonly replayed: number
   readonly supported: number
+  /** Balls other players handed in at the line, below nought where they were handed away. */
+  readonly handed: number
   /** What a bonus counted as it ended paid beyond what its machine lists, on the line it was counted at (`overPaidOf`): below nought where it paid less. */
   readonly overPaid: number | undefined
 }
@@ -38,16 +40,17 @@ const isReading = (checkpoint: Checkpoint, line: number): boolean => line > 0 &&
 
 const stepsOf = (ordered: readonly Checkpoint[]): readonly Step[] => {
   const differences = overPaidOf(ordered)
-  return ordered.reduce<{ readonly steps: readonly Step[]; readonly outlay: number; readonly replay: number; readonly support: number; readonly readings: number }>(
+  return ordered.reduce<{ readonly steps: readonly Step[]; readonly outlay: number; readonly replay: number; readonly support: number; readonly handed: number; readonly readings: number }>(
     (walked, checkpoint, line) => {
       const outlay = checkpoint.outlay ?? walked.outlay
       const replay = checkpoint.replay ?? walked.replay
       const support = checkpoint.support ?? walked.support
+      const handed = checkpoint.handed ?? walked.handed
       const reading = isReading(checkpoint, line) ? walked.readings : undefined
-      const step: Step = { checkpoint, seat: line === 0, reading, rented: outlay - walked.outlay, replayed: replay - walked.replay, supported: support - walked.support, overPaid: differences.get(line) }
-      return { steps: [...walked.steps, step], outlay, replay, support, readings: walked.readings + (reading === undefined ? 0 : 1) }
+      const step: Step = { checkpoint, seat: line === 0, reading, rented: outlay - walked.outlay, replayed: replay - walked.replay, supported: support - walked.support, handed: handed - walked.handed, overPaid: differences.get(line) }
+      return { steps: [...walked.steps, step], outlay, replay, support, handed, readings: walked.readings + (reading === undefined ? 0 : 1) }
     },
-    { steps: [], outlay: 0, replay: 0, support: 0, readings: 0 },
+    { steps: [], outlay: 0, replay: 0, support: 0, handed: 0, readings: 0 },
   ).steps
 }
 
@@ -59,12 +62,13 @@ const jackpotText = (checkpoint: Checkpoint): string | undefined => {
   return event.approximate === true ? `${UNTOLD_JACKPOT}（推定）` : UNTOLD_JACKPOT
 }
 
-/** What a line did to the balls, each where it did anything: rented, drawn, drifted, counted, and — counted as a bonus ended — what it paid beyond what it was told to. */
+/** What a line did to the balls, each where it did anything: rented, drawn, drifted, handed, counted, and — counted as a bonus ended — what it paid beyond what it was told to. */
 const ballsText = (step: Step): string =>
   [
     step.rented > 0 ? `貸玉 ¥${amountText(seal.play(step.rented))}` : undefined,
     step.replayed > 0 ? `貯玉 ${amountText(seal.play(step.replayed))}玉` : undefined,
     step.supported !== 0 ? `電サポ ${signedBalls(seal.play(step.supported))}` : undefined,
+    step.handed !== 0 ? `持ち玉調整 ${signedBalls(seal.play(step.handed))}` : undefined,
     step.checkpoint.held === undefined ? undefined : `持ち玉 ${amountText(seal.play(step.checkpoint.held))}玉`,
     step.overPaid === undefined ? undefined : `過出玉 ${signedBalls(seal.play(step.overPaid))}`,
   ]

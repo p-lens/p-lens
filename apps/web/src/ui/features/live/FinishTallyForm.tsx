@@ -17,7 +17,8 @@ import { TextField } from "../../primitives/text-field"
 import { describeError } from "../../wording/errors"
 import { formatTokens, tokenUnit, type toneOf } from "../../wording/numbers"
 import { typedMachineRefused } from "../../wording/parlor"
-import { HELD_LIKELY, IN_HAND_LABELS, type FieldProblem, type FormField, type SubmitWords } from "./finish-tally-reading"
+import { HandedField } from "./HandedField"
+import { HELD_LIKELY, IN_HAND_LABELS, type FieldProblem, type FormField, type Handing, type SubmitWords } from "./finish-tally-reading"
 import { seal } from "../../../mummer"
 import { cabinetFieldMasked } from "../../wording/cabinet"
 import { JournalText } from "../mummer/JournalText"
@@ -29,12 +30,15 @@ const SAVINGS_DRAWN: Readonly<Record<TokenKind, string>> = { ball: "貯玉引出
 const ROW_ON_A_WIDE_SCREEN = "sm:max-w-xl"
 
 /** The fields every play followed live is recorded with, at a parlor or at none. */
-type FinishField = "machine" | "cabinetNumber" | "outlay" | "replayPaidOut" | "carriedIn" | "payout" | "theoreticalValue"
+type FinishField = "machine" | "cabinetNumber" | "outlay" | "replayPaidOut" | "carriedIn" | "handed" | "payout" | "theoreticalValue"
 
 /** A play followed live being recorded: what its form holds and reads as, and its recording — all the form shows or changes, whichever book entry it comes to. */
 export interface FinishTallyEditing {
   readonly value: (field: FinishField) => string
   readonly set: (field: FinishField) => (typed: string) => void
+  /** Which way the tokens typed as handed between players went. */
+  readonly handing: () => Handing
+  readonly setHanding: (handing: Handing) => void
   readonly problemAt: (field: FormField) => FieldProblem | undefined
   readonly problemOf: (field: FormField) => string | undefined
   readonly nudge: Nudge
@@ -90,7 +94,7 @@ function EntryPreview(props: { readonly editing: FinishTallyEditing }): JSX.Elem
  * The form a play followed live is recorded with, laid out alike wherever
  * it was played — on its own day, which is not asked: where, then its
  * machine and cabinet side by side, then the cash
- * it spent and the tokens it was begun with and had left, then — always a row
+ * it spent and the tokens it was begun with, handed and had left, then — always a row
  * of its own — what it all comes to with its theoretical value put away beside it, and the entry it
  * writes. What only a play at a parlor or only one at none is asked stands
  * in its own place: `place` above all, `outlayBeside` under the cash,
@@ -161,6 +165,17 @@ export function FinishTallyForm(props: {
           fallback={
             <>
               <TextField label={IN_HAND_LABELS[tokenKindOf(props.gameKind)].carriedIn} value={editing.value("carriedIn")} onChange={editing.set("carriedIn")} inputMode="numeric" suffix={unit()} error={editing.problemOf("carried-in")} invalid={editing.nudged("carried-in")} onFocus={editing.nudge.settle} />
+              <HandedField
+                label={IN_HAND_LABELS[tokenKindOf(props.gameKind)].handed}
+                unit={unit()}
+                value={editing.value("handed")}
+                handing={editing.handing()}
+                onValue={editing.set("handed")}
+                onHanding={editing.setHanding}
+                error={editing.problemOf("handed")}
+                invalid={editing.nudged("handed")}
+                onFocus={editing.nudge.settle}
+              />
               <div class="flex min-w-0 items-start gap-1.5">
                 <div class="flex min-w-0 flex-1 flex-col gap-1">
                   <TextField label={IN_HAND_LABELS[tokenKindOf(props.gameKind)].left} value={editing.value("payout")} onChange={editing.set("payout")} inputMode="numeric" suffix={unit()} error={editing.problemOf("payout")} invalid={editing.nudged("payout")} onFocus={editing.nudge.settle} />

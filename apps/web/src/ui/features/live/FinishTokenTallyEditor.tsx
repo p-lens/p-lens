@@ -156,6 +156,8 @@ export function FinishTokenTallyEditor(props: {
   const editing: FinishTallyEditing = {
     value: (field) => form()[field],
     set: (field) => set(field),
+    handing: () => form().handing,
+    setHanding: set("handing"),
     problemAt,
     problemOf,
     nudge,

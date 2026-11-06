@@ -53,7 +53,7 @@ account 純資産                         ; type: E
 account 純資産:開始残高
 account 純資産:残高調整
 account 純資産:特殊景品
-account 純資産:端玉景品
+account 純資産:端玉景品等
 account 純資産:換算調整勘定
 account 統計:期待値
 account 統計:時間

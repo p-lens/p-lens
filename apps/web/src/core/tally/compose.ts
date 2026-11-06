@@ -1,6 +1,6 @@
 import { YEN, tokenCommodity, type TokenKind } from "../commodity/commodity"
-import { isZero, multiply, negate, subtract, toPlainString, type Decimal } from "../decimal/decimal"
-import { ACCOUNTS, offBookSavingsAccount, rentalSpreadAccount, savingsAccount } from "../journal/accounts"
+import { isNegative, isZero, multiply, negate, subtract, toPlainString, type Decimal } from "../decimal/decimal"
+import { ACCOUNTS, handedAccount, offBookSavingsAccount, rentalSpreadAccount, savingsAccount } from "../journal/accounts"
 import { describedBy, type Entry, type Posting, type StatedPosting } from "../journal/entry"
 import { Err, Ok, andThen, mapOk, type Result } from "../result/result"
 import { inferredTheoreticalValuePosting, theoreticalValuePosting } from "../theoretical/theoretical"
@@ -78,6 +78,17 @@ const replayPostings = (replay: Replay, holding: Holding): readonly Posting[] =>
 const carriedPostings = (carriedIn: Decimal, holding: Holding): readonly Posting[] =>
   unlessZero(carriedIn, [real(holding.account, negate(carriedIn), holding.commodity), real(ACCOUNTS.playExpense, carriedIn, holding.commodity)])
 
+/**
+ * Tokens handed between players: those handed in come from equity and are
+ * played, as tokens carried in are from savings; those handed away were
+ * won by the play before they left it, and go to equity. The play's result
+ * is untouched either way, and savings get what was left as it is.
+ */
+const handedPostings = (handed: Decimal, holding: Holding): readonly Posting[] =>
+  isNegative(handed)
+    ? [real(handedAccount(holding.kind), negate(handed), holding.commodity), real(ACCOUNTS.playRevenue, handed, holding.commodity)]
+    : unlessZero(handed, [real(handedAccount(holding.kind), negate(handed), holding.commodity), real(ACCOUNTS.playExpense, handed, holding.commodity)])
+
 /** Tokens left at the finish, earned by the play and put into savings. */
 const payoutPostings = (payout: Decimal, holding: Holding): readonly Posting[] =>
   unlessZero(payout, [real(holding.account, payout, holding.commodity), real(ACCOUNTS.playRevenue, negate(payout), holding.commodity)])
@@ -133,6 +144,7 @@ const postingsOf = (tally: TokenTally, rate: Decimal | undefined): readonly Post
     ...(tally.rental === undefined || rate === undefined ? [] : rentalPostings(tally.rental, rate, holding)),
     ...replayPostings(tally.replay, holding),
     ...carriedPostings(tally.carriedIn, holding),
+    ...handedPostings(tally.handed, holding),
     ...payoutPostings(tally.payout, holding),
     ...statisticPostings(tally),
   ]
@@ -140,7 +152,7 @@ const postingsOf = (tally: TokenTally, rate: Decimal | undefined): readonly Post
 
 /**
  * A tally in tokens as one journal entry: rental, replay, tokens carried
- * in, payout and theoretical value together, so a tally is one change to
+ * in, tokens handed, payout and theoretical value together, so a tally is one change to
  * the book and one commit.
  */
 export const composeTokenTallyEntry = (tally: TokenTally, prices: readonly PricePoint[]): Result<Entry, TallyError> =>
@@ -187,11 +199,19 @@ const yenSidePostings = (tally: YenTally): readonly Posting[] => {
   }
 }
 
-/** A tally in yen as one journal entry: its two sides and its theoretical value — given, or inferred from what was told of it — together. */
+/** What tokens handed between players came to in yen, beside a tally in yen's two sides as they are beside a tally in tokens' (`handedPostings`). */
+const yenHandedPostings = (tally: YenTally): readonly Posting[] => {
+  const handed = tally.handed
+  if (handed === undefined || isZero(handed)) return []
+  const account = handedAccount(tokenKindOf(tally.gameKind))
+  return [real(account, negate(handed), YEN), isNegative(handed) ? real(ACCOUNTS.playRevenue, handed, YEN) : real(ACCOUNTS.playExpense, handed, YEN)]
+}
+
+/** A tally in yen as one journal entry: its two sides, what was handed between players beside them, and its theoretical value — given, or inferred from what was told of it — together. */
 export const composeYenTallyEntry = (tally: YenTally): Result<Entry, TallyError> =>
   mapOk(validateYenTally(tally), (valid) => ({
     date: valid.date,
     description: describe(valid, valid.parlor),
     tags: [...tagsOf(valid, valid.parlor), ...toldTags(valid.told)],
-    postings: [...yenSidePostings(valid), ...statisticPostings(valid, valid.told?.hours), ...inferredPostings(valid)],
+    postings: [...yenSidePostings(valid), ...yenHandedPostings(valid), ...statisticPostings(valid, valid.told?.hours), ...inferredPostings(valid)],
   }))

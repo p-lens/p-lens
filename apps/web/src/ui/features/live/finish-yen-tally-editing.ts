@@ -154,6 +154,8 @@ export const createFinishYenTallyEditing = (given: FinishYenTallyEditingGiven): 
     tally: {
       value: (field) => form()[field],
       set: (field) => set(field),
+    handing: () => form().handing,
+    setHanding: set("handing"),
       problemAt,
       problemOf,
       nudge,

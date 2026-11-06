@@ -37,12 +37,14 @@ interface Totals {
   readonly outlay: number
   readonly replay: number
   readonly support: number
+  readonly handed: number
 }
 
 const totalsAfter = (before: Totals, checkpoint: Checkpoint): Totals => ({
   outlay: checkpoint.outlay ?? before.outlay,
   replay: checkpoint.replay ?? before.replay,
   support: checkpoint.support ?? before.support,
+  handed: checkpoint.handed ?? before.handed,
 })
 
 /**
@@ -62,6 +64,7 @@ export const takenOf = (ordered: readonly Checkpoint[]): readonly Taken[] =>
         rented: totals.outlay - walked.totals.outlay,
         replayed: totals.replay - walked.totals.replay,
         supported: totals.support - walked.totals.support,
+        handed: totals.handed - walked.totals.handed,
         held: checkpoint.held,
         jackpot: jackpotOf(checkpoint),
         at: checkpoint.at ?? "",
@@ -76,6 +79,7 @@ export const takenOf = (ordered: readonly Checkpoint[]): readonly Taken[] =>
                 rented: hand.outlay - walked.totals.outlay,
                 replayed: hand.replay - walked.totals.replay,
                 supported: hand.support - walked.totals.support,
+                handed: (hand.handed ?? walked.totals.handed) - walked.totals.handed,
                 held: hand.held,
                 ...(hand.counted === true ? { counted: true as const } : {}),
               })),
@@ -83,7 +87,7 @@ export const takenOf = (ordered: readonly Checkpoint[]): readonly Taken[] =>
       }
       return { taken: [...walked.taken, { reading, afterMissedJackpot: walked.missed }], totals, missed: false }
     },
-    { taken: [], totals: totalsAfter({ outlay: 0, replay: 0, support: 0 }, ordered.at(0) ?? { spins: 0 }), missed: false },
+    { taken: [], totals: totalsAfter({ outlay: 0, replay: 0, support: 0, handed: 0 }, ordered.at(0) ?? { spins: 0 }), missed: false },
   ).taken
 
 /**
@@ -117,7 +121,8 @@ const bonusGainOf = (reading: Reading): number => (reading.jackpot.type === "bon
  * last — inside it, folded, or at its line — else what was in hand, with
  * its bonus added either way; none where nothing was ever said and nothing
  * was won. A jackpot's count is the hand as the jackpot came, before its
- * bonus paid.
+ * bonus paid. What the 電サポ drifted and other players handed is a
+ * breakdown of a count, never added to the hand.
  */
 const heldAfter = (before: number | undefined, { reading }: Taken): number | undefined => {
   const from = reading.held ?? (reading.handsBefore ?? []).findLast((hand) => hand.counted === true)?.held ?? before
@@ -190,7 +195,7 @@ export const gaugeNowOf = (ordered: readonly Checkpoint[], counting: JackpotCoun
  */
 export const gaugeSaid = (ordered: readonly Checkpoint[], gauge: number, at: string, counting: JackpotCounting): Result<readonly Checkpoint[], ReadingRefusal> => {
   const now = standingBefore(ordered, takenOf(ordered).length, counting)
-  const reading: Reading = { counterSpins: now.counter, phase: ordered.at(-1)?.phase ?? "regular", rented: 0, replayed: 0, supported: 0, held: undefined, jackpot: { type: "none" }, at, gauge }
+  const reading: Reading = { counterSpins: now.counter, phase: ordered.at(-1)?.phase ?? "regular", rented: 0, replayed: 0, supported: 0, handed: 0, held: undefined, jackpot: { type: "none" }, at, gauge }
   return checkpointsForReading(ordered, reading, false, counting)
 }
 

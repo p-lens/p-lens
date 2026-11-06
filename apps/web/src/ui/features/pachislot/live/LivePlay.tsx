@@ -50,6 +50,7 @@ import { createNoticeBoard, NoticeStack, type Post } from "./NoticeBoard"
 import { OutlookPanel } from "./OutlookPanel"
 import { StepReviser, type RevisedStep } from "./StepReviser"
 import { Timeline } from "./Timeline"
+import { HandedDetail } from "./HandedDetail"
 import { readingFrom, readReadingForm, type ReadingField, type ReadingForm, type Standing } from "./reading-form"
 import { RoleCounter } from "./RoleCounter"
 import type { PlayTerms } from "../../../../core/parlor/terms"
@@ -185,7 +186,7 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
         void send()
       }}
     >
-      <div class="grid grid-cols-4 items-end gap-1.5">
+      <div class="grid grid-cols-[repeat(4,minmax(0,1fr))_auto] items-end gap-1.5">
         <TextField
           label="累計G"
           value={form().total}
@@ -230,6 +231,7 @@ function ReadingComposer(props: { readonly bonuses: readonly Countable[]; readon
           onFocus={nudge.settle}
           compact
         />
+        <HandedDetail handing={form().handing} handed={form().handed} invalid={invalid("handed")} onHanded={typed} onFocus={nudge.settle} />
       </div>
       <div>
         <Button type="submit" onClick={feelTap}>記録</Button>

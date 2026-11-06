@@ -6,8 +6,9 @@ import { Err, Ok, type Result } from "../result/result"
  * One reading taken at the cabinet: the counter as the parlor shows it,
  * the state the spins since the reading before were played in, and what
  * has happened to the balls since — yen rented, tokens drawn from savings,
- * what the 電サポ gained or lost — with the balls in hand where they were
- * counted. A reading that says a jackpot came gives the counter as it stood
+ * what the 電サポ gained or lost, what other players handed in or were
+ * handed — with the balls in hand where they were counted. A reading that
+ * says a jackpot came gives the counter as it stood
  * when it came, and the counter starts over from there.
  */
 export interface Reading {
@@ -16,6 +17,8 @@ export interface Reading {
   readonly rented: number
   readonly replayed: number
   readonly supported: number
+  /** Balls other players handed in since the reading before, below zero where they were handed away. */
+  readonly handed: number
   readonly held: number | undefined
   readonly jackpot: Jackpot
   readonly at: string
@@ -39,6 +42,7 @@ export interface ReadingHand {
   readonly rented: number
   readonly replayed: number
   readonly supported: number
+  readonly handed: number
   readonly held: number
   /** Whether the balls were counted there, rather than known by more being bought. */
   readonly counted?: true
@@ -99,6 +103,7 @@ const readingFields = (ordered: readonly Checkpoint[], reading: Reading): Omit<C
   const replay = lastKnown(ordered, (checkpoint) => checkpoint.replay) + reading.replayed
   const supportBefore = lastKnown(ordered, (checkpoint) => checkpoint.support)
   const support = supportBefore + reading.supported
+  const handed = lastKnown(ordered, (checkpoint) => checkpoint.handed) + reading.handed
   return {
     outlay: lastKnown(ordered, (checkpoint) => checkpoint.outlay) + reading.rented,
     at: reading.at,
@@ -107,6 +112,7 @@ const readingFields = (ordered: readonly Checkpoint[], reading: Reading): Omit<C
     phase: reading.phase,
     ...(replay === 0 ? {} : { replay }),
     ...(reading.driftCounted === true || reading.supported !== 0 ? { support } : {}),
+    ...(reading.handed === 0 ? {} : { handed }),
     ...(reading.held === undefined ? {} : { held: reading.held }),
   }
 }
@@ -134,13 +140,14 @@ const withHands = (ordered: readonly Checkpoint[], reading: Reading, made: reado
   const line = made.at(-1)
   if (line === undefined || reading.handsBefore === undefined) return made
   const since = ordered.at(-1)?.spins ?? 0
-  const base = { outlay: lastKnown(ordered, (each) => each.outlay), replay: lastKnown(ordered, (each) => each.replay), support: lastKnown(ordered, (each) => each.support) }
+  const base = { outlay: lastKnown(ordered, (each) => each.outlay), replay: lastKnown(ordered, (each) => each.replay), support: lastKnown(ordered, (each) => each.support), handed: lastKnown(ordered, (each) => each.handed) }
   const hands = reading.handsBefore
     .map((hand) => ({
       spins: line.spins - (reading.counterSpins - hand.counterSpins),
       outlay: base.outlay + hand.rented,
       replay: base.replay + hand.replayed,
       support: base.support + hand.supported,
+      ...(base.handed + hand.handed === 0 ? {} : { handed: base.handed + hand.handed }),
       held: hand.held,
       ...(hand.counted === true ? { counted: true as const } : {}),
     }))
@@ -161,7 +168,7 @@ export interface RapidRefusal {
  */
 export const checkpointsForRapid = (ordered: readonly Checkpoint[], at: string, counting: JackpotCounting): Result<readonly Checkpoint[], RapidRefusal> => {
   if (supportPhaseOf(ordered) !== "special") return Err({ type: "not-in-special" })
-  const reading: Reading = { counterSpins: counterNowOf(ordered, counting), phase: "special", rented: 0, replayed: 0, supported: 0, held: undefined, jackpot: { type: "none" }, at, rapidBegan: true }
+  const reading: Reading = { counterSpins: counterNowOf(ordered, counting), phase: "special", rented: 0, replayed: 0, supported: 0, handed: 0, held: undefined, jackpot: { type: "none" }, at, rapidBegan: true }
   const made = checkpointsForReading(ordered, reading, false, counting)
   return made.ok ? made : Err({ type: "not-in-special" })
 }

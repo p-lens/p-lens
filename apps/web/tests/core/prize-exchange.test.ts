@@ -18,7 +18,7 @@ describe("a prize exchange as an entry", () => {
         "2026-09-10 マレハン東京皇国第8支店 | 景品交換  ; parlor-id: malehan-tokyokoukoku, savings: prize-exchange",
         '    資産:貯玉:マレハン東京皇国第8支店:4円  -1455 "玉(4円・マレハン東京皇国第8支店)" @ 3.57 JPY',
         "    純資産:特殊景品                     5000 JPY",
-        "    純資産:端玉景品                     220 JPY",
+        "    純資産:端玉景品等                   220 JPY",
         "    純資産:換算調整勘定",
         "",
       ].join("\n"),
@@ -27,8 +27,8 @@ describe("a prize exchange as an entry", () => {
   })
 
   test("writes no odd prizes where the special prizes took every token, and negative ones where they took more", () => {
-    expect(rendered({ ...EXCHANGE, tokens: dec("1400") })).not.toContain("端玉景品")
-    expect(rendered({ ...EXCHANGE, tokens: dec("1400"), specialPrizes: dec("5100") })).toContain("純資産:端玉景品                     -112 JPY")
+    expect(rendered({ ...EXCHANGE, tokens: dec("1400") })).not.toContain("端玉景品等")
+    expect(rendered({ ...EXCHANGE, tokens: dec("1400"), specialPrizes: dec("5100") })).toContain("純資産:端玉景品等                   -112 JPY")
   })
 
   test("takes tokens exchanged for no special prize at all — sweets or general prizes alone — as odd prizes at the rental price, the rest to the translation adjustment", () => {
@@ -36,12 +36,12 @@ describe("a prize exchange as an entry", () => {
       [
         "2026-09-10 マレハン東京皇国第8支店 | 景品交換  ; parlor-id: malehan-tokyokoukoku, savings: prize-exchange",
         '    資産:貯玉:マレハン東京皇国第8支店:4円  -1400 "玉(4円・マレハン東京皇国第8支店)" @ 3.57 JPY',
-        "    純資産:端玉景品                     5600 JPY",
+        "    純資産:端玉景品等                   5600 JPY",
         "    純資産:換算調整勘定",
         "",
       ].join("\n"),
     )
-    expect(rendered({ ...EXCHANGE, tokens: dec("20"), specialPrizes: dec("0") })).toContain("純資産:端玉景品                     80 JPY")
+    expect(rendered({ ...EXCHANGE, tokens: dec("20"), specialPrizes: dec("0") })).toContain("純資産:端玉景品等                   80 JPY")
   })
 
   test("uses the rate in force on its own day", () => {
@@ -83,7 +83,7 @@ describe("the odd prizes of an exchange", () => {
 describe("the accounts of a prize exchange", () => {
   test("are declared once, with the equity they stand under, in a book that lacks them", () => {
     const declared = withPrizesDeclared("account 費用                           ; type: X\n")
-    expect(declared.split("\n").filter((line) => line.startsWith("account 純資産"))).toEqual(["account 純資産                         ; type: E", "account 純資産:開始残高", "account 純資産:残高調整", "account 純資産:特殊景品", "account 純資産:端玉景品", "account 純資産:換算調整勘定"])
+    expect(declared.split("\n").filter((line) => line.startsWith("account 純資産"))).toEqual(["account 純資産                         ; type: E", "account 純資産:開始残高", "account 純資産:残高調整", "account 純資産:特殊景品", "account 純資産:端玉景品等", "account 純資産:換算調整勘定"])
     expect(withPrizesDeclared(declared)).toBe(declared)
   })
 })

@@ -1,7 +1,7 @@
 import type { Posting, Transaction } from "../../hledger/protocol/wire"
 import { SECONDS, YEN, tokenCommodity } from "../commodity/commodity"
 import { ZERO, isNegative, isZero, negate, parseDecimal, subtract, sum, type Decimal } from "../decimal/decimal"
-import { ACCOUNTS, offBookSavingsAccount, rentalSpreadAccount, savingsAccount } from "../journal/accounts"
+import { ACCOUNTS, handedAccount, offBookSavingsAccount, rentalSpreadAccount, savingsAccount } from "../journal/accounts"
 import { PARLOR_ID_TAG, PARLOR_SUBMISSION_TAG, identityIn, sameIdentity, type Parlor } from "../parlor/parlor"
 import { TALLY_TAGS, type InferredWorth, type Settlement, type TallyHead, type TokenTally, type TallyTold, type YenTally } from "../tally/tally"
 import { readGameKind, tokenKindOf } from "../play/play"
@@ -96,12 +96,15 @@ const settlementOf = (real: readonly Posted[], offBook: string, outlay: Decimal,
   return !isZero(cash) && !isZero(prizes) && isZero(subtract(cash, outlay)) && isZero(subtract(prizes, takings)) ? { type: "cash-and-prizes" } : undefined
 }
 
+/** A tally in yen, read back from what its entry moved: its two sides less what was handed between players beside them, which their account says (`yenHandedPostings`). */
 const yenTallyOf = (head: TallyHead, real: readonly Posted[], parlor: Parlor | "none", told: TallyTold | undefined): RecordedTally | undefined => {
   const offBook = offBookSavingsAccount(tokenKindOf(head.gameKind))
-  const outlay = at(real, ACCOUNTS.playExpense)
-  const takings = negate(at(real, ACCOUNTS.playRevenue))
-  return keptTo(real, { [ACCOUNTS.cash]: YEN, [ACCOUNTS.playExpense]: YEN, [ACCOUNTS.playRevenue]: YEN, [ACCOUNTS.specialPrizes]: YEN, [ACCOUNTS.oddPrizes]: YEN, [ACCOUNTS.translationAdjustment]: YEN, [offBook]: YEN }) && !isNegative(outlay) && !isNegative(takings)
-    ? { type: "yen", tally: { ...head, parlor: parlor === "none" ? undefined : parlor, outlay, takings, settlement: settlementOf(real, offBook, outlay, takings), told } }
+  const handedTo = handedAccount(tokenKindOf(head.gameKind))
+  const handed = negate(at(real, handedTo))
+  const outlay = subtract(at(real, ACCOUNTS.playExpense), isNegative(handed) ? ZERO : handed)
+  const takings = subtract(negate(at(real, ACCOUNTS.playRevenue)), isNegative(handed) ? negate(handed) : ZERO)
+  return keptTo(real, { [ACCOUNTS.cash]: YEN, [ACCOUNTS.playExpense]: YEN, [ACCOUNTS.playRevenue]: YEN, [ACCOUNTS.specialPrizes]: YEN, [ACCOUNTS.oddPrizes]: YEN, [ACCOUNTS.translationAdjustment]: YEN, [offBook]: YEN, [handedTo]: YEN }) && !isNegative(outlay) && !isNegative(takings)
+    ? { type: "yen", tally: { ...head, parlor: parlor === "none" ? undefined : parlor, outlay, takings, settlement: settlementOf(real, offBook, outlay, takings), told, ...(isZero(handed) ? {} : { handed }) } }
     : undefined
 }
 
@@ -111,9 +114,11 @@ const yenTallyOf = (head: TallyHead, real: readonly Posted[], parlor: Parlor | "
  * less what savings came to hold more; it paid out that less its fee, and
  * the tokens rented are the rest of what was spent — each but for the
  * tokens carried in, which the entry's tag counts, since they leave savings
- * and are spent as a replay's do. The pool is the one of
- * the parlor's whose tokens the entry is in: a tally of cash alone that left
- * nothing touches no savings account to say it.
+ * and are spent as a replay's do. Tokens handed between players are what
+ * their account was set against, turned over: those handed in were spent,
+ * and those handed away were won, beside what the play did. The pool is
+ * the one of the parlor's whose tokens the entry is in: a tally of cash
+ * alone that left nothing touches no savings account to say it.
  *
  * An entry written before rented tokens stopped passing through savings
  * puts them in and takes them out again, which comes to the same counts,
@@ -131,17 +136,20 @@ const tokenTallyOf = (head: TallyHead, real: readonly Posted[], commodity: strin
     [ACCOUNTS.playExpense]: commodity,
     [ACCOUNTS.replayFee]: commodity,
     [ACCOUNTS.playRevenue]: commodity,
+    [handedAccount(pool.kind)]: commodity,
   })
   if (!kept) return undefined
   const moved = real.filter((each) => each.account === account).map((each) => each.quantity)
   const outlay = negate(at(real, ACCOUNTS.cash))
-  const payout = negate(at(real, ACCOUNTS.playRevenue))
+  const handed = negate(at(real, handedAccount(pool.kind)))
+  const handedIn = isNegative(handed) ? ZERO : handed
+  const payout = subtract(negate(at(real, ACCOUNTS.playRevenue)), subtract(handedIn, handed))
   const passedThrough = subtract(sum(moved.filter((quantity) => !isNegative(quantity))), payout)
   const deducted = subtract(subtract(payout, sum(moved)), carriedIn)
   const paidOut = subtract(deducted, at(real, ACCOUNTS.replayFee))
-  const tokens = subtract(subtract(at(real, ACCOUNTS.playExpense), paidOut), carriedIn)
+  const tokens = subtract(subtract(subtract(at(real, ACCOUNTS.playExpense), handedIn), paidOut), carriedIn)
   const adds = [outlay, payout, tokens, paidOut, carriedIn, subtract(deducted, paidOut)].every((count) => !isNegative(count)) && (isZero(passedThrough) || same(passedThrough, tokens)) && isZero(outlay) === isZero(tokens)
-  return adds ? { type: "token", tally: { ...head, parlor, pool: { kind: pool.kind, tier: pool.tier }, rental: isZero(tokens) ? undefined : { outlay, tokens }, replay: { paidOut, deducted }, carriedIn, payout } } : undefined
+  return adds ? { type: "token", tally: { ...head, parlor, pool: { kind: pool.kind, tier: pool.tier }, rental: isZero(tokens) ? undefined : { outlay, tokens }, replay: { paidOut, deducted }, carriedIn, handed, payout } } : undefined
 }
 
 /** The tokens an entry's tag says were carried in: none where it has no such tag, undefined where the tag does not read as a count. */

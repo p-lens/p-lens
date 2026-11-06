@@ -7,9 +7,11 @@ import type { FormulaSnapshot } from "./snapshot"
  * The medals in hand where they were last counted after the play began, and
  * what the play had come to there: the games played by then, the medals
  * won or lost — what is in hand less what was brought, rented and drawn
- * from savings — and the same in yen, the medals in hand and the savings
- * drawn valued at the exchange and the cash at what was paid; neither
- * where the play has no terms to rent and exchange on.
+ * from savings, and what other players handed in — and the same in yen,
+ * the medals in hand and the savings drawn valued at the exchange and the
+ * cash at what was paid; neither where the play has no terms to rent and
+ * exchange on. Medals handed between players are no play's, so neither
+ * counts them.
  */
 export interface Hand {
   readonly games: number
@@ -33,13 +35,14 @@ export const handOf = (ordered: readonly Checkpoint[], terms: PlayTerms | undefi
   const brought = carriedInOf(ordered) ?? 0
   const outlay = runningAt(ordered, line, (checkpoint) => checkpoint.outlay)
   const replay = runningAt(ordered, line, (checkpoint) => checkpoint.replay)
+  const handed = runningAt(ordered, line, (checkpoint) => checkpoint.handed)
   if (terms === undefined) return { games: counted.spins, held: counted.held, net: undefined, result: undefined }
   const value = tokenValueOf(terms)
   return {
     games: counted.spins,
     held: counted.held,
-    net: counted.held - brought - tokensRentedFor(terms, outlay) - replay,
-    result: Math.round((counted.held - brought - savingsDeductedFor(terms, replay)) * value - outlay),
+    net: counted.held - brought - handed - tokensRentedFor(terms, outlay) - replay,
+    result: Math.round((counted.held - brought - handed - savingsDeductedFor(terms, replay)) * value - outlay),
   }
 }
 

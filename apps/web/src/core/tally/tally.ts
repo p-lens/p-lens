@@ -84,6 +84,11 @@ export interface PlayClock {
  * play before: that play put them into savings as what it left, so this one
  * takes them out again, with no fee — they never went to the counter — and
  * what the two plays come to together is what the day did.
+ *
+ * Tokens handed are those other players handed in, below none where more
+ * were handed to them: neither won nor lost by the play, so they come in
+ * from equity to be played as tokens carried in are, or leave the play's
+ * winnings for it, and the tally's result is the play's alone.
  */
 export interface TokenTally extends TallyHead {
   readonly parlor: Parlor
@@ -91,6 +96,7 @@ export interface TokenTally extends TallyHead {
   readonly rental: Rental | undefined
   readonly replay: Replay
   readonly carriedIn: Decimal
+  readonly handed: Decimal
   readonly payout: Decimal
 }
 
@@ -110,6 +116,13 @@ export interface YenTally extends TallyHead {
   readonly settlement: Settlement | undefined
   /** What else was told of it, where its hours were, or what it was inferred to be worth from what its counter showed. */
   readonly told: TallyTold | undefined
+  /**
+   * What tokens other players handed in came to in yen, below none where
+   * more were handed to them, where a play at no parlor followed live said
+   * so: beside the two sides, never in them, so the result is the play's
+   * alone.
+   */
+  readonly handed?: Decimal
 }
 
 /**
@@ -194,6 +207,7 @@ export type NumericField =
   | "replay-paid-out"
   | "replay-deducted"
   | "carried-in"
+  | "handed"
   | "payout"
   | "takings"
   | "special-prizes"

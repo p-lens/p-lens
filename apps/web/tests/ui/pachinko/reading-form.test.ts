@@ -52,6 +52,32 @@ describe("a pachinko reading typed onto where the play stands", () => {
     expect(read.ok && saysNothingNew(read.value, before)).toBe(false)
   })
 
+  test("takes the hand carried over as counted where balls were bought, never as run out while the form showed it", () => {
+    const read = readReadingForm({ ...form, counter: "230", rented: "3000" }, [], before)
+    expect(read.ok && [read.value.rented, read.value.held]).toEqual([1000, 150])
+  })
+
+  test("reads balls handed away below none and handed in above, leaving the hand shown as it is", () => {
+    const given = readReadingForm({ ...form, counter: "230", handed: "300", handing: "given" }, [], before)
+    expect(given.ok && [given.value.handed, given.value.held]).toEqual([-300, undefined])
+    const received = readReadingForm({ ...form, counter: "230", handed: "200" }, [], before)
+    expect(received.ok && received.value.handed).toBe(200)
+    expect(readReadingForm({ ...form, handed: "abc" }, [], before)).toEqual({ ok: false, error: [{ field: "handed", reason: "not-a-count" }] })
+    const unchanged = readReadingForm({ ...form, handed: "300" }, [], before)
+    expect(unchanged.ok && saysNothingNew(unchanged.value, before)).toBe(false)
+  })
+
+  test("writes what was handed as the play's running total, and reads it back as each reading's own", () => {
+    const at = "2026-11-06T12:00:00+09:00"
+    const once = checkpointsForReading(LOG, { counterSpins: 320, phase: "regular", rented: 0, replayed: 0, supported: 0, handed: -300, held: undefined, jackpot: { type: "none" }, at }, false, EVERY_JACKPOT)
+    expect(once.ok && once.value.at(-1)?.handed).toBe(-300)
+    const after = once.ok ? [...LOG, ...once.value] : LOG
+    const twice = checkpointsForReading(after, { counterSpins: 330, phase: "regular", rented: 0, replayed: 0, supported: 0, handed: 500, held: undefined, jackpot: { type: "none" }, at }, false, EVERY_JACKPOT)
+    expect(twice.ok && twice.value.at(-1)?.handed).toBe(200)
+    const log = twice.ok ? [...after, ...twice.value] : after
+    expect(takenOf(log).slice(-2).map((each) => each.reading.handed)).toEqual([-300, 500])
+  })
+
   test("refuses a total behind where the play stood, and takes one left empty as unchanged", () => {
     expect(readReadingForm({ ...form, rented: "1500" }, [], before)).toEqual({ ok: false, error: [{ field: "rented", reason: "went-back" }] })
     const read = readReadingForm({ ...form, counter: "210", rented: "" }, [], before)
@@ -59,7 +85,7 @@ describe("a pachinko reading typed onto where the play stands", () => {
   })
 
   test("shows a reading being set right as the play stood with it, and reads it back the same", () => {
-    const reading = { counterSpins: 300, phase: "regular" as const, rented: 1000, replayed: 125, supported: 0, held: undefined, jackpot: { type: "bonus" as const, bonus: TEN_ROUNDS }, at: "" }
+    const reading = { counterSpins: 300, phase: "regular" as const, rented: 1000, replayed: 125, supported: 0, handed: 0, held: undefined, jackpot: { type: "bonus" as const, bonus: TEN_ROUNDS }, at: "" }
     const shown = formOfReading(reading, before)
     expect([shown.rented, shown.replayed]).toEqual(["3000", "125"])
     const read = readReadingForm(shown, [TEN_ROUNDS], before)
@@ -73,7 +99,7 @@ describe("the 遊 counter of a pachinko reading set right", () => {
   test("is never typed into a new reading, and is kept as it was where a reading set right said it", () => {
     const fresh = readReadingForm(readingFrom("regular", before), [], before)
     expect(fresh.ok && fresh.value.gauge).toBeUndefined()
-    const said = formOfReading({ counterSpins: 200, phase: "regular", rented: 0, replayed: 0, supported: 0, held: undefined, jackpot: { type: "none" }, at: "", gauge: 15 }, before)
+    const said = formOfReading({ counterSpins: 200, phase: "regular", rented: 0, replayed: 0, supported: 0, handed: 0, held: undefined, jackpot: { type: "none" }, at: "", gauge: 15 }, before)
     const read = readReadingForm(said, [], before)
     expect(read.ok && read.value.gauge).toBe(15)
   })
@@ -81,7 +107,7 @@ describe("the 遊 counter of a pachinko reading set right", () => {
 
 describe("a pachinko reading made of several, set right", () => {
   const TERMS: PlayTerms = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 100, tokens: 28 }, replay: { paidOut: 125, deducted: 125 } }
-  const reading = (fields: Partial<Reading> & Pick<Reading, "counterSpins">): Reading => ({ phase: "regular", rented: 0, replayed: 0, supported: 0, held: undefined, jackpot: { type: "none" }, at: "2026-10-18T12:00:00.000Z", ...fields })
+  const reading = (fields: Partial<Reading> & Pick<Reading, "counterSpins">): Reading => ({ phase: "regular", rented: 0, replayed: 0, supported: 0, handed: 0, held: undefined, jackpot: { type: "none" }, at: "2026-10-18T12:00:00.000Z", ...fields })
   const played = [reading({ counterSpins: 100, rented: 2000 }), reading({ counterSpins: 150, held: 120 }), reading({ counterSpins: 200 })].reduce<readonly Checkpoint[]>(
     (log, each) => ((added) => (added.ok ? [...log, ...added.value] : log))(checkpointsForReading(log, each, false, EVERY_JACKPOT)),
     [{ spins: 0, outlay: 0, counter: { spins: 0 } }],
@@ -115,7 +141,7 @@ describe("the 電サポ after a pachinko jackpot", () => {
   test("runs in 確変 from a jackpot until a line with none says it ended", () => {
     expect(supportPhaseOf(LOG.slice(0, 2))).toBeUndefined()
     expect(supportPhaseOf(LOG)).toBe("special")
-    const ended = checkpointsForReading(LOG, { counterSpins: 12, phase: "special", rented: 0, replayed: 0, supported: 0, held: undefined, jackpot: { type: "none" }, at: "2026-10-24T12:00:00+09:00" }, false, EVERY_JACKPOT)
+    const ended = checkpointsForReading(LOG, { counterSpins: 12, phase: "special", rented: 0, replayed: 0, supported: 0, handed: 0, held: undefined, jackpot: { type: "none" }, at: "2026-10-24T12:00:00+09:00" }, false, EVERY_JACKPOT)
     expect(ended.ok && supportPhaseOf([...LOG, ...ended.value])).toBeUndefined()
   })
 

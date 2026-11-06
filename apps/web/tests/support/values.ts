@@ -38,6 +38,7 @@ export const RENTED_PLAY: TokenTally = {
   rental: { outlay: dec("12000"), tokens: dec("3000") },
   replay: { paidOut: dec("0"), deducted: dec("0") },
   carriedIn: dec("0"),
+  handed: dec("0"),
   payout: dec("4800"),
   theoreticalValue: dec("5500"),
 }

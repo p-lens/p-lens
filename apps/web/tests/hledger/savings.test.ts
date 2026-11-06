@@ -130,7 +130,7 @@ describe("savings exchanged for prizes", () => {
     expect(await held(session)).toContainEqual(["マレハン東京皇国第8支店", "4円", "800"])
     expect(await results(session, "date:2026-10-04")).toEqual(["0", "0", "54808"])
     const files = storage.peek(BOOK)?.files
-    expect(files?.[BOOK_FILES.accounts]).toContain("account 純資産:特殊景品\naccount 純資産:端玉景品\naccount 純資産:換算調整勘定")
+    expect(files?.[BOOK_FILES.accounts]).toContain("account 純資産:特殊景品\naccount 純資産:端玉景品等\naccount 純資産:換算調整勘定")
     expect(transactionsOf(files)).toContain("2026-10-04 マレハン東京皇国第8支店 | 景品交換  ; parlor-id: malehan-tokyokoukoku, savings: prize-exchange")
     const activity = await loadActivity(session, history, BOOK)
     expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).at(-1)).toEqual(["savings-exchanged", { pool: { parlor: "マレハン東京皇国第8支店", tier: "4円" }, savings: { date: "2026-10-04" as IsoDate, kind: "ball", tokens: dec("4000") }, prizes: { specialPrizes: dec("13800") } }])

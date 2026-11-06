@@ -9,6 +9,7 @@ import type { TallyError, TallyHead, TokenTally, YenTally } from "../core/tally/
 import { playLogPath } from "../core/play-log/checkpoint"
 import { pricePointsOf } from "../core/report/holdings"
 import { andThen, mapOk, type Result } from "../core/result/result"
+import { withHandedDeclaredFor } from "../core/tally/handed"
 import { withOffBookDeclaredFor } from "../core/savings/off-book"
 import { withPrizesDeclaredFor } from "../core/savings/prize-exchange"
 import { withPlayTimeDeclaredFor } from "../core/tally/play-time"
@@ -70,10 +71,10 @@ export const composedInYen =
   () =>
     mapOk(composeYenTallyEntry(tally), (entry) => ({ entry, price: undefined }))
 
-/** The book's files with the accounts an entry posts to declared, where the book lacks them: a gain in yen is written to the prize accounts, a theoretical value nobody measured to an account of its own, and savings the book does not keep to theirs, and a play's time to its account in seconds, and a book made before any was has none. */
+/** The book's files with the accounts an entry posts to declared, where the book lacks them: a gain in yen is written to the prize accounts, a theoretical value nobody measured to an account of its own, savings the book does not keep and tokens handed between players to theirs, and a play's time to its account in seconds, and a book made before any was has none. */
 export const withAccountsFor = (files: ProposedChange["files"], entry: Entry): ProposedChange["files"] => {
   const accounts = files[BOOK_FILES.accounts] ?? ""
-  const declared = withPlayTimeDeclaredFor(withOffBookDeclaredFor(withInferredDeclaredFor(withPrizesDeclaredFor(accounts, entry), entry), entry), entry)
+  const declared = withPlayTimeDeclaredFor(withHandedDeclaredFor(withOffBookDeclaredFor(withInferredDeclaredFor(withPrizesDeclaredFor(accounts, entry), entry), entry), entry), entry)
   return declared === accounts ? files : { ...files, [BOOK_FILES.accounts]: declared }
 }
 

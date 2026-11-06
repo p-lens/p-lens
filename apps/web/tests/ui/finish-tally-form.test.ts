@@ -28,7 +28,7 @@ const DRAFT: PlayDraft = {
 
 const NOWHERE: PlayDraft = { ...DRAFT, venue: { type: "none", terms: TERMS } }
 
-const PLAYED: PlayedSoFar = { outlay: 12_000, replay: undefined, carriedIn: undefined, held: 4500, heldLikely: false, theoreticalValue: undefined, spinPerformance: undefined }
+const PLAYED: PlayedSoFar = { outlay: 12_000, replay: undefined, carriedIn: undefined, handed: undefined, held: 4500, heldLikely: false, theoreticalValue: undefined, spinPerformance: undefined }
 
 /** The two sides a form at no parlor comes to, on its terms where it has them. */
 const sidesAt = (terms: PlayTerms | undefined) => (form: FinishYenTallyForm): readonly string[] | undefined =>
@@ -39,6 +39,17 @@ const sides = sidesAt(TERMS)
 const sidesInYen = sidesAt(undefined)
 
 describe("a play followed live, as it is recorded", () => {
+  test("opens on what its log said was handed between players, and keeps it out of what a play at no parlor came to, beside its sides", () => {
+    const form = finishYenTallyFormOf(NOWHERE, { ...PLAYED, handed: -300, held: 4200 })
+    expect([form.handed, form.handing]).toEqual(["300", "given"])
+    expect(finishTokenTallyFormOf(DRAFT, { ...PLAYED, handed: 500 })).toMatchObject({ handed: "500", handing: "received" })
+    const plain = resultOfFinishYenTally(finishYenTallyFormOf(NOWHERE, PLAYED), TERMS)
+    const received = resultOfFinishYenTally(finishYenTallyFormOf(NOWHERE, { ...PLAYED, handed: 500, held: 5000 }), TERMS)
+    expect(received === undefined || plain === undefined ? undefined : toPlainString(received)).toBe(plain === undefined ? undefined : toPlainString(plain))
+    const read = readFinishYenTallyForm(form, TERMS, undefined, "live-1" as PlayId)
+    expect(read.ok && read.value.handed !== undefined && toPlainString(read.value.handed)).toBe("-1200")
+  })
+
   test("leaves at its parlor the tokens counted in hand at its last line", () => {
     expect(finishTokenTallyFormOf(DRAFT, PLAYED).payout).toBe("4500")
     expect(finishTokenTallyFormOf(DRAFT, { ...PLAYED, held: undefined }).payout).toBe("")

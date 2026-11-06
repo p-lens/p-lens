@@ -41,3 +41,6 @@ export const SEAT_PROBLEM_TEXT: Readonly<Record<"not-a-count" | "below-since-bon
   "not-a-count": FIELD_PROBLEM_TEXT["not-a-count"],
   "below-since-bonus": "AT間のゲーム数以上にしてください。",
 }
+
+/** What a reading's 持ちメダル調整 says behind its i: medals shared with other players, a breakdown of the hand, reaching no figure. */
+export const HANDED_NOTE = "主に超ノリ打ち時の出玉共有で調整します。持ちメダルの内訳として記入し、持ちメダル欄の数は変わりません。差枚や収支など、どの計算にも影響しません。"

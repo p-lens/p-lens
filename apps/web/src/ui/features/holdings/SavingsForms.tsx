@@ -380,17 +380,17 @@ export function PrizeExchangeForm(props: {
           <TextField label="払出数" value={tokens()} onChange={setTokens} inputMode="numeric" suffix={props.unit} invalid={nudge.red() && exchanged() === undefined} onFocus={nudge.settle} compact />
           <TextField label="特殊景品額" value={prizes()} onChange={setPrizes} inputMode="numeric" suffix="円" invalid={nudge.red() && countOf(prizes()) === undefined} onFocus={nudge.settle} compact />
         </div>
-        <p class="text-xs text-text-muted">特殊景品に届かなかった分は貸出レートで端玉景品に、交換率との差額は換算調整勘定に記帳します。</p>
+        <p class="text-xs text-text-muted">特殊景品に届かなかった分は貸出レートで端玉景品等に、交換率との差額は換算調整勘定に記帳します。</p>
         <Show when={beyond()}>
           {(over) => (
             <p role="status" class="text-xs text-warning">
-              特殊景品額が、払出数の評価額 {formatYen(seal.savings(over().worth))}（交換率 {formatRate(over().rate)}）を {formatYen(seal.savings(over().by))} 上回っています。端玉景品は {formatYen(seal.savings(over().odd))} で記帳されます。入力や帳簿の交換率に間違いがないか確かめてください。このまま記録することもできます。
+              特殊景品額が、払出数の評価額 {formatYen(seal.savings(over().worth))}（交換率 {formatRate(over().rate)}）を {formatYen(seal.savings(over().by))} 上回っています。端玉景品等は {formatYen(seal.savings(over().odd))} で記帳されます。入力や帳簿の交換率に間違いがないか確かめてください。このまま記録することもできます。
             </p>
           )}
         </Show>
         <Show when={oddOverStep()}>
           <p role="status" class="flex flex-col text-xs text-warning">
-            <span>1000円超の端玉景品が出ています。</span>
+            <span>1000円超の端玉景品等が出ています。</span>
             <span>レートがズレている可能性があります。</span>
             <span>通帳から交換率を変更できます。</span>
             <span>このままでも記録はできます。</span>

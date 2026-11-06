@@ -21,6 +21,8 @@ export interface CounterInput {
   readonly outlay: number | undefined
   readonly replay: number | undefined
   readonly held?: number
+  /** Medals other players handed in since the reading before, below none where they were handed away; none where left out. */
+  readonly handed?: number
   readonly at: string
 }
 
@@ -69,6 +71,7 @@ export const checkpointForReading = (ordered: readonly Checkpoint[], input: Coun
     spins: anchor.spins + input.total - anchor.total,
     ...(input.outlay === undefined ? {} : { outlay: input.outlay }),
     ...(input.replay === undefined ? {} : { replay: input.replay }),
+    ...(input.handed === undefined || input.handed === 0 ? {} : { handed: (ordered.findLast((checkpoint) => checkpoint.handed !== undefined)?.handed ?? 0) + input.handed }),
     ...(input.held === undefined ? {} : { held: input.held }),
     at: input.at,
     counter: { total: input.total, bonuses: input.bonuses },

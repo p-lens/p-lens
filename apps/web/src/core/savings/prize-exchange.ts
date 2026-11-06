@@ -132,7 +132,7 @@ export const withPrizesDeclaredFor = (accounts: string, entry: Entry): string =>
  * A prize exchange as one journal entry. The tokens leave savings at the
  * book's exchange rate for the day — what they stood at in every figure
  * until then — and leave the book as prizes: the special prizes at what
- * they are worth, and the odd tokens beside them as odd prizes (端玉景品),
+ * they are worth, and the odd tokens beside them as odd prizes (端玉景品等),
  * the sweets tokens short of a special prize are given as, at the rental
  * price. What the tokens were worth at the rate and what the prizes are
  * worth do not meet, so the difference is the translation adjustment
