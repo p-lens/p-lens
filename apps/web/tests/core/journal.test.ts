@@ -24,13 +24,13 @@ describe("journal files", () => {
 
 describe("a book's files", () => {
   test("read in the order main includes them, then the rest by path", () => {
-    expect(inBookOrder(["logs/b.jsonl", "transactions.journal", "logs/a.jsonl", "main.journal", "prices.journal", "accounts.journal"])).toEqual([
+    expect(inBookOrder(["logs/b.jsonl", "transactions/2026.journal", "logs/a.jsonl", "main.journal", "prices.journal", "accounts.journal"])).toEqual([
       "main.journal",
       "accounts.journal",
       "prices.journal",
-      "transactions.journal",
       "logs/a.jsonl",
       "logs/b.jsonl",
+      "transactions/2026.journal",
     ])
   })
 })

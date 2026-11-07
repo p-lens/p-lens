@@ -9,7 +9,6 @@ export const BOOK_FILES = {
   main: "main.journal",
   accounts: "accounts.journal",
   prices: "prices.journal",
-  transactions: "transactions.journal",
 } as const
 
 export const ENTRY_FILE = BOOK_FILES.main
@@ -31,9 +30,9 @@ export const appendEntry = (text: string, entry: string): string =>
  */
 export const prependEntry = (text: string, entry: string): string => (text.trim() === "" ? entry : `${entry}\n${text.replace(/^\n+/, "")}`)
 
-const BOOK_ORDER: readonly string[] = [BOOK_FILES.main, BOOK_FILES.accounts, BOOK_FILES.prices, BOOK_FILES.transactions]
+const BOOK_ORDER: readonly string[] = [BOOK_FILES.main, BOOK_FILES.accounts, BOOK_FILES.prices]
 
-/** A book's paths as a person reads them: the four journal files in the order main includes them, then the rest by path. */
+/** A book's paths as a person reads them: the three journal files in the order main includes them, then the rest by path. */
 export const inBookOrder = (paths: readonly string[]): readonly string[] => {
   const rank = (path: string): number => {
     const index = BOOK_ORDER.indexOf(path)

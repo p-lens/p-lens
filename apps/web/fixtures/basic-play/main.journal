@@ -5,7 +5,7 @@
 ; What is where:
 ;   accounts.journal      commodities and accounts; a parlor is the savings accounts tagged parlor-id
 ;   prices.journal        P directives: what a parlor's tokens exchange for, by day
-;   transactions.journal  one entry per play, tagged play-id, game-kind and machine
+;   transactions/2026.journal  one entry per play, tagged play-id, game-kind and machine: a file a year, by the entry's date
 ;   pachinko-play/        a pachinko play's readings as JSON Lines, in a file named by its play-id
 ;   pachislot-play/       a pachislot play's, the same
 ; Each parlor-id, with the parlor's name, is the one the open parlor list gives: https://github.com/p-lens/p-lens-parlors
@@ -17,4 +17,4 @@
 
 include accounts.journal
 include prices.journal
-include transactions.journal
+include transactions/2026.journal

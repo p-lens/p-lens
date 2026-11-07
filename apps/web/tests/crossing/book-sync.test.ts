@@ -8,7 +8,7 @@ import type { HledgerClient } from "../../src/hledger/client/client"
 import { joinByCode } from "../../src/crossing/application/joining"
 import { KIND } from "../../src/crossing/core/kinds"
 import { stopSync } from "../../src/crossing/application/book-sync"
-import { inProcessHledger } from "../support/in-process"
+import { inProcessHledger, FIXTURE_TRANSACTIONS } from "../support/in-process"
 import { BOOK, closeLines, deviceOn, letEverythingGo, relayOf, twoDevices as twoOn, until } from "./support/devices"
 
 const MARKER = "MARKER-ネルフ本部-0451"
@@ -40,10 +40,10 @@ describe("a book between the owner's devices", () => {
     const { one, other, lineOne, lineOther } = await twoDevices()
     await one.write(entryOf("2026-11-01", 1000, "一台目"))
     lineOne.book.wrote()
-    await until(async () => (await other.files())[BOOK_FILES.transactions]?.includes("一台目") === true)
+    await until(async () => (await other.files())[FIXTURE_TRANSACTIONS]?.includes("一台目") === true)
     await other.write(entryOf("2026-11-02", 2000, "二台目"))
     lineOther.book.wrote()
-    await until(async () => (await one.files())[BOOK_FILES.transactions]?.includes("二台目") === true)
+    await until(async () => (await one.files())[FIXTURE_TRANSACTIONS]?.includes("二台目") === true)
     await until(async () => JSON.stringify(await one.files()) === JSON.stringify(await other.files()))
   }, 20_000)
 
@@ -54,7 +54,7 @@ describe("a book between the owner's devices", () => {
     lineOne.book.wrote()
     await until(() => one.last()?.type === "refused")
     relayOf()?.refuseWith(undefined)
-    await until(async () => (await other.files())[BOOK_FILES.transactions]?.includes("待たされた分") === true, 25_000)
+    await until(async () => (await other.files())[FIXTURE_TRANSACTIONS]?.includes("待たされた分") === true, 25_000)
   }, 40_000)
 
   test("a relay that lost the line is given a base again by the owner's device as it catches up, and a device joins from it", async () => {
@@ -67,7 +67,7 @@ describe("a book between the owner's devices", () => {
     const third = deviceOn(relayOf()?.url ?? "", held.hledgers[2] as HledgerClient)
     const joined = await joinByCode(third.ports, code)
     expect(joined).toEqual(Ok({ type: "book", bookId: BOOK }))
-    expect((await third.files())[BOOK_FILES.transactions]).toEqual((await one.files())[BOOK_FILES.transactions])
+    expect((await third.files())[FIXTURE_TRANSACTIONS]).toEqual((await one.files())[FIXTURE_TRANSACTIONS])
   }, 30_000)
 
   test("what both wrote apart is merged, and both come to the same book", async () => {
@@ -77,13 +77,13 @@ describe("a book between the owner's devices", () => {
     await other.write(entryOf("2026-11-04", 2000, "二台目だけ"))
     await one.open()
     await other.open()
-    await until(async () => (await one.files())[BOOK_FILES.transactions]?.includes("二台目だけ") === true && (await other.files())[BOOK_FILES.transactions]?.includes("一台目だけ") === true, 15_000)
+    await until(async () => (await one.files())[FIXTURE_TRANSACTIONS]?.includes("二台目だけ") === true && (await other.files())[FIXTURE_TRANSACTIONS]?.includes("一台目だけ") === true, 15_000)
     await until(async () => JSON.stringify(await one.files()) === JSON.stringify(await other.files()), 15_000)
     expect([one.last()?.type, other.last()?.type]).toEqual(["synced", "synced"])
   }, 30_000)
 
   test("one line rewritten two ways waits on a person, and their choice reaches the other", async () => {
-    const { one, other } = await twoDevices((files) => ({ ...files, [BOOK_FILES.transactions]: appendEntry(files[BOOK_FILES.transactions] ?? "", entryOf("2026-11-05", 500, "直す前")) }))
+    const { one, other } = await twoDevices((files) => ({ ...files, [FIXTURE_TRANSACTIONS]: appendEntry(files[FIXTURE_TRANSACTIONS] ?? "", entryOf("2026-11-05", 500, "直す前")) }))
     await closeLines()
     await one.rewrite("直す前", "一台目で直した")
     await other.rewrite("直す前", "二台目で直した")
@@ -93,9 +93,9 @@ describe("a book between the owner's devices", () => {
     if (standing?.type !== "conflict") throw new Error("expected a conflict")
     const settled = await again.book.settle({ ...standing.conflict.merged, ...Object.fromEntries(Object.entries(standing.conflict.ours).filter(([path]) => standing.conflict.merged[path] === undefined)) })
     expect(settled.ok).toBe(true)
-    await until(async () => (await other.files())[BOOK_FILES.transactions]?.includes("一台目で直した") === true, 15_000)
+    await until(async () => (await other.files())[FIXTURE_TRANSACTIONS]?.includes("一台目で直した") === true, 15_000)
     await until(() => other.last()?.type === "synced" && one.last()?.type === "synced", 15_000)
-    expect((await other.files())[BOOK_FILES.transactions]).not.toContain("二台目で直した")
+    expect((await other.files())[FIXTURE_TRANSACTIONS]).not.toContain("二台目で直した")
     expect(otherAgain).toBeDefined()
   }, 30_000)
 

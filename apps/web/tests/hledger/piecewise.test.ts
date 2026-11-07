@@ -15,7 +15,7 @@ import {
   theoreticalRequest,
 } from "../../src/hledger/query/requests"
 import type { IsoDate } from "../../src/core/calendar/calendar"
-import { fixtureBook, inProcessHledger } from "../support/in-process"
+import { fixtureBook, inProcessHledger, FIXTURE_TRANSACTIONS } from "../support/in-process"
 
 /** What a book reads as across the questions the app asks of it most, every one answered. */
 const readingOf = async (journal: JournalAccess): Promise<unknown> => {
@@ -38,9 +38,9 @@ const readWhole = (files: BookFiles): BookFiles => ({ ...files, [BOOK_FILES.main
 
 /** The fixture's plays filed by year, the first of them moved back a year. */
 const byYear = (files: BookFiles): BookFiles => {
-  const entries = (files[BOOK_FILES.transactions] ?? "").split("\n\n").map((text, at) => (at === 0 ? text.replace("2026-09-05", "2025-12-31") : text))
+  const entries = (files[FIXTURE_TRANSACTIONS] ?? "").split("\n\n").map((text, at) => (at === 0 ? text.replace("2026-09-05", "2025-12-31") : text))
   return withEntriesFiled(
-    { ...files, [BOOK_FILES.transactions]: "" },
+    { ...files, [FIXTURE_TRANSACTIONS]: "" },
     entries.map((text) => ({ date: text.slice(0, 10) as IsoDate, text: `${text.replace(/\n*$/, "")}\n` })),
   )
 }
@@ -84,7 +84,7 @@ describe("a book read file by file", () => {
   test("is refused as hledger refuses it whole, where a file it includes is missing or does not read", async () => {
     const fixture = await fixtureBook("basic-play", { id: "piecewise" as BookId, members: [] })
     const hledger = await inProcessHledger()
-    const broken = { ...fixture.files, [BOOK_FILES.transactions]: `${fixture.files[BOOK_FILES.transactions] ?? ""}\n2026-10-05 x\n    資産:現金  -1 JPY\n    費用:遊技  2 JPY\n` }
+    const broken = { ...fixture.files, [FIXTURE_TRANSACTIONS]: `${fixture.files[FIXTURE_TRANSACTIONS] ?? ""}\n2026-10-05 x\n    資産:現金  -1 JPY\n    費用:遊技  2 JPY\n` }
     const { [BOOK_FILES.prices]: _prices, ...missing } = fixture.files
     const [unbalanced, absent] = await hledger.inTurn(async (journal) => [await journal.open(broken, ENTRY_FILE), await journal.open(missing, ENTRY_FILE)] as const)
     expect([unbalanced.ok, absent.ok]).toEqual([false, false])

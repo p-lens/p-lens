@@ -128,9 +128,9 @@ describe("a book that wrote pachislot as `slot`, before the name was settled", (
     const storage = memoryStorage()
     const session = createBookSession({ hledger: await inProcessHledger(), storage, history: createMemoryHistory(() => crypto.randomUUID()), clock: () => new Date("2026-10-09T12:00:00+09:00"), newId: () => crypto.randomUUID(), member: ME })
     const fixture = await fixtureBook("basic-play", { id: OLDER, members: [{ id: ME, displayName: "me", role: "owner" }] })
-    const transactions = fixture.files["transactions.journal"] ?? ""
+    const transactions = fixture.files["transactions/2026.journal"] ?? ""
     const earlier = (transactions.split("\n\n").find((entry) => entry.includes("game-kind: pachislot")) ?? "").replace("play-id: made-up-0912", "play-id: made-up-0911").replace("2026-09-12", "2026-09-11").replace("game-kind: pachislot", "game-kind: slot")
-    await session.createBook({ ...fixture, files: { ...fixture.files, "transactions.journal": `${earlier}\n\n${transactions}` } })
+    await session.createBook({ ...fixture, files: { ...fixture.files, "transactions/2026.journal": `${earlier}\n\n${transactions}` } })
     const found = await loadBreakdown(session, OLDER, "game", "")
     expect(found.ok && found.value.map((group) => [group.key, toPlainString(group.actual)])).toEqual([["pachislot", "40060"], ["pachinko", "19114"]])
     const narrowed = await loadBreakdown(session, OLDER, "day", "", { game: ["pachislot"] })

@@ -9,11 +9,11 @@ import { MANIFEST_PATH } from "../../src/core/backup/archive"
 import type { BookId, Member, MemberId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { dec } from "../support/values"
-import { appendEntry, BOOK_FILES } from "../../src/core/journal/layout"
+import { appendEntry } from "../../src/core/journal/layout"
 import { Ok } from "../../src/core/result/result"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
 import { memoryBackupStore, memoryHandover, memoryReceipts } from "../support/backup"
-import { fixtureBook, inProcessHledger, memoryStorage } from "../support/in-process"
+import { fixtureBook, inProcessHledger, memoryStorage, FIXTURE_TRANSACTIONS } from "../support/in-process"
 
 const BOOK = "kept" as BookId
 
@@ -42,7 +42,7 @@ const device = async (name: string, failing?: HandoverFailure) => {
   const record = (date: string, yen: number, note: string) =>
     session.write(BOOK, async (_journal, stored) =>
       Ok({
-        files: { ...stored.files, [BOOK_FILES.transactions]: appendEntry(stored.files[BOOK_FILES.transactions] ?? "", entry(date, yen, note)) },
+        files: { ...stored.files, [FIXTURE_TRANSACTIONS]: appendEntry(stored.files[FIXTURE_TRANSACTIONS] ?? "", entry(date, yen, note)) },
         intent: { type: "pool-opened", parlor: note, tier: "4円", date: "2026-10-01" as IsoDate, rate: dec("4") },
       }),
     )

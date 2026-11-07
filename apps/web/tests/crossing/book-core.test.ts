@@ -30,7 +30,7 @@ const line = () => {
   return { held: held as Held, add }
 }
 
-const JOURNAL = "transactions.journal"
+const JOURNAL = "transactions/2026.journal"
 
 describe("canonical JSON", () => {
   test("keys go in order and nothing else is written", () => {

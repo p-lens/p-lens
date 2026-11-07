@@ -164,7 +164,7 @@ export function ResultCalendar(props: {
                     value={total().theoretical}
                     kind="theoretical"
                     instead={props.theoreticalKept ? undefined : NOT_TALLIED}
-                    {...(props.theoreticalKept && !isZero(total().inferred) ? { caption: inferredShareText(total().inferred) } : {})}
+                    {...(props.theoreticalKept && !isZero(total().inferred) ? { captions: [inferredShareText(total().inferred)] } : {})}
                   />
                 </dl>
                 <Show when={failure()} keyed>

@@ -21,6 +21,13 @@ export interface LiveSummary {
    * those were somebody else's, before this play.
    */
   readonly counterJackpots: number | undefined
+  /**
+   * The jackpots the parlor's counter should be showing now: what it said at
+   * the seat and the jackpots this log records on from it, counted as the
+   * counter counts them, so that the two can be read side by side. None
+   * where the seat's count was not read.
+   */
+  readonly counterJackpotsNow: number | undefined
   /** Spin performance from the first point that knows the outlay to the last. */
   readonly overall: StretchPerformance | undefined
   readonly stretches: readonly StretchPerformance[]
@@ -96,12 +103,15 @@ export const liveSummary = (ordered: readonly Checkpoint[], counting: JackpotCou
   const withOutlay = ordered.filter((checkpoint) => checkpoint.outlay !== undefined)
   const first = withOutlay.at(0)
   const last = withOutlay.at(-1)
+  const jackpots = ordered.reduce((sum, checkpoint) => sum + jackpotsAt(checkpoint, counting), 0)
+  const atSeat = ordered.at(0)?.counter?.jackpots
   return {
     spins,
     counterNow: counterNowOf(ordered, counting),
     outlay: last?.outlay,
-    jackpots: ordered.reduce((sum, checkpoint) => sum + jackpotsAt(checkpoint, counting), 0),
+    jackpots,
     counterJackpots: jackpotsSinceSeat(ordered),
+    counterJackpotsNow: atSeat === undefined ? undefined : atSeat + jackpots,
     overall: first === undefined || last === undefined ? undefined : performanceAcross(first, last),
     stretches: stretchPerformances(ordered),
   }

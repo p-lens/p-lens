@@ -1,7 +1,12 @@
 import { shownNameOf, type MachineNames } from "../../core/catalog/catalog"
-import type { TallySummary } from "../../core/report/tallies"
+import type { Decimal } from "../../core/decimal/decimal"
+import { yenAnHourOf } from "../../core/report/figures"
+import type { TallySummary, WonIn } from "../../core/report/tallies"
+import type { PlayGameKind } from "../../core/play/play"
 import { seal, veil } from "../../mummer"
+import { playTimeText } from "./breakdown"
 import { cabinetText } from "./cabinet"
+import { formatTheoreticalYen } from "./numbers"
 import { parlorNameText } from "./parlor"
 
 /** What stands where a tally names no machine. */
@@ -12,6 +17,16 @@ export const NO_PARLOR = "店舗名なし"
 
 /** What is said under an exchange that cannot have been at the play's rate, a line to a sentence. */
 export const EXCHANGE_OFF_THE_RATE = ["入力したレートと合いません。", "稼働入力画面に戻ってレート変更可能です。", "このままでも記録はできます。"] as const
+
+/** How a tally's 回収 came to yen: the tokens it gave back at its day's exchange rate, or none to say where it was written in yen. */
+export const wonCaptions = (gameKind: PlayGameKind | undefined, wonIn: WonIn): readonly string[] =>
+  wonIn === "yen" ? [] : [`${gameKind === "pachislot" ? "メダル数" : "玉数"}×稼働日の交換率で計算`]
+
+/** What a tally's theoretical value comes to over the time its play lasted, as the work it was; nothing where its length is not known or was none. */
+export const workCaptions = (seconds: Decimal | undefined, theoretical: Decimal): readonly string[] => {
+  const anHour = seconds === undefined ? undefined : yenAnHourOf(theoretical, seconds)
+  return seconds === undefined || anHour === undefined ? [] : [`稼働時間${playTimeText(seconds)}から、仕事量としての時給は${formatTheoreticalYen(seal.tally(anHour))}`]
+}
 
 /** What stands for a description written by hand with no bar, while parlors are veiled: what it says is anyone's guess, a parlor's name among it. */
 const VEILED_DESCRIPTION = "••••"

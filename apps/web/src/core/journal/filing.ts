@@ -8,9 +8,7 @@ import { appendEntry, BOOK_FILES, prependEntry, type BookFiles } from "./layout"
  * the day it is dated. The years are only where entries are put, and
  * nothing is written where one year ends and the next begins: the book is
  * the years' files one after another, as `main.journal` includes them, and
- * any period is asked of hledger by its days. `transactions.journal` stays,
- * included after every year, for what is written there by a version of the
- * app from before the years or by a hand.
+ * any period is asked of hledger by its days.
  */
 
 const YEAR_FILE = /^transactions\/\d{4}\.journal$/
@@ -18,24 +16,23 @@ const YEAR_FILE = /^transactions\/\d{4}\.journal$/
 /** The file of the transactions dated in a day's year. */
 export const yearFileOf = (date: IsoDate): string => `transactions/${date.slice(0, 4)}.journal`
 
-/** Whether a path is one of a book's files of transactions: a year's, or the one not filed by year. */
-export const isTransactionsFile = (path: string): boolean => path === BOOK_FILES.transactions || YEAR_FILE.test(path)
+/** Whether a path is one of a book's files of transactions, a year's. */
+export const isTransactionsFile = (path: string): boolean => YEAR_FILE.test(path)
 
 const INCLUDE = /^include\s+(\S+)/
 
 /** The file an include line names, or none for a line that is no include. */
 const includedBy = (line: string): string | undefined => INCLUDE.exec(line)?.[1]
 
-/** Whether a file is to be included after a year's: a later year's, or the transactions not filed by year. */
+/** Whether a file is to be included after a year's: a later year's. */
 const comesAfter =
   (path: string) =>
   (included: string | undefined): boolean =>
-    included !== undefined && (included === BOOK_FILES.transactions || (YEAR_FILE.test(included) && included > path))
+    included !== undefined && YEAR_FILE.test(included) && included > path
 
 /**
  * The main journal including a year's file, by name: among the years in
- * their order and before the transactions not filed by year, or after its
- * last include where it has neither. A main journal that includes it
+ * their order, or after its last include where it has none later. A main journal that includes it
  * already is as it was.
  */
 export const includingYear = (main: string, path: string): string => {
@@ -68,16 +65,14 @@ const holding = (files: BookFiles, id: PlayId): string | undefined =>
 
 /**
  * A book's files with a tally's entry written anew: where it stands, if its
- * day is still of that file's year or it stands among the transactions not
- * filed by year, which a book is filed by year all at once — every other
- * line as it was — or else taken out of where it stood and written at the
- * end of its new year's file. None where no file of the book's
+ * day is still of that file's year — every other line as it was — or else
+ * taken out of where it stood and written at the end of its new year's file. None where no file of the book's
  * transactions holds it.
  */
 export const withTallyFiled = (files: BookFiles, id: PlayId, date: IsoDate, entry: string): BookFiles | undefined => {
   const path = holding(files, id)
   if (path === undefined) return undefined
-  const stays = path === yearFileOf(date) || path === BOOK_FILES.transactions
+  const stays = path === yearFileOf(date)
   const text = stays ? withTallyEntry(files[path] ?? "", id, entry) : withoutTallyEntry(files[path] ?? "", id)
   if (text === undefined) return undefined
   return stays ? { ...files, [path]: text } : withEntryFiled({ ...files, [path]: text }, date, entry)
@@ -125,39 +120,5 @@ const entriesOf = (text: string): readonly (readonly string[])[] | undefined => 
   )
 }
 
-const yearOf = (entry: readonly string[]): string => HEADER.exec(entry[0] ?? "")?.[1] ?? ""
-
 /** The days a file of transactions has entries on, as their headers say; none where it holds anything but entries the app writes, which may bear on any day. */
 export const entryDaysOf = (text: string): readonly IsoDate[] | undefined => entriesOf(text)?.map((entry) => (entry[0] ?? "").slice(0, 10) as IsoDate)
-
-/**
- * The years whose entries stand among the transactions not filed by year,
- * oldest first: what filing the book by year would move. None where those
- * transactions hold anything but entries the app could have written — a
- * directive, a comment of a line's own, a day not written as the app
- * writes it, a posting with a day of its own — which is left as it is, a
- * hand's work, and read as it always was.
- */
-export const unfiledYears = (files: BookFiles): readonly string[] => [...new Set((entriesOf(files[BOOK_FILES.transactions] ?? "") ?? []).map(yearOf))].sort()
-
-/**
- * A book's files with a year's entries — its first so many, where `atMost`
- * says how many — moved from the transactions not filed by year to the end
- * of that year's file, each written exactly as it was and in the order it
- * stood, and how many moved. None where there is nothing of that year to
- * move, or those transactions hold anything but entries.
- */
-export const withYearFiled = (files: BookFiles, year: string, atMost: number = Infinity): { readonly files: BookFiles; readonly count: number } | undefined => {
-  const entries = entriesOf(files[BOOK_FILES.transactions] ?? "")
-  const moved = (entries?.filter((entry) => yearOf(entry) === year) ?? []).slice(0, atMost)
-  if (entries === undefined || moved.length === 0) return undefined
-  const left = entries.filter((entry) => !moved.includes(entry))
-  const kept = { ...files, [BOOK_FILES.transactions]: left.length === 0 ? "" : `${left.map((entry) => entry.join("\n")).join("\n\n")}\n` }
-  return {
-    files: withEntriesFiled(
-      kept,
-      moved.map((entry) => ({ date: `${year}-01-01` as IsoDate, text: `${entry.join("\n")}\n` })),
-    ),
-    count: moved.length,
-  }
-}

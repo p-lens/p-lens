@@ -2,7 +2,7 @@ import type { BalanceReport, EntryHead, Tag, Transaction } from "../../hledger/p
 import { parseIsoDate, type IsoDate } from "../calendar/calendar"
 import { YEN } from "../commodity/commodity"
 import { ZERO, negate, sum, type Decimal } from "../decimal/decimal"
-import { ACCOUNTS } from "../journal/accounts"
+import { ACCOUNTS, isWrittenReversed } from "../journal/accounts"
 import { PARLOR_ID_TAG, type ParlorId } from "../parlor/parlor"
 import { SOURCE_TAGS } from "../import/source-tally"
 import { TALLY_TAGS } from "../tally/tally"
@@ -73,6 +73,13 @@ export const tallySummaryOf = (transaction: Transaction): TallySummary | undefin
 
 export const tallySummariesOf = (transactions: readonly Transaction[]): readonly TallySummary[] =>
   transactions.map(tallySummaryOf).filter((tally): tally is TallySummary => tally !== undefined)
+
+/** What a tally's play gave back was written in: tokens, valued at their rate on its day, or yen, as a tally typed in yen writes it. */
+export type WonIn = "tokens" | "yen"
+
+/** What the revenue an entry puts down was written in: tokens where any of it is, yen otherwise. */
+export const wonInOf = (transaction: Transaction): WonIn =>
+  transaction.tpostings.some((posting) => isWrittenReversed(posting.paccount) && posting.pamount.some((amount) => amount.acommodity !== YEN)) ? "tokens" : "yen"
 
 /** A tally as a list shows it: what its entry says, and what it made where hledger could say — not where a token of it has no rate on its day. */
 export interface ListedTally extends TallySummary {

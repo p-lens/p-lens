@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { ACTIVITY_LOG, activityLineOf, activityOf, activityOfText, withActivity, type ActivityLine } from "../../src/core/activity/activity"
+import { ACTIVITY_KEPT_SECONDS, ACTIVITY_LOG, activityLineOf, activityOf, activityOfText, withActivity, withoutPastActivity, type ActivityLine } from "../../src/core/activity/activity"
 import type { MemberId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { fileChangesBetween, patchesOf, type ChangeIntent } from "../../src/core/change/journal-change"
@@ -139,19 +139,40 @@ const replayed = (log: string): unknown =>
     .reduce<Result<BookFiles, unknown>>((so, patch) => (so.ok ? mapOk(patched(so.value[patch.path], patch), (text) => ({ ...so.value, [patch.path]: text })) : so), Ok({}))
 
 describe("what a line says its change did", () => {
-  const created = written({}, "a1", { type: "book-created" }, { "main.journal": "; title: 帳簿\n", "transactions.journal": "" })
-  const played = written(created, "a2", { type: "play-recorded", playId: "p1" as PlayId, description: "流星", theoreticalValue: undefined }, { ...created, "transactions.journal": "2026-10-02 流星\n", "pachislot-play/p1.jsonl": "{}\n" })
+  const created = written({}, "a1", { type: "book-created" }, { "main.journal": "; title: 帳簿\n", "transactions/2026.journal": "" })
+  const played = written(created, "a2", { type: "play-recorded", playId: "p1" as PlayId, description: "流星", theoreticalValue: undefined }, { ...created, "transactions/2026.journal": "2026-10-02 流星\n", "pachislot-play/p1.jsonl": "{}\n" })
   const renamed = written(played, "a3", { type: "book-renamed", title: "勝負帳" }, { ...played, "main.journal": "; title: 勝負帳\n" })
   const without = (files: BookFiles): BookFiles => Object.fromEntries(Object.entries(files).filter(([path]) => path !== ACTIVITY_LOG))
 
   test("is every file it touched but the log itself, as the lines replaced, and reads back as written", () => {
     const [, second] = activityOfText(played[ACTIVITY_LOG] ?? "")
-    expect(second?.parts.changes).toEqual({ files: [patchBetween("pachislot-play/p1.jsonl", undefined, "{}\n"), patchBetween("transactions.journal", "", "2026-10-02 流星\n")] })
+    expect(second?.parts.changes).toEqual({ files: [patchBetween("pachislot-play/p1.jsonl", undefined, "{}\n"), patchBetween("transactions/2026.journal", "", "2026-10-02 流星\n")] })
     expect(lineOf("a9", { at: "2026-10-09T10:00:00.000Z", author: ME, intent: { type: "file-edited", path: ACTIVITY_LOG }, files: [patchBetween(ACTIVITY_LOG, "", "x")] }).parts.changes).toBeUndefined()
   })
 
   test("makes the book again: the lines in order from nothing leave its files as they stand, and the lines up to one as they stood then", () => {
     expect(replayed(renamed[ACTIVITY_LOG] ?? "")).toEqual({ ok: true, value: without(renamed) })
     expect(replayed((renamed[ACTIVITY_LOG] ?? "").split("\n").slice(0, 2).join("\n"))).toEqual({ ok: true, value: without(played) })
+  })
+})
+
+describe("a book's activity pruned", () => {
+  const log = logOf(CREATED, PLAYED, RENAMED)
+  const after = (at: string, seconds: number): Date => new Date(Date.parse(at) + seconds * 1000)
+
+  test("keeps 90 days of lines, and drops each written longer ago, every other line as it was", () => {
+    expect(ACTIVITY_KEPT_SECONDS).toBe(7_776_000)
+    expect(withoutPastActivity(log, after(CREATED.at, ACTIVITY_KEPT_SECONDS))).toBeUndefined()
+    expect(withoutPastActivity(log, after(CREATED.at, ACTIVITY_KEPT_SECONDS + 1))).toBe(logOf(PLAYED, RENAMED))
+    expect(withoutPastActivity(log, after(RENAMED.at, ACTIVITY_KEPT_SECONDS + 1))).toBe("")
+  })
+
+  test("keeps a line that does not read as one, being a hand's", () => {
+    const byHand = `not json\n${log}`
+    expect(withoutPastActivity(byHand, after(RENAMED.at, ACTIVITY_KEPT_SECONDS + 1))).toBe("not json\n")
+  })
+
+  test("is not itself a thing the activity tells of", () => {
+    expect(activityLineOf("a9", { at: "2026-10-09T10:00:00.000Z", author: ME, intent: { type: "activity-pruned" }, files: [patchBetween(ACTIVITY_LOG, "x\n", "")] })).toBeUndefined()
   })
 })

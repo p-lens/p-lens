@@ -79,8 +79,6 @@ export type ApplicationError =
   /** A play's tally written into its book, and the play then not marked recorded on the device: the book has it, and it is not to be recorded again. */
   | { readonly type: "recorded-unmarked"; readonly error: DraftError }
   | { readonly type: "tally-unreadable" }
-  /** A year's entries not moved into its file, since hledger would read the book otherwise after it. */
-  | { readonly type: "filing-differs"; readonly year: string }
   | SettingsUnreadable
   | { readonly type: "opening-balance-registered"; readonly parlor: string; readonly tier: string }
   | { readonly type: "catalog"; readonly error: CatalogError }

@@ -18,7 +18,6 @@ const MAIN = `; A P-Lens book: pachinko and pachislot play, kept as a plain-text
 ;   accounts.journal      commodities and accounts; a parlor is the savings accounts tagged parlor-id
 ;   prices.journal        P directives: what a parlor's tokens exchange for, by day
 ;   transactions/2026.journal  one entry per play, tagged play-id, game-kind and machine: a file a year, by the entry's date
-;   transactions.journal  entries not filed by year, as a hand or an app from before the years wrote them
 ;   pachinko-play/        a pachinko play's readings as JSON Lines, in a file named by its play-id
 ;   pachislot-play/       a pachislot play's, the same
 ;   logs/activity.jsonl   what was done to the book, as JSON Lines: who, when and what, a line a change
@@ -33,7 +32,6 @@ const MAIN = `; A P-Lens book: pachinko and pachislot play, kept as a plain-text
 
 include accounts.journal
 include prices.journal
-include transactions.journal
 `
 
 /** The accounts every book starts with: a parlor's savings are declared when a play first opens its pool. */
@@ -71,6 +69,5 @@ export const firstBook = (id: BookId, owner: MemberId, title: string): StoredBoo
     [BOOK_FILES.main]: withTitle(MAIN, title),
     [BOOK_FILES.accounts]: ACCOUNTS,
     [BOOK_FILES.prices]: "",
-    [BOOK_FILES.transactions]: "",
   },
 })

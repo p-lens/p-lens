@@ -64,11 +64,10 @@ A book is its journals, named in `core/journal/layout.ts` and
 `core/journal/filing.ts`:
 
 ```text
-main.journal               includes the others by name, never by pattern: the years in order, then transactions.journal
+main.journal               includes the others by name, never by pattern: the years in order
 accounts.journal           commodity and account declarations; a parlor is declared here
 prices.journal             P directives, only appended to
 transactions/<year>.journal  one entry per tally, and the savings' own entries, each in its day's year
-transactions.journal       entries not filed by year: what a hand, or an app from before the years, wrote
 pachinko-play/<play-id>.jsonl   a pachinko play's head line and checkpoints, written when a play followed live is recorded
 pachislot-play/<play-id>.jsonl  a pachislot play's, the same
 logs/activity.jsonl             what was done to the book: who, when, what, and the lines it changed, a line a change
@@ -82,7 +81,7 @@ thing done, shaped so that nothing about it is fixed but what every line
 has:
 
 ```json
-{"v":1,"id":"…","at":"2026-10-08T14:22:13.186Z","by":"local","did":"play-recorded","play":{"id":"…","description":"…"},"theoretical":{"value":"38"},"changes":{"files":[{"path":"transactions.journal","created":false,"hunks":[{"at":44,"removed":[],"added":["2026-10-08 …"]}]}]}}
+{"v":1,"id":"…","at":"2026-10-08T14:22:13.186Z","by":"local","did":"play-recorded","play":{"id":"…","description":"…"},"theoretical":{"value":"38"},"changes":{"files":[{"path":"transactions/2026.journal","created":false,"hunks":[{"at":44,"removed":[],"added":["2026-10-08 …"]}]}]}}
 ```
 
 - `v` is the version of the line's own shape: what every line has, and how
@@ -102,14 +101,19 @@ has:
 `BookSession` writes the line in the same commit as the change it tells of,
 so neither is ever without the other; a book written before it kept a log
 is given one on its next write, holding first what its history on that
-device says was done until then, each line under its commit's id. Only
-ever added to, so what two devices each added comes together as entries
-appended to a journal do; a line whose id was already read is read once,
+device says was done until then, each line under its commit's id. Added
+to, so what two devices each added comes together as entries appended to
+a journal do, and pruned of what is older than it is kept: 90 days
+(`ACTIVITY_KEPT_SECONDS`), once a page, a minute after it opens
+(`application/prune-activity`), in each book this member may write, as
+one change (`activity-pruned`) the log itself does not tell of. A line
+that does not read, or says no moment, is a hand's and stays; a line whose id was already read is read once,
 and a line that does not read is passed over, and told of: on the activity
 screen beside what it shows, and among the book's unreadable files on its
 row of the books (`unreadableFilesOf`). No journal includes it.
 
-The log is the book's events, and the book can be made again from them.
+The log is the book's recent events, and the book can be made again from
+them as long as nothing has been pruned.
 `changes` is what the change did to every file it touched but the log
 itself, as a commit holds it (`FilePatch`: the lines taken away and the
 lines put in, and where). The lines made in order from nothing leave the
@@ -121,8 +125,8 @@ backup too. What keeps it true:
 - What the log does not tell of is not made again from it: the log
   itself, and `logs/favorites.jsonl`, whose own lines are its events.
 
-A book whose log was begun before its lines held changes is made again
-only from where they do.
+A book whose log was begun before its lines held changes, or has been
+pruned, is made again only from where they do.
 
 A play's id is a UUIDv7 that says when it was played, so plays sort by their
 ids alone, and their logs by file name: a play followed live takes the moment it
@@ -171,9 +175,9 @@ transactions or anywhere else, nor any entry that exists only when the app
 reads the book — and any period is asked of hledger by its days, a balance by
 its last: the whole book is the years one after another, read as it always
 was. A tally set right stays where it stands while its day stays in that
-file's year, and moves to its new year's file otherwise; one among the
-transactions not filed by year stays there, a book being filed by year all
-at once.
+file's year, and moves to its new year's file otherwise. There is no file
+of transactions but the years': a book from before them, which kept its
+entries in a `transactions.journal`, is no longer looked after.
 
 **hledger reads a book file by file** (`readPiecewise` in the bindings) where
 its `main.journal` is nothing but comments, blank lines and includes by name:
@@ -197,18 +201,6 @@ name, and a book whose transactions hold anything the app does not write is
 read whole. So a year's question reads that year's file, and is answered as
 the whole book would answer it; every day reads the whole book, and so does
 the overview, whose savings are those standing now whatever the period.
-
-**A book is filed by year once, by the app, after the page's first sync
-round** (`application/file-by-year`): each year's entries among
-`transactions.journal` are moved into that year's file as they were written,
-the oldest year first and at most two hundred entries a commit
-(`year-filed`), which the activity tells, so that each fits the relay's box. A move is kept only where hledger reads the book after it, entry for
-entry and account for account, as it did before. A book is left as it is
-where its `transactions.journal` holds anything the app does not write — a
-directive, a comment of a line's own, a day not written as the app writes
-it, a posting with a day of its own — where this member may not write it,
-or where it is synced and holds commits not yet on its line, so that what
-two devices file is what both had and comes to the same commits.
 
 Savings are set in two ways, both against equity so that neither is any
 play's result: an opening balance, one entry tagged `savings: opening` kept

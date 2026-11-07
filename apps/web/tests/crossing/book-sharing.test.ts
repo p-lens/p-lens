@@ -12,7 +12,7 @@ import { patchesBetween } from "../../src/crossing/core/book/state"
 import { NAMES } from "../../src/crossing/core/keyring"
 import { createWebCryptoKeys } from "../../src/crossing/browser/web-crypto-keys"
 import { createWebSocketRelays } from "../../src/crossing/browser/websocket-relays"
-import { fixtureBook, inProcessHledger } from "../support/in-process"
+import { fixtureBook, inProcessHledger, FIXTURE_TRANSACTIONS } from "../support/in-process"
 import { BOOK, deviceOn, letEverythingGo, ME, startRelay, until, type Device } from "./support/devices"
 
 const MARKER = "MARKER-ネルフ本部-0451"
@@ -31,7 +31,7 @@ afterAll(() => {
 
 const entryOf = (day: string, yen: number, note: string): string => `${day} ${note}\n    費用:遊技  ${yen} JPY\n    資産:現金`
 
-const has = async (device: Device, note: string): Promise<boolean> => (await device.files())[BOOK_FILES.transactions]?.includes(note) === true
+const has = async (device: Device, note: string): Promise<boolean> => (await device.files())[FIXTURE_TRANSACTIONS]?.includes(note) === true
 
 const hledgerAt = (index: number): HledgerClient => held.hledgers[index] as HledgerClient
 
@@ -84,12 +84,12 @@ describe("a book shared with people the owner lets in", () => {
     await owner.write(entryOf("2026-11-03", 3000, "見せる分"))
     ownerLine.book.wrote()
     await until(() => has(viewer, "見せる分"))
-    const refused = await viewer.session.write(BOOK, async (_, stored) => Ok({ files: stored.files, intent: { type: "file-edited", path: BOOK_FILES.transactions } }))
+    const refused = await viewer.session.write(BOOK, async (_, stored) => Ok({ files: stored.files, intent: { type: "file-edited", path: FIXTURE_TRANSACTIONS } }))
     expect(refused.ok).toBe(false)
     const stored = await viewer.storage.readBook(BOOK)
     if (!stored.ok) throw new Error("unread")
-    const before = stored.value.files[BOOK_FILES.transactions] ?? ""
-    await viewer.storage.applyChanges(BOOK, [{ path: BOOK_FILES.transactions, before, after: appendEntry(before, entryOf("2026-11-04", 4000, "勝手な分")) }])
+    const before = stored.value.files[FIXTURE_TRANSACTIONS] ?? ""
+    await viewer.storage.applyChanges(BOOK, [{ path: FIXTURE_TRANSACTIONS, before, after: appendEntry(before, entryOf("2026-11-04", 4000, "勝手な分")) }])
     line.book.wrote()
     await until(async () => !(await has(viewer, "勝手な分")))
     const authors = new Set(relay.events().map((event) => event.pubkey))
@@ -115,9 +115,9 @@ describe("a book shared with people the owner lets in", () => {
     const at = Math.floor(Date.now() / 1000)
     const roster = forged({ ...shadow.value, [ROSTER_FILE]: `${shadow.value[ROSTER_FILE] ?? "{}"}`.replace('"viewer"', '"editor"') + " " }, { sort: "edit", parents: [link.head], writer: signer.pubkey, at })
     const title = forged({ ...shadow.value, [BOOK_FILES.main]: `; book-title-p: 乗っ取り\n${shadow.value[BOOK_FILES.main] ?? ""}` }, { sort: "edit", parents: [link.head], writer: signer.pubkey, at })
-    const sibling = forged({ ...shadow.value, [BOOK_FILES.transactions]: appendEntry(shadow.value[BOOK_FILES.transactions] ?? "", entryOf("2026-11-05", 500, "正当な分")) }, { sort: "edit", parents: [link.head], writer: signer.pubkey, at })
+    const sibling = forged({ ...shadow.value, [FIXTURE_TRANSACTIONS]: appendEntry(shadow.value[FIXTURE_TRANSACTIONS] ?? "", entryOf("2026-11-05", 500, "正当な分")) }, { sort: "edit", parents: [link.head], writer: signer.pubkey, at })
     const sneaked = forged(
-      { ...shadow.value, [BOOK_FILES.transactions]: appendEntry(shadow.value[BOOK_FILES.transactions] ?? "", entryOf("2026-11-06", 9999, "紛れ込ませた分")) },
+      { ...shadow.value, [FIXTURE_TRANSACTIONS]: appendEntry(shadow.value[FIXTURE_TRANSACTIONS] ?? "", entryOf("2026-11-06", 9999, "紛れ込ませた分")) },
       { sort: "merge", parents: [link.head, changeIdOf(sibling)].toSorted() as [ChangeId, ChangeId], writer: "", at },
     )
     const connection = createWebSocketRelays().connect(link.relay)

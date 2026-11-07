@@ -1,7 +1,7 @@
 import type { BalanceReport, MixedAmount, Quantity, ReportRow } from "../../hledger/protocol/wire"
 import { parseIsoDate, previousDay, type IsoDate } from "../calendar/calendar"
 import { SECONDS, YEN } from "../commodity/commodity"
-import { decimal, negate, sum, type Decimal } from "../decimal/decimal"
+import { decimal, isZero, multiply, negate, quotient, sum, type Decimal } from "../decimal/decimal"
 import { isWrittenReversed } from "../journal/accounts"
 import { Err, Ok, andThen, collect, mapOk, type Result } from "../result/result"
 
@@ -66,6 +66,12 @@ export const sidesOf = (statement: BalanceReport): Result<Sides, ReportError> =>
   andThen(yenAcross(statement.prRows.filter((row) => !isRevenue(row))), (spent) =>
     mapOk(yenAcross(statement.prRows.filter(isRevenue)), (credited) => ({ spent, won: negate(credited) })),
   )
+
+const SECONDS_IN_AN_HOUR = decimal(3600n, 0)
+
+/** Yen over a play time as yen an hour, to the whole yen; none where no time was played. */
+export const yenAnHourOf = (yen: Decimal, seconds: Decimal): Decimal | undefined =>
+  isZero(seconds) ? undefined : quotient(multiply(yen, SECONDS_IN_AN_HOUR), seconds, 0)
 
 /** The seconds a balance report of the play time's account came to; none where no posting was in it. */
 export const secondsOf = (balance: BalanceReport): Decimal | undefined =>

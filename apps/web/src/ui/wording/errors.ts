@@ -234,8 +234,6 @@ export const describeError = (error: ApplicationError): string => {
       return `収支は帳簿に記帳しました。ただ、この端末の稼働を記帳済みにできませんでした。もう一度記帳しないでください。${describeDraftError(error.error)}`
     case "tally-unreadable":
       return "この収支はフォームでは直せません（取り込んだ収支か、手で書き換えた仕訳です）。収支の詳細から削除して、追加し直してください。"
-    case "filing-differs":
-      return `${error.year}年の仕訳を年のファイルに移すと帳簿の読み方が変わるため、移していません。`
     case "settings-unreadable":
       return "この帳簿の settings.json が壊れていて読めないため、書き換えていません。バックアップから戻してください。"
     case "catalog":

@@ -68,8 +68,11 @@ export const memoryStorage = (): BookStorage & { readonly peek: (id: BookId) => 
 
 export const ME = "me" as MemberId
 
+/** The file a fixture keeps its entries in: its plays are all of one year. */
+export const FIXTURE_TRANSACTIONS = "transactions/2026.journal"
+
 export const fixtureBook = async (name: string, book: Book): Promise<StoredBook> => {
-  const paths = Object.values(BOOK_FILES)
+  const paths = [...Object.values(BOOK_FILES), FIXTURE_TRANSACTIONS]
   const texts = await Promise.all(paths.map((path) => readFile(`${WEB}fixtures/${name}/${path}`, "utf8")))
   return { book, files: Object.fromEntries(paths.map((path, index) => [path, texts[index] ?? ""])) }
 }
@@ -104,10 +107,10 @@ export const memoryDrafts = (): DraftStorage => {
   }
 }
 
-/** Every file of a book's transactions as one text, the years in order and those not filed by year after them: where a test looks for an entry written, whichever file it went to. */
+/** Every file of a book's transactions as one text, the years in order: where a test looks for an entry written, whichever file it went to. */
 export const transactionsOf = (files: BookFiles | undefined): string =>
   Object.keys(files ?? {})
     .filter(isTransactionsFile)
-    .toSorted((left, right) => Number(left === BOOK_FILES.transactions) - Number(right === BOOK_FILES.transactions) || left.localeCompare(right))
+    .toSorted((left, right) => left.localeCompare(right))
     .map((path) => files?.[path] ?? "")
     .join("\n")

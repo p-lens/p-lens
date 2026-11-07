@@ -3,9 +3,8 @@ import { describe, expect, test } from "bun:test"
 import { createBookSession } from "../../src/application/book-session"
 import { keepsTheoreticalValues } from "../../src/application/theoretical"
 import type { BookId } from "../../src/core/book/book"
-import { BOOK_FILES } from "../../src/core/journal/layout"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
-import { ME, fixtureBook, inProcessHledger, memoryStorage } from "../support/in-process"
+import { ME, fixtureBook, inProcessHledger, memoryStorage, FIXTURE_TRANSACTIONS } from "../support/in-process"
 
 const KEPT = "kept" as BookId
 const NONE = "none" as BookId
@@ -18,8 +17,8 @@ describe("whether a book keeps theoretical values, asked of the real hledger mod
     const session = createBookSession({ hledger: await inProcessHledger(), storage: memoryStorage(), history: createMemoryHistory(() => crypto.randomUUID()), clock: () => new Date("2026-10-09T12:00:00+09:00"), newId: () => crypto.randomUUID(), member: ME })
     const kept = await fixtureBook("basic-play", { id: KEPT, members: [{ id: ME, displayName: "me", role: "owner" }] })
     await session.createBook(kept)
-    await session.createBook({ book: { ...kept.book, id: NONE }, files: { ...kept.files, [BOOK_FILES.transactions]: withoutTheoreticalValues(kept.files[BOOK_FILES.transactions] ?? "") } })
-    expect(kept.files[BOOK_FILES.transactions]).toContain("(統計:期待値)")
+    await session.createBook({ book: { ...kept.book, id: NONE }, files: { ...kept.files, [FIXTURE_TRANSACTIONS]: withoutTheoreticalValues(kept.files[FIXTURE_TRANSACTIONS] ?? "") } })
+    expect(kept.files[FIXTURE_TRANSACTIONS]).toContain("(統計:期待値)")
     expect(await keepsTheoreticalValues(session, KEPT)).toEqual({ ok: true, value: true })
     expect(await keepsTheoreticalValues(session, NONE)).toEqual({ ok: true, value: false })
   })

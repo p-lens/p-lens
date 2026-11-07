@@ -23,7 +23,9 @@ const SENDERS = { mailbox: SENDER_MAILBOX, role: "sender", pubkey: STRANGER, vau
 
 const ROSTER: Roster = { epoch: undefined, members: [EDITORS] }
 
-const BOOK: BookFiles = { [BOOK_FILES.main]: "; book-title-p: 帳簿\ninclude transactions.journal\n", [BOOK_FILES.transactions]: "", "settings.json": '{\n  "order": 1\n}\n' }
+const TRANSACTIONS = "transactions/2026.journal"
+
+const BOOK: BookFiles = { [BOOK_FILES.main]: "; book-title-p: 帳簿\ninclude transactions/2026.journal\n", [TRANSACTIONS]: "", "settings.json": '{\n  "order": 1\n}\n' }
 
 const base = (files: BookFiles): Change => ({ sort: "base", parents: [], writer: OWNER, at: 1, book: "book-1", files, result: stateDigestOf(files) })
 
@@ -96,7 +98,7 @@ describe("codes and what is sealed for the people let in", () => {
 })
 
 describe("which changes are taken", () => {
-  const added = (files: BookFiles, line: string): BookFiles => ({ ...files, [BOOK_FILES.transactions]: `${files[BOOK_FILES.transactions] ?? ""}${line}\n` })
+  const added = (files: BookFiles, line: string): BookFiles => ({ ...files, [TRANSACTIONS]: `${files[TRANSACTIONS] ?? ""}${line}\n` })
 
   test("the owner's, and an editor's the roster lists, and anything made on them", () => {
     const editors = editOn(firstId, shared, added(shared, "; 編集者"), EDITOR)
@@ -108,7 +110,7 @@ describe("which changes are taken", () => {
   test("not a stranger's, nor an editor's that changes the roster, the title or the book's place, nor anything made on one", () => {
     const strangers = editOn(firstId, shared, added(shared, "; 他人"), STRANGER)
     const roster = editOn(firstId, shared, { ...shared, [ROSTER_FILE]: rosterText({ ...ROSTER, members: [] }) }, EDITOR)
-    const title = editOn(firstId, shared, { ...shared, [BOOK_FILES.main]: "; book-title-p: 乗っ取り\ninclude transactions.journal\n" }, EDITOR)
+    const title = editOn(firstId, shared, { ...shared, [BOOK_FILES.main]: "; book-title-p: 乗っ取り\ninclude transactions/2026.journal\n" }, EDITOR)
     const order = editOn(firstId, shared, { ...shared, "settings.json": '{\n  "order": 9\n}\n' }, EDITOR)
     const onStrangers = editOn(changeIdOf(strangers), added(shared, "; 他人"), added(added(shared, "; 他人"), "; 持ち主"), OWNER, 3)
     const forgedBase = { ...base(shared), writer: EDITOR }

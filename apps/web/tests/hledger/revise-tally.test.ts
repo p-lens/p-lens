@@ -20,7 +20,7 @@ import type { TokenTally, YenTally } from "../../src/core/tally/tally"
 import type { PlayId } from "../../src/core/play/play"
 import { Ok, mapOk } from "../../src/core/result/result"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
-import { ME, fixtureBook, inProcessHledger, memoryStorage, transactionsOf } from "../support/in-process"
+import { ME, fixtureBook, inProcessHledger, memoryStorage, transactionsOf, FIXTURE_TRANSACTIONS } from "../support/in-process"
 import { RENTED_PLAY, MALEHAN, dec, saidIn } from "../support/values"
 
 const BOOK = "revise" as BookId
@@ -168,13 +168,13 @@ describe("a recorded tally, read back from its entry", () => {
   test("is the same tally where its entry is one written when rented tokens still passed through savings", async () => {
     const { session, storage } = await setUp()
     const asWritten = await recordedOf(session, "made-up-0905")
-    const text = storage.peek(BOOK)?.files[BOOK_FILES.transactions] ?? ""
+    const text = storage.peek(BOOK)?.files[FIXTURE_TRANSACTIONS] ?? ""
     const older = text.replace(
       '    費用:遊技                        3000 "玉(4円・マレハン東京皇国第8支店)" @ 3.57 JPY\n',
       '    資産:貯玉:マレハン東京皇国第8支店:4円         3000 "玉(4円・マレハン東京皇国第8支店)" @ 3.57 JPY\n    資産:貯玉:マレハン東京皇国第8支店:4円         -3000 "玉(4円・マレハン東京皇国第8支店)"\n    費用:遊技                        3000 "玉(4円・マレハン東京皇国第8支店)"\n',
     )
     expect(older).not.toBe(text)
-    const edited = await session.write(BOOK, async (_journal, stored) => Ok({ files: { ...stored.files, [BOOK_FILES.transactions]: older }, intent: { type: "file-edited", path: BOOK_FILES.transactions } }))
+    const edited = await session.write(BOOK, async (_journal, stored) => Ok({ files: { ...stored.files, [FIXTURE_TRANSACTIONS]: older }, intent: { type: "file-edited", path: FIXTURE_TRANSACTIONS } }))
     expect(edited.ok).toBe(true)
     expect(asWritten.ok && asWritten.value.type).toBe("token")
     expect(await recordedOf(session, "made-up-0905")).toEqual(asWritten)
@@ -210,10 +210,10 @@ describe("a recorded tally, read back from its entry", () => {
 
   test("is refused where its entry was changed by hand into what no form makes, and where the book has no such tally", async () => {
     const { session, storage } = await setUp()
-    const text = storage.peek(BOOK)?.files[BOOK_FILES.transactions] ?? ""
+    const text = storage.peek(BOOK)?.files[FIXTURE_TRANSACTIONS] ?? ""
     const byHand = text.replace("    費用:遊技                        3000 \"玉(4円・マレハン東京皇国第8支店)\" @ 3.57 JPY\n", "    費用:遊技                        2000 \"玉(4円・マレハン東京皇国第8支店)\" @ 3.57 JPY\n    費用:再プレイ手数料                  1000 \"玉(4円・マレハン東京皇国第8支店)\" @ 3.57 JPY\n")
     expect(byHand).not.toBe(text)
-    const edited = await session.write(BOOK, async (_journal, stored) => Ok({ files: { ...stored.files, [BOOK_FILES.transactions]: byHand }, intent: { type: "file-edited", path: BOOK_FILES.transactions } }))
+    const edited = await session.write(BOOK, async (_journal, stored) => Ok({ files: { ...stored.files, [FIXTURE_TRANSACTIONS]: byHand }, intent: { type: "file-edited", path: FIXTURE_TRANSACTIONS } }))
     expect(edited.ok).toBe(true)
     expect(await recordedOf(session, "made-up-0905")).toEqual({ ok: false, error: { type: "tally-unreadable" } })
     expect(await recordedOf(session, "nowhere")).toEqual({ ok: false, error: { type: "tally-missing" } })
@@ -221,10 +221,10 @@ describe("a recorded tally, read back from its entry", () => {
 
   test("is refused where a tag on its entry was changed by hand into what no form writes, so setting it right loses none", async () => {
     const { session, storage } = await setUp()
-    const text = storage.peek(BOOK)?.files[BOOK_FILES.transactions] ?? ""
+    const text = storage.peek(BOOK)?.files[FIXTURE_TRANSACTIONS] ?? ""
     const withTag = (tag: string): string => text.replace("play-id: made-up-0905", `play-id: made-up-0905, ${tag}`)
     const refusedWith = async (tag: string): Promise<unknown> => {
-      const edited = await session.write(BOOK, async (_journal, stored) => Ok({ files: { ...stored.files, [BOOK_FILES.transactions]: withTag(tag) }, intent: { type: "file-edited", path: BOOK_FILES.transactions } }))
+      const edited = await session.write(BOOK, async (_journal, stored) => Ok({ files: { ...stored.files, [FIXTURE_TRANSACTIONS]: withTag(tag) }, intent: { type: "file-edited", path: FIXTURE_TRANSACTIONS } }))
       expect(edited.ok).toBe(true)
       return recordedOf(session, "made-up-0905")
     }
@@ -296,10 +296,10 @@ describe("setting a recorded tally right", () => {
 describe("taking a recorded tally out of a book", () => {
   test("leaves the journal as it was before the tally, and says so in the activity", async () => {
     const { session, storage, history } = await setUp()
-    const before = storage.peek(BOOK)?.files[BOOK_FILES.transactions]
+    const before = storage.peek(BOOK)?.files[FIXTURE_TRANSACTIONS]
     await recordTokenTally(session, BOOK, TODAY)
     expect((await removeTally(session, BOOK, "today" as PlayId)).ok).toBe(true)
-    expect(storage.peek(BOOK)?.files[BOOK_FILES.transactions]).toBe(before as string)
+    expect(storage.peek(BOOK)?.files[FIXTURE_TRANSACTIONS]).toBe(before as string)
     expect(await figures(session, "date:2026-10-04")).toEqual({ ok: true, value: ["0", "0"] })
     expect(mapOk(await loadActivity(session, history, BOOK), (found) => found.lines.map((line) => line.did))).toEqual({ ok: true, value: ["play-recorded", "play-removed"] })
   })

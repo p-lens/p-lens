@@ -24,7 +24,7 @@ import { formatDay } from "../../wording/dates"
 import { describeError, describePlayLogError } from "../../wording/errors"
 import { formatCommodityAmount, formatTheoreticalYen } from "../../wording/numbers"
 import { parlorNameText, rateText } from "../../wording/parlor"
-import { NO_MACHINE, NO_PARLOR, shownDescription, tallyTitle } from "../../wording/tallies"
+import { NO_MACHINE, NO_PARLOR, shownDescription, tallyTitle, wonCaptions, workCaptions } from "../../wording/tallies"
 import { Figure } from "./Figure"
 import * as PachinkoViews from "../pachinko"
 import * as PachislotViews from "../pachislot"
@@ -142,14 +142,18 @@ export function TallyDetail(props: { readonly place: Place; readonly bookId: Boo
               terms={found.terms}
             />
             <dl class="grid grid-cols-2 gap-2">
-              <Figure label="投資" value={found.sides.spent} kind="sum" caption="貸玉差額・再プレイ手数料を含む" />
-              <Figure label="回収" value={found.sides.won} kind="sum" />
-              <Figure label="実収支" value={found.actual} kind="actual" caption="稼働日の交換率で評価" />
+              <Figure label="投資" value={found.sides.spent} kind="sum" captions={["貸玉差額・再プレイ手数料を含む"]} />
+              <Figure label="回収" value={found.sides.won} kind="sum" captions={wonCaptions(found.summary.gameKind, found.wonIn)} />
+              <Figure label="実収支" value={found.actual} kind="actual" captions={["稼働日の交換率で評価"]} />
               <Figure
                 label={found.summary.theoreticalValue === undefined && found.summary.inferredValue !== undefined ? "推定期待値" : "期待値"}
                 value={found.summary.theoreticalValue === undefined && found.summary.inferredValue === undefined ? undefined : found.theoretical}
                 kind="theoretical"
-                {...(found.summary.theoreticalValue === undefined && found.summary.inferredValue !== undefined ? { caption: "稼働時間と収支から推定" } : {})}
+                captions={
+                  found.summary.theoreticalValue === undefined && found.summary.inferredValue === undefined
+                    ? []
+                    : [...(found.summary.theoreticalValue === undefined ? ["稼働時間と収支から推定"] : []), ...workCaptions(found.playSeconds, found.theoretical)]
+                }
               />
             </dl>
             <Show when={found.log.type !== "none"}>

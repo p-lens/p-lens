@@ -28,14 +28,14 @@ import { loadTallies } from "../../src/application/tallies"
 import { createAbsentSummaries } from "../../src/consolidation/absent/absent-summaries"
 import { webCryptoJournalsDigest } from "../../src/consolidation/web-crypto/journals-digest"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
-import { ME, fixtureBook, inProcessHledger, memoryStorage } from "../support/in-process"
+import { FIXTURE_TRANSACTIONS, ME, fixtureBook, inProcessHledger, memoryStorage } from "../support/in-process"
 
 const VIEWED = "viewed" as BookId
 const WHOLE = "whole" as BookId
 
 /** The fixture's plays filed over three years — its first play a year back, its second at the turn of the year — with its rates from before the first. */
 const overYears = (files: BookFiles): BookFiles => {
-  const moved = (files[BOOK_FILES.transactions] ?? "")
+  const moved = (files[FIXTURE_TRANSACTIONS] ?? "")
     .split("\n\n")
     .map((text, at) => (at === 0 ? text.replace("2026-09-05", "2024-06-01") : at === 1 ? text.replace("2026-09-12", "2025-12-31") : text))
   const prices = files[BOOK_FILES.prices] ?? ""
@@ -45,7 +45,7 @@ const overYears = (files: BookFiles): BookFiles => {
     .map((line) => line.replace("P 2026-09-01", "P 2024-01-01"))
     .join("\n")
   return withEntriesFiled(
-    { ...files, [BOOK_FILES.prices]: `${earlier}\n${prices}`, [BOOK_FILES.transactions]: "" },
+    { ...Object.fromEntries(Object.entries(files).filter(([path]) => path !== FIXTURE_TRANSACTIONS)), [BOOK_FILES.prices]: `${earlier}\n${prices}`, [BOOK_FILES.main]: (files[BOOK_FILES.main] ?? "").replace(`include ${FIXTURE_TRANSACTIONS}\n`, "") },
     moved.map((text) => ({ date: text.slice(0, 10) as IsoDate, text: `${text.replace(/\n*$/, "")}\n` })),
   )
 }
@@ -55,7 +55,7 @@ const setUp = async (): Promise<ConsolidationPorts & { readonly session: ReturnT
   const fixture = await fixtureBook("basic-play", { id: VIEWED, members: [{ id: ME, displayName: "me", role: "owner" }] })
   const files = overYears(fixture.files)
   await storage.createBook({ ...fixture, files })
-  await storage.createBook({ book: { ...fixture.book, id: WHOLE }, files: { ...files, [BOOK_FILES.transactions]: "; read whole: a line the app does not write\n" } })
+  await storage.createBook({ book: { ...fixture.book, id: WHOLE }, files: { ...files, [FIXTURE_TRANSACTIONS]: `; read whole: a line the app does not write\n${files[FIXTURE_TRANSACTIONS] ?? ""}` } })
   const session = createBookSession({
     hledger: await inProcessHledger(),
     storage,
@@ -87,21 +87,20 @@ describe("a book seen for a question about some days", () => {
   test("is the files the days can count, and none where nothing would be left out or a file holds what the app does not write", () => {
     const entry = (date: string) => ({ date: date as IsoDate, text: `${date} a\n    x  1\n    y\n` })
     const files = withEntriesFiled(
-      { [BOOK_FILES.main]: "include accounts.journal\ninclude transactions.journal\n", [BOOK_FILES.accounts]: "", [BOOK_FILES.transactions]: "" },
+      { [BOOK_FILES.main]: "include accounts.journal\n", [BOOK_FILES.accounts]: "" },
       ["2024-06-01", "2026-01-01", "2026-09-05"].map(entry),
     )
     const year = viewOf(files, daysOfQuery("date:2026") ?? { from: undefined, until: undefined }, "moved")
-    expect(Object.keys(year ?? {}).toSorted()).toEqual([BOOK_FILES.accounts, BOOK_FILES.main, BOOK_FILES.transactions, "transactions/2026.journal"])
+    expect(Object.keys(year ?? {}).toSorted()).toEqual([BOOK_FILES.accounts, BOOK_FILES.main, "transactions/2026.journal"])
     expect(year?.[BOOK_FILES.main]).not.toContain("transactions/2024.journal")
     expect(Object.keys(viewOf(files, daysOfQuery("date:..2026-01-01") ?? { from: undefined, until: undefined }, "stood") ?? {}).toSorted()).toEqual([
       BOOK_FILES.accounts,
       BOOK_FILES.main,
-      BOOK_FILES.transactions,
       "transactions/2024.journal",
     ])
     expect(viewOf(files, daysOfQuery("date:2026-01-01..") ?? { from: undefined, until: undefined }, "stood")).toBeUndefined()
     expect(viewOf(files, { from: undefined, until: undefined }, "moved")).toBeUndefined()
-    expect(viewOf({ ...files, [BOOK_FILES.transactions]: "; by hand\n" }, daysOfQuery("date:2026") ?? { from: undefined, until: undefined }, "moved")).toBeUndefined()
+    expect(viewOf({ ...files, "transactions/2024.journal": `; by hand\n${files["transactions/2024.journal"] ?? ""}` }, daysOfQuery("date:2026") ?? { from: undefined, until: undefined }, "moved")).toBeUndefined()
   })
 
   test("reads the days of a period the app writes, and none of any other query", () => {

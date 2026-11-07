@@ -12,6 +12,10 @@ import { amountText, formatCount, theoreticalFigureText, theoreticalFractionText
 import { seal } from "../../../../mummer"
 import { StandingMark } from "./StandingMark"
 
+/** The jackpots this play records, and beside them, where the seat's count was read, what the parlor's counter should be showing: the two a person checks against each other. */
+const jackpotsText = (summary: LiveSummary): string =>
+  summary.counterJackpotsNow === undefined ? formatCount(summary.jackpots) : `${formatCount(summary.jackpots)} / ${formatCount(summary.counterJackpotsNow)}`
+
 const rateOf = (perThousand: number | undefined): string => (perThousand === undefined ? "--" : perThousand.toFixed(1))
 
 /** One figure under its name, small enough that three sit side by side on a phone: the figures must leave room for the readings under them. What it is given to wear stands after its name, and what it is given to note after that. */
@@ -91,7 +95,7 @@ export function LiveFigures(props: {
         <Show when={!props.folded}>
           <Tile label="通常回転" value={formatCount(props.consumption?.regularSpins ?? props.summary.spins)} unit="回転" />
           <Tile label="カウンタ" value={formatCount(props.summary.counterNow)} unit="回転" />
-          <Tile label="大当り" value={formatCount(props.summary.jackpots)} unit="回" />
+          <Tile label="大当り" value={jackpotsText(props.summary)} unit="回" />
         </Show>
         <Tile label="現金投資" value={props.summary.outlay === undefined ? "--" : `¥${amountText(seal.play(props.summary.outlay))}`} />
         <Tile label="貯玉投資" value={amountText(seal.play(props.replayed))} unit="玉" />

@@ -9,11 +9,10 @@ import type { PlayId } from "../play/play"
 
 /**
  * Where a book says what was done to it, one line of JSON a thing done,
- * oldest first and only ever added to — so what each of two devices added
- * comes together as lines do in a journal. A line holds what its change
- * did to each file, so the lines made in order from nothing leave the
- * book's journals and play logs as they stand, and the lines up to any
- * one leave them as they stood then. It is one of the book's files: no
+ * oldest first and added to but for what is older than it is kept
+ * (`ACTIVITY_KEPT_SECONDS`) — so what each of two devices added comes
+ * together as lines do in a journal. A line holds what its change did to
+ * each file. It is one of the book's files: no
  * journal includes it, so hledger passes it by, and it goes wherever the
  * book's files go — to a person's other devices, and into a backup.
  */
@@ -51,8 +50,6 @@ export interface Parts {
   readonly play?: { readonly id: PlayId; readonly description: string }
   readonly theoretical?: { readonly value: Decimal }
   readonly imported?: { readonly from: string; readonly count: number }
-  /** A year whose entries were moved into its own file, and how many. */
-  readonly filed?: { readonly year: number; readonly count: number }
   /** How many days' 収支 were typed in a month at a time. */
   readonly entered?: { readonly count: number }
   /** The day a thing done to savings was on, and the tokens it named, balls or medals: the count registered or put right to, or the tokens exchanged or taken back. */
@@ -81,9 +78,9 @@ export interface ActivityLine {
  * What a change did, as the word and the parts an activity line says it
  * in; nothing for a change the activity does not tell of — a press of the
  * heart or of a mark, which the book's favourites and marks record line by
- * line themselves, or a book moved in its owner's list or told the hour
+ * line themselves, a book moved in its owner's list or told the hour
  * its owner's business day turns over at, which change nothing the book
- * records.
+ * records, or its activity rid of what is older than it is kept.
  */
 const saidOf = (intent: ChangeIntent): Pick<ActivityLine, "did" | "parts"> | undefined => {
   switch (intent.type) {
@@ -94,6 +91,7 @@ const saidOf = (intent: ChangeIntent): Pick<ActivityLine, "did" | "parts"> | und
     case "business-day-turn-set":
     case "presses-set":
     case "inference-terms-set":
+    case "activity-pruned":
       return undefined
     case "book-created":
       return { did: intent.type, parts: {} }
@@ -119,8 +117,6 @@ const saidOf = (intent: ChangeIntent): Pick<ActivityLine, "did" | "parts"> | und
       return { did: intent.type, parts: { imported: { from: intent.from, count: intent.count } } }
     case "days-entered":
       return { did: intent.type, parts: { entered: { count: intent.count } } }
-    case "year-filed":
-      return { did: intent.type, parts: { filed: { year: intent.year, count: intent.count } } }
     case "play-removed":
       return { did: intent.type, parts: { play: { id: intent.playId, description: intent.description } } }
     case "play-recorded":
@@ -191,7 +187,6 @@ const partsOf = (line: Readonly<Record<string, unknown>>): Parts => ({
   ...part("parlors", ({ names }) => (isNames(names) ? { names } : undefined), line),
   ...part("play", ({ id, description }) => (typeof id === "string" && typeof description === "string" ? { id: id as PlayId, description } : undefined), line),
   ...part("imported", ({ from, count }) => (typeof from === "string" && typeof count === "number" ? { from, count } : undefined), line),
-  ...part("filed", ({ year, count }) => (typeof year === "number" && typeof count === "number" ? { year, count } : undefined), line),
   ...part("entered", ({ count }) => (typeof count === "number" ? { count } : undefined), line),
   ...part("theoretical", ({ value }) => ((found) => (found === undefined ? undefined : { value: found }))(decimalOf(value)), line),
   ...part("savings", ({ date, kind, tokens }) => ((day, count) => (day === undefined || count === undefined || !isTokenKind(kind) ? undefined : { date: day, kind, tokens: count }))(dateOf(date), decimalOf(tokens)), line),
@@ -272,4 +267,21 @@ export const activityOf = (files: BookFiles, history: readonly ActivityLine[]): 
   const held = files[ACTIVITY_LOG]
   const lines = held === undefined ? history : activityOfText(held)
   return lines.toSorted((left, right) => Date.parse(right.at) - Date.parse(left.at))
+}
+
+/** How long a line of a book's activity is kept, in seconds: 90 days. */
+export const ACTIVITY_KEPT_SECONDS = 7_776_000
+
+/** Whether a line of an activity log was written longer ago than a line is kept, as of a moment: a line that does not read as one, or says no moment it was written, is kept, being a hand's. */
+const isPast = (now: Date) => (text: string): boolean => {
+  const at = text.trim() === "" ? undefined : lineOf(text)?.at
+  const written = at === undefined ? Number.NaN : Date.parse(at)
+  return !Number.isNaN(written) && now.getTime() - written > ACTIVITY_KEPT_SECONDS * 1000
+}
+
+/** An activity log's text without the lines written longer ago than a line is kept, as of a moment, each other line as it was; none where there is none such. */
+export const withoutPastActivity = (text: string, now: Date): string | undefined => {
+  const lines = text.split("\n")
+  const kept = lines.filter((line) => !isPast(now)(line))
+  return kept.length === lines.length ? undefined : kept.join("\n").replace(/^\n+/, "")
 }

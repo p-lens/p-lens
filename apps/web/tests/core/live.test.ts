@@ -45,6 +45,7 @@ describe("where a play stands", () => {
       outlay: 2000,
       jackpots: 1,
       counterJackpots: 3,
+      counterJackpotsNow: undefined,
       overall: { fromSpins: 0, toSpins: 400, spinPerformance: 200 },
       stretches: [
         { fromSpins: 0, toSpins: 180, spinPerformance: 180 },
@@ -128,6 +129,7 @@ describe("the jackpots a log records", () => {
     const summary = liveSummary(log)
     expect(summary.jackpots).toBe(4)
     expect(summary.counterJackpots).toBe(3)
+    expect(summary.counterJackpotsNow).toBe(13)
     expect(missingJackpots(liveSummary(log.slice(0, 3).concat({ spins: 150, counter: { spins: 40, jackpots: 12 } })))).toBe(0)
     expect(missingJackpots(liveSummary([log[0] as Checkpoint, { spins: 110, counter: { spins: 30, jackpots: 12 }, event: { kind: "jackpot", bonus: { ...TWICE, jackpots: 1 } } }]))).toBe(2)
   })
@@ -141,6 +143,7 @@ describe("the jackpots a log records", () => {
     expect(liveSummary(log, { ...EVERY_JACKPOT, runs: "per-bonus" }).jackpots).toBe(2)
     expect(missingJackpots(liveSummary(log, { ...EVERY_JACKPOT, runs: "per-bonus" }))).toBe(0)
     expect(liveSummary(log).jackpots).toBe(4)
+    expect(liveSummary(log, { ...EVERY_JACKPOT, runs: "per-bonus" }).counterJackpotsNow).toBe(11)
   })
 
   test("are read back from a line as it was written, and a line that says none of a bonus is refused", () => {

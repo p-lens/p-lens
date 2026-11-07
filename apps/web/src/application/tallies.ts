@@ -8,7 +8,8 @@ import { parsePlayLog, playLogPath, type Checkpoint, type PlayLogError } from ".
 import { termsInHead } from "../core/play-log/head"
 import { inPlayOrder } from "../core/play-log/performance"
 import { actualOf, sidesOf, statisticTotalOf, type Sides } from "../core/report/figures"
-import { listedTalliesOf, tallySummariesOf, tallySummaryOf, type ListedTally, type TallySummary } from "../core/report/tallies"
+import { listedTalliesOf, tallySummariesOf, tallySummaryOf, wonInOf, type ListedTally, type TallySummary, type WonIn } from "../core/report/tallies"
+import { tallyNotesOf } from "../core/report/tally-notes"
 import { Err, Ok, andThen, mapOk } from "../core/result/result"
 import type { Transaction } from "../hledger/protocol/wire"
 import { tallyTerm } from "../hledger/query/terms"
@@ -51,6 +52,10 @@ export interface TallyDetail {
   readonly transaction: Transaction
   /** What went into its play — tokens played and the rental spread and replay fee beside them — and what came out, in yen at the play's day. */
   readonly sides: Sides
+  /** What its play gave back was written in, which says how 回収 came to yen. */
+  readonly wonIn: WonIn
+  /** The seconds its play lasted, where its entry says. */
+  readonly playSeconds: Decimal | undefined
   readonly actual: Decimal
   readonly theoretical: Decimal
 }
@@ -107,6 +112,8 @@ export const loadTally = (session: BookSession, bookId: BookId, id: PlayId): Pro
           terms: termsOf(stored.files, summary),
               transaction,
               sides,
+              wonIn: wonInOf(transaction),
+              playSeconds: tallyNotesOf(transaction).playSeconds,
               actual,
               theoretical: theoreticalValue,
             })),

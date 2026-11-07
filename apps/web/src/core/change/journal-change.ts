@@ -28,6 +28,8 @@ export type ChangeIntent =
   | { readonly type: "presses-set"; readonly corner: string }
   /** The terms a tally of a game typed in by hand was weighed on, written in the book's settings for the next to open on: no change to what the book records. */
   | { readonly type: "inference-terms-set"; readonly game: PlayGameKind }
+  /** The book's activity rid of what was done longer ago than it is kept: no change to what the book records. */
+  | { readonly type: "activity-pruned" }
   | { readonly type: "file-edited"; readonly path: string }
   /** A pool's savings registered as they stood on a day: so many tokens. */
   | { readonly type: "savings-opened"; readonly parlor: string; readonly tier: string; readonly date: IsoDate; readonly kind: TokenKind; readonly tokens: Decimal }
@@ -62,7 +64,6 @@ export type ChangeIntent =
   /** Tallies taken in from another app, given afterwards what each was taken to be worth: so many of them. */
   | { readonly type: "imported-weighed"; readonly from: string; readonly count: number }
   /** A year's entries moved, as they were written, from the transactions not filed by year into that year's file: so many of them. */
-  | { readonly type: "year-filed"; readonly year: number; readonly count: number }
   /** A formula or a 設定配分 kept handy in the book, or let go: written in the book's favourites, which is its own record of it. */
   | { readonly type: "favorite-kept"; readonly target: "formula" | "distribution"; readonly id: string }
   | { readonly type: "favorite-let-go"; readonly target: "formula" | "distribution"; readonly id: string }

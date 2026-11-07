@@ -3,12 +3,12 @@ import { createContext, createEffect, createMemo, createResource, createSignal, 
 import { adoptBusinessDayTurn } from "../application/business-day-turn"
 import { loadMachineNames, refreshCatalog } from "../application/catalog"
 import type { ApplicationError } from "../application/errors"
+import { pruneEveryBookActivity } from "../application/prune-activity"
 import type { Services } from "../application/services"
 import type { MachineNames } from "../core/catalog/catalog"
 import type { Huddle } from "../core/huddle/huddle"
 import { listedFor, othersHere, othersPlays, type HuddleOther, type HuddlePlay } from "../core/huddle/post"
 import { idleMembers } from "../core/huddle/standing"
-import { fileEveryBookByYear } from "../application/file-by-year"
 import { huddleNow } from "../application/huddle"
 import type { CrossingServices } from "../crossing"
 import { keepStorage } from "../application/storage-keeping"
@@ -82,6 +82,9 @@ const NO_MACHINE_NAMES: MachineNames = new Map()
 
 /** How long after sharing the catalog is refreshed again, in milliseconds. */
 const AFTER_SHARING = [5_000, 30_000, 120_000] as const
+
+/** How long after the app opens the books' past activity is pruned, in milliseconds: once the first screen has been read and the catalog asked after. */
+const PRUNE_AFTER_OPENING = 60_000
 
 interface AppContext {
   readonly services: Services
@@ -173,7 +176,7 @@ export function AppProvider(props: {
   const huddleHere = createMemo((): readonly HuddleOther[] => ((joined) => (joined === undefined ? [] : othersHere(huddleLine.entries(), joined.member)))(huddle()))
   const huddleOthers = createMemo((): readonly HuddlePlay[] => ((joined) => (joined === undefined ? [] : listedFor(huddleCounted(), joined)))(huddle()))
   const [state, setState] = createSignal<DeliveryState>({ type: "idle" })
-  const timers: { pending: readonly ReturnType<typeof setTimeout>[] } = { pending: [] }
+  const timers: { pending: readonly ReturnType<typeof setTimeout>[]; pruning: ReturnType<typeof setTimeout> | undefined } = { pending: [], pruning: undefined }
   const refresh = async (): Promise<DeliveryState> => {
     setState({ type: "refreshing" })
     const done = await refreshCatalog(props.services.catalog)
@@ -211,19 +214,22 @@ export function AppProvider(props: {
     setReconnected((count) => count + 1)
     refreshInBackground()
   }
-  /** Every book filed by year once a page, as the app opens: the device's own work, waiting on nothing that crosses devices. */
-  const fileByYearOnce = (): void => {
-    void fileEveryBookByYear({ session: props.services.session, member: props.services.member }).then((years) => {
-      if (years.ok && years.value > 0) wroteAndKept()
-    })
+  /** Every book's activity rid of what is older than it is kept, once a page, a while after it opens: the device's own work, out of the way of what a person opened the app for. */
+  const pruneOnceOpened = (): void => {
+    timers.pruning = setTimeout(() => {
+      void pruneEveryBookActivity({ session: props.services.session, member: props.services.member, now: props.services.now }).then((pruned) => {
+        if (pruned.ok && pruned.value > 0) wrote()
+      })
+    }, PRUNE_AFTER_OPENING)
   }
   onMount(() => {
     refreshInBackground()
-    fileByYearOnce()
+    pruneOnceOpened()
     window.addEventListener("online", backOnline)
   })
   onCleanup(() => {
     timers.pending.forEach(clearTimeout)
+    clearTimeout(timers.pruning)
     window.removeEventListener("online", backOnline)
   })
   return (

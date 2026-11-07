@@ -1,7 +1,7 @@
 import { createBookSession, type BookSession } from "../../../src/application/book-session"
 import type { BookId, Member } from "../../../src/core/book/book"
 import { localDayOf, type IsoDate } from "../../../src/core/calendar/calendar"
-import { appendEntry, BOOK_FILES, type BookFiles } from "../../../src/core/journal/layout"
+import { appendEntry, type BookFiles } from "../../../src/core/journal/layout"
 import type { PlayId } from "../../../src/core/play/play"
 import { Ok } from "../../../src/core/result/result"
 import type { HledgerClient } from "../../../src/hledger/client/client"
@@ -15,7 +15,7 @@ import { createMemoryLineStore } from "../../../src/crossing/memory/memory-line-
 import type { BookLink, FollowedPlay } from "../../../src/crossing/port/line-store"
 import type { Connection } from "../../../src/crossing/port/relay"
 import { createMemoryHistory } from "../../../src/history/adapters/memory-history"
-import { fixtureBook, memoryDrafts, memoryStorage } from "../../support/in-process"
+import { fixtureBook, memoryDrafts, memoryStorage, FIXTURE_TRANSACTIONS } from "../../support/in-process"
 import { startTestRelay } from "./test-relay"
 
 export const BOOK = "book-sync-1" as BookId
@@ -123,11 +123,11 @@ export const deviceOn = (relayUrl: string, hledger: HledgerClient) => {
   }
   const files = async (): Promise<BookFiles> => ((stored) => (stored.ok ? stored.value.files : {}))(await session.stored(BOOK))
   const write = async (entry: string): Promise<void> => {
-    const written = await session.write(BOOK, async (_, stored) => Ok({ files: { ...stored.files, [BOOK_FILES.transactions]: appendEntry(stored.files[BOOK_FILES.transactions] ?? "", entry) }, intent: { type: "file-edited", path: BOOK_FILES.transactions } }))
+    const written = await session.write(BOOK, async (_, stored) => Ok({ files: { ...stored.files, [FIXTURE_TRANSACTIONS]: appendEntry(stored.files[FIXTURE_TRANSACTIONS] ?? "", entry) }, intent: { type: "file-edited", path: FIXTURE_TRANSACTIONS } }))
     if (!written.ok) throw new Error(JSON.stringify(written.error))
   }
   const rewrite = async (from: string, to: string): Promise<void> => {
-    const written = await session.write(BOOK, async (_, stored) => Ok({ files: { ...stored.files, [BOOK_FILES.transactions]: (stored.files[BOOK_FILES.transactions] ?? "").replace(from, to) }, intent: { type: "file-edited", path: BOOK_FILES.transactions } }))
+    const written = await session.write(BOOK, async (_, stored) => Ok({ files: { ...stored.files, [FIXTURE_TRANSACTIONS]: (stored.files[FIXTURE_TRANSACTIONS] ?? "").replace(from, to) }, intent: { type: "file-edited", path: FIXTURE_TRANSACTIONS } }))
     if (!written.ok) throw new Error(JSON.stringify(written.error))
   }
   return { ports, session, storage, lines, drafts, standings, heard, open, openBook, linkOf, files, write, rewrite, last: () => standings.at(-1) }

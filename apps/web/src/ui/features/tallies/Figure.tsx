@@ -1,4 +1,4 @@
-import { Show, type JSX } from "solid-js"
+import { For, Show, type JSX } from "solid-js"
 
 import type { Decimal } from "../../../core/decimal/decimal"
 import { formatSignedYen, formatTheoreticalYen, formatYen, toneOf, UNSEEN_ACTUAL, UNSEEN_THEORETICAL } from "../../wording/numbers"
@@ -22,7 +22,8 @@ export function Figure(props: {
   readonly label: string
   readonly value: Decimal | undefined
   readonly kind: "actual" | "theoretical" | "sum"
-  readonly caption?: string
+  /** Lines under the figure, small, saying how it was come to. */
+  readonly captions?: readonly string[]
   /** Words that stand in the figure's place where there is none to show, which nought would not say. */
   readonly instead?: string | undefined
 }): JSX.Element {
@@ -34,9 +35,7 @@ export function Figure(props: {
       <Show when={props.instead} keyed fallback={<dd class={`text-xl font-bold tabular-nums sm:text-2xl ${tone()}`}>{text()}</dd>}>
         {(words) => <dd class="flex h-7 items-center text-sm text-text-muted sm:h-8">{words}</dd>}
       </Show>
-      <Show when={props.caption}>
-        <dd class="text-xs text-text-muted">{props.caption}</dd>
-      </Show>
+      <For each={props.captions}>{(caption) => <dd class="text-[10px] text-text-muted">{caption}</dd>}</For>
     </div>
   )
 }
