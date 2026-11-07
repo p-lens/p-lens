@@ -311,20 +311,31 @@ const stretchBetween = (from: Known, to: Known, terms: PlayTerms): number | unde
 /** Whether a line is a jackpot won in regular games whose bonus the log says. */
 const isToldRegularJackpot = (checkpoint: Checkpoint | undefined): boolean => checkpoint?.phase === "regular" && checkpoint.event?.kind === "jackpot" && checkpoint.event.bonus !== undefined
 
-/** A line's own stretch's spin performance: measured, or awaited — a jackpot's line whose stretch closes only once the hand is known after the bonus. */
-export type StretchRate = { readonly type: "measured"; readonly rate: number } | { readonly type: "awaited" }
+/**
+ * A line's own stretch's spin performance: measured, or measured through
+ * from before a jackpot won in regular games whose hand was not counted —
+ * the regular games either side of its bonus as one stretch, shown on the
+ * line that closes it; or, on that jackpot's own line, uncounted: its
+ * stretch is not its own to say, whether a line after it says one or not.
+ */
+export type StretchRate = { readonly type: "measured"; readonly rate: number } | { readonly type: "through"; readonly rate: number } | { readonly type: "uncounted" }
 
 const measuredRate = (rate: number | undefined): StretchRate | undefined => (rate === undefined ? undefined : { type: "measured", rate })
 
-/** Where the walk for each line's stretch stands: the rates so far, the last point the hand was known at, and a jackpot's line waiting on the hand to be known after it, with the point its stretch runs from. */
+const throughRate = (rate: number | undefined): StretchRate | undefined => (rate === undefined ? undefined : { type: "through", rate })
+
+/** Whether a line is a jackpot won in regular games whose hand was not counted as it came: its stretch is never its own. */
+const isUncountedJackpot = (checkpoint: Checkpoint | undefined, known: Known | undefined): boolean => checkpoint?.phase === "regular" && checkpoint.event?.kind === "jackpot" && known === undefined
+
+/** A line's rate as shown: uncounted on a jackpot's line whose hand was not counted, else as worked out. */
+const shownRate = (checkpoint: Checkpoint | undefined, known: Known | undefined, rate: StretchRate | undefined): StretchRate | undefined => (isUncountedJackpot(checkpoint, known) ? { type: "uncounted" } : rate)
+
+/** Where the walk for each line's stretch stands: the rates so far, the last point the hand was known at, and the point a jackpot's run is measured through from, while the hand is not yet known after it. */
 interface Stretching {
   readonly rates: readonly (StretchRate | undefined)[]
   readonly last: Known | undefined
-  readonly waiting: { readonly line: number; readonly from: Known } | undefined
+  readonly waiting: Known | undefined
 }
-
-/** The rates with the waiting line's set as given. */
-const settled = (rates: readonly (StretchRate | undefined)[], line: number, rate: StretchRate | undefined): readonly (StretchRate | undefined)[] => rates.map((each, at) => (at === line ? rate : each))
 
 /**
  * The spin performance of each line's own stretch, by its place in the
@@ -332,33 +343,41 @@ const settled = (rates: readonly (StretchRate | undefined)[], line: number, rate
  * line, where the line knows the hand and was played in regular games. A
  * line made of readings folded together is one stretch, from before the
  * first of them, as if they had been read as one. A jackpot won in
- * regular games knows no hand until it is counted after the bonus
- * (`standingsOf`), so its stretch is awaited until the first point the
- * hand is known after it, whatever state that is in, and then the
- * jackpot's line's: what the bonus paid taken off, what is left is the
- * balls the regular games before it cost; a line after it runs from that
+ * regular games knows no hand until it is counted (`standingsOf`): where
+ * it was counted as the jackpot came, its line has its own stretch; where
+ * not, the jackpot's line is uncounted, and the first line the hand is known
+ * at after it, whatever state that is in, shows the stretch through from
+ * the last point the hand was known at before the jackpot — inside its
+ * line too, where readings were folded into it, so that folding them
+ * moves no line's figure after it — the regular games on both sides of
+ * the bonus, what the bonus paid taken off, as one. The balls left in
+ * hand as it came are played after it, so the whole is measured as it
+ * was, and only where it parts is unknown; a line after it runs from that
  * point. None for any other line — the seat, the finish, a 時短 or 確変
- * line — nor across a jackpot whose bonus the log does not say: what it
- * paid is unknown, so the balls played over it are; nor across a 確変 or
- * 時短 whose drift was not counted (`measurableAcross`), a jackpot's line
- * awaiting its hand settling to none as the 電サポ begins.
+ * line closing no jackpot's run — nor across a
+ * jackpot whose bonus the log does not say: what it paid is unknown, so
+ * the balls played over it are; nor across a 確変 or 時短 whose drift was
+ * not counted (`measurableAcross`), a jackpot's run being let go of as the
+ * 電サポ begins.
  */
 export const stretchPerformancesOf = (ordered: readonly Checkpoint[], terms: PlayTerms): readonly (StretchRate | undefined)[] =>
   standingsOf(ordered, terms, 0).reduce<Stretching>(
     (walked, { standing, hands }, index) => {
       const line = ordered[index]
+      const known = isKnown(standing) ? standing : undefined
+      const last = known ?? hands.at(-1) ?? walked.last
+      if (line !== undefined && isUntold(line)) return { rates: [...walked.rates, shownRate(line, known, undefined)], last: undefined, waiting: undefined }
       const waiting = walked.waiting
-      if (line !== undefined && isUntold(line)) return { rates: [...(waiting === undefined ? walked.rates : settled(walked.rates, waiting.line, undefined)), undefined], last: undefined, waiting: undefined }
-      if (waiting !== undefined && !measurableAcross(waiting.from, { ...(hands.at(0) ?? standing), held: 0 })) return { rates: [...settled(walked.rates, waiting.line, undefined), undefined], last: isKnown(standing) ? standing : (hands.at(-1) ?? walked.last), waiting: undefined }
-      const first = hands.at(0) ?? (isKnown(standing) ? standing : undefined)
-      const closing = waiting !== undefined && first !== undefined
-      const rates = closing ? settled(walked.rates, waiting.line, measuredRate(stretchBetween(waiting.from, first, terms))) : walked.rates
-      const from = closing ? (first === standing ? undefined : first) : (walked.last ?? hands.at(0))
-      const rate = from === undefined || !isKnown(standing) || line?.phase !== "regular" ? undefined : measuredRate(stretchBetween(from, standing, terms))
-      const last = isKnown(standing) ? standing : (hands.at(-1) ?? walked.last)
-      const opens = (closing || waiting === undefined) && isToldRegularJackpot(line) && !isKnown(standing) && from !== undefined
-      const next = opens ? { line: index, from } : closing ? undefined : waiting
-      return { rates: [...rates, opens ? { type: "awaited" as const } : rate], last, waiting: next }
+      if (waiting !== undefined && !measurableAcross(waiting, { ...(hands.at(0) ?? standing), held: 0 })) return { rates: [...walked.rates, shownRate(line, known, undefined)], last, waiting: undefined }
+      const first = hands.at(0) ?? known
+      if (waiting !== undefined && first !== undefined) {
+        const rate = throughRate(stretchBetween(waiting, known ?? first, terms))
+        return { rates: [...walked.rates, shownRate(line, known, rate)], last, waiting: isToldRegularJackpot(line) && known === undefined ? hands.at(-1) : undefined }
+      }
+      const from = walked.last ?? hands.at(0)
+      const rate = from === undefined || known === undefined || line?.phase !== "regular" ? undefined : measuredRate(stretchBetween(from, known, terms))
+      const opens = waiting === undefined && isToldRegularJackpot(line) && known === undefined
+      return { rates: [...walked.rates, shownRate(line, known, rate)], last, waiting: opens ? (hands.at(-1) ?? walked.last) : waiting }
     },
     { rates: [], last: { ...START, held: 0 }, waiting: undefined },
   ).rates

@@ -23,7 +23,8 @@ function Fold(props: { readonly title: string; readonly children: JSX.Element })
  * このアプリの仕様: what cannot be seen from the screens alone, each folded under a
  * heading that says it in a line — what the colours of the buttons say,
  * that cash never rises, when a day turns, how a reading's outlay is
- * counted, how a spin performance and a border are, what the marks beside
+ * counted, how a spin performance and a border are, how a stretch
+ * across a jackpot is measured where its hand was not counted, what the marks beside
  * pachinko's live spin performance stand for, which formula opens first,
  * how many jackpots a bonus is, how a pachislot play's medals in hand are
  * likely reckoned at 収支を記帳, what stays out of 収支, how 推定期待値
@@ -60,6 +61,10 @@ export function UnderTheHoodView(props: { readonly place: Place }): JSX.Element 
             <p>電サポ中に増えた・減った玉は、回転率には入れず、実質ボーダーにだけ表れます。実質ボーダーは算出条件の「電サポ中の出玉増減」のとおり増減するものとして計算し、パチンコライブ計測の「電サポ増減」に玉数を入れた稼働は、その玉数で計算します（0と入れれば増減なし）。</p>
             <p>「電サポ増減」を空欄のまま通常に戻った確変・時短は、それをはさむ区間の回転率を測りません。通常に戻ってから持ち玉を数えたところ（または持ち玉がなくなって玉を借りたところ）から測り直します。大当りの記録で持ち玉（当たった時点の数で、出玉は含めない）を入れておくと、その大当りまでの回転率も測れます。</p>
             <p>ボーナスの後のCZなど、ヘソで打つ回転は、時短として入力してかまいません。算出条件が「初当り1回あたり平均何回ヘソで打つか」を持っているので、通常時の大当りのたびにその回数を、期待値の計算でだけ通常時と同じく玉を使う回転として数えます。回転率には入れず、画面の通常回転の数も変わりません。</p>
+          </Fold>
+          <Fold title="大当りをはさむ区間の回転率">
+            <p>パチンコライブ計測で、通常時の大当りの持ち玉を空欄にすると、大当りの行の回転率は「--」のままにします。次に持ち玉がわかった行（持ち玉を入れた行か、玉がなくなって玉を借りた行）に、大当りの前と後の通常回転をまとめた回転率を「初当り行と2区間通算」と添えて出します。</p>
+            <p>当たったときに残っていた玉は、大当りの後に出玉と一緒に打たれるので、全体の回転率は持ち玉が空欄でも変わりません。大当りの持ち玉（当たった時点の数で、出玉は含めない）を入れると、大当りまでとその後の2つに分かれて出ます。</p>
           </Fold>
           <Fold title="回転率の記号と時給の目安">
             <p>パチンコライブ計測の回転率の横の記号は、1回転あたりの期待値を、どの機種でも1時間200回転として時給に直したものです。記号ごとの時給はこうなります。</p>

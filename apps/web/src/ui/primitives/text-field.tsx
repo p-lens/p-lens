@@ -55,6 +55,8 @@ export function TextField(props: {
   readonly type?: "text" | "date"
   readonly inputMode?: "text" | "numeric" | "decimal"
   readonly placeholder?: string
+  /** Whether the placeholder is drawn fainter than usual: a guide worked out for the person, never taken for what they typed. */
+  readonly faintPlaceholder?: boolean
   readonly suffix?: string
   readonly error?: string | undefined
   /** Marked as wrong without a word: a required field left empty after a press. */
@@ -180,8 +182,8 @@ export function TextField(props: {
             over.onKeyDown(event)
             if (event.key === "Enter") flush()
           }}
-          class="h-10 min-w-0 flex-1 text-base text-text-primary outline-none placeholder:text-text-muted"
-          classList={{ "px-3": props.compact !== true, "px-2 tabular-nums": props.compact === true, "rounded-[3px] bg-accent/30 caret-transparent": over.waiting(), "bg-transparent": !over.waiting(), "[-webkit-text-security:disc]": props.masked === true }}
+          class="h-10 min-w-0 flex-1 text-base text-text-primary outline-none"
+          classList={{ "placeholder:text-text-muted": props.faintPlaceholder !== true, "placeholder:text-text-muted/50": props.faintPlaceholder === true, "px-3": props.compact !== true, "px-2 tabular-nums": props.compact === true, "rounded-[3px] bg-accent/30 caret-transparent": over.waiting(), "bg-transparent": !over.waiting(), "[-webkit-text-security:disc]": props.masked === true }}
         />
         <Show when={props.suffix}>
           <span class="shrink-0 text-text-muted" classList={{ "pr-3 text-sm": props.compact !== true, "pr-1.5 text-xs": props.compact === true }}>

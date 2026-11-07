@@ -7,6 +7,7 @@ import { checkpointsForRapid, checkpointsForReading, type Reading, type ReadingR
 import { standingBefore, takenOf, withReadingRemoved } from "../../../../core/pachinko/revision"
 import type { Checkpoint } from "../../../../core/play-log/checkpoint"
 import type { Result } from "../../../../core/result/result"
+import { seal } from "../../../../mummer"
 import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
 import { TrashIcon } from "../../../primitives/icons"
@@ -18,6 +19,7 @@ import { toast } from "../../../primitives/toast"
 import { feelTap } from "../../../primitives/vibration"
 import { describeError, describeReadingRefusal } from "../../../wording/errors"
 import { FIELD_PROBLEM_TEXT } from "../../../wording/fields"
+import { fieldAmountText } from "../../../wording/numbers"
 import { BACK_TO_REGULAR, BEYOND_HAND, RELIEF_DRIVE_SLIP, RELIEF_DRIVE_NAME, SUPPORT_END_ASKS, SUPPORT_NAMES, switchToText } from "../../../wording/pachinko/play"
 import { jackpotOptions, useBonuses, usualOverOf } from "./bonus-choice"
 import { ReadingDetail } from "./ReadingDetail"
@@ -45,9 +47,9 @@ const OTHER_PHASE: Readonly<Record<SupportPhase, SupportPhase>> = { special: "ra
  * asks for the counter as the 電サポ ends: the spins it ran for, which part
  * a play's regular games from its own. The balls in hand are asked for
  * there too, since that is when they have settled, but never required:
- * the field opens on what they come to by the last count and the bonuses
- * paid since, as a guide only — left as it is, nothing was counted, and
- * only a count typed over it is kept as one.
+ * the field opens empty, what they come to by the last count and the
+ * bonuses paid since shown faintly in it as a guide only — left empty,
+ * nothing was counted, and only a count typed is kept as one.
  *
  * Switching to 時短 writes the turn at once, so that the others in a
  * huddle see it; switching back takes that line away again, since a run
@@ -91,7 +93,7 @@ export function SupportComposer(props: {
     return !found.ok && found.error.some((problem) => problem.reason === "not-a-count")
   }
   const startEnding = (): void => {
-    change({ counter: "", held: ((held) => (held === undefined ? "" : String(held)))(before().held), heldCarried: before().held !== undefined, supported: "", drift: "loss", handed: "", handing: "given" })
+    change({ counter: "", held: "", heldCarried: false, supported: "", drift: "loss", handed: "", handing: "given" })
     setStep({ type: "ending" })
     if (held.form !== undefined) revealAboveTheKeyboard(held.form)
   }
@@ -172,13 +174,13 @@ export function SupportComposer(props: {
         role="status"
         class="flex h-20 items-center justify-between gap-3 rounded-lg bg-linear-110 bg-size-[300%_100%] px-4 motion-safe:animate-[sweep_2.4s_linear_infinite]"
         classList={{
-          "from-special-banner from-43% via-special-banner-glow via-50% to-special-banner to-57% text-on-special-banner": phase() === "special",
-          "from-rapid-banner from-43% via-rapid-banner-glow via-50% to-rapid-banner to-57% text-on-rapid-banner": phase() === "rapid",
+          "from-special-bar from-43% via-special-bar-glow via-50% to-special-bar to-57% text-on-special-banner": phase() === "special",
+          "from-rapid-bar from-43% via-rapid-bar-glow via-50% to-rapid-bar to-57% text-on-rapid-banner": phase() === "rapid",
         }}
       >
         <span
           class="text-4xl font-black tracking-[0.15em]"
-          classList={{ "[text-shadow:0_0_0.75rem_var(--special-banner-glow)]": phase() === "special", "[text-shadow:0_0_0.75rem_var(--rapid-banner-glow)]": phase() === "rapid" }}
+          classList={{ "[text-shadow:0_0_0.75rem_var(--special-bar-glow)]": phase() === "special", "[text-shadow:0_0_0.75rem_var(--rapid-bar-glow)]": phase() === "rapid" }}
         >
           {props.reliefDrive ? RELIEF_DRIVE_NAME : SUPPORT_NAMES[phase()]}
         </span>
@@ -229,7 +231,18 @@ export function SupportComposer(props: {
         <p class="text-xs text-text-secondary">{SUPPORT_END_ASKS}</p>
         <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-1.5">
           <TextField label="回転数" value={form().counter} onChange={(counter) => change({ counter })} inputMode="numeric" invalid={nudged("counter")} onFocus={nudge.settle} focusedOnShow compact />
-          <TextField label="持ち玉" value={form().held} onChange={(held) => change({ held, heldCarried: false })} inputMode="numeric" suffix="玉" invalid={nudged("held")} onFocus={nudge.settle} compact />
+          <TextField
+            label="持ち玉"
+            value={form().held}
+            onChange={(held) => change({ held, heldCarried: false })}
+            inputMode="numeric"
+            placeholder={((held) => (held === undefined ? "" : fieldAmountText(seal.play(held))))(before().held)}
+            faintPlaceholder
+            suffix="玉"
+            invalid={nudged("held")}
+            onFocus={nudge.settle}
+            compact
+          />
           <ReadingDetail
           drift={form().drift}
           supported={form().supported}

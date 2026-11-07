@@ -11,7 +11,7 @@ import { feelTap } from "../../../primitives/vibration"
 import { formatMoment } from "../../../wording/dates"
 import { amountText, formatCount } from "../../../wording/numbers"
 import { jackpotsText } from "../../../wording/pachinko/machine"
-import { MERGE_READINGS, mergeSays, PHASE_NAMES, signedBalls, STRETCH_RATE_UNIT, stretchRateText, UNTOLD_JACKPOT } from "../../../wording/pachinko/play"
+import { MERGE_READINGS, mergeSays, PHASE_NAMES, signedBalls, STRETCH_RATE_UNIT, stretchRateText, THROUGH_RATE_NOTE, UNTOLD_JACKPOT } from "../../../wording/pachinko/play"
 import { seal } from "../../../../mummer"
 
 /**
@@ -54,12 +54,22 @@ const stepsOf = (ordered: readonly Checkpoint[]): readonly Step[] => {
   ).steps
 }
 
-/** What a jackpot's line calls it: its bonus with what it added to the hand — what was said it paid beyond its machine's with it — and the jackpots it was won over where they were more than one; or a jackpot whose bonus was not told — found missing, or on a machine that lists none. */
-const jackpotText = (checkpoint: Checkpoint): string | undefined => {
+/** What a jackpot's chip says: its first line, and a second where there is one. */
+interface JackpotWords {
+  readonly first: string
+  readonly second: string | undefined
+}
+
+/** What a jackpot's line calls it: its bonus with what it added to the hand and the jackpots it was won over where they were more than one, what was said it paid beyond its machine's beneath; or a jackpot whose bonus was not told — found missing, or on a machine that lists none. */
+const jackpotText = (checkpoint: Checkpoint): JackpotWords | undefined => {
   const event = checkpoint.event
   if (event?.kind !== "jackpot") return undefined
-  if (event.bonus !== undefined) return [event.bonus.name, signedBalls(seal.play(gainOf(event.bonus))), event.bonus.over === undefined ? undefined : `(差${signedBalls(seal.play(event.bonus.over))})`, jackpotsText(event.bonus)].filter((part) => part !== undefined).join(" ")
-  return event.approximate === true ? `${UNTOLD_JACKPOT}（推定）` : UNTOLD_JACKPOT
+  if (event.bonus !== undefined)
+    return {
+      first: [event.bonus.name, signedBalls(seal.play(gainOf(event.bonus))), jackpotsText(event.bonus)].filter((part) => part !== undefined).join(" "),
+      second: event.bonus.over === undefined ? undefined : `(差${signedBalls(seal.play(event.bonus.over))})`,
+    }
+  return { first: event.approximate === true ? `${UNTOLD_JACKPOT}（推定）` : UNTOLD_JACKPOT, second: undefined }
 }
 
 /** What a line did to the balls, each where it did anything: rented, drawn, drifted, handed, counted, and — counted as a bonus ended — what it paid beyond what it was told to. */
@@ -118,14 +128,22 @@ function Line(props: { readonly step: Step; readonly rate: StretchRate | undefin
         </Show>
         <Show when={props.rate} keyed>
           {(rate) => (
-            <span class="shrink-0 text-xs tabular-nums text-text-muted">
+            <span class="shrink-0 whitespace-nowrap text-xs tabular-nums text-text-muted">
               {stretchRateText(rate)}
               <span class="text-[0.5rem]">{STRETCH_RATE_UNIT}</span>
+              <Show when={rate.type === "through"}>
+                <span class="ml-1 text-[0.5rem]">{THROUGH_RATE_NOTE}</span>
+              </Show>
             </span>
           )}
         </Show>
         <Show when={jackpotText(checkpoint())} keyed>
-          {(won) => <span class="ml-auto min-w-0 truncate rounded bg-accent px-1.5 py-0.5 text-xs font-semibold text-accent-contrast">{won}</span>}
+          {(won) => (
+            <span class="ml-auto flex min-w-0 flex-col items-end rounded bg-accent px-1.5 py-0.5 text-xs font-semibold text-accent-contrast">
+              <span class="max-w-full truncate">{won.first}</span>
+              <Show when={won.second}>{(second) => <span class="max-w-full truncate">{second()}</span>}</Show>
+            </span>
+          )}
         </Show>
       </div>
       <Show when={ballsText(props.step)} keyed>

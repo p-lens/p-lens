@@ -92,6 +92,9 @@ export const formatCount = (value: number): string => groupDigits(String(value))
 /** Money or tokens counted in whole numbers, grouped, with no mark or unit: the place the mark or unit goes is the caller's. */
 export const amountText = (amount: Amount<number>): string => figured(amount, formatCount, (value) => (value < 0 ? "-" : ""), VEILED_DIGITS)
 
+/** A count as a field holds it, digits ungrouped: a figure shown in a field to be typed over, veiled as `amountText` is. */
+export const fieldAmountText = (amount: Amount<number>): string => figured(amount, String, (value) => (value < 0 ? "-" : ""), VEILED_DIGITS)
+
 /** Money or tokens gained or lost, rounded to whole ones and always signed, with no mark or unit: `+1,400`, `-35`. */
 export const signedAmountText = (amount: Amount<number>): string =>
   figured(amount, (value) => `${value < 0 ? "-" : "+"}${formatCount(Math.round(Math.abs(value)))}`, (value) => (value < 0 ? "-" : "+"), VEILED_DIGITS)

@@ -28,7 +28,7 @@ export const switchToText = (phase: SupportPhase): string => `${PHASE_NAMES[phas
 export const BACK_TO_REGULAR = "通常に戻る"
 
 /** What is asked as the 電サポ ends. */
-export const SUPPORT_END_ASKS = "通常に戻ったときの回転数を入力してください。持ち玉は大当りの出玉から見込んだ目安です。数えたら直してください。"
+export const SUPPORT_END_ASKS = "通常に戻ったときの回転数を入力してください。持ち玉の薄い数字は大当りの出玉から見込んだ目安です。数えたら入れてください。"
 
 /** What a reading's 持ち玉 says behind its i: a jackpot's 持ち玉 is the hand as it came, the bonus not yet paid, which the play adds itself. */
 export const JACKPOT_HELD_NOTE = "ボーナスを同時に選ぶ記録をするときは、持ち玉に当たった時点の数を入れてください（出玉は含めません）。"
@@ -134,9 +134,12 @@ export const FOLD_FIGURES = "数値をたたむ"
 /** What is said under a reading's 持ち玉 once the hand has been played long without a count: the hand likely now, where the play has been measured. */
 export const recountText = (estimate: Amount<number> | undefined): string => `持ち玉を数え直して${estimate === undefined ? "" : `（推定 ${amountText(estimate)}玉）`}`
 
-/** What a line of the log says of its own stretch's spin performance: the figure, to a tenth, or `-----` while it waits on the hand to be counted after a bonus, in the shape of a figure; and its unit beside it. */
-export const stretchRateText = (rate: StretchRate): string => (rate.type === "measured" ? rate.rate.toFixed(1) : "-----")
+/** What a line of the log says of its own stretch's spin performance: the figure, to a tenth, or `--` on a jackpot's line whose hand was not counted; and its unit beside it. */
+export const stretchRateText = (rate: StretchRate): string => (rate.type === "uncounted" ? "--" : rate.rate.toFixed(1))
 export const STRETCH_RATE_UNIT = "回転/千円"
+
+/** What is said beside a stretch measured through from before a jackpot won in regular games whose hand was not counted: the jackpot's line and the line it is shown on, as one. */
+export const THROUGH_RATE_NOTE = "初当り行と2区間通算"
 
 /** What a reading's 電サポ増減 says behind its i: a breakdown of the hand, never added to it, kept out of the spin rate and put in the border in place of the formula's. */
 export const DRIFT_NOTE = "持ち玉の内訳として記入します。持ち玉欄の数は変わらないので、持ち玉は台の表示を見たまま入れてください。回転率からは除き、ボーダーは機種の電サポ中の出玉増減の代わりにこの数で計算します。"
