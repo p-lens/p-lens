@@ -1,7 +1,6 @@
 import { EARLIEST_RELEASE } from "@p-lens/contracts"
 
 import type { CatalogError } from "../../catalog/port/catalog"
-import type { IsoDate } from "../../core/calendar/calendar"
 import type { DescriptionProblem } from "../../core/catalog/description"
 import type { QuotaStanding, RegistrationKind } from "../../core/catalog/quota"
 import type { ReleaseDateError } from "../../core/catalog/release"
@@ -125,8 +124,6 @@ const NO_MODEL_NAME = "--"
 /** A machine's model name as a row shows it. */
 export const modelNameText = (modelName: string | undefined): string => modelName ?? NO_MODEL_NAME
 
-/** A day as a row shows it, `2026/10/03`. */
-export const slashDay = (date: IsoDate): string => date.replaceAll("-", "/")
 
 /** What a new machine's description, as typed, is wrong with, beside its field. */
 export const describeDescriptionProblem = (problem: DescriptionProblem): string => {

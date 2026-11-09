@@ -19,7 +19,7 @@ import { EmptyState, Loaded } from "../../primitives/states"
 import { TextField } from "../../primitives/text-field"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
-import { formatDay } from "../../wording/dates"
+import { formatDay, slashDay } from "../../wording/dates"
 import { formatRate, formatTokens, formatYen } from "../../wording/numbers"
 import { createOffered } from "../parlor-offers/offered"
 import { ViewHeader } from "../shell/ViewHeader"
@@ -98,9 +98,11 @@ function TokenRow(props: { readonly bookId: BookId; readonly place: Place; reado
  * One parlor's savings: its name and what they are worth, over its pools,
  * each drawn as whoever shows the card draws a pool. Where `onOpen` is
  * given, the heading is pressed to open the parlor's passbook, and marked
- * while it is `open`.
+ * while it is `open`. The last day its savings moved, where it is known,
+ * stands faint in the card's bottom left corner, in its padding, taking
+ * no line of its own.
  */
-function ParlorCard(props: { readonly holding: ParlorHolding; readonly onOpen?: () => void; readonly open?: boolean; readonly children: (token: TokenHolding) => JSX.Element }): JSX.Element {
+function ParlorCard(props: { readonly holding: ParlorHolding; readonly lastMoved: IsoDate | undefined; readonly onOpen?: () => void; readonly open?: boolean; readonly children: (token: TokenHolding) => JSX.Element }): JSX.Element {
   const heading = (): JSX.Element => (
     <>
       <h2 class="font-semibold text-text-primary">{parlorNameText(seal.parlor(props.holding.parlorName))}</h2>
@@ -108,7 +110,7 @@ function ParlorCard(props: { readonly holding: ParlorHolding; readonly onOpen?: 
     </>
   )
   return (
-    <article class="rounded-lg bg-surface-1 px-4 py-3">
+    <article class="relative rounded-lg bg-surface-1 px-4 py-3">
       <header class="border-b border-border pb-2">
         <Show when={props.onOpen} keyed fallback={<div class="flex items-baseline justify-between gap-3">{heading()}</div>}>
           {(onOpen) => (
@@ -128,6 +130,9 @@ function ParlorCard(props: { readonly holding: ParlorHolding; readonly onOpen?: 
       <ul>
         <For each={props.holding.tokens}>{(token) => props.children(token)}</For>
       </ul>
+      <Show when={props.lastMoved} keyed>
+        {(day) => <p class="pointer-events-none absolute bottom-[13px] left-4 text-[10px] leading-none text-text-muted opacity-70">直近 {slashDay(day)}</p>}
+      </Show>
     </article>
   )
 }
@@ -202,7 +207,7 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
   /** The parlors holding nothing, folded away under the rest; none while a name is typed, which finds them among the rest. */
   const emptyOf = (parlors: readonly ParlorHolding[]): readonly ParlorHolding[] => (searching() ? [] : inShowingOrder(parlors, moved()).filter(holdsNothing))
   const cardOf = (holding: ParlorHolding): JSX.Element => (
-    <ParlorCard holding={holding} onOpen={() => moves.go({ kind: "parlor-passbook", bookId: props.bookId, parlorName: holding.parlorName })} open={props.place.kind === "parlor-passbook" && props.place.parlorName === holding.parlorName}>{(token) => <TokenRow bookId={props.bookId} place={props.place} parlorName={holding.parlorName} parlor={holding.parlor} token={token} />}</ParlorCard>
+    <ParlorCard holding={holding} lastMoved={moved().get(holding.parlorName)} onOpen={() => moves.go({ kind: "parlor-passbook", bookId: props.bookId, parlorName: holding.parlorName })} open={props.place.kind === "parlor-passbook" && props.place.parlorName === holding.parlorName}>{(token) => <TokenRow bookId={props.bookId} place={props.place} parlorName={holding.parlorName} parlor={holding.parlor} token={token} />}</ParlorCard>
   )
   const listedParlors = createOffered()
   const openingPlace = (): Place => ({ kind: "opening-balance-new", bookId: props.bookId })

@@ -15,6 +15,9 @@ export const formatDate = (date: IsoDate): string => {
   return `${year}年${month}月${day}日`
 }
 
+/** `2026-10-03` as `2026/10/03`: a day where little room is left for it. */
+export const slashDay = (date: IsoDate): string => date.replaceAll("-", "/")
+
 /** `2026-10-03` as `2026年10月3日(土)`. */
 export const formatDay = (date: IsoDate): string => `${Number(date.slice(0, 4))}年${formatDayOfYear(date)}`
 
