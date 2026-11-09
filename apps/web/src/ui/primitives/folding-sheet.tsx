@@ -55,7 +55,9 @@ const lessMotion = (): boolean => window.matchMedia("(prefers-reduced-motion: re
  * folder's tab does, reaching over the line along the part's top so that
  * the two read as one, drawn in the colour the part is — though not while
  * it is folded, when there is no line and the tab reaching below would
- * stand out under the screen's foot: pulled
+ * stand out under the screen's foot; folded, the tab is also pressed and
+ * pulled a little above where it is drawn, by a reach that is not seen,
+ * being small at the screen's foot with nothing over it: pulled
  * down far enough, a quarter of its height, it folds when let go, and less
  * it springs back; folded, a tap on the tab or a little pull up opens it.
  * The sheet follows the finger as it is pulled, and runs the rest of the
@@ -112,7 +114,7 @@ export function FoldingSheet(props: { readonly label: string; readonly children:
         onClick={(event) => {
           if (event.detail === 0) runTo(open() ? "folded" : "open")
         }}
-        classList={{ "bottom-[calc(100%-1px)] h-[17px]": open(), "bottom-full h-4": !open() }}
+        classList={{ "bottom-[calc(100%-1px)] h-[17px]": open(), "bottom-full h-4 before:absolute before:inset-x-0 before:-top-3 before:bottom-0 before:content-['']": !open() }}
         class="absolute left-3 z-10 flex w-8 touch-none select-none items-center justify-center rounded-t border border-b-0 border-border bg-surface-2 text-text-muted hover:text-text-primary focus-visible:outline-2 focus-visible:outline-focus-ring [&_svg]:size-3 [&_svg]:rotate-90"
       >
         <GripIcon />
