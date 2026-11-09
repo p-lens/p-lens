@@ -6,6 +6,7 @@ import type { HandoverFailure } from "../backup/port/handover"
 import type { ArchiveProblem } from "../core/backup/archive"
 import type { BookId } from "../core/book/book"
 import type { RevisionRefusal } from "../core/pachinko/revision"
+import type { PachifolioProblem } from "../core/import/pachifolio"
 import type { PrecordProblem } from "../core/import/precord"
 import type { OpeningProblem } from "../core/parlor/opening"
 import type { TallyError } from "../core/tally/tally"
@@ -48,7 +49,7 @@ export type BackupProblem =
  *
  * - `nothing-new`: the book already has every tally the file holds.
  */
-export type ImportProblem = PrecordProblem | { readonly type: "nothing-new"; readonly count: number } | { readonly type: "not-utf8" }
+export type ImportProblem = PrecordProblem | PachifolioProblem | { readonly type: "nothing-new"; readonly count: number } | { readonly type: "not-utf8" }
 
 /**
  * Everything a use case can fail with, each case carrying the failure it came

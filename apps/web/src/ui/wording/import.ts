@@ -1,14 +1,16 @@
 import type { ImportProblem } from "../../application/errors"
 import type { Imported } from "../../application/import"
-import { PRECORD, type RowField } from "../../core/import/precord"
+import type { RowField } from "../../core/import/cells"
+import { PACHIFOLIO } from "../../core/import/pachifolio"
+import { PRECORD } from "../../core/import/precord"
 import { formatCount } from "./numbers"
 
-const SOURCES: Readonly<Record<string, string>> = { [PRECORD]: "pRecord" }
+const SOURCES: Readonly<Record<string, string>> = { [PRECORD]: "pRecord", [PACHIFOLIO]: "パチフォリオ" }
 
 /** What an app tallies were taken in from is called; one this app does not know goes by its own word. */
 export const sourceName = (from: string): string => SOURCES[from] ?? from
 
-const FIELDS: Readonly<Record<RowField, string>> = { date: "日付", outlay: "投資額", takings: "回収額", hours: "稼働時間" }
+const FIELDS: Readonly<Record<RowField, string>> = { date: "日付", outlay: "投資額", takings: "回収額", hours: "稼働時間", gameKind: "種別", countedSpins: "回転数", countedJackpots: "大当り" }
 
 /** How many unreadable rows are named before the rest are only counted. */
 const ROWS_NAMED = 5
@@ -20,6 +22,8 @@ export const describeImportProblem = (problem: ImportProblem): string => {
       return "ファイルに収支がありません。"
     case "not-precord":
       return `pRecord の CSV として読めません。1行目に ${problem.missing.join("・")} の列がありません。`
+    case "not-pachifolio":
+      return `パチフォリオの CSV として読めません。1行目に ${problem.missing.join("・")} の列がありません。`
     case "rows-unreadable":
       return `読めない行があるため、取り込んでいません。${problem.rows
         .slice(0, ROWS_NAMED)
@@ -30,7 +34,7 @@ export const describeImportProblem = (problem: ImportProblem): string => {
     case "unclosed-quote":
       return `${problem.line}行目までに閉じていない「"」があるため、CSV として読めません。`
     case "not-utf8":
-      return "UTF-8 の文字として読めない箇所があるため、取り込んでいません。pRecord から書き出したままのファイルを選んでください。"
+      return "UTF-8 の文字として読めない箇所があるため、取り込んでいません。アプリから書き出したままのファイルを選んでください。"
     case "nothing-new":
       return `この${formatCount(problem.count)}件はすべて取り込み済みです。`
   }
@@ -62,6 +66,9 @@ export const timeLeftText = (seconds: number): string => {
 
 /** The tallies written, said while they are weighed after. */
 export const writtenText = (written: number, alreadyHere: number): string => (written === 0 ? `${formatCount(alreadyHere)}件は取り込み済みです。` : `${formatCount(written)}件を取り込みました。`)
+
+/** The press a book's line asks for a file to take into it on. */
+export const IMPORT_CHOOSE = "CSVを選ぶ"
 
 /** A file chosen being read and looked at, before anything is asked of it. */
 export const IMPORT_READING = "ファイルを読み込み中…"

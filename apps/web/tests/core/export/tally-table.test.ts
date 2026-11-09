@@ -12,7 +12,7 @@ const yen = (amount: number) => decimal(BigInt(amount), 0)
 const NO_NOTES: TallyNotes = {
   aside: { clock: undefined, spinPerformance: undefined, sender: undefined },
   playSeconds: undefined,
-  jackpots: undefined,
+  netJackpots: undefined,
   carriedIn: undefined,
   inferredFormula: undefined,
   tokenRental: undefined,
@@ -81,7 +81,7 @@ describe("tallies as a table", () => {
           notes: {
             aside: { clock: { started: { hour: 22, minute: 30 }, finished: { hour: 1, minute: 5 } }, spinPerformance: decimal(185n, 1), sender: { id: "s-1", name: "ハンマ" } },
             playSeconds: yen(9300),
-            jackpots: 3,
+            netJackpots: 3,
             carriedIn: yen(250),
             inferredFormula: "f-1",
             tokenRental: yen(4),

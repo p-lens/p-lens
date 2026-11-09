@@ -73,7 +73,7 @@ const inferredOf = (transaction: Transaction, value: Decimal | undefined): Infer
 const toldOf = (transaction: Transaction, inferredValue: Decimal | undefined): TallyTold | undefined => {
   const hours = amountOf(tagged(transaction, TALLY_TAGS.hours))
   const inferred = inferredOf(transaction, inferredValue)
-  return hours === undefined && inferred === undefined ? undefined : { hours, jackpots: hours === undefined ? undefined : countOf(tagged(transaction, TALLY_TAGS.jackpots)), inferred }
+  return hours === undefined && inferred === undefined ? undefined : { hours, netJackpots: hours === undefined ? undefined : countOf(tagged(transaction, TALLY_TAGS.netJackpots)), inferred }
 }
 
 /**
@@ -177,7 +177,7 @@ const TAG_READS: Readonly<Record<string, (text: string) => boolean>> = {
   [TALLY_TAGS.spinPerformance]: isAmount,
   [TALLY_TAGS.carriedIn]: isAmount,
   [TALLY_TAGS.hours]: isAmount,
-  [TALLY_TAGS.jackpots]: (text) => /^\d+$/.test(text),
+  [TALLY_TAGS.netJackpots]: (text) => /^\d+$/.test(text),
   [TALLY_TAGS.inferredFormula]: isSaid,
   [TALLY_TAGS.tokenRental]: isAmount,
   [TALLY_TAGS.tokenExchange]: isAmount,

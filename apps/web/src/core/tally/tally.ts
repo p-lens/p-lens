@@ -159,7 +159,7 @@ export type Settlement =
 export interface TallyTold {
   /** In hours, to the hundredth: five minutes at a time where a person chose them, and as another app said them where a tally was taken in from one; none where only what it was worth is told. */
   readonly hours: Decimal | undefined
-  readonly jackpots: number | undefined
+  readonly netJackpots: number | undefined
   readonly inferred: InferredWorth | undefined
 }
 
@@ -191,7 +191,10 @@ export const TALLY_TAGS = {
   spinPerformance: "spin-performance",
   carriedIn: "carried-in",
   hours: "hours",
-  jackpots: "jackpots",
+  netSpins: "net-spins",
+  netJackpots: "net-jackpots",
+  netGames: "net-games",
+  netAts: "net-ats",
   inferredFormula: "inferred-formula",
   tokenRental: "token-rental",
   tokenExchange: "token-exchange",

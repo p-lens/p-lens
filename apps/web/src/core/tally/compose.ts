@@ -171,7 +171,7 @@ export const toldTags = (told: TallyTold | undefined): Entry["tags"] =>
     ? []
     : [
         ...(told.hours === undefined ? [] : [[TALLY_TAGS.hours, toPlainString(told.hours)] as const]),
-        ...(told.jackpots === undefined ? [] : [[TALLY_TAGS.jackpots, String(told.jackpots)] as const]),
+        ...(told.netJackpots === undefined ? [] : [[TALLY_TAGS.netJackpots, String(told.netJackpots)] as const]),
         ...(told.inferred === undefined
           ? []
           : [

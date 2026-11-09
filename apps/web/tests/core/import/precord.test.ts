@@ -27,8 +27,8 @@ describe("a pRecord CSV", () => {
   test("is read a row a tally, its day whichever way it is written, its unread columns passed over", () => {
     const read = readPrecord(FILE)
     expect(read.ok && read.value).toEqual([
-      { date: "2019-01-02", parlor: { name: "マレハン東京皇国第8支店", code: "S123" }, machine: { name: "流星の剣", code: "M9", maker: "ミナト" }, cabinetNumber: "123", outlay: dec("12000"), takings: dec("20000"), memo: "朝イチ, 設定6: たぶん", hours: dec("5") },
-      { date: "2019-01-05", parlor: { name: "名もなき店", code: "" }, machine: { name: "", code: "", maker: "" }, cabinetNumber: "", outlay: dec("5000"), takings: dec("0"), memo: "", hours: undefined },
+      { date: "2019-01-02", parlor: { name: "マレハン東京皇国第8支店", code: "S123" }, machine: { name: "流星の剣", code: "M9", maker: "ミナト" }, cabinetNumber: "123", outlay: dec("12000"), takings: dec("20000"), memo: "朝イチ, 設定6: たぶん", hours: dec("5"), gameKind: undefined, countedSpins: undefined, countedJackpots: undefined, sourceLabels: [] },
+      { date: "2019-01-05", parlor: { name: "名もなき店", code: "" }, machine: { name: "", code: "", maker: "" }, cabinetNumber: "", outlay: dec("5000"), takings: dec("0"), memo: "", hours: undefined, gameKind: undefined, countedSpins: undefined, countedJackpots: undefined, sourceLabels: [] },
     ] as never)
   })
 

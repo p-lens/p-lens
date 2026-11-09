@@ -2,6 +2,7 @@ import type { Catalog } from "../catalog/port/catalog"
 import type { BookId } from "../core/book/book"
 import { bookNameOf, type MachineSummary } from "../core/catalog/catalog"
 import { machineKeyOf } from "../core/catalog/description"
+import { PACHIFOLIO, readPachifolio } from "../core/import/pachifolio"
 import { PRECORD, readPrecord } from "../core/import/precord"
 import { withAccountsFor } from "./record-tally"
 import { importedIdsOf, importedTallyEntry, type ImportedTally, type MatchedMachine, type SourceTally } from "../core/import/source-tally"
@@ -10,7 +11,7 @@ import { TALLY_TAGS, type InferredWorth } from "../core/tally/tally"
 import { renderEntry } from "../core/journal/entry"
 import { withEntriesFiled, yearFileOf } from "../core/journal/filing"
 import type { PlayGameKind, PlayId } from "../core/play/play"
-import { Err, Ok, andThen, mapOk } from "../core/result/result"
+import { Err, Ok, andThen, mapOk, type Result } from "../core/result/result"
 import { tallyHeadsRequest } from "../hledger/query/requests"
 import type { EntryHead } from "../hledger/protocol/wire"
 import { toPlainString } from "../core/decimal/decimal"
@@ -19,7 +20,7 @@ import { TRIALS_BY_HAND, TRIALS_ON_IMPORT, type Verdict } from "../core/pachinko
 import type * as PachinkoEngine from "../pachinko-engine/client/client"
 import type { Preferences } from "../preferences/port/preferences"
 import type { BookSession, ProposedChange } from "./book-session"
-import type { Outcome } from "./errors"
+import type { ImportProblem, Outcome } from "./errors"
 import { fromCatalog, fromHledger } from "./lift"
 import { loadMachine } from "./pachinko/formulas"
 import { takesCash, verdictOn, weighableOf, type Weighable } from "./pachinko/inference"
@@ -79,10 +80,11 @@ export interface Imported {
 
 const GAME_KINDS: readonly PlayGameKind[] = ["pachinko", "pachislot"]
 
-/** The catalog's machines of both games, and each by every writing it alone goes by. */
+/** The catalog's machines of both games, and each by every writing it alone goes by: among both games, and among its own game's. */
 export interface Catalogue {
   readonly machines: readonly MachineSummary[]
   readonly byKey: ReadonlyMap<string, MachineSummary>
+  readonly byGame: Readonly<Record<PlayGameKind, ReadonlyMap<string, MachineSummary>>>
 }
 
 /** What a machine goes by, as a search compares text: its name and the words it is searched by — widths, case, kana, spaces and stars aside. */
@@ -91,23 +93,28 @@ const keysOf = (machine: MachineSummary): readonly string[] => [...new Set([mach
 /** How many times each of some values comes, in the order each first came. */
 const countsOf = (values: readonly string[]): ReadonlyMap<string, number> => values.reduce((counted, value) => counted.set(value, (counted.get(value) ?? 0) + 1), new Map<string, number>())
 
+/** Some machines, each by what it alone of them goes by: what two of them both go by names neither. */
+const soleKeysOf = (machines: readonly MachineSummary[]): ReadonlyMap<string, MachineSummary> => {
+  const claims = machines.flatMap((machine) => keysOf(machine).map((key) => [key, machine] as const))
+  const counts = countsOf(claims.map(([key]) => key))
+  return new Map(claims.filter(([key]) => counts.get(key) === 1))
+}
+
+const NO_CATALOGUE: Catalogue = { machines: [], byKey: new Map(), byGame: { pachinko: new Map(), pachislot: new Map() } }
+
 /**
  * The catalog's machines, each by what it goes by — its name and its
  * search words, as a search compares them, so one app's `e 東京喰種` is
  * the catalog's `e東京喰種` and a word a machine is searched by names it
- * as its name does. What two machines both go by, of one game or of two,
- * says nothing of which was played, and names neither.
+ * as its name does. What two machines both go by says nothing of which
+ * was played, and names neither: among both games, two of either; among
+ * one game's, two of that game.
  */
 const catalogueOf = async (catalog: Catalog): Promise<Outcome<Catalogue>> => {
   const [pachinko, pachislot] = await Promise.all(GAME_KINDS.map((gameKind) => catalog.search("", gameKind)))
-  if (pachinko === undefined || pachislot === undefined) return Ok({ machines: [], byKey: new Map() })
+  if (pachinko === undefined || pachislot === undefined) return Ok(NO_CATALOGUE)
   return andThen(fromCatalog(pachinko), (balls) =>
-    mapOk(fromCatalog(pachislot), (medals) => {
-      const machines = [...balls, ...medals]
-      const claims = machines.flatMap((machine) => keysOf(machine).map((key) => [key, machine] as const))
-      const counts = countsOf(claims.map(([key]) => key))
-      return { machines, byKey: new Map(claims.filter(([key]) => counts.get(key) === 1)) }
-    }),
+    mapOk(fromCatalog(pachislot), (medals) => ({ machines: [...balls, ...medals], byKey: soleKeysOf([...balls, ...medals]), byGame: { pachinko: soleKeysOf(balls), pachislot: soleKeysOf(medals) } })),
   )
 }
 
@@ -116,9 +123,9 @@ const matchedOf = (machine: MachineSummary): MatchedMachine => ({ name: bookName
 /** The machines a person said a source's names are, by the name as the source wrote it: each a machine of the catalog, by its id. */
 export type Named = ReadonlyMap<string, string>
 
-/** The catalog's machine a source's name is: the one a person said it is, or else the one that alone goes by it. */
-const machineFor = (catalogue: Catalogue, named: Named, name: string): MachineSummary | undefined =>
-  ((chosen) => (chosen === undefined ? catalogue.byKey.get(machineKeyOf(name)) : catalogue.machines.find((machine) => machine.id === chosen)))(named.get(name))
+/** The catalog's machine a source's name is: the one a person said it is, or else the one that alone goes by it — among the game's machines, where the source said which game. */
+const machineFor = (catalogue: Catalogue, named: Named, source: Pick<SourceTally, "machine" | "gameKind">): MachineSummary | undefined =>
+  ((chosen) => (chosen === undefined ? (source.gameKind === undefined ? catalogue.byKey : catalogue.byGame[source.gameKind]).get(machineKeyOf(source.machine.name)) : catalogue.machines.find((machine) => machine.id === chosen)))(named.get(source.machine.name))
 
 /** A tally that can be weighed: a pachinko tally of a machine the catalog has, whose hours the source said, that took cash. */
 interface Candidate {
@@ -271,9 +278,9 @@ const heldOf = (heads: readonly EntryHead[]): ReadonlyMap<PlayId, boolean> =>
  * not written with their worth, which would come to the same again.
  */
 const importTallies = async (ports: ImportPorts, bookId: BookId, from: string, preview: Preview, named: Named, weighing: Weighing | undefined): Promise<Outcome<Imported>> => {
-  const machineOf = (name: string): MachineSummary | undefined => machineFor(preview.catalogue, named, name)
+  const machineOf = (source: SourceTally): MachineSummary | undefined => machineFor(preview.catalogue, named, source)
   const ids = importedIdsOf(from, preview.sources)
-  const tallies = preview.sources.map((source, index): ImportedTally => ({ id: ids[index] as PlayId, from, source, machine: ((machine) => (machine === undefined ? undefined : matchedOf(machine)))(machineOf(source.machine.name)), inferred: undefined }))
+  const tallies = preview.sources.map((source, index): ImportedTally => ({ id: ids[index] as PlayId, from, source, machine: ((machine) => (machine === undefined ? undefined : matchedOf(machine)))(machineOf(source)), inferred: undefined }))
   const counted: { held: ReadonlyMap<PlayId, boolean> } = { held: new Map() }
   const kept = await ports.session.write(bookId, async (journal, stored) =>
     andThen(fromHledger(await journal.ask(tallyHeadsRequest(""))), (page): Outcome<ProposedChange> => {
@@ -289,7 +296,7 @@ const importTallies = async (ports: ImportPorts, bookId: BookId, from: string, p
   )
   const alreadyHere = tallies.filter((tally) => counted.held.has(tally.id)).length
   const weighedBefore = weighing?.weighedBefore.weighedUnwritten(bookId) ?? new Set<PlayId>()
-  const unweighed = weighing === undefined ? [] : tallies.filter((tally) => counted.held.get(tally.id) !== true && !weighedBefore.has(tally.id)).flatMap((tally) => candidateOf(tally, machineOf(tally.source.machine.name)?.id))
+  const unweighed = weighing === undefined ? [] : tallies.filter((tally) => counted.held.get(tally.id) !== true && !weighedBefore.has(tally.id)).flatMap((tally) => candidateOf(tally, machineOf(tally.source)?.id))
   const resumed = !kept.ok && kept.error.type === "import" && kept.error.problem.type === "nothing-new" && unweighed.length > 0
   if (!kept.ok && !resumed) return kept
   const written = tallies.length - alreadyHere
@@ -305,11 +312,29 @@ const importTallies = async (ports: ImportPorts, bookId: BookId, from: string, p
 export const importPrecord = (ports: ImportPorts, bookId: BookId, preview: Preview, named: Named, weighing: Weighing | undefined): Promise<Outcome<Imported>> =>
   importTallies(ports, bookId, PRECORD, preview, named, weighing)
 
-/** A machine's name as a source wrote it that no machine of the catalog alone goes by, and how many of the file's tallies are of it. */
+/**
+ * Take the tallies of a パチフォリオ file into a book, as it was looked at.
+ * None of them says how long it lasted, so none is weighed.
+ */
+export const importPachifolio = (ports: ImportPorts, bookId: BookId, preview: Preview, named: Named): Promise<Outcome<Imported>> => importTallies(ports, bookId, PACHIFOLIO, preview, named, undefined)
+
+/** A machine's name as a source wrote it that no machine of the catalog alone goes by, how many of the file's tallies are of it, and the game they all said it is, where they did. */
 export interface Unnamed {
   readonly name: string
   readonly tallies: number
+  readonly gameKind: PlayGameKind | undefined
 }
+
+/** The one game some tallies all said, or none where any said none or two said different ones. */
+const sameGameOf = (sources: readonly SourceTally[]): PlayGameKind | undefined => ((kinds) => (kinds.size === 1 ? [...kinds][0] : undefined))(new Set(sources.map((source) => source.gameKind)))
+
+/** The machines' names the catalog does not know, in the file's order, each with its tallies. */
+const unnamedOf = (catalogue: Catalogue, sources: readonly SourceTally[]): readonly Unnamed[] =>
+  [...countsOf(sources.filter((source) => source.machine.name !== "" && machineFor(catalogue, new Map(), source) === undefined).map((source) => source.machine.name))].map(([name, tallies]) => ({
+    name,
+    tallies,
+    gameKind: sameGameOf(sources.filter((source) => source.machine.name === name)),
+  }))
 
 /**
  * What a person is asked before a file is taken in: how many of its tallies
@@ -327,19 +352,24 @@ export interface Preview {
 }
 
 /**
- * A pRecord file looked at before it is taken in; why it is not taken in,
- * where it does not read. Nothing of a file is taken in while any row of it
- * does not read: half a history is worse than none, and the rows that do
- * not read are said by their lines.
+ * A file looked at before it is taken in, as one app's reading of it gives
+ * its tallies; why it is not taken in, where it does not read. Nothing of
+ * a file is taken in while any row of it does not read: half a history is
+ * worse than none, and the rows that do not read are said by their lines.
  */
-export const previewPrecord = async (ports: Pick<ImportPorts, "catalog">, text: string): Promise<Outcome<Preview>> => {
-  const sources = readPrecord(text)
+const previewOf = async (ports: Pick<ImportPorts, "catalog">, sources: Result<readonly SourceTally[], ImportProblem>): Promise<Outcome<Preview>> => {
   if (!sources.ok) return Err({ type: "import", problem: sources.error })
   return mapOk(await catalogueOf(ports.catalog), (catalogue) => ({
     told: sources.value.filter((source) => source.hours !== undefined).length,
-    unnamed: [...countsOf(sources.value.map((source) => source.machine.name).filter((name) => name !== "" && machineFor(catalogue, new Map(), name) === undefined))].map(([name, tallies]) => ({ name, tallies })),
+    unnamed: unnamedOf(catalogue, sources.value),
     machines: catalogue.machines,
     sources: sources.value,
     catalogue,
   }))
 }
+
+/** A pRecord file looked at before it is taken in. */
+export const previewPrecord = (ports: Pick<ImportPorts, "catalog">, text: string): Promise<Outcome<Preview>> => previewOf(ports, readPrecord(text))
+
+/** A パチフォリオ file looked at before it is taken in. */
+export const previewPachifolio = (ports: Pick<ImportPorts, "catalog">, text: string): Promise<Outcome<Preview>> => previewOf(ports, readPachifolio(text))

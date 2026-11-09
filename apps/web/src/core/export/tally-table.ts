@@ -67,7 +67,7 @@ const rowOf = (line: TallyLine): readonly string[] => [
   line.notes.aside.clock?.started === undefined ? UNKNOWN : clockText(line.notes.aside.clock.started),
   line.notes.aside.clock?.finished === undefined ? UNKNOWN : clockText(line.notes.aside.clock.finished),
   durationText(line.notes.playSeconds),
-  line.notes.jackpots === undefined ? UNKNOWN : String(line.notes.jackpots),
+  line.notes.netJackpots === undefined ? UNKNOWN : String(line.notes.netJackpots),
   amountText(line.notes.aside.spinPerformance),
   amountText(line.notes.carriedIn),
   line.notes.inferredFormula ?? UNKNOWN,

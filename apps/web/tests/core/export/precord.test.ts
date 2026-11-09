@@ -16,7 +16,7 @@ const yen = (amount: number): Decimal => decimal(BigInt(amount), 0)
 const NO_NOTES: TallyNotes = {
   aside: { clock: undefined, spinPerformance: undefined, sender: undefined },
   playSeconds: undefined,
-  jackpots: undefined,
+  netJackpots: undefined,
   carriedIn: undefined,
   inferredFormula: undefined,
   tokenRental: undefined,

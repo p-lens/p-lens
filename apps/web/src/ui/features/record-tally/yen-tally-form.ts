@@ -123,7 +123,7 @@ const readTold = (form: YenTallyForm): Read<TallyTold | undefined> => {
   const hours = parseDecimal(form.hours)
   const jackpots = readOptionalCount(form.jackpots, "jackpots")
   if (!jackpots.ok) return jackpots
-  return Ok(form.hours === "" || !hours.ok ? undefined : { hours: hours.value, jackpots: jackpots.value, inferred: undefined })
+  return Ok(form.hours === "" || !hours.ok ? undefined : { hours: hours.value, netJackpots: jackpots.value, inferred: undefined })
 }
 
 const problemOf = (read: Read<unknown>): readonly FieldProblem[] => (read.ok ? [] : [read.error])
@@ -163,7 +163,7 @@ export const readYenTallyForm = (form: YenTallyForm, parlors: readonly Parlor[],
 export const toldFiguresOf = (tally: YenTally): Pachinko.Told | undefined =>
   tally.told?.hours === undefined
     ? undefined
-    : { hours: Number(toPlainString(tally.told.hours)), outlay: Number(toPlainString(tally.outlay)), takings: Number(toPlainString(tally.takings)), jackpots: tally.told.jackpots }
+    : { hours: Number(toPlainString(tally.told.hours)), outlay: Number(toPlainString(tally.outlay)), takings: Number(toPlainString(tally.takings)), jackpots: tally.told.netJackpots }
 
 /** A pachinko play's terms as the form holds them. */
 interface WeighingTermsForm {
@@ -272,7 +272,7 @@ export const atToldOf = (form: YenTallyForm): Pachislot.AtTold | undefined => {
 
 /** A tally with what its play was taken to be worth; one whose hours were not said is told of by that alone. */
 export const withInferred = (tally: YenTally, inferred: InferredWorth | undefined): YenTally =>
-  inferred === undefined && tally.told === undefined ? tally : { ...tally, told: { ...(tally.told ?? { hours: undefined, jackpots: undefined }), inferred } }
+  inferred === undefined && tally.told === undefined ? tally : { ...tally, told: { ...(tally.told ?? { hours: undefined, netJackpots: undefined }), inferred } }
 
 /** The yen tally form filled in from a recorded tally in yen, for setting it right: its words and its figures as its entry has them, and the terms it was weighed on — else those the book keeps, else the usual ones. */
 export const yenTallyFormOf = (tally: YenTally, kept: KeptInferenceTerms): YenTallyForm => ({
@@ -285,7 +285,7 @@ export const yenTallyFormOf = (tally: YenTally, kept: KeptInferenceTerms): YenTa
   takings: toPlainString(tally.takings),
   theoreticalValue: tally.theoreticalValue === undefined ? "" : toPlainString(tally.theoreticalValue),
   hours: tally.told?.hours === undefined ? "" : toPlainString(tally.told.hours),
-  jackpots: tally.told?.jackpots === undefined ? "" : String(tally.told.jackpots),
+  jackpots: tally.told?.netJackpots === undefined ? "" : String(tally.told.netJackpots),
   settlement: tally.settlement,
   ...(tally.handed === undefined ? {} : { handed: tally.handed }),
   weighingTerms: weighingTermsFormOf(((inferred) => (inferred === undefined || tally.gameKind !== "pachinko" ? undefined : Pachinko.weighingTermsOf(inferred)))(tally.told?.inferred) ?? kept.pachinko ?? Pachinko.TERMS_BY_DEFAULT),

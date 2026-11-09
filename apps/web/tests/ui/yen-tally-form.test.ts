@@ -121,7 +121,7 @@ describe("the tally form", () => {
   })
 
   test("set right, opens on the terms a tally was weighed on, else those the book keeps", () => {
-    const tally: YenTally = { id: "p" as PlayId, date: "2026-10-04" as IsoDate, parlor: undefined, gameKind: "pachinko", machine: "流星", cabinetNumber: undefined, outlay: dec("10000"), takings: dec("0"), settlement: undefined, theoreticalValue: undefined, told: { hours: dec("3"), jackpots: undefined, inferred: undefined } }
+    const tally: YenTally = { id: "p" as PlayId, date: "2026-10-04" as IsoDate, parlor: undefined, gameKind: "pachinko", machine: "流星", cabinetNumber: undefined, outlay: dec("10000"), takings: dec("0"), settlement: undefined, theoreticalValue: undefined, told: { hours: dec("3"), netJackpots: undefined, inferred: undefined } }
     const kept = { pachinko: { rentedPerThousand: 1000, exchangedPerHundred: 112 } }
     expect(yenTallyFormOf(tally, kept).weighingTerms).toEqual({ rentedPerThousand: "1000", exchangedPerHundred: "112" })
     const weighed = withInferred(tally, Pachinko.inferredWorthOf({ spinPerformance: 16, ownShare: 0, border: 20, theoreticalValue: -1000 }, "f", { rentedPerThousand: 240, exchangedPerHundred: 27.5 }))

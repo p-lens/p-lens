@@ -16,7 +16,7 @@ import { quantityIn } from "./figures"
 export interface TallyNotes {
   readonly aside: TallyAside
   readonly playSeconds: Decimal | undefined
-  readonly jackpots: number | undefined
+  readonly netJackpots: number | undefined
   readonly carriedIn: Decimal | undefined
   readonly inferredFormula: string | undefined
   readonly tokenRental: Decimal | undefined
@@ -47,7 +47,7 @@ export const tallyNotesOf = (transaction: Transaction): TallyNotes => {
   return {
     aside: asideOf(tagged),
     playSeconds: playSecondsOf(transaction),
-    jackpots: countOf(tagged(TALLY_TAGS.jackpots)),
+    netJackpots: countOf(tagged(TALLY_TAGS.netJackpots)),
     carriedIn: amountOf(tagged(TALLY_TAGS.carriedIn)),
     inferredFormula: tagged(TALLY_TAGS.inferredFormula),
     tokenRental: amountOf(tagged(TALLY_TAGS.tokenRental)),

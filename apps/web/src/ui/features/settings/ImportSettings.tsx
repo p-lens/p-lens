@@ -1,20 +1,23 @@
 import { createMemo, createResource, createSignal, For, onCleanup, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
-import type { ApplicationError } from "../../../application/errors"
-import { importPrecord, previewPrecord, type Imported, type Preview } from "../../../application/import"
+import type { ApplicationError, Outcome } from "../../../application/errors"
+import { importPachifolio, importPrecord, previewPachifolio, previewPrecord, type Imported, type ImportPorts, type Named, type Preview, type Weighing } from "../../../application/import"
+import { PACHIFOLIO } from "../../../core/import/pachifolio"
+import { PRECORD } from "../../../core/import/precord"
 import { machineMatches } from "../../../core/catalog/description"
 import type { BookId, ListedBook } from "../../../core/book/book"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import { Combobox } from "../../primitives/combobox"
 import { Loaded } from "../../primitives/states"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../primitives/tabs"
 import { createWait } from "../../primitives/wait"
 import type { Place } from "../../navigation/place"
 import { bookTitle } from "../../wording/book"
 import { describeError } from "../../wording/errors"
 import { formatCount } from "../../wording/numbers"
-import { IMPORT_BROKEN, IMPORT_READING, IMPORT_STOP, IMPORT_WRITING, importedText, timeLeftText, weighedText, writtenText } from "../../wording/import"
+import { IMPORT_BROKEN, IMPORT_CHOOSE, IMPORT_READING, IMPORT_STOP, IMPORT_WRITING, importedText, sourceName, timeLeftText, weighedText, writtenText } from "../../wording/import"
 import { secondsLeftOf } from "../../../core/import/time-left"
 import { ViewHeader } from "../shell/ViewHeader"
 
@@ -91,6 +94,37 @@ function TakingLine(props: { readonly taking: Taking; readonly onStop: () => voi
   )
 }
 
+/**
+ * An app tallies are taken in from, as this screen offers it: the word it
+ * goes by, what is said of it above its books and below them, how one of
+ * its files is looked at, and how what was looked at is taken into a book.
+ */
+interface Source {
+  readonly from: string
+  readonly about: string
+  readonly kept: string
+  readonly preview: (text: string) => Promise<Outcome<Preview>>
+  readonly take: (bookId: BookId, preview: Preview, named: Named, weighing: Weighing | undefined) => Promise<Outcome<Imported>>
+}
+
+/** The apps tallies are taken in from, a tab each, in the order the tabs stand. */
+const sourcesOf = (ports: ImportPorts): readonly Source[] => [
+  {
+    from: PRECORD,
+    about: "pRecord で書き出した CSV から、過去の収支を取り込みます。",
+    kept: "店舗名・機種名は pRecord のまま残します。同じファイルを2回選んでも、二重には入りません。貯玉は取り込みません。",
+    preview: (text) => previewPrecord(ports, text),
+    take: (bookId, preview, named, weighing) => importPrecord(ports, bookId, preview, named, weighing),
+  },
+  {
+    from: PACHIFOLIO,
+    about: "パチフォリオで書き出した CSV から、過去の収支を取り込みます。",
+    kept: "店舗名・機種名・タグはパチフォリオのまま残します。回転数・大当りも取り込みます。同じファイルを2回選んでも、二重には入りません。",
+    preview: (text) => previewPachifolio(ports, text),
+    take: (bookId, preview, named) => importPachifolio(ports, bookId, preview, named),
+  },
+]
+
 /** A file's bytes as UTF-8 text, or none where they do not read as UTF-8: a character made up in its place would be written into the book. */
 const utf8Of = (bytes: ArrayBuffer): string | undefined => {
   try {
@@ -102,7 +136,7 @@ const utf8Of = (bytes: ArrayBuffer): string | undefined => {
 
 /**
  * One book in a line: its title, and at the line's end a small button that
- * asks for a pRecord file to take into it. A file that names machines the
+ * asks for a file of the tab's app to take into it. A file that names machines the
  * catalog does not know is taken in only after the person has been shown
  * them, each to say which machine it is or to leave as it is written; one
  * whose tallies say how long their plays lasted, only after they have said whether
@@ -110,7 +144,7 @@ const utf8Of = (bytes: ArrayBuffer): string | undefined => {
  * A file that leaves nothing to ask is taken in at once. What the taking
  * in came to, or why nothing was taken in, is said under the line.
  */
-function BookRow(props: { readonly book: ListedBook; readonly taking: Taking; readonly onTaking: (taking: Taking) => void; readonly begin: () => AbortSignal; readonly onStop: () => void }): JSX.Element {
+function BookRow(props: { readonly source: Source; readonly book: ListedBook; readonly taking: Taking; readonly onTaking: (taking: Taking) => void; readonly begin: () => AbortSignal; readonly onStop: () => void }): JSX.Element {
   const app = useApp()
   const picker: { input: HTMLInputElement | undefined } = { input: undefined }
   const taking = (): Taking => props.taking
@@ -121,8 +155,7 @@ function BookRow(props: { readonly book: ListedBook; readonly taking: Taking; re
     const stopped = props.begin()
     setTaking({ type: "writing" })
     try {
-      const imported = await importPrecord(
-        { session: app.services.session, catalog: app.services.catalog },
+      const imported = await props.source.take(
         props.book.id,
         preview,
         named(),
@@ -157,7 +190,7 @@ function BookRow(props: { readonly book: ListedBook; readonly taking: Taking; re
       const text = utf8Of(await file.arrayBuffer())
       if (text === undefined) return setTaking({ type: "failed", error: { type: "import", problem: { type: "not-utf8" } } })
       setNamed(new Map())
-      const preview = await previewPrecord({ catalog: app.services.catalog }, text)
+      const preview = await props.source.preview(text)
       if (!preview.ok) return setTaking({ type: "failed", error: preview.error })
       if (preview.value.told === 0 && preview.value.unnamed.length === 0) return take(preview.value, false)
       setTaking({ type: "asking", preview: preview.value })
@@ -170,7 +203,7 @@ function BookRow(props: { readonly book: ListedBook; readonly taking: Taking; re
       <div class="flex items-center gap-2">
         <span class="min-w-0 flex-1 break-words text-sm font-medium text-text-primary">{bookTitle(props.book)}</span>
         <Button variant="outline" size="small" class="shrink-0" onClick={() => picker.input?.click()}>
-          pRecord
+          {IMPORT_CHOOSE}
         </Button>
         <input ref={(element) => (picker.input = element)} type="file" accept=".csv,text/csv" class="hidden" onChange={(event) => void chosen(event.currentTarget)} />
       </div>
@@ -181,7 +214,7 @@ function BookRow(props: { readonly book: ListedBook; readonly taking: Taking; re
             <Show when={asking.preview.unnamed.length > 0}>
               <div class="flex flex-col gap-2">
                 <p class="text-sm text-text-primary">カタログにない機種名があります</p>
-                <p class="text-xs text-text-muted">同じ機種がカタログにあれば選んでください。選ばなければ、pRecord の名前のまま取り込みます。</p>
+                <p class="text-xs text-text-muted">同じ機種がカタログにあれば選んでください。選ばなければ、{sourceName(props.source.from)}の名前のまま取り込みます。</p>
                 <For each={asking.preview.unnamed}>
                   {(unnamed) => (
                     <div class="flex flex-col gap-1">
@@ -192,7 +225,7 @@ function BookRow(props: { readonly book: ListedBook; readonly taking: Taking; re
                       <Combobox
                         label="カタログの機種"
                         placeholder="選ばない"
-                        options={asking.preview.machines.map((machine) => ({ value: machine.id, label: machine.name, ...(machine.hitChance === undefined ? {} : { note: machine.hitChance }) }))}
+                        options={asking.preview.machines.filter((machine) => unnamed.gameKind === undefined || machine.gameKind === unnamed.gameKind).map((machine) => ({ value: machine.id, label: machine.name, ...(machine.hitChance === undefined ? {} : { note: machine.hitChance }) }))}
                         value={named().get(unnamed.name)}
                         onChange={(machineId) => setNamed((before) => new Map([...before].filter(([name]) => name !== unnamed.name).concat(machineId === undefined ? [] : [[unnamed.name, machineId]])))}
                         matches={(machineId, typed) => asking.preview.machines.some((machine) => machine.id === machineId && machineMatches(machine, typed))}
@@ -246,45 +279,62 @@ function BookRow(props: { readonly book: ListedBook; readonly taking: Taking; re
   )
 }
 
+/** Where a book's taking in from an app is kept, the two together: the same book is taken into from each tab apart. */
+const takingKey = (from: string, bookId: BookId): string => `${from}\u001f${bookId}`
+
 /**
- * Taking tallies in from another app, into a book the person chooses, on a
- * press and at no other time: pRecord's CSV, a row a tally, kept in yen with
- * what went in and what came back. A file taken in twice writes nothing
- * the second time.
+ * Taking tallies in from other apps, a tab each, into a book the person
+ * chooses, on a press and at no other time: a CSV, a row a tally, kept in
+ * yen with what went in and what came back. A file taken in twice writes
+ * nothing the second time. Each book's taking in from each app goes on
+ * whichever tab is shown.
  */
 export function ImportSettings(props: { readonly place: Place }): JSX.Element {
   const app = useApp()
+  const sources = sourcesOf({ session: app.services.session, catalog: app.services.catalog })
   const [books] = createResource(() => app.revision(), () => app.services.session.books())
-  /** Where each book's taking in is, kept here and not in its row: a taking in changes the books, the list of them is read again, and what the taking in came to must still be said under its row then. */
-  const [takings, setTakings] = createSignal<ReadonlyMap<BookId, Taking>>(new Map())
-  /** Each book's taking in now under way, to be stopped by its 中止 or by the screen being left: a weighing goes on for minutes, and nobody is there to see it once the screen is gone. */
-  const stoppers = new Map<BookId, AbortController>()
+  const [shown, setShown] = createSignal(PRECORD)
+  /** Where each book's taking in from each app is, kept here and not in its row: a taking in changes the books, the list of them is read again, and what the taking in came to must still be said under its row then — and a tab not shown is let go of. */
+  const [takings, setTakings] = createSignal<ReadonlyMap<string, Taking>>(new Map())
+  /** Each taking in now under way, to be stopped by its 中止 or by the screen being left: a weighing goes on for minutes, and nobody is there to see it once the screen is gone. */
+  const stoppers = new Map<string, AbortController>()
   onCleanup(() => stoppers.forEach((stopper) => stopper.abort()))
-  const begin = (bookId: BookId): AbortSignal => {
+  const begin = (key: string): AbortSignal => {
     const stopper = new AbortController()
-    stoppers.set(bookId, stopper)
+    stoppers.set(key, stopper)
     return stopper.signal
   }
   return (
     <MainContent header={<ViewHeader place={props.place} title="インポート" />}>
       <div class="max-w-5xl">
-        <div class="flex flex-col gap-6 p-4">
-          <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm text-text-muted">
-            <dt class="font-medium text-text-secondary">pRecord</dt>
-            <dd>pRecord で書き出した CSV から、過去の収支を取り込みます。</dd>
-          </dl>
-          <section class="flex flex-col gap-2">
-            <h2 class="px-3 text-xs font-bold tracking-wide text-text-muted">取り込み先の帳簿</h2>
-            <Loaded outcome={books()}>
-              {(found) => (
-                <ul class="flex flex-col gap-1">
-                  <For each={found}>{(book) => <BookRow book={book} taking={takings().get(book.id) ?? IDLE} onTaking={(taking) => setTakings((before) => new Map([...before, [book.id, taking]]))} begin={() => begin(book.id)} onStop={() => stoppers.get(book.id)?.abort()} />}</For>
-                </ul>
-              )}
-            </Loaded>
-          </section>
-          <p class="text-xs text-text-muted">店舗名・機種名は pRecord のまま残します。同じファイルを2回選んでも、二重には入りません。貯玉は取り込みません。</p>
-        </div>
+        <Tabs value={shown()} onChange={setShown} label="取り込み元">
+          <TabsList>
+            <For each={sources}>{(source) => <TabsTrigger value={source.from}>{sourceName(source.from)}</TabsTrigger>}</For>
+          </TabsList>
+          <For each={sources}>
+            {(source) => (
+              <TabsContent value={source.from} class="flex flex-col gap-6 p-4">
+                <p class="text-sm text-text-muted">{source.about}</p>
+                <section class="flex flex-col gap-2">
+                  <h2 class="px-3 text-xs font-bold tracking-wide text-text-muted">取り込み先の帳簿</h2>
+                  <Loaded outcome={books()}>
+                    {(found) => (
+                      <ul class="flex flex-col gap-1">
+                        <For each={found}>
+                          {(book) => {
+                            const key = takingKey(source.from, book.id)
+                            return <BookRow source={source} book={book} taking={takings().get(key) ?? IDLE} onTaking={(taking) => setTakings((before) => new Map([...before, [key, taking]]))} begin={() => begin(key)} onStop={() => stoppers.get(key)?.abort()} />
+                          }}
+                        </For>
+                      </ul>
+                    )}
+                  </Loaded>
+                </section>
+                <p class="text-xs text-text-muted">{source.kept}</p>
+              </TabsContent>
+            )}
+          </For>
+        </Tabs>
       </div>
     </MainContent>
   )

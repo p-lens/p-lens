@@ -119,12 +119,12 @@ describe("a recorded tally, read back from its entry", () => {
 
   test("keeps what was told of a tally and what it was taken to be worth, apart from what was measured and summed with it", async () => {
     const { session, storage } = await setUp()
-    const told = { ...TALLIED, id: "told" as PlayId, theoreticalValue: undefined, told: { hours: dec("4.25"), jackpots: 8, inferred: { value: dec("-5300"), formulaId: "formula-1", tokenRental: dec("4"), tokenExchange: dec("28"), spinPerformance: dec("16.4") } } }
+    const told = { ...TALLIED, id: "told" as PlayId, theoreticalValue: undefined, told: { hours: dec("4.25"), netJackpots: 8, inferred: { value: dec("-5300"), formulaId: "formula-1", tokenRental: dec("4"), tokenExchange: dec("28"), spinPerformance: dec("16.4") } } }
     const before = await figures(session, "")
     expect((await recordYenTally(session, BOOK, told)).ok).toBe(true)
     expect(await recordedOf(session, "told")).toEqual({ ok: true, value: { type: "yen", tally: told } })
     const text = transactionsOf(storage.peek(BOOK)?.files)
-    expect(text).toContain("hours: 4.25, jackpots: 8, inferred-formula: formula-1, token-rental: 4, token-exchange: 28")
+    expect(text).toContain("hours: 4.25, net-jackpots: 8, inferred-formula: formula-1, token-rental: 4, token-exchange: 28")
     expect(text).toContain("(統計:期待値:推定)")
     const after = await figures(session, "")
     expect(after.ok && before.ok && Number(after.value[1]) - Number(before.value[1])).toBe(-5300)
@@ -141,7 +141,7 @@ describe("a recorded tally, read back from its entry", () => {
 
   test("keeps what an AT machine's tally was inferred to be worth from its history, its hours left unsaid", async () => {
     const { session, storage } = await setUp()
-    const read = { ...TALLIED, id: "read" as PlayId, theoreticalValue: undefined, told: { hours: undefined, jackpots: undefined, inferred: { value: dec("-2100"), formulaId: "formula-2", tokenRental: dec("21.73913"), tokenExchange: dec("5.1"), spinPerformance: undefined } } }
+    const read = { ...TALLIED, id: "read" as PlayId, theoreticalValue: undefined, told: { hours: undefined, netJackpots: undefined, inferred: { value: dec("-2100"), formulaId: "formula-2", tokenRental: dec("21.73913"), tokenExchange: dec("5.1"), spinPerformance: undefined } } }
     expect((await recordYenTally(session, BOOK, read)).ok).toBe(true)
     expect(await recordedOf(session, "read")).toEqual({ ok: true, value: { type: "yen", tally: read } })
     const text = transactionsOf(storage.peek(BOOK)?.files)
@@ -321,7 +321,7 @@ describe("the spin performances of a book's tallies", () => {
     await recordTokenTally(session, BOOK, { ...TODAY, id: "a" as PlayId, machine: "流星", spinPerformance: dec("18.2") })
     await recordTokenTally(session, BOOK, { ...TODAY, id: "b" as PlayId, machine: "流星", spinPerformance: dec("17.5") })
     await recordTokenTally(session, BOOK, { ...TODAY, id: "c" as PlayId, machine: "流星" })
-    await recordYenTally(session, BOOK, { ...TALLIED, id: "d" as PlayId, machine: "流星", theoreticalValue: undefined, told: { hours: dec("3"), jackpots: undefined, inferred: { value: dec("-2000"), formulaId: "formula-1", tokenRental: dec("4"), tokenExchange: dec("28"), spinPerformance: dec("16.4") } } })
+    await recordYenTally(session, BOOK, { ...TALLIED, id: "d" as PlayId, machine: "流星", theoreticalValue: undefined, told: { hours: dec("3"), netJackpots: undefined, inferred: { value: dec("-2000"), formulaId: "formula-1", tokenRental: dec("4"), tokenExchange: dec("28"), spinPerformance: dec("16.4") } } })
     await recordTokenTally(session, BOOK, { ...TODAY, id: "e" as PlayId, machine: "海", spinPerformance: dec("20") })
     const found = await loadSpinPerformances(session, BOOK, "")
     const byMachine = found.ok ? found.value : new Map<string, SpinPerformances>()

@@ -1,6 +1,6 @@
-import { parseIsoDate, type IsoDate } from "../calendar/calendar"
-import { decimal, parseDecimal, type Decimal } from "../decimal/decimal"
+import { decimal, type Decimal } from "../decimal/decimal"
 import { Err, Ok, type Result } from "../result/result"
+import { dayOf, unreadableOf, yenOf, type RowField, type RowsUnreadable } from "./cells"
 import { rowsOfCsv, type CsvProblem } from "./csv-rows"
 import type { SourceTally } from "./source-tally"
 
@@ -32,38 +32,17 @@ type Column = keyof typeof COLUMNS
 /** The columns a row cannot do without, as pRecord's own import has them. */
 const REQUIRED: readonly Column[] = ["date", "outlay", "takings"]
 
-/** What of a row could not be read. */
-export type RowField = "date" | "outlay" | "takings" | "hours"
-
 /**
  * Why a file is not taken in.
  *
  * - `not-precord`: its first row does not name the columns a tally needs.
- * - `rows-unreadable`: these rows, by their line in the file, each with what of it does not read. Nothing of a file is taken in while any row of it does not.
+ * - `rows-unreadable`: these rows do not read.
  */
 export type PrecordProblem =
   | { readonly type: "empty" }
   | { readonly type: "not-precord"; readonly missing: readonly string[] }
-  | { readonly type: "rows-unreadable"; readonly rows: readonly { readonly line: number; readonly fields: readonly RowField[] }[] }
+  | RowsUnreadable
   | CsvProblem
-
-const DAY = /^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/
-
-/** A day as pRecord writes it, `2019/01/02`; one written without its zeros, or with hyphens, is the same day. */
-const dayOf = (text: string): IsoDate | undefined => {
-  const read = DAY.exec(text.trim())
-  const parsed = read === null ? undefined : parseIsoDate(`${read[1] ?? ""}-${(read[2] ?? "").padStart(2, "0")}-${(read[3] ?? "").padStart(2, "0")}`)
-  return parsed?.ok === true ? parsed.value : undefined
-}
-
-const YEN_SUM = /^\d+$/
-
-/** A sum of yen as typed into a cell: whole, not below nothing, commas allowed. */
-const yenOf = (text: string): Decimal | undefined => {
-  const plain = text.trim().replaceAll(",", "")
-  const parsed = YEN_SUM.test(plain) ? parseDecimal(plain) : undefined
-  return parsed?.ok === true ? parsed.value : undefined
-}
 
 const CLOCK = /^(\d{1,2}):(\d{2})(?::\d{2})?$/
 
@@ -110,6 +89,10 @@ const tallyOf = (cell: (column: Column) => string): Result<SourceTally, readonly
     takings,
     memo: cell("memo").trim(),
     hours: hours.value,
+    gameKind: undefined,
+    countedSpins: undefined,
+    countedJackpots: undefined,
+    sourceLabels: [],
   })
 }
 
@@ -129,6 +112,6 @@ export const readPrecord = (text: string): Result<readonly SourceTally[], Precor
   if (missing.length > 0) return Err({ type: "not-precord", missing })
   if (rows.length === 0) return Err({ type: "empty" })
   const read = rows.map((row) => tallyOf((column) => row[names.indexOf(COLUMNS[column])] ?? ""))
-  const unreadable = read.flatMap((tally, index) => (tally.ok ? [] : [{ line: index + 2, fields: tally.error }]))
-  return unreadable.length > 0 ? Err({ type: "rows-unreadable", rows: unreadable }) : Ok(read.flatMap((tally) => (tally.ok ? [tally.value] : [])))
+  const unreadable = unreadableOf(read)
+  return unreadable === undefined ? Ok(read.flatMap((tally) => (tally.ok ? [tally.value] : []))) : Err(unreadable)
 }
