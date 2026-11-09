@@ -92,6 +92,14 @@ export const RefreshIcon = () => (
   </Icon>
 )
 
+/** Offline: a cloud struck through from its top left, as a backslash is drawn. */
+export const CloudOffIcon = () => (
+  <Icon>
+    <path d="M7 18a4 4 0 0 1-.6-7.95A6 6 0 0 1 17.6 9.1 4.5 4.5 0 0 1 17.5 18Z" />
+    <path d="M4 4l16 16" />
+  </Icon>
+)
+
 /** Copy: two sheets, one over the other. */
 export const CopyIcon = () => (
   <Icon>

@@ -165,5 +165,8 @@ export const REFRESH_TITLE = "機種・算出条件の更新"
 /** What the top bar's refresh says while it takes a delivery. */
 export const REFRESHING = "更新しています"
 
+/** What the top bar's refresh is called while the device is offline: the catalog it already has is still there to use. */
+export const REFRESH_OFFLINE = "オフライン（機種・算出条件は端末にあるものを使います）"
+
 /** What a press of the top bar's refresh that failed is titled. */
 export const REFRESH_FAILED = "更新できませんでした"
