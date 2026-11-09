@@ -7,13 +7,17 @@ import { useMoves } from "../../navigation/moves"
 import { BackupIcon } from "../../primitives/icons"
 import { noteText } from "../../wording/backup"
 
+/** A book never backed up is said in an error's red; one changed since, quietly. */
+const TONES: Readonly<Record<Note, string>> = { never: "text-negative", changed: "text-text-muted" }
+
 /**
  * A quiet word in the top bar's corner while a book on the device has never
  * been backed up, or has changed since it was. It only says so: pressed, it
  * opens the backup settings, and nothing is ever sent because it showed.
  * Where the books' standing cannot be read, it says nothing. A narrow
  * window's corner has no room for the words, so there it is the backup's
- * mark alone, named by them.
+ * mark alone, named by them. A book never backed up is said, words and
+ * mark alike, in an error's red.
  */
 export function BackupNotice(): JSX.Element {
   const app = useApp()
@@ -33,7 +37,7 @@ export function BackupNotice(): JSX.Element {
           onClick={() => moves.go({ kind: "settings-section", section: "backup" })}
           aria-label={noteText(found)}
           title={noteText(found)}
-          class="flex h-7 min-w-7 shrink-0 items-center justify-center rounded text-xs text-text-muted hover:bg-surface-3 sm:px-2 [&_svg]:size-5"
+          class={`flex h-7 min-w-7 shrink-0 items-center justify-center rounded text-xs ${TONES[found]} hover:bg-surface-3 sm:px-2 [&_svg]:size-5`}
         >
           <span class="hidden whitespace-nowrap sm:inline">{noteText(found)}</span>
           <span class="sm:hidden">
