@@ -11,13 +11,16 @@ import type { PlayTerms } from "../../../core/parlor/terms"
 import type { PlayId } from "../../../core/play/play"
 import type { TallySummary } from "../../../core/report/tallies"
 import { decimalOfQuantity } from "../../../core/report/figures"
+import { userMemoIn } from "../../../core/tally/user-memo"
+import { userTagsIn } from "../../../core/tally/user-tags"
 import type { Posting } from "../../../hledger/protocol/wire"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import { ConfirmDialog } from "../../primitives/dialog"
-import { CloseIcon, EditIcon, TrashIcon } from "../../primitives/icons"
+import { ChevronDownIcon, CloseIcon, EditIcon, TrashIcon } from "../../primitives/icons"
 import { Loaded } from "../../primitives/states"
 import { toast } from "../../primitives/toast"
+import { Unfolding } from "../../primitives/unfolding"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { formatDay } from "../../wording/dates"
@@ -31,6 +34,48 @@ import * as PachislotViews from "../pachislot"
 import { seal } from "../../../mummer"
 import { accountText } from "../../wording/accounts"
 import { cabinetNumberText } from "../../wording/cabinet"
+import { NOTES_HEADING, USER_TAGS_LABEL, userMemoText } from "../../wording/user-tags"
+
+/**
+ * The words a tally is tagged with, a chip each, and the note it was
+ * written down with under them, above the entry, where it has either. Its heading is pressed to fold them away
+ * and unfold them again, the arrow head at its right end turning with it;
+ * it opens unfolded.
+ */
+function Notes(props: { readonly tags: readonly string[]; readonly memo: string | undefined }): JSX.Element {
+  const [open, setOpen] = createSignal(true)
+  return (
+    <Show when={props.tags.length > 0 || props.memo !== undefined}>
+      <section class="flex flex-col gap-2">
+        <h3>
+          <button
+            type="button"
+            aria-expanded={open()}
+            onClick={() => setOpen((shown) => !shown)}
+            class="flex w-full items-center justify-between gap-2 rounded text-left text-xs font-bold uppercase tracking-wide text-text-muted hover:text-text-primary focus-visible:outline-2 focus-visible:outline-focus-ring [&_svg]:size-4"
+          >
+            {NOTES_HEADING}
+            <span class="shrink-0 text-text-secondary transition-transform motion-reduce:transition-none" classList={{ "-rotate-90": !open() }}>
+              <ChevronDownIcon />
+            </span>
+          </button>
+        </h3>
+        <Unfolding open={open()} gap="-mt-2">
+          <div class="flex flex-col gap-2">
+            <Show when={props.tags.length > 0}>
+              <ul class="flex flex-wrap gap-1" aria-label={USER_TAGS_LABEL}>
+                <For each={props.tags}>{(tag) => <li class="flex h-7 items-center rounded bg-surface-3 px-2 text-sm text-text-primary">{tag}</li>}</For>
+              </ul>
+            </Show>
+            <Show when={props.memo} keyed>
+              {(memo) => <p class="break-words text-sm text-text-primary">{userMemoText(seal.memo(memo))}</p>}
+            </Show>
+          </div>
+        </Unfolding>
+      </section>
+    </Show>
+  )
+}
 
 const asRead = (account: string, quantity: Decimal): Decimal => (isWrittenReversed(account) ? negate(quantity) : quantity)
 
@@ -177,6 +222,7 @@ export function TallyDetail(props: { readonly place: Place; readonly bookId: Boo
                 </Switch>
               </section>
             </Show>
+            <Notes tags={userTagsIn(found.transaction.ttags)} memo={userMemoIn(found.transaction.ttags)} />
             <section class="flex flex-col gap-2">
               <h3 class="text-xs font-bold uppercase tracking-wide text-text-muted">仕訳</h3>
               <Postings postings={found.transaction.tpostings} />

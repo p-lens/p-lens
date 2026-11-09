@@ -20,6 +20,7 @@ export type Exposure = "shown" | "veiled"
 /**
  * - `parlor`: a parlor's name, wherever it is written, an account or an entry's payee too
  * - `cabinet`: a cabinet's number
+ * - `memo`: a note a person wrote of a tally in their own words, which may say anything, where they sat too
  * - `book`: a book's name, one's own or one plays are sent to
  * - `member`: the name a member of a shared book goes by, sending plays into it or let in; a huddle's names are made up to be shown, and are no member's
  * - `savings`: tokens a parlor keeps for a person, and what they are worth
@@ -32,6 +33,7 @@ export type Exposure = "shown" | "veiled"
 export const POLICY = {
   parlor: { text: "veiled", length: "shown" },
   cabinet: { text: "veiled" },
+  memo: { text: "veiled" },
   book: { text: "veiled", initial: "shown" },
   member: { text: "veiled", initial: "shown" },
   savings: { figure: "veiled", tone: "veiled", scale: "veiled", whole: "veiled" },

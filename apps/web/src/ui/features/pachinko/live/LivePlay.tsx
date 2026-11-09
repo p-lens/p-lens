@@ -15,12 +15,14 @@ import { liveSummary, minutesPlayedOf } from "../../../../core/play-log/live"
 import { inPlayOrder } from "../../../../core/play-log/performance"
 import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
+import { FoldingSheet } from "../../../primitives/folding-sheet"
+import { createScrollerHeight } from "../../../primitives/scroller"
 import { ChevronDownIcon } from "../../../primitives/icons"
 import { toast } from "../../../primitives/toast"
 import { useMoves } from "../../../navigation/moves"
 import type { Place } from "../../../navigation/place"
 import { describeError, describePlayLogError } from "../../../wording/errors"
-import { CHANGED_SINCE_MERGED, FOLD_FIGURES, MERGE_FAILED, MERGED, UNFOLD_FIGURES, TAKE_BACK, TAKE_BACK_FAILED, UNMERGED } from "../../../wording/pachinko/play"
+import { CHANGED_SINCE_MERGED, COMPOSER_FOLD, FOLD_FIGURES, MERGE_FAILED, MERGED, UNFOLD_FIGURES, TAKE_BACK, TAKE_BACK_FAILED, UNMERGED } from "../../../wording/pachinko/play"
 import { ViewHeader } from "../../shell/ViewHeader"
 import { ElsewhereBar } from "../../live/ElsewhereBar"
 import { elsewhereOf, type HeldElsewhere, type PlayHold } from "../../live/play-hold"
@@ -86,6 +88,8 @@ export function LivePlay(props: {
   /** What the composer is doing beside taking the next reading: setting a line right, or putting a reading in before another. */
   const [work, setWork] = createSignal<Work | undefined>(undefined)
   const [huntShown, setHuntShown] = createSignal(false)
+  /** How tall the scroll the play is in shows: the readings and the form under them are kept at least as tall, so that what stands above the readings can always be scrolled out of view, however few the readings. */
+  const scroller = createScrollerHeight()
   const revised = (): Revised | undefined => {
     const doing = work()
     return doing === undefined || doing.type === "inserting" ? undefined : doing
@@ -160,7 +164,7 @@ export function LivePlay(props: {
         />
       }
     >
-      <div class="flex min-h-full max-w-5xl flex-col">
+      <div ref={scroller.within} class="flex min-h-full max-w-5xl flex-col">
         <Show
           when={ordered()}
           keyed
@@ -181,7 +185,7 @@ export function LivePlay(props: {
             const measured = consumption?.measured
             return (
               <div class="flex flex-1 flex-col">
-                <div class="flex flex-1 flex-col gap-3 p-3">
+                <div class="flex flex-col gap-3 px-3 pt-3">
                   <CornerTerms
                     draft={props.draft}
                     hold={props.hold}
@@ -228,48 +232,56 @@ export function LivePlay(props: {
                       </Show>
                     )}
                   />
-                  <Show when={props.hold.type === "held"} fallback={<Timeline checkpoints={checkpoints} terms={terms} revising={undefined} onRevise={undefined} onMerge={undefined} />}>
-                    <Timeline checkpoints={checkpoints} terms={terms} revising={revised()} onRevise={(pressed) => (samePressed(pressed, revised()) ? done() : setWork(pressed))} onMerge={(span) => merge(checkpoints, span)} />
-                  </Show>
                 </div>
-                <div class="sticky bottom-0 grid">
-                  <div class="col-start-1 row-start-1" classList={{ invisible: elsewhere() !== undefined }} inert={elsewhere() !== undefined}>
-                    <Show
-                      when={work()}
-                      keyed
-                      fallback={
-                        <Show when={supportPhaseOf(checkpoints)} keyed fallback={<ReadingComposer draft={props.draft} ordered={checkpoints} revising={undefined} inserting={undefined} onRevised={done} onInsertBefore={insertBefore} reliefDrive={reliefDrive()} />}>
-                          {(phase) => <SupportComposer draft={props.draft} ordered={checkpoints} phase={phase} reliefDrive={inReliefDrive(checkpoints)} />}
-                        </Show>
-                      }
-                    >
-                      {(doing) => {
-                        if (doing.type === "seat") return <SeatComposer draft={props.draft} ordered={checkpoints} reliefDrive={reliefDrive()} onDone={done} />
-                        const taken = takenOf(checkpoints)
-                        const before = doing.type === "inserting" ? doing.before : doing.index
-                        const at = taken[before - 1]?.reading.at ?? checkpoints.at(0)?.at ?? ""
-                        const revising = doing.type === "reading" ? taken[doing.index] : undefined
-                        return (
-                          <ReadingComposer
-                            draft={props.draft}
-                            ordered={checkpoints}
-                            revising={revising === undefined ? undefined : { index: before, taken: revising }}
-                            inserting={doing.type === "inserting" ? { before, at } : undefined}
-                            onRevised={done}
-                            onInsertBefore={insertBefore}
-                            reliefDrive={undefined}
-                          />
-                        )
-                      }}
+                <div class="flex flex-1 flex-col" style={((height) => (height === undefined ? {} : { "min-height": `${height}px` }))(scroller.height())}>
+                  <div class="flex flex-1 flex-col p-3">
+                    <Show when={props.hold.type === "held"} fallback={<Timeline checkpoints={checkpoints} terms={terms} revising={undefined} onRevise={undefined} onMerge={undefined} />}>
+                      <Timeline checkpoints={checkpoints} terms={terms} revising={revised()} onRevise={(pressed) => (samePressed(pressed, revised()) ? done() : setWork(pressed))} onMerge={(span) => merge(checkpoints, span)} />
                     </Show>
                   </div>
-                  <Show when={elsewhere()}>
-                    {(held) => (
-                      <div class="col-start-1 row-start-1 flex items-center border-t border-border bg-surface-2 p-3">
-                        <ElsewhereBar hold={held()} />
+                  <div class="sticky bottom-0">
+                    <FoldingSheet label={COMPOSER_FOLD}>
+                      <div class="grid">
+                        <div class="col-start-1 row-start-1" classList={{ invisible: elsewhere() !== undefined }} inert={elsewhere() !== undefined}>
+                          <Show
+                            when={work()}
+                            keyed
+                            fallback={
+                              <Show when={supportPhaseOf(checkpoints)} keyed fallback={<ReadingComposer draft={props.draft} ordered={checkpoints} revising={undefined} inserting={undefined} onRevised={done} onInsertBefore={insertBefore} reliefDrive={reliefDrive()} />}>
+                                {(phase) => <SupportComposer draft={props.draft} ordered={checkpoints} phase={phase} reliefDrive={inReliefDrive(checkpoints)} />}
+                              </Show>
+                            }
+                          >
+                            {(doing) => {
+                              if (doing.type === "seat") return <SeatComposer draft={props.draft} ordered={checkpoints} reliefDrive={reliefDrive()} onDone={done} />
+                              const taken = takenOf(checkpoints)
+                              const before = doing.type === "inserting" ? doing.before : doing.index
+                              const at = taken[before - 1]?.reading.at ?? checkpoints.at(0)?.at ?? ""
+                              const revising = doing.type === "reading" ? taken[doing.index] : undefined
+                              return (
+                                <ReadingComposer
+                                  draft={props.draft}
+                                  ordered={checkpoints}
+                                  revising={revising === undefined ? undefined : { index: before, taken: revising }}
+                                  inserting={doing.type === "inserting" ? { before, at } : undefined}
+                                  onRevised={done}
+                                  onInsertBefore={insertBefore}
+                                  reliefDrive={undefined}
+                                />
+                              )
+                            }}
+                          </Show>
+                        </div>
+                        <Show when={elsewhere()}>
+                          {(held) => (
+                            <div class="col-start-1 row-start-1 flex items-center border-t border-border bg-surface-2 p-3">
+                              <ElsewhereBar hold={held()} />
+                            </div>
+                          )}
+                        </Show>
                       </div>
-                    )}
-                  </Show>
+                    </FoldingSheet>
+                  </div>
                 </div>
               </div>
             )

@@ -342,6 +342,18 @@ export const TrianglesDownIcon = (props: { readonly count: 1 | 2 | 3 | 4 }) => (
   </svg>
 )
 
+/** Drag me: six dots in two columns, on what is pulled to fold a part of the screen away and back. */
+export const GripIcon = () => (
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" stroke="none" aria-hidden="true">
+    <circle cx="9" cy="6" r="1.6" />
+    <circle cx="15" cy="6" r="1.6" />
+    <circle cx="9" cy="12" r="1.6" />
+    <circle cx="15" cy="12" r="1.6" />
+    <circle cx="9" cy="18" r="1.6" />
+    <circle cx="15" cy="18" r="1.6" />
+  </svg>
+)
+
 /** Change: an arrow head pointing down, at what opens a list to choose again from. */
 export const ChevronDownIcon = () => (
   <Icon>

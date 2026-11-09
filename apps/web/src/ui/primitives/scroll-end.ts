@@ -1,14 +1,9 @@
 import { createComputed, createEffect, on, type Accessor } from "solid-js"
 
+import { scrollerOf } from "./scroller"
+
 /** How near the scroll's end counts as at it, in pixels: a hair short of it, as a scroll to the foot can stop. */
 const NEAR_THE_END = 16
-
-const scrolls = (element: HTMLElement): boolean => ((overflow) => overflow === "auto" || overflow === "scroll")(getComputedStyle(element).overflowY)
-
-const scrollerOf = (element: HTMLElement): HTMLElement | undefined => {
-  const parent = element.parentElement ?? undefined
-  return parent === undefined || scrolls(parent) ? parent : scrollerOf(parent)
-}
 
 const nearTheEnd = (scroller: HTMLElement): boolean => scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight <= NEAR_THE_END
 

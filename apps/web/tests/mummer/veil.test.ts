@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import type { JSX } from "solid-js"
 
 import { isWholeShown, seal, Secret, startMumming, stopMumming, veil } from "../../src/mummer"
+import { userMemoText } from "../../src/ui/wording/user-tags"
 
 afterEach(() => stopMumming("2026-10-29"))
 
@@ -33,6 +34,12 @@ describe("veil", () => {
     expect(veil.text(seal.parlor("東京皇国 第8支店"), (name) => name, "••••店")).toBe("••••店")
     expect(veil.length(seal.parlor("東京皇国 第8支店"), (name) => name.length, 0)).toBe(9)
     expect(veil.text(seal.cabinet("123"), (number) => number, "•••")).toBe("•••")
+  })
+
+  test("veils a tally's note while mumming alone, its own words being able to say anything", () => {
+    expect(userMemoText(seal.memo("角台が甘い"))).toBe("角台が甘い")
+    startMumming("2026-10-29")
+    expect(userMemoText(seal.memo("角台が甘い"))).toBe("•••")
   })
 
   test("while mumming, withholds whole what no veil can stand over: a book's files, the codes into a book, and the forms its figures are typed into", () => {

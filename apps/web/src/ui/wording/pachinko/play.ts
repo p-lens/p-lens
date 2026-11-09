@@ -131,6 +131,9 @@ export const borderMarkSays = (mark: BorderMark): string =>
 export const UNFOLD_FIGURES = "すべての数値を表示"
 export const FOLD_FIGURES = "数値をたたむ"
 
+/** What the tab that folds the reading's form away and back is called: whether it is open is said beside it. */
+export const COMPOSER_FOLD = "入力欄"
+
 /** What is said under a reading's 持ち玉 once the hand has been played long without a count: the hand likely now, where the play has been measured. */
 export const recountText = (estimate: Amount<number> | undefined): string => `持ち玉を数え直して${estimate === undefined ? "" : `（推定 ${amountText(estimate)}玉）`}`
 

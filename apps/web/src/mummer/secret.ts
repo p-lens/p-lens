@@ -37,6 +37,7 @@ const sealing =
 export const seal = {
   parlor: sealing("parlor"),
   cabinet: sealing("cabinet"),
+  memo: sealing("memo"),
   book: sealing("book"),
   member: sealing("member"),
   savings: sealing("savings"),
