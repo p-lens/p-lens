@@ -54,6 +54,20 @@ describe("a recorded tally, read back from its entry", () => {
     expect(await recordedOf(session, "full")).toEqual({ ok: true, value: { type: "token", tally: FULL } })
   })
 
+  test("is the tally a play followed live was written from, with what its log counted of the person's own playing, of either game", async () => {
+    const { session } = await setUp()
+    const spun: TokenTally = { ...TODAY, id: "spun" as PlayId, netCounts: { type: "pachinko", spins: 700, jackpots: 3 } }
+    const atMachine: YenTally = { ...TALLIED, id: "at" as PlayId, netCounts: { type: "at-machine", games: 1800, ats: 2 } }
+    const bonusMachine: YenTally = { ...TALLIED, id: "bonus" as PlayId, netCounts: { type: "bonus-machine", games: 2400, bonuses: 11 } }
+    const gamesOnly: YenTally = { ...TALLIED, id: "games" as PlayId, netCounts: { type: "games", games: 300 } }
+    for (const tally of [spun]) await recordTokenTally(session, BOOK, tally)
+    for (const tally of [atMachine, bonusMachine, gamesOnly]) await recordYenTally(session, BOOK, tally)
+    expect(await recordedOf(session, "spun")).toEqual({ ok: true, value: { type: "token", tally: spun } })
+    expect(await recordedOf(session, "at")).toEqual({ ok: true, value: { type: "yen", tally: atMachine } })
+    expect(await recordedOf(session, "bonus")).toEqual({ ok: true, value: { type: "yen", tally: bonusMachine } })
+    expect(await recordedOf(session, "games")).toEqual({ ok: true, value: { type: "yen", tally: gamesOnly } })
+  })
+
   test("is the tally kept in yen it was written from, a gain, a loss or an even day", async () => {
     const { session } = await setUp()
     const gain = { ...TALLIED, id: "gain" as PlayId, parlor: undefined, outlay: dec("0"), takings: dec("3000"), theoreticalValue: undefined }

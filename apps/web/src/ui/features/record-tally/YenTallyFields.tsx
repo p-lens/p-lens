@@ -10,7 +10,6 @@ import { DetailButton } from "../../primitives/detail-button"
 import { SignFlip } from "../../primitives/sign-flip"
 import { PlusIcon, TrashIcon } from "../../primitives/icons"
 import { redText } from "../../primitives/nudge"
-import { PencilledBubble } from "../../primitives/pencilled-bubble"
 import { Select } from "../../primitives/select"
 import { TextField } from "../../primitives/text-field"
 import { ToggleGroup, ToggleGroupItem } from "../../primitives/toggle-group"
@@ -26,7 +25,7 @@ import type { SubmitWords } from "./form"
 import type { YenTallyEditing } from "./yen-tally-editing"
 import { HOUR_CHOICES, hoursOfMinutes, MINUTE_CHOICES, minutesToldIn, NEW_AT_WON, type AtHistoryForm, type AtWonForm } from "./yen-tally-form"
 import { seal } from "../../../mummer"
-import { cabinetFieldMasked, cabinetText } from "../../wording/cabinet"
+import { cabinetFieldMasked } from "../../wording/cabinet"
 import { JournalText } from "../mummer/JournalText"
 
 const SUBMIT_PARLOR = "一覧にない店舗を申請する"
@@ -147,6 +146,25 @@ export function GameKindField(props: { readonly editing: YenTallyEditing }): JSX
   )
 }
 
+/** The cabinet's number, typed where it stands beside the machine's name: pressed, it takes the keyboard at once. */
+function CabinetNumberInput(props: { readonly editing: YenTallyEditing }): JSX.Element {
+  const editing = props.editing
+  return (
+    <div class="flex h-6 shrink-0 items-center gap-1 text-xs font-bold text-text-primary">
+      <input
+        aria-label="台番号"
+        value={editing.form().cabinetNumber}
+        onInput={(event) => editing.set("cabinetNumber")(event.currentTarget.value)}
+        inputMode="numeric"
+        placeholder="----"
+        class="h-6 w-14 rounded-[3px] bg-surface-input px-1.5 text-right text-base tabular-nums outline-none placeholder:text-text-muted focus-visible:outline-2 focus-visible:outline-focus-ring"
+        classList={{ "[-webkit-text-security:disc]": cabinetFieldMasked(seal.cabinet(editing.form().cabinetNumber)) }}
+      />
+      番台
+    </div>
+  )
+}
+
 /** The catalog's machines of the play's game to choose from, with its cabinet's number beside it. */
 function MachineChoice(props: { readonly editing: YenTallyEditing }): JSX.Element {
   const editing = props.editing
@@ -165,9 +183,7 @@ function MachineChoice(props: { readonly editing: YenTallyEditing }): JSX.Elemen
       }}
       onTyped={editing.setMachineTyped}
       beside={
-        <PencilledBubble text={cabinetText(editing.form().cabinetNumber.trim() === "" ? undefined : seal.cabinet(editing.form().cabinetNumber.trim()))} says="台番号を入力する" invalid={false}>
-          <TextField label="台番号" value={editing.form().cabinetNumber} masked={cabinetFieldMasked(seal.cabinet(editing.form().cabinetNumber))} onChange={editing.set("cabinetNumber")} inputMode="numeric" compact />
-        </PencilledBubble>
+        <CabinetNumberInput editing={editing} />
       }
     />
   )

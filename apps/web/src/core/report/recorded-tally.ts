@@ -166,6 +166,8 @@ const isAmount = (text: string): boolean => parseDecimal(text).ok
 
 const isTime = (text: string): boolean => readClockText(text) !== undefined
 
+const isCount = (text: string): boolean => /^\d+$/.test(text)
+
 /** How each tag a form writes on a tally's entry must read; a tag not here is none a form writes. */
 const TAG_READS: Readonly<Record<string, (text: string) => boolean>> = {
   [TALLY_TAGS.playId]: isSaid,
@@ -177,7 +179,11 @@ const TAG_READS: Readonly<Record<string, (text: string) => boolean>> = {
   [TALLY_TAGS.spinPerformance]: isAmount,
   [TALLY_TAGS.carriedIn]: isAmount,
   [TALLY_TAGS.hours]: isAmount,
-  [TALLY_TAGS.netJackpots]: (text) => /^\d+$/.test(text),
+  [TALLY_TAGS.netSpins]: isCount,
+  [TALLY_TAGS.netJackpots]: isCount,
+  [TALLY_TAGS.netGames]: isCount,
+  [TALLY_TAGS.netAts]: isCount,
+  [TALLY_TAGS.netBonuses]: isCount,
   [TALLY_TAGS.inferredFormula]: isSaid,
   [TALLY_TAGS.tokenRental]: isAmount,
   [TALLY_TAGS.tokenExchange]: isAmount,
