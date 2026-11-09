@@ -1,16 +1,17 @@
 import type { ImportProblem } from "../../application/errors"
 import type { Imported } from "../../application/import"
 import type { RowField } from "../../core/import/cells"
+import { GENERAL, type Field } from "../../core/import/general"
 import { PACHIFOLIO } from "../../core/import/pachifolio"
 import { PRECORD } from "../../core/import/precord"
 import { formatCount } from "./numbers"
 
-const SOURCES: Readonly<Record<string, string>> = { [PRECORD]: "pRecord", [PACHIFOLIO]: "パチフォリオ" }
+const SOURCES: Readonly<Record<string, string>> = { [GENERAL]: "汎用形式", [PRECORD]: "pRecord", [PACHIFOLIO]: "パチフォリオ" }
 
 /** What an app tallies were taken in from is called; one this app does not know goes by its own word. */
 export const sourceName = (from: string): string => SOURCES[from] ?? from
 
-const FIELDS: Readonly<Record<RowField, string>> = { date: "日付", outlay: "投資額", takings: "回収額", hours: "稼働時間", gameKind: "種別", countedSpins: "回転数", countedJackpots: "大当り" }
+const FIELDS: Readonly<Record<RowField, string>> = { date: "日付", outlay: "投資額", takings: "回収額", result: "収支", hours: "稼働時間", gameKind: "種別", countedSpins: "回転数", countedJackpots: "大当り" }
 
 /** How many unreadable rows are named before the rest are only counted. */
 const ROWS_NAMED = 5
@@ -22,6 +23,8 @@ export const describeImportProblem = (problem: ImportProblem): string => {
       return "ファイルに収支がありません。"
     case "not-precord":
       return `pRecord の CSV として読めません。1行目に ${problem.missing.join("・")} の列がありません。`
+    case "unmapped":
+      return `取り込む項目に${problem.missing.map((missing) => (missing === "date" ? "日付" : "「投資と回収」か「収支」")).join("と")}を選んでください。`
     case "not-pachifolio":
       return `パチフォリオの CSV として読めません。1行目に ${problem.missing.join("・")} の列がありません。`
     case "rows-unreadable":
@@ -66,6 +69,29 @@ export const timeLeftText = (seconds: number): string => {
 
 /** The tallies written, said while they are weighed after. */
 export const writtenText = (written: number, alreadyHere: number): string => (written === 0 ? `${formatCount(alreadyHere)}件は取り込み済みです。` : `${formatCount(written)}件を取り込みました。`)
+
+/** This app's fields a column of a person's own file may be taken in as, as the person is offered them. */
+export const FIELD_NAMES: Readonly<Record<Field, string>> = {
+  date: "日付",
+  outlay: "投資",
+  takings: "回収",
+  result: "収支",
+  parlor: "店舗",
+  machine: "機種",
+  gameKind: "種別",
+  cabinetNumber: "台番号",
+  hours: "稼働時間",
+  spins: "回転数・ゲーム数",
+  jackpots: "大当り・AT・ボーナス",
+  memo: "メモ",
+  labels: "タグ",
+}
+
+/** The press that goes on from tying a file's columns to this app's fields. */
+export const IMPORT_NEXT = "次へ"
+
+/** A column left out of a taking in, as its choice says. */
+export const NOT_TAKEN = "取り込まない"
 
 /** The press a book's line asks for a file to take into it on. */
 export const IMPORT_CHOOSE = "CSVを選ぶ"

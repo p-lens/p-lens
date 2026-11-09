@@ -4,7 +4,8 @@ import type { BookId } from "../core/book/book"
 import type { IsoDate } from "../core/calendar/calendar"
 import { csvOf } from "../core/export/csv"
 import { fileStemOf } from "../core/book/file-name"
-import { bundleName, fileStemsOf, precordName, tallyTableName, singleJournalName } from "../core/export/file-name"
+import { bundleName, fileStemsOf, pachifolioName, precordName, tallyTableName, singleJournalName } from "../core/export/file-name"
+import { pachifolioCsvOf } from "../core/export/pachifolio"
 import { precordCsvOf } from "../core/export/precord"
 import { tallyTableOf } from "../core/export/tally-table"
 import { singleJournalOf } from "../core/export/single-journal"
@@ -109,6 +110,16 @@ export const makeForPrecord = async (ports: ExportPorts, bookId: BookId, watch: 
       name: precordName(ownStem(stored.files, bookId), ports.today()),
       mediaType: "text/csv",
       text: precordCsvOf(lines, tallyNotesIn(journalsOf(stored.files).map(([, text]) => text))),
+    })),
+  )
+
+/** Every tally of a book as パチフォリオ's CSV, newest first, for パチフォリオ to take in: by itself and never in the zip, as pRecord's is. */
+export const makeForPachifolio = async (ports: ExportPorts, bookId: BookId, watch: ExportWatch): Promise<Outcome<Made>> =>
+  madeOf(
+    await ofTallies(ports, bookId, watch, (lines, stored) => ({
+      name: pachifolioName(ownStem(stored.files, bookId), ports.today()),
+      mediaType: "text/csv",
+      text: pachifolioCsvOf(lines, tallyNotesIn(journalsOf(stored.files).map(([, text]) => text))),
     })),
   )
 

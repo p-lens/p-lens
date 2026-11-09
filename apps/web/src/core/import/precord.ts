@@ -1,6 +1,5 @@
-import { decimal, type Decimal } from "../decimal/decimal"
 import { Err, Ok, type Result } from "../result/result"
-import { dayOf, unreadableOf, yenOf, type RowField, type RowsUnreadable } from "./cells"
+import { dayOf, hoursOf, unreadableOf, yenOf, type RowField, type RowsUnreadable } from "./cells"
 import { rowsOfCsv, type CsvProblem } from "./csv-rows"
 import type { SourceTally } from "./source-tally"
 
@@ -43,33 +42,6 @@ export type PrecordProblem =
   | { readonly type: "not-precord"; readonly missing: readonly string[] }
   | RowsUnreadable
   | CsvProblem
-
-const CLOCK = /^(\d{1,2}):(\d{2})(?::\d{2})?$/
-
-const HOURS = /^\d+(\.\d+)?$/
-
-const SPOKEN = /^(?:(\d+)時間)?(?:(\d+)分)?$/
-
-/**
- * How long a tally's play lasted, in hours to the hundredth, as pRecord writes it:
- * a number of hours — `2.4166667` is two hours and twenty-five minutes,
- * its own 時給 the result over it — or, should a file have it so, a
- * clock's `2:25`, or words, `2時間25分`, as this app writes a file for
- * pRecord, whose import takes the cell into the memo. None where the cell
- * is empty or comes to no time at all: a tally is taken in without its
- * hours rather than refused for them. A
- * cell that says something and does not read as hours is no such thing,
- * and the row does not read.
- */
-const hoursOf = (text: string): Result<Decimal | undefined, "hours"> => {
-  const plain = text.trim()
-  if (plain === "") return Ok(undefined)
-  const clock = CLOCK.exec(plain) ?? SPOKEN.exec(plain)
-  if (clock === null && !HOURS.test(plain)) return Err("hours")
-  const hours = clock === null ? Number(plain) : Number(clock[1] ?? 0) + Number(clock[2] ?? 0) / 60
-  const hundredths = Math.round(hours * 100)
-  return Ok(hundredths > 0 ? decimal(BigInt(hundredths), 2) : undefined)
-}
 
 const tallyOf = (cell: (column: Column) => string): Result<SourceTally, readonly RowField[]> => {
   const [date, outlay, takings, hours] = [dayOf(cell("date")), yenOf(cell("outlay")), yenOf(cell("takings")), hoursOf(cell("hours"))]

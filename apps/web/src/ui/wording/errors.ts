@@ -235,7 +235,7 @@ export const describeError = (error: ApplicationError): string => {
     case "tally-unreadable":
       return "この収支はフォームでは直せません（取り込んだ収支か、手で書き換えた仕訳です）。収支の詳細から削除して、追加し直してください。"
     case "settings-unreadable":
-      return "この帳簿の settings.json が壊れていて読めないため、書き換えていません。バックアップから戻してください。"
+      return "この帳簿の settings.json が壊れていて読めないため、書き換えていません。バックアップから復元してください。"
     case "catalog":
       return describeCatalogError(error.error)
     case "directory":

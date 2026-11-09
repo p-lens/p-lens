@@ -35,13 +35,32 @@ export interface TallyHead {
   readonly spinPerformance?: Decimal
   /** Who played it, where it was sent to the book's owner by someone let in to send plays: absent from a play of the owner's own. */
   readonly sender?: Sender
+  /** What the log of a play followed live counted of the person's own playing: absent from a tally typed in by hand. */
+  readonly netCounts?: NetCounts
 }
 
-/** What is written beside a tally that its form does not ask: when its play began and finished, the spin performance the play's log measured, and who sent it. */
+/**
+ * What the log of a play followed live counted of the person's own playing,
+ * from the seat to the finish — never what the cabinet's counter showed
+ * before them — by what the game counts.
+ *
+ * - `pachinko`: the spins and the jackpots, each jackpot of a run counted.
+ * - `at-machine`: a pachislot machine with ATs, the games and the ATs.
+ * - `bonus-machine`: a pachislot machine of bonuses alone, the games and the bonuses.
+ * - `games`: a pachislot play followed with no formula, which says neither, the games alone.
+ */
+export type NetCounts =
+  | { readonly type: "pachinko"; readonly spins: number; readonly jackpots: number }
+  | { readonly type: "at-machine"; readonly games: number; readonly ats: number }
+  | { readonly type: "bonus-machine"; readonly games: number; readonly bonuses: number }
+  | { readonly type: "games"; readonly games: number }
+
+/** What is written beside a tally that its form does not ask: when its play began and finished, the spin performance the play's log measured, who sent it, and what its log counted. */
 export interface TallyAside {
   readonly clock: PlayClock | undefined
   readonly spinPerformance: Decimal | undefined
   readonly sender: Sender | undefined
+  readonly netCounts: NetCounts | undefined
 }
 
 /**
@@ -195,6 +214,7 @@ export const TALLY_TAGS = {
   netJackpots: "net-jackpots",
   netGames: "net-games",
   netAts: "net-ats",
+  netBonuses: "net-bonuses",
   inferredFormula: "inferred-formula",
   tokenRental: "token-rental",
   tokenExchange: "token-exchange",

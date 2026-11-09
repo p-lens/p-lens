@@ -136,7 +136,7 @@ function Restore(props: { readonly store: BackupStore | undefined }): JSX.Elemen
     const restored = await restoring()
     setWorking(restored.ok ? { type: "idle" } : { type: "failed", error: restored.error })
     if (!restored.ok) return
-    toast({ title: "帳簿を戻しました" })
+    toast({ title: "帳簿を復元しました" })
     app.wrote()
   }
   const choose = (id: string, on: boolean): void => {
@@ -147,7 +147,7 @@ function Restore(props: { readonly store: BackupStore | undefined }): JSX.Elemen
     if (working().type === "working") return
     const ids = chosen()
     if (ids.length === 0) {
-      toast({ title: "戻す帳簿を選んでください", description: "戻したいバックアップにチェックを付けます。" })
+      toast({ title: "復元する帳簿を選んでください", description: "復元したいバックアップにチェックを付けます。" })
       return
     }
     setWorking({ type: "working" })
@@ -256,7 +256,7 @@ function Restore(props: { readonly store: BackupStore | undefined }): JSX.Elemen
                               <Show when={!each.here} fallback={<HereMark />}>
                                 <input
                                   type="checkbox"
-                                  aria-label={`${each.backup.name} を戻す`}
+                                  aria-label={`${each.backup.name} を復元する`}
                                   checked={chosen().includes(each.backup.id)}
                                   onChange={(event) => choose(each.backup.id, event.currentTarget.checked)}
                                   class="mt-0.5 size-5 shrink-0 accent-accent"
@@ -284,10 +284,10 @@ function Restore(props: { readonly store: BackupStore | undefined }): JSX.Elemen
                     </ul>
                     <Show
                       when={backups.some((each) => !each.here)}
-                      fallback={<p class="text-xs text-text-muted">どれもこの端末にある帳簿のバックアップです。戻すには、先に「帳簿の管理」でこの端末の帳簿を削除してください。</p>}
+                      fallback={<p class="text-xs text-text-muted">どれもこの端末にある帳簿のバックアップです。復元するには、先に「帳簿の管理」でこの端末の帳簿を削除してください。</p>}
                     >
                       <Button variant="secondary" class="w-full sm:w-auto sm:self-start" onClick={() => void restoreChosen(answered.store)}>
-                        選んだ帳簿をこの端末に戻す
+                        選んだ帳簿をこの端末に復元
                       </Button>
                     </Show>
                   </div>
@@ -335,9 +335,10 @@ export function BackupSettings(props: { readonly place: Place }): JSX.Element {
               )}
             </Loaded>
           </section>
+          <hr class="border-border" />
           <section class="flex flex-col gap-2">
-            <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">帳簿を戻す</h2>
-            <p class="text-sm text-text-muted">この端末にない帳簿だけ戻します。変更の履歴は戻りません。</p>
+            <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">帳簿を復元</h2>
+            <p class="text-sm text-text-muted">この端末にない帳簿だけ復元します。変更の履歴は復元されません。</p>
             <Restore store={app.services.backupStore} />
           </section>
         </div>

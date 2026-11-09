@@ -87,6 +87,7 @@ describe("a play followed live", () => {
     })
     expect(readings.join("\n")).toBe(`${DRAFT.log}{"spins":30,"at":"2026-10-04T14:30:00.000Z","counter":{"spins":150},"held":4800,"event":{"kind":"finished"}}\n`)
     expect(transactionsOf(storage.peek(BOOK)?.files)).toContain("play-id: live-1")
+    expect(transactionsOf(storage.peek(BOOK)?.files)).toContain("net-spins: 30, net-jackpots: 0")
     expect(mapOk(await loadTodaysPlays(drafts, "2026-10-04" as IsoDate), (found) => found.map((draft) => [draft.id, draft.recorded, draft.log]))).toEqual({ ok: true, value: [[ID, { at: NOW, finish: FINISH }, DRAFT.log]] })
   })
 

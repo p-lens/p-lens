@@ -60,7 +60,7 @@ export const describeBackupProblem = (problem: BackupProblem): string => {
 
 /** Said as the backups ticked were put back: all of them, or how many before one could not be. */
 export const restoredChosenText = (restored: number, chosen: number): string =>
-  restored === chosen ? `${restored}冊の帳簿を戻しました` : `${chosen}冊のうち${restored}冊を戻しました。残りは下の理由で戻せませんでした`
+  restored === chosen ? `${restored}冊の帳簿を復元しました` : `${chosen}冊のうち${restored}冊を復元しました。残りは下の理由で復元できませんでした`
 
 /** A destination by the name a person knows it by. */
 export const destinationName = (destination: Destination): string => {

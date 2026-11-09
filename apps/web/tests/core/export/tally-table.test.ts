@@ -10,7 +10,7 @@ import type { TallyNotes } from "../../../src/core/report/tally-notes"
 const yen = (amount: number) => decimal(BigInt(amount), 0)
 
 const NO_NOTES: TallyNotes = {
-  aside: { clock: undefined, spinPerformance: undefined, sender: undefined },
+  aside: { clock: undefined, spinPerformance: undefined, sender: undefined, netCounts: undefined },
   playSeconds: undefined,
   netJackpots: undefined,
   carriedIn: undefined,
@@ -79,7 +79,7 @@ describe("tallies as a table", () => {
           machineName: "流星",
           maker: "made-up",
           notes: {
-            aside: { clock: { started: { hour: 22, minute: 30 }, finished: { hour: 1, minute: 5 } }, spinPerformance: decimal(185n, 1), sender: { id: "s-1", name: "ハンマ" } },
+            aside: { clock: { started: { hour: 22, minute: 30 }, finished: { hour: 1, minute: 5 } }, spinPerformance: decimal(185n, 1), sender: { id: "s-1", name: "ハンマ" }, netCounts: undefined },
             playSeconds: yen(9300),
             netJackpots: 3,
             carriedIn: yen(250),

@@ -14,7 +14,7 @@ import { tallyNotesIn } from "../../../src/core/tally/in-journal"
 const yen = (amount: number): Decimal => decimal(BigInt(amount), 0)
 
 const NO_NOTES: TallyNotes = {
-  aside: { clock: undefined, spinPerformance: undefined, sender: undefined },
+  aside: { clock: undefined, spinPerformance: undefined, sender: undefined, netCounts: undefined },
   playSeconds: undefined,
   netJackpots: undefined,
   carriedIn: undefined,

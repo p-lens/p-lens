@@ -2,6 +2,7 @@ import type { Catalog } from "../catalog/port/catalog"
 import type { BookId } from "../core/book/book"
 import { bookNameOf, type MachineSummary } from "../core/catalog/catalog"
 import { machineKeyOf } from "../core/catalog/description"
+import { GENERAL, readGeneral, type Mapping, type Sheet } from "../core/import/general"
 import { PACHIFOLIO, readPachifolio } from "../core/import/pachifolio"
 import { PRECORD, readPrecord } from "../core/import/precord"
 import { withAccountsFor } from "./record-tally"
@@ -312,6 +313,10 @@ const importTallies = async (ports: ImportPorts, bookId: BookId, from: string, p
 export const importPrecord = (ports: ImportPorts, bookId: BookId, preview: Preview, named: Named, weighing: Weighing | undefined): Promise<Outcome<Imported>> =>
   importTallies(ports, bookId, PRECORD, preview, named, weighing)
 
+/** Take the tallies of a file of a person's own making into a book, as it was looked at: weighed, where a person asked, as a pRecord file's are. */
+export const importGeneral = (ports: ImportPorts, bookId: BookId, preview: Preview, named: Named, weighing: Weighing | undefined): Promise<Outcome<Imported>> =>
+  importTallies(ports, bookId, GENERAL, preview, named, weighing)
+
 /**
  * Take the tallies of a パチフォリオ file into a book, as it was looked at.
  * None of them says how long it lasted, so none is weighed.
@@ -370,6 +375,9 @@ const previewOf = async (ports: Pick<ImportPorts, "catalog">, sources: Result<re
 
 /** A pRecord file looked at before it is taken in. */
 export const previewPrecord = (ports: Pick<ImportPorts, "catalog">, text: string): Promise<Outcome<Preview>> => previewOf(ports, readPrecord(text))
+
+/** A file of a person's own making looked at before it is taken in, its columns read as the person tied them to this app's fields. */
+export const previewGeneral = (ports: Pick<ImportPorts, "catalog">, sheet: Sheet, mapping: Mapping): Promise<Outcome<Preview>> => previewOf(ports, readGeneral(sheet, mapping))
 
 /** A パチフォリオ file looked at before it is taken in. */
 export const previewPachifolio = (ports: Pick<ImportPorts, "catalog">, text: string): Promise<Outcome<Preview>> => previewOf(ports, readPachifolio(text))

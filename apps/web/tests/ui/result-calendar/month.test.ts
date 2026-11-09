@@ -3,25 +3,34 @@ import { describe, expect, test } from "bun:test"
 import type { IsoMonth } from "../../../src/core/calendar/calendar"
 import { fittedSize, fittedSizeOfBook } from "../../../src/ui/features/result-calendar/fit"
 import { byDay, monthAfter, monthBefore, weeksOf } from "../../../src/ui/features/result-calendar/month"
-import { cellResult, cellWorth, dayNumber, daySays, monthTitle } from "../../../src/ui/features/result-calendar/wording"
+import { cellResult, cellWorth, dayNumber, daySays, monthTitle, weekdaysFrom } from "../../../src/ui/features/result-calendar/wording"
 import { dec } from "../../support/values"
 
 const month = (text: string): IsoMonth => text as IsoMonth
 
 describe("a month of the result calendar", () => {
   test("is laid out in weeks of seven, Sunday first, with gaps before its first day and after its last", () => {
-    const weeks = weeksOf(month("2026-10"))
+    const weeks = weeksOf(month("2026-10"), "sunday")
     expect(weeks.map((week) => week.length)).toEqual([7, 7, 7, 7, 7])
     expect(weeks[0]).toEqual([undefined, undefined, undefined, undefined, "2026-10-01", "2026-10-02", "2026-10-03"] as never)
     expect(weeks.at(-1)).toEqual(["2026-10-25", "2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29", "2026-10-30", "2026-10-31"] as never)
   })
 
+  test("is laid out from Monday where its weeks begin on Monday, a Sunday last", () => {
+    const weeks = weeksOf(month("2026-10"), "monday")
+    expect(weeks[0]).toEqual([undefined, undefined, undefined, "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04"] as never)
+    expect(weeks.at(-1)).toEqual(["2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29", "2026-10-30", "2026-10-31", undefined] as never)
+    expect(weeksOf(month("2026-03"), "monday")[0]).toEqual([undefined, undefined, undefined, undefined, undefined, undefined, "2026-03-01"] as never)
+    expect(weeksOf(month("2026-06"), "monday")[0]?.[0]).toBe("2026-06-01" as never)
+    expect([weekdaysFrom("sunday")[0], weekdaysFrom("monday")[0], weekdaysFrom("monday")[6]]).toEqual(["日", "月", "日"])
+  })
+
   test("has every day of it once, a leap February and a month of six weeks included", () => {
-    const days = (text: string): readonly unknown[] => weeksOf(month(text)).flat().filter((cell) => cell !== undefined)
+    const days = (text: string): readonly unknown[] => weeksOf(month(text), "sunday").flat().filter((cell) => cell !== undefined)
     expect(days("2028-02").length).toBe(29)
     expect(days("2026-02").length).toBe(28)
-    expect(weeksOf(month("2026-02")).length).toBe(4)
-    expect(weeksOf(month("2026-08")).length).toBe(6)
+    expect(weeksOf(month("2026-02"), "sunday").length).toBe(4)
+    expect(weeksOf(month("2026-08"), "sunday").length).toBe(6)
     expect(days("2026-08").at(0)).toBe("2026-08-01" as never)
     expect(days("2026-08").at(-1)).toBe("2026-08-31" as never)
   })

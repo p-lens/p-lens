@@ -18,7 +18,7 @@ describe("the result calendar's figures, asked of the real hledger module", () =
   const groups = async (by: "day" | "month", month: string) => ((found) => (found.ok ? found.value : []))(await loadBreakdown(session(), BOOK, by, monthQuery(month as IsoMonth)))
   const shown = async (month: string) => {
     const days = byDay(await groups("day", month))
-    return weeksOf(month as IsoMonth).flat().flatMap((cell) => ((figures) => (cell === undefined || figures === undefined ? [] : [[cell, toPlainString(figures.actual), toPlainString(figures.theoretical)]]))(cell === undefined ? undefined : days.get(cell)))
+    return weeksOf(month as IsoMonth, "sunday").flat().flatMap((cell) => ((figures) => (cell === undefined || figures === undefined ? [] : [[cell, toPlainString(figures.actual), toPlainString(figures.theoretical)]]))(cell === undefined ? undefined : days.get(cell)))
   }
   const whole = async (month: string) => ((total) => [toPlainString(total.actual), toPlainString(total.theoretical)])(totalOf(await groups("month", month)))
 
@@ -35,7 +35,7 @@ describe("the result calendar's figures, asked of the real hledger module", () =
 
   test("leave no day hledger answered without a cell", async () => {
     const answered = (await groups("day", "2026-09")).map((group) => group.key)
-    const cells = weeksOf("2026-09" as IsoMonth).flat()
+    const cells = weeksOf("2026-09" as IsoMonth, "sunday").flat()
     expect(answered.filter((day) => !cells.includes(day as never))).toEqual([])
   })
 

@@ -207,11 +207,14 @@ const yenHandedPostings = (tally: YenTally): readonly Posting[] => {
   return [real(account, negate(handed), YEN), isNegative(handed) ? real(ACCOUNTS.playRevenue, handed, YEN) : real(ACCOUNTS.playExpense, handed, YEN)]
 }
 
+/** What was told of a tally in yen, but the jackpots where its play's log counted them: the log's count is the one written. */
+const toldBeside = (tally: YenTally): TallyTold | undefined => (tally.told === undefined || tally.netCounts === undefined ? tally.told : { ...tally.told, netJackpots: undefined })
+
 /** A tally in yen as one journal entry: its two sides, what was handed between players beside them, and its theoretical value — given, or inferred from what was told of it — together. */
 export const composeYenTallyEntry = (tally: YenTally): Result<Entry, TallyError> =>
   mapOk(validateYenTally(tally), (valid) => ({
     date: valid.date,
     description: describe(valid, valid.parlor),
-    tags: [...tagsOf(valid, valid.parlor), ...toldTags(valid.told)],
+    tags: [...tagsOf(valid, valid.parlor), ...toldTags(toldBeside(valid))],
     postings: [...yenSidePostings(valid), ...yenHandedPostings(valid), ...statisticPostings(valid, valid.told?.hours), ...inferredPostings(valid)],
   }))

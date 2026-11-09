@@ -22,8 +22,9 @@ import { ViewHeader } from "../shell/ViewHeader"
 import { dayAfter, enteredOf, enteredTotal, typedResult, type Sign, type Typed } from "./day-entry"
 import { FITTED_SIZE } from "./fit"
 import { EarlierIcon, LaterIcon } from "./icons"
+import { weekStart } from "../../theme/week-start"
 import { byDay, monthAfter, monthBefore, monthQuery, weeksOf, type Cell } from "./month"
-import { cellResult, DAY_ENTRY, dayNumber, dayTitle, enteredText, enteredToast, monthTitle, NOT_A_SUM, WEEKDAYS } from "./wording"
+import { cellResult, DAY_ENTRY, dayNumber, dayTitle, enteredText, enteredToast, monthTitle, NOT_A_SUM, weekdaysFrom } from "./wording"
 import { seal } from "../../../mummer"
 
 const TONES = { positive: "text-positive", negative: "text-negative", neutral: "text-text-secondary" } as const
@@ -101,7 +102,7 @@ export function DayEntryView(props: { readonly place: Place; readonly bookId: Bo
     (source) => loadDaysAndWhole(app.services.session, props.bookId, monthQuery(source.month), { chosen: undefined, offered: [] }),
   )
   const keptByDay = createMemo(() => byDay(keptDaysIn(kept())))
-  const weeks = createMemo(() => weeksOf(month()))
+  const weeks = createMemo(() => weeksOf(month(), weekStart()))
   const entered = createMemo(() => enteredOf(typed()))
   const typedOn = (day: IsoDate): Typed => typed().get(day) ?? { ...NOTHING_TYPED, sign: sign() }
   const put = (day: IsoDate, next: Typed): void => {
@@ -145,7 +146,7 @@ export function DayEntryView(props: { readonly place: Place; readonly bookId: Bo
           </div>
           <div class="flex flex-col gap-1">
             <div class="grid grid-cols-7 gap-1">
-              <For each={WEEKDAYS}>{(weekday) => <span class="text-center text-xs font-bold text-text-muted">{weekday}</span>}</For>
+              <For each={weekdaysFrom(weekStart())}>{(weekday) => <span class="text-center text-xs font-bold text-text-muted">{weekday}</span>}</For>
             </div>
             <For each={weeks()}>
               {(week) => (

@@ -16,9 +16,10 @@ import { toneOf } from "../../wording/numbers"
 import { Figure } from "../tallies/Figure"
 import { ViewHeader } from "../shell/ViewHeader"
 import { EarlierIcon, LaterIcon } from "./icons"
+import { weekStart } from "../../theme/week-start"
 import { byDay, monthAfter, monthBefore, weeksOf, type Cell } from "./month"
 import { FITTED_SIZE, type CalendarOf } from "./fit"
-import { cellResult, cellWorth, dayNumber, daySays, monthTitle, RESULT_CALENDAR, WEEKDAYS } from "./wording"
+import { cellResult, cellWorth, dayNumber, daySays, monthTitle, RESULT_CALENDAR, weekdaysFrom } from "./wording"
 import { seal } from "../../../mummer"
 
 const TONES = { positive: "text-positive", negative: "text-negative", neutral: "text-text-secondary" } as const
@@ -123,7 +124,7 @@ export function ResultCalendar(props: {
   const figures = createMemo(() => byDay(groupsIn(props.days)))
   const total = createMemo(() => totalOf(groupsIn(props.whole)))
   const failure = (): string | undefined => [props.days, props.whole].flatMap((outcome) => (outcome?.ok === false ? [describeError(outcome.error)] : [])).at(0)
-  const weeks = createMemo(() => weeksOf(props.month))
+  const weeks = createMemo(() => weeksOf(props.month, weekStart()))
   const arrangement = useArrangement()
   const [face, setFace] = createSignal<Face>("shown")
   const blanking: { timer: ReturnType<typeof setTimeout> | undefined } = { timer: undefined }
@@ -176,7 +177,7 @@ export function ResultCalendar(props: {
                 </Show>
                 <div class="flex flex-col gap-1">
                   <div class="grid grid-cols-7 gap-1">
-                    <For each={WEEKDAYS}>{(weekday) => <span class="text-center text-xs font-bold text-text-muted">{weekday}</span>}</For>
+                    <For each={weekdaysFrom(weekStart())}>{(weekday) => <span class="text-center text-xs font-bold text-text-muted">{weekday}</span>}</For>
                   </div>
                   <For each={weeks()}>
                     {(week) => (

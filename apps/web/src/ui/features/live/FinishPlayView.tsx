@@ -255,6 +255,7 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
                 clock: { started: start(), finished: finish().time },
                 spinPerformance: played.spinPerformance === undefined ? undefined : keptSpinPerformance(played.spinPerformance),
                 sender,
+                netCounts: undefined,
               })
               const words = draft.recorded === undefined ? RECORDING : RECORDING_AGAIN
               const finished = (): Finish => readFinishForm(finish(), draft.startedAt)

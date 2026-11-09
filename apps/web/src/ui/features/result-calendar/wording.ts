@@ -2,6 +2,7 @@ import type { IsoDate, IsoMonth } from "../../../core/calendar/calendar"
 import type { Decimal } from "../../../core/decimal/decimal"
 import { formatSignedYen, formatTheoreticalYen } from "../../wording/numbers"
 import { seal } from "../../../mummer"
+import type { WeekStart } from "../../theme/week-start"
 
 /** What the calendar is called in a book's list of views. */
 export const RESULT_CALENDAR = "カレンダー"
@@ -12,8 +13,11 @@ export const BY_PLAYERS = "打った人"
 /** What the filter of who played says where the book has no tally anyone sent: everything in it is its owner's. */
 export const NO_PLAYERS = "送られた稼働がないため、打った人では絞り込めません。"
 
-/** The days of a week as the calendar heads its columns, Sunday first. */
-export const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const
+/** The days of a week, Sunday first, as a date's weekday counts them. */
+const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const
+
+/** The days of a week as the calendar heads its columns, from the day its weeks begin on. */
+export const weekdaysFrom = (start: WeekStart): readonly string[] => (start === "monday" ? [...WEEKDAYS.slice(1), ...WEEKDAYS.slice(0, 1)] : WEEKDAYS)
 
 /** `2026-10` as `2026年10月`. */
 export const monthTitle = (month: IsoMonth): string => {

@@ -1,6 +1,5 @@
-import type { PlayGameKind } from "../play/play"
 import { Err, Ok, type Result } from "../result/result"
-import { countOf, dayOf, unreadableOf, yenOf, type RowField, type RowsUnreadable } from "./cells"
+import { countOf, dayOf, gameKindOf, labelsOf, unreadableOf, yenOf, type RowField, type RowsUnreadable } from "./cells"
 import { rowsOfCsv, type CsvProblem } from "./csv-rows"
 import type { SourceTally } from "./source-tally"
 
@@ -38,22 +37,6 @@ const REQUIRED: readonly Column[] = ["date", "outlay", "takings"]
  * - `rows-unreadable`: these rows do not read.
  */
 export type PachifolioProblem = { readonly type: "empty" } | { readonly type: "not-pachifolio"; readonly missing: readonly string[] } | RowsUnreadable | CsvProblem
-
-/** The words パチフォリオ's 種別 says each game by. */
-const GAME_KINDS: Readonly<Record<string, PlayGameKind>> = { パチ: "pachinko", パチンコ: "pachinko", スロ: "pachislot", スロット: "pachislot", パチスロ: "pachislot" }
-
-/** The game a 種別 says: none where the cell is empty, and a cell that says something else does not read. */
-const gameKindOf = (text: string): Result<PlayGameKind | undefined, "unread"> => {
-  const plain = text.trim()
-  if (plain === "") return Ok(undefined)
-  const found = GAME_KINDS[plain]
-  return found === undefined ? Err("unread") : Ok(found)
-}
-
-const LABEL_BREAK = /[,，、]/
-
-/** The labels a タグ cell holds, as パチフォリオ writes them, `イベント,朝一`: each once, in the cell's order. */
-const labelsOf = (text: string): readonly string[] => [...new Set(text.split(LABEL_BREAK).map((label) => label.trim()))].filter((label) => label !== "")
 
 const tallyOf = (cell: (column: Column) => string): Result<SourceTally, readonly RowField[]> => {
   const [date, outlay, takings, gameKind, spins, jackpots] = [dayOf(cell("date")), yenOf(cell("outlay")), yenOf(cell("takings")), gameKindOf(cell("gameKind")), countOf(cell("spins")), countOf(cell("jackpots"))]

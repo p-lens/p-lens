@@ -3,7 +3,8 @@ import { memberCan } from "../core/book/book"
 import type { IsoDate } from "../core/calendar/calendar"
 import { bookOf, headOf, isPast, latestTermsOf, withCabinetNumber, withCheckpoints, withJackpotCounting, withLog, withMachine, type MachineChange, type PlayDraft } from "../core/live-play/draft"
 import { exchangeRateOf, poolOf, type PlayTerms } from "../core/parlor/terms"
-import type { TokenTally, YenTally } from "../core/tally/tally"
+import type { TallyHead, TokenTally, YenTally } from "../core/tally/tally"
+import { netCountsOf, type CountedAs } from "../core/tally/net-counts"
 import type { PlayGameKind, PlayId } from "../core/play/play"
 import type { Checkpoint } from "../core/play-log/checkpoint"
 import type { JackpotCounting } from "../core/play-log/live"
@@ -164,6 +165,16 @@ export const chooseBook = async (drafts: DraftStorage, draft: PlayDraft, bookId:
   return mapOk(fromDraft(await drafts.updateDraft(chosen, draft.log)), () => chosen)
 }
 
+/** What a play's log counts by its game and its formula: a pachislot machine with ATs where its formula has rules for them, of bonuses alone where it has none, and neither where the play has no formula. */
+const countedAsOf = (draft: PlayDraft): CountedAs => {
+  if (draft.gameKind === "pachinko") return "pachinko"
+  if (draft.pachislot === undefined) return "games"
+  return draft.pachislot.formula.normalized.atRules === undefined ? "bonus-machine" : "at-machine"
+}
+
+/** A tally with what its play's finished log counted of the person's own playing, where the log reads: never typed, so the log alone says it, each time the play is recorded. */
+const withNetCounts = <T extends TallyHead>(tally: T, draft: PlayDraft, finished: string): T => ((netCounts) => (netCounts === undefined ? tally : { ...tally, netCounts }))(netCountsOf(finished, countedAsOf(draft)))
+
 /**
  * A finished play written into a book as a tally in tokens, its log —
  * finished as the person gave, and headed by what the play was — beside the
@@ -176,21 +187,25 @@ export const chooseBook = async (drafts: DraftStorage, draft: PlayDraft, bookId:
  * play now comes to: a reading set right after the fact reaches the book by
  * recording again.
  */
-const writtenInTokens = async (session: BookSession, draft: PlayDraft, bookId: BookId, tally: TokenTally, finish: Finish, before: boolean): Promise<Outcome<CommitId>> => {
-  const held = Number(toPlainString(tally.payout))
+const writtenInTokens = async (session: BookSession, draft: PlayDraft, bookId: BookId, given: TokenTally, finish: Finish, before: boolean): Promise<Outcome<CommitId>> => {
+  const held = Number(toPlainString(given.payout))
   const terms = draft.venue.terms
   if (terms !== undefined) {
-    const opened = await openPool(session, bookId, { identity: tally.parlor.identity, parlorName: tally.parlor.name, pool: poolOf(draft.gameKind, terms), rate: exchangeRateOf(terms), date: tally.date })
+    const opened = await openPool(session, bookId, { identity: given.parlor.identity, parlorName: given.parlor.name, pool: poolOf(draft.gameKind, terms), rate: exchangeRateOf(terms), date: given.date })
     if (!opened.ok) return opened
   }
-  const log = withHead(withFinish(draft.log, finish, draft.gameKind, held), headOf(draft, tally))
+  const finished = withFinish(draft.log, finish, draft.gameKind, held)
+  const tally = withNetCounts(given, draft, finished)
+  const log = withHead(finished, headOf(draft, tally))
   const write = (): Promise<Outcome<CommitId>> => recordTokenTally(session, bookId, tally, log)
   return before ? again(() => reviseTokenTally(session, bookId, tally, log), write) : write()
 }
 
 /** A finished play with no parlor written into a book as a tally in yen, as `writtenInTokens` writes one at a parlor: its log beside the tally's entry — finished with the tokens in hand, where it was counted by them — and both replaced where the book may have the tally already. */
-const writtenInYen = async (session: BookSession, draft: PlayDraft, bookId: BookId, tally: YenTally, finish: Finish, held: number | undefined, before: boolean): Promise<Outcome<CommitId>> => {
-  const log = withHead(withFinish(draft.log, finish, draft.gameKind, held), headOf(draft, tally))
+const writtenInYen = async (session: BookSession, draft: PlayDraft, bookId: BookId, given: YenTally, finish: Finish, held: number | undefined, before: boolean): Promise<Outcome<CommitId>> => {
+  const finished = withFinish(draft.log, finish, draft.gameKind, held)
+  const tally = withNetCounts(given, draft, finished)
+  const log = withHead(finished, headOf(draft, tally))
   const write = (): Promise<Outcome<CommitId>> => recordYenTally(session, bookId, tally, log)
   return before ? again(() => reviseYenTally(session, bookId, tally, log), write) : write()
 }

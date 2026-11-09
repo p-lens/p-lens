@@ -1,5 +1,6 @@
 import type { IsoDate, IsoMonth } from "../../../core/calendar/calendar"
 import type { Group } from "../../../core/report/breakdown"
+import type { WeekStart } from "../../theme/week-start"
 
 const DAYS_A_WEEK = 7
 
@@ -27,14 +28,17 @@ export const monthQuery = (month: IsoMonth): string => `date:${month}`
 /** A day of a month, or the gap a week has before the month's first day and after its last. */
 export type Cell = IsoDate | undefined
 
+/** How many days after Sunday a week begins on. */
+const FIRST_DAY: Readonly<Record<WeekStart, number>> = { sunday: 0, monday: 1 }
+
 /**
- * A month as the weeks it is laid out in, Sunday first, each seven cells:
- * its days in order, with gaps where a week begins before the month or
- * ends after it.
+ * A month as the weeks it is laid out in, beginning on the day given, each
+ * seven cells: its days in order, with gaps where a week begins before the
+ * month or ends after it.
  */
-export const weeksOf = (month: IsoMonth): readonly (readonly Cell[])[] => {
+export const weeksOf = (month: IsoMonth, start: WeekStart): readonly (readonly Cell[])[] => {
   const [year, monthOfYear] = partsOf(month)
-  const leading = new Date(Date.UTC(year, monthOfYear - 1, 1)).getUTCDay()
+  const leading = (new Date(Date.UTC(year, monthOfYear - 1, 1)).getUTCDay() - FIRST_DAY[start] + DAYS_A_WEEK) % DAYS_A_WEEK
   const length = new Date(Date.UTC(year, monthOfYear, 0)).getUTCDate()
   const days = Array.from({ length }, (_, index): Cell => `${month}-${padded(index + 1, 2)}` as IsoDate)
   const cells: readonly Cell[] = [...Array.from({ length: leading }, (): Cell => undefined), ...days]

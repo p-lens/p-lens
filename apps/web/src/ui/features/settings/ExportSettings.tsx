@@ -2,7 +2,7 @@ import { createMemo, createResource, createSignal, For, onCleanup, Show, type JS
 import { MainContent } from "solid-gathering-shell"
 
 import type { ApplicationError, Outcome } from "../../../application/errors"
-import { handOver, makeForPrecord, makeSingleJournal, makeTallyTable, makeTogether, type ExportPorts, type ExportReport, type ExportWatch, type Made } from "../../../application/export"
+import { handOver, makeForPachifolio, makeForPrecord, makeSingleJournal, makeTallyTable, makeTogether, type ExportPorts, type ExportReport, type ExportWatch, type Made } from "../../../application/export"
 import type { HandedFile } from "../../../backup/port/handover"
 import type { BookId, ListedBook } from "../../../core/book/book"
 import { Ok } from "../../../core/result/result"
@@ -10,6 +10,7 @@ import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import { createNudge, redText } from "../../primitives/nudge"
 import { Loaded } from "../../primitives/states"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../primitives/tabs"
 import { createWait } from "../../primitives/wait"
 import { useMoves } from "../../navigation/moves"
 import { pathOf, type Place } from "../../navigation/place"
@@ -94,14 +95,17 @@ const createWriting = (ports: ExportPorts): Writing => {
   }
 }
 
+/** What a writing out is kept by: the books' zip, or a book's on a tab, each tab's apart. */
+type WritingKey = "together" | `${Format}:${BookId}`
+
 /**
- * Each book's writing out, and the books' together, kept by the screen and
- * not by their rows: the list of books is read again whenever a book
- * changes, and a row made anew must still find its writing where it was.
- * Leaving the screen stops whatever is being made.
+ * Each book's writing out on each tab, and the books' together, kept by
+ * the screen and not by their rows: the list of books is read again
+ * whenever a book changes, and a row made anew must still find its writing
+ * where it was. Leaving the screen stops whatever is being made.
  */
-const createWritings = (ports: ExportPorts): ((key: BookId | "together") => Writing) => {
-  const held = new Map<BookId | "together", Writing>()
+const createWritings = (ports: ExportPorts): ((key: WritingKey) => Writing) => {
+  const held = new Map<WritingKey, Writing>()
   onCleanup(() => held.forEach((writing) => writing.stop()))
   return (key) => {
     const found = held.get(key)
@@ -176,14 +180,14 @@ function WritingLine(props: { readonly writing: Writing }): JSX.Element {
 }
 
 /**
- * One book in a line: a tick for taking it into the zip, its title, and at
- * the line's end the three files it is written out as, each a small button
- * its word wide. However many books there are, the ticks stand in a column
+ * One book in a line of the general tab: a tick for taking it into the
+ * zip, its title, and at the line's end the two files it is written out
+ * as, each a small button its word wide. However many books there are, the ticks stand in a column
  * down the left and the buttons in one down the right. Where the line is
  * too narrow to leave the title room, as on a phone, the buttons go under
  * it to the right, together.
  */
-function BookRow(props: { readonly book: ListedBook; readonly writing: Writing; readonly ticked: boolean; readonly onTick: (ticked: boolean) => void }): JSX.Element {
+function GeneralBookRow(props: { readonly book: ListedBook; readonly writing: Writing; readonly ticked: boolean; readonly onTick: (ticked: boolean) => void }): JSX.Element {
   const app = useApp()
   const writing = props.writing
   return (
@@ -206,9 +210,6 @@ function BookRow(props: { readonly book: ListedBook; readonly writing: Writing; 
           <Button variant="outline" size="small" class="shrink-0" onClick={() => void writing.write((watch) => makeTallyTable(app.services.export, props.book.id, watch))}>
             CSV
           </Button>
-          <Button variant="outline" size="small" class="shrink-0" onClick={() => void writing.write((watch) => makeForPrecord(app.services.export, props.book.id, watch))}>
-            pRecord
-          </Button>
         </div>
       </div>
       <WritingLine writing={writing} />
@@ -223,7 +224,7 @@ function BookRow(props: { readonly book: ListedBook; readonly writing: Writing; 
  * ticks or unticks them all. A press for the zip with none ticked makes
  * nothing, and turns the count red for a while.
  */
-function Books(props: { readonly books: readonly ListedBook[]; readonly writingOf: (key: BookId | "together") => Writing }): JSX.Element {
+function GeneralBooks(props: { readonly books: readonly ListedBook[]; readonly writingOf: (key: WritingKey) => Writing }): JSX.Element {
   const app = useApp()
   const together = props.writingOf("together")
   /** The books unticked: kept as those left out, so a book that appears later is ticked like the rest. */
@@ -265,55 +266,105 @@ function Books(props: { readonly books: readonly ListedBook[]; readonly writingO
         <WritingLine writing={together} />
       </div>
       <ul class="flex flex-col gap-1">
-        <For each={props.books}>{(book) => <BookRow book={book} writing={props.writingOf(book.id)} ticked={!leftOut().includes(book.id)} onTick={(on) => tick(book.id, on)} />}</For>
+        <For each={props.books}>{(book) => <GeneralBookRow book={book} writing={props.writingOf(`general:${book.id}`)} ticked={!leftOut().includes(book.id)} onTick={(on) => tick(book.id, on)} />}</For>
       </ul>
     </section>
   )
 }
 
+/** The tabs of writing out: files any app or person reads, and the files each other app takes in. */
+type Format = "general" | "precord" | "pachifolio"
+
+/** A file made for another app, for a book: its tab's press. */
+type ForApp = (ports: ExportPorts, bookId: BookId, watch: ExportWatch) => Promise<Outcome<Made>>
+
+/** One book in a line of another app's tab: its title, and at the line's end the press that writes its tallies out for that app. */
+function AppBookRow(props: { readonly book: ListedBook; readonly writing: Writing; readonly make: ForApp }): JSX.Element {
+  const app = useApp()
+  return (
+    <li class="flex flex-col gap-2 rounded-md bg-surface-1 py-2 pl-3 pr-2">
+      <div class="flex items-center gap-2">
+        <span class="min-w-0 flex-1 break-words text-sm font-medium text-text-primary">{bookTitle(props.book)}</span>
+        <Button variant="outline" size="small" class="shrink-0" onClick={() => void props.writing.write((watch) => props.make(app.services.export, props.book.id, watch))}>
+          CSV
+        </Button>
+      </div>
+      <WritingLine writing={props.writing} />
+    </li>
+  )
+}
+
+/** Another app's tab: what its file is, and the books, each written out for it by itself. */
+function AppTab(props: { readonly format: Exclude<Format, "general">; readonly about: string; readonly make: ForApp; readonly books: Outcome<readonly ListedBook[]> | undefined; readonly writingOf: (key: WritingKey) => Writing }): JSX.Element {
+  return (
+    <TabsContent value={props.format} class="flex flex-col gap-6 p-4">
+      <p class="text-sm text-text-muted">{props.about}</p>
+      <Loaded outcome={props.books}>
+        {(found) => (
+          <section class="flex flex-col gap-2">
+            <h2 class="px-3 text-xs font-bold tracking-wide text-text-muted">帳簿</h2>
+            <ul class="flex flex-col gap-1">
+              <For each={found}>{(book) => <AppBookRow book={book} writing={props.writingOf(`${props.format}:${book.id}`)} make={props.make} />}</For>
+            </ul>
+          </section>
+        )}
+      </Loaded>
+    </TabsContent>
+  )
+}
+
 /**
  * Writing a book out as a file other than a backup, each on a press and at
- * no other time: its journals as one, for hledger or any editor, its
- * tallies as a table, for a spreadsheet, and its tallies as pRecord takes
- * them in — a book at a time, or the ticked books' journal and table
- * together in one zip. The book whole, readings and all, is a
- * backup's to carry, and the line under the list is the way there.
+ * no other time, a tab a kind of file: in the general tab its journals as
+ * one, for hledger or any editor, and its tallies as a table, for a
+ * spreadsheet — a book at a time, or the ticked books' together in one
+ * zip; and in each other app's tab, its tallies as that app takes them in.
+ * The book whole, readings and all, is a backup's to carry, and the line
+ * under the general tab is the way there.
  */
 export function ExportSettings(props: { readonly place: Place }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   const [books] = createResource(() => app.revision(), () => app.services.session.books())
   const writingOf = createWritings(app.services.export)
+  const [shown, setShown] = createSignal<string>("general")
   return (
     <MainContent header={<ViewHeader place={props.place} title="エクスポート" />}>
       <div class="max-w-5xl">
-        <div class="flex flex-col gap-6 p-4">
-          <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm text-text-muted">
-            <dt class="font-medium text-text-secondary">journal</dt>
-            <dd>仕訳を1本にまとめた hledger のテキストファイル。</dd>
-            <dt class="font-medium text-text-secondary">CSV</dt>
-            <dd>収支の一覧を1件1行の表に。表計算ソフトで開けます。</dd>
-            <dt class="font-medium text-text-secondary">pRecord</dt>
-            <dd>収支を pRecord が読める CSV に。pRecord の「その他 → データインポート」で取り込めます。</dd>
-            <dt class="font-medium text-text-secondary">zip</dt>
-            <dd>選んだ帳簿の journal と CSV をひとつにまとめます。</dd>
-          </dl>
-          <Loaded outcome={books()}>{(found) => <Books books={found} writingOf={writingOf} />}</Loaded>
-          <p class="text-xs text-text-muted">
-            帳簿をまるごと保存・復元するなら
-            <a
-              href={pathOf(BACKUP)}
-              class="mx-1 text-accent underline underline-offset-2"
-              onClick={(event) => {
-                event.preventDefault()
-                moves.go(BACKUP)
-              }}
-            >
-              バックアップ
-            </a>
-            へ。
-          </p>
-        </div>
+        <Tabs value={shown()} onChange={setShown} label="書き出す形式">
+          <TabsList>
+            <TabsTrigger value="general">汎用形式</TabsTrigger>
+            <TabsTrigger value="precord">pRecord</TabsTrigger>
+            <TabsTrigger value="pachifolio">パチフォリオ</TabsTrigger>
+          </TabsList>
+          <TabsContent value="general" class="flex flex-col gap-6 p-4">
+            <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm text-text-muted">
+              <dt class="font-medium text-text-secondary">journal</dt>
+              <dd>仕訳を1本にまとめた hledger のテキストファイル。</dd>
+              <dt class="font-medium text-text-secondary">CSV</dt>
+              <dd>収支の一覧を1件1行の表に。表計算ソフトで開けます。</dd>
+              <dt class="font-medium text-text-secondary">zip</dt>
+              <dd>選んだ帳簿の journal と CSV をひとつにまとめます。</dd>
+            </dl>
+            <Loaded outcome={books()}>{(found) => <GeneralBooks books={found} writingOf={writingOf} />}</Loaded>
+            <p class="text-xs text-text-muted">
+              帳簿をまるごと保存・復元するなら
+              <a
+                href={pathOf(BACKUP)}
+                class="mx-1 text-accent underline underline-offset-2"
+                onClick={(event) => {
+                  event.preventDefault()
+                  moves.go(BACKUP)
+                }}
+              >
+                バックアップ
+              </a>
+              へ。
+            </p>
+          </TabsContent>
+          <AppTab format="precord" about="収支を pRecord が読める CSV に。pRecord の「その他 → データインポート」で取り込めます。" make={makeForPrecord} books={books()} writingOf={writingOf} />
+          <AppTab format="pachifolio" about="収支をパチフォリオと同じ形の CSV に。回転数・大当りはライブ計測で記帳した収支のものを書き出します。" make={makeForPachifolio} books={books()} writingOf={writingOf} />
+        </Tabs>
       </div>
     </MainContent>
   )

@@ -1,7 +1,8 @@
 import type { IsoDate } from "../calendar/calendar"
-import { ZERO, add, compare, decimal, isZero, multiply, negate, quotient, rounded, toPlainString, type Decimal } from "../decimal/decimal"
+import { ZERO, decimal, isZero, multiply, quotient, rounded, toPlainString, type Decimal } from "../decimal/decimal"
 import type { PlayGameKind, PlayId } from "../play/play"
 import type { TallyLine } from "../report/tally-line"
+import { wholeSidesOf } from "./whole-sides"
 
 /**
  * The columns pRecord's import guide lists, as its first row names them and
@@ -33,27 +34,6 @@ const dayOf = (date: IsoDate): string => date.replaceAll("-", "/")
 
 /** A number as pRecord writes a fraction, with a point always: `2.25`, `2.0`. */
 const pointed = (value: Decimal): string => ((plain) => (plain.includes(".") ? plain : `${plain}.0`))(toPlainString(value))
-
-const larger = (left: Decimal, right: Decimal): Decimal => (compare(left, right) >= 0 ? left : right)
-
-/** A tally's two sides in whole yen, as pRecord takes them in. */
-interface WholeSides {
-  readonly outlay: Decimal
-  readonly takings: Decimal
-  readonly result: Decimal
-}
-
-/**
- * A tally's two sides in whole yen, so that what came back less what went
- * in is its 収支 as this app shows it, to the yen, and neither is below
- * nothing: what went in is the expenses rounded, raised where a hand-written
- * entry would leave it short of a loss or below nothing.
- */
-const wholeSidesOf = (line: TallyLine): WholeSides => {
-  const result = rounded(line.actual, 0)
-  const outlay = [rounded(line.sides.spent, 0), negate(result)].reduce(larger, ZERO)
-  return { outlay, takings: add(outlay, result), result }
-}
 
 /** A length to the nearest minute as a person writes it: `2時間35分`, `2時間`, `45分`. */
 const lengthText = (seconds: Decimal): string => {
