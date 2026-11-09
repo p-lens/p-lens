@@ -14,7 +14,9 @@ import { SlidersIcon } from "./icons"
  * what would make an answer better is. The bubble does
  * not take the focus as it opens: a keyboard brought up unasked would
  * cover it, where a field the person presses is brought into view by the
- * browser itself.
+ * browser itself. What it holds may close it too, where pressing something
+ * in it finishes what it is for: it is then given as a function of the
+ * closing.
  */
 export function DetailButton(props: {
   /** The name over the button, as a field's is over it. Left out, the button's face is its name, and the room over it is kept so that it stands level with the fields beside it. */
@@ -36,7 +38,7 @@ export function DetailButton(props: {
   /** Whether the bubble is as wide as what it holds and no wider, for pairs of fields set at widths of their own, rather than its usual width. */
   readonly fitted?: boolean
   readonly onOpen?: () => void
-  readonly children: JSX.Element
+  readonly children: JSX.Element | ((close: () => void) => JSX.Element)
 }): JSX.Element {
   const [open, setOpen] = createSignal(false)
   const doneOnEnter = (event: KeyboardEvent): void => {
@@ -71,7 +73,7 @@ export function DetailButton(props: {
       </div>
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Content onOpenAutoFocus={(event) => event.preventDefault()} onKeyDown={doneOnEnter} class="z-50 flex max-h-[var(--kb-popper-content-available-height)] items-end gap-1 overflow-y-auto rounded-md border border-border bg-surface-1 p-2 shadow-lg outline-none" classList={{ "w-44": props.fitted !== true, "w-max max-w-[calc(100vw-1rem)]": props.fitted === true }}>
-          {props.children}
+          {((held) => (typeof held === "function" ? held(() => setOpen(false)) : held))(props.children)}
         </PopoverPrimitive.Content>
       </PopoverPrimitive.Portal>
     </PopoverPrimitive.Root>

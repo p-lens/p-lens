@@ -1,7 +1,9 @@
 import { createEffect, createSignal, Match, Show, Switch, type JSX } from "solid-js"
+import { USER_MEMO_MOST, userMemoLength } from "../../../core/tally/user-memo"
 import { offeredUserTags } from "../../../core/tally/user-tags"
 import { TagsField } from "../../primitives/tags-field"
-import { NOTES_LABEL, notesSays, PRESET_USER_TAGS, USER_TAGS_LABEL, USER_TAGS_PLACEHOLDER } from "../../wording/user-tags"
+import { WrappingTextField } from "../../primitives/wrapping-text-field"
+import { NOTES_LABEL, notesSays, PRESET_USER_TAGS, USER_MEMO_LABEL, USER_MEMO_PLACEHOLDER, USER_TAGS_LABEL, USER_TAGS_PLACEHOLDER } from "../../wording/user-tags"
 import { FoldButton } from "../../primitives/fold-button"
 import { Unfolding } from "../../primitives/unfolding"
 import { NotepadIcon } from "../../primitives/icons"
@@ -65,6 +67,9 @@ export interface FinishTallyEditing {
   /** The words the tally is tagged with, and putting them on or taking them off. */
   readonly userTags: () => readonly string[]
   readonly setUserTags: (tags: readonly string[]) => void
+  /** The note the tally is written down with, and writing it. */
+  readonly userMemo: () => string
+  readonly setUserMemo: (memo: string) => void
   /** The words the book's tallies are tagged with, most used first. */
   readonly usedTags: readonly string[]
   readonly previewText: () => string | undefined
@@ -234,12 +239,15 @@ export function FinishTallyForm(props: {
               <TextField label="期待値" value={editing.value("theoreticalValue")} onChange={editing.set("theoreticalValue")} inputMode="decimal" suffix="円" invalid={editing.problemAt("theoretical-value") !== undefined} onFocus={editing.nudge.settle} compact />
             </div>
           </DetailButton>
-          <FoldButton label={NOTES_LABEL} says={notesSays(notesOpen(), editing.userTags().length)} marked={editing.userTags().length > 0} open={notesOpen()} onToggle={() => setNotesOpen((open) => !open)} face={<NotepadIcon />} />
+          <FoldButton label={NOTES_LABEL} says={notesSays(notesOpen(), editing.userTags().length, editing.userMemo())} marked={editing.userTags().length > 0 || editing.userMemo().trim() !== ""} invalid={editing.problemAt("user-memo") !== undefined} open={notesOpen()} onToggle={() => setNotesOpen((open) => !open)} face={<NotepadIcon />} />
         </div>
       </div>
       <Unfolding open={notesOpen()} gap="-mt-5">
-        <div class={`grid grid-cols-[2fr_3fr] items-start gap-x-2 gap-y-1.5 ${ROW_ON_A_WIDE_SCREEN}`}>
-          <TagsField label={USER_TAGS_LABEL} tags={editing.userTags()} onChange={editing.setUserTags} offered={offeredUserTags(editing.usedTags, PRESET_USER_TAGS)} placeholder={USER_TAGS_PLACEHOLDER} fieldClass="col-start-1" offeredClass="col-span-2" />
+        <div class={`grid grid-cols-[1fr_2fr] items-start gap-x-2 gap-y-1.5 ${ROW_ON_A_WIDE_SCREEN}`}>
+          <TagsField label={USER_TAGS_LABEL} tags={editing.userTags()} onChange={editing.setUserTags} offered={offeredUserTags(editing.usedTags, PRESET_USER_TAGS)} placeholder={USER_TAGS_PLACEHOLDER} fieldClass="col-start-1 row-start-1" offeredClass="col-span-2" />
+          <div class="col-start-2 row-start-1 min-w-0">
+            <WrappingTextField label={USER_MEMO_LABEL} value={editing.userMemo()} onChange={editing.setUserMemo} placeholder={USER_MEMO_PLACEHOLDER} length={userMemoLength(editing.userMemo())} most={USER_MEMO_MOST} error={editing.problemOf("user-memo")} />
+          </div>
         </div>
       </Unfolding>
       <section class="flex flex-col gap-2">

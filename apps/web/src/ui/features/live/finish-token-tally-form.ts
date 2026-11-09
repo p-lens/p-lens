@@ -10,6 +10,7 @@ import { Err, Ok, type Result } from "../../../core/result/result"
 import { tidyTyped } from "../../../core/text/tidy"
 import type { PricePoint } from "../../../core/valuation/valuation"
 import { handedTyped, problemOf, readHanded, readOptionalYen, type FieldProblem, type Handing, type PlayedSoFar, type Read } from "./finish-tally-reading"
+import { USER_MEMO_MOST, userMemoLength, userMemoOf } from "../../../core/tally/user-memo"
 import { userTagsOf } from "../../../core/tally/user-tags"
 
 /**
@@ -34,6 +35,8 @@ export interface FinishTokenTallyForm {
   readonly theoreticalValue: string
   /** The words the tally is tagged with, in the order they were put on. */
   readonly userTags: readonly string[]
+  /** The note the tally is written down with, as typed. */
+  readonly userMemo: string
 }
 
 /**
@@ -105,8 +108,9 @@ export const readFinishTokenTallyForm = (form: FinishTokenTallyForm, at: PlayedO
   const handed = readHanded(form.handed, form.handing)
   const payout = readCount(form.payout, "payout")
   const theoreticalValue = readOptionalYen(form.theoreticalValue, "theoretical-value")
-  if (!dateRead.ok || !outlay.ok || !paidOut.ok || !carriedIn.ok || !handed.ok || !payout.ok || !theoreticalValue.ok)
-    return Err([dateRead, outlay, paidOut, carriedIn, handed, payout, theoreticalValue].flatMap(problemOf))
+  const userMemo: Read<string> = userMemoLength(form.userMemo) <= USER_MEMO_MOST ? Ok(userMemoOf(form.userMemo)) : Err({ field: "user-memo", reason: "too-long" })
+  if (!dateRead.ok || !outlay.ok || !paidOut.ok || !carriedIn.ok || !handed.ok || !payout.ok || !theoreticalValue.ok || !userMemo.ok)
+    return Err([dateRead, outlay, paidOut, carriedIn, handed, payout, theoreticalValue, userMemo].flatMap(problemOf))
   const rented = rentedFor(at, outlay.value)
   return Ok({
     id,
@@ -123,6 +127,7 @@ export const readFinishTokenTallyForm = (form: FinishTokenTallyForm, at: PlayedO
     payout: payout.value,
     theoreticalValue: theoreticalValue.value,
     ...((tags) => (tags.length === 0 ? {} : { userTags: tags }))(userTagsOf(form.userTags)),
+    ...(userMemo.value === "" ? {} : { userMemo: userMemo.value }),
   })
 }
 
@@ -147,4 +152,5 @@ export const finishTokenTallyFormOf = (draft: PlayDraft, played: PlayedSoFar): F
   payout: filled(played.held),
   theoreticalValue: "",
   userTags: [],
+  userMemo: "",
 })

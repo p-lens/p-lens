@@ -4,14 +4,11 @@ import { tidyTyped } from "../../core/text/tidy"
 import { cn } from "./cn"
 import { CloseIcon } from "./icons"
 
-/** How many of the words offered are shown at once: the most used, or those matching what is being typed. */
-const OFFERED_AT_ONCE = 8
-
 /**
  * Words put on something, each a chip with a cross that takes it off, and a
  * field where another is typed — put on by Enter, a comma, or leaving the
  * field, so a word typed and not yet put on is not lost to a press
- * elsewhere — with the words used before offered under it, a press each,
+ * elsewhere — with every word offered under it, a press each, only
  * those matching what is typed where something is. A word already on is
  * not put on again nor offered. The field and the words offered are two
  * parts side by side, each placed by the class given it, so that a narrow
@@ -35,7 +32,7 @@ export function TagsField(props: {
     if (tag !== "" && !props.tags.includes(tag)) props.onChange([...props.tags, tag])
   }
   const takeOff = (tag: string): void => props.onChange(props.tags.filter((each) => each !== tag))
-  const shown = (): readonly string[] => props.offered.filter((tag) => !props.tags.includes(tag) && (typed().trim() === "" || tag.includes(tidyTyped(typed())))).slice(0, OFFERED_AT_ONCE)
+  const shown = (): readonly string[] => props.offered.filter((tag) => !props.tags.includes(tag) && (typed().trim() === "" || tag.includes(tidyTyped(typed()))))
   const keyDown = (event: KeyboardEvent & { readonly currentTarget: HTMLInputElement }): void => {
     if (event.isComposing || (event.key !== "Enter" && event.key !== "," && event.key !== "、")) return
     event.preventDefault()
@@ -74,7 +71,7 @@ export function TagsField(props: {
           <For each={shown()}>
             {(tag) => (
               <button type="button" class="h-7 rounded border border-border px-2 text-xs text-text-secondary hover:bg-surface-3 hover:text-text-primary" onMouseDown={(event) => event.preventDefault()} onClick={() => put(tag)}>
-                ＋{tag}
+                {tag}
               </button>
             )}
           </For>

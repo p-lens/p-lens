@@ -160,6 +160,8 @@ export function FinishTokenTallyEditor(props: {
     setHanding: set("handing"),
     userTags: () => form().userTags,
     setUserTags: (tags) => setForm((current) => ({ ...current, userTags: tags })),
+    userMemo: () => form().userMemo,
+    setUserMemo: (memo) => setForm((current) => ({ ...current, userMemo: memo })),
     usedTags: props.context.userTags,
     problemAt,
     problemOf,

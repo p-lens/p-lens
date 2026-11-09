@@ -9,6 +9,7 @@ import type { PlayGameKind, PlayId } from "../../../core/play/play"
 import { Err, Ok, type Result } from "../../../core/result/result"
 import { tidyTyped } from "../../../core/text/tidy"
 import { readOptionalYen, type FieldProblem } from "./form"
+import { USER_MEMO_MOST, userMemoLength, userMemoOf } from "../../../core/tally/user-memo"
 import { userTagsOf } from "../../../core/tally/user-tags"
 
 /** A tally typed in by its totals in yen — what went in and what came back: every field text, nothing yet read. */
@@ -36,6 +37,8 @@ export interface YenTallyForm {
   readonly atHistory: AtHistoryForm
   /** The words the tally is tagged with, in the order they were put on. */
   readonly userTags: readonly string[]
+  /** The note the tally is written down with, as typed. */
+  readonly userMemo: string
   /** How a recorded tally's two sides were settled, carried as it was through setting it right: no field asks it. */
   readonly settlement: Settlement | undefined
   /** What a recorded tally of a play at no parlor said was handed between players, in yen, carried as it was through setting it right: no field asks it. */
@@ -60,6 +63,7 @@ export const emptyYenTallyForm = (date: string, kept: KeptInferenceTerms): YenTa
   medalTerms: medalTermsFormOf(kept.pachislot ?? Pachislot.MEDAL_TERMS_BY_DEFAULT),
   atHistory: EMPTY_AT_HISTORY,
   userTags: [],
+  userMemo: "",
   settlement: undefined,
 })
 
@@ -146,7 +150,8 @@ export const readYenTallyForm = (form: YenTallyForm, parlors: readonly Parlor[],
   const takings = readTakings(form.takings)
   const theoreticalValue = readOptionalYen(form.theoreticalValue, "theoretical-value")
   const told = readTold(form)
-  if (!dateRead.ok || !parlor.ok || !outlay.ok || !takings.ok || !theoreticalValue.ok || !told.ok) return Err([dateRead, parlor, outlay, takings, theoreticalValue, told].flatMap(problemOf))
+  const userMemo: Read<string> = userMemoLength(form.userMemo) <= USER_MEMO_MOST ? Ok(userMemoOf(form.userMemo)) : Err({ field: "user-memo", reason: "too-long" })
+  if (!dateRead.ok || !parlor.ok || !outlay.ok || !takings.ok || !theoreticalValue.ok || !told.ok || !userMemo.ok) return Err([dateRead, parlor, outlay, takings, theoreticalValue, told, userMemo].flatMap(problemOf))
   return Ok({
     id: idOn(dateRead.value),
     date: dateRead.value,
@@ -161,6 +166,7 @@ export const readYenTallyForm = (form: YenTallyForm, parlors: readonly Parlor[],
     told: told.value,
     ...(form.handed === undefined ? {} : { handed: form.handed }),
     ...((tags) => (tags.length === 0 ? {} : { userTags: tags }))(userTagsOf(form.userTags)),
+    ...(userMemo.value === "" ? {} : { userMemo: userMemo.value }),
   })
 }
 
@@ -294,6 +300,7 @@ export const yenTallyFormOf = (tally: YenTally, kept: KeptInferenceTerms): YenTa
   settlement: tally.settlement,
   ...(tally.handed === undefined ? {} : { handed: tally.handed }),
   userTags: tally.userTags ?? [],
+  userMemo: tally.userMemo ?? "",
   weighingTerms: weighingTermsFormOf(((inferred) => (inferred === undefined || tally.gameKind !== "pachinko" ? undefined : Pachinko.weighingTermsOf(inferred)))(tally.told?.inferred) ?? kept.pachinko ?? Pachinko.TERMS_BY_DEFAULT),
   counterGames: "",
   counterBonuses: {},

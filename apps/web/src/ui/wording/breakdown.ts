@@ -113,7 +113,7 @@ export const groupName = (dimension: Dimension, key: string, machineNames: Machi
 }
 
 /** What each filter a breakdown is narrowed by is called, on its button and over its ticks. */
-export const NARROWING_NAMES: Readonly<Record<NarrowedBy, string>> = { game: "種別", rate: "レート", parlor: "店", machine: "機種", tag: "タグ" }
+export const NARROWING_NAMES: Readonly<Record<NarrowedBy, string>> = { game: "種別", rate: "レート帯", parlor: "店", machine: "機種", tag: "タグ" }
 
 const RATE_GAMES: Readonly<Record<TokenKind, string>> = { ball: "パチンコ", medal: "スロット" }
 
@@ -127,7 +127,7 @@ export const narrowingShown = (by: NarrowedBy, names: readonly string[] | undefi
 
 /** What a filter says in place of its ticks: that its groups are being read, or that there are none — rates in the book, anything else in the period. */
 export const narrowingNone = (by: NarrowedBy, reading: boolean): string =>
-  reading ? "読み込んでいます…" : by === "rate" ? "レートを決めた店がまだありません。" : `この期間に${NARROWING_NAMES[by]}の分かる収支はありません。`
+  reading ? "読み込んでいます…" : by === "rate" ? "レート帯を決めた店がまだありません。" : `この期間に${NARROWING_NAMES[by]}の分かる収支はありません。`
 
 /** The button that lets every tally through again. */
 export const UNNARROW = "絞り込みを解除"

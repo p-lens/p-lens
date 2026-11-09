@@ -81,6 +81,16 @@ describe("a recorded tally, read back from its entry", () => {
     expect(transactionsOf(storage.peek(BOOK)?.files)).toContain("user-tag: イベント, user-tag: 朝一")
   })
 
+  test("is the tally it was written from with the note it was written down with, on one line, what would end a tag given way to", async () => {
+    const { session, storage } = await setUp()
+    const noted: TokenTally = { ...TODAY, id: "noted" as PlayId, userTags: ["イベント"], userMemo: "角台が甘い" }
+    await recordTokenTally(session, BOOK, noted)
+    await recordYenTally(session, BOOK, { ...TALLIED, id: "odd-note" as PlayId, userMemo: " 据え,\n狙い: 12番 " })
+    expect(await recordedOf(session, "noted")).toEqual({ ok: true, value: { type: "token", tally: noted } })
+    expect(mapOk(await recordedOf(session, "odd-note"), (found) => found.tally.userMemo)).toEqual({ ok: true, value: "据え， 狙い： 12番" })
+    expect(transactionsOf(storage.peek(BOOK)?.files)).toContain("user-tag: イベント, user-memo: 角台が甘い")
+  })
+
   test("is the tally kept in yen it was written from, a gain, a loss or an even day", async () => {
     const { session } = await setUp()
     const gain = { ...TALLIED, id: "gain" as PlayId, parlor: undefined, outlay: dec("0"), takings: dec("3000"), theoreticalValue: undefined }

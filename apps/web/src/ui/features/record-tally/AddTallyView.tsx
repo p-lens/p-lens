@@ -1,6 +1,6 @@
 import { createResource, createSignal, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
-import { NotesButton, TagsRow } from "./TagsRow"
+import { NotesButton, NotesRow } from "./NotesRow"
 import { Unfolding } from "../../primitives/unfolding"
 
 import type { Outcome } from "../../../application/errors"
@@ -62,7 +62,7 @@ export function YenTallyEditor(props: {
     onRecorded: props.onRecorded,
   })
   /** Whether the tags and note are open: from the first where the tally holds some, so a tally set right shows them. */
-  const [notesOpen, setNotesOpen] = createSignal(props.initial.userTags.length > 0)
+  const [notesOpen, setNotesOpen] = createSignal(props.initial.userTags.length > 0 || props.initial.userMemo !== "")
   return (
     <form autocomplete="off" class="flex flex-col gap-5 p-4" noValidate onSubmit={(event) => void editing.submit(event)} onKeyDown={enterLeavesField}>
       <div class="flex flex-col gap-5">
@@ -71,9 +71,9 @@ export function YenTallyEditor(props: {
       </div>
       <GameKindField editing={editing} />
       <MachineField editing={editing} />
-      <SidesFields editing={editing} notes={<NotesButton tags={editing.form().userTags} open={notesOpen()} onToggle={() => setNotesOpen((open) => !open)} />} />
+      <SidesFields editing={editing} notes={<NotesButton tags={editing.form().userTags} memo={editing.form().userMemo} invalid={editing.problemAt("user-memo") !== undefined} open={notesOpen()} onToggle={() => setNotesOpen((open) => !open)} />} />
       <Unfolding open={notesOpen()} gap="-mt-5">
-        <TagsRow tags={editing.form().userTags} onChange={editing.set("userTags")} used={props.context.userTags} />
+        <NotesRow tags={editing.form().userTags} onTagsChange={editing.set("userTags")} used={props.context.userTags} memo={editing.form().userMemo} onMemoChange={editing.set("userMemo")} memoError={editing.problemOf("user-memo")} />
       </Unfolding>
       <ResultAndWeighing editing={editing} />
       <EntryAndSubmit editing={editing} words={props.words} />

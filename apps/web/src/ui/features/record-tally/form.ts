@@ -10,6 +10,7 @@ import { Err, Ok, type Result } from "../../../core/result/result"
 import { tidyTyped } from "../../../core/text/tidy"
 import { rateOn, rateReachingBack, type PricePoint } from "../../../core/valuation/valuation"
 import type { ComboboxOption } from "../../primitives/combobox"
+import { USER_MEMO_MOST, userMemoLength, userMemoOf } from "../../../core/tally/user-memo"
 import { userTagsOf } from "../../../core/tally/user-tags"
 
 /**
@@ -49,16 +50,18 @@ export interface TokenTallyForm {
   readonly theoreticalValue: string
   /** The words the tally is tagged with, in the order they were put on. */
   readonly userTags: readonly string[]
+  /** The note the tally is written down with, as typed. */
+  readonly userMemo: string
 }
 
 /** Which way tokens went between the person and other players over a play: handed in to them, or handed away. The count typed is how many, never signed. */
 export type Handing = "received" | "given"
 
-export type FormField = "date" | "parlor" | NumericField
+export type FormField = "date" | "parlor" | "user-memo" | NumericField
 
 export interface FieldProblem {
   readonly field: FormField
-  readonly reason: "required" | "not-a-number" | "not-a-date"
+  readonly reason: "required" | "not-a-number" | "not-a-date" | "too-long"
 }
 
 /**
@@ -176,8 +179,9 @@ export const readTokenTallyForm = (form: TokenTallyForm, at: PlayedAt, id: PlayI
   const theoreticalValue = readOptionalYen(form.theoreticalValue, "theoretical-value")
   const rented = outlay.ok ? readRented(form, at, outlay.value) : Ok(ZERO)
   const deducted = paidOut.ok ? readDeducted(form, at, paidOut.value) : Ok(ZERO)
-  if (!dateRead.ok || !outlay.ok || !rented.ok || !paidOut.ok || !deducted.ok || !carriedIn.ok || !handed.ok || !payout.ok || !theoreticalValue.ok)
-    return Err([dateRead, outlay, rented, paidOut, deducted, carriedIn, handed, payout, theoreticalValue].flatMap(problemOf))
+  const userMemo: Read<string> = userMemoLength(form.userMemo) <= USER_MEMO_MOST ? Ok(userMemoOf(form.userMemo)) : Err({ field: "user-memo", reason: "too-long" })
+  if (!dateRead.ok || !outlay.ok || !rented.ok || !paidOut.ok || !deducted.ok || !carriedIn.ok || !handed.ok || !payout.ok || !theoreticalValue.ok || !userMemo.ok)
+    return Err([dateRead, outlay, rented, paidOut, deducted, carriedIn, handed, payout, theoreticalValue, userMemo].flatMap(problemOf))
   return Ok({
     id,
     date: dateRead.value,
@@ -193,6 +197,7 @@ export const readTokenTallyForm = (form: TokenTallyForm, at: PlayedAt, id: PlayI
     payout: payout.value,
     theoreticalValue: theoreticalValue.value,
     ...((tags) => (tags.length === 0 ? {} : { userTags: tags }))(userTagsOf(form.userTags)),
+    ...(userMemo.value === "" ? {} : { userMemo: userMemo.value }),
   })
 }
 
@@ -213,6 +218,7 @@ export const tokenTallyFormOf = (tally: TokenTally): TokenTallyForm => ({
   payout: countText(tally.payout),
   theoreticalValue: tally.theoreticalValue === undefined ? "" : toPlainString(tally.theoreticalValue),
   userTags: tally.userTags ?? [],
+  userMemo: tally.userMemo ?? "",
 })
 
 /** What the tokens in hand are called where they are typed, for each kind of token: those a play was begun with — brought from the play before — and those in hand as it finished, which are what it leaves. */

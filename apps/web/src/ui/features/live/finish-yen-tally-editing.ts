@@ -160,6 +160,8 @@ export const createFinishYenTallyEditing = (given: FinishYenTallyEditingGiven): 
     setHanding: set("handing"),
       userTags: () => form().userTags,
       setUserTags: (tags) => setForm((current) => ({ ...current, userTags: tags })),
+      userMemo: () => form().userMemo,
+      setUserMemo: (memo) => setForm((current) => ({ ...current, userMemo: memo })),
       usedTags: given.usedTags,
       problemAt,
       problemOf,

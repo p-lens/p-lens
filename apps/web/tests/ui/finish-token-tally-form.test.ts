@@ -33,6 +33,7 @@ const FORM: FinishTokenTallyForm = {
   payout: "",
   theoreticalValue: "",
   userTags: [],
+  userMemo: "",
 }
 
 describe("the form a play followed live at a parlor is recorded with", () => {
@@ -46,6 +47,16 @@ describe("the form a play followed live at a parlor is recorded with", () => {
     expect(result(received)).toEqual(result(plain))
     expect(result(given)).toEqual(result(plain))
     expect(readFinishTokenTallyForm({ ...FORM, handed: "多め" }, AT, ID)).toMatchObject({ ok: false, error: [{ field: "handed", reason: "not-a-number" }] })
+  })
+
+  test("takes a note of forty characters as kept, and none longer", () => {
+    const forty = `${"角".repeat(38)}🎰！`
+    const read = readFinishTokenTallyForm({ ...FORM, outlay: "1000", userMemo: ` ${forty} ` }, AT, ID)
+    expect(read.ok && read.value.userMemo).toBe(forty)
+    expect(readFinishTokenTallyForm({ ...FORM, outlay: "1000", userMemo: `${forty}x` }, AT, ID)).toMatchObject({ ok: false, error: [{ field: "user-memo", reason: "too-long" }] })
+    const blank = readFinishTokenTallyForm({ ...FORM, outlay: "1000", userMemo: "  " }, AT, ID)
+    expect(blank.ok && "userMemo" in blank.value).toBe(false)
+    expect(blank.ok).toBe(true)
   })
 
   test("counts the tokens a play was begun with against what it left, at no fee", () => {

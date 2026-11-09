@@ -1,5 +1,5 @@
 import { createMemo, createResource, createSignal, Match, Show, Switch, type JSX } from "solid-js"
-import { NotesButton, TagsRow } from "./TagsRow"
+import { NotesButton, NotesRow } from "./NotesRow"
 import { Unfolding } from "../../primitives/unfolding"
 
 import type { ApplicationError, Outcome } from "../../../application/errors"
@@ -65,7 +65,7 @@ export function TokenTallyEditor(props: {
   const app = useApp()
   const [form, setForm] = createSignal<TokenTallyForm>(props.initial)
   /** Whether the tags and note are open: from the first where the tally holds some, so a tally set right shows them. */
-  const [notesOpen, setNotesOpen] = createSignal(props.initial.userTags.length > 0)
+  const [notesOpen, setNotesOpen] = createSignal(props.initial.userTags.length > 0 || props.initial.userMemo !== "")
   const [submission, setSubmission] = createSignal<Submission>({ type: "editing" })
   const set =
     <K extends keyof TokenTallyForm>(key: K) =>
@@ -262,12 +262,12 @@ export function TokenTallyEditor(props: {
                 <TextField label="期待値" value={form().theoreticalValue} onChange={set("theoreticalValue")} inputMode="decimal" suffix="円" invalid={problemAt("theoretical-value") !== undefined} onFocus={nudge.settle} compact />
               </div>
             </DetailButton>
-            <NotesButton tags={form().userTags} open={notesOpen()} onToggle={() => setNotesOpen((open) => !open)} />
+            <NotesButton tags={form().userTags} memo={form().userMemo} invalid={problemAt("user-memo") !== undefined} open={notesOpen()} onToggle={() => setNotesOpen((open) => !open)} />
           </div>
         </div>
       </div>
       <Unfolding open={notesOpen()} gap="-mt-5">
-        <TagsRow tags={form().userTags} onChange={set("userTags")} used={props.context.userTags} />
+        <NotesRow tags={form().userTags} onTagsChange={set("userTags")} used={props.context.userTags} memo={form().userMemo} onMemoChange={set("userMemo")} memoError={problemOf("user-memo")} />
       </Unfolding>
       <section class="flex flex-col gap-2">
         <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">書き込まれる仕訳</h2>

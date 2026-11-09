@@ -39,6 +39,8 @@ export interface TallyHead {
   readonly netCounts?: NetCounts
   /** The words the person tagged it with, each once, in the order they were put on — イベント, 朝一 — for the breakdown to be cut and narrowed by: absent where there are none. */
   readonly userTags?: readonly string[]
+  /** What the person wrote down of it in their own words, on one line: absent where they wrote nothing. */
+  readonly userMemo?: string
 }
 
 /**
@@ -218,6 +220,7 @@ export const TALLY_TAGS = {
   netAts: "net-ats",
   netBonuses: "net-bonuses",
   userTag: "user-tag",
+  userMemo: "user-memo",
   inferredFormula: "inferred-formula",
   tokenRental: "token-rental",
   tokenExchange: "token-exchange",

@@ -10,6 +10,7 @@ import { asideOf, withAside } from "../tally/aside"
 import { readClockText } from "../tally/clock"
 import { decimalOfQuantity } from "./figures"
 import { tallySummaryOf } from "./tallies"
+import { userMemoIn } from "../tally/user-memo"
 import { userTagsIn } from "../tally/user-tags"
 
 /** A tally as the book holds it, read back into what it was recorded from: in tokens at a parlor, or by its totals in yen. */
@@ -186,6 +187,7 @@ const TAG_READS: Readonly<Record<string, (text: string) => boolean>> = {
   [TALLY_TAGS.netAts]: isCount,
   [TALLY_TAGS.netBonuses]: isCount,
   [TALLY_TAGS.userTag]: isSaid,
+  [TALLY_TAGS.userMemo]: isSaid,
   [TALLY_TAGS.inferredFormula]: isSaid,
   [TALLY_TAGS.tokenRental]: isAmount,
   [TALLY_TAGS.tokenExchange]: isAmount,
@@ -214,6 +216,9 @@ const isImported = (transaction: Transaction): boolean => transaction.ttags.some
 /** A tally with the words it is tagged with, where it is tagged with any. */
 const withUserTags = (tally: TallyHead, tags: readonly string[]): TallyHead => (tags.length === 0 ? tally : { ...tally, userTags: tags })
 
+/** A tally with the note it was written down with, where there is one. */
+const withUserMemo = (tally: TallyHead, memo: string | undefined): TallyHead => (memo === undefined ? tally : { ...tally, userMemo: memo })
+
 /**
  * The tally an entry records, read back into what a form recorded it from;
  * undefined for an entry no form wrote — one taken in from another app, one
@@ -225,7 +230,7 @@ export const recordedTallyOf = (transaction: Transaction, parlors: readonly Parl
   const summary = tallySummaryOf(transaction)
   const parlor = parlorOf(transaction, parlors)
   if (summary === undefined || summary.gameKind === undefined || parlor === undefined || !statisticsStand(transaction) || isImported(transaction) || !tagsRead(transaction)) return undefined
-  const head = withUserTags(withAside<TallyHead>({ id: summary.id, date: summary.date, gameKind: summary.gameKind, machine: summary.machine ?? "", cabinetNumber: summary.cabinetNumber, theoreticalValue: summary.theoreticalValue }, asideOf((name) => tagged(transaction, name))), userTagsIn(transaction.ttags))
+  const head = withUserMemo(withUserTags(withAside<TallyHead>({ id: summary.id, date: summary.date, gameKind: summary.gameKind, machine: summary.machine ?? "", cabinetNumber: summary.cabinetNumber, theoreticalValue: summary.theoreticalValue }, asideOf((name) => tagged(transaction, name))), userTagsIn(transaction.ttags)), userMemoIn(transaction.ttags))
   const real = postedIn(transaction.tpostings.filter((posting) => posting.preal === "RealPosting"))
   const [commodity, ...others] = [...new Set(real.map((each) => each.commodity).filter((each) => each !== YEN))]
   if (commodity === undefined) return yenTallyOf(head, real, parlor, toldOf(transaction, summary.inferredValue))

@@ -7,11 +7,11 @@ import { tidyTyped } from "../../../core/text/tidy"
 import type { ComboboxOption } from "../../primitives/combobox"
 
 /** A field of a form a play followed live is recorded with. */
-export type FormField = "date" | "parlor" | NumericField
+export type FormField = "date" | "parlor" | "user-memo" | NumericField
 
 export interface FieldProblem {
   readonly field: FormField
-  readonly reason: "required" | "not-a-number" | "not-a-date"
+  readonly reason: "required" | "not-a-number" | "not-a-date" | "too-long"
 }
 
 export type Read<T> = Result<T, FieldProblem>

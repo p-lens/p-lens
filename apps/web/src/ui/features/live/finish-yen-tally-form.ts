@@ -9,6 +9,7 @@ import type { PlayGameKind, PlayId } from "../../../core/play/play"
 import { Err, Ok, type Result } from "../../../core/result/result"
 import { tidyTyped } from "../../../core/text/tidy"
 import { handedTyped, problemOf, readHanded, readOptionalYen, type FieldProblem, type Handing, type PlayedSoFar, type Read } from "./finish-tally-reading"
+import { USER_MEMO_MOST, userMemoLength, userMemoOf } from "../../../core/tally/user-memo"
 import { userTagsOf } from "../../../core/tally/user-tags"
 
 /**
@@ -45,6 +46,8 @@ export interface FinishYenTallyForm {
   readonly theoreticalValue: string
   /** The words the tally is tagged with, in the order they were put on. */
   readonly userTags: readonly string[]
+  /** The note the tally is written down with, as typed. */
+  readonly userMemo: string
 }
 
 /** An outlay must be given: a play that cost nothing is typed as 0, not left out. */
@@ -186,7 +189,8 @@ export const readFinishYenTallyForm = (form: FinishYenTallyForm, terms: PlayTerm
   const dateRead: Read<IsoDate> = date.ok ? date : Err({ field: "date", reason: "not-a-date" })
   const sides = readSides(form, terms)
   const theoreticalValue = readOptionalYen(form.theoreticalValue, "theoretical-value")
-  if (!dateRead.ok || !sides.ok || !theoreticalValue.ok) return Err([...problemOf(dateRead), ...(sides.ok ? [] : sides.error), ...problemOf(theoreticalValue)])
+  const userMemo: Read<string> = userMemoLength(form.userMemo) <= USER_MEMO_MOST ? Ok(userMemoOf(form.userMemo)) : Err({ field: "user-memo", reason: "too-long" })
+  if (!dateRead.ok || !sides.ok || !theoreticalValue.ok || !userMemo.ok) return Err([...problemOf(dateRead), ...(sides.ok ? [] : sides.error), ...problemOf(theoreticalValue), ...problemOf(userMemo)])
   return Ok({
     id,
     date: dateRead.value,
@@ -201,6 +205,7 @@ export const readFinishYenTallyForm = (form: FinishYenTallyForm, terms: PlayTerm
     told: undefined,
     ...(isZero(sides.value.handed) ? {} : { handed: sides.value.handed }),
     ...((tags) => (tags.length === 0 ? {} : { userTags: tags }))(userTagsOf(form.userTags)),
+    ...(userMemo.value === "" ? {} : { userMemo: userMemo.value }),
   })
 }
 
@@ -233,4 +238,5 @@ export const finishYenTallyFormOf = (draft: PlayDraft, played: PlayedSoFar): Fin
   specialPrizes: "",
   theoreticalValue: "",
   userTags: [],
+  userMemo: "",
 })
