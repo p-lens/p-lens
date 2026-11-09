@@ -1,5 +1,6 @@
 import { createMemo, createResource, createSignal, Match, Show, Switch, type JSX } from "solid-js"
-import { TagsRow } from "./TagsRow"
+import { NotesButton, TagsRow } from "./TagsRow"
+import { Unfolding } from "../../primitives/unfolding"
 
 import type { ApplicationError, Outcome } from "../../../application/errors"
 import type { RecordingContext } from "../../../application/record-tally"
@@ -63,6 +64,8 @@ export function TokenTallyEditor(props: {
 }): JSX.Element {
   const app = useApp()
   const [form, setForm] = createSignal<TokenTallyForm>(props.initial)
+  /** Whether the tags and note are open: from the first where the tally holds some, so a tally set right shows them. */
+  const [notesOpen, setNotesOpen] = createSignal(props.initial.userTags.length > 0)
   const [submission, setSubmission] = createSignal<Submission>({ type: "editing" })
   const set =
     <K extends keyof TokenTallyForm>(key: K) =>
@@ -245,22 +248,27 @@ export function TokenTallyEditor(props: {
               </Show>
             </span>
           </div>
-          <DetailButton
-            label="期待値"
-            says={form().theoreticalValue.trim() === "" ? "期待値を入力する" : `期待値 ${form().theoreticalValue.trim()}円`}
-            marked={form().theoreticalValue.trim() !== ""}
-            invalid={problemAt("theoretical-value") !== undefined}
-            tone="semipro"
-            placement="bottom-end"
-          >
-            <SignFlip value={form().theoreticalValue} onChange={set("theoreticalValue")} label="期待値の符号を切り替える" />
-            <div class="min-w-0 flex-1">
-              <TextField label="期待値" value={form().theoreticalValue} onChange={set("theoreticalValue")} inputMode="decimal" suffix="円" invalid={problemAt("theoretical-value") !== undefined} onFocus={nudge.settle} compact />
-            </div>
-          </DetailButton>
+          <div class="flex shrink-0 items-start gap-2">
+            <DetailButton
+              label="期待値"
+              says={form().theoreticalValue.trim() === "" ? "期待値を入力する" : `期待値 ${form().theoreticalValue.trim()}円`}
+              marked={form().theoreticalValue.trim() !== ""}
+              invalid={problemAt("theoretical-value") !== undefined}
+              tone="semipro"
+              placement="bottom-end"
+            >
+              <SignFlip value={form().theoreticalValue} onChange={set("theoreticalValue")} label="期待値の符号を切り替える" />
+              <div class="min-w-0 flex-1">
+                <TextField label="期待値" value={form().theoreticalValue} onChange={set("theoreticalValue")} inputMode="decimal" suffix="円" invalid={problemAt("theoretical-value") !== undefined} onFocus={nudge.settle} compact />
+              </div>
+            </DetailButton>
+            <NotesButton tags={form().userTags} open={notesOpen()} onToggle={() => setNotesOpen((open) => !open)} />
+          </div>
         </div>
       </div>
-      <TagsRow tags={form().userTags} onChange={set("userTags")} used={props.context.userTags} />
+      <Unfolding open={notesOpen()} gap="-mt-5">
+        <TagsRow tags={form().userTags} onChange={set("userTags")} used={props.context.userTags} />
+      </Unfolding>
       <section class="flex flex-col gap-2">
         <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">書き込まれる仕訳</h2>
         <Switch fallback={<p class="text-sm text-text-muted">入力を直すと、ここに仕訳が表示されます。</p>}>

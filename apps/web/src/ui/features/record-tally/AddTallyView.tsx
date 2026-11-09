@@ -1,6 +1,7 @@
-import { createResource, Show, type JSX } from "solid-js"
+import { createResource, createSignal, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
-import { TagsRow } from "./TagsRow"
+import { NotesButton, TagsRow } from "./TagsRow"
+import { Unfolding } from "../../primitives/unfolding"
 
 import type { Outcome } from "../../../application/errors"
 import { writtenKeepingTerms, type TermsUsed } from "../../../application/inference-terms"
@@ -60,6 +61,8 @@ export function YenTallyEditor(props: {
     submit: props.submit,
     onRecorded: props.onRecorded,
   })
+  /** Whether the tags and note are open: from the first where the tally holds some, so a tally set right shows them. */
+  const [notesOpen, setNotesOpen] = createSignal(props.initial.userTags.length > 0)
   return (
     <form autocomplete="off" class="flex flex-col gap-5 p-4" noValidate onSubmit={(event) => void editing.submit(event)} onKeyDown={enterLeavesField}>
       <div class="flex flex-col gap-5">
@@ -68,9 +71,11 @@ export function YenTallyEditor(props: {
       </div>
       <GameKindField editing={editing} />
       <MachineField editing={editing} />
-      <SidesFields editing={editing} />
+      <SidesFields editing={editing} notes={<NotesButton tags={editing.form().userTags} open={notesOpen()} onToggle={() => setNotesOpen((open) => !open)} />} />
+      <Unfolding open={notesOpen()} gap="-mt-5">
+        <TagsRow tags={editing.form().userTags} onChange={editing.set("userTags")} used={props.context.userTags} />
+      </Unfolding>
       <ResultAndWeighing editing={editing} />
-      <TagsRow tags={editing.form().userTags} onChange={editing.set("userTags")} used={props.context.userTags} />
       <EntryAndSubmit editing={editing} words={props.words} />
     </form>
   )

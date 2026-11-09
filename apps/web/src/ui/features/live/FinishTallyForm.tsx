@@ -1,7 +1,10 @@
 import { createEffect, createSignal, Match, Show, Switch, type JSX } from "solid-js"
 import { offeredUserTags } from "../../../core/tally/user-tags"
 import { TagsField } from "../../primitives/tags-field"
-import { PRESET_USER_TAGS, USER_TAGS_LABEL, USER_TAGS_PLACEHOLDER } from "../../wording/user-tags"
+import { NOTES_LABEL, notesSays, PRESET_USER_TAGS, USER_TAGS_LABEL, USER_TAGS_PLACEHOLDER } from "../../wording/user-tags"
+import { FoldButton } from "../../primitives/fold-button"
+import { Unfolding } from "../../primitives/unfolding"
+import { NotepadIcon } from "../../primitives/icons"
 
 import type { ApplicationError } from "../../../application/errors"
 import type { Decimal } from "../../../core/decimal/decimal"
@@ -127,6 +130,8 @@ export function FinishTallyForm(props: {
   readonly words: SubmitWords
 }): JSX.Element {
   const app = useApp()
+  /** Whether the tags and note are open: closed as a play is recorded, until the person opens them. */
+  const [notesOpen, setNotesOpen] = createSignal(false)
   const editing = props.editing
   const unit = (): string => tokenUnit(tokenKindOf(props.gameKind))
   const theoretical = (): string => editing.value("theoreticalValue").trim()
@@ -215,25 +220,28 @@ export function FinishTallyForm(props: {
             {editing.resultText()}
           </output>
         </div>
-        <DetailButton
-          label="期待値"
-          says={theoretical() === "" ? "期待値を入力する" : `期待値 ${theoretical()}円`}
-          marked={theoretical() !== ""}
-          invalid={editing.problemAt("theoretical-value") !== undefined}
-          tone="semipro"
-          placement="bottom-end"
-        >
-          <SignFlip value={editing.value("theoreticalValue")} onChange={editing.set("theoreticalValue")} label="期待値の符号を切り替える" />
-          <div class="min-w-0 flex-1">
-            <TextField label="期待値" value={editing.value("theoreticalValue")} onChange={editing.set("theoreticalValue")} inputMode="decimal" suffix="円" invalid={editing.problemAt("theoretical-value") !== undefined} onFocus={editing.nudge.settle} compact />
-          </div>
-        </DetailButton>
-      </div>
-      <div class={`grid grid-cols-[2fr_3fr] items-start gap-2 ${ROW_ON_A_WIDE_SCREEN}`}>
-        <div class="min-w-0">
-          <TagsField label={USER_TAGS_LABEL} tags={editing.userTags()} onChange={editing.setUserTags} offered={offeredUserTags(editing.usedTags, PRESET_USER_TAGS)} placeholder={USER_TAGS_PLACEHOLDER} />
+        <div class="flex shrink-0 items-start gap-2">
+          <DetailButton
+            label="期待値"
+            says={theoretical() === "" ? "期待値を入力する" : `期待値 ${theoretical()}円`}
+            marked={theoretical() !== ""}
+            invalid={editing.problemAt("theoretical-value") !== undefined}
+            tone="semipro"
+            placement="bottom-end"
+          >
+            <SignFlip value={editing.value("theoreticalValue")} onChange={editing.set("theoreticalValue")} label="期待値の符号を切り替える" />
+            <div class="min-w-0 flex-1">
+              <TextField label="期待値" value={editing.value("theoreticalValue")} onChange={editing.set("theoreticalValue")} inputMode="decimal" suffix="円" invalid={editing.problemAt("theoretical-value") !== undefined} onFocus={editing.nudge.settle} compact />
+            </div>
+          </DetailButton>
+          <FoldButton label={NOTES_LABEL} says={notesSays(notesOpen(), editing.userTags().length)} marked={editing.userTags().length > 0} open={notesOpen()} onToggle={() => setNotesOpen((open) => !open)} face={<NotepadIcon />} />
         </div>
       </div>
+      <Unfolding open={notesOpen()} gap="-mt-5">
+        <div class={`grid grid-cols-[2fr_3fr] items-start gap-x-2 gap-y-1.5 ${ROW_ON_A_WIDE_SCREEN}`}>
+          <TagsField label={USER_TAGS_LABEL} tags={editing.userTags()} onChange={editing.setUserTags} offered={offeredUserTags(editing.usedTags, PRESET_USER_TAGS)} placeholder={USER_TAGS_PLACEHOLDER} fieldClass="col-start-1" offeredClass="col-span-2" />
+        </div>
+      </Unfolding>
       <section class="flex flex-col gap-2">
         <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">書き込まれる仕訳</h2>
         <EntryPreview editing={editing} />

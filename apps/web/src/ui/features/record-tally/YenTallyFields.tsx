@@ -206,11 +206,11 @@ export function MachineField(props: { readonly editing: YenTallyEditing }): JSX.
   )
 }
 
-/** The two sides of a tally in yen, and the theoretical value a person may type in beside them. */
-export function SidesFields(props: { readonly editing: YenTallyEditing }): JSX.Element {
+/** The two sides of a tally in yen, the theoretical value a person may type in beside them, and the button that opens its tags and note. */
+export function SidesFields(props: { readonly editing: YenTallyEditing; readonly notes: JSX.Element }): JSX.Element {
   const editing = props.editing
   return (
-    <div class={`grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-start gap-x-3 ${HALF_ON_A_WIDE_SCREEN}`}>
+    <div class={`grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-start gap-x-3 ${HALF_ON_A_WIDE_SCREEN}`}>
       <TextField label="投資額" value={editing.form().outlay} onChange={editing.set("outlay")} inputMode="decimal" suffix="円" error={editing.problemOf("outlay")}
         invalid={editing.nudged("outlay") || editing.lacked("outlay")}
         onFocus={() => {
@@ -234,6 +234,7 @@ export function SidesFields(props: { readonly editing: YenTallyEditing }): JSX.E
           <TextField label="期待値" value={editing.form().theoreticalValue} onChange={editing.set("theoreticalValue")} inputMode="decimal" suffix="円" invalid={editing.problemAt("theoretical-value") !== undefined} onFocus={editing.nudge.settle} compact />
         </div>
       </DetailButton>
+      {props.notes}
     </div>
   )
 }

@@ -5,4 +5,10 @@ export const PRESET_USER_TAGS: readonly string[] = ["イベント", "ハイエ�
 export const USER_TAGS_LABEL = "タグ"
 
 /** What the field says while it holds no word. */
-export const USER_TAGS_PLACEHOLDER = "イベント・朝イチなど"
+export const USER_TAGS_PLACEHOLDER = "タグを追加"
+
+/** The name over the button that opens a tally's tags and note. */
+export const NOTES_LABEL = "メモ"
+
+/** What the button that opens a tally's tags and note says to whoever cannot see it: whether it opens or closes them, and how many tags they hold. */
+export const notesSays = (open: boolean, tags: number): string => `タグ・メモを${open ? "閉じる" : "開く"}${tags === 0 ? "" : `（タグ${tags}件）`}`
