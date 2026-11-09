@@ -1,7 +1,7 @@
 import { createMemo, createResource, createSignal, Show, untrack, type Accessor, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
-import { chooseBook, finishPlay, finishPlayInYen, loadFinishing, loadSentFinishing, recordSentPlay, recordSentPlayInYen, theoreticalValueAtFinish, type Finishing } from "../../../application/live-play"
+import { chooseBook, finishPlay, finishPlayInYen, loadFinishing, loadSentFinishing, netCountsAtFinish, recordSentPlay, recordSentPlayInYen, theoreticalValueAtFinish, type Finishing } from "../../../application/live-play"
 import type { BookId, ListedBook } from "../../../core/book/book"
 import { keptSpinPerformance } from "../../../core/tally/aside"
 import type { TallyAside, TokenTally, YenTally } from "../../../core/tally/tally"
@@ -255,7 +255,7 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
                 clock: { started: start(), finished: finish().time },
                 spinPerformance: played.spinPerformance === undefined ? undefined : keptSpinPerformance(played.spinPerformance),
                 sender,
-                netCounts: undefined,
+                netCounts: netCountsAtFinish(draft, readFinishForm(finish(), draft.startedAt)),
               })
               const words = draft.recorded === undefined ? RECORDING : RECORDING_AGAIN
               const finished = (): Finish => readFinishForm(finish(), draft.startedAt)

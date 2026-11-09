@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import { createBookSession } from "../../src/application/book-session"
 import { keepingHistory } from "../../src/application/draft-history"
-import { addCheckpoints, changeTerms, finishPlay, finishPlayInYen, loadDrafts, loadTodaysPlays, reviseCheckpoints, startPlay, theoreticalValueAtFinish } from "../../src/application/live-play"
+import { addCheckpoints, changeTerms, finishPlay, finishPlayInYen, loadDrafts, loadTodaysPlays, netCountsAtFinish, reviseCheckpoints, startPlay, theoreticalValueAtFinish } from "../../src/application/live-play"
 import { linkSubmissions, openPool } from "../../src/application/parlors"
 import { loadRecordingContext, recordTokenTally } from "../../src/application/record-tally"
 import type { BookId } from "../../src/core/book/book"
@@ -89,6 +89,15 @@ describe("a play followed live", () => {
     expect(transactionsOf(storage.peek(BOOK)?.files)).toContain("play-id: live-1")
     expect(transactionsOf(storage.peek(BOOK)?.files)).toContain("net-spins: 30, net-jackpots: 0")
     expect(mapOk(await loadTodaysPlays(drafts, "2026-10-04" as IsoDate), (found) => found.map((draft) => [draft.id, draft.recorded, draft.log]))).toEqual({ ok: true, value: [[ID, { at: NOW, finish: FINISH }, DRAFT.log]] })
+  })
+
+  test("counts what the person played, finished as the form says, the same for the entry shown before recording as for the one written, by what its game and formula count", () => {
+    expect(netCountsAtFinish(DRAFT, FINISH)).toEqual({ type: "pachinko", spins: 30, jackpots: 0 })
+    expect(netCountsAtFinish(DRAFT, { ...FINISH, counter: undefined })).toEqual({ type: "pachinko", spins: 0, jackpots: 0 })
+    const pachislot = { ...DRAFT, gameKind: "pachislot" } as PlayDraft
+    expect(netCountsAtFinish(pachislot, FINISH)).toEqual({ type: "games", games: 30 })
+    expect(netCountsAtFinish({ ...pachislot, pachislot: { formula: { normalized: { atRules: {} } } } } as never, FINISH)).toEqual({ type: "at-machine", games: 30, ats: 0 })
+    expect(netCountsAtFinish({ ...pachislot, pachislot: { formula: { normalized: {} } } } as never, FINISH)).toEqual({ type: "bonus-machine", games: 30, bonuses: 0 })
   })
 
   test("is unknown to every book until it is recorded, when its parlor's pool is opened in the book it goes into", async () => {
