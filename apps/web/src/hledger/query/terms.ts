@@ -130,6 +130,9 @@ export const talliesAmongTerm = (ids: readonly PlayId[]): string => `tag:${TALLY
  * alone would find in `source-machine` too, so the name is held to the
  * whole of it.
  */
+/** The entries that carry any of some tags, whatever they say. */
+export const taggedWithAnyTerm = (tags: readonly string[]): string => `"tag:^(${tags.map(escapeRegex).join("|")})$"`
+
 export const untaggedTerm = (tag: string): string => `not:tag:^${escapeRegex(tag)}$`
 
 /** Terms joined into one query, leaving out the empty ones. */

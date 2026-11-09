@@ -13,6 +13,11 @@ import { Ok } from "../../src/core/result/result"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
 import { queryOf } from "../../src/ui/features/period/periods"
 import { ME, fixtureBook, inProcessHledger, memoryStorage } from "../support/in-process"
+import { recordYenTally } from "../../src/application/record-tally"
+import type { IsoDate } from "../../src/core/calendar/calendar"
+import type { PlayId } from "../../src/core/play/play"
+import type { YenTally } from "../../src/core/tally/tally"
+import { MALEHAN, dec } from "../support/values"
 
 const BOOK = "basic-play" as BookId
 
@@ -137,5 +142,46 @@ describe("a book that wrote pachislot as `slot`, before the name was settled", (
     expect(narrowed.ok && narrowed.value.map((group) => group.key)).toEqual(["2026-09-12", "2026-09-11"])
     const tallies = await loadTallies(session, OLDER, "date:2026-09-11", 0)
     expect(tallies.ok && tallies.value.tallies.map((tally) => tally.gameKind)).toEqual(["pachislot"])
+  })
+})
+
+describe("a book broken down by the words its tallies are tagged with", () => {
+  const context: { session?: BookSession } = {}
+  const session = (): BookSession => context.session as BookSession
+  const read = async (dimension: Dimension, query = "", narrowing: Narrowing = EVERY_TALLY) =>
+    ((found) => (found.ok ? found.value.map((group) => [group.key, toPlainString(group.actual)]) : found))(await loadBreakdown(session(), BOOK, dimension, query, narrowing))
+  const tally = (id: string, takings: string, userTags: readonly string[], parlor = MALEHAN): YenTally => ({
+    id: id as PlayId,
+    date: "2026-10-05" as IsoDate,
+    parlor,
+    gameKind: "pachinko",
+    machine: "流星",
+    cabinetNumber: undefined,
+    outlay: dec("10000"),
+    takings: dec(takings),
+    settlement: undefined,
+    theoreticalValue: undefined,
+    told: undefined,
+    userTags,
+  })
+
+  beforeAll(async () => {
+    const storage = memoryStorage()
+    context.session = createBookSession({ hledger: await inProcessHledger(), storage, history: createMemoryHistory(() => crypto.randomUUID()), clock: () => new Date("2026-10-09T12:00:00+09:00"), newId: () => crypto.randomUUID(), member: ME })
+    await session().createBook(await fixtureBook("basic-play", { id: BOOK, members: [{ id: ME, displayName: "me", role: "owner" }] }))
+    await recordYenTally(session(), BOOK, tally("event-morning", "20000", ["イベント", "朝イチ"]))
+    await recordYenTally(session(), BOOK, tally("event", "7000", ["イベント"]))
+    await recordYenTally(session(), BOOK, tally("hyena", "15000", ["ハイエナ"]))
+  })
+
+  test("is a group a word, a tally tagged with several in each, and the tallies tagged with none together, best first", async () => {
+    expect(await read("tag")).toEqual([["", "39144"], ["朝イチ", "10000"], ["イベント", "7000"], ["ハイエナ", "5000"]])
+  })
+
+  test("narrowed to words, is the tallies tagged with any of them, beside whatever else is narrowed", async () => {
+    expect(await read("parlor", "", { tag: ["イベント"] })).toEqual([["マレハン東京皇国第8支店", "7000"]])
+    expect(await read("tag", "", { tag: ["イベント", "ハイエナ"] })).toEqual([["朝イチ", "10000"], ["イベント", "7000"], ["ハイエナ", "5000"]])
+    expect(await read("machine", "", { tag: ["朝イチ"], game: ["pachislot"] })).toEqual([])
+    expect(await read("tag", "date:2026-10-05")).toEqual([["朝イチ", "10000"], ["イベント", "7000"], ["ハイエナ", "5000"]])
   })
 })

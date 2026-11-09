@@ -10,6 +10,7 @@ import { Err, Ok, type Result } from "../../../core/result/result"
 import { tidyTyped } from "../../../core/text/tidy"
 import { rateOn, rateReachingBack, type PricePoint } from "../../../core/valuation/valuation"
 import type { ComboboxOption } from "../../primitives/combobox"
+import { userTagsOf } from "../../../core/tally/user-tags"
 
 /**
  * The machines a tally at a parlor may name, each by the name the halls
@@ -46,6 +47,8 @@ export interface TokenTallyForm {
   readonly handing: Handing
   readonly payout: string
   readonly theoreticalValue: string
+  /** The words the tally is tagged with, in the order they were put on. */
+  readonly userTags: readonly string[]
 }
 
 /** Which way tokens went between the person and other players over a play: handed in to them, or handed away. The count typed is how many, never signed. */
@@ -189,6 +192,7 @@ export const readTokenTallyForm = (form: TokenTallyForm, at: PlayedAt, id: PlayI
     handed: form.handing === "given" ? negate(handed.value) : handed.value,
     payout: payout.value,
     theoreticalValue: theoreticalValue.value,
+    ...((tags) => (tags.length === 0 ? {} : { userTags: tags }))(userTagsOf(form.userTags)),
   })
 }
 
@@ -208,6 +212,7 @@ export const tokenTallyFormOf = (tally: TokenTally): TokenTallyForm => ({
   handing: isNegative(tally.handed) || isZero(tally.handed) ? "given" : "received",
   payout: countText(tally.payout),
   theoreticalValue: tally.theoreticalValue === undefined ? "" : toPlainString(tally.theoreticalValue),
+  userTags: tally.userTags ?? [],
 })
 
 /** What the tokens in hand are called where they are typed, for each kind of token: those a play was begun with — brought from the play before — and those in hand as it finished, which are what it leaves. */

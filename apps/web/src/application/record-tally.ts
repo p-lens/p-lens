@@ -21,6 +21,7 @@ import type { BookSession, ProposedChange } from "./book-session"
 import type { Outcome } from "./errors"
 import { keptInferenceTermsOf } from "./inference-terms"
 import { fromHledger, fromTally } from "./lift"
+import { askUserTags } from "./user-tags"
 
 /** What recording a tally needs to know about the book before anything is typed. */
 export interface RecordingContext {
@@ -29,18 +30,23 @@ export interface RecordingContext {
   readonly canWrite: boolean
   /** The terms the book keeps for a tally typed in by hand of each game, which its form opens on. */
   readonly inferenceTerms: KeptInferenceTerms
+  /** The words the book's tallies are tagged with, those used most first, offered to tag a tally with. */
+  readonly userTags: readonly string[]
 }
 
 export const loadRecordingContext = (session: BookSession, bookId: BookId, member: MemberId): Promise<Outcome<RecordingContext>> =>
   session.read(bookId, async (journal, stored) => {
-    const [accounts, prices] = await Promise.all([journal.ask(accountsRequest), journal.ask(pricesRequest(""))])
+    const [accounts, prices, userTags] = await Promise.all([journal.ask(accountsRequest), journal.ask(pricesRequest("")), askUserTags(journal)])
     return andThen(fromHledger(accounts), (declared) =>
-      mapOk(fromHledger(prices), (directives) => ({
-        parlors: parlorsFromDeclarations(declared),
-        prices: pricePointsOf(directives),
-        canWrite: memberCan(stored.book, member, "write"),
-        inferenceTerms: keptInferenceTermsOf(stored.files),
-      })),
+      andThen(fromHledger(prices), (directives) =>
+        mapOk(userTags, (tags) => ({
+          parlors: parlorsFromDeclarations(declared),
+          prices: pricePointsOf(directives),
+          canWrite: memberCan(stored.book, member, "write"),
+          inferenceTerms: keptInferenceTermsOf(stored.files),
+          userTags: tags,
+        })),
+      ),
     )
   })
 

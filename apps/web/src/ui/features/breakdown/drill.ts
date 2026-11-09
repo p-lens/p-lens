@@ -10,11 +10,11 @@ export interface Drilled {
   readonly query: string
 }
 
-/** The dimension a group of one is looked into by, narrowed to it: a game by parlor, a parlor by machine, a machine by parlor. */
-const INTO: Readonly<Record<Exclude<NarrowedBy, "rate">, Dimension>> = { game: "parlor", parlor: "machine", machine: "parlor" }
+/** The dimension a group of one is looked into by, narrowed to it: a game by parlor, a parlor by machine, a machine by parlor, a tag by parlor. */
+const INTO: Readonly<Record<Exclude<NarrowedBy, "rate">, Dimension>> = { game: "parlor", parlor: "machine", machine: "parlor", tag: "parlor" }
 
 /**
- * Where a group's row goes: a game, a parlor or a machine to the breakdown
+ * Where a group's row goes: a game, a parlor, a machine or a tag to the breakdown
  * narrowed to it as well, by the dimension it is looked into by; a year to
  * its months and a month to its days, over its own days. A day, a day of
  * the week and the group of tallies that do not say what is asked go
@@ -26,6 +26,7 @@ export const drilledFrom = (dimension: Dimension, key: string, narrowing: Narrow
     case "game":
     case "parlor":
     case "machine":
+    case "tag":
       return { by: INTO[dimension], narrowing: narrowedTo(narrowing, dimension, [key]), query }
     case "year":
       return { by: "month", narrowing, query: queryOf(widened({ from: `${key}-01-01` as IsoDate, to: `${key}-01-01` as IsoDate }, "year")) }

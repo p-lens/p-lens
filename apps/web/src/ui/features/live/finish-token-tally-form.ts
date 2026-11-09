@@ -10,6 +10,7 @@ import { Err, Ok, type Result } from "../../../core/result/result"
 import { tidyTyped } from "../../../core/text/tidy"
 import type { PricePoint } from "../../../core/valuation/valuation"
 import { handedTyped, problemOf, readHanded, readOptionalYen, type FieldProblem, type Handing, type PlayedSoFar, type Read } from "./finish-tally-reading"
+import { userTagsOf } from "../../../core/tally/user-tags"
 
 /**
  * The form a play followed live at a parlor is recorded with, as typed:
@@ -31,6 +32,8 @@ export interface FinishTokenTallyForm {
   readonly handing: Handing
   readonly payout: string
   readonly theoreticalValue: string
+  /** The words the tally is tagged with, in the order they were put on. */
+  readonly userTags: readonly string[]
 }
 
 /**
@@ -119,6 +122,7 @@ export const readFinishTokenTallyForm = (form: FinishTokenTallyForm, at: PlayedO
     handed: handed.value,
     payout: payout.value,
     theoreticalValue: theoreticalValue.value,
+    ...((tags) => (tags.length === 0 ? {} : { userTags: tags }))(userTagsOf(form.userTags)),
   })
 }
 
@@ -142,4 +146,5 @@ export const finishTokenTallyFormOf = (draft: PlayDraft, played: PlayedSoFar): F
   ...handedTyped(played.handed),
   payout: filled(played.held),
   theoreticalValue: "",
+  userTags: [],
 })

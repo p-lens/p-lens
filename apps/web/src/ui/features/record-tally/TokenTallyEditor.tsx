@@ -1,4 +1,5 @@
 import { createMemo, createResource, createSignal, Match, Show, Switch, type JSX } from "solid-js"
+import { TagsRow } from "./TagsRow"
 
 import type { ApplicationError, Outcome } from "../../../application/errors"
 import type { RecordingContext } from "../../../application/record-tally"
@@ -259,6 +260,7 @@ export function TokenTallyEditor(props: {
           </DetailButton>
         </div>
       </div>
+      <TagsRow tags={form().userTags} onChange={set("userTags")} used={props.context.userTags} />
       <section class="flex flex-col gap-2">
         <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">書き込まれる仕訳</h2>
         <Switch fallback={<p class="text-sm text-text-muted">入力を直すと、ここに仕訳が表示されます。</p>}>

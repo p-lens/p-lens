@@ -32,6 +32,7 @@ const FORM: FinishTokenTallyForm = {
   handing: "received",
   payout: "",
   theoreticalValue: "",
+  userTags: [],
 }
 
 describe("the form a play followed live at a parlor is recorded with", () => {

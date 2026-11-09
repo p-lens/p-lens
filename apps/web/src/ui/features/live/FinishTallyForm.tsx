@@ -1,4 +1,7 @@
 import { createEffect, createSignal, Match, Show, Switch, type JSX } from "solid-js"
+import { offeredUserTags } from "../../../core/tally/user-tags"
+import { TagsField } from "../../primitives/tags-field"
+import { PRESET_USER_TAGS, USER_TAGS_LABEL, USER_TAGS_PLACEHOLDER } from "../../wording/user-tags"
 
 import type { ApplicationError } from "../../../application/errors"
 import type { Decimal } from "../../../core/decimal/decimal"
@@ -56,6 +59,11 @@ export interface FinishTallyEditing {
   readonly machineRequired: boolean
   readonly resultText: () => string
   readonly resultTone: () => ReturnType<typeof toneOf> | undefined
+  /** The words the tally is tagged with, and putting them on or taking them off. */
+  readonly userTags: () => readonly string[]
+  readonly setUserTags: (tags: readonly string[]) => void
+  /** The words the book's tallies are tagged with, most used first. */
+  readonly usedTags: readonly string[]
   readonly previewText: () => string | undefined
   readonly previewProblem: () => string | undefined
   readonly failure: () => ApplicationError | undefined
@@ -220,6 +228,11 @@ export function FinishTallyForm(props: {
             <TextField label="期待値" value={editing.value("theoreticalValue")} onChange={editing.set("theoreticalValue")} inputMode="decimal" suffix="円" invalid={editing.problemAt("theoretical-value") !== undefined} onFocus={editing.nudge.settle} compact />
           </div>
         </DetailButton>
+      </div>
+      <div class={`grid grid-cols-[2fr_3fr] items-start gap-2 ${ROW_ON_A_WIDE_SCREEN}`}>
+        <div class="min-w-0">
+          <TagsField label={USER_TAGS_LABEL} tags={editing.userTags()} onChange={editing.setUserTags} offered={offeredUserTags(editing.usedTags, PRESET_USER_TAGS)} placeholder={USER_TAGS_PLACEHOLDER} />
+        </div>
       </div>
       <section class="flex flex-col gap-2">
         <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">書き込まれる仕訳</h2>

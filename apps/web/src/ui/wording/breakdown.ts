@@ -18,6 +18,7 @@ export const DIMENSION_NAMES: Readonly<Record<Dimension, string>> = {
   machine: "機種別",
   parlor: "店舗別",
   weekday: "曜日別",
+  tag: "タグ別",
   game: "パチンコ・スロット別",
   year: "年別",
   month: "月別",
@@ -93,6 +94,7 @@ const UNSAID_NAMES: Readonly<Record<Dimension, string>> = {
   machine: "機種の指定なし",
   parlor: "店舗の指定なし",
   weekday: "--",
+  tag: "タグなし",
   game: "種別なし",
   year: "--",
   month: "--",
@@ -111,7 +113,7 @@ export const groupName = (dimension: Dimension, key: string, machineNames: Machi
 }
 
 /** What each filter a breakdown is narrowed by is called, on its button and over its ticks. */
-export const NARROWING_NAMES: Readonly<Record<NarrowedBy, string>> = { game: "種別", rate: "レート", parlor: "店", machine: "機種" }
+export const NARROWING_NAMES: Readonly<Record<NarrowedBy, string>> = { game: "種別", rate: "レート", parlor: "店", machine: "機種", tag: "タグ" }
 
 const RATE_GAMES: Readonly<Record<TokenKind, string>> = { ball: "パチンコ", medal: "スロット" }
 

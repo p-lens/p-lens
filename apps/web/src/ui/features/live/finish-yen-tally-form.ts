@@ -9,6 +9,7 @@ import type { PlayGameKind, PlayId } from "../../../core/play/play"
 import { Err, Ok, type Result } from "../../../core/result/result"
 import { tidyTyped } from "../../../core/text/tidy"
 import { handedTyped, problemOf, readHanded, readOptionalYen, type FieldProblem, type Handing, type PlayedSoFar, type Read } from "./finish-tally-reading"
+import { userTagsOf } from "../../../core/tally/user-tags"
 
 /**
  * The form a play followed live at no parlor is recorded with, as typed:
@@ -42,6 +43,8 @@ export interface FinishYenTallyForm {
   /** The special prizes they were exchanged for, in yen, read only where they were. */
   readonly specialPrizes: string
   readonly theoreticalValue: string
+  /** The words the tally is tagged with, in the order they were put on. */
+  readonly userTags: readonly string[]
 }
 
 /** An outlay must be given: a play that cost nothing is typed as 0, not left out. */
@@ -197,6 +200,7 @@ export const readFinishYenTallyForm = (form: FinishYenTallyForm, terms: PlayTerm
     theoreticalValue: theoreticalValue.value,
     told: undefined,
     ...(isZero(sides.value.handed) ? {} : { handed: sides.value.handed }),
+    ...((tags) => (tags.length === 0 ? {} : { userTags: tags }))(userTagsOf(form.userTags)),
   })
 }
 
@@ -228,4 +232,5 @@ export const finishYenTallyFormOf = (draft: PlayDraft, played: PlayedSoFar): Fin
   exchangedTokens: "",
   specialPrizes: "",
   theoreticalValue: "",
+  userTags: [],
 })

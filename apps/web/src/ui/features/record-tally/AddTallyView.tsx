@@ -1,5 +1,6 @@
 import { createResource, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
+import { TagsRow } from "./TagsRow"
 
 import type { Outcome } from "../../../application/errors"
 import { writtenKeepingTerms, type TermsUsed } from "../../../application/inference-terms"
@@ -69,6 +70,7 @@ export function YenTallyEditor(props: {
       <MachineField editing={editing} />
       <SidesFields editing={editing} />
       <ResultAndWeighing editing={editing} />
+      <TagsRow tags={editing.form().userTags} onChange={editing.set("userTags")} used={props.context.userTags} />
       <EntryAndSubmit editing={editing} words={props.words} />
     </form>
   )

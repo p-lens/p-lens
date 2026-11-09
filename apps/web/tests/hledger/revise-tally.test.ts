@@ -68,6 +68,19 @@ describe("a recorded tally, read back from its entry", () => {
     expect(await recordedOf(session, "games")).toEqual({ ok: true, value: { type: "yen", tally: gamesOnly } })
   })
 
+  test("is the tally it was written from with the words it was tagged with, each once and in their order, what would end a tag given way to", async () => {
+    const { session, storage } = await setUp()
+    const tagged: TokenTally = { ...TODAY, id: "tagged" as PlayId, userTags: ["イベント", "朝一"] }
+    const yen: YenTally = { ...TALLIED, id: "yen-tagged" as PlayId, userTags: ["イベント"] }
+    await recordTokenTally(session, BOOK, tagged)
+    await recordYenTally(session, BOOK, yen)
+    await recordYenTally(session, BOOK, { ...TALLIED, id: "odd" as PlayId, userTags: [" 旧,イベ: ", "朝一", "朝一", ""] })
+    expect(await recordedOf(session, "tagged")).toEqual({ ok: true, value: { type: "token", tally: tagged } })
+    expect(await recordedOf(session, "yen-tagged")).toEqual({ ok: true, value: { type: "yen", tally: yen } })
+    expect(mapOk(await recordedOf(session, "odd"), (found) => found.tally.userTags)).toEqual({ ok: true, value: ["旧，イベ：", "朝一"] })
+    expect(transactionsOf(storage.peek(BOOK)?.files)).toContain("user-tag: イベント, user-tag: 朝一")
+  })
+
   test("is the tally kept in yen it was written from, a gain, a loss or an even day", async () => {
     const { session } = await setUp()
     const gain = { ...TALLIED, id: "gain" as PlayId, parlor: undefined, outlay: dec("0"), takings: dec("3000"), theoreticalValue: undefined }

@@ -171,6 +171,7 @@ function AtNoParlor(props: {
             terms={terms}
             parlor={parlor}
             playId={props.draft.id}
+            usedTags={props.context.userTags}
             aside={props.aside}
             words={props.words}
             worthAt={props.worthAt}

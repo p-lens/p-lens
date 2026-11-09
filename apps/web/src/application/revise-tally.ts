@@ -9,7 +9,7 @@ import { playLogPath } from "../core/play-log/checkpoint"
 import { withParlorInHead } from "../core/play-log/head"
 import { pricePointsOf } from "../core/report/holdings"
 import { recordedTallyOf, type RecordedTally } from "../core/report/recorded-tally"
-import { Err, Ok, andThen } from "../core/result/result"
+import { Err, Ok, andThen, mapOk } from "../core/result/result"
 import { accountsRequest, talliesRequest, pricesRequest } from "../hledger/query/requests"
 import { tallyTerm } from "../hledger/query/terms"
 import type { CommitId } from "../history/port/history-port"
@@ -19,6 +19,7 @@ import { fromHledger, fromTally } from "./lift"
 import { keptInferenceTermsOf } from "./inference-terms"
 import { openPool } from "./parlors"
 import { composedInYen, composedOnBookRates, withAccountsFor, withPrice, type ComposedTally, type Composer, type RecordingContext } from "./record-tally"
+import { askUserTags } from "./user-tags"
 
 /** A recorded tally as it is set right: what the book knows before anything is typed, and the tally read back from its entry. */
 export interface Revising {
@@ -33,15 +34,15 @@ export interface Revising {
  */
 export const loadRecordedTally = (session: BookSession, bookId: BookId, member: MemberId, id: PlayId): Promise<Outcome<Revising>> =>
   session.read(bookId, async (journal, stored) => {
-    const [accounts, prices, entries] = await Promise.all([journal.ask(accountsRequest), journal.ask(pricesRequest("")), journal.ask(talliesRequest(tallyTerm(id), { limit: 1, offset: 0 }))])
+    const [accounts, prices, entries, userTags] = await Promise.all([journal.ask(accountsRequest), journal.ask(pricesRequest("")), journal.ask(talliesRequest(tallyTerm(id), { limit: 1, offset: 0 })), askUserTags(journal)])
     return andThen(fromHledger(accounts), (declared) =>
       andThen(fromHledger(prices), (directives) =>
-        andThen(fromHledger(entries), (page): Outcome<Revising> => {
+        andThen(andThen(fromHledger(entries), (page) => mapOk(userTags, (tags) => ({ page, tags }))), ({ page, tags }): Outcome<Revising> => {
           const transaction = page.items[0]
           if (transaction === undefined) return Err({ type: "tally-missing" })
           const parlors = parlorsFromDeclarations(declared)
           const recorded = recordedTallyOf(transaction, parlors)
-          return recorded === undefined ? Err({ type: "tally-unreadable" }) : Ok({ context: { parlors, prices: pricePointsOf(directives), canWrite: memberCan(stored.book, member, "write"), inferenceTerms: keptInferenceTermsOf(stored.files) }, recorded })
+          return recorded === undefined ? Err({ type: "tally-unreadable" }) : Ok({ context: { parlors, prices: pricePointsOf(directives), canWrite: memberCan(stored.book, member, "write"), inferenceTerms: keptInferenceTermsOf(stored.files), userTags: tags }, recorded })
         }),
       ),
     )

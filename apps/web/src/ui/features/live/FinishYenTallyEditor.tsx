@@ -44,6 +44,8 @@ export function FinishYenTallyEditor(props: {
   /** The parlor chosen above the form, where one is: a play with terms at a parlor is not recorded here. */
   readonly parlor: ParlorChoice
   readonly playId: PlayId
+  /** The words the book's tallies are tagged with, most used first. */
+  readonly usedTags: readonly string[]
   /** What is written beside the tally: when its play began and finished, as said above the form, and what the play's log measured. */
   readonly aside: () => TallyAside
   readonly words: SubmitWords
@@ -56,6 +58,7 @@ export function FinishYenTallyEditor(props: {
 }): JSX.Element {
   const editing = createFinishYenTallyEditing({
     initial: props.initial,
+    usedTags: props.usedTags,
     terms: props.terms,
     parlor: props.parlor,
     playId: props.playId,

@@ -35,6 +35,8 @@ type Submission =
 /** What a play followed live is given to be recorded by its totals in yen: what it starts filled with, its terms where it has them, the parlor chosen for it, and what recording means. */
 interface FinishYenTallyEditingGiven {
   readonly initial: FinishYenTallyForm
+  /** The words the book's tallies are tagged with, most used first. */
+  readonly usedTags: readonly string[]
   readonly terms: PlayTerms | undefined
   readonly parlor: ParlorChoice
   readonly playId: PlayId
@@ -156,6 +158,9 @@ export const createFinishYenTallyEditing = (given: FinishYenTallyEditingGiven): 
       set: (field) => set(field),
     handing: () => form().handing,
     setHanding: set("handing"),
+      userTags: () => form().userTags,
+      setUserTags: (tags) => setForm((current) => ({ ...current, userTags: tags })),
+      usedTags: given.usedTags,
       problemAt,
       problemOf,
       nudge,

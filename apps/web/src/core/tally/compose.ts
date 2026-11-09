@@ -12,6 +12,7 @@ import { TALLY_TAGS, type TallyError, type TallyHead, type TokenTally, type Tall
 import { asideTags } from "./aside"
 import { sidePostings, sidePostingsInCashAndPrizes, sidePostingsOffBook, sidePostingsOffBookExchanged } from "./sides"
 import { validateTokenTally, validateYenTally } from "./validate"
+import { userTagTags } from "./user-tags"
 
 const real = (account: string, quantity: Decimal, commodity: string): StatedPosting => ({
   account,
@@ -129,6 +130,7 @@ const tagsOf = (tally: TallyHead, parlor: Parlor | undefined): Entry["tags"] => 
   ...(tally.cabinetNumber === undefined || tally.cabinetNumber.trim() === ""
     ? []
     : [[TALLY_TAGS.cabinetNumber, tally.cabinetNumber.trim()] as const]),
+  ...userTagTags(tally.userTags),
   ...asideTags(tally),
 ]
 

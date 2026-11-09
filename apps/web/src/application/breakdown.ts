@@ -4,12 +4,12 @@ import { readGameKind, writtenGameKinds } from "../core/play/play"
 import { PARLOR_ID_TAG, PARLOR_SUBMISSION_TAG, parlorsFromDeclarations, type Parlor } from "../core/parlor/parlor"
 import { TALLY_TAGS } from "../core/tally/tally"
 import { UNSAID, byColumn, byRow, byWeekday, groupsOf, inOrder, merged, type Dimension, type Group, type Period } from "../core/report/breakdown"
-import { negate, ZERO } from "../core/decimal/decimal"
+import { isZero, negate, ZERO } from "../core/decimal/decimal"
 import { actualOf, secondsIn, secondsOf, statisticTotalOf } from "../core/report/figures"
 import { EVERY_TALLY, NARROWED_BY, rateKey, ratesInOrder, readRateKey, type NarrowedBy, type Narrowing } from "../core/report/narrowing"
 import { senderNamesOf, type SenderNames } from "../core/report/senders"
 import { spinPerformancesOf, type SpinPerformancesByMachine } from "../core/report/spin-performance"
-import { andThen, mapOk, Ok } from "../core/result/result"
+import { andThen, collect, mapOk, Ok } from "../core/result/result"
 import type { JournalAccess, Reply } from "../hledger/client/client"
 import type { BalanceReport } from "../hledger/protocol/wire"
 import { accountsRequest, actualCutRequest, sentTalliesRequest, spinPerformancesRequest, actualRequest, inferredCutRequest, inferredRequest, playTimeCutRequest, playTimeRequest, theoreticalCutRequest, theoreticalRequest } from "../hledger/query/requests"
@@ -18,6 +18,7 @@ import type { BookSession } from "./book-session"
 import { viewedFor } from "./book-views"
 import type { Outcome } from "./errors"
 import { fromHledger, fromReport } from "./lift"
+import { askUserTags, USER_TAG_NAMES } from "./user-tags"
 
 /** The tallies of a query grouped by one tag's values, each group's figures hledger's: an income statement, a balance of theoretical values, a balance of the inferred among them and a balance of play time, all pivoted on the tag. */
 const byTag = async (journal: JournalAccess, query: string, tag: string): Promise<Outcome<readonly Group[]>> => {
@@ -103,6 +104,7 @@ type Tagged = Exclude<NarrowedBy, "rate">
 
 /** The tags a tally says each of those in, the first it is tied to the lists by and the rest what another app called it. */
 const NARROWING_TAGS: Readonly<Record<Tagged, readonly string[]>> = {
+  tag: USER_TAG_NAMES,
   game: [TALLY_TAGS.gameKind],
   parlor: [PARLOR_ID_TAG, PARLOR_SUBMISSION_TAG, SOURCE_TAGS.parlor],
   machine: [TALLY_TAGS.machine, SOURCE_TAGS.machine],
@@ -116,6 +118,7 @@ const writtenAs = (by: Tagged, chosen: readonly string[], parlors: readonly Parl
     case "parlor":
       return [...chosen, ...parlors.filter((parlor) => chosen.includes(parlor.name)).map((parlor) => (parlor.identity.type === "listed" ? parlor.identity.id : parlor.identity.submission))]
     case "machine":
+    case "tag":
       return chosen
   }
 }
@@ -138,6 +141,27 @@ export const narrowedTerm = async (journal: JournalAccess, narrowing: Narrowing)
   return mapOk(parlors, (found) => combine(...chosen.map(([by, values]) => termOf(by, values, found))))
 }
 
+/** Whether a group came to nothing at all: no tally of it was played, made or lost anything, or was worth anything. */
+const isNothing = (group: Group): boolean => [group.actual, group.theoretical, group.inferred, group.seconds].every(isZero)
+
+/**
+ * The tallies of a query grouped by the words they are tagged with, mine
+ * and another app's alike: a tally tagged with several is in the group of
+ * each, so the groups add up to more than the whole. hledger pivots on a
+ * tag's first value alone, so each word is asked about by itself — the
+ * words being those the query's tallies are tagged with — and the tallies
+ * tagged with none are the unnamed group, where there are any.
+ */
+const byUserTag = async (journal: JournalAccess, query: string): Promise<Outcome<readonly Group[]>> => {
+  const tags = await askUserTags(journal, query)
+  if (!tags.ok) return tags
+  const [tagged, untagged] = await Promise.all([
+    Promise.all(tags.value.map((tag) => whole(journal, combine(query, taggedAmongTerm(USER_TAG_NAMES, [tag])), tag))),
+    whole(journal, combine(query, ...USER_TAG_NAMES.map(untaggedTerm)), UNSAID),
+  ])
+  return mapOk(collect([...tagged, untagged]), (groups) => groups.flat().filter((group) => group.key !== UNSAID || !isNothing(group)))
+}
+
 /** Every rate the book keeps savings at, of either kind of token, by `rateKey`: what a breakdown can be narrowed to by rate, in `ratesInOrder`. */
 export const loadRates = (session: BookSession, bookId: BookId): Promise<Outcome<readonly string[]>> =>
   session.read(bookId, async (journal) => mapOk(await parlorsIn(journal), (parlors) => ratesInOrder(parlors.flatMap((parlor) => parlor.pools).map(rateKey))))
@@ -158,6 +182,8 @@ const grouped = async (journal: JournalAccess, dimension: Dimension, query: stri
       return byPeriod(journal, query, "daily")
     case "weekday":
       return mapOk(await byPeriod(journal, query, "daily"), byWeekday)
+    case "tag":
+      return byUserTag(journal, query)
   }
 }
 

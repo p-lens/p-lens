@@ -37,6 +37,8 @@ export interface TallyHead {
   readonly sender?: Sender
   /** What the log of a play followed live counted of the person's own playing: absent from a tally typed in by hand. */
   readonly netCounts?: NetCounts
+  /** The words the person tagged it with, each once, in the order they were put on — イベント, 朝一 — for the breakdown to be cut and narrowed by: absent where there are none. */
+  readonly userTags?: readonly string[]
 }
 
 /**
@@ -215,6 +217,7 @@ export const TALLY_TAGS = {
   netGames: "net-games",
   netAts: "net-ats",
   netBonuses: "net-bonuses",
+  userTag: "user-tag",
   inferredFormula: "inferred-formula",
   tokenRental: "token-rental",
   tokenExchange: "token-exchange",

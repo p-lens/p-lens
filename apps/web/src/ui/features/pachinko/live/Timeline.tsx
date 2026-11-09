@@ -112,12 +112,18 @@ const shownCounterOf = (checkpoint: Checkpoint): number | undefined => {
 const nameOf = (step: Step): string =>
   step.seat ? SEAT_NAME : isFinish(step.checkpoint) ? FINISH_NAME : isRapidBegan(step.checkpoint) ? PHASE_NAMES.rapid : PHASE_NAMES[step.checkpoint.phase ?? "regular"]
 
-/** One line of the log: its moment, its name, its counter, its own stretch's spin performance where it has one, and its bonus — cut short where it would not fit — over what it did to the balls. */
+/**
+ * One line of the log: its moment, its name, its counter, its own
+ * stretch's spin performance where it has one, and what it did to the
+ * balls under them; its bonus — cut short where it would not fit — beside
+ * both, from the top. A bonus of two lines reaches down beside the balls
+ * rather than pushing them down: whatever it is taller by goes below them.
+ */
 function Line(props: { readonly step: Step; readonly rate: StretchRate | undefined }): JSX.Element {
   const checkpoint = (): Checkpoint => props.step.checkpoint
   return (
-    <>
-      <div class="flex items-baseline gap-2">
+    <div class="grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_1fr] gap-x-2 gap-y-0.5">
+      <div class="col-start-1 row-start-1 flex items-baseline gap-2">
         <time class="w-10 shrink-0 text-xs tabular-nums text-text-muted">{checkpoint().at === undefined ? "--:--" : formatMoment(checkpoint().at ?? "").slice(-5)}</time>
         <span class="w-8 shrink-0 text-xs text-text-secondary">{nameOf(props.step)}</span>
         <Show when={!isFinish(checkpoint()) || checkpoint().counter?.spins !== undefined}>
@@ -137,19 +143,19 @@ function Line(props: { readonly step: Step; readonly rate: StretchRate | undefin
             </span>
           )}
         </Show>
-        <Show when={jackpotText(checkpoint())} keyed>
-          {(won) => (
-            <span class="ml-auto flex min-w-0 flex-col items-end rounded bg-accent px-1.5 py-0.5 text-xs font-semibold text-accent-contrast">
-              <span class="max-w-full truncate">{won.first}</span>
-              <Show when={won.second}>{(second) => <span class="max-w-full truncate">{second()}</span>}</Show>
-            </span>
-          )}
-        </Show>
       </div>
-      <Show when={ballsText(props.step)} keyed>
-        {(balls) => <p class="pl-12 text-xs tabular-nums text-text-muted">{balls}</p>}
+      <Show when={jackpotText(checkpoint())} keyed>
+        {(won) => (
+          <span class="col-start-2 row-span-2 row-start-1 flex max-w-[11rem] flex-col items-end self-start rounded bg-accent px-1.5 py-0.5 text-xs font-semibold text-accent-contrast">
+            <span class="max-w-full truncate">{won.first}</span>
+            <Show when={won.second}>{(second) => <span class="max-w-full truncate">{second()}</span>}</Show>
+          </span>
+        )}
       </Show>
-    </>
+      <Show when={ballsText(props.step)} keyed>
+        {(balls) => <p class="col-start-1 row-start-2 self-start pl-12 text-xs tabular-nums text-text-muted">{balls}</p>}
+      </Show>
+    </div>
   )
 }
 

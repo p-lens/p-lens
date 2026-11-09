@@ -8,7 +8,7 @@ import { yenOf, type ReportError } from "./figures"
 type Reading = (amount: MixedAmount) => Result<Decimal, ReportError>
 
 /** What tallies are grouped by, each a way of asking where the results came from. */
-export const DIMENSIONS = ["machine", "parlor", "weekday", "game", "year", "month", "day"] as const
+export const DIMENSIONS = ["machine", "parlor", "weekday", "tag", "game", "year", "month", "day"] as const
 
 export type Dimension = (typeof DIMENSIONS)[number]
 
@@ -121,6 +121,7 @@ const ORDERS: Readonly<Record<Dimension, (left: Group, right: Group) => number>>
   machine: byActual,
   parlor: byActual,
   game: byActual,
+  tag: byActual,
   weekday: byKey,
   year: (left, right) => byKey(right, left),
   month: (left, right) => byKey(right, left),

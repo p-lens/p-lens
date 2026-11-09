@@ -2,7 +2,7 @@ import type { TokenKind } from "../commodity/commodity"
 import type { SavingsPool } from "../parlor/parlor"
 
 /** What a breakdown's tallies can be narrowed to: some games, rates, parlors or machines. */
-export const NARROWED_BY = ["game", "rate", "parlor", "machine"] as const
+export const NARROWED_BY = ["game", "rate", "parlor", "machine", "tag"] as const
 
 export type NarrowedBy = (typeof NARROWED_BY)[number]
 
