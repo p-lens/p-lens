@@ -7,7 +7,6 @@ import { archiveName, archiveOf, backupOf } from "../core/backup/archive"
 import { type Destination, fingerprintText, type Receipt, type Standing, standingOf } from "../core/backup/standing"
 import type { Book, BookId, Member, ListedBook } from "../core/book/book"
 import { unreadableFilesOf, type UnreadableFile } from "../core/book/unreadable-files"
-import type { IsoDate } from "../core/calendar/calendar"
 import { BOOK_FILES, type BookFiles } from "../core/journal/layout"
 import { titleOfMain } from "../core/journal/title"
 import { Err, Ok, type Result, collect, mapErr, mapOk } from "../core/result/result"
@@ -33,7 +32,6 @@ export interface BackupPorts {
   /** Whoever uses this device, as a book put back here names its owner. */
   readonly me: Member
   readonly now: () => string
-  readonly today: () => IsoDate
 }
 
 const problem = (found: BackupProblem): Outcome<never> => Err({ type: "backup", problem: found })
@@ -79,7 +77,7 @@ export const backUpToStore = async (ports: BackupPorts, store: BackupStore, book
   if (!signedIn.ok) return signedIn
   const made = await packed(ports, bookId)
   if (!made.ok) return made
-  const put = fromBackup(await store.put({ key: bookId, name: archiveName(made.value.title, bookId, undefined), bytes: made.value.bytes }))
+  const put = fromBackup(await store.put({ key: bookId, name: archiveName(made.value.title, bookId), bytes: made.value.bytes }))
   if (!put.ok) return put
   return receipted(ports, { bookId, destination: store.destination, at: made.value.madeAt, fingerprint: made.value.fingerprint })
 }
@@ -92,7 +90,7 @@ export const backUpToStore = async (ports: BackupPorts, store: BackupStore, book
 export const backUpToFile = async (ports: BackupPorts, bookId: BookId): Promise<Outcome<Receipt>> => {
   const made = await packed(ports, bookId)
   if (!made.ok) return made
-  const given = fromBackup(await ports.handover.give({ name: archiveName(made.value.title, bookId, ports.today()), type: ports.archiver.mediaType, bytes: made.value.bytes }))
+  const given = fromBackup(await ports.handover.give({ name: archiveName(made.value.title, bookId), type: ports.archiver.mediaType, bytes: made.value.bytes }))
   if (!given.ok) return given
   return receipted(ports, { bookId, destination: "file", at: made.value.madeAt, fingerprint: made.value.fingerprint })
 }

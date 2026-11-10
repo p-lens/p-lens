@@ -174,7 +174,6 @@ export const createServices = (): Services => {
       handover,
       me,
       now: () => clock().toISOString(),
-      today: () => localDayOf(clock()),
     },
     export: { session, archiver, handover, today: () => localDayOf(clock()), now: () => clock().getTime() },
     backupStore:

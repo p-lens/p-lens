@@ -37,7 +37,6 @@ const device = async (name: string, failing?: HandoverFailure) => {
     handover,
     me,
     now: () => clock.now,
-    today: () => "2026-10-07" as IsoDate,
   }
   const record = (date: string, yen: number, note: string) =>
     session.write(BOOK, async (_journal, stored) =>
@@ -189,11 +188,11 @@ describe("a book backed up to a store", () => {
 })
 
 describe("a book backed up to a file", () => {
-  test("is handed over under its title and the day, and stands as kept", async () => {
+  test("is handed over under its title alone, as a backup put in a store is, and stands as kept", async () => {
     const here = await withBook("here")
     const receipt = await backUpToFile(here.ports, BOOK)
     expect(receipt.ok && receipt.value.destination).toBe("file")
-    expect(here.handover.given().map((file) => file.name)).toEqual(["サンプル帳簿_2026-10-07_backup.zip"])
+    expect(here.handover.given().map((file) => file.name)).toEqual(["サンプル帳簿_backup.zip"])
     expect(await here.standing()).toEqual(["kept"])
   })
 

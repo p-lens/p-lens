@@ -1,6 +1,5 @@
 import type { BookId } from "../book/book"
 import { fileStemOf } from "../book/file-name"
-import type { IsoDate } from "../calendar/calendar"
 import type { BookFiles } from "../journal/layout"
 import { Err, Ok, type Result } from "../result/result"
 
@@ -68,12 +67,10 @@ export const backupOf = (archive: ArchiveFiles): Result<Backup, ArchiveProblem> 
 }
 
 /**
- * The name a backup's archive goes by: its book's title, or its id where it
- * has none, the day it was taken where archives pile up side by side, and
- * what it is — `帳簿_2026-10-07_backup.zip` — joined by underscores. The
- * day is marked as the backup's, not left to be read as a day in the book.
+ * The name a backup's archive goes by, wherever it is kept: its book's
+ * title, or its id where it has none, and what it is — `帳簿_backup.zip` —
+ * joined by an underscore. It carries no day, so that a backup saved where
+ * the last one was takes its place, as one put in a store does; a person
+ * who would keep several renames them.
  */
-export const archiveName = (title: string | undefined, bookId: BookId, day: IsoDate | undefined): string => {
-  const stem = fileStemOf(title, bookId)
-  return day === undefined ? `${stem}_backup.zip` : `${stem}_${day}_backup.zip`
-}
+export const archiveName = (title: string | undefined, bookId: BookId): string => `${fileStemOf(title, bookId)}_backup.zip`

@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test"
 
 import { archiveName, archiveOf, backupOf, MANIFEST_PATH, type Backup } from "../../../src/core/backup/archive"
 import type { BookId } from "../../../src/core/book/book"
-import type { IsoDate } from "../../../src/core/calendar/calendar"
 
 const BOOK = "0199b9a0-0000-7000-8000-000000000001" as BookId
 
@@ -42,20 +41,16 @@ describe("an archive", () => {
 
 describe("an archive's name", () => {
   test("is the book's title", () => {
-    expect(archiveName("サンプル帳簿", BOOK, undefined)).toBe("サンプル帳簿_backup.zip")
-  })
-
-  test("carries the day where archives pile up", () => {
-    expect(archiveName("サンプル帳簿", BOOK, "2026-10-07" as IsoDate)).toBe("サンプル帳簿_2026-10-07_backup.zip")
+    expect(archiveName("サンプル帳簿", BOOK)).toBe("サンプル帳簿_backup.zip")
   })
 
   test("sets aside what a file's name cannot hold", () => {
-    expect(archiveName('a/b\\c:d*e?f"g<h>i|j\n', BOOK, undefined)).toBe("a_b_c_d_e_f_g_h_i_j__backup.zip")
-    expect(archiveName(" ..帳簿. ", BOOK, undefined)).toBe("帳簿_backup.zip")
+    expect(archiveName('a/b\\c:d*e?f"g<h>i|j\n', BOOK)).toBe("a_b_c_d_e_f_g_h_i_j__backup.zip")
+    expect(archiveName(" ..帳簿. ", BOOK)).toBe("帳簿_backup.zip")
   })
 
   test("is the book's id where it has no title", () => {
-    expect(archiveName(undefined, BOOK, undefined)).toBe(`${BOOK}_backup.zip`)
-    expect(archiveName(" . ", BOOK, undefined)).toBe(`${BOOK}_backup.zip`)
+    expect(archiveName(undefined, BOOK)).toBe(`${BOOK}_backup.zip`)
+    expect(archiveName(" . ", BOOK)).toBe(`${BOOK}_backup.zip`)
   })
 })
