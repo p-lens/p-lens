@@ -2,11 +2,12 @@ import type { ImportProblem } from "../../application/errors"
 import type { Imported } from "../../application/import"
 import type { RowField } from "../../core/import/cells"
 import { GENERAL, type Field } from "../../core/import/general"
+import { PACHIBO } from "../../core/import/pachibo"
 import { PACHIFOLIO } from "../../core/import/pachifolio"
 import { PRECORD } from "../../core/import/precord"
 import { formatCount } from "./numbers"
 
-const SOURCES: Readonly<Record<string, string>> = { [GENERAL]: "汎用形式", [PRECORD]: "pRecord", [PACHIFOLIO]: "パチフォリオ" }
+const SOURCES: Readonly<Record<string, string>> = { [GENERAL]: "汎用形式", [PRECORD]: "pRecord", [PACHIBO]: "ぱち簿", [PACHIFOLIO]: "パチフォリオ" }
 
 /** What an app tallies were taken in from is called; one this app does not know goes by its own word. */
 export const sourceName = (from: string): string => SOURCES[from] ?? from
@@ -27,6 +28,13 @@ export const describeImportProblem = (problem: ImportProblem): string => {
       return `取り込む項目に${problem.missing.map((missing) => (missing === "date" ? "日付" : "「投資と回収」か「収支」")).join("と")}を選んでください。`
     case "not-pachifolio":
       return `パチフォリオの CSV として読めません。1行目に ${problem.missing.join("・")} の列がありません。`
+    case "not-pachibo":
+      return "ぱち簿のファイルとして読めません。ぱち簿から書き出した pcb ファイルを選んでください。"
+    case "entries-unreadable":
+      return `読めない収支があるため、取り込んでいません。${problem.entries
+        .slice(0, ROWS_NAMED)
+        .map((entry) => `${entry.date.replaceAll("-", "/")}の${formatCount(entry.index + 1)}件目`)
+        .join("、")}${problem.entries.length > ROWS_NAMED ? ` ほか${formatCount(problem.entries.length - ROWS_NAMED)}件` : ""}。`
     case "rows-unreadable":
       return `読めない行があるため、取り込んでいません。${problem.rows
         .slice(0, ROWS_NAMED)
@@ -95,6 +103,9 @@ export const NOT_TAKEN = "取り込まない"
 
 /** The press a book's line asks for a file to take into it on. */
 export const IMPORT_CHOOSE = "CSVを選ぶ"
+
+/** The press a book's line asks for a ぱち簿 file to take into it on. */
+export const IMPORT_CHOOSE_PCB = "pcbを選ぶ"
 
 /** A file chosen being read and looked at, before anything is asked of it. */
 export const IMPORT_READING = "ファイルを読み込み中…"

@@ -62,6 +62,7 @@ describe("tallies as a table", () => {
           parlorName: "723豚の帽子亭店",
           machineName: "ピエロット",
           maker: undefined,
+          labels: [],
           notes: NO_NOTES,
           sides: { spent: yen(10000), won: decimal(123455n, 1) },
           actual: decimal(23455n, 1),
@@ -78,6 +79,7 @@ describe("tallies as a table", () => {
           parlorName: "ジーステーション第3新東京市店",
           machineName: "流星",
           maker: "made-up",
+          labels: [],
           notes: {
             aside: { clock: { started: { hour: 22, minute: 30 }, finished: { hour: 1, minute: 5 } }, spinPerformance: decimal(185n, 1), sender: { id: "s-1", name: "ハンマ" }, netCounts: undefined },
             playSeconds: yen(9300),
@@ -103,6 +105,7 @@ describe("tallies as a table", () => {
           parlorName: undefined,
           machineName: undefined,
           maker: undefined,
+          labels: [],
           notes: NO_NOTES,
           sides: { spent: yen(0), won: yen(3000) },
           actual: yen(3000),

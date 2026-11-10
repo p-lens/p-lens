@@ -3219,8 +3219,8 @@ cash it took and what came back.
 ## Import
 
 Plays kept in another app are taken into a book on a press (設定 →
-インポート; `core/import`, `application/import`). pRecord's CSV is the one
-source read.
+インポート; `core/import`, `application/import`), a tab a source: a
+person's own CSV, pRecord's CSV, ぱち簿's own file and パチフォリオ's CSV.
 
 - **A source's tally** (`SourceTally`) is the tally as the other app kept it:
   the day, its parlor and machine by that app's names and codes, what went
@@ -3251,6 +3251,15 @@ source read.
   reads neither again. Reading the CSV, the ids and the catalog's keys
   each go over what they read once, so a file twice as long takes twice
   as long.
+- **ぱち簿** (`core/import/pachibo`, `previewPachibo`): its own file
+  (`.pcb`), read as its bytes, not its CSV, which leaves out the cash of a
+  day savings were drawn on, and the cabinet and labels. The file is every
+  key ぱち簿 keeps, `type,key,length,value,` one after another, each byte
+  turned over; a tally is `item{day}_{n}_…`. Its two sides are savings and
+  cash summed on each side, as ぱち簿 sums a day's result; its labels are
+  bits of one list for both games (`LABEL_BITS`); its game is its machine's
+  code, ぱち簿's pachislot machines' from 10000 on, where the catalog does
+  not know the machine. Its parlors' savings are not read.
 - **Not set right in a form**: a form holds neither the two sides nor the
   source's names, so an imported play is refused there as unreadable and is
   set right in the book's own file. It can be taken out.
@@ -3302,6 +3311,16 @@ is not written out here a second time.
   収支 over them, `0.0` both where the time is not known; 経費 is `0`. It
   goes by itself, never in the zip, and the app reads it back as a pRecord
   file to the same tallies.
+- **For ぱち簿** (`core/export/pachibo`, `makeForPachiboCsv`,
+  `makeForPachiboPcb`): its CSV as ぱち簿 writes it — nine columns, oldest
+  first, in Shift_JIS (`application/shift-jis`, drawn from the platform's
+  decoder, no library) with LF and no byte order mark — and its own file,
+  which ぱち簿 takes in whole in place of what it keeps: every tally with
+  its two sides as cash, savings none, its hours, cabinet, memo and the
+  labels ぱち簿 has words for; each parlor and machine under a code this
+  app gives it (990001, 9001, 19001 on), ぱち簿's own codes being neither
+  known nor matched on; ぱち簿's settings as a new file of its has them.
+  This app reads it back as a ぱち簿 file to the same tallies.
 - **Together** (`makeTogether`): the ticked books' two files each, in
   one zip. A book is its id and not its title, so books of one title have
   the part of its id that is the moment it was made — a UUIDv7's first

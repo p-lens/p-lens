@@ -4,7 +4,8 @@ import type { BookId } from "../core/book/book"
 import type { IsoDate } from "../core/calendar/calendar"
 import { csvOf } from "../core/export/csv"
 import { fileStemOf } from "../core/book/file-name"
-import { bundleName, fileStemsOf, pachifolioName, precordName, tallyTableName, singleJournalName } from "../core/export/file-name"
+import { bundleName, fileStemsOf, pachiboName, pachifolioName, precordName, tallyTableName, singleJournalName } from "../core/export/file-name"
+import { pachiboCsvOf, pachiboPcbOf } from "../core/export/pachibo"
 import { pachifolioCsvOf } from "../core/export/pachifolio"
 import { precordCsvOf } from "../core/export/precord"
 import { tallyTableOf } from "../core/export/tally-table"
@@ -17,14 +18,16 @@ import { tallyNotesIn } from "../core/tally/in-journal"
 import type { StoredBook } from "../storage/port/book-storage"
 import type { BookSession } from "./book-session"
 import type { Outcome } from "./errors"
+import { shiftJisOf } from "./shift-jis"
 import { linesIn } from "./tally-lines"
 
-/** Everything writing a book out reaches: the book as hledger reads it, the archive several files go as one in, the handing over of a file, and the day it is. */
+/** Everything writing a book out reaches: the book as hledger reads it, the archive several files go as one in, the handing over of a file, the day it is, and the moment, in milliseconds since the epoch. */
 export interface ExportPorts {
   readonly session: BookSession
   readonly archiver: Archiver
   readonly handover: Handover
   readonly today: () => IsoDate
+  readonly now: () => number
 }
 
 /**
@@ -59,13 +62,25 @@ interface Written {
   readonly text: string
 }
 
+/** A file made from a book in bytes, for an app that takes its text in another encoding or none: its name, its media type and its bytes. */
+interface WrittenBytes {
+  readonly name: string
+  readonly mediaType: string
+  readonly bytes: Uint8Array<ArrayBuffer>
+}
+
 const encoder = new TextEncoder()
+
+const utf8Of = (text: string): Uint8Array<ArrayBuffer> => new Uint8Array(encoder.encode(text))
 
 const STOPPED: Made = { type: "stopped" }
 
 /** A file made, or none where the person stopped it first. */
 const madeOf = (written: Outcome<Written | undefined>): Outcome<Made> =>
-  mapOk(written, (file) => (file === undefined ? STOPPED : { type: "made", file: { name: file.name, type: file.mediaType, bytes: new Uint8Array(encoder.encode(file.text)) } }))
+  mapOk(written, (file) => (file === undefined ? STOPPED : { type: "made", file: { name: file.name, type: file.mediaType, bytes: utf8Of(file.text) } }))
+
+/** A file made in bytes, or none where the person stopped it first. */
+const madeOfBytes = (written: Outcome<WrittenBytes | undefined>): Outcome<Made> => mapOk(written, (file) => (file === undefined ? STOPPED : { type: "made", file: { name: file.name, type: file.mediaType, bytes: file.bytes } }))
 
 /** What a book's files are named by, given the book's files: its own title or id when it is written out alone, and what tells it from the others when several are. */
 type Stem = (files: BookFiles, bookId: BookId) => string
@@ -80,7 +95,7 @@ const singleJournal = async (ports: ExportPorts, bookId: BookId, stem: Stem, wat
 }
 
 /** A file made of every tally of a book, as hledger reads it: the book read in its turn, its tallies totalled, then the file made of them. None where the person stopped it, the book not opened where they stopped it while it waited its turn. */
-const ofTallies = async (ports: ExportPorts, bookId: BookId, watch: ExportWatch, made: (lines: readonly TallyLine[], stored: StoredBook) => Written): Promise<Outcome<Written | undefined>> => {
+const ofTallies = async <File>(ports: ExportPorts, bookId: BookId, watch: ExportWatch, made: (lines: readonly TallyLine[], stored: StoredBook) => File): Promise<Outcome<File | undefined>> => {
   if (watch.stopped.aborted) return Ok(undefined)
   watch.onReport({ type: "reading" })
   return ports.session.readUnlessStopped(bookId, watch.stopped, async (journal, stored) => {
@@ -120,6 +135,26 @@ export const makeForPachifolio = async (ports: ExportPorts, bookId: BookId, watc
       name: pachifolioName(ownStem(stored.files, bookId), ports.today()),
       mediaType: "text/csv",
       text: pachifolioCsvOf(lines, tallyNotesIn(journalsOf(stored.files).map(([, text]) => text))),
+    })),
+  )
+
+/** Every tally of a book as ぱち簿's CSV, oldest first, in Shift_JIS as ぱち簿's own is, for ぱち簿 to take in: by itself and never in the zip, as pRecord's is. */
+export const makeForPachiboCsv = async (ports: ExportPorts, bookId: BookId, watch: ExportWatch): Promise<Outcome<Made>> =>
+  madeOfBytes(
+    await ofTallies(ports, bookId, watch, (lines, stored): WrittenBytes => ({
+      name: pachiboName(ownStem(stored.files, bookId), ports.today(), "csv"),
+      mediaType: "text/csv",
+      bytes: shiftJisOf(pachiboCsvOf(lines, tallyNotesIn(journalsOf(stored.files).map(([, text]) => text)))),
+    })),
+  )
+
+/** Every tally of a book as ぱち簿's own file (`.pcb`), for ぱち簿 to take in whole in place of what it keeps: by itself and never in the zip. */
+export const makeForPachiboPcb = async (ports: ExportPorts, bookId: BookId, watch: ExportWatch): Promise<Outcome<Made>> =>
+  madeOfBytes(
+    await ofTallies(ports, bookId, watch, (lines, stored): WrittenBytes => ({
+      name: pachiboName(ownStem(stored.files, bookId), ports.today(), "pcb"),
+      mediaType: "application/octet-stream",
+      bytes: new Uint8Array(pachiboPcbOf(lines, tallyNotesIn(journalsOf(stored.files).map(([, text]) => text)), ports.now(), utf8Of)),
     })),
   )
 

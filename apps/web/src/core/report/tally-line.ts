@@ -17,6 +17,8 @@ export interface TallyLine {
   readonly machineName: string | undefined
   /** The machine's maker, which only a tally taken in from another app says. */
   readonly maker: string | undefined
+  /** The words it is tagged with, each once, in their order: the person's own, and those another app labelled it with. */
+  readonly labels: readonly string[]
   readonly notes: TallyNotes
   readonly sides: Sides
   readonly actual: Decimal

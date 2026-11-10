@@ -53,6 +53,7 @@ const lineOf = (line: {
   parlorName: line.parlorName,
   machineName: line.machineName,
   maker: line.maker,
+  labels: [],
   notes: { ...NO_NOTES, playSeconds: line.playSeconds === undefined ? undefined : yen(line.playSeconds) },
   sides: { spent: line.spent, won: line.won },
   actual: line.actual,

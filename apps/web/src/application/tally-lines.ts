@@ -1,3 +1,5 @@
+import { userTagsOf } from "../core/tally/user-tags"
+import { USER_TAG_NAMES } from "./user-tags"
 import { SOURCE_TAGS } from "../core/import/source-tally"
 import { identityIn, parlorsFromDeclarations, sameIdentity, type Parlor } from "../core/parlor/parlor"
 import { yenOf } from "../core/report/figures"
@@ -72,6 +74,7 @@ const lineOf = (parlors: readonly Parlor[], figures: Figures, transaction: Trans
       tally,
       ...tallyNamesOf(parlors, transaction, tally),
       maker: tagOf(transaction, SOURCE_TAGS.maker),
+      labels: userTagsOf(transaction.ttags.filter(([name]) => USER_TAG_NAMES.includes(name)).map(([, value]) => value)),
       notes: tallyNotesOf(transaction),
       sides: { spent: figures.spent.get(tally.id) ?? ZERO, won: negate(figures.won.get(tally.id) ?? ZERO) },
       actual: negate(figures.actual.get(tally.id) ?? ZERO),

@@ -176,7 +176,7 @@ export const createServices = (): Services => {
       now: () => clock().toISOString(),
       today: () => localDayOf(clock()),
     },
-    export: { session, archiver, handover, today: () => localDayOf(clock()) },
+    export: { session, archiver, handover, today: () => localDayOf(clock()), now: () => clock().getTime() },
     backupStore:
       GOOGLE_CLIENT_ID === undefined || GOOGLE_CLIENT_ID === ""
         ? undefined

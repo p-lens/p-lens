@@ -3,6 +3,7 @@ import type { BookId } from "../core/book/book"
 import { bookNameOf, type MachineSummary } from "../core/catalog/catalog"
 import { machineKeyOf } from "../core/catalog/description"
 import { GENERAL, readGeneral, type Mapping, type Sheet } from "../core/import/general"
+import { PACHIBO, readPachibo, type Utf8Reader } from "../core/import/pachibo"
 import { PACHIFOLIO, readPachifolio } from "../core/import/pachifolio"
 import { PRECORD, readPrecord } from "../core/import/precord"
 import { withAccountsFor } from "./record-tally"
@@ -323,6 +324,10 @@ export const importGeneral = (ports: ImportPorts, bookId: BookId, preview: Previ
  */
 export const importPachifolio = (ports: ImportPorts, bookId: BookId, preview: Preview, named: Named): Promise<Outcome<Imported>> => importTallies(ports, bookId, PACHIFOLIO, preview, named, undefined)
 
+/** Take the tallies of a ぱち簿 file into a book, as it was looked at: weighed, where a person asked, as a pRecord file's are. */
+export const importPachibo = (ports: ImportPorts, bookId: BookId, preview: Preview, named: Named, weighing: Weighing | undefined): Promise<Outcome<Imported>> =>
+  importTallies(ports, bookId, PACHIBO, preview, named, weighing)
+
 /** A machine's name as a source wrote it that no machine of the catalog alone goes by, how many of the file's tallies are of it, and the game they all said it is, where they did. */
 export interface Unnamed {
   readonly name: string
@@ -381,3 +386,6 @@ export const previewGeneral = (ports: Pick<ImportPorts, "catalog">, sheet: Sheet
 
 /** A パチフォリオ file looked at before it is taken in. */
 export const previewPachifolio = (ports: Pick<ImportPorts, "catalog">, text: string): Promise<Outcome<Preview>> => previewOf(ports, readPachifolio(text))
+
+/** A ぱち簿 file (`.pcb`) looked at before it is taken in, as its bytes, read as UTF-8 by the reader given. */
+export const previewPachibo = (ports: Pick<ImportPorts, "catalog">, bytes: Uint8Array, utf8: Utf8Reader): Promise<Outcome<Preview>> => previewOf(ports, readPachibo(bytes, utf8))

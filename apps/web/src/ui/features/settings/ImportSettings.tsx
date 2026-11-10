@@ -2,8 +2,9 @@ import { createMemo, createResource, createSignal, For, Index, onCleanup, Show, 
 import { MainContent } from "solid-gathering-shell"
 
 import type { ApplicationError, ImportProblem, Outcome } from "../../../application/errors"
-import { importGeneral, importPachifolio, importPrecord, previewGeneral, previewPachifolio, previewPrecord, type Imported, type ImportPorts, type Named, type Preview, type Weighing } from "../../../application/import"
+import { importGeneral, importPachibo, importPachifolio, importPrecord, previewGeneral, previewPachibo, previewPachifolio, previewPrecord, type Imported, type ImportPorts, type Named, type Preview, type Weighing } from "../../../application/import"
 import { FIELDS, GENERAL, guessedMapping, missingOf, sheetOf, withColumn, type Mapping, type Sheet } from "../../../core/import/general"
+import { PACHIBO } from "../../../core/import/pachibo"
 import { PACHIFOLIO } from "../../../core/import/pachifolio"
 import type { Result } from "../../../core/result/result"
 import { PRECORD } from "../../../core/import/precord"
@@ -20,7 +21,7 @@ import type { Place } from "../../navigation/place"
 import { bookTitle } from "../../wording/book"
 import { describeError } from "../../wording/errors"
 import { formatCount } from "../../wording/numbers"
-import { describeImportProblem, FIELD_NAMES, NOT_TAKEN, IMPORT_BROKEN, IMPORT_CHOOSE, IMPORT_NEXT, IMPORT_READING, IMPORT_STOP, IMPORT_WRITING, importedText, sourceName, timeLeftText, weighedText, writtenText } from "../../wording/import"
+import { describeImportProblem, FIELD_NAMES, NOT_TAKEN, IMPORT_BROKEN, IMPORT_CHOOSE, IMPORT_CHOOSE_PCB, IMPORT_NEXT, IMPORT_READING, IMPORT_STOP, IMPORT_WRITING, importedText, sourceName, timeLeftText, weighedText, writtenText } from "../../wording/import"
 import { secondsLeftOf } from "../../../core/import/time-left"
 import { ViewHeader } from "../shell/ViewHeader"
 
@@ -102,33 +103,41 @@ function TakingLine(props: { readonly taking: Taking; readonly onStop: () => voi
 
 /**
  * An app tallies are taken in from, as this screen offers it: the word it
- * goes by, what is said of it above its books and below them, how one of
- * its files is looked at, and how what was looked at is taken into a book.
+ * goes by, what is said of it above its books and below them, the press
+ * that asks for one of its files and the files offered — any, where its
+ * files carry a name a phone's picker does not know — how one of its files
+ * is looked at, and how what was looked at is taken into a book.
  */
 interface Source {
   readonly from: string
   readonly about: string
   readonly kept: string
+  readonly choose: string
+  readonly accept: string | undefined
   readonly reading: Reading
   readonly take: (bookId: BookId, preview: Preview, named: Named, weighing: Weighing | undefined) => Promise<Outcome<Imported>>
 }
 
 /**
  * How a source's file is looked at: an app's, whose columns it names
- * itself, read as UTF-8 and looked at at once; or a person's own, read as
- * UTF-8 or else as Shift_JIS, as a desk's spreadsheet saves one, and looked
- * at once its columns are tied to this app's fields.
+ * itself, read as UTF-8 and looked at at once; an app's of its own kind,
+ * looked at at once as its bytes; or a person's own, read as UTF-8 or else
+ * as Shift_JIS, as a desk's spreadsheet saves one, and looked at once its
+ * columns are tied to this app's fields.
  */
 type Reading =
+  | { readonly type: "bytes"; readonly preview: (bytes: Uint8Array) => Promise<Outcome<Preview>> }
   | { readonly type: "named"; readonly preview: (text: string) => Promise<Outcome<Preview>> }
   | { readonly type: "mapped"; readonly sheet: (text: string) => Result<Sheet, ImportProblem>; readonly preview: (sheet: Sheet, mapping: Mapping) => Promise<Outcome<Preview>> }
 
-/** The sources tallies are taken in from, a tab each, in the order the tabs stand: a person's own file first, then each app's. */
+/** The sources tallies are taken in from, a tab each, in the order the tabs stand: a person's own file first, then each app's, the most used first. */
 const sourcesOf = (ports: ImportPorts): readonly Source[] => [
   {
     from: GENERAL,
     about: "CSV の列を、どの項目として取り込むか選んで取り込みます。1行目は見出しとして読みます。",
     kept: "店舗名・機種名・タグはファイルのまま残します。「投資」と「回収」を選ぶと「収支」は使いません。同じファイルを2回選んでも、二重には入りません。",
+    choose: IMPORT_CHOOSE,
+    accept: ".csv,text/csv",
     reading: { type: "mapped", sheet: sheetOf, preview: (sheet, mapping) => previewGeneral(ports, sheet, mapping) },
     take: (bookId, preview, named, weighing) => importGeneral(ports, bookId, preview, named, weighing),
   },
@@ -136,20 +145,33 @@ const sourcesOf = (ports: ImportPorts): readonly Source[] => [
     from: PRECORD,
     about: "pRecord で書き出した CSV から、過去の収支を取り込みます。",
     kept: "店舗名・機種名は pRecord のまま残します。同じファイルを2回選んでも、二重には入りません。貯玉は取り込みません。",
+    choose: IMPORT_CHOOSE,
+    accept: ".csv,text/csv",
     reading: { type: "named", preview: (text) => previewPrecord(ports, text) },
     take: (bookId, preview, named, weighing) => importPrecord(ports, bookId, preview, named, weighing),
+  },
+  {
+    from: PACHIBO,
+    about: "ぱち簿で書き出した pcb ファイルから、過去の収支を取り込みます。ぱち簿の CSV も汎用形式で取り込めますが、貯玉を使った日の現金の投資・回収や台番号・タグが入らないため、pcb ファイルでの取り込みをおすすめします。",
+    kept: "店舗名・機種名・タグはぱち簿のまま残します。投資と回収は、貯玉と現金を合わせた額で取り込みます。同じファイルを2回選んでも、二重には入りません。貯玉の残高は取り込みません。",
+    choose: IMPORT_CHOOSE_PCB,
+    accept: undefined,
+    reading: { type: "bytes", preview: (bytes) => previewPachibo(ports, bytes, utf8Of) },
+    take: (bookId, preview, named, weighing) => importPachibo(ports, bookId, preview, named, weighing),
   },
   {
     from: PACHIFOLIO,
     about: "パチフォリオで書き出した CSV から、過去の収支を取り込みます。",
     kept: "店舗名・機種名・タグはパチフォリオのまま残します。回転数・大当りも取り込みます。同じファイルを2回選んでも、二重には入りません。",
+    choose: IMPORT_CHOOSE,
+    accept: ".csv,text/csv",
     reading: { type: "named", preview: (text) => previewPachifolio(ports, text) },
     take: (bookId, preview, named) => importPachifolio(ports, bookId, preview, named),
   },
 ]
 
 /** A file's bytes as UTF-8 text, or none where they do not read as UTF-8: a character made up in its place would be written into the book. */
-const utf8Of = (bytes: ArrayBuffer): string | undefined => {
+const utf8Of = (bytes: ArrayBuffer | Uint8Array): string | undefined => {
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes)
   } catch {
@@ -167,7 +189,7 @@ const shiftJisOf = (bytes: ArrayBuffer): string | undefined => {
 }
 
 /** A file's bytes as text, as its source reads them: UTF-8, or else Shift_JIS for a person's own file. */
-const textOf = (bytes: ArrayBuffer, reading: Reading): string | undefined => utf8Of(bytes) ?? (reading.type === "mapped" ? shiftJisOf(bytes) : undefined)
+const textOf = (bytes: ArrayBuffer, reading: Exclude<Reading, { readonly type: "bytes" }>): string | undefined => utf8Of(bytes) ?? (reading.type === "mapped" ? shiftJisOf(bytes) : undefined)
 
 /** How many of a sheet's rows are shown under each column's name, for the person to tell what the column holds. */
 const SAMPLE_ROWS = 3
@@ -290,9 +312,10 @@ function BookRow(props: { readonly source: Source; readonly book: ListedBook; re
     setTaking({ type: "reading" })
     try {
       const reading = props.source.reading
+      setNamed(new Map())
+      if (reading.type === "bytes") return looked(await reading.preview(new Uint8Array(await file.arrayBuffer())))
       const text = textOf(await file.arrayBuffer(), reading)
       if (text === undefined) return setTaking({ type: "failed", error: { type: "import", problem: { type: "not-utf8" } } })
-      setNamed(new Map())
       if (reading.type === "named") return looked(await reading.preview(text))
       const sheet = reading.sheet(text)
       if (!sheet.ok) return setTaking({ type: "failed", error: { type: "import", problem: sheet.error } })
@@ -324,9 +347,9 @@ function BookRow(props: { readonly source: Source; readonly book: ListedBook; re
       <div class="flex items-center gap-2">
         <span class="min-w-0 flex-1 break-words text-sm font-medium text-text-primary">{bookTitle(props.book)}</span>
         <Button variant="outline" size="small" class="shrink-0" onClick={() => picker.input?.click()}>
-          {IMPORT_CHOOSE}
+          {props.source.choose}
         </Button>
-        <input ref={(element) => (picker.input = element)} type="file" accept=".csv,text/csv" class="hidden" onChange={(event) => void chosen(event.currentTarget)} />
+        <input ref={(element) => (picker.input = element)} type="file" accept={props.source.accept} class="hidden" onChange={(event) => void chosen(event.currentTarget)} />
       </div>
       <TakingLine taking={taking()} onStop={props.onStop} />
       <Show when={((current) => (current.type === "mapping" ? current.sheet : undefined))(taking())} keyed>

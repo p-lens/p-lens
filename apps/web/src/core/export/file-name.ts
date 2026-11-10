@@ -53,5 +53,8 @@ export const precordName = (stem: string, day: IsoDate): string => `${stem}_pRec
 /** The name a book's tallies go by as パチフォリオ takes them in: what the book's files are named by, the app the file is for, and the day it was written out. */
 export const pachifolioName = (stem: string, day: IsoDate): string => `${stem}_パチフォリオ_${exportedOn(day)}.csv`
 
+/** The name a book's tallies go by as ぱち簿 takes them in, as its CSV or its own file (`csv`, `pcb`): what the book's files are named by, the app the file is for, and the day it was written out. */
+export const pachiboName = (stem: string, day: IsoDate, extension: "csv" | "pcb"): string => `${stem}_ぱち簿_${exportedOn(day)}.${extension}`
+
 /** The name several books written out together go by: what they are, and the day. */
 export const bundleName = (day: IsoDate): string => `帳簿_${exportedOn(day)}.zip`

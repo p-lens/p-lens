@@ -2,7 +2,7 @@ import { createMemo, createResource, createSignal, For, onCleanup, Show, type JS
 import { MainContent } from "solid-gathering-shell"
 
 import type { ApplicationError, Outcome } from "../../../application/errors"
-import { handOver, makeForPachifolio, makeForPrecord, makeSingleJournal, makeTallyTable, makeTogether, type ExportPorts, type ExportReport, type ExportWatch, type Made } from "../../../application/export"
+import { handOver, makeForPachiboCsv, makeForPachiboPcb, makeForPachifolio, makeForPrecord, makeSingleJournal, makeTallyTable, makeTogether, type ExportPorts, type ExportReport, type ExportWatch, type Made } from "../../../application/export"
 import type { HandedFile } from "../../../backup/port/handover"
 import type { BookId, ListedBook } from "../../../core/book/book"
 import { Ok } from "../../../core/result/result"
@@ -273,29 +273,39 @@ function GeneralBooks(props: { readonly books: readonly ListedBook[]; readonly w
 }
 
 /** The tabs of writing out: files any app or person reads, and the files each other app takes in. */
-type Format = "general" | "precord" | "pachifolio"
+type Format = "general" | "precord" | "pachifolio" | "pachibo"
 
 /** A file made for another app, for a book: its tab's press. */
 type ForApp = (ports: ExportPorts, bookId: BookId, watch: ExportWatch) => Promise<Outcome<Made>>
 
-/** One book in a line of another app's tab: its title, and at the line's end the press that writes its tallies out for that app. */
-function AppBookRow(props: { readonly book: ListedBook; readonly writing: Writing; readonly make: ForApp }): JSX.Element {
+/** A press of another app's tab: the kind of file it says, and how that file is made for a book. */
+interface AppPress {
+  readonly label: string
+  readonly make: ForApp
+}
+
+/** One book in a line of another app's tab: its title, and at the line's end a press for each file that writes its tallies out for that app. */
+function AppBookRow(props: { readonly book: ListedBook; readonly writing: Writing; readonly presses: readonly AppPress[] }): JSX.Element {
   const app = useApp()
   return (
     <li class="flex flex-col gap-2 rounded-md bg-surface-1 py-2 pl-3 pr-2">
       <div class="flex items-center gap-2">
         <span class="min-w-0 flex-1 break-words text-sm font-medium text-text-primary">{bookTitle(props.book)}</span>
-        <Button variant="outline" size="small" class="shrink-0" onClick={() => void props.writing.write((watch) => props.make(app.services.export, props.book.id, watch))}>
-          CSV
-        </Button>
+        <For each={props.presses}>
+          {(press) => (
+            <Button variant="outline" size="small" class="shrink-0" onClick={() => void props.writing.write((watch) => press.make(app.services.export, props.book.id, watch))}>
+              {press.label}
+            </Button>
+          )}
+        </For>
       </div>
       <WritingLine writing={props.writing} />
     </li>
   )
 }
 
-/** Another app's tab: what its file is, and the books, each written out for it by itself. */
-function AppTab(props: { readonly format: Exclude<Format, "general">; readonly about: string; readonly make: ForApp; readonly books: Outcome<readonly ListedBook[]> | undefined; readonly writingOf: (key: WritingKey) => Writing }): JSX.Element {
+/** Another app's tab: what its files are, and the books, each written out for it by itself. */
+function AppTab(props: { readonly format: Exclude<Format, "general">; readonly about: string; readonly presses: readonly AppPress[]; readonly books: Outcome<readonly ListedBook[]> | undefined; readonly writingOf: (key: WritingKey) => Writing }): JSX.Element {
   return (
     <TabsContent value={props.format} class="flex flex-col gap-6 p-4">
       <p class="text-sm text-text-muted">{props.about}</p>
@@ -304,7 +314,7 @@ function AppTab(props: { readonly format: Exclude<Format, "general">; readonly a
           <section class="flex flex-col gap-2">
             <h2 class="px-3 text-xs font-bold tracking-wide text-text-muted">帳簿</h2>
             <ul class="flex flex-col gap-1">
-              <For each={found}>{(book) => <AppBookRow book={book} writing={props.writingOf(`${props.format}:${book.id}`)} make={props.make} />}</For>
+              <For each={found}>{(book) => <AppBookRow book={book} writing={props.writingOf(`${props.format}:${book.id}`)} presses={props.presses} />}</For>
             </ul>
           </section>
         )}
@@ -335,6 +345,7 @@ export function ExportSettings(props: { readonly place: Place }): JSX.Element {
           <TabsList>
             <TabsTrigger value="general">汎用形式</TabsTrigger>
             <TabsTrigger value="precord">pRecord</TabsTrigger>
+            <TabsTrigger value="pachibo">ぱち簿</TabsTrigger>
             <TabsTrigger value="pachifolio">パチフォリオ</TabsTrigger>
           </TabsList>
           <TabsContent value="general" class="flex flex-col gap-6 p-4">
@@ -362,8 +373,18 @@ export function ExportSettings(props: { readonly place: Place }): JSX.Element {
               へ。
             </p>
           </TabsContent>
-          <AppTab format="precord" about="収支を pRecord が読める CSV に。pRecord の「その他 → データインポート」で取り込めます。" make={makeForPrecord} books={books()} writingOf={writingOf} />
-          <AppTab format="pachifolio" about="収支をパチフォリオと同じ形の CSV に。回転数・大当りはライブ計測で記帳した収支のものを書き出します。" make={makeForPachifolio} books={books()} writingOf={writingOf} />
+          <AppTab format="precord" about="収支を pRecord が読める CSV に。pRecord の「その他 → データインポート」で取り込めます。" presses={[{ label: "CSV", make: makeForPrecord }]} books={books()} writingOf={writingOf} />
+          <AppTab
+            format="pachibo"
+            about="収支をぱち簿と同じ形の CSV と pcb ファイルに。投資・回収は現金として書き出します。pcb をぱち簿に取り込むと、ぱち簿にあった記録が置き換わる場合があるので、先にぱち簿で書き出しておいてください。"
+            presses={[
+              { label: "CSV", make: makeForPachiboCsv },
+              { label: "pcb", make: makeForPachiboPcb },
+            ]}
+            books={books()}
+            writingOf={writingOf}
+          />
+          <AppTab format="pachifolio" about="収支をパチフォリオと同じ形の CSV に。回転数・大当りはライブ計測で記帳した収支のものを書き出します。" presses={[{ label: "CSV", make: makeForPachifolio }]} books={books()} writingOf={writingOf} />
         </Tabs>
       </div>
     </MainContent>

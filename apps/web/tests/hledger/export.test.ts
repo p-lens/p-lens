@@ -37,7 +37,7 @@ const figuresOf = (session: BookSession, bookId: BookId) =>
 describe("the basic-play book, written out", () => {
   const context: { session?: BookSession } = {}
   const session = (): BookSession => context.session as BookSession
-  const portsWith = (handover: ExportPorts["handover"]): ExportPorts => ({ session: session(), archiver: createZipArchiver(), handover, today: () => "2026-10-09" as IsoDate })
+  const portsWith = (handover: ExportPorts["handover"]): ExportPorts => ({ session: session(), archiver: createZipArchiver(), handover, today: () => "2026-10-09" as IsoDate, now: () => 1_791_504_000_000 })
 
   beforeAll(async () => {
     const storage = memoryStorage()
