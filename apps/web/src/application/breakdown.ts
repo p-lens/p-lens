@@ -1,5 +1,5 @@
 import type { BookId } from "../core/book/book"
-import { SOURCE_TAGS } from "../core/import/source-tally"
+import { SOURCE_TAGS } from "../core/tally/source-tags"
 import { readGameKind, writtenGameKinds } from "../core/play/play"
 import { PARLOR_ID_TAG, PARLOR_SUBMISSION_TAG, parlorsFromDeclarations, type Parlor } from "../core/parlor/parlor"
 import { TALLY_TAGS } from "../core/tally/tally"

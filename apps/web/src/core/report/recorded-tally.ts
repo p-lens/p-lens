@@ -5,7 +5,7 @@ import { ACCOUNTS, handedAccount, offBookSavingsAccount, rentalSpreadAccount, sa
 import { PARLOR_ID_TAG, PARLOR_SUBMISSION_TAG, identityIn, sameIdentity, type Parlor } from "../parlor/parlor"
 import { TALLY_TAGS, type InferredWorth, type Settlement, type TallyHead, type TokenTally, type TallyTold, type YenTally } from "../tally/tally"
 import { readGameKind, tokenKindOf } from "../play/play"
-import { SOURCE_TAGS } from "../import/source-tally"
+import { SOURCE_TAGS } from "../tally/source-tags"
 import { asideOf, withAside } from "../tally/aside"
 import { readClockText } from "../tally/clock"
 import { decimalOfQuantity } from "./figures"

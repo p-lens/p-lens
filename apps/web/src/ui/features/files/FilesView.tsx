@@ -11,6 +11,7 @@ import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { Withheld } from "../mummer/Withheld"
 import { ViewHeader } from "../shell/ViewHeader"
+import { BookDownload } from "../../../other-apps"
 import { entriesOf, folderOf, type Listed } from "./folders"
 
 const lineCount = (text: string): number => (text === "" ? 0 : text.replace(/\n$/, "").split("\n").length)
@@ -60,7 +61,7 @@ export function FilesView(props: { readonly place: Place; readonly bookId: BookI
     <FileRow listed={listed} nested={nested} selected={selectedPath(props.place) === listed.file.path} onOpen={() => moves.go({ kind: "book-file", bookId: props.bookId, path: listed.file.path })} />
   )
   return (
-    <MainContent header={<ViewHeader place={props.place} title="生ファイル" />}>
+    <MainContent header={<ViewHeader place={props.place} title="生ファイル" actions={<BookDownload bookId={props.bookId} />} framed="5xl" />}>
       <Withheld kind="journal">
         <div class="max-w-5xl">
           <Loaded outcome={files()}>

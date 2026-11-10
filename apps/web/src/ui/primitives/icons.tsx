@@ -376,6 +376,20 @@ export const ChevronRightIcon = () => (
   </Icon>
 )
 
+/** More this way: an arrow head pointing left, at the start of a strip scrolled past what it holds there. */
+export const MoreBeforeIcon = () => (
+  <Icon>
+    <path d="M15 6l-6 6 6 6" />
+  </Icon>
+)
+
+/** More this way: an arrow head pointing right, at the end of a strip that holds more than it shows there. */
+export const MoreAfterIcon = () => (
+  <Icon>
+    <path d="M9 6l6 6-6 6" />
+  </Icon>
+)
+
 /** Open every row: two arrow heads pointing apart. */
 export const UnfoldIcon = (props: { readonly label: string }) => (
   <Icon label={props.label}>

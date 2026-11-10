@@ -13,7 +13,7 @@ const SOURCES = ["apps/web/src/", "apps/api/src/", "packages/contracts/src/", "c
  * own file, whose keys are ぱち簿's words (`hall…_savings_slot`) and not
  * this app's.
  */
-const SAYS_SLOT: readonly string[] = ["apps/web/src/core/play/play.ts", "apps/web/src/core/export/pachibo.ts"]
+const SAYS_SLOT: readonly string[] = ["apps/web/src/core/play/play.ts", "apps/web/src/other-apps/pachibo/pcb-export.ts"]
 
 const sourcesUnder = async (directory: string): Promise<readonly string[]> =>
   (await readdir(`${ROOT}${directory}`, { recursive: true }))

@@ -1,4 +1,4 @@
-import { SOURCE_TAGS } from "../core/import/source-tally"
+import { SOURCE_TAGS } from "../core/tally/source-tags"
 import { mapOk } from "../core/result/result"
 import { TALLY_TAGS } from "../core/tally/tally"
 import { userTagsByUse } from "../core/tally/user-tags"

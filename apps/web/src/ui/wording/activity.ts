@@ -1,6 +1,5 @@
 import type { ActivityLine } from "../../core/activity/activity"
 import { formatDay } from "./dates"
-import { sourceName } from "./import"
 import { formatCount, formatRate, formatTokens, formatYen } from "./numbers"
 import { shownDescription } from "./tallies"
 import { seal } from "../../mummer"
@@ -16,9 +15,11 @@ const tallyName = (description: string): string => ((shown) => (shown === "" ? "
 /**
  * What a line of activity says was done, as a person reads it. Each word
  * is said with the parts it speaks of; a word from a later version, or a
- * line missing a part its word needs, is still a thing done.
+ * line missing a part its word needs, is still a thing done. An app
+ * tallies were taken in from is called what `sourceName` calls it: the
+ * other apps' own words are theirs, and given by the screen.
  */
-export const describeActivity = (line: ActivityLine): string => {
+export const describeActivity = (line: ActivityLine, sourceName: (from: string) => string): string => {
   const { book, file, pool, parlors, play: tally, imported, entered, savings, prizes, rate } = line.parts
   const tokens = savings === undefined ? undefined : formatTokens(seal.savings(savings.tokens), savings.kind)
   switch (line.did) {

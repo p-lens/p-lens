@@ -3,7 +3,7 @@ import { existsSync } from "node:fs"
 import { readdir, readFile } from "node:fs/promises"
 import { dirname, resolve } from "node:path"
 
-import { SCREENS, WALLED } from "./support/screens"
+import { OTHER_APPS, SCREENS, WALLED } from "./support/screens"
 
 const WEB = new URL("../", import.meta.url).pathname
 const SHELL = new URL("../../../packages/solid-gathering-shell/src/", import.meta.url).pathname
@@ -164,8 +164,16 @@ describe("dependency direction", () => {
     expect(await offendingIfThere(`${WEB}src/${walled}/application/`, /^solid-js|^@kobalte|^\.\.\/(client|worker)\/|\/(ui|app|pwa)\/|storage\/browser|history\/adapters|hledger\/worker/)).toEqual([])
   })
 
+  test.each([...OTHER_APPS])("the other app %s keeps its layers: its files read and written know no use case and no screen, and its use cases no screen", async (app) => {
+    const files = await sourcesUnder(`${WEB}src/other-apps/${app}/`)
+    const roleOf = (file: string): "core" | "application" | "ui" => (file.endsWith("/use-cases.ts") ? "application" : /\/(tabs|wording)\.ts$|\.tsx$/.test(file) ? "ui" : "core")
+    const forbidden = { core: /^solid-js|^@kobalte|\/(application|ui)\/|^\.\/(use-cases|tabs|wording|.*-tab)$/, application: /^solid-js|^@kobalte|\/ui\/|^\.\/(tabs|wording|.*-tab)$/, ui: /\/(app|pwa)\/|storage\/browser/ } as const
+    const reaching = await Promise.all(files.map(async (file) => (await importsOf(file)).filter((name) => forbidden[roleOf(file)].test(name)).map((name) => `${file.replace(WEB, "")} -> ${name}`)))
+    expect(reaching.flat()).toEqual([])
+  })
+
   test("playing alone reaches nothing that crosses devices: only the composition and the screens reach it", async () => {
-    const alone = ["core", "application", "storage", "history", "hledger", "backup", "consolidation", "preferences", "onboarding", "catalog", "parlors", "download", "pachinko-engine", "pachislot-engine", "reasoning", "mummer", "sample-book", "sunk", "first-touch", "unhatched-egg", "pwa"]
+    const alone = ["core", "application", "storage", "history", "hledger", "backup", "consolidation", "preferences", "onboarding", "catalog", "parlors", "download", "pachinko-engine", "pachislot-engine", "reasoning", "mummer", "sample-book", "sunk", "first-touch", "unhatched-egg", "pwa", "other-apps"]
     const reaching = (await Promise.all(alone.map((layer) => offendingIfThere(`${WEB}src/${layer}/`, /(^|\/)crossing(\/|$)/)))).flat()
     expect(reaching).toEqual([])
   })

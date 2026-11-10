@@ -4,7 +4,7 @@ import { createBookSession, type BookSession } from "../../src/application/book-
 import { loadBreakdown, loadRates } from "../../src/application/breakdown"
 import { loadOverall } from "../../src/application/overall"
 import { loadTallies } from "../../src/application/tallies"
-import { importPrecord, previewPrecord } from "../../src/application/import"
+import { importPrecord, previewPrecord } from "../../src/other-apps/precord/use-cases"
 import type { BookId } from "../../src/core/book/book"
 import { toPlainString } from "../../src/core/decimal/decimal"
 import { totalOf, type Dimension } from "../../src/core/report/breakdown"

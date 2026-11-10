@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test"
 
 import { loadActivity } from "../../src/application/activity"
 import { createBookSession } from "../../src/application/book-session"
-import { importPrecord, previewPrecord, type ImportPorts, type ImportReport, type Named, type Weighing } from "../../src/application/import"
+import type { ImportPorts, ImportReport, Named, Weighing } from "../../src/other-apps/application/import"
+import { importPrecord, previewPrecord } from "../../src/other-apps/precord/use-cases"
 import { loadOverview } from "../../src/application/overview"
 import { loadTallies } from "../../src/application/tallies"
 import { loadRecordedTally } from "../../src/application/revise-tally"
@@ -51,7 +52,7 @@ const setUp = async () => {
 describe("a pRecord file taken into a book", () => {
   test("adds its tallies, which hledger reads, to the results of their own days and to nothing else", async () => {
     const { session, ports } = await setUp()
-    expect(await importFile(ports, BOOK, FILE, new Map(), undefined)).toEqual({ ok: true, value: { written: 2, inferred: 0, unread: 0, changed: 0, alreadyHere: 0, left: 0 } })
+    expect(await importFile(ports, BOOK, FILE, new Map(), undefined)).toEqual({ ok: true, value: { written: 2, inferred: 0, unread: 0, changed: 0, alreadyHere: 0, left: 0, otherThanPlay: 0 } })
     const month = await loadOverview(session, BOOK, "date:2019-01")
     expect(month.ok && [toPlainString(month.value.actual), toPlainString(month.value.savings)]).toEqual(["-2000", "68808"])
     const before = await loadOverview(session, BOOK, "date:2026-09")
@@ -88,7 +89,7 @@ describe("a pRecord file taken into a book", () => {
     }
     const reports: ImportReport[] = []
     const taken = await importFile({ ...ports, catalog: catalog as never }, BOOK, file, new Map(), { engine: engine as never, onReport: (report) => void reports.push(report), stopped: new AbortController().signal, weighedBefore: memoryWeighedBefore() })
-    expect(taken).toEqual({ ok: true, value: { written: 4, inferred: 1, unread: 0, changed: 0, alreadyHere: 0, left: 0 } })
+    expect(taken).toEqual({ ok: true, value: { written: 4, inferred: 1, unread: 0, changed: 0, alreadyHere: 0, left: 0, otherThanPlay: 0 } })
     expect(reports).toEqual([
       { type: "written", written: 4, alreadyHere: 0 },
       { type: "weighing", done: 0, of: 1, beyond: false },
@@ -146,7 +147,7 @@ describe("a pRecord file taken into a book", () => {
       stopped: stopping.signal,
       weighedBefore: memoryWeighedBefore(),
     })
-    expect(stopped).toEqual({ ok: true, value: { written: 3, inferred: 1, unread: 0, changed: 0, alreadyHere: 0, left: 2 } })
+    expect(stopped).toEqual({ ok: true, value: { written: 3, inferred: 1, unread: 0, changed: 0, alreadyHere: 0, left: 2, otherThanPlay: 0 } })
     expect(held.cancelled).toBe(1)
     const inferredOn = async () => {
       const tallies = await loadTallies(session, BOOK, "date:2019-04", 0)
@@ -158,7 +159,7 @@ describe("a pRecord file taken into a book", () => {
       ["2019-04-01", "-15000"],
     ] as never)
     const resumed = await importFile({ ...ports, catalog: catalog as never }, BOOK, file, new Map(), { engine: { infer: (order: never, onEvent: never) => engine.infer({ ...(order as object), told: { hours: 3 } } as never, onEvent) } as never, onReport: () => undefined, stopped: new AbortController().signal, weighedBefore: memoryWeighedBefore() })
-    expect(resumed).toEqual({ ok: true, value: { written: 0, inferred: 2, unread: 0, changed: 0, alreadyHere: 3, left: 0 } })
+    expect(resumed).toEqual({ ok: true, value: { written: 0, inferred: 2, unread: 0, changed: 0, alreadyHere: 3, left: 0, otherThanPlay: 0 } })
     expect(await inferredOn()).toEqual([
       ["2019-04-03", "-15000"],
       ["2019-04-02", "-15000"],
@@ -186,13 +187,13 @@ describe("a pRecord file taken into a book", () => {
     }
     const weighedBefore = memoryWeighedBefore()
     const take = (named: Named) => importFile({ ...ports, catalog: catalog as never }, BOOK, file, named, { engine: engine as never, onReport: () => undefined, stopped: new AbortController().signal, weighedBefore })
-    expect(await take(new Map())).toEqual({ ok: true, value: { written: 3, inferred: 0, unread: 2, changed: 0, alreadyHere: 0, left: 0 } })
+    expect(await take(new Map())).toEqual({ ok: true, value: { written: 3, inferred: 0, unread: 2, changed: 0, alreadyHere: 0, left: 0, otherThanPlay: 0 } })
     expect(asked).toEqual([1.5, 1.5, 3])
     asked.length = 0
-    expect(await take(new Map([["知らない台", "forest"]]))).toEqual({ ok: true, value: { written: 0, inferred: 0, unread: 1, changed: 1, alreadyHere: 3, left: 0 } })
+    expect(await take(new Map([["知らない台", "forest"]]))).toEqual({ ok: true, value: { written: 0, inferred: 0, unread: 1, changed: 1, alreadyHere: 3, left: 0, otherThanPlay: 0 } })
     expect(asked).toEqual([2, 3])
     asked.length = 0
-    expect(await take(new Map([["知らない台", "forest"]]))).toEqual({ ok: true, value: { written: 0, inferred: 0, unread: 1, changed: 0, alreadyHere: 3, left: 0 } })
+    expect(await take(new Map([["知らない台", "forest"]]))).toEqual({ ok: true, value: { written: 0, inferred: 0, unread: 1, changed: 0, alreadyHere: 3, left: 0, otherThanPlay: 0 } })
     expect(asked).toEqual([3])
   })
 
@@ -209,7 +210,7 @@ describe("a pRecord file taken into a book", () => {
     const catalog = { search: async (_query: string, gameKind: "pachinko" | "pachislot") => Ok(gameKind === "pachinko" ? [{ id: "forest", gameKind, name: "森物語", keywords: ["もりものがたり"] }] : [{ id: "clown", gameKind, name: "ピエロット", keywords: [] }]) }
     const preview = await previewPrecord({ catalog: catalog as never }, file)
     expect(preview.ok && [preview.value.told, preview.value.unnamed, preview.value.machines.map((machine) => machine.id)]).toEqual([2, [{ name: "知らない台", tallies: 2 }], ["forest", "clown"]] as never)
-    expect(await previewPrecord({ catalog: catalog as never }, "日付,店舗\n2019/01/02,店\n")).toEqual({ ok: false, error: { type: "import", problem: { type: "not-precord", missing: ["投資額", "回収額"] } } })
+    expect(await previewPrecord({ catalog: catalog as never }, "日付,店舗\n2019/01/02,店\n")).toEqual({ ok: false, error: { type: "unread", problem: { type: "not-precord", missing: ["投資額", "回収額"] } } })
   })
 
   test("ties a tally to the machine a person said its name is, and to one that goes by it as a search word", async () => {
@@ -230,7 +231,7 @@ describe("a pRecord file taken into a book", () => {
     await importFile(ports, BOOK, FILE, new Map(), undefined)
     expect(await importFile(ports, BOOK, FILE, new Map(), undefined)).toEqual({ ok: false, error: { type: "import", problem: { type: "nothing-new", count: 2 } } })
     const more = `${FILE}2019/02/01,,別の店,,,,,3000,9000,6000,,,,\r\n`
-    expect(await importFile(ports, BOOK, more, new Map(), undefined)).toEqual({ ok: true, value: { written: 1, inferred: 0, unread: 0, changed: 0, alreadyHere: 2, left: 0 } })
+    expect(await importFile(ports, BOOK, more, new Map(), undefined)).toEqual({ ok: true, value: { written: 1, inferred: 0, unread: 0, changed: 0, alreadyHere: 2, left: 0, otherThanPlay: 0 } })
     const activity = await loadActivity(session, history, BOOK)
     expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).slice(-2)).toEqual([
       ["plays-imported", { imported: { from: "precord", count: 2 } }],
@@ -248,7 +249,7 @@ describe("a pRecord file taken into a book", () => {
 
   test("takes nothing in from a file with a row that does not read", async () => {
     const { session, ports } = await setUp()
-    expect(await importFile(ports, BOOK, `${FILE}いつか,,,,,,,1,1,0,,,,\r\n`, new Map(), undefined)).toEqual({ ok: false, error: { type: "import", problem: { type: "rows-unreadable", rows: [{ line: 4, fields: ["date"] }] } } })
+    expect(await importFile(ports, BOOK, `${FILE}いつか,,,,,,,1,1,0,,,,\r\n`, new Map(), undefined)).toEqual({ ok: false, error: { type: "unread", problem: { type: "rows-unreadable", rows: [{ line: 4, fields: ["date"] }] } } })
     const tallies = await loadTallies(session, BOOK, "date:2019", 0)
     expect(tallies.ok && tallies.value.total).toBe(0)
   })

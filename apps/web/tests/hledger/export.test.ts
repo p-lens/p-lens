@@ -1,7 +1,9 @@
 import { beforeAll, describe, expect, test } from "bun:test"
 
 import { createBookSession, type BookSession } from "../../src/application/book-session"
-import { handOver, makeForPrecord, makeSingleJournal, makeTallyTable, makeTogether, type ExportPorts, type ExportReport, type ExportWatch, type Made } from "../../src/application/export"
+import { handOver, type ExportPorts, type ExportReport, type ExportWatch, type Made } from "../../src/other-apps/application/export"
+import { makePlayTable, makeSingleJournal, makeTallyTable, makeTogether } from "../../src/other-apps/general/use-cases"
+import { makeForPrecord } from "../../src/other-apps/precord/use-cases"
 import { loadOverview } from "../../src/application/overview"
 import type { BookId, Member, MemberId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
@@ -97,7 +99,7 @@ describe("the basic-play book, written out", () => {
     expect(await figuresOf(session(), single)).toEqual({ ok: true, value: { actual: "39144", theoretical: "13200" } })
   })
 
-  test("several books go together as one zip, each book's two files under their own names", async () => {
+  test("several books go together as one zip, each book's files under their own names", async () => {
     const handover = memoryHandover()
     const twin = "twin" as BookId
     await session().createBook(await fixtureBook("basic-play", { id: twin, members: [ME] }))
@@ -107,11 +109,27 @@ describe("the basic-play book, written out", () => {
     const [file] = handover.given()
     expect([file?.name, file?.type]).toEqual(["帳簿_2026-10-09_exported.zip", "application/zip"])
     const unpacked = createZipArchiver().unpack(file?.bytes as never)
-    expect(unpacked.ok && Object.keys(unpacked.value)).toEqual(["サンプル帳簿(basic-play)_2026-10-09_exported.journal", "サンプル帳簿(basic-play)_収支_2026-10-09_exported.csv", "サンプル帳簿(twin)_2026-10-09_exported.journal", "サンプル帳簿(twin)_収支_2026-10-09_exported.csv"])
+    expect(unpacked.ok && Object.keys(unpacked.value)).toEqual([
+      "サンプル帳簿(basic-play)_2026-10-09_exported.journal",
+      "サンプル帳簿(basic-play)_収支_2026-10-09_exported.csv",
+      "サンプル帳簿(basic-play)_パチンコ稼働_2026-10-09_exported.csv",
+      "サンプル帳簿(basic-play)_パチスロ稼働_2026-10-09_exported.csv",
+      "サンプル帳簿(twin)_2026-10-09_exported.journal",
+      "サンプル帳簿(twin)_収支_2026-10-09_exported.csv",
+      "サンプル帳簿(twin)_パチンコ稼働_2026-10-09_exported.csv",
+      "サンプル帳簿(twin)_パチスロ稼働_2026-10-09_exported.csv",
+    ])
     expect(unpacked.ok && unpacked.value["サンプル帳簿(twin)_収支_2026-10-09_exported.csv"]?.split("\r\n").length).toBe(7)
     const alone = memoryHandover()
     await handed(portsWith(alone), makeTogether(portsWith(alone), [twin], UNWATCHED))
-    expect(((only) => only.ok && Object.keys(only.value))(createZipArchiver().unpack(alone.given()[0]?.bytes as never))).toEqual(["サンプル帳簿_2026-10-09_exported.journal", "サンプル帳簿_収支_2026-10-09_exported.csv"])
+    expect(((only) => only.ok && Object.keys(only.value))(createZipArchiver().unpack(alone.given()[0]?.bytes as never))).toEqual(["サンプル帳簿_2026-10-09_exported.journal", "サンプル帳簿_収支_2026-10-09_exported.csv", "サンプル帳簿_パチンコ稼働_2026-10-09_exported.csv", "サンプル帳簿_パチスロ稼働_2026-10-09_exported.csv"])
+  })
+
+  test("a book's plays of one game go as a CSV of their own, named for the book and the game", async () => {
+    const handover = memoryHandover()
+    expect(await handed(portsWith(handover), makePlayTable("pachislot")(portsWith(handover), BOOK, UNWATCHED))).toEqual({ ok: true, value: undefined })
+    const [file] = handover.given()
+    expect([file?.name, file?.type]).toEqual(["サンプル帳簿_パチスロ稼働_2026-10-09_exported.csv", "text/csv"])
   })
 
   test("a handover the person closed is said as it happened", async () => {

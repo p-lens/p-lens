@@ -12,7 +12,6 @@ import type { KeptKind, StorageError } from "../../storage/port/book-storage"
 import type { DraftError } from "../../storage/port/draft-storage"
 import { ARCHIVE_UNWRITABLE, describeBackupProblem, describeHandoverFailure } from "./backup"
 import { describeCatalogError } from "./catalog"
-import { describeImportProblem } from "./import"
 import { ENGINE_UNLOADED, NO_CONNECTION, SERVER_TROUBLE } from "./connection"
 import * as PachinkoWording from "./pachinko/engine"
 import * as PachislotWording from "./pachislot/engine"
@@ -220,8 +219,8 @@ export const describeError = (error: ApplicationError): string => {
       return describeForfeitureProblem(error.problem)
     case "rate-change":
       return "交換率は0より大きい数で入力してください。"
-    case "import":
-      return describeImportProblem(error.problem)
+    case "nothing-written":
+      return "帳簿にすべてあるため、書き込むものがありません。"
     case "tally-missing":
       return "この収支は帳簿にありません。"
     case "tally-in-book":

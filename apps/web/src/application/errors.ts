@@ -6,10 +6,6 @@ import type { HandoverFailure } from "../backup/port/handover"
 import type { ArchiveProblem } from "../core/backup/archive"
 import type { BookId } from "../core/book/book"
 import type { RevisionRefusal } from "../core/pachinko/revision"
-import type { GeneralProblem } from "../core/import/general"
-import type { PachifolioProblem } from "../core/import/pachifolio"
-import type { PachiboProblem } from "../core/import/pachibo"
-import type { PrecordProblem } from "../core/import/precord"
 import type { OpeningProblem } from "../core/parlor/opening"
 import type { TallyError } from "../core/tally/tally"
 import type { ForfeitureProblem } from "../core/savings/forfeiture"
@@ -47,13 +43,6 @@ export type BackupProblem =
   | { readonly type: "file-unopened" }
 
 /**
- * Why a file of another app's tallies was not taken in.
- *
- * - `nothing-new`: the book already has every tally the file holds.
- */
-export type ImportProblem = GeneralProblem | PrecordProblem | PachifolioProblem | PachiboProblem | { readonly type: "nothing-new"; readonly count: number } | { readonly type: "not-utf8" }
-
-/**
  * Everything a use case can fail with, each case carrying the failure it came
  * from. The screen decides what to say; nothing here is a sentence.
  */
@@ -73,7 +62,8 @@ export type ApplicationError =
   | { readonly type: "prize-exchange"; readonly problem: PrizeExchangeProblem }
   | { readonly type: "forfeiture"; readonly problem: ForfeitureProblem }
   | { readonly type: "rate-change"; readonly problem: RateChangeError }
-  | { readonly type: "import"; readonly problem: ImportProblem }
+  /** A write that found nothing to write: what it would have written, the book has already. */
+  | { readonly type: "nothing-written" }
   | { readonly type: "tally-missing" }
   /** A tally moved into a book that has a tally of its play already. */
   | { readonly type: "tally-in-book" }

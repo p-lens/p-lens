@@ -669,7 +669,7 @@ core ──► hledger/protocol/wire (types only)
 
 | Directory | Holds | May import |
 |---|---|---|
-| `core/` | pure domain: decimal, calendar, commodity, text, result, parlor, play, tally, play-log, live-play, valuation, theoretical, journal, report, book, access, change, backup, export, document, favorites, marks, onboarding, huddle; the catalog's machine, catalog, formula (a formula's standing) and grounds (a proof read back); and each game's own, pachinko and pachislot | itself, `hledger/protocol/wire` types |
+| `core/` | pure domain: decimal, calendar, commodity, text, result, parlor, play, tally, play-log, live-play, valuation, theoretical, journal, report, book, access, change, backup, document, favorites, marks, onboarding, huddle; the catalog's machine, catalog, formula (a formula's standing) and grounds (a proof read back); and each game's own, pachinko and pachislot | itself, `hledger/protocol/wire` types |
 | `hledger/protocol/` | the wire format, mirroring `Bindings.hs`; worker messages | nothing |
 | `hledger/query/` | hledger query terms and requests P-Lens writes | `core`, `hledger/protocol` |
 | `hledger/client/` | the only way to the worker; one queue (`inTurn`) | `hledger/protocol`, `core/result` |
@@ -690,6 +690,7 @@ core ──► hledger/protocol/wire (types only)
 | `sunk/` | ハマり台の投資額: what a cabinet took in cash on the day its data counter shows, played out by the machine's formula on the device — `core/` (the counter as typed, what a run says), `application/` (the run asked of the pachinko engine), `ui/` (its card and its words); play for fun, to be taken out whole, reached only through its index, by a formula's card on a machine's page, above 「これを使う」 on a phone and to its left wider. The engine keeps its side in `sunk` files of their own (`pachinko-simulator/src/sunk.rs`, `pachinko-wasm/src/sunk.rs`, `contracts/src/pachinko/sunk.ts`) | `core`, `application`, `ui`, the pachinko engine's client, `mummer` |
 | `first-touch/` | 操作の手引き: the first time a person touches a field or a button hard to read at a glance — a running total typed live, a button that does more when held, where a play's tokens go — a loud yellow bubble says what it is, once on the device and never again on any screen — `core/` (the notes, and which thing on which screen each is about, by the names those things already go by), `port/` and `local/` (the notes shown, under a `p-lens.` key), `ui/` (the bubble, its own stylesheet and words, and the settings' screen that forgets the notes). It reads the screens from outside — the address, the names fields and buttons go by for a screen reader — and no screen carries anything for it: a screen that no longer reads as it did is a note no longer shown. Reached only through its index, by the services, the composition, `App` (the bubble, put on the page once) and the settings (its screen); its colours are `first-touch-…` in the theme. May be taken out whole | `core`, `ui`, port types |
 | `crossing/` | what crosses devices, over Nostr by PLN-1 (p-lens-relay's `PROTOCOL.md`) — huddles, a book between one's own devices and their plays, a book shared with others, and plays sent to a book's owner (see *What crosses devices*): `core/` (events and their ids, relays' messages, the names keys are derived under, a seal's padding and what binds it, `book/`: changes, states, the graph, merging, the roster and which changes are taken, invitations and mailboxes, what a line carries, and `plays`: a play's copy, its pieces and who holds it, and `sending`: a play as it is sent), `port/` (the keys, the relays, what the device keeps of its lines), `browser/` (keys by WebCrypto and `@noble/curves`, relays by WebSocket, lines in an IndexedDB database of its own), `memory/` (lines in memory, for the tests). Reached only through its index, and never by anything that plays alone: a person with one device starts, follows, records and reads with every relay down (PROTOCOL.md §1.1) | `core`, ports of its own |
+| `other-apps/` | 他アプリ連携: the other apps a book's tallies are taken in from and written out for (設定 → インポート, エクスポート), a folder each — `general/` (汎用形式: a person's own CSV, the single journal, the table of tallies and the zip), `precord/`, `pachibo/`, `maxbet/`, `pachifolio/` — holding all of that app's: its files read and written, by kind and way (`csv-import`, `csv-export`, `pcb-import`, `pcb-export`, `json-import`, `json-export`, as pure as `core`), its `use-cases` (knowing no screen), its `tabs` and `wording`. A change an app makes to its files is a change to its folder alone. Beside them, what they share: `core/` (a tally as another app kept it, a CSV read and written, the names files go by), `application/` (taking a file in, generic over why each app's reading of it does not read, and writing one out), `ui/` (the two screens, which list the apps' tabs in order, and their words). Reached only through its index, by the services, the screen and the activity's words; `tests/boundary.test.ts` holds each app's folder to its layers | `core`, `application`, `ui`, ports |
 | `catalog/` | `port/` (the shared catalog as delivered, and the API it comes from), `delivered/` (the delivered catalog in IndexedDB, with the outbox), `http/` (the API by URL), `absent/` (no catalog) | `core`, contracts |
 | `parlors/` | `port/` (the parlor list and its cache), `jsonl/` (the list by URL), `absent/` (no list), `local/` (the IndexedDB cache) | `core` |
 | `consolidation/` | `port/` (each book's answers kept for the consolidation, keyed by a digest of its journals and the question, and for what stands as of today — savings and その他損益 with an open end — the last day on or before today the book sets a rate on (`lastRateDayOf`), so that it is asked again when a new rate comes into force rather than every day, since everything else counts each posting at its own day's rate and is the same answer whatever day it is asked on), `memory/` (kept in memory), `local/` (kept in IndexedDB, read back only by the build that kept it), `tiered/` (memory in front of IndexedDB), `absent/` (nothing kept: every answer asked of hledger), `web-crypto/` (the digest by the browser's cryptography), `lanes/` (more hledgers beside the one every screen reads on, for a consolidation of many books: one for three books or fewer, two from four, three from twelve and four from twenty, held to the device's cores beside the page's own and to two gigabytes of its memory each — two where it says nothing of it — started the first time wanted and only while the consolidation is on; and a mark kept on the device while it reads on several, taken away as the page is hidden or left, so that a page finding the mark tells once that the last one stopped at work, offers a backup, and reads on one); a personal book never goes through it, and a person with few books, or none consolidated, never has more than the one hledger. A screen is answered at once with what each book was last answered, and the book is read after: one found written since is asked again, and the screen told (`OutdatedNotice`) asks again too. A question about a period reads a view of each book, the files it can count (`core/journal/views`), as one book's own screens do. Books are dealt out among the lanes by their places, each read on the same hledger every time, and asking ahead deals them out alike. Asking ahead goes over the books twice, the periods most looked at first and every day after, each book asked everything of a round before the next, and waits for each book to be read | `core` |
@@ -3219,12 +3220,16 @@ cash it took and what came back.
 ## Import
 
 Plays kept in another app are taken into a book on a press (設定 →
-インポート; `core/import`, `application/import`), a tab a source: a
-person's own CSV, pRecord's CSV, ぱち簿's own file and パチフォリオ's CSV.
+インポート; `other-apps/`), a tab a source, in this order: a person's own
+CSV (汎用形式), pRecord's CSV, ぱち簿's own file, MAXBET's backup or CSV and
+パチフォリオ's CSV. Each app is a folder of `other-apps/` holding its
+reading, its use cases, its tab and its words; why its reading of a file
+does not read is its own (`ImportError<P>`, `unread`) and worded by it,
+beside what any app's taking in fails with (`TakingProblem`).
 
 - **A source's tally** (`SourceTally`) is the tally as the other app kept it:
   the day, its parlor and machine by that app's names and codes, what went
-  in and what came back in yen, a note. `core/import/precord` reads
+  in and what came back in yen, a note. `other-apps/precord/csv-import` reads
   pRecord's CSV into these — its columns found by the names in the first
   row, as pRecord's own import reads them — and nothing of a file is taken
   in while any row of it does not read.
@@ -3247,11 +3252,11 @@ person's own CSV, pRecord's CSV, ぱち簿's own file and パチフォリオ's C
   again writes nothing, and a longer one writes only what is new. Which ids
   the book has is asked once, inside the write, of the tallies' heads.
 - **Read once.** A file is read, and the catalog looked at, when it is
-  chosen (`previewPrecord`); the taking in goes on that `Preview` and
+  chosen (`previewPrecord`, `previewOf`); the taking in goes on that `Preview` and
   reads neither again. Reading the CSV, the ids and the catalog's keys
   each go over what they read once, so a file twice as long takes twice
   as long.
-- **ぱち簿** (`core/import/pachibo`, `previewPachibo`): its own file
+- **ぱち簿** (`other-apps/pachibo/pcb-import`, `previewPachibo`): its own file
   (`.pcb`), read as its bytes, not its CSV, which leaves out the cash of a
   day savings were drawn on, and the cabinet and labels. The file is every
   key ぱち簿 keeps, `type,key,length,value,` one after another, each byte
@@ -3260,14 +3265,23 @@ person's own CSV, pRecord's CSV, ぱち簿's own file and パチフォリオ's C
   bits of one list for both games (`LABEL_BITS`); its game is its machine's
   code, ぱち簿's pachislot machines' from 10000 on, where the catalog does
   not know the machine. Its parlors' savings are not read.
+- **MAXBET** (`other-apps/maxbet/json-import`, `csv-import`, `tags`): its
+  backup, iOS's and Android's alike, or its CSV, which holds only what
+  MAXBET's screen was narrowed to and so is not the file to take in. A
+  tally's game is its パチンコ or パチスロ tag alone; one tagged neither,
+  or both, is taken in only where the person ticks タグなしの収支も取り込む;
+  one tagged 株, FX, 競馬 or 競艇 and neither game is no play's and left
+  out, counted. Either file gives a tally the same id.
 - **Not set right in a form**: a form holds neither the two sides nor the
   source's names, so an imported play is refused there as unreadable and is
   set right in the book's own file. It can be taken out.
 
 ## Export
 
-A book is written out as a file on a press (設定 → エクスポート), three
-ways, each handed over as a backup to a file is (`Handover`). The book
+A book is written out as a file on a press (設定 → エクスポート;
+`other-apps/`), a tab a kind of file in the import's order, each app's
+made in its own folder and handed over as a backup to a file is
+(`Handover`). The book
 whole — a play's readings, the activity log — is a backup's to carry, and
 is not written out here a second time.
 
@@ -3278,13 +3292,13 @@ is not written out here a second time.
   so a stopped one leaves nothing behind. A device that asks where a file
   goes takes it only on a press that still counts (`Handover.givesNow`),
   so a file made after it has gone by waits for a 保存 of its own.
-- **One journal** (`core/export/single-journal`, `makeSingleJournal`):
+- **One journal** (`other-apps/general/journal-export`, `makeSingleJournal`):
   the book's files as stored, never asked of hledger, so it never waits
   for hledger's turn — the main journal with every journal it includes written in where the
   `include` stood, under a comment naming it, nothing else altered. hledger
   opens it by itself and reads it to the same figures;
   `tests/hledger/export.test.ts` holds that.
-- **A table of tallies** (`core/export/tally-table`, `makeTallyTable`): CSV,
+- **A table of tallies** (`other-apps/general/csv-export`, `makeTallyTable`): CSV,
   a tally a row, newest first — 営業日, 店舗, 種別, 機種, 台番号, 投資, 回収,
   収支, 期待値. The three figures in yen are hledger's, each posting at its
   own day's rate, from three income statements of every tally at once
@@ -3295,7 +3309,18 @@ is not written out here a second time.
   an empty cell where none was. The column names are the file's format, as
   the account names are the journal's. The file opens with a byte order
   mark, which a spreadsheet needs to read it as UTF-8.
-- **For pRecord** (`core/export/precord`, `makeForPrecord`): the tallies
+- **Plays** (`other-apps/general/play-csv-export`, `makePlayTables`): what
+  ライブ計測 saw of each recorded play, reading by reading, from the book's
+  own files (its plays' logs) and never asked of hledger — a CSV for each
+  game, their readings saying different things, oldest play first and a
+  play's readings by their spins, each row beginning with the play as its
+  log's head says it; counts by name (a counter's bonuses, the small wins
+  counted) in one cell, `name=count` by their formula's ids. エクスポート
+  writes tallies out, so the plays are not a tab of it: a book gives them
+  from 生ファイル's ダウンロード menu (`BookDownload`), a CSV of one game,
+  beside the zip まとめて zip makes of the book alone; and they go into
+  that zip beside each book's journal and table.
+- **For pRecord** (`other-apps/precord/csv-export`, `makeForPrecord`): the tallies
   as the CSV pRecord's データインポート takes in, newest first — its own
   export's fourteen columns, every cell quoted, CRLF, UTF-8 with no byte
   order mark. 店舗コード and 機種コード are pRecord's ids and are left
@@ -3311,9 +3336,9 @@ is not written out here a second time.
   収支 over them, `0.0` both where the time is not known; 経費 is `0`. It
   goes by itself, never in the zip, and the app reads it back as a pRecord
   file to the same tallies.
-- **For ぱち簿** (`core/export/pachibo`, `makeForPachiboCsv`,
-  `makeForPachiboPcb`): its CSV as ぱち簿 writes it — nine columns, oldest
-  first, in Shift_JIS (`application/shift-jis`, drawn from the platform's
+- **For ぱち簿** (`other-apps/pachibo/csv-export`, `pcb-export`,
+  `makeForPachiboCsv`, `makeForPachiboPcb`): its CSV as ぱち簿 writes it — nine columns, oldest
+  first, in Shift_JIS (`other-apps/pachibo/shift-jis`, drawn from the platform's
   decoder, no library) with LF and no byte order mark — and its own file,
   which ぱち簿 takes in whole in place of what it keeps: every tally with
   its two sides as cash, savings none, its hours, cabinet, memo and the
@@ -3321,13 +3346,20 @@ is not written out here a second time.
   app gives it (990001, 9001, 19001 on), ぱち簿's own codes being neither
   known nor matched on; ぱち簿's settings as a new file of its has them.
   This app reads it back as a ぱち簿 file to the same tallies.
-- **Together** (`makeTogether`): the ticked books' two files each, in
+- **For MAXBET** (`other-apps/maxbet/json-export`, `makeForMaxbet`): its
+  backup's shape, newest first, each record under an id its tally always
+  gives; no tags, not even its game's, MAXBET knowing a tag by an id of
+  its own that nothing here can know; no parlor, machine or hours, which
+  MAXBET keeps none of.
+- **For パチフォリオ** (`other-apps/pachifolio/csv-export`,
+  `makeForPachifolio`): its CSV's ten columns, newest first.
+- **Together** (`makeTogether`): the ticked books' files each — journal, table, plays — in
   one zip. A book is its id and not its title, so books of one title have
   the part of its id that is the moment it was made — a UUIDv7's first
   twelve digits, as written — in brackets after the title in their files'
   names. It is the files above, gathered,
   and no backup: nothing is put back from it.
-- **Names** (`core/export/file-name`): a file is named for its book, what
+- **Names** (`other-apps/core/file-name`, `fileNameOf`): a file is named for its book, what
   it is of, and the day it was written out, marked as that and joined by
   underscores: `帳簿_収支_2026-10-09_exported.csv`,
   `帳簿_pRecord_2026-10-09_exported.csv`.

@@ -57,12 +57,12 @@ describe("a line of a book's activity", () => {
     ].join("\n")
     const lines = activityOfText(text)
     expect<unknown>(lines.map((line) => [line.did, line.parts])).toEqual([["play-recorded", { play: { id: "p9", description: "流星" } }], ["backed-up", {}], ["book-renamed", {}]])
-    expect(lines.map(describeActivity)).toEqual(["流星 の収支を追加", "帳簿を変更", "帳簿を変更"])
+    expect(lines.map((line) => describeActivity(line, (from) => from))).toEqual(["流星 の収支を追加", "帳簿を変更", "帳簿を変更"])
   })
 
   test("says of a play written under nothing that it names no machine", () => {
     const line = activityOfText('{"v":1,"id":"c1","at":"2026-10-12T00:00:00.000Z","by":"me","did":"play-recorded","play":{"id":"p3","description":""}}')
-    expect(line.map(describeActivity)).toEqual(["機種の指定なしの収支を追加"])
+    expect(line.map((line) => describeActivity(line, (from) => from))).toEqual(["機種の指定なしの収支を追加"])
   })
 
   test("says what a thing done to savings set or moved, and says it without the figures where a line written before kept none", () => {
@@ -75,7 +75,7 @@ describe("a line of a book's activity", () => {
       at("rate-changed", ',"rate":{"date":"2026-10-15","rate":"3.5"}'),
       at("savings-opened", ""),
     ].join("\n")
-    expect(activityOfText(text).map(describeActivity)).toEqual([
+    expect(activityOfText(text).map((line) => describeActivity(line, (from) => from))).toEqual([
       "東京皇国第8支店の4円の残高を4,820玉に調整",
       "東京皇国第8支店の4円を1,000枚交換払出（特殊景品額 ¥5,000）",
       "東京皇国第8支店の4円の300玉の失効を記録",

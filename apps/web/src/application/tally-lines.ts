@@ -1,6 +1,6 @@
 import { userTagsOf } from "../core/tally/user-tags"
 import { USER_TAG_NAMES } from "./user-tags"
-import { SOURCE_TAGS } from "../core/import/source-tally"
+import { SOURCE_TAGS } from "../core/tally/source-tags"
 import { identityIn, parlorsFromDeclarations, sameIdentity, type Parlor } from "../core/parlor/parlor"
 import { yenOf } from "../core/report/figures"
 import type { TallyLine } from "../core/report/tally-line"

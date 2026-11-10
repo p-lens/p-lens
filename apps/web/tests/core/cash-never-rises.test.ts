@@ -3,7 +3,7 @@ import { readdir, readFile } from "node:fs/promises"
 import { describe, expect, test } from "bun:test"
 
 import type { IsoDate } from "../../src/core/calendar/calendar"
-import { importedTallyEntry, type SourceTally } from "../../src/core/import/source-tally"
+import { importedTallyEntry, type SourceTally } from "../../src/other-apps/core/source-tally"
 import { dayResultEntry } from "../../src/core/tally/day-results"
 import { ACCOUNTS } from "../../src/core/journal/accounts"
 import type { Entry } from "../../src/core/journal/entry"
