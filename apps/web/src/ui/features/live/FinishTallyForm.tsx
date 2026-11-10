@@ -1,6 +1,6 @@
 import { createEffect, createSignal, Match, Show, Switch, type JSX } from "solid-js"
 import { USER_MEMO_MOST, userMemoLength } from "../../../core/tally/user-memo"
-import { offeredUserTags } from "../../../core/tally/user-tags"
+import { offeredUserTags, USER_TAG_MOST } from "../../../core/tally/user-tags"
 import { TagsField } from "../../primitives/tags-field"
 import { WrappingTextField } from "../../primitives/wrapping-text-field"
 import { NOTES_LABEL, notesSays, PRESET_USER_TAGS, USER_MEMO_LABEL, USER_MEMO_PLACEHOLDER, USER_TAGS_LABEL, USER_TAGS_PLACEHOLDER } from "../../wording/user-tags"
@@ -244,7 +244,7 @@ export function FinishTallyForm(props: {
       </div>
       <Unfolding open={notesOpen()} gap="-mt-5">
         <div class={`grid grid-cols-[1fr_2fr] items-start gap-x-2 gap-y-1.5 ${ROW_ON_A_WIDE_SCREEN}`}>
-          <TagsField label={USER_TAGS_LABEL} tags={editing.userTags()} onChange={editing.setUserTags} offered={offeredUserTags(editing.usedTags, PRESET_USER_TAGS)} placeholder={USER_TAGS_PLACEHOLDER} fieldClass="col-start-1 row-start-1" offeredClass="col-span-2" />
+          <TagsField label={USER_TAGS_LABEL} tags={editing.userTags()} onChange={editing.setUserTags} offered={offeredUserTags(editing.usedTags, PRESET_USER_TAGS)} placeholder={USER_TAGS_PLACEHOLDER} maxLength={USER_TAG_MOST} fieldClass="col-start-1 row-start-1" offeredClass="col-span-2" />
           <div class="col-start-2 row-start-1 min-w-0">
             <WrappingTextField label={USER_MEMO_LABEL} value={editing.userMemo()} onChange={editing.setUserMemo} placeholder={USER_MEMO_PLACEHOLDER} length={userMemoLength(editing.userMemo())} most={USER_MEMO_MOST} error={editing.problemOf("user-memo")} />
           </div>

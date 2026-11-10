@@ -1,7 +1,7 @@
 import type { JSX } from "solid-js"
 
 import { USER_MEMO_MOST, userMemoLength } from "../../../core/tally/user-memo"
-import { offeredUserTags } from "../../../core/tally/user-tags"
+import { offeredUserTags, USER_TAG_MOST } from "../../../core/tally/user-tags"
 import { FoldButton } from "../../primitives/fold-button"
 import { NotepadIcon } from "../../primitives/icons"
 import { TagsField } from "../../primitives/tags-field"
@@ -26,7 +26,7 @@ export function NotesRow(props: {
 }): JSX.Element {
   return (
     <div class="grid grid-cols-[1fr_2fr] items-start gap-x-2 gap-y-1.5">
-      <TagsField label={USER_TAGS_LABEL} tags={props.tags} onChange={props.onTagsChange} offered={offeredUserTags(props.used, PRESET_USER_TAGS)} placeholder={USER_TAGS_PLACEHOLDER} fieldClass="col-start-1 row-start-1" offeredClass="col-span-2" />
+      <TagsField label={USER_TAGS_LABEL} tags={props.tags} onChange={props.onTagsChange} offered={offeredUserTags(props.used, PRESET_USER_TAGS)} placeholder={USER_TAGS_PLACEHOLDER} maxLength={USER_TAG_MOST} fieldClass="col-start-1 row-start-1" offeredClass="col-span-2" />
       <div class="col-start-2 row-start-1 min-w-0">
         <WrappingTextField label={USER_MEMO_LABEL} value={props.memo} onChange={props.onMemoChange} placeholder={USER_MEMO_PLACEHOLDER} length={userMemoLength(props.memo)} most={USER_MEMO_MOST} error={props.memoError} />
       </div>

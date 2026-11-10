@@ -20,6 +20,8 @@ export function TagsField(props: {
   readonly onChange: (tags: readonly string[]) => void
   readonly offered: readonly string[]
   readonly placeholder: string
+  /** The most characters a word may be typed to; none for no bound. */
+  readonly maxLength?: number
   /** Where the field stands among what is around it. */
   readonly fieldClass?: string
   /** Where the words offered stand among what is around them. */
@@ -60,6 +62,7 @@ export function TagsField(props: {
             onKeyDown={keyDown}
             onBlur={(event) => put(event.currentTarget.value)}
             placeholder={props.tags.length === 0 ? props.placeholder : ""}
+            maxLength={props.maxLength}
             enterkeyhint="done"
             autocomplete="off"
             class="h-8 min-w-20 flex-1 bg-transparent text-base text-text-primary outline-none placeholder:text-text-muted"

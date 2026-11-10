@@ -4,6 +4,7 @@ import { describedBy, writableText, type Entry, type Posting } from "../../core/
 import { clockTags, clockText } from "../../core/tally/clock"
 import { toldTags } from "../../core/tally/compose"
 import { SOURCE_TAGS } from "../../core/tally/source-tags"
+import { userTagCutOf } from "../../core/tally/user-tags"
 import { TALLY_TAGS, type InferredWorth, type PlayClock, type TallyTold } from "../../core/tally/tally"
 import type { PlayGameKind, PlayId } from "../../core/play/play"
 import { sidePostings } from "../../core/tally/sides"
@@ -129,7 +130,7 @@ export const importedTallyEntry = (tally: ImportedTally): Entry => ({
     ...tagged(SOURCE_TAGS.machineCode, tally.source.machine.code),
     ...tagged(SOURCE_TAGS.maker, tally.source.machine.maker),
     ...countedTags(tally),
-    ...tally.source.sourceLabels.flatMap((label) => tagged(SOURCE_TAGS.label, label)),
+    ...[...new Set(tally.source.sourceLabels.map(userTagCutOf))].flatMap((label) => tagged(SOURCE_TAGS.label, label)),
     ...toldTags(toldOf(tally)),
     ...clockTags(tally.source.clock),
   ],

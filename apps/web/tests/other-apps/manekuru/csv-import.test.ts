@@ -49,6 +49,14 @@ describe("a tally taken in from マネクルSP", () => {
     expect(entry).not.toContain("inferred")
   })
 
+  test("writes a tag longer than one may be typed cut to twelve characters, once where two come to the same, its id going by the tag as it was", () => {
+    const long = { ...(first as never as object), sourceLabels: ["天井狙い", "とても長いタグの名前ですね一", "とても長いタグの名前ですね二"] } as never
+    const entry = renderEntry(importedTallyEntry({ id: "x" as never, from: "manekuru", source: long, machine: undefined, inferred: undefined }))
+    expect(entry).toContain("source-label: 天井狙い, source-label: とても長いタグの名前です,")
+    expect(entry.match(/source-label/g)?.length).toBe(2)
+    expect(importedIdsOf("manekuru", [long])).not.toEqual(importedIdsOf("manekuru", [{ ...(first as never as object), sourceLabels: ["天井狙い", "とても長いタグの名前です"] } as never]))
+  })
+
   test("goes by an id that its start and its theoretical value tell apart", () => {
     const ids = importedIdsOf("manekuru", [first as never, { ...(first as never as object), theoreticalValue: dec("4000") } as never, { ...(first as never as object), clock: undefined } as never])
     expect(new Set(ids).size).toBe(3)
