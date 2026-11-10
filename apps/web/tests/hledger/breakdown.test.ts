@@ -80,7 +80,7 @@ describe("the basic-play book, broken down by the real hledger module", () => {
   })
 
   test("narrowed to a rate, the tallies that played its tokens at any parlor, beside the period and what else is narrowed", async () => {
-    expect(await loadRates(session(), BOOK)).toEqual({ ok: true, value: ["ball:4円", "medal:20円"] })
+    expect(await loadRates(session(), BOOK)).toEqual({ ok: true, value: ["medal:20円", "ball:4円"] })
     expect(await read("parlor", "", { rate: ["ball:4円"] })).toEqual([["723豚の帽子亭店", "13978", "4100"], ["マレハン東京皇国第8支店", "5136", "7300"]])
     expect(await read("machine", "", { rate: ["medal:20円"] })).toEqual([["ピエロット", "20030", "1800"]])
     expect(await read("machine", "date:2026-10", { rate: ["ball:4円"], parlor: ["723豚の帽子亭店"] })).toEqual([["森物語", "-1998", "900"]])

@@ -94,7 +94,7 @@ function Day(props: { readonly day: ParlorPassbookDay; readonly yearShown: boole
  * row for each day any of them moved or had its rate set, newest first,
  * in whole yen, rounded half up — what went out and came in at the day's rate, and
  * what was held at the day's end at the rate then — and pressed, each
- * pool's tokens that day, machine by machine. It opens on this year,
+ * pool's tokens that day, entry by entry, the oldest at the bottom. It opens on this year,
  * what was held before it under the last row, and goes back a year that
  * moved at a time. Tokens of different pools are never added: only yen,
  * and by hledger. Pressed, the top bar's 遊技を除く leaves the plays'

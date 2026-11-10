@@ -78,21 +78,21 @@ describe("the screen a place is drawn on", () => {
   test("is the same however a view is narrowed, and another for another view", () => {
     const book = "b1" as BookId
     expect(screenOf({ kind: "book-view", bookId: book, view: "result-calendar", senders: ["s1"] })).toBe(screenOf({ kind: "book-view", bookId: book, view: "result-calendar", senders: undefined }))
-    expect(screenOf({ kind: "book-view", bookId: book, view: "holdings", parlors: [] })).toBe(screenOf({ kind: "book-view", bookId: book, view: "holdings", parlors: ["店"] }))
-    expect(screenOf({ kind: "opening-balance-new", bookId: book })).toBe(screenOf({ kind: "book-view", bookId: book, view: "holdings", parlors: undefined }))
+    expect(screenOf({ kind: "book-view", bookId: book, view: "holdings", rates: [] })).toBe(screenOf({ kind: "book-view", bookId: book, view: "holdings", rates: ["ball:4円"] }))
+    expect(screenOf({ kind: "opening-balance-new", bookId: book })).toBe(screenOf({ kind: "book-view", bookId: book, view: "holdings", rates: undefined }))
     expect(screenOf({ kind: "consolidated-breakdown", by: "machine", bookIds: [book] })).toBe(screenOf({ kind: "consolidated-breakdown", by: "machine", bookIds: undefined }))
     expect(screenOf({ kind: "pachinko-formula-new", tab: "basis" })).toBe(screenOf({ kind: "pachinko-formula-new", tab: "manual" }))
     expect(screenOf({ kind: "pachislot-formula-new", tab: "basis" })).toBe(screenOf({ kind: "pachislot-formula-new", tab: "manual" }))
     expect(screenOf({ kind: "consolidated-breakdown", by: "machine", bookIds: undefined })).not.toBe(screenOf({ kind: "consolidated-breakdown", by: "parlor", bookIds: undefined }))
-    expect(screenOf({ kind: "book-view", bookId: book, view: "holdings", parlors: undefined })).not.toBe(screenOf({ kind: "book-view", bookId: "b2" as BookId, view: "holdings", parlors: undefined }))
+    expect(screenOf({ kind: "book-view", bookId: book, view: "holdings", rates: undefined })).not.toBe(screenOf({ kind: "book-view", bookId: "b2" as BookId, view: "holdings", rates: undefined }))
   })
 })
 
 describe("a book's narrowed views", () => {
-  test("name their parlors and senders in a last segment, each encoded on its own, a comma alone for none", () => {
-    const parlors: Place = { kind: "book-view", bookId: "b" as never, view: "holdings", parlors: ["A,店", "B 店"] }
-    expect(pathOf(parlors)).toBe("/books/b/holdings/A%252C%25E5%25BA%2597%2CB%2520%25E5%25BA%2597")
-    expect(placeOf(pathOf(parlors))).toEqual(parlors)
+  test("name their rates and senders in a last segment, each encoded on its own, a comma alone for none", () => {
+    const rates: Place = { kind: "book-view", bookId: "b" as never, view: "holdings", rates: ["ball:4円", "medal:20円"] }
+    expect(pathOf(rates)).toBe("/books/b/holdings/ball%253A4%25E5%2586%2586%2Cmedal%253A20%25E5%2586%2586")
+    expect(placeOf(pathOf(rates))).toEqual(rates)
     const senders: Place = { kind: "book-view", bookId: "b" as never, view: "result-calendar", senders: ["unsent", "grant-1"] }
     expect(pathOf(senders)).toBe("/books/b/result-calendar/unsent%2Cgrant-1")
     expect(placeOf(pathOf(senders))).toEqual(senders)

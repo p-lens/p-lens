@@ -19,10 +19,9 @@ export type PassbookCause =
   | { readonly type: "forfeiture" }
   | { readonly type: "other"; readonly description: string }
 
-/** One cause of a day's movements, its entries taken together: how many, and the tokens they put in and took out. */
+/** One entry's movements of the pool: what moved them, and the tokens it put in and took out. */
 export interface PassbookLine {
   readonly cause: PassbookCause
-  readonly entries: number
   readonly deposited: Decimal
   readonly withdrawn: Decimal
 }
@@ -35,8 +34,9 @@ export interface RateSet {
 
 /**
  * One day of a pool's passbook: the tokens put in and taken out, what the
- * pool held at its end, what moved them, by cause, and the rate it was set
- * to that day, where it was.
+ * pool held at its end, what moved them, an entry to a line, the latest
+ * first as the days are, and the rate it was set to that day, where it
+ * was.
  */
 export interface PassbookDay {
   readonly date: IsoDate
@@ -61,26 +61,18 @@ const causeOf = (transaction: Transaction): PassbookCause => {
   return SAVINGS_CAUSES[tagValue(transaction.ttags, SAVINGS_TAG) ?? ""] ?? { type: "other", description: transaction.tdescription }
 }
 
-const causeKey = (cause: PassbookCause): string => (cause.type === "tally" ? `tally:${cause.machine ?? ""}` : cause.type === "other" ? `other:${cause.description}` : cause.type)
-
 /** One entry's movements of the pool: each posting to its account apart, so a tally that drew on savings and put tokens back shows both. */
 const movementOf = (transaction: Transaction, account: string, commodity: string): { readonly deposited: Decimal; readonly withdrawn: Decimal } => {
   const amounts = transaction.tpostings.filter((posting) => posting.paccount === account).map((posting) => quantityIn(posting.pamount, commodity))
   return { deposited: sum(amounts.filter((amount) => !isNegative(amount))), withdrawn: negate(sum(amounts.filter(isNegative))) }
 }
 
-interface Moved {
+interface Moved extends PassbookLine {
   readonly date: IsoDate
-  readonly cause: PassbookCause
-  readonly deposited: Decimal
-  readonly withdrawn: Decimal
 }
 
-const linesOf = (moved: readonly Moved[]): readonly PassbookLine[] =>
-  [...new Set(moved.map((each) => causeKey(each.cause)))].map((key) => {
-    const same = moved.filter((each) => causeKey(each.cause) === key)
-    return { cause: same[0]?.cause ?? { type: "other", description: "" }, entries: same.length, deposited: sum(same.map((each) => each.deposited)), withdrawn: sum(same.map((each) => each.withdrawn)) }
-  })
+/** A day's entries as its lines, the latest first: hledger gives a day's entries in the order the book wrote them, and a passbook reads up from its oldest at the bottom. */
+const linesOf = (moved: readonly Moved[]): readonly PassbookLine[] => moved.map(({ cause, deposited, withdrawn }) => ({ cause, deposited, withdrawn })).reverse()
 
 /**
  * The rate set on each day the pool's commodity has a price, the later
@@ -102,7 +94,7 @@ export interface ShownFrom {
 
 /**
  * A pool's passbook, newest day first: every day its account moved or its
- * rate was set, what moved in and out, by cause, and what it held at the
+ * rate was set, what moved in and out, entry by entry, and what it held at the
  * day's end. Read from the entries that post to the account and the book's
  * prices; nothing is worked out that hledger keeps. Shown from a day, it is
  * given the entries from that day on and what the pool held before it, and

@@ -9,6 +9,7 @@ import { savingsAccount } from "../../../core/journal/accounts"
 import type { Parlor } from "../../../core/parlor/parlor"
 import type { ParlorHolding, TokenHolding } from "../../../core/report/holdings"
 import { holdsNothing, inShowingOrder, namedLike } from "../../../core/report/parlor-order"
+import { rateKey, ratesInOrder, readRateKey } from "../../../core/report/narrowing"
 import type { IsoDate } from "../../../core/calendar/calendar"
 import { untilTerm } from "../../../hledger/query/terms"
 import { useApp } from "../../context"
@@ -26,7 +27,8 @@ import { createOffered } from "../parlor-offers/offered"
 import { ViewHeader } from "../shell/ViewHeader"
 import { BalanceAdjustmentForm, PrizeExchangeForm, OpeningBalanceForm } from "./SavingsForms"
 import { seal } from "../../../mummer"
-import { parlorChoiceText, parlorNameText } from "../../wording/parlor"
+import { parlorNameText } from "../../wording/parlor"
+import { rateText } from "../../wording/commodities"
 import { Withheld } from "../mummer/Withheld"
 
 const UNITS = { ball: "玉", medal: "枚" } as const
@@ -138,10 +140,11 @@ function ParlorCard(props: { readonly holding: ParlorHolding; readonly lastMoved
   )
 }
 
-const BY_PARLOR = "店舗"
+const BY_RATE = "レート帯"
 
-/** What the filter of parlors says where the book holds savings at none. */
-const NO_PARLORS = "貯玉・貯メダルのある店舗がないため、絞り込めません。"
+/** What the filter of rates says where the book holds savings at none. */
+const NO_RATES = "貯玉・貯メダルがないため、絞り込めません。"
+
 
 /**
  * Savings at every parlor, valued at the rate in force on the day shown,
@@ -152,33 +155,33 @@ const NO_PARLORS = "貯玉・貯メダルのある店舗がないため、絞り
  * address like any other. Parlors are shown by the day their savings last
  * moved, latest first — nobody orders them by hand — those holding nothing
  * folded away under them, and a name typed finds any of them. A funnel at the end of that row chooses which
- * parlors' savings are shown, the total over theirs alone, hledger asked
- * of their accounts; which are chosen is the address's too. Opened again,
- * it shows at once what it last showed for the same book, day and parlors,
- * while it asks hledger anew behind it.
+ * rates' savings are shown, at whichever parlor, the total over theirs
+ * alone, hledger asked of their accounts; which are chosen is the
+ * address's too. Opened again, it shows at once what it last showed for
+ * the same book, day and rates, while it asks hledger anew behind it.
  */
-export function HoldingsView(props: { readonly place: Place; readonly bookId: BookId; readonly parlors: readonly string[] | undefined; readonly query: string; readonly opening: boolean }): JSX.Element {
+export function HoldingsView(props: { readonly place: Place; readonly bookId: BookId; readonly rates: readonly string[] | undefined; readonly query: string; readonly opening: boolean }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   const shown = app.savingsShown
-  /** What is asked of the book's savings, as what was last shown is kept under it: the book, the day, and the parlors where some are chosen. */
-  const keyOf = (bookId: BookId, query: string, parlors?: readonly string[]): string => [bookId, query, ...(parlors === undefined ? [] : ["", ...parlors])].join("\n")
+  /** What is asked of the book's savings, as what was last shown is kept under it: the book, the day, and the rates where some are chosen. */
+  const keyOf = (bookId: BookId, query: string, rates?: readonly string[]): string => [bookId, query, ...(rates === undefined ? [] : ["", ...rates])].join("\n")
   const [asked] = createResource(
     () => ({ bookId: props.bookId, query: props.query, revision: app.revision() }),
     (source) => shown.holdings.asked(keyOf(source.bookId, source.query), () => loadHoldings(app.services.session, source.bookId, source.query)),
   )
   const [narrowedAsked] = createResource(
-    () => (props.parlors === undefined ? undefined : { bookId: props.bookId, query: props.query, parlors: props.parlors, revision: app.revision() }),
-    (source) => shown.holdings.asked(keyOf(source.bookId, source.query, source.parlors), () => loadHoldings(app.services.session, source.bookId, source.query, source.parlors)),
+    () => (props.rates === undefined ? undefined : { bookId: props.bookId, query: props.query, rates: props.rates, revision: app.revision() }),
+    (source) => shown.holdings.asked(keyOf(source.bookId, source.query, source.rates), () => loadHoldings(app.services.session, source.bookId, source.query, { by: "rate", pools: source.rates.flatMap((key) => ((pool) => (pool === undefined ? [] : [pool]))(readRateKey(key))) })),
   )
   /** The savings at every parlor: as hledger answers, or until it has, as last shown. */
   const every = () => asked() ?? shown.holdings.kept(keyOf(props.bookId, props.query))
-  /** The savings at the parlors chosen, hledger asked of theirs alone, or until it has, as last shown. */
-  const narrowed = () => narrowedAsked() ?? (props.parlors === undefined ? undefined : shown.holdings.kept(keyOf(props.bookId, props.query, props.parlors)))
-  /** The savings shown: at every parlor, or at those chosen. */
-  const holdings = () => (props.parlors === undefined ? every() : narrowed())
-  /** The parlors the book holds savings at, whatever is chosen: what the funnel offers. */
-  const offered = (): readonly Offered[] => ((found) => (found?.ok === true ? found.value.parlors.map((holding) => ({ key: holding.parlorName, label: parlorChoiceText(seal.parlor(holding.parlorName)) })) : []))(every())
+  /** The savings at the rates chosen, hledger asked of theirs alone, or until it has, as last shown. */
+  const narrowed = () => narrowedAsked() ?? (props.rates === undefined ? undefined : shown.holdings.kept(keyOf(props.bookId, props.query, props.rates)))
+  /** The savings shown: at every rate, or at those chosen. */
+  const holdings = () => (props.rates === undefined ? every() : narrowed())
+  /** The rates the book holds savings at, at any parlor, whatever is chosen: what the funnel offers, the dearest first. */
+  const offered = (): readonly Offered[] => ((found) => (found?.ok === true ? ratesInOrder(found.value.parlors.flatMap((holding) => holding.tokens).map(rateKey)).map((key) => ({ key, label: rateText(key) })) : []))(every())
   const valuedOn = (): string => {
     const found = holdings()
     return found?.ok === true ? (found.value.valuedOn ?? "") : ""
@@ -261,7 +264,7 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
               <button type="button" aria-label="店舗を検索" title="店舗を検索" aria-expanded={seeking()} class={filterButtonClass(searching())} onClick={toggleSeeking}>
                 <SearchIcon />
               </button>
-              <TickFilter label={BY_PARLOR} offered={offered()} none={NO_PARLORS} chosen={props.parlors} onChosen={(parlors) => moves.go({ kind: "book-view", bookId: props.bookId, view: "holdings", parlors }, props.query)} />
+              <TickFilter label={BY_RATE} offered={offered()} none={NO_RATES} chosen={props.rates} onChosen={(rates) => moves.go({ kind: "book-view", bookId: props.bookId, view: "holdings", rates }, props.query)} />
             </div>
           </div>
           <Show when={seeking()}>
@@ -283,7 +286,7 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
               <Show
                 when={found.parlors.length > 0}
                 fallback={
-                  <Show when={props.parlors?.length !== 0} fallback={<EmptyState title="店舗が選ばれていません">右上の絞り込みで、残高を見る店舗を選んでください。</EmptyState>}>
+                  <Show when={props.rates?.length !== 0} fallback={<EmptyState title="レート帯が選ばれていません">右上の絞り込みで、残高を見るレート帯を選んでください。</EmptyState>}>
                     <EmptyState title="貯玉・貯メダルはありません">収支を記録するか、開始残高を登録すると、店舗ごとの残高がここに並びます。</EmptyState>
                   </Show>
                 }

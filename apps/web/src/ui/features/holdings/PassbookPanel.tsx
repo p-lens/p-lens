@@ -103,7 +103,7 @@ export function Earlier(props: { readonly through: IsoDate; readonly lastMoved: 
   )
 }
 
-/** What moved a day's savings, a cause to a line: what it took out and put in, and how many entries it was where more than one. */
+/** What moved a day's savings, an entry to a line, the latest first: what moved them, and what it took out and put in. */
 export function Lines(props: { readonly lines: readonly PassbookLine[]; readonly kind: TokenKind }): JSX.Element {
   const app = useApp()
   return (
@@ -113,7 +113,6 @@ export function Lines(props: { readonly lines: readonly PassbookLine[]; readonly
           <li class={`${COLUMNS} text-xs`}>
             <span class="min-w-0 truncate text-text-secondary">
               {passbookCauseText(line.cause, app.machineNames())}
-              {line.entries > 1 ? ` ×${String(line.entries)}` : ""}
             </span>
             <Count value={line.withdrawn} kind={props.kind} class="text-text-secondary" />
             <Count value={line.deposited} kind={props.kind} class="text-text-secondary" />
@@ -157,7 +156,7 @@ function Day(props: { readonly day: PassbookDay; readonly kind: TokenKind; reado
  * One pool's savings as a passbook, beside the book's savings: a row for
  * each day they moved or their rate was set, newest first, with what went
  * out, what came in and what was left, and pressed, what moved them that
- * day, machine by machine. It opens on this year, what was held before
+ * day, entry by entry, the oldest at the bottom. It opens on this year, what was held before
  * it under the last row, and goes back a year that moved at a time. Above, the balance and the rate the pool has
  * now, and the way to set that rate anew; at the end, the way to record
  * savings the parlor took back, kept off the savings' cards since it is

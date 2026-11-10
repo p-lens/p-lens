@@ -2,13 +2,13 @@ import type { IsoDate } from "../../core/calendar/calendar"
 import { shownNameOf, type MachineNames } from "../../core/catalog/catalog"
 import { toPlainString, type Decimal } from "../../core/decimal/decimal"
 import { UNSAID, type Dimension } from "../../core/report/breakdown"
-import type { TokenKind } from "../../core/commodity/commodity"
-import { readRateKey, type NarrowedBy } from "../../core/report/narrowing"
+import type { NarrowedBy } from "../../core/report/narrowing"
 import type { SenderNames } from "../../core/report/senders"
 import { formatCount, formatTheoreticalYen } from "./numbers"
 import { seal } from "../../mummer"
 import { parlorNameText } from "./parlor"
 import { memberNameText } from "./book"
+import { rateText } from "./commodities"
 
 /** What taking the tallies as one, rather than grouping them, is called: the breakdown's first choice. */
 export const OVERALL_NAME = "総合"
@@ -115,11 +115,8 @@ export const groupName = (dimension: Dimension, key: string, machineNames: Machi
 /** What each filter a breakdown is narrowed by is called, on its button and over its ticks. */
 export const NARROWING_NAMES: Readonly<Record<NarrowedBy, string>> = { game: "種別", rate: "レート帯", parlor: "店", machine: "機種", tag: "タグ" }
 
-const RATE_GAMES: Readonly<Record<TokenKind, string>> = { ball: "パチンコ", medal: "スロット" }
-
-/** A group a breakdown can be narrowed to as a person reads it: a rate as its price and game, 4円パチンコ, and anything else as the group's name. */
-export const narrowedName = (by: NarrowedBy, key: string, machineNames: MachineNames): string =>
-  by === "rate" ? ((pool) => (pool === undefined ? key : `${pool.tier}${RATE_GAMES[pool.kind]}`))(readRateKey(key)) : groupName(by, key, machineNames)
+/** A group a breakdown can be narrowed to as a person reads it: a rate as `rateText` says, 4円パチンコ, and anything else as the group's name. */
+export const narrowedName = (by: NarrowedBy, key: string, machineNames: MachineNames): string => (by === "rate" ? rateText(key) : groupName(by, key, machineNames))
 
 /** What a filter's button says: its name while it lets every group through, the one group it lets through, or its name and how many. */
 export const narrowingShown = (by: NarrowedBy, names: readonly string[] | undefined): string =>

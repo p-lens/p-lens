@@ -7,7 +7,7 @@ import { recordTokenTally } from "../../src/application/record-tally"
 import { registerOpeningBalance } from "../../src/application/savings"
 import type { BookId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
-import { toPlainString, type Decimal } from "../../src/core/decimal/decimal"
+import { add, toPlainString, type Decimal } from "../../src/core/decimal/decimal"
 import type { ParlorId } from "../../src/core/parlor/parlor"
 import type { PlayId } from "../../src/core/play/play"
 import { UNSENT } from "../../src/core/report/senders"
@@ -69,11 +69,11 @@ describe("a book's savings narrowed to some parlors", () => {
     const parlors = every.ok ? every.value.parlors : []
     expect(parlors.length).toBeGreaterThan(1)
     const [first] = parlors
-    const narrowed = await loadHoldings(session, BOOK, "", [first?.parlorName ?? ""])
+    const narrowed = await loadHoldings(session, BOOK, "", { by: "parlor", names: [first?.parlorName ?? ""] })
     expect(narrowed.ok && narrowed.value.parlors.map((holding) => holding.parlorName)).toEqual([first?.parlorName ?? ""])
     expect(narrowed.ok && toPlainString(narrowed.value.total)).toBe(toPlainString(first?.value ?? dec("0")))
     expect(narrowed.ok && narrowed.value.valuedOn).toBe(every.ok ? every.value.valuedOn : undefined)
-    const none = await loadHoldings(session, BOOK, "", [])
+    const none = await loadHoldings(session, BOOK, "", { by: "parlor", names: [] })
     expect(none.ok && none.value.parlors).toEqual([])
   })
 
@@ -81,8 +81,24 @@ describe("a book's savings narrowed to some parlors", () => {
     const session = await setUp()
     const opening = { identity: { type: "listed", id: "osm-9" as ParlorId }, parlorName: "ダイナモ なんかつ", pool: { kind: "ball", tier: "4円" }, rate: dec("4"), date: "2026-10-01" as IsoDate } as const
     expect((await registerOpeningBalance(session, BOOK, opening, dec("5000"))).ok).toBe(true)
-    const narrowed = await loadHoldings(session, BOOK, "", ["ダイナモ なんかつ"])
+    const narrowed = await loadHoldings(session, BOOK, "", { by: "parlor", names: ["ダイナモ なんかつ"] })
     expect(narrowed.ok && narrowed.value.parlors.map((holding) => [holding.parlorName, holding.tokens.map((token) => toPlainString(token.quantity))])).toEqual([["ダイナモ なんかつ", ["5000"]]])
     expect(narrowed.ok && toPlainString(narrowed.value.total)).toBe("20000")
+  })
+})
+
+describe("a book's savings narrowed to some rates", () => {
+  test("are those rates' pools alone at every parlor, hledger's total over theirs", async () => {
+    const session = await setUp()
+    const every = await loadHoldings(session, BOOK, "")
+    const balls = (every.ok ? every.value.parlors : []).flatMap((holding) => holding.tokens.filter((token) => token.kind === "ball").map((token) => [holding.parlorName, token.tier, toPlainString(token.quantity)]))
+    expect(balls.length).toBeGreaterThan(1)
+    const narrowed = await loadHoldings(session, BOOK, "", { by: "rate", pools: [{ kind: "ball", tier: "4円" }] })
+    const found = narrowed.ok ? narrowed.value.parlors : []
+    expect(found.flatMap((holding) => holding.tokens.map((token) => [holding.parlorName, token.tier, toPlainString(token.quantity)]))).toEqual(balls)
+    expect(narrowed.ok && toPlainString(narrowed.value.total)).toBe(toPlainString(found.flatMap((holding) => holding.tokens).reduce((total, token) => add(total, token.value), dec("0"))))
+    expect(narrowed.ok && toPlainString(narrowed.value.total)).not.toBe(every.ok ? toPlainString(every.value.total) : "")
+    const none = await loadHoldings(session, BOOK, "", { by: "rate", pools: [] })
+    expect(none.ok && none.value.parlors).toEqual([])
   })
 })

@@ -224,11 +224,18 @@ accounts declared with its `parlor-id`, read back by `parlorsFromDeclarations`
 as pools — a kind of token at a rental rate. Its id is the shared directory's.
 
 A book's savings (貯玉・貯メダル, `loadHoldings`) are every parlor's pools
-until some parlors are chosen behind the funnel at the end of the 評価日
-row, a tick to each parlor the book holds savings at: hledger is then asked
-of those parlors' savings accounts alone (`savingsAtTerm`, by the names
-the book keeps them under), so the total is its own over them. Which are
-chosen is the address's last segment (`/books/:id/holdings/<parlor>,…`).
+until some rates are chosen behind the funnel at the end of the 評価日
+row (レート帯), a tick to each kind of token and rate the book holds
+savings at, offered as a breakdown's are (`rateText`, 4円パチンコ,
+20円スロット), the dearest first: hledger is then asked of
+those rates' savings accounts alone, at whichever parlor
+(`savingsOfRatesTerm`), so the total is its own over them, and a parlor
+keeping none of them is not shown. Which are chosen is the address's
+last segment, by `rateKey` (`/books/:id/holdings/ball:4円,…`). A parlor
+is found by the magnifying glass beside it, by a part of its name, on
+screen alone. `loadHoldings` asks of some parlors too
+(`savingsAtTerm`, by the names the book keeps them under), for what is
+done to a parlor's savings whole, as a parlor's forfeiture.
 
 ### Parlors and the terms of a corner
 
@@ -764,7 +771,7 @@ The place is read off the address (`ui/navigation/place.ts`):
 | `/play/:play/cabinet` | saying anew which cabinet and machine it is on | content |
 | `/books/:book` | a book, no view chosen | selection |
 | `/books/:book/{tallies,holdings,result-calendar,activity,files}?q=` | a view | content |
-| `/books/:book/holdings/:parlors?q=` | a book's savings at the parlors named | content |
+| `/books/:book/holdings/:rates?q=` | a book's savings at the rates named | content |
 | `/books/:book/result-calendar/:senders` | a book's calendar of the tallies of those named among who played it | content |
 | `/books/:book/breakdown/:by?q=` | a book's results taken as one (総合, by default) or grouped | content |
 | `/books/:book/breakdown/:by/:narrowing?q=` | the same, of the tallies of the games, rates, parlors and machines named | content |
@@ -2566,8 +2573,10 @@ in the detail pane (`passbook` place, `PassbookPanel`, `loadPassbook`,
 newest first (a price that repeats the rate in force sets nothing, and is
 not shown; the app writes none, `openingText` and `rateChangeLine` leaving
 out a rate already in force), with the tokens taken out (払出), put in (預入) and left
-(残高), and, pressed, what moved them, a tally by its machine and an
-entry about savings by what it was. It is read from the entries that post
+(残高), and, pressed, what moved them, an entry to a line and never two
+taken together, the latest at the top and the oldest at the bottom as
+the days are, in the order the book wrote them: a tally by its machine
+and an entry about savings by what it was. It is read from the entries that post
 to the pool's account and the book's prices, and nothing is kept for it.
 
 - **A parlor's passbook is in yen.** Pressing a parlor's heading opens

@@ -41,9 +41,9 @@ export const narrowedTo = (narrowing: Narrowing, by: NarrowedBy, chosen: readonl
 /** What a narrowing is told apart by where answers are kept: nothing for every tally, so a question narrowed by nothing is asked as it always was. */
 export const narrowingKey = (narrowing: Narrowing): string => (isNarrowed(narrowing) ? `\n${JSON.stringify(NARROWED_BY.map((by) => narrowing[by] ?? null))}` : "")
 
-/** Rates by `rateKey`, each once, balls first and each kind's dearest first: the order a filter offers them in. */
+/** Rates by `rateKey`, each once, the dearest first whichever kind of token, balls first at the same price: the order a filter offers them in. */
 export const ratesInOrder = (keys: readonly string[]): readonly string[] =>
   [...new Set(keys)]
     .flatMap((key) => ((pool) => (pool === undefined ? [] : [pool]))(readRateKey(key)))
-    .toSorted((left, right) => (left.kind === right.kind ? Number.parseFloat(right.tier) - Number.parseFloat(left.tier) : left.kind === "ball" ? -1 : 1))
+    .toSorted((left, right) => Number.parseFloat(right.tier) - Number.parseFloat(left.tier) || (left.kind === right.kind ? 0 : left.kind === "ball" ? -1 : 1))
     .map(rateKey)

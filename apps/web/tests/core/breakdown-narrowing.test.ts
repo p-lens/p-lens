@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { EVERY_TALLY, isNarrowed, matchesNothing, narrowedTo, rateKey, readRateKey } from "../../src/core/report/narrowing"
+import { EVERY_TALLY, isNarrowed, matchesNothing, narrowedTo, rateKey, ratesInOrder, readRateKey } from "../../src/core/report/narrowing"
 
 describe("a breakdown's narrowing", () => {
   test("puts one dimension's choice in place of the last, every group again where it chooses every one", () => {
@@ -16,5 +16,11 @@ describe("a breakdown's narrowing", () => {
   test("keys a rate by its kind of token and its price, and reads back only what a rate is written as", () => {
     expect(rateKey({ kind: "medal", tier: "20円" })).toBe("medal:20円")
     expect([readRateKey("ball:4円"), readRateKey("ball:0.5円"), readRateKey("coin:4円"), readRateKey("ball:"), readRateKey("4円")]).toEqual([{ kind: "ball", tier: "4円" }, { kind: "ball", tier: "0.5円" }, undefined, undefined, undefined])
+  })
+})
+
+describe("rates as a filter offers them", () => {
+  test("are each once, the dearest first whichever kind of token, balls first at the same price", () => {
+    expect(ratesInOrder(["ball:1円", "medal:5円", "ball:4円", "medal:20円", "medal:4円", "ball:4円"])).toEqual(["medal:20円", "medal:5円", "ball:4円", "medal:4円", "ball:1円"])
   })
 })

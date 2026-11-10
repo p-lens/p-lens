@@ -100,8 +100,8 @@ export type Place =
   | { readonly kind: "huddle-play"; readonly member: string; readonly playId: PlayId }
   | { readonly kind: "book"; readonly bookId: BookId }
   | { readonly kind: "book-view"; readonly bookId: BookId; readonly view: WholeBookView }
-  /** A book's savings, of the parlors its last segment names where it names any. */
-  | { readonly kind: "book-view"; readonly bookId: BookId; readonly view: "holdings"; readonly parlors?: readonly string[] | undefined }
+  /** A book's savings, of the rates its last segment names, by `rateKey`, where it names any. */
+  | { readonly kind: "book-view"; readonly bookId: BookId; readonly view: "holdings"; readonly rates?: readonly string[] | undefined }
   /** A book's calendar, of the tallies of those its last segment names among who played them where it names any. */
   | { readonly kind: "book-view"; readonly bookId: BookId; readonly view: "result-calendar"; readonly senders?: readonly string[] | undefined }
   /** A book's breakdown, of the tallies its last segment narrows it to where it narrows it. */
@@ -258,7 +258,7 @@ const placeOfSegments = (segments: readonly string[], path: string): Place => {
   if (first === "books" && second !== undefined && third === undefined) return { kind: "book", bookId: second as BookId }
   if (first === "books" && second !== undefined && third !== undefined && fourth === undefined && isBookView(third))
     return { kind: "book-view", bookId: second as BookId, view: third }
-  if (first === "books" && second !== undefined && third === "holdings" && fourth !== undefined) return { kind: "book-view", bookId: second as BookId, view: "holdings", parlors: chosenIn(fourth) }
+  if (first === "books" && second !== undefined && third === "holdings" && fourth !== undefined) return { kind: "book-view", bookId: second as BookId, view: "holdings", rates: chosenIn(fourth) }
   if (first === "books" && second !== undefined && third === "result-calendar" && fourth !== undefined) return { kind: "book-view", bookId: second as BookId, view: "result-calendar", senders: chosenIn(fourth) }
   if (first === "books" && second !== undefined && third === "breakdown" && fifth === undefined && (fourth === undefined || isBreakdownBy(fourth)))
     return { kind: "book-breakdown", bookId: second as BookId, by: fourth ?? OVERALL }
@@ -302,7 +302,7 @@ const narrowingSegment = (narrowing: Narrowing | undefined): string =>
   narrowing === undefined || !isNarrowed(narrowing) ? "" : `/${encode(NARROWED_BY.flatMap((by) => ((chosen) => (chosen === undefined ? [] : [`${by}=${chosen.map(encode).join(",")}`]))(narrowing[by])).join(";"))}`
 
 /** The segment that names what a book's view is narrowed to, if it is narrowed. */
-const narrowedSegment = (place: Extract<Place, { kind: "book-view" }>): string => (place.view === "holdings" ? chosenSegment(place.parlors) : place.view === "result-calendar" ? chosenSegment(place.senders) : "")
+const narrowedSegment = (place: Extract<Place, { kind: "book-view" }>): string => (place.view === "holdings" ? chosenSegment(place.rates) : place.view === "result-calendar" ? chosenSegment(place.senders) : "")
 
 export const pathOf = (place: Place): string => {
   switch (place.kind) {
@@ -595,7 +595,7 @@ export const inOddPrizeCalculator = (place: Place): boolean => place.kind === "o
 
 export const inSettings = (place: Place): boolean => place.kind === "settings" || place.kind === "settings-section" || place.kind === "document"
 
-/** A place apart from what it is narrowed to: the books a consolidation reads, the tallies a book's breakdown is of, the parlors a book's savings show, who a book's calendar is of, whether a formula's 期待値算出 is laid over it, whether a book's savings have an opening balance being registered over them, the tab a new formula is made in. */
+/** A place apart from what it is narrowed to: the books a consolidation reads, the tallies a book's breakdown is of, the rates a book's savings show, who a book's calendar is of, whether a formula's 期待値算出 is laid over it, whether a book's savings have an opening balance being registered over them, the tab a new formula is made in. */
 const unnarrowed = (place: Place): Place => {
   switch (place.kind) {
     case "consolidated-holdings":
@@ -615,7 +615,7 @@ const unnarrowed = (place: Place): Place => {
     case "book-breakdown":
       return { ...place, narrowing: undefined }
     case "book-view":
-      return place.view === "holdings" ? { ...place, parlors: undefined } : place.view === "result-calendar" ? { ...place, senders: undefined } : place
+      return place.view === "holdings" ? { ...place, rates: undefined } : place.view === "result-calendar" ? { ...place, senders: undefined } : place
     default:
       return place
   }

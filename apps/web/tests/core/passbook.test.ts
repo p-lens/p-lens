@@ -33,12 +33,12 @@ const shown = (days: readonly PassbookDay[]) =>
     out: toPlainString(day.withdrawn),
     in: toPlainString(day.deposited),
     balance: toPlainString(day.balance),
-    lines: day.lines.map((line) => [line.cause.type === "tally" ? (line.cause.machine ?? "") : line.cause.type, line.entries, toPlainString(line.withdrawn), toPlainString(line.deposited)]),
+    lines: day.lines.map((line) => [line.cause.type === "tally" ? (line.cause.machine ?? "") : line.cause.type, toPlainString(line.withdrawn), toPlainString(line.deposited)]),
     rate: day.rateSet === undefined ? undefined : [day.rateSet.before === undefined ? undefined : toPlainString(day.rateSet.before), toPlainString(day.rateSet.rate)],
   }))
 
 describe("a pool's passbook", () => {
-  test("is the days its savings moved or its rate was set, newest first, each with what went out and came in, what was left, and what moved them by machine", () => {
+  test("is the days its savings moved or its rate was set, newest first, each with what went out and came in, what was left, and what moved them entry by entry, the latest first", () => {
     const days = passbookOf(
       [
         entry("2026-10-01", [["savings", "opening"]], "1000"),
@@ -52,10 +52,10 @@ describe("a pool's passbook", () => {
       [price("2026-10-01", "3.571429"), price("2026-10-04", "3.4"), price("2026-10-04", "3.5")],
     )
     expect(shown(days)).toEqual([
-      { date: "2026-10-05", out: "800", in: "0", balance: "200", lines: [["prize-exchange", 1, "800", "0"]], rate: undefined },
+      { date: "2026-10-05", out: "800", in: "0", balance: "200", lines: [["prize-exchange", "800", "0"]], rate: undefined },
       { date: "2026-10-04", out: "0", in: "0", balance: "1000", lines: [], rate: ["3.571429", "3.5"] },
-      { date: "2026-10-03", out: "1500", in: "1500", balance: "1000", lines: [["海物語", 2, "500", "1500"], ["牙狼", 1, "1000", "0"]], rate: undefined },
-      { date: "2026-10-01", out: "0", in: "1000", balance: "1000", lines: [["opening", 1, "0", "1000"]], rate: [undefined, "3.571429"] },
+      { date: "2026-10-03", out: "1500", in: "1500", balance: "1000", lines: [["牙狼", "1000", "0"], ["海物語", "0", "300"], ["海物語", "500", "1200"]], rate: undefined },
+      { date: "2026-10-01", out: "0", in: "1000", balance: "1000", lines: [["opening", "0", "1000"]], rate: [undefined, "3.571429"] },
     ])
   })
 

@@ -175,7 +175,7 @@ const forfeitEach = async (session: BookSession, bookId: BookId, parlor: Parlor,
  * holding none, or below none, has nothing to lose. The pools forfeited.
  */
 export const recordParlorForfeiture = async (session: BookSession, bookId: BookId, parlor: Parlor, date: IsoDate): Promise<Outcome<readonly PoolForfeited[]>> => {
-  const holdings = await loadHoldings(session, bookId, untilTerm(date), [parlor.name])
+  const holdings = await loadHoldings(session, bookId, untilTerm(date), { by: "parlor", names: [parlor.name] })
   if (!holdings.ok) return holdings
   const pools = holdings.value.parlors.flatMap((held) => held.tokens).filter((token) => compare(token.quantity, ZERO) > 0).map((token) => ({ pool: { kind: token.kind, tier: token.tier }, tokens: token.quantity }))
   return mapOk(await forfeitEach(session, bookId, parlor, date, pools), () => pools)

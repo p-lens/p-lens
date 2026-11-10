@@ -141,7 +141,7 @@ const mainFor = (place: Place, query: () => string, live: () => Place): JSX.Elem
       return <FilesView place={place} bookId={place.bookId} />
     case "passbook":
     case "parlor-passbook":
-      return <HoldingsView place={place} bookId={place.bookId} parlors={undefined} query={query()} opening={false} />
+      return <HoldingsView place={place} bookId={place.bookId} rates={undefined} query={query()} opening={false} />
     case "opening-balance-new":
       return bookViewFor({ kind: "book-view", bookId: place.bookId, view: "holdings" }, query, live)
     case "pachinko-machine-search":
@@ -251,7 +251,7 @@ const settingsFor = (place: Extract<Place, { kind: "settings-section" }>): JSX.E
 const bookViewFor = (place: Extract<Place, { kind: "book-view" }>, query: () => string, live: () => Place): JSX.Element => {
   switch (place.view) {
     case "holdings":
-      return <HoldingsView place={liveAs(live, place)} bookId={place.bookId} parlors={liveAs(live, place).parlors} query={query()} opening={live().kind === "opening-balance-new"} />
+      return <HoldingsView place={liveAs(live, place)} bookId={place.bookId} rates={liveAs(live, place).rates} query={query()} opening={live().kind === "opening-balance-new"} />
     case "tallies":
       return <TalliesView place={place} bookId={place.bookId} query={query()} />
     case "result-calendar":

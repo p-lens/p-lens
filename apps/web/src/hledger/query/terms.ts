@@ -96,6 +96,14 @@ export const savingsAtTerm = (parlorNames: readonly string[]): string | undefine
   parlorNames.length === 0 ? undefined : `"^(${escapeRegex(savingsRoot("ball"))}|${escapeRegex(savingsRoot("medal"))}):(${parlorNames.map((name) => escapeRegex(name).replaceAll('"', ".")).join("|")}):"`
 
 /**
+ * The savings accounts of some rates, of each kind of token at each rate
+ * named, at whichever parlor keeps them; nothing at all where none is
+ * named, so it is `undefined`. Quoted, as the parlors' term is.
+ */
+export const savingsOfRatesTerm = (pools: readonly SavingsPool[]): string | undefined =>
+  pools.length === 0 ? undefined : `"^(${pools.map((pool) => `${escapeRegex(savingsRoot(pool.kind))}:[^:]+:${escapeRegex(pool.tier).replaceAll('"', ".")}`).join("|")})$"`
+
+/**
  * The entries carrying any of several tags with any of several values: each
  * tag's name and each value held to the whole of it, so `machine` is not
  * found in `source-machine`. Quoted, for a value may hold a space, and a
