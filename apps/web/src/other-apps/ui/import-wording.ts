@@ -4,7 +4,7 @@ import type { ReadingProblem } from "../core/reading-problem"
 import { describeError } from "../../ui/wording/errors"
 import { formatCount } from "../../ui/wording/numbers"
 
-const FIELDS: Readonly<Record<RowField, string>> = { date: "日付", outlay: "投資額", takings: "回収額", result: "収支", hours: "稼働時間", gameKind: "種別", countedSpins: "回転数", countedJackpots: "大当り" }
+const FIELDS: Readonly<Record<RowField, string>> = { date: "日付", outlay: "投資額", takings: "回収額", result: "収支", hours: "稼働時間", clock: "開始・終了時刻", theoreticalValue: "期待値", gameKind: "種別", countedSpins: "回転数", countedJackpots: "大当り" }
 
 /** How many unreadable rows or tallies are named before the rest are only counted. */
 export const ROWS_NAMED = 5

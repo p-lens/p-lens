@@ -1,12 +1,13 @@
 import type { IsoDate } from "../../core/calendar/calendar"
 import type { Decimal } from "../../core/decimal/decimal"
-import { describedBy, writableText, type Entry } from "../../core/journal/entry"
+import { describedBy, writableText, type Entry, type Posting } from "../../core/journal/entry"
+import { clockTags, clockText } from "../../core/tally/clock"
 import { toldTags } from "../../core/tally/compose"
 import { SOURCE_TAGS } from "../../core/tally/source-tags"
-import { TALLY_TAGS, type InferredWorth, type TallyTold } from "../../core/tally/tally"
+import { TALLY_TAGS, type InferredWorth, type PlayClock, type TallyTold } from "../../core/tally/tally"
 import type { PlayGameKind, PlayId } from "../../core/play/play"
 import { sidePostings } from "../../core/tally/sides"
-import { inferredTheoreticalValuePosting } from "../../core/theoretical/theoretical"
+import { inferredTheoreticalValuePosting, theoreticalValuePosting } from "../../core/theoretical/theoretical"
 
 /**
  * A tally as another app kept it, read out of what that app wrote: the day,
@@ -26,6 +27,10 @@ export interface SourceTally {
   readonly memo: string
   /** How long it lasted, in hours, where that app said. */
   readonly hours: Decimal | undefined
+  /** When it began and finished, each where that app said. */
+  readonly clock: PlayClock | undefined
+  /** What it was worth, in yen, where that app kept a figure the person gave it, and not one it made up of the result. */
+  readonly theoreticalValue: Decimal | undefined
   /** Which game it was, where that app said. */
   readonly gameKind: PlayGameKind | undefined
   /** The spins that app counted the person playing, where it did: a pachislot play's games, as that app counts them under the same name. */
@@ -53,9 +58,9 @@ export interface ImportedTally {
   readonly inferred: InferredWorth | undefined
 }
 
-/** What an imported tally tells of its play beside its two sides: its hours, where the other app said them, and what it was taken to be worth from them. */
+/** What an imported tally tells of its play beside its two sides: its hours, where the other app said them, and what it was taken to be worth from them, where it was weighed and the other app gave no theoretical value. */
 const toldOf = (tally: ImportedTally): TallyTold | undefined =>
-  tally.source.hours === undefined ? undefined : { hours: tally.source.hours, netJackpots: undefined, inferred: tally.inferred }
+  tally.source.hours === undefined ? undefined : { hours: tally.source.hours, netJackpots: undefined, inferred: tally.source.theoreticalValue === undefined ? tally.inferred : undefined }
 
 /** A note as a comment under the entry can hold it: a colon would make a tag of the word before it. */
 const noteOf = (memo: string): string => writableText(memo).replaceAll(":", "：")
@@ -90,12 +95,20 @@ const countedTags = (tally: ImportedTally): readonly (readonly [string, string])
 /** An imported tally's description: the parlor as the other app named it for the payee, its machine and cabinet for the note. */
 const describe = (source: SourceTally): string => describedBy(writableText(source.parlor.name), cabinetOf(source))
 
+/** What an imported tally was worth: the theoretical value the other app gave, or else what it was taken to be worth where it was weighed. */
+const worthPostings = (tally: ImportedTally): readonly Posting[] => {
+  if (tally.source.theoreticalValue !== undefined) return [theoreticalValuePosting(tally.source.theoreticalValue)]
+  return tally.inferred === undefined || tally.source.hours === undefined ? [] : [inferredTheoreticalValuePosting(tally.inferred.value)]
+}
+
 /**
  * An imported tally as one journal entry, in yen alone, its two sides as a
  * tally typed in by hand has them (`sidePostings`): a loss out of cash, a
  * gain into the special prizes, never into cash — with its hours where
- * the other app said them, and what it was taken to be worth from them
- * where it was weighed, as a tally typed in by hand has those too. Its
+ * the other app said them, its clock where it said that, and its
+ * theoretical value where it gave one — or else what it was taken to be
+ * worth from its hours where it was weighed — as a tally typed in by hand
+ * has those too. Its
  * description is the tally as the other app named it; `machine` is
  * written only where the catalog has the machine, `game-kind` where it
  * has or the other app said which game it was, and no parlor is named
@@ -118,8 +131,9 @@ export const importedTallyEntry = (tally: ImportedTally): Entry => ({
     ...countedTags(tally),
     ...tally.source.sourceLabels.flatMap((label) => tagged(SOURCE_TAGS.label, label)),
     ...toldTags(toldOf(tally)),
+    ...clockTags(tally.source.clock),
   ],
-  postings: [...sidePostings(tally.source.outlay, tally.source.takings), ...(tally.inferred === undefined || tally.source.hours === undefined ? [] : [inferredTheoreticalValuePosting(tally.inferred.value)])],
+  postings: [...sidePostings(tally.source.outlay, tally.source.takings), ...worthPostings(tally)],
   notes: noteOf(tally.source.memo) === "" ? [] : [noteOf(tally.source.memo)],
 })
 
@@ -140,9 +154,19 @@ const beyondOf = (source: SourceTally): string =>
     ? ""
     : [source.gameKind ?? "", source.countedSpins ?? "", source.countedJackpots ?? "", ...source.sourceLabels].join("\u001e")
 
-/** Everything a source's tally says, as one text: what pRecord's columns say, and what it says beyond them only where it does, so that a pRecord tally goes by the id it always has. */
+const decimalText = (amount: Decimal): string => `${amount.mantissa}e-${amount.places}`
+
+/** What a source says of its clock and its theoretical value, as one text; empty where it says neither, as no app's tallies did before マネクルSP's. */
+const furtherOf = (source: SourceTally): string =>
+  source.clock === undefined && source.theoreticalValue === undefined
+    ? ""
+    : [source.clock?.started === undefined ? "" : clockText(source.clock.started), source.clock?.finished === undefined ? "" : clockText(source.clock.finished), source.theoreticalValue === undefined ? "" : decimalText(source.theoreticalValue)].join("\u001e")
+
+const saidOnly = (text: string): readonly string[] => (text === "" ? [] : [text])
+
+/** Everything a source's tally says, as one text: what pRecord's columns say, and what it says beyond them only where it does, so that a tally of an app that says less goes by the id it always has. */
 const sameAs = (source: SourceTally): string =>
-  [source.date, source.parlor.code, source.parlor.name, source.machine.code, source.machine.name, source.cabinetNumber, `${source.outlay.mantissa}e-${source.outlay.places}`, `${source.takings.mantissa}e-${source.takings.places}`, source.memo, ...((beyond) => (beyond === "" ? [] : [beyond]))(beyondOf(source))].join("\u001f")
+  [source.date, source.parlor.code, source.parlor.name, source.machine.code, source.machine.name, source.cabinetNumber, decimalText(source.outlay), decimalText(source.takings), source.memo, ...saidOnly(beyondOf(source)), ...saidOnly(furtherOf(source))].join("\u001f")
 
 /**
  * The ids a file's tallies go by here, in the file's order: where each came

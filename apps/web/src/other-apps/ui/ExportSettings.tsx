@@ -13,7 +13,9 @@ import { bookTitle } from "../../ui/wording/book"
 import { GENERAL } from "../general/csv-import"
 import { GeneralExportTab } from "../general/export-tab"
 import { GENERAL_NAME } from "../general/wording"
+import { MANEKURU_EXPORT } from "../manekuru/tabs"
 import { MAXBET_EXPORT } from "../maxbet/tabs"
+import { MYPACHI_EXPORT } from "../mypachi/tabs"
 import { PACHIBO_EXPORT } from "../pachibo/tabs"
 import { PACHIFOLIO_EXPORT } from "../pachifolio/tabs"
 import { PRECORD_EXPORT } from "../precord/tabs"
@@ -21,7 +23,7 @@ import type { AppPress, ExportApp } from "./export-app"
 import { createWritings, WritingLine, type Writing, type WritingKey } from "./writing"
 
 /** The other apps' tabs, after the general one, in the order they stand. */
-const APPS: readonly ExportApp[] = [PRECORD_EXPORT, PACHIBO_EXPORT, MAXBET_EXPORT, PACHIFOLIO_EXPORT]
+const APPS: readonly ExportApp[] = [PRECORD_EXPORT, PACHIBO_EXPORT, MAXBET_EXPORT, MYPACHI_EXPORT, MANEKURU_EXPORT, PACHIFOLIO_EXPORT]
 
 /** One book in a line of another app's tab: its title, and at the line's end a press for each file that writes its tallies out for that app. */
 function AppBookRow(props: { readonly book: ListedBook; readonly writing: Writing; readonly presses: readonly AppPress[] }): JSX.Element {

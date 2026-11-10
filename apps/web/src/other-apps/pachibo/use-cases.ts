@@ -2,12 +2,12 @@ import type { BookId } from "../../core/book/book"
 import type { Result } from "../../core/result/result"
 import type { Outcome } from "../../application/errors"
 import { fileNameOf } from "../core/file-name"
+import { shiftJisOf } from "../core/shift-jis"
 import { madeOfBytes, notesOf, ofTallies, ownStem, utf8Of, type ExportPorts, type ExportWatch, type Made, type WrittenBytes } from "../application/export"
 import { importTallies, previewOf, type Imported, type ImportError, type ImportPorts, type Named, type Preview, type Weighing } from "../application/import"
 import { pachiboCsvOf } from "./csv-export"
 import { pachiboPcbOf } from "./pcb-export"
 import { PACHIBO, readPachibo, type PachiboProblem, type Utf8Reader } from "./pcb-import"
-import { shiftJisOf } from "./shift-jis"
 
 /** A ぱち簿 file (`.pcb`) looked at before it is taken in, as its bytes, read as UTF-8 by the reader given. */
 export const previewPachibo = (ports: Pick<ImportPorts, "catalog">, bytes: Uint8Array, utf8: Utf8Reader): Promise<Result<Preview, ImportError<PachiboProblem>>> => previewOf(ports, readPachibo(bytes, utf8))

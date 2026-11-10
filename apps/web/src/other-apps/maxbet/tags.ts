@@ -55,6 +55,8 @@ export const taggedOf = (date: IsoDate, outlay: Decimal, takings: Decimal, tags:
     takings,
     memo: memo.trim(),
     hours: undefined,
+    clock: undefined,
+    theoreticalValue: undefined,
     gameKind: gameOf(tags),
     countedSpins: undefined,
     countedJackpots: undefined,

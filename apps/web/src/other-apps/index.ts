@@ -1,7 +1,7 @@
 /**
  * 他アプリ連携, the other apps a book's tallies are taken in from and
- * written out for: a person's own file (汎用形式), pRecord, ぱち簿, MAXBET
- * and パチフォリオ, a folder each, holding all of that app's — its files
+ * written out for: a person's own file (汎用形式), pRecord, ぱち簿, MAXBET,
+ * Myパチ収支表, マネクルSP and パチフォリオ, a folder each, holding all of that app's — its files
  * read and written (`csv-import`, `pcb-export`, …), its use cases, its tabs
  * and its words — so that a change an app makes to its files is a change
  * to its folder alone. What they share — a tally as another app kept it,

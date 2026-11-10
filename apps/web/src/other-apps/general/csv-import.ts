@@ -111,6 +111,8 @@ const tallyOf = (cell: Cell, bySides: boolean): Result<SourceTally, readonly Row
     takings,
     memo: cell("memo").trim(),
     hours: hours.value,
+    clock: undefined,
+    theoreticalValue: undefined,
     gameKind: gameKind.value,
     countedSpins: spins.value,
     countedJackpots: jackpots.value,

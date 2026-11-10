@@ -89,7 +89,7 @@ const LABEL_BREAK = /[,，、]/
 export const labelsOf = (text: string): readonly string[] => [...new Set(text.split(LABEL_BREAK).map((label) => label.trim()))].filter((label) => label !== "")
 
 /** What of a row could not be read, whichever app wrote it. */
-export type RowField = "date" | "outlay" | "takings" | "result" | "hours" | "gameKind" | "countedSpins" | "countedJackpots"
+export type RowField = "date" | "outlay" | "takings" | "result" | "hours" | "clock" | "theoreticalValue" | "gameKind" | "countedSpins" | "countedJackpots"
 
 /** Rows that do not read, by their line in the file, each with what of it does not. Nothing of a file is taken in while any row of it does not. */
 export interface RowsUnreadable {

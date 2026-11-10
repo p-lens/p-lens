@@ -152,6 +152,8 @@ const tallyAt = (stored: StoredMap, date: IsoDate, index: number): SourceTally |
     takings: decimal(saved.mantissa + cashBack.mantissa, 0),
     memo: textAt(stored, at("memo")),
     hours: hoursOf(wholeAt(stored, at("start")), wholeAt(stored, at("end")), wholeAt(stored, at("time"))),
+    clock: undefined,
+    theoreticalValue: undefined,
     gameKind: gameKindOf(machineCode),
     countedSpins: undefined,
     countedJackpots: undefined,

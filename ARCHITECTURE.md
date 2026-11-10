@@ -690,7 +690,7 @@ core ──► hledger/protocol/wire (types only)
 | `sunk/` | ハマり台の投資額: what a cabinet took in cash on the day its data counter shows, played out by the machine's formula on the device — `core/` (the counter as typed, what a run says), `application/` (the run asked of the pachinko engine), `ui/` (its card and its words); play for fun, to be taken out whole, reached only through its index, by a formula's card on a machine's page, above 「これを使う」 on a phone and to its left wider. The engine keeps its side in `sunk` files of their own (`pachinko-simulator/src/sunk.rs`, `pachinko-wasm/src/sunk.rs`, `contracts/src/pachinko/sunk.ts`) | `core`, `application`, `ui`, the pachinko engine's client, `mummer` |
 | `first-touch/` | 操作の手引き: the first time a person touches a field or a button hard to read at a glance — a running total typed live, a button that does more when held, where a play's tokens go — a loud yellow bubble says what it is, once on the device and never again on any screen — `core/` (the notes, and which thing on which screen each is about, by the names those things already go by), `port/` and `local/` (the notes shown, under a `p-lens.` key), `ui/` (the bubble, its own stylesheet and words, and the settings' screen that forgets the notes). It reads the screens from outside — the address, the names fields and buttons go by for a screen reader — and no screen carries anything for it: a screen that no longer reads as it did is a note no longer shown. Reached only through its index, by the services, the composition, `App` (the bubble, put on the page once) and the settings (its screen); its colours are `first-touch-…` in the theme. May be taken out whole | `core`, `ui`, port types |
 | `crossing/` | what crosses devices, over Nostr by PLN-1 (p-lens-relay's `PROTOCOL.md`) — huddles, a book between one's own devices and their plays, a book shared with others, and plays sent to a book's owner (see *What crosses devices*): `core/` (events and their ids, relays' messages, the names keys are derived under, a seal's padding and what binds it, `book/`: changes, states, the graph, merging, the roster and which changes are taken, invitations and mailboxes, what a line carries, and `plays`: a play's copy, its pieces and who holds it, and `sending`: a play as it is sent), `port/` (the keys, the relays, what the device keeps of its lines), `browser/` (keys by WebCrypto and `@noble/curves`, relays by WebSocket, lines in an IndexedDB database of its own), `memory/` (lines in memory, for the tests). Reached only through its index, and never by anything that plays alone: a person with one device starts, follows, records and reads with every relay down (PROTOCOL.md §1.1) | `core`, ports of its own |
-| `other-apps/` | 他アプリ連携: the other apps a book's tallies are taken in from and written out for (設定 → インポート, エクスポート), a folder each — `general/` (汎用形式: a person's own CSV, the single journal, the table of tallies and the zip), `precord/`, `pachibo/`, `maxbet/`, `pachifolio/` — holding all of that app's: its files read and written, by kind and way (`csv-import`, `csv-export`, `pcb-import`, `pcb-export`, `json-import`, `json-export`, as pure as `core`), its `use-cases` (knowing no screen), its `tabs` and `wording`. A change an app makes to its files is a change to its folder alone. Beside them, what they share: `core/` (a tally as another app kept it, a CSV read and written, the names files go by), `application/` (taking a file in, generic over why each app's reading of it does not read, and writing one out), `ui/` (the two screens, which list the apps' tabs in order, and their words). Reached only through its index, by the services, the screen and the activity's words; `tests/boundary.test.ts` holds each app's folder to its layers | `core`, `application`, `ui`, ports |
+| `other-apps/` | 他アプリ連携: the other apps a book's tallies are taken in from and written out for (設定 → インポート, エクスポート), a folder each — `general/` (汎用形式: a person's own CSV, the single journal, the table of tallies and the zip), `precord/`, `pachibo/`, `maxbet/`, `mypachi/`, `manekuru/`, `pachifolio/` — holding all of that app's: its files read and written, by kind and way (`csv-import`, `csv-export`, `pcb-import`, `pcb-export`, `json-import`, `json-export`, as pure as `core`), its `use-cases` (knowing no screen), its `tabs` and `wording`. A change an app makes to its files is a change to its folder alone. Beside them, what they share: `core/` (a tally as another app kept it, a CSV read and written, Shift_JIS written, the names files go by), `application/` (taking a file in, generic over why each app's reading of it does not read, and writing one out), `ui/` (the two screens, which list the apps' tabs in order, and their words). Reached only through its index, by the services, the screen and the activity's words; `tests/boundary.test.ts` holds each app's folder to its layers | `core`, `application`, `ui`, ports |
 | `catalog/` | `port/` (the shared catalog as delivered, and the API it comes from), `delivered/` (the delivered catalog in IndexedDB, with the outbox), `http/` (the API by URL), `absent/` (no catalog) | `core`, contracts |
 | `parlors/` | `port/` (the parlor list and its cache), `jsonl/` (the list by URL), `absent/` (no list), `local/` (the IndexedDB cache) | `core` |
 | `consolidation/` | `port/` (each book's answers kept for the consolidation, keyed by a digest of its journals and the question, and for what stands as of today — savings and その他損益 with an open end — the last day on or before today the book sets a rate on (`lastRateDayOf`), so that it is asked again when a new rate comes into force rather than every day, since everything else counts each posting at its own day's rate and is the same answer whatever day it is asked on), `memory/` (kept in memory), `local/` (kept in IndexedDB, read back only by the build that kept it), `tiered/` (memory in front of IndexedDB), `absent/` (nothing kept: every answer asked of hledger), `web-crypto/` (the digest by the browser's cryptography), `lanes/` (more hledgers beside the one every screen reads on, for a consolidation of many books: one for three books or fewer, two from four, three from twelve and four from twenty, held to the device's cores beside the page's own and to two gigabytes of its memory each — two where it says nothing of it — started the first time wanted and only while the consolidation is on; and a mark kept on the device while it reads on several, taken away as the page is hidden or left, so that a page finding the mark tells once that the last one stopped at work, offers a backup, and reads on one); a personal book never goes through it, and a person with few books, or none consolidated, never has more than the one hledger. A screen is answered at once with what each book was last answered, and the book is read after: one found written since is asked again, and the screen told (`OutdatedNotice`) asks again too. A question about a period reads a view of each book, the files it can count (`core/journal/views`), as one book's own screens do. Books are dealt out among the lanes by their places, each read on the same hledger every time, and asking ahead deals them out alike. Asking ahead goes over the books twice, the periods most looked at first and every day after, each book asked everything of a round before the next, and waits for each book to be read | `core` |
@@ -3221,7 +3221,8 @@ cash it took and what came back.
 
 Plays kept in another app are taken into a book on a press (設定 →
 インポート; `other-apps/`), a tab a source, in this order: a person's own
-CSV (汎用形式), pRecord's CSV, ぱち簿's own file, MAXBET's backup or CSV and
+CSV (汎用形式), pRecord's CSV, ぱち簿's own file, MAXBET's backup or CSV,
+Myパチ収支表's 件別収支表, マネクルSP's CSV and, the least used, always last,
 パチフォリオ's CSV. Each app is a folder of `other-apps/` holding its
 reading, its use cases, its tab and its words; why its reading of a file
 does not read is its own (`ImportError<P>`, `unread`) and worded by it,
@@ -3272,6 +3273,28 @@ beside what any app's taking in fails with (`TakingProblem`).
   or both, is taken in only where the person ticks タグなしの収支も取り込む;
   one tagged 株, FX, 競馬 or 競艇 and neither game is no play's and left
   out, counted. Either file gives a tally the same id.
+- **Myパチ収支表** (`other-apps/mypachi/csv-import`): its 件別収支表 as CSV,
+  read as its bytes, in Shift_JIS as it writes it or in UTF-8 as a person
+  may save it again. Its title comes before the row of column names,
+  which is found by the names a tally needs, and the row saying when it
+  was made, after the tallies, is none. Its day carries its weekday,
+  `2026/11/09(月)`; its sums the yen sign Shift_JIS writes as a backslash,
+  `\+892`; its 稼働 is hours. Its 期待値 is taken in as the tally's
+  theoretical value; its タグ is broken at its spaces, full-width or half,
+  a label each. 収支, 時給 and 画像 are not read, and it says no game.
+- **マネクルSP** (`other-apps/manekuru/csv-import`, `stake`): its CSV, its
+  columns found by name, brackets full-width or half: its import guide's
+  start and finish as an hour and a minute each, or its sample file's
+  start as one cell; only the day is needed, an empty 投資金額 or 回収金額
+  being none. 稼働時間 is in minutes, and where it is empty the start and
+  finish say the hours. Its 期待値 is taken in as the tally's theoretical
+  value unless it is the result itself — the みなし期待値 マネクルSP keeps
+  where none was given — and a tally that keeps one is not weighed. Its
+  投資種類, a person's own word, says the game where it has スロ or パチ in
+  it, and is kept as a label before its タグ (`/` between them); a memo's
+  `<br/>` is a line break. Its start and finish, and its theoretical value,
+  go into a tally's id only where it says them, so that the ids of the
+  apps before it stay as they were.
 - **Not set right in a form**: a form holds neither the two sides nor the
   source's names, so an imported play is refused there as unreadable and is
   set right in the book's own file. It can be taken out.
@@ -3338,7 +3361,7 @@ is not written out here a second time.
   file to the same tallies.
 - **For ぱち簿** (`other-apps/pachibo/csv-export`, `pcb-export`,
   `makeForPachiboCsv`, `makeForPachiboPcb`): its CSV as ぱち簿 writes it — nine columns, oldest
-  first, in Shift_JIS (`other-apps/pachibo/shift-jis`, drawn from the platform's
+  first, in Shift_JIS (`other-apps/core/shift-jis`, drawn from the platform's
   decoder, no library) with LF and no byte order mark — and its own file,
   which ぱち簿 takes in whole in place of what it keeps: every tally with
   its two sides as cash, savings none, its hours, cabinet, memo and the
@@ -3351,6 +3374,23 @@ is not written out here a second time.
   gives; no tags, not even its game's, MAXBET knowing a tag by an id of
   its own that nothing here can know; no parlor, machine or hours, which
   MAXBET keeps none of.
+- **For Myパチ収支表** (`other-apps/mypachi/csv-export`, `makeForMypachi`):
+  its 件別収支表 as it writes it — Myパチ収支表 taking no file in, it is for
+  setting beside one of its own: its title, its twelve columns,
+  newest first, and the row saying when it was made, in the device's own
+  time; in Shift_JIS with CRLF. A day carries its weekday, a sum its yen
+  sign, a result its sign; 稼働 is the play's hours to a tenth, a whole hour
+  without it, and 時給 the result over those hours short of the next yen,
+  both empty where its time is not known; its 期待値 the theoretical value
+  measured or given, or else the one inferred, signed as a result is; its
+  タグ its labels with a full-width space between them; 画像 empty.
+- **For マネクルSP** (`other-apps/manekuru/csv-export`, `makeForManekuru`):
+  the fourteen columns its import guide names, newest first, in UTF-8
+  without a byte order mark and lines ended in LF. Its 期待値 is the
+  theoretical value measured or given, or else the one inferred, in whole
+  yen, and empty where there is neither; its 投資種類 the first label that
+  says the tally's game, or the game's own word, the other labels its
+  タグ; a note's lines broken by `<br/>`.
 - **For パチフォリオ** (`other-apps/pachifolio/csv-export`,
   `makeForPachifolio`): its CSV's ten columns, newest first.
 - **Together** (`makeTogether`): the ticked books' files each — journal, table, plays — in

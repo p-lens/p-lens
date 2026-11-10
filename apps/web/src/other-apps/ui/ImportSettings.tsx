@@ -18,7 +18,9 @@ import { gameSaidOnly, type Imported, type ImportError, type ImportPorts, type P
 import { secondsLeftOf } from "../core/time-left"
 import type { Mapping, Sheet } from "../general/csv-import"
 import { generalImport } from "../general/import-tab"
+import { manekuruImport } from "../manekuru/tabs"
 import { maxbetImport } from "../maxbet/tabs"
+import { mypachiImport } from "../mypachi/tabs"
 import { pachiboImport } from "../pachibo/tabs"
 import { pachifolioImport } from "../pachifolio/tabs"
 import { precordImport } from "../precord/tabs"
@@ -355,6 +357,8 @@ export function ImportSettings(props: { readonly place: Place }): JSX.Element {
     tabOf(precordImport(ports), begin, stop),
     tabOf(pachiboImport(ports), begin, stop),
     tabOf(maxbetImport(ports), begin, stop),
+    tabOf(mypachiImport(ports), begin, stop),
+    tabOf(manekuruImport(ports), begin, stop),
     tabOf(pachifolioImport(ports), begin, stop),
   ]
   const [shown, setShown] = createSignal<string>(tabs[0]?.from ?? "")

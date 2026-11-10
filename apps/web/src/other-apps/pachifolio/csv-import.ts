@@ -58,6 +58,8 @@ const tallyOf = (cell: (column: Column) => string): Result<SourceTally, readonly
     takings,
     memo: cell("memo").trim(),
     hours: undefined,
+    clock: undefined,
+    theoreticalValue: undefined,
     gameKind: gameKind.value,
     countedSpins: spins.value,
     countedJackpots: jackpots.value,

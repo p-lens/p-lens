@@ -142,7 +142,7 @@ export type Named = ReadonlyMap<string, string>
 const machineFor = (catalogue: Catalogue, named: Named, source: Pick<SourceTally, "machine" | "gameKind">): MachineSummary | undefined =>
   ((chosen) => (chosen === undefined ? (source.gameKind === undefined ? catalogue.byKey : catalogue.byGame[source.gameKind]).get(machineKeyOf(source.machine.name)) : catalogue.machines.find((machine) => machine.id === chosen)))(named.get(source.machine.name))
 
-/** A tally that can be weighed: a pachinko tally of a machine the catalog has, whose hours the source said, that took cash. */
+/** A tally that can be weighed: a pachinko tally of a machine the catalog has, whose hours the source said and whose theoretical value it did not, that took cash. */
 interface Candidate {
   readonly tally: ImportedTally
   readonly machineId: string
@@ -150,7 +150,7 @@ interface Candidate {
 }
 
 const candidateOf = (tally: ImportedTally, machineId: string | undefined): readonly Candidate[] => {
-  if (tally.machine?.gameKind !== "pachinko" || machineId === undefined || tally.source.hours === undefined) return []
+  if (tally.machine?.gameKind !== "pachinko" || machineId === undefined || tally.source.hours === undefined || tally.source.theoreticalValue !== undefined) return []
   const told = { hours: Number(toPlainString(tally.source.hours)), outlay: Number(toPlainString(tally.source.outlay)), takings: Number(toPlainString(tally.source.takings)), jackpots: undefined }
   return takesCash(told) ? [{ tally, machineId, told }] : []
 }
