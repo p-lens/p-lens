@@ -3007,7 +3007,7 @@ played them (集計).
   averages. What is only added up is listed a line to each, as a trial
   balance is, under three heads — 稼働 (台数, 日数, 時間), 収支 (通算投資
   with うち貸玉差額 and うち再プレイ手数料, 通算回収, 通算収支, 通算期待値)
-  and 現金と景品 (現金投資, 持ち玉投資 — what tallies drew from savings, tokens in hand only as far as a play lost them — and 景品等合計 with its special
+  and 現金と景品 (現金投資, 貯玉投資 — what tallies drew from savings, by a replay or as far as a play lost the tokens it was begun with in hand — and 景品等合計 with its special
   prizes, odd prizes and 換算調整勘定 beneath) — side by side on a wide
   screen; what is worked out from it stands in tiles below. Every figure
   is in whole yen, never in 万 or 億, and a total's parts are rounded by
