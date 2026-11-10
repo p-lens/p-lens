@@ -355,11 +355,18 @@ rate for the day differs.
   On screen they are the tokens in hand (持ち玉, 持ちメダル): the book puts
   them into savings whether or not they went to the counter.
 - **Carried in** (`carriedIn`, 開始時の持ち玉) is the tokens a play was begun
-  with in hand, brought from the play before. That play put them into
-  savings as what it left, so this one takes them out again and spends
-  them — `資産:貯玉 -1500`, `費用:遊技 1500` — with no fee, and the two plays
-  together come to what the day did. The postings read as a replay's, so
-  the entry's `carried-in` tag says how many they were. In a play's log
+  with in hand, brought from the play before, which put them into savings
+  as what it left. This play is written as what its hand gained or lost
+  against them, the tokens left set against those carried in: more left
+  is earned and goes into savings — begun with 1,500 and left with 2,000,
+  `資産:貯玉 500`, `収益:遊技 -500` — and fewer is spent out of savings with
+  no fee. So tokens carried from machine to machine are counted once, by
+  the play that won them, and the day's 投資 and 回収 are what it did, not
+  its hand counted again at each machine; the result is the same either
+  way. What the hand gained or lost reads as a replay's, so the entry says
+  both counts in its tags, `carried-in` and `carried-out`, and is read
+  back by them. Entries written before (the hand taken out whole and the
+  tokens left put back whole) are not read back as a form's. In a play's log
   they are what its first line counts in hand (`carriedInOf`), never a
   replay: the engine weighs them as the player's own balls.
 
@@ -3000,7 +3007,7 @@ played them (集計).
   averages. What is only added up is listed a line to each, as a trial
   balance is, under three heads — 稼働 (台数, 日数, 時間), 収支 (通算投資
   with うち貸玉差額 and うち再プレイ手数料, 通算回収, 通算収支, 通算期待値)
-  and 現金と景品 (現金投資, 持ち玉投資 — what tallies drew from savings, which tokens in hand pass through as 貯玉 do — and 景品等合計 with its special
+  and 現金と景品 (現金投資, 持ち玉投資 — what tallies drew from savings, tokens in hand only as far as a play lost them — and 景品等合計 with its special
   prizes, odd prizes and 換算調整勘定 beneath) — side by side on a wide
   screen; what is worked out from it stands in tiles below. Every figure
   is in whole yen, never in 万 or 億, and a total's parts are rounded by

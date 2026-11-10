@@ -73,27 +73,31 @@ const replayPostings = (replay: Replay, holding: Holding): readonly Posting[] =>
 }
 
 /**
- * Tokens in hand as the play began, brought from the play before: out of
- * savings, where that play put them, and spent, with no fee — they never
- * went to the counter.
- */
-const carriedPostings = (carriedIn: Decimal, holding: Holding): readonly Posting[] =>
-  unlessZero(carriedIn, [real(holding.account, negate(carriedIn), holding.commodity), real(ACCOUNTS.playExpense, carriedIn, holding.commodity)])
-
-/**
  * Tokens handed between players: those handed in come from equity and are
- * played, as tokens carried in are from savings; those handed away were
- * won by the play before they left it, and go to equity. The play's result
- * is untouched either way, and savings get what was left as it is.
+ * played; those handed away were won by the play before they left it, and
+ * go to equity. The play's result is untouched either way, and savings get
+ * what was left as it is.
  */
 const handedPostings = (handed: Decimal, holding: Holding): readonly Posting[] =>
   isNegative(handed)
     ? [real(handedAccount(holding.kind), negate(handed), holding.commodity), real(ACCOUNTS.playRevenue, handed, holding.commodity)]
     : unlessZero(handed, [real(handedAccount(holding.kind), negate(handed), holding.commodity), real(ACCOUNTS.playExpense, handed, holding.commodity)])
 
-/** Tokens left at the finish, earned by the play and put into savings. */
-const payoutPostings = (payout: Decimal, holding: Holding): readonly Posting[] =>
-  unlessZero(payout, [real(holding.account, payout, holding.commodity), real(ACCOUNTS.playRevenue, negate(payout), holding.commodity)])
+/**
+ * What the hand came to over the play: the tokens left at the finish less
+ * those carried in, brought from the play before. More left than carried
+ * in were earned and go into savings; fewer were spent out of savings,
+ * where the play before put them, with no fee — they never went to the
+ * counter. Only what the hand gained or lost is written, so the tokens
+ * carried in are counted once, by the play that won them, and two plays
+ * of a day come to what the day did on each side as well as in its result.
+ */
+const handPostings = (carriedIn: Decimal, payout: Decimal, holding: Holding): readonly Posting[] => {
+  const gained = subtract(payout, carriedIn)
+  return isNegative(gained)
+    ? [real(holding.account, gained, holding.commodity), real(ACCOUNTS.playExpense, negate(gained), holding.commodity)]
+    : unlessZero(gained, [real(holding.account, gained, holding.commodity), real(ACCOUNTS.playRevenue, negate(gained), holding.commodity)])
+}
 
 /**
  * The exchange rate a rental is split at, if the tally rents anything.
@@ -120,8 +124,19 @@ const cabinetOf = (tally: TallyHead): string => [tally.machine.trim(), tally.cab
 /** A tally's description: the parlor as the payee, the machine and its cabinet as the note. */
 const describe = (tally: TallyHead, parlor: Parlor | undefined): string => describedBy(parlor?.name, cabinetOf(tally))
 
-/** What an entry says of the tokens carried in, where there were any: its postings alone read as a replay's, so the count is said beside them. */
-const carriedTags = (tally: TokenTally): Entry["tags"] => (isZero(tally.carriedIn) ? [] : [[TALLY_TAGS.carriedIn, toPlainString(tally.carriedIn)]])
+/**
+ * What an entry says of its hand where tokens were carried in: how many
+ * were, and how many were left at the finish. Its postings say only what
+ * the hand gained or lost, which a replay's could be taken for, so both
+ * counts are said beside them.
+ */
+const carriedTags = (tally: TokenTally): Entry["tags"] =>
+  isZero(tally.carriedIn)
+    ? []
+    : [
+        [TALLY_TAGS.carriedIn, toPlainString(tally.carriedIn)],
+        [TALLY_TAGS.carriedOut, toPlainString(tally.payout)],
+      ]
 
 const tagsOf = (tally: TallyHead, parlor: Parlor | undefined): Entry["tags"] => [
   [TALLY_TAGS.playId, tally.id],
@@ -147,9 +162,8 @@ const postingsOf = (tally: TokenTally, rate: Decimal | undefined): readonly Post
   return [
     ...(tally.rental === undefined || rate === undefined ? [] : rentalPostings(tally.rental, rate, holding)),
     ...replayPostings(tally.replay, holding),
-    ...carriedPostings(tally.carriedIn, holding),
     ...handedPostings(tally.handed, holding),
-    ...payoutPostings(tally.payout, holding),
+    ...handPostings(tally.carriedIn, tally.payout, holding),
     ...statisticPostings(tally),
   ]
 }

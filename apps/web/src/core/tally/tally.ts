@@ -104,9 +104,9 @@ export interface PlayClock {
  * a separate act, not part of a play.
  *
  * Tokens carried in are those in hand as the play began, brought from the
- * play before: that play put them into savings as what it left, so this one
- * takes them out again, with no fee — they never went to the counter — and
- * what the two plays come to together is what the day did.
+ * play before, which put them into savings as what it left: this one is
+ * written as what its hand gained or lost against them, so they are counted
+ * once, and what the two plays come to together is what the day did.
  *
  * Tokens handed are those other players handed in, below none where more
  * were handed to them: neither won nor lost by the play, so they come in
@@ -213,6 +213,7 @@ export const TALLY_TAGS = {
   finished: "finished",
   spinPerformance: "spin-performance",
   carriedIn: "carried-in",
+  carriedOut: "carried-out",
   hours: "hours",
   netSpins: "net-spins",
   netJackpots: "net-jackpots",

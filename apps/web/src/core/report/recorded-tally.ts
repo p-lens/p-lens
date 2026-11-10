@@ -114,9 +114,11 @@ const yenTallyOf = (head: TallyHead, real: readonly Posted[], parlor: Parlor | "
  * A tally in tokens, worked back from what its entry moved. Savings lose
  * what a replay took and gain what was left, so a replay took what was left
  * less what savings came to hold more; it paid out that less its fee, and
- * the tokens rented are the rest of what was spent — each but for the
- * tokens carried in, which the entry's tag counts, since they leave savings
- * and are spent as a replay's do. Tokens handed between players are what
+ * the tokens rented are the rest of what was spent. Where tokens were
+ * carried in, the entry moves only what the hand gained or lost, which a
+ * replay's could be taken for, so the tokens carried in and those left are
+ * read from its tags, and what it moved must be their difference; the
+ * tokens it lost are spent beside the rest. Tokens handed between players are what
  * their account was set against, turned over: those handed in were spent,
  * and those handed away were won, beside what the play did. The pool is
  * the one of the parlor's whose tokens the entry is in: a tally of cash
@@ -127,7 +129,7 @@ const yenTallyOf = (head: TallyHead, real: readonly Posted[], parlor: Parlor | "
  * and is read as what it was recorded from. An entry these do not add up
  * for was not written by a form, and is not read as one.
  */
-const tokenTallyOf = (head: TallyHead, real: readonly Posted[], commodity: string, parlor: Parlor, carriedIn: Decimal): RecordedTally | undefined => {
+const tokenTallyOf = (head: TallyHead, real: readonly Posted[], commodity: string, parlor: Parlor, hand: Hand): RecordedTally | undefined => {
   const pool = parlor.pools.find((kept) => tokenCommodity(kept.kind, parlor.name, kept.tier) === commodity)
   if (pool === undefined || tokenKindOf(head.gameKind) !== pool.kind) return undefined
   const account = savingsAccount(pool.kind, parlor.name, pool.tier)
@@ -145,21 +147,39 @@ const tokenTallyOf = (head: TallyHead, real: readonly Posted[], commodity: strin
   const outlay = negate(at(real, ACCOUNTS.cash))
   const handed = negate(at(real, handedAccount(pool.kind)))
   const handedIn = isNegative(handed) ? ZERO : handed
-  const payout = subtract(negate(at(real, ACCOUNTS.playRevenue)), subtract(handedIn, handed))
-  const passedThrough = subtract(sum(moved.filter((quantity) => !isNegative(quantity))), payout)
+  const earned = subtract(negate(at(real, ACCOUNTS.playRevenue)), subtract(handedIn, handed))
+  const { carriedIn } = hand
+  const payout = hand.carriedOut ?? earned
+  const gained = subtract(payout, carriedIn)
+  const lost = isNegative(gained) ? negate(gained) : ZERO
+  const passedThrough = subtract(sum(moved.filter((quantity) => !isNegative(quantity))), earned)
   const deducted = subtract(subtract(payout, sum(moved)), carriedIn)
   const paidOut = subtract(deducted, at(real, ACCOUNTS.replayFee))
-  const tokens = subtract(subtract(subtract(at(real, ACCOUNTS.playExpense), handedIn), paidOut), carriedIn)
-  const adds = [outlay, payout, tokens, paidOut, carriedIn, subtract(deducted, paidOut)].every((count) => !isNegative(count)) && (isZero(passedThrough) || same(passedThrough, tokens)) && isZero(outlay) === isZero(tokens)
+  const tokens = subtract(subtract(subtract(at(real, ACCOUNTS.playExpense), handedIn), paidOut), lost)
+  const adds = [outlay, payout, tokens, paidOut, carriedIn, subtract(deducted, paidOut)].every((count) => !isNegative(count)) && same(earned, subtract(payout, isZero(carriedIn) ? ZERO : subtract(carriedIn, lost))) && (isZero(passedThrough) || same(passedThrough, tokens)) && isZero(outlay) === isZero(tokens)
   return adds ? { type: "token", tally: { ...head, parlor, pool: { kind: pool.kind, tier: pool.tier }, rental: isZero(tokens) ? undefined : { outlay, tokens }, replay: { paidOut, deducted }, carriedIn, handed, payout } } : undefined
 }
 
-/** The tokens an entry's tag says were carried in: none where it has no such tag, undefined where the tag does not read as a count. */
-const carriedInOf = (transaction: Transaction): Decimal | undefined => {
-  const said = transaction.ttags.find(([name]) => name === TALLY_TAGS.carriedIn)?.[1]
-  if (said === undefined) return ZERO
+/** What an entry's tags say of its hand: the tokens carried in, none where it says none, and those left at the finish, which it says where any were carried in. */
+interface Hand {
+  readonly carriedIn: Decimal
+  readonly carriedOut: Decimal | undefined
+}
+
+/** A count an entry's tag says: none where it has no such tag, undefined where the tag does not read as one. */
+const countTagged = (transaction: Transaction, name: string): Decimal | "unsaid" | undefined => {
+  const said = transaction.ttags.find(([each]) => each === name)?.[1]
+  if (said === undefined) return "unsaid"
   const read = parseDecimal(said.trim())
   return read.ok ? read.value : undefined
+}
+
+/** An entry's hand as its tags say it, or undefined where they do not read: tokens carried in with none said left at the finish, or left with none carried in. */
+const handOf = (transaction: Transaction): Hand | undefined => {
+  const [carriedIn, carriedOut] = [countTagged(transaction, TALLY_TAGS.carriedIn), countTagged(transaction, TALLY_TAGS.carriedOut)]
+  if (carriedIn === undefined || carriedOut === undefined) return undefined
+  if (carriedIn === "unsaid" || isZero(carriedIn)) return carriedOut === "unsaid" ? { carriedIn: ZERO, carriedOut: undefined } : undefined
+  return carriedOut === "unsaid" ? undefined : { carriedIn, carriedOut }
 }
 
 const isSaid = (text: string): boolean => text !== ""
@@ -180,6 +200,7 @@ const TAG_READS: Readonly<Record<string, (text: string) => boolean>> = {
   [TALLY_TAGS.finished]: isTime,
   [TALLY_TAGS.spinPerformance]: isAmount,
   [TALLY_TAGS.carriedIn]: isAmount,
+  [TALLY_TAGS.carriedOut]: isAmount,
   [TALLY_TAGS.hours]: isAmount,
   [TALLY_TAGS.netSpins]: isCount,
   [TALLY_TAGS.netJackpots]: isCount,
@@ -234,6 +255,6 @@ export const recordedTallyOf = (transaction: Transaction, parlors: readonly Parl
   const real = postedIn(transaction.tpostings.filter((posting) => posting.preal === "RealPosting"))
   const [commodity, ...others] = [...new Set(real.map((each) => each.commodity).filter((each) => each !== YEN))]
   if (commodity === undefined) return yenTallyOf(head, real, parlor, toldOf(transaction, summary.inferredValue))
-  const carriedIn = carriedInOf(transaction)
-  return others.length > 0 || parlor === "none" || carriedIn === undefined ? undefined : tokenTallyOf(head, real, commodity, parlor, carriedIn)
+  const hand = handOf(transaction)
+  return others.length > 0 || parlor === "none" || hand === undefined ? undefined : tokenTallyOf(head, real, commodity, parlor, hand)
 }

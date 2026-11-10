@@ -49,23 +49,32 @@ describe("composeTokenTallyEntry", () => {
     ])
   })
 
-  test("tokens carried in leave savings and are spent with no fee, and the entry says how many", () => {
+  test("tokens carried in are set against those left, the hand's gain or loss alone moving savings, and the entry says both counts", () => {
     const carried = { ...RENTED_PLAY, rental: undefined, replay: { paidOut: dec("1000"), deducted: dec("1100") }, carriedIn: dec("1500"), payout: dec("2000"), theoreticalValue: undefined }
     const entry = composeTokenTallyEntry(carried, PRICES)
     expect(entry.ok && entry.value.postings.map((posting) => [posting.account, posting.kind === "balancing" ? undefined : posting.amount.quantity])).toEqual([
       ["資産:貯玉:マレハン東京皇国第8支店:4円", dec("-1100")],
       ["費用:遊技", dec("1000")],
       ["費用:再プレイ手数料", dec("100")],
-      ["資産:貯玉:マレハン東京皇国第8支店:4円", dec("-1500")],
-      ["費用:遊技", dec("1500")],
-      ["資産:貯玉:マレハン東京皇国第8支店:4円", dec("2000")],
-      ["収益:遊技", dec("-2000")],
+      ["資産:貯玉:マレハン東京皇国第8支店:4円", dec("500")],
+      ["収益:遊技", dec("-500")],
     ])
-    expect(entry.ok && entry.value.tags.at(-1)).toEqual(["carried-in", "1500"])
-    expect(mapOk(composeTokenTallyEntry(RENTED_PLAY, PRICES), (written) => written.tags.some(([name]) => name === "carried-in"))).toEqual({ ok: true, value: false })
+    expect(entry.ok && entry.value.tags.slice(-2)).toEqual([
+      ["carried-in", "1500"],
+      ["carried-out", "2000"],
+    ])
+    const lost = composeTokenTallyEntry({ ...carried, payout: dec("400") }, PRICES)
+    expect(lost.ok && lost.value.postings.slice(-2).map((posting) => [posting.account, posting.kind === "balancing" ? undefined : posting.amount.quantity])).toEqual([
+      ["資産:貯玉:マレハン東京皇国第8支店:4円", dec("-1100")],
+      ["費用:遊技", dec("1100")],
+    ])
+    const even = composeTokenTallyEntry({ ...carried, payout: dec("1500") }, PRICES)
+    expect(even.ok && even.value.postings.map((posting) => posting.account)).toEqual(["資産:貯玉:マレハン東京皇国第8支店:4円", "費用:遊技", "費用:再プレイ手数料"])
+    expect(mapOk(composeTokenTallyEntry(RENTED_PLAY, PRICES), (written) => written.tags.some(([name]) => name === "carried-in" || name === "carried-out"))).toEqual({ ok: true, value: false })
     expect(composeTokenTallyEntry({ ...carried, replay: { paidOut: dec("0"), deducted: dec("0") }, payout: dec("0") }, PRICES).ok).toBe(true)
     expect(composeTokenTallyEntry({ ...carried, carriedIn: dec("-1") }, PRICES)).toEqual({ ok: false, error: { type: "negative-amount", field: "carried-in" } })
   })
+
 
   test("tokens handed in by other players come from equity and are spent, those handed away were won and go to it, savings getting what was left", () => {
     const played = { ...RENTED_PLAY, payout: dec("2500"), theoreticalValue: undefined }

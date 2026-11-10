@@ -234,6 +234,18 @@ describe("a recorded tally, read back from its entry", () => {
     expect(await recordedOf(session, "carried-only")).toEqual({ ok: true, value: { type: "token", tally: carriedOnly } })
   })
 
+  test("is the tally it was written from where the hand came to less than it was begun with, a replay beside it or not, or to as much, each told apart by its tags", async () => {
+    const { session } = await setUp()
+    const tallies: readonly TokenTally[] = [
+      { ...FULL, id: "fewer-replayed" as PlayId, rental: undefined, replay: { paidOut: dec("500"), deducted: dec("500") }, carriedIn: dec("1000"), payout: dec("1000") },
+      { ...FULL, id: "fewer-alone" as PlayId, rental: undefined, replay: { paidOut: dec("0"), deducted: dec("0") }, carriedIn: dec("1000"), payout: dec("500") },
+      { ...FULL, id: "fewer-both" as PlayId, carriedIn: dec("3000"), payout: dec("1200") },
+      { ...FULL, id: "fewer-handed" as PlayId, carriedIn: dec("3000"), payout: dec("1200"), handed: dec("-300") },
+    ]
+    for (const tally of tallies) expect((await recordTokenTally(session, BOOK, tally)).ok).toBe(true)
+    for (const tally of tallies) expect(await recordedOf(session, tally.id)).toEqual({ ok: true, value: { type: "token", tally } })
+  })
+
   test("is the tally it was written from where tokens were handed between players either way, its result the play's alone", async () => {
     const { session } = await setUp()
     const received: TokenTally = { ...FULL, id: "received" as PlayId, handed: dec("500") }
