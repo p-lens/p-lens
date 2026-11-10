@@ -4,6 +4,7 @@ import { createMemo, createResource, createSignal, Match, Show, Switch, type JSX
 import type { ApplicationError } from "../../../../application/errors"
 import { startPlay } from "../../../../application/live-play"
 import { recordUse } from "../../../../application/catalog"
+import { rememberPlayed } from "../../../../application/recently-played"
 import { loadMachine, playSnapshotOf } from "../../../../application/pachinko/formulas"
 import { reliefDriveOf } from "../../../../application/pachinko/hyena-hunt"
 import { borderOf } from "../../../../core/pachinko/theoretical-value"
@@ -536,6 +537,8 @@ export function Start(props: {
     }
     if (kept !== undefined) app.services.preferences.setTokensInHand(undefined)
     if (formula !== undefined) await recordUse(app.services.catalog, { type: "formula", id: formula.id })
+    const played = chosenMachine()
+    if (played !== undefined) await rememberPlayed(app.services.session, app.services.member, "pachinko", played.machineId)
     start.update({ cabinetNumber: "", startCounter: "", carriedIn: undefined, pachinko: { ...EMPTY_PACHINKO_START, remakeFrom: start.form().pachinko.remakeFrom } })
     app.played()
     moves.replace({ kind: "live-play", playId: draft.id })

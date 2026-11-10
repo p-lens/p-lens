@@ -7,7 +7,7 @@ import { exchangedIn, motionOf, placedAs, rowsOf, standAs } from "../../src/ui/f
 const ME = "me" as MemberId
 const OTHER = "other" as MemberId
 
-const book = (id: string, owner: MemberId): ListedBook => ({ id: id as BookId, members: [{ id: owner, displayName: "owner", role: "owner" }], title: id, order: undefined, businessDayTurn: undefined, presses: {} })
+const book = (id: string, owner: MemberId): ListedBook => ({ id: id as BookId, members: [{ id: owner, displayName: "owner", role: "owner" }], title: id, order: undefined, businessDayTurn: undefined, presses: {}, recentlyPlayed: {} })
 
 const standing = (listed: ListedBook): BookStanding => ({ book: listed, standing: { type: "never" } as never, unreadable: [] })
 

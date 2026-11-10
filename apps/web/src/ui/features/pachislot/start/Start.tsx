@@ -3,6 +3,7 @@ import { createMemo, createResource, createSignal, Show, type JSX } from "solid-
 import type { ApplicationError } from "../../../../application/errors"
 import { startPlay } from "../../../../application/live-play"
 import { recordUse } from "../../../../application/catalog"
+import { rememberPlayed } from "../../../../application/recently-played"
 import { shownNameOf } from "../../../../core/catalog/catalog"
 import type { PlayDraft, PlayVenue } from "../../../../core/live-play/draft"
 import { nearestFirst } from "../../../../core/parlor/distance"
@@ -336,6 +337,8 @@ export function Start(props: {
     }
     if (kept !== undefined) app.services.preferences.setTokensInHand(undefined)
     if (weighing !== undefined) await recordUses(weighing)
+    const played = chosenMachine()
+    if (played !== undefined) await rememberPlayed(app.services.session, app.services.member, "pachislot", played.machineId)
     start.update({ cabinetNumber: "", startCounter: "", carriedIn: undefined, pachislot: EMPTY_PACHISLOT_START })
     app.played()
     moves.replace({ kind: "live-play", playId: draft.id })

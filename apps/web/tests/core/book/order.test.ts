@@ -1,10 +1,13 @@
 import { describe, expect, test } from "bun:test"
 
 import type { BookId } from "../../../src/core/book/book"
+import type { MachineId } from "../../../src/core/machine/machine"
 import { inOrder, swappedWithNext, type Placed } from "../../../src/core/book/order"
-import { BOOK_SETTINGS_FILE, bookSettingsOf, withBusinessDayTurn, withInferenceTerms, withOrder, withPresses } from "../../../src/core/book/settings"
+import { BOOK_SETTINGS_FILE, bookSettingsOf, withBusinessDayTurn, withInferenceTerms, withOrder, withPresses, withRecentlyPlayed } from "../../../src/core/book/settings"
 
 const book = (id: string, order?: number): Placed => ({ id: id as BookId, order })
+
+const machineIds = (...given: readonly string[]): readonly MachineId[] => given as MachineId[]
 
 const ids = (books: readonly Placed[]): readonly string[] => books.map((each) => each.id)
 
@@ -63,13 +66,13 @@ describe("a book's settings", () => {
 
   test("are a file of the book's, read for the place it was given", () => {
     expect(BOOK_SETTINGS_FILE).toBe("settings.json")
-    expect(bookSettingsOf('{\n  "order": 3\n}\n')).toEqual({ ok: true, value: { order: 3, businessDayTurn: undefined, presses: {}, inferenceTerms: {} } })
+    expect(bookSettingsOf('{\n  "order": 3\n}\n')).toEqual({ ok: true, value: { order: 3, businessDayTurn: undefined, presses: {}, inferenceTerms: {}, recentlyPlayed: {} } })
   })
 
   test("say nothing where there is no file or it is empty, and read two run together as the later says", () => {
-    expect(bookSettingsOf(undefined)).toEqual({ ok: true, value: { order: undefined, businessDayTurn: undefined, presses: {}, inferenceTerms: {} } })
-    expect(bookSettingsOf("")).toEqual({ ok: true, value: { order: undefined, businessDayTurn: undefined, presses: {}, inferenceTerms: {} } })
-    expect(bookSettingsOf('{\n  "order": 1\n}\n{\n  "order": 2,\n  "businessDayTurn": 6\n}\n')).toEqual({ ok: true, value: { order: 2, businessDayTurn: 6, presses: {}, inferenceTerms: {} } })
+    expect(bookSettingsOf(undefined)).toEqual({ ok: true, value: { order: undefined, businessDayTurn: undefined, presses: {}, inferenceTerms: {}, recentlyPlayed: {} } })
+    expect(bookSettingsOf("")).toEqual({ ok: true, value: { order: undefined, businessDayTurn: undefined, presses: {}, inferenceTerms: {}, recentlyPlayed: {} } })
+    expect(bookSettingsOf('{\n  "order": 1\n}\n{\n  "order": 2,\n  "businessDayTurn": 6\n}\n')).toEqual({ ok: true, value: { order: 2, businessDayTurn: 6, presses: {}, inferenceTerms: {}, recentlyPlayed: {} } })
   })
 
   test("do not read where the file is no object, or a field it has does not read as this app writes it", () => {
@@ -86,7 +89,7 @@ describe("a book's settings", () => {
     const first = withPresses('{"order":3}', "4円パチ", { rental: 500, draw: 125 })
     expect(first).toEqual({ ok: true, value: '{\n  "order": 3,\n  "presses": {\n    "4円パチ": {\n      "rental": 500,\n      "draw": 125\n    }\n  }\n}\n' })
     const second = first.ok ? withPresses(first.value, "20円スロ", { rental: 1000 }) : first
-    expect(second.ok && bookSettingsOf(second.value)).toEqual({ ok: true, value: { order: 3, businessDayTurn: undefined, presses: { "4円パチ": { rental: 500, draw: 125 }, "20円スロ": { rental: 1000 } }, inferenceTerms: {} } })
+    expect(second.ok && bookSettingsOf(second.value)).toEqual({ ok: true, value: { order: 3, businessDayTurn: undefined, presses: { "4円パチ": { rental: 500, draw: 125 }, "20円スロ": { rental: 1000 } }, inferenceTerms: {}, recentlyPlayed: {} } })
     expect(bookSettingsOf('{"presses":{"4円パチ":{"rental":0}}}')).toEqual(unreadable)
     expect(bookSettingsOf('{"presses":{"4円パチ":{"rental":"500"}}}')).toEqual(unreadable)
     expect(withPresses("{{", "4円パチ", { rental: 500 })).toEqual(unreadable)
@@ -96,13 +99,24 @@ describe("a book's settings", () => {
     })
   })
 
+  test("keep the machines each game was lately played on, one game written without touching the other", () => {
+    const first = withRecentlyPlayed('{"order":3}', "pachinko", ["m2", "m1"] as MachineId[])
+    expect(first).toEqual({ ok: true, value: '{\n  "order": 3,\n  "recentlyPlayed": {\n    "pachinko": [\n      "m2",\n      "m1"\n    ]\n  }\n}\n' })
+    const second = first.ok ? withRecentlyPlayed(first.value, "pachislot", ["s1"] as MachineId[]) : first
+    expect(second.ok && bookSettingsOf(second.value)).toEqual({ ok: true, value: { order: 3, businessDayTurn: undefined, presses: {}, inferenceTerms: {}, recentlyPlayed: { pachinko: machineIds("m2", "m1"), pachislot: machineIds("s1") } } })
+    expect(bookSettingsOf('{"recentlyPlayed":{"mahjong":["x"]}}')).toEqual({ ok: true, value: { order: undefined, businessDayTurn: undefined, presses: {}, inferenceTerms: {}, recentlyPlayed: {} } })
+    expect(bookSettingsOf('{"recentlyPlayed":{"pachinko":"m1"}}')).toEqual(unreadable)
+    expect(bookSettingsOf('{"recentlyPlayed":{"pachinko":["m1",""]}}')).toEqual(unreadable)
+    expect(withRecentlyPlayed('{"recentlyPlayed":[]}', "pachinko", [])).toEqual(unreadable)
+  })
+
   test("keep the terms a tally typed in by hand was weighed on, one for each game, one game written without touching the other", () => {
     const first = withInferenceTerms('{"order":3}', "pachinko", { rentedPerThousand: 240, exchangedPerHundred: 27.5 })
     expect(first).toEqual({ ok: true, value: '{\n  "order": 3,\n  "inferenceTerms": {\n    "pachinko": {\n      "rentedPerThousand": 240,\n      "exchangedPerHundred": 27.5\n    }\n  }\n}\n' })
     const second = first.ok ? withInferenceTerms(first.value, "pachislot", { rentedPerThousand: 47, exchangedPerHundred: 5.6 }) : first
     const third = second.ok ? withInferenceTerms(second.value, "pachinko", { rentedPerThousand: 250, exchangedPerHundred: 28 }) : second
-    expect(third.ok && bookSettingsOf(third.value)).toEqual({ ok: true, value: { order: 3, businessDayTurn: undefined, presses: {}, inferenceTerms: { pachinko: { rentedPerThousand: 250, exchangedPerHundred: 28 }, pachislot: { rentedPerThousand: 47, exchangedPerHundred: 5.6 } } } })
-    expect(bookSettingsOf('{"inferenceTerms":{"mahjong":{"rentedPerThousand":1}}}')).toEqual({ ok: true, value: { order: undefined, businessDayTurn: undefined, presses: {}, inferenceTerms: {} } })
+    expect(third.ok && bookSettingsOf(third.value)).toEqual({ ok: true, value: { order: 3, businessDayTurn: undefined, presses: {}, inferenceTerms: { pachinko: { rentedPerThousand: 250, exchangedPerHundred: 28 }, pachislot: { rentedPerThousand: 47, exchangedPerHundred: 5.6 } }, recentlyPlayed: {} } })
+    expect(bookSettingsOf('{"inferenceTerms":{"mahjong":{"rentedPerThousand":1}}}')).toEqual({ ok: true, value: { order: undefined, businessDayTurn: undefined, presses: {}, inferenceTerms: {}, recentlyPlayed: {} } })
     expect(withInferenceTerms('{"inferenceTerms":{"mahjong":1}}', "pachislot", { rentedPerThousand: 46, exchangedPerHundred: 5.1 })).toEqual({ ok: true, value: '{\n  "inferenceTerms": {\n    "mahjong": 1,\n    "pachislot": {\n      "rentedPerThousand": 46,\n      "exchangedPerHundred": 5.1\n    }\n  }\n}\n' })
     expect(bookSettingsOf('{"inferenceTerms":{"pachinko":{"rentedPerThousand":0,"exchangedPerHundred":28}}}')).toEqual(unreadable)
     expect(bookSettingsOf('{"inferenceTerms":{"pachinko":{"rentedPerThousand":250.5,"exchangedPerHundred":28}}}')).toEqual(unreadable)
@@ -113,8 +127,8 @@ describe("a book's settings", () => {
   })
 
   test("say the hour a business day turns over at where one that can be is written, beside the place", () => {
-    expect(bookSettingsOf('{"order":3,"businessDayTurn":7}')).toEqual({ ok: true, value: { order: 3, businessDayTurn: 7, presses: {}, inferenceTerms: {} } })
-    expect(bookSettingsOf('{"businessDayTurn":0}')).toEqual({ ok: true, value: { order: undefined, businessDayTurn: 0, presses: {}, inferenceTerms: {} } })
+    expect(bookSettingsOf('{"order":3,"businessDayTurn":7}')).toEqual({ ok: true, value: { order: 3, businessDayTurn: 7, presses: {}, inferenceTerms: {}, recentlyPlayed: {} } })
+    expect(bookSettingsOf('{"businessDayTurn":0}')).toEqual({ ok: true, value: { order: undefined, businessDayTurn: 0, presses: {}, inferenceTerms: {}, recentlyPlayed: {} } })
     expect(withBusinessDayTurn('{"order":3}', 7)).toEqual({ ok: true, value: '{\n  "order": 3,\n  "businessDayTurn": 7\n}\n' })
     expect(withOrder('{"order":3,"businessDayTurn":7}', 1)).toEqual({ ok: true, value: '{\n  "order": 1,\n  "businessDayTurn": 7\n}\n' })
   })

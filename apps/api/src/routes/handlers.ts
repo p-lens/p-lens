@@ -185,7 +185,6 @@ const preparedFor = (context: Context, gameKind: GameKindDto, body: Body): Resul
   return prepared.ok ? Ok({ gameKind, formula: prepared.value }) : prepared
 }
 
-/** A machine with its first formula, both or neither, in the game it says it is. A machine is registered with its model name, and a pachinko machine with its 大当り確率: an administrator may still describe one without. */
 /** How a machine is described, read from a body: its name, and its model name, 大当り確率 and keywords where given. */
 export const descriptionOf = (body: Body): Result<MachineDescription, ApiError> =>
   all({
@@ -195,6 +194,7 @@ export const descriptionOf = (body: Body): Result<MachineDescription, ApiError> 
     hitChance: optionalHitChance(body, "hitChance"),
   })
 
+/** A machine with its first formula, both or neither, in the game it says it is. A machine is registered with its model name, and a pachinko machine with its 大当り確率: an administrator may still describe one without. */
 const postMachine = registering("machine", async (context, user, body) => {
   const fields = all({
     gameKind: oneOf(body, "gameKind", GAME_KINDS),

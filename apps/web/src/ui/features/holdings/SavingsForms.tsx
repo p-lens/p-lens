@@ -54,7 +54,7 @@ const LARGEST_PRIZE_STEP = decimal(1000n, 0)
 /** The exchange a corner usually has, for each game, what the form opens with: the tokens ¥100 is exchanged for. Savings are never rented, so the rental is not asked: the exchange alone names the pool and values the savings. */
 const USUAL: Readonly<Record<PlayGameKind, { readonly exchange: string; readonly unit: string }>> = {
   pachinko: { exchange: "28", unit: "玉" },
-  pachislot: { exchange: "5.2", unit: "枚" },
+  pachislot: { exchange: "5.6", unit: "枚" },
 }
 
 function Failure(props: { readonly saving: Saving }): JSX.Element {

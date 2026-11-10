@@ -128,6 +128,7 @@ export const createBookSession = (ports: SessionPorts): BookSession => {
         order: settings?.ok === true ? settings.value.order : undefined,
         businessDayTurn: settings?.ok === true ? settings.value.businessDayTurn : undefined,
         presses: settings?.ok === true ? settings.value.presses : {},
+        recentlyPlayed: settings?.ok === true ? settings.value.recentlyPlayed : {},
       }))(roleIn(book, ports.member) === "owner" ? bookSettingsOf(stored.files[BOOK_SETTINGS_FILE]) : undefined),
     )
 

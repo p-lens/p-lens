@@ -37,11 +37,11 @@ describe("the terms a tally typed in by hand was weighed on", () => {
 
     const written = await writtenKeepingTerms(session, BOOK, recordYenTally(session, BOOK, TYPED), { game: "pachinko", terms: { rentedPerThousand: 240, exchangedPerHundred: 27.5 } })
     expect(written.ok).toBe(true)
-    expect(bookSettingsOf(storage.peek(BOOK)?.files[BOOK_SETTINGS_FILE])).toEqual({ ok: true, value: { order: undefined, businessDayTurn: undefined, presses: {}, inferenceTerms: { pachinko: { rentedPerThousand: 240, exchangedPerHundred: 27.5 } } } })
+    expect(bookSettingsOf(storage.peek(BOOK)?.files[BOOK_SETTINGS_FILE])).toEqual({ ok: true, value: { order: undefined, businessDayTurn: undefined, presses: {}, inferenceTerms: { pachinko: { rentedPerThousand: 240, exchangedPerHundred: 27.5 } }, recentlyPlayed: {} } })
 
     const after = await loadRecordingContext(session, BOOK, ME)
     expect(after.ok && emptyYenTallyForm("2026-10-17", after.value.inferenceTerms).weighingTerms).toEqual({ rentedPerThousand: "240", exchangedPerHundred: "27.5" })
-    expect(after.ok && emptyYenTallyForm("2026-10-17", after.value.inferenceTerms).medalTerms).toEqual({ rentedPerThousand: "46", exchangedPerHundred: "5.2" })
+    expect(after.ok && emptyYenTallyForm("2026-10-17", after.value.inferenceTerms).medalTerms).toEqual({ rentedPerThousand: "46", exchangedPerHundred: "5.6" })
 
     const counted = await commitsOf(history)
     expect((await writtenKeepingTerms(session, BOOK, recordYenTally(session, BOOK, { ...TYPED, id: "again" as PlayId }), { game: "pachinko", terms: { rentedPerThousand: 240, exchangedPerHundred: 27.5 } })).ok).toBe(true)

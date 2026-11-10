@@ -1,7 +1,8 @@
-import { createResource, For, Match, onMount, Switch, type JSX } from "solid-js"
+import { createResource, For, Match, onMount, Show, Switch, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import { findMachines } from "../../../../application/catalog"
+import { findRecentlyPlayed } from "../../../../application/recently-played"
 import { bookNameOf, type MachineSummary } from "../../../../core/catalog/catalog"
 import { useApp } from "../../../context"
 import { PlusIcon } from "../../../primitives/icons"
@@ -42,7 +43,9 @@ function MachineList(props: { readonly machines: readonly MachineSummary[]; read
 
 /**
  * Finding the pachislot machine to play: a search bar over every machine in
- * the pachislot catalog, newest release first, with a plus beside it for one
+ * the pachislot catalog, newest release first, headed while nothing is
+ * searched by the few machines plays were lately started on with the book
+ * in use, a rule between, with a plus beside it for one
  * not listed. Choosing one returns to the start of the play with it; a
  * machine not in the catalog is registered by making its first formula.
  * The search bar takes the focus as the view opens, and lets go of it once
@@ -57,6 +60,12 @@ export function MachineSearchView(props: { readonly place: Place; readonly query
     () => ({ query: props.query, revision: app.revision() }),
     (source) => findMachines(app.services.catalog, source.query, "pachislot"),
   )
+  const [recent] = createResource(
+    () => ((found) => (props.query.trim() === "" && found?.ok === true && found.value.type === "found" ? found.value.machines : undefined))(finding()),
+    (machines) => findRecentlyPlayed(app.services.session, app.services.member, "pachislot", machines),
+  )
+  /** The machines played lately, while nothing is searched and there are any. */
+  const recentlyPlayed = (): readonly MachineSummary[] | undefined => ((found) => (props.query.trim() === "" && found?.ok === true && found.value.length > 0 ? found.value : undefined))(recent())
   const searched = (): string => props.query.trim()
   const choose = (machine: MachineSummary): void => {
     start.updatePachislot({ machine: { type: "catalog", machineId: machine.id, name: bookNameOf(machine) } })
@@ -89,7 +98,17 @@ export function MachineSearchView(props: { readonly place: Place; readonly query
               <TooltipContent>{createLabel()}</TooltipContent>
             </Tooltip>
           </div>
-          <div onTouchMove={letGoOfFocus}>
+          <div onTouchMove={letGoOfFocus} class="flex flex-col gap-3">
+            <Show when={recentlyPlayed()} keyed>
+              {(machines) => (
+                <>
+                  <section aria-label="最近使った機種">
+                    <MachineList machines={machines} onChoose={choose} />
+                  </section>
+                  <hr class="border-border" />
+                </>
+              )}
+            </Show>
             <Loaded outcome={finding()}>
               {(found) => (
                 <Switch>

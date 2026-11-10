@@ -28,6 +28,8 @@ export type ChangeIntent =
   | { readonly type: "presses-set"; readonly corner: string }
   /** The terms a tally of a game typed in by hand was weighed on, written in the book's settings for the next to open on: no change to what the book records. */
   | { readonly type: "inference-terms-set"; readonly game: PlayGameKind }
+  /** The machines a game's plays were lately started on, written in the book's settings for its machine search: no change to what the book records. */
+  | { readonly type: "recently-played-set"; readonly game: PlayGameKind }
   /** The book's activity rid of what was done longer ago than it is kept: no change to what the book records. */
   | { readonly type: "activity-pruned" }
   | { readonly type: "file-edited"; readonly path: string }

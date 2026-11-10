@@ -1,6 +1,6 @@
 import { can, type Capability, type Role } from "../access/role"
 import type { BusinessDayTurn } from "../calendar/calendar"
-import type { PressAmounts } from "./settings"
+import type { PressAmounts, RecentlyPlayed } from "./settings"
 
 export type BookId = string & { readonly __brand: "BookId" }
 
@@ -37,6 +37,8 @@ export interface ListedBook extends Book {
   readonly businessDayTurn: BusinessDayTurn | undefined
   /** What a press of a live play's buttons adds at each corner, as its owner set it (`core/book/settings`); none on a book of another person's. */
   readonly presses: Readonly<Record<string, PressAmounts>>
+  /** The machines of each game plays were lately started on with the book in use (`core/book/settings`); none on a book of another person's. */
+  readonly recentlyPlayed: RecentlyPlayed
 }
 
 export const roleIn = (book: Book, member: MemberId): Role | undefined =>

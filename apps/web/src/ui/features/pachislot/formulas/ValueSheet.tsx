@@ -13,8 +13,8 @@ import { theoreticalFigureText } from "../../../wording/numbers"
 import { payoutRateText, priorName, signedMedalsText, UNSEEN } from "../../../wording/pachislot/formula"
 import { useStartPachislotTerms, useStartForm } from "../../live/start-form"
 
-/** The medals ¥1,000 rents and ¥100 takes where the start form says nothing: the usual 46 rented and 5.2 exchanged, as wherever the app opens on a corner. */
-const USUAL_CORNER = { rentedPerThousand: "46", exchangedPerHundred: "5.2" } as const
+/** The medals ¥1,000 rents and ¥100 takes where the start form says nothing: the usual 46 rented and 5.6 exchanged, as wherever the app opens on a corner. */
+const USUAL_CORNER = { rentedPerThousand: "46", exchangedPerHundred: "5.6" } as const
 
 /** The play the sheet starts at: 3,000 games, 65% of them with the player's own medals, 750 games an hour. */
 const USUAL_PLAY = { games: "3000", ownShare: "65", gamesPerHour: "750" } as const

@@ -79,7 +79,7 @@ export interface ActivityLine {
  * in; nothing for a change the activity does not tell of — a press of the
  * heart or of a mark, which the book's favourites and marks record line by
  * line themselves, a book moved in its owner's list or told the hour
- * its owner's business day turns over at, which change nothing the book
+ * its owner's business day turns over at, or the machines played lately, which change nothing the book
  * records, or its activity rid of what is older than it is kept.
  */
 const saidOf = (intent: ChangeIntent): Pick<ActivityLine, "did" | "parts"> | undefined => {
@@ -91,6 +91,7 @@ const saidOf = (intent: ChangeIntent): Pick<ActivityLine, "did" | "parts"> | und
     case "business-day-turn-set":
     case "presses-set":
     case "inference-terms-set":
+    case "recently-played-set":
     case "activity-pruned":
       return undefined
     case "book-created":

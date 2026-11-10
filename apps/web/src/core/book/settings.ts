@@ -1,4 +1,5 @@
 import { isBusinessDayTurn, type BusinessDayTurn } from "../calendar/calendar"
+import type { MachineId } from "../machine/machine"
 import type { PlayGameKind } from "../play/play"
 import { Err, Ok, andThen, mapOk, type Result } from "../result/result"
 
@@ -28,6 +29,9 @@ export interface InferenceTerms {
 /** The terms kept for each game, balls and medals being no measure of each other; none kept for a game whose tallies were never weighed on any. */
 export type KeptInferenceTerms = Readonly<Partial<Record<PlayGameKind, InferenceTerms>>>
 
+/** The machines of each game plays were lately started on, latest first; none kept for a game nobody has played yet. */
+export type RecentlyPlayed = Readonly<Partial<Record<PlayGameKind, readonly MachineId[]>>>
+
 /** A book's settings as this app reads them. A later version may keep more in the file; what this one does not know it leaves as it found it. */
 export interface BookSettings {
   /** Where the book stands among its owner's books, lowest first; none where it was never placed. */
@@ -38,6 +42,8 @@ export interface BookSettings {
   readonly presses: Readonly<Record<string, PressAmounts>>
   /** The terms the last tally typed in by hand of each game was weighed on (`inferenceTerms`), which the next opens on. */
   readonly inferenceTerms: KeptInferenceTerms
+  /** The machines plays were lately started on with this book in use (`recentlyPlayed`), which a machine search shows first. */
+  readonly recentlyPlayed: RecentlyPlayed
 }
 
 type Fields = Readonly<Record<string, unknown>>
@@ -115,14 +121,33 @@ const inferenceTermsOf = (value: unknown): KeptInferenceTerms | undefined => {
   return read.every(([, terms]) => terms !== undefined) ? Object.fromEntries(read) : undefined
 }
 
+const machineIdsOf = (value: unknown): readonly MachineId[] | undefined =>
+  Array.isArray(value) && value.every((id): id is string => typeof id === "string" && id !== "") ? (value as MachineId[]) : undefined
+
+/** The machines kept for each game this app knows: each that is there must read; a game it does not know it leaves as it found it. */
+const recentlyPlayedOf = (value: unknown): RecentlyPlayed | undefined => {
+  if (!isFields(value)) return undefined
+  const read = GAMES.filter((game) => value[game] !== undefined).map((game) => [game, machineIdsOf(value[game])] as const)
+  return read.every(([, ids]) => ids !== undefined) ? Object.fromEntries(read) : undefined
+}
+
 /** A book's settings, or that its file is there and does not read: a field it has that this app reads must read as this app writes it. */
 export const bookSettingsOf = (text: string | undefined): Result<BookSettings, SettingsUnreadable> =>
   andThen(fieldsOf(text), (fields) => {
-    const [order, businessDayTurn, presses, inferenceTerms] = [fieldOf(fields["order"], orderOf), fieldOf(fields["businessDayTurn"], businessDayTurnOf), fieldOf(fields["presses"], pressesOf), fieldOf(fields["inferenceTerms"], inferenceTermsOf)]
+    const [order, businessDayTurn, presses, inferenceTerms, recentlyPlayed] = [
+      fieldOf(fields["order"], orderOf),
+      fieldOf(fields["businessDayTurn"], businessDayTurnOf),
+      fieldOf(fields["presses"], pressesOf),
+      fieldOf(fields["inferenceTerms"], inferenceTermsOf),
+      fieldOf(fields["recentlyPlayed"], recentlyPlayedOf),
+    ]
     if (!order.ok) return order
     if (!businessDayTurn.ok) return businessDayTurn
     if (!presses.ok) return presses
-    return inferenceTerms.ok ? Ok({ order: order.value, businessDayTurn: businessDayTurn.value, presses: presses.value ?? {}, inferenceTerms: inferenceTerms.value ?? {} }) : inferenceTerms
+    if (!inferenceTerms.ok) return inferenceTerms
+    return recentlyPlayed.ok
+      ? Ok({ order: order.value, businessDayTurn: businessDayTurn.value, presses: presses.value ?? {}, inferenceTerms: inferenceTerms.value ?? {}, recentlyPlayed: recentlyPlayed.value ?? {} })
+      : recentlyPlayed
   })
 
 const written = (fields: Fields): string => `${JSON.stringify(fields, undefined, 2)}\n`
@@ -148,4 +173,11 @@ export const withInferenceTerms = (text: string | undefined, game: PlayGameKind,
   andThen(fieldsOf(text), (fields) => {
     const kept = fieldOf(fields["inferenceTerms"], inferenceTermsOf)
     return mapOk(kept, () => written({ ...fields, inferenceTerms: { ...(isFields(fields["inferenceTerms"]) ? fields["inferenceTerms"] : {}), [game]: { rentedPerThousand: terms.rentedPerThousand, exchangedPerHundred: terms.exchangedPerHundred } } }))
+  })
+
+/** The file with the machines a game's plays were lately started on written in it, every other game and field as it was; a file that does not read is not written over. */
+export const withRecentlyPlayed = (text: string | undefined, game: PlayGameKind, ids: readonly MachineId[]): Result<string, SettingsUnreadable> =>
+  andThen(fieldsOf(text), (fields) => {
+    const kept = fieldOf(fields["recentlyPlayed"], recentlyPlayedOf)
+    return mapOk(kept, () => written({ ...fields, recentlyPlayed: { ...(isFields(fields["recentlyPlayed"]) ? fields["recentlyPlayed"] : {}), [game]: ids } }))
   })

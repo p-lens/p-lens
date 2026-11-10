@@ -78,8 +78,8 @@ describe("the tally form", () => {
     expect(pachislotToldOf({ ...form, counterGames: "" }, ["big", "reg"])).toBeUndefined()
     expect(pachislotToldOf({ ...form, hours: "" }, ["big", "reg"])).toBeUndefined()
     expect(pachislotToldOf({ ...form, counterBonuses: { big: "1.5" } }, ["big", "reg"])).toBeUndefined()
-    expect(form.medalTerms).toEqual({ rentedPerThousand: "46", exchangedPerHundred: "5.2" })
-    expect(readMedalTerms(form.medalTerms)).toEqual({ rentedPerThousand: 46, exchangedPerHundred: 5.2 })
+    expect(form.medalTerms).toEqual({ rentedPerThousand: "46", exchangedPerHundred: "5.6" })
+    expect(readMedalTerms(form.medalTerms)).toEqual({ rentedPerThousand: 46, exchangedPerHundred: 5.6 })
     expect(readMedalTerms({ rentedPerThousand: "46.5", exchangedPerHundred: "5.2" })).toBeUndefined()
   })
 
@@ -112,7 +112,7 @@ describe("the tally form", () => {
 
   test("opens on the terms the book keeps for each game, else the usual ones, and says those of its own game", () => {
     const usual = emptyYenTallyForm("2026-10-04", {})
-    expect([usual.weighingTerms, usual.medalTerms]).toEqual([{ rentedPerThousand: "250", exchangedPerHundred: "28" }, { rentedPerThousand: "46", exchangedPerHundred: "5.2" }])
+    expect([usual.weighingTerms, usual.medalTerms]).toEqual([{ rentedPerThousand: "250", exchangedPerHundred: "28" }, { rentedPerThousand: "46", exchangedPerHundred: "5.6" }])
     const kept = emptyYenTallyForm("2026-10-04", { pachinko: { rentedPerThousand: 240, exchangedPerHundred: 27.5 }, pachislot: { rentedPerThousand: 47, exchangedPerHundred: 5.6 } })
     expect([kept.weighingTerms, kept.medalTerms]).toEqual([{ rentedPerThousand: "240", exchangedPerHundred: "27.5" }, { rentedPerThousand: "47", exchangedPerHundred: "5.6" }])
     expect(termsTypedOf(kept)).toEqual({ rentedPerThousand: 240, exchangedPerHundred: 27.5 })
@@ -128,7 +128,7 @@ describe("the tally form", () => {
     expect(yenTallyFormOf(weighed, kept).weighingTerms).toEqual({ rentedPerThousand: "240", exchangedPerHundred: "27.5" })
     const pachislot = withInferred({ ...tally, gameKind: "pachislot" }, Pachislot.inferredWorthOf("f", -1000, { rentedPerThousand: 47, exchangedPerHundred: 5.6 }))
     expect(yenTallyFormOf(pachislot, kept).medalTerms).toEqual({ rentedPerThousand: "47", exchangedPerHundred: "5.6" })
-    expect(yenTallyFormOf({ ...tally, gameKind: "pachislot" }, {}).medalTerms).toEqual({ rentedPerThousand: "46", exchangedPerHundred: "5.2" })
+    expect(yenTallyFormOf({ ...tally, gameKind: "pachislot" }, {}).medalTerms).toEqual({ rentedPerThousand: "46", exchangedPerHundred: "5.6" })
     expect(medalTermsFormOf({ rentedPerThousand: 46, exchangedPerHundred: 5.15 })).toEqual({ rentedPerThousand: "46", exchangedPerHundred: "5.15" })
   })
 })
