@@ -28,7 +28,7 @@ const TONES = { positive: "text-positive", negative: "text-negative", neutral: "
 const groupsIn = (outcome: Outcome<readonly Group[]> | undefined): readonly Group[] => (outcome?.ok === true ? outcome.value : [])
 
 /** How long the page stands empty after a swipe turns the month, in milliseconds: long enough to see that it turned, with nothing sliding. */
-const BLANK_FOR = 250
+const BLANK_FOR = 200
 
 /** Whether the calendar is shown, or the page stands empty a moment as a swipe turns the month. */
 type Face = "shown" | "blank"

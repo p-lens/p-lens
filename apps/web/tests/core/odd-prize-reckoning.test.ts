@@ -1,9 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import { toPlainString } from "../../src/core/decimal/decimal"
-import { oddPrizeReckoningOf, readStageStep, stagesOf, type StageStep } from "../../src/core/savings/odd-prize-reckoning"
-
-const RENTAL = { yen: 1000, tokens: 250 }
+import { exchangedWorthOf, readStageStep, stagesOf, type StageStep } from "../../src/core/savings/odd-prize-reckoning"
 
 const BALLS_28 = { yen: 1000, tokens: 280 }
 const BALLS_27_5 = { yen: 1000, tokens: 275 }
@@ -15,9 +13,8 @@ const stages = (tokens: number, exchange: { readonly yen: number; readonly token
   stagesOf(tokens, exchange, step).map((stage) => [stage.kept, toPlainString(stage.specialPrizes), stage.toPlay])
 
 describe("the odd-prize reckoning", () => {
-  test("says what balls are worth exchanged and rented, the part of a yen cut off", () => {
-    const reckoning = oddPrizeReckoningOf(1405, { rental: RENTAL, exchange: BALLS_28 })
-    expect([toPlainString(reckoning.rented), toPlainString(reckoning.exchanged)]).toEqual(["5620", "5017"])
+  test("says what balls are worth exchanged, the part of a yen cut off", () => {
+    expect(toPlainString(exchangedWorthOf(1405, BALLS_28))).toBe("5017")
   })
 
   test("sets out every count to stop at, a step apart, the nearest first and none left last", () => {

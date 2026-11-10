@@ -1,4 +1,4 @@
-import { createResource, createSignal, For, Show, type JSX } from "solid-js"
+import { createEffect, createResource, createSignal, For, on, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import { loadHoldings, loadLastMoved } from "../../../application/holdings"
@@ -17,6 +17,7 @@ import { filterButtonClass, TickFilter, type Offered } from "../../primitives/fi
 import { ChevronDownIcon, SearchIcon } from "../../primitives/icons"
 import { EmptyState, Loaded } from "../../primitives/states"
 import { TextField } from "../../primitives/text-field"
+import { Unfolding } from "../../primitives/unfolding"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { formatDay, slashDay } from "../../wording/dates"
@@ -216,6 +217,22 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
     const found = context()
     return found?.ok === true && found.value.canWrite ? found.value : undefined
   }
+  /**
+   * Whether the opening balance form stands unfolded: it arrives folded and
+   * unfolds the frame after, so that it is seen to open, and folds again as
+   * the person is done with it, the savings going back to their place only
+   * once it has — and its button coming back then, not under it.
+   */
+  const [unfolded, setUnfolded] = createSignal(false)
+  createEffect(
+    on(
+      () => props.opening && writable() !== undefined,
+      (shown) => {
+        if (shown) requestAnimationFrame(() => requestAnimationFrame(() => setUnfolded(true)))
+        else setUnfolded(false)
+      },
+    ),
+  )
   /** Where the savings are, with the opening balance form still open over them where it is. */
   const here = (): Place => (props.opening ? openingPlace() : props.place)
   /** A day chosen to value the savings on, and the field emptied to value them as they stand now. */
@@ -255,7 +272,11 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
             </div>
           </Show>
           <Show when={props.opening ? writable() : undefined} keyed>
-            {(found) => <OpeningBalanceForm bookId={props.bookId} context={found} list={listedParlors.list()} submissions={listedParlors.submissions()} onDone={() => moves.up(openingPlace(), props.query)} />}
+            {(found) => (
+              <Unfolding open={unfolded()} gap="-mt-4" onFolded={() => moves.up(openingPlace(), props.query)}>
+                <OpeningBalanceForm bookId={props.bookId} context={found} list={listedParlors.list()} submissions={listedParlors.submissions()} onDone={() => setUnfolded(false)} />
+              </Unfolding>
+            )}
           </Show>
           <Loaded outcome={holdings()}>
             {(found) => (

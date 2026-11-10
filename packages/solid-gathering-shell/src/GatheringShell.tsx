@@ -1,4 +1,4 @@
-import { children, createMemo, type JSX } from "solid-js"
+import { children, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js"
 
 import { ArrangementProvider } from "./context"
 import { visiblePanes, type Arrangement, type Focus } from "./panes"
@@ -10,7 +10,27 @@ interface ShellProps {
   readonly rail: JSX.Element
   readonly side: JSX.Element
   readonly aux?: JSX.Element
+  /** Told how wide the panes beside the main content stand, as they are measured in a wide arrangement: the selection's, and the detail's where there is one. */
+  readonly onBesideContent?: (width: number) => void
   readonly children: JSX.Element
+}
+
+/**
+ * A pane's width as it last stood in a wide arrangement: measured only
+ * there, where it keeps a width of its own, and kept through a narrow one,
+ * where it takes the whole screen or none — so that what a wide arrangement
+ * would leave the content can still be told while it is narrow.
+ */
+const createWideWidth = (wide: () => boolean): { readonly width: () => number; readonly watch: (element: HTMLElement) => void } => {
+  const [width, setWidth] = createSignal(0)
+  const watch = (element: HTMLElement): void => {
+    const watched = new ResizeObserver(() => {
+      if (wide() && element.offsetWidth > 0) setWidth(element.offsetWidth)
+    })
+    watched.observe(element)
+    onCleanup(() => watched.disconnect())
+  }
+  return { width, watch }
 }
 
 /**
@@ -23,6 +43,9 @@ function Frame(props: ShellProps): JSX.Element {
   const aux = children(() => props.aux)
   const panes = createMemo(() => visiblePanes(props.arrangement, props.focus, aux() !== undefined))
   const narrow = (): boolean => props.arrangement === "narrow"
+  const selection = createWideWidth(() => !narrow())
+  const detail = createWideWidth(() => !narrow())
+  createEffect(() => props.onBesideContent?.(selection.width() + (aux() === undefined ? 0 : detail.width())))
 
   return (
     <div
@@ -34,14 +57,14 @@ function Frame(props: ShellProps): JSX.Element {
     >
       {props.topBar}
       <div class="flex min-h-0 flex-1">
-        <div class="flex min-w-0" classList={{ "flex-1": narrow(), "shrink-0": !narrow() }} style={{ display: panes().selection ? undefined : "none" }}>
+        <div ref={selection.watch} class="flex min-w-0" classList={{ "flex-1": narrow(), "shrink-0": !narrow() }} style={{ display: panes().selection ? undefined : "none" }}>
           {props.rail}
           {props.side}
         </div>
         <div class="flex min-w-0 flex-1" style={{ display: panes().content ? undefined : "none" }}>
           {props.children}
         </div>
-        <div class="flex min-w-0" classList={{ "flex-1": narrow() }} style={{ display: panes().detail ? undefined : "none" }}>
+        <div ref={detail.watch} class="flex min-w-0" classList={{ "flex-1": narrow() }} style={{ display: panes().detail ? undefined : "none" }}>
           {aux()}
         </div>
       </div>

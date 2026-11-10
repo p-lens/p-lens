@@ -1,4 +1,4 @@
-import { decimal, floored, multiply, quotient, type Decimal } from "../decimal/decimal"
+import { decimal, floored, multiply, type Decimal } from "../decimal/decimal"
 import { exchangeRateOf, type PlayTerms } from "../parlor/terms"
 
 /** The special prizes the stages may step down by, in yen: a counter's smallest special prize is one of them. */
@@ -27,12 +27,6 @@ export interface Stage {
   readonly toPlay: number
 }
 
-/** What tokens come to at a corner: what renting as many would cost, and what they are worth at its exchange, the part of a yen cut off. */
-export interface OddPrizeReckoning {
-  readonly rented: Decimal
-  readonly exchanged: Decimal
-}
-
 const whole = (value: number | bigint): Decimal => decimal(BigInt(value), 0)
 
 /** The fewest whole tokens a sum of yen is exchanged from: at 5.15枚 for ¥100, ¥9,500 is 489.25 medals, so 490. */
@@ -54,8 +48,5 @@ export const stagesOf = (tokens: number, exchange: PlayTerms["exchange"], step: 
   })
 }
 
-/** So many whole tokens at a corner's rental and exchange. */
-export const oddPrizeReckoningOf = (tokens: number, terms: Pick<PlayTerms, "rental" | "exchange">): OddPrizeReckoning => ({
-  rented: quotient(multiply(whole(tokens), whole(terms.rental.yen)), whole(terms.rental.tokens), 0),
-  exchanged: floored(multiply(whole(tokens), exchangeRateOf(terms)), 0),
-})
+/** What so many whole tokens are worth at a corner's exchange, the part of a yen cut off. */
+export const exchangedWorthOf = (tokens: number, exchange: PlayTerms["exchange"]): Decimal => floored(multiply(whole(tokens), exchangeRateOf({ exchange })), 0)

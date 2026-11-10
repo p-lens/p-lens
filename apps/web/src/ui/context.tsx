@@ -17,6 +17,7 @@ import type { ThemeState } from "./theme/theme"
 import { heardOutdated } from "./features/consolidated/outdated"
 import { warmConsolidationWhileShown } from "./features/consolidated/warm"
 import { savingsShownAfterWrites, type SavingsShown } from "./features/holdings/shown"
+import { createShownMonths, type ShownMonths } from "./features/result-calendar/shown-month"
 import { createHuddleLine, type HuddleLine } from "./features/huddle/huddle-line"
 import { createRoomChoices, type RoomChoices } from "./features/huddle/room-choices"
 import { createBookLines, type BookLines } from "./features/sync/book-lines"
@@ -106,6 +107,8 @@ interface AppContext {
   readonly consolidationOutdated: Accessor<number>
   /** What 貯玉・貯メダル last showed, shown at once when it is opened again while it asks anew, and asked again a while after each write. */
   readonly savingsShown: SavingsShown
+  /** The month each calendar last showed, opened on again when it is shown again. */
+  readonly shownMonths: ShownMonths
   /** Counts the writes to books and the catalog alone, from this page or from a book's line: what keeps a book on its line puts each one there. */
   readonly written: Accessor<number>
   /** A book, or the catalog, was written: everything is read again. */
@@ -155,6 +158,7 @@ export function AppProvider(props: {
   warmConsolidationWhileShown(props.services, written)
   const consolidationOutdated = heardOutdated(props.services)
   const savingsShown = savingsShownAfterWrites(written)
+  const shownMonths = createShownMonths()
   const [machinesRead] = createResource(
     () => ({ written: written() }),
     () => loadMachineNames(props.services.catalog),
@@ -243,6 +247,7 @@ export function AppProvider(props: {
         revision,
         consolidationOutdated,
         savingsShown,
+        shownMonths,
         written,
         wrote: wroteAndKept,
         played,

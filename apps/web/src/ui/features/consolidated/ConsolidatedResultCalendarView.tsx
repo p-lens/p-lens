@@ -27,19 +27,28 @@ interface Asked {
 const partOf = (found: Outcome<readonly ConsolidatedBook<DaysAndWhole>[]> | undefined, part: keyof DaysAndWhole): Outcome<readonly ConsolidatedBook<readonly Group[]>[]> | undefined =>
   found === undefined ? undefined : mapOk(found, (books) => books.map((each) => ({ book: each.book, read: mapOk(each.read, (month) => month[part]) })))
 
+/** What the consolidated calendar's month is kept under among the calendars': one, whichever books are ticked. */
+const CONSOLIDATED = "consolidated"
+
 /**
  * Several books' results a month at a time, as a book's calendar shows
  * its own: each day what the tallies of the books ticked made together, the
  * month's two figures above. Each book's days and month are its own, from
  * hledger, and one day of several books is those added. Which books are
- * the address's; the month is this screen's own, as it is in a book. A
+ * the address's; the month is this screen's own, as it is in a book, and
+ * like a book's opens on the month it last showed while the page has been
+ * open, whichever books are ticked. A
  * day pressed goes to what each book made that day, there being no one
  * list of several books' tallies.
  */
 export function ConsolidatedResultCalendarView(props: { readonly place: Place; readonly bookIds: readonly BookId[] | undefined }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
-  const [month, setMonth] = createSignal<IsoMonth>(monthOf(app.services.businessDay()))
+  const [month, setMonth] = createSignal<IsoMonth>(app.shownMonths.of(CONSOLIDATED) ?? monthOf(app.services.businessDay()))
+  const turnTo = (shown: IsoMonth): void => {
+    setMonth(shown)
+    app.shownMonths.keep(CONSOLIDATED, shown)
+  }
   const asked = (): Asked => ({ bookIds: props.bookIds, month: month(), revision: app.revision(), outdated: app.consolidationOutdated() })
   const [results] = createResource(asked, (source) => loadConsolidatedDaysAndWhole(app.services.consolidation, source.bookIds, monthQuery(source.month)))
   const [kept] = createResource(() => ({ bookIds: props.bookIds, revision: app.revision(), outdated: app.consolidationOutdated() }), (source) => consolidationKeepsTheoreticalValues(app.services.consolidation, source.bookIds))
@@ -49,7 +58,7 @@ export function ConsolidatedResultCalendarView(props: { readonly place: Place; r
     <ResultCalendar
       place={props.place}
       month={month()}
-      onMonth={setMonth}
+      onMonth={turnTo}
       days={mergedOf(partOf(results(), "days"))}
       whole={mergedOf(partOf(results(), "whole"))}
       loading={results.loading}

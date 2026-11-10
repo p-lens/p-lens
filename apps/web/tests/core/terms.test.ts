@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { cornerOf, exchangeRateOf, poolOf, savingsDeductedFor, tierOf, tokensRentedFor, UNKNOWN_TIER, type PlayTerms } from "../../src/core/parlor/terms"
+import { cornerOf, exchangeRateOf, poolOf, poolOfExchange, savingsDeductedFor, tierOf, tokensRentedFor, UNKNOWN_TIER, type PlayTerms } from "../../src/core/parlor/terms"
 import { dec } from "../support/values"
 
 const terms = (rental: [number, number], exchange: [number, number], replay: [number, number] = [250, 275]): PlayTerms => ({
@@ -51,5 +51,17 @@ describe("a corner as a player calls it", () => {
   test("is at a rate unknown on no terms, or below every rate", () => {
     expect(cornerOf("pachinko", undefined)).toBe("レート不明パチ")
     expect(cornerOf("pachislot", renting(1000, 10000))).toBe("レート不明スロ")
+  })
+})
+
+describe("a pool named by its exchange alone", () => {
+  test("is the advertised rate the exchange belongs to, as savings registered with no rental are kept", () => {
+    expect(poolOfExchange("pachinko", { yen: 1000, tokens: 280 })).toEqual({ kind: "ball", tier: "4円" })
+    expect(poolOfExchange("pachinko", { yen: 1000, tokens: 1120 })).toEqual({ kind: "ball", tier: "1円" })
+    expect(poolOfExchange("pachislot", { yen: 1000, tokens: 52 })).toEqual({ kind: "medal", tier: "20円" })
+  })
+
+  test("is a rate unknown where the exchange is dearer than every advertised rate", () => {
+    expect(poolOfExchange("pachinko", { yen: 1000, tokens: 200 }).tier).toBe(UNKNOWN_TIER)
   })
 })

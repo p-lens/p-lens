@@ -91,7 +91,7 @@ const rentalTier = (gameKind: PlayGameKind, terms: PlayTerms): number | undefine
  * the advertised rate or cheaper — 280 balls for 1000 yen is 3.57 a ball at a
  * 4-yen corner — so the rate is the cheapest advertised one not below it.
  */
-const exchangeTier = (gameKind: PlayGameKind, terms: PlayTerms): number | undefined => {
+const exchangeTier = (gameKind: PlayGameKind, terms: Pick<PlayTerms, "exchange">): number | undefined => {
   const rate = terms.exchange.yen / terms.exchange.tokens
   return TIERS[gameKind].toReversed().find((tier) => tier >= rate - SLACK)
 }
@@ -144,6 +144,18 @@ export const rentalPriceOfTier = (tier: string): Decimal | undefined => {
 
 /** The savings a play on these terms draws on and pays into. */
 export const poolOf = (gameKind: PlayGameKind, terms: PlayTerms): SavingsPool => ({ kind: tokenKindOf(gameKind), tier: tierOf(gameKind, terms) })
+
+/**
+ * The pool savings at a corner of this exchange are kept in, by the
+ * advertised rate the exchange belongs to alone, where the rental is not
+ * asked: savings are never rented, and a person registering them knows
+ * the exchange their counter gives, not the rental of a corner they may
+ * not be playing.
+ */
+export const poolOfExchange = (gameKind: PlayGameKind, exchange: PlayTerms["exchange"]): SavingsPool => ({
+  kind: tokenKindOf(gameKind),
+  tier: ((tier) => (tier === undefined ? UNKNOWN_TIER : `${String(tier)}円`))(exchangeTier(gameKind, { exchange })),
+})
 
 /** Yen a token is worth on these terms, for the theoretical value a formula gives. */
 export const tokenValueOf = (terms: PlayTerms): number => Number(toPlainString(exchangeRateOf(terms)))

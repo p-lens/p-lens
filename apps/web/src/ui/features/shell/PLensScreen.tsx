@@ -70,8 +70,14 @@ import { UpdateNotice } from "./UpdateNotice"
 import { ODD_PRIZE_CALCULATOR_LABEL } from "../../wording/odd-prize-calculator"
 import { bookTitle } from "../../wording/book"
 
-/** Below this width the panes are shown one at a time. */
-const NARROW_BELOW = 768
+/**
+ * Where the panes are shown one at a time: a window below this width, or
+ * one whose rail, list and detail would leave the main content less than
+ * this — a tablet held sideways with a detail open — where the screens,
+ * laid out for a phone first and wider by the window's width, would be
+ * squeezed into a column narrower than either.
+ */
+const ARRANGEMENT_BOUNDS = { narrowBelow: 768, contentAtLeast: 480 } as const
 
 
 /** What the main pane shows for a place that is not itself a screen of its own. */
@@ -291,7 +297,8 @@ const valueSheetShown = (place: Place): boolean =>
 export function PLensScreen(): JSX.Element {
   const location = useLocation()
   const [search] = useSearchParams<{ q?: string }>()
-  const arrangement = createArrangement({ narrowBelow: NARROW_BELOW })
+  const followed = createArrangement(ARRANGEMENT_BOUNDS)
+  const arrangement = followed.arrangement
   const place = createMemo(() => placeOf(location.pathname))
   const query = (): string => search.q ?? ""
   const app = useApp()
@@ -306,6 +313,7 @@ export function PLensScreen(): JSX.Element {
       <WelcomeProvider onSample={sampleBook.open} held={valueSheetShown(place())}>
         <GatheringShell
           arrangement={arrangement()}
+          onBesideContent={followed.besideContent}
           focus={focusOf(place())}
           topBar={
             <TopBar

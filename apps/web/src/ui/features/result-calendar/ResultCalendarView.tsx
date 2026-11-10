@@ -33,8 +33,10 @@ const playersOffered = (names: SenderNames): readonly string[] => [UNSENT, ...na
 
 /**
  * A book's results a month at a time, as a calendar. The month shown is
- * this screen's own and is in no address: it opens on the month of the
- * business day, and a day pressed goes to that day's tallies. hledger does
+ * this screen's own and is in no address: it opens on the month it last
+ * showed the book while the page has been open (`shownMonths`) — so coming
+ * back from a day's tallies finds the month left — or else on the month of
+ * the business day, and a day pressed goes to that day's tallies. hledger does
  * every sum: the days are its breakdown by day, and the month's two
  * figures the totals of that same breakdown, asked once for the month. Where
  * someone has sent plays to the book, a funnel at the end of the month's
@@ -45,7 +47,12 @@ const playersOffered = (names: SenderNames): readonly string[] => [UNSENT, ...na
 export function ResultCalendarView(props: { readonly place: Place; readonly bookId: BookId; readonly senders: readonly string[] | undefined }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
-  const [month, setMonth] = createSignal<IsoMonth>(monthOf(app.services.businessDay()))
+  const shownKey = (): string => `book\u001f${props.bookId}`
+  const [month, setMonth] = createSignal<IsoMonth>(app.shownMonths.of(shownKey()) ?? monthOf(app.services.businessDay()))
+  const turnTo = (shown: IsoMonth): void => {
+    setMonth(shown)
+    app.shownMonths.keep(shownKey(), shown)
+  }
   const [named] = createResource(() => ({ bookId: props.bookId, revision: app.revision() }), (source) => loadSenderNames(app.services.session, source.bookId))
   const [listed] = createResource(() => app.revision(), () => app.services.session.books())
   /** Who sent plays to the book, by their last names; none while they are awaited or could not be read. */
@@ -63,7 +70,7 @@ export function ResultCalendarView(props: { readonly place: Place; readonly book
     <ResultCalendar
       place={props.place}
       month={month()}
-      onMonth={setMonth}
+      onMonth={turnTo}
       days={((found) => found && mapOk(found, (month) => month.days))(results())}
       whole={((found) => found && mapOk(found, (month) => month.whole))(results())}
       loading={results.loading}

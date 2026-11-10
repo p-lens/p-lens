@@ -1,7 +1,8 @@
 import { createSignal, For, Index, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
-import { oddPrizeReckoningOf, stagesOf, STAGE_STEPS, type Stage, type OddPrizeReckoning, type StageStep } from "../../../../core/savings/odd-prize-reckoning"
+import { exchangedWorthOf, stagesOf, STAGE_STEPS, type Stage, type StageStep } from "../../../../core/savings/odd-prize-reckoning"
+import type { Decimal } from "../../../../core/decimal/decimal"
 import { useApp } from "../../../context"
 import { TextField } from "../../../primitives/text-field"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
@@ -27,7 +28,7 @@ function Field(props: {
   readonly onChange: (field: CalculatorField, text: string) => void
 }): JSX.Element {
   return (
-    <div class="flex min-w-0 flex-col gap-1.5">
+    <div class="flex min-w-0 flex-col">
       <span aria-hidden="true" class={FIELD_NAME}>
         {props.label}
       </span>
@@ -78,9 +79,8 @@ function Stages(props: { readonly stages: readonly Stage[] | undefined }): JSX.E
 }
 
 /**
- * The balls typed, at the corner's rental and exchange: what they are
- * worth at the exchange and what as many played again would have cost to
- * rent, and below, the counts to stop at that exchange for special prizes
+ * The balls typed, at the corner's exchange: what they are worth at it, and
+ * below, the counts to stop at that exchange for special prizes
  * and as little else as can be, by the step last chosen on the device — a
  * person who would rather play on than stop at the odd few sees how far
  * each is.
@@ -88,28 +88,21 @@ function Stages(props: { readonly stages: readonly Stage[] | undefined }): JSX.E
 function Calculator(props: { readonly opening: CalculatorForm }): JSX.Element {
   const [form, setForm] = createSignal(props.opening)
   const read = () => readCalculator(form(), "pachinko")
-  const reckoning = (): OddPrizeReckoning | undefined => ((found) => (found.ok ? oddPrizeReckoningOf(found.value.tokens, found.value.terms) : undefined))(read())
+  const exchanged = (): Decimal | undefined => ((found) => (found.ok ? exchangedWorthOf(found.value.tokens, found.value.exchange) : undefined))(read())
   const app = useApp()
   const [step, setStep] = createSignal<StageStep>(app.services.preferences.stageStep())
-  const stages = (): readonly Stage[] | undefined => ((found) => (found.ok ? stagesOf(found.value.tokens, found.value.terms.exchange, step()) : undefined))(read())
+  const stages = (): readonly Stage[] | undefined => ((found) => (found.ok ? stagesOf(found.value.tokens, found.value.exchange, step()) : undefined))(read())
   const invalid = (): readonly CalculatorField[] => ((found) => (found.ok ? [] : found.error))(read())
   const change = (field: CalculatorField, text: string): void => void setForm({ ...form(), [field]: text })
   return (
     <div class="flex max-w-md flex-col gap-5 p-4">
-      <div class="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] items-end gap-x-1.5">
+      <div class="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-end gap-x-1.5">
         <Field label="持ち玉数" field="tokens" inputMode="numeric" form={form()} invalid={invalid()} onChange={change} />
-        <Field label="貸玉(千円)" field="rentalTokens" inputMode="numeric" form={form()} invalid={invalid()} onChange={change} />
         <Field label="交換(100円)" field="exchange" inputMode="decimal" form={form()} invalid={invalid()} onChange={change} />
       </div>
-      <dl class="grid grid-cols-2 gap-x-3">
-        <div class="flex flex-col gap-0.5">
-          <dt class="text-xs text-text-muted">交換で</dt>
-          <dd class="text-lg font-semibold tabular-nums text-text-primary">{((found) => (found === undefined ? UNREAD.yen : formatYen(seal.play(found.exchanged))))(reckoning())}</dd>
-        </div>
-        <div class="flex flex-col gap-0.5">
-          <dt class="text-xs text-text-muted">貸玉換算</dt>
-          <dd class="text-lg font-semibold tabular-nums text-text-secondary">{((found) => (found === undefined ? UNREAD.yen : formatYen(seal.play(found.rented))))(reckoning())}</dd>
-        </div>
+      <dl class="flex flex-col gap-0.5">
+        <dt class="text-xs text-text-muted">交換で</dt>
+        <dd class="text-lg font-semibold tabular-nums text-text-primary">{((found) => (found === undefined ? UNREAD.yen : formatYen(seal.play(found))))(exchanged())}</dd>
       </dl>
       <div class="flex flex-col gap-2">
         <ToggleGroup

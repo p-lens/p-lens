@@ -39,7 +39,7 @@ Hidden panes stay mounted, so a list comes back scrolled where it was left.
 
 | Export | Role |
 |---|---|
-| `GatheringShell` | The frame. Props: `arrangement`, `focus`, `topBar?`, `rail`, `side`, `aux?`, `children` (main). |
+| `GatheringShell` | The frame. Props: `arrangement`, `focus`, `topBar?`, `rail`, `side`, `aux?`, `onBesideContent?` (told how wide the panes beside the main content stand), `children` (main). |
 | `TopBar` | The thin bar across the top: an optional `title`, with optional `leading` and `trailing` either side. |
 | `RailBar` / `RailItem` | The column of spaces, in `groups` divided from each other. The chosen one gets a pill and a squarer icon; an item's `badge` sits on its corner; `footer` groups sit at the foot, divided alike. |
 | `SidePanel` | The list beside the rail. Resizable in a wide arrangement, full screen in a narrow one. |
@@ -47,17 +47,19 @@ Hidden panes stay mounted, so a list comes back scrolled where it was left.
 | `Breadcrumb` / `Crumb` | A trail for the main content's header: the steps that led to where it is, the earlier ones going back — as a thread shows its channel. |
 | `AuxPanel` | The detail on the far side. Resizable from its leading edge. |
 | `ResizableBoundary` | The hairline between panes. |
-| `createArrangement` | Follows the window width (`{ narrowBelow }`) and answers `wide` or `narrow`. |
+| `createArrangement` | Follows the window (`{ narrowBelow, contentAtLeast }`) and answers `wide` or `narrow`: narrow below the width, or where the panes beside the main content would leave it less than `contentAtLeast`. Its `besideContent` is given to the shell's `onBesideContent`. |
+| `arrangementFor` | The same answer from a window's width and what stands beside the content; pure. |
 | `createResizable` / `clampSize` | The width a boundary drags, kept within bounds that may move. |
 | `visiblePanes` | Which panes an arrangement and a focus put on screen; pure. |
 
 ## Usage
 
 ```tsx
-const arrangement = createArrangement({ narrowBelow: 768 })
+const followed = createArrangement({ narrowBelow: 768, contentAtLeast: 480 })
 
 <GatheringShell
-  arrangement={arrangement()}
+  arrangement={followed.arrangement()}
+  onBesideContent={followed.besideContent}
   focus={focusFromAddress()}
   topBar={<TopBar title="Title" />}
   rail={<RailBar label="Spaces" groups={[home(), spaces()]} footer={[[settings()]]} />}
