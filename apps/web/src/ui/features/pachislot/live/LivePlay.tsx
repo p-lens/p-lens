@@ -25,6 +25,7 @@ import { inPlayOrder } from "../../../../core/play-log/performance"
 import { Err, Ok, type Result } from "../../../../core/result/result"
 import { useApp } from "../../../context"
 import { Button } from "../../../primitives/button"
+import { FoldingSheet } from "../../../primitives/folding-sheet"
 import { createNudge } from "../../../primitives/nudge"
 import { Loaded } from "../../../primitives/states"
 import { settleTyping, TextField } from "../../../primitives/text-field"
@@ -37,7 +38,7 @@ import { FIELD_PROBLEM_TEXT } from "../../../wording/fields"
 import { amountText, formatCount } from "../../../wording/numbers"
 import { seal } from "../../../../mummer"
 import { describeCounterRefusal, observedOneInText, priorName } from "../../../wording/pachislot/formula"
-import { CHANGED_SINCE_MERGED, CHANGED_SINCE_REMOVED, MERGE_FAILED, MERGED, READING_REMOVED, REMOVAL_TAKEN_BACK, TAKE_BACK, TAKE_BACK_FAILED, UNMERGED } from "../../../wording/pachislot/play"
+import { CHANGED_SINCE_MERGED, CHANGED_SINCE_REMOVED, COMPOSER_FOLD, MERGE_FAILED, MERGED, READING_REMOVED, REMOVAL_TAKEN_BACK, TAKE_BACK, TAKE_BACK_FAILED, UNMERGED } from "../../../wording/pachislot/play"
 import { triggerWordsOf } from "../../../wording/pachislot/trigger"
 import { ViewHeader } from "../../shell/ViewHeader"
 import { ElsewhereBar } from "../../live/ElsewhereBar"
@@ -318,7 +319,9 @@ interface Rewritten {
  * of the owner's devices holds is drawn the same, with nothing that
  * writes within reach — no 遊技を終了, no pencils, no reading to press or
  * drag over, tiles that count nothing — and in the band where the counter
- * is read, the way to continue it here.
+ * is read, the way to continue it here. That band folds away at the foot,
+ * as a pachinko play's does, leaving the screen to the counting tiles for
+ * whoever counts small roles alone, often with the phone held sideways.
  */
 export function LivePlay(props: {
   readonly place: Place
@@ -519,24 +522,28 @@ export function LivePlay(props: {
                     )}
                   </Show>
                 </div>
-                <div class="sticky bottom-0 grid border-t border-border bg-surface-2">
-                  <div class="col-start-1 row-start-1 flex flex-col gap-3 p-4" classList={{ invisible: elsewhere() !== undefined }} inert={elsewhere() !== undefined}>
-                    <NoticeStack notices={board.notices()} />
-                    <Show when={revising()} keyed fallback={composers()}>
-                      {(doing) => (
-                        <Show when={revisedStepOf(found(), doing.index)} fallback={composers()}>
-                          {(step) => <StepReviser index={doing.index} step={step()} bonuses={bonuses()} trigger={atRules()?.trigger === undefined ? undefined : triggerWordsOf(weighing()?.formula.normalized)} rewrite={rewrite} post={board.post} onRemove={() => removeStep(doing.index)} onDone={() => setRevising(undefined)} />}
+                <div class="sticky bottom-0">
+                  <FoldingSheet label={COMPOSER_FOLD}>
+                    <div class="grid border-t border-border bg-surface-2">
+                      <div class="col-start-1 row-start-1 flex flex-col gap-3 p-4" classList={{ invisible: elsewhere() !== undefined }} inert={elsewhere() !== undefined}>
+                        <NoticeStack notices={board.notices()} />
+                        <Show when={revising()} keyed fallback={composers()}>
+                          {(doing) => (
+                            <Show when={revisedStepOf(found(), doing.index)} fallback={composers()}>
+                              {(step) => <StepReviser index={doing.index} step={step()} bonuses={bonuses()} trigger={atRules()?.trigger === undefined ? undefined : triggerWordsOf(weighing()?.formula.normalized)} rewrite={rewrite} post={board.post} onRemove={() => removeStep(doing.index)} onDone={() => setRevising(undefined)} />}
+                            </Show>
+                          )}
                         </Show>
-                      )}
-                    </Show>
-                  </div>
-                  <Show when={elsewhere()}>
-                    {(held) => (
-                      <div class="col-start-1 row-start-1 flex items-center p-4">
-                        <ElsewhereBar hold={held()} />
                       </div>
-                    )}
-                  </Show>
+                      <Show when={elsewhere()}>
+                        {(held) => (
+                          <div class="col-start-1 row-start-1 flex items-center p-4">
+                            <ElsewhereBar hold={held()} />
+                          </div>
+                        )}
+                      </Show>
+                    </div>
+                  </FoldingSheet>
                 </div>
               </div>
             )

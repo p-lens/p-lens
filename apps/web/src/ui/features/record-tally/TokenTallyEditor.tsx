@@ -155,11 +155,11 @@ export function TokenTallyEditor(props: {
         {parlorNameText(seal.parlor(props.at.parlor.name))}・{props.at.pool.tier}
         {props.at.gameKind === "pachinko" ? "パチンコ" : "スロット"}
       </p>
-      <div class="grid grid-cols-[minmax(0,1fr)_6rem] gap-x-3 gap-y-4 sm:grid-cols-[12rem_minmax(0,1fr)_6rem]">
+      <div class="grid grid-cols-[minmax(0,1fr)_6rem] gap-x-3 gap-y-4 @roomy:grid-cols-[12rem_minmax(0,1fr)_6rem]">
         <TextField label="日付" type="date" value={form().date} onChange={set("date")} error={problemOf("date")}
           invalid={nudged("date")}
           onFocus={nudge.settle} required />
-        <div class="order-last col-span-2 sm:order-none sm:col-span-1">
+        <div class="order-last col-span-2 @roomy:order-none @roomy:col-span-1">
           <Combobox
             label="機種"
             placeholder="機種を選ぶ"
@@ -179,7 +179,7 @@ export function TokenTallyEditor(props: {
         </div>
         <TextField label="台番号" value={form().cabinetNumber} masked={cabinetFieldMasked(seal.cabinet(form().cabinetNumber))} onChange={set("cabinetNumber")} inputMode="numeric" />
       </div>
-      <div class="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-4">
+      <div class="grid grid-cols-2 gap-x-3 gap-y-4 @roomy:grid-cols-4">
         <div class="flex flex-col gap-1">
           <TextField label="投資額" value={form().outlay} onChange={set("outlay")} inputMode="numeric" suffix="円" error={problemOf("outlay")}
           invalid={nudged("outlay")}
@@ -239,7 +239,7 @@ export function TokenTallyEditor(props: {
         <TextField label={IN_HAND_LABELS[kind()].left} value={form().payout} onChange={set("payout")} inputMode="numeric" suffix={unit()} error={problemOf("payout")}
           invalid={nudged("payout")}
           onFocus={nudge.settle} />
-        <div class="col-span-2 flex items-start justify-between gap-3 sm:col-span-1">
+        <div class="col-span-2 flex items-start justify-between gap-3 @roomy:col-span-1">
           <div class="flex min-w-0 flex-col gap-1.5">
             <span class="text-xs font-bold uppercase tracking-wide text-text-secondary">実収支（自動計算）</span>
             <span class="flex h-10 items-center text-lg font-bold tabular-nums" classList={{ "text-positive": resultTone() === "positive", "text-negative": resultTone() === "negative", "text-text-primary": resultTone() === "neutral", "text-text-muted": resultTone() === undefined }}>

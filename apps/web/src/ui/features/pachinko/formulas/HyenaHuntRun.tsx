@@ -41,7 +41,7 @@ function Figure(props: { readonly label: string; readonly children: JSX.Element 
 function Sampled(props: { readonly summary: HyenaHuntSummaryDto }): JSX.Element {
   return (
     <div class="flex flex-col gap-3">
-      <dl class="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+      <dl class="grid grid-cols-2 gap-2 text-sm @roomy:grid-cols-3">
         <Figure label="期待値">
           <span class="text-lg font-bold">{theoreticalFigureText(seal.formula(props.summary.meanYen))}</span>
           <Show when={props.summary.marginYen} keyed>

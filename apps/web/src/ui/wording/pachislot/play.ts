@@ -21,6 +21,9 @@ export const UNMERGED = "まとめる前に戻しました"
 /** What is said where a merging or a removal could not be taken back. */
 export const TAKE_BACK_FAILED = "取り消せませんでした"
 
+/** What the tab that folds the reading's form away and back is called: whether it is open is said beside it. */
+export const COMPOSER_FOLD = "入力欄"
+
 /** Why a merging could not be taken back: the play's log is no longer as the merging left it. */
 export const CHANGED_SINCE_MERGED = "まとめたあとに記録が変わっています。"
 

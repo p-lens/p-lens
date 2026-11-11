@@ -26,7 +26,7 @@ export function AnalysisFigures(props: { readonly analysis: AnalysisDto; readonl
   }
   return (
     <div class="flex flex-col gap-3">
-      <dl class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+      <dl class="grid grid-cols-2 gap-2 @roomy:grid-cols-3 lg:grid-cols-4">
         <Tile label="平均R" value={`${props.analysis.averageRounds.toFixed(2)}R`} />
         <Tile label="平均出玉" value={`${formatCount(Math.round(props.analysis.averagePayout))}玉`} />
         <Tile label="平均連チャン" value={`${props.analysis.averageCombo.toFixed(2)}回`} />

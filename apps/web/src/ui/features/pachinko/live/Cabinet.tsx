@@ -189,7 +189,7 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
               番台
             </div>
           </div>
-          <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 sm:gap-2">
+          <div class="grid grid-cols-1 items-start gap-5 @roomy:grid-cols-2 @roomy:gap-2">
             <Combobox
               label="機種"
               placeholder={props.draft.machine === "" ? "機種選択" : shownNameOf(app.machineNames(), props.draft.machine)}

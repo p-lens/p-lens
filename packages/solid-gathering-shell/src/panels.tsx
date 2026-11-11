@@ -26,8 +26,11 @@ interface PanelProps {
  * unpositioned, such a thing is placed against the page instead, far down
  * a long pane, and the page grows to hold it: the whole shell then scrolls
  * away under the content, rail and all.
+ * It is also the container its content's widths are asked of: a pane's
+ * content is laid out for how wide the pane is, never the window, which a
+ * phone held sideways makes wide while the pane beside a list stays narrow.
  */
-const SCROLLED = "relative min-h-0 flex-1 overflow-y-auto"
+const SCROLLED = "@container relative min-h-0 flex-1 overflow-y-auto"
 
 /**
  * A pane with its own width beside the main content: fixed and resizable in a

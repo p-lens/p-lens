@@ -78,7 +78,7 @@ export function TabsList(props: { readonly children: JSX.Element }): JSX.Element
   return (
     <div class="relative bg-surface-1">
       <div ref={(element) => (held.strip = element)} class="overflow-x-auto shadow-[inset_0_-1px_0_var(--color-border)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" onScroll={measured}>
-        <TabsPrimitive.List class="flex w-max min-w-full items-end gap-1 px-2 pt-2 sm:px-4">{props.children}</TabsPrimitive.List>
+        <TabsPrimitive.List class="flex w-max min-w-full items-end gap-1 px-2 pt-2 @roomy:px-4">{props.children}</TabsPrimitive.List>
       </div>
       <Show when={beyond().start}>
         <MoreBeyond side="start" onPress={() => moved("start")} />
@@ -95,7 +95,7 @@ export function TabsTrigger(props: { readonly value: string; readonly icon?: JSX
   return (
     <TabsPrimitive.Trigger
       value={props.value}
-      class="flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-md border border-transparent px-2.5 text-sm sm:px-4 font-medium text-text-muted transition-colors hover:bg-surface-3/40 hover:text-text-primary focus-visible:outline-2 focus-visible:outline-focus-ring data-[selected]:border-border data-[selected]:border-b-surface-2 data-[selected]:bg-surface-2 data-[selected]:text-text-primary"
+      class="flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-md border border-transparent px-2.5 text-sm @roomy:px-4 font-medium text-text-muted transition-colors hover:bg-surface-3/40 hover:text-text-primary focus-visible:outline-2 focus-visible:outline-focus-ring data-[selected]:border-border data-[selected]:border-b-surface-2 data-[selected]:bg-surface-2 data-[selected]:text-text-primary"
     >
       <Show when={props.icon}>
         <span class="flex shrink-0 [&_svg]:size-4" aria-hidden="true">

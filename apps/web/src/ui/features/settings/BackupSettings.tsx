@@ -72,15 +72,15 @@ function BookRow(props: { readonly listed: BookStanding; readonly store: BackupS
   }
   return (
     <li class="flex flex-col gap-3 rounded-md bg-surface-1 p-3">
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div class="flex min-w-0 flex-col gap-0.5 sm:flex-1">
+      <div class="flex flex-col gap-3 @roomy:flex-row @roomy:items-center">
+        <div class="flex min-w-0 flex-col gap-0.5 @roomy:flex-1">
           <span class="break-words text-sm font-medium text-text-primary">{bookTitle(props.listed.book)}</span>
           <span class="text-xs text-text-secondary">{standingText(props.listed.standing)}</span>
           <Show when={lastBackupText(props.listed.standing)} keyed>
             {(last) => <span class="text-xs text-text-muted">{last}</span>}
           </Show>
         </div>
-        <div class="flex flex-col gap-2 sm:shrink-0 sm:flex-row">
+        <div class="flex flex-col gap-2 @roomy:shrink-0 @roomy:flex-row">
           <Show when={props.store} keyed>
             {(store) => (
               <Button variant="secondary" onClick={() => void backUp(backUpToStore(app.services.backup, store, props.listed.book.id))}>
@@ -113,12 +113,16 @@ function HereMark(): JSX.Element {
   )
 }
 
-/** Putting books back: those ticked among a store's backups, together, or one from a file — only ever a book the device does not have, so a backup of one that is here has no tick to give. A backup a store keeps can also be taken out of it, once the person has been asked. */
+/** Putting books back: those ticked among a store's backups, together, or one from a file — only ever a book the device does not have, so a backup of one that is here has no tick to give. A backup a store keeps can also be taken out of it, once the person has been asked. Looking through a store's backups is the rarest of these, so it comes last, under a rule of its own, below the restoring a person does now and then. */
 function Restore(props: { readonly store: BackupStore | undefined }): JSX.Element {
   const app = useApp()
   const picker: { input: HTMLInputElement | undefined } = { input: undefined }
   const [listing, setListing] = createSignal<Listing>({ type: "unasked" })
   const [working, setWorking] = createSignal<Working>({ type: "idle" })
+  /** Where a press among the store's backups as listed stands — putting back what is ticked, or taking one out — said beneath that list, apart from the restoring above it. */
+  const [looking, setLooking] = createSignal<Working>({ type: "idle" })
+  /** Whether restoring or the listed backups are busy: one thing is done at a time across the two. */
+  const busy = (): boolean => working().type === "working" || looking().type === "working"
   /** The store's backups ticked to be put back, by the store's id for each: every one that can be, as the list is read, for the person to untick what they do not want. */
   const [chosen, setChosen] = createSignal<readonly string[]>([])
   /** Reads the store's backups, ticking every one that can be put back — or, where `keeping` names which, those of them still to be. */
@@ -131,7 +135,7 @@ function Restore(props: { readonly store: BackupStore | undefined }): JSX.Elemen
     setListing({ type: "answered", store, backups })
   }
   const restore = async (restoring: () => Promise<Outcome<BookId>>): Promise<void> => {
-    if (working().type === "working") return
+    if (busy()) return
     setWorking({ type: "working" })
     const restored = await restoring()
     setWorking(restored.ok ? { type: "idle" } : { type: "failed", error: restored.error })
@@ -144,15 +148,15 @@ function Restore(props: { readonly store: BackupStore | undefined }): JSX.Elemen
   }
   /** Puts back what is ticked, one after another; nothing ticked is said, not done. What was put back before one failed stays and is counted; the list is read again either way, the books put back shown as on the device and unticked, and the rest left ticked as they were, so a press again goes on from the one that stopped. */
   const restoreChosen = async (store: BackupStore): Promise<void> => {
-    if (working().type === "working") return
+    if (busy()) return
     const ids = chosen()
     if (ids.length === 0) {
       toast({ title: "復元する帳簿を選んでください", description: "復元したいバックアップにチェックを付けます。" })
       return
     }
-    setWorking({ type: "working" })
+    setLooking({ type: "working" })
     const restored = await restoreChosenFromStore(app.services.backup, store, ids)
-    setWorking(restored.failure === undefined ? { type: "idle" } : { type: "failed", error: restored.failure })
+    setLooking(restored.failure === undefined ? { type: "idle" } : { type: "failed", error: restored.failure })
     if (restored.restored.length > 0 || restored.failure === undefined) toast({ title: restoredChosenText(restored.restored.length, ids.length) })
     app.wrote()
     void list(store, restored.failure === undefined ? undefined : ids.filter((id) => !restored.restored.includes(id)))
@@ -161,10 +165,10 @@ function Restore(props: { readonly store: BackupStore | undefined }): JSX.Elemen
   const [removing, setRemoving] = createSignal<{ readonly store: BackupStore; readonly backup: StoredBackup } | undefined>(undefined)
   const remove = async (asked: { readonly store: BackupStore; readonly backup: StoredBackup }): Promise<void> => {
     setRemoving(undefined)
-    if (working().type === "working") return
-    setWorking({ type: "working" })
+    if (busy()) return
+    setLooking({ type: "working" })
     const removed = await removeStoredBackup(app.services.backup, asked.store, asked.backup)
-    setWorking(removed.ok ? { type: "idle" } : { type: "failed", error: removed.error })
+    setLooking(removed.ok ? { type: "idle" } : { type: "failed", error: removed.error })
     if (!removed.ok) return
     toast({ title: "バックアップを削除しました", description: `${asked.backup.name}（${destinationName(asked.store.destination)}）` })
     app.backups.made()
@@ -172,7 +176,7 @@ function Restore(props: { readonly store: BackupStore | undefined }): JSX.Elemen
   }
   /** Puts back what the person chooses in the store's own window, as what is ticked is put back; closing the window does nothing. The list, where it was read, is read again. */
   const restorePicked = async (store: BackupStore): Promise<void> => {
-    if (working().type === "working") return
+    if (busy()) return
     setWorking({ type: "working" })
     const picked = await restorePickedFromStore(app.services.backup, store)
     if (!picked.ok) {
@@ -192,112 +196,126 @@ function Restore(props: { readonly store: BackupStore | undefined }): JSX.Elemen
     if (file !== undefined) void restore(async () => ((bytes) => (bytes.ok ? restoreFromFile(app.services.backup, bytes.value) : Promise.resolve(bytes)))(await bytesOfFile(file)))
   }
   return (
-    <div class="flex flex-col gap-3">
-      <div class="flex flex-col gap-2 sm:flex-row">
-        <Show when={props.store} keyed>
-          {(store) => (
-            <Button variant="secondary" onClick={() => void list(store)}>
-              {destinationName(store.destination)}のバックアップを見る
-            </Button>
-          )}
-        </Show>
-        <Show when={props.store} keyed>
-          {(store) => (
-            <Button variant="secondary" onClick={() => void restorePicked(store)}>
-              {destinationName(store.destination)}から選んで復元
-            </Button>
-          )}
-        </Show>
-        <Button variant="secondary" onClick={() => picker.input?.click()}>
-          iCloudドライブなど zipから復元
-        </Button>
-        <input ref={(element) => (picker.input = element)} type="file" accept=".zip,application/zip" class="hidden" onChange={(event) => picked(event.currentTarget)} />
-      </div>
-      <WorkingNote working={working()} busy="処理しています…" />
-      <ConfirmDialog
-        open={removing() !== undefined}
-        title="バックアップを削除しますか？"
-        confirm="削除する"
-        decline="やめる"
-        onConfirmed={() => {
-          const asked = removing()
-          if (asked !== undefined) void remove(asked)
-        }}
-        onDeclined={() => setRemoving(undefined)}
-      >
-        <Show when={removing()} keyed>
-          {(asked) => (
-            <>
-              <p>
-                {destinationName(asked.store.destination)}の「{asked.backup.name}」（{formatMoment(asked.backup.savedAt)}）をゴミ箱に移します。
-              </p>
-              <p>この端末の帳簿は消えませんが、この帳簿は「バックアップされていません」に戻ります。</p>
-            </>
-          )}
-        </Show>
-      </ConfirmDialog>
-      <Switch>
-        <Match when={listing().type === "asking"}>
-          <p class="text-sm text-text-muted" role="status">
-            バックアップを探しています…
-          </p>
-        </Match>
-        <Match when={((state) => (state.type === "answered" ? state : undefined))(listing())} keyed>
-          {(answered) => (
-            <Loaded outcome={answered.backups}>
-              {(backups) => (
-                <Show when={backups.length > 0} fallback={<EmptyState title="バックアップが見つかりません" />}>
-                  <div class="flex flex-col gap-2">
-                    <ul class="flex flex-col gap-1">
-                      <For each={backups}>
-                        {(each) => (
-                          <li class="flex items-start gap-3 rounded-md bg-surface-1 p-3">
-                            <label class="flex min-w-0 flex-1 items-start gap-3" classList={{ "cursor-pointer": !each.here }}>
-                              <Show when={!each.here} fallback={<HereMark />}>
-                                <input
-                                  type="checkbox"
-                                  aria-label={`${each.backup.name} を復元する`}
-                                  checked={chosen().includes(each.backup.id)}
-                                  onChange={(event) => choose(each.backup.id, event.currentTarget.checked)}
-                                  class="mt-0.5 size-5 shrink-0 accent-accent"
-                                />
-                              </Show>
-                              <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-                                <span class="break-words text-sm font-medium text-text-primary">{each.backup.name}</span>
-                                <span class="text-xs text-text-muted">
-                                  {formatMoment(each.backup.savedAt)}
-                                  {each.here ? "・この端末にあります" : ""}
-                                </span>
-                              </div>
-                            </label>
-                            <button
-                              type="button"
-                              aria-label={`${each.backup.name} を${destinationName(answered.store.destination)}から削除`}
-                              class="flex size-9 shrink-0 items-center justify-center rounded border border-border text-text-secondary hover:border-negative hover:text-negative [&_svg]:size-4"
-                              onClick={() => setRemoving({ store: answered.store, backup: each.backup })}
-                            >
-                              <TrashIcon />
-                            </button>
-                          </li>
-                        )}
-                      </For>
-                    </ul>
-                    <Show
-                      when={backups.some((each) => !each.here)}
-                      fallback={<p class="text-xs text-text-muted">どれもこの端末にある帳簿のバックアップです。復元するには、先に「帳簿の管理」でこの端末の帳簿を削除してください。</p>}
-                    >
-                      <Button variant="secondary" class="w-full sm:w-auto sm:self-start" onClick={() => void restoreChosen(answered.store)}>
-                        選んだ帳簿をこの端末に復元
-                      </Button>
-                    </Show>
-                  </div>
-                </Show>
+    <>
+      <section class="flex flex-col gap-2">
+        <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">帳簿を復元</h2>
+        <p class="text-sm text-text-muted">この端末にない帳簿だけ復元します。変更の履歴は復元されません。</p>
+        <div class="flex flex-col gap-3">
+          <div class="flex flex-col gap-2 @roomy:flex-row">
+            <Show when={props.store} keyed>
+              {(store) => (
+                <Button variant="secondary" onClick={() => void restorePicked(store)}>
+                  {destinationName(store.destination)}から選んで復元
+                </Button>
               )}
-            </Loaded>
-          )}
-        </Match>
-      </Switch>
-    </div>
+            </Show>
+            <Button variant="secondary" onClick={() => picker.input?.click()}>
+              iCloudドライブなど zipから復元
+            </Button>
+            <input ref={(element) => (picker.input = element)} type="file" accept=".zip,application/zip" class="hidden" onChange={(event) => picked(event.currentTarget)} />
+          </div>
+          <WorkingNote working={working()} busy="処理しています…" />
+        </div>
+      </section>
+      <Show when={props.store} keyed>
+        {(store) => (
+          <>
+            <hr class="border-border" />
+            <section class="flex flex-col gap-3">
+              <div class="flex flex-col gap-2 @roomy:flex-row">
+                <Button variant="secondary" onClick={() => void list(store)}>
+                  {destinationName(store.destination)}のバックアップを見る
+                </Button>
+              </div>
+              <WorkingNote working={looking()} busy="処理しています…" />
+              <ConfirmDialog
+                open={removing() !== undefined}
+                title="バックアップを削除しますか？"
+                confirm="削除する"
+                decline="やめる"
+                onConfirmed={() => {
+                  const asked = removing()
+                  if (asked !== undefined) void remove(asked)
+                }}
+                onDeclined={() => setRemoving(undefined)}
+              >
+                <Show when={removing()} keyed>
+                  {(asked) => (
+                    <>
+                      <p>
+                        {destinationName(asked.store.destination)}の「{asked.backup.name}」（{formatMoment(asked.backup.savedAt)}）をゴミ箱に移します。
+                      </p>
+                      <p>この端末の帳簿は消えませんが、この帳簿は「バックアップされていません」に戻ります。</p>
+                    </>
+                  )}
+                </Show>
+              </ConfirmDialog>
+              <Switch>
+                <Match when={listing().type === "asking"}>
+                  <p class="text-sm text-text-muted" role="status">
+                    バックアップを探しています…
+                  </p>
+                </Match>
+                <Match when={((state) => (state.type === "answered" ? state : undefined))(listing())} keyed>
+                  {(answered) => (
+                    <Loaded outcome={answered.backups}>
+                      {(backups) => (
+                        <Show when={backups.length > 0} fallback={<EmptyState title="バックアップが見つかりません" />}>
+                          <div class="flex flex-col gap-2">
+                            <ul class="flex flex-col gap-1">
+                              <For each={backups}>
+                                {(each) => (
+                                  <li class="flex items-start gap-3 rounded-md bg-surface-1 p-3">
+                                    <label class="flex min-w-0 flex-1 items-start gap-3" classList={{ "cursor-pointer": !each.here }}>
+                                      <Show when={!each.here} fallback={<HereMark />}>
+                                        <input
+                                          type="checkbox"
+                                          aria-label={`${each.backup.name} を復元する`}
+                                          checked={chosen().includes(each.backup.id)}
+                                          onChange={(event) => choose(each.backup.id, event.currentTarget.checked)}
+                                          class="mt-0.5 size-5 shrink-0 accent-accent"
+                                        />
+                                      </Show>
+                                      <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+                                        <span class="break-words text-sm font-medium text-text-primary">{each.backup.name}</span>
+                                        <span class="text-xs text-text-muted">
+                                          {formatMoment(each.backup.savedAt)}
+                                          {each.here ? "・この端末にあります" : ""}
+                                        </span>
+                                      </div>
+                                    </label>
+                                    <button
+                                      type="button"
+                                      aria-label={`${each.backup.name} を${destinationName(answered.store.destination)}から削除`}
+                                      class="flex size-9 shrink-0 items-center justify-center rounded border border-border text-text-secondary hover:border-negative hover:text-negative [&_svg]:size-4"
+                                      onClick={() => setRemoving({ store: answered.store, backup: each.backup })}
+                                    >
+                                      <TrashIcon />
+                                    </button>
+                                  </li>
+                                )}
+                              </For>
+                            </ul>
+                            <Show
+                              when={backups.some((each) => !each.here)}
+                              fallback={<p class="text-xs text-text-muted">どれもこの端末にある帳簿のバックアップです。復元するには、先に「帳簿の管理」でこの端末の帳簿を削除してください。</p>}
+                            >
+                              <Button variant="secondary" class="w-full @roomy:w-auto @roomy:self-start" onClick={() => void restoreChosen(answered.store)}>
+                                選んだ帳簿をこの端末に復元
+                              </Button>
+                            </Show>
+                          </div>
+                        </Show>
+                      )}
+                    </Loaded>
+                  )}
+                </Match>
+              </Switch>
+            </section>
+          </>
+        )}
+      </Show>
+    </>
   )
 }
 
@@ -336,11 +354,7 @@ export function BackupSettings(props: { readonly place: Place }): JSX.Element {
             </Loaded>
           </section>
           <hr class="border-border" />
-          <section class="flex flex-col gap-2">
-            <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">帳簿を復元</h2>
-            <p class="text-sm text-text-muted">この端末にない帳簿だけ復元します。変更の履歴は復元されません。</p>
-            <Restore store={app.services.backupStore} />
-          </section>
+          <Restore store={app.services.backupStore} />
         </div>
       </div>
     </MainContent>

@@ -75,7 +75,7 @@ function Editor(props: { readonly detail: PachislotMachineDetail }): JSX.Element
       <div class="max-w-md">
         <TextField label="名前" value={form().label} onChange={(label) => setForm({ ...form(), label })} placeholder="平日・イベント日…" />
       </div>
-      <div class="grid max-w-xl grid-cols-3 gap-2 sm:grid-cols-6">
+      <div class="grid max-w-xl grid-cols-3 gap-2 @roomy:grid-cols-6">
         <Index each={levels()}>
           {(level) => (
             <TextField

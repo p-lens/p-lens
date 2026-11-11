@@ -33,7 +33,7 @@ const BLANK_FOR = 200
 /** Whether the calendar is shown, or the page stands empty a moment as a swipe turns the month. */
 type Face = "shown" | "blank"
 
-const CELL = "flex min-h-[3.75rem] min-w-0 flex-col gap-0.5 rounded-[3px] px-0.5 py-1 text-left sm:px-1"
+const CELL = "flex min-h-[3.75rem] min-w-0 flex-col gap-0.5 rounded-[3px] px-0.5 py-1 text-left @roomy:px-1"
 
 /**
  * One day of the month: its number, and what its tallies made where it had
@@ -141,7 +141,7 @@ export function ResultCalendar(props: {
     <MainContent header={<ViewHeader place={props.place} title={RESULT_CALENDAR} actions={props.actions} framed="3xl" />}>
       <div class="min-h-full max-w-3xl" onTouchStart={swipe.onTouchStart} onTouchEnd={swipe.onTouchEnd} onTouchCancel={swipe.onTouchCancel}>
         <Show when={face() === "shown"}>
-          <div class="flex flex-col gap-4 p-2 sm:p-4">
+          <div class="flex flex-col gap-4 p-2 @roomy:p-4">
             <div class="flex items-center gap-1">
               <Button type="button" variant="ghost" size="icon" onClick={() => props.onMonth(monthBefore(props.month))}>
                 <EarlierIcon label="前の月" />

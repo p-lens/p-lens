@@ -86,7 +86,7 @@ export function Terms(props: {
     return read.ok ? tierOf("pachinko", read.value) : undefined
   }
   return (
-    <div class="grid grid-cols-1 gap-x-2 sm:grid-cols-2">
+    <div class="grid grid-cols-1 gap-x-2 @roomy:grid-cols-2">
       <div class="flex flex-col gap-2">
         <div class="grid grid-cols-2 items-end gap-x-1.5">
           <div class="grid grid-cols-2 gap-x-1.5">

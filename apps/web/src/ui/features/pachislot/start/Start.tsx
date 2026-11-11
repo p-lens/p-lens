@@ -178,7 +178,7 @@ function ParlorField(props: {
     { equals: (was, now) => was?.parlor === now?.parlor && was?.survey === now?.survey },
   )
   return (
-    <div class="grid grid-cols-1 gap-x-2 gap-y-1.5 sm:grid-cols-2">
+    <div class="grid grid-cols-1 gap-x-2 gap-y-1.5 @roomy:grid-cols-2">
       <div class="flex min-w-0 items-end gap-2">
         <div class="min-w-0 flex-1">
           <Combobox
@@ -385,7 +385,7 @@ export function Start(props: {
             番台
           </div>
         </div>
-        <div class="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 sm:gap-2">
+        <div class="grid grid-cols-1 items-start gap-5 @roomy:grid-cols-2 @roomy:gap-2">
           <MachineField
             machine={start.form().pachislot.machine}
             invalid={machineNudge.red()}

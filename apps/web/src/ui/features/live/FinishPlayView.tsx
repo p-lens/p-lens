@@ -117,7 +117,7 @@ function BookField(props: { readonly draft: PlayDraft; readonly bookId: BookId; 
   }
   return (
     <Show when={props.draft.recorded === undefined && props.books.length > 1}>
-      <div class="px-4 pt-4 sm:max-w-xs">
+      <div class="px-4 pt-4 @roomy:max-w-xs">
         <Select
           label="記帳する帳簿"
           options={props.books.map((book) => ({ value: book.id, label: bookTitle(book) }))}

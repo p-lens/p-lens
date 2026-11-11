@@ -75,7 +75,7 @@ export function OverallCard(props: { readonly overall: Overall; readonly theoret
   const prizeParts = (): readonly Decimal[] => apportioned([props.overall.specialPrizes, props.overall.oddPrizes, props.overall.translationAdjustment], 0)
   return (
     <div class="flex flex-col gap-3">
-      <div class="flex flex-col gap-3 md:grid md:grid-cols-3 md:items-start md:gap-x-4">
+      <div class="flex flex-col gap-3 @3xl:grid @3xl:grid-cols-3 @3xl:items-start @3xl:gap-x-4">
         <Totals head={TOTALS_HEADS.played}>
           <Total label="プレイ台数" value={`${formatCount(props.overall.plays)}台`} />
           <Total label="プレイ日数" value={`${formatCount(days())}日`} />
@@ -102,7 +102,7 @@ export function OverallCard(props: { readonly overall: Overall; readonly theoret
           <Total label="うち換算調整勘定" value={formatYen(seal.tally(prizeParts()[2] ?? ZERO))} minor />
         </Totals>
       </div>
-      <dl class="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+      <dl class="grid grid-cols-2 gap-1.5 @roomy:grid-cols-4">
         <Figure label="平均収支（1台）" {...result(averageOf(props.overall.actual, props.overall.plays))} />
         <Figure label="平均収支（1日）" {...result(averageOf(props.overall.actual, days()))} />
         <Figure label="平均期待値（1台）" value={theoretical(averageOf(props.overall.theoretical, props.overall.plays))} />

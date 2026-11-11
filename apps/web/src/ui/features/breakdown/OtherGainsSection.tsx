@@ -28,7 +28,7 @@ function Line(props: { readonly label: string; readonly value: Decimal; readonly
  */
 export function OtherGainsSection(props: { readonly gains: OtherGains }): JSX.Element {
   return (
-    <section aria-label={OTHER_GAINS} class="flex flex-col gap-1 md:max-w-md">
+    <section aria-label={OTHER_GAINS} class="flex flex-col gap-1 @3xl:max-w-md">
       <h2 class="text-xs font-semibold text-text-muted">{OTHER_GAINS}</h2>
       <dl class="flex flex-col divide-y divide-border rounded-md bg-surface-1 px-3">
         <Line label={FORFEITED} value={negate(props.gains.forfeited)} note={FORFEITED_NOTE} />

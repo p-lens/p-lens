@@ -112,7 +112,7 @@ export function ConflictPanel(props: { readonly conflict: BookConflict; readonly
                     const mineFirst = (): boolean => sideOf(props.conflict, true) === "first"
                     return (
                       <div class="flex flex-col gap-2">
-                        <div class="grid gap-2 sm:grid-cols-2">
+                        <div class="grid gap-2 @roomy:grid-cols-2">
                           <div class="flex flex-col gap-1">
                             <span class="text-xs text-text-muted">{sideName(true)}</span>
                             <Lines lines={mineFirst() ? part().first : part().second} />

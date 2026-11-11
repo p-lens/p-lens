@@ -166,7 +166,7 @@ function SeatCounter(props: { readonly state: SeatState; readonly nudged: boolea
     <fieldset class="flex flex-col gap-1.5">
       <legend class="sr-only">着席時のデータ</legend>
       <div class="flex items-start gap-1.5">
-        <div class="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-4">
+        <div class="grid min-w-0 flex-1 grid-cols-2 gap-2 @roomy:grid-cols-4">
           <Show when={!props.state.atMachine()}>
             <TextField
               label="累計ゲーム数"

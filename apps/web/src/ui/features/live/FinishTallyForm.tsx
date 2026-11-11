@@ -36,7 +36,7 @@ import { JournalText } from "../mummer/JournalText"
 const SAVINGS_DRAWN: Readonly<Record<TokenKind, string>> = { ball: "貯玉引出", medal: "貯メダル引出" }
 
 /** How wide a row of the form grows on a screen with room: no wider than four sums read well side by side, the machine and what it all comes to kept to the same. */
-const ROW_ON_A_WIDE_SCREEN = "sm:max-w-xl"
+const ROW_ON_A_WIDE_SCREEN = "@roomy:max-w-xl"
 
 /** The fields every play followed live is recorded with, at a parlor or at none. */
 type FinishField = "machine" | "cabinetNumber" | "outlay" | "replayPaidOut" | "carriedIn" | "handed" | "payout" | "theoreticalValue"
@@ -164,7 +164,7 @@ export function FinishTallyForm(props: {
         </div>
         <TextField label="台番号" value={editing.value("cabinetNumber")} masked={cabinetFieldMasked(seal.cabinet(editing.value("cabinetNumber")))} onChange={editing.set("cabinetNumber")} inputMode="numeric" />
       </div>
-      <div class={`grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-4 ${ROW_ON_A_WIDE_SCREEN}`}>
+      <div class={`grid grid-cols-2 gap-x-3 gap-y-4 @roomy:grid-cols-4 ${ROW_ON_A_WIDE_SCREEN}`}>
         <div class="flex flex-col gap-1">
           <TextField label="投資額" value={editing.value("outlay")} onChange={editing.set("outlay")} inputMode="numeric" suffix="円" error={editing.problemOf("outlay")} invalid={editing.nudged("outlay")} onFocus={editing.nudge.settle} />
           {props.outlayBeside}

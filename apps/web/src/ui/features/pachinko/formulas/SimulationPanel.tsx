@@ -29,7 +29,7 @@ const SESSIONS_BY_DEFAULT = 10_000_000
 function Results(props: { readonly summary: SummaryDto; readonly exactRounds: number }): JSX.Element {
   return (
     <div class="flex flex-col gap-3">
-      <dl class="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+      <dl class="grid grid-cols-2 gap-2 text-sm @roomy:grid-cols-3">
         <div><dt class="text-xs text-text-muted">試行</dt><dd class="tabular-nums">{formatMan(props.summary.sessions)} / {formatMan(props.summary.planned)}</dd></div>
         <div><dt class="text-xs text-text-muted">平均収支</dt><dd class="tabular-nums">{yenFigureText(seal.formula(props.summary.meanYen))}</dd></div>
         <div><dt class="text-xs text-text-muted">標準偏差</dt><dd class="tabular-nums">{props.summary.standardDeviationYen === null ? "--" : `¥${amountText(seal.formula(Math.round(props.summary.standardDeviationYen)))}`}</dd></div>

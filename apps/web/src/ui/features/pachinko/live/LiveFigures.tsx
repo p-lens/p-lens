@@ -91,7 +91,7 @@ export function LiveFigures(props: {
   const mark = (): BorderMark | undefined => borderMarkOf(theoretical()?.yenPerSpin, { spins: props.consumption?.measured?.spins ?? 0, minutes: props.minutesPlayed })
   return (
     <section class="flex flex-col gap-2">
-      <dl class="grid grid-cols-3 gap-1.5" classList={{ "sm:grid-cols-6": !props.folded }}>
+      <dl class="grid grid-cols-3 gap-1.5" classList={{ "@roomy:grid-cols-6": !props.folded }}>
         <Show when={!props.folded}>
           <Tile label="通常回転" value={formatCount(props.consumption?.regularSpins ?? props.summary.spins)} unit="回転" />
           <Tile label="カウンタ" value={formatCount(props.summary.counterNow)} unit="回転" />
@@ -117,7 +117,7 @@ export function LiveFigures(props: {
               <p class="min-w-0 text-xs text-text-muted">算出条件「{formulaText(formula.figures)}」{props.terms === undefined ? "（交換率が入っていません）" : `／ 交換率 ${tokenValueOf(props.terms).toFixed(2)}円/玉`}</p>
               {props.beside(formula)}
             </div>
-            <dl class="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+            <dl class="grid grid-cols-3 gap-1.5 @roomy:grid-cols-4">
               <Tile label="期待値（ここまで）" value={theoreticalFigureText(seal.play(theoretical()?.theoreticalValue))} />
               <Tile label="期待値（1回転）" value={theoreticalFractionText(seal.play(theoretical()?.yenPerSpin), 3)} />
               <Tile

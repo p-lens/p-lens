@@ -81,7 +81,7 @@ export function HuddleTotalView(props: { readonly place: Place }): JSX.Element {
         </div>
         <Show when={total()} keyed>
           {(found) => (
-            <dl class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <dl class="grid grid-cols-2 gap-2 @roomy:grid-cols-3">
               <Figure label="現金投資" value={`¥${amountText(seal.play(found.outlay))}`} />
               <Figure label="持ち玉" {...tokensOf(found.held.pachinko)} unit="玉" />
               <Figure label="持ちメダル" {...tokensOf(found.held.pachislot)} unit="枚" />

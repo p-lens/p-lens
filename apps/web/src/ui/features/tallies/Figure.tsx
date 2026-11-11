@@ -30,10 +30,10 @@ export function Figure(props: {
   const tone = (): string => (props.value === undefined ? "text-text-muted" : props.kind === "actual" ? TONES[toneOf(seal.tally(props.value))] : TONES.neutral)
   const text = (): string => (props.value === undefined ? UNSEEN[props.kind] : FORMATS[props.kind](seal.tally(props.value)))
   return (
-    <div class="flex min-w-0 flex-col gap-0.5 rounded-lg border border-border px-3 py-2 sm:gap-1 sm:px-4 sm:py-3">
+    <div class="flex min-w-0 flex-col gap-0.5 rounded-lg border border-border px-3 py-2 @roomy:gap-1 @roomy:px-4 @roomy:py-3">
       <dt class="text-xs font-bold uppercase tracking-wide text-text-muted">{props.label}</dt>
-      <Show when={props.instead} keyed fallback={<dd class={`text-xl font-bold tabular-nums sm:text-2xl ${tone()}`}>{text()}</dd>}>
-        {(words) => <dd class="flex h-7 items-center text-sm text-text-muted sm:h-8">{words}</dd>}
+      <Show when={props.instead} keyed fallback={<dd class={`text-xl font-bold tabular-nums @roomy:text-2xl ${tone()}`}>{text()}</dd>}>
+        {(words) => <dd class="flex h-7 items-center text-sm text-text-muted @roomy:h-8">{words}</dd>}
       </Show>
       <For each={props.captions}>{(caption) => <dd class="text-[10px] text-text-muted">{caption}</dd>}</For>
     </div>

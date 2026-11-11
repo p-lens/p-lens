@@ -27,7 +27,7 @@ function Hunt(props: { readonly hunt: HuntDto; readonly priced: boolean; readonl
   return (
     <section class="flex flex-col gap-2">
       <h3 class="text-xs font-bold uppercase tracking-wide text-text-secondary">天井狙い（AT終了まで）</h3>
-      <dl class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <dl class="grid grid-cols-2 gap-2 @roomy:grid-cols-4">
         <Tile label="期待値" value={props.priced ? shown(theoreticalFigureText(seal.play(props.hunt.yen)), UNSEEN.yen) : shown(signedMedalsText(seal.play(props.hunt.medals)), UNSEEN.medals)} />
         <Tile label="ATまで" value={shown(aboutText(props.hunt.games, "G"), UNSEEN.games)} />
         <Tile label="ATの獲得" value={shown(aboutText(props.hunt.atMedals, "枚"), UNSEEN.medals)} />
@@ -52,7 +52,7 @@ export function OutlookPanel(props: { readonly outlook: PlayOutlook; readonly pr
   return (
     <div class="flex flex-col gap-3">
       <SettingLevelOdds settingLevels={props.outlook.settingLevels} prior={props.prior} grounded={props.outlook.grounded} />
-      <dl class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <dl class="grid grid-cols-2 gap-2 @roomy:grid-cols-4">
         <Tile label="期待機械割" value={props.outlook.grounded ? payoutRateText(props.outlook.payoutRate) : UNSEEN.payoutRate} />
         <Show when={props.outlook.netPerGame !== undefined}>
           <Tile label="1Gあたり" value={props.outlook.grounded ? medalsPerGameText(props.outlook.netPerGame ?? 0) : UNSEEN.medalsPerGame} />

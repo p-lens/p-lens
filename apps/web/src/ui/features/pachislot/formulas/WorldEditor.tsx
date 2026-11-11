@@ -82,7 +82,7 @@ function LevelCells(props: {
   readonly onChange: (values: Readonly<Record<string, string>>) => void
 }): JSX.Element {
   return (
-    <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
+    <div class="grid grid-cols-3 gap-2 @roomy:grid-cols-6">
       <Index each={props.levels}>
         {(level) => (
           <TextField

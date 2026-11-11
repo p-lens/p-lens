@@ -29,7 +29,7 @@ import { seal } from "../../../mummer"
 
 const TONES = { positive: "text-positive", negative: "text-negative", neutral: "text-text-secondary" } as const
 
-const CELL = "flex min-h-[3.75rem] min-w-0 flex-col gap-0.5 rounded-[3px] px-0.5 py-1 text-left sm:px-1"
+const CELL = "flex min-h-[3.75rem] min-w-0 flex-col gap-0.5 rounded-[3px] px-0.5 py-1 text-left @roomy:px-1"
 
 /** Where writing the days typed stands: being typed, being written, or refused with why. */
 type Writing = { readonly type: "typing" } | { readonly type: "writing" } | { readonly type: "failed"; readonly error: ApplicationError }
@@ -134,7 +134,7 @@ export function DayEntryView(props: { readonly place: Place; readonly bookId: Bo
   return (
     <MainContent header={<ViewHeader place={props.place} title={DAY_ENTRY} framed="3xl" />}>
       <div class="max-w-3xl">
-        <div class="flex flex-col gap-4 p-2 sm:p-4">
+        <div class="flex flex-col gap-4 p-2 @roomy:p-4">
           <div class="flex items-center gap-1">
             <Button type="button" variant="ghost" size="icon" onClick={() => setMonth(monthBefore(month()))}>
               <EarlierIcon label="前の月" />

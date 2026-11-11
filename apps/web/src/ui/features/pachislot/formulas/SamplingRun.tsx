@@ -34,7 +34,7 @@ const widestMargin = (summary: EstimateSummaryDto): number | undefined => {
 
 function Estimates(props: { readonly summary: EstimateSummaryDto }): JSX.Element {
   return (
-    <ul class="grid grid-cols-2 gap-2 rounded-lg border border-accent/40 bg-accent/5 px-4 py-3 text-sm tabular-nums sm:grid-cols-3">
+    <ul class="grid grid-cols-2 gap-2 rounded-lg border border-accent/40 bg-accent/5 px-4 py-3 text-sm tabular-nums @roomy:grid-cols-3">
       <Index each={props.summary.settingLevels}>
         {(each) => (
           <li>

@@ -89,8 +89,8 @@ function BookRow(props: { readonly listed: BookStanding; readonly motion: Motion
         if (props.motion === "settling") props.onSettled()
       }}
     >
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div class="flex min-w-0 flex-col gap-0.5 sm:flex-1">
+      <div class="flex flex-col gap-3 @roomy:flex-row @roomy:items-center">
+        <div class="flex min-w-0 flex-col gap-0.5 @roomy:flex-1">
           <div class="flex min-w-0">
             <BookTitle book={props.listed.book} nameClass="min-w-0 break-words text-sm font-medium" />
           </div>
@@ -106,7 +106,7 @@ function BookRow(props: { readonly listed: BookStanding; readonly motion: Motion
             </span>
           </Show>
         </div>
-        <div class="flex items-center justify-end sm:shrink-0">
+        <div class="flex items-center justify-end @roomy:shrink-0">
           <Show when={!warned()}>
             <Button variant="secondary" class="text-negative" onClick={() => void ask()}>
               {waited() ? "削除しています…" : "削除"}
@@ -123,7 +123,7 @@ function BookRow(props: { readonly listed: BookStanding; readonly motion: Motion
                 <span class="font-semibold">バックアップしていない記録は失われます。</span>
               </Show>
             </p>
-            <div class="flex flex-col gap-2 sm:flex-row">
+            <div class="flex flex-col gap-2 @roomy:flex-row">
               <Button variant="secondary" class="text-negative" onClick={() => void remove(true)}>
                 {waited() ? "削除しています…" : "削除する"}
               </Button>
@@ -299,7 +299,7 @@ function AddBook(props: { readonly titles: readonly string[] }): JSX.Element {
       }}
     >
       <div class="flex items-end gap-2">
-        <div class="min-w-0 flex-1 sm:max-w-xs">
+        <div class="min-w-0 flex-1 @roomy:max-w-xs">
           <TextField label="新しい帳簿の名前" value={title()} onChange={setTitle} maxLength={LONGEST_TITLE} placeholder={unnamed()} masked={titleFieldMasked()} />
         </div>
         <Button type="button" variant="outline" size="icon" class="shrink-0" aria-label={REDRAW_LABEL} title={REDRAW_LABEL} onClick={() => setUnnamed(app.services.unnamedTitle([...props.titles, unnamed()]))}>

@@ -174,7 +174,7 @@ function ModeEditor(props: {
       >
         <For each={KINDS}>
           {(entry) => (
-            <ToggleGroupItem value={entry.kind} class="px-2 sm:px-3">
+            <ToggleGroupItem value={entry.kind} class="px-2 @roomy:px-3">
               {entry.label}
             </ToggleGroupItem>
           )}
@@ -206,7 +206,7 @@ function ModeEditor(props: {
         <p class="text-xs text-text-muted">通常時の確率で抽選します。高確率のまま消化する機種は、STの回転数に含めてください。</p>
       </Show>
       <AllotmentEditor title="このモード中の大当り振分" rows={props.mode.allotment} modes={props.modes} prizeBalls={props.prizeBalls} count={props.count} onChange={set("allotment")} />
-      <div class="grid max-w-xl grid-cols-2 gap-2 sm:grid-cols-3 [&>*]:min-w-0">
+      <div class="grid max-w-xl grid-cols-2 gap-2 @roomy:grid-cols-3 [&>*]:min-w-0">
         <Select label="終了後" placeholder="行き先" options={destinations(others(), props.modes)} value={props.mode.onMiss} onChange={set("onMiss")} />
         <Select
           label="ラッキートリガー先"
@@ -348,7 +348,7 @@ export function BasisEditor(props: { readonly form: BasisForm; readonly onChange
         />
         <p class="text-xs text-text-muted">通常時のハズレから、大当りなしで時短へ移る機種の確率です。空欄ならありません。遊タイムまでの回転数はリセットされず、数え続けます。</p>
       </section>
-      <div class="grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
+      <div class="grid max-w-2xl grid-cols-2 gap-3 @roomy:grid-cols-4">
         <TextField label="賞球（機種）" value={props.form.prizeBalls} onChange={set("prizeBalls")} inputMode="numeric" suffix="個" />
         <TextField label="カウント" value={props.form.count} onChange={set("count")} inputMode="numeric" />
         <TextField label="実測の1R出玉" value={props.form.measuredPayout} onChange={set("measuredPayout")} inputMode="decimal" suffix="玉" placeholder="スペック通り" />

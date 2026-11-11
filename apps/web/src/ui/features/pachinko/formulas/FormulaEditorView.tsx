@@ -74,7 +74,7 @@ function Problems(props: { readonly problems: readonly FormProblem[]; readonly n
 
 function FiguresPreview(props: { readonly figures: Figures }): JSX.Element {
   return (
-    <dl class="grid grid-cols-2 gap-3 rounded-lg border border-accent/40 bg-accent/5 px-4 py-3 text-sm sm:grid-cols-3">
+    <dl class="grid grid-cols-2 gap-3 rounded-lg border border-accent/40 bg-accent/5 px-4 py-3 text-sm @roomy:grid-cols-3">
       <div><dt class="text-xs text-text-muted">1Rトータル確率</dt><dd class="text-lg font-bold tabular-nums">{oneInText(props.figures.roundChanceOneIn)}</dd></div>
       <div><dt class="text-xs text-text-muted">1R平均出玉</dt><dd class="text-lg font-bold tabular-nums">{payoutText(props.figures.payoutPerRound)}</dd></div>
       <Show when={props.figures.totalChanceOneIn} keyed>

@@ -61,7 +61,7 @@ export function FormulaCard(props: {
   const checkPaint = () => ownPaintOf(["verification", "refutation"], props.mine)
   const adoptionPaint = () => ownPaintOf(["adoption", "rejection"], props.mine)
   return (
-    <article class="grid grid-cols-[1fr_auto] items-center gap-2 rounded-lg border border-border px-4 py-3 sm:grid-cols-[1fr_auto_auto]" classList={{ "border-accent bg-accent/5": props.reason !== undefined }}>
+    <article class="grid grid-cols-[1fr_auto] items-center gap-2 rounded-lg border border-border px-4 py-3 @roomy:grid-cols-[1fr_auto_auto]" classList={{ "border-accent bg-accent/5": props.reason !== undefined }}>
       <header class="col-span-full flex items-center gap-2">
         <Show when={props.reason} keyed>
           {(reason) => <SelectionReason by={reason} class="size-5" />}
@@ -106,7 +106,7 @@ export function FormulaCard(props: {
           <QuestionIcon />
         </button>
       </header>
-      <dl class="flex flex-wrap gap-x-6 gap-y-1 text-sm sm:col-span-full">
+      <dl class="flex flex-wrap gap-x-6 gap-y-1 text-sm @roomy:col-span-full">
         <Show when={figures().totalChanceOneIn} keyed>
           {(total) => (
             <div>
@@ -127,7 +127,7 @@ export function FormulaCard(props: {
         </Show>
       </dl>
       <Show when={props.besideFigures}>
-        <div class="justify-self-end self-end sm:col-start-2 sm:row-start-3 sm:self-center">{props.besideFigures}</div>
+        <div class="justify-self-end self-end @roomy:col-start-2 @roomy:row-start-3 @roomy:self-center">{props.besideFigures}</div>
       </Show>
       <footer class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
         <Count icon={<ShieldIcon paint={checkPaint()} />} count={netVerifications(props.listing.standing)} label="検証OK−検証NG" filled={checkPaint() !== undefined} signed />

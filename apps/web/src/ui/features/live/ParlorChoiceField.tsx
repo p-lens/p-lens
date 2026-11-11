@@ -16,7 +16,7 @@ const ROUND_BUTTON = "flex size-10 shrink-0 items-center justify-center rounded-
 export function ParlorChoiceField(props: { readonly parlor: ParlorChoice }): JSX.Element {
   const parlor = props.parlor
   return (
-    <div class="flex flex-col gap-1.5 sm:max-w-xl">
+    <div class="flex flex-col gap-1.5 @roomy:max-w-xl">
       <div class="flex min-w-0 items-end gap-2">
         <div class="min-w-0 flex-1">
           <Combobox
