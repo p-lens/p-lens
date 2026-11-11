@@ -4,7 +4,7 @@ import type { SpecDto } from "@p-lens/contracts/pachislot"
 import czSpec from "@p-lens/contracts/fixtures/pachislot/made-up-cz/spec.json"
 import normalized from "@p-lens/contracts/fixtures/pachislot/made-up/normalized.json"
 
-import { huntTable } from "../../../src/application/pachislot/hunt"
+import { firstGainingRow, huntTable, type HuntRow } from "../../../src/application/pachislot/hunt"
 import type { Basis } from "../../../src/core/pachislot/formula"
 import { huntSeatsOf } from "../../../src/core/pachislot/path"
 import { DEFAULT_PRIOR, priorFor } from "../../../src/core/pachislot/prior"
@@ -42,5 +42,17 @@ describe("天井狙い down a formula's table", () => {
   test("is none at a machine of bonuses", async () => {
     const basis = { spec: {} as SpecDto, conditions: { payoutRate: { type: "from-spec" as const } }, normalized: normalized as Basis["normalized"], engineSchemaVersion: 3 }
     expect(await huntTable(inProcessEngine, basis, terms, [{ sinceTrigger: 0, sinceAt: 0, misses: 0, afterReset: false }])).toEqual({ ok: true, value: [] })
+  })
+})
+
+describe("the first row of a 天井狙い table that gains", () => {
+  const row = (sinceAt: number, yen: number): HuntRow => ({ seat: { sinceAt } as HuntRow["seat"], hunt: { yen } as HuntRow["hunt"] })
+
+  test("is the first above nothing, not one that only breaks even", () => {
+    expect(firstGainingRow([row(0, -4000), row(100, 0), row(200, 300), row(300, 2500)])?.seat.sinceAt).toBe(200)
+  })
+
+  test("is none where every row loses, as at a machine whose ceiling never repays the games to it", () => {
+    expect(firstGainingRow([row(0, -4000), row(100, -10)])).toBeUndefined()
   })
 })

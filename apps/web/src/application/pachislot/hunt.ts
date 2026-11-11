@@ -1,6 +1,6 @@
 import type { HuntDto, PathStartDto, WeightDto } from "@p-lens/contracts/pachislot"
 
-import type { Basis } from "../../core/pachislot/formula"
+import type { Basis, Formula } from "../../core/pachislot/formula"
 import { DEFAULT_PRIOR, priorFor } from "../../core/pachislot/prior"
 import { huntPlayOf } from "../../core/pachislot/weighing"
 import type { PlayTerms } from "../../core/parlor/terms"
@@ -14,6 +14,12 @@ export interface HuntRow {
   readonly seat: PathStartDto
   readonly hunt: HuntDto
 }
+
+/** Whether a formula has a 天井狙い table: an AT machine's. */
+export const huntable = (formula: Formula): boolean => formula.basis.normalized.atRules !== undefined
+
+/** The first row of a 天井狙い table that comes to more than nothing; none where no row does. */
+export const firstGainingRow = (rows: readonly HuntRow[]): HuntRow | undefined => rows.find((row) => row.hunt.yen > 0)
 
 /**
  * 天井狙い at each seat of a formula, as a table: under the stock spread a

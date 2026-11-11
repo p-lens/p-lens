@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { huntBorderOf, huntCurve, huntOf, huntYenAt } from "../../../src/core/pachinko/hyena-hunt"
+import { assumedHuntPerformance, firstGainingRow, huntBorderOf, huntCurve, huntOf, huntYenAt } from "../../../src/core/pachinko/hyena-hunt"
 
 /** A hunt of 250 spins on average whose rounds are worth ¥20,000, as the engine prices it at 20 spins per ¥1,000. */
 const ROW = { initialSpins: 700, yen: 20_000 - (250 * 1000) / 20, spins: 250, rounds: 35, reliefDriveProbability: 0.457 }
@@ -26,5 +26,29 @@ describe("a 遊タイム狙い apart from the spin rate", () => {
       { spinPerformance: 15, yen: 20_000 - 250_000 / 15 },
       { spinPerformance: 20, yen: 7500 },
     ])
+  })
+})
+
+describe("the spin rate a 遊タイム狙い is first reckoned at", () => {
+  const figures = { roundChanceOneIn: 25, payoutPerRound: 100, totalChanceOneIn: undefined, spinsPerHour: undefined }
+
+  test("is a twentieth under the own-ball border, to a tenth", () => {
+    expect(assumedHuntPerformance(figures, 250)).toBe(59.4)
+  })
+
+  test("scales with the balls ¥1,000 rents, so a 1-yen corner is reckoned as harshly as a 4-yen one", () => {
+    expect(assumedHuntPerformance(figures, 1000)).toBe(237.5)
+  })
+})
+
+describe("the first row of a 遊タイム狙い table that gains", () => {
+  const row = (initialSpins: number, yen: number) => ({ ...ROW, initialSpins, yen })
+
+  test("is the first above nothing, not one that only breaks even", () => {
+    expect(firstGainingRow([row(0, -3000), row(50, 0), row(100, 400), row(150, 2000)])?.initialSpins).toBe(100)
+  })
+
+  test("is none where every row loses", () => {
+    expect(firstGainingRow([row(0, -3000), row(50, -100)])).toBeUndefined()
   })
 })

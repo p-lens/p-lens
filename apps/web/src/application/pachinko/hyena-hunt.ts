@@ -1,6 +1,6 @@
 import type { HyenaHuntRowDto, HyenaHuntSummaryDto, PlayDto } from "@p-lens/contracts/pachinko"
 
-import type { Basis } from "../../core/pachinko/formula"
+import { basisOf, type Basis, type Formula } from "../../core/pachinko/formula"
 import { huntOf, type Hunt } from "../../core/pachinko/hyena-hunt"
 import { mapOk } from "../../core/result/result"
 import type { EngineClient, RunningRun } from "../../pachinko-engine/client/client"
@@ -10,6 +10,13 @@ import { fromPachinkoEngine } from "../lift"
 
 /** The 遊タイム's count of a basis, if its machine has one. */
 export const reliefDriveOf = (basis: Basis): number | undefined => basis.normalized.reliefDrive?.gauge
+
+/** A formula's 遊タイム狙い: the basis it is solved from and the count its 遊タイム comes at; none for a formula with no basis, or of a machine with no 遊タイム. */
+export const hyenaHuntOf = (formula: Formula): { readonly basis: Basis; readonly reliefDrive: number } | undefined => {
+  const basis = basisOf(formula)
+  const reliefDrive = basis === undefined ? undefined : reliefDriveOf(basis)
+  return basis === undefined || reliefDrive === undefined ? undefined : { basis, reliefDrive }
+}
 
 /**
  * How far a counter stands from a basis' 遊タイム: so many spins short of

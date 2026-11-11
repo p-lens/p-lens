@@ -1,5 +1,8 @@
 import type { HyenaHuntRowDto, PlayDto } from "@p-lens/contracts/pachinko"
 
+import type { Figures } from "./figures"
+import { ballsPerSpin } from "./theoretical-value"
+
 /**
  * A 遊タイム狙い apart from the cabinet's spin rate: what its rounds are worth
  * in yen, and the regular spins it takes on average. The engine prices a
@@ -32,3 +35,19 @@ export interface RatePoint {
 /** A hunt's yen at evenly spaced spin rates from one to another, both ends included. */
 export const huntCurve = (hunt: Hunt, from: number, to: number, points: number): readonly RatePoint[] =>
   Array.from({ length: points }, (_, index) => from + ((to - from) * index) / (points - 1)).map((spinPerformance) => ({ spinPerformance, yen: huntYenAt(hunt, spinPerformance) }))
+
+/** How far under the own-ball border a hunt's spin rate is first assumed: a twentieth, a parlor a little harsher than most. */
+const HARSHER = 0.95
+
+/**
+ * The spin rate a 遊タイム狙い is first reckoned at, to a tenth, before any
+ * is typed: a little under the formula's own-ball border, the balls ¥1,000
+ * rents over the balls a spin wins. Parlors sell cabinets near that border
+ * on the whole, harsher ones a little under; a border in balls alone is
+ * the same at any exchange rate, and a share of it the same at any price
+ * of a ball. A row that gains even there gains with some room to spare.
+ */
+export const assumedHuntPerformance = (figures: Figures, rentedPerThousand: number): number => Math.round((rentedPerThousand / ballsPerSpin(figures)) * HARSHER * 10) / 10
+
+/** The first row of a 遊タイム狙い table that comes to more than nothing; none where no row does. */
+export const firstGainingRow = (rows: readonly HyenaHuntRowDto[]): HyenaHuntRowDto | undefined => rows.find((row) => row.yen > 0)

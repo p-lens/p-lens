@@ -3,13 +3,13 @@ import { createResource, createSignal, For, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import type { ApplicationError } from "../../../../application/errors"
-import { reliefDriveOf } from "../../../../application/pachinko/hyena-hunt"
+import { hyenaHuntOf } from "../../../../application/pachinko/hyena-hunt"
 import { loadFormula } from "../../../../application/pachinko/formulas"
 import { bookNameOf } from "../../../../core/catalog/catalog"
 import { usesWeighTheirMost, type Mark } from "../../../../core/formula/standing"
 import { bonusShapes } from "../../../../core/pachinko/bonuses"
 import { borderOf } from "../../../../core/pachinko/theoretical-value"
-import { assumedSettingLevelOf, basisOf, supportGainOf, type Formula, type Basis, type Sampling } from "../../../../core/pachinko/formula"
+import { assumedSettingLevelOf, basisOf, supportGainOf, type Formula, type Sampling } from "../../../../core/pachinko/formula"
 import { useApp } from "../../../context"
 import { Button, NerdproLink } from "../../../primitives/button"
 import { BoltIcon, HandIcon, HandOffIcon, HeartIcon, ShieldIcon, ShieldOffIcon } from "../../../primitives/icons"
@@ -42,13 +42,6 @@ function Row(props: { readonly label: string; readonly children: JSX.Element }):
   )
 }
 
-/** A formula's basis and its 遊タイム, when it was made from a basis of a machine that has one. */
-const hyenaHuntable = (formula: Formula): { readonly basis: Basis; readonly reliefDrive: number } | undefined => {
-  const basis = basisOf(formula)
-  const reliefDrive = basis === undefined ? undefined : reliefDriveOf(basis)
-  return basis === undefined || reliefDrive === undefined ? undefined : { basis, reliefDrive }
-}
-
 /** How a sampled formula was sampled; none for any other. */
 const samplingOf = (formula: Formula): Sampling | undefined => (formula.kind === "sampled" ? formula.sampling : undefined)
 
@@ -61,8 +54,9 @@ const shapesOf = (formula: Formula): readonly BonusShape[] => ((basis) => (basis
  * where most people stop. Its 期待値算出 is laid over it while
  * `valueShown`; using the formula from there welcomes the device, as a
  * person come in from outside to that sheet is never greeted over it.
+ * While `huntShown`, its 遊タイム狙い table is brought into view.
  */
-export function FormulaView(props: { readonly place: Place; readonly machineId: string; readonly formulaId: string; readonly valueShown: boolean }): JSX.Element {
+export function FormulaView(props: { readonly place: Place; readonly machineId: string; readonly formulaId: string; readonly valueShown: boolean; readonly huntShown: boolean }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   const start = useStartForm()
@@ -152,8 +146,8 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
                     }}
                   />
                 </div>
-                <Show when={hyenaHuntable(formula())} keyed>
-                  {(hyenaHunt) => <HyenaHuntTable basis={hyenaHunt.basis} reliefDrive={hyenaHunt.reliefDrive} />}
+                <Show when={hyenaHuntOf(formula())} keyed>
+                  {(hyenaHunt) => <HyenaHuntTable basis={hyenaHunt.basis} figures={formula().figures} reliefDrive={hyenaHunt.reliefDrive} brought={props.huntShown} />}
                 </Show>
                 <div class="flex flex-wrap gap-2">
                   <Button variant={actions.mine(listing().formula.id).adopted ? "primary" : "secondary"} aria-pressed={actions.mine(listing().formula.id).adopted} onClick={() => actions.toggle(listing(), "adoption", setFailure)}>

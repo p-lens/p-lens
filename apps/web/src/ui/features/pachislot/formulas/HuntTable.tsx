@@ -1,10 +1,11 @@
 import { createMemo, createResource, createSignal, For, Show, type JSX } from "solid-js"
 
-import { huntTable } from "../../../../application/pachislot/hunt"
+import { firstGainingRow, huntTable } from "../../../../application/pachislot/hunt"
 import type { Basis } from "../../../../core/pachislot/formula"
 import { atEndingsOf, atModesOf, deepestMisses, huntSeatsOf, resetMatters } from "../../../../core/pachislot/path"
 import { DEFAULT_PRIOR } from "../../../../core/pachislot/prior"
 import { useApp } from "../../../context"
+import { bringIntoView } from "../../../primitives/bring-into-view"
 import { Loaded } from "../../../primitives/states"
 import { Select } from "../../../primitives/select"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
@@ -42,9 +43,11 @@ const typedSince = (text: string): number | undefined => (text.trim() === "" ? u
  * the machine has a side bonus, so many games since the last of it, or not
  * knowing how many; and where it has modes, in one known (a shortened
  * ceiling after a ceiling CZ, a 天国 told on screen), or not said. Weighed under the stock spread a play starts with, on the pachislot terms the
- * start screen holds.
+ * start screen holds. `brought` is a place asking for the table: its
+ * first row that gains is brought to the middle of the view once it is
+ * reckoned, or the table where none does.
  */
-export function HuntTable(props: { readonly basis: Basis }): JSX.Element {
+export function HuntTable(props: { readonly basis: Basis; readonly brought: boolean }): JSX.Element {
   const app = useApp()
   const start = useStartForm()
   const [afterReset, setAfterReset] = createSignal(false)
@@ -65,8 +68,13 @@ export function HuntTable(props: { readonly basis: Basis }): JSX.Element {
     () => ((found) => (found === undefined ? undefined : { terms: found, seats: seats() }))(terms()),
     (asked) => huntTable(app.services.pachislot, props.basis, asked.terms, asked.seats),
   )
+  const line = (): number | undefined => ((found) => (found?.ok === true ? firstGainingRow(found.value)?.seat.sinceAt : undefined))(rows.latest)
+  const bring = bringIntoView(
+    () => props.brought,
+    () => rows.latest?.ok === true,
+  )
   return (
-    <section class="flex flex-col gap-3" aria-label="天井狙い">
+    <section ref={bring.fallback} class="flex flex-col gap-3" aria-label="天井狙い">
       <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">天井狙い（AT終了まで）</h2>
       <div class="flex flex-wrap items-end gap-3">
         <Show when={resetMatters(props.basis.normalized)}>
@@ -131,7 +139,7 @@ export function HuntTable(props: { readonly basis: Basis }): JSX.Element {
               <tbody>
                 <For each={found}>
                   {(row) => (
-                    <tr class="border-t border-border">
+                    <tr ref={(element) => line() === row.seat.sinceAt && bring.target(element)} class="border-t border-border">
                       <td class="py-1.5">AT間 {formatCount(row.seat.sinceAt)}G</td>
                       <td class="py-1.5 text-right font-semibold">{theoreticalFigureText(seal.formula(row.hunt.yen))}</td>
                       <td class="py-1.5 text-right">{aboutText(row.hunt.games, "G")}</td>

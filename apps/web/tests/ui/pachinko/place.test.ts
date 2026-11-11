@@ -10,6 +10,8 @@ const PLACES: readonly Place[] = [
   { kind: "pachinko-formula-basis", machineId: "m1", formulaId: "f1" },
   { kind: "pachinko-formula-value", machineId: "m1", formulaId: "f/1" },
   { kind: "pachinko-machine-value", machineId: "m 1" },
+  { kind: "pachinko-formula-hunt", machineId: "m1", formulaId: "f/1" },
+  { kind: "pachinko-machine-hunt", machineId: "m 1" },
   { kind: "pachinko-formula-new", tab: "basis" },
 ]
 
@@ -49,6 +51,18 @@ describe("pachinko places", () => {
   test("the way in from outside names the machine alone, at /value under it", () => {
     expect(placeOf("/pachinko/machines/m1/value")).toEqual({ kind: "pachinko-machine-value", machineId: "m1" })
     expect(parentOf({ kind: "pachinko-machine-value", machineId: "m1" })).toEqual({ kind: "pachinko-machine", machineId: "m1" })
+  })
+
+  test("a formula brought to its 遊タイム狙い table is drawn on the formula's own screen, and a step back is the formula", () => {
+    const hunt: Place = { kind: "pachinko-formula-hunt", machineId: "m1", formulaId: "f1" }
+    expect(pathOf(hunt)).toBe("/pachinko/machines/m1/formulas/f1/hunt")
+    expect(screenOf(hunt)).toBe(screenOf({ kind: "pachinko-formula", machineId: "m1", formulaId: "f1" }))
+    expect(parentOf(hunt)).toEqual({ kind: "pachinko-formula", machineId: "m1", formulaId: "f1" })
+  })
+
+  test("the way in from outside to that table names the machine alone, at /hunt under it", () => {
+    expect(placeOf("/pachinko/machines/m1/hunt")).toEqual({ kind: "pachinko-machine-hunt", machineId: "m1" })
+    expect(parentOf({ kind: "pachinko-machine-hunt", machineId: "m1" })).toEqual({ kind: "pachinko-machine", machineId: "m1" })
   })
 
   test("an address under /pachinko the app has no screen for is not found", () => {

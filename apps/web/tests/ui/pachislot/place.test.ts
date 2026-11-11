@@ -10,6 +10,8 @@ const PLACES: readonly Place[] = [
   { kind: "pachislot-formula-basis", machineId: "m1", formulaId: "f1" },
   { kind: "pachislot-formula-value", machineId: "m1", formulaId: "f/1" },
   { kind: "pachislot-machine-value", machineId: "m 1" },
+  { kind: "pachislot-formula-hunt", machineId: "m1", formulaId: "f/1" },
+  { kind: "pachislot-machine-hunt", machineId: "m 1" },
   { kind: "pachislot-formula-new", tab: "basis" },
   { kind: "pachislot-distribution-new", machineId: "m1" },
 ]
@@ -56,5 +58,17 @@ describe("pachislot places", () => {
   test("the way in from outside names the machine alone, at /value under it", () => {
     expect(placeOf("/pachislot/machines/m1/value")).toEqual({ kind: "pachislot-machine-value", machineId: "m1" })
     expect(parentOf({ kind: "pachislot-machine-value", machineId: "m1" })).toEqual({ kind: "pachislot-machine", machineId: "m1" })
+  })
+
+  test("a formula brought to its 天井狙い table is drawn on the formula's own screen, and a step back is the formula", () => {
+    const hunt: Place = { kind: "pachislot-formula-hunt", machineId: "m1", formulaId: "f1" }
+    expect(pathOf(hunt)).toBe("/pachislot/machines/m1/formulas/f1/hunt")
+    expect(screenOf(hunt)).toBe(screenOf({ kind: "pachislot-formula", machineId: "m1", formulaId: "f1" }))
+    expect(parentOf(hunt)).toEqual({ kind: "pachislot-formula", machineId: "m1", formulaId: "f1" })
+  })
+
+  test("the way in from outside to that table names the machine alone, at /hunt under it", () => {
+    expect(placeOf("/pachislot/machines/m1/hunt")).toEqual({ kind: "pachislot-machine-hunt", machineId: "m1" })
+    expect(parentOf({ kind: "pachislot-machine-hunt", machineId: "m1" })).toEqual({ kind: "pachislot-machine", machineId: "m1" })
   })
 })

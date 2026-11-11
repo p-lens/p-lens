@@ -3,6 +3,7 @@ import { MainContent } from "solid-gathering-shell"
 
 import type { ApplicationError } from "../../../../application/errors"
 import { loadFormula } from "../../../../application/pachislot/formulas"
+import { huntable } from "../../../../application/pachislot/hunt"
 import { bookNameOf } from "../../../../core/catalog/catalog"
 import { usesWeighTheirMost, type Mark } from "../../../../core/formula/standing"
 import type { Formula, Sampling } from "../../../../core/pachislot/formula"
@@ -41,8 +42,9 @@ const samplingOf = (formula: Formula): Sampling | undefined => (formula.kind ===
  * over it while `valueShown`, weighed by the prior a play of it would
  * start with; using the formula from there welcomes the device, as a
  * person come in from outside to that sheet is never greeted over it.
+ * While `huntShown`, its 天井狙い table is brought into view.
  */
-export function FormulaView(props: { readonly place: Place; readonly machineId: string; readonly formulaId: string; readonly valueShown: boolean }): JSX.Element {
+export function FormulaView(props: { readonly place: Place; readonly machineId: string; readonly formulaId: string; readonly valueShown: boolean; readonly huntShown: boolean }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   const start = useStartForm()
@@ -80,8 +82,8 @@ export function FormulaView(props: { readonly place: Place; readonly machineId: 
             return (
               <div class="flex flex-col gap-5 p-4">
                 <FiguresTable figures={formula().figures} sampling={samplingOf(formula())} />
-                <Show when={formula().basis.normalized.atRules !== undefined}>
-                  <HuntTable basis={formula().basis} />
+                <Show when={huntable(formula())}>
+                  <HuntTable basis={formula().basis} brought={props.huntShown} />
                 </Show>
                 <dl class="flex flex-wrap gap-x-6 gap-y-1 text-sm">
                   <div class="flex gap-2"><dt class="text-text-muted">種類</dt><dd class="text-text-primary">{kindName(formula().kind)}</dd></div>

@@ -152,16 +152,20 @@ const mainFor = (place: Place, query: () => string, live: () => Place): JSX.Elem
       return <PachinkoViews.MachineView place={place} machineId={place.machineId} />
     case "pachinko-formula":
     case "pachinko-formula-value":
+    case "pachinko-formula-hunt":
       return (
         <PachinkoViews.FormulaView
           place={{ kind: "pachinko-formula", machineId: place.machineId, formulaId: place.formulaId }}
           machineId={place.machineId}
           formulaId={place.formulaId}
           valueShown={live().kind === "pachinko-formula-value"}
+          huntShown={live().kind === "pachinko-formula-hunt"}
         />
       )
     case "pachinko-machine-value":
-      return <PachinkoViews.MachineValueView place={place} machineId={place.machineId} />
+      return <PachinkoViews.MachineWayInView place={place} machineId={place.machineId} toward="value" />
+    case "pachinko-machine-hunt":
+      return <PachinkoViews.MachineWayInView place={place} machineId={place.machineId} toward="hunt" />
     case "pachinko-formula-grounds":
       return <PachinkoViews.GroundsView place={place} machineId={place.machineId} formulaId={place.formulaId} />
     case "pachinko-formula-basis":
@@ -174,16 +178,20 @@ const mainFor = (place: Place, query: () => string, live: () => Place): JSX.Elem
       return <PachislotViews.MachineView place={place} machineId={place.machineId} />
     case "pachislot-formula":
     case "pachislot-formula-value":
+    case "pachislot-formula-hunt":
       return (
         <PachislotViews.FormulaView
           place={{ kind: "pachislot-formula", machineId: place.machineId, formulaId: place.formulaId }}
           machineId={place.machineId}
           formulaId={place.formulaId}
           valueShown={live().kind === "pachislot-formula-value"}
+          huntShown={live().kind === "pachislot-formula-hunt"}
         />
       )
     case "pachislot-machine-value":
-      return <PachislotViews.MachineValueView place={place} machineId={place.machineId} />
+      return <PachislotViews.MachineWayInView place={place} machineId={place.machineId} toward="value" />
+    case "pachislot-machine-hunt":
+      return <PachislotViews.MachineWayInView place={place} machineId={place.machineId} toward="hunt" />
     case "pachislot-formula-grounds":
       return <PachislotViews.GroundsView place={place} machineId={place.machineId} formulaId={place.formulaId} />
     case "pachislot-formula-basis":
@@ -283,9 +291,18 @@ const auxFor = (place: Place, query: () => string): JSX.Element | undefined => {
   return place.kind === "book-file" ? <FileDetail place={place} bookId={place.bookId} path={place.path} /> : undefined
 }
 
-/** Whether a place lays a formula's 期待値算出 over the screen, or is the way in to one from outside. */
-const valueSheetShown = (place: Place): boolean =>
-  place.kind === "pachinko-formula-value" || place.kind === "pachinko-machine-value" || place.kind === "pachislot-formula-value" || place.kind === "pachislot-machine-value"
+/** Whether a place is where a person comes in from outside, and is not greeted over: a formula's 期待値算出 or its hunting table, or the way in to either. */
+const welcomeHeld = (place: Place): boolean =>
+  [
+    "pachinko-formula-value",
+    "pachinko-machine-value",
+    "pachinko-formula-hunt",
+    "pachinko-machine-hunt",
+    "pachislot-formula-value",
+    "pachislot-machine-value",
+    "pachislot-formula-hunt",
+    "pachislot-machine-hunt",
+  ].includes(place.kind)
 
 /**
  * The whole screen, read off the address: which place, which hledger query,
@@ -310,7 +327,7 @@ export function PLensScreen(): JSX.Element {
 
   return (
     <StartFormProvider>
-      <WelcomeProvider onSample={sampleBook.open} held={valueSheetShown(place())}>
+      <WelcomeProvider onSample={sampleBook.open} held={welcomeHeld(place())}>
         <GatheringShell
           arrangement={arrangement()}
           onBesideContent={followed.besideContent}

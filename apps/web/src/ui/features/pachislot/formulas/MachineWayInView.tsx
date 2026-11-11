@@ -3,6 +3,7 @@ import { MainContent } from "solid-gathering-shell"
 
 import type { Outcome } from "../../../../application/errors"
 import { loadMachine } from "../../../../application/pachislot/formulas"
+import { huntable } from "../../../../application/pachislot/hunt"
 import { ranked } from "../../../../core/formula/standing"
 import { worthOf } from "../../../../core/pachislot/formula"
 import { useApp, type DeliveryState } from "../../../context"
@@ -16,15 +17,21 @@ import { missingUndelivered } from "../../catalog/undelivered"
 const stillComing = <T,>(outcome: Outcome<T> | undefined, delivery: DeliveryState): Outcome<T> | undefined =>
   outcome?.ok === false && outcome.error.type === "catalog" && outcome.error.error.type === "machine-missing" && delivery.type === "refreshing" ? undefined : outcome
 
+/** Where a way in from outside leads: a formula's 期待値算出, or its 天井狙い table. */
+export type WayIn = "value" | "hunt"
+
 /**
- * The way in from outside the app to a machine's 期待値算出: its best
- * formula as the list ranks them now, with the sheet laid over it, in
- * place of this address; the machine's list where it has no formula.
+ * The way in from outside the app to a machine's 期待値算出, or to its
+ * 天井狙い table: its best formula as the list ranks them now, with the
+ * sheet laid over it or the table brought into view, in place of this
+ * address — for the table, the best of those that have one, or the best
+ * of all, shown as it is, where none has; the machine's list where it
+ * has no formula.
  * The machine is looked for again whenever the catalog is delivered, as a
  * person come from outside is often new and the catalog not yet here, and
  * it is loading, not missing, until the delivery under way has come.
  */
-export function MachineValueView(props: { readonly place: Place; readonly machineId: string }): JSX.Element {
+export function MachineWayInView(props: { readonly place: Place; readonly machineId: string; readonly toward: WayIn }): JSX.Element {
   const app = useApp()
   const moves = useMoves()
   const [detail] = createResource(
@@ -34,11 +41,20 @@ export function MachineValueView(props: { readonly place: Place; readonly machin
   createEffect(() => {
     const found = detail()
     if (found?.ok !== true) return
+    const machineId = found.value.machine.id
     const best = ranked(found.value.formulas, worthOf)[0]
+    const bestHunted = ranked(
+      found.value.formulas.filter((listing) => huntable(listing.formula)),
+      worthOf,
+    )[0]
     moves.replace(
       best === undefined
-        ? { kind: "pachislot-machine", machineId: found.value.machine.id }
-        : { kind: "pachislot-formula-value", machineId: found.value.machine.id, formulaId: best.formula.id },
+        ? { kind: "pachislot-machine", machineId }
+        : props.toward === "value"
+          ? { kind: "pachislot-formula-value", machineId, formulaId: best.formula.id }
+          : bestHunted === undefined
+            ? { kind: "pachislot-formula", machineId, formulaId: best.formula.id }
+            : { kind: "pachislot-formula-hunt", machineId, formulaId: bestHunted.formula.id },
     )
   })
   return (
