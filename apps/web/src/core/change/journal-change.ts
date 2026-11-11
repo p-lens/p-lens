@@ -60,6 +60,8 @@ export type ChangeIntent =
       readonly theoreticalValue: Decimal | undefined
     }
   | { readonly type: "play-removed"; readonly playId: PlayId; readonly description: string }
+  /** A tally taken out of the book put back as it was, from the lines its removal took away. */
+  | { readonly type: "play-restored"; readonly playId: PlayId; readonly description: string }
   | { readonly type: "plays-imported"; readonly from: string; readonly count: number }
   /** Days' 収支 typed in a month at a time (まとめて入力), a tally a day: so many of them. */
   | { readonly type: "days-entered"; readonly count: number }

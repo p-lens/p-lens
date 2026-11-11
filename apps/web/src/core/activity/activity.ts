@@ -9,10 +9,11 @@ import type { PlayId } from "../play/play"
 
 /**
  * Where a book says what was done to it, one line of JSON a thing done,
- * oldest first and added to but for what is older than it is kept
- * (`ACTIVITY_KEPT_SECONDS`) — so what each of two devices added comes
- * together as lines do in a journal. A line holds what its change did to
- * each file. It is one of the book's files: no
+ * oldest first and only ever added to — so what each of two devices added
+ * comes together as lines do in a journal. A line holds what its change
+ * did to each file, until that is older than it is kept
+ * (`CHANGES_KEPT_SECONDS`); the line itself is kept for ever. It is one of
+ * the book's files: no
  * journal includes it, so hledger passes it by, and it goes wherever the
  * book's files go — to a person's other devices, and into a backup.
  */
@@ -80,7 +81,7 @@ export interface ActivityLine {
  * heart or of a mark, which the book's favourites and marks record line by
  * line themselves, a book moved in its owner's list or told the hour
  * its owner's business day turns over at, or the machines played lately, which change nothing the book
- * records, or its activity rid of what is older than it is kept.
+ * records, or its activity's older lines rid of the changes they made.
  */
 const saidOf = (intent: ChangeIntent): Pick<ActivityLine, "did" | "parts"> | undefined => {
   switch (intent.type) {
@@ -119,6 +120,7 @@ const saidOf = (intent: ChangeIntent): Pick<ActivityLine, "did" | "parts"> | und
     case "days-entered":
       return { did: intent.type, parts: { entered: { count: intent.count } } }
     case "play-removed":
+    case "play-restored":
       return { did: intent.type, parts: { play: { id: intent.playId, description: intent.description } } }
     case "play-recorded":
     case "play-revised":
@@ -262,27 +264,35 @@ export const withActivity = (files: BookFiles, before: readonly ActivityLine[], 
 /**
  * What was done to a book, newest first: what its activity log says, or —
  * for a book that has none yet — what its history says, which is what its
- * log will be given when the book is next written.
+ * log will be given when the book is next written. Lines of the same
+ * moment come the later written first, so that what was done after a
+ * thing is never shown before it.
  */
 export const activityOf = (files: BookFiles, history: readonly ActivityLine[]): readonly ActivityLine[] => {
   const held = files[ACTIVITY_LOG]
   const lines = held === undefined ? history : activityOfText(held)
-  return lines.toSorted((left, right) => Date.parse(right.at) - Date.parse(left.at))
+  return lines.toReversed().toSorted((left, right) => Date.parse(right.at) - Date.parse(left.at))
 }
 
-/** How long a line of a book's activity is kept, in seconds: 90 days. */
-export const ACTIVITY_KEPT_SECONDS = 7_776_000
+/** How long a line of a book's activity keeps the changes it made, in seconds: 90 days. The line itself is kept for ever. */
+export const CHANGES_KEPT_SECONDS = 7_776_000
 
-/** Whether a line of an activity log was written longer ago than a line is kept, as of a moment: a line that does not read as one, or says no moment it was written, is kept, being a hand's. */
-const isPast = (now: Date) => (text: string): boolean => {
-  const at = text.trim() === "" ? undefined : lineOf(text)?.at
-  const written = at === undefined ? Number.NaN : Date.parse(at)
-  return !Number.isNaN(written) && now.getTime() - written > ACTIVITY_KEPT_SECONDS * 1000
+/**
+ * A line of an activity log as it is written, without its changes where
+ * it was written longer ago than they are kept, as of a moment; none where
+ * it is not such a line. A line that does not read as one is a hand's, or
+ * a later version's, and is left as it is; every other part a line holds,
+ * known or not, stays.
+ */
+const withoutPastChangesOf = (now: Date) => (text: string): string | undefined => {
+  const value = parsed(text)
+  const line = text.trim() === "" ? undefined : lineOf(text)
+  if (line === undefined || !isRecord(value) || !("changes" in value) || now.getTime() - Date.parse(line.at) <= CHANGES_KEPT_SECONDS * 1000) return undefined
+  return JSON.stringify(Object.fromEntries(Object.entries(value).filter(([name]) => name !== "changes")))
 }
 
-/** An activity log's text without the lines written longer ago than a line is kept, as of a moment, each other line as it was; none where there is none such. */
-export const withoutPastActivity = (text: string, now: Date): string | undefined => {
-  const lines = text.split("\n")
-  const kept = lines.filter((line) => !isPast(now)(line))
-  return kept.length === lines.length ? undefined : kept.join("\n").replace(/^\n+/, "")
+/** An activity log's text with the lines written longer ago than changes are kept, as of a moment, rid of their changes, each line else as it was; none where there is none such. */
+export const withoutPastChanges = (text: string, now: Date): string | undefined => {
+  const lines = text.split("\n").map((line) => ({ line, lighter: withoutPastChangesOf(now)(line) }))
+  return lines.every(({ lighter }) => lighter === undefined) ? undefined : lines.map(({ line, lighter }) => lighter ?? line).join("\n")
 }

@@ -1,4 +1,4 @@
-import { ACTIVITY_LOG, withoutPastActivity } from "../core/activity/activity"
+import { ACTIVITY_LOG, withoutPastChanges } from "../core/activity/activity"
 import { memberCan, type BookId, type MemberId } from "../core/book/book"
 import { Ok } from "../core/result/result"
 import type { BookSession } from "./book-session"
@@ -11,22 +11,24 @@ export interface PruningPorts {
   readonly now: () => string
 }
 
-/** A book's activity rid of what is older than it is kept, as one change: none where it holds nothing so old, or keeps no log. */
+/** A book's activity with its older lines rid of the changes they made, as one change: none where no line holds changes so old, or it keeps no log. */
 const prune = async (ports: PruningPorts, bookId: BookId): Promise<Outcome<boolean>> => {
   const stored = await ports.session.stored(bookId)
   if (!stored.ok) return stored
   const held = stored.value.files[ACTIVITY_LOG]
-  if (!memberCan(stored.value.book, ports.member, "write") || held === undefined || withoutPastActivity(held, new Date(ports.now())) === undefined) return Ok(false)
+  if (!memberCan(stored.value.book, ports.member, "write") || held === undefined || withoutPastChanges(held, new Date(ports.now())) === undefined) return Ok(false)
   const written = await ports.session.write(bookId, async (_journal, current) =>
-    Ok({ files: { ...current.files, [ACTIVITY_LOG]: withoutPastActivity(current.files[ACTIVITY_LOG] ?? "", new Date(ports.now())) ?? current.files[ACTIVITY_LOG] ?? "" }, intent: { type: "activity-pruned" as const } }),
+    Ok({ files: { ...current.files, [ACTIVITY_LOG]: withoutPastChanges(current.files[ACTIVITY_LOG] ?? "", new Date(ports.now())) ?? current.files[ACTIVITY_LOG] ?? "" }, intent: { type: "activity-pruned" as const } }),
   )
   return written.ok ? Ok(true) : written
 }
 
 /**
- * Every book this member may write rid of the activity older than it is
- * kept, one book after another, so that a log does not grow for ever. A
- * book refused is passed over and the rest are pruned. How many were
+ * Every book this member may write with its activity's older lines rid of
+ * the changes they made, one book after another: the lines are kept for
+ * ever, and what made them heavy is not, so that a book is sent to other
+ * devices whole no heavier than it must be. A book refused is passed over
+ * and the rest are pruned. How many were
  * pruned is told, so that what shows the books can be read again.
  */
 export const pruneEveryBookActivity = async (ports: PruningPorts): Promise<Outcome<number>> => {

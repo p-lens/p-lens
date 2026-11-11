@@ -107,9 +107,9 @@ describe("a pRecord file taken into a book", () => {
     const month = await loadOverview(session, BOOK, "date:2019-02")
     expect(month.ok && toPlainString(month.value.theoretical)).toBe("-15000")
     const activity = await loadActivity(session, history, BOOK)
-    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).slice(-2)).toEqual([
-      ["plays-imported", { imported: { from: "precord", count: 4 } }],
+    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).slice(0, 2)).toEqual([
       ["imported-weighed", { imported: { from: "precord", count: 1 } }],
+      ["plays-imported", { imported: { from: "precord", count: 4 } }],
     ])
     const again = await importFile({ ...ports, catalog: catalog as never }, BOOK, file, new Map(), { engine: engine as never, onReport: () => undefined, stopped: new AbortController().signal, weighedBefore: memoryWeighedBefore() })
     expect(again.ok).toBe(false)
@@ -233,9 +233,9 @@ describe("a pRecord file taken into a book", () => {
     const more = `${FILE}2019/02/01,,別の店,,,,,3000,9000,6000,,,,\r\n`
     expect(await importFile(ports, BOOK, more, new Map(), undefined)).toEqual({ ok: true, value: { written: 1, inferred: 0, unread: 0, changed: 0, alreadyHere: 2, left: 0, otherThanPlay: 0 } })
     const activity = await loadActivity(session, history, BOOK)
-    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).slice(-2)).toEqual([
-      ["plays-imported", { imported: { from: "precord", count: 2 } }],
+    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).slice(0, 2)).toEqual([
       ["plays-imported", { imported: { from: "precord", count: 1 } }],
+      ["plays-imported", { imported: { from: "precord", count: 2 } }],
     ])
   })
 

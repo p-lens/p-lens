@@ -218,7 +218,7 @@ export function AppProvider(props: {
     setReconnected((count) => count + 1)
     refreshInBackground()
   }
-  /** Every book's activity rid of what is older than it is kept, once a page, a while after it opens: the device's own work, out of the way of what a person opened the app for. */
+  /** Every book's activity with its older lines rid of the changes they made, once a page, a while after it opens: the device's own work, out of the way of what a person opened the app for. */
   const pruneOnceOpened = (): void => {
     timers.pruning = setTimeout(() => {
       void pruneEveryBookActivity({ session: props.services.session, member: props.services.member, now: props.services.now }).then((pruned) => {

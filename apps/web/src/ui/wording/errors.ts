@@ -19,6 +19,7 @@ import { amountText, formatTokens, tokenUnit } from "./numbers"
 import { commodityText } from "./commodities"
 import { seal } from "../../mummer"
 import { parlorNameText } from "./parlor"
+import { bookTitle } from "./book"
 
 const NUMERIC_FIELDS: Readonly<Record<NumericField, string>> = {
   outlay: "投資額",
@@ -225,6 +226,10 @@ export const describeError = (error: ApplicationError): string => {
       return "この収支は帳簿にありません。"
     case "tally-in-book":
       return "移動先の帳簿に、同じ稼働の収支がもうあります。"
+    case "removal-unrestorable":
+      return "この削除は取り消せません。90日より前の操作か、操作履歴に元の収支が残っていません。"
+    case "removal-restored":
+      return error.here ? "この収支は帳簿にもう戻っています。" : `${bookTitle({ title: error.title })}に同じ稼働の収支があります。ほかの帳簿へ移した収支は、取り消せません。`
     case "recount-refused":
       return error.refusal.type === "counter-went-back"
         ? `0Rの数え方を変えると、${error.refusal.index + 1}件目の読み取りでカウンタが ${error.refusal.expectedAtLeast} 回転より戻ります。記録済みのカウンタと合わないため、変えられません。`

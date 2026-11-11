@@ -103,17 +103,21 @@ so neither is ever without the other; a book written before it kept a log
 is given one on its next write, holding first what its history on that
 device says was done until then, each line under its commit's id. Added
 to, so what two devices each added comes together as entries appended to
-a journal do, and pruned of what is older than it is kept: 90 days
-(`ACTIVITY_KEPT_SECONDS`), once a page, a minute after it opens
-(`application/prune-activity`), in each book this member may write, as
-one change (`activity-pruned`) the log itself does not tell of. A line
-that does not read, or says no moment, is a hand's and stays; a line whose id was already read is read once,
+a journal do. A line is kept for ever; what is pruned is the `changes`
+of a line older than they are kept: 90 days (`CHANGES_KEPT_SECONDS`),
+once a page, a minute after it opens (`application/prune-activity`), in
+each book this member may write, as one change (`activity-pruned`) the
+log itself does not tell of. Every other part of the line stays, known
+to this version or not, so the screen shows it as before; `changes` is
+what makes a log heavy, and a book sent to another device whole carries
+the log whole. A line that does not read, or says no moment, is a hand's
+and is left as it is; a line whose id was already read is read once,
 and a line that does not read is passed over, and told of: on the activity
 screen beside what it shows, and among the book's unreadable files on its
 row of the books (`unreadableFilesOf`). No journal includes it.
 
-The log is the book's recent events, and the book can be made again from
-them as long as nothing has been pruned.
+The log is every event of the book, and the book can be made again from
+its recent ones, which still hold their changes.
 `changes` is what the change did to every file it touched but the log
 itself, as a commit holds it (`FilePatch`: the lines taken away and the
 lines put in, and where). The lines made in order from nothing leave the
@@ -125,8 +129,19 @@ backup too. What keeps it true:
 - What the log does not tell of is not made again from it: the log
   itself, and `logs/favorites.jsonl`, whose own lines are its events.
 
-A book whose log was begun before its lines held changes, or has been
-pruned, is made again only from where they do.
+A book whose log was begun before its lines held changes, or whose older
+lines have been pruned of them, is made again only from where they do.
+
+A tally's removal is taken back from its line while the line holds its
+changes (`core/activity/removed-tally`, `application/restore-tally`): the
+lines it took away from one year's file are the tally's entry, put back
+at the end of its day's year as one change (`play-restored`). A removal
+is offered to be taken back on the activity screen only where no later
+line speaks of the same play, and refused where any of the person's
+books holds a tally of it already — put back before, or moved to another
+book, which a removal taken back would count twice. Lines of the same
+moment are shown the later written first, so that a thing done after
+another is never shown before it.
 
 A play's id is a UUIDv7 that says when it was played, so plays sort by their
 ids alone, and their logs by file name: a play followed live takes the moment it
@@ -2838,9 +2853,10 @@ toast's `action`. Each game's `revised` is exported for it alone.
   before and after, which the tests hold over every run of many generated
   plays, folded again, written down and read back.
 - **Taken back while its word stands.** The toast that says a run was
-  merged stays until it is closed and carries 取り消す, which puts the log
-  back as it was — unless the log has changed since, which is said and
-  left alone. Once the toast is closed the lines between are gone: a play
+  merged stays fifteen seconds, or until it is closed, and carries
+  取り消す, which puts the log back as it was — unless the log has changed
+  since, which is said and left alone. Once the toast is gone the lines
+  between are gone: a play
   in progress is a draft, and has no history to bring them back from.
 - **A play in progress only.** A recorded play's log is read, not merged.
 

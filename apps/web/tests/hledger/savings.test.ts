@@ -104,7 +104,7 @@ describe("a pool's savings put right", () => {
     const parlor = { identity: NAMBA.identity, name: NAMBA.parlorName, pools: [NAMBA.pool] }
     await adjustBalance(session, BOOK, parlor, NAMBA.pool, "2026-10-05" as IsoDate, dec("4820"))
     const activity = await loadActivity(session, history, BOOK)
-    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).at(-1)).toEqual(["savings-adjusted", { pool: { parlor: "ダイナモなんかつ新館", tier: "4円" }, savings: { date: "2026-10-05" as IsoDate, kind: "ball", tokens: dec("4820") } }])
+    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).at(0)).toEqual(["savings-adjusted", { pool: { parlor: "ダイナモなんかつ新館", tier: "4円" }, savings: { date: "2026-10-05" as IsoDate, kind: "ball", tokens: dec("4820") } }])
   })
 
   test("are counted as of the day said, and left alone where the book already has the count", async () => {
@@ -133,7 +133,7 @@ describe("savings exchanged for prizes", () => {
     expect(files?.[BOOK_FILES.accounts]).toContain("account 純資産:特殊景品\naccount 純資産:端玉景品等\naccount 純資産:換算調整勘定")
     expect(transactionsOf(files)).toContain("2026-10-04 マレハン東京皇国第8支店 | 景品交換  ; parlor-id: malehan-tokyokoukoku, savings: prize-exchange")
     const activity = await loadActivity(session, history, BOOK)
-    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).at(-1)).toEqual(["savings-exchanged", { pool: { parlor: "マレハン東京皇国第8支店", tier: "4円" }, savings: { date: "2026-10-04" as IsoDate, kind: "ball", tokens: dec("4000") }, prizes: { specialPrizes: dec("13800") } }])
+    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).at(0)).toEqual(["savings-exchanged", { pool: { parlor: "マレハン東京皇国第8支店", tier: "4円" }, savings: { date: "2026-10-04" as IsoDate, kind: "ball", tokens: dec("4000") }, prizes: { specialPrizes: dec("13800") } }])
   })
 
   test("give the odd tokens as odd prizes at the rental price, and leave hledger to balance the translation adjustment", async () => {
@@ -189,7 +189,7 @@ describe("savings a parlor took back", () => {
     expect(transactionsOf(files)).toContain("2026-10-04 マレハン東京皇国第8支店 | 失効  ; parlor-id: malehan-tokyokoukoku, savings: forfeiture")
     expect(transactionsOf(files)).not.toContain("資産:現金                         -14000")
     const activity = await loadActivity(session, history, BOOK)
-    expect(activity.ok && activity.value.lines.map((line) => line.did).at(-1)).toBe("savings-forfeited")
+    expect(activity.ok && activity.value.lines.map((line) => line.did).at(0)).toBe("savings-forfeited")
   })
 
   test("are no group of a breakdown, but その他損益 under it", async () => {
@@ -221,7 +221,7 @@ describe("savings a parlor took back", () => {
     expect(forfeited.ok && forfeited.value.map((each) => [each.pool.tier, toPlainString(each.tokens)])).toEqual([["4円", "4800"]])
     expect(await held(session, "date:..2026-10-05")).toEqual([["723豚の帽子亭店", "20円", "1650"], ["723豚の帽子亭店", "4円", "6600"], ["マレハン東京皇国第8支店", "4円", "0"], ["マレハン東京皇国第8支店", "20円", "0"]])
     const activity = await loadActivity(session, history, BOOK)
-    expect(activity.ok && activity.value.lines.map((line) => line.did).at(-1)).toBe("savings-forfeited")
+    expect(activity.ok && activity.value.lines.map((line) => line.did).at(0)).toBe("savings-forfeited")
     expect(await recordParlorForfeiture(session, BOOK, MALEHAN, "2026-10-04" as IsoDate)).toEqual({ ok: true, value: [] })
   })
 })

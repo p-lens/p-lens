@@ -55,6 +55,8 @@ export const describeActivity = (line: ActivityLine, sourceName: (from: string) 
       return imported === undefined ? SOMETHING_DONE : `${sourceName(imported.from)}から取り込んだ${formatCount(imported.count)}件の収支に推定期待値を追加`
     case "play-removed":
       return tally === undefined ? SOMETHING_DONE : `${tallyName(tally.description)}の収支を削除`
+    case "play-restored":
+      return tally === undefined ? SOMETHING_DONE : `${tallyName(tally.description)}の収支の削除を取り消し`
     case "days-entered":
       return entered === undefined ? SOMETHING_DONE : `まとめて入力で${formatCount(entered.count)}日分の収支を追加`
     default:

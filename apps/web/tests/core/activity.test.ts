@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { ACTIVITY_KEPT_SECONDS, ACTIVITY_LOG, activityLineOf, activityOf, activityOfText, withActivity, withoutPastActivity, type ActivityLine } from "../../src/core/activity/activity"
+import { ACTIVITY_LOG, activityLineOf, activityOf, activityOfText, CHANGES_KEPT_SECONDS, withActivity, withoutPastChanges, type ActivityLine } from "../../src/core/activity/activity"
 import type { MemberId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { fileChangesBetween, patchesOf, type ChangeIntent } from "../../src/core/change/journal-change"
@@ -157,19 +157,27 @@ describe("what a line says its change did", () => {
 })
 
 describe("a book's activity pruned", () => {
-  const log = logOf(CREATED, PLAYED, RENAMED)
+  const touched = (line: ActivityLine): ActivityLine => ({ ...line, parts: { ...line.parts, changes: { files: [patchBetween("transactions/2026.journal", "", "2026-10-02 流星\n")] } } })
+  const lighter = (line: ActivityLine): ActivityLine => ({ ...line, parts: Object.fromEntries(Object.entries(line.parts).filter(([name]) => name !== "changes")) })
+  const log = logOf(touched(CREATED), touched(PLAYED), touched(RENAMED))
   const after = (at: string, seconds: number): Date => new Date(Date.parse(at) + seconds * 1000)
 
-  test("keeps 90 days of lines, and drops each written longer ago, every other line as it was", () => {
-    expect(ACTIVITY_KEPT_SECONDS).toBe(7_776_000)
-    expect(withoutPastActivity(log, after(CREATED.at, ACTIVITY_KEPT_SECONDS))).toBeUndefined()
-    expect(withoutPastActivity(log, after(CREATED.at, ACTIVITY_KEPT_SECONDS + 1))).toBe(logOf(PLAYED, RENAMED))
-    expect(withoutPastActivity(log, after(RENAMED.at, ACTIVITY_KEPT_SECONDS + 1))).toBe("")
+  test("keeps every line, and takes away the changes of each written longer ago than 90 days, every other line as it was", () => {
+    expect(CHANGES_KEPT_SECONDS).toBe(7_776_000)
+    expect(withoutPastChanges(log, after(CREATED.at, CHANGES_KEPT_SECONDS))).toBeUndefined()
+    expect(withoutPastChanges(log, after(CREATED.at, CHANGES_KEPT_SECONDS + 1))).toBe(logOf(lighter(touched(CREATED)), touched(PLAYED), touched(RENAMED)))
+    expect(withoutPastChanges(log, after(RENAMED.at, CHANGES_KEPT_SECONDS + 1))).toBe(logOf(lighter(touched(CREATED)), lighter(touched(PLAYED)), lighter(touched(RENAMED))))
+    expect(activityOfText(withoutPastChanges(log, after(RENAMED.at, CHANGES_KEPT_SECONDS + 1)) ?? "")).toEqual([CREATED, PLAYED, RENAMED])
   })
 
-  test("keeps a line that does not read as one, being a hand's", () => {
-    const byHand = `not json\n${log}`
-    expect(withoutPastActivity(byHand, after(RENAMED.at, ACTIVITY_KEPT_SECONDS + 1))).toBe("not json\n")
+  test("writes nothing where no old line holds changes", () => {
+    expect(withoutPastChanges(logOf(CREATED, PLAYED, RENAMED), after(RENAMED.at, CHANGES_KEPT_SECONDS + 1))).toBeUndefined()
+  })
+
+  test("keeps a part this version does not know, and leaves a line that does not read as one, being a hand's", () => {
+    const unknown = `{"v":1,"id":"a8","at":"2026-10-01T00:00:00.000Z","by":"me","did":"book-created","later":{"x":1},"changes":{"files":[]}}`
+    const byHand = `not json\n${unknown}\n`
+    expect(withoutPastChanges(byHand, after(RENAMED.at, CHANGES_KEPT_SECONDS + 1))).toBe(`not json\n{"v":1,"id":"a8","at":"2026-10-01T00:00:00.000Z","by":"me","did":"book-created","later":{"x":1}}\n`)
   })
 
   test("is not itself a thing the activity tells of", () => {

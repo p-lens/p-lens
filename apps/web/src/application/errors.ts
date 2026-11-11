@@ -67,6 +67,10 @@ export type ApplicationError =
   | { readonly type: "tally-missing" }
   /** A tally moved into a book that has a tally of its play already. */
   | { readonly type: "tally-in-book" }
+  /** A removal to be taken back that cannot be read back from the book's activity: no such line, or its changes pruned. */
+  | { readonly type: "removal-unrestorable" }
+  /** A removal to be taken back whose play has a tally in a book already: this one, put back before, or another, moved there. */
+  | { readonly type: "removal-restored"; readonly title: string | undefined; readonly here: boolean }
   /** A pachinko play's counter said to count a 0R otherwise, which the counter its readings showed does not bear out: the reading at `index` would show less than it must. */
   | { readonly type: "recount-refused"; readonly refusal: RevisionRefusal }
   /** A play's tally written into its book, and the play then not marked recorded on the device: the book has it, and it is not to be recorded again. */

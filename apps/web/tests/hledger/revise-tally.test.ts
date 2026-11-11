@@ -332,8 +332,8 @@ describe("setting a recorded tally right", () => {
     expect(mapOk(activity, (found) => found.lines.map((line) => [line.did, saidIn(line.parts)]))).toEqual({
       ok: true,
       value: [
-        ["play-recorded", { play: { id: "today" as PlayId, description: "マレハン東京皇国第8支店 | 流星 123番台" }, theoretical: { value: dec("5500") } }],
         ["play-revised", { play: { id: "today" as PlayId, description: "マレハン東京皇国第8支店 | 流星 123番台" } }],
+        ["play-recorded", { play: { id: "today" as PlayId, description: "マレハン東京皇国第8支店 | 流星 123番台" }, theoretical: { value: dec("5500") } }],
       ],
     })
     expect(await reviseTokenTally(session, BOOK, { ...TODAY, id: "nowhere" as PlayId })).toEqual({ ok: false, error: { type: "tally-missing" } })
@@ -350,7 +350,7 @@ describe("taking a recorded tally out of a book", () => {
     expect((await removeTally(session, BOOK, "today" as PlayId)).ok).toBe(true)
     expect(storage.peek(BOOK)?.files[FIXTURE_TRANSACTIONS]).toBe(before as string)
     expect(await figures(session, "date:2026-10-04")).toEqual({ ok: true, value: ["0", "0"] })
-    expect(mapOk(await loadActivity(session, history, BOOK), (found) => found.lines.map((line) => line.did))).toEqual({ ok: true, value: ["play-recorded", "play-removed"] })
+    expect(mapOk(await loadActivity(session, history, BOOK), (found) => found.lines.map((line) => line.did))).toEqual({ ok: true, value: ["play-removed", "play-recorded"] })
   })
 
   test("takes out one of the made-up book's own, and nothing of a tally the book lacks", async () => {

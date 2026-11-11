@@ -1,9 +1,11 @@
-import { createResource, For, Show, type JSX } from "solid-js"
+import { createMemo, createResource, createSignal, For, Show, type JSX } from "solid-js"
 import { MainContent } from "solid-gathering-shell"
 
 import { loadActivity } from "../../../application/activity"
-import type { Book, BookId } from "../../../core/book/book"
-import { ACTIVITY_LOG, type ActivityLine } from "../../../core/activity/activity"
+import { restoreTally } from "../../../application/restore-tally"
+import { memberCan, type Book, type BookId } from "../../../core/book/book"
+import { ACTIVITY_LOG, type ActivityId, type ActivityLine } from "../../../core/activity/activity"
+import { restorableRemovals } from "../../../core/activity/removed-tally"
 import { useApp } from "../../context"
 import { Revealed } from "../../primitives/revealed"
 import { EmptyState, Loaded } from "../../primitives/states"
@@ -11,7 +13,8 @@ import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
 import { describeActivity } from "../../wording/activity"
 import { formatMoment } from "../../wording/dates"
-import { unreadableFileText } from "../../wording/errors"
+import { describeError, unreadableFileText } from "../../wording/errors"
+import { toast } from "../../primitives/toast"
 import { formatTheoreticalYen } from "../../wording/numbers"
 import { ViewHeader } from "../shell/ViewHeader"
 import { seal } from "../../../mummer"
@@ -19,7 +22,12 @@ import { sourceName } from "../../../other-apps"
 
 const authorName = (book: Book | undefined, line: ActivityLine): string => book?.members.find((member) => member.id === line.by)?.displayName ?? line.by
 
-function ActivityRow(props: { readonly line: ActivityLine; readonly author: string; readonly onOpenTally: (() => void) | undefined }): JSX.Element {
+function ActivityRow(props: {
+  readonly line: ActivityLine
+  readonly author: string
+  readonly onOpenTally: (() => void) | undefined
+  readonly onRestore: (() => void) | undefined
+}): JSX.Element {
   return (
     <li class="flex gap-3 rounded px-3 py-2 hover:bg-surface-3/40">
       <time class="w-20 shrink-0 pt-0.5 text-xs tabular-nums text-text-muted" datetime={props.line.at}>
@@ -32,6 +40,13 @@ function ActivityRow(props: { readonly line: ActivityLine; readonly author: stri
           {(theoretical) => <span class="text-xs text-text-muted">期待値 {formatTheoreticalYen(seal.tally(theoretical.value))}</span>}
         </Show>
       </div>
+      <Show when={props.onRestore} keyed>
+        {(restore) => (
+          <button type="button" class="self-center text-sm text-accent hover:underline" onClick={() => restore()}>
+            取り消す
+          </button>
+        )}
+      </Show>
       <Show when={props.onOpenTally} keyed>
         {(open) => (
           <button type="button" class="self-center text-sm text-accent hover:underline" onClick={() => open()}>
@@ -58,6 +73,25 @@ export function ActivityView(props: { readonly place: Place; readonly bookId: Bo
     const tally = line.parts.play
     return tally === undefined ? undefined : () => moves.go({ kind: "tally", bookId: props.bookId, playId: tally.id })
   }
+  /** The removals of the book's activity that can be taken back, worked out once each time it is read. */
+  const restorable = createMemo((): ReadonlySet<ActivityId> => ((found) => (found?.ok === true ? restorableRemovals(found.value.lines) : new Set()))(activity()))
+  /** The removal being taken back, until it is done or refused: a press meanwhile is passed over. */
+  const [restoring, setRestoring] = createSignal<ActivityId | undefined>()
+  const restore = async (line: ActivityId): Promise<void> => {
+    if (restoring() !== undefined) return
+    setRestoring(line)
+    const done = await restoreTally(app.services.session, props.bookId, line)
+    setRestoring(undefined)
+    if (!done.ok) {
+      toast({ title: "削除を取り消せませんでした", description: describeError(done.error), tone: "error" })
+      return
+    }
+    toast({ title: "収支の削除を取り消しました" })
+    app.wrote()
+  }
+  /** What can be taken back on a book this member may write: a removal whose tally its line still holds, and no later line speaks of. */
+  const restorerOf = (book: Book | undefined, line: ActivityLine): (() => void) | undefined =>
+    book !== undefined && memberCan(book, app.services.member, "write") && restorable().has(line.id) ? () => void restore(line.id) : undefined
 
   return (
     <MainContent header={<ViewHeader place={props.place} title="操作履歴" />}>
@@ -73,7 +107,18 @@ export function ActivityView(props: { readonly place: Place; readonly bookId: Bo
               <Show when={found.lines.length > 0} fallback={<EmptyState title="操作履歴はまだありません">収支を記録すると、ここに並びます。</EmptyState>}>
                 <ul class="flex flex-col gap-0.5 p-2">
                   <Revealed count={found.lines.length}>
-                    {(shown) => <For each={found.lines.slice(0, shown())}>{(line) => <ActivityRow line={line} author={authorName(found.book, line)} onOpenTally={openerOf(line)} />}</For>}
+                    {(shown) => (
+                      <For each={found.lines.slice(0, shown())}>
+                        {(line) => (
+                          <ActivityRow
+                            line={line}
+                            author={authorName(found.book, line)}
+                            onOpenTally={openerOf(line)}
+                            onRestore={restorerOf(found.book, line)}
+                          />
+                        )}
+                      </For>
+                    )}
                   </Revealed>
                 </ul>
               </Show>

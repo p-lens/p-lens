@@ -10,7 +10,7 @@ import { ME, fixtureBook, inProcessHledger, memoryStorage } from "../support/in-
 const OTHER = "someone-else" as MemberId
 
 /** A line of a book's activity written at a moment. */
-const lineAt = (id: string, at: string): string => `{"v":1,"id":"${id}","at":"${at}","by":"me","did":"book-renamed","book":{"title":"${id}"}}`
+const lineAt = (id: string, at: string): string => `{"v":1,"id":"${id}","at":"${at}","by":"me","did":"book-renamed","book":{"title":"${id}"},"changes":{"files":[{"path":"main.journal","created":false,"hunks":[]}]}}`
 
 const LOG = `${lineAt("old", "2026-08-01T00:00:00.000Z")}\n${lineAt("new", "2026-11-01T00:00:00.000Z")}\n`
 
@@ -23,22 +23,23 @@ const setUp = async () => {
     session.createBook({ book: { id: id as BookId, members: [{ id: role === "owner" ? ME : OTHER, displayName: "owner", role: "owner" }, ...(role === "owner" ? [] : [{ id: ME, displayName: "me", role }])] }, files: { ...fixture.files, [ACTIVITY_LOG]: LOG } })
   await add("mine", "owner")
   await add("seen", "viewer")
-  const ids = (id: string): readonly string[] => activityOfText(storage.peek(id as BookId)?.files[ACTIVITY_LOG] ?? "").map((line) => (line.did === "book-created" ? line.did : line.id))
+  const ids = (id: string): readonly string[] =>
+    activityOfText(storage.peek(id as BookId)?.files[ACTIVITY_LOG] ?? "").map((line) => `${line.did === "book-created" ? line.did : line.id}${line.parts.changes === undefined ? "" : " +changes"}`)
   return { session, clock, ids, ports: { session, member: ME, now: () => clock.now } }
 }
 
 describe("pruning every book's activity", () => {
-  test("drops what is older than 90 days from each book this member may write, and leaves a book they may only read", async () => {
+  test("takes the changes away from lines older than 90 days in each book this member may write, keeping every line, and leaves a book they may only read", async () => {
     const { ports, ids } = await setUp()
     expect(await pruneEveryBookActivity(ports)).toEqual({ ok: true, value: 1 })
-    expect(ids("mine")).toEqual(["new", "book-created"])
-    expect(ids("seen")).toEqual(["old", "new", "book-created"])
+    expect(ids("mine")).toEqual(["old", "new +changes", "book-created +changes"])
+    expect(ids("seen")).toEqual(["old +changes", "new +changes", "book-created +changes"])
   })
 
   test("writes nothing where nothing is so old", async () => {
     const { ports, clock, ids } = await setUp()
     clock.now = "2026-10-20T00:00:00.000Z"
     expect(await pruneEveryBookActivity(ports)).toEqual({ ok: true, value: 0 })
-    expect(ids("mine")).toEqual(["old", "new", "book-created"])
+    expect(ids("mine")).toEqual(["old +changes", "new +changes", "book-created +changes"])
   })
 })

@@ -48,6 +48,6 @@ describe("days' 収支 typed in a month at a time", () => {
       ["day-1", "2019-03-01", "| まとめて入力", undefined, undefined],
     ] as never)
     const activity = await loadActivity(session, history, BOOK)
-    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).at(-1)).toEqual(["days-entered", { entered: { count: 3 } }])
+    expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).at(0)).toEqual(["days-entered", { entered: { count: 3 } }])
   })
 })
