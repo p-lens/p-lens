@@ -1,0 +1,17 @@
+[data-theme="ash"] {
+  --surface-0: #1e1f22;
+  --surface-1: #2b2d31;
+  --surface-2: #313338;
+  --surface-3: #383a40;
+  --surface-input: #1e1f22;
+  --text-primary: #f2f3f5;
+  --text-secondary: #b5bac1;
+  --text-muted: #949ba4;
+  --border: #3f4147;
+  --accent: #5865f2;
+  --accent-hover: #4752c4;
+  --accent-contrast: #ffffff;
+  --amateur: #5865f2;
+  --amateur-hover: #4752c4;
+  --on-amateur: #ffffff;
+}

@@ -1,0 +1,17 @@
+[data-theme="bordeaux"] {
+  --surface-0: #1f0f14;
+  --surface-1: #2a151b;
+  --surface-2: #311a21;
+  --surface-3: #3b2029;
+  --surface-input: #1f0f14;
+  --text-primary: #f7eef0;
+  --text-secondary: #d0b5bc;
+  --text-muted: #ad929a;
+  --border: #4a2a33;
+  --accent: #d6416e;
+  --accent-hover: #b8355c;
+  --accent-contrast: #ffffff;
+  --amateur: #d6416e;
+  --amateur-hover: #b8355c;
+  --on-amateur: #ffffff;
+}

@@ -1,0 +1,17 @@
+[data-theme="sakura"] {
+  --surface-0: #f2dbe1;
+  --surface-1: #faedf0;
+  --surface-2: #fffafb;
+  --surface-3: #f6e4e9;
+  --surface-input: #f2dbe1;
+  --text-primary: #24121a;
+  --text-secondary: #5e4550;
+  --text-muted: #6e5560;
+  --border: #eed6dd;
+  --accent: #c2477a;
+  --accent-hover: #a83a67;
+  --accent-contrast: #ffffff;
+  --amateur: #c2477a;
+  --amateur-hover: #a83a67;
+  --on-amateur: #ffffff;
+}

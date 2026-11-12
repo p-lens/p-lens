@@ -1,0 +1,18 @@
+:root,
+[data-theme="white"] {
+  --surface-0: #e3e5e8;
+  --surface-1: #f2f3f5;
+  --surface-2: #ffffff;
+  --surface-3: #ebedef;
+  --surface-input: #e3e5e8;
+  --text-primary: #060607;
+  --text-secondary: #4e5058;
+  --text-muted: #5c5e66;
+  --border: #e1e2e4;
+  --accent: #5b66d9;
+  --accent-hover: #4f58bd;
+  --accent-contrast: #ffffff;
+  --amateur: #5b66d9;
+  --amateur-hover: #4f58bd;
+  --on-amateur: #ffffff;
+}

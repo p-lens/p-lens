@@ -1,0 +1,17 @@
+[data-theme="onyx"] {
+  --surface-0: #000000;
+  --surface-1: #0b0b0d;
+  --surface-2: #111113;
+  --surface-3: #1b1b1f;
+  --surface-input: #000000;
+  --text-primary: #f2f3f5;
+  --text-secondary: #b5bac1;
+  --text-muted: #949ba4;
+  --border: #26272b;
+  --accent: #5865f2;
+  --accent-hover: #4752c4;
+  --accent-contrast: #ffffff;
+  --amateur: #5865f2;
+  --amateur-hover: #4752c4;
+  --on-amateur: #ffffff;
+}

@@ -1,11 +1,31 @@
 @import "tailwindcss";
+@import "./themes/light.css";
+@import "./themes/dark.css";
+@import "./themes/white.css";
+@import "./themes/sakura.css";
+@import "./themes/khaki.css";
+@import "./themes/mint.css";
+@import "./themes/ash.css";
+@import "./themes/onyx.css";
+@import "./themes/aurora.css";
+@import "./themes/bordeaux.css";
 
 @source "../../../../../packages/solid-gathering-shell/src";
 
 /*
  * Every colour on screen is one of these tokens. Components name what a colour
  * is for — a surface, a kind of text, a result being positive — never the
- * colour itself, so the two themes are two sets of values and nothing else.
+ * colour itself, so a theme is a set of values and nothing else.
+ *
+ * The values are in `themes/`, in two layers. An appearance (`light.css`,
+ * `dark.css`, by `data-appearance`) holds everything a game or a mark
+ * says, which reads the same in every theme of that appearance. A theme
+ * (`white.css` … `bordeaux.css`, by `data-theme`) holds what makes it
+ * itself: the surfaces, the text, the border and the accent with
+ * `amateur`, which is the accent's colour. White, sakura, khaki and mint
+ * are light; ash, onyx, aurora and bordeaux are dark. A theme's file is
+ * only its selector, so an element given `data-theme` shows that theme
+ * inside whatever is around it, as a swatch does.
  *
  * Surfaces step from the rail outwards: 0 is the rail, 1 the side and detail
  * panels, 2 the main content, 3 anything raised on it.
@@ -49,128 +69,13 @@
  * the button stands out from the bar and the two are never taken for
  * each other.
  *
- * A QR code is black on white in either theme (`qr-…`): a camera reads
+ * A QR code is black on white in every theme (`qr-…`): a camera reads
  * one so, and not every reader reads it the other way round.
  *
- * 操作の手引き is black on a loud yellow in either theme (`first-touch-…`):
+ * 操作の手引き is black on a loud yellow in every theme (`first-touch-…`):
  * it belongs to nothing else on screen, so that it is seen at once for
  * what it is. Only `first-touch/` uses it, and it goes with that folder.
  */
-:root,
-[data-theme="light"] {
-  color-scheme: light;
-  --surface-0: #e3e5e8;
-  --surface-1: #f2f3f5;
-  --surface-2: #ffffff;
-  --surface-3: #ebedef;
-  --surface-input: #e3e5e8;
-  --text-primary: #060607;
-  --text-secondary: #4e5058;
-  --text-muted: #5c5e66;
-  --border: #e1e2e4;
-  --accent: #5b66d9;
-  --accent-hover: #4f58bd;
-  --accent-contrast: #ffffff;
-  --positive: #1f9a55;
-  --negative: #e8383e;
-  --warning: #a8650a;
-  --focus-ring: #00a8fc;
-  --amateur: #5b66d9;
-  --amateur-hover: #4f58bd;
-  --on-amateur: #ffffff;
-  --semipro: #52cc52;
-  --semipro-hover: #4bbd4b;
-  --on-semipro: #0c1405;
-  --semipro-ink: #007500;
-  --semipro-ink-hover: #006100;
-  --nerdpro: #b673e6;
-  --nerdpro-hover: #ae6edb;
-  --on-nerdpro: #100a1c;
-  --nerdpro-ink: #7a1fd6;
-  --nerdpro-ink-hover: #6418b3;
-  --rapid: #86d426;
-  --special: #a985f2;
-  --special-banner: #8a1cff;
-  --on-special-banner: #ffffff;
-  --rapid-banner: #9cf200;
-  --on-rapid-banner: #0c1405;
-  --special-bar: #5a10ad;
-  --special-bar-glow: #9a55d6;
-  --rapid-bar: #4aa30a;
-  --rapid-bar-glow: #a7eb47;
-  --mark-gold: #c27c0e;
-  --mark-red: #e8383e;
-  --mark-purple: #8a4fd8;
-  --mark-green: #1f9a55;
-  --mark-blue: #2f6fe0;
-  --verification: #1f9a55;
-  --refutation: #e8383e;
-  --adoption: #2f6fe0;
-  --rejection: #e8383e;
-  --mark-yellow: #a89400;
-  --qr-ink: #000000;
-  --qr-paper: #ffffff;
-  --first-touch-paper: #ffe14d;
-  --first-touch-ink: #111111;
-}
-
-[data-theme="dark"] {
-  color-scheme: dark;
-  --surface-0: #1e1f22;
-  --surface-1: #2b2d31;
-  --surface-2: #313338;
-  --surface-3: #383a40;
-  --surface-input: #1e1f22;
-  --text-primary: #f2f3f5;
-  --text-secondary: #b5bac1;
-  --text-muted: #949ba4;
-  --border: #3f4147;
-  --accent: #5865f2;
-  --accent-hover: #4752c4;
-  --accent-contrast: #ffffff;
-  --positive: #23a55a;
-  --negative: #f23f43;
-  --warning: #f0b232;
-  --focus-ring: #00a8fc;
-  --amateur: #5865f2;
-  --amateur-hover: #4752c4;
-  --on-amateur: #ffffff;
-  --semipro: #00e000;
-  --semipro-hover: #33ff33;
-  --on-semipro: #0c1405;
-  --semipro-ink: #00e000;
-  --semipro-ink-hover: #4dff4d;
-  --nerdpro: #b84dff;
-  --nerdpro-hover: #c266ff;
-  --on-nerdpro: #100a1c;
-  --nerdpro-ink: #bb84ff;
-  --nerdpro-ink-hover: #cfa6ff;
-  --rapid: #9be22d;
-  --special: #b794f6;
-  --special-banner: #9d2bff;
-  --on-special-banner: #ffffff;
-  --rapid-banner: #a8ff00;
-  --on-rapid-banner: #0c1405;
-  --special-bar: #5c13a8;
-  --special-bar-glow: #9558cc;
-  --rapid-bar: #46990c;
-  --rapid-bar-glow: #9fde46;
-  --mark-gold: #f0a92e;
-  --mark-red: #f23f43;
-  --mark-purple: #b794f6;
-  --mark-green: #23a55a;
-  --mark-blue: #5b9bf8;
-  --verification: #23a55a;
-  --refutation: #f23f43;
-  --adoption: #5b9bf8;
-  --rejection: #f23f43;
-  --mark-yellow: #f2e14a;
-  --qr-ink: #000000;
-  --qr-paper: #ffffff;
-  --first-touch-paper: #ffe14d;
-  --first-touch-ink: #111111;
-}
-
 @theme inline {
   --color-surface-0: var(--surface-0);
   --color-surface-1: var(--surface-1);

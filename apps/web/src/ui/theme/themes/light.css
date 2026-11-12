@@ -1,0 +1,42 @@
+:root,
+[data-appearance="light"] {
+  color-scheme: light;
+  --positive: #1f9a55;
+  --negative: #e8383e;
+  --warning: #a8650a;
+  --focus-ring: #00a8fc;
+  --semipro: #52cc52;
+  --semipro-hover: #4bbd4b;
+  --on-semipro: #0c1405;
+  --semipro-ink: #007500;
+  --semipro-ink-hover: #006100;
+  --nerdpro: #b673e6;
+  --nerdpro-hover: #ae6edb;
+  --on-nerdpro: #100a1c;
+  --nerdpro-ink: #7a1fd6;
+  --nerdpro-ink-hover: #6418b3;
+  --rapid: #86d426;
+  --special: #a985f2;
+  --special-banner: #8a1cff;
+  --on-special-banner: #ffffff;
+  --rapid-banner: #9cf200;
+  --on-rapid-banner: #0c1405;
+  --special-bar: #5a10ad;
+  --special-bar-glow: #9a55d6;
+  --rapid-bar: #4aa30a;
+  --rapid-bar-glow: #a7eb47;
+  --mark-gold: #c27c0e;
+  --mark-red: #e8383e;
+  --mark-purple: #8a4fd8;
+  --mark-green: #1f9a55;
+  --mark-blue: #2f6fe0;
+  --verification: #1f9a55;
+  --refutation: #e8383e;
+  --adoption: #2f6fe0;
+  --rejection: #e8383e;
+  --mark-yellow: #a89400;
+  --qr-ink: #000000;
+  --qr-paper: #ffffff;
+  --first-touch-paper: #ffe14d;
+  --first-touch-ink: #111111;
+}
