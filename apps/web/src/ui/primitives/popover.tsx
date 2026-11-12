@@ -1,10 +1,11 @@
 // After stefan-karger/solid-ui's popover, on the app's tokens.
 
 import * as PopoverPrimitive from "@kobalte/core/popover"
-import { createSignal, type JSX } from "solid-js"
+import { type JSX } from "solid-js"
 
 import { Button } from "./button"
 import { CloseIcon, InfoIcon, QuestionIcon } from "./icons"
+import { createBubble } from "./one-bubble"
 
 /**
  * A question mark that opens an explanation beside it: what a control does,
@@ -12,11 +13,14 @@ import { CloseIcon, InfoIcon, QuestionIcon } from "./icons"
  * hand for whoever wants them. Where what it explains is how a figure is
  * worked out, it is drawn in the ink it is asked for — the semipro's, or the
  * nerdpro's where it sits among figures a person reads against each other;
- * any other question mark keeps the quiet colour of a control.
+ * any other question mark keeps the quiet colour of a control. Every bubble
+ * here keeps to the one open on screen (`createBubble`): opening one closes
+ * any other.
  */
 export function HelpPopover(props: { readonly label: string; readonly title: string; readonly ink?: "semipro" | "nerdpro"; readonly children: JSX.Element }): JSX.Element {
+  const [open, setOpen] = createBubble()
   return (
-    <PopoverPrimitive.Root gutter={8}>
+    <PopoverPrimitive.Root gutter={8} open={open()} onOpenChange={setOpen}>
       <PopoverPrimitive.Trigger
         aria-label={props.label}
         title={props.label}
@@ -57,7 +61,7 @@ export function HintedIconButton(props: {
   readonly semipro?: boolean
   readonly children: JSX.Element
 }): JSX.Element {
-  const [open, setOpen] = createSignal(false)
+  const [open, setOpen] = createBubble()
   return (
     <PopoverPrimitive.Root gutter={8} placement="top" open={open()} onOpenChange={(next) => setOpen(next && !props.ready)}>
       <PopoverPrimitive.Trigger
@@ -98,7 +102,7 @@ export function HintedIconButton(props: {
  * left as it is — and never takes the focus.
  */
 export function CautionNote(props: { readonly children: string; readonly hint: string }): JSX.Element {
-  const [open, setOpen] = createSignal(false)
+  const [open, setOpen] = createBubble()
   return (
     <PopoverPrimitive.Root gutter={6} placement="top-start" open={open()} onOpenChange={setOpen}>
       <PopoverPrimitive.Trigger
@@ -135,7 +139,7 @@ export function CautionNote(props: { readonly children: string; readonly hint: s
  * text's otherwise.
  */
 export function InfoNote(props: { readonly label: string; readonly ink?: "semipro"; readonly children: JSX.Element }): JSX.Element {
-  const [open, setOpen] = createSignal(false)
+  const [open, setOpen] = createBubble()
   return (
     <PopoverPrimitive.Root gutter={6} placement="top-start" open={open()} onOpenChange={setOpen}>
       <PopoverPrimitive.Trigger

@@ -81,11 +81,11 @@ export const NOT_TALLIED = "集計なし"
 /** What a group's play time is called beside it. */
 export const PLAY_TIME = "時間"
 
-/** A play time in seconds as a person reads it: whole hours and minutes, the minutes always two digits, the seconds dropped — `34時間05分`, `03分`. */
+/** A play time in seconds as a person reads it: whole hours and minutes, the minutes never filled out with a nought, an hour on the dot said with its nought minutes, the seconds dropped — `34時間5分`, `1時間0分`, `3分`. */
 export const playTimeText = (seconds: Decimal): string => {
   const minutes = Math.floor(Number(toPlainString(seconds)) / 60)
   const hours = Math.floor(minutes / 60)
-  const shown = `${String(minutes % 60).padStart(2, "0")}分`
+  const shown = `${String(minutes % 60)}分`
   return hours === 0 ? shown : `${formatCount(hours)}時間${shown}`
 }
 

@@ -11,5 +11,5 @@ export const countText = (count: number | undefined, unit: string): string => `$
 /** A spin performance or a border, to a tenth, or dashes in its shape where the tally says none: `18.5回転/千円`, `--回転/千円`. */
 export const perThousandText = (perThousand: Decimal | undefined): string => `${perThousand === undefined ? "--" : Number(toPlainString(perThousand)).toFixed(1)}回転/千円`
 
-/** How long a tally's play lasted, or dashes in its shape where it does not say: `2時間05分`, `--時間--分`. */
+/** How long a tally's play lasted, or dashes in its shape where it does not say: `2時間5分`, `--時間--分`. */
 export const lastedText = (seconds: Decimal | undefined): string => (seconds === undefined ? "--時間--分" : playTimeText(seconds))
