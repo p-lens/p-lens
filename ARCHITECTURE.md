@@ -191,8 +191,7 @@ reads the book — and any period is asked of hledger by its days, a balance by
 its last: the whole book is the years one after another, read as it always
 was. A tally set right stays where it stands while its day stays in that
 file's year, and moves to its new year's file otherwise. There is no file
-of transactions but the years': a book from before them, which kept its
-entries in a `transactions.journal`, is no longer looked after.
+of transactions but the years'.
 
 **hledger reads a book file by file** (`readPiecewise` in the bindings) where
 its `main.journal` is nothing but comments, blank lines and includes by name:
@@ -890,15 +889,13 @@ and a machine is never stored without one. A third kind is only read:
 - **sampled**: the same basis, its 1R トータル確率 estimated on the device by
   Monte Carlo (`estimateChunk`): so many cycles — regular play to a first
   jackpot and the combo after — from a seed, run in chunks in the engine's
-  worker, counted as it goes and stoppable. It is no longer a way to make
-  a formula. A sampled figure is an estimate of what the same basis comes
-  to exactly, so it could only be held to that by a margin, and the margin
-  was its sender's to state: a wide one let any figure by. The API takes
-  manual and simulated formulas and refuses a sampled one, and the app
-  sends none; one a catalog already holds is still read and shown as what
-  it is. The sampling itself stays as a check, under the figures of
-  基礎値から計算: it runs on the device, is set beside what the engine
-  worked out, and makes nothing.
+  worker, counted as it goes and stoppable. It makes no formula: a sampled
+  figure is an estimate of what the same basis comes to exactly. The API
+  takes manual and simulated formulas and refuses a sampled one, and the
+  app sends none; one a catalog already holds is read and shown as what
+  it is. The sampling is a check, under the figures of 基礎値から計算: it
+  runs on the device, is set beside what the engine worked out, and makes
+  nothing.
 
 Formulas are immutable. "Remake" makes a new one, `derivedFrom` the old.
 
@@ -1112,10 +1109,12 @@ walking down the trail and back keeps the work in hand.
   filled so far, or spent), found by solving the Markov chain over (state,
   gauge, no jackpot yet); how often each way comes over the long run is the
   stationary distribution of the small chain they form, and 1R トータル確率
-  is the weighted cycles' rounds over their regular-game spins. Spins in a
-  mode cost nothing for now; tulip support (電サポ) and its ball gain will
-  change that. The simulator carries the gauge and the spent 遊タイム from
-  cycle to cycle the same way, and is tested against the exact figure on a
+  is the weighted cycles' rounds over their regular-game spins. A mode's
+  spins on the 電サポ cost nothing: what the 電サポ gains or loses is in
+  its jackpots' balls (`supportGain`), and a mode `withoutSupport` pays for
+  its spins at the heso (`paidSpins`). The simulator carries the gauge and
+  the spent 遊タイム from cycle to cycle the same way, and is tested against
+  the exact figure on a
   machine where both happen often.
 - **遊タイム狙い is sitting down at initial spins.** From the counter as it stands — the
   cabinet's 遊 counter where it shows otherwise than the data counter — play
@@ -3436,17 +3435,6 @@ is not written out here a second time.
   underscores: `帳簿_収支_2026-10-09_exported.csv`,
   `帳簿_pRecord_2026-10-09_exported.csv`.
 
-## Not built yet, with the boundary already in place
-
-- **Git history**: `HistoryPort` keeps every commit in IndexedDB (`commits`),
-  in the order made; a Git adapter replaces it without touching anything
-  else. A book older than the store has files and no commits before it.
-- **OPFS**: `BookStorage` is the port; IndexedDB is the only adapter.
-- **Identities**: every device writes as one fixed local member. A person
-  let into a book is told from its owner by their role on it, not by who
-  made which change; a book is its keeper's by its name.
-- **Theoretical value worked out live.**
-
 ## Glossary
 
 | 日本語 | Code |
@@ -3519,8 +3507,8 @@ is not written out here a second time.
 | LT（ラッキートリガー） | lucky trigger (`luckyTrigger`, `atCombo`) |
 | 連チャン / N連目 | combo / combo N (`combo`, `averageCombo`); never "chain" |
 | 回転が尽きて終わる | runout (`ModeKind::Runout`) |
-| 電サポ / 電サポ増減率 | tulip support / its ball gain (not modelled yet) |
-| 釘 | nail (nail width, nail route; not modelled yet) |
+| 電サポ / 電サポ増減率（電サポ中の出玉増減） | tulip support (`withoutSupport` where a mode is played without it) / its ball gain (`supportGain`, basis points) |
+| 電サポ増減 | the 電サポ's drift as the person counted it (`checkpoint.support`) |
 | 遊タイム狙い（ハイエナ） | hyena hunt (`hyenaHunt`, `hyena_hunt`) |
 | 着席時データカウンター | initial spins (`initialSpins`): spins played by whoever sat there before |
 | JSONL の1行 | checkpoint |
