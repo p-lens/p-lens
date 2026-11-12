@@ -9,6 +9,7 @@
   --text-secondary: #4e5058;
   --text-muted: #5c5e66;
   --border: #e1e2e4;
+  --seam: var(--surface-0);
   --accent: #5b66d9;
   --accent-hover: #4f58bd;
   --accent-contrast: #ffffff;

@@ -7,7 +7,7 @@ import { Show, type JSX } from "solid-js"
  */
 export function TopBar(props: { readonly title?: JSX.Element; readonly leading?: JSX.Element; readonly trailing?: JSX.Element }): JSX.Element {
   return (
-    <header class="grid h-8 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 bg-surface-0 px-3 text-sm">
+    <header class="grid h-8 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-seam bg-surface-0 px-3 text-sm">
       <div class="flex min-w-0 items-center gap-2">
         <Show when={props.leading}>{props.leading}</Show>
       </div>

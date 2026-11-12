@@ -47,7 +47,7 @@ export function RailBar(props: {
   readonly renderTooltip?: (label: string, trigger: JSX.Element) => JSX.Element
 }): JSX.Element {
   return (
-    <nav aria-label={props.label} class="flex w-[72px] shrink-0 flex-col items-center gap-2 overflow-y-auto bg-surface-0 py-3">
+    <nav aria-label={props.label} class="flex w-[72px] shrink-0 flex-col items-center gap-2 overflow-y-auto border-r border-seam bg-surface-0 py-3">
       <Index each={props.groups.filter((group) => group.length > 0)}>
         {(group, index) => (
           <>

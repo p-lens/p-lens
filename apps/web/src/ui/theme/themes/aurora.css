@@ -1,13 +1,14 @@
 [data-theme="aurora"] {
-  --surface-0: #182033;
-  --surface-1: #20293f;
-  --surface-2: #263048;
-  --surface-3: #2e3953;
-  --surface-input: #182033;
+  --surface-0: #1a2131;
+  --surface-1: #222a3d;
+  --surface-2: #293145;
+  --surface-3: #313a50;
+  --surface-input: #1a2131;
   --text-primary: #eef2fa;
   --text-secondary: #b4bfd3;
   --text-muted: #94a0b8;
   --border: #36425d;
+  --seam: var(--surface-0);
   --accent: #2fb8a6;
   --accent-hover: #26998a;
   --accent-contrast: #061a17;

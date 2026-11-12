@@ -28,7 +28,10 @@
  * inside whatever is around it, as a swatch does.
  *
  * Surfaces step from the rail outwards: 0 is the rail, 1 the side and detail
- * panels, 2 the main content, 3 anything raised on it.
+ * panels, 2 the main content, 3 anything raised on it. The `seam` is the
+ * line the top bar and the rail are edged with: a theme whose rail is too
+ * near the panels beside it to tell apart (onyx) draws it in its border,
+ * and every other leaves it the rail's own colour, unseen.
  *
  * Three colours say who a control is for, each asking more of a person
  * than the one before, in the order a pachinko screen colours a held spin
@@ -86,6 +89,7 @@
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-muted);
   --color-border: var(--border);
+  --color-seam: var(--seam);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-contrast: var(--accent-contrast);

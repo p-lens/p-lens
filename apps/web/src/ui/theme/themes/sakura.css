@@ -8,6 +8,7 @@
   --text-secondary: #5e4550;
   --text-muted: #6e5560;
   --border: #eed6dd;
+  --seam: var(--surface-0);
   --accent: #c2477a;
   --accent-hover: #a83a67;
   --accent-contrast: #ffffff;

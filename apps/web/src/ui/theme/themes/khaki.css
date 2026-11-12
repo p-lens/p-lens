@@ -1,13 +1,14 @@
 [data-theme="khaki"] {
-  --surface-0: #e4dcc2;
-  --surface-1: #f2ecd8;
-  --surface-2: #fcf8ea;
-  --surface-3: #ede5cd;
-  --surface-input: #e4dcc2;
+  --surface-0: #ddd8c9;
+  --surface-1: #ede9dd;
+  --surface-2: #f8f6ee;
+  --surface-3: #e7e2d3;
+  --surface-input: #ddd8c9;
   --text-primary: #221e12;
   --text-secondary: #555038;
   --text-muted: #635d44;
-  --border: #e0d8bd;
+  --border: #d9d4c4;
+  --seam: var(--surface-0);
   --accent: #6b7330;
   --accent-hover: #5a6127;
   --accent-contrast: #ffffff;

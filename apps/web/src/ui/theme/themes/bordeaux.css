@@ -1,17 +1,18 @@
 [data-theme="bordeaux"] {
-  --surface-0: #1f0f14;
-  --surface-1: #2a151b;
-  --surface-2: #311a21;
-  --surface-3: #3b2029;
-  --surface-input: #1f0f14;
-  --text-primary: #f7eef0;
-  --text-secondary: #d0b5bc;
-  --text-muted: #ad929a;
-  --border: #4a2a33;
-  --accent: #d6416e;
-  --accent-hover: #b8355c;
+  --surface-0: #221e1f;
+  --surface-1: #312b2d;
+  --surface-2: #383133;
+  --surface-3: #40383b;
+  --surface-input: #221e1f;
+  --text-primary: #f4f3f3;
+  --text-secondary: #bfb7b9;
+  --text-muted: #a2969a;
+  --border: #473f41;
+  --seam: var(--surface-0);
+  --accent: #bc5b78;
+  --accent-hover: #a14c65;
   --accent-contrast: #ffffff;
-  --amateur: #d6416e;
-  --amateur-hover: #b8355c;
+  --amateur: #bc5b78;
+  --amateur-hover: #a14c65;
   --on-amateur: #ffffff;
 }
