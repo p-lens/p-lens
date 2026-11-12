@@ -2,12 +2,12 @@
   --surface-0: #221e1f;
   --surface-1: #312b2d;
   --surface-2: #383133;
-  --surface-3: #40383b;
+  --surface-3: #40383a;
   --surface-input: #221e1f;
   --text-primary: #f4f3f3;
-  --text-secondary: #bfb7b9;
-  --text-muted: #a2969a;
-  --border: #473f41;
+  --text-secondary: #c0b6b9;
+  --text-muted: #a39599;
+  --border: #483e41;
   --seam: var(--surface-0);
   --accent: #bc5b78;
   --accent-hover: #a14c65;
