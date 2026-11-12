@@ -1,7 +1,7 @@
 import { createResource, createSignal, For, Match, Show, Switch, type JSX } from "solid-js"
 import { AuxPanel } from "solid-gathering-shell"
 
-import { loadTally } from "../../../application/tallies"
+import { loadTally, type TallyLog } from "../../../application/tallies"
 import { removeTally } from "../../../application/revise-tally"
 import { modelNameOf, shownNameOf } from "../../../core/catalog/catalog"
 import type { BookId } from "../../../core/book/book"
@@ -29,9 +29,11 @@ import { formatCommodityAmount, formatTheoreticalYen } from "../../wording/numbe
 import { parlorNameText, rateText } from "../../wording/parlor"
 import { NO_MACHINE, NO_PARLOR, shownDescription, tallyTitle, wonCaptions, workCaptions } from "../../wording/tallies"
 import { Figure } from "./Figure"
+import { TallyFiguresCard } from "./TallyFiguresCard"
 import * as PachinkoViews from "../pachinko"
 import * as PachislotViews from "../pachislot"
 import { seal } from "../../../mummer"
+import { Unhatched } from "../../../unhatched-egg"
 import { accountText } from "../../wording/accounts"
 import { cabinetNumberText } from "../../wording/cabinet"
 import { NOTES_HEADING, USER_TAGS_LABEL, userMemoText } from "../../wording/user-tags"
@@ -76,6 +78,9 @@ function Notes(props: { readonly tags: readonly string[]; readonly memo: string 
     </Show>
   )
 }
+
+/** The lines under the figures, where the tally's play was followed live: one typed in by hand has no log, and nothing under its figures. */
+const captionsFor = (log: TallyLog, captions: readonly string[]): readonly string[] => (log.type === "none" ? [] : captions)
 
 const asRead = (account: string, quantity: Decimal): Decimal => (isWrittenReversed(account) ? negate(quantity) : quantity)
 
@@ -137,7 +142,7 @@ function Postings(props: { readonly postings: readonly Posting[] }): JSX.Element
  * when, where and at which cabinet its play was played, what went into it
  * and came out of it, what it came to,
  * its play's readings as they were taken where the play was followed live,
- * its entry, and the ways to set it right or take it out of the book — the
+ * its own figures as the book keeps them where its play was followed live, its entry, and the ways to set it right or take it out of the book — the
  * second only after being asked again.
  */
 export function TallyDetail(props: { readonly place: Place; readonly bookId: BookId; readonly playId: PlayId; readonly query: string }): JSX.Element {
@@ -187,18 +192,19 @@ export function TallyDetail(props: { readonly place: Place; readonly bookId: Boo
               terms={found.terms}
             />
             <dl class="grid grid-cols-2 gap-2">
-              <Figure label="投資" value={found.sides.spent} kind="sum" captions={["貸玉差額・再プレイ手数料を含む"]} />
-              <Figure label="回収" value={found.sides.won} kind="sum" captions={wonCaptions(found.summary.gameKind, found.wonIn)} />
-              <Figure label="実収支" value={found.actual} kind="actual" captions={["稼働日の交換率で評価"]} />
+              <Figure label="投資" value={found.sides.spent} kind="sum" captions={captionsFor(found.log, ["貸玉差額・再プレイ手数料を含む"])} />
+              <Figure label="回収" value={found.sides.won} kind="sum" captions={captionsFor(found.log, wonCaptions(found.summary.gameKind, found.wonIn))} />
+              <Figure label="実収支" value={found.actual} kind="actual" captions={captionsFor(found.log, ["稼働日の交換率で評価"])} />
               <Figure
                 label={found.summary.theoreticalValue === undefined && found.summary.inferredValue !== undefined ? "推定期待値" : "期待値"}
                 value={found.summary.theoreticalValue === undefined && found.summary.inferredValue === undefined ? undefined : found.theoretical}
                 kind="theoretical"
-                captions={
+                captions={captionsFor(
+                  found.log,
                   found.summary.theoreticalValue === undefined && found.summary.inferredValue === undefined
                     ? []
-                    : [...(found.summary.theoreticalValue === undefined ? ["稼働時間と収支から推定"] : []), ...workCaptions(found.playSeconds, found.theoretical)]
-                }
+                    : [...(found.summary.theoreticalValue === undefined ? ["稼働時間と収支から推定"] : []), ...workCaptions(found.playSeconds, found.theoretical)],
+                )}
               />
             </dl>
             <Show when={found.log.type !== "none"}>
@@ -223,10 +229,15 @@ export function TallyDetail(props: { readonly place: Place; readonly bookId: Boo
               </section>
             </Show>
             <Notes tags={userTagsIn(found.transaction.ttags)} memo={userMemoIn(found.transaction.ttags)} />
-            <section class="flex flex-col gap-2">
-              <h3 class="text-xs font-bold uppercase tracking-wide text-text-muted">仕訳</h3>
-              <Postings postings={found.transaction.tpostings} />
-            </section>
+            <Show when={found.log.type !== "none"}>
+              <TallyFiguresCard gameKind={found.summary.gameKind} figures={found.figures} />
+            </Show>
+            <Unhatched>
+              <section class="flex flex-col gap-2">
+                <h3 class="text-xs font-bold uppercase tracking-wide text-text-muted">仕訳</h3>
+                <Postings postings={found.transaction.tpostings} />
+              </section>
+            </Unhatched>
             <Show when={found.summary.theoreticalValue === undefined && found.summary.inferredValue === undefined}>
               <p class="text-xs text-text-muted">この収支には期待値が記録されていません（{formatTheoreticalYen(seal.tally(found.theoretical))}として集計）。</p>
             </Show>

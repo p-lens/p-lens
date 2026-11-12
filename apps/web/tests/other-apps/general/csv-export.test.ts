@@ -10,7 +10,7 @@ import type { TallyNotes } from "../../../src/core/report/tally-notes"
 const yen = (amount: number) => decimal(BigInt(amount), 0)
 
 const NO_NOTES: TallyNotes = {
-  aside: { clock: undefined, spinPerformance: undefined, sender: undefined, netCounts: undefined },
+  aside: { clock: undefined, spinPerformance: undefined, realBorder: undefined, sender: undefined, netCounts: undefined },
   playSeconds: undefined,
   netJackpots: undefined,
   carriedIn: undefined,
@@ -51,6 +51,7 @@ const COLUMNS = [
   "店舗ID",
   "稼働ID",
   "取込元",
+  "実質ボーダー",
 ]
 
 describe("tallies as a table", () => {
@@ -68,7 +69,7 @@ describe("tallies as a table", () => {
           actual: decimal(23455n, 1),
         },
       ]),
-    ).toEqual([COLUMNS, ["2026-10-08", "723豚の帽子亭店", "スロット", "ピエロット", "45", "10000", "12345.5", "2345.5", "-800", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "one", ""]])
+    ).toEqual([COLUMNS, ["2026-10-08", "723豚の帽子亭店", "スロット", "ピエロット", "45", "10000", "12345.5", "2345.5", "-800", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "one", "", ""]])
   })
 
   test("what was written beside a tally follows its figures, its play time in hours and minutes", () => {
@@ -81,7 +82,7 @@ describe("tallies as a table", () => {
           maker: "made-up",
           labels: [],
           notes: {
-            aside: { clock: { started: { hour: 22, minute: 30 }, finished: { hour: 1, minute: 5 } }, spinPerformance: decimal(185n, 1), sender: { id: "s-1", name: "ハンマ" }, netCounts: undefined },
+            aside: { clock: { started: { hour: 22, minute: 30 }, finished: { hour: 1, minute: 5 } }, spinPerformance: decimal(185n, 1), realBorder: decimal(165n, 1), sender: { id: "s-1", name: "ハンマ" }, netCounts: undefined },
             playSeconds: yen(9300),
             netJackpots: 3,
             carriedIn: yen(250),
@@ -94,7 +95,7 @@ describe("tallies as a table", () => {
           actual: yen(3000),
         },
       ])[1],
-    ).toEqual(["2026-10-09", "ジーステーション第3新東京市店", "パチンコ", "流星", "101", "5000", "8000", "3000", "", "1200", "made-up", "22:30", "01:05", "2:35", "3", "18.5", "250", "f-1", "4", "28", "17.2", "ハンマ", "s-1", "ジーステーション第3新東京市店 | 稼働", "p-1", "two", ""])
+    ).toEqual(["2026-10-09", "ジーステーション第3新東京市店", "パチンコ", "流星", "101", "5000", "8000", "3000", "", "1200", "made-up", "22:30", "01:05", "2:35", "3", "18.5", "250", "f-1", "4", "28", "17.2", "ハンマ", "s-1", "ジーステーション第3新東京市店 | 稼働", "p-1", "two", "", "16.5"])
   })
 
   test("what a tally does not say is an empty cell", () => {
@@ -111,7 +112,7 @@ describe("tallies as a table", () => {
           actual: yen(3000),
         },
       ])[1],
-    ).toEqual(["2026-10-08", "", "", "", "", "0", "3000", "3000", "", "", "", ...EMPTY_NOTES, "", "", "one", ""])
+    ).toEqual(["2026-10-08", "", "", "", "", "0", "3000", "3000", "", "", "", ...EMPTY_NOTES, "", "", "one", "", ""])
   })
 })
 

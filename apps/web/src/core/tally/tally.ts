@@ -33,6 +33,8 @@ export interface TallyHead {
   readonly clock?: PlayClock
   /** The spins each ¥1,000 bought, to a tenth, as the log of a pachinko play followed live measured it (回転率). */
   readonly spinPerformance?: Decimal
+  /** The spin performance the play broke even at, to a tenth, as the log of a pachinko play followed live with a formula worked it out at its finish (実質ボーダー): absent where it had no formula, or no measured spins. */
+  readonly realBorder?: Decimal
   /** Who played it, where it was sent to the book's owner by someone let in to send plays: absent from a play of the owner's own. */
   readonly sender?: Sender
   /** What the log of a play followed live counted of the person's own playing: absent from a tally typed in by hand. */
@@ -62,10 +64,11 @@ export type NetCounts =
   | { readonly type: "bonus-machine"; readonly games: number; readonly bonuses: number }
   | { readonly type: "games"; readonly games: number }
 
-/** What is written beside a tally that its form does not ask: when its play began and finished, the spin performance the play's log measured, who sent it, and what its log counted. */
+/** What is written beside a tally that its form does not ask: when its play began and finished, the spin performance the play's log measured and the border it broke even at, who sent it, and what its log counted. */
 export interface TallyAside {
   readonly clock: PlayClock | undefined
   readonly spinPerformance: Decimal | undefined
+  readonly realBorder: Decimal | undefined
   readonly sender: Sender | undefined
   readonly netCounts: NetCounts | undefined
 }
@@ -215,6 +218,7 @@ export const TALLY_TAGS = {
   started: "started",
   finished: "finished",
   spinPerformance: "spin-performance",
+  realBorder: "real-border",
   carriedIn: "carried-in",
   carriedOut: "carried-out",
   hours: "hours",

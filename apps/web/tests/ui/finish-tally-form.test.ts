@@ -29,7 +29,7 @@ const DRAFT: PlayDraft = {
 
 const NOWHERE: PlayDraft = { ...DRAFT, venue: { type: "none", terms: TERMS } }
 
-const PLAYED: PlayedSoFar = { outlay: 12_000, replay: undefined, carriedIn: undefined, handed: undefined, held: 4500, heldLikely: false, spinPerformance: undefined }
+const PLAYED: PlayedSoFar = { outlay: 12_000, replay: undefined, carriedIn: undefined, handed: undefined, held: 4500, heldLikely: false, spinPerformance: undefined, realBorder: undefined }
 
 /** The two sides a form at no parlor comes to, on its terms where it has them. */
 const sidesAt = (terms: PlayTerms | undefined) => (form: FinishYenTallyForm): readonly string[] | undefined =>

@@ -1,4 +1,4 @@
-import { createMemo, createResource, createSignal, Match, Show, Switch, type JSX } from "solid-js"
+import { createMemo, createResource, createSignal, Show, type JSX } from "solid-js"
 import { NotesButton, NotesRow } from "./NotesRow"
 import { Unfolding } from "../../primitives/unfolding"
 
@@ -28,6 +28,7 @@ import { formatSignedYen, formatTokens, toneOf, tokenUnit, UNSEEN_ACTUAL } from 
 import { parlorNameText, typedMachineRefused } from "../../wording/parlor"
 import { IN_HAND_LABELS, machineChoicesOf, pricesPlayedAt, readTokenTallyForm, type FieldProblem, type FormField, type PlayedAt, type TokenTallyForm, type SubmitWords } from "./form"
 import { seal } from "../../../mummer"
+import { Unhatched } from "../../../unhatched-egg"
 import { cabinetFieldMasked } from "../../wording/cabinet"
 import { JournalText } from "../mummer/JournalText"
 
@@ -269,21 +270,21 @@ export function TokenTallyEditor(props: {
       <Unfolding open={notesOpen()} gap="-mt-5">
         <NotesRow tags={form().userTags} onTagsChange={set("userTags")} used={props.context.userTags} memo={form().userMemo} onMemoChange={set("userMemo")} memoError={problemOf("user-memo")} />
       </Unfolding>
-      <section class="flex flex-col gap-2">
-        <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">書き込まれる仕訳</h2>
-        <Switch fallback={<p class="text-sm text-text-muted">入力を直すと、ここに仕訳が表示されます。</p>}>
-          <Match when={previewText()}>
+      <Unhatched>
+        <section class="flex flex-col gap-2">
+          <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">書き込まれる仕訳</h2>
+          <Show when={previewText()} fallback={<p class="text-sm text-text-muted">入力を直すと、ここに仕訳が表示されます。</p>}>
             {(text) => <JournalText text={seal.journal(text())} />}
-          </Match>
-          <Match when={previewProblem()} keyed>
-            {(problem) => (
-              <p class="text-sm" classList={redText(nudge.red())}>
-                {problem}
-              </p>
-            )}
-          </Match>
-        </Switch>
-      </section>
+          </Show>
+        </section>
+      </Unhatched>
+      <Show when={previewProblem()} keyed>
+        {(problem) => (
+          <p class="text-sm" classList={redText(nudge.red())}>
+            {problem}
+          </p>
+        )}
+      </Show>
       <Show when={failure()} keyed>
         {(error) => (
           <div role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-text-primary">

@@ -9,11 +9,12 @@ import { termsInHead } from "../core/play-log/head"
 import { inPlayOrder } from "../core/play-log/performance"
 import { actualOf, sidesOf, statisticTotalOf, type Sides } from "../core/report/figures"
 import { listedTalliesOf, tallySummariesOf, tallySummaryOf, wonInOf, type ListedTally, type TallySummary, type WonIn } from "../core/report/tallies"
+import { tallyFiguresOf, type TallyFigures } from "../core/report/tally-figures"
 import { tallyNotesOf } from "../core/report/tally-notes"
 import { Err, Ok, andThen, mapOk } from "../core/result/result"
 import type { Transaction } from "../hledger/protocol/wire"
 import { tallyTerm } from "../hledger/query/terms"
-import { accountsRequest, actualByTallyRequest, actualRequest, talliesRequest, theoreticalRequest } from "../hledger/query/requests"
+import { accountsRequest, actualByTallyRequest, actualRequest, spentAndDrawnRequest, talliesRequest, theoreticalRequest } from "../hledger/query/requests"
 import type { BookSession } from "./book-session"
 import { viewedFor } from "./book-views"
 import type { Outcome } from "./errors"
@@ -58,6 +59,8 @@ export interface TallyDetail {
   readonly playSeconds: Decimal | undefined
   readonly actual: Decimal
   readonly theoretical: Decimal
+  /** Its own figures as its entry says them: cash, savings drawn, what its log counted, and what a spin was worth by the theoretical value it keeps, where it keeps one. */
+  readonly figures: TallyFigures
 }
 
 const logTextOf = (files: BookFiles, summary: TallySummary): string | undefined => (summary.gameKind === undefined ? undefined : files[playLogPath(summary.gameKind, summary.id)])
@@ -86,11 +89,12 @@ const termsOf = (files: BookFiles, summary: TallySummary): PlayTerms | undefined
 export const loadTally = (session: BookSession, bookId: BookId, id: PlayId): Promise<Outcome<TallyDetail>> =>
   session.read(bookId, async (journal, stored) => {
     const query = tallyTerm(id)
-    const [entries, statement, theoretical, accounts] = await Promise.all([
+    const [entries, statement, theoretical, accounts, spentAndDrawn] = await Promise.all([
       journal.ask(talliesRequest(query, { limit: 1, offset: 0 })),
       journal.ask(actualRequest(query)),
       journal.ask(theoreticalRequest(query)),
       journal.ask(accountsRequest),
+      journal.ask(spentAndDrawnRequest(query)),
     ])
     const parlors = mapOk(fromHledger(accounts), parlorsFromDeclarations)
     if (!parlors.ok) return parlors
@@ -105,6 +109,7 @@ export const loadTally = (session: BookSession, bookId: BookId, id: PlayId): Pro
       andThen(fromHledger(statement), (report) =>
         andThen(fromReport(sidesOf(report)), (sides) =>
           andThen(fromReport(actualOf(report)), (actual) =>
+            andThen(fromHledger(spentAndDrawn), (drawn) =>
             mapOk(andThen(fromHledger(theoretical), (report) => fromReport(statisticTotalOf(report))), (theoreticalValue) => ({
           summary,
           names: tallyNamesOf(parlors.value, transaction, summary),
@@ -116,7 +121,9 @@ export const loadTally = (session: BookSession, bookId: BookId, id: PlayId): Pro
               playSeconds: tallyNotesOf(transaction).playSeconds,
               actual,
               theoretical: theoreticalValue,
+              figures: tallyFiguresOf(transaction, drawn, summary.theoreticalValue === undefined && summary.inferredValue === undefined ? undefined : theoreticalValue),
             })),
+            ),
           ),
         ),
       ),

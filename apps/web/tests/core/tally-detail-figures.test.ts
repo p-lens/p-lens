@@ -31,7 +31,11 @@ describe("what a tally gave back was written in", () => {
     expect(wonInOf(entry([posting("収益:遊技", "玉(4円・ハナヤマ)", -4800), posting("資産:貯玉:ハナヤマ", "玉(4円・ハナヤマ)", 4800)]))).toBe("tokens")
   })
 
-  test("is yen where its revenue is in yen, or where it has none", () => {
+  test("is tokens where it gave nothing back but played tokens", () => {
+    expect(wonInOf(entry([posting("費用:遊技", "玉(4円・ハナヤマ)", 2500), posting("資産:現金", "JPY", -10000)]))).toBe("tokens")
+  })
+
+  test("is yen where its revenue is in yen, or where it has none and played in yen", () => {
     expect(wonInOf(entry([posting("収益:遊技", "JPY", -20000), posting("純資産:特殊景品", "JPY", 20000)]))).toBe("yen")
     expect(wonInOf(entry([posting("費用:遊技", "JPY", 10000), posting("資産:現金", "JPY", -10000)]))).toBe("yen")
   })

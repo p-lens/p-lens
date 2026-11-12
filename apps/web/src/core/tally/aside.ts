@@ -3,14 +3,14 @@ import { writableText, type Entry } from "../journal/entry"
 import { clockOf, clockTags } from "./clock"
 import { TALLY_TAGS, type NetCounts, type Sender, type TallyAside, type TallyHead } from "./tally"
 
-/** A spin performance as a book keeps it: to a tenth, as the live screen showed it. */
+/** A spin performance as a book keeps it, measured or broken even at: to a tenth, as the live screen showed it. */
 export const keptSpinPerformance = (perThousand: number): Decimal => decimal(BigInt(Math.round(perThousand * 10)), 1)
 
 /** Nothing written beside a tally. */
-export const NOTHING_ASIDE: TallyAside = { clock: undefined, spinPerformance: undefined, sender: undefined, netCounts: undefined }
+export const NOTHING_ASIDE: TallyAside = { clock: undefined, spinPerformance: undefined, realBorder: undefined, sender: undefined, netCounts: undefined }
 
 /** What a recorded tally has written beside it, to keep as it is set right. */
-export const asideOfTally = (tally: TallyHead): TallyAside => ({ clock: tally.clock, spinPerformance: tally.spinPerformance, sender: tally.sender, netCounts: tally.netCounts })
+export const asideOfTally = (tally: TallyHead): TallyAside => ({ clock: tally.clock, spinPerformance: tally.spinPerformance, realBorder: tally.realBorder, sender: tally.sender, netCounts: tally.netCounts })
 
 /** What an entry says of who sent its play, where someone did. */
 const senderTags = (sender: Sender | undefined): Entry["tags"] =>
@@ -56,6 +56,7 @@ const netCountsOf = (tagged: (name: string) => string | undefined): NetCounts | 
 export const asideTags = (tally: TallyHead): Entry["tags"] => [
   ...clockTags(tally.clock),
   ...(tally.spinPerformance === undefined ? [] : [[TALLY_TAGS.spinPerformance, toPlainString(tally.spinPerformance)] as const]),
+  ...(tally.realBorder === undefined ? [] : [[TALLY_TAGS.realBorder, toPlainString(tally.realBorder)] as const]),
   ...senderTags(tally.sender),
   ...netCountTags(tally.netCounts),
 ]
@@ -66,6 +67,7 @@ const amountOf = (text: string | undefined): Decimal | undefined => ((read) => (
 export const asideOf = (tagged: (name: string) => string | undefined): TallyAside => ({
   clock: clockOf(tagged),
   spinPerformance: amountOf(tagged(TALLY_TAGS.spinPerformance)),
+  realBorder: amountOf(tagged(TALLY_TAGS.realBorder)),
   sender: senderOf(tagged),
   netCounts: netCountsOf(tagged),
 })
@@ -75,6 +77,7 @@ export const withAside = <T extends TallyHead>(tally: T, aside: TallyAside): T =
   ...tally,
   ...(aside.clock === undefined ? {} : { clock: aside.clock }),
   ...(aside.spinPerformance === undefined ? {} : { spinPerformance: aside.spinPerformance }),
+  ...(aside.realBorder === undefined ? {} : { realBorder: aside.realBorder }),
   ...(aside.sender === undefined ? {} : { sender: aside.sender }),
   ...(aside.netCounts === undefined ? {} : { netCounts: aside.netCounts }),
 })

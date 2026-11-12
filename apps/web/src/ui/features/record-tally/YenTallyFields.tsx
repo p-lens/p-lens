@@ -1,4 +1,4 @@
-import { Index, Match, Show, Switch, type JSX } from "solid-js"
+import { Index, Show, type JSX } from "solid-js"
 
 import { bookNameOf } from "../../../core/catalog/catalog"
 import { machineMatches } from "../../../core/catalog/description"
@@ -25,6 +25,7 @@ import type { SubmitWords } from "./form"
 import type { YenTallyEditing } from "./yen-tally-editing"
 import { HOUR_CHOICES, hoursOfMinutes, MINUTE_CHOICES, minutesToldIn, NEW_AT_WON, type AtHistoryForm, type AtWonForm } from "./yen-tally-form"
 import { seal } from "../../../mummer"
+import { Unhatched } from "../../../unhatched-egg"
 import { cabinetFieldMasked } from "../../wording/cabinet"
 import { JournalText } from "../mummer/JournalText"
 
@@ -423,21 +424,21 @@ export function EntryAndSubmit(props: { readonly editing: YenTallyEditing; reado
   return (
     <>
       <p class="text-xs text-text-muted">貯玉・貯メダルの残高は動きません。</p>
-      <section class="flex flex-col gap-2">
-        <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">書き込まれる仕訳</h2>
-        <Switch fallback={<p class="text-sm text-text-muted">入力を直すと、ここに仕訳が表示されます。</p>}>
-          <Match when={editing.previewText()}>
+      <Unhatched>
+        <section class="flex flex-col gap-2">
+          <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">書き込まれる仕訳</h2>
+          <Show when={editing.previewText()} fallback={<p class="text-sm text-text-muted">入力を直すと、ここに仕訳が表示されます。</p>}>
             {(text) => <JournalText text={seal.journal(text())} />}
-          </Match>
-          <Match when={editing.previewProblem()} keyed>
-            {(problem) => (
-              <p class="text-sm" classList={redText(editing.nudge.red())}>
-                {problem}
-              </p>
-            )}
-          </Match>
-        </Switch>
-      </section>
+          </Show>
+        </section>
+      </Unhatched>
+      <Show when={editing.previewProblem()} keyed>
+        {(problem) => (
+          <p class="text-sm" classList={redText(editing.nudge.red())}>
+            {problem}
+          </p>
+        )}
+      </Show>
       <Show when={editing.failure()} keyed>
         {(error) => (
           <div role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-text-primary">

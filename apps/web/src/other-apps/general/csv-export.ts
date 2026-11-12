@@ -36,6 +36,7 @@ const COLUMNS = [
   "店舗ID",
   "稼働ID",
   "取込元",
+  "実質ボーダー",
 ] as const
 
 const GAME_KINDS: Readonly<Record<PlayGameKind, string>> = { pachinko: "パチンコ", pachislot: "スロット" }
@@ -80,6 +81,7 @@ const rowOf = (line: TallyLine): readonly string[] => [
   line.tally.parlorId ?? UNKNOWN,
   line.tally.id,
   line.tally.importedFrom ?? UNKNOWN,
+  amountText(line.notes.aside.realBorder),
 ]
 
 /** Tallies as a table, a tally a row under the row of column names, in the order given. Amounts are plain numbers of yen, with no separators and no unit. */

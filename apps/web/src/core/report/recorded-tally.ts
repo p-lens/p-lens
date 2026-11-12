@@ -199,6 +199,7 @@ const TAG_READS: Readonly<Record<string, (text: string) => boolean>> = {
   [TALLY_TAGS.started]: isTime,
   [TALLY_TAGS.finished]: isTime,
   [TALLY_TAGS.spinPerformance]: isAmount,
+  [TALLY_TAGS.realBorder]: isAmount,
   [TALLY_TAGS.carriedIn]: isAmount,
   [TALLY_TAGS.carriedOut]: isAmount,
   [TALLY_TAGS.hours]: isAmount,

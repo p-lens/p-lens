@@ -4,7 +4,6 @@ import { yenAnHourOf } from "../../core/report/figures"
 import type { TallySummary, WonIn } from "../../core/report/tallies"
 import type { PlayGameKind } from "../../core/play/play"
 import { seal, veil } from "../../mummer"
-import { playTimeText } from "./breakdown"
 import { cabinetText } from "./cabinet"
 import { formatTheoreticalYen } from "./numbers"
 import { parlorNameText } from "./parlor"
@@ -22,10 +21,10 @@ export const EXCHANGE_OFF_THE_RATE = ["入力したレートと合いません�
 export const wonCaptions = (gameKind: PlayGameKind | undefined, wonIn: WonIn): readonly string[] =>
   wonIn === "yen" ? [] : [`${gameKind === "pachislot" ? "メダル数" : "玉数"}×稼働日の交換率で計算`]
 
-/** What a tally's theoretical value comes to over the time its play lasted, as the work it was; nothing where its length is not known or was none. */
+/** What a tally's theoretical value comes to for an hour of the time its play lasted; nothing where its length is not known or was none. */
 export const workCaptions = (seconds: Decimal | undefined, theoretical: Decimal): readonly string[] => {
   const anHour = seconds === undefined ? undefined : yenAnHourOf(theoretical, seconds)
-  return seconds === undefined || anHour === undefined ? [] : [`稼働時間${playTimeText(seconds)}から、仕事量としての時給は${formatTheoreticalYen(seal.tally(anHour))}`]
+  return anHour === undefined ? [] : [`1時間単位では${formatTheoreticalYen(seal.tally(anHour))}`]
 }
 
 /** What stands for a description written by hand with no bar, while parlors are veiled: what it says is anyone's guess, a parlor's name among it. */

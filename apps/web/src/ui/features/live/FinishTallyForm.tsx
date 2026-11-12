@@ -1,4 +1,4 @@
-import { createEffect, createSignal, Match, Show, Switch, type JSX } from "solid-js"
+import { createEffect, createSignal, Show, type JSX } from "solid-js"
 import { USER_MEMO_MOST, userMemoLength } from "../../../core/tally/user-memo"
 import { offeredUserTags, USER_TAG_MOST } from "../../../core/tally/user-tags"
 import { TagsField } from "../../primitives/tags-field"
@@ -29,6 +29,7 @@ import { typedMachineRefused } from "../../wording/parlor"
 import { HandedField } from "./HandedField"
 import { HELD_LIKELY, IN_HAND_LABELS, type FieldProblem, type FormField, type Handing, type SubmitWords } from "./finish-tally-reading"
 import { seal } from "../../../mummer"
+import { Unhatched } from "../../../unhatched-egg"
 import { cabinetFieldMasked } from "../../wording/cabinet"
 import { JournalText } from "../mummer/JournalText"
 
@@ -80,7 +81,7 @@ export interface FinishTallyEditing {
 }
 
 /**
- * The entry the form writes, or why it cannot yet. While it cannot, the
+ * The entry the form writes, while it can be written. While it cannot, the
  * place keeps the height the entry was last shown at: on a phone scrolled
  * to the end, the page would otherwise shrink under the thumb and jump.
  */
@@ -89,20 +90,11 @@ function EntryPreview(props: { readonly editing: FinishTallyEditing }): JSX.Elem
   const [shown, setShown] = createSignal<number | undefined>(undefined)
   return (
     <div style={{ "min-height": editing.previewText() === undefined && shown() !== undefined ? `${shown()}px` : undefined }}>
-      <Switch fallback={<p class="text-sm text-text-muted">入力を直すと、ここに仕訳が表示されます。</p>}>
-        <Match when={editing.previewText()}>
-          {(text) => (
-            <JournalText text={seal.journal(text())} measured={(box) => createEffect(() => text() && setShown(box.offsetHeight))} />
-          )}
-        </Match>
-        <Match when={editing.previewProblem()} keyed>
-          {(problem) => (
-            <p class="text-sm" classList={redText(editing.nudge.red())}>
-              {problem}
-            </p>
-          )}
-        </Match>
-      </Switch>
+      <Show when={editing.previewText()} fallback={<p class="text-sm text-text-muted">入力を直すと、ここに仕訳が表示されます。</p>}>
+        {(text) => (
+          <JournalText text={seal.journal(text())} measured={(box) => createEffect(() => text() && setShown(box.offsetHeight))} />
+        )}
+      </Show>
     </div>
   )
 }
@@ -250,10 +242,19 @@ export function FinishTallyForm(props: {
           </div>
         </div>
       </Unfolding>
-      <section class="flex flex-col gap-2">
-        <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">書き込まれる仕訳</h2>
-        <EntryPreview editing={editing} />
-      </section>
+      <Unhatched>
+        <section class="flex flex-col gap-2">
+          <h2 class="text-xs font-bold uppercase tracking-wide text-text-muted">書き込まれる仕訳</h2>
+          <EntryPreview editing={editing} />
+        </section>
+      </Unhatched>
+      <Show when={editing.previewProblem()} keyed>
+        {(problem) => (
+          <p class="text-sm" classList={redText(editing.nudge.red())}>
+            {problem}
+          </p>
+        )}
+      </Show>
       <Show when={editing.failure()} keyed>
         {(error) => (
           <div role="alert" class="rounded-md border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-text-primary">

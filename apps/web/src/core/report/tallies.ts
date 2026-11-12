@@ -77,9 +77,9 @@ export const tallySummariesOf = (transactions: readonly Transaction[]): readonly
 /** What a tally's play gave back was written in: tokens, valued at their rate on its day, or yen, as a tally typed in yen writes it. */
 export type WonIn = "tokens" | "yen"
 
-/** What the revenue an entry puts down was written in: tokens where any of it is, yen otherwise. */
+/** What a tally's play is written in, which what it gave back would be: tokens where its play's revenue or its play's expense is in any, so that a tally of tokens that gave nothing back is still one; yen otherwise. */
 export const wonInOf = (transaction: Transaction): WonIn =>
-  transaction.tpostings.some((posting) => isWrittenReversed(posting.paccount) && posting.pamount.some((amount) => amount.acommodity !== YEN)) ? "tokens" : "yen"
+  transaction.tpostings.some((posting) => (isWrittenReversed(posting.paccount) || posting.paccount === ACCOUNTS.playExpense) && posting.pamount.some((amount) => amount.acommodity !== YEN)) ? "tokens" : "yen"
 
 /** A tally as a list shows it: what its entry says, and what it made where hledger could say — not where a token of it has no rate on its day. */
 export interface ListedTally extends TallySummary {

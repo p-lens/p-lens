@@ -82,6 +82,12 @@ export const periodTotalsRequest = (query: string): RequestOf<"balance"> => ({
   tree: true,
 })
 
+/** The cash the tallies in a query spent and the tokens they drew from savings, summed by hledger as written: yen and tokens, kept apart by commodity, both below nothing. */
+export const spentAndDrawnRequest = (query: string): RequestOf<"balance"> => ({
+  kind: "balance",
+  query: combine(cashTerm, savingsTerm, drawnTerm, query),
+})
+
 /** What one account of a query came to, as hledger sums it: the cash spent, or the prizes taken home. */
 export const accountRequest = (account: string, query: string): RequestOf<"balance"> => ({ kind: "balance", query: combine(accountTerm(account), query) })
 

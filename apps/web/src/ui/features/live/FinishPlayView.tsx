@@ -44,10 +44,10 @@ import { createElsewhereHold, type PlayHold } from "./play-hold"
 import { ParlorChoiceField } from "./ParlorChoiceField"
 import { leftAt, leftBy, tokensKeptAfter, type TokensLeft } from "./tokens-in-hand"
 
-/** A log that does not read leaves the form to the draft alone. What was handed between players is the log's running total at its last. A pachislot play's medals in hand are those counted at its last line, or else what its formula says they likely are by then, to be counted and typed over. */
+/** A log that does not read leaves the form to the draft alone. A pachinko play's spin performance and border are as its live screen last showed them. What was handed between players is the log's running total at its last. A pachislot play's medals in hand are those counted at its last line, or else what its formula says they likely are by then, to be counted and typed over. */
 const playedOf = (draft: PlayDraft): PlayedSoFar => {
   const parsed = parsePlayLog(draft.log)
-  if (!parsed.ok) return { outlay: undefined, replay: undefined, carriedIn: undefined, handed: undefined, held: undefined, heldLikely: false, spinPerformance: undefined }
+  if (!parsed.ok) return { outlay: undefined, replay: undefined, carriedIn: undefined, handed: undefined, held: undefined, heldLikely: false, spinPerformance: undefined, realBorder: undefined }
   const ordered = inPlayOrder(parsed.value)
   const summary = liveSummary(ordered)
   const replay = ordered.findLast((checkpoint) => checkpoint.replay !== undefined)?.replay
@@ -56,8 +56,9 @@ const playedOf = (draft: PlayDraft): PlayedSoFar => {
   const terms = draft.venue.terms
   const held = draft.gameKind === "pachislot" ? (draft.pachislot === undefined ? ordered.at(-1)?.held : likelyHeldOf(ordered, draft.pachislot.formula, terms)) : Pachinko.heldAsToldOf(ordered)
   const spinPerformance = draft.gameKind === "pachislot" || terms === undefined ? undefined : Pachinko.measuredSpinPerformance(ordered, terms)
+  const realBorder = draft.gameKind === "pachislot" || terms === undefined || draft.pachinko === undefined ? undefined : Pachinko.playTheoreticalValue(draft.pachinko.figures, terms, Pachinko.consumptionOf(ordered, terms, draft.pachinko), draft.overEntry)?.border
   const heldLikely = draft.gameKind === "pachislot" && held !== undefined && ordered.at(-1)?.held === undefined
-  return { outlay: summary.outlay, replay, carriedIn, handed, held, heldLikely, spinPerformance }
+  return { outlay: summary.outlay, replay, carriedIn, handed, held, heldLikely, spinPerformance, realBorder }
 }
 
 /** A play as its recording opens, with all its form is filled in from, and who sent it where someone did. */
@@ -255,6 +256,7 @@ export function FinishPlayView(props: { readonly place: Place; readonly playId: 
               const aside = (): TallyAside => ({
                 clock: { started: start(), finished: finish().time },
                 spinPerformance: played.spinPerformance === undefined ? undefined : keptSpinPerformance(played.spinPerformance),
+                realBorder: played.realBorder === undefined || !Number.isFinite(played.realBorder) ? undefined : keptSpinPerformance(played.realBorder),
                 sender,
                 netCounts: netCountsAtFinish(draft, readFinishForm(finish(), draft.startedAt)),
               })
