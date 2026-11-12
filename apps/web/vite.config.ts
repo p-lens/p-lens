@@ -105,6 +105,14 @@ const LOCAL_SERVER = fileURLToPath(new URL("./vite.local.json", import.meta.url)
 
 const localServer = (): ServerOptions => (existsSync(LOCAL_SERVER) ? (JSON.parse(readFileSync(LOCAL_SERVER, "utf8")) as ServerOptions) : {})
 
+/**
+ * The colour an installed app's bars are drawn in where the page cannot reach
+ * them — Android's navigation bar, the splash — read once from the manifest,
+ * whatever theme a person has chosen. Black, so that it sits as well under
+ * every theme as a phone's own bars do.
+ */
+const INSTALLED_BARS = "#000000"
+
 export default defineConfig(({ mode }) => {
   const { folder, deployment: DEPLOYMENT } = brandingOf(loadEnv(mode, fileURLToPath(new URL(".", import.meta.url)), "").BRANDING)
   return {
@@ -124,8 +132,8 @@ export default defineConfig(({ mode }) => {
           short_name: DEPLOYMENT.nameInJapanese,
           description: DEPLOYMENT.description,
           lang: "ja",
-          theme_color: DEPLOYMENT.themeColor,
-          background_color: "#313338",
+          theme_color: INSTALLED_BARS,
+          background_color: INSTALLED_BARS,
           display: "standalone",
           start_url: "/",
           icons: [

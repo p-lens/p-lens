@@ -18,7 +18,7 @@ export type Deployment = {
   readonly tagline: string
   /** Whether search engines are let index it: a deployment someone has made their own, not a copy served as it came. */
   readonly indexed: boolean
-  /** The colour a browser and an installed app draw their bars in. */
+  /** The colour a browser draws its bar in until the app has painted it in the theme's own. */
   readonly themeColor: string
   /** Its address, ending in a slash. */
   readonly address: string
