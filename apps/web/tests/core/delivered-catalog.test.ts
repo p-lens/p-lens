@@ -54,7 +54,7 @@ describe("the delivered catalog", () => {
     expect(searchDelivered(DELIVERED, "流星", "pachinko")).toEqual([])
   })
 
-  test("gives the 大当り確率 its formulas' bases say, each once and the likeliest first, none from one typed in by hand", () => {
+  test("gives the 大当り確率 its formulas' bases say, none from one typed in by hand", () => {
     const based = (id: string, denominatorHundredths: number): PachinkoContract.FormulaDto => ({
       ...formula(id, "wanwan", "simulated"),
       basis: { spec: { v: 1, entities: ["regular"], components: { regularGame: { regular: { chance: { type: "ratio", numerator: 1, denominatorHundredths } } } } } } as never,
@@ -67,17 +67,19 @@ describe("the delivered catalog", () => {
     expect(searchDelivered(DELIVERED, "", "pachislot")[0]?.formulaHitChances).toEqual([])
   })
 
-  test("tells chances whose one-in lies within two of each other as one, the chance of the formula ranked first among them, and keeps those further apart", () => {
+  test("gives the hardest alone where every chance lies within 16 of the likeliest, and else the likeliest and the hardest", () => {
     const based = (id: string, denominatorHundredths: number): PachinkoContract.FormulaDto => ({
       ...formula(id, "wanwan", "simulated"),
       basis: { spec: { v: 1, entities: ["regular"], components: { regularGame: { regular: { chance: { type: "ratio", numerator: 1, denominatorHundredths } } } } } } as never,
     })
     const ratio = (denominatorHundredths: number): ProbabilityDto => ({ type: "ratio", numerator: 1, denominatorHundredths })
     const machine = (formulas: readonly PachinkoContract.FormulaDto[]): MachineDetailDto => ({ machine: { id: "wanwan", gameKind: "pachinko", name: "わんわん", keywords: [], releasedOn: "2026-10-05", formulaCount: formulas.length }, formulas })
-    expect(searchDelivered([machine([based("a", 31967), based("b", 31999)])], "", "pachinko")[0]?.formulaHitChances).toEqual([ratio(31967)])
-    const adopted = { ...based("b", 31999), standing: { ...based("b", 31999).standing, adoptions: 9 } }
-    expect(searchDelivered([machine([based("a", 31967), adopted])], "", "pachinko")[0]?.formulaHitChances).toEqual([ratio(31999)])
-    expect(searchDelivered([machine([based("a", 99900), based("b", 39900)])], "", "pachinko")[0]?.formulaHitChances).toEqual([ratio(39900), ratio(99900)])
+    const told = (...hundredths: readonly number[]) => searchDelivered([machine(hundredths.map((each, index) => based(`f${index}`, each)))], "", "pachinko")[0]?.formulaHitChances
+    expect(told(31967, 31999)).toEqual([ratio(31999)])
+    expect(told(12900, 11900, 12200, 12700, 12400)).toEqual([ratio(12900)])
+    expect(told(10000, 11600)).toEqual([ratio(11600)])
+    expect(told(10000, 11601)).toEqual([ratio(10000), ratio(11601)])
+    expect(told(99900, 31969, 39900)).toEqual([ratio(31969), ratio(99900)])
   })
 
   test("gives a machine as it is described, and one delivered before machines had keywords with none", () => {

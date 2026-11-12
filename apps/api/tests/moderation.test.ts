@@ -11,7 +11,7 @@ const AS_ADMIN = { Authorization: `Bearer ${TOKEN}` }
 const manual = (roundChanceOneIn = 319.7): PachinkoContract.NewFormulaDto => ({ kind: "manual", figures: { roundChanceOneIn, payoutPerRound: 140 }, bonuses: [{ name: "10R", payout: 1500, spent: 100 }] })
 
 const register = async (client: Api, as: string, name: string): Promise<{ readonly machineId: string; readonly formulaId: string }> =>
-  (await client.call("POST", "/machines", { as, body: { gameKind: "pachinko", modelName: `型式${name}`, hitChance: "1/319.7", name, releasedOn: "2025-09-01", formula: manual() } })).body
+  (await client.call("POST", "/machines", { as, body: { gameKind: "pachinko", modelName: `型式${name}`, name, releasedOn: "2025-09-01", formula: manual() } })).body
 
 const names = async (client: Api): Promise<readonly string[]> => (await client.call("GET", "/catalog")).body.machines.map((machine: { machine: { name: string } }) => machine.machine.name)
 
@@ -81,13 +81,13 @@ describe("writes", () => {
 
   test("registering something new needs the check a person is doing it; a mark does not", async () => {
     const client = await api({ humanCheck: async (token) => token === "human" })
-    const robot = await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A2", hitChance: "1/319.7", name: "森", releasedOn: "2025-09-01", formula: manual() } })
+    const robot = await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A2", name: "森", releasedOn: "2025-09-01", formula: manual() } })
     expect(robot.status).toBe(403)
     expect(robot.body.error).toEqual({ type: "human-check-failed" })
     const person = await client.call("POST", "/machines", {
       as: ALICE,
       headers: { "X-Turnstile-Token": "human" },
-      body: { gameKind: "pachinko", modelName: "型式A3", hitChance: "1/319.7", name: "森", releasedOn: "2025-09-01", formula: manual() },
+      body: { gameKind: "pachinko", modelName: "型式A3", name: "森", releasedOn: "2025-09-01", formula: manual() },
     })
     expect(person.status).toBe(201)
     expect((await client.call("PUT", `/formulas/${person.body.formulaId}/marks/adoption`, { as: ALICE })).status).toBe(204)

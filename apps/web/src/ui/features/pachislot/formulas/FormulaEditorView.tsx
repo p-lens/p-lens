@@ -124,7 +124,7 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachislot-for
     const day = releaseDate()
     const words = keywords()
     const name = readName(pachislot().newMachineName)
-    return name === "" || namesSettingLevel(name) || namesSettingLevel(pachislot().newMachineModelName) || !day.ok || !words.ok ? undefined : { name, modelName: readModelName(pachislot().newMachineModelName), keywords: words.value, hitChance: undefined, releasedOn: day.value }
+    return name === "" || namesSettingLevel(name) || namesSettingLevel(pachislot().newMachineModelName) || !day.ok || !words.ok ? undefined : { name, modelName: readModelName(pachislot().newMachineModelName), keywords: words.value, releasedOn: day.value }
   }
   const [manual, setManual] = createSignal(props.start.manual)
   const [world, setWorld] = createSignal(props.start.world)
@@ -148,7 +148,7 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachislot-for
     const machine = pachislot().machine
     return machine.type === "catalog"
       ? { type: "catalog", machineId: machine.machineId, name: machine.name }
-      : { type: "new", machine: { name: pachislot().newMachineName, modelName: pachislot().newMachineModelName, keywords: pachislot().newMachineKeywords, hitChance: "", releasedOn: pachislot().newMachineReleasedOn } }
+      : { type: "new", machine: { name: pachislot().newMachineName, modelName: pachislot().newMachineModelName, keywords: pachislot().newMachineKeywords, releasedOn: pachislot().newMachineReleasedOn } }
   }
   const nameNudge = createNudge()
   const dateNudge = createNudge()

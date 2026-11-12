@@ -132,8 +132,6 @@ export const describeDescriptionProblem = (problem: DescriptionProblem): string 
       return `${problem.most}個までです。`
     case "keyword-too-long":
       return `1語は${problem.longest}文字までです。`
-    case "not-a-hit-chance":
-      return "1/319.7 の形で入れてください。"
   }
 }
 

@@ -41,7 +41,7 @@ describe("a person's own CSV", () => {
       memo: "朝一",
       hours: dec("2.5"),
       gameKind: "pachinko",
-      countedSpins: 163,
+      countedSpins: { type: "every-spin", count: 163 },
       countedJackpots: 2,
       sourceLabels: ["イベント", "朝一"],
     } as never)

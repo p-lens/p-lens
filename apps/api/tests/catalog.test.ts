@@ -48,56 +48,56 @@ describe("registering a machine", () => {
     expect(manualId).toMatch(UUIDV7)
     const detail = await client.call("GET", `/machines/${machineId}`)
     expect(detail.status).toBe(200)
-    expect(detail.body.machine).toEqual({ id: machineId, gameKind: "pachinko", name: "流星無双", modelName: "型式A1", keywords: [], hitChance: "1/319.7", releasedOn: "2026-08-04", formulaCount: 2 })
+    expect(detail.body.machine).toEqual({ id: machineId, gameKind: "pachinko", name: "流星無双", modelName: "型式A1", keywords: [], releasedOn: "2026-08-04", formulaCount: 2 })
     expect(detail.body.formulas[0]).toMatchObject({ id: manualId, kind: "manual", figures: { roundChanceOneIn: 13.9, payoutPerRound: 140 } })
     expect(detail.body.distributions).toBeUndefined()
   })
 
   test("never stores a machine without a formula", async () => {
     const client = await api()
-    const bare = await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A", hitChance: "1/319.7", name: "流星無双", releasedOn: "2026-08-04" } })
+    const bare = await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A", name: "流星無双", releasedOn: "2026-08-04" } })
     expect(bare.status).toBe(400)
     expect(bare.body.error).toEqual({ type: "invalid-body", field: "formula", reason: "missing" })
-    const broken = await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A1", hitChance: "1/319.7", name: "流星無双", releasedOn: "2026-08-04", formula: manual(-1) } })
+    const broken = await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A1", name: "流星無双", releasedOn: "2026-08-04", formula: manual(-1) } })
     expect(broken.status).toBe(400)
     expect(countOf(client, "machines")).toBe(0)
   })
 
   test("a name that is a forbidden word on its own is refused; one holding it inside a word is not", async () => {
     const { client } = await registered(ALICE)
-    const rude = await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A2", hitChance: "1/319.7", name: "P ウンコ", releasedOn: "2026-08-04", formula: manual() } })
+    const rude = await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A2", name: "P ウンコ", releasedOn: "2026-08-04", formula: manual() } })
     expect(rude.status).toBe(400)
     expect(rude.body.error).toEqual({ type: "invalid-body", field: "name", reason: "forbidden" })
-    const real = await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A3", hitChance: "1/319.7", name: "ぱちんこ ウルトラマン", releasedOn: "2026-08-04", formula: manual() } })
+    const real = await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A3", name: "ぱちんこ ウルトラマン", releasedOn: "2026-08-04", formula: manual() } })
     expect(real.status).toBe(201)
   })
 
   test("a name is kept at half width, its spaces single, a wave dash as a tilde, and none after the letter it opens with", async () => {
     const client = await api()
-    const sent = await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A4", hitChance: "1/319.7", name: " Ｐ　流星無双　Ⅱ！ ", releasedOn: "2026-08-04", formula: manual() } })
+    const sent = await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A4", name: " Ｐ　流星無双　Ⅱ！ ", releasedOn: "2026-08-04", formula: manual() } })
     expect(sent.status).toBe(201)
-    await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A5", hitChance: "1/319.7", name: "P FABLE  TALE", releasedOn: "2026-08-03", formula: manual() } })
-    await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A6", hitChance: "1/319.7", name: "CR銀狼〜焔の紋章～", releasedOn: "2026-08-02", formula: manual() } })
+    await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A5", name: "P FABLE  TALE", releasedOn: "2026-08-03", formula: manual() } })
+    await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A6", name: "CR銀狼〜焔の紋章～", releasedOn: "2026-08-02", formula: manual() } })
     expect((await client.call("GET", "/machines")).body.map((machine: { name: string }) => machine.name)).toEqual(["P流星無双 II!", "P FABLE TALE", "CR銀狼~焔の紋章~"])
   })
 
   test("a name opening with its letter in lower case is closed up as one in upper case is, so the two are one name", async () => {
     const client = await api()
-    expect((await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A7", hitChance: "1/319.7", name: "P流星無双", releasedOn: "2026-08-04", formula: manual() } })).status).toBe(201)
-    const again = await client.call("POST", "/machines", { as: BOB, body: { gameKind: "pachinko", modelName: "型式A8", hitChance: "1/319.7", name: "p 流星無双", releasedOn: "2026-08-04", formula: manual() } })
+    expect((await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A7", name: "P流星無双", releasedOn: "2026-08-04", formula: manual() } })).status).toBe(201)
+    const again = await client.call("POST", "/machines", { as: BOB, body: { gameKind: "pachinko", modelName: "型式A8", name: "p 流星無双", releasedOn: "2026-08-04", formula: manual() } })
     expect([again.status, again.body.error]).toEqual([409, { type: "conflict", what: "machine-name" }])
   })
 
   test("a model name is kept as a name is", async () => {
     const client = await api()
-    await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", name: "Pラブ嬢", modelName: " Ｐ　ラブ嬢３Ｈ１ＹＺ６　〜極〜 ", hitChance: "1/319.7", releasedOn: "2026-08-04", formula: manual() } })
+    await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", name: "Pラブ嬢", modelName: " Ｐ　ラブ嬢３Ｈ１ＹＺ６　〜極〜 ", releasedOn: "2026-08-04", formula: manual() } })
     expect((await client.call("GET", "/machines")).body.map((machine: { modelName: string }) => machine.modelName)).toEqual(["Pラブ嬢3H1YZ6 ~極~"])
   })
 
   test("a name already taken, as compared, is a conflict, and leaves no formula behind", async () => {
     const { client } = await registered(ALICE)
     const formulas = countOf(client, "formulas")
-    const again = await client.call("POST", "/machines", { as: BOB, body: { gameKind: "pachinko", modelName: "型式A7", hitChance: "1/319.7", name: "  流星無双 ", releasedOn: "2026-08-04", formula: manual() } })
+    const again = await client.call("POST", "/machines", { as: BOB, body: { gameKind: "pachinko", modelName: "型式A7", name: "  流星無双 ", releasedOn: "2026-08-04", formula: manual() } })
     expect(again.status).toBe(409)
     expect(again.body.error).toEqual({ type: "conflict", what: "machine-name" })
     expect(countOf(client, "formulas")).toBe(formulas)
@@ -105,19 +105,19 @@ describe("registering a machine", () => {
 
   test("lists the newest release first", async () => {
     const client = await api()
-    await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A8", hitChance: "1/319.7", name: "古い機種", releasedOn: "2023-01-10", formula: manual() } })
-    await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A9", hitChance: "1/319.7", name: "新しい機種", releasedOn: "2026-09-01", formula: manual() } })
+    await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A8", name: "古い機種", releasedOn: "2023-01-10", formula: manual() } })
+    await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A9", name: "新しい機種", releasedOn: "2026-09-01", formula: manual() } })
     expect((await client.call("GET", "/machines")).body.map((machine: { name: string }) => machine.name)).toEqual(["新しい機種", "古い機種"])
-    const undated = await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A10", hitChance: "1/319.7", name: "日付なし", formula: manual() } })
+    const undated = await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A10", name: "日付なし", formula: manual() } })
     expect(undated.body.error).toEqual({ type: "invalid-body", field: "releasedOn", reason: "missing" })
-    const impossible = await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A11", hitChance: "1/319.7", name: "日付なし", releasedOn: "2026-02-30", formula: manual() } })
+    const impossible = await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A11", name: "日付なし", releasedOn: "2026-02-30", formula: manual() } })
     expect(impossible.body.error).toEqual({ type: "invalid-body", field: "releasedOn", reason: "not-a-date" })
   })
 
   test("is refused with no name, a blank one, or a release date no machine can have", async () => {
     const client = await api()
     const machines = countOf(client, "machines")
-    const register = (body: Record<string, unknown>) => client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A12", hitChance: "1/319.7", formula: manual(), ...body } })
+    const register = (body: Record<string, unknown>) => client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A12", formula: manual(), ...body } })
     expect((await register({ releasedOn: "2025-09-01" })).body.error).toEqual({ type: "invalid-body", field: "name", reason: "missing" })
     expect((await register({ name: "  　", releasedOn: "2025-09-01" })).body.error).toEqual({ type: "invalid-body", field: "name", reason: "missing" })
     expect((await register({ name: "日付空", releasedOn: "" })).body.error).toEqual({ type: "invalid-body", field: "releasedOn", reason: "missing" })
@@ -129,17 +129,17 @@ describe("registering a machine", () => {
 
   test("is found by any part of its name, width and case aside, a search's wildcards taken literally", async () => {
     const client = await api()
-    const made = await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A13", hitChance: "1/319.7", name: "Pフィーバー ＡＢＣ", releasedOn: "2026-08-04", formula: manual() } })
+    const made = await client.call("POST", "/machines", { as: ALICE, body: { gameKind: "pachinko", modelName: "型式A13", name: "Pフィーバー ＡＢＣ", releasedOn: "2026-08-04", formula: manual() } })
     const found = await client.call("GET", `/machines?q=${encodeURIComponent("ａｂｃ")}`)
-    expect(found.body).toEqual([{ id: made.body.machineId, gameKind: "pachinko", name: "Pフィーバー ABC", modelName: "型式A13", keywords: [], hitChance: "1/319.7", releasedOn: "2026-08-04", formulaCount: 1 }])
+    expect(found.body).toEqual([{ id: made.body.machineId, gameKind: "pachinko", name: "Pフィーバー ABC", modelName: "型式A13", keywords: [], releasedOn: "2026-08-04", formulaCount: 1 }])
     expect((await client.call("GET", "/machines?q=100%25")).body).toEqual([])
   })
 
   test("a write without a device id is refused", async () => {
     const client = await api()
-    const reply = await client.call("POST", "/machines", { body: { gameKind: "pachinko", modelName: "型式A14", hitChance: "1/319.7", name: "流星無双", releasedOn: "2026-08-04", formula: manual() } })
+    const reply = await client.call("POST", "/machines", { body: { gameKind: "pachinko", modelName: "型式A14", name: "流星無双", releasedOn: "2026-08-04", formula: manual() } })
     expect(reply.status).toBe(401)
-    const named = await client.call("POST", "/machines", { as: "alice", body: { gameKind: "pachinko", modelName: "型式A15", hitChance: "1/319.7", name: "流星無双", formula: manual() } })
+    const named = await client.call("POST", "/machines", { as: "alice", body: { gameKind: "pachinko", modelName: "型式A15", name: "流星無双", formula: manual() } })
     expect(named.status).toBe(401)
   })
 })
@@ -149,7 +149,7 @@ describe("a machine's model name", () => {
     gameKind,
     name,
     modelName,
-    hitChance: "1/319.7",
+   
     releasedOn: "2026-09-01",
     formula: { kind: "manual", figures: { roundChanceOneIn: 13.9, payoutPerRound: 140 }, bonuses: [{ name: "10R", payout: 1500, spent: 100 }] },
   })

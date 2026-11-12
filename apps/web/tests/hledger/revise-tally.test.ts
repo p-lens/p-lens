@@ -56,7 +56,7 @@ describe("a recorded tally, read back from its entry", () => {
 
   test("is the tally a play followed live was written from, with what its log counted of the person's own playing, of either game", async () => {
     const { session } = await setUp()
-    const spun: TokenTally = { ...TODAY, id: "spun" as PlayId, netCounts: { type: "pachinko", spins: 700, jackpots: 3 } }
+    const spun: TokenTally = { ...TODAY, id: "spun" as PlayId, netCounts: { type: "pachinko", spins: 700, regularSpins: 470, jackpots: 3 } }
     const atMachine: YenTally = { ...TALLIED, id: "at" as PlayId, netCounts: { type: "at-machine", games: 1800, ats: 2 } }
     const bonusMachine: YenTally = { ...TALLIED, id: "bonus" as PlayId, netCounts: { type: "bonus-machine", games: 2400, bonuses: 11 } }
     const gamesOnly: YenTally = { ...TALLIED, id: "games" as PlayId, netCounts: { type: "games", games: 300 } }

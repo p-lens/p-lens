@@ -48,13 +48,16 @@ export interface TallyHead {
  * from the seat to the finish — never what the cabinet's counter showed
  * before them — by what the game counts.
  *
- * - `pachinko`: the spins and the jackpots, each jackpot of a run counted.
+ * - `pachinko`: the spins and the jackpots, each jackpot of a run counted,
+ *   and the regular games alone among the spins: none on a tally written
+ *   before they were kept, and the spins none on one taken in from an app
+ *   that counted regular games alone.
  * - `at-machine`: a pachislot machine with ATs, the games and the ATs.
  * - `bonus-machine`: a pachislot machine of bonuses alone, the games and the bonuses.
  * - `games`: a pachislot play followed with no formula, which says neither, the games alone.
  */
 export type NetCounts =
-  | { readonly type: "pachinko"; readonly spins: number; readonly jackpots: number }
+  | { readonly type: "pachinko"; readonly spins: number | undefined; readonly regularSpins: number | undefined; readonly jackpots: number }
   | { readonly type: "at-machine"; readonly games: number; readonly ats: number }
   | { readonly type: "bonus-machine"; readonly games: number; readonly bonuses: number }
   | { readonly type: "games"; readonly games: number }
@@ -216,6 +219,7 @@ export const TALLY_TAGS = {
   carriedOut: "carried-out",
   hours: "hours",
   netSpins: "net-spins",
+  netRegularSpins: "net-regular-spins",
   netJackpots: "net-jackpots",
   netGames: "net-games",
   netAts: "net-ats",

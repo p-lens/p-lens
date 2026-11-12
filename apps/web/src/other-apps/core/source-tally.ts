@@ -34,12 +34,23 @@ export interface SourceTally {
   readonly theoreticalValue: Decimal | undefined
   /** Which game it was, where that app said. */
   readonly gameKind: PlayGameKind | undefined
-  /** The spins that app counted the person playing, where it did: a pachislot play's games, as that app counts them under the same name. */
-  readonly countedSpins: number | undefined
+  /** The spins that app counted the person playing, where it did, and which: a pachislot play's games, as that app counts them under the same name. */
+  readonly countedSpins: CountedSpins | undefined
   /** The jackpots that app counted the person winning, where it did: a pachislot play's ATs, as that app counts them under the same name. */
   readonly countedJackpots: number | undefined
   /** The words that app let a person label it with, as that app kept them, and none of this app's. */
   readonly sourceLabels: readonly string[]
+}
+
+/**
+ * Spins another app counted, as that app counts them: every spin from the
+ * seat, or a pachinko play's regular games alone — none of a 確変, 時短 or
+ * 残保留 — as パチフォリオ's 回転数 is taken to be, this app writing its own
+ * so. A pachislot play's games either way.
+ */
+export interface CountedSpins {
+  readonly type: "every-spin" | "regular-games"
+  readonly count: number
 }
 
 /** A machine of the catalog that a source's machine is, where its name is one's and only one game's. */
@@ -77,7 +88,8 @@ const counted = (name: string, count: number | undefined): readonly (readonly [s
 
 /**
  * The spins and jackpots the other app counted of a tally's play, as this
- * app's own: a pachinko play's net spins and net jackpots, a pachislot
+ * app's own: a pachinko play's net spins, or its net regular spins where
+ * that app counted regular games alone, and net jackpots, a pachislot
  * play's net games and net ATs; none where neither game is known, there
  * being no telling which they are.
  */
@@ -85,9 +97,9 @@ const countedTags = (tally: ImportedTally): readonly (readonly [string, string])
   const [spins, jackpots] = [tally.source.countedSpins, tally.source.countedJackpots]
   switch (gameKindOf(tally)) {
     case "pachinko":
-      return [...counted(TALLY_TAGS.netSpins, spins), ...counted(TALLY_TAGS.netJackpots, jackpots)]
+      return [...counted(spins?.type === "regular-games" ? TALLY_TAGS.netRegularSpins : TALLY_TAGS.netSpins, spins?.count), ...counted(TALLY_TAGS.netJackpots, jackpots)]
     case "pachislot":
-      return [...counted(TALLY_TAGS.netGames, spins), ...counted(TALLY_TAGS.netAts, jackpots)]
+      return [...counted(TALLY_TAGS.netGames, spins?.count), ...counted(TALLY_TAGS.netAts, jackpots)]
     case undefined:
       return []
   }
@@ -153,7 +165,7 @@ const digest = (text: string): string =>
 const beyondOf = (source: SourceTally): string =>
   source.gameKind === undefined && source.countedSpins === undefined && source.countedJackpots === undefined && source.sourceLabels.length === 0
     ? ""
-    : [source.gameKind ?? "", source.countedSpins ?? "", source.countedJackpots ?? "", ...source.sourceLabels].join("\u001e")
+    : [source.gameKind ?? "", source.countedSpins?.count ?? "", source.countedJackpots ?? "", ...source.sourceLabels].join("\u001e")
 
 const decimalText = (amount: Decimal): string => `${amount.mantissa}e-${amount.places}`
 

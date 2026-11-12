@@ -114,7 +114,7 @@ const tallyOf = (cell: Cell, bySides: boolean): Result<SourceTally, readonly Row
     clock: undefined,
     theoreticalValue: undefined,
     gameKind: gameKind.value,
-    countedSpins: spins.value,
+    countedSpins: spins.value === undefined ? undefined : { type: "every-spin", count: spins.value },
     countedJackpots: jackpots.value,
     sourceLabels: labelsOf(cell("labels")),
   })

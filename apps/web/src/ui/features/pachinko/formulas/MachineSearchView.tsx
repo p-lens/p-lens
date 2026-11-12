@@ -76,7 +76,7 @@ export function MachineSearchView(props: { readonly place: Place; readonly query
     moves.up(props.place)
   }
   const create = (): void => {
-    start.updatePachinko({ machine: { type: "none" }, formulaId: undefined, remakeFrom: undefined, newMachineName: searched(), newMachineModelName: "", newMachineKeywords: "", newMachineHitChance: "", newMachineReleasedOn: "" })
+    start.updatePachinko({ machine: { type: "none" }, formulaId: undefined, remakeFrom: undefined, newMachineName: searched(), newMachineModelName: "", newMachineKeywords: "", newMachineReleasedOn: "" })
     moves.go({ kind: "pachinko-formula-new", tab: "manual" })
   }
   const createLabel = (): string => (searched() === "" ? "新しい機種の算出条件を作る" : `「${searched()}」の算出条件を作る`)

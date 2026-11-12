@@ -194,7 +194,11 @@ export const descriptionOf = (body: Body): Result<MachineDescription, ApiError> 
     hitChance: optionalHitChance(body, "hitChance"),
   })
 
-/** A machine with its first formula, both or neither, in the game it says it is. A machine is registered with its model name, and a pachinko machine with its 大当り確率: an administrator may still describe one without. */
+/**
+ * A machine with its first formula, both or neither, in the game it says it is. A machine is registered with its
+ * model name and never with a 大当り確率: that is the administrator's to give, as the spec sheet writes it, and a
+ * machine without one is shown with the chances its formulas' bases give.
+ */
 const postMachine = registering("machine", async (context, user, body) => {
   const fields = all({
     gameKind: oneOf(body, "gameKind", GAME_KINDS),
@@ -204,8 +208,7 @@ const postMachine = registering("machine", async (context, user, body) => {
   })
   if (!fields.ok) return fields
   if (fields.value.description.modelName === undefined) return Err({ type: "invalid-body", field: "modelName", reason: "missing" })
-  if (fields.value.gameKind === "pachinko" && fields.value.description.hitChance === undefined) return Err({ type: "invalid-body", field: "hitChance", reason: "missing" })
-  if (fields.value.gameKind !== "pachinko" && fields.value.description.hitChance !== undefined) return Err({ type: "invalid-body", field: "hitChance", reason: "unknown-value" })
+  if (fields.value.description.hitChance !== undefined) return Err({ type: "invalid-body", field: "hitChance", reason: "unknown-value" })
   const prepared = preparedFor(context, fields.value.gameKind, fields.value.formula)
   if (!prepared.ok) return prepared
   const machine = { ...fields.value.description, gameKind: fields.value.gameKind, releasedOn: fields.value.releasedOn }

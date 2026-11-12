@@ -44,7 +44,6 @@ export interface PachinkoStart {
   readonly newMachineName: string
   readonly newMachineModelName: string
   readonly newMachineKeywords: string
-  readonly newMachineHitChance: string
   readonly newMachineReleasedOn: string
   /** The data counter as it was found at the seat, beside the spins since its last jackpot: the day's jackpots. */
   readonly seatJackpots: string
@@ -59,7 +58,6 @@ export const EMPTY_PACHINKO_START: PachinkoStart = {
   newMachineName: "",
   newMachineModelName: "",
   newMachineKeywords: "",
-  newMachineHitChance: "",
   newMachineReleasedOn: "",
   seatJackpots: "",
   seatGauge: "",

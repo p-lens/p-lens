@@ -9,7 +9,7 @@ const APP = "https://app.example"
 const register = (name: string) => ({
   gameKind: "pachinko",
   modelName: `型式${name}`,
-  hitChance: "1/319.7",
+ 
   name,
   releasedOn: "2025-09-01",
   formula: { kind: "manual", figures: { roundChanceOneIn: 319.7, payoutPerRound: 140 }, bonuses: [{ name: "10R", payout: 1500, spent: 100 }] },

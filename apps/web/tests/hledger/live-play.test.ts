@@ -87,13 +87,13 @@ describe("a play followed live", () => {
     })
     expect(readings.join("\n")).toBe(`${DRAFT.log}{"spins":30,"at":"2026-10-04T14:30:00.000Z","counter":{"spins":150},"held":4800,"event":{"kind":"finished"}}\n`)
     expect(transactionsOf(storage.peek(BOOK)?.files)).toContain("play-id: live-1")
-    expect(transactionsOf(storage.peek(BOOK)?.files)).toContain("net-spins: 30, net-jackpots: 0")
+    expect(transactionsOf(storage.peek(BOOK)?.files)).toContain("net-spins: 30, net-regular-spins: 30, net-jackpots: 0")
     expect(mapOk(await loadTodaysPlays(drafts, "2026-10-04" as IsoDate), (found) => found.map((draft) => [draft.id, draft.recorded, draft.log]))).toEqual({ ok: true, value: [[ID, { at: NOW, finish: FINISH }, DRAFT.log]] })
   })
 
   test("counts what the person played, finished as the form says, the same for the entry shown before recording as for the one written, by what its game and formula count", () => {
-    expect(netCountsAtFinish(DRAFT, FINISH)).toEqual({ type: "pachinko", spins: 30, jackpots: 0 })
-    expect(netCountsAtFinish(DRAFT, { ...FINISH, counter: undefined })).toEqual({ type: "pachinko", spins: 0, jackpots: 0 })
+    expect(netCountsAtFinish(DRAFT, FINISH)).toEqual({ type: "pachinko", spins: 30, regularSpins: 30, jackpots: 0 })
+    expect(netCountsAtFinish(DRAFT, { ...FINISH, counter: undefined })).toEqual({ type: "pachinko", spins: 0, regularSpins: 0, jackpots: 0 })
     const pachislot = { ...DRAFT, gameKind: "pachislot" } as PlayDraft
     expect(netCountsAtFinish(pachislot, FINISH)).toEqual({ type: "games", games: 30 })
     expect(netCountsAtFinish({ ...pachislot, pachislot: { formula: { normalized: { atRules: {} } } } } as never, FINISH)).toEqual({ type: "at-machine", games: 30, ats: 0 })

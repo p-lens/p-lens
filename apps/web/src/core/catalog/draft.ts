@@ -6,7 +6,6 @@ export interface TypedMachine {
   readonly name: string
   readonly modelName: string
   readonly keywords: string
-  readonly hitChance: string
   readonly releasedOn: string
 }
 
@@ -41,7 +40,7 @@ const parsed = (written: string): unknown => {
   }
 }
 
-const MACHINE_FIELDS = ["name", "modelName", "keywords", "hitChance", "releasedOn"] as const
+const MACHINE_FIELDS = ["name", "modelName", "keywords", "releasedOn"] as const
 
 const isTarget = (value: unknown): value is DraftTarget =>
   isRecord(value) &&

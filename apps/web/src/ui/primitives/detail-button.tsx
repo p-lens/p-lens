@@ -1,7 +1,17 @@
 import * as PopoverPrimitive from "@kobalte/core/popover"
-import { createSignal, type JSX } from "solid-js"
+import { createRoot, createSignal, type JSX } from "solid-js"
 
 import { SlidersIcon } from "./icons"
+
+/**
+ * The one bubble open, of every DetailButton on screen: opening one closes
+ * whichever was open, so that two never stand over each other and each is
+ * closed the way it was opened.
+ */
+const shown = createRoot(() => {
+  const [bubble, setBubble] = createSignal<symbol | undefined>(undefined)
+  return { bubble, setBubble }
+})
 
 /**
  * What few fill in, behind one small button under its own short name: it
@@ -16,7 +26,7 @@ import { SlidersIcon } from "./icons"
  * cover it, where a field the person presses is brought into view by the
  * browser itself. What it holds may close it too, where pressing something
  * in it finishes what it is for: it is then given as a function of the
- * closing.
+ * closing. Only one is open at a time (`shown`).
  */
 export function DetailButton(props: {
   /** The name over the button, as a field's is over it. Left out, the button's face is its name, and the room over it is kept so that it stands level with the fields beside it. */
@@ -40,7 +50,12 @@ export function DetailButton(props: {
   readonly onOpen?: () => void
   readonly children: JSX.Element | ((close: () => void) => JSX.Element)
 }): JSX.Element {
-  const [open, setOpen] = createSignal(false)
+  const self = Symbol("bubble")
+  const open = (): boolean => shown.bubble() === self
+  const setOpen = (opened: boolean): void => {
+    if (opened) shown.setBubble(self)
+    else if (open()) shown.setBubble(undefined)
+  }
   const doneOnEnter = (event: KeyboardEvent): void => {
     if (event.key !== "Enter" || event.isComposing) return
     event.preventDefault()

@@ -31,7 +31,7 @@ describe("where a device stands against the shared catalog's quotas", () => {
 
 describe("a formula that could not be sent", () => {
   const draft: FormulaDraft = {
-    target: { type: "new", machine: { name: "P森", modelName: "", keywords: "もり", hitChance: "1/319.7", releasedOn: "2025-09-01" } },
+    target: { type: "new", machine: { name: "P森", modelName: "", keywords: "もり", releasedOn: "2025-09-01" } },
     formula: { gameKind: "pachinko", formula: { kind: "manual", figures: { roundChanceOneIn: 31.9, payoutPerRound: 140, totalChanceOneIn: undefined, spinsPerHour: undefined }, bonuses: [{ name: "10R", payout: 1500, spent: 100 }], derivedFrom: undefined } },
   }
 

@@ -18,10 +18,10 @@ import type {
 } from "./catalog"
 import { machineMatches } from "./description"
 import type { IsoDate } from "../calendar/calendar"
-import { regularChanceOf, worthOf } from "../pachinko"
+import { regularChanceOf } from "../pachinko"
 import type * as Pachinko from "../pachinko"
 import type { MachineId } from "../machine/machine"
-import { ranked, type FormulaListing, type Mark, type Ranked, type Standing } from "../formula/standing"
+import type { FormulaListing, Mark, Ranked, Standing } from "../formula/standing"
 import type * as Pachislot from "../pachislot"
 
 const standingOf = (dto: StandingDto): Standing => ({ ...dto })
@@ -81,55 +81,35 @@ export const distributionOf = (dto: PachislotContract.SettingDistributionDto): P
 /** How likely a chance is, one in a hundred being 0.01: the likelier the larger. */
 const likelihoodOf = (chance: ProbabilityDto): number => (chance.type === "ratio" ? chance.numerator / chance.denominatorHundredths : chance.basisPoints / 1_000_000)
 
-/** How far apart two chances' "one in" may be and be told as one: 1/319.67 and 1/319.99 are one chance written two ways, 1/399 and 1/999 two. */
-const ONE_IN_APART = 2
+/**
+ * How far apart, in "one in", the likeliest and the hardest of a machine's
+ * chances may lie and be told by the hardest alone: setting levels from
+ * 1/119 to 1/129 are told as 1/129, and versions further apart, 1/49.91
+ * and 1/77.74, by both ends.
+ */
+const ONE_IN_SPREAD = 16
 
 /** The "one in" a chance comes to, as a spec sheet writes it: 319.67 for 1/319.67. `likelihoodOf` is a hundredth of the chance itself. */
 const oneInOf = (chance: ProbabilityDto): number => 1 / (likelihoodOf(chance) * 100)
 
-/** A chance a formula's basis says, with the formula it is of. */
-interface Said {
-  readonly chance: ProbabilityDto
-  readonly formulaId: string
-}
-
-/** Chances, the likeliest first, grouped where each one's "one in" lies within `ONE_IN_APART` of the one before. */
-const groupedOf = (likeliestFirst: readonly Said[]): readonly (readonly Said[])[] =>
-  likeliestFirst.reduce<readonly (readonly Said[])[]>((groups, said) => {
-    const group = groups.at(-1)
-    const last = group?.at(-1)
-    return group !== undefined && last !== undefined && oneInOf(said.chance) - oneInOf(last.chance) < ONE_IN_APART ? [...groups.slice(0, -1), [...group, said]] : [...groups, [said]]
-  }, [])
-
 /**
- * The chance each group is told by: its own where it is alone, as nearly
- * every machine's is, and else that of the formula ranked first among the
- * group's — the one a machine is opened with sooner. The formulas are
- * ranked only for a machine that has such a group, and once.
+ * The 大当り確率 a pachinko machine's formulas' bases say: the hardest
+ * alone where all lie within `ONE_IN_SPREAD` of the likeliest, and else the
+ * likeliest and the hardest, in that order; none from a formula typed in by
+ * hand.
  */
-const toldApart = (groups: readonly (readonly Said[])[], rankOf: () => (formulaId: string) => number): readonly ProbabilityDto[] => {
-  const held: { rank: ((formulaId: string) => number) | undefined } = { rank: undefined }
-  const rank = (formulaId: string): number => (held.rank ??= rankOf())(formulaId)
-  return groups.flatMap((group) => {
-    const [first] = group
-    if (first === undefined) return []
-    return [(group.length === 1 ? first : group.reduce((best, said) => (rank(said.formulaId) < rank(best.formulaId) ? said : best))).chance]
-  })
-}
-
-/** The 大当り確率 a pachinko machine's formulas' bases say, the likeliest first, those all but alike told once; none from a formula typed in by hand. */
 const formulaHitChancesOf = (detail: MachineDetailDto): readonly ProbabilityDto[] => {
   if (detail.machine.gameKind !== "pachinko") return []
-  const dtos = detail.formulas as readonly PachinkoContract.FormulaDto[]
-  const said = dtos.flatMap((dto): readonly Said[] => {
-    const chance = dto.basis === undefined ? undefined : regularChanceOf(dto.basis.spec)
-    return chance === undefined ? [] : [{ chance, formulaId: dto.id }]
-  })
-  const rankOf = (): ((formulaId: string) => number) => {
-    const order = ranked(dtos.map((dto) => listingOf(pachinkoFormulaOf(dto), dto.standing)), worthOf).map((listing) => listing.formula.id as string)
-    return (formulaId) => order.indexOf(formulaId)
-  }
-  return toldApart(groupedOf(said.toSorted((left, right) => likelihoodOf(right.chance) - likelihoodOf(left.chance))), rankOf)
+  const chances = (detail.formulas as readonly PachinkoContract.FormulaDto[])
+    .flatMap((dto): readonly ProbabilityDto[] => {
+      const chance = dto.basis === undefined ? undefined : regularChanceOf(dto.basis.spec)
+      return chance === undefined ? [] : [chance]
+    })
+    .toSorted((left, right) => likelihoodOf(right) - likelihoodOf(left))
+  const likeliest = chances.at(0)
+  const hardest = chances.at(-1)
+  if (likeliest === undefined || hardest === undefined) return []
+  return oneInOf(hardest) - oneInOf(likeliest) > ONE_IN_SPREAD ? [likeliest, hardest] : [hardest]
 }
 
 /** A delivered machine as a search finds it. A delivery kept from before machines had words to be searched by has none. */

@@ -75,7 +75,7 @@ describe("pachislot in the one catalog", () => {
     expect(again.body.error).toEqual({ type: "conflict", what: "machine-name" })
     const pachinko = await client.call("POST", "/machines", {
       as: BOB,
-      body: { gameKind: "pachinko", modelName: "型式A3", hitChance: "1/319.7", name: "テストピエロット", releasedOn: "2026-09-01", formula: { kind: "manual", figures: { roundChanceOneIn: 13.9, payoutPerRound: 140 }, bonuses: [{ name: "10R", payout: 1500, spent: 100 }] } },
+      body: { gameKind: "pachinko", modelName: "型式A3", name: "テストピエロット", releasedOn: "2026-09-01", formula: { kind: "manual", figures: { roundChanceOneIn: 13.9, payoutPerRound: 140 }, bonuses: [{ name: "10R", payout: 1500, spent: 100 }] } },
     })
     expect(pachinko.status).toBe(201)
     const shares = { label: "平日", shares: [{ settingLevel: 1, value: 10_000 }] }
@@ -264,7 +264,7 @@ describe("pachislot in the one catalog", () => {
     const { client, machineId, formulaId } = await registered()
     await client.call("POST", "/machines", {
       as: BOB,
-      body: { gameKind: "pachinko", modelName: "型式A10", hitChance: "1/319.7", name: "流星", releasedOn: "2026-08-01", formula: { kind: "manual", figures: { roundChanceOneIn: 13.9, payoutPerRound: 140 }, bonuses: [{ name: "10R", payout: 1500, spent: 100 }] } },
+      body: { gameKind: "pachinko", modelName: "型式A10", name: "流星", releasedOn: "2026-08-01", formula: { kind: "manual", figures: { roundChanceOneIn: 13.9, payoutPerRound: 140 }, bonuses: [{ name: "10R", payout: 1500, spent: 100 }] } },
     })
     const version = async () => (await client.call("GET", "/catalog/version")).body.version as string
     const catalog = await client.call("GET", "/catalog")

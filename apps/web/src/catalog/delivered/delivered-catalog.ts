@@ -137,7 +137,6 @@ const describedAs = (machine: NewMachine) => ({
   name: machine.name,
   ...(machine.modelName === undefined ? {} : { modelName: machine.modelName }),
   ...(machine.keywords.length === 0 ? {} : { keywords: machine.keywords }),
-  ...(machine.hitChance === undefined ? {} : { hitChance: machine.hitChance }),
   releasedOn: machine.releasedOn,
 })
 

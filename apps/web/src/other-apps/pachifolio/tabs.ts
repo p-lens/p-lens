@@ -11,7 +11,7 @@ export const pachifolioImport = (ports: ImportPorts): ImportSource<PachifolioPro
   from: PACHIFOLIO,
   name: PACHIFOLIO_NAME,
   about: "パチフォリオで書き出した CSV から、過去の収支を取り込みます。",
-  kept: "店舗名・機種名・タグはパチフォリオのまま残します。回転数・大当りも取り込みます。同じファイルを2回選んでも、二重には入りません。",
+  kept: "店舗名・機種名・タグはパチフォリオのまま残します。回転数・大当りも取り込みます。パチンコの回転数は、確変・時短中を除いた通常時の回転数として取り込みます。同じファイルを2回選んでも、二重には入りません。",
   choose: IMPORT_CHOOSE,
   accept: ".csv,text/csv",
   asksUntagged: false,
@@ -24,6 +24,6 @@ export const pachifolioImport = (ports: ImportPorts): ImportSource<PachifolioPro
 export const PACHIFOLIO_EXPORT: ExportApp = {
   format: PACHIFOLIO,
   name: PACHIFOLIO_NAME,
-  about: "収支をパチフォリオと同じ形の CSV に。回転数・大当りはライブ計測で記帳した収支のものを書き出します。",
+  about: "収支をパチフォリオと同じ形の CSV に。回転数・大当りはライブ計測で記帳した収支のものを書き出します。パチンコの回転数は、確変・時短中を除いた通常時の回転数です。",
   presses: [{ label: "CSV", make: makeForPachifolio }],
 }

@@ -77,12 +77,15 @@ export interface CatalogVersionDto {
   readonly version: string
 }
 
-/** A machine registered with its first formula, together, in its game's shape. */
+/**
+ * A machine registered with its first formula, together, in its game's
+ * shape. It carries no 大当り確率: only an administrator gives one, by
+ * `MachineDescriptionDto`.
+ */
 export type RegisterMachineDto = {
   readonly name: string
   readonly modelName?: string
   readonly keywords?: readonly string[]
-  readonly hitChance?: string
   /** When the machine came out, YYYY-MM-DD. */
   readonly releasedOn: string
 } & (

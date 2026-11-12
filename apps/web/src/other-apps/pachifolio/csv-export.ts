@@ -17,9 +17,11 @@ const dayOf = (line: TallyLine): string => line.tally.date.replaceAll("-", "/")
 
 /**
  * The spins and jackpots of a tally as パチフォリオ counts them under its
- * 回転数 and 大当り: a pachinko play's net spins and net jackpots, a
- * pachislot play's net games and its net ATs or net bonuses, as its log
- * counted them; and where no log did, the jackpots told of it by hand.
+ * 回転数 and 大当り: a pachinko play's regular spins and net jackpots —
+ * no spin of a 確変, 時短 or 残保留, and none where a tally written before
+ * regular spins were kept does not say them — a pachislot play's net
+ * games and its net ATs or net bonuses, as its log counted them; and where
+ * no log did, the jackpots told of it by hand.
  */
 const countCellsOf = (line: TallyLine): readonly [string, string] => {
   const counts = line.notes.aside.netCounts
@@ -27,7 +29,7 @@ const countCellsOf = (line: TallyLine): readonly [string, string] => {
   if (counts === undefined) return [EMPTY, told]
   switch (counts.type) {
     case "pachinko":
-      return [String(counts.spins), String(counts.jackpots)]
+      return [counts.regularSpins === undefined ? EMPTY : String(counts.regularSpins), String(counts.jackpots)]
     case "at-machine":
       return [String(counts.games), String(counts.ats)]
     case "bonus-machine":

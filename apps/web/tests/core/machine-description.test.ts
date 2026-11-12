@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import { bookNameOf, machineNamesOf, modelNameOf, shownNameOf } from "../../src/core/catalog/catalog"
-import { machineMatches, readHitChance, readKeywords, readModelName } from "../../src/core/catalog/description"
+import { machineMatches, readKeywords, readModelName } from "../../src/core/catalog/description"
 
 const GENKI = { name: "e星都幻鬼", modelName: "e星都幻鬼W", keywords: ["ゲンキ", "TG"] }
 const HIKARI = { name: "P魔法少女ひかり☆ルミエ3", modelName: undefined, keywords: ["ひかルミ"] }
@@ -40,18 +40,6 @@ describe("the words a machine is searched by, as typed", () => {
     expect(readKeywords(Array.from({ length: 11 }, (_, index) => `語${index}`).join("、"))).toEqual({ ok: false, error: { type: "too-many-keywords", most: 10 } })
     expect(readKeywords(`ゲンキ、${"あ".repeat(31)}`)).toEqual({ ok: false, error: { type: "keyword-too-long", keyword: "あ".repeat(31), longest: 30 } })
     expect(readKeywords("あ".repeat(30)).ok).toBe(true)
-  })
-})
-
-describe("a 大当り確率 as typed", () => {
-  test("is kept as a spec sheet writes it, whatever its width", () => {
-    expect(readHitChance("1/319.7")).toEqual({ ok: true, value: "1/319.7" })
-    expect(readHitChance(" １／３９９．９ ")).toEqual({ ok: true, value: "1/399.9" })
-    expect(readHitChance("")).toEqual({ ok: true, value: undefined })
-  })
-
-  test("is refused when it is not one in so many", () => {
-    for (const typed of ["319.7", "1/0", "1/0.5", "2/319", "1/abc", "約1/319", "1/319.7777"]) expect([typed, readHitChance(typed)]).toEqual([typed, { ok: false, error: { type: "not-a-hit-chance" } }])
   })
 })
 

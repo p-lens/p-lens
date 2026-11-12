@@ -1281,7 +1281,8 @@ users ─┬─ machines (game_kind ∈ pachinko | pachislot) ── machine_key
   the P, e, L or S it opens with (`keptName`), however it was typed — and — each
   only where known — the model name it was approved under (型式名), a
   pachinko machine's 大当り確率 as its spec sheet writes it (`1/319.7`, kept
-  as written and calculated from nowhere), and up to ten words it is
+  as written and calculated from nowhere, and given by an administrator
+  alone), and up to ten words it is
   searched by: ヴェルヴ for ヴェルトレイヴ, ゲンキ for 幻鬼. A search finds a machine
   by any of them, katakana as hiragana, ヴ as the バ row (ブブブ finds ヴヴヴ)
   and widths, case, spaces and stars aside (`machineMatches`). The list shows the name in bold over the model
@@ -1377,9 +1378,13 @@ and can be shown again. The administrator's routes (`/admin/…`: what was
 registered lately, hiding one thing or all a device registered, describing
 a machine anew) answer
 only to `ADMIN_TOKEN`, from anywhere, and are not found without it. A machine is
-registered with its model name, and a pachinko machine with its 大当り確率,
-both required here as on the screen; a model name is kept as a name is
-(`keptName`). An administrator may still describe a machine without them.
+registered with its model name, required here as on the screen, and never
+with a 大当り確率, refused here and asked nowhere on the screen: the figure a
+spec sheet heads with is not always the one a formula's basis works from
+(a 1/399.2 that leaves its チャージ out, under a basis's 1/191.6), so an
+administrator alone gives it, and a machine without one is shown by the
+chances its formulas' bases say. A model name is kept as a name is
+(`keptName`). An administrator may still describe a machine without one.
 
 A machine has two names and each has its use. The name the halls call it
 is what it is found and chosen by, shown first and bold wherever one is

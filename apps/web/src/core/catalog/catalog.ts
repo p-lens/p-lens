@@ -23,10 +23,11 @@ export type MachineBonus = Pachinko.Bonus
  * A machine as a search finds it: the name it goes by in a parlor, the
  * model name it was approved under where that is known, the other words it
  * is searched by, and a pachinko machine's 大当り確率 as its spec sheet
- * writes it — and, apart from it, the one each of its formulas' bases says,
- * each once and the likeliest first: a machine whose versions differ in it
- * has no one chance of its own, and is told by these. A formula typed in by
- * hand says none, and a pachislot machine has none.
+ * writes it — and, apart from it, what its formulas' bases say: the
+ * hardest alone where they lie close, as setting levels do, and else the
+ * likeliest and the hardest, for a machine whose versions differ in it has
+ * no one chance of its own. A formula typed in by hand says none, and a
+ * pachislot machine has none.
  */
 export interface MachineSummary {
   readonly id: MachineId
@@ -100,7 +101,6 @@ export interface NewMachine {
   readonly name: string
   readonly modelName: string | undefined
   readonly keywords: readonly string[]
-  readonly hitChance: string | undefined
   readonly releasedOn: IsoDate
 }
 

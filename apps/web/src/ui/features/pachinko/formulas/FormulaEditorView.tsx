@@ -11,7 +11,7 @@ import { type Figures } from "../../../../core/pachinko/figures"
 import { type BonusRow, EMPTY_BONUS_ROW, readBonuses } from "../../../../core/catalog/bonuses"
 import type { DraftTarget, FormulaDraft } from "../../../../core/catalog/draft"
 import { type RegistrationKind, standingFor } from "../../../../core/catalog/quota"
-import { readHitChance, readKeywords, readModelName, readName } from "../../../../core/catalog/description"
+import { readKeywords, readModelName, readName } from "../../../../core/catalog/description"
 import { readReleaseDate } from "../../../../core/catalog/release"
 import { Ok } from "../../../../core/result/result"
 import { bookNameOf, shownNameOf, type MachineBonus, type NewMachine, type NewPachinkoFormula } from "../../../../core/catalog/catalog"
@@ -158,25 +158,18 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachinko-form
   }
   const modelName = (): string => startForm.form().pachinko.newMachineModelName
   const keywordsTyped = (): string => startForm.form().pachinko.newMachineKeywords
-  const hitChanceTyped = (): string => startForm.form().pachinko.newMachineHitChance
   const keywords = createMemo(() => readKeywords(keywordsTyped()))
-  const hitChance = createMemo(() => readHitChance(hitChanceTyped()))
   const keywordsWording = (): string | undefined => {
     const read = keywords()
-    return read.ok ? undefined : describeDescriptionProblem(read.error)
-  }
-  const hitChanceWording = (): string | undefined => {
-    const read = hitChance()
     return read.ok ? undefined : describeDescriptionProblem(read.error)
   }
   /** A new machine as typed, once it has a name and a release date and nothing typed beside them is wrong; undefined until then. */
   const newMachine = (): NewMachine | undefined => {
     const day = releaseDate()
     const words = keywords()
-    const chance = hitChance()
-    return machineName().trim() === "" || namesSettingLevel(machineName()) || namesSettingLevel(modelName()) || !day.ok || !words.ok || !chance.ok
+    return machineName().trim() === "" || namesSettingLevel(machineName()) || namesSettingLevel(modelName()) || !day.ok || !words.ok
       ? undefined
-      : { name: readName(machineName()), modelName: readModelName(modelName()), keywords: words.value, hitChance: chance.value, releasedOn: day.value }
+      : { name: readName(machineName()), modelName: readModelName(modelName()), keywords: words.value, releasedOn: day.value }
   }
   const [manual, setManual] = createSignal(props.start.manual)
   const [basis, setBasis] = createSignal(props.start.basis)
@@ -202,12 +195,11 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachinko-form
     const machine = target()
     return machine.type === "catalog"
       ? machine
-      : { type: "new", machine: { name: machineName(), modelName: modelName(), keywords: keywordsTyped(), hitChance: hitChanceTyped(), releasedOn: releasedOn() } }
+      : { type: "new", machine: { name: machineName(), modelName: modelName(), keywords: keywordsTyped(), releasedOn: releasedOn() } }
   }
   const nameNudge = createNudge()
   const dateNudge = createNudge()
   const modelNudge = createNudge()
-  const chanceNudge = createNudge()
   const bonusNudge = createNudge()
   const figuresNudge = createNudge()
   const figureNudged = (field: string): boolean => figuresNudge.red() && manualProblems().some((problem) => problem.field === field)
@@ -274,17 +266,15 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachinko-form
     const nameMissing = registering && (machineName().trim() === "" || namesSettingLevel(machineName()))
     const dateMissing = registering && !releaseDate().ok
     const modelMissing = registering && (readModelName(modelName()) === undefined || namesSettingLevel(modelName()))
-    const chanceMissing = registering && hitChanceTyped().trim() === ""
-    const descriptionWrong = registering && (!keywords().ok || !hitChance().ok)
+    const descriptionWrong = registering && !keywords().ok
     const figuresMissing = unstated() === undefined
     const bonusesMissing = stated() === undefined
     if (nameMissing) nameNudge.nudge()
     if (dateMissing) dateNudge.nudge()
     if (modelMissing) modelNudge.nudge()
-    if (chanceMissing) chanceNudge.nudge()
     if (figuresMissing) figuresNudge.nudge()
     if (bonusesMissing) bonusNudge.nudge()
-    return nameMissing || dateMissing || modelMissing || chanceMissing || descriptionWrong || figuresMissing || bonusesMissing
+    return nameMissing || dateMissing || modelMissing || descriptionWrong || figuresMissing || bonusesMissing
   }
 
   const save = async (): Promise<void> => {
@@ -312,7 +302,6 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachinko-form
       newMachineName: "",
       newMachineModelName: "",
       newMachineKeywords: "",
-      newMachineHitChance: "",
       newMachineReleasedOn: "",
     })
     moves.go({ kind: "live-new", game: "pachinko" })
@@ -345,19 +334,7 @@ function Editor(props: { readonly place: Place & { readonly kind: "pachinko-form
                   <TextField label="機種名" value={machineName()} onChange={setMachineName} placeholder="ホールでの呼び名" tidied={readName} required invalid={nameNudge.red()} error={namesSettingLevel(machineName()) ? SETTING_LEVEL_IN_NAME : undefined} onFocus={nameNudge.settle} />
                   <TextField label="リリース日" type="date" value={releasedOn()} onChange={setReleasedOn} required invalid={dateNudge.red()} error={releaseDateWording()} onFocus={dateNudge.settle} />
                 </div>
-                <div class="grid grid-cols-[minmax(0,1fr)_9rem] gap-2">
-                  <TextField label="型式名" value={modelName()} onChange={(newMachineModelName) => startForm.updatePachinko({ newMachineModelName })} tidied={readName} required invalid={modelNudge.red()} error={namesSettingLevel(modelName()) ? SETTING_LEVEL_IN_NAME : undefined} onFocus={modelNudge.settle} />
-                  <TextField
-                    label="大当り確率"
-                    value={hitChanceTyped()}
-                    onChange={(newMachineHitChance) => startForm.updatePachinko({ newMachineHitChance })}
-                    placeholder="1/319.7"
-                    required
-                    invalid={!hitChance().ok || chanceNudge.red()}
-                    error={hitChanceWording()}
-                    onFocus={chanceNudge.settle}
-                  />
-                </div>
+                <TextField label="型式名" value={modelName()} onChange={(newMachineModelName) => startForm.updatePachinko({ newMachineModelName })} tidied={readName} required invalid={modelNudge.red()} error={namesSettingLevel(modelName()) ? SETTING_LEVEL_IN_NAME : undefined} onFocus={modelNudge.settle} />
                 <TextField
                   label="検索ワード（任意）"
                   value={keywordsTyped()}
@@ -481,7 +458,6 @@ export function FormulaEditorView(props: { readonly place: Place & { readonly ki
             newMachineName: kept.target.machine.name,
             newMachineModelName: kept.target.machine.modelName,
             newMachineKeywords: kept.target.machine.keywords,
-            newMachineHitChance: kept.target.machine.hitChance,
             newMachineReleasedOn: kept.target.machine.releasedOn,
           },
     )

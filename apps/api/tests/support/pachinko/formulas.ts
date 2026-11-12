@@ -23,7 +23,7 @@ export const simulated = async (): Promise<NewFormulaDto & { readonly basis: Non
 /** A machine registered by a device with a manual formula, and a simulated one added to it. */
 export const registered = async (as: string) => {
   const client = await api()
-  const machine = await client.call("POST", "/machines", { as, body: { gameKind: "pachinko", modelName: "型式A1", hitChance: "1/319.7", name: "流星無双", releasedOn: "2026-08-04", formula: manual() } satisfies RegisterMachineDto })
+  const machine = await client.call("POST", "/machines", { as, body: { gameKind: "pachinko", modelName: "型式A1", name: "流星無双", releasedOn: "2026-08-04", formula: manual() } satisfies RegisterMachineDto })
   const added = await client.call("POST", `/machines/${machine.body.machineId}/formulas`, { as, body: await simulated() })
   return { client, machineId: machine.body.machineId as string, manualId: machine.body.formulaId as string, simulatedId: added.body.id as string }
 }

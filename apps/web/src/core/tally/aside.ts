@@ -27,7 +27,11 @@ const netCountTags = (counts: NetCounts | undefined): Entry["tags"] => {
   if (counts === undefined) return []
   switch (counts.type) {
     case "pachinko":
-      return [[TALLY_TAGS.netSpins, String(counts.spins)], [TALLY_TAGS.netJackpots, String(counts.jackpots)]]
+      return [
+        ...(counts.spins === undefined ? [] : [[TALLY_TAGS.netSpins, String(counts.spins)] as const]),
+        ...(counts.regularSpins === undefined ? [] : [[TALLY_TAGS.netRegularSpins, String(counts.regularSpins)] as const]),
+        [TALLY_TAGS.netJackpots, String(counts.jackpots)],
+      ]
     case "at-machine":
       return [[TALLY_TAGS.netGames, String(counts.games)], [TALLY_TAGS.netAts, String(counts.ats)]]
     case "bonus-machine":
@@ -41,8 +45,8 @@ const countOf = (text: string | undefined): number | undefined => (text !== unde
 
 /** What a play's log counted, as an entry's tags say it: none where they say no whole set of counts. */
 const netCountsOf = (tagged: (name: string) => string | undefined): NetCounts | undefined => {
-  const [spins, jackpots, games, ats, bonuses] = [TALLY_TAGS.netSpins, TALLY_TAGS.netJackpots, TALLY_TAGS.netGames, TALLY_TAGS.netAts, TALLY_TAGS.netBonuses].map((name) => countOf(tagged(name)))
-  if (spins !== undefined) return jackpots === undefined ? undefined : { type: "pachinko", spins, jackpots }
+  const [spins, regularSpins, jackpots, games, ats, bonuses] = [TALLY_TAGS.netSpins, TALLY_TAGS.netRegularSpins, TALLY_TAGS.netJackpots, TALLY_TAGS.netGames, TALLY_TAGS.netAts, TALLY_TAGS.netBonuses].map((name) => countOf(tagged(name)))
+  if (spins !== undefined || regularSpins !== undefined) return jackpots === undefined ? undefined : { type: "pachinko", spins, regularSpins, jackpots }
   if (games === undefined) return undefined
   if (ats !== undefined) return { type: "at-machine", games, ats }
   return bonuses === undefined ? { type: "games", games } : { type: "bonus-machine", games, bonuses }

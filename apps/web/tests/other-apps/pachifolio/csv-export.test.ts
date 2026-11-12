@@ -34,7 +34,7 @@ const lineOf = (line: { readonly date: string; readonly gameKind?: PlayGameKind;
 })
 
 const LINES: readonly TallyLine[] = [
-  lineOf({ date: "2026-11-09", gameKind: "pachinko", parlorName: "マレハン東京皇国第8支店", machineName: "流星の剣", netCounts: { type: "pachinko", spins: 700, jackpots: 3 }, spent: 15000, won: 78000, actual: yen(63000) }),
+  lineOf({ date: "2026-11-09", gameKind: "pachinko", parlorName: "マレハン東京皇国第8支店", machineName: "流星の剣", netCounts: { type: "pachinko", spins: 700, regularSpins: 470, jackpots: 3 }, spent: 15000, won: 78000, actual: yen(63000) }),
   lineOf({ date: "2026-11-08", gameKind: "pachislot", parlorName: "名もなき店", machineName: "星の舞踏, 改", netCounts: { type: "at-machine", games: 1800, ats: 2 }, spent: 8000, won: 0, actual: yen(-8000) }),
   lineOf({ date: "2026-11-07", gameKind: "pachinko", machineName: "流星の剣", netJackpots: 4, spent: 5000, won: 5000, actual: yen(0) }),
   lineOf({ date: "2026-11-06", spent: 1000, won: 0, actual: yen(-1000) }),
@@ -47,7 +47,7 @@ describe("tallies as パチフォリオ's CSV", () => {
     expect(text).toBe(
       [
         "﻿日付,店舗,機種,投資,回収,種別,タグ,回転数,大当り,メモ",
-        '2026/11/09,マレハン東京皇国第8支店,流星の剣,15000,78000,パチ,,700,3,"朝一\n据え置き"',
+        '2026/11/09,マレハン東京皇国第8支店,流星の剣,15000,78000,パチ,,470,3,"朝一\n据え置き"',
         '2026/11/08,名もなき店,"星の舞踏, 改",8000,0,スロ,,1800,2,',
         "2026/11/07,,流星の剣,5000,5000,パチ,,,4,",
         "2026/11/06,,,1000,0,,,,,",
@@ -56,11 +56,16 @@ describe("tallies as パチフォリオ's CSV", () => {
     )
   })
 
+  test("leaves a pachinko tally's 回転数 empty where it was written before its regular spins were kept", () => {
+    const before = lineOf({ date: "2026-11-05", gameKind: "pachinko", netCounts: { type: "pachinko", spins: 700, regularSpins: undefined, jackpots: 3 }, spent: 1000, won: 0, actual: yen(-1000) })
+    expect(pachifolioCsvOf([before], new Map()).split("\n")[1]).toBe("2026/11/05,,,1000,0,パチ,,,3,")
+  })
+
   test("is read back as パチフォリオ's own file is", () => {
     const read = readPachifolio(text)
     expect(read.ok && read.value.map((tally) => [tally.date, tally.parlor.name, tally.machine.name, tally.gameKind, tally.countedSpins, tally.countedJackpots, tally.memo])).toEqual([
-      ["2026-11-09", "マレハン東京皇国第8支店", "流星の剣", "pachinko", 700, 3, "朝一\n据え置き"],
-      ["2026-11-08", "名もなき店", "星の舞踏, 改", "pachislot", 1800, 2, ""],
+      ["2026-11-09", "マレハン東京皇国第8支店", "流星の剣", "pachinko", { type: "regular-games", count: 470 }, 3, "朝一\n据え置き"],
+      ["2026-11-08", "名もなき店", "星の舞踏, 改", "pachislot", { type: "regular-games", count: 1800 }, 2, ""],
       ["2026-11-07", "", "流星の剣", "pachinko", undefined, 4, ""],
       ["2026-11-06", "", "", undefined, undefined, undefined, ""],
     ] as never)

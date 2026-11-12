@@ -13,9 +13,9 @@ describe("a パチフォリオ CSV", () => {
   test("is read a row a tally, with its game, its labels, and the spins and jackpots it counted", () => {
     const read = readPachifolio(FILE)
     expect(read.ok && read.value).toEqual([
-      { date: "2026-11-08", parlor: { name: "マレハン東京皇国第8支店", code: "" }, machine: { name: "流星の剣", code: "", maker: "" }, cabinetNumber: "", outlay: dec("8000"), takings: dec("7500"), memo: "メモが書けるよう！", hours: undefined, gameKind: "pachinko", countedSpins: 163, countedJackpots: 2, sourceLabels: ["イベント"] },
+      { date: "2026-11-08", parlor: { name: "マレハン東京皇国第8支店", code: "" }, machine: { name: "流星の剣", code: "", maker: "" }, cabinetNumber: "", outlay: dec("8000"), takings: dec("7500"), memo: "メモが書けるよう！", hours: undefined, gameKind: "pachinko", countedSpins: { type: "regular-games", count: 163 }, countedJackpots: 2, sourceLabels: ["イベント"] },
       { date: "2026-11-09", parlor: { name: "マレハン東京皇国第8支店", code: "" }, machine: { name: "流星の剣", code: "", maker: "" }, cabinetNumber: "", outlay: dec("30000"), takings: dec("30000"), memo: "", hours: undefined, gameKind: "pachinko", countedSpins: undefined, countedJackpots: undefined, sourceLabels: ["イベント", "朝一"] },
-      { date: "2026-11-09", parlor: { name: "名もなき店", code: "" }, machine: { name: "星の舞踏", code: "", maker: "" }, cabinetNumber: "", outlay: dec("15000"), takings: dec("78000"), memo: "", hours: undefined, gameKind: "pachislot", countedSpins: 1200, countedJackpots: 3, sourceLabels: [] },
+      { date: "2026-11-09", parlor: { name: "名もなき店", code: "" }, machine: { name: "星の舞踏", code: "", maker: "" }, cabinetNumber: "", outlay: dec("15000"), takings: dec("78000"), memo: "", hours: undefined, gameKind: "pachislot", countedSpins: { type: "regular-games", count: 1200 }, countedJackpots: 3, sourceLabels: [] },
     ] as never)
   })
 
@@ -32,10 +32,10 @@ describe("a パチフォリオ CSV", () => {
 describe("a tally taken in from パチフォリオ", () => {
   const [first, , third] = ((read) => (read.ok ? read.value : []))(readPachifolio(FILE))
 
-  test("says its game, keeps each label in a tag of its own, and writes a pachinko play's spins and jackpots as its net spins and net jackpots", () => {
+  test("says its game, keeps each label in a tag of its own, and writes a pachinko play's spins and jackpots as its net regular spins and net jackpots, as this app writes its 回転数", () => {
     expect(renderEntry(importedTallyEntry({ id: "x" as never, from: "pachifolio", source: first as never, machine: undefined, inferred: undefined }))).toBe(
       [
-        "2026-11-08 マレハン東京皇国第8支店 | 流星の剣  ; play-id: x, game-kind: pachinko, imported-from: pachifolio, source-parlor: マレハン東京皇国第8支店, source-machine: 流星の剣, net-spins: 163, net-jackpots: 2, source-label: イベント",
+        "2026-11-08 マレハン東京皇国第8支店 | 流星の剣  ; play-id: x, game-kind: pachinko, imported-from: pachifolio, source-parlor: マレハン東京皇国第8支店, source-machine: 流星の剣, net-regular-spins: 163, net-jackpots: 2, source-label: イベント",
         "    費用:遊技                           8000 JPY",
         "    収益:遊技                           -7500 JPY",
         "    資産:現金                           -500 JPY",

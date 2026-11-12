@@ -9,7 +9,7 @@ const AS_ADMIN = { Authorization: `Bearer ${TOKEN}` }
 
 const manual = (): PachinkoContract.NewFormulaDto => ({ kind: "manual", figures: { roundChanceOneIn: 319.7, payoutPerRound: 140 }, bonuses: [{ name: "10R", payout: 1500, spent: 100 }] })
 
-const GENKI = { gameKind: "pachinko", name: "e星都幻鬼", modelName: "e星都幻鬼W", keywords: ["ゲンキ", "せいとげんき"], hitChance: "1/399.9", releasedOn: "2025-02-03", formula: manual() }
+const GENKI = { gameKind: "pachinko", name: "e星都幻鬼", modelName: "e星都幻鬼W", keywords: ["ゲンキ", "せいとげんき"], releasedOn: "2025-02-03", formula: manual() }
 
 const register = (client: Api, body: object) => client.call("POST", "/machines", { as: ALICE, body })
 
@@ -17,12 +17,12 @@ const found = async (client: Api, query: string): Promise<readonly string[]> =>
   (await client.call("GET", `/machines?q=${encodeURIComponent(query)}`)).body.map((machine: { name: string }) => machine.name)
 
 describe("how a machine is described", () => {
-  test("it is kept with its model name, the words it is searched by and its hit chance", async () => {
+  test("it is kept with its model name and the words it is searched by", async () => {
     const client = await api()
     const made = await register(client, GENKI)
     expect(made.status).toBe(201)
     const machine = (await client.call("GET", `/machines/${made.body.machineId}`)).body.machine
-    expect(machine).toEqual({ id: made.body.machineId, gameKind: "pachinko", name: "e星都幻鬼", modelName: "e星都幻鬼W", keywords: ["ゲンキ", "せいとげんき"], hitChance: "1/399.9", releasedOn: "2025-02-03", formulaCount: 1 })
+    expect(machine).toEqual({ id: made.body.machineId, gameKind: "pachinko", name: "e星都幻鬼", modelName: "e星都幻鬼W", keywords: ["ゲンキ", "せいとげんき"], releasedOn: "2025-02-03", formulaCount: 1 })
     expect((await client.call("GET", "/catalog")).body.machines[0].machine).toEqual(machine)
   })
 
@@ -38,14 +38,13 @@ describe("how a machine is described", () => {
     expect((await register(client, { ...GENKI, keywords: ["設定付き"] })).status).toBe(201)
   })
 
-  test("is registered with its model name, and a pachinko machine with its 大当り確率; the rest may be left out", async () => {
+  test("is registered with its model name; the rest may be left out", async () => {
     const client = await api()
     const bare = { gameKind: "pachinko", name: "名前だけ", releasedOn: "2025-02-03", formula: manual() }
-    expect((await register(client, { ...bare, modelName: " ", hitChance: "1/319.7" })).body.error).toEqual({ type: "invalid-body", field: "modelName", reason: "missing" })
-    expect((await register(client, { ...bare, modelName: "型式A", hitChance: "" })).body.error).toEqual({ type: "invalid-body", field: "hitChance", reason: "missing" })
+    expect((await register(client, { ...bare, modelName: " " })).body.error).toEqual({ type: "invalid-body", field: "modelName", reason: "missing" })
     expect((await register(client, { ...bare, gameKind: "pachislot" })).body.error).toEqual({ type: "invalid-body", field: "modelName", reason: "missing" })
-    const made = await register(client, { ...bare, modelName: "型式A", hitChance: "1/319.7" })
-    expect((await client.call("GET", `/machines/${made.body.machineId}`)).body.machine).toEqual({ id: made.body.machineId, gameKind: "pachinko", name: "名前だけ", modelName: "型式A", keywords: [], hitChance: "1/319.7", releasedOn: "2025-02-03", formulaCount: 1 })
+    const made = await register(client, { ...bare, modelName: "型式A" })
+    expect((await client.call("GET", `/machines/${made.body.machineId}`)).body.machine).toEqual({ id: made.body.machineId, gameKind: "pachinko", name: "名前だけ", modelName: "型式A", keywords: [], releasedOn: "2025-02-03", formulaCount: 1 })
   })
 
   test("it is found by a word it is searched by, or by its model name, width and case aside", async () => {
@@ -65,26 +64,20 @@ describe("how a machine is described", () => {
     expect((await client.call("GET", `/machines/${made.body.machineId}`)).body.machine.keywords).toEqual(["TG", "ゲンキ"])
   })
 
-  test("what is not a list of short decent words, or a hit chance, is refused", async () => {
+  test("what is not a list of short decent words is refused", async () => {
     const client = await api()
     const refusal = async (patch: object) => (await register(client, { ...GENKI, ...patch })).body.error
     expect(await refusal({ keywords: "ゲンキ" })).toEqual({ type: "invalid-body", field: "keywords", reason: "not-a-list" })
     expect(await refusal({ keywords: [1] })).toEqual({ type: "invalid-body", field: "keywords", reason: "not-text" })
     expect(await refusal({ keywords: ["あ".repeat(31)] })).toEqual({ type: "invalid-body", field: "keywords", reason: "too-long" })
     expect(await refusal({ keywords: Array.from({ length: 11 }, (_, index) => `語${index}`) })).toEqual({ type: "invalid-body", field: "keywords", reason: "too-many" })
-    for (const hitChance of ["319.7", "1/0", "2/319", "1/abc", "約1/319"]) expect(await refusal({ hitChance })).toEqual({ type: "invalid-body", field: "hitChance", reason: "not-a-chance" })
     expect((await client.call("GET", "/catalog")).body.machines).toEqual([])
   })
 
-  test("a hit chance is written as a spec sheet writes it, whatever its width", async () => {
+  test("is never registered with a hit chance, whatever its game: that is the administrator's to give", async () => {
     const client = await api()
-    const made = await register(client, { ...GENKI, hitChance: "１／３１９．７" })
-    expect((await client.call("GET", `/machines/${made.body.machineId}`)).body.machine.hitChance).toBe("1/319.7")
-  })
-
-  test("a pachislot machine has no hit chance", async () => {
-    const client = await api()
-    expect((await register(client, { ...GENKI, gameKind: "pachislot" })).body.error).toEqual({ type: "invalid-body", field: "hitChance", reason: "unknown-value" })
+    for (const gameKind of ["pachinko", "pachislot"]) expect((await register(client, { ...GENKI, gameKind, hitChance: "1/399.9" })).body.error).toEqual({ type: "invalid-body", field: "hitChance", reason: "unknown-value" })
+    expect((await client.call("GET", "/catalog")).body.machines).toEqual([])
   })
 })
 
@@ -100,6 +93,15 @@ describe("an administrator setting right how a machine is described", () => {
     expect((await client.call("GET", `/machines/${made.body.machineId}`)).body.machine).toEqual({ id: made.body.machineId, gameKind: "pachinko", ...described, releasedOn: "2025-02-03", formulaCount: 1 })
     expect(await found(client, "せいとげんき")).toEqual([])
     expect(await found(client, "幻鬼w1")).toEqual(["e星都幻鬼W"])
+  })
+
+  test("writes a hit chance as a spec sheet writes it, whatever its width, and refuses what is not one", async () => {
+    const client = await api({ adminToken: TOKEN })
+    const made = await register(client, GENKI)
+    const describe = (hitChance: string) => client.call("PUT", `/admin/machines/${made.body.machineId}/description`, { headers: AS_ADMIN, body: { ...described, hitChance } })
+    for (const hitChance of ["319.7", "1/0", "2/319", "1/abc", "約1/319"]) expect((await describe(hitChance)).body.error).toEqual({ type: "invalid-body", field: "hitChance", reason: "not-a-chance" })
+    expect((await describe("１／３１９．７")).status).toBe(204)
+    expect((await client.call("GET", `/machines/${made.body.machineId}`)).body.machine.hitChance).toBe("1/319.7")
   })
 
   test("takes away what is left out, and leaves the formulas as they are", async () => {
