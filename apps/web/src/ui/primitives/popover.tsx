@@ -15,10 +15,10 @@ import { createBubble } from "./one-bubble"
  * nerdpro's where it sits among figures a person reads against each other;
  * any other question mark keeps the quiet colour of a control. Every bubble
  * here keeps to the one open on screen (`createBubble`): opening one closes
- * any other.
+ * any other but one it was opened from inside.
  */
 export function HelpPopover(props: { readonly label: string; readonly title: string; readonly ink?: "semipro" | "nerdpro"; readonly children: JSX.Element }): JSX.Element {
-  const [open, setOpen] = createBubble()
+  const [open, setOpen, Inside] = createBubble()
   return (
     <PopoverPrimitive.Root gutter={8} open={open()} onOpenChange={setOpen}>
       <PopoverPrimitive.Trigger
@@ -37,7 +37,7 @@ export function HelpPopover(props: { readonly label: string; readonly title: str
               <CloseIcon label="閉じる" />
             </PopoverPrimitive.CloseButton>
           </div>
-          {props.children}
+          <Inside>{props.children}</Inside>
         </PopoverPrimitive.Content>
       </PopoverPrimitive.Portal>
     </PopoverPrimitive.Root>
@@ -133,13 +133,14 @@ export function CautionNote(props: { readonly children: string; readonly hint: s
  * A small i beside a name that says, pressed, what the thing named means
  * or what to put in it: a speech bubble grows out above it, closed by its
  * cross, by a tap on the bubble or anywhere outside it. What is said is
- * kept off the screen until it is asked for, and neither the i nor the
+ * kept off the screen until it is asked for, a line break in it kept where
+ * it parts the words, and neither the i nor the
  * bubble takes the focus from a field being typed in. The i is drawn in the
  * semipro ink where asked, for how a figure was come to, and in the muted
  * text's otherwise.
  */
 export function InfoNote(props: { readonly label: string; readonly ink?: "semipro"; readonly children: JSX.Element }): JSX.Element {
-  const [open, setOpen] = createBubble()
+  const [open, setOpen, Inside] = createBubble()
   return (
     <PopoverPrimitive.Root gutter={6} placement="top-start" open={open()} onOpenChange={setOpen}>
       <PopoverPrimitive.Trigger
@@ -159,7 +160,9 @@ export function InfoNote(props: { readonly label: string; readonly ink?: "semipr
           onCloseAutoFocus={(event) => event.preventDefault()}
           class="z-50 flex max-w-[min(20rem,calc(100vw-2rem))] origin-[var(--kb-popover-content-transform-origin)] animate-[unfurl_240ms_ease-out] items-start gap-2 rounded-md border border-border bg-surface-1 py-2 pl-3 pr-2 text-sm text-text-primary shadow-lg outline-none"
         >
-          <PopoverPrimitive.Description as="div" class="flex flex-1 flex-col gap-2">{props.children}</PopoverPrimitive.Description>
+          <PopoverPrimitive.Description as="div" class="flex flex-1 flex-col gap-2 whitespace-pre-line">
+            <Inside>{props.children}</Inside>
+          </PopoverPrimitive.Description>
           <PopoverPrimitive.CloseButton aria-label="閉じる" tabIndex={-1} class="-mr-1 -mt-1 flex size-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-3 hover:text-text-primary [&_svg]:size-4">
             <CloseIcon label="閉じる" />
           </PopoverPrimitive.CloseButton>

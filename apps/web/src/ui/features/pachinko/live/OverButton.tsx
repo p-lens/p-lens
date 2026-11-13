@@ -2,6 +2,7 @@ import type { JSX } from "solid-js"
 
 import { DetailButton } from "../../../primitives/detail-button"
 import { TextField } from "../../../primitives/text-field"
+import { OVER_NOTE } from "../../../wording/pachinko/play"
 
 /**
  * What a bonus paid beyond what its machine lists (過出玉), behind a small
@@ -11,7 +12,8 @@ import { TextField } from "../../../primitives/text-field"
  * in by the person's usual over-entry at the cabinet where they said one,
  * to be set right where this bonus paid otherwise. Typed on the number
  * keypad, which has no sign: balls lost to a slack attacker are said in
- * 電サポ増減, and below nought is left to a keyboard that has a minus. In
+ * 電サポ増減, and below nought is left to a keyboard that has a minus. Its
+ * i says how it is counted, as 電サポ増減's does. In
  * the nerdpro colour: setting what a machine pays by one's own hand is
  * the hardest of play.
  */
@@ -29,7 +31,7 @@ export function OverButton(props: { readonly over: string; readonly invalid: boo
       {...(props.onFocus === undefined ? {} : { onOpen: props.onFocus })}
     >
       <div class="w-44">
-        <TextField label="過出玉" value={props.over} onChange={props.onOver} inputMode="numeric" placeholder="0" suffix="玉" invalid={props.invalid} {...(props.onFocus === undefined ? {} : { onFocus: props.onFocus })} compact />
+        <TextField label="過出玉" value={props.over} onChange={props.onOver} inputMode="numeric" placeholder="0" suffix="玉" invalid={props.invalid} note={OVER_NOTE} {...(props.onFocus === undefined ? {} : { onFocus: props.onFocus })} compact />
       </div>
     </DetailButton>
   )

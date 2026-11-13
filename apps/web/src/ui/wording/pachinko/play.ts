@@ -147,5 +147,8 @@ export const THROUGH_RATE_NOTE = "初当り行と2区間通算"
 /** What a reading's 電サポ増減 says behind its i: a breakdown of the hand, never added to it, kept out of the spin rate and put in the border in place of the formula's. */
 export const DRIFT_NOTE = "持ち玉の内訳として記入します。持ち玉欄の数は変わらないので、持ち玉は台の表示を見たまま入れてください。回転率からは除き、ボーダーは機種の電サポ中の出玉増減の代わりにこの数で計算します。"
 
+/** What a bonus's 過出玉 says behind its i: the balls beyond the listed payout, so one over-entry on a 15-ball pocket is 14. Broken into lines where the words part. */
+export const OVER_NOTE = "賞球15個のオーバー入賞が\n一つ決まれば14のように、\n-1した個数を入力します。"
+
 /** What a reading's 玉の受渡し says behind its i: balls shared with other players, a breakdown of the hand, carried into the hand from the next line on, reaching no figure. */
 export const HANDED_NOTE = "主に超ノリ打ち時の出玉共有で記入します。持ち玉を入力後、内訳として入力ください。次の行から受渡し後の持ち玉になります。以後は台間サンドの持玉数をそのまま入れてください。回転率・ボーダーなど、どの計算にも影響しません。"

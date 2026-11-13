@@ -17,7 +17,8 @@ import { createBubble } from "./one-bubble"
  * cover it, where a field the person presses is brought into view by the
  * browser itself. What it holds may close it too, where pressing something
  * in it finishes what it is for: it is then given as a function of the
- * closing. Only one bubble is open on screen at a time (`createBubble`).
+ * closing. Only one bubble is open on screen at a time, but for one opened
+ * from inside it, as an i beside a field it holds (`createBubble`).
  */
 export function DetailButton(props: {
   /** The name over the button, as a field's is over it. Left out, the button's face is its name, and the room over it is kept so that it stands level with the fields beside it. */
@@ -41,7 +42,7 @@ export function DetailButton(props: {
   readonly onOpen?: () => void
   readonly children: JSX.Element | ((close: () => void) => JSX.Element)
 }): JSX.Element {
-  const [open, setOpen] = createBubble()
+  const [open, setOpen, Inside] = createBubble()
   const doneOnEnter = (event: KeyboardEvent): void => {
     if (event.key !== "Enter" || event.isComposing) return
     event.preventDefault()
@@ -74,7 +75,7 @@ export function DetailButton(props: {
       </div>
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Content onOpenAutoFocus={(event) => event.preventDefault()} onKeyDown={doneOnEnter} class="z-50 flex max-h-[var(--kb-popper-content-available-height)] items-end gap-1 overflow-y-auto rounded-md border border-border bg-surface-1 p-2 shadow-lg outline-none" classList={{ "w-44": props.fitted !== true, "w-max max-w-[calc(100vw-1rem)]": props.fitted === true }}>
-          {((held) => (typeof held === "function" ? held(() => setOpen(false)) : held))(props.children)}
+          <Inside>{((held) => (typeof held === "function" ? held(() => setOpen(false)) : held))(props.children)}</Inside>
         </PopoverPrimitive.Content>
       </PopoverPrimitive.Portal>
     </PopoverPrimitive.Root>

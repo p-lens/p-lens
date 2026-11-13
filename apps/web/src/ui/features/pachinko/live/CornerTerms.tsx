@@ -44,7 +44,8 @@ const choosesAt = (choice: ParlorChoice, at: ParlorIdentity): boolean => {
  * Where a play is, set out to be said anew as a play's start says it: its
  * parlor chosen from the list, nearest first where the device says where it
  * is, and its corner's terms under it, a listed parlor chosen putting in
- * what players reported of its corners. It works on the day's parlor
+ * what players reported of its corners. The play is under way, so
+ * neither the parlor's position nor its rates are asked for here. It works on the day's parlor
  * setting itself, which the card was opened on with the play's own, so that
  * what is applied is the day's for the next play too; put away under its
  * cross, the setting goes back to `before`. A parlor the list cannot be
@@ -104,6 +105,7 @@ function VenueChange(props: { readonly draft: PlayDraft; readonly before: Parlor
             here={here()}
             choice={start.form().parlor}
             surveyUrl={app.services.surveyUrl}
+            asksPosition={false}
             typedOnly={typedOnly()}
             onTyped={setParlorTyped}
             onChoose={start.chooseParlor}

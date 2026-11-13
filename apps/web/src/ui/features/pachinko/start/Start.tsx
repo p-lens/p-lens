@@ -284,8 +284,10 @@ export type Located = Result<Coordinates, LocateError>
  * Not listed, it is
  * submitted at survey.p-lens.jp with the plus — which never takes the
  * focus — and comes back waiting. The list's parlors not yet placed on the
- * map are offered too, marked, and come first among what a search finds; one chosen, a request to report where it is
- * comes slowly into view under the field, leading to the survey. A name
+ * map are offered too, marked, and come first among what a search finds; one chosen where a play
+ * is about to start (`asksPosition`), a request to report where it is
+ * comes slowly into view under the field, leading to the survey: once a
+ * play is under way, nobody stops to report it. A name
  * typed that chose no parlor stays as typed, in red, with why no play is
  * started on it. Left empty, the play has no parlor and is
  * recorded by its totals in yen.
@@ -296,6 +298,8 @@ export function ParlorField(props: {
   readonly here: Located | undefined
   readonly choice: ParlorChoice
   readonly surveyUrl: string | undefined
+  /** Whether a parlor chosen that the list has not placed asks to be placed. */
+  readonly asksPosition: boolean
   /** The field holds a name that was typed and chose no parlor. */
   readonly typedOnly: boolean
   readonly onChoose: (choice: ParlorChoice) => void
@@ -343,7 +347,7 @@ export function ParlorField(props: {
     (): { readonly parlor: SharedParlor; readonly survey: string } | undefined => {
       const choice = props.choice
       const parlor = choice.type === "listed" ? listedById().get(choice.id) : undefined
-      return parlor === undefined || parlor.location !== undefined || props.surveyUrl === undefined ? undefined : { parlor, survey: props.surveyUrl }
+      return !props.asksPosition || parlor === undefined || parlor.location !== undefined || props.surveyUrl === undefined ? undefined : { parlor, survey: props.surveyUrl }
     },
     undefined,
     { equals: (was, now) => was?.parlor === now?.parlor && was?.survey === now?.survey },
@@ -561,6 +565,7 @@ export function Start(props: {
           here={here()}
           choice={start.form().parlor}
           surveyUrl={app.services.surveyUrl}
+          asksPosition
         typedOnly={holdsTypedOnly(parlorTyped(), chosenParlorText(chosenParlor()?.name))}
         onTyped={setParlorTyped}
           onChoose={start.chooseParlor}
