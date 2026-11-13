@@ -8,7 +8,8 @@ import { spinRangeLines } from "../../../wording/pachinko/spin-spread"
 
 /**
  * The small i by a live play's spin performance: where the cabinet's own
- * likely is, from the balls measured so far (`measuredSpinRangeOf`), narrowing as
+ * likely is and how sure that is, from the balls measured so far
+ * (`measuredSpinRangeOf`), the chance rising and the range narrowing as
  * more are played. Dashes until a stretch is measured. Shown while mumming as the spin
  * performance is: it is the figure a stream is about.
  */

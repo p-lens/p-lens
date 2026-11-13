@@ -1,39 +1,58 @@
 import { describe, expect, test } from "bun:test"
 
-import { measuredSpinRangeOf, spinDeviationOf, spinRangeOf, spreadAfterYen } from "../../../../src/core/pachinko/spin-spread/spin-spread"
-import { spinRangeLines, spreadText } from "../../../../src/ui/wording/pachinko/spin-spread"
+import { coveragePercentOf, deviationsAfter, measuredSpinRangeOf, spinRangeOf } from "../../../../src/core/pachinko/spin-spread/spin-spread"
+import { coverageText, spinRangeLines, spinRangeText } from "../../../../src/ui/wording/pachinko/spin-spread"
 
 const FOUR_YEN = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 100, tokens: 28 }, replay: { paidOut: 125, deducted: 125 } }
 
-describe("how far a measured spin performance may stand from the cabinet's own", () => {
-  test("is a binomial's standard deviation, in spins for the balls ¥1,000 rents", () => {
-    expect(spinDeviationOf(18, 250, 2500)).toBeCloseTo(Math.sqrt((18 * 232) / 2500), 10)
-    expect(spinDeviationOf(18, 250, 0)).toBeUndefined()
-    expect(spinDeviationOf(300, 250, 2500)).toBeUndefined()
+/** A 4円 range after so many yen at a spin performance of 18.4. */
+const after = (yen: number) => ((balls) => spinRangeOf((18.4 * balls) / 250, balls, 250))((yen * 250) / 1000)
+
+const width = (yen: number): number => ((range) => (range === undefined ? Number.NaN : range.high - range.low))(after(yen))
+
+describe("how sure a range by a measured spin performance is", () => {
+  test("is a normal distribution's chance within so many deviations", () => {
+    expect(coveragePercentOf(1)).toBe(68)
+    expect(coveragePercentOf(1.6449)).toBe(90)
+    expect(coveragePercentOf(1.96)).toBe(95)
   })
 
-  test("halves as four times the balls are played", () => {
-    const at = (balls: number): number => spinDeviationOf(18, 250, balls) ?? Number.NaN
-    expect(at(10_000) / at(2500)).toBeCloseTo(0.5, 10)
+  test("grows as the fourth root of the yen played, to 90% at ¥10,000, and stays there", () => {
+    expect(deviationsAfter(10_000)).toBeCloseTo(1.6449, 10)
+    expect(deviationsAfter(2500) / deviationsAfter(625)).toBeCloseTo(Math.SQRT2, 10)
+    expect(deviationsAfter(30_000)).toBe(deviationsAfter(10_000))
+    expect(deviationsAfter(0)).toBe(0)
+  })
+})
+
+describe("the range a cabinet's own spin performance is likely in", () => {
+  test("is surer and narrower at once the more is played, never the one at the other's cost", () => {
+    const yen = [250, 500, 1000, 2000, 5000, 9999, 10_000, 20_000, 30_000]
+    const coverages = yen.map((each) => after(each)?.coveragePercent ?? Number.NaN)
+    const widths = yen.map(width)
+    coverages.slice(1).forEach((coverage, at) => expect(coverage).toBeGreaterThanOrEqual(coverages[at] ?? Number.NaN))
+    widths.slice(1).forEach((each, at) => expect(each).toBeLessThan(widths[at] ?? Number.NaN))
   })
 
-  test("reaches nine chances in ten either side, never below nought", () => {
-    const range = spinRangeOf(18.4, 250, 2500)
-    expect(range?.low).toBeCloseTo(16.25, 2)
-    expect(range?.high).toBeCloseTo(20.55, 2)
-    expect(spinRangeOf(1, 250, 10)?.low).toBe(0)
+  test("is the Wilson score interval, as the app's notes tabulate it at a 4円 corner", () => {
+    expect([coverageText(after(1000)), spinRangeText(after(1000))]).toEqual(["65%", "14.9〜22.6"])
+    expect([coverageText(after(10_000)), spinRangeText(after(10_000))]).toEqual(["90%", "16.4〜20.7"])
+    expect([coverageText(after(20_000)), spinRangeText(after(20_000))]).toEqual(["90%", "16.9〜20.0"])
   })
 
-  test("after so many yen at a 4円 corner, as the app's notes tabulate it", () => {
-    expect(spreadText(spreadAfterYen(18, 250, 10_000))).toBe("±2.1")
-    expect(spreadText(spreadAfterYen(18, 250, 20_000))).toBe("±1.5")
-    expect(spreadText(spreadAfterYen(18, 250, 1000))).toBe("±6.7")
+  test("never closes up over a handful of balls none of which entered", () => {
+    const range = spinRangeOf(0, 100, 250)
+    expect(range?.low).toBe(0)
+    expect(range?.high).toBeGreaterThan(1)
+  })
+
+  test("is none where no ball was played or the spins cannot be so many", () => {
+    expect(spinRangeOf(0, 0, 250)).toBeUndefined()
+    expect(spinRangeOf(120, 100, 250)).toBeUndefined()
   })
 
   test("is said of a live play from what it has measured, and dashed until a ball is", () => {
-    const range = measuredSpinRangeOf({ spins: 184, balls: 2500, rentedBalls: 2500, replayedBalls: 0 }, FOUR_YEN)
-    expect(spinRangeLines(range)).toEqual(["回転率は90%の確率で", "16.3〜20.5の範囲内"])
-    expect(spinRangeLines(measuredSpinRangeOf(undefined, FOUR_YEN))).toEqual(["回転率は90%の確率で", "--〜--の範囲内"])
-    expect(measuredSpinRangeOf({ spins: 0, balls: 0, rentedBalls: 0, replayedBalls: 0 }, FOUR_YEN)).toBeUndefined()
+    expect(spinRangeLines(measuredSpinRangeOf({ spins: 46, balls: 625, rentedBalls: 625, replayedBalls: 0 }, FOUR_YEN))[0]).toBe("回転率は76%の確率で")
+    expect(spinRangeLines(measuredSpinRangeOf(undefined, FOUR_YEN))).toEqual(["回転率は--%の確率で", "--〜--の範囲内"])
   })
 })
