@@ -238,11 +238,11 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
   )
   /** Where the savings are, with the opening balance form still open over them where it is. */
   const here = (): Place => (props.opening ? openingPlace() : props.place)
-  /** A day chosen to value the savings on, and the field emptied to value them as they stand now. */
+  /** A day chosen to value the savings on, and the field emptied to value them as they stand now: in place, so that back leaves the savings rather than going through every day tried. */
   const chooseDay = (text: string): void => {
-    if (text.trim() === "") return void moves.go(here())
+    if (text.trim() === "") return void moves.refine(here(), "")
     const day = parseIsoDate(text)
-    if (day.ok) moves.go(here(), untilTerm(day.value))
+    if (day.ok) moves.refine(here(), untilTerm(day.value))
   }
 
   return (

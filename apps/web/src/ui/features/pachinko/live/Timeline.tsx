@@ -170,7 +170,7 @@ export const samePressed = (left: Revised | undefined, right: Revised | undefine
 
 const pressLabel = (pressed: Revised): string => (pressed.type === "seat" ? "開始時データを修正" : `${pressed.index + 1}件目の記録を修正`)
 
-/** One line of the log, tinted by what it is — a jackpot blue, 時短 and the turn to it yellow-green, 確変 purple. A reading, or the seat as it was found, is pressed to set it right; a jackpot found missing is only shown. A reading in the run being made one is marked. */
+/** One line of the log, tinted by what it is — a jackpot blue, but a first one, from the regular game, which may be made one with the readings before it and wears nothing, 時短 and the turn to it yellow-green, 確変 purple. A reading, or the seat as it was found, is pressed to set it right; a jackpot found missing is only shown. A reading in the run being made one is marked. */
 function Row(props: { readonly step: Step; readonly rate: StretchRate | undefined; readonly pressed: Revised | undefined; readonly revising: boolean; readonly merging: boolean; readonly onRevise: (pressed: Revised) => void }): JSX.Element {
   const jackpot = (): boolean => props.step.checkpoint.event?.kind === "jackpot"
   /** Whether the row is neither being set right nor in a run being made one: only then does it wear what it is. */
@@ -193,7 +193,7 @@ function Row(props: { readonly step: Step; readonly rate: StretchRate | undefine
             onClick={() => props.onRevise(found)}
             class={`${ROW} hover:bg-surface-3/40 focus-visible:outline-2 focus-visible:outline-focus-ring`}
             classList={{
-              "bg-accent/10": jackpot() && resting(),
+              "bg-accent/10": jackpot() && (props.step.checkpoint.phase ?? "regular") !== "regular" && resting(),
               "bg-rapid/15": !jackpot() && (props.step.checkpoint.phase === "rapid" || isRapidBegan(props.step.checkpoint)) && resting(),
               "bg-special/15": !jackpot() && props.step.checkpoint.phase === "special" && !isRapidBegan(props.step.checkpoint) && resting(),
               "bg-warning/15": props.revising && !props.merging,

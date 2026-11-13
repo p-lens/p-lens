@@ -73,11 +73,11 @@ export function ConsolidatedHoldingsView(props: { readonly place: Place; readonl
   )
   const read = createMemo(() => ((found) => (found?.ok === true ? readOf(found.value) : []))(holdings()))
   const parlors = createMemo(() => parlorsAcross(read()))
-  /** A day chosen to value the savings on, and the field emptied to value them as they stand now. */
+  /** A day chosen to value the savings on, and the field emptied to value them as they stand now: in place, so that back leaves the savings rather than going through every day tried. */
   const chooseDay = (text: string): void => {
-    if (text.trim() === "") return void moves.go(props.place)
+    if (text.trim() === "") return void moves.refine(props.place, "")
     const day = parseIsoDate(text)
-    if (day.ok) moves.go(props.place, untilTerm(day.value))
+    if (day.ok) moves.refine(props.place, untilTerm(day.value))
   }
   return (
     <MainContent header={<ViewHeader place={props.place} title="貯玉・貯メダル" />}>

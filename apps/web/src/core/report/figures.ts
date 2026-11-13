@@ -2,7 +2,7 @@ import type { BalanceReport, MixedAmount, Quantity, ReportRow } from "../../hled
 import { parseIsoDate, previousDay, type IsoDate } from "../calendar/calendar"
 import { SECONDS, YEN } from "../commodity/commodity"
 import { decimal, isZero, multiply, negate, quotient, sum, type Decimal } from "../decimal/decimal"
-import { isWrittenReversed } from "../journal/accounts"
+import { ACCOUNTS, isWrittenReversed, rentalSpreadAccount } from "../journal/accounts"
 import { Err, Ok, andThen, collect, mapOk, type Result } from "../result/result"
 
 /**
@@ -65,6 +65,20 @@ const yenAcross = (rows: readonly ReportRow[]): Result<Decimal, ReportError> => 
 export const sidesOf = (statement: BalanceReport): Result<Sides, ReportError> =>
   andThen(yenAcross(statement.prRows.filter((row) => !isRevenue(row))), (spent) =>
     mapOk(yenAcross(statement.prRows.filter(isRevenue)), (credited) => ({ spent, won: negate(credited) })),
+  )
+
+/** What went into tallies beside the tokens played, in yen as an income statement valued it: the rental spread, and the replay fee at the rate of its day. */
+export interface Outlay {
+  readonly rentalSpread: Decimal
+  readonly replayFee: Decimal
+}
+
+const yenInRows = (statement: BalanceReport, accounts: readonly string[]): Result<Decimal, ReportError> => yenAcross(statement.prRows.filter((row) => typeof row.prrName === "string" && accounts.includes(row.prrName)))
+
+/** An income statement's rental spread, of balls and medals alike, and its replay fee; nought where nothing was posted to either. */
+export const outlayOf = (statement: BalanceReport): Result<Outlay, ReportError> =>
+  andThen(yenInRows(statement, [rentalSpreadAccount("ball"), rentalSpreadAccount("medal")]), (rentalSpread) =>
+    mapOk(yenInRows(statement, [ACCOUNTS.replayFee]), (replayFee) => ({ rentalSpread, replayFee })),
   )
 
 const SECONDS_IN_AN_HOUR = decimal(3600n, 0)

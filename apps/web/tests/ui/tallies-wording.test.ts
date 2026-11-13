@@ -6,7 +6,8 @@ import type { PlayId } from "../../src/core/play/play"
 import type { TallySummary } from "../../src/core/report/tallies"
 import { groupName, playTimeText } from "../../src/ui/wording/breakdown"
 import { decimal } from "../../src/core/decimal/decimal"
-import { shownDescription, tallyTitle } from "../../src/ui/wording/tallies"
+import { actualCaptions, shownDescription, spentCaptions, tallyTitle, wonCaptions } from "../../src/ui/wording/tallies"
+import type { PlayTerms } from "../../src/core/parlor/terms"
 
 const PLAY: TallySummary = { id: "one" as PlayId, date: "2026-10-21" as IsoDate, description: "マレハン東京皇国第8支店", parlorId: undefined, gameKind: "pachinko", machine: undefined, cabinetNumber: undefined, importedFrom: undefined, theoreticalValue: undefined , inferredValue: undefined}
 
@@ -71,5 +72,29 @@ describe("a play time on screen", () => {
     expect(playTimeText(decimal(18_180n, 0))).toBe("5時間3分")
     expect(playTimeText(decimal(3_600n, 0))).toBe("1時間0分")
     expect(playTimeText(decimal(180n, 0))).toBe("3分")
+  })
+})
+
+const TERMS: PlayTerms = { rental: { yen: 1000, tokens: 250 }, exchange: { tokens: 28, yen: 100 }, replay: { paidOut: 125, deducted: 125 } }
+const NONE = { rentalSpread: decimal(0n, 0), replayFee: decimal(0n, 0) }
+
+describe("what is said under a tally's figures", () => {
+  test("names the exchange rate its play was valued at, as the book keeps it, or its day's where its terms are unknown", () => {
+    expect(actualCaptions(TERMS)).toEqual(["交換率3.571429で評価"])
+    expect(actualCaptions(undefined)).toEqual(["稼働日の交換率で評価"])
+    expect(wonCaptions("pachinko", "tokens", TERMS)).toEqual(["玉数×交換率3.571429で計算"])
+    expect(wonCaptions("pachislot", "tokens", undefined)).toEqual(["メダル数×稼働日の交換率で計算"])
+    expect(wonCaptions("pachinko", "yen", TERMS)).toEqual([])
+  })
+
+  test("says the rental spread and the replay fee 投資 holds, each where it is any", () => {
+    expect(spentCaptions("pachinko", { ...NONE, rentalSpread: decimal(1290n, 0) }, true)).toEqual(["貸玉差額¥1,290を含む"])
+    expect(spentCaptions("pachinko", { rentalSpread: decimal(1290n, 0), replayFee: decimal(3570n, 2) }, true)).toEqual(["貸玉差額¥1,290と再プレイ手数料¥36を含む"])
+    expect(spentCaptions("pachislot", NONE, true)).toEqual(["貸メダル差額なし"])
+  })
+
+  test("says a play paid for out of savings alone was so, with the replay fee it cost where any", () => {
+    expect(spentCaptions("pachinko", NONE, false)).toEqual(["貯玉投資のみ"])
+    expect(spentCaptions("pachislot", { ...NONE, replayFee: decimal(200n, 0) }, false)).toEqual(["貯メダル投資のみ", "再プレイ手数料¥200を含む"])
   })
 })

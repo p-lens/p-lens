@@ -7,8 +7,8 @@ import type { PlayTerms } from "../core/parlor/terms"
 import { parsePlayLog, playLogPath, type Checkpoint, type PlayLogError } from "../core/play-log/checkpoint"
 import { termsInHead } from "../core/play-log/head"
 import { inPlayOrder } from "../core/play-log/performance"
-import { actualOf, sidesOf, statisticTotalOf, type Sides } from "../core/report/figures"
-import { listedTalliesOf, tallySummariesOf, tallySummaryOf, wonInOf, type ListedTally, type TallySummary, type WonIn } from "../core/report/tallies"
+import { actualOf, outlayOf, sidesOf, statisticTotalOf, type Outlay, type Sides } from "../core/report/figures"
+import { listedTalliesOf, paidInCashOf, tallySummariesOf, tallySummaryOf, wonInOf, type ListedTally, type TallySummary, type WonIn } from "../core/report/tallies"
 import { tallyFiguresOf, type TallyFigures } from "../core/report/tally-figures"
 import { tallyNotesOf } from "../core/report/tally-notes"
 import { Err, Ok, andThen, mapOk } from "../core/result/result"
@@ -53,6 +53,10 @@ export interface TallyDetail {
   readonly transaction: Transaction
   /** What went into its play — tokens played and the rental spread and replay fee beside them — and what came out, in yen at the play's day. */
   readonly sides: Sides
+  /** What went into its play beside the tokens played: the rental spread and the replay fee, in yen at the play's day. */
+  readonly outlay: Outlay
+  /** Whether any of its play was paid for in cash, or all of it out of savings. */
+  readonly paidInCash: boolean
   /** What its play gave back was written in, which says how 回収 came to yen. */
   readonly wonIn: WonIn
   /** The seconds its play lasted, where its entry says. */
@@ -109,6 +113,7 @@ export const loadTally = (session: BookSession, bookId: BookId, id: PlayId): Pro
       andThen(fromHledger(statement), (report) =>
         andThen(fromReport(sidesOf(report)), (sides) =>
           andThen(fromReport(actualOf(report)), (actual) =>
+            andThen(fromReport(outlayOf(report)), (outlay) =>
             andThen(fromHledger(spentAndDrawn), (drawn) =>
             mapOk(andThen(fromHledger(theoretical), (report) => fromReport(statisticTotalOf(report))), (theoreticalValue) => ({
           summary,
@@ -117,12 +122,15 @@ export const loadTally = (session: BookSession, bookId: BookId, id: PlayId): Pro
           terms: termsOf(stored.files, summary),
               transaction,
               sides,
+              outlay,
+              paidInCash: paidInCashOf(transaction),
               wonIn: wonInOf(transaction),
               playSeconds: tallyNotesOf(transaction).playSeconds,
               actual,
               theoretical: theoreticalValue,
               figures: tallyFiguresOf(transaction, drawn, summary.theoreticalValue === undefined && summary.inferredValue === undefined ? undefined : theoreticalValue),
             })),
+            ),
             ),
           ),
         ),

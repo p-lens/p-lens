@@ -1,11 +1,12 @@
 import { shownNameOf, type MachineNames } from "../../core/catalog/catalog"
-import type { Decimal } from "../../core/decimal/decimal"
-import { yenAnHourOf } from "../../core/report/figures"
+import { isZero, toPlainString, type Decimal } from "../../core/decimal/decimal"
+import { exchangeRateOf, type PlayTerms } from "../../core/parlor/terms"
+import { yenAnHourOf, type Outlay } from "../../core/report/figures"
 import type { TallySummary, WonIn } from "../../core/report/tallies"
 import type { PlayGameKind } from "../../core/play/play"
 import { seal, veil } from "../../mummer"
 import { cabinetText } from "./cabinet"
-import { formatTheoreticalYen } from "./numbers"
+import { formatTheoreticalYen, formatYen } from "./numbers"
 import { parlorNameText } from "./parlor"
 
 /** What stands where a tally names no machine. */
@@ -17,9 +18,33 @@ export const NO_PARLOR = "店舗名なし"
 /** What is said under an exchange that cannot have been at the play's rate, a line to a sentence. */
 export const EXCHANGE_OFF_THE_RATE = ["入力したレートと合いません。", "稼働入力画面に戻ってレート変更可能です。", "このままでも記録はできます。"] as const
 
-/** How a tally's 回収 came to yen: the tokens it gave back at its day's exchange rate, or none to say where it was written in yen. */
-export const wonCaptions = (gameKind: PlayGameKind | undefined, wonIn: WonIn): readonly string[] =>
-  wonIn === "yen" ? [] : [`${gameKind === "pachislot" ? "メダル数" : "玉数"}×稼働日の交換率で計算`]
+/** The exchange rate a tally's play was valued at, as the book keeps it, where its log's head says its terms; its day's otherwise. */
+const exchangeRateText = (terms: PlayTerms | undefined): string => (terms === undefined ? "稼働日の交換率" : `交換率${toPlainString(exchangeRateOf(terms))}`)
+
+/** How a tally's 回収 came to yen: the tokens it gave back at its play's exchange rate, or none to say where it was written in yen. */
+export const wonCaptions = (gameKind: PlayGameKind | undefined, wonIn: WonIn, terms: PlayTerms | undefined): readonly string[] =>
+  wonIn === "yen" ? [] : [`${gameKind === "pachislot" ? "メダル数" : "玉数"}×${exchangeRateText(terms)}で計算`]
+
+/** What a tally's 実収支 was valued at: its play's exchange rate. */
+export const actualCaptions = (terms: PlayTerms | undefined): readonly string[] => [`${exchangeRateText(terms)}で評価`]
+
+/**
+ * What a tally's 投資 holds beside the tokens played: where none of it was
+ * cash, that it was savings alone, with the replay fee it cost where any;
+ * where some was, the rental spread and the replay fee it holds, each where
+ * it is any, or that it holds no spread — which is all that sets its yen
+ * apart from the tokens', savings drawn or not.
+ */
+export const spentCaptions = (gameKind: PlayGameKind | undefined, outlay: Outlay, paidInCash: boolean): readonly string[] => {
+  const tokens = gameKind === "pachislot" ? "メダル" : "玉"
+  const held = [
+    ...(isZero(outlay.rentalSpread) ? [] : [`貸${tokens}差額${formatYen(seal.tally(outlay.rentalSpread))}`]),
+    ...(isZero(outlay.replayFee) ? [] : [`再プレイ手数料${formatYen(seal.tally(outlay.replayFee))}`]),
+  ]
+  const holding = held.length === 0 ? [] : [`${held.join("と")}を含む`]
+  if (!paidInCash) return [`貯${tokens}投資のみ`, ...holding]
+  return holding.length === 0 ? [`貸${tokens}差額なし`] : holding
+}
 
 /** What a tally's theoretical value comes to for an hour of the time its play lasted; nothing where its length is not known or was none. */
 export const workCaptions = (seconds: Decimal | undefined, theoretical: Decimal): readonly string[] => {

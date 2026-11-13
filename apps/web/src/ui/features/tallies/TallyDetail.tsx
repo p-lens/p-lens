@@ -27,7 +27,7 @@ import { formatDay } from "../../wording/dates"
 import { describeError, describePlayLogError } from "../../wording/errors"
 import { formatCommodityAmount, formatTheoreticalYen } from "../../wording/numbers"
 import { parlorNameText, rateText } from "../../wording/parlor"
-import { NO_MACHINE, NO_PARLOR, shownDescription, tallyTitle, wonCaptions, workCaptions } from "../../wording/tallies"
+import { actualCaptions, NO_MACHINE, NO_PARLOR, shownDescription, spentCaptions, tallyTitle, wonCaptions, workCaptions } from "../../wording/tallies"
 import { Figure } from "./Figure"
 import { TallyFiguresCard } from "./TallyFiguresCard"
 import * as PachinkoViews from "../pachinko"
@@ -192,9 +192,9 @@ export function TallyDetail(props: { readonly place: Place; readonly bookId: Boo
               terms={found.terms}
             />
             <dl class="grid grid-cols-2 gap-2">
-              <Figure label="投資" value={found.sides.spent} kind="sum" captions={captionsFor(found.log, ["貸玉差額・再プレイ手数料を含む"])} />
-              <Figure label="回収" value={found.sides.won} kind="sum" captions={captionsFor(found.log, wonCaptions(found.summary.gameKind, found.wonIn))} />
-              <Figure label="実収支" value={found.actual} kind="actual" captions={captionsFor(found.log, ["稼働日の交換率で評価"])} />
+              <Figure label="投資" value={found.sides.spent} kind="sum" captions={captionsFor(found.log, spentCaptions(found.summary.gameKind, found.outlay, found.paidInCash))} />
+              <Figure label="回収" value={found.sides.won} kind="sum" captions={captionsFor(found.log, wonCaptions(found.summary.gameKind, found.wonIn, found.terms))} />
+              <Figure label="実収支" value={found.actual} kind="actual" captions={captionsFor(found.log, actualCaptions(found.terms))} />
               <Figure
                 label={found.summary.theoreticalValue === undefined && found.summary.inferredValue !== undefined ? "推定期待値" : "期待値"}
                 value={found.summary.theoreticalValue === undefined && found.summary.inferredValue === undefined ? undefined : found.theoretical}

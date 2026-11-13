@@ -81,6 +81,9 @@ export type WonIn = "tokens" | "yen"
 export const wonInOf = (transaction: Transaction): WonIn =>
   transaction.tpostings.some((posting) => (isWrittenReversed(posting.paccount) || posting.paccount === ACCOUNTS.playExpense) && posting.pamount.some((amount) => amount.acommodity !== YEN)) ? "tokens" : "yen"
 
+/** Whether a tally's play was paid for in cash, any of it, rather than out of savings alone. */
+export const paidInCashOf = (transaction: Transaction): boolean => transaction.tpostings.some((posting) => posting.paccount === ACCOUNTS.cash)
+
 /** A tally as a list shows it: what its entry says, and what it made where hledger could say — not where a token of it has no rate on its day. */
 export interface ListedTally extends TallySummary {
   readonly actual: Decimal | undefined

@@ -86,7 +86,7 @@ export function HintedIconButton(props: {
         >
           <PopoverPrimitive.Arrow class="text-surface-1" />
           <PopoverPrimitive.Description class="flex-1">{props.hint}</PopoverPrimitive.Description>
-          <PopoverPrimitive.CloseButton aria-label="閉じる" tabIndex={-1} class="flex size-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-3 hover:text-text-primary [&_svg]:size-4">
+          <PopoverPrimitive.CloseButton aria-label="閉じる" tabIndex={-1} class="-mr-1 -mt-1 flex size-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-3 hover:text-text-primary [&_svg]:size-4">
             <CloseIcon label="閉じる" />
           </PopoverPrimitive.CloseButton>
         </PopoverPrimitive.Content>
@@ -120,7 +120,7 @@ export function CautionNote(props: { readonly children: string; readonly hint: s
           class="z-50 flex max-w-[min(20rem,calc(100vw-2rem))] origin-[var(--kb-popover-content-transform-origin)] animate-[unfurl_240ms_ease-out] items-start gap-2 rounded-md border border-warning/50 bg-surface-1 py-2 pl-3 pr-2 text-sm text-text-primary shadow-lg outline-none"
         >
           <PopoverPrimitive.Description class="flex-1">{props.hint}</PopoverPrimitive.Description>
-          <PopoverPrimitive.CloseButton aria-label="閉じる" tabIndex={-1} class="flex size-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-3 hover:text-text-primary [&_svg]:size-4">
+          <PopoverPrimitive.CloseButton aria-label="閉じる" tabIndex={-1} class="-mr-1 -mt-1 flex size-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-3 hover:text-text-primary [&_svg]:size-4">
             <CloseIcon label="閉じる" />
           </PopoverPrimitive.CloseButton>
         </PopoverPrimitive.Content>
@@ -160,7 +160,7 @@ export function InfoNote(props: { readonly label: string; readonly ink?: "semipr
           class="z-50 flex max-w-[min(20rem,calc(100vw-2rem))] origin-[var(--kb-popover-content-transform-origin)] animate-[unfurl_240ms_ease-out] items-start gap-2 rounded-md border border-border bg-surface-1 py-2 pl-3 pr-2 text-sm text-text-primary shadow-lg outline-none"
         >
           <PopoverPrimitive.Description as="div" class="flex flex-1 flex-col gap-2">{props.children}</PopoverPrimitive.Description>
-          <PopoverPrimitive.CloseButton aria-label="閉じる" tabIndex={-1} class="flex size-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-3 hover:text-text-primary [&_svg]:size-4">
+          <PopoverPrimitive.CloseButton aria-label="閉じる" tabIndex={-1} class="-mr-1 -mt-1 flex size-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-3 hover:text-text-primary [&_svg]:size-4">
             <CloseIcon label="閉じる" />
           </PopoverPrimitive.CloseButton>
         </PopoverPrimitive.Content>
