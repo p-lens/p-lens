@@ -107,6 +107,27 @@ export const playTheoreticalValue = (told: Figures, terms: PlayTerms | undefined
   }
 }
 
+/** The share of the player's own balls a play's mixed border is worked out at: 持玉60%. */
+const MIXED_OWN_SHARE = 0.6
+
+/**
+ * A play's borders at its corner, as its bonuses have paid and its 電サポ
+ * drifted so far (`asPaid`, `asDrifted`): every ball rented (現金), six in
+ * ten the player's own (持玉60%), and every ball the player's own (持玉100%),
+ * each costing what it exchanges for. None until the corner's terms are known.
+ */
+export const playBordersOf = (told: Figures, terms: PlayTerms | undefined, consumption: Consumption | undefined, overEntry?: number): SheetBorders | undefined => {
+  if (terms === undefined) return undefined
+  const figures = asDrifted(asPaid(told, consumption?.payoutRatio, overEntry), consumption?.supportRatio)
+  const rented = terms.rental.yen / terms.rental.tokens
+  const own = tokenValueOf(terms)
+  return {
+    cash: borderAt(figures, terms, rented),
+    mixed: borderAt(figures, terms, (1 - MIXED_OWN_SHARE) * rented + MIXED_OWN_SHARE * own),
+    own: borderAt(figures, terms, own),
+  }
+}
+
 /**
  * A corner as a person types it in to work a formula's theoretical value
  * out before playing (期待値算出): the balls ¥1,000 rents, the balls ¥100

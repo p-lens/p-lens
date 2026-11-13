@@ -2,15 +2,16 @@ import { Show, type JSX } from "solid-js"
 
 import { borderMarkOf, type BorderMark } from "../../../../core/pachinko/border-standing"
 import { spinPerformanceOf, type Consumption } from "../../../../core/pachinko/consumption"
-import { playTheoreticalValue } from "../../../../core/pachinko/theoretical-value"
+import { playBordersOf, playTheoreticalValue } from "../../../../core/pachinko/theoretical-value"
 import { tokenValueOf, type PlayTerms } from "../../../../core/parlor/terms"
 import type { FormulaSnapshot } from "../../../../core/pachinko/snapshot"
 import { missingJackpots, type LiveSummary } from "../../../../core/play-log/live"
-import { InfoNote } from "../../../primitives/popover"
 import { formulaText } from "../../../wording/pachinko/formula"
 import { amountText, formatCount, theoreticalFigureText, theoreticalFractionText } from "../../../wording/numbers"
 import { seal } from "../../../../mummer"
 import { StandingMark } from "./StandingMark"
+import { BordersNote } from "./BordersNote"
+import { SpinRangeNote } from "../spin-spread/SpinRangeNote"
 
 /** The jackpots this play records, and beside them, where the seat's count was read, what the parlor's counter should be showing: the two a person checks against each other. */
 const jackpotsText = (summary: LiveSummary): string =>
@@ -60,9 +61,10 @@ function Tile(props: { readonly label: string; readonly value: string; readonly 
  * little under, and below it one to four red ones side by side, by
  * how far, the gold ones only once 300 spins have
  * been measured over 90 minutes; none where the play has no worth yet.
- * Unfolded, the border is there to be read as well, its name followed by a
- * small i that says how it and the spin performance are
- * counted. What the
+ * The spin performance's name is followed by a small i that says where the
+ * cabinet's own likely is (`SpinRangeNote`). Unfolded, the border is there
+ * to be read as well, its name followed by a small i that gives the play's
+ * borders all rented, six in ten its own and all its own (`BordersNote`). What the
  * play is worth has its tiles from the start, each holding the shape of
  * its figure with nothing in it until a reading gives one: a figure
  * arriving changes a tile, and never the lay of the screen.
@@ -108,6 +110,7 @@ export function LiveFigures(props: {
               {(found) => <StandingMark mark={found} />}
             </Show>
           }
+          note={<SpinRangeNote measured={props.consumption?.measured} terms={props.terms} />}
         />
       </dl>
       <Show when={props.folded ? undefined : props.formula} keyed>
@@ -124,13 +127,7 @@ export function LiveFigures(props: {
                 label="実質ボーダー"
                 value={rateOf(theoretical()?.border)}
                 unit="回転/千円"
-                note={
-                  <InfoNote label="回転率と実質ボーダーについて">
-                    <p>回転率は、払った1,000円で借りられる玉あたりの回転数です。貯玉や持ち玉で打った分も、貸玉に直して数えます。</p>
-                    <p>貸玉が割高な島では、1,000円で借りられる玉が減るぶん回転率が下がり、ボーダーとの差に表れます。</p>
-                    <p>実質ボーダーは、打った玉の値段で決まります。現金で借りた玉は借りた値段、貯玉や持ち玉は交換の値段で数えるので、それらで打つほど下がります。</p>
-                  </InfoNote>
-                }
+                note={<BordersNote borders={playBordersOf(formula.figures, props.terms, props.consumption, props.overEntry)} />}
               />
               <Show when={formula.figures.spinsPerHour !== undefined}>
                 <Tile label="期待値（時給）" value={theoreticalFigureText(seal.play(theoretical()?.yenPerHour))} />
