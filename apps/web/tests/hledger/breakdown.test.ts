@@ -21,8 +21,8 @@ import { MALEHAN, dec } from "../support/values"
 
 const BOOK = "basic-play" as BookId
 
-/** A group's tallies as the tests compare them: its key, how many, won and lost, and what they took in and gave back. */
-const talliesRead = (group: Group) => [group.key, group.tallies?.plays, group.tallies?.won, group.tallies?.lost, group.tallies === undefined ? undefined : toPlainString(group.tallies.spent), group.tallies === undefined ? undefined : toPlainString(group.tallies.returned)]
+/** A group's tallies as the tests compare them: its key, won and lost, and what they took in and gave back. */
+const talliesRead = (group: Group) => [group.key, group.tallies?.won, group.tallies?.lost, group.tallies === undefined ? undefined : toPlainString(group.tallies.spent), group.tallies === undefined ? undefined : toPlainString(group.tallies.returned)]
 
 describe("the basic-play book, broken down by the real hledger module", () => {
   const context: { session?: BookSession } = {}
@@ -37,11 +37,11 @@ describe("the basic-play book, broken down by the real hledger module", () => {
     await session().createBook(await fixtureBook("basic-play", { id: BOOK, members: [{ id: ME, displayName: "me", role: "owner" }] }))
   })
 
-  test("by machine, each group's tallies counted one by one: how many, won, lost, what they took in and gave back, one that came out even neither won nor lost", async () => {
+  test("by machine, each group's tallies counted one by one: won, lost, what they took in and gave back, one that came out dead even neither won nor lost, its yen counted all the same", async () => {
     expect(await counted("machine")).toEqual([
-      ["ピエロット", 1, 1, 0, "10000", "30030"],
-      ["森物語", 2, 1, 1, "17990", "31968"],
-      ["流星", 2, 1, 0, "26000", "31136"],
+      ["ピエロット", 1, 0, "10000", "30030"],
+      ["森物語", 1, 1, "17990", "31968"],
+      ["流星", 1, 0, "26000", "31136"],
     ])
   })
 
@@ -51,10 +51,10 @@ describe("the basic-play book, broken down by the real hledger module", () => {
         ((found) => (found.ok ? talliesRead(totalOf(found.value)) : found))(await loadBreakdown(session(), BOOK, dimension, "", EVERY_TALLY, "tallied")),
       ),
     )
-    expect(totals).toEqual(Array.from({ length: 7 }, () => ["", 5, 3, 1, "53990", "93134"]))
+    expect(totals).toEqual(Array.from({ length: 7 }, () => ["", 3, 1, "53990", "93134"]))
     expect(await counted("day", "date:2026-10")).toEqual([
-      ["2026-10-03", 1, 0, 1, "9990", "7992"],
-      ["2026-10-01", 1, 0, 0, "14000", "14000"],
+      ["2026-10-03", 0, 1, "9990", "7992"],
+      ["2026-10-01", 0, 0, "14000", "14000"],
     ])
     const summed = await loadBreakdown(session(), BOOK, "machine", "")
     expect(summed.ok && summed.value.map((group) => group.tallies)).toEqual([undefined, undefined, undefined])
@@ -208,10 +208,10 @@ describe("a book broken down by the words its tallies are tagged with", () => {
   test("counts a tally tagged with several words in the group of each", async () => {
     const found = await loadBreakdown(session(), BOOK, "tag", "", EVERY_TALLY, "tallied")
     expect(found.ok && found.value.map(talliesRead)).toEqual([
-      ["", 5, 3, 1, "53990", "93134"],
-      ["朝イチ", 1, 1, 0, "10000", "20000"],
-      ["イベント", 2, 1, 1, "20000", "27000"],
-      ["ハイエナ", 1, 1, 0, "10000", "15000"],
+      ["", 3, 1, "53990", "93134"],
+      ["朝イチ", 1, 0, "10000", "20000"],
+      ["イベント", 1, 1, "20000", "27000"],
+      ["ハイエナ", 1, 0, "10000", "15000"],
     ])
   })
 

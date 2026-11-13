@@ -95,11 +95,11 @@ describe("a group's tallies taken one by one", () => {
     expect(found.ok && found.value.map((each) => [each.key, each.playId])).toEqual([["2026-09", "a"], ["2026-10", "b"]])
   })
 
-  test("counted by what each took in and gave back: won, lost or even, and the yen added", () => {
+  test("counted by what each took in and gave back: won, lost or dead even and counted as neither, and the yen of all three added", () => {
     const counted = talliesOf(tallies(pivoted([["流星:a", 1000], ["流星:b", 2000], ["流星:c", 500], ["森物語:d", 4000]])), tallies(pivoted([["流星:a", -3000], ["流星:c", -500], ["森物語:d", -100]])))
-    expect([...counted].map(([key, each]) => [key, each.plays, each.won, each.lost, toPlainString(each.spent), toPlainString(each.returned)])).toEqual([
-      ["森物語", 1, 0, 1, "4000", "100"],
-      ["流星", 3, 1, 1, "3500", "3500"],
+    expect([...counted].map(([key, each]) => [key, each.won, each.lost, toPlainString(each.spent), toPlainString(each.returned)])).toEqual([
+      ["森物語", 0, 1, "4000", "100"],
+      ["流星", 1, 1, "3500", "3500"],
     ])
   })
 })

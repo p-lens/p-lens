@@ -124,7 +124,7 @@ export function ConsolidatedBreakdownView(props: { readonly place: Place; readon
     ((by) =>
       by === undefined || by === "book" || by === "sender"
         ? undefined
-        : ((drilled) => (drilled === undefined ? undefined : () => moves.go(placed(drilled.by, drilled.narrowing), drilled.query)))(drilledFrom(by, key, props.narrowing, props.query)))(grouping())
+        : ((drilled) => (drilled === undefined ? undefined : () => moves.refine(placed(drilled.by, drilled.narrowing), drilled.query)))(drilledFrom(by, key, props.narrowing, props.query)))(grouping())
   const groups = createMemo(() => ((found, by) => (found?.ok === true && by !== undefined ? grouped(found.value, by, app.machineNames(), names()) : undefined))(consolidation(), grouping()))
   return (
     <MainContent header={<ViewHeader place={props.place} title="集計" />}>
@@ -137,13 +137,13 @@ export function ConsolidatedBreakdownView(props: { readonly place: Place; readon
                 options={[...BREAKDOWN_OPTIONS.slice(0, 1), { value: "book", label: BY_BOOK }, { value: "sender", label: BY_SENDER }, ...BREAKDOWN_OPTIONS.slice(1)]}
                 value={props.by}
                 onChange={(by) => {
-                  if (by === OVERALL || by === "book" || by === "sender" || isDimension(by)) moves.go(placed(by, props.narrowing), props.query)
+                  if (by === OVERALL || by === "book" || by === "sender" || isDimension(by)) moves.refine(placed(by, props.narrowing), props.query)
                 }}
                 placeholder="切り口を選ぶ"
               />
             </div>
-            <PeriodPicker by={props.by} query={props.query} today={app.services.businessDay()} onTyped={(query) => moves.refine(props.place, query)} onPressed={(query) => moves.go(props.place, query)} />
-            <ConsolidatedBooks bookIds={props.bookIds} unread={(id) => (props.by === OVERALL ? unreadIn(overall(), id) : unreadIn(consolidation(), id))} onChosen={(bookIds) => moves.go({ kind: "consolidated-breakdown", by: props.by, bookIds, narrowing: props.narrowing }, props.query)} />
+            <PeriodPicker by={props.by} query={props.query} today={app.services.businessDay()} onTyped={(query) => moves.refine(props.place, query)} onPressed={(query) => moves.refine(props.place, query)} />
+            <ConsolidatedBooks bookIds={props.bookIds} unread={(id) => (props.by === OVERALL ? unreadIn(overall(), id) : unreadIn(consolidation(), id))} onChosen={(bookIds) => moves.refine({ kind: "consolidated-breakdown", by: props.by, bookIds, narrowing: props.narrowing }, props.query)} />
           </div>
           <NarrowingFilters
             scope={(props.bookIds ?? []).join(",")}

@@ -264,7 +264,7 @@ export function HoldingsView(props: { readonly place: Place; readonly bookId: Bo
               <button type="button" aria-label="店舗を検索" title="店舗を検索" aria-expanded={seeking()} class={filterButtonClass(searching())} onClick={toggleSeeking}>
                 <SearchIcon />
               </button>
-              <TickFilter label={BY_RATE} offered={offered()} none={NO_RATES} chosen={props.rates} onChosen={(rates) => moves.go({ kind: "book-view", bookId: props.bookId, view: "holdings", rates }, props.query)} />
+              <TickFilter label={BY_RATE} offered={offered()} none={NO_RATES} chosen={props.rates} onChosen={(rates) => moves.refine({ kind: "book-view", bookId: props.bookId, view: "holdings", rates }, props.query)} />
             </div>
           </div>
           <Show when={seeking()}>

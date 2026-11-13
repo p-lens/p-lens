@@ -87,7 +87,7 @@ export function ConsolidatedHoldingsView(props: { readonly place: Place; readonl
             <div class="w-[8.5rem]">
               <TextField label="評価日" type="date" value={latestValuedOn(read()) ?? ""} onChange={chooseDay} />
             </div>
-            <ConsolidatedBooks bookIds={props.bookIds} unread={(id) => unreadIn(holdings(), id)} onChosen={(bookIds) => moves.go({ kind: "consolidated-holdings", bookIds }, props.query)} />
+            <ConsolidatedBooks bookIds={props.bookIds} unread={(id) => unreadIn(holdings(), id)} onChosen={(bookIds) => moves.refine({ kind: "consolidated-holdings", bookIds }, props.query)} />
           </div>
           <Loaded outcome={holdings()}>
             {() => (

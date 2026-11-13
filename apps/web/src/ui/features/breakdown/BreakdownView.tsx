@@ -16,8 +16,8 @@ import { Select } from "../../primitives/select"
 import { EmptyState, Loaded, Refreshing } from "../../primitives/states"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
-import { DIMENSION_NAMES, GROUP_FIGURES, OVERALL_NAME, groupName, NOT_TALLIED, NOTHING_NARROWED, playTimeText, winsAndLossesText } from "../../wording/breakdown"
-import { formatCount, formatSignedYen, formatTheoreticalYen, formatYen, toneOf } from "../../wording/numbers"
+import { DIMENSION_NAMES, GROUP_FIGURES, OVERALL_NAME, groupName, NOT_TALLIED, NOTHING_NARROWED, playsText, playTimeText, winsAndLossesText } from "../../wording/breakdown"
+import { formatSignedYen, formatTheoreticalYen, formatYen, toneOf } from "../../wording/numbers"
 import { PeriodPicker } from "../period/PeriodPicker"
 import { queryFor } from "../period/periods"
 import { ViewHeader } from "../shell/ViewHeader"
@@ -50,7 +50,8 @@ function GroupFigure(props: { readonly label: string; readonly spaced?: boolean;
  * One group in a card, so that a long name and its figures both fit a
  * phone: what the group is, then its figures in three rows of two, each
  * figure with its name, in the same places on every card whatever they
- * say — how many tallies and how they went, how long they were played for
+ * say — how many tallies were played to a result and how they went, one
+ * dead even counted as none, how long they were played for
  * (`--` where none kept it) and what they were worth (or, in a book with
  * no theoretical value written in it, that there is none to sum) on the
  * left, its column a little the wider, as what it says runs the longer;
@@ -88,8 +89,8 @@ function GroupFigures(props: { readonly name: string; readonly group: Group; rea
           <Show when={props.group.tallies} keyed fallback="--">
             {(tallies) => (
               <>
-                {formatCount(tallies.plays)}
-                <span class="text-xs text-text-muted">{winsAndLossesText(tallies)}</span>
+                {playsText(tallies)}
+                <span class="text-[10px] text-text-muted">{winsAndLossesText(tallies)}</span>
               </>
             )}
           </Show>
@@ -124,9 +125,11 @@ export const BREAKDOWN_OPTIONS = [{ value: OVERALL, label: OVERALL_NAME }, ...DI
  * made and were worth. Which and which period are the address's, and so
  * are the games, parlors and machines it is narrowed to: a group of those,
  * a year or a month is pressed to look into it, the breakdown narrowed to
- * it or over its days. hledger does the grouping and the sums; this lays
- * out what it answers. その他損益 is no tally's, and is left out while the
- * breakdown is narrowed.
+ * it or over its days. Each of those, and a period chosen, changes the
+ * address in place, so that back leaves the breakdown for the screen it was
+ * opened from however much it was turned about. hledger does the grouping
+ * and the sums; this lays out what it answers. その他損益 is no tally's, and
+ * is left out while the breakdown is narrowed.
  */
 export function BreakdownView(props: { readonly place: Place; readonly bookId: BookId; readonly by: BreakdownBy; readonly narrowing: Narrowing; readonly query: string }): JSX.Element {
   const app = useApp()
@@ -152,7 +155,7 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
   const theoreticalKept = (): boolean => ((answer) => answer?.ok !== true || answer.value)(kept())
   const placed = (by: BreakdownBy, narrowing: Narrowing): Place => ({ kind: "book-breakdown", bookId: props.bookId, by, narrowing })
   const opener = (dimension: Dimension, key: string): (() => void) | undefined =>
-    ((drilled) => (drilled === undefined ? undefined : () => moves.go(placed(drilled.by, drilled.narrowing), drilled.query)))(drilledFrom(dimension, key, props.narrowing, props.query))
+    ((drilled) => (drilled === undefined ? undefined : () => moves.refine(placed(drilled.by, drilled.narrowing), drilled.query)))(drilledFrom(dimension, key, props.narrowing, props.query))
   return (
     <MainContent header={<ViewHeader place={props.place} title="集計" />}>
       <div class="max-w-5xl">
@@ -164,12 +167,12 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
                 options={BREAKDOWN_OPTIONS}
                 value={props.by}
                 onChange={(by) => {
-                  if (isBreakdownBy(by)) moves.go(placed(by, props.narrowing), props.query)
+                  if (isBreakdownBy(by)) moves.refine(placed(by, props.narrowing), props.query)
                 }}
                 placeholder="切り口を選ぶ"
               />
             </div>
-            <PeriodPicker by={props.by} query={props.query} today={app.services.businessDay()} onTyped={(query) => moves.refine(props.place, query)} onPressed={(query) => moves.go(props.place, query)} />
+            <PeriodPicker by={props.by} query={props.query} today={app.services.businessDay()} onTyped={(query) => moves.refine(props.place, query)} onPressed={(query) => moves.refine(props.place, query)} />
           </div>
           <NarrowingFilters scope={props.bookId} offersOf={bookOffers(app.services.session, props.bookId)} query={props.query} narrowing={props.narrowing} onNarrowed={(narrowing) => moves.refine(placed(props.by, narrowing), props.query)} />
           <Show when={matchesNothing(props.narrowing)}>

@@ -26,24 +26,23 @@ export const isBreakdownBy = (text: string): text is BreakdownBy => text === OVE
 export const UNSAID = ""
 
 /**
- * What a group's tallies come to taken one by one: how many there are, how
- * many came out ahead and how many behind — one that came out even is
- * neither — and what they took in and gave back, each at its own day's
- * rate, every expense and all revenue. Each tally's figures are hledger's;
- * the counting and the adding are the app's.
+ * What a group's tallies come to taken one by one: how many came out ahead
+ * and how many behind — one that came out dead even is counted as neither,
+ * and as no play — and what they took in and gave back, each at its own
+ * day's rate, every expense and all revenue, an even one's among them.
+ * Each tally's figures are hledger's; the counting and the adding are the
+ * app's.
  */
 export interface Tallies {
-  readonly plays: number
   readonly won: number
   readonly lost: number
   readonly spent: Decimal
   readonly returned: Decimal
 }
 
-export const NO_TALLIES: Tallies = { plays: 0, won: 0, lost: 0, spent: ZERO, returned: ZERO }
+export const NO_TALLIES: Tallies = { won: 0, lost: 0, spent: ZERO, returned: ZERO }
 
 const addedTallies = (left: Tallies, right: Tallies): Tallies => ({
-  plays: left.plays + right.plays,
   won: left.won + right.won,
   lost: left.lost + right.lost,
   spent: add(left.spent, right.spent),
@@ -131,7 +130,7 @@ const tallyOf = (sides: readonly Side[]): Tallies => {
   const spent = sides.reduce((sum, side) => add(sum, side.spent), ZERO)
   const returned = sides.reduce((sum, side) => add(sum, side.returned), ZERO)
   const way = compare(returned, spent)
-  return { plays: 1, won: way > 0 ? 1 : 0, lost: way < 0 ? 1 : 0, spent, returned }
+  return { won: way > 0 ? 1 : 0, lost: way < 0 ? 1 : 0, spent, returned }
 }
 
 /**

@@ -54,8 +54,11 @@ export const inferredShareText = (inferred: Decimal): string => `うち推定 ${
 /** What each figure of a group is called, as its card lists them: how many tallies and how they went, how long and what they were worth on the left, and what they made, took in and gave back on the right. */
 export const GROUP_FIGURES = { plays: "回数", time: "時間", theoretical: "期待値", actual: "実収支", spent: "投資", returned: "回収" } as const
 
-/** How a group's tallies went, beside how many there were: won and lost, and even where any came out so, in narrow brackets to keep a phone's line. */
-export const winsAndLossesText = (tallies: Tallies): string => ((even) => `(${formatCount(tallies.won)}勝${formatCount(tallies.lost)}敗${even > 0 ? `${formatCount(even)}分` : ""})`)(tallies.plays - tallies.won - tallies.lost)
+/** How many of a group's tallies were played to a result: those won and those lost, one that came out dead even counted as neither. */
+export const playsText = (tallies: Tallies): string => formatCount(tallies.won + tallies.lost)
+
+/** How a group's tallies went, beside how many there were: won and lost, in narrow brackets to keep a phone's line. */
+export const winsAndLossesText = (tallies: Tallies): string => `(${formatCount(tallies.won)}勝${formatCount(tallies.lost)}敗)`
 
 /** What その他損益 is called on screen, and each of its lines. */
 export const OTHER_GAINS = "その他損益"
