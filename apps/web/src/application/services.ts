@@ -13,6 +13,7 @@ import type { Catalog } from "../catalog/port/catalog"
 import type { Locator } from "../location/port/locator"
 import type { ParlorDirectory } from "../parlors/port/parlor-directory"
 import type { SubmissionStore } from "../parlors/port/submission-store"
+import type { RateReports } from "../parlors/port/rate-reports"
 import type { ReasonerClient } from "../reasoning/client/client"
 import type * as PachinkoEngine from "../pachinko-engine/client/client"
 import type * as PachislotEngine from "../pachislot-engine/client/client"
@@ -47,6 +48,8 @@ export interface Services {
   /** Whether this build names a shared catalog to take deliveries from; one that names none has nothing to refresh. */
   readonly catalogShared: boolean
   readonly parlors: ParlorDirectory
+  /** What players reported of parlors' 4-yen and 20-yen corners, filled into the terms as a parlor is chosen. */
+  readonly rateReports: RateReports
   readonly submissions: SubmissionStore
   /** Where the device is, asked only when a play is being started at a parlor. */
   readonly locate: Locator

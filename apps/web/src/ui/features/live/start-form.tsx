@@ -1,16 +1,17 @@
-import { createMemo, createContext, createSignal, useContext, type Accessor, type JSX } from "solid-js"
+import { createEffect, createMemo, createContext, createResource, createSignal, useContext, type Accessor, type JSX } from "solid-js"
 
 import type * as Pachinko from "../../../core/pachinko"
 import type { MachineId } from "../../../core/machine/machine"
 import type * as Pachislot from "../../../core/pachislot"
 import type { SubmissionId } from "../../../core/parlor/parlor"
+import { rateUnreported, type ReportedRates } from "../../../core/parlor/reported-rates"
 import type { SharedParlorId } from "../../../core/parlor/shared"
 import { tokenValueOf, type PlayTerms } from "../../../core/parlor/terms"
 import type { PlayGameKind, PlayId } from "../../../core/play/play"
 import { useApp } from "../../context"
 import * as PachislotChoice from "../pachislot/start/choice"
 import { recalledParlorSetting, writtenParlorSetting } from "./parlor-setting"
-import { readTerms, termsAsOpened, type TermsForm } from "./start-terms"
+import { readTerms, termsAsOpened, withReportedRate, type TermsForm } from "./start-terms"
 import { tokensStillInHand } from "./tokens-in-hand"
 
 /**
@@ -179,6 +180,10 @@ const recalledTerms = (recalled: Readonly<Record<PlayGameKind, TermsForm>>): Rea
 export interface StartFormState {
   readonly form: Accessor<StartForm>
   readonly update: (change: Partial<StartForm>) => void
+  /** Choose the parlor; a listed one has what players reported of its corners put into both games' terms, once, to be typed over. */
+  readonly chooseParlor: (parlor: ParlorChoice) => void
+  /** Whether the listed parlor chosen has its corner of a game's rates not wholly reported, once the reports are read: what the terms ask the person to report. */
+  readonly rateUnreported: (gameKind: PlayGameKind) => boolean
   /** Change what starting a pachinko play has chosen, leaving the rest. */
   readonly updatePachinko: (change: Partial<PachinkoStart>) => void
   /** Change what starting a pachislot play has chosen, leaving the rest. */
@@ -209,11 +214,35 @@ export function StartFormProvider(props: { readonly children: JSX.Element }): JS
     setSettingDay(app.services.businessDay())
     app.services.preferences.setParlorSetting(writtenParlorSetting(app.services.businessDay(), { parlor: changed.parlor, terms: changed.terms }))
   }
+  const [ratesWanted, setRatesWanted] = createSignal(recalled?.parlor.type === "listed")
+  const [rates] = createResource(ratesWanted, async () => ((read) => (read.ok ? read.value : undefined))(await app.services.rateReports.rates(app.services.businessDay())))
+  const [filling, setFilling] = createSignal<SharedParlorId | undefined>()
+  createEffect(() => {
+    const parlor = filling()
+    if (parlor === undefined || rates.loading) return
+    const read = rates()
+    setFilling(undefined)
+    const chosen = form().parlor
+    if (read !== undefined && chosen.type === "listed" && chosen.id === parlor) update({ terms: withReportedRates(form().terms, read, parlor) })
+  })
+  const chooseParlor = (parlor: ParlorChoice): void => {
+    update({ parlor })
+    if (parlor.type !== "listed") return
+    setRatesWanted(true)
+    setFilling(parlor.id)
+  }
+  const unreported = (gameKind: PlayGameKind): boolean => {
+    const chosen = form().parlor
+    const read = rates.loading ? undefined : rates()
+    return chosen.type === "listed" && read !== undefined && rateUnreported(read.get(chosen.id)?.[gameKind])
+  }
   return (
     <Context.Provider
       value={{
         form,
         update,
+        chooseParlor,
+        rateUnreported: unreported,
         updatePachinko: (change) => setHeld((current) => ({ ...current, pachinko: { ...current.pachinko, ...change } })),
         updatePachislot: (change) => setHeld((current) => ({ ...current, pachislot: PachislotChoice.withChange(current.pachislot, change) })),
       }}
@@ -222,6 +251,12 @@ export function StartFormProvider(props: { readonly children: JSX.Element }): JS
     </Context.Provider>
   )
 }
+
+/** Both games' terms with what players reported of a parlor's corners put over them. */
+const withReportedRates = (terms: StartForm["terms"], rates: ReportedRates, parlor: SharedParlorId): StartForm["terms"] => ({
+  pachinko: withReportedRate(terms.pachinko, rates.get(parlor)?.pachinko, "pachinko"),
+  pachislot: withReportedRate(terms.pachislot, rates.get(parlor)?.pachislot, "pachislot"),
+})
 
 /** The start form's state; only reachable inside the screen, which provides it. */
 export const useStartForm = (): StartFormState => {

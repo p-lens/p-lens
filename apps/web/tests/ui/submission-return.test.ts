@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { locateAddress, returnedFrom, submitAddress } from "../../src/ui/features/live/submission-return"
+import { amendAddress, locateAddress, returnedFrom, submitAddress } from "../../src/ui/features/live/submission-return"
 
 const NOW = "2026-10-04T12:00:00.000Z"
 
@@ -41,11 +41,22 @@ describe("leaving for survey.p-lens.jp", () => {
     expect(address.searchParams.get("return")).toBe("https://app.test/parlors/submitted?game=pachislot")
   })
 
-  test("to report where a listed parlor is, opens the list searched for its whole name", () => {
+  test("to report where a listed parlor is, opens its report of a position, the list beside searched for its whole name", () => {
     const address = new URL(locateAddress(SURVEY, APP, { type: "start", game: "pachinko" }, { id: "op:yark:1" as never, name: "ワイアーク 大和店" }))
-    expect(address.origin + address.pathname).toBe(SURVEY)
+    expect(address.origin + address.pathname).toBe(`${SURVEY}report`)
+    expect(address.searchParams.get("kind")).toBe("locate")
+    expect(address.searchParams.get("id")).toBe("op:yark:1")
     expect(address.searchParams.get("find")).toBe("ワイアーク 大和店")
     expect(new URL(address.searchParams.get("return") ?? "").searchParams.get("located")).toBe("op:yark:1")
+  })
+
+  test("to report a listed parlor's rates, opens its correction, the list beside searched for its whole name", () => {
+    const address = new URL(amendAddress(SURVEY, APP, { type: "start", game: "pachislot" }, { id: "op:yark:1" as never, name: "ワイアーク 大和店" }))
+    expect(address.origin + address.pathname).toBe(`${SURVEY}report`)
+    expect(address.searchParams.get("kind")).toBe("amend")
+    expect(address.searchParams.get("id")).toBe("op:yark:1")
+    expect(address.searchParams.get("find")).toBe("ワイアーク 大和店")
+    expect(returnedFrom(new URL(address.searchParams.get("return") ?? "").searchParams, NOW)).toEqual({ ok: true, value: { type: "nothing", from: { type: "start", game: "pachislot" } } })
   })
 
   test("coming back from reporting a position brings nothing but the game: the parlor is listed and chosen already", () => {

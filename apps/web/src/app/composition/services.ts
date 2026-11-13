@@ -23,6 +23,8 @@ import { createIndexedDbDevice } from "../../storage/browser/indexed-db-device"
 import { createTurnstileCheck } from "../../catalog/turnstile/turnstile"
 import { createAbsentDirectory } from "../../parlors/absent/absent-directory"
 import { createJsonlDirectory } from "../../parlors/jsonl/jsonl-directory"
+import { createAbsentRateReports } from "../../parlors/absent/absent-rate-reports"
+import { createJsonlRateReports } from "../../parlors/jsonl/jsonl-rate-reports"
 import { browserLocator } from "../../location/browser/geolocation"
 import { createIndexedDbParlorCache } from "../../parlors/local/indexed-db-cache"
 import { createIndexedDbSubmissions } from "../../parlors/local/indexed-db-submissions"
@@ -95,6 +97,14 @@ const PARLORS_URL: string | undefined = import.meta.env.VITE_PARLORS_URL
 const SURVEY_URL: string | undefined = import.meta.env.VITE_SURVEY_URL
 
 /**
+ * Where what players saw special prizes come to is published —
+ * brokers.p-lens.jp for app.p-lens.jp — named at build time, ending in a
+ * slash: the exchange a parlor's corner is reported at comes from there.
+ * A build that names none fills in a reported rental alone.
+ */
+const BROKERS_URL: string | undefined = import.meta.env.VITE_BROKERS_URL
+
+/**
  * Where the shared catalog of machines and formulas answers, named at build
  * time; the API takes writes only from the pages it is told serve the app.
  * A build that names none has no catalog delivered: plays are still
@@ -107,6 +117,9 @@ const TURNSTILE_SITE_KEY: string | undefined = import.meta.env.VITE_TURNSTILE_SI
 
 /** How long the parlor list, or the shared catalog, is waited for before the device makes do with its copy. */
 const ANSWER_WITHIN = 8000
+
+/** An address that files are named under, ending in a slash as a base must. */
+const withSlash = (base: string): string => (base.endsWith("/") ? base : `${base}/`)
 
 /** How long a reading of the parlor list stands before it is read again behind the device's copy: the list changes a few times a week. */
 const PARLORS_FRESH_FOR = 10 * 60 * 1000
@@ -232,12 +245,21 @@ export const createServices = (): Services => {
       PARLORS_URL === undefined
         ? createAbsentDirectory()
         : createJsonlDirectory({
-            base: PARLORS_URL.endsWith("/") ? PARLORS_URL : `${PARLORS_URL}/`,
+            base: withSlash(PARLORS_URL),
             request: (url, init) => fetch(url, init),
             answerWithin: ANSWER_WITHIN,
             freshFor: PARLORS_FRESH_FOR,
             now: () => clock().getTime(),
             cache: createIndexedDbParlorCache(database),
+          }),
+    rateReports:
+      PARLORS_URL === undefined
+        ? createAbsentRateReports()
+        : createJsonlRateReports({
+            parlorsBase: withSlash(PARLORS_URL),
+            brokersBase: BROKERS_URL === undefined || BROKERS_URL === "" ? undefined : withSlash(BROKERS_URL),
+            request: (url, init) => fetch(url, init),
+            answerWithin: ANSWER_WITHIN,
           }),
     pachinko: PachinkoEngine.createEngineClient(
       () => new Worker(new URL("../../pachinko-engine/worker/pachinko-worker.ts", import.meta.url), { type: "module" }),

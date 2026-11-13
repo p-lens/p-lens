@@ -5,6 +5,8 @@ import { CloseIcon } from "../../../primitives/icons"
 import { CautionNote } from "../../../primitives/popover"
 import { TextField } from "../../../primitives/text-field"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
+import { stayWhileOffline } from "../../../primitives/leaving"
+import { RATE_REQUEST, SURVEY_OFFLINE } from "../../../wording/parlor"
 import { readTerms, replayFeeOf, replayPaysMoreThanItTakes, type TermsField, type TermsForm } from "../../live/start-terms"
 
 /** How a name over one of the terms is written: a size under the app's small one and never broken, so that six characters stay on one line over a cell a quarter of the narrowest phone wide. */
@@ -69,6 +71,8 @@ export function Terms(props: {
   readonly invalid: readonly TermsField[]
   readonly onChange: (form: TermsForm) => void
   readonly onFocus: () => void
+  /** Where to report the chosen parlor's rates, where its corner's are not wholly reported. */
+  readonly asking: string | undefined
 }): JSX.Element {
   /** Whether the replay's counts are set out to stay: asked for, or typed into once they were there — so they stay out even at the moment the two read the same. */
   const [setOut, setSetOut] = createSignal(replayFeeOf(props.form) === "charged")
@@ -129,6 +133,13 @@ export function Terms(props: {
               <Show when={found === UNKNOWN_TIER} fallback={<p class="text-xs text-text-muted">{found}コーナーとして記録します。</p>}>
                 <CautionNote hint="貸枚は1,000円あたり、交換は100円あたりの枚数に換算して入力してください。このままでも記録できます。">レート不明です。ご確認ください。</CautionNote>
               </Show>
+            )}
+          </Show>
+          <Show when={props.asking} keyed>
+            {(address) => (
+              <a href={address} onClick={(event) => stayWhileOffline(event, SURVEY_OFFLINE)} class="animate-[emerge_1.6s_ease-out] text-xs text-text-secondary underline underline-offset-2 hover:text-text-primary">
+                {RATE_REQUEST}
+              </a>
             )}
           </Show>
         </div>

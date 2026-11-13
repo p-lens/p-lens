@@ -89,7 +89,7 @@ export function ParlorField(props: { readonly editing: YenTallyEditing }): JSX.E
             placeholder="指定しない"
             options={editing.offers().map((offer) => ({ value: identityKey(offer.parlor.identity), label: parlorChoiceText(seal.parlor(offer.parlor.name)), note: offer.note, foundFirst: offer.unplaced !== undefined }))}
             value={editing.form().parlorKey === "" ? undefined : editing.form().parlorKey}
-            onChange={(key) => editing.set("parlorKey")(key ?? "")}
+            onChange={(key) => editing.chooseParlor(key ?? "")}
             matches={(key, typed) => editing.offerOf().get(key)?.matches(typed) ?? false}
             invalid={editing.typedOnly() || editing.nudged("parlor")}
             onFocus={editing.nudge.settle}

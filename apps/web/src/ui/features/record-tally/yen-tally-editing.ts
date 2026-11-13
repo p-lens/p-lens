@@ -1,4 +1,4 @@
-import { createMemo, createResource, createSignal, type Accessor } from "solid-js"
+import { createEffect, createMemo, createResource, createSignal, type Accessor } from "solid-js"
 
 import type { ApplicationError, Outcome } from "../../../application/errors"
 import type { TermsUsed } from "../../../application/inference-terms"
@@ -9,7 +9,7 @@ import { loadInferable, type Inferable, type SettingInference } from "../../../a
 import { bookNameOf, type MachineSummary } from "../../../core/catalog/catalog"
 import * as Pachinko from "../../../core/pachinko"
 import * as Pachislot from "../../../core/pachislot"
-import type { ParlorList } from "../../../core/parlor/shared"
+import type { ParlorList, SharedParlorId } from "../../../core/parlor/shared"
 import { renderEntry } from "../../../core/journal/entry"
 import { composeYenTallyEntry } from "../../../core/tally/compose"
 import type { IsoDate } from "../../../core/calendar/calendar"
@@ -33,7 +33,7 @@ import * as PachinkoViews from "../pachinko"
 import * as PachislotViews from "../pachislot"
 import { offersByKey, parlorOffers, type ParlorOffer } from "../parlor-offers/parlor-offers"
 import type { FieldProblem, FormField } from "./form"
-import { atToldOf, medalTermsFormOf, pachislotToldOf, readMedalTerms, readWeighingTerms, readYenTallyForm, resultOfYenTally, termsTypedOf, toldFiguresOf, weighingTermsFormOf, withInferred, type YenTallyForm } from "./yen-tally-form"
+import { atToldOf, medalTermsFormOf, pachislotToldOf, readMedalTerms, readWeighingTerms, readYenTallyForm, resultOfYenTally, termsTypedOf, toldFiguresOf, weighingTermsFormOf, withInferred, withReportedRates, type YenTallyForm } from "./yen-tally-form"
 import { seal } from "../../../mummer"
 import { chosenParlorText } from "../../wording/parlor"
 import type { LocateError } from "../../../location/port/locator"
@@ -72,6 +72,8 @@ export interface YenTallyEditing {
   readonly form: Accessor<YenTallyForm>
   readonly setForm: (change: (current: YenTallyForm) => YenTallyForm) => void
   readonly set: <K extends keyof YenTallyForm>(key: K) => (value: YenTallyForm[K]) => void
+  /** Choose the parlor by its key; a listed one has what players reported of its corners put into both games' terms, once, to be typed over. */
+  readonly chooseParlor: (key: string) => void
   readonly offers: Accessor<readonly ParlorOffer[]>
   readonly offerOf: Accessor<ReadonlyMap<string, ParlorOffer>>
   readonly setParlorTyped: (typed: string) => void
@@ -153,6 +155,24 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
     return unplaced === undefined || app.services.surveyUrl === undefined ? undefined : locateAddress(app.services.surveyUrl, window.location.origin, given.leftFrom(form().gameKind), unplaced)
   }
   const typedOnly = (): boolean => holdsTypedOnly(parlorTyped(), chosenParlorText(chosenName()))
+  const [ratesWanted, setRatesWanted] = createSignal(false)
+  const [rates] = createResource(ratesWanted, async () => ((read) => (read.ok ? read.value : undefined))(await app.services.rateReports.rates(app.services.businessDay())))
+  /** The key of the listed parlor just chosen, whose reported rates go into the terms once they are read. */
+  const [filling, setFilling] = createSignal<{ readonly key: string; readonly parlor: SharedParlorId } | undefined>()
+  createEffect(() => {
+    const chosen = filling()
+    if (chosen === undefined || rates.loading) return
+    const read = rates()
+    setFilling(undefined)
+    if (read !== undefined && form().parlorKey === chosen.key) setForm((current) => withReportedRates(current, read.get(chosen.parlor)))
+  })
+  const chooseParlor = (key: string): void => {
+    set("parlorKey")(key)
+    const identity = offerOf().get(key)?.parlor.identity
+    if (identity?.type !== "listed") return
+    setRatesWanted(true)
+    setFilling({ key, parlor: identity.id as string as SharedParlorId })
+  }
   /** Off to survey.p-lens.jp to submit a parlor the list lacks; a build that names no survey says so instead of going nowhere. */
   const submitParlor = (): void => {
     if (app.services.surveyUrl === undefined) {
@@ -340,6 +360,7 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
     form,
     setForm,
     set,
+    chooseParlor,
     offers,
     offerOf,
     setParlorTyped,

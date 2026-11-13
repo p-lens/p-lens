@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import { tokenValueOf } from "../../src/core/parlor/terms"
-import { readTerms, replayFeeOf, replayPaysMoreThanItTakes, termsAsOpened, termsFormOf } from "../../src/ui/features/live/start-terms"
+import { readTerms, replayFeeOf, replayPaysMoreThanItTakes, termsAsOpened, termsFormOf, withReportedRate } from "../../src/ui/features/live/start-terms"
 
 const OPENED = termsAsOpened({ rentalTokens: "250", exchange: "28", replayTokens: "125" })
 
@@ -86,5 +86,17 @@ describe("a replay that pays out more than it takes", () => {
     expect(replayPaysMoreThanItTakes(FILLED)).toBe(false)
     expect(replayPaysMoreThanItTakes(OPENED)).toBe(false)
     expect(replayPaysMoreThanItTakes({ ...FILLED, replayPaidOut: "275", replayDeducted: "" })).toBe(false)
+  })
+})
+
+describe("the start form's terms filled from what players reported", () => {
+  test("put the rental and the exchange as the game states them over what was typed, leaving the replay", () => {
+    expect(withReportedRate({ ...OPENED, rentalTokens: "200", replayPaidOut: "100" }, { rentalTokens: 250, exchange: { tokens: 140, yen: 500 } }, "pachinko")).toEqual({ ...OPENED, rentalTokens: "250", exchange: "28", replayPaidOut: "100" })
+    expect(withReportedRate(OPENED, { rentalTokens: 46, exchange: { tokens: 52, yen: 1000 } }, "pachislot")).toMatchObject({ rentalTokens: "46", exchange: "5.2" })
+  })
+
+  test("leave what nobody reported as it was typed", () => {
+    expect(withReportedRate({ ...OPENED, exchange: "27.5" }, { rentalTokens: 250, exchange: undefined }, "pachinko")).toEqual({ ...OPENED, exchange: "27.5" })
+    expect(withReportedRate(OPENED, undefined, "pachinko")).toEqual(OPENED)
   })
 })

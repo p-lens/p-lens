@@ -63,7 +63,10 @@ const placeOf = (parlor: Pick<SharedParlor, "prefecture" | "location">, metres: 
 }
 
 /** What a person is asked under a parlor the list has not placed, leading to where its position is reported. */
-export const LOCATE_REQUEST = "店舗座標の登録にご協力下さい"
+export const LOCATE_REQUEST = "座標を登録すると、次から店名を打たずに選べます →"
+
+/** What a person is asked under the terms where the chosen parlor's 4-yen or 20-yen corner has its rates not wholly reported, leading to where they are reported. */
+export const RATE_REQUEST = "レートを知らせると、次からこの店を選ぶだけで入ります →"
 
 /** What a typed name stops, by where it was typed: starting a play, adding one to a book by hand, recording one that was followed live, or registering savings. */
 export type TypedNameRefused = "starting" | "adding" | "recording" | "registering"

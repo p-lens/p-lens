@@ -48,7 +48,7 @@ import { SelectionReason } from "../formulas/SelectionReason"
 import { GaugeButton } from "../live/GaugeButton"
 import { useBookFavorites } from "../../live/book-favorites"
 import { EMPTY_PACHINKO_START, type PachinkoMachineChoice, type ParlorChoice, useStartBallValue, useStartForm } from "../../live/start-form"
-import { locateAddress, submitAddress } from "../../live/submission-return"
+import { amendAddress, locateAddress, submitAddress } from "../../live/submission-return"
 import { readTerms, type TermsField } from "../../live/start-terms"
 import { carriedInShown, readCarriedIn, tokensCarriedTo, tokensInHandUnreadable } from "../../live/tokens-in-hand"
 import { Terms } from "./Terms"
@@ -433,6 +433,14 @@ export function Start(props: {
   const machineNudge = createNudge()
   const termsNudge = createNudge()
   /** The chosen parlor as the book will know it — its identity and name — or none. */
+  /** Where to report the chosen parlor's rates, where the list has it, there is a survey to report them at, and players' reports leave its corner's unsaid. */
+  const rateAsking = (): string | undefined => {
+    const choice = start.form().parlor
+    const name = chosenParlor()?.name
+    return choice.type === "listed" && name !== undefined && app.services.surveyUrl !== undefined && start.rateUnreported("pachinko")
+      ? amendAddress(app.services.surveyUrl, window.location.origin, { type: "start", game: "pachinko" }, { id: choice.id, name })
+      : undefined
+  }
   const chosenParlor = (): { readonly identity: ParlorIdentity; readonly name: string } | undefined => {
     const choice = start.form().parlor
     if (choice.type === "listed") {
@@ -556,10 +564,11 @@ export function Start(props: {
           surveyUrl={app.services.surveyUrl}
         typedOnly={holdsTypedOnly(parlorTyped(), chosenParlorText(chosenParlor()?.name))}
         onTyped={setParlorTyped}
-          onChoose={(parlor) => start.update({ parlor })}
+          onChoose={start.chooseParlor}
         />
         <Terms
           form={start.form().terms.pachinko}
+          asking={rateAsking()}
           invalid={termsNudge.red() ? termsProblems() : []}
           onFocus={termsNudge.settle}
           onChange={(form) => start.update({ terms: { ...start.form().terms, pachinko: form } })}

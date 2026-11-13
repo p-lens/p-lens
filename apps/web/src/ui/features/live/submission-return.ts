@@ -64,13 +64,31 @@ export const submitAddress = (survey: string, origin: string, from: LeftFrom): s
 
 /**
  * Where a person goes to report where a listed parlor is: the survey's
- * list, searched for the parlor's whole name so it is the one found, and
- * told where to bring them back.
+ * report of a position for that parlor, open already, and told where to
+ * bring them back. The list beside it is searched for the parlor's whole
+ * name, so that a survey whose copy of the list lacks the parlor still
+ * opens on it found.
  */
 export const locateAddress = (survey: string, origin: string, from: LeftFrom, parlor: Pick<SharedParlor, "id" | "name">): string => {
   const back = returnAddress(origin, from)
   back.searchParams.set(LOCATED, parlor.id)
-  const address = new URL(survey)
+  return reportAddress(survey, "locate", parlor, back)
+}
+
+/**
+ * Where a person goes to report a listed parlor's corners and rates: the
+ * survey's correction of that parlor, open already, the list beside it
+ * searched for its name as a position's report has it, and told where to
+ * bring them back. A correction goes back with nothing, so coming back
+ * brings nothing but the game.
+ */
+export const amendAddress = (survey: string, origin: string, from: LeftFrom, parlor: Pick<SharedParlor, "id" | "name">): string => reportAddress(survey, "amend", parlor, returnAddress(origin, from))
+
+/** The survey's report of one kind about a listed parlor, open already, the list beside it searched for the parlor's whole name. */
+const reportAddress = (survey: string, kind: "locate" | "amend", parlor: Pick<SharedParlor, "id" | "name">, back: URL): string => {
+  const address = new URL("/report", survey)
+  address.searchParams.set("kind", kind)
+  address.searchParams.set("id", parlor.id)
   address.searchParams.set("find", parlor.name)
   address.searchParams.set("return", back.href)
   return address.href

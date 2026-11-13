@@ -109,7 +109,7 @@ export function CornerTerms(props: { readonly draft: PlayDraft; readonly hold: P
                 <CloseIcon label="レートの変更をやめる" />
               </button>
             </div>
-            <Terms form={form()} invalid={nudge.red() ? problems() : []} onFocus={nudge.settle} onChange={setForm} />
+            <Terms form={form()} invalid={nudge.red() ? problems() : []} onFocus={nudge.settle} onChange={setForm} asking={undefined} />
             <Show when={failure()} keyed>
               {(error) => (
                 <p role="alert" class="text-xs text-negative">

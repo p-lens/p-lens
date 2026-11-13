@@ -81,7 +81,7 @@ const SLACK = 1e-9
  * 1000 yen for 890 balls is 1.12 a ball at a 1-yen corner — so the rate is
  * the dearest advertised one not above it.
  */
-const rentalTier = (gameKind: PlayGameKind, terms: PlayTerms): number | undefined => {
+const rentalTier = (gameKind: PlayGameKind, terms: Pick<PlayTerms, "rental">): number | undefined => {
   const rate = terms.rental.yen / terms.rental.tokens
   return TIERS[gameKind].find((tier) => tier <= rate + SLACK)
 }
@@ -133,6 +133,14 @@ export const tierOf = (gameKind: PlayGameKind, terms: PlayTerms): string => {
   return rented !== undefined && rented === exchangeTier(gameKind, terms) ? `${String(rented)}円` : UNKNOWN_TIER
 }
 
+const tierNamed = (tier: number | undefined): string => (tier === undefined ? UNKNOWN_TIER : `${String(tier)}円`)
+
+/** The advertised rate a rental alone points to, as the journal names it — `4円`, `20円` — or a rate unknown. */
+export const tierOfRental = (gameKind: PlayGameKind, rental: PlayTerms["rental"]): string => tierNamed(rentalTier(gameKind, { rental }))
+
+/** The advertised rate an exchange alone points to, as the journal names it, or a rate unknown. */
+export const tierOfExchange = (gameKind: PlayGameKind, exchange: PlayTerms["exchange"]): string => tierNamed(exchangeTier(gameKind, { exchange }))
+
 /** What renting a token costs on these terms, in yen to six places. */
 export const rentalPriceOf = (terms: Pick<PlayTerms, "rental">): Decimal => quotient(whole(terms.rental.yen), whole(terms.rental.tokens), RATE_PLACES)
 
@@ -152,10 +160,7 @@ export const poolOf = (gameKind: PlayGameKind, terms: PlayTerms): SavingsPool =>
  * the exchange their counter gives, not the rental of a corner they may
  * not be playing.
  */
-export const poolOfExchange = (gameKind: PlayGameKind, exchange: PlayTerms["exchange"]): SavingsPool => ({
-  kind: tokenKindOf(gameKind),
-  tier: ((tier) => (tier === undefined ? UNKNOWN_TIER : `${String(tier)}円`))(exchangeTier(gameKind, { exchange })),
-})
+export const poolOfExchange = (gameKind: PlayGameKind, exchange: PlayTerms["exchange"]): SavingsPool => ({ kind: tokenKindOf(gameKind), tier: tierOfExchange(gameKind, exchange) })
 
 /** Yen a token is worth on these terms, for the theoretical value a formula gives. */
 export const tokenValueOf = (terms: PlayTerms): number => Number(toPlainString(exchangeRateOf(terms)))
