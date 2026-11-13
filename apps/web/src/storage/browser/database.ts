@@ -10,8 +10,9 @@ import type { StorageError } from "../port/book-storage"
  * - `books`: a book's cover, keyed by its id.
  * - `files`: one journal file, keyed by `[bookId, path]`, indexed by book.
  * - `drafts`: a play still being played, keyed by its id. Added in version 2.
- * - `shared-parlors`: the parlor list as last read, kept whole as one record.
- *   Added in version 4.
+ * - `shared-parlors`: the parlor list as last read, kept whole as one record,
+ *   and beside it what players reported of parlors' rates as last read, the
+ *   files as they came, as another. Added in version 4.
  * - `submissions`: parlors this device submitted to the list, keyed by their
  *   submission id. Added in version 5.
  * - `catalog`: the shared catalog of both games as last delivered, kept whole

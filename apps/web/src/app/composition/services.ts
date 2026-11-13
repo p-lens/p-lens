@@ -25,6 +25,7 @@ import { createAbsentDirectory } from "../../parlors/absent/absent-directory"
 import { createJsonlDirectory } from "../../parlors/jsonl/jsonl-directory"
 import { createAbsentRateReports } from "../../parlors/absent/absent-rate-reports"
 import { createJsonlRateReports } from "../../parlors/jsonl/jsonl-rate-reports"
+import { createIndexedDbRateReportsCache } from "../../parlors/local/indexed-db-rate-reports"
 import { browserLocator } from "../../location/browser/geolocation"
 import { createIndexedDbParlorCache } from "../../parlors/local/indexed-db-cache"
 import { createIndexedDbSubmissions } from "../../parlors/local/indexed-db-submissions"
@@ -260,6 +261,9 @@ export const createServices = (): Services => {
             brokersBase: BROKERS_URL === undefined || BROKERS_URL === "" ? undefined : withSlash(BROKERS_URL),
             request: (url, init) => fetch(url, init),
             answerWithin: ANSWER_WITHIN,
+            freshFor: PARLORS_FRESH_FOR,
+            now: () => clock().getTime(),
+            cache: createIndexedDbRateReportsCache(database),
           }),
     pachinko: PachinkoEngine.createEngineClient(
       () => new Worker(new URL("../../pachinko-engine/worker/pachinko-worker.ts", import.meta.url), { type: "module" }),

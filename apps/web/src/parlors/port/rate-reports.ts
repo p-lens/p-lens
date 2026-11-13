@@ -11,9 +11,9 @@ export interface RateReportsError {
 /**
  * What players reported of parlors' rates: the corners p-lens-parlors
  * publishes beside its list, and what p-lens-brokers saw a prize come to.
- * Read each time it is asked for — a file whose version has not moved
- * comes back from the browser's cache — and kept nowhere: a device that
- * cannot read them fills no rates in, and plays on.
+ * The copy last read is kept on the device, so rates are filled in
+ * offline as well; a device that never could read them fills none in, and
+ * plays on.
  */
 export interface RateReports {
   /** The rates as they stand on a day, reports dated after it not yet in force. */
