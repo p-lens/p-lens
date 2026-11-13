@@ -171,7 +171,7 @@ export function ConsolidatedBreakdownView(props: { readonly place: Place; readon
               <Loaded outcome={consolidation()}>
                 {() => (
                   <Show when={(groups() ?? []).length > 0} fallback={<EmptyState title="この期間の収支はありません" />}>
-                    <ul class="flex flex-col gap-1">
+                    <ul class="flex max-w-xl flex-col gap-1">
                       <GroupRow name="合計" group={totalOf((groups() ?? []).map((each) => each.group))} strong theoreticalKept={theoreticalKept()} />
                       <For each={groups() ?? []}>
                         {(each) => <GroupRow name={each.name} group={each.group} strong={false} theoreticalKept={theoreticalKept()} onOpen={opener(each.group.key)} />}

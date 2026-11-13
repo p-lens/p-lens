@@ -5,6 +5,7 @@ import { buttonVariants } from "./button"
 import { isNarrowed, isTicked, tickedAll, tickedOne, tickStateOf, type Chosen } from "./choice"
 import { cn } from "./cn"
 import { CloseIcon, FilterIcon } from "./icons"
+import { createBubble } from "./one-bubble"
 
 /** The outline of a filter's button: drawn darker while it holds something back. */
 export const filterButtonClass = (narrowed: boolean): string => cn(buttonVariants({ variant: "outline", size: "icon" }), "relative shrink-0 [&_svg]:size-5", narrowed && "border-text-secondary text-text-primary")
@@ -87,7 +88,11 @@ const namedFilterButtonClass = (narrowed: boolean): string =>
  * nothing to narrow by. It stays open while
  * the view narrows, focus moving or not, until the person closes it — by
  * its cross, Escape, or a press outside it. The button's name is the
- * filter's heading. It goes at the end of a row, `class` placing it — or,
+ * filter's heading. Only one bubble is open on screen at a time
+ * (`createBubble`): opening another filter closes this one, on a phone as
+ * on a wide screen, where a press outside alone was left to close it and a
+ * touch could open the next before the first had closed. It goes at the
+ * end of a row, `class` placing it — or,
  * where it says in words what it filters (`shown`), among others like it.
  * What it offers can be read only once it is first opened (`onOpened`).
  */
@@ -103,8 +108,13 @@ export function TickFilter(props: {
   readonly shown?: string | undefined
   readonly onOpened?: () => void
 }): JSX.Element {
+  const [open, setOpen] = createBubble()
+  const opened = (next: boolean): void => {
+    setOpen(next)
+    if (next) props.onOpened?.()
+  }
   return (
-    <PopoverPrimitive.Root gutter={6} placement={props.shown === undefined ? "bottom-end" : "bottom-start"} onOpenChange={(open) => open && props.onOpened?.()}>
+    <PopoverPrimitive.Root gutter={6} placement={props.shown === undefined ? "bottom-end" : "bottom-start"} open={open()} onOpenChange={opened}>
       <PopoverPrimitive.Trigger
         aria-label={props.label}
         title={props.label}

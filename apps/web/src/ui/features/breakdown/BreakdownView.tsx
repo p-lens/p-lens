@@ -48,7 +48,8 @@ function GroupFigure(props: { readonly label: string; readonly spaced?: boolean;
 
 /**
  * One group in a card, so that a long name and its figures both fit a
- * phone: what the group is, then its figures in three rows of two, each
+ * phone, the list of them no wider than 36rem on a wide screen, where its
+ * figures would otherwise stand far apart: what the group is, then its figures in three rows of two, each
  * figure with its name, in the same places on every card whatever they
  * say — how many tallies were played to a result and how they went, one
  * dead even counted as none, how long they were played for
@@ -64,9 +65,9 @@ export function GroupRow(props: { readonly name: string; readonly group: Group; 
     <li class="rounded-md" classList={{ "bg-surface-1": !props.strong, "border border-border": props.strong }}>
       <Show when={props.onOpen} keyed fallback={<GroupFigures {...props} />}>
         {(open) => (
-          <button type="button" onClick={() => open()} class="flex w-full items-center gap-2 rounded-md text-left transition-colors hover:bg-surface-3/60">
+          <button type="button" onClick={() => open()} class="flex w-full items-center rounded-md text-left transition-colors hover:bg-surface-3/60">
             <GroupFigures {...props} />
-            <span class="mr-2 shrink-0 text-text-muted [&_svg]:size-4">
+            <span class="-ml-1 mr-1 shrink-0 text-text-muted [&_svg]:size-4">
               <ChevronRightIcon />
             </span>
           </button>
@@ -195,7 +196,7 @@ export function BreakdownView(props: { readonly place: Place; readonly bookId: B
                 <Loaded outcome={groups()}>
                   {(found) => (
                     <Show when={found.length > 0} fallback={<EmptyState title="この期間の収支はありません" />}>
-                      <ul class="flex flex-col gap-1">
+                      <ul class="flex max-w-xl flex-col gap-1">
                         <GroupRow name="合計" group={totalOf(found)} strong theoreticalKept={theoreticalKept()} />
                         <For each={shownOrder(found, dimension)}>
                           {(group) => <GroupRow name={groupName(dimension, group.key, app.machineNames())} group={group} strong={false} theoreticalKept={theoreticalKept()} onOpen={opener(dimension, group.key)} />}
