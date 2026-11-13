@@ -30,7 +30,7 @@ export function SpinSpreadGuide(): JSX.Element {
   return (
     <>
       <p>
-        パチンコライブ計測の回転率の i は、本当の回転率が{String(SPREAD_COVERAGE_PERCENT)}%の確率で入る範囲を出します。打った玉1個ずつが、決まった確率でヘソに入って1回転になるものとして、ここまで通常時に打った玉の数から計算します。
+        パチンコライブ計測の回転率の横の ⓘ は、本当の回転率が{String(SPREAD_COVERAGE_PERCENT)}%の確率で入る範囲を出します。打った玉1個ずつが、決まった確率でヘソに入って1回転になるものとして、ここまで通常時に打った玉の数から計算します。
       </p>
       <p>
         幅は、回転率をR、1,000円で借りられる玉をk、打った玉をnとして、±{SPREAD_DEVIATIONS.toFixed(2)} × √(R ×（k − R）÷ n)です。√の部分が回転率の標準偏差で、その{SPREAD_DEVIATIONS.toFixed(2)}倍まで取ると、{String(SPREAD_COVERAGE_PERCENT)}%（10回に9回）はこの範囲に入ります。打った玉が4倍になると、幅は半分になります。

@@ -3,7 +3,7 @@ import { Ok } from "../../src/core/result/result"
 import { BOOK_FILES } from "../../src/core/journal/layout"
 
 import { createBookSession } from "../../src/application/book-session"
-import { consolidationKeepsTheoreticalValues, loadConsolidatedHoldings, loadConsolidatedRates, loadConsolidatedSenderNames, loadConsolidatedSpinPerformances, loadConsolidation, type ConsolidatedGrouping } from "../../src/application/consolidation"
+import { consolidationKeepsTheoreticalValues, loadConsolidatedHoldings, loadConsolidatedRates, loadConsolidatedSenderNames, loadConsolidation, type ConsolidatedGrouping } from "../../src/application/consolidation"
 import { recordTokenTally } from "../../src/application/record-tally"
 import { loadHoldings } from "../../src/application/holdings"
 import { latestValuedOn, totalAcross } from "../../src/core/report/holdings"
@@ -191,9 +191,7 @@ describe("a consolidation narrowed", () => {
     expect(books.ok && books.value.map((each) => each.read.ok && each.read.value.map((group) => [group.key, toPlainString(group.actual)]))).toEqual([[[MINE, "20030"]], [[THEIRS, "20030"]]] as never)
     const overall = await loadConsolidatedOverall(ports, both, "", pachislot)
     expect(overall.ok && overall.value.map((each) => each.read.ok && each.read.value.plays)).toEqual([1, 1])
-    const spins = await loadConsolidatedSpinPerformances(ports, both, "", { machine: ["流星"] })
-    expect(spins.ok && [...spins.value.keys()].every((key) => key === "流星")).toBe(true)
-    expect(await loadConsolidatedRates(ports, undefined)).toEqual({ ok: true, value: ["ball:4円", "medal:20円"] })
+    expect(await loadConsolidatedRates(ports, undefined)).toEqual({ ok: true, value: ["medal:20円", "ball:4円"] })
   })
 
   test("is never answered with what was kept for the same question narrowed otherwise", async () => {

@@ -7,7 +7,6 @@ import {
   loadConsolidatedOverall,
   loadConsolidatedRates,
   loadConsolidatedSenderNames,
-  loadConsolidatedSpinPerformances,
   loadConsolidation,
   type ConsolidatedBook,
   type ConsolidatedBy,
@@ -22,7 +21,6 @@ import { mapOk } from "../../../core/result/result"
 import { hasOtherGains, mergedOtherGains, type OtherGains } from "../../../core/report/other-gains"
 import { mergedOverall } from "../../../core/report/overall"
 import type { SenderNames } from "../../../core/report/senders"
-import { allSpinPerformances, type SpinPerformancesByMachine } from "../../../core/report/spin-performance"
 import { useApp } from "../../context"
 import { Select } from "../../primitives/select"
 import { EmptyState, Loaded, Refreshing } from "../../primitives/states"
@@ -99,7 +97,7 @@ export function ConsolidatedBreakdownView(props: { readonly place: Place; readon
       ((by) => (by === undefined || matchesNothing(props.narrowing) ? undefined : { bookIds: props.bookIds, by, narrowing: props.narrowing, query: props.query, revision: app.revision(), outdated: app.consolidationOutdated() }))(
         grouping(),
       ),
-    (source) => loadConsolidation(app.services.consolidation, source.bookIds, source.by, queryFor(source.by, source.query), source.narrowing),
+    (source) => loadConsolidation(app.services.consolidation, source.bookIds, source.by, queryFor(source.by, source.query), source.narrowing, "tallied"),
   )
   const [overall] = createResource(
     () =>
@@ -109,13 +107,6 @@ export function ConsolidatedBreakdownView(props: { readonly place: Place; readon
   const [kept] = createResource(() => ({ bookIds: props.bookIds, revision: app.revision(), outdated: app.consolidationOutdated() }), (source) => consolidationKeepsTheoreticalValues(app.services.consolidation, source.bookIds))
   /** Whether any of the books keeps theoretical values: taken to until hledger says none does. */
   const theoreticalKept = (): boolean => ((answer) => answer?.ok !== true || answer.value)(kept())
-  const [spun] = createResource(
-    () =>
-      props.by === "machine" && !matchesNothing(props.narrowing) ? { bookIds: props.bookIds, narrowing: props.narrowing, query: props.query, revision: app.revision(), outdated: app.consolidationOutdated() } : undefined,
-    (source) => loadConsolidatedSpinPerformances(app.services.consolidation, source.bookIds, queryFor("machine", source.query), source.narrowing),
-  )
-  /** The machines' spin performances over the books, while the tallies are grouped by machine and once they are read. */
-  const spins = (): SpinPerformancesByMachine | undefined => ((answer) => (props.by === "machine" && answer?.ok === true ? answer.value : undefined))(spun())
   const [named] = createResource(
     () => (props.by === "sender" ? { bookIds: props.bookIds, revision: app.revision(), outdated: app.consolidationOutdated() } : undefined),
     (source) => loadConsolidatedSenderNames(app.services.consolidation, source.bookIds),
@@ -181,9 +172,9 @@ export function ConsolidatedBreakdownView(props: { readonly place: Place; readon
                 {() => (
                   <Show when={(groups() ?? []).length > 0} fallback={<EmptyState title="この期間の収支はありません" />}>
                     <ul class="flex flex-col gap-1">
-                      <GroupRow name="合計" group={totalOf((groups() ?? []).map((each) => each.group))} strong theoreticalKept={theoreticalKept()} spins={((all) => (all === undefined ? undefined : allSpinPerformances(all)))(spins())} />
+                      <GroupRow name="合計" group={totalOf((groups() ?? []).map((each) => each.group))} strong theoreticalKept={theoreticalKept()} />
                       <For each={groups() ?? []}>
-                        {(each) => <GroupRow name={each.name} group={each.group} strong={false} theoreticalKept={theoreticalKept()} spins={spins()?.get(each.group.key)} onOpen={opener(each.group.key)} />}
+                        {(each) => <GroupRow name={each.name} group={each.group} strong={false} theoreticalKept={theoreticalKept()} onOpen={opener(each.group.key)} />}
                       </For>
                     </ul>
                   </Show>

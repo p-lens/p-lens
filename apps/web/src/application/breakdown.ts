@@ -3,16 +3,15 @@ import { SOURCE_TAGS } from "../core/tally/source-tags"
 import { readGameKind, writtenGameKinds } from "../core/play/play"
 import { PARLOR_ID_TAG, PARLOR_SUBMISSION_TAG, parlorsFromDeclarations, type Parlor } from "../core/parlor/parlor"
 import { TALLY_TAGS } from "../core/tally/tally"
-import { UNSAID, byColumn, byRow, byWeekday, groupsOf, inOrder, merged, type Dimension, type Group, type Period } from "../core/report/breakdown"
+import { UNSAID, byColumn, byRow, byWeekday, eachTallyAs, eachTallyByColumn, eachTallyByTag, groupsOf, inOrder, merged, talliesOf, type Dimension, type Group, type Period, type Tallies, type TallyYen } from "../core/report/breakdown"
 import { isZero, negate, ZERO } from "../core/decimal/decimal"
-import { actualOf, secondsIn, secondsOf, statisticTotalOf } from "../core/report/figures"
+import { actualOf, secondsIn, secondsOf, statisticTotalOf, type ReportError } from "../core/report/figures"
 import { EVERY_TALLY, NARROWED_BY, rateKey, ratesInOrder, readRateKey, type NarrowedBy, type Narrowing } from "../core/report/narrowing"
 import { senderNamesOf, type SenderNames } from "../core/report/senders"
-import { spinPerformancesOf, type SpinPerformancesByMachine } from "../core/report/spin-performance"
-import { andThen, collect, mapOk, Ok } from "../core/result/result"
+import { andThen, collect, mapOk, Ok, type Result } from "../core/result/result"
 import type { JournalAccess, Reply } from "../hledger/client/client"
-import type { BalanceReport } from "../hledger/protocol/wire"
-import { accountsRequest, actualCutRequest, sentTalliesRequest, spinPerformancesRequest, actualRequest, inferredCutRequest, inferredRequest, playTimeCutRequest, playTimeRequest, theoreticalCutRequest, theoreticalRequest } from "../hledger/query/requests"
+import type { BalanceReport, Cut } from "../hledger/protocol/wire"
+import { accountsRequest, actualCutRequest, sentTalliesRequest, actualRequest, inferredCutRequest, inferredRequest, playTimeCutRequest, playTimeRequest, revenueCutRequest, spentCutRequest, theoreticalCutRequest, theoreticalRequest } from "../hledger/query/requests"
 import { combine, playedTokensTerm, sendersTerm, taggedAmongTerm, talliesTerm, untaggedTerm } from "../hledger/query/terms"
 import type { BookSession } from "./book-session"
 import { viewedFor } from "./book-views"
@@ -20,23 +19,54 @@ import type { Outcome } from "./errors"
 import { fromHledger, fromReport } from "./lift"
 import { askUserTags, USER_TAG_NAMES } from "./user-tags"
 
-/** The tallies of a query grouped by one tag's values, each group's figures hledger's: an income statement, a balance of theoretical values, a balance of the inferred among them and a balance of play time, all pivoted on the tag. */
-const byTag = async (journal: JournalAccess, query: string, tag: string): Promise<Outcome<readonly Group[]>> => {
+/**
+ * What a breakdown asks of its groups: their sums alone, as a calendar and
+ * the narrowing's choices read them, or their tallies one by one beside
+ * them too, as a breakdown's list shows them — two reports more, a row a
+ * tally, asked only where they are shown.
+ */
+export type Asked = "sums" | "tallied"
+
+/** Groups' tallies one by one, by key; none where they were not asked for. */
+type Counted = ReadonlyMap<string, Tallies> | undefined
+
+/**
+ * A query's tallies one by one, where they are asked for: what each took
+ * in and what each gave back, cut as `cut` says — by a tag's value and the
+ * tally's id together, or by the tally's id over periods — each read into
+ * the groups they fall in by `reading`, and counted.
+ */
+const countedTallies = async (journal: JournalAccess, asked: Asked, query: string, cut: Cut, reading: (report: BalanceReport) => Result<readonly TallyYen[], ReportError>): Promise<Outcome<Counted>> => {
+  if (asked === "sums") return Ok(undefined)
+  const [spent, revenue] = await Promise.all([journal.ask(spentCutRequest(query, cut)), journal.ask(revenueCutRequest(query, cut))])
+  return andThen(andThen(fromHledger(spent), (report) => fromReport(reading(report))), (took) => mapOk(andThen(fromHledger(revenue), (report) => fromReport(reading(report))), (gave) => talliesOf(took, gave)))
+}
+
+/** The tallies of a query grouped by one tag's values, each group's figures hledger's: an income statement, a balance of theoretical values, a balance of the inferred among them and a balance of play time, all pivoted on the tag, and the tallies one by one where asked, pivoted on the tag and their ids together. */
+const byTag = async (journal: JournalAccess, query: string, tag: string, asked: Asked): Promise<Outcome<readonly Group[]>> => {
   const cut = { pivot: tag }
-  const [statement, theoretical, inferred, time] = await Promise.all([journal.ask(actualCutRequest(query, cut)), journal.ask(theoreticalCutRequest(query, cut)), journal.ask(inferredCutRequest(query, cut)), journal.ask(playTimeCutRequest(query, cut))])
+  const [statement, theoretical, inferred, time, counted] = await Promise.all([
+    journal.ask(actualCutRequest(query, cut)),
+    journal.ask(theoreticalCutRequest(query, cut)),
+    journal.ask(inferredCutRequest(query, cut)),
+    journal.ask(playTimeCutRequest(query, cut)),
+    countedTallies(journal, asked, query, { pivot: `${tag}:${TALLY_TAGS.playId}` }, eachTallyByTag),
+  ])
   return andThen(andThen(fromHledger(statement), (report) => fromReport(byRow(report))), (made) =>
     andThen(andThen(fromHledger(theoretical), (report) => fromReport(byRow(report))), (worth) =>
-      andThen(andThen(fromHledger(inferred), (report) => fromReport(byRow(report))), (taken) => mapOk(andThen(fromHledger(time), (report) => fromReport(byRow(report, secondsIn))), (played) => groupsOf(made, worth, taken, played))),
+      andThen(andThen(fromHledger(inferred), (report) => fromReport(byRow(report))), (taken) =>
+        andThen(andThen(fromHledger(time), (report) => fromReport(byRow(report, secondsIn))), (played) => mapOk(counted, (tallies) => groupsOf(made, worth, taken, played, tallies))),
+      ),
     ),
   )
 }
 
-/** What four reports — an income statement, a balance of theoretical values, a balance of the inferred among them and a balance of play time — come to as one group under a key: each report's total, hledger's. */
-const totalsAsOne = (key: string, [statement, theoretical, inferred, time]: Reports): Outcome<readonly Group[]> =>
+/** What four reports — an income statement, a balance of theoretical values, a balance of the inferred among them and a balance of play time — come to as one group under a key: each report's total, hledger's, with the tallies one by one where they were asked for. */
+const totalsAsOne = (key: string, [statement, theoretical, inferred, time]: Reports, counted: Outcome<Counted>): Outcome<readonly Group[]> =>
   andThen(andThen(fromHledger(statement), (report) => fromReport(actualOf(report))), (actual) =>
     andThen(andThen(fromHledger(theoretical), (report) => fromReport(statisticTotalOf(report))), (worth) =>
       andThen(andThen(fromHledger(inferred), (report) => fromReport(statisticTotalOf(report))), (taken) =>
-        mapOk(mapOk(fromHledger(time), secondsOf), (played) => groupsOf(new Map([[key, negate(actual)]]), new Map([[key, worth]]), new Map([[key, taken]]), new Map([[key, played ?? ZERO]]))),
+        andThen(mapOk(fromHledger(time), secondsOf), (played) => mapOk(counted, (tallies) => groupsOf(new Map([[key, negate(actual)]]), new Map([[key, worth]]), new Map([[key, taken]]), new Map([[key, played ?? ZERO]]), tallies))),
       ),
     ),
   )
@@ -44,9 +74,17 @@ const totalsAsOne = (key: string, [statement, theoretical, inferred, time]: Repo
 /** The four reports a group's figures are read from, each as hledger answered it. */
 type Reports = readonly [Reply<BalanceReport>, Reply<BalanceReport>, Reply<BalanceReport>, Reply<BalanceReport>]
 
-/** Everything a query matches as one group under a key: the four reports, none cut. */
-const whole = async (journal: JournalAccess, query: string, key: string): Promise<Outcome<readonly Group[]>> =>
-  totalsAsOne(key, await Promise.all([journal.ask(actualRequest(query)), journal.ask(theoreticalRequest(query)), journal.ask(inferredRequest(query)), journal.ask(playTimeRequest(query))]))
+/** Everything a query matches as one group under a key: the four reports, none cut, and the tallies one by one where asked, pivoted on their ids. */
+const whole = async (journal: JournalAccess, query: string, key: string, asked: Asked): Promise<Outcome<readonly Group[]>> => {
+  const [statement, theoretical, inferred, time, counted] = await Promise.all([
+    journal.ask(actualRequest(query)),
+    journal.ask(theoreticalRequest(query)),
+    journal.ask(inferredRequest(query)),
+    journal.ask(playTimeRequest(query)),
+    countedTallies(journal, asked, query, { pivot: TALLY_TAGS.playId }, eachTallyAs(key)),
+  ])
+  return totalsAsOne(key, [statement, theoretical, inferred, time], counted)
+}
 
 /**
  * The tallies of a query grouped by the first of several tags each carries.
@@ -56,12 +94,12 @@ const whole = async (journal: JournalAccess, query: string, key: string): Promis
  * carry the tags before. What carries none of them is the unnamed group,
  * asked for the same way and not cut — a pivoted report has no row for it.
  */
-const byTags = async (journal: JournalAccess, query: string, tags: readonly string[]): Promise<Outcome<readonly Group[]>> => {
+const byTags = async (journal: JournalAccess, query: string, tags: readonly string[], asked: Asked): Promise<Outcome<readonly Group[]>> => {
   const [tag, ...rest] = tags
-  if (tag === undefined) return whole(journal, query, UNSAID)
-  const groups = await byTag(journal, query, tag)
+  if (tag === undefined) return whole(journal, query, UNSAID, asked)
+  const groups = await byTag(journal, query, tag, asked)
   if (!groups.ok) return groups
-  return mapOk(await byTags(journal, combine(query, untaggedTerm(tag)), rest), (further) => [...groups.value.filter((group) => group.key !== UNSAID), ...further])
+  return mapOk(await byTags(journal, combine(query, untaggedTerm(tag)), rest, asked), (further) => [...groups.value.filter((group) => group.key !== UNSAID), ...further])
 }
 
 /** The four reports of a query, each with a column a period. */
@@ -70,16 +108,21 @@ const periodReports = (journal: JournalAccess, query: string, period: Period): P
   return Promise.all([journal.ask(actualCutRequest(query, cut)), journal.ask(theoreticalCutRequest(query, cut)), journal.ask(inferredCutRequest(query, cut)), journal.ask(playTimeCutRequest(query, cut))])
 }
 
-/** The groups four reports cut by period come to, a group a period. */
-const byColumns = (period: Period, [statement, theoretical, inferred, time]: Reports): Outcome<readonly Group[]> =>
+/** The groups four reports cut by period come to, a group a period, with the tallies one by one where they were asked for. */
+const byColumns = (period: Period, [statement, theoretical, inferred, time]: Reports, counted: Outcome<Counted>): Outcome<readonly Group[]> =>
   andThen(andThen(fromHledger(statement), (report) => fromReport(byColumn(report, period))), (made) =>
     andThen(andThen(fromHledger(theoretical), (report) => fromReport(byColumn(report, period))), (worth) =>
-      andThen(andThen(fromHledger(inferred), (report) => fromReport(byColumn(report, period))), (taken) => mapOk(andThen(fromHledger(time), (report) => fromReport(byColumn(report, period, secondsIn))), (played) => groupsOf(made, worth, taken, played))),
+      andThen(andThen(fromHledger(inferred), (report) => fromReport(byColumn(report, period))), (taken) =>
+        andThen(andThen(fromHledger(time), (report) => fromReport(byColumn(report, period, secondsIn))), (played) => mapOk(counted, (tallies) => groupsOf(made, worth, taken, played, tallies))),
+      ),
     ),
   )
 
-/** The tallies of a query grouped by period, each period's figures hledger's: the four reports, each with a column a period. */
-const byPeriod = async (journal: JournalAccess, query: string, period: Period): Promise<Outcome<readonly Group[]>> => byColumns(period, await periodReports(journal, query, period))
+/** The tallies of a query grouped by period, each period's figures hledger's: the four reports, each with a column a period, and the tallies one by one where asked, a row a tally over the same columns. */
+const byPeriod = async (journal: JournalAccess, query: string, period: Period, asked: Asked): Promise<Outcome<readonly Group[]>> => {
+  const [reports, counted] = await Promise.all([periodReports(journal, query, period), countedTallies(journal, asked, query, { pivot: TALLY_TAGS.playId, interval: period }, (report) => eachTallyByColumn(report, period))])
+  return byColumns(period, reports, counted)
+}
 
 /** A parlor's group under its name: the list's id, or a submission's, is what its tallies are tagged with and no one's to read. Two keys of one name are one parlor. */
 const named = (groups: readonly Group[], parlors: readonly Parlor[]): readonly Group[] => {
@@ -90,14 +133,14 @@ const named = (groups: readonly Group[], parlors: readonly Parlor[]): readonly G
 const parlorsIn = async (journal: JournalAccess): Promise<Outcome<readonly Parlor[]>> => mapOk(fromHledger(await journal.ask(accountsRequest)), parlorsFromDeclarations)
 
 /** The tallies of a query grouped by parlor: by the tag that ties a tally to one, then named as the book names it. */
-const byParlor = async (journal: JournalAccess, query: string): Promise<Outcome<readonly Group[]>> => {
-  const groups = await byTags(journal, query, [PARLOR_ID_TAG, PARLOR_SUBMISSION_TAG, SOURCE_TAGS.parlor])
+const byParlor = async (journal: JournalAccess, query: string, asked: Asked): Promise<Outcome<readonly Group[]>> => {
+  const groups = await byTags(journal, query, [PARLOR_ID_TAG, PARLOR_SUBMISSION_TAG, SOURCE_TAGS.parlor], asked)
   return groups.ok ? mapOk(await parlorsIn(journal), (parlors) => named(groups.value, parlors)) : groups
 }
 
 /** The tallies of a query grouped by game: what a book wrote before pachislot's name was settled is one game with what it writes now. */
-const byGame = async (journal: JournalAccess, query: string): Promise<Outcome<readonly Group[]>> =>
-  mapOk(await byTags(journal, query, [TALLY_TAGS.gameKind]), (groups) => merged([groups.map((group) => ({ ...group, key: readGameKind(group.key) ?? group.key }))]))
+const byGame = async (journal: JournalAccess, query: string, asked: Asked): Promise<Outcome<readonly Group[]>> =>
+  mapOk(await byTags(journal, query, [TALLY_TAGS.gameKind], asked), (groups) => merged([groups.map((group) => ({ ...group, key: readGameKind(group.key) ?? group.key }))]))
 
 /** What a tally carries a tag for among what it can be narrowed by: all of it but its rate, which is in the name of the tokens it played. */
 type Tagged = Exclude<NarrowedBy, "rate">
@@ -152,12 +195,12 @@ const isNothing = (group: Group): boolean => [group.actual, group.theoretical, g
  * words being those the query's tallies are tagged with — and the tallies
  * tagged with none are the unnamed group, where there are any.
  */
-const byUserTag = async (journal: JournalAccess, query: string): Promise<Outcome<readonly Group[]>> => {
+const byUserTag = async (journal: JournalAccess, query: string, asked: Asked): Promise<Outcome<readonly Group[]>> => {
   const tags = await askUserTags(journal, query)
   if (!tags.ok) return tags
   const [tagged, untagged] = await Promise.all([
-    Promise.all(tags.value.map((tag) => whole(journal, combine(query, taggedAmongTerm(USER_TAG_NAMES, [tag])), tag))),
-    whole(journal, combine(query, ...USER_TAG_NAMES.map(untaggedTerm)), UNSAID),
+    Promise.all(tags.value.map((tag) => whole(journal, combine(query, taggedAmongTerm(USER_TAG_NAMES, [tag])), tag, asked))),
+    whole(journal, combine(query, ...USER_TAG_NAMES.map(untaggedTerm)), UNSAID, asked),
   ])
   return mapOk(collect([...tagged, untagged]), (groups) => groups.flat().filter((group) => group.key !== UNSAID || !isNothing(group)))
 }
@@ -166,24 +209,24 @@ const byUserTag = async (journal: JournalAccess, query: string): Promise<Outcome
 export const loadRates = (session: BookSession, bookId: BookId): Promise<Outcome<readonly string[]>> =>
   session.read(bookId, async (journal) => mapOk(await parlorsIn(journal), (parlors) => ratesInOrder(parlors.flatMap((parlor) => parlor.pools).map(rateKey))))
 
-const grouped = async (journal: JournalAccess, dimension: Dimension, query: string): Promise<Outcome<readonly Group[]>> => {
+const grouped = async (journal: JournalAccess, dimension: Dimension, query: string, asked: Asked): Promise<Outcome<readonly Group[]>> => {
   switch (dimension) {
     case "machine":
-      return byTags(journal, query, [TALLY_TAGS.machine, SOURCE_TAGS.machine])
+      return byTags(journal, query, [TALLY_TAGS.machine, SOURCE_TAGS.machine], asked)
     case "parlor":
-      return byParlor(journal, query)
+      return byParlor(journal, query, asked)
     case "game":
-      return byGame(journal, query)
+      return byGame(journal, query, asked)
     case "year":
-      return byPeriod(journal, query, "yearly")
+      return byPeriod(journal, query, "yearly", asked)
     case "month":
-      return byPeriod(journal, query, "monthly")
+      return byPeriod(journal, query, "monthly", asked)
     case "day":
-      return byPeriod(journal, query, "daily")
+      return byPeriod(journal, query, "daily", asked)
     case "weekday":
-      return mapOk(await byPeriod(journal, query, "daily"), byWeekday)
+      return mapOk(await byPeriod(journal, query, "daily", asked), byWeekday)
     case "tag":
-      return byUserTag(journal, query)
+      return byUserTag(journal, query, asked)
   }
 }
 
@@ -198,10 +241,17 @@ const grouped = async (journal: JournalAccess, dimension: Dimension, query: stri
  * A narrowing keeps to the tallies of the games, parlors and machines it
  * chose.
  */
-export const loadBreakdown = (session: BookSession, bookId: BookId, dimension: Dimension, query: string, narrowing: Narrowing = EVERY_TALLY): Promise<Outcome<readonly Group[]>> =>
+export const loadBreakdown = (session: BookSession, bookId: BookId, dimension: Dimension, query: string, narrowing: Narrowing = EVERY_TALLY, asked: Asked = "sums"): Promise<Outcome<readonly Group[]>> =>
   viewedFor(session, query, "moved").read(bookId, async (journal) => {
     const narrowed = await narrowedTerm(journal, narrowing)
-    return narrowed.ok ? mapOk(await grouped(journal, dimension, combine(talliesTerm, query, narrowed.value)), (groups) => inOrder(groups, dimension)) : narrowed
+    return narrowed.ok ? mapOk(await grouped(journal, dimension, combine(talliesTerm, query, narrowed.value), asked), (groups) => inOrder(groups, dimension)) : narrowed
+  })
+
+/** A book's results for a period taken as one group under a key, of the tallies a narrowing keeps to: the book itself, among several books. */
+export const loadWhole = (session: BookSession, bookId: BookId, key: string, query: string, narrowing: Narrowing = EVERY_TALLY, asked: Asked = "sums"): Promise<Outcome<readonly Group[]>> =>
+  viewedFor(session, query, "moved").read(bookId, async (journal) => {
+    const narrowed = await narrowedTerm(journal, narrowing)
+    return narrowed.ok ? whole(journal, combine(talliesTerm, query, narrowed.value), key, asked) : narrowed
   })
 
 /** Who of those that played a book its tallies are asked of: every one, or those chosen of those offered, by sender id and `UNSENT`. */
@@ -230,21 +280,9 @@ export const loadDaysAndWhole = (session: BookSession, bookId: BookId, query: st
   if (term === undefined) return Promise.resolve(Ok({ days: [], whole: [] }))
   return viewedFor(session, query, "moved").read(bookId, async (journal) => {
     const reports = await periodReports(journal, combine(talliesTerm, query, term), "daily")
-    return andThen(byColumns("daily", reports), (days) => mapOk(totalsAsOne(WHOLE_PERIOD, reports), (whole) => ({ days: inOrder(days, "day"), whole })))
+    return andThen(byColumns("daily", reports, Ok(undefined)), (days) => mapOk(totalsAsOne(WHOLE_PERIOD, reports, Ok(undefined)), (whole) => ({ days: inOrder(days, "day"), whole })))
   })
 }
-
-/**
- * A book's tallies' spin performances for a period, by machine: what the
- * tallies grouped by machine are read beside. hledger finds the tallies that
- * say one, of those a narrowing keeps to; it keeps a tag's value and does
- * not add it up, so the adding is the app's.
- */
-export const loadSpinPerformances = (session: BookSession, bookId: BookId, query: string, narrowing: Narrowing = EVERY_TALLY): Promise<Outcome<SpinPerformancesByMachine>> =>
-  viewedFor(session, query, "moved").read(bookId, async (journal) => {
-    const narrowed = await narrowedTerm(journal, narrowing)
-    return narrowed.ok ? mapOk(fromHledger(await journal.ask(spinPerformancesRequest(combine(query, narrowed.value)))), (page) => spinPerformancesOf(page.items)) : narrowed
-  })
 
 /**
  * A book's results for a period, by who played them: each sender by the id
@@ -252,10 +290,10 @@ export const loadSpinPerformances = (session: BookSession, bookId: BookId, query
  * and plays taken in before senders were written — as the unnamed group.
  * A narrowing keeps to the tallies it chose.
  */
-export const loadSenderBreakdown = (session: BookSession, bookId: BookId, query: string, narrowing: Narrowing = EVERY_TALLY): Promise<Outcome<readonly Group[]>> =>
+export const loadSenderBreakdown = (session: BookSession, bookId: BookId, query: string, narrowing: Narrowing = EVERY_TALLY, asked: Asked = "sums"): Promise<Outcome<readonly Group[]>> =>
   viewedFor(session, query, "moved").read(bookId, async (journal) => {
     const narrowed = await narrowedTerm(journal, narrowing)
-    return narrowed.ok ? byTags(journal, combine(talliesTerm, query, narrowed.value), [TALLY_TAGS.senderId]) : narrowed
+    return narrowed.ok ? byTags(journal, combine(talliesTerm, query, narrowed.value), [TALLY_TAGS.senderId], asked) : narrowed
   })
 
 /** Who sent a book's plays, each by the name on their last tally, whatever the period: the name a person goes by now. */

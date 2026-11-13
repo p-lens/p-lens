@@ -7,7 +7,7 @@ import { loadTallies } from "../../src/application/tallies"
 import { importPrecord, previewPrecord } from "../../src/other-apps/precord/use-cases"
 import type { BookId } from "../../src/core/book/book"
 import { toPlainString } from "../../src/core/decimal/decimal"
-import { totalOf, type Dimension } from "../../src/core/report/breakdown"
+import { totalOf, type Dimension, type Group } from "../../src/core/report/breakdown"
 import { EVERY_TALLY, type Narrowing } from "../../src/core/report/narrowing"
 import { Ok } from "../../src/core/result/result"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
@@ -21,16 +21,43 @@ import { MALEHAN, dec } from "../support/values"
 
 const BOOK = "basic-play" as BookId
 
+/** A group's tallies as the tests compare them: its key, how many, won and lost, and what they took in and gave back. */
+const talliesRead = (group: Group) => [group.key, group.tallies?.plays, group.tallies?.won, group.tallies?.lost, group.tallies === undefined ? undefined : toPlainString(group.tallies.spent), group.tallies === undefined ? undefined : toPlainString(group.tallies.returned)]
+
 describe("the basic-play book, broken down by the real hledger module", () => {
   const context: { session?: BookSession } = {}
   const session = (): BookSession => context.session as BookSession
   const read = async (dimension: Dimension, query = "", narrowing: Narrowing = EVERY_TALLY) =>
     ((found) => (found.ok ? found.value.map((group) => [group.key, toPlainString(group.actual), toPlainString(group.theoretical)]) : found))(await loadBreakdown(session(), BOOK, dimension, query, narrowing))
+  const counted = async (dimension: Dimension, query = "") => ((found) => (found.ok ? found.value.map(talliesRead) : found))(await loadBreakdown(session(), BOOK, dimension, query, EVERY_TALLY, "tallied"))
 
   beforeAll(async () => {
     const storage = memoryStorage()
     context.session = createBookSession({ hledger: await inProcessHledger(), storage, history: createMemoryHistory(() => crypto.randomUUID()), clock: () => new Date("2026-10-09T12:00:00+09:00"), newId: () => crypto.randomUUID(), member: ME })
     await session().createBook(await fixtureBook("basic-play", { id: BOOK, members: [{ id: ME, displayName: "me", role: "owner" }] }))
+  })
+
+  test("by machine, each group's tallies counted one by one: how many, won, lost, what they took in and gave back, one that came out even neither won nor lost", async () => {
+    expect(await counted("machine")).toEqual([
+      ["ピエロット", 1, 1, 0, "10000", "30030"],
+      ["森物語", 2, 1, 1, "17990", "31968"],
+      ["流星", 2, 1, 0, "26000", "31136"],
+    ])
+  })
+
+  test("its tallies counted to the same totals as 総合's whichever way it is cut, and left uncounted where only the sums are asked for", async () => {
+    const totals = await Promise.all(
+      (["machine", "parlor", "game", "year", "month", "day", "weekday"] as const).map(async (dimension) =>
+        ((found) => (found.ok ? talliesRead(totalOf(found.value)) : found))(await loadBreakdown(session(), BOOK, dimension, "", EVERY_TALLY, "tallied")),
+      ),
+    )
+    expect(totals).toEqual(Array.from({ length: 7 }, () => ["", 5, 3, 1, "53990", "93134"]))
+    expect(await counted("day", "date:2026-10")).toEqual([
+      ["2026-10-03", 1, 0, 1, "9990", "7992"],
+      ["2026-10-01", 1, 0, 0, "14000", "14000"],
+    ])
+    const summed = await loadBreakdown(session(), BOOK, "machine", "")
+    expect(summed.ok && summed.value.map((group) => group.tallies)).toEqual([undefined, undefined, undefined])
   })
 
   test("taken as one: its tallies and days counted, every sum hledger's", async () => {
@@ -176,6 +203,16 @@ describe("a book broken down by the words its tallies are tagged with", () => {
 
   test("is a group a word, a tally tagged with several in each, and the tallies tagged with none together, best first", async () => {
     expect(await read("tag")).toEqual([["", "39144"], ["朝イチ", "10000"], ["イベント", "7000"], ["ハイエナ", "5000"]])
+  })
+
+  test("counts a tally tagged with several words in the group of each", async () => {
+    const found = await loadBreakdown(session(), BOOK, "tag", "", EVERY_TALLY, "tallied")
+    expect(found.ok && found.value.map(talliesRead)).toEqual([
+      ["", 5, 3, 1, "53990", "93134"],
+      ["朝イチ", 1, 1, 0, "10000", "20000"],
+      ["イベント", 2, 1, 1, "20000", "27000"],
+      ["ハイエナ", 1, 1, 0, "10000", "15000"],
+    ])
   })
 
   test("narrowed to words, is the tallies tagged with any of them, beside whatever else is narrowed", async () => {

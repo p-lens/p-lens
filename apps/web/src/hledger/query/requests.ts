@@ -5,7 +5,7 @@ import { TALLY_TAGS } from "../../core/tally/tally"
 import type { PlayId } from "../../core/play/play"
 import type { Valuation } from "../../core/valuation/valuation"
 import type { Cut, Request, ValuationRequest } from "../protocol/wire"
-import { accountTerm, branchTerm, parlorSavingsTerm, cashTerm, combine, notForfeitureTerm, playTimeTerm, rentalSpreadTerm, drawnTerm, inferredValueTerm, openingBalanceTerm, talliesAmongTerm, talliesTerm, savingsTerm, sentTalliesTerm, spinPerformanceTerm, theoreticalValueTerm, rangeTerm } from "./terms"
+import { accountTerm, branchTerm, parlorSavingsTerm, cashTerm, combine, notForfeitureTerm, playTimeTerm, rentalSpreadTerm, drawnTerm, inferredValueTerm, openingBalanceTerm, talliesAmongTerm, talliesTerm, savingsTerm, sentTalliesTerm, theoreticalValueTerm, rangeTerm } from "./terms"
 
 type RequestOf<K extends Request["kind"]> = Extract<Request, { kind: K }>
 
@@ -42,11 +42,17 @@ export const actualByTallyRequest = (ids: readonly PlayId[]): RequestOf<"incomes
 /** What each tally of a query made or lost, a row a tally: an income statement of every one of them at once, pivoted on the play's id. */
 export const actualEachTallyRequest = (query: string): RequestOf<"incomestatement"> => actualCutRequest(combine(talliesTerm, query), { pivot: TALLY_TAGS.playId })
 
-/** What went into each tally of a query, a row a tally: the same statement of every account but revenue. */
-export const spentEachTallyRequest = (query: string): RequestOf<"incomestatement"> => actualCutRequest(combine(talliesTerm, query, `not:${branchTerm(REVENUE_ROOT)}`), { pivot: TALLY_TAGS.playId })
+/** What went into the tallies of a query, cut the same way: the statement of every account but revenue. */
+export const spentCutRequest = (query: string, cut: Cut): RequestOf<"incomestatement"> => actualCutRequest(combine(query, `not:${branchTerm(REVENUE_ROOT)}`), cut)
 
-/** What came out of each tally of a query, a row a tally: the same statement of revenue alone, which arrives negative. */
-export const wonEachTallyRequest = (query: string): RequestOf<"incomestatement"> => actualCutRequest(combine(talliesTerm, query, branchTerm(REVENUE_ROOT)), { pivot: TALLY_TAGS.playId })
+/** What came out of the tallies of a query, cut the same way: the statement of revenue alone, which arrives negative. */
+export const revenueCutRequest = (query: string, cut: Cut): RequestOf<"incomestatement"> => actualCutRequest(combine(query, branchTerm(REVENUE_ROOT)), cut)
+
+/** What went into each tally of a query, a row a tally. */
+export const spentEachTallyRequest = (query: string): RequestOf<"incomestatement"> => spentCutRequest(combine(talliesTerm, query), { pivot: TALLY_TAGS.playId })
+
+/** What came out of each tally of a query, a row a tally. */
+export const wonEachTallyRequest = (query: string): RequestOf<"incomestatement"> => revenueCutRequest(combine(talliesTerm, query), { pivot: TALLY_TAGS.playId })
 
 /** The theoretical value of the tallies in a query, cut the same way. */
 export const theoreticalCutRequest = (query: string, cut: Cut): RequestOf<"balance"> => ({ ...theoreticalRequest(query), ...cut })
@@ -135,9 +141,6 @@ export const talliesRequest = (query: string, page: { readonly limit: number; re
 
 /** Every tally of a query by its head alone, its day and tags, however many. */
 export const tallyHeadsRequest = (query: string): RequestOf<"heads"> => ({ kind: "heads", query: combine(talliesTerm, query), limit: 1_000_000, offset: 0 })
-
-/** Every tally of a query that says a spin performance, measured or inferred, however many: hledger keeps the tags and does not add them up. */
-export const spinPerformancesRequest = (query: string): RequestOf<"entries"> => ({ kind: "entries", query: combine(talliesTerm, spinPerformanceTerm, query), limit: 1_000_000, offset: 0 })
 
 /** Every tally of a play someone sent, whenever it was played, newest first: who sent each is named by their last. */
 export const sentTalliesRequest: RequestOf<"entries"> = { kind: "entries", query: combine(talliesTerm, sentTalliesTerm), limit: 1_000_000, offset: 0 }

@@ -8,7 +8,6 @@ import {
   loadConsolidatedHoldings,
   loadConsolidatedOtherGains,
   loadConsolidatedOverall,
-  loadConsolidatedSpinPerformances,
   loadConsolidation,
   type ConsolidatedBook,
   type ConsolidationPorts,
@@ -19,11 +18,11 @@ import type { IsoDate } from "../../src/core/calendar/calendar"
 import { withEntriesFiled } from "../../src/core/journal/filing"
 import { BOOK_FILES, type BookFiles } from "../../src/core/journal/layout"
 import { daysOfQuery, viewOf } from "../../src/core/journal/views"
-import { loadBreakdown, loadDaysAndWhole, loadSpinPerformances } from "../../src/application/breakdown"
+import { loadBreakdown, loadDaysAndWhole } from "../../src/application/breakdown"
+import { EVERY_TALLY } from "../../src/core/report/narrowing"
 import { loadHoldings, loadLastMoved } from "../../src/application/holdings"
 import { loadOtherGains } from "../../src/application/other-gains"
 import { loadOverall } from "../../src/application/overall"
-import { loadOverview } from "../../src/application/overview"
 import { loadTallies } from "../../src/application/tallies"
 import { createAbsentSummaries } from "../../src/consolidation/absent/absent-summaries"
 import { webCryptoJournalsDigest } from "../../src/consolidation/web-crypto/journals-digest"
@@ -124,7 +123,7 @@ describe("a book seen for a question about some days", () => {
         (books: readonly BookId[]) => loadConsolidation(ports, books, "day", period).then(readOf),
         (books: readonly BookId[]) => loadConsolidatedDaysAndWhole(ports, books, period).then(readOf),
         (books: readonly BookId[]) => loadConsolidatedHoldings(ports, books, period).then(readOf),
-        (books: readonly BookId[]) => loadConsolidatedSpinPerformances(ports, books, period),
+        (books: readonly BookId[]) => loadConsolidation(ports, books, "parlor", period, EVERY_TALLY, "tallied").then(readOf),
       ]
       for (const ask of asked) {
         const [viewed, whole] = [await ask([VIEWED]), await ask([WHOLE])]
@@ -145,12 +144,12 @@ describe("a book seen for a question about some days", () => {
       const asked = [
         (book: BookId) => loadOverall(session, book, period),
         (book: BookId) => loadOtherGains(session, book, period),
-        (book: BookId) => loadOverview(session, book, period),
         (book: BookId) => loadBreakdown(session, book, "machine", period),
         (book: BookId) => loadBreakdown(session, book, "weekday", period),
         (book: BookId) => loadBreakdown(session, book, "parlor", period),
         (book: BookId) => loadDaysAndWhole(session, book, period, { chosen: undefined, offered: [] }),
-        (book: BookId) => loadSpinPerformances(session, book, period),
+        (book: BookId) => loadBreakdown(session, book, "machine", period, EVERY_TALLY, "tallied"),
+        (book: BookId) => loadBreakdown(session, book, "month", period, EVERY_TALLY, "tallied"),
         (book: BookId) => loadTallies(session, book, period, 0),
         (book: BookId) => loadHoldings(session, book, period),
         (book: BookId) => loadLastMoved(session, book, period),

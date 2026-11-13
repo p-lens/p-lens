@@ -4,13 +4,14 @@ import { loadActivity } from "../../src/application/activity"
 import { createBookSession } from "../../src/application/book-session"
 import type { ImportPorts, ImportReport, Named, Weighing } from "../../src/other-apps/application/import"
 import { importPrecord, previewPrecord } from "../../src/other-apps/precord/use-cases"
-import { loadOverview } from "../../src/application/overview"
+import { loadOverall } from "../../src/application/overall"
 import { loadTallies } from "../../src/application/tallies"
 import { loadRecordedTally } from "../../src/application/revise-tally"
 import type { BookId } from "../../src/core/book/book"
 import type { PlayId } from "../../src/core/play/play"
 import { toPlainString } from "../../src/core/decimal/decimal"
 import { Ok } from "../../src/core/result/result"
+import { loadHoldings } from "../../src/application/holdings"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
 import { ME, fixtureBook, inProcessHledger, memoryStorage } from "../support/in-process"
 import { saidIn } from "../support/values"
@@ -53,9 +54,10 @@ describe("a pRecord file taken into a book", () => {
   test("adds its tallies, which hledger reads, to the results of their own days and to nothing else", async () => {
     const { session, ports } = await setUp()
     expect(await importFile(ports, BOOK, FILE, new Map(), undefined)).toEqual({ ok: true, value: { written: 2, inferred: 0, unread: 0, changed: 0, alreadyHere: 0, left: 0, otherThanPlay: 0 } })
-    const month = await loadOverview(session, BOOK, "date:2019-01")
-    expect(month.ok && [toPlainString(month.value.actual), toPlainString(month.value.savings)]).toEqual(["-2000", "68808"])
-    const before = await loadOverview(session, BOOK, "date:2026-09")
+    const month = await loadOverall(session, BOOK, "date:2019-01")
+    const savings = await loadHoldings(session, BOOK, "")
+    expect(month.ok && savings.ok && [toPlainString(month.value.actual), toPlainString(savings.value.total)]).toEqual(["-2000", "68808"])
+    const before = await loadOverall(session, BOOK, "date:2026-09")
     expect(before.ok && toPlainString(before.value.actual)).toBe("41142")
     const tallies = await loadTallies(session, BOOK, "date:2019", 0)
     expect(tallies.ok && tallies.value.tallies.map((tally) => [tally.date, tally.description, tally.gameKind, tally.machine, tally.cabinetNumber])).toEqual([
@@ -104,7 +106,7 @@ describe("a pRecord file taken into a book", () => {
       ["2019-02-02", undefined],
       ["2019-02-01", "-15000"],
     ] as never)
-    const month = await loadOverview(session, BOOK, "date:2019-02")
+    const month = await loadOverall(session, BOOK, "date:2019-02")
     expect(month.ok && toPlainString(month.value.theoretical)).toBe("-15000")
     const activity = await loadActivity(session, history, BOOK)
     expect(activity.ok && activity.value.lines.map((line) => [line.did, saidIn(line.parts)]).slice(0, 2)).toEqual([

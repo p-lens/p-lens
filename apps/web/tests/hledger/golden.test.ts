@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, test } from "bun:test"
 
 import { createBookSession, type BookSession } from "../../src/application/book-session"
 import { loadHoldings } from "../../src/application/holdings"
-import { loadOverview } from "../../src/application/overview"
+import { loadOverall } from "../../src/application/overall"
 import { loadTally } from "../../src/application/tallies"
 import type { BookId } from "../../src/core/book/book"
 import { toPlainString } from "../../src/core/decimal/decimal"
@@ -14,7 +14,6 @@ import { ME, fixtureBook, inProcessHledger, memoryStorage, readExpected } from "
 
 interface Expected {
   readonly overview: Readonly<Record<string, { actual: string; theoretical: string }>>
-  readonly savings: { readonly value: string; readonly valuedOn: string }
   readonly holdings: Readonly<Record<string, unknown>>
   readonly tallies: Readonly<Record<string, { actual: string; theoretical: string }>>
 }
@@ -58,7 +57,7 @@ describe("the basic-play book, read by the real hledger module", () => {
     const periods = Object.entries(expected().overview)
     const figures = await Promise.all(
       periods.map(([query]) =>
-        loadOverview(session(), BOOK, query).then((overview) =>
+        loadOverall(session(), BOOK, query).then((overview) =>
           mapOk(overview, (found) => ({
             actual: toPlainString(found.actual),
             theoretical: toPlainString(found.theoretical),
@@ -69,14 +68,6 @@ describe("the basic-play book, read by the real hledger module", () => {
     expect(Object.fromEntries(periods.map(([query], index) => [query, figures[index]]))).toEqual(
       Object.fromEntries(periods.map(([query, figure]) => [query, { ok: true, value: figure }])),
     )
-  })
-
-  test("savings are valued at the latest rate, whatever period the overview shows", async () => {
-    const overview = await loadOverview(session(), BOOK, "date:2026-09")
-    expect(mapOk(overview, (found) => ({ value: toPlainString(found.savings), valuedOn: String(found.savingsValuedOn) }))).toEqual({
-      ok: true,
-      value: expected().savings,
-    })
   })
 
   test("holdings now and as they stood before a rate changed", async () => {

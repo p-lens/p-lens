@@ -4,7 +4,6 @@
     "date:2026-10": { "actual": "-1998", "theoretical": "2700" },
     "": { "actual": "39144", "theoretical": "13200" }
   },
-  "savings": { "value": "68808", "valuedOn": "2026-10-03" },
   "holdings": {
     "": {
       "valuedOn": "2026-10-03",

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import { createBookSession } from "../../src/application/book-session"
 import { ACTIVITY_LOG, activityOfText } from "../../src/core/activity/activity"
-import { loadOverview } from "../../src/application/overview"
+import { loadOverall } from "../../src/application/overall"
 import { loadActivity } from "../../src/application/activity"
 import { loadTally, loadTallies } from "../../src/application/tallies"
 import { recordTokenTally, recordYenTally } from "../../src/application/record-tally"
@@ -13,6 +13,7 @@ import type { ParlorId } from "../../src/core/parlor/parlor"
 import type { YenTally } from "../../src/core/tally/tally"
 import type { PlayId } from "../../src/core/play/play"
 import { mapOk } from "../../src/core/result/result"
+import { loadHoldings } from "../../src/application/holdings"
 import { createMemoryHistory } from "../../src/history/adapters/memory-history"
 import { ME, fixtureBook, inProcessHledger, memoryStorage, transactionsOf } from "../support/in-process"
 import { RENTED_PLAY, dec, saidIn } from "../support/values"
@@ -41,7 +42,7 @@ describe("recording a tally", () => {
     const recorded = await recordTokenTally(session, BOOK, TODAY_PLAY)
     expect(recorded.ok).toBe(true)
     expect(transactionsOf(storage.peek(BOOK)?.files)).toContain("2026-10-04 マレハン東京皇国第8支店 | 流星 123番台  ; play-id: today,")
-    const overview = await loadOverview(session, BOOK, "date:2026-10-04")
+    const overview = await loadOverall(session, BOOK, "date:2026-10-04")
     expect(mapOk(overview, (found) => [toPlainString(found.actual), toPlainString(found.theoretical)])).toEqual({
       ok: true,
       value: ["4800", "5500"],
@@ -89,7 +90,7 @@ describe("recording a tally", () => {
     const refused = await recordTokenTally(session, BOOK, { ...TODAY_PLAY, parlor: nowhere, rental: undefined, replay: { paidOut: dec("100"), deducted: dec("100") }, payout: dec("0") })
     expect(refused.ok === false && refused.error.type).toBe("journal-rejected")
     expect(storage.peek(BOOK)?.files).toEqual(before as never)
-    const overview = await loadOverview(session, BOOK, "date:2026-10")
+    const overview = await loadOverall(session, BOOK, "date:2026-10")
     expect(overview.ok).toBe(true)
   })
 
@@ -119,7 +120,7 @@ describe("adding a tally by its totals", () => {
     const { session } = await setUp("owner")
     const written = await recordYenTally(session, BOOK, TALLIED)
     expect(written).toEqual({ ok: true, value: expect.anything() })
-    const overview = await loadOverview(session, BOOK, "date:2026-10-04")
+    const overview = await loadOverall(session, BOOK, "date:2026-10-04")
     expect(
       mapOk(overview, (found) => [toPlainString(found.actual), toPlainString(found.theoretical)]),
     ).toEqual({ ok: true, value: ["-12000", "8000"] })
@@ -140,9 +141,9 @@ describe("adding a tally by its totals", () => {
 
   test("leaves the savings where they were", async () => {
     const { session } = await setUp("owner")
-    const before = await loadOverview(session, BOOK, "")
+    const before = await loadHoldings(session, BOOK, "")
     await recordYenTally(session, BOOK, TALLIED)
-    const after = await loadOverview(session, BOOK, "")
-    expect(mapOk(after, (found) => toPlainString(found.savings))).toEqual(mapOk(before, (found) => toPlainString(found.savings)))
+    const after = await loadHoldings(session, BOOK, "")
+    expect(mapOk(after, (found) => toPlainString(found.total))).toEqual(mapOk(before, (found) => toPlainString(found.total)))
   })
 })

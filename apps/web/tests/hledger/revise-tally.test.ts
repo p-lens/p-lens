@@ -2,11 +2,11 @@ import { describe, expect, test } from "bun:test"
 
 import { loadActivity } from "../../src/application/activity"
 import { createBookSession } from "../../src/application/book-session"
-import { loadOverview } from "../../src/application/overview"
+import { loadOverall } from "../../src/application/overall"
 import { loadTally, loadTallies } from "../../src/application/tallies"
 import { recordTokenTally, recordYenTally } from "../../src/application/record-tally"
 import { loadRecordedTally, moveTokenTally, removeTally, reviseTokenTally, reviseYenTally } from "../../src/application/revise-tally"
-import { loadBreakdown, loadSpinPerformances } from "../../src/application/breakdown"
+import { loadBreakdown } from "../../src/application/breakdown"
 import type { BookId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { toPlainString } from "../../src/core/decimal/decimal"
@@ -15,7 +15,6 @@ import { playLogPath } from "../../src/core/play-log/checkpoint"
 import { withParlorInHead } from "../../src/core/play-log/head"
 import type { Parlor, ParlorId } from "../../src/core/parlor/parlor"
 import { keptSpinPerformance } from "../../src/core/tally/aside"
-import { allSpinPerformances, averageOf, mergedSpinPerformances, type SpinPerformances } from "../../src/core/report/spin-performance"
 import type { TokenTally, YenTally } from "../../src/core/tally/tally"
 import type { PlayId } from "../../src/core/play/play"
 import { Ok, mapOk } from "../../src/core/result/result"
@@ -41,7 +40,7 @@ const FULL: TokenTally = { ...TODAY, id: "full" as PlayId, rental: { outlay: dec
 const TALLIED: YenTally = { id: "tally" as PlayId, date: "2026-10-04" as IsoDate, parlor: MALEHAN, gameKind: "pachislot", machine: "スマスロ流星", cabinetNumber: "7", outlay: dec("15000"), takings: dec("3000"), settlement: undefined, theoreticalValue: dec("8000") , told: undefined}
 
 const figures = async (session: Awaited<ReturnType<typeof setUp>>["session"], query: string) =>
-  mapOk(await loadOverview(session, BOOK, query), (found) => [toPlainString(found.actual), toPlainString(found.theoretical)])
+  mapOk(await loadOverall(session, BOOK, query), (found) => [toPlainString(found.actual), toPlainString(found.theoretical)])
 
 const recordedOf = async (session: Awaited<ReturnType<typeof setUp>>["session"], id: string) => mapOk(await loadRecordedTally(session, BOOK, ME, id as PlayId), (found) => found.recorded)
 
@@ -358,26 +357,6 @@ describe("taking a recorded tally out of a book", () => {
     expect((await removeTally(session, BOOK, "made-up-0912" as PlayId)).ok).toBe(true)
     expect(await figures(session, "date:2026-09")).toEqual({ ok: true, value: ["21112", "8700"] })
     expect(await removeTally(session, BOOK, "made-up-0912" as PlayId)).toEqual({ ok: false, error: { type: "tally-missing" } })
-  })
-})
-
-describe("the spin performances of a book's tallies", () => {
-  const averages = (performances: SpinPerformances | undefined) =>
-    performances === undefined ? undefined : [performances.measured, performances.inferred].map((sum) => ((average) => (average === undefined ? undefined : toPlainString(average)))(averageOf(sum)))
-
-  test("are averaged by machine, those measured apart from those inferred, and tallies that say none are not counted", async () => {
-    const { session } = await setUp()
-    await recordTokenTally(session, BOOK, { ...TODAY, id: "a" as PlayId, machine: "流星", spinPerformance: dec("18.2") })
-    await recordTokenTally(session, BOOK, { ...TODAY, id: "b" as PlayId, machine: "流星", spinPerformance: dec("17.5") })
-    await recordTokenTally(session, BOOK, { ...TODAY, id: "c" as PlayId, machine: "流星" })
-    await recordYenTally(session, BOOK, { ...TALLIED, id: "d" as PlayId, machine: "流星", theoreticalValue: undefined, told: { hours: dec("3"), netJackpots: undefined, inferred: { value: dec("-2000"), formulaId: "formula-1", tokenRental: dec("4"), tokenExchange: dec("28"), spinPerformance: dec("16.4") } } })
-    await recordTokenTally(session, BOOK, { ...TODAY, id: "e" as PlayId, machine: "海", spinPerformance: dec("20") })
-    const found = await loadSpinPerformances(session, BOOK, "")
-    const byMachine = found.ok ? found.value : new Map<string, SpinPerformances>()
-    expect(averages(byMachine.get("流星"))).toEqual(["17.9", "16.4"])
-    expect(averages(byMachine.get("海"))).toEqual(["20", undefined])
-    expect(averages(allSpinPerformances(byMachine))).toEqual(["18.6", "16.4"])
-    expect(averages(mergedSpinPerformances([byMachine, byMachine]).get("流星"))).toEqual(["17.9", "16.4"])
   })
 })
 

@@ -124,9 +124,6 @@ export const taggedAmongTerm = (tags: readonly string[], values: readonly string
 export const playedTokensTerm = (pools: readonly SavingsPool[]): string =>
   `any:"cur:${pools.length === 0 ? "^$" : pools.map((pool) => `^${escapeRegex(tokenCommodityPrefix(pool.kind, pool.tier))}.*$`).join("|")}"`
 
-/** The tallies that say a spin performance: one their play's log measured, or one their play was inferred to have had. */
-export const spinPerformanceTerm = `tag:^(${escapeRegex(TALLY_TAGS.spinPerformance)}|${escapeRegex(TALLY_TAGS.inferredSpinPerformance)})$`
-
 export const tallyTerm = (id: PlayId): string => `tag:${TALLY_TAGS.playId}=^${escapeRegex(id)}$`
 
 /** The entries of several tallies at once: any of their ids, each held to the whole of it. */

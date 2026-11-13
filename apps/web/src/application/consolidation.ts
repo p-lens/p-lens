@@ -1,26 +1,23 @@
 import type { BookId, ListedBook } from "../core/book/book"
 import type { IsoDate } from "../core/calendar/calendar"
+import { NO_TALLIES, type Dimension, type Group, type OVERALL } from "../core/report/breakdown"
 import { ZERO } from "../core/decimal/decimal"
-import type { Dimension, Group, OVERALL } from "../core/report/breakdown"
 import type { Holdings } from "../core/report/holdings"
 import type { OtherGains } from "../core/report/other-gains"
 import { EVERY_TALLY, narrowingKey, ratesInOrder, type Narrowing } from "../core/report/narrowing"
 import type { Overall } from "../core/report/overall"
 import { mergedSenderNames, type SenderNames } from "../core/report/senders"
-import { mergedSpinPerformances, type SpinPerformancesByMachine } from "../core/report/spin-performance"
 import { Ok, mapOk } from "../core/result/result"
-import { combine, talliesTerm } from "../hledger/query/terms"
 import type { Lanes } from "../consolidation/port/lanes"
 import type { JournalsDigest, Summaries } from "../consolidation/port/summaries"
 import { daysOfQuery } from "../core/journal/views"
 import { lastRateDayOf } from "../core/valuation/rates-day"
 import type { BookSession } from "./book-session"
-import { loadBreakdown, loadDaysAndWhole, loadRates, loadSenderBreakdown, loadSenderNames, loadSpinPerformances, type DaysAndWhole } from "./breakdown"
+import { loadBreakdown, loadDaysAndWhole, loadRates, loadSenderBreakdown, loadSenderNames, loadWhole, type Asked, type DaysAndWhole } from "./breakdown"
 import type { Outcome } from "./errors"
 import { loadHoldings } from "./holdings"
 import { loadOtherGains } from "./other-gains"
 import { loadOverall } from "./overall"
-import { loadOverview } from "./overview"
 import { keepsTheoreticalValues } from "./theoretical"
 
 /** What several books' results are grouped by: what one book's are, the books themselves, or who played them — or the books taken as one. */
@@ -239,10 +236,6 @@ const ofChosen = async <T>(
   return mapOk(listed, () => books)
 }
 
-/** A book's results for a period as one group, the book itself: what the period's tallies, those a narrowing keeps to, made and were worth, as hledger sums them. */
-const whole = async (session: BookSession, book: ListedBook, query: string, narrowing: Narrowing): Promise<Outcome<readonly Group[]>> =>
-  mapOk(await loadOverview(session, book.id, combine(talliesTerm, query), narrowing), (overview) => [{ key: book.id, actual: overview.actual, theoretical: overview.theoretical, inferred: overview.inferred, seconds: overview.playSeconds ?? ZERO }])
-
 /** The books chosen taken as one, for a period and of the tallies a narrowing keeps to: each book's own figures, added — a day played in several books one day. */
 export const loadConsolidatedOverall = async (ports: ConsolidationPorts, chosen: readonly BookId[] | undefined, query: string, narrowing: Narrowing = EVERY_TALLY): Promise<Outcome<readonly ConsolidatedBook<Overall>[]>> =>
   ofChosen(ports, chosen, `overall\n${query}${narrowingKey(narrowing)}`, (session, book) => loadOverall(session, book.id, query, narrowing))
@@ -251,17 +244,21 @@ export const loadConsolidatedOverall = async (ports: ConsolidationPorts, chosen:
 export const loadConsolidatedOtherGains = (ports: ConsolidationPorts, chosen: readonly BookId[] | undefined, query: string): Promise<Outcome<readonly ConsolidatedBook<OtherGains>[]>> =>
   ofChosen(ports, chosen, `other-gains\n${query}`, (session, book) => loadOtherGains(session, book.id, query), asOfToday(query))
 
-/** The results of the books chosen, for a period and of the tallies a narrowing keeps to, grouped, book by book. */
+/** A book with no tally in a period, as one group of its own: every book chosen stands in a breakdown by book, at nothing where it has nothing. */
+const emptyBook = (bookId: BookId, asked: Asked): Group => ({ key: bookId, actual: ZERO, theoretical: ZERO, inferred: ZERO, seconds: ZERO, ...(asked === "tallied" ? { tallies: NO_TALLIES } : {}) })
+
+/** The results of the books chosen, for a period and of the tallies a narrowing keeps to, grouped, book by book: by book, each book is one group, under its id. Their sums alone, or their tallies one by one too, as `asked`. */
 export const loadConsolidation = (
   ports: ConsolidationPorts,
   chosen: readonly BookId[] | undefined,
   by: ConsolidatedGrouping,
   query: string,
   narrowing: Narrowing = EVERY_TALLY,
+  asked: Asked = "sums",
 ): Promise<Outcome<readonly ConsolidatedBook<readonly Group[]>[]>> =>
-  ofChosen(ports, chosen, `grouped\n${by}\n${query}${narrowingKey(narrowing)}`, (session, book) => {
-    if (by === "book") return whole(session, book, query, narrowing)
-    return by === "sender" ? loadSenderBreakdown(session, book.id, query, narrowing) : loadBreakdown(session, book.id, by, query, narrowing)
+  ofChosen(ports, chosen, `grouped\n${by}\n${asked}\n${query}${narrowingKey(narrowing)}`, async (session, book) => {
+    if (by === "book") return mapOk(await loadWhole(session, book.id, book.id, query, narrowing, asked), (groups) => (groups.length > 0 ? groups : [emptyBook(book.id, asked)]))
+    return by === "sender" ? loadSenderBreakdown(session, book.id, query, narrowing, asked) : loadBreakdown(session, book.id, by, query, narrowing, asked)
   })
 
 /** Every rate the books chosen keep savings at, in `ratesInOrder`: what their consolidation can be narrowed to by rate. A book that could not be read adds none. */
@@ -284,10 +281,6 @@ export const loadConsolidatedHoldings = (ports: ConsolidationPorts, chosen: read
  */
 export const consolidationKeepsTheoreticalValues = async (ports: ConsolidationPorts, chosen: readonly BookId[] | undefined): Promise<Outcome<boolean>> =>
   mapOk(await ofChosen(ports, chosen, "keeps-theoretical", (session, book) => keepsTheoreticalValues(session, book.id)), (books) => books.some((each) => each.read.ok && each.read.value))
-
-/** The spin performances of the books chosen, by machine, for a period and of the tallies a narrowing keeps to: each book's, added. A book that could not be read adds nothing. */
-export const loadConsolidatedSpinPerformances = async (ports: ConsolidationPorts, chosen: readonly BookId[] | undefined, query: string, narrowing: Narrowing = EVERY_TALLY): Promise<Outcome<SpinPerformancesByMachine>> =>
-  mapOk(await ofChosen(ports, chosen, `spins\n${query}${narrowingKey(narrowing)}`, (session, book) => loadSpinPerformances(session, book.id, query, narrowing)), (books) => mergedSpinPerformances(books.flatMap((each) => (each.read.ok ? [each.read.value] : []))))
 
 /** Who sent the plays of the books chosen, each by the name on their last tally in any of them. A book that could not be read names no one. */
 export const loadConsolidatedSenderNames = async (ports: ConsolidationPorts, chosen: readonly BookId[] | undefined): Promise<Outcome<SenderNames>> =>
@@ -344,15 +337,14 @@ const periodsAhead = (ports: ConsolidationPorts, chosen: readonly BookId[], warm
   ...warming.periods.flatMap((period) => [() => loadConsolidatedOverall(ports, chosen, period), () => loadConsolidatedOtherGains(ports, chosen, period)]),
   () => loadConsolidatedDaysAndWhole(ports, chosen, warming.month),
   () => loadConsolidatedHoldings(ports, chosen, ""),
-  ...warming.periods.flatMap((period) => [() => loadConsolidation(ports, chosen, "machine", period), () => loadConsolidatedSpinPerformances(ports, chosen, period)]),
+  ...warming.periods.flatMap((period) => [() => loadConsolidation(ports, chosen, "machine", period, EVERY_TALLY, "tallied")]),
 ]
 
 /** What the books chosen are asked ahead about every day. */
 const everyDayAhead = (ports: ConsolidationPorts, chosen: readonly BookId[]): readonly (() => Promise<unknown>)[] => [
   () => loadConsolidatedOverall(ports, chosen, ""),
   () => loadConsolidatedOtherGains(ports, chosen, ""),
-  () => loadConsolidation(ports, chosen, "machine", ""),
-  () => loadConsolidatedSpinPerformances(ports, chosen, ""),
+  () => loadConsolidation(ports, chosen, "machine", "", EVERY_TALLY, "tallied"),
 ]
 
 /** Things asked one after another, each once the one before has its answer, the answers let go. */

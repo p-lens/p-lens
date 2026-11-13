@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test"
 import { loadActivity } from "../../src/application/activity"
 import { createBookSession } from "../../src/application/book-session"
 import { recordDayResults } from "../../src/application/day-results"
-import { loadOverview } from "../../src/application/overview"
+import { loadOverall } from "../../src/application/overall"
 import { loadTallies } from "../../src/application/tallies"
 import type { BookId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
@@ -40,7 +40,7 @@ describe("days' 収支 typed in a month at a time", () => {
       () => ids.next().value as PlayId,
     )
     expect(written.ok).toBe(true)
-    const march = await loadOverview(session, BOOK, "date:2019-03")
+    const march = await loadOverall(session, BOOK, "date:2019-03")
     expect(march.ok && toPlainString(march.value.actual)).toBe("-3500")
     const tallies = await loadTallies(session, BOOK, "date:2019", 0)
     expect(tallies.ok && tallies.value.tallies.map((tally) => [tally.id, tally.date, tally.description, tally.gameKind, tally.machine])).toEqual([

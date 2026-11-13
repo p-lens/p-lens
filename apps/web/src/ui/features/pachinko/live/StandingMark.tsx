@@ -24,7 +24,7 @@ const MARKS: Readonly<Record<BorderGrade, { readonly shape: () => JSX.Element; r
 /** A mark that says where the play stands against its border and how far, by its shape and colour and, for whoever cannot see them, in words. */
 export function StandingMark(props: { readonly mark: BorderMark }): JSX.Element {
   return (
-    <span role="img" aria-label={borderMarkSays(props.mark)} title={borderMarkSays(props.mark)} class={`ml-1 align-middle text-xs ${MARKS[props.mark.grade].look}`}>
+    <span role="img" aria-label={borderMarkSays(props.mark)} title={borderMarkSays(props.mark)} class={`ml-0.5 align-middle text-xs ${MARKS[props.mark.grade].look}`}>
       {MARKS[props.mark.grade].shape()}
     </span>
   )

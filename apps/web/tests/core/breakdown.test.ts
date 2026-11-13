@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import { toPlainString } from "../../src/core/decimal/decimal"
-import { byColumn, byRow, byWeekday, groupsOf, inOrder, merged, totalOf, type Group } from "../../src/core/report/breakdown"
+import { byColumn, byRow, byWeekday, eachTallyByColumn, eachTallyByTag, groupsOf, inOrder, merged, talliesOf, totalOf, type Group } from "../../src/core/report/breakdown"
 import { secondsIn } from "../../src/core/report/figures"
 import type { BalanceReport, MixedAmount } from "../../src/hledger/protocol/wire"
 import { dec } from "../support/values"
@@ -22,15 +22,15 @@ const figures = (report: BalanceReport) => ((found) => (found.ok ? found.value :
 
 describe("a report pivoted on a tag", () => {
   test("is a group a row, its income statement turned over, what carries no such tag under the empty key", () => {
-    const groups = groupsOf(figures(pivoted([["流星", -3000], ["", -1000], ["ピエロット", 8000]])), figures(pivoted([["流星", 4000]])), figures(pivoted([["流星", 1500], ["よその台", 900]])), new Map([["流星", dec("7200")]]))
+    const groups = groupsOf(figures(pivoted([["流星", -3000], ["", -1000], ["ピエロット", 8000]])), figures(pivoted([["流星", 4000]])), figures(pivoted([["流星", 1500], ["よその台", 900]])), new Map([["流星", dec("7200")]]), undefined)
     expect(read(inOrder(groups, "machine"))).toEqual([["流星", "3000", "4000"], ["", "1000", "0"], ["ピエロット", "-8000", "0"]])
     expect(inOrder(groups, "machine").map((group) => toPlainString(group.inferred))).toEqual(["1500", "0", "0"])
     expect(inOrder(groups, "machine").map((group) => toPlainString(group.seconds))).toEqual(["7200", "0", "0"])
   })
 
   test("has no group for what comes to nothing in both reports and was played for no time, and one for what only the theoretical values or the play time have", () => {
-    expect(read(groupsOf(figures(pivoted([["流星", 0]])), figures(pivoted([["森物語", 500]])), figures(pivoted([])), new Map()))).toEqual([["森物語", "0", "500"]])
-    expect(read(groupsOf(figures(pivoted([["流星", 0]])), figures(pivoted([])), figures(pivoted([])), new Map([["流星", dec("3600")]])))).toEqual([["流星", "0", "0"]])
+    expect(read(groupsOf(figures(pivoted([["流星", 0]])), figures(pivoted([["森物語", 500]])), figures(pivoted([])), new Map(), undefined))).toEqual([["森物語", "0", "500"]])
+    expect(read(groupsOf(figures(pivoted([["流星", 0]])), figures(pivoted([])), figures(pivoted([])), new Map([["流星", dec("3600")]]), undefined))).toEqual([["流星", "0", "0"]])
   })
 
   test("reads play time as seconds", () => {
@@ -75,5 +75,31 @@ describe("groups set in order and brought together", () => {
     expect(read([totalOf(DAYS)])).toEqual([["", "-4000", "4000"]])
     expect(toPlainString(totalOf([{ ...(DAYS[0] as Group), inferred: dec("700") }, { ...(DAYS[1] as Group), inferred: dec("-200") }]).inferred)).toBe("500")
     expect(toPlainString(totalOf(DAYS).seconds)).toBe("14400")
+  })
+})
+
+describe("a group's tallies taken one by one", () => {
+  const tallies = (report: BalanceReport) => ((found) => (found.ok ? found.value : []))(eachTallyByTag(report))
+
+  test("read from a report pivoted on a tag and the tally's id, the tag's value all before the id, colons and all, empty where a tally has none", () => {
+    expect(tallies(pivoted([["流星:a", 1000], ["Re:ゼロ:b", 2000], [":c", 3000]])).map((each) => [each.key, each.playId, toPlainString(each.yen)])).toEqual([
+      ["流星", "a", "1000"],
+      ["Re:ゼロ", "b", "2000"],
+      ["", "c", "3000"],
+    ])
+  })
+
+  test("read from a report with a column a period as each tally under the period it fell in", () => {
+    const report: BalanceReport = { ...periodic([["2026-09-01", 0], ["2026-10-01", 0]]), prRows: [{ prrName: "a", prrAmounts: [yen(1000), []], prrTotal: yen(1000) }, { prrName: "b", prrAmounts: [[], yen(2000)], prrTotal: yen(2000) }] }
+    const found = eachTallyByColumn(report, "monthly")
+    expect(found.ok && found.value.map((each) => [each.key, each.playId])).toEqual([["2026-09", "a"], ["2026-10", "b"]])
+  })
+
+  test("counted by what each took in and gave back: won, lost or even, and the yen added", () => {
+    const counted = talliesOf(tallies(pivoted([["流星:a", 1000], ["流星:b", 2000], ["流星:c", 500], ["森物語:d", 4000]])), tallies(pivoted([["流星:a", -3000], ["流星:c", -500], ["森物語:d", -100]])))
+    expect([...counted].map(([key, each]) => [key, each.plays, each.won, each.lost, toPlainString(each.spent), toPlainString(each.returned)])).toEqual([
+      ["森物語", 1, 0, 1, "4000", "100"],
+      ["流星", 3, 1, 1, "3500", "3500"],
+    ])
   })
 })

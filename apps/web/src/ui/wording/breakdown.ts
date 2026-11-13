@@ -1,7 +1,7 @@
 import type { IsoDate } from "../../core/calendar/calendar"
 import { shownNameOf, type MachineNames } from "../../core/catalog/catalog"
 import { toPlainString, type Decimal } from "../../core/decimal/decimal"
-import { UNSAID, type Dimension } from "../../core/report/breakdown"
+import { UNSAID, type Dimension, type Tallies } from "../../core/report/breakdown"
 import type { NarrowedBy } from "../../core/report/narrowing"
 import type { SenderNames } from "../../core/report/senders"
 import { formatCount, formatTheoreticalYen } from "./numbers"
@@ -51,13 +51,11 @@ const GAMES: Readonly<Record<string, string>> = { pachinko: "パチンコ", pach
 /** What is said beside a sum of theoretical values where part of it was inferred: how much of it is not measurement. */
 export const inferredShareText = (inferred: Decimal): string => `うち推定 ${formatTheoreticalYen(seal.tally(inferred))}`
 
-/** What a machine's tallies' spin performances are called, averaged: those their plays' logs measured, and those tallies typed in by hand were inferred to have had. */
-export const SPIN_AVERAGE = "平均回転率"
+/** What each figure of a group is called, as its card lists them: how many tallies and how they went, how long and what they were worth on the left, and what they made, took in and gave back on the right. */
+export const GROUP_FIGURES = { plays: "回数", time: "時間", theoretical: "期待値", actual: "実収支", spent: "投資", returned: "回収" } as const
 
-export const INFERRED_SPIN_AVERAGE = "平均推定回転率"
-
-/** A spin performance as the live screen shows one, to a tenth. */
-export const spinAverageText = (average: Decimal): string => Number(toPlainString(average)).toFixed(1)
+/** How a group's tallies went, beside how many there were: won and lost, and even where any came out so, in narrow brackets to keep a phone's line. */
+export const winsAndLossesText = (tallies: Tallies): string => ((even) => `(${formatCount(tallies.won)}勝${formatCount(tallies.lost)}敗${even > 0 ? `${formatCount(even)}分` : ""})`)(tallies.plays - tallies.won - tallies.lost)
 
 /** What その他損益 is called on screen, and each of its lines. */
 export const OTHER_GAINS = "その他損益"
@@ -77,9 +75,6 @@ export const TOTALS_HEADS = { played: "稼働", result: "収支", money: "現金
 
 /** What stands for a sum of theoretical values in a book that has none written in it: there is nothing to sum, which nought would not say. */
 export const NOT_TALLIED = "集計なし"
-
-/** What a group's play time is called beside it. */
-export const PLAY_TIME = "時間"
 
 /** A play time in seconds as a person reads it: whole hours and minutes, the minutes never filled out with a nought, an hour on the dot said with its nought minutes, the seconds dropped — `34時間5分`, `1時間0分`, `3分`. */
 export const playTimeText = (seconds: Decimal): string => {

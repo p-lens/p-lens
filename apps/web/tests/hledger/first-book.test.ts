@@ -7,7 +7,7 @@ import type { Catalog } from "../../src/catalog/port/catalog"
 import { MARKS_LOG, type MarkDeed, type MarkLine } from "../../src/core/marks/marks"
 import { deleteBook, holdsNothing } from "../../src/application/delete-book"
 import { createBookSession } from "../../src/application/book-session"
-import { loadOverview } from "../../src/application/overview"
+import { loadOverall } from "../../src/application/overall"
 import { recordYenTally } from "../../src/application/record-tally"
 import { renameBook } from "../../src/application/rename-book"
 import { ensureFirstBook } from "../../src/application/seed"
@@ -54,7 +54,7 @@ describe("the book a first visit opens onto", () => {
     expect(made).toEqual({ ok: true, value: "mine" as BookId })
     const books = await session.books()
     expect(books.ok && books.value.map((book) => [book.id, book.title])).toEqual([["mine", "🐢マイ帳簿"]] as never)
-    const overview = await loadOverview(session, "mine" as BookId, "")
+    const overview = await loadOverall(session, "mine" as BookId, "")
     expect(overview.ok && toPlainString(overview.value.actual)).toBe("0")
   })
 
@@ -70,7 +70,7 @@ describe("the book a first visit opens onto", () => {
     const { session } = await setUp()
     await ensureFirstBook(session, make("mine"))
     expect((await recordYenTally(session, "mine" as BookId, WON, "")).ok).toBe(true)
-    const overview = await loadOverview(session, "mine" as BookId, "")
+    const overview = await loadOverall(session, "mine" as BookId, "")
     expect(overview.ok && [toPlainString(overview.value.actual), toPlainString(overview.value.theoretical)]).toEqual(["3000", "1200"])
   })
 })

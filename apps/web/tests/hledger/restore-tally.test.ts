@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import { loadActivity } from "../../src/application/activity"
 import { createBookSession } from "../../src/application/book-session"
-import { loadOverview } from "../../src/application/overview"
+import { loadOverall } from "../../src/application/overall"
 import { pruneEveryBookActivity } from "../../src/application/prune-activity"
 import { restoreTally } from "../../src/application/restore-tally"
 import { removeTally } from "../../src/application/revise-tally"
@@ -25,7 +25,7 @@ const setUp = async (books: readonly BookId[] = [BOOK]) => {
   const clock = { now: "2026-10-04T20:00:00+09:00" }
   await Promise.all(books.map(async (id) => storage.createBook(await fixtureBook("basic-play", { id, members: [{ id: ME, displayName: "me", role: "owner" }] }))))
   const session = createBookSession({ hledger: await inProcessHledger(), storage, history, clock: () => new Date(clock.now), newId: () => crypto.randomUUID(), member: ME })
-  const figures = async () => mapOk(await loadOverview(session, BOOK, "date:2026-09"), (found) => [toPlainString(found.actual), toPlainString(found.theoretical)])
+  const figures = async () => mapOk(await loadOverall(session, BOOK, "date:2026-09"), (found) => [toPlainString(found.actual), toPlainString(found.theoretical)])
   const lines = async () => {
     const found = await loadActivity(session, history, BOOK)
     if (!found.ok) throw new Error("the activity should load")

@@ -4,7 +4,7 @@ import { createBookSession, type BookSession } from "../../src/application/book-
 import { handOver, type ExportPorts, type ExportReport, type ExportWatch, type Made } from "../../src/other-apps/application/export"
 import { makePlayTable, makeSingleJournal, makeTallyTable, makeTogether } from "../../src/other-apps/general/use-cases"
 import { makeForPrecord } from "../../src/other-apps/precord/use-cases"
-import { loadOverview } from "../../src/application/overview"
+import { loadOverall } from "../../src/application/overall"
 import type { BookId, Member, MemberId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
 import { toPlainString } from "../../src/core/decimal/decimal"
@@ -34,7 +34,7 @@ const handed = async (ports: ExportPorts, made: Promise<Outcome<Made>>) => {
 }
 
 const figuresOf = (session: BookSession, bookId: BookId) =>
-  loadOverview(session, bookId, "").then((overview) => mapOk(overview, (found) => ({ actual: toPlainString(found.actual), theoretical: toPlainString(found.theoretical) })))
+  loadOverall(session, bookId, "").then((overview) => mapOk(overview, (found) => ({ actual: toPlainString(found.actual), theoretical: toPlainString(found.theoretical) })))
 
 describe("the basic-play book, written out", () => {
   const context: { session?: BookSession } = {}

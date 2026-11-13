@@ -8,7 +8,6 @@ import { createBookSession } from "../../src/application/book-session"
 import { loadHoldings } from "../../src/application/holdings"
 import { loadOtherGains } from "../../src/application/other-gains"
 import { loadOverall } from "../../src/application/overall"
-import { loadOverview } from "../../src/application/overview"
 import { adjustBalance, recordForfeiture, recordParlorForfeiture, recordPrizeExchange, registerOpeningBalance } from "../../src/application/savings"
 import type { BookId } from "../../src/core/book/book"
 import type { IsoDate } from "../../src/core/calendar/calendar"
@@ -48,7 +47,7 @@ describe("the savings a person already had", () => {
     const { session, storage, history } = await setUp()
     expect(await registerOpeningBalance(session, BOOK, NAMBA, dec("5000"))).toEqual({ ok: true, value: undefined })
     expect(await held(session)).toEqual([["ダイナモなんかつ新館", "4円", "5000"]])
-    const overview = await loadOverview(session, BOOK, "")
+    const overview = await loadOverall(session, BOOK, "")
     expect(overview.ok && toPlainString(overview.value.actual)).toBe("0")
     const stored = await storage.readBook(BOOK)
     expect(stored.ok && transactionsOf(stored.value.files)).toContain("2026-10-01 ダイナモなんかつ新館 | 開始残高  ; parlor-id: osm-9, savings: opening\n")
@@ -92,7 +91,7 @@ describe("a pool's savings put right", () => {
     expect(await held(session)).toEqual([["ダイナモなんかつ新館", "4円", "4820"]])
     const up = await adjustBalance(session, BOOK, parlor, NAMBA.pool, "2026-10-06" as IsoDate, dec("4900"))
     expect(up.ok && up.value.type === "adjusted" && toPlainString(up.value.difference)).toBe("80")
-    const overview = await loadOverview(session, BOOK, "")
+    const overview = await loadOverall(session, BOOK, "")
     expect(overview.ok && toPlainString(overview.value.actual)).toBe("0")
     const stored = await storage.readBook(BOOK)
     expect(stored.ok && transactionsOf(stored.value.files)).toContain("2026-10-05 ダイナモなんかつ新館 | 残高調整  ; parlor-id: osm-9, savings: adjustment\n")
@@ -122,7 +121,7 @@ describe("savings exchanged for prizes", () => {
   const madeUpBook = async () => setUp(await fixtureBook("basic-play", { id: BOOK, members: [{ id: ME, displayName: "me", role: "owner" }] }))
   const EXCHANGE = { parlor: MALEHAN, pool: { kind: "ball", tier: "4円" } as const, date: "2026-10-04" as IsoDate, tokens: dec("4000"), specialPrizes: dec("13800") }
   const results = async (session: Awaited<ReturnType<typeof setUp>>["session"], query: string) =>
-    ((overview) => overview.ok && [toPlainString(overview.value.actual), toPlainString(overview.value.theoretical), toPlainString(overview.value.savings)])(await loadOverview(session, BOOK, query))
+    ((overall, holdings) => overall.ok && holdings.ok && [toPlainString(overall.value.actual), toPlainString(overall.value.theoretical), toPlainString(holdings.value.total)])(await loadOverall(session, BOOK, query), await loadHoldings(session, BOOK, ""))
 
   test("leave the pool as prizes, and are no result of any day", async () => {
     const { session, storage, history } = await madeUpBook()
@@ -171,7 +170,7 @@ describe("savings a parlor took back", () => {
   const madeUpBook = async () => setUp(await fixtureBook("basic-play", { id: BOOK, members: [{ id: ME, displayName: "me", role: "owner" }] }))
   const FORFEITURE = { parlor: MALEHAN, pool: { kind: "ball", tier: "4円" } as const, date: "2026-10-04" as IsoDate, tokens: dec("4000") }
   const results = async (session: Awaited<ReturnType<typeof setUp>>["session"], query: string) =>
-    ((overview) => overview.ok && [toPlainString(overview.value.actual), toPlainString(overview.value.theoretical)])(await loadOverview(session, BOOK, query))
+    ((overview) => overview.ok && [toPlainString(overview.value.actual), toPlainString(overview.value.theoretical)])(await loadOverall(session, BOOK, query))
 
   test("leave the pool as a loss beside 収支, never in it, at the rate of the day, and are no play", async () => {
     const { session, storage, history } = await madeUpBook()
