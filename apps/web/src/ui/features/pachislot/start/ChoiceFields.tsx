@@ -46,7 +46,7 @@ export function ChoiceReason(props: { readonly by: Reason }): JSX.Element {
  * saying which, or chosen by hand on the machine's page, which pressing it
  * opens: the machine's formulas side by side, one of them taken with
  * 「これを使う」. The question mark opens the one chosen, and the copy button
- * puts its id and name on the clipboard for passing on. Before a machine is chosen
+ * puts its name and id on the clipboard for passing on. Before a machine is chosen
  * it is there, waiting: pressing it nudges the machine — or the field
  * itself, while the machine chosen is still being read — and the two
  * buttons each say what they are for.
@@ -75,11 +75,11 @@ export function FormulaPicker(props: {
   const open = (formulaId: FormulaId): void => {
     if (props.detail !== undefined) moves.go({ kind: "pachislot-formula", machineId: props.detail.machine.id, formulaId })
   }
-  /** The chosen formula's id and name, put on the clipboard for passing on — "pick this one" — to whoever plays beside you. */
+  /** The chosen formula's name and id, put on the clipboard for passing on — "pick this one" — to whoever plays beside you. */
   const copyChosen = async (chosen: Selection<Formula>): Promise<void> => {
     const handle = formulaHandle(chosen.listing.formula)
     const copied = await copyText(handle)
-    toast(copied.ok ? { title: "算出条件のIDと名前をコピーしました", description: handle } : { title: "コピーできませんでした", tone: "error" })
+    toast(copied.ok ? { title: "算出条件の名前とIDをコピーしました", description: handle } : { title: "コピーできませんでした", tone: "error" })
   }
   const copySelected = async (): Promise<void> => {
     if (props.selection !== undefined) await copyChosen(props.selection)
@@ -118,7 +118,7 @@ export function FormulaPicker(props: {
           </span>
         </button>
       </div>
-      <HintedIconButton label="算出条件のIDと名前をコピー" hint="算出条件のIDと名前をコピーできます" ready={props.selection !== undefined} onPress={() => void copySelected()}>
+      <HintedIconButton label="算出条件の名前とIDをコピー" hint="算出条件の名前とIDをコピーできます" ready={props.selection !== undefined} onPress={() => void copySelected()}>
         <CopyIcon />
       </HintedIconButton>
       <HintedIconButton label="算出条件を見る" hint="算出条件の根拠が見れます" ready={props.selection !== undefined} onPress={openSelected} semipro>

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import { createBookSession } from "../../src/application/book-session"
 import { keepingHistory } from "../../src/application/draft-history"
-import { addCheckpoints, changeTerms, finishPlay, finishPlayInYen, loadDrafts, loadTodaysPlays, netCountsAtFinish, reviseCheckpoints, startPlay, theoreticalValueAtFinish } from "../../src/application/live-play"
+import { addCheckpoints, changeVenue, finishPlay, finishPlayInYen, loadDrafts, loadTodaysPlays, netCountsAtFinish, reviseCheckpoints, startPlay, theoreticalValueAtFinish } from "../../src/application/live-play"
 import { linkSubmissions, openPool } from "../../src/application/parlors"
 import { loadRecordingContext, recordTokenTally } from "../../src/application/record-tally"
 import type { BookId } from "../../src/core/book/book"
@@ -127,9 +127,22 @@ describe("a play followed live", () => {
     await startPlay(drafts, DRAFT)
     const before = JSON.stringify(storage.peek(BOOK)?.files)
     const oneYen = { rental: { yen: 1000, tokens: 1000 }, exchange: { yen: 1000, tokens: 1120 }, replay: { paidOut: 500, deducted: 500 } }
-    const changed = await changeTerms(drafts, DRAFT, oneYen)
+    const changed = await changeVenue(drafts, DRAFT, { type: "parlor", parlor: MALEHAN, terms: oneYen })
     expect(changed.ok && [changed.value.venue.terms, changed.value.log]).toEqual([oneYen, DRAFT.log])
     expect(mapOk(await loadDrafts(drafts), (found) => found.map((draft) => draft.venue.terms))).toEqual({ ok: true, value: [oneYen] })
+    expect(JSON.stringify(storage.peek(BOOK)?.files)).toBe(before)
+  })
+
+  test("is put at another parlor while it is played, or at none, its readings left as they are and no book told", async () => {
+    const { storage, drafts } = await setUp()
+    await startPlay(drafts, DRAFT)
+    const before = JSON.stringify(storage.peek(BOOK)?.files)
+    const elsewhere = { ...MALEHAN, identity: { type: "submitted", submission: "next-door" }, name: "隣の店" } as typeof MALEHAN
+    const moved = await changeVenue(drafts, DRAFT, { type: "parlor", parlor: elsewhere, terms: DRAFT.venue.terms as never })
+    expect(moved.ok && [moved.value.venue, moved.value.log]).toEqual([{ type: "parlor", parlor: elsewhere, terms: DRAFT.venue.terms as never }, DRAFT.log])
+    const nowhere = await changeVenue(drafts, moved.ok ? moved.value : DRAFT, { type: "none", terms: DRAFT.venue.terms })
+    expect(mapOk(await loadDrafts(drafts), (found) => found.map((draft) => draft.venue.type))).toEqual({ ok: true, value: ["none"] })
+    expect(nowhere.ok).toBe(true)
     expect(JSON.stringify(storage.peek(BOOK)?.files)).toBe(before)
   })
 

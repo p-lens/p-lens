@@ -4,7 +4,7 @@ import { borderOf } from "../../../../core/pachinko/theoretical-value"
 import { netAdoptions, netVerifications, usesWeighTheirMost, type FormulaListing, type Mark, type MyMarks, type Selection } from "../../../../core/formula/standing"
 import { assumedSettingLevelOf, supportGainOf, type Formula } from "../../../../core/pachinko/formula"
 import { BoltIcon, HandIcon, HeartIcon, QuestionIcon, ShieldIcon } from "../../../primitives/icons"
-import { formulaIdText } from "../../../wording/catalog"
+import { formulaIdLabel } from "../../../wording/catalog"
 import { formulaBorderLines, markedFormulaText, oneInText } from "../../../wording/pachinko/formula"
 import { KindMark } from "./KindMark"
 import { SelectionReason } from "./SelectionReason"
@@ -69,7 +69,7 @@ export function FormulaCard(props: {
         <KindMark kind={props.listing.formula.kind} />
         <div class="min-w-0 flex-1">
           <h3 class="truncate font-semibold tabular-nums text-text-primary">{markedFormulaText(props.listing.formula.figures)}</h3>
-          <p class="text-[11px] tabular-nums text-text-muted">ID {formulaIdText(props.listing.formula.id)}</p>
+          <p class="text-[11px] tabular-nums text-text-muted">{formulaIdLabel(props.listing.formula.id)}</p>
         </div>
         <Show when={props.stronger !== undefined && props.onStronger} keyed>
           {(open) => (

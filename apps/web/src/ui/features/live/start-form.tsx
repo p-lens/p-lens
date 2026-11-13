@@ -3,9 +3,10 @@ import { createEffect, createMemo, createContext, createResource, createSignal, 
 import type * as Pachinko from "../../../core/pachinko"
 import type { MachineId } from "../../../core/machine/machine"
 import type * as Pachislot from "../../../core/pachislot"
-import type { SubmissionId } from "../../../core/parlor/parlor"
+import type { ParlorId, ParlorIdentity, SubmissionId } from "../../../core/parlor/parlor"
 import { exchangedCorners, rateUnreported, reportedRateAt, REPORTED_TIER, type ReportedRates } from "../../../core/parlor/reported-rates"
-import type { SharedParlorId } from "../../../core/parlor/shared"
+import type { ParlorList, SharedParlorId } from "../../../core/parlor/shared"
+import type { Submission as KeptSubmission } from "../../../parlors/port/submission-store"
 import { tierOf, tokenValueOf, UNKNOWN_TIER, type PlayTerms } from "../../../core/parlor/terms"
 import type { PlayGameKind, PlayId } from "../../../core/play/play"
 import { useApp } from "../../context"
@@ -22,6 +23,20 @@ export type ParlorChoice =
   | { readonly type: "none" }
   | { readonly type: "listed"; readonly id: SharedParlorId }
   | { readonly type: "submitted"; readonly submission: SubmissionId }
+
+/** A parlor chosen as a book will know it — its identity and name — where the list or this device's submissions have it; none where they do not, or none was chosen. */
+export const chosenParlorOf = (choice: ParlorChoice, list: ParlorList, submissions: readonly KeptSubmission[]): { readonly identity: ParlorIdentity; readonly name: string } | undefined => {
+  if (choice.type === "listed") {
+    const parlor = list.parlors.find((candidate) => candidate.id === choice.id)
+    return parlor === undefined ? undefined : { identity: { type: "listed", id: parlor.id as string as ParlorId }, name: parlor.name }
+  }
+  const kept = choice.type === "submitted" ? submissions.find((candidate) => candidate.submission === choice.submission) : undefined
+  return kept === undefined ? undefined : { identity: { type: "submitted", submission: kept.submission }, name: kept.name }
+}
+
+/** The choice that names a parlor a play is at, to be chosen again. */
+export const choiceOfIdentity = (identity: ParlorIdentity): ParlorChoice =>
+  identity.type === "listed" ? { type: "listed", id: identity.id as string as SharedParlorId } : { type: "submitted", submission: identity.submission }
 
 /** Which pachinko machine a play is for, once one is chosen from the catalog. */
 export type PachinkoMachineChoice = { readonly type: "none" } | { readonly type: "catalog"; readonly machineId: MachineId; readonly name: string }

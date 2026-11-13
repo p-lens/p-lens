@@ -4,7 +4,7 @@ import { netAdoptions, netVerifications, usesWeighTheirMost, type FormulaListing
 import { combinedTellsMore } from "../../../../core/pachislot/figures"
 import type { Formula, SettingDistribution } from "../../../../core/pachislot/formula"
 import { BoltIcon, HandIcon, HeartIcon, QuestionIcon, ShieldIcon } from "../../../primitives/icons"
-import { formulaIdText } from "../../../wording/catalog"
+import { formulaIdLabel } from "../../../wording/catalog"
 import { oddsText, formulaText, payoutRateText, sharesText, UNCHECKED } from "../../../wording/pachislot/formula"
 import { KindMark } from "./KindMark"
 import { isMine, OWN_LINES, ownPaintOf } from "./vote-fill"
@@ -93,7 +93,7 @@ export function FormulaCard(props: {
         <div class="min-w-0 flex-1">
           <h3 class="truncate font-semibold tabular-nums text-text-primary">{formulaText(props.listing.formula.figures)}</h3>
           <p class="text-[11px] tabular-nums text-text-muted">
-            ID {formulaIdText(props.listing.formula.id)}
+            {formulaIdLabel(props.listing.formula.id)}
             <Show when={props.listing.formula.unchecked}>{` ・${UNCHECKED}`}</Show>
           </p>
         </div>

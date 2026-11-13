@@ -40,6 +40,14 @@ const termsText = (gameKind: PlayGameKind, terms: PlayTerms): string =>
 /** The rate a play was on, as one fact of it: the corner's advertised rate, then its terms. */
 export const rateText = (gameKind: PlayGameKind, terms: PlayTerms): string => `${tierOf(gameKind, terms)}（${termsText(gameKind, terms)}）`
 
+/**
+ * Where a play is, as the line above its live counts says it: its corner's
+ * rate first, which a narrow screen never cuts short, then its parlor,
+ * which it may — `4円・マレハン東京皇国第8支店` — or that it has no rate.
+ */
+export const venueText = (gameKind: PlayGameKind, terms: PlayTerms | undefined, parlor: Parlor | undefined): string =>
+  `${terms === undefined ? "レート指定なし" : tierOf(gameKind, terms)}・${parlorText(parlor)}`
+
 /** A distance as a person reads it: metres up close, kilometres beyond. */
 export const distanceText = (metres: number): string =>
   metres < 1000 ? `${String(Math.round(metres / 10) * 10)}m` : metres < 10_000 ? `${(metres / 1000).toFixed(1)}km` : `${String(Math.round(metres / 1000))}km`

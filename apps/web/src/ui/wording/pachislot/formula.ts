@@ -5,7 +5,7 @@ import type { TakeBackRefusal } from "../../../core/pachislot/path"
 import type { CounterRefusal } from "../../../core/pachislot/reading"
 import type { RevisionRefusal } from "../../../core/pachislot/revision"
 import type { ReadingRefusal } from "../../../core/play-log/live"
-import { formulaIdText } from "../catalog"
+import { formulaIdLabel } from "../catalog"
 import { amountText, formatCount, signedAmountText, UNSEEN_THEORETICAL, type Amount } from "../numbers"
 import { seal } from "../../../mummer"
 import type { TriggerWords } from "./trigger"
@@ -33,11 +33,11 @@ type Said = { readonly id: string; readonly figures: readonly SettingLevelFigure
 /** A pachislot formula's name among its machine's, with its id where another says the same. */
 export const formulaNameAmong = (formula: Said, among: readonly Said[]): string => {
   const said = formulaText(formula.figures)
-  return among.filter((other) => formulaText(other.figures) === said).length > 1 ? `${said}（${formulaIdText(formula.id)}）` : said
+  return among.filter((other) => formulaText(other.figures) === said).length > 1 ? `${said}（${formulaIdLabel(formula.id)}）` : said
 }
 
-/** A pachislot formula as it is passed on — "use this one": its id, which finds it, then its 機械割, which says what it is. */
-export const formulaHandle = (formula: Said): string => `${formulaIdText(formula.id)} ${formulaText(formula.figures)}`
+/** A pachislot formula as it is passed on — "use this one": its 機械割, which says what it is as a box to choose one shows it, then its id, which finds it. */
+export const formulaHandle = (formula: Said): string => `${formulaText(formula.figures)}・${formulaIdLabel(formula.id)}`
 
 /** A 設定配分's shares, the levels it gives any: `設定1 60%・設定6 10%`. */
 export const sharesText = (shares: readonly SettingLevelShare[]): string =>

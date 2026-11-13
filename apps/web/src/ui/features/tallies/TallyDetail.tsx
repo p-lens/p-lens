@@ -1,10 +1,11 @@
-import { createResource, createSignal, For, Match, Show, Switch, type JSX } from "solid-js"
+import { createMemo, createResource, createSignal, For, Match, Show, Switch, type JSX } from "solid-js"
 import { AuxPanel } from "solid-gathering-shell"
 
 import { loadTally, type TallyLog } from "../../../application/tallies"
+import { moveRecordedTally } from "../../../application/move-tally"
 import { removeTally } from "../../../application/revise-tally"
 import { modelNameOf, shownNameOf } from "../../../core/catalog/catalog"
-import type { BookId } from "../../../core/book/book"
+import { memberCan, type BookId } from "../../../core/book/book"
 import { negate, type Decimal } from "../../../core/decimal/decimal"
 import { isWrittenReversed } from "../../../core/journal/accounts"
 import type { PlayTerms } from "../../../core/parlor/terms"
@@ -17,12 +18,14 @@ import type { Posting } from "../../../hledger/protocol/wire"
 import { useApp } from "../../context"
 import { Button } from "../../primitives/button"
 import { ConfirmDialog } from "../../primitives/dialog"
-import { ChevronDownIcon, CloseIcon, EditIcon, TrashIcon } from "../../primitives/icons"
+import { BooksIcon, ChevronDownIcon, CloseIcon, EditIcon, TrashIcon } from "../../primitives/icons"
+import { Select } from "../../primitives/select"
 import { Loaded } from "../../primitives/states"
 import { toast } from "../../primitives/toast"
 import { Unfolding } from "../../primitives/unfolding"
 import { useMoves } from "../../navigation/moves"
 import type { Place } from "../../navigation/place"
+import { bookTitle } from "../../wording/book"
 import { formatDay } from "../../wording/dates"
 import { describeError, describePlayLogError } from "../../wording/errors"
 import { formatCommodityAmount, formatTheoreticalYen } from "../../wording/numbers"
@@ -137,13 +140,16 @@ function Postings(props: { readonly postings: readonly Posting[] }): JSX.Element
   )
 }
 
+/** Where moving a tally into another book stands. */
+type Moving = { readonly type: "idle" } | { readonly type: "choosing"; readonly to: BookId } | { readonly type: "moving" }
+
 /**
  * One tally beside the list it was chosen from, under its machine's name:
  * when, where and at which cabinet its play was played, what went into it
  * and came out of it, what it came to,
  * its play's readings as they were taken where the play was followed live,
- * its own figures as the book keeps them where its play was followed live, its entry, and the ways to set it right or take it out of the book — the
- * second only after being asked again.
+ * its own figures as the book keeps them where its play was followed live, its entry, and the ways to set it right, to move it whole into another
+ * of the person's books — 移動 always there, saying for a moment why where there is none to go to — or to take it out of the book, the last two only after being asked again.
  */
 export function TallyDetail(props: { readonly place: Place; readonly bookId: BookId; readonly playId: PlayId; readonly query: string }): JSX.Element {
   const app = useApp()
@@ -164,6 +170,41 @@ export function TallyDetail(props: { readonly place: Place; readonly bookId: Boo
     toast({ title: "収支を削除しました" })
     moves.up(props.place, props.query)
     app.wrote()
+  }
+  const [books] = createResource(() => app.revision(), () => app.services.session.books())
+  /** The other books the tally may be moved into: those the person may write, where they may write the one it is in; none otherwise. */
+  const destinations = createMemo(() => {
+    const found = books()
+    if (found?.ok !== true) return []
+    const here = found.value.find((book) => book.id === props.bookId)
+    return here !== undefined && memberCan(here, app.services.member, "write") ? found.value.filter((book) => book.id !== props.bookId && memberCan(book, app.services.member, "write")) : []
+  })
+  /** Where moving the tally stands: not asked, a book being chosen to move it into, or the move being made, which a second press waits out. */
+  const [moving, setMoving] = createSignal<Moving>({ type: "idle" })
+  const chosen = (): BookId | undefined => ((state) => (state.type === "choosing" ? state.to : undefined))(moving())
+  /** Whether the person keeps one book alone, as far as is known: a book to move a tally into is one more. */
+  const soleBook = (): boolean => ((found) => found?.ok !== true || found.value.length <= 1)(books())
+  /** Ask which book to move the tally into, the first it may go to chosen; where it may go to none, only say why for a moment. */
+  const askToMove = (): void => {
+    if (moving().type !== "idle") return
+    const first = destinations()[0]
+    if (first === undefined) {
+      toast({ title: soleBook() ? "帳簿が複数あると移動できます" : "移動できる帳簿がありません" })
+      return
+    }
+    setMoving({ type: "choosing", to: first.id })
+  }
+  const move = async (to: BookId): Promise<void> => {
+    setMoving({ type: "moving" })
+    const moved = await moveRecordedTally(app.services.session, props.bookId, to, app.services.member, props.playId)
+    setMoving({ type: "idle" })
+    if (!moved.ok) {
+      toast({ title: "収支を移動できませんでした", description: describeError(moved.error), tone: "error" })
+      return
+    }
+    toast({ title: "収支を移動しました" })
+    app.wrote()
+    moves.replace({ kind: "tally", bookId: to, playId: props.playId })
   }
   return (
     <AuxPanel
@@ -241,16 +282,33 @@ export function TallyDetail(props: { readonly place: Place; readonly bookId: Boo
             <Show when={found.summary.theoreticalValue === undefined && found.summary.inferredValue === undefined}>
               <p class="text-xs text-text-muted">この収支には期待値が記録されていません（{formatTheoreticalYen(seal.tally(found.theoretical))}として集計）。</p>
             </Show>
-            <div class="flex justify-end gap-2">
-              <Button variant="outline" size="small" class="gap-1.5" onClick={() => moves.go({ kind: "tally-revise", bookId: props.bookId, playId: props.playId })}>
-                <EditIcon label="" />
-                修正
+            <div class="flex gap-2">
+              <Button variant="outline" size="small" class="gap-1.5" onClick={askToMove}>
+                <BooksIcon />
+                移動
               </Button>
-              <Button variant="outline" size="small" class="gap-1.5" onClick={() => setRemoving(true)}>
-                <TrashIcon />
-                削除
-              </Button>
+              <div class="ml-auto flex gap-2">
+                <Button variant="outline" size="small" class="gap-1.5" onClick={() => moves.go({ kind: "tally-revise", bookId: props.bookId, playId: props.playId })}>
+                  <EditIcon label="" />
+                  修正
+                </Button>
+                <Button variant="outline" size="small" class="gap-1.5" onClick={() => setRemoving(true)}>
+                  <TrashIcon />
+                  削除
+                </Button>
+              </div>
             </div>
+            <ConfirmDialog
+              open={chosen() !== undefined}
+              title="この収支を別の帳簿へ移動しますか？"
+              confirm="移動する"
+              decline="やめる"
+              onConfirmed={() => ((to) => to !== undefined && void move(to))(chosen())}
+              onDeclined={() => setMoving({ type: "idle" })}
+            >
+              <Select label="移動先の帳簿" placeholder="帳簿を選ぶ" options={destinations().map((book) => ({ value: book.id, label: bookTitle(book) }))} value={chosen()} onChange={(id) => setMoving({ type: "choosing", to: id as BookId })} />
+              <p>この収支を丸ごと移します。貯玉も一緒に移り、元の帳簿からは消えます。</p>
+            </ConfirmDialog>
             <ConfirmDialog open={removing()} title="この収支を削除しますか？" confirm="削除する" decline="やめる" onConfirmed={() => void remove()} onDeclined={() => setRemoving(false)}>
               <p>{shownDescription(found.summary.description) || tallyTitle(found.summary, app.machineNames())}</p>
               <p>仕訳が帳簿から外れ、収支・期待値・貯玉の残高がその分だけ変わります。</p>

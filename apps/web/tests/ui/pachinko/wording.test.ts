@@ -42,9 +42,9 @@ describe("a formula's figures as they read", () => {
     const other = { id: "01a11b40-0000-7000-8000-000000000000", figures: { roundChanceOneIn: 7.5, payoutPerRound: 132.44 } }
     expect(formulaText(first.figures)).toBe("1/16.2・140.0玉")
     expect(formulaNameAmong(other, [first, twin, other])).toBe("1RT 1/7.50・1RB 132.4玉")
-    expect(formulaNameAmong(first, [first, twin, other])).toBe("1RT 1/16.2・1RB 140.0玉（01a11b2f）")
-    expect(formulaNameAmong(twin, [first, twin, other])).toBe("1RT 1/16.2・1RB 140.0玉（01a11b36）")
-    expect(formulaHandle(first)).toBe("01a11b2f 1/16.2・140.0玉")
+    expect(formulaNameAmong(first, [first, twin, other])).toBe("1RT 1/16.2・1RB 140.0玉（ID:01a11b2f）")
+    expect(formulaNameAmong(twin, [first, twin, other])).toBe("1RT 1/16.2・1RB 140.0玉（ID:01a11b36）")
+    expect(formulaHandle(first)).toBe("1RT 1/16.2・1RB 140.0玉・ID:01a11b2f")
   })
 
   test("rates as one-in, with more precision where it matters", () => {

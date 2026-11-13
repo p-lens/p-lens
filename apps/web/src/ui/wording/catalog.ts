@@ -157,6 +157,9 @@ export const describeReleaseDateError = (error: ReleaseDateError): string | unde
  */
 export const formulaIdText = (id: string): string => id.slice(0, 8)
 
+/** A formula's id as a list and a formula passed on say it, marked: `ID:01a18b48`. */
+export const formulaIdLabel = (id: string): string => `ID:${formulaIdText(id)}`
+
 /** What the top bar's refresh is called: it takes the shared catalog's newest delivery. */
 export const REFRESH_TITLE = "機種・算出条件の更新"
 

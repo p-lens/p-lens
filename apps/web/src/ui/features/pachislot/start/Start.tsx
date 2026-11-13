@@ -7,7 +7,7 @@ import { rememberPlayed } from "../../../../application/recently-played"
 import { shownNameOf } from "../../../../core/catalog/catalog"
 import type { PlayDraft, PlayVenue } from "../../../../core/live-play/draft"
 import { nearestFirst } from "../../../../core/parlor/distance"
-import type { ParlorId, ParlorIdentity, SubmissionId } from "../../../../core/parlor/parlor"
+import type { ParlorIdentity, SubmissionId } from "../../../../core/parlor/parlor"
 import { parlorMatches } from "../../../../core/parlor/search"
 import { searchKeyOf } from "../../../../core/text/search-key"
 import type { Coordinates, ParlorList, SharedParlor, SharedParlorId } from "../../../../core/parlor/shared"
@@ -32,7 +32,7 @@ import { FIELD_PROBLEM_TEXT, UNWRITABLE_TEXT } from "../../../wording/fields"
 import { chosenParlorText, LOCATE_REQUEST, parlorChoiceText, parlorNote, typedParlorRefused } from "../../../wording/parlor"
 import { FormulaPicker, PriorPicker } from "./ChoiceFields"
 import { SeatFields, useSeat } from "./Seat"
-import { EMPTY_PACHISLOT_START, type PachislotMachineChoice, type ParlorChoice, useStartForm } from "../../live/start-form"
+import { chosenParlorOf, EMPTY_PACHISLOT_START, type PachislotMachineChoice, type ParlorChoice, useStartForm } from "../../live/start-form"
 import { amendAddress, locateAddress, submitAddress } from "../../live/submission-return"
 import { readTerms, type TermsField } from "../../live/start-terms"
 import { carriedInShown, readCarriedIn, tokensCarriedTo, tokensInHandUnreadable } from "../../live/tokens-in-hand"
@@ -102,7 +102,7 @@ const choiceOf = (key: string | undefined): ParlorChoice => {
 const SUBMIT_PARLOR = "一覧にない店舗を申請する"
 
 /** Where the device is, once it has answered: a place, or why it could not say. */
-type Located = Result<Coordinates, LocateError>
+export type Located = Result<Coordinates, LocateError>
 
 /**
  * The parlor: the listed parlors nearest first once the device says where it
@@ -119,7 +119,7 @@ type Located = Result<Coordinates, LocateError>
  * started on it. Left empty, the play has no parlor and is
  * recorded by its totals in yen.
  */
-function ParlorField(props: {
+export function ParlorField(props: {
   readonly list: ParlorList
   readonly submissions: readonly Submission[]
   readonly here: Located | undefined
@@ -270,15 +270,7 @@ export function Start(props: {
       ? amendAddress(app.services.surveyUrl, window.location.origin, { type: "start", game: "pachislot" }, { id: choice.id, name })
       : undefined
   }
-  const chosenParlor = (): { readonly identity: ParlorIdentity; readonly name: string } | undefined => {
-    const choice = start.form().parlor
-    if (choice.type === "listed") {
-      const parlor = props.list.parlors.find((candidate) => candidate.id === choice.id)
-      return parlor === undefined ? undefined : { identity: { type: "listed", id: parlor.id as string as ParlorId }, name: parlor.name }
-    }
-    const kept = choice.type === "submitted" ? props.submissions.find((candidate) => candidate.submission === choice.submission) : undefined
-    return kept === undefined ? undefined : { identity: { type: "submitted", submission: kept.submission }, name: kept.name }
-  }
+  const chosenParlor = (): { readonly identity: ParlorIdentity; readonly name: string } | undefined => chosenParlorOf(start.form().parlor, props.list, props.submissions)
   const chosenMachine = (): (PachislotMachineChoice & { readonly type: "catalog" }) | undefined => {
     const machine = start.form().pachislot.machine
     return machine.type === "catalog" ? machine : undefined

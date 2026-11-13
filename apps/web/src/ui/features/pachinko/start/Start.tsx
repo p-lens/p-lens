@@ -13,7 +13,7 @@ import { type Figures } from "../../../../core/pachinko/figures"
 import { autoSelect, selectById, type Selection } from "../../../../core/formula/standing"
 import type { PlayDraft, PlayVenue } from "../../../../core/live-play/draft"
 import { nearestFirst } from "../../../../core/parlor/distance"
-import type { ParlorId, ParlorIdentity, SubmissionId } from "../../../../core/parlor/parlor"
+import type { ParlorIdentity, SubmissionId } from "../../../../core/parlor/parlor"
 import { parlorMatches } from "../../../../core/parlor/search"
 import { searchKeyOf } from "../../../../core/text/search-key"
 import type { Coordinates, ParlorList, SharedParlor, SharedParlorId } from "../../../../core/parlor/shared"
@@ -47,7 +47,7 @@ import { HyenaHuntRun } from "../formulas/HyenaHuntRun"
 import { SelectionReason } from "../formulas/SelectionReason"
 import { GaugeButton } from "../live/GaugeButton"
 import { useBookFavorites } from "../../live/book-favorites"
-import { EMPTY_PACHINKO_START, type PachinkoMachineChoice, type ParlorChoice, useStartBallValue, useStartForm } from "../../live/start-form"
+import { chosenParlorOf, EMPTY_PACHINKO_START, type PachinkoMachineChoice, type ParlorChoice, useStartBallValue, useStartForm } from "../../live/start-form"
 import { amendAddress, locateAddress, submitAddress } from "../../live/submission-return"
 import { readTerms, type TermsField } from "../../live/start-terms"
 import { carriedInShown, readCarriedIn, tokensCarriedTo, tokensInHandUnreadable } from "../../live/tokens-in-hand"
@@ -99,7 +99,7 @@ function MachineField(props: {
  * or chosen by hand on the machine's page, which pressing it opens: the
  * machine's formulas side by side, each with what people have done with
  * it, one of them taken with 「これを使う」. The question mark opens the one
- * chosen, and the copy button puts its id and name on the clipboard for passing
+ * chosen, and the copy button puts its name and id on the clipboard for passing
  * on. Before a machine is chosen it is there, waiting: pressing it nudges
  * the machine, and the two buttons each say what they are for.
  */
@@ -126,11 +126,11 @@ function FormulaField(props: {
   const open = (formulaId: FormulaId): void => {
     if (props.detail !== undefined) moves.go({ kind: "pachinko-formula", machineId: props.detail.machine.id, formulaId })
   }
-  /** The chosen formula's id and name, put on the clipboard for passing on — "pick this one" — to whoever plays beside you. */
+  /** The chosen formula's name and id, put on the clipboard for passing on — "pick this one" — to whoever plays beside you. */
   const copyChosen = async (chosen: Selection<Formula>): Promise<void> => {
     const handle = formulaHandle(chosen.listing.formula)
     const copied = await copyText(handle)
-    toast(copied.ok ? { title: "算出条件のIDと名前をコピーしました", description: handle } : { title: "コピーできませんでした", tone: "error" })
+    toast(copied.ok ? { title: "算出条件の名前とIDをコピーしました", description: handle } : { title: "コピーできませんでした", tone: "error" })
   }
   const copySelected = async (): Promise<void> => {
     if (props.selection !== undefined) await copyChosen(props.selection)
@@ -171,7 +171,7 @@ function FormulaField(props: {
             </span>
           </button>
         </div>
-        <HintedIconButton label="算出条件のIDと名前をコピー" hint="算出条件のIDと名前をコピーできます" ready={props.selection !== undefined} onPress={() => void copySelected()}>
+        <HintedIconButton label="算出条件の名前とIDをコピー" hint="算出条件の名前とIDをコピーできます" ready={props.selection !== undefined} onPress={() => void copySelected()}>
           <CopyIcon />
         </HintedIconButton>
         <HintedIconButton label="算出条件を見る" hint="算出条件の根拠が見れます" ready={props.selection !== undefined} onPress={openSelected} semipro>
@@ -273,7 +273,7 @@ const choiceOf = (key: string | undefined): ParlorChoice => {
 const SUBMIT_PARLOR = "一覧にない店舗を申請する"
 
 /** Where the device is, once it has answered: a place, or why it could not say. */
-type Located = Result<Coordinates, LocateError>
+export type Located = Result<Coordinates, LocateError>
 
 /**
  * The parlor: the listed parlors nearest first once the device says where it
@@ -290,7 +290,7 @@ type Located = Result<Coordinates, LocateError>
  * started on it. Left empty, the play has no parlor and is
  * recorded by its totals in yen.
  */
-function ParlorField(props: {
+export function ParlorField(props: {
   readonly list: ParlorList
   readonly submissions: readonly Submission[]
   readonly here: Located | undefined
@@ -448,15 +448,7 @@ export function Start(props: {
       ? amendAddress(app.services.surveyUrl, window.location.origin, { type: "start", game: "pachinko" }, { id: choice.id, name })
       : undefined
   }
-  const chosenParlor = (): { readonly identity: ParlorIdentity; readonly name: string } | undefined => {
-    const choice = start.form().parlor
-    if (choice.type === "listed") {
-      const parlor = props.list.parlors.find((candidate) => candidate.id === choice.id)
-      return parlor === undefined ? undefined : { identity: { type: "listed", id: parlor.id as string as ParlorId }, name: parlor.name }
-    }
-    const kept = choice.type === "submitted" ? props.submissions.find((candidate) => candidate.submission === choice.submission) : undefined
-    return kept === undefined ? undefined : { identity: { type: "submitted", submission: kept.submission }, name: kept.name }
-  }
+  const chosenParlor = (): { readonly identity: ParlorIdentity; readonly name: string } | undefined => chosenParlorOf(start.form().parlor, props.list, props.submissions)
   const ballValue = useStartBallValue()
   const chosenMachine = (): (PachinkoMachineChoice & { readonly type: "catalog" }) | undefined => {
     const machine = start.form().pachinko.machine

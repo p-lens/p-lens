@@ -1,7 +1,7 @@
 import type { BookId, MemberId, ListedBook } from "../core/book/book"
 import { memberCan } from "../core/book/book"
 import type { IsoDate } from "../core/calendar/calendar"
-import { bookOf, headOf, isPast, latestTermsOf, withCabinetNumber, withCheckpoints, withJackpotCounting, withLog, withMachine, type MachineChange, type PlayDraft } from "../core/live-play/draft"
+import { bookOf, headOf, isPast, latestTermsOf, withCabinetNumber, withCheckpoints, withJackpotCounting, withLog, withMachine, type MachineChange, type PlayDraft, type PlayVenue } from "../core/live-play/draft"
 import { exchangeRateOf, poolOf, type PlayTerms } from "../core/parlor/terms"
 import type { NetCounts, TallyHead, TokenTally, YenTally } from "../core/tally/tally"
 import { netCountsOf, type CountedAs } from "../core/tally/net-counts"
@@ -64,13 +64,14 @@ export const reviseCheckpoints = async <D extends PlayDraft>(drafts: DraftStorag
 }
 
 /**
- * Say a play is played on other terms than it was started with: the corner
- * was another one, or its board was misread. Only the play changes — it is
- * still the device's, and no book has heard of its terms — and everything
- * counted from its readings is counted anew on them.
+ * Say a play is played somewhere else than it was started at: at another
+ * parlor — the day's earlier one was left chosen — or on other terms, the
+ * corner another one or its board misread. Only the play changes — it is
+ * still the device's, and no book has heard of where it is — and
+ * everything counted from its readings is counted anew there.
  */
-export const changeTerms = async (drafts: DraftStorage, draft: PlayDraft, terms: PlayTerms): Promise<Outcome<PlayDraft>> => {
-  const next: PlayDraft = { ...draft, venue: draft.venue.type === "parlor" ? { ...draft.venue, terms } : { type: "none", terms } }
+export const changeVenue = async (drafts: DraftStorage, draft: PlayDraft, venue: PlayVenue): Promise<Outcome<PlayDraft>> => {
+  const next: PlayDraft = { ...draft, venue }
   return mapOk(fromDraft(await drafts.updateDraft(next, draft.log)), () => next)
 }
 

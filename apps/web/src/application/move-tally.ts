@@ -1,4 +1,4 @@
-import type { BookId } from "../core/book/book"
+import type { BookId, MemberId } from "../core/book/book"
 import { tokenCommodity } from "../core/commodity/commodity"
 import type { Parlor, SavingsPool } from "../core/parlor/parlor"
 import { tokenKindOf } from "../core/play/play"
@@ -6,6 +6,7 @@ import { playLogPath } from "../core/play-log/checkpoint"
 import { withoutTallyFiled } from "../core/journal/filing"
 import type { RecordedTally } from "../core/report/recorded-tally"
 import { Err, Ok, andThen } from "../core/result/result"
+import type { PlayId } from "../core/play/play"
 import type { TallyHead } from "../core/tally/tally"
 import { rateOn, rateReachingBack, type PricePoint } from "../core/valuation/valuation"
 import { talliesRequest } from "../hledger/query/requests"
@@ -16,6 +17,7 @@ import type { Outcome } from "./errors"
 import { fromHledger } from "./lift"
 import { openPool } from "./parlors"
 import { recordTokenTally, recordYenTally } from "./record-tally"
+import { loadRecordedTally } from "./revise-tally"
 
 /**
  * The parlor's pool a tally needs where it moves to: a parlor is in a book
@@ -78,4 +80,10 @@ export const moveTally = async (session: BookSession, from: BookId, to: BookId, 
       ? await recordTokenTally(session, to, { ...moved.tally, parlor: parlor.value ?? moved.tally.parlor }, log)
       : await recordYenTally(session, to, { ...moved.tally, parlor: parlor.value }, log)
   return written.ok ? takenOut(session, from, head) : written
+}
+
+/** Move a recorded tally into another of the person's books as it stands, at the rates the book it leaves has (`moveTally`). */
+export const moveRecordedTally = async (session: BookSession, from: BookId, to: BookId, member: MemberId, id: PlayId): Promise<Outcome<CommitId>> => {
+  const found = await loadRecordedTally(session, from, member, id)
+  return found.ok ? moveTally(session, from, to, found.value.recorded, found.value.context.prices) : found
 }

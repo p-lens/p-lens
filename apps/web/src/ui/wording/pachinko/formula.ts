@@ -1,5 +1,5 @@
 import type { FormulaKind } from "../../../core/pachinko/formula"
-import { formulaIdText } from "../catalog"
+import { formulaIdLabel } from "../catalog"
 
 const KIND_NAMES: Readonly<Record<FormulaKind, string>> = { manual: "手入力", simulated: "基礎値から計算", sampled: "シミュレータ" }
 
@@ -46,11 +46,11 @@ export const formulaNameAmong = (formula: Said, among: readonly Said[]): string 
   const said = formulaText(formula.figures)
   const twins = among.filter((other) => formulaText(other.figures) === said)
   const marked = markedFormulaText(formula.figures)
-  return twins.length > 1 ? `${marked}（${formulaIdText(formula.id)}）` : marked
+  return twins.length > 1 ? `${marked}（${formulaIdLabel(formula.id)}）` : marked
 }
 
-/** A formula as it is passed on — "use this one": its id, which finds it, then its figures, which say what it is. */
-export const formulaHandle = (formula: Said): string => `${formulaIdText(formula.id)} ${formulaText(formula.figures)}`
+/** A formula as it is passed on — "use this one": its figures, marked as a box to choose one shows them, then its id, which finds it: `1RT 1/8.98・1RB 140.0玉・ID:01a18b48`. */
+export const formulaHandle = (formula: Said): string => `${markedFormulaText(formula.figures)}・${formulaIdLabel(formula.id)}`
 
 /** A mode as a list of destinations names it: by its name, or — until it is given one — by where it stands among the modes, モード2. */
 export const modeTitle = (label: string, position: number): string => (label.trim() === "" ? `モード${position}` : label.trim())

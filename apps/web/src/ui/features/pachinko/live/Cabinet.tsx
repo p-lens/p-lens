@@ -122,13 +122,13 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
   }
   /** A machine chosen whose formula is not yet known: its formulas are still being read, or it has none to weigh a play by. */
   const waitingOnFormula = (): boolean => machineId() !== undefined && selection() === undefined
-  /** The chosen formula's id and name, put on the clipboard for passing on. */
+  /** The chosen formula's name and id, put on the clipboard for passing on. */
   const copySelected = async (): Promise<void> => {
     const formula = selection()?.listing.formula
     if (formula === undefined) return
     const handle = formulaHandle(formula)
     const copied = await copyText(handle)
-    toast(copied.ok ? { title: "算出条件のIDと名前をコピーしました", description: handle } : { title: "コピーできませんでした", tone: "error" })
+    toast(copied.ok ? { title: "算出条件の名前とIDをコピーしました", description: handle } : { title: "コピーできませんでした", tone: "error" })
   }
   const openSelected = (): void => {
     const formula = selection()?.listing.formula
@@ -221,7 +221,7 @@ export function Cabinet(props: { readonly place: Place; readonly draft: Pachinko
                     )}
                   />
                 </div>
-                <HintedIconButton label="算出条件のIDと名前をコピー" hint="算出条件のIDと名前をコピーできます" ready={selection() !== undefined} onPress={() => void copySelected()}>
+                <HintedIconButton label="算出条件の名前とIDをコピー" hint="算出条件の名前とIDをコピーできます" ready={selection() !== undefined} onPress={() => void copySelected()}>
                   <CopyIcon />
                 </HintedIconButton>
                 <HintedIconButton label="算出条件を見る" hint="算出条件の根拠が見れます" ready={selection() !== undefined} onPress={openSelected} semipro>

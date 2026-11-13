@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import { createBookSession } from "../../src/application/book-session"
-import { moveTally } from "../../src/application/move-tally"
+import { moveRecordedTally, moveTally } from "../../src/application/move-tally"
 import { recordTokenTally, recordYenTally } from "../../src/application/record-tally"
 import { loadRecordedTally } from "../../src/application/revise-tally"
 import { firstBook } from "../../src/app/composition/first-book"
@@ -64,5 +64,15 @@ describe("a recorded tally moved into another book", () => {
     const at = await recordedIn(TO, "yen-at")
     expect(at.ok && at.value.type === "yen" ? at.value.tally.parlor?.name : undefined).toBe(MALEHAN.name)
     expect(await recordedIn(TO, "yen-nowhere")).toEqual({ ok: true, value: { type: "yen", tally: nowhere } })
+  })
+
+  test("as it stands is read from the book it leaves and moved at that book's rates", async () => {
+    const { storage, session, recordedIn } = await setUp()
+    expect((await recordTokenTally(session, FROM, PLAYED, LOG)).ok).toBe(true)
+    expect((await moveRecordedTally(session, FROM, TO, ME, PLAYED.id)).ok).toBe(true)
+    const there = await recordedIn(TO, "moved")
+    expect(there.ok && there.value.type === "token" ? { ...there.value.tally, parlor: there.value.tally.parlor.name } : undefined).toEqual({ ...PLAYED, parlor: MALEHAN.name })
+    expect(storage.peek(TO)?.files[playLogPath("pachinko", PLAYED.id)]).toBe(LOG)
+    expect(await recordedIn(FROM, "moved")).toEqual({ ok: false, error: { type: "tally-missing" } })
   })
 })

@@ -5,6 +5,7 @@ import {
   averageSettingLevelText,
   bonusTitle,
   EVEN_PRIOR_NAME,
+  formulaHandle,
   medalsPerGameText,
   observedOneInText,
   oddsText,
@@ -51,5 +52,12 @@ describe("a bonus in a list of bonuses", () => {
   test("goes by its name, and until it has one by its place among the bonuses", () => {
     expect(bonusTitle(" BIG ", 1)).toBe("BIG")
     expect(bonusTitle("", 2)).toBe("ボーナス2")
+  })
+})
+
+describe("a pachislot formula passed on", () => {
+  test("is its 機械割, then its id, marked", () => {
+    const figures = [1, 6].map((settingLevel) => ({ settingLevel, payoutRate: settingLevel === 1 ? 0.97 : 1.094, bonuses: [], combinedOneIn: 150 }))
+    expect(formulaHandle({ id: "01a18b48-0000-7000-8000-000000000000", figures })).toBe("機械割 97.0%〜109.4%・ID:01a18b48")
   })
 })
