@@ -4,14 +4,14 @@ import type * as Pachinko from "../../../core/pachinko"
 import type { MachineId } from "../../../core/machine/machine"
 import type * as Pachislot from "../../../core/pachislot"
 import type { SubmissionId } from "../../../core/parlor/parlor"
-import { rateUnreported, type ReportedRates } from "../../../core/parlor/reported-rates"
+import { exchangedCorners, rateUnreported, reportedRateAt, REPORTED_TIER, type ReportedRates } from "../../../core/parlor/reported-rates"
 import type { SharedParlorId } from "../../../core/parlor/shared"
-import { tokenValueOf, type PlayTerms } from "../../../core/parlor/terms"
+import { tierOf, tokenValueOf, UNKNOWN_TIER, type PlayTerms } from "../../../core/parlor/terms"
 import type { PlayGameKind, PlayId } from "../../../core/play/play"
 import { useApp } from "../../context"
 import * as PachislotChoice from "../pachislot/start/choice"
 import { recalledParlorSetting, writtenParlorSetting } from "./parlor-setting"
-import { readTerms, termsAsOpened, withReportedRate, type TermsForm } from "./start-terms"
+import { readTerms, termsAsOpened, withCorner, type TermsForm } from "./start-terms"
 import { tokensStillInHand } from "./tokens-in-hand"
 
 /**
@@ -182,8 +182,12 @@ export interface StartFormState {
   readonly update: (change: Partial<StartForm>) => void
   /** Choose the parlor; a listed one has what players reported of its corners put into both games' terms, once, to be typed over. */
   readonly chooseParlor: (parlor: ParlorChoice) => void
-  /** Whether the listed parlor chosen has its corner of a game's rates not wholly reported, once the reports are read: what the terms ask the person to report. */
+  /** Whether the listed parlor chosen has the corner of a game its terms are at not wholly reported, once the reports are read: what the terms ask the person to report. */
   readonly rateUnreported: (gameKind: PlayGameKind) => boolean
+  /** The corners of a game the listed parlor chosen may be played at, as reports give them: those a broker was seen to pay for, dearest first; none until the reports are read. */
+  readonly corners: (gameKind: PlayGameKind) => readonly string[]
+  /** Put one of those corners into a game's terms, to be typed over. */
+  readonly chooseCorner: (gameKind: PlayGameKind, tier: string) => void
   /** Change what starting a pachinko play has chosen, leaving the rest. */
   readonly updatePachinko: (change: Partial<PachinkoStart>) => void
   /** Change what starting a pachislot play has chosen, leaving the rest. */
@@ -231,10 +235,19 @@ export function StartFormProvider(props: { readonly children: JSX.Element }): JS
     setRatesWanted(true)
     setFilling(parlor.id)
   }
-  const unreported = (gameKind: PlayGameKind): boolean => {
+  /** The reports and the listed parlor chosen, once the reports are read. */
+  const reported = (): { readonly rates: ReportedRates; readonly parlor: SharedParlorId } | undefined => {
     const chosen = form().parlor
     const read = rates.loading ? undefined : rates()
-    return chosen.type === "listed" && read !== undefined && rateUnreported(read.get(chosen.id)?.[gameKind])
+    return chosen.type === "listed" && read !== undefined ? { rates: read, parlor: chosen.id } : undefined
+  }
+  const unreported = (gameKind: PlayGameKind): boolean =>
+    ((found) => found !== undefined && rateUnreported(reportedRateAt(found.rates, found.parlor, gameKind, cornerTyped(form().terms[gameKind], gameKind))))(reported())
+  const corners = (gameKind: PlayGameKind): readonly string[] => ((found) => (found === undefined ? [] : exchangedCorners(found.rates, found.parlor, gameKind)))(reported())
+  const chooseCorner = (gameKind: PlayGameKind, tier: string): void => {
+    const found = reported()
+    if (found === undefined) return
+    update({ terms: { ...form().terms, [gameKind]: withCorner(form().terms[gameKind], reportedRateAt(found.rates, found.parlor, gameKind, tier), gameKind, tier) } })
   }
   return (
     <Context.Provider
@@ -243,6 +256,8 @@ export function StartFormProvider(props: { readonly children: JSX.Element }): JS
         update,
         chooseParlor,
         rateUnreported: unreported,
+        corners,
+        chooseCorner,
         updatePachinko: (change) => setHeld((current) => ({ ...current, pachinko: { ...current.pachinko, ...change } })),
         updatePachislot: (change) => setHeld((current) => ({ ...current, pachislot: PachislotChoice.withChange(current.pachislot, change) })),
       }}
@@ -254,9 +269,22 @@ export function StartFormProvider(props: { readonly children: JSX.Element }): JS
 
 /** Both games' terms with what players reported of a parlor's corners put over them. */
 const withReportedRates = (terms: StartForm["terms"], rates: ReportedRates, parlor: SharedParlorId): StartForm["terms"] => ({
-  pachinko: withReportedRate(terms.pachinko, rates.get(parlor)?.pachinko, "pachinko"),
-  pachislot: withReportedRate(terms.pachislot, rates.get(parlor)?.pachislot, "pachislot"),
+  pachinko: withFirstCorner(terms.pachinko, rates, parlor, "pachinko"),
+  pachislot: withFirstCorner(terms.pachislot, rates, parlor, "pachislot"),
 })
+
+/** A game's terms with the parlor's 4-yen or 20-yen corner put over them, where any of it was reported; left as they are where none was. */
+const withFirstCorner = (terms: TermsForm, rates: ReportedRates, parlor: SharedParlorId, gameKind: PlayGameKind): TermsForm => {
+  const rate = reportedRateAt(rates, parlor, gameKind, REPORTED_TIER[gameKind])
+  return rate === undefined ? terms : withCorner(terms, rate, gameKind, REPORTED_TIER[gameKind])
+}
+
+/** The corner a game's terms as typed are at, by their rental and exchange; the 4-yen or 20-yen one where they point to none. */
+const cornerTyped = (terms: TermsForm, gameKind: PlayGameKind): string => {
+  const read = readTerms(terms, gameKind)
+  const tier = read.ok ? tierOf(gameKind, read.value) : UNKNOWN_TIER
+  return tier === UNKNOWN_TIER ? REPORTED_TIER[gameKind] : tier
+}
 
 /** The start form's state; only reachable inside the screen, which provides it. */
 export const useStartForm = (): StartFormState => {

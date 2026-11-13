@@ -38,6 +38,13 @@ const gameOf = (value: unknown): PlayGameKind | undefined => GAMES.find((game) =
 
 const countOf = (value: unknown): number | undefined => (typeof value === "number" ? value : undefined)
 
+/** A corner's replay as the list writes it, where both its counts are numbers. */
+const replayOf = (value: unknown): { readonly paidOut: number; readonly deducted: number } | undefined => {
+  if (!isJson(value)) return undefined
+  const [paidOut, deducted] = [countOf(value["paidOut"]), countOf(value["deducted"])]
+  return paidOut === undefined || deducted === undefined ? undefined : { paidOut, deducted }
+}
+
 const jsonOf = (line: string): unknown => {
   try {
     return JSON.parse(line)
@@ -53,7 +60,7 @@ const cornersOf = (parlor: SharedParlorId, checked: IsoDate, game: PlayGameKind,
   isJson(corners)
     ? Object.entries(corners).flatMap(([tier, corner]) =>
         isJson(corner)
-          ? [{ parlor, checked, game, tier, rental: countOf(corner["rental"]), prizes: isJson(corner["prizes"]) ? Object.fromEntries(Object.entries(corner["prizes"]).flatMap(([prize, tokens]) => (typeof tokens === "number" ? [[prize, tokens]] : []))) : {} }]
+          ? [{ parlor, checked, game, tier, rental: countOf(corner["rental"]), replay: replayOf(corner["replay"]), prizes: isJson(corner["prizes"]) ? Object.fromEntries(Object.entries(corner["prizes"]).flatMap(([prize, tokens]) => (typeof tokens === "number" ? [[prize, tokens]] : []))) : {} }]
           : [],
       )
     : []

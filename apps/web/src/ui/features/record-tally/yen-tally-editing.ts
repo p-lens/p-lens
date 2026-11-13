@@ -164,7 +164,7 @@ export const createYenTallyEditing = (given: YenTallyEditingGiven): YenTallyEdit
     if (chosen === undefined || rates.loading) return
     const read = rates()
     setFilling(undefined)
-    if (read !== undefined && form().parlorKey === chosen.key) setForm((current) => withReportedRates(current, read.get(chosen.parlor)))
+    if (read !== undefined && form().parlorKey === chosen.key) setForm((current) => withReportedRates(current, read, chosen.parlor))
   })
   const chooseParlor = (key: string): void => {
     set("parlorKey")(key)

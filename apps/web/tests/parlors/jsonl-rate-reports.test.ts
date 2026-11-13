@@ -50,14 +50,14 @@ describe("the rates players reported, read as the parlor list is", () => {
   test("a device with no copy reads both files, keeps them, and fills in from them", async () => {
     const cache = memoryCache()
     const rates = await reportsOver(published({ "tiers.jsonl": [TIERS, '"t1"'], "observations.jsonl": [OBSERVATIONS, '"o1"'] }).request, cache).rates(TODAY)
-    expect(rates.ok && rates.value.get(PARLOR)?.pachinko).toEqual({ rentalTokens: 250, exchange: { tokens: 140, yen: 500 } })
+    expect(rates.ok && rates.value.get(PARLOR)?.pachinko?.get("4円")).toEqual({ rentalTokens: 250, exchange: { tokens: 140, yen: 500 }, replay: undefined })
     expect(cache.kept()).toEqual({ tiers: { text: TIERS, version: '"t1"' }, observations: { text: OBSERVATIONS, version: '"o1"' } })
   })
 
   test("offline, the copy kept fills the rates in", async () => {
     const cache = memoryCache({ tiers: { text: TIERS, version: '"t1"' }, observations: { text: OBSERVATIONS, version: '"o1"' } })
     const rates = await reportsOver(offline, cache).rates(TODAY)
-    expect(rates.ok && rates.value.get(PARLOR)?.pachinko?.rentalTokens).toBe(250)
+    expect(rates.ok && rates.value.get(PARLOR)?.pachinko?.get("4円")?.rentalTokens).toBe(250)
   })
 
   test("offline with no copy, the reports are unread, never none", async () => {
@@ -69,11 +69,11 @@ describe("the rates players reported, read as the parlor list is", () => {
     const files = published({ "tiers.jsonl": [LATER_TIERS, '"t2"'], "observations.jsonl": [OBSERVATIONS, '"o1"'] })
     const reports = reportsOver(files.request, cache)
     const first = await reports.rates(TODAY)
-    expect(first.ok && first.value.get(PARLOR)?.pachinko?.rentalTokens).toBe(250)
+    expect(first.ok && first.value.get(PARLOR)?.pachinko?.get("4円")?.rentalTokens).toBe(250)
     await settled()
     await settled()
     const next = await reports.rates(TODAY)
-    expect(next.ok && next.value.get(PARLOR)?.pachinko?.rentalTokens).toBe(240)
+    expect(next.ok && next.value.get(PARLOR)?.pachinko?.get("4円")?.rentalTokens).toBe(240)
     expect(cache.kept()?.tiers.version).toBe('"t2"')
   })
 

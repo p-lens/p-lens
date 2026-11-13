@@ -75,7 +75,7 @@ export function TextField(props: {
   readonly compact?: boolean
   /** How what was typed is tidied when the field is left, where the usual tidying is not all it takes: a name, written as names are kept. */
   readonly tidied?: (typed: string) => string
-  /** Named for assistive technology only, where what surrounds it — a fieldset's legend, a suffix — already says it on screen. */
+  /** Named for assistive technology only, where what surrounds it — a fieldset's legend, a suffix, a name drawn above it — already says it on screen: the label takes no room, and leaves no gap above the field. */
   readonly labelHidden?: boolean
   /** Its label drawn in the colour of whom the field is for — the nerdpro colour, for those who set a machine's own figures by their hand — or in the label's usual colour where left out. */
   readonly tone?: "nerdpro"
@@ -148,8 +148,8 @@ export function TextField(props: {
       required={props.required ?? false}
       class="flex flex-col gap-1.5"
     >
-      <div class="flex items-center gap-0.5">
-        <TextFieldPrimitive.Label as="span" class="text-xs font-bold uppercase tracking-wide" classList={{ "sr-only": props.labelHidden === true, "text-text-secondary": props.tone === undefined, "text-nerdpro-ink": props.tone === "nerdpro" }}>{props.label}</TextFieldPrimitive.Label>
+      <div class="flex items-center gap-0.5" classList={{ "sr-only": props.labelHidden === true }}>
+        <TextFieldPrimitive.Label as="span" class="text-xs font-bold uppercase tracking-wide" classList={{ "text-text-secondary": props.tone === undefined, "text-nerdpro-ink": props.tone === "nerdpro" }}>{props.label}</TextFieldPrimitive.Label>
         <Show when={props.note} keyed>
           {(note) => <InfoNote label={`${props.label}について`}>{note}</InfoNote>}
         </Show>

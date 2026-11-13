@@ -1,4 +1,4 @@
-import type { ReportedRate } from "../../../core/parlor/reported-rates"
+import { rentalOfCorner, type ReportedRate } from "../../../core/parlor/reported-rates"
 import { exchangeOfStated, statedExchangeOf, type PlayTerms } from "../../../core/parlor/terms"
 import type { PlayGameKind } from "../../../core/play/play"
 import { Err, Ok, type Result } from "../../../core/result/result"
@@ -47,11 +47,17 @@ export const termsFormOf = (terms: PlayTerms, gameKind: PlayGameKind): TermsForm
   replayDeducted: String(terms.replay.deducted),
 })
 
-/** The form with what players reported of the corner put over what it held, each where one was reported: the rental's tokens, and the exchange as the game states it. */
-export const withReportedRate = (form: TermsForm, rate: ReportedRate | undefined, gameKind: PlayGameKind): TermsForm => ({
-  ...form,
-  rentalTokens: rate?.rentalTokens === undefined ? form.rentalTokens : String(rate.rentalTokens),
+/**
+ * The form with a corner of a parlor put over what it held: the rental
+ * reported, or the one the corner's rate names where none was; the
+ * exchange as the game states it and the replay's counts, each only where
+ * one was reported — an exchange is never guessed at.
+ */
+export const withCorner = (form: TermsForm, rate: ReportedRate | undefined, gameKind: PlayGameKind, tier: string): TermsForm => ({
+  rentalTokens: String(rentalOfCorner(rate, gameKind, tier)),
   exchange: rate?.exchange === undefined ? form.exchange : statedExchangeOf(gameKind, rate.exchange),
+  replayPaidOut: rate?.replay === undefined ? form.replayPaidOut : String(rate.replay.paidOut),
+  replayDeducted: rate?.replay === undefined ? form.replayDeducted : String(rate.replay.deducted),
 })
 
 /** Whether the counts typed say a replay takes a fee: it does unless it takes exactly what it pays out. */

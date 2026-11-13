@@ -2,6 +2,7 @@ import { createSignal, Show, type JSX } from "solid-js"
 
 import { tierOf, UNKNOWN_TIER } from "../../../../core/parlor/terms"
 import { CloseIcon } from "../../../primitives/icons"
+import { ChangeMenuButton, type MenuChoice } from "../../../primitives/menu-button"
 import { CautionNote } from "../../../primitives/popover"
 import { TextField } from "../../../primitives/text-field"
 import { ToggleGroup, ToggleGroupItem } from "../../../primitives/toggle-group"
@@ -73,6 +74,8 @@ export function Terms(props: {
   readonly onFocus: () => void
   /** Where to report the chosen parlor's rates, where its corner's are not wholly reported. */
   readonly asking: string | undefined
+  /** The chosen parlor's corners to put into the terms instead, each a press; none where reports give none. */
+  readonly corners: readonly MenuChoice[]
 }): JSX.Element {
   /** Whether the replay's counts are set out to stay: asked for, or typed into once they were there — so they stay out even at the moment the two read the same. */
   const [setOut, setSetOut] = createSignal(replayFeeOf(props.form) === "charged")
@@ -128,12 +131,19 @@ export function Terms(props: {
           <Show when={replayPaysMoreThanItTakes(props.form)}>
             <CautionNote hint="再プレイは、払い出す玉数と同じか、それより多い数を貯玉から引くのがふつうです。払出と減数が逆になっていないか確かめてください。このままでも記録できます。">再プレイ払出が減数より多くなっています。ご確認ください。</CautionNote>
           </Show>
-          <Show when={tier()} keyed>
-            {(found) => (
-              <Show when={found === UNKNOWN_TIER} fallback={<p class="text-xs text-text-muted">{found}コーナーとして記録します。</p>}>
-                <CautionNote hint="貸玉は1,000円あたり、交換は100円あたりの玉数に換算して入力してください。このままでも記録できます。">レート不明です。ご確認ください。</CautionNote>
+          <Show when={tier() !== undefined || props.corners.length > 0}>
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <Show when={tier()} keyed>
+                {(found) => (
+                  <Show when={found === UNKNOWN_TIER} fallback={<p class="text-xs text-text-muted">{found}コーナーとして記録します。</p>}>
+                    <CautionNote hint="貸玉は1,000円あたり、交換は100円あたりの玉数に換算して入力してください。このままでも記録できます。">レート不明です。ご確認ください。</CautionNote>
+                  </Show>
+                )}
               </Show>
-            )}
+              <Show when={props.corners.length > 0}>
+                <ChangeMenuButton label="変更" choices={props.corners} />
+              </Show>
+            </div>
           </Show>
           <Show when={props.asking} keyed>
             {(address) => (

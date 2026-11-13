@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import { tokenValueOf } from "../../src/core/parlor/terms"
-import { readTerms, replayFeeOf, replayPaysMoreThanItTakes, termsAsOpened, termsFormOf, withReportedRate } from "../../src/ui/features/live/start-terms"
+import { readTerms, replayFeeOf, replayPaysMoreThanItTakes, termsAsOpened, termsFormOf, withCorner } from "../../src/ui/features/live/start-terms"
 
 const OPENED = termsAsOpened({ rentalTokens: "250", exchange: "28", replayTokens: "125" })
 
@@ -89,14 +89,13 @@ describe("a replay that pays out more than it takes", () => {
   })
 })
 
-describe("the start form's terms filled from what players reported", () => {
-  test("put the rental and the exchange as the game states them over what was typed, leaving the replay", () => {
-    expect(withReportedRate({ ...OPENED, rentalTokens: "200", replayPaidOut: "100" }, { rentalTokens: 250, exchange: { tokens: 140, yen: 500 } }, "pachinko")).toEqual({ ...OPENED, rentalTokens: "250", exchange: "28", replayPaidOut: "100" })
-    expect(withReportedRate(OPENED, { rentalTokens: 46, exchange: { tokens: 52, yen: 1000 } }, "pachislot")).toMatchObject({ rentalTokens: "46", exchange: "5.2" })
+describe("the start form's terms filled from a parlor's corner", () => {
+  test("put the reported rental, exchange as the game states it, and replay over what was typed", () => {
+    expect(withCorner({ ...OPENED, rentalTokens: "200" }, { rentalTokens: 250, exchange: { tokens: 140, yen: 500 }, replay: { paidOut: 125, deducted: 133 } }, "pachinko", "4円")).toEqual({ rentalTokens: "250", exchange: "28", replayPaidOut: "125", replayDeducted: "133" })
+    expect(withCorner(OPENED, { rentalTokens: 46, exchange: { tokens: 52, yen: 1000 }, replay: undefined }, "pachislot", "20円")).toMatchObject({ rentalTokens: "46", exchange: "5.2" })
   })
 
-  test("leave what nobody reported as it was typed", () => {
-    expect(withReportedRate({ ...OPENED, exchange: "27.5" }, { rentalTokens: 250, exchange: undefined }, "pachinko")).toEqual({ ...OPENED, exchange: "27.5" })
-    expect(withReportedRate(OPENED, undefined, "pachinko")).toEqual(OPENED)
+  test("rent what the corner's rate names where no rental was reported, and never guess at an exchange or a replay", () => {
+    expect(withCorner({ ...OPENED, exchange: "27.5" }, { rentalTokens: undefined, exchange: undefined, replay: undefined }, "pachinko", "1円")).toEqual({ ...OPENED, rentalTokens: "1000", exchange: "27.5" })
   })
 })

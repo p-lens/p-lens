@@ -2,7 +2,8 @@ import { parseIsoDate, type IsoDate } from "../../../core/calendar/calendar"
 import { ZERO, parseDecimal, subtract, toPlainString, type Decimal } from "../../../core/decimal/decimal"
 import type { InferenceTerms, KeptInferenceTerms } from "../../../core/book/settings"
 import { identityKey, type Parlor } from "../../../core/parlor/parlor"
-import type { ReportedRate } from "../../../core/parlor/reported-rates"
+import { rentalOfCorner, reportedRateAt, REPORTED_TIER, type ReportedRate, type ReportedRates } from "../../../core/parlor/reported-rates"
+import type { SharedParlorId } from "../../../core/parlor/shared"
 import { statedExchangeOf } from "../../../core/parlor/terms"
 import * as Pachinko from "../../../core/pachinko"
 import * as Pachislot from "../../../core/pachislot"
@@ -196,18 +197,21 @@ export const readWeighingTerms = (form: WeighingTermsForm): Pachinko.WeighingTer
   return WHOLE_COUNT.test(rented) && Number(rented) > 0 && TO_TWO_PLACES.test(exchanged) && Number(exchanged) > 0 ? { rentedPerThousand: Number(rented), exchangedPerHundred: Number(exchanged) } : undefined
 }
 
-/** A game's terms as the form holds them, with what players reported of the corner put over them, each where one was reported. */
-const withReportedRate = <T extends WeighingTermsForm | MedalTermsForm>(terms: T, rate: ReportedRate | undefined, gameKind: PlayGameKind): T => ({
-  ...terms,
-  rentedPerThousand: rate?.rentalTokens === undefined ? terms.rentedPerThousand : String(rate.rentalTokens),
-  exchangedPerHundred: rate?.exchange === undefined ? terms.exchangedPerHundred : statedExchangeOf(gameKind, rate.exchange),
-})
+/** A game's terms as the form holds them, with the parlor's 4-yen or 20-yen corner put over them where any of it was reported: its rental, or the one the rate names, and its exchange only where one was seen. */
+const withFirstCorner = <T extends WeighingTermsForm | MedalTermsForm>(terms: T, rate: ReportedRate | undefined, gameKind: PlayGameKind): T =>
+  rate === undefined
+    ? terms
+    : {
+        ...terms,
+        rentedPerThousand: String(rentalOfCorner(rate, gameKind, REPORTED_TIER[gameKind])),
+        exchangedPerHundred: rate.exchange === undefined ? terms.exchangedPerHundred : statedExchangeOf(gameKind, rate.exchange),
+      }
 
 /** The form with what players reported of a parlor's corners put into both games' terms, to be typed over. */
-export const withReportedRates = (form: YenTallyForm, rates: Readonly<Partial<Record<PlayGameKind, ReportedRate>>> | undefined): YenTallyForm => ({
+export const withReportedRates = (form: YenTallyForm, rates: ReportedRates, parlor: SharedParlorId): YenTallyForm => ({
   ...form,
-  weighingTerms: withReportedRate(form.weighingTerms, rates?.pachinko, "pachinko"),
-  medalTerms: withReportedRate(form.medalTerms, rates?.pachislot, "pachislot"),
+  weighingTerms: withFirstCorner(form.weighingTerms, reportedRateAt(rates, parlor, "pachinko", REPORTED_TIER.pachinko), "pachinko"),
+  medalTerms: withFirstCorner(form.medalTerms, reportedRateAt(rates, parlor, "pachislot", REPORTED_TIER.pachislot), "pachislot"),
 })
 
 /** The terms a form says for the game it is of, where they read. */

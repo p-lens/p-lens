@@ -255,11 +255,18 @@ export function Start(props: {
   const [starting, setStarting] = createSignal(false)
   const [here] = createResource(() => app.services.locate())
   /** The chosen parlor as the book will know it — its identity and name — or none. */
-  /** Where to report the chosen parlor's rates, where the list has it, there is a survey to report them at, and players' reports leave its corner's unsaid. */
+  /**
+   * Where to report the chosen parlor's rates, where the list has it placed,
+   * there is a survey to report them at, and players' reports leave its
+   * corner's unsaid. A parlor the list has not placed is asked for its
+   * position alone: a person is led to report one thing at a time, the
+   * position on a first visit and the rates on a later one.
+   */
   const rateAsking = (): string | undefined => {
     const choice = start.form().parlor
     const name = chosenParlor()?.name
-    return choice.type === "listed" && name !== undefined && app.services.surveyUrl !== undefined && start.rateUnreported("pachislot")
+    const placed = choice.type === "listed" && props.list.parlors.find((parlor) => parlor.id === choice.id)?.location !== undefined
+    return choice.type === "listed" && placed && name !== undefined && app.services.surveyUrl !== undefined && start.rateUnreported("pachislot")
       ? amendAddress(app.services.surveyUrl, window.location.origin, { type: "start", game: "pachislot" }, { id: choice.id, name })
       : undefined
   }
@@ -369,6 +376,7 @@ export function Start(props: {
         <Terms
           form={start.form().terms.pachislot}
           asking={rateAsking()}
+          corners={start.corners("pachislot").map((tier) => ({ label: tier, onPress: () => start.chooseCorner("pachislot", tier) }))}
           invalid={termsNudge.red() ? termsProblems() : []}
           onFocus={termsNudge.settle}
           onChange={(form) => start.update({ terms: { ...start.form().terms, pachislot: form } })}
