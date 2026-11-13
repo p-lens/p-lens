@@ -19,16 +19,14 @@ const jackpotsText = (summary: LiveSummary): string =>
 
 const rateOf = (perThousand: number | undefined): string => (perThousand === undefined ? "--" : perThousand.toFixed(1))
 
-/** One figure under its name, small enough that three sit side by side on a phone: the figures must leave room for the readings under them. What it is given to wear stands after its name, and what it is given to note after that. */
+/** One figure under its name, small enough that three sit side by side on a phone: the figures must leave room for the readings under them. What it is given to note stands at its name's top right, and what it is given to wear after that. */
 function Tile(props: { readonly label: string; readonly value: string; readonly unit?: string; readonly wears?: JSX.Element; readonly note?: JSX.Element }): JSX.Element {
   return (
     <div class="flex min-w-0 flex-col rounded-md border border-border px-2 py-1.5">
       <dt class="flex min-w-0 items-center gap-0.5 text-[10px] font-bold tracking-wide text-text-muted">
-        <span class="truncate">
-          {props.label}
-          {props.wears}
-        </span>
+        <span class="truncate">{props.label}</span>
         {props.note}
+        <span class="shrink-0">{props.wears}</span>
       </dt>
       <dd class="truncate text-base font-bold tabular-nums text-text-primary">
         {props.value}

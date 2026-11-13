@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import { measuredSpinRangeOf, spinDeviationOf, spinRangeOf, spreadAfterYen } from "../../../../src/core/pachinko/spin-spread/spin-spread"
-import { spinRangeText, spreadText } from "../../../../src/ui/wording/pachinko/spin-spread"
+import { spinRangeLines, spreadText } from "../../../../src/ui/wording/pachinko/spin-spread"
 
 const FOUR_YEN = { rental: { yen: 1000, tokens: 250 }, exchange: { yen: 100, tokens: 28 }, replay: { paidOut: 125, deducted: 125 } }
 
@@ -32,8 +32,8 @@ describe("how far a measured spin performance may stand from the cabinet's own",
 
   test("is said of a live play from what it has measured, and dashed until a ball is", () => {
     const range = measuredSpinRangeOf({ spins: 184, balls: 2500, rentedBalls: 2500, replayedBalls: 0 }, FOUR_YEN)
-    expect(spinRangeText(range)).toBe("本当の回転率は90%の確率で16.3〜20.5の範囲内")
-    expect(spinRangeText(measuredSpinRangeOf(undefined, FOUR_YEN))).toBe("本当の回転率は90%の確率で--〜--の範囲内")
+    expect(spinRangeLines(range)).toEqual(["回転率は90%の確率で", "16.3〜20.5の範囲内"])
+    expect(spinRangeLines(measuredSpinRangeOf(undefined, FOUR_YEN))).toEqual(["回転率は90%の確率で", "--〜--の範囲内"])
     expect(measuredSpinRangeOf({ spins: 0, balls: 0, rentedBalls: 0, replayedBalls: 0 }, FOUR_YEN)).toBeUndefined()
   })
 })
