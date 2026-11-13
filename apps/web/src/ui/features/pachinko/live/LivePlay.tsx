@@ -196,7 +196,7 @@ export function LivePlay(props: {
                         aria-label={unfolded() ? FOLD_FIGURES : UNFOLD_FIGURES}
                         title={unfolded() ? FOLD_FIGURES : UNFOLD_FIGURES}
                         onClick={fold}
-                        class="flex h-5 w-10 items-center justify-center rounded-[3px] text-text-secondary hover:bg-surface-3 hover:text-text-primary focus-visible:outline-2 focus-visible:outline-focus-ring [&_svg]:size-4"
+                        class="flex size-5 items-center justify-center rounded-full bg-surface-2 text-text-secondary ring-1 ring-border hover:bg-surface-3 hover:text-text-primary focus-visible:outline-2 focus-visible:outline-focus-ring [&_svg]:size-4"
                       >
                         <span classList={{ "rotate-180": unfolded() }}>
                           <ChevronDownIcon />

@@ -148,7 +148,9 @@ function VenueChange(props: { readonly draft: PlayDraft; readonly before: Parlor
  * and is given some the same way. Across from the corner is the cabinet's
  * number, with its own pencil: it leads to where the cabinet and the
  * machine the play is on are said anew. Between the two the line is
- * empty, and holds what it is given to. A play another device holds has
+ * empty, and holds what it is given to at its very middle, however long
+ * the parlor's name: the corner and the cabinet each have half of what is
+ * left, the corner cut short in its own. A play another device holds has
  * the corner and the cabinet with no pencils.
  */
 export function CornerTerms(props: { readonly draft: PlayDraft; readonly hold: PlayHold; readonly between: JSX.Element }): JSX.Element {
@@ -171,18 +173,18 @@ export function CornerTerms(props: { readonly draft: PlayDraft; readonly hold: P
       when={changing()}
       keyed
       fallback={
-        <div class="flex items-center justify-between gap-2">
-          <Show when={props.hold.type === "held"} fallback={<span class={`${UNPENCILLED} min-w-0`}><span class="truncate">{corner()}</span></span>}>
-            <button type="button" onClick={open} class={`${PENCILLED} min-w-0`}>
+        <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+          <Show when={props.hold.type === "held"} fallback={<span class={`${UNPENCILLED} min-w-0 max-w-full justify-self-start`}><span class="truncate">{corner()}</span></span>}>
+            <button type="button" onClick={open} class={`${PENCILLED} min-w-0 max-w-full justify-self-start`}>
               <span class="truncate">{corner()}</span>
               <span class="shrink-0 text-text-secondary group-hover:text-text-primary">
                 <EditIcon label={CHANGE_VENUE} />
               </span>
             </button>
           </Show>
-          <div class="flex shrink-0">{props.between}</div>
-          <Show when={props.hold.type === "held"} fallback={<span class={`${UNPENCILLED} shrink-0`}>{cabinet()}</span>}>
-            <button type="button" onClick={() => moves.go({ kind: "live-cabinet", playId: props.draft.id })} class={`${PENCILLED} shrink-0`}>
+          <div class="flex">{props.between}</div>
+          <Show when={props.hold.type === "held"} fallback={<span class={`${UNPENCILLED} justify-self-end`}>{cabinet()}</span>}>
+            <button type="button" onClick={() => moves.go({ kind: "live-cabinet", playId: props.draft.id })} class={`${PENCILLED} justify-self-end`}>
               {cabinet()}
               <span class="text-text-secondary group-hover:text-text-primary">
                 <EditIcon label={CHANGE_CABINET} />
