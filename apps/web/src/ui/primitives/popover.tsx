@@ -135,11 +135,9 @@ export function CautionNote(props: { readonly children: string; readonly hint: s
  * cross, by a tap on the bubble or anywhere outside it. What is said is
  * kept off the screen until it is asked for, a line break in it kept where
  * it parts the words, and neither the i nor the
- * bubble takes the focus from a field being typed in. The i is drawn in the
- * semipro ink where asked, for how a figure was come to, and in the muted
- * text's otherwise.
+ * bubble takes the focus from a field being typed in.
  */
-export function InfoNote(props: { readonly label: string; readonly ink?: "semipro"; readonly children: JSX.Element }): JSX.Element {
+export function InfoNote(props: { readonly label: string; readonly children: JSX.Element }): JSX.Element {
   const [open, setOpen, Inside] = createBubble()
   return (
     <PopoverPrimitive.Root gutter={6} placement="top-start" open={open()} onOpenChange={setOpen}>
@@ -148,8 +146,7 @@ export function InfoNote(props: { readonly label: string; readonly ink?: "semipr
         title={props.label}
         tabIndex={-1}
         onMouseDown={(event) => event.preventDefault()}
-        class="relative flex size-3.5 shrink-0 -translate-y-[3px] self-start items-center justify-center after:absolute after:-inset-[5px] after:content-[''] [&_svg]:size-3.5"
-        classList={{ "text-semipro-ink hover:text-semipro-ink-hover": props.ink === "semipro", "text-text-muted hover:text-text-primary": props.ink === undefined }}
+        class="relative flex size-3.5 shrink-0 -translate-y-[3px] self-start items-center justify-center text-text-muted after:absolute after:-inset-[5px] after:content-[''] hover:text-text-primary [&_svg]:size-3.5"
       >
         <InfoIcon />
       </PopoverPrimitive.Trigger>

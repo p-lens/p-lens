@@ -33,10 +33,10 @@ export function Figure(props: {
   const text = (): string => (props.value === undefined ? UNSEEN[props.kind] : FORMATS[props.kind](seal.tally(props.value)))
   return (
     <div class="flex min-w-0 flex-col gap-0.5 rounded-lg border border-border px-3 py-2 @roomy:gap-1 @roomy:px-4 @roomy:py-3">
-      <dt class="flex items-start justify-between gap-1 text-xs font-bold uppercase tracking-wide text-text-muted">
+      <dt class="flex items-start gap-0.5 text-xs font-bold uppercase tracking-wide text-text-muted">
         <span class="min-w-0">{props.label}</span>
         <Show when={(props.captions ?? []).length > 0}>
-          <InfoNote label={`${props.label}について`} ink="semipro">
+          <InfoNote label={`${props.label}について`}>
             <For each={props.captions}>{(caption) => <p>{caption}</p>}</For>
           </InfoNote>
         </Show>
